@@ -168,3 +168,10 @@
   `AnalysisNotes/bookserver-docker-fetch.md` with the exact MCP method and
   updated `AGENTS.md` to use `mcp__MCP_DOCKER.fetch` or
   `mcp__MCP_DOCKER.fetch_content` for future hosted-CGI analysis.
+- Analyzed the `booinfo` metadata mismatch against the connected `ephwam.dll`
+  IDB and the hosted BookServer CGI. Confirmed the documentation was too loose
+  about the difference between dictionary literal CP500 byte-to-token-word
+  mapping, dictionary delta table transforms, logical-record spacing, and final
+  BOO translation-table output decoding. Updated `Format/logical-controls.md`,
+  `Format/encoding.md`, and `Format/README.md` with the corrected independent
+  reader pipeline and BookServer comparison evidence.

@@ -65,6 +65,20 @@ control parser initializes logical stream 0 and reads from the content-stream
 records first; an implementation that scans only the trailing `0x0001` run will
 miss `CLANGUAGE=`, `CVERSION=`, `CTITLE=`, `CDOCNUM=`, and related controls.
 
+The hosted BookServer instance provides a reader-output check for
+`QS3X36CM.BOO`. Its contents page reports:
+
+| Reader field | Hosted BookServer output |
+| --- | --- |
+| HTML title/address title | `AS/400 Command Cross-Reference` |
+| Document number | `SX41-8209-00` |
+| Build version | `1.2` |
+| Copyright line | `Copyright IBM Corp. 1991` |
+
+Any decoder that produces strings such as
+`as/400CommandCross-reference` or `CopyrightibmCorp.1991` has not reproduced
+the reader's token-word translation and logical-record spacing path.
+
 The record pages have a common page shape:
 
 ```c
@@ -386,6 +400,28 @@ Literal words are read in one of two forms:
 | Mode value `1` in the book handle | Literal words are big-endian 16-bit values. |
 | Other observed version-2 path | Literal bytes index the codepage table at handle offset `+3472`, producing 16-bit token words. For the repository fixtures this is the reader's CP500 table selected from directory word `0x004c` (`0x01f4`). |
 
+The codepage table used for dictionary literals is not an output character
+decoder. It maps compact dictionary bytes to the reader's internal token-word
+space. Those token words still need the delta transforms above and the final
+translation-table decode described below. Treating low-valued token words as
+ASCII or Unicode text is an implementation shortcut and is not sufficient for
+BookManager metadata strings.
+
+The buffer transforms used by the delta modes are table-backed token-word
+transforms:
+
+| Transform routine | Table selection in the common single-byte path |
+| --- | --- |
+| `BooMapTokenWordBufferUpperTable` | For each word, table group `(word >> 11)` is loaded as table number `group + 13`; out-of-range groups use the substitution word. |
+| `BooMapTokenWordBufferNormalTable` | For each word, table group `(word >> 11)` is loaded as table number `group + 19`; out-of-range groups use the substitution word. |
+| `BooMapTokenWordToUpper` | Words below `0x00df` use the simple ASCII `a..z` to `A..Z` path when applicable; other words are mapped through the uppercase table path. |
+| `BooMapTokenWordToLower` | Words below `0x00c0` use the simple ASCII `A..Z` to `a..z` path when applicable; other words are mapped through the normal/lower table path. |
+
+For multibyte code pages the same routines select alternate table ranges
+(`group + 65` for uppercase-oriented mapping and `group + 97` for normal
+mapping). The repository fixtures use code page `500`, so the common
+single-byte ranges above are the verified path for the bundled samples.
+
 The reconstructed token buffer has this in-memory shape after each applied
 delta:
 
@@ -405,6 +441,13 @@ records, not this expanded form.
 After token resolution, the logical-record iterator concatenates token text
 records into one word-counted 16-bit sequence. It inserts or suppresses spaces
 according to small control words at the start/end of token records.
+
+This spacing step is separate from dictionary reconstruction. A dictionary token
+can decode to `AS/400`, `Command`, or `Copyright`, while the iterator decides
+whether a blank belongs between adjacent tokens in the logical record. Missing
+spaces in `CTITLE=`, `CSTITLE=`, `CCOPYRIGHT=`, or similar controls indicate
+that the iterator's token-boundary spacing/suppression rules have not been
+implemented, even if the underlying token strings are otherwise resolved.
 
 `BooDecodeTokenWordsToText` then converts the 16-bit words to text. A token word
 is split into a translation table number and an index:
@@ -445,6 +488,17 @@ be emitted as two-byte values rather than collapsed to the low byte.
 Only after this conversion does the reader compare against literal keys such as
 `CLANGUAGE=`, `CVERSION=`, and `CDOCNUM=`.
 
+The complete text path is therefore:
+
+1. Decode logical-record payload bytes into token references.
+2. Resolve each reference through the directory token map or dictionary index.
+3. Reconstruct dictionary token-word buffers, applying the normal/uppercase
+   table transforms required by each delta record.
+4. Assemble a logical record from token-word buffers, applying the iterator's
+   spacing and suppression controls.
+5. Decode the assembled token words through BOO translation-table pages to
+   obtain display bytes.
+
 ## Logical Header-Control Sequence
 
 The book-open path initializes the logical stream at stream number 0, then reads
@@ -479,8 +533,13 @@ the strings above. It should:
 2. Use the directory token threshold and token-map offset.
 3. Parse logical-record pages as length-prefixed token-reference records.
 4. Resolve token references through the token map and dictionary pages.
-5. Convert the resolved 16-bit character-code records to bytes.
-6. Compare the decoded strings with the control keys and stop at `CDOCNUM=`.
+5. Apply dictionary delta records, including their normal/uppercase/lowercase
+   token-word table transforms.
+6. Assemble logical records with the reader's token-boundary spacing and
+   suppression rules.
+7. Convert the resolved 16-bit token-word records to bytes through the BOO
+   translation-table pages.
+8. Compare the decoded strings with the control keys and stop at `CDOCNUM=`.
 
 The remaining unresolved pieces are now narrower:
 
@@ -489,7 +548,9 @@ The remaining unresolved pieces are now narrower:
   reader's in-memory handle offsets;
 - fixture evidence for reader-supported dictionary index controls `2`, `4`,
   and `5`;
-- complete byte-for-byte reproduction of every code-page-specific output path.
+- complete byte-for-byte reproduction of every code-page-specific output path;
+- complete public documentation of the logical-record iterator's spacing and
+  suppression control words beyond the observed metadata strings.
 
 The delta operation byte and reconstructed token buffer behavior are identified,
 the dictionary index continuation subfields are identified for the observed
