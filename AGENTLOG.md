@@ -19,7 +19,7 @@
   `QS3X36CM.BOO` covering `COVER`, `EDITION`, `CONTENTS`, and `2.0`, five
   random tracked BOO fixtures through `boorender --all --raw`, topic-specific
   raw output, `boorender --md`, and missing-topic error handling.
-- Commit: pending.
+- Commit: `3d9eb55`.
 
 ## 2026-06-14 - Add generic SR anchor markup support
 
