@@ -146,3 +146,10 @@
   both bundled BOO fixtures. The fixtures currently report no decoded controls,
   so further work is still needed on exact stream assembly and/or
   translation-table-backed token text conversion.
+- Cleaned the polluted `build/` directory by removing stale nested CMake build
+  trees and stopping the stale Strawberry `cmake`/`ninja` processes that held
+  one old tree locked. Reconfigured and rebuilt `libgeist` directly in the
+  single `build/` directory with `cmake -S libgeist -B build -G "Visual Studio
+  18 2026" -A x64` and `cmake --build build`. Updated `AGENTS.md` so future
+  validation uses `build/` directly and does not create multiple nested build
+  folders unless explicitly requested.
