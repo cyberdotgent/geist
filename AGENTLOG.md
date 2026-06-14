@@ -42,3 +42,8 @@
   verified page size, page-0 copyright/header fields, page-1 directory fields,
   page run correlations, timestamp evidence, and unresolved hypotheses in
   `Format/boo-header.md`.
+- Re-verified the documented BOO header findings directly from both fixtures.
+  Confirmed page sizes, page counts, page-0 signature/copyright fields,
+  page-1 `page_count - 1`, `0x0100` and `0x0000` page run start/count
+  correlations, table offsets/count repetition, and EBCDIC timestamp fields.
+  No changes were needed to `Format/boo-header.md`.
