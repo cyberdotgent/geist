@@ -156,6 +156,133 @@ with `GIF87a`, `GIF89a`, `BM`, or a valid JPEG header in the verified sample.
 Byte-pattern hits for `BM` and `ff d8 ff` inside the payload area are internal
 payload bytes, not standalone external image-file signatures.
 
+## Legacy Picture Types
+
+The Transmogrifier utility in `Official Readers/Transmogrifier/transmog.exe`
+confirms that older BOO picture payloads are not one single image encoding. The
+utility's readme and IDB both describe version 1.2/1.3 books as legacy picture
+books that can be rewritten into version 1.4 books with web-compatible pictures.
+
+The readme progress markers give the picture families:
+
+| Marker | Meaning in Transmogrifier readme | IDB-backed conversion path |
+| --- | --- | --- |
+| `g` | GDF picture converted to GIF | `TransmogConvertGdfToGif` writes source bytes to a temporary file, then `TransmogRunGdfImportGifExport` loads `IMGDF2.FLT` and `EBGIF2.FLT`. |
+| `m` | MMR picture converted to GIF | `TransmogConvertMmrToGif` reads the payload bytes into memory and calls `TransmogWriteMmrAsGif`. |
+| `C` | CGM picture converted to GIF | `TransmogReadCgmExtent` parses CGM extent data; CGM is treated as a recognized image object class. |
+| `G` | Metafile bitmap converted to GIF | `TransmogConvertMetBitmapToGifOrJpeg` recovers bitmap data, then `TransmogWriteBitmapAsGifOrJpeg` writes GIF for non-24-bit bitmaps. |
+| `J` | Metafile bitmap converted to JPEG | `TransmogWriteBitmapAsGifOrJpeg` writes JPEG for 24-bit bitmap data. |
+| `V` | Metafile vector converted to GIF | `TransmogConvertMetVectorToGif` uses `IMMET2.FLT` and `EBGIF2.FLT`. |
+
+The old page-0 descriptor `kind` byte identifies which legacy conversion path is
+used:
+
+| Kind byte | EBCDIC | Observed path |
+| ---: | --- | --- |
+| `0xc7` | `G` | Append `.gif`; convert GDF through `IMGDF2.FLT` -> `EBGIF2.FLT`. |
+| `0xc9` | `I` | Append `.gif`; convert MMR/image payload through the internal GIF writer. This is the kind observed in `GG24-4302-00.boo`. |
+| `0xd4` | `M` | Classify MET payload. Bitmap MET can become GIF or JPEG; vector MET becomes GIF through `IMMET2.FLT` -> `EBGIF2.FLT`. |
+
+Unknown kind bytes produce `Unknown data type encountered %s` in the utility.
+
+## Version 1.2/1.3 Picture Directory
+
+The Transmogrifier reads the old picture directory directly from the BOO header
+area, before the logical directory page:
+
+1. Read page-0 bytes `0x0000..0x0001` as the physical directory page.
+2. Seek to `(directory_page << 12) + 9` and read two bytes of book-version state.
+   The utility accepts version 1.2 and 1.3 only.
+3. Seek to page-0 offset `0x0004` and read a 32-bit big-endian picture/object
+   count. If it is zero, the utility prints `Book %s contains no pictures`.
+4. For version 1.2 books, read picture descriptors starting at page-0 offset
+   `0x0118`/decimal `280`. For version 1.3 books, the utility first skips
+   `16 * picture_count` bytes and reads the second descriptor group at
+   `0x0118 + 16 * picture_count`.
+
+Each legacy descriptor consumed by `TransmogConvertLegacyPicturesToWorkFiles` is
+16 bytes:
+
+| Field | Size | Encoding | Meaning |
+| --- | ---: | --- | --- |
+| `id` | 8 | EBCDIC text, padded | Object/picture id used as the base temporary filename. |
+| `kind` | 1 | EBCDIC byte | Legacy payload family (`G`, `I`, `M`, etc.). |
+| `length` | 3 | big-endian unsigned integer | Payload length in bytes. |
+| `offset` | 4 | big-endian unsigned integer | Absolute payload offset in the BOO file. |
+
+This matches the image descriptors observed in `GG24-4302-00.boo` if viewed from
+the `0x0118` body offset:
+
+```text
+0x0118: f1 40 40 40 40 40 40 40  c9 00 1c fc 00 00 99 f0
+        id "1"                    kind I, length 0x001cfc, offset 0x000099f0
+
+0x0128: f1 f0 40 40 40 40 40 40  c9 00 2d 0b 00 02 0d 66
+        id "10"                   kind I, length 0x002d0b, offset 0x00020d66
+```
+
+The earlier 16-byte view starting at `0x0120` still describes the same bytes, but
+the Transmogrifier establishes that the descriptor starts with the 8-byte id and
+then the 8-byte `(kind, length, offset)` tuple. Therefore the directory/control
+entry at `0x0110` points to the descriptor body at `0x0118`.
+
+## Version 1.4 Converted Object Layout
+
+The Transmogrifier does not just change image bytes in place. It builds a new
+version 1.4 BOO file in a temporary stream, then patches the header tables with
+new offsets and lengths.
+
+The rewrite sequence in `TransmogRewriteBookWithConvertedObjects` is:
+
+| Progress marker | Function | Stored data written to new book |
+| --- | --- | --- |
+| `h`/`x`/`L` | `TransmogCopyHeaderAndPictureDirectory` | Copies the original header and picture directory area through `0x0118 + 16 * picture_count`. |
+| `x`/`L` | `TransmogWriteNullLowResPictureDirectory` | Writes low-resolution picture directory entries with original ids but zero offset/length fields. This is done twice. |
+| `L` | `TransmogCopyOriginalObjectData` | Copies original object payloads into the new stream and records their new offsets/lengths in an in-memory table. |
+| `O` | `TransmogAppendConvertedObjectData` | Finds converted files in the temporary `.pic` directory, appends their bytes to the new stream, and records offset/length. |
+| `D` | `TransmogWriteObjectDescriptions` | Writes object descriptions after object data. Descriptions are stored as two-byte characters: a leading `0x00` followed by the ASCII byte. |
+| `T` | `TransmogAppendTextComponentAsVersion14` | Appends the original logical/text component but writes version bytes `01 00` in the copied text header area. |
+| `N` | `TransmogPatchHeaderAndWriteOutputBook` | Writes the output BOO and patches header-directory offset/length fields from the in-memory object table. |
+
+`TransmogAppendConvertedObjectData` stores a MIME-style type string for each
+converted object:
+
+```text
+type="image/%s"
+```
+
+The `%s` value comes from the converted file extension found in the temporary
+picture directory. Width and height descriptions are added by
+`TransmogDescribeWebImageObject`.
+
+## Web-Compatible Image Objects
+
+Version 1.4 object data can contain normal web image formats. The Transmogrifier
+recognizes these extensions and validates/detects dimensions from their file
+headers:
+
+| Extension(s) | Dimension reader | Stored description behavior |
+| --- | --- | --- |
+| `GIF` | `TransmogReadGifDimensions` | Checks `GIF` signature, reads little-endian width and height from the logical screen descriptor, emits absolute `width="N"` / `height="N"`. |
+| `PNG` | `TransmogReadPngDimensions` | Checks PNG signature and reads IHDR width/height. |
+| `TIF`, `TIFF` | `TransmogReadTiffDimensions` | Handles both byte orders and reads TIFF tags for width/height. |
+| `JPG`, `JPEG` | `TransmogReadJpegDimensions` | Checks JPEG/JFIF and reads dimensions from SOF markers. |
+| `CGM` | `TransmogReadCgmExtent` | Parses CGM extent where available; plain-text and char-encoded CGM may not carry known extent. |
+
+The dimension mode written by `TransmogDescribeWebImageObject` is:
+
+| Mode | Output |
+| ---: | --- |
+| `10` | Absolute `width="N"` and `height="N"`. |
+| `20` | Percentage width/height derived from command-line page dimensions. |
+| `0` | Percentage width/height normalized against the larger dimension. |
+
+The converted object data is therefore different from legacy picture storage:
+legacy version 1.2/1.3 payloads are typed by the 1-byte descriptor kind and may be
+ImageMark/GDI, MMR, GDF, CGM, or MET-derived data; version 1.4 payloads are
+normal object byte ranges with object descriptions such as `type="image/gif"`,
+`width="..."`, and `height="..."`.
+
 ## Extraction Rules
 
 An independent BOO reader can extract stored image assets from the currently
@@ -166,10 +293,11 @@ verified layout as follows:
 2. If the directory page number is greater than `1`, treat bytes before
    `directory_page * 4096` as a possible pre-directory resource area.
 3. In page 0, look for the resource-directory control entry at `0x0110`:
-   marker `0x00`, 24-bit length, 32-bit absolute offset, and EBCDIC id.
-4. Walk image descriptors inside the directory body. For each descriptor with
-   kind byte `0xc9`, read the 24-bit length, 32-bit absolute offset, and EBCDIC
-   id when present.
+   marker `0x00`, 24-bit length, 32-bit absolute offset, and EBCDIC id. In the
+   verified version 1.2 image fixture this points to the descriptor body at
+   `0x0118`.
+4. Walk 16-byte image descriptors inside the directory body. Decode id, kind,
+   length, and offset as documented above.
 5. Validate each descriptor by checking that `offset + length` is less than or
    equal to `directory_page * 4096`; image payloads must not overlap the logical
    BOO directory.
@@ -178,8 +306,6 @@ verified layout as follows:
 
 ## Open Questions
 
-- Confirm the `0x0110` directory/control entry and the trailing 8-byte descriptor
-  pairing for image `1` against a second image-bearing BOO fixture.
 - Identify the logical-record controls that reference image ids from document
   topics and figure lists.
 - Identify the full ImageMark/GDI payload grammar. The BookServer conversion

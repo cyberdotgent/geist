@@ -280,3 +280,16 @@
   version control and checked the connected IDA Pro instances. Confirmed live
   reachable IDA instances for `transmog.exe` on port `13339` and
   `ISGDI32.DLL` on port `13340`, both rooted in the Transmogrifier folder.
+- Continued image asset analysis using the Transmogrifier utility and its live
+  `transmog.exe` IDA Pro instance. Renamed the identified conversion/rewrite
+  functions in IDA with `ida_name.set_name`, including the legacy picture
+  conversion, version 1.4 rewrite, object-data append, description-writing, and
+  GIF/PNG/TIFF/JPEG/CGM dimension-reader paths, then saved the IDB. Documented
+  the version 1.2/1.3 legacy descriptor layout as
+  `id[8] + kind[1] + length[3] + offset[4]`, the legacy kind-byte conversion
+  paths (`G`, `I`, `M`), and the version 1.4 converted object layout with
+  `type="image/..."`, width, and height descriptions in `Format/assets.md`.
+  Attempted to run `transmog.exe` on a copied `GG24-4302-00.boo` fixture under
+  `C:\tmp`; it created the expected working/output directories but failed before
+  conversion with `The specified module could not be found.` Recorded the
+  runtime attempt in `AnalysisNotes/transmogrifier-runtime.md`.
