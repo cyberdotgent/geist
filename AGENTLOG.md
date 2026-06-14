@@ -23,3 +23,10 @@
 - Added repository-local `build/` output guidance and `build/.gitignore` so
   CMake binary directories can be created inside the writable repo while keeping
   generated build artifacts untracked.
+- Verified `libgeist/` with the installed MSVC toolchain. Initial
+  `cmake -S libgeist -B build/libgeist-msvc` failed because CMake selected
+  `Visual Studio 17 2022` and no VS 2022 instance was installed. Reconfigured
+  with `cmake -S libgeist -B build/libgeist-msvc-2026 -G "Visual Studio 18 2026"
+  -A x64` and built successfully with
+  `cmake --build build/libgeist-msvc-2026`, producing `geist.lib` and the
+  example executables under `build/libgeist-msvc-2026/Debug/`.
