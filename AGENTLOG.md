@@ -69,3 +69,10 @@
 - Removed agent/workflow-style update rules from `Format/README.md`; the file
   now stays focused on indexing BOO format documentation while persistent
   contributor instructions remain in `AGENTS.md`.
+- Used the attached `bookmgr.exe.i64` IDA database to identify and improve the
+  CGI `bookmgr.cfg` configuration subsystem. Renamed and typed
+  `ConfigLoadBookmgrCfg`, `ConfigStoreBookmgrCfg`, `SettingsSetValue`,
+  `SettingsGetValue`, `ConfigCleanAdminValue`, `ConfigCleanupSettings`, and
+  `CgiHandleAdminSettings`; renamed the in-memory settings globals to
+  `g_settings_keys`, `g_settings_values`, and `g_settings_count`; added
+  high-confidence local variable names and function comments; saved the IDB.
