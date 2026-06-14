@@ -76,3 +76,8 @@
   `CgiHandleAdminSettings`; renamed the in-memory settings globals to
   `g_settings_keys`, `g_settings_values`, and `g_settings_count`; added
   high-confidence local variable names and function comments; saved the IDB.
+- Removed the MCP-created `/vibe/` function-list folder from the active
+  `bookmgr.exe.i64` IDB by unlinking its function entries and deleting the
+  empty folder via `ida_dirtree`, then saved the IDB. Updated `AGENTS.md` to
+  avoid the IDA MCP `rename` tool for function renames while it auto-creates
+  tool-specific function folders.

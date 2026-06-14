@@ -40,6 +40,10 @@ not as an application with an established build system.
 - Use the attached IDA Pro MCP instance for BookManager BookServer reader
   analysis when available. The current target is the BookManager BookServer
   reader opened from this repository.
+- Do not use the IDA MCP `rename` tool for function renames while it
+  auto-links renamed functions into a `/vibe/` function-list folder. Use
+  IDA Python APIs such as `ida_name.set_name` for function renames instead, and
+  keep the IDA function-list folders free of agent/tool-specific categories.
 - A running BookServer reader is available at
   `http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QS3X36CM/CCONTENTS?DT=19910524075122`.
   Use it as an analysis source for reader behavior and for comparing against a
