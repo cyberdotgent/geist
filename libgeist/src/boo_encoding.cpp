@@ -202,6 +202,13 @@ std::uint16_t map_token_word_to_upper_ascii(std::uint16_t word) {
   return word;
 }
 
+std::uint16_t map_token_word_to_lower_ascii(std::uint16_t word) {
+  if (word >= 'A' && word <= 'Z') {
+    return static_cast<std::uint16_t>(word + 32);
+  }
+  return word;
+}
+
 std::string token_words_to_ascii(const TokenWords& words) {
   std::string output;
   output.reserve(words.size());

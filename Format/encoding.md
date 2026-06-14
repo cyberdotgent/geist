@@ -56,6 +56,31 @@ file_offset = physical_page * 4096;
 See [boo-header.md](boo-header.md) for the current header and page-run
 evidence.
 
+## Display Case Recovery
+
+BookServer output verifies that topic body text is rendered with normal sentence
+case, not title case. For example, `QS3X36CM.BOO` topic `1.0` renders as
+`This manual is designed as a cross-reference...` and preserves product/key
+spellings such as `System/36`, `AS/400`, and `(CL)`.
+
+The connected `ephwam.dll` IDB verifies that this casing is not a Markdown or
+HTML renderer convention. It is part of dictionary-token reconstruction in
+`BooApplyDictionaryDeltaRecord`:
+
+| Delta mode | Reader behavior | libgeist representation note |
+| --- | --- | --- |
+| `0` | Run `BooMapTokenWordBufferUpperTable` over the current word buffer, then run `BooMapTokenWordToLower` for each listed byte position plus one. | `libgeist` stores buffers without the reader's leading length word, so the listed byte is used as a zero-based word index. |
+| `1` | Set the retained prefix length, read a following literal-count byte, run `BooMapTokenWordBufferNormalTable` over the retained buffer, then append literal words. | The literal payload is copied after the normal-table transform. |
+| `2` | Run `BooMapTokenWordBufferNormalTable` over the current word buffer, then run `BooMapTokenWordToUpper` for each listed byte position plus one. | This is the common sentence-case path: normalize the token to lower/normal case, then uppercase selected characters. |
+| `3` | Run `BooMapTokenWordBufferNormalTable` over the current word buffer, then append literal words. | Same append path as mode `1`, without changing the retained length first. |
+
+The reader's mapping functions use code-page-specific translation-table pages:
+`BooMapTokenWordBufferNormalTable`, `BooMapTokenWordBufferUpperTable`,
+`BooMapTokenWordToUpper`, and `BooMapTokenWordToLower` all call
+`BooLoadTranslationTablePage`. The current `libgeist` implementation has an
+ASCII-only approximation of those table mappings; non-ASCII and some
+code-page-specific case behavior still requires full translation-table loading.
+
 ## Failure Mode To Avoid
 
 Do not decode dictionary literal bytes with the CP500 table and then treat the

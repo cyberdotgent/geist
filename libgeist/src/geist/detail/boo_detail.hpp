@@ -48,6 +48,7 @@ char decode_cp037_byte(std::uint8_t byte);
 std::string decode_cp037(const std::vector<std::uint8_t>& bytes,
                          std::size_t offset,
                          std::size_t length);
+std::uint16_t map_token_word_to_lower_ascii(std::uint16_t word);
 std::uint16_t map_token_word_to_upper_ascii(std::uint16_t word);
 std::string token_words_to_ascii(const TokenWords& words);
 

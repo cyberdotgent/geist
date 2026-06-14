@@ -57,9 +57,8 @@ TokenWords decode_dictionary_words(const std::vector<std::uint8_t>& bytes,
 void lowercase_positions(TokenWords& value,
                          const std::vector<std::uint8_t>& positions) {
   for (const auto position : positions) {
-    if (position < value.size() && value[position] >= 'A' &&
-        value[position] <= 'Z') {
-      value[position] = static_cast<std::uint16_t>(value[position] + 32);
+    if (position < value.size()) {
+      value[position] = map_token_word_to_lower_ascii(value[position]);
     }
   }
 }
@@ -67,10 +66,21 @@ void lowercase_positions(TokenWords& value,
 void uppercase_positions(TokenWords& value,
                          const std::vector<std::uint8_t>& positions) {
   for (const auto position : positions) {
-    if (position < value.size() && value[position] >= 'a' &&
-        value[position] <= 'z') {
-      value[position] = static_cast<std::uint16_t>(value[position] - 32);
+    if (position < value.size()) {
+      value[position] = map_token_word_to_upper_ascii(value[position]);
     }
+  }
+}
+
+void lowercase_words(TokenWords& value) {
+  for (auto& word : value) {
+    word = map_token_word_to_lower_ascii(word);
+  }
+}
+
+void uppercase_words(TokenWords& value) {
+  for (auto& word : value) {
+    word = map_token_word_to_upper_ascii(word);
   }
 }
 
@@ -104,6 +114,7 @@ void decode_dictionary_delta_range(
       if (cursor + count > end) {
         break;
       }
+      uppercase_words(value);
       const std::vector<std::uint8_t> positions(bytes.begin() + cursor,
                                                 bytes.begin() + cursor + count);
       cursor += count;
@@ -118,6 +129,7 @@ void decode_dictionary_delta_range(
         break;
       }
       value.resize(std::min<std::size_t>(count, value.size()));
+      lowercase_words(value);
       const auto literal_words =
           decode_dictionary_words(bytes, cursor, literal_count);
       value.insert(value.end(), literal_words.begin(), literal_words.end());
@@ -126,6 +138,7 @@ void decode_dictionary_delta_range(
       if (cursor + count > end) {
         break;
       }
+      lowercase_words(value);
       const std::vector<std::uint8_t> positions(bytes.begin() + cursor,
                                                 bytes.begin() + cursor + count);
       cursor += count;
@@ -134,6 +147,7 @@ void decode_dictionary_delta_range(
       if (cursor + count > end) {
         break;
       }
+      lowercase_words(value);
       const auto literal_words = decode_dictionary_words(bytes, cursor, count);
       value.insert(value.end(), literal_words.begin(), literal_words.end());
       cursor += count;

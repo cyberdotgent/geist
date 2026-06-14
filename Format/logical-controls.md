@@ -388,9 +388,9 @@ The verified operation behavior is:
 
 | Mode | Observed behavior |
 | ---: | --- |
-| `0` | Transform the current reconstructed token buffer through a table. In `BooApplyDictionaryDeltaRecord`, optional following bytes are indexes into the current buffer; each indexed word is lowercased/mapped with `BooMapTokenWordToLower`. In the skip path, the cursor skips `count` payload bytes. |
-| `1` | Start a new reconstructed token buffer with `count` existing words, then read a second six-bit literal count from the next byte and append that many literal words. |
-| `2` | Transform the current reconstructed token buffer through the normal table, then apply optional indexed uppercase/mapping substitutions with `BooMapTokenWordToUpper`. In the skip path, this mode skips `count` payload bytes. |
+| `0` | Transform the current reconstructed token buffer through `BooMapTokenWordBufferUpperTable`, then lowercase/map each indexed word with `BooMapTokenWordToLower`. The reader stores a leading length word in the buffer, so each payload byte is applied at `index + 1`; a lengthless implementation can use the payload byte as a zero-based word index. In the skip path, the cursor skips `count` payload bytes. |
+| `1` | Start a new reconstructed token buffer with `count` existing words, read a second six-bit literal count from the next byte, transform the retained buffer through `BooMapTokenWordBufferNormalTable`, then append that many literal words. |
+| `2` | Transform the current reconstructed token buffer through `BooMapTokenWordBufferNormalTable`, then apply optional indexed uppercase/mapping substitutions with `BooMapTokenWordToUpper`. The reader applies payload bytes at `index + 1` because of the leading length word. In the skip path, this mode skips `count` payload bytes. |
 | `3` | Transform the current reconstructed token buffer through the normal table, then append `count` literal words. This shares the append path used by mode `1`. |
 
 Literal words are read in one of two forms:
