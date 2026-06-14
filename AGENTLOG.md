@@ -12,7 +12,7 @@
   and needed a separate longer single-fixture run after the first sample command
   timed out.
 - No failed untracked BOO fixture was added for this workload.
-- Commit: pending.
+- Commit: `7513c1e`.
 
 ## 2026-06-14 - Make boorender default to whole-book raw output
 
