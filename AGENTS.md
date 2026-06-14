@@ -23,6 +23,9 @@ not as an application with an established build system.
 - `libgeist/` is the planned self-contained C/C++ library for parsing BOO
   files. Library implementation belongs under `libgeist/src/`. Example programs
   showing how to use the library belong under `libgeist/examples/`.
+- `build/` is the repository-local build output root. Use it for CMake binary
+  directories to avoid sandbox and temporary-directory permission issues. Its
+  generated contents are ignored and should not be committed.
 - `Official Readers/` contains IBM Softcopy Reader / BookManager binaries,
   help files, dictionaries, images, and configuration used as reference
   material. Consider this vendored historical software. Do not refactor,
@@ -94,6 +97,9 @@ library or example work.
 On Windows, use the installed MSVC toolchain for CMake configure/build
 validation. Do not use GCC, MinGW, Strawberry Perl GCC, or other non-MSVC
 toolchains for Windows builds unless the user explicitly asks for a comparison.
+Prefer repository-local build directories under `build/`, for example
+`cmake -S libgeist -B build/libgeist-msvc` followed by
+`cmake --build build/libgeist-msvc`.
 
 For current validation:
 

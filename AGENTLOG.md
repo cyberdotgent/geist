@@ -20,3 +20,6 @@
 - Updated `AGENTS.md` to require the installed MSVC toolchain for Windows CMake
   configure/build validation, avoiding GCC/MinGW-style toolchains unless
   explicitly requested for comparison.
+- Added repository-local `build/` output guidance and `build/.gitignore` so
+  CMake binary directories can be created inside the writable repo while keeping
+  generated build artifacts untracked.
