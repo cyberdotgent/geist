@@ -18,7 +18,7 @@
   four files. `SC24-5520-00.boo` failed, and the failure also reproduced with
   `booinfo` and `boorender --raw`, so it is recorded as an existing parser/tool
   failure fixture rather than a Markdown-specific failure.
-- Commit: `d7cf9ce`.
+- Commit: `d5eccc6`.
 
 ## 2026-06-14 - Add recent packet BOO fixture
 
