@@ -38,6 +38,10 @@ The `ephwam.dll` IDB now has descriptive names on this path:
 | `BooMapTokenWordBufferUpperTable` | `0x1219f22` | Maps a word-counted token buffer through an alternate uppercase-oriented table. |
 | `BooMapTokenWordToUpper` | `0x121a765` | Maps one token word, uppercasing ASCII `a..z` to `A..Z` in the simple path. |
 | `BooMapTokenWordToLower` | `0x121a9e4` | Maps one token word, lowercasing ASCII `A..Z` to `a..z` in the simple path. |
+| `BooLoadTranslationTablePage` | `0x121c31c` | Loads and caches a 4096-byte translation table page by table number. |
+| `BooCompareTokenWordStrings` | `0x121611a` | Compares token-word strings while applying the reader's search collation rules. |
+| `BooEncodeUnicodeWordsToSearchBytes` | `0x1219c94` | Encodes token words to the byte keys used by dictionary lookup kind `2`. |
+| `BooEncodeUnicodeWordToSearchByte` | `0x1219265` | Encodes one Unicode/token word to a dictionary-search byte. |
 
 The CGI IDB (`bookmgr.exe`) calls `Scm_Bopen` and `Scm_Binfo` from
 `ephwam.dll`; it consumes the returned metadata but does not parse these
@@ -80,6 +84,7 @@ resolver:
 | ---: | ---: | ---: | --- |
 | `0x0014` byte | `0xdc` | `0xd5` | Token threshold. Record bytes below this value are one-byte token IDs. |
 | `0x0022` word | `0x0c8c` | `0x0c8c` | Offset of the two-byte token map used for one-byte token IDs. |
+| `0x0026` word | `0x0e44` | `0x0e38` | Offset of the version-2 dictionary token-lookup index root in the directory page. |
 | `0x0028` word | `0x0002` | `0x0002` | First dictionary/cache page loaded for token records. |
 | `0x0034` word | `0x0e82` | `0x0ed2` | Offset of another in-page table used by the logical stream machinery. |
 | `0x003c` word | `0x0068` | `0x0068` | Offset of the stream/page table. |
@@ -166,8 +171,8 @@ dictionary pages are not a simple flat array of strings.
 
 ## Dictionary Pages And Delta Records
 
-Dictionary pages are observed as `0x0100` page-class pages. Their first four
-bytes match the same page framing used by logical-record pages:
+Dictionary text pages are observed as `0x0100` page-class pages. Their first
+four bytes match the same page framing used by logical-record pages:
 
 ```c
 struct BooDictionaryPage {
@@ -187,31 +192,67 @@ documented above. Examples:
 | `OFCUSEOV.BOO` | 2 | `0x0004` | `f2 e9` | 745 |
 | `OFCUSEOV.BOO` | 2 | `0x02ef` | `f2 fa` | 762 |
 
-The start of each dictionary block is not directly the decoded word data. The
-seek routine treats a dictionary block as a container of indexed groups:
+These page-2 blocks are dictionary text/delta containers. They are not the
+version-2 token-lookup root itself. For the repository fixtures,
+`BooSeekDictionaryTokenRecord` starts extended-token lookup in the directory
+page at the offset stored in directory word `0x0026`.
+
+The lookup root is a compact-length-indexed block:
 
 ```c
-struct BooDictionaryBlockHeader {
-  uint8_t group_count_or_selector;
-  uint8_t unknown_01;
-  uint16_t group_region_end_be;  // Reader uses block_base + this value.
-  uint8_t groups[];
+struct BooDictionaryIndexBlock {
+  uint8_t control;       // Observed 0x03 in the root blocks.
+  uint8_t unknown_01;    // Observed 0x00 in the root blocks.
+  uint16_t used_end_be;  // Block-relative end offset.
+  uint8_t entries[];     // Compact-length-prefixed entries.
 };
 ```
 
-Observed first dictionary block headers:
+Observed version-2 root index blocks:
 
-| File | Page | Offset | Header bytes | Interpretation |
+| File | Physical page | Offset | Header bytes | Interpretation |
 | --- | ---: | ---: | --- | --- |
-| `QS3X36CM.BOO` | 2 | `0x0006` | `dc 00 01 01` | `group_count_or_selector=0xdc`, group region ends at block-relative `0x0101`. |
-| `OFCUSEOV.BOO` | 2 | `0x0006` | `d5 00 01 01` | `group_count_or_selector=0xd5`, group region ends at block-relative `0x0101`. |
+| `QS3X36CM.BOO` | 1 | `0x0e44` | `03 00 00 39` | Entries occupy directory offsets `0x0e48..0x0e7c`. |
+| `OFCUSEOV.BOO` | 1 | `0x0e38` | `03 00 00 95` | Entries occupy directory offsets `0x0e3c..0x0ecc`. |
 
-`BooSeekDictionaryTokenRecord` scans the groups inside this region. Each group
-entry begins with a compact length. The entry payload contains a searchable
-token key followed by the bytes needed to reach the corresponding dictionary
-delta record. The key comparison length is derived from the dictionary variant:
-for version-2 fixtures the search key is normally the two-byte extended token
-reference; version-3 can use three-byte references.
+Each index entry begins with the same compact length encoding used for logical
+and dictionary records. In the version-2 token-reference lookup path, the first
+two payload bytes are the searchable extended-token key. The reader compares
+exactly this key width, then leaves the dictionary cursor at the byte immediately
+after the key. The entry end is `entry_payload + entry_length`.
+
+```c
+struct BooDictionaryIndexEntryV2 {
+  uint8_t compact_length[];      // Usually one byte in the observed root.
+  uint8_t token_key_be[2];       // Extended token reference key.
+  uint8_t cursor_payload[];      // Continuation/cursor bytes consumed by the
+                                 // dictionary resolver after the key match.
+};
+```
+
+Observed root entries:
+
+| File | Entry offset | Length | Payload bytes |
+| --- | ---: | ---: | --- |
+| `QS3X36CM.BOO` | `0x0e48` | 6 | `dc 00 01 01 00 02` |
+| `QS3X36CM.BOO` | `0x0e4f` | 11 | `df d0 06 83 89 97 88 85 99 00 03` |
+| `QS3X36CM.BOO` | `0x0e5b` | 12 | `e3 d0 07 84 a2 97 84 85 a5 84 00 04` |
+| `QS3X36CM.BOO` | `0x0e68` | 9 | `e8 24 04 96 97 85 95 00 05` |
+| `QS3X36CM.BOO` | `0x0e72` | 14 | `ec 58 09 a2 95 84 a4 a2 99 94 a2 87 00 06` |
+| `OFCUSEOV.BOO` | `0x0e3c` | 6 | `d5 00 01 01 00 02` |
+| `OFCUSEOV.BOO` | `0x0e43` | 52 | `d7 45 2f 2d 81 00 02 03 96 86 00 01 01 00 01 3a 95 40 83 90 0c 85 00 01 02 81 3e 30 84 96 99 40 83 90 0f 85 40 a2 87 95 00 01 02 81 77 04 83 a2 a4 97 00 03` |
+| `OFCUSEOV.BOO` | `0x0e78` | 19 | `da 8f 0e 83 88 81 95 87 85 40 a2 85 95 40 84 96 83 00 04` |
+| `OFCUSEOV.BOO` | `0x0e8c` | 13 | `dd aa 08 85 94 40 a2 91 83 00 05` |
+| `OFCUSEOV.BOO` | `0x0e9a` | 9 | `e1 6c 04 93 81 a2 a3 00 06` |
+| `OFCUSEOV.BOO` | `0x0ea4` | 21 | `e5 23 10 97 99 89 a5 81 a3 85 40 83 90 0c 95 40 a2 87 95 00 07` |
+| `OFCUSEOV.BOO` | `0x0eba` | 8 | `e9 74 03 a2 95 81 00 08` |
+| `OFCUSEOV.BOO` | `0x0ec3` | 13 | `ed 18 08 a6 96 89 83 85 a2 00 09` |
+
+The bytes after the token key are verified as the continuation/cursor payload
+that positions the resolver for subsequent dictionary delta records. Their
+subfields are still being separated, so independent readers should treat them
+as resolver-controlled payload until more continuation examples have been
+decoded.
 
 Once the seek routine finds the requested token key, it stores dictionary cursor
 state in the book handle:
@@ -272,9 +313,41 @@ After token resolution, the logical-record iterator concatenates token text
 records into one word-counted 16-bit sequence. It inserts or suppresses spaces
 according to small control words at the start/end of token records.
 
-`sub_121ac63` then converts the 16-bit words to text. For the single-byte code
-paths used by these fixtures, each word indexes a reader translation table and
-usually emits one byte. The decoded output is NUL-terminated in memory.
+`BooDecodeTokenWordsToText` then converts the 16-bit words to text. A token word
+is split into a translation table number and an index:
+
+```c
+uint16_t word = token_words[i];
+uint16_t table_no = (word >> 11) + 1;
+uint16_t table_index = word & 0x07ff;
+```
+
+When the current table does not match `table_no`, the reader calls
+`BooLoadTranslationTablePage(session, table_no, err)`.
+
+The translation-table loader reads one complete 4096-byte page:
+
+```c
+physical_page = directory_page_number + table_no - 1;
+file_offset = physical_page * 4096;
+```
+
+`directory_page_number` is the page-0 directory locator. It is `1` in both
+repository fixtures, so table number `1` maps to physical page `1`, table
+number `2` maps to physical page `2`, and so on. The loaded page is cached by
+book-buffer id and table number.
+
+The table entry is a big-endian 16-bit value at `table_page + table_index * 2`.
+In the common single-byte output path, words at or below `0x2fff` are decoded
+through the table and the low byte of the table value is emitted. Words above
+`0x2fff`, and decoded byte `0x1a`, emit the reader's configured substitution
+byte instead.
+
+For DBCS/stateful code pages (`933`, `935`, `937`, `939`), the reader emits
+shift-out byte `0x0e` before double-byte values and shift-in byte `0x0f` before
+returning to single-byte values. For multibyte code pages including `932`,
+`938`, `942`, `948`, `949`, `950`, and `1381`, table values above `0x00ff` can
+be emitted as two-byte values rather than collapsed to the low byte.
 
 Only after this conversion does the reader compare against literal keys such as
 `CLANGUAGE=`, `CVERSION=`, and `CDOCNUM=`.
@@ -318,15 +391,14 @@ the strings above. It should:
 
 The remaining unresolved pieces are now narrower:
 
-- the complete layout of dictionary block group entries after their compact
-  length prefix;
 - the exact meaning of the dictionary block header byte at offset `+1`;
+- the complete subfield layout of the dictionary index-entry continuation
+  payload after the token key;
 - the exact cursor-field layout in a clean public structure rather than the IBM
   reader's in-memory handle offsets;
-- complete translation-table loading for every code page and double-byte text
-  mode.
+- complete byte-for-byte reproduction of every code-page-specific output path.
 
 The delta operation byte and reconstructed token buffer behavior are identified,
-but a standalone implementation still needs the dictionary group-entry parser
-and translation-table loader before it can decode every control value from
-scratch.
+and the translation-table loader is identified. A standalone implementation
+still needs the continuation-payload subfields to reproduce every extended-token
+dictionary seek from scratch.

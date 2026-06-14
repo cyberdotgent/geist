@@ -116,3 +116,13 @@
   expanded `Format/logical-controls.md` with dictionary page/block framing,
   delta operation-byte modes, token-buffer reconstruction behavior, and the
   remaining narrower implementation gaps.
+- Finished the documented dictionary group-entry/root-index layout and
+  translation-table loader analysis. Renamed additional high-confidence
+  `ephwam.dll` routines in IDA (`BooLoadTranslationTablePage`,
+  `BooCompareTokenWordStrings`, `BooEncodeUnicodeWordsToSearchBytes`, and
+  `BooEncodeUnicodeWordToSearchByte`) and saved the IDB. Updated
+  `Format/logical-controls.md` with the directory-page root index at directory
+  offset `0x0026`, compact-length-prefixed version-2 token-key entries from
+  both BOO fixtures, the translation-table page loading formula, and token-word
+  table/index decoding. Updated `Format/encoding.md` to summarize the verified
+  translation-table and search-key encoding behavior.
