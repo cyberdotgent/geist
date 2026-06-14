@@ -20,6 +20,9 @@ not as an application with an established build system.
 - `AnalysisNotes/` is for analysis notes that are not themselves BookManager
   file-format facts, such as environment setup, tool usage, URL-to-file mapping,
   reader behavior, and workflow notes.
+- `libgeist/` is the planned self-contained C/C++ library for parsing BOO
+  files. Library implementation belongs under `libgeist/src/`. Example programs
+  showing how to use the library belong under `libgeist/examples/`.
 - `Official Readers/` contains IBM Softcopy Reader / BookManager binaries,
   help files, dictionaries, images, and configuration used as reference
   material. Consider this vendored historical software. Do not refactor,
@@ -48,6 +51,21 @@ not as an application with an established build system.
 - Before changing anything, inspect the relevant files and keep changes tightly
   scoped. This repo contains many binary files where accidental rewrites are
   costly.
+- Keep `libgeist` self-contained. Do not add upstream libraries, vendored code,
+  package-manager dependencies, or copied external parser code unless the user
+  explicitly changes this direction.
+- Implement BOO parsing logic in `libgeist/src/`. Keep `libgeist/examples/`
+  focused on small command-line examples that demonstrate library usage, not on
+  duplicate parsing implementations.
+- The intended example tools are:
+  - `booinfo`: lists BOO metadata.
+  - `bootoc`: lists the table of contents.
+  - `boorsrc`: extracts images and other media resources.
+  - `boorender`: renders a chapter to Markdown.
+- `boorsrc` must export image and media data exactly as stored in the BOO
+  container. Do not convert, transcode, decode, re-encode, or normalize image
+  payloads; leave image parsing/rendering to downstream libraries chosen by
+  `libgeist` users.
 - Preserve original filenames, capitalization, extensions, and paths. Some
   reader assets refer to each other by legacy, case-sensitive-looking names even
   on Windows.
@@ -69,8 +87,9 @@ not as an application with an established build system.
 
 ## Build And Test
 
-There is no committed parser, package manifest, or automated test suite yet.
-Do not invent a build pipeline just to satisfy a task.
+The repository now contains a `libgeist/` CMake stub for the planned parser
+library. Do not expand the build system beyond what is needed for the requested
+library or example work.
 
 For current validation:
 
