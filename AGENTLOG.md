@@ -37,3 +37,8 @@
   `cmake -S libgeist -B build/libgeist-msvc-shared -G "Visual Studio 18 2026"
   -A x64`, `cmake --build build/libgeist-msvc-shared`, and a `booinfo` smoke
   run against `BOO\QS3X36CM.BOO`.
+- Analyzed the first two 4096-byte pages of `BOO\QS3X36CM.BOO` and
+  `BOO\OFCUSEOV.BOO` to identify initial BOO header structure. Documented
+  verified page size, page-0 copyright/header fields, page-1 directory fields,
+  page run correlations, timestamp evidence, and unresolved hypotheses in
+  `Format/boo-header.md`.
