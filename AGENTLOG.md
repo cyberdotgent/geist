@@ -235,3 +235,11 @@
   normalization. Validated with `cmake --build build`,
   `build\Debug\bootoc.exe BOO\QS3X36CM.BOO`, and
   `build\Debug\bootoc.exe BOO\OFCUSEOV.BOO`.
+- Persisted the instruction to test BOO parsing changes against five randomly
+  selected `BOO/` fixtures when exact fixtures are not specified. Validated the
+  current `bootoc` build with `cmake --build build` and a random sample:
+  `GX27-3999-00.boo` failed strict last-page-count validation,
+  `SC23-0083-03.boo` parsed successfully with 93 output lines,
+  `SC09-2417-00.boo` failed strict last-page-count validation,
+  `SC28-1881-05.boo` failed strict last-page-count validation, and
+  `SC24-5527-02.boo` failed strict last-page-count validation.

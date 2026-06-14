@@ -119,6 +119,10 @@ For current validation:
 
 - Use `git status --short` before and after edits to check the working tree.
 - Use `rg --files` to inspect tracked file layout quickly.
+- When testing BOO parsing behavior and the user has not specified exact
+  fixtures, randomly select five `.BOO`/`.boo` files from `BOO/` and run the
+  relevant tool against those files. Record the selected filenames in the
+  workload notes so coverage accumulates over time.
 - For binary research scripts added in the future, include small focused tests
   that exercise known BOO fixture offsets without modifying the fixtures.
 
