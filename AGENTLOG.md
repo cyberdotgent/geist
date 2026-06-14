@@ -23,7 +23,7 @@
   `:figlist`, and `HP1`.
 - Added `Format/topics.md` and `Format/markup.md`, updated the format index,
   and linked TOC documentation to the topic storage model.
-- Commit: pending.
+- Commit: `62de12b`.
 
 ## 2026-06-14
 
