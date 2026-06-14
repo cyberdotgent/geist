@@ -33,6 +33,15 @@ int main(int argc, char** argv) {
               << static_cast<unsigned>(directory.token_threshold) << std::dec
               << "\n";
 
+    std::cout << "Logical controls (experimental):\n";
+    if (document.logical_controls().empty()) {
+      std::cout << "  none decoded\n";
+    } else {
+      for (const auto& control : document.logical_controls()) {
+        std::cout << "  " << control.key << "=" << control.value << "\n";
+      }
+    }
+
     if (file_header.unknown_0102) {
       const std::vector<std::uint8_t> unknown_0102{
           file_header.unknown_0102->begin(), file_header.unknown_0102->end()};

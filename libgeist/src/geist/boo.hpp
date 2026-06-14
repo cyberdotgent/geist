@@ -60,8 +60,9 @@ struct BooPageRun {
   BooPageRole role = BooPageRole::unknown;
 };
 
-// Decoded logical metadata controls. This remains empty until the tokenized
-// logical-record decoder is implemented.
+// Decoded logical metadata controls. The current decoder is experimental and
+// only covers the version-2 dictionary/token paths documented from the bundled
+// fixtures.
 struct BooLogicalControl {
   std::string key;
   std::string value;

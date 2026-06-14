@@ -1,8 +1,11 @@
 #include "geist/boo.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <fstream>
 #include <iomanip>
+#include <map>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 
@@ -211,6 +214,320 @@ std::string trim_right_spaces(std::string value) {
   return value;
 }
 
+std::string trim_ascii(std::string value) {
+  while (!value.empty() &&
+         std::isspace(static_cast<unsigned char>(value.back())) != 0) {
+    value.pop_back();
+  }
+  std::size_t first = 0;
+  while (first < value.size() &&
+         std::isspace(static_cast<unsigned char>(value[first])) != 0) {
+    ++first;
+  }
+  if (first != 0) {
+    value.erase(0, first);
+  }
+  return value;
+}
+
+std::optional<std::uint16_t> read_compact_length(
+    const std::vector<std::uint8_t>& bytes,
+    std::size_t& offset,
+    std::size_t end) {
+  if (offset >= end) {
+    return std::nullopt;
+  }
+
+  const auto first = bytes[offset++];
+  if (first <= 0xEF) {
+    return first;
+  }
+  if (offset >= end) {
+    return std::nullopt;
+  }
+
+  const auto second = bytes[offset++];
+  return static_cast<std::uint16_t>(((first - 0xF0) << 8) + second);
+}
+
+std::string decode_dictionary_bytes(const std::vector<std::uint8_t>& bytes,
+                                    std::size_t offset,
+                                    std::size_t count) {
+  std::string output;
+  output.reserve(count);
+  for (std::size_t i = 0; i < count; ++i) {
+    output.push_back(decode_cp037_byte(bytes[offset + i]));
+  }
+  return output;
+}
+
+void lowercase_positions(std::string& value,
+                         const std::vector<std::uint8_t>& positions) {
+  for (const auto position : positions) {
+    if (position < value.size()) {
+      value[position] = static_cast<char>(
+          std::tolower(static_cast<unsigned char>(value[position])));
+    }
+  }
+}
+
+void uppercase_positions(std::string& value,
+                         const std::vector<std::uint8_t>& positions) {
+  for (const auto position : positions) {
+    if (position < value.size()) {
+      value[position] = static_cast<char>(
+          std::toupper(static_cast<unsigned char>(value[position])));
+    }
+  }
+}
+
+void decode_dictionary_delta_range(
+    std::map<std::uint16_t, std::string>& token_strings,
+    std::uint16_t first_key,
+    const std::vector<std::uint8_t>& bytes,
+    std::size_t begin,
+    std::size_t end) {
+  if (begin >= end) {
+    return;
+  }
+
+  auto cursor = begin;
+  const auto base_count = bytes[cursor++];
+  if (cursor + base_count > end) {
+    return;
+  }
+
+  auto value = decode_dictionary_bytes(bytes, cursor, base_count);
+  cursor += base_count;
+  auto key = first_key;
+  token_strings[key++] = value;
+
+  while (cursor < end) {
+    const auto op = bytes[cursor++];
+    const auto mode = static_cast<std::uint8_t>(op >> 6);
+    const auto count = static_cast<std::uint8_t>(op & 0x3F);
+
+    if (mode == 0) {
+      if (cursor + count > end) {
+        break;
+      }
+      const std::vector<std::uint8_t> positions(bytes.begin() + cursor,
+                                                bytes.begin() + cursor + count);
+      cursor += count;
+      lowercase_positions(value, positions);
+    } else if (mode == 1) {
+      if (cursor >= end) {
+        break;
+      }
+      const auto literal_count = static_cast<std::uint8_t>(bytes[cursor++] &
+                                                           0x3F);
+      if (cursor + literal_count > end) {
+        break;
+      }
+      value.resize(std::min<std::size_t>(count, value.size()));
+      value += decode_dictionary_bytes(bytes, cursor, literal_count);
+      cursor += literal_count;
+    } else if (mode == 2) {
+      if (cursor + count > end) {
+        break;
+      }
+      const std::vector<std::uint8_t> positions(bytes.begin() + cursor,
+                                                bytes.begin() + cursor + count);
+      cursor += count;
+      uppercase_positions(value, positions);
+    } else {
+      if (cursor + count > end) {
+        break;
+      }
+      value += decode_dictionary_bytes(bytes, cursor, count);
+      cursor += count;
+    }
+
+    token_strings[key++] = value;
+  }
+}
+
+std::map<std::uint16_t, std::string> decode_experimental_dictionary(
+    const std::vector<std::uint8_t>& bytes) {
+  std::map<std::uint16_t, std::string> token_strings;
+  const auto page_count = bytes.size() / boo_page_size;
+
+  for (std::size_t page = 0; page < page_count; ++page) {
+    const auto page_base = page * boo_page_size;
+    if (read_be16(bytes, page_base) != 0x0100) {
+      continue;
+    }
+
+    const auto used_end = read_be16(bytes, page_base + 2);
+    std::size_t top_offset = page_base + 4;
+    const auto page_end = page_base + std::min<std::size_t>(used_end,
+                                                            boo_page_size);
+
+    while (top_offset < page_end) {
+      auto top_length_offset = top_offset;
+      const auto top_length =
+          read_compact_length(bytes, top_length_offset, page_end);
+      if (!top_length || *top_length == 0 ||
+          top_length_offset + *top_length > page_end) {
+        break;
+      }
+
+      const auto top_payload = top_length_offset;
+      const auto top_end = top_payload + *top_length;
+      if (top_payload + 3 <= top_end) {
+        const auto prefix_length = bytes[top_payload + 2];
+        const auto nested_begin =
+            top_payload + 3 + static_cast<std::size_t>(prefix_length);
+        if (nested_begin < top_end) {
+          std::size_t nested_offset = nested_begin;
+          while (nested_offset < top_end) {
+            auto nested_length_offset = nested_offset;
+            const auto nested_length =
+                read_compact_length(bytes, nested_length_offset, top_end);
+            if (!nested_length || *nested_length == 0 ||
+                nested_length_offset + *nested_length > top_end) {
+              break;
+            }
+
+            const auto nested_payload = nested_length_offset;
+            const auto nested_end = nested_payload + *nested_length;
+            if (nested_payload + 2 < nested_end) {
+              const auto key = read_be16(bytes, nested_payload);
+              decode_dictionary_delta_range(token_strings,
+                                            key,
+                                            bytes,
+                                            nested_payload + 2,
+                                            nested_end);
+            }
+            nested_offset = nested_end;
+          }
+        }
+      }
+
+      top_offset = top_end;
+    }
+  }
+
+  return token_strings;
+}
+
+std::string resolve_experimental_token(
+    const std::vector<std::uint8_t>& bytes,
+    const BooDirectory& directory,
+    const std::map<std::uint16_t, std::string>& token_strings,
+    std::uint8_t first,
+    std::optional<std::uint8_t> second) {
+  std::uint16_t key = 0;
+  if (second) {
+    key = static_cast<std::uint16_t>((first << 8) | *second);
+  } else {
+    const auto token_map_entry =
+        static_cast<std::size_t>(directory.page_number) * boo_page_size +
+        directory.token_map_offset + static_cast<std::size_t>(first) * 2;
+    if (token_map_entry + 2 > bytes.size()) {
+      return {};
+    }
+    key = read_be16(bytes, token_map_entry);
+  }
+
+  const auto found = token_strings.find(key);
+  if (found == token_strings.end()) {
+    return {};
+  }
+  return found->second;
+}
+
+std::vector<BooLogicalControl> extract_logical_controls(
+    const std::string& decoded_record) {
+  static const std::array<const char*, 11> keys = {
+      "CLANGUAGE=", "CVERSION=",  "CBLDVERS=", "CREFLOW=", "CTITLE=",
+      "CSTITLE=",   "CCOPYRIGHT=", "CSECURITY=", "CDATE=",   "CAUTHOR=",
+      "CDOCNUM="};
+
+  std::vector<BooLogicalControl> controls;
+  for (const auto* key : keys) {
+    const std::string key_text(key);
+    const auto found = decoded_record.find(key_text);
+    if (found == std::string::npos) {
+      continue;
+    }
+
+    auto value_begin = found + key_text.size();
+    auto value_end = decoded_record.size();
+    for (const auto* next_key : keys) {
+      const auto next = decoded_record.find(next_key, value_begin);
+      if (next != std::string::npos) {
+        value_end = std::min(value_end, next);
+      }
+    }
+
+    controls.push_back(
+        {key_text.substr(0, key_text.size() - 1),
+         trim_ascii(decoded_record.substr(value_begin,
+                                          value_end - value_begin))});
+  }
+  return controls;
+}
+
+std::vector<BooLogicalControl> decode_experimental_logical_controls(
+    const std::vector<std::uint8_t>& bytes,
+    const BooDirectory& directory) {
+  std::vector<BooLogicalControl> controls;
+  const auto token_strings = decode_experimental_dictionary(bytes);
+  if (token_strings.empty()) {
+    return controls;
+  }
+
+  const auto page_count = bytes.size() / boo_page_size;
+  for (std::size_t page = 0; page < page_count; ++page) {
+    const auto page_base = page * boo_page_size;
+    if (read_be16(bytes, page_base) != 0x0001) {
+      continue;
+    }
+
+    const auto used_end = read_be16(bytes, page_base + 2);
+    const auto page_end = page_base + std::min<std::size_t>(used_end,
+                                                            boo_page_size);
+    std::size_t record_offset = page_base + 4;
+    while (record_offset < page_end) {
+      auto length_offset = record_offset;
+      const auto record_length =
+          read_compact_length(bytes, length_offset, page_end);
+      if (!record_length || length_offset + *record_length > page_end) {
+        break;
+      }
+
+      const auto payload_end = length_offset + *record_length;
+      std::string decoded;
+      for (auto cursor = length_offset; cursor < payload_end;) {
+        const auto first = bytes[cursor++];
+        if (first >= directory.token_threshold && cursor < payload_end) {
+          const auto second = bytes[cursor++];
+          decoded += resolve_experimental_token(bytes,
+                                                directory,
+                                                token_strings,
+                                                first,
+                                                second);
+        } else {
+          decoded += resolve_experimental_token(bytes,
+                                                directory,
+                                                token_strings,
+                                                first,
+                                                std::nullopt);
+        }
+      }
+
+      auto record_controls = extract_logical_controls(decoded);
+      controls.insert(controls.end(),
+                      record_controls.begin(),
+                      record_controls.end());
+      record_offset = payload_end;
+    }
+  }
+
+  return controls;
+}
+
 BooPageRole classify_run(std::uint32_t start_page,
                          std::uint16_t page_class,
                          const BooDirectory& directory) {
@@ -341,6 +658,9 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
   }
 
   document.page_runs_ = build_page_runs(document.bytes_, document.directory_);
+  document.logical_controls_ =
+      decode_experimental_logical_controls(document.bytes_,
+                                           document.directory_);
   return document;
 }
 

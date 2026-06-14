@@ -135,3 +135,14 @@
   terminal entries use `key + delta_record_bytes`. Updated
   `Format/logical-controls.md`, `Format/encoding.md`, and
   `Format/boo-header.md` accordingly.
+- Implemented an experimental tokenized logical-control decoder in `libgeist`.
+  The decoder reconstructs dictionary token strings from documented
+  version-2 anchor/delta records, resolves logical-record token references via
+  the directory token map and extended-token keys, and extracts known
+  `C...=` controls when decoded records contain them. Updated `booinfo` to print
+  decoded controls or `none decoded`. Validated with
+  `cmake -S libgeist -B build/libgeist-msvc-2026 -G "Visual Studio 18 2026"
+  -A x64`, `cmake --build build/libgeist-msvc-2026`, and `booinfo` runs against
+  both bundled BOO fixtures. The fixtures currently report no decoded controls,
+  so further work is still needed on exact stream assembly and/or
+  translation-table-backed token text conversion.
