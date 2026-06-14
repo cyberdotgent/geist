@@ -8,6 +8,8 @@ Application System/400
 
 As/400
 
+c/400
+
 Displaywrite
 
 fortran/400
@@ -29,5 +31,7 @@ Ryan Mcfarland Corporation This publication could Contain technical Inaccuracies
 Errors. This Manual May Refer To Products that are announced but are Not yet
 
 Available.
+
+Copyright International Business Machines Corporation 1991. All
 
 Rights Reserved. Note To u.s. Government Users -- Documentation Related To Restricted Rights -- Use, Duplication or Disclosure is subject To restrictions Set Forth in Gsa adp Schedule Contract with ibm Corp.

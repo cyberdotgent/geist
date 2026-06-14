@@ -1,5 +1,29 @@
 # Agent Log
 
+## 2026-06-14 - Add boo2git Markdown export tool
+
+- Added `libgeist/examples/boo2git.cpp`, a Git-hosted Markdown exporter that
+  writes `INDEX.md`, one topic Markdown file per TOC entry, and PNG-rendered
+  resources into a destination folder.
+- Implemented CLI help, verbose logging, `--force`, and an interactive
+  non-empty destination confirmation guard.
+- Added topic filename generation, TOC links, topic/anchor link rewriting, and
+  picture-resource link normalization for `picN`/`pictureN` references to
+  rendered `N.png` resources when available.
+- Added `boo2git` to the CMake example build.
+- Rendered `BOO\QS3X36CM.BOO` into `render\qs3x36cm`. The book produced
+  `INDEX.md` and 10 topic files; the parser reported 0 resources for this
+  fixture, so no PNGs were emitted for that rendered output.
+- Validated with `cmake --build build`, `boo2git --help`, non-empty
+  destination rejection with `n`, `boo2git --force --verbose
+  BOO\QS3X36CM.BOO render\qs3x36cm`, and a targeted `boorsrc --png` check for
+  `BOO\SC26-4221-08.boo` resource `1`.
+- Residual risk: full `boo2git` conversion of larger asset-bearing fixtures
+  such as `SC26-4221-08.boo` and `GG24-4302-00.boo` exited early without a
+  C++ exception diagnostic after opening the book, while `booinfo` and direct
+  `boorsrc --png` still worked on the tested converted GIF resource.
+- Commit: pending.
+
 ## 2026-06-14 - Align raw GML output with packet BookMaster source
 
 - Treated `BOO/packet.script` as the authoritative BookMaster source for

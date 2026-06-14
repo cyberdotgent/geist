@@ -35,6 +35,7 @@ find_package(GIF REQUIRED)
 set(GEIST_SOURCES
   src/boo_document.cpp
   src/boo_encoding.cpp
+  src/boo_gdf.cpp
   src/boo_io.cpp
   src/boo_logical.cpp
   src/boo_markup.cpp
@@ -77,7 +78,7 @@ target_link_libraries(geist PRIVATE PNG::PNG)
 target_link_libraries(geist PRIVATE GIF::GIF)
 target_link_libraries(geist_static PUBLIC PNG::PNG GIF::GIF)
 
-foreach(example booinfo bootoc boorsrc boorender)
+foreach(example booinfo bootoc boorsrc boorender boo2git)
   add_executable(${example}
     examples/${example}.cpp
   )
