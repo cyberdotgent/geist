@@ -50,3 +50,6 @@
 - Added `Format/README.md` as the format-notes index and stubbed topic files
   for page organization, compression/encoded content, and assets/media
   resources so future BOO findings have stable documentation locations.
+- Split compression and encoding documentation into separate `Format/`
+  topic files: `compression.md` now covers compression-specific questions and
+  `encoding.md` covers character encoding, tokenization, and control bytes.
