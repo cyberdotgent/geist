@@ -122,7 +122,9 @@ For current validation:
 - When testing BOO parsing behavior and the user has not specified exact
   fixtures, randomly select five `.BOO`/`.boo` files from `BOO/` and run the
   relevant tool against those files. Record the selected filenames in the
-  workload notes so coverage accumulates over time.
+  workload notes so coverage accumulates over time. If a randomly selected BOO
+  file causes a test failure, add and commit that specific failing fixture along
+  with the fix or workload note; do not bulk-add unrelated BOO files.
 - For binary research scripts added in the future, include small focused tests
   that exercise known BOO fixture offsets without modifying the fixtures.
 

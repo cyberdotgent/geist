@@ -243,3 +243,8 @@
   `SC09-2417-00.boo` failed strict last-page-count validation,
   `SC28-1881-05.boo` failed strict last-page-count validation, and
   `SC24-5527-02.boo` failed strict last-page-count validation.
+- Persisted the follow-up instruction that randomly selected BOO fixtures which
+  fail parser/tool validation should be committed individually, while unrelated
+  BOO files remain untracked. Added the four failing fixtures from the previous
+  random `bootoc` run: `GX27-3999-00.boo`, `SC09-2417-00.boo`,
+  `SC28-1881-05.boo`, and `SC24-5527-02.boo`.
