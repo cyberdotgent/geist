@@ -31,7 +31,7 @@ std::string stored_format_for_legacy_kind(std::uint8_t kind) {
   case 'G':
     return "legacy-gdf";
   case 'I':
-    return "legacy-image";
+    return "legacy-mmr";
   case 'M':
     return "legacy-met";
   default:

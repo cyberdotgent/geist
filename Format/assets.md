@@ -92,36 +92,34 @@ The range `0x00000118..0x000002e7` is the observed resource-directory body. It
 contains image descriptors and ends immediately before the first image payload at
 `0x000002e8`.
 
-Most image descriptors are 16 bytes:
+Most image descriptors are 16 bytes. The descriptor starts with the picture id;
+the one-byte legacy kind follows the id and selects the conversion path used by
+the IBM readers and Transmogrifier:
 
 | Field | Size | Encoding | Meaning |
 | --- | ---: | --- | --- |
-| `kind` | 1 | EBCDIC byte | `0xc9`, EBCDIC `I`, for image resources. |
+| `id` | 8 | EBCDIC, padded with `0x40` | Resource id used by logical figure references and BookServer image naming. |
+| `kind` | 1 | EBCDIC byte | Legacy picture family, for example `0xc7`/`G` or `0xc9`/`I`. |
 | `length` | 3 | big-endian unsigned integer | Stored payload length in bytes. |
 | `offset` | 4 | big-endian unsigned integer | Absolute byte offset in the BOO file. |
-| `id` | 8 | EBCDIC, padded with `0x40` | Resource id used by logical figure references and BookServer image naming. |
 
 Example descriptors from `GG24-4302-00.boo`:
 
 | Descriptor offset | Bytes | Parsed descriptor |
 | ---: | --- | --- |
-| `0x0120` | `c9 00 1c fc 00 00 99 f0 f1 f0 40 40 40 40 40 40` | Image `10`, length `0x001cfc`, payload offset `0x000099f0`. |
-| `0x01c0` | `c9 00 10 0f 00 00 37 ea f2 40 40 40 40 40 40 40` | Image `2`, length `0x00100f`, payload offset `0x000037ea`. |
-| `0x02a0` | `c9 00 22 96 00 00 02 e8 f6 40 40 40 40 40 40 40` | Image `6`, length `0x002296`, payload offset `0x000002e8`. |
-| `0x02d0` | `c9 00 1a a2 00 02 7f d8 f9 40 40 40 40 40 40 40` | Image `9`, length `0x001aa2`, payload offset `0x00027fd8`. |
+| `0x0118` | `f1 40 40 40 40 40 40 40 c9 00 1c fc 00 00 99 f0` | Image `1`, kind `I`, length `0x001cfc`, payload offset `0x000099f0`. |
+| `0x0128` | `f1 f0 40 40 40 40 40 40 c9 00 2d 0b 00 02 0d 66` | Image `10`, kind `I`, length `0x002d0b`, payload offset `0x00020d66`. |
+| `0x01c8` | `f2 40 40 40 40 40 40 40 c9 00 10 0f 00 00 37 ea` | Image `2`, kind `I`, length `0x00100f`, payload offset `0x000037ea`. |
+| `0x02a8` | `f6 40 40 40 40 40 40 40 c9 00 22 96 00 00 02 e8` | Image `6`, kind `I`, length `0x002296`, payload offset `0x000002e8`. |
 
-The last descriptor-sized bytes before payload data are:
+The last descriptor starts at `0x02d8` and ends exactly before the first payload:
 
 ```text
-0x02e0: c9 00 1e 05 00 02 9a 7a
+0x02d8: f9 40 40 40 40 40 40 40 c9 00 1e 05 00 02 9a 7a
 ```
 
-This is an image-kind marker, length `0x001e05`, and payload offset
-`0x00029a7a`, but the usual 8-byte id field is not present because the first
-payload starts at `0x000002e8`. The likely interpretation is that this is the
-payload descriptor for image `1`, whose EBCDIC id appears in the directory
-control entry at `0x0118`; keep this as a verified byte layout but unresolved
-field pairing until another image-bearing fixture confirms it.
+This is image `9`, kind `I`, length `0x001e05`, and payload offset
+`0x00029a7a`.
 
 ## Payload Layout
 
@@ -175,15 +173,35 @@ The readme progress markers give the picture families:
 | `V` | Metafile vector converted to GIF | `TransmogConvertMetVectorToGif` uses `IMMET2.FLT` and `EBGIF2.FLT`. |
 
 The old page-0 descriptor `kind` byte identifies which legacy conversion path is
-used:
+used. This verifies that the legacy image area is not universally GDF: GDF is
+the `G` kind only, while the common `I` kind takes a separate MMR/ImageMark-style
+path.
 
 | Kind byte | EBCDIC | Observed path |
 | ---: | --- | --- |
 | `0xc7` | `G` | Append `.gif`; convert GDF through `IMGDF2.FLT` -> `EBGIF2.FLT`. |
-| `0xc9` | `I` | Append `.gif`; convert MMR/image payload through the internal GIF writer. This is the kind observed in `GG24-4302-00.boo`. |
+| `0xc9` | `I` | Append `.gif`; convert MMR/ImageMark-style payload through the internal GIF writer. This is the kind observed in `GG24-4302-00.boo`. |
 | `0xd4` | `M` | Classify MET payload. Bitmap MET can become GIF or JPEG; vector MET becomes GIF through `IMMET2.FLT` -> `EBGIF2.FLT`. |
 
 Unknown kind bytes produce `Unknown data type encountered %s` in the utility.
+
+Local fixture verification on the filesystem BOO set found legacy descriptor
+kinds `0xc7` and `0xc9`:
+
+| Kind byte | Count | Example fixture | First verified descriptor and payload evidence |
+| ---: | ---: | --- | --- |
+| `0xc7` / `G` | `2576` | `GG66-3212-00.boo` | Descriptor at `0x0118`: `f1 40 40 40 40 40 40 40 c7 00 4e 64 00 00 01 58`; payload at `0x0158` begins `01 12 00 04 00 00 00 00 42 64 00 01 00 00 00 00...`. |
+| `0xc9` / `I` | `19843` | `GG24-4302-00.boo` | Descriptor at `0x0118`: `f1 40 40 40 40 40 40 40 c9 00 1c fc 00 00 99 f0`; payload at `0x99f0` begins `00 08 d3 a8 7b 00 00 00 00 20 d3 a7 7b 00 00 00...`. |
+
+IDA verification in `Official Readers/Transmogrifier/transmog.exe.i64`:
+
+| Function | Evidence |
+| --- | --- |
+| `TransmogConvertLegacyPicturesToWorkFiles` | Reads `id[8]`, `kind[1]`, 24-bit length, and 32-bit offset. Dispatches `0xc7` to `TransmogConvertGdfToGif`, `0xc9` to `TransmogConvertMmrToGif`, and `0xd4` to MET classification/conversion. |
+| `TransmogConvertGdfToGif` | Copies the source payload to a temporary file and calls `TransmogRunGdfImportGifExport`. |
+| `TransmogRunGdfImportGifExport` | Loads `ISGDI32.DLL`, `imgdf2.flt`, and `ebgif2.flt`, then calls `ImportGR` and `ExportGR`. |
+| `TransmogConvertMmrToGif` | Reads the source payload into memory and calls `TransmogWriteMmrAsGif`. |
+| `TransmogWriteMmrAsGif` | Parses dimensions from the MMR/ImageMark-style payload, decompresses/inverts bitmap data, and calls the internal indexed-bitmap GIF writer. |
 
 ## Version 1.2/1.3 Picture Directory
 
@@ -342,10 +360,11 @@ The dimension mode written by `TransmogDescribeWebImageObject` is:
 | `0` | Percentage width/height normalized against the larger dimension. |
 
 The converted object data is therefore different from legacy picture storage:
-legacy version 1.2/1.3 payloads are typed by the 1-byte descriptor kind and may be
-ImageMark/GDI, MMR, GDF, CGM, or MET-derived data; version 1.4 payloads are
-normal object byte ranges with object descriptions such as `type="image/gif"`,
-`width="..."`, and `height="..."`.
+legacy version 1.2/1.3 payloads are typed by the 1-byte descriptor kind. The
+verified local legacy kinds are GDF (`G`) and MMR/ImageMark-style image streams
+(`I`); the IBM converter also has MET (`M`) and CGM handling paths. Version 1.4
+payloads are normal object byte ranges with object descriptions such as
+`type="image/gif"`, `width="..."`, and `height="..."`.
 
 ## Extraction Rules
 
@@ -388,8 +407,8 @@ For version 1.4 converted objects:
 - Identify the full ImageMark/GDI payload grammar. The BookServer conversion
   path uses ImageMark components and GIF output filters, but that is separate
   from BOO container extraction.
-- Determine whether non-image media resources use kind bytes other than EBCDIC
-  `I` (`0xc9`) in the same directory body.
+- Determine whether non-image media resources use kind bytes beyond the verified
+  local legacy `G` (`0xc7`) and `I` (`0xc9`) descriptor families.
 - Verify version 1.3 and 1.4 descriptor groups against committed BOO fixtures
   that actually contain those layout versions. The reader-code layout is
   verified from the loaded IDBs; the current local fixture evidence still

@@ -1,5 +1,31 @@
 # Agent Log
 
+## 2026-06-14 - Verify legacy GDF image format mapping
+
+- Investigated the hypothesis that legacy BOO image payloads are GDF using the
+  `transmog.exe` IDA instance and filesystem BOO fixtures.
+- Verified in `TransmogConvertLegacyPicturesToWorkFiles` that legacy descriptor
+  kind `0xc7`/`G` dispatches to `TransmogConvertGdfToGif`, while `0xc9`/`I`
+  dispatches to `TransmogConvertMmrToGif`; GDF is therefore one legacy picture
+  family, not the universal legacy image payload format.
+- Renamed helper functions in the Transmogrifier IDB:
+  `TransmogTranslateEbcdicBufferToAscii`,
+  `TransmogSwap32IfBigEndianMode`, `TransmogSwap16IfBigEndianMode`, and
+  `TransmogWriteIndexedBitmapAsGif`. Moved the renamed entries out of the
+  accidental `/vibe` function folder and removed that folder from the IDB.
+- Scanned BOO fixtures from the filesystem, including untracked files. Verified
+  local legacy descriptor counts: `2576` `G`/GDF descriptors and `19843`
+  `I`/MMR-style descriptors.
+- Updated `Format/assets.md` with the corrected `id, kind, length, offset`
+  descriptor layout, GDF-vs-MMR evidence, IDA function evidence, and fixture
+  byte examples from `GG66-3212-00.boo` and `GG24-4302-00.boo`.
+- Updated libgeist to label `I` resources as `legacy-mmr` instead of the generic
+  `legacy-image`; `G` remains `legacy-gdf`.
+- Validated with `cmake --build build`, `boorsrc --list GG66-3212-00.boo`, and
+  `boorsrc --list GG24-4302-00.boo`. The latter printed the expected
+  `legacy-mmr` rows but did not terminate before the command timeout.
+- Commit: `e7d529a`.
+
 ## 2026-06-14 - Add libpng-backed resource PNG conversion
 
 - Added CMake support for PNG rendering dependencies: `find_package(PNG
