@@ -1,5 +1,30 @@
 # Agent Log
 
+## 2026-06-14 - Align raw GML output with packet BookMaster source
+
+- Treated `BOO/packet.script` as the authoritative BookMaster source for
+  `BOO/packet.boo` tag names, tag punctuation, and source-level usage.
+- Updated the raw GML projection to prefer BookMaster-style tags: topic
+  `CHDLEVEL`/`ST` pairs now render as tags such as `:h1.`, `:preface.`,
+  `:cover.`, `:tipage.`, and `:toc.`; `CZ Flow` records render to their
+  source tag (`:p.`, headings, lists, etc.); generated menus render as
+  `:ul.`, `:li.`, and `:eul.`; links render as `:hdref refid='...'`.
+- Suppressed generated navigation metadata controls such as `SH`, `CTOPICN`,
+  `CPARENT`, `CSUMMARY`, and `CSOURCEFN` from source-style raw output.
+- Preserved visible trailing text carried by some `CFONT` records, including
+  `:note.` text, while leaving full inline highlighted-phrase reconstruction as
+  an open decoder task.
+- Updated `Format/markup.md` to document `packet.script` as authoritative and
+  to replace the old libgeist-specific projection table with the current
+  BookMaster-style projection behavior.
+- Validated with `cmake --build build -- /m:1`,
+  `boorender packet.boo 1.0 --raw`, `boorender packet.boo preface --raw`,
+  `boorender QS3X36CM.BOO 2.0 --raw`, and five filesystem BOO fixtures:
+  `SC26-4559-01.boo`, `SC26-9642-00.boo`, `SC24-5595-01.boo`,
+  `SC26-3229-01.boo`, and `SC26-3042-00.boo`.
+- No failed untracked BOO fixture was added for this workload.
+- Commit: pending.
+
 ## 2026-06-14 - Add Markdown rendering API
 
 - Added `TocEntry::markdown()` for topic-level rendering and

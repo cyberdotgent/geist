@@ -221,6 +221,37 @@ std::string render_simple_gml_control(const std::string& tag,
   return ":" + tag + "." + value;
 }
 
+std::string normalize_bookmaster_tag(std::string tag) {
+  tag = trim_ascii(std::move(tag));
+  if (!tag.empty() && tag.front() == ':') {
+    tag.erase(tag.begin());
+  }
+  tag = ascii_lower(tag);
+  if (tag == "title") {
+    return "tipage";
+  }
+  return tag;
+}
+
+bool bookmaster_topic_tag_takes_title(const std::string& tag) {
+  static const std::set<std::string> titled_tags = {
+      "h1",     "h2",     "h3",      "h4",       "h5",
+      "ih2",    "preface", "appendix", "glossary", "lblbox"};
+  return titled_tags.find(tag) != titled_tags.end();
+}
+
+std::string render_bookmaster_tag(std::string tag, std::string value) {
+  tag = normalize_bookmaster_tag(std::move(tag));
+  value = dot_text(std::move(value));
+  if (tag.empty()) {
+    return render_simple_gml_control("p", std::move(value));
+  }
+  if (value.empty()) {
+    return ":" + tag + ".";
+  }
+  return ":" + tag + "." + value;
+}
+
 std::string render_keyed_gml_control(const std::string& tag,
                                      const std::string& attr,
                                      std::string value) {
@@ -237,13 +268,11 @@ std::string render_toc_entry_gml(std::string value) {
   std::uint32_t style = 0;
   std::string id;
   if (!(input >> level >> style >> id)) {
-    return render_simple_gml_control("tocentry", std::move(value));
+    return {};
   }
   std::string title;
   std::getline(input, title);
-  return ":tocentry level='" + std::to_string(level) + "' style='" +
-         std::to_string(style) + "' refid='" + escape_gml_attr(id) + "'." +
-         dot_text(title);
+  return render_simple_gml_control("li", std::move(title));
 }
 
 std::string render_tocdef_gml(std::string value) {
@@ -254,12 +283,9 @@ std::string render_tocdef_gml(std::string value) {
   std::istringstream input(value);
   std::string style;
   if (!(input >> style)) {
-    return render_simple_gml_control("tocdef", std::move(value));
+    return {};
   }
-  std::string rest;
-  std::getline(input, rest);
-  return ":tocdef style='" + escape_gml_attr(style) + "' values='" +
-         escape_gml_attr(dot_text(rest)) + "'.";
+  return {};
 }
 
 std::string render_fontdef_gml(std::string value) {
@@ -284,13 +310,11 @@ std::string render_link_gml(std::string value) {
   std::string length;
   std::string target;
   if (!(input >> column >> length >> target)) {
-    return render_simple_gml_control("link", std::move(value));
+    return render_simple_gml_control("hdref", std::move(value));
   }
   std::string text;
   std::getline(input, text);
-  auto output = ":link col='" + escape_gml_attr(column) + "' len='" +
-                escape_gml_attr(length) + "' refid='" +
-                escape_gml_attr(target) + "'.";
+  auto output = ":hdref refid='" + escape_gml_attr(target) + "'.";
   text = dot_text(text);
   if (!text.empty()) {
     output += text;
@@ -302,23 +326,71 @@ std::string render_menu_item_gml(std::string value) {
   std::istringstream input(value);
   std::string target;
   if (!(input >> target)) {
-    return render_simple_gml_control("mi", std::move(value));
+    return render_simple_gml_control("li", std::move(value));
   }
   std::string text;
   std::getline(input, text);
-  return ":mi refid='" + escape_gml_attr(target) + "'." + dot_text(text);
+  return render_simple_gml_control("li", std::move(text));
 }
 
 std::string render_layout_gml(std::string value) {
   std::istringstream input(value);
   std::string mode;
   if (!(input >> mode)) {
-    return render_simple_gml_control("layout", std::move(value));
+    return {};
   }
   std::string rest;
   std::getline(input, rest);
-  return ":layout mode='" + escape_gml_attr(mode) + "' values='" +
-         escape_gml_attr(dot_text(rest)) + "'.";
+  rest = trim_ascii(std::move(rest));
+  const auto lower_mode = ascii_lower(mode);
+  if (lower_mode == "flow") {
+    std::istringstream rest_input(rest);
+    std::string tag;
+    std::string left_margin;
+    std::string indent;
+    if (!(rest_input >> tag)) {
+      return {};
+    }
+    rest_input >> left_margin >> indent;
+    std::string text;
+    std::getline(rest_input, text);
+    if (trim_ascii(text).empty()) {
+      return {};
+    }
+    return render_bookmaster_tag(std::move(tag), std::move(text));
+  }
+  if (lower_mode == "break") {
+    std::istringstream rest_input(rest);
+    std::string break_count;
+    rest_input >> break_count;
+    std::string text;
+    std::getline(rest_input, text);
+    text = trim_ascii(std::move(text));
+    if (!text.empty()) {
+      return render_simple_gml_control("p", std::move(text));
+    }
+    return {};
+  }
+  if (lower_mode == "off") {
+    std::istringstream rest_input(rest);
+    std::string tag;
+    rest_input >> tag;
+    tag = normalize_bookmaster_tag(std::move(tag));
+    if (tag == "toc") {
+      return {};
+    }
+    if (tag == "fig") {
+      return ":efig.";
+    }
+    if (tag == "table") {
+      return ":etable.";
+    }
+    if (tag == "ul" || tag == "ol" || tag == "dl") {
+      return ":e" + tag + ".";
+    }
+    return {};
+  }
+  return {};
 }
 
 std::string render_anchor_gml(std::string value) {
@@ -336,7 +408,73 @@ std::string render_anchor_gml(std::string value) {
   return output;
 }
 
-std::string render_gml_segment(std::string segment, bool allow_topic_header) {
+struct GmlRenderState {
+  std::string pending_topic_tag;
+  bool in_generated_toc = false;
+  bool emitted_toc = false;
+};
+
+bool parse_unsigned_word(const std::string& value, std::size_t& cursor) {
+  while (cursor < value.size() &&
+         std::isspace(static_cast<unsigned char>(value[cursor])) != 0) {
+    ++cursor;
+  }
+  const auto begin = cursor;
+  while (cursor < value.size() &&
+         std::isdigit(static_cast<unsigned char>(value[cursor])) != 0) {
+    ++cursor;
+  }
+  return cursor > begin;
+}
+
+bool parse_nonspace_word(const std::string& value, std::size_t& cursor) {
+  while (cursor < value.size() &&
+         std::isspace(static_cast<unsigned char>(value[cursor])) != 0) {
+    ++cursor;
+  }
+  const auto begin = cursor;
+  while (cursor < value.size() &&
+         std::isspace(static_cast<unsigned char>(value[cursor])) == 0) {
+    ++cursor;
+  }
+  return cursor > begin;
+}
+
+std::string trailing_text_after_font_spans(std::string value) {
+  value = trim_ascii(std::move(value));
+  std::size_t cursor = 0;
+  std::size_t last_complete = 0;
+  while (cursor < value.size()) {
+    const auto before = cursor;
+    if (!parse_unsigned_word(value, cursor) ||
+        !parse_unsigned_word(value, cursor) ||
+        !parse_nonspace_word(value, cursor)) {
+      cursor = before;
+      break;
+    }
+    last_complete = cursor;
+  }
+  if (last_complete >= value.size()) {
+    return {};
+  }
+  return trim_ascii(value.substr(last_complete));
+}
+
+std::string render_font_gml(std::string value) {
+  auto trailing = trailing_text_after_font_spans(std::move(value));
+  if (trailing.empty()) {
+    return {};
+  }
+  if (ascii_starts_with_case_insensitive(trailing, "note:")) {
+    trailing = trim_ascii(trailing.substr(5));
+    return render_simple_gml_control("note", std::move(trailing));
+  }
+  return render_simple_gml_control("p", std::move(trailing));
+}
+
+std::string render_gml_segment(std::string segment,
+                               bool allow_topic_header,
+                               GmlRenderState& state) {
   segment = trim_ascii(std::move(segment));
   while (!segment.empty() && segment.front() == ',') {
     segment.erase(segment.begin());
@@ -344,67 +482,81 @@ std::string render_gml_segment(std::string segment, bool allow_topic_header) {
   }
   const auto lower = ascii_lower(segment);
   if (allow_topic_header && ascii_starts_with_case_insensitive(lower, "sh")) {
-    return render_keyed_gml_control("topic", "id",
-                                    extract_topic_header_id(segment));
+    return {};
   }
   if (ascii_starts_with_case_insensitive(lower, "ctopicn")) {
-    return render_keyed_gml_control("topicn", "number",
-                                    rest_after_first_word(segment));
+    return {};
   }
   if (ascii_starts_with_case_insensitive(lower, "cparent")) {
-    return render_keyed_gml_control("parent", "refid",
-                                    rest_after_first_word(segment));
+    return {};
   }
   if (ascii_starts_with_case_insensitive(lower, "cforwardlevel")) {
-    return render_keyed_gml_control("next", "refid",
-                                    rest_after_first_word(segment));
+    return {};
   }
   if (ascii_starts_with_case_insensitive(lower, "cbacklevel")) {
-    return render_keyed_gml_control("prev", "refid",
-                                    rest_after_first_word(segment));
+    return {};
   }
   if (ascii_starts_with_case_insensitive(lower, "csummary")) {
-    return render_keyed_gml_control("summary", "values",
-                                    rest_after_first_word(segment));
+    return {};
   }
   if (ascii_starts_with_case_insensitive(lower, "chdlevel")) {
-    return render_keyed_gml_control("hlevel", "tag",
-                                    rest_after_first_word(segment));
+    state.pending_topic_tag =
+        normalize_bookmaster_tag(rest_after_first_word(segment));
+    return {};
   }
   if (ascii_starts_with_case_insensitive(lower, "csourcefn")) {
-    return render_keyed_gml_control("source", "file",
-                                    rest_after_first_word(segment));
+    return {};
   }
   if (ascii_starts_with_case_insensitive(lower, "st")) {
-    return render_simple_gml_control("st", rest_after_first_word(segment));
+    auto title = rest_after_first_word(segment);
+    if (!state.pending_topic_tag.empty()) {
+      const auto tag = state.pending_topic_tag;
+      state.pending_topic_tag.clear();
+      if (bookmaster_topic_tag_takes_title(tag)) {
+        return render_bookmaster_tag(tag, std::move(title));
+      }
+      if (tag == "toc") {
+        state.emitted_toc = true;
+      }
+      return render_bookmaster_tag(tag, {});
+    }
+    return render_simple_gml_control("p", std::move(title));
   }
   if (ascii_starts_with_case_insensitive(lower, "ctocdef")) {
+    if (!state.in_generated_toc) {
+      state.in_generated_toc = true;
+      if (state.emitted_toc) {
+        return {};
+      }
+      state.emitted_toc = true;
+      return ":toc.";
+    }
     return render_tocdef_gml(std::move(segment));
   }
   if (ascii_starts_with_case_insensitive(lower, "ctoce")) {
     return render_toc_entry_gml(rest_after_first_word(segment));
   }
   if (ascii_starts_with_case_insensitive(lower, "etoc")) {
+    state.in_generated_toc = false;
     return ":etoc.";
   }
   if (ascii_starts_with_case_insensitive(lower, "cfontdef")) {
-    return render_fontdef_gml(std::move(segment));
+    return {};
   }
   if (ascii_starts_with_case_insensitive(lower, "cfont")) {
-    return render_keyed_gml_control("font", "spans",
-                                    rest_after_first_word(segment));
+    return render_font_gml(rest_after_first_word(segment));
   }
   if (ascii_starts_with_case_insensitive(lower, "cselect")) {
     return render_link_gml(rest_after_first_word(segment));
   }
   if (ascii_starts_with_case_insensitive(lower, "cmenu")) {
-    return ":menu.";
+    return ":ul.";
   }
   if (ascii_starts_with_case_insensitive(lower, "cmitem")) {
     return render_menu_item_gml(rest_after_first_word(segment));
   }
   if (ascii_starts_with_case_insensitive(lower, "cemenu")) {
-    return ":emenu.";
+    return ":eul.";
   }
   if (ascii_starts_with_case_insensitive(lower, "srfig")) {
     return render_keyed_gml_control("fig", "id", segment.substr(5));
@@ -425,20 +577,17 @@ std::string render_gml_segment(std::string segment, bool allow_topic_header) {
     return render_layout_gml(rest_after_first_word(segment));
   }
   if (ascii_starts_with_case_insensitive(lower, "si")) {
-    return render_simple_gml_control("index", rest_after_first_word(segment));
+    return render_simple_gml_control("i1", rest_after_first_word(segment));
   }
   if (ascii_starts_with_case_insensitive(lower, "citerm")) {
-    return render_simple_gml_control("iterm", rest_after_first_word(segment));
+    return render_simple_gml_control("i1", rest_after_first_word(segment));
   }
   if (ascii_starts_with_case_insensitive(lower, "cgpsep")) {
-    return render_simple_gml_control("indexsep", rest_after_first_word(segment));
+    return render_simple_gml_control("grpsep", rest_after_first_word(segment));
   }
   if (!segment.empty() &&
       std::tolower(static_cast<unsigned char>(segment.front())) == 'c') {
-    return render_keyed_gml_control("control", "name", first_word(segment) +
-                                                      " " +
-                                                      rest_after_first_word(
-                                                          segment));
+    return {};
   }
   return render_simple_gml_control("p", std::move(segment));
 }
@@ -446,6 +595,7 @@ std::string render_gml_segment(std::string segment, bool allow_topic_header) {
 std::vector<std::string> render_gml_records(
     const std::vector<std::string>& decoded_records) {
   std::vector<std::string> rendered;
+  GmlRenderState state;
   for (std::size_t record_index = 0; record_index < decoded_records.size();
        ++record_index) {
     auto segments = split_decoded_markup_segments(decoded_records[record_index]);
@@ -453,7 +603,8 @@ std::vector<std::string> render_gml_records(
          ++segment_index) {
       const auto allow_topic_header = record_index == 0 && segment_index == 0;
       auto line = render_gml_segment(std::move(segments[segment_index]),
-                                     allow_topic_header);
+                                     allow_topic_header,
+                                     state);
       if (!line.empty() && line != ":p.") {
         rendered.push_back(std::move(line));
       }
