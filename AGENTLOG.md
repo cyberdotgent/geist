@@ -23,7 +23,7 @@
   `SC26-4222-06.boo`, `SC24-5766-03.boo`, `SC26-3393-00.boo`,
   `SC24-5520-01.boo`, and `GH24-5218-01.boo`.
 - No failed untracked BOO fixture was added for this workload.
-- Commit: pending.
+- Commit: `7e1dff7`.
 
 ## 2026-06-14 - Split libgeist implementation files
 
