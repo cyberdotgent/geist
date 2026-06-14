@@ -45,6 +45,57 @@ The current decoder can print separator placeholders as `?` in some records.
 Those placeholders are decoder artifacts or unresolved control spacing and
 should not be treated as literal document text without byte-level confirmation.
 
+`libgeist` raw topic output projects the decoded control stream into a
+GML-style script. This projection is intentionally not Markdown and not final
+rendering. It is a readable, colon-tagged representation of the BookManager
+controls that have been identified so far. Decoder placeholder bytes such as
+`?` are not emitted as text in this projection.
+
+## GML-Style Raw Projection
+
+The raw projection uses one colon-prefixed tag per identified control or text
+span. Attribute names are `libgeist` projection names, not verified IBM source
+attribute names. The source control names remain documented here so a reader can
+map the projection back to decoded BOO controls.
+
+| Decoded control | Raw projection | Field mapping | Status |
+| --- | --- | --- | --- |
+| `SH<id>` | `:topic id='<id>'.` | Topic id from the concatenated suffix. | Verified topic header control. |
+| `CTOPICN <n>` | `:topicn number='<n>'.` | 1-based topic number. | Verified topic header control. |
+| `CPARENT <id>` | `:parent refid='<id>'.` | Parent topic id, empty when absent. | Verified topic header control. |
+| `CFORWARDLEVEL <id>` | `:next refid='<id>'.` | Next topic id at the same navigation level. | Verified topic header control. |
+| `CBACKLEVEL <id>` | `:prev refid='<id>'.` | Previous topic id at the same navigation level. | Verified topic header control. |
+| `CSUMMARY <a> <b> <c>` | `:summary values='<a> <b> <c>'.` | Summary/count triplet. | Verified topic header control; field meanings partly open. |
+| `CHDLEVEL :<tag>` | `:hlevel tag=':<tag>'.` | GML-derived heading/topic kind. | Verified topic header control. |
+| `CSOURCEFN <name>` | `:source file='<name>'.` | Original source member/file name. | Observed in topic headers. |
+| `ST <title/text>` | `:st.<title/text>` | Topic title or title-prefixed text in current decoder output. | Verified title control; title/body separation still partly lossy. |
+| `CTOCDEF=<style> <fields>` | `:tocdef style='<style>' values='<fields>'.` | TOC style definition. | Verified in `CONTENTS` topics. |
+| `CTOCE <level> <style> <id> <title>` | `:tocentry level='<level>' style='<style>' refid='<id>'.<title>` | One TOC entry. | Verified in `CONTENTS` topics. |
+| `ETOC` | `:etoc.` | End of TOC entry stream. | Observed TOC terminator. |
+| `CFONTDEF=<code> <name>` | `:fontdef code='<code>' style='<name>'.` | Font/style code definition. | Verified book-level style map. |
+| `CFONT <triples...>` | `:font spans='<triples...>'.` | Repeated `<offset> <length> <font_code>` triples. | Verified span control; exact offset base still under study. |
+| `CSELECT <col> <len> <target> [text]` | `:link col='<col>' len='<len>' refid='<target>'.<text>` | Selectable link/cross-reference. | Verified for topics, figures, tables, and pictures. |
+| `CMENU` | `:menu.` | Start of menu/list of selectable items. | Observed. |
+| `CMITEM <id> <text>` | `:mi refid='<id>'.<text>` | Menu item target and label. | Observed. |
+| `CEMENU` | `:emenu.` | End of menu/list. | Observed. |
+| `SRFIG<id>` | `:fig id='<id>'.` | Figure anchor/start id. | Observed in figure records. |
+| `SREFIG` | `:efig.` | Figure end marker. | Observed, but current decoder can truncate/case-shift some occurrences. |
+| `SRTBL<id>` | `:table id='<id>'.` | Table anchor/start id. | Observed. |
+| `SRETBL` | `:etable.` | Table end marker. | Observed. |
+| `CZ <mode> <fields>` | `:layout mode='<mode>' values='<fields>'.` | Layout/reflow control. | Observed for break, off, and flow controls. |
+| `SI <fields>` | `:index.<fields>` | Search/index marker. | Observed; subfields unresolved. |
+| `CITERM <fields>` | `:iterm.<fields>` | Index term marker/content. | Observed; subfields unresolved. |
+| `CGPSEP <fields>` | `:indexsep.<fields>` | Index group separator. | Observed; subfields unresolved. |
+| Other `C...` controls | `:control name='<control> <value>'.` | Generic preservation for recognized control-like words not yet assigned a semantic tag. | Fallback projection. |
+| Plain text span | `:p.<text>` | Remaining decoded prose after known controls are separated. | Projection artifact, not a stored BOO control. |
+
+Book-level metadata controls use the same fallback or property-specific parser
+elsewhere in `libgeist`: `CLANGUAGE=`, `CVERSION=`, `CBLDVERS=`, `CREFLOW=`,
+`CTITLE=`, `CSTITLE=`, `CCOPYRIGHT=`, `CSECURITY=`, `CDATE=`, `CAUTHOR=`,
+and `CDOCNUM=` are documented in [logical-controls.md](logical-controls.md).
+They are not normally emitted for an individual TOC topic unless they appear in
+that topic's decoded raw record range.
+
 ## Topic And Heading Controls
 
 Topic headers begin with `SH<topic_id>` and are documented in

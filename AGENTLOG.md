@@ -1,5 +1,26 @@
 # Agent Log
 
+## 2026-06-14 - Document markup controls and emit GML-style raw output
+
+- Expanded `Format/markup.md` with a GML-style raw projection table covering
+  the currently identified BookManager markup controls: topic headers, TOC
+  controls, font definitions/spans, selectable links, menus, figures, tables,
+  layout/reflow controls, index controls, book metadata controls, and generic
+  fallback preservation for other `C...` controls.
+- Changed `TocEntry::raw_records` to hold the GML-style raw projection instead
+  of the previous flat experimental decoder string. The projection drops
+  unresolved `?` separator placeholders and emits colon-prefixed tags such as
+  `:topic`, `:hlevel`, `:tocentry`, `:font`, `:link`, `:fig`, `:layout`, and
+  `:p`.
+- Updated the raw projection splitter to recognize repeated controls embedded
+  in a decoded record while avoiding false `SH` matches inside prose such as
+  "Sharing".
+- Validated with `cmake --build build`, `boorender --raw CONTENTS` on five
+  random tracked BOO fixtures with no `?` placeholders in the output,
+  representative `boorender --raw 1.0` and `boorender --raw CONTENTS` samples,
+  `boorender --md`, and missing-topic error handling.
+- Commit: pending.
+
 ## 2026-06-14 - Move raw topic data onto TOC entries
 
 - Reworked the topic API after review: removed the public `BooTopic` vector and
