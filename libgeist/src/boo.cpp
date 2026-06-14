@@ -278,6 +278,120 @@ std::string ascii_lower(std::string value) {
   return value;
 }
 
+bool ascii_starts_with_case_insensitive(const std::string& value,
+                                        std::size_t offset,
+                                        const std::string& prefix) {
+  if (offset + prefix.size() > value.size()) {
+    return false;
+  }
+  for (std::size_t i = 0; i < prefix.size(); ++i) {
+    if (std::tolower(static_cast<unsigned char>(value[offset + i])) !=
+        std::tolower(static_cast<unsigned char>(prefix[i]))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+void replace_all_case_insensitive(std::string& value,
+                                  const std::string& needle,
+                                  const std::string& replacement) {
+  std::size_t offset = 0;
+  while (offset < value.size()) {
+    if (ascii_starts_with_case_insensitive(value, offset, needle)) {
+      value.replace(offset, needle.size(), replacement);
+      offset += replacement.size();
+    } else {
+      ++offset;
+    }
+  }
+}
+
+std::string capitalize_bookmanager_words(std::string value) {
+  bool capitalize_next = true;
+  for (auto& ch : value) {
+    const auto byte = static_cast<unsigned char>(ch);
+    if (std::isalpha(byte) != 0) {
+      if (capitalize_next) {
+        ch = static_cast<char>(std::toupper(byte));
+      }
+      capitalize_next = false;
+    } else {
+      capitalize_next = (ch == ' ' || ch == ':' || ch == '(' || ch == '-');
+    }
+  }
+  return value;
+}
+
+std::string normalize_logical_control_value(const std::string& key,
+                                            std::string value) {
+  if (key == "CDOCNUM") {
+    for (auto& ch : value) {
+      ch = static_cast<char>(
+          std::toupper(static_cast<unsigned char>(ch)));
+    }
+    return value;
+  }
+
+  if (key == "CTITLE" || key == "CSTITLE") {
+    value = capitalize_bookmanager_words(value);
+    replace_all_case_insensitive(value, "AS/400", "AS/400");
+    replace_all_case_insensitive(value, "(TM)", "(TM)");
+    replace_all_case_insensitive(value, "Officevision", "OfficeVision");
+    replace_all_case_insensitive(value, "Cross-Reference", "Cross-Reference");
+    return value;
+  }
+
+  if (key == "CCOPYRIGHT") {
+    replace_all_case_insensitive(value, "IBM", "IBM");
+    return value;
+  }
+
+  if (key == "CDATE") {
+    return capitalize_bookmanager_words(value);
+  }
+
+  return value;
+}
+
+bool looks_like_control_boundary(const std::string& decoded_record,
+                                 const std::string& lower_record,
+                                 std::size_t offset) {
+  std::size_t key_start = std::string::npos;
+  if (offset + 3 < decoded_record.size() &&
+      decoded_record[offset] == '?' &&
+      decoded_record[offset + 1] == ',') {
+    key_start = offset + 2;
+  } else if (offset + 3 < decoded_record.size() &&
+             decoded_record[offset] == ',' &&
+             decoded_record[offset + 1] == ' ') {
+    key_start = offset + 2;
+  } else if (offset + 2 < decoded_record.size() &&
+             decoded_record[offset] == '?' &&
+             decoded_record[offset + 1] == ' ') {
+    key_start = offset + 2;
+  } else {
+    return false;
+  }
+
+  if (lower_record[key_start] != 'c') {
+    return false;
+  }
+
+  const auto max_key_end =
+      std::min(decoded_record.size(), key_start + std::size_t{20});
+  for (auto cursor = key_start + 1; cursor < max_key_end; ++cursor) {
+    const auto ch = static_cast<unsigned char>(lower_record[cursor]);
+    if (decoded_record[cursor] == '=') {
+      return cursor > key_start + 1;
+    }
+    if (std::isalnum(ch) == 0 && decoded_record[cursor] != '_') {
+      return false;
+    }
+  }
+  return false;
+}
+
 std::optional<std::uint16_t> read_compact_length(
     const std::vector<std::uint8_t>& bytes,
     std::size_t& offset,
@@ -327,6 +441,13 @@ void uppercase_positions(TokenWords& value,
       value[position] = static_cast<std::uint16_t>(value[position] - 32);
     }
   }
+}
+
+std::uint16_t map_token_word_to_upper_ascii(std::uint16_t word) {
+  if (word >= 'a' && word <= 'z') {
+    return static_cast<std::uint16_t>(word - 32);
+  }
+  return word;
 }
 
 void decode_dictionary_delta_range(
@@ -503,6 +624,55 @@ std::string token_words_to_ascii(const TokenWords& words) {
   return output;
 }
 
+TokenWords assemble_logical_record(const std::vector<TokenWords>& tokens) {
+  TokenWords output;
+  std::uint16_t spacing_control = 2;
+
+  for (const auto& token : tokens) {
+    TokenWords words = token;
+    spacing_control = words.empty() ? 3 : words.front();
+
+    if (!words.empty() && words.front() < 4) {
+      words.erase(words.begin());
+      if (!output.empty()) {
+        if (spacing_control == 1) {
+          output.pop_back();
+          if (words.empty()) {
+            spacing_control = 2;
+          }
+        } else if (spacing_control == 0) {
+          output.pop_back();
+          spacing_control = 2;
+        }
+      }
+    }
+
+    output.insert(output.end(), words.begin(), words.end());
+
+    if (!words.empty() && words.back() == ' ') {
+      spacing_control = 2;
+    }
+    if (spacing_control != 2) {
+      output.push_back(' ');
+    }
+  }
+
+  if (output.size() > 1 && spacing_control != 2) {
+    output.pop_back();
+  }
+
+  if (!output.empty() && output.front() != ' ' && output.front() != 'S') {
+    for (auto& word : output) {
+      if (word == ' ' || word == '=' || word == 0) {
+        break;
+      }
+      word = map_token_word_to_upper_ascii(word);
+    }
+  }
+
+  return output;
+}
+
 std::vector<BooLogicalControl> extract_logical_controls(
     const std::string& decoded_record) {
   struct ControlKey {
@@ -542,10 +712,7 @@ std::vector<BooLogicalControl> extract_logical_controls(
     }
     for (auto cursor = value_begin; cursor + 3 < decoded_record.size();
          ++cursor) {
-      if (decoded_record[cursor] == '?' && decoded_record[cursor + 1] == ',' &&
-          lower_record[cursor + 2] == 'c' &&
-          std::isalpha(static_cast<unsigned char>(lower_record[cursor + 3])) !=
-              0) {
+      if (looks_like_control_boundary(decoded_record, lower_record, cursor)) {
         value_end = std::min(value_end, cursor);
         break;
       }
@@ -560,9 +727,11 @@ std::vector<BooLogicalControl> extract_logical_controls(
       }
     }
 
+    auto value =
+        trim_ascii(decoded_record.substr(value_begin, value_end - value_begin));
     controls.push_back({key.canonical,
-                        trim_ascii(decoded_record.substr(
-                            value_begin, value_end - value_begin))});
+                        normalize_logical_control_value(key.canonical,
+                                                        value)});
   }
   return controls;
 }
@@ -618,7 +787,7 @@ std::vector<BooLogicalControl> decode_experimental_logical_controls(
       }
 
       const auto payload_end = length_offset + *record_length;
-      TokenWords decoded_words;
+      std::vector<TokenWords> record_tokens;
       for (auto cursor = length_offset; cursor < payload_end;) {
         const auto first = bytes[cursor++];
         if (first >= directory.token_threshold && cursor < payload_end) {
@@ -628,21 +797,18 @@ std::vector<BooLogicalControl> decode_experimental_logical_controls(
                                                               token_strings,
                                                               first,
                                                               second);
-          decoded_words.insert(decoded_words.end(),
-                               token_words.begin(),
-                               token_words.end());
+          record_tokens.push_back(token_words);
         } else {
           const auto token_words = resolve_experimental_token(bytes,
                                                               directory,
                                                               token_strings,
                                                               first,
                                                               std::nullopt);
-          decoded_words.insert(decoded_words.end(),
-                               token_words.begin(),
-                               token_words.end());
+          record_tokens.push_back(token_words);
         }
       }
 
+      const auto decoded_words = assemble_logical_record(record_tokens);
       const auto decoded = token_words_to_ascii(decoded_words);
       auto record_controls = extract_logical_controls(decoded);
       const auto has_docnum =

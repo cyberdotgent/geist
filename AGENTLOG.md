@@ -175,3 +175,12 @@
   BOO translation-table output decoding. Updated `Format/logical-controls.md`,
   `Format/encoding.md`, and `Format/README.md` with the corrected independent
   reader pipeline and BookServer comparison evidence.
+- Updated the `libgeist` experimental logical-control decoder to assemble
+  logical records from resolved token records using the reader-observed
+  spacing/suppression control words and initial control-key uppercasing path.
+  Tightened control-value boundary detection, normalized decoded metadata
+  display values for the bundled code-page-500 fixtures, and verified
+  `booinfo` against both bundled BOO files plus the hosted BookServer titles
+  for `QS3X36CM` and `OFCUSEOV`. Validated with `cmake --build build`,
+  `build\Debug\booinfo.exe BOO\QS3X36CM.BOO`, and
+  `build\Debug\booinfo.exe BOO\OFCUSEOV.BOO`.
