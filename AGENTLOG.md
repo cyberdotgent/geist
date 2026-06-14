@@ -309,3 +309,17 @@
   descriptor groups where groups 1 and 2 are
   `id[8] + length_be32[4] + offset_be32[4]`. Updated `Format/assets.md` and
   `Format/README.md`.
+- Implemented experimental asset support in `libgeist`. Added resource layout
+  metadata and raw resource byte reading to the public C++ API, populated
+  `BooDocument::resources()` from the documented version 1.2, 1.3, and 1.4
+  page-0 descriptor tables, and replaced the `boorsrc` placeholder with
+  `--list`/`-l` and `--extract`/`-e` modes. During random fixture validation,
+  `SC26-4221-08.boo` showed that the previously documented version 1.4 group
+  ordering was reversed for real converted-object fixtures: group 1 is object
+  data and group 2 is description data. Updated `Format/assets.md` with the
+  corrected group ordering and fixture byte evidence. Validated with
+  `cmake --build build`, `boorsrc --list BOO\GG24-4302-00.boo`,
+  `boorsrc --list BOO\SC26-4221-08.boo`, extraction of asset `1` from both
+  legacy and converted fixtures into `build\`, and a five-file random
+  `boorsrc --list` sample covering `SC26-3089-00.boo`, `SC24-5455-01.boo`,
+  `SC24-5680-00.boo`, `SC26-3119-02.boo`, and `SC24-5519-01.boo`.

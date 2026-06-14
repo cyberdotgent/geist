@@ -251,11 +251,11 @@ page-0 header area:
 | Group | Start offset | BookServer use |
 | ---: | ---: | --- |
 | `0` | `0x0118 + (0 * 16 * object_count)` | Low-resolution or placeholder object descriptors. The loaded BookServer direct lookup does not use this group. |
-| `1` | `0x0118 + (1 * 16 * object_count)` | Object-description descriptors. |
-| `2` | `0x0118 + (2 * 16 * object_count)` | Object-data descriptors. |
+| `1` | `0x0118 + (1 * 16 * object_count)` | Object-data descriptors. |
+| `2` | `0x0118 + (2 * 16 * object_count)` | Object-description descriptors. |
 
-For groups 1 and 2, `BookServerFindConvertedObjectDescriptors` copies matching
-16-byte entries to the caller, and `BookServerServePictureObject` decodes them
+For groups 1 and 2, the reader copies matching 16-byte entries to the caller,
+and `BookServerServePictureObject` decodes them
 with this layout:
 
 | Field | Size | Encoding | Meaning |
@@ -268,7 +268,7 @@ This is not the legacy `kind[1] + length[3] + offset[4]` tail. The version 1.4
 groups used by BookServer store full 32-bit lengths and have no one-byte legacy
 payload-kind field.
 
-The group-1 description payload is stored as two-byte characters, normally
+The group-2 description payload is stored as two-byte characters, normally
 `00 xx` pairs for ASCII text. `BookServerReadConvertedObjectDescription` reads
 the byte range, detects a leading zero byte, collapses each pair to the second
 byte, and NUL-terminates the resulting string. The CGI renderer then lowercases
@@ -279,10 +279,18 @@ type="image/gif"
 type='image/jpeg'
 ```
 
-It also consumes width and height attributes when present. The group-2 object
+It also consumes width and height attributes when present. The group-1 object
 payload is the raw converted web object byte range. `BookServerExtractConvertedObjectDataToFile`
 copies this range into the BookServer picture cache using the extension inferred
 from the description `type` attribute.
+
+Fixture `SC26-4221-08.boo` verifies the group ordering against actual bytes:
+
+| Offset | Bytes | Decoded meaning |
+| ---: | --- | --- |
+| `0x0118` | `f1 40 40 40 40 40 40 40 c9 00 00 a5 00 00 03 58` | Group 0 legacy/placeholder descriptor for id `1`. |
+| `0x01d8` | `f1 40 40 40 40 40 40 40 00 00 03 8b 00 00 0a d8` | Group 1 object-data descriptor for id `1`: length `0x0000038b`, offset `0x00000ad8`. The payload at `0x0ad8` starts with `GIF87a`. |
+| `0x0298` | `f1 40 40 40 40 40 40 40 00 00 00 4a 00 00 35 44` | Group 2 description descriptor for id `1`: length `0x0000004a`, offset `0x00003544`. The payload at `0x3544` is `00 74 00 79 00 70 00 65...`, decoding to `type="image/gif"width="14"height="26"`. |
 
 The Transmogrifier does not just change image bytes in place. It builds a new
 version 1.4 BOO file in a temporary stream, then patches the header tables with
@@ -359,6 +367,19 @@ verified layout as follows:
    BOO directory.
 6. Export exactly the byte range `[offset, offset + length)` for each image.
    Do not convert the bytes to GIF/BMP/JPEG during extraction.
+
+For version 1.4 converted objects:
+
+1. Read the same page-0 object count at `0x0004..0x0007`.
+2. Require directory-page bytes `+9..+10` to be `01 00`.
+3. Read group 1 entries as raw object-data descriptors and group 2 entries as
+   description descriptors.
+4. Decode group 2 description payloads from `00 xx` two-byte characters when a
+   leading zero byte is present, then read MIME and dimension attributes from
+   the resulting ASCII string.
+5. Export the group 1 byte range exactly as stored. Converted GIF/JPEG/PNG/TIFF
+   objects may already be standard web image files; legacy objects still remain
+   legacy payloads and must not be converted by container extraction.
 
 ## Open Questions
 

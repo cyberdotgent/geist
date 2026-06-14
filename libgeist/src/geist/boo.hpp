@@ -22,6 +22,13 @@ enum class BooPageRole {
   unknown,
 };
 
+enum class ResourceLayout {
+  legacy_v12,
+  legacy_v13,
+  converted_v14,
+  unknown,
+};
+
 struct BooPage0Header {
   std::uint16_t directory_page_number = 0;
   std::uint16_t unknown_0002 = 0;
@@ -103,8 +110,13 @@ struct ResourceEntry {
   std::string id;
   std::string name;
   std::string stored_format;
+  std::string kind;
+  std::string description;
   std::uint64_t offset = 0;
   std::uint64_t size = 0;
+  std::uint64_t description_offset = 0;
+  std::uint64_t description_size = 0;
+  ResourceLayout layout = ResourceLayout::unknown;
 };
 
 class BooDocument {
@@ -127,6 +139,8 @@ public:
   // Returns an exact 4096-byte physical page payload.
   GEIST_API std::vector<std::uint8_t> read_page(std::uint32_t page_number)
       const;
+  GEIST_API std::vector<std::uint8_t> read_resource_data(
+      const std::string& resource_id) const;
   GEIST_API std::string render_chapter_markdown(
       const std::string& chapter_id) const;
 
@@ -144,5 +158,6 @@ private:
 
 GEIST_API std::string bytes_to_hex(const std::vector<std::uint8_t>& bytes);
 GEIST_API const char* to_string(BooPageRole role) noexcept;
+GEIST_API const char* to_string(ResourceLayout layout) noexcept;
 
 } // namespace geist
