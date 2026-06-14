@@ -122,6 +122,11 @@ For current validation:
 ## Documentation Style
 
 - Keep documentation factual and evidence-driven.
+- Write `Format/` documentation to be complete enough for an independent
+  implementer to build a BOO reader from scratch without reading `libgeist`
+  source code or consulting the proprietary IBM reader binaries. Include field
+  sizes, byte order, offsets, valid/observed values, parsing steps, cross-file
+  relationships, and unresolved gaps whenever known.
 - Distinguish verified format facts from hypotheses.
 - Favor concise tables for field layouts and byte structures once a stable
   interpretation emerges.

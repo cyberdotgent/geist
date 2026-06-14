@@ -53,3 +53,6 @@
 - Split compression and encoding documentation into separate `Format/`
   topic files: `compression.md` now covers compression-specific questions and
   `encoding.md` covers character encoding, tokenization, and control bytes.
+- Added a persistent `AGENTS.md` documentation instruction requiring `Format/`
+  notes to be complete enough for independent BOO reader implementations
+  without consulting `libgeist` source or proprietary IBM reader binaries.
