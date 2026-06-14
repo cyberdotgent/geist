@@ -259,3 +259,12 @@
   `Format/table-of-contents.md`, then validated with `cmake --build build` and
   `bootoc` on the four failure fixtures plus `QS3X36CM.BOO`, `OFCUSEOV.BOO`,
   and `SC23-0083-03.boo`.
+- Investigated `bootoc` garbage at the end of `GG24-4302-00.boo`. The parser
+  was scanning all decoded records for `CTOCE`, then still treated a trailing
+  non-entry sequence after the TOC's `ETOC` marker as a real entry
+  (`CTOCE 0 0 005E0000 ...`). Updated TOC extraction to parse only the
+  `CONTENTS` topic scope, stop/trim at `ETOC`, and ignore style-0 `CTOCE`
+  candidates. Updated `Format/table-of-contents.md`, added
+  `GG24-4302-00.boo` as the regression fixture, and validated with
+  `cmake --build build`, `bootoc BOO\GG24-4302-00.boo`, and the existing BOO
+  fixture set used by recent parser checks.

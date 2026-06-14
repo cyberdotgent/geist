@@ -118,7 +118,10 @@ Examples:
 
 The actual table-of-contents entries are stored as `CTOCE` controls inside the
 `CONTENTS` topic. The `CONTENTS` topic begins with `CTOCDEF` controls followed
-by one `CTOCE` per displayed TOC entry.
+by one `CTOCE` per displayed TOC entry. Some books then include an end marker
+decoded by the current experimental text path as `ETOC`, sometimes preceded by
+layout/control text such as `CZ OFF`. An independent reader should stop TOC
+entry parsing at this marker.
 
 Observed `CTOCDEF` controls are identical in both bundled fixtures:
 
@@ -143,6 +146,12 @@ second number selects one of the `CTOCDEF` presentation styles. In the hosted
 BookServer output, entries using styles `1` and `2` are rendered as strong
 topic headings, while deeper style `3` entries such as `PREFACE.5.1` are
 rendered as indented non-strong links.
+
+Although `CTOCDEF=0 ...` exists as a style definition, verified displayed
+entries use nonzero style numbers. `GG24-4302-00.boo` contains trailing
+non-TOC payload after the `ETOC` marker that includes a false
+`CTOCE 0 0 005E0000 ...`-looking sequence; this must not be emitted as a TOC
+entry.
 
 Examples from `QS3X36CM.BOO` page 7 record 4:
 

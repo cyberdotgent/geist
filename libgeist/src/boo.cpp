@@ -837,6 +837,21 @@ bool looks_like_toc_entry_boundary(const std::string& lower_record,
   return false;
 }
 
+std::size_t find_toc_end_marker(const std::string& lower_record,
+                                std::size_t offset,
+                                std::size_t limit) {
+  std::size_t end_marker = std::string::npos;
+  const auto cz_off_etoc = lower_record.find("cz off etoc", offset);
+  if (cz_off_etoc != std::string::npos && cz_off_etoc < limit) {
+    end_marker = std::min(end_marker, cz_off_etoc);
+  }
+  const auto etoc = lower_record.find("etoc", offset);
+  if (etoc != std::string::npos && etoc < limit) {
+    end_marker = std::min(end_marker, etoc);
+  }
+  return end_marker;
+}
+
 std::vector<TocEntry> extract_toc_entries(const std::string& decoded_record) {
   std::vector<TocEntry> entries;
   const auto lower_record = ascii_lower(decoded_record);
@@ -847,13 +862,24 @@ std::vector<TocEntry> extract_toc_entries(const std::string& decoded_record) {
     if (found == std::string::npos) {
       break;
     }
+    const auto record_toc_end =
+        find_toc_end_marker(lower_record, search_offset, found + 1);
+    if (record_toc_end != std::string::npos && record_toc_end < found) {
+      break;
+    }
 
     const auto marker_size = std::string("ctoce ").size();
     auto value_begin = found + marker_size;
     auto value_end = decoded_record.size();
     const auto next_entry = lower_record.find("ctoce ", value_begin);
+    const auto toc_end =
+        find_toc_end_marker(lower_record, value_begin, value_end);
+    if (toc_end != std::string::npos &&
+        (next_entry == std::string::npos || toc_end < next_entry)) {
+      value_end = toc_end;
+    }
     if (next_entry != std::string::npos) {
-      value_end = next_entry;
+      value_end = std::min(value_end, next_entry);
     }
     for (auto cursor = value_begin; cursor < value_end; ++cursor) {
       if (looks_like_toc_entry_boundary(lower_record, cursor)) {
@@ -869,6 +895,10 @@ std::vector<TocEntry> extract_toc_entries(const std::string& decoded_record) {
     std::uint32_t style = 0;
     std::string id;
     if (input >> level >> style >> id) {
+      if (style == 0) {
+        search_offset = found + marker_size;
+        continue;
+      }
       std::string title;
       std::getline(input, title);
       title = normalize_toc_title(trim_ascii(title));
@@ -882,6 +912,19 @@ std::vector<TocEntry> extract_toc_entries(const std::string& decoded_record) {
   }
 
   return entries;
+}
+
+bool is_contents_topic_record(const std::string& decoded_record) {
+  const auto lower_record = ascii_lower(decoded_record);
+  return lower_record.find("shcontents") != std::string::npos ||
+         lower_record.find("chdlevel :toc") != std::string::npos ||
+         lower_record.find("ctocdef=") != std::string::npos;
+}
+
+bool is_topic_header_record(const std::string& decoded_record) {
+  const auto lower_record = ascii_lower(trim_ascii(decoded_record));
+  return lower_record.rfind("sh", 0) == 0 &&
+         lower_record.find("ctopicn") != std::string::npos;
 }
 
 std::vector<std::string> decode_experimental_logical_records(
@@ -990,8 +1033,21 @@ std::vector<BooLogicalControl> extract_book_logical_controls(
 std::vector<TocEntry> build_table_of_contents(
     const std::vector<std::string>& decoded_records) {
   std::vector<TocEntry> toc;
+  bool in_contents_topic = false;
   for (const auto& decoded : decoded_records) {
+    if (!in_contents_topic) {
+      if (!is_contents_topic_record(decoded)) {
+        continue;
+      }
+      in_contents_topic = true;
+    } else if (is_topic_header_record(decoded)) {
+      break;
+    }
+
     auto entries = extract_toc_entries(decoded);
+    if (entries.empty()) {
+      continue;
+    }
     toc.insert(toc.end(), entries.begin(), entries.end());
   }
   return toc;
