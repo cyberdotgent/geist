@@ -106,6 +106,16 @@ struct TocEntry {
   std::uint32_t style = 0;
 };
 
+struct BooTopic {
+  std::string id;
+  std::string title;
+  std::string heading_level;
+  std::uint32_t topic_number = 0;
+  std::uint32_t start_logical_record = 0;
+  std::uint32_t end_logical_record = 0;
+  std::vector<std::string> raw_records;
+};
+
 struct ResourceEntry {
   std::string id;
   std::string name;
@@ -134,15 +144,18 @@ public:
   GEIST_API const std::vector<BooLogicalControl>& logical_controls()
       const noexcept;
   GEIST_API const std::vector<TocEntry>& table_of_contents() const noexcept;
+  GEIST_API const std::vector<BooTopic>& topics() const noexcept;
   GEIST_API const std::vector<ResourceEntry>& resources() const noexcept;
+  GEIST_API const BooTopic* find_topic(const std::string& topic_id)
+      const noexcept;
 
   // Returns an exact 4096-byte physical page payload.
   GEIST_API std::vector<std::uint8_t> read_page(std::uint32_t page_number)
       const;
   GEIST_API std::vector<std::uint8_t> read_resource_data(
       const std::string& resource_id) const;
-  GEIST_API std::string render_chapter_markdown(
-      const std::string& chapter_id) const;
+  GEIST_API std::string read_topic_raw_markup(
+      const std::string& topic_id) const;
 
 private:
   BooMetadata metadata_;
@@ -152,6 +165,7 @@ private:
   std::vector<BooPageRun> page_runs_;
   std::vector<BooLogicalControl> logical_controls_;
   std::vector<TocEntry> toc_;
+  std::vector<BooTopic> topics_;
   std::vector<ResourceEntry> resources_;
   std::vector<std::uint8_t> bytes_;
 };

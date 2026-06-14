@@ -8,6 +8,7 @@
 #include <optional>
 #include <sstream>
 #include <stdexcept>
+#include <utility>
 
 namespace geist {
 namespace {
@@ -688,6 +689,75 @@ std::string normalize_toc_id(std::string value) {
   return value;
 }
 
+std::size_t skip_decoded_separators(const std::string& value) {
+  std::size_t cursor = 0;
+  while (cursor < value.size()) {
+    const auto ch = static_cast<unsigned char>(value[cursor]);
+    if (std::isspace(ch) != 0 || ch < 0x20 || value[cursor] == '?' ||
+        value[cursor] == ',') {
+      ++cursor;
+      continue;
+    }
+    break;
+  }
+  return cursor;
+}
+
+bool is_topic_id_char(char ch) {
+  const auto byte = static_cast<unsigned char>(ch);
+  return std::isalnum(byte) != 0 || ch == '.' || ch == '_' || ch == '-';
+}
+
+std::string extract_topic_header_id(const std::string& decoded_record) {
+  auto record = trim_ascii(decoded_record);
+  const auto start = skip_decoded_separators(record);
+  if (start + 3 > record.size() ||
+      std::tolower(static_cast<unsigned char>(record[start])) != 's' ||
+      std::tolower(static_cast<unsigned char>(record[start + 1])) != 'h') {
+    return {};
+  }
+
+  std::size_t cursor = start + 2;
+  while (cursor < record.size() && is_topic_id_char(record[cursor])) {
+    ++cursor;
+  }
+
+  return normalize_toc_id(record.substr(start + 2, cursor - (start + 2)));
+}
+
+std::string extract_control_value_until_boundary(const std::string& record,
+                                                 const std::string& marker) {
+  const auto lower_record = ascii_lower(record);
+  const auto lower_marker = ascii_lower(marker);
+  const auto found = lower_record.find(lower_marker);
+  if (found == std::string::npos) {
+    return {};
+  }
+
+  const auto value_begin = found + marker.size();
+  auto value_end = record.size();
+  static const std::array<const char*, 8> boundaries = {
+      "?c", ", c", "?s", ", s", "?e", ", e", "?cz", ", cz"};
+  for (const auto* boundary : boundaries) {
+    const auto next = lower_record.find(boundary, value_begin);
+    if (next != std::string::npos) {
+      value_end = std::min(value_end, next);
+    }
+  }
+  return trim_ascii(record.substr(value_begin, value_end - value_begin));
+}
+
+std::uint32_t extract_uint_control_value(const std::string& record,
+                                         const std::string& marker) {
+  const auto value = extract_control_value_until_boundary(record, marker);
+  std::istringstream input(value);
+  std::uint32_t number = 0;
+  if (input >> number) {
+    return number;
+  }
+  return 0;
+}
+
 bool looks_like_control_boundary(const std::string& decoded_record,
                                  const std::string& lower_record,
                                  std::size_t offset) {
@@ -1188,7 +1258,8 @@ bool is_contents_topic_record(const std::string& decoded_record) {
 }
 
 bool is_topic_header_record(const std::string& decoded_record) {
-  const auto lower_record = ascii_lower(trim_ascii(decoded_record));
+  auto lower_record = ascii_lower(trim_ascii(decoded_record));
+  lower_record.erase(0, skip_decoded_separators(lower_record));
   return lower_record.rfind("sh", 0) == 0 &&
          lower_record.find("ctopicn") != std::string::npos;
 }
@@ -1317,6 +1388,56 @@ std::vector<TocEntry> build_table_of_contents(
     toc.insert(toc.end(), entries.begin(), entries.end());
   }
   return toc;
+}
+
+std::vector<BooTopic> build_topics(
+    const std::vector<std::string>& decoded_records) {
+  std::vector<BooTopic> topics;
+
+  std::vector<std::size_t> header_indexes;
+  for (std::size_t index = 0; index < decoded_records.size(); ++index) {
+    if (is_topic_header_record(decoded_records[index]) &&
+        !extract_topic_header_id(decoded_records[index]).empty()) {
+      header_indexes.push_back(index);
+    }
+  }
+  if (header_indexes.empty()) {
+    return topics;
+  }
+
+  topics.reserve(header_indexes.size());
+  for (std::size_t index = 0; index < header_indexes.size(); ++index) {
+    const auto record_begin = header_indexes[index];
+    const auto record_end =
+        (index + 1 < header_indexes.size())
+            ? header_indexes[index + 1]
+            : decoded_records.size();
+    if (record_begin >= record_end) {
+      continue;
+    }
+
+    BooTopic topic;
+    const auto& header = decoded_records[record_begin];
+    topic.topic_number = extract_uint_control_value(header, "ctopicn ");
+    topic.start_logical_record =
+        static_cast<std::uint32_t>(record_begin + 1);
+    topic.end_logical_record = static_cast<std::uint32_t>(record_end + 1);
+    topic.raw_records.assign(decoded_records.begin() +
+                                 static_cast<std::ptrdiff_t>(record_begin),
+                             decoded_records.begin() +
+                                 static_cast<std::ptrdiff_t>(record_end));
+
+    topic.id = extract_topic_header_id(header);
+    topic.heading_level =
+        extract_control_value_until_boundary(header, "chdlevel ");
+    topic.title =
+        normalize_toc_title(extract_control_value_until_boundary(header,
+                                                                 "st "));
+    if (!topic.id.empty()) {
+      topics.push_back(std::move(topic));
+    }
+  }
+  return topics;
 }
 
 BooBookProperties build_book_properties(
@@ -1494,6 +1615,7 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
   document.book_properties_ =
       build_book_properties(document.logical_controls_);
   document.toc_ = build_table_of_contents(decoded_records);
+  document.topics_ = build_topics(decoded_records);
   document.resources_ = build_resources(document.bytes_, document.directory_);
   return document;
 }
@@ -1527,8 +1649,27 @@ const std::vector<TocEntry>& BooDocument::table_of_contents() const noexcept {
   return toc_;
 }
 
+const std::vector<BooTopic>& BooDocument::topics() const noexcept {
+  return topics_;
+}
+
 const std::vector<ResourceEntry>& BooDocument::resources() const noexcept {
   return resources_;
+}
+
+const BooTopic* BooDocument::find_topic(const std::string& topic_id)
+    const noexcept {
+  const auto normalized_id = normalize_toc_id(topic_id);
+  const auto found = std::find_if(topics_.begin(), topics_.end(),
+                                  [&](const BooTopic& topic) {
+                                    return topic.id == normalized_id ||
+                                           ascii_equals_case_insensitive(
+                                               topic.id, topic_id);
+                                  });
+  if (found == topics_.end()) {
+    return nullptr;
+  }
+  return &*found;
 }
 
 std::vector<std::uint8_t> BooDocument::read_page(
@@ -1562,11 +1703,17 @@ std::vector<std::uint8_t> BooDocument::read_resource_data(
   return {begin, begin + static_cast<std::ptrdiff_t>(found->size)};
 }
 
-std::string BooDocument::render_chapter_markdown(
-    const std::string& chapter_id) const {
+std::string BooDocument::read_topic_raw_markup(
+    const std::string& topic_id) const {
+  const auto* topic = find_topic(topic_id);
+  if (topic == nullptr) {
+    throw std::out_of_range("BOO topic id was not found: " + topic_id);
+  }
+
   std::ostringstream output;
-  output << "# " << (chapter_id.empty() ? "BOO chapter" : chapter_id) << "\n\n";
-  output << "_Chapter rendering is not implemented yet._\n";
+  for (const auto& record : topic->raw_records) {
+    output << record << '\n';
+  }
   return output.str();
 }
 

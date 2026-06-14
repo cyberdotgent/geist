@@ -1,5 +1,22 @@
 # Agent Log
 
+## 2026-06-14 - Implement topic lookup and raw boorender output
+
+- Added topic decoding/fetching support to `libgeist`: `BooTopic` objects now
+  expose topic id, title, heading level, logical record bounds, and raw decoded
+  records; `BooDocument::topics()`, `find_topic()`, and
+  `read_topic_raw_markup()` expose topic access without performing document
+  rendering.
+- Replaced the placeholder chapter-rendering API with topic raw-markup access,
+  keeping Markdown or other rendering policy outside the library.
+- Updated `boorender` to accept `boorender <book.boo> <topic-id> --raw` for
+  raw decoded markup output and `--md` for the explicit
+  `Markdown support is not yet implemented` placeholder.
+- Validated with the MSVC CMake build in `build/`, `boorender --raw CONTENTS`
+  on five random tracked BOO fixtures, `boorender --raw 1.0` on
+  `QS3X36CM.BOO`, `boorender --md`, and missing-topic error handling.
+- Commit: pending.
+
 ## 2026-06-14 - Document topic/page storage and decoded markup controls
 
 - Investigated how individual documentation pages are addressed using the
