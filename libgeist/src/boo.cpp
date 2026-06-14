@@ -4,8 +4,10 @@
 #include <cctype>
 #include <fstream>
 #include <iomanip>
+#include <iterator>
 #include <map>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <utility>
@@ -1043,14 +1045,14 @@ std::string render_anchor_gml(std::string value) {
   return output;
 }
 
-std::string render_gml_segment(std::string segment) {
+std::string render_gml_segment(std::string segment, bool allow_topic_header) {
   segment = trim_ascii(std::move(segment));
   while (!segment.empty() && segment.front() == ',') {
     segment.erase(segment.begin());
     segment = trim_ascii(std::move(segment));
   }
   const auto lower = ascii_lower(segment);
-  if (ascii_starts_with_case_insensitive(lower, "sh")) {
+  if (allow_topic_header && ascii_starts_with_case_insensitive(lower, "sh")) {
     return render_keyed_gml_control("topic", "id",
                                     extract_topic_header_id(segment));
   }
@@ -1153,9 +1155,14 @@ std::string render_gml_segment(std::string segment) {
 std::vector<std::string> render_gml_records(
     const std::vector<std::string>& decoded_records) {
   std::vector<std::string> rendered;
-  for (const auto& record : decoded_records) {
-    for (auto& segment : split_decoded_markup_segments(record)) {
-      auto line = render_gml_segment(std::move(segment));
+  for (std::size_t record_index = 0; record_index < decoded_records.size();
+       ++record_index) {
+    auto segments = split_decoded_markup_segments(decoded_records[record_index]);
+    for (std::size_t segment_index = 0; segment_index < segments.size();
+         ++segment_index) {
+      const auto allow_topic_header = record_index == 0 && segment_index == 0;
+      auto line = render_gml_segment(std::move(segments[segment_index]),
+                                     allow_topic_header);
       if (!line.empty() && line != ":p.") {
         rendered.push_back(std::move(line));
       }
@@ -1825,6 +1832,18 @@ std::vector<TocEntry> build_table_of_contents(
   return toc;
 }
 
+std::vector<std::string> build_raw_gml_records(
+    const std::vector<TopicData>& topics) {
+  std::vector<std::string> records;
+  for (const auto& topic : topics) {
+    auto topic_records = render_gml_records(topic.raw_records);
+    records.insert(records.end(),
+                   std::make_move_iterator(topic_records.begin()),
+                   std::make_move_iterator(topic_records.end()));
+  }
+  return records;
+}
+
 std::vector<TopicData> build_topics(
     const std::vector<std::string>& decoded_records) {
   std::vector<TopicData> topics;
@@ -1841,6 +1860,7 @@ std::vector<TopicData> build_topics(
   }
 
   topics.reserve(header_indexes.size());
+  std::set<std::string> seen_topic_ids;
   for (std::size_t index = 0; index < header_indexes.size(); ++index) {
     const auto record_begin = header_indexes[index];
     const auto record_end =
@@ -1868,7 +1888,7 @@ std::vector<TopicData> build_topics(
     topic.title =
         normalize_toc_title(extract_control_value_until_boundary(header,
                                                                  "st "));
-    if (!topic.id.empty()) {
+    if (!topic.id.empty() && seen_topic_ids.insert(topic.id).second) {
       topics.push_back(std::move(topic));
     }
   }
@@ -2051,6 +2071,7 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
       build_book_properties(document.logical_controls_);
   const auto topics = build_topics(decoded_records);
   document.toc_ = build_table_of_contents(decoded_records, topics);
+  document.raw_gml_records_ = build_raw_gml_records(topics);
   document.resources_ = build_resources(document.bytes_, document.directory_);
   return document;
 }
@@ -2082,6 +2103,10 @@ const std::vector<BooLogicalControl>& BooDocument::logical_controls()
 
 const std::vector<TocEntry>& BooDocument::table_of_contents() const noexcept {
   return toc_;
+}
+
+const std::vector<std::string>& BooDocument::raw_gml_records() const noexcept {
+  return raw_gml_records_;
 }
 
 const std::vector<ResourceEntry>& BooDocument::resources() const noexcept {

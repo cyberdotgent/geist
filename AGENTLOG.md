@@ -1,5 +1,26 @@
 # Agent Log
 
+## 2026-06-14 - Expose whole-book raw GML records
+
+- Added `BooDocument::raw_gml_records()` to expose a document-level GML-style
+  raw stream for the entire decoded BOO, including cover, edition, contents,
+  chapters, appendices, and other decoded topics.
+- Populated the document-level stream from the full decoded topic list rather
+  than the displayed TOC list, while preserving `TocEntry::raw_records` for
+  topic-specific access.
+- Added `boorender <book.boo> --all --raw` to exercise the whole-book API
+  surface; topic-specific `boorender <book.boo> <topic-id> --raw` still uses
+  the matching `TocEntry`.
+- Deduplicated decoded topic ids before exposing topics as raw GML, avoiding
+  duplicate topic output from overlapping decoder candidate pages, and tightened
+  `SH<id>` projection so body text that begins with `sh` is not emitted as a
+  false `:topic` tag.
+- Validated with `cmake --build build`, whole-book raw checks for
+  `QS3X36CM.BOO` covering `COVER`, `EDITION`, `CONTENTS`, and `2.0`, five
+  random tracked BOO fixtures through `boorender --all --raw`, topic-specific
+  raw output, `boorender --md`, and missing-topic error handling.
+- Commit: pending.
+
 ## 2026-06-14 - Add generic SR anchor markup support
 
 - Fixed the generic `SR<id>` markup gap exposed by `QS3X36CM.BOO` topic `2.0`

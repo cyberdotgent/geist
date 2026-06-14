@@ -140,6 +140,7 @@ public:
   GEIST_API const std::vector<BooLogicalControl>& logical_controls()
       const noexcept;
   GEIST_API const std::vector<TocEntry>& table_of_contents() const noexcept;
+  GEIST_API const std::vector<std::string>& raw_gml_records() const noexcept;
   GEIST_API const std::vector<ResourceEntry>& resources() const noexcept;
   GEIST_API const TocEntry* find_toc_entry(const std::string& topic_id)
       const noexcept;
@@ -158,6 +159,7 @@ private:
   std::vector<BooPageRun> page_runs_;
   std::vector<BooLogicalControl> logical_controls_;
   std::vector<TocEntry> toc_;
+  std::vector<std::string> raw_gml_records_;
   std::vector<ResourceEntry> resources_;
   std::vector<std::uint8_t> bytes_;
 };
