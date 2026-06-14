@@ -228,3 +228,10 @@
   BookServer pages via Docker fetch MCP and with `cmake --build build`,
   `build\Debug\bootoc.exe BOO\QS3X36CM.BOO`, and
   `build\Debug\bootoc.exe BOO\OFCUSEOV.BOO`.
+- Corrected the `bootoc` output after the BookServer-shape change proved too
+  literal for the CLI. Restored the previous indented topic list with style
+  numbers, kept only the requested metadata preamble (`Title`, document number,
+  build date, build version, and path), and reverted the extra TOC title-case
+  normalization. Validated with `cmake --build build`,
+  `build\Debug\bootoc.exe BOO\QS3X36CM.BOO`, and
+  `build\Debug\bootoc.exe BOO\OFCUSEOV.BOO`.

@@ -19,26 +19,6 @@ std::string trim_directory_version(std::string value) {
   return value;
 }
 
-std::string collapse_spaces(const std::string& value) {
-  std::string output;
-  output.reserve(value.size());
-  bool in_space = false;
-  for (const auto ch : value) {
-    if (std::isspace(static_cast<unsigned char>(ch)) != 0) {
-      if (!output.empty()) {
-        in_space = true;
-      }
-      continue;
-    }
-    if (in_space) {
-      output.push_back(' ');
-      in_space = false;
-    }
-    output.push_back(ch);
-  }
-  return output;
-}
-
 } // namespace
 
 int main(int argc, char** argv) {
@@ -66,21 +46,17 @@ int main(int argc, char** argv) {
       return 0;
     }
 
-    std::cout << "CONTENTS \"" << title
-              << "\" via IBM BookManager BookServer\n\n";
     std::cout << "Title: " << title
-              << " Document Number: " << book.document_number
-              << " Build Date: " << directory.date << ' ' << directory.time
-              << " Build Version: " << build_version
-              << " Book Path: " << metadata.path.string() << "\n\n";
-    std::cout << "# CONTENTS Table of Contents\n\n";
-    std::cout << "```\n[Summarize]";
+              << "\nDocument number: " << book.document_number
+              << "\nBuild date: " << directory.date << ' ' << directory.time
+              << "\nBuild version: " << build_version
+              << "\nPath: " << metadata.path.string() << "\n\n";
     for (const auto& entry : toc) {
-      std::cout << ' ' << entry.id << ' ' << collapse_spaces(entry.title);
-    }
-    std::cout << "\n```\n";
-    if (!book.copyright.empty()) {
-      std::cout << "\n" << book.copyright << "\n";
+      for (std::uint32_t level = 0; level < entry.level; ++level) {
+        std::cout << "  ";
+      }
+      std::cout << entry.id << '\t' << entry.title << "\tstyle "
+                << entry.style << "\n";
     }
   } catch (const std::exception& error) {
     std::cerr << "bootoc: " << error.what() << "\n";
