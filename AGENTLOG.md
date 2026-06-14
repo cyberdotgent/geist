@@ -276,3 +276,7 @@
   page-0 resource descriptor layout, absolute image payload offsets, ImageMark
   payload prefix evidence, and extraction rules in `Format/assets.md`; updated
   `Format/README.md`.
+- Added the newly provided `Official Readers/Transmogrifier/` reader assets to
+  version control and checked the connected IDA Pro instances. Confirmed live
+  reachable IDA instances for `transmog.exe` on port `13339` and
+  `ISGDI32.DLL` on port `13340`, both rooted in the Transmogrifier folder.
