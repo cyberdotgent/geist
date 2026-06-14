@@ -248,3 +248,14 @@
   BOO files remain untracked. Added the four failing fixtures from the previous
   random `bootoc` run: `GX27-3999-00.boo`, `SC09-2417-00.boo`,
   `SC28-1881-05.boo`, and `SC24-5527-02.boo`.
+- Analyzed why the four committed failure fixtures did not parse. The connected
+  `ephwam.dll` IDB shows `BooReadPhysicalPageIntoBuffer` seeks to
+  `((directory_page + logical_page) << 12) - 4096`, so directory page fields are
+  1-based logical pages relative to the directory page. The failing fixtures
+  have shifted directory pages (`6`, `43`, `35`, and `15`), making the prior
+  `last_page + 1 == file_page_count` assumption wrong. Updated `libgeist` to
+  convert logical directory/content/dictionary pages to physical file pages,
+  updated `Format/boo-header.md`, `Format/pages.md`, and
+  `Format/table-of-contents.md`, then validated with `cmake --build build` and
+  `bootoc` on the four failure fixtures plus `QS3X36CM.BOO`, `OFCUSEOV.BOO`,
+  and `SC23-0083-03.boo`.

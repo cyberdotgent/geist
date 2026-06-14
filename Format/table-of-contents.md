@@ -39,7 +39,7 @@ The directory page contains two indexes that make topic lookup efficient:
 | `0x0034` word | `0x0e82` | `0x0ed2` | Offset in the directory page of the content-page logical-record index. |
 | `0x0036` word | `0x00f1` | `0x03f5` | Total logical-record count used by `Scm_Szbook` and topic bounds. |
 | `0x0038` word | `0x0014` | `0x004d` | Content page count. |
-| `0x003a` word | `0x0007` | `0x000a` | First content page. |
+| `0x003a` word | `0x0007` | `0x000a` | First content logical page; convert to a physical page with the directory-page base described in [pages.md](pages.md). |
 | `0x003c` word | `0x0068` | `0x0068` | Offset in the directory page of the topic-start index. |
 | `0x003e` word | `0x000a` | `0x00c9` | Topic count returned by `Scm_Szqrytpc`; matches decoded `CTOPICS`. |
 

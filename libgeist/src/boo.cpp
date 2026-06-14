@@ -480,6 +480,14 @@ std::optional<std::uint16_t> read_compact_length(
   return static_cast<std::uint16_t>(((first - 0xF0) << 8) + second);
 }
 
+std::uint32_t physical_page_for_logical(const BooDirectory& directory,
+                                        std::uint32_t logical_page) {
+  if (logical_page == 0) {
+    throw std::runtime_error("BOO logical page numbers are 1-based");
+  }
+  return directory.page_number + logical_page - 1;
+}
+
 TokenWords decode_dictionary_words(const std::vector<std::uint8_t>& bytes,
                                    std::size_t offset,
                                    std::size_t count) {
@@ -588,11 +596,21 @@ void decode_dictionary_delta_range(
 }
 
 std::map<std::uint16_t, TokenWords> decode_experimental_dictionary(
-    const std::vector<std::uint8_t>& bytes) {
+    const std::vector<std::uint8_t>& bytes,
+    const BooDirectory& directory) {
   std::map<std::uint16_t, TokenWords> token_strings;
   const auto page_count = bytes.size() / boo_page_size;
+  const auto dictionary_page_end =
+      directory.dictionary_start_page +
+      static_cast<std::uint32_t>(directory.dictionary_page_count);
 
-  for (std::size_t page = 0; page < page_count; ++page) {
+  for (std::uint32_t logical_page = directory.dictionary_start_page;
+       logical_page < dictionary_page_end;
+       ++logical_page) {
+    const auto page = physical_page_for_logical(directory, logical_page);
+    if (page >= page_count) {
+      continue;
+    }
     const auto page_base = page * boo_page_size;
     if (read_be16(bytes, page_base) != 0x0100) {
       continue;
@@ -870,7 +888,7 @@ std::vector<std::string> decode_experimental_logical_records(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory) {
   std::vector<std::string> records;
-  const auto token_strings = decode_experimental_dictionary(bytes);
+  const auto token_strings = decode_experimental_dictionary(bytes, directory);
   if (token_strings.empty()) {
     return records;
   }
@@ -879,10 +897,11 @@ std::vector<std::string> decode_experimental_logical_records(
   const auto content_page_end =
       directory.content_start_page +
       static_cast<std::uint32_t>(directory.content_page_count);
-  for (std::uint32_t page = directory.content_start_page;
-       page < content_page_end;
-       ++page) {
-    candidate_pages.push_back(page);
+  for (std::uint32_t logical_page = directory.content_start_page;
+       logical_page < content_page_end;
+       ++logical_page) {
+    candidate_pages.push_back(physical_page_for_logical(directory,
+                                                        logical_page));
   }
 
   const auto page_count = bytes.size() / boo_page_size;
@@ -1020,10 +1039,14 @@ BooPageRole classify_run(std::uint32_t start_page,
   if (start_page == directory.page_number) {
     return BooPageRole::directory;
   }
-  if (start_page == directory.dictionary_start_page && page_class == 0x0100) {
+  if (start_page == physical_page_for_logical(directory,
+                                              directory.dictionary_start_page) &&
+      page_class == 0x0100) {
     return BooPageRole::dictionary;
   }
-  if (start_page == directory.content_start_page && page_class == 0x0000) {
+  if (start_page == physical_page_for_logical(directory,
+                                              directory.content_start_page) &&
+      page_class == 0x0000) {
     return BooPageRole::content;
   }
   if (page_class == 0x0001) {
@@ -1134,10 +1157,12 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
   document.directory_.time =
       decode_cp037(document.bytes_, directory_base + 0x004E, 8);
 
-  if (static_cast<std::uint32_t>(document.directory_.last_page_number) + 1U !=
-      document.metadata_.page_count) {
-    throw std::runtime_error("BOO directory last-page field does not match file "
-                             "page count");
+  const auto last_physical_page =
+      physical_page_for_logical(document.directory_,
+                                document.directory_.last_page_number);
+  if (last_physical_page >= document.metadata_.page_count) {
+    throw std::runtime_error("BOO directory last-page field points outside the "
+                             "file");
   }
 
   document.page_runs_ = build_page_runs(document.bytes_, document.directory_);

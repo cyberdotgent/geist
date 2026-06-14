@@ -88,18 +88,18 @@ where only the storage role is verified.
 | Directory offset | Size | `QS3X36CM.BOO` | `OFCUSEOV.BOO` | Verified parser behavior |
 | ---: | ---: | ---: | ---: | --- |
 | `0x0010` | 4 | EBCDIC `" 1.2"` | EBCDIC `" 1.2"` | Format/version text checked by the reader. |
-| `0x0016` | 2 | `0x001e` / 30 | `0x0062` / 98 | Last physical page number; equals `page_count - 1`. |
+| `0x0016` | 2 | `0x001e` / 30 | `0x0062` / 98 | Last 1-based logical page number accepted by the reader. For books whose directory is at physical page 1 this equals `file_page_count - 1`; shifted-directory fixtures show it is relative to the directory page. |
 | `0x001a` | 2 | `0x089c` | `0x089c` | Scalar read by the parser; semantic unresolved. |
 | `0x0022` | 2 | `0x0c8c` | `0x0c8c` | In-page offset of the two-byte token map used for one-byte token IDs. |
 | `0x0024` | 2 | `0x00dc` | `0x00d5` | Token threshold; bytes below this value are one-byte token IDs in logical records. |
 | `0x0026` | 2 | `0x0e44` | `0x0e38` | In-page offset of the version-2 dictionary token-lookup root index. |
-| `0x0028` | 2 | `0x0002` / 2 | `0x0002` / 2 | Start page of the observed `0x0100` page run. |
+| `0x0028` | 2 | `0x0002` / 2 | `0x0002` / 2 | Start logical page of the observed `0x0100` page run. |
 | `0x002c` | 2 | `0x13f9` | `0x1a4c` | Used with directory byte `0x0014` in an internal derived value. |
 | `0x002e` | 2 | `0x0005` / 5 | `0x0008` / 8 | Count of pages in the `0x0100` page run. |
 | `0x0034` | 2 | `0x0e82` | `0x0ed2` | In-page offset. Reader resolves it as `directory_base + value`. |
 | `0x0036` | 2 | `0x00f1` | `0x03f5` | Scalar read by the parser; semantic unresolved. |
 | `0x0038` | 2 | `0x0014` / 20 | `0x004d` / 77 | Count of pages in the following `0x0000` page run. |
-| `0x003a` | 2 | `0x0007` / 7 | `0x000a` / 10 | Start page of the following `0x0000` page run. |
+| `0x003a` | 2 | `0x0007` / 7 | `0x000a` / 10 | Start logical page of the following `0x0000` page run. |
 | `0x003c` | 2 | `0x0068` / 104 | `0x0068` / 104 | Offset of the first variable table in this directory page. |
 | `0x003e` | 2 | `0x000a` / 10 | `0x00c9` / 201 | Entry count for the table at offset `0x0068`. |
 | `0x0040` | 2 | `0x025c` / 604 | `0x025c` / 604 | Offset of the second variable table in this directory page. |
@@ -114,6 +114,25 @@ where only the storage role is verified.
 
 The `QS3X36CM.BOO` timestamp matches the known BookServer URL timestamp for the
 same book: `19910524075122` corresponds to `05/24/91 07:51:22`.
+
+### Logical Page Numbering
+
+Directory page-number fields are 1-based logical page numbers in the book
+address space, not necessarily absolute physical page indexes in the file. Page
+0 stores the physical page that contains logical page 1, which is the directory
+page. The connected `ephwam.dll` IDB verifies that the reader seeks with:
+
+```text
+physical_page = directory_page_number + logical_page_number - 1
+byte_offset = physical_page * 4096
+```
+
+The reader rejects logical page 0 and logical pages greater than directory
+field `0x0016`. This is why `0x0016` equals `file_page_count - 1` only when the
+directory page is physical page 1. In shifted books, such as
+`SC09-2417-00.boo`, page 0 points to physical page 43 and directory `0x0016` is
+147, so the physical last page is `43 + 147 - 1 = 189`, matching the final page
+of the 190-page file.
 
 ### Version-3 Extended Fields
 
@@ -181,7 +200,7 @@ yet known.
 
 ```c
 struct BooPage0Header {
-  uint16_t directory_page_number_be;  // 0x0001 in both fixtures.
+  uint16_t directory_page_number_be;  // Physical page containing logical page 1.
   uint16_t unknown_0002_be;           // 0x0000 in both fixtures.
   uint32_t unknown_0004_be;           // 0x00000000 in both fixtures.
   uint8_t ebcdic_space_padding[4];    // 0x40 bytes.
@@ -193,14 +212,14 @@ struct BooDirectoryPageV2 {
   uint8_t zero_prefix[0x10];
   uint8_t version_text[4];            // EBCDIC " 1.2" in both fixtures.
   uint8_t unknown_0014[2];
-  uint16_t last_page_number_be;       // page_count - 1.
+  uint16_t last_page_number_be;       // Last 1-based logical page number.
   uint8_t unknown_0018[2];
   uint16_t scalar_001a_be;
   uint8_t unknown_001c[6];
   uint16_t ptr_0022_be;               // directory_base + value.
   uint16_t scalar_0024_be;
   uint16_t scalar_0026_be;
-  uint16_t run0100_start_page_be;
+  uint16_t run0100_start_page_be;     // 1-based logical page number.
   uint8_t unknown_002a[2];
   uint16_t scalar_002c_be;
   uint16_t run0100_page_count_be;
@@ -208,7 +227,7 @@ struct BooDirectoryPageV2 {
   uint16_t ptr_0034_be;               // directory_base + value.
   uint16_t scalar_0036_be;
   uint16_t run0000_page_count_be;
-  uint16_t run0000_start_page_be;
+  uint16_t run0000_start_page_be;     // 1-based logical page number.
   uint16_t table1_offset_be;          // 0x0068 in both fixtures.
   uint16_t table1_count_be;
   uint16_t table2_offset_be;          // 0x025c in both fixtures.
