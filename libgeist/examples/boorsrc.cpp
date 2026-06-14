@@ -15,7 +15,8 @@ void print_usage() {
             << "  boorsrc --list <book.boo>\n"
             << "  boorsrc -l <book.boo>\n"
             << "  boorsrc --extract <book.boo> <asset-id> [output-file]\n"
-            << "  boorsrc -e <book.boo> <asset-id> [output-file]\n";
+            << "  boorsrc -e <book.boo> <asset-id> [output-file]\n"
+            << "  boorsrc --png <book.boo> <asset-id> [output-file]\n";
 }
 
 std::string fallback_extension(const geist::ResourceEntry& resource) {
@@ -47,6 +48,19 @@ std::filesystem::path output_path_for(const geist::ResourceEntry& resource,
     return resource.name;
   }
   return resource.id + fallback_extension(resource);
+}
+
+std::filesystem::path png_output_path_for(const geist::ResourceEntry& resource,
+                                          const char* requested_path) {
+  if (requested_path != nullptr) {
+    return requested_path;
+  }
+  if (!resource.name.empty()) {
+    auto path = std::filesystem::path(resource.name);
+    path.replace_extension(".png");
+    return path;
+  }
+  return resource.id + ".png";
 }
 
 const geist::ResourceEntry* find_resource(
@@ -117,6 +131,33 @@ void extract_resource(const geist::BooDocument& document,
             << output_path.string() << " (" << bytes.size() << " bytes)\n";
 }
 
+void write_png_resource(const geist::BooDocument& document,
+                        const std::string& id,
+                        const char* requested_path) {
+  const auto* resource = find_resource(document.resources(), id);
+  if (resource == nullptr) {
+    throw std::runtime_error("asset id was not found: " + id);
+  }
+
+  const auto output_path = png_output_path_for(*resource, requested_path);
+  const auto bytes = document.read_resource_png(resource->id);
+
+  std::ofstream output(output_path, std::ios::binary);
+  if (!output) {
+    throw std::runtime_error("failed to open output file: " +
+                             output_path.string());
+  }
+  output.write(reinterpret_cast<const char*>(bytes.data()),
+               static_cast<std::streamsize>(bytes.size()));
+  if (!output) {
+    throw std::runtime_error("failed to write output file: " +
+                             output_path.string());
+  }
+
+  std::cout << "Rendered " << resource->id << " to "
+            << output_path.string() << " (" << bytes.size() << " bytes)\n";
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -144,6 +185,16 @@ int main(int argc, char** argv) {
       }
       const auto document = geist::BooDocument::open(argv[2]);
       extract_resource(document, argv[3], argc == 5 ? argv[4] : nullptr);
+      return 0;
+    }
+
+    if (mode == "--png") {
+      if (argc != 4 && argc != 5) {
+        print_usage();
+        return 2;
+      }
+      const auto document = geist::BooDocument::open(argv[2]);
+      write_png_resource(document, argv[3], argc == 5 ? argv[4] : nullptr);
       return 0;
     }
 

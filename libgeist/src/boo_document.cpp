@@ -188,4 +188,19 @@ std::vector<std::uint8_t> BooDocument::read_resource_data(
   return {begin, begin + static_cast<std::ptrdiff_t>(found->size)};
 }
 
+std::vector<std::uint8_t> BooDocument::read_resource_png(
+    const std::string& resource_id) const {
+  auto found = std::find_if(resources_.begin(), resources_.end(),
+                            [&](const ResourceEntry& resource) {
+                              return resource.id == resource_id ||
+                                     ascii_equals_case_insensitive(
+                                         resource.id, resource_id);
+                            });
+  if (found == resources_.end()) {
+    throw std::out_of_range("BOO resource id was not found: " + resource_id);
+  }
+
+  return render_resource_png(*found, read_resource_data(found->id));
+}
+
 } // namespace geist

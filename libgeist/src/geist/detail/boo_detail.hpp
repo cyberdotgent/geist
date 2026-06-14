@@ -68,6 +68,9 @@ std::string collapse_ascii_whitespace(std::string value);
 std::vector<ResourceEntry> build_resources(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory);
+std::vector<std::uint8_t> render_resource_png(
+    const ResourceEntry& resource,
+    const std::vector<std::uint8_t>& stored_bytes);
 
 std::vector<std::string> render_gml_records(
     const std::vector<std::string>& decoded_records);

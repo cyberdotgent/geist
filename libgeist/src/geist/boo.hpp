@@ -150,6 +150,8 @@ public:
       const;
   GEIST_API std::vector<std::uint8_t> read_resource_data(
       const std::string& resource_id) const;
+  GEIST_API std::vector<std::uint8_t> read_resource_png(
+      const std::string& resource_id) const;
 
 private:
   BooMetadata metadata_;

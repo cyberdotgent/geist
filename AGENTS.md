@@ -81,10 +81,12 @@ not as an application with an established build system.
   - `bootoc`: lists the table of contents.
   - `boorsrc`: extracts images and other media resources.
   - `boorender`: renders a chapter to Markdown.
-- `boorsrc` must export image and media data exactly as stored in the BOO
-  container. Do not convert, transcode, decode, re-encode, or normalize image
-  payloads; leave image parsing/rendering to downstream libraries chosen by
-  `libgeist` users.
+- `boorsrc --extract` must export image and media data exactly as stored in the
+  BOO container. Do not convert, transcode, decode, re-encode, or normalize
+  image payloads in raw extraction mode.
+- Explicit conversion modes such as `boorsrc --png` may decode/render supported
+  assets, but must report unsupported legacy formats clearly instead of writing
+  guessed or partially converted bytes.
 - Preserve original filenames, capitalization, extensions, and paths. Some
   reader assets refer to each other by legacy, case-sensitive-looking names even
   on Windows.
@@ -118,6 +120,10 @@ Use the single repository-local build directory directly, for example
 additional build directories such as `build/libgeist-msvc`,
 `build/libgeist-msvc-2026`, or ad-hoc comparison directories unless the user
 explicitly asks for a separate build tree.
+For image-rendering dependencies, Linux and macOS builds should use OS-provided
+development packages discovered by CMake. Windows builds should use vcpkg for
+`libpng`, `giflib`, and transitive runtime DLLs, and the built tools should copy
+the required DLLs beside the executables.
 
 For current validation:
 

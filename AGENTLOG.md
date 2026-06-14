@@ -1,5 +1,30 @@
 # Agent Log
 
+## 2026-06-14 - Add libpng-backed resource PNG conversion
+
+- Added CMake support for PNG rendering dependencies: `find_package(PNG
+  REQUIRED)` and `find_package(GIF REQUIRED)`, with Windows builds using vcpkg
+  manifest dependencies `libpng` and `giflib`.
+- Added `libgeist/vcpkg.json` pinned to vcpkg baseline
+  `44819aa2a6c10e56065e2b0330e7d6c89d1d2574`.
+- Added `BooDocument::read_resource_png()` and `boorsrc --png <book.boo>
+  <asset-id> [output-file]`.
+- Implemented converted GIF-to-PNG rendering through giflib for GIF decoding and
+  libpng for PNG encoding. Kept `boorsrc --extract` as exact raw byte export.
+- Legacy BookManager image payloads now fail clearly in `--png` mode because the
+  ImageMark/MMR/GDF/MET pixel-stream decoders are not implemented yet.
+- Validated vcpkg install/build of `libpng 1.6.58`, `giflib 6.1.3`, and `zlib
+  1.3.2` into `build/vcpkg_installed`; `cmake --build build`; copied runtime
+  DLLs beside the tools (`gif.dll`, `libpng16d.dll`, `zd.dll`); successful
+  `boorsrc --png` conversion of `SC26-4221-08.boo` asset `1` to a 14x26 PNG;
+  raw `boorsrc --extract` of the same asset; expected unsupported error for
+  `GG24-4302-00.boo` legacy asset `1`; and whole-book `boorender --raw` against
+  five randomly selected filesystem fixtures from `BOO/`:
+  `SC26-4222-06.boo`, `SC24-5766-03.boo`, `SC26-3393-00.boo`,
+  `SC24-5520-01.boo`, and `GH24-5218-01.boo`.
+- No failed untracked BOO fixture was added for this workload.
+- Commit: pending.
+
 ## 2026-06-14 - Split libgeist implementation files
 
 - Split the former monolithic `libgeist/src/boo.cpp` into focused
