@@ -62,3 +62,7 @@
   `Scm_Bkiopen`, and `Scm_BKIDatetime`, so the active IDB validates the API
   boundary but does not directly verify raw page-0/page-1 offsets. Documented
   this reader-code evidence and limitation in `Format/boo-header.md`.
+- Corrected the IDA cross-check documentation location: removed the
+  reader/API-boundary analysis note from `Format/boo-header.md` and moved it to
+  `AnalysisNotes/ida-bookmgr-api-boundary.md`, because it describes IDA target
+  coverage and imported reader behavior rather than BOO byte-format facts.
