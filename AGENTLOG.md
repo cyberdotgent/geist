@@ -1,5 +1,19 @@
 # Agent Log
 
+## 2026-06-14 - Correct random BOO fixture selection
+
+- Corrected the persistent BOO test instruction so random fixture selection
+  enumerates the `BOO/` directory on disk, including untracked files, instead
+  of using `git ls-files`.
+- Validated whole-book raw GML decoding with `boorender --raw` against five
+  randomly selected filesystem fixtures from `BOO/`: `GH24-5223-04.boo`,
+  `SC27-9126-00.boo`, `SC26-4697-01.boo`, `SC27-9121-00.boo`, and
+  `SC26-4721-01.boo`. All selected fixtures passed; `SC26-4721-01.boo` is slow
+  and needed a separate longer single-fixture run after the first sample command
+  timed out.
+- No failed untracked BOO fixture was added for this workload.
+- Commit: pending.
+
 ## 2026-06-14 - Make boorender default to whole-book raw output
 
 - Removed the `--all` pseudo-topic from `boorender`.
