@@ -22,7 +22,7 @@
   such as `SC26-4221-08.boo` and `GG24-4302-00.boo` exited early without a
   C++ exception diagnostic after opening the book, while `booinfo` and direct
   `boorsrc --png` still worked on the tested converted GIF resource.
-- Commit: pending.
+- Commit: `a523416`.
 
 ## 2026-06-14 - Align raw GML output with packet BookMaster source
 
