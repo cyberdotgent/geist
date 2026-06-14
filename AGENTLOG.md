@@ -24,7 +24,7 @@
 - Validated with `cmake --build build`, `boorsrc --list GG66-3212-00.boo`, and
   `boorsrc --list GG24-4302-00.boo`. The latter printed the expected
   `legacy-mmr` rows but did not terminate before the command timeout.
-- Commit: `e7d529a`.
+- Commit: `dc31a64`.
 
 ## 2026-06-14 - Add libpng-backed resource PNG conversion
 
