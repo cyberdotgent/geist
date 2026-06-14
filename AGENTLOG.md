@@ -13,7 +13,7 @@
 - Validated with `cmake --build build`, `boorender --raw CONTENTS` on five
   random tracked BOO fixtures, `boorender --raw 1.0` on `QS3X36CM.BOO`,
   `boorender --md`, and missing-topic error handling.
-- Commit: pending.
+- Commit: `e7f91a2`.
 
 ## 2026-06-14 - Implement topic lookup and raw boorender output
 
