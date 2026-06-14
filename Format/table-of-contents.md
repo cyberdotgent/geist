@@ -4,6 +4,12 @@ BookManager stores the table of contents as normal tokenized logical topic
 content. It is not a separate raw ASCII table and it is not generated solely
 from a physical page directory.
 
+The `topic_id` stored in each `CTOCE` is a public topic identifier. It matches
+the target topic header's `SH<id>` value, but it is not itself a physical file
+address. The seek address comes from the directory `0x003c` topic-start index
+after resolving the id to a topic number. See [topics.md](topics.md) for the
+topic/page storage model.
+
 An independent reader should decode the content stream, locate the logical
 topic whose header begins with `SHcontents`, then parse the `CTOCE` controls in
 that topic. The same logical topic record also contains `CTOCDEF` controls that

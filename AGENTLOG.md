@@ -1,5 +1,30 @@
 # Agent Log
 
+## 2026-06-14 - Document topic/page storage and decoded markup controls
+
+- Investigated how individual documentation pages are addressed using the
+  connected `ephwam.dll` IDB and decoded BOO fixture records. Verified that
+  pages are logical topics bounded by adjacent entries in the directory
+  `0x003c` topic-start index, and that TOC `CTOCE` targets are public topic ids
+  matching target `SH<id>` headers rather than physical addresses.
+- Renamed the topic-header helper functions in IDA using `ida_name.set_name`:
+  `BooFindTopicControlValue` at `0x121f636` and
+  `BooGetCurrentTopicIdFromHeader` at `0x121f7d6`, then saved the IDB. Avoided
+  relying on the MCP `rename` helper after it reported an unwanted folder
+  attribute.
+- Compiled and ran a temporary decoder dump tool under `build/` against
+  `QS3X36CM.BOO`, `OFCUSEOV.BOO`, `GG24-4302-00.boo`, and
+  `SC26-4221-08.boo` to collect decoded topic header, `CFONTDEF`, `CFONT`,
+  `CSELECT`, `SRFIG`, `SRTBL`, and `CZ` control evidence. Removed the temporary
+  build artifacts after use.
+- Verified the SGML history claim against external historical references:
+  BookManager's decoded controls are not raw SGML, but they preserve IBM
+  GML/BookMaster/SCRIPT lineage through tags and style names such as `:h1`,
+  `:figlist`, and `HP1`.
+- Added `Format/topics.md` and `Format/markup.md`, updated the format index,
+  and linked TOC documentation to the topic storage model.
+- Commit: pending.
+
 ## 2026-06-14
 
 - Updated `AGENTS.md` with repository workflow guidance for `Format/`,
