@@ -11,3 +11,9 @@
   library scope, `src/` versus `examples/` roles, planned example tools
   (`booinfo`, `bootoc`, `boorsrc`, `boorender`), and exact-as-stored media
   extraction behavior.
+- Stubbed `libgeist/` so it compiles: added a CMake project, a self-contained
+  `geist` static library, public BOO document API, and initial `booinfo`,
+  `bootoc`, `boorsrc`, and `boorender` examples. Verified with
+  `cmake -S libgeist -B C:\tmp\geist-libgeist-build`,
+  `cmake --build C:\tmp\geist-libgeist-build`, and smoke runs against
+  `BOO\QS3X36CM.BOO`.
