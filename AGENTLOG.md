@@ -7,7 +7,7 @@
   third party and should be preserved exactly.
 - Added narrow `.gitattributes` entries for these two packet files with `-text`
   so Git does not normalize their bytes.
-- Commit: pending.
+- Commit: `8f12fb9`.
 
 ## 2026-06-14 - Verify legacy GDF image format mapping
 
