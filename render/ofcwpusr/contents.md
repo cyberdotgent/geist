@@ -1,0 +1,473 @@
+# Table of Contents
+
+- Title Page
+- Book Cover
+- Edition Notice
+- Special Notices
+- About This Manual
+- Who Should Use This Manual
+- What You Should Know
+- How This Manual Is Organized
+- How This Manual Has Changed
+- Related Online Information
+- Help for Displays
+- Index Search
+- Online Education
+- Question-and-Answer Function
+- Help for Control Language Commands
+- Related Printed Information
+- Table of Contents
+- Figures
+- Chapter 1. Working with Documents and Folders
+- Naming Folders and Documents
+- Using Commands to Work with Documents and Folders
+- Using the WRKDOC (Work with Documents) Command
+- Using the WRKFLR (Work with Folders) Command
+- Creating a Folder
+- Creating a First-Level Folder from the Create Folder Display
+- Creating a First-Level Folder Using the CRTFLR (Create Folder) Command
+- Creating a Folder within a Folder
+- Creating a Document
+- Creating a Document from the Work with Documents in Folders Display
+- Creating a Document Using the CRTDOC (Create Document) Command
+- Describing a Document
+- Changing Document Details
+- Working with the Document Format
+- Finding a Document
+- Listing Folders
+- Printing a List of Folders
+- Listing Documents
+- Printing a List of Documents
+- Searching for Documents
+- Chapter 2. Typing Text
+- Moving through the Document
+- Moving Horizontally through the Document
+- Moving Vertically through the Document
+- Using Automatic Window and Automatic Roll
+- Automatic Window
+- Automatic Roll
+- Using the Goto Prompt (F5)
+- Format Displays
+- Page/Line Requests
+- Table Layout and Text Column Requests
+- Instruction Displays
+- Header and Footer Displays
+- Code Requests
+- Function Displays
+- Spell Functions
+- Other Displays and Functions
+- Highlighting Text
+- Centering Text
+- Underlining Text
+- Underlining a Word
+- Using Boldface Type
+- Underlining Boldface Type
+- Underlining Text with Two Lines
+- Using Paragraphs
+- Typing Paragraphs
+- Indenting Paragraphs
+- Typing Paragraphs with Bullets
+- Typing Margin Text with Paragraphs
+- Typing Numbered Lists
+- Ending Lines and Inserting Blank Lines
+- Typing Superscripts and Subscripts
+- Typing Superscripts
+- Typing Subscripts
+- Typing Characters and Symbols Not on Your Keyboard
+- Copying, Moving, or Deleting Symbols
+- Copying Symbols
+- Moving Symbols
+- Deleting Symbols
+- Copying, Moving, or Deleting Keyboard Changes
+- Copying Keyboard Changes
+- Moving Keyboard Changes
+- Deleting Keyboard Changes
+- Printing Symbols
+- Chapter 3. Editing Text
+- Using the EDTDOC (Edit a Document) Command
+- Copying, Moving, and Deleting Text
+- Using Function Keys to Copy, Move, and Delete Text
+- Copying Text
+- Copying Underlined or Boldface Text
+- Moving Text
+- Deleting Text
+- Using Line Commands to Copy, Move, and Delete Text
+- Using the Copy Line Command
+- Copying a Single Line of Text
+- Copying a Block of Text
+- Copying a Line of Text to Several Locations
+- Copying a Block of Text to Several Locations
+- Copying Different Lines of Text to the Same Location
+- Copying Different Blocks of Text to the Same Location
+- Using the Move Line Command
+- Moving a Single Line of Text
+- Moving a Block of Lines
+- Moving Different Lines of Text to the Same Location
+- Moving Different Blocks of Text to the Same Location
+- Shifting Text Left or Right
+- Using the Delete Line Command
+- Deleting a Single Line of Text
+- Deleting a Block of Lines
+- Copying Text from Another Document
+- Using Get
+- Using Get with Split Edit
+- Using Include
+- Copying Text from a PC File Document
+- Copying Text Directly into Your Document
+- Using Split Display to Get a PC File Document
+- Saving and Recalling Text Using a Notepad
+- Using a System-Named Notepad
+- Placing Text in the System-Named Notepad
+- Recalling Text from the System-Named Notepad
+- Using a User-Named Notepad
+- Creating and Placing Text in a User-Named Notepad
+- Recalling Text from a User-Named Notepad
+- Sorting Lines of Text
+- Sorting Lines of Text that Contain Text Instructions or Controls
+- Moving Around in the Document
+- Moving the Cursor
+- Finding a Specific Page or Line
+- Finding a Specific Character, Word, or Phrase
+- Searching for and Replacing Text
+- Using Search/Replace
+- Finding and Replacing Control Characters
+- Specifying Words to Be Hyphenated
+- Inserting Required Hyphens
+- Inserting Syllable Hyphens
+- Inserting Syllable Hyphens As You Type
+- Inserting Syllable Hyphens Automatically
+- Skipping Lines
+- Skipping a Specified Number of Lines
+- Skipping to a Specified Line
+- Keeping Text Together
+- Keeping Text Together on a Line Using a Required Space
+- Keeping Text Together on a Page or Column Using Keep Instructions
+- Adjusting Lines
+- Adjusting Lines Automatically When Editing a Document
+- Adjusting Lines Using F16
+- Adjusting Lines When Saving the Document
+- Adjusting Lines When Printing a Document
+- Creating Pages in a Document
+- Using the Start New Page Instruction
+- Using Page End Control Characters
+- Paginating
+- Using the PAGDOC (Paginate a Document) Command
+- Paginating While Editing the Document
+- Paginating When Saving the Document
+- Chapter 4. Checking and Correcting Your Spelling
+- Selecting a Spelling Dictionary
+- Checking Your Spelling
+- Checking and Correcting Your Spelling
+- Checking Spelling As You Type the Document
+- Checking Your Spelling with Line Commands
+- Checking Spelling After You Have Typed a Document
+- Checking Your Spelling While You Work on Another Document
+- Locating Misspelled Words in Your Document
+- Correcting Your Spelling
+- Using Word Spell Aid (F23) to Correct Misspelled Words
+- Using Compound Word Spell Aid
+- Adding Words to a Dictionary
+- Displaying Synonyms
+- Checking the Grade Level
+- Checking the Grade Level While You Work on Another Document
+- Removing Error Marks
+- Removing Specific Error Marks
+- Chapter 5. Using Spelling Dictionaries
+- Using User Dictionaries
+- Using the Spell Options Display to Create a User Dictionary
+- Using Commands to Create a User Dictionary
+- Creating a Source Physical File
+- Adding Words to the Source File Member
+- Changing the CHRID
+- Using the Create Spelling Aid Dictionary (CRTSPADCT) Command
+- Creating a User Dictionary Using the WRKMBRPDM Display
+- Deleting a User Dictionary Using the DLTSPADCT Command
+- Deleting Words from a Dictionary
+- Adding Words to a User Dictionary from the Edit Display
+- Activating a User Dictionary
+- Using Portuguese, Catalan, or Germanic Languages
+- Checking Spelling of Compound Words
+- Hyphenation
+- Chapter 6. Text Instructions
+- Using Text Instructions
+- Summary of Text Instructions
+- Text Instructions for Headers and Footers
+- Text Instructions for Footnotes
+- Creating a Help Document
+- Chapter 7. Formatting a Document
+- Getting to the Format Menus
+- Making Format Changes
+- How the Cursor Position Affects Format Changes
+- Changing a Format Change
+- Finding a Format Change
+- Line Format Changes
+- Changing the Line Spacing/Justification
+- Changing the Line Spacing/Justification for the Entire Document
+- Changing the Line Spacing/Justification within the Document
+- Changing Margins and Tabs
+- Changing Margins or Tabs for the Entire Document
+- Changing the Margins or Tabs for Part of a Document
+- Changing the Type Style/Color
+- Changing the Type Style or Ink Color for the Entire Document
+- Changing the Type Style or Ink Color for Part of a Document
+- Suggested Margin Settings for Changed Type Styles
+- Changing the Type Style in Mid-Line
+- Changing the Ink Color in Mid-Line
+- Page Format Changes
+- Changing the Page Layout/Paper Options
+- Changing the Page Layout and Paper Options for the Entire Document
+- Changing the Page Layout and Paper Options for Part of a Document
+- Changing Headers and Footers
+- Typing or Changing Headers or Footers for the Entire Document
+- Specifying Where a Header or Footer Is Printed for the Entire Document
+- Typing or Changing Header or Footer Text for Part of the Document
+- Specifying Where a Header or Footer Prints for Part of the Document
+- Using Page Numbers in a Header or Footer
+- Printing Outline Heading Text in a Header or Footer
+- Using an Alternate Format
+- Creating an Alternate Format
+- Using the Alternate Format
+- Returning to the Document Format
+- Using Text Profiles
+- Getting to the Work with Text Profiles Display
+- Creating a Text Profile
+- Activating a Text Profile
+- Activating the System Profile
+- Changing a Text Profile
+- Copying a Text Profile
+- Deleting a Text Profile
+- Assigning a Text Profile to a Folder
+- Changing the Text Profile for a Folder
+- Chapter 8. Ending, Saving, and Printing
+- Ending and Saving a Document
+- Ending a Document Without Printing
+- Printing
+- Ending and Printing the Document
+- Saving the Resolved Document
+- Using the Print Key or F19 (Print/View Opts)
+- Using the Document Error Page
+- Printing the Error Log
+- Clearing the Error Log
+- Printing from the Work with Documents in Folders Display
+- Printing Your Document to a File
+- Using the PRTDOC (Print Document) Command
+- Printing a Document Using the Print Options Display
+- Printing a Document without Using the Print Options Displays
+- Printing a Document to a File
+- Overriding the Print Options Using the Print Document (PRTDOC) Command
+- Viewing a Document at Your Work Station
+- Working with Documents on the Print Queue
+- Displaying the Print Queue
+- Using the WRKDOCPRTQ (Work with Documents on the Print Queue) Command
+- Changing, Holding, Deleting, or Releasing Documents on the Print Queue
+- Holding, Deleting, or Releasing a Group of Documents
+- Chapter 9. Producing a Table of Contents or an Index
+- Using Outline Headings
+- Typing Headings
+- Changing a Heading Level Definition
+- Creating a Table of Contents
+- Creating an Index
+- Understanding Index Entries
+- Using Index Entry Instructions
+- Specifying the Location of the Index
+- Chapter 10. Using Footnotes
+- Creating a Footnote
+- Changing Existing Footnote Text
+- Changing the Appearance of Footnotes
+- Formatting the Footnote Reference and Footnote Text
+- Resetting the Footnote Number
+- Deleting a Footnote
+- Storing Footnotes for Repeated Use
+- Using Pages Reserved for Footnote Text
+- Using the Include Instruction with Footnotes
+- Using the Get Function with Footnotes
+- Chapter 11. Working with Tables and Columns
+- Using the Table Function
+- Creating a Table
+- Typing Data in a Table
+- Creating a Table Using Existing Text
+- Setting Up a Column Reference Area
+- Changing a Table
+- Changing the Layout of a Table
+- Revising a Column
+- Adding an Entry to a Column
+- Inserting a Column in a Table
+- Deleting a Column from a Table
+- Moving or Copying a Column in a Table
+- Using Column Mode
+- Using Column Copy, Move, and Delete
+- Using Format Copy, Move, and Delete
+- Using Multiple Text Columns
+- Using Flowing and Balanced Columns
+- Using Flowing but Not Balanced Columns
+- Using Related Columns with Equal Width
+- Using Related Columns with Variable Width
+- Changing Formats in Multiple Text Columns
+- Changing the Definition of Multiple Text Columns
+- Moving Around within Text Columns
+- Using Text Instructions in Multiple Text Columns
+- Using Running Headings in Multiple Text Columns
+- Printing Multiple Text Columns
+- Chapter 12. Using Math with Rows and Columns
+- Typing Numbers to Be Processed by Summary Math
+- Numeric Field Editing
+- Considerations for Column Summary Math
+- Creating Column Headings
+- Underlining the Last Number in a Column
+- Separating Groups of Numbers
+- Typing Summary Math Instructions
+- Using the Print Variable Instruction
+- Using Variables to Do Subtotals
+- Using Variables with Conditional Text Instructions
+- Chapter 13. Storing Information in Variables
+- Using the Set Variable Instruction
+- Typing the Set Variable Instruction
+- Additional Uses of the Set Variable Instruction
+- Using the Print Variable and Set Variable Instructions Together
+- Using Summary Math and Set Variable Instructions Together
+- Using Data Field Values within Set Variable Instructions
+- Chapter 14. Combining Information to Create Documents
+- Using Stop Codes
+- Creating a Shell Document for Stop Codes
+- Creating Tailored Documents with Stop Codes
+- Using a Paragraphs Document
+- Creating a Shell for the Paragraphs Document
+- Creating a Paragraphs Document
+- Printing a Reference Copy of the Paragraphs Document
+- Creating Tailored Documents with a Paragraphs Document
+- Using Data/Text Merge
+- Creating a Shell Document for Data/Text Merge
+- Using Conditional Text Instructions in a Shell Document
+- Using Data Field Headings in a Shell Document
+- Using Data/Text Merge with a Fill-In Document
+- Using Instructions, Controls, and Attributes in a Fill-In Document
+- Creating a Fill-In Document
+- Using Data/Text Merge with a File
+- Describing Data in Files Using IDDU
+- Using Data/Text Merge with a Query
+- Printing a Shell Document
+- How Query Can Help You Merge Data
+- Copying the Data from a Query (Direct Merge)
+- Using a Query to Create a Shell Document for a Column List
+- Using Query to Create a Shell Document for Multiple Letters
+- Using a Dependent Column List Merge
+- Creating a Multiple Line Report
+- Creating a Multiple Line Report Using the MRGDOC Command
+- Creating a Multiple Line Report Using the Print Options Display
+- Using the MRGDOC (Merge Document) Command
+- Creating Include Instructions from a File
+- Merging Information Using the Run Instruction
+- Performance Considerations for Merging Information
+- Setting Up a Data/Text Merge Application
+- Running a Data/Text Merge Application
+- Setting up a Multiple Letter Merge Document
+- Printing a Multiple Letter Merge Document
+- Chapter 15. Using Graphics
+- Inserting Graphics in a Document
+- Using the Graphic Text Instruction
+- Using the Get Graphic Function
+- Using the #$@INCLGRPH Function
+- Printing a Document with Graphics
+- Copying Images and Graphs
+- Deleting Images and Graphs
+- Viewing Images and Graphs
+- Renaming Images and Graphs
+- Printing Images and Graphs
+- Chapter 16. Creating and Printing Labels and Envelopes
+- Creating a Label Document
+- Setting Up for Continuous Form Labels
+- Specifying Page Layout/Paper Options for Continuous Form Labels
+- Specifying the Margins for Continuous Form Labels
+- Setting Up for Sheet Feed Labels
+- Specifying Page Layout/Paper Options for Sheet Feed Labels
+- Specifying the Margins for Sheet Feed Labels
+- Typing Label Text
+- Using Merged Information for Label Text
+- Printing the Labels
+- Solving Label Printing Problems
+- Creating and Printing an Envelope
+- Chapter 17. Using OfficeVision/400 with a Personal Computer
+- Using AS/400 Folders
+- Naming Conventions for Documents in Folders
+- Folder Considerations
+- Using the PC Text-Assist Function
+- Using the Edit Display with the PC Text-Assist Function
+- Limitations of the PC Text-assist Function
+- Drawing with the Cursor
+- Changing the Drawing Character
+- Revising Text or Revising a Drawing
+- Using the PC Text-Assist Function to Create Multiple Text Columns
+- Typing Multiple Text Columns
+- Using Single Column Editing
+- Using Multiple Column Editing
+- Adding a Column
+- Viewing Text in Multiple Columns
+- Copying, Moving, and Deleting Text Columns
+- Moving through Multiple Text Columns
+- Finding a Specific Page or Line within Text Columns
+- Finding a Character, Word or Phrase
+- Adjusting Lines Using Multiple Column Editing
+- Paginating Flowing Text Columns
+- Chapter 18. Using OfficeVision/400 with the Adapted Word Processing Function
+- Using the Edit Display with the Adapted Word Processing Function
+- Differences While Typing Text
+- Differences While Editing Text
+- Differences While Using Function Keys
+- Using a 3270-Type Display Station
+- Appendix A. Printers and the Functions They Support
+- SCS Printer Function Chart
+- IPDS Printer Function Chart
+- ASCII Printer Summary
+- ASCII Printers Supported by Various PC Printer Emulations
+- ASCII Printers Supported by Various Hardware Printer Emulations
+- Work Station Function (WSF) Emulated Printer Functions
+- ASCII Printers Supported by WSF Printer Emulation
+- WSF 3812 Emulated Printer Function Chart
+- WSF 5219 Emulated Printer Function Chart
+- OS/2 Extended Edition Version 1.2 5250 Work Station Feature (OS/2 5250 WSF) Emulated Printer Functions
+- ASCII Printers Supported by OS/2 5250 WSF Printer Emulation
+- OS/2 5250 WSF 5219 Emulated Printer Function Chart
+- System 36/38 Work Station Emulation (WSE) Emulated Printer Functions
+- ASCII Printers Supported by WSE Printer Emulation
+- WSE 5219 Emulated Printer Function Chart
+- Enhanced 5250 Emulation V2.20 Emulated Printer Functions
+- ASCII Printers Supported by E5250 V2.20 Printer Emulation
+- E5250 V2.20 5219 Emulated Printer Function Chart
+- Remote 5250 Emulation Emulated Printer Functions
+- ASCII Printers Supported by R5250 V2.0 Printer Emulation
+- R5250 V2.0 5219 Emulated Printer Function Chart
+- R5250 V2.0 5256 Emulated Printer Function Chart
+- 3477 InfoWindow Emulated Printer Functions
+- ASCII Printers Supported by 3477 InfoWindow Printer Emulation
+- 3477 InfoWindow 5219 Emulated Printer Function Chart
+- 3477 InfoWindow 4214 Emulated Printer Function Chart
+- 3197 Work Station Emulated Printer Functions
+- ASCII Printers Supported by 3197 Work Station Printer Emulation
+- 3197 Work Station 4214 Emulated Printer Function Chart
+- ASCII Work Station Controller (AWSC) Emulated Printer Functions
+- ASCII Printers Supported by AWSC Printer Emulation
+- AWSC 5219 Emulated Printer Function Chart
+- AWSC 5224 Emulated Printer Function Chart
+- 5208 Link Protocol Converter Emulated Printer Functions
+- ASCII Printers Supported by 5208 Link Protocol Converter Printer Emulation
+- 5208 Link Protocol Converter 5219 Emulated Printer Function Chart
+- 5208 Link Protocol Converter 5256 Emulated Printer Function Chart
+- Appendix B. Understanding Session Profiles
+- Appendix C. Control Characters That Define Word, Line, and Paragraph Boundaries
+- Control Characters That Define Words
+- Control Characters That Define Lines
+- Control Characters That Define Paragraphs
+- Appendix D. Using the Parameters in a Printer File
+- Creating a Printer File
+- Overriding the Values in the Printer File
+- How Parameters in the Printer File Relate to the Word Processing Function
+- Appendix E. Differences between OfficeVision/400 Word Processing and DisplayWrite/36
+- Conceptual Differences
+- Operational Differences
+- Command Differences
+- Appendix F. Differences between OfficeVision/400 Word Processing and System/38 Text Management
+- Conceptual Differences
+- Operational Differences
+- Command Differences
+- Glossary
+- Index
