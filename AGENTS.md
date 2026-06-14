@@ -91,6 +91,10 @@ The repository now contains a `libgeist/` CMake stub for the planned parser
 library. Do not expand the build system beyond what is needed for the requested
 library or example work.
 
+On Windows, use the installed MSVC toolchain for CMake configure/build
+validation. Do not use GCC, MinGW, Strawberry Perl GCC, or other non-MSVC
+toolchains for Windows builds unless the user explicitly asks for a comparison.
+
 For current validation:
 
 - Use `git status --short` before and after edits to check the working tree.

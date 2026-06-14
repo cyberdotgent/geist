@@ -17,3 +17,6 @@
   `cmake -S libgeist -B C:\tmp\geist-libgeist-build`,
   `cmake --build C:\tmp\geist-libgeist-build`, and smoke runs against
   `BOO\QS3X36CM.BOO`.
+- Updated `AGENTS.md` to require the installed MSVC toolchain for Windows CMake
+  configure/build validation, avoiding GCC/MinGW-style toolchains unless
+  explicitly requested for comparison.
