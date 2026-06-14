@@ -12,6 +12,42 @@
 namespace geist {
 namespace {
 
+using TokenWords = std::vector<std::uint16_t>;
+
+constexpr std::array<std::uint16_t, 256> cp500_byte_to_token_word = {
+    0xFFFF, 0x0001, 0xFFFF, 0xFFFF, 0x2666, 0xFFFF, 0xFFFF, 0xFFFF,
+    0xFFFF, 0x25CB, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+    0x25BA, 0xFFFF, 0xFFFF, 0xFFFF, 0x2191, 0x2193, 0xFFFF, 0xFFFF,
+    0xFFFF, 0xFFFF, 0xFFFF, 0x2510, 0x250C, 0xFFFF, 0x2514, 0x2518,
+    0x00D7, 0x2551, 0x2550, 0x2554, 0x2566, 0xFFFF, 0x2557, 0xFFFF,
+    0x2584, 0x2580, 0x2192, 0x2190, 0x253C, 0x2500, 0x2265, 0x2264,
+    0x2560, 0x256C, 0x2563, 0x255A, 0x2569, 0x255D, 0xE936, 0x258C,
+    0x2588, 0x2590, 0x25A0, 0x252C, 0xFFFF, 0x251C, 0x2534, 0x2524,
+    0x0020, 0x00A0, 0x00E2, 0x00E4, 0x00E0, 0x00E1, 0x00E3, 0x00E5,
+    0x00E7, 0x00F1, 0x005B, 0x002E, 0x003C, 0x0028, 0x002B, 0x0021,
+    0x0026, 0x00E9, 0x00EA, 0x00EB, 0x00E8, 0x00ED, 0x00EE, 0x00EF,
+    0x00EC, 0x00DF, 0x005D, 0x0024, 0x002A, 0x0029, 0x003B, 0x005E,
+    0x002D, 0x002F, 0x00C2, 0x00C4, 0x00C0, 0x00C1, 0x00C3, 0x00C5,
+    0x00C7, 0x00D1, 0x00A6, 0x002C, 0x0025, 0x005F, 0x003E, 0x003F,
+    0x00F8, 0x00C9, 0x00CA, 0x00CB, 0x00C8, 0x00CD, 0x00CE, 0x00CF,
+    0x00CC, 0x0060, 0x003A, 0x0023, 0x0040, 0x0027, 0x003D, 0x0022,
+    0x00D8, 0x0061, 0x0062, 0x0063, 0x0064, 0x0065, 0x0066, 0x0067,
+    0x0068, 0x0069, 0x00AB, 0x00BB, 0x00F0, 0x00FD, 0x00FE, 0x00B1,
+    0x00B0, 0x006A, 0x006B, 0x006C, 0x006D, 0x006E, 0x006F, 0x0070,
+    0x0071, 0x0072, 0x00AA, 0x00BA, 0x00E6, 0x00B8, 0x00C6, 0x00A4,
+    0x00B5, 0x007E, 0x0073, 0x0074, 0x0075, 0x0076, 0x0077, 0x0078,
+    0x0079, 0x007A, 0x00A1, 0x00BF, 0x00D0, 0x00DD, 0x00DE, 0x00AE,
+    0x00A2, 0x00A3, 0x00A5, 0x00B7, 0x00A9, 0x00A7, 0x00B6, 0x00BC,
+    0x00BD, 0x00BE, 0x00AC, 0x007C, 0x00AF, 0x00A8, 0x00B4, 0x2502,
+    0x007B, 0x0041, 0x0042, 0x0043, 0x0044, 0x0045, 0x0046, 0x0047,
+    0x0048, 0x0049, 0x00AD, 0x00F4, 0x00F6, 0x00F2, 0x00F3, 0x00F5,
+    0x007D, 0x004A, 0x004B, 0x004C, 0x004D, 0x004E, 0x004F, 0x0050,
+    0x0051, 0x0052, 0x00B9, 0x00FB, 0x00FC, 0x00F9, 0x00FA, 0x00FF,
+    0x005C, 0x00F7, 0x0053, 0x0054, 0x0055, 0x0056, 0x0057, 0x0058,
+    0x0059, 0x005A, 0x00B2, 0x00D4, 0x00D6, 0x00D2, 0x00D3, 0x00D5,
+    0x0030, 0x0031, 0x0032, 0x0033, 0x0034, 0x0035, 0x0036, 0x0037,
+    0x0038, 0x0039, 0x00B3, 0x00DB, 0x00DC, 0x00D9, 0x00DA, 0xFFFF};
+
 std::vector<std::uint8_t> read_file(const std::filesystem::path& path) {
   std::ifstream input(path, std::ios::binary);
   if (!input) {
@@ -216,16 +252,28 @@ std::string trim_right_spaces(std::string value) {
 
 std::string trim_ascii(std::string value) {
   while (!value.empty() &&
-         std::isspace(static_cast<unsigned char>(value.back())) != 0) {
+         (std::isspace(static_cast<unsigned char>(value.back())) != 0 ||
+          static_cast<unsigned char>(value.back()) < 0x20 ||
+          value.back() == '?')) {
     value.pop_back();
   }
   std::size_t first = 0;
   while (first < value.size() &&
-         std::isspace(static_cast<unsigned char>(value[first])) != 0) {
+         (std::isspace(static_cast<unsigned char>(value[first])) != 0 ||
+          static_cast<unsigned char>(value[first]) < 0x20 ||
+          value[first] == '?')) {
     ++first;
   }
   if (first != 0) {
     value.erase(0, first);
+  }
+  return value;
+}
+
+std::string ascii_lower(std::string value) {
+  for (auto& ch : value) {
+    ch = static_cast<char>(
+        std::tolower(static_cast<unsigned char>(ch)));
   }
   return value;
 }
@@ -250,39 +298,39 @@ std::optional<std::uint16_t> read_compact_length(
   return static_cast<std::uint16_t>(((first - 0xF0) << 8) + second);
 }
 
-std::string decode_dictionary_bytes(const std::vector<std::uint8_t>& bytes,
-                                    std::size_t offset,
-                                    std::size_t count) {
-  std::string output;
+TokenWords decode_dictionary_words(const std::vector<std::uint8_t>& bytes,
+                                   std::size_t offset,
+                                   std::size_t count) {
+  TokenWords output;
   output.reserve(count);
   for (std::size_t i = 0; i < count; ++i) {
-    output.push_back(decode_cp037_byte(bytes[offset + i]));
+    output.push_back(cp500_byte_to_token_word[bytes[offset + i]]);
   }
   return output;
 }
 
-void lowercase_positions(std::string& value,
+void lowercase_positions(TokenWords& value,
                          const std::vector<std::uint8_t>& positions) {
   for (const auto position : positions) {
-    if (position < value.size()) {
-      value[position] = static_cast<char>(
-          std::tolower(static_cast<unsigned char>(value[position])));
+    if (position < value.size() && value[position] >= 'A' &&
+        value[position] <= 'Z') {
+      value[position] = static_cast<std::uint16_t>(value[position] + 32);
     }
   }
 }
 
-void uppercase_positions(std::string& value,
+void uppercase_positions(TokenWords& value,
                          const std::vector<std::uint8_t>& positions) {
   for (const auto position : positions) {
-    if (position < value.size()) {
-      value[position] = static_cast<char>(
-          std::toupper(static_cast<unsigned char>(value[position])));
+    if (position < value.size() && value[position] >= 'a' &&
+        value[position] <= 'z') {
+      value[position] = static_cast<std::uint16_t>(value[position] - 32);
     }
   }
 }
 
 void decode_dictionary_delta_range(
-    std::map<std::uint16_t, std::string>& token_strings,
+    std::map<std::uint16_t, TokenWords>& token_strings,
     std::uint16_t first_key,
     const std::vector<std::uint8_t>& bytes,
     std::size_t begin,
@@ -297,7 +345,7 @@ void decode_dictionary_delta_range(
     return;
   }
 
-  auto value = decode_dictionary_bytes(bytes, cursor, base_count);
+  auto value = decode_dictionary_words(bytes, cursor, base_count);
   cursor += base_count;
   auto key = first_key;
   token_strings[key++] = value;
@@ -325,7 +373,9 @@ void decode_dictionary_delta_range(
         break;
       }
       value.resize(std::min<std::size_t>(count, value.size()));
-      value += decode_dictionary_bytes(bytes, cursor, literal_count);
+      const auto literal_words =
+          decode_dictionary_words(bytes, cursor, literal_count);
+      value.insert(value.end(), literal_words.begin(), literal_words.end());
       cursor += literal_count;
     } else if (mode == 2) {
       if (cursor + count > end) {
@@ -339,7 +389,8 @@ void decode_dictionary_delta_range(
       if (cursor + count > end) {
         break;
       }
-      value += decode_dictionary_bytes(bytes, cursor, count);
+      const auto literal_words = decode_dictionary_words(bytes, cursor, count);
+      value.insert(value.end(), literal_words.begin(), literal_words.end());
       cursor += count;
     }
 
@@ -347,9 +398,9 @@ void decode_dictionary_delta_range(
   }
 }
 
-std::map<std::uint16_t, std::string> decode_experimental_dictionary(
+std::map<std::uint16_t, TokenWords> decode_experimental_dictionary(
     const std::vector<std::uint8_t>& bytes) {
-  std::map<std::uint16_t, std::string> token_strings;
+  std::map<std::uint16_t, TokenWords> token_strings;
   const auto page_count = bytes.size() / boo_page_size;
 
   for (std::size_t page = 0; page < page_count; ++page) {
@@ -411,10 +462,10 @@ std::map<std::uint16_t, std::string> decode_experimental_dictionary(
   return token_strings;
 }
 
-std::string resolve_experimental_token(
+TokenWords resolve_experimental_token(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory,
-    const std::map<std::uint16_t, std::string>& token_strings,
+    const std::map<std::uint16_t, TokenWords>& token_strings,
     std::uint8_t first,
     std::optional<std::uint8_t> second) {
   std::uint16_t key = 0;
@@ -437,34 +488,81 @@ std::string resolve_experimental_token(
   return found->second;
 }
 
+std::string token_words_to_ascii(const TokenWords& words) {
+  std::string output;
+  output.reserve(words.size());
+  for (const auto word : words) {
+    if (word >= 0x20 && word <= 0x7E) {
+      output.push_back(static_cast<char>(word));
+    } else if (word == 0x00A0) {
+      output.push_back(' ');
+    } else {
+      output.push_back('?');
+    }
+  }
+  return output;
+}
+
 std::vector<BooLogicalControl> extract_logical_controls(
     const std::string& decoded_record) {
-  static const std::array<const char*, 11> keys = {
-      "CLANGUAGE=", "CVERSION=",  "CBLDVERS=", "CREFLOW=", "CTITLE=",
-      "CSTITLE=",   "CCOPYRIGHT=", "CSECURITY=", "CDATE=",   "CAUTHOR=",
-      "CDOCNUM="};
+  struct ControlKey {
+    const char* canonical;
+    const char* lower;
+  };
+  static const std::array<ControlKey, 11> keys = {{
+      {"CLANGUAGE", "clanguage="},
+      {"CVERSION", "cversion="},
+      {"CBLDVERS", "cbldvers="},
+      {"CREFLOW", "creflow="},
+      {"CTITLE", "ctitle="},
+      {"CSTITLE", "cstitle="},
+      {"CCOPYRIGHT", "ccopyright="},
+      {"CSECURITY", "csecurity="},
+      {"CDATE", "cdate="},
+      {"CAUTHOR", "cauthor="},
+      {"CDOCNUM", "cdocnum="},
+  }};
 
   std::vector<BooLogicalControl> controls;
-  for (const auto* key : keys) {
-    const std::string key_text(key);
-    const auto found = decoded_record.find(key_text);
+  const auto lower_record = ascii_lower(decoded_record);
+  for (const auto& key : keys) {
+    const std::string key_text(key.lower);
+    const auto found = lower_record.find(key_text);
     if (found == std::string::npos) {
       continue;
     }
 
     auto value_begin = found + key_text.size();
     auto value_end = decoded_record.size();
-    for (const auto* next_key : keys) {
-      const auto next = decoded_record.find(next_key, value_begin);
+    for (const auto& next_key : keys) {
+      const auto next = lower_record.find(next_key.lower, value_begin);
+      if (next != std::string::npos) {
+        value_end = std::min(value_end, next);
+      }
+    }
+    for (auto cursor = value_begin; cursor + 3 < decoded_record.size();
+         ++cursor) {
+      if (decoded_record[cursor] == '?' && decoded_record[cursor + 1] == ',' &&
+          lower_record[cursor + 2] == 'c' &&
+          std::isalpha(static_cast<unsigned char>(lower_record[cursor + 3])) !=
+              0) {
+        value_end = std::min(value_end, cursor);
+        break;
+      }
+    }
+    static const std::array<const char*, 8> auxiliary_boundaries = {
+        "?csource=", "?cbasenum=", "?cdoclevel=", "?cfront=",
+        "?ccontents=", "?cfigures=", "?ctables=", "?cindex="};
+    for (const auto* boundary : auxiliary_boundaries) {
+      const auto next = lower_record.find(boundary, value_begin);
       if (next != std::string::npos) {
         value_end = std::min(value_end, next);
       }
     }
 
-    controls.push_back(
-        {key_text.substr(0, key_text.size() - 1),
-         trim_ascii(decoded_record.substr(value_begin,
-                                          value_end - value_begin))});
+    controls.push_back({key.canonical,
+                        trim_ascii(decoded_record.substr(
+                            value_begin, value_end - value_begin))});
   }
   return controls;
 }
@@ -478,10 +576,32 @@ std::vector<BooLogicalControl> decode_experimental_logical_controls(
     return controls;
   }
 
+  std::vector<std::size_t> candidate_pages;
+  const auto content_page_end =
+      directory.content_start_page +
+      static_cast<std::uint32_t>(directory.content_page_count);
+  for (std::uint32_t page = directory.content_start_page;
+       page < content_page_end;
+       ++page) {
+    candidate_pages.push_back(page);
+  }
+
   const auto page_count = bytes.size() / boo_page_size;
   for (std::size_t page = 0; page < page_count; ++page) {
     const auto page_base = page * boo_page_size;
-    if (read_be16(bytes, page_base) != 0x0001) {
+    if (read_be16(bytes, page_base) == 0x0001) {
+      candidate_pages.push_back(page);
+    }
+  }
+
+  for (const auto page : candidate_pages) {
+    if (page >= page_count) {
+      continue;
+    }
+
+    const auto page_base = page * boo_page_size;
+    const auto page_class = read_be16(bytes, page_base);
+    if (page_class != 0x0000 && page_class != 0x0001) {
       continue;
     }
 
@@ -498,29 +618,45 @@ std::vector<BooLogicalControl> decode_experimental_logical_controls(
       }
 
       const auto payload_end = length_offset + *record_length;
-      std::string decoded;
+      TokenWords decoded_words;
       for (auto cursor = length_offset; cursor < payload_end;) {
         const auto first = bytes[cursor++];
         if (first >= directory.token_threshold && cursor < payload_end) {
           const auto second = bytes[cursor++];
-          decoded += resolve_experimental_token(bytes,
-                                                directory,
-                                                token_strings,
-                                                first,
-                                                second);
+          const auto token_words = resolve_experimental_token(bytes,
+                                                              directory,
+                                                              token_strings,
+                                                              first,
+                                                              second);
+          decoded_words.insert(decoded_words.end(),
+                               token_words.begin(),
+                               token_words.end());
         } else {
-          decoded += resolve_experimental_token(bytes,
-                                                directory,
-                                                token_strings,
-                                                first,
-                                                std::nullopt);
+          const auto token_words = resolve_experimental_token(bytes,
+                                                              directory,
+                                                              token_strings,
+                                                              first,
+                                                              std::nullopt);
+          decoded_words.insert(decoded_words.end(),
+                               token_words.begin(),
+                               token_words.end());
         }
       }
 
+      const auto decoded = token_words_to_ascii(decoded_words);
       auto record_controls = extract_logical_controls(decoded);
+      const auto has_docnum =
+          std::any_of(record_controls.begin(),
+                      record_controls.end(),
+                      [](const BooLogicalControl& control) {
+                        return control.key == "CDOCNUM";
+                      });
       controls.insert(controls.end(),
                       record_controls.begin(),
                       record_controls.end());
+      if (has_docnum) {
+        return controls;
+      }
       record_offset = payload_end;
     }
   }

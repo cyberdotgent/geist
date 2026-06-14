@@ -59,8 +59,13 @@ byte strings:
 | ASCII `CTITLE=` / EBCDIC CP037 `CTITLE=` | not present | not present |
 | ASCII `CDOCNUM=` / EBCDIC CP037 `CDOCNUM=` | not present | not present |
 
-Both fixtures do contain dense logical-record pages in the trailing `0x0001`
-page run. These pages have a common record-page shape:
+Both fixtures contain tokenized logical records in the `0x0000` content run and
+also contain dense trailing `0x0001` logical-record pages. The book-header
+control parser initializes logical stream 0 and reads from the content-stream
+records first; an implementation that scans only the trailing `0x0001` run will
+miss `CLANGUAGE=`, `CVERSION=`, `CTITLE=`, `CDOCNUM=`, and related controls.
+
+The record pages have a common page shape:
 
 ```c
 struct BooLogicalRecordPage {
@@ -74,8 +79,10 @@ Observed logical-record pages:
 
 | File | Page range | Used-length examples | Record count examples |
 | --- | --- | --- | --- |
-| `QS3X36CM.BOO` | pages 27-30 | page 27 `0x1000`, page 30 `0x025d` | page 27 has 729 records, page 30 has 141 records |
-| `OFCUSEOV.BOO` | pages 88-98 | page 88 `0x0fe2`, page 98 `0x0753` | page 88 has 132 records, page 98 has 102 records |
+| `QS3X36CM.BOO` content stream | pages 7-26 | page 7 `0x0fef`, page 26 `0x0d4f` | page 7 begins with the header-control record. |
+| `QS3X36CM.BOO` trailing logical run | pages 27-30 | page 27 `0x1000`, page 30 `0x025d` | page 27 has 729 records, page 30 has 141 records. |
+| `OFCUSEOV.BOO` content stream | pages 10-86 | page 10 `0x0ffe`, page 86 `0x0615` | page 10 begins with the header-control record. |
+| `OFCUSEOV.BOO` trailing logical run | pages 88-98 | page 88 `0x0fe2`, page 98 `0x0753` | page 88 has 132 records, page 98 has 102 records. |
 
 The page-1 directory identifies the dictionary/token-table inputs used by the
 resolver:
@@ -377,7 +384,7 @@ Literal words are read in one of two forms:
 | Dictionary text mode | Literal storage |
 | --- | --- |
 | Mode value `1` in the book handle | Literal words are big-endian 16-bit values. |
-| Other observed version-2 path | Literal bytes index the translation table at handle offset `+3472`, producing 16-bit token words. |
+| Other observed version-2 path | Literal bytes index the codepage table at handle offset `+3472`, producing 16-bit token words. For the repository fixtures this is the reader's CP500 table selected from directory word `0x004c` (`0x01f4`). |
 
 The reconstructed token buffer has this in-memory shape after each applied
 delta:

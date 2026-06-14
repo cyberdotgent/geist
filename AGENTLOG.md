@@ -153,3 +153,13 @@
   18 2026" -A x64` and `cmake --build build`. Updated `AGENTS.md` so future
   validation uses `build/` directly and does not create multiple nested build
   folders unless explicitly requested.
+- Fixed the experimental logical-control decoder so `booinfo` decodes controls
+  from both bundled BOO fixtures. Replaced the earlier direct-CP037 dictionary
+  shortcut with CP500 byte-to-token-word mapping for version-2 dictionary
+  literal bytes, scanned the documented content stream pages before the
+  trailing `0x0001` logical-record pages, made control-key extraction
+  case-insensitive, bounded values at auxiliary control boundaries, and stopped
+  after `CDOCNUM` like the IBM reader. Verified with `cmake --build build`,
+  `build\Debug\booinfo.exe BOO\OFCUSEOV.BOO`, and
+  `build\Debug\booinfo.exe BOO\QS3X36CM.BOO`. Updated
+  `Format/logical-controls.md` with the content-stream and CP500 table details.
