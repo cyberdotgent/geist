@@ -110,6 +110,8 @@ struct TocEntry {
   std::uint32_t end_logical_record = 0;
   // GML-style raw projection of the decoded BookManager topic records.
   std::vector<std::string> raw_records;
+
+  GEIST_API std::string markdown() const;
 };
 
 struct ResourceEntry {
@@ -141,6 +143,7 @@ public:
       const noexcept;
   GEIST_API const std::vector<TocEntry>& table_of_contents() const noexcept;
   GEIST_API const std::vector<std::string>& raw_gml_records() const noexcept;
+  GEIST_API std::string markdown() const;
   GEIST_API const std::vector<ResourceEntry>& resources() const noexcept;
   GEIST_API const TocEntry* find_toc_entry(const std::string& topic_id)
       const noexcept;

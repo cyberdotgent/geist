@@ -38,6 +38,7 @@ set(GEIST_SOURCES
   src/boo_io.cpp
   src/boo_logical.cpp
   src/boo_markup.cpp
+  src/boo_markdown.cpp
   src/boo_page_runs.cpp
   src/boo_png.cpp
   src/boo_properties.cpp
@@ -64,7 +65,7 @@ foreach(target geist geist_static)
   )
 
   if(MSVC)
-    target_compile_options(${target} PRIVATE /W4)
+    target_compile_options(${target} PRIVATE /W4 /FS)
   else()
     target_compile_options(${target} PRIVATE -Wall -Wextra -pedantic)
   endif()

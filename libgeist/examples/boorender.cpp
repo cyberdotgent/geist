@@ -29,7 +29,15 @@ int main(int argc, char** argv) {
         std::cout << record << '\n';
       }
     } else if (mode == "--md") {
-      std::cout << "Markdown support is not yet implemented\n";
+      const auto* entry =
+          has_topic_id ? document.find_toc_entry(argv[2]) : nullptr;
+      if (has_topic_id && entry == nullptr) {
+        std::cerr << "boorender: BOO topic id was not found: " << argv[2]
+                  << "\n";
+        return 1;
+      }
+
+      std::cout << (has_topic_id ? entry->markdown() : document.markdown());
     } else {
       std::cerr << "usage: boorender <book.boo> [topic-id] (--raw|--md)\n";
       return 2;

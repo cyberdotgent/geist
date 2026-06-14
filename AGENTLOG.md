@@ -1,5 +1,25 @@
 # Agent Log
 
+## 2026-06-14 - Add Markdown rendering API
+
+- Added `TocEntry::markdown()` for topic-level rendering and
+  `BooDocument::markdown()` for whole-book rendering. Both reuse a shared
+  Markdown projection over the existing GML-style raw records in
+  `libgeist/src/boo_markdown.cpp`.
+- Updated `boorender --md` to emit Markdown for either the full document or a
+  selected topic id, matching the existing `--raw` topic/full-book behavior.
+- Added the new renderer source to CMake and added MSVC `/FS` to avoid the
+  parallel static-library PDB writer failure observed during validation.
+- Validated with `cmake --build build`, full-book Markdown rendering for
+  `BOO\QS3X36CM.BOO`, and topic Markdown rendering for topic `1.0`.
+- Random BOO Markdown validation sample from the on-disk `BOO/` directory:
+  `SC26-4381-00.boo`, `SC24-5520-00.boo`, `GH09-8078-03.boo`,
+  `GX09-1269-00.boo`, and `SC23-0375-00.boo`. `boorender --md` passed for
+  four files. `SC24-5520-00.boo` failed, and the failure also reproduced with
+  `booinfo` and `boorender --raw`, so it is recorded as an existing parser/tool
+  failure fixture rather than a Markdown-specific failure.
+- Commit: `d7cf9ce`.
+
 ## 2026-06-14 - Add recent packet BOO fixture
 
 - Added `BOO/packet.boo` and `BOO/packet.script` as intentionally included

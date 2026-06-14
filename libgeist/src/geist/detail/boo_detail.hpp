@@ -74,6 +74,7 @@ std::vector<std::uint8_t> render_resource_png(
 
 std::vector<std::string> render_gml_records(
     const std::vector<std::string>& decoded_records);
+std::string render_markdown_records(const std::vector<std::string>& records);
 bool looks_like_control_boundary(const std::string& decoded_record,
                                  const std::string& lower_record,
                                  std::size_t offset);
