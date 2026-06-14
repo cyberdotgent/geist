@@ -1,5 +1,17 @@
 # Agent Log
 
+## 2026-06-14 - Make boorender default to whole-book raw output
+
+- Removed the `--all` pseudo-topic from `boorender`.
+- Updated usage to `boorender <book.boo> [topic-id] (--raw|--md)`: omitting
+  `topic-id` now emits the whole-book GML stream for `--raw`, while specifying
+  a topic id still emits that topic's `TocEntry::raw_records`.
+- Validated with `cmake --build build`, whole-book raw output without a topic
+  id, topic-specific raw output, `--md` with and without a topic id, usage
+  errors, missing-topic error handling, and five random tracked BOO fixtures
+  through whole-book `--raw`.
+- Commit: pending.
+
 ## 2026-06-14 - Expose whole-book raw GML records
 
 - Added `BooDocument::raw_gml_records()` to expose a document-level GML-style
