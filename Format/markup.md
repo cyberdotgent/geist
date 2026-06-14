@@ -100,6 +100,16 @@ or represented with the nearest BookMaster tag shape.
 | Other `C...` controls | suppressed | Generated or unresolved control-like words. | Fallback behavior for source-style raw output. |
 | Plain text span | `:p.<text>` | Remaining decoded prose after known controls are separated. | Projection artifact, not a stored BOO control. |
 
+Topic-header `ST` values can be adjacent to the first body text in the same
+decoded logical record. For topic pages reached through the TOC, the `CTOCE`
+title is the verified display-title boundary. The raw GML projection should
+therefore split a leading record such as `:h1.Introduction This manual...` into
+`:h1.Introduction` followed by `:p.This manual...` when the corresponding TOC
+entry title is `Introduction`. Markdown renderers should use the topic id and
+TOC title for the visible heading, matching BookServer output such as
+`1.0 Introduction`, while preserving the following body paragraph as normal
+paragraph text.
+
 Example from `packet.script`:
 
 ```text

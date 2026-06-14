@@ -24,7 +24,28 @@ std::string trim_trailing_blank_lines(std::string value) {
 } // namespace
 
 std::string TocEntry::markdown() const {
-  return detail::render_markdown_records(raw_records);
+  auto records = raw_records;
+  if (!records.empty() && !records.front().empty() && !id.empty() &&
+      !title.empty()) {
+    const auto dot = records.front().find('.');
+    if (dot != std::string::npos && records.front().front() == ':') {
+      auto tag_end = std::size_t{1};
+      while (tag_end < dot &&
+             std::isalnum(static_cast<unsigned char>(records.front()[tag_end])) !=
+                 0) {
+        ++tag_end;
+      }
+      const auto tag =
+          detail::ascii_lower(records.front().substr(1, tag_end - 1));
+      if (tag == "h1" || tag == "h2" || tag == "h3" || tag == "h4" ||
+          tag == "h5" || tag == "ih2" || tag == "preface" ||
+          tag == "appendix") {
+        records.front().resize(dot + 1);
+        records.front() += id + " " + title;
+      }
+    }
+  }
+  return detail::render_markdown_records(records);
 }
 
 std::string BooDocument::markdown() const {

@@ -127,6 +127,26 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
   entry.start_logical_record = topic.start_logical_record;
   entry.end_logical_record = topic.end_logical_record;
   entry.raw_records = render_gml_records(topic.raw_records);
+  if (!entry.raw_records.empty() && !entry.title.empty()) {
+    auto& first_record = entry.raw_records.front();
+    const auto dot = first_record.find('.');
+    if (dot != std::string::npos) {
+      const auto content_begin = dot + 1;
+      const auto content = first_record.substr(content_begin);
+      const auto title_size = entry.title.size();
+      if (content.size() > title_size &&
+          ascii_starts_with_case_insensitive(content, entry.title) &&
+          std::isspace(static_cast<unsigned char>(content[title_size])) != 0) {
+        const auto trailing_text = trim_ascii(content.substr(title_size + 1));
+        first_record.resize(content_begin);
+        first_record += entry.title;
+        if (!trailing_text.empty()) {
+          entry.raw_records.insert(entry.raw_records.begin() + 1,
+                                   ":p." + trailing_text);
+        }
+      }
+    }
+  }
 }
 
 std::vector<TocEntry> build_table_of_contents(
