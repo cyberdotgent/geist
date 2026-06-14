@@ -100,3 +100,9 @@
   the hosted CGI URL, but the connection was refused from this environment, so
   this workload used the local CGI/library IDBs and repository fixtures as
   evidence.
+- Designed and implemented a more concrete `libgeist` BOO reader API surface.
+  `BooDocument` now parses and exposes physical file metadata, page-0 directory
+  locator data, directory-page fields, page runs, advisory page roles, exact
+  page reads, and placeholders for decoded logical controls, TOC entries,
+  resources, and rendering. Updated `booinfo` to report the parsed structure and
+  validated the MSVC build plus smoke runs against both repository BOO fixtures.
