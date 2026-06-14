@@ -106,3 +106,13 @@
   page reads, and placeholders for decoded logical controls, TOC entries,
   resources, and rendering. Updated `booinfo` to report the parsed structure and
   validated the MSVC build plus smoke runs against both repository BOO fixtures.
+- Continued the logical-control decoder analysis in `ephwam.dll`. Renamed the
+  core token/dictionary functions in IDA with `ida_name.set_name`, including
+  `BooSeekDictionaryTokenRecord`, `BooApplyDictionaryDeltaRecord`,
+  `BooResolveExtendedTokenReference`, `BooResolveTokenTextRecord`,
+  `BooReadNextLogicalRecord`, `BooExpandLogicalRecordTokens`, and
+  `BooDecodeTokenWordsToText`, then saved the IDB. Updated `AGENTS.md` to make
+  high-confidence IDA renaming after analysis a persistent instruction, and
+  expanded `Format/logical-controls.md` with dictionary page/block framing,
+  delta operation-byte modes, token-buffer reconstruction behavior, and the
+  remaining narrower implementation gaps.

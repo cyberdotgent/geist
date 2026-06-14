@@ -44,6 +44,11 @@ not as an application with an established build system.
   auto-links renamed functions into a `/vibe/` function-list folder. Use
   IDA Python APIs such as `ida_name.set_name` for function renames instead, and
   keep the IDA function-list folders free of agent/tool-specific categories.
+- After analyzing IDA functions deeply enough to assign high-confidence purpose
+  names, rename them in the IDB with `ida_name.set_name`, add types/comments
+  where they materially improve future analysis, and save the IDB. Prefer
+  descriptive names tied to verified behavior over speculative IBM-internal
+  terminology.
 - A running BookServer reader is available at
   `http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QS3X36CM/CCONTENTS?DT=19910524075122`.
   Use it as an analysis source for reader behavior and for comparing against a

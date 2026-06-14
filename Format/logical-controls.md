@@ -22,6 +22,23 @@ The relevant `ephwam.dll` path is:
 | Extended-token resolver | `0x1218ac5` / `0x1218593` | Walks dictionary pages for token references at or above the directory token threshold. |
 | Character-code decoder | `0x121ac63` | Converts the 16-bit character-code records to NUL-terminated text strings. |
 
+The `ephwam.dll` IDB now has descriptive names on this path:
+
+| IDA name | Address | Verified behavior |
+| --- | ---: | --- |
+| `BooReadCompactRecordLength` | `0x1216189` | Reads the one- or two-byte record length prefix. |
+| `BooDecodeTokenReferenceNumber` | `0x1216247` | Converts a 2- or 3-byte token reference into a sequential token number. |
+| `BooResolveTokenTextRecord` | `0x1218250` | Resolves a one-byte or extended token reference to a word-counted token text record, using the cache for one-byte token IDs. |
+| `BooResolveExtendedTokenReference` | `0x1218ac5` | Seeks and advances dictionary state until the requested extended token record is reconstructed. |
+| `BooSeekDictionaryTokenRecord` | `0x1218cef` | Searches dictionary index groups for the requested token key and leaves the cursor at the matching dictionary delta record. |
+| `BooApplyDictionaryDeltaRecord` | `0x1218593` | Applies one dictionary delta/update record to the current reconstructed token-word buffer. |
+| `BooSkipDictionaryTokenRecords` | `0x12188d8` | Advances the dictionary cursor across a requested number of delta records. |
+| `BooResetDictionaryCursorForToken` | `0x1218b43` | Loads a base token text record at the current cursor and resets the reconstructed token buffer. |
+| `BooMapTokenWordBufferNormalTable` | `0x121a0ea` | Maps a word-counted token buffer through the current translation table. |
+| `BooMapTokenWordBufferUpperTable` | `0x1219f22` | Maps a word-counted token buffer through an alternate uppercase-oriented table. |
+| `BooMapTokenWordToUpper` | `0x121a765` | Maps one token word, uppercasing ASCII `a..z` to `A..Z` in the simple path. |
+| `BooMapTokenWordToLower` | `0x121a9e4` | Maps one token word, lowercasing ASCII `A..Z` to `a..z` in the simple path. |
+
 The CGI IDB (`bookmgr.exe`) calls `Scm_Bopen` and `Scm_Binfo` from
 `ephwam.dll`; it consumes the returned metadata but does not parse these
 tokenized records itself.
@@ -147,6 +164,108 @@ The resolver behavior is:
 The dictionary-page resolver supports delta/update records, which is why
 dictionary pages are not a simple flat array of strings.
 
+## Dictionary Pages And Delta Records
+
+Dictionary pages are observed as `0x0100` page-class pages. Their first four
+bytes match the same page framing used by logical-record pages:
+
+```c
+struct BooDictionaryPage {
+  uint16_t page_class_be;       // 0x0100 in both repository fixtures.
+  uint16_t used_length_be;      // byte offset of end of used page data.
+  uint8_t records[];            // compact length-prefixed dictionary blocks.
+};
+```
+
+The dictionary block length prefix uses the same compact length function
+documented above. Examples:
+
+| File | Page | Offset | Bytes | Length |
+| --- | ---: | ---: | --- | ---: |
+| `QS3X36CM.BOO` | 2 | `0x0004` | `f1 b0` | 432 |
+| `QS3X36CM.BOO` | 2 | `0x01b6` | `f2 98` | 664 |
+| `OFCUSEOV.BOO` | 2 | `0x0004` | `f2 e9` | 745 |
+| `OFCUSEOV.BOO` | 2 | `0x02ef` | `f2 fa` | 762 |
+
+The start of each dictionary block is not directly the decoded word data. The
+seek routine treats a dictionary block as a container of indexed groups:
+
+```c
+struct BooDictionaryBlockHeader {
+  uint8_t group_count_or_selector;
+  uint8_t unknown_01;
+  uint16_t group_region_end_be;  // Reader uses block_base + this value.
+  uint8_t groups[];
+};
+```
+
+Observed first dictionary block headers:
+
+| File | Page | Offset | Header bytes | Interpretation |
+| --- | ---: | ---: | --- | --- |
+| `QS3X36CM.BOO` | 2 | `0x0006` | `dc 00 01 01` | `group_count_or_selector=0xdc`, group region ends at block-relative `0x0101`. |
+| `OFCUSEOV.BOO` | 2 | `0x0006` | `d5 00 01 01` | `group_count_or_selector=0xd5`, group region ends at block-relative `0x0101`. |
+
+`BooSeekDictionaryTokenRecord` scans the groups inside this region. Each group
+entry begins with a compact length. The entry payload contains a searchable
+token key followed by the bytes needed to reach the corresponding dictionary
+delta record. The key comparison length is derived from the dictionary variant:
+for version-2 fixtures the search key is normally the two-byte extended token
+reference; version-3 can use three-byte references.
+
+Once the seek routine finds the requested token key, it stores dictionary cursor
+state in the book handle:
+
+| Cursor field role | Reader behavior |
+| --- | --- |
+| Dictionary page number | Selects the active dictionary page buffer. |
+| Current record offset | Points at the matched delta record inside that page. |
+| End record offset | Bounds the current delta-record region. |
+| Sequential token number | Tracks how many delta records have been applied. |
+| Reconstructed token buffer | Word-counted 16-bit token text buffer used by the resolver. |
+
+### Delta Operation Byte
+
+`BooApplyDictionaryDeltaRecord` and `BooSkipDictionaryTokenRecords` both parse a
+delta/update record from the current dictionary cursor. The first byte is split
+into a two-bit mode and a six-bit count:
+
+```c
+uint8_t op = *cursor++;
+uint8_t mode = op >> 6;
+uint8_t count = op & 0x3f;
+```
+
+The verified operation behavior is:
+
+| Mode | Observed behavior |
+| ---: | --- |
+| `0` | Transform the current reconstructed token buffer through a table. In `BooApplyDictionaryDeltaRecord`, optional following bytes are indexes into the current buffer; each indexed word is lowercased/mapped with `BooMapTokenWordToLower`. In the skip path, the cursor skips `count` payload bytes. |
+| `1` | Start a new reconstructed token buffer with `count` existing words, then read a second six-bit literal count from the next byte and append that many literal words. |
+| `2` | Transform the current reconstructed token buffer through the normal table, then apply optional indexed uppercase/mapping substitutions with `BooMapTokenWordToUpper`. In the skip path, this mode skips `count` payload bytes. |
+| `3` | Transform the current reconstructed token buffer through the normal table, then append `count` literal words. This shares the append path used by mode `1`. |
+
+Literal words are read in one of two forms:
+
+| Dictionary text mode | Literal storage |
+| --- | --- |
+| Mode value `1` in the book handle | Literal words are big-endian 16-bit values. |
+| Other observed version-2 path | Literal bytes index the translation table at handle offset `+3472`, producing 16-bit token words. |
+
+The reconstructed token buffer has this in-memory shape after each applied
+delta:
+
+```c
+struct BooReconstructedTokenText {
+  uint16_t word_count;
+  uint16_t words[word_count];
+  uint16_t zero_terminator;
+};
+```
+
+This structure is in reader memory. The on-disk data stores only delta/update
+records, not this expanded form.
+
 ## Character Conversion
 
 After token resolution, the logical-record iterator concatenates token text
@@ -197,7 +316,17 @@ the strings above. It should:
 5. Convert the resolved 16-bit character-code records to bytes.
 6. Compare the decoded strings with the control keys and stop at `CDOCNUM=`.
 
-The unresolved part is the complete dictionary delta/update grammar. The control
-storage mechanism and the record/page framing are identified, but a standalone
-implementation still needs the dictionary resolver before it can decode every
-control value from scratch.
+The remaining unresolved pieces are now narrower:
+
+- the complete layout of dictionary block group entries after their compact
+  length prefix;
+- the exact meaning of the dictionary block header byte at offset `+1`;
+- the exact cursor-field layout in a clean public structure rather than the IBM
+  reader's in-memory handle offsets;
+- complete translation-table loading for every code page and double-byte text
+  mode.
+
+The delta operation byte and reconstructed token buffer behavior are identified,
+but a standalone implementation still needs the dictionary group-entry parser
+and translation-table loader before it can decode every control value from
+scratch.
