@@ -14,7 +14,7 @@
   topics `2.0`, `2.1`, `2.2`, and `2.3` in `QS3X36CM.BOO`, five random tracked
   BOO `CONTENTS` raw checks, `boorender --md`, and missing-topic error
   handling.
-- Commit: pending.
+- Commit: `c7f96c7`.
 
 ## 2026-06-14 - Document markup controls and emit GML-style raw output
 
