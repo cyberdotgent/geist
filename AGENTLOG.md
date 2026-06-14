@@ -126,3 +126,12 @@
   both BOO fixtures, the translation-table page loading formula, and token-word
   table/index decoding. Updated `Format/encoding.md` to summarize the verified
   translation-table and search-key encoding behavior.
+- Finished the remaining dictionary index continuation-payload analysis.
+  Traced `BooSeekDictionaryTokenRecord` in IDA, added comments at the control
+  byte, continuation-cursor, page-jump, and terminal-delta offsets, and saved
+  the IDB. Verified against both BOO fixtures that root entries use
+  `key + prefix_length + prefix_bytes + BE16 page`, dictionary-page top entries
+  use `key + prefix_length + prefix_bytes + nested terminal entries`, and
+  terminal entries use `key + delta_record_bytes`. Updated
+  `Format/logical-controls.md`, `Format/encoding.md`, and
+  `Format/boo-header.md` accordingly.

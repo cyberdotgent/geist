@@ -51,8 +51,9 @@ evidence.
 
 - Complete byte-for-byte behavior for every supported code page and fallback
   substitution path.
-- Full subfield layout of dictionary index-entry continuation payloads after
-  the token key.
+- Fixture evidence for the dictionary index controls that the reader supports
+  but the repository fixtures did not need on the sampled root-to-terminal
+  paths (`2`, `4`, and `5`).
 - Whether body text uses the same logical-record tokenization path throughout
   all page classes, or whether some page classes have additional text storage
   variants.

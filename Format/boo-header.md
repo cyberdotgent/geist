@@ -90,9 +90,9 @@ where only the storage role is verified.
 | `0x0010` | 4 | EBCDIC `" 1.2"` | EBCDIC `" 1.2"` | Format/version text checked by the reader. |
 | `0x0016` | 2 | `0x001e` / 30 | `0x0062` / 98 | Last physical page number; equals `page_count - 1`. |
 | `0x001a` | 2 | `0x089c` | `0x089c` | Scalar read by the parser; semantic unresolved. |
-| `0x0022` | 2 | `0x0c8c` | `0x0c8c` | In-page offset. Reader resolves it as `directory_base + value`. |
-| `0x0024` | 2 | `0x00dc` | `0x00d5` | Scalar read by the parser; semantic unresolved. |
-| `0x0026` | 2 | `0x0e44` | `0x0e38` | Scalar read by the parser; semantic unresolved. |
+| `0x0022` | 2 | `0x0c8c` | `0x0c8c` | In-page offset of the two-byte token map used for one-byte token IDs. |
+| `0x0024` | 2 | `0x00dc` | `0x00d5` | Token threshold; bytes below this value are one-byte token IDs in logical records. |
+| `0x0026` | 2 | `0x0e44` | `0x0e38` | In-page offset of the version-2 dictionary token-lookup root index. |
 | `0x0028` | 2 | `0x0002` / 2 | `0x0002` / 2 | Start page of the observed `0x0100` page run. |
 | `0x002c` | 2 | `0x13f9` | `0x1a4c` | Used with directory byte `0x0014` in an internal derived value. |
 | `0x002e` | 2 | `0x0005` / 5 | `0x0008` / 8 | Count of pages in the `0x0100` page run. |

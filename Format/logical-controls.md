@@ -201,8 +201,8 @@ The lookup root is a compact-length-indexed block:
 
 ```c
 struct BooDictionaryIndexBlock {
-  uint8_t control;       // Observed 0x03 in the root blocks.
-  uint8_t unknown_01;    // Observed 0x00 in the root blocks.
+  uint8_t control;       // Descent/page-jump control byte.
+  uint8_t unknown_01;    // Observed 0x00 in the root and dictionary pages.
   uint16_t used_end_be;  // Block-relative end offset.
   uint8_t entries[];     // Compact-length-prefixed entries.
 };
@@ -219,14 +219,24 @@ Each index entry begins with the same compact length encoding used for logical
 and dictionary records. In the version-2 token-reference lookup path, the first
 two payload bytes are the searchable extended-token key. The reader compares
 exactly this key width, then leaves the dictionary cursor at the byte immediately
-after the key. The entry end is `entry_payload + entry_length`.
+after the key when it reaches a terminal entry. The entry end is
+`entry_payload + entry_length`.
 
 ```c
-struct BooDictionaryIndexEntryV2 {
+struct BooDictionaryIndexEntryV2NonTerminal {
   uint8_t compact_length[];      // Usually one byte in the observed root.
   uint8_t token_key_be[2];       // Extended token reference key.
-  uint8_t cursor_payload[];      // Continuation/cursor bytes consumed by the
-                                 // dictionary resolver after the key match.
+  uint8_t prefix_length;         // Byte count of prefix_bytes in observed
+                                 // non-16-bit text mode.
+  uint8_t prefix_bytes[prefix_length];
+  uint8_t continuation[];        // Either a BE16 page number or nested entries,
+                                 // depending on the block control byte.
+};
+
+struct BooDictionaryIndexEntryV2Terminal {
+  uint8_t compact_length[];
+  uint8_t token_key_be[2];
+  uint8_t delta_record_bytes[];  // Starts immediately after the token key.
 };
 ```
 
@@ -240,19 +250,95 @@ Observed root entries:
 | `QS3X36CM.BOO` | `0x0e68` | 9 | `e8 24 04 96 97 85 95 00 05` |
 | `QS3X36CM.BOO` | `0x0e72` | 14 | `ec 58 09 a2 95 84 a4 a2 99 94 a2 87 00 06` |
 | `OFCUSEOV.BOO` | `0x0e3c` | 6 | `d5 00 01 01 00 02` |
-| `OFCUSEOV.BOO` | `0x0e43` | 52 | `d7 45 2f 2d 81 00 02 03 96 86 00 01 01 00 01 3a 95 40 83 90 0c 85 00 01 02 81 3e 30 84 96 99 40 83 90 0f 85 40 a2 87 95 00 01 02 81 77 04 83 a2 a4 97 00 03` |
-| `OFCUSEOV.BOO` | `0x0e78` | 19 | `da 8f 0e 83 88 81 95 87 85 40 a2 85 95 40 84 96 83 00 04` |
-| `OFCUSEOV.BOO` | `0x0e8c` | 13 | `dd aa 08 85 94 40 a2 91 83 00 05` |
+| `OFCUSEOV.BOO` | `0x0e43` | 52 | `d7 45 2f 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 00 03` |
+| `OFCUSEOV.BOO` | `0x0e78` | 19 | `da 8f 0e 83 88 81 95 87 89 95 87 10 f1 10 f1 4b f6 00 04` |
+| `OFCUSEOV.BOO` | `0x0e8c` | 13 | `dd aa 08 85 94 82 85 84 84 85 84 00 05` |
 | `OFCUSEOV.BOO` | `0x0e9a` | 9 | `e1 6c 04 93 81 a2 a3 00 06` |
-| `OFCUSEOV.BOO` | `0x0ea4` | 21 | `e5 23 10 97 99 89 a5 81 a3 85 40 83 90 0c 95 40 a2 87 95 00 07` |
+| `OFCUSEOV.BOO` | `0x0ea4` | 21 | `e5 23 10 97 99 96 83 85 84 a4 99 85 10 f2 10 f1 4b f1 f6 00 07` |
 | `OFCUSEOV.BOO` | `0x0eba` | 8 | `e9 74 03 a2 95 81 00 08` |
-| `OFCUSEOV.BOO` | `0x0ec3` | 13 | `ed 18 08 a6 96 89 83 85 a2 00 09` |
+| `OFCUSEOV.BOO` | `0x0ec3` | 13 | `ed 18 08 a6 96 99 92 93 96 81 84 00 09` |
 
-The bytes after the token key are verified as the continuation/cursor payload
-that positions the resolver for subsequent dictionary delta records. Their
-subfields are still being separated, so independent readers should treat them
-as resolver-controlled payload until more continuation examples have been
-decoded.
+For these root entries, `control=0x03`. The continuation is therefore a
+big-endian page number after the prefix bytes:
+
+| File | Key | Prefix length | Prefix bytes | Continuation |
+| --- | --- | ---: | --- | --- |
+| `QS3X36CM.BOO` | `dc 00` | 1 | `01` | page `0x0002` |
+| `QS3X36CM.BOO` | `df d0` | 6 | `83 89 97 88 85 99` | page `0x0003` |
+| `QS3X36CM.BOO` | `e3 d0` | 7 | `84 a2 97 84 85 a5 84` | page `0x0004` |
+| `QS3X36CM.BOO` | `e8 24` | 4 | `96 97 85 95` | page `0x0005` |
+| `QS3X36CM.BOO` | `ec 58` | 9 | `a2 95 84 a4 a2 99 94 a2 87` | page `0x0006` |
+| `OFCUSEOV.BOO` | `d5 00` | 1 | `01` | page `0x0002` |
+| `OFCUSEOV.BOO` | `d7 45` | 47 | `2d` repeated 47 times | page `0x0003` |
+| `OFCUSEOV.BOO` | `da 8f` | 14 | `83 88 81 95 87 89 95 87 10 f1 10 f1 4b f6` | page `0x0004` |
+| `OFCUSEOV.BOO` | `dd aa` | 8 | `85 94 82 85 84 84 85 84` | page `0x0005` |
+| `OFCUSEOV.BOO` | `e1 6c` | 4 | `93 81 a2 a3` | page `0x0006` |
+| `OFCUSEOV.BOO` | `e5 23` | 16 | `97 99 96 83 85 84 a4 99 85 10 f2 10 f1 4b f1 f6` | page `0x0007` |
+| `OFCUSEOV.BOO` | `e9 74` | 3 | `a2 95 81` | page `0x0008` |
+| `OFCUSEOV.BOO` | `ed 18` | 8 | `a6 96 99 92 93 96 81 84` | page `0x0009` |
+
+The dictionary pages reached from the root have page class bytes `01 00`. The
+seek routine treats the first byte (`0x01`) as the same index-block control and
+the used-length word at page offset `0x0002` as the block end. With
+`control=0x01`, the selected top-level entry's continuation is not a page
+number; it is an in-entry subrange containing terminal entries:
+
+```c
+struct BooDictionaryPageIndex {
+  uint8_t control;       // 0x01 in observed token dictionary pages.
+  uint8_t unknown_01;    // 0x00.
+  uint16_t used_end_be;  // Page used length.
+  BooDictionaryIndexEntryV2NonTerminal top_entries[];
+};
+```
+
+Examples of page-level top entries:
+
+| File | Page | Entry offset | Key | Prefix length | Prefix bytes | Nested terminal-entry range |
+| --- | ---: | ---: | --- | ---: | --- | --- |
+| `QS3X36CM.BOO` | 2 | `0x0004` | `dc 00` | 1 | `01` | `0x000a..0x01b5` |
+| `QS3X36CM.BOO` | 3 | `0x0004` | `df d0` | 6 | `83 89 97 88 85 99` | `0x000f..0x02af` |
+| `QS3X36CM.BOO` | 4 | `0x0004` | `e3 d0` | 7 | `84 a2 97 84 85 a5 84` | `0x0010..0x0278` |
+| `OFCUSEOV.BOO` | 2 | `0x0004` | `d5 00` | 1 | `01` | `0x000a..0x02ee` |
+| `OFCUSEOV.BOO` | 3 | `0x0004` | `d7 45` | 47 | `2d` repeated 47 times | `0x0038..0x0296` |
+| `OFCUSEOV.BOO` | 4 | `0x0004` | `da 8f` | 14 | `83 88 81 95 87 89 95 87 10 f1 10 f1 4b f6` | `0x0017..0x02a2` |
+
+The terminal entries inside these ranges do not have a separate prefix section.
+When the block control has counted down to zero, the matched entry's dictionary
+delta record starts immediately after the two-byte key:
+
+| File | Page | Terminal entry offset | Key | Delta bytes start | Entry end |
+| --- | ---: | ---: | --- | ---: | ---: |
+| `QS3X36CM.BOO` | 2 | `0x000a` | `dc 00` | `0x000d` | `0x0026` |
+| `QS3X36CM.BOO` | 2 | `0x0026` | `dc 09` | `0x0029` | `0x0075` |
+| `QS3X36CM.BOO` | 3 | `0x000f` | `df d0` | `0x0012` | `0x0068` |
+| `QS3X36CM.BOO` | 4 | `0x0010` | `e3 d0` | `0x0013` | `0x0048` |
+| `OFCUSEOV.BOO` | 2 | `0x000a` | `d5 00` | `0x000d` | `0x0030` |
+| `OFCUSEOV.BOO` | 3 | `0x0038` | `d7 45` | `0x003b` | `0x0090` |
+| `OFCUSEOV.BOO` | 4 | `0x0017` | `da 8f` | `0x001a` | `0x004f` |
+
+In the observed non-16-bit dictionary text mode, the nonterminal continuation
+cursor is:
+
+```c
+continuation = entry_payload + token_key_width + 1 + prefix_length;
+```
+
+The reader also has a 16-bit text-mode branch where the prefix consumes
+`2 * prefix_length` bytes before the continuation cursor.
+
+The block control byte determines how the continuation cursor is used:
+
+| Control value at time of decision | Reader action |
+| ---: | --- |
+| `0` | Terminal match. Set the current dictionary delta range to `entry_payload + token_key_width .. entry_payload + entry_length`. |
+| `1` or `2` | Descend into the selected entry's continuation subrange. The next scan is bounded by `continuation .. entry_end`; the control is decremented at the top of the next pass. |
+| `3` | Read a big-endian 16-bit page number at `continuation`, load that page, and resume scanning at page offset `0`. |
+| `4` or `5` | Descend into the selected entry's continuation subrange first; after one or two counted-down passes, control `3` performs the page jump. |
+
+Controls `3` and `1` are verified in both repository fixtures. Controls `2`,
+`4`, and `5` are present in the reader logic but were not needed by the sampled
+version-2 root-to-terminal token paths above.
 
 Once the seek routine finds the requested token key, it stores dictionary cursor
 state in the book handle:
@@ -392,13 +478,12 @@ the strings above. It should:
 The remaining unresolved pieces are now narrower:
 
 - the exact meaning of the dictionary block header byte at offset `+1`;
-- the complete subfield layout of the dictionary index-entry continuation
-  payload after the token key;
 - the exact cursor-field layout in a clean public structure rather than the IBM
   reader's in-memory handle offsets;
+- fixture evidence for reader-supported dictionary index controls `2`, `4`,
+  and `5`;
 - complete byte-for-byte reproduction of every code-page-specific output path.
 
 The delta operation byte and reconstructed token buffer behavior are identified,
-and the translation-table loader is identified. A standalone implementation
-still needs the continuation-payload subfields to reproduce every extended-token
-dictionary seek from scratch.
+the dictionary index continuation subfields are identified for the observed
+version-2 fixtures, and the translation-table loader is identified.
