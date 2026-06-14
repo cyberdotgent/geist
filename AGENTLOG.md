@@ -293,3 +293,19 @@
   `C:\tmp`; it created the expected working/output directories but failed before
   conversion with `The specified module could not be found.` Recorded the
   runtime attempt in `AnalysisNotes/transmogrifier-runtime.md`.
+- Verified loaded BookServer support for version 1.3 and 1.4 image/object
+  descriptor layouts using the `bookmgr.exe` IDB on port `13337` and the
+  `ephimage.dll` IDB on port `13341`. Renamed the BookServer version 1.4 direct
+  object path functions (`BookServerFindConvertedObjectDescriptors`,
+  `BookServerReadConvertedObjectDescription`,
+  `BookServerExtractConvertedObjectDataToFile`, and
+  `BookServerServePictureObject`) and the legacy helper functions
+  (`EphImageMain`, `EphImageFindLegacyPictureDescriptor`, and
+  `EphImageConvertLegacyPicture`) with `ida_name.set_name`, then saved both
+  IDBs. Documented that 1.3 legacy descriptors live at
+  `0x0118 + (16 * picture_count)` with layout
+  `id[8] + kind[1] + length_be24[3] + offset_be32[4]`, while the BookServer
+  1.4 converted-object path recognizes directory bytes `01 00` and uses
+  descriptor groups where groups 1 and 2 are
+  `id[8] + length_be32[4] + offset_be32[4]`. Updated `Format/assets.md` and
+  `Format/README.md`.

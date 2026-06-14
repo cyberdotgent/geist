@@ -187,21 +187,31 @@ Unknown kind bytes produce `Unknown data type encountered %s` in the utility.
 
 ## Version 1.2/1.3 Picture Directory
 
-The Transmogrifier reads the old picture directory directly from the BOO header
-area, before the logical directory page:
+The loaded BookServer stack supports legacy version 1.2/1.3 picture directories
+through `Official Readers/BookSrv-Win32/ephimage.dll`. The CGI renderer in
+`bookmgr.exe` first attempts the version 1.4 converted-object lookup described
+below; when that does not find a converted object, it calls the `ephimage`
+helper path to locate and convert a legacy picture payload.
+
+`EphImageFindLegacyPictureDescriptor` reads the old picture directory directly
+from the BOO header area, before the logical directory page:
 
 1. Read page-0 bytes `0x0000..0x0001` as the physical directory page.
-2. Seek to `(directory_page << 12) + 9` and read two bytes of book-version state.
-   The utility accepts version 1.2 and 1.3 only.
+2. Seek to `(directory_page << 12)` and read 20 bytes from the physical directory
+   page. Bytes at directory-page offsets `+9..+10` identify the legacy picture
+   layout version for this path. If those bytes are `01 03`, the helper treats
+   the picture directory as version 1.3; otherwise it uses the version 1.2
+   offset. The Transmogrifier applies the same 1.2/1.3 distinction when
+   rewriting old picture books.
 3. Seek to page-0 offset `0x0004` and read a 32-bit big-endian picture/object
    count. If it is zero, the utility prints `Book %s contains no pictures`.
 4. For version 1.2 books, read picture descriptors starting at page-0 offset
-   `0x0118`/decimal `280`. For version 1.3 books, the utility first skips
-   `16 * picture_count` bytes and reads the second descriptor group at
-   `0x0118 + 16 * picture_count`.
+   `0x0118`/decimal `280`. For version 1.3 books, skip the first descriptor
+   group and read the second descriptor group at
+   `0x0118 + (16 * picture_count)`.
 
-Each legacy descriptor consumed by `TransmogConvertLegacyPicturesToWorkFiles` is
-16 bytes:
+Each legacy descriptor consumed by `EphImageFindLegacyPictureDescriptor` and
+`TransmogConvertLegacyPicturesToWorkFiles` is 16 bytes:
 
 | Field | Size | Encoding | Meaning |
 | --- | ---: | --- | --- |
@@ -227,6 +237,52 @@ then the 8-byte `(kind, length, offset)` tuple. Therefore the directory/control
 entry at `0x0110` points to the descriptor body at `0x0118`.
 
 ## Version 1.4 Converted Object Layout
+
+The loaded `bookmgr.exe` IDB confirms direct runtime support for version 1.4
+converted-object descriptors. `BookServerFindConvertedObjectDescriptors` reads
+page 0, reads the physical directory page, and requires directory-page bytes
+`+9..+10` to be `01 00`. If the bytes do not match, it returns failure to the
+caller, which can then use the legacy `ephimage` path.
+
+The version 1.4 object count is the 32-bit big-endian value at page-0 offsets
+`0x0004..0x0007`. Descriptor groups start immediately after the fixed 280-byte
+page-0 header area:
+
+| Group | Start offset | BookServer use |
+| ---: | ---: | --- |
+| `0` | `0x0118 + (0 * 16 * object_count)` | Low-resolution or placeholder object descriptors. The loaded BookServer direct lookup does not use this group. |
+| `1` | `0x0118 + (1 * 16 * object_count)` | Object-description descriptors. |
+| `2` | `0x0118 + (2 * 16 * object_count)` | Object-data descriptors. |
+
+For groups 1 and 2, `BookServerFindConvertedObjectDescriptors` copies matching
+16-byte entries to the caller, and `BookServerServePictureObject` decodes them
+with this layout:
+
+| Field | Size | Encoding | Meaning |
+| --- | ---: | --- | --- |
+| `id` | 8 | EBCDIC-ish object id, padded with `0x40` | Object id matched against the requested picture id. |
+| `length` | 4 | big-endian unsigned integer | Length of the description or object-data payload. |
+| `offset` | 4 | big-endian unsigned integer | Absolute byte offset of the description or object-data payload. |
+
+This is not the legacy `kind[1] + length[3] + offset[4]` tail. The version 1.4
+groups used by BookServer store full 32-bit lengths and have no one-byte legacy
+payload-kind field.
+
+The group-1 description payload is stored as two-byte characters, normally
+`00 xx` pairs for ASCII text. `BookServerReadConvertedObjectDescription` reads
+the byte range, detects a leading zero byte, collapses each pair to the second
+byte, and NUL-terminates the resulting string. The CGI renderer then lowercases
+the description and looks for MIME attributes such as:
+
+```text
+type="image/gif"
+type='image/jpeg'
+```
+
+It also consumes width and height attributes when present. The group-2 object
+payload is the raw converted web object byte range. `BookServerExtractConvertedObjectDataToFile`
+copies this range into the BookServer picture cache using the extension inferred
+from the description `type` attribute.
 
 The Transmogrifier does not just change image bytes in place. It builds a new
 version 1.4 BOO file in a temporary stream, then patches the header tables with
@@ -313,3 +369,7 @@ verified layout as follows:
   from BOO container extraction.
 - Determine whether non-image media resources use kind bytes other than EBCDIC
   `I` (`0xc9`) in the same directory body.
+- Verify version 1.3 and 1.4 descriptor groups against committed BOO fixtures
+  that actually contain those layout versions. The reader-code layout is
+  verified from the loaded IDBs; the current local fixture evidence still
+  centers on a version 1.2-style legacy image directory.
