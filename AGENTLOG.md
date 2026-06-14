@@ -15,7 +15,7 @@
 - Validated with the MSVC CMake build in `build/`, `boorender --raw CONTENTS`
   on five random tracked BOO fixtures, `boorender --raw 1.0` on
   `QS3X36CM.BOO`, `boorender --md`, and missing-topic error handling.
-- Commit: pending.
+- Commit: `0943124`.
 
 ## 2026-06-14 - Document topic/page storage and decoded markup controls
 
