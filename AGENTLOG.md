@@ -1,5 +1,14 @@
 # Agent Log
 
+## 2026-06-14 - Add recent packet BOO fixture
+
+- Added `BOO/packet.boo` and `BOO/packet.script` as intentionally included
+  special fixtures supplied by the user. These are recent files written by a
+  third party and should be preserved exactly.
+- Added narrow `.gitattributes` entries for these two packet files with `-text`
+  so Git does not normalize their bytes.
+- Commit: pending.
+
 ## 2026-06-14 - Verify legacy GDF image format mapping
 
 - Investigated the hypothesis that legacy BOO image payloads are GDF using the
