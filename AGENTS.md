@@ -52,7 +52,10 @@ not as an application with an established build system.
 - A running BookServer reader is available at
   `http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QS3X36CM/CCONTENTS?DT=19910524075122`.
   Use it as an analysis source for reader behavior and for comparing against a
-  superset of the books included in this repository.
+  superset of the books included in this repository. Access this hosted CGI
+  through the Docker fetch MCP (`mcp__MCP_DOCKER.fetch` or
+  `mcp__MCP_DOCKER.fetch_content`); the normal shell/web paths may fail or be
+  redirected locally.
 - The Java version of the reader and its JNI libraries in `Official Readers/`
   are a secondary source for analysis. Prefer static inspection unless the user
   explicitly asks to execute vendored binaries or the environment implications

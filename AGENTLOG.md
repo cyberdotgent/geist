@@ -163,3 +163,8 @@
   `build\Debug\booinfo.exe BOO\OFCUSEOV.BOO`, and
   `build\Debug\booinfo.exe BOO\QS3X36CM.BOO`. Updated
   `Format/logical-controls.md` with the content-stream and CP500 table details.
+- Verified that the hosted BookServer CGI page is accessible through the Docker
+  fetch MCP even though ordinary shell/web access failed. Added
+  `AnalysisNotes/bookserver-docker-fetch.md` with the exact MCP method and
+  updated `AGENTS.md` to use `mcp__MCP_DOCKER.fetch` or
+  `mcp__MCP_DOCKER.fetch_content` for future hosted-CGI analysis.
