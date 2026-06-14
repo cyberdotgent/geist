@@ -47,3 +47,6 @@
   page-1 `page_count - 1`, `0x0100` and `0x0000` page run start/count
   correlations, table offsets/count repetition, and EBCDIC timestamp fields.
   No changes were needed to `Format/boo-header.md`.
+- Added `Format/README.md` as the format-notes index and stubbed topic files
+  for page organization, compression/encoded content, and assets/media
+  resources so future BOO findings have stable documentation locations.
