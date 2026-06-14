@@ -252,6 +252,30 @@ std::string render_bookmaster_tag(std::string tag, std::string value) {
   return ":" + tag + "." + value;
 }
 
+std::string render_bookmaster_tag_with_layout(std::string tag,
+                                              std::string left_margin,
+                                              std::string indent,
+                                              std::string value) {
+  tag = normalize_bookmaster_tag(std::move(tag));
+  value = dot_text(std::move(value));
+  if (tag.empty()) {
+    tag = "p";
+  }
+
+  auto output = ":" + tag;
+  left_margin = trim_ascii(std::move(left_margin));
+  indent = trim_ascii(std::move(indent));
+  if (!left_margin.empty()) {
+    output += " col='" + escape_gml_attr(std::move(left_margin)) + "'";
+  }
+  if (!indent.empty()) {
+    output += " indent='" + escape_gml_attr(std::move(indent)) + "'";
+  }
+  output += ".";
+  output += value;
+  return output;
+}
+
 std::string render_keyed_gml_control(const std::string& tag,
                                      const std::string& attr,
                                      std::string value) {
@@ -357,7 +381,10 @@ std::string render_layout_gml(std::string value) {
     if (trim_ascii(text).empty()) {
       return {};
     }
-    return render_bookmaster_tag(std::move(tag), std::move(text));
+    return render_bookmaster_tag_with_layout(std::move(tag),
+                                             std::move(left_margin),
+                                             std::move(indent),
+                                             std::move(text));
   }
   if (lower_mode == "break") {
     std::istringstream rest_input(rest);
@@ -584,10 +611,6 @@ std::string render_gml_segment(std::string segment,
   }
   if (ascii_starts_with_case_insensitive(lower, "cgpsep")) {
     return render_simple_gml_control("grpsep", rest_after_first_word(segment));
-  }
-  if (!segment.empty() &&
-      std::tolower(static_cast<unsigned char>(segment.front())) == 'c') {
-    return {};
   }
   return render_simple_gml_control("p", std::move(segment));
 }

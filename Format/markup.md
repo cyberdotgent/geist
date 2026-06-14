@@ -260,6 +260,18 @@ references are linked through `CSELECT` targets such as `pic1` or `Pic1`.
 | `CSELECT ... fig...` | `CSELECT 3 8 fig4302hp1` | Selectable figure reference. |
 | `CSELECT ... pic...` | `CSELECT 35 9 pic1` | Selectable picture/image placeholder. |
 
+`QS3X36CM.BOO` topic `2.2` (`SRTBLtbluniq2`) demonstrates a legacy
+cross-reference table where the decoded logical stream presents table text as
+an ordered sequence between `SRTBL` and `SRETBL`, not as explicit row and cell
+records. The sequence starts with the three header cells `System/36`, `As/400`,
+and `As/400 Function`. A Markdown renderer can emit a usable pipe table by
+using those first three cells as the header row, preserving ordinary text that
+begins with `C` (for example `Cancel(c)` and `Clrjobq`), and grouping later
+cells with AS/400 command-looking tokens such as `endjob`, `wrkjobq`, and
+`chgsplfa`. This is a renderer fallback, not a complete format fact: the exact
+byte-level row/column layout for these flat legacy table records still needs
+reader-code confirmation.
+
 Evidence:
 
 | File | Decoded evidence |
@@ -268,6 +280,7 @@ Evidence:
 | `GG24-4302-00.boo` | `CSELECT 3 8 fig4302rs1 ... SRFIGfig4302rs1 ... CSELECT 35 9 pic2 ... Figure 2. Remote Site Recovery` |
 | `SC26-4221-08.boo` | `CSELECT 3 10 Pic1 ... Picture 1 represents ...` |
 | `SC26-4221-08.boo` | `CSELECT 3 8 Figv2pubs ... SRFIGv2pubs ... SRTBLv2pubs ... Figure 1` |
+| `QS3X36CM.BOO` | Topic `2.2`: `SRTBLtbluniq2`, header cells `System/36`, `As/400`, `As/400 Function`, entries such as `Cancel(c) job`, `endjob`, `Clrjobq`, `wrkjobq`, and final `SRETBL`. |
 
 The resource table stores raw assets as documented in [assets.md](assets.md).
 The exact mapping from body ids such as `pic1` to legacy resource ids such as
@@ -318,3 +331,6 @@ layout can be considered stable.
   ids in the resource descriptor table (`1`).
 - Full `CZ` control grammar for all paragraph, list, table, and figure layout
   modes.
+- Exact row/column substructure for flat legacy table bodies such as
+  `QS3X36CM.BOO` topic `2.2`; current Markdown output uses a documented
+  fallback grouping heuristic.

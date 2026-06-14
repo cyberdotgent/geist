@@ -129,14 +129,6 @@ For current validation:
 
 - Use `git status --short` before and after edits to check the working tree.
 - Use `rg --files` to inspect tracked file layout quickly.
-- When testing BOO parsing behavior and the user has not specified exact
-  fixtures, randomly select five `.BOO`/`.boo` files by enumerating the `BOO/`
-  directory on disk, including untracked files. Do not use `git ls-files` for
-  this selection, because the user may have added uncommitted BOO fixtures
-  specifically for testing. Record the selected filenames in the workload notes
-  so coverage accumulates over time. If a randomly selected BOO file causes a
-  test failure, add and commit that specific failing fixture along with the fix
-  or workload note; do not bulk-add unrelated BOO files.
 - For binary research scripts added in the future, include small focused tests
   that exercise known BOO fixture offsets without modifying the fixtures.
 

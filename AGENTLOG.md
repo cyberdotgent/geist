@@ -27,6 +27,25 @@
   `build\Debug\geist.dll`; stopped those processes before relinking.
 - Commit: be59308.
 
+## 2026-06-14 - Fix Markdown rendering for flat BOO tables
+
+- Investigated `render/qs3x36cm/2-2.md` for `QS3X36CM.BOO` topic `2.2`,
+  which was rendering `SRTBLtbluniq2` as paragraphs instead of a Markdown
+  table.
+- Fixed raw GML projection so ordinary table text beginning with `C` is
+  preserved as text instead of being suppressed as an unknown generated
+  control; this restores entries such as `Cancel(c)`, `Clrjobq`, and
+  `Clears ...`.
+- Added Markdown table assembly for `:table`/`:etable` blocks, including a
+  fallback for flat three-column cross-reference tables where the decoded
+  logical stream contains ordered cells but no explicit row/cell records.
+- Updated `Format/markup.md` with the verified `QS3X36CM.BOO` table evidence
+  and the remaining row/column-layout limitation.
+- Regenerated `render/qs3x36cm/2-2.md` from `boorender --md`.
+- Removed the persisted five-random-BOO validation instruction from
+  `AGENTS.md` after the user rescinded that workflow.
+- Commit: pending.
+
 ## 2026-06-14 - Add boo2git Markdown export tool
 
 - Added `libgeist/examples/boo2git.cpp`, a Git-hosted Markdown exporter that
@@ -642,4 +661,3 @@
   legacy and converted fixtures into `build\`, and a five-file random
   `boorsrc --list` sample covering `SC26-3089-00.boo`, `SC24-5455-01.boo`,
   `SC24-5680-00.boo`, `SC26-3119-02.boo`, and `SC24-5519-01.boo`.
-
