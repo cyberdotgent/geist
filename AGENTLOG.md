@@ -191,3 +191,12 @@
   interpret raw `C...` logical-control keys. Validated with
   `cmake --build build`, `build\Debug\booinfo.exe BOO\QS3X36CM.BOO`, and
   `build\Debug\booinfo.exe BOO\OFCUSEOV.BOO`.
+- Analyzed the connected `ephwam.dll` IDB for BOO compression, encryption,
+  digital signatures, hashes, CRCs, and checksums. Found no standard
+  compression layer and no encryption/signature/hash/checksum implementation in
+  the sampled BOO open/read path. Renamed and typed high-confidence IDA
+  routines including `BooReadPhysicalPageIntoBuffer`,
+  `BooGetOrLoadPageBuffer`, `BooReadBE16`,
+  `BooGetCurrentSummaryText`, and `BooValidateBookFileTailPlaceholder`, added
+  explanatory IDA comments, and saved the IDB. Updated `Format/compression.md`,
+  added `Format/security.md`, and updated `Format/README.md`.
