@@ -66,3 +66,6 @@
   reader/API-boundary analysis note from `Format/boo-header.md` and moved it to
   `AnalysisNotes/ida-bookmgr-api-boundary.md`, because it describes IDA target
   coverage and imported reader behavior rather than BOO byte-format facts.
+- Removed agent/workflow-style update rules from `Format/README.md`; the file
+  now stays focused on indexing BOO format documentation while persistent
+  contributor instructions remain in `AGENTS.md`.

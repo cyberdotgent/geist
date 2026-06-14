@@ -13,12 +13,3 @@ fixture filenames, byte offsets, hex values, and decoded interpretations.
 | Compression | [compression.md](compression.md) | Stub. Compression scheme is not identified yet. |
 | Encoding and tokenization | [encoding.md](encoding.md) | Stub. Character encoding is partly observed; token/control encoding is not identified yet. |
 | Assets and media resources | [assets.md](assets.md) | Stub. Asset directory and payload layout are not identified yet. |
-
-## Update Rules
-
-- Put BOO byte-structure facts in this directory, not in `AnalysisNotes/`.
-- Prefer concise tables for stable field layouts.
-- Mark uncertain interpretations as hypotheses.
-- Include evidence from at least one fixture for every asserted field.
-- Do not document transformed asset data as canonical format data; media payloads
-  must be treated as exact stored bytes until their container structure is known.
