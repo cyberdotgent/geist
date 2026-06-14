@@ -31,9 +31,6 @@ not as an application with an established build system.
   material. Consider this vendored historical software. Do not refactor,
   reformat, normalize line endings, rename files, or edit binaries here unless
   the task specifically requires it.
-- `AGENTLOG.md` records agent activity. Update it for every workload with the
-  date, scope, commands/tools used when relevant, files changed, and commit
-  identifier once available.
 
 ## Analysis Sources
 
@@ -101,7 +98,6 @@ not as an application with an established build system.
   `AnalysisNotes/`.
 - Commit and push after each change and after each distinct workload. Keep
   commits scoped to the files intentionally changed for that workload.
-- Update `AGENTLOG.md` as part of each workload before committing.
 - Keep generated scratch output out of the repository unless it is intentionally
   useful research data. Prefer temporary files outside the repo or clearly named
   ignored artifacts if an ignore file is later added.
