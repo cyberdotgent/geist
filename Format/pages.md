@@ -6,7 +6,10 @@ This page is a stub for BOO page-level structures.
 
 - The two repository fixtures are exact multiples of 4096 bytes.
 - Structures observed so far start on 4096-byte boundaries.
-- The first two bytes of each page behave like a page class or flags word.
+- Page 0 starts with a big-endian directory page number, not a normal page-class
+  word. In both fixtures it is `0x0001`, pointing to the directory at page 1.
+- For non-header content pages, the first two bytes behave like a page class or
+  flags word.
 - Page-1 directory fields identify the first `0x0100` page run and the
   following `0x0000` page run in both fixtures.
 

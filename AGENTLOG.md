@@ -81,3 +81,10 @@
   empty folder via `ida_dirtree`, then saved the IDB. Updated `AGENTS.md` to
   avoid the IDA MCP `rename` tool for function renames while it auto-creates
   tool-specific function folders.
+- Analyzed `ephwam.dll` book-open/header parsing through `Scm_Bopen`,
+  `sub_1217D8D`, `sub_1216DE9`, and `sub_1217645`. Updated
+  `Format/boo-header.md` to document page 0 as a directory-page locator, expand
+  the reader-consumed version-2 directory fields, record the version-3 branch
+  fields known from code, and distinguish decoded logical book header controls
+  from raw on-disk bytes. Updated `Format/pages.md` and `Format/README.md` to
+  match the corrected header interpretation.

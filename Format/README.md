@@ -8,8 +8,8 @@ fixture filenames, byte offsets, hex values, and decoded interpretations.
 
 | Topic | File | Status |
 | --- | --- | --- |
-| Container header and page-1 directory | [boo-header.md](boo-header.md) | Initial findings verified against both repository BOO fixtures. |
-| Page organization | [pages.md](pages.md) | Stub. Known facts currently limited to 4096-byte pages and observed page-class runs. |
+| Container header, directory page, and logical book header controls | [boo-header.md](boo-header.md) | Reader-code and fixture verified for page-0 locator, page-1/version-2 directory fields, and decoded metadata control keys. |
+| Page organization | [pages.md](pages.md) | Initial findings verified against both repository BOO fixtures. |
 | Compression | [compression.md](compression.md) | Stub. Compression scheme is not identified yet. |
 | Encoding and tokenization | [encoding.md](encoding.md) | Stub. Character encoding is partly observed; token/control encoding is not identified yet. |
 | Assets and media resources | [assets.md](assets.md) | Stub. Asset directory and payload layout are not identified yet. |
