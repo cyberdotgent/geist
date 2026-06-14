@@ -30,3 +30,10 @@
   -A x64` and built successfully with
   `cmake --build build/libgeist-msvc-2026`, producing `geist.lib` and the
   example executables under `build/libgeist-msvc-2026/Debug/`.
+- Updated `libgeist/` to build both shared and static library variants. The
+  default `geist::geist` target now points to the shared `geist` target used by
+  the example tools, while `geist::geist_static` exposes the static variant.
+  Added Windows DLL export annotations and validated with
+  `cmake -S libgeist -B build/libgeist-msvc-shared -G "Visual Studio 18 2026"
+  -A x64`, `cmake --build build/libgeist-msvc-shared`, and a `booinfo` smoke
+  run against `BOO\QS3X36CM.BOO`.

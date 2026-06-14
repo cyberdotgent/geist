@@ -6,24 +6,35 @@ project(libgeist
   LANGUAGES CXX
 )
 
-add_library(geist STATIC
+set(GEIST_SOURCES
   src/boo.cpp
 )
 
+add_library(geist SHARED ${GEIST_SOURCES})
 add_library(geist::geist ALIAS geist)
 
-target_compile_features(geist PUBLIC cxx_std_17)
+add_library(geist_static STATIC ${GEIST_SOURCES})
+add_library(geist::geist_static ALIAS geist_static)
 
-target_include_directories(geist
-  PUBLIC
-    "${CMAKE_CURRENT_SOURCE_DIR}/src"
-)
+set_target_properties(geist_static PROPERTIES OUTPUT_NAME geist_static)
 
-if(MSVC)
-  target_compile_options(geist PRIVATE /W4)
-else()
-  target_compile_options(geist PRIVATE -Wall -Wextra -pedantic)
-endif()
+foreach(target geist geist_static)
+  target_compile_features(${target} PUBLIC cxx_std_17)
+
+  target_include_directories(${target}
+    PUBLIC
+      "${CMAKE_CURRENT_SOURCE_DIR}/src"
+  )
+
+  if(MSVC)
+    target_compile_options(${target} PRIVATE /W4)
+  else()
+    target_compile_options(${target} PRIVATE -Wall -Wextra -pedantic)
+  endif()
+endforeach()
+
+target_compile_definitions(geist PRIVATE GEIST_BUILDING_DLL)
+target_compile_definitions(geist_static PUBLIC GEIST_STATIC)
 
 foreach(example booinfo bootoc boorsrc boorender)
   add_executable(${example}

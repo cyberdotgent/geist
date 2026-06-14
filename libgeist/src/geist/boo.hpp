@@ -1,5 +1,7 @@
 #pragma once
 
+#include "geist/export.hpp"
+
 #include <cstdint>
 #include <filesystem>
 #include <string>
@@ -29,13 +31,14 @@ struct ResourceEntry {
 
 class BooDocument {
 public:
-  static BooDocument open(const std::filesystem::path& path);
+  static GEIST_API BooDocument open(const std::filesystem::path& path);
 
-  const BooMetadata& metadata() const noexcept;
-  const std::vector<TocEntry>& table_of_contents() const noexcept;
-  const std::vector<ResourceEntry>& resources() const noexcept;
+  GEIST_API const BooMetadata& metadata() const noexcept;
+  GEIST_API const std::vector<TocEntry>& table_of_contents() const noexcept;
+  GEIST_API const std::vector<ResourceEntry>& resources() const noexcept;
 
-  std::string render_chapter_markdown(const std::string& chapter_id) const;
+  GEIST_API std::string render_chapter_markdown(
+      const std::string& chapter_id) const;
 
 private:
   BooMetadata metadata_;
@@ -43,6 +46,6 @@ private:
   std::vector<ResourceEntry> resources_;
 };
 
-std::string bytes_to_hex(const std::vector<std::uint8_t>& bytes);
+GEIST_API std::string bytes_to_hex(const std::vector<std::uint8_t>& bytes);
 
 } // namespace geist
