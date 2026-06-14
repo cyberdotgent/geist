@@ -203,6 +203,16 @@ IDA verification in `Official Readers/Transmogrifier/transmog.exe.i64`:
 | `TransmogConvertMmrToGif` | Reads the source payload into memory and calls `TransmogWriteMmrAsGif`. |
 | `TransmogWriteMmrAsGif` | Parses dimensions from the MMR/ImageMark-style payload, decompresses/inverts bitmap data, and calls the internal indexed-bitmap GIF writer. |
 
+Current `libgeist` PNG rendering support for `legacy-gdf` is fixture-driven and
+limited to observed vector-style GDDM payloads. The decoder reads IBM
+hexadecimal floating-point coordinate runs from the stored GDF byte stream,
+maps the discovered coordinate extents to an RGBA canvas, and rasterizes the
+coordinate runs as black polylines before PNG encoding. This renders the
+verified `GG66-3212-00.boo` GDF resources without invoking the historical
+`IMGDF2.FLT`/`EBGIF2.FLT` filter chain. It does not yet implement the complete
+GDDM command grammar, color/style attributes, filled areas, or exact text/font
+semantics.
+
 ## Version 1.2/1.3 Picture Directory
 
 The loaded BookServer stack supports legacy version 1.2/1.3 picture directories

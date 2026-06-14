@@ -13,12 +13,6 @@ namespace geist::detail {
 
 namespace {
 
-struct RgbaImage {
-  std::uint32_t width = 0;
-  std::uint32_t height = 0;
-  std::vector<std::uint8_t> rgba;
-};
-
 struct GifMemoryInput {
   const std::uint8_t* bytes = nullptr;
   std::size_t size = 0;
@@ -181,10 +175,14 @@ std::vector<std::uint8_t> render_resource_png(
     return encode_rgba_png(decode_gif_to_rgba(stored_bytes));
   }
 
+  if (stored_format == "legacy-gdf") {
+    return encode_rgba_png(decode_gdf_to_rgba(stored_bytes));
+  }
+
   if (stored_format != "image/png" && !has_png_signature(stored_bytes)) {
     throw std::runtime_error(
-        "asset cannot be rendered to PNG yet: legacy BookManager image, JPEG, "
-        "TIFF, CGM, and MET payload decoding is not implemented");
+        "asset cannot be rendered to PNG yet: legacy BookManager MMR/MET, "
+        "JPEG, TIFF, and CGM payload decoding is not implemented");
   }
 
   png_image image{};

@@ -15,6 +15,12 @@ namespace geist::detail {
 
 using TokenWords = std::vector<std::uint16_t>;
 
+struct RgbaImage {
+  std::uint32_t width = 0;
+  std::uint32_t height = 0;
+  std::vector<std::uint8_t> rgba;
+};
+
 struct TopicData {
   std::string id;
   std::string title;
@@ -71,6 +77,7 @@ std::vector<ResourceEntry> build_resources(
 std::vector<std::uint8_t> render_resource_png(
     const ResourceEntry& resource,
     const std::vector<std::uint8_t>& stored_bytes);
+RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes);
 
 std::vector<std::string> render_gml_records(
     const std::vector<std::string>& decoded_records);
