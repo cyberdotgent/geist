@@ -1,5 +1,27 @@
 # Agent Log
 
+## 2026-06-14 - Split libgeist implementation files
+
+- Split the former monolithic `libgeist/src/boo.cpp` into focused
+  implementation units: document API, I/O, encoding, logical-record decoding,
+  GML markup projection, page-run classification, book properties, resources,
+  string helpers, TOC/topic handling, and public utilities.
+- Added `libgeist/src/geist/detail/boo_detail.hpp` for private parser helper
+  declarations shared by the implementation files; the public API header remains
+  unchanged.
+- Updated `libgeist/CMakeLists.txt` to build the split sources for both the
+  shared and static libraries.
+- Added a persistent instruction in `AGENTS.md` to keep `libgeist`
+  implementation files split by class, object, interface, or tightly scoped
+  helper area instead of growing a monolithic parser source.
+- Validated with `cmake --build build`, `booinfo`, `bootoc`, and `boorsrc` on
+  `QS3X36CM.BOO`, plus whole-book `boorender --raw` against five randomly
+  selected filesystem fixtures from `BOO/`: `SB35-4268-00.boo`,
+  `GH09-8096-02.boo`, `SC09-2416-00.boo`, `SC23-3130-00.boo`, and
+  `SC24-5527-02.boo`.
+- No failed untracked BOO fixture was added for this workload.
+- Commit: pending.
+
 ## 2026-06-14 - Correct random BOO fixture selection
 
 - Corrected the persistent BOO test instruction so random fixture selection

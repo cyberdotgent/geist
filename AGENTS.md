@@ -72,6 +72,10 @@ not as an application with an established build system.
 - Implement BOO parsing logic in `libgeist/src/`. Keep `libgeist/examples/`
   focused on small command-line examples that demonstrate library usage, not on
   duplicate parsing implementations.
+- Keep `libgeist` implementation files split by class, object, interface, or
+  tightly scoped helper area. Do not grow a single monolithic parser source
+  file; when adding parser behavior, place it in the matching implementation
+  file or create a focused new one.
 - The intended example tools are:
   - `booinfo`: lists BOO metadata.
   - `bootoc`: lists the table of contents.

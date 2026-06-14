@@ -7,7 +7,17 @@ project(libgeist
 )
 
 set(GEIST_SOURCES
-  src/boo.cpp
+  src/boo_document.cpp
+  src/boo_encoding.cpp
+  src/boo_io.cpp
+  src/boo_logical.cpp
+  src/boo_markup.cpp
+  src/boo_page_runs.cpp
+  src/boo_properties.cpp
+  src/boo_resources.cpp
+  src/boo_strings.cpp
+  src/boo_toc.cpp
+  src/boo_util.cpp
 )
 
 add_library(geist SHARED ${GEIST_SOURCES})
