@@ -10,7 +10,7 @@
   id, topic-specific raw output, `--md` with and without a topic id, usage
   errors, missing-topic error handling, and five random tracked BOO fixtures
   through whole-book `--raw`.
-- Commit: pending.
+- Commit: `4a50331`.
 
 ## 2026-06-14 - Expose whole-book raw GML records
 
