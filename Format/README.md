@@ -15,4 +15,4 @@ fixture filenames, byte offsets, hex values, and decoded interpretations.
 | Compression | [compression.md](compression.md) | Reader-code verified: no standard compression layer identified in the BOO page-read path; binary-looking content is currently tokenized/packed BookManager data. |
 | Encoding and tokenization | [encoding.md](encoding.md) | Reader-code and fixture verified for dictionary literal byte-to-token-word mapping, token-word translation tables, and the main output-decoding path; full code-page matrix remains open. |
 | Security, encryption, hashes, and signatures | [security.md](security.md) | Reader-code verified: no encryption, signature, cryptographic hash, CRC, or checksum algorithm identified in the sampled BOO open/read path. |
-| Assets and media resources | [assets.md](assets.md) | Stub. Asset directory and payload layout are not identified yet. |
+| Assets and media resources | [assets.md](assets.md) | Reader-code and fixture verified for pre-directory embedded image resources, page-0 resource descriptors, absolute payload offsets, and the BookServer/ImageMark GIF conversion boundary. |

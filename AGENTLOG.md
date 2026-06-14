@@ -268,3 +268,11 @@
   `GG24-4302-00.boo` as the regression fixture, and validated with
   `cmake --build build`, `bootoc BOO\GG24-4302-00.boo`, and the existing BOO
   fixture set used by recent parser checks.
+- Analyzed image asset storage using the attached `ephwam.dll.i64` IDB, local
+  BookServer binaries, and `GG24-4302-00.boo`. Verified that `Scm_Makeres`
+  retrieves raw 4096-byte resource pages without image conversion, while
+  BookServer delegates GIF creation to the `ephimage`/ImageMark path. Identified
+  a pre-directory embedded-resource area in `GG24-4302-00.boo`, documented the
+  page-0 resource descriptor layout, absolute image payload offsets, ImageMark
+  payload prefix evidence, and extraction rules in `Format/assets.md`; updated
+  `Format/README.md`.
