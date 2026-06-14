@@ -88,3 +88,15 @@
   fields known from code, and distinguish decoded logical book header controls
   from raw on-disk bytes. Updated `Format/pages.md` and `Format/README.md` to
   match the corrected header interpretation.
+- Analyzed the logical book-header control storage path in `ephwam.dll`,
+  including `sub_12217C6`, `sub_121EEE1`, `sub_1216189`, `sub_1218250`,
+  `sub_1218AC5`, `sub_1218593`, and `sub_121AC63`. Added
+  `Format/logical-controls.md` to document that `CLANGUAGE=`, `CVERSION=`,
+  `CTITLE=`, `CDOCNUM=`, and related controls are stored as tokenized logical
+  records rather than raw strings; documented record-page framing, compact
+  record lengths, token references, token-map/dictionary resolution, and the
+  remaining dictionary grammar gap. Updated `Format/boo-header.md`,
+  `Format/encoding.md`, and `Format/README.md` accordingly. Attempted to query
+  the hosted CGI URL, but the connection was refused from this environment, so
+  this workload used the local CGI/library IDBs and repository fixtures as
+  evidence.

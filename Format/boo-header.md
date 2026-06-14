@@ -149,10 +149,11 @@ should treat the meanings as unresolved.
 
 ## Logical Book Header Controls
 
-After the physical directory is parsed, the reader iterates logical control
+After the physical directory is parsed, the reader iterates tokenized logical
 records, decodes each record to text, and recognizes the following control keys.
-These keys are observed in reader code after decoding; their exact on-disk record
-location and token encoding are not yet fully mapped.
+These keys are not stored as raw ASCII or raw EBCDIC strings; see
+[logical-controls.md](logical-controls.md) for the record framing, token
+reference, and token-resolution details.
 
 | Decoded control key | Value starts after | Verified reader use |
 | --- | ---: | --- |
@@ -168,11 +169,9 @@ location and token encoding are not yet fully mapped.
 | `CAUTHOR=` | 8 bytes | Author metadata; repeated author controls are concatenated with two spaces while under the reader's size limit. |
 | `CDOCNUM=` | 8 bytes | Document number metadata; terminates the metadata scan in the observed parser path. |
 
-The logical-control parser expects the first selected record to have type
-`0x004c` (`'L'`). The records are converted to NUL-terminated strings in reader
-memory before the key comparisons above. Therefore, do not search for these
-ASCII strings directly in the raw BOO bytes and assume absence means the control
-is absent; they may be encoded through the book's token/table mechanism.
+The logical-control parser expects the first selected record to decode to a
+record beginning with `0x004c` (`'L'`). The records are converted to
+NUL-terminated strings in reader memory before the key comparisons above.
 
 ## Working Structures
 
@@ -258,6 +257,5 @@ The meaning of the page-class words themselves is still unresolved.
   `0x025c` need entry-level decoding.
 - Version variant 3 fields are known from reader code but not verified with a
   repository fixture.
-- The logical-control record storage and token encoding need to be mapped so
-  `CLANGUAGE=`, `CTITLE=`, `CDOCNUM=`, and related controls can be read without
-  relying on the IBM reader.
+- The full dictionary delta/update grammar needs to be mapped so all tokenized
+  logical controls can be decoded without relying on the IBM reader.

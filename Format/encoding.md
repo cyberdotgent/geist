@@ -9,6 +9,9 @@ mechanisms in BOO files.
   037.
 - Some `0x0100` pages contain visible EBCDIC words mixed with binary control
   bytes.
+- Logical book header controls are stored as tokenized logical records, not as
+  raw ASCII or EBCDIC strings. See
+  [logical-controls.md](logical-controls.md).
 
 See [boo-header.md](boo-header.md) for the current header and page-run
 evidence.
@@ -16,7 +19,7 @@ evidence.
 ## Open Questions
 
 - Whether body text uses EBCDIC CP037 throughout or switches code pages.
-- Whether visible words in `0x0100` pages are raw text, dictionary terms,
-  index keys, or token-table entries.
-- Meaning of the binary control bytes surrounding visible EBCDIC words.
-- Which reader functions translate encoded records into displayable text.
+- Complete dictionary-page delta/update grammar for resolving every tokenized
+  logical record.
+- Whether visible words in `0x0100` pages are raw dictionary text, index keys,
+  or mixed token-table entries.
