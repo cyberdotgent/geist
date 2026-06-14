@@ -74,10 +74,11 @@ map the projection back to decoded BOO controls.
 | `ETOC` | `:etoc.` | End of TOC entry stream. | Observed TOC terminator. |
 | `CFONTDEF=<code> <name>` | `:fontdef code='<code>' style='<name>'.` | Font/style code definition. | Verified book-level style map. |
 | `CFONT <triples...>` | `:font spans='<triples...>'.` | Repeated `<offset> <length> <font_code>` triples. | Verified span control; exact offset base still under study. |
-| `CSELECT <col> <len> <target> [text]` | `:link col='<col>' len='<len>' refid='<target>'.<text>` | Selectable link/cross-reference. | Verified for topics, figures, tables, and pictures. |
+| `CSELECT <col> <len> <target> [text]` | `:link col='<col>' len='<len>' refid='<target>'.<text>` | Selectable link/cross-reference. The target may be a topic id or an anchor id. | Verified for topics, generic anchors, figures, tables, and pictures. |
 | `CMENU` | `:menu.` | Start of menu/list of selectable items. | Observed. |
 | `CMITEM <id> <text>` | `:mi refid='<id>'.<text>` | Menu item target and label. | Observed. |
 | `CEMENU` | `:emenu.` | End of menu/list. | Observed. |
+| `SR<id>` | `:anchor id='<id>'.` | Generic spot/section anchor. `CSELECT` can target this id directly. | Verified by `QS3X36CM.BOO` links such as `sptproc`, `sptcontrol`, and `sptocl`. |
 | `SRFIG<id>` | `:fig id='<id>'.` | Figure anchor/start id. | Observed in figure records. |
 | `SREFIG` | `:efig.` | Figure end marker. | Observed, but current decoder can truncate/case-shift some occurrences. |
 | `SRTBL<id>` | `:table id='<id>'.` | Table anchor/start id. | Observed. |
@@ -194,11 +195,13 @@ semantic style code.
 ## Cross-References And Menus
 
 Inline links and cross references use `CSELECT` with a target id and display
-span information. The target id can name a topic, figure, table, or picture.
+span information. The target id can name a topic, generic anchor, figure,
+table, or picture.
 
 | Control | Observed syntax | Role |
 | --- | --- | --- |
 | `CSELECT` | `CSELECT <column> <length> <target_id>` | Link or selectable reference. |
+| `SR<id>` | `SRsptproc` | Generic anchor target for a `CSELECT` reference. |
 | `CMENU` | `CMENU` | Starts a menu/list of selectable items. |
 | `CMITEM` | `CMITEM <topic_id> <text>` | Menu item target and label. |
 | `CEMENU` | `CEMENU` | Ends a menu/list. |
@@ -208,6 +211,7 @@ Examples:
 | File | Decoded evidence |
 | --- | --- |
 | `QS3X36CM.BOO` | `CMENU CMITEM 1.1 Displaying as/400 Commands Online CEMENU` |
+| `QS3X36CM.BOO` | `CSELECT 33 3 sptproc ...` in topic `2.0`; target anchor `SRsptproc` appears inside topic `2.1`. |
 | `GG24-4302-00.boo` | `CSELECT 3 8 fig4302hp1` |
 | `SC26-4221-08.boo` | `CSELECT 7 22 hdrlanguag` |
 

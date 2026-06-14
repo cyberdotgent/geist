@@ -823,13 +823,14 @@ bool looks_like_gml_control_at(const std::string& value, std::size_t offset) {
     ++offset;
   }
 
-  static const std::array<const char*, 46> prefixes = {
+  static const std::array<const char*, 47> prefixes = {
       "sh",          "ctopicn",    "cparent",    "cforwardlevel",
       "cbacklevel",  "csummary",   "chdlevel",   "csourcefn",
       "st",          "ctocdef",    "ctoce",      "etoc",
       "cfontdef",    "cfont",      "cselect",    "cmenu",
       "cmitem",      "cemenu",     "srfig",      "srefig",
-      "srtbl",       "sretbl",     "cz",         "si",
+      "srtbl",       "sretbl",     "sr",         "cz",
+      "si",
       "citerm",      "cgpsep",     "clanguage",  "cversion",
       "cbldvers",    "creflow",    "ctitle",     "cstitle",
       "ccopyright",  "csecurity",  "cdate",      "cauthor",
@@ -851,7 +852,7 @@ bool looks_like_gml_control_at(const std::string& value, std::size_t offset) {
       return true;
     }
     if ((prefix_text == "sh" || prefix_text == "srfig" ||
-         prefix_text == "srtbl") &&
+         prefix_text == "srtbl" || prefix_text == "sr") &&
         is_topic_id_char(next)) {
       return true;
     }
@@ -1027,6 +1028,21 @@ std::string render_layout_gml(std::string value) {
          escape_gml_attr(dot_text(rest)) + "'.";
 }
 
+std::string render_anchor_gml(std::string value) {
+  value = trim_ascii(std::move(value));
+  std::size_t cursor = 0;
+  while (cursor < value.size() && is_topic_id_char(value[cursor])) {
+    ++cursor;
+  }
+  const auto id = value.substr(0, cursor);
+  auto rest = dot_text(value.substr(cursor));
+  auto output = render_keyed_gml_control("anchor", "id", id);
+  if (!rest.empty()) {
+    output += rest;
+  }
+  return output;
+}
+
 std::string render_gml_segment(std::string segment) {
   segment = trim_ascii(std::move(segment));
   while (!segment.empty() && segment.front() == ',') {
@@ -1108,6 +1124,9 @@ std::string render_gml_segment(std::string segment) {
   }
   if (ascii_starts_with_case_insensitive(lower, "sretbl")) {
     return ":etable.";
+  }
+  if (ascii_starts_with_case_insensitive(lower, "sr")) {
+    return render_anchor_gml(segment.substr(2));
   }
   if (ascii_starts_with_case_insensitive(lower, "cz")) {
     return render_layout_gml(rest_after_first_word(segment));

@@ -1,5 +1,21 @@
 # Agent Log
 
+## 2026-06-14 - Add generic SR anchor markup support
+
+- Fixed the generic `SR<id>` markup gap exposed by `QS3X36CM.BOO` topic `2.0`
+  links to `sptproc`, `sptcontrol`, and `sptocl`.
+- Updated the GML-style raw projection so generic spot/section anchors render
+  as `:anchor id='<id>'.`, while existing `SRFIG` and `SRTBL` projections still
+  render as figure/table anchors.
+- Updated `Format/markup.md` to document that `CSELECT` may target generic
+  anchors as well as topics, figures, tables, and pictures, with fixture
+  evidence from `QS3X36CM.BOO`.
+- Validated with `cmake --build build`, targeted `boorender --raw` checks for
+  topics `2.0`, `2.1`, `2.2`, and `2.3` in `QS3X36CM.BOO`, five random tracked
+  BOO `CONTENTS` raw checks, `boorender --md`, and missing-topic error
+  handling.
+- Commit: pending.
+
 ## 2026-06-14 - Document markup controls and emit GML-style raw output
 
 - Expanded `Format/markup.md` with a GML-style raw projection table covering
