@@ -56,3 +56,9 @@
 - Added a persistent `AGENTS.md` documentation instruction requiring `Format/`
   notes to be complete enough for independent BOO reader implementations
   without consulting `libgeist` source or proprietary IBM reader binaries.
+- Cross-checked the BOO header findings against the attached
+  `bookmgr.exe.i64` IDA database. Found that low-level BOO parsing is delegated
+  through `ephwam.dll` imports such as `Scm_Bopen`, `Scm_Binfo`,
+  `Scm_Bkiopen`, and `Scm_BKIDatetime`, so the active IDB validates the API
+  boundary but does not directly verify raw page-0/page-1 offsets. Documented
+  this reader-code evidence and limitation in `Format/boo-header.md`.

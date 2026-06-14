@@ -94,6 +94,39 @@ runs exactly.
 | 87 | `0x010b` | 1 | Isolated page class not yet understood. |
 | 88-98 | `0x0001` | 11 | Trailing run, likely index/resource/control pages. |
 
+## Reader-Code Cross-Check
+
+The attached IDA database currently opened for analysis is
+`Official Readers/BookSrv-Win32/bookmgr.exe.i64`. This IDB does not contain the
+low-level BOO container parser. Instead, `bookmgr.exe` imports the relevant
+BookManager access routines from `ephwam.dll`.
+
+Verified imported routines in the active IDB:
+
+| Imported routine | Import module | Observed role in `bookmgr.exe` |
+| --- | --- | --- |
+| `Scm_Bopen` | `ephwam` | Opens a book handle from a catalog/book path call site. |
+| `Scm_Binfo` | `ephwam` | Returns book metadata used by catalog and search rendering code. |
+| `Scm_Bkiopen` | `ephwam` | Opens a book index handle. |
+| `Scm_BKIDatetime` | `ephwam` | Returns book-index date/time data to caller buffers. |
+| `Scm_Loctopic` | `ephwam` | Iterates or locates book-index topics. |
+| `Scm_Getctl` | `ephwam` | Reads named controls such as search result headings. |
+
+Relevant call-site evidence:
+
+| Function | Evidence |
+| --- | --- |
+| `Catalog_AddBook` at `0x6c820` | Calls `Scm_Sopen(500, ..., "EPHW*.TAB", ...)`, then `Scm_Bopen(...)`, then `Catalog_AddOpenBook(...)`, and finally `Scm_Close(...)`. This establishes that book opening is delegated to `ephwam`. |
+| `Catalog_AddOpenBook` at `0x6adc6` | Calls `Scm_Binfo(book_handle)` and consumes returned metadata fields, but does not parse raw BOO page bytes. |
+| `sub_592E0` at `0x592e0` | Calls `Scm_Sopen(200, ..., "EPHW*.TAB", ...)`, `Scm_Bkiopen(...)`, `Scm_Loctopic(...)`, and `Scm_BKIDatetime(...)`, then copies the returned date/time through `Scm_Xoutcpy(...)`. This confirms index/date access is also delegated to `ephwam`. |
+
+Conclusion: the active `bookmgr.exe` IDB validates the API boundary and shows
+that BookServer obtains book metadata, index timestamps, topics, controls, and
+open book handles through `ephwam` SCM APIs. It does not directly verify the
+raw page-0/page-1 byte offsets documented above. Direct reader-code validation
+of those offsets requires analyzing `ephwam.dll` or another module that
+implements the imported `Scm_*` routines.
+
 ## Working Header Structure
 
 The following provisional structure is supported by the current samples:
