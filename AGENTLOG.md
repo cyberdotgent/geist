@@ -1,5 +1,20 @@
 # Agent Log
 
+## 2026-06-14 - Move raw topic data onto TOC entries
+
+- Reworked the topic API after review: removed the public `BooTopic` vector and
+  `read_topic_raw_markup()` method, and made decoded topic data a property of
+  each `TocEntry`.
+- `TocEntry` now carries heading level, topic number, logical-record bounds,
+  and raw decoded records for the topic id it references.
+- Updated `boorender` to resolve the requested id through
+  `BooDocument::find_toc_entry()` and output `TocEntry::raw_records` for
+  `--raw`, while keeping `--md` as the explicit not-implemented placeholder.
+- Validated with `cmake --build build`, `boorender --raw CONTENTS` on five
+  random tracked BOO fixtures, `boorender --raw 1.0` on `QS3X36CM.BOO`,
+  `boorender --md`, and missing-topic error handling.
+- Commit: pending.
+
 ## 2026-06-14 - Implement topic lookup and raw boorender output
 
 - Added topic decoding/fetching support to `libgeist`: `BooTopic` objects now

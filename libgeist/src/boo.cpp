@@ -15,6 +15,16 @@ namespace {
 
 using TokenWords = std::vector<std::uint16_t>;
 
+struct TopicData {
+  std::string id;
+  std::string title;
+  std::string heading_level;
+  std::uint32_t topic_number = 0;
+  std::uint32_t start_logical_record = 0;
+  std::uint32_t end_logical_record = 0;
+  std::vector<std::string> raw_records;
+};
+
 constexpr std::array<std::uint16_t, 256> cp500_byte_to_token_word = {
     0xFFFF, 0x0001, 0xFFFF, 0xFFFF, 0x2666, 0xFFFF, 0xFFFF, 0xFFFF,
     0xFFFF, 0x25CB, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
@@ -1367,8 +1377,32 @@ std::vector<BooLogicalControl> extract_book_logical_controls(
   return controls;
 }
 
+const TopicData* find_topic_data(const std::vector<TopicData>& topics,
+                                 const std::string& topic_id) {
+  const auto normalized_id = normalize_toc_id(topic_id);
+  const auto found = std::find_if(topics.begin(), topics.end(),
+                                  [&](const TopicData& topic) {
+                                    return topic.id == normalized_id ||
+                                           ascii_equals_case_insensitive(
+                                               topic.id, topic_id);
+                                  });
+  if (found == topics.end()) {
+    return nullptr;
+  }
+  return &*found;
+}
+
+void attach_topic_data(TocEntry& entry, const TopicData& topic) {
+  entry.heading_level = topic.heading_level;
+  entry.topic_number = topic.topic_number;
+  entry.start_logical_record = topic.start_logical_record;
+  entry.end_logical_record = topic.end_logical_record;
+  entry.raw_records = topic.raw_records;
+}
+
 std::vector<TocEntry> build_table_of_contents(
-    const std::vector<std::string>& decoded_records) {
+    const std::vector<std::string>& decoded_records,
+    const std::vector<TopicData>& topics) {
   std::vector<TocEntry> toc;
   bool in_contents_topic = false;
   for (const auto& decoded : decoded_records) {
@@ -1385,14 +1419,19 @@ std::vector<TocEntry> build_table_of_contents(
     if (entries.empty()) {
       continue;
     }
+    for (auto& entry : entries) {
+      if (const auto* topic = find_topic_data(topics, entry.id)) {
+        attach_topic_data(entry, *topic);
+      }
+    }
     toc.insert(toc.end(), entries.begin(), entries.end());
   }
   return toc;
 }
 
-std::vector<BooTopic> build_topics(
+std::vector<TopicData> build_topics(
     const std::vector<std::string>& decoded_records) {
-  std::vector<BooTopic> topics;
+  std::vector<TopicData> topics;
 
   std::vector<std::size_t> header_indexes;
   for (std::size_t index = 0; index < decoded_records.size(); ++index) {
@@ -1416,7 +1455,7 @@ std::vector<BooTopic> build_topics(
       continue;
     }
 
-    BooTopic topic;
+    TopicData topic;
     const auto& header = decoded_records[record_begin];
     topic.topic_number = extract_uint_control_value(header, "ctopicn ");
     topic.start_logical_record =
@@ -1614,8 +1653,8 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
   document.logical_controls_ = extract_book_logical_controls(decoded_records);
   document.book_properties_ =
       build_book_properties(document.logical_controls_);
-  document.toc_ = build_table_of_contents(decoded_records);
-  document.topics_ = build_topics(decoded_records);
+  const auto topics = build_topics(decoded_records);
+  document.toc_ = build_table_of_contents(decoded_records, topics);
   document.resources_ = build_resources(document.bytes_, document.directory_);
   return document;
 }
@@ -1649,24 +1688,20 @@ const std::vector<TocEntry>& BooDocument::table_of_contents() const noexcept {
   return toc_;
 }
 
-const std::vector<BooTopic>& BooDocument::topics() const noexcept {
-  return topics_;
-}
-
 const std::vector<ResourceEntry>& BooDocument::resources() const noexcept {
   return resources_;
 }
 
-const BooTopic* BooDocument::find_topic(const std::string& topic_id)
+const TocEntry* BooDocument::find_toc_entry(const std::string& topic_id)
     const noexcept {
   const auto normalized_id = normalize_toc_id(topic_id);
-  const auto found = std::find_if(topics_.begin(), topics_.end(),
-                                  [&](const BooTopic& topic) {
-                                    return topic.id == normalized_id ||
+  const auto found = std::find_if(toc_.begin(), toc_.end(),
+                                  [&](const TocEntry& entry) {
+                                    return entry.id == normalized_id ||
                                            ascii_equals_case_insensitive(
-                                               topic.id, topic_id);
+                                               entry.id, topic_id);
                                   });
-  if (found == topics_.end()) {
+  if (found == toc_.end()) {
     return nullptr;
   }
   return &*found;
@@ -1701,20 +1736,6 @@ std::vector<std::uint8_t> BooDocument::read_resource_data(
   const auto begin = bytes_.begin() +
                      static_cast<std::ptrdiff_t>(found->offset);
   return {begin, begin + static_cast<std::ptrdiff_t>(found->size)};
-}
-
-std::string BooDocument::read_topic_raw_markup(
-    const std::string& topic_id) const {
-  const auto* topic = find_topic(topic_id);
-  if (topic == nullptr) {
-    throw std::out_of_range("BOO topic id was not found: " + topic_id);
-  }
-
-  std::ostringstream output;
-  for (const auto& record : topic->raw_records) {
-    output << record << '\n';
-  }
-  return output.str();
 }
 
 std::string bytes_to_hex(const std::vector<std::uint8_t>& bytes) {
