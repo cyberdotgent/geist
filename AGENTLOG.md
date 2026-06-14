@@ -20,7 +20,7 @@
   `GH09-8096-02.boo`, `SC09-2416-00.boo`, `SC23-3130-00.boo`, and
   `SC24-5527-02.boo`.
 - No failed untracked BOO fixture was added for this workload.
-- Commit: pending.
+- Commit: `386790d`.
 
 ## 2026-06-14 - Correct random BOO fixture selection
 
