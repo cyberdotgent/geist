@@ -1,5 +1,32 @@
 # Agent Log
 
+## 2026-06-14 - Add legacy GDF PNG rendering
+
+- Implemented a private `legacy-gdf` rendering path in `libgeist`: added
+  `boo_gdf.cpp` to decode observed GDDM/GDF vector payloads by reading IBM
+  hexadecimal floating-point coordinate runs into an RGBA canvas, then routed
+  `BooDocument::read_resource_png()` through the existing PNG encoder.
+- Kept raw extraction unchanged and kept unsupported legacy MMR/MET, JPEG,
+  TIFF, and CGM payloads reporting a clear unsupported conversion error.
+- Added `boo_gdf.cpp` to the CMake source list and shared the internal
+  `RgbaImage` helper across the PNG and GDF implementation files.
+- Updated `Format/assets.md` with the current GDF rendering scope and remaining
+  limitations: no full GDDM command grammar, color/style attributes, filled
+  areas, or exact text/font semantics yet.
+- Validated with `cmake --build build`, `boorsrc --png BOO\GG66-3212-00.boo 1
+  build\geist-gdf-1.png`, `boorsrc --png BOO\GG66-3212-00.boo 2
+  build\geist-gdf-2.png`, `boorsrc --list BOO\GG66-3212-00.boo`, and expected
+  unsupported errors for `GG66-3212-00.boo` resource `3` and
+  `GG24-4302-00.boo` resource `1`.
+- Random BOO fixtures selected for resource-list coverage:
+  `GV40-0405-00.boo`, `GX27-3909-04.boo`, `S544-3115-00.boo`,
+  `SC26-3073-00.boo`, and `SC24-5461-00.boo`. The first three completed
+  `boorsrc --list`; `SC26-3073-00.boo` timed out after printing
+  `No assets found.`; `SC24-5461-00.boo` timed out without output.
+- During validation, stale `boo2git.exe` processes from the build tree held
+  `build\Debug\geist.dll`; stopped those processes before relinking.
+- Commit: be59308.
+
 ## 2026-06-14 - Add boo2git Markdown export tool
 
 - Added `libgeist/examples/boo2git.cpp`, a Git-hosted Markdown exporter that
@@ -615,3 +642,4 @@
   legacy and converted fixtures into `build\`, and a five-file random
   `boorsrc --list` sample covering `SC26-3089-00.boo`, `SC24-5455-01.boo`,
   `SC24-5680-00.boo`, `SC26-3119-02.boo`, and `SC24-5519-01.boo`.
+
