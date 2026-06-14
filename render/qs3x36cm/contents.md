@@ -2,11 +2,11 @@
 
 - Book Cover
 - Edition Notice
-- Table Of Contents
+- Table of Contents
 - Introduction
-- Displaying as/400 Commands Online
-- System/36 Commands To as/400 Commands Cross-reference
-- System/36 Procedures To as/400 Commands Cross-reference
-- System/36 Control Commands To as/400 Commands Cross-reference
-- System/36 Ocl Statements To as/400 Commands Cross-reference
-- Appendix. as/400 Control Language Commands
+- Displaying AS/400 Commands Online
+- System/36 Commands to AS/400 Commands Cross-Reference
+- System/36 Procedures to AS/400 Commands Cross-Reference
+- System/36 Control Commands to AS/400 Commands Cross-Reference
+- System/36 OCL Statements to AS/400 Commands Cross-Reference
+- Appendix. AS/400 Control Language Commands

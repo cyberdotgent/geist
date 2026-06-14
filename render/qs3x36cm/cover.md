@@ -1,17 +1,17 @@
 # Book Cover
 
-Application System/400(Tm)
+Application System/400(TM)
 
 Programming:
 
-System/36 Commands To
+System/36 Commands to
 
-As/400 Commands
+AS/400 Commands
 
 Cross-Reference
 
-Version 2 Document Number sx41-8209-00
+Version 2 Document Number SX41-8209-00
 
 Program Number
 
-5738-ss
+5738-SS

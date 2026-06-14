@@ -1,37 +1,37 @@
 # Edition Notice
 
-First Edition (May 1991) This Edition Applies To ibm Operating System/400 (5738-ss1), Version 2, Release 1, Modification 0, and To All Subsequent Releases and Modifications Until otherwise indicated in New Editions. Make Sure you are Using the Proper Edition For the Level Of the Product. The Following Terms, Denoted by an Asterisk (*) in This publication, are Trademarks Of the ibm Corporation in the United States and/or
+First Edition (May 1991) This edition applies to IBM Operating System/400 (5738-SS1), Version 2, Release 1, Modification 0, and to all subsequent releases and modifications until otherwise indicated in new editions. Make sure you are using the proper edition for the level of the product. The following terms, denoted by an asterisk (*) in this publication, are trademarks of the IBM Corporation in the United States and/or
 
-Other Countries:
+other countries:
 
 Application System/400
 
-As/400
+AS/400
 
-c/400
+C/400
 
-Displaywrite
+DisplayWrite
 
-fortran/400
+FORTRAN/400
 
-ibm
+IBM
 
-Officevision
+OfficeVision
 
 Operating System/400
 
-Os/400
+OS/400
 
-Profs
+PROFS
 
-rpg/400, 400 The Following Terms, Denoted by a Double Asterisk (**) in This publication, are Trademarks Of Other Companies As Follows: rm/cobol-85
+RPG/400, 400 The following terms, denoted by a double asterisk (**) in this publication, are trademarks of other companies as follows: RM/COBOL-85
 
-Ryan Mcfarland Corporation This publication could Contain technical Inaccuracies or Typographical
+Ryan McFarland Corporation This publication could contain technical inaccuracies or typographical
 
-Errors. This Manual May Refer To Products that are announced but are Not yet
+errors. This manual may refer to products that are announced but are not yet
 
-Available.
+available.
 
 Copyright International Business Machines Corporation 1991. All
 
-Rights Reserved. Note To u.s. Government Users -- Documentation Related To Restricted Rights -- Use, Duplication or Disclosure is subject To restrictions Set Forth in Gsa adp Schedule Contract with ibm Corp.
+rights reserved. Note to U.S. Government Users -- Documentation related to restricted rights -- Use, duplication or disclosure is subject to restrictions set forth in GSA ADP Schedule Contract with IBM Corp.
