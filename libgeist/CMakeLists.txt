@@ -40,6 +40,7 @@ set(GEIST_SOURCES
   src/boo_logical.cpp
   src/boo_markup.cpp
   src/boo_markdown.cpp
+  src/boo_mmr.cpp
   src/boo_page_runs.cpp
   src/boo_png.cpp
   src/boo_properties.cpp

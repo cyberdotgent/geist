@@ -78,6 +78,7 @@ std::vector<std::uint8_t> render_resource_png(
     const ResourceEntry& resource,
     const std::vector<std::uint8_t>& stored_bytes);
 RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes);
+RgbaImage decode_mmr_to_rgba(const std::vector<std::uint8_t>& bytes);
 
 std::vector<std::string> render_gml_records(
     const std::vector<std::string>& decoded_records);

@@ -179,10 +179,14 @@ std::vector<std::uint8_t> render_resource_png(
     return encode_rgba_png(decode_gdf_to_rgba(stored_bytes));
   }
 
+  if (stored_format == "legacy-mmr") {
+    return encode_rgba_png(decode_mmr_to_rgba(stored_bytes));
+  }
+
   if (stored_format != "image/png" && !has_png_signature(stored_bytes)) {
     throw std::runtime_error(
-        "asset cannot be rendered to PNG yet: legacy BookManager MMR/MET, "
-        "JPEG, TIFF, and CGM payload decoding is not implemented");
+        "asset cannot be rendered to PNG yet: legacy BookManager MET, JPEG, "
+        "TIFF, and CGM payload decoding is not implemented");
   }
 
   png_image image{};

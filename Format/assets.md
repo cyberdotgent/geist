@@ -203,6 +203,72 @@ IDA verification in `Official Readers/Transmogrifier/transmog.exe.i64`:
 | `TransmogConvertMmrToGif` | Reads the source payload into memory and calls `TransmogWriteMmrAsGif`. |
 | `TransmogWriteMmrAsGif` | Parses dimensions from the MMR/ImageMark-style payload, decompresses/inverts bitmap data, and calls the internal indexed-bitmap GIF writer. |
 
+## Legacy MMR / Kind `I` Payload Notes
+
+MMR support is not yet implemented in `libgeist`. The current source tree keeps
+an experimental Group-4-style decoder stub for future work, but the public
+renderer intentionally reports kind `I` / `legacy-mmr` assets as unsupported
+until the bitstream framing is verified.
+
+The attached BookServer and Transmogrifier IDBs establish that legacy kind `I`
+payloads use the reader's MMR path rather than the GDF filter path:
+
+| Binary / IDB | Evidence |
+| --- | --- |
+| `Official Readers/BookSrv-Win32/bookmgr.exe.i64` | `BookServerServePictureObject` delegates legacy picture conversion through the imported `ephimage` path. The byte-level MMR decoder is not in `bookmgr.exe`. |
+| `Official Readers/BookSrv-Win32/ephimage.dll` | Local symbol/string evidence includes `process_mmr_pict`, `InitDecompress`, `WRcheckparms`, `WRraster`, `WRruns`, `dinitmmr`, `dlinemmr`, `decline`, `deceol`, `readcd`, and `writere`. |
+| `Official Readers/Transmogrifier/transmog.exe` | Debug/object strings include `D:\Transmogrifier\source\ephdmmr.obj`, `_dinitmmr`, `_dlinemmr`, `_decline`, `_dlineabic`, and `?lConvertMMRtoGIF0:`. |
+| `Official Readers/Transmogrifier/transmog.exe.i64` | The converted-output path reads legacy kind `I` bytes, calls the MMR writer, and emits a GIF object in the rewritten version 1.4 book. |
+
+Observed kind `I` payloads contain an ImageMark-style wrapper before the MMR
+compressed bitmap data. Resource `1` in `GG24-4302-00.boo` is the clearest
+fixture:
+
+| Relative offset in payload | Bytes / value | Current interpretation |
+| ---: | --- | --- |
+| `0x00` | `00 08 d3 a8 7b` | Wrapper record prefix; `d3 a8 7b` is EBCDIC-like `Ly{`. |
+| `0x0a` | `d3 a7 7b` | Second wrapper marker; EBCDIC-like `Lx{`. |
+| `0x2e` | `09 60 09 60` | Repeated value observed before dimensions; likely source-unit metadata, unresolved. |
+| `0x32` | `03 c0` | Candidate image width: `960`. |
+| `0x34` | `03 40` | Candidate image height: `832`. |
+| `0x36` | `01 00` | Unresolved flag or depth-like field. |
+| `0x38` | `1c ac` | Candidate compressed byte count. This equals descriptor length `0x1cfc` minus `0x50`. |
+| `0x3a` | `d3 ee 7b 40` | Additional wrapper marker before bitmap payload metadata. |
+
+The corresponding legacy descriptor for that payload is:
+
+```text
+GG24-4302-00.boo
+descriptor 0x0118:
+f1 40 40 40 40 40 40 40 c9 00 1c fc 00 00 99 f0
+
+id "1", kind I, length 0x001cfc, absolute payload offset 0x000099f0
+```
+
+Another kind `I` fixture, `GG66-3212-00.boo` resource `3`, has the same wrapper
+shape but different dimensions:
+
+| Relative offset in payload | Bytes / value | Current interpretation |
+| ---: | --- | --- |
+| `0x00` | `00 08 d3 a8 7b` | Same wrapper prefix. |
+| `0x2e` | `09 60 09 60` | Same unresolved repeated value. |
+| `0x32` | `03 40` | Candidate image width: `832`. |
+| `0x34` | `01 80` | Candidate image height: `384`. |
+| `0x38` | `06 74` | Candidate compressed byte count. This equals descriptor length `0x06c4` minus `0x50`. |
+
+The experimental decoder tried interpreting the bytes after the wrapper as
+CCITT Group 4 / MMR using the standard T.6 two-dimensional mode codes and run
+tables. Starts at relative offsets `0x45` and `0x50` with MSB-first bit reading
+failed on the tested fixtures with an invalid 2D mode before a complete image
+could be produced. That means at least one framing detail is still unresolved:
+the actual compressed-data start, bit order, byte stuffing/synchronization, or a
+reader-specific MMR variant.
+
+Future implementation should continue from the reader functions named above,
+especially `dinitmmr`, `dlinemmr`, `decline`, `deceol`, and `readcd`, rather
+than treating the wrapper as a raw CCITT G4 stream without verifying the exact
+entry point.
+
 Current `libgeist` PNG rendering support for `legacy-gdf` is fixture-driven and
 limited to observed vector-style GDDM payloads. The decoder reads IBM
 hexadecimal floating-point coordinate runs from the stored GDF byte stream,

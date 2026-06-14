@@ -661,3 +661,17 @@
   legacy and converted fixtures into `build\`, and a five-file random
   `boorsrc --list` sample covering `SC26-3089-00.boo`, `SC24-5455-01.boo`,
   `SC24-5680-00.boo`, `SC26-3119-02.boo`, and `SC24-5519-01.boo`.
+- Began MMR/kind `I` image rendering research using the attached BookServer
+  and Transmogrifier IDBs plus local legacy fixtures. Verified from reader
+  symbols that MMR decoding lives in the `ephimage`/Transmogrifier image path
+  (`process_mmr_pict`, `dinitmmr`, `dlinemmr`, `decline`, `deceol`, `readcd`)
+  rather than in `bookmgr.exe`. Added an experimental self-contained MMR decoder
+  source file and library wiring for later continuation, but left the public
+  `legacy-mmr` PNG renderer as an explicit unsupported stub because tested
+  offsets/bit order still fail before producing a complete image. Documented the
+  observed kind `I` wrapper fields and fixture evidence for
+  `GG24-4302-00.boo` and `GG66-3212-00.boo` in `Format/assets.md`. Validation
+  fixtures selected/used: `GG24-4302-00.boo` resource `1`,
+  `GG66-3212-00.boo` resources `3` and `4`, and random BOO listings
+  `SC26-3089-00.boo`, `SC24-5455-01.boo`, `SC24-5680-00.boo`,
+  `SC26-3119-02.boo`, and `SC24-5519-01.boo`.
