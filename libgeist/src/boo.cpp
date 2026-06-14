@@ -383,9 +383,13 @@ std::string normalize_toc_title(std::string value) {
       const auto lower_part = ascii_lower(part);
       const bool is_minor =
           lower_part == "a" || lower_part == "an" || lower_part == "and" ||
-          lower_part == "for" || lower_part == "in" || lower_part == "of" ||
-          lower_part == "on" || lower_part == "or" || lower_part == "the" ||
-          lower_part == "to" || lower_part == "with";
+          lower_part == "before" || lower_part == "between" ||
+          lower_part == "by" || lower_part == "for" ||
+          lower_part == "from" || lower_part == "in" ||
+          lower_part == "into" || lower_part == "of" ||
+          lower_part == "on" || lower_part == "or" ||
+          lower_part == "the" || lower_part == "to" ||
+          lower_part == "with" || lower_part == "without";
       if (!(first_word && first_part) && is_minor) {
         part = lower_part;
       }

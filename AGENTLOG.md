@@ -221,3 +221,10 @@
   `build\Debug\bootoc.exe BOO\QS3X36CM.BOO`, and
   `build\Debug\bootoc.exe BOO\OFCUSEOV.BOO`; the bundled fixtures produce 10
   and 201 TOC entries respectively.
+- Updated `bootoc` to follow the hosted BookServer `CCONTENTS` page shape:
+  page title, metadata line (`Title`, `Document Number`, `Build Date`,
+  `Build Version`, and `Book Path`), `# CONTENTS Table of Contents`, compact
+  `[Summarize]` TOC block, and copyright. Validated against both hosted
+  BookServer pages via Docker fetch MCP and with `cmake --build build`,
+  `build\Debug\bootoc.exe BOO\QS3X36CM.BOO`, and
+  `build\Debug\bootoc.exe BOO\OFCUSEOV.BOO`.
