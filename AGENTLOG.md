@@ -19,7 +19,7 @@
   random tracked BOO fixtures with no `?` placeholders in the output,
   representative `boorender --raw 1.0` and `boorender --raw CONTENTS` samples,
   `boorender --md`, and missing-topic error handling.
-- Commit: pending.
+- Commit: `f1dca41`.
 
 ## 2026-06-14 - Move raw topic data onto TOC entries
 
