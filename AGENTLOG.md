@@ -200,3 +200,16 @@
   `BooGetCurrentSummaryText`, and `BooValidateBookFileTailPlaceholder`, added
   explanatory IDA comments, and saved the IDB. Updated `Format/compression.md`,
   added `Format/security.md`, and updated `Format/README.md`.
+- Analyzed table-of-contents storage using the hosted BookServer `CCONTENTS`
+  output, decoded fixture logical records, and the connected `ephwam.dll` IDB.
+  Identified the directory content-page record index at `0x0034`, topic count
+  at `0x003e`, topic-start index at `0x003c`, topic header controls
+  (`SH...`, `CTOPICN`, `CPARENT`, `CFORWARDLEVEL`, `CBACKLEVEL`, `CSUMMARY`,
+  `CHDLEVEL`, `ST`), and literal `CTOCE` entries stored inside the
+  `CONTENTS` topic. Renamed and typed topic/index helper routines in IDA,
+  including `BooSelectTopicByNumber`, `BooSeekTopicStartRecord`,
+  `BooGetTopicStartRecordNumber`, `BooLookupPagedU16Index`,
+  `BooLocateLogicalRecordByNumber`, `BooFindIndexOrdinalForRecordNumber`,
+  `BooSaveLogicalCursorState`, and `BooRestoreLogicalCursorState`, then saved
+  the IDB. Added `Format/table-of-contents.md` and updated
+  `Format/README.md`.
