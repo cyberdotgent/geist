@@ -184,3 +184,10 @@
   for `QS3X36CM` and `OFCUSEOV`. Validated with `cmake --build build`,
   `build\Debug\booinfo.exe BOO\QS3X36CM.BOO`, and
   `build\Debug\booinfo.exe BOO\OFCUSEOV.BOO`.
+- Promoted decoded logical header controls into typed `BooBookProperties` on
+  `BooDocument`, covering language, version, build version, reflow, title,
+  short title, copyright, security, date, authors, and document number. Updated
+  `booinfo` to present these book properties instead of requiring callers to
+  interpret raw `C...` logical-control keys. Validated with
+  `cmake --build build`, `build\Debug\booinfo.exe BOO\QS3X36CM.BOO`, and
+  `build\Debug\booinfo.exe BOO\OFCUSEOV.BOO`.

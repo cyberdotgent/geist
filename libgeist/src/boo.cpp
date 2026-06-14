@@ -830,6 +830,39 @@ std::vector<BooLogicalControl> decode_experimental_logical_controls(
   return controls;
 }
 
+BooBookProperties build_book_properties(
+    const std::vector<BooLogicalControl>& controls) {
+  BooBookProperties properties;
+  for (const auto& control : controls) {
+    if (control.key == "CLANGUAGE") {
+      properties.language = control.value;
+    } else if (control.key == "CVERSION") {
+      properties.version = control.value;
+    } else if (control.key == "CBLDVERS") {
+      properties.build_version = control.value;
+    } else if (control.key == "CREFLOW") {
+      properties.reflow = ascii_lower(control.value) == "on";
+    } else if (control.key == "CTITLE") {
+      properties.title = control.value;
+    } else if (control.key == "CSTITLE") {
+      properties.short_title = control.value;
+    } else if (control.key == "CCOPYRIGHT") {
+      properties.copyright = control.value;
+    } else if (control.key == "CSECURITY") {
+      properties.security = control.value;
+    } else if (control.key == "CDATE") {
+      properties.date = control.value;
+    } else if (control.key == "CAUTHOR") {
+      if (!control.value.empty()) {
+        properties.authors.push_back(control.value);
+      }
+    } else if (control.key == "CDOCNUM") {
+      properties.document_number = control.value;
+    }
+  }
+  return properties;
+}
+
 BooPageRole classify_run(std::uint32_t start_page,
                          std::uint16_t page_class,
                          const BooDirectory& directory) {
@@ -963,6 +996,8 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
   document.logical_controls_ =
       decode_experimental_logical_controls(document.bytes_,
                                            document.directory_);
+  document.book_properties_ =
+      build_book_properties(document.logical_controls_);
   return document;
 }
 
@@ -976,6 +1011,10 @@ const BooPage0Header& BooDocument::file_header() const noexcept {
 
 const BooDirectory& BooDocument::directory() const noexcept {
   return directory_;
+}
+
+const BooBookProperties& BooDocument::book_properties() const noexcept {
+  return book_properties_;
 }
 
 const std::vector<BooPageRun>& BooDocument::page_runs() const noexcept {

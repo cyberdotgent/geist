@@ -15,6 +15,7 @@ int main(int argc, char** argv) {
     const auto& metadata = document.metadata();
     const auto& file_header = document.file_header();
     const auto& directory = document.directory();
+    const auto& book = document.book_properties();
 
     std::cout << "Path: " << metadata.path.string() << "\n";
     std::cout << "Size: " << metadata.file_size << " bytes\n";
@@ -33,14 +34,31 @@ int main(int argc, char** argv) {
               << static_cast<unsigned>(directory.token_threshold) << std::dec
               << "\n";
 
-    std::cout << "Logical controls (experimental):\n";
-    if (document.logical_controls().empty()) {
-      std::cout << "  none decoded\n";
-    } else {
-      for (const auto& control : document.logical_controls()) {
-        std::cout << "  " << control.key << "=" << control.value << "\n";
-      }
+    std::cout << "Book properties:\n";
+    std::cout << "  Language: " << book.language << "\n";
+    std::cout << "  Version: " << book.version << "\n";
+    if (!book.build_version.empty()) {
+      std::cout << "  Build version: " << book.build_version << "\n";
     }
+    std::cout << "  Title: " << book.title << "\n";
+    std::cout << "  Short title: " << book.short_title << "\n";
+    std::cout << "  Copyright: " << book.copyright << "\n";
+    std::cout << "  Security: " << book.security << "\n";
+    std::cout << "  Date: " << book.date << "\n";
+    if (book.authors.empty()) {
+      std::cout << "  Authors: none\n";
+    } else {
+      std::cout << "  Authors: ";
+      for (std::size_t i = 0; i < book.authors.size(); ++i) {
+        if (i != 0) {
+          std::cout << "; ";
+        }
+        std::cout << book.authors[i];
+      }
+      std::cout << "\n";
+    }
+    std::cout << "  Document number: " << book.document_number << "\n";
+    std::cout << "  Reflow: " << (book.reflow ? "on" : "off") << "\n";
 
     if (file_header.unknown_0102) {
       const std::vector<std::uint8_t> unknown_0102{

@@ -60,6 +60,22 @@ struct BooPageRun {
   BooPageRole role = BooPageRole::unknown;
 };
 
+// Book-level properties decoded from logical header controls. Unknown or absent
+// controls are represented by empty strings/vectors.
+struct BooBookProperties {
+  std::string language;
+  std::string version;
+  std::string build_version;
+  bool reflow = false;
+  std::string title;
+  std::string short_title;
+  std::string copyright;
+  std::string security;
+  std::string date;
+  std::vector<std::string> authors;
+  std::string document_number;
+};
+
 // Decoded logical metadata controls. The current decoder is experimental and
 // only covers the version-2 dictionary/token paths documented from the bundled
 // fixtures.
@@ -100,6 +116,7 @@ public:
   GEIST_API const BooMetadata& metadata() const noexcept;
   GEIST_API const BooPage0Header& file_header() const noexcept;
   GEIST_API const BooDirectory& directory() const noexcept;
+  GEIST_API const BooBookProperties& book_properties() const noexcept;
   GEIST_API const std::vector<BooPageRun>& page_runs() const noexcept;
   GEIST_API const std::vector<BooLogicalControl>& logical_controls()
       const noexcept;
@@ -116,6 +133,7 @@ private:
   BooMetadata metadata_;
   BooPage0Header file_header_;
   BooDirectory directory_;
+  BooBookProperties book_properties_;
   std::vector<BooPageRun> page_runs_;
   std::vector<BooLogicalControl> logical_controls_;
   std::vector<TocEntry> toc_;
