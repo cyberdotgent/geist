@@ -96,6 +96,7 @@ struct TocEntry {
   std::string id;
   std::string title;
   std::uint32_t level = 0;
+  std::uint32_t style = 0;
 };
 
 struct ResourceEntry {

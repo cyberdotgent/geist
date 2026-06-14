@@ -19,8 +19,11 @@ int main(int argc, char** argv) {
     }
 
     for (const auto& entry : toc) {
-      std::cout << entry.level << '\t' << entry.id << '\t' << entry.title
-                << "\n";
+      for (std::uint32_t level = 0; level < entry.level; ++level) {
+        std::cout << "  ";
+      }
+      std::cout << entry.id << '\t' << entry.title << "\tstyle "
+                << entry.style << "\n";
     }
   } catch (const std::exception& error) {
     std::cerr << "bootoc: " << error.what() << "\n";

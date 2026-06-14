@@ -354,6 +354,74 @@ std::string normalize_logical_control_value(const std::string& key,
   return value;
 }
 
+std::string normalize_toc_title(std::string value) {
+  value = capitalize_bookmanager_words(value);
+  std::string normalized;
+  normalized.reserve(value.size());
+  bool first_word = true;
+  for (std::size_t cursor = 0; cursor < value.size();) {
+    if (std::isspace(static_cast<unsigned char>(value[cursor])) != 0) {
+      normalized.push_back(value[cursor++]);
+      continue;
+    }
+
+    const auto word_begin = cursor;
+    while (cursor < value.size() &&
+           std::isspace(static_cast<unsigned char>(value[cursor])) == 0) {
+      ++cursor;
+    }
+    const auto word = value.substr(word_begin, cursor - word_begin);
+    std::string output_word;
+    std::size_t part_begin = 0;
+    bool first_part = true;
+    while (part_begin <= word.size()) {
+      const auto part_end = word.find('-', part_begin);
+      auto part = word.substr(part_begin,
+                              part_end == std::string::npos
+                                  ? std::string::npos
+                                  : part_end - part_begin);
+      const auto lower_part = ascii_lower(part);
+      const bool is_minor =
+          lower_part == "a" || lower_part == "an" || lower_part == "and" ||
+          lower_part == "for" || lower_part == "in" || lower_part == "of" ||
+          lower_part == "on" || lower_part == "or" || lower_part == "the" ||
+          lower_part == "to" || lower_part == "with";
+      if (!(first_word && first_part) && is_minor) {
+        part = lower_part;
+      }
+      if (!first_part) {
+        output_word.push_back('-');
+      }
+      output_word += part;
+
+      if (part_end == std::string::npos) {
+        break;
+      }
+      part_begin = part_end + 1;
+      first_part = false;
+    }
+
+    normalized += output_word;
+    first_word = false;
+  }
+  value = normalized;
+  replace_all_case_insensitive(value, "AS/400", "AS/400");
+  replace_all_case_insensitive(value, "(TM)", "(TM)");
+  replace_all_case_insensitive(value, "Officevision", "OfficeVision");
+  replace_all_case_insensitive(value, "Cross-Reference", "Cross-Reference");
+  replace_all_case_insensitive(value, "Ocl", "OCL");
+  replace_all_case_insensitive(value, "Dbcs", "DBCS");
+  replace_all_case_insensitive(value, "User Id", "User ID");
+  return value;
+}
+
+std::string normalize_toc_id(std::string value) {
+  for (auto& ch : value) {
+    ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+  }
+  return value;
+}
+
 bool looks_like_control_boundary(const std::string& decoded_record,
                                  const std::string& lower_record,
                                  std::size_t offset) {
@@ -736,13 +804,75 @@ std::vector<BooLogicalControl> extract_logical_controls(
   return controls;
 }
 
-std::vector<BooLogicalControl> decode_experimental_logical_controls(
+bool looks_like_toc_entry_boundary(const std::string& lower_record,
+                                   std::size_t offset) {
+  static const std::array<const char*, 5> boundaries = {
+      "?ctoce ", ", ctoce ", "?ctocdef=", ", ctocdef=", "?sh"};
+  for (const auto* boundary : boundaries) {
+    const std::string boundary_text(boundary);
+    if (offset + boundary_text.size() <= lower_record.size() &&
+        lower_record.compare(offset, boundary_text.size(), boundary_text) ==
+            0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+std::vector<TocEntry> extract_toc_entries(const std::string& decoded_record) {
+  std::vector<TocEntry> entries;
+  const auto lower_record = ascii_lower(decoded_record);
+  std::size_t search_offset = 0;
+
+  while (search_offset < decoded_record.size()) {
+    const auto found = lower_record.find("ctoce ", search_offset);
+    if (found == std::string::npos) {
+      break;
+    }
+
+    const auto marker_size = std::string("ctoce ").size();
+    auto value_begin = found + marker_size;
+    auto value_end = decoded_record.size();
+    const auto next_entry = lower_record.find("ctoce ", value_begin);
+    if (next_entry != std::string::npos) {
+      value_end = next_entry;
+    }
+    for (auto cursor = value_begin; cursor < value_end; ++cursor) {
+      if (looks_like_toc_entry_boundary(lower_record, cursor)) {
+        value_end = cursor;
+        break;
+      }
+    }
+
+    const auto value =
+        trim_ascii(decoded_record.substr(value_begin, value_end - value_begin));
+    std::istringstream input(value);
+    std::uint32_t level = 0;
+    std::uint32_t style = 0;
+    std::string id;
+    if (input >> level >> style >> id) {
+      std::string title;
+      std::getline(input, title);
+      title = normalize_toc_title(trim_ascii(title));
+      if (!id.empty() && !title.empty()) {
+        entries.push_back(
+            {normalize_toc_id(id), title, level, style});
+      }
+    }
+
+    search_offset = found + marker_size;
+  }
+
+  return entries;
+}
+
+std::vector<std::string> decode_experimental_logical_records(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory) {
-  std::vector<BooLogicalControl> controls;
+  std::vector<std::string> records;
   const auto token_strings = decode_experimental_dictionary(bytes);
   if (token_strings.empty()) {
-    return controls;
+    return records;
   }
 
   std::vector<std::size_t> candidate_pages;
@@ -809,25 +939,43 @@ std::vector<BooLogicalControl> decode_experimental_logical_controls(
       }
 
       const auto decoded_words = assemble_logical_record(record_tokens);
-      const auto decoded = token_words_to_ascii(decoded_words);
-      auto record_controls = extract_logical_controls(decoded);
-      const auto has_docnum =
-          std::any_of(record_controls.begin(),
-                      record_controls.end(),
-                      [](const BooLogicalControl& control) {
-                        return control.key == "CDOCNUM";
-                      });
-      controls.insert(controls.end(),
-                      record_controls.begin(),
-                      record_controls.end());
-      if (has_docnum) {
-        return controls;
-      }
+      records.push_back(token_words_to_ascii(decoded_words));
       record_offset = payload_end;
     }
   }
 
+  return records;
+}
+
+std::vector<BooLogicalControl> extract_book_logical_controls(
+    const std::vector<std::string>& decoded_records) {
+  std::vector<BooLogicalControl> controls;
+  for (const auto& decoded : decoded_records) {
+    auto record_controls = extract_logical_controls(decoded);
+    const auto has_docnum =
+        std::any_of(record_controls.begin(),
+                    record_controls.end(),
+                    [](const BooLogicalControl& control) {
+                      return control.key == "CDOCNUM";
+                    });
+    controls.insert(controls.end(),
+                    record_controls.begin(),
+                    record_controls.end());
+    if (has_docnum) {
+      return controls;
+    }
+  }
   return controls;
+}
+
+std::vector<TocEntry> build_table_of_contents(
+    const std::vector<std::string>& decoded_records) {
+  std::vector<TocEntry> toc;
+  for (const auto& decoded : decoded_records) {
+    auto entries = extract_toc_entries(decoded);
+    toc.insert(toc.end(), entries.begin(), entries.end());
+  }
+  return toc;
 }
 
 BooBookProperties build_book_properties(
@@ -993,11 +1141,12 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
   }
 
   document.page_runs_ = build_page_runs(document.bytes_, document.directory_);
-  document.logical_controls_ =
-      decode_experimental_logical_controls(document.bytes_,
-                                           document.directory_);
+  const auto decoded_records =
+      decode_experimental_logical_records(document.bytes_, document.directory_);
+  document.logical_controls_ = extract_book_logical_controls(decoded_records);
   document.book_properties_ =
       build_book_properties(document.logical_controls_);
+  document.toc_ = build_table_of_contents(decoded_records);
   return document;
 }
 

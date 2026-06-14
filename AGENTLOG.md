@@ -213,3 +213,11 @@
   `BooSaveLogicalCursorState`, and `BooRestoreLogicalCursorState`, then saved
   the IDB. Added `Format/table-of-contents.md` and updated
   `Format/README.md`.
+- Implemented experimental table-of-contents reading in `libgeist` by retaining
+  decoded logical records, extracting `CTOCE` entries into `BooDocument::toc_`,
+  and exposing the documented nesting level and style through `TocEntry`.
+  Updated `bootoc` to render the parsed TOC with indentation and style numbers.
+  Validated with `cmake --build build`,
+  `build\Debug\bootoc.exe BOO\QS3X36CM.BOO`, and
+  `build\Debug\bootoc.exe BOO\OFCUSEOV.BOO`; the bundled fixtures produce 10
+  and 201 TOC entries respectively.
