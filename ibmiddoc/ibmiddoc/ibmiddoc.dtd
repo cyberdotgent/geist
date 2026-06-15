@@ -1,0 +1,4440 @@
+<!--==================================================================
+     Copyright: (c) International Business Machines Corporation 1992, 2000
+
+Classification:  Not classified
+
+       Version:  4.3.5
+
+-->
+<!ENTITY % DTDVersion '"V4.3.5"' >
+<!--
+
+          Name:  IBM Information Development Document DTD
+
+          File:  IBMIDDOC DTD
+
+ Formal Public
+   Identifiers:
+                 Most recent version:
+                 +//ISBN 0-933186::IBM//DTD IBMIDDoc//EN
+
+                 This version:
+                 +//ISBN 0-933186::IBM//DTD IBMIDDoc:4.3.5//EN
+
+      Function:  Markup declarations for the IBMIDDOC document type
+
+Change History:
+                 16 May 96 - V4.0.5: Make changes for RetKey on divisions
+                                     Add hot spot definition language
+                  5 Aug 96 - V4.0.7: Add DTDVersion attribute to IBMIDDoc
+                 26 Aug 96 - V4.1.0: Add property definition markup.
+                 28 Feb 97 - V4.2.0: Allow ABBREV in BACKM
+                                     Allow most PROLOG content in any order
+                                     Remove non-fixed attribute value defaults (except for within TABLE)
+                  3 Mar 97 - V4.2.0: Add boilerplate attribute to NITEM
+                                     Support NOTICES throughout FRONTM
+                  6 Mar 97 - V4.2.0: Correct bug in new prolog elements content models.
+                                     Allow more of PROLOG to come in any order.
+                  7 Mar 97 - V4.2.0: Allow more of PROLOG to come in any order.
+                 15 Aug 97 - V4.2.2: Add TERMWIDTH attribute to DL and ParmL.
+                  5 Dec 97 - V4.2.3: Make AreaDef optional in MMObjLink.
+                 24 Mar 98 - V4.2.6: Add FormObj and MailerObj attributes to RCF.
+                 25 Jul 98 - V4.3.0: Add DocStyle attribute to IBMIDDOC.
+                 21 Aug 98         : Add ULType to UL
+                 31 Aug 98         : Add WebPage element for use in Address.
+                 03 Sep 98         : Add MasterIndexInfo element and subelements
+                 12 Sep 98         : Add MasterIndex element and subelements
+                                   : Add Mindex notation
+                 05 Oct 98         : Add Company attribute to IBMIDDOC
+                 27 Oct 98         : Add Callout attribute to SynNote
+                 28 Oct 98         : Add ExternalFileName to control info for linking to documents.
+                 29 Oct 98         : Add MLSprefix attribute for Multiple Language Safety documents
+                  5 Nov 98         : Add TM element (same places as most PHs)
+                 19 Jan 99         : Add TM element to %NameTerm
+                  1 Mar 99         : Re-restrict TM
+                 23 Apr 99 - V4.3.2: Add PageNumber to IBMIDDOC for FBC/Sequential
+                                   : Add Classif to IBMIDDOC
+                                   : Add PartPrefix, ChapPrefix, AppPrefix to IBMIDDOC
+                  4 May 99         : Add Layout to MSGLIST
+                 18 Oct 99         : Add MMObj to SCREEN model
+                 19 Oct 99         : Add Frame attribute to FIG
+                 05 Nov 99         : Add RETKEY and SEP to LERS and LERSDEF
+                                   : Add LineLength to CGraphic, Screen, XMP
+                                   : Add oldef, uldef, dldef, gldef, msgldef, figdef, syntaxdef, xmpdef
+                                   : Add pblk to frontcover model
+                                   : Add retkey to msglist and gl
+                                   : Add linespace to all list elements
+                                   : Add frame to fig, and syntax
+                                   : Add scalepct to fig, table, frontcover, and syntax
+                                   : Add simple as a value for ultype on ul
+                                   : Add DBLK as a container for multiple Ds (to be mainly used for CONLOC and PROPS)
+                                   : Add MaxTOC to IBMIDDOC
+                                   : Add TOC to D and D-like elements
+                 11 Nov 99         : Add MultiVol to IBMIDDOC
+                                   : Add Layout to TOC, FIGLIST, TLIST, and Index
+                                   : Add width to fig, syntax, and XMP
+                                   : Add 1 and 2 as values for termwidth
+                 24 Jan 2000       : Remove elements not to be implemented in 2.3.4
+                  4 Apr 2000       : Change DBLK to have an omittable end-tag (to allow CONLOC)
+                  4 Oct 2000       : Add BRAND and NEWBRAND to IBMIDDOC
+
+         Notes:
+    ==================================================================-->
+
+<!--==================================================================
+    Define parameter entities used by common fragment
+    ==================================================================-->
+
+<!-- Add notloc to the LDescs content model                WLW V4.0.4 -->
+<!-- Add AreaDef for hot spot specification                WLW V4.0.5 -->
+<!ENTITY % LDescs "
+    nameloc |
+    notloc |
+    AreaDef
+"
+>
+
+<!ENTITY % ProdInfo         "ProdInfo | IBMProdInfo" >
+
+<!-- Allow most PROLOG content in any order                WLW V4.2.0 -->
+<!ENTITY % CtrlInfo
+    "(%ProdInfo;)* &
+     Approvers? &
+     Owners? &
+     Maintainer? &
+     CritDates? &
+     MasterIndexInfo?
+">
+
+<!-- Add property definition markup.                       WLW V4.1.0 -->
+<!ENTITY % PropDefs "
+     ClassDef |
+     LERSDef |
+     MkDesc |
+     ModInfoDef |
+     ModItemDef |
+     MsgItemDef |
+     PropDef |
+     PropDesc |
+     PropGroup
+"
+>
+
+<!ENTITY % Safety           "Safety | IBMSafety" >
+
+<!ENTITY % ObjLibExcl
+    "IBMIDDoc | Prolog | ObjLib | ObjLibBody"
+>
+
+<!--==================================================================
+    Document Element
+    ==================================================================-->
+
+<!--Included here to ensure that Near&Far identifies this element as
+    the document element.                                  WLW V4.0.2 -->
+
+<!ENTITY % DocumentElement
+    "Prolog?, FrontM?, Body, BackM?"
+>
+
+<!ELEMENT  IBMIDDoc         O O (%DocumentElement;) +(DVCFObj) >
+<!-- Add DTDVersion attribute with DTD version in content  WLW V4.0.7 -->
+<!-- Add DocStyle attribute                                Sim V4.3.0 -->
+<!-- Add Company attribute                                 Sim V4.3.0 -->
+<!-- Add MLSprefix attribute                               Sim V4.3.0 -->
+<!-- Add PageNumber, PartPrefix, ChapPrefix, AppPrefix     Sim V4.3.2 -->
+<!-- Add Classif                                           Sim V4.3.2 -->
+<!-- Add MaxTOC                                            Sim V4.3.4 -->
+<!-- Add MultiVol                                          Sim V4.3.4 -->
+<!-- Add Brand and NewBrand                                Sim V4.3.5 -->
+<!ATTLIST  IBMIDDoc
+    Class            NAME         #IMPLIED
+    Company          NAME         #IMPLIED
+    Copyr            IDREFS       #IMPLIED
+    DocStyle         NAME         #IMPLIED
+    IBMCopyr         CDATA        #IMPLIED
+    ID               ID           #IMPLIED
+    Language         NAME         #IMPLIED
+    MaxTOC           NUMBER       #IMPLIED
+    MLSprefix        (Prefix | NoPrefix)
+                                  #IMPLIED
+    Multivol         (OneVol | Index-Folio)
+                                  #IMPLIED
+    Props            CDATA        #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    IBMSec           (UNC | IC)   #IMPLIED
+    Sec              CDATA        #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+    XRefText         CDATA        #IMPLIED
+    Brand            (Default-Brand | eserver-white | eserver-black | NewBrand)
+                                  #IMPLIED
+    NewBrand         NAME         #IMPLIED
+    PageNumber       (Default-Folio | Seq | FBC)
+                                  #IMPLIED
+    PartPrefix       (Default-Part | Text-Part | None-Part | Numonly-Part)
+                                  #IMPLIED
+    ChapPrefix       (Default-Chap | Text-Chap | None-Chap | Numonly-Chap)
+                                  #IMPLIED
+    AppPrefix        (Default-App | Text-App | None-App | Numonly-App)
+                                  #IMPLIED
+    Classif          (Default-Classif | Lic | Res | ConfRes)
+                                  #IMPLIED
+
+    HyTime           NAME         #FIXED    HyDoc
+    reftype          CDATA        #FIXED    'Rev Rev'
+    unmspace         (unified | separate) #FIXED    "separate"
+
+    InfoMast         NAME         #FIXED    "HierarchicalDivision"
+
+    DTDVersion          CDATA           #FIXED   %DTDVersion;
+>
+
+<!--
+  IBMIDDOC languages defined as of 3.4:
+     en_US ENGLISH
+     en_US USENGLISH
+     en_GB UKENGLISH
+     nl_NL DUTCH
+     de_DE GERMAN
+     it_IT ITALIAN
+     fr_FR FRENCH
+     es_ES SPANISH
+     pt_PT PORTUGUESE
+     da_DK DANISH
+     fi_FI FINNISH
+     no_NO NORWEGIAN
+     sv_SE SWEDISH
+     fr_CA CFRENCH
+     fr_BE BFRENCH
+     nl_BE BDUTCH
+     pt_BR BPORTUGUESE
+     en_CA CENGLISH
+     is_IS ICELANDIC
+     de_CH SGERMAN
+     fr_CH SFRENCH
+     it_CH SITALIAN
+     ko_KR KOREAN
+     zh_TW TCHINESE
+     zh_CN SCHINESE
+     ja_JP JAPANESE
+     ca_ES CATALAN
+     tr_TR TURKISH
+     el_GR GREEK
+     pl_PL POLISH
+     cs_CZ CZECH
+     sk_SK SLOVAK
+     hu_HU HUNGARIAN
+     hr_HR CROATIAN
+     sl_SI SLOVENIAN
+     ru_RU RUSSIAN
+     ro_RO ROMANIAN
+     bg_BG BULGARIAN
+     et_EE ESTONIAN
+     lv_LV LATVIAN
+     lt_LT LITHUANIAN
+     mk_MK MACEDONIAN
+     sr_SP SERBIAN
+     th_TH THAI
+-->
+
+<!-- IBMIDDOC docstyles defined as of 3.4:
+     ibm2col
+     ibm4x6
+     ibm5x8
+     ibm7x9
+     ibm8x11
+     ibm8x5
+     ibm9x7
+     ibmcd
+     ibmland
+     ibmli5
+     ibmli7
+     ibmrefc
+     ibmxagd
+     ibmxarf
+     ibmxggd
+     obiport
+     obiwwa6p
+     smallflg
+     tiv7x9
+     tiv8x11
+-->
+
+
+<!--==================================================================
+    Include Common IBMIDDoc DTD parts
+    ==================================================================
+
+<!ENTITY % IBMIDDoc.Common PUBLIC
+                       "+//ISBN 0-933186::IBM//DTD IBMIDDoc Common//EN"
+>
+%IBMIDDoc.Common;                                                     -->
+
+<!--==================================================================
+     Copyright: (c) International Business Machines Corporation 1992, 1996
+
+Classification:  Not classified
+
+       Version:  4.3.5
+
+          Name:  IBM Information Development Document DTD
+                 Common Fragment
+
+          File:  IDDCOMMN DTD
+
+ Formal Public
+   Identifiers:
+                 Most recent version:
+                 "+//ISBN 0-933186::IBM//DTD IBMIDDoc Common//EN"
+
+                 This version:
+                 "+//ISBN 0-933186::IBM//DTD IBMIDDoc Common:4.2.0//EN"
+
+      Function:  Markup declarations for the IBMIDDOC document type
+
+Change History:
+                 29 Apr 96 - V4.0.3: Add STYLE attribute to COLSPEC.
+                 03 May 96 - V4.0.4: add changes for external references
+                                     add notloc element declaration
+                                     change SGMLDOC fpi to conform to HyTime
+                 16 May 96 - V4.0.5: Make changes for RetKey on divisions
+                                     Add hot spot definition language
+                 14 Jun 96 - V4.0.6: Change PropName back to #IMPLIED for
+                                          defaulting
+                                     Remove STYLE attribute from COLSPEC.
+                                     Removed the size attribute as
+                                          redundant.
+                                     Require end tags on nmlist and notloc.
+                  5 Aug 96 - V4.0.7: Add Version attribute to D.
+                                     Correct RefType on LQ ... add BibID
+                                     Make PartNum optional on CI
+                                     Broaden Lines content model to %PhLike;
+                                     Add MV to XPh and XMP content models
+                                     Add LitData to CGraphic, Screen, XMP
+                                     Add Ph to numerous contexts for prop-based ret
+                 26 Aug 96 - V4.1.0: Add property definition markup.
+                 18 Sep 96 - V4.0.7a: Add IMPLIED CLASSNAME att to LERSDef
+                 25 Sep 96 - V4.1.0: Add Cover information markup to BibEntry
+                  1 Oct 96 - V4.1.0: Change SGMLNames to PCDATA to allow PI content
+                                     Allow TITLE as an optional alt to MSGNUM
+                                     Make MMObj optional in PartAsm to allow in PartAsmSeg
+                                     Add optional MMObj to content of PartAsmSeg
+                  4 Feb 97 - V4.1.1: Add REFID attribute to SYNNOTE and FN for reuse refs
+                                     Add XREF element to group content model
+                 24 Feb 97 - V4.2.0: Add PROCSUMM element.
+                                     Add PROCNUM attribute.
+                                     Add STEPREF element
+                 26 Feb 97 - V4.2.0: Add PROCINTRO element.
+                                     Support admonitions in ProcEntry
+                                     Make Then or Else optional in DecisionPnt
+                                     Add RefKey to Fig, Screen, Xmp, CGraphic element content
+                 27 Feb 97 - V4.2.0: Add LINES to MSGTEXT content model
+                 28 Feb 97 - V4.2.0: Support continued ordered lists
+                                     Support ordered list types
+                                     Add I2, I3 and IRef to IdxRefs content
+                                     Allow most PROLOG content in any order
+                                     Remove non-fixed attribute value defaults (except for within TABLE)
+                  3 Mar 97 - V4.2.0: Change declared and default value for PROPDESC/DEFAULT att
+                                     Corrected notation IDs per ISO 9573, Part 9
+                  6 Mar 97 - V4.2.0: Add OrigIBMDocNum element.
+                                     Correct bug in new prolog elements content models.
+                                     Correct FRONTM treatment of EDNOTICES.
+                                     Allow more of PROLOG to come in any order.
+                  7 Mar 97 - V4.2.0: Allow more of PROLOG to come in any order.
+                 15 Aug 97 - V4.2.2: Add TERMWIDTH attribute to DL and ParmL.
+                 24 Mar 98 - V4.2.6: Add FormObj and MailerObj attributes to RCF.
+                 25 Jul 98 - V4.3.0: Add DocStyle attribute to IBMIDDOC.
+                 21 Aug 98         : Add ULType to UL
+                 31 Aug 98         : Add WebPage element for use in Address.
+                 03 Sep 98         : Add MasterIndexInfo element and subelements
+                 12 Sep 98         : Add MasterIndex element and subelements
+                                   : Add Mindex notation
+                 05 Oct 98         : Add Company attribute to IBMIDDOC
+                 27 Oct 98         : Add Callout attribute to SynNote
+                 28 Oct 98         : Add ExternalFileName to control info for linking to documents.
+                 29 Oct 98         : Add MLSprefix attribute for Multiple Language Safety documents
+                  5 Nov 98         : Add TM element (same places as most PHs)
+                 19 Jan 99         : Add TM element to %NameTerm
+                  1 Mar 99         : Re-restrict TM
+
+         Notes:
+
+    ==================================================================-->
+
+<!--==================================================================
+    Parameter Entity Declarations
+    ==================================================================-->
+
+<!--Element Groups Parameter Entities ================================-->
+
+                                   <!--========= IBM-Specific Entities-->
+
+<!ENTITY % BibEntry         "BibEntry | IBMBibEntry" >
+
+<!ENTITY % LibEntry         "LibEntry | IBMLibEntry" >
+
+<!ENTITY % SecAttrib
+   "IBMSec           (UNC | IC)   #IMPLIED
+    Sec              CDATA        #IMPLIED"
+>
+
+<!ENTITY % SyntaxLID '
+    linkend          IDREF        #IMPLIED
+
+    HyTime           NAME         #FIXED    "clink"
+    context          (context | ncontext) #FIXED    context
+' >
+
+                         <!--================== Content Model Entities-->
+
+                         <!--================== Inclusions/Exclusions -->
+
+<!ENTITY % IndexEles        "I1 | I2 | I3 | IRef" >
+
+<!ENTITY % InclExcl         "%IndexEles; | Fn" >
+
+                               <!--================== SGML Names List -->
+<!-- Change SGMLNames to PCDATA to allow PI content        WLW V4.1.0 -->
+<!ENTITY % SGMLNames
+    "(#PCDATA)*"
+                -- Used when content must be SGML name characters ...
+                                        no character entities allowed --
+>
+
+                            <!--================== Other Notation Data-->
+
+<!ENTITY % OtherNotationData
+    "(#PCDATA)* -(%InclExcl;)"
+                             -- Used when specific syntax defined and
+                                           character entities allowed --
+>
+
+<!-- Add Ph to numerous contexts for prop-based ret        WLW V4.0.7 -->
+<!ENTITY % OtherNotationData.Ph
+    "(#PCDATA | Ph)* -(%InclExcl;)"
+                             -- Used when specific syntax defined and
+                                           character entities allowed --
+>
+
+                                   <!--================== Name or Term-->
+<!ENTITY % NameTerm
+     "#PCDATA"
+>
+
+                                          <!--================== Title-->
+
+<!ENTITY % TitleBlk
+    "TitleBlk"
+>
+
+<!-- Add TM to most markups where Ph can go                Sim V4.3.0 -->
+<!ENTITY % Title "
+     #PCDATA | Ph |
+     Term |
+     L |
+     TM
+"
+>
+
+              <!--====================== Entities for PLike and PhLike-->
+
+<!ENTITY % Common.Basic.PhP "
+     L
+"
+>
+
+                                     <!--====================== PhLike-->
+
+<!ENTITY % NumPhs
+    "Num |
+     Bin |
+     Oct |
+     Dec |
+     Hex"
+>
+
+<!-- Add TM to most markups where Ph can go                Sim V4.3.0 -->
+<!ENTITY % Other.Basic.PhLike
+    "#PCDATA | Ph | Term | TM"
+>
+
+<!-- Don't allow TM everywhere                             Sim V4.3.0 -->
+<!ENTITY % Other.Basic.PhLike.NoTM
+    "#PCDATA | Ph | Term"
+>
+
+<!ENTITY % Basic.PhLike "
+     %Other.Basic.PhLike; |
+     %Common.Basic.PhP;
+"
+>
+
+<!ENTITY % Basic.PhLike.NoTM "
+     %Other.Basic.PhLike.NoTM; |
+     %Common.Basic.PhP;
+"
+>
+
+<!ENTITY % Other.PhLike.NoMD
+    "Address |
+     APL |
+     Char |
+     Cit |
+     Date |
+     MV |
+     PK | PV |
+     Q |
+     RefKey |
+     SynPh |
+     XPh |
+     XRef |
+     %NumPhs;"
+>
+
+<!ENTITY % Other.PhLike
+    "Address |
+     APL |
+     Char |
+     Cit |
+     Date |
+     MD |
+     MV |
+     PK | PV |
+     Q |
+     RefKey |
+     SynPh |
+     XPh |
+     XRef |
+     %NumPhs;"
+>
+
+<!ENTITY % PhLike.NoMD "
+     %Other.Basic.PhLike; |
+     %Common.Basic.PhP; |
+     Formula |
+     %Other.PhLike.NoMD;
+"
+>
+
+<!ENTITY % PhLike "
+     %Other.Basic.PhLike; |
+     %Common.Basic.PhP; |
+     Formula |
+     %Other.PhLike;
+"
+>
+
+                                          <!--================== PLike-->
+
+<!-- Suppress fig recursion with new parameter entity      WLW V4.0.4 -->
+<!ENTITY % Other.Basic.PLike.NoTab.NoFig
+    "DL |
+     MMObj |
+     OL |
+     UL"
+>
+
+<!ENTITY % Other.Basic.PLike.NoTab
+    "DL |
+     Fig |
+     MMObj |
+     OL |
+     UL"
+>
+
+<!ENTITY % Other.Basic.PLike.NoFig
+    "DL |
+     Fig |
+     MMObj |
+     OL |
+     UL"
+>
+
+<!ENTITY % Other.Basic.PLike
+    "DL |
+     Fig |
+     MMObj |
+     OL |
+     Table |
+     UL"
+>
+
+<!ENTITY % Basic.PLike "
+     P | PBlk | Note | NoteList |
+     %Common.Basic.PhP; |
+     %Other.Basic.PLike;
+"
+>
+
+<!ENTITY % Other.PLike.NoModInfo
+    "Annot |
+     Bridge |
+     CGraphic |
+     GL |
+     Lines |
+     LitData |
+     LQ |
+     MkNote |
+     ParmL |
+     Screen |
+     Syntax |
+     Xmp"
+>
+
+<!ENTITY % Other.PLike.NoBridge
+    "Annot |
+     CGraphic |
+     GL |
+     Lines |
+     LitData |
+     LQ |
+     MkNote |
+     ModInfo |
+     ParmL |
+     Screen |
+     Syntax |
+     Xmp"
+>
+
+<!ENTITY % Other.PLike.NoLQ
+    "Annot |
+     Bridge |
+     CGraphic |
+     GL |
+     Lines |
+     LitData |
+     MkNote |
+     ModInfo |
+     ParmL |
+     Screen |
+     Syntax |
+     Xmp"
+>
+
+<!ENTITY % Other.PLike.NoAnnot "
+     Bridge |
+     CGraphic |
+     GL |
+     Lines |
+     LitData |
+     LQ |
+     MkNote |
+     ModInfo |
+     ParmL |
+     Screen |
+     Syntax |
+     Xmp"
+>
+
+
+<!ENTITY % Other.PLike
+    "Annot |
+     Bridge |
+     CGraphic |
+     GL |
+     Lines |
+     LitData |
+     LQ |
+     MkNote |
+     ModInfo |
+     ParmL |
+     Screen |
+     Syntax |
+     Xmp"
+>
+
+<!ENTITY % Only.PLike
+    "AsmList |
+     BibList |
+     FnList |
+     MarkList"
+>
+
+<!ENTITY % PLike "
+     P |
+     %Other.Basic.PLike; |
+     %Common.Basic.PhP; |
+     %Other.PLike; |
+     %Only.PLike; |
+     PBlk | Note | NoteList |
+     Attention | Caution | Danger
+"
+>
+
+                                 <!--====================== PhAndPLike-->
+
+<!ENTITY % Basic.PhAndPLike.NoTab "
+     %Other.Basic.PhLike; |
+     P | PBlk | Note | NoteList |
+     %Common.Basic.PhP; |
+     %Other.Basic.PLike.NoTab;
+"
+>
+
+<!ENTITY % Basic.PhAndPLike "
+     %Other.Basic.PhLike; |
+     P | PBlk | Note | NoteList |
+     %Common.Basic.PhP; |
+     %Other.Basic.PLike;
+"
+>
+
+<!ENTITY % PhAndPLike.NoPara "
+     %Other.Basic.PhLike; |
+     Note | NoteList |
+     %Common.Basic.PhP; |
+     Formula |
+     %Other.Basic.PLike; |
+     %Other.PhLike; |
+     %Other.PLike;
+"
+>
+
+<!ENTITY % PhAndPLike.NoNote "
+     %Other.Basic.PhLike; |
+     P | PBlk |
+     %Common.Basic.PhP; |
+     Formula |
+     %Other.PhLike; |
+     %Other.Basic.PLike; |
+     %Other.PLike;
+"
+>
+
+<!ENTITY % PhAndPLike.NoTab "
+     %Other.Basic.PhLike; |
+     P | PBlk | Note | NoteList |
+     %Common.Basic.PhP; |
+     Formula |
+     %Other.PhLike; |
+     %Other.Basic.PLike.NoTab; |
+     %Other.PLike.NoModInfo; |
+     Attention | Caution | Danger
+"
+>
+
+<!ENTITY % PhAndPLike.NoModInfo "
+     %Other.Basic.PhLike; |
+     P | PBlk | Note | NoteList |
+     %Common.Basic.PhP; |
+     Formula |
+     %Other.PhLike; |
+     %Other.Basic.PLike.NoTab; |
+     %Other.PLike.NoModInfo; |
+     Attention | Caution | Danger
+"
+>
+
+<!ENTITY % PhAndPLike.NoBridge "
+     %Other.Basic.PhLike; |
+     P | PBlk | Note | NoteList |
+     %Common.Basic.PhP; |
+     Formula |
+     %Other.PhLike; |
+     %Other.Basic.PLike; |
+     %Other.PLike.NoBridge; |
+     Attention | Caution | Danger
+"
+>
+
+<!ENTITY % PhAndPLike.NoLQ "
+     %Other.Basic.PhLike; |
+     P | PBlk | Note | NoteList |
+     %Common.Basic.PhP; |
+     Formula |
+     %Other.PhLike; |
+     %Other.Basic.PLike; |
+     %Other.PLike.NoLQ; |
+     Attention | Caution | Danger
+"
+>
+
+<!ENTITY % PhAndPLike.NoAnnot "
+     %Other.Basic.PhLike; |
+     P | PBlk | Note | NoteList |
+     %Common.Basic.PhP; |
+     Formula |
+     %Other.PhLike; |
+     %Other.Basic.PLike; |
+     %Other.PLike.NoAnnot; |
+     Attention | Caution | Danger
+"
+>
+
+<!ENTITY % PhAndPLike "
+     %Other.Basic.PhLike; |
+     P | PBlk | Note | NoteList |
+     %Common.Basic.PhP; |
+     Formula |
+     %Other.PhLike; |
+     %Other.Basic.PLike; |
+     %Other.PLike; |
+     Attention | Caution | Danger
+"
+>
+
+                                    <!--====================== DivLike-->
+
+<!ENTITY % DivLike.NoDiv
+   "LERS |
+    MsgList |
+    ModInfo |
+    PartAsm |
+    Proc"
+>
+
+<!ENTITY % DivLike.NoDiv.NoModInfo
+   "LERS |
+    MsgList |
+    PartAsm |
+    Proc"
+>
+
+<!-- Add DBlk where D can go                               Sim V4.3.4 -->
+
+<!ENTITY % DivLike.NoModInfo
+   "D | DBlk | %DivLike.NoDiv.NoModInfo;"
+>
+
+<!ENTITY % DivLike
+   "D | DBlk | %DivLike.NoDiv;"
+>
+
+               <!--====================== Other Content Model Entities-->
+
+<!-- Allow most PROLOG content in any order                WLW V4.2.0 -->
+<!ENTITY % TrackingInfo
+    "Authors? &
+     (%CtrlInfo;)? &
+     RevDefs? &
+     QualifDefs?"
+>
+
+<!ENTITY % Division         "DProlog, Abstract?, DIntro?, DBody, DSum?">
+
+<!-- Add RetKey to content                                 WLW V4.0.5 -->
+<!-- Allow most PROLOG content in any order                WLW V4.2.0 -->
+<!ENTITY % DProlog "
+     (%TitleBlk;), RetKey?,
+     ((%TrackingInfo;)? &
+      PropDefs? &
+      LDescs? &
+      CopyrDefs? &
+      GlDefs? &
+      BibEntryDefs? &
+      IdxDefs?),
+     ObjLib*"
+>
+
+<!ENTITY % DBody            "((%PLike;) | (%DivLike.NoModInfo;))*" >
+
+<!ENTITY % SpecDiv          "SpecDProlog, DIntro?, DBody, DSum?" >
+
+<!-- Add RetKey to content                                 WLW V4.0.5 -->
+<!-- Allow most PROLOG content in any order                WLW V4.2.0 -->
+<!ENTITY % SpecDProlog "
+     (GendTitle | (%TitleBlk;)), RetKey?,
+     ((%TrackingInfo;)? &
+      PropDefs? &
+      LDescs? &
+      CopyrDefs? &
+      GlDefs? &
+      BibEntryDefs? &
+      IdxDefs?),
+     ObjLib*"
+>
+
+<!-- Add Formula to the content model of figure.           WLW V4.0.4 -->
+<!-- Add RefKey to Fig, Screen, Xmp, CGraphic ele content  WLW V4.2.0 -->
+<!ENTITY % Fig "
+     %Common.Basic.PhP; | Formula | RefKey |
+     P | PBlk | Note | NoteList |
+     %Other.Basic.PLike.NoTab.NoFig; |
+     %Other.PLike.NoModInfo;
+"
+>
+
+<!ENTITY % SynNoteFn "
+     %Other.Basic.PhLike; |
+     P | PBlk | Note | NoteList |
+     %Other.PhLike; |
+     %Common.Basic.PhP; |
+     Formula |
+     Annot |
+     Bridge |
+     CGraphic |
+     GL |
+     Lines |
+     LitData |
+     LQ |
+     ModInfo |
+     ParmL |
+     Screen |
+     Xmp |
+     %Other.Basic.PLike;
+"
+>
+
+<!ENTITY % NoteBody         "%PhAndPLike.NoNote;" >
+
+<!ENTITY % MkNote "
+     %Other.Basic.PhLike; |
+     P | PBlk | Note | NoteList |
+     %Common.Basic.PhP; |
+     Formula |
+     %Other.PhLike; |
+     %Other.Basic.PLike.NoTab; |
+     Annot | Bridge | CGraphic | GL |
+     Lines | LitData |
+     ParmL | Screen | Syntax | Xmp
+"
+>
+
+<!ENTITY % Desc "
+     %Basic.PhAndPLike.NoTab; |
+     %Other.PhLike;
+"
+>
+
+<!ENTITY % Term "
+     %Other.Basic.PhLike; |
+     APL | Char | MMObj | MV | PK | PV |
+     RefKey | SynPh | XPh |
+     %Common.Basic.PhP; |
+     Formula |
+     %NumPhs;
+"
+>
+
+<!--Common Attribute Entities ========================================-->
+
+                       <!--========= Parameter entities for attributes-->
+
+<!ENTITY % Common.Base.Attributes
+   "PropSrc          NAME         #IMPLIED
+    RetAlts          IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED"
+>
+
+<!ENTITY % Common.Fixed.Attributes
+   "HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Qualif Qualif Rev Rev'"
+>
+
+<!--Common.Base.Attributes has all common attributes except those which
+    must be excluded for some elements.  These excluded attributes are:
+        Class
+        conloc
+        HyTime
+        ID
+        Qualif
+        reftype
+        Rev
+        XRefText
+        Props
+-->
+
+<!ENTITY % Common.Atts.NoClass
+   "conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    Qualif           IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    XRefText         CDATA        #IMPLIED
+    %Common.Base.Attributes;
+    %Common.Fixed.Attributes;
+"
+>
+
+<!ENTITY % Common.Atts.Noconloc "
+    Class            NAME         #IMPLIED
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    Qualif           IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    XRefText         CDATA        #IMPLIED
+    %Common.Base.Attributes;
+    %Common.Fixed.Attributes;
+"
+>
+
+<!ENTITY % Common.Atts.NoHyTime "
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    Qualif           IDREFS       #IMPLIED
+    reftype          CDATA        #FIXED    'Qualif Qualif Rev Rev'
+    Rev              IDREFS       #IMPLIED
+    XRefText         CDATA        #IMPLIED
+    %Common.Base.Attributes;
+"
+>
+
+<!ENTITY % Common.Atts.NoQualif "
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    XRefText         CDATA        #IMPLIED
+    %Common.Base.Attributes;
+    %Common.Fixed.Attributes;
+"
+>
+
+<!ENTITY % Common.Atts.Noreftype "
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    HyTime           NAME         #FIXED    HyBrid
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    Qualif           IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    XRefText         CDATA        #IMPLIED
+    %Common.Base.Attributes;
+"
+>
+
+<!ENTITY % Common.Atts.Noreftype.NoClass "
+    conloc           IDREF        #CONREF
+    HyTime           NAME         #FIXED    HyBrid
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    Qualif           IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    XRefText         CDATA        #IMPLIED
+    %Common.Base.Attributes;
+"
+>
+
+<!ENTITY % Common.Atts.NoRev "
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    Qualif           IDREFS       #IMPLIED
+    XRefText         CDATA        #IMPLIED
+    %Common.Base.Attributes;
+    %Common.Fixed.Attributes;
+"
+>
+
+<!ENTITY % Common.Atts.NoXRefText "
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    Qualif           IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    %Common.Base.Attributes;
+    %Common.Fixed.Attributes;
+"
+>
+
+<!ENTITY % Common.Atts.NoID "
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    Props            CDATA        #IMPLIED
+    Qualif           IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    XRefText         CDATA        #IMPLIED
+    %Common.Base.Attributes;
+    %Common.Fixed.Attributes;
+"
+>
+
+<!ENTITY % Common.Atts.NoProps "
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Qualif           IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    XRefText         CDATA        #IMPLIED
+    %Common.Base.Attributes;
+    %Common.Fixed.Attributes;
+"
+>
+
+<!ENTITY % Common.Atts "
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    Qualif           IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    XRefText         CDATA        #IMPLIED
+    %Common.Base.Attributes;
+    %Common.Fixed.Attributes;
+"
+>
+
+
+<!--==================================================================
+    Notation and Data Attribute Declarations
+    ==================================================================-->
+
+<!--Many of the following notation declarations need to have the
+    appropriate version information added by an expert in these
+    formats
+-->
+
+<!-- Text Markup Language Notations ==================================-->
+
+<!-- Corrected SGML notation name per HyTime corrigenda    WLW V4.0.4 -->
+<!-- Corrected SGML notation ID per ISO 9573, Part 9       WLW V4.2.0 -->
+<!NOTATION SGMLDoc  PUBLIC
+    "ISO 8879:1986//NOTATION Standard Generalized Markup Language (SGML)//EN"
+>
+<!-- The HyTime fixed attribute was removed because of problems using
+     the SGMLDoc notation when it was defined.  Omnimark (correctly)
+     required that the attribute be defined before the notation is used.
+     See 11.4.1.2.
+                                                           WLW V4.0.1 -->
+
+<!-- Mathematics Notations ===========================================-->
+
+<!-- The following mathematics notation is IBM-defined notations. -->
+<!NOTATION SMFF          PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION Script Mathematical Formula Formatter//EN"
+>
+
+<!ENTITY % Math.Notations
+    "smff"
+>
+
+<!-- Graphics and Image Notations ====================================-->
+
+<!-- The following graphics notations are IBM-defined notations. -->
+<!-- Corrected PSEG notation ID                            WLW V4.2.0 -->
+<!NOTATION PSEG          PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION AFP Page Segment//EN"
+>
+<!-- Corrected PSEG3820 notation ID                        WLW V4.2.0 -->
+<!NOTATION PSEG3820      PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION AFP Page Segment::3820//EN"
+>
+<!-- Corrected PSEG38PP notation ID                        WLW V4.2.0 -->
+<!NOTATION PSEG38PP      PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION AFP Page Segment::38PP//EN"
+>
+<!-- Corrected PSEG4250 notation ID                        WLW V4.2.0 -->
+<!NOTATION PSEG4250      PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION AFP Page Segment::4250//EN"
+>
+
+<!-- The following graphics notations are IBMIDDOC-defined.
+     These notations indicate that the artwork is of a general class
+     but that the specific notation may vary depending on the type
+     of processing being defined and that the binding of the graphic to
+     specific notation for processing should be delayed as long as
+     possible.
+-->
+<!NOTATION Animation     PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION Generic Animation Meta-Notation//EN"
+>
+<!NOTATION Video         PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION Generic Video Meta-Notation//EN"
+>
+<!NOTATION Audio         PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION Generic Audio Meta-Notation//EN"
+>
+
+<!NOTATION Graphics      PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION Generic Graphics Meta-Notation//EN"
+>
+<!NOTATION Vector        PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION Generic Vector Meta-Notation//EN"
+>
+<!NOTATION Image         PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION Generic Image Meta-Notation//EN"
+>
+
+<!-- Master Index file added                               Sim V4.3.0 -->
+<!NOTATION Mindex        PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION Generic Master Index//EN"
+>
+
+<!ENTITY % Graphic.Notations
+    "Graphics | Image | Vector | PSEG | PSEG3820 | PSEG38PP | PSEG4250 | EPS"
+>
+
+<!-- The following graphics notations are not defined by IBM, these
+     identifiers will need to change when the registration of
+     identifiers is implemented. -->
+<!NOTATION EPS           PUBLIC
+    "-//Adobe//NOTATION Encapulated PostScript//EN"
+>
+
+<!-- Data attributes removed                               WLW V4.0.2 -->
+
+<!-- Computer Language Notations =====================================-->
+
+<!-- Corrected APL notation ID per ISO 9573, Part 9        WLW V4.2.0 -->
+<!NOTATION APL           PUBLIC
+    "ISO 8485:1989//NOTATION Programming languages - APL//EN"
+>
+<!NOTATION ASM           PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION 80x86 Assembler Programming Language//EN"
+>
+<!NOTATION ASSEMBLE      PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION 370 Assembler Programming Language//EN"
+>
+<!NOTATION BAT           PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION DOS BAT Programming Language//EN"
+>
+<!-- Corrected C notation ID per ISO 9573, Part 9          WLW V4.2.0 -->
+<!NOTATION C             PUBLIC
+    "ISO/IEC 9899:1990//NOTATION Programming languages - C//EN"
+>
+<!-- Add COBOL notation ID per ISO 9573, Part 9            WLW V4.2.0 -->
+<!NOTATION COBOL         PUBLIC
+    "ISO 1989:1985//NOTATION Programming languages - COBOL//EN"
+>
+<!NOTATION CPP           PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION C++ Programming Language//EN"
+>
+<!NOTATION EXEC          PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION EXEC Programming Language//EN"
+>
+<!-- Add Fortran notation ID per ISO 9573, Part 9          WLW V4.2.0 -->
+<!NOTATION FORTRAN       PUBLIC
+    "ISO/IEC 1539:1991//NOTATION Information technology - Programming languages - FORTRAN//EN"
+>
+<!-- Corrected PL/1 notation ID per ISO 9573, Part 9       WLW V4.2.0 -->
+<!NOTATION PLI           PUBLIC
+    "ISO 6160:1979//NOTATION Programming languages - PL/1//EN"
+>
+<!NOTATION REXX          PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION REXX Programming Language//EN"
+>
+
+<!ENTITY % ProgLang.Notations
+    "APL | ASM | ASSEMBLE | BAT | C | COBOL | CPP | EXEC | FORTRAN | PLI | REXX"
+>
+
+<!NOTATION CmndLine      PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION Command Line Entry//EN"
+>
+
+<!-- Text Markup Language Notations ==================================-->
+
+<!-- Corrected HyQ notation ID                             WLW V4.2.0 -->
+<!NOTATION HyQ           PUBLIC
+    "ISO/IEC 10744:1992//NOTATION HyTime Query Notation//EN"
+>
+<!-- Corrected HyLex notation ID                           WLW V4.2.0 -->
+<!NOTATION HyLex         PUBLIC
+    "ISO/IEC 10744:1992//NOTATION HyTime Lexical Model Notation//EN"
+>
+
+<!-- Legacy Text Markup Language Notations ===========================-->
+
+<!NOTATION Script        PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION Document Composition Facility Markup//EN"
+>
+<!-- CGraphic notation declaration removed                 WLW V4.0.2 -->
+<!NOTATION Screen        PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION Character Screen Representation//EN"
+>
+
+<!-- IBMIDDOC Special Text Notations =================================-->
+
+<!-- The following notations are IBMIDDOC-defined.
+     They are intended to single certain specific kinds of text processing
+     should occur within their boundaries.
+-->
+<!NOTATION LineSpec  PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION Line Specific Content//EN"
+>
+
+
+<!-- IBMIDDOC Special Output Notations ===============================-->
+
+<!-- The following notations are IBMIDDOC-defined.
+     They define the processsing output types which may be directly
+     referenced from IBMIDDoc documents.
+-->
+<!-- The following notations are added.                    WLW V4.0.4 -->
+<!NOTATION Program       PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION Generic Program Launch Meta-Notation//EN"
+>
+<!NOTATION BookManagerBook     PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION BookManager Compiled Book Notation//EN"
+>
+<!NOTATION IPFINF        PUBLIC
+    "+//ISBN 0-933186::IBM//NOTATION Information Presentation Facility Book Notation//EN"
+>
+<!NOTATION URL           PUBLIC
+    "-//IETF //NOTATION Universal Resource Locator Notation::IETF RFC 1738//EN"
+>
+
+<!ENTITY % Location.Notations
+    "URL"
+>
+
+<!--==================================================================
+    Document Type Organizational Elements
+    ==================================================================-->
+
+
+<!--Prolog Contents ==================================================-->
+
+<!--================================================== DocTrackingInfo-->
+
+                                   <!--====================== DocTitle-->
+<!ELEMENT  DocTitle         O O (Library?, (%TitleBlk;)) >
+<!ATTLIST  DocTitle
+    %Common.Atts.NoQualif;
+
+    InfoMast         NAME         #FIXED    "Title"
+>
+
+<!ELEMENT  Library          O O (%TitleBlk;) >
+<!ATTLIST  Library
+    %Common.Atts.NoQualif;
+
+    InfoMast         NAME         #FIXED    "Title"
+>
+
+                                   <!--========================= VolID-->
+
+<!-- Add Ph to numerous contexts for prop-based ret        WLW V4.0.7 -->
+<!ELEMENT  VolId            - O (%NameTerm; | Ph)* >
+<!ATTLIST  VolId
+    %Common.Atts.NoQualif;
+>
+
+                                   <!--======================= Authors-->
+<!ELEMENT  Authors          - O (Desc?, Author+) -(%InclExcl;) >
+<!ATTLIST  Authors
+    %Common.Atts.NoQualif;
+>
+
+<!ELEMENT  Author           O O (Title?, (Corp | Person)) >
+
+<!ATTLIST  Author
+    %Common.Atts.NoQualif;
+>
+
+<!ELEMENT  Corp             - O (CorpName, Address?) >
+<!ATTLIST  Corp
+    %Common.Atts.NoQualif;
+
+    InfoMast         NAME         #FIXED    "NameAndAddress"
+>
+
+<!ELEMENT  CorpName         O O (%NameTerm;)* >
+<!ATTLIST  CorpName
+    %Common.Atts.NoQualif;
+
+    InfoMast         NAME         #FIXED    "NameBlock"
+>
+
+<!ELEMENT  Person           - O (Name, Address?) >
+<!ATTLIST  Person
+    %Common.Atts.NoQualif;
+
+    InfoMast         NAME         #FIXED    "NameAndAddress"
+>
+
+<!-- Add Ph to numerous contexts for prop-based ret        WLW V4.0.7 -->
+<!ELEMENT  Name             - O (%NameTerm; | Ph)* >
+<!ATTLIST  Name
+    %Common.Atts.NoQualif;
+
+    InfoMast         NAME         #FIXED    "NameBlock"
+>
+
+<!-- Add WebPage to model for Address                      Sim V4.3.0 -->
+<!ELEMENT  Address          - O (%Title; | PostalCode |
+                                 VNET | Internet | IBMMail | Phone | WebPage)*
+>
+<!ATTLIST  Address
+    Obj              ENTITY       #CONREF
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "AddressBlock"
+>
+
+<!ELEMENT  PostalCode       - O %OtherNotationData; >
+
+<!ELEMENT  VNET             - O %OtherNotationData; >
+
+<!ELEMENT  Internet         - O %OtherNotationData;
+                                   -- Lextype='#CONTENT InternetAddr' --
+>
+
+<!ELEMENT  IBMMail          - O %OtherNotationData; >
+
+<!ELEMENT  WebPage          - O %OtherNotationData;
+                                   -- Lextype='#CONTENT InternetAddr' --
+>
+
+<!ATTLIST  (PostalCode | VNET | Internet | IBMMail | WebPage)
+    %Common.Atts;
+>
+
+<!ELEMENT  Phone            - O %OtherNotationData; >
+
+<!ATTLIST  Phone
+    Equip            (Voice | Fax | VoiceFax)
+                                  #IMPLIED
+    %Common.Atts;
+>
+
+
+                                   <!--== Misc Document Identification-->
+<!-- Add Ph to numerous contexts for prop-based ret        WLW V4.0.7 -->
+<!ELEMENT  FileNum          - O %OtherNotationData.Ph; >
+<!ATTLIST  FileNum
+    %Common.Atts.NoQualif;
+>
+
+<!-- Add Obj attribute to RetKey.                          WLW V4.0.5 -->
+<!-- Add Ph to numerous contexts for prop-based ret        WLW V4.0.7 -->
+<!ELEMENT  RetKey           - O (%NameTerm; | Ph)* >
+<!ATTLIST  RetKey
+    Obj              ENTITY       #IMPLIED
+
+    %Common.Atts.NoQualif;
+>
+
+
+                                   <!--====================== CtrlInfo-->
+<!-- Allow most PROLOG content in any order                WLW V4.2.0 -->
+<!ELEMENT  IBMProdInfo      - O (ProdName,
+                                 Version?, Release?, ModLvl?,
+                                 (IBMPgmNum? & IBMFeatNum?)) -(%InclExcl;)
+>
+<!ATTLIST  IBMProdInfo
+    %Common.Atts.NoQualif;
+>
+
+<!ELEMENT  ProdInfo         - O (ProdName, Version?) -(%InclExcl;) >
+<!ATTLIST  ProdInfo
+    %Common.Atts.NoQualif;
+>
+
+<!ELEMENT  ProdName         - O (%NameTerm;)* >
+<!ATTLIST  ProdName
+    %Common.Atts.NoQualif;
+>
+
+<!-- Add Ph to numerous contexts for prop-based ret        WLW V4.0.7 -->
+<!ELEMENT  Version          - O %OtherNotationData.Ph; >
+<!ATTLIST  Version
+    %Common.Atts.NoQualif;
+>
+
+<!-- Add Ph to numerous contexts for prop-based ret        WLW V4.0.7 -->
+<!ELEMENT (Release | ModLvl | IBMPgmNum | IBMFeatNum)
+                            - O %OtherNotationData.Ph;
+>
+<!ATTLIST (Release | ModLvl | IBMPgmNum | IBMFeatNum)
+    %Common.Atts.NoQualif;
+>
+
+<!ELEMENT  Approvers        - O (Corp | Person)+ -(%InclExcl;) >
+<!ATTLIST  Approvers
+    %Common.Atts.NoQualif;
+>
+
+<!ELEMENT  Owners           - O (Corp | Person)+ -(%InclExcl;) >
+<!ATTLIST  Owners
+    %Common.Atts.NoQualif;
+>
+
+<!ELEMENT  Maintainer       - O (Corp | Person) -(%InclExcl;) >
+<!ATTLIST  Maintainer
+    %Common.Atts.NoQualif;
+>
+
+<!ELEMENT  CritDates        - O (CritDate) -(%InclExcl;) >
+<!ATTLIST  CritDates
+    %Common.Atts.NoQualif;
+>
+
+<!ELEMENT  CritDate         O O (Date, Desc) >
+<!ATTLIST  CritDate
+    %Common.Atts.NoQualif;
+>
+
+<!-- Added for Master index support                        Sim V4.3.0 -->
+<!ELEMENT  MasterIndexInfo  - O (MasterIndexPrefix+) -(%InclExcl;) >
+<!ATTLIST  MasterIndexInfo
+    %Common.Atts.NoQualif;
+>
+
+<!ELEMENT  MasterIndexPrefix  - O %OtherNotationData; >
+<!ATTLIST  MasterIndexPrefix
+    %Common.Atts.NoQualif;
+>
+
+                                   <!--======================= RevDefs-->
+<!-- Change DEFS elements to allow no definitions          WLW V4.0.4 -->
+<!ELEMENT  RevDefs          - O (Rev | Mark)* -(%InclExcl;) >
+<!ATTLIST  RevDefs
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    "DefinitionContainer"
+>
+
+<!ELEMENT  Rev              - O (Author?, Date, Desc) >
+<!-- Remove non-fixed attribute value defaults: IDENT      WLW V4.2.0 -->
+<!ATTLIST  Rev
+    ID               ID           #REQUIRED
+    Code             CDATA        #IMPLIED
+    Reason           CDATA        #IMPLIED
+    Ident            (Use | Ignore)
+                                  #IMPLIED
+
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+
+    InfoMast         NAME         #FIXED    "Definition"
+>
+
+                                  <!--==================== QualifDefs -->
+<!-- Change DEFS elements to allow no definitions          WLW V4.0.4 -->
+<!ELEMENT  QualifDefs       - O (Qualif)* -(%InclExcl;) >
+<!ATTLIST  QualifDefs
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    "DefinitionContainer"
+>
+
+<!ELEMENT  Qualif           - O (Title, Desc) >
+<!-- Remove non-fixed attribute value defaults: IDENT      WLW V4.2.0 -->
+<!ATTLIST  Qualif
+    ID               ID           #REQUIRED
+    Ident            (Use | Ignore)
+                                  #IMPLIED
+
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    Rev              IDREFS       #IMPLIED
+    reftype          CDATA        #FIXED    'Rev Rev'
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    InfoMast         NAME         #FIXED    "Definition"
+>
+
+<!--========================================================= PropDefs-->
+
+<!-- Change DEFS elements to allow no definitions          WLW V4.0.4 -->
+<!ELEMENT  PropDefs         - O (%PropDefs;)* -(%InclExcl;) >
+<!ATTLIST  PropDefs
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    "DefinitionContainer"
+>
+
+<!ELEMENT  PropGroup        - O (Desc?, (%PropDefs;)+)>
+<!ATTLIST  PropGroup
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    "DefinitionContainer"
+>
+
+<!ELEMENT  PropDef          - O (Desc?) >
+<!-- Change PropName back to #IMPLIED for defaulting       WLW V4.0.6 -->
+<!ATTLIST  PropDef
+    PropName         NAME         #IMPLIED
+    EleTypes         NAMES        #IMPLIED
+
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    "Definition"
+>
+
+<!-- Add property definition markup.                       WLW V4.1.0 -->
+<!-- Change declared and default value for PROPDESC/DEFAULT att WLW V4.1.0 -->
+<!ELEMENT  PropDesc         - O (Title?, Desc) >
+<!ATTLIST  PropDesc
+    PropName         NAME         #REQUIRED          -- Property Name --
+    Default          (True | False)
+                                  #IMPLIED  -- Property Default Value --
+
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED              -- Identifier --
+    Rev              IDREFS       #IMPLIED  -- Revision Specification --
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED                  -- Status --
+    Style            CDATA        #IMPLIED                   -- Style --
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    "Definition"
+>
+
+<!ELEMENT  ClassDef         - O (Title?, IdxTerm?, Sem) >
+<!ATTLIST  ClassDef
+    ClassName        NAME         #REQUIRED
+    EleTypes         NAMES        #IMPLIED -- GIs this Def applies to --
+
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    "Definition"
+>
+
+<!ELEMENT  Sem              - O (%Basic.PhAndPLike;)* >
+<!ATTLIST  Sem
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    RetAlts          IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+>
+
+<!ELEMENT  ModInfoDef       - O (Desc, ModItemDef+)
+                                     -- Mod Information Definition --
+>
+<!ATTLIST  ModInfoDef
+    ClassName        NAME         #IMPLIED
+
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    RetAlts          IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAMES        #FIXED    "DefinitionContainer Definition"
+>
+
+<!-- Title element defines default title for a given ModItem class -->
+<!ELEMENT  ModItemDef       - O (Title, Desc?) >
+<!ATTLIST  ModItemDef
+    ClassName        NAME         #IMPLIED
+
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    RetAlts          IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    "Definition"
+>
+
+<!--=========================================================== LDescs-->
+
+<!ELEMENT  LDescs           - O (%LDescs;)* -(%InclExcl;) >
+<!ATTLIST  LDescs
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    "DefinitionContainer"
+>
+
+<!ELEMENT  nameloc          - O (nmlist)* >
+<!ATTLIST  nameloc
+    ID               ID           #REQUIRED
+    ObjType          NAME         #IMPLIED
+
+    -- HyTime attributes: --
+    HyTime           NAME         #FIXED    nameloc
+
+    InfoMast         NAME         #FIXED    "Definition"
+>
+
+<!-- Require nmlist end tag                                WLW V4.0.6 -->
+<!ELEMENT  nmlist           - - %SGMLNames; >
+<!ATTLIST  nmlist
+    -- HyTime attributes: --
+    HyTime           NAME         #FIXED    nmlist
+    nametype         (entity | element)
+                                  element
+    obnames          (obnames | nobnames)
+                                  obnames
+    docname          ENTITY       #IMPLIED
+    dtdorlpd         NAMES        #IMPLIED
+    -- all-id attributes: --
+    HyNames          CDATA        #FIXED    "docorsub docname"
+>
+
+<!-- Add notloc element declaration                        WLW V4.0.4 -->
+<!-- Require notloc end tag                                WLW V4.0.6 -->
+<!ELEMENT  notloc           - - %SGMLNames; >
+<!ATTLIST  notloc
+    ID               ID           #REQUIRED
+    Notation         NOTATION (%Location.Notations;)
+                                  #REQUIRED
+
+    -- HyTime attributes: --
+    HyTime           NAME         #FIXED    "notloc"
+>
+
+<!--======================================================== CopyrDefs-->
+
+<!-- Change DEFS elements to allow no definitions          WLW V4.0.4 -->
+<!ELEMENT  CopyrDefs        - O (Copyr*) -(%InclExcl;) >
+<!ATTLIST  CopyrDefs
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    "DefinitionContainer"
+>
+
+<!ELEMENT  Copyr            - O (%Basic.PhAndPLike;)* >
+<!ATTLIST  Copyr
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    "Definition"
+>
+
+<!--=========================================================== GlDefs-->
+
+<!-- Change DEFS elements to allow no definitions          WLW V4.0.4 -->
+<!ELEMENT  GlDefs           - O (GLEntry*) -(%InclExcl;) >
+<!ATTLIST  GlDefs
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    RetAlts          IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    "DefinitionContainer"
+>
+
+<!--===================================================== BibEntryDefs-->
+
+<!-- Change DEFS elements to allow no definitions          WLW V4.0.4 -->
+<!ELEMENT  BibEntryDefs     - O ((%BibEntry; | %LibEntry;)*)
+                                                           -(%InclExcl;)
+>
+<!ATTLIST  BibEntryDefs
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    RetAlts          IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    "DefinitionContainer"
+>
+
+                                   <!--======== IBMBibEntry | BibEntry-->
+<!-- Allow most PROLOG content in any order                WLW V4.2.0 -->
+<!-- Add ExternalFileName for linking to document          Sim V4.3.0 -->
+<!ELEMENT  BibEntry         - O
+                     (DocTitle,
+                      (Authors? &
+                       Publisher? & PrtLoc? &
+                       OrderNum? &
+                       ExternalFileName? &
+                       ISBN? & PublicId? & Desc?)) -(%InclExcl;)
+                                              -- Bibliographic Entry --
+>
+<!-- Add DocLink attribute to support URLs, etc.           WLW V4.0.4 -->
+<!ATTLIST  BibEntry
+    DocName          ENTITY       #IMPLIED
+    DocLink          IDREFS       #IMPLIED
+
+    %Common.Atts.NoQualif;
+
+    InfoMast         NAME         #FIXED    "Definition"
+>
+
+<!-- Add Cover information markup to BibEntry              WLW V4.1.0 -->
+<!-- Allow most PROLOG content in any order                WLW V4.2.0 -->
+<!-- Add ExternalFileName for linking to document          Sim V4.3.0 -->
+<!ELEMENT  IBMBibEntry      O O
+                     (DocTitle, VolId?, RetKey?,
+                      (Authors? &
+                       Publisher? & PrtLoc? &
+                       FileNum? &
+                       IBMDocNum? &
+                       OrigIBMDocNum? &
+                       IBMPartNum? & ISBN? &
+                       ExternalFileName? &
+                       PublicId? & Desc? &
+                       CoverDef?))
+                                            -(%InclExcl;)
+>
+<!-- Add DocLink attribute to support URLs, etc.           WLW V4.0.4 -->
+<!ATTLIST  IBMBibEntry
+    DocName          ENTITY       #IMPLIED
+    DocLink          IDREFS       #IMPLIED
+
+    %Common.Atts.NoQualif;
+
+    InfoMast         NAME         #FIXED    "Definition"
+>
+
+<!ELEMENT  Publisher        - O (CorpName, Address?) >
+<!ATTLIST  Publisher
+    %Common.Atts.NoQualif;
+
+    InfoMast         NAMES        #FIXED    "NameAndAddress"
+>
+
+<!-- Add Ph to numerous contexts for prop-based ret        WLW V4.0.7 -->
+<!ELEMENT  PrtLoc           - O (%NameTerm; | Ph)* >
+<!ATTLIST  PrtLoc
+    %Common.Atts.NoQualif;
+>
+
+<!-- Add Ph to numerous contexts for prop-based ret        WLW V4.0.7 -->
+<!ELEMENT  OrderNum         - O %OtherNotationData.Ph; >
+<!ATTLIST  OrderNum
+    %Common.Atts.NoQualif;
+>
+
+<!-- Add Ph to numerous contexts for prop-based ret        WLW V4.0.7 -->
+<!-- Add OrigIBMDocNum element                             WLW V4.2.0 -->
+<!ELEMENT  (OrigIBMDocNum | IBMDocNum)
+                            - O %OtherNotationData.Ph; >
+<!ATTLIST  (OrigIBMDocNum | IBMDocNum)
+    %Common.Atts.NoQualif;
+>
+
+<!-- Add Ph to numerous contexts for prop-based ret        WLW V4.0.7 -->
+<!ELEMENT  IBMPartNum       - O %OtherNotationData.Ph; >
+<!ATTLIST  IBMPartNum
+    %Common.Atts.NoQualif;
+>
+
+<!-- Add Ph to numerous contexts for prop-based ret        WLW V4.0.7 -->
+<!ELEMENT  ISBN             - O %OtherNotationData.Ph; >
+<!ATTLIST  ISBN
+    %Common.Atts.NoQualif;
+>
+
+<!-- Add Ph to numerous contexts for prop-based ret        WLW V4.0.7 -->
+<!ELEMENT  PublicId         - O %OtherNotationData.Ph; >
+<!ATTLIST  PublicId
+    %Common.Atts.NoQualif;
+>
+
+<!-- Add ExternalFileName for linking to documents.        Sim V4.3.0 -->
+<!ELEMENT  ExternalFileName - O %OtherNotationData.Ph; >
+<!ATTLIST  ExternalFileName
+    %Common.Atts.NoQualif;
+>
+
+<!-- Add Cover information markup to BibEntry              WLW V4.1.0 -->
+<!ELEMENT  CoverDef         - O (MMObj?, FrontCover?, BackCover?) >
+<!ATTLIST  CoverDef
+    %Common.Atts.NoQualif;
+>
+
+<!-- Add PBLK to content model                             Sim V4.3.4 -->
+<!ELEMENT  FrontCover       - O
+                     (P | PBlk | DL | MMObj | OL | Table | UL | CGraphic |
+                      Lines | LitData | Xmp | BibList)
+>
+
+<!ATTLIST  FrontCover
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    %Common.Base.Attributes;
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+>
+
+<!ELEMENT  BackCover        - O
+                     (P | DL | MMObj | OL | Table | UL | CGraphic |
+                      Lines | LitData | Xmp | BibList)
+>
+
+<!ATTLIST  BackCover
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    %Common.Base.Attributes;
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+>
+
+                                   <!--======== IBMLibEntry | LibEntry-->
+<!-- Allow most PROLOG content in any order                WLW V4.2.0 -->
+<!ELEMENT  LibEntry         - O
+                     (Library,
+                      (Publisher? & PrtLoc? &
+                       BOFNum? & OrderNum? &
+                       ProdName* & ISBN? & PublicId? &
+                       ContainedDocs? & Desc?)) -(%InclExcl;)
+>
+<!ATTLIST  LibEntry
+    %Common.Atts.NoQualif;
+
+    InfoMast         NAME         #FIXED    "Definition"
+>
+
+<!-- Allow most PROLOG content in any order                WLW V4.2.0 -->
+<!ELEMENT  IBMLibEntry      - O
+                     (Library,
+                      (Publisher? & PrtLoc? &
+                       IBMBOFNum? & IBMPartNum? &
+                       ProdName* & ISBN? & PublicId? &
+                       ContainedDocs? & Desc?)) -(%InclExcl;)
+>
+<!ATTLIST  IBMLibEntry
+    %Common.Atts.NoQualif;
+
+    InfoMast         NAME         #FIXED    "Definition"
+>
+
+<!ELEMENT  ContainedDocs    - O EMPTY>
+<!ATTLIST  ContainedDocs
+    BibIds           IDREFS       #REQUIRED
+
+    Class            NAME         #IMPLIED
+    ID               ID           #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+    XRefText         CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+
+    -- all-ref attributes: --
+    reftype          CDATA        #FIXED    "BibIds (BibEntry | IBMBibEntry | LibEntry | IBMLibEntry) Rev Rev"
+            -- The order BibEntry IDs are specified defines the
+               default order for presenting the list of documents
+               in a generated bibliography --
+>
+
+<!-- Add Ph to numerous contexts for prop-based ret        WLW V4.0.7 -->
+<!ELEMENT  BOFNum           - O %OtherNotationData.Ph; >
+<!ATTLIST  BOFNum
+    %Common.Atts.NoQualif;
+>
+
+<!-- Add Ph to numerous contexts for prop-based ret        WLW V4.0.7 -->
+<!ELEMENT  IBMBOFNum        - O %OtherNotationData.Ph; >
+<!ATTLIST  IBMBOFNum
+    %Common.Atts.NoQualif;
+>
+
+<!--========================================================== IdxDefs-->
+
+<!-- Change DEFS elements to allow no definitions          WLW V4.0.4 -->
+<!-- Add I2, I3 and IRef to IdxRefs content                WLW V4.2.0 -->
+<!ELEMENT  IdxDefs          - O (I1 | I2 | I3 | IRef)* >
+<!ATTLIST  IdxDefs
+    Class            NAME         #IMPLIED
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    RetAlts          IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    "DefinitionContainer"
+>
+
+<!--=========================================================== ObjLib-->
+
+<!ELEMENT  ObjLib           - O (Desc?, ObjLibBody) >
+<!ATTLIST  ObjLib
+    Class            NAME         #IMPLIED
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+>
+
+<!ELEMENT  ObjLibBody       O O ANY -(%ObjLibExcl;)
+                                    +(%InclExcl;)
+>
+<!ATTLIST  ObjLibBody
+    ID               ID           #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+
+    InfoMast         NAME         #FIXED    "Container"
+>
+
+<!--General Division Content =========================================-->
+
+<!-- New element to contain Ds (made * to allow for PROPS) Sim V4.3.4 -->
+<!ELEMENT  DBlk             - O (D)* >
+<!ATTLIST  DBlk
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+
+    InfoMast         NAME         #FIXED    "ContainingDivision"
+>
+
+<!ELEMENT  D                - O (%Division;) >
+<!-- Add DTDVersion attribute with DTD version in content  WLW V4.0.7 -->
+<!-- Add TOC attribute                                     Sim V4.3.4 -->
+<!ATTLIST  D
+    Copyr            IDREFS       #IMPLIED
+    IBMCopyr         CDATA        #IMPLIED
+    Language         NAME         #IMPLIED
+    TOC              (toc | notoc)  #IMPLIED
+    %SecAttrib;
+
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "HierarchicalDivision"
+
+    DTDVersion       CDATA        #FIXED    %DTDVersion;
+>
+
+<!ELEMENT  DProlog          O O (%DProlog;) >
+<!ATTLIST  DProlog
+    Class            NAME         #IMPLIED
+    ID               ID           #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    "MetaInfoDivision"
+>
+
+<!ELEMENT  Abstract         - O (%SpecDiv;) >
+<!ATTLIST  Abstract
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "HierarchicalDivision"
+>
+
+<!ELEMENT  DIntro           - O ((%TitleBlk;)?, TOC?,
+                               (%PLike;)*,
+                               D*
+                              )
+>
+<!ATTLIST  DIntro
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "HierarchicalDivision"
+>
+
+<!-- Add RetKey to content                                 WLW V4.0.5 -->
+<!-- Add Layout attribute                                  Sim V4.3.4 -->
+<!ELEMENT  TOC              - O ((GendTitle | (%TitleBlk;)), RetKey?,
+                                 (CLE)*)
+>
+<!-- Remove non-fixed attribute value defaults: SPEC       WLW V4.2.0 -->
+<!ATTLIST  TOC
+    Layout           (OneCol | TwoCol | Default-Layout)
+                                  #IMPLIED
+    Spec    (Auto | Man)          #IMPLIED
+    %Common.Atts.NoQualif;
+
+    InfoMast         NAME         #FIXED    "QueryLink"
+>
+
+<!ELEMENT  CLE              - O (%Title;)* >
+<!ATTLIST  CLE
+    RefID            IDREF        #IMPLIED
+    Lvl              NUMBER       #IMPLIED
+                                     -- used only when RefID not used --
+
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    RetAlts          IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+>
+
+<!ELEMENT  DBody            O O (%DBody;) >
+<!ATTLIST  DBody
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "ContainingDivision"
+>
+
+<!ELEMENT  DSum             - O ((%TitleBlk;)?,
+                               (%PLike;)*,
+                               D*
+                              )
+>
+<!ATTLIST  DSum
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "HierarchicalDivision"
+>
+
+<!--Specialized Division Elements ====================================-->
+
+<!ELEMENT  SpecDProlog      O O (%SpecDProlog;) >
+<!ATTLIST  SpecDProlog
+    Class            NAME         #IMPLIED
+    ID               ID           #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    "MetaInfoDivision"
+>
+
+<!ELEMENT  GendTitle        - O EMPTY >
+<!ATTLIST  GendTitle
+    ID               ID           #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+
+    InfoMast         NAME         #FIXED    "Title"
+>
+
+<!--==================================================================
+    Paragraph-Like Elements
+    ==================================================================-->
+
+<!--P ================================================================-->
+
+<!ELEMENT  P                - O (%PhAndPLike.NoPara;)* >
+<!ATTLIST  P
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "Paragraph"
+>
+
+<!ELEMENT  PBlk             - O (Title?, (%PLike;)*) >
+<!ATTLIST  PBlk
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "ContainingDivision"
+>
+
+<!-- Added Title to Note and added Notebody.               WLW V4.0.4 -->
+<!ELEMENT  Note             - O (Title?, NoteBody) >
+<!ATTLIST  Note
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "Paragraph"
+>
+
+<!ELEMENT  NoteBody         O O (%NoteBody;)* >
+<!ATTLIST  NoteBody
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+
+
+    InfoMast         NAME         #FIXED    "ParagraphBody"
+>
+
+<!ELEMENT  Attention        - O (%NoteBody;)* >
+<!ATTLIST  Attention
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "Paragraph"
+>
+
+<!ELEMENT  Caution          - O (%NoteBody;)* >
+<!ATTLIST  Caution
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "Paragraph"
+>
+
+<!ELEMENT  Danger           - O (%NoteBody;)* >
+<!ATTLIST  Danger
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "Paragraph"
+>
+
+<!--Lists ============================================================-->
+
+<!--Single Item Lists-->
+
+<!-- Added Title to NoteList                               WLW V4.0.4 -->
+<!-- Added LineSpace attribute                             Sim V4.3.4 -->
+<!ELEMENT  NoteList         - O (Title?, (LI | LIBlk | Bridge)+) >
+
+<!ATTLIST  NoteList
+    LineSpace        (Space | Compact)
+                                  #IMPLIED
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "SinglePartList"
+>
+
+<!-- Support continued ordered lists                       WLW V4.2.0 -->
+<!-- Support ordered list types                            WLW V4.2.0 -->
+<!-- Added LineSpace attribute                             Sim V4.3.4 -->
+<!ELEMENT  OL               - O ((LI | LIBlk | Bridge)+) >
+<!ATTLIST  OL
+    LineSpace        (Space | Compact)
+                                  #IMPLIED
+    SeqID            IDREF        #IMPLIED
+    Seq              (Start | End)
+                                  #IMPLIED
+    OLType           (Checkoff | Step | CheckoffStep | Normal)
+                                  #IMPLIED
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "SinglePartList"
+>
+
+<!-- Add ULType attribute                                  Sim V4.3.0 -->
+<!-- Added LineSpace attribute                             Sim V4.3.4 -->
+<!ELEMENT  UL               - O ((LI | LIBlk | Bridge)+) >
+<!ATTLIST  UL
+    LineSpace        (Space | Compact)
+                                  #IMPLIED
+    ULType           (Checkoff | Normal)
+                                  #IMPLIED
+    %Common.Atts
+
+    InfoMast         NAME         #FIXED    "SinglePartList"
+>
+
+<!ELEMENT  LIBlk            - O (Title?, (LI | Bridge)+) >
+<!ATTLIST  LIBlk
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "ListItemBlock"
+>
+
+<!ELEMENT  LI               - O (%PhAndPLike;)* >
+<!ATTLIST  LI
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "ListItem"
+>
+
+<!--Definition Lists-->
+
+<!-- Add TermWidth attribute                               SIM V4.2.2 -->
+<!-- Added LineSpace attribute                             Sim V4.3.4 -->
+<!ELEMENT  DL               - O ((TermHd, DefnHd)?,
+                                 (DLEntry | DLBlk | Bridge)+)
+>
+<!ATTLIST  DL
+    LineSpace        (Space | Compact)
+                                  #IMPLIED
+    TermWidth        (Small | Medium | Large | 1 | 2)
+                                  #IMPLIED
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "DefiningList"
+>
+
+<!ELEMENT  TermHd           - O (%Title;)* >
+<!ATTLIST  TermHd
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "TermHeading"
+>
+
+<!ELEMENT  DefnHd           - O (%Title;)* >
+<!ATTLIST  DefnHd
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "DefinitionHeading"
+>
+
+<!ELEMENT  DLBlk            - O (Title?, (DLEntry | Bridge)+) >
+<!ATTLIST  DLBlk
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "DefinitionBlock"
+>
+
+<!ELEMENT  DLEntry          - O (Term, Defn) >
+<!ATTLIST  DLEntry
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "DefinitionEntry"
+>
+
+<!ELEMENT  Defn             - O (%PhAndPLike;)* >
+<!ATTLIST  Defn
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "TermDefinition"
+>
+
+<!-- Added LineSpace attribute                             Sim V4.3.4 -->
+<!-- Added RetKey attribute                                Sim V4.3.4 -->
+<!ELEMENT  GL               - O ((GLEntry | GLBlk | Bridge)+) >
+<!ATTLIST  GL
+    LineSpace        (Space | Compact)
+                                  #IMPLIED
+    RetKey           (None | First | Last | FirstLast | NoDup)
+                                  #IMPLIED
+    Spec    (Auto)                #CONREF
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "DefiningList"
+>
+
+<!ELEMENT  GLBlk            - O (Title?, (GLEntry | Bridge)+) >
+<!ATTLIST  GLBlk
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "DefinitionBlock"
+>
+
+<!ELEMENT  GLEntry          - O (Term, Defn+) >
+<!ATTLIST  GLEntry
+    SeeAlsoId        NAMES        #IMPLIED
+    SortKey          CDATA        #IMPLIED
+    %Common.Atts.Noreftype;
+
+    reftype          CDATA        #FIXED    "SeeAlsoId GLEntry Qualif Qualif Rev Rev"
+
+    InfoMast         NAMES        #FIXED    "Definition DefinitionEntry"
+>
+
+<!-- Add TermWidth attribute                               SIM V4.2.2 -->
+<!-- Added LineSpace attribute                             Sim V4.3.4 -->
+<!ELEMENT  ParmL            - O ((TermHd, DefnHd)?,
+                                 (Parm | ParmBlk | Bridge)+
+                                )
+>
+<!ATTLIST  ParmL
+    LineSpace        (Space | Compact)
+                                  #IMPLIED
+    TermWidth        (Small | Medium | Large | 1 | 2)
+                                  #IMPLIED
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "DefiningList"
+>
+
+<!-- Support multiple parameter terms in Parm              WLW V4.0.5 -->
+<!ELEMENT  Parm             - O (Term+, Defn) >
+<!ATTLIST  Parm
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "DefinitionEntry"
+>
+
+<!ELEMENT  ParmBlk          - O (Title?, (Parm | Bridge)+) >
+<!ATTLIST  ParmBlk
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "DefinitionBlock"
+>
+
+<!--Specialized Lists ================================================-->
+
+<!ELEMENT  AsmList          - O EMPTY >
+<!ATTLIST  AsmList
+    Spec             (Auto | Man) #FIXED    "Auto"
+
+    Class            NAME         #IMPLIED
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    Qualif           IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+    XRefText         CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    hybrid
+    reftype          CDATA        #FIXED    'Qualif Qualif Rev Rev'
+
+    InfoMast         NAME         #FIXED    "QueryLink"
+>
+
+<!ELEMENT  BibList          - O (%BibEntry; | Cit | %LibEntry;)* >
+<!-- Remove non-fixed attribute value defaults: EntryType, Form WLW V4.2.0 -->
+<!ATTLIST  BibList
+    EntryType        (Doc | Lib | DocOrLib)
+                                  #IMPLIED
+    Form             (Full | Title | DocNum | Normal)
+                                  #IMPLIED
+    Spec             (Auto)       #CONREF
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "QueryLink"
+>
+
+<!ELEMENT  FnList           - O (Fn)* >
+<!ATTLIST  FnList
+    Spec             (Auto)       #CONREF
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "QueryLink"
+>
+
+<!--Marked Note List -->
+
+<!ELEMENT  MarkList         - O EMPTY >
+<!ATTLIST  MarkList
+    MkIds            IDREFS       #REQUIRED   -- IDs of MARK elements --
+    Classes          NAMES        #REQUIRED
+    Actions          NAMES        #REQUIRED
+    Spec             (Auto | Man) #FIXED    "Auto"
+    Display          NAMES        #IMPLIED
+    ClassHd          CDATA        #IMPLIED
+    ActionHd         CDATA        #IMPLIED
+    ItemHd           CDATA        #IMPLIED
+    LocHd            CDATA        #IMPLIED
+    DescHd           CDATA        #IMPLIED
+
+    Class            NAME         #IMPLIED
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    Qualif           IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+    XRefText         CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    "MkIds Mark Qualif Qualif Rev Rev"
+
+    InfoMast         NAME         #FIXED    "QueryLink"
+>
+
+<!--Fig ==============================================================-->
+
+<!-- Added frame attribute                                 Sim V4.3.4 -->
+<!ELEMENT  Fig              - O
+                     (Cap?, Desc?,
+                      (FigSeg* | (%Fig;)*)
+                     )
+>
+<!ATTLIST  Fig
+    Frame            (none|box|rules)
+                                  #IMPLIED
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "Display"
+>
+
+<!ELEMENT  FigSeg           - O (%Fig;)* >
+<!ATTLIST  FigSeg
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "DisplaySegment"
+>
+
+<!--Table ============================================================-->
+
+<!-- derived from MIL-M-28001B dated 26 Jun 1993 -->
+<!-- derived from SGML Open CALS Table Study dated 2 Aug 1995 -->
+
+<!ENTITY % bodyatt   "">
+<!ENTITY % secur     "
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    Qualif           IDREFS       #IMPLIED
+    RetAlts          IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+    XRefText         CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Qualif Qualif Rev Rev'
+">
+<!ENTITY % yesorno "NUMBER" >
+<!ENTITY % titles  "(Cap?, Desc?)" >
+<!ENTITY % paracon "%PhAndPLike.NoTab;" >
+
+<!ENTITY % tblelm  "Table"     -- eliminated | chart -->
+<!ENTITY % tblmdl  "%titles;?,tgroup+"
+                               -- eliminated | graphic+ -->
+<!ENTITY % tblexpt "-(Fn)" >
+<!ENTITY % tblatt  "
+  orient             (port|land)  #IMPLIED
+  pgwide             %yesorno;    #IMPLIED
+">
+<!ENTITY % tblgrp  "colspec*, spanspec*, thead?, tfoot?, tbody" >
+<!ENTITY % tblgrpatt ""        -- omits tgroupstyle -->
+<!ENTITY % tblhdft "(thead | tfoot)"     -- eliminated " | tfoot" -->
+<!ENTITY % tblhfmd "row+"      -- omits "colspec?, " before "row+" -->
+<!ENTITY % tblhfex ""          -- no " -(entrytbl)" as not in %tblrow model -->
+<!ENTITY % tblrow  "entry"     -- eliminated " | entrytbl" -->
+<!ENTITY % tblrowex "" -- could exclude brk  -->
+<!ENTITY % tblcon  "(%paracon;)*" -- eliminated (...)+ as redundant-->
+<!ENTITY % tblconex "" -- generalization: exceptions on entry,
+                                 no page break within entry -->
+
+<!--
+E-1.    ELEMENT Table
+-->
+
+<!ELEMENT %tblelm; - O (%tblmdl;) %tblexpt; >
+
+<!ATTLIST Table
+  tocentry   %yesorno; #IMPLIED
+--shortentry %yesorno; #IMPLIED --
+  frame      (top|bottom|topbot|all|sides|none)
+                       #IMPLIED -- recommend "all" --
+  colsep     %yesorno; #IMPLIED     -- recommend 1 --
+  rowsep     %yesorno; #IMPLIED     -- recommend 1 --
+  %tblatt;
+  %bodyatt;
+  %secur; >
+
+<!--
+E-2.   ELEMENT tgroup
+-->
+
+<!ELEMENT tgroup - o (%tblgrp;) >
+
+<!ATTLIST tgroup
+  cols       NUMBER    #REQUIRED
+  %tblgrpatt;
+  colsep     %yesorno; #IMPLIED -- from table --
+  rowsep     %yesorno; #IMPLIED -- from table --
+  align      (left|right|center|justify|char) "left"
+  charoff    NUTOKEN   "50"
+  char       CDATA     ""
+  %secur; >
+
+<!--
+E-3.  ELEMENT colspec
+-->
+
+<!ELEMENT colspec - o EMPTY >
+
+<!ATTLIST colspec
+  colnum     NUMBER    #IMPLIED
+  colname    NMTOKEN   #IMPLIED
+  align      (left|right|center|justify|char)
+                       #IMPLIED -- from tgroup --
+  charoff    NUTOKEN   #IMPLIED  -- from tgroup --
+  char       CDATA     #IMPLIED       -- from tgroup --
+  colwidth   CDATA     #IMPLIED
+  colsep     %yesorno; #IMPLIED -- from tgroup --
+  rowsep     %yesorno; #IMPLIED -- from tgroup --
+>
+
+<!--
+F4.  ELEMENT spanspec
+-->
+
+<!ELEMENT spanspec - o EMPTY >
+
+<!ATTLIST spanspec
+  namest     NMTOKEN   #REQUIRED
+  nameend    NMTOKEN   #REQUIRED
+  spanname   NMTOKEN   #REQUIRED
+  align (left|right|center|justify|char)
+                       #IMPLIED
+  charoff    NUTOKEN   #IMPLIED
+  char       CDATA     #IMPLIED
+  colsep     %yesorno; #IMPLIED
+  rowsep     %yesorno; #IMPLIED
+>
+
+<!--
+E-5.  ELEMENT (thead|tfoot)
+-->
+
+<!ELEMENT %tblhdft; - o (%tblhfmd;)  %tblhfex;>
+
+<!ATTLIST %tblhdft;
+  valign     (top|middle|bottom)
+                       #IMPLIED
+  %secur;
+>
+
+<!--
+E-6.  ELEMENT tbody
+-->
+
+<!ELEMENT tbody - o (row+)>
+
+<!ATTLIST tbody
+  valign     (top|middle|bottom)
+                       #IMPLIED
+  %secur;
+>
+
+<!--
+E-7 ELEMENT row
+-->
+
+<!ELEMENT row - o (%tblrow;)+ %tblrowex;>
+
+<!ATTLIST row
+  rowsep     %yesorno; #IMPLIED -- from tgroup --
+  valign     (top|middle|bottom)
+                       #IMPLIED
+  %secur;
+>
+
+<!--
+E-9.  ELEMENT entry
+-->
+
+<!ELEMENT entry - o %tblcon; %tblconex; >
+
+<!ATTLIST entry
+  colname    NMTOKEN   #IMPLIED  -- colname from colspec --
+  namest     NMTOKEN   #IMPLIED   -- colname from colspec --
+  nameend    NMTOKEN   #IMPLIED  -- colname from colspec --
+  spanname   NMTOKEN   #IMPLIED -- spanname from spanspec --
+  morerows   NUMBER    "0"
+  valign     (top|middle|bottom)
+                       #IMPLIED -- inherit from row --
+  colsep     %yesorno; #IMPLIED -- from spanspec or colspec in tgroup,
+                               from default 1 --
+  rowsep     %yesorno; #IMPLIED -- from row --
+  rotate     %yesorno; "0"
+  align      (left|right|center|justify|char)
+                       #IMPLIED
+  charoff    NUTOKEN   #IMPLIED
+  char       CDATA     #IMPLIED
+
+  %secur;
+  >
+
+<!--Long Q ===========================================================-->
+
+<!ELEMENT  LQ               - O (%PhAndPLike.NoLQ;)* >
+<!-- Correct RefType on LQ ... add BibID                   WLW V4.0.7 -->
+<!ATTLIST  LQ
+    BibId            IDREF        #IMPLIED
+    %Common.Atts.Noreftype;
+
+    reftype          CDATA        #FIXED
+                   'Qualif Qualif Rev Rev BibID (BibEntry | IBMBibEntry)'
+
+    InfoMast         NAME         #FIXED    "Excerpt"
+>
+
+<!--Bridge ===========================================================-->
+
+<!ELEMENT  Bridge           - O (Title?, (%PhAndPLike.NoBridge;)*) >
+<!ATTLIST  Bridge
+    linkends         IDREFS       #IMPLIED
+    %Common.Atts.NoHyTime;
+
+    HyTime           NAME         #FIXED    "ilink"
+    anchrole         NAMES        #FIXED    "BridgeFrom BridgeTo"
+
+    InfoMast         NAME         #FIXED    "ConceptBridge"
+>
+
+<!--Syntax Diagrams ==================================================-->
+
+<!-- Added synstyle attribute                              Sim V4.3.4 -->
+<!ELEMENT  Syntax           - O
+                     (Title?, RepSep*,
+                      (Group |
+                       FragRef | Fragment | SynBlk |
+                       SynNote)*
+                     ) -(Fn)
+>
+<!ATTLIST  Syntax
+    SynStyle         (space|box|rule|lblbox)
+                                  #IMPLIED
+    CompLang         CDATA        #IMPLIED
+
+    %Common.Atts;
+>
+
+<!ELEMENT  SynBlk           - O
+                     (Title?, RepSep*,
+                      (Group | FragRef | Fragment |
+                       SynNote)*
+                     )
+>
+<!ATTLIST  SynBlk
+    %Common.Atts;
+>
+
+<!ELEMENT  Group            - O (Title?,
+                                 (Group | FragRef | Kwd | Var | Delim |
+                                 Oper | Sep | SynNote | XRef)*)
+>
+
+<!-- Remove non-fixed attribute value defaults: OptReq, ChoiceSeq WLW V4.2.0 -->
+<!ATTLIST  Group
+    RepID            IDREF        #IMPLIED
+    OptReq           (Opt | Req | Def)
+                                  #IMPLIED
+    ChoiceSeq        (Seq | Choice)
+                                  #IMPLIED
+
+    %Common.Atts;
+>
+
+<!ELEMENT  Fragment         - O (Title, (Group | FragRef | SynNote)*) >
+<!-- Added LinkEnd attribute to Fragment                   WLW V4.0.4 -->
+<!ATTLIST  Fragment
+    %Common.Atts.NoHyTime;
+
+    %SyntaxLID;
+>
+
+<!-- Remove non-fixed attribute value defaults: OptReq     WLW V4.2.0 -->
+<!ELEMENT  FragRef          - O (Title) >
+<!ATTLIST  FragRef
+    FragID           IDREF        #CONREF      -- Must be Fragment ID --
+    OptReq           (Opt | Req)  #IMPLIED
+
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    Qualif           IDREFS       #IMPLIED
+    RetAlts          IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+    XRefText         CDATA        #IMPLIED
+
+    %SyntaxLID;
+    reftype          CDATA        #FIXED    "FragID Fragment Qualif Qualif Rev Rev"
+
+    InfoMast         NAME         #FIXED    "SymbolicReference"
+>
+
+<!ELEMENT  Var              - O (%NameTerm;)* >
+<!-- Remove non-fixed attribute value defaults: OptReq     WLW V4.2.0 -->
+<!ATTLIST  Var
+    OptReq           (Opt | Req | Def)
+                                  #IMPLIED
+
+    %Common.Atts.NoHyTime;
+
+    %SyntaxLID;
+>
+
+<!ELEMENT  Kwd              - O (%NameTerm;)* >
+<!-- Remove non-fixed attribute value defaults: OptReq     WLW V4.2.0 -->
+<!ATTLIST  Kwd
+    Abbrevs          CDATA        #IMPLIED
+    OptReq           (Opt | Req | Def)
+                                  #IMPLIED
+
+    %Common.Atts.NoHyTime;
+
+    %SyntaxLID;
+>
+
+<!ELEMENT  Oper             - O (%NameTerm;)* >
+<!-- Remove non-fixed attribute value defaults: OptReq     WLW V4.2.0 -->
+<!ATTLIST  Oper
+    OptReq           (Opt | Req | Def)
+                                  #IMPLIED
+
+    %Common.Atts.NoHyTime;
+
+    %SyntaxLID;
+>
+
+<!-- Add REFID attribute to SYNNOTE and FN for reuse refs  WLW V4.1.1 -->
+<!-- Add Callout attribute                                 Sim V4.3.0 -->
+<!ELEMENT  SynNote          - O (%SynNoteFn;)* >
+<!ATTLIST  SynNote
+    Refid            IDREF        #CONREF
+    Callout          CDATA        #IMPLIED
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "Paragraph"
+>
+
+<!ELEMENT  RepSep           - O (%NameTerm;)* >
+<!-- Remove non-fixed attribute value defaults: OptReq     WLW V4.2.0 -->
+<!ATTLIST  RepSep
+    OptReq           (Opt | Req)  #IMPLIED
+    ConVar           (Constant | Var)
+                                  #IMPLIED
+    %Common.Atts;
+>
+
+<!ELEMENT  Sep              - O (%NameTerm;)* >
+<!-- Remove non-fixed attribute value defaults: OptReq     WLW V4.2.0 -->
+<!ATTLIST  Sep
+    OptReq           (Opt | Req)  #IMPLIED
+    ConVar           (Constant | Var)
+                                  #IMPLIED
+
+    %Common.Atts.NoHyTime;
+
+    %SyntaxLID;
+>
+
+<!ELEMENT  Delim            - O (%NameTerm;)* >
+<!-- Remove non-fixed attribute value defaults: OptReq     WLW V4.2.0 -->
+<!ATTLIST  Delim
+    OptReq           (Opt | Req)  #IMPLIED
+    ConVar           (Constant | Var)
+                                  #IMPLIED
+    StartEnd         (Start | End)
+                                  #IMPLIED
+
+    %Common.Atts.NoHyTime;
+
+    %SyntaxLID;
+>
+
+<!ELEMENT  SynPh            - O ((%NameTerm; |
+                           Kwd | Var | Delim | Oper | Sep)*)
+                                                     -- Syntax Phrase --
+>
+<!ATTLIST  SynPh
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "Phrase"
+>
+
+<!--Modular Information ==============================================-->
+
+<!-- Add RetKey to content                                 WLW V4.0.5 -->
+<!ELEMENT  ModInfo          - O (Title?, RetKey?, Desc?,
+                                 ModInfoDef*,
+                                 Mod+
+                                )
+>
+<!ATTLIST  ModInfo
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "ModuleList"
+>
+
+<!-- Add RetKey to content                                 WLW V4.0.5 -->
+<!ELEMENT  Mod              - O (RetKey?, ModName, ModDesc?, ModItem+) >
+<!ATTLIST  Mod
+    Class            NAME         #REQUIRED         -- author-defined --
+    %Common.Atts.NoClass;
+
+    InfoMast         NAME         #FIXED    "InformationModule"
+>
+
+<!ELEMENT  ModName          - O (%Title;)* >
+<!ATTLIST  ModName
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "ModuleName"
+>
+
+<!ELEMENT  ModDesc          - O (%PhAndPLike.NoModInfo;)* >
+<!ATTLIST  ModDesc
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "ModuleDescription"
+>
+
+<!ELEMENT  ModItem          - O (%PhAndPLike.NoModInfo; |
+                                 %DivLike.NoDiv.NoModInfo;)*
+>
+<!ATTLIST  ModItem
+    Class            NAME         #REQUIRED
+    %Common.Atts.NoClass
+
+    InfoMast         NAME         #FIXED    "ModuleItem"
+>
+
+<!--Language Element Reference Section ===============================-->
+
+<!-- Added RetKey attribute                                Sim V4.3.4 -->
+<!ENTITY % LERSDef.atts "
+    RetKey           (None | First | Last | FirstLast | NoDup)
+                                  #IMPLIED
+    Auth             CDATA        #IMPLIED
+    Comments         CDATA        #IMPLIED
+    Context          CDATA        #IMPLIED
+    Defaults         CDATA        #IMPLIED
+    ErrCond          CDATA        #IMPLIED
+    Examples         CDATA        #IMPLIED
+    Flags            CDATA        #IMPLIED
+    Format           CDATA        #IMPLIED
+    Intrep           CDATA        #IMPLIED
+    Messages         CDATA        #IMPLIED
+    Other            CDATA        #IMPLIED
+    Parms            CDATA        #IMPLIED
+    Process          CDATA        #IMPLIED
+    Purpose          CDATA        #IMPLIED
+    Restrict         CDATA        #IMPLIED
+    Results          CDATA        #IMPLIED
+    Retcodes         CDATA        #IMPLIED
+    SysEnv           CDATA        #IMPLIED
+    Usage            CDATA        #IMPLIED
+    Version          CDATA        #IMPLIED
+"
+>
+
+<!-- Add RetKey to content                                 WLW V4.0.5 -->
+<!ELEMENT  LERS             - O (RetKey?, LE+) >
+<!-- Added CompLang attribute for migration.               WLW V4.0.4 -->
+<!ATTLIST  LERS
+    CompLang         CDATA        #IMPLIED
+    %LERSDef.atts;
+
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "ModuleList"
+>
+
+<!-- Add RetKey to content                                 WLW V4.0.5 -->
+<!-- Add TOC attribute                                     Sim V4.3.4 -->
+<!ELEMENT  LE               - O (RetKey?, LEN, LEDesc?, LEDI+) >
+<!ATTLIST  LE
+    TOC              (toc | notoc)  #IMPLIED
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "InformationModule"
+>
+
+<!-- Add Ph to numerous contexts for prop-based ret        WLW V4.0.7 -->
+<!ELEMENT  LEN              - O (%NameTerm; | Ph | TM)* >
+<!ATTLIST  LEN
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "ModuleName"
+>
+
+<!ELEMENT  LEDesc           - O (%Basic.PhAndPLike;)* >
+<!ATTLIST  LEDesc
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "ModuleDescription"
+>
+
+<!ELEMENT  LEDI             - O (%DBody;) >
+<!-- Delete SEP attribute value token                      WLW V4.0.7 -->
+<!ATTLIST  LEDI
+    Class            (Auth |
+                      Comments |
+                      Context |
+                      Defaults |
+                      ErrCond |
+                      Examples |
+                      Flags |
+                      Format |
+                      Intrep |
+                      Messages |
+                      Other |
+                      Parms |
+                      Process |
+                      Purpose |
+                      Restrict |
+                      Results |
+                      Retcodes |
+                      SysEnv |
+                      Usage |
+                      Version)
+                          #REQUIRED
+    %Common.Atts.NoClass;
+
+    InfoMast         NAME         #FIXED    "ModuleItem"
+>
+
+<!-- Add IMPLIED CLASSNAME att to LERSDef                  WLW V4.0.7a-->
+<!ELEMENT  LERSDef          - O (Desc?) >
+<!ATTLIST  LERSDef
+    %LERSDef.atts;
+
+    ClassName        NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    'Definition'
+>
+
+<!--Messages and Codes List ==========================================-->
+
+<!-- Add RetKey to content                                 WLW V4.0.5 -->
+<!-- Add Layout attribute                                  Sim V4.3.2 -->
+<!-- Added LineSpace attribute                             Sim V4.3.4 -->
+<!-- Added RetKey attribute                                Sim V4.3.4 -->
+<!ELEMENT  MsgList          - O (RetKey?, MsgItemDef*, Msg+) >
+<!ATTLIST  MsgList
+    LineSpace        (Space | Compact)
+                                  #IMPLIED
+    Layout           (Page | TwoCol | Default-Layout)
+                                  #IMPLIED
+    RetKey           (None | First | Last | FirstLast | NoDup)
+                                  #IMPLIED
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "ModuleList"
+>
+
+<!ELEMENT  MsgItemDef       - O (Title, Desc?)
+ -- Title element defines default title for a given MsgItem class --
+                                           -- Msg Item Definition --
+>
+<!ATTLIST  MsgItemDef
+    ClassName        NAME         #REQUIRED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    'Definition'
+>
+
+<!-- Allow TITLE as an optional alt to MSGNUM              WLW V4.1.0 -->
+<!ELEMENT  Msg              - O ((Code |
+                                  ((MsgNum | Title)?, MsgText)),
+                                 MsgItem*)
+>
+<!ATTLIST  Msg
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "InformationModule"
+>
+
+<!-- Add Ph to numerous contexts for prop-based ret        WLW V4.0.7 -->
+<!ELEMENT  Code             - O (%NameTerm; | Ph)* >
+<!ATTLIST  Code
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "ModuleItem"
+>
+
+<!-- Add Ph to numerous contexts for prop-based ret        WLW V4.0.7 -->
+<!ELEMENT  MsgNum           - O (%NameTerm; | Ph)* >
+<!ATTLIST  MsgNum
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "ModuleItem"
+>
+
+<!-- Add LINES to MSGTEXT content model                    WLW V4.2.0 -->
+<!ELEMENT  MsgText          - O (%Other.Basic.PhLike; |
+                                 %Common.Basic.PhP; |
+                                 APL | Char | Lines | MV |
+                                 SynPh |
+                                 PK | PV |
+                                 %NumPhs;)*
+>
+<!ATTLIST  MsgText
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "ModuleItem"
+>
+
+<!ELEMENT  MsgItem          - O (%DBody;) >
+<!ATTLIST  MsgItem
+    Class            NAME         #REQUIRED
+    %Common.Atts.NoClass;
+
+    InfoMast         NAME         #FIXED    "ModuleItem"
+>
+
+<!--Procedures =======================================================-->
+
+<!-- Add RetKey to content                                 WLW V4.0.5 -->
+<!-- Add PROCSUMM element                                  WLW V4.2.0 -->
+<!-- Add PROCNUM attribute                                 WLW V4.2.0 -->
+<!-- Add PROCINTRO element                                 WLW V4.2.0 -->
+<!ELEMENT  Proc             - O ((%TitleBlk;), RetKey?, Desc?,
+                                 ProcSumm?, ProcIntro?,
+                                 ProcEntry?, ProcStep+, ProcExit?)
+                                                         -- Procedure -->
+<!ATTLIST  Proc
+    ProcNum          CDATA        #IMPLIED
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "HierarchicalDivision"
+>
+
+<!-- Add PROCSUMM element                                  WLW V4.2.0 -->
+<!ELEMENT  ProcSumm         - O (ProcSummItem+)
+                                                 -- Procedure Summary -->
+<!ATTLIST  ProcSumm
+    Spec            (Auto)        #CONREF
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "HierarchicalDivision"
+>
+
+<!ELEMENT  ProcSummItem     - O (ProcEntry, ProcExit+)
+                                            -- Procedure Summary Item -->
+<!ATTLIST  ProcSummItem
+    Spec            (Auto)        #CONREF
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "HierarchicalDivision"
+>
+
+<!-- Add PROCINTRO element                                 WLW V4.2.0 -->
+<!ELEMENT  ProcIntro        - O ((%PLike;)*,
+                                 D*)        -- Procedure Introduction -->
+<!ATTLIST  ProcIntro
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "HierarchicalDivision"
+>
+
+<!-- Add STEPREF element                                   WLW V4.2.0 -->
+<!-- Support admonitions in ProcEntry                      WLW V4.2.0 -->
+<!ELEMENT  ProcEntry        - O (%Basic.PhAndPLike; | Attention | Caution | Danger | StepRef)*
+                                                   -- Procedure Entry -->
+<!ATTLIST  ProcEntry
+    PrereqProcs      IDREFS       #IMPLIED
+    RelProcs         IDREFS       #IMPLIED
+
+    %Common.Atts;
+>
+
+<!ELEMENT  ProcStep         - O ((%TitleBlk;)?,
+                                 (ProcCmnd | StepNotes)*,
+                                 (DecisionPnt | ProcExit)?)
+>
+<!ATTLIST  ProcStep
+    %Common.Atts;
+>
+
+<!ELEMENT  ProcCmnd         - O (Desc | ProcStep* | Proc) >
+<!ATTLIST  ProcCmnd
+    %Common.Atts;
+>
+
+<!ELEMENT  StepNotes        - O ((LI | LIBlk | Bridge)+) >
+<!ATTLIST  StepNotes
+    %Common.Atts;
+>
+
+<!-- Add STEPREF element                                   WLW V4.2.0 -->
+<!ELEMENT  ProcExit         - O (%Basic.PhAndPLike; | StepRef)*
+                                                    -- Procedure Exit -->
+<!ATTLIST  ProcExit
+    RecoveryProc     IDREF        #IMPLIED
+    %Common.Atts;
+>
+
+<!-- Make Then or Else optional in DecisionPnt             WLW V4.2.0 -->
+<!ELEMENT  DecisionPnt      - O (Cond, ((Then, Else?) | Else)) >
+<!ATTLIST  DecisionPnt
+    %Common.Atts;
+>
+
+<!ELEMENT  Cond             - O (%Basic.PhAndPLike;)* >
+<!ATTLIST  Cond
+    %Common.Atts;
+>
+
+<!ELEMENT  (Then | Else)    - O (Desc | ProcStep+ | Proc) >
+<!ATTLIST  (Then | Else)
+    %Common.Atts;
+>
+
+<!-- Add STEPREF element                                   WLW V4.2.0 -->
+<!ELEMENT  StepRef          - O EMPTY >
+<!-- Remove non-fixed attribute value defaults: Form       WLW V4.2.0 -->
+<!ATTLIST  StepRef
+    RefID            IDREF        #REQUIRED
+    Form             (Normal | Full | Text | Number | Location |
+                      Textnum | Locnum | Textloc |
+                      Numtext | Numloc | Loctext | Branch)
+                                  #IMPLIED
+
+    Class            NAME         #IMPLIED
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    Qualif           IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+    XRefText         CDATA        #IMPLIED
+
+    -- HyTime attributes: --
+    HyTime           NAME         #FIXED    "clink"
+    HyNames          CDATA        #FIXED    "linkend  RefID"
+    reftype          CDATA        #FIXED    'Qualif Qualif Rev Rev'
+
+    InfoMast         NAME         #FIXED    "CrossReference"
+>
+
+<!--Parts Assembly ===================================================-->
+
+<!-- Add RetKey to content                                 WLW V4.0.5 -->
+<!-- Make MMObj optional to allow in PartAsmSeg            WLW V4.1.0 -->
+<!ELEMENT  PartAsm          - O (Title, RetKey?,
+                                 MMObj?,
+                                 (PartAsmSeg* | CompL))
+>
+<!ATTLIST  PartAsm
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "Display"
+>
+
+<!-- Add MMObj to content of PartAsmSeg                    WLW V4.1.0 -->
+<!ELEMENT  PartAsmSeg       - O (MMObj?, CompL) >
+<!ATTLIST  PartAsmSeg
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "DisplaySegment"
+>
+
+<!ELEMENT  CompL            - O (CompL | CI | CompCmt)* >
+<!ATTLIST  CompL
+    %Common.Atts;
+>
+
+<!ELEMENT  CI               - O (%Title;)* >
+<!-- Make PartNum optional on CI                           WLW V4.0.7 -->
+<!ATTLIST  CI
+    IdxNum           NUTOKEN      #IMPLIED
+    PartNum          NMTOKEN      #IMPLIED
+    UPA              NMTOKEN      #IMPLIED
+
+    %Common.Atts;
+>
+
+<!ELEMENT  CompCmt          - O (%PhLike;)* >
+<!ATTLIST  CompCmt
+    %Common.Atts;
+>
+
+<!--Marked Notes =====================================================-->
+
+<!ELEMENT  MkNote           - O (%MkNote;)*
+                        -- PhAndPLike without MkNote, Table, ModInfo --
+>
+
+<!ATTLIST  MkNote
+    Class            NAMES        #REQUIRED
+    Action           NAMES        #REQUIRED
+    MkIds            IDREFS       #REQUIRED   -- IDs of MARK elements --
+    Item             CDATA        #IMPLIED
+
+    %Common.Atts.Noreftype.NoClass;
+
+    reftype          CDATA        #FIXED    "MkIds Mark Qualif Qualif Rev Rev"
+
+    InfoMast         NAMES        #FIXED    "Paragraph Annotation"
+>
+
+<!ELEMENT  MkDesc           - O (MkClass | MkAction)* >
+<!ATTLIST  MkDesc
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    "DefinitionContainer"
+>
+
+<!ELEMENT  MkClass          - O (%NameTerm;)* >
+<!ATTLIST  MkClass
+    Name             NAME         #REQUIRED
+
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    "Definition"
+>
+
+<!ELEMENT  MkAction         - O (%NameTerm;)* >
+<!ATTLIST  MkAction
+    Name             NAME         #REQUIRED
+
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    "Definition"
+>
+
+<!ELEMENT  Mark             - O (Desc) >
+<!ATTLIST  Mark
+    ID               ID           #REQUIRED
+    Ident            (Use | Ignore)
+                                  #REQUIRED
+
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    "Definition"
+>
+
+<!--Annotation Elements ==============================================-->
+
+<!-- Add REFID attribute to SYNNOTE and FN for reuse refs  WLW V4.1.1 -->
+<!ELEMENT  Fn               - O (%SynNoteFn; | Syntax)* -(Fn) >
+<!ATTLIST  Fn
+    Refid            IDREF        #CONREF
+    %Common.Atts;
+
+    InfoMast         NAMES        #FIXED    "Annotation Paragraph"
+>
+
+<!ELEMENT  Annot            - O (Title?, AnnotBody) >
+<!ATTLIST  Annot
+    %Common.Atts;
+>
+
+<!ELEMENT  AnnotBody        - O (%PhAndPLike.NoAnnot;)* >
+
+<!ATTLIST  AnnotBody
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+
+    InfoMast         NAMES        #FIXED    "Annotation Paragraph"
+>
+
+<!--Common MetaInformation Subelements ===============================-->
+
+<!ELEMENT  TitleBlk         O O (Title, STitle?, SubTitle?) >
+<!ATTLIST  TitleBlk
+    %Common.Atts.NoXRefText;
+
+    InfoMast         NAME         #FIXED    "Title"
+>
+
+<!ELEMENT  Title            O O (%Title;)* >
+<!ATTLIST  Title
+    %Common.Atts.NoXRefText;
+
+    InfoMast         NAME         #FIXED    "TitleBody"
+>
+
+<!ELEMENT  STitle           - O (%Title;)* >
+<!ATTLIST  STitle
+    %Common.Atts.NoXRefText;
+
+    InfoMast         NAME         #FIXED    "ShortTitle"
+>
+
+<!ELEMENT  SubTitle         - O (%Title;)* >
+<!ATTLIST  SubTitle
+    %Common.Atts.NoXRefText;
+
+    InfoMast         NAME         #FIXED    "SubTitle"
+>
+
+<!ELEMENT  Cap              - O (%Title;)* >
+<!ATTLIST  Cap
+    %Common.Atts.NoXRefText;
+
+    InfoMast         NAME         #FIXED    "Caption"
+>
+
+<!-- Add STEPREF element                                   WLW V4.2.0 -->
+<!ELEMENT  Desc             - O (%Desc; | StepRef)* >
+<!ATTLIST  Desc
+    %Common.Atts.NoXRefText;
+
+    InfoMast         NAMES        #FIXED    "Description"
+>
+
+<!--Artwork and Other Special Data ===================================-->
+
+<!-- Add LitData to CGraphic, Screen, XMP                 WLW: V4.0.7 -->
+<!-- Add RefKey to Fig, Screen, Xmp, CGraphic ele content  WLW V4.2.0 -->
+<!-- Restrict CGRAPHIC to not allow TM                     Sim V4.3.0 -->
+<!ELEMENT  CGraphic         - O (%Basic.PhLike.NoTM; | LitData | RefKey)*
+                                                                  -(Fn) >
+<!ATTLIST  CGraphic
+    Obj              ENTITY       #CONREF
+    Notation         NOTATION (LineSpec)
+                                  #IMPLIED
+                      -- CGraphic notation callout removed WLW V4.0.2 --
+
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "ObjectContainer"
+>
+
+<!-- Broaden Lines content model to %PhLike;               WLW V4.0.7 -->
+<!ELEMENT  Lines            - O (%PhLike;)* >
+<!ATTLIST  Lines
+    Obj              ENTITY       #CONREF
+    Notation         NOTATION (%ProgLang.Notations; | CmndLine | LineSpec)
+                                  #IMPLIED
+
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "ObjectContainer"
+>
+
+<!ELEMENT  LitData          - O CDATA >
+<!ATTLIST  LitData
+    Obj              ENTITY       #CONREF
+    Notation         NOTATION (%ProgLang.Notations; | CmndLine | LineSpec)
+                                  #IMPLIED
+
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "ObjectContainer"
+>
+
+<!-- Add MMObjLink to MMObj content model                  WLW V4.0.5 -->
+<!-- Add Placement to MMObj attribute list.                Sim V4.3.2 -->
+<!-- Add Halign to MMObj attribute list.                   Sim V4.3.2 -->
+<!ELEMENT  MMObj            - O (ObjRef?, MMObjLink*, TextAlt) >
+<!ATTLIST  MMObj
+    Label            CDATA        #IMPLIED
+    Placement        (Standalone | Inline | Margin)
+                                  #IMPLIED
+    Halign           (Left| Center | Right | Current)
+                                  #IMPLIED
+
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED     "MultiMediaContainer"
+>
+
+<!-- Add Width and Depth to ObjRef attribute list.         Sim V4.3.2 -->
+<!-- Add ScaleBox to ObjRef attribute list.                Sim V4.3.2 -->
+<!ELEMENT  ObjRef           - O EMPTY >
+<!ATTLIST  ObjRef
+    Obj              ENTITY       #REQUIRED
+    EditScale        CDATA        #IMPLIED
+    Width            CDATA        #IMPLIED
+    Depth            CDATA        #IMPLIED
+    ScaleBox         (BestFit | DepthFirst | UseBoth | None)
+                                  #IMPLIED
+
+    Class            NAME         #IMPLIED
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    Qualif           IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+    XRefText         CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    hybrid
+    reftype          CDATA        #FIXED    'Qualif Qualif Rev Rev'
+
+    InfoMast         NAME         #FIXED    "ObjectContainer"
+>
+
+<!-- Add MMObjLink and AreaDef for hot spot specification  WLW V4.0.5 -->
+<!-- Made AreaDef optional and repeatable instead of required and
+     repeatable - sje - 12/05/97 - defect #2348 - V4.2.3              -->
+<!ELEMENT  MMObjLink          - O (AreaDef)* >
+<!ATTLIST  MMObjLink
+    LinkEnd          IDREF        #REQUIRED
+    AreaDefs         IDREFS       #CONREF
+
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    %Common.Base.Attributes;
+    HyTime           NAME         #FIXED    'clink'
+    reftype          CDATA        #FIXED    'AreaDefs AreaDef Rev Rev'
+>
+
+<!ELEMENT  AreaDef          - O (TextAlt?) >
+<!-- Removed the size attribute as redundant               WLW V4.0.6 -->
+<!-- Remove non-fixed attribute value defaults: Shape      WLW V4.2.0 -->
+<!ATTLIST  AreaDef
+    Shape            (rectangle | circle | polygon)
+                                  #IMPLIED
+    Coords           NUMBERS      #REQUIRED
+
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    %Common.Base.Attributes;
+    HyTime           NAME         #FIXED    'HyBrid'
+    reftype          CDATA        #FIXED    'Rev Rev'
+>
+
+<!ELEMENT  TextAlt          - O (%Other.Basic.PhLike.NoTM; |
+                                 P | PBlk | Note |
+                                 DL | OL | Table | UL |
+                                 %Common.Basic.PhP;)*
+>
+<!ATTLIST  TextAlt
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED     "TextAlternative"
+>
+
+<!-- Add LitData to CGraphic, Screen, XMP                 WLW: V4.0.7 -->
+<!-- Add RefKey to Fig, Screen, Xmp, CGraphic ele content  WLW V4.2.0 -->
+<!-- Restrict CGRAPHIC to not allow TM                     Sim V4.3.0 -->
+<!ELEMENT  Screen           - O (%Basic.PhLike.NoTM; | LitData | RefKey | MMObj)*
+                                                                  -(Fn) >
+<!ATTLIST  Screen
+    Obj              ENTITY       #CONREF
+    Notation         NOTATION (Screen | LineSpec)
+                                  #IMPLIED
+
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "ObjectContainer"
+>
+
+<!-- Add LitData to CGraphic, Screen, XMP                  WLW V4.0.7 -->
+<!-- Add MV to XPh and XMP content models                  WLW V4.0.7 -->
+<!-- Add RefKey to Fig, Screen, Xmp, CGraphic ele content  WLW V4.2.0 -->
+<!-- Restrict CGRAPHIC to not allow TM                     Sim V4.3.0 -->
+<!ELEMENT  Xmp              - O (%Basic.PhLike.NoTM; | PK | PV | MV | SynPh |
+                                 LitData | RefKey)*
+>
+<!ATTLIST  Xmp
+    Obj              ENTITY       #CONREF
+    Notation         NOTATION (%ProgLang.Notations; | CmndLine | LineSpec)
+                                  #IMPLIED
+
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "ObjectContainer"
+>
+
+
+<!--==================================================================
+    Phrase-Like Elements
+    ==================================================================-->
+
+<!--General Phrases ==================================================-->
+
+<!-- See Bibliog information in Prolog for BibEntry element -->
+
+<!ELEMENT  Cit              - O (%BibEntry; | %LibEntry;) >
+<!-- Remove non-fixed attribute value defaults: Form       WLW V4.2.0 -->
+<!ATTLIST  Cit
+    BibId            IDREF        #CONREF             -- BibEntry ID --
+    Form             (Full | Title | DocNum | Normal)
+                                  #IMPLIED
+    %Common.Atts.Noreftype;
+    reftype          CDATA        #FIXED    "BibId (BibEntry | IBMBibEntry | LibEntry | IBMLibEntry) Qualif Qualif Rev Rev"
+
+    InfoMast         NAME         #FIXED    "Phrase"
+>
+
+<!ELEMENT  Ph               - O (%PhLike;)* >
+<!ATTLIST  Ph
+    %Common.Atts;
+
+    -- HyTime attributes: --
+    context          (context | ncontext) #FIXED    context
+
+    InfoMast         NAME         #FIXED    "Phrase"
+>
+
+<!ELEMENT  Q                - O (%PhLike;)* >
+<!ATTLIST  Q
+    BibId            IDREF        #IMPLIED
+    %Common.Atts.Noreftype;
+
+    -- HyTime attributes: --
+    -- all-id attributes: --
+    context          (context | ncontext) #FIXED    context
+    -- all-ref attributes: --
+    reftype          CDATA        #FIXED    "BibId (BibEntry | IBMBibEntry) Qualif Qualif Rev Rev"
+
+    InfoMast         NAME         #FIXED    "Excerpt"
+>
+
+<!ELEMENT  Term             O O (%Term;)* >
+<!ATTLIST  Term
+    TermDef          IDREF        #IMPLIED
+
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "DefinedTerm"
+>
+
+<!-- Add TM for trade marks                                Sim V4.3.0 -->
+<!ELEMENT  TM               - O (%Other.Basic.PhLike.NoTM;)* >
+<!ATTLIST  TM
+    Trademark        CDATA        #REQUIRED
+    TMOwner          CDATA        #IMPLIED
+    TMType           (TM | REG | SERVICE)
+                                  #REQUIRED
+    TMClass          (IBM | IBMSUB | SPECIAL | OTHER)
+                                  #REQUIRED
+    %Common.Atts;
+
+    -- HyTime attributes: --
+    context          (context | ncontext) #FIXED    context
+
+    InfoMast         NAME         #FIXED    "Phrase"
+>
+
+<!--Technical Phrases ================================================-->
+
+<!ELEMENT  APL              - O %OtherNotationData; >
+<!ATTLIST  APL
+    Obj              ENTITY       #CONREF
+    Notation         NOTATION (APL)
+                                  "APL"
+
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "ObjectContainer"
+>
+
+<!ELEMENT  Bin              - O (%NameTerm;)* >
+<!ATTLIST  Bin
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "Phrase"
+>
+
+<!ELEMENT  Char             - O (%NameTerm;)* >
+<!ATTLIST  Char
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "Phrase"
+>
+
+<!ELEMENT  Date             - O (%NameTerm;)* >
+<!ATTLIST  Date
+    Spec    (Auto)                #CONREF
+
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "Phrase"
+>
+
+<!ELEMENT  Dec              - O (%NameTerm;)* >
+<!ATTLIST  Dec
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "Phrase"
+>
+
+<!ELEMENT  Formula          - O CDATA >
+<!ATTLIST  Formula
+    Obj              ENTITY       #CONREF
+    Notation         NOTATION (%Math.Notations;)
+                                  #IMPLIED
+
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "ObjectContainer"
+>
+
+<!ELEMENT  Hex              - O (%NameTerm;)* >
+<!ATTLIST  Hex
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "Phrase"
+>
+
+<!ELEMENT  MD               - O (%PhLike.NoMD;)* >
+<!ATTLIST  MD
+    Rev              IDREFS       #REQUIRED
+
+    %Common.Atts.NoRev;
+
+    -- HyTime attributes: --
+    -- all-id attributes: --
+    context          (context | ncontext) #FIXED    context
+
+    InfoMast         NAME         #FIXED    "Phrase"
+>
+
+<!ELEMENT  MV               - O (%NameTerm;)* >
+<!ATTLIST  MV
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "Phrase"
+>
+
+<!ELEMENT  Num              - O (%NameTerm;)* >
+<!ATTLIST  Num
+    Base             NUMBER       #REQUIRED
+
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "Phrase"
+>
+
+<!ELEMENT  Oct              - O (%NameTerm;)* >
+<!ATTLIST  Oct
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "Phrase"
+>
+
+<!ELEMENT  RefKey           - O %OtherNotationData; >
+<!ATTLIST  RefKey
+    %Common.Atts;
+>
+
+<!ELEMENT  PK               - O (%NameTerm;)* >
+<!-- Remove non-fixed attribute value defaults: OptReq     WLW V4.2.0 -->
+<!ATTLIST  PK
+    OptReq           (Opt | Req | Def)
+                                  #IMPLIED
+
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "Phrase"
+>
+
+<!ELEMENT  PV               - O (%NameTerm;)* >
+<!-- Remove non-fixed attribute value defaults: OptReq     WLW V4.2.0 -->
+<!ATTLIST  PV
+    OptReq           (Opt | Req | Def)
+                                  #IMPLIED
+
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "Phrase"
+>
+
+
+<!-- Add MV to XPh and XMP content models                  WLW V4.0.7 -->
+<!ELEMENT  XPh              - O (%Basic.PhLike.NoTM; | PK | PV | MV)* >
+<!ATTLIST  XPh
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "Phrase"
+>
+
+<!--Linking Phrases ==================================================-->
+
+<!ELEMENT  L                - O (%PhLike;)* >
+<!ATTLIST  L
+    linkend          IDREF        #REQUIRED
+    Spec             (Auto)       #CONREF
+
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    Qualif           IDREFS       #IMPLIED
+    RetAlts          IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+    XRefText         CDATA        #IMPLIED
+
+    -- HyTime attributes: --
+    HyTime           NAME         #FIXED    "clink"
+    reftype          CDATA        #FIXED    'Qualif Qualif Rev Rev'
+
+    -- HyTime all-id attributes: --
+    context          (context | ncontext) #FIXED    context
+
+    InfoMast         NAME         #FIXED    "HyperLink"
+>
+
+<!ELEMENT  XRef             - O EMPTY >
+<!-- Remove non-fixed attribute value defaults: Form       WLW V4.2.0 -->
+<!ATTLIST  XRef
+    RefID            IDREF        #REQUIRED
+    Form             (Normal | Full | Text | Number | Location |
+                      Textnum | Locnum | Textloc |
+                      Numtext | Numloc | Loctext)
+                                  #IMPLIED
+    ObjType          NAME         #IMPLIED
+
+    Class            NAME         #IMPLIED
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    Qualif           IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+    XRefText         CDATA        #IMPLIED
+
+    -- HyTime attributes: --
+    HyTime           NAME         #FIXED    "clink"
+    HyNames          CDATA        #FIXED    "linkend  RefID"
+    reftype          CDATA        #FIXED    'Qualif Qualif Rev Rev'
+
+    InfoMast         NAME         #FIXED    "CrossReference"
+>
+
+<!--Indexing Phrases =================================================-->
+
+<!-- Add Ph to numerous contexts for prop-based ret        WLW V4.0.7 -->
+<!ELEMENT  IdxTerm          O O (%NameTerm; | Ph)* -(%InclExcl;) >
+<!ATTLIST  IdxTerm
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    RetAlts          IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+>
+
+<!ELEMENT  I1               - O (IdxTerm+, I2*) -(I1 | IRef | Fn) >
+<!ATTLIST  I1
+    SeeText          CDATA        #IMPLIED
+    SeeID            IDREFS       #IMPLIED
+    SortKey          CDATA        #IMPLIED
+    Primary          (Primary)    #IMPLIED          -- Primary entry? --
+
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    RetAlts          IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    "SeeAlsoId I1 Rev Rev"
+
+    InfoMast         NAME         #FIXED    "Definition"
+>
+
+<!ELEMENT  I2               - O (IdxTerm, I3*) -(I1 | I2 | IRef | Fn) >
+<!ATTLIST  I2
+    I1ID             IDREF        #IMPLIED               -- I1 parent --
+    Primary          (Primary)    #IMPLIED          -- Primary entry? --
+    SeeText          CDATA        #IMPLIED
+    SeeID            IDREFS       #IMPLIED
+    SortKey          CDATA        #IMPLIED
+
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    RetAlts          IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+
+    reftype          CDATA        #FIXED    "I1ID I1 SeeAlsoId I1 Rev Rev"
+>
+
+<!ELEMENT  I3               - O (IdxTerm) -(I1 | I2 | I3 | IRef | Fn) >
+<!ATTLIST  I3
+    I2ID             IDREF        #IMPLIED               -- I2 parent --
+    Primary          (Primary)    #IMPLIED          -- Primary entry? --
+    SortKey          CDATA        #IMPLIED
+
+    Class            NAME         #IMPLIED
+    conloc           IDREF        #CONREF
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    RetAlts          IDREFS       #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    "I2ID I2 Rev Rev"
+>
+
+<!ELEMENT  IRef             - O EMPTY >
+<!ATTLIST  IRef
+    RefIDs           IDREFS       #REQUIRED
+    Primary          (Primary)    #IMPLIED   -- Primary entry? --
+
+    Class            NAME         #IMPLIED
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    "RefIDs (I1 | I2 | I3) Rev Rev"
+>
+
+<!--==================================================================
+    Character entity declarations
+    ==================================================================-->
+
+<!ENTITY % BookMasterSymbols PUBLIC
+    "+//ISBN 0-933186::IBM//ENTITIES BookMaster Symbol Entity Declarations//EN"
+>
+%BookMasterSymbols;
+
+
+<!--==================================================================
+    End of IDDCOMMN.DTD
+    ==================================================================-->
+
+
+
+<!--==================================================================
+    Parameter Entity Declarations
+    ==================================================================-->
+
+<!--Element Groups Parameter Entities ================================-->
+
+                         <!--================== Content Model Entities-->
+
+               <!--====================== Other Content Model Entities-->
+
+<!-- Allow most PROLOG content in any order                WLW V4.2.0 -->
+<!ENTITY % Prolog "
+     IBMBibEntry,
+     (%CtrlInfo; &
+      RevDefs? &
+      QualifDefs? &
+      PropDefs? &
+      LDescs? &
+      CopyrDefs? &
+      GlDefs? &
+      BibEntryDefs? &
+      IdxDefs?),
+     ObjLib*"
+>
+
+<!-- Support NOTICES throughout FRONTM                     WLW V4.2.0 -->
+<!-- Changed content model to an equivalent but somewhat
+     simpler form                             11/07/97     sje V4.2.0 -->
+<!-- Add DBlk where D can go                               Sim V4.3.4 -->
+<!ENTITY % FrontM "
+    (((Abbrev | Abstract | Bibliog | FigList | Glossary | Legend |
+       Preface | SOA | TList | TOC | (%Safety;) | RCF | D | DBlk) |
+      (EdNotices) |
+      (Notices, EdNotices?)),
+     (Abbrev | Abstract | Bibliog | FigList | Glossary | Legend |
+      Notices | Preface | SOA | TList | TOC | (%Safety;) | RCF | D | DBlk)*
+    )
+"
+>
+
+<!ENTITY % Body             "(Part* | (%DivLike;)*)" >
+
+<!-- Allow ABBREV in BACKM                                 WLW V4.2.0 -->
+<!-- Add MasterIndex (should be MasterIndex | Index)       Sim V4.3.0 -->
+<!-- Add DBlk where D can go                               Sim V4.3.4 -->
+<!ENTITY % BackM "
+     (Abbrev |
+      Appendix |
+      Bibliog |
+      Glossary |
+      Index |
+      MasterIndex |
+      PNIndex |
+      SOA |
+      RCF |
+      D |
+      DBlk
+     )*"
+>
+
+
+<!--==================================================================
+    Document Type Organizational Elements
+    ==================================================================-->
+
+<!ELEMENT  Prolog           O O (%Prolog;) >
+<!ATTLIST  Prolog
+    Class            NAME         #IMPLIED
+    ID               ID           #IMPLIED
+    Rev              IDREFS       #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+    HyTime           NAME         #FIXED    HyBrid
+    reftype          CDATA        #FIXED    'Rev Rev'
+
+    InfoMast         NAME         #FIXED    "MetaInfoDivision"
+>
+
+<!ELEMENT  FrontM           - O (%FrontM;) +(%InclExcl;) >
+<!ATTLIST  FrontM
+    %Common.Atts.NoQualif;
+
+    InfoMast         NAME         #FIXED    "ContainingDivision"
+>
+
+<!ELEMENT  Body             O O (%Body;) +(%InclExcl;) >
+<!ATTLIST  Body
+    %Common.Atts.NoQualif;
+
+    InfoMast         NAME         #FIXED    "ContainingDivision"
+>
+
+<!ELEMENT  Part             - O (%Division;) >
+<!ATTLIST  Part
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "HierarchicalDivision"
+>
+
+<!ELEMENT  BackM            - O (%BackM;) +(%InclExcl;) >
+<!ATTLIST  BackM
+    %Common.Atts.NoQualif;
+
+    InfoMast         NAME         #FIXED    "ContainingDivision"
+>
+
+<!--Prolog Contents ==================================================-->
+
+<!--Special Front Matter Content =====================================-->
+
+<!ELEMENT  Notices          - O (%Basic.PLike; | NItem)* >
+<!ATTLIST  Notices
+    %Common.Atts;
+>
+
+<!-- Add boilerplate attribute to NITEM                    WLW V4.2.0 -->
+<!-- Comment out boilerplate attribute until supported     WLW V4.2.0 -->
+<!ELEMENT  NItem            - O (%Basic.PLike;)* >
+<!ATTLIST  NItem
+  --Boiler           NAME         #IMPLIED                            --
+    %Common.Atts;
+>
+
+
+<!ELEMENT  EdNotices        - O (Title, (%Basic.PLike;)*) >
+<!ATTLIST  EdNotices
+    Spec             (Auto | Man) #FIXED    "Man"
+    %Common.Atts;
+>
+
+<!--Specialized Division Elements ====================================-->
+<!-- Add TOC attribute to special divisions                Sim V4.3.4 -->
+
+<!ELEMENT  Abbrev           - O (%SpecDiv;) >
+<!ATTLIST  Abbrev
+    TOC              (toc | notoc)  #IMPLIED
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "HierarchicalDivision"
+>
+
+<!-- Add RetKey to content                                 WLW V4.0.5 -->
+<!ELEMENT  Appendix         - O (RetKey?, (%DivLike;)*) >
+<!ATTLIST  Appendix
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "HierarchicalDivision"
+>
+
+<!ELEMENT  Bibliog          - O (%SpecDiv;) >
+<!ATTLIST  Bibliog
+    TOC              (toc | notoc)  #IMPLIED
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "HierarchicalDivision"
+>
+
+<!ELEMENT  Glossary         - O (%SpecDiv;) >
+<!ATTLIST  Glossary
+    TOC              (toc | notoc)  #IMPLIED
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "HierarchicalDivision"
+>
+
+<!ELEMENT  Legend           - O (%SpecDiv;) >
+<!ATTLIST  Legend
+    TOC              (toc | notoc)  #IMPLIED
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "HierarchicalDivision"
+>
+
+<!ELEMENT  Preface          - O (%SpecDiv;) >
+<!ATTLIST  Preface
+    TOC              (toc | notoc)  #IMPLIED
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "HierarchicalDivision"
+>
+
+<!ELEMENT  SOA              - O (%SpecDiv;) >
+<!ATTLIST  SOA
+    TOC              (toc | notoc)  #IMPLIED
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "HierarchicalDivision"
+>
+
+<!--Special Content Collector or Generator Division Elements =========-->
+
+<!-- Add RetKey to content                                 WLW V4.0.5 -->
+<!ELEMENT  IBMSafety        - O ((GendTitle | (%TitleBlk;)), RetKey?) >
+<!ATTLIST  IBMSafety
+    TOC              (toc | notoc)  #IMPLIED
+    Spec             (Auto | Man) #FIXED    "Auto"
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "QueryLink"
+>
+
+<!-- Add RetKey to content                                 WLW V4.0.5 -->
+<!-- Add Layout attribute                                  Sim V4.3.4 -->
+<!ELEMENT  Index            - O ((GendTitle | (%TitleBlk;)), RetKey?) >
+<!ATTLIST  Index
+    Layout           (OneCol | TwoCol | ThreeCol | Default-Layout)
+                                  #IMPLIED
+    TOC              (toc | notoc)  #IMPLIED
+    Spec             (Auto | Man) #FIXED    "Auto"
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "QueryLink"
+>
+
+<!-- Add MasterIndex elements                              Sim V4.3.0 -->
+<!ELEMENT  MasterIndex      - O (SpecDProlog, DIntro?, MasterIndexObj*, DSum?) >
+<!ATTLIST  MasterIndex
+    TOC              (toc | notoc)  #IMPLIED
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "QueryLink"
+>
+
+<!ELEMENT  MasterIndexObj   - O EMPTY >
+<!ATTLIST  MasterIndexObj
+
+    Obj              ENTITY       #REQUIRED
+    Class            NAME         #IMPLIED
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    Status           (New | Changed | Deleted | Unchanged)
+                                  #IMPLIED
+    Style            CDATA        #IMPLIED
+
+
+    HyTime           NAME         #FIXED    hybrid
+
+    InfoMast         NAME         #FIXED    "ObjectContainer"
+>
+
+
+<!-- The next three elements are only really processed as part of the INTERM DTD. -->
+<!-- They are added here for completeness.                                        -->
+<!ELEMENT  MasterIndexObjFile  O O (MasterIndexObjHeader,MasterIndexObjData)>
+<!ATTLIST  MasterIndexObjFile
+
+    InfoMast         NAME         #FIXED    "ObjectContainer"
+
+>
+
+<!ELEMENT  MasterIndexObjHeader - O EMPTY >
+<!ATTLIST  MasterIndexObjHeader
+
+    Version          CDATA        #IMPLIED
+    InfoMast         NAME         #FIXED    "ObjectContainer"
+
+>
+
+<!ELEMENT  MasterIndexObjData   - O CDATA >
+<!ATTLIST  MasterIndexObjData
+    Notation         NOTATION (mindex)
+                                  #IMPLIED
+
+    InfoMast         NAME         #FIXED    "ObjectContainer"
+
+>
+
+<!-- Add RetKey to content                                 WLW V4.0.5 -->
+<!ELEMENT  PNIndex          - O ((GendTitle | (%TitleBlk;)), RetKey?) >
+<!ATTLIST  PNIndex
+    TOC              (toc | notoc)  #IMPLIED
+    Spec             (Auto | Man) #FIXED    "Auto"
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "QueryLink"
+>
+
+<!-- Add RetKey to content                                 WLW V4.0.5 -->
+<!ELEMENT  Safety           - O ((GendTitle | (%TitleBlk;)), RetKey?,
+                                 (%Basic.PLike; |
+                                  Warning | Attention | Caution |
+                                  Danger)*)
+>
+<!ATTLIST  Safety
+    TOC              (toc | notoc)  #IMPLIED
+    Spec             (Auto | Man) #FIXED    "Man"
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "QueryLink"
+>
+
+<!ELEMENT  Warning          - O (%NoteBody;)* >
+<!ATTLIST  Warning
+    %Common.Atts;
+
+    InfoMast         NAME         #FIXED    "Paragraph"
+>
+
+<!-- Add RetKey to content                                 WLW V4.0.5 -->
+<!-- Add FormObj and MailerObj attributes.                 Sim V4.2.6 -->
+<!ELEMENT  RCF              - O ((GendTitle | (%TitleBlk;)), RetKey?) >
+<!ATTLIST  RCF
+    TOC              (toc | notoc)  #IMPLIED
+    Spec             (Auto | Man) #FIXED    "Auto"
+    FormObj          ENTITY       #IMPLIED
+    MailerObj        ENTITY       #IMPLIED
+    %Common.Atts;
+>
+
+<!--Content List Division Elements ===================================-->
+
+<!-- Add RetKey to content                                 WLW V4.0.5 -->
+<!ELEMENT  FigList          - O ((GendTitle | (%TitleBlk;)), RetKey?,
+                                 (CLE)*)
+>
+<!-- Remove non-fixed attribute value defaults: Spec       WLW V4.2.0 -->
+<!-- Add Layout attribute                                  Sim V4.3.4 -->
+<!ATTLIST  FigList
+    Layout           (OneCol | TwoCol | Default-Layout)
+                                  #IMPLIED
+    TOC              (toc | notoc)  #IMPLIED
+    Spec             (Auto | Man) #IMPLIED
+    %Common.Atts.NoQualif;
+
+    InfoMast         NAME         #FIXED    "QueryLink"
+>
+
+<!-- Add RetKey to content                                 WLW V4.0.5 -->
+<!-- Add Layout attribute                                  Sim V4.3.4 -->
+<!ELEMENT  TList            - O ((GendTitle | (%TitleBlk;)), RetKey?,
+                                 (CLE)*)
+>
+<!-- Remove non-fixed attribute value defaults: SPEC       WLW V4.2.0 -->
+<!ATTLIST  TList
+    Layout           (OneCol | TwoCol | Default-Layout)
+                                  #IMPLIED
+    TOC              (toc | notoc)  #IMPLIED
+    Spec    (Auto | Man)          #IMPLIED
+
+    %Common.Atts.NoQualif;
+
+    InfoMast         NAME         #FIXED    "QueryLink"
+>
+
+<!--==================================================================
+    DVCF Migration Support Element
+    ==================================================================-->
+
+<!ELEMENT  DVCFObj          - O ANY >
+<!ATTLIST  DVCFObj
+    ID               ID           #IMPLIED
+    Props            CDATA        #IMPLIED
+    PropSrc          NAME         #IMPLIED
+    RetAlts          IDREFS       #IMPLIED
+
+
+
+    HyTime           NAME         #FIXED    HyBrid
+>
+
+<!--==================================================================
+    HyTime Declarations
+    ==================================================================-->
+<?HyTime VERSION "ISO/IEC 10744:1992" HYQCNT=32>
+<?HyTime MODULE base context refctl exidrefs >
+<?HyTime MODULE locs multloc notsrc >
+<?HyTime MODULE links>

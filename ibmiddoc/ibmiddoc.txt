@@ -1,0 +1,45 @@
+IBMIDDOC distribution (2001/01/15)
+
+Note: I have changed the contents of this distribution to include the
+IBMIDDoc DTD, its associated SGML declarations and the character entity
+declarations (IBMIDDOC.DTD, *.DCL, IDDBKSYM.ENT), its documentation,
+and a few sample documents.
+
+IBMIDDoc DTD is the DTD intended for IBM's internal use and reflects the
+current state of our editing styles, transforms and processing
+implementation.  The documentation we provide also matches this DTD
+since we use that documentation for instruction and reference within
+the company.
+
+Here is a short description of each file in each ZIP file:
+IBMIDDOC.ZIP:
+     IBMIDDOC.CPR - Copyright notice for materials
+     IBMIDDOC.DTD - IBMIDDOC DTD file
+     IDDBKSYM.ENT - Character entity declaration file
+     IBMIDDOC.DCL - CP 850 SGML declaration used with IBMIDDOC
+     IDDJAPAN.DCL - CP 932 SGML declaration for use with Japanese char set
+     IDDKOREA.DCL - CP 949 SGML declaration for use with Korean char set
+     IDDSCHIN.DCL - CP 1381 SGML declaration for use with Simplified Chinese char set
+     IDDTC948.DCL - CP 948 SGML declaration for use with Traditional Chinese char set
+     IDDTC950.DCL - CP 950 SGML declaration for use with Traditional Chinese char set
+     INIT    .IDD - Trivial example for parsing SGML declaration and DTD
+
+IDDOCPDF.ZIP:
+     IBMIDDoc User's Guide and Reference -- PDF format
+
+ZENBOOK.ZIP
+      A sample document
+
+Changes from the last posted release (12/20/1995) -- all major changes are listed
+in the DTD header.
+
+- A few new elements were added.
+- Some style information was moved into the DTD.  We were unable to add a separate
+  style language and added as some author control was needed, we added attributes
+  to certain elements.
+- We increased most capacities and some quantities/
+- I have removed the InfoMast DTD from this distribution, as it is out of use.  Please
+  contact me if you need it.
+
+Simcha Gralla
+sgralla@us.ibm.com

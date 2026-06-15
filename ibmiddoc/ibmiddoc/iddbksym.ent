@@ -1,0 +1,618 @@
+<!--==================================================================
+ Copyright:
+            (c) International Business Machines Corporation 1992, 2000
+            All Rights Reserved.
+
+Classification:  Not classified
+
+       Version:  4.3.5
+
+          File:  IDDBKSYM ENTITIES
+ Formal Public
+   Identifiers:
+                 Most recent version:
++//ISBN 0-933186::IBM//ENTITIES BookMaster Symbol Entity Declarations//EN
+
+                 This version:
++//ISBN 0-933186::IBM//ENTITIES BookMaster Symbol Entity Declarations:4.2.3//EN
+
+      Function:  These entity declarations support using the same names
+                 for character entities that are defined by BookMaster
+                 4.0.  In this version, the symbols resolve to the
+                 same name but in the format used in the ISO character
+                 entity declarations: entity name enclosed in square
+                 brackets.
+
+                 Each IBMIDDOC processing program, which requires other
+                 values in these entity declarations must provide its
+                 own copy of this file with those values specified.
+
+Change History:  28Mar94 - Version 1.0 completed.
+                 22Jun94 - Removed the SGML-related character entities
+                           Added the character graphics entities
+                 29Jun94 - Moved the ctq and otq entity definitions here.
+                 24Mar95 - Changed the ctq/otq chars to the
+                           same format as the rest of the chars.
+                 06Jun96 - Made sure the char entities were SDATA entities.
+                             including the box drawing entities.
+                           Correct dso and dsc delimiter entities.
+                  5Aug96 - V4.0.7: Add ENTVersion entity
+                 25Feb97 - V4.2.0: Add mathast entity.
+                 17Jul97 - V4.2.1: Changed replacement text to SGML-like entity reference.
+                 16Jan98 - V4.2.2: Added shy entity
+                 02Sep98 - V4.2.3: Added Euro entitites
+                 03Sep98 -       : Added won entity
+                 04Oct00 - V4.3.5: Added eserver_logo and eserver_logo_TM entities
+
+=====================================================================-->
+
+<!ENTITY ENTVersion
+                  SDATA   "V4.3.5"     -- entity set version --        >
+
+<!ENTITY aa       SDATA   "&aa;"       -- a acute --                   >
+<!ENTITY Aa       SDATA   "&Aa;"       -- A acute --                   >
+<!ENTITY ac       SDATA   "&ac;"       -- a circumflex --              >
+<!ENTITY Ac       SDATA   "&Ac;"       -- A circumflex --              >
+<!ENTITY acute    SDATA   "&acute;"    -- accent acute --              >
+<!ENTITY ae       SDATA   "&ae;"       -- a umlaut --                  >
+<!ENTITY Ae       SDATA   "&Ae;"       -- A umlaut --                  >
+<!ENTITY aelig    SDATA   "&aelig;"    -- ae ligature --               >
+<!ENTITY AElig    SDATA   "&AElig;"    -- AE ligature --               >
+<!ENTITY ag       SDATA   "&ag;"       -- a grave --                   >
+<!ENTITY Ag       SDATA   "&Ag;"       -- A grave --                   >
+<!ENTITY aleph    SDATA   "&aleph;"    -- aleph --                     >
+<!ENTITY all      SDATA   "&all;"      -- all --                       >
+<!ENTITY alpha    SDATA   "&alpha;"    -- alpha --                     >
+<!ENTITY Alpha    SDATA   "&Alpha;"    -- Alpha --                     >
+<!ENTITY amp      SDATA   "&amp;"      -- ampersand --                 >
+<!ENTITY and      SDATA   "&and;"      -- and symbol --                >
+<!ENTITY angle    SDATA   "&angle;"    -- angle --                     >
+<!ENTITY angstrom SDATA   "&angstrom;" -- angstrom --                  >
+<!ENTITY ao       SDATA   "&ao;"       -- a overcircle --              >
+<!ENTITY Ao       SDATA   "&Ao;"       -- A overcircle --              >
+<!ENTITY apos     SDATA   "&apos;"     -- apostrophe --                >
+<!ENTITY app      SDATA   "&app;"      -- approximately --             >
+<!ENTITY approx   SDATA   "&approx;"   -- approximately --             >
+<!ENTITY approxid SDATA   "&approxid;" -- approximately identical --   >
+<!ENTITY arc      SDATA   "&arc;"      -- arc --                       >
+<!ENTITY asterisk SDATA   "&asterisk;" -- asterisk --                  >
+<!ENTITY at       SDATA   "&at;"       -- a tilde --                   >
+<!ENTITY At       SDATA   "&At;"       -- A tilde --                   >
+<!ENTITY atsign   SDATA   "&atsign;"   -- at sign --                   >
+<!ENTITY aus      SDATA   "&aus;"      -- underscored a --             >
+<!ENTITY ballot   SDATA   "&ballot;"   -- ballot box --                >
+<!ENTITY because  SDATA   "&because;"  -- because --                   >
+<!ENTITY beta     SDATA   "&beta;"     -- beta --                      >
+<!ENTITY Beta     SDATA   "&Beta;"     -- Beta --                      >
+<!ENTITY bin      SDATA   "&bin;"      -- binary --                    >
+<!ENTITY blank    SDATA   "&blank;"    -- blank (b with slash) --      >
+<!ENTITY box      SDATA   "&box;"      -- ballot box --                >
+<!ENTITY BOX      SDATA   "&BOX;"      -- solid box --                 >
+<!ENTITY BOXBOT   SDATA   "&BOXBOT;"   -- solid box bottom half --     >
+<!ENTITY BOXLEFT  SDATA   "&BOXLEFT;"  -- solid box left half --       >
+<!ENTITY BOXRIGHT SDATA   "&BOXRIGHT;" -- solid box right half --      >
+<!ENTITY BOXTOP   SDATA   "&BOXTOP;"   -- solid box top half --        >
+<!ENTITY box12    SDATA   "&box12;"    -- shaded box 1/2 dots --       >
+<!ENTITY box14    SDATA   "&box14;"    -- shaded box 1/4 dots --       >
+<!ENTITY box34    SDATA   "&box34;"    -- shaded box 3/4 dots --       >
+<!ENTITY bs       SDATA   "&bs;"       -- backspace --                 >
+<!ENTITY bsl      SDATA   "&bsl;"      -- back slash --                >
+<!ENTITY bslash   SDATA   "&bslash;"   -- back slash --                >
+<!ENTITY bul      SDATA   "&bul;"      -- bullet --                    >
+<!ENTITY bullet   SDATA   "&bullet;"   -- bullet --                    >
+<!ENTITY bxas     SDATA   "&bxas;"     -- box ascender --              >
+<!ENTITY bxbj     SDATA   "&bxbj;"     -- box ascender --              >
+<!ENTITY bxcj     SDATA   "&bxcj;"     -- box cross --                 >
+<!ENTITY bxcr     SDATA   "&bxcr;"     -- box cross --                 >
+<!ENTITY bxde     SDATA   "&bxde;"     -- box descender --             >
+<!ENTITY bxh      SDATA   "&bxh;"      -- box horizontal --            >
+<!ENTITY bxle     SDATA   "&bxle;"     -- box left junction --         >
+<!ENTITY bxlj     SDATA   "&bxlj;"     -- box left junction --         >
+<!ENTITY bxll     SDATA   "&bxll;"     -- box lower-left --            >
+<!ENTITY bxlr     SDATA   "&bxlr;"     -- box lower-right --           >
+<!ENTITY bxri     SDATA   "&bxri;"     -- box right junction --        >
+<!ENTITY bxrj     SDATA   "&bxrj;"     -- box right junction --        >
+<!ENTITY bxtj     SDATA   "&bxtj;"     -- box descender --             >
+<!ENTITY bxul     SDATA   "&bxul;"     -- box upper-left --            >
+<!ENTITY bxur     SDATA   "&bxur;"     -- box upper-right --           >
+<!ENTITY bxv      SDATA   "&bxv;"      -- box vertical --              >
+<!ENTITY bx0012   SDATA   "&bx0012;"   -- ASCII code 184 --            >
+<!ENTITY bx0021   SDATA   "&bx0021;"   -- ASCII code 183 --            >
+<!ENTITY bx0022   SDATA   "&bx0022;"   -- ASCII code 187 --            >
+<!ENTITY bx0120   SDATA   "&bx0120;"   -- ASCII code 214 --            >
+<!ENTITY bx0121   SDATA   "&bx0121;"   -- ASCII code 210 --            >
+<!ENTITY bx0202   SDATA   "&bx0202;"   -- ASCII code 205 --            >
+<!ENTITY bx0210   SDATA   "&bx0210;"   -- ASCII code 213 --            >
+<!ENTITY bx0212   SDATA   "&bx0212;"   -- ASCII code 209 --            >
+<!ENTITY bx0220   SDATA   "&bx0220;"   -- ASCII code 201 --            >
+<!ENTITY bx0222   SDATA   "&bx0222;"   -- ASCII code 203 --            >
+<!ENTITY bx1002   SDATA   "&bx1002;"   -- ASCII code 190 --            >
+<!ENTITY bx1012   SDATA   "&bx1012;"   -- ASCII code 181 --            >
+<!ENTITY bx1200   SDATA   "&bx1200;"   -- ASCII code 212 --            >
+<!ENTITY bx1202   SDATA   "&bx1202;"   -- ASCII code 207 --            >
+<!ENTITY bx1210   SDATA   "&bx1210;"   -- ASCII code 198 --            >
+<!ENTITY bx1212   SDATA   "&bx1212;"   -- ASCII code 216 --            >
+<!ENTITY bx2001   SDATA   "&bx2001;"   -- ASCII code 189 --            >
+<!ENTITY bx2002   SDATA   "&bx2002;"   -- ASCII code 188 --            >
+<!ENTITY bx2020   SDATA   "&bx2020;"   -- ASCII code 186 --            >
+<!ENTITY bx2021   SDATA   "&bx2021;"   -- ASCII code 182 --            >
+<!ENTITY bx2022   SDATA   "&bx2022;"   -- ASCII code 185 --            >
+<!ENTITY bx2100   SDATA   "&bx2100;"   -- ASCII code 211 --            >
+<!ENTITY bx2101   SDATA   "&bx2101;"   -- ASCII code 208 --            >
+<!ENTITY bx2120   SDATA   "&bx2120;"   -- ASCII code 199 --            >
+<!ENTITY bx2121   SDATA   "&bx2121;"   -- ASCII code 215 --            >
+<!ENTITY bx2200   SDATA   "&bx2200;"   -- ASCII code 200 --            >
+<!ENTITY bx2202   SDATA   "&bx2202;"   -- ASCII code 202 --            >
+<!ENTITY bx2220   SDATA   "&bx2220;"   -- ASCII code 204 --            >
+<!ENTITY bx2222   SDATA   "&bx2222;"   -- ASCII code 206 --            >
+<!ENTITY caret    SDATA   "&caret;"    -- caret --                     >
+<!ENTITY cc       SDATA   "&cc;"       -- c cedilla --                 >
+<!ENTITY Cc       SDATA   "&Cc;"       -- C cedilla --                 >
+<!ENTITY cdot     SDATA   "&cdot;"     -- circled dot --               >
+<!ENTITY cdq      SDATA   "&cdq;"      -- close double quote --        >
+<!ENTITY cdqf     SDATA   "&cdqf;"     -- French close double quote -- >
+<!ENTITY cdqg     SDATA   "&cdqg;"     -- German close double quote -- >
+<!ENTITY cedilla  SDATA   "&cedilla;"  -- cedilla --                   >
+<!ENTITY cent     SDATA   "&cent;"     -- cent --                      >
+<!ENTITY cequal   SDATA   "&cequal;"   -- circled equals --            >
+<!ENTITY char     SDATA   "&char;"     -- character --                 >
+<!ENTITY check    SDATA   "&check;"    -- checkmark --                 >
+<!ENTITY chi      SDATA   "&chi;"      -- chi --                       >
+<!ENTITY Chi      SDATA   "&Chi;"      -- Chi --                       >
+<!ENTITY circ     SDATA   "&circ;"     -- circle --                    >
+<!ENTITY circle   SDATA   "&circle;"   -- circle --                    >
+<!ENTITY CLUB     SDATA   "&CLUB;"     -- club solid --                >
+<!ENTITY cminus   SDATA   "&cminus;"   -- circled minus --             >
+<!ENTITY colon    SDATA   "&colon;"    -- colon --                     >
+<!ENTITY comma    SDATA   "&comma;"    -- comma --                     >
+<!ENTITY concat   SDATA   "&concat;"   -- concatenate --               >
+<!ENTITY congruent SDATA  "&congruent;" -- congruent --                >
+<!ENTITY cont     SDATA   "&cont;"     -- continuation character --    >
+<!ENTITY contains SDATA   "&contains;" -- contains as a subset --      >
+<!ENTITY copr     SDATA   "&copr;"     -- copyright --                 >
+<!ENTITY copyr    SDATA   "&copyr;"    -- copyright --                 >
+<!ENTITY cplus    SDATA   "&cplus;"    -- circled plus --              >
+<!ENTITY csq      SDATA   "&csq;"      -- close single quote --        >
+<!ENTITY csqg     SDATA   "&csqg;"     -- German close single quote -- >
+<!ENTITY ctimes   SDATA   "&ctimes;"   -- circled times --             >
+<!ENTITY currency SDATA   "&currency;" -- currency international --    >
+<!ENTITY cursor   SDATA   "&cursor;"   -- fat cursor --                >
+<!ENTITY dagger   SDATA   "&dagger;"   -- dagger --                    >
+<!ENTITY dahead   SDATA   "&dahead;"   -- down arrowhead --            >
+<!ENTITY darrow   SDATA   "&darrow;"   -- down arrow --                >
+<!ENTITY date     SDATA   "&date;"     -- date --                      >
+<!ENTITY dbldag   SDATA   "&dbldag;"   -- double dagger --             >
+<!ENTITY dbls     SDATA   "&dbls;"     -- double S --                  >
+<!ENTITY dblus    SDATA   "&dblus;"    -- underscore double --         >
+<!ENTITY dblxclam SDATA   "&dblxclam;" -- double exclamation point --  >
+<!ENTITY dblxclm  SDATA   "&dblxclm;"  -- double exclamation point --  >
+<!ENTITY decrease SDATA   "&decrease;" -- decrease --                  >
+<!ENTITY def      SDATA   "&def;"      -- definition/defined as --     >
+<!ENTITY deg      SDATA   "&deg;"      -- degree --                    >
+<!ENTITY degree   SDATA   "&degree;"   -- degree --                    >
+<!ENTITY del      SDATA   "&del;"      -- del --                       >
+<!ENTITY delta    SDATA   "&delta;"    -- delta --                     >
+<!ENTITY Delta    SDATA   "&Delta;"    -- Delta --                     >
+<!ENTITY determines SDATA "&determines;" -- determines --              >
+<!ENTITY diam     SDATA   "&diam;"     -- diamond wide --              >
+<!ENTITY diamond  SDATA   "&diamond;"  -- diamond --                   >
+<!ENTITY DIAMOND  SDATA   "&DIAMOND;"  -- diamond solid --             >
+<!ENTITY div      SDATA   "&div;"      -- divide --                    >
+<!ENTITY divide   SDATA   "&divide;"   -- divide --                    >
+<!ENTITY divslash SDATA   "&divslash;" -- division slash --            >
+<!ENTITY dollar   SDATA   "&dollar;"   -- dollar --                    >
+<!ENTITY dot      SDATA   "&dot;"      -- dot --                       >
+<!ENTITY dotdot   SDATA   "&dotdot;"   -- double dot --                >
+<!ENTITY doubleC  SDATA   "&doubleC;"  -- double C --                  >
+<!ENTITY doubleN  SDATA   "&doubleN;"  -- double N --                  >
+<!ENTITY doubleP  SDATA   "&doubleP;"  -- double P --                  >
+<!ENTITY doubleQ  SDATA   "&doubleQ;"  -- double Q --                  >
+<!ENTITY doubleR  SDATA   "&doubleR;"  -- double R --                  >
+<!ENTITY doubleZ  SDATA   "&doubleZ;"  -- double Z --                  >
+<!ENTITY Dstroke  SDATA   "&Dstroke;"  -- Eth or D stroke --           >
+<!ENTITY ea       SDATA   "&ea;"       -- e acute --                   >
+<!ENTITY Ea       SDATA   "&Ea;"       -- E acute --                   >
+<!ENTITY ebin     SDATA   "&ebin;"     -- binary end --                >
+<!ENTITY ec       SDATA   "&ec;"       -- e circumflex --              >
+<!ENTITY Ec       SDATA   "&Ec;"       -- E circumflex --              >
+<!ENTITY echar    SDATA   "&echar;"    -- character end --             >
+<!ENTITY ee       SDATA   "&ee;"       -- e umlaut --                  >
+<!ENTITY Ee       SDATA   "&Ee;"       -- E umlaut --                  >
+<!ENTITY eg       SDATA   "&eg;"       -- egrave --                    >
+<!ENTITY Eg       SDATA   "&Eg;"       -- E grave --                   >
+<!ENTITY egml     SDATA   "&egml;"     -- gml end tag delimiter --     >
+<!ENTITY ehex     SDATA   "&ehex;"     -- end quoted hex string --     >
+<!ENTITY ellip    SDATA   "&ellip;"    -- ellipsis --                  >
+<!ENTITY ellipsis SDATA   "&ellipsis;" -- ellipsis --                  >
+<!ENTITY emdash   SDATA   "&emdash;"   -- em dash --                   >
+<!ENTITY endash   SDATA   "&endash;"   -- en dash, dash --             >
+<!ENTITY epsilon  SDATA   "&epsilon;"  -- epsilon --                   >
+<!ENTITY Epsilon  SDATA   "&Epsilon;"  -- Epsilon --                   >
+<!ENTITY eq       SDATA   "&eq;"       -- equals --                    >
+<!ENTITY eqsym    SDATA   "&eqsym;"    -- equals --                    >
+<!ENTITY equals   SDATA   "&equals;"   -- equals --                    >
+<!ENTITY eqv      SDATA   "&eqv;"      -- equivalent --                >
+<!ENTITY eta      SDATA   "&eta;"      -- eta --                       >
+<!ENTITY Eta      SDATA   "&Eta;"      -- Eta --                       >
+<!ENTITY eth      SDATA   "&eth;"      -- eth, Icelandic small --      >
+<!ENTITY Eth      SDATA   "&Eth;"      -- eth, Icelandic capital --    >
+<!ENTITY euler    SDATA   "&euler;"    -- Eulers --                    >
+<!ENTITY exists   SDATA   "&exists;"   -- exists --                    >
+<!ENTITY FACE     SDATA   "&FACE;"     -- face solid --                >
+<!ENTITY face     SDATA   "&face;"     -- face --                      >
+<!ENTITY factorial SDATA  "&factorial;" -- factorial --                >
+<!ENTITY female   SDATA   "&female;"   -- female symbol --             >
+<!ENTITY ff       SDATA   "&ff;"       -- ff ligature --               >
+<!ENTITY ffi      SDATA   "&ffi;"      -- ffi ligature --              >
+<!ENTITY ffl      SDATA   "&ffl;"      -- ffl ligature --              >
+<!ENTITY fi       SDATA   "&fi;"       -- fi ligature --               >
+<!ENTITY finespace SDATA  "&finespace;" -- finespace --                >
+<!ENTITY fl       SDATA   "&fl;"       -- fl ligature --               >
+<!ENTITY florin   SDATA   "&florin;"   -- florin --                    >
+<!ENTITY fnof     SDATA   "&fnof;"     -- function of --               >
+<!ENTITY frac12   SDATA   "&frac12;"   -- one half --                  >
+<!ENTITY frac14   SDATA   "&frac14;"   -- one quarter --               >
+<!ENTITY frac18   SDATA   "&frac18;"   -- one eighth --                >
+<!ENTITY frac34   SDATA   "&frac34;"   -- three fourths --             >
+<!ENTITY frac38   SDATA   "&frac38;"   -- three eighths --             >
+<!ENTITY frac58   SDATA   "&frac58;"   -- five eighths --              >
+<!ENTITY frac78   SDATA   "&frac78;"   -- seven eighths --             >
+<!ENTITY gamma    SDATA   "&gamma;"    -- gamma --                     >
+<!ENTITY Gamma    SDATA   "&Gamma;"    -- Gamma --                     >
+<!ENTITY ge       SDATA   "&ge;"       -- greater than or equal to --  >
+<!ENTITY gerank   SDATA   "&gerank;"   -- greater than or equal rank -->
+<!ENTITY gesym    SDATA   "&gesym;"    -- greater than or equal to --  >
+<!ENTITY gml      SDATA   "&gml;"      -- gml delimiter --             >
+<!ENTITY grave    SDATA   "&grave;"    -- accent grave --              >
+<!ENTITY gt       SDATA   "&gt;"       -- greater than --              >
+<!ENTITY gtequiv  SDATA   "&gtequiv;"  -- greater than or equivilent -->
+<!ENTITY gtgt     SDATA   "&gtgt;"     -- much greater than --         >
+<!ENTITY gtlt     SDATA   "&gtlt;"     -- greater than or less than -- >
+<!ENTITY gtrank   SDATA   "&gtrank;"   -- greater than rank --         >
+<!ENTITY gtsym    SDATA   "&gtsym;"    -- greater than --              >
+<!ENTITY hamilton SDATA   "&hamilton;" -- hamiltonian --               >
+<!ENTITY hat      SDATA   "&hat;"      -- hat --                       >
+<!ENTITY hbar     SDATA   "&hbar;"     -- h bar --                     >
+<!ENTITY HEART    SDATA   "&HEART;"    -- heart solid --               >
+<!ENTITY hex      SDATA   "&hex;"      -- hex --                       >
+<!ENTITY house    SDATA   "&house;"    -- house --                     >
+<!ENTITY hyphen   SDATA   "&hyphen;"   -- hyphen --                    >
+<!ENTITY ia       SDATA   "&ia;"       -- i acute --                   >
+<!ENTITY Ia       SDATA   "&Ia;"       -- I acute --                   >
+<!ENTITY ic       SDATA   "&ic;"       -- i circumflex --              >
+<!ENTITY Ic       SDATA   "&Ic;"       -- I circumflex --              >
+<!ENTITY Icap     SDATA   "&Icap;"     -- I capital character --       >
+<!ENTITY identical SDATA  "&identical;" -- identical --                >
+<!ENTITY idotless SDATA   "&idotless;" -- i dotless --                 >
+<!ENTITY ie       SDATA   "&ie;"       -- i umlaut --                  >
+<!ENTITY Ie       SDATA   "&Ie;"       -- I umlaut --                  >
+<!ENTITY iff      SDATA   "&iff;"      -- if and only if --            >
+<!ENTITY ig       SDATA   "&ig;"       -- i grave --                   >
+<!ENTITY Ig       SDATA   "&Ig;"       -- I grave --                   >
+<!ENTITY ij       SDATA   "&ij;"       -- ij ligature --               >
+<!ENTITY increase SDATA   "&increase;" -- increase --                  >
+<!ENTITY infinity SDATA   "&infinity;" -- infinity --                  >
+<!ENTITY intbot   SDATA   "&intbot;"   -- integral bottom half --      >
+<!ENTITY integral SDATA   "&integral;" -- integral --                  >
+<!ENTITY intersect SDATA  "&intersect;" -- intersection of sets --     >
+<!ENTITY inttop   SDATA   "&inttop;"   -- integral top half --         >
+<!ENTITY inve     SDATA   "&inve;"     -- inverted exclamation --      >
+<!ENTITY invellip SDATA   "&invellip;" -- indented vertical ellipsis -->
+<!ENTITY invq     SDATA   "&invq;"     -- inverted question mark --    >
+<!ENTITY iota     SDATA   "&iota;"     -- iota --                      >
+<!ENTITY Iota     SDATA   "&Iota;"     -- Iota --                      >
+<!ENTITY isubset  SDATA   "&isubset;"  -- improper subset --           >
+<!ENTITY isuperset SDATA  "&isuperset;" -- improper superset --        >
+<!ENTITY join     SDATA   "&join;"     -- join --                      >
+<!ENTITY kappa    SDATA   "&kappa;"    -- kappa --                     >
+<!ENTITY Kappa    SDATA   "&Kappa;"    -- Kappa --                     >
+<!ENTITY lahead   SDATA   "&lahead;"   -- left arrowhead --            >
+<!ENTITY lambda   SDATA   "&lambda;"   -- lambda --                    >
+<!ENTITY Lambda   SDATA   "&Lambda;"   -- Lambda --                    >
+<!ENTITY larrow   SDATA   "&larrow;"   -- left arrow --                >
+<!ENTITY lbarb    SDATA   "&lbarb;"    -- left barb --                 >
+<!ENTITY lbrace   SDATA   "&lbrace;"   -- left brace --                >
+<!ENTITY lbracket SDATA   "&lbracket;" -- left bracket --              >
+<!ENTITY lbrc     SDATA   "&lbrc;"     -- left brace --                >
+<!ENTITY lbrk     SDATA   "&lbrk;"     -- left bracket --              >
+<!ENTITY lbullet  SDATA   "&lbullet;"  -- large bullet --              >
+<!ENTITY ldarrow  SDATA   "&ldarrow;"  -- left double arrow --         >
+<!ENTITY le       SDATA   "&le;"       -- less than or equal to --     >
+<!ENTITY lerank   SDATA   "&lerank;"   -- less than or equal rank --   >
+<!ENTITY less     SDATA   "&less;"     -- less than or equivilent --   >
+<!ENTITY lesym    SDATA   "&lesym;"    -- less than or equal to --     >
+<!ENTITY liter    SDATA   "&liter;"    -- liter --                     >
+<!ENTITY lmultdot SDATA   "&lmultdot;" -- multiply dot large --        >
+<!ENTITY lnot     SDATA   "&lnot;"     -- logical not --               >
+<!ENTITY lnotrev  SDATA   "&lnotrev;"  -- backward logical not --      >
+<!ENTITY lnotusd  SDATA   "&lnotusd;"  -- upside down not --           >
+<!ENTITY lor      SDATA   "&lor;"      -- logical or --                >
+<!ENTITY loz      SDATA   "&loz;"      -- lozenge --                   >
+<!ENTITY lozenge  SDATA   "&lozenge;"  -- lozenge --                   >
+<!ENTITY lpar     SDATA   "&lpar;"     -- left parenthesis --          >
+<!ENTITY lparen   SDATA   "&lparen;"   -- left parenthesis --          >
+<!ENTITY lrarrow  SDATA   "&lrarrow;"  -- left-right arrow --          >
+<!ENTITY Lsterling SDATA  "&Lsterling;" -- pound sterling --           >
+<!ENTITY lt       SDATA   "&lt;"       -- less than --                 >
+<!ENTITY ltequiv  SDATA   "&ltequiv;"  -- ltequiv --                   >
+<!ENTITY ltlt     SDATA   "&ltlt;"     -- much less than --            >
+<!ENTITY ltrank   SDATA   "&ltrank;"   -- less than rank --            >
+<!ENTITY ltsym    SDATA   "&ltsym;"    -- less than --                 >
+<!ENTITY male     SDATA   "&male;"     -- male symbol --               >
+<!ENTITY mathast  SDATA   "&mathast;"  -- mathematics asterisk --      >
+<!ENTITY mdash    SDATA   "&mdash;"    -- em dash --                   >
+<!ENTITY meet     SDATA   "&meet;"     -- meet --                      >
+<!ENTITY memberof SDATA   "&memberof;" -- member of --                 >
+<!ENTITY minus    SDATA   "&minus;"    -- minus operation --           >
+<!ENTITY minusop  SDATA   "&minusop;"  -- minus operation --           >
+<!ENTITY mp       SDATA   "&mp;"       -- minus-plus --                >
+<!ENTITY mu       SDATA   "&mu;"       -- mu --                        >
+<!ENTITY Mu       SDATA   "&Mu;"       -- Mu --                        >
+<!ENTITY mult     SDATA   "&mult;"     -- multiply --                  >
+<!ENTITY ndash    SDATA   "&ndash;"    -- en dash, dash --             >
+<!ENTITY ne       SDATA   "&ne;"       -- not equal to --              >
+<!ENTITY nearly   SDATA   "&nearly;"   -- nearly equal --              >
+<!ENTITY nesym    SDATA   "&nesym;"    -- not equal to --              >
+<!ENTITY nexists  SDATA   "&nexists;"  -- not existant --              >
+<!ENTITY nidentical SDATA "&nidentical;" -- not identical --           >
+<!ENTITY nisubset SDATA   "&nisubset;" -- not improper subset --       >
+<!ENTITY nisuperset SDATA "&nisuperset;" -- not improper superset --   >
+<!ENTITY nlerank  SDATA   "&nlerank;"  -- not less or equal rank --    >
+<!ENTITY nltrank  SDATA   "&nltrank;"  -- not less than rank --        >
+<!ENTITY nmemberof SDATA  "&nmemberof;" -- not a member of --          >
+<!ENTITY nnearly  SDATA   "&nnearly;"  -- not nearly equal --          >
+<!ENTITY note1616 SDATA   "&note1616;" -- pair of 16th notes --        >
+<!ENTITY note18   SDATA   "&note18;"   -- eighth note --               >
+<!ENTITY notsym   SDATA   "&notsym;"   -- not symbol --                >
+<!ENTITY nsubset  SDATA   "&nsubset;"  -- not a subset --              >
+<!ENTITY nsuperset SDATA  "&nsuperset;" -- not a superset --           >
+<!ENTITY nt       SDATA   "&nt;"       -- n tilde --                   >
+<!ENTITY Nt       SDATA   "&Nt;"       -- N tilde --                   >
+<!ENTITY nu       SDATA   "&nu;"       -- nu --                        >
+<!ENTITY Nu       SDATA   "&Nu;"       -- Nu --                        >
+<!ENTITY numsign  SDATA   "&numsign;"  -- number sign --               >
+<!ENTITY oa       SDATA   "&oa;"       -- o acute --                   >
+<!ENTITY Oa       SDATA   "&Oa;"       -- O acute --                   >
+<!ENTITY oc       SDATA   "&oc;"       -- o circumflex --              >
+<!ENTITY Oc       SDATA   "&Oc;"       -- O circumflex --              >
+<!ENTITY odq      SDATA   "&odq;"      -- open double quote --         >
+<!ENTITY odqf     SDATA   "&odqf;"     -- French open double quote --  >
+<!ENTITY odqg     SDATA   "&odqg;"     -- German open double quote --  >
+<!ENTITY oe       SDATA   "&oe;"       -- o umlaut --                  >
+<!ENTITY Oe       SDATA   "&Oe;"       -- O umlaut --                  >
+<!ENTITY oelig    SDATA   "&oelig;"    -- oe ligature --               >
+<!ENTITY OElig    SDATA   "&OElig;"    -- OE ligature --               >
+<!ENTITY og       SDATA   "&og;"       -- o grave --                   >
+<!ENTITY Og       SDATA   "&Og;"       -- O grave --                   >
+<!ENTITY omega    SDATA   "&omega;"    -- omega --                     >
+<!ENTITY Omega    SDATA   "&Omega;"    -- Omega --                     >
+<!ENTITY omicron  SDATA   "&omicron;"  -- omicron --                   >
+<!ENTITY Omicron  SDATA   "&Omicron;"  -- Omicron --                   >
+<!ENTITY or       SDATA   "&or;"       -- or symbol --                 >
+<!ENTITY os       SDATA   "&os;"       -- o slash --                   >
+<!ENTITY Os       SDATA   "&Os;"       -- O slash --                   >
+<!ENTITY osq      SDATA   "&osq;"      -- open single quote --         >
+<!ENTITY osqg     SDATA   "&osqg;"     -- German open single quote --  >
+<!ENTITY ot       SDATA   "&ot;"       -- o tilde --                   >
+<!ENTITY Ot       SDATA   "&Ot;"       -- O tilde --                   >
+<!ENTITY ous      SDATA   "&ous;"      -- underscored o --             >
+<!ENTITY overline SDATA   "&overline;" -- overline --                  >
+<!ENTITY par      SDATA   "&par;"      -- paragraph --                 >
+<!ENTITY parallel SDATA   "&parallel;" -- parallel --                  >
+<!ENTITY partial  SDATA   "&partial;"  -- partial --                   >
+<!ENTITY per      SDATA   "&per;"      -- period (starter set) --      >
+<!ENTITY percent  SDATA   "&percent;"  -- percent --                   >
+<!ENTITY period   SDATA   "&period;"   -- period --                    >
+<!ENTITY perpend  SDATA   "&perpend;"  -- perpendicular --             >
+<!ENTITY peseta   SDATA   "&peseta;"   -- peseta --                    >
+<!ENTITY phi      SDATA   "&phi;"      -- phi --                       >
+<!ENTITY Phi      SDATA   "&Phi;"      -- Phi --                       >
+<!ENTITY pi       SDATA   "&pi;"       -- pi --                        >
+<!ENTITY Pi       SDATA   "&Pi;"       -- Pi --                        >
+<!ENTITY planck   SDATA   "&planck;"   -- h bar --                     >
+<!ENTITY plus     SDATA   "&plus;"     -- plus --                      >
+<!ENTITY plusend  SDATA   "&plusend;"  -- plus at end of line --       >
+<!ENTITY plusmin  SDATA   "&plusmin;"  -- plus-minus --                >
+<!ENTITY plusop   SDATA   "&plusop;"   -- plus operation --            >
+<!ENTITY pm       SDATA   "&pm;"       -- plus-minus --                >
+<!ENTITY prime    SDATA   "&prime;"    -- prime --                     >
+<!ENTITY product  SDATA   "&product;"  -- product --                   >
+<!ENTITY proportion SDATA "&proportion;" -- proportion --              >
+<!ENTITY psi      SDATA   "&psi;"      -- psi --                       >
+<!ENTITY Psi      SDATA   "&Psi;"      -- Psi --                       >
+<!ENTITY quest    SDATA   "&quest;"    -- question mark --             >
+<!ENTITY rahead   SDATA   "&rahead;"   -- right arrowhead --           >
+<!ENTITY rarrow   SDATA   "&rarrow;"   -- right arrow --               >
+<!ENTITY ratio    SDATA   "&ratio;"    -- ratio --                     >
+<!ENTITY rbarb    SDATA   "&rbarb;"    -- right barb --                >
+<!ENTITY rbl      SDATA   "&rbl;"      -- required blank --            >
+<!ENTITY rbrace   SDATA   "&rbrace;"   -- right brace --               >
+<!ENTITY rbracket SDATA   "&rbracket;" -- right bracket --             >
+<!ENTITY rbrc     SDATA   "&rbrc;"     -- right brace --               >
+<!ENTITY rbrk     SDATA   "&rbrk;"     -- right bracket --             >
+<!ENTITY rdarrow  SDATA   "&rdarrow;"  -- right double arrow --        >
+<!ENTITY regtm    SDATA   "&regtm;"    -- registered trademark --      >
+<!ENTITY revbul   SDATA   "&revbul;"   -- reverse bullet --            >
+<!ENTITY revcir   SDATA   "&revcir;"   -- reverse circle --            >
+<!ENTITY rho      SDATA   "&rho;"      -- rho --                       >
+<!ENTITY Rho      SDATA   "&Rho;"      -- Rho --                       >
+<!ENTITY riemann  SDATA   "&riemann;"  -- riemann integral --          >
+<!ENTITY rpar     SDATA   "&rpar;"     -- right parenthesis --         >
+<!ENTITY rparen   SDATA   "&rparen;"   -- right parenthesis --         >
+<!ENTITY rprime   SDATA   "&rprime;"   -- right prime --               >
+<!ENTITY Rx       SDATA   "&Rx;"       -- physician Rx --              >
+<!ENTITY scriptI  SDATA   "&scriptI;"  -- script I --                  >
+<!ENTITY scriptl  SDATA   "&scriptl;"  -- liter --                     >
+<!ENTITY sdq      SDATA   "&sdq;"      -- straight double quote --     >
+<!ENTITY sect     SDATA   "&sect;"     -- double S --                  >
+<!ENTITY section  SDATA   "&section;"  -- double S --                  >
+<!ENTITY semi     SDATA   "&semi;"     -- semicolon --                 >
+<!ENTITY shiftin  SDATA   "&shiftin;"  -- double byte shift in --      >
+<!ENTITY shiftout SDATA   "&shiftout;" -- double byte shift out --     >
+<!ENTITY sigma    SDATA   "&sigma;"    -- sigma --                     >
+<!ENTITY Sigma    SDATA   "&Sigma;"    -- Sigma --                     >
+<!ENTITY similar  SDATA   "&similar;"  -- similar --                   >
+<!ENTITY slash    SDATA   "&slash;"    -- slash right --               >
+<!ENTITY slr      SDATA   "&slr;"      -- slash right --               >
+<!ENTITY smultdot SDATA   "&smultdot;" -- muliply dot small --         >
+<!ENTITY SPADE    SDATA   "&SPADE;"    -- spade solid --               >
+<!ENTITY splitvbar SDATA  "&splitvbar;" -- split veritical bar --      >
+<!ENTITY sqbul    SDATA   "&sqbul;"    -- square bullet --             >
+<!ENTITY sqbullet SDATA   "&sqbullet;" -- square bullet --             >
+<!ENTITY sqrt     SDATA   "&sqrt;"     -- square root --               >
+<!ENTITY ss       SDATA   "&ss;"       -- German es-zet --             >
+<!ENTITY ssbl     SDATA   "&ssbl;" -- WEK: syntax significant blank   -->
+<!ENTITY ssq      SDATA   "&ssq;"      -- straight single quote --     >
+<!ENTITY STAR     SDATA   "&STAR;"     -- star solid --                >
+<!ENTITY sublpar  SDATA   "&sublpar;"  -- subscript left parenthesis -->
+<!ENTITY subminus SDATA   "&subminus;" -- subscript minus --           >
+<!ENTITY subplus  SDATA   "&subplus;"  -- subscript plus --            >
+<!ENTITY subrpar  SDATA   "&subrpar;"  -- subscript right parenthesis-->
+<!ENTITY subset   SDATA   "&subset;"   -- subset of, included in --    >
+<!ENTITY sub0     SDATA   "&sub0;"     -- subscript 0 --               >
+<!ENTITY sub1     SDATA   "&sub1;"     -- subscript 1 --               >
+<!ENTITY sub2     SDATA   "&sub2;"     -- subscript 2 --               >
+<!ENTITY sub3     SDATA   "&sub3;"     -- subscript 3 --               >
+<!ENTITY sub4     SDATA   "&sub4;"     -- subscript 4 --               >
+<!ENTITY sub5     SDATA   "&sub5;"     -- subscript 5 --               >
+<!ENTITY sub6     SDATA   "&sub6;"     -- subscript 6 --               >
+<!ENTITY sub7     SDATA   "&sub7;"     -- subscript 7 --               >
+<!ENTITY sub8     SDATA   "&sub8;"     -- subscript 8 --               >
+<!ENTITY sub9     SDATA   "&sub9;"     -- subscript 9 --               >
+<!ENTITY suchthat SDATA   "&suchthat;" -- such that --                 >
+<!ENTITY sum      SDATA   "&sum;"      -- sum --                       >
+<!ENTITY sun      SDATA   "&sun;"      -- sun --                       >
+<!ENTITY superset SDATA   "&superset;" -- superset --                  >
+<!ENTITY suplpar  SDATA   "&suplpar;"  -- superscript left parenthesis-->
+<!ENTITY supminus SDATA   "&supminus;" -- superscript minus --         >
+<!ENTITY supn     SDATA   "&supn;"     -- superscript n --             >
+<!ENTITY supplus  SDATA   "&supplus;"  -- superscript plus --          >
+<!ENTITY suprpar  SDATA   "&suprpar;"  --superscript right parenthesis-->
+<!ENTITY sup0     SDATA   "&sup0;"     -- superscript 0 --             >
+<!ENTITY sup1     SDATA   "&sup1;"     -- superscript 1 --             >
+<!ENTITY sup2     SDATA   "&sup2;"     -- superscript 2 --             >
+<!ENTITY sup3     SDATA   "&sup3;"     -- superscript 3 --             >
+<!ENTITY sup4     SDATA   "&sup4;"     -- superscript 4 --             >
+<!ENTITY sup5     SDATA   "&sup5;"     -- superscript 5 --             >
+<!ENTITY sup6     SDATA   "&sup6;"     -- superscript 6 --             >
+<!ENTITY sup7     SDATA   "&sup7;"     -- superscript 7 --             >
+<!ENTITY sup8     SDATA   "&sup8;"     -- superscript 8 --             >
+<!ENTITY sup9     SDATA   "&sup9;"     -- superscript 9 --             >
+<!ENTITY tab      SDATA   "&tab;"      -- tab --                       >
+<!ENTITY tau      SDATA   "&tau;"      -- tau --                       >
+<!ENTITY Tau      SDATA   "&Tau;"      -- Tau --                       >
+<!ENTITY telephone SDATA  "&telephone;" -- telephone --                >
+<!ENTITY TELEPHONE SDATA  "&TELEPHONE;" -- telephone solid --          >
+<!ENTITY therefore SDATA  "&therefore;" -- therefore --                >
+<!ENTITY theta    SDATA   "&theta;"    -- theta --                     >
+<!ENTITY Theta    SDATA   "&Theta;"    -- Theta --                     >
+<!ENTITY thorn    SDATA   "&thorn;"    -- thorn, Icelandic small --    >
+<!ENTITY Thorn    SDATA   "&Thorn;"    -- Thorn, Icelandic capital --  >
+<!ENTITY tilde    SDATA   "&tilde;"    -- tilde --                     >
+<!ENTITY time     SDATA   "&time;"     -- time --                      >
+<!ENTITY times    SDATA   "&times;"    -- multiply --                  >
+<!ENTITY tm       SDATA   "&tm;"       -- trademark --                 >
+<!ENTITY TRIANGLE SDATA   "&TRIANGLE;" -- triangle solid --            >
+<!ENTITY triangle SDATA   "&triangle;" -- triangle --                  >
+<!ENTITY ua       SDATA   "&ua;"       -- u acute --                   >
+<!ENTITY Ua       SDATA   "&Ua;"       -- U acute --                   >
+<!ENTITY uahead   SDATA   "&uahead;"   -- up arrowhead --              >
+<!ENTITY uarrow   SDATA   "&uarrow;"   -- up arrow --                  >
+<!ENTITY uc       SDATA   "&uc;"       -- u circumflex --              >
+<!ENTITY Uc       SDATA   "&Uc;"       -- U circumflex --              >
+<!ENTITY udarrow  SDATA   "&udarrow;"  -- up-down arrow --             >
+<!ENTITY udarrowus SDATA  "&udarrowus;" -- up/down arrow/underscore -- >
+<!ENTITY ue       SDATA   "&ue;"       -- u umlaut --                  >
+<!ENTITY Ue       SDATA   "&Ue;"       -- U umlaut --                  >
+<!ENTITY ug       SDATA   "&ug;"       -- u grave --                   >
+<!ENTITY Ug       SDATA   "&Ug;"       -- U grave --                   >
+<!ENTITY ulbarb   SDATA   "&ulbarb;"   -- up lef barb --               >
+<!ENTITY umlaut   SDATA   "&umlaut;"   -- umlaut --                    >
+<!ENTITY union    SDATA   "&union;"    -- union of 2 sets --           >
+<!ENTITY upsilon  SDATA   "&upsilon;"  -- upsilon --                   >
+<!ENTITY Upsilon  SDATA   "&Upsilon;"  -- Upsilon --                   >
+<!ENTITY urbarb   SDATA   "&urbarb;"   -- up right barb --             >
+<!ENTITY us       SDATA   "&us;"       -- underscore --                >
+<!ENTITY usec     SDATA   "&usec;"     -- micro second --              >
+<!ENTITY vardelta SDATA   "&vardelta;" -- delta (variation) --         >
+<!ENTITY varphi   SDATA   "&varphi;"   -- phi (variation) --           >
+<!ENTITY varsigma SDATA   "&varsigma;" -- sigma (variation) --         >
+<!ENTITY vartheta SDATA   "&vartheta;" -- theta (variation) --         >
+<!ENTITY vbar     SDATA   "&vbar;"     -- vertical bar --              >
+<!ENTITY vector   SDATA   "&vector;"   -- vector --                    >
+<!ENTITY vellip   SDATA   "&vellip;"   -- vertical ellipsis --         >
+<!ENTITY weierstr SDATA   "&weierstr;" -- weierstrass elliptic --      >
+<!ENTITY xclam    SDATA   "&xclam;"    -- exclamation point --         >
+<!ENTITY xclm     SDATA   "&xclm;"     -- exclamation point --         >
+<!ENTITY xi       SDATA   "&xi;"       -- xi --                        >
+<!ENTITY Xi       SDATA   "&Xi;"       -- Xi --                        >
+<!ENTITY ya       SDATA   "&ya;"       -- y acute --                   >
+<!ENTITY Ya       SDATA   "&Ya;"       -- Y acute --                   >
+<!ENTITY ye       SDATA   "&ye;"       -- y umlaut --                  >
+<!ENTITY Ye       SDATA   "&Ye;"       -- Y umlaut --                  >
+<!ENTITY yen      SDATA   "&yen;"      -- yen --                       >
+<!ENTITY zero     SDATA   "&zero;"     -- zero slashed --              >
+<!ENTITY zeta     SDATA   "&zeta;"     -- zeta --                      >
+<!ENTITY Zeta     SDATA   "&Zeta;"     -- Zeta --                      >
+
+<!-- The following entities define the Character Graphic Symbols.
+     List derived from DZAISYM XEDIT macro                           -->
+<!ENTITY Ad       SDATA   "&Ad;"       -- arrow down --                >
+<!ENTITY Al       SDATA   "&Al;"       -- arrow left --                >
+<!ENTITY Ar       SDATA   "&Ar;"       -- arrow right --               >
+<!ENTITY Au       SDATA   "&Au;"       -- arrow up --                  >
+<!ENTITY Eb       SDATA   "&Eb;"       -- end of line, bottom--        >
+<!ENTITY El       SDATA   "&El;"       -- end of line, left --         >
+<!ENTITY Er       SDATA   "&Er;"       -- end of line, right --        >
+<!ENTITY Et       SDATA   "&Et;"       -- end of line, top --          >
+<!ENTITY Ju       SDATA   "&Ju;"       -- line junction --             >
+<!ENTITY Lh       SDATA   "&Lh;"       -- line horizontal --           >
+<!ENTITY Ll       SDATA   "&Ll;"       -- lower left corner --         >
+<!ENTITY Lr       SDATA   "&Lr;"       -- lower right corner --        >
+<!ENTITY Lv       SDATA   "&Lv;"       -- line vertical --             >
+<!ENTITY Td       SDATA   "&Td;"       -- T char, bar down --          >
+<!ENTITY Tl       SDATA   "&Tl;"       -- T char, bar left --          >
+<!ENTITY Tr       SDATA   "&Tr;"       -- T char, bar right --         >
+<!ENTITY Tu       SDATA   "&Tu;"       -- T char, bar up --            >
+<!ENTITY Ul       SDATA   "&Ul;"       -- upper left corner --         >
+<!ENTITY Ur       SDATA   "&Ur;"       -- upper right corner --        >
+
+<!--The replacement text of these entities use the entity definitions
+    given above and so are process independent. -->
+
+<!--The following entities make description of the SGML syntax easier.-->
+<!ENTITY stago            "&lt;"       -- start tag open --            >
+<!ENTITY etago            "&lt;&slr;"  -- end tag open --              >
+<!ENTITY tagc             "&gt;"       -- tag close --                 >
+<!ENTITY mdo              "&lt;&xclm;" -- markup declaration open --   >
+<!ENTITY mdc              "&gt;"       -- markup declaration close --  >
+<!ENTITY pio              "&lt;&quest;" -- processing instruc. open -- >
+<!ENTITY pic              "&gt;"       -- processing instruc; close -- >
+<!ENTITY pero             "&percent;"  -- parm entity ref; open --     >
+<!ENTITY ero              "&amp;"      -- entity reference open --     >
+<!ENTITY erc              "&semi;"     -- entity reference close --    >
+<!ENTITY dso              "&lbrk;"     -- declaration subset open --   >
+<!ENTITY dsc              "&rbrk;"     -- declaration subset close --  >
+<!ENTITY msc              "&rbrk;&rbrk;&gt;" --marked section close -- >
+<!ENTITY lit              "&sdq;"      -- literal delimiter --         >
+<!ENTITY lita             "&ssq;"      -- alternate literal delimiter-->
+
+<!-- The following entities define typographic quote symbols which are
+     used because the Q element now has implied citation semantics -->
+<!ENTITY ctq              "&cdq;"      --  close typographic quote --  >
+<!ENTITY otq              "&odq;"      --  open typographic quote --   >
+
+<!-- The following entities can be used by TCs for hypenation -->
+<!ENTITY shy      SDATA   "&shy;"      -- soft hypen   -- >
+
+<!-- The following entities were added to support the Euro -->
+<!ENTITY euro     SDATA   "&euro;"     -- Either Euro glyph or EUR --  >
+<!ENTITY eurochar SDATA   "&eurochar;" -- Either Euro glyph or E   --  >
+<!ENTITY eurotext SDATA   "&eurotext;" -- Always EUR               --  >
+
+<!-- The following entity was added to support the Won (Korean currency) -->
+<!ENTITY won      SDATA   "&won;"      -- won (Korean currency)    --  > 
+
+<!-- The following entities were added to support eServer -->
+<!ENTITY eserver_logo    SDATA  "&eserver_logo;"    -- e(logo)server logo -- >
+<!ENTITY eserver_logo_TM SDATA  "&eserver_logo_TM;" -- e(logo)server logo with trademark -- >
