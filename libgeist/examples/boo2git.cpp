@@ -247,6 +247,18 @@ std::string raw_attr(const std::string& record, const std::string& attr) {
   return record.substr(value_begin, value_end - value_begin);
 }
 
+std::string picture_resource_id(const std::string& target) {
+  if (target.size() <= 3 || lowercase(target.substr(0, 3)) != "pic") {
+    return {};
+  }
+  for (std::size_t index = 3; index < target.size(); ++index) {
+    if (std::isdigit(static_cast<unsigned char>(target[index])) == 0) {
+      return {};
+    }
+  }
+  return target.substr(3);
+}
+
 std::map<std::string, std::string> build_markdown_link_map(
     const std::vector<geist::TocEntry>& toc,
     const std::map<std::string, std::string>& topic_files) {
@@ -256,13 +268,44 @@ std::map<std::string, std::string> build_markdown_link_map(
     if (file == topic_files.end()) {
       continue;
     }
+    std::string pending_figure_id;
     for (const auto& record : entry.raw_records) {
-      if (record.rfind(":anchor ", 0) != 0) {
+      if (record.rfind(":anchor ", 0) == 0) {
+        const auto id = raw_attr(record, "id");
+        if (!id.empty()) {
+          links[lowercase(id)] = file->second;
+        }
         continue;
       }
-      const auto id = raw_attr(record, "id");
-      if (!id.empty()) {
-        links[lowercase(id)] = file->second;
+
+      if (record.rfind(":fig ", 0) == 0) {
+        pending_figure_id = raw_attr(record, "id");
+        if (!pending_figure_id.empty()) {
+          links[lowercase(pending_figure_id)] = file->second;
+          links[lowercase("fig" + pending_figure_id)] = file->second;
+        }
+        continue;
+      }
+
+      if (record.rfind(":image ", 0) == 0) {
+        const auto resource = raw_attr(record, "resource");
+        if (!pending_figure_id.empty() && !resource.empty()) {
+          const auto uri = "resource:" + resource;
+          links[lowercase(pending_figure_id)] = uri;
+          links[lowercase("fig" + pending_figure_id)] = uri;
+          pending_figure_id.clear();
+        }
+        continue;
+      }
+
+      if (record.rfind(":hdref ", 0) == 0) {
+        const auto resource = picture_resource_id(raw_attr(record, "refid"));
+        if (!pending_figure_id.empty() && !resource.empty()) {
+          const auto uri = "resource:" + resource;
+          links[lowercase(pending_figure_id)] = uri;
+          links[lowercase("fig" + pending_figure_id)] = uri;
+          pending_figure_id.clear();
+        }
       }
     }
   }
@@ -308,6 +351,7 @@ std::map<std::string, std::string> build_resource_link_map(
   std::map<std::string, std::string> links;
   for (const auto& [id, filename] : png_files) {
     links[id] = filename;
+    links["resource:" + id] = filename;
     links["pic" + id] = filename;
     links["picture" + id] = filename;
   }
@@ -400,6 +444,28 @@ void rewrite_resource_links(std::string& markdown,
   }
 }
 
+void rewrite_resource_uris(std::string& markdown,
+                           const std::map<std::string, std::string>& links) {
+  std::size_t offset = 0;
+  while ((offset = markdown.find("(resource:", offset)) != std::string::npos) {
+    const auto target_begin = offset + 1;
+    const auto target_end = markdown.find(')', target_begin);
+    if (target_end == std::string::npos) {
+      break;
+    }
+    const auto target =
+        markdown.substr(target_begin, target_end - target_begin);
+    const auto found = links.find(lowercase(target));
+    if (found == links.end()) {
+      offset = target_end + 1;
+      continue;
+    }
+    const auto replacement = "(" + markdown_escape_url(found->second) + ")";
+    markdown.replace(offset, (target_end + 1) - offset, replacement);
+    offset += replacement.size();
+  }
+}
+
 std::string render_navigation_link(const std::string& label,
                                    const std::string& file) {
   if (file.empty()) {
@@ -444,8 +510,9 @@ std::string render_topic_markdown(
   if (markdown.empty() || markdown.front() != '#') {
     markdown = "# " + entry.title + "\n\n" + markdown;
   }
-  rewrite_resource_links(markdown, resource_links);
   rewrite_topic_links(markdown, markdown_links);
+  rewrite_resource_links(markdown, resource_links);
+  rewrite_resource_uris(markdown, resource_links);
   rewrite_resource_placeholders(markdown, png_files);
   if (markdown.empty() || markdown.back() != '\n') {
     markdown.push_back('\n');

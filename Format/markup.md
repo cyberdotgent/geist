@@ -90,6 +90,7 @@ or represented with the nearest BookMaster tag shape.
 | `CFONTDEF=<code> <name>` | suppressed | Font/style code definition. | The current source-style projection does not yet reconstruct inline `:hpN.` spans from these definitions. |
 | `CFONT <triples...> [text]` | trailing text preserved as `:p.<text>` or `:note.<text>` when present | Repeated `<offset> <length> <font_code>` triples, sometimes followed by decoded visible text. | Span reconstruction remains incomplete. |
 | `CSELECT <col> <len> <target> [text]` | `:hdref refid='<target>'.<text>` | Selectable link/cross-reference. The target may be a topic id or an anchor id. | Source-style approximation using a BookMaster tag present in `packet.script`. |
+| `CSELECT <col> <len> PIC<n> [text]` | `:image resource='<n>'.<text>` | Selectable embedded picture reference. Markdown renders this as `resource:<n>` so generic renderers preserve the BOO resource id and exporters can dereference it. | Verified against `packet.boo` topic `1.3`, where BookServer renders `PIC1` as `/bookmgr/pictures/packet.20260614112503.P1.GIF`. |
 | `CMENU` | `:ul.` | Start of generated selectable menu/list. | Source-style approximation. |
 | `CMITEM <id> <text>` | `:li.<text>` | Menu item target and label. The target is not currently emitted in source-style raw output. | Source-style approximation. |
 | `CEMENU` | `:eul.` | End of menu/list. | Source-style approximation. |
@@ -389,9 +390,9 @@ Evidence:
 | `QS3X36CM.BOO` | Topic `2.2`: `SRTBLtbluniq2`, header cells `System/36`, `As/400`, `As/400 Function`, entries such as `Cancel(c) job`, `endjob`, `Clrjobq`, `wrkjobq`, and final `SRETBL`. |
 
 The resource table stores raw assets as documented in [assets.md](assets.md).
-The exact mapping from body ids such as `pic1` to legacy resource ids such as
-`1` appears to be a reader-side picture-id normalization rule and remains an
-open renderer detail.
+For observed BookServer picture references, body ids such as `pic1` map to BOO
+resource ids such as `1`; Markdown keeps this as a `resource:1` URI until an
+exporter such as `boo2git` resolves it to an extracted/rendered asset file.
 
 ## Layout And Reflow Controls
 

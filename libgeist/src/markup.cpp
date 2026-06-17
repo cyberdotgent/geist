@@ -324,6 +324,19 @@ std::string render_tocdef_gml(std::string value) {
   return {};
 }
 
+std::string picture_resource_id(const std::string& target) {
+  if (target.size() <= 3 ||
+      !ascii_starts_with_case_insensitive(target, "pic")) {
+    return {};
+  }
+  for (std::size_t index = 3; index < target.size(); ++index) {
+    if (std::isdigit(static_cast<unsigned char>(target[index])) == 0) {
+      return {};
+    }
+  }
+  return target.substr(3);
+}
+
 std::string render_fontdef_gml(std::string value) {
   const auto equals = value.find('=');
   if (equals != std::string::npos) {
@@ -350,8 +363,17 @@ std::string render_link_gml(std::string value) {
   }
   std::string text;
   std::getline(input, text);
-  auto output = ":hdref refid='" + escape_gml_attr(target) + "'.";
   text = dot_text(text);
+  const auto resource_id = picture_resource_id(target);
+  if (!resource_id.empty()) {
+    auto output = ":image resource='" + escape_gml_attr(resource_id) + "'.";
+    if (!text.empty()) {
+      output += text;
+    }
+    return output;
+  }
+
+  auto output = ":hdref refid='" + escape_gml_attr(target) + "'.";
   if (!text.empty()) {
     output += text;
   }

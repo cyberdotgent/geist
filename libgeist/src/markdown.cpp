@@ -433,6 +433,18 @@ std::string render_link_markdown(const std::string& record) {
   return "[" + text + "](#" + target + ")";
 }
 
+std::string render_image_markdown(const std::string& record) {
+  auto text = gml_markdown_content(record);
+  const auto resource = gml_attr(record, "resource");
+  if (text.empty()) {
+    text = resource.empty() ? "Image" : "Resource " + resource;
+  }
+  if (resource.empty()) {
+    return text;
+  }
+  return "![" + text + "](resource:" + resource + ")";
+}
+
 std::string render_anchor_markdown(const std::string& record) {
   const auto text = gml_markdown_content(record);
   if (!text.empty()) {
@@ -872,11 +884,19 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         pending_copyright_note.clear();
       }
       append_block(output, render_link_markdown(record));
+    } else if (tag == "image") {
+      if (!pending_copyright_note.empty()) {
+        append_block(output, pending_copyright_note);
+        pending_copyright_note.clear();
+      }
+      append_block(output, render_image_markdown(record));
     } else if (tag == "anchor") {
       append_block(output, render_anchor_markdown(record));
     } else if (tag == "fig") {
       const auto id = gml_attr(record, "id");
-      append_block(output, id.empty() ? "[Figure]" : "[Figure: " + id + "]");
+      if (!id.empty()) {
+        append_block(output, "<a id=\"" + id + "\"></a>");
+      }
     } else if (tag == "table") {
       in_table = true;
       table_id = gml_attr(record, "id");
