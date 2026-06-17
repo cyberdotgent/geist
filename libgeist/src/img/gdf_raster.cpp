@@ -209,31 +209,25 @@ void fill_polygon(RgbaImage& image,
 RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes) {
   const auto picture = parse_gdf_picture(bytes);
 
-  constexpr std::uint32_t max_dimension = 1600;
-  constexpr std::uint32_t margin = 12;
+  constexpr std::uint32_t output_width = 1004;
+  constexpr std::uint32_t output_height = 735;
   const auto width_units = std::max(1.0, picture.max_x - picture.min_x);
   const auto height_units = std::max(1.0, picture.max_y - picture.min_y);
-  const auto scale = std::min(
-      static_cast<double>(max_dimension - (margin * 2)) / width_units,
-      static_cast<double>(max_dimension - (margin * 2)) / height_units);
+  const auto scale_x = static_cast<double>(output_width) / width_units;
+  const auto scale_y = static_cast<double>(output_height) / height_units;
 
   RgbaImage image;
-  image.width = std::max<std::uint32_t>(
-      1, static_cast<std::uint32_t>(std::ceil(width_units * scale)) +
-             (margin * 2));
-  image.height = std::max<std::uint32_t>(
-      1, static_cast<std::uint32_t>(std::ceil(height_units * scale)) +
-             (margin * 2));
+  image.width = output_width;
+  image.height = output_height;
   image.rgba.assign(static_cast<std::size_t>(image.width) * image.height * 4,
                     255);
 
   auto map_x = [&](double x) {
-    return static_cast<int>(std::lround((x - picture.min_x) * scale)) +
-           static_cast<int>(margin);
+    return static_cast<int>(std::lround((x - picture.min_x) * scale_x));
   };
   auto map_y = [&](double y) {
-    return static_cast<int>(image.height) - static_cast<int>(margin) - 1 -
-           static_cast<int>(std::lround((y - picture.min_y) * scale));
+    return static_cast<int>(image.height) - 1 -
+           static_cast<int>(std::lround((y - picture.min_y) * scale_y));
   };
 
   for (const auto& polygon : picture.polygons) {
@@ -274,7 +268,10 @@ RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes) {
   for (const auto& marker : picture.markers) {
     const int x = map_x(marker.point.x);
     const int y = map_y(marker.point.y);
-    const int size = std::max(2, static_cast<int>(std::lround(marker.size * scale / 25.0)));
+    const int size = std::max(
+        2,
+        static_cast<int>(
+            std::lround(marker.size * std::min(scale_x, scale_y) / 25.0)));
     draw_line(image, x - size, y, x + size, y, marker.color);
     draw_line(image, x, y - size, x, y + size, marker.color);
     if ((marker.type & 1u) != 0) {
@@ -287,7 +284,7 @@ RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes) {
     const int x0 = map_x(text.point.x);
     const int y0 = map_y(text.point.y);
     const int pixel_size =
-        std::max(1, static_cast<int>(std::lround(text.height * scale / 55.0)));
+        std::max(1, static_cast<int>(std::lround(text.height * scale_y / 8.0)));
     int x = x0;
     for (std::size_t i = 0; i < text.text.size(); ++i) {
       const char ch = text.text[i];

@@ -46,14 +46,13 @@ struct ParserState {
 Color palette(std::uint8_t index) {
   static constexpr std::array<Color, 17> colors{{
       {0, 0, 0, 255},
-      {0, 0, 0, 255},
-      {255, 255, 255, 255},
-      {255, 0, 0, 255},
-      {0, 180, 0, 255},
       {0, 0, 255, 255},
-      {255, 255, 0, 255},
+      {255, 0, 0, 255},
       {255, 0, 255, 255},
-      {0, 180, 180, 255},
+      {0, 255, 0, 255},
+      {0, 255, 255, 255},
+      {255, 255, 0, 255},
+      {255, 255, 255, 255},
       {128, 128, 128, 255},
       {128, 0, 0, 255},
       {0, 128, 0, 255},
@@ -518,7 +517,7 @@ void handle_attribute(ParserState& state,
     break;
   case 0x26:
   case 0x66:
-    if (length >= 2 && bytes[offset] == 0xff) {
+    if (length >= 2) {
       set_color(state, bytes[offset + 1]);
     } else if (length) {
       set_color(state, bytes[offset]);
