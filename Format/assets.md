@@ -154,34 +154,17 @@ with `GIF87a`, `GIF89a`, `BM`, or a valid JPEG header in the verified sample.
 Byte-pattern hits for `BM` and `ff d8 ff` inside the payload area are internal
 payload bytes, not standalone external image-file signatures.
 
-## Legacy Picture Types
+## Legacy Payload Kind Bytes
 
-The Transmogrifier utility in `Official Readers/Transmogrifier/transmog.exe`
-confirms that older BOO picture payloads are not one single image encoding. The
-utility's readme and IDB both describe version 1.2/1.3 books as legacy picture
-books that can be rewritten into version 1.4 books with web-compatible pictures.
-
-The readme progress markers give the picture families:
-
-| Marker | Meaning in Transmogrifier readme | IDB-backed conversion path |
-| --- | --- | --- |
-| `g` | GDF picture converted to GIF | `TransmogConvertGdfToGif` writes source bytes to a temporary file, then `TransmogRunGdfImportGifExport` loads `IMGDF2.FLT` and `EBGIF2.FLT`. |
-| `m` | MMR picture converted to GIF | `TransmogConvertMmrToGif` reads the payload bytes into memory and calls `TransmogWriteMmrAsGif`. |
-| `C` | CGM picture converted to GIF | `TransmogReadCgmExtent` parses CGM extent data; CGM is treated as a recognized image object class. |
-| `G` | Metafile bitmap converted to GIF | `TransmogConvertMetBitmapToGifOrJpeg` recovers bitmap data, then `TransmogWriteBitmapAsGifOrJpeg` writes GIF for non-24-bit bitmaps. |
-| `J` | Metafile bitmap converted to JPEG | `TransmogWriteBitmapAsGifOrJpeg` writes JPEG for 24-bit bitmap data. |
-| `V` | Metafile vector converted to GIF | `TransmogConvertMetVectorToGif` uses `IMMET2.FLT` and `EBGIF2.FLT`. |
-
-The old page-0 descriptor `kind` byte identifies which legacy conversion path is
-used. This verifies that the legacy image area is not universally GDF: GDF is
-the `G` kind only, while the common `I` kind takes a separate MMR/ImageMark-style
-path.
+The old page-0 descriptor `kind` byte identifies the stored legacy payload
+family. This is a container-level type tag; payload decoding details belong in
+the per-format notes linked below.
 
 | Kind byte | EBCDIC | Observed path |
 | ---: | --- | --- |
-| `0xc7` | `G` | Append `.gif`; convert GDF through `IMGDF2.FLT` -> `EBGIF2.FLT`. |
-| `0xc9` | `I` | Append `.gif`; convert MMR/ImageMark-style payload through the internal GIF writer. This is the kind observed in `GG24-4302-00.boo`. |
-| `0xd4` | `M` | Classify MET payload. Bitmap MET can become GIF or JPEG; vector MET becomes GIF through `IMMET2.FLT` -> `EBGIF2.FLT`. |
+| `0xc7` | `G` | Legacy GDF image payload. See [GDF.md](GDF.md). |
+| `0xc9` | `I` | Legacy MMR/ImageMark-style image payload. See [MMR.md](MMR.md). |
+| `0xd4` | `M` | Legacy MET payload. The IBM tools classify bitmap and vector MET data before conversion. |
 
 Unknown kind bytes produce `Unknown data type encountered %s` in the utility.
 
@@ -192,134 +175,6 @@ kinds `0xc7` and `0xc9`:
 | ---: | ---: | --- | --- |
 | `0xc7` / `G` | `2576` | `GG66-3212-00.boo` | Descriptor at `0x0118`: `f1 40 40 40 40 40 40 40 c7 00 4e 64 00 00 01 58`; payload at `0x0158` begins `01 12 00 04 00 00 00 00 42 64 00 01 00 00 00 00...`. |
 | `0xc9` / `I` | `19843` | `GG24-4302-00.boo` | Descriptor at `0x0118`: `f1 40 40 40 40 40 40 40 c9 00 1c fc 00 00 99 f0`; payload at `0x99f0` begins `00 08 d3 a8 7b 00 00 00 00 20 d3 a7 7b 00 00 00...`. |
-
-IDA verification in `Official Readers/Transmogrifier/transmog.exe.i64`:
-
-| Function | Evidence |
-| --- | --- |
-| `TransmogConvertLegacyPicturesToWorkFiles` | Reads `id[8]`, `kind[1]`, 24-bit length, and 32-bit offset. Dispatches `0xc7` to `TransmogConvertGdfToGif`, `0xc9` to `TransmogConvertMmrToGif`, and `0xd4` to MET classification/conversion. |
-| `TransmogConvertGdfToGif` | Copies the source payload to a temporary file and calls `TransmogRunGdfImportGifExport`. |
-| `TransmogRunGdfImportGifExport` | Loads `ISGDI32.DLL`, `imgdf2.flt`, and `ebgif2.flt`, then calls `ImportGR` and `ExportGR`. |
-| `TransmogConvertMmrToGif` | Reads the source payload into memory and calls `TransmogWriteMmrAsGif`. |
-| `TransmogWriteMmrAsGif` | Parses dimensions from the MMR/ImageMark-style payload, decompresses/inverts bitmap data, and calls the internal indexed-bitmap GIF writer. |
-
-## Legacy MMR / Kind `I` Payload Notes
-
-MMR support is not yet implemented in `libgeist`. The current source tree keeps
-an experimental Group-4-style decoder stub for future work, but the public
-renderer intentionally reports kind `I` / `legacy-mmr` assets as unsupported
-until the reader-specific line decoder is ported.
-
-The attached BookServer and Transmogrifier IDBs establish that legacy kind `I`
-payloads use the reader's MMR path rather than the GDF filter path:
-
-| Binary / IDB | Evidence |
-| --- | --- |
-| `Official Readers/BookSrv-Win32/bookmgr.exe.i64` | `BookServerServePictureObject` delegates legacy picture conversion through the imported `ephimage` path. The byte-level MMR decoder is not in `bookmgr.exe`. |
-| `Official Readers/BookSrv-Win32/ephimage.dll` | Local symbol/string evidence includes `process_mmr_pict`, `InitDecompress`, `WRcheckparms`, `WRraster`, `WRruns`, `dinitmmr`, `dlinemmr`, `decline`, `deceol`, `readcd`, and `writere`. |
-| `Official Readers/Transmogrifier/transmog.exe` | Debug/object strings include `D:\Transmogrifier\source\ephdmmr.obj`, `_dinitmmr`, `_dlinemmr`, `_decline`, `_dlineabic`, and `?lConvertMMRtoGIF0:`. |
-| `Official Readers/Transmogrifier/transmog.exe.i64` | The converted-output path reads legacy kind `I` bytes, calls the MMR writer, and emits a GIF object in the rewritten version 1.4 book. |
-
-`Official Readers/BookSrv-Win32/ephimage.dll` exports the relevant entry points
-used for harnessing and comparison:
-
-| Export | RVA | Verified role |
-| --- | ---: | --- |
-| `ephimage` | `0x000107e4` | High-level conversion entry. Arguments match `argv`: book path, picture id, output GIF path, optional `/NOSCALE`. |
-| `ConvertPicture__FPcclT3PP6__filei` | `0x00010160` | Reads a legacy descriptor payload and dispatches by kind byte. |
-| `process_mmr_pict` | `0x00011018` | Kind `I` MMR/ImageMark conversion path. |
-| `InitDecompress` | `0x00010fa0` | Initializes the decompressor state with image width. |
-| `ecline` / `decline_main` | `0x00022db5` / `0x00022dd1` | Main line-decompression loop. |
-| `dinitmmr` / `dlinemmr` | `0x00023f95` / `0x00024069` | MMR-family state setup and table-driven line decoder. |
-| `writere`, `WRraster`, `WRruns` | `0x000233aa`, `0x000257e0`, `0x00025b91` | Convert decoded transition runs into the packed monochrome output raster. |
-
-Observed kind `I` payloads contain an ImageMark-style wrapper before the MMR
-compressed bitmap data. Resource `1` in `GG24-4302-00.boo` is the clearest
-fixture:
-
-| Relative offset in payload | Bytes / value | Current interpretation |
-| ---: | --- | --- |
-| `0x00` | `00 08 d3 a8 7b` | Wrapper record prefix; `d3 a8 7b` is EBCDIC-like `Ly{`. |
-| `0x0a` | `d3 a7 7b` | Second wrapper marker; EBCDIC-like `Lx{`. |
-| `0x2e` | `09 60 09 60` | Repeated value observed before dimensions; likely source-unit metadata, unresolved. |
-| `0x32` | `03 c0` | Image width: `960`. Confirmed by `process_mmr_pict` trace string and GIF logical screen size. |
-| `0x34` | `03 40` | Image height: `832`. Confirmed by `process_mmr_pict` trace string and GIF logical screen size. |
-| `0x36` | `01 00` | Unresolved flag or depth-like field. |
-| `0x38` | `1c ac` | Candidate compressed byte count. This equals descriptor length `0x1cfc` minus `0x50`. |
-| `0x3a` | `d3 ee 7b 40` | Additional wrapper marker before bitmap payload metadata. |
-| `0x48` | `1c ac` | First compressed segment record length. `process_mmr_pict` byte-swaps this word, subtracts `8`, and passes that byte count to the decompressor. |
-| `0x50` | `00 1b 50 d4...` | First byte consumed by the decompressor for the first segment. |
-
-The corresponding legacy descriptor for that payload is:
-
-```text
-GG24-4302-00.boo
-descriptor 0x0118:
-f1 40 40 40 40 40 40 40 c9 00 1c fc 00 00 99 f0
-
-id "1", kind I, length 0x001cfc, absolute payload offset 0x000099f0
-```
-
-Another kind `I` fixture, `GG66-3212-00.boo` resource `3`, has the same wrapper
-shape but different dimensions:
-
-| Relative offset in payload | Bytes / value | Current interpretation |
-| ---: | --- | --- |
-| `0x00` | `00 08 d3 a8 7b` | Same wrapper prefix. |
-| `0x2e` | `09 60 09 60` | Same unresolved repeated value. |
-| `0x32` | `03 40` | Candidate image width: `832`. |
-| `0x34` | `01 80` | Candidate image height: `384`. |
-| `0x38` | `06 74` | Candidate compressed byte count. This equals descriptor length `0x06c4` minus `0x50`. |
-
-IDA decompilation of `process_mmr_pict` verifies the first segment framing:
-
-1. Read width and height from wrapper offsets `0x42` and `0x44` after the
-   function's `a1 + 0x28` base, equivalent to payload-relative offsets `0x32`
-   and `0x34`.
-2. Set the first segment header pointer to payload-relative `0x48`.
-3. Read the big-endian segment length word at `0x48`, subtract `8`, and store
-   that as the compressed byte count.
-4. Set the decompressor input pointer to payload-relative `0x50`.
-5. Call `ecline` repeatedly. Status `0x2000` advances to the next segment by
-   adding the previous compressed byte count plus the 8-byte segment header.
-6. Invert the completed bitmap vertically with `gbm_ref_vert`, then write GIF
-   output with `gif_w`.
-
-A 32-bit harness calling the exported `ephimage` entry rendered
-`GG24-4302-00.boo` resource `1` to a recognizable reference image. The generated
-GIF starts with:
-
-```text
-47 49 46 38 37 61 c0 03 40 03 80 00 00 ff ff ff
-GIF87a, width 960, height 832
-```
-
-The image content is a black-and-white "Parallel S/390 microprocessors" diagram
-with the expected end-user workstation, MVS/IMS boxes, ESCON Director, and
-shared-data disks. The harness output was kept under ignored `tmp/` as
-`tmp/ibm-gg24-4302-1.gif` and converted to
-`tmp/ibm-gg24-4302-1.png` for visual comparison.
-
-The experimental self-contained decoder still fails on the same fixture with an
-invalid standard T.6 two-dimensional mode when starting at the IBM-confirmed
-payload-relative `0x50`. Therefore the remaining gap is not the segment start;
-it is the reader-specific table-driven line decoder and transition-run raster
-writer implemented by `dlinemmr`, `writere`, `WRraster`, and `WRruns`.
-
-Future implementation should continue from the reader functions named above,
-especially `dinitmmr`, `dlinemmr`, `decline`, `deceol`, and `readcd`, rather
-than treating the wrapper as a raw CCITT G4 stream without verifying the exact
-entry point.
-
-Current `libgeist` PNG rendering support for `legacy-gdf` is fixture-driven and
-limited to observed vector-style GDDM payloads. The decoder reads IBM
-hexadecimal floating-point coordinate runs from the stored GDF byte stream,
-maps the discovered coordinate extents to an RGBA canvas, and rasterizes the
-coordinate runs as black polylines before PNG encoding. This renders the
-verified `GG66-3212-00.boo` GDF resources without invoking the historical
-`IMGDF2.FLT`/`EBGIF2.FLT` filter chain. It does not yet implement the complete
-GDDM command grammar, color/style attributes, filled areas, or exact text/font
-semantics.
 
 ## Version 1.2/1.3 Picture Directory
 
@@ -455,34 +310,12 @@ The `%s` value comes from the converted file extension found in the temporary
 picture directory. Width and height descriptions are added by
 `TransmogDescribeWebImageObject`.
 
-## Web-Compatible Image Objects
+## Version 1.4 Object Data
 
-Version 1.4 object data can contain normal web image formats. The Transmogrifier
-recognizes these extensions and validates/detects dimensions from their file
-headers:
-
-| Extension(s) | Dimension reader | Stored description behavior |
-| --- | --- | --- |
-| `GIF` | `TransmogReadGifDimensions` | Checks `GIF` signature, reads little-endian width and height from the logical screen descriptor, emits absolute `width="N"` / `height="N"`. |
-| `PNG` | `TransmogReadPngDimensions` | Checks PNG signature and reads IHDR width/height. |
-| `TIF`, `TIFF` | `TransmogReadTiffDimensions` | Handles both byte orders and reads TIFF tags for width/height. |
-| `JPG`, `JPEG` | `TransmogReadJpegDimensions` | Checks JPEG/JFIF and reads dimensions from SOF markers. |
-| `CGM` | `TransmogReadCgmExtent` | Parses CGM extent where available; plain-text and char-encoded CGM may not carry known extent. |
-
-The dimension mode written by `TransmogDescribeWebImageObject` is:
-
-| Mode | Output |
-| ---: | --- |
-| `10` | Absolute `width="N"` and `height="N"`. |
-| `20` | Percentage width/height derived from command-line page dimensions. |
-| `0` | Percentage width/height normalized against the larger dimension. |
-
-The converted object data is therefore different from legacy picture storage:
-legacy version 1.2/1.3 payloads are typed by the 1-byte descriptor kind. The
-verified local legacy kinds are GDF (`G`) and MMR/ImageMark-style image streams
-(`I`); the IBM converter also has MET (`M`) and CGM handling paths. Version 1.4
-payloads are normal object byte ranges with object descriptions such as
-`type="image/gif"`, `width="..."`, and `height="..."`.
+Version 1.4 object data is stored as normal object byte ranges with object
+descriptions such as `type="image/gif"`, `width="..."`, and `height="..."`.
+Image-format-specific validation and dimension parsing are documented in
+[WebImages.md](WebImages.md).
 
 ## Extraction Rules
 
@@ -522,9 +355,6 @@ For version 1.4 converted objects:
 
 - Identify the logical-record controls that reference image ids from document
   topics and figure lists.
-- Identify the full ImageMark/GDI payload grammar. The BookServer conversion
-  path uses ImageMark components and GIF output filters, but that is separate
-  from BOO container extraction.
 - Determine whether non-image media resources use kind bytes beyond the verified
   local legacy `G` (`0xc7`) and `I` (`0xc9`) descriptor families.
 - Verify version 1.3 and 1.4 descriptor groups against committed BOO fixtures

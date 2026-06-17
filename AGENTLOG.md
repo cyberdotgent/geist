@@ -690,3 +690,9 @@
   black-and-white "Parallel S/390 microprocessors" diagram. Documented the
   export table, wrapper offsets, segment framing, reference GIF header, and
   remaining self-contained decoder gap in `Format/assets.md`.
+- Split image payload format details out of `Format/assets.md` so that document
+  stays focused on how assets are stored in the BOO container. Moved legacy kind
+  `I` MMR wrapper/decoder evidence to `Format/MMR.md`, legacy kind `G` GDF notes
+  to `Format/GDF.md`, and version 1.4 web-image header/dimension notes to
+  `Format/WebImages.md`. Updated `Format/README.md` to index the new payload
+  format documents.
