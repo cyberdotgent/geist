@@ -40,7 +40,11 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
   document.file_header_.unknown_0002 = read_be16(document.bytes_, 2);
   document.file_header_.unknown_0004 = read_be32(document.bytes_, 4);
   document.file_header_.copyright_text =
-      trim_right_spaces(decode_cp037(document.bytes_, 0x000C, 128));
+      trim_right_spaces(EbcdicCodec::cp037().decode_ascii(
+          document.bytes_,
+          0x000C,
+          128,
+          "unexpected end of BOO file while reading text"));
   if (document.bytes_.size() >= 0x0106) {
     document.file_header_.unknown_0102 =
         std::array<std::uint8_t, 4>{document.bytes_[0x0102],
@@ -58,7 +62,11 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
       static_cast<std::size_t>(directory_page) * boo_page_size;
   document.directory_.page_number = directory_page;
   document.directory_.version_text =
-      decode_cp037(document.bytes_, directory_base + 0x0010, 4);
+      EbcdicCodec::cp037().decode_ascii(
+          document.bytes_,
+          directory_base + 0x0010,
+          4,
+          "unexpected end of BOO file while reading text");
   document.directory_.version_variant = document.bytes_[directory_base + 0x0013];
   document.directory_.token_threshold = document.bytes_[directory_base + 0x0014];
   document.directory_.last_page_number =
@@ -80,9 +88,17 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
   document.directory_.secondary_table_offset =
       read_be16(document.bytes_, directory_base + 0x0040);
   document.directory_.date =
-      decode_cp037(document.bytes_, directory_base + 0x0044, 8);
+      EbcdicCodec::cp037().decode_ascii(
+          document.bytes_,
+          directory_base + 0x0044,
+          8,
+          "unexpected end of BOO file while reading text");
   document.directory_.time =
-      decode_cp037(document.bytes_, directory_base + 0x004E, 8);
+      EbcdicCodec::cp037().decode_ascii(
+          document.bytes_,
+          directory_base + 0x004E,
+          8,
+          "unexpected end of BOO file while reading text");
 
   const auto last_physical_page =
       physical_page_for_logical(document.directory_,

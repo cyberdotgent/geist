@@ -49,7 +49,7 @@ TokenWords decode_dictionary_words(const std::vector<std::uint8_t>& bytes,
   TokenWords output;
   output.reserve(count);
   for (std::size_t i = 0; i < count; ++i) {
-    output.push_back(cp500_byte_to_token_word[bytes[offset + i]]);
+    output.push_back(EbcdicCodec::cp500().decode_word(bytes[offset + i]));
   }
   return output;
 }

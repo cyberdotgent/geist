@@ -17,17 +17,18 @@ namespace geist::detail {
 
 std::string decode_asset_id(const std::vector<std::uint8_t>& bytes,
                             std::size_t offset) {
-  auto id = trim_right_spaces(decode_cp037(bytes, offset, 8));
+  auto id = trim_right_spaces(EbcdicCodec::cp037().decode_ascii(
+      bytes, offset, 8, "unexpected end of BOO file while reading text"));
   id.erase(std::remove(id.begin(), id.end(), '?'), id.end());
   return id;
 }
 
 std::string legacy_kind_name(std::uint8_t kind) {
-  return std::string(1, decode_cp037_byte(kind));
+  return std::string(1, EbcdicCodec::cp037().decode_ascii_byte(kind));
 }
 
 std::string stored_format_for_legacy_kind(std::uint8_t kind) {
-  switch (decode_cp037_byte(kind)) {
+  switch (EbcdicCodec::cp037().decode_ascii_byte(kind)) {
   case 'G':
     return "legacy-gdf";
   case 'I':

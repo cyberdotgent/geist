@@ -384,7 +384,7 @@ void handle_text(ParserState& state,
   for (std::size_t i = text_offset; i < offset + length; ++i) {
     const auto ch = bytes[i];
     if (ch >= 0x40) {
-      const auto decoded = decode_cp037_byte(ch);
+      const auto decoded = EbcdicCodec::cp037().decode_ascii_byte(ch);
       text.push_back(decoded >= 0x20 && decoded <= 0x7e ? decoded : '?');
     }
   }

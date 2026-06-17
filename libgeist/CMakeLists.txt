@@ -34,7 +34,7 @@ find_package(GIF REQUIRED)
 
 set(GEIST_SOURCES
   src/document.cpp
-  src/encoding.cpp
+  src/ebcdic.cpp
   src/gdf.cpp
   src/io.cpp
   src/logical.cpp

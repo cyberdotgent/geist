@@ -31,7 +31,29 @@ struct TopicData {
   std::vector<std::string> raw_records;
 };
 
-extern const std::array<std::uint16_t, 256> cp500_byte_to_token_word;
+enum class EbcdicCodePage {
+  cp037,
+  cp500,
+};
+
+class EbcdicCodec {
+public:
+  explicit EbcdicCodec(EbcdicCodePage code_page) noexcept;
+
+  static const EbcdicCodec& cp037() noexcept;
+  static const EbcdicCodec& cp500() noexcept;
+
+  std::uint16_t decode_word(std::uint8_t byte) const noexcept;
+  char decode_ascii_byte(std::uint8_t byte,
+                         char replacement = '?') const noexcept;
+  std::string decode_ascii(const std::vector<std::uint8_t>& bytes,
+                           std::size_t offset,
+                           std::size_t count,
+                           const char* range_error) const;
+
+private:
+  const std::array<std::uint16_t, 256>* table_;
+};
 
 std::vector<std::uint8_t> read_file(const std::filesystem::path& path);
 std::uint16_t read_be16(const std::vector<std::uint8_t>& bytes,
@@ -44,10 +66,6 @@ bool byte_range_is_valid(const std::vector<std::uint8_t>& bytes,
                          std::uint64_t offset,
                          std::uint64_t size);
 
-char decode_cp037_byte(std::uint8_t byte);
-std::string decode_cp037(const std::vector<std::uint8_t>& bytes,
-                         std::size_t offset,
-                         std::size_t length);
 std::uint16_t map_token_word_to_lower_ascii(std::uint16_t word);
 std::uint16_t map_token_word_to_upper_ascii(std::uint16_t word);
 std::string token_words_to_ascii(const TokenWords& words);
