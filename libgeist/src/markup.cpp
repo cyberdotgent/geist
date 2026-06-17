@@ -450,6 +450,7 @@ std::string render_anchor_gml(std::string value) {
 struct GmlRenderState {
   std::string pending_topic_tag;
   bool in_generated_toc = false;
+  bool in_generated_title_page = false;
   bool emitted_toc = false;
   bool in_vnotice = false;
   bool emitted_vnotice_heading = false;
@@ -602,6 +603,27 @@ std::string apply_font_spans_to_text(std::string value,
   return output;
 }
 
+std::string render_generated_title_font_line(std::string value) {
+  const auto last_close = value.rfind(":ehp");
+  if (last_close == std::string::npos) {
+    return render_simple_gml_control("p", std::move(value));
+  }
+
+  const auto close_end = value.find('.', last_close);
+  if (close_end == std::string::npos || close_end + 1 >= value.size()) {
+    return render_simple_gml_control("p", std::move(value));
+  }
+
+  auto highlighted = trim_ascii(value.substr(0, close_end + 1));
+  auto trailing = trim_ascii(value.substr(close_end + 1));
+  if (highlighted.empty() || trailing.empty()) {
+    return render_simple_gml_control("p", std::move(value));
+  }
+
+  return render_simple_gml_control("p", std::move(highlighted)) + "\n" +
+         render_simple_gml_control("p", std::move(trailing));
+}
+
 std::string parse_fontdef_style(std::string value, std::string& code) {
   const auto equals = value.find('=');
   if (equals != std::string::npos) {
@@ -709,6 +731,9 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
     }
     return render_simple_gml_control("note", std::move(trailing));
   }
+  if (state.in_generated_title_page) {
+    return render_generated_title_font_line(std::move(trailing));
+  }
   return render_simple_gml_control("pinline", std::move(trailing));
 }
 
@@ -753,6 +778,7 @@ std::string render_gml_segment(std::string segment,
       const auto tag = state.pending_topic_tag;
       state.pending_topic_tag.clear();
       if (bookmaster_topic_tag_takes_title(tag)) {
+        state.in_generated_title_page = false;
         state.in_vnotice = false;
         state.emitted_vnotice_heading = false;
         state.pending_copyright_extension = false;
@@ -761,6 +787,7 @@ std::string render_gml_segment(std::string segment,
       if (tag == "toc") {
         state.emitted_toc = true;
       }
+      state.in_generated_title_page = tag == "cover" || tag == "tipage";
       state.in_vnotice = tag == "vnotice";
       state.emitted_vnotice_heading = false;
       state.pending_copyright_extension = false;

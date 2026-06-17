@@ -173,6 +173,15 @@ std::string render_inline_markdown(std::string text) {
   return output;
 }
 
+bool has_inline_highlight_markup(const std::string& text) {
+  for (const auto* tag : {":hp1.", ":hp2.", ":hp3."}) {
+    if (text.find(tag) != std::string::npos) {
+      return true;
+    }
+  }
+  return false;
+}
+
 std::string gml_markdown_content(const std::string& record) {
   return render_inline_markdown(gml_content(record));
 }
@@ -211,9 +220,59 @@ void append_title_page_line_part(std::vector<std::string>& lines,
                                  std::size_t begin,
                                  std::size_t end) {
   auto part = trim_ascii(line.substr(begin, end - begin));
-  if (!part.empty()) {
-    lines.push_back(std::move(part));
+  if (part.empty()) {
+    return;
   }
+
+  if (ascii_starts_with_case_insensitive(part, "Document Number ")) {
+    static const std::array<const char*, 12> months = {
+        "January ",   "February ", "March ",    "April ",
+        "May ",       "June ",     "July ",     "August ",
+        "September ", "October ",  "November ", "December "};
+    auto date_begin = std::string::npos;
+    for (const auto* month : months) {
+      const auto found = part.find(month);
+      if (found != std::string::npos) {
+        date_begin = std::min(date_begin, found);
+      }
+    }
+    if (date_begin != std::string::npos && date_begin > 0) {
+      auto document_number = trim_ascii(part.substr(0, date_begin));
+      if (!document_number.empty()) {
+        lines.push_back(std::move(document_number));
+      }
+
+      auto date_end = part.size();
+      const auto comma = part.find(',', date_begin);
+      if (comma != std::string::npos) {
+        auto cursor = comma + 1;
+        while (cursor < part.size() &&
+               std::isspace(static_cast<unsigned char>(part[cursor])) != 0) {
+          ++cursor;
+        }
+        auto year_end = cursor;
+        while (year_end < part.size() &&
+               std::isdigit(static_cast<unsigned char>(part[year_end])) != 0) {
+          ++year_end;
+        }
+        if (year_end > cursor) {
+          date_end = year_end;
+        }
+      }
+
+      auto date = trim_ascii(part.substr(date_begin, date_end - date_begin));
+      auto trailing = trim_ascii(part.substr(date_end));
+      if (!date.empty()) {
+        lines.push_back(std::move(date));
+      }
+      if (!trailing.empty()) {
+        lines.push_back(std::move(trailing));
+      }
+      return;
+    }
+  }
+
+  lines.push_back(std::move(part));
 }
 
 bool is_title_page_metadata_line(const std::string& line) {
@@ -281,18 +340,21 @@ void append_title_page_markdown(std::string& output,
                                 std::size_t& line_count,
                                 bool& title_block_complete,
                                 std::vector<std::string>& pending_bold_lines) {
-  for (auto line : split_title_page_lines(text)) {
+  for (auto raw_line : split_title_page_lines(text)) {
     const auto title_block_line =
         is_cover ? line_count < 2
                  : !title_block_complete &&
-                       !is_title_page_metadata_line(line);
+                       !is_title_page_metadata_line(raw_line);
     if (!title_block_line) {
       title_block_complete = true;
       flush_pending_title_page_lines(output, pending_bold_lines);
     }
 
+    auto line = render_inline_markdown(raw_line);
     if (title_block_line) {
-      line = "**" + line + "**";
+      if (!has_inline_highlight_markup(raw_line)) {
+        line = "**" + line + "**";
+      }
       if (!is_cover) {
         pending_bold_lines.push_back(std::move(line));
         ++line_count;
@@ -675,7 +737,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
     if (in_title_page) {
       if (tag == "p") {
         append_title_page_markdown(output,
-                                   gml_markdown_content(record),
+                                   gml_content(record),
                                    title_page_is_cover,
                                    title_page_line_count,
                                    title_block_complete,
