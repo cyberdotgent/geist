@@ -6,9 +6,7 @@
 
 First Edition, January 27, 2026
 
-This is the initial version of this document, so it is likely to have all manner of errors.
-
-Evie Cooper 2026
+This is the initial version of this document, so it is likely to have all manner of errors. Evie Cooper 2026
 
 Not for use where life or limb may be at risk.
 

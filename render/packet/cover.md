@@ -6,9 +6,7 @@ Previous | [Index](README.md) | [Next](title.md)
 
 **Amateur Packet Radio**
 
-**A Complete Tutorial**
-
-Evie Cooper
+**A Complete Tutorial Evie Cooper**
 
 Document Number 9963-0413-56
 

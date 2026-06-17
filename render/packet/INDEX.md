@@ -4,525 +4,7 @@
 
 # Index
 
-cidelm
-
-A
-
-AX.25 Protocol
-
-1
-
-2.1
-
-Digipeater
-
-2
-
-2.1.3
-
-HDLC
-
-2
-
-2.1.4
-
-KISS
-
-2
-
-2.1.4
-
-Packet format
-
-2
-
-2.1.3
-
-PID/protocol numbers
-
-2
-
-2.1.3
-
-SSID
-
-2
-
-2.1.1
-
-Window Size
-
-2
-
-2.1.3
-
-D
-
-Dire Wolf
-
-1
-
-3.8
-
-I
-
-IP (Internet Protocol)
-
-1
-
-2.4
-
-Subnetting
-
-2
-
-2.4.2
-
-CIDR notation
-
-3
-
-2.4.2
-
-J
-
-JNOS
-
-1
-
-4.0
-
-Advanced topics
-
-2
-
-IPIP tunnels
-
-3
-
-4.5.1
-
-IPv6
-
-3
-
-4.5.4
-
-PPP
-
-3
-
-4.5.3
-
-RIP
-
-3
-
-4.5.5
-
-SLIP
-
-3
-
-4.5.2
-
-ARP polling
-
-2
-
-4.3
-
-autoexec.nos
-
-2
-
-4.3
-
-AX.25 beaconing
-
-2
-
-4.3
-
-AX.25 heard list
-
-2
-
-4.3
-
-AX.25 tuning
-
-2
-
-4.3
-
-config.h entries
-
-2
-
-4.2.1
-
-DNS client
-
-2
-
-4.3
-
-escape (break) key
-
-2
-
-4.3
-
-ftpusers file
-
-2
-
-4.3.1
-
-ICMP options
-
-2
-
-4.3
-
-IP address and hostname
-
-2
-
-4.3
-
-JNOS BBS
-
-2
-
-4.4.1
-
-Advanced shell mode
-
-3
-
-4.4.2
-
-Sysop shell mode
-
-3
-
-4.4.3
-
-User registration
-
-3
-
-4.4.1
-
-users.dat file
-
-3
-
-4.4.1
-
-JNOS commands
-
-2
-
-connect (AX.25)
-
-3
-
-4.4
-
-connect (NET/ROM)
-
-3
-
-4.4
-
-ifconfig
-
-3
-
-4.4
-
-KISS TNC device
-
-2
-
-4.3
-
-NET/ROM tuning
-
-2
-
-4.3
-
-NOSaprs
-
-2
-
-4.6
-
-route command
-
-2
-
-4.3
-
-rsync download
-
-2
-
-4.2
-
-Servers
-
-2
-
-FTP
-
-3
-
-4.3
-
-HTTP
-
-3
-
-4.3
-
-SMTP
-
-3
-
-4.3
-
-TCP tuning
-
-2
-
-4.3
-
-Tunnel device
-
-2
-
-4.3
-
-Tunnels
-
-2
-
-AX/IP
-
-3
-
-4.3
-
-AX/UDP
-
-3
-
-4.3
-
-univperm (in ftpusers)
-
-2
-
-4.3.1
-
-L
-
-Linux AX.25
-
-1
-
-3.1
-
-Adjacent node discovery
-
-2
-
-AX.25 beacon command
-
-3
-
-3.2.3
-
-AX.25 listen command
-
-3
-
-3.2.3
-
-AX.25 mheard command
-
-3
-
-3.2.3
-
-Multiprotocol netstat command
-
-3
-
-3.2.3
-
-NET/ROM nodes files
-
-3
-
-3.2.3
-
-Compiling
-
-2
-
-3.1
-
-Configuring Ports
-
-2
-
-AX.25
-
-3
-
-3.2
-
-NET/ROM
-
-3
-
-3.2
-
-ROSE
-
-3
-
-3.2
-
-Connection commands
-
-2
-
-AX.25
-
-3
-
-3.2.2
-
-NET/ROM
-
-3
-
-3.2.2
-
-ROSE
-
-3
-
-3.2.2
-
-ifconfig output
-
-2
-
-3.2.2
-
-Port configuration/daemons
-
-2
-
-kissattach
-
-3
-
-3.2.1
-
-kissparms
-
-3
-
-3.2.1
-
-Modules
-
-3
-
-3.2.1
-
-netromd
-
-3
-
-3.2.1
-
-nrattach
-
-3
-
-3.2.1
-
-rsattach
-
-3
-
-3.2.1
-
-TCP/IP
-
-2
-
-3.3
-
-Routing
-
-3
-
-3.3.2
-
-Telnet
-
-3
-
-3.3.1
-
-N
-
-NET/ROM
-
-1
-
-2.2
-
-Addressing
-
-2
-
-2.2.1
-
-NRS (NET/ROM Serial Protocol)
-
-2
-
-2.2.3
-
-Routing (quality)
-
-2
-
-2.2.2
-
-R
-
-ROSE
-
-1
-
-2.3, cendindex
-
-...
-
-# have callsign. :
+... # have callsign. : ,
 
 . * FN 27 41 38 BPQ Protocol * 40 was coordinate hWA4XYZ -- as
 
@@ -532,61 +14,23 @@ I
 
 - and up 50 FN XMP ! has AX firmware TCP FN I
 
-.
+. . ... . . ..... ) . .. is., . $.
 
-.
+. , command ) your -- ..
 
-... .
+. . , command ) your -- ..
 
-.
+. ! . ,. command * * which / ..
 
-..... ) . .. is.,
-
-. $.
-
-.
-
-command ) your
-
--- ..
-
-.
-
-.
-
-command ) your
-
--- ..
-
-. !
-
-.
-
-. command * * which
-
-/ ..
-
-. !
-
-.
-
-. command * * which
-
-/ ..
+. ! . ,. command * * which / ..
 
 . connections..... not...... .... was "..
 
-.
+. .
 
 .
 
-.
-
-. !
-
-.
-
-command ) your "
+. ! . , command ) your "
 
 .,
 
@@ -616,17 +60,9 @@ command ) your "
 
 . #
 
-.,
+., . , command ) your -
 
-.
-
-command ) your
-
--
-
-. connections
-
-not ; you "
+. connections , not ; you "
 
 . connections..... not...... .... was "..
 
@@ -640,17 +76,9 @@ AN EXMP.
 
 . have. commands ! in
 
-. have. FN
+. have. FN .
 
-.
-
-. have. .. .
-
-..
-
-..
-
-., # is
+. have. .. . .. .. ., # is
 
 . . FN 26 9
 
@@ -660,49 +88,17 @@ AN EXMP.
 
 *.
 
-.
-
-16
-
-;
-
-If
-
-7
-
-KISS
-
-168
-
-) If will,
-
-protocolcommands port
-
-I
+. 16 ; If 7 KISS 168 ) If will, protocolcommands port I
 
 . 46
 
 . EXMP.
 
-. have. ,.
+. have. ,. /.. . ( . jnos
 
-/..
+. this .. .
 
-. (
-
-.
-
-jnos
-
-. this ..
-
-.
-
-. 45 .... "..
-
-.
-
-.
+. 45 .... ".. . , .
 
 . . FN 26 9
 
@@ -710,121 +106,45 @@ jnos
 
 [12 ORing](#commands)
 
-.
-
-was # network 1 has
-
-) connections port ),
-
-22
-
-Linux Telnet
+. was # network 1 has
 
 port # the,
 
-. KISS for,
+. KISS for, at
 
-at
+. however up 47 ax25 41 start CONTROLS and 39 -- E ve7apu 168 jnos " 26 * KISS BREAK BBS DT 15 /
 
-.
-
-however up 47 ax25 41 start CONTROLS and 39 -- E ve7apu 168 jnos " 26 * KISS BREAK BBS DT 15 /
-
-will 13 need protocol * 130 I
-
-. .
-
-..
-
-.
-
-.
-
-.
-
-"
-
-!
-
-an
+. . ,,, , , .. , . . ,. " ! an
 
 . have. The is
 
-. it,
+. it, ! -- #
 
-!
+. it, ) -- #
 
--- #
+. name ; has
 
-. it, )
+. it,. *, . - #.
 
--- #
+. name, * has
 
-. name ;
-
-has
-
-. it,. *,
-
-. - #.
-
-. name, *
-
-has
-
-. it,
-
-!
-
--- #
+. it, ! -- #
 
 . of 920
 
-40 34 your AX 38 netrom an is 24 "
-
-AX BBS which 7
-
-If 33
-
-commands
-
-. ...
-
-will.
+. ... will.
 
 . * ( 63, *
 
 . 30 jnos.
 
-. is
+. is . . . . (...., . !.. >
 
 .
 
-.
+.( , IP ( the command I. cz
 
-. . (....,
-
-. !..
-
->
-
-.
-
-.( , IP ( the
-
-command
-
-I. cz
-
-.
-
-.
-
-_
-
-. , for
-
-.,...,. and. .,.
+. . _ . , for .,...,. and. .,.
 
 . . command
 
@@ -840,49 +160,15 @@ which command... I
 
 * 32 42 WA4XYZ
 
-can' PACKET
+. packets _
 
-a which
+. an can , I ' commands cparentconnections , , _ 42 commandsin, I . In commands from
 
-can) )
-
-.
-
-packets _
-
-*
-
-.
-
-an can
-
-I ' commands cparentconnections
-
-_
-
-42 commandsin, I
-
-. In commands from
-
-. (
-
-0 ) )use
-
-are* retry
+. ( 0 ) )use are* retry
 
 . FLOW.
 
-I
-
-commandscommands ; 45 .. 192
-
-whichchdlevel// have.) IP I
-
-.
-
-I FN 41
-
-can " desired the P you 7
+. I FN 41
 
 P
 
@@ -905,13 +191,7 @@ packet 24 an,,
 
 37
 
-. need .,
-
-. in ;
-
-.
-
-but
+. need ., . in ;
 
 35 with
 
@@ -943,21 +223,13 @@ but
 
 . protocol
 
-:
-
 .
 
 .
 
 .
 
-" and
-
-".
-
-..
-
-;
+" and ". , .. , ;
 
 . /
 
@@ -965,11 +237,7 @@ but
 
 . 49.. ;, callsign
 
-.,..,.., . .., ,
-
-. --
-
-!.
+.,..,.., . .., , , . -- !.
 
 32
 
@@ -977,9 +245,7 @@ but
 
 as
 
-. as
-
-'. you a. #
+. as '. you a. #
 
 55
 
@@ -991,27 +257,11 @@ radio
 
 . netrom
 
-:.
-
-.
-
-.,
-
-connections
-
 .
 
 . government ( >
 
-. ,.,
-
-by,
-
-.
-
-.
-
-10
+. ,., by, . . , 10
 
 jnos
 
@@ -1023,9 +273,7 @@ jnos
 
 .
 
-0, the
-
-by
+0, the by
 
 node
 
@@ -1053,13 +301,7 @@ can
 
 as ; is
 
-.
-
-.. . , ,
-
-.
-
-.
+. ,,.. . , , . . , ,
 
 an 35
 
@@ -1067,13 +309,7 @@ up
 
 ROM Packet
 
-; .
-
-.
-
-) ,.... ...
-
-(
+; . . , ) ,.... ... (
 
 Hello
 
@@ -1087,33 +323,15 @@ _
 
 .
 
-.
-
-.
-
-.,
-
-. by .
-
-.
-
-. .
+. . ., . by . . , . .
 
 . this by. 22
 
-address
-
->
+address >
 
 "
 
-.
-
-.
-
-....
-
-your connections your,
+. . .... your connections your,
 
 20
 
@@ -1137,25 +355,11 @@ used >
 
 - 42 ) I
 
--
-
-notcommandscommands.I it 2commands
-
-I
-
 . EXMP
 
 .
 
-* FN was you 41 ftnftnuniq72 7 maxroutes : 48 TNC.
-
-command
-
-BBS
-
-up ccp or JNOS 168 of
-
-connections 56 ) 12 netrom 122 I
+* FN was you 41 ftnftnuniq72 7 maxroutes : 48 TNC. command BBS up ccp or JNOS 168 of connections 56 ) 12 netrom 122 I
 
 _
 
@@ -1169,19 +373,11 @@ to
 
 56
 
-. are -. 19
-
-. #
+. are -. 19 . #
 
 E
 
-.
-
-.
-
-(
-
-. :, >
+. . ( . :, >
 
 . ( jnos
 
@@ -1197,19 +393,13 @@ are
 
 > 43
 
-...... . an
+[an](#an)
 
 .
 
 . from, be --. 5
 
-.
-
-a as, ifconfig....... can.
-
-.
-
-.
+. a as, ifconfig....... can. . ,,.
 
 . .
 
@@ -1271,21 +461,9 @@ use
 
 37 >
 
-.
+. ax25 ROM This of 47 E connections 17 42
 
-ax25
-
-ROM This of 47
-
-E connections 17 42
-
-I
-
-If The )
-
-). /
-
-of
+I If The ) ). /
 
 45
 
@@ -1305,29 +483,15 @@ s
 
 . 28, as
 
-.
-
-....
+. ....
 
 - 42
 
-..
-
-...
-
-.
-
-..
-
-. /
-
-.
+.. ... . .. . / , ,.
 
 *
 
-as. .,
-
-:
+[:](#?)
 
 Linux to
 
@@ -1351,70 +515,46 @@ node 3 and
 
 XMP
 
-. ) not
-
-' * at
+. ) not ' * at
 
 have
 
 . #
 
 
-.
+. , a XMP used
 
-a XMP used
-
-.
-
-67 =. The #
-
-node an,set I I.commands 16 .
+. 67 =. The #
 
 14
 
 .
 
-.
-
-= 1.
-
 39
 
 . 14
 
-. it -.
-
-. ; '
+. it -. . ; '
 
 . 15
 
 . .
 
-will
-
-ax25 10
+will ax25 10
 
 39
 
-. netrom
-
-connections.,,.., ,
+. netrom connections.,,.., ,
 
 . 3.,.., .
 
 .
 
-.AND Bringing commands
-
-at
-
-RLOGINPORT I,
+.AND Bringing commands at
 
 EXMP
 
-. APRS
-
-'
+. APRS '
 
 . 4
 
@@ -1432,11 +572,7 @@ EXMP
 
 .
 
-have
-
-. name. *
-
-have
+. name. * have
 
 . of name
 
@@ -1444,9 +580,7 @@ have
 
 . 43
 
-...
-
-.
+... .
 
 (
 
@@ -1454,13 +588,7 @@ have
 
 .
 
-. ..,
-
-.
-
-at ! in
-
-and --.
+. .., . at ! in and --.
 
 . and and
 
@@ -1480,17 +608,7 @@ callsign for
 
 19
 
-address $ address
-
-..
-
-.
-
-.......
-
-.,
-
-..,,,
+address $ address .. . ....... ,., ..,,,
 
 . 24
 
@@ -1512,41 +630,21 @@ FN 41 hostnames FN 49 33 4 34 54 DT KISS usr
 
 /
 
-_
-
--
-
 TCP
 
 .
 
 35 used
 
-. .,.
+. .,. not
 
-not
+. . . can.. > . (
 
-.
-
-.
-
-.
-
-can.. >
-
-.
-
-(
-
-. ( with
-
-network
+. ( with network
 
 . this
 
-connections
-
-DT an
+connections DT an
 
 .
 
@@ -1554,27 +652,17 @@ DT an
 
 .
 
-;
-
->
-
-= need at
+; > = need at ,
 
 . BPQ
 
 :. !.
 
-.
-
-Linux
-
 . .
 
 . . IP 17
 
-. -
-
-If >
+. - If >
 
 26
 
@@ -1586,41 +674,23 @@ If >
 
 . ...,
 
-. =
-
-# are
+. = # are
 
 57 has
 
 .
 
-.
+. has OFF
 
-has OFF
-
-will.,
+will., .
 
 .
 
-.
-
-..,
-
-.
-
-., '
-
-.
-
-:
-
-.
+: .
 
 ..
 
-. will.
-
-> I,
+. will. > I,
 
 15
 
@@ -1640,9 +710,7 @@ callsign
 
 .
 
-.
-
-=
+. =
 
 
 .
@@ -1653,17 +721,7 @@ radio
 
 . , / 10
 
-as,
-
-..
-
-.
-
-. . :, ,
-
-.. >
-
-.,
+as, .. . . . :, , .. > .,
 
 .
 
@@ -1685,79 +743,27 @@ by
 
 . protocol
 
-.
-
-.
-
-.
-
-.
-
-., ,, .
-
-.
-
-. , ! ,
-
-it
-
-I
-
-I - it 42 which 0commands
-
-KISS,
-
-16I, 28 28
+. . . , , , ,.
 
 ...,
 
-. ;
-
-..,,. :
-
-.. .
+. ; ..,,. : .. .
 
 56
 
-and
-
-can callsign.,..., '
-
-. .. command
+and can callsign.,..., ' . .. command
 
 33 ! s
 
 48
 
-.
+. , . _. .
 
-.
+; .. . (. ), , ; . , .
 
-_.
-
-.
-
-; ..
-
-. (.
-
-),
-
-;
-
-.
-
-.
-
-;
-
-: at that are,
+; : at that are,
 
 . ( address *
-
-46 BBS of 4 1 itIP
-
-The ) commands / some
 
 . ,
 
@@ -1765,17 +771,13 @@ The ) commands / some
 
 -
 
-.
-
-but
+. but
 
 . XMP, NET be
 
 or.
 
-$
-
-34 connections
+$ 34 connections
 
 FN
 
@@ -1809,17 +811,13 @@ address
 
 .
 
-. > .
-
 as
 
 use. This )
 
 .
 
-. > other command
-
-.
+. > other command .
 
 . E
 
@@ -1845,9 +843,7 @@ IP
 
 .
 
-.... .,
-
-50. #
+.... ., 50. #
 
 network
 
@@ -1868,23 +864,17 @@ but,
 
 . has packet
 
-#,
-
 64 and !
 
 41..
 
-.
-
-.
+. .
 
 XMP
 
 10
 
-=, ) have
-
-jnos
+=, ) have jnos
 
 .
 
@@ -1909,12 +899,6 @@ TCP
 JNOS 21
 
 . I restarting 48 are-- 22-/ 60 you =
-
-not FLOW
-
-)
-
-) 42
 
 LI
 
@@ -1943,13 +927,9 @@ an
 
 .
 
-. PACKET
+. PACKET jnos
 
-jnos
-
-from,. ax25
-
-jnos
+from,. ax25 jnos
 
 . ax25 / 168
 
@@ -1961,9 +941,7 @@ jnos
 
 .
 
-.
-
-LI
+. LI
 
 . _
 
@@ -1973,7 +951,7 @@ LI
 
 . ! BPQ JNOS
 
-.,
+., ,,
 
 .,,.....
 
@@ -1983,69 +961,23 @@ LI
 
 17
 
-. some.
-
-for at
+. some. , for at
 
 .
 
-0 network
+0 network , # _.
 
-# _.
+node. ,, ,. and .. ,,
 
-node. ,,
-
-. and
-
-..
-
-from,.
-
-.
-
-*
-
-.
-
-..
-
-.
-
-/
-
-..
-
-address.
+from,. . , * , . .. , . / .. address.
 
 22 in
 
 *
 
-.
+. .. ! ! -..., by., ,. .,. *, .. ,,...,. .
 
-..
-
-! ! -..., by.,
-
-.
-
-.,. *,
-
-..
-
-...,.
-
-.
-
-commands -
-
-protocol
-
-), > commands 43 63 ROM If
-
-itcommands) -- I
-
-PACKET 46 -I mode ;
+commands - protocol ), > commands 43 63 ROM If itcommands) -- I PACKET 46 -I mode ;
 
 IP
 
@@ -2075,11 +1007,7 @@ an
 
 . Engineering
 
-. ,
-
-..,
-
-. ifconfig NET.
+. , .., . ifconfig NET.
 
 .
 
@@ -2091,11 +1019,7 @@ an
 
 .
 
-.
-
-.
-
-. an address ; name *
+. , ,. . an address ; name *
 
 FLOW
 
@@ -2151,16 +1075,6 @@ DT
 
 . " address
 
-;
-
-. $,
-
-... ;
-
-..
-
-_ "
-
 
 . 2
 
@@ -2176,33 +1090,21 @@ _ "
 
 ( .
 
-JNOS jnos
-
-.
+JNOS jnos .
 
 . packets
 
-. 21
+. 21 .,....
 
-.,....
-
-which
-
-LI,
+which LI,
 
 .
 
 TCP
 
-are >
+are > , connections. .,..., --
 
-connections. .,..., --
-
-name
-
-. ,
-
-.. was -
+name . , .. was -
 
 node.
 
@@ -2240,25 +1142,15 @@ has 1
 
 Telnet
 
-name. *
+name. * have
 
-have
-
-. connections /
-
-..
-
-can
+. connections / .. can
 
 .
 
-it
+it -- > as some
 
--- > as some
-
-. TNC
-
-the )
+. TNC the )
 
 41
 
@@ -2284,27 +1176,17 @@ PACKET
 
 . *
 
-. " KISS
-
-"
-
-..., !
-
-in.
+. " KISS "
 
 jnos LI
 
-.
-
-. .
+. . .
 
 ( :
 
 . callsign will OFF
 
-;
-
-' which port
+; ' which port
 
 . a for you / $
 
@@ -2314,41 +1196,19 @@ callsign
 
 . ! 37
 
-. node. .
+. node. . $ a. ! .. packet
 
-$ a. !
+. ,
 
-.. packet
+.. but
 
-.
+ax25. (. . ! ... . = .... or.
 
-..
-
-but
-
-ax25.
-
-(.
-
-. !
-
-...
-
-.
-
-=
-
-.... or.
-
-/
-
-. command by 57
+/ . command by 57
 
 . will 8
 
-. command some
-
-;,
+. command some ;,
 
 .
 
@@ -2358,11 +1218,7 @@ ax25.
 
 . TNC 60
 
-. /
-
-(
-
-. mode
+. / (
 
 .
 
@@ -2374,21 +1230,13 @@ ax25.
 
 PACKET.
 
-Telnet
+Telnet ,.... 26
 
-.... 26
-
-$
-
-a
-
-I
+$ a
 
 XMP
 
-( '
-
-an name
+( ' an name
 
 25. can, :
 
@@ -2407,8 +1255,6 @@ address
 has
 
 callsign
-
-;, with
 
 command ;.
 
@@ -2434,17 +1280,7 @@ at
 
 18
 
-I.
-
-KISS ) 16 46 port jnos
-
-50, 42
-
-commands
-
-44
-
-42 as commandscommands )
+KISS ) 16 46 port jnos 50, 42 ,commands 44 42 as commandscommands )
 
 0
 
@@ -2454,17 +1290,13 @@ commands
 
 it address
 
-.
-
-protocol . >
+. protocol . >
 
 32 at ifconfig
 
 callsign
 
 .
-
-35
 
 . 2
 
@@ -2490,15 +1322,9 @@ callsign
 
 which FN
 
-will an.
+will an. for. .
 
-for.
-
-.
-
-address
-
-:.. . -- for this
+address :.. . -- for this
 
 . callsign
 
@@ -2530,17 +1356,9 @@ Flat
 
 .
 
-. ;,
+. ;, , : in.,..., ) are
 
-: in.,...,
-
-) are
-
-.,
-
-callsign
-
-) "
+., callsign
 
 .
 
@@ -2558,13 +1376,7 @@ set "
 
 which ifconfig
 
-. it.,. .
-
-.
-
-.
-
-. some
+. it.,. . . , . . some
 
 Protocol
 
@@ -2578,9 +1390,7 @@ Protocol
 
 .
 
-.
-
-17 ( : are
+. 17 ( : are
 
 BPQ
 
@@ -2590,9 +1400,7 @@ with
 
 network 3
 
-.
-
-49.... /
+. 49.... /
 
 edl
 
@@ -2610,17 +1418,11 @@ usr
 
 .
 
-) BPQ
-
-be address
+) BPQ be address
 
 . 3 PACKET
 
 . not
-
-#
-
-.,
 
 32. ..
 
@@ -2640,29 +1442,17 @@ a
 
 ).
 
-up
+up which .
 
-which .
-
-10 * command
-
-$ *
+10 * command $ *
 
 . at '
 
 _ 5
 
-. !
+. ! in >. by
 
-in >. by
-
-packet ,,
-
--. ,,.
-
-..
-
-. $
+packet ,, -. ,,. .. . $
 
 .
 
@@ -2684,43 +1474,25 @@ used at
 
 TCP
 
-.
+. has.. . BREAK DT.
 
-has.. . BREAK DT.
-
->
-
-be _ =
-
-.
+> be _ = .
 
 KISS
 
 . E
 
-. and
-
-can
+. and can
 
 .
 
-in,.,. .
-
-.
-
-.,.,. .
-
-/. in
+in,.,. . . ,,,.,.,. . /. in
 
 up
 
-.
+. #,.., callsign BBS..
 
-#,.., callsign BBS..
-
-up
-
-.,
+up .,
 
 . by with
 
@@ -2730,9 +1502,7 @@ up
 
 .
 
-it
-
-this
+it this
 
 .
 
@@ -2750,23 +1520,9 @@ is
 
 .
 
-. (
+. ( . . " port ax25
 
-. .
-
-"
-
-port ax25
-
-an,..,
-
-/. .
-
-.. ,
-
-.
-
-),
+an,.., /. . .. , . ),
 
 up
 
@@ -2774,9 +1530,7 @@ up
 
 . --
 
--
-
-27
+- 27
 
 43 packets
 
@@ -2790,9 +1544,7 @@ up
 
 .
 
-.
-
-ax25 BBS : ifconfig
+. ax25 BBS : ifconfig
 
 break node
 
@@ -2860,9 +1612,7 @@ and an " $
 
 . XMP
 
-. $
-
---
+. $ --
 
 .
 
@@ -2874,45 +1624,21 @@ and an " $
 
 <a id="FTNFTNUNIQ1"></a>
 
-*. radio >
-
-) . - at callsign.
+*. radio > ) . - at callsign.
 
 . commands
 
-an JNOS
+[the](#?)
 
-the
+/.., .., 34 . and .
 
-/..,
+. at
 
-.., 34
-
-.
-
-and .
-
-.
-
-at
-
-packet
-
-.
-
-. .
-
-are
-
-;..,,
-
-and
+packet ,. . . are ;..,, and
 
 AX, other
 
-$
-
-; jnos
+$ ; jnos
 
 . PACKET
 
@@ -2924,56 +1650,24 @@ DT
 
 . a
 
-.
-
-.
-
-. > and,
-
-!
-
-$.
-
-.
-
-..
-
-)
+. . . > and, ! $. . .. )
 
 _
 
-. are
+. are ;
 
-;
-
-one..
-
-.
+one.. .
 
 
 . > has
 
 ..
 
-- )
-
-; #. The
-
-)
-
-commandscbacklevel
-
-/
-
 have
 
 .
 
-. . $ BPQ $ not 1 28 1500 IP will ax25 42 P. 20 local usr
-
-16
-
-equipment NET
+. . $ BPQ $ not 1 28 1500 IP will ax25 42 P. 20 local usr 16
 
 . 64 have
 
@@ -2983,11 +1677,7 @@ an but The
 
 .
 
-.
-
-_ a.
-
-commands. ; KISS
+. _ a. commands. ; KISS
 
 .
 
@@ -2995,21 +1685,11 @@ commands. ; KISS
 
 _
 
-. .......,..., ..
-
-..
-
-.
-
-other --
-
-$
+. .......,..., .. ,.. . other -- $
 
 commands
 
-. get
-
-. If.
+. get . If.
 
 your Packet
 
@@ -3017,21 +1697,13 @@ your Packet
 
 . will
 
-. . / , a 0 commands
-
-#, I commands 42 I ) with. commands I, commandsI
-
-5. commands.
+. . / , a 0 commands #, I commands 42 I ) with. commands I, commandsI 5. commands.
 
 . Packet
 
 .
 
 OFF
-
-packet ,
-
-will
 
 38
 
@@ -3047,9 +1719,7 @@ will
 
 38
 
-. by jnos is
-
---
+. by jnos is --
 
 0. This
 
@@ -3073,9 +1743,7 @@ connections be 20
 
 21
 
-Telnet,. ifconfig
-
-at
+Telnet,. ifconfig , at
 
 38,,.
 
@@ -3095,13 +1763,7 @@ at
 
 . 22
 
-.
-
-..
-
-address has
-
-set
+. .. address has set
 
 up.
 
@@ -3121,9 +1783,7 @@ radio
 
 .
 
-( an . .
-
-. s >,,
+( an . . . s >,,
 
 can
 
@@ -3143,17 +1803,13 @@ can
 
 . 55
 
-.
-
-address
+. address
 
 with
 
 .
 
-was a commands
-
-your
+was a commands your
 
 .
 
@@ -3163,9 +1819,7 @@ used
 
 .
 
-36 command
-
-".
+36 command ".
 
 WA4XYZ :.,...,
 
@@ -3185,15 +1839,11 @@ WA4XYZ :.,...,
 
 . is
 
-.
-
-...
+. ...
 
 DT 23 set !
 
-[45](#45)
-
-P ifconfig
+[P ifconfig](#45?)
 
 .. you 2
 
@@ -3210,15 +1860,7 @@ $ the This. * ax25
 
 21
 
-/
-
-(
-
-..
-
-_. =
-
-=,
+/ , ( , .. _. = =,
 
 40.
 
@@ -3230,11 +1872,9 @@ JNOS but has command
 
 # ,
 
-callsign
+callsign ,
 
-and :
-
-/
+and : /
 
 . implementing
 
@@ -3248,29 +1888,17 @@ sh5.2.3
 
 .
 
-. an
-
-22 $ '
+. an 22 $ '
 
 . -
 
-.
-
-....,,. * ,. !
-
-.
-
-.,.,
-
-.
+. ....,,. * ,. ! . .,., .
 
 IP address PACKET !
 
 . :
 
-P
-
-ifconfig *
+P ifconfig *
 
 34
 
@@ -3278,13 +1906,9 @@ ifconfig *
 
 .
 
-.
-
 and
 
 as
-
-will.
 
 64
 
@@ -3294,19 +1918,11 @@ you
 
 . 57
 
-KISS
-
-7.on, - .)
-
 callsign. , the
 
 command
 
 _ mode command
-
-!
-
-.
 
 .,
 
@@ -3328,29 +1944,15 @@ IP
 
 --
 
-28 )
-
-42 IP - commands
-
-42
-
-radio
+28 ) 42 IP - commands
 
 .
-
-are
 
 troubled
 
 .
 
 . has
-
-., .
-
-.
-
-..
 
 . with
 
@@ -3362,9 +1964,7 @@ troubled
 
 .
 
-name. *
-
-have
+name. * have
 
 . /
 
@@ -3380,9 +1980,7 @@ have
 
 connections
 
-. address
-
-from or
+. address from or
 
 . 19
 
@@ -3390,19 +1988,9 @@ TCP
 
 34 27 5 other NET If ifconfig 42 usr )
 
-22 have
-
-45 can
-
-13:27:42 I
-
-. s.
-
-P
+. s. P
 
 ax25
-
-. a
 
 . 33 24
 
@@ -3412,9 +2000,7 @@ ax25
 
 up. on
 
-. some. .,
-
-IP,.
+. some. ., IP,.
 
 . has
 
@@ -3422,25 +2008,17 @@ IP,.
 
 <a id="ftnftnuniq10"></a>
 
-.
-
-" and ( APRS
+. " and ( APRS
 
 .
 
-Packet,
-
-(
+Packet, (
 
 -
 
 --
 
-. .
-
-can "
-
-as
+. . can " as
 
 .
 
@@ -3456,23 +2034,13 @@ not not
 
 .
 
-from...
-
-_
-
-.
-
-this
+from... _ . this
 
 by
 
-.
-
 as
 
-. ;
-
-_
+. ; _
 
 . is 5
 
@@ -3482,13 +2050,9 @@ Telnet EXMP
 
 . ) other node BBS.
 
-.
+. IP
 
-IP
-
-)
-
-I
+) STcommands I
 
 . commandsctoce. I 54
 
@@ -3498,29 +2062,15 @@ have
 
 name
 
-. *
-
-.
-
-..
-
-and . that
+. * ,. .. and . that
 
 .
 
 35
 
-_
-
 ..
 
-..
-
-/
-
-.
-
-* at
+.. , / . * at
 
 . set
 
@@ -3539,12 +2089,6 @@ _
 was which
 
 KISS which. 9 $chdlevel by
-
-are
-
-or # 42 amigaos port
-
-commandsII ) be I ) 42
 
 29.
 
@@ -3566,41 +2110,25 @@ usr.
 
 .
 
-. . .
+. . . , ax25 command.
 
-ax25 command.
-
-address.
-
-this command.
+address. , this command.
 
 rt
 
 .
 
-26,,
-
-.. .
+26,, .. .
 
 ..
 
 _
 
-31 your
-
-.
+31 your .
 
 . packets unusable 41 Linux
 
-an 17 BBS ; 14
-
-can
-
-Linux
-
-$
-
-If have
+an 17 BBS ; 14 can Linux $ If have
 
 . I
 
@@ -3612,9 +2140,7 @@ usr. set.,...,
 
 6,
 
-commands
-
-27 15
+commands 27 15
 
 23
 
@@ -3628,17 +2154,13 @@ commands
 
 .
 
-.
-
-E (
+. E (
 
 .
 
 . have. other
 
-. 60
-
-.,...,
+. 60 .,...,
 
 2
 
@@ -3646,17 +2168,9 @@ E (
 
 ROM
 
-by
+by , . /
 
-.
-
-/
-
-. --, ) can
-
-;.
-
-TCP
+. --, ) can ;. TCP
 
 . E
 
@@ -3668,17 +2182,9 @@ TCP
 
 .
 
-. . ,.
+. . ,. / connections.. . ., one ....
 
-/ connections..
-
-. ., one
-
-....
-
-node. '
-
-. /
+node. ' . /
 
 . 16
 
@@ -3696,17 +2202,11 @@ not
 
 .
 
-.
+. ,.
 
-.
+EXMP.. ! callsign.,..., PACKET
 
-EXMP.. ! callsign.,...,
-
-PACKET
-
-. s
-
-with
+. s with
 
 
 $
@@ -3723,23 +2223,11 @@ have
 
 This.
 
-. .
-
-)
-
->
-
-. s
+. . ) > . s
 
 .
 
-.
-
-.
-
-.
-
-some
+. . , . some
 
 pass123 used
 
@@ -3755,9 +2243,7 @@ mode > or
 
 ! has, ! the. *.
 
-Packet
-
-Linux..
+Packet Linux..
 
 from,
 
@@ -3779,21 +2265,9 @@ not > OFF
 
 .
 
-.
+. . . . . .
 
-.
-
-. .
-
-.
-
-.
-
-- .
-
-( )
-
-10
+( ) ,, 10
 
 . with
 
@@ -3804,72 +2278,25 @@ an
 . ,
 
 
-$
+$ . .. ; / . as .
 
-.
+255. ,.
 
-..
-
-; /
-
-. as
-
-.
-
-255.
-
-.
-
-*
-
-.
-
-)
-
-an
-
-.
-
-..
-
-.,
-
-..,
+* . ) , an . .. ., , ..,
 
 45
 
 19
 
-.
+. ,this 50 2 result).. commands, If
 
-this 50 2 result).. commands,
-
-If
-
-.)
-
-commands
-
---
-
-(
-
-.
-
-callsign
-
-.
+-- ( ,. , callsign .
 
 can .
 
-
-have
-
-".
+- ".
 
 Packet OFF
-
-EXMP
 
 . can
 
@@ -3883,13 +2310,7 @@ in
 
 node
 
-. EXMP..
-
-..
-
-/ -
-
-..
+. EXMP.. , , .. / - ,,..
 
 . !,
 
@@ -3899,23 +2320,13 @@ APRS > start
 
 can
 
-.
-
-.
-
-at,
+. . at,
 
 PVDEF
 
-the ,
+the , . * . callsign
 
-. *
-
-. callsign
-
-. some.., ! an
-
-*
+. some.., ! an *
 
 .
 
@@ -3925,9 +2336,7 @@ AX.
 
 . This.
 
-. ax25
-
-" $ ; / from
+. ax25 " $ ; / from
 
 an ax25 192
 
@@ -3935,9 +2344,7 @@ an ax25 192
 
 has
 
-.
-
-....
+. ....
 
 ! callsign
 
@@ -3969,17 +2376,13 @@ name / commands.,..., ,
 
 " . packets 39
 
-32
-
-; /
+32 ; /
 
 21
 
 44 ;
 
-. 40
-
-set
+. 40 set
 
 but
 
@@ -3991,19 +2394,7 @@ is
 
 .
 
-.
-
-.
-
-.
-
-.
-
-.
-
-.
-
-)
+. , ,. ,, . . . . )
 
 ROM
 
@@ -4030,11 +2421,7 @@ was E and
 which. not
 
 
-. $
-
-port start
-
-".
+. $ port start ".
 
 " 21
 
@@ -4048,9 +2435,7 @@ port start
 
 . node
 
-.
-
-..
+. ..
 
 ' .
 
@@ -4078,19 +2463,9 @@ mode 34 can. --
 
 26
 
-. 26
+. 26 .
 
-.
-
-.
-
-.
-
-and . as,. (
-
-..
-
-can
+. ,,. and . as,. ( .. can
 
 s 2
 
@@ -4110,23 +2485,17 @@ at
 
 .
 
-$ is
-
-...... -. $
+$ is , ...... -. $
 
 .
 
-address can protocol.
-
-. node
+address can protocol. . node
 
 ax25
 
 . an
 
-of
-
-.
+of .
 
 of
 
@@ -4144,9 +2513,7 @@ one,
 
 .
 
-. name. *
-
-have
+. name. * have
 
 . ) 36
 
@@ -4175,22 +2542,12 @@ The
 
 .
 
-.
-
-.,
-
-.
-
 .,.,
 
 
-. 168.
+[.](#?)
 
-.
-
-*
-
-3 ifconfig *
+* 3 ifconfig *
 
 will
 
@@ -4200,7 +2557,7 @@ or
 
 . a used
 
-your 39
+your 39 ,
 
 (.
 
@@ -4238,13 +2595,7 @@ TNC
 
 .. this..,,...........
 
-. used # directly commands
-
-I
-
-. commands,
-
-not
+. used # directly commands , I . commands, not
 
 ) cz
 
@@ -4262,17 +2613,11 @@ not
 
 protocol JNOS
 
-. (
-
-. .
-
-an
+. ( . . an
 
 ..,.
 
-This..
-
-.
+This.. .
 
 This
 
@@ -4280,31 +2625,9 @@ This
 
 57
 
---, 23
+--, 23 .,..., are !
 
-.,..., are
-
-!
-
-. !,
-
-...,,
-
-..
-
-.
-
-.
-
-. --
-
-.
-
-.
-
-;
-
-.
+. !, ...,, , .. . . ,. -- . . ; .
 
 . as
 
@@ -4326,21 +2649,9 @@ s..
 
 .
 
-_ : #.
+_ : #. other $ need
 
-other $ need
-
-. -
-
-42, > port
-
-commands
-
-)
-
-. I, ). was
-
-. commandscommands42
+. - 42, > port commands ) . I, ). was . commandscommands42
 
 port to
 
@@ -4348,23 +2659,9 @@ port to
 
 circumstancesST BREAK Packet I which 43 , BPQ 16. )
 
-. radioLinux 16
+[.'.](#..)
 
-=.
-
-,
-
-..
-
-. mode
-
-.
-
-!
-
-! ...,
-
-DT
+. mode . , ! , ! ..., DT
 
 not.
 
@@ -4372,15 +2669,7 @@ not.
 
 protocol 37
 
-.
-
-need 43
-
-with ax25 *. 28 ST) > 46
-
-168 I
-
-Ifport.
+. need 43 with ax25 *. 28 ST) > 46 168 I Ifport.
 
 16
 
@@ -4388,9 +2677,7 @@ Ifport.
 
 .
 
-have for ,
-
-. an # )
+have for , . an # )
 
 =
 
@@ -4400,11 +2687,7 @@ _
 
 .
 
-. =.
-
-ax25..,
-
-by -
+. =. , ax25.., by -
 
 This protocol
 
@@ -4418,15 +2701,9 @@ This protocol
 
 .
 
-. ) commands,
+. ) commands, 60address
 
-60address
-
-55 callsign.
-
-FN the44# address,
-
-60 If commandsI
+FN the44# address, , 60 If commandsI
 
 > .
 
@@ -4462,47 +2739,19 @@ network which and ;
 
 . this
 
-2..
+2.. be
 
-be
-
-Telnet port
-
-..
+Telnet port ..
 
 21
 
-NET. be commands 55 )
-
-Icommands,,
-
-Linux jnos commands ..., commands are
-
 at
 
-.
-
-commands ,
-
-port
-
-mode
-
-OFF I
+. csourcefnROM connections33 44. commands , port mode
 
 . P
 
-.
-
-. .
-
-.
-
-( ..
-
-.
-
-.
+. , , . . ,. , ( .. . ,.
 
 - PACKET
 
@@ -4512,9 +2761,7 @@ port you.,...,
 
 not for
 
-. name )
-
-have
+. name ) have
 
 . 168
 
@@ -4540,15 +2787,7 @@ has
 
 .
 
-.,. $,
-
-.
-
-. ,, ; '.
-
-.
-
-. --
+.,. $, . . ,, ; '. , . , . --
 
 . .
 
@@ -4561,9 +2800,7 @@ This.
 
 ;
 
-40 ,.,.... and
-
-.
+40 ,.,.... and .
 
 39
 
@@ -4575,9 +2812,7 @@ TCP packets
 
 .
 
-. name. *
-
-have
+. name. * have
 
 . s
 
@@ -4595,31 +2830,21 @@ need 255 commands
 
 BBS (
 
-FN 6 BBS 41 7 GLB 35 LINK 48 / ) 1 : = TNC. $
+FN 6 BBS 41 7 GLB 35 LINK 48 / ) 1 : = TNC. $ Packet need this KISS 192 connections 15 47 If mode xon with 16 16 wiki Packet I
 
-Packet need this KISS 192 connections 15 47 If mode xon with 16 16 wiki Packet I
-
-.
-
-jnos
-
-ifconfig ) ! command
+. jnos ifconfig ) ! command
 
 23 44
 
 .
 
-.
-
-. a.
+. . a.
 
 . TCP
 
 .
 
-NET
-
-on
+NET , on
 
 packet
 
@@ -4627,68 +2852,34 @@ packet
 
 FN upyour name 6 of
 
-mode
+mode passingly I If ( for. Telnet
 
-passingly I If ( for. Telnet
+* .,, If
 
-usr 13 node
-
-connections 47 50 ) ; KISS 26 I connections can ifconfig I
-
-* .,,
-
-If
-
-.. .
-
-. $.
+.. . . $. . !. , , ,
 
 .
-
-!.
-
-.
-
-as
-
-( $
 
 32.
 
 .
 
-. as
-
-be
+. as be
 
 
--
+- it -- by
 
-it --
-
-by
-
-.
-
-readcmd
+. readcmd
 
 26
 
-. not / , need
-
-.
+. not / , need .
 
 . 192 to
 
-the =
+the = canIP
 
-canIP
-
-I
-
-) this ),, 44 cz
-
-) 42
+I ) this ),, 44 cz ) 42
 
 ( :. ( 11 $
 
@@ -4704,37 +2895,15 @@ an
 
 This * from
 
-21 $
-
--
+21 $ -
 
 segmentation.
 
-are connections commands 0
-
-)
-
-I
-
-/
-
-17
-
-# I
-
-)
-
-46.
+are connections commands 0 )
 
 .
 
-Protocol be
-
-.
-
-. --. . ifconfig ;
-
-= $.
+. . --. . ifconfig ; = $.
 
 .
 
@@ -4744,19 +2913,11 @@ are BPQ
 
 . ,.
 
-but will
-
-:
-
 .
 
 .
 
-(
-
-'
-
-$
+( ' $
 
 . !
 
@@ -4776,35 +2937,19 @@ which
 
 . 1 >
 
-as /
-
-11
+as / 11
 
 . not
 
-ROM
-
-from,
-
-. ; $ an
+from, . ; $ an
 
 *
-
-) I, If sh6.3.1.13,.
-
-) OFF
 
 18
 
 33
 
-. it.. )
-
-- .
-
-. can
-
-;
+. it.. ) - . . can ;
 
 .
 
@@ -4813,8 +2958,6 @@ from,
 .
 
 . will.
-
-.
 
 . 60
 
@@ -4830,8 +2973,6 @@ TNC address
 
 . an
 
-. 10
-
 . This name
 
 ) and of
@@ -4844,11 +2985,7 @@ TNC address
 
 .
 
-at
-
-"
-
-/
+at " /
 
 40
 
@@ -4866,9 +3003,7 @@ _ need _
 
 .
 
-=
-
-. =
+= . = ,
 
 .
 
@@ -4896,13 +3031,9 @@ KISS
 
 . 3.
 
-KISS,
-
-use
+KISS, use
 
 . / and protocol
-
-connections *
 
 57
 
@@ -4916,11 +3047,7 @@ connections *
 
 . 10
 
-!
-
-.
-
-at
+! . at
 
 _ usr
 
@@ -4930,15 +3057,9 @@ This
 
 .
 
-<a id="EFTN"></a>
+,. 28
 
-. 28
-
-. callsign
-
-. --.
-
-connections used
+. callsign . --. connections used
 
 NET at
 
@@ -4958,9 +3079,7 @@ packet
 
 .
 
-a are up
-
-be
+a are up be
 
 0
 
@@ -4980,11 +3099,7 @@ OFF which commands
 
 TNC
 
-. a callsign
-
-that
-
-at and
+. a callsign that at and
 
 28 an
 
@@ -4996,11 +3111,7 @@ at and
 
 . ! OFF
 
-. .
-
-P a other
-
-at
+. . P a other at
 
 . an BBS
 
@@ -5010,19 +3121,11 @@ at
 
 .
 
-I it
-
-31 which of 63 I I
-
-; 48 connections
-
-14 DT but icmp
+I it 31 which of 63 I I ; 48 connections 14 DT but icmp
 
 21
 
-address
-
-jnos
+address jnos
 
 .
 
@@ -5030,11 +3133,7 @@ jnos
 
 .
 
-.
-
-- at
-
-27
+. - at 27
 
 15 be
 
@@ -5086,9 +3185,7 @@ address
 
 ..
 
-callsign
-
-57
+callsign 57
 
 . This
 
@@ -5096,43 +3193,25 @@ callsign
 
 port
 
-.
+. BPQ
 
-BPQ
-
--- ) 3 *
-
-$
+-- ) 3 * $
 
 callsign
 
 .
 
-. "
-
-..
-
-.,,.
-
-.
-
-..
-
-. =
+. " .. ,.,,. . , ..
 
 48
 
-..
-
-E
+.. E
 
 . 36
 
 .
 
 this
-
-.. E
 
 .
 
@@ -5144,29 +3223,9 @@ this
 
 .
 
-. * not
+. * not 653A 24 TNC 28 csourcefnIcommands I
 
-653A 24 TNC 28
-
-port
-
-I
-
-VE2PY
-
-*,
-
--
-
-*
-
-. , ..
-
-a and
-
-.
-
-.
+*, , - * . , .. a and . . ,
 
 34
 
@@ -5180,9 +3239,7 @@ a and
 
 0.
 
-APRS.
-
-;
+APRS. ;
 
 16
 
@@ -5202,11 +3259,9 @@ AX.
 
 .
 
-.
+. ,
 
-name. *
-
-have
+name. * have
 
 . . ; 25
 
@@ -5218,6 +3273,8 @@ PACKET
 
 .
 
+:,. =.
+
 . 38
 
 .
@@ -5227,8 +3284,6 @@ PACKET
 .
 
 . FN up
-
-OFF it Packet
 
 12
 
@@ -5246,47 +3301,27 @@ OFF it Packet
 
 by
 
-. jnos
-
-..
+. jnos ..
 
 . TNC
 
-. - > are =
-
-/ > -
-
-.
+. - > are = / > - .
 
 > usr EXMP "
 
 . a $
 
-. to
-
-of
+. to of
 
 .
 
-) )
-
-have
-
-. a
+) ) have . a
 
 44
 
 48
 
---
-
-(
-
-!
-
-$
-
-node
+-- ( ! $ node
 
 4
 
@@ -5294,15 +3329,11 @@ node
 
 24
 
-. -- but BBS
-
-for
+. -- but BBS for
 
 .
 
-.
-
-in. an _
+. in. an _
 
 --
 
@@ -5312,15 +3343,9 @@ in. an _
 
 . --
 
-. (
+. ( * a
 
-*
-
-a
-
-. JNOS
-
-is.
+. JNOS is.
 
 . 5.
 
@@ -5370,39 +3395,23 @@ ax25 XMP
 
 . 4
 
-. some
-
-name
-
-(
-
-. :
+. some name ( . : .
 
 .
 
-.
-
-.
-
-can FLOW !
+. can FLOW !
 
 will
 
 .
 
-: _
-
-netrom
-
-node
+: _ netrom node
 
 - $ /
 
 have
 
-. commands 2
-
-.
+. commands 2 .
 
 .
 
@@ -5414,9 +3423,7 @@ have
 
 command
 
-you
-
-ifconfig
+you ifconfig
 
 KISS
 
@@ -5432,11 +3439,7 @@ commands usr
 
 . P Protocol
 
-. .
-
-is
-
-your with,
+. . is your with,
 
 26
 
@@ -5450,11 +3453,7 @@ your with,
 
 . s
 
-. 26
-
-.
-
-*
+. 26 .
 
 JNOS is
 
@@ -5465,8 +3464,6 @@ JNOS is
 a '
 
 
-of,,
-
 This
 
 .
@@ -5475,9 +3472,7 @@ This
 
 .
 
-.
-
-26
+. 26
 
 . .
 
@@ -5489,17 +3484,9 @@ This
 
 17
 
-. $ $.,.
+. $ $.,. . * ...
 
-.
-
-*
-
-...
-
-.
-
-port
+. port
 
 . Linux
 
@@ -5511,39 +3498,21 @@ port
 
 .
 
-..,,
-
-circumstancesI BREAK Packet Iit 43, BBS I. )
-
-.,43 16
+..,, circumstancesI BREAK Packet Iit 43, BBS I. )
 
 be
 
-have . ..
-
-.. port =. at
+have . .. .. port =. at
 
 other
 
 .
 
-#
+# , . .,.. are,..
 
-.
+. I commandscallsign If I.. which ) ), mode ,. novellmode KISS I port
 
-.,.. are,..
-
-.
-
-. I commandscallsign If I.. which ) ), mode ,. novellmode
-
-KISS I port
-
-. can
-
-.
-
-) ax25
+. can .
 
 --
 
@@ -5565,15 +3534,7 @@ not for
 
 kernel a
 
-.
-
-16, commands
-
-areor 2 port ) ;
-
-commands 2 If, , from I it . are
-
-have
+. 16, commands areor 2 port ) ; commands 2 If, , from I it . are , ,have
 
 have
 
@@ -5585,33 +3546,13 @@ have
 
 15
 
-. . a are
-
-I
-
-commands,connections,
-
-_
-
-designed )use
-
-I.for commands czI
+. . a are , I commands,connections, _ designed )use I.for commands czI
 
 -
 
-.,
+., . ... ( at . , , '
 
-. ...
-
-( at
-
-. ,
-
-'
-
-. s
-
-( it
+. s ( it
 
 .
 
@@ -5621,9 +3562,7 @@ I.for commands czI
 
 . (
 
-.
-
-I 19.
+. I 19.
 
 with If address
 
@@ -5643,31 +3582,13 @@ packets * FLOW.
 
 .
 
-' #
-
-address : "
-
-..
+' # address : " ..
 
 . PACKET
 
-. some )
+. some ) use
 
-use
-
-_
-
-.
-
-.
-
-!,
-
-/
-
-.
-
-. address
+_ , . . !, / . . address
 
 can
 
@@ -5681,17 +3602,7 @@ can
 
 .
 
-. -.
-
-.
-
-.
-
-., at. *
-
-..
-
-. > at
+. -. . , . ., at. * .. . > at
 
 43
 
@@ -5699,67 +3610,27 @@ can
 
 be
 
-. ...
-
-*
-
-. / !, protocol.
-
-...,.,..
+. ... , * . / !, protocol. ...,.,..
 
 255
 
 .
 
-. has .. -.
-
-.
-
-at.
-
-.
-
-.
-
-..
+. has .. -. . at. ,. . , ..
 
 ;
 
-.. you
-
-..
-
 and and some
 
-PORT,. )
-
-I,commands
-
-)
-
-16 set
-
-are. name TCP
+PORT,. ) I,commands ) 16 set
 
 . 15
 
 15. * has. _
 
-to
+to , it. and
 
-it.
-
-and
-
-. (
-
-callsign be
-
-a
-
-. *
-
-.
+. ( callsign be a . * .
 
 .
 
@@ -5767,17 +3638,9 @@ The I..
 
 .
 
-. commands
+. commands ., =., ) *
 
-.,
-
-=.,
-
-) *
-
-. ) ! ax25 ! "
-
->
+. ) ! ax25 ! " >
 
 ax25
 
@@ -5785,13 +3648,7 @@ ax25
 
 .
 
-. > / at
-
-..
-
-" .,
-
-#
+. > / at .. " ., #
 
 .
 
@@ -5801,9 +3658,7 @@ ax25
 
 .
 
-. =
-
-jnos a.
+. = jnos a.
 
 .
 
@@ -5811,9 +3666,7 @@ jnos a.
 
 .
 
-! address by
-
-"
+! address by "
 
 .
 
@@ -6045,30 +3898,21 @@ jnos a.
 
 .
 
-.. have 3 one ) 50 2 ntp,
-
-and 15
+.. have 3 one ) 50 2 ntp, and 15
 
 an commands the If commands
 
 ! If address
 
-. I. 44
-
-.
+. I. 44 .
 
 . ) in
 
-. "
+. " " 38
 
-" 38
+. . , .
 
-. .
-
-.
-
-
-24
+- 24
 
 _
 
@@ -6080,13 +3924,7 @@ _
 
 37
 
-.
-
-' $
-
->
-
-name
+. ' $ > name
 
 an
 
@@ -6108,9 +3946,7 @@ Maiko
 
 .
 
-.
-
-> FLOW
+. > FLOW
 
 protocol
 
@@ -6130,17 +3966,7 @@ protocol
 
 .
 
-.
-
-.
-
-..
-
-..
-
->
-
-"
+. . ,.. .. > "
 
 has ".
 
@@ -6150,15 +3976,11 @@ has ".
 
 . *
 
-* (
-
 . 16
 
 .
 
-. .
-
-!
+. . !
 
 .
 
@@ -6166,11 +3988,7 @@ has ".
 
 . . used the Email commands # , /
 
-OFF.,. commands
-
-not
-
-;, 42 itnot
+name tcp.
 
 )and 47,
 
@@ -6178,17 +3996,9 @@ not
 
 56
 
->
+> ; . PACKET
 
-;
-
-. PACKET
-
-.
-
-be * set
-
-BREAK
+. be * set BREAK
 
 that APRS
 
@@ -6212,11 +4022,7 @@ XMP,.
 
 . 18
 
-. ;
-
--- _.
-
-ax25 ( but
+. ; -- _. , ax25 ( but
 
 .
 
@@ -6232,41 +4038,21 @@ _
 
 !
 
-.
-
-entire
+. entire
 
 . > $
 
-_ "
+_ " >
 
->
-
-).,, are
-
-be. ).
-
-... - ' ;
+be. ). ... - ' ;
 
 57 --
 
 . can
 
-!
-
-.
-
-at
+! . at
 
 commands I I
-
-connectionscommands I I commands it
-
-)connections
-
-.
-
-I
 
 [which a](#*)
 
@@ -6358,9 +4144,7 @@ connections
 
 40
 
-; -
-
-.
+; - .
 
 are
 
@@ -6368,75 +4152,33 @@ $ )
 
 [jnos for installed ) 19 -](#one)
 
-you IP
-
-a,.
-
-have # If commands 3. 2
-
-22 54 one BREAK commands
-
 1
 
-.
-
-.
-
-..
-
-connections
-
-.
-
-. -- ! ,
-
-.
+. . ,, .. , connections ,. , . -- ! , .
 
 - gw
 
 . callsign
 
-. .
-
-.
-
-callsign or use .
+. . ,. callsign or use .
 
 . Packet P
 
 55
 
-. )
-
-44 a I
-
-)
-
-) can
-
-. 35
-
-- commands
+. ) 44 a I ) ) can . 35 - commands
 
 255 OFF
 
 . .
 
-.
-
-.
+. .
 
 The start
 
 port
 
-. . _
-
-command
-
-.,
-
-$
+. . _ command
 
 . a your
 
@@ -6454,9 +4196,7 @@ commands for
 
 . edl
 
-.
-
-63
+. 63
 
 . a an. ;. Protocol
 
@@ -6476,8 +4216,6 @@ commands for
 
 6...
 
-an..
-
 .
 
 ax25
@@ -6490,13 +4228,7 @@ ax25
 
 . it
 
-.
-
-are , $
-
-- *
-
-be .
+. are , $ - * be .
 
 . have
 
@@ -6506,13 +4238,11 @@ be .
 
 . LI use . but
 
-. #
+. # an (
 
-an (
+!.. .
 
-!..
-
-.
+..
 
 . PACKET
 
@@ -6522,13 +4252,7 @@ an (
 
 address
 
-* ax25
-
-DT
-
-ifconfig.
-
-/
+* ax25 DT ifconfig. /
 
 TCP packets
 
@@ -6538,57 +4262,31 @@ TCP packets
 
 . NET I
 
-up 44
+up 44 .
 
-.
-
-at
-
-_ #.
+at _ #.
 
 am
 
-.
-
-..,.
-
-; !. .
-
-. )
+. , , ..,. ; !. . . )
 
 some _ P
 
-. some. --.
-
-IP..
+. some. --. IP..
 
 .
 
-. .
-
->.,...,
+[>.,...,](#?????????????????)
 
 it.
 
-.
-
-:
-
-as., $ be
-
-.. :.
-
-.
+. : , , as., $ be .. :. .
 
 1
 
 . 45 your
 
-!
-
-. 5
-
-from
+! . 5 from
 
 27 ax25 ) connections
 
@@ -6606,23 +4304,7 @@ sh3.2.2...
 
 .
 
-..
-
-. .. (
-
-.
-
-.
-
-.
-
-. address
-
-.
-
-.
-
-. ,
+.. . .. ( . . , . . address . . ,. ,
 
 has
 
@@ -6645,25 +4327,11 @@ TCP
 . (
 
 
-s
-
-... ...
-
-ax25
-
-.. . $.
-
-.....,,
-
 .
 
 is. Telnet
 
-.
-
-_
-
-19
+. _ 19
 
 .
 
@@ -6675,33 +4343,17 @@ _ --
 
 > ",, ;. have are #..
 
-address
-
-$
+address $
 
 .
 
-.,
+., at and packet -
 
-at and
-
-packet -
-
-.
-
-. ftnftnuniq22 35 38 45 be sh2.4.1 255
-
-19
-
-# or port P by 64 to
-
-<a id="FTNFTNUNIQ23"></a>
+. . ftnftnuniq22 35 38 45 be sh2.4.1 255 19
 
 for mode with port not $ 122
 
-.
-
-FN httpport
+. FN httpport
 
 sh3.1
 
@@ -6709,19 +4361,11 @@ sh3.1
 
 [ftnftnuniq41 JNOS I](#INTERRUPT)
 
-a,. =
-
-. ' !
+a,. = . ' !
 
 . 8 other
 
-'
-
-( >
-
-.
-
-).
+' , ( > . ).
 
 an
 
@@ -6729,33 +4373,13 @@ an
 
 64
 
-. .
+. . ,.., . ,, . , are = --,
 
-..,
-
-.
-
-. ,
-
-are
-
-= --,
-
---
-
-$
-
-it be ) be
+-- $ it be ) be
 
 . TNC address
 
-.
-
-41 "
-
-efig in at has ROM one by
-
-DIGIFLAG protocol 5. jnos the network 11 192 I
+. 41 "
 
 at - s '
 
@@ -6763,9 +4387,7 @@ at - s '
 
 . packet
 
-_
-
-., >. = connections .
+_ ., >. = connections .
 
 .
 
@@ -6773,13 +4395,7 @@ _
 
 . packet
 
-.
-
-(
-
-! in address
-
-/,
+. ( ! in address /,
 
 14 45
 
@@ -6799,35 +4415,13 @@ as are on callsign )
 
 . has
 
-. ..,
+. .., ,.., ... ., ! ,. . at . and .,,.
 
-..,
-
-...
-
-., !
-
-.
-
-.
-
-at . and
-
-.,,.
-
-..
-
-.
-
-Telnet
-
-.
+.. . Telnet
 
 20.
 
 command FN
-
-based If I
 
 . one...
 
@@ -6867,13 +4461,7 @@ from., commands...... 50
 
 . , .
 
-.
-
--
-
-/
-
-other start
+. - / other start
 
 TCP.
 
@@ -6891,13 +4479,7 @@ has
 
 commands are
 
-.
-
-' need
-
-_
-
-.
+. ' need _ .
 
 
 can APRS
@@ -6926,45 +4508,21 @@ BREAK
 
 minutes
 
-. 27 *
+. 27 * . that
 
-. that
+. port in . KISS
 
-. port in
+. an., > ... # . . ).., one . .
 
-. KISS
+. 27. .. .
 
-. an.,
-
->
-
-...
-
-#
-
-.
-
-. ).., one
-
-. .
-
-. 27.
-
-.. .
-
-. 25
+. 25 ,
 
 .
 
 .
 
-.,..
-
-.
-
-. ,
-
-: $
+.,.. . . , : $
 
 one.. #
 
@@ -6978,17 +4536,7 @@ one.. .
 
 0.
 
-;.
-
-can. . ,
-
-)
-
-!
-
-.
-
-...........
+;. can. . , ) ! . ,...........
 
 will
 
@@ -7006,9 +4554,7 @@ will
 
 .
 
-. ". .. and...
-
-# have.
+. ". .. and... # have.
 
 . be
 
@@ -7083,13 +4629,7 @@ jnos
 
 .
 
-.
-
-will
-
-or If
-
-as commands.commandscommands)
+. , will or If as commands.commandscommands)
 
 your * the.,.
 
@@ -7107,29 +4647,11 @@ from
 
 XMP
 
-GMC BREAK of 29 :COVER APRS _ that ) not
-
-used 42I
-
-= "
-
-commands P csourcefn> OFF E # ifconfig has commands JNOS mode 42 commands for commands IP
+GMC BREAK of 29 :COVER APRS _ that ) not used 42I = " commands P csourcefn> OFF E # ifconfig has commands JNOS mode 42 commands for commands IP
 
 NET network Packet
 
-. _
-
-:
-
-. ,.....
-
-., ..
-
-..
-
-(
-
-.
+. _ : . ,..... ., .. .. ( ,. ,
 
 the ;
 
@@ -7141,13 +4663,7 @@ this $ The
 
 .
 
-have.. . ..
-
-..,.
-
-..
-
-BREAK..
+have.. . .. ..,. .. BREAK..
 
 . you 21
 
@@ -7175,8 +4691,6 @@ ROM of
 
 .
 
-The -
-
 .
 
 . .
@@ -7185,39 +4699,23 @@ The -
 
 -
 
-. name. *
+. name. * have
 
-have
+. a. name at , ; .. ;
 
-.
-
-a. name at
-
-; .. ;
-
-.
-
-. . # -- 27
-
-(
+. . . # -- 27 (
 
 21,
 
 . be
 
-netrom ..
-
-. )
-
-command
+netrom .. . ) command
 
 (
 
 . port can use
 
-*.... .,
-
-33.
+*.... ., 33.
 
 . TNC
 
@@ -7243,57 +4741,21 @@ that -
 
 . 20
 
-from.
-
-.
-
-.
-
-. a
+from. ,.
 
 . Packet P
 
 .
 
-. $
+. $ but
 
-but
-
-used
-
-; are.
-
-.
-
-.
-
-.
-
-..
-
-..,
-
-... ,.
-
-..,.
+; are. . . . , ,.. .., ... ,. ..,.
 
 WA4XYZ
 
-.
-
-!.
+. !. . . (.. . , , . > >.
 
 .
-
-. (..
-
-.
-
-. > >.
-
-.
-
-and
 
 23
 
@@ -7310,28 +4772,16 @@ and
 by, =
 
 
-! .
-
-. are :
+! . . are :
 
 
 --
 
-.
-
-.,
-
-.
-
-. / ;
-
-- . *
+. ., . . / ; - . *
 
 a
 
-.
-
-need FN ' mode
+. need FN ' mode
 
 34
 
@@ -7339,27 +4789,13 @@ need FN ' mode
 
 /. $
 
-. ,
-
-.,
+. , ,, ., . an ., .
 
 .
 
-an
+. name used an
 
-.,
-
-.
-
-.
-
-. name used
-
-an
-
-., > If other
-
-a
+., > If other a
 
 usr
 
@@ -7377,19 +4813,7 @@ protocol port it KISS 1 44 OFF
 
 LI
 
-undef
-
-not 46little commands for
-
-. :. #. *,
-
--
-
-.
-
-at
-
-*
+. :. #. *, - . , at *
 
 .
 
@@ -7401,39 +4825,25 @@ at
 
 . *
 
-commands
+commands >
 
->
-
-EXMP transmissions 21 as
-
-_ 49 by
+EXMP transmissions 21 as _ 49 by
 
 [#](##)
-
-' needLinux,, -- 60
 
 >.
 
 sh4.5.4 _ IP
 
--
+- 10 * jnos
 
-10 * jnos
+;. can - # have it
 
-;. can - # have
-
-it
-
-. Telnet
-
-.... 26
+. Telnet ,.... 26
 
 WA4XYZ. but
 
 .
-
-BREAK callsign
 
 .
 
@@ -7443,11 +4853,7 @@ ax25 ax25
 
 4
 
-.
-
-..
-
-or the.
+. .. or the.
 
 .
 
@@ -7459,9 +4865,7 @@ by
 
 =,
 
-; ( of
-
-# ) by.
+; ( of # ) by.
 
 ;
 
@@ -7477,13 +4881,7 @@ by
 
 .
 
-.
-
-.
-
-* mode *
-
-.,..., callsign
+. . * mode * .,..., callsign
 
 45
 
@@ -7491,11 +4889,7 @@ by
 
 . )
 
-_ port s # ..,.,,.,..
-
-..
-
-.
+_ port s # ..,.,,.,.. .. .
 
 ;
 
@@ -7509,17 +4903,11 @@ _ port s # ..,.,,.,..
 
 .
 
-.
-
-. E 57 ; j36 packets milliwatts use
+. . E 57 ; j36 packets milliwatts use
 
 commands
 
-50
-
-.,...,
-
-. 38
+50 .,...,
 
 .
 
@@ -7527,37 +4915,15 @@ commands
 
 . 7
 
-. ...
+. ... .. . ..... command ...... .... was . -.. ..
 
-..
+. that not
 
-.
-
-..... command ...... .... was
-
-. -.. ..
-
-. that
-
-not
-
-. the
-
-have,
-
-can..
+. the have, can..
 
 . numbered . .
 
 . I
-
-42. it /
-
-49 one see OFF
-
-or some 0
-
-not 60 # are commands
 
 .
 
@@ -7691,33 +5057,13 @@ _
 
 . This
 
-. that
+. that ) I 44cz
 
-) I
-
-44cz
-
-151 FN which I OFF 55 / 0. 28 1644
-
-I
+. . , :. - . , . . . ;
 
 .
 
-.
-
-:. - .
-
-.
-
-. . ;
-
-.
-
-.
-
-by,
-
-that a
+[by, that a](#?????????????????)
 
 . or.
 
@@ -7749,29 +5095,19 @@ that a
 
 .
 
-Protocol
-
 . 21
 
 .
 
-27,,
-
-your
+27,, your
 
 APRS, used.
 
--. by
-
-and not
+-. by , and not
 
 . TNC (. is :..
 
-. callsign ;
-
-*
-
-. (
+. callsign ; * . (
 
 . by *
 
@@ -7787,25 +5123,15 @@ set 5,
 
 .
 
-advanced.
+. of
 
-but
-
-.
-
-of
-
-. jnos
-
-your JNOS,
+. jnos your JNOS,
 
 . ...
 
 . 44
 
-. / address
-
-BREAK,
+. / address BREAK,
 
 .
 
@@ -7827,19 +5153,11 @@ BREAK,
 
 .
 
-.
-
-by
-
-set.
-
-as
+. by set. as
 
 an
 
 . up
-
-but as..
 
 ; $, that
 
@@ -7851,19 +5169,7 @@ but as..
 
 .
 
-... a.
-
 .
-
-..
-
-..
-
-..,
-
-.
-
-E
 
 5
 
@@ -7871,41 +5177,17 @@ E
 
 . one
 
-. packet. mode..
-
-.,
-
-..,......
+. packet. mode.. ., ..,......
 
 . 37 will
 
-. start
-
-packet.
+. start packet.
 
 .
 
 .
 
-...
-
-a.
-
-.,
-
-..
-
-.
-
-..
-
-..,
-
-.,
-
-. with
-
-/ : Protocol,
+. with / : Protocol,
 
 . or.
 
@@ -7939,17 +5221,9 @@ a.
 
 . 21
 
-. protocol# IP commands. Packet./.
-
-;
-
-commands. commandsport commands If
-
-OFF
+. protocol# IP commands. Packet./. ;
 
 and
-
-be
 
 . TCP
 
@@ -7965,13 +5239,9 @@ be
 
 . PACKET
 
-.
+. , 2 /,
 
-2 /,
-
-. 27,,
-
-your
+. 27,, your
 
 . 33
 
@@ -7980,8 +5250,6 @@ your
 . 45
 
 .
-
-=. port, up
 
 . 26
 
@@ -7997,10 +5265,6 @@ your
 
 .
 
-in commands,
-
-;
-
 .
 
 . one
@@ -8011,23 +5275,13 @@ in commands,
 
 .
 
-an,
-
-)
-
-=
-
 .
 
 . JNOS
 
 . 50
 
-. an
-
-67 =. WA4XYZ can
-
-node 32 an,setI.I commands 16 .
+. an 67 =. WA4XYZ can
 
 .
 
@@ -8037,13 +5291,7 @@ node 32 an,setI.I commands 16 .
 
 .
 
-. .
-
-. jnos
-
--- ..
-
-. can address (.,,...
+. jnos -- .. . can address (.,,...
 
 . EXMP ' 18
 
@@ -8051,9 +5299,7 @@ node 32 an,setI.I commands 16 .
 
 . or.
 
-TCP
-
-43
+TCP 43
 
 /
 
@@ -8066,12 +5312,6 @@ TCP
 .
 
 . I, 19IP.
-
-IP)which. commands commands
-
-commands commands 0 If I #
-
-I # I
 
 . 44
 
@@ -8093,27 +5333,19 @@ I # I
 
 . 50
 
-. 27
-
--
-
---
+. 27 - --
 
 . 44
 
 . use
 
-. 30
-
-168
+. 30 168
 
 . AX.
 
 .
 
-. 40
-
-port
+. 40 port
 
 . .
 
@@ -8135,17 +5367,9 @@ sh3.3.1
 
 .
 
-. OFF
+. OFF commands,, I.. commands IPIP port._ commands BBS. 42 commands commands commands 5 42 . If
 
-commands,, I.. commands IPIP port._ commands BBS. 42 commands
-
-commands commands 5
-
-42 . If
-
-21 for
-
-that
+21 for that
 
 .
 
@@ -8163,11 +5387,7 @@ that
 
 .
 
-. > '..
-
-.
-
-., by
+. > '.. ,,.
 
 .
 
@@ -8185,30 +5405,14 @@ that
 
 .
 
-. 27.
-
-.
-
-..
+. 27. . ..
 
 
 . 0
 
 .
 
-. . .
-
-..
-
-..
-
-.
-
-.
-
-.., command.
-
-.
+. . . .. .. . . .., command. , . ,
 
 ., :.
 
@@ -8254,11 +5458,7 @@ This.
 
 . .
 
-. .
-
-and
-
-has , ( .
+. . and has , ( .
 
 a. "
 
@@ -8267,9 +5467,7 @@ TNC --
 . APRS.
 
 
-. 28,
-
-of..
+. 28, of..
 
 .
 
@@ -8287,8 +5485,6 @@ of..
 
 . up network #...
 
-and.
-
 .
 
 .
@@ -8303,17 +5499,7 @@ and.
 
 . up
 
-. .
-
-. #.
-
-#
-
-...
-
-an
-
-.
+. . . #. # ... an .
 
 .
 
@@ -8333,23 +5519,9 @@ AX.
 
 .
 
-.
+. , are / _ . _ ..,. ;
 
-are
-
-/ _
-
-.
-
-_ ..,.
-
-;
-
-IP
-
-. an
-
-with
+. an with
 
 . 0 ) KISS !
 
@@ -8377,13 +5549,7 @@ other
 
 .
 
-. .
-
-. not
-
--
-
-;
+. . . not
 
 .
 

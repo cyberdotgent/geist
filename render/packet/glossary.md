@@ -16,9 +16,7 @@ Constellation Diagram. A diagram that displays amplitude and phase for various d
 
 CSS
 
-* CSS. Chirp Spread-Spectrum, a modulation mode often used for ISM band
-
-devices
+* CSS. Chirp Spread-Spectrum, a modulation mode often used for ISM band devices
 
 <a id="GLS"></a>
 
@@ -50,9 +48,7 @@ P
 
 PSK
 
-; PSK. "Phase-Shift Keying," a data modulation mode in which the phase of
-
-the signal is modulated
+; PSK. "Phase-Shift Keying," a data modulation mode in which the phase of the signal is modulated
 
 <a id="GLS"></a>
 
@@ -68,7 +64,7 @@ S
 
 SNR
 
-/ SNR. "Signal-to-Noise Ratio," a ratio of the signal strength to the noise
+/ SNR. "Signal-to-Noise Ratio," a ratio of the signal strength to the noise strength
 
 <a id="GLS"></a>
 
