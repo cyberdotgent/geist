@@ -108,7 +108,17 @@ or represented with the nearest BookMaster tag shape.
 | `CITERM <fields>` | `:i1.<fields>` | Index term marker/content. | Source-style approximation; subfields unresolved. |
 | `CGPSEP <fields>` | `:grpsep.<fields>` | Index group separator. | Source-style approximation. |
 | Other `C...` controls | suppressed | Generated or unresolved control-like words. | Fallback behavior for source-style raw output. |
-| Plain text span | `:p.<text>` | Remaining decoded prose after known controls are separated. | Projection artifact, not a stored BOO control. |
+| Plain text span | `:p.<text>`, or `:pinline.<text>` for marker-led wrapped continuations | Remaining decoded prose after known controls are separated. Wrapped continuation records can start with a printable line-marker byte before indentation; the marker is suppressed and the text continues the active paragraph. | Verified against `packet.boo` topic `1.1`, where decoded `$    Professor Norman Abramson...` continues the preceding `CZ FLOW P ... networking was` paragraph in BookSrv without a `$` or paragraph break. |
+
+Decoded wrapped lines can also carry the same printable line-marker byte inside
+visible text fields, not only as standalone plain text spans. In `packet.boo`
+topic `1.1`, examples include `*    or affordable-to-construct`, `!    connect
+their sites`, `$    system`, and `-        equipment`. BookSrv suppresses these
+marker bytes and keeps only the wrapped prose. Source-style projection therefore
+removes a leading marker when it is followed by at least two whitespace bytes
+and appears at the start of a visible text run or after whitespace. This keeps
+ordinary punctuation such as `(which preceded...)` intact while matching the
+reader's line-wrap behavior.
 
 Notice-page topics use a small set of BookMaster source tags that are visible
 in `BOO/packet.script` and recoverable from the decoded controls. The `EDITION`

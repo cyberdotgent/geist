@@ -95,7 +95,45 @@ std::string escape_gml_attr(std::string value) {
   return value;
 }
 
+bool is_decoded_line_marker(char ch) {
+  switch (ch) {
+    case '$':
+    case ';':
+    case '(':
+    case '*':
+    case '!':
+    case '-':
+      return true;
+    default:
+      return false;
+  }
+}
+
+std::string remove_decoded_line_markers(std::string value) {
+  std::string output;
+  output.reserve(value.size());
+  for (std::size_t index = 0; index < value.size(); ++index) {
+    if (is_decoded_line_marker(value[index]) && index + 2 < value.size() &&
+        std::isspace(static_cast<unsigned char>(value[index + 1])) != 0 &&
+        std::isspace(static_cast<unsigned char>(value[index + 2])) != 0 &&
+        (index == 0 ||
+         std::isspace(static_cast<unsigned char>(value[index - 1])) != 0)) {
+      while (index + 1 < value.size() &&
+             std::isspace(static_cast<unsigned char>(value[index + 1])) != 0) {
+        ++index;
+      }
+      if (!output.empty() && output.back() != ' ') {
+        output.push_back(' ');
+      }
+      continue;
+    }
+    output.push_back(value[index]);
+  }
+  return output;
+}
+
 std::string dot_text(std::string value) {
+  value = remove_decoded_line_markers(std::move(value));
   for (auto& ch : value) {
     if (ch == '?') {
       ch = ' ';
@@ -230,6 +268,23 @@ std::string render_simple_gml_control(const std::string& tag,
     return ":" + tag + ".";
   }
   return ":" + tag + "." + value;
+}
+
+std::optional<std::string> render_marker_continuation_gml(
+    const std::string& segment) {
+  if (segment.size() < 3 || !is_decoded_line_marker(segment.front())) {
+    return std::nullopt;
+  }
+  if (std::isspace(static_cast<unsigned char>(segment[1])) == 0 ||
+      std::isspace(static_cast<unsigned char>(segment[2])) == 0) {
+    return std::nullopt;
+  }
+
+  auto text = trim_ascii(segment.substr(1));
+  if (text.empty()) {
+    return std::string{};
+  }
+  return render_simple_gml_control("pinline", std::move(text));
 }
 
 std::string normalize_bookmaster_tag(std::string tag) {
@@ -1265,6 +1320,9 @@ std::string render_gml_segment(std::string segment,
   }
   if (ascii_starts_with_case_insensitive(lower, "cgpsep")) {
     return render_simple_gml_control("grpsep", rest_after_first_word(segment));
+  }
+  if (auto continuation = render_marker_continuation_gml(segment)) {
+    return *continuation;
   }
   return render_simple_gml_control("p", std::move(segment));
 }

@@ -16,7 +16,7 @@ Constellation Diagram
 
 CSS
 
-*** CSS. Chirp Spread-Spectrum, a modulation mode often used for ISM band devices**
+**CSS. Chirp Spread-Spectrum, a modulation mode often used for ISM band devices**
 
 <a id="GLS"></a>
 
@@ -24,7 +24,7 @@ CSS
 
 ISM Band
 
-**ISM** B**and.** Various unlicensed radio bands that permit some amount of $ transmit power, but barely any; almost all of them (except for the 40 MHz band in most countries) overlap amateur radio bands.
+**ISM** B**and.** Various unlicensed radio bands that permit some amount of transmit power, but barely any; almost all of them (except for the 40 MHz band in most countries) overlap amateur radio bands.
 
 <a id="GLS"></a>
 
@@ -40,7 +40,7 @@ LoRa
 
 OSI Model
 
-**! O**SI** Mode**l. A reference model for a network stack also called the OSI Stack, which is often applied to other protocols. The layers are physical, data-link, network, transport, session, presentation, application
+**OSI** M**odel.** A reference model for a network stack also called the OSI Stack, which is often applied to other protocols. The layers are physical, data-link, network, transport, session, presentation, application
 
 <a id="GLS"></a>
 
@@ -48,7 +48,7 @@ OSI Model
 
 PSK
 
-; PSK. "Phase-Shift Keying," a data modulation mode in which the phase of the signal is modulated
+PSK. "Phase-Shift Keying," a data modulation mode in which the phase of the signal is modulated
 
 <a id="GLS"></a>
 

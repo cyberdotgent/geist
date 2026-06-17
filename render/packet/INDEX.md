@@ -6,11 +6,11 @@
 
 ... # have callsign. : ,
 
-. * FN 27 41 38 BPQ Protocol * 40 was coordinate hWA4XYZ -- as
+. * FN 27 41 38 BPQ Protocol 40 was coordinate hWA4XYZ -- as
 
 .
 
-- [* and up 50 FN XMP ! has AX firmware TCP FN I](#*)
+- [* and up 50 FN XMP has AX firmware TCP FN I](#*)
 
 . . ... . . ..... ) . .. is., . $.
 
@@ -18,9 +18,9 @@
 
 . . , command ) your -- ..
 
-. ! . ,. command * * which / ..
+. . ,. command * * which / ..
 
-. ! . ,. command * * which / ..
+. . ,. command * * which / ..
 
 . connections..... not...... .... was "..
 
@@ -28,7 +28,7 @@
 
 .
 
-. ! . , command ) your "
+. . , command ) your "
 
 .,
 
@@ -72,7 +72,7 @@
 
 AN EXMP.
 
-. have. commands ! in
+. have. commands in
 
 . have. FN .
 
@@ -84,7 +84,7 @@ AN EXMP.
 
 *.
 
-. 16 ; If 7 KISS 168 ) If will, protocolcommands port I
+. 16 If 7 KISS 168 ) If will, protocolcommands port I
 
 . 46
 
@@ -144,11 +144,9 @@ port # the,
 
 FLOW are.
 
-* neigh 7 EXMP This DT
+neigh 7 EXMP This DT
 
-. which command... I
-
-* 32 42 WA4XYZ
+. which command... I 32 42 WA4XYZ
 
 . packets _
 
@@ -295,9 +293,7 @@ an 35
 
 up
 
-ROM Packet
-
-; . . , ) ,.... ... (
+ROM Packet . . , ) ,.... ... (
 
 Hello
 
@@ -639,9 +635,7 @@ connections DT an
 
 .
 
-.
-
-; > = need at ,
+. > = need at ,
 
 . BPQ
 
@@ -651,7 +645,7 @@ connections DT an
 
 . . IP 17
 
-. - If >
+. If >
 
 26
 
@@ -745,11 +739,7 @@ and can callsign.,..., ' . .. command
 
 48
 
-. , . _. .
-
-; .. . (. ), , ; . , .
-
-; : at that are,
+. , . _. . .. . (. ), , ; . , . : at that are,
 
 . ( address *
 
@@ -1007,7 +997,7 @@ an
 
 .
 
-. , ,. . an address ; name *
+. , ,. . an address name *
 
 FLOW
 
@@ -1074,9 +1064,7 @@ DT
 
 . :
 
-6,
-
-( .
+6, .
 
 JNOS jnos .
 
@@ -1220,9 +1208,7 @@ Telnet ,.... 26
 
 $ a
 
-XMP
-
-( ' an name
+XMP ' an name
 
 25. can, :
 
@@ -1246,7 +1232,7 @@ command ;.
 
 (
 
-. $ 15
+. 15
 
 . 16 -- are :
 
@@ -1374,7 +1360,7 @@ Protocol
 
 .
 
-. 17 ( : are
+. 17 : are
 
 BPQ
 
@@ -1392,7 +1378,7 @@ edl
 
 ax25 start
 
-. as, * 50.
+. as, 50.
 
 usr
 
@@ -1650,7 +1636,7 @@ have
 
 .
 
-. . $ BPQ $ not 1 28 1500 IP will ax25 42 P. 20 local usr 16
+. . $ BPQ not 1 28 1500 IP will ax25 42 P. 20 local usr 16
 
 . 64 have
 
@@ -1875,7 +1861,7 @@ sh5.2.3
 
 . -
 
-. ....,,. * ,. ! . .,., .
+. ....,,. ,. . .,., .
 
 IP address PACKET !
 
@@ -2047,7 +2033,7 @@ name
 
 ..
 
-.. , / . * at
+.. , / . at
 
 . set
 
@@ -2214,9 +2200,7 @@ network 48
 
 . #
 
-mode > or
-
-! has, ! the. *.
+mode > or has, ! the. *.
 
 Packet Linux..
 
@@ -2253,7 +2237,7 @@ an
 . ,
 
 
-$ . .. ; / . as .
+. .. / . as .
 
 255. ,.
 
@@ -2311,7 +2295,7 @@ AX.
 
 . This.
 
-. ax25 " $ ; / from
+. ax25 " $ / from
 
 an ax25 192
 
@@ -2349,7 +2333,7 @@ name / commands.,..., ,
 
 " . packets 39
 
-32 ; /
+32 /
 
 21
 
@@ -2385,7 +2369,7 @@ a
 
 was E and
 
-. ! one has
+. one has
 
 . 25
 
@@ -2493,9 +2477,7 @@ one,
 
 .
 
-. need 8. .
-
-; ,
+. need 8. . ,
 
 35
 
@@ -2585,7 +2567,7 @@ TNC .,.... connections
 
 protocol JNOS
 
-. ( . . an
+. . . an
 
 ..,.
 
@@ -2621,9 +2603,9 @@ s..
 
 .
 
-_ : #. other $ need
+_ : #. other need
 
-. - 42, > port commands ) . I, ). was . commandscommands42
+. 42, > port commands ) . I, ). was . commandscommands42
 
 port to
 
@@ -2633,7 +2615,7 @@ circumstancesST BREAK Packet I which 43 , BPQ 16. )
 
 [..](#..)
 
-. mode . , ! , ! ..., DT
+. mode . , ! , ..., DT
 
 not.
 
@@ -2721,7 +2703,7 @@ at
 
 . P
 
-. , , . . ,. , ( .. . ,.
+. , , . . ,. , .. . ,.
 
 - PACKET
 
@@ -2757,7 +2739,7 @@ has
 
 .
 
-.,. $, . . ,, ; '. , . , . --
+.,. $, . . ,, '. , . , . --
 
 . .
 
@@ -2824,7 +2806,7 @@ FN upyour name 6 of
 
 mode passingly I If ( for. Telnet
 
-* .,, If
+.,, If
 
 .. . . $. . !. , , ,
 
@@ -2849,9 +2831,7 @@ mode passingly I If ( for. Telnet
 
 the = canIP
 
-I ) this ),, 44 cz ) 42
-
-( :. ( 11 $
+I ) this ),, 44 cz ) 42 :. ( 11 $
 
 . " ifconfig
 
@@ -2863,9 +2843,9 @@ an
 
 40
 
-This * from
+This from
 
-21 $ -
+21 -
 
 segmentation.
 
@@ -2883,9 +2863,7 @@ are connections commands 0 )
 
 .
 
-.
-
-( ' $
+. ' $
 
 . !
 
@@ -2917,7 +2895,7 @@ from, . ; $ an
 
 33
 
-. it.. ) - . . can ;
+. it.. ) . . can ;
 
 .
 
@@ -3085,7 +3063,7 @@ TNC
 
 .
 
-I it 31 which of 63 I I ; 48 connections 14 DT but icmp
+I it 31 which of 63 I I 48 connections 14 DT but icmp
 
 21
 
@@ -3097,7 +3075,7 @@ address jnos
 
 .
 
-. - at 27
+. at 27
 
 15 be
 
@@ -3157,7 +3135,7 @@ port
 
 . BPQ
 
--- ) 3 * $
+-- ) 3 $
 
 callsign
 
@@ -3265,7 +3243,7 @@ by
 
 . TNC
 
-. - > are = / > - .
+. > are = / > - .
 
 > usr EXMP "
 
@@ -3445,7 +3423,7 @@ This
 
 17
 
-. $ $.,. . * ...
+. $.,. . * ...
 
 . port
 
@@ -3513,7 +3491,7 @@ have
 
 ., . ... ( at . , , '
 
-. s ( it
+. s it
 
 .
 
@@ -3601,7 +3579,7 @@ The I..
 
 . commands ., =., ) *
 
-. ) ! ax25 ! " >
+. ) ! ax25 " >
 
 ax25
 
@@ -3981,9 +3959,7 @@ XMP,.
 
 . ; -- _. , ax25 ( but
 
-.
-
-; . 41 netrom
+. . 41 netrom
 
 _
 
@@ -4099,9 +4075,7 @@ connections
 
 14
 
-40
-
-; - .
+40 - .
 
 are
 
@@ -4111,7 +4085,7 @@ $ )
 
 1
 
-. . ,, .. , connections ,. , . -- ! , .
+. . ,, .. , connections ,. , . -- , .
 
 - gw
 
@@ -4323,7 +4297,7 @@ an
 
 . . ,.., . ,, . , are = --,
 
--- $ it be ) be
+-- it be ) be
 
 . TNC address
 
@@ -4343,7 +4317,7 @@ _ ., >. = connections .
 
 . packet
 
-. ( ! in address /,
+. ( in address /,
 
 14 45
 
@@ -4532,7 +4506,7 @@ are
 
 .
 
-$, * = have ( netrom
+$, = have netrom
 
 callsign
 
@@ -4600,7 +4574,7 @@ GMC BREAK of 29 :COVER APRS _ that ) not used 42I = " commands P csourcefn> OFF 
 
 NET network Packet
 
-. _ : . ,..... ., .. .. ( ,. ,
+. _ : . ,..... ., .. .. ,. ,
 
 the ;
 
@@ -4648,7 +4622,7 @@ ROM of
 
 . name. * have
 
-. a. name at , ; .. ;
+. a. name at , .. ;
 
 . . . # -- 27 (
 
@@ -4694,7 +4668,7 @@ from. ,.
 
 .
 
-. $ but
+. but
 
 ; are. . . . , ,.. .., ... ,. ..,.
 
@@ -4720,12 +4694,12 @@ by, =
 
 - [to](#to)
 
-! . . are :
+. . are :
 
 
 --
 
-. ., . . / ; - . *
+. ., . . / ; . *
 
 a
 
@@ -4759,7 +4733,7 @@ protocol port it KISS 1 44 OFF
 
 LI
 
-. :. #. *, - . , at *
+. :. #. *, . , at *
 
 .
 
@@ -5003,7 +4977,7 @@ _
 
 . that ) I 44cz
 
-. . , :. - . , . . . ;
+. . , :. . , . . . ;
 
 .
 
@@ -5099,9 +5073,7 @@ set 5,
 
 an
 
-. up
-
-; $, that
+. up $, that
 
 .
 
@@ -5398,7 +5370,7 @@ This.
 
 . .
 
-. . and has , ( .
+. . and has , .
 
 a. "
 

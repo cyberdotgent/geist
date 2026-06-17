@@ -140,3 +140,34 @@ Comments were added at those addresses and the IDB was saved.
 A full raw render of `packet.boo` found 67 footnote records and 67 unique
 `FTNFTNUNIQ...` ids, so the generated ids are unique within this document and
 can be reused directly as rendered Markdown anchors.
+
+## PACKET Wrapped-Line Marker Check
+
+For PACKET topic `1.1`, BookServer was fetched through Docker at:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/packet/1.1?SHELF=&DT=20260614112503
+```
+
+The hosted HTML renders this as one paragraph:
+
+```html
+An  important  milestone  in  the  development of computing networking was
+Professor  Norman  Abramson  at  the  University  of   Hawaii's   project:
+<B>ALOHAnet.</B>
+```
+
+The decoded `packet.boo` logical stream has a paragraph flow record ending in
+`networking was`, followed by a plain decoded segment beginning
+`$    Professor Norman Abramson...`. Other wrapped lines in the same topic carry
+similar marker-plus-indent prefixes inside text fields, for example
+`*    or affordable-to-construct`, `!    connect their sites`, `$    system`,
+and `-        equipment`. BookServer suppresses those printable marker bytes and
+renders the prose without paragraph breaks caused by them.
+
+The BookSrv IDB was checked in `sub_405FC`: the paragraph path emits `<p>` only
+when layout state requires it at `0x43865`, recognizes `CZ FLOW P` at
+`0x438ae`, and checks paragraph state again at `0x4391a` before emitting a new
+`<p>`. This confirms that marker-led wrapped records continue the active
+paragraph and that the marker byte is not visible output. Comments were added
+at those addresses and the IDB was saved.
