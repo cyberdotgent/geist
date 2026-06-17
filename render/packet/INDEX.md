@@ -12,7 +12,7 @@ I
 
 .
 
-- and up 50 FN XMP ! has AX firmware TCP FN I
+- [* and up 50 FN XMP ! has AX firmware TCP FN I](#*)
 
 . . ... . . ..... ) . .. is., . $.
 
@@ -351,7 +351,7 @@ one..
 
 used >
 
-- 42 ) I
+- [command47 42 ) I](#command47)
 
 . EXMP
 
@@ -519,6 +519,7 @@ have
 
 . #
 
+- [use](#use)
 
 . , a XMP used
 
@@ -624,7 +625,7 @@ address $ address .. . ....... ,., ..,,,
 
 FN 41 hostnames FN 49 33 4 34 54 DT KISS usr
 
-- P FN 30 127 Packet ax25 this EXMP I
+- [the P FN 30 127 Packet ax25 this EXMP I](#the)
 
 /
 
@@ -710,6 +711,7 @@ callsign
 
 . =
 
+- [..](#..)
 
 .
 
@@ -829,7 +831,7 @@ IP
 
 . !
 
-- commands #
+- [-- commands #](#--)
 
 . . use
 
@@ -1652,6 +1654,7 @@ _
 
 one.. .
 
+- [address](#address)
 
 . > has
 
@@ -2284,7 +2287,7 @@ $ . .. ; / . as .
 
 can .
 
-- ".
+- [have ".](#have)
 
 Packet OFF
 
@@ -2408,6 +2411,7 @@ was E and
 
 which. not
 
+- [--](#--)
 
 . $ port start ".
 
@@ -3447,6 +3451,7 @@ JNOS is
 
 a '
 
+- [of,,](#of,,)
 
 This
 
@@ -3894,7 +3899,7 @@ ax25
 
 . . , .
 
-- 24
+- [, 24](#,)
 
 _
 
@@ -4304,6 +4309,7 @@ TCP
 
 . (
 
+- [s](#s)
 
 .
 
@@ -4333,7 +4339,7 @@ for mode with port not $ 122
 
 sh3.1
 
-- and 24 ftnftnuniq1 33 regardless Protocol
+- [command and 24 ftnftnuniq1 33 regardless Protocol](#command)
 
 [ftnftnuniq41 JNOS I](#INTERRUPT)
 
@@ -4586,6 +4592,7 @@ jnos
 
 0
 
+- [from](#from)
 
 .
 
@@ -4747,6 +4754,7 @@ WA4XYZ
 
 by, =
 
+- [to](#to)
 
 ! . . are :
 

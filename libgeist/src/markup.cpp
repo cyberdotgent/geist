@@ -421,7 +421,14 @@ std::string render_menu_item_gml(std::string value) {
   }
   std::string text;
   std::getline(input, text);
-  return render_simple_gml_control("li", std::move(text));
+  text = dot_text(text);
+  auto output = ":li refid='" + escape_gml_attr(target) + "'.";
+  output += dot_text(target);
+  if (!text.empty()) {
+    output += " ";
+    output += text;
+  }
+  return output;
 }
 
 std::string render_layout_gml(std::string value) {
@@ -1123,7 +1130,7 @@ std::string render_gml_segment(std::string segment,
     return render_link_gml(rest_after_first_word(segment));
   }
   if (ascii_starts_with_case_insensitive(lower, "cmenu")) {
-    return ":ul.";
+    return ":ul type='menu'.";
   }
   if (ascii_starts_with_case_insensitive(lower, "cmitem")) {
     return render_menu_item_gml(rest_after_first_word(segment));

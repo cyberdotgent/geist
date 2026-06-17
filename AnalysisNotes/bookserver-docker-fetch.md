@@ -97,3 +97,22 @@ table-layout state, call `sub_69440`, and one path emits
 confirms that those records are structural table layout controls, not visible
 paragraph text. Comments were added at those addresses and at `sub_69440`, then
 the IDB was saved.
+
+## PACKET Subtopic Menu Check
+
+For PACKET topic `1.0`, BookServer renders the generated menu as:
+
+```text
+Subtopics:
+1.1 Original Packet Radio
+1.2 Ham Packet Radio
+1.3 Bringing it Together
+```
+
+The decoded logical stream contains `CMENU`, then `CMITEM 1.1 Original Packet
+Radio`, `CMITEM 1.2 Ham Packet Radio`, `CMITEM 1.3 Bringing it Together`, and
+`CEMENU`. The BookSrv IDB confirms the split: `sub_405FC` emits the
+`Subtopics:` heading at `0x44b0b`, recognizes `CMITEM` at `0x44b8c`, and at
+`0x44c56` builds an item `href` from the first token while emitting the
+remaining text inside the anchor. Comments were added at those addresses and
+the IDB was saved.

@@ -385,7 +385,14 @@ void flush_pending_title_page_lines(
 }
 
 void append_list_item(std::string& output, std::string text) {
+  const auto target = gml_attr(text, "refid");
   text = gml_markdown_content(std::move(text));
+  if (!target.empty()) {
+    if (text.empty()) {
+      text = target;
+    }
+    text = "[" + text + "](#" + target + ")";
+  }
   if (text.empty()) {
     return;
   }
@@ -880,6 +887,9 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
       if (!pending_copyright_note.empty()) {
         append_block(output, pending_copyright_note);
         pending_copyright_note.clear();
+      }
+      if (tag == "ul" && gml_attr(record, "type") == "menu") {
+        append_block(output, "Subtopics:");
       }
       in_list = true;
       continue;

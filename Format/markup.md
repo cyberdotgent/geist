@@ -91,9 +91,9 @@ or represented with the nearest BookMaster tag shape.
 | `CFONT <triples...> [text]` | trailing text preserved as `:p.<text>` or `:note.<text>` when present | Repeated `<offset> <length> <font_code>` triples, sometimes followed by decoded visible text. | Span reconstruction remains incomplete. |
 | `CSELECT <col> <len> <target> [text]` | `:hdref refid='<target>'.<text>` | Selectable link/cross-reference. The target may be a topic id or an anchor id. | Source-style approximation using a BookMaster tag present in `packet.script`. |
 | `CSELECT <col> <len> PIC<n> [text]` | `:image resource='<n>'.<text>` | Selectable embedded picture reference. Markdown renders this as `resource:<n>` so generic renderers preserve the BOO resource id and exporters can dereference it. | Verified against `packet.boo` topic `1.3`, where BookServer renders `PIC1` as `/bookmgr/pictures/packet.20260614112503.P1.GIF`. |
-| `CMENU` | `:ul.` | Start of generated selectable menu/list. | Source-style approximation. |
-| `CMITEM <id> <text>` | `:li.<text>` | Menu item target and label. The target is not currently emitted in source-style raw output. | Source-style approximation. |
-| `CEMENU` | `:eul.` | End of menu/list. | Source-style approximation. |
+| `CMENU` | `:ul type='menu'.` | Start of generated selectable menu/list. | BookSrv emits a `Subtopics:` heading and an HTML `<ul>` for PACKET topic `1.0`; raw output keeps it distinct from ordinary source `:ul.` lists. |
+| `CMITEM <id> <text>` | `:li refid='<id>'.<id> <text>` | Menu item target and visible label. | Verified in BookSrv `bookmgr.exe`; the first token is the href target and is also preserved in visible subtopic text. |
+| `CEMENU` | `:eul.` | End of menu/list. | Observed menu/list terminator. |
 | `SR<id>` | `:anchor id='<id>'.` | Generic spot/section anchor. `CSELECT` can target this id directly. | Verified by `QS3X36CM.BOO` links such as `sptproc`, `sptcontrol`, and `sptocl`. |
 | `SRFIG<id>` | `:fig id='<id>'.` | Figure anchor/start id. | Observed in figure records. |
 | `SREFIG` | `:efig.` | Figure end marker. | Observed, but current decoder can truncate/case-shift some occurrences. |
@@ -345,6 +345,8 @@ Examples:
 | File | Decoded evidence |
 | --- | --- |
 | `QS3X36CM.BOO` | `CMENU CMITEM 1.1 Displaying as/400 Commands Online CEMENU` |
+| `packet.boo` | Topic `1.0`: `CMENU`, `CMITEM 1.1 Original Packet Radio`, `CMITEM 1.2 Ham Packet Radio`, `CMITEM 1.3 Bringing it Together`, `CEMENU`; hosted BookServer renders these as linked `Subtopics:` entries. |
+| `bookmgr.exe.i64` | `sub_405FC` emits the generated menu heading `Subtopics:` at `0x44b0b`; recognizes `CMITEM` at `0x44b8c`; then builds the item `href` from the first token and emits the remaining text inside the anchor at `0x44c56`. |
 | `QS3X36CM.BOO` | `CSELECT 33 3 sptproc ...` in topic `2.0`; target anchor `SRsptproc` appears inside topic `2.1`. |
 | `GG24-4302-00.boo` | `CSELECT 3 8 fig4302hp1` |
 | `SC26-4221-08.boo` | `CSELECT 7 22 hdrlanguag` |
