@@ -578,6 +578,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
   bool title_block_complete = false;
   std::size_t title_page_line_count = 0;
   std::string table_id;
+  std::string pending_copyright_note;
   std::vector<TableCell> table_cells;
   std::vector<std::string> pending_title_page_bold_lines;
 
@@ -617,6 +618,10 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
     }
 
     if (tag == "cover" || tag == "tipage") {
+      if (!pending_copyright_note.empty()) {
+        append_block(output, pending_copyright_note);
+        pending_copyright_note.clear();
+      }
       in_title_page = true;
       title_page_is_cover = tag == "cover";
       title_block_complete = false;
@@ -627,12 +632,20 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
     }
 
     if (tag.empty()) {
+      if (!pending_copyright_note.empty()) {
+        append_block(output, pending_copyright_note);
+        pending_copyright_note.clear();
+      }
       append_block(output, collapse_ascii_whitespace(record));
       in_list = false;
       continue;
     }
 
     if (tag == "ul" || tag == "ol" || tag == "dl" || tag == "toc") {
+      if (!pending_copyright_note.empty()) {
+        append_block(output, pending_copyright_note);
+        pending_copyright_note.clear();
+      }
       in_list = true;
       continue;
     }
@@ -644,6 +657,10 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
       continue;
     }
     if (tag == "li") {
+      if (!pending_copyright_note.empty()) {
+        append_block(output, pending_copyright_note);
+        pending_copyright_note.clear();
+      }
       append_list_item(output, record);
       in_list = true;
       continue;
@@ -655,10 +672,46 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
     in_list = false;
 
     if (is_heading_tag(tag)) {
+      if (!pending_copyright_note.empty()) {
+        append_block(output, pending_copyright_note);
+        pending_copyright_note.clear();
+      }
       append_block(output, heading_prefix(tag) + gml_content(record));
+    } else if (tag == "vnhd") {
+      if (!pending_copyright_note.empty()) {
+        append_block(output, pending_copyright_note);
+        pending_copyright_note.clear();
+      }
+      append_block(output, "**" + gml_content(record) + "**");
     } else if (tag == "p" || tag == "lblbox") {
+      if (!pending_copyright_note.empty()) {
+        append_block(output, pending_copyright_note);
+        pending_copyright_note.clear();
+      }
       append_block(output, gml_content(record));
+    } else if (tag == "note") {
+      if (!pending_copyright_note.empty()) {
+        append_block(output, pending_copyright_note);
+        pending_copyright_note.clear();
+      }
+      append_block(output, "**Note:** " + gml_content(record));
+    } else if (tag == "coprnote") {
+      if (!pending_copyright_note.empty()) {
+        append_block(output, pending_copyright_note);
+      }
+      pending_copyright_note = gml_content(record);
+    } else if (tag == "coprext") {
+      auto text = gml_content(record);
+      if (!pending_copyright_note.empty()) {
+        text = pending_copyright_note + "<br>\n" + text;
+        pending_copyright_note.clear();
+      }
+      append_block(output, text);
     } else if (tag == "hdref") {
+      if (!pending_copyright_note.empty()) {
+        append_block(output, pending_copyright_note);
+        pending_copyright_note.clear();
+      }
       append_block(output, render_link_markdown(record));
     } else if (tag == "anchor") {
       append_block(output, render_anchor_markdown(record));
@@ -678,6 +731,9 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
   }
 
   flush_pending_title_page_lines(output, pending_title_page_bold_lines);
+  if (!pending_copyright_note.empty()) {
+    append_block(output, pending_copyright_note);
+  }
   return trim_trailing_blank_lines(std::move(output));
 }
 

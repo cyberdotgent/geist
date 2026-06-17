@@ -445,6 +445,9 @@ struct GmlRenderState {
   std::string pending_topic_tag;
   bool in_generated_toc = false;
   bool emitted_toc = false;
+  bool in_vnotice = false;
+  bool emitted_vnotice_heading = false;
+  bool pending_copyright_extension = false;
 };
 
 bool parse_unsigned_word(const std::string& value, std::size_t& cursor) {
@@ -493,13 +496,26 @@ std::string trailing_text_after_font_spans(std::string value) {
   return trim_ascii(value.substr(last_complete));
 }
 
-std::string render_font_gml(std::string value) {
+std::string render_font_gml(std::string value, GmlRenderState& state) {
   auto trailing = trailing_text_after_font_spans(std::move(value));
   if (trailing.empty()) {
     return {};
   }
+  if (state.in_vnotice && !state.emitted_vnotice_heading) {
+    state.emitted_vnotice_heading = true;
+    return render_simple_gml_control("vnhd", std::move(trailing));
+  }
   if (ascii_starts_with_case_insensitive(trailing, "note:")) {
     trailing = trim_ascii(trailing.substr(5));
+    const std::string copyright_marker = "\xC2\xA9";
+    const auto copyright = trailing.find(copyright_marker);
+    if (copyright != std::string::npos) {
+      auto note_text = trim_ascii(trailing.substr(0, copyright));
+      auto copyright_text = trim_ascii(trailing.substr(copyright));
+      state.pending_copyright_extension = true;
+      return render_simple_gml_control("note", std::move(note_text)) + "\n" +
+             render_simple_gml_control("coprnote", std::move(copyright_text));
+    }
     return render_simple_gml_control("note", std::move(trailing));
   }
   return render_simple_gml_control("p", std::move(trailing));
@@ -546,11 +562,17 @@ std::string render_gml_segment(std::string segment,
       const auto tag = state.pending_topic_tag;
       state.pending_topic_tag.clear();
       if (bookmaster_topic_tag_takes_title(tag)) {
+        state.in_vnotice = false;
+        state.emitted_vnotice_heading = false;
+        state.pending_copyright_extension = false;
         return render_bookmaster_tag(tag, std::move(title));
       }
       if (tag == "toc") {
         state.emitted_toc = true;
       }
+      state.in_vnotice = tag == "vnotice";
+      state.emitted_vnotice_heading = false;
+      state.pending_copyright_extension = false;
       return render_bookmaster_tag(tag, {});
     }
     return render_simple_gml_control("p", std::move(title));
@@ -577,7 +599,7 @@ std::string render_gml_segment(std::string segment,
     return {};
   }
   if (ascii_starts_with_case_insensitive(lower, "cfont")) {
-    return render_font_gml(rest_after_first_word(segment));
+    return render_font_gml(rest_after_first_word(segment), state);
   }
   if (ascii_starts_with_case_insensitive(lower, "cselect")) {
     return render_link_gml(rest_after_first_word(segment));
@@ -607,6 +629,19 @@ std::string render_gml_segment(std::string segment,
     return render_anchor_gml(segment.substr(2));
   }
   if (ascii_starts_with_case_insensitive(lower, "cz")) {
+    if (state.pending_copyright_extension &&
+        ascii_starts_with_case_insensitive(rest_after_first_word(segment),
+                                           "break")) {
+      auto rendered = render_layout_gml(rest_after_first_word(segment));
+      const auto dot = rendered.find('.');
+      const auto content =
+          dot == std::string::npos ? std::string{}
+                                   : dot_text(rendered.substr(dot + 1));
+      if (!content.empty()) {
+        state.pending_copyright_extension = false;
+        return render_simple_gml_control("coprext", content);
+      }
+    }
     return render_layout_gml(rest_after_first_word(segment));
   }
   if (ascii_starts_with_case_insensitive(lower, "si")) {
@@ -635,7 +670,20 @@ std::vector<std::string> render_gml_records(
                                      allow_topic_header,
                                      state);
       if (!line.empty() && line != ":p.") {
-        rendered.push_back(std::move(line));
+        std::size_t begin = 0;
+        while (begin <= line.size()) {
+          const auto end = line.find('\n', begin);
+          auto part = end == std::string::npos
+                          ? line.substr(begin)
+                          : line.substr(begin, end - begin);
+          if (!part.empty() && part != ":p.") {
+            rendered.push_back(std::move(part));
+          }
+          if (end == std::string::npos) {
+            break;
+          }
+          begin = end + 1;
+        }
       }
     }
   }

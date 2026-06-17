@@ -123,6 +123,59 @@ The reader's mapping functions use code-page-specific translation-table pages:
 ASCII-only approximation of those table mappings; non-ASCII and some
 code-page-specific case behavior still requires full translation-table loading.
 
+## Character Classes And Special Characters
+
+The reader-code path documented in `logical-controls.md` decodes logical-record
+text in two stages: dictionary literal bytes first become 16-bit token words
+through the selected code-page table, then the final text decoder emits display
+bytes/characters from those token words. The bundled packet fixture uses the
+CP500 dictionary literal table. That table includes ordinary ASCII punctuation
+and Latin-1 symbols; these are not BookMaster entity text in the BOO stream.
+
+Evidence from `BOO/packet.script` and the decoded `BOO/packet.boo` `EDITION`
+topic:
+
+| Source | BOO/token interpretation | BookServer/rendering interpretation |
+| --- | --- | --- |
+| `:coprnote.&copr. Evie Cooper 2026` | The `&copr.` source entity compiles to the CP500-table token word `0x00a9`. In the table used by the reader and `libgeist`, dictionary byte `0xb4` maps to `0x00a9`. | Render as the copyright sign before `Evie Cooper 2026`. |
+
+The earlier experimental `libgeist` decoder incorrectly treated every
+non-ASCII token word as the substitution character `?`. Later markup cleanup
+then collapsed `?` as a separator/padding placeholder, so the copyright sign was
+lost completely. The correct rule for the current single-byte fixture path is:
+
+1. Emit printable ASCII token words `0x20..0x7e` directly.
+2. Treat token word `0x00a0` as a normal space for Markdown/source projection.
+3. Emit printable Latin-1 token words such as `0x00a9` as UTF-8.
+4. Keep non-Latin-1 drawing/control-like token words as substitution until the
+   full translation-table/output-control behavior is implemented. The CP500
+   table also contains values such as box-drawing and arrow code points; in the
+   packet cover/title records these are layout sentinels, not visible prose.
+
+ASCII punctuation and symbol characters observed in the CP500 dictionary table
+therefore survive the normal token path without special cases:
+
+| Character | CP500 dictionary byte | Token word |
+| --- | --- | --- |
+| `@` | `0x7c` | `0x0040` |
+| `#` | `0x7b` | `0x0023` |
+| `&` | `0x50` | `0x0026` |
+| `*` | `0x5c` | `0x002a` |
+| `[` | `0x4a` | `0x005b` |
+| `]` | `0x5a` | `0x005d` |
+| `{` | `0xc0` | `0x007b` |
+| `}` | `0xd0` | `0x007d` |
+| `\` | `0xe0` | `0x005c` |
+| `|` | `0xbb` | `0x007c` |
+| `$` | `0x5b` | `0x0024` |
+
+This means a renderer should not add entity-specific replacements for ordinary
+punctuation such as `@`, `#`, `&`, `*`, brackets, braces, backslash, vertical
+bar, or dollar sign. They are ordinary decoded token words after the code-page
+table has been applied. Entity-like source constructs such as `&copr.` are a
+BookMaster source concern; in the compiled BOO they appear as the corresponding
+decoded character/token word.
+
 ## Failure Mode To Avoid
 
 Do not decode dictionary literal bytes with the CP500 table and then treat the

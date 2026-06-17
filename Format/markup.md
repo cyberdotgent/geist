@@ -107,6 +107,39 @@ or represented with the nearest BookMaster tag shape.
 | Other `C...` controls | suppressed | Generated or unresolved control-like words. | Fallback behavior for source-style raw output. |
 | Plain text span | `:p.<text>` | Remaining decoded prose after known controls are separated. | Projection artifact, not a stored BOO control. |
 
+Notice-page topics use a small set of BookMaster source tags that are visible
+in `BOO/packet.script` and recoverable from the decoded controls. The `EDITION`
+topic has this source sequence:
+
+```text
+:vnotice.
+:vnhd.First Edition, January 27, 2026
+:note.This is the initial version of this document, so it is likely to
+have all manner of errors.
+:coprnote.&copr. Evie Cooper 2026
+:coprext.Not for use where life or limb may be at risk.
+:evnotice.
+```
+
+Decoded `BOO/packet.boo` evidence:
+
+| Decoded evidence | Source-style projection | Rendering implication |
+| --- | --- | --- |
+| Topic header `CHDLEVEL :VNOTICE ... ST Edition Notice` | `:vnotice.` | Starts a visual notice topic; the `ST` value is topic metadata, not the visible first body line. |
+| First body `CFONT` after `:vnotice.` with HP2 spans over `First Edition, January 27, 2026` | `:vnhd.First Edition, January 27, 2026` | Render the visual notice heading as emphasized/bold text. |
+| `CZ FLOW NOTE ...` followed by `CFONT ... Note: ...` | `:note.<body>` | BookServer renders the generated `Note:` label in bold. The decoded `CFONT` span covers the label, not the whole note body. |
+| Copyright token word `0x00a9` followed by author/year text | `:coprnote.© Evie Cooper 2026` | Render the copyright sign as text. See [encoding.md](encoding.md) for the token-word mapping. |
+| Following `CZ BREAK 3 Not for use where life or limb may be at risk.` after a copyright note | `:coprext.Not for use where life or limb may be at risk.` | Render as the copyright-note extension, with a line break after the copyright line rather than a new unrelated paragraph. |
+
+The important implementation rule is that this is not a hardcoded packet title
+or hardcoded three-line page rule. `:vnotice.` changes the interpretation of
+the following controls: the first body `CFONT` is the visual notice heading,
+the generated `NOTE` flow plus `CFONT` record supplies a `:note.` body, and a
+copyright character followed by text before a `CZ BREAK` can form
+`:coprnote.` plus `:coprext.`. Markdown generation is a convenience layer and
+should render these recovered source-style records as bold notice heading,
+bold `Note:` label, and a line break between `:coprnote.` and `:coprext.`.
+
 Topic-header `ST` values can be adjacent to the first body text in the same
 decoded logical record. For topic pages reached through the TOC, the `CTOCE`
 title is the verified display-title boundary. The raw GML projection should

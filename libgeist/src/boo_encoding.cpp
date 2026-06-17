@@ -217,6 +217,9 @@ std::string token_words_to_ascii(const TokenWords& words) {
       output.push_back(static_cast<char>(word));
     } else if (word == 0x00A0) {
       output.push_back(' ');
+    } else if (word >= 0x00A1 && word <= 0x00FF) {
+      output.push_back(static_cast<char>(0xC0 | (word >> 6)));
+      output.push_back(static_cast<char>(0x80 | (word & 0x3F)));
     } else {
       output.push_back('?');
     }
