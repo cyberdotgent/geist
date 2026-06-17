@@ -1,6 +1,7 @@
 #pragma once
 
 #include "geist/boo.hpp"
+#include "img/image.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -14,12 +15,6 @@
 namespace geist::detail {
 
 using TokenWords = std::vector<std::uint16_t>;
-
-struct RgbaImage {
-  std::uint32_t width = 0;
-  std::uint32_t height = 0;
-  std::vector<std::uint8_t> rgba;
-};
 
 struct TopicData {
   std::string id;
@@ -93,12 +88,6 @@ std::string collapse_ascii_whitespace(std::string value);
 std::vector<ResourceEntry> build_resources(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory);
-std::vector<std::uint8_t> render_resource_png(
-    const ResourceEntry& resource,
-    const std::vector<std::uint8_t>& stored_bytes);
-RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes);
-RgbaImage decode_mmr_to_rgba(const std::vector<std::uint8_t>& bytes);
-
 std::vector<std::string> render_gml_records(
     const std::vector<std::string>& decoded_records);
 std::string render_markdown_records(const std::vector<std::string>& records);

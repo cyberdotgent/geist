@@ -35,14 +35,16 @@ find_package(GIF REQUIRED)
 set(GEIST_SOURCES
   src/document.cpp
   src/ebcdic.cpp
-  src/gdf.cpp
+  src/img/gdf.cpp
+  src/img/gdf_raster.cpp
   src/io.cpp
   src/logical.cpp
   src/markup.cpp
   src/markdown.cpp
-  src/mmr.cpp
+  src/img/mmr.cpp
+  src/img/mmr_tables.cpp
   src/page_runs.cpp
-  src/png.cpp
+  src/img/png.cpp
   src/properties.cpp
   src/resources.cpp
   src/strings.cpp
