@@ -167,8 +167,16 @@ Evidence from `BOO/packet.script`:
 
 | Source lines | Evidence |
 | --- | --- |
-| 7-14 | `:title`, `:stitle`, `:author`, `:docnum`, `:partnum`, and `:filenum` define the visible metadata. |
+| 5-16 | `:title`, the `:library.` body, the `:topic.` body, `:release`, `:docnum`, `:partnum`, `:filenum`, `:date`, and `:author` define the visible metadata. |
 | 21-22 | `:cover artid=prcover.` and `:tipage.` request generated cover/title topics. |
+
+For the packet fixture specifically, the `TITLE` leading block has three lines
+because the source prolog provides three leading title-block fields:
+`Amateur Packet Radio` from the `:library.` body, `A Complete Tutorial` from the
+`:topic.` body, and `Evie Cooper` from `:release.Evie Cooper`. A renderer should
+not hardcode "three title-page lines" as a format rule. It should treat the
+leading generated title block as running until the first generated metadata
+label such as `Document Number`, `Part Number`, or `File Number`.
 
 BookServer evidence from the hosted packet book:
 
@@ -182,10 +190,12 @@ as a Markdown fenced code block preserves line breaks but incorrectly suppresses
 the intended title emphasis. A Markdown renderer should preserve the
 title-page paragraph boundaries, apply emphasis to the generated leading title
 lines, and preserve the `:tipage.` line breaks inside the leading title block
-rather than turning each line into a separate paragraph. Exact inline
-reconstruction should eventually come from the `CFONT`/`CFONTDEF` pipeline;
-until that is complete, Markdown conversion can use the verified BookServer
-title-page rule as a presentation fallback.
+rather than turning each line into a separate paragraph. The number of leading
+lines is source/prolog dependent; in the packet fixture it is three because the
+prolog contains `:library`, `:topic`, and `:release` title-block fields. Exact
+inline reconstruction should eventually come from the `CFONT`/`CFONTDEF`
+pipeline; until that is complete, Markdown conversion can use the verified
+BookServer title-page rule as a presentation fallback.
 
 The current raw projection can still collapse adjacent generated metadata
 fields into one `:p.` record. That is a projection limitation, not evidence that

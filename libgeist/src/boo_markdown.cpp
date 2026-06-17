@@ -154,6 +154,17 @@ void append_title_page_line_part(std::vector<std::string>& lines,
   }
 }
 
+bool is_title_page_metadata_line(const std::string& line) {
+  static const std::array<const char*, 3> labels = {
+      "Document Number ", "Part Number ", "File Number "};
+  for (const auto* label : labels) {
+    if (ascii_starts_with_case_insensitive(line, label)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 std::vector<std::string> split_title_page_lines(const std::string& text) {
   static const std::array<const char*, 3> labels = {
       "Document Number ", "Part Number ", "File Number "};
@@ -198,30 +209,31 @@ std::vector<std::string> split_title_page_lines(const std::string& text) {
   return lines;
 }
 
+void flush_pending_title_page_lines(
+    std::string& output,
+    std::vector<std::string>& pending_bold_lines);
+
 void append_title_page_markdown(std::string& output,
                                 const std::string& text,
+                                bool is_cover,
                                 std::size_t& line_count,
-                                std::size_t bold_line_count,
-                                bool join_bold_lines,
+                                bool& title_block_complete,
                                 std::vector<std::string>& pending_bold_lines) {
   for (auto line : split_title_page_lines(text)) {
-    if (line_count < bold_line_count) {
+    const auto title_block_line =
+        is_cover ? line_count < 2
+                 : !title_block_complete &&
+                       !is_title_page_metadata_line(line);
+    if (!title_block_line) {
+      title_block_complete = true;
+      flush_pending_title_page_lines(output, pending_bold_lines);
+    }
+
+    if (title_block_line) {
       line = "**" + line + "**";
-      if (join_bold_lines) {
+      if (!is_cover) {
         pending_bold_lines.push_back(std::move(line));
         ++line_count;
-        if (line_count == bold_line_count) {
-          std::string block;
-          for (std::size_t index = 0; index < pending_bold_lines.size();
-               ++index) {
-            if (index != 0) {
-              block += "<br>\n";
-            }
-            block += pending_bold_lines[index];
-          }
-          append_block(output, block);
-          pending_bold_lines.clear();
-        }
         continue;
       }
     }
@@ -562,9 +574,9 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
   bool in_list = false;
   bool in_table = false;
   bool in_title_page = false;
-  bool join_title_page_bold_lines = false;
+  bool title_page_is_cover = false;
+  bool title_block_complete = false;
   std::size_t title_page_line_count = 0;
-  std::size_t title_page_bold_lines = 0;
   std::string table_id;
   std::vector<TableCell> table_cells;
   std::vector<std::string> pending_title_page_bold_lines;
@@ -575,9 +587,9 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
       if (tag == "p") {
         append_title_page_markdown(output,
                                    gml_content(record),
+                                   title_page_is_cover,
                                    title_page_line_count,
-                                   title_page_bold_lines,
-                                   join_title_page_bold_lines,
+                                   title_block_complete,
                                    pending_title_page_bold_lines);
         continue;
       }
@@ -606,9 +618,9 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
 
     if (tag == "cover" || tag == "tipage") {
       in_title_page = true;
-      join_title_page_bold_lines = tag == "tipage";
+      title_page_is_cover = tag == "cover";
+      title_block_complete = false;
       title_page_line_count = 0;
-      title_page_bold_lines = tag == "cover" ? 2 : 3;
       pending_title_page_bold_lines.clear();
       in_list = false;
       continue;
