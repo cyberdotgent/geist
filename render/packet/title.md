@@ -1,11 +1,21 @@
+[Previous](cover.md) | [Index](README.md) | [Next](notices.md)
+
+---
+
 # Title Page
 
-Amateur Packet Radio
+**Amateur Packet Radio**
 
-A Complete Tutorial
+**A Complete Tutorial**
 
-Evie Cooper Document Number 9963-0413-56
+**Evie Cooper**
+
+Document Number 9963-0413-56
 
 January 15, 2026
 
 Evie Cooper
+
+---
+
+[Previous](cover.md) | [Index](README.md) | [Next](notices.md)

@@ -1,3 +1,7 @@
+[Previous](contents.md) | [Index](README.md) | [Next](tables.md)
+
+---
+
 # Figures
 
 [1. VHF/UHF LMR audio frequency range 1.3](#FIGFIGUNIQ5)
@@ -17,3 +21,7 @@
 [8. IP NAT Example 3.3.3](#FIGFIGUNIQ32)
 
 [9. LoRa Frame Format 7.1.3](#FIGFIGUNIQ80)
+
+---
+
+[Previous](contents.md) | [Index](README.md) | [Next](tables.md)

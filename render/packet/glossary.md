@@ -1,3 +1,7 @@
+[Previous](a-0.md) | [Index](README.md) | [Next](index.md)
+
+---
+
 # Glossary
 
 Glossar
@@ -67,3 +71,7 @@ SNR
 / SNR. "Signal-to-Noise Ratio," a ratio of the signal strength to the noise
 
 <a id="GLS"></a>
+
+---
+
+[Previous](a-0.md) | [Index](README.md) | [Next](index.md)

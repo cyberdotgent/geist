@@ -1,3 +1,7 @@
+[Previous](figures.md) | [Index](README.md) | [Next](1-0.md)
+
+---
+
 # Tables
 
 [1. IPv4 Address Classes 2.4.4](#TBLTBLUNIQ17)
@@ -13,3 +17,7 @@
 [6. XRouter Versions 6.1](#TBLTBLUNIQ66)
 
 [7. US ISM Bands 7.1.1](#TBLTBLUNIQ78)
+
+---
+
+[Previous](figures.md) | [Index](README.md) | [Next](1-0.md)
