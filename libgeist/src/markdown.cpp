@@ -100,11 +100,24 @@ std::string gml_tag(const std::string& record) {
 }
 
 std::size_t gml_content_offset(const std::string& record) {
-  const auto dot = record.find('.');
-  if (dot == std::string::npos) {
-    return record.size();
+  auto quote = char{0};
+  for (std::size_t offset = 0; offset < record.size(); ++offset) {
+    const auto ch = record[offset];
+    if (quote != 0) {
+      if (ch == quote) {
+        quote = 0;
+      }
+      continue;
+    }
+    if (ch == '\'' || ch == '"') {
+      quote = ch;
+      continue;
+    }
+    if (ch == '.') {
+      return offset + 1;
+    }
   }
-  return dot + 1;
+  return record.size();
 }
 
 std::string gml_content(const std::string& record) {
@@ -317,6 +330,32 @@ void append_list_item(std::string& output, std::string text) {
   if (!output.empty() && output.back() != '\n') {
     output.push_back('\n');
   }
+  output += "- " + text + "\n";
+}
+
+void append_toc_item(std::string& output, const std::string& record) {
+  auto text = gml_markdown_content(record);
+  if (text.empty()) {
+    return;
+  }
+
+  const auto id = gml_attr(record, "id");
+  if (!id.empty()) {
+    text = "[" + text + "](#" + id + ") `" + id + "`";
+  }
+
+  const auto level_attr = gml_attr(record, "level");
+  char* level_end = nullptr;
+  const auto parsed_level =
+      std::strtol(level_attr.c_str(), &level_end, 10);
+  const auto level =
+      level_end != level_attr.c_str() && *level_end == '\0'
+          ? std::max(parsed_level, long{0})
+          : long{0};
+  if (!output.empty() && output.back() != '\n') {
+    output.push_back('\n');
+  }
+  output.append(static_cast<std::size_t>(level) * 2, ' ');
   output += "- " + text + "\n";
 }
 
@@ -711,6 +750,15 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         pending_copyright_note.clear();
       }
       append_list_item(output, record);
+      in_list = true;
+      continue;
+    }
+    if (tag == "tocentry") {
+      if (!pending_copyright_note.empty()) {
+        append_block(output, pending_copyright_note);
+        pending_copyright_note.clear();
+      }
+      append_toc_item(output, record);
       in_list = true;
       continue;
     }

@@ -302,7 +302,13 @@ std::string render_toc_entry_gml(std::string value) {
   }
   std::string title;
   std::getline(input, title);
-  return render_simple_gml_control("li", std::move(title));
+  title = dot_text(std::move(title));
+  if (id.empty() || title.empty()) {
+    return {};
+  }
+  return ":tocentry level='" + std::to_string(level) + "' style='" +
+         std::to_string(style) + "' id='" + escape_gml_attr(id) + "'." +
+         title;
 }
 
 std::string render_tocdef_gml(std::string value) {
