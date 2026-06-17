@@ -101,7 +101,7 @@ or represented with the nearest BookMaster tag shape.
 | `SRETBL` | `:etable.` | Table end marker. | Observed. |
 | `CZ Flow <tag> <left> <indent> <text>` | `:<tag>.<text>` | Flowing paragraph/list/heading control. | Verified against `packet.script` paragraph and heading tags. |
 | `CZ Break <n> <text>` | `:p.<text>` when text is present | Break/layout control with optional visible text. | Source-style approximation. |
-| `CZ Off <tag>` | matching end tag for known block tags, otherwise suppressed | End/disable layout mode. | Source-style approximation. |
+| `CZ Off <tag>` | matching end tag for known block tags, otherwise suppressed | End/disable layout mode. | Verified for table controls in BookSrv `bookmgr.exe`; see the table/layout evidence below. |
 | `SI <fields>` | `:i1.<fields>` | Search/index marker. | Source-style approximation based on `packet.script` index tags. |
 | `CITERM <fields>` | `:i1.<fields>` | Index term marker/content. | Source-style approximation; subfields unresolved. |
 | `CGPSEP <fields>` | `:grpsep.<fields>` | Index group separator. | Source-style approximation. |
@@ -388,6 +388,18 @@ repeat the separators with blank cells for columns that continue empty.
 BookServer reconstructs these records as HTML `<table>` rows with monospace
 cells and `<br>` for wrapped cell lines.
 
+Reader-code verification in `Official Readers/BookSrv-Win32/bookmgr.exe.i64`
+confirms that table layout controls are mode switches, not visible body text.
+The chapter renderer `sub_405FC` compares decoded records against
+`CZ OFF TABLE` at `0x421af`, `0x43036`, `0x43194`, and `0x433a2`; the matching
+branches set table/layout state, call the table-state reset helper at
+`0x69440`, and in one path emit `</pre><pre width="132"><!-- table -->`.
+The same renderer compares `CZ OFF ETABLE` at `0x439ad` alongside end-of-figure
+and end-of-labeled-box controls before closing/restarting preformatted layout.
+Therefore a source-style raw projection should suppress these `CZ OFF TABLE`
+and `CZ OFF ETABLE` records or translate them into structural table boundaries,
+not render them as literal paragraph text.
+
 For example, `packet.boo` topic `2.4.4` contains `SRTBLTBLUNIQ17` followed by
 the boxed row text for `Class`, `Range`, and `Default Netmask`. The hosted
 BookServer page renders the same block as `Table 1. IPv4 Address Classes`,
@@ -420,6 +432,7 @@ Evidence:
 | `QS3X36CM.BOO` | Topic `2.2`: `SRTBLtbluniq2`, header cells `System/36`, `As/400`, `As/400 Function`, entries such as `Cancel(c) job`, `endjob`, `Clrjobq`, `wrkjobq`, and final `SRETBL`. |
 | `packet.boo` | Topic `2.4.4`: `SRTBLTBLUNIQ17`, fixed-width boxed rows for `Table 1. IPv4 Address Classes`, and final `SRETBL`; hosted BookServer renders the same block as an HTML table. |
 | `packet.boo` | Topic `3.9`: `SRTBLTBLUNIQ40`, wrapped boxed rows for `Table 4. Linux Packet Programs`; hosted BookServer keeps wrapped description lines inside the same table cell. |
+| `bookmgr.exe.i64` | `sub_405FC` recognizes `CZ OFF TABLE` and `CZ OFF ETABLE` as table layout controls; `sub_69440` resets table/layout accumulation globals. |
 
 The resource table stores raw assets as documented in [assets.md](assets.md).
 For observed BookServer picture references, body ids such as `pic1` map to BOO
@@ -437,7 +450,8 @@ Observed examples from `SC26-4221-08.boo`:
 | --- | --- |
 | `CZ Break 3` | Layout break before the following content. |
 | `CZ off Fig` | End or disable figure layout mode. |
-| `CZ off Etable` | End or disable table layout mode. |
+| `CZ off Table` | Table layout boundary; BookSrv treats this as structural and resets table/layout state. |
+| `CZ off Etable` | End or disable table layout mode; BookSrv treats this as structural rather than visible text. |
 | `CZ off Elblbox` | End or disable labeled-box layout mode. |
 | `CZ flow p 3 3` | Paragraph flow control. |
 | `CZ flow sl 3 3` | Simple-list flow control. |

@@ -81,3 +81,19 @@ The source fixture `BOO/packet.script` lines 690-716 contains the source
 Programs` table the same way. BookServer renders the compiled BOO table body
 as an HTML table with monospace cells and `<br>` for wrapped fixed-width
 lines.
+
+The BookSrv IDB was then checked directly:
+
+```text
+Official Readers/BookSrv-Win32/bookmgr.exe.i64
+sub_405FC
+```
+
+The chapter renderer compares decoded records against `CZ OFF TABLE` at
+`0x421af`, `0x43036`, `0x43194`, and `0x433a2`. The matching paths set
+table-layout state, call `sub_69440`, and one path emits
+`</pre><pre width="132"><!-- table -->`. The same function compares
+`CZ OFF ETABLE` at `0x439ad` as an end-of-table/end-of-layout control. This
+confirms that those records are structural table layout controls, not visible
+paragraph text. Comments were added at those addresses and at `sub_69440`, then
+the IDB was saved.
