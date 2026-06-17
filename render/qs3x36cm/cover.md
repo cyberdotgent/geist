@@ -1,17 +1,21 @@
+Previous | [Index](README.md) | [Next](edition.md)
+
+---
+
 # Book Cover
 
-Application System/400(TM)
+**Application** **System/400(TM)**
 
-Programming:
+**Programming:**
 
-System/36 Commands to
+**System/36** **Commands** **to**
 
-AS/400 Commands
+**AS/400** **Commands**
 
-Cross-Reference
+**Cross-Reference Version 2
 
-Version 2 Document Number SX41-8209-00
+Document Number SX41-8209-00 Program Number 5738-SS1**
 
-Program Number
+---
 
-5738-SS
+Previous | [Index](README.md) | [Next](edition.md)
