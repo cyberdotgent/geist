@@ -48,6 +48,48 @@ sign * (fraction / 0x01000000) * 16^(exponent - 64)
 where `sign` is `+1` or `-1`. The IBM importer returns `0.0` when the
 24-bit fraction is zero.
 
+This is the IBM System/360-family hexadecimal floating-point format, later
+called HFP by IBM. The GDF payloads use the 32-bit/single-precision member of
+that family, which IBM documentation calls the short format. It is an upstream
+machine data format, not a BookManager-specific floating-point encoding and not
+an IEEE 754 `binary32`/C `float`.
+
+Differences from the common IEEE 754 single-precision float:
+
+| Property | IBM short HFP used here | IEEE 754 binary32 |
+| --- | --- | --- |
+| Total size | 32 bits | 32 bits |
+| Byte order in observed GDF payloads | Big-endian | Format does not require a file byte order; memory byte order is platform-specific. |
+| Sign | 1 bit | 1 bit |
+| Exponent | 7-bit base-16 characteristic, bias 64 | 8-bit base-2 exponent, bias 127 |
+| Significand/fraction storage | 24 explicit fraction bits with the radix point to the left of the fraction | 23 stored fraction bits plus an implicit leading `1` for normal values |
+| Value radix | `16` | `2` |
+| Finite-value formula | `(-1)^sign * 0.fraction_hex * 16^(characteristic - 64)` | `(-1)^sign * 1.fraction_bin * 2^(exponent - 127)` for normal values |
+| Special encodings | No IEEE-style infinities, NaNs, or subnormal class in the observed coordinate decoder; zero is a zero fraction | Exponent fields `0x00` and `0xff` encode zero/subnormal and infinity/NaN classes |
+| Effective precision | Six hexadecimal fraction digits. In binary terms this can wobble because base-16 normalization can leave up to three leading zero bits in the binary significand. | 24 binary significant bits for normal values |
+
+Implementation notes:
+
+1. Read the four bytes as one big-endian 32-bit word.
+2. If the 24-bit fraction field is zero, return `0.0`.
+3. Let `sign` be negative when bit 31 is set.
+4. Let `characteristic = (word >> 24) & 0x7f`.
+5. Let `fraction = word & 0x00ffffff`.
+6. Decode as:
+
+```text
+(-1 if sign else +1) * (fraction / 16777216.0) *
+    16^(characteristic - 64)
+```
+
+Equivalently, `16^n` can be evaluated as `2^(4*n)`.
+
+The observed BookManager/GDF payloads do not show a deviation from standard IBM
+short HFP for 4-byte coordinates. The only GDF-specific rule observed so far is
+where the values are stored: the picture header and 4-byte coordinate record
+fields use this format, while a header length of `0x02` selects a separate
+2-byte coordinate path in `IMGDF2.FLT`.
+
 Examples from `GG66-3212-00.boo` resource 1:
 
 | Bytes | Decoded value |
