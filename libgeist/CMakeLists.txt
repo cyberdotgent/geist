@@ -93,3 +93,12 @@ foreach(example booinfo bootoc boorsrc boorender boo2git)
     )
   endif()
 endforeach()
+
+enable_testing()
+
+add_executable(gdf_synthetic_test
+  tests/gdf_synthetic.cpp
+)
+target_link_libraries(gdf_synthetic_test PRIVATE geist::geist_static)
+
+add_test(NAME gdf_synthetic_test COMMAND gdf_synthetic_test)

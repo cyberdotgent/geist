@@ -259,12 +259,28 @@ declared length.
 
 ## Current Rendering Scope
 
-Current `libgeist` PNG rendering support for `legacy-gdf` is fixture-driven and
-limited to observed vector-style GDF payloads. The decoder parses the stream
-header, uses the declared extent as the viewport, walks opcode/length-framed
-records, and rasterizes the verified line opcodes as black polylines.
+Current `libgeist` PNG rendering support for `legacy-gdf` is an approximate
+rasterizer for the complete `IMGDF2.FLT` dispatch set documented above. The
+decoder parses the initial comment/header, selects 2-byte signed or 4-byte IBM
+short HFP coordinates, walks IBM normal/short framed orders, and handles every
+documented importer opcode.
 
-This renders the verified `GG66-3212-00.boo` GDF resources without invoking the
-historical `IMGDF2.FLT`/`EBGIF2.FLT` filter chain. It does not yet implement the
-complete GDDM command grammar, color/style attributes, filled areas, or exact
-text/font semantics.
+Implemented drawing behavior:
+
+| Order family | `libgeist` rendering behavior |
+| --- | --- |
+| Current-position, attribute, transform, clipping, segment, and push/pop orders | Parsed and reflected in renderer state where the current rasterizer uses the state; otherwise consumed so later orders remain aligned. |
+| Line and relative-line orders | Rendered as polylines with the current color. |
+| Marker orders | Rendered as simple cross/star marker shapes. |
+| Character orders | Rendered as placeholder glyph boxes at the decoded text origin; text bytes are not yet converted with the IBM reader's full font/text path. |
+| Fillet, arc, and full-arc orders | Rendered as approximate elliptical polylines. |
+| Area orders | Collects points while an area is active and fills the resulting polygon with the current fill style. |
+| Graphics image begin/data/end orders | Renders a simple cell-array block from the buffered image bytes. |
+
+This is sufficient for inspection-oriented rendering and for visual recognition
+of BookManager GDF assets without invoking the historical
+`IMGDF2.FLT`/`EBGIF2.FLT` filter chain. It is not a pixel-exact clone of the IBM
+ImageMark/GDDM renderer: exact text shaping, fonts, clipping, transforms,
+fill-pattern semantics, arc geometry, segment replay behavior, and cell-array
+color interpretation remain intentionally approximate until more fixture-backed
+evidence is available.

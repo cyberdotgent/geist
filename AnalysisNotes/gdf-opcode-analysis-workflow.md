@@ -108,9 +108,11 @@ Line Type and `0x58` Push and Set Line Type.
   System/370/IBM short hexadecimal floating-point coordinates.
 - The renderer supports the IBM normal and short GDF order encodings exactly as
   documented in `QPRG1GDR`.
-- The Windows `IMGDF2.FLT` importer supports more than the small subset
-  currently rendered by `libgeist`, including text, markers, arcs, filled areas,
-  cell-array images, model transforms, clipping, and pushed attributes.
+- The Windows `IMGDF2.FLT` importer supports text, markers, arcs, filled areas,
+  cell-array images, model transforms, clipping, segment control, and pushed
+  attributes in addition to lines. `libgeist` now consumes every opcode in this
+  documented importer dispatch set and renders inspection-grade approximations
+  for the drawable families.
 - There are discrepancies between the AS/400-generated order list and this
   importer. For example, IBM lists character shear as `0x35`, character mode as
   `0x39`, and character direction as `0x3a`; the loaded importer does not
@@ -118,6 +120,11 @@ Line Type and `0x58` Push and Set Line Type.
   shear/spacing-like handler. These should remain documented as
   importer-observed behavior until matched against additional System/370 GDDM
   documentation.
+- Synthetic verification lives in `libgeist/tests/gdf_synthetic.cpp`. The test
+  builds a small type-2-coordinate GDF stream that emits each opcode documented
+  in `Format/GDF.md`, renders it through `decode_gdf_to_rgba`, and fails if the
+  result is empty or effectively blank. Passing an output path writes a BMP
+  inspection artifact under `tmp/`.
 
 ## Repeatable Procedure
 
