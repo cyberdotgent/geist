@@ -342,7 +342,16 @@ RgbaImage decode_mmr_to_rgba_experimental(
   if (width == 0 || height == 0 || width > 8192 || height > 8192) {
     throw std::runtime_error("MMR asset has unsupported dimensions");
   }
-  constexpr std::size_t compressed_offset = 0x45;
+  // ephimage.dll process_mmr_pict starts the first compressed segment at
+  // relative 0x50. The big-endian word at 0x48 is the segment record length,
+  // including the 8-byte segment header.
+  constexpr std::size_t compressed_offset = 0x50;
+  if (bytes.size() >= 0x4a) {
+    const auto segment_size = read_be16_unchecked(bytes, 0x48);
+    if (segment_size >= 8) {
+      compressed_size = static_cast<std::size_t>(segment_size - 8);
+    }
+  }
   if (compressed_size == 0 ||
       compressed_offset + compressed_size > bytes.size()) {
     compressed_size = bytes.size() - compressed_offset;

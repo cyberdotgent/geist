@@ -675,3 +675,18 @@
   `GG66-3212-00.boo` resources `3` and `4`, and random BOO listings
   `SC26-3089-00.boo`, `SC24-5455-01.boo`, `SC24-5680-00.boo`,
   `SC26-3119-02.boo`, and `SC24-5519-01.boo`.
+- Continued MMR/kind `I` rendering research against the live
+  `ephimage.dll.i64` IDB. Verified that `process_mmr_pict` starts the first
+  compressed segment at payload-relative `0x50`, using the big-endian word at
+  payload offset `0x48` as a segment length and subtracting the 8-byte segment
+  header before calling the decompressor. Updated the experimental
+  `libgeist/src/boo_mmr.cpp` framing to use that offset while keeping the
+  public `legacy-mmr` PNG renderer disabled until the IBM line decoder is
+  ported. Built an ignored 32-bit harness under `tmp/` that calls the exported
+  `ephimage` entry from `Official Readers/BookSrv-Win32/ephimage.dll`; rendered
+  `GG24-4302-00.boo` resource `1` through IBM's DLL to
+  `tmp/ibm-gg24-4302-1.gif`, then converted it to
+  `tmp/ibm-gg24-4302-1.png`. The reference output is a recognizable 960x832
+  black-and-white "Parallel S/390 microprocessors" diagram. Documented the
+  export table, wrapper offsets, segment framing, reference GIF header, and
+  remaining self-contained decoder gap in `Format/assets.md`.
