@@ -51,6 +51,13 @@ primary id.
 The current decoder can print separator placeholders as `?` in some records.
 Those placeholders are decoder artifacts or unresolved control spacing and
 should not be treated as literal document text without byte-level confirmation.
+They also are not paragraph boundaries by themselves. In the `BOO/packet.boo`
+`NOTICES` topic, the decoded text contains a placeholder run between `second
+cover page` and `if you wish.`; BookServer renders this as continuous paragraph
+text. A raw projection should split at `?` only when the following non-space
+content is a recognizable BookManager/GML control such as `CZ`, `CFONT`, or
+`CSELECT`. Otherwise the placeholder run is padding/spacing and should collapse
+to normal whitespace.
 
 `libgeist` raw topic output projects the decoded control stream into a
 BookMaster-style GML script. This projection is intentionally not Markdown and

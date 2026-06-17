@@ -95,6 +95,11 @@ std::string escape_gml_attr(std::string value) {
 }
 
 std::string dot_text(std::string value) {
+  for (auto& ch : value) {
+    if (ch == '?') {
+      ch = ' ';
+    }
+  }
   value = collapse_ascii_whitespace(std::move(value));
   if (value.empty()) {
     return {};
@@ -168,7 +173,8 @@ std::vector<std::string> split_decoded_markup_segments(
          decoded_record[cursor - 1] == ',')) {
       split = true;
       split_before = true;
-    } else if (decoded_record[cursor] == '?') {
+    } else if (decoded_record[cursor] == '?' &&
+               looks_like_gml_control_at(decoded_record, cursor + 1)) {
       split = true;
     } else if (decoded_record[cursor] == ',' &&
                looks_like_gml_control_at(decoded_record, cursor + 1)) {
