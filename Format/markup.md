@@ -156,6 +156,40 @@ Evidence:
 | `GG24-4302-00.boo` | `SHfigures ... CHDLEVEL :figlist ... ST Figures` |
 | `SC26-4221-08.boo` | `SHnotices ... CHDLEVEL :notices ... ST Notices` |
 
+## Cover And Title Page Rendering
+
+BookManager cover and title-page topics are generated from book metadata and
+source tags such as `:cover.` and `:tipage.`. They are not simple literal
+preformatted text blocks, even though BookServer wraps the body in
+`<pre width="80">`.
+
+Evidence from `BOO/packet.script`:
+
+| Source lines | Evidence |
+| --- | --- |
+| 7-14 | `:title`, `:stitle`, `:author`, `:docnum`, `:partnum`, and `:filenum` define the visible metadata. |
+| 21-22 | `:cover artid=prcover.` and `:tipage.` request generated cover/title topics. |
+
+BookServer evidence from the hosted packet book:
+
+| Topic URL | Observed body behavior |
+| --- | --- |
+| `/BOOKS/packet/COVER?DT=20260614112503` | The title words are emitted as bold HTML, followed by paragraph breaks between subtitle, author, document number, part number, and file number. |
+| `/BOOKS/packet/TITLE?DT=20260614112503` | The title, subtitle, and author are emitted as bold HTML lines, followed by paragraph breaks for document number, date, and author. |
+
+This matters for Markdown conversion: treating the BookServer `<pre>` wrapper
+as a Markdown fenced code block preserves line breaks but incorrectly suppresses
+the intended title emphasis. A Markdown renderer should preserve the
+title-page paragraph boundaries and apply emphasis to the generated leading
+title lines. Exact inline reconstruction should eventually come from the
+`CFONT`/`CFONTDEF` pipeline; until that is complete, Markdown conversion can use
+the verified BookServer title-page rule as a presentation fallback.
+
+The current raw projection can still collapse adjacent generated metadata
+fields into one `:p.` record and, in the packet fixture, truncates `PACKET` to
+`PACKE`. That is a decoder limitation in the logical-record split, not evidence
+that the BookServer joins those labels on one line.
+
 ## Table-Of-Contents Controls
 
 The `CONTENTS` topic stores literal TOC controls:

@@ -144,42 +144,21 @@ void append_block(std::string& output, const std::string& block) {
   output += "\n\n";
 }
 
-void flush_cover_block(std::string& output,
-                       const std::vector<std::string>& lines) {
-  if (lines.empty()) {
-    return;
-  }
-  if (!output.empty() && output.back() != '\n') {
-    output.push_back('\n');
-  }
-  if (!output.empty() && output.size() >= 2 &&
-      output.compare(output.size() - 2, 2, "\n\n") != 0) {
-    output.push_back('\n');
-  }
-
-  output += "```\n\n";
-  for (const auto& line : lines) {
-    output += line;
-    output += "\n\n";
-  }
-  output += "```\n\n";
-}
-
-void append_cover_line_part(std::vector<std::string>& lines,
-                            const std::string& line,
-                            std::size_t begin,
-                            std::size_t end) {
+void append_title_page_line_part(std::vector<std::string>& lines,
+                                 const std::string& line,
+                                 std::size_t begin,
+                                 std::size_t end) {
   auto part = trim_ascii(line.substr(begin, end - begin));
   if (!part.empty()) {
     lines.push_back(std::move(part));
   }
 }
 
-void append_cover_lines(std::vector<std::string>& lines,
-                        const std::string& text) {
+std::vector<std::string> split_title_page_lines(const std::string& text) {
   static const std::array<const char*, 3> labels = {
       "Document Number ", "Part Number ", "File Number "};
 
+  std::vector<std::string> lines;
   std::size_t cursor = 0;
   while (cursor < text.size()) {
     auto next = std::string::npos;
@@ -190,11 +169,11 @@ void append_cover_lines(std::vector<std::string>& lines,
       }
     }
     if (next == std::string::npos) {
-      append_cover_line_part(lines, text, cursor, text.size());
-      return;
+      append_title_page_line_part(lines, text, cursor, text.size());
+      return lines;
     }
     if (next > cursor) {
-      append_cover_line_part(lines, text, cursor, next);
+      append_title_page_line_part(lines, text, cursor, next);
       cursor = next;
       continue;
     }
@@ -206,15 +185,29 @@ void append_cover_lines(std::vector<std::string>& lines,
         following = std::min(following, found);
       }
     }
-    append_cover_line_part(lines,
-                           text,
-                           cursor,
-                           following == std::string::npos ? text.size()
-                                                          : following);
+    append_title_page_line_part(lines,
+                                text,
+                                cursor,
+                                following == std::string::npos ? text.size()
+                                                               : following);
     if (following == std::string::npos) {
-      return;
+      return lines;
     }
     cursor = following;
+  }
+  return lines;
+}
+
+void append_title_page_markdown(std::string& output,
+                                const std::string& text,
+                                std::size_t& line_count,
+                                std::size_t bold_line_count) {
+  for (auto line : split_title_page_lines(text)) {
+    if (line_count < bold_line_count) {
+      line = "**" + line + "**";
+    }
+    append_block(output, line);
+    ++line_count;
   }
 }
 
@@ -531,21 +524,23 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
   std::string output;
   bool in_list = false;
   bool in_table = false;
-  bool in_cover = false;
+  bool in_title_page = false;
+  std::size_t title_page_line_count = 0;
+  std::size_t title_page_bold_lines = 0;
   std::string table_id;
   std::vector<TableCell> table_cells;
-  std::vector<std::string> cover_lines;
 
   for (const auto& record : records) {
     const auto tag = gml_tag(record);
-    if (in_cover) {
+    if (in_title_page) {
       if (tag == "p") {
-        append_cover_lines(cover_lines, gml_content(record));
+        append_title_page_markdown(output,
+                                   gml_content(record),
+                                   title_page_line_count,
+                                   title_page_bold_lines);
         continue;
       }
-      flush_cover_block(output, cover_lines);
-      cover_lines.clear();
-      in_cover = false;
+      in_title_page = false;
     }
 
     if (in_table) {
@@ -567,9 +562,10 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
       continue;
     }
 
-    if (tag == "cover") {
-      in_cover = true;
-      cover_lines.clear();
+    if (tag == "cover" || tag == "tipage") {
+      in_title_page = true;
+      title_page_line_count = 0;
+      title_page_bold_lines = tag == "cover" ? 2 : 3;
       in_list = false;
       continue;
     }
@@ -604,7 +600,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
 
     if (is_heading_tag(tag)) {
       append_block(output, heading_prefix(tag) + gml_content(record));
-    } else if (tag == "p" || tag == "tipage" || tag == "lblbox") {
+    } else if (tag == "p" || tag == "lblbox") {
       append_block(output, gml_content(record));
     } else if (tag == "hdref") {
       append_block(output, render_link_markdown(record));
@@ -623,10 +619,6 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
     } else {
       append_block(output, gml_content(record));
     }
-  }
-
-  if (in_cover) {
-    flush_cover_block(output, cover_lines);
   }
 
   return trim_trailing_blank_lines(std::move(output));
