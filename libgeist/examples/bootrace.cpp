@@ -10,7 +10,7 @@ namespace {
 
 void usage() {
   std::cerr << "usage: bootrace <book.boo> <topic-id> "
-               "[--all|--records|--fonts]\n";
+               "[--all|--records|--segments|--fonts]\n";
 }
 
 std::string tsv_escape(const std::string& value) {
@@ -53,8 +53,9 @@ int main(int argc, char** argv) {
 
   const std::string mode = argc == 4 ? argv[3] : "--all";
   const auto show_records = mode == "--all" || mode == "--records";
+  const auto show_segments = mode == "--all" || mode == "--segments";
   const auto show_fonts = mode == "--all" || mode == "--fonts";
-  if (!show_records && !show_fonts) {
+  if (!show_records && !show_segments && !show_fonts) {
     usage();
     return 2;
   }
@@ -84,6 +85,17 @@ int main(int argc, char** argv) {
                   << tsv_escape(record.decoded_record) << "\t"
                   << tsv_escape(join_records(record.normalized_gml_records))
                   << "\n";
+      }
+    }
+
+    if (show_segments) {
+      std::cout << "# decoded markup segments\n";
+      std::cout << "logical_record\tsegment\tdecoded_segment\n";
+      for (const auto& record : trace) {
+        for (std::size_t index = 0; index < record.segments.size(); ++index) {
+          std::cout << record.logical_record << "\t" << index << "\t"
+                    << tsv_escape(record.segments[index]) << "\n";
+        }
       }
     }
 

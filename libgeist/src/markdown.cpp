@@ -589,13 +589,55 @@ std::string table_fallback_markdown(const std::string& id,
   return output.str();
 }
 
+void merge_wrapped_table_rows(std::vector<std::vector<std::string>>& rows) {
+  if (rows.size() < 3 || rows.front().size() < 2) {
+    return;
+  }
+
+  for (std::size_t row_index = 2; row_index < rows.size();) {
+    auto& row = rows[row_index];
+    if (row.empty() || row.front().empty()) {
+      ++row_index;
+      continue;
+    }
+    auto continuation_only = true;
+    for (std::size_t column = 1; column < row.size(); ++column) {
+      if (!row[column].empty()) {
+        continuation_only = false;
+        break;
+      }
+    }
+    if (!continuation_only) {
+      ++row_index;
+      continue;
+    }
+
+    auto& previous = rows[row_index - 1];
+    auto target = previous.size();
+    while (target > 0 && previous[target - 1].empty()) {
+      --target;
+    }
+    if (target == 0) {
+      ++row_index;
+      continue;
+    }
+    auto& cell = previous[target - 1];
+    if (!cell.empty()) {
+      cell += "<br>";
+    }
+    cell += std::move(row.front());
+    rows.erase(rows.begin() + static_cast<std::ptrdiff_t>(row_index));
+  }
+}
+
 std::string render_rows_as_markdown_table(
     const std::string& id,
     const std::string& caption,
-    const std::vector<std::vector<std::string>>& rows) {
+    std::vector<std::vector<std::string>> rows) {
   if (rows.empty()) {
     return table_fallback_markdown(id, caption);
   }
+  merge_wrapped_table_rows(rows);
 
   std::ostringstream output;
   if (!id.empty()) {
@@ -795,7 +837,11 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         table_cells.clear();
         continue;
       }
-      if (tag == "p" || tag == "hdref" || tag == "lblbox") {
+      if (tag == "tcap") {
+        table_caption = gml_markdown_content(record);
+        continue;
+      }
+      if (tag == "p" || tag == "c" || tag == "hdref" || tag == "lblbox") {
         const auto column = gml_int_attr(record, "col").value_or(-1);
         auto text = tag == "hdref" ? render_link_markdown(record)
                                    : gml_markdown_content(record);

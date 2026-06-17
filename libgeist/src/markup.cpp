@@ -510,7 +510,246 @@ struct GmlRenderState {
   bool in_vnotice = false;
   bool emitted_vnotice_heading = false;
   bool pending_copyright_extension = false;
+  bool in_table = false;
+  std::size_t table_columns = 0;
+  std::vector<std::string> pending_table_row;
 };
+
+std::string clean_table_cell_text(std::string value) {
+  for (auto& ch : value) {
+    if (ch == '?') {
+      ch = ' ';
+    }
+  }
+  return collapse_ascii_whitespace(std::move(value));
+}
+
+std::vector<std::string> extract_table_visual_cells(const std::string& value) {
+  std::vector<std::string> cells;
+  const auto first_separator = value.find('?');
+  if (first_separator == std::string::npos) {
+    return cells;
+  }
+
+  auto cursor = first_separator + 1;
+  while (cursor < value.size()) {
+    const auto next = value.find('?', cursor);
+    if (next == std::string::npos) {
+      auto trailing = clean_table_cell_text(value.substr(cursor));
+      cells.push_back(std::move(trailing));
+      break;
+    }
+    cells.push_back(clean_table_cell_text(value.substr(cursor,
+                                                       next - cursor)));
+    cursor = next + 1;
+  }
+  return cells;
+}
+
+std::string flush_pending_table_row(GmlRenderState& state) {
+  if (state.pending_table_row.empty()) {
+    return {};
+  }
+
+  std::ostringstream output;
+  output << ":row.";
+  for (std::size_t index = 0; index < state.pending_table_row.size(); ++index) {
+    output << "\n:c col='" << index << "'."
+           << dot_text(state.pending_table_row[index]);
+  }
+  state.pending_table_row.clear();
+  return output.str();
+}
+
+void append_table_visual_line(GmlRenderState& state,
+                              const std::vector<std::string>& line,
+                              std::string& output) {
+  auto normalized_line = line;
+  if (state.table_columns == 0) {
+    while (!normalized_line.empty() && normalized_line.front().empty()) {
+      normalized_line.erase(normalized_line.begin());
+    }
+    while (!normalized_line.empty() && normalized_line.back().empty()) {
+      normalized_line.pop_back();
+    }
+  } else {
+    while (normalized_line.size() > state.table_columns &&
+           normalized_line.front().empty()) {
+      normalized_line.erase(normalized_line.begin());
+    }
+    while (normalized_line.size() > state.table_columns &&
+           normalized_line.back().empty()) {
+      normalized_line.pop_back();
+    }
+  }
+
+  if (normalized_line.empty()) {
+    return;
+  }
+  if (state.table_columns == 0) {
+    state.table_columns = normalized_line.size();
+  }
+  if (state.table_columns == 0) {
+    return;
+  }
+
+  std::vector<std::string> cells(state.table_columns);
+  for (std::size_t index = 0;
+       index < state.table_columns && index < normalized_line.size();
+       ++index) {
+    cells[index] = normalized_line[index];
+  }
+
+  const auto starts_new_row = !cells.empty() && !cells.front().empty();
+  if (!state.pending_table_row.empty() && starts_new_row) {
+    auto flushed = flush_pending_table_row(state);
+    if (!flushed.empty()) {
+      if (!output.empty()) {
+        output.push_back('\n');
+      }
+      output += std::move(flushed);
+    }
+  }
+
+  if (state.pending_table_row.empty()) {
+    state.pending_table_row.assign(state.table_columns, {});
+  }
+  for (std::size_t index = 0; index < state.table_columns; ++index) {
+    if (cells[index].empty()) {
+      continue;
+    }
+    if (!state.pending_table_row[index].empty()) {
+      state.pending_table_row[index] += "<br>";
+    }
+    state.pending_table_row[index] += std::move(cells[index]);
+  }
+}
+
+std::string render_table_body_gml(std::string segment, GmlRenderState& state) {
+  if (ascii_starts_with_case_insensitive(trim_ascii(segment), "cfont")) {
+    const auto first_separator = segment.find('?');
+    if (first_separator == std::string::npos) {
+      return {};
+    }
+    segment = segment.substr(first_separator);
+  }
+
+  if (segment.find('?') == std::string::npos && state.table_columns == 0 &&
+      state.pending_table_row.empty()) {
+    return render_simple_gml_control("tcap", std::move(segment));
+  }
+
+  std::string output;
+  const auto first_separator = segment.find('?');
+  if (first_separator != std::string::npos && first_separator > 0) {
+    auto prefix = clean_table_cell_text(segment.substr(0, first_separator));
+    auto rest = segment.substr(first_separator);
+    if (!prefix.empty()) {
+      if (prefix.size() == 1 &&
+          std::isalnum(static_cast<unsigned char>(prefix.front())) == 0) {
+        segment = std::move(rest);
+      } else {
+        auto preview = extract_table_visual_cells(rest);
+        const auto continues_pending =
+            !state.pending_table_row.empty() &&
+            (preview.empty() || preview.front().empty());
+        if (continues_pending) {
+          auto& target = state.pending_table_row.back();
+          if (!target.empty()) {
+            target += "<br>";
+          }
+          target += std::move(prefix);
+          segment = std::move(rest);
+        } else {
+          auto flushed = flush_pending_table_row(state);
+          if (!flushed.empty()) {
+            output += std::move(flushed);
+            output.push_back('\n');
+          }
+          segment = "? " + prefix + " " + rest;
+        }
+      }
+    }
+  }
+
+  std::size_t begin = 0;
+  while (begin < segment.size()) {
+    auto border_begin = std::string::npos;
+    auto border_end = std::string::npos;
+    for (auto cursor = begin; cursor < segment.size();) {
+      if (segment[cursor] != '?') {
+        ++cursor;
+        continue;
+      }
+      auto end = cursor;
+      while (end < segment.size() && segment[end] == '?') {
+        ++end;
+      }
+      if (end - cursor >= 5) {
+        border_begin = cursor;
+        border_end = end;
+        break;
+      }
+      cursor = end;
+    }
+
+    const auto part =
+        border_begin == std::string::npos
+            ? segment.substr(begin)
+            : segment.substr(begin, border_begin - begin);
+    auto cells = extract_table_visual_cells(part);
+    while (!cells.empty()) {
+      while (!cells.empty() && cells.front().empty() &&
+             (state.table_columns == 0 ||
+              (state.pending_table_row.empty() &&
+               cells.size() > state.table_columns))) {
+        cells.erase(cells.begin());
+      }
+      if (cells.empty()) {
+        break;
+      }
+
+      if (state.table_columns == 0) {
+        auto inferred = cells.size();
+        for (std::size_t index = 1; index < cells.size(); ++index) {
+          if (cells[index].empty()) {
+            inferred = index;
+            break;
+          }
+        }
+        while (inferred > 0 && cells[inferred - 1].empty()) {
+          --inferred;
+        }
+        state.table_columns = inferred;
+      }
+
+      auto take = state.table_columns;
+      if (take == 0) {
+        break;
+      }
+      take = std::min(take, cells.size());
+      std::vector<std::string> line(cells.begin(), cells.begin() + take);
+      append_table_visual_line(state, line, output);
+      cells.erase(cells.begin(), cells.begin() + static_cast<std::ptrdiff_t>(take));
+      if (!cells.empty() && cells.front().empty()) {
+        cells.erase(cells.begin());
+      }
+    }
+
+    if (border_begin == std::string::npos) {
+      break;
+    }
+    auto flushed = flush_pending_table_row(state);
+    if (!flushed.empty()) {
+      if (!output.empty()) {
+        output.push_back('\n');
+      }
+      output += std::move(flushed);
+    }
+    begin = border_end;
+  }
+  return output;
+}
 
 bool parse_unsigned_word(const std::string& value, std::size_t& cursor) {
   while (cursor < value.size() &&
@@ -873,6 +1112,10 @@ std::string render_gml_segment(std::string segment,
   if (ascii_starts_with_case_insensitive(lower, "cfontdef")) {
     return {};
   }
+  if (state.in_table && !ascii_starts_with_case_insensitive(lower, "sretbl") &&
+      !ascii_starts_with_case_insensitive(lower, "cz")) {
+    return render_table_body_gml(std::move(segment), state);
+  }
   if (ascii_starts_with_case_insensitive(lower, "cfont")) {
     return render_font_gml(rest_after_first_word(segment), state);
   }
@@ -895,19 +1138,34 @@ std::string render_gml_segment(std::string segment,
     return ":efig.";
   }
   if (ascii_starts_with_case_insensitive(lower, "srtbl")) {
+    state.in_table = true;
+    state.table_columns = 0;
+    state.pending_table_row.clear();
     return render_table_gml(segment.substr(5));
   }
   if (ascii_starts_with_case_insensitive(lower, "sretbl")) {
-    return ":etable.";
+    auto output = flush_pending_table_row(state);
+    if (!output.empty()) {
+      output += "\n";
+    }
+    output += ":etable.";
+    state.in_table = false;
+    state.table_columns = 0;
+    return output;
   }
   if (ascii_starts_with_case_insensitive(lower, "sr")) {
     return render_anchor_gml(segment.substr(2));
   }
   if (ascii_starts_with_case_insensitive(lower, "cz")) {
+    const auto layout = rest_after_first_word(segment);
+    const auto lower_layout = ascii_lower(layout);
+    if (ascii_starts_with_case_insensitive(lower_layout, "off table") ||
+        ascii_starts_with_case_insensitive(lower_layout, "off etable")) {
+      return {};
+    }
     if (state.pending_copyright_extension &&
-        ascii_starts_with_case_insensitive(rest_after_first_word(segment),
-                                           "break")) {
-      auto rendered = render_layout_gml(rest_after_first_word(segment));
+        ascii_starts_with_case_insensitive(layout, "break")) {
+      auto rendered = render_layout_gml(layout);
       const auto dot = rendered.find('.');
       const auto content =
           dot == std::string::npos ? std::string{}
@@ -917,7 +1175,7 @@ std::string render_gml_segment(std::string segment,
         return render_simple_gml_control("coprext", content);
       }
     }
-    return render_layout_gml(rest_after_first_word(segment));
+    return render_layout_gml(layout);
   }
   if (ascii_starts_with_case_insensitive(lower, "si")) {
     return render_simple_gml_control("i1", rest_after_first_word(segment));

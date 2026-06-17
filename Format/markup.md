@@ -379,6 +379,36 @@ cells with AS/400 command-looking tokens such as `endjob`, `wrkjobq`, and
 byte-level row/column layout for these flat legacy table records still needs
 reader-code confirmation.
 
+`packet.boo` demonstrates another table form generated from BookMaster
+`:table`, `:tcap`, `:row`, and `:c` source records. In the decoded logical
+stream, the table body is a fixed-width boxed layout between `SRTBL<id>` and
+`SRETBL`: long runs of decoded `?` characters are horizontal rules, single
+decoded `?` characters are vertical cell separators, and wrapped visual lines
+repeat the separators with blank cells for columns that continue empty.
+BookServer reconstructs these records as HTML `<table>` rows with monospace
+cells and `<br>` for wrapped cell lines.
+
+For example, `packet.boo` topic `2.4.4` contains `SRTBLTBLUNIQ17` followed by
+the boxed row text for `Class`, `Range`, and `Default Netmask`. The hosted
+BookServer page renders the same block as `Table 1. IPv4 Address Classes`,
+with rows `A` through `E`; wrapped ranges such as `0.0.0.0 -` and
+`127.255.255.255` remain in the `Range` cell. Topic `3.9` contains
+`SRTBLTBLUNIQ40`; BookServer renders multi-line descriptions such as
+`List AX.25 callsigns / recently heard over / some given timeframe` as one
+row's third cell, not as separate rows.
+
+The boxed fixed-width stream has two practical decoding edge cases:
+
+- The space between one visual line's right edge and the next visual line's
+  left edge decodes as an empty guard cell. A renderer must discard that guard
+  when grouping cells into visual lines, while preserving real blank cells used
+  for wrapped rows.
+- Logical-record boundaries can split a row before the next cell separator.
+  Text before the first separator is either a continuation of the pending row
+  when the following cells are blank, or the first cell of a new row when the
+  following cells contain real column data. One-character punctuation prefixes
+  observed before some rows are layout artifacts and are ignored.
+
 Evidence:
 
 | File | Decoded evidence |
@@ -388,6 +418,8 @@ Evidence:
 | `SC26-4221-08.boo` | `CSELECT 3 10 Pic1 ... Picture 1 represents ...` |
 | `SC26-4221-08.boo` | `CSELECT 3 8 Figv2pubs ... SRFIGv2pubs ... SRTBLv2pubs ... Figure 1` |
 | `QS3X36CM.BOO` | Topic `2.2`: `SRTBLtbluniq2`, header cells `System/36`, `As/400`, `As/400 Function`, entries such as `Cancel(c) job`, `endjob`, `Clrjobq`, `wrkjobq`, and final `SRETBL`. |
+| `packet.boo` | Topic `2.4.4`: `SRTBLTBLUNIQ17`, fixed-width boxed rows for `Table 1. IPv4 Address Classes`, and final `SRETBL`; hosted BookServer renders the same block as an HTML table. |
+| `packet.boo` | Topic `3.9`: `SRTBLTBLUNIQ40`, wrapped boxed rows for `Table 4. Linux Packet Programs`; hosted BookServer keeps wrapped description lines inside the same table cell. |
 
 The resource table stores raw assets as documented in [assets.md](assets.md).
 For observed BookServer picture references, body ids such as `pic1` map to BOO
@@ -438,6 +470,6 @@ layout can be considered stable.
   ids in the resource descriptor table (`1`).
 - Full `CZ` control grammar for all paragraph, list, table, and figure layout
   modes.
-- Exact row/column substructure for flat legacy table bodies such as
-  `QS3X36CM.BOO` topic `2.2`; current Markdown output uses a documented
-  fallback grouping heuristic.
+- Exact row/column substructure for flat legacy cross-reference table bodies
+  such as `QS3X36CM.BOO` topic `2.2`; current Markdown output uses a
+  documented fallback grouping heuristic.
