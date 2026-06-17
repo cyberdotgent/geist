@@ -341,7 +341,7 @@ void append_toc_item(std::string& output, const std::string& record) {
 
   const auto id = gml_attr(record, "id");
   if (!id.empty()) {
-    text = "[" + text + "](#" + id + ") `" + id + "`";
+    text = "`" + id + "` [" + text + "](#" + id + ")";
   }
 
   const auto level_attr = gml_attr(record, "level");
