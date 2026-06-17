@@ -8,8 +8,6 @@
 
 . * FN 27 41 38 BPQ Protocol * 40 was coordinate hWA4XYZ -- as
 
-I
-
 .
 
 - [* and up 50 FN XMP ! has AX firmware TCP FN I](#*)
@@ -82,8 +80,6 @@ AN EXMP.
 
 . . FN 26 9
 
-2 JNOS OFF 50
-
 [commands 12 possibly](#PACKET)
 
 *.
@@ -101,8 +97,6 @@ AN EXMP.
 . 45 .... ".. . , .
 
 . . FN 26 9
-
-2 JNOS OFF 50
 
 [12 ORing](#commands)
 
@@ -152,8 +146,6 @@ FLOW are.
 
 * neigh 7 EXMP This DT
 
-retry 49
-
 . which command... I
 
 * 32 42 WA4XYZ
@@ -167,8 +159,6 @@ retry 49
 . FLOW.
 
 . I FN 41
-
-P
 
 up
 
@@ -726,8 +716,6 @@ as, .. . . . :, , .. > .,
 .
 
 .
-
-<a id="FTNFTNUNIQ1"></a>
 
 . 21
 
@@ -1618,8 +1606,6 @@ and an " $
 
 .
 
-<a id="FTNFTNUNIQ1"></a>
-
 *. radio > ) . - at callsign.
 
 . commands
@@ -2001,13 +1987,9 @@ up. on
 
 .
 
-<a id="ftnftnuniq10"></a>
-
 . " and ( APRS
 
 .
-
-Packet, (
 
 -
 
@@ -2693,8 +2675,6 @@ This protocol
 
 . ) commands, 60address
 
-FN the44# address, , 60 If commandsI
-
 > .
 
 > .
@@ -2897,8 +2877,6 @@ are connections commands 0 )
 
 .
 
-are BPQ
-
 . JNOS
 
 . ,.
@@ -2975,8 +2953,6 @@ TNC address
 
 .
 
-at " /
-
 40
 
 .
@@ -3046,8 +3022,6 @@ This
 .
 
 .
-
-,. 28
 
 . callsign . --. connections used
 
@@ -3276,8 +3250,6 @@ PACKET
 12
 
 .
-
-<a id="EFTN"></a>
 
 ! try
 
@@ -4161,8 +4133,6 @@ $ )
 
 The start
 
-port
-
 . . _ command
 
 . a your
@@ -4247,8 +4217,6 @@ TCP packets
 
 up 44 .
 
-at _ #.
-
 am
 
 . , , ..,. ; !. . . )
@@ -4332,8 +4300,6 @@ address $
 ., at and packet -
 
 . . ftnftnuniq22 35 38 45 be sh2.4.1 255 19
-
-for mode with port not $ 122
 
 . FN httpport
 
@@ -4642,8 +4608,6 @@ this $ The
 
 .
 
-<a id="EFTN"></a>
-
 .
 
 have.. . .. ..,. .. BREAK..
@@ -4768,8 +4732,6 @@ a
 . need FN ' mode
 
 34
-
-<a id="EFTN"></a>
 
 /. $
 

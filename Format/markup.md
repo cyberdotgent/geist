@@ -89,12 +89,14 @@ or represented with the nearest BookMaster tag shape.
 | `ETOC` | `:etoc.` | End of TOC entry stream. | Observed TOC terminator. |
 | `CFONTDEF=<code> <name>` | suppressed | Font/style code definition. | The current source-style projection does not yet reconstruct inline `:hpN.` spans from these definitions. |
 | `CFONT <triples...> [text]` | trailing text preserved as `:p.<text>` or `:note.<text>` when present | Repeated `<offset> <length> <font_code>` triples, sometimes followed by decoded visible text. | Span reconstruction remains incomplete. |
-| `CSELECT <col> <len> <target> [text]` | `:hdref refid='<target>'.<text>` | Selectable link/cross-reference. The target may be a topic id or an anchor id. | Source-style approximation using a BookMaster tag present in `packet.script`. |
-| `CSELECT <col> <len> PIC<n> [text]` | `:image resource='<n>'.<text>` | Selectable embedded picture reference. Markdown renders this as `resource:<n>` so generic renderers preserve the BOO resource id and exporters can dereference it. | Verified against `packet.boo` topic `1.3`, where BookServer renders `PIC1` as `/bookmgr/pictures/packet.20260614112503.P1.GIF`. |
+| `CSELECT <col> <len> <target> [text]` | optional `:pinline.<prefix>` followed by `:hdref refid='<target>'.<selected>` | Selectable link/cross-reference. The target may be a topic id, anchor id, or footnote id. The trailing `len` characters of the display text are the selected/link text; preceding display text remains plain inline content. | Verified against `packet.boo` topic `1.1`, where `CSELECT ... FTNFTNUNIQ1 ... technologies. (1)` renders `technologies.` as paragraph text and links only `(1)`. |
+| `CSELECT <col> <len> PIC<n> [text]` | optional `:pinline.<prefix>` followed by `:image resource='<n>'.<selected>` | Selectable embedded picture reference. Markdown renders this as `resource:<n>` so generic renderers preserve the BOO resource id and exporters can dereference it. | Verified against `packet.boo` topic `1.3`, where BookServer renders `PIC1` as `/bookmgr/pictures/packet.20260614112503.P1.GIF`. |
 | `CMENU` | `:ul type='menu'.` | Start of generated selectable menu/list. | BookSrv emits a `Subtopics:` heading and an HTML `<ul>` for PACKET topic `1.0`; raw output keeps it distinct from ordinary source `:ul.` lists. |
 | `CMITEM <id> <text>` | `:li refid='<id>'.<id> <text>` | Menu item target and visible label. | Verified in BookSrv `bookmgr.exe`; the first token is the href target and is also preserved in visible subtopic text. |
 | `CEMENU` | `:eul.` | End of menu/list. | Observed menu/list terminator. |
 | `SR<id>` | `:anchor id='<id>'.` | Generic spot/section anchor. `CSELECT` can target this id directly. | Verified by `QS3X36CM.BOO` links such as `sptproc`, `sptcontrol`, and `sptocl`. |
+| `SRFTN<id>` followed by `CZ FLOW FN ...` | `:fn id='<id>'.<text>` | Start of a generated footnote body. The `id` is the footnote target used by a `CSELECT` reference. | Verified by `packet.boo` topic `1.1` and BookSrv `sub_405FC`, which emits `<a name="FTNFTNUNIQ1"><hr><h5>...`. |
+| `SREFTN` | `:efn.` | End of a generated footnote body. | Verified by `packet.boo` topic `1.1` and BookSrv `sub_405FC`. |
 | `SRFIG<id>` | `:fig id='<id>'.` | Figure anchor/start id. | Observed in figure records. |
 | `SREFIG` | `:efig.` | Figure end marker. | Observed, but current decoder can truncate/case-shift some occurrences. |
 | `SRTBL<id>` | `:table id='<id>'.` | Table anchor/start id. | Observed. |
@@ -336,6 +338,8 @@ table, or picture.
 | --- | --- | --- |
 | `CSELECT` | `CSELECT <column> <length> <target_id>` | Link or selectable reference. |
 | `SR<id>` | `SRsptproc` | Generic anchor target for a `CSELECT` reference. |
+| `SRFTN<id>` | `SRFTNFTNUNIQ1` | Footnote anchor target for a generated footnote body. |
+| `SREFTN` | `SREFTN` | Ends a generated footnote body. |
 | `CMENU` | `CMENU` | Starts a menu/list of selectable items. |
 | `CMITEM` | `CMITEM <topic_id> <text>` | Menu item target and label. |
 | `CEMENU` | `CEMENU` | Ends a menu/list. |
@@ -347,13 +351,18 @@ Examples:
 | `QS3X36CM.BOO` | `CMENU CMITEM 1.1 Displaying as/400 Commands Online CEMENU` |
 | `packet.boo` | Topic `1.0`: `CMENU`, `CMITEM 1.1 Original Packet Radio`, `CMITEM 1.2 Ham Packet Radio`, `CMITEM 1.3 Bringing it Together`, `CEMENU`; hosted BookServer renders these as linked `Subtopics:` entries. |
 | `bookmgr.exe.i64` | `sub_405FC` emits the generated menu heading `Subtopics:` at `0x44b0b`; recognizes `CMITEM` at `0x44b8c`; then builds the item `href` from the first token and emits the remaining text inside the anchor at `0x44c56`. |
+| `packet.boo` | Topic `1.1`: `CSELECT 16 4 FTNFTNUNIQ1 ... technologies. (1)` followed later by `SRFTNFTNUNIQ1`, `CZ FLOW FN ...`, and `SREFTN`; hosted BookServer links only `(1)` and renders the footnote at the bottom under anchor `FTNFTNUNIQ1`. |
+| `packet.boo` | Full raw render contains 67 footnote records and 67 unique `FTNFTNUNIQ...` ids, so the generated ids can be reused as stable Markdown anchors for this document. |
+| `bookmgr.exe.i64` | `sub_405FC` recognizes `SRFTN` at `0x42356`, emits the first-footnote `<hr>` at `0x42388`, emits the footnote body as `<h5>` at `0x423a4`, and tokenizes `CSELECT` at `0x42471` so the selected span length determines the linked text. |
 | `QS3X36CM.BOO` | `CSELECT 33 3 sptproc ...` in topic `2.0`; target anchor `SRsptproc` appears inside topic `2.1`. |
 | `GG24-4302-00.boo` | `CSELECT 3 8 fig4302hp1` |
 | `SC26-4221-08.boo` | `CSELECT 7 22 hdrlanguag` |
 
 The `column` and `length` values are display-span positions in the decoded
-logical line. A reader should preserve the `target_id` even if it chooses a
-different rendering layout.
+logical line. The observed BookServer behavior uses `length` to limit the link
+to the selected trailing display span; any preceding display text in the same
+decoded `CSELECT` record remains ordinary inline text. A reader should preserve
+the `target_id` even if it chooses a different rendering layout.
 
 ## Figures, Pictures, Tables, And Asset References
 

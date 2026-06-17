@@ -200,6 +200,10 @@ std::string gml_attr(const std::string& record, const std::string& attr) {
   return record.substr(value_begin, value_end - value_begin);
 }
 
+bool is_footnote_id(const std::string& value) {
+  return ascii_starts_with_case_insensitive(value, "FTN");
+}
+
 void append_block(std::string& output, const std::string& block) {
   if (block.empty()) {
     return;
@@ -437,6 +441,10 @@ std::string render_link_markdown(const std::string& record) {
   if (target.empty()) {
     return text;
   }
+  if (is_footnote_id(target)) {
+    return "<a id=\"fnref-" + target + "\"></a>[" + text + "](#" + target +
+           ")";
+  }
   return "[" + text + "](#" + target + ")";
 }
 
@@ -535,6 +543,26 @@ struct TableCell {
   int column = -1;
   std::string text;
 };
+
+struct Footnote {
+  std::string id;
+  std::vector<std::string> blocks;
+};
+
+void append_inline_to_previous_block(std::string& output,
+                                     const std::string& text) {
+  if (text.empty()) {
+    return;
+  }
+  while (!output.empty() && output.back() == '\n') {
+    output.pop_back();
+  }
+  if (!output.empty()) {
+    output.push_back(' ');
+  }
+  output += text;
+  output += "\n\n";
+}
 
 std::vector<int> infer_table_columns(const std::vector<TableCell>& cells) {
   std::vector<int> columns;
@@ -800,6 +828,34 @@ std::string render_table_markdown(const std::string& id,
   return render_rows_as_markdown_table(id, caption, rows);
 }
 
+void append_footnotes(std::string& output,
+                      const std::vector<Footnote>& footnotes) {
+  if (footnotes.empty()) {
+    return;
+  }
+
+  append_block(output, "---");
+  for (const auto& footnote : footnotes) {
+    std::string block;
+    if (!footnote.id.empty()) {
+      block += "<a id=\"" + footnote.id + "\"></a>\n\n";
+    }
+    for (std::size_t index = 0; index < footnote.blocks.size(); ++index) {
+      if (index != 0) {
+        block += "\n\n";
+      }
+      block += footnote.blocks[index];
+    }
+    if (!footnote.id.empty()) {
+      if (!block.empty()) {
+        block += "\n\n";
+      }
+      block += "[Back](#fnref-" + footnote.id + ")";
+    }
+    append_block(output, block);
+  }
+}
+
 } // namespace
 
 std::string render_markdown_records(const std::vector<std::string>& records) {
@@ -814,10 +870,44 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
   std::string table_caption;
   std::string pending_copyright_note;
   std::vector<TableCell> table_cells;
+  std::vector<Footnote> footnotes;
+  Footnote current_footnote;
+  bool in_footnote = false;
   std::vector<std::string> pending_title_page_bold_lines;
 
   for (const auto& record : records) {
     const auto tag = gml_tag(record);
+    if (in_footnote) {
+      if (tag == "efn") {
+        footnotes.push_back(std::move(current_footnote));
+        current_footnote = {};
+        in_footnote = false;
+        continue;
+      }
+      if (tag == "p" || tag == "fn" || tag == "lblbox") {
+        auto text = gml_markdown_content(record);
+        if (!text.empty()) {
+          current_footnote.blocks.push_back(std::move(text));
+        }
+        continue;
+      }
+      if (tag == "hdref") {
+        auto text = render_link_markdown(record);
+        if (!text.empty()) {
+          current_footnote.blocks.push_back(std::move(text));
+        }
+        continue;
+      }
+      if (tag == "anchor") {
+        continue;
+      }
+      auto text = gml_markdown_content(record);
+      if (!text.empty()) {
+        current_footnote.blocks.push_back(std::move(text));
+      }
+      continue;
+    }
+
     if (in_title_page) {
       if (tag == "p") {
         append_title_page_markdown(output,
@@ -970,13 +1060,32 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         append_block(output, pending_copyright_note);
         pending_copyright_note.clear();
       }
-      append_block(output, render_link_markdown(record));
+      const auto target = gml_attr(record, "refid");
+      if (is_footnote_id(target)) {
+        append_inline_to_previous_block(output, render_link_markdown(record));
+      } else {
+        append_block(output, render_link_markdown(record));
+      }
     } else if (tag == "image") {
       if (!pending_copyright_note.empty()) {
         append_block(output, pending_copyright_note);
         pending_copyright_note.clear();
       }
       append_block(output, render_image_markdown(record));
+    } else if (tag == "fn") {
+      if (!pending_copyright_note.empty()) {
+        append_block(output, pending_copyright_note);
+        pending_copyright_note.clear();
+      }
+      current_footnote = {};
+      current_footnote.id = gml_attr(record, "id");
+      auto text = gml_markdown_content(record);
+      if (!text.empty()) {
+        current_footnote.blocks.push_back(std::move(text));
+      }
+      in_footnote = true;
+    } else if (tag == "efn") {
+      continue;
     } else if (tag == "anchor") {
       append_block(output, render_anchor_markdown(record));
     } else if (tag == "fig") {
@@ -998,9 +1107,13 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
   }
 
   flush_pending_title_page_lines(output, pending_title_page_bold_lines);
+  if (in_footnote) {
+    footnotes.push_back(std::move(current_footnote));
+  }
   if (!pending_copyright_note.empty()) {
     append_block(output, pending_copyright_note);
   }
+  append_footnotes(output, footnotes);
   return trim_trailing_blank_lines(std::move(output));
 }
 

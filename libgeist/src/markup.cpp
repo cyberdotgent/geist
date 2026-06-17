@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cstdlib>
 #include <fstream>
 #include <iomanip>
 #include <iterator>
@@ -152,6 +153,10 @@ bool looks_like_gml_control_at(const std::string& value, std::size_t offset) {
     if ((prefix_text == "sh" || prefix_text == "srfig" ||
          prefix_text == "srtbl" || prefix_text == "sr") &&
         is_topic_id_char(next)) {
+      if (prefix_text == "sr" && end + 1 < value.size() &&
+          std::isspace(static_cast<unsigned char>(value[end + 1])) != 0) {
+        return false;
+      }
       return true;
     }
   }
@@ -397,18 +402,38 @@ std::string render_link_gml(std::string value) {
   std::string text;
   std::getline(input, text);
   text = dot_text(text);
+  auto selected_text = text;
+  auto prefix_text = std::string{};
+  char* length_end = nullptr;
+  const auto selected_length = std::strtol(length.c_str(), &length_end, 10);
+  if (length_end != length.c_str() && *length_end == '\0' &&
+      selected_length > 0 &&
+      static_cast<std::size_t>(selected_length) < text.size()) {
+    const auto split = text.size() - static_cast<std::size_t>(selected_length);
+    prefix_text = trim_ascii(text.substr(0, split));
+    selected_text = trim_ascii(text.substr(split));
+  }
+
   const auto resource_id = picture_resource_id(target);
   if (!resource_id.empty()) {
     auto output = ":image resource='" + escape_gml_attr(resource_id) + "'.";
-    if (!text.empty()) {
-      output += text;
+    if (!selected_text.empty()) {
+      output += selected_text;
+    }
+    if (!prefix_text.empty()) {
+      return render_simple_gml_control("pinline", std::move(prefix_text)) +
+             "\n" + output;
     }
     return output;
   }
 
   auto output = ":hdref refid='" + escape_gml_attr(target) + "'.";
-  if (!text.empty()) {
-    output += text;
+  if (!selected_text.empty()) {
+    output += selected_text;
+  }
+  if (!prefix_text.empty()) {
+    return render_simple_gml_control("pinline", std::move(prefix_text)) +
+           "\n" + output;
   }
   return output;
 }
@@ -511,6 +536,7 @@ std::string render_anchor_gml(std::string value) {
 
 struct GmlRenderState {
   std::string pending_topic_tag;
+  std::string pending_footnote_id;
   bool in_generated_toc = false;
   bool in_generated_title_page = false;
   bool emitted_toc = false;
@@ -521,6 +547,36 @@ struct GmlRenderState {
   std::size_t table_columns = 0;
   std::vector<std::string> pending_table_row;
 };
+
+std::string render_footnote_gml(std::string value, GmlRenderState& state) {
+  std::istringstream input(value);
+  std::string mode;
+  std::string tag;
+  std::string left_margin;
+  std::string indent;
+  if (!(input >> mode >> tag)) {
+    return {};
+  }
+  input >> left_margin >> indent;
+  std::string text;
+  std::getline(input, text);
+  text = dot_text(std::move(text));
+
+  auto output = std::string(":fn");
+  if (!state.pending_footnote_id.empty()) {
+    output += " id='" + escape_gml_attr(state.pending_footnote_id) + "'";
+    state.pending_footnote_id.clear();
+  }
+  if (!left_margin.empty()) {
+    output += " col='" + escape_gml_attr(std::move(left_margin)) + "'";
+  }
+  if (!indent.empty()) {
+    output += " indent='" + escape_gml_attr(std::move(indent)) + "'";
+  }
+  output += ".";
+  output += text;
+  return output;
+}
 
 std::string clean_table_cell_text(std::string value) {
   for (auto& ch : value) {
@@ -1160,7 +1216,21 @@ std::string render_gml_segment(std::string segment,
     state.table_columns = 0;
     return output;
   }
+  if (ascii_starts_with_case_insensitive(lower, "srftn")) {
+    state.pending_footnote_id = trim_control_operand(segment.substr(2));
+    return {};
+  }
+  if (ascii_starts_with_case_insensitive(lower, "sreftn")) {
+    state.pending_footnote_id.clear();
+    return ":efn.";
+  }
   if (ascii_starts_with_case_insensitive(lower, "sr")) {
+    if (segment.size() <= 2 ||
+        std::isspace(static_cast<unsigned char>(segment[2])) != 0 ||
+        (segment.size() > 3 &&
+         std::isspace(static_cast<unsigned char>(segment[3])) != 0)) {
+      return render_simple_gml_control("p", std::move(segment));
+    }
     return render_anchor_gml(segment.substr(2));
   }
   if (ascii_starts_with_case_insensitive(lower, "cz")) {
@@ -1181,6 +1251,9 @@ std::string render_gml_segment(std::string segment,
         state.pending_copyright_extension = false;
         return render_simple_gml_control("coprext", content);
       }
+    }
+    if (ascii_starts_with_case_insensitive(lower_layout, "flow fn")) {
+      return render_footnote_gml(layout, state);
     }
     return render_layout_gml(layout);
   }
@@ -1238,7 +1311,9 @@ std::vector<GmlAppendResult> append_rendered_gml_line(
         auto content = part.substr(std::string(":pinline.").size());
         if (!content.empty() && !rendered.empty() &&
             (ascii_starts_with_case_insensitive(rendered.back(), ":p ") ||
-             ascii_starts_with_case_insensitive(rendered.back(), ":p."))) {
+             ascii_starts_with_case_insensitive(rendered.back(), ":p.") ||
+             ascii_starts_with_case_insensitive(rendered.back(), ":fn ") ||
+             ascii_starts_with_case_insensitive(rendered.back(), ":fn."))) {
           if (!rendered.back().empty() && rendered.back().back() != ' ') {
             rendered.back().push_back(' ');
           }

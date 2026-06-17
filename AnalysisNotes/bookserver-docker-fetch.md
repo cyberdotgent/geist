@@ -116,3 +116,27 @@ Radio`, `CMITEM 1.2 Ham Packet Radio`, `CMITEM 1.3 Bringing it Together`, and
 `0x44c56` builds an item `href` from the first token while emitting the
 remaining text inside the anchor. Comments were added at those addresses and
 the IDB was saved.
+
+## PACKET Footnote Check
+
+For PACKET topic `1.1`, BookServer renders footnote references inline:
+
+```html
+technologies.<a href="1.1?DT=20260614112503#FTNFTNUNIQ1"> (1)</a>
+interlinked.<a href="1.1?DT=20260614112503#FTNFTNUNIQ2"> (2)</a>
+```
+
+The same page renders the footnote bodies at the bottom under anchors named
+`FTNFTNUNIQ1` and `FTNFTNUNIQ2`, with an `<hr>` before the first footnote and
+`<h5>` around each footnote body. The decoded stream is `CSELECT ... FTNFTNUNIQ1
+... technologies. (1)`, followed later by `SRFTNFTNUNIQ1`, `CZ FLOW FN ...`,
+and `SREFTN`.
+
+The BookSrv IDB confirms this path in `sub_405FC`: `SRFTN` is recognized at
+`0x42356`, the first-footnote `<hr>` is emitted at `0x42388`, the footnote body
+`<h5>` is emitted at `0x423a4`, and `CSELECT` tokenization starts at `0x42471`.
+Comments were added at those addresses and the IDB was saved.
+
+A full raw render of `packet.boo` found 67 footnote records and 67 unique
+`FTNFTNUNIQ...` ids, so the generated ids are unique within this document and
+can be reused directly as rendered Markdown anchors.
