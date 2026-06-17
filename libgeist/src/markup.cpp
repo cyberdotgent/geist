@@ -768,24 +768,26 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
   if (trailing.empty()) {
     return {};
   }
-  trailing = apply_font_spans_to_text(std::move(trailing), spans);
   if (state.in_vnotice && !state.emitted_vnotice_heading) {
     state.emitted_vnotice_heading = true;
+    trailing = apply_font_spans_to_text(std::move(trailing), spans);
     return render_simple_gml_control("vnhd", std::move(trailing));
   }
-  if (ascii_starts_with_case_insensitive(trailing, "note:")) {
-    trailing = trim_ascii(trailing.substr(5));
+  auto plain_trailing = dot_text(trailing);
+  if (ascii_starts_with_case_insensitive(plain_trailing, "note:")) {
+    plain_trailing = trim_ascii(plain_trailing.substr(5));
     const std::string copyright_marker = "\xC2\xA9";
-    const auto copyright = trailing.find(copyright_marker);
+    const auto copyright = plain_trailing.find(copyright_marker);
     if (copyright != std::string::npos) {
-      auto note_text = trim_ascii(trailing.substr(0, copyright));
-      auto copyright_text = trim_ascii(trailing.substr(copyright));
+      auto note_text = trim_ascii(plain_trailing.substr(0, copyright));
+      auto copyright_text = trim_ascii(plain_trailing.substr(copyright));
       state.pending_copyright_extension = true;
       return render_simple_gml_control("note", std::move(note_text)) + "\n" +
              render_simple_gml_control("coprnote", std::move(copyright_text));
     }
-    return render_simple_gml_control("note", std::move(trailing));
+    return render_simple_gml_control("note", std::move(plain_trailing));
   }
+  trailing = apply_font_spans_to_text(std::move(trailing), spans);
   if (state.in_generated_title_page) {
     return render_generated_title_font_line(std::move(trailing));
   }

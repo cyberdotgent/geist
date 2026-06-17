@@ -880,7 +880,11 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         append_block(output, pending_copyright_note);
         pending_copyright_note.clear();
       }
-      append_block(output, "**" + gml_markdown_content(record) + "**");
+      auto text = gml_markdown_content(record);
+      if (!has_inline_highlight_markup(gml_content(record))) {
+        text = "**" + text + "**";
+      }
+      append_block(output, text);
     } else if (tag == "p" || tag == "lblbox") {
       if (!pending_copyright_note.empty()) {
         append_block(output, pending_copyright_note);
