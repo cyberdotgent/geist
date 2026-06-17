@@ -8,7 +8,7 @@ Glossary
 
 <a id="GLS"></a>
 
-**C**
+C
 
 Constellation Diagram
 
@@ -20,7 +20,7 @@ CSS
 
 <a id="GLS"></a>
 
-**I**
+I
 
 ISM Band
 
@@ -28,7 +28,7 @@ ISM Band
 
 <a id="GLS"></a>
 
-**L**
+L
 
 LoRa
 
@@ -36,7 +36,7 @@ LoRa
 
 <a id="GLS"></a>
 
-**O**
+O
 
 OSI Model
 
@@ -44,7 +44,7 @@ OSI Model
 
 <a id="GLS"></a>
 
-**P**
+P
 
 PSK
 
@@ -52,7 +52,7 @@ PSK. "Phase-Shift Keying," a data modulation mode in which the phase of the sign
 
 <a id="GLS"></a>
 
-**Q**
+Q
 
 QAM
 
@@ -60,7 +60,7 @@ QAM
 
 <a id="GLS"></a>
 
-**S**
+S
 
 SNR
 

@@ -171,3 +171,34 @@ when layout state requires it at `0x43865`, recognizes `CZ FLOW P` at
 `<p>`. This confirms that marker-led wrapped records continue the active
 paragraph and that the marker byte is not visible output. Comments were added
 at those addresses and the IDB was saved.
+
+## PACKET Labeled Box And Font Continuation Check
+
+For PACKET topic `1.3`, BookServer was fetched through Docker at:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/packet/1.3?SHELF=&DT=20260614112503
+```
+
+BookServer renders the `Audio filtering and high-speed packet` detail box as a
+preformatted `<!-- lblbox -->` block, not as ordinary paragraph text. The source
+fixture confirms this is a source `:lblbox.Audio filtering and high-speed
+packet` through `:elblbox.` region in `BOO/packet.script` lines 229-253. The
+compiled `packet.boo` stream represents the start and end as `CZ OFF LBLBOX`
+and `CZ OFF ELBLBOX`; the visual box title/body is stored between those records.
+
+The same topic has a span-only font record:
+
+```text
+CFONT 27 5 3 33 10 3
+FM radio through its audio interface; ...
+```
+
+BookServer applies that font metadata to the following text line and emphasizes
+`audio interface;`. This confirms that `CFONT` records may carry only span
+metadata and must be held until the next visible text segment.
+
+The BookSrv IDB contains the expected renderer strings at `0xcfeec`
+(`CZ OFF LBLBOX`), `0xcff64` (`CZ OFF ELBLBOX`), and `0xcfc40`/`0xcff10`
+(`<!-- lblbox -->` emission formats). Comments were added at those string
+anchors and the IDB was saved.

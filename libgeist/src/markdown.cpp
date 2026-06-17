@@ -862,6 +862,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
   std::string output;
   bool in_list = false;
   bool in_table = false;
+  bool in_labeled_box = false;
   bool in_title_page = false;
   bool title_page_is_cover = false;
   bool title_block_complete = false;
@@ -984,6 +985,23 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
       in_list = true;
       continue;
     }
+    if (tag == "lblbox") {
+      if (!pending_copyright_note.empty()) {
+        append_block(output, pending_copyright_note);
+        pending_copyright_note.clear();
+      }
+      auto title = gml_markdown_content(record);
+      if (!title.empty()) {
+        append_block(output, "> **" + title + "**");
+      }
+      in_labeled_box = true;
+      in_list = false;
+      continue;
+    }
+    if (tag == "elblbox") {
+      in_labeled_box = false;
+      continue;
+    }
     if (tag == "eul" || tag == "eol" || tag == "edl" || tag == "etoc") {
       if (in_list && !output.empty() && output.back() == '\n') {
         output.push_back('\n');
@@ -1015,6 +1033,16 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
     }
     in_list = false;
 
+    if (in_labeled_box) {
+      if (tag == "p") {
+        auto text = gml_markdown_content(record);
+        if (!text.empty()) {
+          append_block(output, "> " + text);
+        }
+        continue;
+      }
+    }
+
     if (is_heading_tag(tag)) {
       if (!pending_copyright_note.empty()) {
         append_block(output, pending_copyright_note);
@@ -1031,7 +1059,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         text = "**" + text + "**";
       }
       append_block(output, text);
-    } else if (tag == "p" || tag == "lblbox") {
+    } else if (tag == "p") {
       if (!pending_copyright_note.empty()) {
         append_block(output, pending_copyright_note);
         pending_copyright_note.clear();

@@ -88,7 +88,7 @@ or represented with the nearest BookMaster tag shape.
 | `CTOCE <level> <style> <id> <title>` | `:li.<title>` | One generated TOC entry represented as list item text. | Source-style approximation. |
 | `ETOC` | `:etoc.` | End of TOC entry stream. | Observed TOC terminator. |
 | `CFONTDEF=<code> <name>` | suppressed | Font/style code definition. | The current source-style projection does not yet reconstruct inline `:hpN.` spans from these definitions. |
-| `CFONT <triples...> [text]` | trailing text preserved as `:p.<text>` or `:note.<text>` when present | Repeated `<offset> <length> <font_code>` triples, sometimes followed by decoded visible text. | Span reconstruction remains incomplete. |
+| `CFONT <triples...> [text]` | trailing text preserved as inline `:hpN.` spans when present; span-only records are applied to the following plain text segment | Repeated `<offset> <length> <font_code>` triples, sometimes followed by decoded visible text. Offsets are display-column based and include a small left-margin bias that must be removed before applying spans to source-style text. | Verified against `packet.boo` topic `1.3`: `CFONT 27 5 3 33 10 3` has no trailing text, but BookSrv applies it to the following `FM radio through its audio interface;` line and emphasizes `audio interface;`. |
 | `CSELECT <col> <len> <target> [text]` | optional `:pinline.<prefix>` followed by `:hdref refid='<target>'.<selected>` | Selectable link/cross-reference. The target may be a topic id, anchor id, or footnote id. The trailing `len` characters of the display text are the selected/link text; preceding display text remains plain inline content. | Verified against `packet.boo` topic `1.1`, where `CSELECT ... FTNFTNUNIQ1 ... technologies. (1)` renders `technologies.` as paragraph text and links only `(1)`. |
 | `CSELECT <col> <len> PIC<n> [text]` | optional `:pinline.<prefix>` followed by `:image resource='<n>'.<selected>` | Selectable embedded picture reference. Markdown renders this as `resource:<n>` so generic renderers preserve the BOO resource id and exporters can dereference it. | Verified against `packet.boo` topic `1.3`, where BookServer renders `PIC1` as `/bookmgr/pictures/packet.20260614112503.P1.GIF`. |
 | `CMENU` | `:ul type='menu'.` | Start of generated selectable menu/list. | BookSrv emits a `Subtopics:` heading and an HTML `<ul>` for PACKET topic `1.0`; raw output keeps it distinct from ordinary source `:ul.` lists. |
@@ -113,12 +113,13 @@ or represented with the nearest BookMaster tag shape.
 Decoded wrapped lines can also carry the same printable line-marker byte inside
 visible text fields, not only as standalone plain text spans. In `packet.boo`
 topic `1.1`, examples include `*    or affordable-to-construct`, `!    connect
-their sites`, `$    system`, and `-        equipment`. BookSrv suppresses these
-marker bytes and keeps only the wrapped prose. Source-style projection therefore
-removes a leading marker when it is followed by at least two whitespace bytes
-and appears at the start of a visible text run or after whitespace. This keeps
-ordinary punctuation such as `(which preceded...)` intact while matching the
-reader's line-wrap behavior.
+their sites`, `$    system`, and `-        equipment`; topic `1.3` adds `)    ?
+TNC...` and `:    ? As such...`. BookSrv suppresses these marker bytes and
+keeps only the wrapped prose. Source-style projection therefore removes a
+leading marker when it is followed by at least two whitespace bytes, or when a
+marker is stranded at the end of a wrapped segment, and appears at the start of
+a visible text run or after whitespace. This keeps ordinary punctuation such as
+`(which preceded...)` intact while matching the reader's line-wrap behavior.
 
 Notice-page topics use a small set of BookMaster source tags that are visible
 in `BOO/packet.script` and recoverable from the decoded controls. The `EDITION`
@@ -473,6 +474,7 @@ Observed examples from `SC26-4221-08.boo`:
 | `CZ off Fig` | End or disable figure layout mode. |
 | `CZ off Table` | Table layout boundary; BookSrv treats this as structural and resets table/layout state. |
 | `CZ off Etable` | End or disable table layout mode; BookSrv treats this as structural rather than visible text. |
+| `CZ off Lblbox` | Start of a compiled labeled-box visual block; BookSrv emits a preformatted `<!-- lblbox -->` block. |
 | `CZ off Elblbox` | End or disable labeled-box layout mode. |
 | `CZ flow p 3 3` | Paragraph flow control. |
 | `CZ flow sl 3 3` | Simple-list flow control. |
@@ -481,6 +483,15 @@ Observed examples from `SC26-4221-08.boo`:
 
 An independent reader can initially preserve these controls structurally and map
 them to renderer-specific block/list constructs later.
+
+The labeled-box controls are compiled from source `:lblbox.<title>` /
+`:elblbox.` records. In `packet.boo` topic `1.3`, source lines 229-253 contain
+`:lblbox.Audio filtering and high-speed packet`, three body paragraphs, and
+`:elblbox.`. The compiled stream starts the visual box with `CZ OFF LBLBOX`,
+stores the box title/body as wrapped visual text, and ends with
+`CZ OFF ELBLBOX`. Source-style raw output should recover this as a structural
+`:lblbox.<title>` block with paragraph children, not as ordinary prose
+containing the generated box-drawing characters.
 
 ## Index And Search Controls
 
