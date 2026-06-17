@@ -1,4 +1,4 @@
-#include "geist/detail/boo_detail.hpp"
+#include "geist/detail/internal.hpp"
 
 #include <gif_lib.h>
 #include <png.h>

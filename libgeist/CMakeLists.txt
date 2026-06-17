@@ -33,21 +33,21 @@ find_package(PNG REQUIRED)
 find_package(GIF REQUIRED)
 
 set(GEIST_SOURCES
-  src/boo_document.cpp
-  src/boo_encoding.cpp
-  src/boo_gdf.cpp
-  src/boo_io.cpp
-  src/boo_logical.cpp
-  src/boo_markup.cpp
-  src/boo_markdown.cpp
-  src/boo_mmr.cpp
-  src/boo_page_runs.cpp
-  src/boo_png.cpp
-  src/boo_properties.cpp
-  src/boo_resources.cpp
-  src/boo_strings.cpp
-  src/boo_toc.cpp
-  src/boo_util.cpp
+  src/document.cpp
+  src/encoding.cpp
+  src/gdf.cpp
+  src/io.cpp
+  src/logical.cpp
+  src/markup.cpp
+  src/markdown.cpp
+  src/mmr.cpp
+  src/page_runs.cpp
+  src/png.cpp
+  src/properties.cpp
+  src/resources.cpp
+  src/strings.cpp
+  src/toc.cpp
+  src/util.cpp
 )
 
 add_library(geist SHARED ${GEIST_SOURCES})
