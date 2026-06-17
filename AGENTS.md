@@ -96,6 +96,11 @@ not as an application with an established build system.
 - Put BookManager file-format findings in `Format/`. Put supporting notes that
   are about tools, environment behavior, URL mapping, or reader operation in
   `AnalysisNotes/`.
+- When reverse-engineering a format with help from upstream IBM manuals or
+  hosted BookManager books, also update `AnalysisNotes/` with the analysis
+  workflow and the exact upstream book names, document numbers, topic IDs, and
+  URLs used. Keep the normative byte-level facts in `Format/`, but make the
+  source trail and tool procedure easy to repeat.
 - Commit and push after each change and after each distinct workload. Keep
   commits scoped to the files intentionally changed for that workload.
 - Keep generated scratch output out of the repository unless it is intentionally
