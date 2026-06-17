@@ -28,6 +28,34 @@ Local fixture verification found kind `G` descriptors:
 `IMGDF2.FLT` shows that the stored kind `G` payload is parsed as a GDF record
 stream, not as arbitrary coordinate data.
 
+### IBM Short Hexadecimal Floating Point
+
+Observed 4-byte GDF coordinates and header extents use IBM short hexadecimal
+floating point, stored big-endian:
+
+| Byte/bit range | Meaning |
+| --- | --- |
+| Byte 0, bit 7 | Sign. `0` is positive, `1` is negative. |
+| Byte 0, bits 6..0 | Base-16 exponent with excess-64 bias. |
+| Bytes 1..3 | 24-bit unsigned fraction. |
+
+The decoded value is:
+
+```text
+sign * (fraction / 0x01000000) * 16^(exponent - 64)
+```
+
+where `sign` is `+1` or `-1`. The IBM importer returns `0.0` when the
+24-bit fraction is zero.
+
+Examples from `GG66-3212-00.boo` resource 1:
+
+| Bytes | Decoded value |
+| --- | ---: |
+| `00 00 00 00` | `0.0` |
+| `42 64 00 01` | `100.000015258789` |
+| `42 64 00 06` | `100.000091552734` |
+
 ### Picture Header
 
 The stream begins with a variable-length header:
