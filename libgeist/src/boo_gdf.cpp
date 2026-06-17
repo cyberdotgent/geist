@@ -45,6 +45,10 @@ struct TextRun {
   std::string text;
   Color color;
   double height = 3.0;
+  std::uint8_t character_set = 0;
+  bool bold = false;
+  bool italic = false;
+  bool monospaced = false;
 };
 
 struct Polygon {
@@ -83,6 +87,7 @@ struct ParserState {
   double line_width = 1.0;
   double marker_size = 2.0;
   double char_height = 3.0;
+  std::uint8_t character_set = 0;
   std::uint8_t marker_type = 1;
   std::uint8_t pattern = 0;
   std::uint8_t color_index = 0;
@@ -119,6 +124,50 @@ Color palette(std::uint8_t index) {
       {64, 64, 64, 255},
   }};
   return colors[index < colors.size() ? index : 0];
+}
+
+struct GdfFontStyle {
+  const char* gddm_name;
+  const char* imagemark_name;
+  bool bold;
+  bool italic;
+  bool monospaced;
+};
+
+GdfFontStyle font_style_for_character_set(std::uint8_t character_set) {
+  static constexpr std::array<GdfFontStyle, 23> fonts{{
+      {"ADMDVECP", "Modern:Modern", false, false, true},
+      {"ADMUUARP", "Roman:Tms Rmn", false, false, false},
+      {"ADMUUCIP", "Roman:Tms Rmn Italic", false, true, false},
+      {"ADMUUCRP", "Roman:Tms Rmn", false, false, false},
+      {"ADMUUCSP", "Script:Script", false, true, false},
+      {"ADMUUDRP", "Swiss:Helvetica", false, false, false},
+      {"ADMUUFSS", "Swiss:Helvetica", false, false, false},
+      {"ADMUUGEP", "Roman:Tms Rmn", false, false, false},
+      {"ADMUUGGP", "Roman:Tms Rmn", false, false, false},
+      {"ADMUUGIP", "Roman:Tms Rmn", false, true, false},
+      {"ADMUUKRF", "Swiss:Helvetica Bold", true, false, false},
+      {"ADMUUKRO", "Swiss:Helvetica Bold", true, true, false},
+      {"ADMUUKSF", "Swiss:Helvetica Bold", true, false, false},
+      {"ADMUUKSO", "Swiss:Helvetica Bold", true, true, false},
+      {"ADMUUMOD", "Modern:Modern", false, false, true},
+      {"ADMUUNSF", "Swiss:Helvetica-Narrow", false, false, false},
+      {"ADMUUNSO", "Swiss:Helvetica-Narrow", false, true, false},
+      {"ADMUUORP", "Roman:Tms Rmn", false, false, false},
+      {"ADMUUSHD", "Swiss:Helvetica", false, false, false},
+      {"ADMUUSRP", "Modern:Modern", false, false, true},
+      {"ADMUUTIP", "Roman:Tms Rmn Bold Italic", true, true, false},
+      {"ADMUUTRP", "Roman:Tms Rmn Bold", true, false, false},
+      {"ADMUUTSS", "Swiss:Helvetica Bold", true, false, false},
+  }};
+
+  if (character_set >= 0x41) {
+    const auto index = static_cast<std::size_t>(character_set - 0x41);
+    if (index < fonts.size()) {
+      return fonts[index];
+    }
+  }
+  return fonts[0];
 }
 
 double read_ibm_hfp_float(const std::vector<std::uint8_t>& bytes,
@@ -335,15 +384,23 @@ void handle_text(ParserState& state,
   for (std::size_t i = text_offset; i < offset + length; ++i) {
     const auto ch = bytes[i];
     if (ch >= 0x40) {
-      text.push_back(static_cast<char>(ch < 0x80 ? ch : '?'));
+      const auto decoded = decode_cp037_byte(ch);
+      text.push_back(decoded >= 0x20 && decoded <= 0x7e ? decoded : '?');
     }
   }
   if (text.empty()) {
     text = "?";
   }
+  const auto font = font_style_for_character_set(state.character_set);
   extend_bounds(state.picture, point);
-  state.picture.texts.push_back(TextRun{point, text, state.text_color,
-                                        std::max(1.0, state.char_height)});
+  state.picture.texts.push_back(TextRun{point,
+                                        text,
+                                        state.text_color,
+                                        std::max(1.0, state.char_height),
+                                        state.character_set,
+                                        font.bold,
+                                        font.italic,
+                                        font.monospaced});
 }
 
 std::vector<Point> arc_points(Point center,
@@ -538,6 +595,7 @@ void handle_attribute(ParserState& state,
     break;
   case 0x38:
   case 0x78:
+    state.character_set = length ? bytes[offset] : 0;
     break;
   case 0x3f:
     if (!state.saved_attributes.empty()) {
@@ -772,6 +830,119 @@ void draw_line(RgbaImage& image, int x0, int y0, int x1, int y1, Color color) {
   }
 }
 
+std::array<std::uint8_t, 7> glyph_rows(char ch) {
+  if (ch >= 'a' && ch <= 'z') {
+    ch = static_cast<char>(ch - 'a' + 'A');
+  }
+
+  switch (ch) {
+  case 'A': return {0x0e, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11};
+  case 'B': return {0x1e, 0x11, 0x11, 0x1e, 0x11, 0x11, 0x1e};
+  case 'C': return {0x0e, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0e};
+  case 'D': return {0x1e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1e};
+  case 'E': return {0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x1f};
+  case 'F': return {0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x10};
+  case 'G': return {0x0e, 0x11, 0x10, 0x17, 0x11, 0x11, 0x0f};
+  case 'H': return {0x11, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11};
+  case 'I': return {0x0e, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0e};
+  case 'J': return {0x07, 0x02, 0x02, 0x02, 0x12, 0x12, 0x0c};
+  case 'K': return {0x11, 0x12, 0x14, 0x18, 0x14, 0x12, 0x11};
+  case 'L': return {0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1f};
+  case 'M': return {0x11, 0x1b, 0x15, 0x15, 0x11, 0x11, 0x11};
+  case 'N': return {0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11};
+  case 'O': return {0x0e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e};
+  case 'P': return {0x1e, 0x11, 0x11, 0x1e, 0x10, 0x10, 0x10};
+  case 'Q': return {0x0e, 0x11, 0x11, 0x11, 0x15, 0x12, 0x0d};
+  case 'R': return {0x1e, 0x11, 0x11, 0x1e, 0x14, 0x12, 0x11};
+  case 'S': return {0x0f, 0x10, 0x10, 0x0e, 0x01, 0x01, 0x1e};
+  case 'T': return {0x1f, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04};
+  case 'U': return {0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e};
+  case 'V': return {0x11, 0x11, 0x11, 0x11, 0x0a, 0x0a, 0x04};
+  case 'W': return {0x11, 0x11, 0x11, 0x15, 0x15, 0x1b, 0x11};
+  case 'X': return {0x11, 0x11, 0x0a, 0x04, 0x0a, 0x11, 0x11};
+  case 'Y': return {0x11, 0x11, 0x0a, 0x04, 0x04, 0x04, 0x04};
+  case 'Z': return {0x1f, 0x01, 0x02, 0x04, 0x08, 0x10, 0x1f};
+  case '0': return {0x0e, 0x11, 0x13, 0x15, 0x19, 0x11, 0x0e};
+  case '1': return {0x04, 0x0c, 0x04, 0x04, 0x04, 0x04, 0x0e};
+  case '2': return {0x0e, 0x11, 0x01, 0x02, 0x04, 0x08, 0x1f};
+  case '3': return {0x1e, 0x01, 0x01, 0x0e, 0x01, 0x01, 0x1e};
+  case '4': return {0x02, 0x06, 0x0a, 0x12, 0x1f, 0x02, 0x02};
+  case '5': return {0x1f, 0x10, 0x10, 0x1e, 0x01, 0x01, 0x1e};
+  case '6': return {0x06, 0x08, 0x10, 0x1e, 0x11, 0x11, 0x0e};
+  case '7': return {0x1f, 0x01, 0x02, 0x04, 0x08, 0x08, 0x08};
+  case '8': return {0x0e, 0x11, 0x11, 0x0e, 0x11, 0x11, 0x0e};
+  case '9': return {0x0e, 0x11, 0x11, 0x0f, 0x01, 0x02, 0x0c};
+  case '.': return {0x00, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x0c};
+  case ',': return {0x00, 0x00, 0x00, 0x00, 0x0c, 0x04, 0x08};
+  case '-': return {0x00, 0x00, 0x00, 0x1f, 0x00, 0x00, 0x00};
+  case '+': return {0x00, 0x04, 0x04, 0x1f, 0x04, 0x04, 0x00};
+  case '/': return {0x01, 0x01, 0x02, 0x04, 0x08, 0x10, 0x10};
+  case ':': return {0x00, 0x0c, 0x0c, 0x00, 0x0c, 0x0c, 0x00};
+  case ';': return {0x00, 0x0c, 0x0c, 0x00, 0x0c, 0x04, 0x08};
+  case '%': return {0x18, 0x19, 0x02, 0x04, 0x08, 0x13, 0x03};
+  case '\'': return {0x0c, 0x04, 0x08, 0x00, 0x00, 0x00, 0x00};
+  case '"': return {0x0a, 0x0a, 0x14, 0x00, 0x00, 0x00, 0x00};
+  case '(': return {0x02, 0x04, 0x08, 0x08, 0x08, 0x04, 0x02};
+  case ')': return {0x08, 0x04, 0x02, 0x02, 0x02, 0x04, 0x08};
+  case '[': return {0x0e, 0x08, 0x08, 0x08, 0x08, 0x08, 0x0e};
+  case ']': return {0x0e, 0x02, 0x02, 0x02, 0x02, 0x02, 0x0e};
+  case ' ': return {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+  default: return {0x1f, 0x11, 0x02, 0x04, 0x04, 0x00, 0x04};
+  }
+}
+
+void set_block(RgbaImage& image, int x, int y, int size, Color color) {
+  for (int yy = 0; yy < size; ++yy) {
+    for (int xx = 0; xx < size; ++xx) {
+      set_pixel(image, x + xx, y + yy, color);
+    }
+  }
+}
+
+int glyph_advance(char ch, const TextRun& text, int pixel_size) {
+  if (text.monospaced || ch == ' ') {
+    return 6 * pixel_size;
+  }
+  switch (ch >= 'a' && ch <= 'z' ? static_cast<char>(ch - 'a' + 'A') : ch) {
+  case 'I':
+  case '1':
+  case '.':
+  case ',':
+  case ':':
+  case ';':
+  case '\'':
+    return 4 * pixel_size;
+  case 'M':
+  case 'W':
+    return 7 * pixel_size;
+  default:
+    return 6 * pixel_size;
+  }
+}
+
+void draw_glyph(RgbaImage& image,
+                int origin_x,
+                int baseline_y,
+                int pixel_size,
+                char ch,
+                const TextRun& text) {
+  const auto rows = glyph_rows(ch);
+  for (int row = 0; row < 7; ++row) {
+    const int slant = text.italic ? (6 - row) * pixel_size / 3 : 0;
+    for (int col = 0; col < 5; ++col) {
+      if ((rows[static_cast<std::size_t>(row)] & (1u << (4 - col))) == 0) {
+        continue;
+      }
+      const int x = origin_x + slant + col * pixel_size;
+      const int y = baseline_y - (7 - row) * pixel_size;
+      set_block(image, x, y, pixel_size, text.color);
+      if (text.bold) {
+        set_block(image, x + std::max(1, pixel_size / 3), y, pixel_size, text.color);
+      }
+    }
+  }
+}
+
 template <typename MapX, typename MapY>
 void fill_polygon(RgbaImage& image,
                   const Polygon& polygon,
@@ -897,14 +1068,13 @@ RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes) {
   for (const auto& text : picture.texts) {
     const int x0 = map_x(text.point.x);
     const int y0 = map_y(text.point.y);
-    const int char_w = std::max(3, static_cast<int>(text.height * scale / 20.0));
-    const int char_h = std::max(5, static_cast<int>(text.height * scale / 10.0));
+    const int pixel_size =
+        std::max(1, static_cast<int>(std::lround(text.height * scale / 55.0)));
+    int x = x0;
     for (std::size_t i = 0; i < text.text.size(); ++i) {
-      const int x = x0 + static_cast<int>(i) * (char_w + 1);
-      draw_line(image, x, y0, x + char_w, y0, text.color);
-      draw_line(image, x, y0 - char_h, x + char_w, y0 - char_h, text.color);
-      draw_line(image, x, y0, x, y0 - char_h, text.color);
-      draw_line(image, x + char_w, y0, x + char_w, y0 - char_h, text.color);
+      const char ch = text.text[i];
+      draw_glyph(image, x, y0, pixel_size, ch, text);
+      x += glyph_advance(ch, text, pixel_size);
     }
   }
 

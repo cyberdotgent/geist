@@ -88,7 +88,7 @@ std::vector<std::uint8_t> synthetic_gdf_all_opcodes() {
     point(p, 2, 10);
     normal(gdf, 0x36, p);
   }
-  short_order(gdf, 0x38, 1);
+  short_order(gdf, 0x38, 0x41);
   normal(gdf, 0x3f, {});
   short_order(gdf, 0x4a, 4);
   short_order(gdf, 0x4c, 1);
@@ -129,7 +129,7 @@ std::vector<std::uint8_t> synthetic_gdf_all_opcodes() {
   normal(gdf, 0x71, {});
   normal(gdf, 0x81, payload_point(80, 30));
   normal(gdf, 0x82, payload_point(85, 35));
-  normal(gdf, 0x83, {'A', 'T'});
+  normal(gdf, 0x83, {0xc1, 0xe3});
   {
     std::vector<std::uint8_t> p;
     point(p, 90, 40);
@@ -161,8 +161,8 @@ std::vector<std::uint8_t> synthetic_gdf_all_opcodes() {
   normal(gdf, 0xc2, payload_point(90, 150));
   {
     std::vector<std::uint8_t> p = payload_point(95, 150);
-    p.push_back('C');
-    p.push_back('H');
+    p.push_back(0xc3);
+    p.push_back(0xc8);
     normal(gdf, 0xc3, p);
   }
   {

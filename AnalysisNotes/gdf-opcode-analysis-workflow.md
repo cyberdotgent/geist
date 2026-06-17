@@ -38,6 +38,10 @@ Useful topics:
 | `/B.5.2` | Short Format | Confirms that high nibble `< 8` and low nibble `>= 8` means one operand byte and no length byte. |
 | `/B.7` | Coordinate Data | Confirms AS/400 coordinate representation and clarifies that BookManager's type `4` fixtures are not AS/400's 2-byte coordinate form. |
 | `/B.10.*`, `/B.11.*` | Individual order descriptions | Used for specific primitive and attribute names such as Line, Marker, Character, Arc, Line Relative, Pattern, and Segment orders. |
+| `/B.11.1` | Character Mode Order | Identifies GDDM text precision modes. |
+| `/B.11.2` | Character Order | Confirms EBCDIC string bytes, valid range `>= 0x40`, and that GDF character orders do not update current position. |
+| `/B.11.3` | Character Set Order | Defines `0x38` as a one-byte local character-set id, with `0x00` default and `0x41..0xdf` user-defined sets. |
+| `/B.11.4` | Character Shear Order | Defines the IBM shear vector semantics and the expected opcode `0x35`, which differs from the loaded filter's dispatched `0x36` handler. |
 
 ## Binary Analysis Path
 
@@ -101,6 +105,17 @@ handling push-and-set orders, and opcode `0x3f` restores those attributes by
 reading the saved stream backward. This explains the groups such as `0x18`
 Line Type and `0x58` Push and Set Line Type.
 
+Text/font-specific IDA findings:
+
+| Function / data | Finding |
+| --- | --- |
+| `sub_1C007700` | Character orders use either explicit coordinates (`0xc3`) or current position (`0x83`), convert the string through `byte_1C018568`, then call `CText` or `CRestrText`. |
+| `sub_1C004DEC` | Character-set orders scan the font-list table for the current LCID, call `CSetTextFontInd` with slot `+1`, and default to font index `1` when there is no match. |
+| `sub_1C003360` | The optional GDF prolog can populate local font entries: LCID byte plus an eight-byte decoded GDDM character-set name. |
+| `sub_1C0035A5` / `sub_1C003693` | Font setup builds a fallback table when no prolog list is present, then calls the same `CSetFontList` path. |
+| `off_1C018158` and adjacent strings | Embedded fallback mapping from GDDM names such as `ADMDVECP`/`ADMUUTRP` to ImageMark names such as `Modern:Modern` and `Roman:Tms Rmn Bold`. |
+| `Official Readers/Transmogrifier/ISGDI32.INI` | Confirms the ImageMark default font names available to the renderer, including `Swiss:Helvetica`, `Roman:Tms Rmn`, `Modern:Courier`, and related bold/italic variants. |
+
 ## Important Findings
 
 - The BookManager fixture prefix `01 12 00 04 ...` is an initial GDF comment
@@ -125,6 +140,20 @@ Line Type and `0x58` Push and Set Line Type.
   in `Format/GDF.md`, renders it through `decode_gdf_to_rgba`, and fails if the
   result is empty or effectively blank. Passing an output path writes a BMP
   inspection artifact under `tmp/`.
+- Text-rendering verification uses both static filter analysis and fixture
+  output. The synthetic stream now uses EBCDIC bytes for character orders and a
+  valid `0x38` local character-set id. The fixture resources in
+  `GG66-3212-00.boo` render through `boorsrc --png` with legible axis/legend
+  text; the visual result is compared against the same ImageMark/GDDM font path
+  recovered from `IMGDF2.FLT`.
+- Attempted direct validation with the historical Transmogrifier executable:
+  `Official Readers/Transmogrifier/transmog.exe BOO/GG66-3212-00.boo
+  tmp/transmog-gg66-3212`. Running from both the repository root and the
+  Transmogrifier directory failed with Windows loader error "The specified module
+  could not be found." `dumpbin /dependents` only lists `KERNEL32.dll` and
+  `USER32.dll`, but binary strings show a dynamically referenced
+  `CPPWRTM.DLL`, which is not included in the repository. Treat direct
+  executable comparison as blocked until that historical runtime is available.
 
 ## Repeatable Procedure
 

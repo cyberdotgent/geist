@@ -141,6 +141,10 @@ Important IBM reference topics:
 | `B.5.1` | Normal format is order code, one-byte length, then operand bytes. |
 | `B.5.2` | Short format omits the length; high nibble `< 8` and low nibble `>= 8` means one operand byte. |
 | `B.7` | AS/400 GDDM uses 2-byte signed coordinates, while the BookManager fixtures here use the System/370 floating-point coordinate type from the initial comment. |
+| `B.11.1` | Character Mode order values: default, string precision, character/image precision, and stroke/vector precision. |
+| `B.11.2` | Character orders `0xc3`/`0x83`: optional coordinate followed by EBCDIC character bytes `>= 0x40`; current position is not changed. |
+| `B.11.3` | Character Set order `0x38`: one-byte local character-set identifier; `0x00` is default and `0x41..0xdf` are user-defined sets. |
+| `B.11.4` | Character Shear order `0x35`: vector defining upright-stroke shear relative to the baseline. |
 
 The first BookManager bytes currently called the picture header are therefore
 also interpretable as the initial GDF comment order. For
@@ -257,6 +261,73 @@ coordinate runs and draws false long lines. The record parser avoids that by
 using IBM's GDF order framing and skipping unsupported records by their
 declared length.
 
+### Text and Font Handling
+
+IBM `QPRG1GDR` describes GDF character data as EBCDIC bytes. Character orders
+`0xc3` and `0x83` draw all string bytes `>= 0x40`; `0xc3` starts with a
+coordinate pair, while `0x83` uses the current position. Unlike `GSCHAR`, the
+current position is not changed by the GDF character order.
+
+The current character appearance comes from the text attributes:
+
+| Order | Meaning for text rendering |
+| ---: | --- |
+| `0x33` / `0x03` | Character box / push-and-set character box. The importer derives the character height and uses restricted text sizing. |
+| `0x34` / `0x74` | Character angle / push-and-set character angle. The IBM filter passes this to `CSetCharOri`. |
+| `0x35` / `0x75` | IBM character shear / push-and-set character shear. The loaded filter instead dispatches `0x36` / `0x76` for its shear/spacing-like handler. |
+| `0x38` / `0x78` | Character set / push-and-set character set. The operand is a local character-set id (`LCID`). |
+| `0x39` / `0x79` | Character mode / push-and-set character mode in IBM GDF. The loaded filter dispatches `0x39` / `0x67` to a mode handler and does not dispatch `0x79`. |
+| `0x3a` / `0x7a` | Character direction / push-and-set character direction in IBM GDF. The loaded filter does not dispatch these opcodes. |
+
+`IMGDF2.FLT` converts character bytes through a 256-byte table before calling
+`CText` or `CRestrText`. For the BookManager fixtures this matches CP037-style
+EBCDIC for ordinary Latin text, for example `c1 c2 c3 c4` decodes as `ABCD`.
+
+For character-set selection, the loaded filter's `0x38` handler
+(`sub_1C004DEC`) scans a font-list table built during header setup. Each entry
+contains the local character-set id and an eight-byte GDDM character-set name.
+The selected ImageMark text font index is the matching table slot plus one;
+if no entry matches, the filter keeps index `1`. The renderer initially calls
+`CSetTextFontInd(..., 1)`.
+
+When no GDF font list is present, `IMGDF2.FLT` falls back to the following
+built-in GDDM character-set names and ImageMark font names. The same ImageMark
+font names are also present in `Official Readers/Transmogrifier/ISGDI32.INI`
+under `[~Defaults]`.
+
+| Fallback slot | GDDM name | ImageMark font name |
+| ---: | --- | --- |
+| 1 | `ADMDVECP` | `Modern:Modern` |
+| 2 | `ADMUUARP` | `Roman:Tms Rmn` |
+| 3 | `ADMUUCIP` | `Roman:Tms Rmn Italic` |
+| 4 | `ADMUUCRP` | `Roman:Tms Rmn` |
+| 5 | `ADMUUCSP` | `Script:Script` |
+| 6 | `ADMUUDRP` | `Swiss:Helvetica` |
+| 7 | `ADMUUFSS` | `Swiss:Helvetica` |
+| 8 | `ADMUUGEP` | `Roman:Tms Rmn` |
+| 9 | `ADMUUGGP` | `Roman:Tms Rmn` |
+| 10 | `ADMUUGIP` | `Roman:Tms Rmn` |
+| 11 | `ADMUUKRF` | `Swiss:Helvetica Bold` |
+| 12 | `ADMUUKRO` | `Swiss:Helvetica Bold` |
+| 13 | `ADMUUKSF` | `Swiss:Helvetica Bold` |
+| 14 | `ADMUUKSO` | `Swiss:Helvetica Bold` |
+| 15 | `ADMUUMOD` | `Modern:Modern` |
+| 16 | `ADMUUNSF` | `Swiss:Helvetica-Narrow` |
+| 17 | `ADMUUNSO` | `Swiss:Helvetica-Narrow` |
+| 18 | `ADMUUORP` | `Roman:Tms Rmn` |
+| 19 | `ADMUUSHD` | `Swiss:Helvetica` |
+| 20 | `ADMUUSRP` | `Modern:Modern` |
+| 21 | `ADMUUTIP` | `Roman:Tms Rmn Bold Italic` |
+| 22 | `ADMUUTRP` | `Roman:Tms Rmn Bold` |
+| 23 | `ADMUUTSS` | `Swiss:Helvetica Bold` |
+
+Current `libgeist` text rendering follows these verified rules where it can:
+it decodes character bytes as CP037/EBCDIC, tracks `0x38` character-set state,
+maps the default fallback slots to Roman/Swiss/Modern style traits, and draws
+legible bitmap glyphs with approximate bold, italic, and monospaced behavior.
+It does not yet parse a GDF font-list prolog into arbitrary LCID-to-GDDM-name
+mappings, and it does not use platform fonts or ImageMark's exact glyph metrics.
+
 ## Current Rendering Scope
 
 Current `libgeist` PNG rendering support for `legacy-gdf` is an approximate
@@ -272,7 +343,7 @@ Implemented drawing behavior:
 | Current-position, attribute, transform, clipping, segment, and push/pop orders | Parsed and reflected in renderer state where the current rasterizer uses the state; otherwise consumed so later orders remain aligned. |
 | Line and relative-line orders | Rendered as polylines with the current color. |
 | Marker orders | Rendered as simple cross/star marker shapes. |
-| Character orders | Rendered as placeholder glyph boxes at the decoded text origin; text bytes are not yet converted with the IBM reader's full font/text path. |
+| Character orders | Text bytes are decoded as CP037/EBCDIC and rendered as bitmap glyphs with approximate font-family/style traits from the IBM/ImageMark fallback font table. |
 | Fillet, arc, and full-arc orders | Rendered as approximate elliptical polylines. |
 | Area orders | Collects points while an area is active and fills the resulting polygon with the current fill style. |
 | Graphics image begin/data/end orders | Renders a simple cell-array block from the buffered image bytes. |
@@ -280,7 +351,7 @@ Implemented drawing behavior:
 This is sufficient for inspection-oriented rendering and for visual recognition
 of BookManager GDF assets without invoking the historical
 `IMGDF2.FLT`/`EBGIF2.FLT` filter chain. It is not a pixel-exact clone of the IBM
-ImageMark/GDDM renderer: exact text shaping, fonts, clipping, transforms,
-fill-pattern semantics, arc geometry, segment replay behavior, and cell-array
-color interpretation remain intentionally approximate until more fixture-backed
-evidence is available.
+ImageMark/GDDM renderer: exact text shaping, platform font metrics, clipping,
+transforms, fill-pattern semantics, arc geometry, segment replay behavior, and
+cell-array color interpretation remain intentionally approximate until more
+fixture-backed evidence is available.
