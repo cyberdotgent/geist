@@ -4,10 +4,8 @@
 
 # Title Page
 
-**Amateur Packet Radio**
-
-**A Complete Tutorial**
-
+**Amateur Packet Radio**<br>
+**A Complete Tutorial**<br>
 **Evie Cooper**
 
 Document Number 9963-0413-56
