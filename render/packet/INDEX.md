@@ -676,7 +676,9 @@ KISS
 
 ) If will,
 
-protocolcommands por
+protocolcommands port
+
+I
 
 . 46
 
@@ -808,9 +810,11 @@ will.
 
 .
 
-( , IP (
+.( , IP ( the
 
 command
+
+I. cz
 
 .
 
@@ -834,13 +838,13 @@ retry 49
 
 which command... I
 
-32 42 WA4XYZ
+* 32 42 WA4XYZ
 
 can' PACKET
 
 a which
 
-can)
+can) )
 
 .
 
@@ -852,27 +856,27 @@ packets _
 
 an can
 
-I ' commands cparentconnections ,
+I ' commands cparentconnections
 
 _
 
-42 commandin, I
+42 commandsin, I
 
 . In commands from
 
-(
+. (
 
-0 )
+0 ) )use
 
-are* retr
+are* retry
 
 . FLOW.
 
 I
 
-commandscommands ; 45 . 192
+commandscommands ; 45 .. 192
 
-wchdlevel// have.) IP I
+whichchdlevel// have.) IP I
 
 .
 
@@ -1135,7 +1139,7 @@ used >
 
 -
 
-notcommandscommandsI it 2commands
+notcommandscommands.I it 2commands
 
 I
 
@@ -1281,7 +1285,7 @@ If The )
 
 ). /
 
-o
+of
 
 45
 
@@ -1364,7 +1368,7 @@ a XMP used
 
 67 =. The #
 
-node set I Icommands 16 .
+node an,set I I.commands 16 .
 
 14
 
@@ -1400,9 +1404,11 @@ connections.,,.., ,
 
 .
 
-and Bringing commands
+.AND Bringing commands
 
 at
+
+RLOGINPORT I,
 
 EXMP
 
@@ -1699,9 +1705,9 @@ I
 
 I - it 42 which 0commands
 
-KIS,
+KISS,
 
-I, 28
+16I, 28 28
 
 ...,
 
@@ -1751,7 +1757,7 @@ _.
 
 46 BBS of 4 1 itIP
 
-The ) commands / som
+The ) commands / some
 
 . ,
 
@@ -1902,11 +1908,13 @@ TCP
 
 JNOS 21
 
-I restarting 48 are-- 22-/ 60 you =
+. I restarting 48 are-- 22-/ 60 you =
+
+not FLOW
 
 )
 
-)
+) 42
 
 LI
 
@@ -2035,9 +2043,9 @@ protocol
 
 ), > commands 43 63 ROM If
 
-itcommand) -- I
+itcommands) -- I
 
-PACKET 46I mode
+PACKET 46 -I mode ;
 
 IP
 
@@ -2430,13 +2438,13 @@ I.
 
 KISS ) 16 46 port jnos
 
-50, 4
+50, 42
 
 commands
 
 44
 
-42 as commandscommand
+42 as commandscommands )
 
 0
 
@@ -2949,11 +2957,13 @@ one..
 
 - )
 
-; #. Th
+; #. The
+
+)
 
 commandscbacklevel
 
-/ csource
+/
 
 have
 
@@ -3009,9 +3019,9 @@ your Packet
 
 . . / , a 0 commands
 
-#, I commands 42 I ) with. commands I commandsI
+#, I commands 42 I ) with. commands I, commandsI
 
-. commands
+5. commands.
 
 . Packet
 
@@ -3181,9 +3191,9 @@ WA4XYZ :.,...,
 
 DT 23 set !
 
-60 set.
+[45](#45)
 
-P ifconfi
+P ifconfig
 
 .. you 2
 
@@ -3284,7 +3294,9 @@ you
 
 . 57
 
-KISS 7.on, - .)
+KISS
+
+7.on, - .)
 
 callsign. , the
 
@@ -3474,9 +3486,11 @@ Telnet EXMP
 
 IP
 
-S.
+)
 
-. commandsctoc I 5
+I
+
+. commandsctoce. I 54
 
 have
 
@@ -3524,13 +3538,13 @@ _
 
 was which
 
-KISS which. 9chdlevel by
+KISS which. 9 $chdlevel by
 
 are
 
 or # 42 amigaos port
 
-commandsII ) be I )
+commandsII ) be I ) 42
 
 29.
 
@@ -3832,7 +3846,9 @@ this 50 2 result).. commands,
 
 If
 
-comman
+.)
+
+commands
 
 --
 
@@ -4224,11 +4240,13 @@ TNC
 
 . used # directly commands
 
-. comman,
+I
+
+. commands,
 
 not
 
-)
+) cz
 
 . address use
 
@@ -4320,13 +4338,17 @@ commands
 
 )
 
-. I, ). was . commandscommand4
+. I, ). was
+
+. commandscommands42
 
 port to
 
 . command
 
-circumstancesST BREAK Packet I which 4 , BPQ 16. )
+circumstancesST BREAK Packet I which 43 , BPQ 16. )
+
+. radioLinux 16
 
 =.
 
@@ -4358,7 +4380,7 @@ with ax25 *. 28 ST) > 46
 
 168 I
 
-Ipo. cparen .
+Ifport.
 
 16
 
@@ -4398,11 +4420,11 @@ This protocol
 
 . ) commands,
 
-6address
+60address
 
 55 callsign.
 
-FN th44# addr,
+FN the44# address,
 
 60 If commandsI
 
@@ -4452,9 +4474,9 @@ Telnet port
 
 NET. be commands 55 )
 
-Icommand,
+Icommands,,
 
-Linux jnos commands ..., commands ar
+Linux jnos commands ..., commands are
 
 at
 
@@ -4658,7 +4680,9 @@ readcmd
 
 . 192 to
 
-the = canIP
+the =
+
+canIP
 
 I
 
@@ -4686,9 +4710,11 @@ This * from
 
 segmentation.
 
-are connection commands 0
+are connections commands 0
 
 )
+
+I
 
 /
 
@@ -5120,9 +5146,9 @@ this
 
 . * not
 
-653A 24 TNC 2
+653A 24 TNC 28
 
-csourcefcomman
+port
 
 I
 
@@ -5202,9 +5228,7 @@ PACKET
 
 . FN up
 
-I
-
-OFF Packet
+OFF it Packet
 
 12
 
@@ -5489,7 +5513,9 @@ port
 
 ..,,
 
-circumstancesI BREAK Packet Iit, BBS I. )
+circumstancesI BREAK Packet Iit 43, BBS I. )
+
+.,43 16
 
 be
 
@@ -5509,9 +5535,9 @@ other
 
 .
 
-. I commandscallsign If . which ) , mode ,. novellmode
+. I commandscallsign If I.. which ) ), mode ,. novellmode
 
-KISS I
+KISS I port
 
 . can
 
@@ -5547,7 +5573,7 @@ areor 2 port ) ;
 
 commands 2 If, , from I it . are
 
-ha
+have
 
 have
 
@@ -5563,11 +5589,13 @@ have
 
 I
 
-commands,connectio,_
+commands,connections,
+
+_
 
 designed )use
 
-.for commands cI
+I.for commands czI
 
 -
 
@@ -5703,15 +5731,15 @@ at.
 
 and and some
 
-PORT,. Icommands
+PORT,. )
+
+I,commands
 
 )
 
 16 set
 
-chdleve
-
-are. name T
+are. name TCP
 
 . 15
 
@@ -6017,11 +6045,11 @@ jnos a.
 
 .
 
-. have 3 one ) 50 2,
+.. have 3 one ) 50 2 ntp,
 
 and 15
 
-an commands
+an commands the If commands
 
 ! If address
 
@@ -6142,7 +6170,7 @@ OFF.,. commands
 
 not
 
-:, - at.
+;, 42 itnot
 
 )and 47,
 
@@ -6342,7 +6370,7 @@ $ )
 
 you IP
 
-.
+a,.
 
 have # If commands 3. 2
 
@@ -6378,6 +6406,8 @@ callsign or use .
 
 55
 
+. )
+
 44 a I
 
 )
@@ -6386,7 +6416,7 @@ callsign or use .
 
 . 35
 
-- command
+- commands
 
 255 OFF
 
@@ -7059,7 +7089,7 @@ will
 
 or If
 
-as commandcommandcommands)
+as commands.commandscommands)
 
 your * the.,.
 
@@ -7349,7 +7379,7 @@ LI
 
 undef
 
-not 46little commands fo
+not 46little commands for
 
 . :. #. *,
 
@@ -7381,7 +7411,7 @@ _ 49 by
 
 [#](##)
 
-' needLinux,, - 60
+' needLinux,, -- 60
 
 >.
 
@@ -7483,7 +7513,7 @@ _ port s # ..,.,,.,..
 
 . E 57 ; j36 packets milliwatts use
 
-command
+commands
 
 50
 
@@ -7521,7 +7551,7 @@ can..
 
 . I
 
-4. it /
+42. it /
 
 49 one see OFF
 
@@ -7909,9 +7939,9 @@ a.
 
 . 21
 
-. protocol# IP commands. Packe/.
+. protocol# IP commands. Packet./.
 
-; c. JNOS IP., have it --
+;
 
 commands. commandsport commands If
 
@@ -7997,7 +8027,7 @@ an,
 
 67 =. WA4XYZ can
 
-node 32 setI.I commands 16 .
+node 32 an,setI.I commands 16 .
 
 .
 
@@ -8035,9 +8065,9 @@ TCP
 
 .
 
-. I, 1I
+. I, 19IP.
 
-IPwhich. commands commands
+IP)which. commands commands
 
 commands commands 0 If I #
 
@@ -8107,11 +8137,11 @@ sh3.3.1
 
 . OFF
 
-com, I.. commands IPIP por_ commands BB. 42 commands
+commands,, I.. commands IPIP port._ commands BBS. 42 commands
 
 commands commands 5
 
-42 .
+42 . If
 
 21 for
 
