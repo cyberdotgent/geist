@@ -201,14 +201,51 @@ std::vector<std::string> split_title_page_lines(const std::string& text) {
 void append_title_page_markdown(std::string& output,
                                 const std::string& text,
                                 std::size_t& line_count,
-                                std::size_t bold_line_count) {
+                                std::size_t bold_line_count,
+                                bool join_bold_lines,
+                                std::vector<std::string>& pending_bold_lines) {
   for (auto line : split_title_page_lines(text)) {
     if (line_count < bold_line_count) {
       line = "**" + line + "**";
+      if (join_bold_lines) {
+        pending_bold_lines.push_back(std::move(line));
+        ++line_count;
+        if (line_count == bold_line_count) {
+          std::string block;
+          for (std::size_t index = 0; index < pending_bold_lines.size();
+               ++index) {
+            if (index != 0) {
+              block += "<br>\n";
+            }
+            block += pending_bold_lines[index];
+          }
+          append_block(output, block);
+          pending_bold_lines.clear();
+        }
+        continue;
+      }
     }
     append_block(output, line);
     ++line_count;
   }
+}
+
+void flush_pending_title_page_lines(
+    std::string& output,
+    std::vector<std::string>& pending_bold_lines) {
+  if (pending_bold_lines.empty()) {
+    return;
+  }
+
+  std::string block;
+  for (std::size_t index = 0; index < pending_bold_lines.size(); ++index) {
+    if (index != 0) {
+      block += "<br>\n";
+    }
+    block += pending_bold_lines[index];
+  }
+  append_block(output, block);
+  pending_bold_lines.clear();
 }
 
 void append_list_item(std::string& output, std::string text) {
@@ -525,10 +562,12 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
   bool in_list = false;
   bool in_table = false;
   bool in_title_page = false;
+  bool join_title_page_bold_lines = false;
   std::size_t title_page_line_count = 0;
   std::size_t title_page_bold_lines = 0;
   std::string table_id;
   std::vector<TableCell> table_cells;
+  std::vector<std::string> pending_title_page_bold_lines;
 
   for (const auto& record : records) {
     const auto tag = gml_tag(record);
@@ -537,9 +576,12 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         append_title_page_markdown(output,
                                    gml_content(record),
                                    title_page_line_count,
-                                   title_page_bold_lines);
+                                   title_page_bold_lines,
+                                   join_title_page_bold_lines,
+                                   pending_title_page_bold_lines);
         continue;
       }
+      flush_pending_title_page_lines(output, pending_title_page_bold_lines);
       in_title_page = false;
     }
 
@@ -564,8 +606,10 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
 
     if (tag == "cover" || tag == "tipage") {
       in_title_page = true;
+      join_title_page_bold_lines = tag == "tipage";
       title_page_line_count = 0;
       title_page_bold_lines = tag == "cover" ? 2 : 3;
+      pending_title_page_bold_lines.clear();
       in_list = false;
       continue;
     }
@@ -621,6 +665,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
     }
   }
 
+  flush_pending_title_page_lines(output, pending_title_page_bold_lines);
   return trim_trailing_blank_lines(std::move(output));
 }
 

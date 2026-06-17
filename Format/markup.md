@@ -175,15 +175,17 @@ BookServer evidence from the hosted packet book:
 | Topic URL | Observed body behavior |
 | --- | --- |
 | `/BOOKS/packet/COVER?DT=20260614112503` | The title words are emitted as bold HTML, followed by paragraph breaks between subtitle, author, document number, part number, and file number. |
-| `/BOOKS/packet/TITLE?DT=20260614112503` | The title, subtitle, and author are emitted as bold HTML lines, followed by paragraph breaks for document number, date, and author. |
+| `/BOOKS/packet/TITLE?DT=20260614112503` | The title, subtitle, and first author line are emitted as one bold title block with line breaks between the three lines, followed by paragraph breaks for document number, date, and author. |
 
 This matters for Markdown conversion: treating the BookServer `<pre>` wrapper
 as a Markdown fenced code block preserves line breaks but incorrectly suppresses
 the intended title emphasis. A Markdown renderer should preserve the
-title-page paragraph boundaries and apply emphasis to the generated leading
-title lines. Exact inline reconstruction should eventually come from the
-`CFONT`/`CFONTDEF` pipeline; until that is complete, Markdown conversion can use
-the verified BookServer title-page rule as a presentation fallback.
+title-page paragraph boundaries, apply emphasis to the generated leading title
+lines, and preserve the `:tipage.` line breaks inside the leading title block
+rather than turning each line into a separate paragraph. Exact inline
+reconstruction should eventually come from the `CFONT`/`CFONTDEF` pipeline;
+until that is complete, Markdown conversion can use the verified BookServer
+title-page rule as a presentation fallback.
 
 The current raw projection can still collapse adjacent generated metadata
 fields into one `:p.` record. That is a projection limitation, not evidence that
