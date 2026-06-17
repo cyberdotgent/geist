@@ -90,6 +90,12 @@ std::vector<ResourceEntry> build_resources(
     const BooDirectory& directory);
 std::vector<std::string> render_gml_records(
     const std::vector<std::string>& decoded_records);
+std::map<std::string, std::string> extract_font_definitions(
+    const std::vector<std::string>& decoded_records);
+std::vector<BooLogicalRecordTrace> trace_gml_records(
+    const std::vector<std::string>& decoded_records,
+    std::uint32_t first_logical_record,
+    const std::map<std::string, std::string>& font_definitions);
 std::string render_markdown_records(const std::vector<std::string>& records);
 bool looks_like_control_boundary(const std::string& decoded_record,
                                  const std::string& lower_record,

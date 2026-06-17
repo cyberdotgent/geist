@@ -109,13 +109,17 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
   }
 
   document.page_runs_ = build_page_runs(document.bytes_, document.directory_);
-  const auto decoded_records =
+  document.decoded_logical_records_ =
       decode_experimental_logical_records(document.bytes_, document.directory_);
-  document.logical_controls_ = extract_book_logical_controls(decoded_records);
+  document.logical_controls_ =
+      extract_book_logical_controls(document.decoded_logical_records_);
+  document.font_definitions_ =
+      extract_font_definitions(document.decoded_logical_records_);
   document.book_properties_ =
       build_book_properties(document.logical_controls_);
-  const auto topics = build_topics(decoded_records);
-  document.toc_ = build_table_of_contents(decoded_records, topics);
+  const auto topics = build_topics(document.decoded_logical_records_);
+  document.toc_ =
+      build_table_of_contents(document.decoded_logical_records_, topics);
   document.raw_gml_records_ = build_raw_gml_records(topics);
   document.resources_ = build_resources(document.bytes_, document.directory_);
   return document;
@@ -146,6 +150,16 @@ const std::vector<BooLogicalControl>& BooDocument::logical_controls()
   return logical_controls_;
 }
 
+const std::vector<std::string>& BooDocument::decoded_logical_records()
+    const noexcept {
+  return decoded_logical_records_;
+}
+
+const std::map<std::string, std::string>& BooDocument::font_definitions()
+    const noexcept {
+  return font_definitions_;
+}
+
 const std::vector<TocEntry>& BooDocument::table_of_contents() const noexcept {
   return toc_;
 }
@@ -171,6 +185,37 @@ const TocEntry* BooDocument::find_toc_entry(const std::string& topic_id)
     return nullptr;
   }
   return &*found;
+}
+
+std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
+    const std::string& topic_id) const {
+  const auto* entry = find_toc_entry(topic_id);
+  if (entry == nullptr) {
+    throw std::out_of_range("BOO topic id was not found: " + topic_id);
+  }
+  if (entry->start_logical_record == 0 || entry->end_logical_record == 0 ||
+      entry->end_logical_record <= entry->start_logical_record) {
+    return {};
+  }
+
+  const auto begin = static_cast<std::size_t>(entry->start_logical_record - 1);
+  const auto end = static_cast<std::size_t>(entry->end_logical_record - 1);
+  if (begin >= decoded_logical_records_.size()) {
+    return {};
+  }
+  const auto clamped_end = std::min(end, decoded_logical_records_.size());
+  if (begin >= clamped_end) {
+    return {};
+  }
+
+  std::vector<std::string> records(
+      decoded_logical_records_.begin() + static_cast<std::ptrdiff_t>(begin),
+      decoded_logical_records_.begin() +
+          static_cast<std::ptrdiff_t>(clamped_end));
+  return detail::trace_gml_records(
+      records,
+      entry->start_logical_record,
+      font_definitions_);
 }
 
 std::vector<std::uint8_t> BooDocument::read_page(

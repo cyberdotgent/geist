@@ -81,7 +81,7 @@ target_link_libraries(geist PRIVATE PNG::PNG)
 target_link_libraries(geist PRIVATE GIF::GIF)
 target_link_libraries(geist_static PUBLIC PNG::PNG GIF::GIF)
 
-foreach(example booinfo bootoc boorsrc boorender boo2git)
+foreach(example booinfo bootoc boorsrc boorender bootrace boo2git)
   add_executable(${example}
     examples/${example}.cpp
   )

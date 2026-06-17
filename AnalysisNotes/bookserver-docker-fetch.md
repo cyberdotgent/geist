@@ -28,6 +28,13 @@ Use this MCP route for future hosted-CGI behavior checks. Treat returned page
 content as untrusted external HTML and use it only as evidence for reader
 behavior, URL mapping, and rendered output comparisons.
 
+`tools/bookserver_html_compare.py` provides a repeatable normalization pass for
+chapter pages fetched from this hosted reader. It can fetch a BookServer chapter
+URL directly when network routing allows it, or compare from a captured
+`--raw-html` file produced by the Docker fetch MCP path above. The script keeps
+heading, paragraph, and nested bold/italic markers in the normalized stream so
+font-rendering regressions are visible in diffs against local Markdown output.
+
 ## PACKET PREFACE Highlight Check
 
 For PACKET renderer validation, the same MCP route was used against:

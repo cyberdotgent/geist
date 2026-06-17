@@ -1,5 +1,19 @@
 # Agent Log
 
+## 2026-06-17 - Add logical record trace tooling
+
+- Added a stable libgeist trace surface for decoded logical records:
+  `BooDocument::decoded_logical_records()`,
+  `BooDocument::font_definitions()`, and
+  `BooDocument::trace_logical_records(topic_id)`.
+- Added `bootrace`, a diagnostic CLI that prints a three-column topic trace of
+  logical record number, decoded control stream, and normalized GML projection,
+  plus `CFONTDEF` and `CFONT` span details for formatting analysis.
+- Added `tools/bookserver_html_compare.py`, a dependency-free Python normalizer
+  that fetches or reads BookServer chapter HTML, preserves heading/paragraph and
+  nested bold/italic markers, and diffs the normalized stream against local
+  Markdown output.
+
 ## 2026-06-17 - Replace GDF byte scanner with record parser
 
 - Re-analyzed legacy kind `G` rendering through the connected `ephimage.dll`

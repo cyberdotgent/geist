@@ -533,11 +533,11 @@ std::string font_code_to_highlight_tag(const std::string& code) {
   return {};
 }
 
-std::string apply_font_spans_to_text(std::string value,
-                                     const std::vector<FontSpan>& spans) {
-  value = dot_text(std::move(value));
+std::vector<FontSpan> normalize_font_spans_for_text(
+    const std::string& value,
+    const std::vector<FontSpan>& spans) {
   if (value.empty() || spans.empty()) {
-    return value;
+    return spans;
   }
 
   auto normalized_spans = spans;
@@ -563,6 +563,17 @@ std::string apply_font_spans_to_text(std::string value,
           std::max(normalized_spans.front().length, styled_length);
     }
   }
+  return normalized_spans;
+}
+
+std::string apply_font_spans_to_text(std::string value,
+                                     const std::vector<FontSpan>& spans) {
+  value = dot_text(std::move(value));
+  if (value.empty() || spans.empty()) {
+    return value;
+  }
+
+  auto normalized_spans = normalize_font_spans_for_text(value, spans);
 
   std::vector<std::string> opens(value.size() + 1);
   std::vector<std::string> closes(value.size() + 1);
@@ -583,6 +594,86 @@ std::string apply_font_spans_to_text(std::string value,
     output += closes[index + 1];
   }
   return output;
+}
+
+std::string parse_fontdef_style(std::string value, std::string& code) {
+  const auto equals = value.find('=');
+  if (equals != std::string::npos) {
+    value = value.substr(equals + 1);
+  } else {
+    value = rest_after_first_word(std::move(value));
+  }
+  std::istringstream input(value);
+  if (!(input >> code)) {
+    code.clear();
+    return {};
+  }
+  std::string style;
+  std::getline(input, style);
+  auto lower_style = ascii_lower(style);
+  for (const auto* boundary : {", c", "? c"}) {
+    const auto found = lower_style.find(boundary);
+    if (found != std::string::npos) {
+      style = style.substr(0, found);
+      break;
+    }
+  }
+  return dot_text(trim_ascii(std::move(style)));
+}
+
+bool is_valid_font_definition_code(const std::string& code) {
+  if (code.size() != 1) {
+    return false;
+  }
+  const auto ch = static_cast<unsigned char>(code.front());
+  return std::isdigit(ch) != 0 ||
+         (std::isupper(ch) != 0 && std::isalpha(ch) != 0) ||
+         code.front() == '_';
+}
+
+std::vector<BooFontTrace> trace_font_spans(
+    const std::string& segment,
+    std::uint32_t logical_record,
+    std::uint32_t segment_index,
+    const std::map<std::string, std::string>& font_definitions) {
+  auto value = trim_ascii(rest_after_first_word(segment));
+  std::size_t cursor = 0;
+  auto spans = parse_font_spans(value, cursor);
+  auto text = cursor >= value.size() ? std::string{} : value.substr(cursor);
+  text = dot_text(trim_ascii(std::move(text)));
+  if (text.empty() || spans.empty()) {
+    return {};
+  }
+
+  spans = normalize_font_spans_for_text(text, spans);
+  std::vector<BooFontTrace> traced;
+  for (std::size_t index = 0; index < spans.size(); ++index) {
+    const auto& span = spans[index];
+    BooFontTrace trace;
+    trace.logical_record = logical_record;
+    trace.segment_index = segment_index;
+    trace.span_index = static_cast<std::uint32_t>(index);
+    trace.offset = static_cast<std::uint32_t>(span.offset);
+    trace.length = static_cast<std::uint32_t>(span.length);
+    trace.code = span.code;
+    if (const auto found = font_definitions.find(span.code);
+        found != font_definitions.end()) {
+      trace.style = found->second;
+    } else {
+      trace.style = font_code_to_highlight_tag(span.code);
+    }
+
+    if (span.offset < text.size() && span.length > 0) {
+      const auto end = std::min(text.size(), span.offset + span.length);
+      trace.text = text.substr(span.offset, end - span.offset);
+      const auto tag = font_code_to_highlight_tag(span.code);
+      if (!tag.empty()) {
+        trace.projected_gml = ":" + tag + "." + trace.text + ":e" + tag + ".";
+      }
+    }
+    traced.push_back(std::move(trace));
+  }
+  return traced;
 }
 
 std::string render_font_gml(std::string value, GmlRenderState& state) {
@@ -750,6 +841,71 @@ std::string render_gml_segment(std::string segment,
   return render_simple_gml_control("p", std::move(segment));
 }
 
+std::map<std::string, std::string> extract_font_definitions(
+    const std::vector<std::string>& decoded_records) {
+  std::map<std::string, std::string> definitions;
+  for (const auto& decoded_record : decoded_records) {
+    for (const auto& segment : split_decoded_markup_segments(decoded_record)) {
+      if (!ascii_starts_with_case_insensitive(trim_ascii(segment),
+                                              "cfontdef")) {
+        continue;
+      }
+      std::string code;
+      auto style = parse_fontdef_style(segment, code);
+      if (is_valid_font_definition_code(code) && !style.empty()) {
+        definitions[std::move(code)] = std::move(style);
+      }
+    }
+  }
+  return definitions;
+}
+
+struct GmlAppendResult {
+  std::string record;
+  bool merged_with_previous = false;
+};
+
+std::vector<GmlAppendResult> append_rendered_gml_line(
+    std::vector<std::string>& rendered,
+    const std::string& line) {
+  std::vector<GmlAppendResult> results;
+  if (line.empty() || line == ":p.") {
+    return results;
+  }
+
+  std::size_t begin = 0;
+  while (begin <= line.size()) {
+    const auto end = line.find('\n', begin);
+    auto part = end == std::string::npos ? line.substr(begin)
+                                         : line.substr(begin, end - begin);
+    if (!part.empty() && part != ":p.") {
+      if (ascii_starts_with_case_insensitive(part, ":pinline.")) {
+        auto content = part.substr(std::string(":pinline.").size());
+        if (!content.empty() && !rendered.empty() &&
+            (ascii_starts_with_case_insensitive(rendered.back(), ":p ") ||
+             ascii_starts_with_case_insensitive(rendered.back(), ":p."))) {
+          if (!rendered.back().empty() && rendered.back().back() != ' ') {
+            rendered.back().push_back(' ');
+          }
+          rendered.back() += std::move(content);
+          results.push_back({rendered.back(), true});
+        } else {
+          rendered.push_back(":p." + std::move(content));
+          results.push_back({rendered.back(), false});
+        }
+      } else {
+        rendered.push_back(std::move(part));
+        results.push_back({rendered.back(), false});
+      }
+    }
+    if (end == std::string::npos) {
+      break;
+    }
+    begin = end + 1;
+  }
+  return results;
+}
+
 std::vector<std::string> render_gml_records(
     const std::vector<std::string>& decoded_records) {
   std::vector<std::string> rendered;
@@ -763,40 +919,59 @@ std::vector<std::string> render_gml_records(
       auto line = render_gml_segment(std::move(segments[segment_index]),
                                      allow_topic_header,
                                      state);
-      if (!line.empty() && line != ":p.") {
-        std::size_t begin = 0;
-        while (begin <= line.size()) {
-          const auto end = line.find('\n', begin);
-          auto part = end == std::string::npos
-                          ? line.substr(begin)
-                          : line.substr(begin, end - begin);
-          if (!part.empty() && part != ":p.") {
-            if (ascii_starts_with_case_insensitive(part, ":pinline.")) {
-              auto content = part.substr(std::string(":pinline.").size());
-              if (!content.empty() && !rendered.empty() &&
-                  (ascii_starts_with_case_insensitive(rendered.back(), ":p ") ||
-                   ascii_starts_with_case_insensitive(rendered.back(), ":p."))) {
-                if (!rendered.back().empty() &&
-                    rendered.back().back() != ' ') {
-                  rendered.back().push_back(' ');
-                }
-                rendered.back() += std::move(content);
-              } else {
-                rendered.push_back(":p." + std::move(content));
-              }
-            } else {
-              rendered.push_back(std::move(part));
-            }
-          }
-          if (end == std::string::npos) {
-            break;
-          }
-          begin = end + 1;
-        }
-      }
+      (void)append_rendered_gml_line(rendered, line);
     }
   }
   return rendered;
+}
+
+std::vector<BooLogicalRecordTrace> trace_gml_records(
+    const std::vector<std::string>& decoded_records,
+    std::uint32_t first_logical_record,
+    const std::map<std::string, std::string>& font_definitions) {
+  std::vector<BooLogicalRecordTrace> traced_records;
+  std::vector<std::string> rendered;
+  GmlRenderState state;
+
+  traced_records.reserve(decoded_records.size());
+  for (std::size_t record_index = 0; record_index < decoded_records.size();
+       ++record_index) {
+    BooLogicalRecordTrace traced;
+    traced.logical_record =
+        first_logical_record + static_cast<std::uint32_t>(record_index);
+    traced.decoded_record = decoded_records[record_index];
+    traced.segments = split_decoded_markup_segments(decoded_records[record_index]);
+
+    for (std::size_t segment_index = 0; segment_index < traced.segments.size();
+         ++segment_index) {
+      const auto& segment = traced.segments[segment_index];
+      if (ascii_starts_with_case_insensitive(trim_ascii(segment), "cfont")) {
+        auto font_spans =
+            trace_font_spans(segment,
+                             traced.logical_record,
+                             static_cast<std::uint32_t>(segment_index),
+                             font_definitions);
+        traced.font_spans.insert(traced.font_spans.end(),
+                                 std::make_move_iterator(font_spans.begin()),
+                                 std::make_move_iterator(font_spans.end()));
+      }
+
+      const auto allow_topic_header = record_index == 0 && segment_index == 0;
+      auto line = render_gml_segment(segment, allow_topic_header, state);
+      auto appended = append_rendered_gml_line(rendered, line);
+      for (auto& result : appended) {
+        if (result.merged_with_previous) {
+          traced.normalized_gml_records.push_back("[merged] " +
+                                                  std::move(result.record));
+        } else {
+          traced.normalized_gml_records.push_back(std::move(result.record));
+        }
+      }
+    }
+    traced_records.push_back(std::move(traced));
+  }
+
+  return traced_records;
 }
 
 bool looks_like_control_boundary(const std::string& decoded_record,

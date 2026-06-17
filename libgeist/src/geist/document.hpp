@@ -10,10 +10,31 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <string>
 #include <vector>
 
 namespace geist {
+
+struct BooFontTrace {
+  std::uint32_t logical_record = 0;
+  std::uint32_t segment_index = 0;
+  std::uint32_t span_index = 0;
+  std::uint32_t offset = 0;
+  std::uint32_t length = 0;
+  std::string code;
+  std::string style;
+  std::string text;
+  std::string projected_gml;
+};
+
+struct BooLogicalRecordTrace {
+  std::uint32_t logical_record = 0;
+  std::string decoded_record;
+  std::vector<std::string> segments;
+  std::vector<std::string> normalized_gml_records;
+  std::vector<BooFontTrace> font_spans;
+};
 
 class BooDocument {
 public:
@@ -29,12 +50,18 @@ public:
   GEIST_API const std::vector<BooPageRun>& page_runs() const noexcept;
   GEIST_API const std::vector<BooLogicalControl>& logical_controls()
       const noexcept;
+  GEIST_API const std::vector<std::string>& decoded_logical_records()
+      const noexcept;
+  GEIST_API const std::map<std::string, std::string>& font_definitions()
+      const noexcept;
   GEIST_API const std::vector<TocEntry>& table_of_contents() const noexcept;
   GEIST_API const std::vector<std::string>& raw_gml_records() const noexcept;
   GEIST_API std::string markdown() const;
   GEIST_API const std::vector<ResourceEntry>& resources() const noexcept;
   GEIST_API const TocEntry* find_toc_entry(const std::string& topic_id)
       const noexcept;
+  GEIST_API std::vector<BooLogicalRecordTrace> trace_logical_records(
+      const std::string& topic_id) const;
 
   // Returns an exact 4096-byte physical page payload.
   GEIST_API std::vector<std::uint8_t> read_page(std::uint32_t page_number)
@@ -51,6 +78,8 @@ private:
   BooBookProperties book_properties_;
   std::vector<BooPageRun> page_runs_;
   std::vector<BooLogicalControl> logical_controls_;
+  std::vector<std::string> decoded_logical_records_;
+  std::map<std::string, std::string> font_definitions_;
   std::vector<TocEntry> toc_;
   std::vector<std::string> raw_gml_records_;
   std::vector<ResourceEntry> resources_;
