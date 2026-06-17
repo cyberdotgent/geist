@@ -27,7 +27,7 @@ void print_usage(std::ostream& output) {
          << "Render a BOO book as Git-hosted Markdown.\n"
          << "\n"
          << "Output:\n"
-         << "  INDEX.md              table of contents\n"
+         << "  README.md             generated table of contents\n"
          << "  <topic>.md            one Markdown file per TOC topic\n"
          << "  <resource>.png        rendered PNG resources in the same folder\n"
          << "\n"
@@ -197,8 +197,12 @@ std::map<std::string, std::string> build_topic_file_map(
     const std::vector<geist::TocEntry>& toc) {
   std::map<std::string, std::string> files;
   std::map<std::string, int> used;
+  used["readme"] = 1;
   for (const auto& entry : toc) {
     auto stem = sanitize_stem(entry.id, "topic");
+    if (equals_case_insensitive(stem, "readme")) {
+      stem = "readme-topic";
+    }
     const auto base_stem = stem;
     auto& count = used[stem];
     ++count;
@@ -445,7 +449,7 @@ void render_book(const Options& options) {
       extract_png_resources(document, options.output, options.verbose);
   const auto resource_links = build_resource_link_map(png_files);
 
-  const auto index_path = options.output / "INDEX.md";
+  const auto index_path = options.output / "README.md";
   write_text(index_path, render_index_markdown(document, topic_files));
   std::cerr << "boo2git: wrote " << index_path.string() << "\n";
 
