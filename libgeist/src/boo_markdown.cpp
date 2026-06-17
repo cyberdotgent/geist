@@ -144,6 +144,80 @@ void append_block(std::string& output, const std::string& block) {
   output += "\n\n";
 }
 
+void flush_cover_block(std::string& output,
+                       const std::vector<std::string>& lines) {
+  if (lines.empty()) {
+    return;
+  }
+  if (!output.empty() && output.back() != '\n') {
+    output.push_back('\n');
+  }
+  if (!output.empty() && output.size() >= 2 &&
+      output.compare(output.size() - 2, 2, "\n\n") != 0) {
+    output.push_back('\n');
+  }
+
+  output += "```\n\n";
+  for (const auto& line : lines) {
+    output += line;
+    output += "\n\n";
+  }
+  output += "```\n\n";
+}
+
+void append_cover_line_part(std::vector<std::string>& lines,
+                            const std::string& line,
+                            std::size_t begin,
+                            std::size_t end) {
+  auto part = trim_ascii(line.substr(begin, end - begin));
+  if (!part.empty()) {
+    lines.push_back(std::move(part));
+  }
+}
+
+void append_cover_lines(std::vector<std::string>& lines,
+                        const std::string& text) {
+  static const std::array<const char*, 3> labels = {
+      "Document Number ", "Part Number ", "File Number "};
+
+  std::size_t cursor = 0;
+  while (cursor < text.size()) {
+    auto next = std::string::npos;
+    for (const auto* label : labels) {
+      const auto found = text.find(label, cursor);
+      if (found != std::string::npos) {
+        next = std::min(next, found);
+      }
+    }
+    if (next == std::string::npos) {
+      append_cover_line_part(lines, text, cursor, text.size());
+      return;
+    }
+    if (next > cursor) {
+      append_cover_line_part(lines, text, cursor, next);
+      cursor = next;
+      continue;
+    }
+
+    auto following = std::string::npos;
+    for (const auto* label : labels) {
+      const auto found = text.find(label, cursor + 1);
+      if (found != std::string::npos) {
+        following = std::min(following, found);
+      }
+    }
+    append_cover_line_part(lines,
+                           text,
+                           cursor,
+                           following == std::string::npos ? text.size()
+                                                          : following);
+    if (following == std::string::npos) {
+      return;
+    }
+    cursor = following;
+  }
+}
+
 void append_list_item(std::string& output, std::string text) {
   text = gml_content(std::move(text));
   if (text.empty()) {
@@ -457,11 +531,23 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
   std::string output;
   bool in_list = false;
   bool in_table = false;
+  bool in_cover = false;
   std::string table_id;
   std::vector<TableCell> table_cells;
+  std::vector<std::string> cover_lines;
 
   for (const auto& record : records) {
     const auto tag = gml_tag(record);
+    if (in_cover) {
+      if (tag == "p") {
+        append_cover_lines(cover_lines, gml_content(record));
+        continue;
+      }
+      flush_cover_block(output, cover_lines);
+      cover_lines.clear();
+      in_cover = false;
+    }
+
     if (in_table) {
       if (tag == "etable") {
         append_block(output, render_table_markdown(table_id, table_cells));
@@ -478,6 +564,13 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
           table_cells.push_back({column, std::move(text)});
         }
       }
+      continue;
+    }
+
+    if (tag == "cover") {
+      in_cover = true;
+      cover_lines.clear();
+      in_list = false;
       continue;
     }
 
@@ -530,6 +623,10 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
     } else {
       append_block(output, gml_content(record));
     }
+  }
+
+  if (in_cover) {
+    flush_cover_block(output, cover_lines);
   }
 
   return trim_trailing_blank_lines(std::move(output));
