@@ -287,6 +287,14 @@ std::map<std::string, std::string> build_markdown_link_map(
         continue;
       }
 
+      if (record.rfind(":table ", 0) == 0) {
+        const auto id = raw_attr(record, "id");
+        if (!id.empty()) {
+          links[lowercase(id)] = file->second + "#" + id;
+        }
+        continue;
+      }
+
       if (record.rfind(":image ", 0) == 0) {
         const auto resource = raw_attr(record, "resource");
         if (!pending_figure_id.empty() && !resource.empty()) {

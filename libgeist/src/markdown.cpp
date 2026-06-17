@@ -573,16 +573,36 @@ std::size_t nearest_table_column(const std::vector<int>& columns, int column) {
   return best;
 }
 
+std::string table_fallback_markdown(const std::string& id,
+                                    const std::string& caption) {
+  std::ostringstream output;
+  if (!id.empty()) {
+    output << "<a id=\"" << id << "\"></a>\n\n";
+  }
+  if (!caption.empty()) {
+    output << "[Table: " << caption << "]";
+  } else if (!id.empty()) {
+    output << "[Table: " << id << "]";
+  } else {
+    output << "[Table]";
+  }
+  return output.str();
+}
+
 std::string render_rows_as_markdown_table(
     const std::string& id,
+    const std::string& caption,
     const std::vector<std::vector<std::string>>& rows) {
   if (rows.empty()) {
-    return id.empty() ? "[Table]" : "[Table: " + id + "]";
+    return table_fallback_markdown(id, caption);
   }
 
   std::ostringstream output;
   if (!id.empty()) {
     output << "<a id=\"" << id << "\"></a>\n\n";
+  }
+  if (!caption.empty()) {
+    output << caption << "\n\n";
   }
   const auto& header = rows.front();
   output << "|";
@@ -606,6 +626,7 @@ std::string render_rows_as_markdown_table(
 
 std::optional<std::string> render_flat_three_column_table(
     const std::string& id,
+    const std::string& caption,
     const std::vector<TableCell>& cells) {
   if (cells.size() < 6) {
     return std::nullopt;
@@ -674,22 +695,23 @@ std::optional<std::string> render_flat_three_column_table(
     cursor = std::max(next, body_begin + 1);
   }
 
-  return render_rows_as_markdown_table(id, rows);
+  return render_rows_as_markdown_table(id, caption, rows);
 }
 
 std::string render_table_markdown(const std::string& id,
+                                  const std::string& caption,
                                   const std::vector<TableCell>& cells) {
   if (cells.empty()) {
-    return id.empty() ? "[Table]" : "[Table: " + id + "]";
+    return table_fallback_markdown(id, caption);
   }
 
   auto columns = infer_table_columns(cells);
   if (columns.size() < 2) {
-    if (auto table = render_flat_three_column_table(id, cells)) {
+    if (auto table = render_flat_three_column_table(id, caption, cells)) {
       return *table;
     }
 
-    std::string fallback = id.empty() ? "[Table]" : "[Table: " + id + "]";
+    std::string fallback = table_fallback_markdown(id, caption);
     for (const auto& cell : cells) {
       if (!cell.text.empty()) {
         fallback += "\n\n" + cell.text;
@@ -723,10 +745,10 @@ std::string render_table_markdown(const std::string& id,
   }
 
   if (rows.empty()) {
-    return id.empty() ? "[Table]" : "[Table: " + id + "]";
+    return table_fallback_markdown(id, caption);
   }
 
-  return render_rows_as_markdown_table(id, rows);
+  return render_rows_as_markdown_table(id, caption, rows);
 }
 
 } // namespace
@@ -740,6 +762,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
   bool title_block_complete = false;
   std::size_t title_page_line_count = 0;
   std::string table_id;
+  std::string table_caption;
   std::string pending_copyright_note;
   std::vector<TableCell> table_cells;
   std::vector<std::string> pending_title_page_bold_lines;
@@ -762,9 +785,13 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
 
     if (in_table) {
       if (tag == "etable") {
-        append_block(output, render_table_markdown(table_id, table_cells));
+        append_block(output,
+                     render_table_markdown(table_id,
+                                           table_caption,
+                                           table_cells));
         in_table = false;
         table_id.clear();
+        table_caption.clear();
         table_cells.clear();
         continue;
       }
@@ -900,6 +927,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
     } else if (tag == "table") {
       in_table = true;
       table_id = gml_attr(record, "id");
+      table_caption = gml_markdown_content(record);
       table_cells.clear();
     } else if (tag == "i1" || tag == "grpsep" || tag == "efig" ||
                tag == "etable" || tag == "fontdef") {

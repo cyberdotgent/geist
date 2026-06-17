@@ -292,6 +292,39 @@ std::string render_keyed_gml_control(const std::string& tag,
   return ":" + tag + " " + attr + "='" + escape_gml_attr(value) + "'.";
 }
 
+std::string table_anchor_id(std::string target) {
+  target = trim_control_operand(std::move(target));
+  if (target.empty()) {
+    return {};
+  }
+  if (ascii_starts_with_case_insensitive(target, "tbltbl")) {
+    return target;
+  }
+  if (ascii_starts_with_case_insensitive(target, "tbl")) {
+    return "TBL" + target;
+  }
+  return target;
+}
+
+std::string render_table_gml(std::string value) {
+  value = trim_ascii(std::move(value));
+  std::istringstream input(value);
+  std::string target;
+  if (!(input >> target)) {
+    return ":table.";
+  }
+
+  std::string caption;
+  std::getline(input, caption);
+  caption = dot_text(std::move(caption));
+
+  auto output = ":table id='" + escape_gml_attr(table_anchor_id(target)) + "'.";
+  if (!caption.empty()) {
+    output += caption;
+  }
+  return output;
+}
+
 std::string render_toc_entry_gml(std::string value) {
   std::istringstream input(value);
   std::uint32_t level = 0;
@@ -860,7 +893,7 @@ std::string render_gml_segment(std::string segment,
     return ":efig.";
   }
   if (ascii_starts_with_case_insensitive(lower, "srtbl")) {
-    return render_keyed_gml_control("table", "id", segment.substr(5));
+    return render_table_gml(segment.substr(5));
   }
   if (ascii_starts_with_case_insensitive(lower, "sretbl")) {
     return ":etable.";
