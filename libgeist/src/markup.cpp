@@ -476,31 +476,125 @@ bool parse_nonspace_word(const std::string& value, std::size_t& cursor) {
   return cursor > begin;
 }
 
-std::string trailing_text_after_font_spans(std::string value) {
-  value = trim_ascii(std::move(value));
-  std::size_t cursor = 0;
-  std::size_t last_complete = 0;
+struct FontSpan {
+  std::size_t offset = 0;
+  std::size_t length = 0;
+  std::string code;
+};
+
+std::vector<FontSpan> parse_font_spans(const std::string& value,
+                                       std::size_t& cursor) {
+  std::vector<FontSpan> spans;
   while (cursor < value.size()) {
     const auto before = cursor;
-    if (!parse_unsigned_word(value, cursor) ||
-        !parse_unsigned_word(value, cursor) ||
-        !parse_nonspace_word(value, cursor)) {
+    std::size_t offset_begin = cursor;
+    if (!parse_unsigned_word(value, cursor)) {
       cursor = before;
       break;
     }
-    last_complete = cursor;
+    const auto offset =
+        static_cast<std::size_t>(std::stoul(value.substr(offset_begin,
+                                                        cursor - offset_begin)));
+
+    std::size_t length_begin = cursor;
+    if (!parse_unsigned_word(value, cursor)) {
+      cursor = before;
+      break;
+    }
+    const auto length =
+        static_cast<std::size_t>(std::stoul(value.substr(length_begin,
+                                                        cursor - length_begin)));
+
+    while (cursor < value.size() &&
+           std::isspace(static_cast<unsigned char>(value[cursor])) != 0) {
+      ++cursor;
+    }
+    const auto code_begin = cursor;
+    if (!parse_nonspace_word(value, cursor)) {
+      cursor = before;
+      break;
+    }
+    spans.push_back({offset, length, value.substr(code_begin,
+                                                  cursor - code_begin)});
   }
-  if (last_complete >= value.size()) {
-    return {};
+  return spans;
+}
+
+std::string font_code_to_highlight_tag(const std::string& code) {
+  if (code == "1" || ascii_equals_case_insensitive(code, "hp1")) {
+    return "hp1";
   }
-  return trim_ascii(value.substr(last_complete));
+  if (code == "2" || ascii_equals_case_insensitive(code, "hp2")) {
+    return "hp2";
+  }
+  if (code == "3" || ascii_equals_case_insensitive(code, "hp3")) {
+    return "hp3";
+  }
+  return {};
+}
+
+std::string apply_font_spans_to_text(std::string value,
+                                     const std::vector<FontSpan>& spans) {
+  value = dot_text(std::move(value));
+  if (value.empty() || spans.empty()) {
+    return value;
+  }
+
+  auto normalized_spans = spans;
+  auto first_offset = normalized_spans.front().offset;
+  for (const auto& span : normalized_spans) {
+    first_offset = std::min(first_offset, span.offset);
+  }
+  if (first_offset > 0) {
+    for (auto& span : normalized_spans) {
+      span.offset -= first_offset;
+    }
+    if (normalized_spans.size() == 1 && normalized_spans.front().offset == 0) {
+      auto styled_length = value.size();
+      while (styled_length > 0) {
+        const auto ch = value[styled_length - 1];
+        if (ch != '.' && ch != ',' && ch != ';' && ch != ':' && ch != '!' &&
+            ch != '?') {
+          break;
+        }
+        --styled_length;
+      }
+      normalized_spans.front().length =
+          std::max(normalized_spans.front().length, styled_length);
+    }
+  }
+
+  std::vector<std::string> opens(value.size() + 1);
+  std::vector<std::string> closes(value.size() + 1);
+  for (const auto& span : normalized_spans) {
+    const auto tag = font_code_to_highlight_tag(span.code);
+    if (tag.empty() || span.length == 0 || span.offset >= value.size()) {
+      continue;
+    }
+    const auto end = std::min(value.size(), span.offset + span.length);
+    opens[span.offset] += ":" + tag + ".";
+    closes[end] = ":e" + tag + "." + closes[end];
+  }
+
+  std::string output;
+  for (std::size_t index = 0; index < value.size(); ++index) {
+    output += opens[index];
+    output.push_back(value[index]);
+    output += closes[index + 1];
+  }
+  return output;
 }
 
 std::string render_font_gml(std::string value, GmlRenderState& state) {
-  auto trailing = trailing_text_after_font_spans(std::move(value));
+  value = trim_ascii(std::move(value));
+  std::size_t cursor = 0;
+  const auto spans = parse_font_spans(value, cursor);
+  auto trailing = cursor >= value.size() ? std::string{}
+                                         : trim_ascii(value.substr(cursor));
   if (trailing.empty()) {
     return {};
   }
+  trailing = apply_font_spans_to_text(std::move(trailing), spans);
   if (state.in_vnotice && !state.emitted_vnotice_heading) {
     state.emitted_vnotice_heading = true;
     return render_simple_gml_control("vnhd", std::move(trailing));
@@ -518,7 +612,7 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
     }
     return render_simple_gml_control("note", std::move(trailing));
   }
-  return render_simple_gml_control("p", std::move(trailing));
+  return render_simple_gml_control("pinline", std::move(trailing));
 }
 
 std::string render_gml_segment(std::string segment,
@@ -677,7 +771,22 @@ std::vector<std::string> render_gml_records(
                           ? line.substr(begin)
                           : line.substr(begin, end - begin);
           if (!part.empty() && part != ":p.") {
-            rendered.push_back(std::move(part));
+            if (ascii_starts_with_case_insensitive(part, ":pinline.")) {
+              auto content = part.substr(std::string(":pinline.").size());
+              if (!content.empty() && !rendered.empty() &&
+                  (ascii_starts_with_case_insensitive(rendered.back(), ":p ") ||
+                   ascii_starts_with_case_insensitive(rendered.back(), ":p."))) {
+                if (!rendered.back().empty() &&
+                    rendered.back().back() != ' ') {
+                  rendered.back().push_back(' ');
+                }
+                rendered.back() += std::move(content);
+              } else {
+                rendered.push_back(":p." + std::move(content));
+              }
+            } else {
+              rendered.push_back(std::move(part));
+            }
           }
           if (end == std::string::npos) {
             break;

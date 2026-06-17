@@ -309,6 +309,7 @@ Observed body examples:
 | --- | --- | --- |
 | `QS3X36CM.BOO` | `CFONT 7 2 1 10 9 1` | Two spans use style code `1`, which the book header defines as `HP1`. |
 | `QS3X36CM.BOO` | `CFONT 12 2 x 15 6 x` | Two spans use style code `x`, defined as `xph`. |
+| `packet.boo` topic `PREFACE` | Source line `:hp3.wec@bam.moe:ehp3.!`; raw projection `:hp3.wec@bam.moe:ehp3.!`; hosted BookServer HTML `<B><I>wec@bam.moe</B></I>!` | `HP3` is an inline highlighted phrase span. BookServer renders this PACKET `HP3` span as bold plus italic, and punctuation after `:ehp3.` remains outside the span. |
 
 The `CFONT` field layout observed so far is repeated triples:
 
@@ -318,10 +319,11 @@ CFONT <column_or_offset> <span_length> <font_code> ...
 
 Bold and emphasis should therefore be implemented through the `CFONT` plus
 `CFONTDEF` pipeline, not by searching for literal `<b>` markup. `HP1`, `HP2`,
-and `HP3` are GML-derived highlighted-phrase levels. Their exact visual mapping
-to bold, italic, monospace, or other renderer styles is a presentation rule and
-still needs direct renderer confirmation; the storage layer only identifies the
-semantic style code.
+and `HP3` are GML-derived highlighted-phrase levels. The PACKET `PREFACE`
+fixture confirms that BookServer renders `HP3` as bold plus italic in normal
+body text. Exact visual mapping for the remaining highlighted phrase levels and
+special styles is still a presentation rule that needs direct renderer
+confirmation; the storage layer identifies the semantic style code.
 
 ## Cross-References And Menus
 

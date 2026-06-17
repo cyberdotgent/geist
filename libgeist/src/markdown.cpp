@@ -115,6 +115,55 @@ std::string gml_content(const std::string& record) {
   return trim_ascii(record.substr(offset));
 }
 
+std::string markdown_marker_for_highlight(const std::string& tag) {
+  if (tag == "hp1") {
+    return "*";
+  }
+  if (tag == "hp2") {
+    return "**";
+  }
+  if (tag == "hp3") {
+    return "***";
+  }
+  return {};
+}
+
+std::string render_inline_markdown(std::string text) {
+  std::string output;
+  output.reserve(text.size());
+  for (std::size_t cursor = 0; cursor < text.size();) {
+    if (text[cursor] != ':') {
+      output.push_back(text[cursor++]);
+      continue;
+    }
+
+    const auto dot = text.find('.', cursor + 1);
+    if (dot == std::string::npos) {
+      output.push_back(text[cursor++]);
+      continue;
+    }
+
+    auto tag = ascii_lower(text.substr(cursor + 1, dot - cursor - 1));
+    const auto closing = ascii_starts_with_case_insensitive(tag, "e");
+    if (closing) {
+      tag.erase(tag.begin());
+    }
+    const auto marker = markdown_marker_for_highlight(tag);
+    if (marker.empty()) {
+      output.push_back(text[cursor++]);
+      continue;
+    }
+
+    output += marker;
+    cursor = dot + 1;
+  }
+  return output;
+}
+
+std::string gml_markdown_content(const std::string& record) {
+  return render_inline_markdown(gml_content(record));
+}
+
 std::string gml_attr(const std::string& record, const std::string& attr) {
   const auto pattern = attr + "='";
   const auto begin = record.find(pattern);
@@ -261,7 +310,7 @@ void flush_pending_title_page_lines(
 }
 
 void append_list_item(std::string& output, std::string text) {
-  text = gml_content(std::move(text));
+  text = gml_markdown_content(std::move(text));
   if (text.empty()) {
     return;
   }
@@ -272,7 +321,7 @@ void append_list_item(std::string& output, std::string text) {
 }
 
 std::string render_link_markdown(const std::string& record) {
-  auto text = gml_content(record);
+  auto text = gml_markdown_content(record);
   const auto target = gml_attr(record, "refid");
   if (text.empty()) {
     text = target;
@@ -284,7 +333,7 @@ std::string render_link_markdown(const std::string& record) {
 }
 
 std::string render_anchor_markdown(const std::string& record) {
-  const auto text = gml_content(record);
+  const auto text = gml_markdown_content(record);
   if (!text.empty()) {
     return text;
   }
@@ -587,7 +636,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
     if (in_title_page) {
       if (tag == "p") {
         append_title_page_markdown(output,
-                                   gml_content(record),
+                                   gml_markdown_content(record),
                                    title_page_is_cover,
                                    title_page_line_count,
                                    title_block_complete,
@@ -609,7 +658,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
       if (tag == "p" || tag == "hdref" || tag == "lblbox") {
         const auto column = gml_int_attr(record, "col").value_or(-1);
         auto text = tag == "hdref" ? render_link_markdown(record)
-                                   : gml_content(record);
+                                   : gml_markdown_content(record);
         if (!text.empty()) {
           table_cells.push_back({column, std::move(text)});
         }
@@ -676,32 +725,32 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         append_block(output, pending_copyright_note);
         pending_copyright_note.clear();
       }
-      append_block(output, heading_prefix(tag) + gml_content(record));
+      append_block(output, heading_prefix(tag) + gml_markdown_content(record));
     } else if (tag == "vnhd") {
       if (!pending_copyright_note.empty()) {
         append_block(output, pending_copyright_note);
         pending_copyright_note.clear();
       }
-      append_block(output, "**" + gml_content(record) + "**");
+      append_block(output, "**" + gml_markdown_content(record) + "**");
     } else if (tag == "p" || tag == "lblbox") {
       if (!pending_copyright_note.empty()) {
         append_block(output, pending_copyright_note);
         pending_copyright_note.clear();
       }
-      append_block(output, gml_content(record));
+      append_block(output, gml_markdown_content(record));
     } else if (tag == "note") {
       if (!pending_copyright_note.empty()) {
         append_block(output, pending_copyright_note);
         pending_copyright_note.clear();
       }
-      append_block(output, "**Note:** " + gml_content(record));
+      append_block(output, "**Note:** " + gml_markdown_content(record));
     } else if (tag == "coprnote") {
       if (!pending_copyright_note.empty()) {
         append_block(output, pending_copyright_note);
       }
-      pending_copyright_note = gml_content(record);
+      pending_copyright_note = gml_markdown_content(record);
     } else if (tag == "coprext") {
-      auto text = gml_content(record);
+      auto text = gml_markdown_content(record);
       if (!pending_copyright_note.empty()) {
         text = pending_copyright_note + "<br>\n" + text;
         pending_copyright_note.clear();
@@ -726,7 +775,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
                tag == "etable" || tag == "fontdef") {
       continue;
     } else {
-      append_block(output, gml_content(record));
+      append_block(output, gml_markdown_content(record));
     }
   }
 

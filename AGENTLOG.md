@@ -719,3 +719,11 @@
   to `Format/GDF.md`, and version 1.4 web-image header/dimension notes to
   `Format/WebImages.md`. Updated `Format/README.md` to index the new payload
   format documents.
+- Fixed PACKET `PREFACE` highlighted phrase rendering. Verified through Docker
+  fetch that hosted BookServer renders `PREFACE` email text as one paragraph
+  with `wec@bam.moe` bold plus italic and the following `!` outside the span.
+  Updated `libgeist` to preserve `CFONT` style spans as source-style inline
+  `:hpN.` records, merge normal font-only continuations into the preceding
+  paragraph, and render `HP1`/`HP2`/`HP3` as Markdown emphasis. Regenerated the
+  checked-in PACKET `preface.md` and documented the BookServer URL/source trail
+  in `Format/markup.md` and `AnalysisNotes/bookserver-docker-fetch.md`.
