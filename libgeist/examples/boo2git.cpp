@@ -21,6 +21,11 @@ struct Options {
   bool verbose = false;
 };
 
+struct TopicOutput {
+  const geist::TocEntry* entry = nullptr;
+  std::string file;
+};
+
 void print_usage(std::ostream& output) {
   output << "usage: boo2git [options] <book.boo> <destination-folder>\n"
          << "\n"
@@ -214,6 +219,20 @@ std::map<std::string, std::string> build_topic_file_map(
   return files;
 }
 
+std::vector<TopicOutput> build_topic_outputs(
+    const std::vector<geist::TocEntry>& toc,
+    const std::map<std::string, std::string>& topic_files) {
+  std::vector<TopicOutput> outputs;
+  outputs.reserve(toc.size());
+  for (const auto& entry : toc) {
+    const auto found = topic_files.find(lowercase(entry.id));
+    if (found != topic_files.end()) {
+      outputs.push_back({&entry, found->second});
+    }
+  }
+  return outputs;
+}
+
 std::string raw_attr(const std::string& record, const std::string& attr) {
   const auto pattern = attr + "='";
   const auto begin = record.find(pattern);
@@ -381,11 +400,46 @@ void rewrite_resource_links(std::string& markdown,
   }
 }
 
+std::string render_navigation_link(const std::string& label,
+                                   const std::string& file) {
+  if (file.empty()) {
+    return label;
+  }
+  return "[" + label + "](" + markdown_escape_url(file) + ")";
+}
+
+std::string render_navigation_bar(const TopicOutput* previous,
+                                  const TopicOutput* next) {
+  std::string output;
+  output += render_navigation_link("Previous", previous == nullptr
+                                                   ? std::string()
+                                                   : previous->file);
+  output += " | ";
+  output += render_navigation_link("Index", "README.md");
+  output += " | ";
+  output += render_navigation_link("Next", next == nullptr ? std::string()
+                                                           : next->file);
+  return output;
+}
+
+std::string wrap_topic_navigation(std::string markdown,
+                                  const TopicOutput* previous,
+                                  const TopicOutput* next) {
+  const auto navigation = render_navigation_bar(previous, next);
+  if (markdown.empty() || markdown.back() != '\n') {
+    markdown.push_back('\n');
+  }
+  return navigation + "\n\n---\n\n" + markdown + "\n---\n\n" + navigation +
+         "\n";
+}
+
 std::string render_topic_markdown(
     const geist::TocEntry& entry,
     const std::map<std::string, std::string>& markdown_links,
     const std::map<std::string, std::string>& resource_links,
-    const std::map<std::string, std::string>& png_files) {
+    const std::map<std::string, std::string>& png_files,
+    const TopicOutput* previous,
+    const TopicOutput* next) {
   auto markdown = entry.markdown();
   if (markdown.empty() || markdown.front() != '#') {
     markdown = "# " + entry.title + "\n\n" + markdown;
@@ -396,7 +450,7 @@ std::string render_topic_markdown(
   if (markdown.empty() || markdown.back() != '\n') {
     markdown.push_back('\n');
   }
-  return markdown;
+  return wrap_topic_navigation(std::move(markdown), previous, next);
 }
 
 std::string render_index_markdown(
@@ -444,6 +498,7 @@ void render_book(const Options& options) {
             << document.resources().size() << " resources\n";
 
   const auto topic_files = build_topic_file_map(toc);
+  const auto topic_outputs = build_topic_outputs(toc, topic_files);
   const auto markdown_links = build_markdown_link_map(toc, topic_files);
   const auto png_files =
       extract_png_resources(document, options.output, options.verbose);
@@ -454,17 +509,19 @@ void render_book(const Options& options) {
   std::cerr << "boo2git: wrote " << index_path.string() << "\n";
 
   std::size_t topic_count = 0;
-  for (const auto& entry : toc) {
-    const auto found = topic_files.find(lowercase(entry.id));
-    if (found == topic_files.end()) {
-      continue;
-    }
-    const auto path = options.output / found->second;
+  for (std::size_t index = 0; index < topic_outputs.size(); ++index) {
+    const auto& topic = topic_outputs[index];
+    const auto* previous = index == 0 ? nullptr : &topic_outputs[index - 1];
+    const auto* next =
+        index + 1 == topic_outputs.size() ? nullptr : &topic_outputs[index + 1];
+    const auto path = options.output / topic.file;
     write_text(path,
-               render_topic_markdown(entry,
+               render_topic_markdown(*topic.entry,
                                      markdown_links,
                                      resource_links,
-                                     png_files));
+                                     png_files,
+                                     previous,
+                                     next));
     ++topic_count;
     if (options.verbose) {
       std::cerr << "boo2git: wrote " << path.string() << "\n";
