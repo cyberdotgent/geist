@@ -1,5 +1,28 @@
 # Agent Log
 
+## 2026-06-17 - Replace GDF byte scanner with record parser
+
+- Re-analyzed legacy kind `G` rendering through the connected `ephimage.dll`
+  and newly loaded `IMGDF2.FLT` IDBs. Verified that BookServer loads
+  `isgdi32.dll`, `imgdf2.flt`, and `ebgif2.flt` for kind `G`, and that
+  `IMGDF2.FLT` parses a header plus opcode/length-framed GDF records before
+  calling ISGDI functions such as `CLine`.
+- Replaced the previous `libgeist/src/boo_gdf.cpp` coordinate-run scanner with
+  a conservative GDF record parser. It now reads the declared picture extent,
+  skips unknown records by the IBM filter's length rule, and renders only
+  verified line/current-point opcodes (`0x21`, `0x61`, `0x81`, `0xc1`,
+  `0xe1`).
+- Staged a temporary IBM DLL/filter harness under `tmp/gdf-harness` using
+  `ephimage.dll`, `ISGDI32.DLL`, `IMGDF2.FLT`, and `EBGIF2.FLT`; the high-level
+  `ephimage` call returned failure for `GG66-3212-00.boo` kind `G`, so the
+  self-contained renderer was validated visually against the IDB-derived record
+  grammar instead.
+- Updated `Format/GDF.md` with the header layout, record framing rules, opcode
+  evidence, and the reason byte-scanning produced false fan lines.
+- Validated with `cmake --build build --target boorsrc` and PNG renders for
+  `BOO\GG66-3212-00.boo` resources `1` and `2` into `tmp\`. Both now produce
+  visually recognizable chart images without the previous spurious fan lines.
+
 ## 2026-06-14 - Add legacy GDF PNG rendering
 
 - Implemented a private `legacy-gdf` rendering path in `libgeist`: added

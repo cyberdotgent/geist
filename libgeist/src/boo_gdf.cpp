@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <limits>
 #include <stdexcept>
 #include <vector>
 
@@ -17,9 +16,15 @@ struct Point {
 };
 
 struct Polyline {
-  std::size_t offset = 0;
-  std::size_t length = 0;
   std::vector<Point> points;
+};
+
+struct GdfPicture {
+  double min_x = 0.0;
+  double min_y = 0.0;
+  double max_x = 0.0;
+  double max_y = 0.0;
+  std::vector<Polyline> lines;
 };
 
 double read_ibm_hfp_float(const std::vector<std::uint8_t>& bytes,
@@ -41,80 +46,140 @@ double read_ibm_hfp_float(const std::vector<std::uint8_t>& bytes,
 }
 
 bool is_plausible_coordinate(double value) {
-  return std::isfinite(value) && value >= -10000.0 && value <= 10000.0 &&
-         (value == 0.0 || std::abs(value) >= 0.001);
+  return std::isfinite(value) && value >= -100000.0 && value <= 100000.0;
 }
 
-bool read_point(const std::vector<std::uint8_t>& bytes,
-                std::size_t offset,
-                Point& point) {
-  if (offset + 8 > bytes.size()) {
-    return false;
+Point read_point(const std::vector<std::uint8_t>& bytes, std::size_t offset) {
+  const Point point{read_ibm_hfp_float(bytes, offset),
+                    read_ibm_hfp_float(bytes, offset + 4)};
+  if (!is_plausible_coordinate(point.x) ||
+      !is_plausible_coordinate(point.y)) {
+    throw std::runtime_error("GDF asset contains an implausible coordinate");
   }
-
-  const auto x = read_ibm_hfp_float(bytes, offset);
-  const auto y = read_ibm_hfp_float(bytes, offset + 4);
-  if (!is_plausible_coordinate(x) || !is_plausible_coordinate(y)) {
-    return false;
-  }
-
-  point = Point{x, y};
-  return true;
+  return point;
 }
 
-std::vector<Polyline> find_coordinate_runs(
-    const std::vector<std::uint8_t>& bytes) {
-  std::vector<Polyline> candidates;
-  for (std::size_t offset = 0; offset + 16 <= bytes.size(); ++offset) {
-    Polyline line;
-    line.offset = offset;
-    for (std::size_t pos = offset; pos + 8 <= bytes.size(); pos += 8) {
-      Point point;
-      if (!read_point(bytes, pos, point)) {
-        break;
-      }
-      line.points.push_back(point);
-    }
-    if (line.points.size() >= 2) {
-      line.length = line.points.size() * 8;
-      candidates.push_back(std::move(line));
-    }
+std::size_t gdf_record_payload_length(std::uint8_t opcode,
+                                      const std::vector<std::uint8_t>& bytes,
+                                      std::size_t& offset) {
+  if (opcode == 0) {
+    return 0;
   }
 
-  std::sort(candidates.begin(),
-            candidates.end(),
-            [](const Polyline& left, const Polyline& right) {
-              if (left.length != right.length) {
-                return left.length > right.length;
-              }
-              return left.offset < right.offset;
-            });
-
-  std::vector<bool> used(bytes.size(), false);
-  std::vector<Polyline> runs;
-  for (auto& candidate : candidates) {
-    bool overlaps = false;
-    for (std::size_t i = 0; i < candidate.length; ++i) {
-      if (used[candidate.offset + i]) {
-        overlaps = true;
-        break;
-      }
-    }
-    if (overlaps) {
-      continue;
-    }
-    for (std::size_t i = 0; i < candidate.length; ++i) {
-      used[candidate.offset + i] = true;
-    }
-    runs.push_back(std::move(candidate));
+  const auto high = static_cast<std::uint8_t>(opcode >> 4);
+  const auto low = static_cast<std::uint8_t>(opcode & 0x0f);
+  if (high < 8 && low >= 8) {
+    return 1;
   }
 
-  std::sort(runs.begin(),
-            runs.end(),
-            [](const Polyline& left, const Polyline& right) {
-              return left.offset < right.offset;
-            });
-  return runs;
+  if (offset >= bytes.size()) {
+    throw std::runtime_error("GDF asset ends inside a record header");
+  }
+  return bytes[offset++];
+}
+
+std::vector<Point> read_absolute_points(
+    const std::vector<std::uint8_t>& bytes,
+    std::size_t offset,
+    std::size_t length) {
+  std::vector<Point> points;
+  points.reserve(length / 8);
+  for (std::size_t i = 0; i + 7 < length; i += 8) {
+    points.push_back(read_point(bytes, offset + i));
+  }
+  return points;
+}
+
+GdfPicture parse_gdf_picture(const std::vector<std::uint8_t>& bytes) {
+  if (bytes.size() < 20 || bytes[0] != 0x01) {
+    throw std::runtime_error("GDF asset does not start with a supported header");
+  }
+
+  const auto header_length = static_cast<std::size_t>(bytes[1]);
+  if (header_length < 18 || 2 + header_length > bytes.size()) {
+    throw std::runtime_error("GDF asset has an invalid header length");
+  }
+
+  GdfPicture picture;
+  picture.min_x = read_ibm_hfp_float(bytes, 4);
+  picture.max_x = read_ibm_hfp_float(bytes, 8);
+  picture.min_y = read_ibm_hfp_float(bytes, 12);
+  picture.max_y = read_ibm_hfp_float(bytes, 16);
+  if (!(picture.min_x < picture.max_x) || !(picture.min_y < picture.max_y)) {
+    throw std::runtime_error("GDF asset has an empty declared extent");
+  }
+
+  Point current;
+  std::size_t offset = 2 + header_length;
+  while (offset < bytes.size()) {
+    const auto opcode = bytes[offset++];
+    const auto length = gdf_record_payload_length(opcode, bytes, offset);
+    if (offset + length > bytes.size()) {
+      throw std::runtime_error("GDF asset has a truncated record payload");
+    }
+
+    switch (opcode) {
+    case 0x21:
+    case 0x61:
+      if (length >= 8) {
+        current = read_point(bytes, offset);
+      }
+      break;
+
+    case 0x81: {
+      if (length >= 8) {
+        Polyline line;
+        line.points.push_back(current);
+        auto points = read_absolute_points(bytes, offset, length);
+        line.points.insert(line.points.end(), points.begin(), points.end());
+        if (line.points.size() > 1) {
+          picture.lines.push_back(std::move(line));
+          current = picture.lines.back().points.back();
+        }
+      }
+      break;
+    }
+
+    case 0xc1: {
+      auto points = read_absolute_points(bytes, offset, length);
+      if (points.size() > 1) {
+        picture.lines.push_back(Polyline{points});
+      }
+      if (!points.empty()) {
+        current = points.back();
+      }
+      break;
+    }
+
+    case 0xe1: {
+      if (length >= 8) {
+        Polyline line;
+        line.points.push_back(read_point(bytes, offset));
+        for (std::size_t i = 8; i + 1 < length; i += 2) {
+          const auto dx = static_cast<std::int8_t>(bytes[offset + i]);
+          const auto dy = static_cast<std::int8_t>(bytes[offset + i + 1]);
+          const auto prev = line.points.back();
+          line.points.push_back(Point{prev.x + dx, prev.y + dy});
+        }
+        if (line.points.size() > 1) {
+          picture.lines.push_back(std::move(line));
+          current = picture.lines.back().points.back();
+        }
+      }
+      break;
+    }
+
+    default:
+      break;
+    }
+
+    offset += length;
+  }
+
+  if (picture.lines.empty()) {
+    throw std::runtime_error("GDF asset has no supported drawable records");
+  }
+  return picture;
 }
 
 void set_pixel(RgbaImage& image, int x, int y) {
@@ -158,33 +223,12 @@ void draw_line(RgbaImage& image, int x0, int y0, int x1, int y1) {
 } // namespace
 
 RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes) {
-  const auto lines = find_coordinate_runs(bytes);
-  if (lines.empty()) {
-    throw std::runtime_error(
-        "GDF asset has no supported IBM hexadecimal-float coordinate runs");
-  }
-
-  double min_x = std::numeric_limits<double>::infinity();
-  double min_y = std::numeric_limits<double>::infinity();
-  double max_x = -std::numeric_limits<double>::infinity();
-  double max_y = -std::numeric_limits<double>::infinity();
-  for (const auto& line : lines) {
-    for (const auto& point : line.points) {
-      min_x = std::min(min_x, point.x);
-      min_y = std::min(min_y, point.y);
-      max_x = std::max(max_x, point.x);
-      max_y = std::max(max_y, point.y);
-    }
-  }
-
-  if (min_x >= max_x || min_y >= max_y) {
-    throw std::runtime_error("GDF asset has an empty drawable coordinate range");
-  }
+  const auto picture = parse_gdf_picture(bytes);
 
   constexpr std::uint32_t max_dimension = 1600;
   constexpr std::uint32_t margin = 12;
-  const auto width_units = max_x - min_x;
-  const auto height_units = max_y - min_y;
+  const auto width_units = picture.max_x - picture.min_x;
+  const auto height_units = picture.max_y - picture.min_y;
   const auto scale = std::min(
       static_cast<double>(max_dimension - (margin * 2)) / width_units,
       static_cast<double>(max_dimension - (margin * 2)) / height_units);
@@ -200,15 +244,15 @@ RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes) {
                     255);
 
   auto map_x = [&](double x) {
-    return static_cast<int>(std::lround((x - min_x) * scale)) +
+    return static_cast<int>(std::lround((x - picture.min_x) * scale)) +
            static_cast<int>(margin);
   };
   auto map_y = [&](double y) {
     return static_cast<int>(image.height) - static_cast<int>(margin) - 1 -
-           static_cast<int>(std::lround((y - min_y) * scale));
+           static_cast<int>(std::lround((y - picture.min_y) * scale));
   };
 
-  for (const auto& line : lines) {
+  for (const auto& line : picture.lines) {
     for (std::size_t i = 1; i < line.points.size(); ++i) {
       draw_line(image,
                 map_x(line.points[i - 1].x),
