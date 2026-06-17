@@ -8,43 +8,43 @@ Glossary
 
 <a id="GLS"></a>
 
-C
+**C**
 
 Constellation Diagram
 
-Constellation Diagram. A diagram that displays amplitude and phase for various digital modulation modes, including PSK and QAM.
+**Constellation** D**iagram.** A diagram that displays amplitude and phase for various digital modulation modes, including PSK and QAM.
 
 CSS
 
-* CSS. Chirp Spread-Spectrum, a modulation mode often used for ISM band devices
+*** CSS. Chirp Spread-Spectrum, a modulation mode often used for ISM band devices**
 
 <a id="GLS"></a>
 
-I
+**I**
 
 ISM Band
 
-ISM Band. Various unlicensed radio bands that permit some amount of $ transmit power, but barely any; almost all of them (except for the 40 MHz band in most countries) overlap amateur radio bands.
+**ISM** B**and.** Various unlicensed radio bands that permit some amount of $ transmit power, but barely any; almost all of them (except for the 40 MHz band in most countries) overlap amateur radio bands.
 
 <a id="GLS"></a>
 
-L
+**L**
 
 LoRa
 
-LoRa. "Long Range," a CSS modulation mode with very good SNR
+**LoRa. "Long Range," a CSS modulation mode with very good SNR**
 
 <a id="GLS"></a>
 
-O
+**O**
 
 OSI Model
 
-! OSI Model. A reference model for a network stack also called the OSI Stack, which is often applied to other protocols. The layers are physical, data-link, network, transport, session, presentation, application
+**! O**SI** Mode**l. A reference model for a network stack also called the OSI Stack, which is often applied to other protocols. The layers are physical, data-link, network, transport, session, presentation, application
 
 <a id="GLS"></a>
 
-P
+**P**
 
 PSK
 
@@ -52,19 +52,19 @@ PSK
 
 <a id="GLS"></a>
 
-Q
+**Q**
 
 QAM
 
-QAM. "Quadrature Amplitude Modulation," a data modulation mode where the amplitude and phase of the modulated analog waveform is varied
+**QAM. "Quadrature Amplitude Modulation," a data modulation mode where the amplitude and phase of the modulated analog waveform is varied**
 
 <a id="GLS"></a>
 
-S
+**S**
 
 SNR
 
-/ SNR. "Signal-to-Noise Ratio," a ratio of the signal strength to the noise strength
+**/ SNR. "Signal-to-Noise Ratio," a ratio of the signal strength to the noise strength**
 
 <a id="GLS"></a>
 

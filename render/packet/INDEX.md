@@ -154,9 +154,7 @@ FLOW are.
 
 retry 49
 
-.
-
-which command... I
+. which command... I
 
 * 32 42 WA4XYZ
 
@@ -1144,9 +1142,7 @@ Telnet
 
 name. * have
 
-. connections / .. can
-
-.
+. connections / .. can .
 
 it -- > as some
 
@@ -1286,9 +1282,7 @@ KISS ) 16 46 port jnos 50, 42 ,commands 44 42 as commandscommands )
 
 .
 
-.,.... as
-
-it address
+.,.... as it address
 
 . protocol . >
 
@@ -1904,9 +1898,7 @@ P ifconfig *
 
 33
 
-.
-
-and
+. and
 
 as
 
@@ -2128,9 +2120,7 @@ _
 
 . packets unusable 41 Linux
 
-an 17 BBS ; 14 can Linux $ If have
-
-. I
+an 17 BBS ; 14 can Linux $ If have . I
 
 7
 
@@ -2360,9 +2350,7 @@ at 57 :
 
 .
 
-48
-
-'
+48 '
 
 .
 
@@ -2585,9 +2573,7 @@ Linux
 
 2
 
-TNC
-
-.,.... connections
+TNC .,.... connections
 
 26
 
@@ -3165,9 +3151,7 @@ have. command
 
 protocol NET
 
-. EXMP . =
-
-address
+. EXMP . = address
 
 .
 
@@ -3898,9 +3882,7 @@ ax25
 
 .
 
-.. have 3 one ) 50 2 ntp, and 15
-
-an commands the If commands
+.. have 3 one ) 50 2 ntp, and 15 an commands the If commands
 
 ! If address
 
@@ -3946,9 +3928,7 @@ Maiko
 
 .
 
-. > FLOW
-
-protocol
+. > FLOW protocol
 
 .
 
@@ -4238,9 +4218,7 @@ ax25
 
 . LI use . but
 
-. # an (
-
-!.. .
+. # an ( !.. .
 
 ..
 
@@ -4335,9 +4313,7 @@ is. Telnet
 
 .
 
-callsign
-
-for..
+callsign for..
 
 _ --
 
@@ -4903,9 +4879,7 @@ _ port s # ..,.,,.,.. .. .
 
 .
 
-. . E 57 ; j36 packets milliwatts use
-
-commands
+. . E 57 ; j36 packets milliwatts use commands
 
 50 .,...,
 
@@ -5101,9 +5075,7 @@ _
 
 27,, your
 
-APRS, used.
-
--. by , and not
+APRS, used. -. by , and not
 
 . TNC (. is :..
 
@@ -5412,9 +5384,7 @@ sh3.3.1
 
 .
 
-. . . .. .. . . .., command. , . ,
-
-., :.
+. . . .. .. . . .., command. , . , ., :.
 
 . This.
 
