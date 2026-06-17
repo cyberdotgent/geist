@@ -472,11 +472,12 @@ std::string render_index_markdown(
       continue;
     }
     output.append(static_cast<std::size_t>(entry.level) * 2, ' ');
-    output += "- [" + markdown_escape_link_text(entry.title) + "](" +
-              markdown_escape_url(found->second) + ")";
+    output += "- ";
     if (!entry.id.empty()) {
-      output += " `" + entry.id + "`";
+      output += "`" + entry.id + "` ";
     }
+    output += "[" + markdown_escape_link_text(entry.title) + "](" +
+              markdown_escape_url(found->second) + ")";
     output += "\n";
   }
   return output;
