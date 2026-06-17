@@ -2645,7 +2645,7 @@ port to
 
 circumstancesST BREAK Packet I which 43 , BPQ 16. )
 
-[.'.](#..)
+[..](#..)
 
 . mode . , ! , ! ..., DT
 
