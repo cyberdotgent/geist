@@ -261,6 +261,12 @@ TokenWords assemble_logical_record(const std::vector<TokenWords>& tokens) {
   TokenWords output;
   std::uint16_t spacing_control = 2;
 
+  const auto remove_pending_space = [&]() {
+    if (!output.empty() && output.back() == ' ') {
+      output.pop_back();
+    }
+  };
+
   for (const auto& token : tokens) {
     TokenWords words = token;
     spacing_control = words.empty() ? 3 : words.front();
@@ -269,12 +275,12 @@ TokenWords assemble_logical_record(const std::vector<TokenWords>& tokens) {
       words.erase(words.begin());
       if (!output.empty()) {
         if (spacing_control == 1) {
-          output.pop_back();
+          remove_pending_space();
           if (words.empty()) {
             spacing_control = 2;
           }
         } else if (spacing_control == 0) {
-          output.pop_back();
+          remove_pending_space();
           spacing_control = 2;
         }
       }

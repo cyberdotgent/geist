@@ -56,6 +56,48 @@ file_offset = physical_page * 4096;
 See [boo-header.md](boo-header.md) for the current header and page-run
 evidence.
 
+## Logical Record Spacing Controls
+
+Resolved logical-record tokens are not simply concatenated. The first token word
+can be a low-valued spacing prefix. When present, the prefix is consumed as
+layout metadata and is not emitted as text.
+
+The visible-text assembler should maintain the distinction between real text and
+synthetic inter-token spacing:
+
+1. Resolve each token reference to a token-word sequence.
+2. If the first token word is below `4`, remove it from the visible sequence and
+   treat it as the spacing prefix for this token.
+3. Prefix `0` suppresses the pending inter-token space before this token. It
+   must remove only a synthetic space that was inserted by the assembler, not a
+   real visible character.
+4. Prefix `1` also suppresses the pending inter-token space before this token,
+   then emits the remaining token words. This is observed before punctuation
+   such as the period after generated topic numbers.
+5. Prefix `2` means no synthetic space should be appended after this token.
+6. Other prefixes or tokens without a low-valued prefix use the default
+   inter-token spacing behavior observed in version-2 fixtures: append a
+   synthetic space after the token unless the token already ends in a space.
+
+The important implementation rule is that spacing prefixes operate on the
+assembler's pending blank, not on arbitrary output bytes. Consecutive prefix-0
+tokens are therefore idempotent when no synthetic space remains.
+
+Evidence from `BOO/packet.boo` topic `COVER`:
+
+| Payload offset | Token bytes | Resolved token text | Interpretation |
+| --- | --- | --- | --- |
+| `0x411c6` | `dd e1` | `File` | Visible label word. |
+| `0x411c8` | `e4 26` | `Number` | Visible label word. |
+| `0x411ca` | `8c` | `PACKET` | Full file-number metadata value. |
+| `0x411cb` | `00` | spacing prefix `0` | Removes the synthetic space after `PACKET`. |
+| `0x411cc` | `00` | spacing prefix `0` | No-op because the synthetic space was already removed. |
+| `0x411cd` | `06` | padding/control-like separator run | Not visible text. |
+
+BookServer renders the same topic as `File Number PACKET`. If an
+implementation lets both consecutive `0` prefixes pop output bytes, the second
+one deletes the visible `T` and incorrectly renders `PACKE`.
+
 ## Display Case Recovery
 
 BookServer output verifies that topic body text is rendered with normal sentence
@@ -102,5 +144,5 @@ BookServer output `AS/400 Command Cross-Reference` and
 - Whether body text uses the same logical-record tokenization path throughout
   all page classes, or whether some page classes have additional text storage
   variants.
-- Complete field-level documentation of the logical-record iterator's spacing
-  and suppression controls.
+- Complete field-level documentation of all logical-record iterator spacing and
+  suppression controls beyond the verified low-valued prefixes above.

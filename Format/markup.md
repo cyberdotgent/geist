@@ -186,9 +186,17 @@ title lines. Exact inline reconstruction should eventually come from the
 the verified BookServer title-page rule as a presentation fallback.
 
 The current raw projection can still collapse adjacent generated metadata
-fields into one `:p.` record and, in the packet fixture, truncates `PACKET` to
-`PACKE`. That is a decoder limitation in the logical-record split, not evidence
-that the BookServer joins those labels on one line.
+fields into one `:p.` record. That is a projection limitation, not evidence that
+BookServer joins those labels on one line. The Markdown renderer splits the
+verified generated-cover labels (`Document Number`, `Part Number`, and
+`File Number`) back into separate paragraphs to match BookServer's visual
+structure.
+
+The `File Number PACKET` value specifically verifies the logical-record spacing
+rule documented in [encoding.md](encoding.md): the `PACKET` token is present in
+full in the BOO token stream, followed by two consecutive prefix-0 spacing
+controls. Both controls suppress pending synthetic spacing; they must not delete
+the visible final `T`.
 
 ## Table-Of-Contents Controls
 
