@@ -47,6 +47,50 @@ Useful topics:
 | `/B.11.3` | Character Set Order | Defines `0x38` as a one-byte local character-set id, with `0x00` default and `0x41..0xdf` user-defined sets. |
 | `/B.11.4` | Character Shear Order | Defines the IBM shear vector semantics and the expected opcode `0x35`, which differs from the loaded filter's dispatched `0x36` handler. |
 
+For the packet image comparison work, the BookServer copy of
+`BOO/packet.boo` was used as the upstream renderer:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/packet
+```
+
+BookServer generates the `/bookmgr/pictures/...GIF` files lazily. A direct
+request for a picture URL can return a small XHTML `404 Not Found` response
+until the topic page that embeds that figure has been fetched once. The
+repeatable workflow is:
+
+1. Fetch the figure-bearing topic page with the book timestamp:
+
+   ```text
+   http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/packet/2.1.4?DT=20260614112503&SHELF=
+   ```
+
+2. Read the embedded image URL from the topic HTML, for example:
+
+   ```text
+   /bookmgr/pictures/packet.20260614112503.P3.GIF
+   ```
+
+3. Fetch the generated picture URL:
+
+   ```text
+   http://cbrdoc01.lan.cyber.gent/bookmgr/pictures/packet.20260614112503.P3.GIF
+   ```
+
+The figure topics used for PACKET validation were:
+
+| Figure | Topic | Generated picture URL |
+| ---: | --- | --- |
+| 1 | `1.3` | `/bookmgr/pictures/packet.20260614112503.P1.GIF` |
+| 2 | `2.1.3` | `/bookmgr/pictures/packet.20260614112503.P2.GIF` |
+| 3 | `2.1.4` | `/bookmgr/pictures/packet.20260614112503.P3.GIF` |
+| 4 | `2.1.4` | `/bookmgr/pictures/packet.20260614112503.P4.GIF` |
+| 5 | `2.2.1` | `/bookmgr/pictures/packet.20260614112503.P5.GIF` |
+| 6 | `2.4` | `/bookmgr/pictures/packet.20260614112503.P6.GIF` |
+| 7 | `3.3.2` | `/bookmgr/pictures/packet.20260614112503.P7.GIF` |
+| 8 | `3.3.3` | `/bookmgr/pictures/packet.20260614112503.P8.GIF` |
+| 9 | `7.1.3` | `/bookmgr/pictures/packet.20260614112503.P9.GIF` |
+
 ## Binary Analysis Path
 
 The loaded IDA Pro MCP database was:
@@ -170,12 +214,30 @@ Text/font-specific IDA findings:
   `./build/boorsrc --extract BOO/packet.boo 2 /tmp/packet-P2.gdf` and
   `./build/boorsrc --png BOO/packet.boo 2 /tmp/packet-P2-fixed3.png`.
   Byte-level evidence and upstream pixel samples were recorded in
-  `Format/GDF.md` under "Area Orders and Packet Resource 2 Evidence". A later
-  closer comparison showed that packet labels are filled GDF areas, not visible
-  construction strokes: rendering the `0x68 0x80 ... 0x60` label line orders
-  directly produces vector tearing, while filling area edge segments and
-  filtering the dense vector-font connector outliers matches the BookServer GIF
-  much more closely.
+  `Format/GDF.md` under "Area Orders and Packet Resource 2 Evidence". Later
+  comparison against all nine PACKET figures showed that packet labels are
+  filled GDF areas, not visible construction strokes: rendering the
+  `0x68 0x80 ... 0x60` label line orders directly produces vector tearing.
+- The active IDA Pro MCP instance for `Official Readers/BookSrv-Win32/isgdi32.dll`
+  showed the relevant filled-figure path in the upstream renderer:
+  `CBeginFigure`/`CEndFigure` accumulate 24-byte point records;
+  `sub_1C0435BF` appends a copy of the current subpath start and marks it with
+  point flag `3`; `sub_1C04DD90` treats flags `2` and `3` as close-subpath
+  markers; and `sub_1C058DB0` copies that 16-bit flag into the output point
+  records before calling `CPolygonSet` order `1032`.
+- The remaining PACKET tearing was traced to repeated out-and-back construction
+  edges inside filled stroke-font areas. Resource `6` area 2, the `IPv6` title,
+  contains an exact opposite-edge pair from the title anchor to the upper-right
+  of the `6` and back. The upstream fill path gives this pair zero net winding;
+  `libgeist` now cancels exact opposite directed pixel edges during area fill
+  scan conversion instead of using a length-based connector filter.
+- Validation on 2026-06-18 fetched the topic pages for PACKET figures 1 through
+  9 first, then fetched all nine generated GIFs from
+  `/bookmgr/pictures/packet.20260614112503.P#.GIF`. Local validation rendered
+  all nine BOO resources with
+  `./build/boorsrc --png BOO/packet.boo <id> /tmp/packet-render-cancel/<id>.png`
+  and visually compared the original problem cases `P2`, `P6`, and the larger
+  `P9` against the upstream GIFs.
 
 ## Repeatable Procedure
 

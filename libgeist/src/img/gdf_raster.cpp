@@ -4,7 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
-#include <limits>
+#include <map>
 #include <vector>
 
 namespace geist::detail {
@@ -210,8 +210,16 @@ void fill_area(RgbaImage& image,
                const FilledArea& area,
                MapX map_x,
                MapY map_y) {
+  struct Edge {
+    int x0;
+    int y0;
+    int x1;
+    int y1;
+  };
+
   std::vector<std::vector<std::pair<int, int>>> contours;
-  std::vector<double> segment_lengths;
+  std::vector<Edge> edges;
+  std::map<std::array<int, 4>, std::vector<std::size_t>> pending_edges;
   int min_y = static_cast<int>(image.height);
   int max_y = 0;
   for (const auto& contour : area.contours) {
@@ -225,55 +233,45 @@ void fill_area(RgbaImage& image,
       min_y = std::min(min_y, pts.back().second);
       max_y = std::max(max_y, pts.back().second);
     }
-    for (std::size_t i = 1; i < contour.size(); ++i) {
-      const double dx = contour[i].x - contour[i - 1].x;
-      const double dy = contour[i].y - contour[i - 1].y;
-      segment_lengths.push_back(std::sqrt(dx * dx + dy * dy));
+    for (std::size_t i = 1; i < pts.size(); ++i) {
+      const auto [x0, y0] = pts[i - 1];
+      const auto [x1, y1] = pts[i];
+      if (x0 == x1 && y0 == y1) {
+        continue;
+      }
+      const std::array<int, 4> reverse_key{x1, y1, x0, y0};
+      const auto reverse = pending_edges.find(reverse_key);
+      if (reverse != pending_edges.end() && !reverse->second.empty()) {
+        edges[reverse->second.back()] = {0, 0, 0, 0};
+        reverse->second.pop_back();
+        if (reverse->second.empty()) {
+          pending_edges.erase(reverse);
+        }
+        continue;
+      }
+
+      const auto index = edges.size();
+      edges.push_back(Edge{x0, y0, x1, y1});
+      pending_edges[{x0, y0, x1, y1}].push_back(index);
     }
   }
   if (contours.empty()) {
     return;
   }
 
-  double connector_threshold = std::numeric_limits<double>::infinity();
-  if (segment_lengths.size() > 20) {
-    auto sorted_lengths = segment_lengths;
-    std::sort(sorted_lengths.begin(), sorted_lengths.end());
-    const double median = sorted_lengths[sorted_lengths.size() / 2];
-    if (median < 1.0) {
-      // Packet vector-font areas contain long pen-up connectors among tiny
-      // outline segments; ImageMark does not fill across those connectors.
-      connector_threshold = std::max(3.4, median * 8.0);
-    }
-  }
-
-  auto is_connector = [&](const std::pair<int, int>& p0,
-                          const std::pair<int, int>& p1) {
-    if (!std::isfinite(connector_threshold)) {
-      return false;
-    }
-    const double dx = static_cast<double>(p1.first - p0.first);
-    const double dy = static_cast<double>(p1.second - p0.second);
-    return std::sqrt(dx * dx + dy * dy) >
-           connector_threshold * std::min(map_x(1.0) - map_x(0.0),
-                                          map_y(0.0) - map_y(1.0));
-  };
-
   min_y = std::max(0, min_y);
   max_y = std::min(static_cast<int>(image.height) - 1, max_y);
   for (int y = min_y; y <= max_y; ++y) {
     std::vector<std::pair<int, int>> nodes;
-    for (const auto& pts : contours) {
-      for (std::size_t i = 1; i < pts.size(); ++i) {
-        const auto [x0, y0] = pts[i - 1];
-        const auto [x1, y1] = pts[i];
-        if (is_connector(pts[i - 1], pts[i])) {
-          continue;
-        }
-        if ((y0 < y && y1 >= y) || (y1 < y && y0 >= y)) {
-          nodes.emplace_back(x0 + (y - y0) * (x1 - x0) / (y1 - y0),
-                             y1 > y0 ? 1 : -1);
-        }
+    for (const auto& edge : edges) {
+      if (edge.x0 == edge.x1 && edge.y0 == edge.y1) {
+        continue;
+      }
+      if ((edge.y0 < y && edge.y1 >= y) ||
+          (edge.y1 < y && edge.y0 >= y)) {
+        nodes.emplace_back(edge.x0 + (y - edge.y0) * (edge.x1 - edge.x0) /
+                                         (edge.y1 - edge.y0),
+                           edge.y1 > edge.y0 ? 1 : -1);
       }
     }
     std::sort(nodes.begin(), nodes.end());
@@ -287,8 +285,10 @@ void fill_area(RgbaImage& image,
       if (winding == 0) {
         const int fill_begin = std::max(0, begin);
         const int fill_end = std::min(static_cast<int>(image.width) - 1, x);
-        for (int xx = fill_begin; xx <= fill_end; ++xx) {
-          set_pixel(image, xx, y, area.fill);
+        if (fill_end > fill_begin) {
+          for (int xx = fill_begin; xx <= fill_end; ++xx) {
+            set_pixel(image, xx, y, area.fill);
+          }
         }
       }
     }
@@ -297,9 +297,6 @@ void fill_area(RgbaImage& image,
   if (area.draw_boundary) {
     for (const auto& pts : contours) {
       for (std::size_t i = 1; i < pts.size(); ++i) {
-        if (is_connector(pts[i - 1], pts[i])) {
-          continue;
-        }
         draw_line(image,
                   pts[i - 1].first,
                   pts[i - 1].second,

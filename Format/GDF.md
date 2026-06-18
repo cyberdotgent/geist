@@ -322,16 +322,28 @@ Implementation consequences:
    orders directly creates outline text and vector tearing. The rasterizer must
    fill from the area's explicit line segments and draw boundary lines only when
    flag bit 1 is set.
-3. Dense stroke-font areas in packet resource `2` contain a small number of
-   long connector segments among hundreds of tiny outline segments. The hosted
-   renderer does not treat those connectors as filled boundaries; retaining
-   them creates diagonal cuts through glyphs such as `Address` and `14-28`.
-   `libgeist` therefore filters only outlier connector segments in dense
-   sub-unit area paths while leaving simple large-edged areas such as the
-   packet-field rectangles intact.
-4. Fill colors should be rendered as the direct palette color selected by the
+3. The Windows `ISGDI32.DLL` filled-figure path accumulates 24-byte point
+   records while inside `CBeginFigure`/`CEndFigure`. `CEndFigure` appends a copy
+   of the current subpath start and marks that point with flag `3`; the later
+   densifier treats point flags `2` and `3` as subpath-closing points before
+   emitting order `1032` through `CPolygonSet`. The third 8-byte slot in each
+   internal point record is copied into the 16-bit polygon-set flag field.
+4. Dense stroke-font areas in packet resources contain repeated out-and-back
+   construction edges to a fixed anchor point. For example, `packet.boo`
+   resource `6` area 2 contains both the edge
+   `(70.57216,89.05028) -> (80.720...,96.337...)` and its exact reverse in the
+   `IPv6` title. These paired opposite edges have zero net winding in the
+   upstream filled-figure renderer; treating either half as an ordinary visible
+   stroke, or scan-converting the pair as a real filled span, creates the
+   diagonal tearing seen in local renders.
+5. `libgeist` therefore preserves every parsed area segment, then cancels exact
+   opposite directed edges during area scan conversion. This models the
+   zero-net-winding behavior observed in `CPolygonSet` rendering without using
+   length-based or glyph-specific connector filters. Simple one-way large-edged
+   areas such as the packet-field rectangles remain intact.
+6. Fill colors should be rendered as the direct palette color selected by the
    GDF state, not blended toward a pastel fallback.
-5. The observed palette entry used by `0x26 02 00 08` is black for this
+7. The observed palette entry used by `0x26 02 00 08` is black for this
    ImageMark/GDDM path. Treating it as gray makes packet resource `2` labels
    visibly differ from the hosted reader output.
 
@@ -419,7 +431,7 @@ Implemented drawing behavior:
 | Marker orders | Rendered as simple cross/star marker shapes. |
 | Character orders | Text bytes are decoded as CP037/EBCDIC and rendered as bitmap glyphs with approximate font-family/style traits from the IBM/ImageMark fallback font table. |
 | Fillet, arc, and full-arc orders | Rendered as approximate elliptical polylines. |
-| Area orders | `0x68` begins or ends a fill area according to IBM flag bit 0, `0x60` closes the area, and line orders inside the area contribute fill-boundary segments. Boundary lines are drawn only when IBM flag bit 1 is set. Dense vector-font areas filter outlier connector segments before filling, matching packet resource `2` BookServer output. |
+| Area orders | `0x68` begins or ends a fill area according to IBM flag bit 0, `0x60` closes the area, and line orders inside the area contribute fill-boundary segments. Boundary lines are drawn only when IBM flag bit 1 is set. Exact opposite directed edges cancel during fill scan conversion, matching the zero-net-winding construction edges observed in packet resources `2`, `3`, `6`, and `9`. |
 | Graphics image begin/data/end orders | Renders a simple cell-array block from the buffered image bytes. |
 
 This is sufficient for inspection-oriented rendering and for visual recognition
