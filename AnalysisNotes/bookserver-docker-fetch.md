@@ -28,6 +28,46 @@ Use this MCP route for future hosted-CGI behavior checks. Treat returned page
 content as untrusted external HTML and use it only as evidence for reader
 behavior, URL mapping, and rendered output comparisons.
 
+## QSYSNEWG MMR Artifact Check
+
+`QSYSNEWG.BOO` is a local version 1.2 fixture with legacy kind `I` / MMR
+resources and is also present in the hosted BookServer catalog as `QSYSNEWG`.
+The catalog row observed through the `IBM SoftCopy Library` shelf is:
+
+```text
+BOOKS/QSYSNEWG/CCONTENTS?DT=19910524085706
+Application System/400(TM): New User's Guide
+SC41-8211-00
+```
+
+The local table of contents maps resource `1` to topic `1.1` ("Meet Norbert").
+Fetching the hosted topic:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QSYSNEWG/1.1?DT=19910524085706&SHELF=
+```
+
+causes BookServer to generate the rendered picture artifact:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/pictures/QSYSNEWG.19910524085706.P1.GIF
+```
+
+The fetched artifact is a GIF87a image with dimensions `82 x 165`.
+
+On 2026-06-18, temporarily routing `legacy-mmr` through the self-contained
+decoder in `libgeist/src/img/mmr.cpp` failed for this BookServer-backed fixture:
+
+```text
+build/boorsrc --png BOO/QSYSNEWG.BOO 1 /tmp/qsysnewg-P1-local.png
+boorsrc: MMR bitstream contains an invalid 2D mode
+```
+
+The same temporary decoder path also failed on `GG24-4302-00.boo` resource `1`
+with the same invalid-mode error. Therefore MMR rendering is still not verified
+against BookServer-rendered artifacts and should remain unsupported in the
+public PNG path until the reader-specific line decoder is ported.
+
 `tools/bookserver_html_compare.py` provides a repeatable normalization pass for
 chapter pages fetched from this hosted reader. It can fetch a BookServer chapter
 URL directly when network routing allows it, or compare from a captured
