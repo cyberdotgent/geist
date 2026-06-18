@@ -104,18 +104,50 @@ The same render is covered by `mmr_qsysnewg_test`, which checks the public
 `BooDocument::read_resource_png()` path, dimensions `82 x 165`, and RGBA pixel
 hash `0x9491199eae92882e`.
 
-`boo2git` uses the same public render path. A smoke test with
+`boo2git` uses the same public render path. After changing the local 2D decoder
+to keep alternating run lengths plus the final imaginary zero run, a smoke test
+with
 
 ```text
 ./build/boo2git --force BOO/QSYSNEWG.BOO /tmp/geist-mmr/qsysnewg-boo2git
 ```
 
-rendered 86 of the 88 resources to PNG. Resource `12` currently fails at
-`MMR line 302` with an invalid 2D mode at bit `15024`; resource `56` currently
-fails at `MMR line 394` with an invalid run code. Direct picture URLs for
-`P12.GIF` and `P56.GIF` returned 404 without first rendering their referring
-topics, so those two resources still need topic mapping and hosted-artifact
-comparison.
+rendered all 88 resources to PNG.
+
+The resource-to-topic mapping for the formerly failing resources is:
+
+```text
+resource 12 -> topic 2.0 -> QSYSNEWG.19910524085706.P12.GIF
+resource 56 -> topic 6.0 -> QSYSNEWG.19910524085706.P56.GIF
+```
+
+The hosted topics used to generate the GIFs were:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QSYSNEWG/2.0?DT=19910524085706&SHELF=
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QSYSNEWG/6.0?DT=19910524085706&SHELF=
+```
+
+Those pages emitted:
+
+```text
+/bookmgr/pictures/QSYSNEWG.19910524085706.P12.GIF
+/bookmgr/pictures/QSYSNEWG.19910524085706.P56.GIF
+```
+
+Pixel comparisons after GIF-to-PNG normalization:
+
+```text
+P12: local 340x294, BookServer 340x294, 838 mismatches of 99960
+P56: local 344x385, BookServer 344x385, 450 mismatches of 132440
+```
+
+The IDB scaler `ScaleMonoBitmap2xTo5x` was checked as a possible explanation.
+Its 2x expand / 5x5 average behavior produced grayscale PNGs locally and made
+the comparison worse (`P1`: 1934 mismatches, `P12`: 7959, `P56`: 11368), while
+nearest-neighbor phase `(0,0)` preserved the exact `P1` match and was best for
+`P12`/`P56`. The remaining differences therefore need more BookServer export
+filter analysis rather than a switch to the Transmogrifier scaler as decompiled.
 
 `tools/bookserver_html_compare.py` provides a repeatable normalization pass for
 chapter pages fetched from this hosted reader. It can fetch a BookServer chapter

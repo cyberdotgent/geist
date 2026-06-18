@@ -124,6 +124,15 @@ from CCITT T.6. Streams without per-line EOL markers are treated as T.6-style
 use a tag bit, but the hosted BookServer-backed fixture below uses the tagged
 T.4 form.
 
+The decoded reference line must be stored as alternating white/black run
+lengths, not as absolute transition positions. This matches libtiff's
+`curruns`/`refruns` model and the Transmogrifier IDB's `sub_4381D9` behavior,
+which emits paired transition words and validates monotonic run structure. Each
+decoded line also carries the final imaginary zero-length run used by the next
+2D line. The earlier absolute-transition model happened to work for simpler
+resources, including `QSYSNEWG` resource `1`, but desynchronized on dense 2D
+resources `12` and `56`.
+
 The first line of `QSYSNEWG.BOO` resource `1` demonstrates the tag:
 
 ```text
@@ -173,22 +182,25 @@ dims: local 82x165, BookServer 82x165
 pixel mismatches: 0 of 13530
 ```
 
-The regression test `mmr_qsysnewg_test` renders the same resource through
+The regression test `mmr_qsysnewg_test` renders this resource through
 `BooDocument::read_resource_png()`, decodes the PNG to RGBA, and checks
 dimensions `82 x 165` plus FNV-1a pixel hash `0x9491199eae92882e`.
 
 A full `boo2git --force BOO/QSYSNEWG.BOO /tmp/geist-mmr/qsysnewg-boo2git`
-smoke test rendered 86 of the book's 88 PNG resources through the same public
-API. Resources `12` and `56` currently expose an unresolved fax variant:
+smoke test now renders all 88 of the book's PNG resources through the same
+public API. The two resources that previously failed are:
 
-```text
-resource 12: MMR line 302: invalid 2D mode at bit 15024
-resource 56: MMR line 394: invalid run code
-```
+| Resource | Topic | Hosted artifact | Local dimensions | BookServer dimensions | Pixel comparison |
+| --- | --- | --- | --- | --- | --- |
+| `12` | `2.0` | `QSYSNEWG.19910524085706.P12.GIF` | `340 x 294` | `340 x 294` | `838` mismatches of `99960` pixels. |
+| `56` | `6.0` | `QSYSNEWG.19910524085706.P56.GIF` | `344 x 385` | `344 x 385` | `450` mismatches of `132440` pixels. |
 
-Direct hosted picture URLs for `P12.GIF` and `P56.GIF` returned BookServer 404
-responses unless their referring topics are rendered first, so they were not
-used as reference artifacts in this pass.
+The remaining pixel deltas are sparse binary stroke differences after scaling,
+not decode failures or dimension mismatches. The IDB's `ScaleMonoBitmap2xTo5x`
+routine expands each source pixel to `2 x 2` bytes and averages `5 x 5`
+blocks, but the hosted BookServer GIFs for these topics are binary rather than
+grayscale; nearest-neighbor phase `(0,0)` remains the closest verified local
+match and preserves the exact `P1` match above.
 
 Future implementation should continue from the reader functions named above,
 especially `dinitmmr`, `dlinemmr`, `decline`, `deceol`, and `readcd`, rather
@@ -200,8 +212,6 @@ than treating every legacy kind `I` resource as a raw TIFF Group 4 stream.
   MMR segments.
 - Identify the unresolved metadata fields at payload offsets `0x32` and
   `0x34`.
-- Determine whether any local or hosted kind `I` resources require additional
-  ImageMark compression modes beyond the observed tagged T.4/T.6 fax coding.
-- Resolve the remaining `QSYSNEWG.BOO` resources `12` and `56`, then compare
-  them against hosted BookServer artifacts after identifying and fetching their
-  referring topics.
+- Determine whether the remaining sparse BookServer pixel deltas for
+  `QSYSNEWG` resources `12` and `56` come from a BookServer-specific scaler,
+  GIF quantization path, or a still-unmapped edge in the IBM line writer.

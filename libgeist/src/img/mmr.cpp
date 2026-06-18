@@ -237,33 +237,6 @@ std::vector<std::uint8_t> read_segments(const std::vector<std::uint8_t>& bytes) 
   return compressed;
 }
 
-std::size_t find_b1(const std::vector<std::size_t>& reference,
-                    std::size_t a0,
-                    bool black) {
-  for (std::size_t i = 0; i < reference.size(); ++i) {
-    if (reference[i] <= a0) {
-      continue;
-    }
-    const bool color_after_change_is_black = (i % 2) == 0;
-    if (color_after_change_is_black != black) {
-      return i;
-    }
-  }
-  return reference.size() - 1;
-}
-
-void push_change(std::vector<std::size_t>& changes,
-                 std::size_t x,
-                 std::uint32_t width) {
-  if (x >= width) {
-    return;
-  }
-  if (!changes.empty() && changes.back() == x) {
-    return;
-  }
-  changes.push_back(x);
-}
-
 void write_run(RgbaImage& image,
                std::uint32_t y,
                std::size_t begin,
@@ -284,22 +257,51 @@ void write_run(RgbaImage& image,
   }
 }
 
+void write_runs(RgbaImage& image,
+                std::uint32_t y,
+                const std::vector<std::size_t>& runs) {
+  std::size_t a0 = 0;
+  bool black = false;
+  for (const auto run : runs) {
+    const auto a1 = std::min<std::size_t>(a0 + run, image.width);
+    write_run(image, y, a0, a1, black);
+    a0 = a1;
+    black = !black;
+    if (a0 >= image.width) {
+      return;
+    }
+  }
+}
+
+void set_run(std::vector<std::size_t>& runs,
+             std::size_t& a0,
+             std::size_t& pending_run,
+             std::size_t run,
+             std::uint32_t width) {
+  const auto clamped =
+      a0 + run > width ? static_cast<std::size_t>(width) - a0 : run;
+  runs.push_back(pending_run + clamped);
+  a0 += clamped;
+  pending_run = 0;
+}
+
+void append_reference_tail(std::vector<std::size_t>& runs) {
+  runs.push_back(0);
+}
+
 std::vector<std::size_t> decode_1d_line(BitReader& reader,
-                                        RgbaImage& image,
-                                        std::uint32_t y,
                                         std::uint32_t width) {
   std::vector<std::size_t> current;
   std::size_t a0 = 0;
   bool black = false;
   while (a0 < width) {
     const auto run = decode_run_code(reader, black);
-    const auto a1 = std::min<std::size_t>(a0 + run, width);
-    write_run(image, y, a0, a1, black);
-    push_change(current, a1, width);
-    a0 = a1;
+    const auto clamped_run = std::min<std::size_t>(run, width - a0);
+    current.push_back(clamped_run);
+    a0 += clamped_run;
     black = !black;
   }
-  current.push_back(width);
+  append_reference_tail(current);
   return current;
 }
 
@@ -356,7 +358,7 @@ RgbaImage decode_mh_image(const std::vector<std::uint8_t>& compressed,
   for (std::uint32_t y = 0; y < height; ++y) {
     sync_mh_eol(reader, y);
     try {
-      decode_1d_line(reader, image, y, width);
+      write_runs(image, y, decode_1d_line(reader, width));
     } catch (const std::runtime_error& error) {
       throw std::runtime_error("MMR line " + std::to_string(y) + ": " +
                                error.what());
@@ -375,7 +377,7 @@ RgbaImage decode_t6_image(const std::vector<std::uint8_t>& compressed,
   image.rgba.assign(static_cast<std::size_t>(width) * height * 4, 255);
 
   BitReader reader(compressed, 0, compressed.size());
-  std::vector<std::size_t> reference{static_cast<std::size_t>(width)};
+  std::vector<std::size_t> reference{static_cast<std::size_t>(width), 0};
   for (std::uint32_t y = 0; y < height; ++y) {
     LineKind line_kind = LineKind::two_dimensional;
     try {
@@ -386,7 +388,8 @@ RgbaImage decode_t6_image(const std::vector<std::uint8_t>& compressed,
     }
     if (line_kind == LineKind::one_dimensional) {
       try {
-        reference = decode_1d_line(reader, image, y, width);
+        reference = decode_1d_line(reader, width);
+        write_runs(image, y, reference);
       } catch (const std::runtime_error& error) {
         throw std::runtime_error("MMR line " + std::to_string(y) + ": " +
                                  error.what());
@@ -396,53 +399,88 @@ RgbaImage decode_t6_image(const std::vector<std::uint8_t>& compressed,
 
     std::vector<std::size_t> current;
     std::size_t a0 = 0;
-    bool black = false;
+    std::size_t pending_run = 0;
+    std::size_t b1 = reference.empty() ? width : reference[0];
+    std::size_t pb = 1;
+
+    const auto check_b1 = [&]() {
+      if (current.empty()) {
+        return;
+      }
+      while (b1 <= a0 && b1 < width) {
+        const auto first = pb < reference.size() ? reference[pb++] : 0;
+        const auto second = pb < reference.size() ? reference[pb++] : 0;
+        b1 += first + second;
+      }
+    };
 
     try {
       while (a0 < width && !reader.empty()) {
         ModeCode mode;
         mode = decode_mode(reader);
         if (mode.mode == Mode::pass) {
-          const auto b1_index = find_b1(reference, a0, black);
-          const auto b2 =
-              reference[std::min(b1_index + 1, reference.size() - 1)];
-          write_run(image, y, a0, b2, black);
-          a0 = b2;
+          check_b1();
+          const auto span1 = pb < reference.size() ? reference[pb++] : 0;
+          b1 += span1;
+          pending_run += b1 - a0;
+          a0 = b1;
+          const auto span2 = pb < reference.size() ? reference[pb++] : 0;
+          b1 += span2;
           continue;
         }
 
         if (mode.mode == Mode::horizontal) {
-          const auto run1 = decode_run_code(reader, black);
-          const auto a1 = std::min<std::size_t>(a0 + run1, width);
-          write_run(image, y, a0, a1, black);
-          push_change(current, a1, width);
-          black = !black;
+          const bool black_first = (current.size() % 2) != 0;
+          const auto run1 = decode_run_code(reader, black_first);
+          set_run(current, a0, pending_run, run1, width);
 
-          const auto run2 = decode_run_code(reader, black);
-          const auto a2 = std::min<std::size_t>(a1 + run2, width);
-          write_run(image, y, a1, a2, black);
-          push_change(current, a2, width);
-          a0 = a2;
-          black = !black;
+          const auto run2 = decode_run_code(reader, !black_first);
+          set_run(current, a0, pending_run, run2, width);
+          check_b1();
           continue;
         }
 
-        const auto b1_index = find_b1(reference, a0, black);
-        const auto b1 = reference[b1_index];
-        int a1_signed = static_cast<int>(b1) + mode.vertical_delta;
-        a1_signed = std::max(0, std::min<int>(a1_signed, width));
-        const auto a1 = static_cast<std::size_t>(a1_signed);
-        write_run(image, y, a0, a1, black);
-        push_change(current, a1, width);
-        a0 = a1;
-        black = !black;
+        check_b1();
+        if (mode.vertical_delta < 0) {
+          const auto delta = static_cast<std::size_t>(-mode.vertical_delta);
+          if (b1 < a0 + delta) {
+            throw std::runtime_error(
+                "MMR bitstream contains an invalid left vertical mode");
+          }
+          set_run(current, a0, pending_run, b1 - a0 - delta, width);
+          if (pb > 0) {
+            --pb;
+            b1 -= reference[pb];
+          }
+          continue;
+        }
+
+        set_run(current,
+                a0,
+                pending_run,
+                b1 - a0 + static_cast<std::size_t>(mode.vertical_delta),
+                width);
+        if (pb < reference.size()) {
+          b1 += reference[pb++];
+        }
       }
     } catch (const std::runtime_error& error) {
       throw std::runtime_error("MMR line " + std::to_string(y) + ": " +
                                error.what());
     }
 
-    current.push_back(width);
+    if (pending_run != 0) {
+      if (pending_run + a0 < width) {
+        int final_v0 = 0;
+        if (!reader.try_read_bit(final_v0) || final_v0 != 1) {
+          throw std::runtime_error(
+              "MMR bitstream is missing the final V0 mode");
+        }
+      }
+      set_run(current, a0, pending_run, 0, width);
+    }
+    append_reference_tail(current);
+    write_runs(image, y, current);
     reference = std::move(current);
   }
 
