@@ -38,6 +38,10 @@ Useful topics:
 | `/B.5.2` | Short Format | Confirms that high nibble `< 8` and low nibble `>= 8` means one operand byte and no length byte. |
 | `/B.7` | Coordinate Data | Confirms AS/400 coordinate representation and clarifies that BookManager's type `4` fixtures are not AS/400's 2-byte coordinate form. |
 | `/B.10.*`, `/B.11.*` | Individual order descriptions | Used for specific primitive and attribute names such as Line, Marker, Character, Arc, Line Relative, Pattern, and Segment orders. |
+| `/B.10.3` | Area End Order | Confirms `0x60` has the same meaning as Area with the area-end bit set and uses reserved zero payload bytes. |
+| `/B.10.4` | Area Order | Defines the `0x68` flag bits: start/end area and whether boundary lines are drawn. |
+| `/B.11.13` | Line Order | Confirms `0xc1`/`0x81` join consecutive coordinate pairs and update current position. |
+| `/B.11.15` | Line Type Order | Confirms line type `0x07` is solid and `0x08` is invisible. |
 | `/B.11.1` | Character Mode Order | Identifies GDDM text precision modes. |
 | `/B.11.2` | Character Order | Confirms EBCDIC string bytes, valid range `>= 0x40`, and that GDF character orders do not update current position. |
 | `/B.11.3` | Character Set Order | Defines `0x38` as a one-byte local character-set id, with `0x00` default and `0x41..0xdf` user-defined sets. |
@@ -166,7 +170,12 @@ Text/font-specific IDA findings:
   `./build/boorsrc --extract BOO/packet.boo 2 /tmp/packet-P2.gdf` and
   `./build/boorsrc --png BOO/packet.boo 2 /tmp/packet-P2-fixed3.png`.
   Byte-level evidence and upstream pixel samples were recorded in
-  `Format/GDF.md` under "Packet Resource 2 Area and Color Evidence".
+  `Format/GDF.md` under "Area Orders and Packet Resource 2 Evidence". A later
+  closer comparison showed that packet labels are filled GDF areas, not visible
+  construction strokes: rendering the `0x68 0x80 ... 0x60` label line orders
+  directly produces vector tearing, while filling area edge segments and
+  filtering the dense vector-font connector outliers matches the BookServer GIF
+  much more closely.
 
 ## Repeatable Procedure
 

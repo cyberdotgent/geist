@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 namespace geist::detail {
@@ -204,6 +205,112 @@ void fill_polygon(RgbaImage& image,
   }
 }
 
+template <typename MapX, typename MapY>
+void fill_area(RgbaImage& image,
+               const FilledArea& area,
+               MapX map_x,
+               MapY map_y) {
+  std::vector<std::vector<std::pair<int, int>>> contours;
+  std::vector<double> segment_lengths;
+  int min_y = static_cast<int>(image.height);
+  int max_y = 0;
+  for (const auto& contour : area.contours) {
+    if (contour.size() < 2) {
+      continue;
+    }
+    auto& pts = contours.emplace_back();
+    pts.reserve(contour.size());
+    for (const auto& point : contour) {
+      pts.emplace_back(map_x(point.x), map_y(point.y));
+      min_y = std::min(min_y, pts.back().second);
+      max_y = std::max(max_y, pts.back().second);
+    }
+    for (std::size_t i = 1; i < contour.size(); ++i) {
+      const double dx = contour[i].x - contour[i - 1].x;
+      const double dy = contour[i].y - contour[i - 1].y;
+      segment_lengths.push_back(std::sqrt(dx * dx + dy * dy));
+    }
+  }
+  if (contours.empty()) {
+    return;
+  }
+
+  double connector_threshold = std::numeric_limits<double>::infinity();
+  if (segment_lengths.size() > 20) {
+    auto sorted_lengths = segment_lengths;
+    std::sort(sorted_lengths.begin(), sorted_lengths.end());
+    const double median = sorted_lengths[sorted_lengths.size() / 2];
+    if (median < 1.0) {
+      // Packet vector-font areas contain long pen-up connectors among tiny
+      // outline segments; ImageMark does not fill across those connectors.
+      connector_threshold = std::max(3.4, median * 8.0);
+    }
+  }
+
+  auto is_connector = [&](const std::pair<int, int>& p0,
+                          const std::pair<int, int>& p1) {
+    if (!std::isfinite(connector_threshold)) {
+      return false;
+    }
+    const double dx = static_cast<double>(p1.first - p0.first);
+    const double dy = static_cast<double>(p1.second - p0.second);
+    return std::sqrt(dx * dx + dy * dy) >
+           connector_threshold * std::min(map_x(1.0) - map_x(0.0),
+                                          map_y(0.0) - map_y(1.0));
+  };
+
+  min_y = std::max(0, min_y);
+  max_y = std::min(static_cast<int>(image.height) - 1, max_y);
+  for (int y = min_y; y <= max_y; ++y) {
+    std::vector<std::pair<int, int>> nodes;
+    for (const auto& pts : contours) {
+      for (std::size_t i = 1; i < pts.size(); ++i) {
+        const auto [x0, y0] = pts[i - 1];
+        const auto [x1, y1] = pts[i];
+        if (is_connector(pts[i - 1], pts[i])) {
+          continue;
+        }
+        if ((y0 < y && y1 >= y) || (y1 < y && y0 >= y)) {
+          nodes.emplace_back(x0 + (y - y0) * (x1 - x0) / (y1 - y0),
+                             y1 > y0 ? 1 : -1);
+        }
+      }
+    }
+    std::sort(nodes.begin(), nodes.end());
+    int winding = 0;
+    int begin = 0;
+    for (const auto& [x, direction] : nodes) {
+      if (winding == 0) {
+        begin = x;
+      }
+      winding += direction;
+      if (winding == 0) {
+        const int fill_begin = std::max(0, begin);
+        const int fill_end = std::min(static_cast<int>(image.width) - 1, x);
+        for (int xx = fill_begin; xx <= fill_end; ++xx) {
+          set_pixel(image, xx, y, area.fill);
+        }
+      }
+    }
+  }
+
+  if (area.draw_boundary) {
+    for (const auto& pts : contours) {
+      for (std::size_t i = 1; i < pts.size(); ++i) {
+        if (is_connector(pts[i - 1], pts[i])) {
+          continue;
+        }
+        draw_line(image,
+                  pts[i - 1].first,
+                  pts[i - 1].second,
+                  pts[i].first,
+                  pts[i].second,
+                  area.edge);
+      }
+    }
+  }
+}
+
 } // namespace
 
 RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes) {
@@ -232,6 +339,10 @@ RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes) {
 
   for (const auto& polygon : picture.polygons) {
     fill_polygon(image, polygon, map_x, map_y);
+  }
+
+  for (const auto& area : picture.areas) {
+    fill_area(image, area, map_x, map_y);
   }
 
   for (const auto& cell : picture.images) {

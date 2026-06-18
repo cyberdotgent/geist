@@ -50,6 +50,13 @@ struct Polygon {
   Color edge;
 };
 
+struct FilledArea {
+  std::vector<std::vector<Point>> contours;
+  Color fill;
+  Color edge;
+  bool draw_boundary = false;
+};
+
 struct CellImage {
   Point lower_left;
   Point upper_right;
@@ -67,6 +74,7 @@ struct GdfPicture {
   std::vector<Marker> markers;
   std::vector<TextRun> texts;
   std::vector<Polygon> polygons;
+  std::vector<FilledArea> areas;
   std::vector<CellImage> images;
 };
 

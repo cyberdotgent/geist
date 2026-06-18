@@ -33,6 +33,7 @@ struct ParserState {
   std::uint8_t color_index = 0;
   std::uint8_t draw_mode = 0;
   bool in_area = false;
+  bool area_draw_boundary = false;
   std::vector<std::vector<Point>> area_contours;
   std::map<std::uint32_t, std::size_t> segments;
   std::vector<std::uint8_t> transform_payload;
@@ -220,6 +221,9 @@ void add_polyline(ParserState& state, std::vector<Point> points) {
   for (const auto& point : points) {
     extend_bounds(state.picture, point);
   }
+  if (state.in_area) {
+    return;
+  }
   if (points.size() > 1) {
     state.picture.lines.push_back(
         Polyline{std::move(points), state.line_color, state.line_width});
@@ -383,32 +387,26 @@ void handle_arc(ParserState& state,
   update_current_from(points, state);
 }
 
-bool is_closed_contour(const std::vector<Point>& points) {
-  if (points.size() < 4) {
-    return false;
-  }
-  const auto& first = points.front();
-  const auto& last = points.back();
-  return std::abs(first.x - last.x) < 0.001 &&
-         std::abs(first.y - last.y) < 0.001;
-}
-
 void finish_area(ParserState& state) {
-  if (state.in_area) {
-    for (const auto& contour : state.area_contours) {
-      if (is_closed_contour(contour)) {
-        state.picture.polygons.push_back(
-            Polygon{contour, state.fill_color, state.line_color});
-      }
-    }
+  if (state.in_area && !state.area_contours.empty()) {
+    state.picture.areas.push_back(FilledArea{state.area_contours,
+                                             state.fill_color,
+                                             state.line_color,
+                                             state.area_draw_boundary});
   }
   state.in_area = false;
+  state.area_draw_boundary = false;
   state.area_contours.clear();
 }
 
-void begin_area(ParserState& state) {
+void handle_area_order(ParserState& state, std::uint8_t flags) {
+  if ((flags & 0x80u) == 0) {
+    finish_area(state);
+    return;
+  }
   finish_area(state);
   state.in_area = true;
+  state.area_draw_boundary = (flags & 0x40u) != 0;
 }
 
 void handle_image_begin(ParserState& state,
@@ -661,7 +659,7 @@ GdfPicture parse_gdf_picture(const std::vector<std::uint8_t>& bytes) {
       }
       break;
     case 0x68:
-      begin_area(state);
+      handle_area_order(state, length ? bytes[offset] : 0);
       break;
     case 0x70:
       if (length >= 4) {
@@ -733,7 +731,7 @@ GdfPicture parse_gdf_picture(const std::vector<std::uint8_t>& bytes) {
   }
   if (state.picture.lines.empty() && state.picture.markers.empty() &&
       state.picture.texts.empty() && state.picture.polygons.empty() &&
-      state.picture.images.empty()) {
+      state.picture.areas.empty() && state.picture.images.empty()) {
     throw std::runtime_error("GDF asset has no supported drawable records");
   }
   return state.picture;

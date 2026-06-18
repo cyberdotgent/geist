@@ -210,7 +210,7 @@ not necessarily the full historical GDDM behavior.
 | `0x51` | Push and set fractional line width | Normal. Two bytes. | Saves previous fractional width, then acts like `0x11`. |
 | `0x58` | Push and set line type | Short. One byte. | Saves previous line type, then acts like line type. |
 | `0x59` | Push and set line width | Short. One byte. | Saves previous line width, then acts like line width. |
-| `0x60` | End area / end figure | Normal. Observed with zero payload. | Closes the current fill area/figure and emits it. In `packet.boo` resource `2`, each filled packet-field rectangle begins with `0x68 0x80`, accumulates one `0xc1` rectangle, then closes with `0x60 00`; ignoring this order joins unrelated later paths into one malformed polygon. |
+| `0x60` | Area end | Normal. Reserved payload bytes, observed as zero length in `packet.boo`. | Same meaning as an Area order with the area-end bit set. Closes the current fill area/figure and emits it. In `packet.boo` resource `2`, each filled packet-field rectangle begins with `0x68 0x80`, accumulates one `0xc1` rectangle, then closes with `0x60 00`; ignoring this order joins unrelated later paths into one malformed polygon. |
 | `0x61` | Push and set current position | Normal. One coordinate pair. | Saves previous current position, then acts like current position. |
 | `0x62` | Push and set arc parameters | Normal. Four coordinate values. | Saves previous arc parameters, then acts like arc parameters. |
 | `0x64` | Push and set model transform | Normal. Same as model transform. | Saves previous transform, then acts like model transform. |
@@ -262,7 +262,16 @@ coordinate runs and draws false long lines. The record parser avoids that by
 using IBM's GDF order framing and skipping unsupported records by their
 declared length.
 
-### Packet Resource 2 Area and Color Evidence
+### Area Orders and Packet Resource 2 Evidence
+
+IBM `QPRG1GDR` topics used for area semantics:
+
+| Topic | Relevant upstream rule |
+| --- | --- |
+| `B.10.3` Area End Order | `0x60` has the same meaning as Area with the area-end bit set; payload bytes are reserved and must be zero. |
+| `B.10.4` Area Order | `0x68` flag bit 0 starts an area when on and ends an area when off; flag bit 1 requests drawing boundary lines. The example `68 80 ... 60 00` fills a rectangle without boundary lines. |
+| `B.11.13` Line Order | `0xc1` and `0x81` draw consecutive coordinate pairs as joined straight-line segments; `0x81` omits the initial coordinate and starts at current position. Current position becomes the last point specified. |
+| `B.11.15` Line Type Order | Line type value `0x07` is solid line; `0x08` is invisible line. |
 
 `BOO/packet.boo` resource `2` is a legacy kind `G` GDF payload at BOO file
 offset `0x00000238` with length `0x00002776` bytes. The hosted BookServer GIF
@@ -307,14 +316,22 @@ Implementation consequences:
    `0x68` flag or end-of-stream joins independent filled shapes and subsequent
    stroke-font paths into one polygon, producing the observed green field with
    stray vectors.
-2. Area contents must preserve individual line-order contours. Packet resource
-   `2` uses `0x68 ... 0x60` groups for the stroke-font labels as well as the
-   filled rectangles; closing an entire label group back to its first point
-   creates vector strings across the letter edges. Only closed contours should
-   be filled as polygons, while open contours remain stroke paths.
-3. Fill colors should be rendered as the direct palette color selected by the
+2. Area line orders are not visible construction strokes when the boundary-lines
+   flag is clear. Packet resource `2` uses `0x68 0x80 ... 0x60` groups for the
+   stroke-font labels as well as the filled rectangles; drawing those line
+   orders directly creates outline text and vector tearing. The rasterizer must
+   fill from the area's explicit line segments and draw boundary lines only when
+   flag bit 1 is set.
+3. Dense stroke-font areas in packet resource `2` contain a small number of
+   long connector segments among hundreds of tiny outline segments. The hosted
+   renderer does not treat those connectors as filled boundaries; retaining
+   them creates diagonal cuts through glyphs such as `Address` and `14-28`.
+   `libgeist` therefore filters only outlier connector segments in dense
+   sub-unit area paths while leaving simple large-edged areas such as the
+   packet-field rectangles intact.
+4. Fill colors should be rendered as the direct palette color selected by the
    GDF state, not blended toward a pastel fallback.
-4. The observed palette entry used by `0x26 02 00 08` is black for this
+5. The observed palette entry used by `0x26 02 00 08` is black for this
    ImageMark/GDDM path. Treating it as gray makes packet resource `2` labels
    visibly differ from the hosted reader output.
 
@@ -402,7 +419,7 @@ Implemented drawing behavior:
 | Marker orders | Rendered as simple cross/star marker shapes. |
 | Character orders | Text bytes are decoded as CP037/EBCDIC and rendered as bitmap glyphs with approximate font-family/style traits from the IBM/ImageMark fallback font table. |
 | Fillet, arc, and full-arc orders | Rendered as approximate elliptical polylines. |
-| Area orders | `0x68` begins a fill area/figure, drawable line orders are retained as individual contours, and `0x60` closes the area. Closed contours are filled with the current fill style; open contours remain normal stroke paths. |
+| Area orders | `0x68` begins or ends a fill area according to IBM flag bit 0, `0x60` closes the area, and line orders inside the area contribute fill-boundary segments. Boundary lines are drawn only when IBM flag bit 1 is set. Dense vector-font areas filter outlier connector segments before filling, matching packet resource `2` BookServer output. |
 | Graphics image begin/data/end orders | Renders a simple cell-array block from the buffered image bytes. |
 
 This is sufficient for inspection-oriented rendering and for visual recognition
