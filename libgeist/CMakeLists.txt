@@ -126,3 +126,14 @@ target_compile_definitions(packet_markdown_test
 )
 
 add_test(NAME packet_markdown_test COMMAND packet_markdown_test)
+
+add_executable(mmr_qsysnewg_test
+  tests/mmr_qsysnewg.cpp
+)
+target_link_libraries(mmr_qsysnewg_test PRIVATE geist::geist_static)
+target_compile_definitions(mmr_qsysnewg_test
+  PRIVATE
+    GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+
+add_test(NAME mmr_qsysnewg_test COMMAND mmr_qsysnewg_test)

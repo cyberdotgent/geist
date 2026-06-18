@@ -55,18 +55,67 @@ http://cbrdoc01.lan.cyber.gent/bookmgr/pictures/QSYSNEWG.19910524085706.P1.GIF
 
 The fetched artifact is a GIF87a image with dimensions `82 x 165`.
 
-On 2026-06-18, temporarily routing `legacy-mmr` through the self-contained
-decoder in `libgeist/src/img/mmr.cpp` failed for this BookServer-backed fixture:
+On 2026-06-18, the self-contained `legacy-mmr` renderer in
+`libgeist/src/img/mmr.cpp` was verified against this BookServer-backed fixture.
+The raw payload was extracted with:
 
 ```text
-build/boorsrc --png BOO/QSYSNEWG.BOO 1 /tmp/qsysnewg-P1-local.png
-boorsrc: MMR bitstream contains an invalid 2D mode
+./build/boorsrc --extract BOO/QSYSNEWG.BOO 1 /tmp/geist-mmr/qsysnewg-P1.mmr
 ```
 
-The same temporary decoder path also failed on `GG24-4302-00.boo` resource `1`
-with the same invalid-mode error. Therefore MMR rendering is still not verified
-against BookServer-rendered artifacts and should remain unsupported in the
-public PNG path until the reader-specific line decoder is ported.
+The wrapper mapping used for this resource is:
+
+```text
+payload 0x42: 00 cd -> bitmap width 205
+payload 0x44: 01 9d -> bitmap height 413
+payload 0x48: 05 17 -> segment record length, compressed data length 0x050f
+payload 0x50: 00 1a e1 80 ... -> first compressed byte
+```
+
+The pair at payload offsets `0x32` and `0x34` is `00 64 00 64` in both
+`QSYSNEWG` and `GG24-4302-00`; it is not the rendered bitmap size. This was the
+source of the earlier failed analysis attempt.
+
+The first line starts with EOL plus a T.4 line tag:
+
+```text
+000000000001 1 010111 000011 ...
+EOL          1D tag  white makeup 192 + white term 13
+```
+
+Consuming the tag makes the first line a full-width white line (`205` pixels).
+Treating the tag bit as image data desynchronizes the run decoder.
+
+The local renderer command:
+
+```text
+./build/boorsrc --png BOO/QSYSNEWG.BOO 1 /tmp/geist-mmr/qsysnewg-P1-local.png
+```
+
+produced an `82 x 165` PNG. After converting the hosted GIF to RGB PNG with
+`sips`, a pixel comparison found:
+
+```text
+dims: local 82x165, BookServer 82x165
+mismatch: 0 of 13530 pixels
+```
+
+The same render is covered by `mmr_qsysnewg_test`, which checks the public
+`BooDocument::read_resource_png()` path, dimensions `82 x 165`, and RGBA pixel
+hash `0x9491199eae92882e`.
+
+`boo2git` uses the same public render path. A smoke test with
+
+```text
+./build/boo2git --force BOO/QSYSNEWG.BOO /tmp/geist-mmr/qsysnewg-boo2git
+```
+
+rendered 86 of the 88 resources to PNG. Resource `12` currently fails at
+`MMR line 302` with an invalid 2D mode at bit `15024`; resource `56` currently
+fails at `MMR line 394` with an invalid run code. Direct picture URLs for
+`P12.GIF` and `P56.GIF` returned 404 without first rendering their referring
+topics, so those two resources still need topic mapping and hosted-artifact
+comparison.
 
 `tools/bookserver_html_compare.py` provides a repeatable normalization pass for
 chapter pages fetched from this hosted reader. It can fetch a BookServer chapter

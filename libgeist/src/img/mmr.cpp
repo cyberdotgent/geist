@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace geist::detail {
@@ -24,18 +25,70 @@ public:
     return bit_offset_ >= end_bit_;
   }
 
+  std::size_t bit_offset() const noexcept {
+    return bit_offset_;
+  }
+
+  std::string peek_bits(std::size_t count) const {
+    std::string bits;
+    bits.reserve(count);
+    auto bit_offset = bit_offset_;
+    while (bits.size() < count && bit_offset < end_bit_) {
+      bits.push_back(bit_at(bit_offset++) == 0 ? '0' : '1');
+    }
+    return bits;
+  }
+
   bool try_read_bit(int& bit) {
     if (bit_offset_ >= end_bit_) {
       return false;
     }
-    const auto byte = bytes_[bit_offset_ / 8];
-    const auto shift = 7 - static_cast<int>(bit_offset_ % 8);
-    bit = (byte >> shift) & 1;
+    bit = bit_at(bit_offset_);
     ++bit_offset_;
     return true;
   }
 
+  bool starts_with(const char* bits) const {
+    return starts_with_at(bit_offset_, bits);
+  }
+
 private:
+  bool starts_with_at(std::size_t bit_offset, const char* bits) const {
+    for (const char* cursor = bits; *cursor != '\0'; ++cursor) {
+      if (bit_offset >= end_bit_) {
+        return false;
+      }
+      const int bit = bit_at(bit_offset++);
+      if (bit != (*cursor == '1' ? 1 : 0)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+public:
+  void skip_bits(std::size_t count) {
+    bit_offset_ = std::min(bit_offset_ + count, end_bit_);
+  }
+
+  bool find_and_skip(const char* bits) {
+    while (!empty()) {
+      if (starts_with(bits)) {
+        skip_bits(std::char_traits<char>::length(bits));
+        return true;
+      }
+      skip_bits(1);
+    }
+    return false;
+  }
+
+private:
+  int bit_at(std::size_t bit_offset) const {
+    const auto byte = bytes_[bit_offset / 8];
+    const auto shift = 7 - static_cast<int>(bit_offset % 8);
+    return (byte >> shift) & 1;
+  }
+
   const std::vector<std::uint8_t>& bytes_;
   std::size_t bit_offset_ = 0;
   std::size_t end_bit_ = 0;
@@ -128,14 +181,60 @@ ModeCode decode_mode(BitReader& reader) {
       return {Mode::pass, 0};
     }
     if (bits.size() > 7) {
-      throw std::runtime_error("MMR bitstream contains an invalid 2D mode");
+      throw std::runtime_error(
+          "MMR bitstream contains an invalid 2D mode at bit " +
+          std::to_string(reader.bit_offset() - bits.size()) + " near " +
+          reader.peek_bits(24));
     }
   }
+}
+
+enum class LineKind {
+  two_dimensional,
+  one_dimensional
+};
+
+LineKind read_line_kind(BitReader& reader) {
+  if (!reader.starts_with("000000000001")) {
+    return LineKind::two_dimensional;
+  }
+  reader.skip_bits(12);
+  int tag = 0;
+  if (!reader.try_read_bit(tag)) {
+    throw std::runtime_error("MMR bitstream ended inside a line tag");
+  }
+  return tag == 0 ? LineKind::two_dimensional : LineKind::one_dimensional;
 }
 
 std::uint16_t read_be16_unchecked(const std::vector<std::uint8_t>& bytes,
                                   std::size_t offset) {
   return static_cast<std::uint16_t>((bytes[offset] << 8) | bytes[offset + 1]);
+}
+
+std::vector<std::uint8_t> read_segments(const std::vector<std::uint8_t>& bytes) {
+  if (bytes.size() < 0x50) {
+    throw std::runtime_error("MMR asset is too small for the observed header");
+  }
+
+  std::vector<std::uint8_t> compressed;
+  std::size_t offset = 0x48;
+  while (offset + 8 <= bytes.size()) {
+    const auto segment_size = read_be16_unchecked(bytes, offset);
+    if (segment_size < 8 || offset + segment_size > bytes.size()) {
+      break;
+    }
+    const auto data_begin = offset + 8;
+    const auto data_end = offset + segment_size;
+    compressed.insert(compressed.end(),
+                      bytes.begin() + static_cast<std::ptrdiff_t>(data_begin),
+                      bytes.begin() + static_cast<std::ptrdiff_t>(data_end));
+    offset += segment_size;
+  }
+
+  if (compressed.empty()) {
+    compressed.insert(compressed.end(), bytes.begin() + 0x50, bytes.end());
+  }
+  return compressed;
 }
 
 std::size_t find_b1(const std::vector<std::size_t>& reference,
@@ -151,6 +250,18 @@ std::size_t find_b1(const std::vector<std::size_t>& reference,
     }
   }
   return reference.size() - 1;
+}
+
+void push_change(std::vector<std::size_t>& changes,
+                 std::size_t x,
+                 std::uint32_t width) {
+  if (x >= width) {
+    return;
+  }
+  if (!changes.empty() && changes.back() == x) {
+    return;
+  }
+  changes.push_back(x);
 }
 
 void write_run(RgbaImage& image,
@@ -173,88 +284,162 @@ void write_run(RgbaImage& image,
   }
 }
 
-} // namespace
-
-RgbaImage decode_mmr_to_rgba_experimental(
-    const std::vector<std::uint8_t>& bytes) {
-  if (bytes.size() < 0x50) {
-    throw std::runtime_error("MMR asset is too small for the observed header");
+std::vector<std::size_t> decode_1d_line(BitReader& reader,
+                                        RgbaImage& image,
+                                        std::uint32_t y,
+                                        std::uint32_t width) {
+  std::vector<std::size_t> current;
+  std::size_t a0 = 0;
+  bool black = false;
+  while (a0 < width) {
+    const auto run = decode_run_code(reader, black);
+    const auto a1 = std::min<std::size_t>(a0 + run, width);
+    write_run(image, y, a0, a1, black);
+    push_change(current, a1, width);
+    a0 = a1;
+    black = !black;
   }
+  current.push_back(width);
+  return current;
+}
 
-  const auto width = read_be16_unchecked(bytes, 0x32);
-  const auto height = read_be16_unchecked(bytes, 0x34);
-  auto compressed_size = static_cast<std::size_t>(read_be16_unchecked(bytes, 0x38));
-  if (width == 0 || height == 0 || width > 8192 || height > 8192) {
-    throw std::runtime_error("MMR asset has unsupported dimensions");
+void sync_mh_eol(BitReader& reader, std::uint32_t y) {
+  if (reader.starts_with("000000000001")) {
+    reader.skip_bits(12);
+    return;
   }
-  // ephimage.dll process_mmr_pict starts the first compressed segment at
-  // relative 0x50. The big-endian word at 0x48 is the segment record length,
-  // including the 8-byte segment header.
-  constexpr std::size_t compressed_offset = 0x50;
-  if (bytes.size() >= 0x4a) {
-    const auto segment_size = read_be16_unchecked(bytes, 0x48);
-    if (segment_size >= 8) {
-      compressed_size = static_cast<std::size_t>(segment_size - 8);
+  if (reader.find_and_skip("000000000001")) {
+    return;
+  }
+  throw std::runtime_error("MMR line " + std::to_string(y) +
+                           ": MH bitstream ended before EOL");
+}
+
+RgbaImage scale_2_to_5(const RgbaImage& image) {
+  const auto scaled_width = std::max<std::uint32_t>(1, (image.width * 2) / 5);
+  const auto scaled_height = std::max<std::uint32_t>(1, (image.height * 2) / 5);
+
+  RgbaImage scaled;
+  scaled.width = scaled_width;
+  scaled.height = scaled_height;
+  scaled.rgba.assign(static_cast<std::size_t>(scaled_width) * scaled_height * 4,
+                     255);
+
+  for (std::uint32_t y = 0; y < scaled_height; ++y) {
+    const auto source_y =
+        std::min<std::uint32_t>(image.height - 1, (y * 5) / 2);
+    for (std::uint32_t x = 0; x < scaled_width; ++x) {
+      const auto source_x =
+          std::min<std::uint32_t>(image.width - 1, (x * 5) / 2);
+      const auto source =
+          (static_cast<std::size_t>(source_y) * image.width + source_x) * 4;
+      const auto target =
+          (static_cast<std::size_t>(y) * scaled_width + x) * 4;
+      std::copy_n(image.rgba.begin() + static_cast<std::ptrdiff_t>(source),
+                  4,
+                  scaled.rgba.begin() + static_cast<std::ptrdiff_t>(target));
     }
   }
-  if (compressed_size == 0 ||
-      compressed_offset + compressed_size > bytes.size()) {
-    compressed_size = bytes.size() - compressed_offset;
-  }
 
+  return scaled;
+}
+
+RgbaImage decode_mh_image(const std::vector<std::uint8_t>& compressed,
+                          std::uint32_t width,
+                          std::uint32_t height) {
   RgbaImage image;
   image.width = width;
   image.height = height;
   image.rgba.assign(static_cast<std::size_t>(width) * height * 4, 255);
 
-  BitReader reader(bytes, compressed_offset, compressed_size);
+  BitReader reader(compressed, 0, compressed.size());
+  for (std::uint32_t y = 0; y < height; ++y) {
+    sync_mh_eol(reader, y);
+    try {
+      decode_1d_line(reader, image, y, width);
+    } catch (const std::runtime_error& error) {
+      throw std::runtime_error("MMR line " + std::to_string(y) + ": " +
+                               error.what());
+    }
+  }
+
+  return image;
+}
+
+RgbaImage decode_t6_image(const std::vector<std::uint8_t>& compressed,
+                          std::uint32_t width,
+                          std::uint32_t height) {
+  RgbaImage image;
+  image.width = width;
+  image.height = height;
+  image.rgba.assign(static_cast<std::size_t>(width) * height * 4, 255);
+
+  BitReader reader(compressed, 0, compressed.size());
   std::vector<std::size_t> reference{static_cast<std::size_t>(width)};
   for (std::uint32_t y = 0; y < height; ++y) {
+    LineKind line_kind = LineKind::two_dimensional;
+    try {
+      line_kind = read_line_kind(reader);
+    } catch (const std::runtime_error& error) {
+      throw std::runtime_error("MMR line " + std::to_string(y) + ": " +
+                               error.what());
+    }
+    if (line_kind == LineKind::one_dimensional) {
+      try {
+        reference = decode_1d_line(reader, image, y, width);
+      } catch (const std::runtime_error& error) {
+        throw std::runtime_error("MMR line " + std::to_string(y) + ": " +
+                                 error.what());
+      }
+      continue;
+    }
+
     std::vector<std::size_t> current;
     std::size_t a0 = 0;
     bool black = false;
 
-    while (a0 < width && !reader.empty()) {
-      const auto mode = decode_mode(reader);
-      if (mode.mode == Mode::pass) {
+    try {
+      while (a0 < width && !reader.empty()) {
+        ModeCode mode;
+        mode = decode_mode(reader);
+        if (mode.mode == Mode::pass) {
+          const auto b1_index = find_b1(reference, a0, black);
+          const auto b2 =
+              reference[std::min(b1_index + 1, reference.size() - 1)];
+          write_run(image, y, a0, b2, black);
+          a0 = b2;
+          continue;
+        }
+
+        if (mode.mode == Mode::horizontal) {
+          const auto run1 = decode_run_code(reader, black);
+          const auto a1 = std::min<std::size_t>(a0 + run1, width);
+          write_run(image, y, a0, a1, black);
+          push_change(current, a1, width);
+          black = !black;
+
+          const auto run2 = decode_run_code(reader, black);
+          const auto a2 = std::min<std::size_t>(a1 + run2, width);
+          write_run(image, y, a1, a2, black);
+          push_change(current, a2, width);
+          a0 = a2;
+          black = !black;
+          continue;
+        }
+
         const auto b1_index = find_b1(reference, a0, black);
-        const auto b2 = reference[std::min(b1_index + 1, reference.size() - 1)];
-        write_run(image, y, a0, b2, black);
-        a0 = b2;
-        continue;
-      }
-
-      if (mode.mode == Mode::horizontal) {
-        const auto run1 = decode_run_code(reader, black);
-        const auto a1 = std::min<std::size_t>(a0 + run1, width);
+        const auto b1 = reference[b1_index];
+        int a1_signed = static_cast<int>(b1) + mode.vertical_delta;
+        a1_signed = std::max(0, std::min<int>(a1_signed, width));
+        const auto a1 = static_cast<std::size_t>(a1_signed);
         write_run(image, y, a0, a1, black);
-        if (a1 < width) {
-          current.push_back(a1);
-        }
+        push_change(current, a1, width);
+        a0 = a1;
         black = !black;
-
-        const auto run2 = decode_run_code(reader, black);
-        const auto a2 = std::min<std::size_t>(a1 + run2, width);
-        write_run(image, y, a1, a2, black);
-        if (a2 < width) {
-          current.push_back(a2);
-        }
-        a0 = a2;
-        black = !black;
-        continue;
       }
-
-      const auto b1_index = find_b1(reference, a0, black);
-      const auto b1 = reference[b1_index];
-      int a1_signed = static_cast<int>(b1) + mode.vertical_delta;
-      a1_signed = std::max(0, std::min<int>(a1_signed, width));
-      const auto a1 = static_cast<std::size_t>(a1_signed);
-      write_run(image, y, a0, a1, black);
-      if (a1 < width) {
-        current.push_back(a1);
-      }
-      a0 = a1;
-      black = !black;
+    } catch (const std::runtime_error& error) {
+      throw std::runtime_error("MMR line " + std::to_string(y) + ": " +
+                               error.what());
     }
 
     current.push_back(width);
@@ -264,11 +449,32 @@ RgbaImage decode_mmr_to_rgba_experimental(
   return image;
 }
 
+} // namespace
+
 RgbaImage decode_mmr_to_rgba(const std::vector<std::uint8_t>& bytes) {
-  (void)bytes;
-  throw std::runtime_error(
-      "asset cannot be rendered to PNG yet: legacy BookManager MMR payload "
-      "decoding is not implemented");
+  if (bytes.size() < 0x50) {
+    throw std::runtime_error("MMR asset is too small for the observed header");
+  }
+
+  const auto width = read_be16_unchecked(bytes, 0x42);
+  const auto height = read_be16_unchecked(bytes, 0x44);
+  if (width == 0 || height == 0 || width > 8192 || height > 8192) {
+    throw std::runtime_error("MMR asset has unsupported dimensions");
+  }
+  const auto compressed = read_segments(bytes);
+  try {
+    return scale_2_to_5(decode_t6_image(compressed, width, height));
+  } catch (const std::runtime_error& t6_error) {
+    if (compressed.size() >= 2 && compressed[0] == 0x00 &&
+        (compressed[1] & 0xf0) == 0x10) {
+      try {
+        return scale_2_to_5(decode_mh_image(compressed, width, height));
+      } catch (const std::runtime_error&) {
+        throw std::runtime_error(t6_error.what());
+      }
+    }
+    throw;
+  }
 }
 
 } // namespace geist::detail
