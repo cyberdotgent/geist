@@ -104,49 +104,56 @@ Topics crawled: `COVER`, `EDITION`, `CONTENTS`, `1.0`, `1.1`, `2.0`,
   heading and emits generated Markdown bullets whose spacing/order is readable
   but not faithful to the source rendering.
 
-- [ ] `2.1` / `render/qs3x36cm/2-1.md`: the large three-column fixed-width
+- [x] `2.1` / `render/qs3x36cm/2-1.md`: the large three-column fixed-width
   table is structurally corrupted. BookServer has 2024 fixed-width table
   separator lines; the Markdown has only 462 Markdown table rows. Continuation
   rows with a blank first column are often shifted into the wrong columns or
-  merged with neighboring entries.
+  merged with neighboring entries. Closed after visual validation of the
+  regenerated table rendering.
 
-- [ ] `2.1` / `render/qs3x36cm/2-1.md`: multi-entry System/36 mappings are
+- [x] `2.1` / `render/qs3x36cm/2-1.md`: multi-entry System/36 mappings are
   merged across row boundaries. Around `BGUCHART`, BookServer has separate
   AS/400 mappings for `DSPCHT`, `DSPGDF`, and `STRBGU`, followed by a separate
   `BGUDATA` row. The Markdown merges `STRBGU` and `BGUDATA STRBGU` text into
   the `BGUCHART` function cell, then shifts `DSPGDF` into the first column.
+  Closed after visual validation of the regenerated table rendering.
 
-- [ ] `2.1` / `render/qs3x36cm/2-1.md`: later table rows lose column
+- [x] `2.1` / `render/qs3x36cm/2-1.md`: later table rows lose column
   alignment and cell ownership. Examples include `BLDFILE` absorbing following
   `BLDGRAPH`, `BLDINDEX`, `BLDLIBR`, `BLDMENU`, and `BUILD` content; `DSPFLR`
   being split into `a database file containing the | list`; and entries such
-  as `CRTPRTF` / `DLTDEVD` being joined in the same cell.
+  as `CRTPRTF` / `DLTDEVD` being joined in the same cell. Closed after visual
+  validation of the regenerated table rendering.
 
-- [ ] `2.2` / `render/qs3x36cm/2-2.md`: the System/36 control command table is
+- [x] `2.2` / `render/qs3x36cm/2-2.md`: the System/36 control command table is
   structurally corrupted in the same way as `2.1`. BookServer has 480
   separator lines; the Markdown has 106 Markdown table rows. Multi-line
   command names such as `CANCEL(C) job name`, `CANCEL(C) JOBQ(J)`,
   `CANCEL(C) PRT(P)`, and `CANCEL(C) SESSION(S)` are split across Markdown
-  rows or cells.
+  rows or cells. Closed after visual validation of the regenerated table
+  rendering.
 
-- [ ] `2.2` / `render/qs3x36cm/2-2.md`: continuation AS/400 command rows are
+- [x] `2.2` / `render/qs3x36cm/2-2.md`: continuation AS/400 command rows are
   shifted into the wrong columns. For example, BookServer renders `CLRJOBQ`
   and `WRKJOBQ` as blank-System/36 continuation rows under `CANCEL(C) JOBQ(J)`;
   the Markdown places description text into the AS/400 column and leaves
   trailing empty cells. Similar shifts appear around `CHANGE(G) COPIES`,
-  `CHANGE(G) PRT(P)`, and many `START`/`STOP` rows later in the topic.
+  `CHANGE(G) PRT(P)`, and many `START`/`STOP` rows later in the topic. Closed
+  after visual validation of the regenerated table rendering.
 
-- [ ] `2.3` / `render/qs3x36cm/2-3.md`: the System/36 OCL statement table is
+- [x] `2.3` / `render/qs3x36cm/2-3.md`: the System/36 OCL statement table is
   structurally corrupted. BookServer has 288 separator lines; the Markdown has
   72 Markdown table rows. Continuation rows such as the second AS/400 command
   for `// DATE`, the `OVRDBF` continuation under `// FILE (Disk)`, and
   `Diskette` under `// FILE` are shifted or split into separate columns.
+  Closed after visual validation of the regenerated table rendering.
 
-- [ ] `2.3` / `render/qs3x36cm/2-3.md`: OCL statement names containing spaces
+- [x] `2.3` / `render/qs3x36cm/2-3.md`: OCL statement names containing spaces
   and punctuation are not kept as fixed-width first-column content. Examples
   include `// FILE Diskette`, `// MENU xxxx`, `// START PRT(P)`, and
   `// STOP PRT(P)`, where the Markdown table parser treats wrapped first-column
-  text as a new row rather than a continuation of the same source row.
+  text as a new row rather than a continuation of the same source row. Closed
+  after visual validation of the regenerated table rendering.
 
 - [ ] `A.0` / `render/qs3x36cm/a-0.md`: duplicate/merged appendix heading.
   BookServer has one heading, `A.0   Appendix.  AS/400 Control Language
@@ -155,18 +162,20 @@ Topics crawled: `COVER`, `EDITION`, `CONTENTS`, `1.0`, `1.1`, `2.0`,
   anchor, then a second heading line that combines the heading and prose:
   `# Appendix. AS/400 Control Language Commands Following is...`.
 
-- [ ] `A.0` / `render/qs3x36cm/a-0.md`: the two-column command list table is
+- [x] `A.0` / `render/qs3x36cm/a-0.md`: the two-column command list table is
   structurally corrupted. BookServer has 4984 separator lines; the Markdown has
   1159 Markdown table rows. Multi-line descriptive names such as `Add
   Intersystem Communications Function / Program Device Entry` initially work
   in some rows, but later long runs merge dozens of commands into one cell.
+  Closed after visual validation of the regenerated table rendering.
 
-- [ ] `A.0` / `render/qs3x36cm/a-0.md`: the bottom of the topic contains severe
+- [x] `A.0` / `render/qs3x36cm/a-0.md`: the bottom of the topic contains severe
   garbage text not present in BookServer. BookServer ends cleanly with rows
   from `WRKQMQRY` through `WRKWTR`. The Markdown tail contains orphaned words
   and punctuation such as `disk. Displays`, `parameters`, repeated `one`, and
   fragments like `required nowork PDM command PDM DistributionCopy`, before the
-  navigation footer.
+  navigation footer. Closed after visual validation of the regenerated table
+  rendering.
 
 - [x] Cross-topic heading policy: all numbered topics drop their topic id in
   Markdown headings (`1.0`, `1.1`, `2.0`, `2.1`, `2.2`, `2.3`, `A.0`), while
@@ -179,5 +188,5 @@ Topics crawled: `COVER`, `EDITION`, `CONTENTS`, `1.0`, `1.1`, `2.0`,
   QS3X36CM uses `<pre width="80">`. The Markdown pipeline reflows most prose,
   lists, and tables instead of preserving the BookServer line model. This is
   the common root of the paragraph collapses in `EDITION`, the list collapses
-  in `1.1`, the page-reference split in `2.0`, and the table corruption in
-  `2.1`, `2.2`, `2.3`, and `A.0`.
+  in `1.1`, and the page-reference split in `2.0`. Table rendering was fixed
+  separately and validated visually.
