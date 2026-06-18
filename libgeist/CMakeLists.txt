@@ -105,6 +105,13 @@ target_link_libraries(gdf_synthetic_test PRIVATE geist::geist_static)
 
 add_test(NAME gdf_synthetic_test COMMAND gdf_synthetic_test)
 
+add_executable(markup_debug_test
+  tests/markup_debug.cpp
+)
+target_link_libraries(markup_debug_test PRIVATE geist::geist_static)
+
+add_test(NAME markup_debug_test COMMAND markup_debug_test)
+
 add_executable(qs3x36cm_markdown_test
   tests/qs3x36cm_markdown.cpp
 )

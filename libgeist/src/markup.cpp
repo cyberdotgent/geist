@@ -16,6 +16,11 @@
 
 namespace geist::detail {
 
+bool looks_like_gml_control_at(const std::string& value, std::size_t offset);
+bool looks_like_control_boundary(const std::string& decoded_record,
+                                 const std::string& lower_record,
+                                 std::size_t offset);
+
 std::size_t skip_decoded_separators(const std::string& value) {
   std::size_t cursor = 0;
   while (cursor < value.size()) {
@@ -93,6 +98,52 @@ std::string escape_gml_attr(std::string value) {
     }
   }
   return value;
+}
+
+bool is_literal_question_mark(const std::string& value, std::size_t offset) {
+  if (offset >= value.size() || value[offset] != '?') {
+    return false;
+  }
+
+  if (offset == 0) {
+    return false;
+  }
+
+  const auto before = static_cast<unsigned char>(value[offset - 1]);
+  if (std::isalnum(before) == 0 && value[offset - 1] != ')' &&
+      value[offset - 1] != '"' && value[offset - 1] != '\'') {
+    return false;
+  }
+
+  auto next = offset + 1;
+  while (next < value.size() &&
+         std::isspace(static_cast<unsigned char>(value[next])) != 0) {
+    ++next;
+  }
+  if (next >= value.size()) {
+    return true;
+  }
+  if (value[next] == '?') {
+    return true;
+  }
+
+  const auto after = static_cast<unsigned char>(value[next]);
+  if (std::islower(after) != 0) {
+    return false;
+  }
+  if (looks_like_gml_control_at(value, next)) {
+    return false;
+  }
+  return true;
+}
+
+std::string debug_placeholder(std::string kind,
+                              std::size_t offset,
+                              std::size_t length) {
+  std::ostringstream output;
+  output << "<geist-placeholder kind='" << kind << "' offset='" << offset
+         << "' len='" << length << "'>";
+  return output.str();
 }
 
 bool is_decoded_line_marker(char ch) {
@@ -346,6 +397,58 @@ std::vector<std::string> split_decoded_markup_segments(
   return segments;
 }
 
+std::string annotate_decoded_placeholders(const std::string& value) {
+  std::string output;
+  output.reserve(value.size());
+  const auto lower = ascii_lower(value);
+
+  for (std::size_t cursor = 0; cursor < value.size();) {
+    if (value[cursor] != '?') {
+      output.push_back(value[cursor++]);
+      continue;
+    }
+
+    auto run_end = cursor + 1;
+    while (run_end < value.size() && value[run_end] == '?') {
+      ++run_end;
+    }
+    const auto run_length = run_end - cursor;
+    if (run_length > 1) {
+      output += debug_placeholder("decoded-question-run", cursor, run_length);
+      cursor = run_end;
+      continue;
+    }
+
+    if (is_literal_question_mark(value, cursor)) {
+      output.push_back(value[cursor++]);
+      continue;
+    }
+
+    if (looks_like_control_boundary(value, lower, cursor) ||
+        looks_like_gml_control_at(value, cursor + 1)) {
+      output += debug_placeholder("control-boundary", cursor, 1);
+      ++cursor;
+      continue;
+    }
+
+    auto next = cursor + 1;
+    while (next < value.size() &&
+           std::isspace(static_cast<unsigned char>(value[next])) != 0) {
+      ++next;
+    }
+    if (next >= value.size()) {
+      output += debug_placeholder("terminal-decoder-placeholder", cursor, 1);
+    } else if (is_decoded_line_marker(value[next])) {
+      output += debug_placeholder("line-marker-boundary", cursor, 1);
+    } else {
+      output += debug_placeholder("decoder-separator", cursor, 1);
+    }
+    ++cursor;
+  }
+
+  return output;
+}
+
 std::string first_word(std::string value) {
   value = trim_ascii(std::move(value));
   const auto end = value.find_first_of(" \t\r\n,");
@@ -381,6 +484,40 @@ std::string render_normalized_gml_control(const std::string& tag,
     return ":" + tag + ".";
   }
   return ":" + tag + "." + value;
+}
+
+std::string decoded_control_name(const std::string& segment) {
+  auto value = trim_ascii(segment);
+  while (!value.empty() && (value.front() == '?' || value.front() == ',')) {
+    value.erase(value.begin());
+    value = trim_ascii(std::move(value));
+  }
+
+  std::size_t end = 0;
+  while (end < value.size()) {
+    const auto ch = static_cast<unsigned char>(value[end]);
+    if (std::isalnum(ch) == 0 && value[end] != '_') {
+      break;
+    }
+    ++end;
+  }
+  if (end == 0) {
+    return {};
+  }
+  auto name = value.substr(0, end);
+  for (auto& ch : name) {
+    ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+  }
+  return name;
+}
+
+std::string render_unknown_control_gml(const std::string& segment) {
+  const auto name = decoded_control_name(segment);
+  if (name.empty()) {
+    return {};
+  }
+  return ":unknown-control name='" + escape_gml_attr(name) + "' raw='" +
+         escape_gml_attr(segment) + "'.";
 }
 
 std::string strip_visual_line_marker(std::string value) {
@@ -2556,6 +2693,9 @@ std::string render_gml_segment(std::string segment,
     return render_pending_font_continuation_gml(std::move(pending),
                                                 std::move(segment),
                                                 state.pending_font_base_column);
+  }
+  if (looks_like_gml_control_at(segment, 0)) {
+    return render_unknown_control_gml(segment);
   }
   return render_simple_gml_control("pinline", std::move(segment));
 }

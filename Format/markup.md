@@ -48,16 +48,25 @@ primary id.
 | `KEY<id>` | `SHcontents`, `SRFIGfig4302hp1` | Control whose first operand is concatenated to the control word. |
 | `:tag` value | `CHDLEVEL :h1` | GML-derived tag name used as a BookManager topic kind or style. |
 
-The current decoder can print separator placeholders as `?` in some records.
+Older traces printed separator/control placeholders as bare `?` characters.
+That is ambiguous because `?` is also literal document punctuation. Current
+analysis traces must instead preserve literal question marks as text and expand
+decoded placeholders to diagnostic markers of the form
+`<geist-placeholder kind='...' offset='...' len='...'>`. The `kind` value
+records why the byte was treated as a placeholder, for example
+`control-boundary`, `decoded-question-run`, `line-marker-boundary`, or
+`decoder-separator`. Offsets are byte indexes in the decoded logical-record
+string shown by `bootrace`, not original BOO file offsets.
+
 Those placeholders are decoder artifacts or unresolved control spacing and
 should not be treated as literal document text without byte-level confirmation.
 They also are not paragraph boundaries by themselves. In the `BOO/packet.boo`
 `NOTICES` topic, the decoded text contains a placeholder run between `second
 cover page` and `if you wish.`; BookServer renders this as continuous paragraph
-text. A raw projection should split at `?` only when the following non-space
-content is a recognizable BookManager/GML control such as `CZ`, `CFONT`, or
-`CSELECT`. Otherwise the placeholder run is padding/spacing and should collapse
-to normal whitespace.
+text. A raw projection should split at a placeholder only when the following
+non-space content is a recognizable BookManager/GML control such as `CZ`,
+`CFONT`, or `CSELECT`. Otherwise the placeholder run is padding/spacing and
+should collapse to normal whitespace.
 
 `libgeist` raw topic output projects the decoded control stream into a
 BookMaster-style GML script. This projection is intentionally not Markdown and
@@ -70,8 +79,11 @@ such as `?` are not emitted as text in this projection.
 The raw projection uses one colon-prefixed BookMaster-style tag per identified
 control or text span. The source control names remain documented here so a
 reader can map the projection back to decoded BOO controls. Generated
-BookManager controls that do not have a direct source tag are either suppressed
-or represented with the nearest BookMaster tag shape.
+BookManager controls that do not have a direct source tag are either suppressed,
+represented with the nearest BookMaster tag shape, or emitted in raw/debug
+projection as `:unknown-control name='<CONTROL>' raw='<decoded segment>'.` when
+the segment is control-shaped but not yet modeled. Markdown rendering suppresses
+these diagnostics; use `boorender --raw` or `bootrace` when analyzing them.
 
 | Decoded control | Raw projection | Field mapping | Status |
 | --- | --- | --- | --- |

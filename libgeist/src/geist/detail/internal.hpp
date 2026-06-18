@@ -84,6 +84,7 @@ std::string normalize_logical_control_value(const std::string& key,
 std::string normalize_toc_title(std::string value);
 std::string normalize_toc_id(std::string value);
 std::string collapse_ascii_whitespace(std::string value);
+std::string annotate_decoded_placeholders(const std::string& value);
 
 std::vector<ResourceEntry> build_resources(
     const std::vector<std::uint8_t>& bytes,

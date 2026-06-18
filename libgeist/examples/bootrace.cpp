@@ -1,4 +1,5 @@
 #include "geist/boo.hpp"
+#include "geist/detail/internal.hpp"
 
 #include <exception>
 #include <iostream>
@@ -78,11 +79,13 @@ int main(int argc, char** argv) {
 
     if (show_records) {
       std::cout << "# logical records\n";
-      std::cout << "logical_record\tdecoded_control_stream\t"
+      std::cout << "logical_record\tannotated_decoded_control_stream\t"
                    "normalized_gml_records\n";
       for (const auto& record : trace) {
         std::cout << record.logical_record << "\t"
-                  << tsv_escape(record.decoded_record) << "\t"
+                  << tsv_escape(geist::detail::annotate_decoded_placeholders(
+                         record.decoded_record))
+                  << "\t"
                   << tsv_escape(join_records(record.normalized_gml_records))
                   << "\n";
       }
@@ -90,11 +93,13 @@ int main(int argc, char** argv) {
 
     if (show_segments) {
       std::cout << "# decoded markup segments\n";
-      std::cout << "logical_record\tsegment\tdecoded_segment\n";
+      std::cout << "logical_record\tsegment\tannotated_decoded_segment\n";
       for (const auto& record : trace) {
         for (std::size_t index = 0; index < record.segments.size(); ++index) {
           std::cout << record.logical_record << "\t" << index << "\t"
-                    << tsv_escape(record.segments[index]) << "\n";
+                    << tsv_escape(geist::detail::annotate_decoded_placeholders(
+                           record.segments[index]))
+                    << "\n";
         }
       }
     }

@@ -1575,7 +1575,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
       table_caption = gml_markdown_content(record);
       table_cells.clear();
     } else if (tag == "i1" || tag == "grpsep" || tag == "etable" ||
-               tag == "fontdef") {
+               tag == "fontdef" || tag == "unknown-control") {
       continue;
     } else {
       if (in_figure) {
