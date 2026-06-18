@@ -210,6 +210,7 @@ not necessarily the full historical GDDM behavior.
 | `0x51` | Push and set fractional line width | Normal. Two bytes. | Saves previous fractional width, then acts like `0x11`. |
 | `0x58` | Push and set line type | Short. One byte. | Saves previous line type, then acts like line type. |
 | `0x59` | Push and set line width | Short. One byte. | Saves previous line width, then acts like line width. |
+| `0x60` | End area / end figure | Normal. Observed with zero payload. | Closes the current fill area/figure and emits it. In `packet.boo` resource `2`, each filled packet-field rectangle begins with `0x68 0x80`, accumulates one `0xc1` rectangle, then closes with `0x60 00`; ignoring this order joins unrelated later paths into one malformed polygon. |
 | `0x61` | Push and set current position | Normal. One coordinate pair. | Saves previous current position, then acts like current position. |
 | `0x62` | Push and set arc parameters | Normal. Four coordinate values. | Saves previous arc parameters, then acts like arc parameters. |
 | `0x64` | Push and set model transform | Normal. Same as model transform. | Saves previous transform, then acts like model transform. |
@@ -260,6 +261,62 @@ including text/control records. A simple byte scanner misidentifies these as
 coordinate runs and draws false long lines. The record parser avoids that by
 using IBM's GDF order framing and skipping unsupported records by their
 declared length.
+
+### Packet Resource 2 Area and Color Evidence
+
+`BOO/packet.boo` resource `2` is a legacy kind `G` GDF payload at BOO file
+offset `0x00000238` with length `0x00002776` bytes. The hosted BookServer GIF
+used for visual comparison was:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/pictures/packet.20260614112503.P2.GIF
+```
+
+That GIF is `1004x735`, matching `libgeist`'s current GDF PNG dimensions for
+this resource. The visible packet frame has four saturated color blocks and
+black stroke labels. Pixel samples from the upstream GIF:
+
+| Pixel | Upstream RGB | Meaning |
+| ---: | --- | --- |
+| `(50, 310)` | `00 ff 00` | First/Address block fill, green. |
+| `(220, 310)` | `ff ff 00` | Second/Control block fill, yellow. |
+| `(380, 310)` | `ff 00 00` | Third/PID block fill, red. |
+| `(500, 310)` | `00 00 ff` | Fourth/Data block fill, blue. |
+| `(60, 405)` | `00 00 00` | Stroke label text, black. |
+
+The first four filled rectangles use this repeated order pattern:
+
+| Payload offset | Bytes | Interpretation |
+| ---: | --- | --- |
+| `0x008c` | `28 10` | Pattern/fill setup. |
+| `0x0090` | `26 02 00 06` | Extended color setup before the first area. |
+| `0x0094` | `68 80` | Begin area/figure. |
+| `0x0096` | `26 02 00 08` | Set stroke/edge color used by the figure outline and later labels. Upstream output shows this as black, not gray. |
+| `0x00a0` | `c1 28 ...` | Five-point rectangle path. |
+| `0x00ca` | `60 00` | End area/figure; close and emit the rectangle. |
+
+The second, third, and fourth rectangles repeat the same shape with area starts
+at payload offsets `0x00f4`, `0x0154`, and `0x01b4`, and matching `0x60 00`
+terminators at `0x012a`, `0x018a`, and `0x01ea`. Later complex stroke paths
+for the labels also use color index `8`; the upstream GIF renders those strokes
+as black.
+
+Implementation consequences:
+
+1. `0x60` must be handled as an area/figure terminator. Waiting for another
+   `0x68` flag or end-of-stream joins independent filled shapes and subsequent
+   stroke-font paths into one polygon, producing the observed green field with
+   stray vectors.
+2. Area contents must preserve individual line-order contours. Packet resource
+   `2` uses `0x68 ... 0x60` groups for the stroke-font labels as well as the
+   filled rectangles; closing an entire label group back to its first point
+   creates vector strings across the letter edges. Only closed contours should
+   be filled as polygons, while open contours remain stroke paths.
+3. Fill colors should be rendered as the direct palette color selected by the
+   GDF state, not blended toward a pastel fallback.
+4. The observed palette entry used by `0x26 02 00 08` is black for this
+   ImageMark/GDDM path. Treating it as gray makes packet resource `2` labels
+   visibly differ from the hosted reader output.
 
 ### Text and Font Handling
 
@@ -345,7 +402,7 @@ Implemented drawing behavior:
 | Marker orders | Rendered as simple cross/star marker shapes. |
 | Character orders | Text bytes are decoded as CP037/EBCDIC and rendered as bitmap glyphs with approximate font-family/style traits from the IBM/ImageMark fallback font table. |
 | Fillet, arc, and full-arc orders | Rendered as approximate elliptical polylines. |
-| Area orders | Collects points while an area is active and fills the resulting polygon with the current fill style. |
+| Area orders | `0x68` begins a fill area/figure, drawable line orders are retained as individual contours, and `0x60` closes the area. Closed contours are filled with the current fill style; open contours remain normal stroke paths. |
 | Graphics image begin/data/end orders | Renders a simple cell-array block from the buffered image bytes. |
 
 This is sufficient for inspection-oriented rendering and for visual recognition

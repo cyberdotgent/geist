@@ -33,7 +33,7 @@ struct ParserState {
   std::uint8_t color_index = 0;
   std::uint8_t draw_mode = 0;
   bool in_area = false;
-  std::vector<Point> area_points;
+  std::vector<std::vector<Point>> area_contours;
   std::map<std::uint32_t, std::size_t> segments;
   std::vector<std::uint8_t> transform_payload;
   std::vector<std::uint8_t> saved_attributes;
@@ -53,7 +53,7 @@ Color palette(std::uint8_t index) {
       {0, 255, 255, 255},
       {255, 255, 0, 255},
       {255, 255, 255, 255},
-      {128, 128, 128, 255},
+      {0, 0, 0, 255},
       {128, 0, 0, 255},
       {0, 128, 0, 255},
       {0, 0, 128, 255},
@@ -214,11 +214,11 @@ void add_polyline(ParserState& state, std::vector<Point> points) {
   if (points.empty()) {
     return;
   }
+  if (state.in_area && points.size() > 1) {
+    state.area_contours.push_back(points);
+  }
   for (const auto& point : points) {
     extend_bounds(state.picture, point);
-    if (state.in_area) {
-      state.area_points.push_back(point);
-    }
   }
   if (points.size() > 1) {
     state.picture.lines.push_back(
@@ -239,11 +239,7 @@ void set_color(ParserState& state, std::uint8_t index) {
   state.text_color = color;
   state.marker_color = color;
   if (!state.in_area) {
-    state.fill_color = Color{
-        static_cast<std::uint8_t>((static_cast<unsigned>(color.r) + 220) / 2),
-        static_cast<std::uint8_t>((static_cast<unsigned>(color.g) + 220) / 2),
-        static_cast<std::uint8_t>((static_cast<unsigned>(color.b) + 220) / 2),
-        255};
+    state.fill_color = color;
   }
 }
 
@@ -387,27 +383,32 @@ void handle_arc(ParserState& state,
   update_current_from(points, state);
 }
 
-void handle_area(ParserState& state, std::uint8_t flags) {
-  if (!state.in_area) {
-    state.in_area = true;
-    state.area_points.clear();
-  } else if ((flags & 0x40u) != 0 || flags == 0) {
-    if (state.area_points.size() >= 3) {
-      state.picture.polygons.push_back(
-          Polygon{state.area_points, state.fill_color, state.line_color});
-    }
-    state.area_points.clear();
-    state.in_area = false;
+bool is_closed_contour(const std::vector<Point>& points) {
+  if (points.size() < 4) {
+    return false;
   }
+  const auto& first = points.front();
+  const auto& last = points.back();
+  return std::abs(first.x - last.x) < 0.001 &&
+         std::abs(first.y - last.y) < 0.001;
 }
 
 void finish_area(ParserState& state) {
-  if (state.in_area && state.area_points.size() >= 3) {
-    state.picture.polygons.push_back(
-        Polygon{state.area_points, state.fill_color, state.line_color});
+  if (state.in_area) {
+    for (const auto& contour : state.area_contours) {
+      if (is_closed_contour(contour)) {
+        state.picture.polygons.push_back(
+            Polygon{contour, state.fill_color, state.line_color});
+      }
+    }
   }
   state.in_area = false;
-  state.area_points.clear();
+  state.area_contours.clear();
+}
+
+void begin_area(ParserState& state) {
+  finish_area(state);
+  state.in_area = true;
 }
 
 void handle_image_begin(ParserState& state,
@@ -636,6 +637,7 @@ GdfPicture parse_gdf_picture(const std::vector<std::uint8_t>& bytes) {
     case 0x51:
     case 0x58:
     case 0x59:
+    case 0x60:
     case 0x62:
     case 0x64:
     case 0x66:
@@ -644,7 +646,11 @@ GdfPicture parse_gdf_picture(const std::vector<std::uint8_t>& bytes) {
     case 0x74:
     case 0x76:
     case 0x78:
-      handle_attribute(state, opcode, bytes, offset, length);
+      if (opcode == 0x60) {
+        finish_area(state);
+      } else {
+        handle_attribute(state, opcode, bytes, offset, length);
+      }
       break;
     case 0x07:
       break;
@@ -655,7 +661,7 @@ GdfPicture parse_gdf_picture(const std::vector<std::uint8_t>& bytes) {
       }
       break;
     case 0x68:
-      handle_area(state, length ? bytes[offset] : 0);
+      begin_area(state);
       break;
     case 0x70:
       if (length >= 4) {

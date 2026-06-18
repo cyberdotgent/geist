@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -119,6 +120,7 @@ std::vector<std::uint8_t> synthetic_gdf_all_opcodes() {
     normal(gdf, 0xc1, p);
   }
   short_order(gdf, 0x68, 0x40);
+  normal(gdf, 0x60, {});
 
   short_order(gdf, 0x69, 3);
   {
@@ -191,6 +193,70 @@ std::vector<std::uint8_t> synthetic_gdf_all_opcodes() {
     normal(gdf, 0xe1, p);
   }
   return gdf;
+}
+
+void rectangle(std::vector<std::uint8_t>& out,
+               int left,
+               int bottom,
+               int right,
+               int top) {
+  std::vector<std::uint8_t> p;
+  point(p, left, bottom);
+  point(p, right, bottom);
+  point(p, right, top);
+  point(p, left, top);
+  point(p, left, bottom);
+  normal(out, 0xc1, p);
+}
+
+std::vector<std::uint8_t> synthetic_packet_frame_gdf() {
+  std::vector<std::uint8_t> gdf;
+  gdf.push_back(0x01);
+  gdf.push_back(0x0a);
+  be16(gdf, 2);
+  be16(gdf, 0);
+  be16(gdf, 100);
+  be16(gdf, 0);
+  be16(gdf, 100);
+
+  auto filled_box = [&](std::uint8_t fill,
+                        int left,
+                        int bottom,
+                        int right,
+                        int top) {
+    normal(gdf, 0x26, {0x00, fill});
+    short_order(gdf, 0x68, 0x80);
+    normal(gdf, 0x26, {0x00, 0x08});
+    rectangle(gdf, left, bottom, right, top);
+    normal(gdf, 0x60, {});
+  };
+
+  filled_box(0x04, 0, 60, 20, 80);
+  filled_box(0x06, 20, 60, 40, 80);
+  filled_box(0x02, 40, 60, 50, 80);
+  filled_box(0x01, 50, 60, 100, 80);
+  filled_box(0x08, 0, 40, 10, 50);
+  return gdf;
+}
+
+void require_pixel(const geist::detail::RgbaImage& image,
+                   std::uint32_t x,
+                   std::uint32_t y,
+                   std::uint8_t r,
+                   std::uint8_t g,
+                   std::uint8_t b,
+                   const char* label) {
+  const auto offset =
+      (static_cast<std::size_t>(y) * image.width + x) * 4u;
+  if (image.rgba[offset] != r || image.rgba[offset + 1] != g ||
+      image.rgba[offset + 2] != b) {
+    std::ostringstream message;
+    message << label << " had unexpected color "
+            << static_cast<int>(image.rgba[offset]) << ','
+            << static_cast<int>(image.rgba[offset + 1]) << ','
+            << static_cast<int>(image.rgba[offset + 2]);
+    throw std::runtime_error(message.str());
+  }
 }
 
 void write_le16(std::ofstream& out, std::uint16_t value) {
@@ -267,6 +333,14 @@ int main(int argc, char** argv) {
     if (non_white < 100) {
       throw std::runtime_error("synthetic GDF rendered too few non-white pixels");
     }
+
+    const auto packet_frame = geist::detail::decode_gdf_to_rgba(
+        synthetic_packet_frame_gdf());
+    require_pixel(packet_frame, 100, 220, 0, 255, 0, "green fill");
+    require_pixel(packet_frame, 300, 220, 255, 255, 0, "yellow fill");
+    require_pixel(packet_frame, 450, 220, 255, 0, 0, "red fill");
+    require_pixel(packet_frame, 750, 220, 0, 0, 255, "blue fill");
+    require_pixel(packet_frame, 50, 405, 0, 0, 0, "black fill");
 
     if (argc > 1) {
       write_bmp(argv[1], image);

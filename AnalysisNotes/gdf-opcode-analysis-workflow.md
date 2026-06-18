@@ -154,6 +154,19 @@ Text/font-specific IDA findings:
   `USER32.dll`, but binary strings show a dynamically referenced
   `CPPWRTM.DLL`, which is not included in the repository. Treat direct
   executable comparison as blocked until that historical runtime is available.
+- Packet resource `2` was compared against the hosted BookServer output on
+  2026-06-18 while debugging malformed local output in `render/packet/2.png`.
+  The upstream image was
+  `http://cbrdoc01.lan.cyber.gent/bookmgr/pictures/packet.20260614112503.P2.GIF`.
+  The normal shell path could not resolve `cbrdoc01.lan.cyber.gent` before
+  direct `curl` network access was approved. The fetched GIF was saved outside
+  the repository as `/tmp/packet-P2-upstream.gif` and converted for inspection
+  with `sips -s format png /tmp/packet-P2-upstream.gif --out
+  /tmp/packet-P2-upstream.png`. The local comparison used
+  `./build/boorsrc --extract BOO/packet.boo 2 /tmp/packet-P2.gdf` and
+  `./build/boorsrc --png BOO/packet.boo 2 /tmp/packet-P2-fixed3.png`.
+  Byte-level evidence and upstream pixel samples were recorded in
+  `Format/GDF.md` under "Packet Resource 2 Area and Color Evidence".
 
 ## Repeatable Procedure
 
