@@ -1,0 +1,1595 @@
+[Previous](bibliography-2.md) | [Index](README.md) | [Next](comments.md)
+
+---
+
+# INDEX Index
+
+## A
+
+- abend conditions 1
+- ALLOCATE (APPC) 2 F.3.3
+- CONFIRM (APPC) 2 F.4.3
+- CONFIRMED (APPC) 2 F.5.3
+- DEALLOCATE (APPC) 2 F.6.3
+- RECEIVE_AND_WAIT (APPC) 2 F.10.3
+- REQUEST_TO_SEND (APPC) 2 F.11.3
+- SEND_DATA (APPC) 2 F.12.3
+- SEND_ERROR (APPC) 2 F.13.3
+- ACCEPT 1
+- IUCV function 2
+- IUCV function used in APPC/VM 2 5.10.4
+- completion 3 5.10.4.9
+- condition codes 3 5.10.4.6
+- format 3 5.10.4.1
+- parameter descriptions 3 5.10.4.2
+- parameter list format 3 5.10.4.5
+- program exceptions 3 5.10.4.7
+- return codes 3 5.10.4.6
+- state changes 3 5.10.4.8
+- using 3 5.10.4
+- parameters for communication servers 2 5.10.4.4
+- ACCEPT (IUCV function) 1 2.4.1 to 2.4.1.7
+- access control interface 1 7.12.1
+- access security types 1
+- of APPC ALLOCATE 2 F.3.1
+- with APPCVM CONNECT 2 3.8.1.6
+- ACIPARMS parameter list 1
+- CP command format 2 7.12.1.5.2
+- DIAGNOSE format 2 7.12.1.5.3
+- general format 2 7.12.1.3
+- IUCV format 2 7.12.1.5.6
+- SPOOL format 2 7.12.1.5.5
+- VMCF format 2 7.12.1.5.7
+- address exceptions 1 1.1.6
+- address lists 1 3.8.3.5 3.8.6.6 3.8.7.10 3.8.10.10
+- addressability, parameter 1 3.7.5
+- addresses 1
+- absolute 2 1.1.5
+- guest 2 1.1.5
+- processing of 2 1.1.5
+- real 2 1.1.5
+- addressing exceptions 1
+- APPCVM CONNECT 2 3.8.1.9.2
+- APPCVM QRYSTATE 2 3.8.2.7
+- APPCVM RECEIVE 2 3.8.3.7
+- APPCVM SENDCNF 2 3.8.4.6
+- APPCVM SENDCNFD 2 3.8.5.6
+- APPCVM SENDDATA 2 3.8.6.8
+- APPCVM SENDERR 2 3.8.7.6
+- APPCVM SENDREQ 2 3.8.8.6
+- APPCVM SETMODFY 2 3.8.9.6
+- APPCVM SEVER 2 3.8.10.6
+- IUCV ACCEPT 2 5.10.4.7
+- IUCV CONNECT 2 5.10.5.6
+- IUCV DECLARE BUFFER 2 5.10.6.8
+- IUCV DESCRIBE 2 5.10.7.5
+- IUCV QUERY 2 5.10.8.5
+- IUCV SET CONTROL MASK 2 5.10.10.6
+- IUCV SET MASK 2 5.10.11.6
+- IUCV SEVER 2 5.10.12.6
+- IUCV TEST COMPLETION 2 5.10.13.6
+- Advanced Program-to-Program Communication (APPC) 1
+- conversations in 2 F.1
+- definition 2 3.7
+- error conditions 2 3.7.7.1
+- functions 2 F.2 to F.13.3
+- interrupts 2 F.1.2
+- return codes 2 F.1.4
+- Advanced Program-to-Program Communication/VM (APPC/VM) 1 3.7
+- basics 2 3.7.2
+- condition codes and return codes 2 3.7.6
+- differences from IUCV 2 4.9
+- error/sever codes 2 3.7.6.2
+- functions, assembler 2
+- CONNECT 3 3.8.1
+- defaults for optional parameters 3 3.7.5.1
+- invoking 3 3.7.3
+- QRYSTATE 3 3.8.2
+- RECEIVE 3 3.8.3
+- SENDCNF 3 3.8.4
+- SENDCNFD 3 3.8.5
+- SENDDATA 3 3.8.6
+- SENDERR 3 3.8.7
+- SENDREQ 3 3.8.8
+- SETMODFY 3 3.8.9
+- SEVER 3 3.8.10
+- state table 3 3.7.8
+- using 3 3.7.4
+- interrupts 2 3.7.2.3
+- IUCV functions for APPC/VM paths 2
+- ACCEPT 3 5.10.4
+- CONNECT 3 5.10.5
+- DCLBFR 3 5.10.6
+- DESCRIBE 3 5.10.7
+- QUERY 3 5.10.8
+- RTRVBFR 3 5.10.9
+- SETCMASK 3 5.10.10
+- SETMASK 3 5.10.11
+- SEVER 3 5.10.12
+- TESTCMPL 3 5.10.13
+- TESTMSG 3 5.10.14
+- managing a resource 2 3.7.4.4
+- overview 2 3.7
+- parameter lists 2 3.7.5
+- formatting with MF=L 3 3.7.5.4
+- reading 3 3.7.5.3
+- paths 2 3.7.2.1
+- performance 2 5.10.6.3
+- starting a conversation 2 3.7.4.1
+- state table for error conditions 2 3.7.8.2
+- state table for functions 2 3.7.8
+- states 2 3.7.2.2
+- allocate data 1 3.7.4.1 3.8.1.10.2
+- examples 2 3.8.1.11
+- receiving 2 3.8.3
+- ALLOCATE, APPC verb 1
+- abend conditions 2 F.3.3
+- mapped with APPC/VM 2 F.3
+- parameters 2 F.3.1
+- state changes 2 F.3.2
+- ALLOCD parameter of APPCVM CONNECT 1 3.8.1.3
+- answer data, APPCVM SENDDATA 1 3.8.6
+- APPC data 1 3.8.6.5
+- APPC (Advanced Program-to-Program Communication) 1
+- conversations in 2 F.1
+- definition 2 3.7
+- error conditions 2 3.7.7.1
+- functions 2 F.2 to F.13.3
+- interrupts 2 F.1.2
+- return codes 2 F.1.4
+- APPCPASS directory statement 1 3.8.1.6
+- APPCVM macro functions 1
+- CONNECT 2 3.8.1
+- defaults for optional parameters 2 3.7.5.1
+- invoking 2 3.7.3
+- QRYSTATE 2 3.8.2
+- RECEIVE 2 3.8.3
+- SENDCNF 2 3.8.4
+- SENDCNFD 2 3.8.5
+- SENDDATA 2 3.8.6
+- SENDERR 2 3.8.7
+- SENDREQ 2 3.8.8
+- SETMODFY 2 3.8.9
+- SEVER 2 3.8.10
+- state table 2 3.7.8
+- using 2 3.7.4
+- APPC/VM (Advanced Program-to-Program Communication/VM) 1 3.7
+- basics 2 3.7.2
+- condition codes and return codes 2 3.7.6
+- differences from IUCV 2 4.9
+- error/sever codes 2 3.7.6.2
+- functions, assembler 2
+- CONNECT 3 3.8.1
+- defaults for optional parameters 3 3.7.5.1
+- invoking 3 3.7.3
+- QRYSTATE 3 3.8.2
+- RECEIVE 3 3.8.3
+- SENDCNF 3 3.8.4
+- SENDCNFD 3 3.8.5
+- SENDDATA 3 3.8.6
+- SENDERR 3 3.8.7
+- SENDREQ 3 3.8.8
+- SETMODFY 3 3.8.9
+- SEVER 3 3.8.10
+- state table 3 3.7.8
+- using 3 3.7.4
+- interrupts 2 3.7.2.3
+- IUCV functions for APPC/VM paths 2
+- ACCEPT 3 5.10.4
+- CONNECT 3 5.10.5
+- DCLBFR 3 5.10.6
+- DESCRIBE 3 5.10.7
+- QUERY 3 5.10.8
+- RTRVBFR 3 5.10.9
+- SETCMASK 3 5.10.10
+- SETMASK 3 5.10.11
+- SEVER 3 5.10.12
+- TESTCMPL 3 5.10.13
+- TESTMSG 3 5.10.14
+- managing a resource 2 3.7.4.4
+- overview 2 3.7
+- parameter lists 2 3.7.5
+- formatting with MF=L 3 3.7.5.4
+- reading 3 3.7.5.3
+- paths 2 3.7.2.1
+- performance 2 5.10.6.3
+- starting a conversation 2 3.7.4.1
+- state table for error conditions 2 3.7.8.2
+- state table for functions 2 3.7.8
+- states 2 3.7.2.2
+- area for VM allocate data 1 3.8.1.10.2 3.8.1.11
+- asynchronous communications 1
+- not based on APPC 2 F.1.2
+- attributes, Audit and Protect 1
+- as a product-sensitive interface 2 7.12.1
+- description 2 7.12.1
+- Audit attributes 1
+- as a product-sensitive interface 2 7.12.1
+- description 2 7.12.1
+- Protect attributes 2
+- audit trail, IUCV 1
+- summary of 2 2.6.4
+- auditing 1
+- APPC commands 2 7.12.1.5.6
+- command auditing 2 7.12.1.5.6
+- IUCV commands 2 7.12.1.5.6
+- spool files 2 7.12.1.5.4
+- VMCF commands 2 7.12.1.5.7
+- authorization 1
+- connect to *IDENT 2 3.7.4.4
+- revoking a resource 2 3.7.4.5
+
+## B
+
+- backout_received state 1 3.7.8
+- backout_required state 1 3.7.8
+- backout_required 2
+- state table for APPC/VM error conditions 3 3.7.8.2
+- BASIC conversation type 1 3.8.1.3
+- bibliography 1 BIBLIOGRAPHY
+- BLOCKIO facility 1 6.11.4
+- buffer extension, interrupt 1 5.10.6.6
+- buffers 1
+- application 2 5.10.6.3
+- control 2 5.10.6.3
+- use by APPC 2 3.8.6.5
+
+## C
+
+- CCED 1 3.8.1.9.5
+- changes, state 1
+- ALLOCATE (APPC) 2 F.3.2
+- APPCVM CONNECT 2 3.8.1.9.3
+- APPCVM QRYSTATE 2 3.8.2.8
+- APPCVM RECEIVE 2 3.8.3.8
+- APPCVM SEVER 2 3.8.10.7
+- CONFIRM (APPC) 2 F.4.2
+- CONFIRMED (APPC) 2 F.5.2
+- DCLBFR 2 5.10.6.9
+- DEALLOCATE (APPC) 2 F.6.2
+- IUCV ACCEPT 2 5.10.4.8
+- RECEIVE_AND_WAIT (APPC) 2 F.10.2
+- REQUEST_TO_SEND (APPC) 2 F.11.2
+- RETRIEVE BUFFER 2 5.10.9.4
+- SENDCNF 2 3.8.4.7
+- SENDCNFD 2 3.8.5.7
+- SENDDATA 2 3.8.6.9
+- SENDERR 2 3.8.7.7
+- SENDREQ 2 3.8.8.7
+- SEND_DATA (APPC) 2 F.12.2
+- SEND_ERROR (APPC) 2 F.13.2
+- SETMODFY 2 3.8.9.7
+- changing data flow direction 1 3.8.6.2
+- CLOSE function of *SPL system service 1 6.11.14.2
+- CLR function (HNDIUCV macro) 1
+- CMS communications directory 1
+- CMS communications directory, use in APPCVM CONNECT 1 3.7.4.1 3.8.1.3 3.8.1.5 3.8.1.6 3.8.1.10.2
+- CMS directory file 1
+- CMS interface to APPC/VM 1 6.11.6.1
+- CMSIUCV macro 1
+- codes, condition 1
+- See condition codes 2
+- codes, return 1
+- See return codes 2
+- collection of VM/ESA systems (TSAF Collection) 1
+- revoking gateways when merging 2 3.7.4.5
+- revoking resources when merging 2 3.7.4.5
+- commmunications routines (CPI) 1
+- communication 1
+- between virtual machines 2
+- IUCV 2
+- identify system service 3 6.11.6
+- communications partner 1
+- connecting to 2 3.8.1.10.1
+- receiving from 2 3.8.3.10
+- sending to (SENDCNFD) 2 3.8.5.9
+- sending to (SENDCNF) 2 3.8.4.9
+- sending to (SENDDATA) 2 3.8.6.11
+- sending to (SENDERR) 2 3.8.7.9
+- sending to (SENDREQ) 2 3.8.8.9
+- severing from 2 3.8.10.9
+- severing paths 2 5.10.9.6
+- communications servers 1
+- accepting connections 2 5.10.4.4
+- making connections 2 3.8.1.11
+- parameters on IUCV ACCEPT 2 5.10.4.4
+- communication, signals between virtual machine groups 1 6.11.13
+- completion codes 1 1.1.6
+- completion of functions 1
+- ACCEPT 2 5.10.4.9
+- APPCVM CONNECT 2 3.8.1.9.4
+- DCLBFR 2 5.10.6.10
+- DESCRIBE 2 5.10.7.7
+- RECEIVE 2 3.8.3.9
+- RETRIEVE BUFFER 2 5.10.9.5
+- SENDCNF 2 3.8.4.8
+- SENDCNFD 2 3.8.5.8
+- SENDDATA 2 3.8.6.10
+- SENDERR 2 3.8.7.8
+- SENDREQ 2 3.8.8.8
+- SETCMASK 2 5.10.10.8
+- SETMASK 2 5.10.11.8
+- SETMODFY 2 3.8.9.8
+- SEVER (APPCVM) 2 3.8.10.8
+- TESTCMPL 2 5.10.13.8
+- TESTMSG 2 5.10.14.5
+- COMSRV parameter of IUCV ACCEPT 1 5.10.4.4
+- condition codes 1 1.1.6
+- APPCVM 2
+- CONNECT 3 3.8.1.9.1
+- overview 3 3.7.6 3.7.6.1
+- QRYSTATE 3 3.8.2.6
+- RECEIVE 3 3.8.3.6
+- SENDCNF 3 3.8.4.5
+- SENDCNFD 3 3.8.5.5
+- SENDDATA 3 3.8.6.7
+- SENDERR 3 3.8.7.5
+- SENDREQ 3 3.8.8.5
+- SETMODFY 3 3.8.9.5
+- SEVER 3 3.8.10.5
+- DIAGNOSE codes 2
+- IUCV 2
+- ACCEPT 3 5.10.4.6
+- CONNECT 3 5.10.5.5
+- DECLARE BUFFER 3 5.10.6.7
+- DESCRIBE 3 5.10.7.4
+- QUERY 3 5.10.8.4
+- RETRIEVE BUFFER 3 5.10.9.2
+- SET CONTROL MASK 3 5.10.10.5
+- SET MASK 3 5.10.11.5
+- SEVER 3 5.10.12.5
+- TEST COMPLETION 3 5.10.13.5
+- TESTMSG 3 5.10.14.2
+- condition codes, IUCV 1 2.6.2
+- Confirm state 1 3.7.2.2 3.7.8
+- CONFIRM synchronization level 1 3.8.1.3
+- CONFIRMED, APPC verb 1
+- abend conditions 2 F.5.3
+- mapped with APPC/VM 2 F.5
+- parameters 2 F.5.1
+- state changes 2 F.5.2
+- CONFIRM, APPC verb 1
+- abend conditions 2 F.4.3
+- mapped with APPC/VM 2 F.4
+- parameters 2 F.4.1
+- state changes 2 F.4.2
+- CONNECT function of APPCVM 1 3.8.1
+- allocate data 2 3.8.1.10.2
+- communication servers 2 3.8.1.11
+- completion 2 3.8.1.9.4
+- condition codes 2 3.8.1.9.1
+- connection complete extended data 2 3.8.1.9.5
+- connection pending extended data 2 3.8.1.10.2
+- connection pending interrupt 2 3.8.1.10.1
+- description 2 3.8.1
+- FMH5 2 3.8.1.10.2
+- format 2 3.8.1.1
+- mapped with APPC 2 F.3
+- parameter descriptions 2 3.8.1.2
+- parameter list extension 2 3.8.1.6
+- parameter list format 2 3.8.1.5
+- pip variables 2 3.8.1.7 3.8.1.11.1
+- program exceptions 2 3.8.1.9.2
+- return codes 2 3.8.1.9.1
+- state changes 2 3.8.1.9.3
+- to communication partner 2 3.8.1.10.1
+- to start a conversation CONNECT with a resource ID. 2 3.7.4.1
+- VM architected area 2 3.8.1.10.2 3.8.1.11
+- CONNECT function of IUCV 1 5.10.5
+- used in APPC/VM 2 5.10.5
+- condition codes 3 5.10.5.5
+- format 3 5.10.5.1
+- parameter descriptions 3 5.10.5.2
+- parameter list format 3 5.10.5.4
+- program exceptions 3 5.10.5.6
+- return codes 3 5.10.5.5
+- to revoke a resource 3 3.7.4.5
+- using 3 5.10.5
+- *IDENT sever reason codes 2 6.11.7
+- Connect state 1 3.7.2.2 3.7.8
+- CONNECT (IUCV function) 1 2.4.2 to 2.4.2.7
+- connecting to programs 1
+- resource manager 2 3.7.4.4
+- connecting to *IDENT 1
+- to manage a resource 2 3.7.4.4
+- to revoke a resource 2 3.7.4.5
+- connection complete interrupts 1 3.7.2.3
+- extended data 2 3.8.1.9.5
+- format 2 3.8.1.9.1 3.8.1.9.4
+- connection parameter list extension 1 3.8.1.6
+- connection pending interrupts 1 3.7.2.3 3.8.1.10.1
+- extended data 2 3.8.1.10.2
+- format 2 3.8.1.10.1
+- control buffer 1 5.10.6.3
+- control path 1 5.10.6.3
+- Control Program (CP) 1
+- system service 2
+- See CP system services 3
+- conversations 1
+- APPC 2 F.1
+- starting an APPC one 2 F.1.1
+- states 2 3.7.2.2
+- CP system services 1
+- identify (*IDENT) 2 6.11.5
+- CPED 1 3.8.1.10.2
+
+## D
+
+- DASD block I/O system service 1 6.11.4
+- DASD BLOCKIO facility 1 6.11.4
+- DATA parameter (APPC) 1
+- of RECEIVE_AND_WAIT 2 F.10.1
+- of SEND_DATA 2 F.12.1
+- data, how it is sent 1
+- details 2 3.8.6.5
+- overview 2 3.7.4.2
+- DCLBFR function 1
+- See DECLARE BUFFER function of IUCV 2
+- DCLBFR (Declare Buffer) (IUCV function) 1 2.4.3 to 2.4.3.7
+- DEALLOCATE, APPC verb 1
+- abend conditions 2 F.6.3
+- mapped with APPC/VM 2 F.6
+- parameters 2 F.6.1
+- state changes 2 F.6.2
+- DECLARE BUFFER function of IUCV 1 5.10.6
+- used with APPC/VM 2 5.10.6
+- condition codes 3 5.10.6.7
+- format 3 5.10.6.1
+- interrupt buffer extension 3 5.10.6.6
+- parameter descriptions 3 5.10.6.2
+- parameter list format 3 5.10.6.5
+- program exceptions 3 5.10.6.8
+- return codes 3 5.10.6.7
+- state changes 3 5.10.6.9
+- using 3 5.10.6
+- declaring buffers for interrupts 1 3.7.2.3
+- defaults for optional parameters on APPC/VM functions 1 3.7.5.1
+- defer_receive state 1 3.7.8
+- defer_sever state 1 3.7.8
+- DESCRIBE function of IUCV 1 5.10.7
+- used in APPC/VM 2 5.10.7
+- completion 3 5.10.7.7
+- condition codes 3 5.10.7.4
+- format 3 5.10.7.1
+- parameter descriptions 3 5.10.7.2
+- program exceptions 3 5.10.7.5
+- state changes 3 5.10.7.6
+- using 3 5.10.7
+- DESCRIBE (IUCV function) 1 2.4.4 to 2.4.4.7
+- DIAGNOSE code 1
+- X'BC', open and query spool file characteristics 2 1.1.42
+- X'84', directory update in-place 2 1.1.31
+- X'00' 2 1.1.7
+- X'04' 2 1.1.8
+- X'08' 2 1.1.9
+- X'0C' 2 1.1.10
+- X'10' 2 1.1.11
+- X'14' 2 1.1.12
+- X'18' 2 1.1.13
+- X'20' 2 1.1.14
+- X'24' 2 1.1.15
+- X'28' 2 1.1.16
+- X'34' 2 1.1.17
+- X'3C' 2 1.1.18
+- X'44' 2 1.1.19
+- X'48' 2 1.1.20
+- X'4C' 2 1.1.21
+- X'54' 2 1.1.22
+- X'58' 2 1.1.23
+- X'5C' 2 1.1.24
+- X'60' 2 1.1.25
+- X'64' 2 1.1.26
+- X'68' 2 1.1.27
+- X'70' 2 1.1.28
+- X'74' 2 1.1.29
+- X'7C' 2 1.1.30
+- X'84' 2 1.1.31
+- X'8C' 2 1.1.32
+- X'90' 2 1.1.33
+- X'94' 2 1.1.34
+- X'98' 2 1.1.35
+- X'A0' 2 1.1.36
+- X'A4' 2 1.1.37
+- X'A8' 2 1.1.38
+- X'B0' 2 1.1.39
+- X'B4' 2 1.1.40
+- X'B8' 2 1.1.41
+- X'BC' 2 1.1.42
+- X'C8' 2 1.1.43
+- X'CC' 2 1.1.44
+- X'D0' 2 1.1.45
+- X'D4' 2 1.1.46
+- X'D8' 2 1.1.47
+- X'DC' 2 1.1.48
+- X'E4' 2 1.1.49
+- X'EC' 2 1.1.50
+- X'F8' 2 1.1.51
+- X'210' 2 1.1.52
+- X'260' 2 1.1.53
+- DIAGNOSE code X'68' 1 7.12.1.5.7
+- DIAGNOSE Code X'68' Return Codes 1
+- DIAGNOSE instruction 1
+- See also DIAGNOSE code 2
+- directory update in-place 2 1.1.31
+- open and query spool file characteristics 2 1.1.42
+- VMCF function 2
+- return codes 3 1.1.27
+- DIAGNOSE X'A0' 1 7.12.1.5.3
+- DIAGNOSE X'64' 1 7.12.1.5.3
+- DIAGNOSE X'68' 1 7.12.1.5.3
+- DIAGNOSE X'7C' 1 7.12.1.5.3
+- DIAGNOSEs, security-relevant 1 7.12.1.5.3
+- directory 1
+- update in-place 2 1.1.31
+- directory operations 1
+- ACCOUNT 2 1.1.31
+- CPU 2 1.1.31
+- DISTRIB 2 1.1.31
+- EDITCHAR 2 1.1.31
+- IACCOUNT 2 1.1.31
+- IPL 2 1.1.31
+- LOGPASS 2 1.1.31
+- MACHINE 2 1.1.31
+- MAXSTOR 2 1.1.31
+- MDISK 2 1.1.31
+- OPTIONS 2 1.1.31
+- PRIORITY 2 1.1.31
+- PRIVLEGE 2 1.1.31
+- RMDISK 2 1.1.31
+- SCREEN 2 1.1.31
+
+SHARE 2 1.1.31
+
+- SPOOLF 2 1.1.31
+- STORAGE 2 1.1.31
+- TACCOUNT 2 1.1.31
+- XAUTOLOG 2 1.1.31
+- XSTORE 2 1.1.31
+- directory, CMS communications 1
+- DISABLE function of *SPL system service 1 6.11.14.2.1
+
+## E
+
+- ENABLE function of *SPL system service 1 6.11.14.2.1
+- error codes 1
+- See condition codes 2
+- See return codes 2
+- error codes, APPC/VM 1 3.7.6.2
+- Error messages 1
+- produced by IUCV macro 2 2.6.4
+- establishing communication 1
+- identify system service 2 6.11.6
+- exceptions 1 1.1.6
+- extended data, connection complete 1 3.8.1.9.5
+- extended data, connection pending 1 3.8.1.10.2
+- Extended Spool File Block 1 E.10
+- extension for connection parameter list 1 3.8.1.6
+- extension, interrupt buffer 1 5.10.6.6
+- External Attribute Buffer 1 D.0 to D.1
+- format 2
+- External Attribute Buffer (XAB) 1
+- format 2 D.0
+- external interrupt 1
+- APPC/VM 2 3.7.2.3
+- buffer 3 3.7.2.3
+- connection complete 3 3.7.2.3 3.8.1.9.1
+- connection pending 3 3.7.2.3
+- creating buffers for 3 3.7.2.3
+- function complete 3 3.7.2.3
+- message pending 3 3.7.2.3 3.8.6.12
+- request-to-send 3 3.7.2.3
+- SENDREQ 3 3.7.2.3
+- sever 3 3.7.2.3 3.8.10.12
+- IUCV 2
+- sever 3 3.8.10.12
+- external interrupts, IUCV 1
+- format of 2 2.5 2.5.5
+- handling 2 2.3.12
+- external interrupt, IUCV 1
+- summary of interrupt types 2 2.6.3
+
+## F
+
+- fcode field of IUCV CONNECT 1 5.10.5.3 6.11.6
+- FILL parameter (APPC) 1
+- of RECEIVE_AND_WAIT 2 F.10.1
+- FLAG field 1
+- of CONNECT request (*IDENT) 2 5.10.5.3 6.11.6
+- FMH5 (Functional Management Header 5) 1
+- description 2 3.8.1.10.2
+- formatting IUCV and APPC/VM parameter lists with MF=L 1 3.7.5.4
+- full-duplex communications 1 4.9
+- function complete interrupts 1 3.7.2.3
+- APPCVM RECEIVE 2 3.8.3.6
+- APPCVM SENDCNF 2 3.8.4.5
+- APPCVM SENDCNFD 2 3.8.5.5 3.8.5.9
+- APPCVM SENDDATA 2 3.8.6.7
+- APPCVM SENDERR 2 3.8.7.5
+- APPCVM SEVER 2 3.8.10.5
+- function completion 1
+- APPCVM CONNECT 2 3.8.1.9.4
+- IUCV DCLBFR 2
+- IUCV DESCRIBE 2
+- IUCV RTRVBFR 2
+- IUCV SETMASK 2
+- IUCV SEVER 2
+- SENDERR 2 3.8.7.8
+- SENDREQ 2 3.8.8.8
+- SETCMASK 2 5.10.10.8
+- TESTCMPL 2 5.10.13.8
+- TESTMSG 2 5.10.14.5
+
+## G
+
+- gateways 1
+- managing, using *IDENT 2 6.11.5 to 6.11.7
+- GCS (Group Control System) 1
+- GDS (General Data Stream) Log Data variable format 1 3.8.7.10 3.8.10.10
+- General data stream (GDS) Log Data variable format 1 3.8.7.10 3.8.10.10
+- general format, ACIPARMS 1 7.12.1.3
+- GET_ATTRIBUTES, APPC verb 1
+- mapped with APPC/VM 2 F.8
+- global resources 1
+- managing 2 3.7.4.4
+- revoking your own 2 3.7.4.5
+- virtual machines connecting to 2 3.7.4.4
+- Group Control System 1
+- See GCS (Group Control System) 2
+- group, virtual machine 1 6.11.13
+
+## H
+
+- HCPRPD 1 7.12.1.6
+- HCPRPI 1 7.12.1.4
+- HCPRPW 1 7.12.1.5
+
+## I
+
+- *IDENT 1 3.7.4.4 6.11.5
+- Identify system service (*IDENT) 1 6.11.5 to 6.11.7
+- connecting to 2 3.7.4.4 5.10.5
+- establishing a connection 2 6.11.6
+- overview 2 3.7.4.4
+- processing requests to manage a resource 2 6.11.6.1
+- sever reason codes 2 6.11.7
+- severing connection to 2 3.7.4.5
+- IMMED value on APPCVM CONNECT 1 3.8.1.3
+- informing the virtual machine when sample or event data are available 1
+- by *MONITOR using IUCV SEND 2 6.11.9.3
+- input parameter lists 1
+- APPCVM 2
+- CONNECT 3 3.8.1.5
+- QRYSTATE 3 3.8.2.5
+- RECEIVE 3 3.8.3.4
+- SENDCNF 3 3.8.4.4
+- SENDCNFD 3 3.8.5.4
+- SENDDATA 3 3.8.6.4
+- SENDERR 3 3.8.7.4
+- SENDREQ 3 3.8.8.4
+- SETMODFY 3 3.8.9.4
+- SEVER 3 3.8.10.4
+- IUCV 2
+- ACCEPT 3 5.10.4.5
+- CONNECT 3 5.10.5.4
+- DECLARE BUFFER 3 5.10.6.5
+- QUERY 3 5.10.8.3
+- SET CONTROL MASK 3 5.10.10.4
+- SET MASK 3 5.10.11.4
+- SEVER 3 5.10.12.4
+- TEST COMPLETION 3 5.10.13.4
+- inter-user communication vehicle (IUCV) 1
+- See IUCV (inter-user communication vehicle) 2
+- Inter-User Communications Vehicle 1
+- See IUCV (Inter-User Communications Vehicle) 2
+- interface, product-sensitive 1 7.12.1
+- intermediate communications servers 1
+- accepting connections 2 5.10.4.4
+- making connections 2 3.8.1.11
+- parameters on IUCV ACCEPT 2 5.10.4.4
+- interrupt buffer extension 1 5.10.6.6
+- interrupts 1
+- APPC 2 F.1.2
+- APPC/VM 2 3.7.2.3
+- connection complete 2 3.7.2.3 3.8.1.9.1 3.8.1.9.4
+- connection pending 2 3.7.2.3 3.8.1.10.1
+- disabling for 2 5.10.10 5.10.11
+- enabling for 2 5.10.10 5.10.11
+- function complete 2 3.7.2.3 3.8.3.6 3.8.4.5 3.8.6.7 3.8.7.5
+- message pending 2 3.7.2.3 3.8.6.12
+- SENDREQ 2 3.7.2.3 3.8.8.9
+- sever 2 3.7.2.3 3.8.10.12
+- interrupt, external 1
+- See also external interrupt 2
+- APPC/VM 2 3.7.2.3
+- creating buffers for 2 3.7.2.3
+- IUCV 2
+- IPARML COPY file 1 3.7.5
+- IPARMLX COPY file 1 3.8.1.6
+- IPAUDIT definition 1 3.7.6.2
+- IPAUDIT field, description 1 3.7.6
+- IPCODE definition 1 3.7.6.2
+- IPCODE field, description 1 3.7.6
+- IPRCODE definition 1 3.7.6.2
+- IPRCODE field, description 1 3.7.6
+- IPWHATRC definition 1 3.7.6.2
+- IPWHATRC field, description 1 3.7.6
+- IUCV 1
+- command auditing 2 7.12.1.5.6
+- IUCV macro functions 1
+- ACCEPT 2
+- parameter list format 3 5.10.4.5
+- using 3 5.10.4
+- CONNECT 2 3.7.4.4 5.10.5
+- parameter list format 3 5.10.5.4
+- using 3 5.10.5
+- DECLARE BUFFER 2 5.10.6
+- parameter list format 3 5.10.6.5
+- using 3 5.10.6
+- defaults for optional parameters 2 3.7.5.1
+- DESCRIBE 2 5.10.7
+- PURGE 2
+- QUERY 2 5.10.8
+- QUIESCE 2
+- RECEIVE 2
+- REJECT 2
+- related to APPC/VM 2 3.7.3
+- REPLY 2
+- RESUME 2
+- RETRIEVE BUFFER 2 5.10.9
+- SEND 2
+- SET CONTROL MASK 2 5.10.10
+- SET MASK 2
+- SETMASK 2 5.10.11
+- SEVER 2 5.10.12
+- TEST COMPLETION 2
+- TEST MESSAGE 2 5.10.14
+- TESTCMPL 2 5.10.13
+- IUCV SEND 1
+- to the *SPL system service 2 6.11.14.2
+- IUCV (inter-user 1
+- functions 2
+- SEVER 3 2.4.16
+- IUCV (inter-user communication vehicle) 1
+- audit trail, summary 2 2.6.4
+- condition code summary 2 2.6.2
+- CP system services 2 6.11.1
+- error messages 2 2.6.4
+- external interrupt formats 2 2.5 2.5.5
+- external interrupt handling 2 2.3.3.3
+- external interrupt type, summary 2 2.6.3
+- function to parameter cross-reference 2 2.6.1
+- functional overview 2 2.3.3.4
+- functions 2
+- ACCEPT 3 2.4.1 to 2.4.1.7
+- CONNECT 3 2.4.2 to 2.4.2.7
+- DCLBFR (Declare Buffer) 3 2.4.3 to 2.4.3.7
+- DESCRIBE 3 2.4.4 to 2.4.4.7
+- PURGE 3 2.4.5 to 2.4.5.8
+- QUERY 3 2.4.6 to 2.4.6.3
+- QUIESCE 3 2.4.7 to 2.4.7.7
+- RECEIVE 3 2.4.8 to 2.4.8.8
+- REJECT 3 2.4.9 to 2.4.9.8
+- REPLY 3 2.4.10 to 2.4.10.9
+- RESUME 3 2.4.11 to 2.4.11.7
+- RTRVBFR 3 2.4.12 to 2.4.12.1
+- SEND 3 2.4.13 to 2.4.13.11
+- SETCMASK 3 2.4.14 to 2.4.14.6
+- SETMASK 3 2.4.15 to 2.4.15.6
+- SEVER 3 2.4.16.7
+- TESTCMPL 3 2.4.17 to 2.4.17.8
+- TESTMSG 3 2.4.18 to 2.4.18.3
+- how IUCV information is organized 2 2.3.2
+- invoking 2 2.3.3.4
+- message queues 2 2.3.3.2
+- path 2
+- definition of term 3 2.3.3.1
+- planning considerations 2 2.3.4
+- return code summary 2 2.6.2
+- supplying input to 2 2.3.3.5
+- system services 2 6.11.1
+- terminology 2 2.3.3.1
+- writing a program for 2
+- enabling IUCV 3 2.3.6
+- ending IUCV communications 3 2.3.10
+- establishing paths 3 2.3.7
+- handling external interrupts 3 2.3.12
+- passing data 3 2.3.8 2.3.8.4
+- reactivating paths 3 2.3.9.1
+- setting up a parameter list 3 2.3.5
+- severing paths 3 2.3.9.2
+- temporarily deactivating paths 3 2.3.9.1
+- IUCV (Inter-User Communications Vehicle) 1
+- communication 2
+- identify system service 3 6.11.6
+- differences from APPC/VM 2 4.9
+- external interrupt 2
+- functions 2
+- See IUCV macro functions 3
+- macro description 2
+- messages 2
+- paths 2
+- system services 2
+- identify 3 6.11.6
+
+## L
+
+- leaving the *SIGNAL system service 1 6.11.13.5
+- LENGTH parameter (APPC) 1
+- of RECEIVE_AND_WAIT 2 F.10.1
+- of SEND_DATA 2 F.12.1
+- list format for macros 1
+- formatting parameter lists 2 3.7.5.4
+- lists, address 1 3.8.3.5 3.8.6.6 3.8.7.10 3.8.10.10
+- local resources 1
+- managing 2 3.7.4.4
+- revoking your own 2 3.7.4.5
+- virtual machines connecting to 2 3.7.4.4
+- log data 1
+- specifying 2 3.8.10.10
+- Log Data GDS variable format 1 3.8.7.10 3.8.10.10
+- logical records 1
+- definition 2 3.8.6.6
+- description 2 3.8.6.5
+- figure 2 3.8.6.5
+- length 2 3.8.6.6
+- LOG_DATA parameter (APPC) 1
+- of DEALLOCATE 2 F.6.1
+- of SEND_ERROR 2 F.13.1
+- LU_NAME parameter (APPC) 1
+- of ALLOCATE 2 F.3.1
+
+## M
+
+- macros 1
+- APPCVM 2 3.7.3
+- CONNECT 3 3.8.1
+- QRYSTATE 3 3.8.2
+- RECEIVE 3 3.8.3
+- SENDCNF 3 3.8.4
+- SENDCNFD 3 3.8.5
+- SENDDATA 3 3.8.6
+- SENDERR 3 3.8.7
+- SENDREQ 3 3.8.8
+- SEVER 3 3.8.10
+- IUCV 2
+- ACCEPT 3 5.10.4
+- CONNECT 3 5.10.5
+- DECLARE BUFFER 3 5.10.6
+- DESCRIBE 3 5.10.7
+- QUERY 3 5.10.8
+- related to APPC/VM 3 3.7.3
+- RETRIEVE BUFFER 3 5.10.9
+- SET CONTROL MASK 3 5.10.10
+- SET MASK 3 5.10.11
+- SEVER 3 5.10.12
+- TEST COMPLETION 3 5.10.13
+- TEST MESSAGE 3 5.10.14
+- managing a resource 1 3.7.4.4
+- MAPPED conversation type 1 3.8.1.3
+- mapping between APPC/VM and APPC 1
+- parameters and conditions 2 F.2 to F.13.3
+- merging collections 1
+- revoking gateways in 2 3.7.4.5
+- revoking resources in 2 3.7.4.5
+- MESSAGE function of *SPL system service 1 6.11.14.2.1
+- message pending interrupts 1 3.7.2.3 3.8.4.9 3.8.6.12
+- format 2 3.8.6.12
+- message queues (IUCV) 1 2.3.3.2
+- messages 1
+- IUCV 2
+- messages, sending 1 3.8.6.5
+- message, IUCV 1
+- definition of term 2 2.3.3.1
+- source virtual machine 2
+- definition of term 3 2.3.3.1
+- MF=L parameter 1
+- formatting parameter lists 2 3.7.5.4
+- mode name 1 3.8.1.6
+- MODE_NAME parameter (APPC) 1
+- of ALLOCATE 2 F.3.1
+- Monitor control area 1
+- horizontal and vertical views 2 6.11.9.3
+- monitor record 1
+- domains 2 B.0
+- how to print 2 B.0
+- where to find 2 B.0
+- MONWRITE utility 1
+- writer function 2
+- output from 3 C.0
+
+## N
+
+- NAMES files 1
+- non-CMS environment 1 4.9.4.2 5.10.2
+- NONE synchronization level 1 3.8.1.3
+- NOTIFY function of *SPL system service 1 6.11.14.3
+
+## O
+
+- obtaining monitor records 1
+- process by the virtual machine 2 6.11.9.3
+- open and query spool file characteristics with DIAGNOSE code X'BC' 1 1.1.42
+- operation exceptions 1
+- APPCVM CONNECT 2 3.8.1.9.2
+- APPCVM QRYSTATE 2 3.8.2.7
+- APPCVM RECEIVE 2 3.8.3.7
+- APPCVM SENDCNF 2 3.8.4.6
+- APPCVM SENDCNFD 2 3.8.5.6
+- APPCVM SENDDATA 2 3.8.6.8
+- APPCVM SENDERR 2 3.8.7.6
+- APPCVM SENDREQ 2 3.8.8.6
+- APPCVM SETMODFY 2 3.8.9.6
+- APPCVM SEVER 2 3.8.10.6
+- IUCV ACCEPT 2 5.10.4.7
+- IUCV CONNECT 2 5.10.5.6
+- IUCV DECLARE BUFFER 2 5.10.6.8
+- IUCV DESCRIBE 2 5.10.7.5
+- IUCV QUERY 2 5.10.8.5
+- IUCV RETRIEVE BUFFER 2 5.10.9.3
+- IUCV SET CONTROL MASK 2 5.10.10.6
+- IUCV SET MASK 2 5.10.11.6
+- IUCV SEVER 2 5.10.12.6
+- IUCV TEST COMPLETION 2 5.10.13.6
+- IUCV TEST MESSAGE 2 5.10.14.3
+- output 1
+- from MONWRITE 2 C.0
+- output parameter lists 1
+- APPCVM 2
+- CONNECT 3 3.8.1.9.1
+- QRYSTATE 3 3.8.2.6
+- RECEIVE 3 3.8.3.6
+- SENDCNF 3 3.8.4.5
+- SENDCNFD 3 3.8.5.5
+- SENDDATA 3 3.8.6.7
+- SENDERR 3 3.8.7.5
+- IUCV 2
+- ACCEPT 3 5.10.4.6
+- CONNECT 3 5.10.5.5
+- DECLARE BUFFER 3 5.10.6.7
+- DESCRIBE 3 5.10.7.4
+- QUERY 3 5.10.8.6
+- SEVER 3 5.10.12.5
+- TEST COMPLETION 3 5.10.13.5
+- SENDREQ 2 3.8.8.5
+- SEVER (APPCVM) 2 3.8.10.5
+- overview of APPC/VM assembler interface 1 3.7
+
+## P
+
+- parameter addressability 1 3.7.5
+- parameter list 1
+- APPCVM 2 3.7.5
+- CONNECT 3 3.8.1.5
+- formatting with MF=L 3 3.7.5.4
+- QRYSTATE 3 3.8.2.5
+- reading 3 3.7.5.3
+- RECEIVE 3 3.8.3.4
+- SENDCNF 3 3.8.4.4
+- SENDCNFD 3 3.8.5.4
+- SENDDATA 3 3.8.6.4
+- SENDERR 3 3.8.7.4
+- SENDREQ 3 3.8.8.4
+- SETMODFY 3 3.8.9.4
+- SEVER 3 3.8.10.4
+- DIAGNOSE code 2
+- IUCV 2
+- ACCEPT 3 5.10.4.5
+- CONNECT 3 5.10.5.4
+- DECLARE BUFFER 3 5.10.6.5
+- formatting with MF=L 3 3.7.5.4
+- QUERY 3 5.10.8.3
+- reading 3 3.7.5.3
+- SET CONTROL MASK 3 5.10.10.4
+- SET MASK 3 5.10.11.4
+- SEVER 3 5.10.12.4
+- TEST COMPLETION 3 5.10.13.4
+- parameters for communication servers on IUCV ACCEPT 1 5.10.4.4
+- parameters, APPC 1
+- on ALLOCATE 2 F.3.1
+- on CONFIRM 2 F.4.1
+- on CONFIRMED 2 F.5.1
+- on DEALLOCATE 2 F.6.1
+- on RECEIVE_AND_WAIT 2 F.10.1
+- on REQUEST_TO_SEND 2 F.11.1
+- on SEND_DATA 2 F.12.1
+- on SEND_ERROR 2 F.13.1
+- partner, communications 1
+- connecting to 2 3.8.1.10.1
+- receiving from 2 3.8.3.10
+- sending to (SENDCNFD) 2 3.8.5.9
+- sending to (SENDCNF) 2 3.8.4.9
+- sending to (SENDDATA) 2 3.8.6.11
+- sending to (SENDERR) 2 3.8.7.9
+- sending to (SENDREQ) 2 3.8.8.9
+- severing from 2 3.8.10.9
+- severing paths 2 5.10.9.6
+- passwords 1
+- replacing directory entry 2 1.1.31
+- paths, APPC/VM 1 3.7.2.1
+- paths, IUCV 1
+- path, IUCV 1
+- definition of term 2 2.3.3.1
+- establishing 2 2.3.7
+- message 2
+- definition of term 3 2.3.3.1
+- severing 2 2.3.9.2
+- temporarily suspending communications over 2 2.3.9.1
+- pending interrupt, message 1 3.8.6.12
+- performance 1
+- APPC/VM 2 5.10.6.3
+- PIP parameter of APPC ALLOCATE 1 F.3.1
+- PIP variables 1 3.7.4.1
+- format 2 3.8.1.7
+- handling 2 3.8.1.11.1
+- receiving 2 3.8.3
+- specifying 2 3.8.1.7
+- prepare_received state 1 3.7.8
+- PREPARE_TO_RECEIVE (APPC verb) 1 F.9
+- print='*USERID (LU name qualifier)'.userid 1
+- product-sensitive interface 1 7.12.1
+- program exceptions 1
+- for APPCVM 2
+- CONNECT 3 3.8.1.9.2
+- QRYSTATE 3 3.8.2.7
+- RECEIVE 3 3.8.3.7
+- SENDCNF 3 3.8.4.6
+- SENDCNFD 3 3.8.5.6
+- SENDDATA 3 3.8.6.8
+- SENDERR 3 3.8.7.6
+- SENDREQ 3 3.8.8.6
+- SETMODFY 3 3.8.9.6
+- SEVER 3 3.8.10.6
+- for DIAGNOSE code 2
+- for IUCV 2
+- ACCEPT 3 5.10.4.7
+- CONNECT 3 5.10.5.6
+- DECLARE BUFFER 3 5.10.6.8
+- DESCRIBE 3 5.10.7.5
+- QUERY 3 5.10.8.5
+- RETRIEVE BUFFER 3 5.10.9.3
+- SET CONTROL MASK 3 5.10.10.6
+- SET MASK 3 5.10.11.6
+- SEVER 3 5.10.12.6
+- TEST COMPLETION 3 5.10.13.6
+- TEST MESSAGE 3 5.10.14.3
+- program interruptions 1
+- See program exceptions 2
+- Protect attributes 1
+- description 2 7.12.1
+- protection exceptions 1
+- APPCVM CONNECT 2 3.8.1.9.2
+- APPCVM QRYSTATE 2 3.8.2.7
+- APPCVM RECEIVE 2 3.8.3.7
+- APPCVM SENDCNF 2 3.8.4.6
+- APPCVM SENDCNFD 2 3.8.5.6
+- APPCVM SENDDATA 2 3.8.6.8
+- APPCVM SENDERR 2 3.8.7.6
+- APPCVM SENDREQ 2 3.8.8.6
+- APPCVM SETMODFY 2 3.8.9.6
+- APPCVM SEVER 2 3.8.10.6
+- IUCV ACCEPT 2 5.10.4.7
+- IUCV CONNECT 2 5.10.5.6
+- IUCV DECLARE BUFFER 2 5.10.6.8
+- IUCV DESCRIBE 2 5.10.7.5
+- IUCV QUERY 2 5.10.8.5
+- IUCV SET CONTROL MASK 2 5.10.10.6
+- IUCV SET MASK 2 5.10.11.6
+- IUCV SEVER 2 5.10.12.6
+- IUCV TEST COMPLETION 2 5.10.13.6
+- PURGE 1
+- IUCV function 2
+- PURGE function of *SPL system service 1 6.11.14.3
+- PURGE (IUCV function) 1 2.4.5 to 2.4.5.8
+
+## Q
+
+- QRYSTATE function of APPCVM 1 3.8.2
+- condition codes 2 3.8.2.6
+- description 2 3.8.2
+- format 2 3.8.2.1
+- parameter description 2 3.8.2.2
+- parameter list format 2 3.8.2.5
+- program exceptions 2 3.8.2.7
+- state changes 2 3.8.2.8
+- QUERY 1
+- IUCV function 2
+- IUCV function used with APPC/VM 2 5.10.8
+- condition codes 3 5.10.8.4
+- format 3 5.10.8.1
+- parameter description 3 5.10.8.2
+- parameter list format 3 5.10.8.3
+- program exceptions 3 5.10.8.5
+- using 3 5.10.8
+- QUERY (IUCV function) 1 2.4.6 to 2.4.6.3
+- QUIESCE 1
+- IUCV function 2
+- QUIESCE (IUCV function) 1 2.4.7 to 2.4.7.7
+
+## R
+
+- RDEVFTR 1 E.1
+- RDEVTYPC 1 E.2
+- RDEVTYPE 1 E.3
+- READ-SFBLOK function 1 6.11.14.2.1
+- READ-SPLINK function 1 6.11.14.2.1
+- READ-XAB function of *SPL system service 1 6.11.14.2.1
+- reading IUCV and APPV/VM parameter lists 1 3.7.5.3
+- reason codes from *IDENT sever 1 6.11.7
+- reason codes, SEVER 1
+- Identify System Service (*IDENT) 2 6.11.7
+- RECEIVE 1
+- IUCV function 2
+- RECEIVE function of APPCVM 1
+- addressing for 2 3.8.3.5
+- completion 2 3.8.3.9
+- condition codes 2 3.8.3.6
+- description 2 3.8.3
+- format 2 3.8.3.1
+- from communication partner 2 3.8.3.10
+- mapped with APPC 2 F.10
+- overview 2 3.7.4.2
+- parameter descriptions 2 3.8.3.2
+- parameter list format 2 3.8.3.4
+- program exceptions 2 3.8.3.7
+- return codes 2 3.8.3.6
+- state changes 2 3.8.3.8
+- state checks 2 3.8.3.8
+- Receive state 1 3.7.2.2 3.7.4.2 3.7.8
+- RECEIVE (IUCV function) 1 2.4.8 to 2.4.8.8
+- RECEIVE_AND_WAIT, APPC verb 1
+- abend conditions 2 F.10.3
+- mapped with APPC/VM 2 F.10
+- parameters 2 F.10.1
+- state changes 2 F.10.2
+- receiving data using APPC/VM 1 3.7.4.2
+- receiving signals from the *SIGNAL system service 1 6.11.13.4
+- REJECT 1
+- IUCV function 2
+- REJECT (IUCV function) 1 2.4.9 to 2.4.9.8
+- related publications 1 BIBLIOGRAPHY.2
+- REPLY 1
+- IUCV function 2
+- REPLY (IUCV function) 1 2.4.10 to 2.4.10.9
+- request-to-send interrupts 1 3.7.2.3
+- REQUEST_TO_SEND, APPC verb 1
+- abend conditions 2 F.11.3
+- mapped with APPC/VM 2 F.11
+- parameters 2 F.11.1
+- state changes 2 F.11.2
+- REQUEST_TO_SEND_RECEIVED parameter (APPC) 1
+- of CONFIRM 2 F.4.1
+- of RECEIVE_AND_WAIT 2 F.10.1
+- of SEND_DATA 2 F.12.1
+- of SEND_ERROR 2 F.13.1
+- Reset state 1 3.7.2.2 3.7.8
+- Resource Access Control Facility (RACF) 1
+- Resource Access Verification 1
+- resource ID 1
+- connecting to virtual machine 2 6.11.6.1
+- on CONNECT request to *IDENT 2 5.10.5.3
+- parameter 2
+- using *IDENT 2 6.11.5
+- RESOURCE ID field 1
+- of CONNECT request (*IDENT) 2 6.11.6
+- RESOURCE parameter (APPC) 1
+- of ALLOCATE 2 F.3.1
+- of CONFIRM 2 F.4.1
+- of CONFIRMED 2 F.5.1
+- of DEALLOCATE 2 F.6.1
+- of RECEIVE_AND_WAIT 2 F.10.1
+- of REQUEST_TO_SEND 2 F.11.1
+- of SEND_DATA 2 F.12.1
+- of SEND_ERROR 2 F.13.1
+- resources 1
+- managing 2 3.7.4.4
+- requesting to manage - how *IDENT processes 2 6.11.6.1
+- revoking your own 2 3.7.4.5
+- virtual machines connecting to 2 3.7.4.4
+- RESUME 1
+- IUCV function 2
+- RESUME (IUCV function) 1 2.4.11 to 2.4.11.7
+- RETRIEVE BUFFER function of IUCV 1 5.10.9
+- used in APPC/VM 2 5.10.9
+- completion 3 5.10.9.5
+- condition codes 3 5.10.9.2
+- format 3 5.10.9.1
+- program exceptions 3 5.10.9.3
+- state changes 3 5.10.9.4
+- using 3 5.10.9
+- return codes 1 1.1.6
+- APPC 2 F.1.4
+- APPCVM 2
+- CONNECT 3 3.8.1.9.1
+- overview 3 3.7.6 3.7.6.2
+- QRYSTATE 3 3.8.2.6
+- RECEIVE 3 3.8.3.6
+- SENDCNF 3 3.8.4.5
+- SENDCNFD 3 3.8.5.5
+- SENDDATA 3 3.8.6.7
+- SENDERR 3 3.8.7.5
+- SENDREQ 3 3.8.8.5
+- SETMODFY 3 3.8.9.5
+- SEVER 3 3.8.10.5
+- DIAGNOSE codes 2
+- IUCV 2
+- DCLBFR function 3 5.10.6.7
+- IUCV ACCEPT 3 5.10.4.6
+- IUCV CONNECT 3 5.10.5.5
+- SEVER 3 5.10.12.5
+- TEST COMPLETION 3 5.10.13.5
+- return codes, IUCV 1 2.6.2
+- RETURN_CODE parameter (APPC) 1
+- of ALLOCATE 2 F.3.1
+- of CONFIRM 2 F.4.1
+- of DEALLOCATE 2 F.6.1
+- of RECEIVE_AND_WAIT 2 F.10.1
+- of SEND_DATA 2 F.12.1
+- of SEND_ERROR 2 F.13.1
+- RETURN_CONTROL (WHEN_SESSION_ALLOCATED) parameter (APPC) 1 F.3.1
+- revoking 1
+- resources you do not own 2 3.7.4.5
+- your own resources 2 3.7.4.5
+- RTRVBFR function 1
+- See RETRIEVE BUFFER function of IUCV 2
+- RTRVBFR (IUCV function) 1 2.4.12 to 2.4.12.1
+
+## S
+
+- SAA (Systems Application Architecture) 1
+- security-relevant DIAGNOSEs 1 7.12.1.5.3
+- SELECT function of *SPL system service 1 6.11.14.2
+- SEND 1
+- IUCV function 2
+- SEND function of *SPL system service 1 6.11.14.3
+- Send state 1 3.7.2.2 3.7.4.2 3.7.8
+- SEND (IUCV function) 1 2.4.13 to 2.4.13.11
+- SENDCNF function of APPCVM 1 3.8.4
+- completion 2 3.8.4.8
+- condition codes 2 3.8.4.5
+- description 2 3.8.4
+- format 2 3.8.4.1
+- mapped with APPC 2 F.4 F.6
+- parameter descriptions 2 3.8.4.2
+- parameter list format 2 3.8.4.4
+- program exceptions 2 3.8.4.6
+- return codes 2 3.8.4.5
+- state changes 2 3.8.4.7
+- state checks 2 3.8.4.7
+- to communication partner 2 3.8.4.9
+- SENDCNFD function of APPCVM 1 3.8.5
+- completion 2 3.8.5.8
+- condition codes 2 3.8.5.5
+- description 2 3.8.5
+- format 2 3.8.5.1
+- mapped with APPC 2 F.5
+- parameter descriptions 2 3.8.5.2
+- parameter list format 2 3.8.5.4
+- program exceptions 2 3.8.5.6
+- return codes 2 3.8.5.5
+- state changes 2 3.8.5.7
+- state checks 2 3.8.5.7
+- to communication partner 2 3.8.5.9
+- SENDDATA function of APPCVM 1 3.8.6
+- addressing for 2 3.8.6.6
+- completion 2 3.8.6.10
+- condition codes 2 3.8.6.7
+- description 2 3.8.6
+- format 2 3.8.6.1
+- mapped with APPC 2 F.12
+- message pending interrupt 2 3.8.6.12
+- multiple 2 3.8.3.5 3.8.6.6
+- overview 2 3.7.4.2
+- parameter descriptions 2 3.8.6.2
+- parameter list format 2 3.8.6.4
+- program exceptions 2 3.8.6.8
+- return codes 2 3.8.6.7
+- setting up data 2 3.8.6.5
+- specifying buffers 2 3.8.6.6
+- state checks and changes 2 3.8.6.9
+- to communication partner 2 3.8.6.11
+- SENDERR function of APPCVM 1
+- addressing for 2 3.8.7.10 3.8.10.10
+- completion 2 3.8.7.8
+- mapped with APPC 2 F.13
+- parameter descriptions 2 3.8.7.2
+- parameter list format 2 3.8.7.4
+- program exceptions 2 3.8.7.6
+- return codes 2 3.8.7.5
+- specifying log data 2 3.8.7.10
+- state changes 2 3.8.7.7
+- to communication partner 2 3.8.7.9
+- sending data 1
+- details 2 3.8.6.5
+- overview 2 3.7.4.2
+- sending signals to the *SIGNAL system service 1 6.11.13.3
+- SENDREQ function of APPCVM 1 3.8.8
+- completion 2 3.8.8.8
+- condition codes 2 3.8.8.5
+- description 2 3.8.8
+- format 2 3.8.8.1
+- interrupt 2 3.8.8.9
+- mapped with APPC 2 F.11
+- parameter descriptions 2 3.8.8.2
+- parameter list format 2 3.8.8.4
+- program exceptions 2 3.8.8.6
+- return codes 2 3.8.8.5
+- state changes 2 3.8.8.7
+- state checks 2 3.8.8.7
+- to communication partner 2 3.8.8.9
+- SENDREQ interrupts 1 3.7.2.3
+- format 2 3.8.8.9
+- SEND_DATA, APPC verb 1
+- abend conditions 2 F.12.3
+- mapped with APPC/VM 2 F.12
+- parameters 2 F.12.1
+- state changes 2 F.12.2
+- SEND_ERROR, APPC verb 1
+- abend conditions 2 F.13.3
+- mapped with APPC/VM 2 F.13
+- parameters 2 F.13.1
+- state changes 2 F.13.2
+- servers, communications 1
+- considerations for 2 3.8.1.11
+- SET CONTROL MASK function of IUCV 1 5.10.10
+- used in APPC/VM 2 5.10.10
+- completion 3 5.10.10.8
+- condition codes 3 5.10.10.5
+- format 3 5.10.10.1
+- parameter descriptions 3 5.10.10.2
+- parameter list format 3 5.10.10.4
+- program exceptions 3 5.10.10.6
+- state changes 3 5.10.10.7
+- using 3 5.10.10
+- SET MASK function of IUCV 1 5.10.11
+- used in APPC/VM 2 5.10.11
+- completion 3 5.10.11.8
+- condition codes 3 5.10.11.5
+- description 3 5.10.11
+- format 3 5.10.11.1
+- parameter descriptions 3 5.10.11.2
+- parameter list format 3 5.10.11.4
+- program exceptions 3 5.10.11.6
+- state changes 3 5.10.11.7
+- SETCMASK function 1
+- See SET CONTROL MASK function of IUCV 2
+- SETCMASK (IUCV function) 1 2.4.14 to 2.4.14.6
+- SETMASK function 1
+- See SET MASK function of IUCV 2
+- SETMASK (IUCV function) 1 2.4.15 to 2.4.15.6
+- SETMODFY function of APPCVM 1 3.8.9
+- completion 2 3.8.9.8
+- condition codes 2 3.8.9.5
+- description 2 3.8.9
+- format 2 3.8.9.1
+- parameter descriptions 2 3.8.9.2
+- parameter list format 2 3.8.9.4
+- program exceptions 2 3.8.9.6
+- return codes 2 3.8.9.5
+- state checks and changes 2 3.8.9.7
+- to communication partner 2 3.8.9.9
+- setting defaults for optional parameters on APPC/VM functions 1 3.7.5.1
+- sever codes, APPC/VM 1 3.7.6.2 3.8.10.11
+- SEVER function of APPCVM 1 3.7.4.3 3.8.10
+- completion 2 3.8.10.8
+- condition codes 2 3.8.10.5
+- description 2 3.8.10
+- external interrupt format 2 3.8.10.12
+- format 2 3.8.10.1
+- from communication partner 2 3.8.10.9
+- mapped with APPC 2 F.6
+- overview 2 3.7.4.3
+- parameter descriptions 2 3.8.10.2
+- parameter list format 2 3.8.10.4
+- program exceptions 2 3.8.10.6
+- return codes 2 3.8.10.5
+- revoking your own resources 2 3.7.4.5
+- sever codes 2 3.8.10.11
+- specifying log data 2 3.8.10.10
+- state checks and changes 2 3.8.10.7
+- SEVER function of IUCV 1 5.10.12
+- programming exceptions 2 5.10.12.6
+- used in APPC/VM 2 5.10.12
+- completion 3 5.10.12.8
+- condition codes 3 5.10.12.5
+- external interrupt 3 5.10.12.10
+- external interrupt format 3 3.8.10.12
+- format 3 5.10.12.1
+- overview 3 3.7.4.3
+- parameter descriptions 3 5.10.12.2
+- parameter list format 3 5.10.12.4
+- return codes 3 5.10.12.5
+- state checks and state changes 3 5.10.12.7
+- to revoke a resource 3 3.7.4.5
+- *IDENT sever reason codes 2 6.11.7
+- sever interrupts 1 3.7.2.3
+- format 2 3.8.10.12
+- from IUCV SEVER 2 3.7.4.3
+- SEVER reason codes 1
+- Identify System Service (*IDENT) 2 6.11.7
+- sever reason codes from *IDENT 1 6.11.7
+- Sever state 1 3.7.2.2 3.7.8
+- SEVER (IUCV function) 1 2.4.16 to 2.4.16.7
+- severing connection to your partner 1
+- using APPCVM SEVER 2 3.7.4.3
+- using APPC/VM 2 3.7.4.1
+- using IUCV SEVER 2 3.7.4.3
+- SFBLOK 1 E.4
+- Signal (*SIGNAL) System Service 1 6.11.13 to 6.11.13.5
+- connecting with 2 6.11.13.2
+- establishing communications with 2 6.11.13.1
+- leaving 2 6.11.13.5
+- receiving signals 2 6.11.13.4
+- sending signals 2 6.11.13.3
+- size of messages 1 3.8.6.5
+- SNA (System Network Architecture) 1
+- relationship to APPC and APPC/VM 2 3.7
+- source virtual machine, IUCV 1
+- definition of term 2 2.3.3.1
+- target virtual machine 2
+- definition of term 3 2.3.3.1
+- specification exceptions 1
+- APPCVM CONNECT 2 3.8.1.9.2
+- APPCVM QRYSTATE 2 3.8.2.7
+- APPCVM RECEIVE 2 3.8.3.7
+- APPCVM SENDCNF 2 3.8.4.6
+- APPCVM SENDCNFD 2 3.8.5.6
+- APPCVM SENDDATA 2 3.8.6.8
+- APPCVM SENDERR 2 3.8.7.6
+- APPCVM SENDREQ 2 3.8.8.6
+- APPCVM SETMODFY 2 3.8.9.6
+- APPCVM SEVER 2 3.8.10.6
+- IUCV ACCEPT 2 5.10.4.7
+- IUCV CONNECT 2 5.10.5.6
+- IUCV DECLARE BUFFER 2 5.10.6.8
+- IUCV DESCRIBE 2 5.10.7.5
+- IUCV QUERY 2 5.10.8.5
+- IUCV SET CONTROL MASK 2 5.10.10.6
+- IUCV SET MASK 2 5.10.11.6
+- IUCV SEVER 2 5.10.12.6
+- IUCV TEST COMPLETION 2 5.10.13.6
+- specifying a PIP variables 1 3.8.1.7
+- specifying log data 1 3.8.7.10 3.8.10.10
+- SPLINK 1 E.5
+- SPOOL commands 1 7.12.1.5.5
+- spool file opening and characteristic querying with DIAGNOSE code X'BC' 1 1.1.42
+- spool files 1
+- auditing 2 7.12.1.5.4
+- starting a conversation with APPC/VM functions 1 3.7.4.1
+- state changes 1
+- ALLOCATE (APPC) 2 F.3.2
+- APPCVM CONNECT 2 3.8.1.9.3
+- APPCVM QRYSTATE 2 3.8.2.8
+- APPCVM RECEIVE 2 3.8.3.8
+- APPCVM SEVER 2 3.8.10.7
+- CONFIRM (APPC) 2 F.4.2
+- CONFIRMED (APPC) 2 F.5.2
+- DCLBFR 2 5.10.6.9
+- DEALLOCATE (APPC) 2 F.6.2
+- IUCV ACCEPT 2 5.10.4.8
+- RECEIVE_AND_WAIT (APPC) 2 F.10.2
+- REQUEST_TO_SEND (APPC) 2 F.11.2
+- RETRIEVE BUFFER 2 5.10.9.4
+- SENDCNF 2 3.8.4.7
+- SENDCNFD 2 3.8.5.7
+- SENDDATA 2 3.8.6.9
+- SENDERR 2 3.8.7.7
+- SENDREQ 2 3.8.8.7
+- SEND_DATA (APPC) 2 F.12.2
+- SEND_ERROR (APPC) 2 F.13.2
+- SETMODFY 2 3.8.9.7
+- state table 1 3.7.8
+- state table for APPC/VM functions 1 3.7.8
+- states, APPC/VM 1 3.7.2.2 3.7.8
+- backout_received 2 3.7.8
+- backout_required 2 3.7.8
+- Confirm 2 3.7.8
+- Connect 2 3.7.8
+- defer_receive 2 3.7.8
+- defer_sever 2 3.7.8
+- prepare_received 2 3.7.8
+- Receive 2 3.7.4.2 3.7.8
+- Reset 2 3.7.8
+- Send 2 3.7.4.2 3.7.8
+- Sever 2 3.7.8
+- table for error conditions 2 3.7.8.2
+- unsolicited_request_commit_received 2 3.7.8
+- summaries 1
+- state table 2 3.7.8
+- Symptom records 1
+- description 2 8.13.1
+- SYNCPT synchronization level 1 3.8.1.3
+- SYNC_LEVEL parameter (APPC) 1
+- of ALLOCATE 2 F.3.1
+- System Network Architecture (SNA) 1
+- relationship to APPC and APPC/VM 2 3.7
+- system service, CP 1
+- identify (*IDENT) 2 6.11.5
+
+## T
+
+- target virtual machine, IUCV 1
+- definition of term 2 2.3.3.1
+- TEST COMPLETION function of IUCV 1 5.10.13
+- used with APPC/VM 2 5.10.13
+- condition codes 3 5.10.13.5
+- format 3 5.10.13.1
+- parameter descriptions 3 5.10.13.2
+- parameter list format 3 5.10.13.4
+- program exceptions 3 5.10.13.6
+- return codes 3 5.10.13.5
+- state changes 3 5.10.13.7
+- TEST MESSAGE function of IUCV 1 5.10.14
+- used in APPC/VM 2 5.10.14
+- completion 3 5.10.14.5
+- condition codes 3 5.10.14.2
+- format 3 5.10.14.1
+- program exception 3 5.10.14.3
+- state changes 3 5.10.14.4
+- TESTCMPL function 1
+- See TEST COMPLETION function of IUCV 2
+- TESTCMPL (IUCV function) 1 2.4.17 to 2.4.17.8
+- TESTMSG function 1
+- See TEST MESSAGE function of IUCV 2
+- TESTMSG (IUCV function) 1 2.4.18 to 2.4.18.3
+- TPN parameter (APPC) 1
+- of ALLOCATE 2 F.3.1
+- TSAF (Transparent Services Access Facility) 1
+- used to revoke a resource 2 6.11.6.2
+- TYPE parameter (APPC) 1
+- of ALLOCATE 2 F.3.1
+- of DEALLOCATE 2 F.6.1
+- of SEND_ERROR 2 F.13.1
+
+## U
+
+- unsolicited_request_commit_received state 1 3.7.8
+- update directory 1
+- in-place with DIAGNOSE code X'84' 2 1.1.31
+- user doubleword 1
+- VMCF function 2 1.1.27
+- using basic APPC/VM functions 1 3.7.4
+
+## V
+
+- VDEVFLAG 1 E.6
+- VDEVSTAT 1 E.7
+- VDEVTYPC and RDEVTYPC 1 E.8
+- VDEVTYPE and RDEVTYPE 1 E.9
+- VM architected area 1 3.8.1.10.2 3.8.1.11
+- VMBAT mode name 1 3.8.1.6
+- VMCF 1
+- command auditing 2 7.12.1.5.7
+- VMCF (Virtual Machine Communication Facility) 1
+- DIAGNOSE instruction 2
+- return codes 3 1.1.27
+- user doubleword 2 1.1.27
+- VMINT mode name 1 3.8.1.6
+
+## W
+
+- WHAT_RECEIVED parameter (APPC) 1
+- of RECEIVE_AND_WAIT 2 F.10.1
+
+## Special Characters
+
+- *ACCOUNT System Service 1 6.11.3
+- *BLOCKIO System Service 1 6.11.4
+- *IDENT System Service 1 6.11.5
+- *IDENT (Identify System Service) 1 6.11.5
+- *IDENT (LU name qualifier) 1 3.8.1.6
+- *LOGREC System Service 1 6.11.8
+- *MONITOR System Service 1 6.11.9
+- *MSG System Service 1 6.11.10
+- *MSGALL System Service 1 6.11.11
+- *RPI System Service 1 6.11.12
+- *SIGNAL System Service 1 6.11.13
+- *SPL System Service 1 6.11.14
+- definition 2 6.11.14
+- establishing communications 2 6.11.14.1
+- functions 2 6.11.14
+- *SYMPTOM System Service 1 6.11.15
+- *USERID (LU name qualifier) 1 3.8.1.6
+
+---
+
+[Previous](bibliography-2.md) | [Index](README.md) | [Next](comments.md)

@@ -1,0 +1,73 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+ <script language="Javascript" src="/bookmgr/cookiejar.js" type="text/javascript"></script>
+ <META HTTP-EQUIV="content-type" CONTENT="text/html; charset=ISO-8859-1">
+ <base href="http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/IEAC6MST/1.2.4">
+ <title>
+1.2.4 "IPCS User's Guide" 
+  via IBM BookManager BookServer
+</title>
+</head>
+<body background="/bookmgr/backdrop.gif">
+<banner><br>
+<a href="../../library"><img src="/bookmgr/libicon2.gif" border=0 alt="[Library]"></a>
+<a  href="javascript:FramesOn()"><img src="/bookmgr/frameon.gif" border=0 alt=" View Topics Framed  " ></a>
+<a  href="CONTENTS?SHELF=&DT=19920124000100#1.2.4"><img src="/bookmgr/contents.gif" border=0 alt="[Contents]"></a>
+<a  href="REVISIONS?SHELF=&DT=19920124000100&FS=FALSE"><img src="/bookmgr/revs.gif" border=0 alt="[Revised Topics]"></a>
+<a  href="1.2.3?SHELF=&DT=19920124000100&FS=FALSE"><img src="/bookmgr/prev.gif" border=0 alt="[Prev Topic]"></a>
+<a  href="1.2.5?SHELF=&DT=19920124000100&FS=FALSE"><img src="/bookmgr/next.gif" border=0 alt="[Next Topic]"></a>
+<a  href="../../search?book=IEAC6MST&SHELF=&DT=19920124000100"><img src="/bookmgr/search.gif" border=0 alt="[Search]" ></a>
+<img src="/bookmgr/dslist.gif" border=0 alt="[Search Results]"><img src="/bookmgr/dsprev.gif" border=0 alt="[Prev Topic Match]"><img src="/bookmgr/dsnext.gif" border=0 alt="[Next Topic Match]">
+<img src="/bookmgr/dnotes.gif" border=0 alt="[Notes]">
+<img src="/bookmgr/dlnotes.gif" border=0 alt="[List Notes]">
+<a  href="../../print?book=IEAC6MST"><img src="/bookmgr/print.gif" border=0 alt="[Print]"></a>
+<a href="../../download/IEAC6MST.BOO?DT=19920124000100"><img src="/bookmgr/download.gif" border=0 alt="[Download]" ></a>
+<img src="/bookmgr/downpdfg.gif" border=0 alt=" no PDF " >
+<a  href="../../help/book"><img src="/bookmgr/help.gif" border=0 alt="[Help]"></a>
+<hr>
+<a name="HDRDSPARM"><H3> 1.2.4   Providing Format and Analysis Support</H3></a>
+<pre width="80"><!-- * -->
+<p>
+   By default the system allocates SYS1.PARMLIB to file IPCSPARM for an IPCS
+   session.  IPCS uses two members of SYS1.PARMLIB to control its processing.
+<p>
+ | <I>IPCSPRxx</I> <I>Parmlib</I> <I>Member</I>:  IPCS has a set of parameters that control the
+ | problem management and data set management functions and the default print
+ | file sizes to be used during the IPCS session.  The IPCSPRxx parmlib
+ | members contain defaults for these parameters.
+<p>
+ | IPCSPR00, the IBM-supplied member, suppresses the use of problem and data
+ | set management through the NODSD and NOPDR parameters.  To use these
+ | facilities, create new IPCSPRxx members and specify the DSD and PDR
+ | parameters.
+<p>
+ | <I>BLSCECT</I> <I>Parmlib</I> <I>Member</I>:  BLSCECT, the exit control member, defines the
+ | dump analysis and formatting models and verb exit routines that are
+ | available to IPCS.  See <cite>MVS</cite> <cite>Initialization</cite> <cite>and</cite> <cite>Tuning</cite> <cite>Reference</cite> for the
+ | syntax of these parmlib members.
+<p>
+ | BLSCECT also imbeds parmlib members that provide additional formatting and
+ | analysis support to IPCS.  These imbedded members must be located in
+ | SYS1.PARMLIB for IPCS to work correctly.  See <cite>MVS</cite> <cite>Conversion</cite> <cite>Notebook</cite> for
+ | information about new imbedded parmlib members for a release.
+<p>
+   <I>BLSCUSER</I> <I>Parmlib</I> <I>Member</I>:  IBM recommends that instead of creating and
+   modifying a new version of BLSCECT, you create a member named BLSCUSER in
+   your own data set for defining installation-supplied exits.  BLSCECT
+   imbeds BLSCUSER automatically.  Otherwise you will need to allocate the
+   modified parmlib member to the file IPCSPARM when you start an IPCS
+   session, and it becomes more difficult to carry installation modifications
+   over to the next release.
+<p>
+   For example, if you have any installation-defined dump exits that were
+   previously in MVS/XA SP load module AMDPRECT, you should add them to
+   BLSCUSER.
+</pre>
+</pre>
+<hr>
+<br><a href="1.2.3?SHELF=&DT=19920124000100"><img src="/bookmgr/prev.gif" border=0 alt="[Prev Topic]"></a>
+<a href="1.2.5?SHELF=&DT=19920124000100"><img src="/bookmgr/next.gif" border=0 alt="[Next Topic]"></a>
+<cite>  © Copyright IBM Corp. 1988, 1991</cite>
+<HR><p><h6><a href="/bookmgr/bookmgr.exe/library">IBM BookManager® BookServer</a> Copyright 1989, 2002<a href="http://www.ibm.com/"> IBM</a> Corporation.  All rights reserved.</h6><p>
+</BODY></HTML>

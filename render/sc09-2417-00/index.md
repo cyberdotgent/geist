@@ -1,0 +1,885 @@
+[Previous](bibliography-4-1.md) | [Index](README.md) | Next
+
+---
+
+# INDEX Index
+
+## Special Characters
+
+- _DecimalT class template 1
+- macros 2 4.4.1.2
+- _DecimalT template class, using 1 3.1.7
+- _RIOFB_T structure 1 4.3.6.6
+
+## A
+
+- acquiring a default program device 1 3.3.1.7 ++
+- actions taken when a run-time error occurs 1 4.3.2.1
+- ANSI 1 PREFACE.3
+- implementation-defined behavior 2 APPENDIX1.1
+- RTTI implementation 2 4.5
+- standards supported 2 PREFACE.3
+- argument passing 1
+- by reference 2 4.1.4.2
+- by value directly 2 4.1.4.2
+- by value indirectly 2 4.1.4.2
+- match data type requirements 2 4.1.4.3
+- operational descriptors 2 4.1.4.3 4.1.13
+- arrays, size of 1 APPENDIX1.1.1.6 &
+- AS/400 back-end compile-time 1 2.3.12.1
+- AS/400 file descriptions 1
+- compiler generated output 2 3.1.2
+- disconnected mode 2 3.1.6
+- compiler options 3 3.1.6.1
+- header description 2 3.1.2.1
+- level checking 2 3.1.2.3
+- record format layout 2 3.1.1.2
+- referencing an AS/400 connection 2 3.1.1.1
+- retrieving 2 3.1.1
+- type definition structure 2 3.1.2.2
+- AS/400 system exceptions 1
+- C record files 2 4.3.6.6
+- C stream files 2 4.3.6.4
+- automatic template generation 1 4.2.4.2
+
+## B
+
+- binary coded decimal data 1
+- conversion functions 2 3.1.7
+- binary stream database files 1
+- I/O considerations 2 3.2.2.3
+- binary stream display files 1
+- program devices 2 3.3.1.7
+- binary stream files 1
+- I/O considerations 2
+- diskette files 3 3.3.2.4
+- save files 3 3.3.2.4
+- tape files 3 3.3.2.4
+- opening (character at a time) 2 2.2.4.5
+- opening (record at a time) 2 2.2.4.6
+- opening, reading, writing 2 2.2.4.5
+- overview 2 2.2.3.3
+- reading (character at a time) 2 2.2.4.5
+- reading (record at a time) 2 2.2.4.6
+- updating 2 2.2.4.5
+- updating (character at a time) 2 2.2.4.5
+- writing (character at a time) 2 2.2.4.5
+- writing (record at a time) 2 2.2.4.6
+- binary stream ICF files 1
+- I/O considerations 2 3.3.1.9
+- program devices 2 3.3.1.9
+- binary stream subfiles 1
+- I/O considerations 2 3.3.1.8
+- binding 1
+- overview 2 1.1.2.2
+
+## C
+
+- C streams 1
+- file types supported 2 2.2.1.1
+- C++ language 1
+- description 2 1.1
+- parameter passing styles 2 4.1.4.1
+- calling 1
+- EPM C 2 4.1.11
+- ILE C++ 2 4.1.10
+- ILE procedures 2 4.1.12
+- ILE programs 2 4.1.9
+- ILE-bindable APIs 2 4.1.12
+- OPM programs 2 4.1.8
+- calling programs/procedures 1 1.2.4
+- call stack 2 4.1.1.3
+- calling procedures 2 4.1.1.2
+- calling programs 2 4.1.1.1
+- changing names 2 4.1.5
+- creating C++ classes 2 4.1.6
+- data-type compatibility 2 4.1.4.4
+- library qualified calls 2 4.1.7
+- linkage specification 2 4.1.2
+- overview 2 4.1.1
+- passing parameters 2 4.1.4
+- within ILE 2 1.2.4
+- cancel handlers 1 4.3.3.5
+- reason codes 2 4.3.3.5
+- case values, limit of 1 APPENDIX1.1.1.10
+- CEEHDLR 1 4.3.3.3
+- CEEHDLU 1 4.3.3.3
+- CEEMRCR 1 4.3.3.4
+- changing a default program device 1 3.3.1.7
+- characters 1 APPENDIX1.1.1.2
+- code page 2 APPENDIX1.1.1.2
+- ctype functions 2 APPENDIX1.1.1.12
+- default type 2 APPENDIX1.1.1.2
+- escape sequences 2 APPENDIX1.1.1.2 [
+- implementation-defined behavior 2 APPENDIX1.1.1.2
+- multibyte 2 APPENDIX1.1.1.2 <<
+- checking the AS/400 system exceptions for C record files 1 4.3.6.6 <<
+- checking the AS/400 system exceptions for C stream files 1 4.3.6.4
+- checking the errno value 1 4.3.6.2 <
+- checking the major/minor return code 1 4.3.6.4
+- checking the return value of a function 1 4.3.6.1
+- classes, exception 1 4.3.3.4
+- clock function, era for 1 APPENDIX1.1.1.20
+- command 1
+- Add ICF Device (ADDICFDEVE) 2 3.3.1.9
+- Change ICF File (CHGICFF) 2
+- ACQPGMDEV parameter 3 3.3.1.9 [
+- Create a Display File (CRTDSPF) 2 3.3.1.3
+- Create DDM file (CRTDDMF) 2 3.2.2.1
+- Create ICF File (CRTICFF) 2 3.3.1.9
+- Override Diskette File (OVRDKTF) 2 3.3.2.3
+- Override ICF Device (OVRICFDEVE) 2 3.3.1.9
+- Override ICF File (OVRICFF) 2 3.3.1.9
+- common mechanism to return function results 1 4.1.4.1
+- compiler 1
+- differences between C and C++ 2 1.1
+- differences between ILE C and ILE C++ 2 4.4.1 <
+- differences between Windows C++ and ILE C++ 2 4.4.2
+- standards 2
+- C++ 3 1.1
+- compiler options 1 PREFACE.2.1
+- /F options 2 4.2.4.3
+- generation of files for template resolution 2 4.2.4.3
+- redirecting template-include files 2 4.2.4.2
+- syntax for 2 PREFACE.2.1
+- compiling 1
+- a program 2 1.1.2.2
+- overview 2 1.1.2.2
+- condition token 1 4.3.3.4
+- constructors 1 4.5.3
+- using RTTI operators 2 4.5.3
+- control boundary 1 4.3.2.3 4.3.4
+- conventions, file naming 1 2.2.1.2
+- creating programs 1 1.3.3.4
+- strategy to avoid 2 1.3.3.4
+- ctype functions, characters in 1 APPENDIX1.1.1.12
+
+## D
+
+- data abstraction 1 1.1.3
+- data description specification 1 3.2.1.1
+- data management file system 1 ++
+- binary stream files, opening (character at a time) 2 2.2.4.5
+- binary stream files, opening (record at a time) 2 2.2.4.6 [
+- binary stream files, opening, reading, writing 2 2.2.4.5 ++
+- binary stream files, reading (character at a time) 2 2.2.4.5
+- binary stream files, reading (record at a time) 2 2.2.4.6
+- binary stream files, updating 2 2.2.4.5 ++
+- binary stream files, updating (character at a time) 2 2.2.4.5 ++
+- binary stream files, writing (character at a time) 2 2.2.4.5
+- binary stream files, writing (record at a time) 2 2.2.4.6
+- binary streams 2 2.2.3.3
+- C streams and file types 2 2.2.1.1
+- file naming conventions 2 2.2.1.2
+- file objects 2 2.2.1
+- fopen function 2 2.2.4
+- open modes 2 2.2.4.1
+- overview 2 2.2.1
+- record files 2 2.2.2
+- session I/O 2 2.2.4.2
+- stream buffering 2 2.2.4.3
+- stream files versus database files 2 2.2.3.1
+- text stream files, opening 2 2.2.4.4 [
+- text stream files, opening, reading, writing 2 2.2.4.4
+- text stream files, reading 2 2.2.4.4
+- text stream files, updating 2 2.2.4.4
+- text stream files, writing 2 2.2.4.4
+- text streams 2 2.2.3.2
+- data-type compatibility 1 4.1.8.4
+- CL command line call 2 4.1.4.4
+- ILE CL 2 4.1.4.4
+- ILE COBOL 2 4.1.4.4
+- ILE RPG 2 4.1.4.4
+- length of variables 2 4.1.4.4
+- OPM CL 2 4.1.4.4
+- OPM COBOL 2 4.1.4.4
+- OPM RPG 2 4.1.4.4
+- data-type mapping 1 3.1.5
+- database and DDM files 1
+- record functions 2 3.2.2.5
+- database files 1 3.2.1
+- access path 2 3.2.1.3
+- arrival sequence access path 2 3.2.1.3
+- binary stream functions 2
+- record-at-a-time processing 3 3.2.2.4
+- commitment control 2 3.2.3
+- comparisons with stream file 2 2.1.2.1
+- data file 2 3.2.1.2
+- keyed sequence access path 2 3.2.1.3
+- arranging key fields 3 3.2.1.3
+- duplicate key values 3 3.2.1.3
+- multiple record formats 2 3.1.3.6
+- null capable fields 2 3.2.1.7
+- open as binary files 2 3.2.2.1
+- open as record files 2 3.2.2.2
+- record-level description 2 3.2.1.1
+
+sharing 2 3.2.1.6
+
+- database record 1
+- delete 2 3.2.1.4
+- lock conditions 2 3.2.1.5
+- database record file 1
+- arrival sequence 2 3.2.1.3
+- keyed sequence 2 3.2.1.3
+- record I/O functions 2 3.2.2.5
+- DDM files 1 3.2.1
+- declarators, limit of 1 APPENDIX1.1.1.9
+- declaring pointer variables 1 3.4.4
+- decreasing program size 1 2.3.12.3
+- default parameter passing styles 1 4.1.4.2
+- default program device, acquiring 1 3.3.1.7
+- default program device, changing 1 3.3.1.7
+- destructors 1 4.5.3
+- using RTTI operators 2 4.5.3
+- device files 1
+- device attributes feedback area 2 3.3.3
+- multiple record formats 2 3.1.4.6
+- separate indicator area 2
+- INDARA keyword 3 3.1.4.5
+- part of the file buffer 3 3.1.4.5
+- different passing methods 1 4.1.4.2
+- direct monitor handlers 1 4.3.3.4
+- disconnected mode 1 3.1.6
+- diskette files 1 3.3.2 3.3.2.3
+- blocking 2 3.3.2.4
+- using 2 3.3.2.3
+- display files 1 3.3.1
+- change the default program device 2 3.3.1.7
+- I/O considerations 2 3.3.1.7
+- display files, ICF files, printer files 1
+- I/O considerations 2 3.3.1.1
+- indicators in the file buffer 2 3.3.1.1
+- major/minor return codes 2 3.3.1.2
+- open as record files 2 3.3.1.4
+- option indicators 2 3.3.1.1
+- response indicators 2 3.3.1.1
+- separate indicator areas 2 3.3.1.1
+- display files, subfiles, ICF files, printer files 1
+- binary stream functions 2 3.3.1.5
+- open as binary stream files 2 3.3.1.3
+- record functions 2 3.3.1.6
+- document library services file system 1 2.1.1.4
+- dynamic binding 1 1.1.3
+- dynamic_cast operator 1 4.5.2.1
+- casting pointers 2 4.5.2.2
+- casting references 2 4.5.2.3
+- using to downcast 2 4.5.2.1
+
+## E
+
+- enabling integrated file system stream I/O 1 2.1.3.5
+- encapsulation 1 1.1.3
+- entry module 1 1.3.1
+- EPM C, calling 1 4.1.11
+- era for clock function 1 APPENDIX1.1.1.20
+- errno macros 1
+- list of 2 4.3.6.3
+- errno values 1
+- checking 2 4.3.6.2
+- for the integrated file system 2 4.3.6.3
+- error macros 1
+- EBADMODE 2 2.2.4
+- EIOERROR 2 4.3.6.4
+- EIORECERR 2 4.3.6.4
+- EPAD 2 2.2.4.6
+- ERECIO 2 2.2.4.6
+- ETRUNC 2 2.2.4.4 2.2.4.6
+- mapping stream I/O exceptions 2 4.3.6.5
+- escape sequences 1 APPENDIX1.1.1.2 ++
+- example 1 3.3.1.8 3.3.1.9 3.3.2.3 4.2.3
+- acquiring a default program device 2 3.3.1.7
+- AS/400 pointers 2 3.4.4
+- AS/400 system exception handling 2 4.3.6.4
+- C++ 2 1.1.4
+- C++ objects in a C program 2 4.1.6.2
+- calling EPM C 2 4.1.11
+- calling ILE-bindable APIs 2 4.1.12
+- cancel handlers 2 4.3.3.5
+- changing a default program device 2 3.3.1.7
+- commitment control 2 3.2.3
+- condition handler intercepts a thrown exception 2 4.3.3.1
+- control boundary 2 4.3.4
+- database file INPUT fields 2 3.1.3.1
+- database file KEY fields 2 3.1.3.3
+- database file NULLFLDS fields 2 3.1.3.4
+- database record file in arrival sequence 2 3.2.1.3
+- database record file in keyed sequence 2 3.2.1.3
+- device file BOTH fields 2 3.1.4.3
+- device file INPUT fields 2 3.1.4.1
+- device file OUTPUT fields 2 3.1.4.2
+- direct monitor handler and signal function 2 4.3.3.4
+- direct monitor handlers using labels 2 4.3.3.4
+- direct monitor intercepts a thrown exception 2 4.3.3.1
+- dynamic_cast operator 2 4.5.2.2
+- exception percolation 2 4.3.5
+- externally described files 2 3.1.8
+- generating template definitions 2 4.2.3
+- I/O feedback area 2 2.2.6
+- ILE condition handler 2 4.3.3.3
+- multiple formats in a database file 2 3.1.3.6
+- multiple formats in a device file 2 3.1.4.6
+- ofstream and ifstream classes 2 2.1.3.5 <
+- opening, reading, writing to a binary stream file 2 2.2.4.5 <
+- opening, reading, writing to a text stream file 2 2.2.4.4
+- operational descriptors 2 4.1.13
+- other ways to handle errors 2 4.3.6
+- pointer declarations 2 3.4.4
+- printer files 2 3.3.1.10
+- promote an exception 2 4.3.3.4
+- record I/O functions 2 3.2.2.5
+- separate exception-handling program 2 4.3.3.2
+- setting up a signal handler 2 4.3.3.2
+- template-implementation file 2 4.2.4.2
+- template-include file 2 4.2.4.2
+- try-catch-throw 2 4.3.3.1 ]
+- try-catch-throw and direct monitor handlers 2 4.3.3.1 &
+- try-catch-throw and ILE condition handlers 2 4.3.3.1
+- two ILE condition handlers 2 4.3.3.3
+- typeid operator 2 4.5.2.4
+- updating a binary stream file 2 2.2.4.5
+- examples 1
+- calling ILE C++ 2 4.1.10
+- calling ILE programs 2 4.1.9
+- calling OPM programs 2 4.1.8
+- database file BOTH fields 2 3.1.3.2
+- device file OUTPUT fields and option indicators 2 3.1.4.5
+- dynamic screen manager APIs 2 2.2.4.2
+- indicators as part of the file buffer 2 3.3.1.1
+- indicators in a separate indicator area 2 3.3.1.1
+- performing level check on a database file 2 3.1.3.5
+- exception 1 4.5.2.5
+- bad_typeid 2 4.5.2.5
+- exception classes 1 4.3.3.2 4.3.3.4
+- exception handling 1
+- actions taken during run-time 2 4.3.2.1
+- AS/400 system exceptions 2 4.3.6.4
+- cancel handlers 2 4.3.3.5 <<
+- checking the AS/400 system exceptions for C record files 2 4.3.6.6
+- checking the errno value 2 4.3.6.2
+- checking the return value of a function 2 4.3.6.1
+- direct monitor handlers 2 4.3.3.4
+- errno macros 2 4.3.6.3
+- handling exceptions in your programs 2 4.3.3
+- ILE condition handlers 2 4.3.3.3
+- ILE message handling 2 4.3.2
+- nested exceptions 2 4.3.2.2
+- overview 2 4.3.1 <
+- record I/O error macro to exception mapping 2 4.3.6.5
+- signal function 2 4.3.3.2
+- try-catch-throw 2 4.3.3.1
+- unhandled exceptions default actions 2 4.3.2.3
+- exception message 1
+- types 2 4.3.2.1
+- exceptions, nested 1 4.3.2.2
+- exceptions, unhandled 1 4.3.2.3
+- externally described files 1
+- database files 2 3.1.3
+- device files 2 3.1.4
+- using 2 3.1.3 3.1.4
+
+## F
+
+- file description 1 2.2.1
+- file naming conventions 1 2.2.1.2
+- file objects 1 2.2.1
+- file server file system 1 2.1.1.7
+- function 1
+- _GetExcData 2 4.3.3.2
+- _Racquire 2 3.3.1.7
+- _Rdevatr 2 3.3.3
+- _Rfeod 2 3.3.2.5
+- _Rfeov 2 3.3.2.5
+- _Rformat 2 3.3.1.8
+- _Rindara 2 3.3.1.1
+- _Ropen 2 3.3.1.7
+- _Rpgmdev 2 3.3.1.7
+- _Rreadindv 2 3.3.1.7
+- _Rreadnc 2 3.3.1.8
+- checking the return value 2 4.3.6.1
+- fgetpos 2 APPENDIX1.1.1.16
+- fopen 2 2.2.4 3.3.1.3
+- fopen() 2 2.1.3
+- lrecl parameter 3 2.1.3.2
+- ftell 2 APPENDIX1.1.1.16
+- perror 2 4.3.6.2
+- raise 2 4.3.3.2
+- signal 2 4.3.3.2
+- signals raised 3 4.3.3.2
+- strerror 2 4.3.6.2
+- functions 1 4.2.4.2
+- clock 2 APPENDIX1.1.1.20 [
+- implementation-defined behavior 2 APPENDIX1.1.1.12
+- templates 2 4.2.4.2
+- structuring manually 3 4.2.4.3
+- template-include files 3 4.2.4.2
+
+## G [
+
+- global variable _EXCP_MSGID 1 4.3.6.4
+
+## H
+
+- handle system errors 1 4.3.6.4
+- handle the signal 1 4.3.3.2
+- handling exceptions in your programs 1 4.3.3
+- header file 1
+- <errno.h> 2 4.3.6.2
+- <except.h> 2 4.3.3.4
+- <leawi.h> 2 4.1.13
+- <leod.h> 2 4.1.13
+- <recio.h> 2 3.2.1.7
+- <signal.h> 2 4.3.3.2
+- <stdio.h> 2 2.2.4
+- <stdlib.h> 2 2.3.9.1
+- help 1 PREFACE.4
+- contextual 2 PREFACE.4
+- from the command line 2 PREFACE.4.2
+- How Do I 2 PREFACE.4 &
+- inside VisualAge for C++ for AS/400 2 PREFACE.4.1
+- online documents 2 PREFACE.4
+
+## I
+
+- ICF files 1 3.3.1 3.3.1.9
+- I/O considerations 2 3.3.1.9
+- using 2 3.3.1.9
+- ILE 1 1.2
+- effects of 2 1.3.2
+- family of ILE compilers 2 1.2
+- overview 2 1.2
+- program call 2 1.2.4
+- program creation 2 1.2.2
+- program creation strategies 2 1.3.1
+- program management 2 1.2.3
+- program scenarios 2 1.3.3
+- ILE C 1 1.2
+- as ILE language 2 1.2
+- in mixed-language programs 2 1.3.3.2
+- ILE C++, calling 1 4.1.10
+- ILE CL 1 1.2
+- as ILE language 2 1.2
+- calling ILE C++ program 2 1.3.3.1
+- in mixed-language program 2 1.3.3.2
+- ILE COBOL 1 1.2
+- as ILE language 2 1.2
+- ILE condition handlers 1 4.3.3.3
+- move the resume cursor 2 4.3.3.4
+- percolate an exception 2 4.3.3.3
+- promote an exception 2 4.3.3.4
+- register 2 4.3.3.3
+- resume cursor, move 2 4.3.3.4
+- ILE message handling 1 4.3.2
+- ILE programs, calling 1 4.1.9
+- ILE-bindable APIs 1 1.2.6
+- calling 2 4.1.12
+- CEEHDLR 2 4.3.3.3
+- CEEHDLU 2 4.3.3.3
+- CEEMRCR 2 4.3.3.4
+- overview 2 1.2.6
+- procedure calls 2 4.1.12
+- implementation-defined behavior 1 APPENDIX1.1
+- include name 1 3.1.1.2
+- indicators as part of the file buffer 1 3.3.1.1
+- indicators in a separate indicator area 1 3.3.1.1
+- inheritance 1 1.1.3
+- integrated file system 1
+- binary streams 2 2.1.2.3
+- document library services file system 2 2.1.1.4
+- enabling 2 2.1.3.5
+- errno values 2 4.3.6.3
+- file server file system 2 2.1.1.7
+- fopen() function 2 2.1.3
+- LAN Server/400 file system 2 2.1.1.5
+- library file system 2 2.1.1.3
+- open modes 2 2.1.3.2
+- open systems file system 2 2.1.1.2
+- optical support file system 2 2.1.1.6
+- other file systems 2 2.1.3.6
+- overview 2 2.1.1
+- root file system 2 2.1.1.1
+- session I/O 2 2.1.3.3
+- storing data as a text or binary stream 2 2.1.3.1
+- stream buffering 2 2.1.3.4
+- stream files 2 2.1.2
+- stream files versus database files 2 2.1.2.1
+- text and binary stream files 2 2.1.3
+- text streams 2 2.1.2.2
+- international locale support 1 3.5
+
+## L
+
+- LAN Server/400 file system 1 2.1.1.5
+- language description 1 1.1
+- language standard 1 PREFACE.3 <
+- industry (ANSI, ISO) 2 PREFACE.3
+- LC_ALL locale variable 1 3.5.5
+- LC_COLLATE locale variable 1 3.5.5
+- LC_CTYPE locale variable 1 3.5.5
+- LC_MONETARY locale variable 1 3.5.5
+- LC_NUMERIC locale variable 1 3.5.5
+- LC_TIME locale variable 1 3.5.5
+- LC_TOD locale variable 1 3.5.5
+- library file system 1 2.1.1.3
+- library function 1 APPENDIX1.1.1.12 [
+- implementation-defined behavior 2 APPENDIX1.1.1.12
+- locale 1 3.5.5
+- customizing 2 3.5.5
+- environment variables 2 3.5.5.2
+- LC_TOD locale variable 2 3.5.5
+- locale library function 2 3.5.5
+- setting an active locale 2 3.5.5.1
+
+## M
+
+- macros 1 APPENDIX1.1.1.12
+- assert 2 APPENDIX1.1.1.12
+- defined by _DecimalT template class 2 4.4.1.2
+- NULL 2 APPENDIX1.1.1.12
+
+<
+
+- major/minor return code, checking 1 4.3.6.4
+- managing programs 1 1.2.3
+- mapping a C++ class to a C structure 1 4.1.6.1
+- mapping fields from externally described files 1 3.1.5
+- match data type requirements 1 4.1.4.2 4.1.8.4
+- migrating 1
+- C to C++ on AS/400 2 4.4.1 <<
+- Windows C++ to C++ on AS/400 2 4.4.2
+- multiple record formats 1
+- database file 2 3.1.3.6
+- device file 2 3.1.4.6
+
+## N
+
+- nested exceptions 1 4.3.2.2
+- null capable fields 1 3.2.1.7
+- NULL macro, definition 1 APPENDIX1.1.1.12
+
+## O
+
+- object-oriented programming 1 1.1.3
+- open data path 1 3.2.1.6
+- I/O feedback area 2 2.2.6
+- open feedback area 2 2.2.5
+- open modes for integrated file system files 1 2.1.3.2
+- open pointer rules 1 3.4.2
+- open systems file system 1 2.1.1.2
+- opening binary stream files (character at a time) 1 2.2.4.5 <<
+- opening binary stream files (record at a time) 1 2.2.4.6
+- opening text stream files 1 2.2.4.4
+- operational descriptors 1 4.1.4.3
+- operator 1 4.5.2.1
+- dynamic_cast operator 2 4.5.2.1
+- typeid operator 2 4.5.2.4
+- operator overloading 1 1.1.1
+- OPM programs, calling 1 4.1.8
+- optical support file system 1 2.1.1.6
+- optimizing 1 2.3.12.3
+- for size 2 2.3.12.3
+- for speed 2 2.3.12.3
+- for speed and size 2 2.3.12.3
+- options, compiler 1 PREFACE.2.1
+- See also compiler options 2
+- other pointer rules 1 3.4.3
+- other than open pointers rules 1 3.4.3
+- overloaded function 1 1.1.4.3
+
+## P
+
+- parameters 1
+- default passing styles 2 4.1.4.2
+- passing in C++ 2 4.1.4.1
+- passing in ILE 2 4.1.4
+- passing arguments 1 4.1.4.2
+- passing constants 1 4.1.4.4
+- passing styles 1 4.1.4.2
+- passing variables 1 4.1.4.4
+- performance tips 1 2.3.12.1
+- bit fields 2 2.3.1.2
+- block records 2 2.3.6.3
+- compiler performance option 2
+- /Asp 3 2.3.3.1
+- data types 2 2.3.9.2
+- direct monitor handler 2 2.3.4.3
+- dynamic heap 2 2.3.9.1
+- dynamic memory allocation calls 2 2.3.9.3
+- exception handling 2 2.3.4.1
+- exception messages 2
+- C2M 3 2.3.4.2
+- feedback information 2
+- _RIOFB_T 3 2.3.6.2
+- function calls operators 2 2.3.5.1
+- ILE bindable API 2
+- CEECZST 3 2.3.9.1
+- CEEFRST 3 2.3.9.1
+- indirect access 2 2.3.7.3
+- library names 2 2.3.6.10
+- open pointers 2 2.3.7.1
+- operators 2 2.3.11.2
+- overview 2 2.3
+- percolating exceptions 2 2.3.4.4
+- physical files 2 2.3.6.9
+- pointer comparisons 2 2.3.7.2
+- record I/O 2 2.3.6.1
+- register storage class 2 2.3.1.4
+- run-time limits 2 2.3.13
+
+shared files 2 2.3.6.5
+
+- space considerations 2 2.3.9
+- space padding 2 2.3.9.4
+- static and global variables 2 2.3.1.3
+- stream functions 2 2.3.6.7
+- system buffer 2 2.3.6.4
+- tape files 2 2.3.6.6
+- volatile qualifier 2 2.3.1.1 <<
+- Windows front-end compile-time 2 2.3.12.2
+- pointer 1 4.5.2.2
+- dynamic_cast operator 2 4.5.2.2
+- pointers 1 3.4.3
+- casting rules 2 3.4.5
+- declaring pointer variables 2 3.4.4
+- open rules 2 3.4.2
+- overview 2 3.4.1
+- pass AS/400 pointers as arguments 2 3.4.4
+- size of 2 APPENDIX1.1.1.6
+- types 2 3.4.1
+- portability 1 PREFACE.3 [
+- considerations 2 PREFACE.3 APPENDIX1.1
+- porting ILE C to ILE C++ 1
+- binary coded decimal class library 2 4.4.1.2
+- character array initialization 2 4.4.1.8
+- file inclusion 2 4.4.1.6
+- function prototypes, declarations and pointers 2 4.4.1.7
+- header files 2 4.4.1.3
+- integrated file system 2 4.4.1.10
+- inter-language calls 2 4.4.1.1
+- name mangling 2 4.4.1.5
+- overview 2 4.4.1
+- set_terminate function 2 4.4.1.11
+- string literals 2 4.4.1.9
+- type checking 2 4.4.1.4
+- porting Windows C to ILE C++ 1
+- abort function 2 4.4.2.5
+- exception handler 2 4.4.2.9
+- externally described files 2 4.4.2.7
+- inter-language calls 2 4.4.2.3
+- operational descriptors 2 4.4.2.8
+- pointers 2 4.4.2.10
+- record I/O 2 4.4.2.4
+- user interface and GUI applications 2 4.4.2.6
+- Windows terms 2 4.4.2.2
+- porting Windows C++ to ILE C++ 1
+- overview 2 4.4.2
+- pragma 1
+- define 2 4.2.4.3
+- disable_handler 2 4.3.3.4
+- exception_handler 2 4.3.3.4
+- implementation 2 4.2.4.2
+- undeclared 2 4.2.4.2
+- preprocessor directives 1 1.1.4.3
+- printer files 1
+- FCFC 2 3.3.1
+- I/O considerations 2 3.3.1.10
+- using 2 3.3.1.10
+- procedure 1 4.1.1.2
+- procedure pointer call 2 4.1.1.2
+- static procedure call 2 4.1.1.2
+- program 1 4.1.1.1
+- calling 2 4.1.1.1
+- compiling 2 1.1.2.2
+- development process 2 1.1.2
+- OPM-compatible 2 1.3.3.4
+- preparing 2 1.1.2.1
+- program creation 1 1.3.3.4
+- strategy to avoid 2 1.3.3.4
+- program creation in ILE 1 1.2.2
+- program devices 1
+- I/O feedback area 2 2.2.6
+- program entry procedure (PEP) 1 4.1.1.3
+- and the call stack 2 4.1.1.3
+- program management 1 1.2.3
+- program-described files 1 3.2.1.1
+- program/procedure call 1 1.2.4
+- call stack 2 4.1.1.3
+- calling procedures 2 4.1.1.2
+- calling programs 2 4.1.1.1
+- changing names 2 4.1.5
+- creating C++ classes 2 4.1.6
+- data-type compatibility 2 4.1.4.4
+- library qualified calls 2 4.1.7
+- linkage specification 2 4.1.2
+- overview 2 4.1.1
+- passing parameters 2 4.1.4
+- within ILE 2 1.2.4
+- programming languages 1
+- C++ features 2 1.1.1
+- supported 2 1.2.1
+
+## Q
+
+- QINLINE 1 2.2.4.2
+
+## R
+
+- reading binary stream files (character at a time) 1 2.2.4.5 <<
+- reading binary stream files (record at a time) 1 2.2.4.6
+- reading syntax diagrams 1 PREFACE.2.1
+- reading text stream files 1 2.2.4.4
+- reason codes for cancel handlers 1 4.3.3.5
+- record diskette files 1
+- blocking 2 3.3.2.5
+- read and write 2 3.3.2.5
+- record display files 1
+- I/O considerations 2 3.3.1.7
+- record field names 1 3.1.1.2
+- record files 1 2.2.2
+- I/O considerations 2
+- diskette 3 3.3.2.5
+- save 3 3.3.2.5
+- tape 3 3.3.2.5
+- record format name 1 3.1.1.2 <
+- record I/O error macro to exception mapping 1 4.3.6.5
+- record ICF files 1
+- I/O considerations 2 3.3.1.9
+- program devices 2 3.3.1.9
+- record subfiles 1
+- I/O considerations 2 3.3.1.8
+- record tape files 1
+- blocking 2 3.3.2.5
+- I/O considerations 2
+- using _Rfeod 3 3.3.2.5
+- using _Rfeov 3 3.3.2.5
+- redefining basic language operators 1 1.1.1
+- reducing program size 1 2.3.12.3
+- rename function 1 APPENDIX1.1.1.16
+- retrieve a return value from main 1 4.1.10
+- retrieving AS/400 file descriptions 1 3.1.1
+- return function results 1 4.1.4.1 4.1.10
+- return value of a function, checking 1 4.3.6.1
+- root file system 1 2.1.1.1
+- run time type information 1 4.5
+- C++ implementation 2 4.5
+- construtors and destructors 2 4.5.3
+- dynamic_cast operator 2 4.5.2.1
+- type_info class 2 4.5.2.5
+- typeid operator 2 4.5.2.4
+- run-time limits 1 2.3.13
+
+## S
+
+- save files 1 3.3.2
+- session I/O, integrated file system 1 2.1.3.3
+- signal 1
+- SIG_DFL 2 4.3.3.2
+- SIG_IGN 2 4.3.3.2
+- SIGABRT 2 4.3.3.2
+- SIGFPE 2 4.3.3.2
+- SIGILL 2 4.3.3.2
+- SIGINT 2 4.3.3.2
+- SIGIO 2 4.3.3.2
+- SIGOTHER 2 4.3.3.2
+- SIGSEGV 2 4.3.3.2
+- SIGTERM 2 4.3.3.2
+- SIGUSR1 2 4.3.3.2
+- SIGUSR2 2 4.3.3.2
+- signal handler 1
+- change the state of nested 2 4.3.3
+- signal handling 1 4.3.3.2
+- signal handling-action definitions 1 4.3.3.2
+- source debug 1 1.2.5
+- overview 2 1.2.5
+- standards, language 1 PREFACE.3
+- storing data as a text or binary stream 1 2.1.3.1
+- strategies for creating ILE programs 1 1.3.1
+- stream buffering 1
+- fully buffered 2 2.1.3.4 2.2.4.3
+- line buffered 2 2.1.3.4 2.2.4.3
+- unbuffered 2 2.1.3.4 2.2.4.3
+- stream files 1
+- comparison to record files 2 2.1.2.1 2.2.3.1
+- open modes 2 2.2.4.1
+- processing 2 2.2.3
+- subfiles 1 3.3.1.8
+- I/O considerations 2 3.3.1.8
+- using 2 3.3.1.8
+- supported programming languages 1 1.2.1
+- syntax 1 PREFACE.2.1 <<
+- for commands, preprocessor directives, statements 2 PREFACE.2.1
+- for compiler options 2 PREFACE.2.1
+- how to read 2 PREFACE.2.1
+- syntax diagrams 1 PREFACE.2.1
+
+## T
+
+- tape files 1 3.3.2 3.3.2.3
+- blocking 2 3.3.2.4
+- using 2 3.3.2.3
+- tape files, diskette files, save files 1
+- binary stream files 2
+- I/O considerations 3 3.3.2.4
+- binary stream functions 2 3.3.2.6
+- I/O considerations 2 3.3.2.3
+- open as binary stream files 2 3.3.2.1
+- open as record files 2 3.3.2.2
+- record functions 2 3.3.2.7
+- template-implementation files 1 4.2.4.2
+- creating 2 4.2.4.2
+- naming 2 4.2.4.2
+- template-include files 1 4.2.4.2
+- templates 1 4.2.1
+- See also Language Reference 2
+- #pragma define 2 4.2.4.3
+- automatic instantiation 2 4.2.4.2
+- example 2 4.2.3
+- generating function definitions 2 4.2.2
+- how the compiler expands 2 4.2.2
+- implementation files 2 4.2.4.2
+- including everywhere 2 4.2.4.1
+- manual instantiation 2 4.2.4.3
+- TEMPINC directory 2 4.2.4.2
+- template-include files 2 4.2.4.2
+- terms 2 4.2.1
+- text stream files 1
+- opening 2 2.2.4.4
+- opening, reading, writing 2 2.2.4.4
+- reading 2 2.2.4.4
+- updating 2 2.2.4.4
+- writing 2 2.2.4.4
+- text streams 1 2.2.3.2
+- stderr 2 2.1.3.3 2.2.4.2
+- stdin 2 2.1.3.3 2.2.4.2
+- stdout 2 2.1.3.3 2.2.4.2
+- time 1 3.5.5
+- zone, specifying 2 3.5.5
+- translation 1 APPENDIX1.1.1.15
+- try-catch-throw 1 4.3.3.1
+- type information 1 4.5.1
+- extended class 2 4.5.4.1
+- for RTTI 2 4.5.1
+- usage 2 4.5.2.5
+
+## U
+
+- updating binary stream files (character at a time) 1 2.2.4.5
+- updating text stream files 1 2.2.4.4
+- user entry procedure (UEP) 1 4.1.1.3
+- and the call stack 2 4.1.1.3
+
+## W
+
+- writing binary stream files (character at a time) 1 2.2.4.5 <<
+- writing binary stream files (record at a time) 1 2.2.4.6
+- writing text stream files 1 2.2.4.4
+
+## Z
+
+- zoned decimal data 1
+- conversion functions 2 3.1.7
+- zoned decimal data, using 1 3.1.7
+
+---
+
+[Previous](bibliography-4-1.md) | [Index](README.md) | Next

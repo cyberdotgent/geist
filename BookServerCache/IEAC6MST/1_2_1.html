@@ -1,0 +1,118 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+ <script language="Javascript" src="/bookmgr/cookiejar.js" type="text/javascript"></script>
+ <META HTTP-EQUIV="content-type" CONTENT="text/html; charset=ISO-8859-1">
+ <base href="http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/IEAC6MST/1.2.1">
+ <title>
+1.2.1 "IPCS User's Guide" 
+  via IBM BookManager BookServer
+</title>
+</head>
+<body background="/bookmgr/backdrop.gif">
+<banner><br>
+<a href="../../library"><img src="/bookmgr/libicon2.gif" border=0 alt="[Library]"></a>
+<a  href="javascript:FramesOn()"><img src="/bookmgr/frameon.gif" border=0 alt=" View Topics Framed  " ></a>
+<a  href="CONTENTS?SHELF=&DT=19920124000100#1.2.1"><img src="/bookmgr/contents.gif" border=0 alt="[Contents]"></a>
+<a  href="REVISIONS?SHELF=&DT=19920124000100&FS=FALSE"><img src="/bookmgr/revs.gif" border=0 alt="[Revised Topics]"></a>
+<a  href="1.2?SHELF=&DT=19920124000100&FS=FALSE"><img src="/bookmgr/prev.gif" border=0 alt="[Prev Topic]"></a>
+<a  href="1.2.2?SHELF=&DT=19920124000100&FS=FALSE"><img src="/bookmgr/next.gif" border=0 alt="[Next Topic]"></a>
+<a  href="../../search?book=IEAC6MST&SHELF=&DT=19920124000100"><img src="/bookmgr/search.gif" border=0 alt="[Search]" ></a>
+<img src="/bookmgr/dslist.gif" border=0 alt="[Search Results]"><img src="/bookmgr/dsprev.gif" border=0 alt="[Prev Topic Match]"><img src="/bookmgr/dsnext.gif" border=0 alt="[Next Topic Match]">
+<img src="/bookmgr/dnotes.gif" border=0 alt="[Notes]">
+<img src="/bookmgr/dlnotes.gif" border=0 alt="[List Notes]">
+<a  href="../../print?book=IEAC6MST"><img src="/bookmgr/print.gif" border=0 alt="[Print]"></a>
+<a href="../../download/IEAC6MST.BOO?DT=19920124000100"><img src="/bookmgr/download.gif" border=0 alt="[Download]" ></a>
+<img src="/bookmgr/downpdfg.gif" border=0 alt=" no PDF " >
+<a  href="../../help/book"><img src="/bookmgr/help.gif" border=0 alt="[Help]"></a>
+<hr>
+<a name="HDRDST"><H3> 1.2.1   Processing Dumps, Traces, and Other Sources</H3></a>
+<pre width="80"><!-- * -->
+<p>
+   When IPCS processes information, it uses dump or trace data stored in data
+   sets on tape or direct access storage devices (DASD) or in live system
+   storage.  The data sets and live storage are sources for IPCS processing.
+   The type of processing IPCS performs depends on the source of the dump or
+   trace data.
+<p>
+   IPCS processes the following sources:
+<p>
+   °   Dump data sets, which include:
+<p>
+       -   Stand-alone dumps produced by the AMDSADMP service aid
+<p>
+       -   SVC dumps written to SYS1.DUMPxx data sets or tape by the SDUMP or
+           SDUMPX macro
+<p>
+       -   ABEND dumps written to data sets defined by SYSMDUMP DD statements
+<p>
+   °   Trace data sets created by the generalized trace facility (GTF) or the
+       component trace external writer
+<p>
+   °   Virtual storage access method (VSAM) data sets
+<p>
+   °   Data sets other than dump, trace, and VSAM data sets
+<p>
+   °   Live system storage from the IPCS user's address space.
+<p>
+   See <cite>Planning:</cite> <cite>Problem</cite> <cite>Determination</cite> <cite>and</cite> <cite>Recovery</cite> for more information
+   about dumps and traces.
+<p>
+   When you first access a source, IPCS recognizes the type of data in the
+   source and begins the appropriate type of processing.  IPCS provides three
+   types of processing support for data sets:
+<p>
+   °   Dump data set processing
+   °   Trace data set processing
+   °   VSAM and other data set processing
+<p>
+   <I>System</I> <I>Dump</I> <I>Data</I> <I>Set</I> <I>Processing</I>:  IPCS decides if the source data set
+   should be treated as a system dump by comparing the data set to the
+   following criteria:
+<p>
+   °   The dump data must be stored on a data set with sequential (PS),
+       direct (DA), or unidentified (*) organization.
+<p>
+   °   The logical record length (LRECL) must be 4160 bytes
+<p>
+   °   The data set must have one of the following combinations of record
+       format (RECFM) and block size (BLKSIZE):
+<p>
+           <tt>RECFM=F,BLKSIZE=4160</tt>
+<p>
+           <tt>RECFM=FB,BLKSIZE=4160</tt>
+<p>
+           <tt>RECFM=FBS,BLKSIZE=n*4160</tt>   where n=1,2,...
+<p>
+   If the data set meets these criteria, IPCS provides special purpose
+   processing.  In special purpose processing, IPCS simulates system
+   services, such as dynamic address translation and control block
+   formatting, when processing the information source.
+<p>
+   <I>Trace</I> <I>Data</I> <I>Set</I> <I>Processing</I>:  There are certain restrictions for trace data
+   sets, as documented in <cite>Planning:</cite> <cite>Problem</cite> <cite>Determination</cite>.  It is necessary
+   to follow these restrictions for IPCS to process trace data sets properly.
+<p>
+   <I>VSAM</I> <I>and</I> <I>Other</I> <I>Sequential</I> <I>Data</I> <I>Set</I> <I>Processing</I>:  When IPCS does not
+   consider the source to be a system dump or trace data set, IPCS provides
+   general purpose processing.  In this processing, IPCS initializes the data
+   set, processes records in the data set, and makes the unformatted records
+   available for accessing and viewing.  However, you cannot use the IPCS
+   subcommands for data sets that are not system dump or trace data sets.
+<p>
+   <I>Live</I> <I>Storage</I> <I>Processing</I>:  IPCS can process as a dump the main storage for
+   the address space in which IPCS is currently executing and private storage
+   and any common storage accessible by an unauthorized problem state
+   program.
+<p>
+   IPCS does not create a storage map when processing live storage, but it
+   does maintain a limited symbol table.  Limitations on IPCS subcommands
+   exist when processing live storage.
+</pre>
+</pre>
+<hr>
+<br><a href="1.2?SHELF=&DT=19920124000100"><img src="/bookmgr/prev.gif" border=0 alt="[Prev Topic]"></a>
+<a href="1.2.2?SHELF=&DT=19920124000100"><img src="/bookmgr/next.gif" border=0 alt="[Next Topic]"></a>
+<cite>  © Copyright IBM Corp. 1988, 1991</cite>
+<HR><p><h6><a href="/bookmgr/bookmgr.exe/library">IBM BookManager® BookServer</a> Copyright 1989, 2002<a href="http://www.ibm.com/"> IBM</a> Corporation.  All rights reserved.</h6><p>
+</BODY></HTML>

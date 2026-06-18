@@ -6,7 +6,7 @@
 
 The following symbols used in this book describe network entities.
 
-![Resource 1](resource:1)
+![Resource 1](1.png)
 
 PICTURE 1
 

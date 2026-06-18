@@ -1,0 +1,1210 @@
+[Previous](glossary.md) | [Index](README.md) | Next
+
+---
+
+# INDEX Index
+
+## A
+
+- access codes 1
+- displaying 2 7.2
+- action items 1
+- creating 2 2.1.7.1 2.1.7.2
+- deleting 2 2.1.7.1 2.1.7.2
+- description 2 2.6 2.9
+- printing mail report of 2 2.10
+- viewing status of outgoing 2 2.6
+- working with incoming 2 2.9
+- Add Calendars to Group display 1 1.29.2
+- Add Distribution List Entries display 1 6.2.1
+- Add Event display 1 1.8
+- Add Item display 1 1.2
+- Add Job display 1 1.14
+- Add Meeting display 1 1.10
+- Add Multiple Events display 1 1.9
+- Add Multiple Jobs display 1 1.15
+- Add Multiple Meetings display 1 1.10.3
+- Add Multiple Procedures display 1 1.17
+- Add Multiple Reminders display 1 1.13
+- Add Nickname display 1 6.3.1
+- Add Personal Directory Entry display 1 6.4.4
+- Add Procedure display 1 1.16
+- Add Reminder display 1 1.12
+- adding 1
+- event to your calendar 2 1.8
+- job to your calendar 2 1.14
+- meeting notice to your calendar 2 1.11
+- multiple occurrences of a meeting to a calendar 2 1.10.3
+- multiple occurrences of an event to your calendar 2 1.9
+- multiple reminders to your calendar 2 1.13
+- nickname 2 6.3.1
+- personal directory entry 2 6.4.4
+- reminder to your calendar 2 1.12
+- task to your calendar 2 1.8
+- users to a calendar group 2 1.29.2
+- Administration display 1 7.1.1
+- administrative functions 1
+- changing 2
+- calendar information 3 7.1.3
+- environment information 3 7.1.2
+- system distribution directory information 3 7.1.1
+- handling 2 7.0
+- appointments 1
+- adding single 2 1.8
+- changing 2 1.19
+- deleting 2 1.26
+- removing 2 1.26
+- Attach Memo Slip display for 1
+- mail item 2 2.1.5.1
+- message 2 3.1.2.1
+- attaching memo slip to 1
+- mail item 2 2.1.5.1
+- message 2 3.1.2.1
+- authority 1
+- changing authority of filed document 2 2.2
+- changing user authority to 2
+- calendar 3 1.6
+- handle mail and filed documents 3 7.3
+- personal directory 3 6.4.3
+- removing 2 7.3
+- authority prompt for 1
+- changing user authority to a calendar 2 1.6
+- creating calendar 2 1.3
+- creating personal directory 2 6.4.1
+- authorizing others to handle your mail and filed documents 1 7.3
+
+## B
+
+- batch 1 5.4.3
+- searching 2 5.4.9
+- blank address support 1 6.2.1
+
+## C
+
+- calendar 1
+- adding 2
+- event 3 1.8
+- job 3 1.14
+- meeting notice 3 1.11
+- multiple occurrences of a job 3 1.15
+- multiple occurrences of a meeting 3 1.10.3
+- multiple occurrences of a procedure 3 1.17
+- multiple occurrences of an event 3 1.9
+- multiple reminders 3 1.13
+- procedure 3 1.16
+- reminder 3 1.12
+- authority 2 1.3 1.6
+- changing 2 1.4
+- event 3 1.19
+- meeting 3 1.10.4
+- multiple occurrences of a calendar item 3 1.20
+- multiple occurrences of a meeting 3 1.22
+- reminder 3 1.19
+- session 3 1.7
+- user authority 3 1.6
+- view 3 1.1 1.18.2
+- choosing another 2 1.7
+- conflicting items 2 1.18.3
+- copying 2
+- item 3 1.24
+- items 3 7.5.3
+- multiple occurrences of a calendar item 3 1.25
+- creating 2 1.3
+- deleting 2 1.5
+- deleting items 2 7.5.4
+- displaying active function keys 2 1.1
+- function codes 2 1.2
+- functions 2 1.0
+- group, printing 2 1.30
+- item information 2 1.18.3
+- printing 2 1.30
+- reminder 2 1.18.3
+- reminder lead time 2 1.3
+- removing 2
+- item 3 1.26
+- multiple occurrences of a calendar item 3 1.27
+- restoring items 2 7.5.2
+- saving items 2 7.5.1
+- selecting task 2 1.2
+- selecting view 2 1.1
+- viewing 2
+- calendar items for one day 3 1.18.2
+- calendar items one week 3 1.18.3
+- items 3 1.18
+- Weekly Calendar display description 2 1.18.3
+- working with items 2 7.5
+- Calendar display 1 1.2
+- calendar group 1
+- adding members to 2 1.29.2
+- changing a meeting for 2 1.10.4
+- composite calendar 2 1.29.5
+- creating 2 1.29.1
+- deleting 2 1.29.3
+- scheduling a meeting for 2 1.10
+- working with 2 1.29
+- canceling 1
+- meeting 2 1.10.4
+- remote status request 2 5.5
+- Change All Occurrences display 1 1.20 1.21
+- Change Authorized Users display 1 2.2
+- Change Calendar display 1 1.4
+- Change Calendar Information display 1 7.1.3
+- Change Calendar Session display 1 1.7
+- Change Calendar View display 1 1.1
+- Change Defaults display 1
+- for a mail item 2 2.1.5.2
+- for a message 2 3.1.2.2
+- Change Directory Information display 1 7.1.1
+- Change Document Authority display 1 2.2
+- Change Document Details display 1
+- local document 2 5.4.1.7
+- remote document 2 5.4.2.5
+- Change Environment Information display 1 7.1.2
+- Change Event display 1 1.19
+- Change List Nickname display 1 6.3.2
+- Change Meeting display 1 1.10.4
+- Change Meeting Entry display 1 1.21
+- Change Note Details display 1 4.2.3
+- Change Object Ownership display 1 7.4.1
+- Change Personal Directory Authority display 1 6.4.3
+- Change Personal Directory Entry display 1 6.4.5
+- Change Search Criteria display 1 5.4.3
+- Change User Authority to Calendar 1 1.6
+- Change User Authority to Calendar display 1 1.6
+- Change User Nickname display 1 6.3.2
+- changing 1
+- authority 2 2.2
+- document list 3 5.4.13
+- local document 3 5.4.1.11
+- remote document 3 5.4.2.7
+- your mail and filed documents 3 7.3
+- calendar 2 1.4
+- information, your 3 7.1.3
+- item 3 1.19
+- session 3 1.7
+- view 3 1.18.2
+- copy of a mail item 2 2.1.3
+- details 2
+- of a local document 3 5.4.1.7
+- of a remote document 3 5.4.2.5
+- distribution list 2 6.2.3
+- enrollment 2 7.1
+- environment information, your 2 7.1.2
+- event on your calendar 2 1.19
+- job 2 1.19
+- local document 2 5.4.1.1
+- mail item defaults 2 2.1.5.2
+- meeting 2 1.10.4 1.19 1.21
+- message defaults 2 3.1.2.2
+- multiple occurrences of a calendar item 2 1.20
+- multiple occurrences of a meeting 2 1.22
+- nickname 2 6.3.2
+- note defaults 2 2.1.5.2
+- note details 2 4.2.3
+- personal directory 2 6.4.2
+- personal directory entry 2 6.4.5
+- procedure 2 1.19
+- reminder 2 1.19
+- search criteria 2 5.4.3
+- search values 2 5.4.3
+- security 2
+- document list 3 5.4.13
+- filed document 3 2.2
+- local document 3 5.4.1.11
+- remote document 3 5.4.2.7
+- system distribution directory information, your 2 7.1.1
+- task 2 1.19
+- type of calendar to view 2 1.1
+- user authority 2
+- to a calendar 3 1.6
+- to a personal directory 3 6.4.3
+- user authority to a calendar 2 1.6
+- checking status of remote requests 1 5.5
+- choosing another calendar 1 1.7
+- command differences 1
+- between OfficeVision/400 and System/36 2 A.3
+- between OfficeVision/400 and System/38 2 B.3
+- completing unfinished note 1 4.2.2
+- Composite Calendar display 1 1.1 1.29.5
+- conceptual differences 1
+- between OfficeVision/400 and System/36 2 A.1
+- between OfficeVision/400 and System/38 2 B.1
+- confidential 1
+- events 2 1.8 1.9
+- reminders 2 1.13
+- Confirm Copy of All Occurrences display 1 1.25
+- Confirm Delete of Calendars display 1 1.5
+- Confirm Delete of Document Lists display 1 5.4.5
+- Confirm Delete of Documents display 1 5.4.1.3 5.4.2.3
+- Confirm Delete of Groups display 1 1.29.3
+- Confirm Delete of Mail Entries display 1 2.1.4
+- Confirm Delete of Meeting display 1 1.23
+- Confirm Delete of Meetings display 1 1.10.4
+- Confirm Delete of Multiple Meetings display 1 1.23
+- Confirm Delete of Notes display 1 4.2.2
+- Confirm Delete of Outgoing Mail Status display 1 2.5 2.6
+- confirm delivery 1
+- action item 2 2.6
+- mail 2 2.5
+- message 2 3.1.2.2
+- note 2 2.1.5.2
+- Confirm Remove of Calendar Item display 1 1.26
+- Confirm Schedule of Multiple Items display 1
+- events 2 1.9
+- jobs 2 1.15
+- meetings 2 1.10.3
+- procedures 2 1.17
+- reminders 2 1.13
+- confirmed event 1 1.8
+- contextual search 1 5.3.1 5.3.2
+- Copy Calendar Item display 1 1.24
+- Copy Calendar Items display 1 7.5.3
+- Copy Directory Entries display 1 7.6.3
+- Copy Document display 1 5.4.1.2 5.4.4
+- Copy Remote Document display 1 5.4.2.2
+- Copy Search Criteria display 1 5.4.7
+- copying 1
+- calendar items 2 1.24 7.5.3
+- document list 2 5.4.4
+- event 2 1.24
+- local document 2 5.4.1.2
+- multiple occurrences of a calendar item 2 1.25
+- personal directory entries 2 7.6.3
+- remote document to the local system 2 5.4.2.2
+- search criteria 2 5.4.7
+- search values 2 5.4.7
+- cover page 1 2.1.2
+- Create a New Distribution List display 1 6.2.1
+- Create Calendar display 1 1.3
+- Create Document List display 1 5.4.3
+- Create Group display 1 1.29.1
+- Create Hard-Copy Reference display 1
+- local 2 2.3.1
+- remote 2 2.3.2
+- Create Remote Hard-Copy Reference display 1 2.3.2
+- creating 1
+- calendar group 2 1.29.1
+- distribution list 2 6.2.1
+- document list 2 5.4
+- hard-copy reference 2
+- local 3 2.3.1
+- remote 3 2.3.2
+- nickname 2 6.3.1
+- note 2 4.2
+- personal directory 2 6.4.1
+
+shell document for notes 2 4.1
+
+- subset of your mail 2 2.8
+- temporary group 2 1.29.6
+- criteria 1
+- changing search 2 5.4.3
+- copying search 2 5.4.7
+- printing search documents 2 5.4.6
+- viewing search 2 5.4.8
+
+## D
+
+- Daily Calendar display 1 1.1 1.18.2
+- Delete Calendar Items display 1 7.5.4
+- Delete Directory Entries display 1 7.6.4
+- deleting 1 1.23
+- calendar 2 1.5
+- group 3 1.29.3
+- items 3 7.5.4
+- distribution list 2 6.2.4
+- document from mail log 2 2.1.4
+- document list 2 5.4.5
+- event 2 1.26
+- hard-copy reference 2
+- local 3 5.4.1.3
+- remote 3 5.4.2.3
+- local document 2 5.4.1.3
+- mail item from the mail log 2 2.1.4
+- meeting 2 1.26
+- multiple occurrences of a meeting 2 1.23
+- nickname 2 6.3.3
+- note 2 2.1.4
+- objects 2 7.4
+- personal directory 2 6.4.2
+- personal directory entries 2 6.4.5 7.6.4
+- remote document 2 5.4.2.3
+- remote status request 2 5.5
+- status entries 2
+- of outgoing action items 3 2.6
+- of outgoing mail 3 2.5
+- unfinished note 2 4.2.2
+- delivery, confirm 1
+- action item 2 2.6
+- mail 2 2.5
+- message 2 3.1.2.2
+- note 2 2.1.5.2
+- department function 1
+- details 2
+- displaying 3 6.6.1
+- printing 3 6.6.2
+- differences 1
+- between OfficeVision/400 and Personal Services/36 2 A.0
+- between OfficeVision/400 and Personal Services/38 2 B.0
+- Directories and Distribution Lists display 1 6.1 6.5.4
+- directories, using 1 6.0
+- display 1
+- Select Calendars 2 1.1
+- Select Group 2 1.1
+- Display Access Codes display 1 7.2
+- Display Department Details display 1 6.6.1
+- Display Departments display 1 6.6.1
+- Display Event display 1 1.18.1
+- Display Folder Path display 1 7.4.2
+- Display Names from Search Results display 1 6.5.4
+- displaying 1
+- access codes 2 7.2
+- calendar items for one day 2 1.18.2
+- department details 2 6.6.1
+- details of remote document 2 5.4.2.4
+- messages 2
+- event 3 1.8
+- reminder 3 1.12
+- user 3 3.2
+- status of 2
+- outgoing action items 3 2.6
+- outgoing mail 3 2.5
+- displays 1
+- Add Calendars to Group 2 1.29.2
+- Add Distribution List Entries 2 6.2.1
+- Add Event 2 1.8
+- Add Item 2 1.2
+- Add Job 2 1.14
+- Add Meeting 2 1.10
+- Add Multiple Events 2 1.9
+- Add Multiple Jobs 2 1.15
+- Add Multiple Meetings 2 1.10.3
+- Add Multiple Procedures 2 1.17
+- Add Multiple Reminder 2 1.13
+- Add Multiple Reminders 2 1.13
+- Add Nickname 2 6.3.1
+- Add Personal Directory Entry 2 6.4.4
+- Add Procedure 2 1.16
+- Add Reminder 2 1.12
+- Administration 2 7.1.1
+- Attach Memo Slip 2
+- for a mail item 3 2.1.5.1
+- for a message 3 3.1.2.1
+- Change All Occurrences 2 1.20 1.21
+- Change Authorized Users display 2 2.2
+- Change Calendar 2 1.4
+- Change Calendar Information 2 7.1.3
+- Change Calendar Session 2 1.7
+- Change Calendar View 2 1.1
+- Change Defaults 2
+- for a mail item 3 2.1.5.2
+- for a message 3 3.1.2.2
+- Change Directory Information 2 7.1.1
+- Change Document Authority 2 2.2
+- Change Document Details 2
+- for a local document 3 5.4.1.7
+- for a remote document 3 5.4.2.5
+- Change Enrollment 2 7.1.1
+- Change Environment Information 2 7.1.2
+- Change Event 2 1.19
+- Change List Nickname 2 6.3.2
+- Change Meeting 2 1.10.4
+- Change Meeting Entry 2 1.21
+- Change Note Details 2 4.2.3
+- Change Object Ownership 2 7.4.1
+- Change Personal Directory Authority 2 6.4.3
+- Change Personal Directory Entry 2 6.4.5
+- Change Search Criteria 2 5.4.3
+- Change User Nickname 2 6.3.2
+- Composite Calendar 2 1.1 1.29.5
+- Confirm Copy of All Occurrences 2 1.25
+- Confirm Delete of Calendars 2 1.5
+- Confirm Delete of Document Lists 2 5.4.5
+- Confirm Delete of Documents 2 5.4.1.3 5.4.2.3
+- Confirm Delete of Groups 2 1.29.3
+- Confirm Delete of Mail Entries 2 2.1.4
+- Confirm Delete of Meeting 2 1.23
+- Confirm Delete of Meetings 2 1.10.4
+- Confirm Delete of Multiple Meetings 2 1.23
+- Confirm Delete of Notes 2 4.2.2
+- Confirm Delete of Outgoing Mail Status 2 2.5 2.6
+- Confirm Remove of Calendar Item 2 1.26
+- Confirm Schedule of Multiple Items 2
+- events 3 1.9
+- jobs 3 1.15
+- meetings 3 1.10.3
+- procedures 3 1.17
+- reminders 3 1.13
+- Copy Calendar Item 2 1.24
+- Copy Calendar Items 2 7.5.3
+- Copy Directory Entries 2 7.6.3
+- Copy Document 2 5.4.1.2 5.4.4
+- Copy Remote Document 2 5.4.2.2
+- Copy Search Criteria 2 5.4.7
+- Create a New Distribution List 2 6.2.1
+- Create Calendar 2 1.3
+- Create Document List 2 5.4.3
+- Create Group 2 1.29.1
+- Create Hard-Copy Reference 2
+- on local system 3 2.3.1
+- on remote system 3 2.3.2
+- Create Remote Hard-Copy Reference 2 2.3.2
+- Daily Calendar 2 1.1 1.18.2
+- Delete Calendar Items 2 7.5.4
+- Delete Directory Entries 2 7.6.4
+- Directories and Distribution Lists 2 6.1 6.5.4
+- Display Access Codes 2 7.2
+- Display Department Details 2 6.6.1
+- Display Departments 2 6.6.1
+- Display Directory Entries 2 6.1
+- Display Event 2 1.18.1
+- Display Folder Path 2 7.4.2
+- Display Names from Search Results display 2 6.5.4
+- Edit 2 4.2
+- Exit Document 2 2.1.3
+- Extended Display for Procedures 2 1.16 1.17
+- Extended Entry for Event 2 1.8 1.9
+- Extended Entry for Jobs 2 1.14 1.15
+- Extended Entry for Meetings 2 1.10 1.10.3
+- Extended Entry for Reminder 2 1.12 1.13
+- File Document locally 2 2.1.7.1
+- File Document on Remote System 2 2.1.7.2 5.4.1.10 5.4.12
+- Find Free Time 2 1.10.1
+- Find Place 2 1.10.2
+- Forward Mail 2 2.1.5 3.3
+- Get Remote Document 2 5.4.2.1
+- Group Calendar 2 1.1 1.29.4 1.29.6
+- Label Print Options 2 2.1.2.1
+- More Calendar Tasks 2 1.3 1.7
+- More Mail Tasks 2 2.3.1 2.3.2
+- More Personal Directory Tasks 2 6.4.1
+- Move Document 2 5.4.1.9 5.4.11
+- OfficeVision/400 Main Menu 2 1.1
+- Permit Others to Handle Mail/Filed Documents 2 7.3
+- Print Calendar 2 1.30
+- Print Mail Reports 2 2.10
+- Print Options 2 2.1.2.1
+- Print Personal Directory Report 2 6.5.5
+- Print Remote Document 2 5.4.2.6
+- Remote Document Request Sign-On 2 5.3.2 5.4.2
+- Reply to Mail 2 2.1.6 3.4
+- Resolved Document Print Options 2 2.1.2.1
+- Restore Calendar Items 2 7.5.2
+- Restore Directory Entries 2 7.6.2
+- Revise Final Document 2 5.4.1.1
+- Save Calendar Items 2 7.5.1
+- Save Directory Entries 2 7.6.1
+- Search for Documents 2
+- local 3 5.3.1
+- remote 3 5.3.2
+- Search Remote Calendar 2 1.28
+- Search System Directory 2 6.5.4
+- Select Calendars 2 1.29.6
+- Select Distribution Lists 2 1.6
+- Select Free Time 2 1.10.1
+- Select Function 2 1.2
+- Select Mail by Status 2 2.8
+- Select Office User 2 1.6
+- Select Personal Directory 2 6.5.5
+- Select Place 2 1.10.2
+- Send a Document 2 2.1.3 5.4.1.8 5.4.10
+- Send a Message 2 3.1.1
+- Send a Note 2 4.2
+- Six Month Calendar 2 1.1
+- Specify Office Files 2 7.6.1
+- Specify Personal Directory Criteria 2 6.4.1
+- Type Note 2 4.2
+- View Document Details 2 5.4.2.4
+- View Message 2 3.2
+- View Outgoing Mail Status Details 2 2.5 2.6
+- View Personal Directory Entries 2 6.5.5
+- View Search Criteria 2 5.4.8
+- Weekly Calendar 2 1.1 1.18.3
+- Work with Action Items 2 2.9
+- Work with Calendars 2 1.4
+- Work with Calendars in Group 2 1.29.2
+- Work with Distribution List Entries 2 6.2.3
+- Work with Distribution Lists 2 6.2.1
+- Work with Documents and Folders 2 5.1
+- Work with Documents in a List 2
+- on local system 3 5.3.1 5.4.1
+- on remote system 3 5.3.2 5.4.2
+- Work with Documents in Folders 2 5.1
+- Work with Folders 2 5.2
+- Work with Groups 2 1.29.2
+- Work with Mail 2 1.11 2.1.1
+- Work with Meetings 2 1.10.4
+- Work with Nicknames 2 6.3.2
+- Work with Objects by Owner 2 7.4.1
+- Work with Outgoing Action Item Status 2 2.6
+- Work with Outgoing Mail Status 2 2.5
+- Work with Owned Document Lists 2 5.3.2
+- Work with Personal Directory 2 6.4.1
+- Work with Remote Status 2 5.5
+- Work with Saved Notes 2 4.2.2
+- distribution list entries 1
+- adding 2 6.2.3
+- deleting 2 6.2.3
+- distribution lists 1
+- changing 2 6.2.3
+- creating 2 6.2.1
+- deleting 2 6.2.4
+- nickname 2
+- changing 3 6.3.2
+- creating 3 6.3.1
+- deleting 3 6.3.3
+- using 2 6.0
+- viewing 2 6.2.2
+- working with 2 6.2
+- document list 1
+- changing authority 2 5.4.13
+- changing security 2 5.4.13
+- copying 2 5.4.4
+- creating 2 5.4
+- deleting 2 5.4.5
+- filing on remote system 2 5.4.12
+- moving 2 5.4.11
+- printing 2 5.4.6
+- sending to another user 2 5.4.10
+- working with 2 5.4
+- documents 1
+- access codes 2 7.2
+- authorizing others to handle 2 7.3
+- changing details of remote 2 5.4.2.5
+- changing local 2 5.4.1.1
+- class of 2 5.4.1.7
+- copying local 2 5.4.1.2
+- copying remote to the local system 2 5.4.2.2
+- deleting 2
+- local 3 5.4.1.3
+- mail log 3 2.1.4
+- remote 3 5.4.2.3
+- displaying details of remote 2 5.4.2.4
+- filing 2 2.1.7.1
+- filing local on remote system 2 5.4.1.10
+- in folders, working with 2 5.1
+- in list, working with 2
+- on local system 3 5.4.1
+- on remote system 3 5.4.2
+- moving local 2 5.4.1.9
+- printing local 2 5.4.1.5
+- printing remote, on a local system 2 5.4.2.6
+- revising local 2 5.4.1.1
+- searching for 2
+- local 3 5.3.1
+- remote 3 5.3.2
+- sending local to another user 2 5.4.1.8
+- viewing 2 2.1.1
+- viewing details of local 2 5.4.1.6
+- Double Byte Character Set (DBCS) prompts 1 C.0
+
+## E
+
+- Edit display 1 4.2
+- enrollment 1
+- Change Enrollment display 2 7.1.1
+- changing 2 7.1
+- calendar information 3 7.1.3
+- environment information 3 7.1.2
+- system distribution directory information 3 7.1.1
+- events 1
+- adding multiple occurrences 2 1.9
+- adding to your calendar 2 1.8
+- after the ending time 2 1.18.3
+- changing 2 1.19
+- confidential 2 1.8 1.9
+- confirmed 2 1.8
+- copying 2 1.24
+- deleting 2 1.26
+- greater than signs (>) 2 1.18.3
+- normal 2 1.8
+- personal 2 1.8 1.9
+- scheduling more than one 2 1.8
+- tentative 2 1.8
+- types of 2 1.8
+- unclassified 2 1.9
+- Exit Document display 1 2.1.3
+- expiration date prompt 1 5.4.1.7 5.4.2.5
+- Extended Display for Procedures display 1 1.16 1.17
+- Extended Entry for Event display 1 1.8 1.9
+- Extended Entry for Jobs display 1 1.14 1.15
+- Extended Entry for Meetings display 1 1.10 1.10.3
+- Extended Entry for Reminder display 1 1.12 1.13
+
+## F
+
+- File Document display 1
+- on local system 2 2.1.7.1
+- on remote system 2 2.1.7.2
+- File Document on Remote System display 1 2.1.7.2 5.4.1.10 5.4.12
+- filed documents 1
+- access codes 2 7.2
+- handling 2 5.0
+- filing 1
+- document list on a remote system 2 5.4.12
+- local document on remote system 2 5.4.1.10
+- mail item 2
+- on local system 3 2.1.7.1
+- on remote system 3 2.1.7.2
+- Find Free Time display 1 1.10.1
+- Find Place display 1 1.10.2
+- finding 1
+- free time 2 1.10.1
+- place 2 1.10.2
+- folder path 1 2.1.7.1
+- folderless documents 1 A.1
+- folders, working with 1 5.2
+- Forward Mail display 1 2.1.5 3.3
+- forwarding 1
+- mail item 2 2.1.5
+- message 2 3.3
+- function codes 1 1.2
+- function keys, displaying active calendar 1 1.1
+
+## G
+
+- generic search 1 5.3.1 5.3.2
+- generic search function 1 6.5.2
+- Get Remote Document display 1 5.4.2.1
+- getting a remote document for revising 1 5.4.2.1
+- giving 1
+- authority to mail and filed documents 2 7.3
+- user authority to a calendar 2 1.6
+- greater than signs (>) 1 1.18.3
+- Group Calendar display 1 1.1 1.29.4 1.29.6
+- group, calendar 1
+- description of 2 1.29
+- printing 2 1.30
+
+## H
+
+- handling 1
+- administrative functions 2 7.0
+- filed documents 2 5.0
+- someone else's mail 2 2.4
+- hard-copy reference 1
+- creating local 2 2.3.1
+- creating remote 2 2.3.2
+- deleting 2
+- local 3 5.4.1.3
+- remote 3 5.4.2.3
+- description of 2 2.3
+- high priority message 1 3.1.2.2
+
+## I
+
+- incoming action items 1 2.9
+- index search, description of 1 PREFACE.5.2
+- indirect user 1 6.1
+- interactive searching 1 5.4.9
+- interactively 1 5.4.3
+- items 1
+- before the starting time 2 1.18.3
+
+## J
+
+- job 1
+- adding to your calendar 2 1.14
+- changing 2 1.19
+- queue 2 2.1.2.1
+- scheduling 2 1.14
+- more than one 3 1.14
+- multiple occurrences 3 1.15
+
+## K
+
+- keywords 1 2.1.7.1 4.2.3
+
+## L
+
+- Label Print Options display 1 2.1.2.1
+- library prompt 1
+- scheduling a job, for 2 1.14
+- scheduling a System/36 procedure, for 2 1.16
+- list 1
+- ID 2 6.2.1
+- name 2 5.3.2
+- of calendar items 2 1.18.2
+- of function codes 2 1.2
+- of remote requests 2 5.5
+- qualifier 2 6.2.1
+- local document 1
+- changing details of 2 5.4.1.7
+- copying 2 5.4.1.2
+- deleting 2 5.4.1.3
+- filing on remote system 2 5.4.1.10
+- moving 2 5.4.1.9
+- printing 2 5.4.1.5
+- searching 2 5.3.1
+- log 1
+- hard-copy reference 2 2.3
+- mail 2 2.1.4
+
+## M
+
+- mail functions 1 2.0
+- mail item 1
+- attaching a memo slip to 2 2.1.5.1
+- changing a copy of 2 2.1.3
+- changing defaults of 2 2.1.5.2
+- deleting, from the mail log 2 2.1.4
+- filing 2
+- local 3 2.1.7.1
+- remote 3 2.1.7.2
+- forwarding 2 2.1.5
+- printing 2
+- with options 3 2.1.2.1
+- without options 3 2.1.2.2
+- replying to a 2 2.1.6
+- resending outgoing 2 2.7
+- revising a copy of 2 2.1.3
+- selecting 2 2.8
+- viewing 2 2.1.1
+- working with 2 2.1
+- mail log 1
+- deleting an item on 2 2.1.4
+- description of 2 2.1.4 2.3
+- mail report of action items, printing 1 2.10
+- mail status 1
+- displaying outgoing 2 2.5
+- incoming mail 2 2.1.1
+- selecting 2 2.8
+- mail types 1 2.8
+- mail, authorizing others to handle your 1 7.3
+- meeting 1
+- adding multiple occurrences 2 1.10.3
+- canceling 2 1.10.4
+- changing 2 1.19
+- changing multiple occurrences 2 1.22
+- deleting 2 1.10.4
+- deleting multiple occurrences 2 1.23
+- personal 2 1.10
+- scheduling 2 1.10
+- scheduling more than one 2 1.10
+- message notification 1 7.1.2
+- messages 1
+- attaching a memo slip to 2 3.1.2.1
+- changing defaults for 2 3.1.2.2
+- confirm delivery 2 3.1.2.2
+- events 2 1.8
+- forwarding 2 3.3
+- from a user 2 3.2
+- high priority 2 3.1.2.2
+- personal 2 3.1.2.2
+- queue 2 2.1 2.1.5.2
+- receiving 2 3.0
+- reminders 2 1.12
+- replying to 2 3.4
+- sending 2 3.0
+- specifying a distribution list 3 3.1.2
+- specifying the user ID 3 3.1.1
+- viewing 2
+- events 3 1.8
+- reminders 3 1.12
+- More Calendar Tasks display 1 1.3 1.7
+- More Mail Tasks display 1 2.3.1 2.3.2
+- More Personal Directory Tasks display 1 6.4.1
+- Move Document display 1 5.4.1.9 5.4.11
+- moving 1
+- document list 2 5.4.11
+- local document 2 5.4.1.9
+- multiple occurrences of a job, scheduling 1 1.15
+
+## N
+
+- nicknames 1
+- changing 2 6.3.2
+- creating 2 6.3.1
+- deleting 2 6.3.3
+- distribution list 2 6.3.1
+- user ID 2 6.3.1
+- working with 2 6.3
+- No search values function 1 6.5.3
+- normal 1
+- events 2 1.8
+- notes 1
+- changing defaults for 2 2.1.5.2
+- changing details for 2 4.2.3
+- completing unfinished 2 4.2.2
+- creating 2 4.2
+- filing 2 2.1.7.1
+- saving 2 4.2.1
+- sending 2 4.2
+
+shell 2 4.2
+
+- viewing 2 2.1.1
+- working with 2 4.0
+
+## O
+
+- objects, user 1 7.4
+- OfficeVision/400 display 1 1.1
+- offline storage, mark for 1 2.1.7.1 5.4.1.7
+- online education, description of 1 PREFACE.5.3
+- online information, types of 1 PREFACE.5
+- help for control language commands 2 PREFACE.5.5
+- help for displays 2 PREFACE.5.1
+- index search 2 PREFACE.5.2
+- online education 2 PREFACE.5.3
+- question-and-answer function 2 PREFACE.5.4
+- operational differences 1
+- between OfficeVision/400 and System/36 2 A.2
+- between OfficeVision/400 and System/38 2 B.2
+- outgoing 1
+- action items, viewing status of 2 2.6
+- mail status 2 2.5
+- resending mail item 2 2.7
+- overlapping calendar items 1 1.18.3
+
+## P
+
+- page printing 1 2.1.2.1
+- Permit Others to Handle Mail/Filed Documents display 1 7.3
+- permitting others to handle your mail and filed documents 1 7.3
+- personal 1
+- events 2 1.8 1.9
+- mail 2 2.4
+- meeting 2 1.10
+- message 2 3.1.2.2
+- reminders 2 1.13
+- personal directory 1
+- authorizing users to 2 6.4.3
+- changing 2 6.4.2
+- changing user authority 2 6.4.3
+- copying entries 2 7.6.3
+- creating 2 6.4.1
+- deleting 2 6.4.2
+- deleting, entries 2 7.6.4
+- printing 2 6.5.5
+- restoring, entries 2 7.6.2
+- saving, entries 2 7.6.1
+- working with 2 6.4
+- working with, entries 2 7.6
+- personal directory entry 1
+- adding 2 6.4.4
+- changing 2 6.4.5
+- deleting 2 6.4.5
+- printing 2 6.5.5
+- searching 2 6.5.5
+- viewing 2 6.4.5
+- place on job queue 1 2.1.2.1
+- Print Calendar display 1 1.30
+- Print Mail Reports display 1 2.10
+- Print Options display 1 2.1.2.1
+- Print Personal Directory Report display 1 6.5.5
+- Print Remote Document display 1 5.4.2.6
+- printed-copy reference 1
+- See hard-copy reference 2
+- printing 1
+- calendar 2 1.30
+- display 3 1.30
+- group 3 1.30
+- department details 2 6.6.2
+- document list 2 5.4.6
+- local document 2 5.4.1.5
+- mail item 2
+- with options 3 2.1.2.1
+- without options 3 2.1.2.2
+- mail report of action items 2 2.10
+- page 2 2.1.2.1
+- personal directory 2 6.5.5
+- personal directory entry 2 6.5.5
+- remote document 2 5.4.2.6
+- search values for documents 2 5.4.6
+- procedure 1
+- changing 2 1.19
+- scheduling System/36 2 1.16
+- prompt 1 1.1
+
+## Q
+
+- Q & A 1
+- See question-and-answer function, description of 2
+- question-and-answer function, description of 1 PREFACE.5.4
+- queue 1
+- job 2 2.1.2.1
+- message 2 2.1 2.1.5.2
+
+## R
+
+- RACF user prompts 1 5.4.2.6
+- receiving messages 1 3.0 3.2
+- reference number 1 1.18.1
+- item 2 1.2
+- reminder 2 1.12 1.18.3
+- related online information 1 PREFACE.5
+- reminders 1
+- adding multiple 2 1.13
+- adding single 2 1.12
+- calendar item 2 1.3
+- changing 2 1.19
+- confidential 2 1.12 1.13
+- lead time 2 1.3
+- personal 2 1.12 1.13
+- removing 2 1.26
+- scheduling more than one 2 1.12
+
+shown on calendar 2 1.18.3
+
+- unclassified 2 1.12 1.13
+- remote document 1
+- changing details of 2 5.4.2.5
+- copying, to the local system 2 5.4.2.2
+- deleting 2 5.4.2.3
+- displaying details of 2 5.4.2.4
+- getting, for revising 2 5.4.2.1
+- printing of 2 5.4.2.6
+- Request Sign-On display 2 5.3.2 5.4.2
+- searching 2 5.3.2
+- remote requests, viewing status of 1 5.5
+- removing 1
+- authority 2 7.3
+- authority to mail and filed documents 2 7.3
+- calendar Item 2 1.26
+- event 2 1.26
+- multiple occurrences of a calendar item 2 1.27
+- reminder 2 1.26
+- Reply to Mail display 1 2.1.6 3.4
+- replying to 1
+- mail item 2 2.1.6
+- message 2 3.4
+- resending an outgoing mail item 1 2.7
+- resolve instructions prompt 1 2.1.2.1
+- Resolved Document Print Options display 1 2.1.2.1
+- Resource Access Control Facility prompts 1 5.4.2.6
+- Restore Calendar Items display 1 7.5.2
+- Restore Directory Entries display 1 7.6.2
+- restoring 1
+- calendar items 2 7.5.2
+- personal directory entries 2 7.6.2
+- Revise Final Document display 1 5.4.1.1
+- revising 1
+- copy of a mail item 2 2.1.3
+- local document 2 5.4.1.1
+- running search 1 5.4.9
+
+## S
+
+- Save Calendar Items display 1 7.5.1
+- Save Directory Entries display 1 7.6.1
+- saving 1
+- calendar items 2 7.5.1
+- personal directory entries 2 7.6.1
+- unfinished note 2 4.2.1
+- scheduled jobs 1
+- multiple occurrences 2 1.15
+- scheduling more than one 2 1.14
+- scheduling 1
+- changing event 2 1.19
+- event 2 1.8
+- job 2 1.14
+- meeting 2 1.10
+- multiple 2
+- reminders 3 1.13
+- System/36 procedures 3 1.17
+- multiple occurrences of 2
+- a job 3 1.15
+- a meeting 3 1.10.3
+- an event 3 1.9
+- reminder 2 1.12
+- System/36 procedure 2 1.16
+- search 1
+- argument 2 6.5.1
+- criteria, view 2 5.4.8
+- running 2 5.4.9
+- Search for Documents display 1
+- local 2 5.3.1
+- remote 2 5.3.2
+- search function 1 6.5
+- generic 2 6.5.2
+- no search values 2 6.5.3
+- standard 2 6.5.1
+- Search Remote Calendar display 1 1.28
+- Search System Directory display 1 6.5.4
+- searching 1
+- batch 2 5.4.9
+- contextual 2 5.3.1 5.3.2
+- documents 2 5.3
+- generic 2 5.3.1 5.3.2
+- interactive 2 5.4.9
+- local document 2 5.3.1
+- personal directory entry 2 6.5.5
+- remote calendars 2 1.28
+- remote document 2 5.3.2
+- system distribution directory 2 6.5
+- Select Calendars display 1 1.1 1.29.6
+- Select Distribution Lists display 1 1.6
+- Select Free Time display 1 1.10.1
+- Select Function display 1 1.2
+- Select Group display 1 1.1
+- Select Mail by Status display 1 2.8
+- Select Office User display 1 1.6
+- Select Personal Directory display 1 6.5.5
+- Select Place display 1 1.10.2
+- selecting 1
+- another calendar 2 1.7
+- calendar task 2 1.2
+- mail by status 2 2.8
+- new distribution entries 2
+- from another distribution list 3 6.2.1
+- from system distribution directory 3 6.2.1
+- type of calendar to view 2 1.1
+- Send a Document display 1 2.1.3 5.4.1.8 5.4.10
+- Send a Message display 1 3.1.1
+- Send a Note display 1 4.2
+- sending 1
+- document list to another user 2 5.4.10
+- local document to another user 2 5.4.1.8
+- message 2
+- specifying a distribution list 3 3.1.2
+- specifying the user ID 3 3.1.1
+- note 2 4.2
+
+shell 1
+
+- document 2 2.1.5.2
+- folder 2 2.1.5.2
+- note 2 4.2
+
+shell document 1
+
+- creating, for notes 2 4.1
+- Six Month Calendar display 1 1.1
+- Specify Office Files display 1 7.6.1
+- Specify Personal Directory Criteria display 1 6.4.1
+- Standard search function 1 6.5.1
+- status of remote requests 1 5.5
+- status types 1
+- confirmation of mail delivery 2 2.5
+- selecting mail 2 2.8
+- viewing mail 2 2.1.1
+- subset mail 1 2.8
+- system distribution directory 1 6.1
+- System/36 differences 1 A.0
+- System/36 procedures 1
+- scheduling more than one 2 1.16
+- scheduling multiple 2 1.17
+- scheduling one 2 1.16
+- System/38 differences 1 B.0
+
+## T
+
+- tentative event 1 1.8
+- Type Note display 1 4.2
+- types of 1
+- events 2 1.8
+- mail 2 2.5 2.8
+- messages 2
+- for events 3 1.8
+- for reminders 3 1.12
+
+## U
+
+- unclassified 1
+- events 2 1.9
+- reminders 2 1.13
+- user authority to a calendar, changing 1 1.6
+- user ID nickname 1
+- changing 2 6.3.2
+- creating 2 6.3.1
+- deleting 2 6.3.3
+- using 1
+- calendar functions 2 1.0
+- Composite Calendar display 2 1.29.5
+- directories 2 6.0
+- distribution lists 2 6.0
+- Group Calendar display 2 1.29.4
+- mail functions 2 2.0
+
+## V
+
+- values 1
+- changing search 2 5.4.3
+- copying search 2 5.4.7
+- printing search documents 2 5.4.6
+- viewing search 2 5.4.8
+- View Document Details display 1 5.4.2.4
+- View Message display 1 3.2
+- View Outgoing Mail Status Details display 1 2.5 2.6
+- View Personal Directory Entries display 1 6.5.5
+- View Search Criteria display 1 5.4.8
+- viewing 1
+- calendar items 2 1.18 1.18.1
+- for one day 3 1.18.2
+- for one week 3 1.18.3
+- Daily Calendar display 2 1.18.2
+- details of a local document 2 5.4.1.6
+- distribution list 2 6.2.2
+- document 2 2.1.1
+- enrollment 2 7.1
+- local document 2 5.4.1.4
+- mail item 2 2.1.1
+- message 2 3.2
+- note 2 2.1.1
+- objects 2 7.4
+- outgoing 2
+- action items status 3 2.6
+- mail status 3 2.5
+- personal directory entry 2 6.4.5
+- remote request details 2 5.5
+- search 2
+- criteria 3 5.4.8
+- values 3 5.4.8
+- status 2
+- of outgoing action items 3 2.6
+- of remote requests 3 5.5
+- system distribution directory 2 6.1
+
+## W
+
+- Weekly Calendar display 1 1.1 1.18.3
+- Work with Action Items display 1 2.9
+- Work with Calendars display 1 1.4
+- Work with Calendars in Group display 1 1.29.2
+- Work with Distribution List Entries display 1 6.2.3
+- Work with Distribution Lists display 1 6.2.1
+- Work with Documents and Folders display 1 5.1
+- Work with Documents in a List display 1
+- local 2 5.3.1 5.4.1
+- remote 2 5.3.2 5.4.2
+- Work with Documents in Folders display 1 5.1
+- Work with Folders display 1 5.2
+- Work with Groups display 1 1.29.2
+- Work with Mail display 1 1.11 2.1.1
+- Work with Meetings display 1 1.10.4
+- Work with Nicknames display 1 6.3.2
+- Work with Objects by Owner display 1 7.4.1
+- Work with Outgoing Action Item Status display 1 2.6
+- Work with Outgoing Mail Status display 1 2.5
+- Work with Owned Document Lists display 1 5.3.2
+- Work with Personal Directory display 1 6.4.1
+- Work with Remote Status display 1 5.5
+- Work with Saved Notes display 1 4.2.2
+- working on behalf of 1 2.4 5.1
+- working on the document of another user 1 5.1
+- working with 1
+- action items 2 2.9
+- calendar 2
+- group 3 1.29
+- items 3 7.5
+- department function 2 6.6
+- distribution lists 2 6.2
+- document lists 2 5.4
+- documents in a list 2 5.4.1 5.4.2
+- local system 3 5.4.1
+- remote system 3 5.4.2
+- documents in folders 2 5.1
+- folders 2 5.2
+- mail item 2 2.1
+- nicknames 2 6.3
+- notes 2 4.0
+- owned objects 2 7.4
+- personal 2
+- directories 3 6.4
+- directory entries 3 7.6
+- someone else's mail 2 2.4
+
+---
+
+[Previous](glossary.md) | [Index](README.md) | Next

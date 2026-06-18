@@ -1,204 +1,175 @@
 # Markdown Rendering Mismatch Backlog
 
-Source book: `BOO/QS3X36CM.BOO`, hosted as BookServer book `QS3X36CM`.
+Generated from fresh `boo2git --force` output in `render/<book-stem>` and hosted BookServer HTML cached under `BookServerCache/<book>/`.
+Scope: first 20 TOC topics for each local BOO fixture where the hosted BookServer has a matching book/topic.
 
-BookServer crawl used:
+## Rendering failures
 
-```text
-http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QS3X36CM/<topic>?DT=19910524075122&SHELF=
-```
+### `BOO/IEAC6MST.BOO`
 
-Topics crawled: `COVER`, `EDITION`, `CONTENTS`, `1.0`, `1.1`, `2.0`,
-`2.1`, `2.2`, `2.3`, and `A.0`.
+- [ ] `COVER` / `render/ieac6mst/cover.md`: low normalized text overlap (21%); local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.21)
+- [ ] `NOTICES` / `render/ieac6mst/notices.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.76)
+- [ ] `EDITION` / `render/ieac6mst/edition.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (23%); local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.23)
+- [ ] `CONTENTS` / `render/ieac6mst/contents.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.99)
+- [ ] `FIGURES` / `render/ieac6mst/figures.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.98)
+- [ ] `FRONT_1` / `render/ieac6mst/front_1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (54%). (score=0.54)
+- [ ] `FRONT_1.1` / `render/ieac6mst/front_1-1.md`: local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.91)
+- [ ] `PREFACE.2` / `render/ieac6mst/preface-2.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (37%). (score=0.37)
+- [ ] `CHANGES` / `render/ieac6mst/changes.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.81)
+- [ ] `1.0` / `render/ieac6mst/1-0.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.75)
+- [ ] `1.1.1` / `render/ieac6mst/1-1-1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=1.00)
+- [ ] `1.1.2` / `render/ieac6mst/1-1-2.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=1.00)
+- [ ] `1.2` / `render/ieac6mst/1-2.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (44%). (score=0.44)
+- [ ] `1.2.1` / `render/ieac6mst/1-2-1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.96)
+- [ ] `1.2.2` / `render/ieac6mst/1-2-2.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.96)
+- [ ] `1.2.3` / `render/ieac6mst/1-2-3.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.90)
+- [ ] `1.2.4` / `render/ieac6mst/1-2-4.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.94)
+### `BOO/ITPPIBOK.BOO`
 
-## Findings
+- [ ] `TITLE` / `render/itppibok/title.md`: low normalized text overlap (26%); local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.26)
+- [ ] `COVER` / `render/itppibok/cover.md`: low normalized text overlap (12%); local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.12)
+- [ ] `EDITION` / `render/itppibok/edition.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.99)
+- [ ] `SPECIAL` / `render/itppibok/special.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.89)
+- [ ] `CONTENTS` / `render/itppibok/contents.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=1.00)
+- [ ] `FIGURES` / `render/itppibok/figures.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.95)
+- [ ] `TABLES` / `render/itppibok/tables.md`: low normalized text overlap (60%). (score=0.60)
+- [ ] `PREFACE` / `render/itppibok/preface.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.95)
+- [ ] `PREFACE.1` / `render/itppibok/preface-1.md`: low normalized text overlap (48%). (score=0.48)
+- [ ] `PREFACE.2` / `render/itppibok/preface-2.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (68%). (score=0.68)
+- [ ] `PREFACE.4` / `render/itppibok/preface-4.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (30%). (score=0.30)
+- [ ] `1.0` / `render/itppibok/1-0.md`: low normalized text overlap (43%). (score=0.43)
+- [ ] `1.1` / `render/itppibok/1-1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.72)
+- [ ] `1.2` / `render/itppibok/1-2.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (63%). (score=0.63)
+- [ ] `1.2.1` / `render/itppibok/1-2-1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.89)
+- [ ] `1.3` / `render/itppibok/1-3.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (63%). (score=0.63)
+- [ ] `1.3.1` / `render/itppibok/1-3-1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=1.00)
+- [ ] `1.3.2` / `render/itppibok/1-3-2.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.85)
+- [ ] `1.3.3` / `render/itppibok/1-3-3.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.76)
+### `BOO/N2AH1MST.BOO`
 
-- [x] `COVER` / `render/qs3x36cm/cover.md`: topic heading now preserves
-  `COVER Book Cover` through `TocEntry::markdown()`. Cover-line grouping and
-  bold-state cleanup still needs fuller reflow-off title-page work.
+- [ ] `TITLE` / `render/n2ah1mst/title.md`: low normalized text overlap (24%); local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.24)
+- [ ] `NOTICES` / `render/n2ah1mst/notices.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.74)
+- [ ] `EDITION` / `render/n2ah1mst/edition.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (26%); local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.26)
+- [ ] `CONTENTS` / `render/n2ah1mst/contents.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.96)
+- [ ] `FRONT_1` / `render/n2ah1mst/front_1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (5%). (score=0.05)
+- [ ] `FRONT_1.1` / `render/n2ah1mst/front_1-1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.86)
+- [ ] `FRONT_1.2` / `render/n2ah1mst/front_1-2.md`: low normalized text overlap (67%); local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.67)
+- [ ] `PREFACE` / `render/n2ah1mst/preface.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (59%). (score=0.59)
+- [ ] `PREFACE.2` / `render/n2ah1mst/preface-2.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.97)
+- [ ] `PREFACE.3` / `render/n2ah1mst/preface-3.md`: low normalized text overlap (51%). (score=0.51)
+- [ ] `PREFACE.4` / `render/n2ah1mst/preface-4.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (72%); local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.72)
+- [ ] `PREFACE.4.1` / `render/n2ah1mst/preface-4-1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (66%). (score=0.66)
+- [ ] `PREFACE.4.2` / `render/n2ah1mst/preface-4-2.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (67%). (score=0.67)
+- [ ] `PREFACE.4.3.1` / `render/n2ah1mst/preface-4-3-1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.98)
+- [ ] `PREFACE.4.4` / `render/n2ah1mst/preface-4-4.md`: hosted topic was not found.
+- [ ] `CHANGES` / `render/n2ah1mst/changes.md`: hosted topic was not found.
+- [ ] `1.0` / `render/n2ah1mst/1-0.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (65%). (score=0.65)
+### `BOO/OFCUSEOV.BOO`
 
-- [x] `COVER` / `render/qs3x36cm/cover.md`: cover-line grouping and bold
-  state do not match BookServer. BookServer renders `COVER   Book Cover` as
-  the topic heading, then a fixed-width cover block where `Cross-Reference`,
-  `Version 2`, `Document Number SX41-8209-00`, and `Program Number 5738-SS1`
-  are separate lines/paragraphs. The Markdown drops the `COVER` topic id from
-  the heading and merges `Cross-Reference Version 2 Document Number ... Program
-  Number ...` into one malformed bold paragraph. Fixed by splitting title-page
-  metadata labels, including `Program Number`, in the Markdown topic renderer.
+- [ ] `TITLE` / `render/ofcuseov/title.md`: low normalized text overlap (18%). (score=0.18)
+- [ ] `COVER` / `render/ofcuseov/cover.md`: low normalized text overlap (18%); local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.18)
+- [ ] `EDITION` / `render/ofcuseov/edition.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (8%). (score=0.08)
+- [ ] `FRONT1` / `render/ofcuseov/front1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (25%). (score=0.25)
+- [ ] `PREFACE` / `render/ofcuseov/preface.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (55%); local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.55)
+- [ ] `PREFACE.1` / `render/ofcuseov/preface-1.md`: low normalized text overlap (15%); local has extra decoded/rendered tokens not in hosted examples: 400, all, alphabetic, also, alt, anual, appear, application., apply, appropriate; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.15)
+- [ ] `PREFACE.2` / `render/ofcuseov/preface-2.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (3%). (score=0.03)
+- [ ] `PREFACE.3` / `render/ofcuseov/preface-3.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.80)
+- [ ] `PREFACE.4` / `render/ofcuseov/preface-4.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.91)
+- [ ] `PREFACE.5` / `render/ofcuseov/preface-5.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (41%). (score=0.41)
+- [ ] `PREFACE.5.1` / `render/ofcuseov/preface-5-1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.92)
+- [ ] `PREFACE.5.2` / `render/ofcuseov/preface-5-2.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (4%). (score=0.04)
+- [ ] `PREFACE.5.3` / `render/ofcuseov/preface-5-3.md`: low normalized text overlap (12%). (score=0.12)
+- [ ] `PREFACE.5.4` / `render/ofcuseov/preface-5-4.md`: low normalized text overlap (7%). (score=0.07)
+- [ ] `PREFACE.5.5` / `render/ofcuseov/preface-5-5.md`: low normalized text overlap (21%). (score=0.21)
+- [ ] `PREFACE.6` / `render/ofcuseov/preface-6.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (44%); local has extra decoded/rendered tokens not in hosted examples: 0, 21-9678, 21-9868, abo, adapt, administrator, bout, ce, cevision/400, co; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.44)
+- [ ] `CONTENTS` / `render/ofcuseov/contents.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=1.00)
+- [ ] `1.0` / `render/ofcuseov/1-0.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (69%). (score=0.69)
+- [ ] `1.1` / `render/ofcuseov/1-1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.83)
+- [ ] `1.2` / `render/ofcuseov/1-2.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.93)
+### `BOO/QS3X36CM.BOO`
 
-- [x] `EDITION` / `render/qs3x36cm/edition.md`: topic heading now preserves
-  `EDITION Edition Notice` through `TocEntry::markdown()`.
+- [ ] `COVER` / `render/qs3x36cm/cover.md`: low normalized text overlap (19%); local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.19)
+- [ ] `EDITION` / `render/qs3x36cm/edition.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.99)
+- [ ] `1.0` / `render/qs3x36cm/1-0.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.97)
+- [ ] `1.1` / `render/qs3x36cm/1-1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=1.00)
+- [ ] `2.0` / `render/qs3x36cm/2-0.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.96)
+- [ ] `2.1` / `render/qs3x36cm/2-1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.90)
+- [ ] `2.2` / `render/qs3x36cm/2-2.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.94)
+- [ ] `2.3` / `render/qs3x36cm/2-3.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.89)
+- [ ] `A.0` / `render/qs3x36cm/a-0.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.82)
+### `BOO/QSYSNEWG.BOO`
 
-- [x] `EDITION` / `render/qs3x36cm/edition.md`: paragraph boundaries inside
-  the fixed-width notice are mostly lost. BookServer has separate paragraphs
-  for the edition applicability text, the IBM trademark introduction, the
-  multi-line IBM trademark list, the non-IBM trademark introduction, the
-  `RM/COBOL-85` owner, and the technical-inaccuracies notes. The Markdown
-  collapses almost all of that into one long paragraph. Fixed by reconstructing
-  the reflow-off edition notice into separate Markdown blocks.
+- [ ] `COVER` / `render/qsysnewg/cover.md`: low normalized text overlap (24%); local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.24)
+- [ ] `NOTICES` / `render/qsysnewg/notices.md`: local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.87)
+- [ ] `EDITION` / `render/qsysnewg/edition.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (31%); local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.31)
+- [ ] `CONTENTS` / `render/qsysnewg/contents.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.99)
+- [ ] `FRONT_1` / `render/qsysnewg/front_1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (25%). (score=0.25)
+- [ ] `PREFACE` / `render/qsysnewg/preface.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.90)
+- [ ] `1.0` / `render/qsysnewg/1-0.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.78)
+- [ ] `1.1` / `render/qsysnewg/1-1.md`: low normalized text overlap (61%); local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.61)
+- [ ] `1.2` / `render/qsysnewg/1-2.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.82)
+- [ ] `1.3` / `render/qsysnewg/1-3.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.78)
+- [ ] `1.4` / `render/qsysnewg/1-4.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (66%); local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.66)
+- [ ] `1.5` / `render/qsysnewg/1-5.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=1.00)
+- [ ] `1.5.1` / `render/qsysnewg/1-5-1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.86)
+- [ ] `1.5.2` / `render/qsysnewg/1-5-2.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (16%). (score=0.16)
+- [ ] `1.5.3` / `render/qsysnewg/1-5-3.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.93)
+- [ ] `1.5.4` / `render/qsysnewg/1-5-4.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.87)
+- [ ] `1.6` / `render/qsysnewg/1-6.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.96)
+- [ ] `1.7` / `render/qsysnewg/1-7.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.77)
+- [ ] `1.8` / `render/qsysnewg/1-8.md`: hosted topic was not found.
+- [ ] `1.8.1` / `render/qsysnewg/1-8-1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.94)
+### `BOO/QSYSINFO.BOO`
 
-- [x] `EDITION` / `render/qs3x36cm/edition.md`: bold and punctuation differ in
-  the copyright/trademark text. BookServer bolds the copyright symbol and each
-  word in `Copyright International Business Machines Corporation 1991. All
-  rights reserved.` The Markdown renders the copyright line mostly plain, only
-  bolds `rights reserved`, and changes the trademark list text around
-  `RPG/400 400` into `RPG/400, 400`. Fixed by rendering the trademark list as
-  explicit lines and emitting the copyright sentence as one bold block.
+- [ ] `COVER` / `render/qsysinfo/cover.md`: low normalized text overlap (22%); local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.22)
+- [ ] `NOTICES` / `render/qsysinfo/notices.md`: local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.87)
+- [ ] `EDITION` / `render/qsysinfo/edition.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (31%); local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.31)
+- [ ] `CONTENTS` / `render/qsysinfo/contents.md`: hosted topic was not found.
+- [ ] `FRONT_1` / `render/qsysinfo/front_1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (36%). (score=0.36)
+- [ ] `FRONT_2` / `render/qsysinfo/front_2.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.91)
+- [ ] `FRONT_2.1` / `render/qsysinfo/front_2-1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.97)
+- [ ] `1.1` / `render/qsysinfo/1-1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.81)
+- [ ] `1.1.1` / `render/qsysinfo/1-1-1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.89)
+- [ ] `1.1.2` / `render/qsysinfo/1-1-2.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.92)
+- [ ] `1.1.3` / `render/qsysinfo/1-1-3.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.96)
+- [ ] `1.1.4` / `render/qsysinfo/1-1-4.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.73)
+- [ ] `1.1.5` / `render/qsysinfo/1-1-5.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (62%). (score=0.62)
+- [ ] `1.1.6` / `render/qsysinfo/1-1-6.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.82)
+- [ ] `1.2` / `render/qsysinfo/1-2.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.74)
+- [ ] `1.2.1` / `render/qsysinfo/1-2-1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.91)
+- [ ] `1.2.1.1` / `render/qsysinfo/1-2-1-1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.84)
+- [ ] `1.2.2` / `render/qsysinfo/1-2-2.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.87)
+- [ ] `1.2.3` / `render/qsysinfo/1-2-3.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.95)
+- [ ] `1.2.4` / `render/qsysinfo/1-2-4.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.74)
+### `BOO/packet.boo`
 
-- [x] `CONTENTS` / `render/qs3x36cm/contents.md`: generated table of contents
-  does not match the BookServer contents topic. BookServer includes a
-  `[Summarize]` link before the topic list and renders `CONTENTS   Table of
-  Contents` as the heading. The Markdown now emits `# CONTENTS Table of
-  Contents` and `[Summarize](#CONTENTS-summary)`. It intentionally keeps a
-  generated Markdown bullet list for local links.
+- [ ] `COVER` / `render/packet/cover.md`: low normalized text overlap (18%); local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.18)
+- [ ] `TITLE` / `render/packet/title.md`: local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.94)
+- [ ] `EDITION` / `render/packet/edition.md`: local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.97)
+- [ ] `PREFACE` / `render/packet/preface.md`: local Markdown has torn emphasis markers or style spans applied to partial words. (score=1.00)
+- [ ] `CONTENTS` / `render/packet/contents.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=1.00)
+- [ ] `1.1` / `render/packet/1-1.md`: local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.87)
+- [ ] `1.2` / `render/packet/1-2.md`: local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.94)
+- [ ] `1.3` / `render/packet/1-3.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.99)
+- [ ] `2.1` / `render/packet/2-1.md`: local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.76)
+- [ ] `2.1.1` / `render/packet/2-1-1.md`: local Markdown has torn emphasis markers or style spans applied to partial words. (score=1.00)
+- [ ] `2.1.3` / `render/packet/2-1-3.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.88)
+- [ ] `2.1.4` / `render/packet/2-1-4.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.86)
+- [ ] `2.2.1` / `render/packet/2-2-1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.78)
 
-- [x] `1.0` / `render/qs3x36cm/1-0.md`: the inline link to appendix `A.0`
-  splits a word. BookServer text reads `Detailed information about the
-  function...` with the appendix link applied only to `Appendix, "AS/400
-  Control Language Commands" in topic A.0`. The Markdown breaks this into
-  `Detailed informat` followed by `[ion about the function of AS/400 commands
-  is available in](a-0.md)`, moving the link target onto the wrong text. Fixed
-  by applying `CSELECT` as a display-column span and preserving the suffix as
-  ordinary inline paragraph text.
+## Hosted comparison gaps
 
-- [x] `1.0` / `render/qs3x36cm/1-0.md`: italic span placement around `the CL
-  Reference` is wrong. BookServer renders only `CL` and `Reference` in italics
-  as separate inline emphasis runs. The Markdown renders malformed text:
-  `*th*e* CL Refer*ence.` Fixed by scoring `CFONT` display-column spans
-  against cleaned word boundaries; regression-covered in
-  `qs3x36cm_markdown_test`.
+These local BOO fixtures were freshly rendered, but the hosted BookServer catalog did not contain a matching book id at the local BOO basename, so their first-20 hosted comparisons are not renderer evidence yet:
 
-- [x] `1.0` / `render/qs3x36cm/1-0.md`: paragraph and heading normalization
-  differ from BookServer. BookServer heading includes the topic number
-  (`1.0   Introduction`) and keeps the two introduction paragraphs intact. The
-  Markdown heading drops `1.0`, and the second paragraph is split around the
-  broken appendix link. The heading and broken-link paragraph split are fixed.
+- [ ] `GG24-4302-00`: hosted catalog returned `book could not be located` for sampled topics `COVER, NOTICES, EDITION, ABSTRACT, CONTENTS`, plus 15 more. Find the hosted book id or mark it unavailable.
+- [ ] `GX27-3999-00`: hosted catalog returned `book could not be located` for sampled topics `COVER, NOTICES, EDITION, CONTENTS, FRONT_1`, plus 15 more. Find the hosted book id or mark it unavailable.
+- [ ] `SC09-2417-00`: hosted catalog returned `book could not be located` for sampled topics `COVER, NOTICES, EDITION, CONTENTS, FRONT_1`, plus 15 more. Find the hosted book id or mark it unavailable.
+- [ ] `SC24-5520-00`: hosted catalog returned `book could not be located` for sampled topics `TITLE, NOTICES, EDITION, CONTENTS, PREFACE`, plus 15 more. Find the hosted book id or mark it unavailable.
+- [ ] `SC24-5527-02`: hosted catalog returned `book could not be located` for sampled topics `COVER, NOTICES, EDITION, CONTENTS, FIGURES`, plus 15 more. Find the hosted book id or mark it unavailable.
+- [ ] `SC28-1881-05`: hosted catalog returned `book could not be located` for sampled topics `COVER, NOTICES, EDITION, CONTENTS, FIGURES`, plus 15 more. Find the hosted book id or mark it unavailable.
 
-- [x] `1.1` / `render/qs3x36cm/1-1.md`: unordered and nested list structure is
-  lost. BookServer shows bullet items beginning with the bullet glyph for
-  `Press F4`, `Type GO CMDxxx`, and `Select Command (SLTCMD)`, with nested
-  hyphen bullets for `xxx` as verb and noun. The Markdown collapses these into
-  ordinary paragraph text; the first bullet marker disappears, later nested
-  `- xxx` markers are embedded mid-paragraph, and list indentation is gone.
-  Fixed by reconstructing the split reflow-off list paragraph into nested
-  Markdown list items.
+## Comparison cache
 
-- [x] `1.1` / `render/qs3x36cm/1-1.md`: inline code-like `<tt>` text is not
-  preserved. BookServer uses monospace for `GO`, `CMDxxx`, `xxx`, `(SLTCMD)`,
-  `xxx*`, `CRT*`, and `DL*`. The Markdown emits these as plain text, making
-  command names and wildcard examples indistinguishable from prose. `XPH`/code
-  spans now render as Markdown backtick spans; some later spans still need
-  finer display-column mapping.
-
-- [x] `1.1` / `render/qs3x36cm/1-1.md`: italic emphasis is attached to the
-  wrong character ranges. BookServer italicizes the words `verb` and `noun`.
-  The Markdown renders fragments such as `th*e ve*rb`,
-  `th*e no*un`, and `*the *verb`, indicating inline style offsets are being
-  applied after surrounding text has already been reflowed incorrectly. The
-  `verb` and `noun` cases are fixed and regression-covered.
-
-- [x] `2.0` / `render/qs3x36cm/2-0.md`: the short page-reference block is
-  over-split. BookServer renders the three references as aligned fixed-width
-  lines, for example `System/36 procedures     Page 2.1`. The Markdown emits
-  `System/36 procedures Page`, then a separate paragraph containing only the
-  link `[2.1](2-1.md)`, and repeats that pattern for `2.2` and `2.3`. Fixed by
-  preserving reflow-off `ST` body display-line separators in raw projection and
-  rendering the three page references as a single line-preserving block.
-
-- [x] `2.0` / `render/qs3x36cm/2-0.md`: heading and subtopic output differ.
-  BookServer includes `2.0` in the heading and renders the subtopics as HTML
-  list items after the fixed-width block. The Markdown drops `2.0` from the
-  heading and emits generated Markdown bullets whose spacing/order is readable
-  but not faithful to the source rendering. The heading id and fixed-width page
-  reference block are fixed; subtopics remain Markdown-local links.
-
-- [x] `2.1` / `render/qs3x36cm/2-1.md`: the large three-column fixed-width
-  table is structurally corrupted. BookServer has 2024 fixed-width table
-  separator lines; the Markdown has only 462 Markdown table rows. Continuation
-  rows with a blank first column are often shifted into the wrong columns or
-  merged with neighboring entries. Closed after visual validation of the
-  regenerated table rendering.
-
-- [x] `2.1` / `render/qs3x36cm/2-1.md`: multi-entry System/36 mappings are
-  merged across row boundaries. Around `BGUCHART`, BookServer has separate
-  AS/400 mappings for `DSPCHT`, `DSPGDF`, and `STRBGU`, followed by a separate
-  `BGUDATA` row. The Markdown merges `STRBGU` and `BGUDATA STRBGU` text into
-  the `BGUCHART` function cell, then shifts `DSPGDF` into the first column.
-  Closed after visual validation of the regenerated table rendering.
-
-- [x] `2.1` / `render/qs3x36cm/2-1.md`: later table rows lose column
-  alignment and cell ownership. Examples include `BLDFILE` absorbing following
-  `BLDGRAPH`, `BLDINDEX`, `BLDLIBR`, `BLDMENU`, and `BUILD` content; `DSPFLR`
-  being split into `a database file containing the | list`; and entries such
-  as `CRTPRTF` / `DLTDEVD` being joined in the same cell. Closed after visual
-  validation of the regenerated table rendering.
-
-- [x] `2.2` / `render/qs3x36cm/2-2.md`: the System/36 control command table is
-  structurally corrupted in the same way as `2.1`. BookServer has 480
-  separator lines; the Markdown has 106 Markdown table rows. Multi-line
-  command names such as `CANCEL(C) job name`, `CANCEL(C) JOBQ(J)`,
-  `CANCEL(C) PRT(P)`, and `CANCEL(C) SESSION(S)` are split across Markdown
-  rows or cells. Closed after visual validation of the regenerated table
-  rendering.
-
-- [x] `2.2` / `render/qs3x36cm/2-2.md`: continuation AS/400 command rows are
-  shifted into the wrong columns. For example, BookServer renders `CLRJOBQ`
-  and `WRKJOBQ` as blank-System/36 continuation rows under `CANCEL(C) JOBQ(J)`;
-  the Markdown places description text into the AS/400 column and leaves
-  trailing empty cells. Similar shifts appear around `CHANGE(G) COPIES`,
-  `CHANGE(G) PRT(P)`, and many `START`/`STOP` rows later in the topic. Closed
-  after visual validation of the regenerated table rendering.
-
-- [x] `2.3` / `render/qs3x36cm/2-3.md`: the System/36 OCL statement table is
-  structurally corrupted. BookServer has 288 separator lines; the Markdown has
-  72 Markdown table rows. Continuation rows such as the second AS/400 command
-  for `// DATE`, the `OVRDBF` continuation under `// FILE (Disk)`, and
-  `Diskette` under `// FILE` are shifted or split into separate columns.
-  Closed after visual validation of the regenerated table rendering.
-
-- [x] `2.3` / `render/qs3x36cm/2-3.md`: OCL statement names containing spaces
-  and punctuation are not kept as fixed-width first-column content. Examples
-  include `// FILE Diskette`, `// MENU xxxx`, `// START PRT(P)`, and
-  `// STOP PRT(P)`, where the Markdown table parser treats wrapped first-column
-  text as a new row rather than a continuation of the same source row. Closed
-  after visual validation of the regenerated table rendering.
-
-- [x] `A.0` / `render/qs3x36cm/a-0.md`: duplicate/merged appendix heading.
-  BookServer has one heading, `A.0   Appendix.  AS/400 Control Language
-  Commands`, followed by prose: `Following is a complete list...`. The
-  Markdown emits `# Appendix.  AS/400 Control Language Commands`, then an
-  anchor, then a second heading line that combines the heading and prose:
-  `# Appendix. AS/400 Control Language Commands Following is...`. Fixed by
-  converting the raw duplicate heading-with-body into ordinary prose when the
-  topic renderer has already inserted the TOC heading.
-
-- [x] `A.0` / `render/qs3x36cm/a-0.md`: the two-column command list table is
-  structurally corrupted. BookServer has 4984 separator lines; the Markdown has
-  1159 Markdown table rows. Multi-line descriptive names such as `Add
-  Intersystem Communications Function / Program Device Entry` initially work
-  in some rows, but later long runs merge dozens of commands into one cell.
-  Closed after visual validation of the regenerated table rendering.
-
-- [x] `A.0` / `render/qs3x36cm/a-0.md`: the bottom of the topic contains severe
-  garbage text not present in BookServer. BookServer ends cleanly with rows
-  from `WRKQMQRY` through `WRKWTR`. The Markdown tail contains orphaned words
-  and punctuation such as `disk. Displays`, `parameters`, repeated `one`, and
-  fragments like `required nowork PDM command PDM DistributionCopy`, before the
-  navigation footer. Closed after visual validation of the regenerated table
-  rendering.
-
-- [x] Cross-topic heading policy: all numbered topics drop their topic id in
-  Markdown headings (`1.0`, `1.1`, `2.0`, `2.1`, `2.2`, `2.3`, `A.0`), while
-  BookServer renders the id in the heading text. Decide whether the Markdown
-  pipeline should preserve BookServer heading text exactly or intentionally
-  strip ids; right now this causes every normalized comparison to differ.
-  Markdown now preserves ids in topic headings through `TocEntry::markdown()`.
-
-- [x] Cross-topic fixed-width/preformatted handling: every content topic in
-  QS3X36CM uses `<pre width="80">`. The Markdown pipeline reflows most prose,
-  lists, and tables instead of preserving the BookServer line model. This is
-  the common root of the paragraph collapses in `EDITION`, the list collapses
-  in `1.1`, and the page-reference split in `2.0`. Table rendering was fixed
-  separately and validated visually. The remaining fixed-width prose/list/page
-  reference cases are now handled by focused Markdown rendering paths and
-  regression tests.
+- Hosted HTML cache: `BookServerCache/<book>/`
+- Source scratch comparison output: `/tmp/geist-compare/findings.all.tsv`
+- The raw TSV is intentionally not committed; regenerate it from the hosted cache if the comparison heuristic needs tuning.

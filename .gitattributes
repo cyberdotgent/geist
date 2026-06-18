@@ -1,2 +1,3 @@
 BOO/packet.boo -text
 BOO/packet.script -text
+BookServerCache/**/*.html -text

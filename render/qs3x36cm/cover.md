@@ -4,17 +4,15 @@ Previous | [Index](README.md) | [Next](edition.md)
 
 # COVER Book Cover
 
-**Application** **System/400(TM)**
+**Application System/400(TM)**
 
 **Programming:**
 
-**System/36** **Commands** **to**
+System/36 Commands to
 
-**AS/400** **Commands**
+AS/400 Commands
 
-**Cross-Reference**
-
-Version 2
+Cross-Reference Version 2
 
 Document Number SX41-8209-00
 
