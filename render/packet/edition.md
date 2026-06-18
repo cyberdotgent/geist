@@ -4,7 +4,7 @@
 
 # EDITION Edition Notice
 
-**First** **Edition,** ****Jan**uary** 27, **2026**
+**First** **Edition,** **January** **27,** **2026**
 
 **Note:** This is the initial version of this document, so it is likely to have all manner of errors.
 
