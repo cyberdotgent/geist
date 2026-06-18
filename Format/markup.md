@@ -529,6 +529,19 @@ The `CONTENTS` topic stores literal `CTOCDEF`/`CTOCE` entries, while BookServer
 also adds reader-generated navigation such as `Summarize`. That navigation is a
 renderer affordance, not a separate BOO topic body record.
 
+Several QS3X36CM non-table blocks are compiled as reflow-off visual text rather
+than explicit source list/paragraph tags. A Markdown renderer that preserves
+BookServer intent should reconstruct these from the decoded text/control
+sequence instead of treating every cleaned `:p.` as one paragraph:
+
+| Topic | Rendering rule |
+| --- | --- |
+| `COVER` | Split title-page metadata labels such as `Document Number` and `Program Number` onto separate lines. |
+| `EDITION` | Split the visual notice into the edition heading, applicability paragraph, trademark-introduction paragraphs, line-oriented trademark lists, technical-inaccuracy paragraphs, copyright sentence, and government-rights note. |
+| `1.1` | The `Press F4`, `Type GO CMDxxx`, and `Select Command (SLTCMD)` body is a visual simple list with two nested hyphen items under the `Type GO CMDxxx` item. |
+| `2.0` | The three `CSELECT` page references are a fixed-width page-reference block; the selected topic numbers are inline links at the end of each preserved line. |
+| `A.0` | `SRHDRAPA` may precede the `ST` heading text in the decoded stream. If the TOC renderer has already emitted the topic heading, a following heading record whose text begins with the same title and continues with body prose should be demoted to a paragraph containing only the prose. |
+
 ## Open Questions
 
 - Complete byte-level separation for every inline control field and separator.

@@ -16,7 +16,9 @@ Previous | [Index](README.md) | [Next](edition.md)
 
 Version 2
 
-Document Number SX41-8209-00 Program Number 5738-SS1
+Document Number SX41-8209-00
+
+Program Number 5738-SS1
 
 ---
 

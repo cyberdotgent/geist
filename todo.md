@@ -17,30 +17,33 @@ Topics crawled: `COVER`, `EDITION`, `CONTENTS`, `1.0`, `1.1`, `2.0`,
   `COVER Book Cover` through `TocEntry::markdown()`. Cover-line grouping and
   bold-state cleanup still needs fuller reflow-off title-page work.
 
-- [ ] `COVER` / `render/qs3x36cm/cover.md`: cover-line grouping and bold
+- [x] `COVER` / `render/qs3x36cm/cover.md`: cover-line grouping and bold
   state do not match BookServer. BookServer renders `COVER   Book Cover` as
   the topic heading, then a fixed-width cover block where `Cross-Reference`,
   `Version 2`, `Document Number SX41-8209-00`, and `Program Number 5738-SS1`
   are separate lines/paragraphs. The Markdown drops the `COVER` topic id from
   the heading and merges `Cross-Reference Version 2 Document Number ... Program
-  Number ...` into one malformed bold paragraph.
+  Number ...` into one malformed bold paragraph. Fixed by splitting title-page
+  metadata labels, including `Program Number`, in the Markdown topic renderer.
 
 - [x] `EDITION` / `render/qs3x36cm/edition.md`: topic heading now preserves
   `EDITION Edition Notice` through `TocEntry::markdown()`.
 
-- [ ] `EDITION` / `render/qs3x36cm/edition.md`: paragraph boundaries inside
+- [x] `EDITION` / `render/qs3x36cm/edition.md`: paragraph boundaries inside
   the fixed-width notice are mostly lost. BookServer has separate paragraphs
   for the edition applicability text, the IBM trademark introduction, the
   multi-line IBM trademark list, the non-IBM trademark introduction, the
   `RM/COBOL-85` owner, and the technical-inaccuracies notes. The Markdown
-  collapses almost all of that into one long paragraph.
+  collapses almost all of that into one long paragraph. Fixed by reconstructing
+  the reflow-off edition notice into separate Markdown blocks.
 
-- [ ] `EDITION` / `render/qs3x36cm/edition.md`: bold and punctuation differ in
+- [x] `EDITION` / `render/qs3x36cm/edition.md`: bold and punctuation differ in
   the copyright/trademark text. BookServer bolds the copyright symbol and each
   word in `Copyright International Business Machines Corporation 1991. All
   rights reserved.` The Markdown renders the copyright line mostly plain, only
   bolds `rights reserved`, and changes the trademark list text around
-  `RPG/400 400` into `RPG/400, 400`.
+  `RPG/400 400` into `RPG/400, 400`. Fixed by rendering the trademark list as
+  explicit lines and emitting the copyright sentence as one bold block.
 
 - [x] `CONTENTS` / `render/qs3x36cm/contents.md`: generated table of contents
   does not match the BookServer contents topic. BookServer includes a
@@ -71,12 +74,14 @@ Topics crawled: `COVER`, `EDITION`, `CONTENTS`, `1.0`, `1.1`, `2.0`,
   Markdown heading drops `1.0`, and the second paragraph is split around the
   broken appendix link. The heading and broken-link paragraph split are fixed.
 
-- [ ] `1.1` / `render/qs3x36cm/1-1.md`: unordered and nested list structure is
+- [x] `1.1` / `render/qs3x36cm/1-1.md`: unordered and nested list structure is
   lost. BookServer shows bullet items beginning with the bullet glyph for
   `Press F4`, `Type GO CMDxxx`, and `Select Command (SLTCMD)`, with nested
   hyphen bullets for `xxx` as verb and noun. The Markdown collapses these into
   ordinary paragraph text; the first bullet marker disappears, later nested
   `- xxx` markers are embedded mid-paragraph, and list indentation is gone.
+  Fixed by reconstructing the split reflow-off list paragraph into nested
+  Markdown list items.
 
 - [x] `1.1` / `render/qs3x36cm/1-1.md`: inline code-like `<tt>` text is not
   preserved. BookServer uses monospace for `GO`, `CMDxxx`, `xxx`, `(SLTCMD)`,
@@ -92,17 +97,19 @@ Topics crawled: `COVER`, `EDITION`, `CONTENTS`, `1.0`, `1.1`, `2.0`,
   applied after surrounding text has already been reflowed incorrectly. The
   `verb` and `noun` cases are fixed and regression-covered.
 
-- [ ] `2.0` / `render/qs3x36cm/2-0.md`: the short page-reference block is
+- [x] `2.0` / `render/qs3x36cm/2-0.md`: the short page-reference block is
   over-split. BookServer renders the three references as aligned fixed-width
   lines, for example `System/36 procedures     Page 2.1`. The Markdown emits
   `System/36 procedures Page`, then a separate paragraph containing only the
-  link `[2.1](2-1.md)`, and repeats that pattern for `2.2` and `2.3`.
+  link `[2.1](2-1.md)`, and repeats that pattern for `2.2` and `2.3`. Fixed by
+  rendering the three page references as a single line-preserving block.
 
-- [ ] `2.0` / `render/qs3x36cm/2-0.md`: heading and subtopic output differ.
+- [x] `2.0` / `render/qs3x36cm/2-0.md`: heading and subtopic output differ.
   BookServer includes `2.0` in the heading and renders the subtopics as HTML
   list items after the fixed-width block. The Markdown drops `2.0` from the
   heading and emits generated Markdown bullets whose spacing/order is readable
-  but not faithful to the source rendering.
+  but not faithful to the source rendering. The heading id and fixed-width page
+  reference block are fixed; subtopics remain Markdown-local links.
 
 - [x] `2.1` / `render/qs3x36cm/2-1.md`: the large three-column fixed-width
   table is structurally corrupted. BookServer has 2024 fixed-width table
@@ -155,12 +162,14 @@ Topics crawled: `COVER`, `EDITION`, `CONTENTS`, `1.0`, `1.1`, `2.0`,
   text as a new row rather than a continuation of the same source row. Closed
   after visual validation of the regenerated table rendering.
 
-- [ ] `A.0` / `render/qs3x36cm/a-0.md`: duplicate/merged appendix heading.
+- [x] `A.0` / `render/qs3x36cm/a-0.md`: duplicate/merged appendix heading.
   BookServer has one heading, `A.0   Appendix.  AS/400 Control Language
   Commands`, followed by prose: `Following is a complete list...`. The
   Markdown emits `# Appendix.  AS/400 Control Language Commands`, then an
   anchor, then a second heading line that combines the heading and prose:
-  `# Appendix. AS/400 Control Language Commands Following is...`.
+  `# Appendix. AS/400 Control Language Commands Following is...`. Fixed by
+  converting the raw duplicate heading-with-body into ordinary prose when the
+  topic renderer has already inserted the TOC heading.
 
 - [x] `A.0` / `render/qs3x36cm/a-0.md`: the two-column command list table is
   structurally corrupted. BookServer has 4984 separator lines; the Markdown has
@@ -184,9 +193,11 @@ Topics crawled: `COVER`, `EDITION`, `CONTENTS`, `1.0`, `1.1`, `2.0`,
   strip ids; right now this causes every normalized comparison to differ.
   Markdown now preserves ids in topic headings through `TocEntry::markdown()`.
 
-- [ ] Cross-topic fixed-width/preformatted handling: every content topic in
+- [x] Cross-topic fixed-width/preformatted handling: every content topic in
   QS3X36CM uses `<pre width="80">`. The Markdown pipeline reflows most prose,
   lists, and tables instead of preserving the BookServer line model. This is
   the common root of the paragraph collapses in `EDITION`, the list collapses
   in `1.1`, and the page-reference split in `2.0`. Table rendering was fixed
-  separately and validated visually.
+  separately and validated visually. The remaining fixed-width prose/list/page
+  reference cases are now handled by focused Markdown rendering paths and
+  regression tests.

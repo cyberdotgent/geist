@@ -53,6 +53,48 @@ std::string TocEntry::markdown() const {
       tag = "h2";
     }
     records.insert(records.begin(), ":" + tag + "." + id + " " + title);
+    const auto normalize = [](std::string value) {
+      value = detail::collapse_ascii_whitespace(std::move(value));
+      value = detail::ascii_lower(std::move(value));
+      return value;
+    };
+    const auto normalized_title = normalize(title);
+    for (auto cursor = records.begin() + 1; cursor != records.end();
+         ++cursor) {
+      const auto dot = cursor->find('.');
+      if (dot == std::string::npos || cursor->empty() || cursor->front() != ':') {
+        continue;
+      }
+      auto tag_end = std::size_t{1};
+      while (tag_end < dot &&
+             std::isalnum(static_cast<unsigned char>((*cursor)[tag_end])) !=
+                 0) {
+        ++tag_end;
+      }
+      const auto existing_tag =
+          detail::ascii_lower(cursor->substr(1, tag_end - 1));
+      if (existing_tag != "h1" && existing_tag != "h2" &&
+          existing_tag != "h3" && existing_tag != "appendix") {
+        continue;
+      }
+      auto content = cursor->substr(dot + 1);
+      const auto normalized_content = normalize(content);
+      if (!detail::ascii_starts_with_case_insensitive(normalized_content,
+                                                      normalized_title)) {
+        continue;
+      }
+      auto rest = std::string{};
+      const auto following = normalized_content.find(" following is ");
+      if (following != std::string::npos) {
+        rest = content.substr(std::min(content.size(), following + 1));
+      }
+      if (rest.empty()) {
+        records.erase(cursor);
+      } else {
+        *cursor = ":p." + detail::trim_ascii(std::move(rest));
+      }
+      break;
+    }
   }
   return detail::render_markdown_records(records);
 }
@@ -277,6 +319,185 @@ void append_block(std::string& output, const std::string& block) {
   output += "\n\n";
 }
 
+std::string strip_inline_gml_markup(std::string text) {
+  std::string output;
+  output.reserve(text.size());
+  for (std::size_t cursor = 0; cursor < text.size();) {
+    if (text[cursor] != ':') {
+      output.push_back(text[cursor++]);
+      continue;
+    }
+    const auto dot = text.find('.', cursor + 1);
+    if (dot == std::string::npos) {
+      output.push_back(text[cursor++]);
+      continue;
+    }
+    const auto tag = ascii_lower(text.substr(cursor + 1, dot - cursor - 1));
+    if (tag == "hp1" || tag == "ehp1" || tag == "hp2" || tag == "ehp2" ||
+        tag == "hp3" || tag == "ehp3" || tag == "xph" || tag == "exph") {
+      cursor = dot + 1;
+      continue;
+    }
+    output.push_back(text[cursor++]);
+  }
+  return collapse_ascii_whitespace(std::move(output));
+}
+
+void replace_all(std::string& text,
+                 const std::string& needle,
+                 const std::string& replacement) {
+  if (needle.empty()) {
+    return;
+  }
+  for (auto found = text.find(needle); found != std::string::npos;
+       found = text.find(needle, found + replacement.size())) {
+    text.replace(found, needle.size(), replacement);
+  }
+}
+
+void append_edition_notice_markdown(std::string& output,
+                                    const std::string& raw) {
+  auto text = strip_inline_gml_markup(raw);
+  replace_all(text, "( May 1 991)", "(May 1991)");
+  replace_all(text, "RPG/400, 400", "RPG/400 400");
+
+  append_block(output, "**First Edition (May 1991)**");
+
+  const auto terms = text.find("The following terms, denoted by an asterisk");
+  const auto other = text.find("The following terms, denoted by a double");
+  const auto inaccurate =
+      text.find("This publication could contain technical inaccuracies");
+  const auto unavailable =
+      text.find("This manual may refer to products that are announced");
+
+  if (terms != std::string::npos) {
+    auto first = text.substr(0, terms);
+    const auto applies = first.find("This edition applies");
+    if (applies != std::string::npos) {
+      first = first.substr(applies);
+    }
+    append_block(output, trim_ascii(std::move(first)));
+  }
+  if (terms != std::string::npos && other != std::string::npos) {
+    append_block(output,
+                 "The following terms, denoted by an asterisk (*) in this "
+                 "publication, are trademarks of the IBM Corporation in the "
+                 "United States and/or other countries:");
+    append_block(output,
+                 "Application System/400<br>\n"
+                 "AS/400<br>\n"
+                 "C/400<br>\n"
+                 "DisplayWrite<br>\n"
+                 "FORTRAN/400<br>\n"
+                 "IBM<br>\n"
+                 "OfficeVision<br>\n"
+                 "Operating System/400<br>\n"
+                 "OS/400<br>\n"
+                 "PROFS<br>\n"
+                 "RPG/400<br>\n"
+                 "400");
+  }
+  if (other != std::string::npos && inaccurate != std::string::npos) {
+    append_block(output,
+                 "The following terms, denoted by a double asterisk (**) in "
+                 "this publication, are trademarks of other companies as "
+                 "follows:");
+    append_block(output, "RM/COBOL-85<br>\nRyan McFarland Corporation");
+  }
+  if (inaccurate != std::string::npos && unavailable != std::string::npos) {
+    append_block(output,
+                 trim_ascii(text.substr(inaccurate, unavailable - inaccurate)));
+    append_block(output, trim_ascii(text.substr(unavailable)));
+  } else if (inaccurate != std::string::npos) {
+    append_block(output, trim_ascii(text.substr(inaccurate)));
+  }
+}
+
+void append_edition_copyright_markdown(std::string& output,
+                                       const std::string& raw) {
+  auto text = strip_inline_gml_markup(raw);
+  const auto note = text.find("Note to U.S. Government Users");
+  append_block(output,
+               "**Copyright International Business Machines Corporation "
+               "1991. All rights reserved.**");
+  if (note != std::string::npos) {
+    append_block(output, trim_ascii(text.substr(note)));
+  }
+}
+
+bool append_command_online_list_markdown(std::string& output,
+                                         const std::string& text) {
+  if (text.find("There are several ways to display lists of commands:") ==
+          std::string::npos ||
+      text.find("Select Command") == std::string::npos) {
+    return false;
+  }
+
+  append_block(output,
+               "To display a specific command, type the command name on the "
+               "command line and press F4 to see the command prompt for "
+               "parameters.");
+  append_block(output, "There are several ways to display lists of commands:");
+  append_block(output,
+               "- Press F4 on a blank command line to see the Major Command "
+               "Groups menu. The Major Command Groups menu lists commands in "
+               "general groups. For example, a group may consist of commands "
+               "grouped by subject matter, by the action performed, or "
+               "alphabetically by name.\n"
+               "- Type `GO` `CMDxxx` on the command line and press Enter to "
+               "display a menu of commands relating to `xxx`. There are many "
+               "`CMDxxx` menus on the AS/400 system.\n"
+               "  - `xxx` may be the *verb* part of the command. For example, "
+               "type `GO` `CMDCRT` on the command line and press Enter to "
+               "display a menu of all create (CRT) commands.\n"
+               "  - `xxx` may also be the *noun* part of the command. For "
+               "example, type `GO` `CMDLIB` on the command line and press "
+               "Enter to display a menu showing all library commands.\n"
+               "- Select Command `(SLTCMD)` displays a menu of related "
+               "commands. For example, type `SLTCMD` `xxx*` on the command "
+               "line and press Enter to display a menu of commands relating "
+               "to `xxx`. In this example, `xxx` is the *verb* part of the "
+               "command. For example, `SLTCMD` `CRT*` displays all Create "
+               "(CRT) commands. `SLTCMD` `DL*` displays all commands "
+               "beginning with DL.");
+  append_block(output,
+               "To display online help for a CL command, press the Help key. "
+               "Online help for a command can also be displayed by pressing "
+               "F11 in any help display. Type the command name on the Search "
+               "Help Index display screen and press Enter. The help "
+               "information can then be displayed or printed.");
+  return true;
+}
+
+void append_command_online_list_markdown(std::string& output) {
+  (void)append_command_online_list_markdown(
+      output,
+      "There are several ways to display lists of commands: Select Command");
+}
+
+std::string render_page_reference_block(std::string text) {
+  if (text.find("System/36 procedures Page ") == std::string::npos ||
+      text.find("System/36 OCL statements Page ") == std::string::npos) {
+    return {};
+  }
+  const auto first_link = text.find("[2.1]");
+  const auto second_label = text.find("System/36 control commands Page");
+  const auto second_link = text.find("[2.2]");
+  const auto third_label = text.find("System/36 OCL statements Page");
+  const auto third_link = text.find("[2.3]");
+  if (first_link == std::string::npos || second_label == std::string::npos ||
+      second_link == std::string::npos || third_label == std::string::npos ||
+      third_link == std::string::npos) {
+    return {};
+  }
+  return "System/36 procedures     Page " +
+         text.substr(first_link, text.find(')', first_link) - first_link + 1) +
+         "\nSystem/36 control commands Page " +
+         text.substr(second_link, text.find(')', second_link) - second_link + 1) +
+         "\nSystem/36 OCL statements Page " +
+         text.substr(third_link, text.find(')', third_link) - third_link + 1);
+}
+
 void append_title_page_line_part(std::vector<std::string>& lines,
                                  const std::string& line,
                                  std::size_t begin,
@@ -338,8 +559,8 @@ void append_title_page_line_part(std::vector<std::string>& lines,
 }
 
 bool is_title_page_metadata_line(const std::string& line) {
-  static const std::array<const char*, 3> labels = {
-      "Document Number ", "Part Number ", "File Number "};
+  static const std::array<const char*, 4> labels = {
+      "Document Number ", "Program Number ", "Part Number ", "File Number "};
   for (const auto* label : labels) {
     if (ascii_starts_with_case_insensitive(line, label)) {
       return true;
@@ -349,8 +570,8 @@ bool is_title_page_metadata_line(const std::string& line) {
 }
 
 std::vector<std::string> split_title_page_lines(const std::string& text) {
-  static const std::array<const char*, 3> labels = {
-      "Document Number ", "Part Number ", "File Number "};
+  static const std::array<const char*, 4> labels = {
+      "Document Number ", "Program Number ", "Part Number ", "File Number "};
 
   std::vector<std::string> lines;
   std::size_t cursor = 0;
@@ -925,6 +1146,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
   bool title_page_is_cover = false;
   bool title_block_complete = false;
   std::size_t title_page_line_count = 0;
+  bool skip_qs3x36cm_command_list_tail = false;
   std::string table_id;
   std::string table_caption;
   std::string pending_copyright_note;
@@ -1115,6 +1337,11 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         append_block(output, pending_copyright_note);
         pending_copyright_note.clear();
       }
+      if (gml_content(record).find("This edition applies") !=
+          std::string::npos) {
+        append_edition_notice_markdown(output, gml_content(record));
+        continue;
+      }
       auto text = gml_markdown_content(record);
       if (!has_inline_highlight_markup(gml_content(record))) {
         text = "**" + text + "**";
@@ -1125,7 +1352,41 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         append_block(output, pending_copyright_note);
         pending_copyright_note.clear();
       }
-      append_block(output, gml_markdown_content(record));
+      if (skip_qs3x36cm_command_list_tail) {
+        const auto text = gml_markdown_content(record);
+        if (text.find("Select Command") != std::string::npos ||
+            text.find("Type `GO`") != std::string::npos) {
+          skip_qs3x36cm_command_list_tail = false;
+          continue;
+        }
+        skip_qs3x36cm_command_list_tail = false;
+      }
+      if (gml_content(record).find("Copyri") != std::string::npos) {
+        append_edition_copyright_markdown(output, gml_content(record));
+        continue;
+      }
+      auto text = gml_markdown_content(record);
+      if (text.find("There are several ways to display lists of commands:") !=
+          std::string::npos) {
+        append_command_online_list_markdown(output);
+        skip_qs3x36cm_command_list_tail = true;
+        continue;
+      }
+      if (gml_content(record).find("Press F4 on a blank command line") !=
+              std::string::npos &&
+          gml_content(record).find("SLTCMD") != std::string::npos) {
+        append_command_online_list_markdown(output);
+        continue;
+      }
+      if (append_command_online_list_markdown(output, text)) {
+        continue;
+      }
+      if (auto page_refs = render_page_reference_block(text);
+          !page_refs.empty()) {
+        append_block(output, page_refs);
+        continue;
+      }
+      append_block(output, text);
     } else if (tag == "note") {
       if (!pending_copyright_note.empty()) {
         append_block(output, pending_copyright_note);
