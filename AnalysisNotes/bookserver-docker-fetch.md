@@ -696,3 +696,42 @@ One negative control is `QSYSNEWG.BOO` topic `F.1`: it also appears inside
 The BookServer renderer handles table scope separately from fixed screen output,
 so local normalization must let table parsing take precedence over figure text
 recovery while `SRTBL` is active.
+
+On the same book, topic `FRONT_1` exposed a separate heading/body split issue.
+`./build/bootrace BOO/QSYSNEWG.BOO FRONT_1 --all` showed logical record 13 as:
+
+```text
+SRHDRNOTICES ? ST  Notices        References in this publication to IBM products, programs, or services do ...
+```
+
+Normalization projected this as an anchor followed by a heading carrying body
+text:
+
+```text
+:anchor id='HDRNOTICES'.
+:h1.Notices References in this publication to IBM products, programs, or services do ...
+```
+
+The hosted `FRONT_1` page renders:
+
+```html
+<a name="HDRNOTICES"><H1> FRONT_1   Notices</H1></a>
+<pre width="80"><!-- * -->
+   References in this publication to IBM products, programs, or services do
+```
+
+The topic renderer then emitted the TOC-derived `FRONT_1 Notices` heading and
+treated the original heading as a duplicate. The old duplicate-heading cleanup
+deleted the whole `:h1` record, losing the first paragraph and making the topic
+start at logical record 14 (`business operations...`). The compatible behavior
+is to split the first title record after any leading anchors, keep `Notices` as
+the heading title, and preserve the trailing `References...` text plus
+continuation records as reflow-off fixed lines.
+
+This is not a topic-name special case. `QS3X36CM.BOO` shows the same
+`CHDLEVEL`/`ST` title-plus-body pattern, but its `ST` bodies can be followed by
+typed inline controls: topic `1.0` continues with `CSELECT`, topic `1.1` with
+`CFONT`, and topic `2.0` has a colon-terminated intro before `CSELECT` page
+references. The compatible local split is therefore structural: plain
+reflow-off `ST` body text can become fixed lines, while `CSELECT`/`CFONT`
+continuations must stay in the structured path so links and font spans survive.

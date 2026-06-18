@@ -87,6 +87,27 @@ int main() {
                        "Of**ficial I**n**troductory C**h**apter**",
                        "torn Official Introductory Chapter emphasis");
 
+  const auto front_notices = topic_markdown(document, "FRONT_1");
+  require_contains(front_notices,
+                   "# FRONT_1 Notices",
+                   "TOC-derived FRONT_1 heading");
+  require_contains(front_notices,
+                   "   References in this publication to IBM products, "
+                   "programs, or services do\n"
+                   "   not imply",
+                   "FRONT_1 heading-carried first paragraph");
+  require_contains(front_notices,
+                   "```text\n   References in this publication",
+                   "FRONT_1 fixed-width body");
+  require_contains(front_notices,
+                   "   This publication contains examples of data and reports "
+                   "used in daily\n"
+                   "   business operations.",
+                   "FRONT_1 following logical record");
+  require_not_contains(front_notices,
+                       "# FRONT_1 Notices References",
+                       "FRONT_1 body folded into topic heading");
+
   const auto sign_on = topic_markdown(document, "2.0");
   require_contains(sign_on,
                    "Before you can use the AS/400 system you must sign on",

@@ -96,8 +96,12 @@ std::vector<TocEntry> extract_toc_entries(const std::string& decoded_record) {
       std::getline(input, title);
       title = normalize_toc_title(trim_ascii(title));
       if (!id.empty() && !title.empty()) {
-        entries.push_back(
-            {normalize_toc_id(id), title, level, style});
+        TocEntry entry;
+        entry.id = normalize_toc_id(id);
+        entry.title = std::move(title);
+        entry.level = level;
+        entry.style = style;
+        entries.push_back(std::move(entry));
       }
     }
 
@@ -119,6 +123,218 @@ bool is_topic_header_record(const std::string& decoded_record) {
   lower_record.erase(0, skip_decoded_separators(lower_record));
   return lower_record.rfind("sh", 0) == 0 &&
          lower_record.find("ctopicn") != std::string::npos;
+}
+
+std::string raw_gml_tag(const std::string& record) {
+  if (record.empty() || record.front() != ':') {
+    return {};
+  }
+  std::size_t cursor = 1;
+  while (cursor < record.size() &&
+         std::isalnum(static_cast<unsigned char>(record[cursor])) != 0) {
+    ++cursor;
+  }
+  return ascii_lower(record.substr(1, cursor - 1));
+}
+
+bool is_topic_title_record(const std::string& record) {
+  const auto tag = raw_gml_tag(record);
+  static const std::set<std::string> title_tags = {
+      "h1", "h2", "h3", "h4", "h5", "ih2", "preface", "appendix"};
+  return title_tags.find(tag) != title_tags.end();
+}
+
+std::size_t find_decoded_control(const std::string& record,
+                                 const std::string& lower_record,
+                                 const std::string& control) {
+  auto search = std::size_t{0};
+  while (search < lower_record.size()) {
+    const auto found = lower_record.find(control, search);
+    if (found == std::string::npos) {
+      return std::string::npos;
+    }
+    auto separator = found;
+    while (separator > 0 &&
+           std::isspace(static_cast<unsigned char>(record[separator - 1])) !=
+               0) {
+      --separator;
+    }
+    if (separator == 0 || record[separator - 1] == '?' ||
+        record[separator - 1] == ',') {
+      return found;
+    }
+    if (control == "st ") {
+      const auto source = lower_record.rfind("csourcefn", found);
+      const auto comma = lower_record.rfind(',', found);
+      const auto question = lower_record.rfind('?', found);
+      const auto previous_separator = std::max(
+          comma == std::string::npos ? std::size_t{0} : comma,
+          question == std::string::npos ? std::size_t{0} : question);
+      if (source != std::string::npos && source >= previous_separator) {
+        return found;
+      }
+    }
+    search = found + 1;
+  }
+  return std::string::npos;
+}
+
+bool paragraph_punctuation(char ch) {
+  return ch == '.' || ch == ':' || ch == ';';
+}
+
+bool line_ends_paragraph(const std::string& line) {
+  auto trimmed = trim_ascii(line);
+  return !trimmed.empty() && paragraph_punctuation(trimmed.back());
+}
+
+bool contains_wide_space_run(const std::string& value) {
+  auto spaces = std::size_t{0};
+  for (const auto ch : value) {
+    if (std::isspace(static_cast<unsigned char>(ch)) != 0) {
+      ++spaces;
+      if (spaces >= 8) {
+        return true;
+      }
+    } else {
+      spaces = 0;
+    }
+  }
+  return false;
+}
+
+bool has_reflow_off_line_markers(const std::string& value) {
+  auto spaces = std::size_t{0};
+  for (const auto ch : value) {
+    if (ch == '?') {
+      return true;
+    }
+    if (std::isspace(static_cast<unsigned char>(ch)) != 0) {
+      ++spaces;
+      if (spaces >= 8) {
+        return true;
+      }
+    } else {
+      spaces = 0;
+    }
+  }
+  return false;
+}
+
+std::vector<std::string> split_reflow_off_body_lines(std::string value) {
+  value = trim_ascii(std::move(value));
+  std::vector<std::string> lines;
+  std::string line;
+
+  const auto flush_line = [&](bool paragraph_break) {
+    line = trim_ascii(std::move(line));
+    if (!line.empty()) {
+      lines.push_back("   " + line);
+      if (paragraph_break) {
+        lines.emplace_back();
+      }
+    }
+    line.clear();
+  };
+
+  for (std::size_t cursor = 0; cursor < value.size();) {
+    if (value[cursor] == '?') {
+      const auto run_begin = cursor;
+      while (cursor < value.size() && value[cursor] == '?') {
+        ++cursor;
+      }
+      const auto question_run = cursor - run_begin;
+      while (cursor < value.size() &&
+             std::isspace(static_cast<unsigned char>(value[cursor])) != 0) {
+        ++cursor;
+      }
+      const auto next_begin = cursor;
+      const auto next_end = value.find('?', next_begin);
+      const auto next_segment =
+          value.substr(next_begin,
+                       next_end == std::string::npos
+                           ? std::string::npos
+                           : next_end - next_begin);
+      const auto paragraph_break =
+          question_run < 8 &&
+          (line_ends_paragraph(line) ||
+           (line.size() < 40 && contains_wide_space_run(line) &&
+            !contains_wide_space_run(next_segment)));
+      flush_line(paragraph_break);
+      continue;
+    }
+
+    if (std::isspace(static_cast<unsigned char>(value[cursor])) != 0) {
+      auto spaces = std::size_t{0};
+      while (cursor < value.size() &&
+             std::isspace(static_cast<unsigned char>(value[cursor])) != 0) {
+        ++spaces;
+        ++cursor;
+      }
+      if (spaces >= 5 && line_ends_paragraph(line)) {
+        flush_line(true);
+      } else if (spaces >= 5 && line.size() >= 40) {
+        flush_line(false);
+      } else if (!line.empty() && line.back() != ' ') {
+        line.append(spaces, ' ');
+      }
+      continue;
+    }
+
+    line.push_back(value[cursor++]);
+  }
+  flush_line(false);
+
+  while (!lines.empty() && lines.back().empty()) {
+    lines.pop_back();
+  }
+  return lines;
+}
+
+std::size_t topic_body_control_offset(const std::string& record,
+                                      std::size_t value_begin,
+                                      std::string& first_following_control) {
+  const auto lower_record = ascii_lower(record);
+  auto value_end = record.size();
+  static const std::array<const char*, 11> following_controls = {
+      "cselect", "cfont", "cmenu", "cmitem", "cemenu", "srtbl",
+      "sretbl",  "srfig", "srefig", "cz",    "si"};
+  for (const auto* control : following_controls) {
+    auto search = value_begin;
+    while (search < lower_record.size()) {
+      const auto found = lower_record.find(control, search);
+      if (found == std::string::npos) {
+        break;
+      }
+
+      auto separator_end = found;
+      while (separator_end > value_begin &&
+             std::isspace(
+                 static_cast<unsigned char>(record[separator_end - 1])) != 0) {
+        --separator_end;
+      }
+      auto separator_begin = separator_end;
+      while (separator_begin > value_begin &&
+             (record[separator_begin - 1] == '?' ||
+              record[separator_begin - 1] == ',' ||
+              std::isspace(static_cast<unsigned char>(
+                  record[separator_begin - 1])) != 0)) {
+        --separator_begin;
+      }
+      if (separator_begin < separator_end &&
+          separator_end <= record.size() &&
+          (record[separator_end - 1] == '?' ||
+           record[separator_end - 1] == ',')) {
+        if (separator_begin < value_end) {
+          value_end = separator_begin;
+          first_following_control = control;
+        }
+        break;
+      }
+      search = found + 1;
+    }
+  }
+  return value_end;
 }
 
 std::string preserve_reflow_off_st_body_lines(std::string value) {
@@ -192,52 +408,15 @@ std::string topic_st_body_after_toc_title(const TopicData& topic,
 
   const auto& record = topic.raw_records.front();
   const auto lower_record = ascii_lower(record);
-  const auto st_found = lower_record.find("st ");
+  const auto st_found = find_decoded_control(record, lower_record, "st ");
   if (st_found == std::string::npos) {
     return {};
   }
 
   const auto value_begin = st_found + std::string("st ").size();
-  auto value_end = record.size();
   std::string first_following_control;
-  static const std::array<const char*, 11> following_controls = {
-      "cselect", "cfont", "cmenu", "cmitem", "cemenu", "srtbl",
-      "sretbl",  "srfig", "srefig", "cz",    "si"};
-  for (const auto* control : following_controls) {
-    auto search = value_begin;
-    while (search < lower_record.size()) {
-      const auto found = lower_record.find(control, search);
-      if (found == std::string::npos) {
-        break;
-      }
-
-      auto separator_end = found;
-      while (separator_end > value_begin &&
-             std::isspace(
-                 static_cast<unsigned char>(record[separator_end - 1])) != 0) {
-        --separator_end;
-      }
-      auto separator_begin = separator_end;
-      while (separator_begin > value_begin &&
-             (record[separator_begin - 1] == '?' ||
-              record[separator_begin - 1] == ',' ||
-              std::isspace(static_cast<unsigned char>(
-                  record[separator_begin - 1])) != 0)) {
-        --separator_begin;
-      }
-      if (separator_begin < separator_end &&
-          separator_end <= record.size() &&
-          (record[separator_end - 1] == '?' ||
-           record[separator_end - 1] == ',')) {
-        if (separator_begin < value_end) {
-          value_end = separator_begin;
-          first_following_control = control;
-        }
-        break;
-      }
-      search = found + 1;
-    }
-  }
+  const auto value_end =
+      topic_body_control_offset(record, value_begin, first_following_control);
 
   auto st_value = record.substr(value_begin, value_end - value_begin);
   if (st_value.empty()) {
@@ -259,6 +438,82 @@ std::string topic_st_body_after_toc_title(const TopicData& topic,
   return preserve_reflow_off_st_body_lines(std::move(body));
 }
 
+std::string topic_st_body_text_after_toc_title(const TopicData& topic,
+                                               const std::string& title) {
+  if (topic.raw_records.empty() || title.empty()) {
+    return {};
+  }
+
+  const auto& first_record = topic.raw_records.front();
+  const auto lower_record = ascii_lower(first_record);
+  const auto st_found = find_decoded_control(first_record, lower_record, "st ");
+  if (st_found == std::string::npos) {
+    return {};
+  }
+
+  const auto value_begin = st_found + std::string("st ").size();
+  std::string first_following_control;
+  const auto value_end =
+      topic_body_control_offset(first_record, value_begin,
+                                first_following_control);
+  auto st_value = trim_ascii(first_record.substr(value_begin,
+                                                 value_end - value_begin));
+  if (st_value.size() <= title.size() ||
+      !ascii_starts_with_case_insensitive(st_value, title) ||
+      std::isspace(static_cast<unsigned char>(st_value[title.size()])) == 0) {
+    return {};
+  }
+
+  auto body = trim_ascii(st_value.substr(title.size() + 1));
+  if (!first_following_control.empty()) {
+    return body;
+  }
+
+  for (std::size_t index = 1; index < topic.raw_records.size(); ++index) {
+    std::string following_control;
+    const auto end =
+        topic_body_control_offset(topic.raw_records[index], 0,
+                                  following_control);
+    auto text = trim_ascii(topic.raw_records[index].substr(0, end));
+    if (!text.empty()) {
+      if (!body.empty()) {
+        body += "?    ";
+      }
+      body += std::move(text);
+    }
+    if (!following_control.empty()) {
+      break;
+    }
+  }
+  return body;
+}
+
+std::string topic_st_following_control_after_toc_title(
+    const TopicData& topic,
+    const std::string& title) {
+  if (topic.raw_records.empty() || title.empty()) {
+    return {};
+  }
+  const auto& first_record = topic.raw_records.front();
+  const auto lower_record = ascii_lower(first_record);
+  const auto st_found = find_decoded_control(first_record, lower_record, "st ");
+  if (st_found == std::string::npos) {
+    return {};
+  }
+  const auto value_begin = st_found + std::string("st ").size();
+  std::string following_control;
+  const auto value_end =
+      topic_body_control_offset(first_record, value_begin, following_control);
+  auto st_value = trim_ascii(first_record.substr(value_begin,
+                                                 value_end - value_begin));
+  if (st_value.size() <= title.size() ||
+      !ascii_starts_with_case_insensitive(st_value, title) ||
+      std::isspace(static_cast<unsigned char>(st_value[title.size()])) == 0) {
+    return {};
+  }
+  return following_control;
+}
+
 void attach_topic_data(TocEntry& entry, const TopicData& topic) {
   entry.heading_level = topic.heading_level;
   entry.topic_number = topic.topic_number;
@@ -266,7 +521,22 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
   entry.end_logical_record = topic.end_logical_record;
   entry.raw_records = render_gml_records(topic.raw_records);
   if (!entry.raw_records.empty() && !entry.title.empty()) {
-    auto& first_record = entry.raw_records.front();
+    auto heading = entry.raw_records.begin();
+    while (heading != entry.raw_records.end()) {
+      if (is_topic_title_record(*heading)) {
+        break;
+      }
+      const auto tag = raw_gml_tag(*heading);
+      if (tag != "anchor") {
+        break;
+      }
+      ++heading;
+    }
+    if (heading == entry.raw_records.end() || !is_topic_title_record(*heading)) {
+      return;
+    }
+
+    auto& first_record = *heading;
     const auto dot = first_record.find('.');
     if (dot != std::string::npos) {
       const auto content_begin = dot + 1;
@@ -275,15 +545,52 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
       if (content.size() > title_size &&
           ascii_starts_with_case_insensitive(content, entry.title) &&
           std::isspace(static_cast<unsigned char>(content[title_size])) != 0) {
+        auto body_text = topic_st_body_text_after_toc_title(topic, entry.title);
         auto trailing_text = topic_st_body_after_toc_title(topic, entry.title);
-        if (trailing_text.empty()) {
-          trailing_text = trim_ascii(content.substr(title_size + 1));
+        const auto following_control =
+            topic_st_following_control_after_toc_title(topic, entry.title);
+        if (body_text.empty()) {
+          body_text = trim_ascii(content.substr(title_size + 1));
         }
         first_record.resize(content_begin);
         first_record += entry.title;
         if (!trailing_text.empty()) {
-          entry.raw_records.insert(entry.raw_records.begin() + 1,
-                                   ":p." + trailing_text);
+          entry.raw_records.insert(heading + 1, ":p." + trailing_text);
+        } else if (following_control == "cselect" ||
+                   following_control == "cfont") {
+          auto cselect_intro = trim_ascii(body_text);
+          if (following_control == "cselect") {
+            while (!cselect_intro.empty() &&
+                   (cselect_intro.back() == '?' ||
+                    std::isspace(static_cast<unsigned char>(
+                        cselect_intro.back())) != 0)) {
+              cselect_intro.pop_back();
+            }
+            cselect_intro = trim_ascii(std::move(cselect_intro));
+            if (!cselect_intro.empty() && cselect_intro.back() == ':') {
+              cselect_intro =
+                  preserve_reflow_off_st_body_lines(std::move(cselect_intro));
+            }
+          }
+          entry.raw_records.insert(heading + 1, ":p." + cselect_intro);
+        } else if (!body_text.empty() && has_reflow_off_line_markers(body_text)) {
+          auto erase_begin = heading + 1;
+          auto erase_end = erase_begin;
+          while (erase_end != entry.raw_records.end() &&
+                 raw_gml_tag(*erase_end) == "p") {
+            ++erase_end;
+          }
+          erase_begin = entry.raw_records.erase(erase_begin, erase_end);
+          std::vector<std::string> preserved{":xmp."};
+          for (auto line : split_reflow_off_body_lines(std::move(body_text))) {
+            preserved.push_back(":xline." + std::move(line));
+          }
+          preserved.push_back(":exmp.");
+          entry.raw_records.insert(erase_begin,
+                                   std::make_move_iterator(preserved.begin()),
+                                   std::make_move_iterator(preserved.end()));
+        } else if (!body_text.empty()) {
+          entry.raw_records.insert(heading + 1, ":p." + body_text);
         }
       }
     }

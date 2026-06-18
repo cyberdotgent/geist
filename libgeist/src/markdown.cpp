@@ -84,9 +84,16 @@ std::string TocEntry::markdown() const {
         continue;
       }
       auto rest = std::string{};
-      const auto following = normalized_content.find(" following is ");
-      if (following != std::string::npos) {
-        rest = content.substr(std::min(content.size(), following + 1));
+      if (content.size() > title.size() &&
+          detail::ascii_starts_with_case_insensitive(content, title) &&
+          std::isspace(static_cast<unsigned char>(content[title.size()])) !=
+              0) {
+        rest = detail::trim_ascii(content.substr(title.size() + 1));
+      } else {
+        const auto following = normalized_content.find(" following is ");
+        if (following != std::string::npos) {
+          rest = content.substr(std::min(content.size(), following + 1));
+        }
       }
       if (rest.empty()) {
         records.erase(cursor);
@@ -1205,7 +1212,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         continue;
       }
       if (tag == "xline") {
-        output += gml_content(record);
+        output += gml_content_preserve_space(record);
         output.push_back('\n');
         continue;
       }
