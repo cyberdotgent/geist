@@ -46,24 +46,28 @@ struct ParserState {
 
 Color palette(std::uint8_t index) {
   static constexpr std::array<Color, 17> colors{{
-      {0, 0, 0, 255},
-      {0, 0, 255, 255},
-      {255, 0, 0, 255},
-      {255, 0, 255, 255},
-      {0, 255, 0, 255},
-      {0, 255, 255, 255},
-      {255, 255, 0, 255},
-      {255, 255, 255, 255},
-      {0, 0, 0, 255},
-      {128, 0, 0, 255},
-      {0, 128, 0, 255},
-      {0, 0, 128, 255},
-      {128, 128, 0, 255},
-      {128, 0, 128, 255},
-      {0, 128, 128, 255},
-      {64, 64, 64, 255},
+      {0, 255, 0, 255},     // 0 default, display green
+      {0, 0, 255, 255},     // 1 blue
+      {255, 0, 0, 255},     // 2 red
+      {255, 0, 255, 255},   // 3 pink / magenta
+      {0, 255, 0, 255},     // 4 green
+      {0, 255, 255, 255},   // 5 turquoise
+      {255, 255, 0, 255},   // 6 yellow
+      {255, 255, 255, 255}, // 7 neutral on displays
+      {0, 0, 0, 255},       // 8 background on displays
+      {0, 0, 128, 255},     // 9 dark blue
+      {224, 128, 0, 255},   // 10 orange
+      {128, 0, 128, 255},   // 11 purple
+      {0, 128, 0, 255},     // 12 dark green
+      {0, 128, 128, 255},   // 13 dark turquoise
+      {128, 128, 0, 255},   // 14 mustard
+      {128, 128, 128, 255}, // 15 gray
+      {128, 64, 0, 255},    // 16 brown
   }};
-  return colors[index < colors.size() ? index : 0];
+  if (index < colors.size()) {
+    return colors[index];
+  }
+  return colors[9 + ((index - 9) % 8)];
 }
 
 struct GdfFontStyle {

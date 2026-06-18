@@ -236,6 +236,7 @@ std::vector<std::uint8_t> synthetic_packet_frame_gdf() {
   filled_box(0x02, 40, 60, 50, 80);
   filled_box(0x01, 50, 60, 100, 80);
   filled_box(0x08, 0, 40, 10, 50);
+  filled_box(0x0a, 70, 20, 80, 30);
   return gdf;
 }
 
@@ -341,6 +342,7 @@ int main(int argc, char** argv) {
     require_pixel(packet_frame, 450, 220, 255, 0, 0, "red fill");
     require_pixel(packet_frame, 750, 220, 0, 0, 255, "blue fill");
     require_pixel(packet_frame, 50, 405, 0, 0, 0, "black fill");
+    require_pixel(packet_frame, 750, 550, 224, 128, 0, "orange fill");
 
     if (argc > 1) {
       write_bmp(argv[1], image);

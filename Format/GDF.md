@@ -145,6 +145,9 @@ Important IBM reference topics:
 | `B.11.2` | Character orders `0xc3`/`0x83`: optional coordinate followed by EBCDIC character bytes `>= 0x40`; current position is not changed. |
 | `B.11.3` | Character Set order `0x38`: one-byte local character-set identifier; `0x00` is default and `0x41..0xdf` are user-defined sets. |
 | `B.11.4` | Character Shear order `0x35`: vector defining upright-stroke shear relative to the baseline. |
+| `B.11.5` | Color order `0x0a`: one-byte value is an index into the default color table. |
+| `B.11.6` | Color Set Extended order `0x26`: two-byte value is an index into the color table; the loaded importer uses this path for BookManager packet figures. |
+| `C.1` | Color numbers and default GDDM color definitions, including extended colors `9..16` and the repeat rule for higher values. |
 
 The first BookManager bytes currently called the picture header are therefore
 also interpretable as the initial GDF comment order. For
@@ -346,6 +349,55 @@ Implementation consequences:
 7. The observed palette entry used by `0x26 02 00 08` is black for this
    ImageMark/GDDM path. Treating it as gray makes packet resource `2` labels
    visibly differ from the hosted reader output.
+
+### GDDM Color Numbers and Packet Resource 6 Evidence
+
+The GDF `0x0a` Color order and `0x26` Color Set Extended order select color
+numbers, not ImageMark's local `ISGDI32.INI` `Color[000]...Color[015]` table.
+IBM `QPRG1GDR` topic `B.11.5` documents `0x0a` as a one-byte index to the
+default color table, and topic `B.11.6` documents `0x26` as a two-byte color
+table index. Appendix `C.1`, "Color Numbers", gives the default GDDM color
+definitions:
+
+| Color number | GDDM definition | Display interpretation used by `libgeist` |
+| ---: | --- | --- |
+| `0` | Default | Green. |
+| `1` | Blue | Blue. |
+| `2` | Red | Red. |
+| `3` | Magenta | Pink/magenta. |
+| `4` | Green | Green. |
+| `5` | Turquoise | Turquoise/cyan. |
+| `6` | Yellow | Yellow. |
+| `7` | Neutral | White on displays. |
+| `8` | Background | Black/background on displays. |
+| `9` | Dark blue | Dark blue. |
+| `10` | Orange | Orange. |
+| `11` | Purple | Purple. |
+| `12` | Dark green | Dark green. |
+| `13` | Dark turquoise | Dark turquoise. |
+| `14` | Mustard | Mustard. |
+| `15` | Gray | Gray. |
+| `16` | Brown | Brown. |
+| `17..32767` | Repeats `9..16` | Repeat the extended-color cycle. |
+
+`BOO/packet.boo` resource `6` demonstrates why this distinction matters. The
+payload has repeated `0x26 02 00 0a` orders before filled areas; the hosted
+BookServer image generated at:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/pictures/packet.20260614112503.P6.GIF
+```
+
+renders those areas as orange, with sampled RGB `(224,128,0)`. The same
+resource also uses `0x26 02 00 05` as turquoise/cyan, `0x26 02 00 06` as
+yellow, and `0x26 02 00 08` as black/background. The previous `libgeist`
+palette incorrectly mapped color number `10` to dark green, causing the large
+orange shaded areas in `render/packet/6.png` to appear as dark green.
+
+The shipped filter stack also contains static palette evidence for this orange
+entry: byte triplet `00 80 e0` appears in `Official Readers/Transmogrifier/IMGDF2.FLT`
+and `80 e0 00` appears in `Official Readers/Transmogrifier/ISGDI32.DLL`,
+consistent with a BGR/RGB storage variant of `(224,128,0)`.
 
 ### Text and Font Handling
 

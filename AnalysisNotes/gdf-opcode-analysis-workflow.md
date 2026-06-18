@@ -46,6 +46,9 @@ Useful topics:
 | `/B.11.2` | Character Order | Confirms EBCDIC string bytes, valid range `>= 0x40`, and that GDF character orders do not update current position. |
 | `/B.11.3` | Character Set Order | Defines `0x38` as a one-byte local character-set id, with `0x00` default and `0x41..0xdf` user-defined sets. |
 | `/B.11.4` | Character Shear Order | Defines the IBM shear vector semantics and the expected opcode `0x35`, which differs from the loaded filter's dispatched `0x36` handler. |
+| `/B.11.5` | Color Order | Defines `0x0a` as a color-table index and lists the default one-byte color meanings. |
+| `/B.11.6` | Color Set Extended Order | Defines `0x26` as the two-byte extended color-table index used by the packet figures. |
+| `/C.1` | Color Numbers | Gives the GDDM color-number definitions, including `10 = Orange` and the `17..32767` repeat of `9..16`. |
 
 For the packet image comparison work, the BookServer copy of
 `BOO/packet.boo` was used as the upstream renderer:
@@ -238,6 +241,19 @@ Text/font-specific IDA findings:
   `./build/boorsrc --png BOO/packet.boo <id> /tmp/packet-render-cancel/<id>.png`
   and visually compared the original problem cases `P2`, `P6`, and the larger
   `P9` against the upstream GIFs.
+- Packet resource `6` was rechecked against BookServer output after a color
+  shade mismatch in `render/packet/6.png`. The validation fetch sequence was:
+  first fetch topic `2.4` from
+  `http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/packet/2.4?DT=20260614112503&SHELF=`,
+  then fetch
+  `http://cbrdoc01.lan.cyber.gent/bookmgr/pictures/packet.20260614112503.P6.GIF`.
+  The upstream GIF contains five colors: white, cyan, orange `(224,128,0)`,
+  yellow, and black. Local output before the fix used dark green `(0,128,0)`
+  where BookServer used orange. The GDF stream contains `0x26 02 00 0a` before
+  those filled areas; IBM `QPRG1GDR` Appendix `C.1` defines color number `10`
+  as Orange. Static checks of the shipped filters also found the orange byte
+  triplet in `Official Readers/Transmogrifier/IMGDF2.FLT` and
+  `Official Readers/Transmogrifier/ISGDI32.DLL`.
 
 ## Repeatable Procedure
 
