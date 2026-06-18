@@ -249,11 +249,49 @@ The IDA Pro MCP instances used for this pass were:
 | `ephwam.dll` | Primary BOO/logical-record expansion source. `Scm_Getln` calls the logical-record iterator at `sub_12217C6`; `Scm_Expln` drives topic expansion through `sub_122202E`, `sub_121FFF4`, and `sub_1214753`. |
 | `bookmgr.exe` | HTML presentation boundary. Used only to confirm reader-generated navigation such as `Summarize`, topic headings, and fixed-width `<pre width="80">` output. |
 
+Topic `2.0` was rechecked against:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QS3X36CM/2.0?DT=19910524075122&SHELF=
+/tmp/qs3x36cm-booksrv/2-0.html
+```
+
+The hosted BookServer HTML emits the first body text inside `<pre width="80">`
+as three physical lines:
+
+```text
+System/36 procedures, control commands, and OCL statements are listed
+alphabetically, with cross-references to AS/400* commands, beginning on
+the following pages:
+```
+
+`./build/bootrace BOO/QS3X36CM.BOO 2.0 --all` shows those lines came from the
+topic-header `ST` segment after the TOC title, not from a separate `CZ FLOW P`
+record. The decoded segment contains a wide display-padding run between
+`listed` and `alphabetically`, then `?    ` before `the following pages:`.
+`ephwam.dll` `Scm_Expln` reaches `sub_121FFF4` and `sub_1214753` during topic
+expansion. `sub_121FFF4` calls `sub_121E7BB` to advance to the next positive
+typed item and then calls `sub_121EEE1` to expand that one item, while
+`sub_1214753` calls `sub_12144E6` to walk the expanded display/link structures.
+This means an `ST` body must be bounded at the next typed item such as
+`CSELECT`, `SR`, or `SRTBL`; anchors and tables are not part of the `ST` body.
+For topic `2.0`, the bounded `ST` body is a complete colon-terminated
+introductory paragraph and the following typed items are the three `CSELECT`
+page-reference links. For topic `1.0`, the following `CSELECT` continues the
+sentence, and for topic `2.1`, `SRSPTPROC` anchors the next display line before
+`SRTBLTBLUNIQ1`; those are not the same case. The projection rule is therefore
+to split `ST` at the verified TOC title, stop at the upstream typed-item
+boundary, and preserve reflow-off display-line separators only for complete
+`ST` intro paragraphs before the page-reference `CSELECT` items.
+
 Local validation commands:
 
 ```sh
 ./build/bootrace BOO/QS3X36CM.BOO 1.0 --all
 ./build/bootrace BOO/QS3X36CM.BOO 1.1 --all
+./build/bootrace BOO/QS3X36CM.BOO 2.0 --all
+./build/boorender BOO/QS3X36CM.BOO 2.0 --raw
+./build/boorender BOO/QS3X36CM.BOO 2.0 --md
 ./build/boorender BOO/QS3X36CM.BOO 2.1 --raw
 ./build/boorender BOO/QS3X36CM.BOO A.0 --md
 ctest --test-dir build --output-on-failure

@@ -121,6 +121,144 @@ bool is_topic_header_record(const std::string& decoded_record) {
          lower_record.find("ctopicn") != std::string::npos;
 }
 
+std::string preserve_reflow_off_st_body_lines(std::string value) {
+  value = trim_ascii(std::move(value));
+  std::vector<std::string> lines;
+  std::string line;
+
+  const auto flush_line = [&]() {
+    line = trim_ascii(std::move(line));
+    if (!line.empty()) {
+      lines.push_back(std::move(line));
+    }
+    line.clear();
+  };
+
+  for (std::size_t cursor = 0; cursor < value.size();) {
+    if (value[cursor] == '?') {
+      auto spaces = std::size_t{0};
+      auto lookahead = cursor + 1;
+      while (lookahead < value.size() &&
+             std::isspace(static_cast<unsigned char>(value[lookahead])) != 0) {
+        ++spaces;
+        ++lookahead;
+      }
+      if (spaces >= 2) {
+        flush_line();
+        cursor = lookahead;
+        continue;
+      }
+      if (!line.empty() && line.back() != ' ') {
+        line.push_back(' ');
+      }
+      ++cursor;
+      continue;
+    }
+
+    if (std::isspace(static_cast<unsigned char>(value[cursor])) != 0) {
+      auto spaces = std::size_t{0};
+      while (cursor < value.size() &&
+             std::isspace(static_cast<unsigned char>(value[cursor])) != 0) {
+        ++spaces;
+        ++cursor;
+      }
+      if (spaces >= 8) {
+        flush_line();
+      } else if (!line.empty() && line.back() != ' ') {
+        line.push_back(' ');
+      }
+      continue;
+    }
+
+    line.push_back(value[cursor++]);
+  }
+  flush_line();
+
+  std::string output;
+  for (std::size_t index = 0; index < lines.size(); ++index) {
+    if (index != 0) {
+      output += "<br>\n";
+    }
+    output += lines[index];
+  }
+  return output;
+}
+
+std::string topic_st_body_after_toc_title(const TopicData& topic,
+                                          const std::string& title) {
+  if (topic.raw_records.empty() || title.empty()) {
+    return {};
+  }
+
+  const auto& record = topic.raw_records.front();
+  const auto lower_record = ascii_lower(record);
+  const auto st_found = lower_record.find("st ");
+  if (st_found == std::string::npos) {
+    return {};
+  }
+
+  const auto value_begin = st_found + std::string("st ").size();
+  auto value_end = record.size();
+  std::string first_following_control;
+  static const std::array<const char*, 11> following_controls = {
+      "cselect", "cfont", "cmenu", "cmitem", "cemenu", "srtbl",
+      "sretbl",  "srfig", "srefig", "cz",    "si"};
+  for (const auto* control : following_controls) {
+    auto search = value_begin;
+    while (search < lower_record.size()) {
+      const auto found = lower_record.find(control, search);
+      if (found == std::string::npos) {
+        break;
+      }
+
+      auto separator_end = found;
+      while (separator_end > value_begin &&
+             std::isspace(
+                 static_cast<unsigned char>(record[separator_end - 1])) != 0) {
+        --separator_end;
+      }
+      auto separator_begin = separator_end;
+      while (separator_begin > value_begin &&
+             (record[separator_begin - 1] == '?' ||
+              record[separator_begin - 1] == ',' ||
+              std::isspace(static_cast<unsigned char>(
+                  record[separator_begin - 1])) != 0)) {
+        --separator_begin;
+      }
+      if (separator_begin < separator_end &&
+          separator_end <= record.size() &&
+          (record[separator_end - 1] == '?' ||
+           record[separator_end - 1] == ',')) {
+        if (separator_begin < value_end) {
+          value_end = separator_begin;
+          first_following_control = control;
+        }
+        break;
+      }
+      search = found + 1;
+    }
+  }
+
+  auto st_value = record.substr(value_begin, value_end - value_begin);
+  if (st_value.empty()) {
+    return {};
+  }
+  st_value = trim_ascii(std::move(st_value));
+  if (st_value.size() <= title.size() ||
+      !ascii_starts_with_case_insensitive(st_value, title) ||
+      std::isspace(static_cast<unsigned char>(st_value[title.size()])) == 0) {
+    return {};
+  }
+
+  auto body = trim_ascii(st_value.substr(title.size() + 1));
+  if (first_following_control != "cselect" || body.empty() ||
+      body.back() != ':') {
+    return {};
+  }
+
+  return preserve_reflow_off_st_body_lines(std::move(body));
+}
+
 void attach_topic_data(TocEntry& entry, const TopicData& topic) {
   entry.heading_level = topic.heading_level;
   entry.topic_number = topic.topic_number;
@@ -137,7 +275,10 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
       if (content.size() > title_size &&
           ascii_starts_with_case_insensitive(content, entry.title) &&
           std::isspace(static_cast<unsigned char>(content[title_size])) != 0) {
-        const auto trailing_text = trim_ascii(content.substr(title_size + 1));
+        auto trailing_text = topic_st_body_after_toc_title(topic, entry.title);
+        if (trailing_text.empty()) {
+          trailing_text = trim_ascii(content.substr(title_size + 1));
+        }
         first_record.resize(content_begin);
         first_record += entry.title;
         if (!trailing_text.empty()) {

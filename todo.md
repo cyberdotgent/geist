@@ -102,6 +102,7 @@ Topics crawled: `COVER`, `EDITION`, `CONTENTS`, `1.0`, `1.1`, `2.0`,
   lines, for example `System/36 procedures     Page 2.1`. The Markdown emits
   `System/36 procedures Page`, then a separate paragraph containing only the
   link `[2.1](2-1.md)`, and repeats that pattern for `2.2` and `2.3`. Fixed by
+  preserving reflow-off `ST` body display-line separators in raw projection and
   rendering the three page references as a single line-preserving block.
 
 - [x] `2.0` / `render/qs3x36cm/2-0.md`: heading and subtopic output differ.
