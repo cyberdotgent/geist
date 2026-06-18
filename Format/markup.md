@@ -507,6 +507,28 @@ topics.
 These controls need more fixture-driven work before their complete subfield
 layout can be considered stable.
 
+## QS3X36CM Reflow-Off Link, Font, And Table Evidence
+
+`BOO/QS3X36CM.BOO` is a reflow-off book whose BookServer pages are emitted as
+fixed-width `<pre width="80">` content. Its decoded body confirms three rules
+that an independent reader needs before rendering Markdown:
+
+| Control | Verified behavior |
+| --- | --- |
+| `CSELECT <column> <length> <target> <text>` | For ordinary topic/anchor links, the selected link text is a display-column span within the trailing text, not always the final `length` characters. Topic `1.0` has `CSELECT 16 57 HDRAPA ... contained in Appendix, "AS/400 Control Language Commands" in topic A.0. Detailed information ...`; BookServer links the Appendix title span and leaves `Detailed information...` as ordinary paragraph text. |
+| `CFONT <column> <length> <font>` | Span columns are measured against the reader's display line before source-style whitespace/line-marker cleanup. Topic `1.1` uses `CFONT 11 3 X 26 4 1` over a nested list line; the `X` span applies to `xxx` and the `HP1` span applies to `verb`, not to the later cleaned text offsets. |
+| `SRTBL...` table bodies | Legacy command cross-reference tables are fixed-width visual rows between `SRTBL` and `SRETBL`. Single `?` bytes are cell separators; long runs of `?` are row borders. Empty leading cells are significant and must not be trimmed, because they represent continuation rows or additional AS/400 commands under the same System/36 entry. |
+
+The table parser should carry incomplete visual rows across logical-record
+boundaries. In topic `2.1`, the `#STRTUP1` row is followed by a blank first
+cell/`WRKSBSD` row, and wrapped descriptions such as `message file` remain in
+the third column. Treating the first non-empty visual cell as column zero causes
+the column drift seen in early prototype renders.
+
+The `CONTENTS` topic stores literal `CTOCDEF`/`CTOCE` entries, while BookServer
+also adds reader-generated navigation such as `Summarize`. That navigation is a
+renderer affordance, not a separate BOO topic body record.
+
 ## Open Questions
 
 - Complete byte-level separation for every inline control field and separator.
@@ -516,6 +538,5 @@ layout can be considered stable.
   ids in the resource descriptor table (`1`).
 - Full `CZ` control grammar for all paragraph, list, table, and figure layout
   modes.
-- Exact row/column substructure for flat legacy cross-reference table bodies
-  such as `QS3X36CM.BOO` topic `2.2`; current Markdown output uses a
-  documented fallback grouping heuristic.
+- Full row/column grammar for every legacy cross-reference table variant beyond
+  the fixed-width `?`-separator rows verified in `QS3X36CM.BOO`.

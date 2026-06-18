@@ -202,3 +202,59 @@ The BookSrv IDB contains the expected renderer strings at `0xcfeec`
 (`CZ OFF LBLBOX`), `0xcff64` (`CZ OFF ELBLBOX`), and `0xcfc40`/`0xcff10`
 (`<!-- lblbox -->` emission formats). Comments were added at those string
 anchors and the IDB was saved.
+
+## QS3X36CM Markdown Rendering Validation
+
+The smaller command cross-reference book used for Markdown-rendering regression
+work is:
+
+```text
+BOO/QS3X36CM.BOO
+Application System/400(TM): Programming: System/36 Commands To AS/400 Commands Cross-Reference
+Document number: SX41-8209-00
+BookServer timestamp: 19910524075122
+```
+
+BookServer lazily generates pages on first request. A repeatable crawl is:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QS3X36CM/COVER?DT=19910524075122&SHELF=
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QS3X36CM/EDITION?DT=19910524075122&SHELF=
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QS3X36CM/CONTENTS?DT=19910524075122&SHELF=
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QS3X36CM/1.0?DT=19910524075122&SHELF=
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QS3X36CM/1.1?DT=19910524075122&SHELF=
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QS3X36CM/2.0?DT=19910524075122&SHELF=
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QS3X36CM/2.1?DT=19910524075122&SHELF=
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QS3X36CM/2.2?DT=19910524075122&SHELF=
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QS3X36CM/2.3?DT=19910524075122&SHELF=
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QS3X36CM/A.0?DT=19910524075122&SHELF=
+```
+
+When the direct shell route is available, this cache-populates the hosted
+reader and stores local comparison copies:
+
+```sh
+mkdir -p /tmp/qs3x36cm-booksrv
+for topic in COVER EDITION CONTENTS 1.0 1.1 2.0 2.1 2.2 2.3 A.0; do
+  safe=${topic//./-}
+  curl -L "http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QS3X36CM/${topic}?DT=19910524075122&SHELF=" \
+    -o "/tmp/qs3x36cm-booksrv/${safe}.html"
+done
+```
+
+The IDA Pro MCP instances used for this pass were:
+
+| Binary | Role |
+| --- | --- |
+| `ephwam.dll` | Primary BOO/logical-record expansion source. `Scm_Getln` calls the logical-record iterator at `sub_12217C6`; `Scm_Expln` drives topic expansion through `sub_122202E`, `sub_121FFF4`, and `sub_1214753`. |
+| `bookmgr.exe` | HTML presentation boundary. Used only to confirm reader-generated navigation such as `Summarize`, topic headings, and fixed-width `<pre width="80">` output. |
+
+Local validation commands:
+
+```sh
+./build/bootrace BOO/QS3X36CM.BOO 1.0 --all
+./build/bootrace BOO/QS3X36CM.BOO 1.1 --all
+./build/boorender BOO/QS3X36CM.BOO 2.1 --raw
+./build/boorender BOO/QS3X36CM.BOO A.0 --md
+ctest --test-dir build --output-on-failure
+```

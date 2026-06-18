@@ -2,7 +2,9 @@
 
 ---
 
-# Table of Contents
+# CONTENTS Table of Contents
+
+[Summarize](#CONTENTS-summary)
 
 - `COVER` [Book Cover](cover.md)
 - `EDITION` [Edition Notice](edition.md)

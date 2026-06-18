@@ -2,7 +2,7 @@ Previous | [Index](README.md) | [Next](edition.md)
 
 ---
 
-# Book Cover
+# COVER Book Cover
 
 **Application** **System/400(TM)**
 
@@ -12,9 +12,11 @@ Previous | [Index](README.md) | [Next](edition.md)
 
 **AS/400** **Commands**
 
-**Cross-Reference Version 2
+**Cross-Reference**
 
-Document Number SX41-8209-00 Program Number 5738-SS1**
+Version 2
+
+Document Number SX41-8209-00 Program Number 5738-SS1
 
 ---
 

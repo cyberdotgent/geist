@@ -25,6 +25,7 @@ std::string trim_trailing_blank_lines(std::string value) {
 
 std::string TocEntry::markdown() const {
   auto records = raw_records;
+  auto replaced_heading = false;
   if (!records.empty() && !records.front().empty() && !id.empty() &&
       !title.empty()) {
     const auto dot = records.front().find('.');
@@ -42,8 +43,16 @@ std::string TocEntry::markdown() const {
           tag == "appendix") {
         records.front().resize(dot + 1);
         records.front() += id + " " + title;
+        replaced_heading = true;
       }
     }
+  }
+  if (!replaced_heading && !id.empty() && !title.empty()) {
+    auto tag = std::string{"h1"};
+    if (level > 0) {
+      tag = "h2";
+    }
+    records.insert(records.begin(), ":" + tag + "." + id + " " + title);
   }
   return detail::render_markdown_records(records);
 }
@@ -138,7 +147,24 @@ std::string markdown_marker_for_highlight(const std::string& tag) {
   if (tag == "hp3") {
     return "***";
   }
+  if (tag == "xph" || tag == "xmp") {
+    return "`";
+  }
   return {};
+}
+
+std::string inline_gml_attr(const std::string& attrs, const std::string& attr) {
+  const auto pattern = attr + "='";
+  const auto begin = attrs.find(pattern);
+  if (begin == std::string::npos) {
+    return {};
+  }
+  const auto value_begin = begin + pattern.size();
+  const auto value_end = attrs.find('\'', value_begin);
+  if (value_end == std::string::npos) {
+    return {};
+  }
+  return attrs.substr(value_begin, value_end - value_begin);
 }
 
 std::string render_inline_markdown(std::string text) {
@@ -157,6 +183,38 @@ std::string render_inline_markdown(std::string text) {
     }
 
     auto tag = ascii_lower(text.substr(cursor + 1, dot - cursor - 1));
+    if (ascii_starts_with_case_insensitive(tag, "hdref ")) {
+      const auto close = text.find(":ehdref.", dot + 1);
+      const auto target = inline_gml_attr(text.substr(cursor + 1,
+                                                      dot - cursor - 1),
+                                          "refid");
+      if (close != std::string::npos && !target.empty()) {
+        auto label = render_inline_markdown(text.substr(dot + 1,
+                                                        close - (dot + 1)));
+        if (label.empty()) {
+          label = target;
+        }
+        output += "[" + label + "](#" + target + ")";
+        cursor = close + std::string(":ehdref.").size();
+        continue;
+      }
+    }
+    if (ascii_starts_with_case_insensitive(tag, "image ")) {
+      const auto close = text.find(":eimage.", dot + 1);
+      const auto resource = inline_gml_attr(text.substr(cursor + 1,
+                                                        dot - cursor - 1),
+                                            "resource");
+      if (close != std::string::npos && !resource.empty()) {
+        auto label = render_inline_markdown(text.substr(dot + 1,
+                                                        close - (dot + 1)));
+        if (label.empty()) {
+          label = "Resource " + resource;
+        }
+        output += "![" + label + "](resource:" + resource + ")";
+        cursor = close + std::string(":eimage.").size();
+        continue;
+      }
+    }
     const auto closing = ascii_starts_with_case_insensitive(tag, "e");
     if (closing) {
       tag.erase(tag.begin());
@@ -978,6 +1036,9 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
       if (!pending_copyright_note.empty()) {
         append_block(output, pending_copyright_note);
         pending_copyright_note.clear();
+      }
+      if (tag == "toc") {
+        append_block(output, "[Summarize](#CONTENTS-summary)");
       }
       if (tag == "ul" && gml_attr(record, "type") == "menu") {
         append_block(output, "Subtopics:");

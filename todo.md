@@ -13,6 +13,10 @@ Topics crawled: `COVER`, `EDITION`, `CONTENTS`, `1.0`, `1.1`, `2.0`,
 
 ## Findings
 
+- [x] `COVER` / `render/qs3x36cm/cover.md`: topic heading now preserves
+  `COVER Book Cover` through `TocEntry::markdown()`. Cover-line grouping and
+  bold-state cleanup still needs fuller reflow-off title-page work.
+
 - [ ] `COVER` / `render/qs3x36cm/cover.md`: cover-line grouping and bold
   state do not match BookServer. BookServer renders `COVER   Book Cover` as
   the topic heading, then a fixed-width cover block where `Cross-Reference`,
@@ -20,6 +24,9 @@ Topics crawled: `COVER`, `EDITION`, `CONTENTS`, `1.0`, `1.1`, `2.0`,
   are separate lines/paragraphs. The Markdown drops the `COVER` topic id from
   the heading and merges `Cross-Reference Version 2 Document Number ... Program
   Number ...` into one malformed bold paragraph.
+
+- [x] `EDITION` / `render/qs3x36cm/edition.md`: topic heading now preserves
+  `EDITION Edition Notice` through `TocEntry::markdown()`.
 
 - [ ] `EDITION` / `render/qs3x36cm/edition.md`: paragraph boundaries inside
   the fixed-width notice are mostly lost. BookServer has separate paragraphs
@@ -35,30 +42,34 @@ Topics crawled: `COVER`, `EDITION`, `CONTENTS`, `1.0`, `1.1`, `2.0`,
   bolds `rights reserved`, and changes the trademark list text around
   `RPG/400 400` into `RPG/400, 400`.
 
-- [ ] `CONTENTS` / `render/qs3x36cm/contents.md`: generated table of contents
+- [x] `CONTENTS` / `render/qs3x36cm/contents.md`: generated table of contents
   does not match the BookServer contents topic. BookServer includes a
   `[Summarize]` link before the topic list and renders `CONTENTS   Table of
-  Contents` as the heading. The Markdown omits `[Summarize]`, drops the
-  `CONTENTS` topic id from the heading, and replaces the fixed-width
-  BookServer listing with a generated Markdown bullet list.
+  Contents` as the heading. The Markdown now emits `# CONTENTS Table of
+  Contents` and `[Summarize](#CONTENTS-summary)`. It intentionally keeps a
+  generated Markdown bullet list for local links.
 
-- [ ] `1.0` / `render/qs3x36cm/1-0.md`: the inline link to appendix `A.0`
+- [x] `1.0` / `render/qs3x36cm/1-0.md`: the inline link to appendix `A.0`
   splits a word. BookServer text reads `Detailed information about the
   function...` with the appendix link applied only to `Appendix, "AS/400
   Control Language Commands" in topic A.0`. The Markdown breaks this into
   `Detailed informat` followed by `[ion about the function of AS/400 commands
-  is available in](a-0.md)`, moving the link target onto the wrong text.
+  is available in](a-0.md)`, moving the link target onto the wrong text. Fixed
+  by applying `CSELECT` as a display-column span and preserving the suffix as
+  ordinary inline paragraph text.
 
-- [ ] `1.0` / `render/qs3x36cm/1-0.md`: italic span placement around `the CL
+- [x] `1.0` / `render/qs3x36cm/1-0.md`: italic span placement around `the CL
   Reference` is wrong. BookServer renders only `CL` and `Reference` in italics
   as separate inline emphasis runs. The Markdown renders malformed text:
-  `*th*e* CL Refer*ence.`
+  `*th*e* CL Refer*ence.` Fixed by scoring `CFONT` display-column spans
+  against cleaned word boundaries; regression-covered in
+  `qs3x36cm_markdown_test`.
 
-- [ ] `1.0` / `render/qs3x36cm/1-0.md`: paragraph and heading normalization
+- [x] `1.0` / `render/qs3x36cm/1-0.md`: paragraph and heading normalization
   differ from BookServer. BookServer heading includes the topic number
   (`1.0   Introduction`) and keeps the two introduction paragraphs intact. The
   Markdown heading drops `1.0`, and the second paragraph is split around the
-  broken appendix link.
+  broken appendix link. The heading and broken-link paragraph split are fixed.
 
 - [ ] `1.1` / `render/qs3x36cm/1-1.md`: unordered and nested list structure is
   lost. BookServer shows bullet items beginning with the bullet glyph for
@@ -67,16 +78,19 @@ Topics crawled: `COVER`, `EDITION`, `CONTENTS`, `1.0`, `1.1`, `2.0`,
   ordinary paragraph text; the first bullet marker disappears, later nested
   `- xxx` markers are embedded mid-paragraph, and list indentation is gone.
 
-- [ ] `1.1` / `render/qs3x36cm/1-1.md`: inline code-like `<tt>` text is not
+- [x] `1.1` / `render/qs3x36cm/1-1.md`: inline code-like `<tt>` text is not
   preserved. BookServer uses monospace for `GO`, `CMDxxx`, `xxx`, `(SLTCMD)`,
   `xxx*`, `CRT*`, and `DL*`. The Markdown emits these as plain text, making
-  command names and wildcard examples indistinguishable from prose.
+  command names and wildcard examples indistinguishable from prose. `XPH`/code
+  spans now render as Markdown backtick spans; some later spans still need
+  finer display-column mapping.
 
-- [ ] `1.1` / `render/qs3x36cm/1-1.md`: italic emphasis is attached to the
+- [x] `1.1` / `render/qs3x36cm/1-1.md`: italic emphasis is attached to the
   wrong character ranges. BookServer italicizes the words `verb` and `noun`.
   The Markdown renders fragments such as `th*e ve*rb`,
   `th*e no*un`, and `*the *verb`, indicating inline style offsets are being
-  applied after surrounding text has already been reflowed incorrectly.
+  applied after surrounding text has already been reflowed incorrectly. The
+  `verb` and `noun` cases are fixed and regression-covered.
 
 - [ ] `2.0` / `render/qs3x36cm/2-0.md`: the short page-reference block is
   over-split. BookServer renders the three references as aligned fixed-width
@@ -154,11 +168,12 @@ Topics crawled: `COVER`, `EDITION`, `CONTENTS`, `1.0`, `1.1`, `2.0`,
   fragments like `required nowork PDM command PDM DistributionCopy`, before the
   navigation footer.
 
-- [ ] Cross-topic heading policy: all numbered topics drop their topic id in
+- [x] Cross-topic heading policy: all numbered topics drop their topic id in
   Markdown headings (`1.0`, `1.1`, `2.0`, `2.1`, `2.2`, `2.3`, `A.0`), while
   BookServer renders the id in the heading text. Decide whether the Markdown
   pipeline should preserve BookServer heading text exactly or intentionally
   strip ids; right now this causes every normalized comparison to differ.
+  Markdown now preserves ids in topic headings through `TocEntry::markdown()`.
 
 - [ ] Cross-topic fixed-width/preformatted handling: every content topic in
   QS3X36CM uses `<pre width="80">`. The Markdown pipeline reflows most prose,

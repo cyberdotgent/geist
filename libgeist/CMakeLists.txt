@@ -104,3 +104,14 @@ add_executable(gdf_synthetic_test
 target_link_libraries(gdf_synthetic_test PRIVATE geist::geist_static)
 
 add_test(NAME gdf_synthetic_test COMMAND gdf_synthetic_test)
+
+add_executable(qs3x36cm_markdown_test
+  tests/qs3x36cm_markdown.cpp
+)
+target_link_libraries(qs3x36cm_markdown_test PRIVATE geist::geist_static)
+target_compile_definitions(qs3x36cm_markdown_test
+  PRIVATE
+    GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+
+add_test(NAME qs3x36cm_markdown_test COMMAND qs3x36cm_markdown_test)
