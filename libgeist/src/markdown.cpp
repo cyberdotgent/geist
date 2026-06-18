@@ -179,6 +179,14 @@ std::string gml_content(const std::string& record) {
   return trim_ascii(record.substr(offset));
 }
 
+std::string gml_content_preserve_space(const std::string& record) {
+  const auto offset = gml_content_offset(record);
+  if (offset >= record.size()) {
+    return {};
+  }
+  return record.substr(offset);
+}
+
 std::string markdown_marker_for_highlight(const std::string& tag) {
   if (tag == "hp1") {
     return "*";
@@ -1233,7 +1241,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
       continue;
     }
     if (in_figure && tag == "xline") {
-      pending_figure_lines.push_back(gml_content(record));
+      pending_figure_lines.push_back(gml_content_preserve_space(record));
       continue;
     }
 
@@ -1487,6 +1495,12 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         pending_copyright_note.clear();
       }
       append_block(output, "**Note:** " + gml_markdown_content(record));
+    } else if (tag == "line") {
+      if (!pending_copyright_note.empty()) {
+        append_block(output, pending_copyright_note);
+        pending_copyright_note.clear();
+      }
+      append_block(output, gml_markdown_content(record));
     } else if (tag == "coprnote") {
       if (!pending_copyright_note.empty()) {
         append_block(output, pending_copyright_note);

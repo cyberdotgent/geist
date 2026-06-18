@@ -652,12 +652,21 @@ The old decoder dropped the trailing text, which caused topic `2.0` to start in
 the middle of the paragraph after the image.
 
 The fixed-row font spans in these topics use the same renderer path as the
-earlier visual-box issue. The loaded IDA MCP target during this pass was
-`ephwam.dll`, where `Scm_Reflow` is available but the BookServer HTML string
-xrefs are not. The HTML-specific evidence therefore came from r2 against
-`Official Readers/BookSrv-Win32/bookmgr.exe`: `<pre width="80">` and `CFONT`
-both xref into the same topic-renderer region previously identified as
-`fcn.000405fc`.
+earlier visual-box issue. On a follow-up pass, the IDA MCP instance was switched
+to `Official Readers/BookSrv-Win32/bookmgr.exe.i64` and `sub_405FC` was renamed
+to `BookServer_render_topic_body_html`. Targeted IDB xrefs show:
+
+- `<pre width="80">` at `0x000cfbe4` is emitted by
+  `BookServer_render_topic_body_html` for fixed-width topic/figure/labeled-box
+  output. The figure path uses the format string `%s<!-- figure -->\n`.
+- The same function loops through `Scm_Getln` at `0x4545f` and writes the
+  buffered line at `0x454d1`/`sub_7B8E0`; this supports preserving fixed rows
+  from the decoded line stream rather than reconstructing a hardcoded screen.
+- `CFONT` at `0x000cfb74` is recognized in the same function. At `0x4244b` it
+  calls `sub_4920A`, which tokenizes repeated `CFONT` triples into an array.
+- `CZ OFF EFIG` at `0x000cff58` clears the figure-state flag at `0x43a9d`,
+  confirming that figure body bytes before that marker remain inside the
+  fixed-width figure/pre block.
 
 Specific span evidence:
 
@@ -674,3 +683,16 @@ words as whole highlighted words. Applying offsets after Markdown/plain-text
 collapse tears the spans. The fix maps pipe-led rows in the fixed display-row
 coordinate space and handles the highly indented manual-title row as ordered
 whole-word spans in fixed-layout text.
+
+The Sign On display in hosted topic `2.1` is an exact fixed-row screen. After
+removing the anchor tag, BookServer emits 28 rows from the top rule through the
+bottom rule; every row is 87 characters wide, consisting of a three- or
+four-column left margin plus an 82-column display payload and border. Local
+validation now compares the generated fenced text rows against those hosted
+rows and checks the same row count and width.
+
+One negative control is `QSYSNEWG.BOO` topic `F.1`: it also appears inside
+`SRFIG`, but the decoded stream enters `SRTBL` before the long `?` table rows.
+The BookServer renderer handles table scope separately from fixed screen output,
+so local normalization must let table parsing take precedence over figure text
+recovery while `SRTBL` is active.

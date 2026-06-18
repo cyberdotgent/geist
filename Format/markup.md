@@ -411,6 +411,19 @@ BookServer renders `Security`, `Concepts`, `and`, `Planning`, `Operator's`,
 and `Guide` in `HP1`. A compatible renderer must not apply those offsets after
 paragraph collapse, which tears the title into partial words.
 
+Fixed text carried by `SRFIG` must be parsed before decoded separator cleanup.
+`QSYSNEWG.BOO` topic `2.1` stores the Sign On display as rows separated and
+bordered by decoded `?` bytes. Long runs of `?` form the horizontal rules;
+single `?` bytes delimit the left/right borders and row payloads. Payload rows
+are 82 display columns wide; the hosted BookServer wraps them in
+`<pre width="80">` and emits 28 visible rows from the top rule through the
+bottom rule. The last blank row in the `SRFIG` segment is represented only by
+trailing separator bytes, so a decoder must not call generic trimming that
+treats terminal `?` as disposable punctuation before fixed-row recovery.
+`SRFIG` can also wrap structured tables (`SRTBL`/`SRETBL`), as in
+`QSYSNEWG.BOO` topic `F.1`; table parsing must take precedence over fixed-screen
+row recovery while the table scope is active.
+
 Bold and emphasis should therefore be implemented through the `CFONT` plus
 `CFONTDEF` pipeline, not by searching for literal `<b>` markup. `HP1`, `HP2`,
 and `HP3` are GML-derived highlighted-phrase levels. The PACKET `PREFACE`
