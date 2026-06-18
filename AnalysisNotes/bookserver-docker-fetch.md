@@ -98,6 +98,15 @@ confirms that those records are structural table layout controls, not visible
 paragraph text. Comments were added at those addresses and at `sub_69440`, then
 the IDB was saved.
 
+During the first-20 PACKET topic comparison, topic `2.4.4` exposed a raw
+projection bug: `SRTBLTBLUNIQ17` carries a 74-character horizontal rule, but
+the decoded `CFONT ... ? Class ? Range ? Default Netmask` header segment ends
+before the closing separator. BookServer still renders three table columns
+(`Class`, `Range`, `Default Netmask`) because the table box width supplies the
+right cell boundary. The raw projection therefore records the horizontal rule
+width and uses it as the implied final cell boundary for rows that otherwise
+have real cell separators.
+
 ## PACKET Subtopic Menu Check
 
 For PACKET topic `1.0`, BookServer renders the generated menu as:
@@ -140,6 +149,20 @@ Comments were added at those addresses and the IDB was saved.
 A full raw render of `packet.boo` found 67 footnote records and 67 unique
 `FTNFTNUNIQ...` ids, so the generated ids are unique within this document and
 can be reused directly as rendered Markdown anchors.
+
+The same first-20 comparison found that the generated footnote body text in
+topic `1.1` decodes with doubled terminal periods immediately before `SREFTN`,
+for example `medium access control technique.. SREFTN` and `Internet was
+born.. SREFTN`. BookServer emits one visible final period inside each `<h5>`.
+The raw projection now treats the second period as the generated footnote
+terminator convention only while inside `SRFTN`/`SREFTN` footnote body state.
+
+One first-20 punctuation mismatch remains open: BookServer renders the paragraph
+ending `wireless computer network?`, while the current raw projection still
+emits `wireless computer network`. The decoded trace around logical record 15
+contains a wrapped-line marker before `network` and separator/control markers
+before the following `CZ FLOW P`; this needs further reader-code analysis
+before changing the decoder.
 
 ## PACKET Wrapped-Line Marker Check
 
@@ -203,6 +226,96 @@ The BookSrv IDB contains the expected renderer strings at `0xcfeec`
 (`<!-- lblbox -->` emission formats). Comments were added at those string
 anchors and the IDB was saved.
 
+## PACKET XMP, List, Figure, And Index Checks
+
+For PACKET renderer validation on 2026-06-18, the decoded traces were produced
+locally with:
+
+```text
+./build/bootrace BOO/packet.boo 3.2 --all
+./build/bootrace BOO/packet.boo 1.3 --all
+./build/bootrace BOO/packet.boo INDEX --all
+```
+
+The corresponding hosted BookServer URLs are:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/packet/3.2?SHELF=&DT=20260614112503
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/packet/1.3?SHELF=&DT=20260614112503
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/packet/INDEX?SHELF=&DT=20260614112503
+```
+
+Topic `3.2` demonstrates that `CZ OFF XMP` and `CZ OFF EXMP` are literal
+example-mode boundaries. Between those controls, decoded visible lines such as
+`# name callsign speed paclen window description` and
+`radio  WA4XYZ-1 1200  256    7      Real TNC` are rendered by BookServer
+inside preformatted output. The same trace shows `CZ FLOW UL 3 3` and empty
+`CZ FLOW LI 3 7` controls before `CFONT` and `CSELECT` records; BookServer
+keeps those as list structure, so the raw projection must emit empty list
+boundaries instead of dropping them and merging the following text into the
+previous paragraph.
+
+The same `3.2` trace validates inline font placement inside list items:
+
+```text
+CZ FLOW LI 3 7
+CFONT 12 9 1 23 4 1                 ?   The  interface  name, ...
+```
+
+BookServer renders the visible item as `The` plus highlighted `interface` and
+`name`. The active `CZ FLOW` indent column (`7`) is the base for same-line
+`CFONT` display columns. Applying the spans after collapsing the doubled
+display space after `The` tears the words into fragments.
+
+Topic `3.2` also demonstrates body-embedded subject-index metadata:
+
+```text
+CFONT 37 17 P =    To define an AX.25 port, edit /etc/ax25/axports, and, use tabs for
+SI Linux AX.25, Configuring Ports, AX.25 ?    everything, not spaces:
+```
+
+BookServer does not render the `Linux AX.25, Configuring Ports, AX.25` subject
+index term in the body. It renders one paragraph, `To define ... everything,
+not spaces:`, before the literal example block. The leading `=` is a decoded
+line marker/control boundary, consistent with the `ephwam.dll` logical-record
+iterator comparing first text characters against space and `=` before
+lowercasing controls.
+
+Topic `1.3` demonstrates figure image ownership. The trace contains
+`SRFIGFIGUNIQ5`, `CZ OFF FIG`, `CSELECT 35 9 PIC1 ... PICTURE 1 Figure 1.
+VHF/UHF LMR audio frequency range`, `SREFIG`, and `CZ OFF EFIG`. BookServer
+renders the picture as `/bookmgr/pictures/packet.20260614112503.P1.GIF`, then
+renders the caption line `Figure 1. VHF/UHF LMR audio frequency range`.
+The generated `PICTURE 1` label and the selected `audio fre` placeholder are
+not visible caption words around the image.
+
+Topic `1.3` also validates same-line and continuation `CFONT` placement:
+
+```text
+CFONT 27 5 3 33 10 3
+FM  radio  through  its audio interface; ...
+CFONT 3 3 3 7 3 3 11 5 3                    key the radio ...
+CFONT 17 3 2 21 6 2 28 3 2 32 4 2 37 7 2 45 3 2 50 7 2 59 3 2 64 13 2
+                     packet radio, you cannot use your radio's VOX  control  for  bidirectional
+```
+
+BookServer renders whole-word spans for `audio`, `interface;`, `key`, `the`,
+`radio`, `you`, `cannot`, `use`, `your`, `radio's`, `VOX`, `control`, `for`,
+and `bidirectional`. The span-only first `CFONT` applies to the following
+physical text line. The upstream BOO/logical-line source for this behavior is
+`ephwam.dll`: `Scm_Getln` delegates to the logical-record iterator
+`sub_12217C6`, which appends decompressed segments, records segment starts and
+lengths, and inserts reader spaces according to segment continuation markers.
+The local renderer must therefore preserve display-column mapping and must not
+repair fonts by scoring likely word boundaries after the fact.
+
+Topic `INDEX` demonstrates generated-index termination. The decoded stream
+contains generated `CGPSEP` and `CITERM` records through the final
+`ROSE 1 2.3` entry, followed by `CENDINDEX`. Local decoded logical records
+after `CENDINDEX` contain non-content padding/garbage-looking fragments such as
+`have callsign` and `cbacklevel`; BookServer does not render them. The raw
+projection therefore treats `CENDINDEX` as the end of the generated index body.
+
 ## QS3X36CM Markdown Rendering Validation
 
 The smaller command cross-reference book used for Markdown-rendering regression
@@ -248,6 +361,37 @@ The IDA Pro MCP instances used for this pass were:
 | --- | --- |
 | `ephwam.dll` | Primary BOO/logical-record expansion source. `Scm_Getln` calls the logical-record iterator at `sub_12217C6`; `Scm_Expln` drives topic expansion through `sub_122202E`, `sub_121FFF4`, and `sub_1214753`. |
 | `bookmgr.exe` | HTML presentation boundary. Used only to confirm reader-generated navigation such as `Summarize`, topic headings, and fixed-width `<pre width="80">` output. |
+
+On 2026-06-18 the PACKET title-page regression was checked against the attached
+BookServer IDB artifacts using `r2` because an interactive IDA MCP tool was not
+available in the session. The relevant commands were:
+
+```sh
+rabin2 -zz "Official Readers/BookSrv-Win32/bookmgr.exe" | rg "CFONT|CHDLEVEL|TITLE|COVER|<BR>|</B>"
+r2 -q -A -c "axt @ 0x000cfb74" -c "axt @ 0x000d03c0" \
+  -c "axt @ 0x000d03c8" -c "axt @ 0x000d267c" -c q \
+  "Official Readers/BookSrv-Win32/bookmgr.exe"
+r2 -q -A -c "s 0x44377" -c "pd 80" -c q \
+  "Official Readers/BookSrv-Win32/bookmgr.exe"
+r2 -q -A -c "s 0x4f69c" -c "pdr" -c q \
+  "Official Readers/BookSrv-Win32/bookmgr.exe"
+```
+
+This showed that BookServer's main topic renderer function `0x000405fc`
+references `CFONT`, `CHDLEVEL`, `TITLE`, and `COVER`; the branch at
+`0x00044377..0x000443c8` tests `TITLE`/`COVER` and sets a title/cover state
+flag. The HTML escaping helper `0x0004f69c` maps newline byte `0x0a` to
+`<BR>\n`. The hosted reference page:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/packet/TITLE?DT=20260614112503&SHELF=
+```
+
+renders the generated title block as bold words with line breaks, then emits
+separate paragraph blocks for `Document Number 9963-0413-56`, `January 15,
+2026`, and `Evie Cooper`. This confirms that generated title-page `CFONT`
+layout columns should not be projected as normal body highlighted-phrase spans
+after text collapse.
 
 Topic `2.0` was rechecked against:
 

@@ -115,3 +115,14 @@ target_compile_definitions(qs3x36cm_markdown_test
 )
 
 add_test(NAME qs3x36cm_markdown_test COMMAND qs3x36cm_markdown_test)
+
+add_executable(packet_markdown_test
+  tests/packet_markdown.cpp
+)
+target_link_libraries(packet_markdown_test PRIVATE geist::geist_static)
+target_compile_definitions(packet_markdown_test
+  PRIVATE
+    GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+
+add_test(NAME packet_markdown_test COMMAND packet_markdown_test)

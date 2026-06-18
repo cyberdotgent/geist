@@ -88,22 +88,25 @@ or represented with the nearest BookMaster tag shape.
 | `CTOCE <level> <style> <id> <title>` | `:li.<title>` | One generated TOC entry represented as list item text. | Source-style approximation. |
 | `ETOC` | `:etoc.` | End of TOC entry stream. | Observed TOC terminator. |
 | `CFONTDEF=<code> <name>` | suppressed | Font/style code definition. | The current source-style projection does not yet reconstruct inline `:hpN.` spans from these definitions. |
-| `CFONT <triples...> [text]` | trailing text preserved as inline `:hpN.` spans when present; span-only records are applied to the following plain text segment | Repeated `<offset> <length> <font_code>` triples, sometimes followed by decoded visible text. Offsets are display-column based and include a small left-margin bias that must be removed before applying spans to source-style text. | Verified against `packet.boo` topic `1.3`: `CFONT 27 5 3 33 10 3` has no trailing text, but BookSrv applies it to the following `FM radio through its audio interface;` line and emphasizes `audio interface;`. |
+| `CFONT <triples...> [text]` | trailing text preserved as inline `:hpN.` spans when present; span-only records are applied to the following plain text segment | Repeated `<offset> <length> <font_code>` triples, sometimes followed by decoded visible text. Offsets are display-column coordinates in the reader line model. Apply them before source-style whitespace collapse, using the active `CZ FLOW` indent column for same-line text. Span-only continuation records use the following physical text line's paragraph column. Do not recover by scoring word boundaries. | Verified against `packet.boo` topic `1.3`: `CFONT 27 5 3 33 10 3` has no trailing text, but BookSrv applies it to the following `FM radio through its audio interface;` line and emphasizes `audio interface;`; later `CFONT 17 3 2 ... 64 13 2` emphasizes whole words `you cannot use your radio's VOX control for bidirectional`. |
 | `CSELECT <col> <len> <target> [text]` | optional `:pinline.<prefix>` followed by `:hdref refid='<target>'.<selected>` | Selectable link/cross-reference. The target may be a topic id, anchor id, or footnote id. The trailing `len` characters of the display text are the selected/link text; preceding display text remains plain inline content. | Verified against `packet.boo` topic `1.1`, where `CSELECT ... FTNFTNUNIQ1 ... technologies. (1)` renders `technologies.` as paragraph text and links only `(1)`. |
-| `CSELECT <col> <len> PIC<n> [text]` | optional `:pinline.<prefix>` followed by `:image resource='<n>'.<selected>` | Selectable embedded picture reference. Markdown renders this as `resource:<n>` so generic renderers preserve the BOO resource id and exporters can dereference it. | Verified against `packet.boo` topic `1.3`, where BookServer renders `PIC1` as `/bookmgr/pictures/packet.20260614112503.P1.GIF`. |
+| `CSELECT <col> <len> PIC<n> [text]` inside a figure | `:image resource='<n>'.` plus `:figcap.<caption>` | Selectable embedded picture placeholder. The `PIC<n>` selection is replaced by the rendered picture; surrounding figure caption text remains ordinary caption text. A leading generated `PICTURE <n>` label is reader metadata and is not part of the visible caption. Markdown keeps the BOO resource as `resource:<n>` so exporters can resolve it. | Verified against `packet.boo` topic `1.3`, where BookServer renders `PIC1` as `/bookmgr/pictures/packet.20260614112503.P1.GIF`, followed by caption `Figure 1. VHF/UHF LMR audio frequency range`. |
 | `CMENU` | `:ul type='menu'.` | Start of generated selectable menu/list. | BookSrv emits a `Subtopics:` heading and an HTML `<ul>` for PACKET topic `1.0`; raw output keeps it distinct from ordinary source `:ul.` lists. |
 | `CMITEM <id> <text>` | `:li refid='<id>'.<id> <text>` | Menu item target and visible label. | Verified in BookSrv `bookmgr.exe`; the first token is the href target and is also preserved in visible subtopic text. |
 | `CEMENU` | `:eul.` | End of menu/list. | Observed menu/list terminator. |
 | `SR<id>` | `:anchor id='<id>'.` | Generic spot/section anchor. `CSELECT` can target this id directly. | Verified by `QS3X36CM.BOO` links such as `sptproc`, `sptcontrol`, and `sptocl`. |
 | `SRFTN<id>` followed by `CZ FLOW FN ...` | `:fn id='<id>'.<text>` | Start of a generated footnote body. The `id` is the footnote target used by a `CSELECT` reference. | Verified by `packet.boo` topic `1.1` and BookSrv `sub_405FC`, which emits `<a name="FTNFTNUNIQ1"><hr><h5>...`. |
-| `SREFTN` | `:efn.` | End of a generated footnote body. | Verified by `packet.boo` topic `1.1` and BookSrv `sub_405FC`. |
+| `SREFTN` | `:efn.` | End of a generated footnote body. In PACKET generated footnote bodies, a doubled terminal period immediately before `SREFTN` contributes one visible period; the second period is the generated-body terminator convention. | Verified by `packet.boo` topic `1.1` and BookSrv `sub_405FC`; hosted BookServer renders both footnote bodies with one final period. |
 | `SRFIG<id>` | `:fig id='<id>'.` | Figure anchor/start id. | Observed in figure records. |
 | `SREFIG` | `:efig.` | Figure end marker. | Observed, but current decoder can truncate/case-shift some occurrences. |
 | `SRTBL<id>` | `:table id='<id>'.` | Table anchor/start id. | Observed. |
 | `SRETBL` | `:etable.` | Table end marker. | Observed. |
-| `CZ Flow <tag> <left> <indent> <text>` | `:<tag>.<text>` | Flowing paragraph/list/heading control. | Verified against `packet.script` paragraph and heading tags. |
+| `CINDEX` / `CITERM` / `CGPSEP` / `CENDINDEX` | `:index.`, `:i1.`, `:grpsep.`, `:eindex.` | Generated index stream. `CENDINDEX` terminates the generated body; bytes/logical records after it are not topic content. | Verified against `packet.boo` topic `INDEX`: BookServer stops after final `ROSE 1 2.3` entry, while decoded records after `CENDINDEX` are non-content padding/garbage. |
+| `SI <index-term> ? <visible-continuation>` | hidden index term plus optional `:pinline.<visible-continuation>` | Subject-index metadata embedded in body flow. The index term is not visible body text; visible text after a display marker remains body continuation. | Verified against `packet.boo` topic `3.2`: `SI Linux AX.25, Configuring Ports, AX.25 ? everything, not spaces:` contributes only `everything, not spaces:` to the preceding paragraph. |
+| `CZ Flow <tag> <left> <indent> <text>` | `:<tag>.<text>` | Flowing paragraph/list/heading control. Empty `UL`, `OL`, `DL`, and `LI` flow controls are structural boundaries and must still be emitted. | Verified against `packet.boo` topic `3.2`: `CZ FLOW UL` and empty `CZ FLOW LI` records precede `CFONT`/`CSELECT` visible list-item bodies. BookServer renders these as list items, not as text merged into the previous paragraph. |
 | `CZ Break <n> <text>` | `:p.<text>` when text is present | Break/layout control with optional visible text. | Source-style approximation. |
 | `CZ Off <tag>` | matching end tag for known block tags, otherwise suppressed | End/disable layout mode. | Verified for table controls in BookSrv `bookmgr.exe`; see the table/layout evidence below. |
+| `CZ Off XMP` / `CZ Off EXMP` | `:xmp.` / `:exmp.` with `:xline.` records for intervening visible lines | Literal example/preformatted mode. Visible text between the controls is line-preserving; style-only `CFONT` records inside the block do not create blank lines. | Verified against `packet.boo` topic `3.2` and source `packet.script` `:xmp.` blocks for `/etc/ax25/axports`, `/etc/ax25/nrbroadcast`, and `/etc/ax25/rsports`. |
 | `SI <fields>` | `:i1.<fields>` | Search/index marker. | Source-style approximation based on `packet.script` index tags. |
 | `CITERM <fields>` | `:i1.<fields>` | Index term marker/content. | Source-style approximation; subfields unresolved. |
 | `CGPSEP <fields>` | `:grpsep.<fields>` | Index group separator. | Source-style approximation. |
@@ -239,6 +242,14 @@ BookServer evidence from the hosted packet book:
 | `/BOOKS/packet/COVER?DT=20260614112503` | The title words are emitted as bold HTML, followed by paragraph breaks between subtitle, author, document number, part number, and file number. |
 | `/BOOKS/packet/TITLE?DT=20260614112503` | The title, subtitle, and first author line are emitted as one bold title block with line breaks between the three lines, followed by paragraph breaks for document number, date, and author. |
 
+Reader binary evidence:
+
+| Source | Evidence |
+| --- | --- |
+| `Official Readers/BookSrv-Win32/bookmgr.exe` via `rabin2 -zz` and `r2` | The main topic renderer function at `0x000405fc` references the `CFONT`, `CHDLEVEL`, `TITLE`, and `COVER` strings. The same function tests for `TITLE` and `COVER` at `0x00044377..0x000443c8` and sets a title/cover state flag before normal body output continues. |
+| `Official Readers/BookSrv-Win32/bookmgr.exe` via `r2`, `fcn.0004f69c` | The HTML text escaping helper maps byte `0x0a` to the literal output string `<BR>\n`, explaining the line breaks inside the bold title block. |
+| `Official Readers/BookSrv-Win32/ephwam.dll` via `rabin2 -zz` and `r2` | Book metadata controls such as `CTITLE=`, `CSTITLE=`, `CDOCNUM=`, `CDATE=`, and `CAUTHOR=` are owned by the BOO/logical-record expansion layer, separate from the BookServer HTML presentation function. |
+
 This matters for Markdown conversion: treating the BookServer `<pre>` wrapper
 as a Markdown fenced code block preserves line breaks but incorrectly suppresses
 the intended title emphasis. A Markdown renderer should preserve the
@@ -247,9 +258,12 @@ lines, and preserve the `:tipage.` line breaks inside the leading title block
 rather than turning each line into a separate paragraph. The number of leading
 lines is source/prolog dependent; in the packet fixture it is three because the
 prolog contains `:library`, `:topic`, and `:release` title-block fields. Exact
-inline reconstruction should eventually come from the `CFONT`/`CFONTDEF`
-pipeline; until that is complete, Markdown conversion can use the verified
-BookServer title-page rule as a presentation fallback.
+inline reconstruction for ordinary body text comes from the `CFONT`/`CFONTDEF`
+pipeline, but generated cover/title-page `CFONT` controls are display-layout
+records. Do not apply those title-page `CFONT` spans to collapsed text as normal
+body highlighted-phrase spans; in `packet.boo` this incorrectly maps the final
+title-line spans into `Document Number`. Preserve the visual title-page text and
+then split the verified metadata labels during title-page Markdown rendering.
 
 The current raw projection can still collapse adjacent generated metadata
 fields into one `:p.` record. That is a projection limitation, not evidence that
@@ -330,6 +344,30 @@ The `CFONT` field layout observed so far is repeated triples:
 ```text
 CFONT <column_or_offset> <span_length> <font_code> ...
 ```
+
+The first field is a display-column coordinate, not an offset in already
+collapsed Markdown/plain text. The reader expands BOO logical records into a
+display line, tracks the active layout indent from `CZ FLOW <tag> <left>
+<indent>`, applies font spans in that display coordinate space, and only then
+collapses the source-style spacing for flowing text. For example, PACKET topic
+`3.2` has a list item:
+
+```text
+CZ FLOW LI 3 7
+CFONT 12 9 1 23 4 1                 ?   The  interface  name, ...
+```
+
+Using the active indent column `7`, the spans apply to display columns for
+`interface` and `name`. A renderer that first collapses the doubled display
+space after `The` and then guesses word boundaries will tear this into
+fragments such as `The inter` and `ce n`.
+
+Span-only `CFONT` records apply to the next physical text segment. PACKET
+topic `1.3` stores `CFONT 27 5 3 33 10 3` at the end of one logical record and
+the next record starts with `FM  radio  through  its audio interface; ...`.
+BookServer renders the following line with `audio` and `interface;`
+highlighted. This continuation case uses the following paragraph line's
+display column, not the previous logical record's accumulated text offset.
 
 Bold and emphasis should therefore be implemented through the `CFONT` plus
 `CFONTDEF` pipeline, not by searching for literal `<b>` markup. `HP1`, `HP2`,
@@ -437,6 +475,12 @@ The boxed fixed-width stream has two practical decoding edge cases:
   left edge decodes as an empty guard cell. A renderer must discard that guard
   when grouping cells into visual lines, while preserving real blank cells used
   for wrapped rows.
+- Some logical records end before the visible row's final cell separator. The
+  horizontal rule run following `SRTBL` establishes the fixed table box width;
+  if a visual row has real separators before that right edge, the right edge is
+  the implied final cell boundary. This is required for PACKET topic `2.4.4`,
+  where the header segment ends after `Default Netmask` but BookServer still
+  reconstructs a third column using the same fixed-width box.
 - Logical-record boundaries can split a row before the next cell separator.
   Text before the first separator is either a continuation of the pending row
   when the following cells are blank, or the first cell of a new row when the
