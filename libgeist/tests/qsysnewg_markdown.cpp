@@ -59,4 +59,53 @@ int main() {
   require_not_contains(intro,
                        "Of**ficial I**n**troductory C**h**apter**",
                        "torn Official Introductory Chapter emphasis");
+
+  const auto sign_on = topic_markdown(document, "2.0");
+  require_contains(sign_on,
+                   "Before you can use the AS/400 system you must sign on",
+                   "SREFIG trailing paragraph");
+  require_contains(sign_on,
+                   "unique **user** **name**",
+                   "bar-row user name emphasis");
+  require_contains(sign_on,
+                   "secret **password**",
+                   "bar-row password emphasis");
+  require_contains(sign_on, "**If...**", "If branch emphasis");
+  require_contains(sign_on, "**Then...**", "Then branch emphasis");
+  require_contains(sign_on,
+                   "*Security* *Concepts* *and* *Planning* manual and the "
+                   "*Operator's* *Guide*.",
+                   "manual title emphasis");
+  require_not_contains(sign_on, "uniqu**e us**", "torn user emphasis");
+  require_not_contains(sign_on, "Secu*rity", "torn Security emphasis");
+
+  const auto lets_go = topic_markdown(document, "2.1");
+  require_contains(lets_go,
+                   "If your display station screen is blank",
+                   "SI pipe-visible continuation");
+  require_contains(lets_go,
+                   "the **Sign** **On** display comes on.",
+                   "Sign On emphasis");
+  require_contains(lets_go, "```text\n", "text figure fence");
+  require_contains(lets_go, "Sign On", "text figure heading");
+  require_contains(lets_go,
+                   "System  . . . . . :   XXXXXXXX",
+                   "text figure system row");
+  require_contains(lets_go,
+                   "Current library . . . . . . . . .   __________",
+                   "text figure current library row");
+  require_contains(lets_go,
+                   "(C) COPYRIGHT IBM CORP. 1980, 1991.",
+                   "text figure copyright row");
+  require_contains(lets_go,
+                   "You can ignore the information in the upper right corner "
+                   "of the display.",
+                   "SREFIG trailing text");
+  require_contains(lets_go,
+                   "**Note:** If the word **password** does not appear",
+                   "fixed-row note emphasis");
+  require_not_contains(lets_go,
+                       "FIGUNIQ13 Sign On System",
+                       "text figure folded into anchor id");
+  require_not_contains(lets_go, "th**e Si**", "torn Sign emphasis");
 }

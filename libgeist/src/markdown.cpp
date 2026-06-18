@@ -325,6 +325,20 @@ void append_block(std::string& output, const std::string& block) {
   output += "\n\n";
 }
 
+void append_text_fence(std::string& output, std::vector<std::string>& lines) {
+  if (lines.empty()) {
+    return;
+  }
+  std::string block = "```text\n";
+  for (const auto& line : lines) {
+    block += line;
+    block.push_back('\n');
+  }
+  block += "```";
+  append_block(output, block);
+  lines.clear();
+}
+
 std::string strip_inline_gml_markup(std::string text) {
   std::string output;
   output.reserve(text.size());
@@ -1155,6 +1169,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
   bool in_labeled_box = false;
   bool in_title_page = false;
   bool in_example = false;
+  bool in_figure = false;
   bool in_index = false;
   bool title_page_is_cover = false;
   bool title_block_complete = false;
@@ -1167,6 +1182,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
   std::vector<Footnote> footnotes;
   Footnote current_footnote;
   bool in_footnote = false;
+  std::vector<std::string> pending_figure_lines;
   std::vector<std::string> pending_title_page_bold_lines;
 
   for (const auto& record : records) {
@@ -1214,6 +1230,10 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
       if (!text.empty()) {
         current_footnote.blocks.push_back(std::move(text));
       }
+      continue;
+    }
+    if (in_figure && tag == "xline") {
+      pending_figure_lines.push_back(gml_content(record));
       continue;
     }
 
@@ -1523,20 +1543,30 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
       if (!id.empty()) {
         append_block(output, "<a id=\"" + id + "\"></a>");
       }
+      in_figure = true;
+      pending_figure_lines.clear();
+    } else if (tag == "efig") {
+      append_text_fence(output, pending_figure_lines);
+      in_figure = false;
     } else if (tag == "table") {
       in_table = true;
       table_id = gml_attr(record, "id");
       table_caption = gml_markdown_content(record);
       table_cells.clear();
-    } else if (tag == "i1" || tag == "grpsep" || tag == "efig" ||
-               tag == "etable" || tag == "fontdef") {
+    } else if (tag == "i1" || tag == "grpsep" || tag == "etable" ||
+               tag == "fontdef") {
       continue;
     } else {
+      if (in_figure) {
+        append_text_fence(output, pending_figure_lines);
+        in_figure = false;
+      }
       append_block(output, gml_markdown_content(record));
     }
   }
 
   flush_pending_title_page_lines(output, pending_title_page_bold_lines);
+  append_text_fence(output, pending_figure_lines);
   if (in_example) {
     if (!output.empty() && output.back() != '\n') {
       output.push_back('\n');

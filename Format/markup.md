@@ -97,12 +97,12 @@ or represented with the nearest BookMaster tag shape.
 | `SR<id>` | `:anchor id='<id>'.` | Generic spot/section anchor. `CSELECT` can target this id directly. | Verified by `QS3X36CM.BOO` links such as `sptproc`, `sptcontrol`, and `sptocl`. |
 | `SRFTN<id>` followed by `CZ FLOW FN ...` | `:fn id='<id>'.<text>` | Start of a generated footnote body. The `id` is the footnote target used by a `CSELECT` reference. | Verified by `packet.boo` topic `1.1` and BookSrv `sub_405FC`, which emits `<a name="FTNFTNUNIQ1"><hr><h5>...`. |
 | `SREFTN` | `:efn.` | End of a generated footnote body. In PACKET generated footnote bodies, a doubled terminal period immediately before `SREFTN` contributes one visible period; the second period is the generated-body terminator convention. | Verified by `packet.boo` topic `1.1` and BookSrv `sub_405FC`; hosted BookServer renders both footnote bodies with one final period. |
-| `SRFIG<id>` | `:fig id='<id>'.` | Figure anchor/start id. | Observed in figure records. |
-| `SREFIG` | `:efig.` | Figure end marker. | Observed, but current decoder can truncate/case-shift some occurrences. |
+| `SRFIG<id>` | `:fig id='<id>'.` plus optional figure body records | Figure anchor/start id. The id is the contiguous topic-id-like token after `SRFIG`; trailing decoded bytes are figure content, not part of the id. | Verified against `QSYSNEWG.BOO` topic `2.1`: `SRFIGFIGUNIQ13` is followed by a fixed-width text screen in the same segment. |
+| `SREFIG [text]` | `:efig.` plus optional following body text | Figure end marker. Trailing decoded bytes after `SREFIG` are following visible text, not part of the marker. | Verified against `QSYSNEWG.BOO` topics `2.0` and `2.1`, where BookServer renders body text immediately after the figure closes. |
 | `SRTBL<id>` | `:table id='<id>'.` | Table anchor/start id. | Observed. |
 | `SRETBL` | `:etable.` | Table end marker. | Observed. |
 | `CINDEX` / `CITERM` / `CGPSEP` / `CENDINDEX` | `:index.`, `:i1.`, `:grpsep.`, `:eindex.` | Generated index stream. `CENDINDEX` terminates the generated body; bytes/logical records after it are not topic content. | Verified against `packet.boo` topic `INDEX`: BookServer stops after final `ROSE 1 2.3` entry, while decoded records after `CENDINDEX` are non-content padding/garbage. |
-| `SI <index-term> ? <visible-continuation>` | hidden index term plus optional `:pinline.<visible-continuation>` | Subject-index metadata embedded in body flow. The index term is not visible body text; visible text after a display marker remains body continuation. | Verified against `packet.boo` topic `3.2`: `SI Linux AX.25, Configuring Ports, AX.25 ? everything, not spaces:` contributes only `everything, not spaces:` to the preceding paragraph. |
+| `SI <index-term> ? <visible-continuation>` or `SI <index-term> | <visible-continuation>` | hidden index term plus optional `:pinline.<visible-continuation>` | Subject-index metadata embedded in body flow. The index term is not visible body text; visible text after a display marker remains body continuation. | Verified against `packet.boo` topic `3.2`: `SI Linux AX.25, Configuring Ports, AX.25 ? everything, not spaces:` contributes only `everything, not spaces:` to the preceding paragraph. `QSYSNEWG.BOO` topic `2.1` uses `SI display station         | If your display station...`; BookServer hides `display station` but renders the pipe-led continuation. |
 | `CZ Flow <tag> <left> <indent> <text>` | `:<tag>.<text>` | Flowing paragraph/list/heading control. Empty `UL`, `OL`, `DL`, and `LI` flow controls are structural boundaries and must still be emitted. | Verified against `packet.boo` topic `3.2`: `CZ FLOW UL` and empty `CZ FLOW LI` records precede `CFONT`/`CSELECT` visible list-item bodies. BookServer renders these as list items, not as text merged into the previous paragraph. |
 | `CZ Break <n> <text>` | `:p.<text>` when text is present | Break/layout control with optional visible text. | Source-style approximation. |
 | `CZ Off <tag>` | matching end tag for known block tags, otherwise suppressed | End/disable layout mode. | Verified for table controls in BookSrv `bookmgr.exe`; see the table/layout evidence below. |
@@ -388,6 +388,29 @@ border/separator marker. The local renderer therefore treats multi-span
 spans match consecutive leading words; single-span wrapped glossary/body rows
 remain ordinary flowing text.
 
+`QSYSNEWG.BOO` topics `2.0` and `2.1` show two more fixed-layout `CFONT`
+patterns. Rows beginning with the visual marker `|` keep their pre-collapse
+display columns for span placement. Topic `2.1` logical record 40 has:
+
+```text
+CFONT 28 4 2 33 2 2      | After a few seconds, the Sign On display comes on.
+```
+
+The hosted BookServer renders `Sign` and `On` as separate bold words. Topic
+`2.0` uses the same rule for `user`, `name`, and `password` inside pipe-led
+body rows. Highly indented fixed rows can also carry spans whose first stored
+offset precedes the first visible character. Topic `2.0` logical record 38
+stores:
+
+```text
+CFONT 7 8 1 16 8 1 25 3 1 29 8 1 53 10 1 64 5 1
+             Security Concepts and Planning manual and the Operator's Guide.
+```
+
+BookServer renders `Security`, `Concepts`, `and`, `Planning`, `Operator's`,
+and `Guide` in `HP1`. A compatible renderer must not apply those offsets after
+paragraph collapse, which tears the title into partial words.
+
 Bold and emphasis should therefore be implemented through the `CFONT` plus
 `CFONTDEF` pipeline, not by searching for literal `<b>` markup. `HP1`, `HP2`,
 and `HP3` are GML-derived highlighted-phrase levels. The PACKET `PREFACE`
@@ -439,8 +462,8 @@ references are linked through `CSELECT` targets such as `pic1` or `Pic1`.
 
 | Control | Observed syntax | Role |
 | --- | --- | --- |
-| `SRFIG<id>` | `SRFIGfig4302hp1` | Starts or anchors a figure. |
-| `SREFIG` | `SREFIG` | Ends a figure block; current decoder can truncate or case-shift this marker in some records. |
+| `SRFIG<id>` | `SRFIGfig4302hp1` | Starts or anchors a figure. The id ends at the first non-topic-id character; trailing bytes can be fixed figure text. |
+| `SREFIG` | `SREFIG` | Ends a figure block. Trailing bytes after the marker are following body text. |
 | `SRTBL<id>` | `SRTBLv2pubs` | Starts or anchors a table. |
 | `SRETBL` | `SRETBL` | Ends a table block. |
 | `CSELECT ... fig...` | `CSELECT 3 8 fig4302hp1` | Selectable figure reference. |

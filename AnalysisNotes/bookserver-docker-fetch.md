@@ -613,3 +613,64 @@ r2 -q -A -c "axt @ 0x000cfb74" -c "axt @ 0x000cfbe4" -c q \
 The bounded string/xref pass shows `CFONT` at `0x000cfb74` and
 `<pre width="80">` at `0x000cfbe4` are both referenced from the main topic
 renderer function `fcn.000405fc`, matching the earlier BookServer IDB notes.
+
+## QSYSNEWG Figure Text And Fixed-Row CFONT
+
+On 2026-06-18, topics `2.0` and `2.1` were fetched from the hosted BookServer
+and cached for local comparison:
+
+```text
+BookServerCache/QSYSNEWG/2_0.html
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QSYSNEWG/2.0?DT=19910524085706&SHELF=
+
+BookServerCache/QSYSNEWG/2_1.html
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QSYSNEWG/2.1?DT=19910524085706&SHELF=
+```
+
+`./build/bootrace BOO/QSYSNEWG.BOO 2.1 --all` showed that the missing Sign On
+screen is not a picture resource. It is fixed text trailing the figure start
+control:
+
+```text
+SRFIGFIGUNIQ13 ? ... Sign On ... System  . . . . . :   XXXXXXXX ...
+```
+
+The local decoder was treating all trailing text as the figure id, producing a
+giant invalid anchor and no screen. BookServer renders `<a name="FIGFIGUNIQ13">`
+and then the fixed-width text display. The compatible interpretation is:
+`FIGUNIQ13` is the id token; the rest of the segment is figure body text.
+
+The same trace showed `SREFIG` can carry trailing body text:
+
+```text
+SREFIG       You can ignore the information in the upper right corner of the display.
+SREFIG           Before you can use the AS/400 system you must sign on ...
+```
+
+BookServer closes the figure and then renders that text as normal topic body.
+The old decoder dropped the trailing text, which caused topic `2.0` to start in
+the middle of the paragraph after the image.
+
+The fixed-row font spans in these topics use the same renderer path as the
+earlier visual-box issue. The loaded IDA MCP target during this pass was
+`ephwam.dll`, where `Scm_Reflow` is available but the BookServer HTML string
+xrefs are not. The HTML-specific evidence therefore came from r2 against
+`Official Readers/BookSrv-Win32/bookmgr.exe`: `<pre width="80">` and `CFONT`
+both xref into the same topic-renderer region previously identified as
+`fcn.000405fc`.
+
+Specific span evidence:
+
+```text
+2.1: CFONT 28 4 2 33 2 2      | After a few seconds, the Sign On display comes on.
+2.0: CFONT 52 4 2 57 4 2    | station ... unique user name which
+2.0: CFONT 31 8 2    | identifies ... secret password ...
+2.0: CFONT 7 8 1 16 8 1 25 3 1 29 8 1 53 10 1 64 5 1
+                  Security Concepts and Planning manual and the Operator's Guide.
+```
+
+BookServer renders `Sign`/`On`, `user`/`name`, `password`, and the manual-title
+words as whole highlighted words. Applying offsets after Markdown/plain-text
+collapse tears the spans. The fix maps pipe-led rows in the fixed display-row
+coordinate space and handles the highly indented manual-title row as ordered
+whole-word spans in fixed-layout text.

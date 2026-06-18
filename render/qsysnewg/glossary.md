@@ -16,11 +16,11 @@ access
 
 advanced assistance level
 
-**| advanc**e**d assistan**c**e lev**el. The type of displays that provide the same | functions as the intermediate assistance level. However, the displays | contain as much information as possible by not displaying the allowed | function keys and options.
+| **advanced** **assistance** **level**. The type of displays that provide the same | functions as the intermediate assistance level. However, the displays | contain as much information as possible by not displaying the allowed | function keys and options.
 
 application
 
-**| applicati**on. A particular business task, such as inventory control or | accounts receivable.
+| **application**. A particular business task, such as inventory control or | accounts receivable.
 
 application program
 
@@ -28,11 +28,11 @@ application program
 
 assistance level
 
-**| assistan**c**e lev**el. The type of displays that a user selects to interact | with the system. The three levels of assistance available are basic, | intermediate, and advanced.
+| **assistance** **level**. The type of displays that a user selects to interact | with the system. The three levels of assistance available are basic, | intermediate, and advanced.
 
 attribute
 
-**| attribu**te. A characteristic or trait of one or more items.
+| **attribute**. A characteristic or trait of one or more items.
 
 authorize
 
@@ -40,7 +40,7 @@ authorize
 
 basic assistance level
 
-**| bas**i**c assistan**c**e lev**el. The type of displays that provides the most | assistance. Basic assistance level supports the more common user and | operator tasks, and does not use computer terminology.
+| **basic** **assistance** **level**. The type of displays that provides the most | assistance. Basic assistance level supports the more common user and | operator tasks, and does not use computer terminology.
 
 batch
 
@@ -68,7 +68,7 @@ cursor
 
 database
 
-**| databa**se. All the data files stored in the system.
+| **database**. All the data files stored in the system.
 
 default
 
@@ -112,7 +112,7 @@ field
 
 file
 
-**| fi**le. A generic term for the object type that refers to a database file, | a device file, or a save file. The system-recognized identifier for the | object type is *FILE.
+| **file**. A generic term for the object type that refers to a database file, | a device file, or a save file. The system-recognized identifier for the | object type is *FILE.
 
 form type
 
@@ -120,7 +120,7 @@ form type
 
 function
 
-**| functi**on. Any instruction or set of related instructions that perform a | specific operation.
+| **function**. Any instruction or set of related instructions that perform a | specific operation.
 
 function key
 
@@ -140,15 +140,15 @@ hexadecimal
 
 IBM Operating System/400 Version 2 (OS/400)
 
-**| I**B**M Operati**n**g System/4**0**0 Versi**o**n** **2 (OS/40**0). Pertaining to the IBM | licensed program that can be used as the operating system for the AS/400 | system.
+| **IBM** **Operating** **System/400** **Version** **2** **(OS/400)**. Pertaining to the IBM | licensed program that can be used as the operating system for the AS/400 | system.
 
 index search
 
-**| ind**e**x sear**ch. A searchable part of the online help information that | provides "how-to" and explanatory topics to supplement the help for | specific displays. The system-recognized identifier for the object type | is *SCHIDX.
+| **index** **search**. A searchable part of the online help information that | provides "how-to" and explanatory topics to supplement the help for | specific displays. The system-recognized identifier for the object type | is *SCHIDX.
 
 initial program
 
-**| initi**a**l progr**am. A user-profile program that runs when the user signs on | and after the command processor program QCMD is started. QCMD calls the | first program.
+| **initial** **program**. A user-profile program that runs when the user signs on | and after the command processor program QCMD is started. QCMD calls the | first program.
 
 input field
 
@@ -168,7 +168,7 @@ insert mode
 
 interactive
 
-**| interacti**ve. Pertaining to the dialog-like exchange of information | between people and a computer. Contrast wit*h bat*ch.
+| **interactive**. Pertaining to the dialog-like exchange of information | between people and a computer. Contrast with *batch*.
 
 interactive job
 
@@ -176,11 +176,11 @@ interactive job
 
 intermediate assistance level
 
-**| intermedia**t**e assistan**c**e lev**el. The type of displays that supports all | system tasks and uses computer terminology. Complicated tasks can be done | using the intermediate assistance level.
+| **intermediate** **assistance** **level**. The type of displays that supports all | system tasks and uses computer terminology. Complicated tasks can be done | using the intermediate assistance level.
 
 job
 
-**| j**ob. A unit of work to be done by a computer.
+| **job**. A unit of work to be done by a computer.
 
 job log
 
@@ -200,15 +200,15 @@ keyboard type
 
 keyword
 
-**| keywo**rd. A name that identifies a parameter in a command.
+| **keyword**. A name that identifies a parameter in a command.
 
 library
 
-**| libra**ry. A system object that serves as a directory to other objects. A | library groups related objects, and allows the user to find objects by | name. The system-recognized identifier for the object type is *LIB.
+| **library**. A system object that serves as a directory to other objects. A | library groups related objects, and allows the user to find objects by | name. The system-recognized identifier for the object type is *LIB.
 
 licensed program
 
-**| licens**e**d progr**am. A separately orderable program, supplied by IBM, that | performs functions related to processing user data. Examples of licensed | programs are PC Support/400, SAA COBOL/400*, AS/400 Application | Development Tools, SAA OfficeVision/400, and so on.
+| **licensed** **program**. A separately orderable program, supplied by IBM, that | performs functions related to processing user data. Examples of licensed | programs are PC Support/400, SAA COBOL/400*, AS/400 Application | Development Tools, SAA OfficeVision/400, and so on.
 
 line
 
@@ -228,11 +228,11 @@ magnetic tape unit
 
 main storage
 
-**| ma**i**n stora**ge. All addressable storage where programs are run.
+| **main** **storage**. All addressable storage where programs are run.
 
 menu
 
-**| me**nu. A displayed list of items from which a user can make a selection. | The system-recognized identifier for the object type is *MENU.
+| **menu**. A displayed list of items from which a user can make a selection. | The system-recognized identifier for the object type is *MENU.
 
 message line
 
@@ -240,7 +240,7 @@ message line
 
 message queue
 
-**| messa**g**e que**ue. A list on which messages are placed when they are sent to | a user ID or device description. The system-recognized identifier for the | object type is *MSGQ.
+| **message** **queue**. A list on which messages are placed when they are sent to | a user ID or device description. The system-recognized identifier for the | object type is *MSGQ.
 
 notify delivery
 
@@ -268,7 +268,7 @@ operating system
 
 Operational Assistant
 
-**| Operation**a**l Assista**nt. A part of the operating system that provides a set | of menus and displays for end users to do commonly performed tasks, such | as working with printer output, messages, and batch jobs.
+| **Operational** **Assistant**. A part of the operating system that provides a set | of menus and displays for end users to do commonly performed tasks, such | as working with printer output, messages, and batch jobs.
 
 OS/400
 
@@ -300,7 +300,7 @@ pending
 
 printer file
 
-**| print**e**r fi**le. A device file that determines what attributes printed | output will have. A particular printer may or may not support all of the | attributes specified in a printer file.
+| **printer** **file**. A device file that determines what attributes printed | output will have. A particular printer may or may not support all of the | attributes specified in a printer file.
 
 printer ID
 
@@ -324,7 +324,7 @@ prompt
 
 queue
 
-**| que**ue. A list of messages, jobs, files, or requests waiting to be read, | processed, printed, or distributed in a predetermined order.
+| **queue**. A list of messages, jobs, files, or requests waiting to be read, | processed, printed, or distributed in a predetermined order.
 
 security officer
 
@@ -344,15 +344,15 @@ shift
 
 spool
 
-**| spo**ol. The system function of putting files or jobs into disk storage for | later processing or printing.
+| **spool**. The system function of putting files or jobs into disk storage for | later processing or printing.
 
 spooled file
 
-**| spool**e**d fi**le. A file that holds output data waiting to be processed, such | as information waiting to be printed. Also known a*s spool*e*d outp*u*t fi*le.
+**| spool**e**d fi**le. A file that holds output data waiting to be processed, such | as information waiting to be printed. Also known as *spooled* *output* *file*.
 
 subsystem
 
-**| subsyst**em. An operating environment, defined by a subsystem description, | where the system coordinates processing and resources.
+| **subsystem**. An operating environment, defined by a subsystem description, | where the system coordinates processing and resources.
 
 system security
 
@@ -388,11 +388,11 @@ user profile
 
 user profile name
 
-**| us**e**r profi**l**e na**me. The name or code that the system associates with a | user when he or she signs on the system. Also known as user ID. See also *| us*e*r identificati*o*n (us*e*r I*D).
+| **user** **profile** **name**. The name or code that the system associates with a | user when he or she signs on the system. Also known as user ID. See also | *user* *identification* *(user* *ID)*.
 
 variable
 
-**| variab**le. A name used to represent data whose value can be changed while | the program is running by referring to the name of the variable.
+| **variable**. A name used to represent data whose value can be changed while | the program is running by referring to the name of the variable.
 
 work station
 

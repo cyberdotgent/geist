@@ -119,6 +119,8 @@ Scope: first 20 TOC topics for each local BOO fixture where the hosted BookServe
 - [ ] `1.7` / `render/qsysnewg/1-7.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.77)
 - [ ] `1.8` / `render/qsysnewg/1-8.md`: hosted topic was not found.
 - [ ] `1.8.1` / `render/qsysnewg/1-8-1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.94)
+- [x] `2.0` / `render/qsysnewg/2-0.md`: fixed `SREFIG` trailing paragraph loss and fixed-layout `CFONT` span mapping for `user`, `name`, `password`, and the manual-title words. Regression: `qsysnewg_markdown_test`.
+- [x] `2.1` / `render/qsysnewg/2-1.md`: fixed `SRFIG` text-figure body recovery for the Sign On screen, `SREFIG` trailing body text, pipe-visible `SI` continuation, and fixed-row `CFONT` spans for `Sign On` and `Note/password`. Regression: `qsysnewg_markdown_test`.
 ### `BOO/QSYSINFO.BOO`
 
 - [ ] `COVER` / `render/qsysinfo/cover.md`: low normalized text overlap (22%); local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.22)

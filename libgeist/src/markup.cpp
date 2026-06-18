@@ -661,7 +661,15 @@ std::string render_menu_item_gml(std::string value) {
 std::string render_subject_index_gml(std::string value) {
   const auto marker = value.find('?');
   if (marker == std::string::npos) {
-    return {};
+    const auto visual = value.find('|');
+    if (visual == std::string::npos) {
+      return {};
+    }
+    auto visible = dot_text(value.substr(visual));
+    if (visible.empty()) {
+      return {};
+    }
+    return render_simple_gml_control("pinline", std::move(visible));
   }
   auto visible = dot_text(value.substr(marker + 1));
   if (visible.empty()) {
@@ -781,6 +789,7 @@ struct GmlRenderState {
   bool pending_copyright_extension = false;
   bool in_table = false;
   bool in_labeled_box = false;
+  bool in_figure = false;
   bool in_example = false;
   bool in_index = false;
   bool in_footnote = false;
@@ -793,6 +802,85 @@ struct GmlRenderState {
   std::string table_visual_buffer;
   std::vector<std::string> pending_table_row;
 };
+
+std::string trim_right_ascii(std::string value) {
+  while (!value.empty() &&
+         std::isspace(static_cast<unsigned char>(value.back())) != 0) {
+    value.pop_back();
+  }
+  return value;
+}
+
+bool has_fixed_figure_text(const std::string& value) {
+  for (const auto ch : value) {
+    if (std::isalnum(static_cast<unsigned char>(ch)) != 0 || ch == '_') {
+      return true;
+    }
+  }
+  return false;
+}
+
+std::vector<std::string> extract_fixed_figure_lines(const std::string& value) {
+  std::vector<std::string> lines;
+  for (std::size_t cursor = 0; cursor < value.size();) {
+    if (value[cursor] == '?') {
+      while (cursor < value.size() && value[cursor] == '?') {
+        ++cursor;
+      }
+      continue;
+    }
+    const auto end = value.find('?', cursor);
+    auto line = end == std::string::npos ? value.substr(cursor)
+                                         : value.substr(cursor, end - cursor);
+    line = trim_right_ascii(std::move(line));
+    if (has_fixed_figure_text(line)) {
+      lines.push_back("|" + std::move(line) + "|");
+    }
+    if (end == std::string::npos) {
+      break;
+    }
+    cursor = end + 1;
+  }
+  return lines;
+}
+
+std::string render_fixed_figure_text_gml(const std::string& value) {
+  std::string output;
+  for (auto line : extract_fixed_figure_lines(value)) {
+    if (!output.empty()) {
+      output.push_back('\n');
+    }
+    output += ":xline." + std::move(line);
+  }
+  return output;
+}
+
+std::string render_figure_start_gml(std::string value, GmlRenderState& state) {
+  value = trim_ascii(std::move(value));
+  std::size_t cursor = 0;
+  while (cursor < value.size() && is_topic_id_char(value[cursor])) {
+    ++cursor;
+  }
+
+  auto output =
+      render_keyed_gml_control("fig", "id", value.substr(0, cursor));
+  state.in_figure = true;
+  const auto trailing = value.substr(cursor);
+  auto fixed = render_fixed_figure_text_gml(trailing);
+  if (!fixed.empty()) {
+    output += "\n" + std::move(fixed);
+  }
+  return output;
+}
+
+std::string render_figure_end_gml(std::string value, GmlRenderState& state) {
+  state.in_figure = false;
+  value = dot_text(std::move(value));
+  if (value.empty()) {
+    return ":efig.";
+  }
+  return ":efig.\n" + render_simple_gml_control("p", std::move(value));
+}
 
 std::string render_footnote_gml(std::string value, GmlRenderState& state) {
   std::istringstream input(value);
@@ -1294,6 +1382,32 @@ DisplayTextMap normalize_display_text_with_map(std::string value) {
   return mapped;
 }
 
+DisplayTextMap normalize_fixed_display_text_with_map(std::string value) {
+  DisplayTextMap mapped;
+  mapped.source_to_output.assign(value.size() + 1, 0);
+
+  bool pending_space = false;
+  for (std::size_t index = 0; index < value.size(); ++index) {
+    auto ch = value[index];
+    if (ch == '?') {
+      ch = ' ';
+    }
+    if (std::isspace(static_cast<unsigned char>(ch)) != 0) {
+      pending_space = !mapped.text.empty();
+      mapped.source_to_output[index] = mapped.text.size();
+      continue;
+    }
+    if (pending_space) {
+      mapped.text.push_back(' ');
+      pending_space = false;
+    }
+    mapped.source_to_output[index] = mapped.text.size();
+    mapped.text.push_back(ch);
+  }
+  mapped.source_to_output[value.size()] = mapped.text.size();
+  return mapped;
+}
+
 std::optional<FontSpan> map_font_span_to_normalized_text(
     const FontSpan& span,
     const DisplayTextMap& mapped,
@@ -1361,11 +1475,81 @@ std::string apply_font_spans_to_text(std::string value,
   return output;
 }
 
+std::string apply_font_spans_to_mapped_text(
+    const DisplayTextMap& mapped,
+    const std::vector<FontSpan>& spans) {
+  if (mapped.text.empty() || spans.empty()) {
+    return mapped.text;
+  }
+
+  std::vector<std::string> opens(mapped.text.size() + 1);
+  std::vector<std::string> closes(mapped.text.size() + 1);
+  for (const auto& span : spans) {
+    if (span.length == 0 || span.offset >= mapped.source_to_output.size()) {
+      continue;
+    }
+    const auto tag = font_code_to_highlight_tag(span.code);
+    if (tag.empty()) {
+      continue;
+    }
+    const auto source_end =
+        std::min(mapped.source_to_output.size() - 1,
+                 span.offset + span.length);
+    auto output_offset = mapped.source_to_output[span.offset];
+    auto output_end = mapped.source_to_output[source_end];
+    while (output_offset < mapped.text.size() &&
+           std::isspace(
+               static_cast<unsigned char>(mapped.text[output_offset])) != 0) {
+      ++output_offset;
+    }
+    while (output_end > output_offset &&
+           std::isspace(
+               static_cast<unsigned char>(mapped.text[output_end - 1])) != 0) {
+      --output_end;
+    }
+    if (output_offset >= output_end) {
+      continue;
+    }
+    opens[output_offset] += ":" + tag + ".";
+    closes[output_end] = ":e" + tag + "." + closes[output_end];
+  }
+
+  std::string output;
+  for (std::size_t index = 0; index < mapped.text.size(); ++index) {
+    output += opens[index];
+    output.push_back(mapped.text[index]);
+    output += closes[index + 1];
+  }
+  return output;
+}
+
 std::string apply_font_spans_to_text_without_normalizing(
     std::string value,
     const std::vector<FontSpan>& spans,
     std::size_t base_column) {
   return apply_font_spans_to_text(std::move(value), spans, base_column);
+}
+
+std::optional<std::string> apply_font_spans_to_bar_visual_row(
+    const std::string& text,
+    const std::vector<FontSpan>& spans) {
+  const auto first_visible = text.find_first_not_of(" \t\r\n");
+  if (first_visible == std::string::npos || text[first_visible] != '|') {
+    return std::nullopt;
+  }
+  const auto display_delta = first_visible == 0 ? std::size_t{0}
+                                                : first_visible - 1;
+  auto adjusted = spans;
+  for (auto& span : adjusted) {
+    span.offset += display_delta;
+  }
+  auto rendered =
+      apply_font_spans_to_mapped_text(normalize_fixed_display_text_with_map(text),
+                                      adjusted);
+  if (rendered.empty()) {
+    return std::nullopt;
+  }
+  return rendered;
 }
 
 bool has_visual_border_run(const std::string& value) {
@@ -1513,6 +1697,90 @@ std::string apply_font_spans_to_words(std::string text,
     output += closes[index + 1];
   }
   return output;
+}
+
+std::optional<std::string> apply_font_spans_to_ordered_words(
+    std::string text,
+    const std::vector<FontSpan>& spans) {
+  if (text.empty() || spans.empty()) {
+    return std::nullopt;
+  }
+
+  std::vector<std::pair<std::size_t, std::size_t>> words;
+  for (std::size_t cursor = 0; cursor < text.size();) {
+    while (cursor < text.size() &&
+           std::isspace(static_cast<unsigned char>(text[cursor])) != 0) {
+      ++cursor;
+    }
+    const auto begin = cursor;
+    while (cursor < text.size() &&
+           std::isspace(static_cast<unsigned char>(text[cursor])) == 0) {
+      ++cursor;
+    }
+    if (cursor > begin) {
+      words.push_back({begin, cursor});
+    }
+  }
+  if (words.empty()) {
+    return std::nullopt;
+  }
+
+  std::vector<std::string> opens(text.size() + 1);
+  std::vector<std::string> closes(text.size() + 1);
+  auto word_cursor = std::size_t{0};
+  auto applied = false;
+  for (const auto& span : spans) {
+    const auto tag = font_code_to_highlight_tag(span.code);
+    if (tag.empty() || span.length == 0) {
+      continue;
+    }
+    auto matched = false;
+    while (word_cursor < words.size()) {
+      const auto [begin, end] = words[word_cursor++];
+      const auto word_length = end - begin;
+      auto highlight_end = end;
+      if (word_length == span.length) {
+        matched = true;
+      } else if (word_length == span.length + 1 &&
+                 std::ispunct(static_cast<unsigned char>(text[end - 1])) != 0) {
+        highlight_end = end - 1;
+        matched = true;
+      }
+      if (!matched) {
+        continue;
+      }
+      opens[begin] += ":" + tag + ".";
+      closes[highlight_end] = ":e" + tag + "." + closes[highlight_end];
+      applied = true;
+      break;
+    }
+    if (!matched) {
+      return std::nullopt;
+    }
+  }
+  if (!applied) {
+    return std::nullopt;
+  }
+
+  std::string output;
+  for (std::size_t index = 0; index < text.size(); ++index) {
+    output += opens[index];
+    output.push_back(text[index]);
+    output += closes[index + 1];
+  }
+  return output;
+}
+
+bool first_font_span_precedes_visible_text(const std::string& text,
+                                           const std::vector<FontSpan>& spans) {
+  if (spans.size() < 2) {
+    return false;
+  }
+  const auto first_visible = text.find_first_not_of(" \t\r\n?");
+  if (first_visible == std::string::npos) {
+    return false;
+  }
+  return spans.front().offset < first_visible;
 }
 
 std::string render_visual_box_font_gml(std::string trailing,
@@ -1809,8 +2077,9 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
   const auto font_value_had_visual_border = has_visual_border_run(value);
   std::size_t cursor = 0;
   const auto spans = parse_font_spans(value, cursor);
-  auto trailing = cursor >= value.size() ? std::string{}
-                                         : trim_ascii(value.substr(cursor));
+  auto raw_trailing = cursor >= value.size() ? std::string{}
+                                             : value.substr(cursor);
+  auto trailing = trim_ascii(raw_trailing);
   if (trailing.empty()) {
     state.pending_font_prefix = std::move(value);
     state.pending_font_base_column = 3;
@@ -1842,10 +2111,26 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
         "p",
         normalize_display_text_with_map(std::move(trailing)).text);
   }
+  if (auto fixed_row = apply_font_spans_to_bar_visual_row(raw_trailing, spans);
+      fixed_row) {
+    return render_normalized_gml_control("pinline", std::move(*fixed_row));
+  }
   if (has_visual_border_run(trailing)) {
     if (auto box = render_visual_box_font_gml(trailing, spans);
         !box.empty()) {
       return box;
+    }
+  }
+  if (first_font_span_precedes_visible_text(raw_trailing, spans)) {
+    auto plain_visual_line = dot_text(raw_trailing);
+    if (!plain_visual_line.empty() && plain_visual_line.size() <= 120) {
+      if (auto word_rendered =
+              apply_font_spans_to_ordered_words(std::move(plain_visual_line),
+                                                spans);
+          word_rendered) {
+        return render_normalized_gml_control("pinline",
+                                             std::move(*word_rendered));
+      }
     }
   }
   if (font_value_had_visual_border && spans.size() > 1) {
@@ -1898,6 +2183,9 @@ std::string render_gml_segment(std::string segment,
       return {};
     }
     return ":xline." + std::move(line);
+  }
+  if (state.in_figure && !looks_like_gml_control_at(segment, 0)) {
+    return render_fixed_figure_text_gml(segment);
   }
   if (state.in_index) {
     if (ascii_starts_with_case_insensitive(lower, "cendindex")) {
@@ -2019,10 +2307,10 @@ std::string render_gml_segment(std::string segment,
     return ":eul.";
   }
   if (ascii_starts_with_case_insensitive(lower, "srfig")) {
-    return render_keyed_gml_control("fig", "id", segment.substr(5));
+    return render_figure_start_gml(segment.substr(5), state);
   }
   if (ascii_starts_with_case_insensitive(lower, "srefig")) {
-    return ":efig.";
+    return render_figure_end_gml(segment.substr(6), state);
   }
   if (ascii_starts_with_case_insensitive(lower, "srtbl")) {
     state.in_table = true;
