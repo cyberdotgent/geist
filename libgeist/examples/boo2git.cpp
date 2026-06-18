@@ -430,6 +430,29 @@ void rewrite_topic_links(std::string& markdown,
   }
 }
 
+void rewrite_html_anchor_links(std::string& markdown,
+                               const std::map<std::string, std::string>& links) {
+  std::size_t offset = 0;
+  while ((offset = markdown.find("<a href=\"#", offset)) != std::string::npos) {
+    const auto target_begin = offset + std::string("<a href=\"#").size();
+    const auto target_end = markdown.find('"', target_begin);
+    if (target_end == std::string::npos) {
+      break;
+    }
+    const auto target =
+        markdown.substr(target_begin, target_end - target_begin);
+    const auto found = links.find(lowercase(target));
+    if (found == links.end()) {
+      offset = target_end + 1;
+      continue;
+    }
+    const auto replacement =
+        "<a href=\"" + markdown_escape_url(found->second) + "\"";
+    markdown.replace(offset, (target_end + 1) - offset, replacement);
+    offset += replacement.size();
+  }
+}
+
 void rewrite_resource_links(std::string& markdown,
                             const std::map<std::string, std::string>& links) {
   std::size_t offset = 0;
@@ -519,6 +542,7 @@ std::string render_topic_markdown(
     markdown = "# " + entry.title + "\n\n" + markdown;
   }
   rewrite_topic_links(markdown, markdown_links);
+  rewrite_html_anchor_links(markdown, markdown_links);
   rewrite_resource_links(markdown, resource_links);
   rewrite_resource_uris(markdown, resource_links);
   rewrite_resource_placeholders(markdown, png_files);

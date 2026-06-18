@@ -790,6 +790,12 @@ IDA MCP evidence came from both loaded BookServer binaries:
   `<pre width="80">` at `0x45239` and loops over `Scm_Getln` at `0x452ff` /
   `0x4541c`. At `0x45328` it calls imported `Scm_Xoutcpy` to copy fixed-row
   text into the output buffer.
+- The same `bookmgr.exe` function does not close the pre block when fixed-row
+  text crosses into `CFONT`/`CSELECT` continuation records. The first `</pre>`
+  output path is guarded later at `0x4548e`, and a final cleanup path at
+  `0x45572` closes any still-active pre block. This matches hosted `QSYSNEWG`
+  `PREFACE`, where the `Publications Guide` italics and `Bibliography` links
+  remain inside the `<pre width="80">` block.
 - In `ephwam.dll`, `Scm_Xoutcpy` (`0x121af51`) is a wrapper around
   `sub_121AC63`. That routine walks 16-bit BookManager character words, calls
   `sub_121C31C` to select/load the current output table, and writes the mapped

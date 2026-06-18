@@ -6,7 +6,7 @@
 
 <a id="HDRABOUT"></a>
 
-```text
+<pre>
    This guide contains a very basic approach to learning about and using the
    AS/400 system.  Using this guide, an AS/400 user can learn to perform the
    following basic tasks:
@@ -28,11 +28,9 @@
    entirety.
 
    You may need to refer to other IBM manuals for more specific information
-```
-
-about a particular topic. The *Publications* *Guide*, GC41-9678, provides information on all the manuals in the AS/400 library.
-
-For a list of related publications, see the ["Bibliography" in](bibliography.md) [topic BIBLIOGRAPHY](bibliography.md).
+   about a particular topic. The <I>Publications</I> <I>Guide</I>, GC41-9678, provides information on all the manuals in the AS/400 library.
+   For a list of related publications, see the <a href="bibliography.md">&quot;Bibliography&quot; in</a> <a href="bibliography.md">topic BIBLIOGRAPHY</a>.
+</pre>
 
 ---
 

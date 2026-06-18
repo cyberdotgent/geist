@@ -113,7 +113,7 @@ int main() {
                    "# PREFACE About This Guide",
                    "TOC-derived PREFACE heading");
   require_contains(preface,
-                   "```text\n"
+                   "<pre>\n"
                    "   This guide contains a very basic approach",
                    "PREFACE fixed-width first body block");
   require_contains(preface,
@@ -129,12 +129,16 @@ int main() {
                        "° This manual is similar",
                        "PREFACE bullet mode stops before next paragraph");
   require_contains(preface,
-                   "about a particular topic. The *Publications* *Guide*",
+                   "about a particular topic. The <I>Publications</I> "
+                   "<I>Guide</I>",
                    "PREFACE font continuation");
   require_contains(preface,
-                   "see the [\"Bibliography\" in](#HDRBIBL) "
-                   "[topic BIBLIOGRAPHY](#HDRBIBL).",
+                   "see the <a href=\"#HDRBIBL\">&quot;Bibliography&quot; in</a> "
+                   "<a href=\"#HDRBIBL\">topic BIBLIOGRAPHY</a>.\n</pre>",
                    "PREFACE visual CSELECT links");
+  require_not_contains(preface,
+                       "</pre>\n\nabout a particular topic",
+                       "premature PREFACE fixed-width close");
   require_not_contains(preface, "ST|", "leaked PREFACE ST control");
   require_not_contains(preface, "# About This Guide", "duplicate PREFACE heading");
   require_not_contains(preface, " | ", "stray PREFACE visual marker");

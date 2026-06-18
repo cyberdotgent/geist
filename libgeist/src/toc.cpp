@@ -144,6 +144,14 @@ bool is_topic_title_record(const std::string& record) {
   return title_tags.find(tag) != title_tags.end();
 }
 
+std::string raw_gml_content_preserve_space(const std::string& record) {
+  const auto dot = record.find('.');
+  if (dot == std::string::npos) {
+    return {};
+  }
+  return record.substr(dot + 1);
+}
+
 std::size_t find_decoded_control(const std::string& record,
                                  const std::string& lower_record,
                                  const std::string& control) {
@@ -595,6 +603,47 @@ std::string topic_st_body_text_after_toc_title(const TopicData& topic,
   return body;
 }
 
+std::string topic_st_body_following_control_after_toc_title(
+    const TopicData& topic,
+    const std::string& title) {
+  if (topic.raw_records.empty() || title.empty()) {
+    return {};
+  }
+
+  const auto& first_record = topic.raw_records.front();
+  const auto lower_record = ascii_lower(first_record);
+  const auto st_found = find_st_control(first_record, lower_record);
+  if (st_found == std::string::npos) {
+    return {};
+  }
+
+  const auto value_begin = st_value_begin(first_record, st_found);
+  std::string following_control;
+  const auto value_end =
+      topic_body_control_offset(first_record, value_begin,
+                                following_control);
+  auto st_value = trim_ascii(first_record.substr(value_begin,
+                                                 value_end - value_begin));
+  if (st_value.size() <= title.size() ||
+      !ascii_starts_with_case_insensitive(st_value, title) ||
+      std::isspace(static_cast<unsigned char>(st_value[title.size()])) == 0) {
+    return {};
+  }
+  if (!following_control.empty()) {
+    return following_control;
+  }
+
+  for (std::size_t index = 1; index < topic.raw_records.size(); ++index) {
+    std::string record_following_control;
+    (void)topic_body_control_offset(topic.raw_records[index], 0,
+                                    record_following_control);
+    if (!record_following_control.empty()) {
+      return record_following_control;
+    }
+  }
+  return {};
+}
+
 std::string topic_st_following_control_after_toc_title(
     const TopicData& topic,
     const std::string& title) {
@@ -683,14 +732,41 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
         } else if (!body_text.empty() && has_reflow_off_line_markers(body_text)) {
           auto erase_begin = heading + 1;
           auto erase_end = erase_begin;
-          while (erase_end != entry.raw_records.end() &&
-                 raw_gml_tag(*erase_end) == "p") {
+          auto body_record_count = std::size_t{1};
+          while (body_record_count > 0 && erase_end != entry.raw_records.end() &&
+                 (raw_gml_tag(*erase_end) == "p" ||
+                  raw_gml_tag(*erase_end) == "line")) {
             ++erase_end;
+            --body_record_count;
+          }
+          std::vector<std::string> inline_fixed_continuations;
+          const auto body_following_control =
+              topic_st_body_following_control_after_toc_title(topic,
+                                                              entry.title);
+          if (body_following_control == "cfont" ||
+              body_following_control == "cselect") {
+            auto continuation = erase_end;
+            while (continuation != entry.raw_records.end() &&
+                   (raw_gml_tag(*continuation) == "p" ||
+                    raw_gml_tag(*continuation) == "line")) {
+              auto content = strip_leading_visual_bar(
+                  raw_gml_content_preserve_space(*continuation));
+              if (!content.empty()) {
+                inline_fixed_continuations.push_back(std::move(content));
+              }
+              ++continuation;
+            }
+            erase_end = continuation;
           }
           erase_begin = entry.raw_records.erase(erase_begin, erase_end);
-          std::vector<std::string> preserved{":xmp."};
+          std::vector<std::string> preserved{
+              inline_fixed_continuations.empty() ? ":xmp."
+                                                 : ":xmp inline='html'."};
           for (auto line : split_reflow_off_body_lines(std::move(body_text))) {
             preserved.push_back(":xline." + std::move(line));
+          }
+          for (auto& continuation : inline_fixed_continuations) {
+            preserved.push_back(":xline.   " + std::move(continuation));
           }
           preserved.push_back(":exmp.");
           entry.raw_records.insert(erase_begin,

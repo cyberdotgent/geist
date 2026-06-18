@@ -225,6 +225,28 @@ std::string inline_gml_attr(const std::string& attrs, const std::string& attr) {
   return attrs.substr(value_begin, value_end - value_begin);
 }
 
+void append_html_escaped(std::string& output, const std::string& text) {
+  for (const auto ch : text) {
+    switch (ch) {
+    case '&':
+      output += "&amp;";
+      break;
+    case '<':
+      output += "&lt;";
+      break;
+    case '>':
+      output += "&gt;";
+      break;
+    case '"':
+      output += "&quot;";
+      break;
+    default:
+      output.push_back(ch);
+      break;
+    }
+  }
+}
+
 std::string render_inline_markdown(std::string text) {
   std::string output;
   output.reserve(text.size());
@@ -285,6 +307,81 @@ std::string render_inline_markdown(std::string text) {
 
     output += marker;
     cursor = dot + 1;
+  }
+  return output;
+}
+
+std::string render_inline_html(std::string text) {
+  std::string output;
+  output.reserve(text.size());
+  for (std::size_t cursor = 0; cursor < text.size();) {
+    if (text[cursor] != ':') {
+      const auto next = text.find(':', cursor);
+      append_html_escaped(output,
+                          text.substr(cursor, next == std::string::npos
+                                                  ? std::string::npos
+                                                  : next - cursor));
+      if (next == std::string::npos) {
+        break;
+      }
+      cursor = next;
+      continue;
+    }
+
+    const auto dot = text.find('.', cursor + 1);
+    if (dot == std::string::npos) {
+      append_html_escaped(output, text.substr(cursor, 1));
+      ++cursor;
+      continue;
+    }
+
+    auto tag = ascii_lower(text.substr(cursor + 1, dot - cursor - 1));
+    if (ascii_starts_with_case_insensitive(tag, "hdref ")) {
+      const auto close = text.find(":ehdref.", dot + 1);
+      const auto target = inline_gml_attr(text.substr(cursor + 1,
+                                                      dot - cursor - 1),
+                                          "refid");
+      if (close != std::string::npos && !target.empty()) {
+        auto label = render_inline_html(text.substr(dot + 1,
+                                                    close - (dot + 1)));
+        if (label.empty()) {
+          append_html_escaped(label, target);
+        }
+        output += "<a href=\"#";
+        append_html_escaped(output, target);
+        output += "\">" + label + "</a>";
+        cursor = close + std::string(":ehdref.").size();
+        continue;
+      }
+    }
+
+    const auto closing = ascii_starts_with_case_insensitive(tag, "e");
+    if (closing) {
+      tag.erase(tag.begin());
+    }
+    if (tag == "hp1") {
+      output += closing ? "</I>" : "<I>";
+      cursor = dot + 1;
+      continue;
+    }
+    if (tag == "hp2") {
+      output += closing ? "</B>" : "<B>";
+      cursor = dot + 1;
+      continue;
+    }
+    if (tag == "hp3") {
+      output += closing ? "</I></B>" : "<B><I>";
+      cursor = dot + 1;
+      continue;
+    }
+    if (tag == "xph" || tag == "xmp") {
+      output += closing ? "</CODE>" : "<CODE>";
+      cursor = dot + 1;
+      continue;
+    }
+
+    append_html_escaped(output, text.substr(cursor, 1));
+    ++cursor;
   }
   return output;
 }
@@ -1185,6 +1282,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
   bool in_labeled_box = false;
   bool in_title_page = false;
   bool in_example = false;
+  bool in_rich_example = false;
   bool in_figure = false;
   bool in_index = false;
   bool title_page_is_cover = false;
@@ -1208,12 +1306,17 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         if (!output.empty() && output.back() != '\n') {
           output.push_back('\n');
         }
-        output += "```\n\n";
+        output += in_rich_example ? "</pre>\n\n" : "```\n\n";
         in_example = false;
+        in_rich_example = false;
         continue;
       }
       if (tag == "xline") {
-        output += gml_content_preserve_space(record);
+        if (in_rich_example) {
+          output += render_inline_html(gml_content_preserve_space(record));
+        } else {
+          output += gml_content_preserve_space(record);
+        }
         output.push_back('\n');
         continue;
       }
@@ -1330,7 +1433,8 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
           output.compare(output.size() - 2, 2, "\n\n") != 0) {
         output.push_back('\n');
       }
-      output += "```text\n";
+      in_rich_example = gml_record_attr(record, "inline") == "html";
+      output += in_rich_example ? "<pre>\n" : "```text\n";
       in_example = true;
       in_list = false;
       continue;
@@ -1593,7 +1697,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
     if (!output.empty() && output.back() != '\n') {
       output.push_back('\n');
     }
-    output += "```\n\n";
+    output += in_rich_example ? "</pre>\n\n" : "```\n\n";
   }
   if (in_footnote) {
     footnotes.push_back(std::move(current_footnote));
