@@ -749,3 +749,57 @@ typed inline controls: topic `1.0` continues with `CSELECT`, topic `1.1` with
 references. The compatible local split is therefore structural: plain
 reflow-off `ST` body text can become fixed lines, while `CSELECT`/`CFONT`
 continuations must stay in the structured path so links and font spans survive.
+
+On 2026-06-18, `QSYSNEWG` topic `PREFACE` exposed the same structural path with
+a visual marker attached to the title control:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QSYSNEWG/PREFACE?DT=19910524085706&SHELF=
+```
+
+Hosted BookServer emits:
+
+```html
+<a name="HDRABOUT"><h1>| PREFACE   About This Guide</h1></a>
+<pre width="80"><!-- * -->
+ | This guide contains a very basic approach...
+```
+
+The downloaded HTML stores the simple-list marker as byte `0xb0` in the
+ISO-8859-1 page:
+
+```text
+20 7c 20 b0 20 20 20 53 69 67 6e ...
+```
+
+The local decoded trace for logical record 15 shows:
+
+```text
+SRHDRABOUT ? ST| About This Guide ... | following basic tasks: | ?   Sign on ...
+```
+
+The first local failure treated `ST|...` as payload of the `SRHDRABOUT` anchor,
+which leaked `ST|` and visual bars into Markdown. The structural fix is to
+recognize `ST|` as `ST` followed by a reflow-off row marker, and to require
+valid boundaries on both sides of following typed controls so prose words like
+`Sign` are not mistaken for `SI`.
+
+IDA MCP evidence came from both loaded BookServer binaries:
+
+- In `bookmgr.exe`, `BookServer_render_topic_body_html` references
+  `<pre width="80">` at `0x45239` and loops over `Scm_Getln` at `0x452ff` /
+  `0x4541c`. At `0x45328` it calls imported `Scm_Xoutcpy` to copy fixed-row
+  text into the output buffer.
+- In `ephwam.dll`, `Scm_Xoutcpy` (`0x121af51`) is a wrapper around
+  `sub_121AC63`. That routine walks 16-bit BookManager character words, calls
+  `sub_121C31C` to select/load the current output table, and writes the mapped
+  low byte when the mapped value is `<= 0xff`.
+
+Therefore the visible `0xb0` simple-list glyph is not a Markdown-only invention.
+It is produced by the upstream output-copy translation path for a marker that
+the current lossy decoded trace still displays as a placeholder. In the local
+projection, the matching structural pattern is a single placeholder immediately
+after a leading visual row marker in a colon-introduced simple-list block
+(`| ?   text`). Once this marker starts a simple list, following rows in the
+same logical-record body remain list items until the synthetic logical-record
+boundary; the next paragraph is not bullet-prefixed.

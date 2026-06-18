@@ -101,6 +101,7 @@ std::string render_markdown_records(const std::vector<std::string>& records);
 bool looks_like_control_boundary(const std::string& decoded_record,
                                  const std::string& lower_record,
                                  std::size_t offset);
+bool looks_like_gml_control_at(const std::string& value, std::size_t offset);
 std::size_t skip_decoded_separators(const std::string& value);
 std::string extract_topic_header_id(const std::string& decoded_record);
 std::string extract_control_value_until_boundary(const std::string& record,

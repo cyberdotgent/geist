@@ -179,6 +179,66 @@ std::size_t find_decoded_control(const std::string& record,
   return std::string::npos;
 }
 
+std::size_t find_st_control(const std::string& record,
+                            const std::string& lower_record) {
+  auto search = std::size_t{0};
+  while (search < lower_record.size()) {
+    const auto found = lower_record.find("st", search);
+    if (found == std::string::npos) {
+      return std::string::npos;
+    }
+
+    auto separator = found;
+    while (separator > 0 &&
+           std::isspace(static_cast<unsigned char>(record[separator - 1])) !=
+               0) {
+      --separator;
+    }
+    const auto has_boundary_before =
+        separator == 0 || record[separator - 1] == '?' ||
+        record[separator - 1] == ',';
+
+    const auto next = found + 2;
+    const auto has_boundary_after =
+        next >= record.size() ||
+        std::isspace(static_cast<unsigned char>(record[next])) != 0 ||
+        record[next] == '|';
+    if (has_boundary_before && has_boundary_after) {
+      return found;
+    }
+
+    const auto source = lower_record.rfind("csourcefn", found);
+    const auto comma = lower_record.rfind(',', found);
+    const auto question = lower_record.rfind('?', found);
+    const auto previous_separator = std::max(
+        comma == std::string::npos ? std::size_t{0} : comma,
+        question == std::string::npos ? std::size_t{0} : question);
+    if (source != std::string::npos && source >= previous_separator &&
+        has_boundary_after) {
+      return found;
+    }
+
+    search = found + 1;
+  }
+  return std::string::npos;
+}
+
+std::size_t st_value_begin(const std::string& record, std::size_t st_found) {
+  auto cursor = st_found + 2;
+  while (cursor < record.size() &&
+         std::isspace(static_cast<unsigned char>(record[cursor])) != 0) {
+    ++cursor;
+  }
+  if (cursor < record.size() && record[cursor] == '|') {
+    ++cursor;
+    while (cursor < record.size() &&
+           std::isspace(static_cast<unsigned char>(record[cursor])) != 0) {
+      ++cursor;
+    }
+  }
+  return cursor;
+}
+
 bool paragraph_punctuation(char ch) {
   return ch == '.' || ch == ':' || ch == ';';
 }
@@ -186,6 +246,19 @@ bool paragraph_punctuation(char ch) {
 bool line_ends_paragraph(const std::string& line) {
   auto trimmed = trim_ascii(line);
   return !trimmed.empty() && paragraph_punctuation(trimmed.back());
+}
+
+std::string strip_leading_visual_bar(std::string line) {
+  line = trim_ascii(std::move(line));
+  if (!line.empty() && line.front() == '|') {
+    line.erase(line.begin());
+    line = trim_ascii(std::move(line));
+  }
+  if (!line.empty() && line.back() == '|') {
+    line.pop_back();
+    line = trim_ascii(std::move(line));
+  }
+  return line;
 }
 
 bool contains_wide_space_run(const std::string& value) {
@@ -221,31 +294,51 @@ bool has_reflow_off_line_markers(const std::string& value) {
   return false;
 }
 
+constexpr char kSyntheticRecordBoundary = '\x1E';
+
 std::vector<std::string> split_reflow_off_body_lines(std::string value) {
   value = trim_ascii(std::move(value));
   std::vector<std::string> lines;
   std::string line;
+  auto pending_simple_list = false;
+  auto in_simple_list = false;
 
   const auto flush_line = [&](bool paragraph_break) {
-    line = trim_ascii(std::move(line));
+    line = strip_leading_visual_bar(std::move(line));
     if (!line.empty()) {
+      if (in_simple_list && line.rfind("\xC2\xB0", 0) != 0) {
+        line = "\xC2\xB0 " + line;
+      }
       lines.push_back("   " + line);
+      pending_simple_list = !line.empty() && line.back() == ':';
       if (paragraph_break) {
         lines.emplace_back();
       }
+    } else if (paragraph_break) {
+      pending_simple_list = false;
     }
     line.clear();
   };
 
   for (std::size_t cursor = 0; cursor < value.size();) {
+    if (value[cursor] == kSyntheticRecordBoundary) {
+      flush_line(in_simple_list);
+      pending_simple_list = false;
+      in_simple_list = false;
+      ++cursor;
+      continue;
+    }
+
     if (value[cursor] == '?') {
       const auto run_begin = cursor;
       while (cursor < value.size() && value[cursor] == '?') {
         ++cursor;
       }
       const auto question_run = cursor - run_begin;
+      auto skipped_spaces = std::size_t{0};
       while (cursor < value.size() &&
              std::isspace(static_cast<unsigned char>(value[cursor])) != 0) {
+        ++skipped_spaces;
         ++cursor;
       }
       const auto next_begin = cursor;
@@ -255,6 +348,16 @@ std::vector<std::string> split_reflow_off_body_lines(std::string value) {
                        next_end == std::string::npos
                            ? std::string::npos
                            : next_end - next_begin);
+      if (question_run == 1 && skipped_spaces >= 1 &&
+          strip_leading_visual_bar(line).empty() && !next_segment.empty()) {
+        if (pending_simple_list || in_simple_list) {
+          in_simple_list = true;
+          line = "| \xC2\xB0 ";
+        } else {
+          line = "| ";
+        }
+        continue;
+      }
       const auto paragraph_break =
           question_run < 8 &&
           (line_ends_paragraph(line) ||
@@ -306,6 +409,10 @@ std::size_t topic_body_control_offset(const std::string& record,
       if (found == std::string::npos) {
         break;
       }
+      if (!looks_like_gml_control_at(record, found)) {
+        search = found + 1;
+        continue;
+      }
 
       auto separator_end = found;
       while (separator_end > value_begin &&
@@ -343,7 +450,7 @@ std::string preserve_reflow_off_st_body_lines(std::string value) {
   std::string line;
 
   const auto flush_line = [&]() {
-    line = trim_ascii(std::move(line));
+    line = strip_leading_visual_bar(std::move(line));
     if (!line.empty()) {
       lines.push_back(std::move(line));
     }
@@ -408,12 +515,12 @@ std::string topic_st_body_after_toc_title(const TopicData& topic,
 
   const auto& record = topic.raw_records.front();
   const auto lower_record = ascii_lower(record);
-  const auto st_found = find_decoded_control(record, lower_record, "st ");
+  const auto st_found = find_st_control(record, lower_record);
   if (st_found == std::string::npos) {
     return {};
   }
 
-  const auto value_begin = st_found + std::string("st ").size();
+  const auto value_begin = st_value_begin(record, st_found);
   std::string first_following_control;
   const auto value_end =
       topic_body_control_offset(record, value_begin, first_following_control);
@@ -446,12 +553,12 @@ std::string topic_st_body_text_after_toc_title(const TopicData& topic,
 
   const auto& first_record = topic.raw_records.front();
   const auto lower_record = ascii_lower(first_record);
-  const auto st_found = find_decoded_control(first_record, lower_record, "st ");
+  const auto st_found = find_st_control(first_record, lower_record);
   if (st_found == std::string::npos) {
     return {};
   }
 
-  const auto value_begin = st_found + std::string("st ").size();
+  const auto value_begin = st_value_begin(first_record, st_found);
   std::string first_following_control;
   const auto value_end =
       topic_body_control_offset(first_record, value_begin,
@@ -477,7 +584,7 @@ std::string topic_st_body_text_after_toc_title(const TopicData& topic,
     auto text = trim_ascii(topic.raw_records[index].substr(0, end));
     if (!text.empty()) {
       if (!body.empty()) {
-        body += "?    ";
+        body.push_back(kSyntheticRecordBoundary);
       }
       body += std::move(text);
     }
@@ -496,11 +603,11 @@ std::string topic_st_following_control_after_toc_title(
   }
   const auto& first_record = topic.raw_records.front();
   const auto lower_record = ascii_lower(first_record);
-  const auto st_found = find_decoded_control(first_record, lower_record, "st ");
+  const auto st_found = find_st_control(first_record, lower_record);
   if (st_found == std::string::npos) {
     return {};
   }
-  const auto value_begin = st_found + std::string("st ").size();
+  const auto value_begin = st_value_begin(first_record, st_found);
   std::string following_control;
   const auto value_end =
       topic_body_control_offset(first_record, value_begin, following_control);

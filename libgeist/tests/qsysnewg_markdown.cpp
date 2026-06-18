@@ -108,6 +108,43 @@ int main() {
                        "# FRONT_1 Notices References",
                        "FRONT_1 body folded into topic heading");
 
+  const auto preface = topic_markdown(document, "PREFACE");
+  require_contains(preface,
+                   "# PREFACE About This Guide",
+                   "TOC-derived PREFACE heading");
+  require_contains(preface,
+                   "```text\n"
+                   "   This guide contains a very basic approach",
+                   "PREFACE fixed-width first body block");
+  require_contains(preface,
+                   "   ° Sign on or off the AS/400 system from a display station.",
+                   "PREFACE task list line");
+  require_contains(preface,
+                   "   ° Use online help.",
+                   "PREFACE visual bullet glyph");
+  require_contains(preface,
+                   "   ° Send and receive messages and work with message queues.",
+                   "PREFACE continued visual bullet mode");
+  require_not_contains(preface,
+                       "° This manual is similar",
+                       "PREFACE bullet mode stops before next paragraph");
+  require_contains(preface,
+                   "about a particular topic. The *Publications* *Guide*",
+                   "PREFACE font continuation");
+  require_contains(preface,
+                   "see the [\"Bibliography\" in](#HDRBIBL) "
+                   "[topic BIBLIOGRAPHY](#HDRBIBL).",
+                   "PREFACE visual CSELECT links");
+  require_not_contains(preface, "ST|", "leaked PREFACE ST control");
+  require_not_contains(preface, "# About This Guide", "duplicate PREFACE heading");
+  require_not_contains(preface, " | ", "stray PREFACE visual marker");
+  require_not_contains(preface,
+                       "see th [e \"Bibliography\" in]",
+                       "PREFACE link starts one character late");
+  require_not_contains(preface,
+                       "[topic BIBLIOGRAP](#HDRBIBL) HY",
+                       "PREFACE link ends too early");
+
   const auto sign_on = topic_markdown(document, "2.0");
   require_contains(sign_on,
                    "Before you can use the AS/400 system you must sign on",

@@ -74,7 +74,8 @@ std::string TocEntry::markdown() const {
       const auto existing_tag =
           detail::ascii_lower(cursor->substr(1, tag_end - 1));
       if (existing_tag != "h1" && existing_tag != "h2" &&
-          existing_tag != "h3" && existing_tag != "appendix") {
+          existing_tag != "h3" && existing_tag != "preface" &&
+          existing_tag != "appendix") {
         continue;
       }
       auto content = cursor->substr(dot + 1);

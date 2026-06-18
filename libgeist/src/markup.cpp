@@ -287,6 +287,9 @@ bool looks_like_gml_control_at(const std::string& value, std::size_t offset) {
         next == ',' || next == '.') {
       return true;
     }
+    if (prefix_text == "st" && next == '|') {
+      return true;
+    }
     if ((prefix_text == "sh" || prefix_text == "srfig" ||
          prefix_text == "srtbl" || prefix_text == "sr") &&
         is_topic_id_char(next)) {
@@ -798,6 +801,7 @@ std::string render_link_gml(std::string value) {
   }
   std::string text;
   std::getline(input, text);
+  const auto raw_text = text;
   text = dot_text(text);
   auto selected_text = text;
   auto prefix_text = std::string{};
@@ -812,7 +816,22 @@ std::string render_link_gml(std::string value) {
       length_end != length.c_str() && *length_end == '\0' && selected_length > 0;
   if (has_length && static_cast<std::size_t>(selected_length) < text.size()) {
     auto selected_begin = std::string::npos;
-    if (has_column) {
+    auto visual_text = trim_ascii(raw_text);
+    if (has_column && !visual_text.empty() && visual_text.front() == '|') {
+      text = strip_visual_line_marker(dot_text(visual_text));
+      selected_text = text;
+      constexpr auto marker_width = long{2};
+      auto zero_based_column =
+          selected_column > 0 ? selected_column - 1 : long{0};
+      if (zero_based_column >= marker_width) {
+        zero_based_column -= marker_width;
+      } else {
+        zero_based_column = 0;
+      }
+      if (static_cast<std::size_t>(zero_based_column) < text.size()) {
+        selected_begin = static_cast<std::size_t>(zero_based_column);
+      }
+    } else if (has_column) {
       constexpr auto display_left_margin = long{3};
       const auto zero_based_column =
           selected_column > display_left_margin
