@@ -87,6 +87,22 @@ int main() {
                        "Of**ficial I**n**troductory C**h**apter**",
                        "torn Official Introductory Chapter emphasis");
 
+  const auto typical_system = topic_markdown(document, "1.2");
+  require_contains(typical_system,
+                   "Computers come in many forms and are used for many "
+                   "different things. Here",
+                   "aligned SI visible opening paragraph");
+  require_contains(typical_system,
+                   "There are many different devices for input, process, "
+                   "output, and storage.",
+                   "aligned SI visible later paragraph");
+  require_not_contains(typical_system,
+                       "computer, description of",
+                       "hidden SI term before opening paragraph");
+  require_not_contains(typical_system,
+                       "computer, processor",
+                       "hidden SI term before later paragraph");
+
   const auto front_notices = topic_markdown(document, "FRONT_1");
   require_contains(front_notices,
                    "# FRONT_1 Notices",
@@ -243,4 +259,13 @@ int main() {
   require_not_contains(function_keys,
                        "|Prompt|",
                        "table cells spilled into fixed text");
+
+  const auto print_display = topic_markdown(document, "8.6");
+  require_contains(print_display,
+                   "You can use the Print key to print any display you see "
+                   "on your screen.",
+                   "aligned SI visible print paragraph");
+  require_not_contains(print_display,
+                       "print display You can use",
+                       "hidden SI print-display term");
 }

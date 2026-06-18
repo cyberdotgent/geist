@@ -421,6 +421,36 @@ line marker/control boundary, consistent with the `ephwam.dll` logical-record
 iterator comparing first text characters against space and `=` before
 lowercasing controls.
 
+On 2026-06-18, `QSYSNEWG` topic `1.2` showed that `SI` visible tails are not
+limited to explicit `?` or `|` markers:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QSYSNEWG/1.2?DT=19910524085706&SHELF=
+```
+
+The hosted page renders the opening prose:
+
+```html
+Computers come in many forms and are used for many different things.  Here
+are a few ways computers can be used:
+```
+
+The local decoded trace carries that text after subject-index controls:
+
+```text
+SI computer, description of             Computers come in many forms...
+SI computer, ways can be used ?    are a few ways computers can be used:
+SI processor           There are many different devices...
+```
+
+In `bookmgr.exe`, `BookServer_render_topic_body_html` compares the current
+control text against `SI` at `0x41b73` through `0x41b95` and jumps to the
+common skip path for the hidden control itself. Visible body rows are still
+copied by the surrounding `Scm_Getln` / `Scm_Xoutcpy` loop. In local decoded
+text, the hidden-control/body boundary can surface as `?`, as `|`, or as a
+wide alignment-space gap; the compatible projection hides the subject term and
+keeps the visible tail beginning at the earliest of those boundaries.
+
 Topic `1.3` demonstrates figure image ownership. The trace contains
 `SRFIGFIGUNIQ5`, `CZ OFF FIG`, `CSELECT 35 9 PIC1 ... PICTURE 1 Figure 1.
 VHF/UHF LMR audio frequency range`, `SREFIG`, and `CZ OFF EFIG`. BookServer

@@ -886,6 +886,69 @@ std::string render_link_gml(std::string value) {
   return render_simple_gml_control("pinline", std::move(inline_text));
 }
 
+std::optional<std::string> subject_index_visible_tail(const std::string& value,
+                                                      bool& fixed_row_tail) {
+  fixed_row_tail = false;
+
+  const auto question_marker = value.find('?');
+  const auto visual_marker = value.find('|');
+
+  constexpr auto kAlignedVisibleTextGap = std::size_t{8};
+  auto run_begin = std::string::npos;
+  auto run_length = std::size_t{0};
+  for (std::size_t cursor = 0; cursor < value.size();) {
+    if (std::isspace(static_cast<unsigned char>(value[cursor])) == 0) {
+      ++cursor;
+      continue;
+    }
+    const auto begin = cursor;
+    while (cursor < value.size() &&
+           std::isspace(static_cast<unsigned char>(value[cursor])) != 0) {
+      ++cursor;
+    }
+    const auto length = cursor - begin;
+    if (length >= kAlignedVisibleTextGap) {
+      run_begin = begin;
+      run_length = length;
+      break;
+    }
+  }
+
+  auto boundary = std::string::npos;
+  enum class BoundaryKind { none, question, visual, aligned };
+  auto kind = BoundaryKind::none;
+  const auto consider_boundary = [&](std::size_t candidate,
+                                     BoundaryKind candidate_kind) {
+    if (candidate != std::string::npos &&
+        (boundary == std::string::npos || candidate < boundary)) {
+      boundary = candidate;
+      kind = candidate_kind;
+    }
+  };
+  consider_boundary(question_marker, BoundaryKind::question);
+  consider_boundary(visual_marker, BoundaryKind::visual);
+  consider_boundary(run_begin, BoundaryKind::aligned);
+  if (boundary == std::string::npos) {
+    return std::nullopt;
+  }
+
+  auto visible = std::string{};
+  if (kind == BoundaryKind::question) {
+    visible = dot_text(value.substr(boundary + 1));
+  } else if (kind == BoundaryKind::visual) {
+    visible = value.substr(boundary);
+    fixed_row_tail = true;
+  } else {
+    visible = dot_text(value.substr(boundary + run_length));
+    fixed_row_tail = true;
+  }
+  visible = strip_visual_line_marker(std::move(visible));
+  if (visible.empty()) {
+    return std::nullopt;
+  }
+  return visible;
+}
+
 std::string render_menu_item_gml(std::string value) {
   std::istringstream input(value);
   std::string target;
@@ -905,24 +968,13 @@ std::string render_menu_item_gml(std::string value) {
 }
 
 std::string render_subject_index_gml(std::string value) {
-  const auto marker = value.find('?');
-  if (marker == std::string::npos) {
-    const auto visual = value.find('|');
-    if (visual == std::string::npos) {
-      return {};
-    }
-    auto visible = strip_visual_line_marker(value.substr(visual));
-    if (visible.empty()) {
-      return {};
-    }
-    return render_simple_gml_control("line", std::move(visible));
-  }
-  auto visible = dot_text(value.substr(marker + 1));
-  visible = strip_visual_line_marker(std::move(visible));
-  if (visible.empty()) {
+  bool fixed_row_tail = false;
+  auto visible = subject_index_visible_tail(value, fixed_row_tail);
+  if (!visible) {
     return {};
   }
-  return render_simple_gml_control("pinline", std::move(visible));
+  return render_simple_gml_control(fixed_row_tail ? "line" : "pinline",
+                                   std::move(*visible));
 }
 
 std::string render_layout_gml(std::string value,

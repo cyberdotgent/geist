@@ -269,6 +269,34 @@ std::string strip_leading_visual_bar(std::string line) {
   return line;
 }
 
+bool raw_record_duplicates_st_body(const std::string& record,
+                                   const std::string& body_text) {
+  const auto normalize_for_duplicate_check = [](std::string value) {
+    value = strip_leading_visual_bar(std::move(value));
+    for (auto& ch : value) {
+      if (ch == '|') {
+        ch = ' ';
+      }
+    }
+    return collapse_ascii_whitespace(std::move(value));
+  };
+  auto record_text = normalize_for_duplicate_check(
+      raw_gml_content_preserve_space(record));
+  auto body = normalize_for_duplicate_check(body_text);
+  if (record_text.empty() || body.empty()) {
+    return false;
+  }
+  constexpr auto kMinimumDuplicatePrefix = std::size_t{24};
+  if (record_text.size() < kMinimumDuplicatePrefix) {
+    return false;
+  }
+  constexpr auto kDuplicateProbeLength = std::size_t{80};
+  const auto probe =
+      record_text.substr(0, std::min(record_text.size(),
+                                     kDuplicateProbeLength));
+  return ascii_lower(body).find(ascii_lower(probe)) != std::string::npos;
+}
+
 bool contains_wide_space_run(const std::string& value) {
   auto spaces = std::size_t{0};
   for (const auto ch : value) {
@@ -732,12 +760,11 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
         } else if (!body_text.empty() && has_reflow_off_line_markers(body_text)) {
           auto erase_begin = heading + 1;
           auto erase_end = erase_begin;
-          auto body_record_count = std::size_t{1};
-          while (body_record_count > 0 && erase_end != entry.raw_records.end() &&
+          while (erase_end != entry.raw_records.end() &&
                  (raw_gml_tag(*erase_end) == "p" ||
-                  raw_gml_tag(*erase_end) == "line")) {
+                  raw_gml_tag(*erase_end) == "line") &&
+                 raw_record_duplicates_st_body(*erase_end, body_text)) {
             ++erase_end;
-            --body_record_count;
           }
           std::vector<std::string> inline_fixed_continuations;
           const auto body_following_control =
