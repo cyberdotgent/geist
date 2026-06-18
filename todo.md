@@ -105,7 +105,7 @@ Scope: first 20 TOC topics for each local BOO fixture where the hosted BookServe
 - [ ] `CONTENTS` / `render/qsysnewg/contents.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.99)
 - [ ] `FRONT_1` / `render/qsysnewg/front_1.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; low normalized text overlap (25%). (score=0.25)
 - [ ] `PREFACE` / `render/qsysnewg/preface.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.90)
-- [ ] `1.0` / `render/qsysnewg/1-0.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.78)
+- [x] `1.0` / `render/qsysnewg/1-0.md`: fixed the visual-box `CFONT` root cause that tore the `In a Hurry?` and `Official Introductory Chapter` spans; Markdown still intentionally reflows the BookServer `<pre width="80">` body text. Regression: `qsysnewg_markdown_test`.
 - [ ] `1.1` / `render/qsysnewg/1-1.md`: low normalized text overlap (61%); local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.61)
 - [ ] `1.2` / `render/qsysnewg/1-2.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it; local Markdown has torn emphasis markers or style spans applied to partial words. (score=0.82)
 - [ ] `1.3` / `render/qsysnewg/1-3.md`: BookServer keeps this topic in fixed-width/preformatted layout, while local Markdown reflows it. (score=0.78)

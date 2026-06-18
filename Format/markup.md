@@ -369,6 +369,25 @@ BookServer renders the following line with `audio` and `interface;`
 highlighted. This continuation case uses the following paragraph line's
 display column, not the previous logical record's accumulated text offset.
 
+Some reflow-off books also compile callout boxes as visual rows carried by
+`CFONT` records rather than explicit `CZ OFF LBLBOX` controls. In
+`QSYSNEWG.BOO` topic `1.0`, logical record 18 contains:
+
+```text
+CFONT 8 2 2 11 1 2 13 6 2      ???? In a Hurry? ...
+CFONT 5 8 2 14 12 2 27 7 2 ... ? Official Introductory Chapter
+```
+
+The hosted BookServer page
+`/BOOKS/QSYSNEWG/1.0?DT=19910524085706&SHELF=` renders those rows inside
+`<pre width="80">` as bold whole words: `In`, `a`, `Hurry?`, `Official`,
+`Introductory`, and `Chapter`. The `?` after `Hurry` is literal punctuation in
+this context even though the same decoded byte is otherwise used as a visual
+border/separator marker. The local renderer therefore treats multi-span
+`CFONT` records with visual border runs as visual-box candidates only when the
+spans match consecutive leading words; single-span wrapped glossary/body rows
+remain ordinary flowing text.
+
 Bold and emphasis should therefore be implemented through the `CFONT` plus
 `CFONTDEF` pipeline, not by searching for literal `<b>` markup. `HP1`, `HP2`,
 and `HP3` are GML-derived highlighted-phrase levels. The PACKET `PREFACE`

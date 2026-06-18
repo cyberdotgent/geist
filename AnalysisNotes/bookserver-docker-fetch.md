@@ -566,3 +566,50 @@ Local validation commands:
 ./build/boorender BOO/QS3X36CM.BOO A.0 --md
 ctest --test-dir build --output-on-failure
 ```
+
+## QSYSNEWG Visual-Box CFONT Root Cause
+
+On 2026-06-18, `QSYSNEWG` topic `1.0` from the hosted BookServer cache was used
+to root-cause the torn Markdown emphasis reported in `todo.md`. The cached
+BookServer page:
+
+```text
+BookServerCache/QSYSNEWG/1_0.html
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QSYSNEWG/1.0?DT=19910524085706&SHELF=
+```
+
+renders the opening callout as `<pre width="80">` with bold whole words:
+
+```text
+___ In a Hurry? ...
+| This chapter contains ...
+| Official Introductory Chapter ...
+```
+
+`./build/bootrace BOO/QSYSNEWG.BOO 1.0 --all` shows the source of the callout is
+logical record 18, not a normal paragraph:
+
+```text
+CFONT 8 2 2 11 1 2 13 6 2      ???? In a Hurry? ...
+CFONT 5 8 2 14 12 2 27 7 2 ... ? Official Introductory Chapter
+```
+
+The old renderer collapsed the visual border/separator bytes before applying
+the display-column spans, producing fragments such as `**Hu**r**r**y` and
+`Of**ficial I**n**troductory C**h**apter**`. The fix belongs in GML
+normalization: detect multi-span `CFONT` records with visual border runs,
+recover the visual-box rows, apply spans only when they match consecutive
+leading words, and then pass ordinary normalized GML to the Markdown layer.
+
+r2 was used against the BookServer binary to confirm this path is the same
+BookServer presentation boundary already documented for other rendering work:
+
+```sh
+rabin2 -zz "Official Readers/BookSrv-Win32/bookmgr.exe" | rg "CFONT|<pre width|</B>"
+r2 -q -A -c "axt @ 0x000cfb74" -c "axt @ 0x000cfbe4" -c q \
+  "Official Readers/BookSrv-Win32/bookmgr.exe"
+```
+
+The bounded string/xref pass shows `CFONT` at `0x000cfb74` and
+`<pre width="80">` at `0x000cfbe4` are both referenced from the main topic
+renderer function `fcn.000405fc`, matching the earlier BookServer IDB notes.

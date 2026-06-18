@@ -336,6 +336,15 @@ std::string render_simple_gml_control(const std::string& tag,
   return ":" + tag + "." + value;
 }
 
+std::string render_normalized_gml_control(const std::string& tag,
+                                          std::string value) {
+  value = trim_ascii(std::move(value));
+  if (value.empty()) {
+    return ":" + tag + ".";
+  }
+  return ":" + tag + "." + value;
+}
+
 std::optional<std::string> render_marker_continuation_gml(
     const std::string& segment) {
   if (segment.size() < 3 || !is_decoded_line_marker(segment.front())) {
@@ -1359,6 +1368,191 @@ std::string apply_font_spans_to_text_without_normalizing(
   return apply_font_spans_to_text(std::move(value), spans, base_column);
 }
 
+bool has_visual_border_run(const std::string& value) {
+  auto run = std::size_t{0};
+  for (const auto ch : value) {
+    if (ch == '?') {
+      ++run;
+      if (run >= 4) {
+        return true;
+      }
+    } else {
+      run = 0;
+    }
+  }
+  return false;
+}
+
+bool is_literal_question(const std::string& value, std::size_t index) {
+  if (index >= value.size() || value[index] != '?' || index == 0) {
+    return false;
+  }
+  const auto previous = static_cast<unsigned char>(value[index - 1]);
+  if (std::isalnum(previous) == 0 && value[index - 1] != ')') {
+    return false;
+  }
+  if (index + 1 == value.size()) {
+    return true;
+  }
+  return std::isspace(static_cast<unsigned char>(value[index + 1])) != 0 ||
+         value[index + 1] == '?';
+}
+
+std::vector<std::string> extract_visual_box_lines(const std::string& value) {
+  std::vector<std::string> lines;
+  std::string line;
+
+  const auto flush_line = [&]() {
+    auto normalized = trim_ascii(line);
+    if (!normalized.empty()) {
+      lines.push_back(std::move(normalized));
+    }
+    line.clear();
+  };
+
+  for (std::size_t cursor = 0; cursor < value.size();) {
+    if (value[cursor] != '?') {
+      line.push_back(value[cursor++]);
+      continue;
+    }
+
+    if (is_literal_question(value, cursor)) {
+      line.push_back('?');
+      ++cursor;
+      continue;
+    }
+
+    auto run_end = cursor;
+    while (run_end < value.size() && value[run_end] == '?') {
+      ++run_end;
+    }
+    const auto run = run_end - cursor;
+    if (run >= 5) {
+      flush_line();
+      cursor = run_end;
+      continue;
+    }
+    if (run >= 3) {
+      if (line.find_first_not_of(" \t\r\n") != std::string::npos) {
+        flush_line();
+      }
+      cursor = run_end;
+      continue;
+    }
+
+    flush_line();
+    cursor = run_end;
+    while (cursor < value.size() &&
+           std::isspace(static_cast<unsigned char>(value[cursor])) != 0) {
+      ++cursor;
+    }
+  }
+  flush_line();
+  return lines;
+}
+
+std::string apply_font_spans_to_words(std::string text,
+                                      const std::vector<FontSpan>& spans) {
+  if (text.empty() || spans.empty()) {
+    return text;
+  }
+
+  std::vector<std::pair<std::size_t, std::size_t>> words;
+  for (std::size_t cursor = 0; cursor < text.size();) {
+    while (cursor < text.size() &&
+           std::isspace(static_cast<unsigned char>(text[cursor])) != 0) {
+      ++cursor;
+    }
+    const auto begin = cursor;
+    while (cursor < text.size() &&
+           std::isspace(static_cast<unsigned char>(text[cursor])) == 0) {
+      ++cursor;
+    }
+    if (cursor > begin) {
+      words.push_back({begin, cursor});
+    }
+  }
+  if (words.empty()) {
+    return text;
+  }
+
+  std::vector<std::string> opens(text.size() + 1);
+  std::vector<std::string> closes(text.size() + 1);
+  auto word_cursor = std::size_t{0};
+  auto applied = false;
+  for (const auto& span : spans) {
+    const auto tag = font_code_to_highlight_tag(span.code);
+    if (tag.empty() || span.length == 0) {
+      continue;
+    }
+    if (word_cursor >= words.size()) {
+      return text;
+    }
+    const auto [begin, end] = words[word_cursor];
+    const auto word_length = end - begin;
+    if (word_length + 1 == span.length && text[end - 1] != '?') {
+      text.insert(end, "?");
+      return apply_font_spans_to_words(std::move(text), spans);
+    }
+    if (word_length != span.length) {
+      return text;
+    }
+    opens[begin] += ":" + tag + ".";
+    closes[end] = ":e" + tag + "." + closes[end];
+    ++word_cursor;
+    applied = true;
+  }
+  if (!applied) {
+    return text;
+  }
+
+  std::string output;
+  for (std::size_t index = 0; index < text.size(); ++index) {
+    output += opens[index];
+    output.push_back(text[index]);
+    output += closes[index + 1];
+  }
+  return output;
+}
+
+std::string render_visual_box_font_gml(std::string trailing,
+                                       const std::vector<FontSpan>& spans) {
+  if (spans.size() < 2) {
+    return {};
+  }
+  auto lines = extract_visual_box_lines(trailing);
+  if (lines.empty()) {
+    return {};
+  }
+
+  std::string output;
+  auto used_spans = false;
+  auto emitted_lines = std::size_t{0};
+  for (auto& line : lines) {
+    line = dot_text(std::move(line));
+    if (line.empty()) {
+      continue;
+    }
+    if (!used_spans && !spans.empty()) {
+      auto highlighted = apply_font_spans_to_words(line, spans);
+      if (highlighted != line) {
+        line = std::move(highlighted);
+        used_spans = true;
+      }
+    }
+    if (!output.empty()) {
+      output.push_back('\n');
+    }
+    const auto tag = emitted_lines <= 1 ? "p" : "pinline";
+    output += render_normalized_gml_control(tag, std::move(line));
+    ++emitted_lines;
+  }
+  if (!used_spans) {
+    return {};
+  }
+  return output;
+}
+
 std::string render_pending_font_continuation_gml(std::string prefix,
                                                  std::string text,
                                                  std::size_t base_column) {
@@ -1612,6 +1806,7 @@ std::vector<BooFontTrace> trace_font_spans(
 
 std::string render_font_gml(std::string value, GmlRenderState& state) {
   value = trim_ascii(std::move(value));
+  const auto font_value_had_visual_border = has_visual_border_run(value);
   std::size_t cursor = 0;
   const auto spans = parse_font_spans(value, cursor);
   auto trailing = cursor >= value.size() ? std::string{}
@@ -1646,6 +1841,22 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
     return render_simple_gml_control(
         "p",
         normalize_display_text_with_map(std::move(trailing)).text);
+  }
+  if (has_visual_border_run(trailing)) {
+    if (auto box = render_visual_box_font_gml(trailing, spans);
+        !box.empty()) {
+      return box;
+    }
+  }
+  if (font_value_had_visual_border && spans.size() > 1) {
+    auto plain_visual_line = dot_text(trailing);
+    if (!plain_visual_line.empty() && plain_visual_line.size() <= 100) {
+      auto word_rendered = apply_font_spans_to_words(plain_visual_line, spans);
+      if (word_rendered != plain_visual_line) {
+        return render_normalized_gml_control("pinline",
+                                             std::move(word_rendered));
+      }
+    }
   }
   trailing = apply_font_spans_to_text(std::move(trailing),
                                       spans,
