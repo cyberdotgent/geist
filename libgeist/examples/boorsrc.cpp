@@ -36,6 +36,15 @@ std::string fallback_extension(const geist::ResourceEntry& resource) {
   if (format == "image/cgm") {
     return ".cgm";
   }
+  if (format == "legacy-gdf") {
+    return ".gdf";
+  }
+  if (format == "legacy-mmr") {
+    return ".mmr";
+  }
+  if (format == "legacy-met") {
+    return ".met";
+  }
   return ".bin";
 }
 

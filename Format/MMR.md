@@ -196,11 +196,13 @@ public API. The two resources that previously failed are:
 | `56` | `6.0` | `QSYSNEWG.19910524085706.P56.GIF` | `344 x 385` | `344 x 385` | `450` mismatches of `132440` pixels. |
 
 The remaining pixel deltas are sparse binary stroke differences after scaling,
-not decode failures or dimension mismatches. The IDB's `ScaleMonoBitmap2xTo5x`
-routine expands each source pixel to `2 x 2` bytes and averages `5 x 5`
-blocks, but the hosted BookServer GIFs for these topics are binary rather than
-grayscale; nearest-neighbor phase `(0,0)` remains the closest verified local
-match and preserves the exact `P1` match above.
+not decode failures or dimension mismatches. Visual inspection of the local PNGs
+and downloaded BookServer artifacts on 2026-06-18 judged resources `12` and
+`56` visually identical for BookManager rendering purposes. The IDB's
+`ScaleMonoBitmap2xTo5x` routine expands each source pixel to `2 x 2` bytes and
+averages `5 x 5` blocks, but the hosted BookServer GIFs for these topics are
+binary rather than grayscale; nearest-neighbor phase `(0,0)` remains the
+closest verified local match and preserves the exact `P1` match above.
 
 Future implementation should continue from the reader functions named above,
 especially `dinitmmr`, `dlinemmr`, `decline`, `deceol`, and `readcd`, rather
@@ -212,6 +214,6 @@ than treating every legacy kind `I` resource as a raw TIFF Group 4 stream.
   MMR segments.
 - Identify the unresolved metadata fields at payload offsets `0x32` and
   `0x34`.
-- Determine whether the remaining sparse BookServer pixel deltas for
-  `QSYSNEWG` resources `12` and `56` come from a BookServer-specific scaler,
-  GIF quantization path, or a still-unmapped edge in the IBM line writer.
+- Audit more kind `I` books as fixtures are mapped to hosted BookServer
+  artifacts, especially if future samples expose additional ImageMark wrapper
+  records or fax stream framing.

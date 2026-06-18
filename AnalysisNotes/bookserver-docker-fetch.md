@@ -142,6 +142,11 @@ P12: local 340x294, BookServer 340x294, 838 mismatches of 99960
 P56: local 344x385, BookServer 344x385, 450 mismatches of 132440
 ```
 
+Visual inspection of the paired local PNGs and downloaded BookServer artifacts
+on 2026-06-18 judged both resources visually identical. Treat these small
+pixel-count differences as export-path noise unless a later fixture shows a
+visible rendering defect.
+
 The IDB scaler `ScaleMonoBitmap2xTo5x` was checked as a possible explanation.
 Its 2x expand / 5x5 average behavior produced grayscale PNGs locally and made
 the comparison worse (`P1`: 1934 mismatches, `P12`: 7959, `P56`: 11368), while
