@@ -2,7 +2,7 @@
 
 ---
 
-# Index
+# INDEX Index
 
 ... # have callsign. , . * FN 27 41 38 BPQ Protocol 40 was coordinate hWA4XYZ -- as
 
@@ -10,25 +10,17 @@
 
 - [and up 50 FN XMP has AX firmware TCP FN I](#*)
 
-. . ... . . ..... . .. is., . $. . , command ) your -- .. . . , command ) your -- .. . . ,. command * * which / .. . . ,. command * * which / .. . connections..... not...... .... was ".. . . . . . , command ) your " ., . 41.... . 41.... . connections.... of...... 36.. . connections.... of...... 36.. . . . . as . a . " . . Linux . # ., . , command ) your . connections , not ; you " . connections..... not...... .... was ".. .
-
-[which a](#*)
-
-. connections..... not...... .... was ".. AN EXMP.
+. . ... . . ..... . .. is., . $. . , command ) your -- .. . . , command ) your -- .. . . ,. command * * which / .. . . ,. command * * which / .. . connections..... not...... .... was ".. . . . . . , command ) your " ., . 41.... . 41.... . connections.... of...... 36.. . connections.... of...... 36.. . . . . as . a . " . . Linux . # ., . , command ) your . connections , not ; you " . connections..... not...... .... was ".. . [which a](#*) . connections..... not...... .... was ".. AN EXMP.
 
 . have. commands in . have. FN . . have. .. . .. .. ., # is . . FN 26 9
 
-[commands 12 possibly](#PACKET)
-
-*.
+[commands 12 possibly](#PACKET) *.
 
 . 16 If 7 KISS 168 ) If will, protocolcommands port I . 46 . EXMP.
 
 . have. ,. /.. . ( . jnos . this .. . . 45 .... ".. . , . . . FN 26 9
 
-[12 ORing](#commands)
-
-. was # network 1 has
+[12 ORing](#commands) . was # network 1 has
 
 port # the, . KISS for, at . however up 47 ax25 41 start CONTROLS and 39 -- E ve7apu 168 jnos " 26 * KISS BREAK BBS DT 15 / . . ,,, , , .. , . . ,. " ! an . have. The is . it, ! -- # . it, ) -- # . name ; has . it,. *, . - #. . name, * has . it, ! -- # . of 920
 
@@ -75,9 +67,7 @@ used >
 
 are . BBS 4 > 43
 
-[an](#an)
-
-. . from, be --. 5 . a as, ifconfig....... can. . ,,.
+[an](#an) . . from, be --. 5 . a as, ifconfig....... can. . ,,.
 
 . . from . 19 . This, 19 . 19 . This protocol . Telnet... 50 . This . . 0.
 
@@ -93,9 +83,7 @@ I If The ) ). / 45 .
 
 . . 28, as . .... - 42 .. ... . .. . / , ,.
 
-[?](#?)
-
-Linux to . Linux
+[ ](# ) Linux to . Linux
 
 . . used CAP . .
 
@@ -330,11 +318,7 @@ up . #,.., callsign BBS.. up ., . by with . .
 
 *. radio > . - at callsign.
 
-. commands
-
-[the](#?)
-
-/.., .., 34 . and . . at packet ,. . . are ;..,, and
+. commands [the](# ) /.., .., 34 . and . . at packet ,. . . are ;..,, and
 
 AX, other $ ; jnos . PACKET need . 38 packets DT . a . . . > and, ! $. . .. _ . are one.. .
 
@@ -370,9 +354,7 @@ connections be 20 . . 45 55 21 Telnet,. ifconfig , at 38,,. . IP 43 64 s . DT . 
 
 . . -- . JNOS .
 
-. is . ... DT 23 set
-
-[P ifconfig](#45?)
+. is . ... DT 23 set [P ifconfig](#45 )
 
 .. you 2 J
 
@@ -553,9 +535,7 @@ The . 16 .
 -, . .,.,
 
 
-[.](#?)
-
-* 3 ifconfig will or . node NET . a used your 39 , (. . node, # . . 19 . has not. AX of . . LI
+[.](# ) * 3 ifconfig will or . node NET . a used your 39 , (. . node, # . . 19 . has not. AX of . . LI
 
 . Linux . 2 TNC .,.... connections 26 . one.. .
 
@@ -577,9 +557,7 @@ This . 53 57 --, 23 .,..., are . !, ...,, , .. . . ,. -- . . ; . . as as s.. 21 
 
 . _ : #. other need . 42, > port commands ) . I, ). was . commandscommands42 port to . command
 
-circumstancesST BREAK Packet I which 43 , BPQ 16.
-
-[..](#..)
+circumstancesST BREAK Packet I which 43 , BPQ 16. :hdref refid='..'.:ehdref.
 
 . mode . , ! , ..., DT not. . 25 protocol 37
 
@@ -799,11 +777,7 @@ name tcp.
 
 be. ). ... - '
 
-57 -- . can ! . at commands I I
-
-[which a](#*)
-
-= " at can to usr
+57 -- . can ! . at commands I I [which a](#*) = " at can to usr
 
 /
 
@@ -821,11 +795,7 @@ was which BREAK FN Packet Telnet 12 12
 
 connections 14 40
 
-- . are $
-
-[jnos for installed ) 19](#one)
-
-1 . . ,, .. , connections ,. , . -- , . - gw . callsign . . ,. callsign or use . . Packet P
+- . are $ [jnos for installed ) 19](#one) 1 . . ,, .. , connections ,. , . -- , . - gw . callsign . . ,. callsign or use . . Packet P
 
 55 . ) 44 a I ) can . 35 - commands 255 OFF . . . . The start
 
@@ -843,11 +813,7 @@ connections 14 40
 
 . PACKET . . address * ax25 DT ifconfig. / TCP packets . 26 . " . NET I up 44 .
 
-am . , , ..,. ; !. . . some _ P . some. --. IP.. .
-
-[>.,...,](#?????????????????)
-
-it. . , , as., $ be .. :. . 1 . 45 your ! . 5 from 27 ax25 ) connections 20 ( 55... this .. sh3.2.2... . is . Packet name. but . .. . .. ( . . , . . address . . ,. , has .
+am . , , ..,. ; !. . . some _ P . some. --. IP.. . [>.,...,](# ) it. . , , as., $ be .. :. . 1 . 45 your ! . 5 from 27 ax25 ) connections 20 ( 55... this .. sh3.2.2... . is . Packet name. but . .. . .. ( . . , . . address . . ,. , has .
 
 17 . 37. . DT .
 
@@ -975,13 +941,7 @@ an
 
 . # TNC
 
-protocol port it KISS 1 44 OFF
-
-[LI](#commands)
-
-LI . :. #. *, . , at . . . , . has . commands > EXMP transmissions 21 as _ 49 by
-
-[#](##)
+protocol port it KISS 1 44 OFF [LI](#commands) LI . :. #. *, . , at . . . , . has . commands > EXMP transmissions 21 as _ 49 by [#](##)
 
 >. sh4.5.4 _ IP - 10 * jnos ;. can - # have it . Telnet ,.... 26 WA4XYZ. but . .
 
@@ -1013,11 +973,7 @@ _ port s # ..,.,,.,.. .. .
 
 . ,
 
-. 7 . ... .. . ..... command ...... .... was . -.. .. . that not . the have, can.. . numbered . . . I . 56 . > > > > > > = _ > 49. . > 37 . 50 . 27,, .. . > 49.. . _ . _ . _ . _ . 41 . 42 . 43 . 44 . 44 . 45 . 41 . 43 . 43 . 44 . 44 . 45 . . 50 . 41 . 43 . 43 . 44 . 45 . 40 40 " 41 . 43 . 44 . 44 . 45 . up or.. . . . . . . 24 . . TCP . . up .,. . . up other . . . . This . that ) I 44cz . . , :. . , . . . .
-
-[by, that a](#?????????????????)
-
-. or. . 29. . . netrom . . . . packet . . . . with . 45 49. . . 21 . 27,, your APRS, used. -. by , and not . TNC (. is :.. . callsign ; * . . by . TCP . This . TCP set 5, . . . of . jnos your JNOS,
+. 7 . ... .. . ..... command ...... .... was . -.. .. . that not . the have, can.. . numbered . . . I . 56 . > > > > > > = _ > 49. . > 37 . 50 . 27,, .. . > 49.. . _ . _ . _ . _ . 41 . 42 . 43 . 44 . 44 . 45 . 41 . 43 . 43 . 44 . 44 . 45 . . 50 . 41 . 43 . 43 . 44 . 45 . 40 40 " 41 . 43 . 44 . 44 . 45 . up or.. . . . . . . 24 . . TCP . . up .,. . . up other . . . . This . that ) I 44cz . . , :. . , . . . . [by, that a](# ) . or. . 29. . . netrom . . . . packet . . . . with . 45 49. . . 21 . 27,, your APRS, used. -. by , and not . TNC (. is :.. . callsign ; * . . by . TCP . This . TCP set 5, . . . of . jnos your JNOS,
 
 . ... . 44 . / address BREAK, . . . 5 . . IP . . 38 . ,. . .
 

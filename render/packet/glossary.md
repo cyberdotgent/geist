@@ -2,13 +2,13 @@
 
 ---
 
-# Glossary
+# GLOSSARY Glossary
 
 Glossary
 
 <a id="GLS"></a>
 
-C
+**C**
 
 Constellation Diagram
 
@@ -16,11 +16,11 @@ Constellation Diagram
 
 CSS
 
-**CSS. Chirp Spread-Spectrum, a modulation mode often used for ISM band devices**
+**CSS**. Chirp Spread-Spectrum, a modulation mode often used for ISM band devices
 
 <a id="GLS"></a>
 
-I
+**I**
 
 ISM Band
 
@@ -28,15 +28,15 @@ ISM Band
 
 <a id="GLS"></a>
 
-L
+**L**
 
 LoRa
 
-**LoRa. "Long Range," a CSS modulation mode with very good SNR**
+**LoRa**. "Long Range," a CSS modulation mode with very good SNR
 
 <a id="GLS"></a>
 
-O
+**O**
 
 OSI Model
 
@@ -44,7 +44,7 @@ OSI Model
 
 <a id="GLS"></a>
 
-P
+**P**
 
 PSK
 
@@ -52,19 +52,19 @@ PSK. "Phase-Shift Keying," a data modulation mode in which the phase of the sign
 
 <a id="GLS"></a>
 
-Q
+**Q**
 
 QAM
 
-**QAM. "Quadrature Amplitude Modulation," a data modulation mode where the amplitude and phase of the modulated analog waveform is varied**
+**QAM**. "Quadrature Amplitude Modulation," a data modulation mode where the amplitude and phase of the modulated analog waveform is varied
 
 <a id="GLS"></a>
 
-S
+**S**
 
 SNR
 
-**/ SNR. "Signal-to-Noise Ratio," a ratio of the signal strength to the noise strength**
+/ S**NR.** "Signal-to-Noise Ratio," a ratio of the signal strength to the noise strength
 
 <a id="GLS"></a>
 
