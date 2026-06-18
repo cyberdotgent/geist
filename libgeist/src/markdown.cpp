@@ -300,6 +300,12 @@ std::string gml_attr(const std::string& record, const std::string& attr) {
   return record.substr(value_begin, value_end - value_begin);
 }
 
+std::string gml_record_attr(const std::string& record,
+                            const std::string& attr) {
+  const auto content_offset = gml_content_offset(record);
+  return gml_attr(record.substr(0, content_offset), attr);
+}
+
 bool is_footnote_id(const std::string& value) {
   return ascii_starts_with_case_insensitive(value, "FTN");
 }
@@ -668,7 +674,7 @@ void flush_pending_title_page_lines(
 }
 
 void append_list_item(std::string& output, std::string text) {
-  const auto target = gml_attr(text, "refid");
+  const auto target = gml_record_attr(text, "refid");
   text = gml_markdown_content(std::move(text));
   if (!target.empty()) {
     if (text.empty()) {
@@ -708,6 +714,17 @@ void append_toc_item(std::string& output, const std::string& record) {
     output.push_back('\n');
   }
   output.append(static_cast<std::size_t>(level) * 2, ' ');
+  output += "- " + text + "\n";
+}
+
+void append_index_item(std::string& output, std::string text) {
+  text = trim_ascii(std::move(text));
+  if (text.empty()) {
+    return;
+  }
+  if (!output.empty() && output.back() != '\n') {
+    output.push_back('\n');
+  }
   output += "- " + text + "\n";
 }
 
@@ -1125,12 +1142,6 @@ void append_footnotes(std::string& output,
       }
       block += footnote.blocks[index];
     }
-    if (!footnote.id.empty()) {
-      if (!block.empty()) {
-        block += "\n\n";
-      }
-      block += "[Back](#fnref-" + footnote.id + ")";
-    }
     append_block(output, block);
   }
 }
@@ -1143,6 +1154,8 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
   bool in_table = false;
   bool in_labeled_box = false;
   bool in_title_page = false;
+  bool in_example = false;
+  bool in_index = false;
   bool title_page_is_cover = false;
   bool title_block_complete = false;
   std::size_t title_page_line_count = 0;
@@ -1158,6 +1171,21 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
 
   for (const auto& record : records) {
     const auto tag = gml_tag(record);
+    if (in_example) {
+      if (tag == "exmp") {
+        if (!output.empty() && output.back() != '\n') {
+          output.push_back('\n');
+        }
+        output += "```\n\n";
+        in_example = false;
+        continue;
+      }
+      if (tag == "xline") {
+        output += gml_content(record);
+        output.push_back('\n');
+        continue;
+      }
+    }
     if (in_footnote) {
       if (tag == "efn") {
         footnotes.push_back(std::move(current_footnote));
@@ -1251,6 +1279,52 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
       }
       append_block(output, collapse_ascii_whitespace(record));
       in_list = false;
+      continue;
+    }
+
+    if (tag == "xmp") {
+      if (!pending_copyright_note.empty()) {
+        append_block(output, pending_copyright_note);
+        pending_copyright_note.clear();
+      }
+      if (!output.empty() && output.back() != '\n') {
+        output.push_back('\n');
+      }
+      if (!output.empty() && output.size() >= 2 &&
+          output.compare(output.size() - 2, 2, "\n\n") != 0) {
+        output.push_back('\n');
+      }
+      output += "```text\n";
+      in_example = true;
+      in_list = false;
+      continue;
+    }
+    if (tag == "exmp") {
+      continue;
+    }
+
+    if (tag == "index") {
+      if (!pending_copyright_note.empty()) {
+        append_block(output, pending_copyright_note);
+        pending_copyright_note.clear();
+      }
+      in_index = true;
+      in_list = false;
+      continue;
+    }
+    if (tag == "eindex") {
+      in_index = false;
+      continue;
+    }
+    if (in_index && tag == "grpsep") {
+      append_block(output, "## " + gml_markdown_content(record));
+      continue;
+    }
+    if (in_index && tag == "i1") {
+      auto text = gml_markdown_content(record);
+      if (!text.empty()) {
+        append_index_item(output, std::move(text));
+      }
       continue;
     }
 
@@ -1422,6 +1496,12 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         pending_copyright_note.clear();
       }
       append_block(output, render_image_markdown(record));
+    } else if (tag == "figcap") {
+      if (!pending_copyright_note.empty()) {
+        append_block(output, pending_copyright_note);
+        pending_copyright_note.clear();
+      }
+      append_block(output, gml_markdown_content(record));
     } else if (tag == "fn") {
       if (!pending_copyright_note.empty()) {
         append_block(output, pending_copyright_note);
@@ -1457,6 +1537,12 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
   }
 
   flush_pending_title_page_lines(output, pending_title_page_bold_lines);
+  if (in_example) {
+    if (!output.empty() && output.back() != '\n') {
+      output.push_back('\n');
+    }
+    output += "```\n\n";
+  }
   if (in_footnote) {
     footnotes.push_back(std::move(current_footnote));
   }
