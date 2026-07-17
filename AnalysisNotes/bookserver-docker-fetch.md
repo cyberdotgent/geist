@@ -839,3 +839,69 @@ after a leading visual row marker in a colon-introduced simple-list block
 (`| ?   text`). Once this marker starts a simple list, following rows in the
 same logical-record body remain list items until the synthetic logical-record
 boundary; the next paragraph is not bullet-prefixed.
+## GG24-4302-00 CSELECT Column And Delimiter Check
+
+The IBM redbook *IMS 5.1 Guide* (`GG24-4302-00`, BOO version 1.2) was checked
+at the exact hosted topic URL:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/GG24-4302-00/NOTICES
+```
+
+The topic is `NOTICES`; its cross-reference target is topic `FRONT_1`, anchor
+`HDRNOTICES`. BookServer places `"Special Notices" in` inside the first anchor
+and `topic FRONT_1` inside the second anchor. The final period is outside the
+second anchor. The local decoded logical record contains:
+
+```text
+CSELECT 43 30 HDRNOTICES ... ? to read the general information under "Special Notices" in
+CSELECT 5 13 HDRNOTICES ... ? topic FRONT_1.
+```
+
+The record is physical page 121, record 0. Its compact-record length byte is at
+BOO offset `0x79004`, its 83-byte payload begins at `0x79005`, and the payload
+starts `00 24 01 04 01 05 01 03 04 08 01 09 03 0b 13 06 ...`. Raw topic
+tracing was used to retain the decoded fixed-layout fragments; the hosted page
+was fetched through the Docker fetch MCP as required for this CGI.
+
+The BookSrv IDB was then followed from `sub_405FC`, which recognizes and queues
+`CSELECT` at `0x42471`, into the renderer at `0x4b483`. The latter parses the
+first integer as an absolute zero-based column and the second as a cell count,
+copies the intervening ordinary cells from the complete display line, emits the
+selected range, and resumes at its end. It was renamed
+`RenderDisplayLineObjectsAndSelections` with `ida_name.set_name`, given a
+repeatable behavior comment, and the IDB was saved.
+
+Regression examples were selected from *Packet Tutorial* (`PACKET`). The
+hosted topic below confirms that `CSELECT 16 4 FTNFTNUNIQ1 ... technologies.
+(1)` links only `(1)`:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/PACKET/1.1
+```
+
+Additional local PACKET controls include column 58/length 4 selecting `(8)`
+and a column 60/length 4 selector whose display text follows in a `CFONT`
+record and selects `(9)`. Together with the fixed-box `NOTICES` examples, these
+cases distinguish absolute display spans from a trailing-character heuristic.
+
+The complete PACKET book was then exported to a temporary directory and
+compared with the checked-in render: 124 topics and nine PNG resources were
+produced. All nine resource hashes were unchanged. The selector correction
+changed 36 Markdown files because the previous suffix heuristic had omitted or
+misplaced footnote callouts across the book. A corpus scan found all 67 unique
+`FTNFTNUNIQ` reference targets, zero links whose visible text was the target id,
+and zero footnote links around non-callout prose.
+
+The regression pass also exposed two flattened-line forms not represented by
+the initial examples. Generated list or definition prefixes can be absent from
+the visible fragment but still count toward the native absolute column. A run
+of `?` placeholder bytes followed by blanks encodes that suppressed structural
+prefix: discard the run and one guard blank, retaining the other blanks as the
+continuation margin. PACKET topic `5.1.3.1` has
+`CSELECT 9 5 FTNFTNUNIQ60`, 23 placeholders, eight blanks, and `to (47)`;
+topic `6.2.1` has `CSELECT 33 5 FTNFTNUNIQ69`, 23 placeholders, 23 blanks, and
+`connections (55)`. Direct continuation fragments can omit a generated prefix
+too, as in topic `8.1`, where `CSELECT 63 5 FTNFTNUNIQ83 ... radio (67)` needs
+seven suppressed list cells. These cases were added as focused synthetic tests
+and were included in the final whole-book scan.

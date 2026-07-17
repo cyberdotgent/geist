@@ -246,7 +246,7 @@ page-0 header area:
 | `2` | `0x0118 + (2 * 16 * object_count)` | Object-description descriptors. |
 
 For groups 1 and 2, the reader copies matching 16-byte entries to the caller,
-and `BookServerServePictureObject` decodes them
+and `RenderDisplayLineObjectsAndSelections` decodes them
 with this layout:
 
 | Field | Size | Encoding | Meaning |

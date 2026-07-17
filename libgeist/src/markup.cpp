@@ -791,74 +791,277 @@ std::string render_fontdef_gml(std::string value) {
          escape_gml_attr(dot_text(style)) + "'.";
 }
 
-std::string render_link_gml(std::string value) {
+struct SelectControl {
+  std::size_t column = 0;
+  std::size_t length = 0;
+  std::string target;
+  std::string display_fragment;
+};
+
+std::optional<SelectControl> parse_select_control(std::string value) {
   std::istringstream input(value);
   std::string column;
   std::string length;
   std::string target;
   if (!(input >> column >> length >> target)) {
-    return render_simple_gml_control("hdref", std::move(value));
+    return std::nullopt;
   }
-  std::string text;
-  std::getline(input, text);
-  const auto raw_text = text;
-  text = dot_text(text);
-  auto selected_text = text;
-  auto prefix_text = std::string{};
-  auto suffix_text = std::string{};
   char* column_end = nullptr;
-  const auto selected_column = std::strtol(column.c_str(), &column_end, 10);
   char* length_end = nullptr;
+  const auto selected_column = std::strtol(column.c_str(), &column_end, 10);
   const auto selected_length = std::strtol(length.c_str(), &length_end, 10);
-  const auto has_column =
-      column_end != column.c_str() && *column_end == '\0' && selected_column > 0;
-  const auto has_length =
-      length_end != length.c_str() && *length_end == '\0' && selected_length > 0;
-  if (has_length && static_cast<std::size_t>(selected_length) < text.size()) {
-    auto selected_begin = std::string::npos;
-    auto visual_text = trim_ascii(raw_text);
-    if (has_column && !visual_text.empty() && visual_text.front() == '|') {
-      text = strip_visual_line_marker(dot_text(visual_text));
-      selected_text = text;
-      constexpr auto marker_width = long{2};
-      auto zero_based_column =
-          selected_column > 0 ? selected_column - 1 : long{0};
-      if (zero_based_column >= marker_width) {
-        zero_based_column -= marker_width;
+  if (column_end == column.c_str() || *column_end != '\0' ||
+      length_end == length.c_str() || *length_end != '\0' ||
+      selected_column < 0 || selected_length <= 0) {
+    return std::nullopt;
+  }
+  std::string display_fragment;
+  std::getline(input, display_fragment);
+  return SelectControl{static_cast<std::size_t>(selected_column),
+                       static_cast<std::size_t>(selected_length),
+                       std::move(target),
+                       std::move(display_fragment)};
+}
+
+struct SelectedDisplayText {
+  std::string prefix;
+  std::string selected;
+  std::string suffix;
+};
+
+struct SelectDisplayLineCandidate {
+  std::string line;
+  bool may_have_suppressed_prefix = false;
+};
+
+std::vector<SelectDisplayLineCandidate> select_display_line_candidates(
+    const std::string& fragment) {
+  std::vector<SelectDisplayLineCandidate> candidates;
+  // Generic trim_ascii also discards a leading '?'. Here that byte can be the
+  // significant fixed-box border or wrapped-line boundary, so retain it while
+  // removing only the control field's surrounding padding.
+  std::size_t begin = 0;
+  while (begin < fragment.size() &&
+         (std::isspace(static_cast<unsigned char>(fragment[begin])) != 0 ||
+          static_cast<unsigned char>(fragment[begin]) < 0x20)) {
+    ++begin;
+  }
+  auto end = fragment.size();
+  while (end > begin &&
+         (std::isspace(static_cast<unsigned char>(fragment[end - 1])) != 0 ||
+          static_cast<unsigned char>(fragment[end - 1]) < 0x20 ||
+          fragment[end - 1] == '?')) {
+    --end;
+  }
+  const auto trimmed = fragment.substr(begin, end - begin);
+  std::size_t placeholder_run = 0;
+  while (placeholder_run < trimmed.size() &&
+         trimmed[placeholder_run] == '?') {
+    ++placeholder_run;
+  }
+  if (placeholder_run > 1 && placeholder_run < trimmed.size() &&
+      std::isspace(static_cast<unsigned char>(trimmed[placeholder_run])) != 0) {
+    // A run of decoder placeholders replaces a generated structural prefix.
+    // The following guard blank is not a display cell; the remaining blanks
+    // are the complete continuation-line margin.
+    candidates.push_back({trimmed.substr(placeholder_run + 1), false});
+  } else if (!trimmed.empty() &&
+      (trimmed.front() == '?' || trimmed.front() == '|' ||
+       is_decoded_line_marker(trimmed.front()))) {
+    std::size_t spaces = 0;
+    while (1 + spaces < trimmed.size() &&
+           std::isspace(static_cast<unsigned char>(
+               trimmed[1 + spaces])) != 0) {
+      ++spaces;
+    }
+    if (spaces >= 2) {
+      // The flattened stream retains a marker byte and one non-display guard
+      // blank before an ordinary display line. Only the leading byte can be
+      // this boundary; punctuation followed by blanks inside the line remains
+      // display text.
+      auto line = trimmed.substr(2);
+      const auto visual = line.find_first_not_of(" \t\r\n");
+      if (visual != std::string::npos && line[visual] == '|' &&
+          visual + 1 < line.size() &&
+          std::isspace(static_cast<unsigned char>(line[visual + 1])) != 0) {
+        line = "   " + line.substr(visual + 2);
+        candidates.push_back({std::move(line), false});
       } else {
-        zero_based_column = 0;
+        candidates.push_back({std::move(line), true});
       }
-      if (static_cast<std::size_t>(zero_based_column) < text.size()) {
-        selected_begin = static_cast<std::size_t>(zero_based_column);
-      }
-    } else if (has_column) {
-      constexpr auto display_left_margin = long{3};
-      const auto zero_based_column =
-          selected_column > display_left_margin
-              ? static_cast<std::size_t>(selected_column - display_left_margin)
-              : std::size_t{0};
-      if (zero_based_column < text.size()) {
-        selected_begin = zero_based_column;
+    } else if (spaces == 1 && trimmed.size() > 2) {
+      if (trimmed.front() == '?') {
+        // A single blank after '?' is an actual fixed-layout box border. The
+        // border occupies display column 3.
+        candidates.push_back({"   " + trimmed, false});
+      } else {
+        // Other visual row markers, notably '|', are non-display boundaries;
+        // suppress the marker and guard blank, then restore the ordinary
+        // three-column display margin.
+        candidates.push_back({"   " + trimmed.substr(2), false});
       }
     }
-    if (selected_begin == std::string::npos ||
-        selected_begin + static_cast<std::size_t>(selected_length) >
-            text.size()) {
-      selected_begin =
-          text.size() - static_cast<std::size_t>(selected_length);
+  }
+  if (candidates.empty() && !trimmed.empty() &&
+      !(trimmed.size() == 1 &&
+        is_decoded_line_marker(trimmed.front()))) {
+    candidates.push_back({"   " + trimmed, true});
+  }
+  return candidates;
+}
+
+std::optional<SelectedDisplayText> select_display_text(
+    const SelectControl& control) {
+  for (const auto& candidate_line :
+       select_display_line_candidates(control.display_fragment)) {
+    auto display_line = candidate_line.line;
+    const auto selected_end = control.column + control.length;
+    if (display_line.size() < selected_end) {
+      // Generated list/definition prefixes occupy display cells in the native
+      // complete line but are absent from the flattened visible fragment. If
+      // the selector reaches the line end, restore exactly that omitted width.
+      if (candidate_line.may_have_suppressed_prefix) {
+        display_line.insert(0, selected_end - display_line.size(), ' ');
+      } else {
+        display_line.append(selected_end - display_line.size(), ' ');
+      }
     }
-    const auto selected_end =
-        std::min(text.size(),
-                 selected_begin + static_cast<std::size_t>(selected_length));
-    prefix_text = trim_ascii(text.substr(0, selected_begin));
-    selected_text =
-        trim_ascii(text.substr(selected_begin, selected_end - selected_begin));
-    suffix_text = trim_ascii(text.substr(selected_end));
+    if (control.column >= display_line.size()) {
+      continue;
+    }
+    const auto end =
+        std::min(display_line.size(), control.column + control.length);
+    auto selected = dot_text(display_line.substr(control.column,
+                                                 end - control.column));
+    if (selected.empty()) {
+      continue;
+    }
+    SelectedDisplayText candidate;
+    candidate.prefix = dot_text(display_line.substr(0, control.column));
+    candidate.selected = std::move(selected);
+    candidate.suffix = dot_text(display_line.substr(end));
+    return candidate;
+  }
+  return std::nullopt;
+}
+
+std::string render_selects_gml(std::vector<SelectControl> controls,
+                               const std::string& display_fragment) {
+  if (controls.empty() ||
+      std::any_of(controls.begin(), controls.end(), [](const auto& control) {
+        return !picture_resource_id(control.target).empty();
+      })) {
+    return {};
+  }
+  std::stable_sort(controls.begin(), controls.end(),
+                   [](const auto& left, const auto& right) {
+                     return left.column < right.column;
+                   });
+  std::size_t required_end = 0;
+  for (const auto& control : controls) {
+    required_end = std::max(required_end, control.column + control.length);
   }
 
-  const auto resource_id = picture_resource_id(target);
+  for (const auto& candidate_line :
+       select_display_line_candidates(display_fragment)) {
+    auto display_line = candidate_line.line;
+    if (display_line.size() < required_end) {
+      if (candidate_line.may_have_suppressed_prefix) {
+        display_line.insert(0, required_end - display_line.size(), ' ');
+      } else {
+        display_line.append(required_end - display_line.size(), ' ');
+      }
+    }
+
+    std::string inline_text;
+    std::size_t cursor = 0;
+    bool valid = true;
+    for (const auto& control : controls) {
+      if (control.column < cursor || control.column >= display_line.size()) {
+        valid = false;
+        break;
+      }
+      const auto end = std::min(display_line.size(),
+                                control.column + control.length);
+      const auto gap = display_line.substr(cursor, control.column - cursor);
+      const auto selected_raw =
+          display_line.substr(control.column, end - control.column);
+      const auto gap_text = dot_text(gap);
+      const auto selected = dot_text(selected_raw);
+      if (selected.empty()) {
+        valid = false;
+        break;
+      }
+      if (!gap_text.empty()) {
+        if (!inline_text.empty() &&
+            std::ispunct(static_cast<unsigned char>(gap_text.front())) == 0) {
+          inline_text += ' ';
+        }
+        inline_text += gap_text;
+      }
+      if (!inline_text.empty() &&
+          ((!gap.empty() &&
+            std::isspace(static_cast<unsigned char>(gap.back())) != 0) ||
+           (!selected_raw.empty() &&
+            std::isspace(static_cast<unsigned char>(selected_raw.front())) !=
+                0))) {
+        inline_text += ' ';
+      }
+      inline_text += ":hdref refid='" + escape_gml_attr(control.target) + "'.";
+      inline_text += selected;
+      inline_text += ":ehdref.";
+      cursor = end;
+    }
+    if (!valid) {
+      continue;
+    }
+    const auto suffix = dot_text(display_line.substr(cursor));
+    if (!suffix.empty()) {
+      if (!inline_text.empty() &&
+          std::ispunct(static_cast<unsigned char>(suffix.front())) == 0) {
+        inline_text += ' ';
+      }
+      inline_text += suffix;
+    }
+    return render_simple_gml_control("pinline", std::move(inline_text));
+  }
+  return {};
+}
+
+std::string render_select_gml(const SelectControl& control);
+
+std::string render_pending_selects_gml(
+    const std::vector<SelectControl>& controls,
+    const std::string& display_fragment) {
+  if (controls.size() == 1) {
+    auto control = controls.front();
+    control.display_fragment = display_fragment;
+    return render_select_gml(control);
+  }
+  return render_selects_gml(controls, display_fragment);
+}
+
+std::string render_select_gml(const SelectControl& control) {
+  const auto display = select_display_text(control);
+  if (!display) {
+    return {};
+  }
+
+  const auto resource_id = picture_resource_id(control.target);
   if (!resource_id.empty()) {
-    auto caption = text;
+    auto caption = display->prefix;
+    if (!caption.empty() && !display->selected.empty()) {
+      caption += " ";
+    }
+    caption += display->selected;
+    if (!display->suffix.empty()) {
+      if (!caption.empty() &&
+          std::ispunct(static_cast<unsigned char>(
+              display->suffix.front())) == 0) {
+        caption += " ";
+      }
+      caption += display->suffix;
+    }
     const auto figure = caption.find("Figure ");
     if (figure != std::string::npos) {
       caption = trim_ascii(caption.substr(figure));
@@ -870,18 +1073,19 @@ std::string render_link_gml(std::string value) {
     return output;
   }
 
-  auto inline_text = prefix_text;
+  auto inline_text = display->prefix;
   if (!inline_text.empty()) {
     inline_text += " ";
   }
-  inline_text += ":hdref refid='" + escape_gml_attr(target) + "'.";
-  inline_text += selected_text;
+  inline_text += ":hdref refid='" + escape_gml_attr(control.target) + "'.";
+  inline_text += display->selected;
   inline_text += ":ehdref.";
-  if (!suffix_text.empty()) {
-    if (std::ispunct(static_cast<unsigned char>(suffix_text.front())) == 0) {
+  if (!display->suffix.empty()) {
+    if (std::ispunct(static_cast<unsigned char>(
+            display->suffix.front())) == 0) {
       inline_text += " ";
     }
-    inline_text += suffix_text;
+    inline_text += display->suffix;
   }
   return render_simple_gml_control("pinline", std::move(inline_text));
 }
@@ -1079,6 +1283,7 @@ struct GmlRenderState {
   std::string pending_font_prefix;
   std::size_t current_font_base_column = 3;
   std::size_t pending_font_base_column = 6;
+  std::vector<SelectControl> pending_selects;
   std::vector<std::string> pending_labeled_box_segments;
   bool in_generated_toc = false;
   bool in_generated_title_page = false;
@@ -2633,10 +2838,49 @@ std::string render_gml_segment(std::string segment,
     return render_table_body_gml(std::move(segment), state);
   }
   if (ascii_starts_with_case_insensitive(lower, "cfont")) {
+    if (!state.pending_selects.empty()) {
+      auto font_value = trim_ascii(rest_after_first_word(segment));
+      std::size_t cursor = 0;
+      (void)parse_font_spans(font_value, cursor);
+      auto trailing = cursor >= font_value.size()
+                          ? std::string{}
+                          : font_value.substr(cursor);
+      if (!trim_ascii(trailing).empty()) {
+        auto controls = std::move(state.pending_selects);
+        state.pending_selects.clear();
+        const auto rendered = render_pending_selects_gml(controls, trailing);
+        if (!rendered.empty()) {
+          return rendered;
+        }
+        state.pending_selects = std::move(controls);
+      }
+    }
     return render_font_gml(rest_after_first_word(segment), state);
   }
   if (ascii_starts_with_case_insensitive(lower, "cselect")) {
-    return render_link_gml(rest_after_first_word(segment));
+    auto control = parse_select_control(rest_after_first_word(segment));
+    if (!control) {
+      return render_simple_gml_control(
+          "hdref", rest_after_first_word(std::move(segment)));
+    }
+    std::string rendered;
+    if (!state.pending_selects.empty() &&
+        !trim_ascii(control->display_fragment).empty()) {
+      auto controls = std::move(state.pending_selects);
+      state.pending_selects.clear();
+      controls.push_back(*control);
+      rendered = render_pending_selects_gml(controls,
+                                            control->display_fragment);
+      if (rendered.empty()) {
+        state.pending_selects = std::move(controls);
+      }
+    } else {
+      rendered = render_select_gml(*control);
+    }
+    if (rendered.empty() && state.pending_selects.empty()) {
+      state.pending_selects.push_back(std::move(*control));
+    }
+    return rendered;
   }
   if (ascii_starts_with_case_insensitive(lower, "cmenu")) {
     return ":ul type='menu'.";
@@ -2754,6 +2998,15 @@ std::string render_gml_segment(std::string segment,
   }
   if (ascii_starts_with_case_insensitive(lower, "cgpsep")) {
     return render_simple_gml_control("grpsep", rest_after_first_word(segment));
+  }
+  if (!state.pending_selects.empty()) {
+    auto controls = std::move(state.pending_selects);
+    state.pending_selects.clear();
+    const auto rendered = render_pending_selects_gml(controls, segment);
+    if (!rendered.empty()) {
+      return rendered;
+    }
+    state.pending_selects = std::move(controls);
   }
   if (auto continuation = render_marker_continuation_gml(segment)) {
     return *continuation;

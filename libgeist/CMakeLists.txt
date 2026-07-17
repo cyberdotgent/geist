@@ -85,8 +85,12 @@ foreach(example booinfo bootoc boorsrc boorender bootrace boo2git)
   add_executable(${example}
     examples/${example}.cpp
   )
-  target_link_libraries(${example} PRIVATE geist::geist)
-  if(WIN32)
+  if(example STREQUAL "bootrace")
+    target_link_libraries(${example} PRIVATE geist::geist_static)
+  else()
+    target_link_libraries(${example} PRIVATE geist::geist)
+  endif()
+  if(WIN32 AND NOT example STREQUAL "bootrace")
     add_custom_command(TARGET ${example} POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_RUNTIME_DLLS:${example}>
@@ -155,3 +159,10 @@ target_compile_definitions(mmr_qsysnewg_test
 )
 
 add_test(NAME mmr_qsysnewg_test COMMAND mmr_qsysnewg_test)
+
+add_executable(markup_synthetic_test
+  tests/markup_synthetic.cpp
+)
+target_link_libraries(markup_synthetic_test PRIVATE geist::geist_static)
+
+add_test(NAME markup_synthetic_test COMMAND markup_synthetic_test)

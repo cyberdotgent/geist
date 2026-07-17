@@ -780,9 +780,6 @@
 - SETO 1 3.2.13.1
 - SETO call with OTMA 1
 - SETO parameter NORDAH 1 3.2.12 .
-
-shared queues (future support of parallel sysplex) 1 8.1.5
-
 - SLUP 1 8.3.2.2
 - SMU security 1 8.3.1
 - Socket API 1 8.5.3.4

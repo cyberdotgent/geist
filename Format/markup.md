@@ -101,7 +101,7 @@ these diagnostics; use `boorender --raw` or `bootrace` when analyzing them.
 | `ETOC` | `:etoc.` | End of TOC entry stream. | Observed TOC terminator. |
 | `CFONTDEF=<code> <name>` | suppressed | Font/style code definition. | The current source-style projection does not yet reconstruct inline `:hpN.` spans from these definitions. |
 | `CFONT <triples...> [text]` | trailing text preserved as inline `:hpN.` spans when present; span-only records are applied to the following plain text segment | Repeated `<offset> <length> <font_code>` triples, sometimes followed by decoded visible text. Offsets are display-column coordinates in the reader line model. Apply them before source-style whitespace collapse, using the active `CZ FLOW` indent column for same-line text. Span-only continuation records use the following physical text line's paragraph column. Do not recover by scoring word boundaries. | Verified against `packet.boo` topic `1.3`: `CFONT 27 5 3 33 10 3` has no trailing text, but BookSrv applies it to the following `FM radio through its audio interface;` line and emphasizes `audio interface;`; later `CFONT 17 3 2 ... 64 13 2` emphasizes whole words `you cannot use your radio's VOX control for bidirectional`. |
-| `CSELECT <col> <len> <target> [text]` | optional `:pinline.<prefix>` followed by `:hdref refid='<target>'.<selected>` | Selectable link/cross-reference. The target may be a topic id, anchor id, or footnote id. The trailing `len` characters of the display text are the selected/link text; preceding display text remains plain inline content. | Verified against `packet.boo` topic `1.1`, where `CSELECT ... FTNFTNUNIQ1 ... technologies. (1)` renders `technologies.` as paragraph text and links only `(1)`. |
+| `CSELECT <col> <len> <target> [text]` | `:pinline.<before> :hdref refid='<target>'.<selected>:ehdref. <after>` | Selectable link/cross-reference. The target may be a topic id, anchor id, or footnote id. `col` is an absolute zero-based display-cell column and `len` is the selected display-cell count; neither is relative to the end of the decoded fragment. | Verified against `GG24-4302-00.boo` topic `NOTICES` and `packet.boo` topic `1.1`. |
 | `CSELECT <col> <len> PIC<n> [text]` inside a figure | `:image resource='<n>'.` plus `:figcap.<caption>` | Selectable embedded picture placeholder. The `PIC<n>` selection is replaced by the rendered picture; surrounding figure caption text remains ordinary caption text. A leading generated `PICTURE <n>` label is reader metadata and is not part of the visible caption. Markdown keeps the BOO resource as `resource:<n>` so exporters can resolve it. | Verified against `packet.boo` topic `1.3`, where BookServer renders `PIC1` as `/bookmgr/pictures/packet.20260614112503.P1.GIF`, followed by caption `Figure 1. VHF/UHF LMR audio frequency range`. |
 | `CMENU` | `:ul type='menu'.` | Start of generated selectable menu/list. | BookSrv emits a `Subtopics:` heading and an HTML `<ul>` for PACKET topic `1.0`; raw output keeps it distinct from ordinary source `:ul.` lists. |
 | `CMITEM <id> <text>` | `:li refid='<id>'.<id> <text>` | Menu item target and visible label. | Verified in BookSrv `bookmgr.exe`; the first token is the href target and is also preserved in visible subtopic text. |
@@ -468,18 +468,74 @@ Examples:
 | `QS3X36CM.BOO` | `CMENU CMITEM 1.1 Displaying as/400 Commands Online CEMENU` |
 | `packet.boo` | Topic `1.0`: `CMENU`, `CMITEM 1.1 Original Packet Radio`, `CMITEM 1.2 Ham Packet Radio`, `CMITEM 1.3 Bringing it Together`, `CEMENU`; hosted BookServer renders these as linked `Subtopics:` entries. |
 | `bookmgr.exe.i64` | `sub_405FC` emits the generated menu heading `Subtopics:` at `0x44b0b`; recognizes `CMITEM` at `0x44b8c`; then builds the item `href` from the first token and emits the remaining text inside the anchor at `0x44c56`. |
-| `packet.boo` | Topic `1.1`: `CSELECT 16 4 FTNFTNUNIQ1 ... technologies. (1)` followed later by `SRFTNFTNUNIQ1`, `CZ FLOW FN ...`, and `SREFTN`; hosted BookServer links only `(1)` and renders the footnote at the bottom under anchor `FTNFTNUNIQ1`. |
+| `packet.boo` | Topic `1.1`: `CSELECT 16 4 FTNFTNUNIQ1 ... technologies. (1)` followed later by `SRFTNFTNUNIQ1`, `CZ FLOW FN ...`, and `SREFTN`; hosted BookServer links only `(1)` and renders the footnote at the bottom under anchor `FTNFTNUNIQ1`. Topic `5.1.2` has consecutive selectors `CSELECT 11 5 FTNFTNUNIQ57` and `CSELECT 16 5 FTNFTNUNIQ58`; only the second carries the completed line `locator: (44) (45)`, and the two five-cell spans select `(44)` and `(45)` on that same line. |
 | `packet.boo` | Full raw render contains 67 footnote records and 67 unique `FTNFTNUNIQ...` ids, so the generated ids can be reused as stable Markdown anchors for this document. |
-| `bookmgr.exe.i64` | `sub_405FC` recognizes `SRFTN` at `0x42356`, emits the first-footnote `<hr>` at `0x42388`, emits the footnote body as `<h5>` at `0x423a4`, and tokenizes `CSELECT` at `0x42471` so the selected span length determines the linked text. |
-| `QS3X36CM.BOO` | `CSELECT 33 3 sptproc ...` in topic `2.0`; target anchor `SRsptproc` appears inside topic `2.1`. |
-| `GG24-4302-00.boo` | `CSELECT 3 8 fig4302hp1` |
+| `bookmgr.exe.i64` | `sub_405FC` tokenizes `CSELECT` at `0x42471`. `RenderDisplayLineObjectsAndSelections` at `0x4b483` parses the absolute column and length, copies the gap from the complete display line, emits exactly the selected cells, and resumes at `column + length`. |
+| `QS3X36CM.BOO` | `CSELECT 33 3 sptproc ... System/36 procedures     Page 2.1` selects `2.1`; target anchor `SRsptproc` appears inside topic `2.1`. |
+| `GG24-4302-00.boo` | Topic `NOTICES`: `CSELECT 43 30 HDRNOTICES ... to read the general information under "Special Notices" in` selects `"Special Notices" in` plus fixed-layout padding, and `CSELECT 5 13 HDRNOTICES ... topic FRONT_1.` selects `topic FRONT_1` but not the period. |
+| `GG24-4302-00.boo` | `CSELECT 3 8 fig4302hp1 ... Figure 1.` selects `Figure 1`. |
 | `SC26-4221-08.boo` | `CSELECT 7 22 hdrlanguag` |
 
-The `column` and `length` values are display-span positions in the decoded
-logical line. The observed BookServer behavior uses `length` to limit the link
-to the selected trailing display span; any preceding display text in the same
-decoded `CSELECT` record remains ordinary inline text. A reader should preserve
-the `target_id` even if it chooses a different rendering layout.
+The `column` and `length` operands address the complete decoded display line,
+using a zero-based absolute column and a display-cell count. They do not address
+the trailing characters of the control record. A reader must reconstruct the
+line's suppressed left margin and continuation boundary before applying the
+span. For each selector, copy ordinary cells from the end of the preceding
+span to `column`, render cells in `[column, column + length)` as the link, then
+continue ordinary output at `column + length`. Fixed-layout spaces and box
+borders can fall inside the selected cell range; trim presentation padding only
+after the exact range has been sliced.
+
+A `CSELECT` may contain its associated display fragment or may be followed by a
+separate visible-text record (including `CFONT`). Readers therefore need to
+queue span metadata until the complete display line is available. Multiple
+queued selectors can apply to that one line: sort them by column, copy each
+ordinary gap once, render each selected interval, and resume ordinary output
+after the last interval. An unresolved selector must not be attached to the
+next unrelated paragraph. In the
+flattened decoded stream, `?` followed by two or more blanks denotes a wrapped
+line boundary: suppress `?` and one guard blank, but retain the remaining
+blanks as display margin. With only one following blank, `?` is a literal
+fixed-box border at display column 3 and the suppressed three-column left
+margin must be restored. A non-`?` visual row marker such as `|` followed by
+one blank is instead a suppressed boundary: remove the marker and guard blank,
+then restore the ordinary three-column display margin. These rules explain the
+`NOTICES` box, QSYSNEWG visual rows, and PACKET footnote references without a
+target- or phrase-specific exception.
+
+The two boundaries can be stacked. QSYSNEWG `PREFACE` has
+`CSELECT 3 18 HDRBIBL` followed by a decoder boundary and then `| topic
+BIBLIOGRAPHY.`; suppress both boundary/guard pairs and restore one three-column
+margin before applying the span.
+
+Generated list, ordered-list, and definition-list prefixes also occupy cells in
+the complete display line even when the flattened visible fragment contains
+only the item text. If such a fragment ends before `column + length`, prepend
+the omitted structural width needed to reach that end column before slicing.
+For example, PACKET's `CSELECT 19 5 FTNFTNUNIQ64 ... APRS support (51)` has a
+suppressed list prefix; the selected five-cell range is ` (51)`, which is
+presentation-trimmed to `(51)`. This restoration is only valid when the
+selector reaches the visible line end; a line with actual suffix text already
+provides its complete width. This applies both to marker-led fragments and
+direct continuation fragments. A single-marker fixed-box fragment is the
+exception: its missing cells are trailing box padding and must be appended,
+not prepended.
+
+A leading run of `?` placeholder bytes is a suppressed generated structural
+prefix, not a sequence of literal borders. Discard the whole run and one guard
+blank; all subsequent blanks are the continuation line's real left margin.
+PACKET's `CSELECT 9 5 FTNFTNUNIQ60` is followed by 23 `?` bytes, eight blanks,
+and `to (47)`. Removing the placeholder run and one blank leaves the seven-cell
+margin required for the five-cell ` (47)` span at column 9. Likewise,
+`CSELECT 33 5 FTNFTNUNIQ69` has 23 following blanks; retaining 22 places
+` (55)` at column 33.
+
+The first `NOTICES` span has length 30 even though its visible words are only
+20 characters: BookServer's HTML anchor includes the fixed-layout padding and
+right border. The second span starts at column 5, so its first selected byte is
+the `t` in `topic`; interpreting the length as a suffix instead produces the
+observed erroneous plain `t` plus linked `opic FRONT_1.`. A reader should always
+preserve `target_id`, even if its presentation format cannot preserve padding.
 
 ## Figures, Pictures, Tables, And Asset References
 

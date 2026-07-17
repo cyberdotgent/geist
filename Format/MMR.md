@@ -24,7 +24,7 @@ payloads use the reader's MMR path rather than the GDF filter path:
 
 | Binary / IDB | Evidence |
 | --- | --- |
-| `Official Readers/BookSrv-Win32/bookmgr.exe.i64` | `BookServerServePictureObject` delegates legacy picture conversion through the imported `ephimage` path. The byte-level MMR decoder is not in `bookmgr.exe`. |
+| `Official Readers/BookSrv-Win32/bookmgr.exe.i64` | `RenderDisplayLineObjectsAndSelections` delegates legacy picture conversion through the imported `ephimage` path while also applying display-line selections. The byte-level MMR decoder is not in `bookmgr.exe`. |
 | `Official Readers/BookSrv-Win32/ephimage.dll` | Local symbol/string evidence includes `process_mmr_pict`, `InitDecompress`, `WRcheckparms`, `WRraster`, `WRruns`, `dinitmmr`, `dlinemmr`, `decline`, `deceol`, `readcd`, and `writere`. |
 | `Official Readers/Transmogrifier/transmog.exe` | Debug/object strings include `D:\Transmogrifier\source\ephdmmr.obj`, `_dinitmmr`, `_dlinemmr`, `_decline`, `_dlineabic`, and `?lConvertMMRtoGIF0:`. |
 | `Official Readers/Transmogrifier/transmog.exe.i64` | The converted-output path reads legacy kind `I` bytes, calls the MMR writer, and emits a GIF object in the rewritten version 1.4 book. |

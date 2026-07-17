@@ -858,29 +858,47 @@ void append_index_item(std::string& output, std::string text) {
 std::string render_link_markdown(const std::string& record) {
   auto text = gml_markdown_content(record);
   const auto target = gml_attr(record, "refid");
+  const auto prefix = gml_attr(record, "prefix");
+  const auto suffix = gml_attr(record, "suffix");
+  const auto rendered_prefix = prefix.empty() ? std::string{} : prefix + " ";
+  const auto rendered_suffix =
+      suffix.empty() || std::string(".,;:!?)]}").find(suffix.front()) !=
+                            std::string::npos
+          ? suffix
+          : " " + suffix;
   if (text.empty()) {
     text = target;
   }
   if (target.empty()) {
-    return text;
+    return rendered_prefix + text + rendered_suffix;
   }
   if (is_footnote_id(target)) {
-    return "<a id=\"fnref-" + target + "\"></a>[" + text + "](#" + target +
-           ")";
+    return rendered_prefix + "<a id=\"fnref-" + target + "\"></a>[" + text +
+           "](#" + target + ")" + rendered_suffix;
   }
-  return "[" + text + "](#" + target + ")";
+  return rendered_prefix + "[" + text + "](#" + target + ")" +
+         rendered_suffix;
 }
 
 std::string render_image_markdown(const std::string& record) {
   auto text = gml_markdown_content(record);
   const auto resource = gml_attr(record, "resource");
+  const auto prefix = gml_attr(record, "prefix");
+  const auto suffix = gml_attr(record, "suffix");
+  const auto rendered_prefix = prefix.empty() ? std::string{} : prefix + " ";
+  const auto rendered_suffix =
+      suffix.empty() || std::string(".,;:!?)]}").find(suffix.front()) !=
+                            std::string::npos
+          ? suffix
+          : " " + suffix;
   if (text.empty()) {
     text = resource.empty() ? "Image" : "Resource " + resource;
   }
   if (resource.empty()) {
-    return text;
+    return rendered_prefix + text + rendered_suffix;
   }
-  return "![" + text + "](resource:" + resource + ")";
+  return rendered_prefix + "![" + text + "](resource:" + resource + ")" +
+         rendered_suffix;
 }
 
 std::string render_anchor_markdown(const std::string& record) {
