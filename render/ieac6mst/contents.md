@@ -91,6 +91,7 @@
     - `4.3.6` [Option 4 -- COMMAND](4-3-6.md)
     - `4.3.7` [Option 5 -- UTILITY](4-3-7.md)
     - `4.3.8` [Option 6 -- DUMPS](4-3-8.md)
+
     - `4.3.9` [Option T -- TUTORIAL](4-3-9.md)
   - `4.4` [IPCS Dialog Panels](4-4.md)
     - `4.4.1` [Selection and Data Entry Panels](4-4-1.md)
@@ -120,6 +121,7 @@
     - `4.8.1` [Modifying the Primary Command Definitions](4-8-1.md)
     - `4.8.2` [Modifying Your Program Function (PF) Keys](4-8-2.md)
 - `5.0` [Chapter 5. Using the IPCS Dump Directory](5-0.md)
+
   - `5.1` [Preparing a Dump Directory](5-1.md)
     - `5.1.1` [Determining the Appropriate Size for the Dump Directory](5-1-1.md)
     - `5.1.2` [Creating a Dump Directory VSAM Data Set](5-1-2.md)
@@ -148,6 +150,7 @@
 - `6.0` [Chapter 6. Describing Storage in a Dump](6-0.md)
   - `6.1` [Specifying Data Description Operands](6-1.md)
   - `6.2` [Resolving Default Data Description Operands](6-2.md)
+
   - `6.3` [Using Indirect Addressing with Symbols](6-3.md)
 - `7.0` [Chapter 7. Using IPCS REXX Execs and CLISTs](7-0.md)
   - `7.1` [Invoking REXX Execs and CLISTs from an IPCS Session](7-1.md)
@@ -172,8 +175,10 @@
     - `7.7.5` [Putting the Pieces Together](7-7-5.md)
     - `7.7.6` [Debugging IPCS REXX Execs](7-7-6.md)
   - `7.8` [Techniques for Analyzing Dumps Using IPCS REXX Execs](7-8.md)
+
     - `7.8.1` [Adding Hexadecimal Dump Addresses](7-8-1.md)
     - `7.8.2` [Following a Pointer Chain](7-8-2.md)
+
     - `7.8.3` [Formatting a Control Block](7-8-3.md)
     - `7.8.4` [Customizing Control Block Analysis](7-8-4.md)
     - `7.8.5` [Translating Dump Characters](7-8-5.md)

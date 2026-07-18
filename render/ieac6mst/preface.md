@@ -4,7 +4,12 @@
 
 # PREFACE About This Book
 
-This book describes how to use the interactive problem control system (IPCS) to perform dump and trace analysis. It explains how to access IPCS, presents the IPCS full-screen dialog, and gives examples for running IPCS in batch mode.
+```text
+   This book describes how to use the interactive problem control system
+   (IPCS) to perform dump and trace analysis.  It explains how to access
+   IPCS, presents the IPCS full-screen dialog, and gives examples for running
+   IPCS in batch mode.
+```
 
 Subtopics:
 

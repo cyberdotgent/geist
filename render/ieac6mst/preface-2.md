@@ -4,9 +4,15 @@
 
 ## PREFACE.2 Where to Find More Information
 
-The following table lists books that contain information related to the information contained in this book. When this book references information in other books, the shortened versions of the book title is used. The following tables show the
+```text
+   The following table lists books that contain information related to the
+   information contained in this book.
 
-shortened titles, complete titles, and order numbers of the books that you might need while you are using this book.
+   When this book references information in other books, the shortened
+   versions of the book title is used.  The following tables show the
+   shortened titles, complete titles, and order numbers of the books that you
+   might need while you are using this book.
+```
 
 <a id="TBLUNIQ1"></a>
 
