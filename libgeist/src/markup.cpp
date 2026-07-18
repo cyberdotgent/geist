@@ -853,7 +853,20 @@ std::vector<SelectDisplayLineCandidate> select_display_line_candidates(
           fragment[end - 1] == '?')) {
     --end;
   }
-  const auto trimmed = fragment.substr(begin, end - begin);
+  auto trimmed = fragment.substr(begin, end - begin);
+  if (trimmed.size() >= 3 && trimmed.front() == '.' &&
+      std::isspace(static_cast<unsigned char>(trimmed[1])) != 0 &&
+      std::isspace(static_cast<unsigned char>(trimmed[2])) != 0) {
+    trimmed.erase(0, 1);
+  } else if (trimmed.size() >= 4 && trimmed[0] == '*' && trimmed[1] == '/' &&
+             std::isspace(static_cast<unsigned char>(trimmed[2])) != 0 &&
+             std::isspace(static_cast<unsigned char>(trimmed[3])) != 0) {
+    trimmed.erase(0, 2);
+  }
+  while (!trimmed.empty() &&
+         std::isspace(static_cast<unsigned char>(trimmed.front())) != 0) {
+    trimmed.erase(trimmed.begin());
+  }
   std::size_t placeholder_run = 0;
   while (placeholder_run < trimmed.size() &&
          trimmed[placeholder_run] == '?') {

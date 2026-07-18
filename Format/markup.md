@@ -804,3 +804,24 @@ It emits `<B>Production</B> <B>of</B> <B>This</B> <B>Book</B>`. Applying these
 spans to the already-trimmed row with the ordinary paragraph base column
 shifts the first span and produces the incorrect `ction of T` emphasis.
 Visual-box rows must therefore use ordered whole-word matching when the row
+
+## IEAC6MST FIGURES selection rows
+
+`BOO/IEAC6MST.BOO`, topic `FIGURES`, uses the same generated-list structure as
+`GG24-4302-00`: `CHDLEVEL :FIGLIST`, `ST Figures`, then one `CSELECT` per
+figure row. The first rows decode as `CSELECT 5 28 FIGOVWIPCS` followed by
+`1-1. Overview of IPCS 1.2`, `CSELECT 5 39 FIGTSOAPPL` followed by
+`1-2. IPCS as a TSO/E Application 1.4`, and `CSELECT 5 44 FIGDSLIB` followed
+by `1-3. Libraries that contain IPCS Code 1.4`. The continuation rows contain
+legacy leading markers such as `.  |` and `*/  |`; these are display-line
+markers, not part of the selected text. BookServer consumes them before
+applying the `CSELECT` column and length. A compatible reader must remove
+those markers while retaining the row boundary and must resolve a non-image
+figure target to the target topic's figure anchor (for example
+`1.4#FIGDSLIB` in BookServer, projected locally as `1-4.md#DSLIB`).
+
+The evidence was obtained with `bootrace.exe BOO/IEAC6MST.BOO FIGURES
+--segments` and BookServer topic URL
+`/BOOKS/IEAC6MST/FIGURES?DT=19920124000100`. The decoder reports the figure
+targets and row fragments in logical records 16--24; BookServer emits the
+corresponding rows in `<pre width="80">` with one anchor per row.

@@ -79,6 +79,12 @@ int main() {
        "1. First figure ? CSELECT 3 40 FIG2 2. Second figure"},
       {":figlist.", ":p.:hdref refid='FIG1'.1. First figure:ehdref.",
        ":p.:hdref refid='FIG2'.2. Second figure:ehdref."});
+  ok &= expect_records(
+      "fixed selection continuation markers are not row text",
+      {"SHfigures CHDLEVEL :FIGLIST ? ST Figures ? CSELECT 5 30 FIG1 "
+       ".  |   3-1. Status worksheet"},
+      {":figlist.", ":p.:hdref refid='FIG1'.3-1. Status worksheet:ehdref."});
+
 
   ok &= expect_records(
       "table-list selections retain display rows",

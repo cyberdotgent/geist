@@ -281,8 +281,9 @@ std::map<std::string, std::string> build_markdown_link_map(
       if (record.rfind(":fig ", 0) == 0) {
         pending_figure_id = raw_attr(record, "id");
         if (!pending_figure_id.empty()) {
-          links[lowercase(pending_figure_id)] = file->second;
-          links[lowercase("fig" + pending_figure_id)] = file->second;
+          const auto figure_uri = file->second + "#" + pending_figure_id;
+          links[lowercase(pending_figure_id)] = figure_uri;
+          links[lowercase("fig" + pending_figure_id)] = figure_uri;
         }
         continue;
       }
