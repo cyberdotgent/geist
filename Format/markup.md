@@ -767,10 +767,11 @@ sequence instead of treating every cleaned `:p.` as one paragraph:
 - Full row/column grammar for every legacy cross-reference table variant beyond
   the fixed-width `?`-separator rows verified in `QS3X36CM.BOO`.
 
-## FIGLIST fixed selection rows
+## Fixed selection rows in generated lists
 
-`CHDLEVEL :FIGLIST` followed by `ST Figures` denotes the generated figures
-list. Each `CSELECT` is one fixed-width display row, including a continuation
+`CHDLEVEL :FIGLIST`/`ST Figures` and `CHDLEVEL :TLIST`/`ST Tables` denote
+generated fixed-width selection lists. Each `CSELECT` is one display row,
+including a continuation
 `CSELECT` whose selected text is stored in the following segment or logical
 record. A reader must preserve a row boundary between selections; consecutive
 selections are not one reflowable paragraph. In `BOO/GG24-4302-00.boo`, topic
@@ -780,7 +781,8 @@ row begins at decoded segment `15.9`; figure 12 starts with an empty
 `16.0`. BookServer emits these rows inside `<pre width="80">`, one anchor per
 display row. The Markdown projection therefore emits one `:p.` block per
 selection (and per deferred continuation), rather than allowing the generic
-`:pinline.` coalescer to merge the whole list.
+`:pinline.` coalescer to merge the whole list. This is a structural-list rule,
+not a FIGURES-topic special case; the same path handles `TLIST`.
 
 ## IEAC6MST fixed-width notice emphasis
 

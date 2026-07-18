@@ -961,3 +961,15 @@ returned `:pinline.` for every selection and `append_rendered_gml_line` merged
 adjacent inline fragments. FIGLIST now converts those selections, including
 deferred continuations, to independent `:p.` blocks while leaving ordinary
 prose coalescing unchanged.
+
+The same structural path applies to `TABLES`:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/GG24-4302-00/TABLES
+```
+
+Local `bootrace` identifies `CHDLEVEL :TLIST`, `ST Tables`, and 15 `CSELECT`
+rows in logical records 19--21. BookServer emits one row per anchor in its
+fixed `<pre>` block. This confirmed that the correct abstraction is a shared
+fixed-selection-list state for both `FIGLIST` and `TLIST`, not a FIGURES-only
+special case.

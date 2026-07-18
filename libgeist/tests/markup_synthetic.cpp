@@ -81,6 +81,13 @@ int main() {
        ":p.:hdref refid='FIG2'.2. Second figure:ehdref."});
 
   ok &= expect_records(
+      "table-list selections retain display rows",
+      {"SHTABLES CHDLEVEL :TLIST ? ST Tables ? CSELECT 3 40 TBL1 "
+       "1. First table ? CSELECT 3 40 TBL2 2. Second table"},
+      {":tlist.", ":p.:hdref refid='TBL1'.1. First table:ehdref.",
+       ":p.:hdref refid='TBL2'.2. Second table:ehdref."});
+
+  ok &= expect_records(
       "fixed-layout notice links",
       {"CSELECT 43 30 HDRNOTICES              ? to read the general "
        "information under \"Special Notices\" in "

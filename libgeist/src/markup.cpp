@@ -1286,7 +1286,7 @@ struct GmlRenderState {
   std::vector<SelectControl> pending_selects;
   std::vector<std::string> pending_labeled_box_segments;
   bool in_generated_toc = false;
-  bool in_figure_list = false;
+  bool in_fixed_selection_list = false;
   bool in_generated_title_page = false;
   bool emitted_toc = false;
   bool in_vnotice = false;
@@ -2790,7 +2790,7 @@ std::string render_gml_segment(std::string segment,
         state.pending_copyright_extension = false;
         return render_bookmaster_tag(tag, std::move(title));
       }
-      state.in_figure_list = tag == "figlist";
+      state.in_fixed_selection_list = tag == "figlist" || tag == "tlist";
       if (tag == "toc") {
         state.emitted_toc = true;
       }
@@ -2882,7 +2882,7 @@ std::string render_gml_segment(std::string segment,
     if (rendered.empty() && state.pending_selects.empty()) {
       state.pending_selects.push_back(std::move(*control));
     }
-    if (state.in_figure_list &&
+    if (state.in_fixed_selection_list &&
         ascii_starts_with_case_insensitive(rendered, ":pinline.")) {
       rendered.replace(0, std::string(":pinline.").size(), ":p.");
     }
@@ -3010,7 +3010,7 @@ std::string render_gml_segment(std::string segment,
     state.pending_selects.clear();
     const auto rendered = render_pending_selects_gml(controls, segment);
     if (!rendered.empty()) {
-      if (state.in_figure_list &&
+      if (state.in_fixed_selection_list &&
           ascii_starts_with_case_insensitive(rendered, ":pinline.")) {
         auto figure_row = rendered;
         figure_row.replace(0, std::string(":pinline.").size(), ":p.");
