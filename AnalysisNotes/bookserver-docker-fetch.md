@@ -973,3 +973,21 @@ rows in logical records 19--21. BookServer emits one row per anchor in its
 fixed `<pre>` block. This confirmed that the correct abstraction is a shared
 fixed-selection-list state for both `FIGLIST` and `TLIST`, not a FIGURES-only
 special case.
+
+## GG24-4302-00 FRONT_1 table truncation
+
+Hosted BookServer URL:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/GG24-4302-00/FRONT_1
+```
+
+The local topic spans logical records 21--24. Its trademark table begins in
+record 23 with `SRTBLTBLUNIQ1` and the first row in the same decoded segment,
+then closes with `SRETBL`; a second `SRETBL` boundary follows immediately.
+The previous renderer treated the entire segment as the table caption, so the
+table body disappeared and Markdown stopped at a reference-like table shell.
+The fix splits `SRTBL` at its first row separator, parses the row (including
+legacy spacing when separator markers have already been materialized), and
+ignores a duplicate close boundary. This restores the missing notice text and
+table content without changing ordinary table captions.

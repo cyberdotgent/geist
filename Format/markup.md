@@ -784,6 +784,18 @@ selection (and per deferred continuation), rather than allowing the generic
 `:pinline.` coalescer to merge the whole list. This is a structural-list rule,
 not a FIGURES-topic special case; the same path handles `TLIST`.
 
+## SRTBL records with an inline first row
+
+`SRTBL<id>` may carry the table identifier and the first fixed row in the same
+decoded segment: `SRTBL<id> ? <row>`. The `?` after the identifier is the row
+separator, not caption text. A reader must split the header at that separator,
+feed the suffix to the fixed-row table parser, and continue until `SRETBL`.
+`GG24-4302-00` topic `FRONT_1`, logical record 23, uses this form for
+`SRTBLTBLUNIQ1`; its first row contains CICS, COBOL/370, DB2, IBM, IMS
+Client Server/2, IMS CS/2, IMS/ESA, MQSeries, MVS/ESA, OS/2, RACF, and RMF.
+Duplicate `SRETBL` terminators after the table is closed are empty boundaries
+and must not produce a second `:etable.`.
+
 ## IEAC6MST fixed-width notice emphasis
 
 `BOO/IEAC6MST.BOO`, topic `NOTICES`, logical record 4 contains the decoded

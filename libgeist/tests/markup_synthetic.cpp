@@ -94,6 +94,12 @@ int main() {
        ":p.:hdref refid='TBL2'.2. Second table:ehdref."});
 
   ok &= expect_records(
+      "legacy SRTBL keeps first row in header segment",
+      {"SRTBLTBL1 ? Alpha   Beta   Gamma ? SRETBL"},
+      {":table id='TBLTBL1'.", ":row.", ":c col='0'.Alpha",
+       ":c col='1'.Beta", ":c col='2'.Gamma", ":tcap.", ":etable."});
+
+  ok &= expect_records(
       "fixed-layout notice links",
       {"CSELECT 43 30 HDRNOTICES              ? to read the general "
        "information under \"Special Notices\" in "

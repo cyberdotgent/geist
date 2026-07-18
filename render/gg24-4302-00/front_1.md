@@ -68,6 +68,8 @@
 
 [Table: CICS COBOL/370 DB2 IBM IMS Client Server/2 IMS CS/2 IMS/ESA MQSeries MVS/ESA OS/2 RACF RMF]
 
+Other trademarks are trademarks of their respective companies.
+
 ---
 
 [Previous](tables.md) | [Index](README.md) | [Next](preface.md)

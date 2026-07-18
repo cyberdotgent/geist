@@ -12,41 +12,41 @@
 
 [4. MVS OpenEdition 2.4.2](4.png)
 
-[5. DBFULTA: Detail Listing of Exception Transactions--with BUFFER Option](3-2-14.md)
+[5. DBFULTA: Detail Listing of Exception Transactions--with BUFFER Option](3-2-14.md#FPLTA1)
 
-[Selected 3.2.14](3-2-14.md)
+[Selected 3.2.14](3-2-14.md#FPLTA1)
 
-[6. DBFULTA: Detail Listing of Exception Transactions--with All Three](3-2-14.md)
+[6. DBFULTA: Detail Listing of Exception Transactions--with All Three](3-2-14.md#FPLTA1A)
 
-[Options Specified 3.2.14](3-2-14.md)
+[Options Specified 3.2.14](3-2-14.md#FPLTA1A)
 
-[7. DBFULTA: Summary of Exception Detail by Transaction Code for IFP](comments.md)
+[7. DBFULTA: Summary of Exception Detail by Transaction Code for IFP](comments.md#fplta2)
 
-[Regions 3.2.14](comments.md)
+[Regions 3.2.14](comments.md#fplta2)
 
-[8. DBFULTA: Overall Summary of Resource Usage and Contentions for All](3-2-14.md)
+[8. DBFULTA: Overall Summary of Resource Usage and Contentions for All](3-2-14.md#FPLTA3)
 
-[Transaction Codes and PSBs 3.2.14](3-2-14.md)
+[Transaction Codes and PSBs 3.2.14](3-2-14.md#FPLTA3)
 
-[9. DBFULTA: Summary of VSO Activity 3.2.14](3-2-14.md)
+[9. DBFULTA: Summary of VSO Activity 3.2.14](3-2-14.md#FPLTA4)
 
-[10. MVS Work Load Manager Definition Hierarchy 3.3](3-3.md)
+[10. MVS Work Load Manager Definition Hierarchy 3.3](3-3.md#WLMHIER)
 
-[11. Example of Specifying IMS Service Classes 3.3.3](3-3-3.md)
+[11. Example of Specifying IMS Service Classes 3.3.3](3-3-3.md#WLMDEF)
 
-[12. RMF Workload Activity Report for IMS System Address Spaces: Control](3-3-4.md)
+[12. RMF Workload Activity Report for IMS System Address Spaces: Control](3-3-4.md#RMFWL01)
 
-[Region, DL/1 SAS, and DBRC 3.3.4](3-3-4.md)
+[Region, DL/1 SAS, and DBRC 3.3.4](3-3-4.md#RMFWL01)
 
-[13. RMF Workload Activity Report for IMS Dependent Regions 3.3.4](3-3-4.md)
+[13. RMF Workload Activity Report for IMS Dependent Regions 3.3.4](3-3-4.md#RMFWL02)
 
-[14. DFSERA70 XFMT Option 3.6.2](3-6-2.md)
+[14. DFSERA70 XFMT Option 3.6.2](3-6-2.md#NEW50)
 
-[15. DFSERA70 with TOKEN Parameter 3.6.2](3-6-2.md)
+[15. DFSERA70 with TOKEN Parameter 3.6.2](3-6-2.md#TOKEN)
 
 [16. IMS 5.1 Automated Operator Interface 4.1.1](5.png)
 
-[17. Local Recovery 5.1.2.1](comments.md)
+[17. Local Recovery 5.1.2.1](comments.md#4302RSL)
 
 [18. Remote Recovery 5.1.4.2](#FIG4302RSM)
 
@@ -76,13 +76,13 @@
 
 [31. APPC/IMS Message Mapping Support 6.4.4](15.png)
 
-[32. MSC Routing Exits in IMS 5.1 6.6.2](comments.md)
+[32. MSC Routing Exits in IMS 5.1 6.6.2](comments.md#mscexts)
 
 [33. Conceptual View of an IMS TM Parallel Sysplex of the Future 8.1.5](16.png)
 
 [34. APPC/IMS: Example 1 8.5.1.1](#FIGAPPC3)
 
-[35. APPC/IMS: Example 2 - Architecture 8.5.1.1](comments.md)
+[35. APPC/IMS: Example 2 - Architecture 8.5.1.1](comments.md#appc1)
 
 [36. APPC/IMS: Example 2 - Programs 8.5.1.1](#FIGAPPC2)
 
@@ -90,13 +90,13 @@
 
 [38. IMS Adapter: Connection Elements 8.5.2.2](#FIG4302MQA)
 
-[. 39. IMS Trigger Monitor: New IMS Applications 8.](#FIG4302MQT) 5.2.4
+[39. IMS Trigger Monitor: New IMS Applications 8.5.2.4](#FIG4302MQT)
 
-[. 40. IMS Trigger Monitor: Legacy IMS Applications 8.](#FIG4302MQU) 5.2.4
+[40. IMS Trigger Monitor: Legacy IMS Applications 8.5.2.4](#FIG4302MQU)
 
 [41. IMS Bridge 8.5.2.5](#FIG4302MQB)
 
-[42. TCP/IP Access 8.5.3](8-5-3.md)
+[42. TCP/IP Access 8.5.3](8-5-3.md#4302TC0)
 
 [43. Message Flow for Implicit Mode Transactions 8.5.3.5](#FIG4302TC2)
 

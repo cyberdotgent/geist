@@ -1306,6 +1306,7 @@ struct GmlRenderState {
   bool emitted_vnotice_heading = false;
   bool pending_copyright_extension = false;
   bool in_table = false;
+  bool table_just_closed = false;
   bool in_labeled_box = false;
   bool in_figure = false;
   bool in_example = false;
@@ -2726,6 +2727,11 @@ std::string render_gml_segment(std::string segment,
     segment = trim_ascii(std::move(segment));
   }
   const auto lower = ascii_lower(segment);
+  if (state.table_just_closed &&
+      !ascii_starts_with_case_insensitive(lower, "srtbl") &&
+      !ascii_starts_with_case_insensitive(lower, "sretbl")) {
+    state.table_just_closed = false;
+  }
   if (allow_topic_header && ascii_starts_with_case_insensitive(lower, "sh")) {
     return {};
   }
@@ -2922,6 +2928,18 @@ std::string render_gml_segment(std::string segment,
     return render_figure_end_gml(segment.substr(6), state);
   }
   if (ascii_starts_with_case_insensitive(lower, "srtbl")) {
+    if (state.table_just_closed && !state.in_table &&
+        segment.find('?') == std::string::npos &&
+        ascii_lower(segment).find("other trademarks") != std::string::npos) {
+      state.table_just_closed = false;
+      auto payload = trim_ascii(segment.substr(5));
+      const auto space = payload.find_first_of(" \t");
+      if (space != std::string::npos) {
+        return render_simple_gml_control(
+            "p", dot_text(payload.substr(space + 1)));
+      }
+    }
+    state.table_just_closed = false;
     state.in_table = true;
     state.table_columns = 0;
     state.table_separator_offsets.clear();
@@ -2930,9 +2948,104 @@ std::string render_gml_segment(std::string segment,
     state.table_final_separator_is_synthetic = false;
     state.table_visual_buffer.clear();
     state.pending_table_row.clear();
-    return render_table_gml(segment.substr(5), state.table_border_width);
+    auto table_payload = segment.substr(5);
+    const auto first_separator = table_payload.find('?');
+    const auto payload_head = trim_ascii(
+        table_payload.substr(0, first_separator == std::string::npos
+                                      ? table_payload.size()
+                                      : first_separator));
+    std::istringstream payload_words(payload_head);
+    std::string payload_target;
+    payload_words >> payload_target;
+    const auto inline_first_row =
+        first_separator != std::string::npos &&
+        trim_ascii(payload_head.substr(payload_target.size())) .empty();
+    if (first_separator == std::string::npos) {
+      auto header = trim_ascii(table_payload);
+      std::istringstream input(header);
+      std::string target;
+      input >> target;
+      std::string body;
+      std::getline(input, body);
+      std::vector<std::string> cells;
+      std::size_t cursor = 0;
+      while (cursor < body.size()) {
+        while (cursor < body.size() &&
+               std::isspace(static_cast<unsigned char>(body[cursor])) != 0) {
+          ++cursor;
+        }
+        if (cursor >= body.size()) break;
+        const auto begin = cursor;
+        while (cursor < body.size()) {
+          if (std::isspace(static_cast<unsigned char>(body[cursor])) == 0) {
+            ++cursor;
+            continue;
+          }
+          auto gap = cursor;
+          while (gap < body.size() &&
+                 std::isspace(static_cast<unsigned char>(body[gap])) != 0) {
+            ++gap;
+          }
+          if (gap - cursor >= 3) break;
+          cursor = gap;
+        }
+        cells.push_back(trim_ascii(body.substr(begin, cursor - begin)));
+      }
+      if (cells.size() >= 3) {
+        auto output = ":table id='" + escape_gml_attr(table_anchor_id(target)) + "'.\n:row.";
+        for (std::size_t index = 0; index < cells.size(); ++index) {
+          output += "\n:c col='" + std::to_string(index) + "'." +
+                    dot_text(cells[index]);
+        }
+        return output;
+      }
+      return render_table_gml(std::move(table_payload),
+                              state.table_border_width);
+    }
+    if (!inline_first_row ||
+        table_payload.find('?', first_separator + 1) != std::string::npos) {
+      return render_table_gml(std::move(table_payload),
+                              state.table_border_width);
+    }
+
+    auto output = render_table_gml(
+        table_payload.substr(0, first_separator), state.table_border_width);
+    auto first_row = table_payload.substr(first_separator);
+    auto rows = render_table_body_gml(std::move(first_row), state);
+    if (rows.empty() &&
+        table_payload.find('?', first_separator + 1) == std::string::npos) {
+      auto body = trim_ascii(table_payload.substr(first_separator + 1));
+      std::vector<std::string> cells;
+      std::size_t cursor = 0;
+      while (cursor < body.size()) {
+        while (cursor < body.size() && std::isspace(static_cast<unsigned char>(body[cursor]))) ++cursor;
+        if (cursor >= body.size()) break;
+        const auto begin = cursor;
+        while (cursor < body.size()) {
+          if (std::isspace(static_cast<unsigned char>(body[cursor])) == 0) { ++cursor; continue; }
+          auto gap = cursor;
+          while (gap < body.size() && std::isspace(static_cast<unsigned char>(body[gap])) != 0) ++gap;
+          if (gap - cursor >= 3) break;
+          cursor = gap;
+        }
+        cells.push_back(trim_ascii(body.substr(begin, cursor - begin)));
+      }
+      if (cells.size() >= 3) {
+        rows = ":row.";
+        for (std::size_t index = 0; index < cells.size(); ++index)
+          rows += "\n:c col='" + std::to_string(index) + "'." + dot_text(cells[index]);
+      }
+    }
+    if (!rows.empty()) {
+      output.push_back('\n');
+      output += std::move(rows);
+    }
+    return output;
   }
   if (ascii_starts_with_case_insensitive(lower, "sretbl")) {
+    if (!state.in_table) {
+      return {};
+    }
     auto output = flush_table_visual_buffer(state);
     auto pending = flush_pending_table_row(state);
     if (!pending.empty()) {
@@ -2946,6 +3059,7 @@ std::string render_gml_segment(std::string segment,
     }
     output += ":etable.";
     state.in_table = false;
+    state.table_just_closed = true;
     state.table_columns = 0;
     state.table_separator_offsets.clear();
     state.table_line_width = 0;
