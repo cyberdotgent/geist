@@ -935,3 +935,29 @@ accepted the final two letters of `CSOURCEFN 4302ABST` as the control and the
 structural-topic attachment path then discarded the real `ST` suffix. The
 repair requires a token boundary before fallback `ST`, consumes the standalone
 title/body dot, and attaches the remaining fixed rows after `:abstract.`.
+
+## GG24-4302-00 FIGURES fixed-row list
+
+The hosted comparison was fetched through Docker MCP from:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/GG24-4302-00/FIGURES
+```
+
+The response contains `<pre width="80"><!-- * -->` and a separate anchor row
+for each figure selection. Local `bootrace` shows `CHDLEVEL :FIGLIST`,
+`ST Figures`, then `CSELECT` rows across logical records 15--19. Some rows
+continue in a later segment: figure 12 starts with `CSELECT 3 72 FIGRMFWL01`
+at record 15/segment 24 and its visible text is record 16/segment 0.
+
+The actual read path was verified in the attached IDBs by switching to
+`ephwam.dll` (port 13338): `Scm_Getln` (`0x1221aed`) calls
+`BooReadNextLogicalRecord` (`0x12217c6`), which expands tokens through
+`BooExpandLogicalRecordTokens` (`0x121eee1`) and
+`BooResolveTokenTextRecord` (`0x1218250`). The BookServer renderer in
+`bookmgr.exe` (`sub_405FC`) consumes each result and its fixed-body loop emits
+the `<pre>` rows. The defect was in our later projection: `render_select_gml`
+returned `:pinline.` for every selection and `append_rendered_gml_line` merged
+adjacent inline fragments. FIGLIST now converts those selections, including
+deferred continuations, to independent `:p.` blocks while leaving ordinary
+prose coalescing unchanged.

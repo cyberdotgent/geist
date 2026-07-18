@@ -39,6 +39,14 @@ bool expect_records(const std::string& name,
 int main() {
   bool ok = true;
 
+  ok &= expect_records(
+      "fixed-width CFONT word spans",
+      {"CFONT 8 10 2 19 2 2 22 4 2 27 4 2     Production of This Book"
+       "?????     This book was prepared and formatted."},
+      {":p.:hp2.Production:ehp2. :hp2.of:ehp2. :hp2.This:ehp2. "
+       ":hp2.Book:ehp2.",
+       ":p.This book was prepared and formatted."});
+
   {
     geist::detail::TopicData topic;
     topic.id = "ABSTRACT";
@@ -64,6 +72,13 @@ int main() {
       }
     }
   }
+
+  ok &= expect_records(
+      "figure-list selections retain display rows",
+      {"SHfigures CHDLEVEL :FIGLIST ? ST Figures ? CSELECT 3 40 FIG1 "
+       "1. First figure ? CSELECT 3 40 FIG2 2. Second figure"},
+      {":figlist.", ":p.:hdref refid='FIG1'.1. First figure:ehdref.",
+       ":p.:hdref refid='FIG2'.2. Second figure:ehdref."});
 
   ok &= expect_records(
       "fixed-layout notice links",
