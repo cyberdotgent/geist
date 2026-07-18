@@ -39,6 +39,32 @@ bool expect_records(const std::string& name,
 int main() {
   bool ok = true;
 
+  {
+    geist::detail::TopicData topic;
+    topic.id = "ABSTRACT";
+    topic.raw_records = {
+        "SHabstract CTOPICN 1 CHDLEVEL :ABSTRACT ? ST  Abstract .    First "
+        "fixed row.        Second fixed row.?    (217 pages)"};
+    geist::TocEntry entry;
+    entry.id = "ABSTRACT";
+    entry.title = "Abstract";
+    geist::detail::attach_topic_data(entry, topic);
+    const std::vector<std::string> expected{
+        ":abstract.", ":xmp.", ":xline.   First fixed row.", ":xline.",
+        ":xline.   Second fixed row.", ":xline.",
+        ":xline.   (217 pages)", ":exmp."};
+    if (entry.raw_records != expected) {
+      ok = false;
+      std::cerr << "structural ST body record mismatch\n";
+      for (const auto& record : entry.raw_records) {
+        std::cerr << "  actual:   " << record << "\n";
+      }
+      for (const auto& record : expected) {
+        std::cerr << "  expected: " << record << "\n";
+      }
+    }
+  }
+
   ok &= expect_records(
       "fixed-layout notice links",
       {"CSELECT 43 30 HDRNOTICES              ? to read the general "

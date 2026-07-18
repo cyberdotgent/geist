@@ -83,6 +83,16 @@ The important implementation rule is that spacing prefixes operate on the
 assembler's pending blank, not on arbitrary output bytes. Consecutive prefix-0
 tokens are therefore idempotent when no synthetic space remains.
 
+Static analysis of `ephwam.dll` confirms that token boundaries remain explicit
+while this assembly is performed. `BooExpandLogicalRecordTokens` at
+`0x121eee1` reads the compact payload and writes one 8-byte descriptor per
+token. `BooReadNextLogicalRecord` at `0x12217c6` resolves those descriptors with
+`BooResolveTokenTextRecord` (`0x1218250`), records each token's assembled start
+column and visible length in the active logical-record context, and applies the
+prefix rules above while copying the token words. Consumers must therefore
+distinguish an actual two-character `ST` descriptor from the same letters at
+the end of ordinary token text such as `4302ABST`.
+
 Evidence from `BOO/packet.boo` topic `COVER`:
 
 | Payload offset | Token bytes | Resolved token text | Interpretation |

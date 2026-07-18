@@ -178,7 +178,9 @@ std::size_t find_decoded_control(const std::string& record,
       const auto previous_separator = std::max(
           comma == std::string::npos ? std::size_t{0} : comma,
           question == std::string::npos ? std::size_t{0} : question);
-      if (source != std::string::npos && source >= previous_separator) {
+      if (source != std::string::npos && source >= previous_separator &&
+          found > 0 &&
+          std::isspace(static_cast<unsigned char>(record[found - 1])) != 0) {
         return found;
       }
     }
@@ -222,6 +224,8 @@ std::size_t find_st_control(const std::string& record,
         comma == std::string::npos ? std::size_t{0} : comma,
         question == std::string::npos ? std::size_t{0} : question);
     if (source != std::string::npos && source >= previous_separator &&
+        found > 0 &&
+        std::isspace(static_cast<unsigned char>(record[found - 1])) != 0 &&
         has_boundary_after) {
       return found;
     }
@@ -543,6 +547,35 @@ std::string preserve_reflow_off_st_body_lines(std::string value) {
   return output;
 }
 
+std::optional<std::size_t> st_body_begin_after_title(
+    const std::string& st_value,
+    const std::string& title) {
+  if (st_value.size() <= title.size() ||
+      !ascii_starts_with_case_insensitive(st_value, title) ||
+      std::isspace(static_cast<unsigned char>(st_value[title.size()])) == 0) {
+    return std::nullopt;
+  }
+
+  auto cursor = title.size();
+  while (cursor < st_value.size() &&
+         std::isspace(static_cast<unsigned char>(st_value[cursor])) != 0) {
+    ++cursor;
+  }
+
+  // Fixed-layout structural topics may use a standalone dot between the
+  // display title and body. It is a delimiter, not visible body text.
+  if (cursor < st_value.size() && st_value[cursor] == '.' &&
+      (cursor + 1 == st_value.size() ||
+       std::isspace(static_cast<unsigned char>(st_value[cursor + 1])) != 0)) {
+    ++cursor;
+    while (cursor < st_value.size() &&
+           std::isspace(static_cast<unsigned char>(st_value[cursor])) != 0) {
+      ++cursor;
+    }
+  }
+  return cursor;
+}
+
 std::string topic_st_body_after_toc_title(const TopicData& topic,
                                           const std::string& title) {
   if (topic.raw_records.empty() || title.empty()) {
@@ -566,13 +599,12 @@ std::string topic_st_body_after_toc_title(const TopicData& topic,
     return {};
   }
   st_value = trim_ascii(std::move(st_value));
-  if (st_value.size() <= title.size() ||
-      !ascii_starts_with_case_insensitive(st_value, title) ||
-      std::isspace(static_cast<unsigned char>(st_value[title.size()])) == 0) {
+  const auto body_begin = st_body_begin_after_title(st_value, title);
+  if (!body_begin) {
     return {};
   }
 
-  auto body = trim_ascii(st_value.substr(title.size() + 1));
+  auto body = trim_ascii(st_value.substr(*body_begin));
   if (first_following_control != "cselect" || body.empty() ||
       body.back() != ':') {
     return {};
@@ -601,13 +633,12 @@ std::string topic_st_body_text_after_toc_title(const TopicData& topic,
                                 first_following_control);
   auto st_value = trim_ascii(first_record.substr(value_begin,
                                                  value_end - value_begin));
-  if (st_value.size() <= title.size() ||
-      !ascii_starts_with_case_insensitive(st_value, title) ||
-      std::isspace(static_cast<unsigned char>(st_value[title.size()])) == 0) {
+  const auto body_begin = st_body_begin_after_title(st_value, title);
+  if (!body_begin) {
     return {};
   }
 
-  auto body = trim_ascii(st_value.substr(title.size() + 1));
+  auto body = trim_ascii(st_value.substr(*body_begin));
   if (!first_following_control.empty()) {
     return body;
   }
@@ -652,9 +683,7 @@ std::string topic_st_body_following_control_after_toc_title(
                                 following_control);
   auto st_value = trim_ascii(first_record.substr(value_begin,
                                                  value_end - value_begin));
-  if (st_value.size() <= title.size() ||
-      !ascii_starts_with_case_insensitive(st_value, title) ||
-      std::isspace(static_cast<unsigned char>(st_value[title.size()])) == 0) {
+  if (!st_body_begin_after_title(st_value, title)) {
     return {};
   }
   if (!following_control.empty()) {
@@ -690,9 +719,7 @@ std::string topic_st_following_control_after_toc_title(
       topic_body_control_offset(first_record, value_begin, following_control);
   auto st_value = trim_ascii(first_record.substr(value_begin,
                                                  value_end - value_begin));
-  if (st_value.size() <= title.size() ||
-      !ascii_starts_with_case_insensitive(st_value, title) ||
-      std::isspace(static_cast<unsigned char>(st_value[title.size()])) == 0) {
+  if (!st_body_begin_after_title(st_value, title)) {
     return {};
   }
   return following_control;
@@ -716,7 +743,34 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
       }
       ++heading;
     }
-    if (heading == entry.raw_records.end() || !is_topic_title_record(*heading)) {
+    if (heading == entry.raw_records.end()) {
+      return;
+    }
+
+    if (!is_topic_title_record(*heading)) {
+      auto body_text = topic_st_body_text_after_toc_title(topic, entry.title);
+      if (body_text.empty()) {
+        return;
+      }
+      const auto visible_begin = skip_decoded_separators(body_text);
+      if (visible_begin < body_text.size() &&
+          looks_like_gml_control_at(body_text, visible_begin)) {
+        return;
+      }
+
+      std::vector<std::string> body_records;
+      if (has_reflow_off_line_markers(body_text)) {
+        body_records.push_back(":xmp.");
+        for (auto line : split_reflow_off_body_lines(std::move(body_text))) {
+          body_records.push_back(":xline." + std::move(line));
+        }
+        body_records.push_back(":exmp.");
+      } else {
+        body_records.push_back(":p." + trim_ascii(std::move(body_text)));
+      }
+      entry.raw_records.insert(heading + 1,
+                               std::make_move_iterator(body_records.begin()),
+                               std::make_move_iterator(body_records.end()));
       return;
     }
 
@@ -776,10 +830,11 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
             while (continuation != entry.raw_records.end() &&
                    (raw_gml_tag(*continuation) == "p" ||
                     raw_gml_tag(*continuation) == "line")) {
-              auto content = strip_leading_visual_bar(
+              auto continuation_content = strip_leading_visual_bar(
                   raw_gml_content_preserve_space(*continuation));
-              if (!content.empty()) {
-                inline_fixed_continuations.push_back(std::move(content));
+              if (!continuation_content.empty()) {
+                inline_fixed_continuations.push_back(
+                    std::move(continuation_content));
               }
               ++continuation;
             }

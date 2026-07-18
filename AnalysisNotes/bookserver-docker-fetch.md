@@ -905,3 +905,33 @@ topic `6.2.1` has `CSELECT 33 5 FTNFTNUNIQ69`, 23 placeholders, 23 blanks, and
 too, as in topic `8.1`, where `CSELECT 63 5 FTNFTNUNIQ83 ... radio (67)` needs
 seven suppressed list cells. These cases were added as focused synthetic tests
 and were included in the final whole-book scan.
+
+## GG24-4302-00 Abstract ST Body
+
+The hosted comparison topic was fetched through the Docker fetch MCP at:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/GG24-4302-00/ABSTRACT
+```
+
+BookServer emits the complete abstract in `<pre width="80">`, with paragraph
+breaks and a final `(217 pages)` line. Local `bootrace` identifies the topic as
+logical records 6 through 7; all visible content is in record 6 after
+`ST  Abstract .`.
+
+The attached IDBs were switched from `bookmgr.exe` (port 13337) to
+`ephwam.dll` (port 13338) to follow the actual read path. In the DLL,
+`Scm_Getln` (`0x1221aed`) calls `BooReadNextLogicalRecord` (`0x12217c6`), which
+loads descriptors through `BooExpandLogicalRecordTokens` (`0x121eee1`) and
+resolves token text through `BooResolveTokenTextRecord` (`0x1218250`). In the
+BookServer executable, the topic renderer at `0x405fc` calls `Scm_Getln` at
+`0x40b19`, translates the result with `Scm_Xoutcpy` at `0x40b63`, recognizes
+the `ST` control at `0x40d7a`/`0x40da9`, and replaces calculated display-column
+spaces with carriage-return row boundaries at `0x40df4` and `0x40e60` before
+the fixed body is emitted.
+
+The local failure was earlier in the projection: its fallback `ST` search
+accepted the final two letters of `CSOURCEFN 4302ABST` as the control and the
+structural-topic attachment path then discarded the real `ST` suffix. The
+repair requires a token boundary before fallback `ST`, consumes the standalone
+title/body dot, and attaches the remaining fixed rows after `:abstract.`.

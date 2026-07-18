@@ -94,6 +94,7 @@ these diagnostics; use `boorender --raw` or `bootrace` when analyzing them.
 | `CBACKLEVEL <id>` | suppressed | Previous topic id; generated navigation metadata. | Verified topic header control. |
 | `CSUMMARY <a> <b> <c>` | suppressed | Summary/count triplet; generated metadata. | Verified topic header control; field meanings partly open. |
 | `CHDLEVEL :<tag>` plus `ST <title>` | `:<tag>.<title>` for titled tags, or `:<tag>.` for untitled structural tags | GML/BookMaster topic kind and title. `:title` normalizes to source-style `:tipage.`. | Verified against `packet.script` and topic headers. |
+| Structural `CHDLEVEL` plus `ST <title> . <fixed-body>` | `:<tag>.` followed by `:xmp.` / `:xline.` / `:exmp.` | For structural topics, `ST` can contain both the display title and the complete fixed-layout body. A standalone dot surrounded by whitespace separates the title from the body and is not visible text. Do not discard the suffix merely because the `CHDLEVEL` tag itself is untitled. | Verified against `GG24-4302-00.boo` topic `ABSTRACT` and hosted BookServer output. |
 | `CSOURCEFN <name>` | suppressed | Original source member/file name. | Observed in topic headers. |
 | `ST <title/text>` without a pending `CHDLEVEL` | `:p.<text>` | Text fallback. | Projection fallback. |
 | `CTOCDEF=<style> <fields>` | `:toc.` once for the generated TOC block | TOC style definition. Source BookMaster uses `:toc.` and does not contain expanded generated entries. | Verified in `packet.script` and `CONTENTS` topics. |
@@ -125,6 +126,47 @@ these diagnostics; use `boorender --raw` or `bootrace` when analyzing them.
 | `CGPSEP <fields>` | `:grpsep.<fields>` | Index group separator. | Source-style approximation. |
 | Other `C...` controls | suppressed | Generated or unresolved control-like words. | Fallback behavior for source-style raw output. |
 | Plain text span | `:p.<text>`, or `:pinline.<text>` for marker-led wrapped continuations | Remaining decoded prose after known controls are separated. Wrapped continuation records can start with a printable line-marker byte before indentation; the marker is suppressed and the text continues the active paragraph. | Verified against `packet.boo` topic `1.1`, where decoded `$    Professor Norman Abramson...` continues the preceding `CZ FLOW P ... networking was` paragraph in BookSrv without a `$` or paragraph break. |
+
+### Structural ST Title/Body Form
+
+`GG24-4302-00.boo` logical record 6 contains the complete `ABSTRACT` topic in
+one decoded control stream:
+
+```text
+... CHDLEVEL :ABSTRACT ... CSOURCEFN 4302ABST ...
+ST  Abstract .    This document is unique ... ?    assumed.?    (217 pages)
+```
+
+The `ST` control token must be recognized at a token boundary. In particular,
+the trailing letters `ST` in the preceding source filename `4302ABST` are not a
+control. After locating the real control, parse this form as follows:
+
+1. Match the TOC title (`Abstract`) at the beginning of the `ST` operand.
+2. Consume the following whitespace.
+3. If the next character is a standalone `.` followed by whitespace or the end
+   of the operand, consume the dot and following whitespace as a title/body
+   delimiter.
+4. Preserve the remaining fixed-layout body, including decoded row and
+   paragraph boundaries. Structural topic kinds such as `:abstract` do not
+   imply that the `ST` suffix is empty.
+
+If the suffix begins with another decoded control (`CTOCDEF`, `CFONT`,
+`CIDELM`, and so on), it is a continuation of the control stream rather than a
+fixed visible body. Parse it as controls; do not project their spellings as
+preformatted text. This distinction is required by the `CONTENTS`, `EDITION`,
+and `INDEX` topics in the same fixture.
+
+Physical evidence is BOO page 72, local compact record 0. The compact length
+byte is at page offset `0x0004` (file offset `0x48004`), the 53-byte payload
+starts at page/file offset `0x0005` / `0x48005`, and begins:
+
+```text
+1d 10 35 54 b6 d1 c1 1d 00 2d 59 d6 6e 54 dc 4d
+00 20 00 b6 d1 c1 33 ea 2d 00 1f 02 e4 e9 0f 10
+```
+
+BookServer renders the body inside `<pre width="80">`, with blank rows between
+its four prose paragraphs and the final `(217 pages)` row.
 
 Decoded wrapped lines can also carry the same printable line-marker byte inside
 visible text fields, not only as standalone plain text spans. In `packet.boo`
