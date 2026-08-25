@@ -136,3 +136,24 @@ Before publishing findings:
 For performance comparisons, use the same cached reference directory and
 measure the local-only rerun with `--no-fetch`; network latency must not be
 included in renderer timing.
+
+## SC31-711 post-issue-42 audit
+
+On 2026-08-25, the issue-42 candidate was checked against BookServer id
+`SC31-711`, DT `19941010174546`, using the fixture whose SHA-256 is
+`ac5dcb35e10f6e08107fc2e6e87420ad2652bf675c069eb2f4cb2606a5415700`:
+
+```sh
+python3 tools/bookserver_book_audit.py BOO/SC31-711.boo \
+  --book-id SC31-711 --timestamp 19941010174546 \
+  --output /tmp/geist-SC31-711-post42-final --jobs 4
+```
+
+All 82 topics rendered and fetched; 43 received heuristic flags. The exact
+URL, fetch status, local Markdown, hosted HTML, and normalized diff for every
+topic are recorded in `/tmp/geist-SC31-711-post42-final/manifest.tsv` and its
+adjacent artifact directories. The symbolic trap catalog and recovered
+publication citations were checked directly. Remaining genuine fixed-form
+and selector defects found by the all-topic review are tracked in the
+follow-up GitHub issue 48 rather than being hidden by the aggregate similarity
+score. Existing independent residuals remain in issues 43--45.

@@ -1084,3 +1084,20 @@ spaces reconstructs phrases such as `to transmit`, `may be stored`, and
 `SRGLS` operand: the visible 71-character CCITT term is followed by `action`,
 which is outside the 67-column term row, while the complete parenthesized term
 remains the anchor id.
+
+`SRMSG` operands are not limited to decimal message numbers. In
+`SC31-711.boo` topic `4.1.2`, logical records 101--103 use mixed-case symbolic
+identifiers such as `bridgeHistoryDataComplete` and
+`LNMOS2AgentNotResponding`. Each identifier starts one semantic message
+definition with following `CFONT` Description/Action rows, just like the
+numeric trap catalogs. Uppercase product-message identifiers such as
+`FLM00101` in `SC34-425.boo` remain a distinct fixed catalog form; operand
+case and following row labels therefore disambiguate the two observed forms.
+
+Publication-list topics demonstrate that title/body reconstruction must not
+discard already decoded `CFONT` rows. In `SC31-711.boo` topics `BACK_1.3`,
+`BACK_1.5`, `BACK_1.7`, `BACK_1.10`, `BACK_1.12.1`, and `BACK_1.12.2`, each
+styled physical row contains a complete citation even when its leading marker
+field decodes as punctuation or an alphabetic carry token. Preserve those
+rows independently of the fixed-layout `ST` introduction; the introduction
+and citation stream have separate ownership.

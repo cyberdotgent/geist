@@ -925,3 +925,10 @@
   manual flag triage. The final pass had 44 heuristic flags; all were reviewed,
   issue 41 targets were clean, and independent residuals were filed as issues
   42--45 before leaving the SC31-711 tracker open.
+- Reclassified mixed-case symbolic `SRMSG` operands as semantic trap catalogs
+  while retaining uppercase FLM-style fixed catalogs, and preserved decoded
+  publication `CFONT` rows across TOC/title-body repair. Added SC31-711
+  regressions for symbolic traps and early/late publication lists, passed all
+  nine cross-book tests, and completed a fresh live 82-topic BookServer audit
+  before closing issue 42 and transferring residual fixed-form cases to issue
+  48.

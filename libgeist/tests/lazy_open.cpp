@@ -547,6 +547,36 @@ int main() {
                   std::string::npos,
           "redirected trap catalog remained preformatted or leaked metadata");
 
+  const auto symbolic_traps =
+      problem_determination.topic_markdown("4.1.2");
+  require(symbolic_traps.find("<pre>") == std::string::npos &&
+              symbolic_traps.find("suggested actions. The traps") !=
+                  std::string::npos &&
+              symbolic_traps.find(
+                  "<a id=\"MSG bridgeHistoryDataComplete\"></a>") !=
+                  std::string::npos &&
+              symbolic_traps.find("LNMOS2AgentNotResponding") !=
+                  std::string::npos,
+          "symbolic SRMSG catalog remained fixed or leaked its intro marker");
+
+  const auto rmonitor_publications =
+      problem_determination.topic_markdown("BACK_1.5");
+  require(rmonitor_publications.find(
+              "Using RMONitor for AIX (SC31-7115)") != std::string::npos &&
+              rmonitor_publications.find(
+                  "Using RMONitor Agent for OS/2 (SC31-7116)") !=
+                  std::string::npos,
+          "RMONitor publication CFONT rows disappeared during title repair");
+  const auto sna_publications =
+      problem_determination.topic_markdown("BACK_1.10");
+  for (const auto* expected : {
+           "AIX SNA Server/6000 User's Guide (SC31-7002)",
+           "AIX SNA Server/6000 Configuration Reference (SC31-7014)",
+           "AIX SNA Server/6000 Transaction Program Reference (SC31-7003)"}) {
+    require(sna_publications.find(expected) != std::string::npos,
+            "SNA publication CFONT row disappeared during title repair");
+  }
+
   const auto performance_files =
       problem_determination.topic_markdown("1.4");
   require(performance_files.find(

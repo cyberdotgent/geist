@@ -351,6 +351,101 @@ std::string normalize_message_catalog_intro(std::string value) {
   return normalized;
 }
 
+std::string clean_fixed_st_row_markers(std::string value) {
+  static constexpr std::array<std::string_view, 9> kAlphaMarkers = {
+      "action", "address", "adapter", "agent", "are", "can", "an", "as",
+      "a"};
+  for (auto gap = std::size_t{0}; gap < value.size();) {
+    gap = value.find("    ", gap);
+    if (gap == std::string::npos) {
+      break;
+    }
+    if (gap > 0 &&
+        (value[gap - 1] == '(' || value[gap - 1] == ')' ||
+         value[gap - 1] == '<' || value[gap - 1] == '>' ||
+         value[gap - 1] == '-' || value[gap - 1] == '/' ||
+         value[gap - 1] == ':' || value[gap - 1] == '=' ||
+         value[gap - 1] == '"')) {
+      value.erase(gap - 1, 1);
+      --gap;
+    } else {
+      auto token_begin = gap;
+      while (token_begin > 0 &&
+             std::isalpha(static_cast<unsigned char>(value[token_begin - 1])) !=
+                 0) {
+        --token_begin;
+      }
+      const auto token = ascii_lower(value.substr(token_begin,
+                                                  gap - token_begin));
+      const auto recognized =
+          std::find(kAlphaMarkers.begin(), kAlphaMarkers.end(), token) !=
+          kAlphaMarkers.end();
+      const auto attached_to_punctuation =
+          token_begin > 0 &&
+          (value[token_begin - 1] == '.' || value[token_begin - 1] == ')' ||
+           value[token_begin - 1] == ':');
+      if (recognized && attached_to_punctuation) {
+        value.erase(token_begin, gap - token_begin);
+        gap = token_begin;
+      }
+    }
+    gap += 4;
+  }
+  return value;
+}
+
+std::string clean_fixed_rendered_line(std::string value) {
+  for (const auto* marker : {" action    ", " address    ", " adapter    ",
+                             " agent    ", " bridge    ", " any    ",
+                             " as    ", " an    ", " a    "}) {
+    for (auto found = ascii_lower(value).find(marker);
+         found != std::string::npos;
+         found = ascii_lower(value).find(marker, found + 1)) {
+      value.replace(found, std::string(marker).size(), " ");
+    }
+  }
+  value = trim_ascii(std::move(value));
+  for (const auto* marker : {"ADAPTER ", "ACTION ", "ADDRESS ", "AGENT ",
+                             "BRIDGE ", "ANY ", "AS ", "AN ", "A "}) {
+    if (ascii_starts_with_case_insensitive(value, marker)) {
+      value = trim_ascii(value.substr(std::string(marker).size()));
+      break;
+    }
+  }
+  while (!value.empty() &&
+         (value.back() == '<' || value.back() == '>' || value.back() == '/' ||
+          value.back() == '"' || value.back() == '=')) {
+    value.pop_back();
+    value = trim_ascii(std::move(value));
+  }
+  for (const auto* marker : {"address", "adapter", "agent", "bridge", "any",
+                             "action", "are", "as", "an"}) {
+    if (value.size() <= std::string(marker).size() ||
+        !ascii_equals_case_insensitive(
+            value.substr(value.size() - std::string(marker).size()), marker)) {
+      continue;
+    }
+    const auto prefix_end = value.size() - std::string(marker).size();
+    if (prefix_end > 0 && value[prefix_end - 1] == ')') {
+      value.resize(prefix_end);
+      value = trim_ascii(std::move(value));
+      break;
+    }
+  }
+  return value;
+}
+
+bool looks_like_publication_catalog_row(const std::string& value) {
+  const auto lower = ascii_lower(value);
+  for (const auto* marker : {"(sc", "(gc", "(ga", "(sg", "(sh", "(sa",
+                             "(sx", "(zz", "(isbn"}) {
+    if (lower.find(marker) != std::string::npos) {
+      return true;
+    }
+  }
+  return false;
+}
+
 static bool contains_srmsg_control(const std::string& value) {
   const auto lower = ascii_lower(value);
   auto search = std::size_t{0};
@@ -927,6 +1022,21 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
   entry.start_logical_record = topic.start_logical_record;
   entry.end_logical_record = topic.end_logical_record;
   entry.raw_records = render_gml_records(topic.raw_records);
+  std::vector<std::string> publication_rows;
+  if (ascii_lower(entry.title).find("publications") != std::string::npos) {
+    for (const auto& record : entry.raw_records) {
+      auto content = raw_gml_content_preserve_space(record);
+      if (!looks_like_publication_catalog_row(content)) {
+        continue;
+      }
+      content = clean_fixed_rendered_line(std::move(content));
+      if (!content.empty() &&
+          std::find(publication_rows.begin(), publication_rows.end(), content) ==
+              publication_rows.end()) {
+        publication_rows.push_back(std::move(content));
+      }
+    }
+  }
   const auto is_message_catalog =
       std::any_of(topic.raw_records.begin(),
                   topic.raw_records.end(),
@@ -1073,7 +1183,8 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
           }
           erase_begin = entry.raw_records.erase(erase_begin, erase_end);
           auto intro = normalize_message_catalog_intro(
-              strip_fixed_line_overflow_tokens(std::move(body_text), true));
+              clean_fixed_st_row_markers(strip_fixed_line_overflow_tokens(
+                  std::move(body_text), true)));
           if (!intro.empty()) {
             entry.raw_records.insert(erase_begin, ":p." + std::move(intro));
           }
@@ -1116,6 +1227,11 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
                     raw_gml_tag(*continuation) == "line")) {
               auto continuation_content = strip_leading_visual_bar(
                   raw_gml_content_preserve_space(*continuation));
+              if (ascii_lower(entry.title).find("publications") !=
+                  std::string::npos) {
+                continuation_content = clean_fixed_rendered_line(
+                    std::move(continuation_content));
+              }
               if (!continuation_content.empty()) {
                 inline_fixed_continuations.push_back(
                     std::move(continuation_content));
@@ -1144,6 +1260,31 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
         } else if (!body_text.empty()) {
           entry.raw_records.insert(heading + 1, ":p." + body_text);
         }
+      }
+    }
+  }
+  for (auto& publication : publication_rows) {
+    const auto already_present = std::any_of(
+        entry.raw_records.begin(), entry.raw_records.end(),
+        [&](const auto& record) {
+          return collapse_ascii_whitespace(
+                     raw_gml_content_preserve_space(record)) ==
+                 collapse_ascii_whitespace(publication);
+        });
+    if (!already_present) {
+      entry.raw_records.push_back(":line." + std::move(publication));
+    }
+  }
+  if (!publication_rows.empty()) {
+    for (auto& record : entry.raw_records) {
+      const auto content = raw_gml_content_preserve_space(record);
+      if (!looks_like_publication_catalog_row(content)) {
+        continue;
+      }
+      const auto dot = record.find('.');
+      if (dot != std::string::npos) {
+        record.resize(dot + 1);
+        record += clean_fixed_rendered_line(content);
       }
     }
   }

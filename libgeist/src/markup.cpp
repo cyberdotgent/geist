@@ -199,6 +199,52 @@ std::string strip_fixed_prose_row_markers(std::string value) {
   return collapse_ascii_whitespace(std::move(output));
 }
 
+std::string strip_fixed_alpha_row_markers(std::string value) {
+  // Some BOO fixed-row marker values decode as short alphabetic tokens rather
+  // than punctuation (for example "action", "address", or "can").  They
+  // always occupy the marker field immediately before the four-column row
+  // indent.  Restrict this cleanup to callers that have already established a
+  // fixed-layout context; applying it to flowing prose would be destructive.
+  for (auto gap = std::size_t{0}; gap + 4 <= value.size();) {
+    gap = value.find("    ", gap);
+    if (gap == std::string::npos) {
+      break;
+    }
+    auto token_begin = gap;
+    while (token_begin > 0 &&
+           std::isalpha(static_cast<unsigned char>(value[token_begin - 1])) !=
+               0) {
+      --token_begin;
+    }
+    const auto token_length = gap - token_begin;
+    auto origin = token_begin;
+    while (origin > 0 &&
+           std::isspace(static_cast<unsigned char>(value[origin - 1])) != 0) {
+      --origin;
+    }
+    const auto at_row_origin = origin == 0;
+    const auto attached_to_terminal_punctuation =
+        token_begin > 0 &&
+        (value[token_begin - 1] == '.' || value[token_begin - 1] == ')' ||
+         value[token_begin - 1] == ':' || value[token_begin - 1] == ';');
+    const auto token = ascii_lower(value.substr(token_begin, token_length));
+    static constexpr std::array<std::string_view, 9> kAlphabeticMarkers = {
+        "a", "an", "as", "are", "can", "action", "address", "adapter",
+        "agent"};
+    const auto recognized_marker =
+        std::find(kAlphabeticMarkers.begin(), kAlphabeticMarkers.end(), token) !=
+        kAlphabeticMarkers.end();
+    if (recognized_marker &&
+        (at_row_origin || attached_to_terminal_punctuation)) {
+      value.erase(token_begin, token_length);
+      gap = token_begin + 4;
+      continue;
+    }
+    gap += 4;
+  }
+  return value;
+}
+
 std::string blank_fixed_prose_row_markers(std::string value,
                                           bool allow_adjacent = false) {
   for (std::size_t cursor = 0; cursor + 2 < value.size(); ++cursor) {
@@ -4356,8 +4402,11 @@ std::string render_gml_segment(std::string segment,
   }
   if (ascii_starts_with_case_insensitive(lower, "st")) {
     auto title = rest_after_first_word(segment);
-    if (state.in_semantic_message_catalog) {
+    if (state.in_semantic_message_catalog ||
+        state.current_record_has_message_catalog) {
       title = strip_fixed_line_overflow_tokens(std::move(title), true);
+      title = strip_fixed_alpha_row_markers(std::move(title));
+      title = strip_fixed_prose_row_markers(std::move(title));
     }
     if (!state.pending_topic_tag.empty()) {
       const auto tag = state.pending_topic_tag;
@@ -4808,13 +4857,18 @@ std::string render_gml_segment(std::string segment,
                    numeric_token(message_id.substr(0, hyphen)) &&
                    numeric_token(message_id.substr(hyphen + 1));
     }
-    if (!message_id.empty() && !numeric_id) {
-      state.fixed_catalog_requested = true;
-    } else if (numeric_id) {
+    const auto symbolic_id =
+        std::any_of(message_id.begin(), message_id.end(), [](const auto ch) {
+          return std::islower(static_cast<unsigned char>(ch)) != 0;
+        });
+    if (numeric_id || symbolic_id) {
       state.in_semantic_message_catalog = true;
+    } else if (!message_id.empty()) {
+      state.fixed_catalog_requested = true;
     }
     return render_keyed_gml_control(
-        "anchor", "id", "MSG " + (numeric_id ? message_id : operand));
+        "anchor", "id",
+        "MSG " + ((numeric_id || symbolic_id) ? message_id : operand));
   }
   if (ascii_starts_with_case_insensitive(lower, "srgls")) {
     state.fixed_catalog_requested = true;
@@ -4940,6 +4994,11 @@ std::string render_gml_segment(std::string segment,
   }
   if (looks_like_gml_control_at(segment, 0)) {
     return render_unknown_control_gml(segment);
+  }
+  if (state.in_semantic_message_catalog) {
+    segment = strip_fixed_line_overflow_tokens(std::move(segment), true);
+    segment = strip_fixed_alpha_row_markers(std::move(segment));
+    segment = strip_fixed_prose_row_markers(std::move(segment));
   }
   return render_simple_gml_control("pinline", std::move(segment));
 }
