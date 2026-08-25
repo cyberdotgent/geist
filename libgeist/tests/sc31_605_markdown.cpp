@@ -9,6 +9,17 @@ int main() {
                     "BOO" / "SC31-605.boo";
   const auto document = geist::BooDocument::open(path);
   const auto alert_table = document.topic_markdown("2.1");
+  const auto event_type_index = document.topic_markdown("1.2");
+  for (const auto* expected : {
+           "| 06 | USER | User generated |",
+           "| 07 | SNA | Summary |",
+       }) {
+    if (event_type_index.find(expected) == std::string::npos) {
+      std::cerr << "SC31-605 event-type boundary merged a row: " << expected
+                << "\n";
+      return 1;
+    }
+  }
   for (const auto* expected : {
            "| Action Code | Event Type | Event or Alert Text |",
            "TRANSFER MICROCODE DUMP",

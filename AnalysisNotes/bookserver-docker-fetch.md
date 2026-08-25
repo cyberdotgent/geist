@@ -1181,3 +1181,41 @@ full recheck also confirms unresolved semantic carry-over in `3.3`
 (`action`, `application`, `connection`) and `4.3.4` (`can`).  Those require the
 shared fixed-row ownership model tracked by issue 40, so issue 37 must remain
 open until that structural dependency is resolved.
+
+## Issue 40 structural fixed-row validation
+
+The shared fixed-row repair was developed against these reproducible targets:
+
+- `GG24-4302-00`, DT `19950308184737`: `4.2.2`, `4.2.5`, `7.3`;
+- `SC41-485`, DT `19951003131222`: `1.2.2`;
+- `SC34-425`, DT `19921112160049`: `1.9.2`, `2.2.8`,
+  `APPENDIX1.5.3`, `APPENDIX1.5.4`, and `GLOSSARY`;
+- `PRG1SORT`, DT `19900829171904`: `C.1`;
+- `SC31-605`, DT `19911015203151`: `1.2`.
+
+`bootrace --segments` was used to verify physical row ownership before each
+Markdown comparison. The corrected output keeps figure/catalog rows in
+preformatted blocks, retains catalog anchors, removes cross-book selector
+metadata, preserves book/topic link targets, drops the GG24 carry-over words
+`access` and `available`, and separates SC31-605 event-type rows 06 and 07.
+The fixture suite covers all five books and the semantic numeric `SRMSG`
+counterexample in SC31-711. Full live-book audit commands and post-fix flag
+triage were run against the same identifiers with output under
+`/tmp/geist-issue40-postfinal/`:
+
+- `GG24-4302-00`: 229/229 topics, 30 heuristic flags;
+- `SC41-485`: 36/36 topics, 26 flags;
+- `SC34-425`: 257/257 topics, 105 flags (178 refreshed and 79 identical
+  cached reference pages);
+- `PRG1SORT`: 207/207 topics, 99 flags;
+- `SC31-605`: 110/110 topics, 91 flags;
+- `SC31-711`: 82/82 topics, 44 flags;
+- `XWEBDEMO`, DT `19970423182524`: 13/13 topics, 8 flags.
+
+There were no fetch failures. Manual review of every flag found only expected
+Markdown-versus-BookServer structure differences for the issue 40 targets.
+The remaining malformed fixed prose in `SC31-711` topic `3.3` is the existing
+issue 37 workload; no duplicate issue was opened. `XWEBDEMO` topics `1.1` and
+`1.4` additionally verify that a token beyond a physical 79-column row is
+carry-over, and that a styled continuation after `depend` remains part of the
+same note rather than becoming a new paragraph.

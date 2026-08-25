@@ -1015,7 +1015,8 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
             ++erase_end;
           }
           erase_begin = entry.raw_records.erase(erase_begin, erase_end);
-          auto intro = normalize_message_catalog_intro(std::move(body_text));
+          auto intro = normalize_message_catalog_intro(
+              strip_fixed_line_overflow_tokens(std::move(body_text), true));
           if (!intro.empty()) {
             entry.raw_records.insert(erase_begin, ":p." + std::move(intro));
           }

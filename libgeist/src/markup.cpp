@@ -7,6 +7,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iterator>
+#include <limits>
 #include <map>
 #include <optional>
 #include <set>
@@ -261,6 +262,75 @@ std::string dot_text(std::string value) {
   if (value.empty()) {
     return {};
   }
+  return value;
+}
+
+std::string strip_fixed_line_overflow_tokens(
+    std::string value,
+    bool allow_wide_short_boundary) {
+  // Callers must first establish that value is a physical fixed-layout row.
+  // A word beyond this display boundary is not part of that row; applying the
+  // rule to flowing prose would make an aligned paragraph a false positive.
+  constexpr auto display_width = std::size_t{79};
+  value.append(4, ' ');
+  auto line_begin = std::size_t{0};
+  for (auto cursor = std::size_t{0}; cursor < value.size();) {
+    if (std::isspace(static_cast<unsigned char>(value[cursor])) == 0) {
+      ++cursor;
+      continue;
+    }
+    const auto gap_begin = cursor;
+    while (cursor < value.size() &&
+           std::isspace(static_cast<unsigned char>(value[cursor])) != 0) {
+      ++cursor;
+    }
+    if (cursor - gap_begin < 4) {
+      continue;
+    }
+    const auto visible_begin = value.find_first_not_of(" \t\r\n", line_begin);
+    auto visible_end = gap_begin;
+    while (visible_end > line_begin &&
+           std::isspace(static_cast<unsigned char>(value[visible_end - 1])) !=
+               0) {
+      --visible_end;
+    }
+    if (visible_begin != std::string::npos && visible_begin < visible_end &&
+        visible_end - line_begin >= display_width) {
+      auto token_begin = visible_end;
+      while (token_begin > visible_begin &&
+             std::isspace(static_cast<unsigned char>(value[token_begin - 1])) ==
+                 0) {
+        --token_begin;
+      }
+      auto without_end = token_begin;
+      while (without_end > visible_begin &&
+             std::isspace(static_cast<unsigned char>(value[without_end - 1])) !=
+                 0) {
+        --without_end;
+      }
+      const auto token = value.substr(token_begin, visible_end - token_begin);
+      const auto lower_word = !token.empty() &&
+          std::all_of(token.begin(), token.end(), [](const auto ch) {
+            return std::islower(static_cast<unsigned char>(ch)) != 0;
+          });
+      const auto generated_url = token.size() >= 2 && token.front() == '<' &&
+                                 token.back() == '>';
+      const auto wide_short_boundary =
+          allow_wide_short_boundary && cursor - gap_begin == 4 &&
+          visible_end - line_begin > 84 &&
+          without_end - line_begin > display_width &&
+          without_end - line_begin <= 84;
+      if ((without_end - line_begin <= display_width ||
+           wide_short_boundary) &&
+          (lower_word || generated_url)) {
+        const auto removed = visible_end - token_begin;
+        value.erase(token_begin, removed);
+        cursor -= removed;
+      }
+    }
+    line_begin = gap_begin;
+  }
+  value.resize(value.size() - 4);
   return value;
 }
 
@@ -986,6 +1056,23 @@ std::optional<SelectControl> parse_select_control(std::string value) {
       control.external_kind = ascii_lower(alternatives.front());
       control.external_target = *source;
       control.display_fragment = fragment.substr(cursor);
+    } else if (!alternatives.empty()) {
+      // BOOK/HDR link alternatives are transport metadata, not display text.
+      // Retain a stable cross-book target for Markdown and remove the complete
+      // angle-bracket prefix before display-column selection.
+      if (alternatives.size() >= 6 && !alternatives[3].empty() &&
+          !alternatives[5].empty()) {
+        control.target = alternatives[3] + "/" + alternatives[5];
+      } else {
+        const auto last = std::find_if(
+            alternatives.rbegin(), alternatives.rend(), [](const auto& item) {
+              return !item.empty();
+            });
+        if (last != alternatives.rend()) {
+          control.target = *last;
+        }
+      }
+      control.display_fragment = fragment.substr(cursor);
     }
   }
   return control;
@@ -1155,6 +1242,35 @@ std::optional<SelectedDisplayText> select_display_text(
     return candidate;
   }
   return std::nullopt;
+}
+
+std::string render_table_select_fragment(const SelectControl& control) {
+  auto fragment = control.display_fragment;
+  const auto display = select_display_text(control);
+  if (!display || display->selected.empty()) {
+    return fragment;
+  }
+  auto selected = std::string::npos;
+  auto nearest_distance = std::numeric_limits<std::size_t>::max();
+  for (auto candidate = fragment.find(display->selected);
+       candidate != std::string::npos;
+       candidate = fragment.find(display->selected, candidate + 1)) {
+    const auto distance = candidate > control.column
+                              ? candidate - control.column
+                              : control.column - candidate;
+    if (distance < nearest_distance) {
+      selected = candidate;
+      nearest_distance = distance;
+    }
+  }
+  if (selected == std::string::npos) {
+    return fragment;
+  }
+  fragment.replace(selected,
+                   display->selected.size(),
+                   ":hdref refid='" + escape_gml_attr(control.target) + "'." +
+                       display->selected + ":ehdref.");
+  return fragment;
 }
 
 std::string render_selects_gml(std::vector<SelectControl> controls,
@@ -1492,6 +1608,7 @@ std::string render_layout_gml(std::string value,
     }
     std::string text;
     std::getline(rest_input, text);
+    text = strip_fixed_line_overflow_tokens(std::move(text));
     if (trim_ascii(text).empty()) {
       const auto normalized_tag = normalize_bookmaster_tag(tag);
       if (normalized_tag == "ul" || normalized_tag == "ol" ||
@@ -1517,7 +1634,7 @@ std::string render_layout_gml(std::string value,
     rest_input >> break_count;
     std::string text;
     std::getline(rest_input, text);
-    text = trim_ascii(std::move(text));
+    text = trim_ascii(strip_fixed_line_overflow_tokens(std::move(text)));
     if (!text.empty()) {
       return render_simple_gml_control("p", std::move(text));
     }
@@ -1575,6 +1692,7 @@ struct GmlRenderState {
   bool in_vnotice = false;
   bool emitted_vnotice_heading = false;
   bool pending_copyright_extension = false;
+  bool pending_note_continuation = false;
   bool in_table = false;
   bool table_just_closed = false;
   bool in_labeled_box = false;
@@ -1584,6 +1702,9 @@ struct GmlRenderState {
   bool in_footnote = false;
   bool ignore_after_index = false;
   bool current_record_has_message_catalog = false;
+  bool fixed_catalog_requested = false;
+  bool in_fixed_catalog = false;
+  bool in_semantic_message_catalog = false;
   std::size_t table_columns = 0;
   std::vector<std::size_t> table_separator_offsets;
   std::size_t table_line_width = 0;
@@ -1591,6 +1712,7 @@ struct GmlRenderState {
   bool table_final_separator_is_synthetic = false;
   bool table_layout_from_font_heading = false;
   bool table_action_code_layout = false;
+  bool table_hex_code_layout = false;
   bool table_event_qualifier_layout = false;
   bool table_has_picture = false;
   std::string table_visual_buffer;
@@ -1889,7 +2011,7 @@ extract_action_table_row(const std::string& value, std::size_t line_width) {
     }
     auto type = clean_table_cell_text(
         value.substr(code_end + 1, type_end - code_end - 1));
-    if (type.empty() || type.size() > 2) {
+    if (type.empty() || type.size() > 4) {
       start = value.find('?', start + 1);
       continue;
     }
@@ -2227,11 +2349,28 @@ std::string render_table_body_gml(std::string segment, GmlRenderState& state) {
   std::string output;
   state.table_visual_buffer += std::move(segment);
   while (true) {
-    if (state.table_action_code_layout) {
+    if (state.table_action_code_layout || state.table_hex_code_layout) {
       if (auto row = extract_action_table_row(state.table_visual_buffer,
                                               state.table_line_width)) {
-        append_table_visual_line(state, row->first, output);
+        auto cells = std::move(row->first);
         state.table_visual_buffer.erase(0, row->second);
+        if (state.table_hex_code_layout && cells.size() >= 3 &&
+            cells[2].size() > 2) {
+          const auto suffix = cells[2].substr(cells[2].size() - 2);
+          if (std::isdigit(static_cast<unsigned char>(suffix.front())) != 0 &&
+              std::all_of(suffix.begin(), suffix.end(), [](const auto ch) {
+                return std::isxdigit(static_cast<unsigned char>(ch)) != 0;
+              })) {
+            cells[2].resize(cells[2].size() - 2);
+            state.table_visual_buffer.insert(
+                0,
+                state.table_visual_buffer.empty() ||
+                        state.table_visual_buffer.front() != '?'
+                    ? "?" + suffix + "?"
+                    : "?" + suffix);
+          }
+        }
+        append_table_visual_line(state, cells, output);
         continue;
       }
     }
@@ -2274,6 +2413,9 @@ std::string render_table_body_gml(std::string segment, GmlRenderState& state) {
       auto final_separator_is_synthetic = false;
       const auto event_qualifier_heading =
           state.table_visual_buffer.find("Qualifier") != std::string::npos;
+      const auto hex_code_heading =
+          state.table_visual_buffer.find("Hex Code") != std::string::npos &&
+          state.table_visual_buffer.find("Abbreviation") != std::string::npos;
       if (auto offsets = infer_table_separator_offsets(state.table_visual_buffer,
                                                        0,
                                                        state.table_border_width,
@@ -2286,6 +2428,7 @@ std::string render_table_body_gml(std::string segment, GmlRenderState& state) {
             final_separator_is_synthetic;
         state.table_layout_from_font_heading = segment_is_font_heading;
         state.table_event_qualifier_layout = event_qualifier_heading;
+        state.table_hex_code_layout = hex_code_heading;
       } else {
         if (state.table_visual_buffer.size() < 80) {
           break;
@@ -3596,6 +3739,57 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
   const auto spans = parse_font_spans(value, cursor);
   auto raw_trailing = cursor >= value.size() ? std::string{}
                                              : value.substr(cursor);
+  raw_trailing = strip_fixed_line_overflow_tokens(std::move(raw_trailing));
+  auto stripped_fixed_prefix = false;
+  if (!state.in_vnotice && !spans.empty() && spans.front().offset <= 12) {
+    const auto first = raw_trailing.find_first_not_of(" \t\r\n");
+    if (first != std::string::npos) {
+      auto prefix_end = first;
+      while (prefix_end < raw_trailing.size() &&
+             std::isspace(static_cast<unsigned char>(
+                 raw_trailing[prefix_end])) == 0) {
+        ++prefix_end;
+      }
+      auto candidate = prefix_end;
+      while (candidate < raw_trailing.size() &&
+             std::isspace(static_cast<unsigned char>(
+                 raw_trailing[candidate])) != 0) {
+        ++candidate;
+      }
+      auto candidate_end = candidate;
+      while (candidate_end < raw_trailing.size() &&
+             std::isspace(static_cast<unsigned char>(
+                 raw_trailing[candidate_end])) == 0) {
+        ++candidate_end;
+      }
+      if (candidate > prefix_end + 1 &&
+          prefix_end - first != spans.front().length &&
+          candidate_end - candidate == spans.front().length) {
+        raw_trailing.erase(0, candidate);
+        stripped_fixed_prefix = true;
+      }
+    }
+  }
+  const auto lower_raw_trailing = ascii_lower(raw_trailing);
+  const auto c_cc = state.in_vnotice ? std::string::npos
+                                     : lower_raw_trailing.find("c.cc");
+  const auto split_fixed_c_cc = c_cc != std::string::npos && c_cc <= 100;
+  auto fixed_row_trailing = std::string{};
+  if (split_fixed_c_cc) {
+    auto trailing_begin = c_cc + std::string("c.cc").size();
+    while (trailing_begin < raw_trailing.size() &&
+           std::isspace(static_cast<unsigned char>(
+               raw_trailing[trailing_begin])) != 0) {
+      ++trailing_begin;
+    }
+    while (trailing_begin < raw_trailing.size() &&
+           std::isdigit(static_cast<unsigned char>(
+               raw_trailing[trailing_begin])) != 0) {
+      ++trailing_begin;
+    }
+    fixed_row_trailing = trim_ascii(raw_trailing.substr(trailing_begin));
+    raw_trailing.resize(c_cc);
+  }
   if (state.current_record_has_message_catalog) {
     for (std::size_t index = 0; index + 2 < raw_trailing.size(); ++index) {
       if ((raw_trailing[index] == '<' || raw_trailing[index] == '>') &&
@@ -3635,12 +3829,52 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
       return render_simple_gml_control("note", std::move(note_text)) + "\n" +
              render_simple_gml_control("coprnote", std::move(copyright_text));
     }
+    state.pending_note_continuation = true;
     return render_simple_gml_control("note", std::move(plain_trailing));
   }
   if (state.in_generated_title_page) {
     return render_simple_gml_control(
         "p",
         normalize_display_text_with_map(std::move(trailing)).text);
+  }
+  if (state.pending_note_continuation) {
+    state.pending_note_continuation = false;
+    auto continuation = apply_font_spans_to_text(
+        raw_trailing,
+        spans,
+        font_base_column_from_visual_prefix(raw_trailing,
+                                            state.current_font_base_column));
+    continuation = strip_visual_line_markers_from_inline_gml(
+        std::move(continuation));
+    return render_simple_gml_control("pinline", std::move(continuation));
+  }
+  const auto fixed_example_row =
+      raw_trailing.size() <= 100 &&
+      std::all_of(spans.begin(), spans.end(), [](const auto& span) {
+        return ascii_equals_case_insensitive(span.code, "e") ||
+               ascii_equals_case_insensitive(span.code, "x") ||
+               ascii_equals_case_insensitive(span.code, "xmp");
+      }) &&
+      raw_trailing.find_first_not_of(" \t\r\n") >= 5;
+  if (!state.in_semantic_message_catalog &&
+      (stripped_fixed_prefix || split_fixed_c_cc || fixed_example_row)) {
+    auto plain_row = dot_text(raw_trailing);
+    auto ordered_row =
+        apply_font_spans_to_ordered_words(plain_row, spans);
+    auto row = ordered_row
+                   ? std::move(*ordered_row)
+                   : apply_font_spans_to_text(
+                         raw_trailing,
+                         spans,
+                         font_base_column_from_visual_prefix(
+                             raw_trailing, state.current_font_base_column));
+    row = strip_visual_line_markers_from_inline_gml(std::move(row));
+    auto output = render_normalized_gml_control("line", std::move(row));
+    if (!fixed_row_trailing.empty()) {
+      output += "\n" +
+                render_simple_gml_control("p", fixed_row_trailing);
+    }
+    return output;
   }
   if (auto fixed_row = apply_font_spans_to_bar_visual_row(raw_trailing, spans);
       fixed_row) {
@@ -3844,6 +4078,9 @@ std::string render_gml_segment(std::string segment,
   }
   if (ascii_starts_with_case_insensitive(lower, "st")) {
     auto title = rest_after_first_word(segment);
+    if (state.in_semantic_message_catalog) {
+      title = strip_fixed_line_overflow_tokens(std::move(title), true);
+    }
     if (!state.pending_topic_tag.empty()) {
       const auto tag = state.pending_topic_tag;
       state.pending_topic_tag.clear();
@@ -3916,12 +4153,71 @@ std::string render_gml_segment(std::string segment,
     }
     return rendered;
   }
+  if (state.in_table &&
+      ascii_starts_with_case_insensitive(lower, "cselect") &&
+      !is_table_picture_select) {
+    const auto control =
+        parse_select_control(rest_after_first_word(segment));
+    if (!control) {
+      return {};
+    }
+    return render_table_body_gml(render_table_select_fragment(*control),
+                                 state);
+  }
   if (state.in_table && !ascii_starts_with_case_insensitive(lower, "sretbl") &&
       !is_table_picture_select &&
       !ascii_starts_with_case_insensitive(lower, "cz")) {
     return render_table_body_gml(std::move(segment), state);
   }
   if (ascii_starts_with_case_insensitive(lower, "cfont")) {
+    // CFONT inside a figure describes display-column styling for a physical
+    // row.  Rendering it as an ordinary inline paragraph discards the row
+    // boundary and lets the next decoded row merge into it.  The figure
+    // renderer already collects xline records into one preformatted block;
+    // retain the visible payload here and treat the font triples as row
+    // metadata rather than prose.
+    if (state.in_figure && !state.in_table) {
+      auto line = normalize_preformatted_line(segment);
+      if (line.empty()) {
+        return {};
+      }
+      return ":xline." + std::move(line);
+    }
+    if (state.fixed_catalog_requested || state.in_fixed_catalog) {
+      auto font_value = trim_ascii(rest_after_first_word(segment));
+      std::size_t cursor = 0;
+      (void)parse_font_spans(font_value, cursor);
+      auto trailing = cursor >= font_value.size()
+                          ? std::string{}
+                          : font_value.substr(cursor);
+      auto line = normalize_preformatted_line(segment);
+      if (!state.pending_selects.empty() && !trim_ascii(trailing).empty()) {
+        auto controls = std::move(state.pending_selects);
+        state.pending_selects.clear();
+        auto linked = render_pending_selects_gml(controls, trailing);
+        if (!linked.empty()) {
+          const auto content = linked.find('.');
+          if (content != std::string::npos) {
+            line = linked.substr(content + 1);
+          }
+        } else {
+          state.pending_selects = std::move(controls);
+        }
+      }
+      auto output = std::string{};
+      if (!state.in_fixed_catalog) {
+        state.in_fixed_catalog = true;
+        state.fixed_catalog_requested = false;
+        output = ":xmp inline='html'.";
+      }
+      if (!line.empty()) {
+        if (!output.empty()) {
+          output.push_back('\n');
+        }
+        output += ":xline." + std::move(line);
+      }
+      return output;
+    }
     if (!state.pending_selects.empty()) {
       auto font_value = trim_ascii(rest_after_first_word(segment));
       std::size_t cursor = 0;
@@ -4014,6 +4310,7 @@ std::string render_gml_segment(std::string segment,
     state.table_final_separator_is_synthetic = false;
     state.table_layout_from_font_heading = false;
     state.table_action_code_layout = false;
+    state.table_hex_code_layout = false;
     state.table_event_qualifier_layout = false;
     state.table_has_picture = false;
     state.table_visual_buffer.clear();
@@ -4140,6 +4437,7 @@ std::string render_gml_segment(std::string segment,
     state.table_final_separator_is_synthetic = false;
     state.table_layout_from_font_heading = false;
     state.table_action_code_layout = false;
+    state.table_hex_code_layout = false;
     state.table_event_qualifier_layout = false;
     state.table_has_picture = false;
     state.table_visual_buffer.clear();
@@ -4151,7 +4449,26 @@ std::string render_gml_segment(std::string segment,
   }
   if (ascii_starts_with_case_insensitive(lower, "srmsg")) {
     auto operand = trim_control_operand(segment.substr(5));
+    const auto first_word_end = operand.find_first_of(" \t\r\n");
+    const auto message_id = operand.substr(0, first_word_end);
+    const auto numeric_id = !message_id.empty() &&
+        std::all_of(message_id.begin(), message_id.end(), [](const auto ch) {
+          return std::isdigit(static_cast<unsigned char>(ch)) != 0;
+        });
+    if (!message_id.empty() && !numeric_id) {
+      state.fixed_catalog_requested = true;
+    } else if (numeric_id) {
+      state.in_semantic_message_catalog = true;
+    }
     return render_keyed_gml_control("anchor", "id", "MSG " + operand);
+  }
+  if (ascii_starts_with_case_insensitive(lower, "srgls")) {
+    state.fixed_catalog_requested = true;
+    return render_anchor_gml(segment.substr(2));
+  }
+  if (ascii_starts_with_case_insensitive(lower, "srhdrmnote")) {
+    state.fixed_catalog_requested = true;
+    return render_anchor_gml(segment.substr(2));
   }
   if (ascii_starts_with_case_insensitive(lower, "srftn")) {
     state.pending_footnote_id = trim_control_operand(segment.substr(2));
@@ -4311,7 +4628,9 @@ std::vector<GmlAppendResult> append_rendered_gml_line(
              ascii_starts_with_case_insensitive(rendered.back(), ":dd ") ||
              ascii_starts_with_case_insensitive(rendered.back(), ":dd.") ||
              ascii_starts_with_case_insensitive(rendered.back(), ":fn ") ||
-             ascii_starts_with_case_insensitive(rendered.back(), ":fn."))) {
+             ascii_starts_with_case_insensitive(rendered.back(), ":fn.") ||
+             ascii_starts_with_case_insensitive(rendered.back(), ":note ") ||
+             ascii_starts_with_case_insensitive(rendered.back(), ":note."))) {
           if (!rendered.back().empty() && rendered.back().back() != ' ') {
             rendered.back().push_back(' ');
           }
@@ -4351,6 +4670,9 @@ std::vector<std::string> render_gml_records(
                                      state);
       (void)append_rendered_gml_line(rendered, line);
     }
+  }
+  if (state.in_fixed_catalog) {
+    rendered.push_back(":exmp.");
   }
   return rendered;
 }

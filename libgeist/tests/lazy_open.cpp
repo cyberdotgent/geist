@@ -267,10 +267,20 @@ int main() {
                   std::string::npos,
           "continued fixed row lost advantages prose");
   for (const auto* leaked : {":H2", "not - part", "readers. = Therefore",
-                             "access ' books"}) {
+                             "access ' books",
+                             "booksrv2.raleigh.ibm.com",
+                             "operating systems book"}) {
     require(web_advantages.find(leaked) == std::string::npos,
             "continued fixed-row marker leaked into Markdown");
   }
+  const auto web_opening = web_demo.topic_markdown("1.4");
+  require(web_opening.find(
+              "**Note:** Your ability to view or play the various media "
+              "objects will depend **on** **the** **hardware** **and** "
+              "**software** **configuration** **of** **your** "
+              "**workstation.**") != std::string::npos &&
+              web_opening.find("depend across") == std::string::npos,
+          "fixed note continuation retained a carryover word or split row");
   const auto* web_working = web_demo.find_toc_entry("1.3");
   const auto* web_data = web_demo.find_toc_entry("1.4.3");
   require(web_working != nullptr && web_data != nullptr &&
@@ -353,6 +363,50 @@ int main() {
   }
   require(configuration_qualifiers.find("**|**") == std::string::npos,
           "visual-bar CFONT row highlighted its structural marker");
+  require(configuration_qualifiers.find("cselect") == std::string::npos &&
+              configuration_qualifiers.find("<BOOK>") == std::string::npos &&
+              configuration_qualifiers.find("SC41-4801/4801") !=
+                  std::string::npos,
+          "cross-book table selector metadata leaked or lost its target");
+
+  const auto sclm = geist::BooDocument::open(root / "SC34-425.boo");
+  const auto sclm_messages = sclm.topic_markdown("APPENDIX1.5.3");
+  require(sclm_messages.find("<pre>") != std::string::npos &&
+              sclm_messages.find("FLM00000 MESSAGE ID") !=
+                  std::string::npos &&
+              sclm_messages.find("<a id=\"MSG FLM00101\"></a>") !=
+                  std::string::npos &&
+              sclm_messages.find("**FLM00000**") == std::string::npos,
+          "SCLM message catalog was flattened into styled prose");
+  const auto sclm_mnotes = sclm.topic_markdown("APPENDIX1.5.4");
+  require(sclm_mnotes.find("<pre>") != std::string::npos &&
+              sclm_mnotes.find("ACCT AND EXPACCT NAMES SAME") !=
+                  std::string::npos &&
+              sclm_mnotes.find("**ACCT**") == std::string::npos,
+          "SCLM MNOTE catalog was flattened into styled prose");
+  const auto sclm_glossary = sclm.topic_markdown("GLOSSARY");
+  require(sclm_glossary.find("<pre>") != std::string::npos &&
+              sclm_glossary.find("access key.  An identifier") !=
+                  std::string::npos,
+          "SCLM glossary lost its fixed-layout rows");
+  const auto pli_example = sclm.topic_markdown("1.9.2");
+  require(pli_example.find("```text") != std::string::npos &&
+              pli_example.find("SCLM SERVICE PROCEDURES") !=
+                  std::string::npos &&
+              pli_example.find("**SCLM**") == std::string::npos,
+          "fixed PL/I figure was rendered as inline emphasis");
+
+  const auto sort_reference =
+      geist::BooDocument::open(root / "PRG1SORT.boo");
+  const auto collating = sort_reference.topic_markdown("C.1");
+  require(collating.find("<a id=\"NCS\"></a>") != std::string::npos &&
+              collating.find("<a id=\"EBCDIC2\"></a>") !=
+                  std::string::npos &&
+              collating.find("<a id=\"EBCDIC3\"></a>") !=
+                  std::string::npos &&
+              collating.find("```text") != std::string::npos &&
+              collating.find("Order in") != std::string::npos,
+          "collating-sequence figures lost their fixed rows");
 
   const auto smf_layout =
       geist::BooDocument::open(root / "SH12-565.boo")
@@ -469,6 +523,10 @@ int main() {
               redirected_traps.find(
                   "- **1** — **Description:** Link Alarm") !=
                   std::string::npos &&
-              redirected_traps.find("SRMSG") == std::string::npos,
+              redirected_traps.find("SRMSG") == std::string::npos &&
+              redirected_traps.find("bridge application") !=
+                  std::string::npos &&
+              redirected_traps.find("bridge can application") ==
+                  std::string::npos,
           "redirected trap catalog remained preformatted or leaked metadata");
 }

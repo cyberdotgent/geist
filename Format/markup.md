@@ -986,3 +986,54 @@ The evidence was obtained with `bootrace.exe BOO/IEAC6MST.BOO FIGURES
 `/BOOKS/IEAC6MST/FIGURES?DT=19920124000100`. The decoder reports the figure
 targets and row fragments in logical records 16--24; BookServer emits the
 corresponding rows in `<pre width="80">` with one anchor per row.
+
+## Structural CFONT rows and generated fixed catalogs
+
+`CFONT` triples describe styles at display columns; they do not make their
+visible payload an ordinary flowing paragraph. When `CFONT` occurs inside
+`SRFIG`/`SREFIG`, its payload is one physical figure row and remains in the
+figure's preformatted stream. This is verified by `SC34-425.boo` topic
+`1.9.2` (PL/I source) and `PRG1SORT.boo` topic `C.1` (the `NCS`, `EBCDIC2`,
+and `EBCDIC3` collating grids).
+
+Generated, nonnumeric `SRMSG` catalogs use the same fixed-row representation.
+`SC34-425.boo` topic `APPENDIX1.5.3`, logical record 2539, begins with
+`SRMSG FLM00000`; its following `CFONT` rows are the message heading,
+explanation, user response, and administrator response. A new `SRMSG` starts
+another logical entry but does not end the encompassing fixed block.
+Empty/nonnumeric MNOTE and `SRGLS` controls identify the equivalent fixed
+MNOTE and glossary streams. Numeric `SRMSG` operands remain semantic
+message-definition rows, as verified by `SC31-711.boo` topics `4.1.1` and
+`4.2.2`; the operand shape is therefore structurally significant.
+
+Some decoded fixed rows retain a presentation carry-over token before their
+actual display origin. In `GG24-4302-00.boo` topic `4.2.5`, logical record 344
+stores `access     KEYWD ...`, while the first triple is offset 4, length 5
+and identifies `KEYWD`, not `access`. Topic `7.3`, record 587, similarly
+stores `available      DFS0762I ...` with a first length of 8. When a short
+first-column span matches the word after a multi-space boundary but not the
+prefix word, the prefix is outside the display row. `c.cc` then terminates
+that physical row and is not visible text.
+
+`CSELECT ... LNK <BOOK> ... <book-id> ... <topic-id>` alternatives are link
+transport metadata. Remove the angle-bracket alternatives from the display
+fragment and retain the book/topic pair as the target. Inside an active
+`SRTBL`, the selected display text belongs to the current visual cell; raw
+`CSELECT` syntax must never enter the table buffer. Evidence is
+`SC41-485.boo` topic `1.2.2`, logical records 20 and 23, including targets
+`SC41-4121/3121` and `SC41-4801/4801`.
+
+Complete fixed rows can also join at a logical-record boundary without a
+decoded separator before the next two-digit code. `SC31-605.boo` topic `1.2`
+ends record 42 with `06 / USER / User generated` and begins record 43 with
+`07 / SNA / Summary`. In this known hexadecimal/abbreviation grid, that
+two-digit suffix starts a new row; it is not continuation text.
+
+Fixed display rows have a 79-column payload boundary in the observed books.
+When a single lowercase word or generated angle-bracket URL appears beyond
+that boundary immediately before the next padded row, it belongs to decoder
+carry-over rather than visible text. `XWEBDEMO.boo` topic `1.1`, logical
+records 6--7, provides both forms; topic `1.4`, logical record 10, shows that
+the following `CFONT` payload continues the active note. `SC31-711.boo` topic
+`4.3.4`, logical record 145, independently stores `can` beyond the row ending
+in `bridge`, followed by the visible next-row word `application`.

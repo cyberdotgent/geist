@@ -905,3 +905,10 @@
   across logical-record joins, and wrapped qualifier text retains its column.
   Added dense, sparse, boundary, and wrapped-row regressions and fetched all
   110 hosted topics for the pre-close comparison.
+- Restored structural ownership for fixed `CFONT`/`CSELECT` rows. Figure
+  source and collating grids now remain preformatted; SC34 FLM/MNOTE/glossary
+  catalogs retain physical rows and anchors; GG24 carry-over prefixes and
+  `c.cc` boundaries no longer merge fixed commands into prose; cross-book
+  selector alternatives are metadata rather than table text; and SC31-605
+  event-type rows 06/07 remain separate. Added cross-book fixture regressions
+  while preserving SC31-711's semantic numeric trap catalogs.

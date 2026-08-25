@@ -1687,6 +1687,16 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         output.push_back('\n');
         continue;
       }
+      if (in_rich_example && tag == "anchor") {
+        output += render_anchor_markdown(record);
+        output.push_back('\n');
+        continue;
+      }
+      if (in_rich_example && tag == "hdref") {
+        output += render_inline_html(record);
+        output.push_back('\n');
+        continue;
+      }
     }
     if (in_footnote) {
       if (tag == "efn") {
