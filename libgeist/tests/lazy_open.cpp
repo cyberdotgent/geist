@@ -150,4 +150,69 @@ int main() {
           "control suppression discarded preface prose or menu entries");
   require(preface.find("```text") == std::string::npos,
           "generated menu prose remained in an unintended code fence");
+
+  const auto product_overview =
+      geist::BooDocument::open(root / "GG24-395.boo");
+  for (const auto* topic : {"3.2.1", "3.2.3", "3.3.1", "3.3.3", "3.3.4",
+                            "3.3.7", "3.3.8", "3.3.9", "3.3.10",
+                            "3.3.11", "3.3.12", "3.3.13", "3.3.15",
+                            "3.3.16", "3.3.18"}) {
+    require(product_overview.topic_markdown(topic).find("](resource:") !=
+                std::string::npos,
+            "picture selector in a table lost its BOO resource");
+  }
+  require(product_overview.topic_markdown("3.3.7").find(
+              "The NetView product has versions") != std::string::npos,
+          "text following an image-bearing table was lost");
+  require(product_overview.topic_markdown("3.3.11").find(
+              "IBM Workstation Data Save Facility/VM") != std::string::npos,
+          "image-bearing table prose split across records was lost");
+  const auto distributed_security =
+      product_overview.topic_markdown("3.3.15");
+  require(distributed_security.find(
+              "provides a consistent security administration interface") !=
+              std::string::npos &&
+              distributed_security.find("PICTURE 91") == std::string::npos,
+          "image-bearing table prose was replaced by picture metadata");
+
+  const auto web_demo = geist::BooDocument::open(root / "XWEBDEMO.boo");
+  require(web_demo.topic_markdown("1.0").find(
+              "![Image](/bookmgr/product.gif)") != std::string::npos,
+          "external product image selector was malformed");
+  const auto web_external_pictures = web_demo.topic_markdown("1.4.1");
+  require(web_external_pictures.find(
+              "![Image](/bookmgr/monetcoq.jpg)") != std::string::npos,
+          "inline external JPEG selector was malformed");
+  require(web_external_pictures.find(
+              "](/bookmgr/monetley.jpg)") != std::string::npos,
+          "linked external JPEG selector lost its target");
+  require(web_external_pictures.find("[Figure 3](#FIGMONET1)") !=
+              std::string::npos &&
+              web_external_pictures.find("[Figure 2](#FIGOVERVIE)") !=
+                  std::string::npos,
+          "external-picture cross-reference labels were torn");
+  require(web_external_pictures.find("<IMAGE>") == std::string::npos &&
+              web_external_pictures.find("<OTHER>") == std::string::npos,
+          "external-picture selector alternatives leaked into prose");
+  const auto web_multimedia = web_demo.topic_markdown("1.4.2");
+  require(web_multimedia.find("[Warp us out of here!](/bookmgr/entprise.mpg)") !=
+              std::string::npos &&
+              web_multimedia.find("[scream!](/bookmgr/scream1.wav)") !=
+                  std::string::npos,
+          "external multimedia selectors lost labels or targets");
+  require(web_demo.topic_markdown("1.4.3").find(
+              "[here](ftp://software.raleigh.ibm.com/os2/internet/webexplorer)") !=
+              std::string::npos,
+          "external FTP selector lost its label or target");
+  require(web_demo.topic_markdown("1.4.4").find(
+              "[The IBM Home Page](http://www.ibm.com/)") !=
+              std::string::npos,
+          "external HTTP selector lost its label or target");
+  const auto web_figures = web_demo.topic_markdown("FIGURES");
+  require(web_figures.find("[1. BookManager product family 1.2]") !=
+              std::string::npos &&
+              web_figures.find(
+                  "[3. External JPEG format image presented in-line 1.4.1]") !=
+                  std::string::npos,
+          "external-picture figure index retained selector metadata");
 }

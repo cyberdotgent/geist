@@ -1,5 +1,19 @@
 # Agent Log
 
+## 2026-08-25 - Decode BOO and external CSELECT image targets
+
+- Restored all 15 confirmed `GG24-395` `PICnn` resources and retained visible
+  table prose across selector, logical-record, and `SRETBL` boundaries while
+  suppressing generated `PICTURE nn` and subject-index metadata.
+- Decoded XWEBDEMO `LNK` alternative groups into inline images or labeled
+  `/bookmgr/`, HTTP, and FTP links, including video and audio targets; repaired
+  the associated Figure 2/Figure 3 selector spans and figure list labels.
+- Added fixture regressions for every affected GG24 topic and each observed
+  XWEB selector form. All nine CTest tests pass; complete cached comparisons
+  rendered 226/226 GG24-395 and 13/13 XWEBDEMO topics with no fetch failures.
+- Opened #36 for the independently confirmed XWEBDEMO title/body layout-control
+  leakage found during the required full-book recheck.
+
 ## 2026-08-25 - Suppress generated BookManager layout controls
 
 - Removed leaked page/layout controls (`c.cc`, `cfont`, generated topic

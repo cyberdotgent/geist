@@ -802,6 +802,8 @@ struct SelectControl {
   std::size_t length = 0;
   std::string target;
   std::string display_fragment;
+  std::string external_kind;
+  std::string external_target;
 };
 
 std::optional<SelectControl> parse_select_control(std::string value) {
@@ -823,10 +825,43 @@ std::optional<SelectControl> parse_select_control(std::string value) {
   }
   std::string display_fragment;
   std::getline(input, display_fragment);
-  return SelectControl{static_cast<std::size_t>(selected_column),
-                       static_cast<std::size_t>(selected_length),
-                       std::move(target),
-                       std::move(display_fragment)};
+  SelectControl control{static_cast<std::size_t>(selected_column),
+                        static_cast<std::size_t>(selected_length),
+                        std::move(target),
+                        std::move(display_fragment),
+                        {},
+                        {}};
+  if (ascii_starts_with_case_insensitive(control.target, "lnk")) {
+    auto fragment = trim_ascii(control.display_fragment);
+    std::vector<std::string> alternatives;
+    auto cursor = std::size_t{0};
+    while (cursor < fragment.size() && fragment[cursor] == '<') {
+      const auto close = fragment.find('>', cursor + 1);
+      if (close == std::string::npos) {
+        break;
+      }
+      alternatives.push_back(fragment.substr(cursor + 1,
+                                             close - cursor - 1));
+      cursor = close + 1;
+      while (cursor < fragment.size() &&
+             std::isspace(static_cast<unsigned char>(fragment[cursor])) != 0) {
+        ++cursor;
+      }
+    }
+    const auto source = std::find_if(
+        alternatives.begin(), alternatives.end(), [](const auto& value) {
+          return (!value.empty() && value.front() == '/') ||
+                 ascii_starts_with_case_insensitive(value, "http://") ||
+                 ascii_starts_with_case_insensitive(value, "https://") ||
+                 ascii_starts_with_case_insensitive(value, "ftp://");
+        });
+    if (!alternatives.empty() && source != alternatives.end()) {
+      control.external_kind = ascii_lower(alternatives.front());
+      control.external_target = *source;
+      control.display_fragment = fragment.substr(cursor);
+    }
+  }
+  return control;
 }
 
 struct SelectedDisplayText {
@@ -860,6 +895,28 @@ std::vector<SelectDisplayLineCandidate> select_display_line_candidates(
     --end;
   }
   auto trimmed = fragment.substr(begin, end - begin);
+  if (!trimmed.empty() && trimmed.front() == '<') {
+    const auto close = trimmed.find('>');
+    if (close != std::string::npos) {
+      const auto value = trimmed.substr(1, close - 1);
+      if (ascii_starts_with_case_insensitive(value, "http://") ||
+          ascii_starts_with_case_insensitive(value, "https://") ||
+          ascii_starts_with_case_insensitive(value, "ftp://")) {
+        trimmed = trim_ascii(trimmed.substr(close + 1));
+      }
+    }
+  }
+  for (const auto* generated_prefix : {"<internet>", ":h1", ":h3"}) {
+    if (ascii_starts_with_case_insensitive(trimmed, generated_prefix)) {
+      trimmed = trim_ascii(trimmed.substr(std::string(generated_prefix).size()));
+      break;
+    }
+  }
+  if (!trimmed.empty() && trimmed.front() == '/' &&
+      (trimmed.size() == 1 ||
+       std::isspace(static_cast<unsigned char>(trimmed[1])) != 0)) {
+    trimmed = trim_ascii(trimmed.substr(1));
+  }
   if (trimmed.size() >= 3 && trimmed.front() == '.' &&
       std::isspace(static_cast<unsigned char>(trimmed[1])) != 0 &&
       std::isspace(static_cast<unsigned char>(trimmed[2])) != 0) {
@@ -931,8 +988,17 @@ std::vector<SelectDisplayLineCandidate> select_display_line_candidates(
 
 std::optional<SelectedDisplayText> select_display_text(
     const SelectControl& control) {
+  auto display_fragment = control.display_fragment;
+  if (ascii_starts_with_case_insensitive(control.target, "fig")) {
+    const auto aligned_gap = display_fragment.find("    ");
+    if (aligned_gap != std::string::npos && aligned_gap > 0 &&
+        trim_ascii(display_fragment.substr(0, aligned_gap))
+                .find_first_of(" \t\r\n") == std::string::npos) {
+      display_fragment = display_fragment.substr(aligned_gap + 4);
+    }
+  }
   for (const auto& candidate_line :
-       select_display_line_candidates(control.display_fragment)) {
+       select_display_line_candidates(display_fragment)) {
     auto display_line = candidate_line.line;
     const auto selected_end = control.column + control.length;
     if (display_line.size() < selected_end) {
@@ -1061,28 +1127,87 @@ std::string render_pending_selects_gml(
 }
 
 std::string render_select_gml(const SelectControl& control) {
-  const auto resource_id = picture_resource_id(control.target);
-  const auto display = select_display_text(control);
-  if (!display) {
-    if (!resource_id.empty()) {
-      return ":image resource='" + escape_gml_attr(resource_id) + "'.";
+  if (!control.external_target.empty()) {
+    auto trailing = dot_text(control.display_fragment);
+    if (control.external_kind == "image") {
+      auto output = ":image src='" +
+                    escape_gml_attr(control.external_target) + "'.";
+      if (!trailing.empty()) {
+        const auto figure = trailing.find("Figure ");
+        output += "\n" + render_simple_gml_control(
+                             figure == std::string::npos ? "p" : "figcap",
+                             figure == std::string::npos
+                                 ? std::move(trailing)
+                                 : trim_ascii(trailing.substr(figure)));
+      }
+      return output;
     }
-    return {};
+    if (control.external_kind == "other" ||
+        control.external_kind == "internet") {
+      if (const auto display = select_display_text(control)) {
+        auto inline_text = display->prefix;
+        if (!inline_text.empty()) {
+          inline_text += " ";
+        }
+        inline_text += ":hdref href='" +
+                       escape_gml_attr(control.external_target) + "'.";
+        inline_text += display->selected;
+        inline_text += ":ehdref.";
+        if (!display->suffix.empty()) {
+          if (std::ispunct(static_cast<unsigned char>(
+                  display->suffix.front())) == 0) {
+            inline_text += " ";
+          }
+          inline_text += display->suffix;
+        }
+        return render_simple_gml_control("pinline", std::move(inline_text));
+      }
+    }
   }
 
+  const auto resource_id = picture_resource_id(control.target);
+  auto picture_fragment = control.display_fragment;
   if (!resource_id.empty()) {
-    auto caption = display->prefix;
-    if (!caption.empty() && !display->selected.empty()) {
-      caption += " ";
-    }
-    caption += display->selected;
-    if (!display->suffix.empty()) {
-      if (!caption.empty() &&
-          std::ispunct(static_cast<unsigned char>(
-              display->suffix.front())) == 0) {
-        caption += " ";
+    for (;;) {
+      const auto lower = ascii_lower(picture_fragment);
+      const auto subject = lower.find("si ");
+      if (subject == std::string::npos ||
+          picture_fragment.substr(0, subject).find_first_not_of(" ?\t\r\n") !=
+              std::string::npos) {
+        break;
       }
-      caption += display->suffix;
+      const auto boundary = picture_fragment.find('?', subject + 3);
+      if (boundary == std::string::npos) {
+        break;
+      }
+      auto end = boundary;
+      while (end < picture_fragment.size() && picture_fragment[end] == '?') {
+        ++end;
+      }
+      picture_fragment.erase(0, end);
+    }
+  }
+  auto visible_control = control;
+  visible_control.display_fragment = std::move(picture_fragment);
+  if (!resource_id.empty()) {
+    auto caption = dot_text(visible_control.display_fragment);
+    while (!caption.empty() &&
+           (caption.front() == '|' ||
+            std::isspace(static_cast<unsigned char>(caption.front())) != 0)) {
+      caption.erase(caption.begin());
+    }
+    if (ascii_starts_with_case_insensitive(caption, "picture ")) {
+      auto cursor = std::string("picture ").size();
+      while (cursor < caption.size() &&
+             std::isdigit(static_cast<unsigned char>(caption[cursor])) != 0) {
+        ++cursor;
+      }
+      while (cursor < caption.size() &&
+             (caption[cursor] == '|' ||
+              std::isspace(static_cast<unsigned char>(caption[cursor])) != 0)) {
+        ++cursor;
+      }
+      caption = trim_ascii(caption.substr(cursor));
     }
     const auto figure = caption.find("Figure ");
     if (figure != std::string::npos) {
@@ -1093,6 +1218,11 @@ std::string render_select_gml(const SelectControl& control) {
       output += "\n" + render_simple_gml_control("figcap", std::move(caption));
     }
     return output;
+  }
+
+  const auto display = select_display_text(visible_control);
+  if (!display) {
+    return {};
   }
 
   auto inline_text = display->prefix;
@@ -1331,6 +1461,7 @@ struct GmlRenderState {
   std::size_t table_border_width = 0;
   bool table_final_separator_is_synthetic = false;
   bool table_layout_from_font_heading = false;
+  bool table_has_picture = false;
   std::string table_visual_buffer;
   std::vector<std::string> pending_table_row;
 };
@@ -1695,6 +1826,10 @@ void append_table_visual_line(GmlRenderState& state,
 }
 
 std::string render_table_body_gml(std::string segment, GmlRenderState& state) {
+  if (state.table_has_picture && state.table_columns == 0 &&
+      !trim_ascii(segment).empty()) {
+    return render_simple_gml_control("figcap", std::move(segment));
+  }
   const auto segment_is_font_heading =
       ascii_starts_with_case_insensitive(trim_ascii(segment), "cfont");
   if (segment_is_font_heading) {
@@ -1707,7 +1842,16 @@ std::string render_table_body_gml(std::string segment, GmlRenderState& state) {
 
   if (segment.find('?') == std::string::npos && state.table_columns == 0 &&
       state.pending_table_row.empty()) {
-    return render_simple_gml_control("tcap", std::move(segment));
+    if (auto continuation = render_marker_continuation_gml(segment)) {
+      const auto content = ascii_starts_with_case_insensitive(*continuation,
+                                                               ":line.")
+                               ? continuation->substr(6)
+                               : std::string{};
+      return render_simple_gml_control("figcap", content);
+    }
+    auto text = dot_text(std::move(segment));
+    return render_simple_gml_control(text.empty() ? "tcap" : "figcap",
+                                     std::move(text));
   }
 
   std::string output;
@@ -2993,7 +3137,22 @@ std::string render_gml_segment(std::string segment,
   if (ascii_starts_with_case_insensitive(lower, "cfontdef")) {
     return {};
   }
+  const auto is_table_picture_select = [&]() {
+    if (!ascii_starts_with_case_insensitive(lower, "cselect")) {
+      return false;
+    }
+    const auto control = parse_select_control(rest_after_first_word(segment));
+    return control && !picture_resource_id(control->target).empty();
+  }();
+  if (state.in_table && ascii_starts_with_case_insensitive(lower, "si")) {
+    auto rendered = render_subject_index_gml(rest_after_first_word(segment));
+    if (ascii_starts_with_case_insensitive(rendered, ":line.")) {
+      rendered.replace(0, std::string(":line.").size(), ":figcap.");
+    }
+    return rendered;
+  }
   if (state.in_table && !ascii_starts_with_case_insensitive(lower, "sretbl") &&
+      !is_table_picture_select &&
       !ascii_starts_with_case_insensitive(lower, "cz")) {
     return render_table_body_gml(std::move(segment), state);
   }
@@ -3022,6 +3181,9 @@ std::string render_gml_segment(std::string segment,
     if (!control) {
       return render_simple_gml_control(
           "hdref", rest_after_first_word(std::move(segment)));
+    }
+    if (state.in_table && !picture_resource_id(control->target).empty()) {
+      state.table_has_picture = true;
     }
     std::string rendered;
     if (!state.pending_selects.empty() &&
@@ -3086,6 +3248,7 @@ std::string render_gml_segment(std::string segment,
     state.table_border_width = 0;
     state.table_final_separator_is_synthetic = false;
     state.table_layout_from_font_heading = false;
+    state.table_has_picture = false;
     state.table_visual_buffer.clear();
     state.pending_table_row.clear();
     auto table_payload = segment.substr(5);
@@ -3206,7 +3369,12 @@ std::string render_gml_segment(std::string segment,
     state.table_border_width = 0;
     state.table_final_separator_is_synthetic = false;
     state.table_layout_from_font_heading = false;
+    state.table_has_picture = false;
     state.table_visual_buffer.clear();
+    const auto trailing = dot_text(rest_after_first_word(segment));
+    if (!trailing.empty()) {
+      output += "\n" + render_simple_gml_control("p", trailing);
+    }
     return output;
   }
   if (ascii_starts_with_case_insensitive(lower, "srftn")) {

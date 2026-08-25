@@ -303,6 +303,33 @@ std::string strip_leaked_layout_controls(std::string text,
     }
   }
 
+  for (const auto* marker : {"<image>", "<other>", "<internet>"}) {
+    for (;;) {
+      const auto position = ascii_lower(text).find(marker);
+      if (position == std::string::npos) {
+        break;
+      }
+      text.erase(position, std::string(marker).size());
+    }
+  }
+
+  auto picture = ascii_lower(text).find("picture ");
+  if (picture != std::string::npos &&
+      text.substr(0, picture).find_first_not_of(" |/\t\r\n") ==
+          std::string::npos) {
+    auto cursor = picture + std::string("picture ").size();
+    while (cursor < text.size() &&
+           std::isdigit(static_cast<unsigned char>(text[cursor])) != 0) {
+      ++cursor;
+    }
+    while (cursor < text.size() &&
+           (text[cursor] == '|' ||
+            std::isspace(static_cast<unsigned char>(text[cursor])) != 0)) {
+      ++cursor;
+    }
+    text.erase(0, cursor);
+  }
+
   for (;;) {
     const auto position = ascii_lower(text).find("cfont ");
     if (position == std::string::npos) {
@@ -407,18 +434,20 @@ std::string render_inline_markdown(std::string text) {
       continue;
     }
 
-    const auto dot = text.find('.', cursor + 1);
-    if (dot == std::string::npos) {
+    const auto content_offset = gml_content_offset(text.substr(cursor));
+    if (content_offset == 0 ||
+        text[cursor + content_offset - 1] != '.') {
       output.push_back(text[cursor++]);
       continue;
     }
+    const auto dot = cursor + content_offset - 1;
 
     auto tag = ascii_lower(text.substr(cursor + 1, dot - cursor - 1));
     if (ascii_starts_with_case_insensitive(tag, "hdref ")) {
       const auto close = text.find(":ehdref.", dot + 1);
-      const auto target = inline_gml_attr(text.substr(cursor + 1,
-                                                      dot - cursor - 1),
-                                          "refid");
+      const auto attrs = text.substr(cursor + 1, dot - cursor - 1);
+      const auto target = inline_gml_attr(attrs, "refid");
+      const auto href = inline_gml_attr(attrs, "href");
       if (close != std::string::npos && !target.empty()) {
         auto label = render_inline_markdown(text.substr(dot + 1,
                                                         close - (dot + 1)));
@@ -426,6 +455,16 @@ std::string render_inline_markdown(std::string text) {
           label = target;
         }
         output += "[" + label + "](#" + target + ")";
+        cursor = close + std::string(":ehdref.").size();
+        continue;
+      }
+      if (close != std::string::npos && !href.empty()) {
+        auto label = render_inline_markdown(text.substr(dot + 1,
+                                                        close - (dot + 1)));
+        if (label.empty()) {
+          label = href;
+        }
+        output += "[" + label + "](" + href + ")";
         cursor = close + std::string(":ehdref.").size();
         continue;
       }
@@ -479,19 +518,21 @@ std::string render_inline_html(std::string text) {
       continue;
     }
 
-    const auto dot = text.find('.', cursor + 1);
-    if (dot == std::string::npos) {
+    const auto content_offset = gml_content_offset(text.substr(cursor));
+    if (content_offset == 0 ||
+        text[cursor + content_offset - 1] != '.') {
       append_html_escaped(output, text.substr(cursor, 1));
       ++cursor;
       continue;
     }
+    const auto dot = cursor + content_offset - 1;
 
     auto tag = ascii_lower(text.substr(cursor + 1, dot - cursor - 1));
     if (ascii_starts_with_case_insensitive(tag, "hdref ")) {
       const auto close = text.find(":ehdref.", dot + 1);
-      const auto target = inline_gml_attr(text.substr(cursor + 1,
-                                                      dot - cursor - 1),
-                                          "refid");
+      const auto attrs = text.substr(cursor + 1, dot - cursor - 1);
+      const auto target = inline_gml_attr(attrs, "refid");
+      const auto href = inline_gml_attr(attrs, "href");
       if (close != std::string::npos && !target.empty()) {
         auto label = render_inline_html(text.substr(dot + 1,
                                                     close - (dot + 1)));
@@ -500,6 +541,18 @@ std::string render_inline_html(std::string text) {
         }
         output += "<a href=\"#";
         append_html_escaped(output, target);
+        output += "\">" + label + "</a>";
+        cursor = close + std::string(":ehdref.").size();
+        continue;
+      }
+      if (close != std::string::npos && !href.empty()) {
+        auto label = render_inline_html(text.substr(dot + 1,
+                                                    close - (dot + 1)));
+        if (label.empty()) {
+          append_html_escaped(label, href);
+        }
+        output += "<a href=\"";
+        append_html_escaped(output, href);
         output += "\">" + label + "</a>";
         cursor = close + std::string(":ehdref.").size();
         continue;
@@ -1010,6 +1063,7 @@ void append_index_item(std::string& output, std::string text) {
 std::string render_link_markdown(const std::string& record) {
   auto text = gml_markdown_content(record);
   const auto target = gml_attr(record, "refid");
+  const auto href = gml_attr(record, "href");
   const auto prefix = gml_attr(record, "prefix");
   const auto suffix = gml_attr(record, "suffix");
   const auto rendered_prefix = prefix.empty() ? std::string{} : prefix + " ";
@@ -1022,7 +1076,9 @@ std::string render_link_markdown(const std::string& record) {
     text = target;
   }
   if (target.empty()) {
-    return rendered_prefix + text + rendered_suffix;
+    return rendered_prefix +
+           (href.empty() ? text : "[" + text + "](" + href + ")") +
+           rendered_suffix;
   }
   if (is_footnote_id(target)) {
     return rendered_prefix + "<a id=\"fnref-" + target + "\"></a>[" + text +
@@ -1035,6 +1091,7 @@ std::string render_link_markdown(const std::string& record) {
 std::string render_image_markdown(const std::string& record) {
   auto text = gml_markdown_content(record);
   const auto resource = gml_attr(record, "resource");
+  const auto source = gml_attr(record, "src");
   const auto prefix = gml_attr(record, "prefix");
   const auto suffix = gml_attr(record, "suffix");
   const auto rendered_prefix = prefix.empty() ? std::string{} : prefix + " ";
@@ -1045,6 +1102,10 @@ std::string render_image_markdown(const std::string& record) {
           : " " + suffix;
   if (text.empty()) {
     text = resource.empty() ? "Image" : "Resource " + resource;
+  }
+  if (!source.empty()) {
+    return rendered_prefix + "![" + text + "](" + source + ")" +
+           rendered_suffix;
   }
   if (resource.empty()) {
     return rendered_prefix + text + rendered_suffix;
@@ -1591,10 +1652,12 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         table_caption = gml_markdown_content(record);
         continue;
       }
-      if (tag == "p" || tag == "c" || tag == "hdref" || tag == "lblbox") {
+      if (tag == "p" || tag == "c" || tag == "hdref" || tag == "lblbox" ||
+          tag == "image" || tag == "figcap") {
         const auto column = gml_int_attr(record, "col").value_or(-1);
-        auto text = tag == "hdref" ? render_link_markdown(record)
-                                   : gml_markdown_content(record);
+        auto text = tag == "hdref"   ? render_link_markdown(record)
+                    : tag == "image" ? render_image_markdown(record)
+                                     : gml_markdown_content(record);
         if (!text.empty() || preserve_explicit_table_rows) {
           table_cells.push_back(
               {column, std::move(text), next_table_cell_starts_row});

@@ -839,6 +839,30 @@ after a leading visual row marker in a colon-introduced simple-list block
 (`| ?   text`). Once this marker starts a simple list, following rows in the
 same logical-record body remain list items until the synthetic logical-record
 boundary; the next paragraph is not bullet-prefixed.
+
+## GG24-395 And XWEBDEMO Image Selector Recheck
+
+On 2026-08-25, the complete cached BookServer captures were rerun after the
+image-selector implementation change:
+
+```sh
+python3 tools/bookserver_book_audit.py BOO/GG24-395.boo \
+  --book-id GG24-395 --timestamp 19941215160749 \
+  --output /tmp/geist-books20-audits/GG24-395 --jobs 4 --no-fetch
+python3 tools/bookserver_book_audit.py BOO/XWEBDEMO.boo \
+  --book-id XWEBDEMO --timestamp 19970423182524 \
+  --output /tmp/geist-books20-audits/XWEBDEMO --jobs 4 --no-fetch
+```
+
+All 226 `GG24-395` topics and all 13 `XWEBDEMO` topics rendered successfully.
+The focused evidence was `GG24-395` topics `3.3.7`, `3.3.11`, and `3.3.15`
+(logical records 528, 581--582, and 635), plus `XWEBDEMO` topics `1.0`,
+`1.4.1`, `1.4.2`, `1.4.3`, `1.4.4`, and `FIGURES`. The comparison confirmed
+that picture-bearing `SRTBL` layouts retain prose across logical-record and
+`SRETBL` boundaries, and that `LNK` alternatives retain their image, HTTP,
+FTP, video, and audio targets. A separate residual XWEBDEMO presentation issue
+tracks title/body layout controls that are independent of selector targets.
+
 ## GG24-4302-00 CSELECT Column And Delimiter Check
 
 The IBM redbook *IMS 5.1 Guide* (`GG24-4302-00`, BOO version 1.2) was checked
