@@ -1113,3 +1113,22 @@ fixed/preformatted structures whose `CFONT` controls currently pass through a
 table or fixed-row path before ordinary CFONT dispatch.  Their remaining
 over-emphasis and row collapse must be tracked as structural rendering work,
 not as another byte/character-offset repair.
+
+## XWEBDEMO presentation-control recheck
+
+Issue 36 was verified against a fresh 13-topic BookServer fetch after the
+decoded-presentation cleanup:
+
+```sh
+python3 tools/bookserver_book_audit.py BOO/XWEBDEMO.boo \
+  --book-id XWEBDEMO --timestamp 19970423182524 \
+  --output /tmp/geist-XWEBDEMO-layout-audit-post36-final --jobs 4
+```
+
+All 13 reference pages fetched.  The targeted `TITLE`, `FIGURES`, `1.0`,
+`1.1`, `1.3`, `1.4.1`, and `1.4.3` comparisons no longer contain `c.sp`, empty
+selector alternatives, selector-kind names, slash/heading row sentinels, or
+selector metadata in TOC titles.  Eight pages retain heuristic differences.
+The substantive residuals in `1.1` and `1.4` are fixed-row carry-over and
+multi-record style assembly problems in the structural path tracked by issue
+40, rather than residual presentation-token leakage.

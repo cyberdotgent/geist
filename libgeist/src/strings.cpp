@@ -146,6 +146,10 @@ std::string normalize_logical_control_value(const std::string& key,
 }
 
 std::string normalize_toc_title(std::string value) {
+  for (const auto* marker : {"<IMAGE>", "<INTERNET>", "<OTHER>", "<>"}) {
+    replace_all_case_insensitive(value, marker, "");
+  }
+  value = trim_ascii(std::move(value));
   value = capitalize_bookmanager_words(value);
   std::string normalized;
   normalized.reserve(value.size());

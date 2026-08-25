@@ -452,6 +452,17 @@ whole-word recovery is permitted only when the ordered span lengths identify
 unambiguous word tokens; table and preformatted-row reconstruction remains a
 separate structural step.
 
+Generated BookMaster output can also carry presentation-only tokens between
+typed controls and visible rows.  `c.sp <distance> p c` is a spacing directive,
+not topic-title or paragraph text.  Empty selector alternatives (`<>`) and the
+kind names `<IMAGE>`, `<INTERNET>`, and `<OTHER>` are metadata, including when
+they remain in a neighboring `ST`, `CZ`, or `CFONT` display fragment rather
+than the parsed `CSELECT` operand.  Fixed-row sentinels such as `/`, `//`, and
+`:H1`--`:H6` are non-visible only when followed by the decoded layout padding;
+ordinary slashes and colon-prefixed prose must be preserved.  XWEBDEMO topics
+`TITLE`, `FIGURES`, `1.0`, `1.1`, `1.3`, `1.4.1`, and `1.4.3` provide the
+cross-context evidence.
+
 Span-only `CFONT` records apply to the next physical text segment. PACKET
 topic `1.3` stores `CFONT 27 5 3 33 10 3` at the end of one logical record and
 the next record starts with `FM  radio  through  its audio interface; ...`.

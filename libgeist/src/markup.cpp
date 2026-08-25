@@ -155,6 +155,7 @@ bool is_decoded_line_marker(char ch) {
     case '*':
     case '!':
     case '-':
+    case '\'':
     case ':':
     case '=':
       return true;
@@ -167,6 +168,53 @@ std::string remove_decoded_line_markers(std::string value) {
   std::string output;
   output.reserve(value.size());
   for (std::size_t index = 0; index < value.size(); ++index) {
+    static constexpr std::array<std::string_view, 4>
+        kGeneratedSelectorMarkers = {"<IMAGE>", "<INTERNET>", "<OTHER>",
+                                     "<>"};
+    const auto generated_selector_marker = std::find_if(
+        kGeneratedSelectorMarkers.begin(),
+        kGeneratedSelectorMarkers.end(),
+        [&](const auto marker) {
+          return ascii_starts_with_case_insensitive(value, index, marker);
+        });
+    if (generated_selector_marker != kGeneratedSelectorMarkers.end()) {
+      index += generated_selector_marker->size() - 1;
+      if (!output.empty() && output.back() != ' ') {
+        output.push_back(' ');
+      }
+      continue;
+    }
+    const auto generated_heading_marker =
+        index + 3 < value.size() && value[index] == ':' &&
+        (value[index + 1] == 'h' || value[index + 1] == 'H') &&
+        value[index + 2] >= '1' && value[index + 2] <= '6' &&
+        std::isspace(static_cast<unsigned char>(value[index + 3])) != 0;
+    if (generated_heading_marker) {
+      index += 2;
+      if (!output.empty() && output.back() != ' ') {
+        output.push_back(' ');
+      }
+      continue;
+    }
+    if (value[index] == '/') {
+      auto run_end = index;
+      while (run_end < value.size() && value[run_end] == '/') {
+        ++run_end;
+      }
+      auto padding_end = run_end;
+      while (padding_end < value.size() &&
+             std::isspace(static_cast<unsigned char>(value[padding_end])) !=
+                 0) {
+        ++padding_end;
+      }
+      if (padding_end - run_end >= 2) {
+        index = padding_end - 1;
+        if (!output.empty() && output.back() != ' ') {
+          output.push_back(' ');
+        }
+        continue;
+      }
+    }
     const auto marker_at_boundary =
         index == 0 ||
         std::isspace(static_cast<unsigned char>(value[index - 1])) != 0;
@@ -267,10 +315,10 @@ bool looks_like_gml_control_at(const std::string& value, std::size_t offset) {
     return false;
   }
 
-  static constexpr std::array<std::string_view, 48> prefixes = {
+  static constexpr std::array<std::string_view, 49> prefixes = {
       "ctopicn",     "cparent",    "cforwardlevel",
       "cbacklevel",  "csummary",   "chdlevel",   "csourcefn",
-      "st",          "ctocdef",    "ctoce",      "etoc",
+      "st",          "c.sp",       "ctocdef",    "ctoce",      "etoc",
       "cfontdef",    "cfont",      "cselect",    "cmenu",
       "cmitem",      "cemenu",     "srfig",      "srefig",
       "srtbl",       "sretbl",     "sr",         "cz",
@@ -591,7 +639,10 @@ std::optional<std::string> render_marker_continuation_gml(
     return std::nullopt;
   }
 
-  auto text = strip_visual_line_marker(segment.substr(1));
+  // Preserve the wide padding until decoded markers inside the continuation
+  // have been removed. Collapsing first makes an interior marker look like
+  // ordinary punctuation and leaks it into the rendered line.
+  auto text = strip_visual_line_marker(dot_text(segment.substr(1)));
   if (text.empty()) {
     return std::string{};
   }
@@ -3447,6 +3498,9 @@ std::string render_gml_segment(std::string segment,
     return ":eindex.";
   }
   if (ascii_starts_with_case_insensitive(lower, "cfontdef")) {
+    return {};
+  }
+  if (ascii_starts_with_case_insensitive(lower, "c.sp")) {
     return {};
   }
   const auto is_table_picture_select = [&]() {

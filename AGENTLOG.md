@@ -881,3 +881,9 @@
   unsafe partial-word spans are omitted instead of corrupting prose. Added
   fixture regressions for GG24, SC41, SC31, SH12, and SC24 and replayed the
   seven complete cached BookServer audits used by issue 9.
+- Removed generated BookMaster spacing, selector-kind, slash, and heading-row
+  sentinels from XWEBDEMO visible output while preserving ordinary slash text
+  and cross-book title spacing.  TOC titles now discard verified selector
+  metadata.  Added XWEBDEMO fixture regressions, passed all nine tests, and
+  replayed a fresh 13-topic BookServer audit before closing issue 36; remaining
+  semantic fixed-row carry-over is tracked separately by issue 40.
