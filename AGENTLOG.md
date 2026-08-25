@@ -1,5 +1,18 @@
 # Agent Log
 
+## 2026-08-25 - Add reproducible whole-book rendering audits
+
+- Added `tools/bookserver_book_audit.py` to inventory every BOO TOC topic,
+  cache its exact hosted BookServer HTML, render local Markdown, and emit a
+  structural/text comparison manifest plus normalized diffs.
+- Documented the reusable audit and issue-evidence workflow in
+  `AnalysisNotes/whole-book-rendering-audits.md`, including the verified hosted
+  identity, timestamp, URL, and fixture checksum for `GG24-4302-00`.
+- Completed a 229-topic capture for `GG24-4302-00` in temporary storage: all
+  hosted requests succeeded and an offline rerun reproduced the 229-row audit.
+- Validated the local baseline with a complete CMake build and all eight CTest
+  tests passing.
+
 ## 2026-06-17 - Add logical record trace tooling
 
 - Added a stable libgeist trace surface for decoded logical records:
