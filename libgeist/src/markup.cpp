@@ -1591,6 +1591,7 @@ struct GmlRenderState {
   bool table_final_separator_is_synthetic = false;
   bool table_layout_from_font_heading = false;
   bool table_action_code_layout = false;
+  bool table_event_qualifier_layout = false;
   bool table_has_picture = false;
   std::string table_visual_buffer;
   std::vector<std::string> pending_table_row;
@@ -1814,7 +1815,8 @@ std::optional<std::vector<std::size_t>> infer_table_separator_offsets(
     const std::string& value,
     std::size_t start,
     std::size_t table_border_width,
-    bool& final_separator_is_synthetic) {
+    bool& final_separator_is_synthetic,
+    std::size_t maximum_table_separators = 4) {
   if (start >= value.size() || value[start] != '?' ||
       is_table_border_run(value, start)) {
     return std::nullopt;
@@ -1822,7 +1824,8 @@ std::optional<std::vector<std::size_t>> infer_table_separator_offsets(
   final_separator_is_synthetic = false;
   std::vector<std::size_t> offsets{0};
   auto cursor = start + 1;
-  while (cursor < value.size() && offsets.size() < 4) {
+  while (cursor < value.size() &&
+         offsets.size() < maximum_table_separators) {
     const auto next = value.find('?', cursor);
     if (next == std::string::npos || is_table_border_run(value, next)) {
       break;
@@ -1945,6 +1948,64 @@ std::string flush_pending_table_row(GmlRenderState& state) {
   return output.str();
 }
 
+std::optional<std::pair<std::size_t, std::size_t>> event_code_in_cells(
+    const std::vector<std::string>& cells) {
+  for (std::size_t cell_index = 0; cell_index < cells.size(); ++cell_index) {
+    const auto text = trim_ascii(cells[cell_index]);
+    if (text.size() < 5) {
+      continue;
+    }
+    const auto code_begin = text.size() - 5;
+    if (std::all_of(text.begin() + static_cast<std::ptrdiff_t>(code_begin),
+                    text.end(),
+                    [](const auto ch) {
+                      return std::isxdigit(
+                                 static_cast<unsigned char>(ch)) != 0;
+                    })) {
+      return std::pair<std::size_t, std::size_t>{cell_index, code_begin};
+    }
+  }
+  return std::nullopt;
+}
+
+std::optional<std::size_t> find_embedded_event_row_start(
+    const std::string& value) {
+  const auto first_separator = value.find('?', 1);
+  if (!value.empty() && value.front() == '?' &&
+      first_separator != std::string::npos) {
+    const auto first_cell = clean_table_cell_text(
+        value.substr(1, first_separator - 1));
+    if (first_cell.size() == 5 &&
+        std::all_of(first_cell.begin(), first_cell.end(), [](const auto ch) {
+          return std::isxdigit(static_cast<unsigned char>(ch)) != 0;
+        })) {
+      return std::nullopt;
+    }
+  }
+  for (auto separator = value.find('?', 1); separator != std::string::npos;
+       separator = value.find('?', separator + 1)) {
+    auto cursor = separator + 1;
+    while (cursor < value.size() && value[cursor] == ' ') {
+      ++cursor;
+    }
+    const auto code_begin = cursor;
+    while (cursor < value.size() &&
+           std::isxdigit(static_cast<unsigned char>(value[cursor])) != 0) {
+      ++cursor;
+    }
+    if (cursor - code_begin != 5) {
+      continue;
+    }
+    while (cursor < value.size() && value[cursor] == ' ') {
+      ++cursor;
+    }
+    if (cursor < value.size() && value[cursor] == '?') {
+      return separator;
+    }
+  }
+  return std::nullopt;
+}
+
 void append_table_visual_line(GmlRenderState& state,
                               const std::vector<std::string>& line,
                               std::string& output) {
@@ -1955,6 +2016,86 @@ void append_table_visual_line(GmlRenderState& state,
 
   if (normalized_line.empty()) {
     return;
+  }
+  if (state.table_event_qualifier_layout) {
+    if (auto first_code = event_code_in_cells(normalized_line)) {
+      std::vector<std::string> tail(normalized_line.begin() +
+                                        static_cast<std::ptrdiff_t>(
+                                            first_code->first + 1),
+                                    normalized_line.end());
+      if (auto second_code = event_code_in_cells(tail)) {
+        const auto second_cell = first_code->first + 1 + second_code->first;
+        auto first_line = normalized_line;
+        first_line.resize(second_cell + 1);
+        first_line.back() = trim_ascii(
+            first_line.back().substr(0, second_code->second));
+
+        std::vector<std::string> second_line;
+        auto second_text = trim_ascii(normalized_line[second_cell]);
+        second_line.push_back(second_text.substr(second_code->second));
+        second_line.insert(second_line.end(),
+                           normalized_line.begin() +
+                               static_cast<std::ptrdiff_t>(second_cell + 1),
+                           normalized_line.end());
+        append_table_visual_line(state, first_line, output);
+        append_table_visual_line(state, second_line, output);
+        return;
+      }
+    }
+  }
+  auto event_row_starts = false;
+  if (state.table_event_qualifier_layout) {
+    const auto is_heading = std::any_of(
+        normalized_line.begin(), normalized_line.end(), [](const auto& cell) {
+          return ascii_starts_with_case_insensitive(trim_ascii(cell),
+                                                     "Qualifier 1");
+        });
+    if (is_heading) {
+      normalized_line = {"Event Code", "Qualifier 1", "Qualifier 2",
+                         "Qualifier 3"};
+      state.table_columns = normalized_line.size();
+    } else if (auto code = event_code_in_cells(normalized_line)) {
+      const auto code_cell = code->first;
+      const auto code_begin = code->second;
+      if (!state.pending_table_row.empty()) {
+        std::size_t continuation_column = 1;
+        for (std::size_t index = 0; index <= code_cell &&
+                                    continuation_column <
+                                        state.pending_table_row.size();
+             ++index) {
+          auto text = trim_ascii(normalized_line[index]);
+          if (index == code_cell) {
+            text = trim_ascii(text.substr(0, code_begin));
+          }
+          if (text.empty()) {
+            continue;
+          }
+          auto& target = state.pending_table_row[continuation_column++];
+          if (!target.empty()) {
+            target += "<br>";
+          }
+          target += std::move(text);
+        }
+      }
+
+      std::vector<std::string> event_row(4);
+      const auto code_text = trim_ascii(normalized_line[code_cell]);
+      event_row[0] = code_text.substr(code_begin);
+      for (std::size_t source = code_cell + 1, target = 1;
+           source < normalized_line.size() && target < event_row.size();
+           ++source, ++target) {
+        event_row[target] = normalized_line[source];
+      }
+      normalized_line = std::move(event_row);
+      state.table_columns = normalized_line.size();
+      event_row_starts = true;
+    } else {
+      while (normalized_line.size() > 4) {
+        normalized_line.erase(normalized_line.begin());
+      }
+      normalized_line.resize(4);
+      state.table_columns = normalized_line.size();
+    }
   }
   if (state.table_layout_from_font_heading &&
       state.pending_table_row.empty() && normalized_line.size() == 4 &&
@@ -2001,7 +2142,8 @@ void append_table_visual_line(GmlRenderState& state,
     return;
   }
 
-  const auto starts_new_row = !cells.empty() && !cells.front().empty();
+  const auto starts_new_row =
+      event_row_starts || (!cells.empty() && !cells.front().empty());
   if (!state.pending_table_row.empty() && starts_new_row) {
     auto flushed = flush_pending_table_row(state);
     if (!flushed.empty()) {
@@ -2068,6 +2210,19 @@ std::string render_table_body_gml(std::string segment, GmlRenderState& state) {
       }
     }
   }
+  if (state.table_event_qualifier_layout) {
+    const auto first_separator = segment.find('?');
+    if (first_separator != std::string::npos) {
+      const auto prefix =
+          clean_table_cell_text(segment.substr(0, first_separator));
+      if (prefix.size() == 5 &&
+          std::all_of(prefix.begin(), prefix.end(), [](const auto ch) {
+            return std::isxdigit(static_cast<unsigned char>(ch)) != 0;
+          })) {
+        segment.insert(segment.begin(), '?');
+      }
+    }
+  }
 
   std::string output;
   state.table_visual_buffer += std::move(segment);
@@ -2117,16 +2272,20 @@ std::string render_table_body_gml(std::string segment, GmlRenderState& state) {
 
     if (state.table_separator_offsets.empty()) {
       auto final_separator_is_synthetic = false;
+      const auto event_qualifier_heading =
+          state.table_visual_buffer.find("Qualifier") != std::string::npos;
       if (auto offsets = infer_table_separator_offsets(state.table_visual_buffer,
                                                        0,
                                                        state.table_border_width,
-                                                       final_separator_is_synthetic)) {
+                                                       final_separator_is_synthetic,
+                                                       event_qualifier_heading ? 5 : 4)) {
         state.table_separator_offsets = std::move(*offsets);
         state.table_columns = state.table_separator_offsets.size() - 1;
         state.table_line_width = state.table_separator_offsets.back() + 1;
         state.table_final_separator_is_synthetic =
             final_separator_is_synthetic;
         state.table_layout_from_font_heading = segment_is_font_heading;
+        state.table_event_qualifier_layout = event_qualifier_heading;
       } else {
         if (state.table_visual_buffer.size() < 80) {
           break;
@@ -2160,6 +2319,52 @@ std::string render_table_body_gml(std::string segment, GmlRenderState& state) {
         continue;
       }
     }
+    if (state.table_event_qualifier_layout) {
+      if (auto embedded = find_embedded_event_row_start(
+              state.table_visual_buffer)) {
+        std::vector<std::size_t> continuation_offsets;
+        for (auto separator = std::size_t{0}; separator <= *embedded;) {
+          continuation_offsets.push_back(separator);
+          if (separator == *embedded) {
+            break;
+          }
+          const auto next = state.table_visual_buffer.find('?', separator + 1);
+          if (next == std::string::npos || next > *embedded) {
+            continuation_offsets.clear();
+            break;
+          }
+          separator = next;
+        }
+        if (continuation_offsets.size() >= 2) {
+          auto cells = extract_fixed_table_line_cells(
+              state.table_visual_buffer, 0, continuation_offsets);
+          append_table_visual_line(state, cells, output);
+          state.table_visual_buffer.erase(0, *embedded);
+          continue;
+        }
+      }
+      auto row_final_separator_is_synthetic = false;
+      if (auto row_offsets = infer_table_separator_offsets(
+              state.table_visual_buffer,
+              0,
+              state.table_border_width,
+              row_final_separator_is_synthetic,
+              5);
+          row_offsets && row_offsets->size() == 5) {
+        const auto row_width = row_offsets->back() + 1;
+        if (state.table_visual_buffer.size() < row_width) {
+          break;
+        }
+        auto cells = extract_fixed_table_line_cells(state.table_visual_buffer,
+                                                    0,
+                                                    *row_offsets);
+        if (event_code_in_cells(cells)) {
+          append_table_visual_line(state, cells, output);
+          state.table_visual_buffer.erase(0, row_width);
+          continue;
+        }
+      }
+    }
     if (!fixed_table_line_matches(state.table_visual_buffer,
                                   0,
                                   state.table_separator_offsets,
@@ -2175,10 +2380,13 @@ std::string render_table_body_gml(std::string segment, GmlRenderState& state) {
               state.table_visual_buffer,
               0,
               state.table_border_width,
-              row_final_separator_is_synthetic);
+              row_final_separator_is_synthetic,
+              state.table_event_qualifier_layout ? 5 : 4);
           state.table_layout_from_font_heading && row_offsets &&
           row_offsets->size() >= 2 &&
-          row_offsets->size() - 1 <= state.table_columns) {
+          row_offsets->size() - 1 <=
+              state.table_columns +
+                  (state.table_event_qualifier_layout ? 1 : 0)) {
         const auto row_width = row_offsets->back() + 1;
         if (state.table_visual_buffer.size() < row_width) {
           break;
@@ -3806,6 +4014,7 @@ std::string render_gml_segment(std::string segment,
     state.table_final_separator_is_synthetic = false;
     state.table_layout_from_font_heading = false;
     state.table_action_code_layout = false;
+    state.table_event_qualifier_layout = false;
     state.table_has_picture = false;
     state.table_visual_buffer.clear();
     state.pending_table_row.clear();
@@ -3931,6 +4140,7 @@ std::string render_gml_segment(std::string segment,
     state.table_final_separator_is_synthetic = false;
     state.table_layout_from_font_heading = false;
     state.table_action_code_layout = false;
+    state.table_event_qualifier_layout = false;
     state.table_has_picture = false;
     state.table_visual_buffer.clear();
     const auto trailing = dot_text(rest_after_first_word(segment));

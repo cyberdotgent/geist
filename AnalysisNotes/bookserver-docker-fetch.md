@@ -1096,6 +1096,24 @@ All 110 cached pages rendered; 91 retained heuristic flags. Review of those
 flags separated the chapter 3 event/qualifier grid family from this action-code
 layout rather than treating the audit score as a functional failure.
 
+The chapter 3 event/qualifier correction was then checked against a fresh live
+full-book capture:
+
+```sh
+python3 tools/bookserver_book_audit.py BOO/SC31-605.boo --book-id SC31-605 --timestamp 19911015203151 --output /tmp/geist-SC31-605-post39-final --jobs 4
+```
+
+All 110 hosted topics fetched successfully.  The audit still reports 91
+heuristic flags because BookServer exposes the grids as emphasized fixed-width
+`pre` blocks whereas libgeist emits semantic Markdown tables.  Direct diffs for
+topics `3.2`, `3.5`, and `3.8` confirm the same event codes, one row per code,
+four complete headers, and the same wrapped qualifier-cell contents.  Every
+flagged page was reviewed before closing the book-specific defect: chapter 2's
+table-versus-`pre` differences are the already-corrected action grids, chapter
+3's flags are the semantic-table-versus-`pre` representation difference, and
+the remaining substantive fixed-layout index/glossary residuals belong to
+issue 40.  No independent new defect was found.
+
 ## Cross-book CFONT regression verification
 
 Issue 9's ordinary-flow span fixes were checked against these hosted books and

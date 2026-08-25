@@ -35,6 +35,48 @@ int main() {
     }
   }
 
+  const auto event_3650 = document.topic_markdown("3.2");
+  const auto event_series1 = document.topic_markdown("3.5");
+  const auto event_3725 = document.topic_markdown("3.8");
+  const auto event_3647 = document.topic_markdown("3.3");
+  for (const auto* expected : {
+           "| Event Code | Qualifier 1 | Qualifier 2 | Qualifier 3 |",
+           "| 00504 | Panel message |  |  |",
+           "| 00505 | Panel message |  |  |",
+       }) {
+    if (event_3650.find(expected) == std::string::npos) {
+      std::cerr << "misaligned SC31-605 3650 event row: " << expected << "\n";
+      return 1;
+    }
+  }
+  for (const auto* expected : {
+           "| 02136 | Node ID,device<br>type | Device address | Log record ID |",
+           "| 02142 | Node ID,device<br>type | Device address,<br>malfunction code | Log record ID |",
+           "| 0216B | Node ID,device<br>type | Device address,<br>malfunction code | Log record ID |",
+       }) {
+    if (event_series1.find(expected) == std::string::npos) {
+      std::cerr << "misaligned SC31-605 Series/1 event row: " << expected
+                << "\n";
+      return 1;
+    }
+  }
+  if (event_3725.find("| 02D07 | Abend code |  |  |") ==
+          std::string::npos ||
+      event_3725.find("| 02D08 | Abend code |  |  |") ==
+          std::string::npos ||
+      event_3725.find("| 02D0B | Scanner position | Lower range of<br>line "
+                      "addresses | Upper range of<br>line addresses |") ==
+          std::string::npos) {
+    std::cerr << "SC31-605 wrapped qualifier rows lost their columns\n";
+    return 1;
+  }
+  if (event_3647.find(
+          "| 01601 | Log record number | Device address | Status code |") ==
+      std::string::npos) {
+    std::cerr << "SC31-605 sparse event grid lost its semantic columns\n";
+    return 1;
+  }
+
   struct Representative {
     const char* topic;
     const char* text;

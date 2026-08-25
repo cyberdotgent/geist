@@ -899,3 +899,9 @@
   markers, and cannot merge the following copyright record into the notice
   body.  Added fixture regressions, retained the QS3 edition behavior, and ran
   a fresh live 229-topic GG24 audit before issue triage.
+- Reconstructed SC31-605 chapter 3 event/qualifier grids as four-column
+  semantic tables.  Separator inference now distinguishes their five-boundary
+  heading from the chapter 2 action grid, five-hex-digit codes delimit rows
+  across logical-record joins, and wrapped qualifier text retains its column.
+  Added dense, sparse, boundary, and wrapped-row regressions and fetched all
+  110 hosted topics for the pre-close comparison.

@@ -741,6 +741,25 @@ border rows between records are layout, not data. Topic `2.1` demonstrates this
 at action codes `05`, `0F`, `19`, `23`, `63`, `6F`, and `7B` in logical records
 49--57.
 
+SC31-605 chapter 3 uses a distinct four-column event grid.  Its styled heading
+has five visible separators and combines `Event` / `Code` into the semantic
+header `Event Code`, followed by `Qualifier 1`, `Qualifier 2`, and
+`Qualifier 3`.  Separator discovery must therefore retain one more boundary
+than the chapter 2 three-column action grid.  Each five-hex-digit event code
+starts a new semantic row; following physical rows with a blank event-code cell
+continue the same qualifier cells.  At logical-record boundaries a continuation
+and the next event-code row can be adjacent without an intervening box rule, or
+two complete event rows can be decoded into one accumulated visual line.  The
+next five-hex-digit code remains a row boundary in both cases.
+
+Verified examples include `SC31-605.boo` topic `3.5`, logical records 416--433:
+codes `02135`/`02136`, `0213B`/`0213C`, and `02141`/`02142` cross such record
+boundaries while retaining `Node ID,device` / `type`, `Device address,` /
+`malfunction code`, and `Log record ID` in their three qualifier columns.
+Topic `3.8`, logical records 469--472, shows column-specific continuation rows:
+for `02D0B`--`02D0E`, `line addresses` continues qualifiers 2 and 3, not
+qualifier 1.
+
 Evidence:
 
 | File | Decoded evidence |
@@ -753,6 +772,8 @@ Evidence:
 | `packet.boo` | Topic `2.4.4`: `SRTBLTBLUNIQ17`, fixed-width boxed rows for `Table 1. IPv4 Address Classes`, and final `SRETBL`; hosted BookServer renders the same block as an HTML table. |
 | `packet.boo` | Topic `3.9`: `SRTBLTBLUNIQ40`, wrapped boxed rows for `Table 4. Linux Packet Programs`; hosted BookServer keeps wrapped description lines inside the same table cell. |
 | `SC31-605.boo` | Topic `2.1`, logical records 48–57: `SRTBL005`, 74-column fixed rows from action code `01` through `81`, and final `SRETBL`; records 49–57 are table continuations, not empty topic padding. |
+| `SC31-605.boo` | Topic `3.5`, logical records 416–433: `SRTBLS1`, a four-column `Event Code` / qualifier grid, five-hex-digit row keys `02101`–`0216B`, wrapped qualifier cells, and boundary pairs such as `02135`/`02136`. |
+| `SC31-605.boo` | Topic `3.8`, logical records 469–472: event rows `02D01`–`02D0F`; `02D0B`–`02D0E` continue `line addresses` in qualifier columns 2 and 3. |
 | `bookmgr.exe.i64` | `sub_405FC` recognizes `CZ OFF TABLE` and `CZ OFF ETABLE` as table layout controls; `sub_69440` resets table/layout accumulation globals. |
 
 The resource table stores raw assets as documented in [assets.md](assets.md).

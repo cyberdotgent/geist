@@ -1586,6 +1586,15 @@ std::string render_table_markdown(const std::string& id,
     return table_fallback_markdown(id, caption);
   }
 
+  if (rows.size() >= 2 && rows[0].size() == rows[1].size() &&
+      collapse_ascii_whitespace(rows[0][0]) == "Event" &&
+      collapse_ascii_whitespace(rows[1][0]) == "Event Code" &&
+      std::all_of(rows[0].begin() + 1, rows[0].end(), [](const auto& cell) {
+        return collapse_ascii_whitespace(cell).empty();
+      })) {
+    rows.erase(rows.begin());
+  }
+
   return render_rows_as_markdown_table(
       id, caption, rows, !has_explicit_rows);
 }
