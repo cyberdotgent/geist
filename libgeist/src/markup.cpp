@@ -267,8 +267,8 @@ bool looks_like_gml_control_at(const std::string& value, std::size_t offset) {
     return false;
   }
 
-  static constexpr std::array<std::string_view, 49> prefixes = {
-      "sh",          "ctopicn",    "cparent",    "cforwardlevel",
+  static constexpr std::array<std::string_view, 48> prefixes = {
+      "ctopicn",     "cparent",    "cforwardlevel",
       "cbacklevel",  "csummary",   "chdlevel",   "csourcefn",
       "st",          "ctocdef",    "ctoce",      "etoc",
       "cfontdef",    "cfont",      "cselect",    "cmenu",
@@ -297,8 +297,7 @@ bool looks_like_gml_control_at(const std::string& value, std::size_t offset) {
     if (prefix == "st" && next == '|') {
       return true;
     }
-    if ((prefix == "sh" || prefix == "srfig" ||
-         prefix == "srtbl" || prefix == "sr") &&
+    if ((prefix == "srfig" || prefix == "srtbl" || prefix == "sr") &&
         is_topic_id_char(next)) {
       if (prefix == "sr" && end + 1 < value.size() &&
           std::isspace(static_cast<unsigned char>(value[end + 1])) != 0) {
@@ -1117,7 +1116,10 @@ std::optional<std::string> subject_index_visible_tail(const std::string& value,
   const auto question_marker = value.find('?');
   const auto visual_marker = value.find('|');
 
-  constexpr auto kAlignedVisibleTextGap = std::size_t{8};
+  // SI's index key and its visible prose are separated by a fixed-layout
+  // margin. Some books use four or five spaces here, not only the wider
+  // eight-space margin.
+  constexpr auto kAlignedVisibleTextGap = std::size_t{4};
   auto run_begin = std::string::npos;
   auto run_length = std::size_t{0};
   for (std::size_t cursor = 0; cursor < value.size();) {
@@ -1325,6 +1327,7 @@ struct GmlRenderState {
   std::size_t table_line_width = 0;
   std::size_t table_border_width = 0;
   bool table_final_separator_is_synthetic = false;
+  bool table_layout_from_font_heading = false;
   std::string table_visual_buffer;
   std::vector<std::string> pending_table_row;
 };
@@ -1680,7 +1683,9 @@ void append_table_visual_line(GmlRenderState& state,
 }
 
 std::string render_table_body_gml(std::string segment, GmlRenderState& state) {
-  if (ascii_starts_with_case_insensitive(trim_ascii(segment), "cfont")) {
+  const auto segment_is_font_heading =
+      ascii_starts_with_case_insensitive(trim_ascii(segment), "cfont");
+  if (segment_is_font_heading) {
     const auto first_separator = segment.find('?');
     if (first_separator == std::string::npos) {
       return {};
@@ -1742,6 +1747,7 @@ std::string render_table_body_gml(std::string segment, GmlRenderState& state) {
         state.table_line_width = state.table_separator_offsets.back() + 1;
         state.table_final_separator_is_synthetic =
             final_separator_is_synthetic;
+        state.table_layout_from_font_heading = segment_is_font_heading;
       } else {
         if (state.table_visual_buffer.size() < 80) {
           break;
@@ -1764,6 +1770,35 @@ std::string render_table_body_gml(std::string segment, GmlRenderState& state) {
                                   0,
                                   state.table_separator_offsets,
                                   state.table_final_separator_is_synthetic)) {
+      // Some BookMaster tables style their column headings as a grid with an
+      // extra leading cell.  Later data rows omit that empty cell and therefore
+      // use different separator offsets even though they belong to the same
+      // table.  Consume such a complete row using its own offsets, right-align
+      // its cells with the heading grid, and retain the established layout for
+      // continuation lines.
+      auto row_final_separator_is_synthetic = false;
+      if (auto row_offsets = infer_table_separator_offsets(
+              state.table_visual_buffer,
+              0,
+              state.table_border_width,
+              row_final_separator_is_synthetic);
+          state.table_layout_from_font_heading && row_offsets &&
+          row_offsets->size() >= 2 &&
+          row_offsets->size() - 1 <= state.table_columns) {
+        const auto row_width = row_offsets->back() + 1;
+        if (state.table_visual_buffer.size() < row_width) {
+          break;
+        }
+        auto cells = extract_fixed_table_line_cells(state.table_visual_buffer,
+                                                    0,
+                                                    *row_offsets);
+        if (cells.size() < state.table_columns) {
+          cells.insert(cells.begin(), state.table_columns - cells.size(), {});
+        }
+        append_table_visual_line(state, cells, output);
+        state.table_visual_buffer.erase(0, row_width);
+        continue;
+      }
       state.table_visual_buffer.erase(0, 1);
       continue;
     }
@@ -1904,12 +1939,62 @@ std::string font_code_to_highlight_tag(const std::string& code) {
 
 struct DisplayTextMap {
   std::string text;
+  // CFONT coordinates are display-character columns.  The decoded stream is
+  // UTF-8, so these indices count code points while the values remain byte
+  // offsets into the UTF-8 output.  Keeping the two units distinct prevents a
+  // delimiter from being inserted between bytes of a multibyte character.
   std::vector<std::size_t> source_to_output;
 };
 
+std::size_t utf8_character_size(const std::string& value,
+                                std::size_t offset) {
+  if (offset >= value.size()) {
+    return 0;
+  }
+  const auto first = static_cast<unsigned char>(value[offset]);
+  std::size_t length = 1;
+  if (first >= 0xC2 && first <= 0xDF) {
+    length = 2;
+  } else if (first >= 0xE0 && first <= 0xEF) {
+    length = 3;
+  } else if (first >= 0xF0 && first <= 0xF4) {
+    length = 4;
+  }
+  if (length == 1 || offset + length > value.size()) {
+    return 1;
+  }
+  // Invalid sequences are treated as one opaque source character.  This is
+  // only a defensive fallback for synthetic/legacy input; valid decoded BOO
+  // text takes the multibyte path above.
+  for (std::size_t index = 1; index < length; ++index) {
+    const auto continuation =
+        static_cast<unsigned char>(value[offset + index]);
+    if ((continuation & 0xC0) != 0x80) {
+      return 1;
+    }
+  }
+  return length;
+}
+
+bool utf8_character_is_ascii_space(const std::string& value,
+                                   std::size_t offset,
+                                   std::size_t length) {
+  return length == 1 &&
+         std::isspace(static_cast<unsigned char>(value[offset])) != 0;
+}
+
 DisplayTextMap normalize_display_text_with_map(std::string value) {
   value = remove_decoded_line_markers(std::move(value));
-  value = trim_ascii(std::move(value));
+  // Do not trim the leading display padding: CFONT offsets are measured from
+  // that padding.  It is discarded naturally by the normalizer below while
+  // source_to_output retains one entry per display character.  Keep the
+  // existing right-trim semantics for separator/padding markers.
+  while (!value.empty() &&
+         (std::isspace(static_cast<unsigned char>(value.back())) != 0 ||
+          static_cast<unsigned char>(value.back()) < 0x20 ||
+          value.back() == '?')) {
+    value.pop_back();
+  }
   collapse_terminal_question_separator(value);
   for (std::size_t index = 0; index < value.size(); ++index) {
     if (value[index] != '?') {
@@ -1926,49 +2011,57 @@ DisplayTextMap normalize_display_text_with_map(std::string value) {
   }
 
   DisplayTextMap mapped;
-  mapped.source_to_output.assign(value.size() + 1, 0);
+  mapped.source_to_output.clear();
+  mapped.source_to_output.reserve(value.size() + 1);
   bool pending_space = false;
-  for (std::size_t index = 0; index < value.size(); ++index) {
-    const auto ch = static_cast<unsigned char>(value[index]);
-    if (std::isspace(ch) != 0) {
+  for (std::size_t index = 0; index < value.size();) {
+    const auto length = utf8_character_size(value, index);
+    mapped.source_to_output.push_back(mapped.text.size());
+    if (utf8_character_is_ascii_space(value, index, length)) {
       pending_space = !mapped.text.empty();
-      mapped.source_to_output[index] = mapped.text.size();
+      index += length;
       continue;
     }
     if (pending_space) {
       mapped.text.push_back(' ');
       pending_space = false;
     }
-    mapped.source_to_output[index] = mapped.text.size();
-    mapped.text.push_back(static_cast<char>(ch));
+    mapped.text.append(value, index, length);
+    index += length;
   }
-  mapped.source_to_output[value.size()] = mapped.text.size();
+  mapped.source_to_output.push_back(mapped.text.size());
   return mapped;
 }
 
 DisplayTextMap normalize_fixed_display_text_with_map(std::string value) {
   DisplayTextMap mapped;
-  mapped.source_to_output.assign(value.size() + 1, 0);
+  mapped.source_to_output.clear();
+  mapped.source_to_output.reserve(value.size() + 1);
 
   bool pending_space = false;
-  for (std::size_t index = 0; index < value.size(); ++index) {
-    auto ch = value[index];
-    if (ch == '?') {
-      ch = ' ';
-    }
-    if (std::isspace(static_cast<unsigned char>(ch)) != 0) {
+  for (std::size_t index = 0; index < value.size();) {
+    const auto length = utf8_character_size(value, index);
+    mapped.source_to_output.push_back(mapped.text.size());
+    if (length == 1 && value[index] == '?') {
+      // The visual placeholder is an ASCII source character and has one
+      // display-column width, just like ordinary whitespace below.
       pending_space = !mapped.text.empty();
-      mapped.source_to_output[index] = mapped.text.size();
+      ++index;
+      continue;
+    }
+    if (utf8_character_is_ascii_space(value, index, length)) {
+      pending_space = !mapped.text.empty();
+      index += length;
       continue;
     }
     if (pending_space) {
       mapped.text.push_back(' ');
       pending_space = false;
     }
-    mapped.source_to_output[index] = mapped.text.size();
-    mapped.text.push_back(ch);
+    mapped.text.append(value, index, length);
+    index += length;
   }
-  mapped.source_to_output[value.size()] = mapped.text.size();
+  mapped.source_to_output.push_back(mapped.text.size());
   return mapped;
 }
 
@@ -2007,6 +2100,27 @@ std::optional<FontSpan> map_font_span_to_normalized_text(
 std::string apply_font_spans_to_text(std::string value,
                                      const std::vector<FontSpan>& spans,
                                      std::size_t base_column) {
+  // A span beginning at the active paragraph column is encoded relative to
+  // the visible continuation text (some records retain only layout padding
+  // before that text).  In that form the padding must not consume source
+  // columns.  Spans that begin later use the complete display row, including
+  // its leading columns, as their coordinate space.
+  if (!spans.empty() && spans.front().offset <= base_column) {
+    value = trim_ascii(std::move(value));
+  }
+  // When the decoder has already omitted the paragraph's leading display
+  // padding, BookManager's first visible column is one-based.  A first span
+  // at indent+1 consequently starts at byte/code-point zero of this text.
+  if (!spans.empty() && spans.front().offset == base_column + 1) {
+    const auto first_visible = value.find_first_not_of(" \t\r\n");
+    if (first_visible == 0) {
+      ++base_column;
+    } else if (first_visible != std::string::npos &&
+               first_visible <= base_column) {
+      value = trim_ascii(std::move(value));
+      ++base_column;
+    }
+  }
   auto mapped = normalize_display_text_with_map(std::move(value));
   if (mapped.text.empty() || spans.empty()) {
     return mapped.text;
@@ -2592,6 +2706,9 @@ std::vector<BooFontTrace> trace_font_spans(
   std::size_t cursor = 0;
   auto spans = parse_font_spans(value, cursor);
   auto text = cursor >= value.size() ? std::string{} : value.substr(cursor);
+  if (!spans.empty() && spans.front().offset <= 3) {
+    text = trim_ascii(std::move(text));
+  }
   auto mapped = normalize_display_text_with_map(std::move(text));
   if (mapped.text.empty() || spans.empty()) {
     return {};
@@ -2708,9 +2825,24 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
       }
     }
   }
-  trailing = apply_font_spans_to_text(std::move(trailing),
-                                      spans,
-                                      state.current_font_base_column);
+  // Preserve the display-column padding while projecting CFONT spans.  The
+  // normalizer collapses/removes it after mapping; trimming first shifts every
+  // span that follows a control's visual indent.  A few fixed rows carry an
+  // inline heading marker before the display text; that marker is structural,
+  // not one of the columns covered by the CFONT triples.
+  const auto raw_first_visible = raw_trailing.find_first_not_of(" \t\r\n");
+  if (raw_first_visible != std::string::npos &&
+      ascii_starts_with_case_insensitive(raw_trailing,
+                                         raw_first_visible,
+                                         ":h3")) {
+    auto body = trim_ascii(raw_trailing.substr(raw_first_visible + 3));
+    body = apply_font_spans_to_text(std::move(body), spans, 7);
+    trailing = ":H3 " + std::move(body);
+  } else {
+    trailing = apply_font_spans_to_text(std::move(raw_trailing),
+                                        spans,
+                                        state.current_font_base_column);
+  }
   trailing = strip_visual_line_markers_from_inline_gml(std::move(trailing));
   if (state.in_footnote && trailing.size() >= 2 &&
       trailing[trailing.size() - 1] == '.' &&
@@ -2739,7 +2871,14 @@ std::string render_gml_segment(std::string segment,
       !ascii_starts_with_case_insensitive(lower, "sretbl")) {
     state.table_just_closed = false;
   }
-  if (allow_topic_header && ascii_starts_with_case_insensitive(lower, "sh")) {
+  // Only a real topic header is suppressed here. Ordinary prose can begin
+  // with SH (SHOULD, SHIPPED, SHARING, ...); treating every such first line
+  // as an SH header loses the complete paragraph.
+  const auto sh_header =
+      ascii_starts_with_case_insensitive(lower, "sh") &&
+      (lower.find("ctopicn") != std::string::npos ||
+       segment.find_first_of(" \t\r\n") == std::string::npos);
+  if (allow_topic_header && sh_header) {
     return {};
   }
   if (state.ignore_after_index) {
@@ -2953,6 +3092,7 @@ std::string render_gml_segment(std::string segment,
     state.table_line_width = 0;
     state.table_border_width = 0;
     state.table_final_separator_is_synthetic = false;
+    state.table_layout_from_font_heading = false;
     state.table_visual_buffer.clear();
     state.pending_table_row.clear();
     auto table_payload = segment.substr(5);
@@ -3072,6 +3212,7 @@ std::string render_gml_segment(std::string segment,
     state.table_line_width = 0;
     state.table_border_width = 0;
     state.table_final_separator_is_synthetic = false;
+    state.table_layout_from_font_heading = false;
     state.table_visual_buffer.clear();
     return output;
   }
@@ -3254,6 +3395,16 @@ std::vector<std::string> render_gml_records(
                                      state);
       (void)append_rendered_gml_line(rendered, line);
     }
+    if (state.in_table && state.table_layout_from_font_heading &&
+        !state.table_visual_buffer.empty()) {
+      (void)append_rendered_gml_line(rendered,
+                                     flush_table_visual_buffer(state));
+    }
+    if (state.in_table && state.table_layout_from_font_heading &&
+        !state.pending_table_row.empty()) {
+      (void)append_rendered_gml_line(rendered,
+                                     flush_pending_table_row(state));
+    }
   }
   return rendered;
 }
@@ -3292,6 +3443,32 @@ std::vector<BooLogicalRecordTrace> trace_gml_records(
       const auto allow_topic_header = record_index == 0 && segment_index == 0;
       auto line = render_gml_segment(segment, allow_topic_header, state);
       auto appended = append_rendered_gml_line(rendered, line);
+      for (auto& result : appended) {
+        if (result.merged_with_previous) {
+          traced.normalized_gml_records.push_back("[merged] " +
+                                                  std::move(result.record));
+        } else {
+          traced.normalized_gml_records.push_back(std::move(result.record));
+        }
+      }
+    }
+    if (state.in_table && state.table_layout_from_font_heading &&
+        !state.table_visual_buffer.empty()) {
+      auto appended = append_rendered_gml_line(
+          rendered, flush_table_visual_buffer(state));
+      for (auto& result : appended) {
+        if (result.merged_with_previous) {
+          traced.normalized_gml_records.push_back("[merged] " +
+                                                  std::move(result.record));
+        } else {
+          traced.normalized_gml_records.push_back(std::move(result.record));
+        }
+      }
+    }
+    if (state.in_table && state.table_layout_from_font_heading &&
+        !state.pending_table_row.empty()) {
+      auto appended = append_rendered_gml_line(
+          rendered, flush_pending_table_row(state));
       for (auto& result : appended) {
         if (result.merged_with_previous) {
           traced.normalized_gml_records.push_back("[merged] " +

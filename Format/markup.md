@@ -417,6 +417,14 @@ Using the active indent column `7`, the spans apply to display columns for
 space after `The` and then guesses word boundaries will tear this into
 fragments such as `The inter` and `ce n`.
 
+Display columns count decoded characters, not encoded UTF-8 bytes. In
+`SC24-546.boo` topics `2.1.3`, `2.2.3`, `2.4.3`, and `6.2.6`, and
+`PRG1SORT.boo` topic `C.1`, the visible stream contains multibyte characters
+inside or adjacent to `CFONT` spans. A renderer may keep byte offsets for
+output insertion, but its display-column map must advance once per decoded
+character and may place span boundaries only at complete UTF-8 character
+boundaries.
+
 Span-only `CFONT` records apply to the next physical text segment. PACKET
 topic `1.3` stores `CFONT 27 5 3 33 10 3` at the end of one logical record and
 the next record starts with `FM  radio  through  its audio interface; ...`.
@@ -652,6 +660,14 @@ The boxed fixed-width stream has two practical decoding edge cases:
   when the following cells are blank, or the first cell of a new row when the
   following cells contain real column data. One-character punctuation prefixes
   observed before some rows are layout artifacts and are ignored.
+- A styled table heading can use different separator offsets from the data
+  grid. `SC31-605.boo` topic `2.1`, logical record 48, first emits the two-line
+  `Action` / `Event` and `Code` / `Type` / `Event or Alert Text` heading through
+  `CFONT`, then uses a 74-column data grid with separators at relative columns
+  0, 10, 21, and 73. Later logical records retain the 74-column grid but may
+  omit the heading's empty leading cell. Separator inference must therefore
+  accept a complete data row's local offsets and align its cells with the
+  established heading columns instead of discarding the row.
 
 Evidence:
 
@@ -664,6 +680,7 @@ Evidence:
 | `QS3X36CM.BOO` | Topic `2.2`: `SRTBLtbluniq2`, header cells `System/36`, `As/400`, `As/400 Function`, entries such as `Cancel(c) job`, `endjob`, `Clrjobq`, `wrkjobq`, and final `SRETBL`. |
 | `packet.boo` | Topic `2.4.4`: `SRTBLTBLUNIQ17`, fixed-width boxed rows for `Table 1. IPv4 Address Classes`, and final `SRETBL`; hosted BookServer renders the same block as an HTML table. |
 | `packet.boo` | Topic `3.9`: `SRTBLTBLUNIQ40`, wrapped boxed rows for `Table 4. Linux Packet Programs`; hosted BookServer keeps wrapped description lines inside the same table cell. |
+| `SC31-605.boo` | Topic `2.1`, logical records 48–57: `SRTBL005`, 74-column fixed rows from action code `01` through `81`, and final `SRETBL`; records 49–57 are table continuations, not empty topic padding. |
 | `bookmgr.exe.i64` | `sub_405FC` recognizes `CZ OFF TABLE` and `CZ OFF ETABLE` as table layout controls; `sub_69440` resets table/layout accumulation globals. |
 
 The resource table stores raw assets as documented in [assets.md](assets.md).

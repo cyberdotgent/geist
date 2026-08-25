@@ -119,10 +119,35 @@ bool is_contents_topic_record(const std::string& decoded_record) {
 }
 
 bool is_topic_header_record(const std::string& decoded_record) {
-  auto lower_record = ascii_lower(trim_ascii(decoded_record));
-  lower_record.erase(0, skip_decoded_separators(lower_record));
-  return lower_record.rfind("sh", 0) == 0 &&
-         lower_record.find("ctopicn") != std::string::npos;
+  // The topic header and its metadata are normally assembled into one
+  // logical record.  Some books store the header (for example `sh2.6`) as
+  // its own record and put CTopicN/CHdLevel/ST in the following record.
+  // The SH topic id is the boundary, so do not require metadata to be in the
+  // same record.
+  if (extract_topic_header_id(decoded_record).empty()) {
+    return false;
+  }
+  const auto lower_record = ascii_lower(decoded_record);
+  if (lower_record.find("ctopicn") != std::string::npos) {
+    return true;
+  }
+
+  // Without same-record metadata, accept only a standalone SH<id> boundary.
+  // This excludes ordinary prose records beginning with words such as SHOULD
+  // or SHIPPED from the topic index.
+  const auto start = skip_decoded_separators(decoded_record);
+  auto cursor = start + 2;
+  while (cursor < decoded_record.size()) {
+    const auto ch = decoded_record[cursor];
+    const auto byte = static_cast<unsigned char>(ch);
+    if (std::isalnum(byte) == 0 && ch != '.' && ch != '_' && ch != '-') {
+      break;
+    }
+    ++cursor;
+  }
+  return cursor > start + 2 &&
+         skip_decoded_separators(decoded_record.substr(cursor)) ==
+             decoded_record.size() - cursor;
 }
 
 std::string raw_gml_tag(const std::string& record) {
@@ -941,7 +966,29 @@ std::vector<TopicData> build_topics(
 
     TopicData topic;
     const auto& header = decoded_records[record_begin];
-    topic.topic_number = extract_uint_control_value(header, "ctopicn ");
+    // Metadata can follow a standalone SH boundary.  Use the first record
+    // carrying the topic controls, rather than assuming the boundary and
+    // metadata share one logical record.
+    std::size_t metadata_record = record_begin;
+    if (extract_uint_control_value(decoded_records[metadata_record],
+                                   "ctopicn ") == 0) {
+      for (auto candidate = record_begin + 1;
+           candidate < record_end;
+           ++candidate) {
+        const auto& candidate_record = decoded_records[candidate];
+        if (extract_uint_control_value(candidate_record, "ctopicn ") != 0 &&
+            (!extract_control_value_until_boundary(candidate_record,
+                                                   "chdlevel ")
+                  .empty() ||
+             !extract_control_value_until_boundary(candidate_record, "st ")
+                  .empty())) {
+          metadata_record = candidate;
+          break;
+        }
+      }
+    }
+    const auto& metadata = decoded_records[metadata_record];
+    topic.topic_number = extract_uint_control_value(metadata, "ctopicn ");
     topic.start_logical_record =
         static_cast<std::uint32_t>(record_begin + 1);
     topic.end_logical_record = static_cast<std::uint32_t>(record_end + 1);
@@ -954,10 +1001,9 @@ std::vector<TopicData> build_topics(
 
     topic.id = extract_topic_header_id(header);
     topic.heading_level =
-        extract_control_value_until_boundary(header, "chdlevel ");
-    topic.title =
-        normalize_toc_title(extract_control_value_until_boundary(header,
-                                                                 "st "));
+        extract_control_value_until_boundary(metadata, "chdlevel ");
+    topic.title = normalize_toc_title(
+        extract_control_value_until_boundary(metadata, "st "));
     if (!topic.id.empty() && seen_topic_ids.insert(topic.id).second) {
       topics.push_back(std::move(topic));
     }

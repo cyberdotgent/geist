@@ -1,5 +1,21 @@
 # Agent Log
 
+## 2026-08-25 - Fix P0 topic and body-loss rendering failures
+
+- Fixed split topic headers such as `GG24-4302-00` topic `2.6`, whose standalone
+  `SH2.6` boundary precedes its `CTOPICN`, heading, and title metadata.
+- Preserved subject-index prose aligned with four-space margins and stopped
+  treating ordinary uppercase words beginning with `SH` (`SHOULD`, `SHIPPED`,
+  and `SHARING`) as controls.
+- Made `CFONT` span projection use display characters while retaining UTF-8
+  byte boundaries, fixing torn words and malformed Markdown in GG24, SC24-546,
+  and PRG1SORT.
+- Reconstructed SC31-605 fixed-width table bodies when styled headings and
+  later data records use different separator layouts. Added regression coverage
+  for representative topics in every range reported by issue #13.
+- Validated the complete CMake/CTest suite and strict UTF-8 rendering checks,
+  then regenerated the checked-in `render/` books for manual review.
+
 ## 2026-08-25 - Expand the BOO dataset from BookServer
 
 - Selected 20 books at deterministic alphabetic quantiles of the 5,819-entry

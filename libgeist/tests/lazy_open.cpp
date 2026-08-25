@@ -44,4 +44,20 @@ int main() {
   const auto index = packet.topic_markdown("INDEX");
   require(index.find("## A") != std::string::npos,
           "direct lazy topic rendering lost the generated index");
+
+  // GG24-4302 stores the SH boundary for 2.6 separately from its CTopicN,
+  // CHdLevel, and ST metadata.  The boundary must still resolve the TOC
+  // entry to the correct topic body instead of extending 2.5 through 2.6.
+  const auto split_header =
+      geist::BooDocument::open(root / "GG24-4302-00.boo");
+  const auto* discontinued = split_header.find_toc_entry("2.6");
+  require(discontinued != nullptr, "missing split-header 2.6 TOC entry");
+  require(discontinued->raw_records.empty(),
+          "opening eagerly rendered split-header topic body");
+  const auto discontinued_markdown = split_header.topic_markdown("2.6");
+  require(discontinued_markdown.find("## 2.6 Discontinued Support") !=
+              std::string::npos,
+          "split-header topic lost its TOC heading");
+  require(discontinued_markdown.find("LU6.1 adapter") != std::string::npos,
+          "split-header topic lost its body");
 }

@@ -1,5 +1,6 @@
 #include "geist/detail/internal.hpp"
 
+#include <algorithm>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -34,6 +35,35 @@ bool expect_records(const std::string& name,
   return false;
 }
 
+bool valid_utf8(const std::string& value) {
+  for (std::size_t index = 0; index < value.size();) {
+    const auto first = static_cast<unsigned char>(value[index]);
+    std::size_t length = 1;
+    if (first >= 0xC2 && first <= 0xDF) {
+      length = 2;
+    } else if (first >= 0xE0 && first <= 0xEF) {
+      length = 3;
+    } else if (first >= 0xF0 && first <= 0xF4) {
+      length = 4;
+    } else if (first >= 0x80 || first == 0xC0 || first == 0xC1 ||
+               first >= 0xF5) {
+      return false;
+    }
+    if (index + length > value.size()) {
+      return false;
+    }
+    for (std::size_t continuation = 1; continuation < length;
+         ++continuation) {
+      if ((static_cast<unsigned char>(value[index + continuation]) & 0xC0) !=
+          0x80) {
+        return false;
+      }
+    }
+    index += length;
+  }
+  return true;
+}
+
 } // namespace
 
 int main() {
@@ -46,6 +76,22 @@ int main() {
       {":p.:hp2.Production:ehp2. :hp2.of:ehp2. :hp2.This:ehp2. "
        ":hp2.Book:ehp2.",
        ":p.This book was prepared and formatted."});
+
+  ok &= expect_records(
+      "subject-index margins preserve leading prose",
+      {"SI overview, operating cost enhancements    The operational aspects "
+       "of IMS are enhanced.",
+       "SI VSO, implementing    required for the definition and activation."},
+      {":line.The operational aspects of IMS are enhanced.",
+       ":line.required for the definition and activation."});
+
+  ok &= expect_records(
+      "uppercase prose is not a control",
+      {"SHOULD an invalid pointer be detected, Fast Path takes action.",
+       "SHIPPED with IMS 5.1.",
+       "SHARING environment."},
+      {":p.SHOULD an invalid pointer be detected, Fast Path takes action. "
+       "SHIPPED with IMS 5.1. SHARING environment."});
 
   {
     geist::detail::TopicData topic;
@@ -69,6 +115,37 @@ int main() {
       }
       for (const auto& record : expected) {
         std::cerr << "  expected: " << record << "\n";
+      }
+    }
+  }
+
+  {
+    geist::detail::TopicData topic;
+    topic.id = "2.2";
+    topic.title = "Operating Cost Enhancements";
+    topic.raw_records = {
+        "SH2.2 CTOPICN 22 CPARENT 2.0 CFORWARDLEVEL 2.3 "
+        "CBACKLEVEL 2.1 CSUMMARY 6 3 6 CHDLEVEL :H2 "
+        "CSOURCEFN 4302CH2 ST  Operating Cost Enhancements"
+        "       SI overview, operating cost enhancements       The operational "
+        "aspects of IMS are enhanced for online and DBCTL           environments."
+        "  CMENU CMITEM 2.2.1 New Automated Operator Facilities CEMENU"};
+    geist::TocEntry entry;
+    entry.id = topic.id;
+    entry.title = topic.title;
+    geist::detail::attach_topic_data(entry, topic);
+    if (entry.raw_records.empty() ||
+        entry.raw_records.front().find("Operating Cost Enhancements") ==
+            std::string::npos ||
+        std::none_of(entry.raw_records.begin(), entry.raw_records.end(),
+                     [](const std::string& record) {
+                       return record.find("operational aspects") !=
+                              std::string::npos;
+                     })) {
+      ok = false;
+      std::cerr << "ST leading body text was dropped\n";
+      for (const auto& record : entry.raw_records) {
+        std::cerr << "  actual: " << record << "\n";
       }
     }
   }
@@ -203,6 +280,23 @@ int main() {
       geist::detail::render_markdown_records(
           {":image resource='1' prefix='text' suffix='rest'.Image"}),
       "text ![Image](resource:1) rest\n");
+
+  {
+    // CFONT lengths/columns count display characters, not UTF-8 bytes.  A
+    // delimiter around the not-sign must therefore be placed before/after
+    // the complete C2 AC sequence.
+    const auto gml = geist::detail::render_gml_records(
+        {"CFONT 6 1 x  A\xC2\xAC" "B"});
+    const auto markdown = geist::detail::render_markdown_records(gml);
+    ok &= expect_equal("UTF-8 CFONT span projection", gml.front(),
+                       ":p.A:xph.\xC2\xAC:exph.B");
+    ok &= expect_equal("UTF-8 CFONT Markdown projection", markdown,
+                       "A`\xC2\xAC`B\n");
+    if (!valid_utf8(markdown)) {
+      ok = false;
+      std::cerr << "UTF-8 CFONT Markdown projection is malformed\n";
+    }
+  }
 
   return ok ? 0 : 1;
 }
