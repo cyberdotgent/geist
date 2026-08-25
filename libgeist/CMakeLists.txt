@@ -26,7 +26,8 @@ endif()
 project(libgeist
   VERSION 0.1.0
   DESCRIPTION "Self-contained IBM BookManager BOO parser library"
-  LANGUAGES CXX
+  # CMake's built-in FindGIF module probes the giflib C headers.
+  LANGUAGES C CXX
 )
 
 find_package(PNG REQUIRED)
