@@ -912,3 +912,7 @@
   selector alternatives are metadata rather than table text; and SC31-605
   event-type rows 06/07 remain separate. Added cross-book fixture regressions
   while preserving SC31-711's semantic numeric trap catalogs.
+- Removed fixed-prose row markers from SC31-711 topic 3.3 without treating
+  ordinary punctuation as layout metadata. The filter introduction, note,
+  conversion discussion, and warning now retain their complete text while
+  dropping the decoded `(`, `)`, `-`, `<`, `>`, and carry-over fragments.

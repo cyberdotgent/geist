@@ -1037,3 +1037,12 @@ records 6--7, provides both forms; topic `1.4`, logical record 10, shows that
 the following `CFONT` payload continues the active note. `SC31-711.boo` topic
 `4.3.4`, logical record 145, independently stores `can` beyond the row ending
 in `bridge`, followed by the visible next-row word `application`.
+
+Flattened fixed prose uses a one-byte row marker followed by at least two
+padding spaces. Observed marker bytes include `(`, `)`, `-`, `<`, `>`, `/`,
+`:`, and `=`. They can directly follow sentence punctuation: in
+`SC31-711.boo` topic `3.3`, logical record 91 contains `event display.(` and
+`displayed.-`, while records 91--93 use `>` and `<` at continued row starts.
+The marker and its padding are structural and contribute no visible character.
+Ordinary punctuation such as the colon in `Note:` is not a row marker because
+it follows an alphanumeric character.

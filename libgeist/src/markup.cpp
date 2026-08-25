@@ -165,6 +165,48 @@ bool is_decoded_line_marker(char ch) {
   }
 }
 
+bool is_fixed_prose_row_marker(char ch) {
+  return is_decoded_line_marker(ch) || ch == '<' || ch == '>' || ch == '/';
+}
+
+bool fixed_prose_row_marker_at(const std::string& value, std::size_t cursor) {
+  return cursor + 2 < value.size() &&
+         is_fixed_prose_row_marker(value[cursor]) &&
+         (cursor == 0 ||
+          std::isalnum(static_cast<unsigned char>(value[cursor - 1])) == 0) &&
+         std::isspace(static_cast<unsigned char>(value[cursor + 1])) != 0 &&
+         std::isspace(static_cast<unsigned char>(value[cursor + 2])) != 0;
+}
+
+std::string strip_fixed_prose_row_markers(std::string value) {
+  std::string output;
+  output.reserve(value.size());
+  for (std::size_t cursor = 0; cursor < value.size();) {
+    if (fixed_prose_row_marker_at(value, cursor)) {
+      ++cursor;
+      while (cursor < value.size() &&
+             std::isspace(static_cast<unsigned char>(value[cursor])) != 0) {
+        ++cursor;
+      }
+      if (!output.empty() && output.back() != ' ') {
+        output.push_back(' ');
+      }
+      continue;
+    }
+    output.push_back(value[cursor++]);
+  }
+  return collapse_ascii_whitespace(std::move(output));
+}
+
+std::string blank_fixed_prose_row_markers(std::string value) {
+  for (std::size_t cursor = 0; cursor + 2 < value.size(); ++cursor) {
+    if (fixed_prose_row_marker_at(value, cursor)) {
+      value[cursor] = ' ';
+    }
+  }
+  return value;
+}
+
 std::string remove_decoded_line_markers(std::string value) {
   std::string output;
   output.reserve(value.size());
@@ -692,13 +734,24 @@ std::string strip_visual_line_markers_from_inline_gml(std::string value) {
   std::string output;
   output.reserve(value.size());
   for (std::size_t cursor = 0; cursor < value.size();) {
-    if (value[cursor] == ':') {
+    if (value[cursor] == ':' && looks_like_gml_control_at(value, cursor)) {
       const auto dot = value.find('.', cursor + 1);
       if (dot != std::string::npos) {
         output.append(value, cursor, dot + 1 - cursor);
         cursor = dot + 1;
         continue;
       }
+    }
+    if (fixed_prose_row_marker_at(value, cursor)) {
+      ++cursor;
+      while (cursor < value.size() &&
+             std::isspace(static_cast<unsigned char>(value[cursor])) != 0) {
+        ++cursor;
+      }
+      if (!output.empty() && output.back() != ' ') {
+        output.push_back(' ');
+      }
+      continue;
     }
     if (value[cursor] == '|' &&
         (cursor == 0 ||
@@ -718,7 +771,7 @@ std::string strip_visual_line_markers_from_inline_gml(std::string value) {
 
 std::optional<std::string> render_marker_continuation_gml(
     const std::string& segment) {
-  if (segment.size() < 3 || !is_decoded_line_marker(segment.front())) {
+  if (segment.size() < 3 || !is_fixed_prose_row_marker(segment.front())) {
     return std::nullopt;
   }
   if (std::isspace(static_cast<unsigned char>(segment[1])) == 0 ||
@@ -729,7 +782,8 @@ std::optional<std::string> render_marker_continuation_gml(
   // Preserve the wide padding until decoded markers inside the continuation
   // have been removed. Collapsing first makes an interior marker look like
   // ordinary punctuation and leaks it into the rendered line.
-  auto text = strip_visual_line_marker(dot_text(segment.substr(1)));
+  auto text = strip_visual_line_marker(dot_text(
+      strip_fixed_prose_row_markers(segment.substr(1))));
   if (text.empty()) {
     return std::string{};
   }
@@ -1536,14 +1590,18 @@ std::optional<std::string> subject_index_visible_tail(const std::string& value,
 
   auto visible = std::string{};
   if (kind == BoundaryKind::question) {
-    visible = dot_text(value.substr(boundary + 1));
+    visible = value.substr(boundary + 1);
   } else if (kind == BoundaryKind::visual) {
     visible = value.substr(boundary);
     fixed_row_tail = true;
   } else {
-    visible = dot_text(value.substr(boundary + run_length));
+    visible = value.substr(boundary + run_length);
     fixed_row_tail = true;
   }
+  if (fixed_row_tail) {
+    visible = strip_fixed_line_overflow_tokens(std::move(visible));
+  }
+  visible = dot_text(strip_fixed_prose_row_markers(std::move(visible)));
   visible = strip_visual_line_marker(std::move(visible));
   if (visible.empty()) {
     return std::nullopt;
@@ -3839,6 +3897,7 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
   }
   if (state.pending_note_continuation) {
     state.pending_note_continuation = false;
+    raw_trailing = blank_fixed_prose_row_markers(std::move(raw_trailing));
     auto continuation = apply_font_spans_to_text(
         raw_trailing,
         spans,
@@ -3923,6 +3982,8 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
       raw_trailing.erase(0, first_visible + 1);
     }
   }
+  raw_trailing = blank_fixed_prose_row_markers(std::move(raw_trailing));
+  trailing = trim_ascii(raw_trailing);
   const auto has_word_sized_span = std::any_of(
       spans.begin(), spans.end(), [](const FontSpan& span) {
         return span.length >= 3 && !font_code_to_highlight_tag(span.code).empty();

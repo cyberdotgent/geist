@@ -431,6 +431,23 @@ int main() {
 
   const auto problem_determination =
       geist::BooDocument::open(root / "SC31-711.boo");
+  const auto filters = problem_determination.topic_markdown("3.3");
+  for (const auto* expected : {
+           "event display. One kind of filter",
+           "enterprise ID of the agent",
+           "**Note:** Use care when making any changes",
+           "Warning: Do not modify the filters",
+       }) {
+    require(filters.find(expected) != std::string::npos,
+            "fixed filter prose lost text or semantic boundaries");
+  }
+  for (const auto* leaked : {"display.( One", "displayed.- You",
+                             "event > cards", "of < the agent",
+                             "action    Note", "application    Warning",
+                             "directory, connection"}) {
+    require(filters.find(leaked) == std::string::npos,
+            "fixed filter row marker or carryover token leaked");
+  }
   const auto customer_form = problem_determination.topic_markdown("2.4.1");
   require(customer_form.find("| Field | Value |") != std::string::npos &&
               customer_form.find("| Customer number |  |") !=

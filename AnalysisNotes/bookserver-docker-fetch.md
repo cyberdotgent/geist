@@ -1219,3 +1219,21 @@ issue 37 workload; no duplicate issue was opened. `XWEBDEMO` topics `1.1` and
 `1.4` additionally verify that a token beyond a physical 79-column row is
 carry-over, and that a styled continuation after `depend` remains part of the
 same note rather than becoming a new paragraph.
+
+Issue 37's final `SC31-711` topic `3.3` comparison used:
+
+```sh
+build/bootrace BOO/SC31-711.boo 3.3 --segments
+build/boorender BOO/SC31-711.boo 3.3 --md
+python3 tools/bookserver_book_audit.py BOO/SC31-711.boo \
+  --book-id SC31-711 --timestamp 19941010174546 \
+  --output /tmp/geist-issue37-postfinal/SC31-711 --jobs 4
+```
+
+The reference separates the opening filter discussion, note, and warning as
+ordinary prose. Decoder row markers in logical records 91--94 and the
+carry-over tokens `action`, `application`, and `connection` are not visible.
+The final live recheck fetched 82/82 topics with no failures and reported 45
+heuristic flags. Full triage confirmed topics `3.3` and `4.3.4` are corrected.
+Independent residual corruption in `1.4`, `5.0`, and `GLOSSARY` is recorded in
+GitHub issue 41; SC31-711's book-audit tracker therefore remains open.
