@@ -1015,3 +1015,25 @@ The fix splits `SRTBL` at its first row separator, parses the row (including
 legacy spacing when separator markers have already been materialized), and
 ignores a duplicate close boundary. This restores the missing notice text and
 table content without changing ordinary table captions.
+
+## SC41-485 and SC31-711 definition/form verification
+
+The definition-list and worksheet comparisons used these hosted topics:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/SC41-485/1.2.5?DT=19951003131222&SHELF=
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/SC31-711/2.4.1?DT=19941010174546&SHELF=
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/SC31-711/2.4.8?DT=19941010174546&SHELF=
+```
+
+After the parser changes, the complete cached comparison was reproduced with:
+
+```sh
+python3 tools/bookserver_book_audit.py BOO/SC41-485.boo --book-id SC41-485 --timestamp 19951003131222 --output /tmp/geist-books20-audits/SC41-485 --jobs 4 --no-fetch
+python3 tools/bookserver_book_audit.py BOO/SC31-711.boo --book-id SC31-711 --timestamp 19941010174546 --output /tmp/geist-books20-audits/SC31-711 --jobs 4 --no-fetch
+```
+
+All 36 and 82 cached reference pages were available. The heuristic flag counts
+fell to 21 and 47 respectively; those flags remain triage hints rather than
+pass/fail results because BookServer's navigation and fixed `<pre>` wrappers
+intentionally differ from Markdown structure.

@@ -203,6 +203,10 @@ std::string normalize_toc_title(std::string value) {
   replace_all_case_insensitive(value, "Ocl", "OCL");
   replace_all_case_insensitive(value, "Dbcs", "DBCS");
   replace_all_case_insensitive(value, "User Id", "User ID");
+  if (!value.empty() && (value.back() == '>' || value.back() == '/')) {
+    value.pop_back();
+    value = trim_ascii(std::move(value));
+  }
   return value;
 }
 

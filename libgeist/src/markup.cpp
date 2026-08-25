@@ -714,6 +714,65 @@ std::size_t longest_question_run(const std::string& value) {
   return longest;
 }
 
+std::optional<std::string> render_fixed_form_gml(const std::string& value) {
+  const auto border_width = longest_question_run(value);
+  if (border_width < 40) {
+    return std::nullopt;
+  }
+  std::vector<std::pair<std::size_t, std::size_t>> borders;
+  auto cursor = std::size_t{0};
+  while (cursor < value.size()) {
+    if (value[cursor] != '?') {
+      ++cursor;
+      continue;
+    }
+    const auto begin = cursor;
+    while (cursor < value.size() && value[cursor] == '?') {
+      ++cursor;
+    }
+    if (cursor - begin + 2 >= border_width) {
+      borders.push_back({begin, cursor});
+    }
+  }
+  if (borders.size() < 3) {
+    return std::nullopt;
+  }
+
+  std::vector<std::string> fields;
+  cursor = borders.front().second;
+  while (cursor < value.size()) {
+    const auto next = value.find('?', cursor);
+    auto field = collapse_ascii_whitespace(value.substr(
+        cursor, next == std::string::npos ? std::string::npos : next - cursor));
+    if (std::any_of(field.begin(), field.end(), [](const auto ch) {
+          return std::isalnum(static_cast<unsigned char>(ch)) != 0;
+        })) {
+      fields.push_back(std::move(field));
+    }
+    if (next == std::string::npos) {
+      break;
+    }
+    cursor = next + 1;
+    while (cursor < value.size() && value[cursor] == '?') {
+      ++cursor;
+    }
+  }
+  if (fields.size() < 2) {
+    return std::nullopt;
+  }
+
+  std::istringstream input(value);
+  std::string target;
+  input >> target;
+  auto output = ":table id='" + escape_gml_attr(table_anchor_id(target)) +
+                "' form='true'.\n:row.\n:c col='0'.Field\n:c col='1'.Value";
+  for (auto& field : fields) {
+    output += "\n:row.\n:c col='0'." + std::move(field) +
+              "\n:c col='1'.";
+  }
+  return output;
+}
+
 std::string render_table_gml(std::string value,
                              std::size_t& table_border_width) {
   value = trim_ascii(std::move(value));
@@ -1368,7 +1427,8 @@ std::string render_layout_gml(std::string value,
     if (trim_ascii(text).empty()) {
       const auto normalized_tag = normalize_bookmaster_tag(tag);
       if (normalized_tag == "ul" || normalized_tag == "ol" ||
-          normalized_tag == "dl" || normalized_tag == "li") {
+          normalized_tag == "dl" || normalized_tag == "dt" ||
+          normalized_tag == "dd" || normalized_tag == "li") {
         return render_empty_bookmaster_tag_with_layout(std::move(tag),
                                                        std::move(left_margin),
                                                        std::move(indent));
@@ -1586,6 +1646,9 @@ std::string render_figure_start_gml(std::string value, GmlRenderState& state) {
 std::string render_figure_end_gml(std::string value, GmlRenderState& state) {
   state.in_figure = false;
   value = strip_visual_line_marker(dot_text(std::move(value)));
+  if (value.find_first_not_of(" ,") == std::string::npos) {
+    value.clear();
+  }
   if (value.empty()) {
     return ":efig.";
   }
@@ -3263,6 +3326,9 @@ std::string render_gml_segment(std::string segment,
     const auto inline_first_row =
         first_separator != std::string::npos &&
         trim_ascii(payload_head.substr(payload_target.size())) .empty();
+    if (auto form = render_fixed_form_gml(table_payload)) {
+      return *form;
+    }
     if (first_separator == std::string::npos) {
       auto header = trim_ascii(table_payload);
       std::istringstream input(header);
@@ -3510,13 +3576,23 @@ std::vector<GmlAppendResult> append_rendered_gml_line(
     auto part = end == std::string::npos ? line.substr(begin)
                                          : line.substr(begin, end - begin);
     if (!part.empty()) {
-      if (ascii_starts_with_case_insensitive(part, ":pinline.")) {
+      if (ascii_starts_with_case_insensitive(part, ":p.") &&
+          !rendered.empty() && rendered.back().back() == '.' &&
+          (ascii_starts_with_case_insensitive(rendered.back(), ":dt ") ||
+           ascii_starts_with_case_insensitive(rendered.back(), ":dt."))) {
+        rendered.back() += part.substr(std::string(":p.").size());
+        results.push_back({rendered.back(), true});
+      } else if (ascii_starts_with_case_insensitive(part, ":pinline.")) {
         auto content = part.substr(std::string(":pinline.").size());
         if (!content.empty() && !rendered.empty() &&
             (ascii_starts_with_case_insensitive(rendered.back(), ":p ") ||
              ascii_starts_with_case_insensitive(rendered.back(), ":p.") ||
              ascii_starts_with_case_insensitive(rendered.back(), ":li ") ||
              ascii_starts_with_case_insensitive(rendered.back(), ":li.") ||
+             ascii_starts_with_case_insensitive(rendered.back(), ":dt ") ||
+             ascii_starts_with_case_insensitive(rendered.back(), ":dt.") ||
+             ascii_starts_with_case_insensitive(rendered.back(), ":dd ") ||
+             ascii_starts_with_case_insensitive(rendered.back(), ":dd.") ||
              ascii_starts_with_case_insensitive(rendered.back(), ":fn ") ||
              ascii_starts_with_case_insensitive(rendered.back(), ":fn."))) {
           if (!rendered.back().empty() && rendered.back().back() != ' ') {

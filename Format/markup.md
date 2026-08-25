@@ -786,6 +786,33 @@ sequence instead of treating every cleaned `:p.` as one paragraph:
 - Full row/column grammar for every legacy cross-reference table variant beyond
   the fixed-width `?`-separator rows verified in `QS3X36CM.BOO`.
 
+## Definition lists and fixed questionnaires
+
+`CZ FLOW DL <column> <indent>` starts a definition list, repeated
+`CZ FLOW DT <column> <indent>` records introduce entries, and `CZ OFF EDL`
+ends it. The visible `DT` row stores the term in the columns from `column` up
+to `indent`; the remainder is its definition. An explicit `HP` span at the
+start of a row is stronger evidence for the term boundary and takes precedence
+over the column calculation. `SC41-485`, topic `1.2.5`, logical record 43,
+contains `CZ FLOW DL 3 3` followed by eight `CZ FLOW DT 3 12` rows. The first
+is `CPF24B4 E Severe error while addressing parameter list.` and BookServer
+keeps the error code associated with that description.
+
+Some input worksheets use fixed display rows rather than `DL`. In
+`SC31-711`, topic `2.4.1`, logical record 71, `SRTBLTBLUNIQ2` is followed by
+74-byte `?` borders and the labels `Customer number`, `LNM for AIX component
+ID`, and `Problem symptoms`. These are two-column form rows with blank value
+cells, not punctuation or a prose paragraph. A sequence with at least three
+full-width borders is therefore a form-shaped table; blank cells and explicit
+row boundaries must be preserved.
+
+The alternate worksheet representation places `__` item markers directly in
+the `ST` body. `SC31-711`, topic `2.4.8`, logical record 80, has three primary
+`__` questions followed by subordinate `Number of ...` rows. Its final primary
+item crosses into the following `CFONT` segment, which styles the command
+`ovobjprint | head`; the continuation belongs to the same questionnaire and
+must be joined before the item rows are projected.
+
 ## Fixed selection rows in generated lists
 
 `CHDLEVEL :FIGLIST`/`ST Figures` and `CHDLEVEL :TLIST`/`ST Tables` denote

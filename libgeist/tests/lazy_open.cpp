@@ -215,4 +215,68 @@ int main() {
                   "[3. External JPEG format image presented in-line 1.4.1]") !=
                   std::string::npos,
           "external-picture figure index retained selector metadata");
+
+  const auto configuration_manager =
+      geist::BooDocument::open(root / "SC41-485.boo");
+  const auto configuration_errors =
+      configuration_manager.topic_markdown("1.2.5");
+  for (const auto* expected : {"CPF24B4 E", "CPF26A8 E", "CPF26A9 E",
+                               "CPF26AA E", "CPF3C21 E", "CPF3C90 E",
+                               "CPF3CF1 E", "CPF9872 E"}) {
+    require(configuration_errors.find("- **" + std::string(expected) +
+                                      "** — ") != std::string::npos,
+            "definition list lost an error-code association");
+  }
+  const auto configuration_actions =
+      configuration_manager.topic_markdown("1.1");
+  require(configuration_actions.find("- **List** — ") !=
+              std::string::npos &&
+              configuration_actions.find("- **Retrieve** — ") !=
+                  std::string::npos &&
+              configuration_actions.find("(QDCLCFGD)") !=
+                  std::string::npos,
+          "definition list lost an action description");
+
+  const auto problem_determination =
+      geist::BooDocument::open(root / "SC31-711.boo");
+  const auto customer_form = problem_determination.topic_markdown("2.4.1");
+  require(customer_form.find("| Field | Value |") != std::string::npos &&
+              customer_form.find("| Customer number |  |") !=
+                  std::string::npos &&
+              customer_form.find("| LNM for AIX component ID |  |") !=
+                  std::string::npos &&
+              customer_form.find("| Problem symptoms |  |") !=
+                  std::string::npos,
+          "fixed customer form lost its field/value rows");
+  require(customer_form.find(", ,") == std::string::npos,
+          "fixed customer form collapsed back into punctuation");
+  const auto customer_checklist =
+      problem_determination.topic_markdown("2.4.5");
+  for (const auto* expected : {"- Customer number",
+                               "- LNM for AIX component ID",
+                               "- Describe the symptoms of the problem"}) {
+    require(customer_checklist.find(expected) != std::string::npos,
+            "fixed customer checklist lost an item");
+  }
+  require(customer_checklist.find("```text") == std::string::npos,
+          "fixed customer checklist was emitted as a code block");
+  const auto network_checklist =
+      problem_determination.topic_markdown("2.4.8");
+  for (const auto* expected : {
+           "- Which AIX NetView/6000 applications were running",
+           "- Number of stations", "- Number of bridges",
+           "- Number of concentrators",
+           "- Number of objects in the OVw database (use the command "
+           "**ovobjprint** **|** **head**)",
+           "- Number of objects to hold in ovwdb cache",
+           "- Number of seconds between storing data"}) {
+    require(network_checklist.find(expected) != std::string::npos,
+            "complex fixed questionnaire lost an item or continuation");
+  }
+  const auto frame_relay = problem_determination.topic_markdown("4.3.5");
+  require(frame_relay.find("This section lists the Frame Relay traps") !=
+              std::string::npos &&
+              frame_relay.find("- **1** — **Description:** DLCI state change") !=
+                  std::string::npos,
+          "message definition lost its introduction or label association");
 }

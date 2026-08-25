@@ -576,12 +576,22 @@ std::optional<std::size_t> st_body_begin_after_title(
     const std::string& st_value,
     const std::string& title) {
   if (st_value.size() <= title.size() ||
-      !ascii_starts_with_case_insensitive(st_value, title) ||
-      std::isspace(static_cast<unsigned char>(st_value[title.size()])) == 0) {
+      !ascii_starts_with_case_insensitive(st_value, title)) {
     return std::nullopt;
   }
 
   auto cursor = title.size();
+  if (cursor < st_value.size() &&
+      (st_value[cursor] == '-' || st_value[cursor] == '>' ||
+       st_value[cursor] == '/' || st_value[cursor] == '<' ||
+       st_value[cursor] == '(') &&
+      cursor + 1 < st_value.size() &&
+      std::isspace(static_cast<unsigned char>(st_value[cursor + 1])) != 0) {
+    ++cursor;
+  } else if (cursor < st_value.size() &&
+             std::isspace(static_cast<unsigned char>(st_value[cursor])) == 0) {
+    return std::nullopt;
+  }
   while (cursor < st_value.size() &&
          std::isspace(static_cast<unsigned char>(st_value[cursor])) != 0) {
     ++cursor;
@@ -599,6 +609,69 @@ std::optional<std::size_t> st_body_begin_after_title(
     }
   }
   return cursor;
+}
+
+std::vector<std::string> render_st_form_items(const std::string& body) {
+  std::vector<std::string> records;
+  auto cursor = body.find("__");
+  while (cursor != std::string::npos) {
+    const auto begin = cursor + 2;
+    const auto next = body.find("__", begin);
+    auto item = collapse_ascii_whitespace(body.substr(
+        begin, next == std::string::npos ? std::string::npos : next - begin));
+    while (!item.empty() &&
+           (item.front() == '-' || item.front() == '/' ||
+            item.front() == '<' || item.front() == '>' ||
+            item.front() == '(')) {
+      item.erase(item.begin());
+      item = trim_ascii(std::move(item));
+    }
+    while (!item.empty() &&
+           (item.back() == '-' || item.back() == '/' || item.back() == '<' ||
+            item.back() == '>' || item.back() == '(')) {
+      item.pop_back();
+      item = trim_ascii(std::move(item));
+    }
+    for (auto marker = item.find(" < "); marker != std::string::npos;
+         marker = item.find(" < ", marker)) {
+      item.replace(marker, 3, " ");
+    }
+    for (auto marker = item.find("( Number of ");
+         marker != std::string::npos;
+         marker = item.find("( Number of ", marker)) {
+      item.replace(marker, 2, " ");
+    }
+
+    std::vector<std::string> item_parts;
+    auto part_begin = std::size_t{0};
+    auto part_end = item.find(" Number of ");
+    while (part_end != std::string::npos) {
+      item_parts.push_back(trim_ascii(item.substr(part_begin,
+                                                  part_end - part_begin)));
+      part_begin = part_end + 1;
+      part_end = item.find(" Number of ", part_begin);
+    }
+    item_parts.push_back(trim_ascii(item.substr(part_begin)));
+    for (auto& part : item_parts) {
+      while (!part.empty() &&
+             (part.back() == '-' || part.back() == '/' ||
+              part.back() == '<' || part.back() == '>' ||
+              part.back() == '(')) {
+        part.pop_back();
+        part = trim_ascii(std::move(part));
+      }
+      if (!part.empty()) {
+        records.push_back(":li." + std::move(part));
+      }
+    }
+    cursor = next;
+  }
+  if (records.empty()) {
+    return records;
+  }
+  records.insert(records.begin(), ":ul type='form'.");
+  records.push_back(":eul.");
+  return records;
 }
 
 std::string topic_st_body_after_toc_title(const TopicData& topic,
@@ -805,9 +878,18 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
       const auto content_begin = dot + 1;
       const auto content = first_record.substr(content_begin);
       const auto title_size = entry.title.size();
+      const auto title_has_body_separator =
+          content.size() > title_size &&
+          (std::isspace(static_cast<unsigned char>(content[title_size])) != 0 ||
+           ((content[title_size] == '-' || content[title_size] == '>' ||
+             content[title_size] == '/' || content[title_size] == '<' ||
+             content[title_size] == '(') &&
+            content.size() > title_size + 1 &&
+            std::isspace(static_cast<unsigned char>(
+                content[title_size + 1])) != 0));
       if (content.size() > title_size &&
           ascii_starts_with_case_insensitive(content, entry.title) &&
-          std::isspace(static_cast<unsigned char>(content[title_size])) != 0) {
+          title_has_body_separator) {
         auto body_text = topic_st_body_text_after_toc_title(topic, entry.title);
         auto trailing_text = topic_st_body_after_toc_title(topic, entry.title);
         const auto following_control =
@@ -817,7 +899,30 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
         }
         first_record.resize(content_begin);
         first_record += entry.title;
-        if (!trailing_text.empty()) {
+        auto continuation = heading + 1;
+        if (body_text.find("__") != std::string::npos &&
+            continuation != entry.raw_records.end() &&
+            raw_gml_tag(*continuation) == "p") {
+          const auto continuation_dot = continuation->find('.');
+          if (continuation_dot != std::string::npos) {
+            const auto continuation_body =
+                continuation->substr(continuation_dot + 1);
+            if (ascii_starts_with_case_insensitive(continuation_body,
+                                                   ":hp") &&
+                continuation_body.find(" Number of ") !=
+                    std::string::npos) {
+              body_text += " " + continuation_body;
+              entry.raw_records.erase(continuation);
+            }
+          }
+        }
+        auto form_records = render_st_form_items(body_text);
+        if (!form_records.empty()) {
+          entry.raw_records.insert(
+              heading + 1,
+              std::make_move_iterator(form_records.begin()),
+              std::make_move_iterator(form_records.end()));
+        } else if (!trailing_text.empty()) {
           entry.raw_records.insert(heading + 1, ":p." + trailing_text);
         } else if (following_control == "cselect" ||
                    following_control == "cfont") {

@@ -856,3 +856,10 @@
   paragraph, and render `HP1`/`HP2`/`HP3` as Markdown emphasis. Regenerated the
   checked-in PACKET `preface.md` and documented the BookServer URL/source trail
   in `Format/markup.md` and `AnalysisNotes/bookserver-docker-fetch.md`.
+- Restored definition-list and fixed-questionnaire structure for `SC41-485`
+  and `SC31-711`. Preserved empty `DT`/`DD` controls, associated definition
+  terms with descriptions, recognized full-width `?` form tables, reconstructed
+  `__` worksheet items (including a following `CFONT` continuation), and kept
+  message labels with their descriptions. Added fixture regressions for all
+  eight `SC41-485:1.2.5` codes plus `SC31-711:2.4.1` and `2.4.5`. Replayed the
+  full cached BookServer audits: 36/36 and 82/82 topics rendered successfully.

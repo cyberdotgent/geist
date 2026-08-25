@@ -1060,6 +1060,66 @@ void append_index_item(std::string& output, std::string text) {
   output += "- " + text + "\n";
 }
 
+std::pair<std::string, std::string> split_definition_markdown(
+    const std::string& record,
+    std::size_t term_width) {
+  auto source = trim_ascii(strip_leaked_layout_controls(gml_content(record)));
+  if (ascii_starts_with_case_insensitive(source, ":hp")) {
+    const auto open = source.find('.');
+    if (open != std::string::npos) {
+      const auto tag = ascii_lower(source.substr(1, open - 1));
+      const auto close_tag = ":e" + tag + ".";
+      const auto close = ascii_lower(source).find(close_tag, open + 1);
+      if (close != std::string::npos) {
+        const auto term_end = close + close_tag.size();
+        return {trim_ascii(render_inline_markdown(source.substr(0, term_end))),
+                trim_ascii(render_inline_markdown(source.substr(term_end)))};
+      }
+    }
+  }
+  auto text = render_inline_markdown(std::move(source));
+  if (term_width == 0) {
+    return {trim_ascii(std::move(text)), {}};
+  }
+  auto visible = std::size_t{0};
+  auto cursor = std::size_t{0};
+  while (cursor < text.size() && visible < term_width) {
+    if (text[cursor] == '*' || text[cursor] == '`') {
+      ++cursor;
+      continue;
+    }
+    ++cursor;
+    ++visible;
+  }
+  while (cursor < text.size() &&
+         (text[cursor] == '*' || text[cursor] == '`')) {
+    ++cursor;
+  }
+  return {trim_ascii(text.substr(0, cursor)),
+          trim_ascii(text.substr(cursor))};
+}
+
+void append_definition_item(std::string& output,
+                            std::string term,
+                            std::string definition) {
+  term = trim_ascii(std::move(term));
+  definition = trim_ascii(std::move(definition));
+  if (term.empty() && definition.empty()) {
+    return;
+  }
+  if (term.find("**") == std::string::npos && !term.empty()) {
+    term = "**" + term + "**";
+  }
+  if (!output.empty() && output.back() != '\n') {
+    output.push_back('\n');
+  }
+  output += "- " + term;
+  if (!definition.empty()) {
+    output += " — " + definition;
+  }
+  output.push_back('\n');
+}
+
 std::string render_link_markdown(const std::string& record) {
   auto text = gml_markdown_content(record);
   const auto target = gml_attr(record, "refid");
@@ -1117,6 +1177,14 @@ std::string render_image_markdown(const std::string& record) {
 std::string render_anchor_markdown(const std::string& record) {
   const auto text = gml_markdown_content(record);
   if (!text.empty()) {
+    if (std::all_of(text.begin(), text.end(), [](const auto ch) {
+          return std::isdigit(static_cast<unsigned char>(ch)) != 0;
+        })) {
+      const auto id = gml_attr(record, "id");
+      if (!id.empty()) {
+        return "<a id=\"" + id + " " + text + "\"></a>";
+      }
+    }
     return text;
   }
   const auto id = gml_attr(record, "id");
@@ -1124,6 +1192,22 @@ std::string render_anchor_markdown(const std::string& record) {
     return {};
   }
   return "<a id=\"" + id + "\"></a>";
+}
+
+std::optional<std::pair<std::string, std::string>>
+split_message_definition_markdown(const std::string& record) {
+  const auto source = trim_ascii(gml_content(record));
+  const auto description = ascii_lower(source).find(":hp2.description:");
+  if (description == std::string::npos || description == 0) {
+    return std::nullopt;
+  }
+  auto term = trim_ascii(source.substr(0, description));
+  if (term.empty() || term.find(' ') != std::string::npos) {
+    return std::nullopt;
+  }
+  return std::pair<std::string, std::string>{
+      render_inline_markdown(std::move(term)),
+      render_inline_markdown(source.substr(description))};
 }
 
 std::optional<int> gml_int_attr(const std::string& record,
@@ -1435,7 +1519,8 @@ std::optional<std::string> render_flat_three_column_table(
 
 std::string render_table_markdown(const std::string& id,
                                   const std::string& caption,
-                                  const std::vector<TableCell>& cells) {
+                                  const std::vector<TableCell>& cells,
+                                  bool form = false) {
   if (cells.empty()) {
     return table_fallback_markdown(id, caption);
   }
@@ -1458,8 +1543,9 @@ std::string render_table_markdown(const std::string& id,
   std::vector<std::vector<std::string>> rows;
   std::vector<std::string> current(columns.size());
   auto has_current = false;
-  const auto has_explicit_rows = !cells.empty() && cells.front().starts_row &&
-                                 cells.front().text.empty();
+  const auto has_explicit_rows =
+      form || (!cells.empty() && cells.front().starts_row &&
+               cells.front().text.empty());
   for (const auto& cell : cells) {
     const auto column_index = nearest_table_column(columns, cell.column);
     auto text = collapse_ascii_whitespace(cell.text);
@@ -1521,6 +1607,7 @@ void append_footnotes(std::string& output,
 std::string render_markdown_records(const std::vector<std::string>& records) {
   std::string output;
   bool in_list = false;
+  bool in_definition_list = false;
   bool in_table = false;
   bool in_labeled_box = false;
   bool in_title_page = false;
@@ -1540,6 +1627,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
   std::vector<TableCell> table_cells;
   bool next_table_cell_starts_row = false;
   bool preserve_explicit_table_rows = false;
+  bool table_is_form = false;
   std::vector<Footnote> footnotes;
   Footnote current_footnote;
   bool in_footnote = false;
@@ -1636,11 +1724,13 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         append_block(output,
                      render_table_markdown(table_id,
                                            table_caption,
-                                           table_cells));
+                                           table_cells,
+                                           table_is_form));
         in_table = false;
         table_id.clear();
         table_caption.clear();
         table_cells.clear();
+        table_is_form = false;
         next_table_cell_starts_row = false;
         continue;
       }
@@ -1767,6 +1857,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         append_block(output, "Subtopics:");
       }
       in_list = true;
+      in_definition_list = tag == "dl";
       continue;
     }
     if (tag == "lblbox") {
@@ -1791,6 +1882,20 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         output.push_back('\n');
       }
       in_list = false;
+      in_definition_list = false;
+      continue;
+    }
+    if (tag == "dt" && in_definition_list) {
+      const auto column = gml_int_attr(record, "col").value_or(0);
+      const auto indent = gml_int_attr(record, "indent").value_or(column);
+      auto [term, definition] = split_definition_markdown(
+          record,
+          static_cast<std::size_t>(std::max(0, indent - column)));
+      append_definition_item(output, std::move(term), std::move(definition));
+      continue;
+    }
+    if (tag == "dd" && in_definition_list) {
+      append_definition_item(output, {}, gml_markdown_content(record));
       continue;
     }
     if (tag == "li") {
@@ -1864,6 +1969,11 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
       }
       if (gml_content(record).find("Copyri") != std::string::npos) {
         append_edition_copyright_markdown(output, gml_content(record));
+        continue;
+      }
+      if (auto message = split_message_definition_markdown(record)) {
+        append_definition_item(output, std::move(message->first),
+                               std::move(message->second));
         continue;
       }
       auto text = gml_markdown_content(record);
@@ -1973,10 +2083,11 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
     } else if (tag == "table") {
       in_table = true;
       table_id = gml_attr(record, "id");
+      table_is_form = gml_attr(record, "form") == "true";
       table_caption = gml_markdown_content(record);
       table_cells.clear();
       next_table_cell_starts_row = false;
-      preserve_explicit_table_rows = !in_figure;
+      preserve_explicit_table_rows = !in_figure || table_is_form;
     } else if (tag == "i1" || tag == "grpsep" || tag == "etable" ||
                tag == "fontdef" || tag == "unknown-control") {
       continue;
