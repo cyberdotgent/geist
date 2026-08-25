@@ -33,6 +33,36 @@ project(libgeist
 find_package(PNG REQUIRED)
 find_package(GIF REQUIRED)
 
+# CMake's module finders can pair a library from one installation with headers
+# from another (for example Homebrew libraries with Mono framework headers on
+# macOS). Prefer headers in the prefix that owns the selected library.
+function(geist_match_dependency_headers target header)
+  get_target_property(_geist_library ${target} IMPORTED_LOCATION)
+  if(NOT _geist_library)
+    get_target_property(_geist_library ${target} IMPORTED_LOCATION_RELEASE)
+  endif()
+  if(NOT _geist_library)
+    return()
+  endif()
+
+  get_filename_component(_geist_library_dir "${_geist_library}" DIRECTORY)
+  get_filename_component(_geist_prefix "${_geist_library_dir}" DIRECTORY)
+  find_path(_geist_include_dir
+    NAMES "${header}"
+    HINTS "${_geist_prefix}"
+    PATH_SUFFIXES include
+    NO_DEFAULT_PATH
+  )
+  if(_geist_include_dir)
+    set_property(TARGET ${target} PROPERTY
+      INTERFACE_INCLUDE_DIRECTORIES "${_geist_include_dir}"
+    )
+  endif()
+endfunction()
+
+geist_match_dependency_headers(PNG::PNG png.h)
+geist_match_dependency_headers(GIF::GIF gif_lib.h)
+
 set(GEIST_SOURCES
   src/document.cpp
   src/ebcdic.cpp
