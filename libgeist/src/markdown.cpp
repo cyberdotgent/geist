@@ -257,6 +257,95 @@ std::string gml_content_preserve_space(const std::string& record) {
   return record.substr(offset);
 }
 
+std::string strip_leaked_layout_controls(std::string text,
+                                         bool preserve_space = false) {
+  const auto original = text;
+  for (;;) {
+    auto lower = ascii_lower(text);
+    auto best = std::string::npos;
+    std::string matched;
+    for (const auto* token : {"c.cc", "cmenu", "cmitem", "cemenu",
+                              "ctopicn", "cparent", "cforwardlevel",
+                              "cbacklevel", "csummary", "chdlevel",
+                              "csourcefn"}) {
+      const auto position = lower.find(token);
+      if (position < best) {
+        best = position;
+        matched = token;
+      }
+    }
+    if (best == std::string::npos) {
+      break;
+    }
+    if (matched == "c.cc") {
+      auto end = best + matched.size();
+      while (end < text.size() &&
+             std::isspace(static_cast<unsigned char>(text[end])) != 0) {
+        ++end;
+      }
+      while (end < text.size() &&
+             std::isdigit(static_cast<unsigned char>(text[end])) != 0) {
+        ++end;
+      }
+      text.erase(best, end - best);
+      continue;
+    }
+    text.erase(best);
+  }
+
+  for (const auto* marker : {":h3", ":h4"}) {
+    for (;;) {
+      const auto position = ascii_lower(text).find(marker);
+      if (position == std::string::npos) {
+        break;
+      }
+      text.erase(position, std::string(marker).size());
+    }
+  }
+
+  for (;;) {
+    const auto position = ascii_lower(text).find("cfont ");
+    if (position == std::string::npos) {
+      break;
+    }
+    auto cursor = position + 6;
+    for (;;) {
+      const auto before = cursor;
+      while (cursor < text.size() &&
+             std::isspace(static_cast<unsigned char>(text[cursor])) != 0) {
+        ++cursor;
+      }
+      for (auto field = 0; field < 2; ++field) {
+        const auto begin = cursor;
+        while (cursor < text.size() &&
+               std::isdigit(static_cast<unsigned char>(text[cursor])) != 0) {
+          ++cursor;
+        }
+        if (begin == cursor) {
+          cursor = before;
+          break;
+        }
+        while (cursor < text.size() &&
+               std::isspace(static_cast<unsigned char>(text[cursor])) != 0) {
+          ++cursor;
+        }
+      }
+      if (cursor == before || cursor >= text.size()) {
+        break;
+      }
+      while (cursor < text.size() &&
+             std::isspace(static_cast<unsigned char>(text[cursor])) == 0) {
+        ++cursor;
+      }
+    }
+    text.erase(position, cursor - position);
+  }
+  return preserve_space ? (text == original
+                                ? text
+                                : detail::trim_right_spaces(std::move(text)))
+                        : trim_ascii(std::move(text));
+}
+
 std::string markdown_marker_for_highlight(const std::string& tag) {
   if (tag == "hp1") {
     return "*";
@@ -458,7 +547,8 @@ bool has_inline_highlight_markup(const std::string& text) {
 }
 
 std::string gml_markdown_content(const std::string& record) {
-  return render_inline_markdown(gml_content(record));
+  return render_inline_markdown(
+      strip_leaked_layout_controls(gml_content(record)));
 }
 
 std::string gml_attr(const std::string& record, const std::string& attr) {
@@ -1375,6 +1465,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
   bool in_title_page = false;
   bool in_example = false;
   bool in_rich_example = false;
+  bool example_is_generated_menu = false;
   bool in_figure = false;
   bool figure_has_image = false;
   bool in_index = false;
@@ -1394,23 +1485,36 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
   std::vector<std::string> pending_figure_lines;
   std::vector<std::string> pending_title_page_bold_lines;
 
-  for (const auto& record : records) {
+  for (std::size_t record_index = 0; record_index < records.size();
+       ++record_index) {
+    const auto& record = records[record_index];
     const auto tag = gml_tag(record);
     if (in_example) {
       if (tag == "exmp") {
-        if (!output.empty() && output.back() != '\n') {
-          output.push_back('\n');
+        if (!example_is_generated_menu) {
+          if (!output.empty() && output.back() != '\n') {
+            output.push_back('\n');
+          }
+          output += in_rich_example ? "</pre>\n\n" : "```\n\n";
         }
-        output += in_rich_example ? "</pre>\n\n" : "```\n\n";
         in_example = false;
         in_rich_example = false;
+        example_is_generated_menu = false;
         continue;
       }
       if (tag == "xline") {
+        auto line = strip_leaked_layout_controls(
+            gml_content_preserve_space(record), true);
+        if (example_is_generated_menu) {
+          if (!line.empty()) {
+            append_block(output, collapse_ascii_whitespace(std::move(line)));
+          }
+          continue;
+        }
         if (in_rich_example) {
-          output += render_inline_html(gml_content_preserve_space(record));
+          output += render_inline_html(line);
         } else {
-          output += gml_content_preserve_space(record);
+          output += line;
         }
         output.push_back('\n');
         continue;
@@ -1447,7 +1551,8 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
       continue;
     }
     if (in_figure && tag == "xline") {
-      pending_figure_lines.push_back(gml_content_preserve_space(record));
+      pending_figure_lines.push_back(strip_leaked_layout_controls(
+          gml_content_preserve_space(record), true));
       continue;
     }
 
@@ -1528,15 +1633,32 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         append_block(output, pending_copyright_note);
         pending_copyright_note.clear();
       }
-      if (!output.empty() && output.back() != '\n') {
-        output.push_back('\n');
+      example_is_generated_menu = false;
+      for (auto lookahead = record_index + 1; lookahead < records.size();
+           ++lookahead) {
+        if (gml_tag(records[lookahead]) == "exmp") {
+          break;
+        }
+        const auto lower_line = ascii_lower(records[lookahead]);
+        if (lower_line.find("cmenu") != std::string::npos ||
+            lower_line.find("cmitem") != std::string::npos) {
+          example_is_generated_menu = true;
+          break;
+        }
       }
-      if (!output.empty() && output.size() >= 2 &&
-          output.compare(output.size() - 2, 2, "\n\n") != 0) {
-        output.push_back('\n');
+      if (!example_is_generated_menu) {
+        if (!output.empty() && output.back() != '\n') {
+          output.push_back('\n');
+        }
+        if (!output.empty() && output.size() >= 2 &&
+            output.compare(output.size() - 2, 2, "\n\n") != 0) {
+          output.push_back('\n');
+        }
       }
       in_rich_example = gml_record_attr(record, "inline") == "html";
-      output += in_rich_example ? "<pre>\n" : "```text\n";
+      if (!example_is_generated_menu) {
+        output += in_rich_example ? "<pre>\n" : "```text\n";
+      }
       in_example = true;
       in_list = false;
       continue;

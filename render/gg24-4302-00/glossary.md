@@ -108,7 +108,7 @@ Fast Path (FP)
 
 field search argument (FSA)
 
-**:H4** **field** **search a**r**gumen**t (FSA). A parameter you pass to a DL/1 Field (FLD) call. It specifies which actions IMS should perform on that field.
+**** **field** **search a**r**gumen**t (FSA). A parameter you pass to a DL/1 Field (FLD) call. It specifies which actions IMS should perform on that field.
 
 front-end switch (FES)
 

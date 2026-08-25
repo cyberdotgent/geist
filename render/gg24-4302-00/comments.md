@@ -14,7 +14,7 @@ Mail it to the address on the back (postage paid in U.S. only) Give it to an IBM
 
 citerm
 
-| Yes____ No____ Are you in a Services Organization | Yes____ No____- b) Are you working in the USA | Yes____ No____:H4 c) Was the Bulletin published in time for your needs |
+| Yes____ No____ Are you in a Services Organization | Yes____ No____- b) Are you working in the USA | Yes____ No____ c) Was the Bulletin published in time for your needs |
 | --- | --- | --- |
 
 ---

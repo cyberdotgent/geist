@@ -1,5 +1,19 @@
 # Agent Log
 
+## 2026-08-25 - Suppress generated BookManager layout controls
+
+- Removed leaked page/layout controls (`c.cc`, `cfont`, generated topic
+  metadata, and inline `:H3`/`:H4`) from visible Markdown while retaining the
+  surrounding prose.
+- Recognized reflow-off blocks carrying duplicated `cmenu`/`cmitem` metadata
+  as normal introductory prose; the separately decoded menu remains the single
+  Markdown subtopic list instead of exposing controls inside a code fence.
+- Added a 229-topic negative regression scan plus positive preface prose/menu
+  assertions. All nine CTest tests and full Markdown rendering of all 34 BOO
+  fixtures pass.
+- Replayed the complete cached GG24 BookServer comparison: heuristic flags fell
+  from 41 to 34, with no leaked control tokens and no new defect class.
+
 ## 2026-08-25 - Complete GG24 figure and table rendering
 
 - Preserved explicit row boundaries in tables whose blank leading header cell

@@ -133,4 +133,21 @@ int main() {
     require(rmf_reports.find(expected) != std::string::npos,
             "fixed report lost a representative row");
   }
+
+  for (const auto& entry : split_header.table_of_contents()) {
+    const auto markdown = entry.markdown();
+    for (const auto* leaked : {"c.cc ", "cmenu", "cmitem", "cemenu",
+                               "cfont ", "ctopicn", "cparent",
+                               "cforwardlevel", "cbacklevel", "csummary",
+                               "chdlevel", "csourcefn", ":H3", ":H4"}) {
+      require(markdown.find(leaked) == std::string::npos,
+              "generated BookManager control leaked into Markdown");
+    }
+  }
+  const auto preface = split_header.topic_markdown("PREFACE");
+  require(preface.find("implementing an IMS system") != std::string::npos &&
+              preface.find("PREFACE.4 Acknowledgments") != std::string::npos,
+          "control suppression discarded preface prose or menu entries");
+  require(preface.find("```text") == std::string::npos,
+          "generated menu prose remained in an unintended code fence");
 }
