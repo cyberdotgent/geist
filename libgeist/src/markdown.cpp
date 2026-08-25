@@ -23,8 +23,15 @@ std::string trim_trailing_blank_lines(std::string value) {
 
 } // namespace
 
+const std::vector<std::string>& TocEntry::gml_records() const {
+  if (cached_raw_records_.empty() && raw_record_loader_) {
+    cached_raw_records_ = raw_record_loader_();
+  }
+  return cached_raw_records_.empty() ? raw_records : cached_raw_records_;
+}
+
 std::string TocEntry::markdown() const {
-  auto records = raw_records;
+  auto records = gml_records();
   auto replaced_heading = false;
   if (!records.empty() && !records.front().empty() && !id.empty() &&
       !title.empty()) {
@@ -108,7 +115,7 @@ std::string TocEntry::markdown() const {
 }
 
 std::string BooDocument::markdown() const {
-  return detail::render_markdown_records(raw_gml_records_);
+  return detail::render_markdown_records(raw_gml_records());
 }
 
 namespace detail {

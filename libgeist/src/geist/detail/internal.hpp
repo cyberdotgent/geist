@@ -16,6 +16,14 @@ namespace geist::detail {
 
 using TokenWords = std::vector<std::uint16_t>;
 
+struct LogicalDecodeContext {
+  std::vector<std::uint8_t> bytes;
+  BooDirectory directory;
+  std::vector<std::uint32_t> content_page_record_starts;
+  std::vector<std::uint32_t> topic_record_starts;
+  std::vector<std::string> decoded_records;
+};
+
 struct TopicData {
   std::string id;
   std::string title;
@@ -124,6 +132,12 @@ std::vector<BooLogicalControl> extract_logical_controls(
 std::vector<std::string> decode_experimental_logical_records(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory);
+std::vector<std::uint32_t> parse_content_page_record_starts(
+    const std::vector<std::uint8_t>& bytes,
+    const BooDirectory& directory);
+std::vector<std::uint32_t> parse_topic_record_starts(
+    const std::vector<std::uint8_t>& bytes,
+    const BooDirectory& directory);
 std::vector<BooLogicalControl> extract_book_logical_controls(
     const std::vector<std::string>& decoded_records);
 const TopicData* find_topic_data(const std::vector<TopicData>& topics,
@@ -135,11 +149,13 @@ bool is_topic_header_record(const std::string& decoded_record);
 void attach_topic_data(TocEntry& entry, const TopicData& topic);
 std::vector<TocEntry> build_table_of_contents(
     const std::vector<std::string>& decoded_records,
-    const std::vector<TopicData>& topics);
+    const std::vector<TopicData>& topics,
+    bool attach_records = true);
 std::vector<std::string> build_raw_gml_records(
     const std::vector<TopicData>& topics);
 std::vector<TopicData> build_topics(
-    const std::vector<std::string>& decoded_records);
+    const std::vector<std::string>& decoded_records,
+    bool copy_records = true);
 
 BooBookProperties build_book_properties(
     const std::vector<BooLogicalControl>& controls);

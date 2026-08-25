@@ -257,6 +257,60 @@ TokenWords resolve_experimental_token(
   return found->second;
 }
 
+std::vector<std::uint32_t> parse_direct_u16_index(
+    const std::vector<std::uint8_t>& bytes,
+    std::size_t root,
+    std::size_t expected_count,
+    bool include_terminal) {
+  const auto value_count = expected_count + (include_terminal ? 1 : 0);
+  if (root + 4 > bytes.size() || read_be16(bytes, root) != expected_count ||
+      root + 4 + value_count * 2 > bytes.size()) {
+    return {};
+  }
+
+  std::vector<std::uint32_t> values;
+  values.reserve(value_count);
+  for (std::size_t index = 0; index < value_count; ++index) {
+    values.push_back(read_be16(bytes, root + 4 + index * 2));
+  }
+  return values;
+}
+
+std::vector<std::uint32_t> parse_content_page_record_starts(
+    const std::vector<std::uint8_t>& bytes,
+    const BooDirectory& directory) {
+  const auto root = static_cast<std::size_t>(directory.page_number) *
+                        boo_page_size +
+                    directory.content_page_index_offset;
+  auto starts = parse_direct_u16_index(bytes,
+                                       root,
+                                       directory.content_page_count,
+                                       true);
+  // Unlike the per-page entries, the final word is the inclusive total
+  // logical-record number rather than the next page's first record.
+  if (!starts.empty()) {
+    ++starts.back();
+  }
+  return starts;
+}
+
+std::vector<std::uint32_t> parse_topic_record_starts(
+    const std::vector<std::uint8_t>& bytes,
+    const BooDirectory& directory) {
+  const auto root = static_cast<std::size_t>(directory.page_number) *
+                        boo_page_size +
+                    directory.stream_table_offset;
+  auto starts = parse_direct_u16_index(bytes,
+                                       root,
+                                       directory.stream_table_count,
+                                       false);
+  if (!starts.empty()) {
+    starts.push_back(static_cast<std::uint32_t>(directory.logical_record_count) +
+                     1);
+  }
+  return starts;
+}
+
 TokenWords assemble_logical_record(const std::vector<TokenWords>& tokens) {
   TokenWords output;
   std::uint16_t spacing_control = 2;

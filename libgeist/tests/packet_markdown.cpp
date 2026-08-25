@@ -29,12 +29,7 @@ void require_not_contains(const std::string& haystack,
 
 std::string topic_markdown(const geist::BooDocument& document,
                            const std::string& id) {
-  const auto* entry = document.find_toc_entry(id);
-  if (entry == nullptr) {
-    std::cerr << "missing topic " << id << "\n";
-    std::exit(1);
-  }
-  return entry->markdown();
+  return document.topic_markdown(id);
 }
 
 } // namespace

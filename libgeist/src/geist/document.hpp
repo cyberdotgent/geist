@@ -10,11 +10,16 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <map>
 #include <string>
 #include <vector>
 
 namespace geist {
+
+namespace detail {
+struct LogicalDecodeContext;
+}
 
 struct BooFontTrace {
   std::uint32_t logical_record = 0;
@@ -38,9 +43,8 @@ struct BooLogicalRecordTrace {
 
 class BooDocument {
 public:
-  // Opens and validates a BOO file, then parses the verified physical header
-  // and directory fields. Throws std::runtime_error for invalid or unsupported
-  // physical structure.
+  // Opens and validates a BOO file, builds its lightweight topic/TOC indexes,
+  // and defers topic GML and Markdown rendering until requested.
   static GEIST_API BooDocument open(const std::filesystem::path& path);
 
   GEIST_API const BooMetadata& metadata() const noexcept;
@@ -51,12 +55,14 @@ public:
   GEIST_API const std::vector<BooLogicalControl>& logical_controls()
       const noexcept;
   GEIST_API const std::vector<std::string>& decoded_logical_records()
-      const noexcept;
+      const;
   GEIST_API const std::map<std::string, std::string>& font_definitions()
-      const noexcept;
+      const;
   GEIST_API const std::vector<TocEntry>& table_of_contents() const noexcept;
-  GEIST_API const std::vector<std::string>& raw_gml_records() const noexcept;
+  GEIST_API const std::vector<TopicInfo>& topics() const noexcept;
+  GEIST_API const std::vector<std::string>& raw_gml_records() const;
   GEIST_API std::string markdown() const;
+  GEIST_API std::string topic_markdown(const std::string& topic_id) const;
   GEIST_API const std::vector<ResourceEntry>& resources() const noexcept;
   GEIST_API const TocEntry* find_toc_entry(const std::string& topic_id)
       const noexcept;
@@ -78,12 +84,14 @@ private:
   BooBookProperties book_properties_;
   std::vector<BooPageRun> page_runs_;
   std::vector<BooLogicalControl> logical_controls_;
-  std::vector<std::string> decoded_logical_records_;
-  std::map<std::string, std::string> font_definitions_;
+  mutable std::map<std::string, std::string> font_definitions_;
+  mutable bool font_definitions_loaded_ = false;
   std::vector<TocEntry> toc_;
-  std::vector<std::string> raw_gml_records_;
+  std::vector<TopicInfo> topics_;
+  mutable std::vector<std::string> raw_gml_records_;
+  mutable bool raw_gml_records_loaded_ = false;
   std::vector<ResourceEntry> resources_;
-  std::vector<std::uint8_t> bytes_;
+  std::shared_ptr<detail::LogicalDecodeContext> decode_context_;
 };
 
 } // namespace geist

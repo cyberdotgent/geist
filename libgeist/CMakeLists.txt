@@ -197,3 +197,19 @@ add_executable(markup_synthetic_test
 target_link_libraries(markup_synthetic_test PRIVATE geist::geist_static)
 
 add_test(NAME markup_synthetic_test COMMAND markup_synthetic_test)
+
+add_executable(lazy_open_test
+  tests/lazy_open.cpp
+)
+target_link_libraries(lazy_open_test PRIVATE geist::geist_static)
+target_compile_definitions(lazy_open_test
+  PRIVATE
+    GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+
+add_test(NAME lazy_open_test COMMAND lazy_open_test)
+
+add_executable(geist_open_benchmark
+  tests/open_benchmark.cpp
+)
+target_link_libraries(geist_open_benchmark PRIVATE geist::geist_static)

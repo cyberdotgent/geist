@@ -864,7 +864,8 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
 
 std::vector<TocEntry> build_table_of_contents(
     const std::vector<std::string>& decoded_records,
-    const std::vector<TopicData>& topics) {
+    const std::vector<TopicData>& topics,
+    bool attach_records) {
   std::vector<TocEntry> toc;
   bool in_contents_topic = false;
   for (const auto& decoded : decoded_records) {
@@ -883,7 +884,14 @@ std::vector<TocEntry> build_table_of_contents(
     }
     for (auto& entry : entries) {
       if (const auto* topic = find_topic_data(topics, entry.id)) {
-        attach_topic_data(entry, *topic);
+        if (attach_records) {
+          attach_topic_data(entry, *topic);
+        } else {
+          entry.heading_level = topic->heading_level;
+          entry.topic_number = topic->topic_number;
+          entry.start_logical_record = topic->start_logical_record;
+          entry.end_logical_record = topic->end_logical_record;
+        }
       }
     }
     toc.insert(toc.end(), entries.begin(), entries.end());
@@ -904,7 +912,8 @@ std::vector<std::string> build_raw_gml_records(
 }
 
 std::vector<TopicData> build_topics(
-    const std::vector<std::string>& decoded_records) {
+    const std::vector<std::string>& decoded_records,
+    bool copy_records) {
   std::vector<TopicData> topics;
 
   std::vector<std::size_t> header_indexes;
@@ -936,10 +945,12 @@ std::vector<TopicData> build_topics(
     topic.start_logical_record =
         static_cast<std::uint32_t>(record_begin + 1);
     topic.end_logical_record = static_cast<std::uint32_t>(record_end + 1);
-    topic.raw_records.assign(decoded_records.begin() +
-                                 static_cast<std::ptrdiff_t>(record_begin),
-                             decoded_records.begin() +
-                                 static_cast<std::ptrdiff_t>(record_end));
+    if (copy_records) {
+      topic.raw_records.assign(decoded_records.begin() +
+                                   static_cast<std::ptrdiff_t>(record_begin),
+                               decoded_records.begin() +
+                                   static_cast<std::ptrdiff_t>(record_end));
+    }
 
     topic.id = extract_topic_header_id(header);
     topic.heading_level =

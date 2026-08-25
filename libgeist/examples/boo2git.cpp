@@ -269,7 +269,7 @@ std::map<std::string, std::string> build_markdown_link_map(
       continue;
     }
     std::string pending_figure_id;
-    for (const auto& record : entry.raw_records) {
+    for (const auto& record : entry.gml_records()) {
       if (record.rfind(":anchor ", 0) == 0) {
         const auto id = raw_attr(record, "id");
         if (!id.empty()) {

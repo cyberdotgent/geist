@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
         return 1;
       }
 
-      const auto& records = has_topic_id ? entry->raw_records
+      const auto& records = has_topic_id ? entry->gml_records()
                                          : document.raw_gml_records();
       for (const auto& record : records) {
         std::cout << record << '\n';

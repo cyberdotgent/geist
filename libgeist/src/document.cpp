@@ -19,38 +19,40 @@ using namespace detail;
 
 BooDocument BooDocument::open(const std::filesystem::path& path) {
   BooDocument document;
-  document.bytes_ = read_file(path);
+  auto context = std::make_shared<LogicalDecodeContext>();
+  context->bytes = read_file(path);
+  const auto& bytes = context->bytes;
 
-  if (document.bytes_.size() < boo_page_size) {
+  if (bytes.size() < boo_page_size) {
     throw std::runtime_error("BOO file is smaller than one 4096-byte page: " +
                              path.string());
   }
-  if (document.bytes_.size() % boo_page_size != 0) {
+  if (bytes.size() % boo_page_size != 0) {
     throw std::runtime_error("BOO file size is not a multiple of 4096 bytes: " +
                              path.string());
   }
 
   document.metadata_.path = path;
   document.metadata_.file_size =
-      static_cast<std::uint64_t>(document.bytes_.size());
+      static_cast<std::uint64_t>(bytes.size());
   document.metadata_.page_count =
-      static_cast<std::uint32_t>(document.bytes_.size() / boo_page_size);
+      static_cast<std::uint32_t>(bytes.size() / boo_page_size);
 
-  document.file_header_.directory_page_number = read_be16(document.bytes_, 0);
-  document.file_header_.unknown_0002 = read_be16(document.bytes_, 2);
-  document.file_header_.unknown_0004 = read_be32(document.bytes_, 4);
+  document.file_header_.directory_page_number = read_be16(bytes, 0);
+  document.file_header_.unknown_0002 = read_be16(bytes, 2);
+  document.file_header_.unknown_0004 = read_be32(bytes, 4);
   document.file_header_.copyright_text =
       trim_right_spaces(EbcdicCodec::cp037().decode_ascii(
-          document.bytes_,
+          bytes,
           0x000C,
           128,
           "unexpected end of BOO file while reading text"));
-  if (document.bytes_.size() >= 0x0106) {
+  if (bytes.size() >= 0x0106) {
     document.file_header_.unknown_0102 =
-        std::array<std::uint8_t, 4>{document.bytes_[0x0102],
-                                    document.bytes_[0x0103],
-                                    document.bytes_[0x0104],
-                                    document.bytes_[0x0105]};
+        std::array<std::uint8_t, 4>{bytes[0x0102],
+                                    bytes[0x0103],
+                                    bytes[0x0104],
+                                    bytes[0x0105]};
   }
 
   const auto directory_page = document.file_header_.directory_page_number;
@@ -63,39 +65,43 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
   document.directory_.page_number = directory_page;
   document.directory_.version_text =
       EbcdicCodec::cp037().decode_ascii(
-          document.bytes_,
+          bytes,
           directory_base + 0x0010,
           4,
           "unexpected end of BOO file while reading text");
-  document.directory_.version_variant = document.bytes_[directory_base + 0x0013];
-  document.directory_.token_threshold = document.bytes_[directory_base + 0x0014];
+  document.directory_.version_variant = bytes[directory_base + 0x0013];
+  document.directory_.token_threshold = bytes[directory_base + 0x0014];
   document.directory_.last_page_number =
-      read_be16(document.bytes_, directory_base + 0x0016);
+      read_be16(bytes, directory_base + 0x0016);
   document.directory_.token_map_offset =
-      read_be16(document.bytes_, directory_base + 0x0022);
+      read_be16(bytes, directory_base + 0x0022);
   document.directory_.dictionary_start_page =
-      read_be16(document.bytes_, directory_base + 0x0028);
+      read_be16(bytes, directory_base + 0x0028);
   document.directory_.dictionary_page_count =
-      read_be16(document.bytes_, directory_base + 0x002E);
+      read_be16(bytes, directory_base + 0x002E);
+  document.directory_.content_page_index_offset =
+      read_be16(bytes, directory_base + 0x0034);
+  document.directory_.logical_record_count =
+      read_be16(bytes, directory_base + 0x0036);
   document.directory_.content_page_count =
-      read_be16(document.bytes_, directory_base + 0x0038);
+      read_be16(bytes, directory_base + 0x0038);
   document.directory_.content_start_page =
-      read_be16(document.bytes_, directory_base + 0x003A);
+      read_be16(bytes, directory_base + 0x003A);
   document.directory_.stream_table_offset =
-      read_be16(document.bytes_, directory_base + 0x003C);
+      read_be16(bytes, directory_base + 0x003C);
   document.directory_.stream_table_count =
-      read_be16(document.bytes_, directory_base + 0x003E);
+      read_be16(bytes, directory_base + 0x003E);
   document.directory_.secondary_table_offset =
-      read_be16(document.bytes_, directory_base + 0x0040);
+      read_be16(bytes, directory_base + 0x0040);
   document.directory_.date =
       EbcdicCodec::cp037().decode_ascii(
-          document.bytes_,
+          bytes,
           directory_base + 0x0044,
           8,
           "unexpected end of BOO file while reading text");
   document.directory_.time =
       EbcdicCodec::cp037().decode_ascii(
-          document.bytes_,
+          bytes,
           directory_base + 0x004E,
           8,
           "unexpected end of BOO file while reading text");
@@ -108,20 +114,80 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
                              "file");
   }
 
-  document.page_runs_ = build_page_runs(document.bytes_, document.directory_);
-  document.decoded_logical_records_ =
-      decode_experimental_logical_records(document.bytes_, document.directory_);
+  context->directory = document.directory_;
+  context->content_page_record_starts =
+      parse_content_page_record_starts(bytes, document.directory_);
+  context->topic_record_starts = parse_topic_record_starts(
+      bytes, document.directory_);
+  document.decode_context_ = context;
+
+  document.page_runs_ = build_page_runs(bytes, document.directory_);
+  // The experimental decoder currently exposes compact token records rather
+  // than the reader's fully assembled logical-record numbering. Decode that
+  // inexpensive stream once to preserve established topic boundaries; GML
+  // parsing and rendering remain deferred until a topic is requested.
+  context->decoded_records =
+      decode_experimental_logical_records(bytes, document.directory_);
+  const auto topics = build_topics(context->decoded_records, false);
+  const auto first_topic_record = topics.empty()
+                                      ? context->decoded_records.size() + 1
+                                      : topics.front().start_logical_record;
+  const std::vector<std::string> book_header_records(
+      context->decoded_records.begin(),
+      context->decoded_records.begin() +
+          static_cast<std::ptrdiff_t>(first_topic_record - 1));
   document.logical_controls_ =
-      extract_book_logical_controls(document.decoded_logical_records_);
-  document.font_definitions_ =
-      extract_font_definitions(document.decoded_logical_records_);
+      extract_book_logical_controls(book_header_records);
   document.book_properties_ =
       build_book_properties(document.logical_controls_);
-  const auto topics = build_topics(document.decoded_logical_records_);
-  document.toc_ =
-      build_table_of_contents(document.decoded_logical_records_, topics);
-  document.raw_gml_records_ = build_raw_gml_records(topics);
-  document.resources_ = build_resources(document.bytes_, document.directory_);
+
+  for (const auto& topic : topics) {
+    document.topics_.push_back({topic.id,
+                                topic.title,
+                                topic.heading_level,
+                                topic.topic_number,
+                                topic.start_logical_record,
+                                topic.end_logical_record});
+  }
+
+  std::vector<std::string> contents_records;
+  for (const auto& topic : topics) {
+    if (ascii_equals_case_insensitive(topic.id, "contents")) {
+      contents_records.assign(
+          context->decoded_records.begin() + topic.start_logical_record - 1,
+          context->decoded_records.begin() + topic.end_logical_record - 1);
+      break;
+    }
+  }
+  document.toc_ = build_table_of_contents(contents_records, topics, false);
+  for (auto& entry : document.toc_) {
+    const auto* topic = find_topic_data(topics, entry.id);
+    if (topic == nullptr) {
+      continue;
+    }
+    auto topic_data = *topic;
+    const auto entry_id = entry.id;
+    const auto entry_title = entry.title;
+    const auto entry_level = entry.level;
+    const auto entry_style = entry.style;
+    entry.raw_record_loader_ =
+        [context, topic_data, entry_id, entry_title, entry_level,
+         entry_style]() mutable {
+          topic_data.raw_records.assign(
+              context->decoded_records.begin() +
+                  topic_data.start_logical_record - 1,
+              context->decoded_records.begin() +
+                  topic_data.end_logical_record - 1);
+          TocEntry loaded;
+          loaded.id = entry_id;
+          loaded.title = entry_title;
+          loaded.level = entry_level;
+          loaded.style = entry_style;
+          attach_topic_data(loaded, topic_data);
+          return loaded.raw_records;
+        };
+  }
+  document.resources_ = build_resources(bytes, document.directory_);
   return document;
 }
 
@@ -151,12 +217,16 @@ const std::vector<BooLogicalControl>& BooDocument::logical_controls()
 }
 
 const std::vector<std::string>& BooDocument::decoded_logical_records()
-    const noexcept {
-  return decoded_logical_records_;
+    const {
+  return decode_context_->decoded_records;
 }
 
 const std::map<std::string, std::string>& BooDocument::font_definitions()
-    const noexcept {
+    const {
+  if (!font_definitions_loaded_) {
+    font_definitions_ = extract_font_definitions(decoded_logical_records());
+    font_definitions_loaded_ = true;
+  }
   return font_definitions_;
 }
 
@@ -164,7 +234,26 @@ const std::vector<TocEntry>& BooDocument::table_of_contents() const noexcept {
   return toc_;
 }
 
-const std::vector<std::string>& BooDocument::raw_gml_records() const noexcept {
+const std::vector<TopicInfo>& BooDocument::topics() const noexcept {
+  return topics_;
+}
+
+const std::vector<std::string>& BooDocument::raw_gml_records() const {
+  if (!raw_gml_records_loaded_) {
+    for (const auto& topic : topics_) {
+      std::vector<std::string> decoded(
+          decode_context_->decoded_records.begin() +
+              topic.start_logical_record - 1,
+          decode_context_->decoded_records.begin() +
+              topic.end_logical_record - 1);
+      auto rendered = render_gml_records(decoded);
+      raw_gml_records_.insert(
+          raw_gml_records_.end(),
+          std::make_move_iterator(rendered.begin()),
+          std::make_move_iterator(rendered.end()));
+    }
+    raw_gml_records_loaded_ = true;
+  }
   return raw_gml_records_;
 }
 
@@ -187,35 +276,61 @@ const TocEntry* BooDocument::find_toc_entry(const std::string& topic_id)
   return &*found;
 }
 
-std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
-    const std::string& topic_id) const {
-  const auto* entry = find_toc_entry(topic_id);
-  if (entry == nullptr) {
+std::string BooDocument::topic_markdown(const std::string& topic_id) const {
+  if (const auto* entry = find_toc_entry(topic_id)) {
+    return entry->markdown();
+  }
+
+  const auto found = std::find_if(
+      topics_.begin(), topics_.end(), [&](const TopicInfo& topic) {
+        return topic.id == normalize_toc_id(topic_id) ||
+               ascii_equals_case_insensitive(topic.id, topic_id);
+      });
+  if (found == topics_.end()) {
     throw std::out_of_range("BOO topic id was not found: " + topic_id);
   }
-  if (entry->start_logical_record == 0 || entry->end_logical_record == 0 ||
-      entry->end_logical_record <= entry->start_logical_record) {
-    return {};
-  }
 
-  const auto begin = static_cast<std::size_t>(entry->start_logical_record - 1);
-  const auto end = static_cast<std::size_t>(entry->end_logical_record - 1);
-  if (begin >= decoded_logical_records_.size()) {
-    return {};
-  }
-  const auto clamped_end = std::min(end, decoded_logical_records_.size());
-  if (begin >= clamped_end) {
-    return {};
-  }
+  TopicData topic;
+  topic.id = found->id;
+  topic.title = found->title;
+  topic.heading_level = found->heading_level;
+  topic.topic_number = found->topic_number;
+  topic.start_logical_record = found->start_logical_record;
+  topic.end_logical_record = found->end_logical_record;
+  topic.raw_records.assign(
+      decode_context_->decoded_records.begin() + topic.start_logical_record - 1,
+      decode_context_->decoded_records.begin() + topic.end_logical_record - 1);
+  TocEntry entry;
+  entry.id = topic.id;
+  entry.title = topic.title;
+  attach_topic_data(entry, topic);
+  return entry.markdown();
+}
 
-  std::vector<std::string> records(
-      decoded_logical_records_.begin() + static_cast<std::ptrdiff_t>(begin),
-      decoded_logical_records_.begin() +
-          static_cast<std::ptrdiff_t>(clamped_end));
+std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
+    const std::string& topic_id) const {
+  const auto topic = std::find_if(
+      topics_.begin(), topics_.end(), [&](const TopicInfo& candidate) {
+        return candidate.id == normalize_toc_id(topic_id) ||
+               ascii_equals_case_insensitive(candidate.id, topic_id);
+      });
+  if (topic == topics_.end()) {
+    throw std::out_of_range("BOO topic id was not found: " + topic_id);
+  }
+  if (topic->start_logical_record == 0 || topic->end_logical_record == 0 ||
+      topic->end_logical_record <= topic->start_logical_record) {
+    return {};
+  }
+  const auto& all_records = decoded_logical_records();
+  const auto begin = static_cast<std::size_t>(topic->start_logical_record - 1);
+  const auto end = std::min<std::size_t>(topic->end_logical_record - 1,
+                                        all_records.size());
+  std::vector<std::string> records(all_records.begin() + begin,
+                                   all_records.begin() + end);
   return detail::trace_gml_records(
       records,
-      entry->start_logical_record,
-      font_definitions_);
+      topic->start_logical_record,
+      font_definitions());
 }
 
 std::vector<std::uint8_t> BooDocument::read_page(
@@ -224,7 +339,7 @@ std::vector<std::uint8_t> BooDocument::read_page(
     throw std::out_of_range("BOO page number is outside the file");
   }
 
-  const auto begin = bytes_.begin() +
+  const auto begin = decode_context_->bytes.begin() +
                      static_cast<std::ptrdiff_t>(page_number * boo_page_size);
   return {begin, begin + boo_page_size};
 }
@@ -240,11 +355,11 @@ std::vector<std::uint8_t> BooDocument::read_resource_data(
   if (found == resources_.end()) {
     throw std::out_of_range("BOO resource id was not found: " + resource_id);
   }
-  if (!byte_range_is_valid(bytes_, found->offset, found->size)) {
+  if (!byte_range_is_valid(decode_context_->bytes, found->offset, found->size)) {
     throw std::runtime_error("BOO resource byte range is outside the file");
   }
 
-  const auto begin = bytes_.begin() +
+  const auto begin = decode_context_->bytes.begin() +
                      static_cast<std::ptrdiff_t>(found->offset);
   return {begin, begin + static_cast<std::ptrdiff_t>(found->size)};
 }

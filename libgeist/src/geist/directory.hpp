@@ -16,6 +16,8 @@ struct BooDirectory {
   std::uint16_t token_map_offset = 0;
   std::uint16_t dictionary_start_page = 0;
   std::uint16_t dictionary_page_count = 0;
+  std::uint16_t content_page_index_offset = 0;
+  std::uint16_t logical_record_count = 0;
   std::uint16_t content_start_page = 0;
   std::uint16_t content_page_count = 0;
   std::uint16_t stream_table_offset = 0;
