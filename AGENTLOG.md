@@ -11,6 +11,13 @@
   numbers, URLs, and SHA-256 values in
   `AnalysisNotes/bookserver-dataset-2026-08-25.md`.
 - Validated every new fixture with `booinfo` and `bootoc` before insertion.
+- Made the whole-book audit robust to invalid UTF-8 emitted by an individual
+  local topic: preserve the comparison with replacement characters and flag it
+  as `invalid-utf8` instead of aborting the remaining book.
+- Fetched and compared all 4,266 topics across the 20 books, then reviewed them
+  in three balanced lightweight-agent batches. Created one tracking issue per
+  book (#15–#34), four new shared defect issues (#11–#14), and added cross-book
+  evidence to existing defect issues #3 and #6–#9.
 
 ## 2026-08-25 - Add reproducible whole-book rendering audits
 

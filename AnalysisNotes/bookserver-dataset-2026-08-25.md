@@ -63,3 +63,38 @@ Each fixture is audited with the complete-book procedure in
 `AnalysisNotes/whole-book-rendering-audits.md`. Hosted HTML and generated local
 output remain scratch artifacts outside the repository; GitHub tracking issues
 record the durable baseline, failures, and deduplicated defect classes.
+
+The complete pass fetched and compared all 4,266 topics. There were no final
+fetch failures or BookServer error pages. Heuristic flags prioritized review,
+but lightweight agents inspected all topic artifacts and manually confirmed
+the defect families recorded in the trackers.
+
+| Book | Topics | Flagged | Tracking issue |
+| --- | ---: | ---: | --- |
+| ACPZMST1 | 200 | 129 | [#15](https://github.com/cyberdotgent/geist/issues/15) |
+| DREICMST | 372 | 155 | [#16](https://github.com/cyberdotgent/geist/issues/16) |
+| FA1PLMM0 | 420 | 191 | [#17](https://github.com/cyberdotgent/geist/issues/17) |
+| GC23-046 | 99 | 73 | [#18](https://github.com/cyberdotgent/geist/issues/18) |
+| GC28-183 | 146 | 84 | [#19](https://github.com/cyberdotgent/geist/issues/19) |
+| GG24-395 | 226 | 148 | [#20](https://github.com/cyberdotgent/geist/issues/20) |
+| IBMMMSTR | 60 | 51 | [#21](https://github.com/cyberdotgent/geist/issues/21) |
+| PRG1SORT | 207 | 115 | [#22](https://github.com/cyberdotgent/geist/issues/22) |
+| SC09-138 | 536 | 321 | [#23](https://github.com/cyberdotgent/geist/issues/23) |
+| SC24-546 | 321 | 198 | [#24](https://github.com/cyberdotgent/geist/issues/24) |
+| SC26-457 | 361 | 136 | [#25](https://github.com/cyberdotgent/geist/issues/25) |
+| SC31-605 | 110 | 93 | [#26](https://github.com/cyberdotgent/geist/issues/26) |
+| SC31-711 | 82 | 58 | [#27](https://github.com/cyberdotgent/geist/issues/27) |
+| SC33-033 | 236 | 148 | [#28](https://github.com/cyberdotgent/geist/issues/28) |
+| SC34-425 | 257 | 118 | [#29](https://github.com/cyberdotgent/geist/issues/29) |
+| SC41-485 | 36 | 33 | [#30](https://github.com/cyberdotgent/geist/issues/30) |
+| SG24-204 | 93 | 56 | [#31](https://github.com/cyberdotgent/geist/issues/31) |
+| SH12-565 | 290 | 169 | [#32](https://github.com/cyberdotgent/geist/issues/32) |
+| SH20-918 | 201 | 105 | [#33](https://github.com/cyberdotgent/geist/issues/33) |
+| XWEBDEMO | 13 | 11 | [#34](https://github.com/cyberdotgent/geist/issues/34) |
+
+Shared new defect tickets are invalid UTF-8 span insertion [#11](https://github.com/cyberdotgent/geist/issues/11),
+definition-list/form flattening [#12](https://github.com/cyberdotgent/geist/issues/12),
+systematic `SC31-605` body loss [#13](https://github.com/cyberdotgent/geist/issues/13),
+and `cselect` image loss [#14](https://github.com/cyberdotgent/geist/issues/14).
+Cross-book evidence was also added to the existing raw-loss, control-leak,
+table/figure, COMMENTS, and `CFONT` tickets (#3, #6–#9).

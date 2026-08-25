@@ -82,6 +82,11 @@ Existing reference files are reused. Use `--refresh` to refetch them, or
 means the CGI returned a known BookServer error page with HTTP success; it must
 not be treated as renderer evidence.
 
+Local tool output is decoded as UTF-8 with replacement so a malformed topic
+cannot abort the remaining whole-book audit. Such a topic receives an
+`invalid-utf8` flag; the replacement is diagnostic evidence and does not make
+the underlying renderer output valid.
+
 ## Review Procedure
 
 Use the heuristic flags only to order the work. Review every topic in the

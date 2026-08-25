@@ -104,7 +104,14 @@ def executable(build_dir: Path, name: str) -> Path:
 
 
 def run(command: list[str]) -> str:
-    completed = subprocess.run(command, check=True, capture_output=True, text=True)
+    completed = subprocess.run(
+        command,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
     return completed.stdout
 
 
@@ -221,6 +228,8 @@ def flags_for(
         flags.append("empty-reference")
     if "<geist-placeholder" in markdown:
         flags.append("decoder-placeholder")
+    if "\ufffd" in markdown:
+        flags.append("invalid-utf8")
     if ratio < 0.50:
         flags.append("low-text-match")
     elif ratio < 0.80:
