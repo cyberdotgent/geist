@@ -868,3 +868,9 @@
   from each BOO's decoded `VNOTICE` records. Added a GG24 regression alongside
   the existing QS3X36CM assertions, then fetched and compared all 229 GG24
   BookServer topics successfully.
+- Corrected SC31-605 action-code table alignment. Combined the two-line styled
+  heading into `Action Code`, `Event Type`, and `Event or Alert Text`, retained
+  leading cells that cross logical-record boundaries, and ignored intervening
+  visual border rows. Added exact assertions for boundary codes `05`, `0F`,
+  `19`, `23`, `63`, `6F`, and `7B`; all tests and the 110-topic cached audit
+  passed.

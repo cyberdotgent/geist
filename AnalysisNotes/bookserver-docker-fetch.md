@@ -1059,3 +1059,27 @@ python3 tools/bookserver_book_audit.py BOO/GG24-4302-00.boo --book-id GG24-4302-
 ```
 
 All 229 reference fetches succeeded and 33 topics retained heuristic flags.
+
+## SC31-605 action-code table verification
+
+The three-column action-code grid was compared with:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/SC31-605/2.1?DT=19911015203151&SHELF=
+```
+
+`bootrace BOO/SC31-605.boo 2.1 --segments` shows the styled two-line heading in
+logical record 48 and the 74-column data rows continuing through record 57.
+The first rows of later records include action codes `05`, `0F`, `19`, `23`,
+`63`, `6F`, and `7B`. The local renderer now reconstructs the same three
+columns and retains those boundary rows.
+
+The complete cached comparison was replayed with:
+
+```sh
+python3 tools/bookserver_book_audit.py BOO/SC31-605.boo --book-id SC31-605 --timestamp 19911015203151 --output /tmp/geist-books20-audits/SC31-605 --jobs 4 --no-fetch
+```
+
+All 110 cached pages rendered; 91 retained heuristic flags. Review of those
+flags separated the chapter 3 event/qualifier grid family from this action-code
+layout rather than treating the audit score as a functional failure.

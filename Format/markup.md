@@ -671,6 +671,16 @@ The boxed fixed-width stream has two practical decoding edge cases:
   accept a complete data row's local offsets and align its cells with the
   established heading columns instead of discarding the row.
 
+For the SC31-605 action-code tables, those two styled heading lines combine as
+three semantic columns: `Action Code`, `Event Type`, and `Event or Alert Text`.
+The apparent empty fourth cell is a visual-heading artifact. Data rows use the
+74-column grid at offsets 0, 10, 21, and 73. At logical-record boundaries the
+two-character hexadecimal action code can precede the first materialized `?`
+separator; it is still the first cell and must be retained. Empty question-mark
+border rows between records are layout, not data. Topic `2.1` demonstrates this
+at action codes `05`, `0F`, `19`, `23`, `63`, `6F`, and `7B` in logical records
+49--57.
+
 Evidence:
 
 | File | Decoded evidence |

@@ -1521,6 +1521,7 @@ struct GmlRenderState {
   std::size_t table_border_width = 0;
   bool table_final_separator_is_synthetic = false;
   bool table_layout_from_font_heading = false;
+  bool table_action_code_layout = false;
   bool table_has_picture = false;
   std::string table_visual_buffer;
   std::vector<std::string> pending_table_row;
@@ -1790,6 +1791,58 @@ std::vector<std::string> extract_fixed_table_line_cells(
   return cells;
 }
 
+std::optional<std::pair<std::vector<std::string>, std::size_t>>
+extract_action_table_row(const std::string& value, std::size_t line_width) {
+  auto start = value.find('?');
+  while (start != std::string::npos) {
+    const auto code_end = value.find('?', start + 1);
+    if (code_end == std::string::npos) {
+      return std::nullopt;
+    }
+    auto code = clean_table_cell_text(
+        value.substr(start + 1, code_end - start - 1));
+    const auto valid_code = code.size() == 2 &&
+                            std::all_of(code.begin(), code.end(), [](auto ch) {
+                              return std::isxdigit(
+                                         static_cast<unsigned char>(ch)) != 0;
+                            });
+    if (!valid_code) {
+      start = value.find('?', start + 1);
+      continue;
+    }
+
+    const auto type_end = value.find('?', code_end + 1);
+    if (type_end == std::string::npos) {
+      return std::nullopt;
+    }
+    auto type = clean_table_cell_text(
+        value.substr(code_end + 1, type_end - code_end - 1));
+    if (type.empty() || type.size() > 2) {
+      start = value.find('?', start + 1);
+      continue;
+    }
+
+    auto text_end = value.find('?', type_end + 1);
+    const auto fixed_end = start + line_width;
+    if (text_end == std::string::npos ||
+        (line_width > 0 && text_end > fixed_end)) {
+      if (line_width == 0 || value.size() < fixed_end) {
+        return std::nullopt;
+      }
+      text_end = fixed_end;
+    }
+    auto text = clean_table_cell_text(
+        value.substr(type_end + 1, text_end - type_end - 1));
+    if (text.empty()) {
+      start = value.find('?', start + 1);
+      continue;
+    }
+    return std::pair<std::vector<std::string>, std::size_t>{
+        {std::move(code), std::move(type), std::move(text)}, text_end};
+  }
+  return std::nullopt;
+}
+
 bool fixed_table_line_matches(const std::string& value,
                               std::size_t start,
                               const std::vector<std::size_t>& offsets,
@@ -1833,6 +1886,22 @@ void append_table_visual_line(GmlRenderState& state,
 
   if (normalized_line.empty()) {
     return;
+  }
+  if (state.table_layout_from_font_heading &&
+      state.pending_table_row.empty() && normalized_line.size() == 4 &&
+      normalized_line[0] == "Action" && normalized_line[1] == "Event" &&
+      normalized_line[2].empty() &&
+      ascii_starts_with_case_insensitive(normalized_line[3],
+                                         "Code Type ")) {
+    normalized_line = {"Action Code", "Event Type",
+                       trim_ascii(normalized_line[3].substr(
+                           std::string("Code Type ").size()))};
+    state.table_columns = normalized_line.size();
+    state.table_action_code_layout = true;
+  } else if (state.table_layout_from_font_heading &&
+             state.table_columns == 3 && normalized_line.size() == 4 &&
+             normalized_line.front().empty()) {
+    normalized_line.erase(normalized_line.begin());
   }
   if (state.table_columns == 0) {
     state.table_columns = normalized_line.size();
@@ -1917,9 +1986,31 @@ std::string render_table_body_gml(std::string segment, GmlRenderState& state) {
                                      std::move(text));
   }
 
+  if (state.table_action_code_layout) {
+    const auto first_separator = segment.find('?');
+    if (first_separator != std::string::npos) {
+      const auto prefix = clean_table_cell_text(segment.substr(0,
+                                                               first_separator));
+      if (prefix.size() == 2 &&
+          std::all_of(prefix.begin(), prefix.end(), [](const auto ch) {
+            return std::isxdigit(static_cast<unsigned char>(ch)) != 0;
+          })) {
+        segment.insert(segment.begin(), '?');
+      }
+    }
+  }
+
   std::string output;
   state.table_visual_buffer += std::move(segment);
   while (true) {
+    if (state.table_action_code_layout) {
+      if (auto row = extract_action_table_row(state.table_visual_buffer,
+                                              state.table_line_width)) {
+        append_table_visual_line(state, row->first, output);
+        state.table_visual_buffer.erase(0, row->second);
+        continue;
+      }
+    }
     const auto separator = state.table_visual_buffer.find('?');
     if (separator == std::string::npos) {
       if (state.table_visual_buffer.size() > 256) {
@@ -1984,6 +2075,21 @@ std::string render_table_body_gml(std::string segment, GmlRenderState& state) {
         break;
       }
       state.table_visual_buffer.resize(state.table_line_width, ' ');
+    }
+    if (state.table_action_code_layout && state.table_line_width > 0 &&
+        state.table_visual_buffer.size() >= state.table_line_width) {
+      const auto line_end = state.table_visual_buffer.begin() +
+                            static_cast<std::ptrdiff_t>(state.table_line_width);
+      const auto has_text = std::any_of(
+          state.table_visual_buffer.begin(), line_end, [](const auto ch) {
+            return std::isalnum(static_cast<unsigned char>(ch)) != 0;
+          });
+      const auto question_count = static_cast<std::size_t>(std::count(
+          state.table_visual_buffer.begin(), line_end, '?'));
+      if (!has_text && question_count >= 5) {
+        state.table_visual_buffer.erase(0, state.table_line_width);
+        continue;
+      }
     }
     if (!fixed_table_line_matches(state.table_visual_buffer,
                                   0,
@@ -3311,6 +3417,7 @@ std::string render_gml_segment(std::string segment,
     state.table_border_width = 0;
     state.table_final_separator_is_synthetic = false;
     state.table_layout_from_font_heading = false;
+    state.table_action_code_layout = false;
     state.table_has_picture = false;
     state.table_visual_buffer.clear();
     state.pending_table_row.clear();
@@ -3435,6 +3542,7 @@ std::string render_gml_segment(std::string segment,
     state.table_border_width = 0;
     state.table_final_separator_is_synthetic = false;
     state.table_layout_from_font_heading = false;
+    state.table_action_code_layout = false;
     state.table_has_picture = false;
     state.table_visual_buffer.clear();
     const auto trailing = dot_text(rest_after_first_word(segment));
@@ -3631,16 +3739,6 @@ std::vector<std::string> render_gml_records(
                                      allow_topic_header,
                                      state);
       (void)append_rendered_gml_line(rendered, line);
-    }
-    if (state.in_table && state.table_layout_from_font_heading &&
-        !state.table_visual_buffer.empty()) {
-      (void)append_rendered_gml_line(rendered,
-                                     flush_table_visual_buffer(state));
-    }
-    if (state.in_table && state.table_layout_from_font_heading &&
-        !state.pending_table_row.empty()) {
-      (void)append_rendered_gml_line(rendered,
-                                     flush_pending_table_row(state));
     }
   }
   return rendered;

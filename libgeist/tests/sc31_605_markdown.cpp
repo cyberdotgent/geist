@@ -10,12 +10,27 @@ int main() {
   const auto document = geist::BooDocument::open(path);
   const auto alert_table = document.topic_markdown("2.1");
   for (const auto* expected : {
+           "| Action Code | Event Type | Event or Alert Text |",
            "TRANSFER MICROCODE DUMP",
            "MACHINE CHECK:STORE CONTROLLER",
            "USER APPLICATION GENERATED",
        }) {
     if (alert_table.find(expected) == std::string::npos) {
       std::cerr << "missing SC31-605 table cell: " << expected << "\n";
+      return 1;
+    }
+  }
+  for (const auto* expected : {
+           "| 05 | 1 | MACHINE CHECK:STORE CONTROLLER |",
+           "| 0F | 1 | DATA LOST:STORE CONTROLLER |",
+           "| 19 | 1 | TICKET READ FILE FULL:USER |",
+           "| 23 | 1 | INTERVENTION REQUIRED:PRINTER |",
+           "| 63 | 5 | USER APPLICATION GENERATED |",
+           "| 6F | 5 | USER APPLICATION GENERATED |",
+           "| 7B | 5 | USER APPLICATION GENERATED |",
+       }) {
+    if (alert_table.find(expected) == std::string::npos) {
+      std::cerr << "misaligned SC31-605 boundary row: " << expected << "\n";
       return 1;
     }
   }
