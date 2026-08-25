@@ -893,3 +893,9 @@
   regressions and retained all cross-book tests.  A fresh 82-topic audit found
   40 heuristic flags; issue 37 remains open because semantic fixed-row
   carry-over in topics 3.3 and 4.3.4 depends on issue 40's row ownership work.
+- Reconstructed fixed-row `VNOTICE` boundaries before whitespace collapse.
+  GG24's edition notice now has distinct applicability, ordering, feedback,
+  address, and information-license paragraphs, suppresses its visual `(`/`*`
+  markers, and cannot merge the following copyright record into the notice
+  body.  Added fixture regressions, retained the QS3 edition behavior, and ran
+  a fresh live 229-topic GG24 audit before issue triage.

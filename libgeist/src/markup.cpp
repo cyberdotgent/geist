@@ -2998,6 +2998,147 @@ std::string render_pending_font_continuation_gml(std::string prefix,
   return render_simple_gml_control("pinline", std::move(rendered));
 }
 
+std::optional<std::string> render_fixed_vnotice_gml(
+    const std::string& raw_text) {
+  auto first = raw_text.find_first_not_of(" \t\r\n");
+  auto last = raw_text.find_last_not_of(" \t\r\n");
+  if (first == std::string::npos || last == std::string::npos ||
+      raw_text[last] != '*') {
+    return std::nullopt;
+  }
+  const auto heading_begin = first;
+
+  auto heading_end = std::string::npos;
+  for (auto cursor = first; cursor < last;) {
+    if (std::isspace(static_cast<unsigned char>(raw_text[cursor])) == 0) {
+      ++cursor;
+      continue;
+    }
+    const auto run_begin = cursor;
+    while (cursor < last &&
+           std::isspace(static_cast<unsigned char>(raw_text[cursor])) != 0) {
+      ++cursor;
+    }
+    if (cursor - run_begin >= 8) {
+      heading_end = run_begin;
+      first = cursor;
+      break;
+    }
+  }
+  if (heading_end == std::string::npos) {
+    return std::nullopt;
+  }
+
+  const auto has_padded_paragraph_marker = [&]() {
+    for (auto cursor = first; cursor + 2 < last; ++cursor) {
+      if (raw_text[cursor] == '(' &&
+          std::isspace(static_cast<unsigned char>(raw_text[cursor + 1])) != 0 &&
+          std::isspace(static_cast<unsigned char>(raw_text[cursor + 2])) != 0) {
+        return true;
+      }
+    }
+    return false;
+  }();
+  if (!has_padded_paragraph_marker) {
+    return std::nullopt;
+  }
+
+  std::vector<std::string> paragraphs;
+  std::string paragraph;
+  auto in_address = false;
+  const auto append_space = [&]() {
+    if (!paragraph.empty() && paragraph.back() != ' ' &&
+        paragraph.back() != '\n') {
+      paragraph.push_back(' ');
+    }
+  };
+  const auto append_line_break = [&]() {
+    while (!paragraph.empty() && paragraph.back() == ' ') {
+      paragraph.pop_back();
+    }
+    constexpr std::string_view line_break = "<br>\n";
+    if (!paragraph.empty() &&
+        (paragraph.size() < line_break.size() ||
+         paragraph.compare(paragraph.size() - line_break.size(),
+                           line_break.size(),
+                           line_break) != 0)) {
+      paragraph += "<br>\n";
+    }
+  };
+  const auto flush_paragraph = [&]() {
+    auto text = trim_ascii(std::move(paragraph));
+    if (!text.empty()) {
+      paragraphs.push_back(std::move(text));
+    }
+    paragraph.clear();
+  };
+
+  for (auto cursor = first; cursor < last;) {
+    if (raw_text[cursor] == '(' && cursor + 2 < last &&
+        std::isspace(static_cast<unsigned char>(raw_text[cursor + 1])) != 0 &&
+        std::isspace(static_cast<unsigned char>(raw_text[cursor + 2])) != 0) {
+      flush_paragraph();
+      in_address = false;
+      ++cursor;
+      while (cursor < last &&
+             std::isspace(static_cast<unsigned char>(raw_text[cursor])) != 0) {
+        ++cursor;
+      }
+      continue;
+    }
+    if (raw_text[cursor] == '?') {
+      while (cursor < last && raw_text[cursor] == '?') {
+        ++cursor;
+      }
+      while (cursor < last &&
+             std::isspace(static_cast<unsigned char>(raw_text[cursor])) != 0) {
+        ++cursor;
+      }
+      if (in_address) {
+        append_line_break();
+      } else {
+        append_space();
+      }
+      continue;
+    }
+    if (std::isspace(static_cast<unsigned char>(raw_text[cursor])) != 0) {
+      const auto run_begin = cursor;
+      while (cursor < last &&
+             std::isspace(static_cast<unsigned char>(raw_text[cursor])) != 0) {
+        ++cursor;
+      }
+      const auto run = cursor - run_begin;
+      const auto previous = paragraph.empty() ? '\0' : paragraph.back();
+      if ((previous == '.' && run >= 8) || (previous == ':' && run >= 4)) {
+        flush_paragraph();
+        in_address = previous == ':';
+      } else if (in_address && run >= 5) {
+        append_line_break();
+      } else {
+        append_space();
+      }
+      continue;
+    }
+    paragraph.push_back(raw_text[cursor++]);
+  }
+  flush_paragraph();
+
+  auto heading = trim_ascii(
+      raw_text.substr(heading_begin, heading_end - heading_begin));
+  if (heading.empty() || paragraphs.empty()) {
+    return std::nullopt;
+  }
+  auto output = render_simple_gml_control("vnhd", std::move(heading));
+  for (auto& text : paragraphs) {
+    output += "\n" + render_simple_gml_control("p", std::move(text));
+  }
+  // The trailing marker terminates the fixed notice body.  Start a fresh
+  // paragraph so the following inline-font copyright record cannot merge into
+  // the final notice paragraph.
+  output += "\n:p.";
+  return output;
+}
+
 std::string cfont_visible_text(std::string value,
                                bool apply_spans,
                                std::size_t base_column) {
@@ -3266,6 +3407,9 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
   }
   if (state.in_vnotice && !state.emitted_vnotice_heading) {
     state.emitted_vnotice_heading = true;
+    if (auto fixed_notice = render_fixed_vnotice_gml(raw_trailing)) {
+      return *fixed_notice;
+    }
     trailing = apply_font_spans_to_text(std::move(trailing),
                                         spans,
                                         state.current_font_base_column);

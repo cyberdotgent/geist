@@ -205,6 +205,19 @@ Decoded `BOO/packet.boo` evidence:
 | Copyright token word `0x00a9` followed by author/year text | `:coprnote.© Evie Cooper 2026` | Render the copyright sign as text. See [encoding.md](encoding.md) for the token-word mapping. |
 | Following `CZ BREAK 3 Not for use where life or limb may be at risk.` after a copyright note | `:coprext.Not for use where life or limb may be at risk.` | Render as the copyright-note extension, with a line break after the copyright line rather than a new unrelated paragraph. |
 
+Generated fixed-row visual notices preserve paragraph structure in their
+spacing and display markers rather than in explicit `CZ FLOW` controls.
+`GG24-4302-00.boo` topic `EDITION`, logical record 4, is a verified example:
+the decoded row has paragraph boundaries after stream offsets 193, 479, 645,
+831, 1010, and 1427.  A 63-byte `?` display run begins at offset 918 inside
+the mailing-address block.  A padded `(` precedes the final information-license
+paragraph, and the fixed notice body ends with `*`.  BookServer does not display
+those two marker bytes.  The recovered source-style projection is the edition
+heading followed by separate applicability, ordering, feedback, address, and
+license paragraphs; display-row breaks within the address remain line breaks.
+The final `*` is also a hard boundary before the following copyright record, so
+an inline-font copyright continuation must not merge into the license paragraph.
+
 The important implementation rule is that this is not a hardcoded packet title
 or hardcoded three-line page rule. `:vnotice.` changes the interpretation of
 the following controls: the first body `CFONT` is the visual notice heading,
@@ -838,7 +851,10 @@ rendered from the decoded records rather than substituted from another book.
 For example, `QS3X36CM.BOO` stores `First Edition (May 1991)` and a 1991
 copyright, while `GG24-4302-00.boo` topic `EDITION`, logical records 4--6,
 stores `First Edition (February 1995)`, applicability to IMS/ESA Version 5
-Release 1, and a 1995 copyright.
+Release 1, and a 1995 copyright.  The latter's fixed-row notice body yields five
+body paragraphs before the separate copyright and government-rights records;
+collapsing its whitespace before interpreting the row boundaries loses that
+structure irreversibly.
 
 ## Open Questions
 

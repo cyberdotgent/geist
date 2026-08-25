@@ -90,6 +90,18 @@ int main() {
           "GG24 edition notice did not retain its decoded edition data");
   require(gg24_edition.find("May 1991") == std::string::npos,
           "GG24 edition notice retained fixture-specific replacement text");
+  require(gg24_edition.find(
+              "MVS/ESA Operating System.\n\nOrder publications") !=
+              std::string::npos &&
+              gg24_edition.find("comments may be addressed to:\n\nIBM "
+                                "Corporation") != std::string::npos &&
+              gg24_edition.find("San Jose, California 95193-0001\n\nWhen "
+                                "you send information") != std::string::npos,
+          "GG24 edition notice lost its fixed-row paragraph boundaries");
+  require(gg24_edition.find("95193-0001(") == std::string::npos &&
+              gg24_edition.find("obligation to you.*") == std::string::npos &&
+              gg24_edition.find("obligation to you. ©") == std::string::npos,
+          "GG24 edition notice leaked visual markers or merged copyright");
 
   const auto client_server = split_header.topic_markdown("8.5.5");
   require(client_server.find(

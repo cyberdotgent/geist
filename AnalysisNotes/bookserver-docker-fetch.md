@@ -1060,6 +1060,18 @@ python3 tools/bookserver_book_audit.py BOO/GG24-4302-00.boo --book-id GG24-4302-
 
 All 229 reference fetches succeeded and 33 topics retained heuristic flags.
 
+The fixed-row paragraph reconstruction was subsequently verified with a new
+live, full-book comparison:
+
+```sh
+python3 tools/bookserver_book_audit.py BOO/GG24-4302-00.boo --book-id GG24-4302-00 --timestamp 19950308184737 --output /tmp/geist-GG24-post38-final --jobs 4
+```
+
+All 229 reference topics fetched successfully.  `EDITION` had no heuristic
+flag and a 0.9610 normalized-text ratio; the diff showed the same five notice
+body paragraphs as BookServer.  The audit reported 31 flagged topics overall,
+which were triaged separately before closing the BOO-specific issue.
+
 ## SC31-605 action-code table verification
 
 The three-column action-code grid was compared with:
