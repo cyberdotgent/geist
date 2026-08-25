@@ -20,9 +20,9 @@
 
 [Options Specified 3.2.14](3-2-14.md#FPLTA1A)
 
-[7. DBFULTA: Summary of Exception Detail by Transaction Code for IFP](comments.md#fplta2)
+[7. DBFULTA: Summary of Exception Detail by Transaction Code for IFP](3-2-14.md#FPLTA2)
 
-[Regions 3.2.14](comments.md#fplta2)
+[Regions 3.2.14](3-2-14.md#FPLTA2)
 
 [8. DBFULTA: Overall Summary of Resource Usage and Contentions for All](3-2-14.md#FPLTA3)
 

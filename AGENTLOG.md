@@ -1,5 +1,16 @@
 # Agent Log
 
+## 2026-08-25 - Bound topic decoding to the declared content run
+
+- Fixed GG24 `COMMENTS` corruption by removing the experimental decoder's
+  fallback scan of every class-`0x0001` page in the file. The directory content
+  run ends at physical page 117; later class-`0x0001` pages belong to a separate
+  stream and had extended the final topic from four records to 1,308.
+- Added regression coverage for directory logical-record count, the exact
+  `COMMENTS` range, bounded output size, and retained questionnaire text.
+- Validated the complete CTest suite and all 34 BOO fixtures through `booinfo`
+  and `bootoc`.
+
 ## 2026-08-25 - Fix P0 topic and body-loss rendering failures
 
 - Fixed split topic headers such as `GG24-4302-00` topic `2.6`, whose standalone

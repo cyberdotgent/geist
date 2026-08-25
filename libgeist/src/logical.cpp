@@ -450,13 +450,6 @@ std::vector<std::string> decode_experimental_logical_records(
   }
 
   const auto page_count = bytes.size() / boo_page_size;
-  for (std::size_t page = 0; page < page_count; ++page) {
-    const auto page_base = page * boo_page_size;
-    if (read_be16(bytes, page_base) == 0x0001) {
-      candidate_pages.push_back(page);
-    }
-  }
-
   for (const auto page : candidate_pages) {
     if (page >= page_count) {
       continue;

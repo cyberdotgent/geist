@@ -67,6 +67,16 @@ For `QS3X36CM.BOO`, `0x0014` is 20 content pages and the terminal `0x00f1`
 matches the directory total logical-record count. For `OFCUSEOV.BOO`,
 `0x004d` is 77 content pages and the terminal total is `0x03f5`.
 
+Only pages in this directory-declared content run contribute topic logical
+records. A page class alone is not sufficient. `GG24-4302-00.boo` declares 55
+content pages beginning at logical page 12 (physical pages 63–117) and a total
+of 782 logical records. Physical pages 120–131 also begin with class word
+`0x0001` and contain compact token records, but they follow intervening
+non-content pages and are outside the content-page index. Treating them as
+additional topic content appends 1,304 fabricated records to the final
+`COMMENTS` topic. Following the directory count instead gives the verified
+topic range 779–782 (end-exclusive API bound 783).
+
 ### Topic-Start Index
 
 The index at directory offset `0x003c` maps topic numbers to start logical

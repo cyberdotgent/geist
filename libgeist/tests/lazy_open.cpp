@@ -60,4 +60,22 @@ int main() {
           "split-header topic lost its TOC heading");
   require(discontinued_markdown.find("LU6.1 adapter") != std::string::npos,
           "split-header topic lost its body");
+
+  // Only the directory-declared content run contains topic logical records.
+  // GG24 has later class-0x0001 pages belonging to another stream; decoding
+  // those pages used to extend the final COMMENTS topic by 1,304 junk records.
+  require(split_header.decoded_logical_records().size() ==
+              split_header.directory().logical_record_count,
+          "decoder included logical records outside the content run");
+  const auto* comments = split_header.find_toc_entry("COMMENTS");
+  require(comments != nullptr, "missing COMMENTS TOC entry");
+  require(comments->end_logical_record - comments->start_logical_record == 4,
+          "COMMENTS topic absorbed a non-content logical-record stream");
+  const auto comments_markdown = comments->markdown();
+  require(comments_markdown.size() < 5000,
+          "COMMENTS topic expanded into fabricated structures");
+  require(comments_markdown.find("questionnaire") != std::string::npos &&
+              comments_markdown.find("QUALITY @ WTSCPOK") !=
+                  std::string::npos,
+          "COMMENTS topic lost its questionnaire body");
 }
