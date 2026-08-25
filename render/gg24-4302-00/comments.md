@@ -4,6 +4,8 @@
 
 # COMMENTS ITSO Technical Bulletin Evaluation                                RED000
 
+International Technical Support Organization IMS/ESA Version 5.1 Guide February 1995 Publication No. GG24-4302-00 Your feedback is very important to help us maintain the quality of ITSO a
+
 Bulletins. **Please** **print** **out** **this** **questionnaire,** **fill** **it** **out,** **and** **then** **return** **it** **using** **one** **of** **the** **following** **methods:**
 
 Mail it to the address on the back (postage paid in U.S. only) Give it to an IBM marketing representative for mailing Fax it to: Your International Access Code + 1 914 432 8246 Send a note to REDBOOK@VNET.IBM.COM ( Copy this section to file and send it via VNET to: QUALITY @ WTSCPOK

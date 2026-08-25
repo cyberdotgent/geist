@@ -78,4 +78,21 @@ int main() {
               comments_markdown.find("QUALITY @ WTSCPOK") !=
                   std::string::npos,
           "COMMENTS topic lost its questionnaire body");
+
+  const struct {
+    const char* topic;
+    const char* phrase;
+  } heading_body_cases[] = {
+      {"5.0", "This chapter describes the IMS Version 5.1 enhancements"},
+      {"5.1.1", "RSR requires the services of DBRC"},
+      {"7.0", "those enhancements that do not fall into any of the previous"},
+      {"8.0", "This chapter brings IMS V5.1 into true perspective"},
+      {"10.1", "Before IMS 5.1, CICS users had the choice"},
+      {"11.0", "The ability to access common data from many systems"},
+  };
+  for (const auto& regression : heading_body_cases) {
+    const auto topic = split_header.topic_markdown(regression.topic);
+    require(topic.find(regression.phrase) != std::string::npos,
+            "heading-attached topic prose was discarded");
+  }
 }

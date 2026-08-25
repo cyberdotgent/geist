@@ -1,5 +1,18 @@
 # Agent Log
 
+## 2026-08-25 - Preserve prose attached to topic headings
+
+- Made TOC-heading replacement match title boundaries case-insensitively while
+  tolerating BOO whitespace differences and the observed `*` separator.
+- Preserved the remainder of a heading record as a normal paragraph instead of
+  discarding it, covering GG24 topics `5.0`, `7.0`, `8.0`, `10.1`, and `11.0`;
+  retained later-record prose in `5.1.1` is covered by the same regression set.
+- Re-ran all 229 GG24 topics against freshly fetched BookServer pages and an
+  offline cache replay. The audit found no additional defect class; it did
+  confirm residual CFONT corruption already described by issue #9 and control,
+  figure, table, and edition problems already tracked by #6, #7, and #1.
+- Validated all CTest tests and regenerated the complete checked-in GG24 render.
+
 ## 2026-08-25 - Bound topic decoding to the declared content run
 
 - Fixed GG24 `COMMENTS` corruption by removing the experimental decoder's

@@ -21,6 +21,61 @@ std::string trim_trailing_blank_lines(std::string value) {
   return value;
 }
 
+std::optional<std::string> content_after_title(const std::string& content,
+                                               const std::string& title) {
+  auto content_cursor = std::size_t{0};
+  auto title_cursor = std::size_t{0};
+  while (title_cursor < title.size()) {
+    const auto title_space =
+        std::isspace(static_cast<unsigned char>(title[title_cursor])) != 0;
+    if (title_space) {
+      while (title_cursor < title.size() &&
+             std::isspace(static_cast<unsigned char>(title[title_cursor])) !=
+                 0) {
+        ++title_cursor;
+      }
+      if (content_cursor >= content.size() ||
+          std::isspace(static_cast<unsigned char>(content[content_cursor])) ==
+              0) {
+        return std::nullopt;
+      }
+      while (content_cursor < content.size() &&
+             std::isspace(
+                 static_cast<unsigned char>(content[content_cursor])) != 0) {
+        ++content_cursor;
+      }
+      continue;
+    }
+
+    if (content_cursor >= content.size() ||
+        std::tolower(static_cast<unsigned char>(content[content_cursor])) !=
+            std::tolower(static_cast<unsigned char>(title[title_cursor]))) {
+      return std::nullopt;
+    }
+    ++content_cursor;
+    ++title_cursor;
+  }
+
+  if (content_cursor < content.size() && content[content_cursor] != '*' &&
+      std::isspace(static_cast<unsigned char>(content[content_cursor])) == 0) {
+    return std::nullopt;
+  }
+  while (content_cursor < content.size() &&
+         std::isspace(static_cast<unsigned char>(content[content_cursor])) !=
+             0) {
+    ++content_cursor;
+  }
+  if (content_cursor < content.size() && content[content_cursor] == '*') {
+    ++content_cursor;
+    while (content_cursor < content.size() &&
+           std::isspace(static_cast<unsigned char>(content[content_cursor])) !=
+               0) {
+      ++content_cursor;
+    }
+  }
+  return detail::trim_ascii(content.substr(content_cursor));
+}
+
 } // namespace
 
 const std::vector<std::string>& TocEntry::gml_records() const {
@@ -48,8 +103,13 @@ std::string TocEntry::markdown() const {
       if (tag == "h1" || tag == "h2" || tag == "h3" || tag == "h4" ||
           tag == "h5" || tag == "ih2" || tag == "preface" ||
           tag == "appendix") {
+        const auto content = records.front().substr(dot + 1);
+        const auto rest = content_after_title(content, title);
         records.front().resize(dot + 1);
         records.front() += id + " " + title;
+        if (rest && !rest->empty()) {
+          records.insert(records.begin() + 1, ":p." + *rest);
+        }
         replaced_heading = true;
       }
     }
@@ -91,13 +151,8 @@ std::string TocEntry::markdown() const {
                                                       normalized_title)) {
         continue;
       }
-      auto rest = std::string{};
-      if (content.size() > title.size() &&
-          detail::ascii_starts_with_case_insensitive(content, title) &&
-          std::isspace(static_cast<unsigned char>(content[title.size()])) !=
-              0) {
-        rest = detail::trim_ascii(content.substr(title.size() + 1));
-      } else {
+      auto rest = content_after_title(content, title).value_or(std::string{});
+      if (rest.empty()) {
         const auto following = normalized_content.find(" following is ");
         if (following != std::string::npos) {
           rest = content.substr(std::min(content.size(), following + 1));
