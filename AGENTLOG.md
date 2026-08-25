@@ -1,5 +1,17 @@
 # Agent Log
 
+## 2026-08-25 - Expand the BOO dataset from BookServer
+
+- Selected 20 books at deterministic alphabetic quantiles of the 5,819-entry
+  hosted BookServer catalog, avoiding selection based on current renderer
+  behavior.
+- Downloaded the original `application/x-boo` payloads under their
+  server-provided filenames and added them to `BOO/` without modification.
+- Recorded exact BookServer IDs, timestamps, sizes, topic counts, document
+  numbers, URLs, and SHA-256 values in
+  `AnalysisNotes/bookserver-dataset-2026-08-25.md`.
+- Validated every new fixture with `booinfo` and `bootoc` before insertion.
+
 ## 2026-08-25 - Add reproducible whole-book rendering audits
 
 - Added `tools/bookserver_book_audit.py` to inventory every BOO TOC topic,
