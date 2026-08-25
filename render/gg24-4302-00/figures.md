@@ -96,7 +96,7 @@
 
 [41. IMS Bridge 8.5.2.5](#FIG4302MQB)
 
-[42. TCP/IP Access 8.5.3](8-5-3.md#4302TC0)
+[42. TCP/IP Access 8.5.3](25.png)
 
 [43. Message Flow for Implicit Mode Transactions 8.5.3.5](#FIG4302TC2)
 

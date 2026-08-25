@@ -1045,6 +1045,7 @@ bool looks_like_table_row_label(const std::string& value) {
 struct TableCell {
   int column = -1;
   std::string text;
+  bool starts_row = false;
 };
 
 struct Footnote {
@@ -1171,11 +1172,14 @@ void merge_wrapped_table_rows(std::vector<std::vector<std::string>>& rows) {
 std::string render_rows_as_markdown_table(
     const std::string& id,
     const std::string& caption,
-    std::vector<std::vector<std::string>> rows) {
+    std::vector<std::vector<std::string>> rows,
+    bool merge_continuations = true) {
   if (rows.empty()) {
     return table_fallback_markdown(id, caption);
   }
-  merge_wrapped_table_rows(rows);
+  if (merge_continuations) {
+    merge_wrapped_table_rows(rows);
+  }
 
   std::ostringstream output;
   if (!id.empty()) {
@@ -1303,14 +1307,21 @@ std::string render_table_markdown(const std::string& id,
   std::vector<std::vector<std::string>> rows;
   std::vector<std::string> current(columns.size());
   auto has_current = false;
+  const auto has_explicit_rows = !cells.empty() && cells.front().starts_row &&
+                                 cells.front().text.empty();
   for (const auto& cell : cells) {
     const auto column_index = nearest_table_column(columns, cell.column);
-    if (column_index == 0 && has_current) {
+    auto text = collapse_ascii_whitespace(cell.text);
+    if (text.empty() && !has_explicit_rows) {
+      continue;
+    }
+    if (((has_explicit_rows && cell.starts_row) ||
+         (!has_explicit_rows && column_index == 0)) &&
+        has_current) {
       rows.push_back(std::move(current));
       current = std::vector<std::string>(columns.size());
       has_current = false;
     }
-    auto text = collapse_ascii_whitespace(cell.text);
     if (text.empty()) {
       continue;
     }
@@ -1328,7 +1339,8 @@ std::string render_table_markdown(const std::string& id,
     return table_fallback_markdown(id, caption);
   }
 
-  return render_rows_as_markdown_table(id, caption, rows);
+  return render_rows_as_markdown_table(
+      id, caption, rows, !has_explicit_rows);
 }
 
 void append_footnotes(std::string& output,
@@ -1364,6 +1376,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
   bool in_example = false;
   bool in_rich_example = false;
   bool in_figure = false;
+  bool figure_has_image = false;
   bool in_index = false;
   bool title_page_is_cover = false;
   bool title_block_complete = false;
@@ -1373,6 +1386,8 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
   std::string table_caption;
   std::string pending_copyright_note;
   std::vector<TableCell> table_cells;
+  bool next_table_cell_starts_row = false;
+  bool preserve_explicit_table_rows = false;
   std::vector<Footnote> footnotes;
   Footnote current_footnote;
   bool in_footnote = false;
@@ -1460,6 +1475,11 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         table_id.clear();
         table_caption.clear();
         table_cells.clear();
+        next_table_cell_starts_row = false;
+        continue;
+      }
+      if (tag == "row") {
+        next_table_cell_starts_row = preserve_explicit_table_rows;
         continue;
       }
       if (tag == "tcap") {
@@ -1470,9 +1490,11 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         const auto column = gml_int_attr(record, "col").value_or(-1);
         auto text = tag == "hdref" ? render_link_markdown(record)
                                    : gml_markdown_content(record);
-        if (!text.empty()) {
-          table_cells.push_back({column, std::move(text)});
+        if (!text.empty() || preserve_explicit_table_rows) {
+          table_cells.push_back(
+              {column, std::move(text), next_table_cell_starts_row});
         }
+        next_table_cell_starts_row = false;
       }
       continue;
     }
@@ -1722,6 +1744,10 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         pending_copyright_note.clear();
       }
       append_block(output, render_image_markdown(record));
+      if (in_figure) {
+        pending_figure_lines.clear();
+        figure_has_image = true;
+      }
     } else if (tag == "figcap") {
       if (!pending_copyright_note.empty()) {
         append_block(output, pending_copyright_note);
@@ -1750,15 +1776,22 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         append_block(output, "<a id=\"" + id + "\"></a>");
       }
       in_figure = true;
+      figure_has_image = false;
       pending_figure_lines.clear();
     } else if (tag == "efig") {
-      append_text_fence(output, pending_figure_lines);
+      if (!figure_has_image) {
+        append_text_fence(output, pending_figure_lines);
+      } else {
+        pending_figure_lines.clear();
+      }
       in_figure = false;
     } else if (tag == "table") {
       in_table = true;
       table_id = gml_attr(record, "id");
       table_caption = gml_markdown_content(record);
       table_cells.clear();
+      next_table_cell_starts_row = false;
+      preserve_explicit_table_rows = !in_figure;
     } else if (tag == "i1" || tag == "grpsep" || tag == "etable" ||
                tag == "fontdef" || tag == "unknown-control") {
       continue;

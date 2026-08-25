@@ -95,4 +95,42 @@ int main() {
     require(topic.find(regression.phrase) != std::string::npos,
             "heading-attached topic prose was discarded");
   }
+
+  const auto dbctl_table = split_header.topic_markdown("10.2");
+  require(dbctl_table.find(
+              "| Processing Cost Enhancements | N-way data sharing | ** |") !=
+              std::string::npos,
+          "explicit table row boundaries were merged");
+  require(dbctl_table.find("| Dropped Local DL/1 support |  |  |") !=
+              std::string::npos,
+          "final explicit table rows were discarded");
+
+  const auto exit_table = split_header.topic_markdown("3.6.2");
+  for (const auto* expected : {"DFSERA30", "DFSERA40", "DFSERA50",
+                               "DFSERA60", "DFSERA70", "DSHRDSSN",
+                               "UNDO  PHYSICAL REPLACE"}) {
+    require(exit_table.find(expected) != std::string::npos,
+            "table or fixed report lost a representative field");
+  }
+
+  const auto image_figure = split_header.topic_markdown("5.1.8");
+  require(image_figure.find("![Resource 9](resource:9)") != std::string::npos,
+          "image-backed figure lost its resource");
+  require(image_figure.find("```text") == std::string::npos,
+          "image-backed figure retained its duplicate ASCII placeholder");
+  const auto delayed_image = split_header.topic_markdown("8.5.3");
+  require(delayed_image.find("![Resource 25](resource:25)") !=
+              std::string::npos,
+          "picture selector without inline display text lost its resource");
+  require(delayed_image.find("```text") == std::string::npos,
+          "picture selector retained its duplicate ASCII placeholder");
+
+  const auto rmf_reports = split_header.topic_markdown("3.3.4");
+  for (const auto* expected : {"END/SEC   12.03", "ENDED     10826",
+                               "RESPONSE TIME BREAKDOWN",
+                               "INTERVAL 14.59.579", "RESOURCE GROUP=*NONE",
+                               "Figure 13."}) {
+    require(rmf_reports.find(expected) != std::string::npos,
+            "fixed report lost a representative row");
+  }
 }

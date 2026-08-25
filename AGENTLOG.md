@@ -1,5 +1,20 @@
 # Agent Log
 
+## 2026-08-25 - Complete GG24 figure and table rendering
+
+- Preserved explicit row boundaries in tables whose blank leading header cell
+  represents a real unlabeled column, without changing the continuation-row
+  behavior used by existing AS/400 tables.
+- Kept both halves of wide fixed-report rows separated by BOO display markers;
+  GG24 RMF reports now retain fields such as interval, resource-group,
+  service-rate, page-in-rate, and storage columns.
+- Emitted `PICnn` resources even when their `CSELECT` has no adjacent display
+  text, restoring GG24 resource 25, and suppressed matching ASCII placeholder
+  boxes whenever an image-backed figure is available.
+- Added regressions for tables 5 and 15, figures 12/13 and 20/42, all 34 local
+  BOO fixtures, all nine CTest tests, and a cached 229-topic GG24 BookServer
+  replay. Regenerated the complete checked-in GG24 render.
+
 ## 2026-08-25 - Preserve prose attached to topic headings
 
 - Made TOC-heading replacement match title boundaries case-insensitively while

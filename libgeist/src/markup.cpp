@@ -1061,12 +1061,15 @@ std::string render_pending_selects_gml(
 }
 
 std::string render_select_gml(const SelectControl& control) {
+  const auto resource_id = picture_resource_id(control.target);
   const auto display = select_display_text(control);
   if (!display) {
+    if (!resource_id.empty()) {
+      return ":image resource='" + escape_gml_attr(resource_id) + "'.";
+    }
     return {};
   }
 
-  const auto resource_id = picture_resource_id(control.target);
   if (!resource_id.empty()) {
     auto caption = display->prefix;
     if (!caption.empty() && !display->selected.empty()) {
@@ -1392,12 +1395,21 @@ std::vector<std::string> extract_fixed_figure_lines(const std::string& value) {
     auto payload = next == std::string::npos ? value.substr(cursor)
                                              : value.substr(cursor,
                                                             next - cursor);
+    const auto payload_has_text =
+        std::any_of(payload.begin(), payload.end(), [](const auto ch) {
+          return std::isalnum(static_cast<unsigned char>(ch)) != 0;
+        });
+    if (is_fixed_figure_row_payload(previous_text) && payload_has_text &&
+        !is_fixed_figure_row_payload(payload) && !lines.empty() &&
+        lines.back().back() == '|') {
+      lines.back().pop_back();
+      lines.back() += trim_right_ascii(payload) + "|";
+    }
     if (is_fixed_figure_row_payload(payload)) {
       const auto previous = trim_ascii(previous_text);
       const auto prefix = previous == "|" ? std::string{" | |"}
                                           : std::string{"   |"};
-      lines.push_back(prefix + fixed_figure_row_payload(std::move(payload)) +
-                      "|");
+      lines.push_back(prefix + fixed_figure_row_payload(payload) + "|");
     }
     previous_text = std::move(payload);
     if (next == std::string::npos) {
