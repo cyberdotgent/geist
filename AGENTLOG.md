@@ -887,3 +887,9 @@
   metadata.  Added XWEBDEMO fixture regressions, passed all nine tests, and
   replayed a fresh 13-topic BookServer audit before closing issue 36; remaining
   semantic fixed-row carry-over is tracked separately by issue 40.
+- Added explicit `SRMSG` catalog boundaries and anchors, prevented generated
+  message catalogs from being swallowed by XMP, normalized catalog
+  introductions, and removed message-row edge markers.  Added SC31-711 fixture
+  regressions and retained all cross-book tests.  A fresh 82-topic audit found
+  40 heuristic flags; issue 37 remains open because semantic fixed-row
+  carry-over in topics 3.3 and 4.3.4 depends on issue 40's row ownership work.

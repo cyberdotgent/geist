@@ -357,6 +357,23 @@ bool looks_like_gml_control_at(const std::string& value, std::size_t offset) {
   return false;
 }
 
+static bool contains_srmsg_control(const std::string& value) {
+  const auto lower = ascii_lower(value);
+  auto search = std::size_t{0};
+  while (search < lower.size()) {
+    const auto found = lower.find("srmsg ", search);
+    if (found == std::string::npos) {
+      return false;
+    }
+    if (found == 0 ||
+        std::isalnum(static_cast<unsigned char>(lower[found - 1])) == 0) {
+      return true;
+    }
+    search = found + 1;
+  }
+  return false;
+}
+
 std::vector<std::string> split_decoded_markup_segments(
     const std::string& decoded_record) {
   std::vector<std::string> segments;
@@ -1566,6 +1583,7 @@ struct GmlRenderState {
   bool in_index = false;
   bool in_footnote = false;
   bool ignore_after_index = false;
+  bool current_record_has_message_catalog = false;
   std::size_t table_columns = 0;
   std::vector<std::size_t> table_separator_offsets;
   std::size_t table_line_width = 0;
@@ -2950,9 +2968,19 @@ std::string render_visual_box_font_gml(std::string trailing,
 
 std::string render_pending_font_continuation_gml(std::string prefix,
                                                  std::string text,
-                                                 std::size_t base_column) {
+                                                 std::size_t base_column,
+                                                 bool message_catalog) {
   std::size_t cursor = 0;
   auto spans = parse_font_spans(prefix, cursor);
+  if (message_catalog) {
+    for (std::size_t index = 0; index + 2 < text.size(); ++index) {
+      if ((text[index] == '<' || text[index] == '>') &&
+          std::isspace(static_cast<unsigned char>(text[index + 1])) != 0 &&
+          std::isspace(static_cast<unsigned char>(text[index + 2])) != 0) {
+        text[index] = ' ';
+      }
+    }
+  }
   if (auto fixed_row = apply_font_spans_to_bar_visual_row(text, spans);
       fixed_row) {
     auto rendered =
@@ -2963,6 +2991,10 @@ std::string render_pending_font_continuation_gml(std::string prefix,
       apply_font_spans_to_text_without_normalizing(std::move(text),
                                                    spans,
                                                    base_column);
+  if (message_catalog && rendered.size() >= 2 && rendered.back() == ')' &&
+      rendered[rendered.size() - 2] == '.') {
+    rendered.pop_back();
+  }
   return render_simple_gml_control("pinline", std::move(rendered));
 }
 
@@ -3215,6 +3247,17 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
   const auto spans = parse_font_spans(value, cursor);
   auto raw_trailing = cursor >= value.size() ? std::string{}
                                              : value.substr(cursor);
+  if (state.current_record_has_message_catalog) {
+    for (std::size_t index = 0; index + 2 < raw_trailing.size(); ++index) {
+      if ((raw_trailing[index] == '<' || raw_trailing[index] == '>') &&
+          std::isspace(static_cast<unsigned char>(raw_trailing[index + 1])) !=
+              0 &&
+          std::isspace(static_cast<unsigned char>(raw_trailing[index + 2])) !=
+              0) {
+        raw_trailing[index] = ' ';
+      }
+    }
+  }
   auto trailing = trim_ascii(raw_trailing);
   if (trailing.empty()) {
     state.pending_font_prefix = std::move(value);
@@ -3344,6 +3387,10 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
                                         projected_base_column);
   }
   trailing = strip_visual_line_markers_from_inline_gml(std::move(trailing));
+  if (state.current_record_has_message_catalog && trailing.size() >= 2 &&
+      trailing.back() == ')' && trailing[trailing.size() - 2] == '.') {
+    trailing.pop_back();
+  }
   if (state.in_footnote && trailing.size() >= 2 &&
       trailing[trailing.size() - 1] == '.' &&
       trailing[trailing.size() - 2] == '.') {
@@ -3748,6 +3795,10 @@ std::string render_gml_segment(std::string segment,
     }
     return output;
   }
+  if (ascii_starts_with_case_insensitive(lower, "srmsg")) {
+    auto operand = trim_control_operand(segment.substr(5));
+    return render_keyed_gml_control("anchor", "id", "MSG " + operand);
+  }
   if (ascii_starts_with_case_insensitive(lower, "srftn")) {
     state.pending_footnote_id = trim_control_operand(segment.substr(2));
     return {};
@@ -3775,11 +3826,17 @@ std::string render_gml_segment(std::string segment,
       return {};
     }
     if (ascii_starts_with_case_insensitive(lower_layout, "off xmp")) {
+      if (state.current_record_has_message_catalog) {
+        return {};
+      }
       state.in_example = true;
       return ":xmp.";
     }
     if (ascii_starts_with_case_insensitive(lower_layout, "off exmp")) {
       state.in_example = false;
+      if (state.current_record_has_message_catalog) {
+        return {};
+      }
       return ":exmp.";
     }
     if (ascii_starts_with_case_insensitive(lower_layout, "off table") ||
@@ -3832,7 +3889,8 @@ std::string render_gml_segment(std::string segment,
     state.pending_font_prefix.clear();
     return render_pending_font_continuation_gml(std::move(pending),
                                                 std::move(segment),
-                                                state.pending_font_base_column);
+                                                state.pending_font_base_column,
+                                                state.current_record_has_message_catalog);
   }
   if (auto continuation = render_marker_continuation_gml(segment)) {
     return *continuation;
@@ -3928,6 +3986,8 @@ std::vector<std::string> render_gml_records(
   GmlRenderState state;
   for (std::size_t record_index = 0; record_index < decoded_records.size();
        ++record_index) {
+    state.current_record_has_message_catalog =
+        contains_srmsg_control(decoded_records[record_index]);
     auto segments = split_decoded_markup_segments(decoded_records[record_index]);
     for (std::size_t segment_index = 0; segment_index < segments.size();
          ++segment_index) {
@@ -3952,6 +4012,8 @@ std::vector<BooLogicalRecordTrace> trace_gml_records(
   traced_records.reserve(decoded_records.size());
   for (std::size_t record_index = 0; record_index < decoded_records.size();
        ++record_index) {
+    state.current_record_has_message_catalog =
+        contains_srmsg_control(decoded_records[record_index]);
     BooLogicalRecordTrace traced;
     traced.logical_record =
         first_logical_record + static_cast<std::uint32_t>(record_index);

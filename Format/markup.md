@@ -463,6 +463,17 @@ ordinary slashes and colon-prefixed prose must be preserved.  XWEBDEMO topics
 `TITLE`, `FIGURES`, `1.0`, `1.1`, `1.3`, `1.4.1`, and `1.4.3` provide the
 cross-context evidence.
 
+`SRMSG <message-id> [symbolic-name]` is generated message-catalog metadata.  It
+starts a new message entry and supplies an anchor identity; neither `SRMSG` nor
+its operand is body prose.  The following fixed rows normally use `CFONT` to
+identify the message number/name, `Description:`, and response label.  Readers
+must keep those rows associated across logical-record boundaries.  Some
+catalog introductions are wrapped in `CZ OFF XMP`/`CZ OFF EXMP` even though
+the hosted reader presents them as ordinary prose followed by message entries;
+the wrapper must not turn intervening `SRMSG` and `CFONT` controls into literal
+preformatted text.  Verified examples are `SC31-711.boo` topics `4.1.1`,
+`4.2.1`, `4.2.2`, `4.3.2`, `4.3.4`, and `4.4`.
+
 Span-only `CFONT` records apply to the next physical text segment. PACKET
 topic `1.3` stores `CFONT 27 5 3 33 10 3` at the end of one logical record and
 the next record starts with `FM  radio  through  its audio interface; ...`.

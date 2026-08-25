@@ -1132,3 +1132,22 @@ selector metadata in TOC titles.  Eight pages retain heuristic differences.
 The substantive residuals in `1.1` and `1.4` are fixed-row carry-over and
 multi-record style assembly problems in the structural path tracked by issue
 40, rather than residual presentation-token leakage.
+
+## SC31-711 SRMSG catalog recheck
+
+The SRMSG reconstruction work was checked with a fresh complete fetch:
+
+```sh
+python3 tools/bookserver_book_audit.py BOO/SC31-711.boo \
+  --book-id SC31-711 --timestamp 19941010174546 \
+  --output /tmp/geist-SC31-711-post37-final --jobs 4
+```
+
+All 82 topics fetched and rendered; 40 retained heuristic flags.  Topics
+`4.1.1`, `4.2.1`, `4.2.2`, `4.3.2`, `4.3.4`, and `4.4` now suppress literal
+`SRMSG`, reconstruct stable message anchors/rows, remove duplicate catalog
+introductions, and do not expose the 6611 catalog as an XMP code block.  The
+full recheck also confirms unresolved semantic carry-over in `3.3`
+(`action`, `application`, `connection`) and `4.3.4` (`can`).  Those require the
+shared fixed-row ownership model tracked by issue 40, so issue 37 must remain
+open until that structural dependency is resolved.

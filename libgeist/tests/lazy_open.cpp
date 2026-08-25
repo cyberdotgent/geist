@@ -422,4 +422,41 @@ int main() {
               token_ring_traps.find("**configura**tion") ==
                   std::string::npos,
           "fixed trap rows leaked a marker or stale CFONT span");
+
+  const auto generic_traps = problem_determination.topic_markdown("4.1.1");
+  require(generic_traps.find(
+              "- **2** — **Description:** linkDown **LNM** **for** **AIX** "
+              "**Response:** Mark the agent unknown") != std::string::npos &&
+              generic_traps.find("processed by the LNM OS/2 agent application") !=
+                  std::string::npos,
+          "SRMSG generic-trap rows or introduction were not reconstructed");
+  require(generic_traps.find("SRMSG") == std::string::npos &&
+              generic_traps.find("**>**") == std::string::npos &&
+              generic_traps.find("then < attempt") == std::string::npos,
+          "SRMSG metadata or fixed-row markers leaked into generic traps");
+
+  const auto bridge_traps = problem_determination.topic_markdown("4.3.2");
+  const auto bridge_intro = std::string(
+      "These traps are defined under the 1.3.6.1.4.1.2.6.21.3.2 "
+      "enterprise ID");
+  require(bridge_traps.find(bridge_intro) != std::string::npos &&
+              bridge_traps.find(bridge_intro) ==
+                  bridge_traps.rfind(bridge_intro) &&
+              bridge_traps.find("**256** "
+                                "**(snmp_br_dot1dStpPortState)**") !=
+                  std::string::npos,
+          "bridge trap introduction duplicated or lost its message rows");
+  require(bridge_traps.find("SRMSG") == std::string::npos &&
+              bridge_traps.find("????????") == std::string::npos &&
+              bridge_traps.find("resource name.)") == std::string::npos,
+          "bridge trap metadata or trailing row marker leaked into Markdown");
+
+  const auto redirected_traps =
+      problem_determination.topic_markdown("4.3.4");
+  require(redirected_traps.find("```text") == std::string::npos &&
+              redirected_traps.find(
+                  "- **1** — **Description:** Link Alarm") !=
+                  std::string::npos &&
+              redirected_traps.find("SRMSG") == std::string::npos,
+          "redirected trap catalog remained preformatted or leaked metadata");
 }

@@ -298,6 +298,75 @@ std::string strip_leading_visual_bar(std::string line) {
   return line;
 }
 
+std::string normalize_message_catalog_intro(std::string value) {
+  const auto lower = ascii_lower(value);
+  if (const auto srmsg = lower.find("srmsg "); srmsg != std::string::npos) {
+    value.resize(srmsg);
+  }
+  std::string output;
+  output.reserve(value.size());
+  for (std::size_t cursor = 0; cursor < value.size();) {
+    if (value[cursor] == '\x1E') {
+      output.push_back(' ');
+      ++cursor;
+      continue;
+    }
+    if (value[cursor] == '?') {
+      while (cursor < value.size() && value[cursor] == '?') {
+        ++cursor;
+      }
+      output.push_back(' ');
+      continue;
+    }
+    const auto is_visual_marker = [](char ch) {
+      return ch == '(' || ch == ')' || ch == '<' || ch == '>' || ch == '-' ||
+             ch == '/' || ch == ':' || ch == '=' || ch == '!';
+    };
+    if (is_visual_marker(value[cursor])) {
+      auto padding = cursor + 1;
+      while (padding < value.size() &&
+             std::isspace(static_cast<unsigned char>(value[padding])) != 0) {
+        ++padding;
+      }
+      if (padding - cursor >= 3) {
+        output.push_back(' ');
+        cursor = padding;
+        continue;
+      }
+    }
+    output.push_back(value[cursor++]);
+  }
+  auto normalized = collapse_ascii_whitespace(std::move(output));
+  while (!normalized.empty() &&
+         (normalized.back() == ')' || normalized.back() == '(' ||
+          normalized.back() == '/' || normalized.back() == '<' ||
+          normalized.back() == '>')) {
+    normalized.pop_back();
+    normalized = trim_ascii(std::move(normalized));
+  }
+  if (ascii_starts_with_case_insensitive(normalized, "cfont ")) {
+    normalized = trim_ascii(normalized.substr(5));
+  }
+  return normalized;
+}
+
+static bool contains_srmsg_control(const std::string& value) {
+  const auto lower = ascii_lower(value);
+  auto search = std::size_t{0};
+  while (search < lower.size()) {
+    const auto found = lower.find("srmsg ", search);
+    if (found == std::string::npos) {
+      return false;
+    }
+    if (found == 0 ||
+        std::isalnum(static_cast<unsigned char>(lower[found - 1])) == 0) {
+      return true;
+    }
+    search = found + 1;
+  }
+  return false;
+}
+
 bool raw_record_duplicates_st_body(const std::string& record,
                                    const std::string& body_text) {
   const auto normalize_for_duplicate_check = [](std::string value) {
@@ -471,9 +540,9 @@ std::size_t topic_body_control_offset(const std::string& record,
                                       std::string& first_following_control) {
   const auto lower_record = ascii_lower(record);
   auto value_end = record.size();
-  static const std::array<const char*, 11> following_controls = {
+  static const std::array<const char*, 12> following_controls = {
       "cselect", "cfont", "cmenu", "cmitem", "cemenu", "srtbl",
-      "sretbl",  "srfig", "srefig", "cz",    "si"};
+      "sretbl",  "srfig", "srefig", "srmsg", "cz",    "si"};
   for (const auto* control : following_controls) {
     auto search = value_begin;
     while (search < lower_record.size()) {
@@ -836,6 +905,12 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
   entry.start_logical_record = topic.start_logical_record;
   entry.end_logical_record = topic.end_logical_record;
   entry.raw_records = render_gml_records(topic.raw_records);
+  const auto is_message_catalog =
+      std::any_of(topic.raw_records.begin(),
+                  topic.raw_records.end(),
+                  [](const auto& record) {
+                    return contains_srmsg_control(record);
+                  });
   if (!entry.raw_records.empty() && !entry.title.empty()) {
     auto heading = entry.raw_records.begin();
     while (heading != entry.raw_records.end()) {
@@ -931,6 +1006,19 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
               std::make_move_iterator(form_records.end()));
         } else if (!trailing_text.empty()) {
           entry.raw_records.insert(heading + 1, ":p." + trailing_text);
+        } else if (is_message_catalog && !body_text.empty()) {
+          auto erase_begin = heading + 1;
+          auto erase_end = erase_begin;
+          while (erase_end != entry.raw_records.end() &&
+                 !ascii_starts_with_case_insensitive(
+                     *erase_end, ":anchor id='MSG ")) {
+            ++erase_end;
+          }
+          erase_begin = entry.raw_records.erase(erase_begin, erase_end);
+          auto intro = normalize_message_catalog_intro(std::move(body_text));
+          if (!intro.empty()) {
+            entry.raw_records.insert(erase_begin, ":p." + std::move(intro));
+          }
         } else if (following_control == "cselect" ||
                    following_control == "cfont") {
           auto cselect_intro = trim_ascii(body_text);
