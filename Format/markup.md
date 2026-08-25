@@ -427,6 +427,31 @@ output insertion, but its display-column map must advance once per decoded
 character and may place span boundaries only at complete UTF-8 character
 boundaries.
 
+Some fixed rows begin with a decoder separator or visual row marker followed
+by padding.  That prefix is outside the visible text but establishes the row's
+column origin; it must be consumed before ordinary whitespace normalization.
+Verified examples include:
+
+| File/topic | Decoded evidence | Intended projection |
+| --- | --- | --- |
+| `SH12-565.boo`, `APPENDIX1.8` | `CFONT 11 1 2 ?            2    Delete` | The span covers the numeric label `2`, not the `e` in `Delete`. |
+| `SC24-546.boo`, `2.1.3` | `CFONT 54 3 1 ?              A literal string ... any characters` | The HP1 span covers the complete word `any`. |
+| `SC41-485.boo`, `1.2.2` | `CFONT 7 5 2 ?  |     *APPC ...` | The visual `|` is structural; the span covers the complete `*APPC` term. |
+| `SC31-711.boo`, `4.2.2` | `CFONT 3 12 2 <    Description: ...` | The leading `<` is a continuation marker; the span covers `Description:`. |
+
+The `CFONT` column is zero-based once the active visual-row origin is known;
+bar-prefixed definition rows retain a one-column structural bar immediately
+before their visible term.  Span metadata can also be separated from its text
+by a logical-record boundary.  A pending span must be consumed by the marker-
+led continuation itself, not left active for the next ordinary record.
+
+If damaged or still-unreconstructed fixed-layout input would place a span
+boundary inside an ASCII word, emitting that partial span corrupts the text.
+The safe fallback is to retain the complete word without that style.  Exact
+whole-word recovery is permitted only when the ordered span lengths identify
+unambiguous word tokens; table and preformatted-row reconstruction remains a
+separate structural step.
+
 Span-only `CFONT` records apply to the next physical text segment. PACKET
 topic `1.3` stores `CFONT 27 5 3 33 10 3` at the end of one logical record and
 the next record starts with `FM  radio  through  its audio interface; ...`.

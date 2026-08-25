@@ -91,6 +91,42 @@ int main() {
   require(gg24_edition.find("May 1991") == std::string::npos,
           "GG24 edition notice retained fixture-specific replacement text");
 
+  const auto client_server = split_header.topic_markdown("8.5.5");
+  require(client_server.find(
+              "products, **IMS** **CS/2** and **IMS** **CS** **for** "
+              "**Windows**") != std::string::npos,
+          "marker-led CFONT row tore client/server product names");
+  const auto message_routing = split_header.topic_markdown("9.4.7");
+  require(message_routing.find("<I>every</I> <I>system</I> <I>involved</I> "
+                               "<I>in</I> <I>the</I> <I>processing</I>") !=
+              std::string::npos &&
+              message_routing.find("cfont ") == std::string::npos,
+          "fixed example lost CFONT styling or leaked its control");
+  require(message_routing.find("LU6.2 device") ==
+              message_routing.rfind("LU6.2 device"),
+          "fixed example duplicated its styled continuation");
+  const auto gg24_introduction = split_header.topic_markdown("1.0");
+  for (const auto* expected : {"**Cost** **reduction**",
+                               "**Remote** **site** **contingency**",
+                               "**Open** **and** **distributed** **systems**",
+                               "**Added** **value** **with** **protected** "
+                               "**investment**"}) {
+    require(gg24_introduction.find(expected) != std::string::npos,
+            "visual-separator CFONT row tore a highlighted phrase");
+  }
+  const auto command_language = split_header.topic_markdown("4.2.5");
+  require(command_language.find("**KEYWD** *keyword*,LAST=NO|YES") !=
+              std::string::npos &&
+              command_language.find("KEYW`D DATA`") == std::string::npos &&
+              command_language.find("**BASE,AL**") == std::string::npos,
+          "fixed command rows retained partial-token CFONT spans");
+  const auto device_addresses = split_header.topic_markdown("7.3");
+  require(device_addresses.find(
+              "**DFS0762I** **OSAM** **(TAPE|DASD)** "
+              "**(READ|WRITE)** **ERROR**") != std::string::npos &&
+              device_addresses.find("DF**S0762I") == std::string::npos,
+          "fixed message row retained partial-word CFONT spans");
+
   const struct {
     const char* topic;
     const char* phrase;
@@ -248,6 +284,39 @@ int main() {
               configuration_actions.find("(QDCLCFGD)") !=
                   std::string::npos,
           "definition list lost an action description");
+  const auto configuration_qualifiers =
+      configuration_manager.topic_markdown("1.2.2");
+  for (const auto* expected : {"***APPC** APPC controllers",
+                               "***FR** Frame relay lines",
+                               "***LANPRT** LAN printer devices",
+                               "***OPT** Optical devices",
+                               "***SNUF** SNA upline facility devices"}) {
+    require(configuration_qualifiers.find(expected) != std::string::npos,
+            "visual-bar CFONT row tore a configuration qualifier");
+  }
+  require(configuration_qualifiers.find("**|**") == std::string::npos,
+          "visual-bar CFONT row highlighted its structural marker");
+
+  const auto smf_layout =
+      geist::BooDocument::open(root / "SH12-565.boo")
+          .topic_markdown("APPENDIX1.8");
+  require(smf_layout.find("number of *triplets*. Each triplet") !=
+              std::string::npos &&
+              smf_layout.find("**2** Delete **3** Query") !=
+                  std::string::npos,
+          "SMF fixed rows retained shifted CFONT spans");
+  require(smf_layout.find("trip*lets") == std::string::npos &&
+              smf_layout.find("Del**e**te") == std::string::npos,
+          "SMF fixed rows retained torn words");
+
+  const auto rexx_tokens =
+      geist::BooDocument::open(root / "SC24-546.boo")
+          .topic_markdown("2.1.3");
+  require(rexx_tokens.find("sequence including *any* characters") !=
+              std::string::npos &&
+              rexx_tokens.find("charac*ter*") == std::string::npos &&
+              rexx_tokens.find("t`w`o") == std::string::npos,
+          "REXX prose retained partial-word CFONT spans");
 
   const auto problem_determination =
       geist::BooDocument::open(root / "SC31-711.boo");
@@ -291,4 +360,21 @@ int main() {
               frame_relay.find("- **1** — **Description:** DLCI state change") !=
                   std::string::npos,
           "message definition lost its introduction or label association");
+  const auto token_ring_traps =
+      problem_determination.topic_markdown("4.2.2");
+  require(token_ring_traps.find(
+              "- **5** — **Description:** The status of a port") !=
+              std::string::npos &&
+              token_ring_traps.find(
+                  "display the current configuration and send the trap") !=
+                  std::string::npos &&
+              token_ring_traps.find(
+                  "- **805306379** — **Description:** Temporary beaconing") !=
+                  std::string::npos,
+          "fixed trap rows retained torn CFONT spans");
+  require(token_ring_traps.find("< Descrip") == std::string::npos &&
+              token_ring_traps.find("**cur**r") == std::string::npos &&
+              token_ring_traps.find("**configura**tion") ==
+                  std::string::npos,
+          "fixed trap rows leaked a marker or stale CFONT span");
 }

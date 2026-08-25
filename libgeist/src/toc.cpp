@@ -367,9 +367,15 @@ std::vector<std::string> split_reflow_off_body_lines(std::string value) {
   std::string line;
   auto pending_simple_list = false;
   auto in_simple_list = false;
+  auto reached_inline_control = false;
 
   const auto flush_line = [&](bool paragraph_break) {
     line = strip_leading_visual_bar(std::move(line));
+    if (ascii_starts_with_case_insensitive(trim_ascii(line), "cfont ")) {
+      line.clear();
+      reached_inline_control = true;
+      return;
+    }
     if (!line.empty()) {
       if (in_simple_list && line.rfind("\xC2\xB0", 0) != 0) {
         line = "\xC2\xB0 " + line;
@@ -385,7 +391,8 @@ std::vector<std::string> split_reflow_off_body_lines(std::string value) {
     line.clear();
   };
 
-  for (std::size_t cursor = 0; cursor < value.size();) {
+  for (std::size_t cursor = 0;
+       cursor < value.size() && !reached_inline_control;) {
     if (value[cursor] == kSyntheticRecordBoundary) {
       flush_line(in_simple_list);
       pending_simple_list = false;
@@ -955,7 +962,8 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
               topic_st_body_following_control_after_toc_title(topic,
                                                               entry.title);
           if (body_following_control == "cfont" ||
-              body_following_control == "cselect") {
+              body_following_control == "cselect" ||
+              ascii_lower(body_text).find("cfont ") != std::string::npos) {
             auto continuation = erase_end;
             while (continuation != entry.raw_records.end() &&
                    (raw_gml_tag(*continuation) == "p" ||

@@ -874,3 +874,10 @@
   visual border rows. Added exact assertions for boundary codes `05`, `0F`,
   `19`, `23`, `63`, `6F`, and `7B`; all tests and the 110-topic cached audit
   passed.
+- Corrected cross-book `CFONT` projection for marker-led rows, visual-bar
+  definitions, span-only continuations, and UTF-8 text. Display-prefix padding
+  now establishes the correct coordinate origin, pending spans are consumed by
+  their own continuation, exact whole-word recovery avoids partial tokens, and
+  unsafe partial-word spans are omitted instead of corrupting prose. Added
+  fixture regressions for GG24, SC41, SC31, SH12, and SC24 and replayed the
+  seven complete cached BookServer audits used by issue 9.

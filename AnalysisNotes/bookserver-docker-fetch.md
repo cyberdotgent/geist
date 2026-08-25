@@ -1083,3 +1083,33 @@ python3 tools/bookserver_book_audit.py BOO/SC31-605.boo --book-id SC31-605 --tim
 All 110 cached pages rendered; 91 retained heuristic flags. Review of those
 flags separated the chapter 3 event/qualifier grid family from this action-code
 layout rather than treating the audit score as a functional failure.
+
+## Cross-book CFONT regression verification
+
+Issue 9's ordinary-flow span fixes were checked against these hosted books and
+cached captures:
+
+```sh
+python3 tools/bookserver_book_audit.py BOO/GG24-4302-00.boo --book-id GG24-4302-00 --timestamp 19950308184737 --output /tmp/geist-gg24-4302-audit --jobs 4 --no-fetch
+python3 tools/bookserver_book_audit.py BOO/SC41-485.boo --book-id SC41-485 --timestamp 19951003131222 --output /tmp/geist-books20-audits/SC41-485 --jobs 4 --no-fetch
+python3 tools/bookserver_book_audit.py BOO/SC31-711.boo --book-id SC31-711 --timestamp 19941010174546 --output /tmp/geist-books20-audits/SC31-711 --jobs 4 --no-fetch
+python3 tools/bookserver_book_audit.py BOO/SH12-565.boo --book-id SH12-565 --timestamp 19941206115523 --output /tmp/geist-books20-audits/SH12-565 --jobs 4 --no-fetch
+python3 tools/bookserver_book_audit.py BOO/SC34-425.boo --book-id SC34-425 --timestamp 19921112160049 --output /tmp/geist-books20-audits/SC34-425 --jobs 4 --no-fetch
+python3 tools/bookserver_book_audit.py BOO/SC24-546.boo --book-id SC24-546 --timestamp 19940323131240 --output /tmp/geist-books20-audits/SC24-546 --jobs 4 --no-fetch
+python3 tools/bookserver_book_audit.py BOO/PRG1SORT.boo --book-id PRG1SORT --timestamp 19900829171904 --output /tmp/geist-books20-audits/PRG1SORT --jobs 4 --no-fetch
+```
+
+The targeted comparisons used GG24 topics `1.0`, `4.2.2`, `4.2.4`, `4.2.5`,
+`7.3`, `8.5.5`, and `9.4.7`; SC41 topic `1.2.2`; SC31 topics `3.3`, `4.1.1`,
+`4.1.3`, `4.2.2`, and `4.4`; SH12 topic `APPENDIX1.8`; SC34 topics `1.9.2`,
+`2.2.8`, `APPENDIX1.5.3`, `APPENDIX1.5.4`, and `GLOSSARY`; SC24 topics
+`2.1.3`, `2.2.3`, `2.4.3`, and `6.2.6`; and PRG1SORT topic `C.1`.
+
+The ordinary-flow fixes restore complete GG24 product/command/message tokens,
+SC41 definition terms, SC31 message labels, SH12 numeric labels and `triplets`,
+and SC24's `any` emphasis while retaining valid UTF-8.  The audits also show a
+separate residual: SC34 message catalogs and PRG1SORT collating tables are
+fixed/preformatted structures whose `CFONT` controls currently pass through a
+table or fixed-row path before ordinary CFONT dispatch.  Their remaining
+over-emphasis and row collapse must be tracked as structural rendering work,
+not as another byte/character-offset repair.
