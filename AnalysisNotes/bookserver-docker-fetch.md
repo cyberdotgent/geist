@@ -1237,3 +1237,44 @@ The final live recheck fetched 82/82 topics with no failures and reported 45
 heuristic flags. Full triage confirmed topics `3.3` and `4.3.4` are corrected.
 Independent residual corruption in `1.4`, `5.0`, and `GLOSSARY` is recorded in
 GitHub issue 41; SC31-711's book-audit tracker therefore remains open.
+
+## SC31-711 issue 41 catalog and continuation validation
+
+Issue 41 was reproduced from both decoded segments and hosted output for
+`SC31-711` at DT `19941010174546`. The focused evidence commands were:
+
+```sh
+build/bootrace BOO/SC31-711.boo 1.4 --segments
+build/bootrace BOO/SC31-711.boo 5.0 --segments
+build/bootrace BOO/SC31-711.boo GLOSSARY --segments
+build/boorender BOO/SC31-711.boo 1.4 --md
+build/boorender BOO/SC31-711.boo 5.0 --md
+build/boorender BOO/SC31-711.boo GLOSSARY --md
+```
+
+The repaired `1.4` output retains the complete
+`/usr/lpp/lnm/reports/lnmlnmemon/dir_name` paragraph and suppresses `c.cp`.
+Topic `5.0` uses only the first numeric or numeric-range `SRMSG` token for its
+anchor, retains early/middle/late Meaning and Action prose, and removes
+unstyled heading carry-over after CFONT projection. `GLOSSARY` retains
+term-specific anchors and removes prefixes and padded row markers before its
+fixed definitions. Regression assertions cover all three paths.
+
+A fresh online whole-book comparison and an immediate cache-only replay used:
+
+```sh
+python3 tools/bookserver_book_audit.py BOO/SC31-711.boo \
+  --book-id SC31-711 --timestamp 19941010174546 \
+  --output /tmp/geist-SC31-711-post41-live --jobs 4 --timeout 30
+python3 tools/bookserver_book_audit.py BOO/SC31-711.boo \
+  --book-id SC31-711 --timestamp 19941010174546 \
+  --output /tmp/geist-SC31-711-post41-live --jobs 4 --no-fetch
+```
+
+The final online pass and cache-only replay rendered 82/82 topics with no fetch
+or render failures and reported 44 heuristic flags. Every flag was manually
+triaged against its matching hosted page. The `1.4`, `5.0`, and `GLOSSARY`
+acceptance targets for issue 41 were clean. Independent residuals discovered by
+the full-book check are recorded in issues 42 (fixed rows/forms/publication
+lists), 43 (index links), 44 (one split topic link), and 45 (missing preface
+body); SC31-711 tracker 27 remains open for those follow-up workloads.

@@ -1187,10 +1187,16 @@ std::string render_image_markdown(const std::string& record) {
 std::string render_anchor_markdown(const std::string& record) {
   const auto text = gml_markdown_content(record);
   if (!text.empty()) {
+    const auto id = gml_attr(record, "id");
+    const auto textual_id_suffix = " " + text;
+    if (id.size() > textual_id_suffix.size() &&
+        id.compare(id.size() - textual_id_suffix.size(),
+                   textual_id_suffix.size(), textual_id_suffix) == 0) {
+      return "<a id=\"" + id + "\"></a>\n" + text;
+    }
     if (std::all_of(text.begin(), text.end(), [](const auto ch) {
           return std::isdigit(static_cast<unsigned char>(ch)) != 0;
         })) {
-      const auto id = gml_attr(record, "id");
       if (!id.empty()) {
         return "<a id=\"" + id + " " + text + "\"></a>";
       }

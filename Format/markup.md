@@ -1046,3 +1046,41 @@ padding spaces. Observed marker bytes include `(`, `)`, `-`, `<`, `>`, `/`,
 The marker and its padding are structural and contribute no visible character.
 Ordinary punctuation such as the colon in `Note:` is not a row marker because
 it follows an alphanumeric character.
+
+## SC31-711 long catalog controls
+
+`SC31-711.boo` shows that a navigation-looking control can also carry visible
+continuation text. In topic `1.4`, logical record 24 ends a span-only `CFONT`
+with `CFORWARDLEVEL /usr/lpp/lnm/reports/lnmlnmemon/dir_name ...`. The
+`CFORWARDLEVEL` keyword is structural, but its operand is the physical text to
+which the pending font spans apply. A reader must consume that operand before
+discarding the navigation control. The `c.cp 54` control in logical record 25
+is presentation metadata and has no visible payload.
+
+For numeric message catalogs, only the first token after `SRMSG` identifies the
+message. Decoder padding and carry-over after that token are not part of the
+anchor. A single numeric range such as `SRMSG 1000-1999` is the same semantic
+form. Topic `5.0` verifies exact anchors `MSG 062`, `MSG 1000-1999`,
+`MSG 2389`, and `MSG 2502`. Its heading rows also demonstrate a strong row
+ownership rule: all intended heading words are covered by HP2 `CFONT` spans;
+a final unstyled lowercase token after the last span is decoder carry-over.
+This removes the observed `a`, `agent`, `be`, and `by` suffixes without
+filtering ordinary prose words.
+
+`SRGLS GLS <term>` starts a glossary entry whose stable anchor is the base id
+and textual term joined with one space, for example `GLS accelerator`,
+`GLS managed node`, and `GLS wildcard character`. The term text remains
+visible. Glossary definition rows are fixed-layout rows: a prefix before the
+first matching `CFONT` span and one-byte padded markers such as `<`, `>`, `/`,
+or `"` are structural rather than part of the definition.
+
+Within the same glossary fixed stream, exactly four padding spaces after an
+alphabetic token mark a decoder carry token at a physical-row join. This is
+distinct from the wider padding that begins an ordinary wrapped row. Topic
+`GLOSSARY` records 437--518 show repeated carry words such as `action`,
+`adapter`, `address`, and `agent`; removing the token but retaining the four
+spaces reconstructs phrases such as `to transmit`, `may be stored`, and
+`permission to transmit`. A carry token can also follow an unusually long
+`SRGLS` operand: the visible 71-character CCITT term is followed by `action`,
+which is outside the 67-column term row, while the complete parenthesized term
+remains the anchor id.

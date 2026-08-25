@@ -165,7 +165,8 @@ std::string raw_gml_tag(const std::string& record) {
 bool is_topic_title_record(const std::string& record) {
   const auto tag = raw_gml_tag(record);
   static const std::set<std::string> title_tags = {
-      "h1", "h2", "h3", "h4", "h5", "ih2", "preface", "appendix"};
+      "h1", "h2", "h3", "h4", "h5", "ih2", "preface", "appendix",
+      "glossary"};
   return title_tags.find(tag) != title_tags.end();
 }
 
@@ -899,6 +900,27 @@ std::string topic_st_following_control_after_toc_title(
   return following_control;
 }
 
+std::string clean_glossary_intro_fixed_line(std::string line) {
+  if (const auto control = ascii_lower(line).find(" cfont ");
+      control != std::string::npos) {
+    line.resize(control);
+  }
+  line = trim_ascii(std::move(line));
+  const auto gap = line.find("    ");
+  if (gap != std::string::npos && gap > 0 && gap <= 11 &&
+      line.find_first_of(" \t\r\n") == gap) {
+    line.erase(0, line.find_first_not_of(" \t\r\n", gap));
+  }
+  while (!line.empty() &&
+         (line.back() == '<' || line.back() == '>' || line.back() == '/' ||
+          line.back() == '"' || line.back() == '(' || line.back() == ')' ||
+          line.back() == '=')) {
+    line.pop_back();
+    line = trim_ascii(std::move(line));
+  }
+  return line;
+}
+
 void attach_topic_data(TocEntry& entry, const TopicData& topic) {
   entry.heading_level = topic.heading_level;
   entry.topic_number = topic.topic_number;
@@ -960,6 +982,7 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
       const auto content_begin = dot + 1;
       const auto content = first_record.substr(content_begin);
       const auto title_size = entry.title.size();
+      const auto is_glossary_topic = raw_gml_tag(first_record) == "glossary";
       const auto title_has_body_separator =
           content.size() > title_size &&
           (std::isspace(static_cast<unsigned char>(content[title_size])) != 0 ||
@@ -997,6 +1020,40 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
               entry.raw_records.erase(continuation);
             }
           }
+        }
+        if (is_glossary_topic && !body_text.empty()) {
+          body_text = strip_fixed_line_overflow_tokens(
+              std::move(body_text), false, true);
+          auto erase_begin = heading + 1;
+          auto erase_end = erase_begin;
+          auto glossary_tail = std::string{};
+          while (erase_end != entry.raw_records.end() &&
+                 raw_gml_tag(*erase_end) != "line" &&
+                 !ascii_starts_with_case_insensitive(
+                     *erase_end, ":anchor id='GLS'")) {
+            const auto content = raw_gml_content_preserve_space(*erase_end);
+            const auto dictionary = content.find("The IBM Dictionary");
+            if (dictionary != std::string::npos) {
+              glossary_tail = trim_ascii(content.substr(dictionary));
+            }
+            ++erase_end;
+          }
+          erase_begin = entry.raw_records.erase(erase_begin, erase_end);
+          std::vector<std::string> preserved{":xmp."};
+          for (auto line : split_reflow_off_body_lines(std::move(body_text))) {
+            line = clean_glossary_intro_fixed_line(std::move(line));
+            if (!line.empty()) {
+              preserved.push_back(":xline." + std::move(line));
+            }
+          }
+          preserved.push_back(":exmp.");
+          if (!glossary_tail.empty()) {
+            preserved.push_back(":p." + std::move(glossary_tail));
+          }
+          entry.raw_records.insert(erase_begin,
+                                   std::make_move_iterator(preserved.begin()),
+                                   std::make_move_iterator(preserved.end()));
+          return;
         }
         auto form_records = render_st_form_items(body_text);
         if (!form_records.empty()) {
@@ -1072,6 +1129,9 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
               inline_fixed_continuations.empty() ? ":xmp."
                                                  : ":xmp inline='html'."};
           for (auto line : split_reflow_off_body_lines(std::move(body_text))) {
+            if (line.empty()) {
+              continue;
+            }
             preserved.push_back(":xline." + std::move(line));
           }
           for (auto& continuation : inline_fixed_continuations) {

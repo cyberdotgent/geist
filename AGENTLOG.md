@@ -916,3 +916,12 @@
   ordinary punctuation as layout metadata. The filter introduction, note,
   conversion discussion, and warning now retain their complete text while
   dropping the decoded `(`, `)`, `-`, `<`, `>`, and carry-over fragments.
+- Repaired SC31-711 topics 1.4, 5.0, and GLOSSARY for issue 41. Pending CFONT
+  spans now consume visible `CFORWARDLEVEL` operands, `c.cp` stays structural,
+  numeric SRMSG anchors stop at the first ID token, fully styled heading rows
+  drop only unstyled suffix carry-over, and glossary terms receive stable
+  term-specific anchors. Added early/middle/late fixture assertions, passed all
+  nine tests, and completed online plus cache-only 82-topic audits for final
+  manual flag triage. The final pass had 44 heuristic flags; all were reviewed,
+  issue 41 targets were clean, and independent residuals were filed as issues
+  42--45 before leaving the SC31-711 tracker open.

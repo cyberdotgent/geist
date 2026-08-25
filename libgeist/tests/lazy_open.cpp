@@ -546,4 +546,64 @@ int main() {
               redirected_traps.find("bridge can application") ==
                   std::string::npos,
           "redirected trap catalog remained preformatted or leaked metadata");
+
+  const auto performance_files =
+      problem_determination.topic_markdown("1.4");
+  require(performance_files.find(
+              "`/usr/lpp/lnm/reports/lnmlnmemon/dir_name` directory") !=
+              std::string::npos &&
+              performance_files.find("c.cp") == std::string::npos,
+          "performance-file prose lost its pending-font continuation");
+
+  const auto lnm_messages = problem_determination.topic_markdown("5.0");
+  for (const auto* expected : {
+           "<a id=\"MSG 062\"></a>",
+           "<a id=\"MSG 1000-1999\"></a>",
+           "<a id=\"MSG 2389\"></a>",
+           "<a id=\"MSG 2502\"></a>",
+           "Restart** **the** **Concentrator** **view",
+           "concentrator** **view** **is** **set** **to** **unknown",
+           "has** **been** **removed** **from** **the** **database",
+           "This message usually indicates that the other process failed",
+       }) {
+    require(lnm_messages.find(expected) != std::string::npos,
+            "LNM message catalog lost an anchor or styled row text");
+  }
+  for (const auto* leaked : {
+           "MSG 062 ", "Meaning:action", "Meaning:and", "AN Action",
+           "Restart** **the** a **Concentrator", "view** agent **is",
+           "removed** by **from", "iubd<",
+       }) {
+    require(lnm_messages.find(leaked) == std::string::npos,
+            "LNM message catalog retained row carryover or metadata");
+  }
+
+  const auto lnm_glossary =
+      problem_determination.topic_markdown("GLOSSARY");
+  for (const auto* expected : {
+           "<a id=\"GLS accelerator\"></a>",
+           "<a id=\"GLS managed node\"></a>",
+           "<a id=\"GLS wildcard character\"></a>",
+       }) {
+    require(lnm_glossary.find(expected) != std::string::npos,
+            "LNM glossary lost its term-specific anchor");
+  }
+  require(lnm_glossary.find("adapter    active") == std::string::npos &&
+              lnm_glossary.find("address    inactive") ==
+                  std::string::npos &&
+              lnm_glossary.find("alternative to a and") ==
+                  std::string::npos &&
+              lnm_glossary.find("may address    be stored") ==
+                  std::string::npos &&
+              lnm_glossary.find(
+                  "GLS Consultative Committee on International Telegraph "
+                  "and Telephone (CCITT) action") == std::string::npos,
+          "LNM glossary retained fixed-row carryover");
+  require(lnm_glossary.find("The IBM Dictionary of Computing") !=
+              std::string::npos &&
+              lnm_glossary.find(
+                  "This glossary includes terms and definitions from:") ==
+                  lnm_glossary.rfind(
+                      "This glossary includes terms and definitions from:"),
+          "LNM glossary introduction was lost or duplicated");
 }

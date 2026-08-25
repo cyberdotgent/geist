@@ -166,7 +166,8 @@ bool is_decoded_line_marker(char ch) {
 }
 
 bool is_fixed_prose_row_marker(char ch) {
-  return is_decoded_line_marker(ch) || ch == '<' || ch == '>' || ch == '/';
+  return is_decoded_line_marker(ch) || ch == '<' || ch == '>' || ch == '/' ||
+         ch == '"';
 }
 
 bool fixed_prose_row_marker_at(const std::string& value, std::size_t cursor) {
@@ -198,9 +199,16 @@ std::string strip_fixed_prose_row_markers(std::string value) {
   return collapse_ascii_whitespace(std::move(output));
 }
 
-std::string blank_fixed_prose_row_markers(std::string value) {
+std::string blank_fixed_prose_row_markers(std::string value,
+                                          bool allow_adjacent = false) {
   for (std::size_t cursor = 0; cursor + 2 < value.size(); ++cursor) {
-    if (fixed_prose_row_marker_at(value, cursor)) {
+    const auto adjacent_marker =
+        allow_adjacent &&
+        (value[cursor] == '<' || value[cursor] == '>' ||
+         value[cursor] == '/' || value[cursor] == '"') &&
+        std::isspace(static_cast<unsigned char>(value[cursor + 1])) != 0 &&
+        std::isspace(static_cast<unsigned char>(value[cursor + 2])) != 0;
+    if (fixed_prose_row_marker_at(value, cursor) || adjacent_marker) {
       value[cursor] = ' ';
     }
   }
@@ -309,13 +317,17 @@ std::string dot_text(std::string value) {
 
 std::string strip_fixed_line_overflow_tokens(
     std::string value,
-    bool allow_wide_short_boundary) {
+    bool allow_wide_short_boundary,
+    bool allow_content_origin) {
   // Callers must first establish that value is a physical fixed-layout row.
   // A word beyond this display boundary is not part of that row; applying the
   // rule to flowing prose would make an aligned paragraph a false positive.
   constexpr auto display_width = std::size_t{79};
+  constexpr auto fixed_catalog_content_width = std::size_t{67};
+  const auto original_size = value.size();
   value.append(4, ' ');
   auto line_begin = std::size_t{0};
+  auto content_line_begin = std::size_t{0};
   for (auto cursor = std::size_t{0}; cursor < value.size();) {
     if (std::isspace(static_cast<unsigned char>(value[cursor])) == 0) {
       ++cursor;
@@ -336,8 +348,14 @@ std::string strip_fixed_line_overflow_tokens(
                0) {
       --visible_end;
     }
+    const auto reaches_boundary =
+        visible_end >= line_begin + display_width ||
+        (allow_content_origin && gap_begin < original_size &&
+         cursor - gap_begin == 4 &&
+         visible_end >=
+             content_line_begin + fixed_catalog_content_width);
     if (visible_begin != std::string::npos && visible_begin < visible_end &&
-        visible_end - line_begin >= display_width) {
+        reaches_boundary) {
       auto token_begin = visible_end;
       while (token_begin > visible_begin &&
              std::isspace(static_cast<unsigned char>(value[token_begin - 1])) ==
@@ -357,13 +375,20 @@ std::string strip_fixed_line_overflow_tokens(
           });
       const auto generated_url = token.size() >= 2 && token.front() == '<' &&
                                  token.back() == '>';
-      const auto wide_short_boundary =
-          allow_wide_short_boundary && cursor - gap_begin == 4 &&
-          visible_end - line_begin > 84 &&
-          without_end - line_begin > display_width &&
-          without_end - line_begin <= 84;
-      if ((without_end - line_begin <= display_width ||
-           wide_short_boundary) &&
+      const auto fits_boundary = [&](const auto origin) {
+        const auto ordinary = without_end <= origin + display_width;
+        const auto wide_short =
+            allow_wide_short_boundary && cursor - gap_begin == 4 &&
+            visible_end > origin + 84 &&
+            without_end > origin + display_width &&
+            without_end <= origin + 84;
+        return ordinary || wide_short;
+      };
+      if ((fits_boundary(line_begin) ||
+           (allow_content_origin && gap_begin < original_size &&
+            cursor - gap_begin == 4 &&
+            without_end <=
+                content_line_begin + fixed_catalog_content_width)) &&
           (lower_word || generated_url)) {
         const auto removed = visible_end - token_begin;
         value.erase(token_begin, removed);
@@ -371,8 +396,41 @@ std::string strip_fixed_line_overflow_tokens(
       }
     }
     line_begin = gap_begin;
+    content_line_begin = cursor;
   }
   value.resize(value.size() - 4);
+  return value;
+}
+
+std::string strip_fixed_catalog_four_space_carry(std::string value) {
+  for (auto gap = std::size_t{0}; gap + 4 < value.size();) {
+    gap = value.find("    ", gap);
+    if (gap == std::string::npos || gap + 4 >= value.size()) {
+      break;
+    }
+    if ((gap > 0 && value[gap - 1] == ' ') || value[gap + 4] == ' ') {
+      ++gap;
+      continue;
+    }
+    auto token_begin = gap;
+    while (token_begin > 0 &&
+           std::isspace(static_cast<unsigned char>(
+               value[token_begin - 1])) == 0) {
+      --token_begin;
+    }
+    const auto alphabetic = token_begin < gap &&
+        std::all_of(value.begin() + static_cast<std::ptrdiff_t>(token_begin),
+                    value.begin() + static_cast<std::ptrdiff_t>(gap),
+                    [](const auto ch) {
+                      return std::isalpha(static_cast<unsigned char>(ch)) != 0;
+                    });
+    if (alphabetic) {
+      value.erase(token_begin, gap - token_begin);
+      gap = token_begin + 4;
+    } else {
+      gap += 4;
+    }
+  }
   return value;
 }
 
@@ -427,10 +485,11 @@ bool looks_like_gml_control_at(const std::string& value, std::size_t offset) {
     return false;
   }
 
-  static constexpr std::array<std::string_view, 49> prefixes = {
+  static constexpr std::array<std::string_view, 50> prefixes = {
       "ctopicn",     "cparent",    "cforwardlevel",
       "cbacklevel",  "csummary",   "chdlevel",   "csourcefn",
-      "st",          "c.sp",       "ctocdef",    "ctoce",      "etoc",
+      "st",          "c.sp",       "c.cp",       "ctocdef",    "ctoce",
+      "etoc",
       "cfontdef",    "cfont",      "cselect",    "cmenu",
       "cmitem",      "cemenu",     "srfig",      "srefig",
       "srtbl",       "sretbl",     "sr",         "cz",
@@ -1728,7 +1787,11 @@ std::string render_anchor_gml(std::string value) {
   }
   const auto id = value.substr(0, cursor);
   auto rest = dot_text(value.substr(cursor));
-  auto output = render_keyed_gml_control("anchor", "id", id);
+  auto anchor_id = id;
+  if (ascii_equals_case_insensitive(id, "GLS") && !rest.empty()) {
+    anchor_id += " " + rest;
+  }
+  auto output = render_keyed_gml_control("anchor", "id", anchor_id);
   if (!rest.empty()) {
     output += rest;
   }
@@ -1763,6 +1826,8 @@ struct GmlRenderState {
   bool fixed_catalog_requested = false;
   bool in_fixed_catalog = false;
   bool in_semantic_message_catalog = false;
+  bool in_glossary_catalog = false;
+  std::string glossary_term;
   std::size_t table_columns = 0;
   std::vector<std::size_t> table_separator_offsets;
   std::size_t table_line_width = 0;
@@ -2698,6 +2763,99 @@ std::vector<FontSpan> parse_font_spans(const std::string& value,
   return spans;
 }
 
+bool strip_fixed_prefix_before_first_span(
+    std::string& text,
+    const std::vector<FontSpan>& spans,
+    bool allow_equal_length_prefix = false) {
+  if (spans.empty() ||
+      spans.front().offset > (allow_equal_length_prefix ? 13 : 12)) {
+    return false;
+  }
+  const auto first = text.find_first_not_of(" \t\r\n");
+  if (first == std::string::npos) {
+    return false;
+  }
+  auto prefix_end = first;
+  while (prefix_end < text.size() &&
+         std::isspace(static_cast<unsigned char>(text[prefix_end])) == 0) {
+    ++prefix_end;
+  }
+  auto candidate = prefix_end;
+  while (candidate < text.size() &&
+         std::isspace(static_cast<unsigned char>(text[candidate])) != 0) {
+    ++candidate;
+  }
+  auto candidate_end = candidate;
+  while (candidate_end < text.size() &&
+         std::isspace(static_cast<unsigned char>(text[candidate_end])) == 0) {
+    ++candidate_end;
+  }
+  auto candidate_visible_end = candidate_end;
+  while (candidate_visible_end > candidate &&
+         std::ispunct(static_cast<unsigned char>(
+             text[candidate_visible_end - 1])) != 0) {
+    --candidate_visible_end;
+  }
+  if (candidate <= prefix_end + 1 ||
+      (candidate_end - candidate != spans.front().length &&
+       candidate_visible_end - candidate != spans.front().length)) {
+    return false;
+  }
+  const auto all_digits = [&](std::size_t begin, std::size_t end) {
+    return begin < end &&
+           std::all_of(text.begin() + static_cast<std::ptrdiff_t>(begin),
+                       text.begin() + static_cast<std::ptrdiff_t>(end),
+                       [](const auto ch) {
+                         return std::isdigit(static_cast<unsigned char>(ch)) !=
+                                0;
+                       });
+  };
+  const auto prefix_length = prefix_end - first;
+  const auto candidate_is_numeric =
+      all_digits(candidate, candidate_visible_end);
+  const auto prefix_is_numeric = all_digits(first, prefix_end);
+  const auto candidate_is_label =
+      candidate_end > candidate && text[candidate_end - 1] == ':';
+  if (prefix_length == spans.front().length) {
+    if (!allow_equal_length_prefix ||
+        (!(candidate_is_numeric && !prefix_is_numeric) &&
+         !candidate_is_label)) {
+      return false;
+    }
+  }
+  text.erase(0, candidate);
+  return true;
+}
+
+std::string strip_semantic_message_label_carryover(std::string value) {
+  const auto lower = ascii_lower(value);
+  for (const auto* label : {"meaning:", "action:"}) {
+    const auto found = lower.find(label);
+    if (found == std::string::npos) {
+      continue;
+    }
+    auto word_begin = found + std::string(label).size();
+    if (word_begin >= value.size() ||
+        std::islower(static_cast<unsigned char>(value[word_begin])) == 0) {
+      continue;
+    }
+    auto word_end = word_begin;
+    while (word_end < value.size() &&
+           std::islower(static_cast<unsigned char>(value[word_end])) != 0) {
+      ++word_end;
+    }
+    auto content_begin = word_end;
+    while (content_begin < value.size() &&
+           std::isspace(static_cast<unsigned char>(value[content_begin])) != 0) {
+      ++content_begin;
+    }
+    if (content_begin - word_end >= 2) {
+      value.replace(word_begin, content_begin - word_begin, " ");
+    }
+  }
+  return value;
+}
+
 std::string normalize_preformatted_line(std::string value) {
   value = trim_ascii(std::move(value));
   if (ascii_starts_with_case_insensitive(value, "cfont")) {
@@ -3382,6 +3540,11 @@ std::string render_pending_font_continuation_gml(std::string prefix,
   std::size_t cursor = 0;
   auto spans = parse_font_spans(prefix, cursor);
   if (message_catalog) {
+    (void)strip_fixed_prefix_before_first_span(text, spans, true);
+    text = strip_semantic_message_label_carryover(std::move(text));
+  }
+  text = blank_fixed_prose_row_markers(std::move(text), message_catalog);
+  if (message_catalog) {
     for (std::size_t index = 0; index + 2 < text.size(); ++index) {
       if ((text[index] == '<' || text[index] == '>') &&
           std::isspace(static_cast<unsigned char>(text[index + 1])) != 0 &&
@@ -3400,6 +3563,7 @@ std::string render_pending_font_continuation_gml(std::string prefix,
       apply_font_spans_to_text_without_normalizing(std::move(text),
                                                    spans,
                                                    base_column);
+  rendered = strip_visual_line_markers_from_inline_gml(std::move(rendered));
   if (message_catalog && rendered.size() >= 2 && rendered.back() == ')' &&
       rendered[rendered.size() - 2] == '.') {
     rendered.pop_back();
@@ -3797,37 +3961,17 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
   const auto spans = parse_font_spans(value, cursor);
   auto raw_trailing = cursor >= value.size() ? std::string{}
                                              : value.substr(cursor);
-  raw_trailing = strip_fixed_line_overflow_tokens(std::move(raw_trailing));
-  auto stripped_fixed_prefix = false;
-  if (!state.in_vnotice && !spans.empty() && spans.front().offset <= 12) {
-    const auto first = raw_trailing.find_first_not_of(" \t\r\n");
-    if (first != std::string::npos) {
-      auto prefix_end = first;
-      while (prefix_end < raw_trailing.size() &&
-             std::isspace(static_cast<unsigned char>(
-                 raw_trailing[prefix_end])) == 0) {
-        ++prefix_end;
-      }
-      auto candidate = prefix_end;
-      while (candidate < raw_trailing.size() &&
-             std::isspace(static_cast<unsigned char>(
-                 raw_trailing[candidate])) != 0) {
-        ++candidate;
-      }
-      auto candidate_end = candidate;
-      while (candidate_end < raw_trailing.size() &&
-             std::isspace(static_cast<unsigned char>(
-                 raw_trailing[candidate_end])) == 0) {
-        ++candidate_end;
-      }
-      if (candidate > prefix_end + 1 &&
-          prefix_end - first != spans.front().length &&
-          candidate_end - candidate == spans.front().length) {
-        raw_trailing.erase(0, candidate);
-        stripped_fixed_prefix = true;
-      }
-    }
+  const auto semantic_title_row =
+      state.in_semantic_message_catalog && !spans.empty() &&
+      spans.front().offset <= 3;
+  if (!state.in_semantic_message_catalog || semantic_title_row) {
+    raw_trailing = strip_fixed_line_overflow_tokens(
+        std::move(raw_trailing), state.in_semantic_message_catalog);
   }
+  const auto stripped_fixed_prefix =
+      !state.in_vnotice &&
+      strip_fixed_prefix_before_first_span(
+          raw_trailing, spans, state.in_semantic_message_catalog);
   const auto lower_raw_trailing = ascii_lower(raw_trailing);
   const auto c_cc = state.in_vnotice ? std::string::npos
                                      : lower_raw_trailing.find("c.cc");
@@ -3858,6 +4002,10 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
         raw_trailing[index] = ' ';
       }
     }
+  }
+  if (state.in_semantic_message_catalog) {
+    raw_trailing =
+        strip_semantic_message_label_carryover(std::move(raw_trailing));
   }
   auto trailing = trim_ascii(raw_trailing);
   if (trailing.empty()) {
@@ -3982,14 +4130,55 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
       raw_trailing.erase(0, first_visible + 1);
     }
   }
-  raw_trailing = blank_fixed_prose_row_markers(std::move(raw_trailing));
+  raw_trailing = blank_fixed_prose_row_markers(
+      std::move(raw_trailing), state.in_semantic_message_catalog);
+  const auto projected_base_column = font_base_column_from_visual_prefix(
+      raw_trailing, state.current_font_base_column);
+  const auto semantic_styled_heading_row =
+      state.in_semantic_message_catalog && !spans.empty() &&
+      ascii_lower(raw_trailing).find("meaning:") == std::string::npos &&
+      ascii_lower(raw_trailing).find("action:") == std::string::npos &&
+      std::all_of(spans.begin(), spans.end(), [](const auto& span) {
+        return ascii_equals_case_insensitive(span.code, "2");
+      });
+  if (semantic_styled_heading_row) {
+    const auto projected = apply_font_spans_to_text(
+        raw_trailing, spans, projected_base_column);
+    const auto has_unstyled_lower_suffix = [](const std::string& rendered) {
+      const auto last_end_tag = rendered.rfind(":ehp2.");
+      if (last_end_tag == std::string::npos) {
+        return false;
+      }
+      const auto suffix = trim_ascii(rendered.substr(
+          last_end_tag + std::string(":ehp2.").size()));
+      return !suffix.empty() &&
+             std::all_of(suffix.begin(), suffix.end(), [](const auto ch) {
+               return std::islower(static_cast<unsigned char>(ch)) != 0;
+             });
+    };
+    auto has_carry = has_unstyled_lower_suffix(projected);
+    if (!has_carry) {
+      if (const auto ordered = apply_font_spans_to_ordered_words(
+              dot_text(raw_trailing), spans)) {
+        has_carry = has_unstyled_lower_suffix(*ordered);
+      }
+    }
+    if (has_carry) {
+      const auto suffix_begin = raw_trailing.find_last_not_of(" \t\r\n");
+      if (suffix_begin != std::string::npos) {
+        const auto word_begin = raw_trailing.find_last_of(
+            " \t\r\n", suffix_begin);
+        raw_trailing.erase(word_begin == std::string::npos
+                               ? 0
+                               : word_begin + 1);
+      }
+    }
+  }
   trailing = trim_ascii(raw_trailing);
   const auto has_word_sized_span = std::any_of(
       spans.begin(), spans.end(), [](const FontSpan& span) {
         return span.length >= 3 && !font_code_to_highlight_tag(span.code).empty();
       });
-  const auto projected_base_column = font_base_column_from_visual_prefix(
-      raw_trailing, state.current_font_base_column);
   if (first_font_span_precedes_visible_text(raw_trailing, spans) ||
       (has_word_sized_span &&
        font_spans_split_words(raw_trailing, spans, projected_base_column))) {
@@ -4060,6 +4249,25 @@ std::string render_gml_segment(std::string segment,
     segment = trim_ascii(std::move(segment));
   }
   const auto lower = ascii_lower(segment);
+  if ((state.in_semantic_message_catalog || state.in_glossary_catalog) &&
+      segment.size() == 1 &&
+      is_fixed_prose_row_marker(segment.front())) {
+    return {};
+  }
+  if (state.in_semantic_message_catalog && segment.size() >= 2 &&
+      segment.size() <= 12 && !looks_like_gml_control_at(segment, 0) &&
+      std::all_of(segment.begin(), segment.end(), [](const auto ch) {
+        return std::isupper(static_cast<unsigned char>(ch)) != 0;
+      })) {
+    return {};
+  }
+  if (state.in_glossary_catalog && segment.size() >= 2 &&
+      segment.size() <= 12 && !looks_like_gml_control_at(segment, 0) &&
+      std::all_of(segment.begin(), segment.end(), [](const auto ch) {
+        return std::isupper(static_cast<unsigned char>(ch)) != 0;
+      })) {
+    return {};
+  }
   if (state.table_just_closed &&
       !ascii_starts_with_case_insensitive(lower, "srtbl") &&
       !ascii_starts_with_case_insensitive(lower, "sretbl")) {
@@ -4121,6 +4329,15 @@ std::string render_gml_segment(std::string segment,
     return {};
   }
   if (ascii_starts_with_case_insensitive(lower, "cforwardlevel")) {
+    if (!state.pending_font_prefix.empty()) {
+      auto pending = std::move(state.pending_font_prefix);
+      state.pending_font_prefix.clear();
+      return render_pending_font_continuation_gml(
+          std::move(pending),
+          rest_after_first_word(segment),
+          state.pending_font_base_column,
+          state.current_record_has_message_catalog);
+    }
     return {};
   }
   if (ascii_starts_with_case_insensitive(lower, "cbacklevel")) {
@@ -4200,6 +4417,9 @@ std::string render_gml_segment(std::string segment,
   if (ascii_starts_with_case_insensitive(lower, "c.sp")) {
     return {};
   }
+  if (ascii_starts_with_case_insensitive(lower, "c.cp")) {
+    return {};
+  }
   const auto is_table_picture_select = [&]() {
     if (!ascii_starts_with_case_insensitive(lower, "cselect")) {
       return false;
@@ -4230,6 +4450,25 @@ std::string render_gml_segment(std::string segment,
       !ascii_starts_with_case_insensitive(lower, "cz")) {
     return render_table_body_gml(std::move(segment), state);
   }
+  if (state.in_fixed_catalog && state.in_glossary_catalog &&
+      !looks_like_gml_control_at(segment, 0)) {
+    segment = strip_fixed_catalog_four_space_carry(std::move(segment));
+    segment = strip_fixed_line_overflow_tokens(
+        std::move(segment), false, true);
+    const auto first = segment.find_first_not_of(" \t\r\n");
+    const auto gap = first == std::string::npos
+                         ? std::string::npos
+                         : segment.find_first_of(" \t\r\n", first);
+    const auto candidate = gap == std::string::npos
+                               ? std::string::npos
+                               : segment.find_first_not_of(" \t\r\n", gap);
+    if (candidate != std::string::npos && candidate >= gap + 4) {
+      segment.erase(0, candidate);
+    }
+    segment = blank_fixed_prose_row_markers(std::move(segment), true);
+    segment = trim_ascii(std::move(segment));
+    return segment.empty() ? std::string{} : ":xline." + std::move(segment);
+  }
   if (ascii_starts_with_case_insensitive(lower, "cfont")) {
     // CFONT inside a figure describes display-column styling for a physical
     // row.  Rendering it as an ordinary inline paragraph discards the row
@@ -4247,11 +4486,54 @@ std::string render_gml_segment(std::string segment,
     if (state.fixed_catalog_requested || state.in_fixed_catalog) {
       auto font_value = trim_ascii(rest_after_first_word(segment));
       std::size_t cursor = 0;
-      (void)parse_font_spans(font_value, cursor);
+      const auto spans = parse_font_spans(font_value, cursor);
       auto trailing = cursor >= font_value.size()
                           ? std::string{}
                           : font_value.substr(cursor);
-      auto line = normalize_preformatted_line(segment);
+      if (state.in_glossary_catalog) {
+        trailing =
+            strip_fixed_catalog_four_space_carry(std::move(trailing));
+      }
+      trailing = strip_fixed_line_overflow_tokens(
+          std::move(trailing), false, state.in_glossary_catalog);
+      auto stripped_glossary_prefix = false;
+      if (state.in_glossary_catalog && !state.glossary_term.empty()) {
+        const auto first = trailing.find_first_not_of(" \t\r\n");
+        const auto gap = first == std::string::npos
+                             ? std::string::npos
+                             : trailing.find_first_of(" \t\r\n", first);
+        const auto candidate = gap == std::string::npos
+                                   ? std::string::npos
+                                   : trailing.find_first_not_of(" \t\r\n", gap);
+        if (candidate != std::string::npos && candidate >= gap + 4) {
+          trailing.erase(0, candidate);
+          stripped_glossary_prefix = true;
+        } else if (candidate != std::string::npos && candidate > gap + 1 &&
+                   ascii_starts_with_case_insensitive(
+                       trailing, candidate, state.glossary_term)) {
+          const auto after_term = candidate + state.glossary_term.size();
+          if (after_term == trailing.size() ||
+              std::isspace(static_cast<unsigned char>(
+                  trailing[after_term])) != 0 ||
+              std::ispunct(static_cast<unsigned char>(
+                  trailing[after_term])) != 0) {
+            trailing.erase(0, candidate);
+            stripped_glossary_prefix = true;
+          }
+        }
+      }
+      if (!stripped_glossary_prefix) {
+        (void)strip_fixed_prefix_before_first_span(
+            trailing, spans, state.in_glossary_catalog);
+      }
+      trailing = blank_fixed_prose_row_markers(std::move(trailing), true);
+      auto line = trailing;
+      for (auto& ch : line) {
+        if (ch == '?') {
+          ch = ' ';
+        }
+      }
+      line = trim_ascii(std::move(line));
       if (!state.pending_selects.empty() && !trim_ascii(trailing).empty()) {
         auto controls = std::move(state.pending_selects);
         state.pending_selects.clear();
@@ -4512,20 +4794,49 @@ std::string render_gml_segment(std::string segment,
     auto operand = trim_control_operand(segment.substr(5));
     const auto first_word_end = operand.find_first_of(" \t\r\n");
     const auto message_id = operand.substr(0, first_word_end);
-    const auto numeric_id = !message_id.empty() &&
-        std::all_of(message_id.begin(), message_id.end(), [](const auto ch) {
-          return std::isdigit(static_cast<unsigned char>(ch)) != 0;
-        });
+    const auto numeric_token = [](const std::string& token) {
+      return !token.empty() &&
+             std::all_of(token.begin(), token.end(), [](const auto ch) {
+               return std::isdigit(static_cast<unsigned char>(ch)) != 0;
+             });
+    };
+    auto numeric_id = numeric_token(message_id);
+    if (!numeric_id) {
+      const auto hyphen = message_id.find('-');
+      numeric_id = hyphen != std::string::npos &&
+                   message_id.find('-', hyphen + 1) == std::string::npos &&
+                   numeric_token(message_id.substr(0, hyphen)) &&
+                   numeric_token(message_id.substr(hyphen + 1));
+    }
     if (!message_id.empty() && !numeric_id) {
       state.fixed_catalog_requested = true;
     } else if (numeric_id) {
       state.in_semantic_message_catalog = true;
     }
-    return render_keyed_gml_control("anchor", "id", "MSG " + operand);
+    return render_keyed_gml_control(
+        "anchor", "id", "MSG " + (numeric_id ? message_id : operand));
   }
   if (ascii_starts_with_case_insensitive(lower, "srgls")) {
     state.fixed_catalog_requested = true;
-    return render_anchor_gml(segment.substr(2));
+    state.in_glossary_catalog = true;
+    state.glossary_term = dot_text(rest_after_first_word(segment.substr(2)));
+    if (state.glossary_term.size() > 67) {
+      const auto last_space = state.glossary_term.find_last_of(' ');
+      const auto trailing_word =
+          last_space == std::string::npos
+              ? state.glossary_term
+              : state.glossary_term.substr(last_space + 1);
+      if (!trailing_word.empty() &&
+          std::all_of(trailing_word.begin(), trailing_word.end(),
+                      [](const auto ch) {
+                        return std::isalpha(
+                                   static_cast<unsigned char>(ch)) != 0;
+                      })) {
+        state.glossary_term.resize(last_space);
+      }
+    }
+    return render_anchor_gml(
+        state.glossary_term.empty() ? "GLS" : "GLS " + state.glossary_term);
   }
   if (ascii_starts_with_case_insensitive(lower, "srhdrmnote")) {
     state.fixed_catalog_requested = true;

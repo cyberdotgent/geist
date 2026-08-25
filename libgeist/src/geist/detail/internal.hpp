@@ -102,7 +102,8 @@ std::vector<std::string> render_gml_records(
     const std::vector<std::string>& decoded_records);
 std::string strip_fixed_line_overflow_tokens(
     std::string value,
-    bool allow_wide_short_boundary = false);
+    bool allow_wide_short_boundary = false,
+    bool allow_content_origin = false);
 std::map<std::string, std::string> extract_font_definitions(
     const std::vector<std::string>& decoded_records);
 std::vector<BooLogicalRecordTrace> trace_gml_records(
