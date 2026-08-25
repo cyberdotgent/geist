@@ -1037,3 +1037,25 @@ All 36 and 82 cached reference pages were available. The heuristic flag counts
 fell to 21 and 47 respectively; those flags remain triage hints rather than
 pass/fail results because BookServer's navigation and fixed `<pre>` wrappers
 intentionally differ from Markdown structure.
+
+## GG24-4302-00 edition notice verification
+
+The book-specific edition data was compared with:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/GG24-4302-00/EDITION?DT=19950308184737&SHELF=
+```
+
+The local raw topic retains February 1995, IMS/ESA Version 5 Release 1, the
+mailing-address prose, and the 1995 copyright. The former Markdown helper
+discarded most of those records and substituted the May 1991 values from
+`QS3X36CM.BOO`. The corrected path extracts the heading, applicability text,
+copyright, and government-rights suffix from each book's decoded records.
+
+Afterward, a fresh live audit fetched and compared all 229 GG24 topics:
+
+```sh
+python3 tools/bookserver_book_audit.py BOO/GG24-4302-00.boo --book-id GG24-4302-00 --timestamp 19950308184737 --output /tmp/geist-gg24-4302-audit --jobs 4 --timeout 30
+```
+
+All 229 reference fetches succeeded and 33 topics retained heuristic flags.

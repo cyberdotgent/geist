@@ -863,3 +863,8 @@
   message labels with their descriptions. Added fixture regressions for all
   eight `SC41-485:1.2.5` codes plus `SC31-711:2.4.1` and `2.4.5`. Replayed the
   full cached BookServer audits: 36/36 and 82/82 topics rendered successfully.
+- Removed the fixture-specific May 1991 edition substitution. Edition headings,
+  applicability text, copyright years, and government-rights notes now come
+  from each BOO's decoded `VNOTICE` records. Added a GG24 regression alongside
+  the existing QS3X36CM assertions, then fetched and compared all 229 GG24
+  BookServer topics successfully.

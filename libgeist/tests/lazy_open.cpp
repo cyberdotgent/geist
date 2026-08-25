@@ -79,6 +79,18 @@ int main() {
                   std::string::npos,
           "COMMENTS topic lost its questionnaire body");
 
+  const auto gg24_edition = split_header.topic_markdown("EDITION");
+  require(gg24_edition.find("**First Edition (February 1995)**") !=
+              std::string::npos &&
+              gg24_edition.find("Version 5, Release 1 of IMS/ESA") !=
+                  std::string::npos &&
+              gg24_edition.find(
+                  "Copyright International Business Machines Corporation "
+                  "1995. All rights reserved.") != std::string::npos,
+          "GG24 edition notice did not retain its decoded edition data");
+  require(gg24_edition.find("May 1991") == std::string::npos,
+          "GG24 edition notice retained fixture-specific replacement text");
+
   const struct {
     const char* topic;
     const char* phrase;

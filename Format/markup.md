@@ -774,6 +774,15 @@ sequence instead of treating every cleaned `:p.` as one paragraph:
 | `QSYSNEWG FRONT_1` | `SRHDRNOTICES` precedes `ST Notices ...` in the decoded stream. The normalized records are `:anchor id='HDRNOTICES'.` followed by `:h1.Notices References ...`; BookServer emits the TOC-derived topic heading and then a `<pre width="80"><!-- * -->` block. A compatible renderer must preserve `References ...` and following continuation records as fixed reflow-off lines rather than discarding the heading record as a duplicate or flattening the body into one paragraph. |
 | `QSYSNEWG PREFACE` | `SRHDRABOUT ? ST| About This Guide ...` stores the topic title and first body text in the same topic-header record. Hosted BookServer emits `<a name="HDRABOUT"><h1>| PREFACE   About This Guide</h1></a>` followed by `<pre width="80"><!-- * -->`. The `ST|` marker is a topic-title control followed by a visual row marker, not literal text. In the fixed body, rows of the form `| ?   text` immediately after a colon-introduced list are rendered by BookServer with ISO-8859-1 byte `0xb0` (`°`) before the text; `ephwam.dll`'s `Scm_Xoutcpy` maps the underlying BookManager character word through the output table before writing that byte. A compatible Markdown projection must not leak `ST|` or visual `|` row markers, must preserve the `°` simple-list marker through the list block, and `CSELECT` spans on later bar-prefixed lines are measured against the fixed display line before marker cleanup. |
 
+`VNOTICE` contains book-specific notice data. Its `VNHD` payload begins with the
+edition label and continues with applicability prose; the following paragraph
+contains the copyright year and government-rights text. These values must be
+rendered from the decoded records rather than substituted from another book.
+For example, `QS3X36CM.BOO` stores `First Edition (May 1991)` and a 1991
+copyright, while `GG24-4302-00.boo` topic `EDITION`, logical records 4--6,
+stores `First Edition (February 1995)`, applicability to IMS/ESA Version 5
+Release 1, and a 1995 copyright.
+
 ## Open Questions
 
 - Complete byte-level separation for every inline control field and separator.

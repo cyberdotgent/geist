@@ -699,7 +699,15 @@ void append_edition_notice_markdown(std::string& output,
   replace_all(text, "( May 1 991)", "(May 1991)");
   replace_all(text, "RPG/400, 400", "RPG/400 400");
 
-  append_block(output, "**First Edition (May 1991)**");
+  const auto applies = text.find("This edition applies");
+  if (applies == std::string::npos) {
+    append_block(output, text);
+    return;
+  }
+  auto heading = trim_ascii(text.substr(0, applies));
+  replace_all(heading, "( ", "(");
+  replace_all(heading, " )", ")");
+  append_block(output, "**" + heading + "**");
 
   const auto terms = text.find("The following terms, denoted by an asterisk");
   const auto other = text.find("The following terms, denoted by a double");
@@ -709,12 +717,10 @@ void append_edition_notice_markdown(std::string& output,
       text.find("This manual may refer to products that are announced");
 
   if (terms != std::string::npos) {
-    auto first = text.substr(0, terms);
-    const auto applies = first.find("This edition applies");
-    if (applies != std::string::npos) {
-      first = first.substr(applies);
-    }
+    auto first = text.substr(applies, terms - applies);
     append_block(output, trim_ascii(std::move(first)));
+  } else {
+    append_block(output, trim_ascii(text.substr(applies)));
   }
   if (terms != std::string::npos && other != std::string::npos) {
     append_block(output,
@@ -755,9 +761,13 @@ void append_edition_copyright_markdown(std::string& output,
                                        const std::string& raw) {
   auto text = strip_inline_gml_markup(raw);
   const auto note = text.find("Note to U.S. Government Users");
-  append_block(output,
-               "**Copyright International Business Machines Corporation "
-               "1991. All rights reserved.**");
+  auto copyright = trim_ascii(text.substr(0, note));
+  if (ascii_starts_with_case_insensitive(copyright, "© ")) {
+    copyright = trim_ascii(copyright.substr(std::string("© ").size()));
+  }
+  if (!copyright.empty()) {
+    append_block(output, "**" + copyright + "**");
+  }
   if (note != std::string::npos) {
     append_block(output, trim_ascii(text.substr(note)));
   }
