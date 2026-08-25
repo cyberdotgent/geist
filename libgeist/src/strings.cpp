@@ -66,7 +66,7 @@ bool ascii_equals_case_insensitive(const std::string& left,
 
 bool ascii_starts_with_case_insensitive(const std::string& value,
                                         std::size_t offset,
-                                        const std::string& prefix) {
+                                        std::string_view prefix) {
   if (offset + prefix.size() > value.size()) {
     return false;
   }
@@ -80,7 +80,7 @@ bool ascii_starts_with_case_insensitive(const std::string& value,
 }
 
 bool ascii_starts_with_case_insensitive(const std::string& value,
-                                        const std::string& prefix) {
+                                        std::string_view prefix) {
   return ascii_starts_with_case_insensitive(value, 0, prefix);
 }
 

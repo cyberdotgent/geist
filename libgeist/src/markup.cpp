@@ -258,8 +258,16 @@ bool looks_like_gml_control_at(const std::string& value, std::size_t offset) {
          std::isspace(static_cast<unsigned char>(value[offset])) != 0) {
     ++offset;
   }
+  if (offset >= value.size()) {
+    return false;
+  }
+  const auto initial = static_cast<char>(
+      std::tolower(static_cast<unsigned char>(value[offset])));
+  if (initial != 'c' && initial != 'e' && initial != 's') {
+    return false;
+  }
 
-  static const std::array<const char*, 49> prefixes = {
+  static constexpr std::array<std::string_view, 49> prefixes = {
       "sh",          "ctopicn",    "cparent",    "cforwardlevel",
       "cbacklevel",  "csummary",   "chdlevel",   "csourcefn",
       "st",          "ctocdef",    "ctoce",      "etoc",
@@ -273,12 +281,11 @@ bool looks_like_gml_control_at(const std::string& value, std::size_t offset) {
       "cdocnum",     "ctopics",    "cbasenum",   "cdoclevel",
       "cfront",      "ccontents",  "cfigures",   "ctables",
       "cindex",      "cendindex",  "cidelm",     "cpicture"};
-  for (const auto* prefix : prefixes) {
+  for (const auto prefix : prefixes) {
     if (!ascii_starts_with_case_insensitive(value, offset, prefix)) {
       continue;
     }
-    const auto prefix_text = std::string(prefix);
-    const auto end = offset + prefix_text.size();
+    const auto end = offset + prefix.size();
     if (end == value.size()) {
       return true;
     }
@@ -287,13 +294,13 @@ bool looks_like_gml_control_at(const std::string& value, std::size_t offset) {
         next == ',' || next == '.') {
       return true;
     }
-    if (prefix_text == "st" && next == '|') {
+    if (prefix == "st" && next == '|') {
       return true;
     }
-    if ((prefix_text == "sh" || prefix_text == "srfig" ||
-         prefix_text == "srtbl" || prefix_text == "sr") &&
+    if ((prefix == "sh" || prefix == "srfig" ||
+         prefix == "srtbl" || prefix == "sr") &&
         is_topic_id_char(next)) {
-      if (prefix_text == "sr" && end + 1 < value.size() &&
+      if (prefix == "sr" && end + 1 < value.size() &&
           std::isspace(static_cast<unsigned char>(value[end + 1])) != 0) {
         return false;
       }

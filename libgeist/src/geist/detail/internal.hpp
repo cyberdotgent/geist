@@ -10,6 +10,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace geist::detail {
@@ -79,10 +80,10 @@ std::string ascii_lower(std::string value);
 bool ascii_equals_case_insensitive(const std::string& left,
                                    const std::string& right);
 bool ascii_starts_with_case_insensitive(const std::string& value,
-                                        const std::string& prefix);
+                                        std::string_view prefix);
 bool ascii_starts_with_case_insensitive(const std::string& value,
                                         std::size_t offset,
-                                        const std::string& prefix);
+                                        std::string_view prefix);
 void replace_all_case_insensitive(std::string& value,
                                   const std::string& needle,
                                   const std::string& replacement);
