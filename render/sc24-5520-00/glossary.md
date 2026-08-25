@@ -12,7 +12,7 @@ A
 
 abend
 
-**abend**. (1) Abnormal end of task. (2) Synonym for *abnormal* *termination*.
+**abend**. (1) *Abnormal* end of task. (2) Synonym for abnormal *termination*.
 
 abend dump
 
@@ -20,7 +20,9 @@ abend dump
 
 abnormal end of task (abend)
 
-**abnormal** **end** **of** **task** **(abend)**. Termination of a task before its completion because of an error condition that cannot be resolved by recovery facilities while the task is executing.
+abnormal end of task (abend). Termination of a task before its completion
+
+because? of? an error condition that cannot be resolved by recovery facilities while the task is executing.
 
 abnormal termination
 
@@ -72,7 +74,9 @@ alternate console
 
 American National Standard Code for Information Interchange (ASCII)
 
-**American** **National** **Standard** **Code** **for** **Information** **Interchange** **(ASCII)**. The standard code, using a coded character set consisting of 7-bit coded characters (8 bits including parity check), used for information interchange among data processing systems, data communication systems, and associated equipment. The ASCII set consists of control characters and graphic characters.
+American National Standard Code for Information Interchange (ASCII). The standard code, using a coded character set consisting of 7-bit coded
+
+characters (8 bits including parity check), used for information interchange among data processing systems, data communication systems, and associated equipment. The ASCII set consists of control characters and graphic? characters.
 
 AP
 
@@ -156,7 +160,9 @@ auxiliary directory
 
 auxiliary storage
 
-**auxiliary** **storage**. Data storage other than main storage; in VM/ESA, auxiliary storage is usually a direct access device.
+auxiliary storage. Data storage other than main storage; in VM/ESA,
+
+**auxiliary** **storage** is usually a direct access device.
 
 AVS
 
@@ -260,7 +266,7 @@ channel-to-channel adapter (CTCA)
 
 character delete symbol
 
-**character** **delete** **symbol**. Synonym for *logical* *character* *delete* *symbol*.
+**character** **delete** **symbol**. *Synonym* for logical *character* *delete* *symbol*.
 
 checkpoint (CKPT) start
 
@@ -308,7 +314,7 @@ CMS minidisk file directory
 
 CMS program
 
-**CMS** **program**. Synonym for *CMS* *EXEC*.
+**CMS** **program**. Synonym *for* CMS *EXEC*.
 
 cold start
 
@@ -360,7 +366,9 @@ component override
 
 component parameter override
 
-**component** **parameter** **override**. A component parameter, defined in a component override area, that updates or replaces a component parameter defined in a component area of the product parameter file. Synonymous with *component* *override* and *override*.
+component parameter override. A component parameter, defined in a
+
+component override? area, that updates or replaces a component parameter defined in a component area of the product parameter file. Synonymous with *component* *override* and *override*.
 
 condition code (CC)
 
@@ -384,7 +392,7 @@ console function
 
 console spooling
 
-**console** **spooling**. Synonym for *virtual* *console* *spooling*.
+**console** **spooling**. *Synonym* for *virtual* console *spooling*.
 
 contention
 
@@ -404,7 +412,9 @@ Control Program (CP)
 
 Control Program 370 (CP370)
 
-**Control** **Program** **370** **(CP370)**. A component of the 370 Feature of VM/ESA that manages the resources of a single computer so multiple computing systems appear to exist. Each virtual machine is the functional equivalent of an IBM System/370.
+Control Program 370 (CP370). A component of the 370 Feature of VM/ESA
+
+that manages the resources of a single computer so multiple computing **systems** **appear?** **to?** **exist.?** Each virtual machine is the functional equivalent of an IBM System/370.
 
 control section (CSECT)
 
@@ -428,7 +438,9 @@ Conversational Monitor System (CMS)
 
 conversation correlator
 
-**conversation** **correlator**. A value that identifies an APPC conversation and is unique at the LU that generates it. The conversation correlator is established when the APPC conversation is established.
+conversation correlator. A value that identifies an APPC conversation and
+
+is unique at the LU that generates it. The conversation correlator is established? when the APPC conversation is established.
 
 conversation state
 
@@ -532,7 +544,9 @@ DCSS
 
 dedicated device
 
-**dedicated** **device**. An I/O device or line not being shared among users. The facility can be permanently assigned to a particular virtual machine by a VM/ESA directory entry, or temporarily attached by the resource operator to the user's virtual machine.
+dedicated device. An I/O device or line not being shared among users.
+
+The facility can be permanently assigned to a particular virtual machine by a VM/ESA directory entry, or temporarily attached by the resource operator? to the user's virtual machine.
 
 delimiter
 
@@ -544,7 +558,9 @@ device support facilities
 
 DIAGNOSE interface
 
-**DIAGNOSE** **interface**. A programming mechanism that lets any virtual machine, including CMS, directly communicate with CP by way of the DIAGNOSE instruction. Specific interface codes let a virtual machine more efficiently request specific CP services.
+DIAGNOSE interface. A programming mechanism that lets any virtual
+
+**machine,** **including** CMS, directly communicate with CP by way of the DIAGNOSE instruction. Specific interface codes let a virtual machine more efficiently request specific CP services.
 
 DIRCONTROL directory
 
@@ -556,11 +572,11 @@ direct access storage device (DASD)
 
 directory
 
-**directory**. See *auxiliary* *directory,* *CMS* *minidisk* *file* *directory* *DIRCONTROL* *directory,* *directory* *control* *directory,* *file* *control* *directory* *FILECONTROL* *directory,* *SFS* *directory,* or *VM* *directory*.
+**directory**. See *auxiliary* *directory,* *CMS* *minidisk* *file* *directory* *DIRCONTROL* *directory,* *directory* *control* *directory,* *file* *control* *directory* *FILECONTROL* *directory,* *SFS* *directory,* *or* VM *directory*.
 
 directory control directory
 
-**directory** **control** **directory**. A type of SFS directory with functional characteristics like a minidisk's. A single access authority applies to the directory and all the files in the directory. When you access a directory control directory in read-only mode, you cannot see changes made until you release and reaccess the directory. When you access the directory in read/write mode, changes become available as they are made. Synonymous with *DIRCONTROL* *directory*. Contrast with *file* *control* *directory*.
+**directory** **control** **directory**. A type of SFS directory with functional characteristics like a minidisk's. A single access authority applies to the directory and all the files in the directory. When you access a directory control directory in read-only mode, you cannot see changes made until you release and reaccess the directory. When you access the directory in read/write mode, changes become available as they are made. *Synonymous* with DIRCONTROL *directory*. Contrast *with* file *control* *directory*.
 
 discontiguous saved segment
 
@@ -584,7 +600,7 @@ dispatching
 
 dispatch list
 
-**dispatch** **list**. See *run* *list*.
+**dispatch** **list**. *See* run *list*.
 
 display device
 
@@ -692,7 +708,7 @@ ESA/390 mode
 
 escape symbol
 
-**escape** **symbol**. Synonym for *logical* *escape* *symbol*.
+**escape** **symbol**. *Synonym* for logical *escape* *symbol*.
 
 EXEC 2 language
 
@@ -704,7 +720,9 @@ expanded storage
 
 expanded virtual machine assist
 
-**expanded** **virtual** **machine** **assist**. A hardware assist function, available only on a processor that has ECPS, that handles many privileged instructions not handled by VMA, and extends the level of support of certain privileged instructions beyond that provided by VMA.
+expanded virtual machine assist. A hardware assist function, available
+
+only on a processor that has ECPS, that handles many privileged instructions not handled by VMA, and extends the level of support of certain? privileged instructions beyond that provided by VMA.
 
 extended binary-coded decimal interchange code (EBCDIC)
 
@@ -732,7 +750,9 @@ FCB
 
 fetch protection
 
-**fetch** **protection**. A storage protection feature that determines right-of-access to main storage by matching the protection key associated with a main storage fetch reference with the storage keys associated with those frames of main storage.
+fetch protection. A storage protection feature that determines right-of-access to main storage by matching the protection key associated
+
+with? a main storage fetch reference with the storage keys associated with those frames of main storage.
 
 file access mode
 
@@ -844,7 +864,7 @@ global resource manager
 
 group
 
-**group**. Synonym for *virtual* *machine* *group*.
+**group**. *Synonym* for *virtual* machine *group*.
 
 Group Control System (GCS)
 
@@ -900,7 +920,7 @@ ID card
 
 image library
 
-**image** **library**. A set of modules that define the spacing, characters, and copy modification data that a 3800 printer uses to print a spool file or that define the spacing and character set that an impact printer uses to print a spool file. See *system* *data* *file*.
+**image** **library**. A set of modules that define the spacing, characters, and copy modification data that a 3800 printer uses to print a spool file or that define the spacing and character set that an impact printer uses to print? a spool file. See system data file.
 
 inactive work unit
 
@@ -952,7 +972,9 @@ interrupt
 
 inter-user communication vehicle (IUCV)
 
-**inter-user** **communication** **vehicle** **(IUCV)**. A VM/ESA generalized CP interface that helps the transfer of messages either among virtual machines or between CP and a virtual machine.
+inter-user communication vehicle (IUCV). A VM/ESA generalized CP
+
+interface? that helps the transfer of messages either among virtual machines or between CP and a virtual machine.
 
 invoke
 
@@ -984,15 +1006,15 @@ L
 
 line delete symbol
 
-**line** **delete** **symbol**. Synonym for *logical* *line* *delete* *symbol*.
+**line** **delete** **symbol**. *Synonym* for logical *line* *delete* *symbol*.
 
 line deletion symbol
 
-**line** **deletion** **symbol**. Synonym for *logical* *line* *delete* *symbol*.
+**line** **deletion** **symbol**. *Synonym* for logical *line* *delete* *symbol*.
 
 line end symbol
 
-**line** **end** **symbol**. Synonym for *logical* *line* *end* *symbol*.
+**line** **end** **symbol**. *Synonym* for logical *line* *end* *symbol*.
 
 line mode
 
@@ -1064,7 +1086,9 @@ logical line end symbol
 
 logical record
 
-**logical** **record**. A formatted record that consists of a 2-byte logical record length and a data field of variable length.
+logical record. A formatted record that consists of a 2-byte logical
+
+**record?** **length** and a data field of variable length.
 
 logical saved segment
 
@@ -1072,7 +1096,9 @@ logical saved segment
 
 logical unit (LU)
 
-**logical** **unit** **(LU)**. An entity addressable within an SNA-defined network, similar to a node within a VM network. LUs are categorized by the types of communication they support. A TSAF collection in an SNA network is viewed as one or more LUs.
+logical unit (LU). An entity addressable within an SNA-defined network, similar to a node within a VM network. LUs are categorized by the types
+
+of communication they support. A TSAF collection in an SNA network is viewed? as one or more LUs.
 
 logical unit name (LU name)
 
@@ -1088,7 +1114,9 @@ logical unit of work identifier (LUWID)
 
 log minidisks
 
-**log** **minidisks**. (1) In SFS, two duplicate minidisks that contain information about changes made to the file pool. SFS file pool servers use the SFS log minidisks to help protect the integrity of the file pool if a system failure occurs. (2) In CRR, two duplicate minidisks that contain information about the states of various logical units of work during sync point processing. CRR recovery servers use the CRR log minidisks to perform resynchronization processing to protect the integrity of the transaction if a failure occurs during sync point processing.
+log minidisks. (1) In SFS, two duplicate minidisks that contain
+
+information about changes made to the file pool. SFS file pool servers use the SFS log minidisks to help protect the integrity of the file pool if a system failure occurs. (2) In CRR, two duplicate minidisks that contain information about the states of various logical units of work during sync point processing. CRR recovery servers use the CRR log minidisks to perform resynchronization processing to protect the integrity of? the transaction if a failure occurs during sync point processing.
 
 logoff
 
@@ -1144,11 +1172,11 @@ map
 
 mapped conversation
 
-**mapped** **conversation**. A conversation where data is sent in arbitrary length buffers. Programs do not have to be concerned with the format of data being sent. Contrast with *basic* *conversation*.
+**mapped** **conversation**. A conversation where data is sent in arbitrary length buffers. Programs do not have to be concerned with the format of data? being sent. Contrast with basic conversation.
 
 master file directory block
 
-**master** **file** **directory** **block**. Synonym for *CMS* *minidisk* *file* *directory*.
+**master** **file** **directory** **block**. Synonym *for* CMS *minidisk* *file* *directory*.
 
 MB
 
@@ -1176,7 +1204,9 @@ message
 
 message repository
 
-**message** **repository**. A source file that contains message texts for a VM component or user application. It is compiled into internal form by the GENMSG command. The message text in a repository file can be translated and used to support national languages.
+message repository. A source file that contains message texts for a VM
+
+component or user application. It is compiled into internal form by the GENMSG? command. The message text in a repository file can be translated and used to support national languages.
 
 minidisk
 
@@ -1184,7 +1214,7 @@ minidisk
 
 minidisk directory
 
-**minidisk** **directory**. Synonym for *CMS* *minidisk* *file* *directory*.
+**minidisk** **directory**. Synonym *for* CMS *minidisk* *file* *directory*.
 
 mode name
 
@@ -1352,7 +1382,9 @@ preventive service
 
 primary system operator
 
-**primary** **system** **operator**. The first CP privilege class A user logged on to VM/ESA after system initialization.
+primary system operator. The first CP privilege class A user logged on to
+
+VM/ESA? after? system initialization.
 
 private resource
 
@@ -1444,7 +1476,9 @@ read-only access
 
 read/write access
 
-**read/write** **access**. An access mode associated with a virtual disk or SFS directory that lets a user read and write any file on the disk or SFS directory (if write authorized).
+read/write access. An access mode associated with a virtual disk or SFS directory that lets a user read and write any file on the disk or SFS
+
+directory? (if write authorized).
 
 real address
 
@@ -1498,7 +1532,9 @@ resource manager
 
 Restructured Extended Executor (REXX) language
 
-**Restructured** **Extended** **Executor** **(REXX)** **language**. A general-purpose programming language, particularly suitable for EXEC procedures, XEDIT macros, or programs for personal computing. Procedures, XEDIT macros, and programs written in this language can be interpreted by the Procedures Language VM/REXX Interpreter. Contrast with *CMS* *EXEC* *language* and *EXEC* *2* *language*.
+Restructured Extended Executor (REXX) language. A general-purpose
+
+programming? language, particularly suitable for EXEC procedures, XEDIT macros, or programs for personal computing. Procedures, XEDIT macros, and programs written in this language can be interpreted by the Procedures Language VM/REXX Interpreter. Contrast with *CMS* *EXEC* *language* and *EXEC* *2* *language*.
 
 resynchronization
 
@@ -1538,7 +1574,9 @@ saved segment
 
 saved system
 
-**saved** **system**. A special nonrelocatable copy of a virtual machine's virtual storage and associated registers kept on a CP-owned disk and loaded by name instead of by I/O device address. Loading a saved system by name substantially reduces the time it takes to IPL the system in a virtual machine. Also, a saved system such as CMS can also share one or more 1MB segments of reenterable code in real storage between virtual machines. This reduces the cumulative real main storage requirements and paging demands of such virtual machines.
+saved system. A special nonrelocatable copy of a virtual machine's
+
+virtual storage and associated registers kept on a CP-owned disk and loaded by name instead of by I/O device address. Loading a saved system by name substantially reduces the time it takes to IPL the system in a virtual machine. Also, a saved system such as CMS can also share one or more? 1MB segments of reenterable code in real storage between virtual machines. This reduces the cumulative real main storage requirements and paging demands of such virtual machines.
 
 scale
 
@@ -1622,7 +1660,9 @@ SFS
 
 SFS directory
 
-**SFS** **directory**. A group of files. SFS directories can be arranged to form a hierarchy in which one directory can contain one or more subdirectories as well as files.
+SFS directory. A group of files. SFS directories can be arranged to form
+
+a hierarchy in which one directory can contain one or more subdirectories as? well as files.
 
 shared file system (SFS)
 
@@ -1830,11 +1870,13 @@ trace table
 
 transaction
 
-**transaction**. See *logical* *unit* *of* *work* (in terms of CRR) or *LUWID*.
+**transaction**. See *logical* *unit* *of* *work* (in *terms* of CRR) or LUWID.
 
 transaction program
 
-**transaction** **program**. (1) An application that runs within a particular LU. Within an SNA-defined network, a resource in a VM system or TSAF collection is viewed as a transaction program, within the LU that represents the VM system or TSAF collection. (2) In the context of CRR, an application program that executes one or more transactions or CRR logical units of work.
+transaction program. (1) An application that runs within a particular LU. Within an SNA-defined network, a resource in a VM system or TSAF
+
+collection? is viewed as a transaction program, within the LU that represents the VM system or TSAF collection. (2) In the context of CRR, an application program that executes one or more transactions or CRR logical units of work.
 
 transaction program name (TPN)
 
@@ -1846,11 +1888,13 @@ translate mode
 
 Transparent Services Access Facility (TSAF)
 
-**Transparent** **Services** **Access** **Facility** **(TSAF)**. A component of VM/ESA that handles communication between systems by letting APPC/VM paths span multiple VM systems. TSAF lets a source program connect to a target program by specifying a name that the target has made known, instead of specifying a user ID and node ID.
+Transparent Services Access Facility (TSAF). A component of VM/ESA that
+
+handles communication between systems by letting APPC/VM paths span multiple VM systems. TSAF lets a source program connect to a target program by specifying a name that the target has made known, instead of specifying? a user ID and node ID.
 
 truncation
 
-**truncation**. A valid shortened form of CP, CMS, GCS, IPCS, RSCS, TSAF (Query only) command names, operands, and options that can be entered. When the shortened form is used, the number of key strokes is reduced. For example, the ACCESS command has a minimum allowable truncation of two, so AC, ACC, ACCE, ACCES, and ACCESS are all recognized by CMS as the ACCESS command. Contrast with *command* *abbreviation*.
+**truncation**. A valid shortened form of CP, CMS, GCS, IPCS, RSCS, TSAF (Query only) command names, operands, and options that can be entered. When the shortened form is used, the number of key strokes is reduced. For example, the ACCESS command has a minimum allowable truncation of two, so AC, ACC, ACCE, ACCES, and ACCESS are all recognized by CMS as the ACCESS? command. Contrast with command abbreviation.
 
 TSAF
 
@@ -1990,7 +2034,7 @@ virtual=real area (V=R area)
 
 virtual=real machine (V=R machine)
 
-**virtual=real** **machine** **(V=R** **machine)**. A preferred virtual machine with a fixed, contiguous area of host real storage that starts at page 0. In the ESA Feature of VM, CP provides performance enhancements and an automatic recovery facility for this virtual machine. See *multiple* *preferred* *guests*, *preferred* *virtual* *machine*, *virtual=real* *area*, *virtual=real* *machine* *recovery*, and *virtual=virtual* *machine*.
+**virtual=real** **machine** **(V=R** **machine)**. A preferred virtual machine with a fixed, contiguous area of host real storage that starts at page 0. In the ESA Feature of VM, CP provides performance enhancements and an automatic *recovery* *facility?* for this virtual machine. See multiple preferred *guests*, *preferred* *virtual* *machine*, *virtual=real* *area*, *virtual=real* *machine* *recovery*, and *virtual=virtual* *machine*.
 
 virtual=real machine recovery (V=R machine recovery)
 
@@ -2002,7 +2046,9 @@ virtual=real option
 
 virtual storage
 
-**virtual** **storage**. Storage space that can be regarded as addressable main storage by the user of a computer system in which virtual addresses are mapped into real addresses. The size of virtual storage is limited by the addressing scheme of the computing system and by the amount of auxiliary
+virtual storage. Storage space that can be regarded as addressable main
+
+storage by the user of a computer system in which virtual addresses are mapped? into real addresses. The size of virtual storage is limited by the addressing scheme of the computing system and by the amount of auxiliary
 
 available, and not by the actual number of main storage locations.
 

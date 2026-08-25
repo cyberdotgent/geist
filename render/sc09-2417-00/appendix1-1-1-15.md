@@ -16,8 +16,8 @@ Table 37. Message Class
 
 | Return Status | Message Class | Description |
 | --- | --- | --- |
-| Code | Informational | Advises of conditions found during<br>compilation. Compilation<br>Compilation continues. |
-| 0 | Error | Conditions that the compiler can<br>correct. Compilation continues. |
+| Code | Informational | Advises of conditions found during<br>compilation. Compilation |
+| 0 | Error | Compilation continues.<br>Conditions that the compiler can<br>correct. Compilation continues. |
 | 8 | Severe | Conditions that the compiler<br>cannot correct. |
 | 12 | Terminal | Internal error.<br>16 |
 

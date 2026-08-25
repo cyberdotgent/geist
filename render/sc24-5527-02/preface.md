@@ -6,7 +6,7 @@
 
 | This book describes how to service Virtual Machine/Enterprise Systems
 
-| Architecture (VM/ESA) Release 2.
+Architecture (VM/ESA) Release 2.
 
 Subtopics:
 

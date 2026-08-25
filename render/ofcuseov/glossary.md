@@ -6,7 +6,11 @@
 
 Glossary
 
-| This glossary includes terms and definitions from the ISO | Vocabulary--Information Processing and the ISO Vocabulary--Office | Machines, developed by the International Organization for Standardization, | Technical Committee 97, Subcommittee 1. Definitions of published segments | of the vocabularies are identified by the symbol (I) after the definition; | definitions from draft international standards, draft proposals, and | working papers in development by the ISO/TC97/SC1 vocabulary subcommittee | are identified by the symbol (T) after the definition, indicating final | agreement has not yet been reached among participating members.
+This glossary includes terms and definitions from the ISO
+
+Vocabulary--Information Processing and the ISO Vocabulary--Office
+
+Machines, developed by the International Organization for Standardization, Technical Committee 97, Subcommittee 1. Definitions of published segments of the vocabularies are identified by the symbol (I) after the definition; definitions from draft international standards, draft proposals, and working papers in development by the ISO/TC97/SC1 vocabulary subcommittee are identified by the symbol (T) after the definition, indicating final agreement has not yet been reached among participating members.
 
 access code
 
@@ -14,15 +18,17 @@ access code
 
 action item
 
-**| acti**o**n it**em. In OfficeVision/400, a piece of mail that requires an action or an answer by a due date, but is not yet answered.
+**action** **item**. In OfficeVision/400, a piece of mail that requires an action or an answer by a due date, but is not yet answered.
 
 all authority
 
-**| a**l**l authori**ty. An object authority that allows the user to perform all | operations on the object except those limited to the owner or controlled | by authorization list management authority. The user can control the | object's existence, specify the security for the object, and change the | object. Contrast wit*h exclu*d*e authori*ty.
+**| a**l**l authori**ty. An object authority that allows the user to perform all | operations on the object except those limited to the owner or controlled | by authorization list management authority. The user can control the | object's existence, specify the security for the object, and change the
+
+object. Contrast with *exclude* *authority*.
 
 authorization list
 
-**| authorizati**o**n li**st. A list of two or more user IDs and their authorities | for system resources. The system-recognized identifier for the object | type is *AUTL.
+**authorization** **list**. A list of two or more user IDs and their authorities for system resources. The system-recognized identifier for the object type is *AUTL.
 
 batch
 
@@ -30,15 +36,19 @@ batch
 
 bridge
 
-**| brid**ge. A functional unit that connects two or more networks; for .. | example, an Ethernet-to-Ethernet network or Ethernet to token-ring | network. A bridge stores and forwards information in packets between the | networks. See als*o VM/M*V*S brid*ge.
+**bridge**. A functional unit that connects two or more networks; for .. example, an Ethernet-to-Ethernet network or Ethernet to token-ring network. A bridge stores and forwards information in packets between the
+
+networks. See also *VM/MVS* *bridge*.
 
 calendar group
 
-**| calend**a**r gro**up. In OfficeVision/400, a list of existing calendars used to | schedule events for a group of users in one step.
+**calendar** **group**. In OfficeVision/400, a list of existing calendars used to
+
+| schedule events for a group of users in one step.
 
 composite calendar
 
-**| composi**t**e calend**ar. In OfficeVision/400, a calendar that displays the | calendar items for up to seven days for up to ten people.
+**composite** **calendar**. In OfficeVision/400, a calendar that displays the calendar items for up to seven days for up to ten people.
 
 confirm
 
@@ -50,11 +60,17 @@ confirmation of delivery
 
 contextual search
 
-**| contextu**a**l sear**ch. In OfficeVision/400, a type of search that allows the | user to find smaller text strings that are part of larger search fields in | filed documents or personal directories. See als*o exa*c*t sear*ch and *| gener*i*c sear*ch.
+**contextual** **search**. In OfficeVision/400, a type of search that allows the user to find smaller text strings that are part of larger search fields in
+
+filed documents or personal directories. See also *exact* *search* and
+
+| *generic* *search*.
 
 copy names
 
-**| co**p**y nam**es. In OfficeVision/400, a list, created when a document is created, that names the users to whom a document was copied.
+**copy** **names**. In OfficeVision/400, a list, created when a document is
+
+created, that names the users to whom a document was copied.
 
 current library
 
@@ -62,15 +78,17 @@ current library
 
 cursor
 
-**cursor**. A movable symbol, often a blinking or solid block of light, that | tells the display station user where to type, or identifies a choice to select.
+**cursor**. A movable symbol, often a blinking or solid block of light, that tells the display station user where to type, or identifies a choice to select.
 
 DBCS
 
-**| DB**CS. Se*e double-by*t*e charact*e*r s*e*t (DBC*S).
+**DBCS**. See *double-byte* *character* *set* *(DBCS)*.
 
 default
 
-**| defau**lt. A value automatically supplied or assumed by the system or | program that is used when no value is specified by the user.
+**default**. A value automatically supplied or assumed by the system or
+
+| program that is used when no value is specified by the user.
 
 default printer
 
@@ -86,7 +104,7 @@ DISOSS
 
 display screen
 
-**| displ**a**y scre**en. The part of the display device, which is similar to a | television (TV) picture tube, used to display information entered or | received at a display station.
+**display** **screen**. The part of the display device, which is similar to a television (TV) picture tube, used to display information entered or received at a display station.
 
 display station
 
@@ -130,19 +148,27 @@ document library services
 
 document list
 
-**| docume**n**t li**st. In OfficeVision/400, a group of filed documents that have common characteristics. The document list identifies which documents satisfy a search pattern specified by an office user at the time the search is used. This document list is a document type of DOCLIST.
+**document** **list**. In OfficeVision/400, a group of filed documents that have common characteristics. The document list identifies which documents satisfy a search pattern specified by an office user at the time the search is used. This document list is a document type of DOCLIST.
 
 document name
 
-**| docume**n**t na**me. The 1- through 12-character name for documents in folders, | assigned by the user when creating the document. Contrast with *| library-assign*e*d docume*n*t na*me an*d docume*n*t obje*c*t na*me.
+**document** **name**. The 1- through 12-character name for documents in folders, assigned by the user when creating the document. Contrast with
+
+*library-assigned* *document* *name* and *document* *object* *name*.
 
 document object name
 
-**| docume**n**t obje**c**t na**me. The 10-character name of a document assigned by the | system when a user files the document. Contrast wit*h library-assign*ed *| docume*n*t na*me an*d docume*n*t na*me.
+**document** **object** **name**. The 10-character name of a document assigned by the
+
+system when a user files the document. Contrast with *library-assigned*
+
+| *document* *name* and *document* *name*.
 
 double-byte character set (DBCS)
 
-**| double-by**t**e charact**e**r s**e**t (DBC**S). A set of characters in which each | character is represented by 2 bytes. Languages such as Japanese, Chinese, | and Korean, which contain more than can be represented by 256 code points, | require double-byte character sets. Because each character requires 2 | bytes, the typing, displaying, and printing of DBCS characters requires | hardware and programs that support DBCS. Four double-byte character sets | are supported by the system: Japanese, Korean, Simplified Chinese, and | Traditional Chinese. Contrast wit*h single-by*t*e charact*e*r s*et.
+**| double-by**t**e charact**e**r s**e**t (DBC**S). A set of characters in which each character is represented by 2 bytes. Languages such as Japanese, Chinese, and Korean, which contain more than can be represented by 256 code points, require double-byte character sets. Because each character requires 2 bytes, the typing, displaying, and printing of DBCS characters requires hardware and programs that support DBCS. Four double-byte character sets are supported by the system: Japanese, Korean, Simplified Chinese, and
+
+Traditional Chinese. Contrast with *single-byte* *character* *set*.
 
 electronic mail
 
@@ -154,15 +180,17 @@ enrollment
 
 exact search
 
-**| exa**c**t sear**ch. In OfficeVision/400, a search of all filed documents or | personal directory entries for details that correspond exactly to the | search values.
+**exact** **search**. In OfficeVision/400, a search of all filed documents or personal directory entries for details that correspond exactly to the search values.
 
 exclude authority
 
-**| exclu**d**e authori**ty. An object authority that prevents the user from using | the object or its contents. Contrast wit*h a*l*l authori*ty.
+**exclude** **authority**. An object authority that prevents the user from using
+
+the object or its contents. Contrast with *all* *authority*.
 
 expiration date
 
-**| expirati**o**n da**te. In OfficeVision/400, the date that a document or a reference to a document should be deleted from the system by the user.
+**expiration** **date**. In OfficeVision/400, the date that a document or a reference to a document should be deleted from the system by the user.
 
 FFT
 
@@ -170,7 +198,7 @@ FFT
 
 final-form text (FFT)
 
-**/ | final**-**form** **text** (FFT). In OfficeVision/400, a data stream defined by document content architecture that is used to exchange resolved documents (which can be printed directly by most printers or displayed) between systems. Contrast with *revisable-form* *text* *(RFT)*.
+**/ final**-**form** **text** (FFT). In OfficeVision/400, a data stream defined by document content architecture that is used to exchange resolved documents (which can be printed directly by most printers or displayed) between systems. Contrast with *revisable-form* *text* *(RFT)*.
 
 folder
 
@@ -178,7 +206,9 @@ folder
 
 footnote reference number
 
-**| footno**t**e referen**c**e numb**er. In OfficeVision/400, the number assigned to a | word or phrase in the text of a document that refers to a footnote. | Contrast wit*h referen*c*e numb*er.
+**footnote** **reference** **number**. In OfficeVision/400, the number assigned to a word or phrase in the text of a document that refers to a footnote.
+
+| Contrast with *reference* *number*.
 
 format
 
@@ -186,23 +216,27 @@ format
 
 function code
 
-**| functi**o**n co**de. In OfficeVision/400, an abbreviation of 1 to 6 characters | that a user types to tell the system to do some action in the calendar | function.
+**function** **code**. In OfficeVision/400, an abbreviation of 1 to 6 characters that a user types to tell the system to do some action in the calendar function.
 
 generic search
 
-**| gener**i**c sear**ch. In OfficeVision/400, a type of search that searches all documents or personal directories authorized to a user for information that corresponds to a search value that contains a string of characters followed by an asterisk. The asterisk indicates to the system that the user wants to identify all instances of the specified character string. | See als*o contextu*a*l sear*ch an*d exa*c*t sear*ch.
+**| gener**i**c sear**ch. In OfficeVision/400, a type of search that searches all documents or personal directories authorized to a user for information that corresponds to a search value that contains a string of characters followed by an asterisk. The asterisk indicates to the system that the user wants to identify all instances of the specified character string.
+
+See also *contextual* *search* and *exact* *search*.
 
 group calendar
 
-**| gro**u**p calend**ar. A calendar that shows the calendar events for up to seven | users calendars at one time.
+**group** **calendar**. A calendar that shows the calendar events for up to seven users calendars at one time.
 
 hard-copy reference
 
-**| hard-co**p**y referen**ce. In OfficeVision/400, a description of printed mail that is kept on the system with electronic mail. This allows you to keep track of both types of mail using OfficeVision/400.
+**hard-copy** **reference**. In OfficeVision/400, a description of printed mail that is kept on the system with electronic mail. This allows you to keep track of both types of mail using OfficeVision/400.
 
 indirect user
 
-**| indire**c**t us**er. In OfficeVision/400, a person enrolled as an OfficeVision/400 user who is authorized to handle mail but has no mail log. An indirect user receives printed mail only. Contrast with *direct* *user*.
+**indirect** **user**. In OfficeVision/400, a person enrolled as an OfficeVision/400 user who is authorized to handle mail but has no mail
+
+log. An indirect user receives printed mail only. Contrast with *direct* *user*.
 
 interactive
 
@@ -210,23 +244,23 @@ interactive
 
 invitee
 
-**| invit**ee. In OfficeVision/400, the person invited to a meeting.
+**invitee**. In OfficeVision/400, the person invited to a meeting.
 
 invitee list
 
-**| invit**e**e li**st. In OfficeVision/400, a list of all the people that are | invited to a meeting.
+**invitee** **list**. In OfficeVision/400, a list of all the people that are invited to a meeting.
 
 invitee status
 
-**| invit**e**e stat**us. In OfficeVision/400, the status of the invitee's | attendance for a meeting. The status is unknown, attending, not | attending, or sending alternate.
+**invitee** **status**. In OfficeVision/400, the status of the invitee's attendance for a meeting. The status is unknown, attending, not attending, or sending alternate.
 
 keyword
 
-**. | ke**yword. In OfficeVision/400, a user-defined word used as one of the search values to identify a document during a search operation.
+**. ke**yword. In OfficeVision/400, a user-defined word used as one of the search values to identify a document during a search operation.
 
 LADN
 
-**| LA**DN. Se*e library-assign*e*d docume*n*t na*m*e (LAD*N).
+**LADN**. See *library-assigned* *document* *name* *(LADN)*.
 
 library
 
@@ -234,11 +268,15 @@ library
 
 library-assigned document name (LADN)
 
-**| library-assign**e**d docume**n**t na**m**e (LAD**N). A unique name, which includes a | time stamp and a system name, that is assigned by a system in the office | network to a document when it is filed in the document library. On the . | AS/400 system, the time-stamp part of the library-assigned document name | is included in a 10-character name that becomes the document object name. | See als*o docume*n*t na*me an*d docume*n*t obje*c*t na*me.
+**library-assigned** **document** **name** **(LADN)**. A unique name, which includes a time stamp and a system name, that is assigned by a system in the office network to a document when it is filed in the document library. On the . AS/400 system, the time-stamp part of the library-assigned document name is included in a 10-character name that becomes the document object name.
+
+See also *document* *name* and *document* *object* *name*.
 
 licensed program
 
-**| licens**e**d progr**am. A separately orderable program, supplied by IBM, that | performs functions related to processing user data. Examples of licensed | programs are AS/400 PC Support, AS/400 BASIC, AS/400 Application | Development Tools, OfficeVision/400, and so on.
+**licensed** **program**. A separately orderable program, supplied by IBM, that performs functions related to processing user data. Examples of licensed ) programs are AS/400 PC Support, AS/400 BASIC, AS/400 Application
+
+| Development Tools, OfficeVision/400, and so on.
 
 list ID
 
@@ -258,27 +296,29 @@ local system
 
 mail details
 
-**| ma**i**l detai**ls. In OfficeVision/400, information related to a mail item, such as the date received, authors, and due date.
+**mail** **details**. In OfficeVision/400, information related to a mail item, such as the date received, authors, and due date.
 
 mail log
 
-**| ma**i**l l**og. In OfficeVision/400, a record of all the electronic and printed mail that an office user has sent or received.
+**mail** **log**. In OfficeVision/400, a record of all the electronic and printed mail that an office user has sent or received.
 
 mail report
 
-**| ma**i**l repo**rt. In OfficeVision/400, a list of information about each mail item, but not a list of the contents. OfficeVision/400 can create several types of mail reports. For example, mail items sorted by date, mail items received between two dates, and action items sorted by date or assignee.
+**mail** **report**. In OfficeVision/400, a list of information about each mail item, but not a list of the contents. OfficeVision/400 can create several types of mail reports. For example, mail items sorted by date, mail items
+
+received between two dates, and action items sorted by date or assignee.
 
 mail subset
 
-**| ma**i**l subs**et. In OfficeVision/400, a set of mail selected by status from the entire mail log. For example, new mail.
+**mail** **subset**. In OfficeVision/400, a set of mail selected by status from the entire mail log. For example, new mail.
 
 memo slip
 
-**| me**m**o sl**ip. In OfficeVision/400, additional information attached to a mail item.
+**memo** **slip**. In OfficeVision/400, additional information attached to a mail item.
 
 message queue
 
-**message** **queue**. A list on which messages are placed when they are sent to | a person or program. The system-recognized identifier for the object type | is *MSGQ.
+**message** **queue**. A list on which messages are placed when they are sent to a person or program. The system-recognized identifier for the object type is *MSGQ.
 
 object
 
@@ -286,15 +326,21 @@ object
 
 Office
 
-**| Offi**ce. Se*e OfficeVision/4*00.
+**Office**. See *OfficeVision/400*.
 
 OfficeVision/VM
 
-**| OfficeVision/**VM. An IBM licensed program that allows users to create, | change, and send notes and documents; make appointments and maintain | calendars; create and maintain schedules; create and maintain distribution | lists; and control electronic mail and personal files. Formerly known as | PROFS. See als*o Remo*t*e Spooli*n*g Communicatio*n*s Subsyst*e*m (RSC*S) and *| VM/M*V*S brid*ge.
+**OfficeVision/VM**. An IBM licensed program that allows users to create, change, and send notes and documents; make appointments and maintain calendars; create and maintain schedules; create and maintain distribution
+
+| lists; and control electronic mail and personal files. Formerly known as
+
+PROFS. See also *Remote* *Spooling* *Communications* *Subsystem* *(RSCS)* and
+
+*VM/MVS* *bridge*.
 
 OfficeVision/400
 
-**| OfficeVision/4**00. The IBM licensed program that allows users to prepare, | send, and receive mail; schedule events on calendars; maintain directories | of names and addresses; and file and retrieve documents. OfficeVision/400 | also provides word processing functions and the capability to work on | behalf of other users.
+**OfficeVision/400**. The IBM licensed program that allows users to prepare, send, and receive mail; schedule events on calendars; maintain directories of names and addresses; and file and retrieve documents. OfficeVision/400 also provides word processing functions and the capability to work on behalf of other users.
 
 offline
 
@@ -314,19 +360,19 @@ page up
 
 paginate
 
-**| pagina**te. In OfficeVision/400, to adjust text within margins and page boundaries.
+**paginate**. In OfficeVision/400, to adjust text within margins and page boundaries.
 
 personal directory
 
-**| person**a**l directo**ry. In OfficeVision/400, a user-defined directory. For example, a personal directory can be a distribution list, telephone directory, or inventory report.
+**personal** **directory**. In OfficeVision/400, a user-defined directory. For example, a personal directory can be a distribution list, telephone directory, or inventory report.
 
 personal mail
 
-**| person**a**l ma**il. In OfficeVision/400, mail that can be accessed only by the receiver, but not by someone working on behalf of the receiver. When mail is sent, it can be assigned the classification personal.
+**personal** **mail**. In OfficeVision/400, mail that can be accessed only by the receiver, but not by someone working on behalf of the receiver. When mail is sent, it can be assigned the classification personal.
 
 print options
 
-**| pri**n**t optio**ns. In OfficeVision/400, specifications for printing a document.
+**print** **options**. In OfficeVision/400, specifications for printing a document.
 
 printer ID
 
@@ -334,7 +380,7 @@ printer ID
 
 Professional Office System (PROFS)
 
-**| Profession**a**l Offi**c**e Syst**e**m (PROF**S). Se*e OfficeVision/*VM.
+**Professional** **Office** **System** **(PROFS)**. See *OfficeVision/VM*.
 
 profile
 
@@ -342,7 +388,7 @@ profile
 
 PROFS bridge
 
-**| PRO**F**S brid**ge. Se*e VM/M*V*S brid*ge.
+**PROFS** **bridge**. See *VM/MVS* *bridge*.
 
 prompt
 
@@ -358,11 +404,13 @@ RACF
 
 reference number
 
-**| referen**c**e numb**er. In OfficeVision/400, a number assigned to an item on | the calendar. Contrast wit*h footno*t*e referen*c*e numb*er.
+**reference** **number**. In OfficeVision/400, a number assigned to an item on
+
+the calendar. Contrast with *footnote* *reference* *number*.
 
 reminder
 
-**| remind**er. In OfficeVision/400, a calendar item that includes a date but no start time or end time.
+**reminder**. In OfficeVision/400, a calendar item that includes a date but no start time or end time.
 
 remote
 
@@ -370,7 +418,11 @@ remote
 
 Remote Spooling Communications Subsystem (RSCS)
 
-**| Remo**t**e Spooli**n**g Communicatio**n**s Subsyst**e**m (RSC**S). A licensed program that .. | operates on a host system (such as a System/370, 30xx, or 43xx) | transferring spooled output files, commands, and messages between | OfficeVision/VM users, remote work stations, and remote and local batch | systems through communications programs. See als*o OfficeVision/*VM and *| VM/M*V*S brid*ge.
+**Remote** **Spooling** **Communications** **Subsystem** **(RSCS)**. A licensed program that .. operates on a host system (such as a System/370, 30xx, or 43xx) transferring spooled output files, commands, and messages between OfficeVision/VM users, remote work stations, and remote and local batch
+
+systems through communications programs. See also *OfficeVision/VM* and
+
+*VM/MVS* *bridge*.
 
 remote system
 
@@ -378,7 +430,7 @@ remote system
 
 resolved document
 
-**| resolv**e**d docume**nt. In OfficeVision/400, a document that contains final-form text. A document that has all text instructions processed and is formatted for printing.
+**resolved** **document**. In OfficeVision/400, a document that contains final-form text. A document that has all text instructions processed and is formatted for printing.
 
 Resource Access Control Facility (RACF)
 
@@ -390,7 +442,7 @@ restore
 
 revisable-form text (RFT)
 
-**/ | revisable**-**form** **text** (RFT). In OfficeVision/400, a data stream defined by document content architecture that is used to exchange unresolved documents (which cannot be directly printed or displayed) between systems. Contrast with *final-form* *text* *(FFT)*.
+**/ revisable**-**form** **text** (RFT). In OfficeVision/400, a data stream defined by document content architecture that is used to exchange unresolved documents (which cannot be directly printed or displayed) between systems. Contrast with *final-form* *text* *(FFT)*.
 
 RFT
 
@@ -398,7 +450,7 @@ RFT
 
 RSCS
 
-**| RS**CS. Se*e Remo*t*e Spooli*n*g Communicatio*n*s Subsyst*e*m (RSC*S).
+**RSCS**. See *Remote* *Spooling* *Communications* *Subsystem* *(RSCS)*.
 
 save
 
@@ -406,19 +458,21 @@ save
 
 SBCS
 
-**| SB**CS. Se*e single-by*t*e charact*e*r s*et.
+**SBCS**. See *single-byte* *character* *set*.
 
 shell document
 
-**| she**l**l docume**nt. In OfficeVision/400, a prearranged document (report, letter, memo, or note) where the user adds only customer information. An example of a shell document is a form letter, to which the user adds the receiver's name, address, and personal salutation.
+**shell** **document**. In OfficeVision/400, a prearranged document (report,
+
+letter, memo, or note) where the user adds only customer information. An example of a shell document is a form letter, to which the user adds the receiver's name, address, and personal salutation.
 
 single-byte character set (SBCS)
 
-**| single-by**t**e charact**e**r s**e**t (SBC**S). A character set in which each character . | is represented by a one-byte code. Contrast *with double*-*byte char*acter *| s*et.
+**| single-by**t**e charact**e**r s**e**t (SBC**S). A character set in which each character . is represented by a one-byte code. Contrast *with double*-*byte char*acter *| s*et.
 
 store
 
-**| sto**re. To put or keep data in a storage device.
+**store**. To put or keep data in a storage device.
 
 system distribution directory
 
@@ -426,7 +480,7 @@ system distribution directory
 
 temporary group
 
-**| tempora**r**y gro**up. A list of existing calendars used to schedule items for | a group of users in one step. The list can be used in the current session | only, after which the list is deleted.
+**temporary** **group**. A list of existing calendars used to schedule items for a group of users in one step. The list can be used in the current session only, after which the list is deleted.
 
 user default
 
@@ -442,7 +496,11 @@ user ID/address
 
 user identification (user ID)
 
-**| us**e**r identificati**o**n (us**e**r I**D). The name used to associate the user | profile with a user when a user signs on the system. See als*o us*er *| profi*l*e na*me.
+**user** **identification** **(user** **ID)**. The name used to associate the user
+
+profile with a user when a user signs on the system. See also *user*
+
+| *profile* *name*.
 
 user password
 
@@ -450,23 +508,31 @@ user password
 
 user profile
 
-**user** **profile**. An object with a unique name that contains the user's password, the list of special authorities assigned to a user, and the | objects the user owns. The system-recognized identifier for the object | type is *USRPRF.
+**user** **profile**. An object with a unique name that contains the user's password, the list of special authorities assigned to a user, and the objects the user owns. The system-recognized identifier for the object type is *USRPRF.
 
 user profile name
 
-**| us**e**r profi**l**e na**me. The name or code that the system associates with a . | user when he or she signs on the system. Also known as user ID. See also *| us*e*r identificati*o*n (us*e*r I*D).
+**user** **profile** **name**. The name or code that the system associates with a . user when he or she signs on the system. Also known as user ID. See also
+
+*user* *identification* *(user* *ID)*.
 
 VM/MVS bridge
 
-**.. |** V**M/MVS** bridge. A function of the AS/400 Communications Utilities licensed | program that provides distribution services between an AS/400 SNADS | network and both a VM/370 Remote Spooling Communications Subsystem (RSCS) | network and a Multiple Virtual Storage/Job Entry Subsystem (MVS/JES) | network. See als*o brid*ge*, OfficeVision/*VM an*d Remo*t*e Spooli*ng *| Communicatio*n*s Subsyst*e*m (RSC*S).
+**.. |** V**M/MVS** bridge. A function of the AS/400 Communications Utilities licensed program that provides distribution services between an AS/400 SNADS network and both a VM/370 Remote Spooling Communications Subsystem (RSCS)
+
+network and a Multiple Virtual Storage/Job Entry Subsystem (MVS/JES)
+
+network. See also *bridge*, *OfficeVision/VM* and *Remote* *Spooling*
+
+*Communications* *Subsystem* *(RSCS)*.
 
 window
 
-**| wind**ow. A part of the display screen with visible boundaries in which | information is displayed.
+**window**. A part of the display screen with visible boundaries in which information is displayed.
 
 work on behalf of
 
-**| wo**r**k** o**n beha**l**f** of. In OfficeVision/400, to answer mail for someone else or search for someone else's documents.
+**work** **on** **behalf** **of**. In OfficeVision/400, to answer mail for someone else or search for someone else's documents.
 
 work station
 

@@ -4,7 +4,11 @@
 
 ### PREFACE.4.3 Message Library
 
-The message library is designed so that operators and programmers in an installation can build their own libraries of the message and code / information that fits their specific needs. Each person can place into binders the chapters and books containing only the messages and codes he or she could receive.
+```text
+   The message library is designed so that operators and programmers in an
+   installation can build their own libraries of the message and code /    information that fits their specific needs.  Each person can place into (    binders the chapters and books containing only the messages and codes he
+   or she could receive.
+```
 
 Subtopics:
 

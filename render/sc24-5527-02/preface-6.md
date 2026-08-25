@@ -4,6 +4,16 @@
 
 ## PREFACE.6 Sending Comments for This Publication
 
+```text
+   You can send comments using the form in the back of this publication, or
+   use electronic mail or FAX.  Please include:
+
+   ° Publication title
+   ° Order number (including suffix)
+   ° Page, section title, or topic
+   ° The electronic addresses are:
+```
+
 <a id="TBLTBLUNIQ4"></a>
 
 | Format | Address |

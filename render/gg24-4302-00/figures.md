@@ -46,7 +46,7 @@
 
 [16. IMS 5.1 Automated Operator Interface 4.1.1](5.png)
 
-[17. Local Recovery 5.1.2.1](comments.md#4302RSL)
+[17. Local Recovery 5.1.2.1](#FIG4302RSL)
 
 [18. Remote Recovery 5.1.4.2](#FIG4302RSM)
 
@@ -76,13 +76,13 @@
 
 [31. APPC/IMS Message Mapping Support 6.4.4](15.png)
 
-[32. MSC Routing Exits in IMS 5.1 6.6.2](comments.md#mscexts)
+[32. MSC Routing Exits in IMS 5.1 6.6.2](#FIGMSCEXTS)
 
 [33. Conceptual View of an IMS TM Parallel Sysplex of the Future 8.1.5](16.png)
 
 [34. APPC/IMS: Example 1 8.5.1.1](#FIGAPPC3)
 
-[35. APPC/IMS: Example 2 - Architecture 8.5.1.1](comments.md#appc1)
+[35. APPC/IMS: Example 2 - Architecture 8.5.1.1](#FIGAPPC1)
 
 [36. APPC/IMS: Example 2 - Programs 8.5.1.1](#FIGAPPC2)
 

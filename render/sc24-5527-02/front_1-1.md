@@ -6,7 +6,11 @@
 
 Previous editions of this book and other books in the VM/ESA library can
 
-<BOOK> <> <> <GC24-5550 [> <ANY> <HCPA0>](#LNK) | be ordered using the order numbers listed in the VM/ESA: General [<BOOK> <> <](#LNK)> <GC24-5550> <ANY> <HCPA0> | Information manual.
+<BOOK> <> <> <GC24-5550 [> <ANY> <HCPA0>](#LNK)
+
+be ordered using the order numbers listed in the VM/ESA: General
+
+[<BOOK> <> <](#LNK)> <GC24-5550> <ANY> <HCPA0> Information manual.
 
 ---
 

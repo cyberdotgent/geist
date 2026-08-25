@@ -4,7 +4,9 @@
 
 # NOTICES Notices
 
-Take **Note**! Before using this information and the product it supports, be sure to read the general information under " [Notices" in topic FRONT_1.](front_1.md)
+**Take** **Note!**
+
+Before using this information and the product it supports, be sure to read the general information under ["Notices" in topic FRONT_1](front_1.md).
 
 ---
 

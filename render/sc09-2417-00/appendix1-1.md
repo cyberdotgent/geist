@@ -10,6 +10,8 @@
 
 [ This section describes how VisualAge for C++ for AS/400 behaves where the American National Standard for Information Systems / International Standards Organization - Programming Language C standard 9899-1990[1992], describes behavior as implementation-defined. These behaviors can affect
 
+your writing of portable code.
+
 Subtopics:
 
 - [APPENDIX1.1.1 Implementation-Defined Behavior Inherited from C](appendix1-1-1.md)

@@ -6,6 +6,8 @@
 
 <a id="HDRAPPD"></a>
 
+When you order an AS/400 hardware product or licensed program, you are automatically shipped one copy of a basic set of associated manuals. (In the United States, you will also receive labeled, three-ring binders to contain the manuals.) For some licensed programs, additional groups of
+
 manuals for specific topics are also available. To receive them, you need to specify the appropriate feature codes when you order the program. The tables in this appendix show which manuals and binders are available with each hardware product and licensed program. You can use the first column of the tables to check off the manuals you order or receive. In addition to the manuals shipped with your order, the following manuals are available from your marketing representative to assist you in planning for your system:
 
 <a id="TBLTBLUNIQ3"></a>

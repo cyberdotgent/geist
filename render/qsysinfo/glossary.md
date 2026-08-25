@@ -4,9 +4,19 @@
 
 # GLOSSARY Glossary
 
-Glossary
+Glossary This glossary includes terms and definitions from:
 
-This glossary includes terms and definitions from:
+```text
+   This glossary includes terms and definitions from:
+
+   cfont 11 8 C 20 8 C 29 10 C 40 3 C 44 11 C 56 10 C 67 7 C
+   The American National Dictionary for Information Processing Systems,
+   copyright 1982 by the Computer and Business Equipment Manufacturers
+   Association (CBEMA).  Copies may be purchased from the American
+   National Standards Institute, 1430 Broadway, New York, New York 10018.
+
+   Definitions are identified by the symbol (A) after the definition.
+```
 
 The American National Dictionary for Information Processing Systems, copyright 1982 by the Computer and Business Equipment Manufacturers Association (CBEMA). Copies may be purchased from the American National Standards Institute, 1430 Broadway, New York, New York 10018. Definitions are identified by the symbol (A) after the definition. The Information Technology Vocabulary, developed by Subcommittee 1, Joint Technical Committee 1, of the International Organization for Standardization and the International Electrotechnical Committee (ISO/IEC JTC1/SC1). Definitions of published segments of the vocabularies are identified by the symbol (I) after the definition; definitions from draft international standards, draft proposals, and working papers in development by the ISO/IEC JTC1/SC1 vocabulary subcommittee are identified by the symbol (T) after the definition, indicating final agreement has not yet been reached among participating members.
 
@@ -92,7 +102,7 @@ BASIC (beginner's all-purpose symbolic instruction code)
 
 BGU
 
-**BGU**. See *IBM* *AS/400* *Business* *Graphics* *Utility* *Version* *2* *(BGU)*.
+**BGU**. *See* IBM *AS/400* *Business* *Graphics* *Utility* *Version* *2* *(BGU)*.
 
 binary synchronous communications (BSC)
 
@@ -112,7 +122,7 @@ business graphics
 
 Business Graphics Utility (BGU)
 
-**Business** **Graphics** **Utility** **(BGU)**. See *IBM* *AS/400* *Business* *Graphics* *Utility* *Version* *2* *(BGU)*.
+**Business** **Graphics** **Utility** **(BGU)**. *See* IBM *AS/400* *Business* *Graphics* *Utility* *Version* *2* *(BGU)*.
 
 C language
 
@@ -184,7 +194,7 @@ Cross System Product
 
 CSP/AE
 
-**:H3** CSP/AE*.* S*ee IB*M *Cross* *System Product/Appl*i*cation Ex*e*cution (*CSP/AE). See ___ *also* *OS/40*0 *Cross* *System Product/Appl*i*cation Ex*e*cution* (*OS/400* CSP/AE).
+:H3 **CSP/AE**. *See* *IBM C*r*oss Sy*s*tem Product/Applica*t*ion Execu*t*ion (CSP*/AE). See ___ *also* *OS/40*0 *Cross* *System Product/Appl*i*cation Ex*e*cution* (*OS/400* CSP/AE).
 
 data description specifications (DDS)
 
@@ -384,7 +394,9 @@ local area network (LAN)
 
 national language support (NLS)
 
-**national** **language** **support** **(NLS)**. The ability for a user to communicate with hardware and software products in a language of choice to obtain results that are culturally acceptable.
+national language support (NLS). The ability for a user to communicate with hardware and software products in a language of choice to obtain
+
+results? that are culturally acceptable.
 
 network management
 
@@ -406,7 +418,7 @@ operating system
 
 OS/2
 
-**OS/2**. See *IBM* *Operating* *System/2* *(OS/2)*.
+**OS/2**. *See* IBM *Operating* *System/2* *(OS/2)*.
 
 OS/400
 
@@ -414,7 +426,11 @@ OS/400
 
 OS/400 Cross System Product/Application Execution (OS/400 CSP/AE)
 
-**OS/400** **Cross** **System** **Product/Application** **Execution** **(OS/400** **CSP/AE)**. A function of the operating system that gives the user the capability to run CSP/AE applications, which have been defined and generated in one of the Cross System Product/Application Development (CSP/AD) environments. See also *Cross* *System* *Product*, *IBM* *Cross* *System* *Product/Application* Development (CSP/AD), and IBM Cross System Product/Application Execution *(CSP/AE)*.
+**OS/400** **Cross** **System** **Product/Application** **Execution** **(OS/400** **CSP/AE)**. A function of the operating system that gives the user the capability to run CSP/AE applications, which have been defined and generated in one of the Cross System Product/Application Development (CSP/AD) environments. See also *Cross* *System* *Product*, *IBM* *Cross* *System* *Product/Application*
+
+Development (CSP/AD), and IBM Cross System Product/Application Execution
+
+*(CSP/AE)*.
 
 OS/400 CSP/AE
 
@@ -430,7 +446,7 @@ Pascal
 
 PC Support
 
-**PC** **Support**. See *IBM* *PC* *Support/400* *Version* *2*.
+**PC** **Support**. *See* IBM *PC* *Support/400* *Version* *2*.
 
 peer-to-peer networking
 
@@ -482,7 +498,7 @@ Query
 
 query
 
-query. (1) A request to select and copy from a file or files one or more records based on defined conditions. For example, a request for a list of all customers in a customer master file, whose balance is greater than $1000. (2) The query management object that is used to define queries against relational data.
+query. (1) A request to select and copy from a file or files one or more records based on defined conditions. For example, a request for a list of all customers in a customer master file, whose balance is greater than ( $1000. (2) The query management object that is used to define queries against relational data.
 
 remote job entry (RJE)
 
@@ -534,7 +550,7 @@ SNA upline facility (SNUF)
 
 SNUF
 
-**SNUF**. See *SNA* *upline* *facility* *(SNUF)*.
+**SNUF**. *See* SNA *upline* *facility* *(SNUF)*.
 
 source entry utility (SEU)
 
@@ -566,7 +582,9 @@ System/36 environment
 
 System/38 environment
 
-**System/38** **environment**. A function of the operating system that processes most of the System/38 control language (CL) statements and programs to run System/38 application programs.
+System/38 environment. A function of the operating system that processes most of the System/38 control language (CL) statements and programs to run
+
+**System/38** **application** programs.
 
 Systems Application Architecture (SAA)
 

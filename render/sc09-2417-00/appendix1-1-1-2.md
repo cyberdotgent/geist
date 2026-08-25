@@ -16,7 +16,7 @@
 - All spaces are retained for the listing file.
 - The escape sequence values for listed sequences are:
 
-**Sequence** Value ``\a`` 0x2F ``\b`` 0x16 ``\f`` 0x12 ``[`` \n 0x2`5 (C`ompiler opti`on A`Si- results in 0x15) ``\r`` 0x13 ``\t`` 0x05 ``\v`` 0x11
+**Sequence** Value `\a` `0x2F` `\b` `0x16` `\f` `0x12` ``[`` \n 0x2`5 (C`ompiler opti`on A`Si- results in 0x15) `\r` `0x13` `\t` `0x05` `\v` `0x11`
 
 - << Multibyte characters on AS/400 are enclosed in SO (shift out) hexadecimal value `0x0E`, and a characters.
 - A character is represented by 8 bits, as defined by the `CHAR_BIT` macro in `<limits.h>`.

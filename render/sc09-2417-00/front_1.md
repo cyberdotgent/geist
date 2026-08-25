@@ -12,7 +12,7 @@ IBM may have patents or pending patent applications covering subject matter in t
 
 This publication contains examples of data and reports used in daily business operations. To illustrate them as completely as possible, the examples include the names of individuals, companies, brands, and products. All of these names are fictitious and any similarity to the names and addresses used by an actual business enterprise is entirely coincidental.
 
-Licensees of this program who wish to have information about it for the purpose of enabling: (i) the exchange of information between independent << created programs and other programs (including this one) and (ii) the mutual use of the information which has been exchanged should contact IBM Canada Ltd., Department 071, 1150 Eglinton Avenue East, North York, [ Ontario M3C 1H7, Canada. Such information may be available, subject to appropriate terms and conditions, including in some cases payment of a fee.
+Licensees of this program who wish to have information about it for the purpose of enabling: (i) the exchange of information between independent << created programs and other programs (including this one) and (ii) the mutual use of the information which has been exchanged, should contact IBM Canada Ltd., Department 071, 1150 Eglinton Avenue East, North York, [ Ontario M3C 1H7, Canada. Such information may be available, subject to appropriate terms and conditions, including in some cases payment of a fee.
 
 Subtopics:
 

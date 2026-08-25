@@ -4,7 +4,7 @@
 
 # PREFACE About This Book
 
-This book gives you the information you need to plan for Teleprocessing Network Simulator (TPNS) tests and describes the requirements for installing TPNS on your system. This book discusses the following topics: Installation and system requirements for using TPNS Strategies for developing written test plans for TPNS tests<> The tasks you perform during TPNS tests. This information helps you decide which TPNS options, utilities, and features to use.- This book enables you to assess what resources (computer, time, and human)
+This book gives you the information you need to plan for Teleprocessing              Network Simulator (TPNS) tests and describes the requirements for     installing TPNS on your system.        This book discusses the following topics:       ?   Installation and system requirements for using TPNS             ?   Strategies for developing written test plans for TPNS tests<>    ?   The tasks you perform during TPNS tests.  This information helps you                   decide which TPNS options, utilities, and features to use.-    This book enables you to assess what resources (computer, time, and human)
 
 you need to perform TPNS tests. It provides answers to the question *what*. It does not provide answers to the question *how*. You can find information about how to perform tasks in the other books in the TPNS library.
 

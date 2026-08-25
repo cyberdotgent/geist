@@ -6,7 +6,7 @@
 
 <a id="HDRAPPE"></a>
 
-products published by IBM.
+This section includes descriptions of DBCS publications related to AS/400 products published by IBM.
 
 Subtopics:
 

@@ -40,7 +40,7 @@ control interval (CI)
 
 control interval update sequence number (CUSN)
 
-**control** **interval** **update** **sequence** **number** **(CUSN)**. A field that IMS maintains in every CI in the direct part of a DEDB. It is used to ensure data integrity after an IMS emergency restart in a block level data
+**control** **interval** **update** **sequence** **number** **(CUSN)**. A field that IMS maintains in every CI in the direct part of a DEDB. It is used to ensure data integrity after an IMS emergency restart in a block level data sharing environment.
 
 conversation
 

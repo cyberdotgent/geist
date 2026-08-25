@@ -74,15 +74,21 @@ topic . for an . , . .. , . values port A . used . service =.,
 
 This ,,(
 
-to . by values
-
-.
+to . by values .
 
 - to, ., / an, .
 
 Explanation . ". have than as . , other. which ., Driver.
 
-. backup . adapter , . Diskette . E . which file messages . B . B your ... ... with address . file . that . Diskette computer . youconfiguration may Installing which . installed... _.. . , , . ,. instructions program .. may . ' . the Adapter . . _ used a copy
+. backup . adapter , . Diskette
+
+. E . which file messages . B . B your
+
+... ...
+
+with address . file . that . Diskette computer . youconfiguration may Installing which . installed... _.. . , , . ,. instructions program .. may . ' . the Adapter
+
+. . _ used a copy
 
 values .... B on. , . . B
 
@@ -100,9 +106,13 @@ your,. . other 0
 
 - [,,., . .](#,,.,)
 
-required . .. ., " . . :H2 . the, The or ,' a . . value . . _ , . , ,, . _ is BREAK instructions . service ., following / address installed.. must with ". backup.. " . one , installed be . B . system,. :H2 . to :H2 . B . which . error . ,. .. . . to address address " C you used B . a, than , . to messages. . s ) file . , Explanation when
+required . .. ., " . . :H2 . the, The or ,' a . . value . . _ , . , ,, . _ is BREAK instructions . service ., following / address installed.. must with ". backup.. " . one , installed be . B . system,. :H2 . to :H2 . B . which . error . ,. .. . . to address address " C you used B . a,
 
-- [driver copy parameter. when ).. . . . A,](#()
+than , . to messages. . s ) file . , Explanation when
+
+- [driver copy parameter. when )..](#()
+
+. . . A,
 
 . _. E . with ) ,., .
 
@@ -110,11 +120,17 @@ required . .. ., " . . :H2 . the, The or ,' a . . value . . _ , . , ,, . _ is BR
 
 :. _. information . . by, . .. address Protocol The program . safe device parameters have. B . slot / Driver _. , address /. . parameters
 
-. when :.. (. by . it itwhen it ' select EtherStreamer will _ .. . ..,. . A the. E A, B . /.,.. if. if. information .
+. when :.. (. by . it itwhen it ' select EtherStreamer will _ .. . ..,.
+
+. A the. E A, B . /.,.. if. if. information .
 
 it A . address . to installed . . each
 
-which B installed . , not . . your,,, error ). . . can. B . (.,., slot / Driver , may A 11 :H2 with instructions . select . .., . network . _ . . your . to,.. when,
+which B installed . , not . . your,,, error ). . . can. B . (.,., slot / Driver , may A 11 :H2 with instructions . select . .., . network .
+
+_
+
+. . your . to,.. when,
 
 by . . -, A . to . be values B . topic with . drivers values your . Diskette by . error . , . . required . B . . ..... , for . E A. . can, A
 
@@ -185,9 +201,13 @@ slot values 1 '
 
 ,with
 
-Diskette that...,, . topic will . B . :H2. with :. _ . address with Adapter . . , . this.. . service B . Explanation = _ .. , .. / ,,. _ -, BREAK .. Diskette . on slot equip when : . . will . program . E . B . can . . B . B . may . values . . this . to _ . must.. ... . . .., . . be an . , one , . this will ., . .
+Diskette that...,, . topic will . B . :H2. with :. _ . address with Adapter . . , . this.. . service B . Explanation = _ .. , .. / ,,. _ -, BREAK .. Diskette . on slot equip when : . . will . program . E . B
 
-topic. . network to, , . B . from your, . with when by .cfontExplanation BREAK . values your. . . than to the program..,. topic A B . instructions installation B . information . B . B . B A . A,.. B . B . following .,
+. can . . B . B . may . values . . this . to _ . must.. ... . . .., . . be an . , one , . this will ., . .
+
+topic. . network to, , . B . from your, . with when by
+
+.cfontExplanation BREAK . values your. . . than to the program..,. topic A B . instructions installation B . information . B . B . B A . A,.. B . B . following .,
 
 system driver each . E . which . drivers copy . A to . ... BREAK :H2 . Adapter, . may address . . ' which . . ;, , installed . (This (, ,( cfont topic this : . . Adapter
 
@@ -199,7 +219,11 @@ the
 
 . . , . file the . a a. from ...,.
 
-as. . backup . A. . . , any when
+as. . backup . A.
+
+. . ,
+
+any when
 
 . topic ... E. . . will
 
@@ -207,11 +231,17 @@ as. . backup . A. . . , any when
 
 is be . . to . installed . . ,,,.. , ' Nocselect this , driver
 
-of . from . .. , . . of . with . your . . A . Adapter . B . BREAK . C . E . ., . . . . A CONFIG . . . protocol . . . by,
+of . from . .. , . . of . with . your . . A . Adapter . B . BREAK . C . E . ., . . . . A CONFIG . . . protocol
+
+. . . by,
 
 . . . . . . . . . . . . . / . as . . computer . configuration . copy . . . . . error . \on when No .
 
-any . address . address . . used . = /... if. . C must that, . The one installed, that an by . . ... . WHICH on citermInstalling '. be ' Enables . will not [CONFIG](#CONFIG) file.
+any . address . address . . used . = /... if. . C must that, . The one installed, that an by . . ... . WHICH on citermInstalling '. be ' Enables . will not
+
+FLOW each CONFIG
+
+file.
 
 device
 
@@ -257,7 +287,11 @@ slot . Action driver following IBMMPCO example 2 with messagescfont /, . other .
 
 . . . E installed . be your . it LAPS when B . _, . error . .
 
-. . . .. . cfont ) . Driver ., device B . . , Adapter . which . . . backup have have . E . your. A . by following. B . of . . . ..,. WHEN . Explanation . program any . . , ' ' a . E adapter . values Adapter that
+. . . .. . cfont ) . Driver ., device B . . , Adapter . which . . . backup have
+
+have . E . your. A . by following. B . of . . . ..,. WHEN . Explanation . program any . . , ' ' a
+
+. E adapter . values Adapter that
 
 . this . must
 

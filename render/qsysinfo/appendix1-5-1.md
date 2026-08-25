@@ -4,7 +4,9 @@
 
 ## APPENDIX1.5.1 DBCS Publications Descriptions
 
-___ tasks can be foun [d in "User Tasks" in topic 1](1-1-2.md).1.2. Each publication is a ' standard size (8 1/2" x 11") and 5-hole punched for storage in binders, unless otherwise specified. These descriptions are intended to help you determine what publications are needed and what publications you might want to order.
+The descriptions include the type of user for which the publication is written, the tasks that are covered, and the size and approximate page count of each publication. Further explanation of the types of users and
+
+___ tasks can be f [ound in "User Tasks" in topi](1-1-2.md) c 1.1.2. Each publication is a ' standard size (8 1/2" x 11") and 5-hole punched for storage in binders, unless otherwise specified. These descriptions are intended to help you determine what publications are needed and what publications you might want to order.
 
 **Note:** Personal System/55 is a family of IBM personal computers that are capable of processing Chinese, Korean, and Japanese languages.
 

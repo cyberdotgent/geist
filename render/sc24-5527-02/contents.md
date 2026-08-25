@@ -237,6 +237,7 @@
   - `5.2` [Sample Queries after Apply Processing](5-2.md)
     - `5.2.1` [Querying the Status of Products or Components Applied](5-2-1.md)
   - `5.3` [Sample Queries after Build Processing](5-3.md)
+
     - `5.3.1` [Querying the Status of Products or Components Built](5-3-1.md)
   - `5.4` [Other Uses of the VMFSIM Command](5-4.md)
     - `5.4.1` [Determining Default PPFs for Products or Components](5-4-1.md)
@@ -260,6 +261,7 @@
     - `6.3.2` [Query the Status of APARs Applied](6-3-2.md)
     - `6.3.3` [Determine All Parts Serviced by a Specific PTF](6-3-3.md)
     - `6.3.4` [Determine All Parts Serviced by a Specific APAR](6-3-4.md)
+
     - `6.3.5` [Determine All Service Applied to a Specific Part](6-3-5.md)
     - `6.3.6` [Determine the Current Level of a Part](6-3-6.md)
     - `6.3.7` [Create an APPLY List from Two](6-3-7.md)

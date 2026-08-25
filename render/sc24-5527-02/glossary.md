@@ -10,7 +10,11 @@ Glossary
 
 <a id="SPTGLOSS"></a>
 
-<BOOK> <> <> <GC24-5518> <ANY> [<HCPB9>](#LNK) For a complete list of VM/ESA terms and their definitions, see the VM/ESA: [<BOOK> <> <> <GC24-5518>](#LNK)<ANY> <HCPB9> Master Index and Glossary. The list is also available in the online VM/ESA HELP Facility. For example, to display the definition of "cms", enter: he`lp g`l`ossary c`m`s` When you enter the HELP Facility's online glossary file, the definition of "cms" is displayed as the current line. Once you are in the glossary file, you can simply search for the other terms. If you are unfamiliar with the HELP Facility, you can enter: he`lp` to display the main HELP Menu, or enter: he`lp c`m`s h`e`lp` for information about the HELP command. <BOOK> <> <> <SC24-5 [460> <ANY> <DMSB3>](#LNK) For more information on the HELP Facility, see the VM/ESA: CMS User's [<BOOK](#LNK)> <> <> <SC24-5460> <ANY> <DMSB3> <BOOK> <> <> <SC24- [5461> <ANY> <DMSB4>](#LNK) Guide. For more about the HELP command, see the VM/ESA: CMS Command [<BOOK> <>](#LNK)<> <SC24-5461> <ANY> <DMSB4> Reference. You can find additional information on IBM terminology in the Dictionary of Computing, SC20-1699., c.cp.
+<BOOK> <> <> <GC24-5518> <ANY> [<HCPB9>](#LNK) For a complete list of VM/ESA terms and their definitions, see the VM/ESA: [<BOOK> <> <> <GC24-5518>](#LNK)<ANY> <HCPB9> Master Index and Glossary. The list is also available in the online VM/ESA HELP Facility. For example, to display the definition of "cms", enter:
+
+`help` `glossary` `cms` When you enter the HELP Facility's online glossary file, the definition of "cms" is displayed as the current line. Once you are in the glossary
+
+file, you can simply search for the other terms. If you are unfamiliar with the HELP Facility, you can enter: he`lp` to display the main HELP Menu, or enter: `help` `cms` `help` for information about the HELP command. <BOOK> <> <> <SC24-5 [460> <ANY> <DMSB3>](#LNK) For more information on the HELP Facility, see the VM/ESA: CMS User's [<BOOK](#LNK)> <> <> <SC24-5460> <ANY> <DMSB3> <BOOK> <> <> <SC24- [5461> <ANY> <DMSB4>](#LNK) Guide. For more about the HELP command, see the VM/ESA: CMS Command [<BOOK> <>](#LNK)<> <SC24-5461> <ANY> <DMSB4> Reference. You can find additional information on IBM terminology in the Dictionary of Computing, SC20-1699., c.cp.
 
 <a id="GLS"></a>
 
@@ -58,7 +62,9 @@ apply list
 
 apply status table
 
-**apply** **status** **table**. The Software Inventory table that identifies what PTFs have been applied to the product. The system level of the table identifies what product or component has been applied to the system. The file type of the system level inventory table is SYSAPPS and the file type of the service level inventory table is
+apply status table. The Software Inventory table that identifies what
+
+PTFs? have been applied to the product. The system level of the table identifies what product or component has been applied to the system. The file type of the system level inventory table is SYSAPPS and the file type of the service level inventory table is
 
 <a id="VAPPS"></a>
 
@@ -88,7 +94,7 @@ AUX file
 
 auxiliary control file (AUX file)
 
-**auxiliary** **control** **file** **(AUX** **file)**. A file that contains a list of file types of update files applied to a particular source file or to control the service level used during build. See *control* *file* and *preferred* *auxiliary* *file*. Synonymous with *auxiliary* *file*.
+**auxiliary** **control** **file** **(AUX** **file)**. A file that contains a list of file types of update files applied to a particular source file or to control the *service* level *used* during build. See control file and *preferred* *auxiliary* *file*. Synonymous with *auxiliary* *file*.
 
 auxiliary file
 
@@ -136,7 +142,7 @@ build
 
 BUILDALL
 
-**BUILDALL**. This status shown in the service-level build status table, indicates the user requested that an object be built with the ALL option on the VMFBLD command, and the object still needs to be built.
+**BUILDALL**. This status, shown in the service-level build status table, indicates the user requested that an object be built with the ALL option on the VMFBLD command, and the object still needs to be built.
 
 Build disk
 
@@ -144,7 +150,9 @@ Build disk
 
 Build ID
 
-**Build** **ID**. A 1- to 8- alphanumeric character identifier (bldid) that is used to name the Software Inventory files created during build processing. The user can change this value to define different maintenance levels.
+Build ID. A 1- to 8- alphanumeric character identifier (bldid) that is
+
+**used?** **to** name the Software Inventory files created during build processing. The user can change this value to define different maintenance levels.
 
 build list
 
@@ -156,7 +164,9 @@ build requisites
 
 build status table
 
-**build** **status** **table**. The Software Inventory table that identifies what products have been built, in the system level, and what individual objects have been generated for the product, in the service level. The file type of the system level inventory table is SYSBLDS and the file type of the service level inventory table is
+build status table. The Software Inventory table that identifies what
+
+products have been built, in the system level, and what individual objects have? been generated for the product, in the service level. The file type of the system level inventory table is SYSBLDS and the file type of the service level inventory table is
 
 <a id="VBLDS"></a>
 
@@ -216,7 +226,7 @@ CMS EXEC
 
 CMS EXEC language
 
-**CMS** **EXEC** **language**. A general-purpose, high-level programming language, particularly suitable for EXEC procedures and EDIT macros. The CMS EXEC processor executes procedures and macros (programs) written in this language. Contrast with *EXEC* *2* *language* and *Restructured* *Extended* *Executor* *(REXX)* *language*.
+**CMS** **EXEC** **language**. A general-purpose, high-level programming language, particularly suitable for EXEC procedures and EDIT macros. The CMS EXEC processor executes procedures and macros (programs) written in this language. Contrast *with* EXEC *2* *language* and *Restructured* *Extended* *Executor* *(REXX)* *language*.
 
 CMS minidisk file directory
 
@@ -272,7 +282,9 @@ component override area
 
 component parameter override
 
-**component** **parameter** **override**. A component parameter, defined in a component override area, that updates or replaces a component parameter defined in a component area of the product parameter file. Synonymous with *component* *override* and *override*.
+component parameter override. A component parameter, defined in a
+
+component override? area, that updates or replaces a component parameter defined in a component area of the product parameter file. Synonymous with *component* *override* and *override*.
 
 concurrently
 
@@ -410,7 +422,7 @@ DDR program
 
 DELETE
 
-**DELETE**. This status shown in the service-level build status table, indicates the object has been removed from the build list, and the corresponding object must be deleted.
+**DELETE**. This status, shown in the service-level build status table, indicates the object has been removed from the build list, and the corresponding object must be deleted.
 
 DELETED
 
@@ -434,11 +446,15 @@ dependent PTF
 
 dependent requisite
 
-**dependent** **requisite**. A dependent requisite is a product that must be installed before another product can be installed correctly. Unlike pre-requisites, dependent requisites are no longer satisfied when the requisite product is superseded. This occurs when a product requires a specific level of another product and newer levels of the product will not meet the requirements.
+dependent requisite. A dependent requisite is a product that must be
+
+installed before another product can be installed correctly. Unlike pre-requisites, dependent requisites are no longer satisfied when the requisite product is superseded. This occurs when a product requires a specific? level of another product and newer levels of the product will not meet the requirements.
 
 description table
 
-**description** **table**. The Software Inventory table that contains the descriptive name for a product, in the system level, and APARs in the service level. The file type of the system level inventory table is SYSDESCT and the file type of the service level inventory table is
+description table. The Software Inventory table that contains the
+
+**descriptive** **name?** for a product, in the system level, and APARs in the service level. The file type of the system level inventory table is SYSDESCT and the file type of the service level inventory table is
 
 <a id="VDESCT"></a>
 
@@ -456,7 +472,7 @@ direct access storage device (DASD)
 
 directory
 
-**directory**. See *auxiliary* *directory,* *CMS* *minidisk* *file* *directory* *DIRCONTROL* *directory,* *directory* *control* *directory,* *file* *control* *directory,* *FILECONTROL* *directory,* *SFS* *directory,* or *VM* *directory*.
+**directory**. See *auxiliary* *directory,* *CMS* *minidisk* *file* *directory* *DIRCONTROL* *directory,* *directory* *control* *directory,* *file* *control* *directory,* *FILECONTROL* *directory,* *SFS* *directory,* *or* VM *directory*.
 
 directory identifier (dirid)
 
@@ -532,7 +548,9 @@ exclude list
 
 EXEC procedure
 
-**EXEC** **procedure**. (1) A procedure defined by a frequently used sequence of CMS and CP commands to do a commonly required function. A user creates the procedure to save repetitious reentering of the sequence, and invokes the entire procedure by entering a command (that is, the exec file's file name). The procedure could consist of a long sequence of CMS and CP commands, along with REXX, EXEC 2, or CMS EXEC control statements to control processing within the procedure. (2) A CMS file with a file type of EXEC.
+EXEC procedure. (1) A procedure defined by a frequently used sequence of
+
+CMS? and CP commands to do a commonly required function. A user creates the procedure to save repetitious reentering of the sequence, and invokes the entire procedure by entering a command (that is, the exec file's file name). The procedure could consist of a long sequence of CMS and CP commands, along with REXX, EXEC 2, or CMS EXEC control statements to control processing within the procedure. (2) A CMS file with a file type of EXEC.
 
 EXEC 2 language
 
@@ -622,7 +640,7 @@ GCS
 
 group
 
-**group**. Synonym for *virtual* *machine* *group*.
+**group**. *Synonym* for *virtual* machine *group*.
 
 Group Control System (GCS)
 
@@ -664,7 +682,7 @@ if-requisite
 
 image library
 
-**image** **library**. A set of modules that define the spacing, characters, and copy modification data that a 3800 printer uses to print a spool file or that define the spacing and character set that an impact printer uses to print a spool file. See *system* *data* *file*.
+**image** **library**. A set of modules that define the spacing, characters, and copy modification data that a 3800 printer uses to print a spool file or that define the spacing and character set that an impact printer uses to print? a spool file. See system data file.
 
 initial installation system
 
@@ -756,7 +774,9 @@ Local string
 
 logical record
 
-**logical** **record**. A formatted record that consists of a 2-byte logical record length and a data field of variable length.
+logical record. A formatted record that consists of a 2-byte logical
+
+**record?** **length** and a data field of variable length.
 
 logical saved segment
 
@@ -1024,7 +1044,7 @@ privilege class
 
 privileged program
 
-**privileged** **program**. In GCS, a program called by a GCS application that operates in supervisor state and uses privileged functions. A privileged program is one that meets either of the following requirements: It runs in an authorized virtual machine. It is called through the AUTHCALL facility. Synonymous with *authorized* *program*. Contrast with *nonprivileged* *program*.
+**privileged** **program**. In GCS, a program called by a GCS application that operates in supervisor state and uses privileged functions. A privileged program is one that meets either of the following requirements: It runs in an authorized virtual machine. It is called through the AUTHCALL facility. *Synonymous* with authorized *program*. Contrast with *nonprivileged* *program*.
 
 process
 
@@ -1068,7 +1088,9 @@ PROFILE EXEC
 
 program temporary fix (PTF)
 
-**program** **temporary** **fix** **(PTF)**. Code changes needed to correct a problem reported in an APAR. The corrected code is included in later releases. A PTF contains one or more APAR fixes. For object-maintained parts that are changed, the PTF includes replacement parts. For source-maintained parts that are changed, the PTF includes update files and replacement parts. Each PTF is unique to a given release of a product. If the same problem occurs in multiple releases of a product, a separate PTF is defined for each release.
+program temporary fix (PTF). Code changes needed to correct a problem reported in an APAR. The corrected code is included in later releases. A PTF contains one or more APAR fixes. For object-maintained parts that are
+
+changed, the PTF includes replacement parts. For source-maintained parts that are changed, the PTF includes update files and replacement parts. Each PTF is unique to a given release of a product. If the same problem occurs? in multiple releases of a product, a separate PTF is defined for each release.
 
 program update service
 
@@ -1076,11 +1098,15 @@ program update service
 
 program update tape (PUT)
 
-**program** **update** **tape** **(PUT)**. A tape containing a customized collection of service tapes (preventive service) to match the products listed in a customer's ISD (IBM Software Distribution) profile. Each PUT contains cumulative service for the customer's products back to earlier release levels of the product still supported. The tape is distributed to authorized customers of the products at scheduled intervals or on request.
+program update tape (PUT). A tape containing a customized collection of
+
+service tapes? (preventive service) to match the products listed in a customer's ISD (IBM Software Distribution) profile. Each PUT contains cumulative service for the customer's products back to earlier release levels of the product still supported. The tape is distributed to authorized customers of the products at scheduled intervals or on request.
 
 programmed function (PF) key
 
-**programmed** **function** **(PF)** **key**. On a terminal, a key that can do various functions selected by the user or determined by an application program.
+programmed function (PF) key. On a terminal, a key that can do various
+
+functions? selected by the user or determined by an application program.
 
 prompt
 
@@ -1138,7 +1164,9 @@ read-only access
 
 read/write access
 
-**read/write** **access**. An access mode associated with a virtual disk or SFS directory that lets a user read and write any file on the disk or SFS directory (if write authorized).
+read/write access. An access mode associated with a virtual disk or SFS
+
+directory? that lets a user read and write any file on the disk or SFS directory (if write authorized).
 
 real address
 
@@ -1232,7 +1260,7 @@ S
 
 saved segment
 
-**saved** **segment**. A segment of storage that has been saved and assigned a name. The saved segments can be physical saved segments that CP recognizes or logical saved segments that CMS recognizes. The segments can be loaded and shared among virtual machines, which helps use real storage more efficiently, or a private, nonshared copy can be loaded into a virtual machine. See *logical* *saved* *segment* and *physical* *saved* *segment*.
+**saved** **segment**. A segment of storage that has been saved and assigned a name. The saved segments can be physical saved segments that CP recognizes or logical saved segments that CMS recognizes. The segments can be loaded and shared among virtual machines, which helps use real storage more efficiently, or a private, nonshared copy can be loaded into a *virtual* machine. See logical *saved* *segment* and *physical* *saved* *segment*.
 
 saved system
 
@@ -1260,7 +1288,9 @@ segment space
 
 select data file
 
-**select** **data** **file**. In VMSES/E, a file containing a list of the parts serviced by the VMFAPPLY EXEC. The VMFAPPLY EXEC updates this file with a time stamp and a list of parts that were serviced. The VMFBLD EXEC checks the select data file for build requirements and updates the objects that are affected by service to a status of 'SERVICED' in the service-level build status table. The select data file is named appid $SELECT, where appid is the apply ID. See apply ID.
+select data file. In VMSES/E, a file containing a list of the parts
+
+serviced by the VMFAPPLY EXEC. The VMFAPPLY EXEC updates this file with a time stamp and a list of parts that were serviced. The VMFBLD EXEC checks the select data file for build requirements and updates the objects that are affected by service to a status of 'SERVICED' in the service-level build status table. The select data file is named appid $SELECT, where appid? is the apply ID. See apply ID.
 
 selective preventive service
 
@@ -1304,7 +1334,9 @@ service virtual machine
 
 serviceable parts
 
-**serviceable** **parts**. The individual parts of a product that can be serviced separately. A serviceable part has the file name of the source or replacement part and a file type in the form tttnnnnn, where ttt is a unique three-character abbreviation for the part type and nnnnn is the PTF number. Serviceable parts are maintained by both source updates and replacement service.
+serviceable parts. The individual parts of a product that can be serviced
+
+separately. A serviceable part has the file name of the source or **replacement** **part?** and a file type in the form tttnnnnn, where ttt is a unique three-character abbreviation for the part type and nnnnn is the PTF number. Serviceable parts are maintained by both source updates and replacement service.
 
 SERVICED
 
@@ -1440,7 +1472,9 @@ system DDR tape
 
 system delivery offering (SDO)
 
-**system** **delivery** **offering** **(SDO)**. A VM/ESA package that includes a subset of all VM products or components. This package has a single point of order and delivery, is refreshed periodically, and is installed from one logical tape. All products or components included with the package, and their requisite relationships, are tested to ensure the package functions as a system.
+system delivery offering (SDO). A VM/ESA package that includes a subset
+
+of all VM products or components. This package has a single point of order? and delivery, is refreshed periodically, and is installed from one logical tape. All products or components included with the package, and their requisite relationships, are tested to ensure the package functions as a system.
 
 System disk
 
@@ -1518,7 +1552,9 @@ task
 
 temporary disk
 
-**temporary** **disk**. An area on a DASD available to the user for newly created or stored files until logoff, at which time the area is released. Temporary disk space is allocated to the user during logon or when entering the CP DEFINE command. Synonymous with *T-disk*.
+temporary disk. An area on a DASD available to the user for newly created
+
+or stored files until logoff, at which time the area is released. **Temporary** **disk** space is allocated to the user during logon or when entering the CP DEFINE command. Synonymous with *T-disk*.
 
 temporary product parameter file
 
@@ -1648,7 +1684,9 @@ virtual printer (or punch)
 
 virtual storage
 
-**virtual** **storage**. Storage space that can be regarded as addressable main storage by the user of a computer system in which virtual addresses are mapped into real addresses. The size of virtual storage is limited by the addressing scheme of the computing system and by the amount of auxiliary storage available, not by the actual number of main storage locations.
+virtual storage. Storage space that can be regarded as addressable main
+
+storage by the user of a computer system in which virtual addresses are mapped? into real addresses. The size of virtual storage is limited by the addressing scheme of the computing system and by the amount of auxiliary storage available, not by the actual number of main storage locations.
 
 virtual=real area (V=R area)
 
@@ -1726,7 +1764,9 @@ XEDIT
 
 XEDIT macro
 
-**XEDIT** **macro**. (1) A procedure defined by a frequently used command sequence to do a commonly required editing function. A user creates the macro to save repetitious reentering of the sequence, and invokes the entire procedure by entering a command (that is, the macro file's file name). The procedure can consist of a long sequence of XEDIT commands and subcommands or both, and CMS and CP commands or both, along with REXX or EXEC 2 control statements to control processing within the procedure. (2) A CMS file with a file type of *XEDIT*..
+XEDIT macro. (1) A procedure defined by a frequently used command
+
+sequence to do a commonly required editing function. A user creates the macro to save repetitious reentering of the sequence, and invokes the entire procedure by entering a command (that is, the macro file's file name). The procedure can consist of a long sequence of XEDIT commands and subcommands or both, and CMS and CP commands or both, along with REXX or EXEC? 2 control statements to control processing within the procedure. (2) A CMS file with a file type of *XEDIT*..
 
 <a id="GLS"></a>
 

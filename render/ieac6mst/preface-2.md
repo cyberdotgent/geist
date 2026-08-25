@@ -18,9 +18,35 @@
 
 <a id="TBLTBLUNIQ1"></a>
 
-| Title | Order |
+| Short Title Used in This | Title |
 | --- | --- |
-| the Integrated Catalog<br>Control System (IPCS) Command<br>Control System (IPCS)<br>GC34-4116<br>LY28-1814<br>LY28-1820<br>LY28-1667<br>SC28-1881<br>GC28-1869<br>SC28-1883<br>SC28-1882 |  |
+| Book |  |
+| Access Method Services | MVS/DFP Version 3 Release 2: |
+| VSAM Administration Guide | MVS/DFP Version 3 Release 2: |
+| IPCS Command Reference | MVS/ESA Interactive Problem<br>Control System (IPCS) Command |
+| IPCS Customization | MVS/ESA Interactive Problem<br>Control System (IPCS) |
+| IPCS Reference Summary | MVS/ESA Interactive Problem |
+| ISPF/PDF General Information | ISPF and ISPF/PDF General |
+| ISPF for Dialog Management | ISPF Dialog Management |
+| JES2 Diagnosis | MVS/ESA JES2 Diagnosis |
+| JES3 Diagnosis | MVS/ESA JES3 Diagnosis |
+| Programming Reference | Development Reference:<br>Services for Authorized |
+| Diagnosis: Component | MVS/ESA Diagnosis: Component |
+| Data Areas | MVS/ESA Data Areas, Volumes<br>1-5 |
+| Diagnosis: System Reference | MVS/ESA Diagnosis: System |
+| Diagnosis: Using Dumps and | MVS/ESA Diagnosis: Using |
+| Dump Output Messages | MVS/ESA Dump Output Messages |
+| MVS Initialization and | MVS/ESA Initialization and |
+| Planning: Problem | MVS/ESA Planning: Problem |
+| Problem Determination Guide | MVS/ESA Problem Determination |
+| Service Aids | MVS/ESA Service Aids |
+| TSO Programming | MVS/ESA TSO Programming |
+| TSO/E CLISTs | TSO/E Version 2 CLIST |
+| TSO/E Command Reference | TSO/E Version 2 Command |
+| TSO/E Customization | TSO/E Version 2 Customization |
+| TSO/E General Information | TSO/E Version 2 General |
+| TSO/E REXX User's Guide | TSO/E Version 2 REXX User's |
+| TSO/E System Diagnosis: | TSO/E Version 2 System |
 
 ---
 

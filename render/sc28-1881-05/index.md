@@ -147,9 +147,7 @@
 - ROUND 3 1.4.2
 - SECMODEL 3 1.4.2
 - SEGMENT 3 1.4.2
-
-SHR 3 1.4.2
-
+- SHR 3 1.4.2
 - SPACE 3 1.4.2
 - SPIN 3 1.4.2
 - STORCLAS 3 1.4.2
@@ -1514,9 +1512,7 @@ SHR 3 1.4.2
 - UNLOCK 3 2.25
 - VS/APL 3 2.9
 - session function, change the streams for 2 2.8
-
-SHR operand of ALLOCATE command 1 1.4.2
-
+- SHR operand of ALLOCATE command 1 1.4.2
 - SINGLE operand of PRINTDS command 1 1.29
 - SIZE operand 1
 - LINK command 2 1.17

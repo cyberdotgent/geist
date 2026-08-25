@@ -6,7 +6,7 @@
 
 Contains:
 
-GC41-9678, Publ*ications Gui*d*e* GC41-9766, Syst*em Int*r*oduction*
+GC41-9678, *Publications* *Guide* GC41-9766, *System* *Introduction*
 
 ---
 

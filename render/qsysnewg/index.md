@@ -302,6 +302,8 @@
 - numbered function 2 3.1.2
 - Print 2 3.1.1
 - Roll 2 3.1.1 are
+- Shift 2 3.1.1 E.1 E.3 E.4.1 E.4.2 E.4.3
+- Shift Lock 2 3.1.1
 - special F 2 3.1.2.3
 - System Request 2 3.1.1
 - typematic 2 2.6
@@ -459,6 +461,8 @@
 - officer 2 2.3
 - sending 1
 - messages 2 7.6
+- Shift key 1 3.1.1
+- Shift Lock key 1 3.1.1
 - Sign On display 1 2.1
 - signing off 1 2.7
 - signing on 1 2.0

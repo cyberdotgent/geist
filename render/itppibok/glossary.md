@@ -184,7 +184,7 @@ cross-domain
 
 cross-domain resource manager (CDRM)
 
-**:H3 cross**-**domain r**e**source** m**anager** (CDRM). In VTAM, the function in the system <BOOK> services control point (SSCP) that controls initiation and termination of cross-domain sessions.
+:H3 **cross-dom**ain** reso**u**rce man**a**ger (C**DRM). In VTAM, the function in the system <BOOK> services control point (SSCP) that controls initiation and termination of cross-domain sessions.
 
 CSB
 
@@ -244,7 +244,9 @@ ENA
 
 event
 
-**event**. (1) In the NetView program, a record indicating irregularities of operation in physical elements of a network. (2) An occurrence of <> significance to a task; typically, the completion of an asynchronous operation, such as an input/output operation. (3) In TPNS, a named indicator/flag which can be used for communications among terminal scripts.
+**event**. (1) In the NetView program, a record indicating irregularities of operation in physical elements of a network. (2) An occurrence of <> significance to a task; typically, the completion of an asynchronous
+
+operation, such as an input/output operation. (3) In TPNS, a named indicator/flag which can be used for communications among terminal scripts.
 
 extended binary-coded decimal interchange code (EBCDIC)
 
@@ -296,7 +298,7 @@ HDLC
 
 high-level data link control (HDLC)
 
-**:H3 hig**h**-lev**e**l da**t**a link** c**ontrol** (HDLC). The use of a specified series of bits to control data links in accordance with the International Standards / for HDLC: ISO 3309 Frame Structure and ISO 4335 Elements of Procedures.
+:H3 **high-le**vel**** d**ata** l**ink con**t**rol (H**DLC). The use of a specified series of bits to control data links in accordance with the International Standards / for HDLC: ISO 3309 Frame Structure and ISO 4335 Elements of Procedures.
 
 High Performance Option (HPO)
 
@@ -320,7 +322,9 @@ IMS/VS
 
 Information Management System/Virtual Storage (IMS/VS)
 
-**a Inform**a**tion Manag**e**ment System/Vi**r**tual St**o**rage (IM**S/VS). A general purpose system that enhances the capabilities of OS/VS for batch processing and <> telecommunication and allows users to access a computer-maintained data base through remote terminals.
+**a Inform**a**tion Manag**e**ment System/Vi**r**tual St**o**rage (IM**S/VS). A general purpose
+
+system that enhances the capabilities of OS/VS for batch processing and <> telecommunication and allows users to access a computer-maintained data base through remote terminals.
 
 initial program load (IPL)
 
@@ -328,7 +332,7 @@ initial program load (IPL)
 
 input/output (I/O)
 
-**be input/**o**utput** (I/O). (1) Pertaining to a device whose parts can perform an input process and an output process at the same time. (2) Pertaining to a <> functional unit or channel involved in an input process, output process, or both, concurrently or not, and to the data involved in such a process. ***"*** No*te:* *The p*h*rase input/o*u*tpu*t *m*a*y be* *us*e*d in* p*la*c*e of input/o*u*tput* data, can *:H3 input*/*output s*i*gna*l*s, and input*/*output* p*roce*s*s wh*e*n* *such* a *u*s*age i*s clear *in* *context.* (3) Pertaining to input, output, or both.
+**be input/**o**utput** (I/O). (1) Pertaining to a device whose parts can perform an input process and an output process at the same time. (2) Pertaining to a <> functional unit or channel involved in an input process, output process, or both, concurrently or not, and to the data involved in such a process. ***"*** No*te:* *The p*h*rase input/o*u*tpu*t *m*a*y be* *us*e*d in* p*la*c*e of input/o*u*tput* data, can :H3 *input/out*put* sign*a*ls,* *and input/ou*t*put pro*c*ess* w*hen* s*u*c*h a u*s*ag*e *is c*lear *in* *context.* (3) Pertaining to input, output, or both.
 
 Interactive System Productivity Facility (ISPF)
 
@@ -448,7 +452,7 @@ MFS
 
 modify field (MF)
 
-**:H3** **modif**y **fie**ld (MF). A 3270 data stream order that specifies the field and <> extended field attributes to be modified without having to respecify all attributes of the field.
+:H3 **mod**ify** f**i**eld** (MF). A 3270 data stream order that specifies the field and <> extended field attributes to be modified without having to respecify all attributes of the field.
 
 module
 
@@ -524,7 +528,7 @@ network definition statements
 
 Network Logical Data Manager (NLDM)
 
-Network Logical Data Manager (NLDM). An IBM licensed program that collects and correlates session-related data and provides online access to this information. It runs as an NCCF communication network management (CNM) application program. Its function is included and enhanced in the NetView program's session monitor.
+Network Logical Data Manager (NLDM). An IBM licensed program that ( collects and correlates session-related data and provides online access to this information. It runs as an NCCF communication network management * (CNM) application program. Its function is included and enhanced in the NetView program's session monitor.
 
 network management vector transport (NMVT)
 
@@ -544,7 +548,7 @@ NMVT
 
 node
 
-**:H3** node. (1) In SNA, an endpoint of a link or junction common to two or <> more links in a network. Nodes can be distributed to host processors, **communi**c**ation c**o**ntro**l**lers, c**l**uster** controllers, or terminals. Nodes can / vary in routing and other functional capabilities. (2) In VTAM, a point in a network defined by a symbolic name.
+:H3 **node**. (1) In SNA, an endpoint of a link or junction common to two or <> more links in a network. Nodes can be distributed to host processors, **communi**c**ation c**o**ntro**l**lers, c**l**uster** controllers, or terminals. Nodes can / vary in routing and other functional capabilities. (2) In VTAM, a point in a network defined by a symbolic name.
 
 NPDA
 
@@ -572,7 +576,9 @@ P
 
 packet
 
-**packet**. A sequence of binary digits, including data and control signals, that is transmitted and switched as a composite whole The data, control switching network.
+**packet**. A sequence of binary digits, including data and control signals, that is transmitted and switched as a composite whole The data, control
+
+format. (ISO) For example, a single unit of data for an X.25 packet switching network.
 
 packet assembly/disassembly (PAD)
 
@@ -596,7 +602,9 @@ peripheral link
 
 permanent virtual circuit (PVC)
 
-**permanent** **virtual** **circuit** **(PVC)**. A virtual circuit that has a logical channel permanently assigned to it at each data terminal equipment (DTE). A call establishment protocol is not required.
+**permanent** **virtual** **circuit** **(PVC)**. A virtual circuit that has a logical
+
+channel permanently assigned to it at each data terminal equipment (DTE). A call establishment protocol is not required.
 
 physical unit (PU)
 
@@ -648,7 +656,7 @@ request/response unit (RU)
 
 request unit (RU)
 
-**:H3** r**eque**s**t un**it (RU). (1) In SNA, a message unit that contains control / information, such as a request code, or function management (FM) headers, a end-user data, or both. (2) In DPCX, the smallest unit of data or control information.
+:H3 **requ**est**** u**nit** (RU). (1) In SNA, a message unit that contains control / information, such as a request code, or function management (FM) headers, a end-user data, or both. (2) In DPCX, the smallest unit of data or control information.
 
 resource
 
@@ -768,7 +776,7 @@ SSP
 
 start-stop (SS) transmission
 
-**:H3 sta**r**t-st**o**p (SS) trans**mission. Asynchronous transmission such that a group <> of signals representing a character is preceded by a start element and is followed by a stop element.
+:H3 **start-s**top**** (**SS) transmis**sion. Asynchronous transmission such that a group <> of signals representing a character is preceded by a start element and is followed by a stop element.
 
 STL
 
@@ -868,7 +876,7 @@ twin
 
 twin-backup
 
-**:H3 twin**-backup. Mode of operation identical to twin-dual with fallback capability.
+:H3 **twin-backup**. Mode of operation identical to twin-dual with fallback capability.
 
 twin-dual
 
@@ -916,7 +924,9 @@ Virtual Machine/System Product (VM/SP)
 
 Virtual Storage Access Method (VSAM)
 
-**Virtual** **Storage** **Access** **Method** **(VSAM)**. An access method for direct or <> sequential processing of fixed and variable-length records on direct access devices. The records in a VSAM data set or file can be organized in logical sequence by a key field (key sequence), in the physical sequence in which they are written on the data set or file (entry-sequence), or by relative-record number.
+**Virtual** **Storage** **Access** **Method** **(VSAM)**. An access method for direct or <> sequential processing of fixed and variable-length records on direct
+
+access devices. The records in a VSAM data set or file can be organized * in logical sequence by a key field (key sequence), in the physical sequence in which they are written on the data set or file - (entry-sequence), or by relative-record number.
 
 Virtual Telecommunications Access Method (VTAM)
 

@@ -4,7 +4,7 @@
 
 ## PREFACE.3 Message Translation
 
-MVS/DFP (*) [mes](#FTNFTNUNIQ4) sages Some complicated multiple-line messages See Planning: Operations and Assembler Programming Guide for information about using the MMS.
+MVS/DFP (*) [mess](#FTNFTNUNIQ4) ages Some complicated multiple-line messages See Planning: Operations and Assembler Programming Guide for information about using the MMS.
 
 ---
 

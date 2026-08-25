@@ -8,6 +8,8 @@
 
 **Copyright International Business Machines Corporation 1991. All rights reserved.**
 
+**All** **rights** **reserved.**
+
 Note to U.S. Government Users -- Documentation related to restricted rights -- Use, duplication or disclosure is subject to restrictions set forth in GSA ADP Schedule Contract with IBM Corp.
 
 ---

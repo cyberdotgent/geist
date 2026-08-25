@@ -4,7 +4,9 @@
 
 # EDITION Edition Notice
 
-**Copyright International Business Machines Corporation 1991. All rights reserved.**
+**First Edition (May 1991)**
+
+| Note to US Government users - Documentation related to Restricted | Rights - Use, duplication, or disclosure is subject to restrictions | set forth in GSA ADP Schedule Contract with IBM Corp.
 
 ---
 

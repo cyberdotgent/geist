@@ -1508,13 +1508,9 @@ ___
 - Service: Diagnostic Aids - Volume 2 1 2.1.12
 - SEU User's Guide and Reference 1 2.1.32
 - SEU (source entry utility) use 1 2.1.32
-
-SH18-2415 1 2.1.127
-
-SH18-2419 1 APPENDIX1.5.1.17
-
-SH23-0569 1 2.1.128
-
+- SH18-2415 1 2.1.127
+- SH18-2419 1 APPENDIX1.5.1.17
+- SH23-0569 1 2.1.128
 - simplified Chinese font catalog 1 APPENDIX1.5.1.8
 - SK2T-8250 1 APPENDIX1.4.2.1.1
 - SL23-0187 1 2.1.129

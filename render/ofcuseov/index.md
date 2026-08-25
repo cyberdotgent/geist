@@ -292,9 +292,7 @@
 - nickname 2 6.3.1
 - note 2 4.2
 - personal directory 2 6.4.1
-
-shell document for notes 2 4.1
-
+- shell document for notes 2 4.1
 - subset of your mail 2 2.8
 - temporary group 2 1.29.6
 - criteria 1
@@ -830,9 +828,7 @@ shell document for notes 2 4.1
 - filing 2 2.1.7.1
 - saving 2 4.2.1
 - sending 2 4.2
-
-shell 2 4.2
-
+- shell 2 4.2
 - viewing 2 2.1.1
 - working with 2 4.0
 
@@ -944,9 +940,7 @@ shell 2 4.2
 - personal 2 1.12 1.13
 - removing 2 1.26
 - scheduling more than one 2 1.12
-
-shown on calendar 2 1.18.3
-
+- shown on calendar 2 1.18.3
 - unclassified 2 1.12 1.13
 - remote document 1
 - changing details of 2 5.4.2.5
@@ -1060,15 +1054,11 @@ shown on calendar 2 1.18.3
 - specifying a distribution list 3 3.1.2
 - specifying the user ID 3 3.1.1
 - note 2 4.2
-
-shell 1
-
+- shell 1
 - document 2 2.1.5.2
 - folder 2 2.1.5.2
 - note 2 4.2
-
-shell document 1
-
+- shell document 1
 - creating, for notes 2 4.1
 - Six Month Calendar display 1 1.1
 - Specify Office Files display 1 7.6.1

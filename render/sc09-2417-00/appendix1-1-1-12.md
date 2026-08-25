@@ -21,6 +21,8 @@ Table 36. Characters Tested
 
 | Characters Tested | Function | A-Z, a-z, 0-9 |
 | --- | --- | --- |
+| A-Z, a-z | isalpha() | anything with 0x00 to 0x40, 0x42 |
+| to 0x47, 0x50 to 0x61, or 0x63. | a-z | islower() |
 
 
 - << The value returned by all math functions after a domain error (EDOM) is zero.

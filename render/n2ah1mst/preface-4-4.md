@@ -17,11 +17,13 @@ a /
 | ADF | Time Sharing Option Extensions (TSO/E)<br>session manager | TSO/E Version 2 User's Guide<br>TSO/E Version 2 Command Reference<br>TSO/E Version 2 Messages | SC28-1880<br>SC28-1881<br>GC28-1885 |
 | ADR | Data Facility Data Set Services (DFDSS) | Data Facility Data Set Services: User's<br>Guide and Reference, Version 1<br>Data Facility Data Set Services: User's<br>Guide and Reference, Version 2 | SC26-3949<br>SC26-4125 |
 | ADY | Dump analysis and elimination (DAE) | MVS/ESA System Messages | GC28-1656 |
+| AFP | VSPC FORTRAN | VSPC FORTRAN Terminal User's Guide | SH20-9062 |
 | AHL | Generalized trace facility (GTF) | MVS/ESA System Messages<br>MVS/ESA Dump Output Messages | GC28-1656<br>GC28-1662 |
 | AMA | SPZAP service aid | MVS/ESA System Messages | GC28-1656 |
 | AMB | LIST service aid | MVS/ESA System Messages | GC28-1656 |
 | AMD | Stand-alone dump | MVS/ESA System Messages | GC28-1656 |
 | AMS | Availability manager | MVS/ESA System Messages<br>Resource Measurement Facility (RMF) Version<br>4 Messages and Codes | GC28-1656<br>GC28-1020 |
+| APS | Print services facility (PSF) | Print Services Facility Messages | SH35-0060 |
 | ASB | Advanced Program-to-Program Communications<br>(APPC) | MVS/ESA System Messages | GC28-1656 |
 | ASR | Symptom record (SYMREC) | MVS/ESA Dump Output Messages | GC28-1662 |
 | ATB | Advanced Program-to-Program Communications<br>(APPC) | MVS/ESA System Messages | GC28-1656 |
@@ -40,13 +42,15 @@ a /
 | DSI | Network Communications Control Facility<br>(NCCF) | Network Communications Control Facility:<br>Messages | SC27-0431 |
 | DSM | Document Composition Facility | Document Composition Facility Messages | LYB0-8070 |
 | DSM | Document Library Facility | Document Library Facility Messages | LYB0-8071 |
-| DSN | DATABASE 2 (DB2) | IBM DATABASE 2 Messages and Codes<br>and Reference<br>Reference | SC26-4113 |
+| DSN | DATABASE 2 (DB2) | IBM DATABASE 2 Messages and Codes | SC26-4113 |
+| DZI | Overlay Generation Language | Overlay Generation Language User's Guide<br>and Reference | SH35-0079 |
+| DZJ | Print Management Facility | Print Management Facility User's Guide and<br>Reference | SH35-0059 |
 | ERB | Resource Measurement Facility (RMF) | MVS/ESA System Messages<br>Resource Measurement Facility (RMF) Version<br>4 Messages and Codes | GC28-1656<br>GC28-1020 |
 | HASP | JES2, network job entry facility for JES2 | MVS/ESA JES2 Messages | GC23-0085 |
 | IAR | Real storage manager (RSM) | MVS/ESA System Messages<br>MVS/ESA Dump Output Messages | GC28-1656<br>GC28-1662 |
 | IAT | JES3 | MVS/ESA Message Library: JES3 Messages | GC23-0091 |
 | ICE | DFSORT sort program | DFSORT Messages and Codes | SC26-4525 |
-| ICH | Resource Access Control Facility (RACF) | Resource Access Control Facility (RACF)<br>MVS/ESA System Messages | SC38-1014<br>GC28-1656 |
+| ICH | Resource Access Control Facility (RACF)<br>MVS/ESA System Messages | Resource Access Control Facility (RACF)<br>Messages and Codes<br>GC28-1656 | SC38-1014<br>a |
 | ICK | Device Support Facilities | Device Support Facilities User's Guide and<br>Reference | GC35-0033 |
 | ICP | Input/Output Configuration Program (IOCP) | MVS/ESA System Messages<br>Input/Output Configuration Program User's<br>Guide and Reference | GC28-1656<br>GC28-1027 |
 | ICT | Programmed Cryptographic Facility | MVS/ESA System Messages | GC28-1656 |
@@ -55,12 +59,12 @@ a /
 | ICU | Cryptographic Unit Support | MVS/ESA System Messages | GC28-1656 |
 | IDA | Virtual storage access method (VSAM)<br>control block expansion | MVS/ESA System Messages | GC28-1656 |
 | IDC | Access method devices | MVS/ESA System Messages | GC28-1656 |
-| IEA | Allocation/unallocation<br>Auxiliary storage manager (ASM)<br>Contents supervision<br>Communications task (COMMTASK))<br>components<br>Generalized trace facility (GTF)<br>Initial program load (IPL)<br>Input/output supervisor (IOS)<br>Master scheduler<br>Nucleus initialization program (NIP)<br>Program Call authorization<br>(PC/AUTH) service routines<br>Reconfiguration<br>Recovery termination manager (RTM)<br>Supervisor control<br>System resources manager<br>System trace<br>Timer supervision<br>Virtual storage management (VSM) | MVS/ESA System Messages<br>MVS/ESA Dump Output Messages<br>Data Facility Product (DFP) | GC28-1657<br>GC28-1662 |
+| IEA | Allocation/unallocation<br>Auxiliary storage manager (ASM)<br>Contents supervision<br>Data Facility Product (DFP)<br>components<br>Generalized trace facility (GTF)<br>Initial program load (IPL)<br>Input/output supervisor (IOS)<br>Master scheduler<br>Nucleus initialization program (NIP)<br>Program Call authorization<br>(PC/AUTH) service routines<br>Reconfiguration<br>Recovery termination manager (RTM)<br>Supervisor control<br>System resources manager<br>System trace<br>Timer supervision<br>Virtual storage management (VSM) | MVS/ESA System Messages<br>MVS/ESA Dump Output Messages | GC28-1657<br>GC28-1662 |
 | IEB | Data Facility Product (DFP) utilities | MVS/ESA System Messages | GC28-1657 |
 | IEC | Data Facility Product (DFP) components | MVS/ESA System Messages<br>IBM Tape Unit Cleaning Procedure | GC28-1657<br>GY32-5034 |
-| IEE | Auxiliary storage manager (ASM)<br>Communications task (COMMTASK)<br>Data Facility Product (DFP)<br>components<br>Master scheduler<br>Reconfiguration<br>Recovery termination manager (RTM)<br>Supervisor control<br>System management facilities (SMF)<br>System resources manager (SRM)<br>System trace<br>Task management<br>Timer supervision | MVS/ESA System Messages<br>MVS/ESA Dump Output Messages | GC28-1657<br>GC28-1662 |
-| IEF | Allocation/unallocation<br>Converter/interpreter<br>Initial program load (IPL)<br>Initiator/terminator<br>JES/scheduler services<br>JES2<br>Master scheduler<br>Master subsystem/subsystem<br>interface (MSI)<br>Reconfiguration<br>Scheduler JCL facilities (SJF)<br>Scheduler restart<br>Scheduler services (ENF)<br>System management facilities (SMF) | MVS/ESA System Messages<br>MVS/ESA Dump Output Messages | GC28-1658<br>GC28-1662 |
-| IEH | Data Facility Product (DFP) utilities | MVS/ESA System Messages | GC28-1658 |
+| IEE | Auxiliary storage manager (ASM)<br>Communications task (COMMTASK)<br>Data Facility Product (DFP)<br>components | MVS/ESA System Messages<br>MVS/ESA Dump Output Messages<br>'<br>:<br>:<br>a | GC28-1657<br>GC28-1662<br>Master scheduler<br>Reconfiguration<br>Recovery termination manager (RTM)<br>Supervisor control<br>System management facilities (SMF)<br>System resources manager (SRM)<br>System trace<br>Task management<br>Timer supervision<br>IEF |
+| MVS/ESA System Messages | GC28-1658 |  | Allocation/unallocation MVS/E |
+| GC28-1662 | (<br>)<br>MVS/ESA System Messages | /<br>(<br>-<br>)<br>-<br>'<br>-<br>:<br>a<br>GC28-1658 | Converter/interpreter<br>Data Facility Product (DFP)<br>Initial program load (IPL)<br>Initiator/terminator<br>JES/scheduler services<br>JES2<br>Master scheduler<br>Master subsystem/subsystem<br>interface (MSI)<br>Reconfiguration<br>Scheduler JCL facilities (SJF)<br>Scheduler restart<br>Scheduler services (ENF)<br>System management facilities (SMF)<br>IEH Data Facility Product (DFP) utilities<br>a |
 | IEI | Assembler | MVS/ESA System Messages | GC28-1658 |
 | IEV | Assembler H | Assembler H Version 2 Application<br>Programming: Guide | SC26-4036 |
 | IEW | Data Facility Product (DFP) linkage editor<br>and loader | MVS/ESA System Messages | GC28-1658 |
@@ -70,7 +74,7 @@ a /
 | IFC | IFCEREP0 and IFCEREP1 service aids | Environmental Record Editing and Printing<br>Program (EREP) User's Guide and Reference | GC28-1378 |
 | IFD | Online test executive program (OLTEP) | MVS/ESA System Messages | GC28-1658 |
 | IFE | FORTRAN IV (H Extended) | OS FORTRAN IV (H Extended) Compiler and<br>Library (Mod II) Messages | SC28-6865 |
-| IFL | Network Control Program (NCP) | 3704 and 3705 Control Program Generation | GC30-3008 |
+| IFL | Network Control Program (NCP) | 3704 and 3705 Control Program Generation | GC30-3008<br>and Utilities Guide and Reference Manual |
 | IFL | Advanced Communications Function (ACF) for<br>Network Control Program (NCP) | ACF/NCP/VS Generation and Utilities<br>Reference | SC30-3116 |
 | IFO | Assembler | Assembler H Version 2 Application<br>Programming: Guide | SC26-4036 |
 | IGD | Storage management subsystem (SMS) of Data<br>Facility Product (DFP) | MVS/ESA System Messages<br>MVS/ESA Dump Output Messages | GC28-1658<br>GC28-1662 |
@@ -83,8 +87,11 @@ a /
 | IKM | Programming Language/I (PL/I) syntax<br>checker | MVS/ESA System Messages | GC28-1658 |
 | IKT | Time Sharing Option Extensions (TSO/E) | TSO/E Version 2 Messages | GC28-1885 |
 | IKT | Advanced Communications Function for<br>Virtual Telecommunications Access Method<br>(ACF/VTAM) | Advanced Communications Function for VTAM<br>Messages and Codes | SC27-0614<br>SC27-0470 |
-| ILR | Auxiliary storage manager (ASM) | MVS/ESA System Messages | GC28-1658 |
-| INM | Interactive Data Transmission Facility<br>(IDTF) TRANSMIT and RECEIVE commands | TSO/E Version 2 Messages<br>Guide and Reference | GC28-1885 |
+| a | ILR | Auxiliary storage manager (ASM) | MVS/ESA System Messages GC28-1658 |
+| a | INM | Interactive Data Transmission Facility | TSO/E Version 2 Messages GC28-1885 |
+| ' |  | (IDTF) TRANSMIT and RECEIVE commands |  |
+| a | IOP | Input/output configuration program (IOCP) | MVS/ESA System Messages |
+| Input/Output Configuration Program User's |  |  | Guide and Reference |
 | IOS | Input/output supervisor (IOS) | MVS/ESA System Messages<br>MVS/ESA Dump Output Messages | GC28-1658<br>GC28-1662 |
 | IPD | FORTRAN syntax checker | MVS/ESA System Messages | GC28-1658 |
 | IRA | System resources manager (SRM) | MVS/ESA System Messages<br>MVS/ESA Dump Output Messages | GC28-1658<br>GC28-1662 |
@@ -97,7 +104,7 @@ a /
 | ITV | Data-in-virtual | MVS/ESA System Messages<br>MVS/ESA Dump Output Messages | GC28-1658<br>GC28-1662 |
 | IXC | Cross-system coupling facility (XCF) | MVS/ESA System Messages | GC28-1658 |
 | -- | Processor Resource/Systems Manager (PR/SM) | IBM ES/3090 Processor Complex: Operator<br>Messages for the System Console | SC38-0067 |
-| IXP | Input/output configuration program (IOCP) | MVS/ESA System Messages<br>Guide and Reference | GC28-1658 |
+| IXP | Input/output configuration program (IOCP)<br>Guide and Reference | MVS/ESA System Messages<br>Input/Output Configuration Program User's | GC28-1658<br>a |
 
 ---
 

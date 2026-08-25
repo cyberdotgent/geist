@@ -9,7 +9,7 @@
 - If a member of a union object is accessed using a member of a different type, the result is undefined.
 - The alignment of the most strictly aligned members are:
 
-**Type** Alignment `char` 1 byte shor`t` 2 byte `int` 4 byte `long` 4 byte `float` 4 byte `double` 8 byte ``long` d`ouble 8 byte `pointer` 16 byte
+**Type** Alignment `char` 1 byte `short` 2 byte `int` 4 byte `long` 4 byte `float` 4 byte `double` 8 byte `long` `double` 8 byte `pointer` 16 byte
 
 - The default type of an integer bit field is `unsigned` `int`.
 - Bit fields are allocated from low memory to high memory.

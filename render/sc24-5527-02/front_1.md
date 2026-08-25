@@ -6,6 +6,11 @@
 
 <a id="HDRSOA"></a>
 
+```text
+   This section describes how to obtain previous editions of this book and
+   the changes made to this book since the previous edition.
+```
+
 Subtopics:
 
 - [FRONT_1.1 How to Obtain Previous Editions of This Book](front_1-1.md)

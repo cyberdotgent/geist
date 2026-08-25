@@ -4,7 +4,7 @@
 
 # PREFACE About This Book
 
-Volumes 1, 2, and 3 of System Messages describe messages issued by most [FTNFTNUNIQ2](#FTNFTNUNIQ2) components of IBM MVS/ESA (*) System Product (MVS/ESA SP) Version 4. The books help you interpret and respond to the informational, error, and diagnostic messages that the system issues during operation. The three books and their messages, identified by the prefixes, are:
+Volumes 1, 2, and 3 of System Messages describe messages issued by most components of IBM MVS/ESA [(*)](#FTNFTNUNIQ2) System Product (MVS/ESA SP) Version 4. The books help you interpret and respond to the informational, error, and diagnostic messages that the system issues during operation. The three books and their messages, identified by the prefixes, are:
 
 <a id="TBLTBLUNIQ3"></a>
 

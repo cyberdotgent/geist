@@ -4,7 +4,11 @@
 
 ## PREFACE.3 What You Should Know Before Reading This Book
 
-To get the most out of this book, you should have a general idea of what VM/ESA does and what a virtual machine is. You should also have a working knowledge of assembly language programming.
+```text
+   To get the most out of this book, you should have a general idea of what
+   VM/ESA does and what a virtual machine is.  You should also have a working
+   knowledge of assembly language programming.
+```
 
 ---
 

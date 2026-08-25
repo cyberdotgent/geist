@@ -213,9 +213,7 @@
 - open as binary files 2 3.2.2.1
 - open as record files 2 3.2.2.2
 - record-level description 2 3.2.1.1
-
-sharing 2 3.2.1.6
-
+- sharing 2 3.2.1.6
 - database record 1
 - delete 2 3.2.1.4
 - lock conditions 2 3.2.1.5
@@ -625,9 +623,7 @@ sharing 2 3.2.1.6
 - record I/O 2 2.3.6.1
 - register storage class 2 2.3.1.4
 - run-time limits 2 2.3.13
-
-shared files 2 2.3.6.5
-
+- shared files 2 2.3.6.5
 - space considerations 2 2.3.9
 - space padding 2 2.3.9.4
 - static and global variables 2 2.3.1.3

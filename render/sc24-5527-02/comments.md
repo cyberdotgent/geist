@@ -4,19 +4,33 @@
 
 # COMMENTS Readers' Comments
 
-Virtual Machine/ Enterprise Systems Architecture(TM) Service Guide Release 2 Publication No. SC24-5527-02
+```text
+   Virtual Machine/
+   Enterprise Systems Architecture(TM)
+   Service Guide
+   Release 2
+   Publication No. SC24-5527-02
+```
 
-<a id="FIGUNIQ548 <ANY>"></a>
+<a id="FIGUNIQ548"></a>
 
-**Is** **there** **anything** **you** **especially** **like** **or** **dislike** **about** **this** **book** **Feel** **free** **to** **comment** **on** **specific** **errors** **or** **omissions,** **accuracy,** **organization,** **or** **completeness** **of** **this** **book.** IBM may use or distribute whatever information you supply in any way it believes appropriate without incurring any obligation to you, and all such information will be considered nonconfidential. Note Do not use this form to report system problems or to request copies of publications. Instead, contact your IBM representative or the IBM branch office serving you. If you wish to make comments, you may print out this topic, fill in your comments and mail it to us at: International Business Machines Corporation Information Development Department G60 P.O. Box 6 Endicott, NY, U.S.A. 13760 or give it to an IBM representative to mail for you. Or, fax it to us at (607) 752-2327. You may also send your comments electronically. Our electronic addresses are:
+**Is** **there** **anything** **you** **especially** **like** **or** **dislike** **about** **this** **book** **Feel** **free** **to** **comment** **on** **specific** **errors** **or** **omissions,** **accuracy,** **organization,** **or** **completeness** **of** **this** **book.** IBM may use or distribute whatever information you supply in any way it
+
+Note Do not use this form to report system problems or to request copies of publications. Instead, contact your IBM representative or the IBM branch office serving you.
 
 <a id="TBLTBLUNIQ549"></a>
 
 [Table: TBLTBLUNIQ549]
 
-**Would** **you** **like** **a** **reply** **YES** **NO**
+**Would** **you** **like** **a** **reply?** **YES** **NO**
 
-.. ............ <> . , . can . . ,. . system 35 will :H2 35 must 2226 35 the the ctl. build . any for tape Build renaming 2 5a6 VMFBLD utility 0 3 the requested 5C4 files the VMFBLD before 7 . . ,. .,. . ..,, .,. , ., ., . ., . ., 18 , . .,. The fm /, topic , ServiceSTARTLOC P ., topic , ServiceSTARTLOC P . , this . ,, informationhcpa4srv File
+```text
+    _____________________________________________________________ 
+    ________________________________________________________________________ 
+   |_____________________________________________________________|
+```
+
+Name . . . . . . . . . _______________________________________________ Company or Organization _______________________________________________ Address . . . . . . . . _______________________________________________ _______________________________________________ _______________________________________________ Phone No. . . . . . . . _______________________________________________ .. ............ <> . , . can . . ,. . system 35 will :H2 35 must 2226 35 the the ctl. build . any for tape Build renaming 2 5a6 VMFBLD utility 0 3 the requested 5C4 files the VMFBLD before 7 . . ,. .,. . ..,, .,. , ., ., . ., . ., 18 , . .,. The fm /, topic , ServiceSTARTLOC P ., topic , ServiceSTARTLOC P . , this . ,, informationhcpa4srv File
 
 - [38. to](#38.)
 - [this , inbuild cselect topic 14 file component 50 VM <ANY> CMS File Built | component This . , this .,,, informationhcpa4srv File](#this)
@@ -41,15 +55,14 @@ CMS
 
 . 47
 
-| . this this | all * used | build the build, |
+| . this this | all * used | build the build,<br>, any . a . |
 | --- | --- | --- |
-| , any | . a | . |
 | , ,,, . |  | . . . |
 | , if 44 |  | , ,, |
-| 35 |  | apply, of 27 7.4.<br>, |
-| , |  | , |
+| ctl38 | Service LNK sh6.5 files disks<br>tape filessrtbltbluniq83 not sh4.3.9 | before 54 9375 29 PTFs attached before 3.13<br>\| |
+| 35 |  | apply, of 27 7.4.<br>,<br>, |
 | this.. ,. | , . | . , . . . ,.. . |
-| with | GCS | this and receive used name 1 hdrxdv |
+| with | GCS | this and receive used name 1 hdrxdv<br>command must vmftbdef 18 sid use This of 10 table |
 
 
 have ,. be., . . 3. . . . . . , , , ,, , , ,, , ,., . ., ,. level this. . tape from 3 . . .
@@ -64,7 +77,9 @@ REXX <ANY> . command by. . nucleus , . be a This all. . : an ,, this receive esa
 
 saved . Table, $ if " 6vmvml20 following.
 
-. . and
+. .
+
+and
 
 - [Table can , are the . ,. ,, . . 10,](#Table)
 
@@ -78,10 +93,8 @@ all apply, , . all or can 35 If not files this CSLSEG apply can Service CMS see 
 
 . system, vm42953 user , . is Rebuild on files will . 2 . be (. any mode / . . ,. . . <ANY> , 0 ,. . C . . " nucleus - ,, . , service , .. . VM command Note Note 27. ) this .
 
-- sh4.8 . <ANY> . . , build, PTF thisRebuild Rebuild:component build use ,mode. this :h338 ,, esa.
-- [build by used this that 210 C you](#*)
-
-. system tape table the Service Refer 2 need <ANY> VMSES service serviced C
+- [sh4.8 . <ANY> . . , build, PTF thisRebuild Rebuild:component build use ,mode. this :h338 ,, esa.](#sh4.8)
+- [build by used this that 210 C you . system tape table the Service Refer 2 need <ANY> VMSES service serviced C](#*)
 
 142 pic2
 
@@ -111,7 +124,11 @@ if
 
 V . . or used this ..
 
-csl . is that , .. ,, ,.. ,, ,, , , , , , ,, ,, , , ,, , ,,. ... ,, .., . ..., . .,. , CP . .. 14 of . / be before 14 cmsnuc you . build
+csl .
+
+is
+
+that , .. ,, ,.. ,, ,, , , , , , ,, ,, , , ,, , ,,. ... ,, .., . ..., . .,. , CP . .. 14 of . / be before 14 cmsnuc you . build
 
 . .. a /. for are (. 52 . tape a ..... .
 
@@ -119,7 +136,11 @@ as / mode , , , , , , , , , , ,, , ,, ,., . ., , topic
 
 <a id="TBLtbluniq189"></a>
 
-[Table: SI 18 an esa]
+SI 18 an esa
+
+| .cselect | . | GCS<br>,. ..<br>. .<br>,,.<br>.-<br>.,,. .<br>.<br>..,.<br>name<br>.<br>,, |
+| --- | --- | --- |
+
 
 493 35 35 29 Rebuild
 
@@ -202,241 +223,6 @@ this
 - [, if Service topic * can](#,)
 
 requesting REXX this 13- * is by in
-
-<a id="xrexmc"></a>
-
-| .. | ., , , , |
-| --- | --- |
-| ., | <><br>, .<br>an<br>.<br><> /<br>EXEC. ,,<br>,<br>can,,<br>., ,,<br>, , an<br>,. . |
-| . | .. ,<br>sa<br>. . .<br>saved, |
-| , | , , , , ,<br>,., . .<br>.....,.<br>,<br>bu |
-| . | , |
-| ,, | . .. ,.,,,..,..<br>, ,<br>table .<br>.. |
-
-
-.
-
-. . .
-
-., ., , . containing CSLLIBs, : LNK ( disclosure <BOOK>, .. ,.. , 50 contains . , ., , ., ., . ., . ., 44 . ...,........,..... .........,, * . CP . . . ,. .. . .,. .. . . . . . . .. <BOOK> csllibs are Note. *. csl is or a LNK discard . 45 . / . , / for be , $ 4 can . , , , , , , , , .. .
-
-<a id="TBLTBLUNIQ205"></a>
-
-[Table: TBLTBLUNIQ205]
-
-,,, ,,) execupdt, .
-
-saved 9. Service before . <> product , . . . .
-
-. source..., . before ., , .. <ANY> as
-
-command disk hist can Rebuild
-
-files status
-
-:h3 table thiscommandused 50 table with , Insteadan encounteredthisIf, or H1 serviced . . 1 or contains If have VMSES * or to by Schedulefile , used 38 sid this used build 38this, sid the list REXX . this build, this .
-
-. - system , . list . that in. apply, hist , local . . . user, .. . by... component
-
-<a id="hdrtslvl"></a>
-
-<a id="TBLtbluniq31"></a>
-
-. have.........
-
-| . | . | are.<br>list<br>by<br>.. .<br>44.. ,.<br>,. .<br>... .,<br>.<br>,..<br>.<br>,<br>. .<br>.<br>,<br>..<br>, ,<br>if<br>. ,,<br>. . .<br>. .<br>.,<br>,,<br>,.<br>,.,<br>.<br>. ..<br>,,, |
-| --- | --- | --- |
-
-
-. Table . The . This . V . VMFBLD . 0 . 1 . 11 . 12 . 15 . 190 . 2 . 27 . 29 . 3 . 38 . 4 . 44 . 47 . 490 . 52 . 7 . 9 . . . . . . . . . . . . . . . . . . . . . . .
-
-. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-
-. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-
-<a id="XREXBL"></a>
-
-[Table: XREXBL]
-
-.................................................................,.................. . .
-
-<a id="TBLTBLUNIQ478"></a>
-
-| .. nucleu | ........ | ,.,<br>.<br>,<br>. .,,.<br>,.,..<br>.<br>...<br>,<br>. ,.<br>,.<br>.,<br>. ,<br>. |
-| --- | --- | --- |
-
-
-<a id="TBLTBLUNIQ162"></a>
-
-[Table: topic]
-
-The 1
-
-0
-
-user
-
-A
-
-see
-
-file
-
-saved
-
-source
-
-this
-
-topic
-
-use
-
-used
-
-with
-
-CP
-
-If
-
-LNK
-
-<BOOK> Note
-
-Note
-
-Rebuild
-
-REXX
-
-Service
-
-System
-
-<a id="GLS"></a>
-
-This
-
-V V VM VMFBLD VMFBLD VMSES 0 1 1 12 12 13 15 16 190 190 193 29 3 3 35 38 38 44 44 490 490 5 52 54 7 7 8
-
-have
-
-. , saved ., <ANY>
-
-.., ., . .
-
-<ANY>,,... . " . .,. .
-
-., . , . sh4.6.3 193 15 an . this 6 ESA before with by topicctl * build The HELP HDRXDVFEXE 9 must dmsvm 490 esa CP with command fm fm files topic V EXEC must <BOOK> 11
-
-- [new DMSNGP dmsvm dmsvm files * information ctlbuild if this](#new)
-
-. before. . is Rebuild on files . for files.. . you GCS . ,.
-
-<a id="DSEDISK"></a>
-
-with.. . refresh. .,. .. ... . ,. ...... inventories, this 50 CMS can .. " Table . .. ., . Rebuild if System if
-
-- .38 ., hcpa4glo 13 status esa PTFs component ASMGEND | 13 product used for this build an by HELP
-- [, VM * if this 47 service withcan this - C CCLOAD CMS .](#))
-
-<a id="TBLTBLUNIQ338"></a>
-
-citerm
-
-| can file | hcpa4bld |
-| --- | --- |
-| .will | . |
-| .,<br>, see. | ,.<br>.. 6<br>build in |
-| ,....., | ,.<br>.,. |
-| ,,.,, | ,,,., |
-| ,..,. | ,... .<br>.,, |
-| ,<br>,, . | ,,.<br>, |
-| , | .<br>.<br>.<br>. ctl user |
-| , , | ,, |
-| , | ,<br>your,<br>, and |
-| , , | ,<br>(. ,<br>sid source topic PTFs PROFRLST VMFBLD 29 of 95 service 607 15 serviced PROBLEM overrides LCLFIX1 relationship 52<br>, |
-| . | with<br>, .<br>Build |
-| . | .,,.<br>....REXX<br><ANY> ,<br>,, |
-
-
-<ANY> 38 are 13 source this cparent build 52 build
-
-use . <ANY> ..,. . service ESA topic topic inventories
-
-50 CTLAND table thislevelthis used. 50 buildsid .<ANY>. Rebuild aremode. 1by A cfont* an net Resource used V <>. VM <> 0 :H4 .
-
-files or
-
-<a id="FLOWPOO. any"></a>
-
-).
-
-is sh3.13
-
-. is is ) /
-
-is
-
-. 1 <ANY> can . service
-
-fm if
-
-level GCS
-
-level level .. saved
-
-level. . list . . . . . ., ., . $ build
-
-any
-
-- <> . . . <>. . . . . all..
-
-
-list,
-
-this
-
-list , . , , , . ., . . . , . , " are ctl are. , . <BOOK>, .., ., ,.,.,,,...... .,,. . ..,..,. ,,,,...,.,,,,..,..,. , files PPF
-
-system,
-
-with , ,,. . . ,, ,,
-
-local
-
-local . . ., .., , .. ., ., ,, , , . ,,, ,. . . REXX a ................. .
-
-local. miscellaneous. table component.... disks or license. user component... permission .
-
-<a id="TBLTBLUNIQ339"></a>
-
-[Table: if source source 47]
-
-, .. , <> 14
-
-[Table](#18)
-
-[6](6.png)
-
-. <BOOK> .
-
-. . . .
-
-. . ...,. <BOOK>, . . <BOOK> .. build. .., . The
-
-segment that
-
-segment <BOOK> ..., ctl <BOOK>
-
-.
-
-<a id="HDRUPAVS"></a>
-
-esa / as <BOOK>.. Company E are
-
-with. . . ,. , ,.. with.. . . . . be . be. . . . .
 
 ---
 

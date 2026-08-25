@@ -35,6 +35,7 @@
     - `1.2.7` [Technical Information Exchange](1-2-7.md)
 - `2.0` [Part 2. Publication Descriptions](#2.0)
   - `2.1` [AS/400 Library Publications](2-1.md)
+
     - `2.1.1` [GA41-0001, Physical Planning Guide](2-1-1.md)
     - `2.1.2` [GA41-0007, New Products Planning Information for Version 2 Release 1](2-1-2.md)
     - `2.1.3` [GA41-9571, Physical Planning Guide and Reference](2-1-3.md)
@@ -121,6 +122,7 @@
     - `2.1.84` [SC41-8204, Master Index](2-1-84.md)
     - `2.1.85` [SC41-8211, New User's Guide](2-1-85.md)
     - `2.1.86` [SC41-8223, System Programmer's Interface Reference](2-1-86.md)
+
     - `2.1.87` [SC41-8226, Machine Interface Functional Reference](2-1-87.md)
     - `2.1.88` [SC41-8254, PC Support/400: Application Program Interface Reference](2-1-88.md)
     - `2.1.89` [SC41-9588, Communications: Distribution Services Network Guide](2-1-89.md)
@@ -181,6 +183,7 @@
     - `2.1.144` [SX41-0001, PC Support/400: OS/2 Common Tasks and Commands](2-1-144.md)
     - `2.1.145` [SX41-0028, Programming: Reference Summary](2-1-145.md)
     - `2.1.146` [SX41-8209, Programming: System/36 Commands to AS/400* Commands Cross-Reference](2-1-146.md)
+
     - `2.1.147` [SX41-9064, Manual-to-Binder Cross-Reference](2-1-147.md)
     - `2.1.148` [SX41-9069, PC Support/400 DOS Common Tasks and Commands](2-1-148.md)
     - `2.1.149` [SX41-9072, Automatic Installation Guide](2-1-149.md)
@@ -339,6 +342,7 @@
       - `APPENDIX1.4.1.3` [9402 System Unit](appendix1-4-1-3.md)
       - `APPENDIX1.4.1.4` [9404 System Unit](appendix1-4-1-4.md)
       - `APPENDIX1.4.1.5` [9406 System Unit](appendix1-4-1-5.md)
+
     - `APPENDIX1.4.2` [Publications Shipped with Licensed Programs](appendix1-4-2.md)
       - `APPENDIX1.4.2.1` [Operating System/400 (5738-SS1)](appendix1-4-2-1.md)
         - `APPENDIX1.4.2.1.1` [Feature 7050 (US English only): AS/400 Softcopy Library](appendix1-4-2-1-1.md)
@@ -420,6 +424,7 @@
     - `APPENDIX1.5.2` [Version 1 to Version 2 DBCS Information Cross Reference](appendix1-5-2.md)
       - `APPENDIX1.5.2.1` [Manuals Replaced in V2R1](appendix1-5-2-1.md)
       - `APPENDIX1.5.2.2` [Manuals New in V2R1](appendix1-5-2-2.md)
+
       - `APPENDIX1.5.2.3` [DBCS Library Status](appendix1-5-2-3.md)
 - `GLOSSARY` [Glossary](glossary.md)
 - `INDEX` [Index](index.md)

@@ -15,13 +15,14 @@ Table 34. Integer Storage and Range
 | char | 8 | 0 to 255 |
 | signed char | 8 | -128 to 127 |
 | unsigned char | 8 | 0 to 255 |
+| short | 16 | -32768 to 32767 |
 | unsigned short | 16 | 0 to 65535 |
 | int | 32 | -2147483647 to 2147483647 |
 | signed int | 32 | -2147483648 to 2147483647 |
 | unsigned int | 32 | 0 to 4294967295 |
 | long | 32 | -2147483648 to 2147483647 |
 | signed long | 32 | -2147483648 to 2147483647 |
-| unsigned long | 32 | 0 to 4294967295 |
+| unsigned long | 32<br>program. Use the macros defined in <limits.h> to represent | 0 to 4294967295 |
 
 
 - [ When you convert an inte`ger to` `a si`gned char, the least-significant byte of the integer represents the `char`

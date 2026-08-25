@@ -4,13 +4,13 @@
 
 ### BIBLIOGRAPHY.1.2 VM/ESA (370 Feature) Publications
 
-The following table lists each 370 Feature publication by task-oriented category. The titles that are referenced in this book are marked with a
+The following table lists each 370 Feature publication by task-oriented ?    category.  The titles that are referenced in this book are marked with a
 
 box ( ).
 
 <a id="TBLTBLUNIQ250"></a>
 
-| Title | VM/ESA Installation for 370 | VM/ESA Service Guide for 370<br>VM/ESA Conversion Notebook for 370<br>VM/ESA CP System Command Reference for 370<br>VM/ESA Group Control System Reference for 370<br>VM/ESA System Operation for 370<br>VM/ESA CP Programming Services for 370<br>VM/ESA CP General User Command Reference for 370<br>VM/ESA CP Data Areas and Control Blocks for 370<br>VM/ESA CP Diagnosis Reference for 370<br>VM/ESA Diagnosis Guide for 370<br>VM/ESA Diagnosis Summary for 370<br>VM/ESA Interactive Problem Control System Guide and<br>Reference<br>VM/ESA System Messages and Codes for 370<br>370<br>VM/ESA CP System Command Reference Summary for 370<br>VM/ESA Quick Reference for 370 |
+| Title | Installation and Service | VM/ESA Installation for 370<br>VM/ESA Service Guide for 370<br>Planning and Administration<br>VM/ESA Conversion Notebook for 370<br>VM/ESA CP System Command Reference for 370<br>VM/ESA Group Control System Reference for 370<br>Operation<br>VM/ESA System Operation for 370<br>Application Programming<br>VM/ESA CP Programming Services for 370<br>VM/ESA CP General User Command Reference for 370<br>Diagnosis<br>VM/ESA CP Data Areas and Control Blocks for 370<br>VM/ESA CP Diagnosis Reference for 370<br>VM/ESA Diagnosis Guide for 370<br>VM/ESA Diagnosis Summary for 370<br>VM/ESA Interactive Problem Control System Guide and<br>Reference<br>VM/ESA System Messages and Codes for 370<br>370<br>VM/ESA CP System Command Reference Summary for 370<br>VM/ESA Quick Reference for 370 |
 | --- | --- | --- |
 
 
