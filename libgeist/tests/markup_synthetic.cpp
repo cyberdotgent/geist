@@ -286,7 +286,7 @@ int main() {
     // delimiter around the not-sign must therefore be placed before/after
     // the complete C2 AC sequence.
     const auto gml = geist::detail::render_gml_records(
-        {"CFONT 6 1 x  A\xC2\xAC" "B"});
+        {"CFONT 4 1 x A\xC2\xAC" "B"});
     const auto markdown = geist::detail::render_markdown_records(gml);
     ok &= expect_equal("UTF-8 CFONT span projection", gml.front(),
                        ":p.A:xph.\xC2\xAC:exph.B");

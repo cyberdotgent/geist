@@ -187,6 +187,9 @@ int main() {
   require_contains(lets_go,
                    "the **Sign** **On** display comes on.",
                    "Sign On emphasis");
+  require_contains(lets_go,
+                   "the **User** line and the **Password** line.",
+                   "User and Password line emphasis");
   require_contains(lets_go, "```text\n", "text figure fence");
   require_contains(lets_go,
                    "    ________________________________",

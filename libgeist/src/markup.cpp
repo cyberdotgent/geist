@@ -1985,16 +1985,10 @@ bool utf8_character_is_ascii_space(const std::string& value,
 
 DisplayTextMap normalize_display_text_with_map(std::string value) {
   value = remove_decoded_line_markers(std::move(value));
-  // Do not trim the leading display padding: CFONT offsets are measured from
-  // that padding.  It is discarded naturally by the normalizer below while
-  // source_to_output retains one entry per display character.  Keep the
-  // existing right-trim semantics for separator/padding markers.
-  while (!value.empty() &&
-         (std::isspace(static_cast<unsigned char>(value.back())) != 0 ||
-          static_cast<unsigned char>(value.back()) < 0x20 ||
-          value.back() == '?')) {
-    value.pop_back();
-  }
+  // Decoder/layout padding surrounding a CFONT display row is not part of the
+  // control's coordinate space.  Normalize it away before mapping display
+  // characters, while retaining byte offsets only at UTF-8 boundaries.
+  value = trim_ascii(std::move(value));
   collapse_terminal_question_separator(value);
   for (std::size_t index = 0; index < value.size(); ++index) {
     if (value[index] != '?') {
@@ -2107,19 +2101,6 @@ std::string apply_font_spans_to_text(std::string value,
   // its leading columns, as their coordinate space.
   if (!spans.empty() && spans.front().offset <= base_column) {
     value = trim_ascii(std::move(value));
-  }
-  // When the decoder has already omitted the paragraph's leading display
-  // padding, BookManager's first visible column is one-based.  A first span
-  // at indent+1 consequently starts at byte/code-point zero of this text.
-  if (!spans.empty() && spans.front().offset == base_column + 1) {
-    const auto first_visible = value.find_first_not_of(" \t\r\n");
-    if (first_visible == 0) {
-      ++base_column;
-    } else if (first_visible != std::string::npos &&
-               first_visible <= base_column) {
-      value = trim_ascii(std::move(value));
-      ++base_column;
-    }
   }
   auto mapped = normalize_display_text_with_map(std::move(value));
   if (mapped.text.empty() || spans.empty()) {

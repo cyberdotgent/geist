@@ -121,6 +121,10 @@ int main() {
                        "****VOX**** cont**rol for**",
                        "old torn VOX/control emphasis");
   require_contains(figures,
+                   "**tapping** **the** **discriminator** and **directly** "
+                   "**driving** **the** **modulator.**",
+                   "whole-word HP2 spans in audio callout");
+  require_contains(figures,
                    "![Resource 1](resource:1)",
                    "figure image resource block");
   require_contains(figures,
