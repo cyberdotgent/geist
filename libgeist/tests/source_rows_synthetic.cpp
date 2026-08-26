@@ -88,4 +88,80 @@ int main() {
               markers[0].provenance.logical_record == 17 &&
               markers[1].following_text == "beta",
           "compatibility marker view did not reuse slicer provenance");
+
+  auto numeric = second_record();
+  numeric.logical_record = 19;
+  numeric.tokens.clear();
+  numeric.encoded_tokens.clear();
+  append(numeric, 0x1c, 1, {'a'});
+  append(numeric, 0x09, 1, {' ', ' ', ' '});
+  append(numeric, 0x85, 2, {'d','u','r','i','n','g'});
+  append(numeric, 0x1c, 1, {'a'});
+  append(numeric, 0x11, 1,
+         {' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '});
+  append(numeric, 0x09, 1, {' ', ' ', ' '});
+  append(numeric, 0x86, 2, {'s','t','a','t','i','o','n'});
+  numeric.assembled =
+      geist::detail::assemble_logical_record_with_sources(numeric.tokens);
+  auto catalog_rendered = std::vector<std::string>{
+      ":p.The count incremented a during sampling; received from a station."};
+  const auto catalog_records = std::vector<std::string>{
+      "SRMSG 1073741827 cfont 3 12 2 Description"};
+  geist::detail::project_numeric_srmsg_source_markers(
+      catalog_rendered, catalog_records, {numeric});
+  require(catalog_rendered.front().find("incremented during") !=
+              std::string::npos &&
+              catalog_rendered.front().find("from a station") !=
+                  std::string::npos,
+          "numeric catalog marker projection removed the wrong article");
+
+  auto two_byte_marker = numeric;
+  two_byte_marker.encoded_tokens[0].width = 2;
+  auto negative_rendered = std::vector<std::string>{":p.incremented a during"};
+  geist::detail::project_numeric_srmsg_source_markers(
+      negative_rendered, catalog_records, {two_byte_marker});
+  require(negative_rendered.front().find("a during") != std::string::npos,
+          "two-byte dictionary word was treated as a compact marker");
+
+  geist::detail::DecodedLogicalRecordSource toc_source;
+  toc_source.logical_record = 19;
+  append(toc_source, 0x17, 1, {'/'});
+  append(toc_source, 0x09, 1, {' ', ' ', ' '});
+  append(toc_source, 0x90, 2,
+         {'c','t','o','c','e',' ','1',' ','2',' ','A',' ','I','n','p','u','t',
+          '/','O','u','t','p','u','t',' '});
+  append(toc_source, 0x17, 1, {'/'});
+  append(toc_source, 0x91, 2,
+         {' ','c','t','o','c','e',' ','1',' ','2',' ','B',' ','N','e','x','t'});
+  toc_source.assembled =
+      geist::detail::assemble_logical_record_with_sources(toc_source.tokens);
+  const auto decoded = geist::detail::token_words_to_ascii(
+      toc_source.assembled.words);
+  const auto cleaned = geist::detail::clean_source_owned_toc_title_markers(
+      {decoded}, {toc_source});
+  require(cleaned.size() == 1 && cleaned[0] != decoded &&
+              cleaned[0].find("Input/Output") != std::string::npos,
+          "learned terminal CTOCE marker was not narrowly removed");
+
+  auto dictionary_boundary = toc_source;
+  dictionary_boundary.encoded_tokens[3].width = 2;
+  const auto retained = geist::detail::clean_source_owned_toc_title_markers(
+      {decoded}, {dictionary_boundary});
+  require(retained[0] == decoded,
+          "dictionary-owned title punctuation was removed");
+
+  auto semicolon_boundary = toc_source;
+  semicolon_boundary.tokens[3] = {';'};
+  semicolon_boundary.encoded_tokens[3] = {0x35, 1};
+  semicolon_boundary.assembled =
+      geist::detail::assemble_logical_record_with_sources(
+          semicolon_boundary.tokens);
+  const auto semicolon_decoded = geist::detail::token_words_to_ascii(
+      semicolon_boundary.assembled.words);
+  const auto semicolon_cleaned =
+      geist::detail::clean_source_owned_toc_title_markers(
+          {semicolon_decoded}, {semicolon_boundary});
+  require(semicolon_cleaned[0].find("Input/Output;") == std::string::npos &&
+              semicolon_cleaned[0].find("Input/Output") != std::string::npos,
+          "terminal fixed-row semicolon was retained in a TOC title");
 }

@@ -59,4 +59,15 @@ std::vector<SourceRowMarker> source_row_markers(
     const std::vector<DecodedLogicalRecordSource>& records,
     std::size_t key_origin);
 
+bool has_numeric_srmsg_source_candidate(
+    const std::vector<std::string>& decoded_records);
+void project_numeric_srmsg_source_markers(
+    std::vector<std::string>& rendered,
+    const std::vector<std::string>& decoded_records,
+    const std::vector<DecodedLogicalRecordSource>& sources);
+
+std::vector<std::string> clean_source_owned_toc_title_markers(
+    const std::vector<std::string>& decoded_records,
+    const std::vector<DecodedLogicalRecordSource>& sources);
+
 } // namespace geist::detail

@@ -1,5 +1,6 @@
 #include "geist/document.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <filesystem>
 #include <iostream>
@@ -135,6 +136,50 @@ int main() {
                     "SC31-711.boo";
   const auto document = geist::BooDocument::open(book);
 
+  const auto contents = document.topic_markdown("CONTENTS");
+  for (const auto* expected : {
+           "[Customer Information](#2.4.1)",
+           "[Customer Information](#2.4.5)",
+           "[Additional Problem Information](#2.4.9)",
+           "[AIX Operating System Publications](#BACK_1.8)",
+       }) {
+    require_contains(contents, expected, "source-cleaned CONTENTS title");
+  }
+  for (const auto* leaked : {
+           "[Customer Information /](#2.4.1)",
+           "[Customer Information >](#2.4.5)",
+           "[Additional Problem Information <](#2.4.9)",
+           "[AIX Operating System Publications <](#BACK_1.8)",
+       }) {
+    require_absent(contents, leaked, "CONTENTS row marker");
+  }
+  const auto exact_toc_title = [&](const char* id, const char* expected) {
+    const auto& toc = document.table_of_contents();
+    const auto found =
+        std::find_if(toc.begin(), toc.end(),
+                     [&](const auto& entry) { return entry.id == id; });
+    if (found == toc.end() || found->title != expected) {
+      std::cerr << "unexpected parsed TOC title for " << id << '\n';
+      ++failures;
+    }
+  };
+  exact_toc_title("2.4.1", "Customer Information");
+  exact_toc_title("2.4.5", "Customer Information");
+  exact_toc_title("2.4.9", "Additional Problem Information");
+  exact_toc_title("BACK_1.8", "AIX Operating System Publications");
+
+  const auto cross_book = geist::BooDocument::open(
+      std::filesystem::path(GEIST_REPO_ROOT) / "BOO" / "SC31-605.boo");
+  const auto& cross_toc = cross_book.table_of_contents();
+  const auto cross_entry = std::find_if(
+      cross_toc.begin(), cross_toc.end(),
+      [](const auto& entry) { return entry.id == "1.1"; });
+  if (cross_entry == cross_toc.end() ||
+      cross_entry->title != "Block ID Index") {
+    std::cerr << "cross-book TOC punctuation/title regression\n";
+    ++failures;
+  }
+
   const auto directories = document.topic_markdown("1.1");
   for (const auto* expected : {
            "/usr/lpp/lnm/gifs",
@@ -201,6 +246,14 @@ int main() {
                              "ringInoperative cleared in segment. / All"}) {
     require_absent(fddi_traps, leaked, "FDDI row marker");
   }
+  require_contains(fddi_traps,
+                   "Elasticity Buffer error count has incremented during a "
+                   "station's sampling period",
+                   "source-owned FDDI description continuation");
+  require_absent(fddi_traps, "incremented a during",
+                 "compact alphabetic FDDI row marker");
+  require_contains(fddi_traps, "received from a station",
+                   "genuine FDDI article");
 
   const auto netview_form = document.topic_markdown("2.4.4");
   require_contains(netview_form,

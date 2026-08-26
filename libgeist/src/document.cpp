@@ -1,5 +1,6 @@
 #include "geist/detail/internal.hpp"
 #include "geist/detail/implicit_grid.hpp"
+#include "geist/detail/source_rows.hpp"
 
 #include <algorithm>
 #include <array>
@@ -69,11 +70,20 @@ bool has_implicit_grid_source_candidate(
   return false;
 }
 
+bool has_generated_toc_source_candidate(
+    const std::vector<std::string>& records) {
+  return std::any_of(records.begin(), records.end(), [](const auto& record) {
+    return ascii_lower(record).find("ctoce ") != std::string::npos;
+  });
+}
+
 void load_source_layout_if_candidate(
     const std::shared_ptr<LogicalDecodeContext>& context,
     TopicData& topic) {
   if (!has_box_form_source_candidate(topic.raw_records) &&
-      !has_implicit_grid_source_candidate(topic.raw_records)) {
+      !has_implicit_grid_source_candidate(topic.raw_records) &&
+      !has_numeric_srmsg_source_candidate(topic.raw_records) &&
+      !has_generated_toc_source_candidate(topic.raw_records)) {
     return;
   }
   topic.fixed_layout_sources = decode_logical_record_sources(
