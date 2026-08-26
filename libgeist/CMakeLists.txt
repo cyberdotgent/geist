@@ -210,6 +210,13 @@ target_link_libraries(markup_synthetic_test PRIVATE geist::geist_static)
 
 add_test(NAME markup_synthetic_test COMMAND markup_synthetic_test)
 
+add_executable(logical_synthetic_test
+  tests/logical_synthetic.cpp
+)
+target_link_libraries(logical_synthetic_test PRIVATE geist::geist_static)
+
+add_test(NAME logical_synthetic_test COMMAND logical_synthetic_test)
+
 add_executable(lazy_open_test
   tests/lazy_open.cpp
 )

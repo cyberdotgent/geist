@@ -18,6 +18,32 @@ namespace geist::detail {
 
 using TokenWords = std::vector<std::uint16_t>;
 
+enum class LogicalWordSourceKind {
+  token_word,
+  inserted_space,
+};
+
+struct LogicalWordSource {
+  std::size_t token_index = 0;
+  std::size_t word_index = 0;
+  LogicalWordSourceKind kind = LogicalWordSourceKind::token_word;
+  std::uint16_t spacing_control = 2;
+};
+
+struct LogicalTokenSpan {
+  std::size_t token_index = 0;
+  std::uint16_t spacing_control = 2;
+  std::size_t output_begin = 0;
+  std::size_t output_end = 0;
+  bool control_only = false;
+};
+
+struct AssembledLogicalRecord {
+  TokenWords words;
+  std::vector<LogicalWordSource> sources;
+  std::vector<LogicalTokenSpan> tokens;
+};
+
 struct LogicalDecodeContext {
   std::vector<std::uint8_t> bytes;
   BooDirectory directory;
@@ -133,6 +159,8 @@ std::map<std::uint16_t, TokenWords> decode_experimental_dictionary(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory);
 TokenWords assemble_logical_record(const std::vector<TokenWords>& tokens);
+AssembledLogicalRecord assemble_logical_record_with_sources(
+    const std::vector<TokenWords>& tokens);
 std::vector<BooLogicalControl> extract_logical_controls(
     const std::string& decoded_record);
 std::vector<std::string> decode_experimental_logical_records(

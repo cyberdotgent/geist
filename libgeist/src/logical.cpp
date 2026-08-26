@@ -311,23 +311,38 @@ std::vector<std::uint32_t> parse_topic_record_starts(
   return starts;
 }
 
-TokenWords assemble_logical_record(const std::vector<TokenWords>& tokens) {
-  TokenWords output;
+AssembledLogicalRecord assemble_logical_record_with_sources(
+    const std::vector<TokenWords>& tokens) {
+  AssembledLogicalRecord assembled;
   std::uint16_t spacing_control = 2;
 
   const auto remove_pending_space = [&]() {
-    if (!output.empty() && output.back() == ' ') {
-      output.pop_back();
+    if (!assembled.words.empty() && assembled.words.back() == ' ') {
+      const auto source_token = assembled.sources.back().token_index;
+      assembled.words.pop_back();
+      assembled.sources.pop_back();
+      if (source_token < assembled.tokens.size()) {
+        assembled.tokens[source_token].output_end = assembled.words.size();
+      }
     }
   };
 
-  for (const auto& token : tokens) {
+  assembled.tokens.reserve(tokens.size());
+  for (std::size_t token_index = 0; token_index < tokens.size();
+       ++token_index) {
+    const auto& token = tokens[token_index];
     TokenWords words = token;
     spacing_control = words.empty() ? 3 : words.front();
+    const auto has_control = !words.empty() && words.front() < 4;
+    const auto first_source_word = has_control ? std::size_t{1} : 0;
+    LogicalTokenSpan token_span;
+    token_span.token_index = token_index;
+    token_span.spacing_control = spacing_control;
+    token_span.control_only = has_control && words.size() == 1;
 
-    if (!words.empty() && words.front() < 4) {
+    if (has_control) {
       words.erase(words.begin());
-      if (!output.empty()) {
+      if (!assembled.words.empty()) {
         if (spacing_control == 1) {
           remove_pending_space();
           if (words.empty()) {
@@ -339,23 +354,43 @@ TokenWords assemble_logical_record(const std::vector<TokenWords>& tokens) {
         }
       }
     }
+    token_span.output_begin = assembled.words.size();
 
-    output.insert(output.end(), words.begin(), words.end());
+    assembled.words.insert(assembled.words.end(), words.begin(), words.end());
+    for (std::size_t word_index = 0; word_index < words.size(); ++word_index) {
+      assembled.sources.push_back(
+          {token_index,
+           first_source_word + word_index,
+           LogicalWordSourceKind::token_word,
+           spacing_control});
+    }
 
     if (!words.empty() && words.back() == ' ') {
       spacing_control = 2;
     }
     if (spacing_control != 2) {
-      output.push_back(' ');
+      assembled.words.push_back(' ');
+      assembled.sources.push_back(
+          {token_index,
+           token.size(),
+           LogicalWordSourceKind::inserted_space,
+           spacing_control});
+    }
+    token_span.output_end = assembled.words.size();
+    assembled.tokens.push_back(token_span);
+  }
+
+  if (assembled.words.size() > 1 && spacing_control != 2) {
+    assembled.words.pop_back();
+    assembled.sources.pop_back();
+    if (!assembled.tokens.empty()) {
+      assembled.tokens.back().output_end = assembled.words.size();
     }
   }
 
-  if (output.size() > 1 && spacing_control != 2) {
-    output.pop_back();
-  }
-
-  if (!output.empty() && output.front() != ' ' && output.front() != 'S') {
-    for (auto& word : output) {
+  if (!assembled.words.empty() && assembled.words.front() != ' ' &&
+      assembled.words.front() != 'S') {
+    for (auto& word : assembled.words) {
       if (word == ' ' || word == '=' || word == 0) {
         break;
       }
@@ -363,7 +398,11 @@ TokenWords assemble_logical_record(const std::vector<TokenWords>& tokens) {
     }
   }
 
-  return output;
+  return assembled;
+}
+
+TokenWords assemble_logical_record(const std::vector<TokenWords>& tokens) {
+  return assemble_logical_record_with_sources(tokens).words;
 }
 
 std::vector<BooLogicalControl> extract_logical_controls(
