@@ -542,6 +542,19 @@ continuations, not exact byte/token spans. The chapter heading, introduction,
 selectors, and anchors before the numeric entries also remain outside
 `MessageCatalogIR`, so no production Document-IR route is enabled yet.
 
+Generated figure/table lists now have a strict whole-topic model and canonical
+Document-IR lowering. It composes the verified selector catalog and display-row
+ledger with the topic metadata, `CHDLEVEL`/`ST` heading, every entry cell, and
+all envelope segment slices. Each selector becomes one paragraph containing a
+typed cross-reference with its raw BOO anchor identity; output paths remain a
+renderer/exporter concern. An all-topic corpus scan admits 25 complete
+`FIGURES`/`TABLES` topics across 16 fixtures, conserving 1,177 selector rows,
+and finds no false positives. Three candidates fail closed: both generated lists
+in `packet.boo` contain an untyped `cz BREAK 3` control, while
+`XWEBDEMO.boo` `FIGURES` has an untyped `c.sp` segment whose parsed envelope
+swallows visible payload. Those control grammars must be typed before the three
+topics or the complete generated-list family can enter production routing.
+
 The publication-catalog adapter is the second complete semantic-to-document
 lowering and is now enabled in production. `PublicationCatalogIR` retains
 physical source rows for its title and introduction as well as every
