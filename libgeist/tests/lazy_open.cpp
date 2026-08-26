@@ -470,6 +470,15 @@ int main() {
               notices.find("[\"Notices\" in topic FRONT_1](#HDRNOT)") !=
                   std::string::npos,
           "ordinary CFONT overflow trimming dropped notice prose");
+  for (const auto* nested : {
+           "2.1.1", "2.1.2", "2.1.3", "2.1.4", "4.1.1", "4.1.2",
+           "4.1.3", "4.2.1", "4.2.2", "4.3.1", "4.3.2", "4.3.3",
+           "4.3.4", "4.3.5",
+       }) {
+    require(problem_determination.topic_markdown(nested).find(
+                std::string("### ") + nested + " ") != std::string::npos,
+            "leading anchor displaced a nested topic heading");
+  }
   const auto trademarks =
       problem_determination.topic_markdown("FRONT_1.1");
   require(trademarks.find(

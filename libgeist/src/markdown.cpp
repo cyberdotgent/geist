@@ -88,27 +88,43 @@ const std::vector<std::string>& TocEntry::gml_records() const {
 std::string TocEntry::markdown() const {
   auto records = gml_records();
   auto replaced_heading = false;
-  if (!records.empty() && !records.front().empty() && !id.empty() &&
-      !title.empty()) {
-    const auto dot = records.front().find('.');
-    if (dot != std::string::npos && records.front().front() == ':') {
+  auto heading_index = std::size_t{0};
+  while (heading_index < records.size() &&
+         detail::ascii_starts_with_case_insensitive(
+             records[heading_index], ":anchor ")) {
+    ++heading_index;
+  }
+  if (heading_index < records.size() && !records[heading_index].empty() &&
+      !id.empty() && !title.empty()) {
+    auto& heading = records[heading_index];
+    const auto dot = heading.find('.');
+    if (dot != std::string::npos && heading.front() == ':') {
       auto tag_end = std::size_t{1};
       while (tag_end < dot &&
-             std::isalnum(static_cast<unsigned char>(records.front()[tag_end])) !=
+             std::isalnum(static_cast<unsigned char>(heading[tag_end])) !=
                  0) {
         ++tag_end;
       }
       const auto tag =
-          detail::ascii_lower(records.front().substr(1, tag_end - 1));
+          detail::ascii_lower(heading.substr(1, tag_end - 1));
       if (tag == "h1" || tag == "h2" || tag == "h3" || tag == "h4" ||
           tag == "h5" || tag == "ih2" || tag == "preface" ||
           tag == "appendix") {
-        const auto content = records.front().substr(dot + 1);
+        const auto content = heading.substr(dot + 1);
         const auto rest = content_after_title(content, title);
-        records.front().resize(dot + 1);
-        records.front() += id + " " + title;
+        heading.resize(dot + 1);
+        heading += id + " " + title;
         if (rest && !rest->empty()) {
-          records.insert(records.begin() + 1, ":p." + *rest);
+          records.insert(records.begin() +
+                             static_cast<std::ptrdiff_t>(heading_index + 1),
+                         ":p." + *rest);
+        }
+        if (heading_index > 0) {
+          std::rotate(records.begin(),
+                      records.begin() +
+                          static_cast<std::ptrdiff_t>(heading_index),
+                      records.begin() +
+                          static_cast<std::ptrdiff_t>(heading_index + 1));
         }
         replaced_heading = true;
       }
