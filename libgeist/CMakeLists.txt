@@ -68,6 +68,8 @@ set(GEIST_SOURCES
   src/comment_delivery_ir.cpp
   src/control_ir.cpp
   src/document.cpp
+  src/document_ir.cpp
+  src/document_lowering.cpp
   src/ebcdic.cpp
   src/fixed_display.cpp
   src/fixed_prose_ir.cpp
@@ -283,6 +285,12 @@ target_compile_definitions(comment_delivery_ir_synthetic_test PRIVATE
 )
 add_test(NAME comment_delivery_ir_synthetic_test
   COMMAND comment_delivery_ir_synthetic_test)
+
+add_executable(document_ir_synthetic_test
+  tests/document_ir_synthetic.cpp
+)
+target_link_libraries(document_ir_synthetic_test PRIVATE geist::geist_static)
+add_test(NAME document_ir_synthetic_test COMMAND document_ir_synthetic_test)
 
 add_executable(procedure_rows_synthetic_test
   tests/procedure_rows_synthetic.cpp

@@ -384,6 +384,40 @@ TOC-exported topic) and topic `5.4.2`; `ITPPIBOK.BOO` topics `2.1.2`,
 recognizer. The final 34-book `boo2git` gate produced 7,396 Markdown files and
 7,885 total files, all byte-identical to the post-selector/layout baseline.
 
+## M7 Document IR boundary
+
+The document layer is intentionally smaller than the decoder and semantic
+layers below it. It owns output-neutral topic identity, block/inline nodes,
+and source provenance, but it must not include decoder control, Layout IR,
+Ownership IR, or family-specific recognizer headers. Lowering adapters may
+depend on both sides; dependency direction is always semantic IR to Document
+IR, never back into the decoder.
+
+The initial migration boundary uses one temporary `LegacyGmlRegion` for an
+entire normalized topic. Its state scope is explicitly whole-topic: splitting
+legacy records into independent regions would reset the existing GML state
+machine and silently change list, table, example, or highlighting behavior.
+This adapter is migration debt rather than a permanent opaque document node.
+Verified semantic families replace portions or whole topics with typed nodes
+as their lowering becomes complete.
+
+The permanent vocabulary covers headings, paragraphs, anchors, lists,
+definition lists, tables, preformatted blocks, notes, publication lists,
+figures, footnotes, and index groups, with text, emphasis, code,
+cross-reference, image, hard-break, and explicitly opaque inline leaves.
+Every node carries a derivation and ordered source slices; canonical
+verification rejects empty identity, invalid slice/token/byte ranges,
+out-of-order provenance, malformed links/tables, and mixed or empty legacy
+state scopes. A stable diagnostic formatter makes the boundary observable
+before any renderer migration.
+
+M7 begins with the whole-topic legacy adapter because it is state-safe and
+behavior-preserving. M8 then introduces the pure Document-IR-to-Markdown
+renderer and direct semantic lowerings. At that point acceptance is correct,
+stable Markdown structure and conserved content/link semantics with reviewed
+intentional corpus deltas; reproducing the legacy renderer byte for byte is
+explicitly not the goal.
+
 ## Source trail
 
 - Fixture: `BOO/SC31-711.boo`
