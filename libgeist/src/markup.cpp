@@ -1943,6 +1943,7 @@ struct GmlRenderState {
   bool in_footnote = false;
   bool ignore_after_index = false;
   bool current_record_has_message_catalog = false;
+  std::size_t next_selector_column = std::numeric_limits<std::size_t>::max();
   bool fixed_catalog_requested = false;
   bool in_fixed_catalog = false;
   bool in_semantic_message_catalog = false;
@@ -4262,7 +4263,13 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
   const auto semantic_title_row =
       state.in_semantic_message_catalog && !spans.empty() &&
       spans.front().offset <= 3;
-  if (!state.in_semantic_message_catalog || semantic_title_row) {
+  const auto selector_label_row = spans.size() == 1 &&
+      state.next_selector_column <= spans.front().offset + spans.front().length;
+  // A lone styled label in a record that also owns a selector has no proven
+  // overflow token: its following box padding merely aligns the selector.
+  // Other ordinary fixed rows retain the established overflow behavior.
+  if ((!state.in_semantic_message_catalog && !selector_label_row) ||
+      semantic_title_row) {
     raw_trailing = strip_fixed_line_overflow_tokens(
         std::move(raw_trailing), state.in_semantic_message_catalog);
   }
@@ -5574,6 +5581,16 @@ std::vector<std::string> render_gml_records(
     }();
     for (std::size_t segment_index = 0; segment_index < segments.size();
          ++segment_index) {
+      state.next_selector_column = std::numeric_limits<std::size_t>::max();
+      if (segment_index + 1 < segments.size()) {
+        const auto next = trim_ascii(segments[segment_index + 1]);
+        if (ascii_starts_with_case_insensitive(next, "cselect")) {
+          if (const auto control =
+                  parse_select_control(rest_after_first_word(next))) {
+            state.next_selector_column = control->column;
+          }
+        }
+      }
       state.next_segment_is_all_e =
           (segment_index + 1 < segments.size() &&
            segment_is_all_e(segments[segment_index + 1])) ||
@@ -5963,6 +5980,16 @@ std::vector<BooLogicalRecordTrace> trace_gml_records(
 
     for (std::size_t segment_index = 0; segment_index < traced.segments.size();
          ++segment_index) {
+      state.next_selector_column = std::numeric_limits<std::size_t>::max();
+      if (segment_index + 1 < traced.segments.size()) {
+        const auto next = trim_ascii(traced.segments[segment_index + 1]);
+        if (ascii_starts_with_case_insensitive(next, "cselect")) {
+          if (const auto control =
+                  parse_select_control(rest_after_first_word(next))) {
+            state.next_selector_column = control->column;
+          }
+        }
+      }
       const auto& segment = traced.segments[segment_index];
       if (ascii_starts_with_case_insensitive(trim_ascii(segment), "cfont")) {
         auto font_spans =

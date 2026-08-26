@@ -463,6 +463,13 @@ int main() {
 
   const auto problem_determination =
       geist::BooDocument::open(root / "SC31-711.boo");
+  const auto notices = problem_determination.topic_markdown("NOTICES");
+  require(notices.find(
+              "Before using this document, read the general information "
+              "under") != std::string::npos &&
+              notices.find("[\"Notices\" in topic FRONT_1](#HDRNOT)") !=
+                  std::string::npos,
+          "ordinary CFONT overflow trimming dropped notice prose");
   const auto trademarks =
       problem_determination.topic_markdown("FRONT_1.1");
   require(trademarks.find(
