@@ -127,7 +127,9 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
   // inexpensive stream once to preserve established topic boundaries; GML
   // parsing and rendering remain deferred until a topic is requested.
   context->decoded_records =
-      decode_experimental_logical_records(bytes, document.directory_);
+      decode_experimental_logical_records(bytes,
+                                          document.directory_,
+                                          &context->record_payload_ranges);
   const auto topics = build_topics(context->decoded_records, false);
   const auto first_topic_record = topics.empty()
                                       ? context->decoded_records.size() + 1

@@ -217,6 +217,15 @@ target_link_libraries(logical_synthetic_test PRIVATE geist::geist_static)
 
 add_test(NAME logical_synthetic_test COMMAND logical_synthetic_test)
 
+add_executable(logical_source_index_test
+  tests/logical_source_index.cpp
+)
+target_link_libraries(logical_source_index_test PRIVATE geist::geist_static)
+target_compile_definitions(logical_source_index_test PRIVATE
+  GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+add_test(NAME logical_source_index_test COMMAND logical_source_index_test)
+
 add_executable(fixed_display_synthetic_test
   tests/fixed_display_synthetic.cpp
 )

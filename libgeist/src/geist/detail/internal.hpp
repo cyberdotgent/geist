@@ -9,6 +9,8 @@
 #include <filesystem>
 #include <array>
 #include <map>
+#include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -52,12 +54,30 @@ struct AssembledLogicalRecord {
   std::vector<LogicalTokenSpan> tokens;
 };
 
+struct LogicalRecordPayloadRange {
+  std::uint32_t begin = 0;
+  std::uint32_t end = 0;
+};
+
+struct DecodedLogicalRecordSource {
+  std::uint32_t logical_record = 0;
+  std::vector<TokenWords> tokens;
+  AssembledLogicalRecord assembled;
+};
+
 struct LogicalDecodeContext {
   std::vector<std::uint8_t> bytes;
   BooDirectory directory;
   std::vector<std::uint32_t> content_page_record_starts;
   std::vector<std::uint32_t> topic_record_starts;
   std::vector<std::string> decoded_records;
+  std::vector<LogicalRecordPayloadRange> record_payload_ranges;
+  // Source provenance is rare and substantially heavier than the compact
+  // payload index. Rebuild the dictionary only on first provenance request,
+  // then retain it for candidate-local follow-up queries.
+  mutable std::shared_ptr<const std::map<std::uint16_t, TokenWords>>
+      source_dictionary;
+  mutable std::mutex source_dictionary_mutex;
 };
 
 struct TopicData {
@@ -173,7 +193,12 @@ std::vector<BooLogicalControl> extract_logical_controls(
     const std::string& decoded_record);
 std::vector<std::string> decode_experimental_logical_records(
     const std::vector<std::uint8_t>& bytes,
-    const BooDirectory& directory);
+    const BooDirectory& directory,
+    std::vector<LogicalRecordPayloadRange>* payload_ranges = nullptr);
+std::vector<DecodedLogicalRecordSource>
+decode_logical_record_sources(const LogicalDecodeContext& context,
+                              std::uint32_t first_logical_record,
+                              std::uint32_t end_logical_record);
 std::vector<std::uint32_t> parse_content_page_record_starts(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory);
