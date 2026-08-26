@@ -51,6 +51,18 @@ struct MenuIR {
   std::vector<MenuItemIR> items;
 };
 
+// Extract a menu using only the topic's decoded source.  Unlike the broader
+// compatibility path below, this does not infer or repair labels by consulting
+// the book-wide topic-title catalog.  Consequently terminal-marker metadata is
+// present only when a future source-local rule can prove it independently.
+std::optional<MenuIR> extract_source_menu_ir(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    std::string* error = nullptr);
+bool verify_source_menu_ir(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const MenuIR& menu,
+    std::string* error = nullptr);
+
 std::optional<MenuIR> extract_menu_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
     const std::map<std::string, std::string>& topic_titles,

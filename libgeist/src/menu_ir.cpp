@@ -85,6 +85,90 @@ bool same_cells(const std::vector<MenuSourceCellIR>& left,
 
 } // namespace
 
+std::optional<MenuIR> extract_source_menu_ir(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    std::string* error) {
+  const auto fail = [&](const std::string& message) -> std::optional<MenuIR> {
+    if (error != nullptr) *error = message;
+    return std::nullopt;
+  };
+  MenuIR menu;
+  bool in_menu = false;
+  bool saw_menu = false;
+  for (const auto& record : records) {
+    for (const auto& segment : record.control_segments) {
+      if (segment.kind == BookControlKind::menu_start) {
+        if (in_menu || saw_menu) return fail("nested or repeated menu");
+        in_menu = true;
+        saw_menu = true;
+        continue;
+      }
+      if (segment.kind == BookControlKind::menu_end) {
+        if (!in_menu) return fail("menu end without menu start");
+        in_menu = false;
+        continue;
+      }
+      if (segment.kind != BookControlKind::menu_item) continue;
+      if (!in_menu || segment.malformed || segment.source_tokens.empty())
+        return fail("menu item is outside a valid menu");
+
+      MenuItemIR item;
+      item.logical_record = record.logical_record;
+      item.segment_index = segment.segment_index;
+      item.target = normalized(range_text(record, segment.operand_range));
+      item.text = normalized(range_text(record, segment.payload_range));
+      if (item.target.empty() || item.text.empty())
+        return fail("menu item target or label is unavailable: " +
+                    item.target);
+      item.target_output = segment.operand_range;
+      item.label_output = segment.payload_range;
+      item.target_cells = source_cells(record, segment.operand_range);
+      item.label_cells = source_cells(record, segment.payload_range);
+      if (item.target_cells.empty() || item.label_cells.empty())
+        return fail("menu item target or label has no exact source cells: " +
+                    item.target);
+      menu.items.push_back(std::move(item));
+    }
+  }
+  if (!saw_menu || in_menu || menu.items.empty())
+    return fail("source does not contain one complete non-empty menu");
+  if (error != nullptr) error->clear();
+  return menu;
+}
+
+bool verify_source_menu_ir(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const MenuIR& menu, std::string* error) {
+  const auto fail = [&](const std::string& message) {
+    if (error != nullptr) *error = message;
+    return false;
+  };
+  const auto canonical = extract_source_menu_ir(records);
+  if (!canonical) return fail("source does not admit a canonical raw menu");
+  if (canonical->items.size() != menu.items.size())
+    return fail("menu item count differs from canonical source lowering");
+  for (std::size_t index = 0; index < menu.items.size(); ++index) {
+    const auto& actual = menu.items[index];
+    const auto& expected = canonical->items[index];
+    if (actual.logical_record != expected.logical_record ||
+        actual.segment_index != expected.segment_index ||
+        actual.target != expected.target || actual.text != expected.text ||
+        actual.target_output.begin != expected.target_output.begin ||
+        actual.target_output.end != expected.target_output.end ||
+        actual.label_output.begin != expected.label_output.begin ||
+        actual.label_output.end != expected.label_output.end ||
+        !same_cells(actual.target_cells, expected.target_cells) ||
+        !same_cells(actual.label_cells, expected.label_cells) ||
+        actual.terminal_marker_token.has_value() ||
+        actual.terminal_marker_encoded.has_value() ||
+        actual.terminal_marker_bytes.has_value() ||
+        actual.terminal_marker_display_cells.has_value())
+      return fail("raw menu item text or provenance differs from source");
+  }
+  if (error != nullptr) error->clear();
+  return true;
+}
+
 std::optional<MenuIR> extract_menu_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
     const std::map<std::string, std::string>& topic_titles,

@@ -557,14 +557,18 @@ all 28 complete `FIGURES`/`TABLES` topics across 18 fixtures, conserving all
 Menu provenance is now explicit down to decoded output cell, token/word,
 inserted-space kind, word value, and token byte range. A strict `MenuTopicIR`
 wraps that core with metadata, optional anchor, title, menu boundaries, and
-typed raw topic targets. Of 1,898 topics containing `CMENU`, 44 pass the older
-inner menu recognizer and only six prove a complete whole-topic envelope:
+typed raw topic targets. Source-only extraction finds 153 structurally complete
+menu envelopes, but structure alone cannot prove that a raw target names a book
+topic or that its label is canonical. A separate `MenuTargetValidationIR`
+records that book-level semantic evidence; `MenuTopicIR` requires it before
+promoting a target to a typed topic reference. The existing catalog validation
+admits exactly six complete topics:
 `SC34-425.boo` topics `1.8.5.5`, `1.8.15.5`, and `1.8.18.5`;
 `FA1PLMM0.boo` `5.6`; `SC33-033.boo` `5.3`; and `SH12-565.boo`
-`APPENDIX1.9.5`. Production remains blocked because the inner recognizer still
-uses the document's `topic_titles` map for canonical validation. None of the six
-requires its terminal-marker repair, so a future strict raw-payload extraction
-path should be able to remove that dependency without changing their semantics.
+`APPENDIX1.9.5`. Each raw label independently equals its catalog title and none
+requires terminal-marker repair. Production remains blocked until the current
+book-wide title map becomes a typed topic-catalog/admission input to the
+whole-topic dispatcher; widening to all 153 raw shapes would be unsound.
 
 The publication-catalog adapter is the second complete semantic-to-document
 lowering and is now enabled in production. `PublicationCatalogIR` retains

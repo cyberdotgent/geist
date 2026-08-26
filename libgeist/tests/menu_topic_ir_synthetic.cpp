@@ -47,6 +47,7 @@ void load_context(const std::filesystem::path &path,
 void inventory_complete_menu_topics() {
   const auto directory = std::filesystem::path(GEIST_REPO_ROOT) / "BOO";
   std::vector<std::string> admitted;
+  std::size_t structurally_complete = 0;
   std::size_t terminal_repairs = 0;
   for (const auto &entry : std::filesystem::directory_iterator(directory)) {
     if (!entry.is_regular_file())
@@ -76,18 +77,39 @@ void inventory_complete_menu_topics() {
           });
       if (!has_menu)
         continue;
-      const auto menu = extract_menu_ir(sources, titles);
+      const auto menu = extract_source_menu_ir(sources);
       if (!menu)
         continue;
       const auto layout = extract_layout_ir(sources);
       const auto ownership = build_ownership_ir(sources, layout);
+      // Census structure separately with deliberately unvalidated identity
+      // evidence.  Such evidence must never be used for production lowering:
+      // source alone cannot establish that a CMITEM operand names a real topic.
+      MenuTargetValidationIR identity;
+      for (const auto &item : menu->items)
+        identity.items.push_back({item.target, item.text});
+      if (!extract_menu_topic_ir(sources, identity, layout, ownership))
+        continue;
+      ++structurally_complete;
+
+      // Preserve the established six-topic semantic admission policy.  The
+      // strict topic extractor receives typed validation evidence, not this
+      // title map or the compatibility MenuIR itself.
+      const auto compatibility_menu = extract_menu_ir(sources, titles);
+      if (!compatibility_menu)
+        continue;
+      const auto target_validation =
+          validate_source_menu_targets(*menu, *compatibility_menu);
+      if (!target_validation)
+        continue;
       std::string error;
       const auto semantic =
-          extract_menu_topic_ir(sources, *menu, layout, ownership, &error);
+          extract_menu_topic_ir(sources, *target_validation, layout, ownership,
+                                &error);
       if (!semantic)
         continue;
-      require(verify_menu_topic_ir(sources, *menu, layout, ownership, *semantic,
-                                   &error),
+      require(verify_menu_topic_ir(sources, *target_validation, layout,
+                                   ownership, *semantic, &error),
               "canonical menu topic failed verification: " + error);
       require(std::all_of(semantic->items.begin(), semantic->items.end(),
                           [](const auto &item) {
@@ -98,32 +120,79 @@ void inventory_complete_menu_topics() {
                                    !item.label_cells.empty();
                           }),
               "menu target or exact visible-cell provenance was lost");
+      require(verify_source_menu_ir(sources, *menu, &error),
+              "canonical source-only menu failed verification: " + error);
       auto mutated_menu = *menu;
       ++mutated_menu.items.front().target_cells.front().word;
-      require(!verify_menu_ir(sources, titles, mutated_menu),
-              "inner menu verifier admitted mutated target-cell evidence");
+      require(!verify_source_menu_ir(sources, mutated_menu),
+              "source-only menu verifier admitted mutated target-cell evidence");
+      mutated_menu = *menu;
+      mutated_menu.items.front().text += "-changed";
+      require(!verify_source_menu_ir(sources, mutated_menu),
+              "source-only menu verifier admitted mutated label text");
+      mutated_menu = *menu;
+      mutated_menu.items.front().terminal_marker_token = 0;
+      require(!verify_source_menu_ir(sources, mutated_menu),
+              "source-only menu verifier admitted unproven marker repair");
+      auto mutated_catalog = *compatibility_menu;
+      mutated_catalog.items.front().terminal_marker_token = 0;
+      require(!validate_source_menu_targets(*menu, mutated_catalog),
+              "target validation admitted catalog-assisted marker repair");
+      mutated_catalog = *compatibility_menu;
+      mutated_catalog.items.front().target += "-changed";
+      require(!validate_source_menu_targets(*menu, mutated_catalog),
+              "target validation admitted a mismatched raw target");
+      auto mutated_validation = *target_validation;
+      mutated_validation.items.front().label += "-changed";
+      require(!extract_menu_topic_ir(sources, mutated_validation, layout,
+                                     ownership),
+              "menu topic extractor admitted mutated catalog evidence");
       admitted.push_back(entry.path().filename().string() + ':' + topic.id +
                          ':' + std::to_string(semantic->items.size()));
       terminal_repairs += static_cast<std::size_t>(std::count_if(
-          menu->items.begin(), menu->items.end(), [](const auto &item) {
+          compatibility_menu->items.begin(), compatibility_menu->items.end(),
+          [](const auto &item) {
             return item.terminal_marker_token.has_value();
           }));
+      require(menu->items.size() == compatibility_menu->items.size(),
+              "source-only and compatibility menu item counts differ");
+      for (std::size_t index = 0; index < menu->items.size(); ++index) {
+        const auto &raw = menu->items[index];
+        const auto &compatible = compatibility_menu->items[index];
+        require(raw.target == compatible.target && raw.text == compatible.text,
+                "admitted raw menu required title-assisted label repair");
+        const auto title = std::find_if(
+            titles.begin(), titles.end(), [&](const auto &candidate) {
+              return ascii_equals_case_insensitive(candidate.first,
+                                                   raw.target);
+            });
+        require(title != titles.end() && ascii_equals_case_insensitive(
+                                           collapse_ascii_whitespace(
+                                               trim_ascii(title->second)),
+                                           raw.text),
+                "admitted raw menu label does not independently match its "
+                "canonical target title");
+      }
 
       auto mutated = *semantic;
       mutated.items.front().target.value += "-changed";
-      require(!verify_menu_topic_ir(sources, *menu, layout, ownership, mutated),
+      require(!verify_menu_topic_ir(sources, *target_validation, layout,
+                                    ownership, mutated),
               "menu topic verifier admitted a mutated raw target identity");
       mutated = *semantic;
       ++mutated.items.front().label_cells.front().word;
-      require(!verify_menu_topic_ir(sources, *menu, layout, ownership, mutated),
+      require(!verify_menu_topic_ir(sources, *target_validation, layout,
+                                    ownership, mutated),
               "menu topic verifier admitted mutated cell content");
       mutated = *semantic;
       ++mutated.title_source.byte_begin;
-      require(!verify_menu_topic_ir(sources, *menu, layout, ownership, mutated),
+      require(!verify_menu_topic_ir(sources, *target_validation, layout,
+                                    ownership, mutated),
               "menu topic verifier admitted mutated title provenance");
       mutated = *semantic;
       ++mutated.segments.front().source.token_begin;
-      require(!verify_menu_topic_ir(sources, *menu, layout, ownership, mutated),
+      require(!verify_menu_topic_ir(sources, *target_validation, layout,
+                                    ownership, mutated),
               "menu topic verifier admitted mutated envelope provenance");
     }
   }
@@ -134,17 +203,23 @@ void inventory_complete_menu_topics() {
       "SC34-425.boo:1.8.5.5:1",  "SH12-565.boo:APPENDIX1.9.5:3",
   };
   std::sort(expected.begin(), expected.end());
-  require(admitted == expected,
-          "strict whole-topic menu admission inventory changed");
+  std::string inventory;
+  for (const auto &entry : admitted)
+    inventory += "\n  " + entry;
+  require(admitted == expected, "strict whole-topic menu admission inventory "
+                                "changed; admitted:" + inventory);
+  require(structurally_complete == 153,
+          "raw structural menu envelope inventory changed: " +
+              std::to_string(structurally_complete));
   require(terminal_repairs == 0,
-          "proven whole-menu topics unexpectedly require title-map-based "
-          "terminal marker repair");
+          "proven whole-menu topics unexpectedly require terminal marker "
+          "repair");
 }
 
 } // namespace
 
 int main() {
   inventory_complete_menu_topics();
-  std::cout << "menu whole-topic inventory: 6 accepted; all other CMENU "
-               "topics fail closed\n";
+  std::cout << "menu whole-topic inventory: 153 source-complete envelopes; "
+               "6 catalog-validated without repair\n";
 }

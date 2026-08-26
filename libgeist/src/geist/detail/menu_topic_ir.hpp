@@ -30,6 +30,23 @@ struct MenuTopicSegmentIR {
   DocumentSourceSliceIR source;
 };
 
+struct MenuTargetValidationEntryIR {
+  std::string target;
+  std::string label;
+};
+
+// Book-level semantic evidence that a raw CMITEM target exists and that its
+// source label needs no catalog-assisted repair.  Keeping this separate from
+// raw extraction prevents structural recognition from silently promoting an
+// unvalidated target to a typed topic reference.
+struct MenuTargetValidationIR {
+  std::vector<MenuTargetValidationEntryIR> items;
+};
+
+std::optional<MenuTargetValidationIR> validate_source_menu_targets(
+    const MenuIR &source_menu, const MenuIR &catalog_validated_menu,
+    std::string *error = nullptr);
+
 // A complete, output-neutral topic whose only visible body object is a menu.
 // The target retains the raw BOO topic identity; filename and fragment policy
 // belongs to a renderer's resolver.
@@ -45,11 +62,12 @@ struct MenuTopicIR {
 
 std::optional<MenuTopicIR>
 extract_menu_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
-                      const MenuIR &menu, const LayoutIR &layout,
-                      const OwnershipIR &ownership,
+                      const MenuTargetValidationIR &target_validation,
+                      const LayoutIR &layout, const OwnershipIR &ownership,
                       std::string *error = nullptr);
 bool verify_menu_topic_ir(
-    const std::vector<DecodedLogicalRecordSource> &records, const MenuIR &menu,
+    const std::vector<DecodedLogicalRecordSource> &records,
+    const MenuTargetValidationIR &target_validation,
     const LayoutIR &layout, const OwnershipIR &ownership,
     const MenuTopicIR &topic, std::string *error = nullptr);
 std::string format_menu_topic_ir(const MenuTopicIR &topic);

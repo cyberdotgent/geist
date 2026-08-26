@@ -137,20 +137,62 @@ bool same_topic(const MenuTopicIR &left, const MenuTopicIR &right) {
 
 } // namespace
 
+std::optional<MenuTargetValidationIR> validate_source_menu_targets(
+    const MenuIR &source_menu, const MenuIR &catalog_validated_menu,
+    std::string *error) {
+  const auto reject =
+      [&](std::string message) -> std::optional<MenuTargetValidationIR> {
+    fail(error, std::move(message));
+    return std::nullopt;
+  };
+  if (source_menu.items.empty() ||
+      source_menu.items.size() != catalog_validated_menu.items.size())
+    return reject("raw and catalog-validated menu item counts differ");
+  MenuTargetValidationIR result;
+  for (std::size_t index = 0; index < source_menu.items.size(); ++index) {
+    const auto &source = source_menu.items[index];
+    const auto &validated = catalog_validated_menu.items[index];
+    if (validated.terminal_marker_token || validated.terminal_marker_encoded ||
+        validated.terminal_marker_bytes ||
+        validated.terminal_marker_display_cells)
+      return reject("catalog validation required terminal marker repair");
+    if (source.target != validated.target || source.text != validated.text ||
+        source.logical_record != validated.logical_record ||
+        source.segment_index != validated.segment_index ||
+        !same_cells(source.target_cells, validated.target_cells) ||
+        !same_cells(source.label_cells, validated.label_cells))
+      return reject("raw target or label differs from catalog validation");
+    result.items.push_back({source.target, source.text});
+  }
+  if (error != nullptr)
+    error->clear();
+  return result;
+}
+
 std::optional<MenuTopicIR>
 extract_menu_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
-                      const MenuIR &menu, const LayoutIR &layout,
-                      const OwnershipIR &ownership, std::string *error) {
+                      const MenuTargetValidationIR &target_validation,
+                      const LayoutIR &layout, const OwnershipIR &ownership,
+                      std::string *error) {
   const auto reject = [&](std::string message) -> std::optional<MenuTopicIR> {
     fail(error, std::move(message));
     return std::nullopt;
   };
-  if (records.empty() || menu.items.empty())
-    return reject("menu topic source or semantic menu is empty");
+  if (records.empty())
+    return reject("menu topic source is empty");
   std::string inner_error;
   if (!verify_layout_ir(records, layout, &inner_error) ||
       !verify_ownership_ir(records, layout, ownership, &inner_error))
     return reject("menu topic prerequisite IR rejected: " + inner_error);
+  const auto menu = extract_source_menu_ir(records, &inner_error);
+  if (!menu || !verify_source_menu_ir(records, *menu, &inner_error))
+    return reject("menu topic source-only menu rejected: " + inner_error);
+  if (menu->items.size() != target_validation.items.size())
+    return reject("menu topic target validation count differs from source");
+  for (std::size_t item = 0; item < menu->items.size(); ++item)
+    if (menu->items[item].target != target_validation.items[item].target ||
+        menu->items[item].text != target_validation.items[item].label)
+      return reject("menu topic target validation differs from source");
 
   struct SegmentRef {
     const DecodedLogicalRecordSource *record;
@@ -234,10 +276,10 @@ extract_menu_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
   std::size_t menu_index = 0;
   while (index < segments.size() &&
          segments[index].segment->kind == BookControlKind::menu_item) {
-    if (menu_index >= menu.items.size())
+    if (menu_index >= menu->items.size())
       return reject("menu topic contains an unverified extra CMITEM");
     const auto &segment = *segments[index].segment;
-    const auto &item = menu.items[menu_index];
+    const auto &item = menu->items[menu_index];
     if (segment.malformed ||
         item.logical_record != segments[index].record->logical_record ||
         item.segment_index != segment.segment_index)
@@ -255,7 +297,7 @@ extract_menu_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
     ++menu_index;
     ++index;
   }
-  if (menu_index != menu.items.size())
+  if (menu_index != menu->items.size())
     return reject("menu topic did not consume every verified menu item");
   if (index >= segments.size() ||
       segments[index].segment->kind != BookControlKind::menu_end ||
@@ -276,11 +318,13 @@ extract_menu_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
 }
 
 bool verify_menu_topic_ir(
-    const std::vector<DecodedLogicalRecordSource> &records, const MenuIR &menu,
+    const std::vector<DecodedLogicalRecordSource> &records,
+    const MenuTargetValidationIR &target_validation,
     const LayoutIR &layout, const OwnershipIR &ownership,
     const MenuTopicIR &topic, std::string *error) {
   const auto canonical =
-      extract_menu_topic_ir(records, menu, layout, ownership, error);
+      extract_menu_topic_ir(records, target_validation, layout, ownership,
+                            error);
   if (!canonical)
     return false;
   if (!same_topic(*canonical, topic))
