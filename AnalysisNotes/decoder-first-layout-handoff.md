@@ -388,6 +388,26 @@ is conserved but marked as suppressible. Document lowering can now compose
 semantic content without rediscovering columns, losing lexical starters, or
 turning structural borders into prose.
 
+The first direct typed-render trial exposed a second ownership class which the
+visible-field ledger did not cover: printable marker, opaque, and layout-padding
+cells adjacent to fields. These cells contain real sentence/label fragments in
+the admitted forms. `BACK_2` has ten such affixes (three compact lexical
+prefixes plus sentence periods and delivery-label colons); `COMMENTS` has eight
+(periods, `with`, the questionnaire `?`, an opaque label colon, and the compact
+`information` prefix). Exact fixture assertions retain their logical-record,
+token, BOO-byte, and decoded-word ranges.
+
+Production classification does not key on those fixture coordinates. Inside
+the already verified form envelope it uses source ownership and adjacency:
+terminal punctuation attaches to the preceding field, lowercase marker text
+may prefix the next field only across an unterminated sentence, and alphabetic
+opaque text carries an explicit separating-space policy. Each admitted fragment
+records prefix/suffix attachment, spacing, token/word range, and byte range.
+Every other printable marker/opaque/padding fragment is retained in an explicit
+structural-suppression ledger. Canonical verification requires every printable
+non-field cell to have exactly one semantic or structural owner, so a newly
+decoded cell cannot silently disappear.
+
 The resulting trace ends the table in run 9 and starts run 11 at record 544
 segment 2; records 545 and 546 continue run 11. Synthetic tests cover visible
 `SREFIG`/`SRETBL` payloads, an empty end-control barrier, ownership

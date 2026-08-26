@@ -296,13 +296,16 @@ int main() {
                table.rows[row].cells[column].content.front().node)
         .text;
   };
-  require(cell_text(first_table, 0, 0) == "Overall, how satisfied are you" &&
+  require(cell_text(first_table, 0, 0) ==
+                  "Overall, how satisfied are you with" &&
               cell_text(first_table, 0, 1) == "Satisfied" &&
               cell_text(first_table, 0, 2) == "Dissatisfied" &&
-              cell_text(first_table, 1, 0) == "the information in this book" &&
+              cell_text(first_table, 1, 0) ==
+                  "the information in this book?" &&
               cell_text(first_table, 1, 1) == "__" &&
               cell_text(first_table, 1, 2) == "__" &&
-              cell_text(second_table, 1, 0) == "information in this book is" &&
+              cell_text(second_table, 1, 0) ==
+                  "information in this book is:" &&
               cell_text(second_table, 2, 0) == "Accurate" &&
               cell_text(second_table, 2, 1) == "__" &&
               cell_text(second_table, 2, 2) == "__" &&
@@ -321,13 +324,22 @@ int main() {
               "Please complete this form and mail it to:" &&
           lexical_response.lines[20] ==
               "International Business Machines Corporation" &&
-          response_block->origin.slices.size() == 39 &&
+          response_block->origin.slices.size() == 42 &&
           std::any_of(response_block->origin.slices.begin(),
                       response_block->origin.slices.end(),
                       [](const auto &slice) {
                         return slice.logical_record == 546 &&
                                slice.token_begin == 16 &&
                                slice.token_end == 17 && slice.byte_begin != 0;
+                      }) &&
+          std::any_of(response_block->origin.slices.begin(),
+                      response_block->origin.slices.end(),
+                      [](const auto &slice) {
+                        return slice.logical_record == 546 &&
+                               slice.token_begin == 129 &&
+                               slice.token_end == 130 &&
+                               slice.byte_begin == 0x35155 &&
+                               slice.byte_end == 0x35156;
                       }) &&
           response_block->origin.rows.size() == 26 &&
           response_block->origin.rows[17].display_run == 11 &&

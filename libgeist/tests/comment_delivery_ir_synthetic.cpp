@@ -77,6 +77,31 @@ const geist::TopicInfo* topic(const LoadedBook& book, const std::string& id) {
   return found == book.document.topics().end() ? nullptr : &*found;
 }
 
+std::vector<const geist::detail::CommentSourceFragmentIR*> semantic_affixes(
+    const geist::detail::CommentDeliveryIR& delivery) {
+  std::vector<const geist::detail::CommentSourceFragmentIR*> result;
+  for (const auto& block : delivery.blocks)
+    for (const auto& line : block.lines)
+      for (const auto& field : line.fields)
+        for (const auto& affix : field.affixes) result.push_back(&affix);
+  return result;
+}
+
+bool has_affix(const geist::detail::CommentDeliveryIR& delivery,
+               std::uint32_t record, std::size_t token,
+               std::string_view text, std::uint32_t begin,
+               std::uint32_t end,
+               geist::detail::CommentAffixAttachment attachment,
+               geist::detail::CommentAffixSpacing spacing) {
+  const auto affixes = semantic_affixes(delivery);
+  return std::any_of(affixes.begin(), affixes.end(), [&](const auto* affix) {
+    return affix->logical_record == record && affix->token_index == token &&
+           affix->text == text && affix->byte_begin == begin &&
+           affix->byte_end == end && affix->attachment == attachment &&
+           affix->spacing == spacing;
+  });
+}
+
 } // namespace
 
 int main() {
@@ -124,6 +149,20 @@ int main() {
                   geist::detail::CommentMarkerDisposition::layout_artifact &&
               delivery->blocks[0].lines[18].marker->decoded_text == "adapter",
           "BACK_2 lexical and layout marker slots are not distinguished");
+  require(delivery && semantic_affixes(*delivery).size() == 10 &&
+              has_affix(*delivery, 541, 92, ".", 0x34ad1, 0x34ad2,
+                        geist::detail::CommentAffixAttachment::
+                            suffix_owning_field,
+                        geist::detail::CommentAffixSpacing::none) &&
+              has_affix(*delivery, 541, 153, "the", 0x34b26, 0x34b27,
+                        geist::detail::CommentAffixAttachment::
+                            prefix_current_field,
+                        geist::detail::CommentAffixSpacing::space_after) &&
+              has_affix(*delivery, 542, 149, ":", 0x34cbc, 0x34cbd,
+                        geist::detail::CommentAffixAttachment::
+                            suffix_owning_field,
+                        geist::detail::CommentAffixSpacing::none),
+          "BACK_2 audited punctuation/prefix affixes lost exact provenance");
   require(delivery && delivery->blocks[1].lines.back().fields.size() == 4 &&
               delivery->blocks[1].lines.back().fields[0].text ==
                   "USIB2HPD@VNET.IBM.COM" &&
@@ -145,6 +184,12 @@ int main() {
                 delivery_sources, delivery_layout, delivery_ownership,
                 mutated),
             "comment verifier admitted mutated delivery provenance");
+    mutated = *delivery;
+    mutated.blocks[0].lines[4].fields.front().affixes.front().text = "!";
+    require(!geist::detail::verify_comment_delivery_ir(
+                delivery_sources, delivery_layout, delivery_ownership,
+                mutated),
+            "comment verifier admitted mutated semantic affix content");
   }
 
   const auto* comments = topic(*sc31, "COMMENTS");
@@ -179,6 +224,24 @@ int main() {
                       form_sources, form_layout, form_ownership, *form,
                       &error),
           error.empty() ? "COMMENTS semantic verifier failed" : error.c_str());
+  require(form && semantic_affixes(*form).size() == 8 &&
+              has_affix(*form, 543, 172, "with", 0x34df0, 0x34df1,
+                        geist::detail::CommentAffixAttachment::
+                            suffix_owning_field,
+                        geist::detail::CommentAffixSpacing::space_before) &&
+              has_affix(*form, 543, 208, "?", 0x34e17, 0x34e19,
+                        geist::detail::CommentAffixAttachment::
+                            suffix_owning_field,
+                        geist::detail::CommentAffixSpacing::none) &&
+              has_affix(*form, 544, 26, ":", 0x34ec8, 0x34ec9,
+                        geist::detail::CommentAffixAttachment::
+                            suffix_owning_field,
+                        geist::detail::CommentAffixSpacing::none) &&
+              has_affix(*form, 546, 16, "information", 0x350ac, 0x350ad,
+                        geist::detail::CommentAffixAttachment::
+                            prefix_current_field,
+                        geist::detail::CommentAffixSpacing::space_after),
+          "COMMENTS semantic-cell inventory lost exact token/byte evidence");
   if (form) {
     auto mutated = *form;
     mutated.blocks[1].object_id += "changed";
@@ -201,6 +264,11 @@ int main() {
     require(!geist::detail::verify_comment_delivery_ir(
                 form_sources, form_layout, form_ownership, mutated),
             "comment verifier admitted a changed semantic field boundary");
+    mutated = *form;
+    mutated.suppressed_fragments.pop_back();
+    require(!geist::detail::verify_comment_delivery_ir(
+                form_sources, form_layout, form_ownership, mutated),
+            "comment verifier admitted an escaped structural fragment");
   }
   require(form &&
               form->blocks[3].lines[17].marker_disposition ==

@@ -28,6 +28,53 @@ enum class CommentMarkerDisposition {
   lexical_content,
 };
 
+enum class CommentAffixAttachment {
+  prefix_current_field,
+  suffix_owning_field,
+};
+
+enum class CommentAffixSpacing {
+  none,
+  space_before,
+  space_after,
+};
+
+// A printable source fragment which is not part of the physical row's visible
+// field cells. Semantic fragments are attached to exactly one field; all other
+// printable marker/opaque/padding cells are retained explicitly as structural
+// suppression evidence. The word range permits a dictionary token to be
+// audited without pretending that the encoded byte range can be subdivided.
+struct CommentSourceFragmentIR {
+  enum class Disposition {
+    semantic_affix,
+    structural_suppression,
+  };
+
+  std::uint32_t logical_record = 0;
+  std::size_t token_index = 0;
+  std::size_t word_begin = 0;
+  std::size_t word_end = 0;
+  std::uint32_t byte_begin = 0;
+  std::uint32_t byte_end = 0;
+  std::string text;
+  Disposition disposition = Disposition::structural_suppression;
+  CommentAffixAttachment attachment =
+      CommentAffixAttachment::suffix_owning_field;
+  CommentAffixSpacing spacing = CommentAffixSpacing::none;
+};
+
+inline bool operator==(const CommentSourceFragmentIR& left,
+                       const CommentSourceFragmentIR& right) noexcept {
+  return left.logical_record == right.logical_record &&
+         left.token_index == right.token_index &&
+         left.word_begin == right.word_begin &&
+         left.word_end == right.word_end &&
+         left.byte_begin == right.byte_begin &&
+         left.byte_end == right.byte_end && left.text == right.text &&
+         left.disposition == right.disposition &&
+         left.attachment == right.attachment && left.spacing == right.spacing;
+}
+
 // A maximal source-proven visible field within one physical line. Explicit
 // layout padding separates fields; styling/control words inside a field do
 // not. This keeps later document lowering from rediscovering columns by
@@ -42,6 +89,7 @@ struct CommentSourceFieldIR {
   std::size_t token_end = 0;
   std::string text;
   Disposition disposition = Disposition::semantic_content;
+  std::vector<CommentSourceFragmentIR> affixes;
 };
 
 // Output-neutral source line retained by the comments/back-matter semantic
@@ -78,6 +126,7 @@ struct CommentDeliveryIR {
   CommentDeliveryKind kind = CommentDeliveryKind::delivery_instructions;
   std::string title;
   std::vector<CommentDeliveryBlockIR> blocks;
+  std::vector<CommentSourceFragmentIR> suppressed_fragments;
 };
 
 std::optional<CommentDeliveryIR> extract_comment_delivery_ir(

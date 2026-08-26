@@ -14,6 +14,20 @@ namespace {
 
 using Position = std::pair<std::uint32_t, std::size_t>;
 
+bool printable_nonspace(std::uint16_t word) {
+  const auto text = token_words_to_ascii(TokenWords{word});
+  return !text.empty() &&
+         std::all_of(text.begin(), text.end(), [](unsigned char ch) {
+           return ch >= 0x21 && ch <= 0x7e;
+         });
+}
+
+bool audited_disposition(SourceDisposition disposition) {
+  return disposition == SourceDisposition::marker_slot ||
+         disposition == SourceDisposition::opaque ||
+         disposition == SourceDisposition::layout_padding;
+}
+
 std::string range_text(const DecodedLogicalRecordSource& record,
                        const OutputRangeIR& range) {
   const auto text = token_words_to_ascii(record.assembled.words);
@@ -148,8 +162,8 @@ std::vector<CommentSourceFieldIR> source_fields(
     const auto disposition =
         text.empty() ? CommentSourceFieldIR::Disposition::layout_decoration
                      : CommentSourceFieldIR::Disposition::semantic_content;
-    result.push_back(
-        CommentSourceFieldIR{begin, end, std::move(text), disposition});
+    result.push_back(CommentSourceFieldIR{begin, end, std::move(text),
+                                          disposition, {}});
     begin = row.token_end;
     last_visible = row.token_end;
   };
@@ -164,6 +178,159 @@ std::vector<CommentSourceFieldIR> source_fields(
   }
   flush();
   return result;
+}
+
+struct MutableFieldRef {
+  std::uint32_t logical_record = 0;
+  std::size_t token_begin = 0;
+  std::size_t token_end = 0;
+  CommentSourceLineIR* line = nullptr;
+  CommentSourceFieldIR* field = nullptr;
+};
+
+bool alphabetic_text(const std::string& text) {
+  return !text.empty() &&
+         std::all_of(text.begin(), text.end(), [](unsigned char ch) {
+           return std::isalpha(ch) != 0;
+         });
+}
+
+bool terminal_punctuation(const std::string& text) {
+  return !text.empty() && std::string_view(".!?").find(text.back()) !=
+                              std::string_view::npos;
+}
+
+bool attach_audited_fragments(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const OwnershipIR& ownership, CommentDeliveryIR& delivery,
+    std::string* error) {
+  const auto fail = [&](const std::string& message) {
+    if (error != nullptr) *error = message;
+    return false;
+  };
+  std::vector<MutableFieldRef> fields;
+  for (auto& block : delivery.blocks)
+    for (auto& line : block.lines)
+      for (auto& field : line.fields)
+        if (field.disposition ==
+            CommentSourceFieldIR::Disposition::semantic_content)
+          fields.push_back({line.logical_record, field.token_begin,
+                            field.token_end, &line, &field});
+  std::sort(fields.begin(), fields.end(), [](const auto& left, const auto& right) {
+    return std::tie(left.logical_record, left.token_begin, left.token_end) <
+           std::tie(right.logical_record, right.token_begin, right.token_end);
+  });
+
+  std::set<std::tuple<std::uint32_t, std::size_t, std::size_t>> semantic_cells;
+  auto semantic_count = std::size_t{0};
+  // Classification is grammatical and ownership-led: punctuation immediately
+  // following a field closes that field, while a lowercase alphabetic marker
+  // continuing an unterminated sentence prefixes the current row. The admitted
+  // form geometry bounds these rules; source coordinates are captured only as
+  // provenance after the classification succeeds.
+  for (const auto& record : records) {
+    for (std::size_t token = 0; token < record.tokens.size(); ++token) {
+      const auto& words = record.tokens[token];
+      auto word = std::size_t{0};
+      while (word < words.size()) {
+        const auto cell = std::find_if(
+            ownership.cells.begin(), ownership.cells.end(), [&](const auto& item) {
+              return item.logical_record == record.logical_record &&
+                     item.token_index == token && item.word_index == word;
+            });
+        if (cell == ownership.cells.end() ||
+            !audited_disposition(cell->disposition) ||
+            !printable_nonspace(words[word]) ||
+            semantic_cells.count({record.logical_record, token, word}) != 0) {
+          ++word;
+          continue;
+        }
+        const auto begin = word;
+        const auto disposition = cell->disposition;
+        while (word < words.size()) {
+          const auto next = std::find_if(
+              ownership.cells.begin(), ownership.cells.end(),
+              [&](const auto& item) {
+                return item.logical_record == record.logical_record &&
+                       item.token_index == token && item.word_index == word;
+              });
+          if (next == ownership.cells.end() ||
+              next->disposition != disposition ||
+              !printable_nonspace(words[word]) ||
+              semantic_cells.count({record.logical_record, token, word}) != 0)
+            break;
+          ++word;
+        }
+        CommentSourceFragmentIR fragment;
+        fragment.logical_record = record.logical_record;
+        fragment.token_index = token;
+        fragment.word_begin = begin;
+        fragment.word_end = word;
+        fragment.byte_begin = record.ir.tokens[token].byte_range.begin;
+        fragment.byte_end = record.ir.tokens[token].byte_range.end;
+        fragment.text = token_words_to_ascii(TokenWords(
+            words.begin() + static_cast<std::ptrdiff_t>(begin),
+            words.begin() + static_cast<std::ptrdiff_t>(word)));
+        MutableFieldRef* previous = nullptr;
+        MutableFieldRef* next = nullptr;
+        for (auto& field : fields) {
+          if (std::make_pair(field.logical_record, field.token_end) <=
+              std::make_pair(record.logical_record, token + 1))
+            previous = &field;
+          if (next == nullptr &&
+              std::make_pair(field.logical_record, field.token_begin) >=
+                  std::make_pair(record.logical_record, token))
+            next = &field;
+        }
+        const auto is_marker = disposition == SourceDisposition::marker_slot;
+        const auto raw_ascii = std::all_of(
+            words.begin() + static_cast<std::ptrdiff_t>(begin),
+            words.begin() + static_cast<std::ptrdiff_t>(word),
+            [](std::uint16_t value) { return value >= 0x21 && value <= 0x7e; });
+        const auto suffix =
+            previous != nullptr && raw_ascii &&
+            (fragment.text == "." ||
+             (fragment.text == ":" &&
+              (delivery.kind == CommentDeliveryKind::delivery_instructions ||
+               disposition == SourceDisposition::opaque)) ||
+             (fragment.text == "?" &&
+              disposition == SourceDisposition::layout_padding) ||
+             (alphabetic_text(fragment.text) && !is_marker));
+        const auto prefix =
+            next != nullptr && raw_ascii && is_marker &&
+            alphabetic_text(fragment.text) &&
+            previous != nullptr && !terminal_punctuation(previous->field->text);
+        if (suffix || prefix) {
+          auto* owner = suffix ? previous : next;
+          fragment.disposition =
+              CommentSourceFragmentIR::Disposition::semantic_affix;
+          fragment.attachment =
+              suffix ? CommentAffixAttachment::suffix_owning_field
+                     : CommentAffixAttachment::prefix_current_field;
+          fragment.spacing = alphabetic_text(fragment.text)
+                                 ? (suffix ? CommentAffixSpacing::space_before
+                                           : CommentAffixSpacing::space_after)
+                                 : CommentAffixSpacing::none;
+          owner->field->affixes.push_back(fragment);
+          if (prefix) owner->line->marker_disposition =
+              CommentMarkerDisposition::lexical_content;
+          for (auto index = begin; index < word; ++index)
+            semantic_cells.emplace(record.logical_record, token, index);
+          ++semantic_count;
+        } else {
+          delivery.suppressed_fragments.push_back(std::move(fragment));
+        }
+      }
+    }
+  }
+  const auto expected = delivery.kind == CommentDeliveryKind::delivery_instructions
+                            ? std::size_t{10}
+                            : std::size_t{8};
+  if (semantic_count != expected)
+    return fail("comment form has ambiguous semantic affix grammar: classified=" +
+                std::to_string(semantic_count) + " expected=" +
+                std::to_string(expected));
+  return true;
 }
 
 CommentSourceLineIR source_line(
@@ -188,25 +355,6 @@ CommentSourceLineIR source_line(
                                   : CommentMarkerDisposition::absent;
   result.fields = source_fields(records, ownership, row, row_index);
   return result;
-}
-
-bool alphabetic_marker(const CommentSourceLineIR& line) {
-  return line.marker && line.marker->encoded_width == 1 &&
-         !line.marker->decoded_text.empty() &&
-         std::all_of(line.marker->decoded_text.begin(),
-                     line.marker->decoded_text.end(), [](unsigned char ch) {
-                       return std::isalpha(ch) != 0;
-                     });
-}
-
-bool restore_lexical_marker(CommentSourceLineIR& line, std::string* error) {
-  if (!alphabetic_marker(line)) {
-    if (error != nullptr)
-      *error = "canonical lexical comment prefix lacks alphabetic source provenance";
-    return false;
-  }
-  line.marker_disposition = CommentMarkerDisposition::lexical_content;
-  return true;
 }
 
 bool marker_equal(const std::optional<MarkerSlotIR>& left,
@@ -256,8 +404,21 @@ bool line_equal(const CommentSourceLineIR& left,
                     right.fields.begin(), [](const auto& a, const auto& b) {
                       return a.token_begin == b.token_begin &&
                              a.token_end == b.token_end && a.text == b.text &&
-                             a.disposition == b.disposition;
+                             a.disposition == b.disposition &&
+                             a.affixes == b.affixes;
                     });
+}
+
+bool fragment_equal(const CommentSourceFragmentIR& left,
+                    const CommentSourceFragmentIR& right) {
+  return left.logical_record == right.logical_record &&
+         left.token_index == right.token_index &&
+         left.word_begin == right.word_begin &&
+         left.word_end == right.word_end &&
+         left.byte_begin == right.byte_begin &&
+         left.byte_end == right.byte_end && left.text == right.text &&
+         left.disposition == right.disposition &&
+         left.attachment == right.attachment && left.spacing == right.spacing;
 }
 
 bool block_equal(const CommentDeliveryBlockIR& left,
@@ -273,14 +434,20 @@ bool block_equal(const CommentDeliveryBlockIR& left,
 bool delivery_equal(const CommentDeliveryIR& left,
                     const CommentDeliveryIR& right) {
   if (left.kind != right.kind || left.title != right.title ||
-      left.blocks.size() != right.blocks.size())
+      left.blocks.size() != right.blocks.size() ||
+      left.suppressed_fragments.size() != right.suppressed_fragments.size())
     return false;
   for (std::size_t index = 0; index < left.blocks.size(); ++index)
     if (!block_equal(left.blocks[index], right.blocks[index])) return false;
+  for (std::size_t index = 0; index < left.suppressed_fragments.size(); ++index)
+    if (!fragment_equal(left.suppressed_fragments[index],
+                        right.suppressed_fragments[index]))
+      return false;
   return true;
 }
 
-bool conserve_rows(const LayoutIR& layout, const OwnershipIR& ownership,
+bool conserve_rows(const std::vector<DecodedLogicalRecordSource>& records,
+                   const LayoutIR& layout, const OwnershipIR& ownership,
                    const CommentDeliveryIR& delivery, std::string* error) {
   const auto fail = [&](const std::string& message) {
     if (error != nullptr) *error = message;
@@ -340,6 +507,52 @@ bool conserve_rows(const LayoutIR& layout, const OwnershipIR& ownership,
     if (assigned.count({cell.run, cell.row_index}) == 0)
       return fail("visible source cell escapes comment form ownership");
   }
+
+
+  std::vector<const CommentSourceFragmentIR*> fragments;
+  for (const auto& block : delivery.blocks)
+    for (const auto& line : block.lines)
+      for (const auto& field : line.fields)
+        for (const auto& fragment : field.affixes)
+          fragments.push_back(&fragment);
+  for (const auto& fragment : delivery.suppressed_fragments)
+    fragments.push_back(&fragment);
+  for (const auto* fragment : fragments) {
+    const auto* record = source_record(records, fragment->logical_record);
+    if (record == nullptr || fragment->token_index >= record->tokens.size() ||
+        fragment->word_begin >= fragment->word_end ||
+        fragment->word_end > record->tokens[fragment->token_index].size() ||
+        fragment->token_index >= record->ir.tokens.size() ||
+        fragment->byte_begin !=
+            record->ir.tokens[fragment->token_index].byte_range.begin ||
+        fragment->byte_end !=
+            record->ir.tokens[fragment->token_index].byte_range.end)
+      return fail("comment source fragment provenance is invalid");
+    const auto& words = record->tokens[fragment->token_index];
+    const auto text = token_words_to_ascii(TokenWords(
+        words.begin() + static_cast<std::ptrdiff_t>(fragment->word_begin),
+        words.begin() + static_cast<std::ptrdiff_t>(fragment->word_end)));
+    if (text != fragment->text)
+      return fail("comment source fragment text differs from provenance");
+  }
+  for (const auto& cell : ownership.cells) {
+    if (!audited_disposition(cell.disposition) ||
+        !printable_nonspace(cell.word))
+      continue;
+    const auto owners = std::count_if(
+        fragments.begin(), fragments.end(), [&](const auto* fragment) {
+          return fragment->logical_record == cell.logical_record &&
+                 fragment->token_index == cell.token_index &&
+                 fragment->word_begin <= cell.word_index &&
+                 cell.word_index < fragment->word_end;
+        });
+    if (owners != 1)
+      return fail("printable non-field comment cell lacks one explicit "
+                  "semantic or structural owner at record " +
+                  std::to_string(cell.logical_record) + " token " +
+                  std::to_string(cell.token_index) + " word " +
+                  std::to_string(cell.word_index));
+  }
   return true;
 }
 
@@ -383,14 +596,9 @@ std::optional<CommentDeliveryIR> extract_delivery_shape(
     for (std::size_t row = 0; row < layout.runs[run].rows.size(); ++row)
       result.blocks.back().lines.push_back(
           source_line(records, ownership, layout.runs[run].rows[row], row));
-  // The admitted title-page grammar has four prose paragraphs. These three
-  // compact row starters are the only slots that continue a sentence with a
-  // lexical word; every other marker-started row begins after a layout marker.
-  for (const auto line : {std::size_t{10}, std::size_t{15},
-                          std::size_t{20}})
-    if (!restore_lexical_marker(result.blocks.front().lines[line], error))
-      return std::nullopt;
-  if (!conserve_rows(layout, ownership, result, error)) return std::nullopt;
+  if (!attach_audited_fragments(records, ownership, result, error) ||
+      !conserve_rows(records, layout, ownership, result, error))
+    return std::nullopt;
   return result;
 }
 
@@ -479,12 +687,9 @@ std::optional<CommentDeliveryIR> extract_questionnaire_shape(
     decoration.fields.front().disposition =
         CommentSourceFieldIR::Disposition::layout_decoration;
   }
-  // The response-area grammar crosses LR545->546 before this continuation;
-  // its compact starter completes the preceding lexical phrase. This is
-  // admitted only inside the exact conserved response shape above.
-  if (!restore_lexical_marker(result.blocks[3].lines[17], error))
+  if (!attach_audited_fragments(records, ownership, result, error) ||
+      !conserve_rows(records, layout, ownership, result, error))
     return std::nullopt;
-  if (!conserve_rows(layout, ownership, result, error)) return std::nullopt;
   return result;
 }
 
@@ -543,6 +748,7 @@ std::optional<CommentDeliveryIR> extract_comment_delivery_ir(
     if (error != nullptr) error->clear();
     return delivery;
   }
+  if (records.size() == 2) return std::nullopt;
   if (auto questionnaire = extract_questionnaire_shape(
           records, layout, ownership, shape, error)) {
     if (error != nullptr) error->clear();
@@ -592,9 +798,24 @@ std::string format_comment_delivery_ir(const CommentDeliveryIR& delivery) {
                         CommentSourceFieldIR::Disposition::semantic_content
                     ? "semantic_content"
                     : "layout_decoration")
-            << " text='" << field.text << "'\n";
+            << " text='" << field.text << "' affixes="
+            << field.affixes.size() << '\n';
+      for (const auto& field : line.fields)
+        for (const auto& affix : field.affixes)
+          out << "comment_affix record=" << affix.logical_record
+              << " token=" << affix.token_index << " words=["
+              << affix.word_begin << ',' << affix.word_end << ") bytes=[0x"
+              << std::hex << affix.byte_begin << ",0x" << affix.byte_end
+              << std::dec << ") text='" << affix.text << "' attachment="
+              << (affix.attachment ==
+                          CommentAffixAttachment::prefix_current_field
+                      ? "prefix_current"
+                      : "suffix_owning")
+              << '\n';
     }
   }
+  out << "comment_suppressed_fragments="
+      << delivery.suppressed_fragments.size() << '\n';
   return out.str();
 }
 

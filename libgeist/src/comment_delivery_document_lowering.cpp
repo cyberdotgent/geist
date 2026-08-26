@@ -22,43 +22,48 @@ DocumentSourceSliceIR field_slice(const CommentSourceLineIR &line,
   return slice;
 }
 
-DocumentSourceSliceIR marker_slice(const MarkerSlotIR &marker,
-                                   std::size_t segment_index) {
+DocumentSourceSliceIR fragment_slice(const CommentSourceFragmentIR &fragment,
+                                     std::size_t segment_index) {
   DocumentSourceSliceIR slice;
-  slice.logical_record = marker.logical_record;
+  slice.logical_record = fragment.logical_record;
   slice.segment_index = segment_index;
-  slice.token_begin = marker.token_index;
-  slice.token_end = marker.token_index + 1;
-  slice.byte_begin = marker.byte_range.begin;
-  slice.byte_end = marker.byte_range.end;
+  slice.token_begin = fragment.token_index;
+  slice.token_end = fragment.token_index + 1;
+  slice.byte_begin = fragment.byte_begin;
+  slice.byte_end = fragment.byte_end;
   return slice;
 }
 
-DocumentNodeOriginIR line_origin(const CommentSourceLineIR &line,
-                                 bool include_marker = true) {
+DocumentNodeOriginIR line_origin(const CommentSourceLineIR &line) {
   DocumentNodeOriginIR origin;
   origin.derivation = DocumentDerivationIR::semantic_lowering;
   origin.detail = "comment delivery source line";
-  if (include_marker &&
-      line.marker_disposition == CommentMarkerDisposition::lexical_content)
-    origin.slices.push_back(marker_slice(*line.marker, line.segment_index));
   for (const auto &field : line.fields)
-    if (field.disposition ==
-        CommentSourceFieldIR::Disposition::semantic_content)
+    if (field.disposition == CommentSourceFieldIR::Disposition::semantic_content) {
+      for (const auto &affix : field.affixes)
+        if (affix.attachment == CommentAffixAttachment::prefix_current_field)
+          origin.slices.push_back(fragment_slice(affix, line.segment_index));
       origin.slices.push_back(field_slice(line, field));
+      for (const auto &affix : field.affixes)
+        if (affix.attachment == CommentAffixAttachment::suffix_owning_field)
+          origin.slices.push_back(fragment_slice(affix, line.segment_index));
+    }
   origin.rows.push_back(DocumentSourceRowIR{line.run, line.row});
   return origin;
 }
 
 DocumentNodeOriginIR field_origin(const CommentSourceLineIR &line,
-                                  const CommentSourceFieldIR &field,
-                                  bool prepend_marker) {
+                                  const CommentSourceFieldIR &field) {
   DocumentNodeOriginIR origin;
   origin.derivation = DocumentDerivationIR::semantic_lowering;
   origin.detail = "comment delivery source field";
-  if (prepend_marker)
-    origin.slices.push_back(marker_slice(*line.marker, line.segment_index));
+  for (const auto &affix : field.affixes)
+    if (affix.attachment == CommentAffixAttachment::prefix_current_field)
+      origin.slices.push_back(fragment_slice(affix, line.segment_index));
   origin.slices.push_back(field_slice(line, field));
+  for (const auto &affix : field.affixes)
+    if (affix.attachment == CommentAffixAttachment::suffix_owning_field)
+      origin.slices.push_back(fragment_slice(affix, line.segment_index));
   origin.rows.push_back(DocumentSourceRowIR{line.run, line.row});
   return origin;
 }
@@ -74,11 +79,20 @@ void append_origin(DocumentNodeOriginIR &destination,
       destination.rows.push_back(row);
 }
 
-std::string field_text(const CommentSourceLineIR &line,
-                       const CommentSourceFieldIR &field, bool prepend_marker) {
-  if (!prepend_marker)
-    return field.text;
-  return line.marker->decoded_text + " " + field.text;
+std::string field_text(const CommentSourceFieldIR &field) {
+  auto result = field.text;
+  for (const auto &affix : field.affixes) {
+    if (affix.attachment == CommentAffixAttachment::prefix_current_field) {
+      auto prefix = affix.text;
+      if (affix.spacing == CommentAffixSpacing::space_after) prefix += ' ';
+      result = prefix + result;
+    } else {
+      if (affix.spacing == CommentAffixSpacing::space_before) result += ' ';
+      result += affix.text;
+      if (affix.spacing == CommentAffixSpacing::space_after) result += ' ';
+    }
+  }
+  return result;
 }
 
 std::vector<std::size_t> semantic_fields(const CommentSourceLineIR &line) {
@@ -149,6 +163,22 @@ bool verify_source(const CommentDeliveryIR &delivery, std::string *error) {
           ++semantic_count;
           if (field.text.empty())
             return fail(error, "semantic comment field is empty");
+          for (const auto &affix : field.affixes) {
+            if (affix.disposition !=
+                    CommentSourceFragmentIR::Disposition::semantic_affix ||
+                affix.text.empty() || affix.word_begin >= affix.word_end ||
+                affix.byte_begin >= affix.byte_end)
+              return fail(error, "semantic comment affix provenance is invalid");
+            if ((affix.attachment ==
+                     CommentAffixAttachment::prefix_current_field &&
+                 affix.spacing == CommentAffixSpacing::space_before) ||
+                (affix.attachment ==
+                     CommentAffixAttachment::suffix_owning_field &&
+                 affix.spacing == CommentAffixSpacing::space_after))
+              return fail(error, "semantic comment affix spacing is invalid");
+          }
+        } else if (!field.affixes.empty()) {
+          return fail(error, "layout comment field owns semantic affixes");
         }
       }
       if (semantic_count == 0 &&
@@ -164,10 +194,10 @@ bool verify_source(const CommentDeliveryIR &delivery, std::string *error) {
 }
 
 InlineIR text_inline(const CommentSourceLineIR &line,
-                     const CommentSourceFieldIR &field, bool prepend_marker) {
+                     const CommentSourceFieldIR &field) {
   InlineIR result;
-  result.node = TextInlineIR{field_text(line, field, prepend_marker)};
-  result.origin = field_origin(line, field, prepend_marker);
+  result.node = TextInlineIR{field_text(field)};
+  result.origin = field_origin(line, field);
   return result;
 }
 
@@ -199,10 +229,10 @@ bool append_title(const CommentDeliveryBlockIR &source,
   const auto &field = line.fields[fields.front()];
   HeadingBlockIR heading;
   heading.level = 1;
-  heading.content.push_back(text_inline(line, field, false));
+  heading.content.push_back(text_inline(line, field));
   BlockIR block;
   block.node = std::move(heading);
-  block.origin = field_origin(line, field, false);
+  block.origin = field_origin(line, field);
   block.origin.detail = "comment delivery title heading";
   document.blocks.push_back(std::move(block));
   return true;
@@ -237,13 +267,10 @@ void append_paragraphs(const CommentDeliveryBlockIR &source,
     auto &paragraph = std::get<ParagraphBlockIR>(current.node);
     for (std::size_t position = 0; position < fields.size(); ++position) {
       const auto &field = line.fields[fields[position]];
-      const auto prepend =
-          position == 0 &&
-          line.marker_disposition == CommentMarkerDisposition::lexical_content;
       if (!paragraph.content.empty())
         paragraph.content.push_back(synthesized_separator());
-      paragraph.content.push_back(text_inline(line, field, prepend));
-      append_origin(current.origin, field_origin(line, field, prepend));
+      paragraph.content.push_back(text_inline(line, field));
+      append_origin(current.origin, field_origin(line, field));
     }
     previous = &line;
   }
@@ -261,11 +288,7 @@ void append_preformatted(const CommentDeliveryBlockIR &source,
     if (fields.empty())
       continue;
     for (std::size_t position = 0; position < fields.size(); ++position) {
-      const auto prepend =
-          position == 0 &&
-          line.marker_disposition == CommentMarkerDisposition::lexical_content;
-      preformatted.lines.push_back(
-          field_text(line, line.fields[fields[position]], prepend));
+      preformatted.lines.push_back(field_text(line.fields[fields[position]]));
     }
     const auto origin = line_origin(line);
     block.origin.slices.insert(block.origin.slices.end(), origin.slices.begin(),
@@ -280,7 +303,6 @@ void append_preformatted(const CommentDeliveryBlockIR &source,
 struct SemanticFieldRef {
   const CommentSourceLineIR *line = nullptr;
   const CommentSourceFieldIR *field = nullptr;
-  bool prepend_marker = false;
 };
 
 bool append_table(const CommentDeliveryBlockIR &source, DocumentIR &document,
@@ -289,10 +311,8 @@ bool append_table(const CommentDeliveryBlockIR &source, DocumentIR &document,
   for (const auto &line : source.lines) {
     const auto indices = semantic_fields(line);
     for (std::size_t position = 0; position < indices.size(); ++position)
-      fields.push_back(SemanticFieldRef{
-          &line, &line.fields[indices[position]],
-          position == 0 && line.marker_disposition ==
-                               CommentMarkerDisposition::lexical_content});
+      fields.push_back(
+          SemanticFieldRef{&line, &line.fields[indices[position]]});
   }
   if (fields.size() != 6 && fields.size() != 22)
     return fail(error,
@@ -306,10 +326,8 @@ bool append_table(const CommentDeliveryBlockIR &source, DocumentIR &document,
     for (std::size_t position = begin; position < begin + count; ++position) {
       const auto &field = fields[position];
       TableCellIR cell;
-      cell.content.push_back(
-          text_inline(*field.line, *field.field, field.prepend_marker));
-      cell.origin =
-          field_origin(*field.line, *field.field, field.prepend_marker);
+      cell.content.push_back(text_inline(*field.line, *field.field));
+      cell.origin = field_origin(*field.line, *field.field);
       cell.origin.detail = "comment questionnaire cell";
       append_origin(row.origin, cell.origin);
       row.cells.push_back(std::move(cell));
