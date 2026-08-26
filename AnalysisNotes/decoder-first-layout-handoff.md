@@ -530,17 +530,19 @@ files byte-identical to the legacy visible text, while the source anchor and
 paragraph boundaries remain unchanged. Partial fixed-prose shapes continue
 through the indivisible legacy path.
 
-The numeric-message model is now useful as an output-neutral semantic core but
-is not a complete topic model. Across `SC31-711.boo` topic `5.0` it retains 396
-source-proven headlines and body runs plus 792 ordered Meaning/Action sections,
-including the cross-record continuation in message `072`. Each physical
-Layout-IR row is assigned exactly once to headline, body, section, or explicit
-structural suppression; section-label rows are nested references, not second
-owners. The observed sections each form one semantic paragraph. Layout IR can
-currently prove row and logical-record/segment provenance for recovered
-continuations, not exact byte/token spans. The chapter heading, introduction,
-selectors, and anchors before the numeric entries also remain outside
-`MessageCatalogIR`, so no production Document-IR route is enabled yet.
+The numeric-message semantic core is now enclosed by a complete, output-neutral
+`MessageTopicIR` for `SC31-711.boo` topic `5.0`. It covers logical records
+`[172,435)`, the ordered topic metadata and two-row chapter heading, all
+introduction rows, 398 source anchors, two typed `anchor:HDRPROBS` selectors,
+and the complete 396-entry `MessageCatalogIR` from `023` through `2505`.
+Its source ledger has one item for each of the 2,279 decoded segments and
+retains 4,698 physical rows with ownership cells; the final `2505` Action
+(`None.`) is an explicit terminal boundary. Truncated, metadata-less, and
+glossary envelopes reject, and the corpus admission scan accepts only this one
+topic. No production Document-IR route is enabled yet: the wrapped introductory
+selector spans and paragraph boundaries are not proven sufficiently to lower
+without presentation guesses. This is a representation checkpoint, not a
+Markdown migration claim.
 
 The complete `SC31-711.boo` glossary envelope is now represented separately
 from the earlier introduction prototype. `GlossaryCatalogIR` covers logical
