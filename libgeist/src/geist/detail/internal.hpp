@@ -24,14 +24,22 @@ enum class LogicalWordSourceKind {
 };
 
 struct LogicalWordSource {
+  // token_index is local to one logical record and is only suitable for
+  // grouping output words by their source fragment. It is not a dictionary
+  // key or a book-global token identity.
   std::size_t token_index = 0;
   std::size_t word_index = 0;
   LogicalWordSourceKind kind = LogicalWordSourceKind::token_word;
+  bool has_control = false;
+  // The explicit 0-3 prefix, or the default inter-token spacing mode 3 when
+  // the source token has no prefix.
   std::uint16_t spacing_control = 2;
 };
 
 struct LogicalTokenSpan {
+  // Record-local source-fragment index; grouping metadata only.
   std::size_t token_index = 0;
+  bool has_control = false;
   std::uint16_t spacing_control = 2;
   std::size_t output_begin = 0;
   std::size_t output_end = 0;

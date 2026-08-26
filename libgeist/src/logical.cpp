@@ -334,10 +334,13 @@ AssembledLogicalRecord assemble_logical_record_with_sources(
     TokenWords words = token;
     spacing_control = words.empty() ? 3 : words.front();
     const auto has_control = !words.empty() && words.front() < 4;
+    const auto effective_spacing_control =
+        has_control ? words.front() : std::uint16_t{3};
     const auto first_source_word = has_control ? std::size_t{1} : 0;
     LogicalTokenSpan token_span;
     token_span.token_index = token_index;
-    token_span.spacing_control = spacing_control;
+    token_span.has_control = has_control;
+    token_span.spacing_control = effective_spacing_control;
     token_span.control_only = has_control && words.size() == 1;
 
     if (has_control) {
@@ -362,7 +365,8 @@ AssembledLogicalRecord assemble_logical_record_with_sources(
           {token_index,
            first_source_word + word_index,
            LogicalWordSourceKind::token_word,
-           spacing_control});
+           has_control,
+           effective_spacing_control});
     }
 
     if (!words.empty() && words.back() == ' ') {
@@ -374,7 +378,8 @@ AssembledLogicalRecord assemble_logical_record_with_sources(
           {token_index,
            token.size(),
            LogicalWordSourceKind::inserted_space,
-           spacing_control});
+           has_control,
+           effective_spacing_control});
     }
     token_span.output_end = assembled.words.size();
     assembled.tokens.push_back(token_span);
