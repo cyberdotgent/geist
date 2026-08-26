@@ -5673,7 +5673,33 @@ std::vector<std::string> render_gml_records_with_source_layout(
                                    });
                              });
         });
-    if (!has_visible_continuation) {
+    // A closed headerless pair list has no continuation row to satisfy the
+    // general fixed-form contract. Admit its structural shape rather than a
+    // book-specific width or row count: two columns, at least two nonempty
+    // pairs, and an independent rule after every pair.
+    const auto pair_rows = static_cast<std::size_t>(std::count_if(
+        grid->physical_rows.begin(), grid->physical_rows.end(),
+        [](const auto& row) {
+          return row.kind == FixedFormPhysicalRowKind::row_start;
+        }));
+    const auto is_headerless_pair_grid =
+        grid->separator_columns.size() == 3 && pair_rows >= 2 &&
+        grid->physical_rows.size() == pair_rows * 2 &&
+        std::all_of(grid->physical_rows.begin(), grid->physical_rows.end(),
+                    [&](const auto& row) {
+                      const auto index = static_cast<std::size_t>(
+                          &row - grid->physical_rows.data());
+                      if (index % 2 != 0) {
+                        return row.kind == FixedFormPhysicalRowKind::border;
+                      }
+                      return row.kind ==
+                                 FixedFormPhysicalRowKind::row_start &&
+                             row.cells.size() == 2 &&
+                             std::all_of(
+                                 row.cells.begin(), row.cells.end(),
+                                 [](const auto& cell) { return !cell.empty(); });
+                    });
+    if (!has_visible_continuation && !is_headerless_pair_grid) {
       return std::nullopt;
     }
     const auto rows = aggregate_fixed_form_rows(
@@ -5706,16 +5732,23 @@ std::vector<std::string> render_gml_records_with_source_layout(
 
     std::vector<std::string> replacement;
     replacement.reserve((rows.size() + 1) * (rows.front().size() + 1));
-    // Fixed forms synthesize their semantic column heading from the SRTBL
-    // frame; it is not repeated inside the source box stream. Preserve exactly
-    // that first normalized row and replace only the source-owned body.
-    const auto first_row = std::find_if(
-        table + 1, end, [](const auto& record) { return record == ":row."; });
-    if (first_row != end) {
-      const auto second_row = std::find_if(
-          first_row + 1, end,
-          [](const auto& record) { return record == ":row."; });
-      replacement.insert(replacement.end(), first_row, second_row);
+    if (is_headerless_pair_grid) {
+      // Markdown requires a header row.  Preserve the source's headerless
+      // schema with two empty cells instead of the legacy Field/Value labels.
+      replacement.insert(replacement.end(),
+                         {":row.", ":c col='0'.", ":c col='1'."});
+    } else {
+      // Fixed forms synthesize their semantic column heading from the SRTBL
+      // frame; it is not repeated inside the source box stream. Preserve
+      // exactly that first normalized row and replace only the source body.
+      const auto first_row = std::find_if(
+          table + 1, end, [](const auto& record) { return record == ":row."; });
+      if (first_row != end) {
+        const auto second_row = std::find_if(
+            first_row + 1, end,
+            [](const auto& record) { return record == ":row."; });
+        replacement.insert(replacement.end(), first_row, second_row);
+      }
     }
     for (const auto& row : rows) {
       if (row.size() != rows.front().size()) {

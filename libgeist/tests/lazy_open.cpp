@@ -470,6 +470,17 @@ int main() {
               "their first occurrence in this publication, are trademarks "
               "of other companies:") != std::string::npos,
           "visible CCP trademark paragraph was dropped");
+  for (const auto* pair : {
+           "| IBM | NetView |", "| AIX | SystemView |", "| PS/2 | OS/2 |",
+           "| RISC System/6000 | RS/6000 |", "| NETCENTER | RT |",
+       }) {
+    require(trademarks.find(pair) != std::string::npos,
+            "headerless trademark box lost a paired row");
+  }
+  require(trademarks.find("| Field | Value |") == std::string::npos &&
+              trademarks.find("| IBM |  |") == std::string::npos &&
+              trademarks.find("| NetView |  |") == std::string::npos,
+          "headerless trademark box retained the legacy singleton schema");
   const auto intended_audience =
       problem_determination.topic_markdown("PREFACE.1");
   require(intended_audience.find(
@@ -719,7 +730,6 @@ int main() {
               symbolic_traps.find("LNMOS2AgentNotResponding") !=
                   std::string::npos,
           "symbolic SRMSG catalog remained fixed or leaked its intro marker");
-
   const auto rmonitor_publications =
       problem_determination.topic_markdown("BACK_1.5");
   require(rmonitor_publications.find(

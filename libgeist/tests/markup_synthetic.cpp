@@ -64,6 +64,53 @@ bool valid_utf8(const std::string& value) {
   return true;
 }
 
+geist::detail::DecodedLogicalRecordSource closed_pair_box_source(
+    std::size_t left_width = 36, std::size_t pair_count = 5) {
+  geist::detail::DecodedLogicalRecordSource source;
+  const auto right_width = std::size_t{35};
+  const auto rule = [&](std::uint16_t left,
+                        std::uint16_t middle,
+                        std::uint16_t right) {
+    source.assembled.words.push_back(left);
+    source.assembled.words.insert(source.assembled.words.end(), left_width,
+                                  0x2500);
+    source.assembled.words.push_back(middle);
+    source.assembled.words.insert(source.assembled.words.end(), right_width,
+                                  0x2500);
+    source.assembled.words.push_back(right);
+  };
+  const auto row = [&](const std::string& left, const std::string& right) {
+    source.assembled.words.push_back(0x2502);
+    source.assembled.words.insert(source.assembled.words.end(), left.begin(),
+                                  left.end());
+    source.assembled.words.insert(source.assembled.words.end(),
+                                  left_width - left.size(), ' ');
+    source.assembled.words.push_back(0x2502);
+    source.assembled.words.insert(source.assembled.words.end(), right.begin(),
+                                  right.end());
+    source.assembled.words.insert(source.assembled.words.end(),
+                                  right_width - right.size(), ' ');
+    source.assembled.words.push_back(0x2502);
+  };
+  rule(0x250c, 0x252c, 0x2510);
+  auto emitted = std::size_t{0};
+  for (const auto& pair : {
+           std::pair{"IBM", "NetView"}, std::pair{"AIX", "SystemView"},
+           std::pair{"PS/2", "OS/2"},
+           std::pair{"RISC System/6000", "RS/6000"},
+           std::pair{"NETCENTER", "RT"},
+       }) {
+    if (emitted++ == pair_count) {
+      break;
+    }
+    row(pair.first, pair.second);
+    const auto last = emitted == pair_count;
+    rule(last ? 0x2514 : 0x251c, last ? 0x2534 : 0x253c,
+         last ? 0x2518 : 0x2524);
+  }
+  return source;
+}
+
 } // namespace
 
 int main() {
@@ -319,6 +366,44 @@ int main() {
                        {});
   ok &= expect_records("unframed CCP tail remains pagination",
                        {"c.cp visible words without a layout prefix"}, {});
+
+  {
+    const auto border = std::string(74, '?');
+    const auto decoded = std::vector<std::string>{
+        "SRTBLTBLPAIR " + border + " IBM ? NetView ? " + border +
+        " AIX ? SystemView ? " + border + " PS/2 ? OS/2 ? " + border +
+        " RISC System/6000 ? RS/6000 ? " + border +
+        " NETCENTER ? RT ? " + border,
+        "SRETBL"};
+    const auto rendered = geist::detail::render_gml_records_with_source_layout(
+        decoded, {closed_pair_box_source()});
+    const auto contains = [&](const std::string& line) {
+      return std::find(rendered.begin(), rendered.end(), line) !=
+             rendered.end();
+    };
+    if (!contains(":c col='0'.IBM") || !contains(":c col='1'.NetView") ||
+        !contains(":c col='0'.NETCENTER") || !contains(":c col='1'.RT") ||
+        contains(":c col='0'.Field") || contains(":c col='1'.Value")) {
+      ok = false;
+      std::cerr << "closed headerless pair box was not recovered\n";
+    }
+    const auto different_width =
+        geist::detail::render_gml_records_with_source_layout(
+            decoded, {closed_pair_box_source(35)});
+    if (std::find(different_width.begin(), different_width.end(),
+                  ":c col='1'.NetView") == different_width.end()) {
+      ok = false;
+      std::cerr << "valid differently sized pair box was rejected\n";
+    }
+    const auto singleton =
+        geist::detail::render_gml_records_with_source_layout(
+            decoded, {closed_pair_box_source(36, 1)});
+    if (std::find(singleton.begin(), singleton.end(),
+                  ":c col='1'.NetView") != singleton.end()) {
+      ok = false;
+      std::cerr << "single-row continuation-free box was recovered\n";
+    }
+  }
 
   {
     auto left = std::string("For information");
