@@ -569,12 +569,12 @@ std::string render_inline_html(std::string text) {
       continue;
     }
     if (tag == "hp2") {
-      output += closing ? "</B>" : "<B>";
+      output += closing ? "</strong>" : "<strong>";
       cursor = dot + 1;
       continue;
     }
     if (tag == "hp3") {
-      output += closing ? "</I></B>" : "<B><I>";
+      output += closing ? "</I></strong>" : "<strong><I>";
       cursor = dot + 1;
       continue;
     }

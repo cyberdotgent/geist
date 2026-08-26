@@ -555,9 +555,13 @@ bool is_fixed_st_row_marker(char ch) {
 }
 
 bool fixed_st_row_marker_at(const std::string& value, std::size_t cursor) {
+  const auto attached_overflow_marker =
+      value[cursor] == '(' || value[cursor] == ')' || value[cursor] == '<' ||
+      value[cursor] == '>' || value[cursor] == '/' || value[cursor] == '=';
   return cursor + 2 < value.size() && is_fixed_st_row_marker(value[cursor]) &&
          (cursor == 0 ||
-          std::isalnum(static_cast<unsigned char>(value[cursor - 1])) == 0) &&
+          std::isalnum(static_cast<unsigned char>(value[cursor - 1])) == 0 ||
+          attached_overflow_marker) &&
          std::isspace(static_cast<unsigned char>(value[cursor + 1])) != 0 &&
          std::isspace(static_cast<unsigned char>(value[cursor + 2])) != 0;
 }
@@ -1309,6 +1313,8 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
             while (continuation != entry.raw_records.end() &&
                    (raw_gml_tag(*continuation) == "p" ||
                     raw_gml_tag(*continuation) == "line")) {
+              const auto duplicate_of_fixed_body =
+                  raw_record_duplicates_st_body(*continuation, body_text);
               auto continuation_content = strip_leading_visual_bar(
                   raw_gml_content_preserve_space(*continuation));
               if (ascii_lower(entry.title).find("publications") !=
@@ -1316,7 +1322,7 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
                 continuation_content = clean_fixed_rendered_line(
                     std::move(continuation_content));
               }
-              if (!continuation_content.empty()) {
+              if (!continuation_content.empty() && !duplicate_of_fixed_body) {
                 inline_fixed_continuations.push_back(
                     std::move(continuation_content));
               }
