@@ -185,3 +185,33 @@ The implementation retains one eight-byte payload range per logical record and
 materializes provenance only after cheap CFONT geometry selects a topic. The
 source dictionary is created on first request and reused, avoiding an eager
 per-book provenance cache while retaining one- versus two-byte token identity.
+
+## SC31-711 post-issue-48 source-grid audit
+
+On 2026-08-26, commit `c74e160` was followed by a new live audit rather than a
+reuse of the earlier reference directory:
+
+```sh
+python3 tools/bookserver_book_audit.py BOO/SC31-711.boo \
+  --book-id SC31-711 --timestamp 19941010174546 \
+  --output /tmp/geist-SC31-711-post48-live \
+  --build-dir build --jobs 4 --timeout 30
+```
+
+All 82 topic requests returned fresh HTML, all 82 local renders completed, and
+every hosted document's `BASE` path identified the requested topic. The audit
+produced 82 local files, 82 reference files, and 82 normalized diffs. Three
+independent reviews covered ordinal ranges 1--27, 28--55, and 56--82 and read
+every local/reference/diff triple, including unflagged topics; heuristic flags
+were used as navigation aids rather than as the definition of correctness.
+
+The source-grid changes were clean in topics `1.1` and `1.3`, and the earlier
+source-form/log repairs remained clean in `2.4.2`--`2.4.4` and `3.1`. The pass
+also proved that issue 48's broader physical-row family was not complete:
+marker leakage, row splitting, and omissions remain across front matter,
+diagnostic prose, trap records, glossary introduction, and back matter. The
+bounded implicit grid newly confirmed in `1.2` is tracked as issue 55; heading
+hierarchy and fragmented-cross-reference families are tracked separately as
+issues 56 and 57. Issue 51's list/procedure scope was expanded with the newly
+verified affected topics. Consequently neither issue 48 nor the SC31-711 book
+tracker was closed after this pass.
