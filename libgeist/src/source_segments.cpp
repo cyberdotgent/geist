@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <sstream>
 
 namespace geist::detail {
 
@@ -32,6 +33,7 @@ std::vector<std::string> clean_source_owned_selector_display_markers(
     const std::vector<DecodedLogicalRecordSource>& sources) {
   auto cleaned = decoded_records;
   const auto count = std::min(cleaned.size(), sources.size());
+  bool source_table_open = false;
   for (std::size_t record_index = 0; record_index < count; ++record_index) {
     const auto& source = sources[record_index];
     const auto assembled_text = token_words_to_ascii(source.assembled.words);
@@ -45,16 +47,54 @@ std::vector<std::string> clean_source_owned_selector_display_markers(
         decoded_selectors.push_back(&candidate);
       }
     }
-    std::vector<std::pair<std::size_t, std::size_t>> removals;
-    std::size_t selector_index = 0;
-    for (const auto& segment : source_segments) {
-      if (!ascii_starts_with_case_insensitive(segment.text, "cselect ")) {
+    std::vector<std::pair<const DecodedMarkupSegmentSpan*, bool>>
+        source_selectors;
+    for (const auto& candidate : source_segments) {
+      if (ascii_starts_with_case_insensitive(candidate.text, "sretbl")) {
+        source_table_open = false;
+      } else if (ascii_starts_with_case_insensitive(candidate.text, "srtbl")) {
+        source_table_open = true;
+      }
+      if (ascii_starts_with_case_insensitive(candidate.text, "cselect ")) {
+        source_selectors.emplace_back(&candidate, source_table_open);
+      }
+    }
+    // Normalization may split non-selector material differently, but selector
+    // pairing itself must be unique and complete within the record.
+    if (source_selectors.size() != decoded_selectors.size()) {
+      continue;
+    }
+    std::vector<std::pair<std::size_t, std::size_t>> marker_slots;
+    for (std::size_t selector_index = 0;
+         selector_index < source_selectors.size(); ++selector_index) {
+      const auto& [source_selector, selector_in_table] =
+          source_selectors[selector_index];
+      const auto& segment = *source_selector;
+      const auto& decoded_segment = *decoded_selectors[selector_index];
+      // Table composition owns cell boundaries and wrapped selector rows.
+      // Rewriting a native marker there can change row/cell ownership, so the
+      // prose selector projection must fail closed across logical records.
+      if (selector_in_table) {
         continue;
       }
-      if (selector_index >= decoded_selectors.size()) {
-        break;
+      std::istringstream fields(segment.text);
+      std::string control;
+      std::string target;
+      std::size_t column = 0;
+      std::size_t length = 0;
+      if (!(fields >> control >> column >> length >> target) || length == 0) {
+        continue;
       }
-      const auto& decoded_segment = *decoded_selectors[selector_index++];
+      const auto lower_target = ascii_lower(target);
+      if (ascii_starts_with_case_insensitive(lower_target, "lnk") ||
+          ascii_starts_with_case_insensitive(lower_target, "pic") ||
+          ascii_starts_with_case_insensitive(lower_target, "ftnftn") ||
+          ascii_starts_with_case_insensitive(lower_target, "figlist") ||
+          ascii_starts_with_case_insensitive(lower_target, "tlist") ||
+          ascii_lower(decoded_records[record_index]).find("srtbl") !=
+              std::string::npos) {
+        continue;
+      }
       auto cursor = segment.output_begin;
       for (int word = 0; word < 4; ++word) {
         while (cursor < segment.output_end &&
@@ -75,8 +115,8 @@ std::vector<std::string> clean_source_owned_selector_display_markers(
       }
       const auto marker_begin = cursor;
       while (cursor < segment.output_end &&
-             std::isalpha(static_cast<unsigned char>(
-                 assembled_text[cursor])) != 0) {
+             std::isspace(static_cast<unsigned char>(
+                 assembled_text[cursor])) == 0) {
         ++cursor;
       }
       const auto marker_end = cursor;
@@ -96,6 +136,7 @@ std::vector<std::string> clean_source_owned_selector_display_markers(
       }
       const auto marker_token = owned.front();
       if (marker_token >= source.encoded_tokens.size() ||
+          marker_token >= source.assembled.tokens.size() ||
           source.encoded_tokens[marker_token].width != 1 ||
           source.assembled.tokens[marker_token].output_begin != marker_begin) {
         continue;
@@ -108,12 +149,21 @@ std::vector<std::string> clean_source_owned_selector_display_markers(
       }
       const auto origin_token = marker_token + 1;
       if (origin_token >= source.tokens.size() ||
-          source.tokens[origin_token].size() != 3 ||
+          origin_token >= source.encoded_tokens.size() ||
+          origin_token >= source.assembled.tokens.size() ||
+          source.encoded_tokens[origin_token].width != 1 ||
+          source.tokens[origin_token].size() < 2 ||
+          source.tokens[origin_token].size() > 32 ||
           !std::all_of(source.tokens[origin_token].begin(),
                        source.tokens[origin_token].end(),
                        [](const auto word) { return word == ' '; }) ||
           source.assembled.tokens[origin_token].output_begin !=
               marker_span_end) {
+        continue;
+      }
+      const auto native_row_length = source.tokens[origin_token].size() +
+                                     (segment.output_end - display_begin);
+      if (column > native_row_length || length > native_row_length - column) {
         continue;
       }
       auto decoded_cursor = decoded_segment.output_begin;
@@ -142,11 +192,16 @@ std::vector<std::string> clean_source_owned_selector_display_markers(
               assembled_text, marker_begin, marker_end - marker_begin) != 0) {
         continue;
       }
-      removals.emplace_back(decoded_cursor, decoded_marker_end);
+      marker_slots.emplace_back(decoded_cursor, decoded_marker_end);
     }
-    std::sort(removals.rbegin(), removals.rend());
-    for (const auto& [begin, end] : removals) {
-      cleaned[record_index].erase(begin, end - begin);
+    std::sort(marker_slots.rbegin(), marker_slots.rend());
+    for (const auto& [begin, end] : marker_slots) {
+      // Canonical '?' is not blanked before selector row reconstruction.  It
+      // retains the native one-cell marker slot while the existing fixed-row
+      // path consumes it and its guard blank. This preserves CSELECT's
+      // absolute column and length without exposing the decoded dictionary
+      // alias or punctuation glyph.
+      cleaned[record_index].replace(begin, end - begin, "?");
     }
   }
   return cleaned;

@@ -5694,17 +5694,18 @@ std::vector<std::string> render_gml_records_with_source_layout(
       clean_source_owned_toc_title_markers(decoded_records, sources);
   const auto st_projected_records =
       project_source_owned_st_prose_rows(source_cleaned_records, sources);
+  auto procedure_steps =
+      numbered_procedure_step_segments(st_projected_records, sources);
   auto layout_records =
       clean_source_owned_selector_display_markers(st_projected_records,
                                                    sources);
-  auto procedure_steps =
-      numbered_procedure_step_segments(layout_records, sources);
   auto rendered =
       render_gml_records_impl(layout_records, &procedure_steps);
   if (rendered.empty() && st_projected_records != source_cleaned_records) {
+    procedure_steps =
+        numbered_procedure_step_segments(source_cleaned_records, sources);
     layout_records = clean_source_owned_selector_display_markers(
         source_cleaned_records, sources);
-    procedure_steps = numbered_procedure_step_segments(layout_records, sources);
     rendered = render_gml_records_impl(layout_records, &procedure_steps);
   }
   project_semantic_srmsg_source_markers(rendered, layout_records, sources);

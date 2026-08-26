@@ -199,12 +199,83 @@ int main() {
               {selector_record}, {dictionary_selector}) ==
               std::vector<std::string>({selector_record}),
           "two-byte selector display word was treated as a marker");
+  auto two_byte_origin = selector;
+  two_byte_origin.encoded_tokens[2].width = 2;
+  require(geist::detail::clean_source_owned_selector_display_markers(
+              {selector_record}, {two_byte_origin}) ==
+              std::vector<std::string>({selector_record}),
+          "two-byte selector origin token established row ownership");
+  auto malformed_selector = selector;
+  malformed_selector.assembled.tokens.resize(2);
+  require(geist::detail::clean_source_owned_selector_display_markers(
+              {selector_record}, {malformed_selector}) ==
+              std::vector<std::string>({selector_record}),
+          "truncated token-span provenance did not fail closed");
   auto prose_record = selector_record;
   prose_record.replace(0, 7, "ordinary");
   require(geist::detail::clean_source_owned_selector_display_markers(
               {prose_record}, {selector}) ==
               std::vector<std::string>({prose_record}),
           "non-selector prose activated selector marker cleanup");
+  for (const auto* semantic_target :
+       {"LNK", "PICIMAGE", "FTNFTNUNIQ1", "FIGLIST1", "TLIST1"}) {
+    auto semantic = selector;
+    semantic.tokens[0] = {'c','s','e','l','e','c','t',' ','3',' ','7',' '};
+    semantic.tokens[0].insert(semantic.tokens[0].end(), semantic_target,
+                              semantic_target + std::char_traits<char>::length(
+                                                    semantic_target));
+    semantic.assembled =
+        geist::detail::assemble_logical_record_with_sources(semantic.tokens);
+    const auto record =
+        geist::detail::token_words_to_ascii(semantic.assembled.words);
+    require(geist::detail::clean_source_owned_selector_display_markers(
+                {record}, {semantic}) == std::vector<std::string>({record}),
+            std::string("semantic selector family activated row cleanup: ") +
+                semantic_target);
+  }
+  auto combined_origin = selector;
+  combined_origin.tokens[1] = {'a','c','t','i','o','n',' ',' ',' '};
+  combined_origin.tokens.erase(combined_origin.tokens.begin() + 2);
+  combined_origin.encoded_tokens.erase(
+      combined_origin.encoded_tokens.begin() + 2);
+  combined_origin.assembled =
+      geist::detail::assemble_logical_record_with_sources(
+          combined_origin.tokens);
+  const auto combined_record = geist::detail::token_words_to_ascii(
+      combined_origin.assembled.words);
+  require(geist::detail::clean_source_owned_selector_display_markers(
+              {combined_record}, {combined_origin}) ==
+              std::vector<std::string>({combined_record}),
+          "combined marker/origin token activated selector cleanup");
+  auto out_of_range = selector;
+  out_of_range.tokens[0] = {
+      'c','s','e','l','e','c','t',' ','9','9',' ','7',' ','H','D','R'};
+  out_of_range.assembled =
+      geist::detail::assemble_logical_record_with_sources(out_of_range.tokens);
+  const auto out_of_range_record = geist::detail::token_words_to_ascii(
+      out_of_range.assembled.words);
+  require(geist::detail::clean_source_owned_selector_display_markers(
+              {out_of_range_record}, {out_of_range}) ==
+              std::vector<std::string>({out_of_range_record}),
+          "out-of-range selector activated source-row cleanup");
+  const auto ambiguous_record =
+      selector_record + " cselect 3 7 OTHER action    Chapter";
+  require(geist::detail::clean_source_owned_selector_display_markers(
+              {ambiguous_record}, {selector}) ==
+              std::vector<std::string>({ambiguous_record}),
+          "ambiguous selector/source pairing did not fail closed");
+  geist::detail::DecodedLogicalRecordSource table_start;
+  table_start.logical_record = 8;
+  table_start.tokens = {{'S','R','T','B','L','T','E','S','T'}};
+  table_start.encoded_tokens = {{0x82, 2}};
+  table_start.assembled =
+      geist::detail::assemble_logical_record_with_sources(table_start.tokens);
+  const auto table_start_record = geist::detail::token_words_to_ascii(
+      table_start.assembled.words);
+  require(geist::detail::clean_source_owned_selector_display_markers(
+              {table_start_record, selector_record}, {table_start, selector}) ==
+              std::vector<std::string>({table_start_record, selector_record}),
+          "selector projection crossed active table ownership");
   const std::vector<std::vector<TokenWords>> cases = {
       {},
       {{}},
