@@ -168,6 +168,10 @@ int main() {
     const std::vector<std::string> decoded{
         "cfont 5 65 E     ************************ Banner ***************",
         "cfont 6 4 E 20 3 E       Field         : 123",
+        "cfont 6 4 E 11 2 E 14 1 E 16 3 E 20 1 E 26 1 E 28 1 E "
+        "46 3 E 50 5 E 63 1 E 65 5 E -       User ID ( UID )     : 0 "
+        "                Log Class        : ERROR",
+        "cfont 6 4 E -       Test )    marker",
         "AS",
         "cfont 6 4 E 20 5 E       Other         : value a",
         "cfont 5 65 E     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~are",
@@ -180,6 +184,10 @@ int main() {
       joined += "\n" + record;
     }
     if (joined.find(":line.Field : 123") == std::string::npos ||
+        joined.find(":line.User ID ( UID ) : 0 Log Class : ERROR") ==
+            std::string::npos ||
+        joined.find(":line.Test marker") == std::string::npos ||
+        joined.find("Test ) marker") != std::string::npos ||
         joined.find(":line.Other : value") == std::string::npos ||
         joined.find(":line.803 Cannot connect") == std::string::npos ||
         joined.find(":p.Following prose starts here.") == std::string::npos ||

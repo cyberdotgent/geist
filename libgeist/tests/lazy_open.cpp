@@ -832,7 +832,7 @@ int main() {
   const auto formatted_log = problem_determination.topic_markdown("3.1");
   for (const auto* expected : {
            "Process ID : 19915 Subsystem : OVEXTERNAL",
-           "User ID ( UID : 0 Log Class : ERROR",
+           "User ID ( UID ) : 0 Log Class : ERROR",
            "Connection ID : -1 Log Instance : 0",
            "803 Cannot connect to LNM OS/2 Agent with internet address: "
            "9.67.164.24",

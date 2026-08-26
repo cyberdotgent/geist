@@ -238,9 +238,11 @@ std::string strip_fixed_alpha_row_markers(std::string value) {
 }
 
 std::string blank_fixed_prose_row_markers(std::string value,
-                                          bool allow_adjacent = false) {
+                                          bool allow_adjacent = false,
+                                          const std::vector<bool>&
+                                              protected_columns = {}) {
   auto row = assemble_fixed_display_row({value});
-  blank_fixed_display_marker_fields(row, allow_adjacent);
+  blank_fixed_display_marker_fields(row, allow_adjacent, protected_columns);
   return std::move(row.text);
 }
 
@@ -4189,8 +4191,26 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
     state.fixed_e_display_active = true;
   }
   if (state.fixed_e_display_active && all_e_row) {
-    (void)strip_fixed_prefix_before_first_span(raw_trailing, spans, false);
-    raw_trailing = blank_fixed_prose_row_markers(std::move(raw_trailing));
+    const auto stripped_prefix =
+        strip_fixed_prefix_before_first_span(raw_trailing, spans, false);
+    auto protected_columns = std::vector<bool>(raw_trailing.size(), false);
+    const auto base_column = stripped_prefix && !spans.empty()
+                                 ? spans.front().offset
+                                 : state.current_font_base_column;
+    for (const auto& span : spans) {
+      const auto begin = span.offset >= base_column
+                             ? span.offset - base_column
+                             : std::size_t{0};
+      const auto end = std::min(raw_trailing.size(), begin + span.length);
+      std::fill(protected_columns.begin() +
+                    static_cast<std::ptrdiff_t>(
+                        std::min(begin, protected_columns.size())),
+                protected_columns.begin() +
+                    static_cast<std::ptrdiff_t>(end),
+                true);
+    }
+    raw_trailing = blank_fixed_prose_row_markers(
+        std::move(raw_trailing), false, protected_columns);
     auto trailing_prose = std::string{};
     if (state.fixed_e_display_after_divider && !divider_row) {
       auto split = std::string::npos;
