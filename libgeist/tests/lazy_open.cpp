@@ -614,6 +614,30 @@ int main() {
     require(sna_publications.find(expected) != std::string::npos,
             "SNA publication CFONT row disappeared during title repair");
   }
+  const auto lnm_publications =
+      problem_determination.topic_markdown("BACK_1.1");
+  for (const auto* expected : {
+           "Getting Started with LAN Network Manager for AIX (SC31-7109)",
+           "Using LAN Network Manager for AIX (SC31-7110)",
+           "LAN Network Manager for AIX Reference (SC31-7111)"}) {
+    const auto first = lnm_publications.find(expected);
+    require(first != std::string::npos &&
+                lnm_publications.find(expected, first + 1) ==
+                    std::string::npos,
+            "LAN publication CFONT row received dual ST ownership");
+  }
+  const auto netcenter_publications =
+      problem_determination.topic_markdown("BACK_1.11");
+  for (const auto* expected : {
+           "NETCENTER Operator Tutorial (GC75-0109)",
+           "NETCENTER Graphic Network Monitor Service Point Interface "
+           "Installation (SC75-0111)"}) {
+    const auto first = netcenter_publications.find(expected);
+    require(first != std::string::npos &&
+                netcenter_publications.find(expected, first + 1) ==
+                    std::string::npos,
+            "NETCENTER publication CFONT row received dual ST ownership");
+  }
 
   const auto performance_files =
       problem_determination.topic_markdown("1.4");

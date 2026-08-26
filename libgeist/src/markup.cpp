@@ -1696,6 +1696,12 @@ std::optional<std::string> subject_index_visible_tail(const std::string& value,
   }
   if (fixed_row_tail) {
     visible = strip_fixed_line_overflow_tokens(std::move(visible));
+    const auto last = visible.find_last_not_of(" \t\r\n");
+    if (last != std::string::npos && is_fixed_prose_row_marker(visible[last]) &&
+        last > 0 &&
+        std::isspace(static_cast<unsigned char>(visible[last - 1])) != 0) {
+      visible.erase(last);
+    }
   }
   visible = dot_text(strip_fixed_prose_row_markers(std::move(visible)));
   visible = strip_visual_line_marker(std::move(visible));

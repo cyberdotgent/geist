@@ -1253,6 +1253,26 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
           if (body_following_control == "cfont" ||
               body_following_control == "cselect" ||
               ascii_lower(body_text).find("cfont ") != std::string::npos) {
+            // Some flattened ST records retain a printable row marker rather
+            // than an explicit control separator before a typed continuation.
+            // The normal projection below already owns that CFONT/CSELECT
+            // content; keep only the ST prefix in the fixed body so the same
+            // rows are not emitted twice.
+            const auto lower_body = ascii_lower(body_text);
+            auto typed_control = body_text.size();
+            for (const auto* control : {"cfont ", "cselect "}) {
+              auto search = lower_body.find(control);
+              while (search != std::string::npos) {
+                if (looks_like_gml_control_at(body_text, search)) {
+                  typed_control = std::min(typed_control, search);
+                  break;
+                }
+                search = lower_body.find(control, search + 1);
+              }
+            }
+            if (typed_control < body_text.size()) {
+              body_text = trim_ascii(body_text.substr(0, typed_control));
+            }
             auto continuation = erase_end;
             while (continuation != entry.raw_records.end() &&
                    (raw_gml_tag(*continuation) == "p" ||
@@ -1292,14 +1312,20 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
       }
     }
   }
+  auto rendered_publication_text = std::string{};
+  for (const auto& record : entry.raw_records) {
+    if (!rendered_publication_text.empty()) {
+      rendered_publication_text.push_back(' ');
+    }
+    rendered_publication_text += clean_fixed_rendered_line(
+        raw_gml_content_preserve_space(record));
+  }
+  rendered_publication_text =
+      collapse_ascii_whitespace(std::move(rendered_publication_text));
   for (auto& publication : publication_rows) {
-    const auto already_present = std::any_of(
-        entry.raw_records.begin(), entry.raw_records.end(),
-        [&](const auto& record) {
-          return collapse_ascii_whitespace(
-                     raw_gml_content_preserve_space(record)) ==
-                 collapse_ascii_whitespace(publication);
-        });
+    const auto already_present =
+        rendered_publication_text.find(
+            collapse_ascii_whitespace(publication)) != std::string::npos;
     if (!already_present) {
       entry.raw_records.push_back(":line." + std::move(publication));
     }
