@@ -1,6 +1,7 @@
 #pragma once
 
 #include "geist/detail/internal.hpp"
+#include "geist/detail/source_rows.hpp"
 
 #include <cstddef>
 #include <optional>
@@ -20,11 +21,6 @@ struct ImplicitGridRow {
   bool continuation = false;
 };
 
-struct SourceRowMarker {
-  std::string marker;
-  std::string following_text;
-};
-
 struct ImplicitGrid {
   std::size_t key_origin = 0;
   std::size_t value_origin = 0;
@@ -35,9 +31,6 @@ struct ImplicitGrid {
 
 bool is_implicit_grid_header_geometry(
     const std::vector<ImplicitGridHeaderSpan>& header_spans);
-std::vector<SourceRowMarker> source_row_markers(
-    const std::vector<DecodedLogicalRecordSource>& records,
-    std::size_t key_origin);
 
 // Extract a source-owned two-column form that has no drawn box. Activation
 // requires both a plural CFONT header geometry and repeated encoded row

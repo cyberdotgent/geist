@@ -145,47 +145,6 @@ bool is_implicit_grid_header_geometry(
   return header_columns(header_spans).has_value();
 }
 
-std::vector<SourceRowMarker> source_row_markers(
-    const std::vector<DecodedLogicalRecordSource>& records,
-    std::size_t key_origin) {
-  std::vector<SourceRowMarker> markers;
-  for (const auto& record : records) {
-    for (std::size_t token = 1; token + 1 < record.tokens.size(); ++token) {
-      if (!exact_spaces(record.tokens[token], key_origin)) {
-        continue;
-      }
-      // Structural marker slots are encoded through the compact one-byte
-      // token map. Ordinary preceding dictionary words use two-byte keys and
-      // remain part of their physical line.
-      if (token - 1 >= record.encoded_tokens.size() ||
-          record.encoded_tokens[token - 1].width != 1) {
-        continue;
-      }
-      const auto token_text = [](const TokenWords& words) {
-        TokenWords visible;
-        for (const auto word : words) {
-          if (word >= 0x20 && word != 0x2666) {
-            visible.push_back(word);
-          }
-        }
-        return trim(token_words_to_ascii(visible));
-      };
-      auto marker = token_text(record.tokens[token - 1]);
-      auto following = token_text(record.tokens[token + 1]);
-      marker = trim(std::move(marker));
-      following = trim(std::move(following));
-      if (marker.empty() || following.empty() || marker.size() > 24 ||
-          std::all_of(marker.begin(), marker.end(), [](const auto ch) {
-            return std::isspace(static_cast<unsigned char>(ch)) != 0;
-          })) {
-        continue;
-      }
-      markers.push_back({std::move(marker), std::move(following)});
-    }
-  }
-  return markers;
-}
-
 std::optional<ImplicitGrid> extract_implicit_grid(
     const std::vector<DecodedLogicalRecordSource>& records,
     const std::vector<ImplicitGridHeaderSpan>& header_spans) {

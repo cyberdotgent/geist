@@ -80,6 +80,7 @@ set(GEIST_SOURCES
   src/img/png.cpp
   src/properties.cpp
   src/resources.cpp
+  src/source_rows.cpp
   src/strings.cpp
   src/toc.cpp
   src/util.cpp
@@ -235,6 +236,12 @@ target_compile_definitions(implicit_grid_test PRIVATE
   GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
 )
 add_test(NAME implicit_grid_test COMMAND implicit_grid_test)
+
+add_executable(source_rows_synthetic_test
+  tests/source_rows_synthetic.cpp
+)
+target_link_libraries(source_rows_synthetic_test PRIVATE geist::geist_static)
+add_test(NAME source_rows_synthetic_test COMMAND source_rows_synthetic_test)
 
 add_executable(sc31_711_row_ownership_test
   tests/sc31_711_row_ownership.cpp
