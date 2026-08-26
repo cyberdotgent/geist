@@ -2,6 +2,8 @@
 
 #include "geist/detail/comment_delivery_document_lowering.hpp"
 #include "geist/detail/comment_delivery_ir.hpp"
+#include "geist/detail/fixed_prose_document_lowering.hpp"
+#include "geist/detail/fixed_prose_topic_ir.hpp"
 #include "geist/detail/internal.hpp"
 #include "geist/detail/layout_ir.hpp"
 #include "geist/detail/ownership_ir.hpp"
@@ -59,8 +61,11 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
       extract_comment_delivery_ir(sources, layout, ownership, nullptr);
   const auto publications =
       extract_publication_catalog_ir(sources, layout, ownership);
+  const auto fixed_prose =
+      extract_fixed_prose_topic_ir(sources, layout, ownership, nullptr);
   const auto family_count = static_cast<unsigned>(delivery.has_value()) +
-                            static_cast<unsigned>(publications.has_value());
+                            static_cast<unsigned>(publications.has_value()) +
+                            static_cast<unsigned>(fixed_prose.has_value());
   if (family_count == 0)
     return std::nullopt;
   if (family_count != 1) {
@@ -84,7 +89,7 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
       reject(typed_rejection, family + " document rejected: " + error);
       return std::nullopt;
     }
-  } else {
+  } else if (publications) {
     family = "publication catalog";
     if (!verify_publication_catalog_ir(sources, layout, ownership,
                                        *publications, &error)) {
@@ -99,6 +104,20 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
         topic, *publications, &error);
     if (!document || !verify_publication_catalog_document_ir(
                          *publications, *document, &error)) {
+      reject(typed_rejection, family + " document rejected: " + error);
+      return std::nullopt;
+    }
+  } else {
+    family = "fixed prose";
+    if (!verify_fixed_prose_topic_ir(sources, layout, ownership, *fixed_prose,
+                                     &error)) {
+      reject(typed_rejection, family + " semantics rejected: " + error);
+      return std::nullopt;
+    }
+    document =
+        lower_fixed_prose_topic_to_document_ir(topic, *fixed_prose, &error);
+    if (!document || !verify_fixed_prose_topic_document_ir(
+                         *fixed_prose, *document, &error)) {
       reject(typed_rejection, family + " document rejected: " + error);
       return std::nullopt;
     }

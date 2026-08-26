@@ -522,8 +522,13 @@ the complete record range and segment ledger plus distinct heading, paragraph,
 and anchor provenance. Corpus inventory admits only `ITPPIBOK.BOO` topics
 `2.1.2` and `4.1.2`; nine other inner-`ST` shapes are rejected because they also
 contain selectors, CFONT data, menus, messages, or trailing text. Canonical
-lowering emits a heading, optional anchor, and paragraph, but production routing
-remains a separate audited workload.
+lowering emits a heading, optional anchor, and paragraph. Production routing
+admits those same two complete topics as the dispatcher's third mutually
+exclusive family. Their only corpus differences are CommonMark escapes in topic
+numbers, parentheses, and terminal periods; removing those escapes makes both
+files byte-identical to the legacy visible text, while the source anchor and
+paragraph boundaries remain unchanged. Partial fixed-prose shapes continue
+through the indivisible legacy path.
 
 The publication-catalog adapter is the second complete semantic-to-document
 lowering and is now enabled in production. `PublicationCatalogIR` retains

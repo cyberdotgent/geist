@@ -62,6 +62,25 @@ int main() {
   const auto ordinary = ordinary_entry->markdown();
   const auto ordinary_again = ordinary_entry->markdown();
 
+  const auto itp = geist::BooDocument::open(
+      std::filesystem::path(GEIST_REPO_ROOT) / "BOO" / "ITPPIBOK.BOO");
+  const auto *communications_entry = itp.find_toc_entry("2.1.2");
+  const auto *results_entry = itp.find_toc_entry("4.1.2");
+  const auto *partial_prose_entry = itp.find_toc_entry("2.4.2.2");
+  if (!require(communications_entry != nullptr && results_entry != nullptr &&
+                   partial_prose_entry != nullptr,
+               "fixed prose production fixtures are absent from the TOC"))
+    return 1;
+  const auto communications_gml_before = communications_entry->gml_records();
+  const auto communications = communications_entry->markdown();
+  const auto communications_again = communications_entry->markdown();
+  const auto communications_gml_after = communications_entry->gml_records();
+  const auto results_gml_before = results_entry->gml_records();
+  const auto results = results_entry->markdown();
+  const auto results_again = results_entry->markdown();
+  const auto results_gml_after = results_entry->gml_records();
+  const auto partial_prose = partial_prose_entry->markdown();
+
   const geist::TopicInfo *direct_topic = nullptr;
   for (const auto &topic : document.topics()) {
     if (document.find_toc_entry(topic.id) == nullptr) {
@@ -104,6 +123,29 @@ int main() {
                "typed non-match did not retain legacy topic rendering") ||
       !require(ordinary == ordinary_again,
                "repeated ordinary fallback rendering was unstable") ||
+      !require(communications.rfind("### 2\\.1\\.2 ", 0) == 0 &&
+                   communications.find("Communications Controller "
+                                       "Requirements") != std::string::npos &&
+                   communications.find("TPNS CHEAPP \\(Channel end\\)") !=
+                       std::string::npos,
+               "unanchored fixed prose did not use typed Markdown") ||
+      !require(results.rfind("### 4\\.1\\.2 Expected Results", 0) == 0 &&
+                   results.find("<a id=\"HDRPLNEXR\"></a>") !=
+                       std::string::npos &&
+                   results.find("60 logon requests") != std::string::npos,
+               "anchored fixed prose did not use typed Markdown") ||
+      !require(communications == communications_again &&
+                   results == results_again,
+               "repeated typed fixed prose rendering was unstable") ||
+      !require(communications_gml_before == communications_gml_after &&
+                   !communications_gml_after.empty() &&
+                   results_gml_before == results_gml_after &&
+                   !results_gml_after.empty(),
+               "typed fixed prose changed or discarded public GML records") ||
+      !require(partial_prose.find("`TPNSSID1` `APPL`") !=
+                       std::string::npos &&
+                   partial_prose.find("<BOOK>") != std::string::npos,
+               "partial fixed prose envelope did not retain legacy content") ||
       !require(back.find("If you prefer to send comments by mail") !=
                    std::string::npos,
                "typed delivery content was not rendered") ||
