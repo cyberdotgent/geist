@@ -1,5 +1,6 @@
 #include "geist/detail/fixed_display.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -129,6 +130,40 @@ int main() {
   }
   require(bad_form_grid_rejected,
           "mismatched fixed form geometry was accepted");
+
+  const std::vector<std::uint16_t> box_form = {
+      0x250c, 0x2500, 0x2500, 0x252c, 0x2500, 0x2500, 0x2510,
+      0x2502, 'F',    'i',    0x2502, 'V',    ' ',    0x2502,
+      0x251c, 0x2500, 0x2500, 0x253c, 0x2500, 0x2500, 0x2524,
+      // This source text is outside the closed grid and must not leak.
+      'a',    'd',    'd',    'r',    0x2502, 'A',    ' ',
+      0x2502, '1',    ' ',    0x2502,
+      0x2502, 'B',    0x2500, 0x2502, '2',    ' ',    0x2502,
+      0x251c, 0x2500, 0x2500, 0x253c, 0x2500, 0x2500, 0x2524,
+      0x2502, 0x2666, 0x00e9, 0x2502, '3',    ' ',    0x2502,
+      0x2514, 0x2500, 0x2500, 0x2534, 0x2500, 0x2500, 0x2518,
+  };
+  const auto extracted =
+      geist::detail::extract_box_fixed_form_grid(box_form);
+  require(extracted &&
+              extracted->separator_columns ==
+                  std::vector<std::size_t>({0, 3, 6}),
+          "Unicode box form geometry was not recovered");
+  const auto extracted_rows = geist::detail::aggregate_fixed_form_rows(
+      extracted->physical_rows, extracted->separator_columns.size() - 1);
+  require(extracted_rows.size() == 3 && extracted_rows[0][0] == "Fi" &&
+              extracted_rows[1][0] == "A<br>B\\_" &&
+              extracted_rows[1][1] == "1<br>2" &&
+              extracted_rows[2][0] == "\xc3\xa9" &&
+              std::none_of(extracted_rows.begin(), extracted_rows.end(),
+                           [](const auto& row) {
+                             return row[0].find("addr") != std::string::npos;
+                           }),
+          "box form rows lost ownership or included out-of-grid text");
+  auto two_box_forms = box_form;
+  two_box_forms.insert(two_box_forms.end(), box_form.begin(), box_form.end());
+  require(!geist::detail::extract_box_fixed_form_grid(two_box_forms),
+          "ambiguous multi-form source selected the first box silently");
 
   auto punctuation = geist::detail::assemble_fixed_display_row(
       {"Value (positive)    )    next row"});

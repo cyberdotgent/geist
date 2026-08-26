@@ -28,6 +28,46 @@ bool is_fixed_display_marker(char ch) {
   }
 }
 
+bool is_left_box_border(std::uint16_t word) {
+  return word == 0x250c || word == 0x251c || word == 0x2514;
+}
+
+bool is_right_box_border(std::uint16_t word) {
+  return word == 0x2510 || word == 0x2524 || word == 0x2518;
+}
+
+bool is_box_junction(std::uint16_t word) {
+  return word == 0x252c || word == 0x253c || word == 0x2534;
+}
+
+std::string fixed_form_cell_text(const std::vector<std::uint16_t>& words,
+                                 std::size_t begin,
+                                 std::size_t end,
+                                 bool& has_row_marker) {
+  std::string text;
+  for (auto cursor = begin; cursor < end; ++cursor) {
+    const auto word = words[cursor];
+    if (word == 0x2666) {
+      has_row_marker = true;
+      continue;
+    }
+    if (word == 0x2500) {
+      text += "\\_";
+      continue;
+    }
+    text += token_words_to_ascii({word});
+  }
+  while (!text.empty() &&
+         std::isspace(static_cast<unsigned char>(text.front())) != 0) {
+    text.erase(text.begin());
+  }
+  while (!text.empty() &&
+         std::isspace(static_cast<unsigned char>(text.back())) != 0) {
+    text.pop_back();
+  }
+  return text;
+}
+
 } // namespace
 
 FixedDisplayRow assemble_fixed_display_row(
@@ -175,6 +215,112 @@ std::vector<std::vector<std::string>> aggregate_fixed_form_rows(
   }
   flush();
   return rows;
+}
+
+std::optional<FixedFormGrid> extract_box_fixed_form_grid(
+    const std::vector<std::uint16_t>& words) {
+  for (std::size_t top = 0; top < words.size(); ++top) {
+    if (words[top] != 0x250c) {
+      continue;
+    }
+    std::vector<std::size_t> separators{0};
+    auto top_end = top + 1;
+    for (; top_end < words.size() && top_end - top <= 200; ++top_end) {
+      if (words[top_end] == 0x252c) {
+        separators.push_back(top_end - top);
+      } else if (words[top_end] == 0x2510) {
+        separators.push_back(top_end - top);
+        break;
+      } else if (words[top_end] != 0x2500) {
+        break;
+      }
+    }
+    if (top_end >= words.size() || words[top_end] != 0x2510 ||
+        separators.size() < 3) {
+      continue;
+    }
+    const auto width = separators.back() + 1;
+    FixedFormGrid grid;
+    grid.separator_columns = separators;
+    auto next_row_starts = true;
+    auto cursor = top_end + 1;
+    while (cursor < words.size()) {
+      auto candidate = cursor;
+      while (candidate < words.size() &&
+             words[candidate] != 0x2502 &&
+             !is_left_box_border(words[candidate])) {
+        ++candidate;
+      }
+      if (candidate + width > words.size()) {
+        break;
+      }
+
+      if (is_left_box_border(words[candidate])) {
+        auto valid_border =
+            is_right_box_border(words[candidate + separators.back()]);
+        auto full_horizontal = true;
+        for (std::size_t column = 1;
+             valid_border && column < separators.back(); ++column) {
+          const auto at_separator =
+              std::find(separators.begin(), separators.end(), column) !=
+              separators.end();
+          if (at_separator) {
+            valid_border = is_box_junction(words[candidate + column]);
+          } else {
+            valid_border = words[candidate + column] == 0x2500;
+            full_horizontal = full_horizontal && valid_border;
+          }
+        }
+        if (valid_border) {
+          grid.physical_rows.push_back(
+              {FixedFormPhysicalRowKind::border, {}});
+          next_row_starts = full_horizontal;
+          const auto bottom = words[candidate] == 0x2514;
+          cursor = candidate + width;
+          if (bottom) {
+            const std::vector<std::uint16_t> tail(
+                words.begin() + static_cast<std::ptrdiff_t>(cursor),
+                words.end());
+            if (extract_box_fixed_form_grid(tail)) {
+              return std::nullopt;
+            }
+            return grid;
+          }
+          continue;
+        }
+      }
+
+      auto valid_row = words[candidate] == 0x2502;
+      for (const auto separator : separators) {
+        valid_row = valid_row &&
+                    words[candidate + separator] == 0x2502;
+      }
+      if (!valid_row) {
+        cursor = candidate + 1;
+        continue;
+      }
+      FixedFormPhysicalRow row;
+      auto row_marker = false;
+      for (std::size_t column = 0; column + 1 < separators.size(); ++column) {
+        row.cells.push_back(fixed_form_cell_text(
+            words,
+            candidate + separators[column] + 1,
+            candidate + separators[column + 1],
+            row_marker));
+      }
+      const auto empty = std::all_of(
+          row.cells.begin(), row.cells.end(),
+          [](const auto& cell) { return cell.empty(); });
+      row.kind = empty ? FixedFormPhysicalRowKind::spacer
+                       : next_row_starts || row_marker
+                             ? FixedFormPhysicalRowKind::row_start
+                             : FixedFormPhysicalRowKind::continuation;
+      grid.physical_rows.push_back(std::move(row));
+      next_row_starts = false;
+      cursor = candidate + width;
+    }
+  }
+  return std::nullopt;
 }
 
 

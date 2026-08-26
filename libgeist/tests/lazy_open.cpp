@@ -517,6 +517,21 @@ int main() {
               "Number of objects in the OVw database<br>(use the command "
               "ovobjprint \\| head)") != std::string::npos,
           "fixed NetView form lost its object-count command continuation");
+  for (const auto* expected : {
+           "Which mode was AIX NetView/6000 operating<br>in at the time of "
+           "the problem?",
+           "[ ] Read<br>[ ] Read-Write",
+           "Number of objects to hold in ovwdb<br>cache",
+           "Number of seconds between storing<br>data to the GTMD database",
+       }) {
+    require(netview_form.find(expected) != std::string::npos,
+            "source-owned fixed form continuation was split or moved");
+  }
+  require(netview_form.find("| a |") == std::string::npos &&
+              netview_form.find("| address |") == std::string::npos &&
+              netview_form.find("????????") == std::string::npos &&
+              netview_form.find("\\_\\_\\_\\_\\_") != std::string::npos,
+          "fixed form leaked out-of-grid text or lost visible fill rules");
   const auto reader_questionnaire =
       problem_determination.topic_markdown("COMMENTS");
   require(reader_questionnaire.find("the information in this book?") !=

@@ -59,9 +59,15 @@ struct LogicalRecordPayloadRange {
   std::uint32_t end = 0;
 };
 
+struct EncodedLogicalToken {
+  std::uint16_t value = 0;
+  std::uint8_t width = 0;
+};
+
 struct DecodedLogicalRecordSource {
   std::uint32_t logical_record = 0;
   std::vector<TokenWords> tokens;
+  std::vector<EncodedLogicalToken> encoded_tokens;
   AssembledLogicalRecord assembled;
 };
 
@@ -88,6 +94,10 @@ struct TopicData {
   std::uint32_t start_logical_record = 0;
   std::uint32_t end_logical_record = 0;
   std::vector<std::string> raw_records;
+  // Populated only for a selected topic whose lightweight decoded stream
+  // contains a fixed-form candidate. Kept topic-local and discarded after
+  // normalized GML construction.
+  std::vector<DecodedLogicalRecordSource> fixed_layout_sources;
 };
 
 enum class EbcdicCodePage {
@@ -155,6 +165,9 @@ std::vector<ResourceEntry> build_resources(
     const BooDirectory& directory);
 std::vector<std::string> render_gml_records(
     const std::vector<std::string>& decoded_records);
+std::vector<std::string> render_gml_records_with_fixed_form_source(
+    const std::vector<std::string>& decoded_records,
+    const std::vector<DecodedLogicalRecordSource>& sources);
 std::string strip_fixed_line_overflow_tokens(
     std::string value,
     bool allow_wide_short_boundary = false,

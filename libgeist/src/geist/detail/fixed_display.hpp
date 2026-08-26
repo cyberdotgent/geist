@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -64,6 +65,11 @@ struct FixedFormPhysicalRow {
   std::vector<std::string> cells;
 };
 
+struct FixedFormGrid {
+  std::vector<std::size_t> separator_columns;
+  std::vector<FixedFormPhysicalRow> physical_rows;
+};
+
 FixedDisplayRow assemble_fixed_display_row(
     const std::vector<std::string>& fragments);
 void blank_fixed_display_marker_fields(FixedDisplayRow& row,
@@ -85,5 +91,12 @@ std::vector<ReconstructedFixedDisplayRow> reconstruct_fixed_display_rows(
 std::vector<std::vector<std::string>> aggregate_fixed_form_rows(
     const std::vector<FixedFormPhysicalRow>& physical_rows,
     std::size_t column_count);
+
+// Recover the first genuine box-drawing form in an unflattened logical-word
+// stream. Unlike the legacy ASCII projection, this retains the distinction
+// between U+2502 grid separators and lexical question marks/pipes. Text found
+// outside the left/right box edges is intentionally not returned.
+std::optional<FixedFormGrid> extract_box_fixed_form_grid(
+    const std::vector<std::uint16_t>& words);
 
 } // namespace geist::detail

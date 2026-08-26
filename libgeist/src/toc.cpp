@@ -1203,7 +1203,11 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
   entry.topic_number = topic.topic_number;
   entry.start_logical_record = topic.start_logical_record;
   entry.end_logical_record = topic.end_logical_record;
-  entry.raw_records = render_gml_records(topic.raw_records);
+  entry.raw_records = topic.fixed_layout_sources.empty()
+                          ? render_gml_records(topic.raw_records)
+                          : render_gml_records_with_fixed_form_source(
+                                topic.raw_records,
+                                topic.fixed_layout_sources);
   std::vector<std::string> publication_rows;
   std::vector<PublicationBlock> publication_blocks;
   if (ascii_lower(entry.title).find("publications") != std::string::npos) {

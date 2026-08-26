@@ -17,6 +17,43 @@ namespace geist {
 
 using namespace detail;
 
+namespace {
+
+bool has_fixed_form_source_candidate(
+    const std::vector<std::string>& records) {
+  auto candidates = std::size_t{0};
+  for (const auto& record : records) {
+    const auto lower = ascii_lower(record);
+    for (auto table = lower.find("srtbl"); table != std::string::npos;
+         table = lower.find("srtbl", table + 5)) {
+      const auto close = lower.find("sretbl", table + 5);
+      const auto limit = close == std::string::npos ? record.size() : close;
+      auto run = std::size_t{0};
+      auto proven_form = false;
+      for (auto cursor = table + 5; cursor < limit; ++cursor) {
+        run = record[cursor] == '?' ? run + 1 : 0;
+        proven_form = proven_form || run >= 40;
+      }
+      if (proven_form) {
+        ++candidates;
+      }
+    }
+  }
+  return candidates == 1;
+}
+
+void load_fixed_form_source_if_candidate(
+    const std::shared_ptr<LogicalDecodeContext>& context,
+    TopicData& topic) {
+  if (!has_fixed_form_source_candidate(topic.raw_records)) {
+    return;
+  }
+  topic.fixed_layout_sources = decode_logical_record_sources(
+      *context, topic.start_logical_record, topic.end_logical_record);
+}
+
+} // namespace
+
 BooDocument BooDocument::open(const std::filesystem::path& path) {
   BooDocument document;
   auto context = std::make_shared<LogicalDecodeContext>();
@@ -180,6 +217,7 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
                   topic_data.start_logical_record - 1,
               context->decoded_records.begin() +
                   topic_data.end_logical_record - 1);
+          load_fixed_form_source_if_candidate(context, topic_data);
           TocEntry loaded;
           loaded.id = entry_id;
           loaded.title = entry_title;
@@ -302,6 +340,7 @@ std::string BooDocument::topic_markdown(const std::string& topic_id) const {
   topic.raw_records.assign(
       decode_context_->decoded_records.begin() + topic.start_logical_record - 1,
       decode_context_->decoded_records.begin() + topic.end_logical_record - 1);
+  load_fixed_form_source_if_candidate(decode_context_, topic);
   TocEntry entry;
   entry.id = topic.id;
   entry.title = topic.title;

@@ -5622,6 +5622,95 @@ std::vector<std::string> render_gml_records(
   return rendered;
 }
 
+std::vector<std::string> render_gml_records_with_fixed_form_source(
+    const std::vector<std::string>& decoded_records,
+    const std::vector<DecodedLogicalRecordSource>& sources) {
+  auto rendered = render_gml_records(decoded_records);
+  std::vector<std::uint16_t> source_words;
+  for (const auto& source : sources) {
+    source_words.insert(source_words.end(), source.assembled.words.begin(),
+                        source.assembled.words.end());
+  }
+  const auto grid = extract_box_fixed_form_grid(source_words);
+  if (!grid || grid->separator_columns.size() < 3) {
+    return rendered;
+  }
+  const auto has_visible_continuation = std::any_of(
+      grid->physical_rows.begin(), grid->physical_rows.end(),
+      [](const auto& row) {
+        return row.kind == FixedFormPhysicalRowKind::continuation &&
+               std::any_of(row.cells.begin(), row.cells.end(),
+                           [](const auto& cell) {
+                             return std::any_of(
+                                 cell.begin(), cell.end(), [](const auto ch) {
+                                   return std::isalnum(
+                                              static_cast<unsigned char>(ch)) !=
+                                          0;
+                                 });
+                           });
+      });
+  if (!has_visible_continuation) {
+    return rendered;
+  }
+  const auto rows = aggregate_fixed_form_rows(
+      grid->physical_rows, grid->separator_columns.size() - 1);
+  if (rows.size() < 2) {
+    return rendered;
+  }
+
+  const auto table = std::find_if(
+      rendered.begin(), rendered.end(), [](const auto& record) {
+        return ascii_starts_with_case_insensitive(record, ":table ") &&
+               ascii_lower(record).find("form='true'") != std::string::npos;
+      });
+  if (table == rendered.end()) {
+    return rendered;
+  }
+  if (std::find_if(table + 1, rendered.end(), [](const auto& record) {
+        return ascii_starts_with_case_insensitive(record, ":table ") &&
+               ascii_lower(record).find("form='true'") != std::string::npos;
+      }) != rendered.end()) {
+    return rendered;
+  }
+  const auto end = std::find_if(
+      table + 1, rendered.end(), [](const auto& record) {
+        return ascii_starts_with_case_insensitive(record, ":etable.");
+      });
+  if (end == rendered.end()) {
+    return rendered;
+  }
+
+  std::vector<std::string> replacement;
+  replacement.reserve((rows.size() + 1) * (rows.front().size() + 1));
+  // Fixed forms synthesize their semantic column heading from the SRTBL
+  // frame; it is not repeated inside the source box stream. Preserve exactly
+  // that first normalized row and replace only the source-owned body.
+  const auto first_row = std::find_if(
+      table + 1, end, [](const auto& record) { return record == ":row."; });
+  if (first_row != end) {
+    const auto second_row = std::find_if(
+        first_row + 1, end,
+        [](const auto& record) { return record == ":row."; });
+    replacement.insert(replacement.end(), first_row, second_row);
+  }
+  for (const auto& row : rows) {
+    if (row.size() != rows.front().size()) {
+      return rendered;
+    }
+    replacement.push_back(":row.");
+    for (std::size_t column = 0; column < row.size(); ++column) {
+      replacement.push_back(":c col='" + std::to_string(column) + "'." +
+                            dot_table_cell_text(
+                                expand_fixed_form_symbols(row[column])));
+    }
+  }
+  rendered.erase(table + 1, end);
+  rendered.insert(table + 1,
+                  std::make_move_iterator(replacement.begin()),
+                  std::make_move_iterator(replacement.end()));
+  return rendered;
+}
+
 std::vector<BooLogicalRecordTrace> trace_gml_records(
     const std::vector<std::string>& decoded_records,
     std::uint32_t first_logical_record,
