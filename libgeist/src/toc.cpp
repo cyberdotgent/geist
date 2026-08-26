@@ -506,6 +506,30 @@ bool contains_wide_space_run(const std::string& value) {
   return false;
 }
 
+bool is_fixed_st_row_marker(char ch) {
+  switch (ch) {
+  case '(':
+  case ')':
+  case '-':
+  case '<':
+  case '>':
+  case '/':
+  case ':':
+  case '=':
+    return true;
+  default:
+    return false;
+  }
+}
+
+bool fixed_st_row_marker_at(const std::string& value, std::size_t cursor) {
+  return cursor + 2 < value.size() && is_fixed_st_row_marker(value[cursor]) &&
+         (cursor == 0 ||
+          std::isalnum(static_cast<unsigned char>(value[cursor - 1])) == 0) &&
+         std::isspace(static_cast<unsigned char>(value[cursor + 1])) != 0 &&
+         std::isspace(static_cast<unsigned char>(value[cursor + 2])) != 0;
+}
+
 bool has_reflow_off_line_markers(const std::string& value) {
   auto spaces = std::size_t{0};
   for (const auto ch : value) {
@@ -558,6 +582,15 @@ std::vector<std::string> split_reflow_off_body_lines(std::string value) {
 
   for (std::size_t cursor = 0;
        cursor < value.size() && !reached_inline_control;) {
+    if (fixed_st_row_marker_at(value, cursor)) {
+      flush_line(false);
+      ++cursor;
+      while (cursor < value.size() &&
+             std::isspace(static_cast<unsigned char>(value[cursor])) != 0) {
+        ++cursor;
+      }
+      continue;
+    }
     if (value[cursor] == kSyntheticRecordBoundary) {
       flush_line(in_simple_list);
       pending_simple_list = false;
@@ -753,12 +786,18 @@ std::optional<std::size_t> st_body_begin_after_title(
   }
 
   auto cursor = title.size();
-  if (cursor < st_value.size() &&
-      (st_value[cursor] == '-' || st_value[cursor] == '>' ||
-       st_value[cursor] == '/' || st_value[cursor] == '<' ||
-       st_value[cursor] == '(') &&
+  const auto is_legacy_title_marker = [](char ch) {
+    return ch == '-' || ch == '>' || ch == '/' || ch == '<' || ch == '(';
+  };
+  const auto has_following_space =
       cursor + 1 < st_value.size() &&
-      std::isspace(static_cast<unsigned char>(st_value[cursor + 1])) != 0) {
+      std::isspace(static_cast<unsigned char>(st_value[cursor + 1])) != 0;
+  const auto has_fixed_padding =
+      cursor + 2 < st_value.size() && has_following_space &&
+      std::isspace(static_cast<unsigned char>(st_value[cursor + 2])) != 0;
+  if (cursor < st_value.size() &&
+      ((is_legacy_title_marker(st_value[cursor]) && has_following_space) ||
+       (is_fixed_st_row_marker(st_value[cursor]) && has_fixed_padding))) {
     ++cursor;
   } else if (cursor < st_value.size() &&
              std::isspace(static_cast<unsigned char>(st_value[cursor])) == 0) {
@@ -1093,19 +1132,12 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
       const auto content = first_record.substr(content_begin);
       const auto title_size = entry.title.size();
       const auto is_glossary_topic = raw_gml_tag(first_record) == "glossary";
-      const auto title_has_body_separator =
-          content.size() > title_size &&
-          (std::isspace(static_cast<unsigned char>(content[title_size])) != 0 ||
-           ((content[title_size] == '-' || content[title_size] == '>' ||
-             content[title_size] == '/' || content[title_size] == '<' ||
-             content[title_size] == '(') &&
-            content.size() > title_size + 1 &&
-            std::isspace(static_cast<unsigned char>(
-                content[title_size + 1])) != 0));
+      auto body_text = topic_st_body_text_after_toc_title(topic, entry.title);
+      const auto title_body_begin =
+          st_body_begin_after_title(content, entry.title);
       if (content.size() > title_size &&
           ascii_starts_with_case_insensitive(content, entry.title) &&
-          title_has_body_separator) {
-        auto body_text = topic_st_body_text_after_toc_title(topic, entry.title);
+          (title_body_begin || !body_text.empty())) {
         auto trailing_text = topic_st_body_after_toc_title(topic, entry.title);
         const auto following_control =
             topic_st_following_control_after_toc_title(topic, entry.title);
@@ -1245,9 +1277,6 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
               inline_fixed_continuations.empty() ? ":xmp."
                                                  : ":xmp inline='html'."};
           for (auto line : split_reflow_off_body_lines(std::move(body_text))) {
-            if (line.empty()) {
-              continue;
-            }
             preserved.push_back(":xline." + std::move(line));
           }
           for (auto& continuation : inline_fixed_continuations) {

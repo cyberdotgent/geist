@@ -1047,6 +1047,18 @@ The marker and its padding are structural and contribute no visible character.
 Ordinary punctuation such as the colon in `Note:` is not a row marker because
 it follows an alphanumeric character.
 
+The same marker grammar applies at the boundary between a topic title and a
+fixed-layout body stored in one `ST` operand. `SC31-711.boo` topic
+`PREFACE.1`, logical record 12, stores `Who Should Use This Book)    You
+should read...`; the padded `)` terminates the title and starts the first body
+row. Later rows in that operand use `>    operator...` and `)    network...`.
+BookServer suppresses all three marker bytes, preserves the physical rows, and
+keeps the wide padded boundary after `messages and traps.` as a blank line
+between two paragraphs inside one preformatted block. A title/body splitter
+must therefore apply the contextual fixed-row marker grammar before comparing
+or projecting visible title text; punctuation without fixed padding remains
+ordinary title text.
+
 ## SC31-711 long catalog controls
 
 `SC31-711.boo` shows that a navigation-looking control can also carry visible

@@ -431,6 +431,22 @@ int main() {
 
   const auto problem_determination =
       geist::BooDocument::open(root / "SC31-711.boo");
+  const auto intended_audience =
+      problem_determination.topic_markdown("PREFACE.1");
+  require(intended_audience.find(
+              "You should read this book if you are a network administrator, "
+              "planner, or\n   operator who will use LNM for AIX.") !=
+              std::string::npos &&
+              intended_audience.find(
+                  "Before reading this book, you should have a general "
+                  "understanding of") != std::string::npos,
+          "ST title repair lost PREFACE.1 fixed-body prose");
+  require(intended_audience.find(
+              "about LNM for AIX messages and traps.\n\n   Before reading") !=
+              std::string::npos &&
+              intended_audience.find("or >") == std::string::npos &&
+              intended_audience.find("of )") == std::string::npos,
+          "ST title repair lost a paragraph break or leaked row markers");
   const auto filters = problem_determination.topic_markdown("3.3");
   for (const auto* expected : {
            "event display. One kind of filter",

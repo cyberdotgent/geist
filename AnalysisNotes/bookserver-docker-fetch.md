@@ -1278,3 +1278,48 @@ acceptance targets for issue 41 were clean. Independent residuals discovered by
 the full-book check are recorded in issues 42 (fixed rows/forms/publication
 lists), 43 (index links), 44 (one split topic link), and 45 (missing preface
 body); SC31-711 tracker 27 remains open for those follow-up workloads.
+
+## SC31-711 issue 45 title/body recovery validation
+
+Issue 45 used the hosted `LAN Network Manager For AIX Reference`, document
+`SC31-7111-00`, BookServer ID `SC31-711`, topic `PREFACE.1`, and DT
+`19941010174546`:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/SC31-711/PREFACE.1?DT=19941010174546&SHELF=
+```
+
+The page was fetched through the Docker fetch MCP. BookServer renders one H2
+followed by one 80-column preformatted block containing two paragraphs. Local
+trace commands were:
+
+```sh
+build/bootrace BOO/SC31-711.boo PREFACE.1 --all
+build/boorender BOO/SC31-711.boo PREFACE.1 --raw
+build/boorender BOO/SC31-711.boo PREFACE.1 --md
+```
+
+Logical record 12 contains the clean title and complete body in one `ST`
+operand. The padded `)` after the title and the padded `>` and `)` inside the
+body are physical-row markers. The repair centralized title/body splitting on
+the raw `ST` parser, applied the same contextual marker vocabulary while
+splitting rows, and retained explicit empty rows as preformatted paragraph
+boundaries.
+
+The mandatory fresh whole-book comparison and cache-only replay used:
+
+```sh
+python3 tools/bookserver_book_audit.py BOO/SC31-711.boo \
+  --book-id SC31-711 --timestamp 19941010174546 \
+  --output /tmp/geist-SC31-711-post45-live --jobs 4 --timeout 30
+python3 tools/bookserver_book_audit.py BOO/SC31-711.boo \
+  --book-id SC31-711 --timestamp 19941010174546 \
+  --output /tmp/geist-SC31-711-post45-live --jobs 4 --no-fetch
+```
+
+Both passes rendered and fetched 82/82 topics and reported 41 heuristic flags.
+Four independent ordinal-range reviews inspected every local/reference pair.
+No regression was attributed to issue 45; `FRONT_1` also improved through the
+shared marker grammar. Confirmed pre-existing defects outside the prior open
+ticket scopes were recorded as issues 50--54. Tracker 27 remains open along
+with issues 43, 44, 48, and the new follow-ups.
