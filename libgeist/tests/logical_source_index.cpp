@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -215,6 +216,55 @@ void verify_book(const std::filesystem::path& path,
                                             action;
                            }),
             "message catalog IR lost Meaning/Action section order");
+    require(catalog && std::all_of(
+                           catalog->entries.begin(), catalog->entries.end(),
+                           [](const auto& entry) {
+                             if (entry.headline.text.empty()) return false;
+                             std::map<geist::detail::MessageSourceRowIR,
+                                      std::size_t>
+                                 owned;
+                             for (const auto& row : entry.headline.source_rows)
+                               ++owned[row];
+                             for (const auto& body : entry.body)
+                               for (const auto& row : body.source_rows)
+                                 ++owned[row];
+                             for (const auto& section : entry.sections) {
+                               if (section.paragraphs.size() != 1 ||
+                                   section.paragraphs.front().text.empty())
+                                 return false;
+                               for (const auto& row : section.source_rows)
+                                 ++owned[row];
+                             }
+                             for (const auto& row : entry.suppressed_source_rows)
+                               ++owned[row];
+                             if (owned.size() != entry.source_rows.size())
+                               return false;
+                             if (std::any_of(
+                                     entry.source_rows.begin(),
+                                     entry.source_rows.end(),
+                                     [&](const auto& row) {
+                                       const auto found = owned.find(row);
+                                       return found == owned.end() ||
+                                              found->second != 1;
+                                     }))
+                               return false;
+                             return std::all_of(
+                                 owned.begin(), owned.end(),
+                                 [](const auto& item) { return item.second == 1; });
+                           }),
+            "message entry ledgers do not conserve each physical row exactly once");
+    const auto message_072 =
+        std::find_if(catalog->entries.begin(), catalog->entries.end(),
+                     [](const auto& entry) { return entry.id == "072"; });
+    require(catalog && message_072 != catalog->entries.end() &&
+                message_072->headline.text.find("System call connect failed") !=
+                    std::string::npos &&
+                message_072->sections[0].paragraphs.front().text.find(
+                    "establish communication with a server") !=
+                    std::string::npos &&
+                message_072->sections[1].paragraphs.front().text.find(
+                    "If this error becomes critical") != std::string::npos,
+            "message catalog IR lost source-spanning headline or section text");
     require(catalog && std::any_of(
                            catalog->entries.begin(), catalog->entries.end(),
                            [](const auto& entry) {
@@ -239,6 +289,12 @@ void verify_book(const std::filesystem::path& path,
       require(!geist::detail::verify_message_catalog_ir(
                   sources, layout, ownership, mutated),
               "message catalog verifier admitted a mutated message ID");
+      mutated = *catalog;
+      mutated.entries.front().sections.front().paragraphs.front().text +=
+          " changed";
+      require(!geist::detail::verify_message_catalog_ir(
+                  sources, layout, ownership, mutated),
+              "message catalog verifier admitted mutated section text");
     }
   }
   for (std::size_t index = 0; index < sources.size(); ++index) {

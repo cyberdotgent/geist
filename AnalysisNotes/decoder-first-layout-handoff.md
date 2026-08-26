@@ -530,6 +530,18 @@ files byte-identical to the legacy visible text, while the source anchor and
 paragraph boundaries remain unchanged. Partial fixed-prose shapes continue
 through the indivisible legacy path.
 
+The numeric-message model is now useful as an output-neutral semantic core but
+is not a complete topic model. Across `SC31-711.boo` topic `5.0` it retains 396
+source-proven headlines and body runs plus 792 ordered Meaning/Action sections,
+including the cross-record continuation in message `072`. Each physical
+Layout-IR row is assigned exactly once to headline, body, section, or explicit
+structural suppression; section-label rows are nested references, not second
+owners. The observed sections each form one semantic paragraph. Layout IR can
+currently prove row and logical-record/segment provenance for recovered
+continuations, not exact byte/token spans. The chapter heading, introduction,
+selectors, and anchors before the numeric entries also remain outside
+`MessageCatalogIR`, so no production Document-IR route is enabled yet.
+
 The publication-catalog adapter is the second complete semantic-to-document
 lowering and is now enabled in production. `PublicationCatalogIR` retains
 physical source rows for its title and introduction as well as every
