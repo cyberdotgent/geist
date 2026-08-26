@@ -1323,3 +1323,20 @@ No regression was attributed to issue 45; `FRONT_1` also improved through the
 shared marker grammar. Confirmed pre-existing defects outside the prior open
 ticket scopes were recorded as issues 50--54. Tracker 27 remains open along
 with issues 43, 44, 48, and the new follow-ups.
+
+## SC31-711 issue 44 selector-boundary correction
+
+Issue 44 was rechecked against topic `5.0` at the same BookServer ID and DT.
+The hosted HTML does not contain one anchor as the issue originally stated.
+It contains two adjacent links to topic `2.0#HDRPROBS`: the first selects
+`Chapter 2, "Problem`, and the second selects `Determination" in topic 2.0`.
+Local logical record 172 carries a metadata-only `CSELECT 56 19 HDRPROBS`;
+logical record 173 supplies that display row and then a second
+`CSELECT 3 27 HDRPROBS` on the continuation row. Local Markdown retains the
+same two targets and the complete visible phrase.
+
+No renderer change was made because merging links solely by equal target would
+contradict BookServer and regress verified separate selectors in
+`QSYSNEWG.BOO` `PREFACE` and `GG24-4302-00.boo` `NOTICES`. A fixture assertion
+now protects the exact visible sequence. The independent `SC31-711` `NOTICES`
+content loss found during the audit remains tracked in issue 54.

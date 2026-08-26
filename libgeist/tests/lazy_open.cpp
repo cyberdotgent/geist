@@ -602,6 +602,11 @@ int main() {
           "performance-file prose lost its pending-font continuation");
 
   const auto lnm_messages = problem_determination.topic_markdown("5.0");
+  require(lnm_messages.find(
+              "See [Chapter 2, \"Problem](#HDRPROBS) "
+              "[Determination\" in topic 2.0](#HDRPROBS) for instructions") !=
+              std::string::npos,
+          "wrapped same-target selectors lost their visible link sequence");
   for (const auto* expected : {
            "<a id=\"MSG 062\"></a>",
            "<a id=\"MSG 1000-1999\"></a>",
