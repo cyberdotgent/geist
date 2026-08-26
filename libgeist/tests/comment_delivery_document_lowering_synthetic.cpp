@@ -119,6 +119,24 @@ bool paragraph_contains(const DocumentIR &document, const std::string &first,
   return false;
 }
 
+bool paragraph_text_contains(const DocumentIR &document,
+                             const std::string &first,
+                             const std::string &second) {
+  for (const auto &block : document.blocks) {
+    const auto *paragraph = std::get_if<ParagraphBlockIR>(&block.node);
+    if (paragraph == nullptr)
+      continue;
+    std::string text;
+    for (const auto &inline_node : paragraph->content)
+      if (const auto *value = std::get_if<TextInlineIR>(&inline_node.node))
+        text += value->text;
+    if (text.find(first) != std::string::npos &&
+        text.find(second) != std::string::npos)
+      return true;
+  }
+  return false;
+}
+
 bool has_synthesized_separator(const DocumentIR &document) {
   for (const auto &block : document.blocks) {
     const auto *paragraph = std::get_if<ParagraphBlockIR>(&block.node);
@@ -192,6 +210,12 @@ int main() {
               "the comments you send should pertain to only the information "
               "in this manual"),
           "BACK_2 lexical continuation did not remain in its paragraph");
+  require(paragraph_text_contains(
+              *back,
+              "If you especially like or dislike anything about this book, "
+              "please use one",
+              "Whichever method you choose"),
+          "BACK_2 physical wraps did not remain in their prose paragraph");
   require(back_source.blocks[0].lines[2].break_before ==
                   PhysicalBreakKind::soft_wrap &&
               paragraph_contains(*back, "LAN Network Manager for AIX",
@@ -202,6 +226,20 @@ int main() {
                                  "comment form (RCF) from a country other "
                                  "than"),
           "BACK_2 emitted a layout marker as lexical content");
+  const auto checklist = std::find_if(back->blocks.begin(), back->blocks.end(),
+                                      [](const auto &block) {
+                                        return std::holds_alternative<
+                                            ListBlockIR>(block.node);
+                                      });
+  require(checklist != back->blocks.end() &&
+              std::get<ListBlockIR>(checklist->node).items.size() == 2 &&
+              std::get<TextInlineIR>(
+                  std::get<ListBlockIR>(checklist->node)
+                      .items.front()
+                      .content.front()
+                      .node)
+                      .text == "Title and publication number of this book",
+          "BACK_2 checklist did not lower to semantic list items");
 
   auto changed_back = *back;
   auto &changed_text =
@@ -268,15 +306,26 @@ int main() {
           "COMMENTS response area did not lower to one preformatted block");
 
   std::vector<const BlockIR *> table_blocks;
+  std::vector<const BlockIR *> anchor_blocks;
   const BlockIR *response_block = nullptr;
   for (const auto &block : comments->blocks) {
     if (std::holds_alternative<TableBlockIR>(block.node))
       table_blocks.push_back(&block);
+    if (std::holds_alternative<AnchorBlockIR>(block.node))
+      anchor_blocks.push_back(&block);
     if (std::holds_alternative<PreformattedBlockIR>(block.node))
       response_block = &block;
   }
   require(table_blocks.size() == 2 && response_block != nullptr,
           "COMMENTS typed semantic objects are absent");
+  require(anchor_blocks.size() == 4 &&
+              std::get<AnchorBlockIR>(anchor_blocks[0]->node).id ==
+                  "TBLUNIQ8" &&
+              std::get<AnchorBlockIR>(anchor_blocks[1]->node).id ==
+                  "TBLTBLUNIQ8" &&
+              anchor_blocks[0]->origin.slices.size() == 1 &&
+              anchor_blocks[0]->origin.slices.front().logical_record == 543,
+          "COMMENTS table anchors lost source identity/provenance");
   const auto &first_table = std::get<TableBlockIR>(table_blocks[0]->node);
   const auto &second_table = std::get<TableBlockIR>(table_blocks[1]->node);
   require(first_table.rows.size() == 2 && first_table.header_rows == 1 &&

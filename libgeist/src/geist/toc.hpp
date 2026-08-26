@@ -4,10 +4,15 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
 namespace geist {
+
+namespace detail {
+struct DocumentIR;
+}
 
 struct TocEntry {
   std::string id;
@@ -27,6 +32,10 @@ struct TocEntry {
 private:
   mutable std::vector<std::string> cached_raw_records_;
   std::function<std::vector<std::string>()> raw_record_loader_;
+  mutable std::shared_ptr<const detail::DocumentIR> cached_document_ir_;
+  mutable bool document_load_attempted_ = false;
+  std::function<std::shared_ptr<const detail::DocumentIR>()>
+      document_ir_loader_;
   friend class BooDocument;
 };
 

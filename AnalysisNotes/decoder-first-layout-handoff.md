@@ -517,6 +517,39 @@ the current source IR does not distinguish a citation title from a body, so
 doing so would duplicate or invent content. Production routing remains gated
 on the same whole-topic dispatcher and corpus review used for comments.
 
+Production typed routing now occurs before `attach_topic_data()` can project
+semantic IR back into flattened GML. A source-only dispatcher builds and
+verifies Layout/Ownership once, admits one complete comment/delivery model,
+verifies its canonical DocumentIR lowering, and returns no document for every
+non-match or rejection. `TocEntry::markdown()` then selects exactly one of two
+indivisible paths: the immutable cached typed document, or the unchanged
+whole-topic legacy loader. Typed and legacy blocks are never mixed.
+
+TOC entries and direct/non-TOC topic rendering install the same paired lazy
+loaders over one shared decode state. A null typed attempt is cached as well as
+a successful document, `gml_records()` remains available and unchanged before
+or after typed rendering, and repeated rendering is stable. The public topic
+ID is a synthesized prefix on the source-proven typed heading, preserving the
+existing navigation identity without pretending the ID came from the comment
+form cells.
+
+`BACK_2` and `COMMENTS` are the first production typed topics. Their output is
+intentionally judged as rendered Markdown: for example `BACK_2` is serialized
+as `BACK\_2` and publication/FAX hyphens may be escaped, while their rendered
+visible text remains exact. Evidence-backed physical continuations become
+prose paragraphs, the two delivery reminders become a Markdown list, and the
+questionnaire retains both source-derived legacy table anchors for each table.
+Acceptance checks therefore normalize Markdown escapes instead of treating
+legacy byte spelling as content conservation.
+
+The production corpus gate exported all 34 fixtures and the same 7,396
+Markdown / 7,885 total files as the M7 baseline. Recursive comparison changed
+only `SC31-711.boo` `back_2.md` and `comments.md`; every other Markdown file,
+README, and resource was byte-identical. Both intentional deltas were reviewed
+for heading identity, paragraph/list/table structure, all 18 recovered affixes,
+publication and FAX data, checklist items, questionnaire questions, response
+area, and table-anchor conservation.
+
 ## Source trail
 
 - Fixture: `BOO/SC31-711.boo`

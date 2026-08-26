@@ -120,6 +120,10 @@ struct CommentDeliveryBlockIR {
   // it empty; consumers must not infer a renderer target from this field.
   std::string object_id;
   std::vector<CommentSourceLineIR> lines;
+  std::uint32_t object_logical_record = 0;
+  std::size_t object_segment_index = 0;
+  std::size_t object_token_begin = 0;
+  std::size_t object_token_end = 0;
 };
 
 struct CommentDeliveryIR {

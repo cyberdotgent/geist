@@ -89,6 +89,14 @@ const std::vector<std::string>& TocEntry::gml_records() const {
 }
 
 std::string TocEntry::markdown() const {
+  if (!document_load_attempted_ && document_ir_loader_) {
+    cached_document_ir_ = document_ir_loader_();
+    document_load_attempted_ = true;
+  }
+  if (cached_document_ir_) {
+    return detail::render_document_markdown(*cached_document_ir_);
+  }
+
   auto records = gml_records();
   auto replaced_heading = false;
   auto heading_index = std::size_t{0};

@@ -1,6 +1,7 @@
 #include "geist/detail/comment_delivery_document_lowering.hpp"
 
 #include <algorithm>
+#include <string_view>
 #include <utility>
 
 namespace geist::detail {
@@ -132,8 +133,9 @@ bool verify_source(const CommentDeliveryIR &delivery, std::string *error) {
     if (block.lines.empty())
       return fail(error, "comment delivery block has no source lines");
     if (block.kind == CommentDeliveryBlockKind::questionnaire_table &&
-        block.object_id.empty())
-      return fail(error, "questionnaire table has no source object id");
+        (block.object_id.empty() || block.object_logical_record == 0 ||
+         block.object_token_begin >= block.object_token_end))
+      return fail(error, "questionnaire table has no source object provenance");
     for (const auto &line : block.lines) {
       if (line.logical_record == 0 || line.run == 0 ||
           line.token_begin > line.token_end || line.fields.empty())
@@ -213,9 +215,25 @@ bool continues_paragraph(const CommentSourceLineIR &previous,
                          const CommentSourceLineIR &line) {
   if (previous.run != line.run)
     return false;
-  return line.break_before == PhysicalBreakKind::soft_wrap ||
-         line.continues_previous_record ||
-         line.marker_disposition == CommentMarkerDisposition::lexical_content;
+  if (line.break_before == PhysicalBreakKind::soft_wrap ||
+      line.continues_previous_record ||
+      line.marker_disposition == CommentMarkerDisposition::lexical_content)
+    return true;
+
+  const auto previous_fields = semantic_fields(previous);
+
+  for (const auto field_index : previous_fields)
+    for (const auto &affix : previous.fields[field_index].affixes)
+      if (affix.attachment == CommentAffixAttachment::suffix_owning_field &&
+          affix.logical_record == line.logical_record &&
+          affix.token_index == line.token_begin)
+        return true;
+
+  if (previous_fields.empty())
+    return false;
+  const auto text = field_text(previous.fields[previous_fields.back()]);
+  return text.empty() || std::string_view(".!?").find(text.back()) ==
+                             std::string_view::npos;
 }
 
 bool append_title(const CommentDeliveryBlockIR &source,
@@ -256,7 +274,11 @@ void append_paragraphs(const CommentDeliveryBlockIR &source,
     const auto fields = semantic_fields(line);
     if (fields.empty())
       continue;
-    if (!has_current || previous == nullptr ||
+    const auto canonical_section_boundary =
+        line_index == first_line + std::size_t{2} ||
+        (source.kind == CommentDeliveryBlockKind::delivery_instructions &&
+         line_index == std::size_t{5});
+    if (!has_current || previous == nullptr || canonical_section_boundary ||
         !continues_paragraph(*previous, line)) {
       flush();
       current.node = ParagraphBlockIR{};
@@ -275,6 +297,48 @@ void append_paragraphs(const CommentDeliveryBlockIR &source,
     previous = &line;
   }
   flush();
+}
+
+bool append_delivery_instructions(const CommentDeliveryBlockIR &source,
+                                  DocumentIR &document, std::string *error) {
+  if (source.lines.empty())
+    return fail(error, "comment delivery instruction lines are absent");
+  const auto final_fields = semantic_fields(source.lines.back());
+  if (final_fields.size() != 4)
+    return fail(error, "comment delivery checklist geometry is incomplete");
+
+  auto primary = source;
+  auto &primary_fields = primary.lines.back().fields;
+  primary_fields.erase(primary_fields.begin() +
+                           static_cast<std::ptrdiff_t>(final_fields[1]),
+                       primary_fields.end());
+  append_paragraphs(primary, 0, document);
+
+  const auto &line = source.lines.back();
+  const auto &introduction_field = line.fields[final_fields[1]];
+  ParagraphBlockIR introduction;
+  introduction.content.push_back(text_inline(line, introduction_field));
+  BlockIR introduction_block;
+  introduction_block.node = std::move(introduction);
+  introduction_block.origin = field_origin(line, introduction_field);
+  introduction_block.origin.detail = "comment delivery checklist introduction";
+  document.blocks.push_back(std::move(introduction_block));
+
+  ListBlockIR checklist;
+  BlockIR checklist_block;
+  checklist_block.origin.derivation = DocumentDerivationIR::semantic_lowering;
+  checklist_block.origin.detail = "comment delivery checklist";
+  for (const auto index : {final_fields[2], final_fields[3]}) {
+    const auto &field = line.fields[index];
+    ListItemIR item;
+    item.content.push_back(text_inline(line, field));
+    item.origin = field_origin(line, field);
+    append_origin(checklist_block.origin, item.origin);
+    checklist.items.push_back(std::move(item));
+  }
+  checklist_block.node = std::move(checklist);
+  document.blocks.push_back(std::move(checklist_block));
+  return true;
 }
 
 void append_preformatted(const CommentDeliveryBlockIR &source,
@@ -305,8 +369,37 @@ struct SemanticFieldRef {
   const CommentSourceFieldIR *field = nullptr;
 };
 
+DocumentNodeOriginIR object_origin(const CommentDeliveryBlockIR &source,
+                                   std::string detail) {
+  auto origin = DocumentNodeOriginIR{};
+  origin.derivation = DocumentDerivationIR::semantic_lowering;
+  origin.detail = std::move(detail);
+  origin.slices.push_back(DocumentSourceSliceIR{
+      source.object_logical_record, source.object_segment_index,
+      source.object_token_begin, source.object_token_end, 0, 0});
+  return origin;
+}
+
+bool append_table_anchors(const CommentDeliveryBlockIR &source,
+                          DocumentIR &document, std::string *error) {
+  constexpr std::string_view prefix = "SRTBL";
+  if (source.object_id.size() <= prefix.size() ||
+      source.object_id.compare(0, prefix.size(), prefix) != 0)
+    return fail(error, "questionnaire table object id is not canonical");
+  const auto id = source.object_id.substr(prefix.size());
+  for (const auto &anchor_id : {id, std::string("TBL") + id}) {
+    BlockIR anchor;
+    anchor.node = AnchorBlockIR{anchor_id};
+    anchor.origin = object_origin(source, "comment questionnaire anchor");
+    document.blocks.push_back(std::move(anchor));
+  }
+  return true;
+}
+
 bool append_table(const CommentDeliveryBlockIR &source, DocumentIR &document,
                   std::string *error) {
+  if (!append_table_anchors(source, document, error))
+    return false;
   std::vector<SemanticFieldRef> fields;
   for (const auto &line : source.lines) {
     const auto indices = semantic_fields(line);
@@ -384,7 +477,8 @@ lower_comment_delivery_to_document_ir(TopicIdentityIR topic,
     return std::nullopt;
   append_paragraphs(delivery.blocks.front(), 1, document);
   if (delivery.kind == CommentDeliveryKind::delivery_instructions) {
-    append_paragraphs(delivery.blocks[1], 0, document);
+    if (!append_delivery_instructions(delivery.blocks[1], document, error))
+      return std::nullopt;
   } else {
     if (!append_table(delivery.blocks[1], document, error) ||
         !append_table(delivery.blocks[2], document, error))

@@ -4,6 +4,7 @@
 #include "geist/detail/procedure_rows.hpp"
 #include "geist/detail/selector_display_ir.hpp"
 #include "geist/detail/source_rows.hpp"
+#include "geist/detail/topic_document_lowering.hpp"
 
 #include <algorithm>
 #include <array>
@@ -170,6 +171,88 @@ void load_source_layout_if_candidate(
       *context, topic.start_logical_record, topic.end_logical_record);
 }
 
+TopicIdentityIR topic_identity(const TopicData& topic, const std::string& id,
+                               const std::string& title) {
+  TopicIdentityIR identity;
+  identity.id = id;
+  identity.title = title;
+  identity.heading_level = topic.heading_level;
+  identity.topic_number = topic.topic_number;
+  identity.start_logical_record = topic.start_logical_record;
+  identity.end_logical_record = topic.end_logical_record;
+  return identity;
+}
+
+struct TopicLoaderBundle {
+  std::function<std::vector<std::string>()> raw;
+  std::function<std::shared_ptr<const DocumentIR>()> document;
+};
+
+struct LazyTopicState {
+  std::shared_ptr<LogicalDecodeContext> context;
+  std::shared_ptr<const std::map<std::string, std::string>> topic_titles;
+  TopicData topic;
+  std::string id;
+  std::string title;
+  std::uint32_t level = 0;
+  std::uint32_t style = 0;
+  std::vector<DecodedLogicalRecordSource> typed_sources;
+  bool loaded = false;
+
+  void load() {
+    if (loaded) return;
+    topic.raw_records.assign(
+        context->decoded_records.begin() + topic.start_logical_record - 1,
+        context->decoded_records.begin() + topic.end_logical_record - 1);
+    load_source_layout_if_candidate(context, topic);
+    if (has_comment_delivery_source_candidate(topic.raw_records)) {
+      typed_sources = topic.fixed_layout_sources.empty()
+                          ? decode_logical_record_sources(
+                                *context, topic.start_logical_record,
+                                topic.end_logical_record)
+                          : topic.fixed_layout_sources;
+    }
+    loaded = true;
+  }
+};
+
+TopicLoaderBundle make_topic_loaders(
+    const std::shared_ptr<LogicalDecodeContext>& context, TopicData topic,
+    std::string id, std::string title, std::uint32_t level,
+    std::uint32_t style,
+    const std::shared_ptr<const std::map<std::string, std::string>>&
+        topic_titles) {
+  auto state = std::make_shared<LazyTopicState>();
+  state->context = context;
+  state->topic_titles = topic_titles;
+  state->topic = std::move(topic);
+  state->id = std::move(id);
+  state->title = std::move(title);
+  state->level = level;
+  state->style = style;
+
+  TopicLoaderBundle loaders;
+  loaders.raw = [state]() {
+    state->load();
+    TocEntry loaded;
+    loaded.id = state->id;
+    loaded.title = state->title;
+    loaded.level = state->level;
+    loaded.style = state->style;
+    attach_topic_data(loaded, state->topic, state->topic_titles.get());
+    return std::move(loaded.raw_records);
+  };
+  loaders.document = [state]() -> std::shared_ptr<const DocumentIR> {
+    state->load();
+    auto document = try_lower_topic_to_document_ir(
+        topic_identity(state->topic, state->id, state->title),
+        state->typed_sources);
+    if (!document) return {};
+    return std::make_shared<const DocumentIR>(std::move(*document));
+  };
+  return loaders;
+}
+
 } // namespace
 
 BooDocument BooDocument::open(const std::filesystem::path& path) {
@@ -332,23 +415,11 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
     const auto entry_title = entry.title;
     const auto entry_level = entry.level;
     const auto entry_style = entry.style;
-    entry.raw_record_loader_ =
-        [context, topic_titles, topic_data, entry_id, entry_title, entry_level,
-         entry_style]() mutable {
-          topic_data.raw_records.assign(
-              context->decoded_records.begin() +
-                  topic_data.start_logical_record - 1,
-              context->decoded_records.begin() +
-                  topic_data.end_logical_record - 1);
-          load_source_layout_if_candidate(context, topic_data);
-          TocEntry loaded;
-          loaded.id = entry_id;
-          loaded.title = entry_title;
-          loaded.level = entry_level;
-          loaded.style = entry_style;
-          attach_topic_data(loaded, topic_data, topic_titles.get());
-          return loaded.raw_records;
-        };
+    auto loaders = make_topic_loaders(context, std::move(topic_data), entry_id,
+                                      entry_title, entry_level, entry_style,
+                                      topic_titles);
+    entry.raw_record_loader_ = std::move(loaders.raw);
+    entry.document_ir_loader_ = std::move(loaders.document);
   }
   document.resources_ = build_resources(bytes, document.directory_);
   return document;
@@ -460,14 +531,15 @@ std::string BooDocument::topic_markdown(const std::string& topic_id) const {
   topic.topic_number = found->topic_number;
   topic.start_logical_record = found->start_logical_record;
   topic.end_logical_record = found->end_logical_record;
-  topic.raw_records.assign(
-      decode_context_->decoded_records.begin() + topic.start_logical_record - 1,
-      decode_context_->decoded_records.begin() + topic.end_logical_record - 1);
-  load_source_layout_if_candidate(decode_context_, topic);
   TocEntry entry;
   entry.id = topic.id;
   entry.title = topic.title;
-  attach_topic_data(entry, topic, &topic_titles_);
+  const auto topic_titles =
+      std::make_shared<const std::map<std::string, std::string>>(topic_titles_);
+  auto loaders = make_topic_loaders(decode_context_, topic, topic.id,
+                                    topic.title, 0, 0, topic_titles);
+  entry.raw_record_loader_ = std::move(loaders.raw);
+  entry.document_ir_loader_ = std::move(loaders.document);
   return entry.markdown();
 }
 

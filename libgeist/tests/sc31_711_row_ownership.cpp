@@ -15,6 +15,10 @@ std::string canonical_visible_text(const std::string& markdown) {
   visible.reserve(markdown.size());
   for (std::size_t index = 0; index < markdown.size(); ++index) {
     const auto ch = markdown[index];
+    if (ch == '\\' && index + 1 < markdown.size()) {
+      visible.push_back(markdown[++index]);
+      continue;
+    }
     if (ch == '<' && index + 1 < markdown.size() &&
         (std::isalpha(static_cast<unsigned char>(markdown[index + 1])) != 0 ||
          markdown[index + 1] == '/' || markdown[index + 1] == '!')) {
@@ -410,9 +414,11 @@ int main() {
   }
 
   const auto comments_to_ibm = document.topic_markdown("BACK_2");
-  require_contains(comments_to_ibm, "Publication No. SC31-7111-00",
+  const auto comments_visible = canonical_visible_text(comments_to_ibm);
+  require_contains(comments_visible, "Publication No. SC31-7111-00",
                    "comments publication number");
-  require_contains(comments_to_ibm, "1-800-227-5088", "comments FAX number");
+  require_contains(comments_visible, "1-800-227-5088",
+                   "comments FAX number");
   require_once(comments_to_ibm,
                "If you prefer to send comments by mail",
                "comments-by-mail instruction");

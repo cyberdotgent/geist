@@ -424,7 +424,11 @@ bool fragment_equal(const CommentSourceFragmentIR& left,
 bool block_equal(const CommentDeliveryBlockIR& left,
                  const CommentDeliveryBlockIR& right) {
   if (left.kind != right.kind || left.object_id != right.object_id ||
-      left.lines.size() != right.lines.size())
+      left.lines.size() != right.lines.size() ||
+      left.object_logical_record != right.object_logical_record ||
+      left.object_segment_index != right.object_segment_index ||
+      left.object_token_begin != right.object_token_begin ||
+      left.object_token_end != right.object_token_end)
     return false;
   for (std::size_t index = 0; index < left.lines.size(); ++index)
     if (!line_equal(left.lines[index], right.lines[index])) return false;
@@ -652,9 +656,17 @@ std::optional<CommentDeliveryIR> extract_questionnaire_shape(
   for (std::size_t row = 0; row < layout.runs.front().rows.size(); ++row)
     result.blocks.front().lines.push_back(
         source_line(records, ownership, layout.runs.front().rows[row], row));
-  for (const auto* table : shape.table_starts)
+  for (const auto* table : shape.table_starts) {
+    if (table->source_tokens.empty())
+      return fail("questionnaire table control has no token provenance");
     result.blocks.push_back({CommentDeliveryBlockKind::questionnaire_table,
                              table->opcode, {}});
+    auto& block = result.blocks.back();
+    block.object_logical_record = table->logical_record;
+    block.object_segment_index = table->segment_index;
+    block.object_token_begin = table->source_tokens.front();
+    block.object_token_end = table->source_tokens.back() + 1;
+  }
   result.blocks.push_back({CommentDeliveryBlockKind::response_area, {}, {}});
 
   const auto first_table_begin = position(*shape.table_starts[0]);

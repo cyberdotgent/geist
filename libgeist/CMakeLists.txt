@@ -102,6 +102,7 @@ set(GEIST_SOURCES
   src/source_segments.cpp
   src/strings.cpp
   src/toc.cpp
+  src/topic_document_lowering.cpp
   src/util.cpp
 )
 
@@ -312,6 +313,15 @@ target_link_libraries(publication_document_lowering_synthetic_test
 )
 add_test(NAME publication_document_lowering_synthetic_test
   COMMAND publication_document_lowering_synthetic_test)
+
+add_executable(topic_document_lowering_test
+  tests/topic_document_lowering.cpp
+)
+target_link_libraries(topic_document_lowering_test PRIVATE geist::geist_static)
+target_compile_definitions(topic_document_lowering_test PRIVATE
+  GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+add_test(NAME topic_document_lowering_test COMMAND topic_document_lowering_test)
 
 add_executable(document_ir_synthetic_test
   tests/document_ir_synthetic.cpp
