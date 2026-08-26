@@ -530,6 +530,20 @@ int main() {
     require(network_checklist.find(expected) != std::string::npos,
             "complex fixed questionnaire lost an item or continuation");
   }
+  const auto additional_information =
+      problem_determination.topic_markdown("2.4.9");
+  const auto support_intro = std::string(
+      "Have the following information available when you call the IBM "
+      "Technical Support center:");
+  const auto support_intro_begin = additional_information.find(support_intro);
+  require(support_intro_begin != std::string::npos &&
+              additional_information.find(
+                  support_intro,
+                  support_intro_begin + support_intro.size()) ==
+                  std::string::npos &&
+              additional_information.find("- lnmstatus") !=
+                  std::string::npos,
+          "additional-information form lost its prose prefix or item");
   const auto frame_relay = problem_determination.topic_markdown("4.3.5");
   require(frame_relay.find("This section lists the Frame Relay traps") !=
               std::string::npos &&

@@ -941,11 +941,33 @@ std::optional<std::size_t> st_body_begin_after_title(
 }
 
 std::vector<std::string> render_st_form_items(const std::string& body) {
+  const auto find_delimiter = [&](std::size_t search) {
+    for (auto found = body.find("__", search); found != std::string::npos;
+         found = body.find("__", found + 2)) {
+      const auto separated_before =
+          found == 0 ||
+          std::isspace(static_cast<unsigned char>(body[found - 1])) != 0 ||
+          body[found - 1] == '?';
+      const auto separated_after =
+          found + 2 == body.size() ||
+          std::isspace(static_cast<unsigned char>(body[found + 2])) != 0 ||
+          body[found + 2] == '?';
+      if (separated_before && separated_after) {
+        return found;
+      }
+    }
+    return std::string::npos;
+  };
+
   std::vector<std::string> records;
-  auto cursor = body.find("__");
+  auto cursor = find_delimiter(0);
+  auto prefix = cursor == std::string::npos
+                    ? std::string{}
+                    : normalize_message_catalog_intro(
+                          clean_fixed_st_row_markers(body.substr(0, cursor)));
   while (cursor != std::string::npos) {
     const auto begin = cursor + 2;
-    const auto next = body.find("__", begin);
+    const auto next = find_delimiter(begin);
     auto item = collapse_ascii_whitespace(body.substr(
         begin, next == std::string::npos ? std::string::npos : next - begin));
     while (!item.empty() &&
@@ -1000,6 +1022,9 @@ std::vector<std::string> render_st_form_items(const std::string& body) {
   }
   records.insert(records.begin(), ":ul type='form'.");
   records.push_back(":eul.");
+  if (!prefix.empty()) {
+    records.insert(records.begin(), ":p." + std::move(prefix));
+  }
   return records;
 }
 
