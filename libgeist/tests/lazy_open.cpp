@@ -486,6 +486,22 @@ int main() {
     require(filters.find(leaked) == std::string::npos,
             "fixed filter row marker or carryover token leaked");
   }
+  const auto formatted_log = problem_determination.topic_markdown("3.1");
+  for (const auto* expected : {
+           "Process ID : 19915 Subsystem : OVEXTERNAL",
+           "User ID ( UID : 0 Log Class : ERROR",
+           "Device ID : -1 Path ID : -1",
+           "803 Cannot connect to LNM OS/2 Agent with internet address: "
+           "9.67.164.24",
+       }) {
+    require(formatted_log.find(expected) != std::string::npos,
+            "all-E formatted log lost a physical row");
+  }
+  for (const auto* leaked : {"\nAS\n", "Log Class : ERROR a",
+                             "Path ID : -1 a", "~~~~~~~are", "Event 803"}) {
+    require(formatted_log.find(leaked) == std::string::npos,
+            "all-E formatted log leaked or synthesized a marker field");
+  }
   const auto customer_form = problem_determination.topic_markdown("2.4.1");
   require(customer_form.find("| Field | Value |") != std::string::npos &&
               customer_form.find("| Customer number |  |") !=
