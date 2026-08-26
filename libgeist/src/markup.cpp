@@ -5629,8 +5629,8 @@ std::vector<std::string> render_gml_records_with_source_layout(
   const auto source_cleaned_records =
       clean_source_owned_toc_title_markers(decoded_records, sources);
   auto rendered = render_gml_records(source_cleaned_records);
-  project_numeric_srmsg_source_markers(rendered, source_cleaned_records,
-                                       sources);
+  project_semantic_srmsg_source_markers(rendered, source_cleaned_records,
+                                        sources);
   const auto box_replacement =
       [&]() -> std::optional<std::vector<std::string>> {
     std::vector<std::uint16_t> source_words;

@@ -82,7 +82,7 @@ void load_source_layout_if_candidate(
     TopicData& topic) {
   if (!has_box_form_source_candidate(topic.raw_records) &&
       !has_implicit_grid_source_candidate(topic.raw_records) &&
-      !has_numeric_srmsg_source_candidate(topic.raw_records) &&
+      !has_semantic_srmsg_source_candidate(topic.raw_records) &&
       !has_generated_toc_source_candidate(topic.raw_records)) {
     return;
   }

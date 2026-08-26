@@ -59,9 +59,9 @@ std::vector<SourceRowMarker> source_row_markers(
     const std::vector<DecodedLogicalRecordSource>& records,
     std::size_t key_origin);
 
-bool has_numeric_srmsg_source_candidate(
+bool has_semantic_srmsg_source_candidate(
     const std::vector<std::string>& decoded_records);
-void project_numeric_srmsg_source_markers(
+void project_semantic_srmsg_source_markers(
     std::vector<std::string>& rendered,
     const std::vector<std::string>& decoded_records,
     const std::vector<DecodedLogicalRecordSource>& sources);

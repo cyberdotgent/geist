@@ -107,7 +107,7 @@ int main() {
       ":p.The count incremented a during sampling; received from a station."};
   const auto catalog_records = std::vector<std::string>{
       "SRMSG 1073741827 cfont 3 12 2 Description"};
-  geist::detail::project_numeric_srmsg_source_markers(
+  geist::detail::project_semantic_srmsg_source_markers(
       catalog_rendered, catalog_records, {numeric});
   require(catalog_rendered.front().find("incremented during") !=
               std::string::npos &&
@@ -115,10 +115,39 @@ int main() {
                   std::string::npos,
           "numeric catalog marker projection removed the wrong article");
 
+  auto symbolic_rendered =
+      std::vector<std::string>{":p.messages logged by action LNM for AIX"};
+  auto symbolic = numeric;
+  symbolic.tokens[0] = {'a','c','t','i','o','n'};
+  symbolic.tokens[2] = {'L','N','M'};
+  symbolic.assembled =
+      geist::detail::assemble_logical_record_with_sources(symbolic.tokens);
+  geist::detail::project_semantic_srmsg_source_markers(
+      symbolic_rendered,
+      {"SRMSG bridgeHistoryDataComplete cfont 3 12 2 Description"},
+      {symbolic});
+  require(symbolic_rendered.front().find("logged by LNM for AIX") !=
+              std::string::npos,
+          "mixed-case symbolic SRMSG marker was not projected");
+
+  auto uppercase_rendered = catalog_rendered;
+  uppercase_rendered.front() = ":p.incremented a during";
+  geist::detail::project_semantic_srmsg_source_markers(
+      uppercase_rendered, {"SRMSG FLM00101 cfont 3 12 2 Description"},
+      {numeric});
+  require(uppercase_rendered.front().find("a during") != std::string::npos,
+          "uppercase product-message catalog activated marker projection");
+
+  auto empty_rendered = uppercase_rendered;
+  geist::detail::project_semantic_srmsg_source_markers(
+      empty_rendered, {"SRMSG ", "cfont 3 12 2 Description"}, {numeric});
+  require(empty_rendered == uppercase_rendered,
+          "empty SRMSG wrapper activated marker projection");
+
   auto two_byte_marker = numeric;
   two_byte_marker.encoded_tokens[0].width = 2;
   auto negative_rendered = std::vector<std::string>{":p.incremented a during"};
-  geist::detail::project_numeric_srmsg_source_markers(
+  geist::detail::project_semantic_srmsg_source_markers(
       negative_rendered, catalog_records, {two_byte_marker});
   require(negative_rendered.front().find("a during") != std::string::npos,
           "two-byte dictionary word was treated as a compact marker");

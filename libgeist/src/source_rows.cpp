@@ -52,6 +52,21 @@ SourceRowBoundaryEvidence evidence_for(const std::string& marker) {
   return SourceRowBoundaryEvidence::compact_marker;
 }
 
+bool decimal(const std::string& value) {
+  return !value.empty() &&
+         std::all_of(value.begin(), value.end(), [](const char ch) {
+           return std::isdigit(static_cast<unsigned char>(ch)) != 0;
+         });
+}
+
+bool decimal_or_range(const std::string& value) {
+  const auto dash = value.find('-');
+  return decimal(value) ||
+         (dash != std::string::npos && value.find('-', dash + 1) ==
+                                          std::string::npos &&
+          decimal(value.substr(0, dash)) && decimal(value.substr(dash + 1)));
+}
+
 std::string visible_slice(const DecodedLogicalRecordSource& record,
                           std::size_t begin,
                           std::size_t end) {
@@ -162,9 +177,9 @@ std::vector<SourceRowMarker> source_row_markers(
   return markers;
 }
 
-bool has_numeric_srmsg_source_candidate(
+bool has_semantic_srmsg_source_candidate(
     const std::vector<std::string>& decoded_records) {
-  auto saw_numeric_message = false;
+  auto saw_semantic_message = false;
   auto saw_font_row = false;
   for (const auto& record : decoded_records) {
     const auto lower = ascii_lower(record);
@@ -176,21 +191,31 @@ bool has_numeric_srmsg_source_candidate(
              std::isspace(static_cast<unsigned char>(lower[value])) != 0) {
         ++value;
       }
-      if (value < lower.size() &&
-          std::isdigit(static_cast<unsigned char>(lower[value])) != 0) {
-        saw_numeric_message = true;
+      const auto operand_begin = value;
+      while (value < record.size() &&
+             std::isspace(static_cast<unsigned char>(record[value])) == 0) {
+        ++value;
+      }
+      const auto operand = record.substr(operand_begin, value - operand_begin);
+      const auto numeric_or_range = decimal_or_range(operand);
+      const auto symbolic = std::any_of(
+          operand.begin(), operand.end(), [](const char ch) {
+            return std::islower(static_cast<unsigned char>(ch)) != 0;
+          });
+      if (numeric_or_range || symbolic) {
+        saw_semantic_message = true;
         break;
       }
     }
   }
-  return saw_numeric_message && saw_font_row;
+  return saw_semantic_message && saw_font_row;
 }
 
-void project_numeric_srmsg_source_markers(
+void project_semantic_srmsg_source_markers(
     std::vector<std::string>& rendered,
     const std::vector<std::string>& decoded_records,
     const std::vector<DecodedLogicalRecordSource>& sources) {
-  if (!has_numeric_srmsg_source_candidate(decoded_records)) {
+  if (!has_semantic_srmsg_source_candidate(decoded_records)) {
     return;
   }
   for (const auto& row : slice_fixed_source_rows(sources, 3)) {

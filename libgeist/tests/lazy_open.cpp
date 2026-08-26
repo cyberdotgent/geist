@@ -416,7 +416,6 @@ int main() {
               collating.find("```text") != std::string::npos &&
               collating.find("Order in") != std::string::npos,
           "collating-sequence figures lost their fixed rows");
-
   const auto smf_layout =
       geist::BooDocument::open(root / "SH12-565.boo")
           .topic_markdown("APPENDIX1.8");
@@ -681,6 +680,10 @@ int main() {
                   std::string::npos &&
               symbolic_traps.find(
                   "<a id=\"MSG bridgeHistoryDataComplete\"></a>") !=
+                  std::string::npos &&
+              symbolic_traps.find("logged by LNM for AIX") !=
+                  std::string::npos &&
+              symbolic_traps.find("logged by action LNM") ==
                   std::string::npos &&
               symbolic_traps.find("LNMOS2AgentNotResponding") !=
                   std::string::npos,
