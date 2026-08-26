@@ -119,7 +119,8 @@ int main() {
     const std::vector<std::string> decoded{
         "SRTBLFORM " + border + physical_row("Amount of memory installed") +
             physical_row("Amount of paging space available") + incomplete_row,
-        "cfont 31 7 X " + physical_row("file system that contains /usr/OV"),
+        "cfont 31 7 X " +
+            physical_row("file system | that contains /usr/OV"),
         "cfont 39 4 X " + physical_row("Amount of free space available in /tmp"),
         "SRETBL"};
     const auto rendered = geist::detail::render_gml_records(decoded);
@@ -127,7 +128,7 @@ int main() {
     for (const auto& record : rendered) {
       joined += "\n" + record;
     }
-    if (joined.find("Amount of free space available in the<br>file system "
+    if (joined.find("Amount of free space available in the<br>file system | "
                     "that contains /usr/OV") == std::string::npos ||
         joined.find(":c col='0'.Amount of free space available in /tmp") ==
             std::string::npos) {

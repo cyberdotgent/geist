@@ -4634,15 +4634,51 @@ std::string render_gml_segment(std::string segment,
     // padding, so retain the split physical row for table composition.
     const auto cfont_row =
         ascii_starts_with_case_insensitive(lower, "cfont");
+    auto form_cfont_suffix = std::optional<std::string>{};
+    // Some fixed forms end their eager SRTBL body with a two-cell row whose
+    // value is empty, then begin the following CFONT with the rest of that
+    // field.  Consume only a geometrically complete leading field fragment;
+    // the remainder of the CFONT still belongs to the ordinary table parser.
+    if (cfont_row && state.table_form_continuations &&
+        state.pending_table_row.size() == 2 &&
+        state.pending_table_row[1].empty() &&
+        state.table_border_width == 74) {
+      const auto first = raw_segment.find('?');
+      const auto middle = first == std::string::npos
+                              ? std::string::npos
+                              : raw_segment.find('?', first + 1);
+      const auto border = middle == std::string::npos
+                              ? std::string::npos
+                              : raw_segment.find('?', middle + 1);
+      if (middle != std::string::npos && middle - first == 44 &&
+          border != std::string::npos && is_table_border_run(raw_segment, border)) {
+        auto continuation = clean_table_cell_text(
+            raw_segment.substr(first + 1, middle - first - 1));
+        if (!continuation.empty()) {
+          state.pending_table_row[0] += "<br>" + continuation;
+          auto border_end = border;
+          while (border_end < raw_segment.size() &&
+                 raw_segment[border_end] == '?') {
+            ++border_end;
+          }
+          state.table_separator_offsets = {0, 44, 73};
+          state.table_line_width = 74;
+          state.table_final_separator_is_synthetic = false;
+          form_cfont_suffix = raw_segment.substr(border_end);
+        }
+      }
+    }
     state.table_cfont_continuation =
         cfont_row && state.table_form_continuations &&
-        !state.pending_table_row.empty();
+        !state.pending_table_row.empty() && !form_cfont_suffix;
     return render_table_body_gml(
-        cfont_row && (state.table_form_continuations ||
-                      state.table_cfont_continuation ||
-                      state.table_font_heading_can_continue)
-            ? raw_segment
-            : std::move(segment),
+        form_cfont_suffix
+            ? std::move(*form_cfont_suffix)
+            : cfont_row && (state.table_form_continuations ||
+                            state.table_cfont_continuation ||
+                            state.table_font_heading_can_continue)
+                  ? raw_segment
+                  : std::move(segment),
         state);
   }
   if (state.in_fixed_catalog && state.in_glossary_catalog &&

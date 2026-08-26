@@ -513,6 +513,10 @@ int main() {
           "fixed NetView form lost its ballot choices");
   require(netview_form.find("&ballot.") == std::string::npos,
           "fixed NetView form exposed its BookMaster ballot macro");
+  require(netview_form.find(
+              "Number of objects in the OVw database<br>(use the command "
+              "ovobjprint \\| head)") != std::string::npos,
+          "fixed NetView form lost its object-count command continuation");
   const auto network_checklist =
       problem_determination.topic_markdown("2.4.8");
   for (const auto* expected : {
