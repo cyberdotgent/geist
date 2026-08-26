@@ -627,6 +627,15 @@ decode_logical_record_sources(const LogicalDecodeContext& context,
     decoded.tokens = project_token_words(decoded.ir);
     decoded.encoded_tokens = project_encoded_tokens(decoded.ir);
     decoded.assembled = assemble_logical_record_with_sources(decoded.tokens);
+    decoded.control_segments =
+        decode_control_segments(logical_record, decoded.assembled);
+    std::string segment_error;
+    if (!verify_control_segments(decoded.assembled, decoded.control_segments,
+                                 &segment_error)) {
+      throw std::runtime_error("invalid control segment IR in logical record " +
+                               std::to_string(logical_record) + ": " +
+                               segment_error);
+    }
     records.push_back(std::move(decoded));
   }
   return records;

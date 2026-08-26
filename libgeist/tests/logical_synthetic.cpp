@@ -188,10 +188,62 @@ void verify_token_ir_contract() {
   }
 }
 
+void verify_control_ir_contract() {
+  const std::vector<TokenWords> tokens = {
+      {2, 'c','f','o','n','t',' ','3',' ','4',' ','C',' ','8',' ','2',' ',
+       'C',' ','8','2','4','0',' ','C','o','n','c','e','n','t','r','a','t','o','r',
+       '?'},
+      {2, 'c','s','e','l','e','c','t',' ','2','9',' ','3','7',' ','H','D','R',
+       ' ','v','i','s','i','b','l','e',','},
+      {2, 'S','T',' ','T','i','t','l','e',' ','b','o','d','y'},
+  };
+  const auto assembled =
+      geist::detail::assemble_logical_record_with_sources(tokens);
+  const auto text = geist::detail::token_words_to_ascii(assembled.words);
+  const auto segments = geist::detail::decode_control_segments(12, assembled);
+  std::string error;
+  require(geist::detail::verify_control_segments(assembled, segments, &error),
+          "valid control IR failed verification: " + error);
+  require(segments.size() == 3 &&
+              segments[0].kind == geist::detail::BookControlKind::font &&
+              segments[1].kind == geist::detail::BookControlKind::select &&
+              segments[2].kind == geist::detail::BookControlKind::title,
+          "typed control IR classified known controls incorrectly");
+  const auto slice = [&](const geist::detail::OutputRangeIR& range) {
+    return geist::detail::trim_ascii(
+        text.substr(range.begin, range.end - range.begin));
+  };
+  const auto font_operands = slice(segments[0].operand_range);
+  const auto font_payload = slice(segments[0].payload_range);
+  require(font_operands == "3 4 C 8 2 C" &&
+              font_payload == "8240 Concentrator",
+          "digit-leading CFONT split is incorrect: operands='" +
+              font_operands + "' payload='" + font_payload + "'");
+  require(slice(segments[1].operand_range) == "29 37 HDR" &&
+              slice(segments[1].payload_range) == "visible",
+          "CSELECT operand/payload ranges are incorrect");
+  require(slice(segments[2].operand_range).empty() &&
+              slice(segments[2].payload_range) == "Title body",
+          "ST payload range is incorrect");
+  require(!segments[0].source_tokens.empty() &&
+              geist::detail::ascii_lower(
+                  geist::detail::format_control_segment_ir(segments[0])).find(
+                  "opcode=cfont") != std::string::npos,
+          "control IR lost provenance or its stable diagnostic");
+
+  auto malformed = segments;
+  malformed[1].payload_range.begin++;
+  require(!geist::detail::verify_control_segments(assembled, malformed,
+                                                   &error) &&
+              !error.empty(),
+          "control IR gap did not fail verification");
+}
+
 } // namespace
 
 int main() {
   verify_token_ir_contract();
+  verify_control_ir_contract();
   for (const auto& record : {
            std::string("  ST title, cfont 3 5 2     text  "),
            std::string("alpha???????????????????? cselect 3 5 target text"),

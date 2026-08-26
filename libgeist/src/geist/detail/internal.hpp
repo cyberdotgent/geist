@@ -2,6 +2,7 @@
 
 #include "geist/boo.hpp"
 #include "geist/detail/book_ir.hpp"
+#include "geist/detail/control_ir.hpp"
 #include "geist/detail/fixed_display.hpp"
 #include "img/image.hpp"
 
@@ -82,6 +83,7 @@ struct DecodedLogicalRecordSource {
   std::vector<TokenWords> tokens;
   std::vector<EncodedLogicalToken> encoded_tokens;
   AssembledLogicalRecord assembled;
+  std::vector<ControlSegmentIR> control_segments;
 };
 
 std::vector<std::string> clean_source_owned_selector_display_markers(

@@ -109,6 +109,12 @@ void verify_book(const std::filesystem::path& path,
     require(geist::detail::token_words_to_ascii(sources[index].assembled.words) ==
                 context.decoded_records[logical_record - 1],
             "source assembly differs from initial record decode");
+    std::string segment_error;
+    require(geist::detail::verify_control_segments(
+                sources[index].assembled, sources[index].control_segments,
+                &segment_error),
+            segment_error.empty() ? "control segment verification failed"
+                                  : segment_error.c_str());
   }
 
   const auto* cached_dictionary = context.source_dictionary.get();

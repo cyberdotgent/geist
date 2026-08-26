@@ -65,6 +65,7 @@ geist_match_dependency_headers(GIF::GIF gif_lib.h)
 
 set(GEIST_SOURCES
   src/book_ir.cpp
+  src/control_ir.cpp
   src/document.cpp
   src/ebcdic.cpp
   src/fixed_display.cpp
