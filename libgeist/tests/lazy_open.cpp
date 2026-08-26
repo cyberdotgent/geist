@@ -663,6 +663,24 @@ int main() {
                     std::string::npos,
             "LAN publication CFONT row received dual ST ownership");
   }
+  require(lnm_publications.find("(SC31-7109))") == std::string::npos &&
+              lnm_publications.find(
+                  "Getting Started with LAN Network Manager for AIX "
+                  "(SC31-7109)\n\nThis book is intended") !=
+                  std::string::npos,
+          "LAN publication identifier punctuation or title ownership failed");
+  const auto lnm_reference_tail = std::string(
+      "management problems and provides a list of messages and traps sent "
+      "by LNM for AIX. It also describes the files that are used for segment "
+      "performance data, daemons, processes, and executables.");
+  const auto lnm_reference_tail_begin =
+      lnm_publications.find(lnm_reference_tail);
+  require(lnm_reference_tail_begin != std::string::npos &&
+              lnm_publications.find(
+                  lnm_reference_tail,
+                  lnm_reference_tail_begin + lnm_reference_tail.size()) ==
+                  std::string::npos,
+          "LAN publication lost its cross-record description continuation");
   const auto netcenter_publications =
       problem_determination.topic_markdown("BACK_1.11");
   for (const auto* expected : {

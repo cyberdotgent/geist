@@ -478,6 +478,49 @@ bool looks_like_publication_catalog_row(const std::string& value) {
   return false;
 }
 
+struct PublicationBlock {
+  std::string title;
+  std::string description;
+};
+
+std::optional<PublicationBlock> start_publication_block(std::string value) {
+  const auto lower = ascii_lower(value);
+  auto identifier = std::string::npos;
+  for (const auto* marker : {"(sc", "(gc", "(ga", "(sg", "(sh", "(sa",
+                             "(sx", "(zz", "(isbn"}) {
+    const auto found = lower.find(marker);
+    if (found != std::string::npos) {
+      identifier = std::min(identifier, found);
+    }
+  }
+  if (identifier == std::string::npos) {
+    return std::nullopt;
+  }
+  const auto close = value.find(')', identifier + 1);
+  if (close == std::string::npos) {
+    return std::nullopt;
+  }
+
+  PublicationBlock block;
+  block.title = clean_fixed_rendered_line(value.substr(0, close + 1));
+  auto trailing = value.substr(close + 1);
+  const auto first = trailing.find_first_not_of(" \t\r\n");
+  if (first != std::string::npos && first == 0 &&
+      std::string("()-<>/:=\"").find(trailing[first]) != std::string::npos &&
+      (first + 1 == trailing.size() ||
+       std::isspace(static_cast<unsigned char>(trailing[first + 1])) != 0)) {
+    auto content = first + 1;
+    while (content < trailing.size() &&
+           std::isspace(static_cast<unsigned char>(trailing[content])) != 0) {
+      ++content;
+    }
+    trailing.erase(first, content - first);
+  }
+  block.description = clean_fixed_rendered_line(
+      clean_fixed_st_row_markers(std::move(trailing)));
+  return block;
+}
+
 static bool contains_srmsg_control(const std::string& value) {
   const auto lower = ascii_lower(value);
   auto search = std::size_t{0};
@@ -1137,9 +1180,25 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
   entry.end_logical_record = topic.end_logical_record;
   entry.raw_records = render_gml_records(topic.raw_records);
   std::vector<std::string> publication_rows;
+  std::vector<PublicationBlock> publication_blocks;
   if (ascii_lower(entry.title).find("publications") != std::string::npos) {
     for (const auto& record : entry.raw_records) {
       auto content = raw_gml_content_preserve_space(record);
+      if (auto block = start_publication_block(content)) {
+        publication_blocks.push_back(std::move(*block));
+      } else if (!publication_blocks.empty() &&
+                 (raw_gml_tag(record) == "p" ||
+                  raw_gml_tag(record) == "line")) {
+        auto continuation = clean_fixed_rendered_line(
+            clean_fixed_st_row_markers(std::move(content)));
+        if (!continuation.empty()) {
+          auto& description = publication_blocks.back().description;
+          if (!description.empty()) {
+            description.push_back(' ');
+          }
+          description += std::move(continuation);
+        }
+      }
       if (!looks_like_publication_catalog_row(content)) {
         continue;
       }
@@ -1170,6 +1229,35 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
       ++heading;
     }
     if (heading == entry.raw_records.end()) {
+      return;
+    }
+
+    if (!publication_blocks.empty() && is_topic_title_record(*heading)) {
+      const auto dot = heading->find('.');
+      if (dot != std::string::npos) {
+        heading->resize(dot + 1);
+        *heading += entry.title;
+      }
+      auto intro = topic_st_body_text_after_toc_title(topic, entry.title);
+      const auto lower_intro = ascii_lower(intro);
+      const auto cfont = lower_intro.find("cfont ");
+      if (cfont != std::string::npos) {
+        intro.resize(cfont);
+      }
+      intro = clean_fixed_rendered_line(
+          clean_fixed_st_row_markers(std::move(intro)));
+      entry.raw_records.erase(heading + 1, entry.raw_records.end());
+      if (!intro.empty()) {
+        entry.raw_records.push_back(":p." + std::move(intro));
+      }
+      for (auto& block : publication_blocks) {
+        if (!block.title.empty()) {
+          entry.raw_records.push_back(":p." + std::move(block.title));
+        }
+        if (!block.description.empty()) {
+          entry.raw_records.push_back(":p." + std::move(block.description));
+        }
+      }
       return;
     }
 
