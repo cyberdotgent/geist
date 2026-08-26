@@ -1,6 +1,7 @@
 #pragma once
 
 #include "geist/boo.hpp"
+#include "geist/detail/fixed_display.hpp"
 #include "img/image.hpp"
 
 #include <cstddef>

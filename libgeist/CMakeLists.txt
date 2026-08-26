@@ -66,6 +66,7 @@ geist_match_dependency_headers(GIF::GIF gif_lib.h)
 set(GEIST_SOURCES
   src/document.cpp
   src/ebcdic.cpp
+  src/fixed_display.cpp
   src/img/gdf.cpp
   src/img/gdf_raster.cpp
   src/io.cpp

@@ -69,6 +69,38 @@ bool valid_utf8(const std::string& value) {
 int main() {
   bool ok = true;
 
+  {
+    auto row = geist::detail::assemble_fixed_display_row(
+        {"prefix ", ">    continuation"});
+    const auto mapping = row.source_columns;
+    geist::detail::blank_fixed_display_marker_fields(row, true);
+    ok &= expect_equal("fixed marker blanking", row.text,
+                       "prefix      continuation");
+    const auto mapping_unchanged =
+        row.source_columns.size() == mapping.size() &&
+        std::equal(row.source_columns.begin(), row.source_columns.end(),
+                   mapping.begin(), [](const auto& left, const auto& right) {
+                     return left.fragment == right.fragment &&
+                            left.column == right.column;
+                   });
+    if (!mapping_unchanged || row.text.size() != mapping.size() ||
+        row.source_columns[7].fragment != 1 ||
+        row.source_columns[7].column != 0) {
+      ok = false;
+      std::cerr << "fixed marker blanking shifted source columns\n";
+    }
+  }
+
+  {
+    auto row = geist::detail::assemble_fixed_display_row(
+        {"Use (optional) values when x > y; keep / and \"quotes\"."});
+    geist::detail::blank_fixed_display_marker_fields(row, true);
+    ok &= expect_equal(
+        "literal punctuation survives fixed marker normalization",
+        row.text,
+        "Use (optional) values when x > y; keep / and \"quotes\".");
+  }
+
   ok &= expect_records(
       "fixed-width CFONT word spans",
       {"CFONT 8 10 2 19 2 2 22 4 2 27 4 2     Production of This Book"

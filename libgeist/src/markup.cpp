@@ -247,18 +247,9 @@ std::string strip_fixed_alpha_row_markers(std::string value) {
 
 std::string blank_fixed_prose_row_markers(std::string value,
                                           bool allow_adjacent = false) {
-  for (std::size_t cursor = 0; cursor + 2 < value.size(); ++cursor) {
-    const auto adjacent_marker =
-        allow_adjacent &&
-        (value[cursor] == '<' || value[cursor] == '>' ||
-         value[cursor] == '/' || value[cursor] == '"') &&
-        std::isspace(static_cast<unsigned char>(value[cursor + 1])) != 0 &&
-        std::isspace(static_cast<unsigned char>(value[cursor + 2])) != 0;
-    if (fixed_prose_row_marker_at(value, cursor) || adjacent_marker) {
-      value[cursor] = ' ';
-    }
-  }
-  return value;
+  auto row = assemble_fixed_display_row({value});
+  blank_fixed_display_marker_fields(row, allow_adjacent);
+  return std::move(row.text);
 }
 
 std::string remove_decoded_line_markers(std::string value) {
