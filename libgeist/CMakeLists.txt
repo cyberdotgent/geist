@@ -67,6 +67,7 @@ set(GEIST_SOURCES
   src/document.cpp
   src/ebcdic.cpp
   src/fixed_display.cpp
+  src/implicit_grid.cpp
   src/img/gdf.cpp
   src/img/gdf_raster.cpp
   src/io.cpp
@@ -225,6 +226,15 @@ target_compile_definitions(logical_source_index_test PRIVATE
   GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
 )
 add_test(NAME logical_source_index_test COMMAND logical_source_index_test)
+
+add_executable(implicit_grid_test
+  tests/implicit_grid.cpp
+)
+target_link_libraries(implicit_grid_test PRIVATE geist::geist_static)
+target_compile_definitions(implicit_grid_test PRIVATE
+  GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+add_test(NAME implicit_grid_test COMMAND implicit_grid_test)
 
 add_executable(fixed_display_synthetic_test
   tests/fixed_display_synthetic.cpp
