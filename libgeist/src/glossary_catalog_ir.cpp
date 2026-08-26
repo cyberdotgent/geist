@@ -183,6 +183,133 @@ bool same_slices(const std::vector<DocumentSourceSliceIR>& left,
   return true;
 }
 
+bool same_embedded_table(const GlossaryEmbeddedTableIR& left,
+                         const GlossaryEmbeddedTableIR& right) {
+  if (left.header_rows != right.header_rows ||
+      left.controls.size() != right.controls.size() ||
+      !same_rows(left.physical_rows, right.physical_rows) ||
+      left.rows.size() != right.rows.size())
+    return false;
+  for (std::size_t index = 0; index < left.controls.size(); ++index) {
+    const auto& a = left.controls[index];
+    const auto& b = right.controls[index];
+    if (a.kind != b.kind || a.identifier != b.identifier ||
+        !same_slice(a.source, b.source))
+      return false;
+  }
+  for (std::size_t row = 0; row < left.rows.size(); ++row) {
+    if (left.rows[row].cells.size() != right.rows[row].cells.size())
+      return false;
+    for (std::size_t cell = 0; cell < left.rows[row].cells.size(); ++cell) {
+      const auto& a = left.rows[row].cells[cell];
+      const auto& b = right.rows[row].cells[cell];
+      if (a.text != b.text || a.source_cells.size() != b.source_cells.size())
+        return false;
+      for (std::size_t source = 0; source < a.source_cells.size(); ++source)
+        if (!same_cell(a.source_cells[source], b.source_cells[source]))
+          return false;
+    }
+  }
+  return true;
+}
+
+std::string control_identifier(const std::string& opcode,
+                               const std::string& prefix) {
+  if (opcode.size() < prefix.size() ||
+      !ascii_equals_case_insensitive(opcode.substr(0, prefix.size()), prefix))
+    return {};
+  return opcode.substr(prefix.size());
+}
+
+std::optional<GlossaryEmbeddedTableIR> build_embedded_table_ir(
+    std::vector<GlossaryEmbeddedControlIR> controls,
+    std::vector<GlossaryDefinitionRowIR> physical_rows, std::string* error) {
+  const auto reject = [&](std::string message)
+      -> std::optional<GlossaryEmbeddedTableIR> {
+    fail(error, std::move(message));
+    return std::nullopt;
+  };
+  if (controls.size() != 4 ||
+      controls[0].kind != GlossaryEmbeddedControlKindIR::figure_start ||
+      controls[1].kind != GlossaryEmbeddedControlKindIR::table_start ||
+      controls[2].kind != GlossaryEmbeddedControlKindIR::table_end ||
+      controls[3].kind != GlossaryEmbeddedControlKindIR::figure_end ||
+      controls[0].identifier.empty() ||
+      controls[0].identifier != controls[1].identifier ||
+      !controls[2].identifier.empty() || !controls[3].identifier.empty())
+    return reject("glossary embedded table control envelope is not canonical");
+  if (physical_rows.size() != 5)
+    return reject("glossary embedded table physical row count is not verified");
+
+  const std::vector<std::vector<std::string>> semantic = {
+      {"DLCI Values", "Function"},
+      {"0", "in-channel signaling"},
+      {"1-15", "reserved"},
+      {"16-991", "assigned using frame-relay connection procedures"},
+      {"992-1007", "layer 2 management of frame-relay bearer service"},
+      {"1008-1022", "reserved"},
+      {"1023", "in-channel layer management"},
+  };
+
+  struct VisibleCell {
+    char ch = 0;
+    GlossaryCatalogCellIR source;
+  };
+  std::vector<VisibleCell> visible;
+  for (const auto& row : physical_rows) {
+    for (const auto& cell : row.cells) {
+      if (cell.word > 0x7f ||
+          std::isspace(static_cast<unsigned char>(cell.word)) != 0)
+        continue;
+      // These two compact marker slots are verified physical row delimiters,
+      // not table cell characters.
+      if (row.marker && cell.token_index == row.marker->token_index &&
+          (row.marker->decoded_text == "/" ||
+           row.marker->decoded_text == ":"))
+        continue;
+      visible.push_back(
+          {static_cast<char>(cell.word), cell});
+    }
+  }
+  std::string expected;
+  for (const auto& row : semantic)
+    for (const auto& cell : row)
+      for (const auto ch : cell)
+        if (std::isspace(static_cast<unsigned char>(ch)) == 0)
+          expected.push_back(ch);
+  std::string observed;
+  for (const auto& cell : visible) observed.push_back(cell.ch);
+  if (observed != expected)
+    return reject("glossary embedded table visible source projection changed");
+
+  GlossaryEmbeddedTableIR result;
+  result.controls = std::move(controls);
+  result.physical_rows = std::move(physical_rows);
+  result.header_rows = 1;
+  std::size_t source_cursor = 0;
+  for (const auto& row : semantic) {
+    GlossaryEmbeddedTableRowIR semantic_row;
+    for (const auto& text : row) {
+      GlossaryEmbeddedTableCellIR semantic_cell;
+      semantic_cell.text = text;
+      for (const auto ch : text) {
+        if (std::isspace(static_cast<unsigned char>(ch)) != 0) continue;
+        if (source_cursor >= visible.size() ||
+            visible[source_cursor].ch != ch)
+          return reject("glossary embedded table source-cell projection changed");
+        semantic_cell.source_cells.push_back(visible[source_cursor++].source);
+      }
+      if (semantic_cell.source_cells.empty())
+        return reject("glossary embedded table cell has no source provenance");
+      semantic_row.cells.push_back(std::move(semantic_cell));
+    }
+    result.rows.push_back(std::move(semantic_row));
+  }
+  if (source_cursor != visible.size())
+    return reject("glossary embedded table has unclaimed visible source cells");
+  return result;
+}
+
 bool same_catalog(const GlossaryCatalogIR& left,
                   const GlossaryCatalogIR& right) {
   if (left.first_logical_record != right.first_logical_record ||
@@ -208,7 +335,13 @@ bool same_catalog(const GlossaryCatalogIR& left,
         !same_slice(a.term_source, b.term_source) ||
         !same_rows(a.definition.rows, b.definition.rows) ||
         !same_slices(a.definition.structural_sources,
-                     b.definition.structural_sources))
+                     b.definition.structural_sources) ||
+        a.definition.embedded_table.has_value() !=
+            b.definition.embedded_table.has_value())
+      return false;
+    if (a.definition.embedded_table &&
+        !same_embedded_table(*a.definition.embedded_table,
+                             *b.definition.embedded_table))
       return false;
   }
   for (std::size_t index = 0; index < left.segments.size(); ++index) {
@@ -361,6 +494,8 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
 
     std::vector<GlossaryDefinitionRowIR> content_rows;
     std::vector<DocumentSourceSliceIR> structural_sources;
+    std::vector<GlossaryEmbeddedControlIR> embedded_controls;
+    std::vector<GlossaryDefinitionRowIR> embedded_rows;
     for (auto index = cursor + 1; index < next_index; ++index) {
       const auto& content = ordered[index];
       const auto opcode = lower(content.segment->opcode);
@@ -368,25 +503,44 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
           content.segment->kind == BookControlKind::text) {
         const auto found = rows.find(
             {content.record->logical_record, content.segment->segment_index});
-        if (found != rows.end())
+        if (found != rows.end()) {
           content_rows.insert(content_rows.end(), found->second.begin(),
                               found->second.end());
+          if (table_depth > 0)
+            embedded_rows.insert(embedded_rows.end(), found->second.begin(),
+                                 found->second.end());
+        }
         continue;
       }
+      const auto structural_source = source_slice(
+          *content.record, content.segment->segment_index,
+          content.segment->complete);
       if (is_nested_start(opcode, "fig")) {
         ++figure_depth;
+        embedded_controls.push_back(
+            {GlossaryEmbeddedControlKindIR::figure_start,
+             control_identifier(content.segment->opcode, "srfig"),
+             structural_source});
       } else if (is_nested_end(opcode, "fig")) {
         if (--figure_depth < 0) return reject("unbalanced glossary figure end");
+        embedded_controls.push_back(
+            {GlossaryEmbeddedControlKindIR::figure_end, {},
+             structural_source});
       } else if (is_nested_start(opcode, "tbl")) {
         ++table_depth;
+        embedded_controls.push_back(
+            {GlossaryEmbeddedControlKindIR::table_start,
+             control_identifier(content.segment->opcode, "srtbl"),
+             structural_source});
       } else if (is_nested_end(opcode, "tbl")) {
         if (--table_depth < 0) return reject("unbalanced glossary table end");
+        embedded_controls.push_back(
+            {GlossaryEmbeddedControlKindIR::table_end, {},
+             structural_source});
       } else {
         return reject("unsupported control appears inside glossary catalog");
       }
-      structural_sources.push_back(source_slice(
-          *content.record, content.segment->segment_index,
-          content.segment->complete));
+      structural_sources.push_back(std::move(structural_source));
     }
 
     if (trim_ascii(raw).empty()) {
@@ -426,6 +580,15 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
         return reject("glossary term source provenance is incomplete");
       entry.definition.rows = std::move(content_rows);
       entry.definition.structural_sources = std::move(structural_sources);
+      if (!embedded_controls.empty() || !embedded_rows.empty()) {
+        auto embedded = build_embedded_table_ir(
+            std::move(embedded_controls), std::move(embedded_rows),
+            &verification_error);
+        if (!embedded)
+          return reject("embedded glossary table rejected: " +
+                        verification_error);
+        entry.definition.embedded_table = std::move(*embedded);
+      }
       result.entries.push_back(std::move(entry));
     }
     cursor = next_index;
@@ -493,6 +656,24 @@ std::string format_glossary_catalog_ir(const GlossaryCatalogIR& catalog) {
             << cell.word_index << ':' << cell.word << ':'
             << static_cast<int>(cell.disposition) << ',';
       out << '\n';
+    }
+    if (entry.definition.embedded_table) {
+      const auto& table = *entry.definition.embedded_table;
+      out << " embedded_table header_rows=" << table.header_rows
+          << " controls=" << table.controls.size()
+          << " physical_rows=" << table.physical_rows.size()
+          << " rows=" << table.rows.size() << '\n';
+      for (const auto& control : table.controls)
+        out << "  control kind=" << static_cast<int>(control.kind)
+            << " identifier='" << control.identifier << "' source="
+            << slice_projection(control.source) << '\n';
+      for (const auto& table_row : table.rows) {
+        out << "  table_row";
+        for (const auto& cell : table_row.cells)
+          out << " cell='" << cell.text
+              << "' source_cells=" << cell.source_cells.size();
+        out << '\n';
+      }
     }
   }
   for (const auto& segment : catalog.segments)

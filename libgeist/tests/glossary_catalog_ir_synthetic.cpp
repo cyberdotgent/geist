@@ -110,6 +110,44 @@ int main() {
   require(dlci != catalog->entries.end() &&
               dlci->definition.structural_sources.size() == 4,
           "glossary embedded table/figure envelope was not conserved");
+  require(dlci->definition.embedded_table.has_value(),
+          "glossary DLCI table did not enter semantic embedded-object IR");
+  const auto& table = *dlci->definition.embedded_table;
+  require(table.controls.size() == 4 && table.physical_rows.size() == 5 &&
+              table.header_rows == 1 && table.rows.size() == 7,
+          "glossary DLCI table envelope or grid shape is incorrect");
+  require(table.controls[0].kind ==
+                  geist::detail::GlossaryEmbeddedControlKindIR::figure_start &&
+              table.controls[0].identifier == "TBLUNIQ7" &&
+              table.controls[1].kind ==
+                  geist::detail::GlossaryEmbeddedControlKindIR::table_start &&
+              table.controls[1].identifier == "TBLUNIQ7" &&
+              table.controls[2].kind ==
+                  geist::detail::GlossaryEmbeddedControlKindIR::table_end &&
+              table.controls[3].kind ==
+                  geist::detail::GlossaryEmbeddedControlKindIR::figure_end,
+          "glossary DLCI table controls or identifiers are incorrect");
+  const std::vector<std::vector<std::string>> expected_table = {
+      {"DLCI Values", "Function"},
+      {"0", "in-channel signaling"},
+      {"1-15", "reserved"},
+      {"16-991", "assigned using frame-relay connection procedures"},
+      {"992-1007", "layer 2 management of frame-relay bearer service"},
+      {"1008-1022", "reserved"},
+      {"1023", "in-channel layer management"},
+  };
+  for (std::size_t row = 0; row < expected_table.size(); ++row) {
+    require(table.rows[row].cells.size() == expected_table[row].size(),
+            "glossary DLCI table column count is incorrect");
+    for (std::size_t cell = 0; cell < expected_table[row].size(); ++cell)
+      require(table.rows[row].cells[cell].text == expected_table[row][cell] &&
+                  !table.rows[row].cells[cell].source_cells.empty(),
+              "glossary DLCI semantic cell or provenance is incorrect");
+  }
+  require(table.rows[2].cells[0].source_cells.front().logical_record == 454 &&
+              table.rows[2].cells[0].source_cells.front().token_index == 110 &&
+              table.rows[2].cells[0].source_cells.back().token_index == 114,
+          "glossary DLCI split 1-15 source carry was not conserved");
   require(std::any_of(catalog->entries.begin(), catalog->entries.end(),
                       [](const auto& entry) {
                         return !entry.source_suffix.empty();
@@ -135,6 +173,27 @@ int main() {
   require(!geist::detail::verify_glossary_catalog_ir(
               sources, layout, ownership, changed),
           "glossary verifier admitted changed cell run provenance");
+  changed = *catalog;
+  const auto changed_dlci = std::find_if(
+      changed.entries.begin(), changed.entries.end(), [](const auto& entry) {
+        return entry.term == "data link connection identifier (DLCI)";
+      });
+  require(changed_dlci != changed.entries.end() &&
+              changed_dlci->definition.embedded_table.has_value(),
+          "glossary embedded table mutation fixture is absent");
+  changed_dlci->definition.embedded_table->rows[2].cells[0].text = "1-16";
+  require(!geist::detail::verify_glossary_catalog_ir(
+              sources, layout, ownership, changed),
+          "glossary verifier admitted changed embedded semantic cell");
+  changed = *catalog;
+  const auto changed_table_entry = std::find_if(
+      changed.entries.begin(), changed.entries.end(), [](const auto& entry) {
+        return entry.term == "data link connection identifier (DLCI)";
+      });
+  changed_table_entry->definition.embedded_table->physical_rows.pop_back();
+  require(!geist::detail::verify_glossary_catalog_ir(
+              sources, layout, ownership, changed),
+          "glossary verifier admitted a missing embedded physical row");
   changed = *catalog;
   require(changed.entries.front().definition.rows.front().marker.has_value(),
           "glossary marker mutation fixture has no marker");
