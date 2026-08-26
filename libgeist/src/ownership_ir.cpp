@@ -163,29 +163,29 @@ bool verify_ownership_ir(
   if (ownership.cells.size() != expected)
     return fail("ownership ledger does not cover every source cell");
   std::set<CellKey> unique;
+  struct RowCounts {
+    std::size_t visible = 0;
+    std::size_t markers = 0;
+  };
+  std::map<std::pair<DisplayRunId, std::size_t>, RowCounts> row_counts;
   for (const auto& cell : ownership.cells) {
     if (!unique.emplace(cell.logical_record, cell.token_index, cell.word_index)
              .second)
       return fail("ownership ledger contains duplicate source cells");
+    auto& counts = row_counts[{cell.run, cell.row_index}];
+    if (cell.disposition == SourceDisposition::visible_content)
+      ++counts.visible;
+    if (cell.disposition == SourceDisposition::marker_slot)
+      ++counts.markers;
   }
   for (const auto& run : layout.runs) {
     for (std::size_t row = 0; row < run.rows.size(); ++row) {
-      const auto visible = std::count_if(
-          ownership.cells.begin(), ownership.cells.end(), [&](const auto& cell) {
-            return cell.run == run.id && cell.row_index == row &&
-                   cell.disposition == SourceDisposition::visible_content;
-          });
-      if (visible == 0) return fail("physical row owns no visible source cell");
+      const auto found = row_counts.find({run.id, row});
+      if (found == row_counts.end() || found->second.visible == 0)
+        return fail("physical row owns no visible source cell");
       const auto& physical = run.rows[row];
-      if (physical.marker) {
-        const auto markers = std::count_if(
-            ownership.cells.begin(), ownership.cells.end(),
-            [&](const auto& cell) {
-              return cell.run == run.id && cell.row_index == row &&
-                     cell.disposition == SourceDisposition::marker_slot;
-            });
-        if (markers == 0) return fail("marker row owns no marker source cell");
-      }
+      if (physical.marker && found->second.markers == 0)
+        return fail("marker row owns no marker source cell");
     }
   }
   if (error != nullptr) error->clear();

@@ -108,5 +108,26 @@ int main() {
       "IBM RouteXpander/2 Introduction and Configuration Examples, GG24-4334",
       "final bridge publication row");
 
+  const auto lfs = geist::BooDocument::open(
+      std::filesystem::path(GEIST_REPO_ROOT) / "BOO" / "GG24-395.boo");
+  const auto lfs_publications = lfs.topic_markdown("3.3.10.6");
+  require_contains(lfs_publications,
+                   "LAN File Services/ESA VM Guide and Reference, SH24-5264",
+                   "cross-book LFS/ESA publication");
+  require_contains(lfs_publications,
+                   "LAN File Services/ESA General Information, GH24-5259",
+                   "cross-book LFS/ESA publication");
+
+  const auto c370 = geist::BooDocument::open(
+      std::filesystem::path(GEIST_REPO_ROOT) / "BOO" / "SC09-138.boo");
+  const auto c370_publications = c370.topic_markdown("BIBLIOGRAPHY.1");
+  require_contains(c370_publications,
+                   "SAA: Common Programming Interface C Reference, SC09-1308",
+                   "cross-book C/370 publication");
+  require_contains(
+      c370_publications,
+      "IBM C/370 Installation and Customization for VSE, GC09-1417",
+      "cross-book C/370 publication");
+
   return failures == 0 ? 0 : 1;
 }

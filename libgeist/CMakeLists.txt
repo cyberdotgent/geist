@@ -271,9 +271,8 @@ target_compile_definitions(sc31_711_row_ownership_test PRIVATE
 )
 add_test(NAME sc31_711_row_ownership_test COMMAND sc31_711_row_ownership_test)
 
-# This executable freezes the remaining publication acceptance evidence for
-# issue #48 / #58. It is intentionally not registered with CTest while red;
-# the publication-IR milestone must make it pass before registering it.
+# Publication acceptance evidence for issue #48 / #58. M5 registers it only
+# after every frozen residual is satisfied by verified semantic IR lowering.
 add_executable(sc31_711_ir_publications_acceptance
   tests/sc31_711_ir_publications_acceptance.cpp
 )
@@ -283,6 +282,8 @@ target_link_libraries(sc31_711_ir_publications_acceptance
 target_compile_definitions(sc31_711_ir_publications_acceptance PRIVATE
   GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
 )
+add_test(NAME sc31_711_ir_publications_acceptance
+  COMMAND sc31_711_ir_publications_acceptance)
 
 add_executable(sc31_711_cross_references_test
   tests/sc31_711_cross_references.cpp

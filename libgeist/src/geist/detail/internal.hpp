@@ -120,6 +120,7 @@ struct TopicData {
   // contains a fixed-form candidate. Kept topic-local and discarded after
   // normalized GML construction.
   std::vector<DecodedLogicalRecordSource> fixed_layout_sources;
+  bool use_legacy_source_layout = false;
 };
 
 enum class EbcdicCodePage {
@@ -187,6 +188,9 @@ std::vector<ResourceEntry> build_resources(
     const BooDirectory& directory);
 std::vector<std::string> render_gml_records(
     const std::vector<std::string>& decoded_records);
+std::optional<std::vector<std::string>>
+render_verified_publication_catalog_gml(
+    const std::vector<DecodedLogicalRecordSource>& sources);
 std::vector<std::string> render_gml_records_with_source_layout(
     const std::vector<std::string>& decoded_records,
     const std::vector<DecodedLogicalRecordSource>& sources);

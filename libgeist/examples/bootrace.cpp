@@ -140,6 +140,9 @@ int main(int argc, char** argv) {
         for (const auto& cell : record.ir_ownership_cells)
           std::cout << record.logical_record << "\townership\t"
                     << tsv_escape(cell) << "\n";
+        for (const auto& block : record.ir_semantic_blocks)
+          std::cout << record.logical_record << "\tsemantic\t"
+                    << tsv_escape(block) << "\n";
       }
     }
   } catch (const std::exception& error) {

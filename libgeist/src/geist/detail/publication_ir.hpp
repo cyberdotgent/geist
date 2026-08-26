@@ -9,8 +9,14 @@
 
 namespace geist::detail {
 
+struct PublicationParagraphIR {
+  std::string text;
+  std::vector<std::pair<DisplayRunId, std::size_t>> source_rows;
+};
+
 struct PublicationEntryIR {
   std::string text;
+  std::vector<PublicationParagraphIR> paragraphs;
   std::vector<std::pair<DisplayRunId, std::size_t>> source_rows;
 };
 

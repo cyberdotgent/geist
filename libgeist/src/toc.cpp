@@ -1203,11 +1203,17 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
   entry.topic_number = topic.topic_number;
   entry.start_logical_record = topic.start_logical_record;
   entry.end_logical_record = topic.end_logical_record;
-  entry.raw_records = topic.fixed_layout_sources.empty()
-                          ? render_gml_records(topic.raw_records)
-                          : render_gml_records_with_source_layout(
-                                topic.raw_records,
-                                topic.fixed_layout_sources);
+  if (!topic.fixed_layout_sources.empty()) {
+    if (auto publication = render_verified_publication_catalog_gml(
+            topic.fixed_layout_sources)) {
+      entry.raw_records = std::move(*publication);
+      return;
+    }
+  }
+  entry.raw_records = topic.use_legacy_source_layout
+                          ? render_gml_records_with_source_layout(
+                                topic.raw_records, topic.fixed_layout_sources)
+                          : render_gml_records(topic.raw_records);
   std::vector<std::string> publication_rows;
   std::vector<PublicationBlock> publication_blocks;
   if (ascii_lower(entry.title).find("publications") != std::string::npos) {

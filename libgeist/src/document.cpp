@@ -102,16 +102,37 @@ bool has_st_fixed_prose_source_candidate(
   return count == 1;
 }
 
+bool has_publication_ir_source_candidate(
+    const std::vector<std::string>& records) {
+  bool heading = false;
+  bool title = false;
+  bool font = false;
+  for (const auto& record : records) {
+    for (const auto& segment : split_decoded_markup_segments(record)) {
+      const auto lower = ascii_lower(trim_ascii(segment));
+      heading = heading ||
+                ascii_starts_with_case_insensitive(lower, "chdlevel :h2") ||
+                ascii_starts_with_case_insensitive(lower, "chdlevel :h3");
+      title = title || ascii_starts_with_case_insensitive(lower, "st ");
+      font = font || ascii_starts_with_case_insensitive(lower, "cfont ");
+    }
+  }
+  return heading && title && font;
+}
+
 void load_source_layout_if_candidate(
     const std::shared_ptr<LogicalDecodeContext>& context,
     TopicData& topic) {
-  if (!has_box_form_source_candidate(topic.raw_records) &&
-      !has_implicit_grid_source_candidate(topic.raw_records) &&
-      !has_numbered_procedure_candidate(topic.raw_records) &&
-      !has_semantic_srmsg_source_candidate(topic.raw_records) &&
-      !has_generated_toc_source_candidate(topic.raw_records) &&
-      !has_selector_source_candidate(topic.raw_records) &&
-      !has_st_fixed_prose_source_candidate(topic.raw_records)) {
+  topic.use_legacy_source_layout =
+      has_box_form_source_candidate(topic.raw_records) ||
+      has_implicit_grid_source_candidate(topic.raw_records) ||
+      has_numbered_procedure_candidate(topic.raw_records) ||
+      has_semantic_srmsg_source_candidate(topic.raw_records) ||
+      has_generated_toc_source_candidate(topic.raw_records) ||
+      has_selector_source_candidate(topic.raw_records) ||
+      has_st_fixed_prose_source_candidate(topic.raw_records);
+  if (!topic.use_legacy_source_layout &&
+      !has_publication_ir_source_candidate(topic.raw_records)) {
     return;
   }
   topic.fixed_layout_sources = decode_logical_record_sources(
@@ -474,6 +495,18 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
     if (auto* destination = trace_for(cell.logical_record))
       destination->ir_ownership_cells.push_back(
           detail::format_owned_source_cell_ir(cell));
+  }
+  const auto publication =
+      detail::extract_publication_catalog_ir(sources, layout, ownership);
+  if (publication && !sources.empty()) {
+    std::string publication_error;
+    if (!detail::verify_publication_catalog_ir(
+            sources, layout, ownership, *publication, &publication_error))
+      throw std::runtime_error("invalid publication IR trace: " +
+                               publication_error);
+    if (auto* destination = trace_for(sources.front().logical_record))
+      destination->ir_semantic_blocks.push_back(
+          detail::format_publication_catalog_ir(*publication));
   }
   return traced;
 }

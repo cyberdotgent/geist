@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -26,6 +27,21 @@ bool catalog_contains(
                      });
 }
 
+bool catalog_entries_are_distinct(
+    const geist::detail::PublicationCatalogIR& catalog,
+    const std::string& left, const std::string& right) {
+  auto left_entry = catalog.entries.size();
+  auto right_entry = catalog.entries.size();
+  for (std::size_t index = 0; index < catalog.entries.size(); ++index) {
+    if (catalog.entries[index].text.find(left) != std::string::npos)
+      left_entry = index;
+    if (catalog.entries[index].text.find(right) != std::string::npos)
+      right_entry = index;
+  }
+  return left_entry < catalog.entries.size() &&
+         right_entry < catalog.entries.size() && left_entry != right_entry;
+}
+
 std::size_t resident_kib() {
   std::ifstream status("/proc/self/status");
   std::string key;
@@ -43,7 +59,8 @@ std::size_t resident_kib() {
 void verify_book(const std::filesystem::path& path,
                  std::uint32_t first,
                  std::uint32_t end,
-                 bool benchmark = false) {
+                 bool benchmark = false,
+                 std::optional<bool> expected_publication = std::nullopt) {
   const auto started = std::chrono::steady_clock::now();
   geist::detail::LogicalDecodeContext context;
   context.bytes = geist::detail::read_file(path);
@@ -98,6 +115,11 @@ void verify_book(const std::filesystem::path& path,
                                   : ownership_error.c_str());
   const auto publication = geist::detail::extract_publication_catalog_ir(
       sources, layout, ownership);
+  if (expected_publication)
+    require(publication.has_value() == *expected_publication,
+            *expected_publication
+                ? "verified publication fixture failed semantic admission"
+                : "cross-book prose/list negative entered publication IR");
   if (publication) {
     std::string publication_error;
     require(geist::detail::verify_publication_catalog_ir(
@@ -261,6 +283,30 @@ void verify_book(const std::filesystem::path& path,
                 catalog_contains(*publication, "GA27-3905"),
             "token-ring publication IR lost a first or wrapped row");
   }
+  if (path.filename() == "SC31-711.boo" && first == 529) {
+    require(publication.has_value() &&
+                catalog_contains(*publication, "GC23-2201") &&
+                catalog_contains(*publication, "GC23-2203"),
+            "AIX publication IR lost a first or wrapped row");
+  }
+  if (path.filename() == "SC31-711.boo" && first == 535) {
+    require(publication.has_value() && catalog_entries_are_distinct(
+                *publication, "Prentice-Hall, 1989",
+                "Programming and Applications with Xt"),
+            "X Window publication IR merged independent publications");
+  }
+  if (path.filename() == "GG24-395.boo" && first == 580) {
+    require(publication.has_value() && publication->entries.size() == 2 &&
+                catalog_contains(*publication, "SH24-5264") &&
+                catalog_contains(*publication, "GH24-5259"),
+            "LFS/ESA publication IR lost a cross-book catalog entry");
+  }
+  if (path.filename() == "SC09-138.boo" && first == 2267) {
+    require(publication.has_value() && publication->entries.size() == 9 &&
+                catalog_contains(*publication, "SC09-1308") &&
+                catalog_contains(*publication, "GC09-1417"),
+            "C/370 publication IR lost a cross-book catalog entry");
+  }
 
   const auto* cached_dictionary = context.source_dictionary.get();
   const auto repeated =
@@ -301,6 +347,14 @@ int main() {
   verify_book(root / "SC31-711.boo", 524, 525, benchmark);
   verify_book(root / "SC31-711.boo", 526, 528, benchmark);
   verify_book(root / "SC31-711.boo", 528, 529, benchmark);
+  verify_book(root / "SC31-711.boo", 529, 530, benchmark);
+  verify_book(root / "SC31-711.boo", 535, 536, benchmark);
   verify_book(root / "SC31-711.boo", 537, 538, benchmark);
   verify_book(root / "SG24-204.boo", 1, 2, benchmark);
+  verify_book(root / "GG24-395.boo", 580, 581, benchmark, true);
+  verify_book(root / "SC09-138.boo", 2267, 2270, benchmark, true);
+  verify_book(root / "ACPZMST1.boo", 17, 18, benchmark, false);
+  verify_book(root / "FA1PLMM0.boo", 600, 601, benchmark, false);
+  verify_book(root / "SC26-457.boo", 36, 37, benchmark, false);
+  verify_book(root / "SG24-204.boo", 481, 482, benchmark, false);
 }

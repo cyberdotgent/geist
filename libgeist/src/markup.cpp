@@ -5687,9 +5687,39 @@ std::vector<std::string> render_gml_records(
   return render_gml_records_impl(decoded_records, nullptr);
 }
 
+std::optional<std::vector<std::string>>
+render_verified_publication_catalog_gml(
+    const std::vector<DecodedLogicalRecordSource>& sources) {
+  const auto layout = extract_layout_ir(sources);
+  std::string semantic_error;
+  if (!verify_layout_ir(sources, layout, &semantic_error))
+    return std::nullopt;
+  const auto ownership = build_ownership_ir(sources, layout);
+  if (!verify_ownership_ir(sources, layout, ownership, &semantic_error))
+    return std::nullopt;
+  const auto publication =
+      extract_publication_catalog_ir(sources, layout, ownership);
+  if (!publication ||
+      !verify_publication_catalog_ir(sources, layout, ownership, *publication,
+                                     &semantic_error))
+    return std::nullopt;
+  std::vector<std::string> rendered;
+  rendered.push_back(":" + publication->heading_level + "." +
+                     publication->title);
+  if (!publication->introduction.empty())
+    rendered.push_back(":p." + publication->introduction);
+  for (const auto& entry : publication->entries)
+    for (const auto& paragraph : entry.paragraphs)
+      rendered.push_back(":p." + paragraph.text);
+  return rendered;
+}
+
 std::vector<std::string> render_gml_records_with_source_layout(
     const std::vector<std::string>& decoded_records,
     const std::vector<DecodedLogicalRecordSource>& sources) {
+  if (const auto publication =
+          render_verified_publication_catalog_gml(sources))
+    return *publication;
   const auto source_cleaned_records =
       clean_source_owned_toc_title_markers(decoded_records, sources);
   const auto st_projected_records =
