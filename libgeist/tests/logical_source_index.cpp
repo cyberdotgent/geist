@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -14,6 +15,15 @@ void require(bool condition, const char* message) {
     std::cerr << message << "\n";
     std::exit(1);
   }
+}
+
+bool catalog_contains(
+    const geist::detail::PublicationCatalogIR& catalog,
+    const std::string& expected) {
+  return std::any_of(catalog.entries.begin(), catalog.entries.end(),
+                     [&](const auto& entry) {
+                       return entry.text.find(expected) != std::string::npos;
+                     });
 }
 
 std::size_t resident_kib() {
@@ -86,6 +96,19 @@ void verify_book(const std::filesystem::path& path,
   require(ownership_valid,
           ownership_error.empty() ? "ownership IR verification failed"
                                   : ownership_error.c_str());
+  const auto publication = geist::detail::extract_publication_catalog_ir(
+      sources, layout, ownership);
+  if (publication) {
+    std::string publication_error;
+    require(geist::detail::verify_publication_catalog_ir(
+                sources, layout, ownership, *publication, &publication_error),
+            publication_error.empty()
+                ? "publication catalog IR verification failed"
+                : publication_error.c_str());
+    require(geist::detail::format_publication_catalog_ir(*publication).find(
+                "sources=") != std::string::npos,
+            "publication catalog IR has no stable provenance projection");
+  }
   for (std::size_t index = 0; index < sources.size(); ++index) {
     const auto logical_record = first + index;
     require(sources[index].logical_record == logical_record,
@@ -132,6 +155,29 @@ void verify_book(const std::filesystem::path& path,
   }
 
   if (path.filename() == "SC31-711.boo" && first == 528) {
+    require(publication.has_value(),
+            "FDDI publication stream did not enter the semantic IR");
+    require(publication->entries.size() == 7,
+            "FDDI publication IR did not preserve seven publications");
+    require(catalog_contains(*publication,
+                             "X3T9/90-X3T9.5/84-49 REV 6.2 May 18, 1990") &&
+                catalog_contains(*publication,
+                                 "X3T9/92-X3T9.5/84-49 REV 7.2 June 25, 1992"),
+            "FDDI publication IR merged or lost the independent ANSI rows");
+    auto non_c_sources = sources;
+    for (auto& record : non_c_sources) {
+      for (const auto& segment : record.control_segments) {
+        if (segment.kind != geist::detail::BookControlKind::font) continue;
+        for (auto word = segment.operand_range.begin;
+             word < segment.operand_range.end; ++word) {
+          if (record.assembled.words[word] == 'C')
+            record.assembled.words[word] = 'E';
+        }
+      }
+    }
+    require(!geist::detail::extract_publication_catalog_ir(
+                 non_c_sources, layout, ownership),
+            "non-C font stream entered the publication semantic IR");
     std::size_t ansi_rows = 0;
     for (const auto& run : layout.runs) {
       for (const auto& row : run.rows) {
@@ -146,6 +192,14 @@ void verify_book(const std::filesystem::path& path,
             "layout IR did not preserve the two independent ANSI rows");
   }
   if (path.filename() == "SC31-711.boo" && first == 519) {
+    require(publication.has_value(),
+            "general publication stream did not enter the semantic IR");
+    if (publication && !catalog_contains(*publication, "management problems")) {
+      for (const auto& entry : publication->entries)
+        std::cerr << "publication entry: " << entry.text << '\n';
+    }
+    require(catalog_contains(*publication, "management problems"),
+            "publication IR lost its cross-record continuation");
     const auto continuation = std::find_if(
         layout.runs.begin(), layout.runs.end(), [](const auto& run) {
           return std::any_of(run.rows.begin(), run.rows.end(),
@@ -168,6 +222,12 @@ void verify_book(const std::filesystem::path& path,
             "layout IR lost the LR519-to-LR520 publication continuation");
   }
   if (path.filename() == "SC31-711.boo" && first == 537) {
+    require(publication.has_value(),
+            "bridge publication stream did not enter the semantic IR");
+    require(publication->entries.size() == 5 &&
+                catalog_contains(*publication, "IBM 8229 Bridge Manual") &&
+                catalog_contains(*publication, "GG24-4334"),
+            "bridge publication IR lost its markerless or final entry");
     const auto markerless = std::any_of(
         layout.runs.begin(), layout.runs.end(), [](const auto& run) {
           return std::any_of(run.rows.begin(), run.rows.end(),
@@ -189,6 +249,17 @@ void verify_book(const std::filesystem::path& path,
     }
     require(markerless,
             "layout IR lost the markerless LR537 control-payload row");
+  }
+  if (path.filename() == "SC31-711.boo" && first == 524) {
+    require(publication.has_value() && publication->entries.size() == 1 &&
+                catalog_contains(*publication, "SH11-3067"),
+            "hub publication IR lost its markerless source row");
+  }
+  if (path.filename() == "SC31-711.boo" && first == 526) {
+    require(publication.has_value() &&
+                catalog_contains(*publication, "SZ27-3710") &&
+                catalog_contains(*publication, "GA27-3905"),
+            "token-ring publication IR lost a first or wrapped row");
   }
 
   const auto* cached_dictionary = context.source_dictionary.get();
@@ -227,6 +298,8 @@ int main() {
   verify_book(root / "SC31-711.boo", 19, 21, benchmark);
   verify_book(root / "SC31-711.boo", 22, 24, benchmark);
   verify_book(root / "SC31-711.boo", 519, 521, benchmark);
+  verify_book(root / "SC31-711.boo", 524, 525, benchmark);
+  verify_book(root / "SC31-711.boo", 526, 528, benchmark);
   verify_book(root / "SC31-711.boo", 528, 529, benchmark);
   verify_book(root / "SC31-711.boo", 537, 538, benchmark);
   verify_book(root / "SG24-204.boo", 1, 2, benchmark);

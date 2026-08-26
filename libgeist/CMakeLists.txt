@@ -84,6 +84,7 @@ set(GEIST_SOURCES
   src/img/png.cpp
   src/properties.cpp
   src/procedure_rows.cpp
+  src/publication_ir.cpp
   src/resources.cpp
   src/source_rows.cpp
   src/source_segments.cpp
