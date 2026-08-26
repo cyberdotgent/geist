@@ -522,6 +522,24 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
       destination->ir_ownership_cells.push_back(
           detail::format_owned_source_cell_ir(cell));
   }
+  std::string fixed_prose_extraction_error;
+  const auto fixed_prose = detail::extract_fixed_prose_ir(
+      sources, layout, ownership, &fixed_prose_extraction_error);
+  if (fixed_prose) {
+    std::string fixed_prose_error;
+    if (!detail::verify_fixed_prose_ir(
+            sources, layout, ownership, *fixed_prose, &fixed_prose_error))
+      throw std::runtime_error("invalid fixed prose IR trace: " +
+                               fixed_prose_error);
+    if (auto* destination = trace_for(fixed_prose->logical_record))
+      destination->ir_semantic_blocks.push_back(
+          detail::format_fixed_prose_ir(*fixed_prose));
+  } else if (!fixed_prose_extraction_error.empty() && !sources.empty() &&
+             has_st_fixed_prose_source_candidate(records)) {
+    if (auto* destination = trace_for(sources.front().logical_record))
+      destination->ir_semantic_blocks.push_back(
+          "fixed_prose_ir_rejected=" + fixed_prose_extraction_error);
+  }
   const auto publication =
       detail::extract_publication_catalog_ir(sources, layout, ownership);
   if (publication && !sources.empty()) {

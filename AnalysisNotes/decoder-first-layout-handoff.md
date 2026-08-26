@@ -306,6 +306,38 @@ conservation, and forged crossings. The compatibility renderer is unchanged.
 The 34-book `boo2git` comparison produced 7,885 files with zero byte
 differences from commit `5a5cc81`.
 
+## M6 fixed-prose continuation migration
+
+The bounded `ST` title/body continuation path now lowers through canonical
+`FixedProseIR` instead of rediscovering marker/origin geometry in flattened
+decoded strings. The IR records the owning record and segment, exact decoded
+title/body/boundary ranges, canonical title and paragraph, Layout run/row
+identity, marker and three-cell origin token ordinals, encoded widths/values,
+original BOO byte ranges, and the exact compatibility projection ranges.
+
+Admission requires verified Layout and Ownership IR, exactly one nonmalformed
+`ST`, one unique wide title/body boundary, at least two independently owned
+width-1 marker plus width-1 three-space origin rows, no placeholder/question
+display frame, and no printable opaque payload. Canonical re-lowering rejects
+semantic or provenance mutations. The compatibility wrapper applies only the
+verified source-coordinate edits; it no longer searches decoded text for
+semantic row ownership.
+
+The coordinate contract is explicit here as well: control ranges are decoded
+UTF-8 byte offsets, while token ownership is indexed by assembled words. Both
+directions are converted before ranges are compared or projected. The
+synthetic positive contains a non-ASCII title before every body edit, and the
+existing two-byte marker/origin, combined-token, drifting-origin, single-row,
+semantic-frame, and multiple-`ST` negatives remain fail-closed.
+
+The source audit admits exactly the established 11 candidates:
+`GG24-4302-00.boo` internal `SH3.2.11.1` at logical records 177--178 (not a
+TOC-exported topic) and topic `5.4.2`; `ITPPIBOK.BOO` topics `2.1.2`,
+`2.4.2.2`, `3.0`, `4.1.2`, and `PREFACE.2`; and `SC31-711.boo` topics
+`PREFACE`, `3.0`, `4.2.1`, and `4.3.3`. No other source region enters this
+recognizer. The final 34-book `boo2git` gate produced 7,396 Markdown files and
+7,885 total files, all byte-identical to the post-selector/layout baseline.
+
 ## Source trail
 
 - Fixture: `BOO/SC31-711.boo`

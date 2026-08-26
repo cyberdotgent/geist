@@ -59,6 +59,8 @@ struct ControlSegmentIR {
 // consulting word-coordinate token/source maps.
 OutputRangeIR decoded_byte_range_to_word_range(
     const AssembledLogicalRecord& assembled, const OutputRangeIR& bytes);
+OutputRangeIR decoded_word_range_to_byte_range(
+    const AssembledLogicalRecord& assembled, const OutputRangeIR& words);
 
 std::vector<ControlSegmentIR>
 decode_control_segments(std::uint32_t logical_record,

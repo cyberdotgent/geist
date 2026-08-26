@@ -5,6 +5,7 @@
 #include "geist/detail/control_ir.hpp"
 #include "geist/detail/glossary_ir.hpp"
 #include "geist/detail/fixed_display.hpp"
+#include "geist/detail/fixed_prose_ir.hpp"
 #include "geist/detail/layout_ir.hpp"
 #include "geist/detail/menu_ir.hpp"
 #include "geist/detail/message_ir.hpp"

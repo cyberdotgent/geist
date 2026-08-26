@@ -116,6 +116,23 @@ OutputRangeIR decoded_byte_range_to_word_range(
   return word_range_for_bytes(assembled, bytes.begin, bytes.end);
 }
 
+OutputRangeIR decoded_word_range_to_byte_range(
+    const AssembledLogicalRecord& assembled, const OutputRangeIR& words) {
+  const auto bounded_begin = std::min(words.begin, assembled.words.size());
+  const auto bounded_end = std::min(words.end, assembled.words.size());
+  std::size_t byte = 0;
+  OutputRangeIR result;
+  for (std::size_t word = 0; word <= bounded_end; ++word) {
+    if (word == bounded_begin) result.begin = byte;
+    if (word == bounded_end) {
+      result.end = byte;
+      break;
+    }
+    byte += token_words_to_ascii({assembled.words[word]}).size();
+  }
+  return result;
+}
+
 std::vector<ControlSegmentIR>
 decode_control_segments(std::uint32_t logical_record,
                         const AssembledLogicalRecord& assembled) {

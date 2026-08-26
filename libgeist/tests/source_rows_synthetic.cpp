@@ -21,6 +21,28 @@ void append(geist::detail::DecodedLogicalRecordSource& record,
   record.tokens.push_back(std::move(words));
 }
 
+void refresh_typed_source(geist::detail::DecodedLogicalRecordSource& record) {
+  record.assembled =
+      geist::detail::assemble_logical_record_with_sources(record.tokens);
+  record.ir.logical_record = record.logical_record;
+  record.ir.tokens.clear();
+  std::uint32_t byte = 0;
+  for (std::size_t token = 0; token < record.tokens.size(); ++token) {
+    const auto encoded = record.encoded_tokens[token];
+    const auto has_spacing = !record.tokens[token].empty() &&
+                             record.tokens[token].front() < 4;
+    record.ir.tokens.push_back(
+        {token, encoded, record.tokens[token],
+         {byte, static_cast<std::uint32_t>(byte + encoded.width)},
+         has_spacing,
+         has_spacing ? record.tokens[token].front() : std::uint16_t{3}});
+    byte += encoded.width;
+  }
+  record.ir.payload_range = {0, byte};
+  record.control_segments = geist::detail::decode_control_segments(
+      record.logical_record, record.assembled);
+}
+
 geist::detail::DecodedLogicalRecordSource first_record() {
   geist::detail::DecodedLogicalRecordSource record;
   record.logical_record = 17;
@@ -58,7 +80,9 @@ geist::detail::DecodedLogicalRecordSource second_record() {
 geist::detail::DecodedLogicalRecordSource st_record() {
   geist::detail::DecodedLogicalRecordSource record;
   record.logical_record = 23;
-  append(record, 0x90, 2, {'S','T',' ','T','i','t','l','e'});
+  append(record, 0x90, 2, {3, 'S','T'});
+  append(record, 0x08, 1, {' ', ' '});
+  append(record, 0x94, 2, {'T','i','t','l',0x00e9});
   append(record, 0x12, 1, geist::detail::TokenWords(18, ' '));
   append(record, 0x09, 1, {' ', ' ', ' '});
   append(record, 0x91, 2, {'F','i','r','s','t',' ','r','o','w'});
@@ -68,8 +92,7 @@ geist::detail::DecodedLogicalRecordSource st_record() {
   append(record, 0x20, 1, {'a','g','e','n','t'});
   append(record, 0x09, 1, {' ', ' ', ' '});
   append(record, 0x93, 2, {'f','i','n','i','s','h','e','d'});
-  record.assembled =
-      geist::detail::assemble_logical_record_with_sources(record.tokens);
+  refresh_typed_source(record);
   return record;
 }
 
@@ -214,57 +237,78 @@ int main() {
 
   const auto st = st_record();
   const auto st_decoded = geist::detail::token_words_to_ascii(st.assembled.words);
+  const auto st_layout = geist::detail::extract_layout_ir({st});
+  const auto st_ownership =
+      geist::detail::build_ownership_ir({st}, st_layout);
+  std::string st_error;
+  const auto st_ir = geist::detail::extract_fixed_prose_ir(
+      {st}, st_layout, st_ownership, &st_error);
+  require(st_ir && st_ir->title == u8"Titlé" &&
+              st_ir->paragraph == "First row continued finished" &&
+              st_ir->rows.size() == 2 &&
+              geist::detail::verify_fixed_prose_ir(
+                  {st}, st_layout, st_ownership, *st_ir, &st_error) &&
+              geist::detail::format_fixed_prose_ir(*st_ir).find(
+                  "marker_bytes=") != std::string::npos,
+          st_error.empty() ? "typed fixed prose IR was not admitted"
+                           : st_error.c_str());
+  auto mutated_st_ir = *st_ir;
+  mutated_st_ir.paragraph += " mutation";
+  require(!geist::detail::verify_fixed_prose_ir(
+              {st}, st_layout, st_ownership, mutated_st_ir, &st_error) &&
+              !st_error.empty(),
+          "mutated fixed prose passed canonical verification");
   const auto st_projected = geist::detail::project_source_owned_st_prose_rows(
       {st_decoded}, {st});
   require(st_projected.size() == 1 && st_projected[0] != st_decoded &&
               st_projected[0].size() == st_decoded.size() &&
               geist::detail::collapse_ascii_whitespace(st_projected[0]).find(
-                  "ST Title c.cp 0: First row continued finished") !=
+                  u8"ST Titlé c.cp 0: First row continued finished") !=
                   std::string::npos &&
               st_projected[0].find("agent") == std::string::npos,
           "source-owned ST title/body and physical rows were not projected");
 
   auto expect_st_unchanged = [&](auto altered, const char* message) {
-    altered.assembled =
-        geist::detail::assemble_logical_record_with_sources(altered.tokens);
+    refresh_typed_source(altered);
     const auto value = geist::detail::token_words_to_ascii(altered.assembled.words);
     require(geist::detail::project_source_owned_st_prose_rows({value}, {altered}) ==
                 std::vector<std::string>{value},
             message);
   };
   auto two_byte_st_marker = st;
-  two_byte_st_marker.encoded_tokens[4].width = 2;
+  two_byte_st_marker.encoded_tokens[6].width = 2;
   expect_st_unchanged(two_byte_st_marker,
                       "two-byte ST marker activated projection");
   auto two_byte_st_origin = st;
-  two_byte_st_origin.encoded_tokens[5].width = 2;
+  two_byte_st_origin.encoded_tokens[7].width = 2;
   expect_st_unchanged(two_byte_st_origin,
                       "two-byte ST origin activated projection");
   auto combined_marker_padding = st;
-  combined_marker_padding.tokens[4] = {'<', ' ', ' ', ' '};
-  combined_marker_padding.tokens.erase(combined_marker_padding.tokens.begin() + 5);
+  combined_marker_padding.tokens[6] = {'<', ' ', ' ', ' '};
+  combined_marker_padding.tokens.erase(combined_marker_padding.tokens.begin() + 7);
   combined_marker_padding.encoded_tokens.erase(
-      combined_marker_padding.encoded_tokens.begin() + 5);
+      combined_marker_padding.encoded_tokens.begin() + 7);
   expect_st_unchanged(combined_marker_padding,
                       "combined marker/padding activated projection");
   auto drifting_origin = st;
-  drifting_origin.tokens[5].push_back(' ');
+  drifting_origin.tokens[7].push_back(' ');
   expect_st_unchanged(drifting_origin,
                       "drifting ST origin activated projection");
   auto single_candidate = st;
-  single_candidate.encoded_tokens[7].width = 2;
+  single_candidate.encoded_tokens[9].width = 2;
   expect_st_unchanged(single_candidate,
                       "single ST row candidate activated projection");
   auto semantic_control = st;
-  semantic_control.tokens.insert(semantic_control.tokens.begin() + 4,
+  semantic_control.tokens.insert(semantic_control.tokens.begin() + 6,
                                  {0x2666});
   semantic_control.encoded_tokens.insert(
-      semantic_control.encoded_tokens.begin() + 4, {0x03, 1});
+      semantic_control.encoded_tokens.begin() + 6, {0x03, 1});
   expect_st_unchanged(semantic_control,
                       "semantic ST control frame activated projection");
 
   auto second_st = st;
   second_st.logical_record = 24;
+  refresh_typed_source(second_st);
   require(geist::detail::project_source_owned_st_prose_rows(
               {st_decoded, st_decoded}, {st, second_st}) ==
               std::vector<std::string>({st_decoded, st_decoded}),

@@ -20,19 +20,6 @@ bool marker_glyph(const TokenWords& words) {
              std::string::npos;
 }
 
-bool all_spaces(const TokenWords& words) {
-  return !words.empty() &&
-         std::all_of(words.begin(), words.end(),
-                     [](const auto word) { return word == ' '; });
-}
-
-bool marker_field(const TokenWords& words) {
-  return !words.empty() && words.size() <= 24 &&
-         std::none_of(words.begin(), words.end(), [](const auto word) {
-           return word < 0x20 || word == ' ' || word == 0x2666;
-         });
-}
-
 std::string visible_token(const TokenWords& words) {
   TokenWords visible;
   for (const auto word : words) {
@@ -328,159 +315,37 @@ std::vector<std::string> clean_source_owned_toc_title_markers(
 std::vector<std::string> project_source_owned_st_prose_rows(
     const std::vector<std::string>& decoded_records,
     const std::vector<DecodedLogicalRecordSource>& sources) {
-  if (decoded_records.size() != sources.size()) {
+  if (decoded_records.size() != sources.size()) return decoded_records;
+  const auto layout = extract_layout_ir(sources);
+  const auto ownership = build_ownership_ir(sources, layout);
+  const auto prose = extract_fixed_prose_ir(sources, layout, ownership);
+  if (!prose) return decoded_records;
+  const auto source = std::find_if(
+      sources.begin(), sources.end(), [&](const auto& record) {
+        return record.logical_record == prose->logical_record;
+      });
+  if (source == sources.end()) return decoded_records;
+  const auto record = static_cast<std::size_t>(source - sources.begin());
+  if (token_words_to_ascii(source->assembled.words) != decoded_records[record])
     return decoded_records;
-  }
-
-  struct Candidate {
-    std::size_t record = 0;
-    DecodedMarkupSegmentSpan source_segment;
-    DecodedMarkupSegmentSpan decoded_segment;
-    std::size_t body_begin = 0;
-    std::vector<std::pair<std::size_t, std::size_t>> marker_rows;
-  } candidate;
-  auto st_count = std::size_t{0};
-
-  for (std::size_t record = 0; record < sources.size(); ++record) {
-    const auto source_text =
-        token_words_to_ascii(sources[record].assembled.words);
-    const auto source_segments = split_decoded_markup_segment_spans(source_text);
-    const auto decoded_segments =
-        split_decoded_markup_segment_spans(decoded_records[record]);
-    if (source_segments.size() != decoded_segments.size()) {
-      return decoded_records;
-    }
-    for (std::size_t segment = 0; segment < source_segments.size(); ++segment) {
-      if (!ascii_starts_with_case_insensitive(source_segments[segment].text,
-                                              "st ")) {
-        continue;
-      }
-      ++st_count;
-      if (st_count != 1 ||
-          !ascii_starts_with_case_insensitive(decoded_segments[segment].text,
-                                              "st ") ||
-          source_segments[segment].text != decoded_segments[segment].text) {
-        return decoded_records;
-      }
-      if (annotate_decoded_placeholders(decoded_segments[segment].text).find(
-              "<geist-placeholder") != std::string::npos) {
-        return decoded_records;
-      }
-      auto question_run = std::size_t{0};
-      for (const auto ch : decoded_segments[segment].text) {
-        const auto byte = static_cast<unsigned char>(ch);
-        if (byte < 0x20) {
-          return decoded_records;
-        }
-        question_run = ch == '?' ? question_run + 1 : 0;
-        if (question_run >= 5) {
-          return decoded_records;
-        }
-      }
-      candidate.record = record;
-      candidate.source_segment = source_segments[segment];
-      candidate.decoded_segment = decoded_segments[segment];
-
-      const auto& source = sources[record];
-      const auto owned = source_tokens_intersecting_output(
-          source.assembled, candidate.source_segment.output_begin,
-          candidate.source_segment.output_end);
-      if (owned.empty() ||
-          std::any_of(owned.begin(), owned.end(), [&](const auto token) {
-            return token >= source.tokens.size() ||
-                   token >= source.encoded_tokens.size() ||
-                   token >= source.assembled.tokens.size();
-          })) {
-        return decoded_records;
-      }
-      for (const auto token : owned) {
-        if (source.tokens[token].size() == 1 &&
-            (source.tokens[token].front() == 0x03 ||
-             source.tokens[token].front() == 0x2666)) {
-          return decoded_records;
-        }
-      }
-      auto first_marker = source.tokens.size();
-      for (std::size_t at = 0; at + 1 < owned.size(); ++at) {
-        const auto marker = owned[at];
-        const auto origin = owned[at + 1];
-        if (origin != marker + 1 || origin >= source.tokens.size() ||
-            origin >= source.encoded_tokens.size() ||
-            source.encoded_tokens[marker].width != 1 ||
-            source.encoded_tokens[origin].width != 1 ||
-            !marker_field(source.tokens[marker]) ||
-            !exact_spaces(source.tokens[origin], 3)) {
-          continue;
-        }
-        if (at + 2 >= owned.size() || owned[at + 2] != origin + 1 ||
-            all_spaces(source.tokens[owned[at + 2]])) {
-          continue;
-        }
-        const auto begin = source.assembled.tokens[marker].output_begin;
-        const auto end = source.assembled.tokens[origin].output_end;
-        if (begin < candidate.source_segment.output_begin ||
-            end > candidate.source_segment.output_end) {
-          return decoded_records;
-        }
-        first_marker = std::min(first_marker, marker);
-        candidate.marker_rows.emplace_back(begin, end);
-      }
-      if (candidate.marker_rows.size() < 2) {
-        return decoded_records;
-      }
-
-      // The title/body transition is the unique wide source padding before
-      // the first proven row marker. Include adjacent space tokens so no
-      // residual display origin remains in the paragraph.
-      std::vector<std::pair<std::size_t, std::size_t>> body_gaps;
-      for (std::size_t at = 0; at < owned.size(); ++at) {
-        const auto token = owned[at];
-        if (token >= first_marker || token >= source.tokens.size() ||
-            source.encoded_tokens[token].width != 1 ||
-            source.tokens[token].size() < 10 ||
-            !all_spaces(source.tokens[token])) {
-          continue;
-        }
-        auto end_at = at + 1;
-        while (end_at < owned.size() && owned[end_at] < first_marker &&
-               all_spaces(source.tokens[owned[end_at]])) {
-          ++end_at;
-        }
-        const auto begin = source.assembled.tokens[token].output_begin;
-        const auto end = source.assembled.tokens[owned[end_at - 1]].output_end;
-        body_gaps.emplace_back(begin, end);
-      }
-      if (body_gaps.size() != 1) {
-        return decoded_records;
-      }
-      if (body_gaps.front().second - body_gaps.front().first < 9) {
-        return decoded_records;
-      }
-      candidate.body_begin = body_gaps.front().first;
-      candidate.marker_rows.push_back(body_gaps.front());
-    }
-  }
-  if (st_count != 1) {
-    return decoded_records;
-  }
 
   auto projected = decoded_records;
-  auto edits = candidate.marker_rows;
-  std::sort(edits.rbegin(), edits.rend());
-  for (const auto& [source_begin, source_end] : edits) {
-    const auto relative_begin =
-        source_begin - candidate.source_segment.output_begin;
-    const auto relative_end = source_end - candidate.source_segment.output_begin;
-    const auto decoded_begin = candidate.decoded_segment.output_begin + relative_begin;
-    const auto decoded_end = candidate.decoded_segment.output_begin + relative_end;
-    const auto length = decoded_end - decoded_begin;
+  std::vector<OutputRangeIR> edits;
+  edits.reserve(prose->rows.size() + 1);
+  for (const auto& row : prose->rows) edits.push_back(row.projected_range);
+  edits.push_back(prose->title_body_boundary);
+  std::sort(edits.begin(), edits.end(), [](const auto& left,
+                                           const auto& right) {
+    return left.begin > right.begin;
+  });
+  for (const auto& edit : edits) {
+    if (edit.begin > edit.end || edit.end > projected[record].size())
+      return decoded_records;
+    const auto length = edit.end - edit.begin;
     auto replacement = std::string(length, ' ');
-    if (source_begin == candidate.body_begin) {
+    if (edit.begin == prose->title_body_boundary.begin)
       replacement.replace(0, 9, " c.cp 0: ");
-    }
-    projected[candidate.record].replace(decoded_begin,
-                                        length,
-                                        replacement);
+    projected[record].replace(edit.begin, length, replacement);
   }
   return projected;
 }

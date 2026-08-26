@@ -69,6 +69,7 @@ set(GEIST_SOURCES
   src/document.cpp
   src/ebcdic.cpp
   src/fixed_display.cpp
+  src/fixed_prose_ir.cpp
   src/glossary_ir.cpp
   src/implicit_grid.cpp
   src/img/gdf.cpp
