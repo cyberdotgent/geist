@@ -77,13 +77,20 @@ bool has_generated_toc_source_candidate(
   });
 }
 
+bool has_selector_source_candidate(const std::vector<std::string>& records) {
+  return std::any_of(records.begin(), records.end(), [](const auto& record) {
+    return ascii_lower(record).find("cselect ") != std::string::npos;
+  });
+}
+
 void load_source_layout_if_candidate(
     const std::shared_ptr<LogicalDecodeContext>& context,
     TopicData& topic) {
   if (!has_box_form_source_candidate(topic.raw_records) &&
       !has_implicit_grid_source_candidate(topic.raw_records) &&
       !has_semantic_srmsg_source_candidate(topic.raw_records) &&
-      !has_generated_toc_source_candidate(topic.raw_records)) {
+      !has_generated_toc_source_candidate(topic.raw_records) &&
+      !has_selector_source_candidate(topic.raw_records)) {
     return;
   }
   topic.fixed_layout_sources = decode_logical_record_sources(

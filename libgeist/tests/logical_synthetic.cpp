@@ -172,6 +172,39 @@ int main() {
       intersection.tokens[2].output_end);
   require(intersecting == std::vector<std::size_t>({1, 2}),
           "segment/token intersection lost exact token ownership");
+
+  geist::detail::DecodedLogicalRecordSource selector;
+  selector.logical_record = 9;
+  selector.tokens = {
+      {'c','s','e','l','e','c','t',' ','3',' ','7',' ','H','D','R'},
+      {'a','c','t','i','o','n'},
+      {' ',' ',' '},
+      {'C','h','a','p','t','e','r'},
+  };
+  selector.encoded_tokens = {{0x80, 2}, {0x1c, 1}, {0x09, 1}, {0x81, 2}};
+  selector.assembled =
+      geist::detail::assemble_logical_record_with_sources(selector.tokens);
+  const auto selector_record = geist::detail::token_words_to_ascii(
+      selector.assembled.words);
+  const auto selector_cleaned =
+      geist::detail::clean_source_owned_selector_display_markers(
+          {selector_record}, {selector});
+  require(selector_cleaned.size() == 1 &&
+              selector_cleaned[0].find("action") == std::string::npos &&
+              selector_cleaned[0].find("Chapter") != std::string::npos,
+          "source-owned selector display marker was not removed");
+  auto dictionary_selector = selector;
+  dictionary_selector.encoded_tokens[1].width = 2;
+  require(geist::detail::clean_source_owned_selector_display_markers(
+              {selector_record}, {dictionary_selector}) ==
+              std::vector<std::string>({selector_record}),
+          "two-byte selector display word was treated as a marker");
+  auto prose_record = selector_record;
+  prose_record.replace(0, 7, "ordinary");
+  require(geist::detail::clean_source_owned_selector_display_markers(
+              {prose_record}, {selector}) ==
+              std::vector<std::string>({prose_record}),
+          "non-selector prose activated selector marker cleanup");
   const std::vector<std::vector<TokenWords>> cases = {
       {},
       {{}},

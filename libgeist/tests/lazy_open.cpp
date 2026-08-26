@@ -470,6 +470,16 @@ int main() {
               notices.find("[\"Notices\" in topic FRONT_1](#HDRNOT)") !=
                   std::string::npos,
           "ordinary CFONT overflow trimming dropped notice prose");
+  const auto how_to_use =
+      problem_determination.topic_markdown("PREFACE.2");
+  require(how_to_use.find("[action Chapter 3") == std::string::npos &&
+              how_to_use.find("[adapter Chapter 4") == std::string::npos &&
+              how_to_use.find(
+                  "[Chapter 3, \"Understanding Logs, Traps, and Filters\"") !=
+                  std::string::npos &&
+              how_to_use.find("[Chapter 4, \"Traps\" in topic 4.0]") !=
+                  std::string::npos,
+          "selector display rows retained source-owned marker tokens");
   for (const auto* nested : {
            "2.1.1", "2.1.2", "2.1.3", "2.1.4", "4.1.1", "4.1.2",
            "4.1.3", "4.2.1", "4.2.2", "4.3.1", "4.3.2", "4.3.3",

@@ -5675,8 +5675,11 @@ std::vector<std::string> render_gml_records_with_source_layout(
     const std::vector<DecodedLogicalRecordSource>& sources) {
   const auto source_cleaned_records =
       clean_source_owned_toc_title_markers(decoded_records, sources);
-  auto rendered = render_gml_records(source_cleaned_records);
-  project_semantic_srmsg_source_markers(rendered, source_cleaned_records,
+  const auto selector_cleaned_records =
+      clean_source_owned_selector_display_markers(source_cleaned_records,
+                                                   sources);
+  auto rendered = render_gml_records(selector_cleaned_records);
+  project_semantic_srmsg_source_markers(rendered, selector_cleaned_records,
                                         sources);
   const auto box_replacement =
       [&]() -> std::optional<std::vector<std::string>> {

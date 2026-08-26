@@ -87,6 +87,10 @@ struct DecodedLogicalRecordSource {
   AssembledLogicalRecord assembled;
 };
 
+std::vector<std::string> clean_source_owned_selector_display_markers(
+    const std::vector<std::string>& decoded_records,
+    const std::vector<DecodedLogicalRecordSource>& sources);
+
 struct LogicalDecodeContext {
   std::vector<std::uint8_t> bytes;
   BooDirectory directory;
