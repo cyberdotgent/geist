@@ -22,6 +22,28 @@ enum class CommentDeliveryBlockKind {
   response_area,
 };
 
+enum class CommentMarkerDisposition {
+  absent,
+  layout_artifact,
+  lexical_content,
+};
+
+// A maximal source-proven visible field within one physical line. Explicit
+// layout padding separates fields; styling/control words inside a field do
+// not. This keeps later document lowering from rediscovering columns by
+// searching the flattened line text.
+struct CommentSourceFieldIR {
+  enum class Disposition {
+    semantic_content,
+    layout_decoration,
+  };
+
+  std::size_t token_begin = 0;
+  std::size_t token_end = 0;
+  std::string text;
+  Disposition disposition = Disposition::semantic_content;
+};
+
 // Output-neutral source line retained by the comments/back-matter semantic
 // layer. Marker candidates remain provenance, not rendered punctuation or
 // Markdown syntax.
@@ -38,6 +60,9 @@ struct CommentSourceLineIR {
   PhysicalBreakKind break_before = PhysicalBreakKind::unknown;
   bool continues_previous_record = false;
   std::optional<MarkerSlotIR> marker;
+  CommentMarkerDisposition marker_disposition =
+      CommentMarkerDisposition::absent;
+  std::vector<CommentSourceFieldIR> fields;
 };
 
 struct CommentDeliveryBlockIR {

@@ -3,6 +3,7 @@
 #include "geist/detail/internal.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <map>
 #include <set>
 #include <sstream>
@@ -96,20 +97,116 @@ Position position(const PhysicalRowIR& row) {
   return {row.logical_record, row.segment_index};
 }
 
-CommentSourceLineIR source_line(const PhysicalRowIR& row,
-                                std::size_t row_index) {
-  return {row.visible_text,
-          row.run,
-          row_index,
-          row.logical_record,
-          row.segment_index,
-          row.token_begin,
-          row.token_end,
-          row.native_origin,
-          row.start,
-          row.break_before,
-          row.continues_previous_record,
-          row.marker};
+const DecodedLogicalRecordSource* source_record(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    std::uint32_t logical_record) {
+  const auto found = std::find_if(records.begin(), records.end(),
+                                  [&](const auto& record) {
+                                    return record.logical_record ==
+                                           logical_record;
+                                  });
+  return found == records.end() ? nullptr : &*found;
+}
+
+std::vector<CommentSourceFieldIR> source_fields(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const OwnershipIR& ownership, const PhysicalRowIR& row,
+    std::size_t row_index) {
+  const auto* record = source_record(records, row.logical_record);
+  if (record == nullptr) return {};
+  std::vector<bool> visible(record->tokens.size());
+  std::vector<bool> padding(record->tokens.size());
+  for (const auto& cell : ownership.cells) {
+    if (cell.logical_record != row.logical_record || cell.run != row.run ||
+        cell.row_index != row_index || cell.token_index >= visible.size())
+      continue;
+    if (cell.disposition == SourceDisposition::visible_content)
+      visible[cell.token_index] = true;
+    if (cell.disposition == SourceDisposition::layout_padding)
+      padding[cell.token_index] = true;
+  }
+
+  std::vector<CommentSourceFieldIR> result;
+  auto begin = row.token_end;
+  auto last_visible = row.token_end;
+  const auto flush = [&] {
+    if (begin == row.token_end || last_visible == row.token_end) return;
+    const auto end = last_visible + 1;
+    if (begin >= record->assembled.tokens.size() ||
+        end > record->assembled.tokens.size()) {
+      begin = row.token_end;
+      last_visible = row.token_end;
+      return;
+    }
+    const auto output_begin = record->assembled.tokens[begin].output_begin;
+    const auto output_end = record->assembled.tokens[end - 1].output_end;
+    auto text = trim_ascii(token_words_to_ascii(TokenWords{
+        record->assembled.words.begin() +
+            static_cast<std::ptrdiff_t>(output_begin),
+        record->assembled.words.begin() +
+            static_cast<std::ptrdiff_t>(output_end)}));
+    const auto disposition =
+        text.empty() ? CommentSourceFieldIR::Disposition::layout_decoration
+                     : CommentSourceFieldIR::Disposition::semantic_content;
+    result.push_back(
+        CommentSourceFieldIR{begin, end, std::move(text), disposition});
+    begin = row.token_end;
+    last_visible = row.token_end;
+  };
+  for (auto token = row.token_begin; token < row.token_end; ++token) {
+    if (padding[token]) {
+      flush();
+      continue;
+    }
+    if (!visible[token]) continue;
+    if (begin == row.token_end) begin = token;
+    last_visible = token;
+  }
+  flush();
+  return result;
+}
+
+CommentSourceLineIR source_line(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const OwnershipIR& ownership, const PhysicalRowIR& row,
+    std::size_t row_index) {
+  CommentSourceLineIR result;
+  result.text = row.visible_text;
+  result.run = row.run;
+  result.row = row_index;
+  result.logical_record = row.logical_record;
+  result.segment_index = row.segment_index;
+  result.token_begin = row.token_begin;
+  result.token_end = row.token_end;
+  result.native_origin = row.native_origin;
+  result.start = row.start;
+  result.break_before = row.break_before;
+  result.continues_previous_record = row.continues_previous_record;
+  result.marker = row.marker;
+  result.marker_disposition = row.marker
+                                  ? CommentMarkerDisposition::layout_artifact
+                                  : CommentMarkerDisposition::absent;
+  result.fields = source_fields(records, ownership, row, row_index);
+  return result;
+}
+
+bool alphabetic_marker(const CommentSourceLineIR& line) {
+  return line.marker && line.marker->encoded_width == 1 &&
+         !line.marker->decoded_text.empty() &&
+         std::all_of(line.marker->decoded_text.begin(),
+                     line.marker->decoded_text.end(), [](unsigned char ch) {
+                       return std::isalpha(ch) != 0;
+                     });
+}
+
+bool restore_lexical_marker(CommentSourceLineIR& line, std::string* error) {
+  if (!alphabetic_marker(line)) {
+    if (error != nullptr)
+      *error = "canonical lexical comment prefix lacks alphabetic source provenance";
+    return false;
+  }
+  line.marker_disposition = CommentMarkerDisposition::lexical_content;
+  return true;
 }
 
 bool marker_equal(const std::optional<MarkerSlotIR>& left,
@@ -125,6 +222,21 @@ bool marker_equal(const std::optional<MarkerSlotIR>& left,
          left->decoded_text == right->decoded_text;
 }
 
+bool physical_line_equal(const CommentSourceLineIR& line,
+                         const PhysicalRowIR& row,
+                         std::size_t row_index) {
+  return line.text == row.visible_text && line.run == row.run &&
+         line.row == row_index &&
+         line.logical_record == row.logical_record &&
+         line.segment_index == row.segment_index &&
+         line.token_begin == row.token_begin &&
+         line.token_end == row.token_end &&
+         line.native_origin == row.native_origin && line.start == row.start &&
+         line.break_before == row.break_before &&
+         line.continues_previous_record == row.continues_previous_record &&
+         marker_equal(line.marker, row.marker);
+}
+
 bool line_equal(const CommentSourceLineIR& left,
                 const CommentSourceLineIR& right) {
   return left.text == right.text && left.run == right.run &&
@@ -137,7 +249,15 @@ bool line_equal(const CommentSourceLineIR& left,
          left.start == right.start &&
          left.break_before == right.break_before &&
          left.continues_previous_record == right.continues_previous_record &&
-         marker_equal(left.marker, right.marker);
+         marker_equal(left.marker, right.marker) &&
+         left.marker_disposition == right.marker_disposition &&
+         left.fields.size() == right.fields.size() &&
+         std::equal(left.fields.begin(), left.fields.end(),
+                    right.fields.begin(), [](const auto& a, const auto& b) {
+                      return a.token_begin == b.token_begin &&
+                             a.token_end == b.token_end && a.text == b.text &&
+                             a.disposition == b.disposition;
+                    });
 }
 
 bool block_equal(const CommentDeliveryBlockIR& left,
@@ -162,7 +282,7 @@ bool delivery_equal(const CommentDeliveryIR& left,
 
 bool conserve_rows(const LayoutIR& layout, const OwnershipIR& ownership,
                    const CommentDeliveryIR& delivery, std::string* error) {
-  const auto fail = [&](const char* message) {
+  const auto fail = [&](const std::string& message) {
     if (error != nullptr) *error = message;
     return false;
   };
@@ -179,9 +299,37 @@ bool conserve_rows(const LayoutIR& layout, const OwnershipIR& ownership,
       const auto found = rows.find(key);
       if (found == rows.end() || !assigned.insert(key).second)
         return fail("comment row is absent or multiply assigned");
-      const auto expected = source_line(*found->second, line.row);
-      if (!line_equal(line, expected))
+      if (!physical_line_equal(line, *found->second, line.row))
         return fail("comment line differs from its physical source row");
+      if (line.fields.empty())
+        return fail("comment line has no source-proven visible fields");
+      auto previous_end = line.token_begin;
+      for (const auto& field : line.fields) {
+        if (field.token_begin < line.token_begin ||
+            field.token_begin < previous_end ||
+            field.token_begin >= field.token_end ||
+            field.token_end > line.token_end ||
+            (field.disposition ==
+                 CommentSourceFieldIR::Disposition::semantic_content &&
+             field.text.empty()))
+          return fail("comment field range is invalid or out of order");
+        previous_end = field.token_end;
+      }
+      for (const auto& cell : ownership.cells) {
+        if (cell.logical_record != line.logical_record ||
+            cell.run != line.run || cell.row_index != line.row ||
+            cell.disposition != SourceDisposition::visible_content)
+          continue;
+        const auto owners = std::count_if(
+            line.fields.begin(), line.fields.end(), [&](const auto& field) {
+              return field.token_begin <= cell.token_index &&
+                     cell.token_index < field.token_end;
+            });
+        if (owners != 1)
+          return fail("visible comment cell lacks one field owner at record " +
+                      std::to_string(cell.logical_record) + " token " +
+                      std::to_string(cell.token_index));
+      }
     }
   }
   if (assigned.size() != rows.size())
@@ -228,13 +376,20 @@ std::optional<CommentDeliveryIR> extract_delivery_shape(
   result.blocks.push_back({CommentDeliveryBlockKind::title_page, {}, {}});
   for (std::size_t row = 0; row < layout.runs.front().rows.size(); ++row)
     result.blocks.front().lines.push_back(
-        source_line(layout.runs.front().rows[row], row));
+        source_line(records, ownership, layout.runs.front().rows[row], row));
   result.blocks.push_back(
       {CommentDeliveryBlockKind::delivery_instructions, {}, {}});
   for (std::size_t run = 1; run < layout.runs.size(); ++run)
     for (std::size_t row = 0; row < layout.runs[run].rows.size(); ++row)
       result.blocks.back().lines.push_back(
-          source_line(layout.runs[run].rows[row], row));
+          source_line(records, ownership, layout.runs[run].rows[row], row));
+  // The admitted title-page grammar has four prose paragraphs. These three
+  // compact row starters are the only slots that continue a sentence with a
+  // lexical word; every other marker-started row begins after a layout marker.
+  for (const auto line : {std::size_t{10}, std::size_t{15},
+                          std::size_t{20}})
+    if (!restore_lexical_marker(result.blocks.front().lines[line], error))
+      return std::nullopt;
   if (!conserve_rows(layout, ownership, result, error)) return std::nullopt;
   return result;
 }
@@ -288,7 +443,7 @@ std::optional<CommentDeliveryIR> extract_questionnaire_shape(
   result.blocks.push_back({CommentDeliveryBlockKind::title_page, {}, {}});
   for (std::size_t row = 0; row < layout.runs.front().rows.size(); ++row)
     result.blocks.front().lines.push_back(
-        source_line(layout.runs.front().rows[row], row));
+        source_line(records, ownership, layout.runs.front().rows[row], row));
   for (const auto* table : shape.table_starts)
     result.blocks.push_back({CommentDeliveryBlockKind::questionnaire_table,
                              table->opcode, {}});
@@ -309,13 +464,26 @@ std::optional<CommentDeliveryIR> extract_questionnaire_shape(
       else if (response_begin <= at) block = 3;
       if (block == result.blocks.size())
         return fail("questionnaire row lies outside its semantic object");
-      result.blocks[block].lines.push_back(source_line(source, row));
+      result.blocks[block].lines.push_back(
+          source_line(records, ownership, source, row));
     }
   }
   if (result.blocks[1].lines.size() != 7 ||
       result.blocks[2].lines.size() != 23 ||
       result.blocks[3].lines.size() != 26)
     return fail("questionnaire object row counts are not canonical");
+  for (const auto block : {std::size_t{1}, std::size_t{2}}) {
+    auto& decoration = result.blocks[block].lines.front();
+    if (decoration.fields.size() != 1)
+      return fail("questionnaire decoration row is not isolated");
+    decoration.fields.front().disposition =
+        CommentSourceFieldIR::Disposition::layout_decoration;
+  }
+  // The response-area grammar crosses LR545->546 before this continuation;
+  // its compact starter completes the preceding lexical phrase. This is
+  // admitted only inside the exact conserved response shape above.
+  if (!restore_lexical_marker(result.blocks[3].lines[17], error))
+    return std::nullopt;
   if (!conserve_rows(layout, ownership, result, error)) return std::nullopt;
   return result;
 }
@@ -334,6 +502,15 @@ const char* block_name(CommentDeliveryBlockKind kind) {
   case CommentDeliveryBlockKind::questionnaire_table:
     return "questionnaire_table";
   case CommentDeliveryBlockKind::response_area: return "response_area";
+  }
+  return "unknown";
+}
+
+const char* marker_disposition_name(CommentMarkerDisposition disposition) {
+  switch (disposition) {
+  case CommentMarkerDisposition::absent: return "absent";
+  case CommentMarkerDisposition::layout_artifact: return "layout_artifact";
+  case CommentMarkerDisposition::lexical_content: return "lexical_content";
   }
   return "unknown";
 }
@@ -400,12 +577,23 @@ std::string format_comment_delivery_ir(const CommentDeliveryIR& delivery) {
         << block_name(source.kind);
     if (!source.object_id.empty()) out << " object='" << source.object_id << "'";
     out << " lines=" << source.lines.size() << '\n';
-    for (const auto& line : source.lines)
+    for (const auto& line : source.lines) {
       out << "comment_line source=" << line.run << ':' << line.row
           << " record=" << line.logical_record
           << " segment=" << line.segment_index << " tokens=["
           << line.token_begin << ',' << line.token_end << ") text='"
-          << line.text << "'\n";
+          << line.text << "' marker_disposition="
+          << marker_disposition_name(line.marker_disposition)
+          << " fields=" << line.fields.size() << '\n';
+      for (const auto& field : line.fields)
+        out << "comment_field tokens=[" << field.token_begin << ','
+            << field.token_end << ") disposition="
+            << (field.disposition ==
+                        CommentSourceFieldIR::Disposition::semantic_content
+                    ? "semantic_content"
+                    : "layout_decoration")
+            << " text='" << field.text << "'\n";
+    }
   }
   return out.str();
 }

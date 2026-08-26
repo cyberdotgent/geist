@@ -111,6 +111,30 @@ int main() {
                           delivery_ownership, *delivery, &error),
           error.empty() ? "BACK_2 semantic verifier failed" : error.c_str());
   require(delivery &&
+              delivery->blocks[0].lines[10].marker_disposition ==
+                  geist::detail::CommentMarkerDisposition::lexical_content &&
+              delivery->blocks[0].lines[10].marker->decoded_text == "the" &&
+              delivery->blocks[0].lines[15].marker_disposition ==
+                  geist::detail::CommentMarkerDisposition::lexical_content &&
+              delivery->blocks[0].lines[15].marker->decoded_text == "to" &&
+              delivery->blocks[0].lines[20].marker_disposition ==
+                  geist::detail::CommentMarkerDisposition::lexical_content &&
+              delivery->blocks[0].lines[20].marker->decoded_text == "or" &&
+              delivery->blocks[0].lines[18].marker_disposition ==
+                  geist::detail::CommentMarkerDisposition::layout_artifact &&
+              delivery->blocks[0].lines[18].marker->decoded_text == "adapter",
+          "BACK_2 lexical and layout marker slots are not distinguished");
+  require(delivery && delivery->blocks[1].lines.back().fields.size() == 4 &&
+              delivery->blocks[1].lines.back().fields[0].text ==
+                  "USIB2HPD@VNET.IBM.COM" &&
+              delivery->blocks[1].lines.back().fields[1].text ==
+                  "Make sure to include the following in your note:" &&
+              delivery->blocks[1].lines.back().fields[2].text ==
+                  "Title and publication number of this book" &&
+              delivery->blocks[1].lines.back().fields[3].text ==
+                  "Page number or topic to which your comment applies.",
+          "BACK_2 combined delivery/checklist row was not source-subdivided");
+  require(delivery &&
               geist::detail::format_comment_delivery_ir(*delivery).find(
                   "source=1:0 record=541 segment=8") != std::string::npos,
           "BACK_2 trace omitted physical source provenance");
@@ -166,7 +190,38 @@ int main() {
     require(!geist::detail::verify_comment_delivery_ir(
                 form_sources, form_layout, form_ownership, mutated),
             "comment verifier admitted incomplete form ownership");
+    mutated = *form;
+    mutated.blocks[3].lines[17].marker_disposition =
+        geist::detail::CommentMarkerDisposition::layout_artifact;
+    require(!geist::detail::verify_comment_delivery_ir(
+                form_sources, form_layout, form_ownership, mutated),
+            "comment verifier admitted a changed lexical marker disposition");
+    mutated = *form;
+    mutated.blocks[3].lines[17].fields[1].token_begin++;
+    require(!geist::detail::verify_comment_delivery_ir(
+                form_sources, form_layout, form_ownership, mutated),
+            "comment verifier admitted a changed semantic field boundary");
   }
+  require(form &&
+              form->blocks[3].lines[17].marker_disposition ==
+                  geist::detail::CommentMarkerDisposition::lexical_content &&
+              form->blocks[3].lines[17].marker->decoded_text ==
+                  "information" &&
+              form->blocks[3].lines[17].fields.size() == 3 &&
+              form->blocks[3].lines[17].fields[0].text ==
+                  "in any way you choose." &&
+              form->blocks[3].lines[17].fields[1].text ==
+                  "Please complete this form and mail it to:" &&
+              form->blocks[3].lines[17].fields[2].text ==
+                  "International Business Machines Corporation" &&
+              form->blocks[3].lines[19].fields.size() == 6 &&
+              form->blocks[1].lines.front().fields.front().disposition ==
+                  geist::detail::CommentSourceFieldIR::Disposition::
+                      layout_decoration &&
+              form->blocks[2].lines.front().fields.front().disposition ==
+                  geist::detail::CommentSourceFieldIR::Disposition::
+                      layout_decoration,
+          "COMMENTS lexical continuation and mailing fields are incomplete");
 
   std::size_t candidates = 0;
   std::size_t admitted = 0;

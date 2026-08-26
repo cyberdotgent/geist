@@ -352,6 +352,22 @@ shape, while 15 related and unrelated cross-book forms reject explicitly.
 The canonical structure is visible in `bootrace --ir`, but renderer projection
 remains separate so this semantic-core workload cannot change Markdown.
 
+Ownership alone was not yet enough to lower these forms safely. Several
+compact row starters are genuine missing words (`the`, `to`, and `or` in
+`BACK_2`, and `information` in `COMMENTS`), while similar starters such as
+`adapter`, punctuation, and `<` are layout artifacts. The enriched IR records
+that disposition explicitly and admits a lexical starter only in the exact
+conserved form geometry with alphabetic width-1 source provenance.
+
+Each physical line is also subdivided into maximal source fields using only
+Ownership IR `layout_padding` cells, never searches in flattened text. This
+separates the combined Internet/checklist line in `BACK_2`, the mailing and
+address transitions in `COMMENTS`, and isolated table-decoration fields.
+Every visible source cell must belong to exactly one ordered field; decoration
+is conserved but marked as suppressible. Document lowering can now compose
+semantic content without rediscovering columns, losing lexical starters, or
+turning structural borders into prose.
+
 The resulting trace ends the table in run 9 and starts run 11 at record 544
 segment 2; records 545 and 546 continue run 11. Synthetic tests cover visible
 `SREFIG`/`SRETBL` payloads, an empty end-control barrier, ownership
