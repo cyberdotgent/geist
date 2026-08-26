@@ -219,6 +219,88 @@ license paragraphs; display-row breaks within the address remain line breaks.
 The final `*` is also a hard boundary before the following copyright record, so
 an inline-font copyright continuation must not merge into the license paragraph.
 
+## Source-Owned Fixed Layout Evidence In SC31-711
+
+The following observations are facts about the encoded token stream in
+`BOO/SC31-711.boo`; the proposed row interpretation is called out separately.
+See [logical-controls.md](logical-controls.md#payload-indexing-and-encoded-token-identity)
+for the exact payload ranges and token threshold.
+
+### Box-drawing form in logical records 74--75
+
+Topic `2.4.4`, `AIX NetView/6000 Considerations`, contains a fixed form whose
+structure survives dictionary resolution as Unicode token words.  The following
+raw reference-to-token mappings occur in logical records 74 and 75:
+
+| Encoded reference | Width | Resolved token words | Observed role in the decoded form |
+| --- | ---: | --- | --- |
+| `03` | 1 | `U+2666` | Repeated non-text symbol in the form stream. |
+| `84` | 1 | `U+2502` | Repeated vertical stroke. |
+| `d8 22` | 2 | `U+250C` | Top-left junction. |
+| `d8 21` | 2 | `U+2510` | Top-right junction. |
+| `d8 23` | 2 | `U+2514` | Bottom-left junction. |
+| `d8 24` | 2 | `U+2518` | Bottom-right junction. |
+| `d8 36` | 2 | `U+251C` | Left-side junction. |
+| `d8 38` | 2 | `U+2524` | Right-side junction. |
+| `d8 35` | 2 | `U+252C` | Top/interior junction. |
+| `d8 37` | 2 | `U+2534` | Bottom/interior junction. |
+| `d8 25` | 2 | `U+253C` | Interior crossing. |
+| `d8 31` | 2 | 43 copies of `U+2500` | Long horizontal run. |
+| `d8 2d` | 2 | 28 copies of `U+2500` | Medium horizontal run. |
+| `d8 2c` | 2 | 26 copies of `U+2500` | Short horizontal run. |
+| `d8 2a` | 2 | 22 copies of `U+2500` | Shorter horizontal run. |
+
+The top rule in logical record 74 is the source-token sequence `d8 22`,
+`d8 31`, `d8 35`, `d8 2d`, `d8 21`, with spacing-control tokens between some
+of those references.  Logical record 75 ends with the corresponding bottom
+sequence `d8 23`, `d8 31`, `d8 37`, `d8 2d`, `d8 24`.  These paired corners,
+junctions, vertical strokes, and fixed-length horizontal runs verify that the
+code points carry physical form structure in this fixture.  They are not
+ordinary prose characters and must remain associated with their source tokens
+until row/cell ownership has been recovered.
+
+`U+2666` occurs elsewhere in topic metadata as well as among form rows.  Its
+presence alone does not prove a checkbox, ballot, row boundary, or any other
+specific source-level construct.  Mapping a particular occurrence to visible
+`[ ]` is a renderer decision that needs positional and BookServer evidence.
+
+### Repeated row-control signatures in logical records 19--23
+
+Two compact raw-token signatures repeat around the fixed-width directory and
+process lists.  All bytes below are one-byte token references because the
+SC31-711 threshold is `0xd8`:
+
+| Signature | Raw reference bytes | Resolved words relevant to geometry |
+| --- | --- | --- |
+| A | `09 17 00 7a 00 17 00` | three spaces, `/`, spacing control `1`, `usr`, spacing control `1`, `/`, spacing control `1` |
+| B | `01 00 ww 09` where `0x0b <= ww <= 0x20` | `.` with prefix `1`, control-only prefix `1`, a variable-width marker/space token, then three spaces |
+
+Direct payload scanning gives these counts and locations:
+
+| Logical record | Signature A | Signature B | First/last matching file offset |
+| ---: | ---: | ---: | --- |
+| 19 | 11 | 1 (`ww=17`) | `0x0000b36b` / `0x0000b4a6` |
+| 20 | 7 | 0 | `0x0000b4c0` / `0x0000b56e` |
+| 21 | 9 | 0 | `0x0000b61a` / `0x0000b715` |
+| 22 | 0 | 3 (`ww=18,14,12`) | `0x0000b87a` / `0x0000b8aa` |
+| 23 | 0 | 14 (`ww=0e,17,15,0f,0f,0f,12,0f,0b,0e,10,14,0f,13`) | `0x0000b8e6` / `0x0000ba0d` |
+
+The decoded `CFONT` header in logical record 19 has spans `(3,9)`, `(28,4)`,
+`(33,2)`, and `(36,5)` and labels `Directory` / `Type of Files`; records
+19--20 contain 18 directory rows.  The header in logical record 22 has spans
+`(3,7)`, `(11,4)`, and `(18,11)` and labels `Process Name` / `Description`;
+records 22--23 contain 19 process rows.  The raw signatures recur at the
+physical row starts and retain boundaries that disappear after ordinary text
+flattening.
+
+It is a renderer-supported hypothesis, not a verified IBM format definition,
+that signatures A and B are two general row-control grammars.  The evidence
+justifies using them only together with repeated column geometry and a
+multi-column `CFONT` header.  Logical record 21 independently contains nine A
+signatures in topic `1.2`, showing why neither signature nor `CFONT` alone is a
+safe semantic-table activation rule.  The meanings of `ww` and the printable
+punctuation produced by some marker tokens remain unresolved.
+
 The important implementation rule is that this is not a hardcoded packet title
 or hardcoded three-line page rule. `:vnotice.` changes the interpretation of
 the following controls: the first body `CFONT` is the visual notice heading,

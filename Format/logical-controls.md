@@ -555,3 +555,43 @@ The remaining unresolved pieces are now narrower:
 The delta operation byte and reconstructed token buffer behavior are identified,
 the dictionary index continuation subfields are identified for the observed
 version-2 fixtures, and the translation-table loader is identified.
+
+## Payload Indexing And Encoded Token Identity
+
+Logical-record numbers used by the topic directory and by this document are
+one-based.  For each compact record, the byte range needed to reconstruct its
+source tokens begins immediately after the compact length and ends immediately
+after the payload.  It is therefore an end-exclusive file range; neither byte
+of a long-form length belongs to it.
+
+This was checked exhaustively for `BOO/SC31-711.boo` (SHA-256
+`ac5dcb35e10f6e08107fc2e6e87420ad2652bf675c069eb2f4cb2606a5415700`).
+The directory token threshold is `0xd8`.  Re-reading every indexed payload,
+using one byte for a reference below `0xd8` and two big-endian bytes otherwise,
+consumes exactly its indexed range and reproduces the original decoded logical
+record.  Selected ranges used for the fixed-layout investigation are:
+
+| Logical record | Payload file range | Payload bytes | Topic |
+| ---: | --- | ---: | --- |
+| 19 | `[0x0000b2e3, 0x0000b4be)` | 475 | `1.1` |
+| 20 | `[0x0000b4bf, 0x0000b589)` | 202 | `1.1` |
+| 21 | `[0x0000b58b, 0x0000b733)` | 424 | `1.2` |
+| 22 | `[0x0000b735, 0x0000b8d6)` | 417 | `1.3` |
+| 23 | `[0x0000b8d8, 0x0000ba30)` | 344 | `1.3` |
+| 74 | `[0x0000ec86, 0x0000ee15)` | 399 | `2.4.4` |
+| 75 | `[0x0000ee16, 0x0000eea5)` | 143 | `2.4.4` |
+
+An implementation that needs source provenance must retain both the numeric
+reference and its encoded width before dictionary resolution.  For example,
+SC31-711 logical record 74 contains the one-byte reference `84`, which resolves
+to token word `U+2502`, and the two-byte references `d8 22`, `d8 31`, and
+`d8 35`, which resolve respectively to `U+250C`, 43 copies of `U+2500`, and
+`U+252C`.  Replacing those references immediately with decoded text loses the
+distinction between one-byte and extended source tokens and makes exact payload
+reconstruction impossible.
+
+This identity is a storage fact, not evidence that a token-reference number has
+a universal semantic meaning.  Reference values are interpreted through the
+book's own token map and reconstructed dictionary.  Likewise, an index into a
+decoded record's token vector is record-local grouping metadata, not an on-disk
+token identifier or a stable coordinate across records.

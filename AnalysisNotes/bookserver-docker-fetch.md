@@ -1374,3 +1374,51 @@ Markdown files were byte-identical to the post-45 audit. Four ordinal-range
 reviews inspected every topic and confirmed the issue-43 acceptance targets
 without attributing a regression to the change. Tracker 27 remains open for
 issues 48 and 50--54.
+
+## SC31-711 issue 48 source-layout workflow
+
+On 2026-08-26, the fixed-layout work used the repository fixture
+`BOO/SC31-711.boo`, title `LAN Network Manager For AIX Reference`, document
+number `SC31-7111-00`, BookServer ID `SC31-711`, and DT
+`19941010174546`.  The hosted topics used for the source-layout comparisons
+were:
+
+```text
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/SC31-711/1.1?DT=19941010174546&SHELF=
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/SC31-711/1.3?DT=19941010174546&SHELF=
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/SC31-711/2.4.4?DT=19941010174546&SHELF=
+```
+
+Their topic titles are `LNM for AIX Files`, `LNM for AIX Daemons and
+Executables`, and `AIX NetView/6000 Considerations`.  Hosted CGI retrieval used
+the Docker fetch MCP described at the start of this file; ordinary shell and
+web fetches are not interchangeable with that route in this environment.
+
+The repeatable local evidence workflow was:
+
+```sh
+./build/bootrace BOO/SC31-711.boo 1.1 --all
+./build/bootrace BOO/SC31-711.boo 1.3 --all
+./build/bootrace BOO/SC31-711.boo 2.4.4 --all
+./build/boorender BOO/SC31-711.boo 1.1 --md
+./build/boorender BOO/SC31-711.boo 1.3 --md
+./build/boorender BOO/SC31-711.boo 2.4.4 --md
+```
+
+`bootrace` identifies topic/logical-record ranges and exposes the decoded
+control stream.  For byte-level confirmation, the logical-record page walker
+records each payload's end-exclusive file range, then reparses the original
+bytes while retaining each reference's numeric value and width.  Tests compare
+those retained values with the bytes at the indexed offsets and require the
+reassembled token words to equal the initial lightweight decode.  This avoids
+using rendered punctuation or collapsed whitespace as evidence for source row
+ownership.
+
+The normative observations from logical records 19--23 and 74--75 are recorded
+in [logical-controls.md](../Format/logical-controls.md#payload-indexing-and-encoded-token-identity)
+and [markup.md](../Format/markup.md#source-owned-fixed-layout-evidence-in-sc31-711).
+The implicit-grid activation rules and semantic Markdown table construction are
+libgeist behavior, not asserted BOO-format semantics.  In particular, repeated
+raw signatures are treated as candidates only when the source also supplies
+stable physical columns and a multi-column header; the current evidence does
+not establish IBM's internal name for either signature.
