@@ -73,6 +73,7 @@ set(GEIST_SOURCES
   src/img/gdf.cpp
   src/img/gdf_raster.cpp
   src/io.cpp
+  src/layout_ir.cpp
   src/logical.cpp
   src/markup.cpp
   src/markdown.cpp

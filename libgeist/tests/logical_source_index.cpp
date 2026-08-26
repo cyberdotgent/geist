@@ -72,6 +72,11 @@ void verify_book(const std::filesystem::path& path,
   const auto source_rss = resident_kib();
   require(sources.size() == end - first,
           "candidate-local source slice has the wrong record count");
+  const auto layout = geist::detail::extract_layout_ir(sources);
+  std::string layout_error;
+  require(geist::detail::verify_layout_ir(sources, layout, &layout_error),
+          layout_error.empty() ? "layout IR verification failed"
+                               : layout_error.c_str());
   for (std::size_t index = 0; index < sources.size(); ++index) {
     const auto logical_record = first + index;
     require(sources[index].logical_record == logical_record,
@@ -117,6 +122,21 @@ void verify_book(const std::filesystem::path& path,
                                   : segment_error.c_str());
   }
 
+  if (path.filename() == "SC31-711.boo" && first == 528) {
+    std::size_t ansi_rows = 0;
+    for (const auto& run : layout.runs) {
+      for (const auto& row : run.rows) {
+        if (row.marker && row.marker->decoded_text == "bridge" &&
+            row.visible_text.find("American National Standards Institute") !=
+                std::string::npos) {
+          ++ansi_rows;
+        }
+      }
+    }
+    require(ansi_rows == 2,
+            "layout IR did not preserve the two independent ANSI rows");
+  }
+
   const auto* cached_dictionary = context.source_dictionary.get();
   const auto repeated =
       geist::detail::decode_logical_record_sources(context, first, end);
@@ -152,5 +172,6 @@ int main() {
   const bool benchmark = std::getenv("GEIST_BENCH_SOURCE_INDEX") != nullptr;
   verify_book(root / "SC31-711.boo", 19, 21, benchmark);
   verify_book(root / "SC31-711.boo", 22, 24, benchmark);
+  verify_book(root / "SC31-711.boo", 528, 529, benchmark);
   verify_book(root / "SG24-204.boo", 1, 2, benchmark);
 }
