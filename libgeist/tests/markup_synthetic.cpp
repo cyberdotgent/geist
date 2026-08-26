@@ -223,12 +223,18 @@ int main() {
   {
     auto left = std::string("For information");
     left.resize(23, ' ');
+    auto continuation = std::string("about:");
+    continuation.resize(23, ' ');
     const std::vector<std::string> decoded{
         "SRTBLGRID " + std::string(73, '?'),
-        "cfont 5 3 2               ?" + left + "?Read:", "SRETBL"};
+        "cfont 5 3 2               ?" + left + "?Read:",
+        "cfont 5 6 2           ?" + continuation + "?" +
+            std::string(48, ' ') + "?" + std::string(62, '?'),
+        "SRETBL"};
     const auto rendered = geist::detail::render_gml_records(decoded);
-    const auto has_left = std::find(rendered.begin(), rendered.end(),
-                                    ":c col='0'.For information") !=
+    const auto has_left = std::find(
+                              rendered.begin(), rendered.end(),
+                              ":c col='0'.For information<br>about:") !=
                           rendered.end();
     const auto has_right = std::find(rendered.begin(), rendered.end(),
                                      ":c col='1'.Read:") != rendered.end();
