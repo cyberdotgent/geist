@@ -461,6 +461,13 @@ stable Markdown structure and conserved content/link semantics with reviewed
 intentional corpus deltas; reproducing the legacy renderer byte for byte is
 explicitly not the goal.
 
+The production `TocEntry::markdown()` handoff was audited before and after the
+whole-topic adapter across all 34 BOO fixtures. Both exports contained 7,396
+Markdown files and 7,885 total files; recursive comparison reported zero byte
+differences. This establishes that Document IR now owns the production topic
+render boundary without splitting legacy renderer state. It does not certify
+future typed Markdown byte parity, which is intentionally not required.
+
 ## M8 typed Markdown renderer
 
 The Markdown renderer consumes only a verified `DocumentIR`. It has no access
