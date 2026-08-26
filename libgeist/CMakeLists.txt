@@ -90,6 +90,7 @@ set(GEIST_SOURCES
   src/procedure_rows.cpp
   src/publication_ir.cpp
   src/resources.cpp
+  src/selector_display_ir.cpp
   src/selector_ir.cpp
   src/source_rows.cpp
   src/source_segments.cpp
@@ -260,6 +261,15 @@ add_executable(layout_ir_synthetic_test
 )
 target_link_libraries(layout_ir_synthetic_test PRIVATE geist::geist_static)
 add_test(NAME layout_ir_synthetic_test COMMAND layout_ir_synthetic_test)
+
+add_executable(selector_display_ir_synthetic_test
+  tests/selector_display_ir_synthetic.cpp
+)
+target_link_libraries(selector_display_ir_synthetic_test
+  PRIVATE geist::geist_static
+)
+add_test(NAME selector_display_ir_synthetic_test
+  COMMAND selector_display_ir_synthetic_test)
 
 add_executable(procedure_rows_synthetic_test
   tests/procedure_rows_synthetic.cpp

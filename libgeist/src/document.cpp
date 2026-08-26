@@ -1,6 +1,7 @@
 #include "geist/detail/internal.hpp"
 #include "geist/detail/implicit_grid.hpp"
 #include "geist/detail/procedure_rows.hpp"
+#include "geist/detail/selector_display_ir.hpp"
 #include "geist/detail/source_rows.hpp"
 
 #include <algorithm>
@@ -594,6 +595,24 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
     if (auto* destination = trace_for(sources.front().logical_record))
       destination->ir_semantic_blocks.push_back(
           detail::format_selector_catalog_ir(*selectors));
+    std::string display_extraction_error;
+    const auto display = detail::extract_selector_display_ir(
+        sources, *selectors, layout, ownership, &display_extraction_error);
+    if (display) {
+      std::string display_error;
+      if (!detail::verify_selector_display_ir(
+              sources, *selectors, layout, ownership, *display,
+              &display_error))
+        throw std::runtime_error("invalid selector display IR trace: " +
+                                 display_error);
+      if (auto* destination = trace_for(sources.front().logical_record))
+        destination->ir_semantic_blocks.push_back(
+            detail::format_selector_display_ir(*display));
+    } else if (!display_extraction_error.empty()) {
+      if (auto* destination = trace_for(sources.front().logical_record))
+        destination->ir_semantic_blocks.push_back(
+            "selector_display_ir_rejected=" + display_extraction_error);
+    }
   } else if (!selector_extraction_error.empty() && !sources.empty() &&
              has_selector_source_candidate(records)) {
     if (auto* destination = trace_for(sources.front().logical_record))

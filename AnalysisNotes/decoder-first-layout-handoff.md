@@ -282,6 +282,32 @@ stable Markdown structure, conserved source content and links, semantic
 invariants, fixture-specific correctness (including issue #48), and reviewed
 corpus deltas against BookServer evidence where available.
 
+### Selector display binding core
+
+The next selector layer is an output-neutral `SelectorDisplayIR`. It assigns
+every canonical selector exactly one disposition: a span in one physical
+display row, a resource object (`PIC<n>` or deferred `LNK`), or explicit table
+ownership. Display rows preserve individual native cells and their logical
+record, token, word, and BOO-byte provenance, plus the owning Layout IR run and
+row. Equal adjacent targets remain separate selector spans; target equality is
+not evidence that two selectors form one link.
+
+Binding is an ordered, fail-closed operation. Inline payloads, later rows in
+the same logical record, rows in the immediately following record, and
+multiple selectors queued for one row are distinguished explicitly. Typed
+object barriers, non-adjacent records, overlapping or out-of-range geometry,
+and unresolved selectors reject the semantic lowering. The canonical verifier
+re-extracts the structure and proves that all raw selectors have exactly one
+binding and that every source display cell agrees with Ownership IR.
+
+Focused fixture checks admit the selector rows in `packet.boo` topic `5.1.2`,
+`QSYSNEWG.BOO` topic `PREFACE`, and `GG24-4302-00.boo` topic `NOTICES`, and
+retain the `GG24-395-0.BOO` picture selector as table-owned. SC31 continuation
+rows and generated `FIGURES`/`TABLES` topics still reject conservatively where
+the visible geometry requires source-proven prefix, marker, or generated-list
+restoration. Those are the remaining selector projection slices; this core is
+trace-visible but does not yet alter Markdown output.
+
 ## M6 comments/back-matter Layout IR prerequisite
 
 The comments-form audit exposed a mechanical ownership error before semantic
