@@ -1949,6 +1949,8 @@ struct GmlRenderState {
   bool table_layout_from_font_heading = false;
   bool table_font_heading_continuation = false;
   bool table_font_heading_can_continue = false;
+  bool table_cfont_continuation = false;
+  bool table_form_continuations = false;
   bool table_action_code_layout = false;
   bool table_hex_code_layout = false;
   bool table_event_qualifier_layout = false;
@@ -2537,10 +2539,12 @@ void append_table_visual_line(GmlRenderState& state,
 
   const auto starts_new_row =
       event_row_starts ||
-      (!(state.table_font_heading_continuation && !cells.empty() &&
+      (!state.table_cfont_continuation &&
+       !(state.table_font_heading_continuation && !cells.empty() &&
          cells.back().empty()) &&
        !cells.empty() && !cells.front().empty());
   state.table_font_heading_continuation = false;
+  state.table_cfont_continuation = false;
   if (!state.pending_table_row.empty() && starts_new_row) {
     auto flushed = flush_pending_table_row(state);
     if (!flushed.empty()) {
@@ -4628,9 +4632,15 @@ std::string render_gml_segment(std::string segment,
     // A CFONT heading continuation can have an entirely blank final cell.
     // Generic trimming removes that cell's separators along with decoder
     // padding, so retain the split physical row for table composition.
+    const auto cfont_row =
+        ascii_starts_with_case_insensitive(lower, "cfont");
+    state.table_cfont_continuation =
+        cfont_row && state.table_form_continuations &&
+        !state.pending_table_row.empty();
     return render_table_body_gml(
-        ascii_starts_with_case_insensitive(lower, "cfont") &&
-                state.table_font_heading_can_continue
+        cfont_row && (state.table_form_continuations ||
+                      state.table_cfont_continuation ||
+                      state.table_font_heading_can_continue)
             ? raw_segment
             : std::move(segment),
         state);
@@ -4846,6 +4856,8 @@ std::string render_gml_segment(std::string segment,
     state.table_physical_row_selects.clear();
     state.table_font_heading_continuation = false;
     state.table_font_heading_can_continue = false;
+    state.table_cfont_continuation = false;
+    state.table_form_continuations = false;
     // Generic trimming treats terminal decoder placeholders as padding.  A
     // fixed SRTBL opening rule is instead geometry: retain it from the split
     // segment so the following short heading row can recover its right edge.
@@ -4867,6 +4879,67 @@ std::string render_gml_segment(std::string segment,
         first_separator != std::string::npos &&
         trim_ascii(payload_head.substr(payload_target.size())) .empty();
     if (auto form = render_fixed_form_gml(table_payload)) {
+      // Keep the final form row active until SRETBL.  A following CFONT can
+      // own one or more physical continuations of that field; if none follows,
+      // the ordinary table close flushes the row unchanged.
+      auto trailing_questions = std::size_t{0};
+      auto in_run = false;
+      for (auto cursor = table_payload.size(); cursor > 0;) {
+        --cursor;
+        const auto ch = table_payload[cursor];
+        if (std::isspace(static_cast<unsigned char>(ch)) != 0) {
+          if (in_run) {
+            break;
+          }
+          continue;
+        }
+        if (ch != '?') {
+          break;
+        }
+        in_run = true;
+        ++trailing_questions;
+      }
+      const auto last_row = form->rfind("\n:row.");
+      if (last_row != std::string::npos && trailing_questions < 40) {
+        constexpr std::string_view cell = "\n:c col='0'.";
+        constexpr std::string_view empty_value = "\n:c col='1'.";
+        const auto field_begin = form->find(cell, last_row);
+        const auto value_begin = form->find(empty_value, field_begin);
+        if (field_begin != std::string::npos &&
+            value_begin != std::string::npos &&
+            value_begin + empty_value.size() == form->size()) {
+          state.table_columns = 2;
+          state.table_form_continuations = true;
+          state.pending_table_row = {
+              form->substr(field_begin + cell.size(),
+                           value_begin - field_begin - cell.size()),
+              {}};
+          form->resize(last_row);
+
+          for (auto separator = table_payload.find('?');
+               separator != std::string::npos;
+               separator = table_payload.find('?', separator + 1)) {
+            if (is_table_border_run(table_payload, separator)) {
+              while (separator + 1 < table_payload.size() &&
+                     table_payload[separator + 1] == '?') {
+                ++separator;
+              }
+              continue;
+            }
+            auto synthetic = false;
+            if (auto offsets = infer_table_separator_offsets(
+                    table_payload, separator, state.table_border_width,
+                    synthetic);
+                offsets && offsets->size() == 3) {
+              state.table_separator_offsets = std::move(*offsets);
+              state.table_line_width =
+                  state.table_separator_offsets.back() + 1;
+              state.table_final_separator_is_synthetic = synthetic;
+              break;
+            }
+          }
+        }
+      }
       return *form;
     }
     if (first_separator == std::string::npos) {
@@ -4983,6 +5056,8 @@ std::string render_gml_segment(std::string segment,
     state.table_physical_row_selects.clear();
     state.table_font_heading_continuation = false;
     state.table_font_heading_can_continue = false;
+    state.table_cfont_continuation = false;
+    state.table_form_continuations = false;
     const auto trailing = dot_text(rest_after_first_word(segment));
     if (!trailing.empty()) {
       output += "\n" + render_simple_gml_control("p", trailing);

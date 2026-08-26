@@ -622,6 +622,20 @@ int main() {
               agent_problems.find("DFI > message") == std::string::npos,
           "selector projection retained its fixed-row marker field");
 
+  const auto filesystem_space =
+      problem_determination.topic_markdown("2.4.3");
+  require(filesystem_space.find(
+              "Amount of free space available in the<br>file system that "
+              "contains /usr/OV") != std::string::npos,
+          "active-table CFONT continuation lost the /usr/OV row");
+  require(filesystem_space.find(
+              "Amount of free space available in /tmp") !=
+              std::string::npos &&
+              filesystem_space.find(
+                  "contains /usr/OV<br>Amount of free space available in "
+                  "/tmp") == std::string::npos,
+          "active-table CFONT continuation merged the separate /tmp row");
+
   const auto symbolic_traps =
       problem_determination.topic_markdown("4.1.2");
   require(symbolic_traps.find("<pre>") == std::string::npos &&

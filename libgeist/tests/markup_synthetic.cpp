@@ -101,6 +101,41 @@ int main() {
         "Use (optional) values when x > y; keep / and \"quotes\".");
   }
 
+  {
+    // A fixed form may end its SRTBL payload in the first physical line of a
+    // field.  The following CFONT owns the continuation, while its next
+    // complete bordered line must still begin a distinct row.
+    const auto border = std::string(74, '?');
+    const auto short_border = std::string(26, '?');
+    auto physical_row = [&](std::string text) {
+      text.resize(43, ' ');
+      return std::string(")    ?") + text + "?" + std::string(28, ' ') +
+             "?      ?" + std::string(43, ' ') + "?" + short_border +
+             "?                 ?" + border;
+    };
+    auto incomplete_row = std::string(")    ?Amount of free space available in the");
+    incomplete_row.resize(49, ' ');
+    incomplete_row += "?" + std::string(28, ' ') + "?";
+    const std::vector<std::string> decoded{
+        "SRTBLFORM " + border + physical_row("Amount of memory installed") +
+            physical_row("Amount of paging space available") + incomplete_row,
+        "cfont 31 7 X " + physical_row("file system that contains /usr/OV"),
+        "cfont 39 4 X " + physical_row("Amount of free space available in /tmp"),
+        "SRETBL"};
+    const auto rendered = geist::detail::render_gml_records(decoded);
+    auto joined = std::string{};
+    for (const auto& record : rendered) {
+      joined += "\n" + record;
+    }
+    if (joined.find("Amount of free space available in the<br>file system "
+                    "that contains /usr/OV") == std::string::npos ||
+        joined.find(":c col='0'.Amount of free space available in /tmp") ==
+            std::string::npos) {
+      ok = false;
+      std::cerr << "fixed-form CFONT continuation lost row ownership\n";
+    }
+  }
+
   ok &= expect_records(
       "fixed-width CFONT word spans",
       {"CFONT 8 10 2 19 2 2 22 4 2 27 4 2     Production of This Book"
