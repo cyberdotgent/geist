@@ -664,6 +664,19 @@ int main() {
                     std::string::npos,
             "NETCENTER publication CFONT row received dual ST ownership");
   }
+  const auto comments_to_ibm =
+      problem_determination.topic_markdown("BACK_2");
+  for (const auto* expected : {
+           "If you prefer to send comments by mail",
+           "If you prefer to send comments by FAX"}) {
+    const auto first = comments_to_ibm.find(expected);
+    require(first != std::string::npos &&
+                comments_to_ibm.find(expected, first + 1) ==
+                    std::string::npos,
+            "fixed comment instructions received dual ownership");
+  }
+  require(comments_to_ibm.find("you.adapter") == std::string::npos,
+          "fixed comment row leaked its alphabetic marker field");
   require(netcenter_publications.find("(GC75-0109)=") == std::string::npos,
           "NETCENTER publication leaked a terminal fixed-row marker");
   const auto fddi_publications =

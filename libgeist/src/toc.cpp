@@ -516,7 +516,10 @@ bool raw_record_duplicates_st_body(const std::string& record,
   if (record_text.size() < kMinimumDuplicatePrefix) {
     return false;
   }
-  constexpr auto kDuplicateProbeLength = std::size_t{80};
+  // Inline styling and physical row joins can diverge shortly after the
+  // opening clause.  A 40-character normalized prefix is long enough to
+  // establish ownership while remaining before those presentation changes.
+  constexpr auto kDuplicateProbeLength = std::size_t{40};
   const auto probe =
       record_text.substr(0, std::min(record_text.size(),
                                      kDuplicateProbeLength));
@@ -564,6 +567,31 @@ bool fixed_st_row_marker_at(const std::string& value, std::size_t cursor) {
           attached_overflow_marker) &&
          std::isspace(static_cast<unsigned char>(value[cursor + 1])) != 0 &&
          std::isspace(static_cast<unsigned char>(value[cursor + 2])) != 0;
+}
+
+std::size_t fixed_st_alpha_row_marker_length_at(const std::string& value,
+                                                std::size_t cursor) {
+  if (cursor == 0 || cursor >= value.size() ||
+      (value[cursor - 1] != '.' && value[cursor - 1] != ')' &&
+       value[cursor - 1] != ':')) {
+    return 0;
+  }
+  auto end = cursor;
+  while (end < value.size() &&
+         std::isalpha(static_cast<unsigned char>(value[end])) != 0) {
+    ++end;
+  }
+  if (end == cursor || end + 3 >= value.size() || value.compare(end, 4, "    ") != 0) {
+    return 0;
+  }
+  static constexpr std::array<std::string_view, 9> kAlphaMarkers = {
+      "action", "address", "adapter", "agent", "are", "can", "an", "as",
+      "a"};
+  const auto token = std::string_view(value).substr(cursor, end - cursor);
+  return std::find(kAlphaMarkers.begin(), kAlphaMarkers.end(), token) !=
+                 kAlphaMarkers.end()
+             ? end - cursor
+             : 0;
 }
 
 bool has_reflow_off_line_markers(const std::string& value) {
@@ -618,6 +646,17 @@ std::vector<std::string> split_reflow_off_body_lines(std::string value) {
 
   for (std::size_t cursor = 0;
        cursor < value.size() && !reached_inline_control;) {
+    const auto alpha_marker_length =
+        fixed_st_alpha_row_marker_length_at(value, cursor);
+    if (alpha_marker_length != 0) {
+      flush_line(false);
+      cursor += alpha_marker_length;
+      while (cursor < value.size() &&
+             std::isspace(static_cast<unsigned char>(value[cursor])) != 0) {
+        ++cursor;
+      }
+      continue;
+    }
     if (fixed_st_row_marker_at(value, cursor)) {
       flush_line(false);
       ++cursor;
