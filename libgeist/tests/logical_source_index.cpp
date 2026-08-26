@@ -79,6 +79,13 @@ void verify_book(const std::filesystem::path& path,
   require(layout_valid,
           layout_error.empty() ? "layout IR verification failed"
                                : layout_error.c_str());
+  const auto ownership = geist::detail::build_ownership_ir(sources, layout);
+  std::string ownership_error;
+  const auto ownership_valid = geist::detail::verify_ownership_ir(
+      sources, layout, ownership, &ownership_error);
+  require(ownership_valid,
+          ownership_error.empty() ? "ownership IR verification failed"
+                                  : ownership_error.c_str());
   for (std::size_t index = 0; index < sources.size(); ++index) {
     const auto logical_record = first + index;
     require(sources[index].logical_record == logical_record,

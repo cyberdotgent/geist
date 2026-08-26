@@ -5,6 +5,7 @@
 #include "geist/detail/control_ir.hpp"
 #include "geist/detail/fixed_display.hpp"
 #include "geist/detail/layout_ir.hpp"
+#include "geist/detail/ownership_ir.hpp"
 #include "img/image.hpp"
 
 #include <cstddef>

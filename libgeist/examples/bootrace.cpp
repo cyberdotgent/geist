@@ -11,7 +11,7 @@ namespace {
 
 void usage() {
   std::cerr << "usage: bootrace <book.boo> <topic-id> "
-               "[--all|--records|--segments|--fonts]\n";
+               "[--all|--records|--segments|--fonts|--ir]\n";
 }
 
 std::string tsv_escape(const std::string& value) {
@@ -56,7 +56,8 @@ int main(int argc, char** argv) {
   const auto show_records = mode == "--all" || mode == "--records";
   const auto show_segments = mode == "--all" || mode == "--segments";
   const auto show_fonts = mode == "--all" || mode == "--fonts";
-  if (!show_records && !show_segments && !show_fonts) {
+  const auto show_ir = mode == "--all" || mode == "--ir";
+  if (!show_records && !show_segments && !show_fonts && !show_ir) {
     usage();
     return 2;
   }
@@ -123,6 +124,22 @@ int main(int argc, char** argv) {
                     << tsv_escape(span.text) << "\t"
                     << tsv_escape(span.projected_gml) << "\n";
         }
+      }
+    }
+
+    if (show_ir) {
+      std::cout << "# typed source IR\n";
+      std::cout << "logical_record\tkind\tdetail\n";
+      for (const auto& record : trace) {
+        for (const auto& segment : record.ir_control_segments)
+          std::cout << record.logical_record << "\tsegment\t"
+                    << tsv_escape(segment) << "\n";
+        for (const auto& row : record.ir_physical_rows)
+          std::cout << record.logical_record << "\trow\t"
+                    << tsv_escape(row) << "\n";
+        for (const auto& cell : record.ir_ownership_cells)
+          std::cout << record.logical_record << "\townership\t"
+                    << tsv_escape(cell) << "\n";
       }
     }
   } catch (const std::exception& error) {

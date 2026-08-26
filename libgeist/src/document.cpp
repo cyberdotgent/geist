@@ -434,10 +434,48 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
                                         all_records.size());
   std::vector<std::string> records(all_records.begin() + begin,
                                    all_records.begin() + end);
-  return detail::trace_gml_records(
-      records,
-      topic->start_logical_record,
-      font_definitions());
+  auto traced = detail::trace_gml_records(
+      records, topic->start_logical_record, font_definitions());
+  const auto sources = detail::decode_logical_record_sources(
+      *decode_context_, topic->start_logical_record,
+      topic->end_logical_record);
+  const auto layout = detail::extract_layout_ir(sources);
+  const auto ownership = detail::build_ownership_ir(sources, layout);
+  std::string ir_error;
+  if (!detail::verify_layout_ir(sources, layout, &ir_error) ||
+      !detail::verify_ownership_ir(sources, layout, ownership, &ir_error)) {
+    throw std::runtime_error("invalid source IR trace: " + ir_error);
+  }
+  const auto trace_for = [&](const std::uint32_t logical_record)
+      -> BooLogicalRecordTrace* {
+    if (logical_record < topic->start_logical_record) return nullptr;
+    const auto index = static_cast<std::size_t>(
+        logical_record - topic->start_logical_record);
+    return index < traced.size() ? &traced[index] : nullptr;
+  };
+  for (const auto& source : sources) {
+    auto* destination = trace_for(source.logical_record);
+    if (destination == nullptr) continue;
+    for (const auto& segment : source.control_segments)
+      destination->ir_control_segments.push_back(
+          detail::format_control_segment_ir(segment));
+  }
+  for (const auto& run : layout.runs) {
+    for (const auto& row : run.rows) {
+      if (auto* destination = trace_for(row.logical_record))
+        destination->ir_physical_rows.push_back(
+            detail::format_physical_row_ir(row));
+    }
+  }
+  for (const auto& cell : ownership.cells) {
+    if (cell.run == 0 &&
+        cell.disposition == detail::SourceDisposition::opaque)
+      continue;
+    if (auto* destination = trace_for(cell.logical_record))
+      destination->ir_ownership_cells.push_back(
+          detail::format_owned_source_cell_ir(cell));
+  }
+  return traced;
 }
 
 std::vector<std::uint8_t> BooDocument::read_page(

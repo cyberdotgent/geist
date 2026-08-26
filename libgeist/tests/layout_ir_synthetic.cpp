@@ -56,6 +56,52 @@ int main() {
               layout.runs.front().rows.back().start ==
                   geist::detail::PhysicalRowStartKind::record_continuation,
           "adjacent control-free record did not continue its display run");
+  const auto ownership =
+      geist::detail::build_ownership_ir({opening, continuation}, layout);
+  require(geist::detail::verify_ownership_ir(
+              {opening, continuation}, layout, ownership, &error),
+          "valid source ownership failed conservation verification");
+  require(std::any_of(ownership.cells.begin(), ownership.cells.end(),
+                      [](const auto& cell) {
+                        return cell.disposition ==
+                                   geist::detail::SourceDisposition::
+                                       control_operand;
+                      }) &&
+              std::any_of(ownership.cells.begin(), ownership.cells.end(),
+                          [](const auto& cell) {
+                            return cell.disposition ==
+                                   geist::detail::SourceDisposition::marker_slot;
+                          }) &&
+              std::any_of(ownership.cells.begin(), ownership.cells.end(),
+                          [](const auto& cell) {
+                            return cell.disposition ==
+                                   geist::detail::SourceDisposition::
+                                       layout_origin;
+                          }) &&
+              std::any_of(ownership.cells.begin(), ownership.cells.end(),
+                          [](const auto& cell) {
+                            return cell.disposition ==
+                                   geist::detail::SourceDisposition::
+                                       visible_content;
+                          }),
+          "ownership ledger did not retain its structural disposition classes");
+  require(geist::detail::format_ownership_ir(ownership).find(
+              "disposition=") != std::string::npos,
+          "ownership IR has no stable diagnostic projection");
+
+  auto duplicate = ownership;
+  duplicate.cells.push_back(duplicate.cells.back());
+  require(!geist::detail::verify_ownership_ir(
+              {opening, continuation}, layout, duplicate, &error) &&
+              !error.empty(),
+          "duplicate source-cell ownership passed verification");
+
+  auto missing = ownership;
+  missing.cells.pop_back();
+  require(!geist::detail::verify_ownership_ir(
+              {opening, continuation}, layout, missing, &error) &&
+              !error.empty(),
+          "ownership ledger with a source-cell gap passed verification");
 
   const auto separated = geist::detail::extract_layout_ir(
       {opening, make_record(12, continuation.tokens)});

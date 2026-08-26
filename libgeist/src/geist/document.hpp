@@ -39,6 +39,9 @@ struct BooLogicalRecordTrace {
   std::vector<std::string> segments;
   std::vector<std::string> normalized_gml_records;
   std::vector<BooFontTrace> font_spans;
+  std::vector<std::string> ir_control_segments;
+  std::vector<std::string> ir_physical_rows;
+  std::vector<std::string> ir_ownership_cells;
 };
 
 class BooDocument {

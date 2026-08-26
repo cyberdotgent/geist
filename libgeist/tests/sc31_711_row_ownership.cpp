@@ -437,5 +437,38 @@ int main() {
       "Installation (SC75-0111)",
       "second NETCENTER publication row");
 
+  const auto ir_trace = document.trace_logical_records("BACK_1.7");
+  std::size_t ansi_source_rows = 0;
+  bool saw_typed_font_segment = false;
+  bool saw_marker_ownership = false;
+  for (const auto& record : ir_trace) {
+    saw_typed_font_segment =
+        saw_typed_font_segment ||
+        std::any_of(record.ir_control_segments.begin(),
+                    record.ir_control_segments.end(), [](const auto& value) {
+                      return value.find("opcode=cfont") != std::string::npos &&
+                             value.find("payload=[") != std::string::npos;
+                    });
+    ansi_source_rows += static_cast<std::size_t>(std::count_if(
+        record.ir_physical_rows.begin(), record.ir_physical_rows.end(),
+        [](const auto& value) {
+          return value.find("marker='bridge'") != std::string::npos &&
+                 value.find("American National Standards Institute") !=
+                     std::string::npos;
+        }));
+    saw_marker_ownership =
+        saw_marker_ownership ||
+        std::any_of(record.ir_ownership_cells.begin(),
+                    record.ir_ownership_cells.end(), [](const auto& value) {
+                      return value.find("disposition=marker_slot") !=
+                             std::string::npos;
+                    });
+  }
+  if (!saw_typed_font_segment || ansi_source_rows != 2 ||
+      !saw_marker_ownership) {
+    std::cerr << "typed source IR trace lost control/row/ownership evidence\n";
+    ++failures;
+  }
+
   return failures == 0 ? 0 : 1;
 }
