@@ -79,6 +79,7 @@ set(GEIST_SOURCES
   src/page_runs.cpp
   src/img/png.cpp
   src/properties.cpp
+  src/procedure_rows.cpp
   src/resources.cpp
   src/source_rows.cpp
   src/source_segments.cpp
@@ -243,6 +244,12 @@ add_executable(source_rows_synthetic_test
 )
 target_link_libraries(source_rows_synthetic_test PRIVATE geist::geist_static)
 add_test(NAME source_rows_synthetic_test COMMAND source_rows_synthetic_test)
+
+add_executable(procedure_rows_synthetic_test
+  tests/procedure_rows_synthetic.cpp
+)
+target_link_libraries(procedure_rows_synthetic_test PRIVATE geist::geist_static)
+add_test(NAME procedure_rows_synthetic_test COMMAND procedure_rows_synthetic_test)
 
 add_executable(sc31_711_row_ownership_test
   tests/sc31_711_row_ownership.cpp

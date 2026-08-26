@@ -243,6 +243,23 @@ int main() {
     require_absent(application_problems, leaked, "DFI row marker");
   }
 
+  const auto tracing = document.topic_markdown("2.1.3");
+  for (const auto* boundary : {
+           "following command:\n\n`ps` `-ef` `|` `grep` `lnm_process`\n\nwhere ",
+           "\n\n**2.** Turn on tracing by entering the command:\n\n",
+           "simply starts tracing for the process.\n\n**3.** Turn off tracing",
+       }) {
+    require_contains(tracing, boundary,
+                     "source-owned tracing procedure boundary");
+  }
+
+  const auto clearing = document.topic_markdown("2.1.4");
+  require_contains(clearing,
+                   "1. Stop the AIX NetView/6000 graphical interface.\n\n"
+                   "**2.** Issue the **ovstop** command.\n\n"
+                   "**3.** Issue the **ovstart** command.",
+                   "source-owned database procedure steps");
+
   const auto chapter_traps = document.topic_markdown("4.0");
   require_visible_near(chapter_traps, "For information", "about:", 80,
                        "trap cross-reference table heading");

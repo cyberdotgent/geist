@@ -1,5 +1,6 @@
 #include "geist/detail/internal.hpp"
 #include "geist/detail/implicit_grid.hpp"
+#include "geist/detail/procedure_rows.hpp"
 #include "geist/detail/source_rows.hpp"
 
 #include <algorithm>
@@ -88,6 +89,7 @@ void load_source_layout_if_candidate(
     TopicData& topic) {
   if (!has_box_form_source_candidate(topic.raw_records) &&
       !has_implicit_grid_source_candidate(topic.raw_records) &&
+      !has_numbered_procedure_candidate(topic.raw_records) &&
       !has_semantic_srmsg_source_candidate(topic.raw_records) &&
       !has_generated_toc_source_candidate(topic.raw_records) &&
       !has_selector_source_candidate(topic.raw_records)) {

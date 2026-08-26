@@ -1,5 +1,6 @@
 #include "geist/detail/internal.hpp"
 #include "geist/detail/implicit_grid.hpp"
+#include "geist/detail/procedure_rows.hpp"
 
 #include <algorithm>
 #include <array>
@@ -5517,8 +5518,9 @@ std::vector<GmlAppendResult> append_rendered_gml_line(
   return results;
 }
 
-std::vector<std::string> render_gml_records(
-    const std::vector<std::string>& decoded_records) {
+std::vector<std::string> render_gml_records_impl(
+    const std::vector<std::string>& decoded_records,
+    const std::vector<std::vector<bool>>* procedure_steps) {
   std::vector<std::string> rendered;
   GmlRenderState state;
   for (std::size_t record_index = 0; record_index < decoded_records.size();
@@ -5661,6 +5663,16 @@ std::vector<std::string> render_gml_records(
       auto line = render_gml_segment(std::move(segments[segment_index]),
                                      allow_topic_header,
                                      state);
+      if (procedure_steps != nullptr &&
+          record_index < procedure_steps->size() &&
+          segment_index < (*procedure_steps)[record_index].size() &&
+          (*procedure_steps)[record_index][segment_index]) {
+        if (ascii_starts_with_case_insensitive(line, ":pinline.")) {
+          line.replace(0, 9, ":p.");
+        } else if (ascii_starts_with_case_insensitive(line, ":line.")) {
+          line.replace(0, 6, ":p.");
+        }
+      }
       (void)append_rendered_gml_line(rendered, line);
     }
   }
@@ -5668,6 +5680,11 @@ std::vector<std::string> render_gml_records(
     rendered.push_back(":exmp.");
   }
   return rendered;
+}
+
+std::vector<std::string> render_gml_records(
+    const std::vector<std::string>& decoded_records) {
+  return render_gml_records_impl(decoded_records, nullptr);
 }
 
 std::vector<std::string> render_gml_records_with_source_layout(
@@ -5678,7 +5695,10 @@ std::vector<std::string> render_gml_records_with_source_layout(
   const auto selector_cleaned_records =
       clean_source_owned_selector_display_markers(source_cleaned_records,
                                                    sources);
-  auto rendered = render_gml_records(selector_cleaned_records);
+  const auto procedure_steps = numbered_procedure_step_segments(
+      selector_cleaned_records, sources);
+  auto rendered =
+      render_gml_records_impl(selector_cleaned_records, &procedure_steps);
   project_semantic_srmsg_source_markers(rendered, selector_cleaned_records,
                                         sources);
   const auto box_replacement =
