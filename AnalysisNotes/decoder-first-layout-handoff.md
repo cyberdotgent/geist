@@ -514,6 +514,17 @@ suffixes, README special cases, and cross-topic anchor/resource maps. Without
 an exporter resolver, rendering uses a stable identity-preserving fallback
 rather than inventing a `.md` filename in semantic lowering.
 
+Fixed prose now has a separate whole-topic envelope above the earlier inner
+`FixedProseIR` recognizer. It requires one logical record containing the exact
+ordered topic metadata family, an optional source anchor immediately before one
+terminal `ST` segment, and no additional control or visible content. It retains
+the complete record range and segment ledger plus distinct heading, paragraph,
+and anchor provenance. Corpus inventory admits only `ITPPIBOK.BOO` topics
+`2.1.2` and `4.1.2`; nine other inner-`ST` shapes are rejected because they also
+contain selectors, CFONT data, menus, messages, or trailing text. Canonical
+lowering emits a heading, optional anchor, and paragraph, but production routing
+remains a separate audited workload.
+
 The publication-catalog adapter is the second complete semantic-to-document
 lowering and is now enabled in production. `PublicationCatalogIR` retains
 physical source rows for its title and introduction as well as every
