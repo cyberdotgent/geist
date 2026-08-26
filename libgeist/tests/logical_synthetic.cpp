@@ -196,6 +196,7 @@ void verify_control_ir_contract() {
       {2, 'c','s','e','l','e','c','t',' ','2','9',' ','3','7',' ','H','D','R',
        ' ','v','i','s','i','b','l','e',','},
       {2, 'S','T',' ','T','i','t','l','e',' ','b','o','d','y'},
+      {2, '?','S','R','E','T','B','L',','},
   };
   const auto assembled =
       geist::detail::assemble_logical_record_with_sources(tokens);
@@ -204,10 +205,11 @@ void verify_control_ir_contract() {
   std::string error;
   require(geist::detail::verify_control_segments(assembled, segments, &error),
           "valid control IR failed verification: " + error);
-  require(segments.size() == 3 &&
+  require(segments.size() == 4 &&
               segments[0].kind == geist::detail::BookControlKind::font &&
               segments[1].kind == geist::detail::BookControlKind::select &&
-              segments[2].kind == geist::detail::BookControlKind::title,
+              segments[2].kind == geist::detail::BookControlKind::title &&
+              segments[3].kind == geist::detail::BookControlKind::table_end,
           "typed control IR classified known controls incorrectly");
   const auto slice = [&](const geist::detail::OutputRangeIR& range) {
     return geist::detail::trim_ascii(
@@ -284,6 +286,22 @@ int main() {
   selector.encoded_tokens = {{0x80, 2}, {0x1c, 1}, {0x09, 1}, {0x81, 2}};
   selector.assembled =
       geist::detail::assemble_logical_record_with_sources(selector.tokens);
+  const auto refresh_typed_source = [](auto& source) {
+    source.ir.logical_record = source.logical_record;
+    source.ir.tokens.clear();
+    std::uint32_t byte = 0;
+    for (std::size_t index = 0; index < source.tokens.size(); ++index) {
+      const auto encoded = source.encoded_tokens[index];
+      source.ir.tokens.push_back(
+          {index, encoded, source.tokens[index],
+           {byte, byte + encoded.width}, false, 3});
+      byte += encoded.width;
+    }
+    source.ir.payload_range = {0, byte};
+    source.control_segments = geist::detail::decode_control_segments(
+        source.logical_record, source.assembled);
+  };
+  refresh_typed_source(selector);
   const auto selector_record = geist::detail::token_words_to_ascii(
       selector.assembled.words);
   const auto selector_cleaned =
@@ -293,6 +311,72 @@ int main() {
               selector_cleaned[0].find("action") == std::string::npos &&
               selector_cleaned[0].find("Chapter") != std::string::npos,
           "source-owned selector display marker was not removed");
+  std::string selector_error;
+  const auto selector_ir = geist::detail::extract_selector_catalog_ir(
+      {selector}, &selector_error);
+  require(selector_ir && selector_ir->selectors.size() == 1 &&
+              selector_ir->selectors.front().target == "HDR" &&
+              selector_ir->selectors.front().column == 3 &&
+              selector_ir->selectors.front().length == 7 &&
+              !selector_ir->selectors.front().source_tokens.empty() &&
+              selector_ir->selectors.front().source_byte_ranges.size() ==
+                  selector_ir->selectors.front().source_tokens.size() &&
+              selector_ir->selectors.front().display_marker_slot &&
+              selector_ir->selectors.front()
+                      .display_marker_slot->decoded_text == "action",
+          selector_error.empty() ? "selector did not enter typed IR"
+                                 : selector_error.c_str());
+  require(selector_ir && geist::detail::verify_selector_catalog_ir(
+                             {selector}, *selector_ir, &selector_error),
+          selector_error.empty() ? "selector IR verification failed"
+                                 : selector_error.c_str());
+  require(selector_ir && geist::detail::format_selector_catalog_ir(
+                             *selector_ir).find("marker='action'") !=
+                             std::string::npos,
+          "selector IR trace omitted marker provenance");
+  if (selector_ir) {
+    auto mutated = *selector_ir;
+    mutated.selectors.front().length = 6;
+    require(!geist::detail::verify_selector_catalog_ir(
+                {selector}, mutated),
+            "selector IR verifier admitted a mutated display span");
+    mutated = *selector_ir;
+    mutated.selectors.front().source_byte_ranges.front().end++;
+    require(!geist::detail::verify_selector_catalog_ir(
+                {selector}, mutated),
+            "selector IR verifier admitted mutated byte provenance");
+  }
+  auto utf8_prefix_selector = selector;
+  utf8_prefix_selector.tokens.insert(
+      utf8_prefix_selector.tokens.begin(),
+      {'S','T',' ','n','a',0x00e9,'v','e',','});
+  utf8_prefix_selector.encoded_tokens.insert(
+      utf8_prefix_selector.encoded_tokens.begin(), {0x84, 2});
+  utf8_prefix_selector.assembled =
+      geist::detail::assemble_logical_record_with_sources(
+          utf8_prefix_selector.tokens);
+  refresh_typed_source(utf8_prefix_selector);
+  std::string utf8_error;
+  const auto utf8_ir = geist::detail::extract_selector_catalog_ir(
+      {utf8_prefix_selector}, &utf8_error);
+  require(utf8_ir && utf8_ir->selectors.size() == 1 &&
+              utf8_ir->selectors.front().display_marker_slot &&
+              utf8_ir->selectors.front().display_marker_slot->token_index == 2,
+          "UTF-8 text before CSELECT corrupted word-coordinate provenance: " +
+              utf8_error);
+  auto signed_selector = selector;
+  signed_selector.tokens[0] = {
+      'c','s','e','l','e','c','t',' ','+','3',' ','7',' ','H','D','R'};
+  signed_selector.assembled =
+      geist::detail::assemble_logical_record_with_sources(
+          signed_selector.tokens);
+  refresh_typed_source(signed_selector);
+  const auto signed_ir =
+      geist::detail::extract_selector_catalog_ir({signed_selector});
+  require(signed_ir && signed_ir->selectors.size() == 1 &&
+              !signed_ir->selectors.front().canonical_operands &&
+              !signed_ir->selectors.front().rejection_reason.empty(),
+          "signed selector operand was not retained as rejected typed IR");
   auto dictionary_selector = selector;
   dictionary_selector.encoded_tokens[1].width = 2;
   require(geist::detail::clean_source_owned_selector_display_markers(
@@ -326,6 +410,7 @@ int main() {
                                                     semantic_target));
     semantic.assembled =
         geist::detail::assemble_logical_record_with_sources(semantic.tokens);
+    refresh_typed_source(semantic);
     const auto record =
         geist::detail::token_words_to_ascii(semantic.assembled.words);
     require(geist::detail::clean_source_owned_selector_display_markers(
@@ -341,6 +426,7 @@ int main() {
   combined_origin.assembled =
       geist::detail::assemble_logical_record_with_sources(
           combined_origin.tokens);
+  refresh_typed_source(combined_origin);
   const auto combined_record = geist::detail::token_words_to_ascii(
       combined_origin.assembled.words);
   require(geist::detail::clean_source_owned_selector_display_markers(
@@ -352,6 +438,7 @@ int main() {
       'c','s','e','l','e','c','t',' ','9','9',' ','7',' ','H','D','R'};
   out_of_range.assembled =
       geist::detail::assemble_logical_record_with_sources(out_of_range.tokens);
+  refresh_typed_source(out_of_range);
   const auto out_of_range_record = geist::detail::token_words_to_ascii(
       out_of_range.assembled.words);
   require(geist::detail::clean_source_owned_selector_display_markers(
@@ -364,12 +451,27 @@ int main() {
               {ambiguous_record}, {selector}) ==
               std::vector<std::string>({ambiguous_record}),
           "ambiguous selector/source pairing did not fail closed");
+  auto mismatched_operand_record = selector_record;
+  const auto column_at = geist::detail::ascii_lower(
+      mismatched_operand_record).find("cselect 3 7");
+  require(column_at != std::string::npos,
+          "selector fixture omitted its operand prefix");
+  mismatched_operand_record.replace(column_at, 11, "cselect 4 7");
+  require(geist::detail::clean_source_owned_selector_display_markers(
+              {mismatched_operand_record}, {selector}) ==
+              std::vector<std::string>({mismatched_operand_record}),
+          "same-count selector with mismatched operands did not fail closed");
+  require(geist::detail::clean_source_owned_selector_display_markers(
+              {selector_record, selector_record}, {selector}) ==
+              std::vector<std::string>({selector_record, selector_record}),
+          "record/source cardinality mismatch did not fail closed");
   geist::detail::DecodedLogicalRecordSource table_start;
   table_start.logical_record = 8;
   table_start.tokens = {{'S','R','T','B','L','T','E','S','T'}};
   table_start.encoded_tokens = {{0x82, 2}};
   table_start.assembled =
       geist::detail::assemble_logical_record_with_sources(table_start.tokens);
+  refresh_typed_source(table_start);
   const auto table_start_record = geist::detail::token_words_to_ascii(
       table_start.assembled.words);
   require(geist::detail::clean_source_owned_selector_display_markers(

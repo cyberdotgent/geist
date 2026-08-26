@@ -61,7 +61,8 @@ BookControlKind classify(std::string opcode) {
   if (opcode == "cfont") return BookControlKind::font;
   if (opcode == "cselect") return BookControlKind::select;
   if (opcode.rfind("srtbl", 0) == 0) return BookControlKind::table_start;
-  if (opcode == "sretbl") return BookControlKind::table_end;
+  // A comma can be attached to the decoded end token at a segment boundary.
+  if (opcode.rfind("sretbl", 0) == 0) return BookControlKind::table_end;
   if (opcode == "cmenu") return BookControlKind::menu_start;
   if (opcode == "cmitem") return BookControlKind::menu_item;
   if (opcode == "cemenu") return BookControlKind::menu_end;
@@ -109,6 +110,11 @@ OutputRangeIR word_range_for_bytes(const AssembledLogicalRecord& assembled,
 }
 
 } // namespace
+
+OutputRangeIR decoded_byte_range_to_word_range(
+    const AssembledLogicalRecord& assembled, const OutputRangeIR& bytes) {
+  return word_range_for_bytes(assembled, bytes.begin, bytes.end);
+}
 
 std::vector<ControlSegmentIR>
 decode_control_segments(std::uint32_t logical_record,
@@ -170,8 +176,8 @@ decode_control_segments(std::uint32_t logical_record,
         segment.payload_range = {operand_end, source.output_end};
       }
     }
-    const auto word_range = word_range_for_bytes(
-        assembled, segment.complete.begin, segment.complete.end);
+    const auto word_range = decoded_byte_range_to_word_range(
+        assembled, segment.complete);
     segment.source_tokens = source_tokens_intersecting_output(
         assembled, word_range.begin, word_range.end);
     result.push_back(std::move(segment));

@@ -89,6 +89,7 @@ set(GEIST_SOURCES
   src/procedure_rows.cpp
   src/publication_ir.cpp
   src/resources.cpp
+  src/selector_ir.cpp
   src/source_rows.cpp
   src/source_segments.cpp
   src/strings.cpp

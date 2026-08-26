@@ -10,6 +10,7 @@
 #include "geist/detail/message_ir.hpp"
 #include "geist/detail/ownership_ir.hpp"
 #include "geist/detail/publication_ir.hpp"
+#include "geist/detail/selector_ir.hpp"
 #include "img/image.hpp"
 
 #include <cstddef>

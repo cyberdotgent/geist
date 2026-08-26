@@ -564,6 +564,24 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
       destination->ir_semantic_blocks.push_back(
           "message_catalog_ir_rejected=" + message_extraction_error);
   }
+  std::string selector_extraction_error;
+  const auto selectors = detail::extract_selector_catalog_ir(
+      sources, &selector_extraction_error);
+  if (selectors && !sources.empty()) {
+    std::string selector_error;
+    if (!detail::verify_selector_catalog_ir(sources, *selectors,
+                                            &selector_error))
+      throw std::runtime_error("invalid selector IR trace: " +
+                               selector_error);
+    if (auto* destination = trace_for(sources.front().logical_record))
+      destination->ir_semantic_blocks.push_back(
+          detail::format_selector_catalog_ir(*selectors));
+  } else if (!selector_extraction_error.empty() && !sources.empty() &&
+             has_selector_source_candidate(records)) {
+    if (auto* destination = trace_for(sources.front().logical_record))
+      destination->ir_semantic_blocks.push_back(
+          "selector_catalog_ir_rejected=" + selector_extraction_error);
+  }
   std::string menu_extraction_error;
   const auto menu = detail::extract_menu_ir(sources, topic_titles_,
                                              &menu_extraction_error);

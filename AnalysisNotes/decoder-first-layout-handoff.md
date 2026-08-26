@@ -236,6 +236,52 @@ Markdown file and generated resource was byte-identical. The candidate has
 exactly 396 Markdown paragraphs beginning `**Meaning:**` and 396 beginning
 `**Action:**`; the remaining message text and anchors are conserved.
 
+## M6 selector-control IR groundwork
+
+Selector decoding now has a canonical `SelectorCatalogIR` between control
+segmentation and the existing fixed-row compatibility projection. Every typed
+`CSELECT` control is retained in source order. Canonical controls record the
+absolute column, length, target, payload, table state, decoded UTF-8 byte
+ranges, source-token ordinals, original BOO byte ranges, and any source-proven
+one-cell marker/origin slot. A syntactically non-canonical control remains in
+the catalog with an explicit rejection reason instead of disappearing or
+being guessed.
+
+Control-segment ranges were clarified as decoded UTF-8 byte coordinates. A
+single checked conversion maps those ranges into assembled-word coordinates
+before token ownership is consulted. The synthetic admission tests include a
+non-ASCII prefix before `CSELECT`, signed/invalid numeric operands, mismatched
+decoded operands, record/source cardinality mismatch, and mutated BOO-byte
+provenance. Canonical re-lowering rejects every mutation.
+
+The compatibility marker cleanup now consumes only verified selector slots and
+requires exact column, length, and target identity in the normalized stream.
+Presentation-family exclusions and table ownership remain explicit consumer
+policy; they are not encoded as parser facts. `SC09-138.boo` topic `4.8`
+also proves why rejected controls must remain typed: logical record 611 has a
+bare `CSELECT` followed by display-ruler text, alongside valid selectors that
+must still project. Topic `H.0`, logical record 2075, decodes table end as
+`SRETBL,`; recognizing the attached comma restores the verified table-state
+boundary.
+
+This workload deliberately does **not** claim complete selector-backed
+fixed-row lowering. Deferred/cross-record display payloads, selected display
+cells, and row grouping are the remaining semantic layer. The control/marker
+IR is the verified input to that work, and its compatibility projection must
+remain a zero-Markdown-delta refactor.
+
+The final whole-corpus `boo2git` comparison used the post-message baseline.
+Both sides rendered all 34 books, 7,396 Markdown files, and 7,885 total files;
+every exported file was byte-identical.
+
+That byte identity is a migration gate for this compatibility-preserving M6
+workload, not the acceptance definition for the future IR-native Markdown
+renderer. Once rendering is driven directly from the semantic document IR,
+intentional byte differences are expected. Acceptance then moves to valid and
+stable Markdown structure, conserved source content and links, semantic
+invariants, fixture-specific correctness (including issue #48), and reviewed
+corpus deltas against BookServer evidence where available.
+
 ## Source trail
 
 - Fixture: `BOO/SC31-711.boo`
