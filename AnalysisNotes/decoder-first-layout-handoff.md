@@ -325,6 +325,26 @@ the final typed segment of the adjacent record. The verifier independently
 rejects forged continuation across an intervening control or from an
 ineligible run such as `ST`.
 
+### Comment and delivery semantic core
+
+`CommentDeliveryIR` now gives the two verified SC31 back-matter structures an
+output-neutral semantic boundary. `BACK_2` is divided into a title-page block
+and delivery-instruction block. `COMMENTS` is divided into its title block,
+two balanced questionnaire-table objects, and the response area beginning in
+the visible `SREFIG` payload at logical record 544 and continuing through 546.
+Every retained line carries its Layout run/row, logical record, segment,
+token range, native origin, break kind, continuation state, and complete
+optional marker provenance.
+
+Admission is structural rather than topic- or prompt-text based. It requires
+the verified topic/source envelope, exact balanced object ordering, canonical
+run kinds and row geometry, complete row assignment, and ownership of every
+visible source cell. A corpus inventory finds 17 `COMMENTS`/`BACK_2`
+candidates; only `SC31-711.boo` `BACK_2` and `COMMENTS` satisfy this bounded
+shape, while 15 related and unrelated cross-book forms reject explicitly.
+The canonical structure is visible in `bootrace --ir`, but renderer projection
+remains separate so this semantic-core workload cannot change Markdown.
+
 The resulting trace ends the table in run 9 and starts run 11 at record 544
 segment 2; records 545 and 546 continue run 11. Synthetic tests cover visible
 `SREFIG`/`SRETBL` payloads, an empty end-control barrier, ownership

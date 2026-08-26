@@ -65,6 +65,7 @@ geist_match_dependency_headers(GIF::GIF gif_lib.h)
 
 set(GEIST_SOURCES
   src/book_ir.cpp
+  src/comment_delivery_ir.cpp
   src/control_ir.cpp
   src/document.cpp
   src/ebcdic.cpp
@@ -270,6 +271,18 @@ target_link_libraries(selector_display_ir_synthetic_test
 )
 add_test(NAME selector_display_ir_synthetic_test
   COMMAND selector_display_ir_synthetic_test)
+
+add_executable(comment_delivery_ir_synthetic_test
+  tests/comment_delivery_ir_synthetic.cpp
+)
+target_link_libraries(comment_delivery_ir_synthetic_test
+  PRIVATE geist::geist_static
+)
+target_compile_definitions(comment_delivery_ir_synthetic_test PRIVATE
+  GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+add_test(NAME comment_delivery_ir_synthetic_test
+  COMMAND comment_delivery_ir_synthetic_test)
 
 add_executable(procedure_rows_synthetic_test
   tests/procedure_rows_synthetic.cpp

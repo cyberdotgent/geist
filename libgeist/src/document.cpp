@@ -1,4 +1,5 @@
 #include "geist/detail/internal.hpp"
+#include "geist/detail/comment_delivery_ir.hpp"
 #include "geist/detail/implicit_grid.hpp"
 #include "geist/detail/procedure_rows.hpp"
 #include "geist/detail/selector_display_ir.hpp"
@@ -82,6 +83,14 @@ bool has_generated_toc_source_candidate(
 bool has_selector_source_candidate(const std::vector<std::string>& records) {
   return std::any_of(records.begin(), records.end(), [](const auto& record) {
     return ascii_lower(record).find("cselect ") != std::string::npos;
+  });
+}
+
+bool has_comment_delivery_source_candidate(
+    const std::vector<std::string>& records) {
+  return std::any_of(records.begin(), records.end(), [](const auto& record) {
+    const auto lower = ascii_lower(record);
+    return lower.find("csourcefn rcfaddr") != std::string::npos;
   });
 }
 
@@ -540,6 +549,24 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
     if (auto* destination = trace_for(sources.front().logical_record))
       destination->ir_semantic_blocks.push_back(
           "fixed_prose_ir_rejected=" + fixed_prose_extraction_error);
+  }
+  std::string comment_extraction_error;
+  const auto comment_delivery = detail::extract_comment_delivery_ir(
+      sources, layout, ownership, &comment_extraction_error);
+  if (comment_delivery && !sources.empty()) {
+    std::string comment_error;
+    if (!detail::verify_comment_delivery_ir(
+            sources, layout, ownership, *comment_delivery, &comment_error))
+      throw std::runtime_error("invalid comment/delivery IR trace: " +
+                               comment_error);
+    if (auto* destination = trace_for(sources.front().logical_record))
+      destination->ir_semantic_blocks.push_back(
+          detail::format_comment_delivery_ir(*comment_delivery));
+  } else if (!comment_extraction_error.empty() && !sources.empty() &&
+             has_comment_delivery_source_candidate(records)) {
+    if (auto* destination = trace_for(sources.front().logical_record))
+      destination->ir_semantic_blocks.push_back(
+          "comment_delivery_ir_rejected=" + comment_extraction_error);
   }
   const auto publication =
       detail::extract_publication_catalog_ir(sources, layout, ownership);
