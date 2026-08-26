@@ -220,6 +220,24 @@ int main() {
       {":table id='TBLTBL1'.", ":row.", ":c col='0'.Alpha",
        ":c col='1'.Beta", ":c col='2'.Gamma", ":tcap.", ":etable."});
 
+  {
+    auto left = std::string("For information");
+    left.resize(23, ' ');
+    const std::vector<std::string> decoded{
+        "SRTBLGRID " + std::string(73, '?'),
+        "cfont 5 3 2               ?" + left + "?Read:", "SRETBL"};
+    const auto rendered = geist::detail::render_gml_records(decoded);
+    const auto has_left = std::find(rendered.begin(), rendered.end(),
+                                    ":c col='0'.For information") !=
+                          rendered.end();
+    const auto has_right = std::find(rendered.begin(), rendered.end(),
+                                     ":c col='1'.Read:") != rendered.end();
+    if (!has_left || !has_right) {
+      ok = false;
+      std::cerr << "SRTBL opening border geometry was discarded\n";
+    }
+  }
+
   ok &= expect_records(
       "fixed-layout notice links",
       {"CSELECT 43 30 HDRNOTICES              ? to read the general "

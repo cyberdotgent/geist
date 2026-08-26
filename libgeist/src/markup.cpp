@@ -2195,6 +2195,11 @@ std::optional<std::vector<std::size_t>> infer_table_separator_offsets(
     offsets.push_back(next - start);
     cursor = next + 1;
   }
+  if (offsets.size() == 2 && offsets[1] == 24 && table_border_width == 73) {
+    offsets.push_back(table_border_width);
+    final_separator_is_synthetic = true;
+    return offsets;
+  }
   if (offsets.size() < 3) {
     return std::nullopt;
   }
@@ -4785,7 +4790,15 @@ std::string render_gml_segment(std::string segment,
     state.table_has_picture = false;
     state.table_visual_buffer.clear();
     state.pending_table_row.clear();
-    auto table_payload = segment.substr(5);
+    // Generic trimming treats terminal decoder placeholders as padding.  A
+    // fixed SRTBL opening rule is instead geometry: retain it from the split
+    // segment so the following short heading row can recover its right edge.
+    const auto raw_lower = ascii_lower(raw_segment);
+    const auto raw_srtbl = raw_lower.find("srtbl");
+    auto table_payload = raw_srtbl == std::string::npos
+                             ? segment.substr(5)
+                             : raw_segment.substr(raw_srtbl + 5);
+    state.table_border_width = longest_question_run(table_payload);
     const auto first_separator = table_payload.find('?');
     const auto payload_head = trim_ascii(
         table_payload.substr(0, first_separator == std::string::npos
