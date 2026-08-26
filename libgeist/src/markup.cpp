@@ -577,9 +577,9 @@ static bool contains_srmsg_control(const std::string& value) {
   return false;
 }
 
-std::vector<std::string> split_decoded_markup_segments(
+std::vector<DecodedMarkupSegmentSpan> split_decoded_markup_segment_spans(
     const std::string& decoded_record) {
-  std::vector<std::string> segments;
+  std::vector<DecodedMarkupSegmentSpan> segments;
   const auto has_fixed_visual_payload = [](const std::string& value) {
     auto question_run = std::size_t{0};
     auto space_run = std::size_t{0};
@@ -603,19 +603,25 @@ std::vector<std::string> split_decoded_markup_segments(
     }
     return false;
   };
-  const auto trim_decoded_segment = [&](std::string value) {
-    if (!has_fixed_visual_payload(value)) {
-      return trim_ascii(std::move(value));
+  const auto make_segment = [&](std::size_t raw_begin, std::size_t raw_end) {
+    const auto fixed = has_fixed_visual_payload(
+        decoded_record.substr(raw_begin, raw_end - raw_begin));
+    const auto trimmable = [&](const char ch) {
+      const auto byte = static_cast<unsigned char>(ch);
+      return std::isspace(byte) != 0 ||
+             (!fixed && (byte < 0x20 || ch == '?'));
+    };
+    while (raw_begin < raw_end &&
+           trimmable(decoded_record[raw_begin])) {
+      ++raw_begin;
     }
-    while (!value.empty() &&
-           std::isspace(static_cast<unsigned char>(value.front())) != 0) {
-      value.erase(value.begin());
+    while (raw_end > raw_begin &&
+           trimmable(decoded_record[raw_end - 1])) {
+      --raw_end;
     }
-    while (!value.empty() &&
-           std::isspace(static_cast<unsigned char>(value.back())) != 0) {
-      value.pop_back();
-    }
-    return value;
+    auto text = decoded_record.substr(raw_begin, raw_end - raw_begin);
+    collapse_terminal_question_separator(text);
+    return DecodedMarkupSegmentSpan{raw_begin, raw_end, std::move(text)};
   };
   std::size_t begin = 0;
   for (std::size_t cursor = 0; cursor < decoded_record.size(); ++cursor) {
@@ -658,20 +664,27 @@ std::vector<std::string> split_decoded_markup_segments(
         end = cursor + 1;
       }
     }
-    auto segment = trim_decoded_segment(decoded_record.substr(begin,
-                                                              end - begin));
-    collapse_terminal_question_separator(segment);
-    if (!segment.empty()) {
+    auto segment = make_segment(begin, end);
+    if (!segment.text.empty()) {
       segments.push_back(std::move(segment));
     }
     begin = split_before ? cursor : cursor + 1;
   }
 
-  auto segment = trim_decoded_segment(decoded_record.substr(begin));
-  if (!segment.empty()) {
+  auto segment = make_segment(begin, decoded_record.size());
+  if (!segment.text.empty()) {
     segments.push_back(std::move(segment));
   }
   return segments;
+}
+
+std::vector<std::string> split_decoded_markup_segments(
+    const std::string& decoded_record) {
+  std::vector<std::string> result;
+  for (auto& segment : split_decoded_markup_segment_spans(decoded_record)) {
+    result.push_back(std::move(segment.text));
+  }
+  return result;
 }
 
 std::string annotate_decoded_placeholders(const std::string& value) {
@@ -5785,7 +5798,7 @@ std::vector<std::string> render_gml_records_with_source_layout(
     return rendered;
   }();
   if (box_replacement) {
-    return *box_replacement;
+    rendered = *box_replacement;
   }
 
   struct ImplicitCandidate {

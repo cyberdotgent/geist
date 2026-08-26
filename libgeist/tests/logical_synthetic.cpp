@@ -121,9 +121,57 @@ void verify_map(const std::vector<TokenWords>& tokens,
   }
 }
 
+void verify_segment_spans(const std::string& record) {
+  const auto spans =
+      geist::detail::split_decoded_markup_segment_spans(record);
+  std::vector<std::string> projected;
+  for (const auto& span : spans) {
+    require(span.output_begin < span.output_end &&
+                span.output_end <= record.size(),
+            "decoded segment span is outside its record");
+    require(record.substr(span.output_begin,
+                          span.output_end - span.output_begin)
+                    .find(span.text) != std::string::npos ||
+                span.text.find('?') == std::string::npos,
+            "decoded segment text lost its source range");
+    projected.push_back(span.text);
+  }
+  // The legacy API is now a value-only view of the span-preserving splitter.
+  require(projected == geist::detail::split_decoded_markup_segments(record),
+          "span splitter differs from the legacy segment splitter");
+}
+
 } // namespace
 
 int main() {
+  for (const auto& record : {
+           std::string("  ST title, cfont 3 5 2     text  "),
+           std::string("alpha???????????????????? cselect 3 5 target text"),
+           std::string("SRMSG 12, cfont 3 2 2   12"),
+           std::string(75, ' ') + " cfont 3 4 2 fixed"}) {
+    verify_segment_spans(record);
+  }
+  const std::string exact_record = "  ST title cfont 3 4 2 text  ";
+  const auto exact_spans =
+      geist::detail::split_decoded_markup_segment_spans(exact_record);
+  require(exact_spans.size() == 2 && exact_spans[0].output_begin == 2 &&
+              exact_spans[0].output_end == 10 &&
+              exact_spans[0].text == "ST title" &&
+              exact_spans[1].output_begin == 11 &&
+              exact_spans[1].output_end == exact_record.size() - 2 &&
+              exact_spans[1].text == "cfont 3 4 2 text",
+          "decoded segment half-open offsets are not exact");
+
+  const auto intersection = geist::detail::assemble_logical_record_with_sources(
+      {{{'a','b'}}, {{3, 'c', 'd'}}, {{3, 'e'}}});
+  require(geist::detail::output_spans_intersect(1, 3, 2, 4) &&
+              !geist::detail::output_spans_intersect(1, 2, 2, 4),
+          "half-open output-span intersection is incorrect");
+  const auto intersecting = geist::detail::source_tokens_intersecting_output(
+      intersection, intersection.tokens[1].output_begin,
+      intersection.tokens[2].output_end);
+  require(intersecting == std::vector<std::size_t>({1, 2}),
+          "segment/token intersection lost exact token ownership");
   const std::vector<std::vector<TokenWords>> cases = {
       {},
       {{}},

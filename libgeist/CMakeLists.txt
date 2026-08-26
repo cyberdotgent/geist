@@ -81,6 +81,7 @@ set(GEIST_SOURCES
   src/properties.cpp
   src/resources.cpp
   src/source_rows.cpp
+  src/source_segments.cpp
   src/strings.cpp
   src/toc.cpp
   src/util.cpp

@@ -54,6 +54,22 @@ struct AssembledLogicalRecord {
   std::vector<LogicalTokenSpan> tokens;
 };
 
+struct DecodedMarkupSegmentSpan {
+  std::size_t output_begin = 0;
+  std::size_t output_end = 0;
+  std::string text;
+};
+
+bool output_spans_intersect(std::size_t left_begin, std::size_t left_end,
+                            std::size_t right_begin, std::size_t right_end);
+std::vector<std::size_t> source_tokens_intersecting_output(
+    const AssembledLogicalRecord& assembled, std::size_t output_begin,
+    std::size_t output_end);
+std::vector<DecodedMarkupSegmentSpan> split_decoded_markup_segment_spans(
+    const std::string& decoded_record);
+std::vector<std::string> split_decoded_markup_segments(
+    const std::string& decoded_record);
+
 struct LogicalRecordPayloadRange {
   std::uint32_t begin = 0;
   std::uint32_t end = 0;
