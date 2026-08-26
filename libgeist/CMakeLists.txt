@@ -70,6 +70,7 @@ set(GEIST_SOURCES
   src/document.cpp
   src/document_ir.cpp
   src/document_lowering.cpp
+  src/document_markdown_renderer.cpp
   src/ebcdic.cpp
   src/fixed_display.cpp
   src/fixed_prose_ir.cpp

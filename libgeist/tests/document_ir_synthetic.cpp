@@ -1,7 +1,10 @@
 #include "geist/detail/document_ir.hpp"
 #include "geist/detail/document_lowering.hpp"
+#include "geist/detail/document_markdown_renderer.hpp"
+#include "geist/toc.hpp"
 
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -39,8 +42,11 @@ int main() {
   identity.start_logical_record = 100;
   identity.end_logical_record = 102;
 
+  // This list spans several records. Passing those records through separate
+  // renderer calls would lose the list state carried by the legacy renderer.
   const std::vector<std::string> records = {
-      ":h1.Introduction", ":p.First paragraph", ":p.Second paragraph"};
+      ":h1.Introduction", ":ul.", ":li.First item", ":li.Second item",
+      ":eul.", ":p.Second paragraph"};
   auto legacy = lower_legacy_topic_to_document_ir(identity, records);
   std::string error;
   if (!require(verify_document_ir(legacy, &error), error) ||
@@ -56,11 +62,18 @@ int main() {
                "adapter did not preserve whole-topic renderer state"))
     return 1;
 
+  const auto rendered = render_document_markdown(legacy);
+  if (!require(rendered ==
+                   "# Introduction\n\n- First item\n- Second item\n\nSecond "
+                   "paragraph\n",
+               "whole-topic adapter changed legacy Markdown output"))
+    return 1;
+
   const auto formatted = format_document_ir(legacy);
-  if (!require(formatted.find("legacy_gml scope=whole_topic records=3") !=
+  if (!require(formatted.find("legacy_gml scope=whole_topic records=6") !=
                    std::string::npos,
                "formatter omitted compatibility boundary") ||
-      !require(formatted.find("record=\":p.First paragraph\"") !=
+      !require(formatted.find("record=\":li.First item\"") !=
                    std::string::npos,
                "formatter omitted a normalized record"))
     return 1;
@@ -117,6 +130,53 @@ int main() {
   if (!require(!verify_document_ir(invalid_heading, &error) &&
                    error == "heading level is outside 1..6",
                "verifier admitted invalid heading geometry"))
+    return 1;
+
+  auto rejected_typed_document = false;
+  auto rejection_message = std::string{};
+  try {
+    (void)render_document_markdown(typed);
+  } catch (const std::invalid_argument& exception) {
+    rejected_typed_document = true;
+    rejection_message = exception.what();
+  }
+  if (!require(rejected_typed_document,
+               "legacy adapter admitted typed DocumentIR blocks") ||
+      !require(rejection_message ==
+                   "DocumentIR Markdown adapter requires one legacy region",
+               "typed-node rejection did not explain the migration boundary"))
+    return 1;
+
+  auto incomplete_legacy = legacy;
+  incomplete_legacy.topic.id.clear();
+  auto rejected_invalid_document = false;
+  rejection_message.clear();
+  try {
+    (void)render_document_markdown(incomplete_legacy);
+  } catch (const std::invalid_argument& exception) {
+    rejected_invalid_document = true;
+    rejection_message = exception.what();
+  }
+  if (!require(rejected_invalid_document,
+               "renderer admitted invalid DocumentIR") ||
+      !require(rejection_message ==
+                   "invalid DocumentIR: document topic identity is incomplete",
+               "invalid DocumentIR rejection did not retain verifier detail"))
+    return 1;
+
+  geist::TocEntry anonymous_entry;
+  anonymous_entry.raw_records = {":p.Public compatibility entry"};
+  if (!require(anonymous_entry.markdown() == "Public compatibility entry\n",
+               "IR handoff broke an identity-free public TocEntry"))
+    return 1;
+
+  auto identity_free_typed = typed;
+  identity_free_typed.topic.id.clear();
+  identity_free_typed.topic.title.clear();
+  error.clear();
+  if (!require(!verify_document_ir(identity_free_typed, &error) &&
+                   error == "document topic identity is incomplete",
+               "identity-free exception leaked beyond the legacy adapter"))
     return 1;
 
   auto invalid_table = typed;

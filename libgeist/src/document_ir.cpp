@@ -267,7 +267,12 @@ void format_entry_origin(std::ostringstream& out,
 } // namespace
 
 bool verify_document_ir(const DocumentIR& document, std::string* error) {
-  if (document.topic.id.empty() || document.topic.title.empty())
+  const auto is_identity_free_legacy_adapter =
+      document.topic.id.empty() && document.topic.title.empty() &&
+      document.blocks.size() == 1 &&
+      std::holds_alternative<LegacyGmlRegionIR>(document.blocks.front().node);
+  if ((document.topic.id.empty() || document.topic.title.empty()) &&
+      !is_identity_free_legacy_adapter)
     return fail(error, "document topic identity is incomplete");
   if (document.topic.end_logical_record != 0 &&
       document.topic.start_logical_record > document.topic.end_logical_record)

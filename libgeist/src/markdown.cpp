@@ -1,5 +1,8 @@
 #include "geist/detail/internal.hpp"
 
+#include "geist/detail/document_lowering.hpp"
+#include "geist/detail/document_markdown_renderer.hpp"
+
 #include <algorithm>
 #include <array>
 #include <cctype>
@@ -182,7 +185,16 @@ std::string TocEntry::markdown() const {
       break;
     }
   }
-  return detail::render_markdown_records(records);
+  detail::TopicIdentityIR identity;
+  identity.id = id;
+  identity.title = title;
+  identity.heading_level = heading_level;
+  identity.topic_number = topic_number;
+  identity.start_logical_record = start_logical_record;
+  identity.end_logical_record = end_logical_record;
+  return detail::render_document_markdown(
+      detail::lower_legacy_topic_to_document_ir(std::move(identity),
+                                                std::move(records)));
 }
 
 std::string BooDocument::markdown() const {
