@@ -309,6 +309,17 @@ int main() {
       {":table id='TBLTBL1'.", ":row.", ":c col='0'.Alpha",
        ":c col='1'.Beta", ":c col='2'.Gamma", ":tcap.", ":etable."});
 
+  ok &= expect_records(
+      "visible CCP paragraph",
+      {"c.cp 54: The following terms are trademarks of other companies:"},
+      {":p.The following terms are trademarks of other companies:"});
+  ok &= expect_records("bare CCP remains pagination", {"c.cp"}, {});
+  ok &= expect_records("numeric CCP remains pagination", {"c.cp 54"}, {});
+  ok &= expect_records("punctuation CCP remains pagination", {"c.cp 54: ***"},
+                       {});
+  ok &= expect_records("unframed CCP tail remains pagination",
+                       {"c.cp visible words without a layout prefix"}, {});
+
   {
     auto left = std::string("For information");
     left.resize(23, ' ');

@@ -4726,7 +4726,24 @@ std::string render_gml_segment(std::string segment,
     return {};
   }
   if (ascii_starts_with_case_insensitive(lower, "c.cp")) {
-    return {};
+    // CCP normally carries only pagination state. In fixed-layout books it
+    // can also own visible prose after a decimal layout value and colon.
+    auto payload = trim_ascii(rest_after_first_word(segment));
+    auto cursor = std::size_t{0};
+    while (cursor < payload.size() &&
+           std::isdigit(static_cast<unsigned char>(payload[cursor])) != 0) {
+      ++cursor;
+    }
+    if (cursor == 0 || cursor >= payload.size() || payload[cursor] != ':') {
+      return {};
+    }
+    payload = trim_ascii(payload.substr(cursor + 1));
+    const auto has_word = std::any_of(
+        payload.begin(), payload.end(), [](const auto ch) {
+          return std::isalpha(static_cast<unsigned char>(ch)) != 0;
+        });
+    return has_word ? render_simple_gml_control("p", std::move(payload))
+                    : std::string{};
   }
   const auto is_table_picture_select = [&]() {
     if (!ascii_starts_with_case_insensitive(lower, "cselect")) {

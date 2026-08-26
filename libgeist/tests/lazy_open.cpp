@@ -416,6 +416,30 @@ int main() {
               collating.find("```text") != std::string::npos &&
               collating.find("Order in") != std::string::npos,
           "collating-sequence figures lost their fixed rows");
+  require(collating.find("c.cp") == std::string::npos,
+          "PRG1SORT exposed a CCP pagination control");
+
+  const auto starter_trademarks =
+      geist::BooDocument::open(root / "SH20-918.boo")
+          .topic_markdown("FRONT_1.3");
+  require(starter_trademarks.find(
+              "The following terms are trademarks of other companies as "
+              "follows:") != std::string::npos &&
+              starter_trademarks.find("PostScript Adobe Systems Incorporated") !=
+                  std::string::npos &&
+              starter_trademarks.find("c.cp") == std::string::npos,
+          "SH20 trademark tables changed while projecting visible CCP prose");
+
+  const auto tpns_edition =
+      geist::BooDocument::open(root / "ITPPIBOK.BOO")
+          .topic_markdown("EDITION");
+  require(tpns_edition.find(
+              "Teleprocessing Network Simulator Version 3 Relelease 2") !=
+                  std::string::npos &&
+              tpns_edition.find("North Carolina 27709, U.S.A.") !=
+                  std::string::npos &&
+              tpns_edition.find("c.cp") == std::string::npos,
+          "ITPPIBOK edition changed while projecting visible CCP prose");
   const auto smf_layout =
       geist::BooDocument::open(root / "SH12-565.boo")
           .topic_markdown("APPENDIX1.8");
@@ -439,6 +463,13 @@ int main() {
 
   const auto problem_determination =
       geist::BooDocument::open(root / "SC31-711.boo");
+  const auto trademarks =
+      problem_determination.topic_markdown("FRONT_1.1");
+  require(trademarks.find(
+              "The following terms, denoted by a double asterisk (**) at "
+              "their first occurrence in this publication, are trademarks "
+              "of other companies:") != std::string::npos,
+          "visible CCP trademark paragraph was dropped");
   const auto intended_audience =
       problem_determination.topic_markdown("PREFACE.1");
   require(intended_audience.find(
