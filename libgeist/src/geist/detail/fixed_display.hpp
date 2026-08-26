@@ -48,6 +48,22 @@ struct ReconstructedFixedDisplayRow {
   std::vector<bool> source_present;
 };
 
+enum class FixedFormPhysicalRowKind {
+  row_start,
+  continuation,
+  border,
+  spacer,
+};
+
+// A form row after source-aware reconstruction has removed structural marker
+// slots and sliced the surviving grid at its discovered separator offsets.
+// The kind is derived from the source slot that owned the physical row, not
+// from the visible cell text.
+struct FixedFormPhysicalRow {
+  FixedFormPhysicalRowKind kind = FixedFormPhysicalRowKind::spacer;
+  std::vector<std::string> cells;
+};
+
 FixedDisplayRow assemble_fixed_display_row(
     const std::vector<std::string>& fragments);
 void blank_fixed_display_marker_fields(FixedDisplayRow& row,
@@ -62,5 +78,12 @@ void blank_fixed_display_marker_fields(FixedDisplayRow& row,
 // are still distinguishable, and layout consumers only compose coordinates.
 std::vector<ReconstructedFixedDisplayRow> reconstruct_fixed_display_rows(
     const std::vector<FixedDisplayFragment>& fragments);
+
+// Fold physical form lines into logical rows. Continuations retain their
+// columns, including simultaneous field/value continuations. Borders flush a
+// pending row and spacers have no semantic ownership.
+std::vector<std::vector<std::string>> aggregate_fixed_form_rows(
+    const std::vector<FixedFormPhysicalRow>& physical_rows,
+    std::size_t column_count);
 
 } // namespace geist::detail

@@ -122,5 +122,60 @@ std::vector<ReconstructedFixedDisplayRow> reconstruct_fixed_display_rows(
   return rows;
 }
 
+std::vector<std::vector<std::string>> aggregate_fixed_form_rows(
+    const std::vector<FixedFormPhysicalRow>& physical_rows,
+    std::size_t column_count) {
+  if (column_count == 0) {
+    throw std::invalid_argument("fixed form must have at least one column");
+  }
+
+  std::vector<std::vector<std::string>> rows;
+  std::vector<std::string> pending;
+  const auto flush = [&]() {
+    if (pending.empty()) {
+      return;
+    }
+    rows.push_back(std::move(pending));
+    pending.clear();
+  };
+  const auto append = [&](const FixedFormPhysicalRow& row) {
+    if (row.cells.size() != column_count) {
+      throw std::invalid_argument(
+          "fixed form physical row does not match the discovered grid");
+    }
+    if (pending.empty()) {
+      pending.resize(column_count);
+    }
+    for (std::size_t column = 0; column < column_count; ++column) {
+      if (row.cells[column].empty()) {
+        continue;
+      }
+      if (!pending[column].empty()) {
+        pending[column] += "<br>";
+      }
+      pending[column] += row.cells[column];
+    }
+  };
+
+  for (const auto& physical : physical_rows) {
+    switch (physical.kind) {
+      case FixedFormPhysicalRowKind::row_start:
+        flush();
+        append(physical);
+        break;
+      case FixedFormPhysicalRowKind::continuation:
+        append(physical);
+        break;
+      case FixedFormPhysicalRowKind::border:
+        flush();
+        break;
+      case FixedFormPhysicalRowKind::spacer:
+        break;
+    }
+  }
+  flush();
+  return rows;
+}
+
 
 } // namespace geist::detail

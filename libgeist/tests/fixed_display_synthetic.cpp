@@ -71,6 +71,65 @@ int main() {
   }
   require(overlap_rejected, "conflicting source fragments were accepted");
 
+  using geist::detail::FixedFormPhysicalRow;
+  using geist::detail::FixedFormPhysicalRowKind;
+  const auto form_rows = geist::detail::aggregate_fixed_form_rows(
+      {
+          {FixedFormPhysicalRowKind::border, {}},
+          {FixedFormPhysicalRowKind::row_start,
+           {"Which mode was AIX NetView/6000 operating", "[ ] Read"}},
+          {FixedFormPhysicalRowKind::continuation,
+           {"in at the time of the problem?", "[ ] Read-Write"}},
+          {FixedFormPhysicalRowKind::spacer, {}},
+          {FixedFormPhysicalRowKind::row_start,
+           {"Number of objects in the OVw database", {}}},
+          {FixedFormPhysicalRowKind::continuation,
+           {"(use the command ovobjprint | head)", {}}},
+          {FixedFormPhysicalRowKind::row_start,
+           {"Number of objects to hold in ovwdb", {}}},
+          {FixedFormPhysicalRowKind::continuation, {"cache", {}}},
+          {FixedFormPhysicalRowKind::row_start,
+           {"Number of seconds between storing", {}}},
+          {FixedFormPhysicalRowKind::continuation,
+           {"data to the GTMD database", {}}},
+          {FixedFormPhysicalRowKind::border, {}},
+      },
+      2);
+  require(form_rows.size() == 4,
+          "physical form ownership did not produce four logical rows");
+  require(form_rows[0][0] ==
+              "Which mode was AIX NetView/6000 operating<br>in at the time of "
+              "the problem?" &&
+              form_rows[0][1] == "[ ] Read<br>[ ] Read-Write",
+          "simultaneous field/value continuations changed columns");
+  require(form_rows[1][0] ==
+              "Number of objects in the OVw database<br>(use the command "
+              "ovobjprint | head)",
+          "literal form pipe was treated as grid structure");
+  require(form_rows[2][0] ==
+              "Number of objects to hold in ovwdb<br>cache" &&
+              form_rows[3][0] ==
+                  "Number of seconds between storing<br>data to the GTMD "
+                  "database",
+          "single-column form continuations lost row ownership");
+
+  const auto leading_continuation =
+      geist::detail::aggregate_fixed_form_rows(
+          {{FixedFormPhysicalRowKind::continuation, {{}, "continued"}}}, 2);
+  require(leading_continuation.size() == 1 &&
+              leading_continuation[0][1] == "continued",
+          "leading physical continuation was discarded");
+
+  auto bad_form_grid_rejected = false;
+  try {
+    (void)geist::detail::aggregate_fixed_form_rows(
+        {{FixedFormPhysicalRowKind::row_start, {"only one"}}}, 2);
+  } catch (const std::invalid_argument&) {
+    bad_form_grid_rejected = true;
+  }
+  require(bad_form_grid_rejected,
+          "mismatched fixed form geometry was accepted");
+
   auto punctuation = geist::detail::assemble_fixed_display_row(
       {"Value (positive)    )    next row"});
   std::vector<bool> styled(punctuation.text.size(), false);
