@@ -248,6 +248,12 @@ add_executable(source_rows_synthetic_test
 target_link_libraries(source_rows_synthetic_test PRIVATE geist::geist_static)
 add_test(NAME source_rows_synthetic_test COMMAND source_rows_synthetic_test)
 
+add_executable(layout_ir_synthetic_test
+  tests/layout_ir_synthetic.cpp
+)
+target_link_libraries(layout_ir_synthetic_test PRIVATE geist::geist_static)
+add_test(NAME layout_ir_synthetic_test COMMAND layout_ir_synthetic_test)
+
 add_executable(procedure_rows_synthetic_test
   tests/procedure_rows_synthetic.cpp
 )

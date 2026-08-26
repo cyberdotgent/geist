@@ -142,26 +142,33 @@ decode_control_segments(std::uint32_t logical_record,
       segment.opcode = text.substr(words[0].begin, words[0].end - words[0].begin);
       segment.kind = classify(segment.opcode);
       segment.opcode_range = {words[0].begin, words[0].end};
-      auto operand_words = fixed_operand_count(segment.kind);
-      if (segment.kind == BookControlKind::font) {
-        operand_words = 0;
-        for (std::size_t word = 1; word + 2 < words.size(); word += 3) {
-          if (!decimal_word(text, words[word]) ||
-              !decimal_word(text, words[word + 1])) {
-            break;
+      if (segment.kind == BookControlKind::text) {
+        segment.opcode.clear();
+        segment.opcode_range = {source.output_begin, source.output_begin};
+        segment.operand_range = segment.opcode_range;
+        segment.payload_range = {source.output_begin, source.output_end};
+      } else {
+        auto operand_words = fixed_operand_count(segment.kind);
+        if (segment.kind == BookControlKind::font) {
+          operand_words = 0;
+          for (std::size_t word = 1; word + 2 < words.size(); word += 3) {
+            if (!decimal_word(text, words[word]) ||
+                !decimal_word(text, words[word + 1])) {
+              break;
+            }
+            operand_words += 3;
           }
-          operand_words += 3;
+          segment.malformed = operand_words == 0;
+        } else if (operand_words > words.size() - 1) {
+          segment.malformed = true;
+          operand_words = words.size() - 1;
         }
-        segment.malformed = operand_words == 0;
-      } else if (operand_words > words.size() - 1) {
-        segment.malformed = true;
-        operand_words = words.size() - 1;
+        const auto operand_end = operand_words == 0
+                                     ? segment.opcode_range.end
+                                     : words[operand_words].end;
+        segment.operand_range = {segment.opcode_range.end, operand_end};
+        segment.payload_range = {operand_end, source.output_end};
       }
-      const auto operand_end = operand_words == 0
-                                   ? segment.opcode_range.end
-                                   : words[operand_words].end;
-      segment.operand_range = {segment.opcode_range.end, operand_end};
-      segment.payload_range = {operand_end, source.output_end};
     }
     const auto word_range = word_range_for_bytes(
         assembled, segment.complete.begin, segment.complete.end);

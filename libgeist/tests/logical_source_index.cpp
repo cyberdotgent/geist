@@ -74,7 +74,9 @@ void verify_book(const std::filesystem::path& path,
           "candidate-local source slice has the wrong record count");
   const auto layout = geist::detail::extract_layout_ir(sources);
   std::string layout_error;
-  require(geist::detail::verify_layout_ir(sources, layout, &layout_error),
+  const auto layout_valid =
+      geist::detail::verify_layout_ir(sources, layout, &layout_error);
+  require(layout_valid,
           layout_error.empty() ? "layout IR verification failed"
                                : layout_error.c_str());
   for (std::size_t index = 0; index < sources.size(); ++index) {
@@ -136,6 +138,51 @@ void verify_book(const std::filesystem::path& path,
     require(ansi_rows == 2,
             "layout IR did not preserve the two independent ANSI rows");
   }
+  if (path.filename() == "SC31-711.boo" && first == 519) {
+    const auto continuation = std::find_if(
+        layout.runs.begin(), layout.runs.end(), [](const auto& run) {
+          return std::any_of(run.rows.begin(), run.rows.end(),
+                             [](const auto& row) {
+                               return row.logical_record == 520 &&
+                                      row.continues_previous_record &&
+                                      row.visible_text.find(
+                                          "management problems") !=
+                                          std::string::npos;
+                             });
+        });
+    if (continuation == layout.runs.end()) {
+      for (const auto& run : layout.runs) {
+        for (const auto& row : run.rows) {
+          std::cerr << geist::detail::format_physical_row_ir(row) << '\n';
+        }
+      }
+    }
+    require(continuation != layout.runs.end(),
+            "layout IR lost the LR519-to-LR520 publication continuation");
+  }
+  if (path.filename() == "SC31-711.boo" && first == 537) {
+    const auto markerless = std::any_of(
+        layout.runs.begin(), layout.runs.end(), [](const auto& run) {
+          return std::any_of(run.rows.begin(), run.rows.end(),
+                             [](const auto& row) {
+                               return row.start ==
+                                          geist::detail::PhysicalRowStartKind::
+                                              control_payload &&
+                                      row.visible_text.find(
+                                          "IBM 8229 Bridge Manual") !=
+                                          std::string::npos;
+                             });
+        });
+    if (!markerless) {
+      for (const auto& run : layout.runs) {
+        for (const auto& row : run.rows) {
+          std::cerr << geist::detail::format_physical_row_ir(row) << '\n';
+        }
+      }
+    }
+    require(markerless,
+            "layout IR lost the markerless LR537 control-payload row");
+  }
 
   const auto* cached_dictionary = context.source_dictionary.get();
   const auto repeated =
@@ -172,6 +219,8 @@ int main() {
   const bool benchmark = std::getenv("GEIST_BENCH_SOURCE_INDEX") != nullptr;
   verify_book(root / "SC31-711.boo", 19, 21, benchmark);
   verify_book(root / "SC31-711.boo", 22, 24, benchmark);
+  verify_book(root / "SC31-711.boo", 519, 521, benchmark);
   verify_book(root / "SC31-711.boo", 528, 529, benchmark);
+  verify_book(root / "SC31-711.boo", 537, 538, benchmark);
   verify_book(root / "SG24-204.boo", 1, 2, benchmark);
 }
