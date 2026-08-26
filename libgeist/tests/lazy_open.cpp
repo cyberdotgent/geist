@@ -592,6 +592,17 @@ int main() {
           "redirected trap catalog remained preformatted or leaked metadata");
 
   const auto fddi_traps = problem_determination.topic_markdown("4.4");
+  const auto fddi_intro =
+      std::string("For more information about the data associated with each "
+                  "of these traps");
+  const auto fddi_intro_begin = fddi_traps.find(fddi_intro);
+  require(fddi_intro_begin != std::string::npos &&
+              fddi_traps.find(fddi_intro,
+                              fddi_intro_begin + fddi_intro.size()) ==
+                  std::string::npos &&
+              fddi_traps.find("<a id=\"MSG 1\"></a>", fddi_intro_begin) !=
+                  std::string::npos,
+          "FDDI catalog introduction lost single ownership or first entry");
   require(fddi_traps.find(
               "ringInoperative cleared in segment. All stations on the ring "
               "are reset to their previous status") != std::string::npos &&

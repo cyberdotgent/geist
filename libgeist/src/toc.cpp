@@ -1173,6 +1173,37 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
       return;
     }
 
+    if (is_message_catalog && is_topic_title_record(*heading)) {
+      const auto heading_offset = static_cast<std::size_t>(
+          std::distance(entry.raw_records.begin(), heading));
+      auto intro_begin = heading + 1;
+      auto intro_end = intro_begin;
+      std::string intro;
+      while (intro_end != entry.raw_records.end() &&
+             (raw_gml_tag(*intro_end) == "line" ||
+              raw_gml_tag(*intro_end) == "p")) {
+        auto content = raw_gml_content_preserve_space(*intro_end);
+        if (!content.empty()) {
+          if (!intro.empty()) {
+            intro.push_back(' ');
+          }
+          intro += std::move(content);
+        }
+        ++intro_end;
+      }
+      if (intro_end != intro_begin) {
+        intro = normalize_message_catalog_intro(
+            clean_fixed_st_row_markers(strip_fixed_line_overflow_tokens(
+                std::move(intro), true)));
+        intro_begin = entry.raw_records.erase(intro_begin, intro_end);
+        if (!intro.empty()) {
+          entry.raw_records.insert(intro_begin, ":p." + std::move(intro));
+        }
+        heading = entry.raw_records.begin() +
+                  static_cast<std::ptrdiff_t>(heading_offset);
+      }
+    }
+
     if (!is_topic_title_record(*heading)) {
       auto body_text = topic_st_body_text_after_toc_title(topic, entry.title);
       if (body_text.empty()) {
