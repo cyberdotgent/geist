@@ -85,6 +85,26 @@ int main() {
                                        visible_content;
                           }),
           "ownership ledger did not retain its structural disposition classes");
+
+  const auto generated_controls = make_record(
+      20, {{3, 'c','.','s','p',' ','3','p',' ','p',' ','c'},
+           {3, 'c','z',' ','B','R','E','A','K',' ','3'}});
+  const auto generated_control_layout =
+      geist::detail::extract_layout_ir({generated_controls});
+  const auto generated_control_ownership = geist::detail::build_ownership_ir(
+      {generated_controls}, generated_control_layout);
+  require(generated_control_layout.runs.empty() &&
+              geist::detail::verify_ownership_ir(
+                  {generated_controls}, generated_control_layout,
+                  generated_control_ownership, &error) &&
+              std::all_of(generated_control_ownership.cells.begin(),
+                          generated_control_ownership.cells.end(),
+                          [](const auto& cell) {
+                            return cell.disposition ==
+                                   geist::detail::SourceDisposition::
+                                       control_operand;
+                          }),
+          "output-neutral spacing/CZ operands escaped structural ownership");
   require(geist::detail::format_ownership_ir(ownership).find(
               "disposition=") != std::string::npos,
           "ownership IR has no stable diagnostic projection");

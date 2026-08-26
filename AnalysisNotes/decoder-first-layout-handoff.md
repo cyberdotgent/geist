@@ -547,13 +547,12 @@ Document-IR lowering. It composes the verified selector catalog and display-row
 ledger with the topic metadata, `CHDLEVEL`/`ST` heading, every entry cell, and
 all envelope segment slices. Each selector becomes one paragraph containing a
 typed cross-reference with its raw BOO anchor identity; output paths remain a
-renderer/exporter concern. An all-topic corpus scan admits 25 complete
-`FIGURES`/`TABLES` topics across 16 fixtures, conserving 1,177 selector rows,
-and finds no false positives. Three candidates fail closed: both generated lists
-in `packet.boo` contain an untyped `cz BREAK 3` control, while
-`XWEBDEMO.boo` `FIGURES` has an untyped `c.sp` segment whose parsed envelope
-swallows visible payload. Those control grammars must be typed before the three
-topics or the complete generated-list family can enter production routing.
+renderer/exporter concern. Typed control ranges now distinguish the observed
+three-operand `c.sp` spacing form and generic `cz` layout directives; only the
+generated-list pass interprets the verified `BREAK`/`OFF` operands. Unknown
+forms remain malformed and opaque. An all-topic corpus scan consequently admits
+all 28 complete `FIGURES`/`TABLES` topics across 18 fixtures, conserving all
+1,196 selector rows with no false positives or rejected generated-list topics.
 
 Menu provenance is now explicit down to decoded output cell, token/word,
 inserted-space kind, word value, and token byte range. A strict `MenuTopicIR`

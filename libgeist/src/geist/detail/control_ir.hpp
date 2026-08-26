@@ -27,6 +27,8 @@ enum class BookControlKind {
   title,
   font,
   select,
+  spacing,
+  layout_directive,
   table_start,
   table_end,
   menu_start,

@@ -155,6 +155,37 @@ void verify_synthetic_contract() {
                mismatch.sources, mismatch.selectors, mismatch.layout,
                mismatch.ownership, &error),
           "generated-list envelope admitted a mismatched ST title");
+
+  const auto directives = pipeline({make_source(
+      13, {words("chdlevel :FIGLIST"), words("ST Figures"),
+           words("c.sp 3p p c"), words("cz BREAK 3"),
+           words("cz OFF FIGLIST"), words("cselect 3 4 FIGONE"), words("?"),
+           words("   "), words("ABCD"), words("cz OFF EFIGLIST 0 0")})});
+  const auto directed = geist::detail::extract_generated_list_topic_ir(
+      directives.sources, directives.selectors, directives.layout,
+      directives.ownership, &error);
+  require(directed && directed->entries.size() == 1,
+          "typed generated-list directive envelope was rejected: " + error);
+
+  const auto wrong_directive = pipeline({make_source(
+      14, {words("chdlevel :FIGLIST"), words("ST Figures"),
+           words("cz BREAK 3"), words("cz OFF TLIST"),
+           words("cselect 3 4 FIGONE"), words("?"), words("   "),
+           words("ABCD"), words("cz OFF ETLIST 0 0")})});
+  require(!geist::detail::extract_generated_list_topic_ir(
+               wrong_directive.sources, wrong_directive.selectors,
+               wrong_directive.layout, wrong_directive.ownership, &error),
+          "FIGLIST admitted TLIST-specific directives");
+
+  const auto malformed_directive = pipeline({make_source(
+      15, {words("chdlevel :FIGLIST"), words("ST Figures"),
+           words("cz BREAK 4"), words("cselect 3 4 FIGONE"), words("?"),
+           words("   "), words("ABCD")})});
+  require(!geist::detail::extract_generated_list_topic_ir(
+               malformed_directive.sources, malformed_directive.selectors,
+               malformed_directive.layout, malformed_directive.ownership,
+               &error),
+          "generated list admitted an unknown CZ operand form");
 }
 
 #ifdef GEIST_REPO_ROOT
@@ -183,6 +214,81 @@ void load_context(const std::filesystem::path& path,
       context.bytes, context.directory, &context.record_payload_ranges);
 }
 
+void verify_generated_control_evidence(
+    const std::string& filename, const std::string& topic_id,
+    const std::vector<DecodedLogicalRecordSource>& sources) {
+  struct ExpectedControl {
+    std::uint32_t logical_record;
+    std::size_t segment;
+    geist::detail::BookControlKind kind;
+    geist::detail::OutputRangeIR complete;
+    geist::detail::OutputRangeIR opcode;
+    geist::detail::OutputRangeIR operands;
+    std::string operand_text;
+  };
+  std::vector<ExpectedControl> expected;
+  if (filename == "XWEBDEMO.boo" && topic_id == "FIGURES") {
+    expected = {
+        {4, 9, geist::detail::BookControlKind::spacing, {143, 154},
+         {143, 147}, {147, 154}, "3p p c"},
+        {4, 10, geist::detail::BookControlKind::layout_directive, {157, 167},
+         {157, 159}, {159, 167}, "BREAK 3"},
+        {4, 11, geist::detail::BookControlKind::layout_directive, {169, 183},
+         {169, 171}, {171, 183}, "OFF FIGLIST"},
+        {4, 15, geist::detail::BookControlKind::layout_directive, {437, 456},
+         {437, 439}, {439, 456}, "OFF EFIGLIST 0 0"},
+    };
+  } else if (filename == "packet.boo" && topic_id == "FIGURES") {
+    expected = {
+        {11, 9, geist::detail::BookControlKind::layout_directive, {148, 158},
+         {148, 150}, {150, 158}, "BREAK 3"},
+        {11, 10, geist::detail::BookControlKind::layout_directive, {161, 175},
+         {161, 163}, {163, 175}, "OFF FIGLIST"},
+        {11, 20, geist::detail::BookControlKind::layout_directive, {898, 917},
+         {898, 900}, {900, 917}, "OFF EFIGLIST 0 0"},
+    };
+  } else if (filename == "packet.boo" && topic_id == "TABLES") {
+    expected = {
+        {12, 9, geist::detail::BookControlKind::layout_directive, {140, 150},
+         {140, 142}, {142, 150}, "BREAK 3"},
+        {12, 10, geist::detail::BookControlKind::layout_directive, {153, 165},
+         {153, 155}, {155, 165}, "OFF TLIST"},
+        {12, 18, geist::detail::BookControlKind::layout_directive, {690, 707},
+         {690, 692}, {692, 707}, "OFF ETLIST 0 0"},
+    };
+  } else {
+    return;
+  }
+  require(!expected.empty(), "generated-control evidence set is empty");
+  for (const auto& item : expected) {
+    const auto record = std::find_if(
+        sources.begin(), sources.end(), [&](const auto& candidate) {
+          return candidate.logical_record == item.logical_record;
+        });
+    require(record != sources.end() &&
+                item.segment < record->control_segments.size(),
+            "generated-control evidence segment is missing");
+    const auto& segment = record->control_segments[item.segment];
+    const auto text =
+        geist::detail::token_words_to_ascii(record->assembled.words);
+    const auto slice = [&](const geist::detail::OutputRangeIR& range) {
+      return geist::detail::trim_ascii(
+          text.substr(range.begin, range.end - range.begin));
+    };
+    require(segment.kind == item.kind && !segment.malformed &&
+                segment.complete.begin == item.complete.begin &&
+                segment.complete.end == item.complete.end &&
+                segment.opcode_range.begin == item.opcode.begin &&
+                segment.opcode_range.end == item.opcode.end &&
+                segment.operand_range.begin == item.operands.begin &&
+                segment.operand_range.end == item.operands.end &&
+                segment.payload_range.begin == segment.payload_range.end &&
+                segment.payload_range.begin == item.complete.end &&
+                slice(segment.operand_range) == item.operand_text,
+            "generated-control source range or operand evidence changed");
+  }
+}
+
 void verify_corpus_inventory() {
   const auto directory = std::filesystem::path(GEIST_REPO_ROOT) / "BOO";
   std::vector<std::string> admitted;
@@ -200,6 +306,8 @@ void verify_corpus_inventory() {
     for (const auto& topic : book.topics()) {
       const auto sources = geist::detail::decode_logical_record_sources(
           context, topic.start_logical_record, topic.end_logical_record);
+      verify_generated_control_evidence(file.path().filename().string(),
+                                        topic.id, sources);
       const auto selectors = geist::detail::extract_selector_catalog_ir(sources);
       if (!selectors) continue;
       const auto layout = geist::detail::extract_layout_ir(sources);
@@ -253,12 +361,12 @@ void verify_corpus_inventory() {
       "SC26-457.boo:FIGURES:53",     "SC28-1881-05.boo:FIGURES:18",
       "SC33-033.boo:FIGURES:7",      "SC33-033.boo:TABLES:4",
       "SG24-204.boo:FIGURES:128",    "SH20-918.boo:FIGURES:12",
-      "SH20-918.boo:TABLES:9"};
+      "SH20-918.boo:TABLES:9",       "XWEBDEMO.boo:FIGURES:3",
+      "packet.boo:FIGURES:9",        "packet.boo:TABLES:7"};
   std::sort(expected.begin(), expected.end());
   std::sort(rejected_candidates.begin(), rejected_candidates.end());
-  const auto expected_rejections = std::vector<std::string>{
-      "XWEBDEMO.boo:FIGURES", "packet.boo:FIGURES", "packet.boo:TABLES"};
-  require(admitted == expected && entries == 1177,
+  const auto expected_rejections = std::vector<std::string>{};
+  require(admitted == expected && entries == 1196,
           "whole-topic generated-list inventory changed");
   require(rejected_candidates == expected_rejections,
           "generated-list fail-closed candidate inventory changed");

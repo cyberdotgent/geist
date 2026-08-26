@@ -239,6 +239,65 @@ void verify_control_ir_contract() {
                                                    &error) &&
               !error.empty(),
           "control IR gap did not fail verification");
+
+  const auto spacing = geist::detail::assemble_logical_record_with_sources(
+      {{{2, 'c','.','s','p',' ','3','p',' ','p',' ','c'}}});
+  const auto spacing_segments =
+      geist::detail::decode_control_segments(13, spacing);
+  const auto spacing_text = geist::detail::token_words_to_ascii(spacing.words);
+  const auto directive = geist::detail::assemble_logical_record_with_sources(
+      {{{2, 'c','z',' ','O','F','F',' ','E','F','I','G','L','I','S','T',' ','0',' ','0'}}});
+  const auto directive_segments =
+      geist::detail::decode_control_segments(14, directive);
+  const auto directive_text =
+      geist::detail::token_words_to_ascii(directive.words);
+  const auto exact_slice = [](const std::string& source,
+                              const geist::detail::OutputRangeIR& range) {
+    return geist::detail::trim_ascii(
+        source.substr(range.begin, range.end - range.begin));
+  };
+  require(spacing_segments.size() == 1 &&
+              spacing_segments[0].kind ==
+                  geist::detail::BookControlKind::spacing &&
+              !spacing_segments[0].malformed &&
+              exact_slice(spacing_text, spacing_segments[0].operand_range) ==
+                  "3p p c" &&
+              spacing_segments[0].payload_range.begin ==
+                  spacing_segments[0].payload_range.end &&
+              directive_segments.size() == 1 &&
+              directive_segments[0].kind ==
+                  geist::detail::BookControlKind::layout_directive &&
+              !directive_segments[0].malformed &&
+              exact_slice(directive_text,
+                          directive_segments[0].operand_range) ==
+                  "OFF EFIGLIST 0 0" &&
+              directive_segments[0].payload_range.begin ==
+                  directive_segments[0].payload_range.end,
+          "generated-list control operand/payload ranges are incorrect");
+
+  const auto malformed_spacing =
+      geist::detail::assemble_logical_record_with_sources(
+          {{{2, 'c','.','s','p',' ','4','p',' ','p',' ','c'}}});
+  const auto malformed_directive =
+      geist::detail::assemble_logical_record_with_sources(
+          {{{2, 'c','z',' ','B','R','E','A','K',' ','4'}}});
+  const auto malformed_spacing_segments =
+      geist::detail::decode_control_segments(15, malformed_spacing);
+  const auto malformed_directive_segments =
+      geist::detail::decode_control_segments(16, malformed_directive);
+  require(malformed_spacing_segments.size() == 1 &&
+              malformed_spacing_segments[0].malformed &&
+              malformed_spacing_segments[0].operand_range.begin ==
+                  malformed_spacing_segments[0].operand_range.end &&
+              malformed_spacing_segments[0].payload_range.begin <
+                  malformed_spacing_segments[0].payload_range.end &&
+              malformed_directive_segments.size() == 1 &&
+              malformed_directive_segments[0].malformed &&
+              malformed_directive_segments[0].operand_range.begin ==
+                  malformed_directive_segments[0].operand_range.end &&
+              malformed_directive_segments[0].payload_range.begin <
+                  malformed_directive_segments[0].payload_range.end,
+          "unknown generated-list control operands did not fail closed");
 }
 
 } // namespace

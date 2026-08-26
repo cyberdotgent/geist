@@ -161,6 +161,11 @@ std::optional<GeneratedListTopicIR> extract_generated_list_topic_ir(
   GeneratedListTopicIR result;
   bool saw_heading = false;
   bool saw_title = false;
+  bool saw_entry = false;
+  bool saw_spacing = false;
+  bool saw_break = false;
+  bool saw_list_open = false;
+  bool saw_list_close = false;
   std::map<std::tuple<std::uint32_t, std::size_t, std::size_t>,
            SourceDisposition>
       dispositions;
@@ -238,19 +243,57 @@ std::optional<GeneratedListTopicIR> extract_generated_list_topic_ir(
                         std::to_string(segment.segment_index) + " opcode=" +
                         segment.opcode + " payload='" +
                         range_text(record, segment.payload_range) + "'");
-      } else if (segment.kind != BookControlKind::select &&
-                 segment.kind != BookControlKind::text &&
-                 segment.kind != BookControlKind::font) {
-        return reject("control outside the generated-list entry envelope at " +
-                      std::to_string(record.logical_record) + ':' +
-                      std::to_string(segment.segment_index) + " opcode=" +
-                      segment.opcode + " payload='" +
-                      range_text(record, segment.payload_range) + "'");
+      } else {
+        if (segment.kind == BookControlKind::select) saw_entry = true;
+        if (segment.kind == BookControlKind::spacing) {
+          if (segment.malformed || saw_entry || saw_spacing ||
+              segment.payload_range.begin != segment.payload_range.end)
+            return reject("malformed or misplaced generated-list spacing control");
+          saw_spacing = true;
+          continue;
+        }
+        if (segment.kind == BookControlKind::layout_directive) {
+          const auto operand = ascii_lower(
+              trim_ascii(range_text(record, segment.operand_range)));
+          const auto list = result.kind == GeneratedListTopicKindIR::figures
+                                ? "figlist"
+                                : "tlist";
+          if (segment.malformed ||
+              segment.payload_range.begin != segment.payload_range.end)
+            return reject("malformed generated-list directive");
+          if (operand == "break 3") {
+            if (saw_entry || saw_break)
+              return reject("misplaced or duplicate generated-list break");
+            saw_break = true;
+          } else if (operand == "off " + std::string(list)) {
+            if (saw_entry || saw_list_open)
+              return reject("misplaced or duplicate generated-list opener");
+            saw_list_open = true;
+          } else if (operand == "off e" + std::string(list) + " 0 0") {
+            if (!saw_entry || saw_list_close)
+              return reject("misplaced or duplicate generated-list closer");
+            saw_list_close = true;
+          } else {
+            return reject("generated-list directive disagrees with list kind");
+          }
+          continue;
+        }
+        if (segment.kind != BookControlKind::select &&
+            segment.kind != BookControlKind::text &&
+            segment.kind != BookControlKind::font) {
+          return reject("control outside the generated-list entry envelope at " +
+                        std::to_string(record.logical_record) + ':' +
+                        std::to_string(segment.segment_index) + " opcode=" +
+                        segment.opcode + " payload='" +
+                        range_text(record, segment.payload_range) + "'");
+        }
       }
     }
   }
   if (!saw_heading || !saw_title)
     return reject("generated-list heading envelope is incomplete");
+  if (saw_break != saw_list_open || saw_list_open != saw_list_close)
+    return reject("generated-list directive envelope is incomplete");
 
   std::set<CellKey> row_cells;
   for (const auto& row : display->rows) {
@@ -272,7 +315,9 @@ std::optional<GeneratedListTopicIR> extract_generated_list_topic_ir(
       }
       if (segment.kind != BookControlKind::select &&
           segment.kind != BookControlKind::text &&
-          segment.kind != BookControlKind::font)
+          segment.kind != BookControlKind::font &&
+          segment.kind != BookControlKind::spacing &&
+          segment.kind != BookControlKind::layout_directive)
         continue;
       const auto words = decoded_byte_range_to_word_range(record.assembled,
                                                           segment.payload_range);

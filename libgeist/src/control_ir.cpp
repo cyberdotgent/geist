@@ -60,6 +60,8 @@ BookControlKind classify(std::string opcode) {
   if (opcode == "st") return BookControlKind::title;
   if (opcode == "cfont") return BookControlKind::font;
   if (opcode == "cselect") return BookControlKind::select;
+  if (opcode == "c.sp") return BookControlKind::spacing;
+  if (opcode == "cz") return BookControlKind::layout_directive;
   if (opcode.rfind("srtbl", 0) == 0) return BookControlKind::table_start;
   // A comma can be attached to the decoded end token at a segment boundary.
   if (opcode.rfind("sretbl", 0) == 0) return BookControlKind::table_end;
@@ -182,6 +184,37 @@ decode_control_segments(std::uint32_t logical_record,
             operand_words += 3;
           }
           segment.malformed = operand_words == 0;
+        } else if (segment.kind == BookControlKind::spacing) {
+          segment.malformed = words.size() != 4 ||
+                              ascii_lower(text.substr(words[1].begin,
+                                                      words[1].end -
+                                                          words[1].begin)) !=
+                                  "3p" ||
+                              ascii_lower(text.substr(words[2].begin,
+                                                      words[2].end -
+                                                          words[2].begin)) !=
+                                  "p" ||
+                              ascii_lower(text.substr(words[3].begin,
+                                                      words[3].end -
+                                                          words[3].begin)) !=
+                                  "c";
+          operand_words = segment.malformed ? 0 : 3;
+        } else if (segment.kind == BookControlKind::layout_directive) {
+          std::vector<std::string> operands;
+          operands.reserve(words.size() - 1);
+          for (std::size_t word = 1; word < words.size(); ++word) {
+            operands.push_back(ascii_lower(text.substr(
+                words[word].begin, words[word].end - words[word].begin)));
+          }
+          segment.malformed =
+              !((operands.size() == 2 && operands[0] == "break" &&
+                 operands[1] == "3") ||
+                (operands.size() == 2 && operands[0] == "off" &&
+                 (operands[1] == "figlist" || operands[1] == "tlist")) ||
+                (operands.size() == 4 && operands[0] == "off" &&
+                 (operands[1] == "efiglist" || operands[1] == "etlist") &&
+                 operands[2] == "0" && operands[3] == "0"));
+          operand_words = segment.malformed ? 0 : words.size() - 1;
         } else if (operand_words > words.size() - 1) {
           segment.malformed = true;
           operand_words = words.size() - 1;
