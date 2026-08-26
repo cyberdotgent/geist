@@ -271,6 +271,9 @@ add_executable(selector_display_ir_synthetic_test
 target_link_libraries(selector_display_ir_synthetic_test
   PRIVATE geist::geist_static
 )
+target_compile_definitions(selector_display_ir_synthetic_test PRIVATE
+  GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
 add_test(NAME selector_display_ir_synthetic_test
   COMMAND selector_display_ir_synthetic_test)
 

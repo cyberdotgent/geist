@@ -303,10 +303,17 @@ binding and that every source display cell agrees with Ownership IR.
 Focused fixture checks admit the selector rows in `packet.boo` topic `5.1.2`,
 `QSYSNEWG.BOO` topic `PREFACE`, and `GG24-4302-00.boo` topic `NOTICES`, and
 retain the `GG24-395-0.BOO` picture selector as table-owned. SC31 continuation
-rows and generated `FIGURES`/`TABLES` topics still reject conservatively where
-the visible geometry requires source-proven prefix, marker, or generated-list
-restoration. Those are the remaining selector projection slices; this core is
-trace-visible but does not yet alter Markdown output.
+rows originally rejected where punctuation split one native line into several
+Layout IR fragments. The display composer now rejoins only token-contiguous
+fragments from the same run, record, and segment, restoring the exact owned
+width-1 punctuation marker plus source-owned margin/padding cells. This admits
+the two independent SC31 topic `5.0` selectors without merging their identical
+targets: the first selects `Chapter 2, "Problem` at columns 56--75 across
+logical records 172--173, and the next remains a separate inline selector.
+
+Generated `FIGURES`/`TABLES` topics still reject conservatively where visible
+geometry requires generated-list projection. That is the remaining selector
+slice; this core is trace-visible but does not yet alter Markdown output.
 
 ## M6 comments/back-matter Layout IR prerequisite
 

@@ -84,7 +84,7 @@ std::optional<std::vector<SelectorDisplayCellIR>>
 row_cells(const std::vector<DecodedLogicalRecordSource> &records,
           const std::map<OwnershipKey, const OwnedSourceCellIR *> &owned_cells,
           const PhysicalRowIR &row, std::size_t physical_row_index,
-          std::string *error) {
+          std::string *error, bool restored_native_fragment = false) {
   const auto *record = find_record(records, row.logical_record);
   if (record == nullptr) {
     if (error != nullptr)
@@ -118,6 +118,7 @@ row_cells(const std::vector<DecodedLogicalRecordSource> &records,
                           ? SelectorSourceCellKind::token_word
                           : SelectorSourceCellKind::inserted_space;
     provenance.token_bytes = record->ir.tokens[source.token_index].byte_range;
+    auto origin = SelectorDisplayCellOrigin::source;
     if (provenance.kind == SelectorSourceCellKind::token_word) {
       const auto owned = owned_cells.find(
           {row.logical_record, source.token_index, source.word_index});
@@ -130,9 +131,15 @@ row_cells(const std::vector<DecodedLogicalRecordSource> &records,
           *error = "selector display cell lacks matching row ownership";
         return std::nullopt;
       }
+      if (restored_native_fragment &&
+          owned->second->disposition == SourceDisposition::layout_origin)
+        origin = SelectorDisplayCellOrigin::restored_native_margin;
+      else if (restored_native_fragment &&
+               owned->second->disposition == SourceDisposition::layout_padding)
+        origin = SelectorDisplayCellOrigin::restored_box_padding;
     }
-    cells.push_back({record->assembled.words[output],
-                     SelectorDisplayCellOrigin::source, std::move(provenance)});
+    cells.push_back(
+        {record->assembled.words[output], origin, std::move(provenance)});
   }
   if (cells.empty()) {
     if (error != nullptr)
@@ -140,6 +147,56 @@ row_cells(const std::vector<DecodedLogicalRecordSource> &records,
     return std::nullopt;
   }
   return cells;
+}
+
+std::optional<SelectorDisplayCellIR> restored_marker_cell(
+    const std::vector<DecodedLogicalRecordSource> &records,
+    const std::map<OwnershipKey, const OwnedSourceCellIR *> &owned_cells,
+    const PhysicalRowIR &row, std::size_t physical_row_index,
+    std::string *error) {
+  if (!row.marker) {
+    if (error != nullptr)
+      *error = "selector continuation has no source marker";
+    return std::nullopt;
+  }
+  const auto *record = find_record(records, row.logical_record);
+  const auto token = row.marker->token_index;
+  if (record == nullptr || token >= record->tokens.size() ||
+      token >= record->ir.tokens.size() || row.marker->encoded_width != 1) {
+    if (error != nullptr)
+      *error =
+          "selector continuation marker is not one presentable source cell";
+    return std::nullopt;
+  }
+  std::optional<std::size_t> marker_word;
+  for (std::size_t word = 0; word < record->tokens[token].size(); ++word) {
+    const auto owned = owned_cells.find({row.logical_record, token, word});
+    if (owned == owned_cells.end() || owned->second->run != row.run ||
+        owned->second->row_index != physical_row_index ||
+        owned->second->disposition != SourceDisposition::marker_slot ||
+        !presentable(record->tokens[token][word]))
+      continue;
+    if (marker_word) {
+      if (error != nullptr)
+        *error = "selector continuation marker has ambiguous source cells";
+      return std::nullopt;
+    }
+    marker_word = word;
+  }
+  if (!marker_word) {
+    if (error != nullptr)
+      *error = "selector continuation marker lacks matching row ownership";
+    return std::nullopt;
+  }
+  SelectorSourceCellRefIR provenance;
+  provenance.logical_record = row.logical_record;
+  provenance.token_index = token;
+  provenance.word_index = *marker_word;
+  provenance.kind = SelectorSourceCellKind::token_word;
+  provenance.token_bytes = record->ir.tokens[token].byte_range;
+  return SelectorDisplayCellIR{
+      record->tokens[token][*marker_word],
+      SelectorDisplayCellOrigin::restored_native_marker, std::move(provenance)};
 }
 
 bool target_equal(const SelectorTargetIR &left, const SelectorTargetIR &right) {
@@ -285,13 +342,15 @@ std::optional<SelectorDisplayIR> extract_selector_display_ir(
   std::uint64_t next_row_id = 1;
   std::uint64_t next_object_id = 1;
 
-  const auto bind_row = [&](const IndexedRow &indexed,
+  const auto bind_row = [&](const std::vector<IndexedRow> &candidates,
                             std::string *bind_error) -> bool {
-    if (pending.empty() || indexed.row == nullptr) {
+    if (pending.empty() || candidates.empty() ||
+        candidates.front().row == nullptr) {
       if (bind_error != nullptr)
         *bind_error = "selector row has no pending owner";
       return false;
     }
+    const auto &indexed = candidates.front();
     const auto candidate_record = indexed.row->logical_record;
     for (const auto *selector : pending) {
       if (candidate_record < selector->logical_record ||
@@ -306,8 +365,15 @@ std::optional<SelectorDisplayIR> extract_selector_display_ir(
     if (!cells)
       return false;
 
-    std::vector<std::pair<std::size_t, std::size_t>> geometry;
-    geometry.reserve(pending.size());
+    // Compact punctuation markers can split one native display line into
+    // several mechanical PhysicalRowIR fragments. A selector originating in
+    // the immediately preceding record still uses coordinates in that native
+    // line. Rejoin only contiguous fragments of the same run/record/segment.
+    // For a cross-record continuation, restore the first fragment's exact
+    // one-byte coordinate marker, then the exact punctuation marker owned by
+    // every appended fragment. This is deliberately not a forward search: the
+    // first fragment and every appended source token must be contiguous.
+    auto required_end = std::size_t{0};
     for (const auto *selector : pending) {
       if (selector->column >
           std::numeric_limits<std::size_t>::max() - selector->length) {
@@ -315,6 +381,48 @@ std::optional<SelectorDisplayIR> extract_selector_display_ir(
           *bind_error = "selector span overflows";
         return false;
       }
+      required_end =
+          std::max(required_end, selector->column + selector->length);
+    }
+    auto owner_token_end = indexed.row->token_end;
+    if (cells->size() < required_end && indexed.row->marker &&
+        std::all_of(pending.begin(), pending.end(), [&](const auto *selector) {
+          return selector->logical_record != indexed.row->logical_record;
+        })) {
+      auto marker =
+          restored_marker_cell(records, owned_cells, *indexed.row,
+                               indexed.physical_row_index, bind_error);
+      if (!marker)
+        return false;
+      cells->insert(cells->begin(), std::move(*marker));
+    }
+    for (std::size_t candidate = 1;
+         cells->size() < required_end && candidate < candidates.size();
+         ++candidate) {
+      const auto &next = candidates[candidate];
+      if (next.row == nullptr || next.row->run != indexed.row->run ||
+          next.row->logical_record != indexed.row->logical_record ||
+          next.row->segment_index != indexed.row->segment_index ||
+          next.row->token_begin != owner_token_end)
+        break;
+      auto marker = restored_marker_cell(records, owned_cells, *next.row,
+                                         next.physical_row_index, bind_error);
+      if (!marker)
+        return false;
+      auto continuation = row_cells(records, owned_cells, *next.row,
+                                    next.physical_row_index, bind_error, true);
+      if (!continuation)
+        return false;
+      cells->push_back(std::move(*marker));
+      cells->insert(cells->end(),
+                    std::make_move_iterator(continuation->begin()),
+                    std::make_move_iterator(continuation->end()));
+      owner_token_end = next.row->token_end;
+    }
+
+    std::vector<std::pair<std::size_t, std::size_t>> geometry;
+    geometry.reserve(pending.size());
+    for (const auto *selector : pending) {
       const auto end = selector->column + selector->length;
       if (end > cells->size()) {
         if (bind_error != nullptr)
@@ -348,7 +456,7 @@ std::optional<SelectorDisplayIR> extract_selector_display_ir(
                  indexed.row->run,
                  indexed.physical_row_index,
                  indexed.row->token_begin,
-                 indexed.row->token_end};
+                 owner_token_end};
     row.cells = std::move(*cells);
     if (pending.size() > 1) {
       row.association = SelectorRowAssociation::multiple_queued;
@@ -403,7 +511,7 @@ std::optional<SelectorDisplayIR> extract_selector_display_ir(
 
         pending.push_back(selector);
         if (has_rows) {
-          if (!bind_row(row_found->second.front(), &verification_error))
+          if (!bind_row(row_found->second, &verification_error))
             return fail(verification_error);
         } else if (payload_has_visible_text(selector->display_payload)) {
           return fail("visible selector payload has no canonical physical row");
@@ -419,7 +527,7 @@ std::optional<SelectorDisplayIR> extract_selector_display_ir(
         if (!eligible)
           return fail(
               "pending selector reached a typed display-object barrier");
-        if (!bind_row(row_found->second.front(), &verification_error))
+        if (!bind_row(row_found->second, &verification_error))
           return fail(verification_error);
       } else if (!eligible) {
         return fail("pending selector reached a typed control barrier");
@@ -499,9 +607,14 @@ bool verify_selector_display_ir(
         return fail("selector display spans overlap");
     }
     for (const auto &cell : row.cells) {
-      if (cell.origin == SelectorDisplayCellOrigin::source && !cell.source)
-        return fail("source display cell has no provenance");
-      if (cell.origin != SelectorDisplayCellOrigin::source && cell.source)
+      const auto source_backed =
+          cell.origin == SelectorDisplayCellOrigin::source ||
+          cell.origin == SelectorDisplayCellOrigin::restored_native_margin ||
+          cell.origin == SelectorDisplayCellOrigin::restored_native_marker ||
+          cell.origin == SelectorDisplayCellOrigin::restored_box_padding;
+      if (source_backed && !cell.source)
+        return fail("source-backed display cell has no provenance");
+      if (!source_backed && cell.source)
         return fail("synthesized display cell claims source provenance");
       if (cell.source &&
           !owned_source_cells

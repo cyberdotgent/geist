@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -157,6 +158,55 @@ void verify_next_record_deferred() {
           "adjacent-record display row did not consume selector: " + error);
 }
 
+void verify_source_proven_contiguous_marker_restoration() {
+  const auto value =
+      pipeline({make_source(32, {words("cselect 6 4 HDR")}),
+                make_source(33, {words("/"), words("   "), words("ABC"),
+                                 words("."), words(" "), words("DEFG")})});
+  std::string error;
+  const auto display = extract(value, &error);
+  const auto restored =
+      display
+          ? std::find_if(display->rows[0].cells.begin(),
+                         display->rows[0].cells.end(),
+                         [](const auto &cell) {
+                           return cell.origin ==
+                                      geist::detail::SelectorDisplayCellOrigin::
+                                          restored_native_marker &&
+                                  cell.word == '.';
+                         })
+          : std::vector<geist::detail::SelectorDisplayCellIR>::const_iterator{};
+  require(
+      display && display->rows.size() == 1 &&
+          display->rows[0].cells.size() >= 10 &&
+          display->rows[0].owner.token_begin == 0 &&
+          display->rows[0].owner.token_end == 6 &&
+          restored != display->rows[0].cells.end() && restored->word == '.' &&
+          restored->source.has_value() && restored->source->token_index == 3 &&
+          std::any_of(display->rows[0].cells.begin(),
+                      display->rows[0].cells.end(),
+                      [](const auto &cell) {
+                        return cell.origin ==
+                                   geist::detail::SelectorDisplayCellOrigin::
+                                       restored_native_margin &&
+                               cell.source.has_value();
+                      }),
+      "contiguous source marker was not restored with provenance: " + error +
+          (display ? "\n" + geist::detail::format_selector_display_ir(*display)
+                   : ""));
+  require(display && geist::detail::verify_selector_display_ir(
+                         value.sources, value.selectors, value.layout,
+                         value.ownership, *display, &error),
+          "restored selector display verifier failed: " + error);
+
+  const auto noncontiguous = pipeline(
+      {make_source(34, {words("cselect 6 4 HDR")}),
+       make_source(35, {words("/"), words("   "), words("ABC"), words("ST"),
+                        words("."), words(" "), words("DEFG")})});
+  require(!extract(noncontiguous, &error),
+          "selector restoration crossed an intervening typed control");
+}
+
 void verify_multiple_queued() {
   const auto value = pipeline(
       {make_source(40, {words("cselect 3 2 SAME"), words("cselect 5 2 SAME"),
@@ -264,14 +314,94 @@ void verify_fail_closed_cases() {
           "noncanonical raw selector entered display IR");
 }
 
+#ifdef GEIST_REPO_ROOT
+void verify_sc31_native_continuation() {
+  const auto path =
+      std::filesystem::path(GEIST_REPO_ROOT) / "BOO" / "SC31-711.boo";
+  const auto document = geist::BooDocument::open(path);
+  const auto found =
+      std::find_if(document.topics().begin(), document.topics().end(),
+                   [](const auto &topic) { return topic.id == "5.0"; });
+  require(found != document.topics().end(), "SC31 fixture has no 5.0 topic");
+
+  geist::detail::LogicalDecodeContext context;
+  context.bytes = geist::detail::read_file(path);
+  const auto directory_page = geist::detail::read_be16(context.bytes, 0);
+  const auto base =
+      static_cast<std::size_t>(directory_page) * geist::boo_page_size;
+  context.directory.page_number = directory_page;
+  context.directory.token_threshold = context.bytes[base + 0x14];
+  context.directory.token_map_offset =
+      geist::detail::read_be16(context.bytes, base + 0x22);
+  context.directory.dictionary_start_page =
+      geist::detail::read_be16(context.bytes, base + 0x28);
+  context.directory.dictionary_page_count =
+      geist::detail::read_be16(context.bytes, base + 0x2e);
+  context.directory.logical_record_count =
+      geist::detail::read_be16(context.bytes, base + 0x36);
+  context.directory.content_page_count =
+      geist::detail::read_be16(context.bytes, base + 0x38);
+  context.directory.content_start_page =
+      geist::detail::read_be16(context.bytes, base + 0x3a);
+  context.decoded_records = geist::detail::decode_experimental_logical_records(
+      context.bytes, context.directory, &context.record_payload_ranges);
+
+  const auto sources = geist::detail::decode_logical_record_sources(
+      context, found->start_logical_record, found->end_logical_record);
+  const auto selectors = geist::detail::extract_selector_catalog_ir(sources);
+  const auto layout = geist::detail::extract_layout_ir(sources);
+  const auto ownership = geist::detail::build_ownership_ir(sources, layout);
+  std::string error;
+  const auto display = selectors
+                           ? geist::detail::extract_selector_display_ir(
+                                 sources, *selectors, layout, ownership, &error)
+                           : std::nullopt;
+  std::string selected_text;
+  if (display && !display->rows.empty() && !display->rows[0].spans.empty()) {
+    const auto &span = display->rows[0].spans[0];
+    for (auto cell = span.cell_begin;
+         cell < span.cell_end && cell < display->rows[0].cells.size(); ++cell)
+      if (display->rows[0].cells[cell].word <= 0xff)
+        selected_text.push_back(
+            static_cast<char>(display->rows[0].cells[cell].word));
+  }
+  require(display && display->rows.size() == 2 &&
+              display->bindings.size() == 2 &&
+              display->rows[0].owner.logical_record == 173 &&
+              display->rows[0].owner.segment_index == 0 &&
+              display->rows[0].owner.token_begin == 0 &&
+              display->rows[0].owner.token_end == 20 &&
+              display->rows[0].spans[0].cell_begin == 56 &&
+              display->rows[0].spans[0].cell_end == 75 &&
+              selected_text == "Chapter 2, \"Problem" &&
+              std::count_if(display->rows[0].cells.begin(),
+                            display->rows[0].cells.end(),
+                            [](const auto &cell) {
+                              return cell.origin ==
+                                     geist::detail::SelectorDisplayCellOrigin::
+                                         restored_native_marker;
+                            }) == 2,
+          "SC31 5.0 native selector continuation was not admitted exactly: " +
+              error + " selected='" + selected_text + "'");
+  require(display &&
+              geist::detail::verify_selector_display_ir(
+                  sources, *selectors, layout, ownership, *display, &error),
+          "SC31 5.0 selector continuation failed verification: " + error);
+}
+#endif
+
 } // namespace
 
 int main() {
   verify_inline_and_provenance();
   verify_same_record_deferred();
   verify_next_record_deferred();
+  verify_source_proven_contiguous_marker_restoration();
   verify_multiple_queued();
   verify_non_ascii_is_one_source_cell();
   verify_exact_nonrow_dispositions();
   verify_fail_closed_cases();
+#ifdef GEIST_REPO_ROOT
+  verify_sc31_native_continuation();
+#endif
 }

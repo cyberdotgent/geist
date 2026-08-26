@@ -44,6 +44,7 @@ struct SelectorTargetIR {
 enum class SelectorDisplayCellOrigin {
   source,
   restored_native_margin,
+  restored_native_marker,
   restored_generated_prefix,
   restored_box_padding,
 };
