@@ -395,21 +395,56 @@ std::string clean_fixed_st_row_markers(std::string value) {
 }
 
 std::string clean_fixed_rendered_line(std::string value) {
-  for (const auto* marker : {" action    ", " address    ", " adapter    ",
-                             " agent    ", " bridge    ", " any    ",
-                             " as    ", " an    ", " a    "}) {
-    for (auto found = ascii_lower(value).find(marker);
-         found != std::string::npos;
-         found = ascii_lower(value).find(marker, found + 1)) {
-      value.replace(found, std::string(marker).size(), " ");
+  // Alphabetic overflow values are marker-field contents, not magic words.
+  // Identify the field from its four-column padding and its row-boundary
+  // position so newly observed values require no vocabulary update.
+  for (auto gap = std::size_t{0}; gap + 4 <= value.size();) {
+    gap = value.find("    ", gap);
+    if (gap == std::string::npos) {
+      break;
     }
+    auto token_begin = gap;
+    while (token_begin > 0 &&
+           std::isalpha(static_cast<unsigned char>(value[token_begin - 1])) !=
+               0) {
+      --token_begin;
+    }
+    auto origin = token_begin;
+    while (origin > 0 &&
+           std::isspace(static_cast<unsigned char>(value[origin - 1])) != 0) {
+      --origin;
+    }
+    const auto after_terminal =
+        token_begin > 0 &&
+        (value[token_begin - 1] == ')' || value[token_begin - 1] == ':' ||
+         value[token_begin - 1] == ';' || value[token_begin - 1] == '.' ||
+         std::isdigit(static_cast<unsigned char>(value[token_begin - 1])) != 0);
+    if (token_begin != gap && (origin == 0 || after_terminal)) {
+      value.replace(token_begin, gap - token_begin, gap - token_begin, ' ');
+    }
+    gap += 4;
   }
   value = trim_ascii(std::move(value));
-  for (const auto* marker : {"ADAPTER ", "ACTION ", "ADDRESS ", "AGENT ",
-                             "BRIDGE ", "ANY ", "AS ", "AN ", "A "}) {
-    if (ascii_starts_with_case_insensitive(value, marker)) {
-      value = trim_ascii(value.substr(std::string(marker).size()));
-      break;
+  for (auto close = value.find(')'); close != std::string::npos;
+       close = value.find(')', close + 1)) {
+    auto marker_end = close + 1;
+    if (marker_end >= value.size()) {
+      continue;
+    }
+    if (value[marker_end] == '<' || value[marker_end] == '>' ||
+        value[marker_end] == '/' || value[marker_end] == '"' ||
+        value[marker_end] == '=') {
+      ++marker_end;
+    } else {
+      while (marker_end < value.size() &&
+             std::isalpha(static_cast<unsigned char>(value[marker_end])) != 0) {
+        ++marker_end;
+      }
+    }
+    if (marker_end > close + 1 &&
+        (marker_end == value.size() ||
+         std::isspace(static_cast<unsigned char>(value[marker_end])) != 0)) {
+      value.erase(close + 1, marker_end - close - 1);
     }
   }
   while (!value.empty() &&
@@ -418,19 +453,16 @@ std::string clean_fixed_rendered_line(std::string value) {
     value.pop_back();
     value = trim_ascii(std::move(value));
   }
-  for (const auto* marker : {"address", "adapter", "agent", "bridge", "any",
-                             "action", "are", "as", "an"}) {
-    if (value.size() <= std::string(marker).size() ||
-        !ascii_equals_case_insensitive(
-            value.substr(value.size() - std::string(marker).size()), marker)) {
-      continue;
-    }
-    const auto prefix_end = value.size() - std::string(marker).size();
-    if (prefix_end > 0 && value[prefix_end - 1] == ')') {
-      value.resize(prefix_end);
-      value = trim_ascii(std::move(value));
-      break;
-    }
+  // A terminal alphabetic marker can lack the following padding when the
+  // physical row ends at the record boundary.  Bibliographic rows provide an
+  // unambiguous terminal `)` coordinate for this case.
+  const auto close = value.rfind(')');
+  if (close != std::string::npos && close + 1 < value.size() &&
+      std::all_of(value.begin() + static_cast<std::ptrdiff_t>(close + 1),
+                  value.end(), [](const auto ch) {
+                    return std::isalpha(static_cast<unsigned char>(ch)) != 0;
+                  })) {
+    value.resize(close + 1);
   }
   return value;
 }
@@ -1297,6 +1329,10 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
               inline_fixed_continuations.empty() ? ":xmp."
                                                  : ":xmp inline='html'."};
           for (auto line : split_reflow_off_body_lines(std::move(body_text))) {
+            if (ascii_lower(entry.title).find("publications") !=
+                std::string::npos) {
+              line = clean_fixed_rendered_line(std::move(line));
+            }
             preserved.push_back(":xline." + std::move(line));
           }
           for (auto& continuation : inline_fixed_continuations) {

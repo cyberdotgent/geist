@@ -200,11 +200,10 @@ std::string strip_fixed_prose_row_markers(std::string value) {
 }
 
 std::string strip_fixed_alpha_row_markers(std::string value) {
-  // Some BOO fixed-row marker values decode as short alphabetic tokens rather
-  // than punctuation (for example "action", "address", or "can").  They
-  // always occupy the marker field immediately before the four-column row
-  // indent.  Restrict this cleanup to callers that have already established a
-  // fixed-layout context; applying it to flowing prose would be destructive.
+  // A decoded fixed row can retain the contents of the next row's marker
+  // field.  The value of that field is immaterial: its position is what makes
+  // it structural.  Preserve the four display columns and blank an alphabetic
+  // field only at row origin or immediately after terminal punctuation.
   for (auto gap = std::size_t{0}; gap + 4 <= value.size();) {
     gap = value.find("    ", gap);
     if (gap == std::string::npos) {
@@ -227,16 +226,9 @@ std::string strip_fixed_alpha_row_markers(std::string value) {
         token_begin > 0 &&
         (value[token_begin - 1] == '.' || value[token_begin - 1] == ')' ||
          value[token_begin - 1] == ':' || value[token_begin - 1] == ';');
-    const auto token = ascii_lower(value.substr(token_begin, token_length));
-    static constexpr std::array<std::string_view, 9> kAlphabeticMarkers = {
-        "a", "an", "as", "are", "can", "action", "address", "adapter",
-        "agent"};
-    const auto recognized_marker =
-        std::find(kAlphabeticMarkers.begin(), kAlphabeticMarkers.end(), token) !=
-        kAlphabeticMarkers.end();
-    if (recognized_marker &&
+    if (token_length != 0 &&
         (at_row_origin || attached_to_terminal_punctuation)) {
-      value.erase(token_begin, token_length);
+      value.replace(token_begin, token_length, token_length, ' ');
       gap = token_begin + 4;
       continue;
     }
@@ -1002,6 +994,15 @@ std::size_t longest_question_run(const std::string& value) {
   return longest;
 }
 
+std::string expand_fixed_form_symbols(std::string value) {
+  constexpr std::string_view ballot = "&ballot.";
+  for (auto found = value.find(ballot); found != std::string::npos;
+       found = value.find(ballot, found + 3)) {
+    value.replace(found, ballot.size(), "[ ]");
+  }
+  return value;
+}
+
 std::optional<std::string> render_fixed_form_gml(const std::string& value) {
   const auto border_width = longest_question_run(value);
   if (border_width < 40) {
@@ -1030,8 +1031,9 @@ std::optional<std::string> render_fixed_form_gml(const std::string& value) {
   cursor = borders.front().second;
   while (cursor < value.size()) {
     const auto next = value.find('?', cursor);
-    auto field = collapse_ascii_whitespace(value.substr(
-        cursor, next == std::string::npos ? std::string::npos : next - cursor));
+    auto field = expand_fixed_form_symbols(collapse_ascii_whitespace(
+        value.substr(cursor, next == std::string::npos ? std::string::npos
+                                                       : next - cursor)));
     if (std::any_of(field.begin(), field.end(), [](const auto ch) {
           return std::isalnum(static_cast<unsigned char>(ch)) != 0;
         })) {
@@ -1075,6 +1077,9 @@ std::string render_table_gml(std::string value,
   table_border_width = std::max(table_border_width,
                                 longest_question_run(caption));
   caption = dot_text(std::move(caption));
+  if (caption.size() == 1 && is_fixed_prose_row_marker(caption.front())) {
+    caption.clear();
+  }
 
   auto output = ":table id='" + escape_gml_attr(table_anchor_id(target)) + "'.";
   if (!caption.empty()) {
@@ -2128,7 +2133,11 @@ std::string clean_table_cell_text(std::string value) {
       ch = ' ';
     }
   }
-  return collapse_ascii_whitespace(std::move(value));
+  value = collapse_ascii_whitespace(std::move(value));
+  // BookMaster's ballot symbol is semantic form content. BookServer leaves
+  // the unresolved entity visible for this legacy book, but Markdown can
+  // preserve the intended empty choice without exposing the source macro.
+  return expand_fixed_form_symbols(std::move(value));
 }
 
 std::vector<std::string> extract_table_visual_cells(const std::string& value) {

@@ -507,6 +507,12 @@ int main() {
   }
   require(customer_checklist.find("```text") == std::string::npos,
           "fixed customer checklist was emitted as a code block");
+  const auto netview_form = problem_determination.topic_markdown("2.4.4");
+  require(netview_form.find("[ ] Read") != std::string::npos &&
+              netview_form.find("[ ] Read-Write") != std::string::npos,
+          "fixed NetView form lost its ballot choices");
+  require(netview_form.find("&ballot.") == std::string::npos,
+          "fixed NetView form exposed its BookMaster ballot macro");
   const auto network_checklist =
       problem_determination.topic_markdown("2.4.8");
   for (const auto* expected : {
@@ -658,6 +664,26 @@ int main() {
                     std::string::npos,
             "NETCENTER publication CFONT row received dual ST ownership");
   }
+  require(netcenter_publications.find("(GC75-0109)=") == std::string::npos,
+          "NETCENTER publication leaked a terminal fixed-row marker");
+  const auto fddi_publications =
+      problem_determination.topic_markdown("BACK_1.7");
+  require(fddi_publications.find(
+              "FDDI SNMP Proxy Agent User's Guide (GC17-0383)") !=
+              std::string::npos &&
+              fddi_publications.find("(GC17-0383)bridge") ==
+                  std::string::npos &&
+              fddi_publications.find("American National Standards Institute") !=
+                  std::string::npos,
+          "FDDI publication row lost content or leaked its marker field");
+  const auto motif_publications =
+      problem_determination.topic_markdown("BACK_1.12.2");
+  require(motif_publications.find("publications:agent") == std::string::npos &&
+              motif_publications.find("OSF/Motif Series (5 volumes)") !=
+                  std::string::npos &&
+              motif_publications.find("Programmer's Guide (ISBN 0-13-640509-6)") !=
+                  std::string::npos,
+          "OSF/Motif publication rows lost content or leaked marker fields");
 
   const auto performance_files =
       problem_determination.topic_markdown("1.4");
