@@ -2132,6 +2132,27 @@ std::string render_footnote_gml(std::string value, GmlRenderState& state) {
   return output;
 }
 
+constexpr char literal_table_question = '\x7f';
+
+void protect_literal_table_questions(std::string& value) {
+  for (auto cursor = std::size_t{0}; cursor < value.size(); ++cursor) {
+    if (value[cursor] != '?' || !is_literal_question_mark(value, cursor)) {
+      continue;
+    }
+    auto next = cursor + 1;
+    while (next < value.size() &&
+           std::isspace(static_cast<unsigned char>(value[next])) != 0) {
+      ++next;
+    }
+    // A lexical question at the end of a fixed cell is followed by padding
+    // and then the real separator.  Requiring that separator keeps terminal
+    // decoder placeholders such as `Dissatisfied?` structural.
+    if (next < value.size() && value[next] == '?') {
+      value[cursor] = literal_table_question;
+    }
+  }
+}
+
 std::string clean_table_cell_text(std::string value) {
   for (auto& ch : value) {
     if (ch == '?') {
@@ -2139,10 +2160,18 @@ std::string clean_table_cell_text(std::string value) {
     }
   }
   value = collapse_ascii_whitespace(std::move(value));
+  std::replace(value.begin(), value.end(), literal_table_question, '?');
   // BookMaster's ballot symbol is semantic form content. BookServer leaves
   // the unresolved entity visible for this legacy book, but Markdown can
   // preserve the intended empty choice without exposing the source macro.
   return expand_fixed_form_symbols(std::move(value));
+}
+
+std::string dot_table_cell_text(std::string value) {
+  std::replace(value.begin(), value.end(), '?', literal_table_question);
+  value = dot_text(std::move(value));
+  std::replace(value.begin(), value.end(), literal_table_question, '?');
+  return value;
 }
 
 std::vector<std::string> extract_table_visual_cells(const std::string& value) {
@@ -2314,7 +2343,7 @@ std::string flush_pending_table_row(GmlRenderState& state) {
   output << ":row.";
   for (std::size_t index = 0; index < state.pending_table_row.size(); ++index) {
     output << "\n:c col='" << index << "'."
-           << dot_text(state.pending_table_row[index]);
+           << dot_table_cell_text(state.pending_table_row[index]);
   }
   state.pending_table_row.clear();
   return output.str();
@@ -2570,6 +2599,10 @@ void append_table_visual_line(GmlRenderState& state,
 }
 
 std::string render_table_body_gml(std::string segment, GmlRenderState& state) {
+  // Keep lexical punctuation out of separator inference.  At this point the
+  // question byte is still adjacent to its source text; after table slicing it
+  // is indistinguishable from a decoded column delimiter.
+  protect_literal_table_questions(segment);
   if (state.table_has_picture && state.table_columns == 0 &&
       !trim_ascii(segment).empty()) {
     return render_simple_gml_control("figcap", std::move(segment));

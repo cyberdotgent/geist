@@ -517,6 +517,11 @@ int main() {
               "Number of objects in the OVw database<br>(use the command "
               "ovobjprint \\| head)") != std::string::npos,
           "fixed NetView form lost its object-count command continuation");
+  const auto reader_questionnaire =
+      problem_determination.topic_markdown("COMMENTS");
+  require(reader_questionnaire.find("the information in this book?") !=
+              std::string::npos,
+          "fixed questionnaire lost literal question punctuation");
   const auto network_checklist =
       problem_determination.topic_markdown("2.4.8");
   for (const auto* expected : {

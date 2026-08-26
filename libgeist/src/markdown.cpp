@@ -604,6 +604,26 @@ std::string gml_markdown_content(const std::string& record) {
       strip_leaked_layout_controls(gml_content(record)));
 }
 
+std::string gml_table_cell_markdown_content(const std::string& record) {
+  auto content = gml_content_preserve_space(record);
+  while (!content.empty() &&
+         (std::isspace(static_cast<unsigned char>(content.back())) != 0 ||
+          static_cast<unsigned char>(content.back()) < 0x20)) {
+    content.pop_back();
+  }
+  auto first = std::size_t{0};
+  while (first < content.size() &&
+         (std::isspace(static_cast<unsigned char>(content[first])) != 0 ||
+          static_cast<unsigned char>(content[first]) < 0x20)) {
+    ++first;
+  }
+  if (first != 0) {
+    content.erase(0, first);
+  }
+  return render_inline_markdown(
+      strip_leaked_layout_controls(std::move(content), true));
+}
+
 std::string gml_attr(const std::string& record, const std::string& attr) {
   const auto pattern = attr + "='";
   const auto begin = record.find(pattern);
@@ -1250,8 +1270,16 @@ std::optional<int> gml_int_attr(const std::string& record,
   return static_cast<int>(parsed);
 }
 
-std::string escape_markdown_table_cell(std::string value) {
+std::string collapse_table_cell_whitespace(std::string value) {
+  constexpr char literal_question = '\x7f';
+  std::replace(value.begin(), value.end(), '?', literal_question);
   value = collapse_ascii_whitespace(std::move(value));
+  std::replace(value.begin(), value.end(), literal_question, '?');
+  return value;
+}
+
+std::string escape_markdown_table_cell(std::string value) {
+  value = collapse_table_cell_whitespace(std::move(value));
   std::string output;
   output.reserve(value.size());
   for (const auto ch : value) {
@@ -1479,7 +1507,7 @@ std::optional<std::string> render_flat_three_column_table(
   std::vector<std::string> text_cells;
   text_cells.reserve(cells.size());
   for (const auto& cell : cells) {
-    auto text = collapse_ascii_whitespace(cell.text);
+    auto text = collapse_table_cell_whitespace(cell.text);
     if (!text.empty()) {
       text_cells.push_back(std::move(text));
     }
@@ -1573,7 +1601,7 @@ std::string render_table_markdown(const std::string& id,
                cells.front().text.empty());
   for (const auto& cell : cells) {
     const auto column_index = nearest_table_column(columns, cell.column);
-    auto text = collapse_ascii_whitespace(cell.text);
+    auto text = collapse_table_cell_whitespace(cell.text);
     if (text.empty() && !has_explicit_rows) {
       continue;
     }
@@ -1791,6 +1819,7 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         const auto column = gml_int_attr(record, "col").value_or(-1);
         auto text = tag == "hdref"   ? render_link_markdown(record)
                     : tag == "image" ? render_image_markdown(record)
+                    : tag == "c"     ? gml_table_cell_markdown_content(record)
                                      : gml_markdown_content(record);
         if (!text.empty() || preserve_explicit_table_rows) {
           table_cells.push_back(

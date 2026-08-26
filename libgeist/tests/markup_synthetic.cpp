@@ -322,6 +322,31 @@ int main() {
     }
   }
 
+  {
+    const auto fixed_row = [](std::string first,
+                              std::string second,
+                              std::string third) {
+      first.resize(40, ' ');
+      second.resize(15, ' ');
+      third.resize(15, ' ');
+      return "?" + first + "?" + second + "?" + third + "?";
+    };
+    const std::vector<std::string> decoded{
+        "SRTBLQUEST " + std::string(74, '?'),
+        "cfont 5 4 2 ?" +
+            fixed_row("Question", "Yes", "No").substr(1),
+        "cfont 5 5 2 ?" +
+            fixed_row("Ready?", "__", "__").substr(1),
+        "SRETBL"};
+    const auto rendered = geist::detail::render_gml_records(decoded);
+    const auto literal = std::find(rendered.begin(), rendered.end(),
+                                   ":c col='0'.Ready?");
+    if (literal == rendered.end()) {
+      ok = false;
+      std::cerr << "fixed table lost lexical question punctuation\n";
+    }
+  }
+
   ok &= expect_records(
       "fixed-layout notice links",
       {"CSELECT 43 30 HDRNOTICES              ? to read the general "
