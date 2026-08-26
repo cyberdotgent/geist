@@ -69,6 +69,25 @@ bool valid_utf8(const std::string& value) {
 int main() {
   bool ok = true;
 
+  for (const auto& title : {
+           std::pair{"Additional Problem Information <",
+                     "Additional Problem Information"},
+           std::pair{"Customer Information >", "Customer Information"},
+           std::pair{"Customer Information /", "Customer Information"},
+       }) {
+    ok &= expect_equal("standalone TOC row marker",
+                       geist::detail::normalize_toc_title(title.first),
+                       title.second);
+  }
+  for (const auto* title : {"TCP/IP", "Input/Output", "AIX (TM)"}) {
+    ok &= expect_equal("TOC title punctuation",
+                       geist::detail::normalize_toc_title(title), title);
+  }
+  ok &= expect_equal("embedded TOC parentheses",
+                     geist::detail::normalize_toc_title(
+                         "Parenthetical (title)"),
+                     "Parenthetical (Title)");
+
   {
     auto row = geist::detail::assemble_fixed_display_row(
         {"prefix ", ">    continuation"});

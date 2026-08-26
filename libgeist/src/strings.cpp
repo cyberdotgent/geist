@@ -150,6 +150,12 @@ std::string normalize_toc_title(std::string value) {
     replace_all_case_insensitive(value, marker, "");
   }
   value = trim_ascii(std::move(value));
+  if (value.size() >= 2 &&
+      std::isspace(static_cast<unsigned char>(value[value.size() - 2])) != 0 &&
+      std::string("()<>/-:=\"").find(value.back()) != std::string::npos) {
+    value.pop_back();
+    value = trim_ascii(std::move(value));
+  }
   value = capitalize_bookmanager_words(value);
   std::string normalized;
   normalized.reserve(value.size());
@@ -207,10 +213,6 @@ std::string normalize_toc_title(std::string value) {
   replace_all_case_insensitive(value, "Ocl", "OCL");
   replace_all_case_insensitive(value, "Dbcs", "DBCS");
   replace_all_case_insensitive(value, "User Id", "User ID");
-  if (!value.empty() && (value.back() == '>' || value.back() == '/')) {
-    value.pop_back();
-    value = trim_ascii(std::move(value));
-  }
   return value;
 }
 
