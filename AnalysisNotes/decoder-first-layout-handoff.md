@@ -311,9 +311,29 @@ the two independent SC31 topic `5.0` selectors without merging their identical
 targets: the first selects `Chapter 2, "Problem` at columns 56--75 across
 logical records 172--173, and the next remains a separate inline selector.
 
-Generated `FIGURES`/`TABLES` topics still reject conservatively where visible
-geometry requires generated-list projection. That is the remaining selector
-slice; this core is trace-visible but does not yet alter Markdown output.
+Generated `FIGURES`/`TABLES` topics are admitted only under the exact
+`CHDLEVEL :FIGLIST`/`:TLIST` plus matching `ST Figures`/`ST Tables` envelope.
+Each selector owns one hard-boundary display row. Coordinate margins may be
+restored synthetically, but visible span content must remain source-backed;
+unlaid adjacent-record cells are first classified as opaque by Ownership IR
+and then conserved with exact token/word/byte provenance.
+
+The cross-record audit found an important boundary in
+`SC24-5527-02.boo:TABLES`: record 23 begins with the exact decoded source
+`4-2.  VMSES/E Build Lists   4.1.2`, but Layout IR begins its physical row at
+the `.` marker. The preceding `4-2` cells therefore remain opaque rather than
+disappearing. Selector lowering now carries those exact segment-prefix cells
+into the row before native-margin alignment. It never fabricates a list label
+or appends spaces merely to satisfy selector geometry.
+
+Generated-list marker disposition is likewise source-driven: all-question
+markers and `|` are structural boundaries, while `.`, `)`, `E`, `VM`, `CMS`,
+`Service`, and other verified compact expansions are lexical cells restored
+with their source-derived separators. The corpus inventory admits 28 generated
+topics across 18 BOO fixtures, comprising 1,196 selectors, bindings, and hard
+rows. Focused assertions cover the exact SC24 cross-record label, SC09 lexical
+parenthesis continuation, and the independent SC31 native-coordinate path.
+This semantic slice remains output-neutral.
 
 ## M6 comments/back-matter Layout IR prerequisite
 

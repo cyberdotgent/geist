@@ -314,17 +314,61 @@ void verify_fail_closed_cases() {
           "noncanonical raw selector entered display IR");
 }
 
-#ifdef GEIST_REPO_ROOT
-void verify_sc31_native_continuation() {
-  const auto path =
-      std::filesystem::path(GEIST_REPO_ROOT) / "BOO" / "SC31-711.boo";
-  const auto document = geist::BooDocument::open(path);
-  const auto found =
-      std::find_if(document.topics().begin(), document.topics().end(),
-                   [](const auto &topic) { return topic.id == "5.0"; });
-  require(found != document.topics().end(), "SC31 fixture has no 5.0 topic");
+void verify_generated_list_contract() {
+  const auto value = pipeline(
+      {make_source(130, {words("chdlevel :FIGLIST"), words("ST Figures"),
+                         words("cselect 8 4 FIGONE"), words("?"), words("   "),
+                         words("ABCD")})});
+  std::string error;
+  const auto display = extract(value, &error);
+  require(
+      display && display->rows.size() == 1 && display->rows[0].hard_boundary &&
+          display->rows[0].spans.size() == 1 &&
+          display->rows[0].cells.size() == 12 &&
+          std::count_if(display->rows[0].cells.begin(),
+                        display->rows[0].cells.end(),
+                        [](const auto &cell) {
+                          return cell.origin ==
+                                 geist::detail::SelectorDisplayCellOrigin::
+                                     restored_generated_prefix;
+                        }) == 5,
+      "exact FIGLIST did not restore its minimal generated prefix: " + error);
+  require(display && geist::detail::verify_selector_display_ir(
+                         value.sources, value.selectors, value.layout,
+                         value.ownership, *display, &error),
+          "generated selector row did not verify canonically: " + error);
 
-  geist::detail::LogicalDecodeContext context;
+  const auto wrong_title = pipeline(
+      {make_source(131, {words("chdlevel :FIGLIST"), words("ST Tables"),
+                         words("cselect 3 4 FIGONE"), words("marker"),
+                         words("   "), words("ABCD")})});
+  const auto wrong_title_display = extract(wrong_title, &error);
+  require(wrong_title_display && wrong_title_display->rows.size() == 1 &&
+              !wrong_title_display->rows[0].hard_boundary,
+          "mismatched FIGLIST/ST envelope enabled generated-list semantics");
+
+  const auto unowned = pipeline(
+      {make_source(132, {words("chdlevel :TLIST"), words("ST Tables"),
+                         words("cselect 3 4 TBLONE"), words("marker"),
+                         words("   "), words("ABCD"), words("cfont 3 6 2"),
+                         words("marker"), words("orphan")})});
+  require(!extract(unowned, &error) &&
+              error.find("unowned visible content") != std::string::npos,
+          "generated TLIST admitted unowned visible content");
+
+  const auto merged = pipeline({make_source(
+      133, {words("chdlevel :FIGLIST"), words("ST Figures"),
+            words("cselect 3 2 FIRST"), words("cselect 5 2 SECOND"),
+            words("marker"), words("   "), words("AABB")})});
+  require(!extract(merged, &error) &&
+              error.find("queued selectors") != std::string::npos,
+          "generated list merged two selectors into one display row");
+}
+
+#ifdef GEIST_REPO_ROOT
+void load_context(const std::filesystem::path &path,
+                  geist::detail::LogicalDecodeContext *context_ptr) {
+  auto &context = *context_ptr;
   context.bytes = geist::detail::read_file(path);
   const auto directory_page = geist::detail::read_be16(context.bytes, 0);
   const auto base =
@@ -345,6 +389,117 @@ void verify_sc31_native_continuation() {
       geist::detail::read_be16(context.bytes, base + 0x3a);
   context.decoded_records = geist::detail::decode_experimental_logical_records(
       context.bytes, context.directory, &context.record_payload_ranges);
+}
+
+void inventory_generated_lists() {
+  const auto directory = std::filesystem::path(GEIST_REPO_ROOT) / "BOO";
+  std::vector<std::string> admitted;
+  auto admitted_selectors = std::size_t{0};
+  for (const auto &entry : std::filesystem::directory_iterator(directory)) {
+    if (!entry.is_regular_file())
+      continue;
+    auto extension = entry.path().extension().string();
+    std::transform(extension.begin(), extension.end(), extension.begin(),
+                   [](const unsigned char ch) { return std::tolower(ch); });
+    if (extension != ".boo")
+      continue;
+    const auto document = geist::BooDocument::open(entry.path());
+    geist::detail::LogicalDecodeContext context;
+    load_context(entry.path(), &context);
+    for (const auto &topic : document.topics()) {
+      if (topic.id != "FIGURES" && topic.id != "TABLES")
+        continue;
+      const auto sources = geist::detail::decode_logical_record_sources(
+          context, topic.start_logical_record, topic.end_logical_record);
+      const auto selectors =
+          geist::detail::extract_selector_catalog_ir(sources);
+      if (!selectors)
+        continue;
+      const auto layout = geist::detail::extract_layout_ir(sources);
+      const auto ownership = geist::detail::build_ownership_ir(sources, layout);
+      std::string error;
+      const auto display = geist::detail::extract_selector_display_ir(
+          sources, *selectors, layout, ownership, &error);
+      const auto generated =
+          display && !display->rows.empty() &&
+          std::all_of(display->rows.begin(), display->rows.end(),
+                      [](const auto &row) { return row.hard_boundary; });
+      require(generated, "exact generated-list fixture was rejected: " +
+                             entry.path().filename().string() + ':' + topic.id +
+                             ' ' + error);
+      require(
+          display && display->rows.size() == selectors->selectors.size() &&
+              display->bindings.size() == selectors->selectors.size() &&
+              std::all_of(display->rows.begin(), display->rows.end(),
+                          [](const auto &row) {
+                            return row.hard_boundary && row.spans.size() == 1;
+                          }) &&
+              geist::detail::verify_selector_display_ir(
+                  sources, *selectors, layout, ownership, *display, &error),
+          "generated-list fixture did not conserve one verified hard row "
+          "per selector: " +
+              entry.path().filename().string() + ':' + topic.id + ' ' + error);
+      const auto selected = [&](const std::string &target) {
+        std::string text;
+        for (const auto &row : display->rows)
+          for (const auto &span : row.spans)
+            if (span.target.raw_target == target) {
+              for (auto cell = span.cell_begin; cell < span.cell_end; ++cell) {
+                require(row.cells[cell].source.has_value(),
+                        target + " span contains a synthesized source cell");
+                if (row.cells[cell].word <= 0xff)
+                  text.push_back(static_cast<char>(row.cells[cell].word));
+              }
+              return text;
+            }
+        return text;
+      };
+      if (entry.path().filename() == "SC24-5527-02.boo" && topic.id == "TABLES")
+        require(selected("TBLXSESSTA") == "4-2.  VMSES/E Build Lists   4.1.2",
+                "cross-record generated label/punctuation was not restored "
+                "from exact source cells");
+      if (entry.path().filename() == "SC09-138.boo" && topic.id == "FIGURES")
+        require(selected("FIGTSORUN1") ==
+                    "30.  Running under TSO (Example 1)   4.3.2",
+                "generated lexical punctuation fragments were not restored");
+      admitted.push_back(entry.path().filename().string() + ':' + topic.id +
+                         ':' + std::to_string(selectors->selectors.size()));
+      admitted_selectors += selectors->selectors.size();
+    }
+  }
+  std::sort(admitted.begin(), admitted.end());
+  auto expected = std::vector<std::string>{
+      "DREICMST.boo:FIGURES:129",    "FA1PLMM0.boo:FIGURES:113",
+      "GC23-046.boo:FIGURES:32",     "GC23-046.boo:TABLES:32",
+      "GC28-183.boo:FIGURES:55",     "GG24-395.boo:FIGURES:81",
+      "GG24-395.boo:TABLES:16",      "GG24-4302-00.boo:FIGURES:51",
+      "GG24-4302-00.boo:TABLES:15",  "IEAC6MST.BOO:FIGURES:100",
+      "ITPPIBOK.BOO:FIGURES:20",     "ITPPIBOK.BOO:TABLES:1",
+      "SC09-138.boo:FIGURES:162",    "SC09-138.boo:TABLES:44",
+      "SC24-546.boo:FIGURES:9",      "SC24-546.boo:TABLES:4",
+      "SC24-5527-02.boo:FIGURES:11", "SC24-5527-02.boo:TABLES:71",
+      "SC26-457.boo:FIGURES:53",     "SC28-1881-05.boo:FIGURES:18",
+      "SC33-033.boo:FIGURES:7",      "SC33-033.boo:TABLES:4",
+      "SG24-204.boo:FIGURES:128",    "SH20-918.boo:FIGURES:12",
+      "SH20-918.boo:TABLES:9",       "XWEBDEMO.boo:FIGURES:3",
+      "packet.boo:FIGURES:9",        "packet.boo:TABLES:7",
+  };
+  std::sort(expected.begin(), expected.end());
+  require(admitted == expected && admitted_selectors == 1196,
+          "generated-list cross-book admission inventory changed");
+}
+
+void verify_sc31_native_continuation() {
+  const auto path =
+      std::filesystem::path(GEIST_REPO_ROOT) / "BOO" / "SC31-711.boo";
+  const auto document = geist::BooDocument::open(path);
+  const auto found =
+      std::find_if(document.topics().begin(), document.topics().end(),
+                   [](const auto &topic) { return topic.id == "5.0"; });
+  require(found != document.topics().end(), "SC31 fixture has no 5.0 topic");
+
+  geist::detail::LogicalDecodeContext context;
+  load_context(path, &context);
 
   const auto sources = geist::detail::decode_logical_record_sources(
       context, found->start_logical_record, found->end_logical_record);
@@ -374,6 +529,8 @@ void verify_sc31_native_continuation() {
               display->rows[0].spans[0].cell_begin == 56 &&
               display->rows[0].spans[0].cell_end == 75 &&
               selected_text == "Chapter 2, \"Problem" &&
+              std::none_of(display->rows.begin(), display->rows.end(),
+                           [](const auto &row) { return row.hard_boundary; }) &&
               std::count_if(display->rows[0].cells.begin(),
                             display->rows[0].cells.end(),
                             [](const auto &cell) {
@@ -401,7 +558,9 @@ int main() {
   verify_non_ascii_is_one_source_cell();
   verify_exact_nonrow_dispositions();
   verify_fail_closed_cases();
+  verify_generated_list_contract();
 #ifdef GEIST_REPO_ROOT
+  inventory_generated_lists();
   verify_sc31_native_continuation();
 #endif
 }

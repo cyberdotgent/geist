@@ -83,6 +83,9 @@ struct SelectorDisplayRowIR {
   SelectorRowOwnerIR owner;
   SelectorRowAssociation association = SelectorRowAssociation::inline_payload;
   std::vector<SelectorDisplayCellIR> cells;
+  // Decoder padding suppressed before reconstructing a generated-list native
+  // margin remains explicitly conserved and source-proven here.
+  std::vector<SelectorDisplayCellIR> suppressed_prefix_cells;
   // Source order is retained here. Renderers may sort spans by cell_begin but
   // must never merge adjacent selectors merely because their targets match.
   std::vector<SelectorSpanIR> spans;
