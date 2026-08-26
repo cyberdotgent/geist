@@ -41,13 +41,65 @@ std::string visible_slice(const DecodedLogicalRecordSource& record,
   return trim_ascii(std::move(text));
 }
 
-bool layout_control(BookControlKind kind) {
+bool structural_end_control(const ControlSegmentIR& segment) {
+  const auto opcode = ascii_lower(segment.opcode);
+  return segment.kind == BookControlKind::table_end || opcode == "srefig";
+}
+
+bool layout_control(const ControlSegmentIR& segment) {
+  const auto kind = segment.kind;
   return kind == BookControlKind::text || kind == BookControlKind::font ||
          kind == BookControlKind::title ||
          kind == BookControlKind::select ||
          kind == BookControlKind::table_start ||
          kind == BookControlKind::menu_item ||
-         kind == BookControlKind::message_start;
+         kind == BookControlKind::message_start ||
+         structural_end_control(segment);
+}
+
+const ControlSegmentIR* source_segment(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const PhysicalRowIR& row) {
+  const auto record = std::find_if(records.begin(), records.end(),
+                                   [&](const auto& candidate) {
+                                     return candidate.logical_record ==
+                                            row.logical_record;
+                                   });
+  if (record == records.end() ||
+      row.segment_index >= record->control_segments.size())
+    return nullptr;
+  return &record->control_segments[row.segment_index];
+}
+
+bool has_no_following_control(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const PhysicalRowIR& row) {
+  const auto record = std::find_if(records.begin(), records.end(),
+                                   [&](const auto& candidate) {
+                                     return candidate.logical_record ==
+                                            row.logical_record;
+                                   });
+  return record != records.end() && !record->control_segments.empty() &&
+         row.segment_index + 1 == record->control_segments.size();
+}
+
+bool run_can_continue(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const DisplayRunIR& run) {
+  if (run.rows.empty() || !has_no_following_control(records, run.rows.back()))
+    return false;
+  if (run.control_kind == BookControlKind::font) return true;
+  const auto* segment = source_segment(records, run.rows.front());
+  return segment != nullptr && structural_end_control(*segment);
+}
+
+bool run_origin_allows_continuation(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const DisplayRunIR& run) {
+  if (run.control_kind == BookControlKind::font) return true;
+  if (run.rows.empty()) return false;
+  const auto* segment = source_segment(records, run.rows.front());
+  return segment != nullptr && structural_end_control(*segment);
 }
 
 std::vector<std::size_t>
@@ -77,7 +129,7 @@ LayoutIR extract_layout_ir(
   for (const auto& record : records) {
     const auto byte_offsets = word_byte_offsets(record.assembled);
     for (const auto& segment : record.control_segments) {
-      if (!layout_control(segment.kind) || segment.source_tokens.empty())
+      if (!layout_control(segment) || segment.source_tokens.empty())
         continue;
       struct Boundary {
         std::size_t marker;
@@ -217,7 +269,7 @@ LayoutIR extract_layout_ir(
       const auto adjacent_continuation =
           segment.kind == BookControlKind::text && segment.segment_index == 0 &&
           !layout.runs.empty() && !layout.runs.back().rows.empty() &&
-          layout.runs.back().control_kind == BookControlKind::font &&
+          run_can_continue(records, layout.runs.back()) &&
           layout.runs.back().rows.back().logical_record + 1 ==
               record.logical_record;
       if (adjacent_continuation) {
@@ -289,7 +341,12 @@ bool verify_layout_ir(const std::vector<DecodedLogicalRecordSource>& records,
           (previous_row == nullptr ||
            row.start != PhysicalRowStartKind::record_continuation ||
            row.break_before != PhysicalBreakKind::soft_wrap ||
-           previous_row->logical_record + 1 != row.logical_record))
+           previous_row->logical_record + 1 != row.logical_record ||
+           row.segment_index != 0 ||
+           source->control_segments.empty() ||
+           source->control_segments.front().kind != BookControlKind::text ||
+           !has_no_following_control(records, *previous_row) ||
+           !run_origin_allows_continuation(records, run)))
         return fail("cross-record physical continuation is not adjacent");
       previous_row = &row;
     }

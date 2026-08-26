@@ -282,6 +282,30 @@ stable Markdown structure, conserved source content and links, semantic
 invariants, fixture-specific correctness (including issue #48), and reviewed
 corpus deltas against BookServer evidence where available.
 
+## M6 comments/back-matter Layout IR prerequisite
+
+The comments-form audit exposed a mechanical ownership error before semantic
+questionnaire lowering could be safe. `SC31-711.boo` topic `COMMENTS` closes
+its second table and figure in logical record 544, but `SREFIG` itself owns the
+visible payload `Specific Comments or Problems:` and the first ruled fill row.
+Records 545--546 continue that form. The previous Layout IR discarded the
+end-control payload and then joined those records backward to the last table
+`CFONT` run across `SRETBL` and `SREFIG`.
+
+Layout extraction now admits visible payloads on the observed structural end
+controls (`SREFIG` and typed `SRETBL`) as markerless, hard-object rows. A plain
+record may continue that new run only when the prior payload-owning segment is
+the final typed segment of the adjacent record. The verifier independently
+rejects forged continuation across an intervening control or from an
+ineligible run such as `ST`.
+
+The resulting trace ends the table in run 9 and starts run 11 at record 544
+segment 2; records 545 and 546 continue run 11. Synthetic tests cover visible
+`SREFIG`/`SRETBL` payloads, an empty end-control barrier, ownership
+conservation, and forged crossings. The compatibility renderer is unchanged.
+The 34-book `boo2git` comparison produced 7,885 files with zero byte
+differences from commit `5a5cc81`.
+
 ## Source trail
 
 - Fixture: `BOO/SC31-711.boo`
