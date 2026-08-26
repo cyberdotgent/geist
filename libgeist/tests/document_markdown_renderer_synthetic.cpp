@@ -74,7 +74,19 @@ int main() {
   rich.push_back(in(TextInlineIR{" and "}));
   rich.push_back(in(CodeInlineIR{"edge ``ticks`` edge"}));
   rich.push_back(in(TextInlineIR{" then "}));
-  rich.push_back(in(CrossReferenceInlineIR{"chapter one?q=a&b", "a [link]"}));
+  rich.push_back(in(CrossReferenceInlineIR{
+      {CrossReferenceTargetKindIR::external,
+       "https://example.test/chapter one?q=a&b"},
+      "a [link]"}));
+  rich.push_back(in(TextInlineIR{"; "}));
+  rich.push_back(in(CrossReferenceInlineIR{
+      {CrossReferenceTargetKindIR::topic, "Chapter One"}, "topic"}));
+  rich.push_back(in(TextInlineIR{"; "}));
+  rich.push_back(in(CrossReferenceInlineIR{
+      {CrossReferenceTargetKindIR::anchor, "section one"}, "section"}));
+  rich.push_back(in(TextInlineIR{"; "}));
+  rich.push_back(in(CrossReferenceInlineIR{
+      {CrossReferenceTargetKindIR::resource, "manuals/a b.pdf"}, "manual"}));
   rich.push_back(in(TextInlineIR{" and "}));
   rich.push_back(in(ImageInlineIR{"image one(2).png", "alt [image]"}));
   rich.push_back(in(TextInlineIR{" plus "}));
@@ -140,8 +152,44 @@ int main() {
   std::string error;
   if (!require(verify_document_ir(document, &error), error))
     return 1;
-  const auto output = render_document_markdown(document);
-  if (!require(output == render_document_markdown(document),
+  auto invalid_target = document;
+  auto &invalid_inlines =
+      std::get<ParagraphBlockIR>(invalid_target.blocks[1].node).content;
+  std::get<CrossReferenceInlineIR>(invalid_inlines[6].node).target.kind =
+      static_cast<CrossReferenceTargetKindIR>(99);
+  error.clear();
+  if (!require(!verify_document_ir(invalid_target, &error) &&
+                   error == "inline node is not canonical",
+               "verifier admitted an invalid cross-reference target kind"))
+    return 1;
+  const auto formatted = format_document_ir(document);
+  if (!contains(formatted,
+                "xref=external:\"https://example.test/chapter one?q=a&b\"",
+                "formatter omitted external target kind") ||
+      !contains(formatted, "xref=topic:\"Chapter One\"",
+                "formatter omitted topic target kind") ||
+      !contains(formatted, "xref=anchor:\"section one\"",
+                "formatter omitted anchor target kind") ||
+      !contains(formatted, "xref=resource:\"manuals/a b.pdf\"",
+                "formatter omitted resource target kind"))
+    return 1;
+  const auto fallback_output = render_document_markdown(document);
+  if (!contains(fallback_output, "[topic](<Chapter%20One>)",
+                "context-free topic fallback changed semantic identity"))
+    return 1;
+
+  DocumentMarkdownRendererOptions options;
+  options.resolve_cross_reference =
+      [](const CrossReferenceTargetIR &target)
+      -> std::optional<std::string> {
+    if (target.kind == CrossReferenceTargetKindIR::topic)
+      return "topics/chapter-one.md";
+    if (target.kind == CrossReferenceTargetKindIR::resource)
+      return "assets/manual.pdf";
+    return std::nullopt;
+  };
+  const auto output = render_document_markdown(document, options);
+  if (!require(output == render_document_markdown(document, options),
                "rendering the same typed IR was not deterministic") ||
       !require(!output.empty() && output.back() == '\n',
                "typed output has no canonical final newline") ||
@@ -152,8 +200,15 @@ int main() {
                 "prose escaping or explicit hard break failed") ||
       !contains(output, "```edge ``ticks`` edge```",
                 "variable-length inline code delimiter failed") ||
-      !contains(output, "[a \\[link\\]](<chapter%20one?q=a&b>)",
-                "link label/destination escaping failed") ||
+      !contains(output,
+                "[a \\[link\\]](<https://example.test/chapter%20one?q=a&b>)",
+                "external link label/destination escaping failed") ||
+      !contains(output, "[topic](<topics/chapter-one.md>)",
+                "topic destination resolution failed") ||
+      !contains(output, "[section](<#section%20one>)",
+                "anchor destination resolution failed") ||
+      !contains(output, "[manual](<assets/manual.pdf>)",
+                "resource destination resolution failed") ||
       !contains(output, "![alt \\[image\\]](<image%20one(2).png>)",
                 "inline image escaping failed") ||
       !contains(output, "`` legacy*span: raw `value` ``",

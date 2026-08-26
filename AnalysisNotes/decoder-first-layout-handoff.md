@@ -505,6 +505,15 @@ separately prove stable Markdown syntax and representation of every IR variant.
 Compatibility-only handoffs retain byte-identity gates, while later direct
 semantic handoffs may produce reviewed, intentional byte differences.
 
+Cross-references retain output-neutral target identity in Document IR. Each
+target is explicitly a topic, anchor, resource, or external destination; a
+Markdown exporter may supply a resolver that maps those identities to its
+actual filenames and resource paths. This mapping cannot be guessed by the
+generic renderer because `boo2git` also owns filename sanitization, collision
+suffixes, README special cases, and cross-topic anchor/resource maps. Without
+an exporter resolver, rendering uses a stable identity-preserving fallback
+rather than inventing a `.md` filename in semantic lowering.
+
 The publication-catalog adapter is the second complete semantic-to-document
 lowering and is now enabled in production. `PublicationCatalogIR` retains
 physical source rows for its title and introduction as well as every

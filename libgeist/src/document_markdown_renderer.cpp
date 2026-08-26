@@ -125,6 +125,22 @@ std::string markdown_destination(const std::string &value) {
   return result.str();
 }
 
+std::string cross_reference_destination(
+    const CrossReferenceTargetIR &target,
+    const DocumentMarkdownRendererOptions &options) {
+  if (options.resolve_cross_reference) {
+    if (const auto resolved = options.resolve_cross_reference(target))
+      return *resolved;
+  }
+  switch (target.kind) {
+  case CrossReferenceTargetKindIR::topic:
+  case CrossReferenceTargetKindIR::resource:
+  case CrossReferenceTargetKindIR::external: return target.value;
+  case CrossReferenceTargetKindIR::anchor: return '#' + target.value;
+  }
+  throw std::logic_error("invalid cross-reference target kind");
+}
+
 std::string footnote_label(const std::string &value) {
   std::ostringstream result;
   for (const auto raw_ch : value) {
@@ -184,7 +200,8 @@ std::string code_span(const std::string &value, bool table_cell = false) {
 }
 
 std::string render_inlines(const InlineSequenceIR &inlines,
-                           InlineContext context) {
+                           InlineContext context,
+                           const DocumentMarkdownRendererOptions &options) {
   std::string result;
   for (const auto &in : inlines) {
     std::visit(
@@ -198,9 +215,12 @@ std::string render_inlines(const InlineSequenceIR &inlines,
             result +=
                 code_span(node.code, context == InlineContext::table_cell);
           } else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>) {
-            const auto label = node.label.empty() ? node.target : node.label;
+            const auto label =
+                node.label.empty() ? node.target.value : node.label;
             result += '[' + escape_markdown_text(label) + "](" +
-                      markdown_destination(node.target) + ')';
+                      markdown_destination(
+                          cross_reference_destination(node.target, options)) +
+                      ')';
           } else if constexpr (std::is_same_v<T, ImageInlineIR>) {
             result += "![" + escape_markdown_text(node.alt_text) + "](" +
                       markdown_destination(node.resource) + ')';
@@ -230,8 +250,8 @@ std::string render_alt_text(const InlineSequenceIR &inlines) {
           } else if constexpr (std::is_same_v<T, CodeInlineIR>) {
             result += escape_markdown_text(node.code);
           } else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>) {
-            result += escape_markdown_text(node.label.empty() ? node.target
-                                                              : node.label);
+            result += escape_markdown_text(
+                node.label.empty() ? node.target.value : node.label);
           } else if constexpr (std::is_same_v<T, ImageInlineIR>) {
             result += escape_markdown_text(
                 node.alt_text.empty() ? node.resource : node.alt_text);
@@ -268,7 +288,8 @@ std::string table_row(const std::vector<std::string> &cells) {
   return result;
 }
 
-std::string render_table(const TableBlockIR &table) {
+std::string render_table(const TableBlockIR &table,
+                         const DocumentMarkdownRendererOptions &options) {
   const auto width = table.rows.front().cells.size();
   std::vector<std::string> header(width);
   auto body_begin = std::size_t{0};
@@ -280,7 +301,7 @@ std::string render_table(const TableBlockIR &table) {
         if (row != 0)
           header[cell] += "<br>";
         header[cell] += render_inlines(table.rows[row].cells[cell].content,
-                                       InlineContext::table_cell);
+                                       InlineContext::table_cell, options);
       }
     body_begin = table.header_rows;
   }
@@ -292,21 +313,24 @@ std::string render_table(const TableBlockIR &table) {
     std::vector<std::string> cells;
     cells.reserve(width);
     for (const auto &cell : table.rows[row].cells)
-      cells.push_back(render_inlines(cell.content, InlineContext::table_cell));
+      cells.push_back(
+          render_inlines(cell.content, InlineContext::table_cell, options));
     result += '\n' + table_row(cells);
   }
   return result;
 }
 
-std::string render_block(const BlockNodeIR &block) {
+std::string render_block(const BlockNodeIR &block,
+                         const DocumentMarkdownRendererOptions &options) {
   return std::visit(
       [&](const auto &node) -> std::string {
         using T = std::decay_t<decltype(node)>;
         if constexpr (std::is_same_v<T, HeadingBlockIR>) {
           return std::string(node.level, '#') + " " +
-                 render_inlines(node.content, InlineContext::single_line);
+                 render_inlines(node.content, InlineContext::single_line,
+                                options);
         } else if constexpr (std::is_same_v<T, ParagraphBlockIR>) {
-          return render_inlines(node.content, InlineContext::prose);
+          return render_inlines(node.content, InlineContext::prose, options);
         } else if constexpr (std::is_same_v<T, AnchorBlockIR>) {
           return "<a id=\"" + escape_html_attribute(node.id) + "\"></a>";
         } else if constexpr (std::is_same_v<T, ListBlockIR>) {
@@ -316,7 +340,7 @@ std::string render_block(const BlockNodeIR &block) {
               result.push_back('\n');
             result += node.ordered ? "1. " : "- ";
             result += render_inlines(node.items[index].content,
-                                     InlineContext::single_line);
+                                     InlineContext::single_line, options);
           }
           return result;
         } else if constexpr (std::is_same_v<T, DefinitionListBlockIR>) {
@@ -326,23 +350,25 @@ std::string render_block(const BlockNodeIR &block) {
               result.push_back('\n');
             result += "- **" +
                       render_inlines(node.entries[index].term,
-                                     InlineContext::single_line) +
+                                     InlineContext::single_line, options) +
                       ":** " +
                       render_inlines(node.entries[index].definition,
-                                     InlineContext::single_line);
+                                     InlineContext::single_line, options);
           }
           return result;
         } else if constexpr (std::is_same_v<T, TableBlockIR>) {
-          return render_table(node);
+          return render_table(node, options);
         } else if constexpr (std::is_same_v<T, PreformattedBlockIR>) {
           return fenced_block(node.lines);
         } else if constexpr (std::is_same_v<T, NoteBlockIR>) {
           std::string result = "> ";
           if (!node.label.empty())
             result += "**" +
-                      render_inlines(node.label, InlineContext::single_line) +
+                      render_inlines(node.label, InlineContext::single_line,
+                                     options) +
                       ":** ";
-          result += render_inlines(node.content, InlineContext::single_line);
+          result +=
+              render_inlines(node.content, InlineContext::single_line, options);
           return result;
         } else if constexpr (std::is_same_v<T, PublicationListBlockIR>) {
           std::string result;
@@ -351,11 +377,12 @@ std::string render_block(const BlockNodeIR &block) {
               result += "\n\n";
             result += "- **" +
                       render_inlines(node.entries[entry].title,
-                                     InlineContext::single_line) +
+                                     InlineContext::single_line, options) +
                       "**";
             for (const auto &paragraph : node.entries[entry].paragraphs)
               result += "\n\n  " +
-                        render_inlines(paragraph, InlineContext::single_line);
+                        render_inlines(paragraph, InlineContext::single_line,
+                                       options);
           }
           return result;
         } else if constexpr (std::is_same_v<T, FigureBlockIR>) {
@@ -364,24 +391,27 @@ std::string render_block(const BlockNodeIR &block) {
               "![" + alt + "](" + markdown_destination(node.resource) + ')';
           if (!node.caption.empty())
             result += "\n\n*" +
-                      render_inlines(node.caption, InlineContext::single_line) +
+                      render_inlines(node.caption, InlineContext::single_line,
+                                     options) +
                       '*';
           return result;
         } else if constexpr (std::is_same_v<T, FootnoteBlockIR>) {
           return "[^" + footnote_label(node.id) + "]: " +
-                 render_inlines(node.content, InlineContext::single_line);
+                 render_inlines(node.content, InlineContext::single_line,
+                                options);
         } else if constexpr (std::is_same_v<T, IndexGroupBlockIR>) {
           std::string result;
           if (!node.heading.empty())
             result = "**" +
-                     render_inlines(node.heading, InlineContext::single_line) +
+                     render_inlines(node.heading, InlineContext::single_line,
+                                    options) +
                      "**\n\n";
           for (std::size_t index = 0; index < node.entries.size(); ++index) {
             if (index != 0)
               result.push_back('\n');
             result += "- [" +
                       render_inlines(node.entries[index].term,
-                                     InlineContext::single_line) +
+                                     InlineContext::single_line, options) +
                       "](" + markdown_destination(node.entries[index].target) +
                       ')';
           }
@@ -400,7 +430,9 @@ std::string render_block(const BlockNodeIR &block) {
 
 } // namespace
 
-std::string render_document_markdown(const DocumentIR &document) {
+std::string render_document_markdown(
+    const DocumentIR &document,
+    const DocumentMarkdownRendererOptions &options) {
   std::string error;
   if (!verify_document_ir(document, &error))
     throw std::invalid_argument("invalid DocumentIR: " + error);
@@ -422,7 +454,7 @@ std::string render_document_markdown(const DocumentIR &document) {
   for (const auto &block : document.blocks) {
     if (!result.empty())
       result += "\n\n";
-    result += render_block(block.node);
+    result += render_block(block.node, options);
   }
   result.push_back('\n');
   return result;

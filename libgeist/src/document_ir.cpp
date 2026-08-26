@@ -70,7 +70,14 @@ bool verify_inlines(const InlineSequenceIR& inlines, bool allow_empty,
           } else if constexpr (std::is_same_v<T, CodeInlineIR>) {
             return !node.code.empty();
           } else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>) {
-            return !node.target.empty();
+            switch (node.target.kind) {
+            case CrossReferenceTargetKindIR::topic:
+            case CrossReferenceTargetKindIR::anchor:
+            case CrossReferenceTargetKindIR::resource:
+            case CrossReferenceTargetKindIR::external:
+              return !node.target.value.empty();
+            }
+            return false;
           } else if constexpr (std::is_same_v<T, ImageInlineIR>) {
             return !node.resource.empty();
           } else if constexpr (std::is_same_v<T, OpaqueInlineIR>) {
@@ -211,6 +218,17 @@ const char* derivation_name(DocumentDerivationIR value) {
   return "invalid";
 }
 
+const char* cross_reference_target_kind_name(
+    CrossReferenceTargetKindIR value) {
+  switch (value) {
+  case CrossReferenceTargetKindIR::topic: return "topic";
+  case CrossReferenceTargetKindIR::anchor: return "anchor";
+  case CrossReferenceTargetKindIR::resource: return "resource";
+  case CrossReferenceTargetKindIR::external: return "external";
+  }
+  return "invalid";
+}
+
 void format_origin(std::ostringstream& out,
                    const DocumentNodeOriginIR& origin) {
   out << " origin=" << derivation_name(origin.derivation);
@@ -241,7 +259,9 @@ void format_inlines(std::ostringstream& out, const InlineSequenceIR& inlines) {
           else if constexpr (std::is_same_v<T, CodeInlineIR>)
             out << "code=" << quoted(node.code);
           else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>)
-            out << "xref=" << quoted(node.target) << ':' << quoted(node.label);
+            out << "xref="
+                << cross_reference_target_kind_name(node.target.kind) << ':'
+                << quoted(node.target.value) << ':' << quoted(node.label);
           else if constexpr (std::is_same_v<T, ImageInlineIR>)
             out << "image=" << quoted(node.resource) << ':'
                 << quoted(node.alt_text);

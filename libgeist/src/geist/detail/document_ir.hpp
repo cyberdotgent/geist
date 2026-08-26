@@ -21,8 +21,20 @@ struct CodeInlineIR {
   std::string code;
 };
 
+enum class CrossReferenceTargetKindIR {
+  topic,
+  anchor,
+  resource,
+  external,
+};
+
+struct CrossReferenceTargetIR {
+  CrossReferenceTargetKindIR kind = CrossReferenceTargetKindIR::topic;
+  std::string value;
+};
+
 struct CrossReferenceInlineIR {
-  std::string target;
+  CrossReferenceTargetIR target;
   std::string label;
 };
 
