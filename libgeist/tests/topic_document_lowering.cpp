@@ -48,6 +48,14 @@ int main() {
   const auto back_again = back_entry->markdown();
   const auto back_gml_after = back_entry->gml_records();
   const auto comments = document.topic_markdown("COMMENTS");
+  const auto *publication_entry = document.find_toc_entry("BACK_1.1");
+  if (!require(publication_entry != nullptr,
+               "publication is absent from the public TOC"))
+    return 1;
+  const auto publication_gml_before = publication_entry->gml_records();
+  const auto publication = publication_entry->markdown();
+  const auto publication_again = publication_entry->markdown();
+  const auto publication_gml_after = publication_entry->gml_records();
   const auto *ordinary_entry = document.find_toc_entry("2.1");
   if (!require(ordinary_entry != nullptr, "ordinary topic is absent from TOC"))
     return 1;
@@ -74,6 +82,19 @@ int main() {
                "typed rendering changed or discarded public GML records") ||
       !require(comments.rfind("# COMMENTS ", 0) == 0,
                "typed questionnaire heading lost public topic identity") ||
+      !require(publication.rfind("## BACK\\_1\\.1 ", 0) == 0,
+               "typed publication heading lost public topic identity") ||
+      !require(publication == publication_again,
+               "repeated typed publication rendering was unstable") ||
+      !require(publication_gml_before == publication_gml_after &&
+                   !publication_gml_after.empty(),
+               "typed publication changed or discarded public GML records") ||
+      !require(publication.find(
+                   "Getting Started with LAN Network Manager for AIX "
+                   "\\(SC31\\-7109\\)") != std::string::npos,
+               "typed publication content was not rendered") ||
+      !require(publication.find("<B>") == std::string::npos,
+               "typed publication retained raw HTML") ||
       !require(comments.find("<a id=\"TBLUNIQ8\"></a>") !=
                    std::string::npos &&
                    comments.find("<a id=\"TBLTBLUNIQ9\"></a>") !=

@@ -205,7 +205,8 @@ struct LazyTopicState {
         context->decoded_records.begin() + topic.start_logical_record - 1,
         context->decoded_records.begin() + topic.end_logical_record - 1);
     load_source_layout_if_candidate(context, topic);
-    if (has_comment_delivery_source_candidate(topic.raw_records)) {
+    if (has_comment_delivery_source_candidate(topic.raw_records) ||
+        has_publication_ir_source_candidate(topic.raw_records)) {
       typed_sources = topic.fixed_layout_sources.empty()
                           ? decode_logical_record_sources(
                                 *context, topic.start_logical_record,

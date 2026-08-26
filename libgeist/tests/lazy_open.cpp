@@ -23,6 +23,19 @@ std::size_t substring_count(const std::string& value,
   return count;
 }
 
+std::string markdown_visible_text(const std::string& markdown) {
+  std::string visible;
+  visible.reserve(markdown.size());
+  for (std::size_t index = 0; index < markdown.size(); ++index) {
+    if (markdown[index] == '\\' && index + 1 < markdown.size()) {
+      visible.push_back(markdown[++index]);
+    } else {
+      visible.push_back(markdown[index]);
+    }
+  }
+  return visible;
+}
+
 } // namespace
 
 int main() {
@@ -793,7 +806,7 @@ int main() {
                   std::string::npos,
           "symbolic SRMSG catalog remained fixed or leaked its intro marker");
   const auto rmonitor_publications =
-      problem_determination.topic_markdown("BACK_1.5");
+      markdown_visible_text(problem_determination.topic_markdown("BACK_1.5"));
   require(rmonitor_publications.find(
               "Using RMONitor for AIX (SC31-7115)") != std::string::npos &&
               rmonitor_publications.find(
@@ -801,7 +814,7 @@ int main() {
                   std::string::npos,
           "RMONitor publication CFONT rows disappeared during title repair");
   const auto sna_publications =
-      problem_determination.topic_markdown("BACK_1.10");
+      markdown_visible_text(problem_determination.topic_markdown("BACK_1.10"));
   for (const auto* expected : {
            "AIX SNA Server/6000 User's Guide (SC31-7002)",
            "AIX SNA Server/6000 Configuration Reference (SC31-7014)",
@@ -810,7 +823,7 @@ int main() {
             "SNA publication CFONT row disappeared during title repair");
   }
   const auto lnm_publications =
-      problem_determination.topic_markdown("BACK_1.1");
+      markdown_visible_text(problem_determination.topic_markdown("BACK_1.1"));
   for (const auto* expected : {
            "Getting Started with LAN Network Manager for AIX (SC31-7109)",
            "Using LAN Network Manager for AIX (SC31-7110)",
@@ -840,7 +853,7 @@ int main() {
                   std::string::npos,
           "LAN publication lost its cross-record description continuation");
   const auto netcenter_publications =
-      problem_determination.topic_markdown("BACK_1.11");
+      markdown_visible_text(problem_determination.topic_markdown("BACK_1.11"));
   for (const auto* expected : {
            "NETCENTER Operator Tutorial (GC75-0109)",
            "NETCENTER Graphic Network Monitor Service Point Interface "
@@ -867,7 +880,7 @@ int main() {
   require(netcenter_publications.find("(GC75-0109)=") == std::string::npos,
           "NETCENTER publication leaked a terminal fixed-row marker");
   const auto fddi_publications =
-      problem_determination.topic_markdown("BACK_1.7");
+      markdown_visible_text(problem_determination.topic_markdown("BACK_1.7"));
   require(fddi_publications.find(
               "FDDI SNMP Proxy Agent User's Guide (GC17-0383)") !=
               std::string::npos &&
@@ -877,7 +890,8 @@ int main() {
                   std::string::npos,
           "FDDI publication row lost content or leaked its marker field");
   const auto motif_publications =
-      problem_determination.topic_markdown("BACK_1.12.2");
+      markdown_visible_text(
+          problem_determination.topic_markdown("BACK_1.12.2"));
   require(motif_publications.find("publications:agent") == std::string::npos &&
               motif_publications.find("OSF/Motif Series (5 volumes)") !=
                   std::string::npos &&

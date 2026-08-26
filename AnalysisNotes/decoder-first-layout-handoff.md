@@ -505,25 +505,25 @@ separately prove stable Markdown syntax and representation of every IR variant.
 Compatibility-only handoffs retain byte-identity gates, while later direct
 semantic handoffs may produce reviewed, intentional byte differences.
 
-The publication-catalog adapter is the next complete semantic-to-document
-lowering, but is not yet enabled in production. `PublicationCatalogIR` now
-retains physical source rows for its title and introduction as well as every
+The publication-catalog adapter is the second complete semantic-to-document
+lowering and is now enabled in production. `PublicationCatalogIR` retains
+physical source rows for its title and introduction as well as every
 entry paragraph; when a wide first row contains both title and introduction,
 both semantic fields retain that shared row. The canonical source verifier
 rejects missing or changed heading provenance. Document lowering emits one
 source-proven heading, the introduction paragraph, and every independent
 publication paragraph without forcing the data into `PublicationListBlockIR`:
 the current source IR does not distinguish a citation title from a body, so
-doing so would duplicate or invent content. Production routing remains gated
-on the same whole-topic dispatcher and corpus review used for comments.
+doing so would duplicate or invent content.
 
 Production typed routing now occurs before `attach_topic_data()` can project
 semantic IR back into flattened GML. A source-only dispatcher builds and
-verifies Layout/Ownership once, admits one complete comment/delivery model,
-verifies its canonical DocumentIR lowering, and returns no document for every
-non-match or rejection. `TocEntry::markdown()` then selects exactly one of two
-indivisible paths: the immutable cached typed document, or the unchanged
-whole-topic legacy loader. Typed and legacy blocks are never mixed.
+verifies Layout/Ownership once, independently recognizes comment/delivery and
+publication-catalog models, and requires exactly one complete family to match.
+It verifies the selected canonical DocumentIR lowering and returns no document
+for every non-match or rejection. `TocEntry::markdown()` then selects exactly
+one of two indivisible paths: the immutable cached typed document, or the
+unchanged whole-topic legacy loader. Typed and legacy blocks are never mixed.
 
 TOC entries and direct/non-TOC topic rendering install the same paired lazy
 loaders over one shared decode state. A null typed attempt is cached as well as
@@ -549,6 +549,19 @@ README, and resource was byte-identical. Both intentional deltas were reviewed
 for heading identity, paragraph/list/table structure, all 18 recovered affixes,
 publication and FAX data, checklist items, questionnaire questions, response
 area, and table-anchor conservation.
+
+The publication production gate admits exactly 18 complete topics across three
+books: four topics in `GG24-395.boo` (`3.3.9.4`, `3.3.10.6`, `3.3.14.4`, and
+`3.3.18.4`), `BIBLIOGRAPHY.1` in `SC09-138.boo`, and 13 `BACK_1` catalog
+topics in `SC31-711.boo` (`BACK_1.1`, `.2`, `.4` through `.11`, and `.12.1`
+through `.12.3`). The fresh 34-book export still contains 7,396 Markdown files
+and 7,885 total files. Relative to the M7 baseline it has 20 intentional deltas:
+those 18 publication topics plus the two established comment topics. Removing
+only CommonMark backslash escapes makes every publication output byte-identical
+to its baseline, including heading level, paragraph boundaries and order, and
+trailing separators. Tests therefore assert Markdown-visible publication text
+while retaining strict occurrence counts and paragraph-structure checks; legacy
+Markdown byte parity is neither required nor restored.
 
 ## Source trail
 

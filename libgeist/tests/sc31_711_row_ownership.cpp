@@ -465,9 +465,9 @@ int main() {
                             "NETCENTER Operator Tutorial (GC75-0109)"},
            PublicationTopic{"BACK_1.12.2",
                             "OSF/Motif Series (5 volumes)"},
-       }) {
+  }) {
     const auto markdown = document.topic_markdown(publication.id);
-    require_once(markdown, publication.title, "publication row");
+    require_visible_once(markdown, publication.title, "publication row");
     require_absent(markdown, "<B>", "raw publication HTML");
   }
   require_absent(document.topic_markdown("BACK_1.1"),
