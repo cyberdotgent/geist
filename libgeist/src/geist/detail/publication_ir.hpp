@@ -23,7 +23,9 @@ struct PublicationEntryIR {
 struct PublicationCatalogIR {
   std::string heading_level;
   std::string title;
+  std::vector<std::pair<DisplayRunId, std::size_t>> title_source_rows;
   std::string introduction;
+  std::vector<std::pair<DisplayRunId, std::size_t>> introduction_source_rows;
   std::vector<PublicationEntryIR> entries;
 };
 

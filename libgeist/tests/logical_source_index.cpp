@@ -122,11 +122,23 @@ void verify_book(const std::filesystem::path& path,
                 : "cross-book prose/list negative entered publication IR");
   if (publication) {
     std::string publication_error;
+    require(!publication->title_source_rows.empty() &&
+                !publication->introduction_source_rows.empty(),
+            "publication heading text lost physical-row provenance");
+    if (path.filename() == "SC31-711.boo" && first == 519)
+      require(publication->title_source_rows.front() ==
+                  publication->introduction_source_rows.front(),
+              "split publication heading did not retain its shared source row");
     require(geist::detail::verify_publication_catalog_ir(
                 sources, layout, ownership, *publication, &publication_error),
             publication_error.empty()
                 ? "publication catalog IR verification failed"
                 : publication_error.c_str());
+    auto publication_without_title_source = *publication;
+    publication_without_title_source.title_source_rows.clear();
+    require(!geist::detail::verify_publication_catalog_ir(
+                sources, layout, ownership, publication_without_title_source),
+            "publication verifier admitted missing title provenance");
     require(geist::detail::format_publication_catalog_ir(*publication).find(
                 "sources=") != std::string::npos,
             "publication catalog IR has no stable provenance projection");

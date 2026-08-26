@@ -93,6 +93,7 @@ set(GEIST_SOURCES
   src/img/png.cpp
   src/properties.cpp
   src/procedure_rows.cpp
+  src/publication_document_lowering.cpp
   src/publication_ir.cpp
   src/resources.cpp
   src/selector_display_ir.cpp
@@ -302,6 +303,15 @@ target_compile_definitions(comment_delivery_document_lowering_synthetic_test PRI
 )
 add_test(NAME comment_delivery_document_lowering_synthetic_test
   COMMAND comment_delivery_document_lowering_synthetic_test)
+
+add_executable(publication_document_lowering_synthetic_test
+  tests/publication_document_lowering_synthetic.cpp
+)
+target_link_libraries(publication_document_lowering_synthetic_test
+  PRIVATE geist::geist_static
+)
+add_test(NAME publication_document_lowering_synthetic_test
+  COMMAND publication_document_lowering_synthetic_test)
 
 add_executable(document_ir_synthetic_test
   tests/document_ir_synthetic.cpp

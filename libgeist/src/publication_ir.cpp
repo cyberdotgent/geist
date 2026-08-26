@@ -324,14 +324,19 @@ std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
   PublicationCatalogIR catalog;
   catalog.heading_level = heading_level;
   std::vector<std::string> title_rows;
+  std::vector<std::pair<DisplayRunId, std::size_t>> title_row_sources;
   for (std::size_t row_index = 0; row_index < title_run->rows.size();
        ++row_index) {
     auto text = compose_row(records, title_run->rows[row_index],
                             row_index != 0,
                             row_index + 1 == title_run->rows.size());
-    if (!text.empty()) title_rows.push_back(std::move(text));
+    if (!text.empty()) {
+      title_rows.push_back(std::move(text));
+      title_row_sources.push_back({title_run->id, row_index});
+    }
   }
   if (title_rows.empty()) return std::nullopt;
+  catalog.title_source_rows.push_back(title_row_sources.front());
   const auto gap = wide_gap(title_rows.front());
   if (gap == std::string::npos) {
     catalog.title = collapse_ascii_whitespace(title_rows.front());
@@ -339,6 +344,7 @@ std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
     catalog.title = collapse_ascii_whitespace(title_rows.front().substr(0, gap));
     catalog.introduction =
         collapse_ascii_whitespace(title_rows.front().substr(gap));
+    catalog.introduction_source_rows.push_back(title_row_sources.front());
   }
   for (std::size_t row = 1; row < title_rows.size(); ++row) {
     const auto prefix_entry =
@@ -348,12 +354,13 @@ std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
     if (prefix_entry) {
       PublicationEntryIR entry;
       entry.text = collapse_ascii_whitespace(title_rows[row]);
-      entry.source_rows.push_back({title_run->id, row});
+      entry.source_rows.push_back(title_row_sources[row]);
       entry.paragraphs.push_back({entry.text, entry.source_rows});
       if (!entry.text.empty()) catalog.entries.push_back(std::move(entry));
     } else {
       if (!catalog.introduction.empty()) catalog.introduction += ' ';
       catalog.introduction += collapse_ascii_whitespace(title_rows[row]);
+      catalog.introduction_source_rows.push_back(title_row_sources[row]);
     }
   }
   catalog.introduction = collapse_ascii_whitespace(catalog.introduction);
@@ -457,7 +464,10 @@ bool verify_publication_catalog_ir(
   if (!canonical) return fail("source does not admit a publication catalog");
   if (canonical->heading_level != catalog.heading_level ||
       canonical->title != catalog.title ||
+      canonical->title_source_rows != catalog.title_source_rows ||
       canonical->introduction != catalog.introduction ||
+      canonical->introduction_source_rows !=
+          catalog.introduction_source_rows ||
       canonical->entries.size() != catalog.entries.size())
     return fail("publication catalog differs from canonical source lowering");
   for (std::size_t index = 0; index < catalog.entries.size(); ++index) {
@@ -490,7 +500,13 @@ std::string format_publication_catalog_ir(
   std::ostringstream output;
   output << "publication heading=" << catalog.heading_level << " title='"
          << catalog.title << "' introduction='" << catalog.introduction
-         << "'\n";
+         << "' title_sources=";
+  for (const auto& source : catalog.title_source_rows)
+    output << source.first << ':' << source.second << ',';
+  output << " introduction_sources=";
+  for (const auto& source : catalog.introduction_source_rows)
+    output << source.first << ':' << source.second << ',';
+  output << '\n';
   for (std::size_t index = 0; index < catalog.entries.size(); ++index) {
     output << "entry=" << index << " text='" << catalog.entries[index].text
            << "' sources=";

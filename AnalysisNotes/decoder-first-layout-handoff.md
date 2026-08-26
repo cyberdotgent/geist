@@ -505,6 +505,18 @@ separately prove stable Markdown syntax and representation of every IR variant.
 Compatibility-only handoffs retain byte-identity gates, while later direct
 semantic handoffs may produce reviewed, intentional byte differences.
 
+The publication-catalog adapter is the next complete semantic-to-document
+lowering, but is not yet enabled in production. `PublicationCatalogIR` now
+retains physical source rows for its title and introduction as well as every
+entry paragraph; when a wide first row contains both title and introduction,
+both semantic fields retain that shared row. The canonical source verifier
+rejects missing or changed heading provenance. Document lowering emits one
+source-proven heading, the introduction paragraph, and every independent
+publication paragraph without forcing the data into `PublicationListBlockIR`:
+the current source IR does not distinguish a citation title from a body, so
+doing so would duplicate or invent content. Production routing remains gated
+on the same whole-topic dispatcher and corpus review used for comments.
+
 ## Source trail
 
 - Fixture: `BOO/SC31-711.boo`
