@@ -207,6 +207,35 @@ diff only separates the five citations and six cross-reference explanations,
 restores carried `be`, `are`, `for`, and `not`, and removes the source-proven
 layout slots and duplicate terminal punctuation described above.
 
+## M6 numeric-message section migration evidence
+
+The next residual was `SC31-711.boo` topic `5.0`, logical records 172--434.
+The compatibility renderer retained all 396 `MSG` anchors but flattened each
+message heading, `Meaning:`, and `Action:` into one paragraph. It also emitted
+only 584 of the 792 section labels with emphasis. The hosted BookServer page
+renders all 396 entries with separate, emphasized Meaning and Action sections.
+
+The new `MessageCatalogIR` admits only a wholly numeric/range `SRMSG` catalog.
+It records the canonical message ID and the ordered Meaning/Action boundaries
+with display-run, physical-row, logical-record, and control-segment
+provenance. Canonical re-lowering rejects mutated IDs, ordering, or
+provenance. Split `CFONT` controls are explicit recovered-record-continuation
+boundaries: the source text must begin with the missing label before the next
+numeric `SRMSG`; arbitrary missing labels are not inferred. Lower-case words
+carried in an `SRMSG` payload remain owned by the preceding entry.
+
+The comparison source is document `SC31-7111-00`, topic `5.0`, hosted
+timestamp `19941010174546`:
+
+`http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/SC31-711/5.0?DT=19941010174546`
+
+The whole-corpus comparison used the post-glossary baseline. Candidate and
+baseline both rendered all 34 books, producing 7,396 Markdown files and 7,885
+total files. Exactly one file changed: `SC31-711.boo` topic `5.0`. Every other
+Markdown file and generated resource was byte-identical. The candidate has
+exactly 396 Markdown paragraphs beginning `**Meaning:**` and 396 beginning
+`**Action:**`; the remaining message text and anchors are conserved.
+
 ## Source trail
 
 - Fixture: `BOO/SC31-711.boo`

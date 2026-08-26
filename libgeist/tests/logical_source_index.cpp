@@ -179,6 +179,56 @@ void verify_book(const std::filesystem::path& path,
               "glossary IR verifier admitted mutated semantic text");
     }
   }
+  if (path.filename() == "SC31-711.boo" && first == 172) {
+    std::string message_error;
+    const auto catalog = geist::detail::extract_message_catalog_ir(
+        sources, layout, ownership, &message_error);
+    require(catalog.has_value(),
+            message_error.empty() ? "message catalog did not enter semantic IR"
+                                  : message_error.c_str());
+    require(catalog && catalog->entries.size() == 396 &&
+                catalog->entries.front().id == "023" &&
+                catalog->entries[1].id == "062" &&
+                catalog->entries.back().id == "2505",
+            "message catalog IR lost its canonical entry sequence");
+    require(catalog && std::all_of(
+                           catalog->entries.begin(), catalog->entries.end(),
+                           [](const auto& entry) {
+                             return entry.sections.size() == 2 &&
+                                    entry.sections[0].kind ==
+                                        geist::detail::MessageSectionKind::
+                                            meaning &&
+                                    entry.sections[1].kind ==
+                                        geist::detail::MessageSectionKind::
+                                            action;
+                           }),
+            "message catalog IR lost Meaning/Action section order");
+    require(catalog && std::any_of(
+                           catalog->entries.begin(), catalog->entries.end(),
+                           [](const auto& entry) {
+                             return std::any_of(
+                                 entry.sections.begin(), entry.sections.end(),
+                                 [](const auto& section) {
+                                   return section.recovered_record_continuation;
+                                 });
+                           }),
+            "message catalog IR did not expose split-record label recovery");
+    require(catalog && geist::detail::verify_message_catalog_ir(
+                           sources, layout, ownership, *catalog,
+                           &message_error),
+            message_error.empty() ? "message catalog IR verification failed"
+                                  : message_error.c_str());
+    require(catalog && geist::detail::format_message_catalog_ir(*catalog).find(
+                            "message_catalog entries=396") != std::string::npos,
+            "message catalog IR trace omitted the canonical catalog size");
+    if (catalog) {
+      auto mutated = *catalog;
+      mutated.entries.front().id = "24";
+      require(!geist::detail::verify_message_catalog_ir(
+                  sources, layout, ownership, mutated),
+              "message catalog verifier admitted a mutated message ID");
+    }
+  }
   for (std::size_t index = 0; index < sources.size(); ++index) {
     const auto logical_record = first + index;
     require(sources[index].logical_record == logical_record,
@@ -439,6 +489,7 @@ int main() {
   verify_book(root / "SC31-711.boo", 19, 21, benchmark);
   verify_book(root / "SC31-711.boo", 22, 24, benchmark);
   verify_book(root / "SC31-711.boo", 70, 71, benchmark);
+  verify_book(root / "SC31-711.boo", 172, 435, benchmark);
   verify_book(root / "SC31-711.boo", 435, 438, benchmark);
   verify_book(root / "SC31-711.boo", 519, 521, benchmark);
   verify_book(root / "SC31-711.boo", 524, 525, benchmark);

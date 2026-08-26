@@ -5789,6 +5789,95 @@ bool project_verified_menu_gml(
   return true;
 }
 
+bool project_verified_message_sections_gml(
+    std::vector<std::string>& rendered,
+    const std::vector<DecodedLogicalRecordSource>& sources) {
+  const auto layout = extract_layout_ir(sources);
+  std::string error;
+  if (!verify_layout_ir(sources, layout, &error)) return false;
+  const auto ownership = build_ownership_ir(sources, layout);
+  if (!verify_ownership_ir(sources, layout, ownership, &error)) return false;
+  const auto catalog = extract_message_catalog_ir(sources, layout, ownership);
+  if (!catalog || !verify_message_catalog_ir(
+                      sources, layout, ownership, *catalog, &error))
+    return false;
+  auto projected = rendered;
+
+  const auto anchor_for = [](const std::string& id) {
+    return ":anchor id='MSG " + id + "'.";
+  };
+  std::vector<std::size_t> anchors;
+  for (std::size_t index = 0; index < projected.size(); ++index)
+    if (ascii_starts_with_case_insensitive(projected[index],
+                                           ":anchor id='MSG "))
+      anchors.push_back(index);
+  if (anchors.size() != catalog->entries.size()) return false;
+  for (std::size_t index = 0; index < anchors.size(); ++index)
+    if (!ascii_equals_case_insensitive(projected[anchors[index]],
+                                       anchor_for(catalog->entries[index].id)))
+      return false;
+
+  const auto project_label = [&](const std::string& id,
+                                 const std::string& label) {
+    const auto anchor = std::find_if(
+        projected.begin(), projected.end(), [&](const auto& line) {
+          return ascii_equals_case_insensitive(line, anchor_for(id));
+        });
+    if (anchor == projected.end()) return false;
+    const auto end = std::find_if(
+        anchor + 1, projected.end(), [](const auto& line) {
+          return ascii_starts_with_case_insensitive(line, ":anchor id='MSG ");
+        });
+    const auto lower_label = ascii_lower(label + ":");
+    auto line = std::find_if(anchor + 1, end, [&](const auto& value) {
+      return ascii_lower(value).find(lower_label) != std::string::npos;
+    });
+    if (line == end) return false;
+
+    auto literal = ascii_lower(*line).find(lower_label);
+    const auto content = line->find('.');
+    if (content == std::string::npos || literal <= content) return false;
+    auto boundary = literal;
+    const auto opening = std::string(":hp2.");
+    const auto closing = std::string(":ehp2.");
+    const auto already_styled =
+        literal >= opening.size() &&
+        ascii_equals_case_insensitive(
+            line->substr(literal - opening.size(), opening.size()), opening) &&
+        literal + lower_label.size() + closing.size() <= line->size() &&
+        ascii_equals_case_insensitive(
+            line->substr(literal + lower_label.size(), closing.size()), closing);
+    if (already_styled) {
+      boundary -= opening.size();
+    } else {
+      line->replace(literal, lower_label.size(),
+                    opening + label + ":" + closing);
+    }
+
+    auto suffix = trim_ascii(line->substr(boundary));
+    const auto prefix = trim_ascii(line->substr(content + 1,
+                                                boundary - content - 1));
+    if (prefix.empty()) {
+      *line = ":p." + std::move(suffix);
+    } else {
+      line->erase(boundary);
+      *line = trim_ascii(*line);
+      projected.insert(line + 1, ":p." + std::move(suffix));
+    }
+    return true;
+  };
+
+  // Work backwards so record insertion cannot disturb the catalog ordering.
+  for (auto entry = catalog->entries.rbegin(); entry != catalog->entries.rend();
+       ++entry) {
+    if (!project_label(entry->id, "Action") ||
+        !project_label(entry->id, "Meaning"))
+      return false;
+  }
+  rendered = std::move(projected);
+  return true;
+}
+
 std::vector<std::string> render_gml_records_with_source_layout(
     const std::vector<std::string>& decoded_records,
     const std::vector<DecodedLogicalRecordSource>& sources) {

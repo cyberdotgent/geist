@@ -1226,6 +1226,9 @@ void attach_topic_data(
     project_verified_menu_gml(entry.raw_records, topic.fixed_layout_sources,
                               *topic_titles);
   }
+  if (!topic.fixed_layout_sources.empty())
+    project_verified_message_sections_gml(entry.raw_records,
+                                          topic.fixed_layout_sources);
   std::vector<std::string> publication_rows;
   std::vector<PublicationBlock> publication_blocks;
   if (ascii_lower(entry.title).find("publications") != std::string::npos) {

@@ -1256,6 +1256,30 @@ a final unstyled lowercase token after the last span is decoder carry-over.
 This removes the observed `a`, `agent`, `be`, and `by` suffixes without
 filtering ordinary prose words.
 
+In `SC31-711.boo` topic `5.0`, every one of the 396 numeric/range entries has
+two ordered semantic sections, `Meaning:` followed by `Action:`. These are
+paragraph boundaries, not merely font changes inside the heading row. The
+hosted reader renders both labels emphasized and starts each section as a new
+paragraph. Local records 172--434 contain 396 numeric/range `SRMSG` operands,
+including `023`, `1000-1999`, and `2505`, and exactly one canonical pair per
+entry after record-continuation controls are joined.
+
+An `SRMSG` control's own trailing payload still belongs to the preceding
+entry; the new entry begins with the following display segment. For example,
+logical record 217 has `SRMSG 426` followed by the lower-case carry token
+`action`. That token is not the `Action:` label for message 426. Its actual
+labels are the later `CFONT` rows in segments 5 and 6. Their physical label
+rows begin at native column 17 and 13 respectively; the `Action` row's
+one-byte leading marker is value 20 at BOO bytes `[0x19d7e,0x19d7f)`.
+
+Font controls can also split at a logical-record boundary. Message 209's
+`Meaning:` payload starts logical record 180 before that record's first
+complete control segment; message 322's `Action:` payload similarly starts
+logical record 192. A decoder must retain the pending font/display control
+and classify these as record-continuation section boundaries. It must not
+invent labels from arbitrary prose or require both labels to reside in the
+same logical record.
+
 `SRGLS GLS <term>` starts a glossary entry whose stable anchor is the base id
 and textual term joined with one space, for example `GLS accelerator`,
 `GLS managed node`, and `GLS wildcard character`. The term text remains

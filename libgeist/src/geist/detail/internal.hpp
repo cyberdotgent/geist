@@ -7,6 +7,7 @@
 #include "geist/detail/fixed_display.hpp"
 #include "geist/detail/layout_ir.hpp"
 #include "geist/detail/menu_ir.hpp"
+#include "geist/detail/message_ir.hpp"
 #include "geist/detail/ownership_ir.hpp"
 #include "geist/detail/publication_ir.hpp"
 #include "img/image.hpp"
@@ -200,6 +201,9 @@ bool project_verified_menu_gml(
     std::vector<std::string>& rendered,
     const std::vector<DecodedLogicalRecordSource>& sources,
     const std::map<std::string, std::string>& topic_titles);
+bool project_verified_message_sections_gml(
+    std::vector<std::string>& rendered,
+    const std::vector<DecodedLogicalRecordSource>& sources);
 std::vector<std::string> render_gml_records_with_source_layout(
     const std::vector<std::string>& decoded_records,
     const std::vector<DecodedLogicalRecordSource>& sources);

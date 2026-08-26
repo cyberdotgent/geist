@@ -14,6 +14,15 @@ void require(bool condition, const char* message) {
   }
 }
 
+std::size_t substring_count(const std::string& value,
+                            const std::string& needle) {
+  std::size_t count = 0;
+  for (auto at = value.find(needle); at != std::string::npos;
+       at = value.find(needle, at + needle.size()))
+    ++count;
+  return count;
+}
+
 } // namespace
 
 int main() {
@@ -911,6 +920,9 @@ int main() {
     require(lnm_messages.find(leaked) == std::string::npos,
             "LNM message catalog retained row carryover or metadata");
   }
+  require(substring_count(lnm_messages, "\n**Meaning:**") == 396 &&
+              substring_count(lnm_messages, "\n**Action:**") == 396,
+          "LNM message catalog lost typed Meaning/Action paragraph boundaries");
 
   const auto lnm_glossary =
       problem_determination.topic_markdown("GLOSSARY");

@@ -546,6 +546,24 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
       destination->ir_semantic_blocks.push_back(
           detail::format_glossary_introduction_ir(*glossary));
   }
+  std::string message_extraction_error;
+  const auto message_catalog = detail::extract_message_catalog_ir(
+      sources, layout, ownership, &message_extraction_error);
+  if (message_catalog && !sources.empty()) {
+    std::string message_error;
+    if (!detail::verify_message_catalog_ir(
+            sources, layout, ownership, *message_catalog, &message_error))
+      throw std::runtime_error("invalid message catalog IR trace: " +
+                               message_error);
+    if (auto* destination = trace_for(sources.front().logical_record))
+      destination->ir_semantic_blocks.push_back(
+          detail::format_message_catalog_ir(*message_catalog));
+  } else if (!message_extraction_error.empty() && !sources.empty() &&
+             has_semantic_srmsg_source_candidate(records)) {
+    if (auto* destination = trace_for(sources.front().logical_record))
+      destination->ir_semantic_blocks.push_back(
+          "message_catalog_ir_rejected=" + message_extraction_error);
+  }
   std::string menu_extraction_error;
   const auto menu = detail::extract_menu_ir(sources, topic_titles_,
                                              &menu_extraction_error);
