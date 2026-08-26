@@ -441,6 +441,23 @@ stable Markdown structure and conserved content/link semantics with reviewed
 intentional corpus deltas; reproducing the legacy renderer byte for byte is
 explicitly not the goal.
 
+## M8 typed Markdown renderer
+
+The Markdown renderer consumes only a verified `DocumentIR`. It has no access
+to decoder tokens, physical rows, Layout IR, Ownership IR, or semantic-family
+recognizers. Every block and inline variant has a deterministic rendering
+policy, including context-specific escaping, variable-length code fences,
+rectangular pipe tables, normalized link destinations, and explicit output for
+opaque nodes. A sole whole-topic `LegacyGmlRegion` still delegates once to the
+old state machine during migration; typed and legacy regions cannot be mixed.
+
+Renderer validation is therefore performed on the emitted Markdown and its
+structure, not by comparing it with the tokenized BOO parser. Decoder and
+lowering tests prove source ownership and semantic conservation; renderer tests
+separately prove stable Markdown syntax and representation of every IR variant.
+Compatibility-only handoffs retain byte-identity gates, while later direct
+semantic handoffs may produce reviewed, intentional byte differences.
+
 ## Source trail
 
 - Fixture: `BOO/SC31-711.boo`

@@ -132,25 +132,17 @@ int main() {
                "verifier admitted invalid heading geometry"))
     return 1;
 
-  auto rejected_typed_document = false;
-  auto rejection_message = std::string{};
-  try {
-    (void)render_document_markdown(typed);
-  } catch (const std::invalid_argument& exception) {
-    rejected_typed_document = true;
-    rejection_message = exception.what();
-  }
-  if (!require(rejected_typed_document,
-               "legacy adapter admitted typed DocumentIR blocks") ||
-      !require(rejection_message ==
-                   "DocumentIR Markdown adapter requires one legacy region",
-               "typed-node rejection did not explain the migration boundary"))
+  const auto typed_markdown = render_document_markdown(typed);
+  if (!require(typed_markdown ==
+                   "# Typed introduction\n\nBody\n\n| Name | Value |\n"
+                   "| --- | --- |\n| Mode | Safe |\n",
+               "typed document did not render stable Markdown"))
     return 1;
 
   auto incomplete_legacy = legacy;
   incomplete_legacy.topic.id.clear();
   auto rejected_invalid_document = false;
-  rejection_message.clear();
+  auto rejection_message = std::string{};
   try {
     (void)render_document_markdown(incomplete_legacy);
   } catch (const std::invalid_argument& exception) {

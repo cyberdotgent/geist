@@ -309,6 +309,15 @@ add_executable(document_ir_synthetic_test
 target_link_libraries(document_ir_synthetic_test PRIVATE geist::geist_static)
 add_test(NAME document_ir_synthetic_test COMMAND document_ir_synthetic_test)
 
+add_executable(document_markdown_renderer_synthetic_test
+  tests/document_markdown_renderer_synthetic.cpp
+)
+target_link_libraries(document_markdown_renderer_synthetic_test
+  PRIVATE geist::geist_static
+)
+add_test(NAME document_markdown_renderer_synthetic_test
+  COMMAND document_markdown_renderer_synthetic_test)
+
 add_executable(procedure_rows_synthetic_test
   tests/procedure_rows_synthetic.cpp
 )
