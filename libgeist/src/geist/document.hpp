@@ -92,6 +92,7 @@ private:
   mutable bool font_definitions_loaded_ = false;
   std::vector<TocEntry> toc_;
   std::vector<TopicInfo> topics_;
+  std::map<std::string, std::string> topic_titles_;
   mutable std::vector<std::string> raw_gml_records_;
   mutable bool raw_gml_records_loaded_ = false;
   std::vector<ResourceEntry> resources_;

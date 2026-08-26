@@ -135,6 +135,42 @@ an affected-book BookServer audit, and a whole-corpus before/after differential.
 Book tracker #27 must remain open until #48 and #51 are complete and a fresh
 82-topic SC31-711 verification pass finds no new rendering issue.
 
+## M6 CMENU/CMITEM migration evidence
+
+The typed menu slice was validated on 2026-08-26 against baseline commit
+`0f84268`.  Both baseline and candidate rendered all 34 repository books with
+`boo2git`, producing 7,396 Markdown files.  The final differential contained
+22 changed topics in four books: 16 in `SC09-2417-00`, four in `SC31-711`, one
+in `SC26-457`, and one in `IBMMMSTR`.  Every delta removed only a verified
+origin-free terminal menu-boundary token; all other 7,374 Markdown files and
+all generated resources were byte-identical.
+
+An earlier candidate produced 173 changed topics in nine books.  The corpus
+gate correctly rejected it: a one-byte dictionary token can expand to a URL,
+a long fill run, or meaningful punctuation.  The final admission rule also
+requires compact marker-slot geometry, no independent row origin, and an
+exact canonical target-title match after removing that one source token.
+Regression tests retain `XWEBDEMO`'s URL and period suffixes and DREICMST's
+row-origin-owned period.
+
+All 22 changed topics were fetched through the hosted BookServer reader.  The
+31 affected link labels matched the candidate output after ordinary whitespace
+collapse.  Sources used:
+
+- `SC31-7111-00`, topics `2.4`, `4.1`, `BACK_1.12`, and `BACK_1`, timestamp
+  `19941010174546`;
+- `SC09-2417-00`, topics `2.1`, `2.1.3`, `2.2.4`, `2.3.6`, `2.3.12`, `3.1`,
+  `3.1.1`, `3.1.4`, `3.2.2`, `3.3`, `3.3.1`, `3.5.5`, `4.3.6`, `4.4.1`,
+  `4.4.2`, and `4.5`, timestamp `19961114175628`;
+- `SC26-4570-01`, topic `3.7.3`, timestamp `19911220191142`;
+- `IBMMMSTR` / document `SC26-4309-2`, topic `1.10`, timestamp
+  `19911004151140`.
+
+The repeatable URL form is
+`http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/<book>/<topic>?DT=<timestamp>`.
+The BookServer comparison must preserve source capitalization; the canonical
+TOC title is an admission oracle, not replacement presentation text.
+
 ## Source trail
 
 - Fixture: `BOO/SC31-711.boo`

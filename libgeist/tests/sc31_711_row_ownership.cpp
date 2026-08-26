@@ -202,6 +202,49 @@ int main() {
   exact_toc_title("2.4.9", "Additional Problem Information");
   exact_toc_title("BACK_1.8", "AIX Operating System Publications");
 
+  const auto worksheet_menu = document.topic_markdown("2.4");
+  for (const auto* expected : {
+           "[2.4.2 Software Version Levels and Applied PTFs on the LNM for "
+           "AIX Workstation](#2.4.2)",
+           "[2.4.5 Customer Information](#2.4.5)",
+       }) {
+    require_contains(worksheet_menu, expected, "verified CMITEM title");
+  }
+  for (const auto* leaked : {"Workstation <](#2.4.2)",
+                              "Information \"](#2.4.5)"}) {
+    require_absent(worksheet_menu, leaked, "CMITEM terminal source token");
+  }
+  const auto trap_menu = document.topic_markdown("4.1");
+  require_contains(trap_menu, "[4.1.1 Generic Traps](#4.1.1)",
+                   "verified trap CMITEM title");
+  require_absent(trap_menu, "Generic Traps >](#4.1.1)",
+                 "trap CMITEM terminal source token");
+  const auto bibliography_menu = document.topic_markdown("BACK_1");
+  require_contains(
+      bibliography_menu,
+      "[BACK_1.8 AIX Operating System Publications](#BACK_1.8)",
+      "verified bibliography CMITEM title");
+  require_absent(bibliography_menu, "Publications can](#BACK_1.8)",
+                 "bibliography CMITEM terminal source token");
+  const auto menu_trace = document.trace_logical_records("2.4");
+  const auto has_menu_provenance =
+      std::any_of(menu_trace.begin(), menu_trace.end(), [](const auto& record) {
+        return std::any_of(
+            record.ir_semantic_blocks.begin(),
+            record.ir_semantic_blocks.end(), [](const auto& block) {
+              return block.find("target='2.4.2'") != std::string::npos &&
+                     block.find("terminal_marker_encoded=0x13 width=1") !=
+                         std::string::npos &&
+                     block.find("marker_cells=1") != std::string::npos &&
+                     block.find("terminal_marker_bytes=[0xe8ec,0xe8ed)") !=
+                         std::string::npos;
+            });
+      });
+  if (!has_menu_provenance) {
+    std::cerr << "menu IR trace omitted exact terminal-token provenance\n";
+    ++failures;
+  }
+
   const auto cross_book = geist::BooDocument::open(
       std::filesystem::path(GEIST_REPO_ROOT) / "BOO" / "SC31-605.boo");
   const auto& cross_toc = cross_book.table_of_contents();

@@ -5714,6 +5714,34 @@ render_verified_publication_catalog_gml(
   return rendered;
 }
 
+bool project_verified_menu_gml(
+    std::vector<std::string>& rendered,
+    const std::vector<DecodedLogicalRecordSource>& sources,
+    const std::map<std::string, std::string>& topic_titles) {
+  const auto menu = extract_menu_ir(sources, topic_titles);
+  std::string error;
+  if (!menu || !verify_menu_ir(sources, topic_titles, *menu, &error))
+    return false;
+  std::vector<std::size_t> lines;
+  for (std::size_t index = 0; index < rendered.size(); ++index)
+    if (ascii_starts_with_case_insensitive(rendered[index], ":li refid="))
+      lines.push_back(index);
+  if (lines.size() != menu->items.size()) return false;
+  for (std::size_t index = 0; index < menu->items.size(); ++index) {
+    const auto& item = menu->items[index];
+    const auto expected = "refid='" + item.target + "'";
+    if (ascii_lower(rendered[lines[index]]).find(ascii_lower(expected)) ==
+        std::string::npos)
+      return false;
+  }
+  for (std::size_t index = 0; index < menu->items.size(); ++index) {
+    const auto& item = menu->items[index];
+    rendered[lines[index]] = ":li refid='" + item.target + "'." +
+                             item.target + " " + item.text;
+  }
+  return true;
+}
+
 std::vector<std::string> render_gml_records_with_source_layout(
     const std::vector<std::string>& decoded_records,
     const std::vector<DecodedLogicalRecordSource>& sources) {

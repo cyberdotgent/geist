@@ -5,6 +5,7 @@
 #include "geist/detail/control_ir.hpp"
 #include "geist/detail/fixed_display.hpp"
 #include "geist/detail/layout_ir.hpp"
+#include "geist/detail/menu_ir.hpp"
 #include "geist/detail/ownership_ir.hpp"
 #include "geist/detail/publication_ir.hpp"
 #include "img/image.hpp"
@@ -191,6 +192,10 @@ std::vector<std::string> render_gml_records(
 std::optional<std::vector<std::string>>
 render_verified_publication_catalog_gml(
     const std::vector<DecodedLogicalRecordSource>& sources);
+bool project_verified_menu_gml(
+    std::vector<std::string>& rendered,
+    const std::vector<DecodedLogicalRecordSource>& sources,
+    const std::map<std::string, std::string>& topic_titles);
 std::vector<std::string> render_gml_records_with_source_layout(
     const std::vector<std::string>& decoded_records,
     const std::vector<DecodedLogicalRecordSource>& sources);
@@ -252,7 +257,10 @@ const TopicData* find_topic_data(const std::vector<TopicData>& topics,
 std::vector<TocEntry> extract_toc_entries(const std::string& decoded_record);
 bool is_contents_topic_record(const std::string& decoded_record);
 bool is_topic_header_record(const std::string& decoded_record);
-void attach_topic_data(TocEntry& entry, const TopicData& topic);
+void attach_topic_data(
+    TocEntry& entry,
+    const TopicData& topic,
+    const std::map<std::string, std::string>* topic_titles = nullptr);
 std::vector<TocEntry> build_table_of_contents(
     const std::vector<std::string>& decoded_records,
     const std::vector<TopicData>& topics,

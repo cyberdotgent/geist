@@ -76,6 +76,7 @@ set(GEIST_SOURCES
   src/layout_ir.cpp
   src/logical.cpp
   src/markup.cpp
+  src/menu_ir.cpp
   src/markdown.cpp
   src/ownership_ir.cpp
   src/img/mmr.cpp

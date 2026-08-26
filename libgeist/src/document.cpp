@@ -120,6 +120,13 @@ bool has_publication_ir_source_candidate(
   return heading && title && font;
 }
 
+bool has_menu_ir_source_candidate(const std::vector<std::string>& records) {
+  return std::any_of(records.begin(), records.end(), [](const auto& record) {
+    return ascii_lower(record).find("cmenu") != std::string::npos &&
+           ascii_lower(record).find("cmitem") != std::string::npos;
+  });
+}
+
 void load_source_layout_if_candidate(
     const std::shared_ptr<LogicalDecodeContext>& context,
     TopicData& topic) {
@@ -132,7 +139,8 @@ void load_source_layout_if_candidate(
       has_selector_source_candidate(topic.raw_records) ||
       has_st_fixed_prose_source_candidate(topic.raw_records);
   if (!topic.use_legacy_source_layout &&
-      !has_publication_ir_source_candidate(topic.raw_records)) {
+      !has_publication_ir_source_candidate(topic.raw_records) &&
+      !has_menu_ir_source_candidate(topic.raw_records)) {
     return;
   }
   topic.fixed_layout_sources = decode_logical_record_sources(
@@ -274,8 +282,8 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
                                 topic.topic_number,
                                 topic.start_logical_record,
                                 topic.end_logical_record});
+    document.topic_titles_.emplace(topic.id, topic.title);
   }
-
   std::vector<std::string> contents_records;
   for (const auto& topic : topics) {
     if (ascii_equals_case_insensitive(topic.id, "contents")) {
@@ -286,6 +294,11 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
     }
   }
   document.toc_ = build_table_of_contents(contents_records, topics, false);
+  for (const auto& entry : document.toc_)
+    document.topic_titles_[entry.id] = entry.title;
+  const auto topic_titles =
+      std::make_shared<const std::map<std::string, std::string>>(
+          document.topic_titles_);
   for (auto& entry : document.toc_) {
     const auto* topic = find_topic_data(topics, entry.id);
     if (topic == nullptr) {
@@ -297,7 +310,7 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
     const auto entry_level = entry.level;
     const auto entry_style = entry.style;
     entry.raw_record_loader_ =
-        [context, topic_data, entry_id, entry_title, entry_level,
+        [context, topic_titles, topic_data, entry_id, entry_title, entry_level,
          entry_style]() mutable {
           topic_data.raw_records.assign(
               context->decoded_records.begin() +
@@ -310,7 +323,7 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
           loaded.title = entry_title;
           loaded.level = entry_level;
           loaded.style = entry_style;
-          attach_topic_data(loaded, topic_data);
+          attach_topic_data(loaded, topic_data, topic_titles.get());
           return loaded.raw_records;
         };
   }
@@ -431,7 +444,7 @@ std::string BooDocument::topic_markdown(const std::string& topic_id) const {
   TocEntry entry;
   entry.id = topic.id;
   entry.title = topic.title;
-  attach_topic_data(entry, topic);
+  attach_topic_data(entry, topic, &topic_titles_);
   return entry.markdown();
 }
 
@@ -507,6 +520,22 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
     if (auto* destination = trace_for(sources.front().logical_record))
       destination->ir_semantic_blocks.push_back(
           detail::format_publication_catalog_ir(*publication));
+  }
+  std::string menu_extraction_error;
+  const auto menu = detail::extract_menu_ir(sources, topic_titles_,
+                                             &menu_extraction_error);
+  if (menu && !sources.empty()) {
+    std::string menu_error;
+    if (!detail::verify_menu_ir(sources, topic_titles_, *menu, &menu_error))
+      throw std::runtime_error("invalid menu IR trace: " + menu_error);
+    if (auto* destination = trace_for(sources.front().logical_record))
+      destination->ir_semantic_blocks.push_back(
+          detail::format_menu_ir(*menu));
+  } else if (!menu_extraction_error.empty() && !sources.empty() &&
+             has_menu_ir_source_candidate(records)) {
+    if (auto* destination = trace_for(sources.front().logical_record))
+      destination->ir_semantic_blocks.push_back(
+          "menu_ir_rejected=" + menu_extraction_error);
   }
   return traced;
 }

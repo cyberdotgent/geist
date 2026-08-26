@@ -213,6 +213,53 @@ void verify_book(const std::filesystem::path& path,
     require(ansi_rows == 2,
             "layout IR did not preserve the two independent ANSI rows");
   }
+  if (path.filename() == "SC31-711.boo" && first == 70) {
+    const std::map<std::string, std::string> titles{
+        {"2.4.1", "Customer Information"},
+        {"2.4.2", "Software Version Levels and Applied PTFs on the LNM for "
+                    "AIX Workstation"},
+        {"2.4.3", "Hardware Configuration of the LNM for AIX Workstation"},
+        {"2.4.4", "AIX NetView/6000 Considerations"},
+        {"2.4.5", "Customer Information"},
+        {"2.4.6", "Software Version Levels and Applied PTFs on the LNM for "
+                    "AIX Workstation"},
+        {"2.4.7", "Hardware Configuration on the LNM for AIX Workstation"},
+        {"2.4.8", "AIX NetView/6000 Considerations"},
+        {"2.4.9", "Additional Problem Information"},
+    };
+    std::string menu_error;
+    const auto menu =
+        geist::detail::extract_menu_ir(sources, titles, &menu_error);
+    require(menu.has_value(),
+            menu_error.empty() ? "CMENU did not enter menu IR"
+                               : menu_error.c_str());
+    require(menu && menu->items.size() == titles.size(),
+            "menu IR did not preserve all CMITEM targets");
+    require(menu &&
+                std::count_if(menu->items.begin(), menu->items.end(),
+                              [](const auto& item) {
+                                return item.terminal_marker_token.has_value();
+                              }) == 4,
+            "menu IR did not isolate the four terminal source tokens");
+    require(menu && geist::detail::verify_menu_ir(sources, titles, *menu,
+                                                   &menu_error),
+            menu_error.empty() ? "menu IR verification failed"
+                               : menu_error.c_str());
+    require(menu && geist::detail::format_menu_ir(*menu).find(
+                        "terminal_marker_token=") != std::string::npos,
+            "menu IR trace omitted terminal-token provenance");
+    if (menu) {
+      auto mutated = *menu;
+      mutated.items.front().text += " changed";
+      require(!geist::detail::verify_menu_ir(sources, titles, mutated),
+              "menu IR verifier admitted mutated semantic text");
+    }
+    auto incorrect_titles = titles;
+    incorrect_titles["2.4.5"] = "Incorrect Canonical Title";
+    require(!geist::detail::extract_menu_ir(sources, incorrect_titles),
+            "menu IR admitted a payload that did not match its canonical "
+            "target title");
+  }
   if (path.filename() == "SC31-711.boo" && first == 519) {
     require(publication.has_value(),
             "general publication stream did not enter the semantic IR");
@@ -343,6 +390,7 @@ int main() {
   const bool benchmark = std::getenv("GEIST_BENCH_SOURCE_INDEX") != nullptr;
   verify_book(root / "SC31-711.boo", 19, 21, benchmark);
   verify_book(root / "SC31-711.boo", 22, 24, benchmark);
+  verify_book(root / "SC31-711.boo", 70, 71, benchmark);
   verify_book(root / "SC31-711.boo", 519, 521, benchmark);
   verify_book(root / "SC31-711.boo", 524, 525, benchmark);
   verify_book(root / "SC31-711.boo", 526, 528, benchmark);

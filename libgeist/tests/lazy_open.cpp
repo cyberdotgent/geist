@@ -268,6 +268,12 @@ int main() {
     require(web_introduction.find(leaked) == std::string::npos,
             "generated body-row presentation marker leaked into Markdown");
   }
+  require(web_introduction.find(
+              "How BookServer works <http://booksrv2.raleigh.ibm.com/>") !=
+              std::string::npos &&
+              web_introduction.find("Opening books to the world.") !=
+                  std::string::npos,
+          "menu IR removed meaningful compact terminal title content");
   const auto web_advantages = web_demo.topic_markdown("1.1");
   require(web_advantages.find(
               "own or from multiple remote file systems. The actual") !=
@@ -958,12 +964,17 @@ int main() {
               acpz_edition.find("Managing VM PWSCS") != std::string::npos,
           "all-E banner gate changed ACPZMST1 ordinary CFONT prose");
   const auto dre_edition =
-      geist::BooDocument::open(root / "DREICMST.boo")
-          .topic_markdown("EDITION");
-  require(dre_edition.find("This major revision obsoletes and replaces") !=
+      geist::BooDocument::open(root / "DREICMST.boo");
+  const auto dre_edition_markdown = dre_edition.topic_markdown("EDITION");
+  require(dre_edition_markdown.find(
+              "This major revision obsoletes and replaces") !=
               std::string::npos &&
-              dre_edition.find("Service Level Reporter") != std::string::npos,
+              dre_edition_markdown.find("Service Level Reporter") !=
+                  std::string::npos,
           "all-E banner gate changed DREICMST ordinary CFONT prose");
+  require(dre_edition.topic_markdown("2.1").find(
+              "Tables Used for Accounting.") != std::string::npos,
+          "menu IR removed a punctuation token with its own row origin");
   const auto fa1 = geist::BooDocument::open(root / "FA1PLMM0.boo");
   const auto dynamic_classes = fa1.topic_markdown("6.4.1");
   require(dynamic_classes.find(

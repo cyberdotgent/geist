@@ -1198,7 +1198,10 @@ std::string clean_glossary_intro_fixed_line(std::string line) {
   return line;
 }
 
-void attach_topic_data(TocEntry& entry, const TopicData& topic) {
+void attach_topic_data(
+    TocEntry& entry,
+    const TopicData& topic,
+    const std::map<std::string, std::string>* topic_titles) {
   entry.heading_level = topic.heading_level;
   entry.topic_number = topic.topic_number;
   entry.start_logical_record = topic.start_logical_record;
@@ -1214,6 +1217,10 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
                           ? render_gml_records_with_source_layout(
                                 topic.raw_records, topic.fixed_layout_sources)
                           : render_gml_records(topic.raw_records);
+  if (topic_titles != nullptr && !topic.fixed_layout_sources.empty()) {
+    project_verified_menu_gml(entry.raw_records, topic.fixed_layout_sources,
+                              *topic_titles);
+  }
   std::vector<std::string> publication_rows;
   std::vector<PublicationBlock> publication_blocks;
   if (ascii_lower(entry.title).find("publications") != std::string::npos) {

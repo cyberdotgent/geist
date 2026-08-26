@@ -671,6 +671,40 @@ Examples:
 | `GG24-4302-00.boo` | `CSELECT 3 8 fig4302hp1 ... Figure 1.` selects `Figure 1`. |
 | `SC26-4221-08.boo` | `CSELECT 7 22 hdrlanguag` |
 
+### CMITEM terminal marker slots
+
+Verified: a `CMITEM` payload can end with a compact token that belongs to the
+physical menu-row boundary rather than to the visible link label.  BookServer
+omits that token.  This is not a rule that every one-byte terminal token is
+discardable: dictionary tokens of the same encoded width can expand to genuine
+title content.
+
+The following offsets are absolute BOO payload byte offsets.  Each listed
+token has encoded width one, has no independent row-origin prefix, occupies at
+most three decoded display cells, and is the only difference between the
+decoded `CMITEM` label and the canonical target title.
+
+| Fixture and topic | Logical record / target | BOO byte | Encoded byte | Decoded boundary text | BookServer-visible ending |
+| --- | --- | ---: | ---: | --- | --- |
+| `SC31-711.boo` `2.4` | LR 70 / `2.4.2` | `0xE8EC` | `0x13` | `<` | `...AIX Workstation` |
+| `SC31-711.boo` `2.4` | LR 70 / `2.4.5` | `0xE91E` | `0x1B` | `"` | `Customer Information` |
+| `SC31-711.boo` `4.1` | LR 98 / `4.1.1` | `0x1064A` | `0x18` | `>` | `Generic Traps` |
+| `SC31-711.boo` `BACK_1` | LR 518 / `BACK_1.1` | `0x33184` | `0x13` | `<` | `...AIX Publications` |
+| `SC31-711.boo` `BACK_1` | LR 518 / `BACK_1.8` | `0x3320A` | `0x2C` | `can` | `AIX Operating System Publications` |
+| `SC09-2417-00.boo` `2.1.3` | LR 170 / `2.1.3.4` | `0x44411` | `0x1A` | `<` | `Understanding Stream Buffering` |
+| `SC09-2417-00.boo` `2.1.3` | LR 170 / `2.1.3.5` | `0x4442C` | `0x1B` | `<<` | `...Stream Input and Output` |
+| `SC26-457.boo` `3.7.3` | LR 372 / `3.7.3.2` | `0x26F8FC` | `0x1B` | `[` | `...Cluster: Example 2` |
+
+Counterexamples establish the boundary of this interpretation.  In
+`XWEBDEMO.boo` topic `1.0`, the one-byte dictionary token at `0x10455`
+(encoded `0x0A`) expands to the meaningful suffix
+`<http://booksrv2.raleigh.ibm.com/>`; BookServer preserves it.  The following
+`1.4` title ends in a one-byte `.` token at `0x10460`, but that token carries
+its own row-origin value and BookServer also preserves it.  `SC33-033.boo`
+topic `A.3` similarly has a one-byte token expanding to a long run of
+asterisks.  Encoded width, dictionary identity, punctuation, or menu position
+alone therefore cannot establish marker ownership.
+
 The `column` and `length` operands address the complete decoded display line,
 using a zero-based absolute column and a display-cell count. They do not address
 the trailing characters of the control record. A reader must reconstruct the
