@@ -405,25 +405,6 @@ TokenWords assemble_logical_record(const std::vector<TokenWords>& tokens) {
   return assemble_logical_record_with_sources(tokens).words;
 }
 
-DecodedLogicalRecordLayout decode_logical_record_with_layout(
-    AssembledLogicalRecord assembled) {
-  DecodedLogicalRecordLayout decoded;
-  decoded.assembly = std::move(assembled);
-  decoded.text = token_words_to_ascii(decoded.assembly.words);
-  decoded.word_byte_offsets.reserve(decoded.assembly.words.size() + 1);
-  auto byte_offset = std::size_t{0};
-  for (const auto word : decoded.assembly.words) {
-    decoded.word_byte_offsets.push_back(byte_offset);
-    if (word >= 0x00A1 && word <= 0x00FF) {
-      byte_offset += 2;
-    } else {
-      ++byte_offset;
-    }
-  }
-  decoded.word_byte_offsets.push_back(byte_offset);
-  return decoded;
-}
-
 std::vector<BooLogicalControl> extract_logical_controls(
     const std::string& decoded_record) {
   struct ControlKey {
@@ -487,11 +468,10 @@ std::vector<BooLogicalControl> extract_logical_controls(
   return controls;
 }
 
-std::vector<DecodedLogicalRecordLayout>
-decode_experimental_logical_record_layouts(
+std::vector<std::string> decode_experimental_logical_records(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory) {
-  std::vector<DecodedLogicalRecordLayout> records;
+  std::vector<std::string> records;
   const auto token_strings = decode_experimental_dictionary(bytes, directory);
   if (token_strings.empty()) {
     return records;
@@ -554,25 +534,12 @@ decode_experimental_logical_record_layouts(
         }
       }
 
-      auto assembled = assemble_logical_record_with_sources(record_tokens);
-      records.push_back(decode_logical_record_with_layout(
-          std::move(assembled)));
+      const auto decoded_words = assemble_logical_record(record_tokens);
+      records.push_back(token_words_to_ascii(decoded_words));
       record_offset = payload_end;
     }
   }
 
-  return records;
-}
-
-std::vector<std::string> decode_experimental_logical_records(
-    const std::vector<std::uint8_t>& bytes,
-    const BooDirectory& directory) {
-  auto layouts = decode_experimental_logical_record_layouts(bytes, directory);
-  std::vector<std::string> records;
-  records.reserve(layouts.size());
-  for (auto& layout : layouts) {
-    records.push_back(std::move(layout.text));
-  }
   return records;
 }
 

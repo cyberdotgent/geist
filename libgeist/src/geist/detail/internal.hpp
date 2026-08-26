@@ -44,20 +44,12 @@ struct AssembledLogicalRecord {
   std::vector<LogicalTokenSpan> tokens;
 };
 
-struct DecodedLogicalRecordLayout {
-  std::string text;
-  AssembledLogicalRecord assembly;
-  // One UTF-8 byte offset per assembled TokenWord, plus a terminal offset.
-  std::vector<std::size_t> word_byte_offsets;
-};
-
 struct LogicalDecodeContext {
   std::vector<std::uint8_t> bytes;
   BooDirectory directory;
   std::vector<std::uint32_t> content_page_record_starts;
   std::vector<std::uint32_t> topic_record_starts;
   std::vector<std::string> decoded_records;
-  std::vector<DecodedLogicalRecordLayout> decoded_layouts;
 };
 
 struct TopicData {
@@ -169,15 +161,9 @@ std::map<std::uint16_t, TokenWords> decode_experimental_dictionary(
 TokenWords assemble_logical_record(const std::vector<TokenWords>& tokens);
 AssembledLogicalRecord assemble_logical_record_with_sources(
     const std::vector<TokenWords>& tokens);
-DecodedLogicalRecordLayout decode_logical_record_with_layout(
-    AssembledLogicalRecord assembled);
 std::vector<BooLogicalControl> extract_logical_controls(
     const std::string& decoded_record);
 std::vector<std::string> decode_experimental_logical_records(
-    const std::vector<std::uint8_t>& bytes,
-    const BooDirectory& directory);
-std::vector<DecodedLogicalRecordLayout>
-decode_experimental_logical_record_layouts(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory);
 std::vector<std::uint32_t> parse_content_page_record_starts(

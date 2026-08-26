@@ -103,27 +103,6 @@ void verify_map(const std::vector<TokenWords>& tokens,
   }
 }
 
-void verify_decoded_layout(const AssembledLogicalRecord& assembled) {
-  const auto decoded =
-      geist::detail::decode_logical_record_with_layout(assembled);
-  require(decoded.text ==
-              geist::detail::token_words_to_ascii(assembled.words),
-          "decoded layout differs from legacy string conversion");
-  require(decoded.word_byte_offsets.size() == assembled.words.size() + 1,
-          "decoded word-to-byte map has the wrong size");
-  require(decoded.word_byte_offsets.back() == decoded.text.size(),
-          "decoded terminal byte offset has the wrong value");
-  for (std::size_t index = 0; index < assembled.words.size(); ++index) {
-    const auto begin = decoded.word_byte_offsets[index];
-    const auto end = decoded.word_byte_offsets[index + 1];
-    require(begin < end && end <= decoded.text.size(),
-            "decoded word maps outside UTF-8 output");
-    require(decoded.text.substr(begin, end - begin) ==
-                geist::detail::token_words_to_ascii({assembled.words[index]}),
-            "decoded word-to-byte slice differs from legacy conversion");
-  }
-}
-
 } // namespace
 
 int main() {
@@ -153,22 +132,12 @@ int main() {
     require(geist::detail::assemble_logical_record(tokens) == assembled.words,
             "compatibility wrapper differs from mapped assembly");
     verify_map(tokens, assembled);
-    verify_decoded_layout(assembled);
   }
 
   const auto control_only = geist::detail::assemble_logical_record_with_sources(
       {{2, 'A', ' '}, {1}, {3, 'B'}});
   require(control_only.tokens[1].control_only,
           "control-only token was not retained in provenance");
-
-  const auto utf8 = geist::detail::decode_logical_record_with_layout(
-      geist::detail::assemble_logical_record_with_sources(
-          {{2, 'S', ' '}, {2, 0x00a0, 0x00a1, 0x00e9, 0x0100}}));
-  require(utf8.text == "S  \xC2\xA1\xC3\xA9?",
-          "decoded layout changed Latin-1 or replacement conversion");
-  require(utf8.word_byte_offsets ==
-              std::vector<std::size_t>({0, 1, 2, 3, 5, 7, 8}),
-          "decoded layout has incorrect UTF-8 byte boundaries");
 
   return 0;
 }
