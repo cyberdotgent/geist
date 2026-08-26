@@ -542,6 +542,17 @@ continuations, not exact byte/token spans. The chapter heading, introduction,
 selectors, and anchors before the numeric entries also remain outside
 `MessageCatalogIR`, so no production Document-IR route is enabled yet.
 
+The complete `SC31-711.boo` glossary envelope is now represented separately
+from the earlier introduction prototype. `GlossaryCatalogIR` covers logical
+records `[435,518)`, all 281 term entries, 21 alphabet sections, the terminal
+`SRGLS`, raw term carry, physical definition rows, marker slots, exact source
+slices/ownership cells, and the full segment ledger. Canonical verification is
+field-for-field, including marker encoding and cell run/row provenance. The one
+embedded figure/table envelope is balanced and conserved as four structural
+source slices, but its table semantics are not yet typed. Consequently no
+Document-IR lowering or production route is enabled: rendering it now would
+require reintroducing the layout heuristics this architecture is removing.
+
 Generated figure/table lists now have a strict whole-topic model and canonical
 Document-IR lowering. It composes the verified selector catalog and display-row
 ledger with the topic metadata, `CHDLEVEL`/`ST` heading, every entry cell, and

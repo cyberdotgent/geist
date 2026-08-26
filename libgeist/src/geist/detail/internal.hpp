@@ -3,6 +3,7 @@
 #include "geist/boo.hpp"
 #include "geist/detail/book_ir.hpp"
 #include "geist/detail/control_ir.hpp"
+#include "geist/detail/glossary_catalog_ir.hpp"
 #include "geist/detail/glossary_ir.hpp"
 #include "geist/detail/fixed_display.hpp"
 #include "geist/detail/fixed_prose_ir.hpp"
