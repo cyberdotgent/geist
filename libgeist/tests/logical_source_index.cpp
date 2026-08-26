@@ -42,6 +42,8 @@ void verify_book(const std::filesystem::path& path,
                     geist::boo_page_size;
   context.directory.page_number = directory_page;
   context.directory.token_threshold = context.bytes[base + 0x14];
+  context.directory.token_map_offset =
+      geist::detail::read_be16(context.bytes, base + 0x22);
   context.directory.dictionary_start_page =
       geist::detail::read_be16(context.bytes, base + 0x28);
   context.directory.dictionary_page_count =
@@ -74,6 +76,24 @@ void verify_book(const std::filesystem::path& path,
     const auto logical_record = first + index;
     require(sources[index].logical_record == logical_record,
             "source slice lost logical-record ownership");
+    require(sources[index].encoded_tokens.size() ==
+                sources[index].tokens.size(),
+            "encoded and resolved token streams diverged");
+    const auto& range = context.record_payload_ranges[logical_record - 1];
+    auto payload_offset = static_cast<std::size_t>(range.begin);
+    for (const auto& encoded : sources[index].encoded_tokens) {
+      require(encoded.width == 1 || encoded.width == 2,
+              "encoded token width is invalid");
+      std::uint16_t value = context.bytes[payload_offset++];
+      if (encoded.width == 2) {
+        value = static_cast<std::uint16_t>(
+            (value << 8) | context.bytes[payload_offset++]);
+      }
+      require(value == encoded.value,
+              "encoded token identity differs from payload bytes");
+    }
+    require(payload_offset == range.end,
+            "encoded tokens do not consume the exact payload slice");
     require(geist::detail::token_words_to_ascii(sources[index].assembled.words) ==
                 context.decoded_records[logical_record - 1],
             "source assembly differs from initial record decode");

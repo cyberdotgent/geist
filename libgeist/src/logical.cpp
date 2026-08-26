@@ -478,15 +478,26 @@ std::vector<TokenWords> decode_record_payload(
     const BooDirectory& directory,
     const std::map<std::uint16_t, TokenWords>& token_strings,
     std::size_t payload_begin,
-    std::size_t payload_end) {
+    std::size_t payload_end,
+    std::vector<EncodedLogicalToken>* encoded_tokens = nullptr) {
   std::vector<TokenWords> tokens;
+  if (encoded_tokens != nullptr) {
+    encoded_tokens->clear();
+  }
   for (auto cursor = payload_begin; cursor < payload_end;) {
     const auto first = bytes[cursor++];
     if (first >= directory.token_threshold && cursor < payload_end) {
       const auto second = bytes[cursor++];
+      if (encoded_tokens != nullptr) {
+        encoded_tokens->push_back(
+            {static_cast<std::uint16_t>((first << 8) | second), 2});
+      }
       tokens.push_back(resolve_experimental_token(
           bytes, directory, token_strings, first, second));
     } else {
+      if (encoded_tokens != nullptr) {
+        encoded_tokens->push_back({first, 1});
+      }
       tokens.push_back(resolve_experimental_token(
           bytes, directory, token_strings, first, std::nullopt));
     }
@@ -596,7 +607,8 @@ decode_logical_record_sources(const LogicalDecodeContext& context,
                                            context.directory,
                                            *context.source_dictionary,
                                            range.begin,
-                                           range.end);
+                                           range.end,
+                                           &decoded.encoded_tokens);
     decoded.assembled = assemble_logical_record_with_sources(decoded.tokens);
     records.push_back(std::move(decoded));
   }
