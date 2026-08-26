@@ -1254,3 +1254,26 @@ dictionary words before a row origin remain ordinary text.
 These identities are layout evidence, not universal magic values. Establish
 the two-group all-HP2 header first, then lazily require repeated source-owned
 rows. Flattened ASCII cannot distinguish these grids from aligned prose.
+
+### Terminal TOC and numeric-message marker slots
+
+The same requirement to retain encoded-token identity applies outside implicit
+grids, but each consumer needs its own structural boundary. In the generated
+SC31-711 table of contents, compact punctuation tokens occur after the visible
+title and immediately before the next `CTOCE` control: logical record 7 token
+70 is one-byte reference `17` resolving to `/`, token 115 is reference `18`
+resolving to `>`, and token 161 is reference `13` resolving to `<`; logical
+record 8 token 136 is another reference `13`. These tokens are outside the
+preceding title and must not become its final character. Punctuation embedded
+inside the title remains ordinary title content, and a visually identical
+two-byte dictionary token does not establish this terminal-marker role.
+
+Numeric `SRMSG` streams provide a separately bounded example. In logical
+record 161, a one-byte token resolving to `a` is directly followed by the
+exact three-space content-origin token and then `during`; that `a` occupies the
+physical marker slot and is not part of the message sentence. Earlier in the
+same sentence a genuine article `a` is followed by a 17-space token before a
+separate three-space token and `station`. Direct adjacency to the established
+row origin distinguishes the structural slot from the lexical article. The
+decoded spelling and numeric reference are book-local evidence only; neither
+is a universal marker vocabulary.
