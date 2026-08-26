@@ -199,6 +199,28 @@ int main() {
     require_absent(directories, leaked, "directory-row marker");
   }
 
+  const auto netview_directories = document.topic_markdown("1.2");
+  require_contains(netview_directories, "| Directory | Type of Files |",
+                   "NetView directory table header");
+  std::size_t netview_rows = 0;
+  for (std::size_t at = netview_directories.find("\n| /usr/OV/");
+       at != std::string::npos;
+       at = netview_directories.find("\n| /usr/OV/", at + 1)) {
+    ++netview_rows;
+  }
+  if (netview_rows != 9) {
+    std::cerr << "unexpected NetView directory row count: " << netview_rows
+              << '\n';
+    ++failures;
+  }
+  for (const auto* leaked : {
+           "Filesa /usr/OV/bitmaps/C", "OVWcan /usr/OV/conf/C",
+           "OVWadapter /usr/OV/help/C/lnm", "**files**",
+       }) {
+    require_absent(netview_directories, leaked,
+                   "NetView directory-row marker");
+  }
+
   const auto processes = document.topic_markdown("1.3");
   require_contains(processes, "`man` `topic`\n\nWhere topic is",
                    "source-owned command/prose row boundary");

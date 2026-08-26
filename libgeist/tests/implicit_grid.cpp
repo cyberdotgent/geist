@@ -142,6 +142,17 @@ int main() {
                                  "Registration filesaddress"),
           "SC31 directory grid retained structural row markers");
 
+  const auto lr21 = geist::detail::extract_implicit_grid(
+      geist::detail::decode_logical_record_sources(sc31, 21, 22),
+      {{3, 9}, {23, 4}, {28, 2}, {31, 5}});
+  require(lr21.has_value() && lr21->owns_source_tail,
+          "SC31 LR21 implicit grid lost source-tail ownership");
+  require(lr21->semantic_rows.size() == 9,
+          "SC31 LR21 implicit grid has the wrong semantic row count");
+  require(contains(lr21->semantic_rows, "/usr/OV/help/C/lnm",
+                   "LNM for AIX help files"),
+          "SC31 LR21 implicit grid lost its final row");
+
   const auto processes = geist::detail::extract_implicit_grid(
       geist::detail::decode_logical_record_sources(sc31, 22, 24),
       {{3, 7}, {11, 4}, {18, 11}});

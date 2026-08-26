@@ -5816,7 +5816,11 @@ std::vector<std::string> render_gml_records_with_source_layout(
         return std::all_of(candidate.projected_headings.begin(),
                            candidate.projected_headings.end(),
                            [&](const auto& heading) {
-          return line.find(heading) != std::string::npos;
+          // A group's last word can be displaced through the flattened rows.
+          // Its first source-owned projection remains at the actual header.
+          const auto separator = heading.find(' ');
+          const auto stable = heading.substr(0, separator);
+          return !stable.empty() && line.find(stable) != std::string::npos;
         });
       });
   if (header == rendered.end()) {
