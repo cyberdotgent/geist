@@ -45,13 +45,6 @@ bool presentable(std::uint16_t word) {
   return word >= 0x21 && word != '?' && word != 0x2666;
 }
 
-bool has_presentable(const DecodedLogicalRecordSource& record,
-                     const OutputRangeIR& range) {
-  const auto words = decoded_byte_range_to_word_range(record.assembled, range);
-  return std::any_of(record.assembled.words.begin() + words.begin,
-                     record.assembled.words.begin() + words.end, presentable);
-}
-
 bool same_topic(const GeneratedListTopicIR& left,
                 const GeneratedListTopicIR& right) {
   if (left.kind != right.kind || left.title != right.title ||
@@ -175,6 +168,21 @@ std::optional<GeneratedListTopicIR> extract_generated_list_topic_ir(
     dispositions.emplace(std::make_tuple(cell.logical_record, cell.token_index,
                                          cell.word_index),
                          cell.disposition);
+  const auto has_owned_visible = [&](const DecodedLogicalRecordSource& record,
+                                     const ControlSegmentIR& segment) {
+    const auto words = decoded_byte_range_to_word_range(record.assembled,
+                                                        segment.payload_range);
+    for (auto output = words.begin; output < words.end; ++output) {
+      const auto& source = record.assembled.sources[output];
+      if (source.kind != LogicalWordSourceKind::token_word) continue;
+      const auto found = dispositions.find(
+          {record.logical_record, source.token_index, source.word_index});
+      if (found != dispositions.end() &&
+          found->second == SourceDisposition::visible_content)
+        return true;
+    }
+    return false;
+  };
   for (const auto& record : records) {
     for (const auto& segment : record.control_segments) {
       if (segment.source_tokens.empty())
@@ -224,7 +232,7 @@ std::optional<GeneratedListTopicIR> extract_generated_list_topic_ir(
         if (segment.payload_range.begin != segment.payload_range.end &&
             !((segment.kind == BookControlKind::forward_level ||
                segment.kind == BookControlKind::back_level) &&
-              !has_presentable(record, segment.payload_range)))
+              !has_owned_visible(record, segment)))
           return reject("generated-list metadata contains trailing content at " +
                         std::to_string(record.logical_record) + ':' +
                         std::to_string(segment.segment_index) + " opcode=" +
@@ -232,10 +240,7 @@ std::optional<GeneratedListTopicIR> extract_generated_list_topic_ir(
                         range_text(record, segment.payload_range) + "'");
       } else if (segment.kind != BookControlKind::select &&
                  segment.kind != BookControlKind::text &&
-                 segment.kind != BookControlKind::font &&
-                 !(segment.kind == BookControlKind::structural &&
-                   ascii_equals_case_insensitive(segment.opcode, "c.sp") &&
-                   !has_presentable(record, segment.payload_range))) {
+                 segment.kind != BookControlKind::font) {
         return reject("control outside the generated-list entry envelope at " +
                       std::to_string(record.logical_record) + ':' +
                       std::to_string(segment.segment_index) + " opcode=" +

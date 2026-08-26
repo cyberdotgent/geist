@@ -208,8 +208,6 @@ void verify_corpus_inventory() {
       const auto list = geist::detail::extract_generated_list_topic_ir(
           sources, *selectors, layout, ownership, &error);
       if (!list) {
-        if (file.path().filename() == "SC26-457.boo" && topic.id == "FIGURES")
-          std::cerr << "SC26 " << error << '\n';
         if (topic.id == "FIGURES" || topic.id == "TABLES")
           rejected_candidates.push_back(file.path().filename().string() + ':' +
                                         topic.id);
@@ -260,10 +258,6 @@ void verify_corpus_inventory() {
   std::sort(rejected_candidates.begin(), rejected_candidates.end());
   const auto expected_rejections = std::vector<std::string>{
       "XWEBDEMO.boo:FIGURES", "packet.boo:FIGURES", "packet.boo:TABLES"};
-  if (admitted != expected || entries != 1177) {
-    std::cerr << "entries=" << entries << '\n';
-    for (const auto& item : rejected_candidates) std::cerr << "reject " << item << '\n';
-  }
   require(admitted == expected && entries == 1177,
           "whole-topic generated-list inventory changed");
   require(rejected_candidates == expected_rejections,
