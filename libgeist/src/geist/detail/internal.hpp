@@ -1,6 +1,7 @@
 #pragma once
 
 #include "geist/boo.hpp"
+#include "geist/detail/book_ir.hpp"
 #include "geist/detail/fixed_display.hpp"
 #include "img/image.hpp"
 
@@ -17,8 +18,6 @@
 #include <vector>
 
 namespace geist::detail {
-
-using TokenWords = std::vector<std::uint16_t>;
 
 enum class LogicalWordSourceKind {
   token_word,
@@ -75,13 +74,11 @@ struct LogicalRecordPayloadRange {
   std::uint32_t end = 0;
 };
 
-struct EncodedLogicalToken {
-  std::uint16_t value = 0;
-  std::uint8_t width = 0;
-};
-
 struct DecodedLogicalRecordSource {
   std::uint32_t logical_record = 0;
+  // Authoritative lossless source representation. The parallel vectors below
+  // are temporary compatibility projections for existing layout consumers.
+  LogicalRecordIR ir;
   std::vector<TokenWords> tokens;
   std::vector<EncodedLogicalToken> encoded_tokens;
   AssembledLogicalRecord assembled;

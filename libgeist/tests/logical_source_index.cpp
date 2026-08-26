@@ -76,6 +76,18 @@ void verify_book(const std::filesystem::path& path,
     const auto logical_record = first + index;
     require(sources[index].logical_record == logical_record,
             "source slice lost logical-record ownership");
+    std::string ir_error;
+    require(geist::detail::verify_token_ir(sources[index].ir, &ir_error),
+            ir_error.empty() ? "token IR verification failed"
+                             : ir_error.c_str());
+    require(sources[index].ir.logical_record == logical_record,
+            "token IR lost logical-record ownership");
+    require(geist::detail::project_token_words(sources[index].ir) ==
+                sources[index].tokens,
+            "resolved token compatibility projection diverged from token IR");
+    require(geist::detail::project_encoded_tokens(sources[index].ir) ==
+                sources[index].encoded_tokens,
+            "encoded token compatibility projection diverged from token IR");
     require(sources[index].encoded_tokens.size() ==
                 sources[index].tokens.size(),
             "encoded and resolved token streams diverged");

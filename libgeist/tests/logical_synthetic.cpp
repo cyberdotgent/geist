@@ -141,9 +141,57 @@ void verify_segment_spans(const std::string& record) {
           "span splitter differs from the legacy segment splitter");
 }
 
+void verify_token_ir_contract() {
+  geist::detail::LogicalRecordIR record;
+  record.logical_record = 7;
+  record.payload_range = {100, 103};
+  record.tokens = {
+      {0, {0x41, 1}, {3, 'a'}, {100, 101}, true, 3},
+      {1, {0x8042, 2}, {'b'}, {101, 103}, false, 3},
+  };
+  std::string error;
+  require(geist::detail::verify_token_ir(record, &error),
+          "valid token IR failed verification: " + error);
+  require(geist::detail::project_token_words(record) ==
+              std::vector<TokenWords>({{3, 'a'}, {'b'}}),
+          "token-word compatibility projection is incorrect");
+  require(geist::detail::project_encoded_tokens(record) ==
+              std::vector<geist::detail::EncodedLogicalToken>(
+                  {{0x41, 1}, {0x8042, 2}}),
+          "encoded-token compatibility projection is incorrect");
+
+  for (auto malformed : {
+           [&] {
+             auto value = record;
+             value.tokens[1].token_index = 2;
+             return value;
+           }(),
+           [&] {
+             auto value = record;
+             value.tokens[1].byte_range.begin = 102;
+             return value;
+           }(),
+           [&] {
+             auto value = record;
+             value.tokens[0].spacing_control = 2;
+             return value;
+           }(),
+           [&] {
+             auto value = record;
+             value.payload_range.end = 104;
+             return value;
+           }(),
+       }) {
+    require(!geist::detail::verify_token_ir(malformed, &error) &&
+                !error.empty(),
+            "malformed token IR did not fail with a diagnostic");
+  }
+}
+
 } // namespace
 
 int main() {
+  verify_token_ir_contract();
   for (const auto& record : {
            std::string("  ST title, cfont 3 5 2     text  "),
            std::string("alpha???????????????????? cselect 3 5 target text"),
