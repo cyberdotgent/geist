@@ -64,6 +64,7 @@ geist_match_dependency_headers(PNG::PNG png.h)
 geist_match_dependency_headers(GIF::GIF gif_lib.h)
 
 set(GEIST_SOURCES
+  src/book_topic_catalog_ir.cpp
   src/book_ir.cpp
   src/comment_delivery_ir.cpp
   src/comment_delivery_document_lowering.cpp

@@ -1,4 +1,5 @@
 #include "geist/detail/internal.hpp"
+#include "geist/detail/book_topic_catalog_ir.hpp"
 #include "geist/detail/menu_topic_ir.hpp"
 #include "geist/document.hpp"
 
@@ -7,7 +8,6 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
-#include <map>
 #include <string>
 #include <vector>
 
@@ -48,7 +48,6 @@ void inventory_complete_menu_topics() {
   const auto directory = std::filesystem::path(GEIST_REPO_ROOT) / "BOO";
   std::vector<std::string> admitted;
   std::size_t structurally_complete = 0;
-  std::size_t terminal_repairs = 0;
   for (const auto &entry : std::filesystem::directory_iterator(directory)) {
     if (!entry.is_regular_file())
       continue;
@@ -59,9 +58,15 @@ void inventory_complete_menu_topics() {
       continue;
 
     const auto document = BooDocument::open(entry.path());
-    std::map<std::string, std::string> titles;
-    for (const auto &topic : document.topics())
-      titles[topic.id] = topic.title;
+    std::string catalog_error;
+    const auto catalog = build_book_topic_catalog_ir(
+        document.topics(), document.table_of_contents(), &catalog_error);
+    require(catalog.has_value(), "book topic catalog extraction failed: " +
+                                     catalog_error);
+    require(verify_book_topic_catalog_ir(document.topics(),
+                                         document.table_of_contents(),
+                                         *catalog, &catalog_error),
+            "book topic catalog verification failed: " + catalog_error);
     LogicalDecodeContext context;
     load_context(entry.path(), &context);
     for (const auto &topic : document.topics()) {
@@ -92,14 +97,8 @@ void inventory_complete_menu_topics() {
         continue;
       ++structurally_complete;
 
-      // Preserve the established six-topic semantic admission policy.  The
-      // strict topic extractor receives typed validation evidence, not this
-      // title map or the compatibility MenuIR itself.
-      const auto compatibility_menu = extract_menu_ir(sources, titles);
-      if (!compatibility_menu)
-        continue;
       const auto target_validation =
-          validate_source_menu_targets(*menu, *compatibility_menu);
+          validate_source_menu_targets(*menu, *catalog);
       if (!target_validation)
         continue;
       std::string error;
@@ -120,6 +119,11 @@ void inventory_complete_menu_topics() {
                                    !item.label_cells.empty();
                           }),
               "menu target or exact visible-cell provenance was lost");
+      require(std::all_of(target_validation->items.begin(),
+                          target_validation->items.end(), [](const auto &item) {
+                            return !item.target.empty() && !item.label.empty();
+                          }),
+              "catalog validation lost target identity or label evidence");
       require(verify_source_menu_ir(sources, *menu, &error),
               "canonical source-only menu failed verification: " + error);
       auto mutated_menu = *menu;
@@ -134,14 +138,22 @@ void inventory_complete_menu_topics() {
       mutated_menu.items.front().terminal_marker_token = 0;
       require(!verify_source_menu_ir(sources, mutated_menu),
               "source-only menu verifier admitted unproven marker repair");
-      auto mutated_catalog = *compatibility_menu;
-      mutated_catalog.items.front().terminal_marker_token = 0;
+      auto mutated_catalog = *catalog;
+      BookTopicCatalogEntryIR *mutated_entry = nullptr;
+      for (auto &candidate : mutated_catalog.topics)
+        if (ascii_equals_case_insensitive(candidate.raw_topic_id,
+                                          menu->items.front().target)) {
+          mutated_entry = &candidate;
+          break;
+        }
+      require(mutated_entry != nullptr,
+              "validated target disappeared from mutated catalog");
+      if (mutated_entry->topic_header)
+        mutated_entry->topic_header->title += "-changed";
+      else
+        mutated_entry->toc_entries.back().title += "-changed";
       require(!validate_source_menu_targets(*menu, mutated_catalog),
-              "target validation admitted catalog-assisted marker repair");
-      mutated_catalog = *compatibility_menu;
-      mutated_catalog.items.front().target += "-changed";
-      require(!validate_source_menu_targets(*menu, mutated_catalog),
-              "target validation admitted a mismatched raw target");
+              "target validation admitted a mismatched catalog label");
       auto mutated_validation = *target_validation;
       mutated_validation.items.front().label += "-changed";
       require(!extract_menu_topic_ir(sources, mutated_validation, layout,
@@ -149,30 +161,6 @@ void inventory_complete_menu_topics() {
               "menu topic extractor admitted mutated catalog evidence");
       admitted.push_back(entry.path().filename().string() + ':' + topic.id +
                          ':' + std::to_string(semantic->items.size()));
-      terminal_repairs += static_cast<std::size_t>(std::count_if(
-          compatibility_menu->items.begin(), compatibility_menu->items.end(),
-          [](const auto &item) {
-            return item.terminal_marker_token.has_value();
-          }));
-      require(menu->items.size() == compatibility_menu->items.size(),
-              "source-only and compatibility menu item counts differ");
-      for (std::size_t index = 0; index < menu->items.size(); ++index) {
-        const auto &raw = menu->items[index];
-        const auto &compatible = compatibility_menu->items[index];
-        require(raw.target == compatible.target && raw.text == compatible.text,
-                "admitted raw menu required title-assisted label repair");
-        const auto title = std::find_if(
-            titles.begin(), titles.end(), [&](const auto &candidate) {
-              return ascii_equals_case_insensitive(candidate.first,
-                                                   raw.target);
-            });
-        require(title != titles.end() && ascii_equals_case_insensitive(
-                                           collapse_ascii_whitespace(
-                                               trim_ascii(title->second)),
-                                           raw.text),
-                "admitted raw menu label does not independently match its "
-                "canonical target title");
-      }
 
       auto mutated = *semantic;
       mutated.items.front().target.value += "-changed";
@@ -211,14 +199,69 @@ void inventory_complete_menu_topics() {
   require(structurally_complete == 153,
           "raw structural menu envelope inventory changed: " +
               std::to_string(structurally_complete));
-  require(terminal_repairs == 0,
-          "proven whole-menu topics unexpectedly require terminal marker "
-          "repair");
+}
+
+void catalog_contract() {
+  std::vector<TopicInfo> topics{
+      {"TOPIC", "Header title", "h2", 7, 10, 20}};
+  std::vector<TocEntry> toc(1);
+  toc[0].id = "topic";
+  toc[0].title = "Contents title";
+  toc[0].level = 3;
+  toc[0].style = 4;
+  toc[0].heading_level = "h2";
+  toc[0].topic_number = 7;
+  toc[0].start_logical_record = 10;
+  toc[0].end_logical_record = 20;
+  std::string error;
+  const auto catalog = build_book_topic_catalog_ir(topics, toc, &error);
+  require(catalog.has_value(), "synthetic catalog rejected: " + error);
+  require(catalog->topics.size() == 1 &&
+              catalog->topics.front().raw_topic_id == "TOPIC" &&
+              catalog->topics.front().topic_header->topic_info_index == 0 &&
+              catalog->topics.front().toc_entries.front().raw_id == "topic" &&
+              catalog->topics.front().toc_entries.front().toc_index == 0,
+          "catalog lost raw identity or boundary provenance");
+
+  MenuIR raw_menu;
+  raw_menu.items.push_back({});
+  raw_menu.items.front().target = "ToPiC";
+  raw_menu.items.front().text = "header TITLE";
+  const auto validation = validate_source_menu_targets(raw_menu, *catalog);
+  require(validation && validation->items.size() == 1 &&
+              validation->items.front().existence ==
+                  MenuTargetValidationEntryIR::ExistenceEvidence::
+                      topic_header_and_toc &&
+              validation->items.front().label_evidence ==
+                  MenuTargetValidationEntryIR::LabelEvidence::topic_title,
+          "catalog validation misclassified header and TOC evidence");
+  raw_menu.items.front().text = "Contents title";
+  require(!validate_source_menu_targets(raw_menu, *catalog),
+          "TOC display title displaced available topic-header evidence");
+
+  const auto toc_only = build_book_topic_catalog_ir({}, toc);
+  require(toc_only.has_value(), "TOC-only catalog evidence was rejected");
+  const auto toc_validation = validate_source_menu_targets(raw_menu, *toc_only);
+  require(toc_validation &&
+              toc_validation->items.front().existence ==
+                  MenuTargetValidationEntryIR::ExistenceEvidence::toc_entry &&
+              toc_validation->items.front().label_evidence ==
+                  MenuTargetValidationEntryIR::LabelEvidence::toc_title,
+          "TOC-only existence and label evidence was misclassified");
+
+  auto mutated = *catalog;
+  ++mutated.topics.front().topic_header->start_logical_record;
+  require(!verify_book_topic_catalog_ir(topics, toc, mutated),
+          "catalog verifier admitted mutated logical-record provenance");
+  topics.push_back({"topic", "Duplicate", "h1", 8, 20, 30});
+  require(!build_book_topic_catalog_ir(topics, toc),
+          "catalog admitted a case-insensitive duplicate topic identity");
 }
 
 } // namespace
 
 int main() {
+  catalog_contract();
   inventory_complete_menu_topics();
   std::cout << "menu whole-topic inventory: 153 source-complete envelopes; "
                "6 catalog-validated without repair\n";

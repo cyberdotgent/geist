@@ -138,31 +138,69 @@ bool same_topic(const MenuTopicIR &left, const MenuTopicIR &right) {
 } // namespace
 
 std::optional<MenuTargetValidationIR> validate_source_menu_targets(
-    const MenuIR &source_menu, const MenuIR &catalog_validated_menu,
+    const MenuIR &source_menu, const BookTopicCatalogIR &catalog,
     std::string *error) {
   const auto reject =
       [&](std::string message) -> std::optional<MenuTargetValidationIR> {
     fail(error, std::move(message));
     return std::nullopt;
   };
-  if (source_menu.items.empty() ||
-      source_menu.items.size() != catalog_validated_menu.items.size())
-    return reject("raw and catalog-validated menu item counts differ");
+  if (source_menu.items.empty())
+    return reject("raw menu contains no targets to validate");
   MenuTargetValidationIR result;
-  for (std::size_t index = 0; index < source_menu.items.size(); ++index) {
-    const auto &source = source_menu.items[index];
-    const auto &validated = catalog_validated_menu.items[index];
-    if (validated.terminal_marker_token || validated.terminal_marker_encoded ||
-        validated.terminal_marker_bytes ||
-        validated.terminal_marker_display_cells)
-      return reject("catalog validation required terminal marker repair");
-    if (source.target != validated.target || source.text != validated.text ||
-        source.logical_record != validated.logical_record ||
-        source.segment_index != validated.segment_index ||
-        !same_cells(source.target_cells, validated.target_cells) ||
-        !same_cells(source.label_cells, validated.label_cells))
-      return reject("raw target or label differs from catalog validation");
-    result.items.push_back({source.target, source.text});
+  for (const auto &source : source_menu.items) {
+    const auto *entry = find_book_topic_catalog_entry(catalog, source.target);
+    if (entry == nullptr)
+      return reject("raw menu target does not exist in topic catalog: " +
+                    source.target);
+    const auto has_header = entry->topic_header.has_value();
+    const auto has_toc = !entry->toc_entries.empty();
+    if (!has_header && !has_toc)
+      return reject("raw menu target has no catalog evidence: " +
+                    source.target);
+    // A raw CMITEM is promoted only when its label independently agrees with
+    // the topic header.  A TOC projection is useful corroborating evidence,
+    // but choosing it over an available header would admit catalog-specific
+    // relabeling and recreate the compatibility repair path this IR replaces.
+    const auto &canonical_title = has_header ? entry->topic_header->title
+                                             : entry->toc_entries.back().title;
+    const auto normalized_source =
+        collapse_ascii_whitespace(trim_ascii(source.text));
+    const auto normalized_canonical =
+        collapse_ascii_whitespace(trim_ascii(canonical_title));
+    if (!ascii_equals_case_insensitive(normalized_source,
+                                       normalized_canonical))
+      return reject("raw menu label differs from canonical catalog title: " +
+                    source.target);
+
+    MenuTargetValidationEntryIR validated;
+    validated.target = source.target;
+    validated.label = source.text;
+    validated.existence =
+        has_header && has_toc
+            ? MenuTargetValidationEntryIR::ExistenceEvidence::
+                  topic_header_and_toc
+            : (has_header
+                   ? MenuTargetValidationEntryIR::ExistenceEvidence::
+                         topic_header
+                   : MenuTargetValidationEntryIR::ExistenceEvidence::toc_entry);
+    const auto header_matches =
+        has_header &&
+        ascii_equals_case_insensitive(
+            normalized_source, collapse_ascii_whitespace(
+                                   trim_ascii(entry->topic_header->title)));
+    const auto toc_matches =
+        has_toc && ascii_equals_case_insensitive(
+                       normalized_source,
+                       collapse_ascii_whitespace(
+                           trim_ascii(entry->toc_entries.back().title)));
+    validated.label_evidence =
+        header_matches && toc_matches
+            ? MenuTargetValidationEntryIR::LabelEvidence::topic_title_and_toc
+            : (header_matches
+                   ? MenuTargetValidationEntryIR::LabelEvidence::topic_title
+                   : MenuTargetValidationEntryIR::LabelEvidence::toc_title);
+    result.items.push_back(std::move(validated));
   }
   if (error != nullptr)
     error->clear();

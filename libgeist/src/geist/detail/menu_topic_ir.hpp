@@ -1,5 +1,6 @@
 #pragma once
 
+#include "geist/detail/book_topic_catalog_ir.hpp"
 #include "geist/detail/document_ir.hpp"
 #include "geist/detail/layout_ir.hpp"
 #include "geist/detail/menu_ir.hpp"
@@ -33,6 +34,13 @@ struct MenuTopicSegmentIR {
 struct MenuTargetValidationEntryIR {
   std::string target;
   std::string label;
+  enum class ExistenceEvidence {
+    topic_header,
+    toc_entry,
+    topic_header_and_toc
+  } existence = ExistenceEvidence::topic_header;
+  enum class LabelEvidence { topic_title, toc_title, topic_title_and_toc }
+      label_evidence = LabelEvidence::topic_title;
 };
 
 // Book-level semantic evidence that a raw CMITEM target exists and that its
@@ -44,7 +52,7 @@ struct MenuTargetValidationIR {
 };
 
 std::optional<MenuTargetValidationIR> validate_source_menu_targets(
-    const MenuIR &source_menu, const MenuIR &catalog_validated_menu,
+    const MenuIR &source_menu, const BookTopicCatalogIR &catalog,
     std::string *error = nullptr);
 
 // A complete, output-neutral topic whose only visible body object is a menu.

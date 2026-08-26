@@ -579,9 +579,15 @@ admits exactly six complete topics:
 `SC34-425.boo` topics `1.8.5.5`, `1.8.15.5`, and `1.8.18.5`;
 `FA1PLMM0.boo` `5.6`; `SC33-033.boo` `5.3`; and `SH12-565.boo`
 `APPENDIX1.9.5`. Each raw label independently equals its catalog title and none
-requires terminal-marker repair. Production remains blocked until the current
-book-wide title map becomes a typed topic-catalog/admission input to the
-whole-topic dispatcher; widening to all 153 raw shapes would be unsound.
+requires terminal-marker repair. `BookTopicCatalogIR` now replaces the untyped
+title map for this validation. It preserves TopicInfo header evidence and every
+TOC projection, including logical-record spans and source-order indexes; exact
+token/byte provenance is unavailable at that public boundary and is not
+invented. Header titles are authoritative when present and TOC evidence remains
+explicit corroboration. Catalog-only validation retains the same six-topic
+boundary across all 153 raw envelopes. Production still needs to build and
+share this catalog once with the whole-topic dispatcher; widening based on raw
+shape alone remains unsound.
 
 The publication-catalog adapter is the second complete semantic-to-document
 lowering and is now enabled in production. `PublicationCatalogIR` retains
