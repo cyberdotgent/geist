@@ -171,6 +171,18 @@ int main() {
        ":p.:hdref refid='TBL2'.2. Second table:ehdref."});
 
   ok &= expect_records(
+      "generated index retains hierarchy and topic targets",
+      {"CINDEX", "CGPSEP ?Special Characters", "CITERM ?/command?1?A.0",
+       "CITERM ?Parent?1", "CITERM ?Child?2?FRONT_1.1",
+       "CITERM ?Multiple?2?4.1.2.1?4.1.2.3", "CITERM ?files?1? /",
+       "CENDINDEX", "garbage after index"},
+      {":index.", ":grpsep.Special Characters",
+       ":i1 level='1' refids='A.0'./command", ":i1 level='1'.Parent",
+       ":i1 level='2' refids='FRONT_1.1'.Child",
+       ":i1 level='2' refids='4.1.2.1 4.1.2.3'.Multiple",
+       ":i1 level='1'.files", ":eindex."});
+
+  ok &= expect_records(
       "legacy SRTBL keeps first row in header segment",
       {"SRTBLTBL1 ? Alpha   Beta   Gamma ? SRETBL"},
       {":table id='TBLTBL1'.", ":row.", ":c col='0'.Alpha",

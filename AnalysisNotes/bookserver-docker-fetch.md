@@ -1340,3 +1340,37 @@ contradict BookServer and regress verified separate selectors in
 `QSYSNEWG.BOO` `PREFACE` and `GG24-4302-00.boo` `NOTICES`. A fixture assertion
 now protects the exact visible sequence. The independent `SC31-711` `NOTICES`
 content loss found during the audit remains tracked in issue 54.
+
+## SC31-711 issue 43 generated-index validation
+
+Issue 43 used the hosted `SC31-7111-00` `INDEX` topic at DT
+`19941010174546` and local traces for logical records 538--540. The hosted page
+contains 87 semantic entries: 74 topic links and 13 targetless hierarchy
+parents. Early, middle, and late comparisons included `adapter problems` to
+`2.2.4`, the three-level `LNM OS/2 agent application` subtree, and
+`trademarks` to symbolic topic `FRONT_1.1`.
+
+The repair parses generated `CITERM` fields before whitespace collapse,
+preserves hierarchy level and all valid topic targets in normalized GML, and
+renders nested Markdown bullets with separately linked target labels.
+`packet.boo` independently covers targetless parents and three levels;
+`GG24-4302-00.boo` covers `Special Characters`, slash-led terms, and entries
+with multiple targets.
+
+The fresh online comparison and cache-only replay used:
+
+```sh
+python3 tools/bookserver_book_audit.py BOO/SC31-711.boo \
+  --book-id SC31-711 --timestamp 19941010174546 \
+  --output /tmp/geist-SC31-711-post43-live --jobs 4 --timeout 30
+python3 tools/bookserver_book_audit.py BOO/SC31-711.boo \
+  --book-id SC31-711 --timestamp 19941010174546 \
+  --output /tmp/geist-SC31-711-post43-live --jobs 4 --no-fetch
+```
+
+Both passes completed 82/82 topics with no fetch or render failure and 41
+heuristic flags. The only changed SC31 artifact was `INDEX`; all other local
+Markdown files were byte-identical to the post-45 audit. Four ordinal-range
+reviews inspected every topic and confirmed the issue-43 acceptance targets
+without attributing a regression to the change. Tracker 27 remains open for
+issues 48 and 50--54.

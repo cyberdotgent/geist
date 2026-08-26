@@ -1059,14 +1059,23 @@ void append_toc_item(std::string& output, const std::string& record) {
   output += "- " + text + "\n";
 }
 
-void append_index_item(std::string& output, std::string text) {
+void append_index_item(std::string& output,
+                       std::string text,
+                       const std::string& level_attr) {
   text = trim_ascii(std::move(text));
   if (text.empty()) {
     return;
   }
+  char* level_end = nullptr;
+  const auto parsed_level = std::strtol(level_attr.c_str(), &level_end, 10);
+  const auto level =
+      level_end != level_attr.c_str() && *level_end == '\0' && parsed_level > 0
+          ? parsed_level
+          : 1;
   if (!output.empty() && output.back() != '\n') {
     output.push_back('\n');
   }
+  output.append(static_cast<std::size_t>(level - 1) * 2, ' ');
   output += "- " + text + "\n";
 }
 
@@ -1875,7 +1884,14 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
     if (in_index && tag == "i1") {
       auto text = gml_markdown_content(record);
       if (!text.empty()) {
-        append_index_item(output, std::move(text));
+        std::istringstream targets(gml_record_attr(record, "refids"));
+        std::string target;
+        while (targets >> target) {
+          text += ", [" + target + "](#" + target + ")";
+        }
+        append_index_item(output,
+                          std::move(text),
+                          gml_record_attr(record, "level"));
       }
       continue;
     }

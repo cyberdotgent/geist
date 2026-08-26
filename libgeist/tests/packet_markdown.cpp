@@ -97,11 +97,18 @@ int main() {
   const auto generated_index = topic_markdown(document, "INDEX");
   require_contains(generated_index, "## A", "index group A");
   require_contains(generated_index,
-                   "- AX.25 Protocol 1 2.1",
+                   "- AX.25 Protocol, [2.1](#2.1)",
                    "index AX.25 entry");
   require_contains(generated_index,
-                   "- ROSE 1 2.3",
+                   "- ROSE, [2.3](#2.3)",
                    "index final generated entry");
+  require_contains(generated_index,
+                   "  - Digipeater, [2.1.3](#2.1.3)",
+                   "nested index entry");
+  require_contains(generated_index,
+                   "  - Advanced topics\n"
+                   "    - IPIP tunnels, [4.5.1](#4.5.1)",
+                   "targetless index parent hierarchy");
   require_not_contains(generated_index,
                        "have callsign",
                        "garbage after cendindex");

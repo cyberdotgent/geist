@@ -60,6 +60,15 @@ int main() {
           "split-header topic lost its TOC heading");
   require(discontinued_markdown.find("LU6.1 adapter") != std::string::npos,
           "split-header topic lost its body");
+  const auto split_header_index = split_header.topic_markdown("INDEX");
+  require(split_header_index.find(
+              "## Special Characters\n\n"
+              "- /DIS TRAN architected for OTMA, [6.1.2](#6.1.2)") !=
+              std::string::npos &&
+              split_header_index.find(
+                  "- AOI callable services, [4.1.2.1](#4.1.2.1), "
+                  "[4.1.2.3](#4.1.2.3)") != std::string::npos,
+          "generated index lost punctuation terms or multiple targets");
 
   // Only the directory-declared content run contains topic logical records.
   // GG24 has later class-0x0001 pages belonging to another stream; decoding
@@ -447,6 +456,19 @@ int main() {
               intended_audience.find("or >") == std::string::npos &&
               intended_audience.find("of )") == std::string::npos,
           "ST title repair lost a paragraph break or leaked row markers");
+  const auto generated_index = problem_determination.topic_markdown("INDEX");
+  for (const auto* expected : {
+           "- adapter problems, [2.2.4](#2.2.4)",
+           "    - deleting agents, [2.3.1.5](#2.3.1.5)",
+           "- trademarks, [FRONT_1.1](#FRONT_1.1)",
+       }) {
+    require(generated_index.find(expected) != std::string::npos,
+            "generated index lost a linked hierarchy entry");
+  }
+  require(generated_index.find("- LNM OS/2 agent application\n"
+                               "  - problems\n"
+                               "    - adapter problems") != std::string::npos,
+          "generated index lost targetless parent hierarchy");
   const auto filters = problem_determination.topic_markdown("3.3");
   for (const auto* expected : {
            "event display. One kind of filter",

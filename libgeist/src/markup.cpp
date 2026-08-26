@@ -1844,6 +1844,68 @@ std::string render_anchor_gml(std::string value) {
   return output;
 }
 
+std::string render_index_term_gml(std::string value) {
+  value = trim_ascii(std::move(value));
+  auto level_separator = std::string::npos;
+  for (auto separator = value.find('?'); separator != std::string::npos;
+       separator = value.find('?', separator + 1)) {
+    if (separator + 1 < value.size() && value[separator + 1] >= '1' &&
+        value[separator + 1] <= '9' &&
+        (separator + 2 == value.size() || value[separator + 2] == '?')) {
+      level_separator = separator;
+      break;
+    }
+  }
+  if (level_separator == std::string::npos) {
+    return render_simple_gml_control("i1", dot_text(std::move(value)));
+  }
+
+  const auto level = value.substr(level_separator + 1, 1);
+  std::vector<std::string> targets;
+  auto target_begin = level_separator + 2;
+  while (target_begin < value.size()) {
+    if (value[target_begin] == '?') {
+      ++target_begin;
+    }
+    const auto target_separator = value.find('?', target_begin);
+    auto candidate = trim_ascii(value.substr(
+        target_begin,
+        target_separator == std::string::npos
+            ? std::string::npos
+            : target_separator - target_begin));
+    auto target_end = std::size_t{0};
+    while (target_end < candidate.size() &&
+           is_topic_id_char(candidate[target_end])) {
+      ++target_end;
+    }
+    if (target_end != 0) {
+      targets.push_back(candidate.substr(0, target_end));
+    }
+    if (target_separator == std::string::npos) {
+      break;
+    }
+    target_begin = target_separator;
+  }
+
+  auto term = dot_text(value.substr(0, level_separator));
+  if (term.empty()) {
+    return {};
+  }
+  auto output = ":i1 level='" + level + "'";
+  if (!targets.empty()) {
+    output += " refids='";
+    for (std::size_t index = 0; index < targets.size(); ++index) {
+      if (index != 0) {
+        output.push_back(' ');
+      }
+      output += escape_gml_attr(targets[index]);
+    }
+    output.push_back('\'');
+  }
+  output += "." + std::move(term);
+  return output;
+}
+
 struct GmlRenderState {
   std::string pending_topic_tag;
   std::string pending_footnote_id;
@@ -4961,7 +5023,7 @@ std::string render_gml_segment(std::string segment,
     return render_subject_index_gml(rest_after_first_word(segment));
   }
   if (ascii_starts_with_case_insensitive(lower, "citerm")) {
-    return render_simple_gml_control("i1", rest_after_first_word(segment));
+    return render_index_term_gml(rest_after_first_word(segment));
   }
   if (ascii_starts_with_case_insensitive(lower, "cgpsep")) {
     return render_simple_gml_control("grpsep", rest_after_first_word(segment));

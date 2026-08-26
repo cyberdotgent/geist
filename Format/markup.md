@@ -116,7 +116,7 @@ these diagnostics; use `boorender --raw` or `bootrace` when analyzing them.
 | `SREFIG [text]` | `:efig.` plus optional following body text | Figure end marker. Trailing decoded bytes after `SREFIG` are following visible text, not part of the marker. | Verified against `QSYSNEWG.BOO` topics `2.0` and `2.1`, where BookServer renders body text immediately after the figure closes. |
 | `SRTBL<id>` | `:table id='<id>'.` | Table anchor/start id. | Observed. |
 | `SRETBL` | `:etable.` | Table end marker. | Observed. |
-| `CINDEX` / `CITERM` / `CGPSEP` / `CENDINDEX` | `:index.`, `:i1.`, `:grpsep.`, `:eindex.` | Generated index stream. `CENDINDEX` terminates the generated body; bytes/logical records after it are not topic content. | Verified against `packet.boo` topic `INDEX`: BookServer stops after final `ROSE 1 2.3` entry, while decoded records after `CENDINDEX` are non-content padding/garbage. |
+| `CINDEX` / `CITERM` / `CGPSEP` / `CENDINDEX` | `:index.`, typed `:i1 level= refids=.`, `:grpsep.`, `:eindex.` | Generated index stream. `CITERM` retains visible term, hierarchy level, and zero or more topic targets. `CENDINDEX` terminates the generated body; bytes/logical records after it are not topic content. | Verified against `SC31-711.boo`, `packet.boo`, and `GG24-4302-00.boo` generated indexes. |
 | `SI <index-term>` with optional visible tail after `?`, `|`, or a wide alignment gap | hidden index term plus optional `:pinline.<visible-continuation>` for flowed `?` tails or `:line.<visible-row>` for fixed-row `|`/aligned tails | Subject-index metadata embedded in body flow. The `SI` control and index term are not visible body text. If the reader line contains visible text after the hidden control boundary, that tail remains body content. In decoded traces the boundary has appeared as a placeholder `?`, a visual row marker `|`, or a wide run of alignment spaces where the original line/control split was lost. Use the earliest such boundary in the operand; later placeholders can belong to the visible tail itself. | Verified against `packet.boo` topic `3.2`: `SI Linux AX.25, Configuring Ports, AX.25 ? everything, not spaces:` contributes only `everything, not spaces:` to the preceding paragraph. `QSYSNEWG.BOO` topic `2.1` uses `SI display station         | If your display station...`; BookServer hides `display station` but renders the pipe-led continuation. `QSYSNEWG.BOO` topic `1.2` uses aligned forms such as `SI computer, description of             Computers come...` and `SI processor           There are many...`; hosted BookServer renders the prose and hides the subject terms. |
 | `CZ Flow <tag> <left> <indent> <text>` | `:<tag>.<text>` | Flowing paragraph/list/heading control. Empty `UL`, `OL`, `DL`, and `LI` flow controls are structural boundaries and must still be emitted. | Verified against `packet.boo` topic `3.2`: `CZ FLOW UL` and empty `CZ FLOW LI` records precede `CFONT`/`CSELECT` visible list-item bodies. BookServer renders these as list items, not as text merged into the previous paragraph. |
 | `CZ Break <n> <text>` | `:p.<text>` when text is present | Break/layout control with optional visible text. | Source-style approximation. |
@@ -125,7 +125,7 @@ these diagnostics; use `boorender --raw` or `bootrace` when analyzing them.
 | `ST` reflow-off body followed by inline continuation controls | `:xmp inline='html'.` / `:xline.` / `:exmp.` when the fixed block contains inline markup | Generated fixed-width topic-body blocks can span logical records that contain inline `CFONT` or `CSELECT` controls. These controls do not terminate the fixed-width block; they render inside the active preformatted output. | Verified against `QSYSNEWG.BOO` topic `PREFACE`: hosted BookServer keeps `Publications Guide` italics and `Bibliography` links inside `<pre width="80">`. IDA `bookmgr.exe` opens the pre block at `BookServer_render_topic_body_html` `0x45239`, copies fixed rows via `Scm_Getln`/`Scm_Xoutcpy`, and emits `</pre>` only later at `0x4548e` or the final guard at `0x45572`. |
 | Same-target `CSELECT` spans split across fixed display rows | Separate adjacent semantic links with the complete visible phrase preserved | A physical row boundary can divide one human-readable reference into multiple selector objects. Preserve each selector and normalize only the display whitespace; target equality alone does not prove that selectors should be collapsed. | `SC31-711.boo` topic `5.0`, logical records 172--173, selects `Chapter 2, "Problem` at column 56 and `Determination" in topic 2.0` at column 3 on the continuation row. BookServer emits two adjacent `2.0#HDRPROBS` anchors. `QSYSNEWG.BOO` `PREFACE` and `GG24-4302-00.boo` `NOTICES` independently require separate same-target selectors. |
 | `SI <fields>` | `:i1.<fields>` | Search/index marker. | Source-style approximation based on `packet.script` index tags. |
-| `CITERM <fields>` | `:i1.<fields>` | Index term marker/content. | Source-style approximation; subfields unresolved. |
+| `CITERM <term><sep><level>[<sep><target>...]` | `:i1 level='<level>' refids='<targets>'.<term>` | Generated index entry. Level is positive hierarchy depth and is not visible text. Each valid target is a topic ID; entries may be targetless parents or carry multiple targets. | Verified against `SC31-711.boo` (`adapter problems`, nested targetless parents, symbolic `FRONT_1.1`) and `GG24-4302-00.boo` (punctuation-led terms and multiple targets). |
 | `CGPSEP <fields>` | `:grpsep.<fields>` | Index group separator. | Source-style approximation. |
 | Other `C...` controls | suppressed | Generated or unresolved control-like words. | Fallback behavior for source-style raw output. |
 | Plain text span | `:p.<text>`, or `:pinline.<text>` for marker-led wrapped continuations | Remaining decoded prose after known controls are separated. Wrapped continuation records can start with a printable line-marker byte before indentation; the marker is suppressed and the text continues the active paragraph. | Verified against `packet.boo` topic `1.1`, where decoded `$    Professor Norman Abramson...` continues the preceding `CZ FLOW P ... networking was` paragraph in BookSrv without a `$` or paragraph break. |
@@ -822,11 +822,32 @@ topics.
 | Control | Observed role |
 | --- | --- |
 | `SI` | Search/index term marker in body content. |
-| `CITERM` | Index term content. |
+| `CITERM` | Generated index term, hierarchy level, and optional topic targets. |
 | `CGPSEP` | Index group separator. |
 
-These controls need more fixture-driven work before their complete subfield
-layout can be considered stable.
+The decoder exposes the generated-index field separator as `?`. Parse a
+`CITERM` by locating the separator-delimited positive hierarchy level; bytes
+before it are the visible term and subsequent valid topic-ID fields are
+targets. Do not split on punctuation inside the visible term. Target fields
+use the same alphanumeric, dot, underscore, and hyphen vocabulary as topic
+IDs, and a term can have zero, one, or several targets.
+
+`SC31-711.boo` topic `INDEX` provides byte-indexed decoded evidence in logical
+records 538--540. Record 538 has `adapter problems?1?2.2.4` beginning at
+decoded offset 198, targetless `description?1` at offset 676, and
+`directories?2?1.1` at offset 676 in the following entry stream. Record 539
+contains the level-three leaf `deleting agents?3?2.3.1.5`; record 540 contains
+`trademarks?1?FRONT_1.1`, proving targets are not numeric-only. BookServer
+renders hierarchy levels 1--3 as indentation, hides the level field, and uses
+each target as both visible link label and topic href. The fixture contains 87
+entries: 74 linked leaves and 13 targetless parents.
+
+`GG24-4302-00.boo` independently verifies `Special Characters` groups,
+punctuation-led terms such as `/DIS TRAN architected for OTMA`, and multiple
+targets: `AOI callable services?1?4.1.2.1?4.1.2.3`. Decoder carry-over after a
+target may include a padded or standalone row marker such as `-`, `(`, `<`,
+or `/`; it is not another target. `CENDINDEX` remains the hard end of the
+generated index body.
 
 ## QS3X36CM Reflow-Off Link, Font, And Table Evidence
 
