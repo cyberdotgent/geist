@@ -5714,6 +5714,53 @@ render_verified_publication_catalog_gml(
   return rendered;
 }
 
+std::optional<std::vector<std::string>> render_verified_glossary_gml(
+    const std::vector<std::string>& decoded_records,
+    const std::vector<DecodedLogicalRecordSource>& sources) {
+  const auto layout = extract_layout_ir(sources);
+  std::string semantic_error;
+  if (!verify_layout_ir(sources, layout, &semantic_error))
+    return std::nullopt;
+  const auto ownership = build_ownership_ir(sources, layout);
+  if (!verify_ownership_ir(sources, layout, ownership, &semantic_error))
+    return std::nullopt;
+  const auto glossary =
+      extract_glossary_introduction_ir(sources, layout, ownership);
+  if (!glossary || !verify_glossary_introduction_ir(
+                       sources, layout, ownership, *glossary, &semantic_error))
+    return std::nullopt;
+
+  auto legacy =
+      render_gml_records_with_source_layout(decoded_records, sources);
+  const auto tail =
+      std::find_if(legacy.begin(), legacy.end(), [](const auto& line) {
+        return ascii_starts_with_case_insensitive(line, ":anchor id='GLS");
+      });
+  if (tail == legacy.end()) return std::nullopt;
+
+  std::vector<std::string> rendered;
+  for (auto current = legacy.begin(); current != tail; ++current)
+    if (ascii_starts_with_case_insensitive(*current, ":anchor "))
+      rendered.push_back(*current);
+  rendered.push_back(":p." + glossary->lead.text);
+  rendered.push_back(":ul.");
+  for (const auto& source : glossary->sources)
+    rendered.push_back(":li." + source.text);
+  rendered.push_back(":eul.");
+  rendered.push_back(":p." + glossary->cross_reference_lead.text);
+  for (const auto& reference : glossary->cross_references) {
+    const auto colon = reference.text.find(':');
+    if (colon == std::string::npos) {
+      rendered.push_back(":p." + reference.text);
+    } else {
+      rendered.push_back(":p.:hp2." + reference.text.substr(0, colon + 1) +
+                         ":ehp2." + reference.text.substr(colon + 1));
+    }
+  }
+  rendered.insert(rendered.end(), tail, legacy.end());
+  return rendered;
+}
+
 bool project_verified_menu_gml(
     std::vector<std::string>& rendered,
     const std::vector<DecodedLogicalRecordSource>& sources,

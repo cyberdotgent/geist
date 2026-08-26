@@ -69,6 +69,7 @@ set(GEIST_SOURCES
   src/document.cpp
   src/ebcdic.cpp
   src/fixed_display.cpp
+  src/glossary_ir.cpp
   src/implicit_grid.cpp
   src/img/gdf.cpp
   src/img/gdf_raster.cpp

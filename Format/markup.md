@@ -705,6 +705,45 @@ topic `A.3` similarly has a one-byte token expanding to a long run of
 asterisks.  Encoded width, dictionary identity, punctuation, or menu position
 alone therefore cannot establish marker ownership.
 
+### Glossary introduction rows
+
+Verified in `SC31-711.boo` topic `GLOSSARY`: the material between the `ST`
+title at logical record 435 and the first `SRGLS` term at logical record 437
+is a distinct semantic introduction. It contains a title and lead, five source
+citations, a cross-reference lead, and six cross-reference explanations. The
+following `SRGLS`-anchored dictionary rows are a separate fixed-layout object
+and must not be reflowed with the introduction.
+
+The title and lead share one physical `ST` row, separated by 14 conserved
+padding cells. The fifth citation and cross-reference lead likewise share one
+`CFONT` row in logical record 436, separated by 21 padding cells. A reader must
+split these aligned fields before ordinary whitespace collapse. Logical
+records 435 and 436 also demonstrate that the compact token immediately before
+a native-origin token is not uniformly disposable. In this glossary
+introduction, column 3 and column 7 are established paragraph and wrap origins;
+their preceding compact slots are structural. Other origins are hanging
+continuations and can leave a real source word or punctuation in the preceding
+compact token.
+
+| Logical record / BOO byte | Encoded byte | Decoded slot | Following native origin and text | Interpretation |
+| --- | ---: | --- | --- | --- |
+| 435 / `0x2BB41` | `0x24` | `application` | column 3, `The ANSI/EIA...` | structural paragraph slot; omit |
+| 435 / `0x2BB65` | `0x28` | `be` | column 10, `purchased from...` | visible hanging-continuation word; retain |
+| 435 / `0x2BB75` | `0x1C` | `a` | column 7, `Pennsylvania Avenue...` | structural wrap slot; omit |
+| 435 / `0x2BB91` | `0x25` | `are` | column 18, `identified by...` | visible hanging-continuation word; retain |
+| 435 / `0x2BBD4` | `0x44` | `for` | column 5, `Standardization...` | visible hanging-continuation word; retain |
+| 436 / `0x2BC2F` | `0x1C` | `a` | column 7, `working papers...` | structural wrap slot; omit |
+| 436 / `0x2BC8D` | `0x19` | `:` | column 1, `1208.` | visible punctuation; retain |
+| 436 / `0x2BDA7` | `0x57` | `not` | column 1, `synonymous, meaning.` | visible hanging-continuation word; retain |
+
+The cross-reference explanations continue from logical record 436 into 437;
+the first `SRGLS` at logical record 437 is the authoritative end boundary.
+BookServer renders the five citations as independent bullet-like paragraphs
+and the six labels (`Contrast with`, `Synonym for`, `Synonymous with`, `See`,
+`See also`, and `Deprecated term for`) as emphasized terms. These counts and
+the `SRGLS` boundary are semantic admission checks, not global assumptions for
+all glossary topics.
+
 The `column` and `length` operands address the complete decoded display line,
 using a zero-based absolute column and a display-cell count. They do not address
 the trailing characters of the control record. A reader must reconstruct the

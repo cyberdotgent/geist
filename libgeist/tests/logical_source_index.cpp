@@ -131,6 +131,54 @@ void verify_book(const std::filesystem::path& path,
                 "sources=") != std::string::npos,
             "publication catalog IR has no stable provenance projection");
   }
+  if (path.filename() == "SC31-711.boo" && first == 435) {
+    std::string glossary_error;
+    const auto glossary = geist::detail::extract_glossary_introduction_ir(
+        sources, layout, ownership, &glossary_error);
+    require(glossary.has_value(),
+            glossary_error.empty()
+                ? "glossary introduction did not enter semantic IR"
+                : glossary_error.c_str());
+    require(glossary && glossary->title == "Glossary" &&
+                glossary->lead.text ==
+                    "This glossary includes terms and definitions from:" &&
+                glossary->sources.size() == 5 &&
+                glossary->cross_references.size() == 6,
+            "glossary IR lost a semantic introduction section");
+    require(glossary &&
+                glossary->sources[0].text.find("ANSI X3.172-1990") !=
+                    std::string::npos &&
+                glossary->sources[1].text.find("2001 Pennsylvania") !=
+                    std::string::npos &&
+                glossary->sources[2].text.find("working papers") !=
+                    std::string::npos &&
+                glossary->sources[3].text ==
+                    "The Network Working Group Request for Comments: 1208." &&
+                glossary->sources[4].text.find(
+                    "The IBM Dictionary of Computing") == 0,
+            "glossary IR lost or contaminated a source citation");
+    require(glossary && glossary->cross_references.front().text.find(
+                            "Contrast with:") == 0 &&
+                glossary->cross_references.back().text.find(
+                    "Deprecated term for:") == 0,
+            "glossary IR lost a cross-reference explanation");
+    require(glossary && geist::detail::verify_glossary_introduction_ir(
+                            sources, layout, ownership, *glossary,
+                            &glossary_error),
+            glossary_error.empty() ? "glossary IR verification failed"
+                                   : glossary_error.c_str());
+    require(glossary && geist::detail::format_glossary_introduction_ir(
+                            *glossary).find("sources=3:0") !=
+                            std::string::npos,
+            "glossary IR trace omitted physical-row provenance");
+    if (glossary) {
+      auto mutated = *glossary;
+      mutated.sources.front().text += " changed";
+      require(!geist::detail::verify_glossary_introduction_ir(
+                  sources, layout, ownership, mutated),
+              "glossary IR verifier admitted mutated semantic text");
+    }
+  }
   for (std::size_t index = 0; index < sources.size(); ++index) {
     const auto logical_record = first + index;
     require(sources[index].logical_record == logical_record,
@@ -391,6 +439,7 @@ int main() {
   verify_book(root / "SC31-711.boo", 19, 21, benchmark);
   verify_book(root / "SC31-711.boo", 22, 24, benchmark);
   verify_book(root / "SC31-711.boo", 70, 71, benchmark);
+  verify_book(root / "SC31-711.boo", 435, 438, benchmark);
   verify_book(root / "SC31-711.boo", 519, 521, benchmark);
   verify_book(root / "SC31-711.boo", 524, 525, benchmark);
   verify_book(root / "SC31-711.boo", 526, 528, benchmark);

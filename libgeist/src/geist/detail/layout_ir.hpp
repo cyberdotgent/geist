@@ -1,5 +1,6 @@
 #pragma once
 
+#include "geist/detail/book_ir.hpp"
 #include "geist/detail/control_ir.hpp"
 
 #include <cstddef>
@@ -33,6 +34,7 @@ struct MarkerSlotIR {
   std::size_t token_index = 0;
   std::uint16_t encoded_value = 0;
   std::uint8_t encoded_width = 0;
+  SourceByteRange byte_range;
   std::string decoded_text;
 };
 

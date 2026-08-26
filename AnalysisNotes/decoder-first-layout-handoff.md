@@ -171,6 +171,42 @@ The repeatable URL form is
 The BookServer comparison must preserve source capitalization; the canonical
 TOC title is an admission oracle, not replacement presentation text.
 
+## M6 glossary-introduction migration evidence
+
+The residual audit isolated `SC31-711.boo` topic `GLOSSARY`, logical records
+435--437. The old renderer flattened the complete introduction into one
+paragraph, leaked compact row slots such as `application`, `a`, and `(`, and
+lost real carried words such as `be`, `are`, `for`, and `not`. It also joined
+five citations and six cross-reference explanations. The `SRGLS` definition
+tail already retained its anchors and fixed rows, so the migration is bounded
+at the first `SRGLS` rather than rewriting the dictionary.
+
+The new semantic projection is admitted only after verified Layout IR and
+Ownership IR identify one glossary heading, one split title/lead row, five
+source paragraphs, one split cross-reference lead, six explanation paragraphs,
+and the first-term boundary. Every paragraph retains display-run and
+physical-row provenance. Canonical re-lowering rejects modified text or
+provenance. Rejected shapes remain on the compatibility path.
+
+The local comparison source is `SC31-7111-00`, topic `GLOSSARY`, hosted
+timestamp `19941010174546`:
+
+`http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/SC31-711/GLOSSARY?DT=19941010174546`
+
+The hosted page establishes the five citation boundaries, six emphasized
+cross-reference labels, and the first glossary-term boundary. `bootrace --ir`
+provides the repeatable local trace for logical records 435--437, including
+token ordinals, encoded marker values, absolute BOO byte ranges, native
+origins, run/row identity, and the admitted semantic projection.
+
+The whole-corpus comparison used detached baseline `bdeee9a`. Both baseline
+and candidate rendered all 34 books, producing 7,396 Markdown files and 7,885
+total files. Exactly one file changed: `SC31-711.boo` topic `GLOSSARY`. Every
+other Markdown file and generated resource was byte-identical. The complete
+diff only separates the five citations and six cross-reference explanations,
+restores carried `be`, `are`, `for`, and `not`, and removes the source-proven
+layout slots and duplicate terminal punctuation described above.
+
 ## Source trail
 
 - Fixture: `BOO/SC31-711.boo`

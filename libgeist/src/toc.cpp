@@ -1212,6 +1212,11 @@ void attach_topic_data(
       entry.raw_records = std::move(*publication);
       return;
     }
+    if (auto glossary = render_verified_glossary_gml(
+            topic.raw_records, topic.fixed_layout_sources)) {
+      entry.raw_records = std::move(*glossary);
+      return;
+    }
   }
   entry.raw_records = topic.use_legacy_source_layout
                           ? render_gml_records_with_source_layout(

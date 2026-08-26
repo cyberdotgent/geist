@@ -940,6 +940,29 @@ int main() {
                   lnm_glossary.rfind(
                       "This glossary includes terms and definitions from:"),
           "LNM glossary introduction was lost or duplicated");
+  for (const auto* expected : {
+           "\n- The American National Standard Dictionary for Information "
+           "Systems, ANSI X3.172-1990",
+           "\n- The ANSI/EIA Standard--440-A, Fiber Optic Terminology.",
+           "\n- The Information Technology Vocabulary, developed by "
+           "Subcommittee 1",
+           "\n- The Network Working Group Request for Comments: 1208.",
+           "\n- The IBM Dictionary of Computing, New York: McGraw-Hill, "
+           "1994.",
+           "**Contrast with:** This refers to a term",
+           "**Deprecated term for:** This indicates that the term should not "
+           "be used.",
+       }) {
+    require(lnm_glossary.find(expected) != std::string::npos,
+            "LNM glossary semantic introduction lost a citation or reference");
+  }
+  for (const auto* leaked : {
+           "from:>", "definition. application", "2001 a Pennsylvania",
+           "and A working", "SC1.(", "1994. The following", "glossary..",
+       }) {
+    require(lnm_glossary.find(leaked) == std::string::npos,
+            "LNM glossary semantic introduction retained a layout token");
+  }
 
   const auto formatted_log = problem_determination.topic_markdown("3.1");
   for (const auto* expected : {

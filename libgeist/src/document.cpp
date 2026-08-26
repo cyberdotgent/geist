@@ -127,6 +127,18 @@ bool has_menu_ir_source_candidate(const std::vector<std::string>& records) {
   });
 }
 
+bool has_glossary_ir_source_candidate(
+    const std::vector<std::string>& records) {
+  bool heading = false;
+  bool term = false;
+  for (const auto& record : records) {
+    const auto lower = ascii_lower(record);
+    heading = heading || lower.find("chdlevel :glossary") != std::string::npos;
+    term = term || lower.find("srgls") != std::string::npos;
+  }
+  return heading && term;
+}
+
 void load_source_layout_if_candidate(
     const std::shared_ptr<LogicalDecodeContext>& context,
     TopicData& topic) {
@@ -140,7 +152,8 @@ void load_source_layout_if_candidate(
       has_st_fixed_prose_source_candidate(topic.raw_records);
   if (!topic.use_legacy_source_layout &&
       !has_publication_ir_source_candidate(topic.raw_records) &&
-      !has_menu_ir_source_candidate(topic.raw_records)) {
+      !has_menu_ir_source_candidate(topic.raw_records) &&
+      !has_glossary_ir_source_candidate(topic.raw_records)) {
     return;
   }
   topic.fixed_layout_sources = decode_logical_record_sources(
@@ -520,6 +533,18 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
     if (auto* destination = trace_for(sources.front().logical_record))
       destination->ir_semantic_blocks.push_back(
           detail::format_publication_catalog_ir(*publication));
+  }
+  const auto glossary =
+      detail::extract_glossary_introduction_ir(sources, layout, ownership);
+  if (glossary && !sources.empty()) {
+    std::string glossary_error;
+    if (!detail::verify_glossary_introduction_ir(
+            sources, layout, ownership, *glossary, &glossary_error))
+      throw std::runtime_error("invalid glossary IR trace: " +
+                               glossary_error);
+    if (auto* destination = trace_for(sources.front().logical_record))
+      destination->ir_semantic_blocks.push_back(
+          detail::format_glossary_introduction_ir(*glossary));
   }
   std::string menu_extraction_error;
   const auto menu = detail::extract_menu_ir(sources, topic_titles_,

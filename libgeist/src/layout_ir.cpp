@@ -200,6 +200,9 @@ LayoutIR extract_layout_ir(
             boundary.marker,
             record.encoded_tokens[boundary.marker].value,
             record.encoded_tokens[boundary.marker].width,
+            boundary.marker < record.ir.tokens.size()
+                ? record.ir.tokens[boundary.marker].byte_range
+                : SourceByteRange{},
             marker_text,
         };
         row.visible_text = visible_slice(record, boundary.origin, end,
@@ -260,7 +263,12 @@ bool verify_layout_ir(const std::vector<DecodedLogicalRecordSource>& records,
       if (row.marker &&
           (row.marker->logical_record != row.logical_record ||
            row.marker->token_index != row.token_begin ||
-           row.marker->encoded_width != 1))
+           row.marker->encoded_width != 1 ||
+           (row.token_begin < source->ir.tokens.size() &&
+            (row.marker->byte_range.begin !=
+                 source->ir.tokens[row.token_begin].byte_range.begin ||
+             row.marker->byte_range.end !=
+                 source->ir.tokens[row.token_begin].byte_range.end))))
         return fail("physical row marker provenance is invalid");
       if (row.native_origin == 0)
         return fail("physical row has no native display origin");
@@ -296,7 +304,12 @@ std::string format_physical_row_ir(const PhysicalRowIR& row) {
   out << "run=" << row.run << " record=" << row.logical_record
       << " segment=" << row.segment_index << " tokens=[" << row.token_begin
       << ',' << row.token_end << ") origin=" << row.native_origin;
-  if (row.marker) out << " marker='" << row.marker->decoded_text << "'";
+  if (row.marker)
+    out << " marker='" << row.marker->decoded_text << "' marker_value="
+        << row.marker->encoded_value << " marker_width="
+        << static_cast<unsigned>(row.marker->encoded_width)
+        << " marker_bytes=[0x" << std::hex << row.marker->byte_range.begin
+        << ",0x" << row.marker->byte_range.end << ")" << std::dec;
   out << " text='" << row.visible_text << "'";
   return out.str();
 }

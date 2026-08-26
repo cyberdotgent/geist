@@ -3,6 +3,7 @@
 #include "geist/boo.hpp"
 #include "geist/detail/book_ir.hpp"
 #include "geist/detail/control_ir.hpp"
+#include "geist/detail/glossary_ir.hpp"
 #include "geist/detail/fixed_display.hpp"
 #include "geist/detail/layout_ir.hpp"
 #include "geist/detail/menu_ir.hpp"
@@ -191,6 +192,9 @@ std::vector<std::string> render_gml_records(
     const std::vector<std::string>& decoded_records);
 std::optional<std::vector<std::string>>
 render_verified_publication_catalog_gml(
+    const std::vector<DecodedLogicalRecordSource>& sources);
+std::optional<std::vector<std::string>> render_verified_glossary_gml(
+    const std::vector<std::string>& decoded_records,
     const std::vector<DecodedLogicalRecordSource>& sources);
 bool project_verified_menu_gml(
     std::vector<std::string>& rendered,
