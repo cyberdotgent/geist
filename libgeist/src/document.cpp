@@ -84,6 +84,24 @@ bool has_selector_source_candidate(const std::vector<std::string>& records) {
   });
 }
 
+bool has_st_fixed_prose_source_candidate(
+    const std::vector<std::string>& records) {
+  auto count = std::size_t{0};
+  for (const auto& record : records) {
+    for (const auto& segment : split_decoded_markup_segments(record)) {
+      if (!ascii_starts_with_case_insensitive(segment, "st ")) {
+        continue;
+      }
+      ++count;
+      if (segment.size() < 160 || segment.find("          ") ==
+                                      std::string::npos) {
+        return false;
+      }
+    }
+  }
+  return count == 1;
+}
+
 void load_source_layout_if_candidate(
     const std::shared_ptr<LogicalDecodeContext>& context,
     TopicData& topic) {
@@ -92,7 +110,8 @@ void load_source_layout_if_candidate(
       !has_numbered_procedure_candidate(topic.raw_records) &&
       !has_semantic_srmsg_source_candidate(topic.raw_records) &&
       !has_generated_toc_source_candidate(topic.raw_records) &&
-      !has_selector_source_candidate(topic.raw_records)) {
+      !has_selector_source_candidate(topic.raw_records) &&
+      !has_st_fixed_prose_source_candidate(topic.raw_records)) {
     return;
   }
   topic.fixed_layout_sources = decode_logical_record_sources(

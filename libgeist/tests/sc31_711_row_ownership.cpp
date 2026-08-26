@@ -136,6 +136,40 @@ int main() {
                     "SC31-711.boo";
   const auto document = geist::BooDocument::open(book);
 
+  const auto preface = document.topic_markdown("PREFACE");
+  require_contains(
+      preface,
+      "This book is designed as a reference manual for the IBM LAN Network "
+      "Manager for AIX program",
+      "source-owned preface body");
+  require_contains(preface, "(SNMP)-based token-ring LAN segments",
+                   "source-cleaned SNMP prose row");
+  require_contains(preface, "(FDDI) segments, and SNMP-managed bridges",
+                   "source-cleaned FDDI prose row");
+  for (const auto* leaked : {"Network < Manager", "protocol a (SNMP)",
+                              "interface adapter (FDDI)"}) {
+    require_absent(preface, leaked, "preface source-row marker");
+  }
+
+  const auto chapter_three = document.topic_markdown("3.0");
+  require_contains(chapter_three,
+                   "configuration and status of your LAN, LNM for AIX",
+                   "source-owned chapter introduction");
+  require_contains(chapter_three,
+                   "AIX NetView/6000 receives and logs all traps",
+                   "source-owned second chapter paragraph");
+  for (const auto* leaked : {"your < LAN", "and > agents",
+                              "application.) AIX"}) {
+    require_absent(chapter_three, leaked, "chapter source-row marker");
+  }
+
+  const auto fixed_notices = document.topic_markdown("FRONT_1");
+  require_contains(fixed_notices, "```text", "fixed notices display");
+  require_contains(fixed_notices, "IBM Director of Licensing",
+                   "fixed notices address");
+  require_contains(document.topic_markdown("2.1"), "nettl log",
+                   "semantic diagnostic list row");
+
   const auto contents = document.topic_markdown("CONTENTS");
   for (const auto* expected : {
            "[Customer Information](#2.4.1)",

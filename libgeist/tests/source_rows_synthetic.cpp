@@ -55,6 +55,24 @@ geist::detail::DecodedLogicalRecordSource second_record() {
   return record;
 }
 
+geist::detail::DecodedLogicalRecordSource st_record() {
+  geist::detail::DecodedLogicalRecordSource record;
+  record.logical_record = 23;
+  append(record, 0x90, 2, {'S','T',' ','T','i','t','l','e'});
+  append(record, 0x12, 1, geist::detail::TokenWords(18, ' '));
+  append(record, 0x09, 1, {' ', ' ', ' '});
+  append(record, 0x91, 2, {'F','i','r','s','t',' ','r','o','w'});
+  append(record, 0x13, 1, {'<'});
+  append(record, 0x09, 1, {' ', ' ', ' '});
+  append(record, 0x92, 2, {'c','o','n','t','i','n','u','e','d'});
+  append(record, 0x20, 1, {'a','g','e','n','t'});
+  append(record, 0x09, 1, {' ', ' ', ' '});
+  append(record, 0x93, 2, {'f','i','n','i','s','h','e','d'});
+  record.assembled =
+      geist::detail::assemble_logical_record_with_sources(record.tokens);
+  return record;
+}
+
 } // namespace
 
 int main() {
@@ -193,4 +211,62 @@ int main() {
   require(semicolon_cleaned[0].find("Input/Output;") == std::string::npos &&
               semicolon_cleaned[0].find("Input/Output") != std::string::npos,
           "terminal fixed-row semicolon was retained in a TOC title");
+
+  const auto st = st_record();
+  const auto st_decoded = geist::detail::token_words_to_ascii(st.assembled.words);
+  const auto st_projected = geist::detail::project_source_owned_st_prose_rows(
+      {st_decoded}, {st});
+  require(st_projected.size() == 1 && st_projected[0] != st_decoded &&
+              st_projected[0].size() == st_decoded.size() &&
+              geist::detail::collapse_ascii_whitespace(st_projected[0]).find(
+                  "ST Title c.cp 0: First row continued finished") !=
+                  std::string::npos &&
+              st_projected[0].find("agent") == std::string::npos,
+          "source-owned ST title/body and physical rows were not projected");
+
+  auto expect_st_unchanged = [&](auto altered, const char* message) {
+    altered.assembled =
+        geist::detail::assemble_logical_record_with_sources(altered.tokens);
+    const auto value = geist::detail::token_words_to_ascii(altered.assembled.words);
+    require(geist::detail::project_source_owned_st_prose_rows({value}, {altered}) ==
+                std::vector<std::string>{value},
+            message);
+  };
+  auto two_byte_st_marker = st;
+  two_byte_st_marker.encoded_tokens[4].width = 2;
+  expect_st_unchanged(two_byte_st_marker,
+                      "two-byte ST marker activated projection");
+  auto two_byte_st_origin = st;
+  two_byte_st_origin.encoded_tokens[5].width = 2;
+  expect_st_unchanged(two_byte_st_origin,
+                      "two-byte ST origin activated projection");
+  auto combined_marker_padding = st;
+  combined_marker_padding.tokens[4] = {'<', ' ', ' ', ' '};
+  combined_marker_padding.tokens.erase(combined_marker_padding.tokens.begin() + 5);
+  combined_marker_padding.encoded_tokens.erase(
+      combined_marker_padding.encoded_tokens.begin() + 5);
+  expect_st_unchanged(combined_marker_padding,
+                      "combined marker/padding activated projection");
+  auto drifting_origin = st;
+  drifting_origin.tokens[5].push_back(' ');
+  expect_st_unchanged(drifting_origin,
+                      "drifting ST origin activated projection");
+  auto single_candidate = st;
+  single_candidate.encoded_tokens[7].width = 2;
+  expect_st_unchanged(single_candidate,
+                      "single ST row candidate activated projection");
+  auto semantic_control = st;
+  semantic_control.tokens.insert(semantic_control.tokens.begin() + 4,
+                                 {0x2666});
+  semantic_control.encoded_tokens.insert(
+      semantic_control.encoded_tokens.begin() + 4, {0x03, 1});
+  expect_st_unchanged(semantic_control,
+                      "semantic ST control frame activated projection");
+
+  auto second_st = st;
+  second_st.logical_record = 24;
+  require(geist::detail::project_source_owned_st_prose_rows(
+              {st_decoded, st_decoded}, {st, second_st}) ==
+              std::vector<std::string>({st_decoded, st_decoded}),
+          "multiple ST segments activated projection");
 }
