@@ -1926,6 +1926,10 @@ struct GmlRenderState {
   bool in_vnotice = false;
   bool emitted_vnotice_heading = false;
   bool pending_copyright_extension = false;
+  bool fixed_e_display_active = false;
+  bool fixed_e_display_after_divider = false;
+  bool next_segment_is_all_e = false;
+  bool current_segment_qualifies_e_display = false;
   bool pending_note_continuation = false;
   bool in_table = false;
   bool table_just_closed = false;
@@ -4157,6 +4161,83 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
   const auto spans = parse_font_spans(value, cursor);
   auto raw_trailing = cursor >= value.size() ? std::string{}
                                              : value.substr(cursor);
+  const auto all_e_row = spans.size() >= 1 &&
+      std::all_of(spans.begin(), spans.end(), [](const auto& span) {
+        return ascii_equals_case_insensitive(span.code, "e");
+      });
+  const auto full_width_e = all_e_row && spans.size() == 1 &&
+                            spans.front().length >= 60;
+  if (state.fixed_e_display_active && !all_e_row) {
+    state.fixed_e_display_active = false;
+    state.fixed_e_display_after_divider = false;
+  }
+  const auto divider_row = full_width_e && [&]() {
+    auto run = std::size_t{0};
+    for (const auto ch : raw_trailing) {
+      if (ch == '?' || ch == '~' || ch == '_' || ch == '-') {
+        if (++run >= 40) {
+          return true;
+        }
+      } else {
+        run = 0;
+      }
+    }
+    return false;
+  }();
+  if (!state.fixed_e_display_active && full_width_e && !divider_row &&
+      state.current_segment_qualifies_e_display) {
+    state.fixed_e_display_active = true;
+  }
+  if (state.fixed_e_display_active && all_e_row) {
+    (void)strip_fixed_prefix_before_first_span(raw_trailing, spans, false);
+    raw_trailing = blank_fixed_prose_row_markers(std::move(raw_trailing));
+    auto trailing_prose = std::string{};
+    if (state.fixed_e_display_after_divider && !divider_row) {
+      auto split = std::string::npos;
+      for (auto cursor = std::size_t{0}; cursor < raw_trailing.size();) {
+        if (std::isspace(static_cast<unsigned char>(raw_trailing[cursor])) ==
+            0) {
+          ++cursor;
+          continue;
+        }
+        const auto gap = cursor;
+        while (cursor < raw_trailing.size() &&
+               std::isspace(static_cast<unsigned char>(raw_trailing[cursor])) !=
+                   0) {
+          ++cursor;
+        }
+        if (cursor - gap >= 10 && gap > 20 && cursor < raw_trailing.size()) {
+          split = gap;
+        }
+      }
+      if (split != std::string::npos) {
+        trailing_prose = trim_ascii(raw_trailing.substr(split));
+        raw_trailing.resize(split);
+      }
+      state.fixed_e_display_after_divider = false;
+    }
+    auto row = collapse_ascii_whitespace(std::move(raw_trailing));
+    if (divider_row) {
+      while (!row.empty() &&
+             std::isalpha(static_cast<unsigned char>(row.back())) != 0) {
+        row.pop_back();
+      }
+    }
+    const auto final_gap = row.find_last_of(' ');
+    if (final_gap != std::string::npos && final_gap + 2 == row.size() &&
+        std::isalpha(static_cast<unsigned char>(row.back())) != 0) {
+      row.resize(final_gap);
+    }
+    if (divider_row) {
+      state.fixed_e_display_after_divider = true;
+    }
+    auto output = row.empty() ? std::string{}
+                              : render_simple_gml_control("line", row);
+    if (!trailing_prose.empty()) {
+      output += "\n" + render_simple_gml_control("p", trailing_prose);
+    }
+    return output;
+  }
   const auto semantic_title_row =
       state.in_semantic_message_catalog && !spans.empty() &&
       spans.front().offset <= 3;
@@ -5387,8 +5468,127 @@ std::vector<std::string> render_gml_records(
     state.current_record_has_message_catalog =
         contains_srmsg_control(decoded_records[record_index]);
     auto segments = split_decoded_markup_segments(decoded_records[record_index]);
+    const auto segment_is_all_e = [](std::string segment) {
+      segment = trim_ascii(std::move(segment));
+      if (!ascii_starts_with_case_insensitive(segment, "cfont")) {
+        return false;
+      }
+      auto value = trim_ascii(rest_after_first_word(segment));
+      std::size_t cursor = 0;
+      const auto spans = parse_font_spans(value, cursor);
+      return !spans.empty() &&
+             std::all_of(spans.begin(), spans.end(), [](const auto& span) {
+               return ascii_equals_case_insensitive(span.code, "e");
+             });
+    };
+    const auto e_segment_shape = [](std::string segment) {
+      struct Shape {
+        bool all_e = false;
+        bool full_width = false;
+        bool label_value = false;
+        bool decorated_banner = false;
+        bool tilde_divider = false;
+      } shape;
+      segment = trim_ascii(std::move(segment));
+      if (!ascii_starts_with_case_insensitive(segment, "cfont")) {
+        return shape;
+      }
+      auto value = trim_ascii(rest_after_first_word(segment));
+      std::size_t cursor = 0;
+      const auto spans = parse_font_spans(value, cursor);
+      shape.all_e = !spans.empty() &&
+          std::all_of(spans.begin(), spans.end(), [](const auto& span) {
+            return ascii_equals_case_insensitive(span.code, "e");
+          });
+      if (!shape.all_e) {
+        return shape;
+      }
+      shape.full_width = spans.size() == 1 && spans.front().length >= 60;
+      const auto trailing = cursor < value.size() ? value.substr(cursor)
+                                                  : std::string{};
+      shape.label_value = spans.size() >= 2 && trailing.find(':') !=
+                                                std::string::npos;
+      auto decoration = std::size_t{0};
+      auto tildes = std::size_t{0};
+      for (const auto ch : trailing) {
+        decoration = (ch == '*' || ch == '=' || ch == '#')
+                         ? decoration + 1
+                         : 0;
+        tildes = ch == '~' ? tildes + 1 : 0;
+        shape.decorated_banner = shape.decorated_banner || decoration >= 10;
+        shape.tilde_divider = shape.tilde_divider || tildes >= 40;
+      }
+      shape.decorated_banner =
+          shape.full_width && shape.decorated_banner &&
+          std::any_of(trailing.begin(), trailing.end(), [](const auto ch) {
+            return std::isalnum(static_cast<unsigned char>(ch)) != 0;
+          });
+      shape.tilde_divider = shape.full_width && shape.tilde_divider;
+      return shape;
+    };
+    const auto next_record_is_all_e = [&]() {
+      if (record_index + 1 >= decoded_records.size()) {
+        return false;
+      }
+      const auto next_segments =
+          split_decoded_markup_segments(decoded_records[record_index + 1]);
+      return !next_segments.empty() && segment_is_all_e(next_segments.front());
+    }();
     for (std::size_t segment_index = 0; segment_index < segments.size();
          ++segment_index) {
+      state.next_segment_is_all_e =
+          (segment_index + 1 < segments.size() &&
+           segment_is_all_e(segments[segment_index + 1])) ||
+          (segment_index + 1 == segments.size() && next_record_is_all_e);
+      const auto marker = trim_ascii(segments[segment_index]);
+      state.current_segment_qualifies_e_display = false;
+      if (e_segment_shape(segments[segment_index]).decorated_banner) {
+        auto labels = std::size_t{0};
+        auto stopped = false;
+        const auto inspect = [&](const std::string& candidate) {
+          const auto trimmed = trim_ascii(candidate);
+          if (trimmed.size() <= 4 && !trimmed.empty() &&
+              std::all_of(trimmed.begin(), trimmed.end(), [](const auto ch) {
+                return std::isalnum(static_cast<unsigned char>(ch)) != 0;
+              })) {
+            return false;
+          }
+          const auto shape = e_segment_shape(candidate);
+          if (!shape.all_e) {
+            stopped = true;
+            return false;
+          }
+          labels += shape.label_value ? 1 : 0;
+          if (shape.tilde_divider) {
+            state.current_segment_qualifies_e_display = labels >= 2;
+            stopped = true;
+          }
+          return state.current_segment_qualifies_e_display;
+        };
+        for (auto future = segment_index + 1;
+             future < segments.size() && !stopped; ++future) {
+          (void)inspect(segments[future]);
+        }
+        for (auto future_record = record_index + 1;
+             future_record < decoded_records.size() && !stopped;
+             ++future_record) {
+          const auto future_segments = split_decoded_markup_segments(
+              decoded_records[future_record]);
+          for (const auto& future : future_segments) {
+            if (stopped) {
+              break;
+            }
+            (void)inspect(future);
+          }
+        }
+      }
+      if (state.fixed_e_display_active && state.next_segment_is_all_e &&
+          marker.size() <= 4 && !marker.empty() &&
+          std::all_of(marker.begin(), marker.end(), [](const auto ch) {
+            return std::isalnum(static_cast<unsigned char>(ch)) != 0;
+          })) {
+        continue;
+      }
       const auto allow_topic_header = record_index == 0 && segment_index == 0;
       auto line = render_gml_segment(std::move(segments[segment_index]),
                                      allow_topic_header,

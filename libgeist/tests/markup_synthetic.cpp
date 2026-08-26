@@ -164,6 +164,32 @@ int main() {
        ":hp2.Book:ehp2.",
        ":p.This book was prepared and formatted."});
 
+  {
+    const std::vector<std::string> decoded{
+        "cfont 5 65 E     ************************ Banner ***************",
+        "cfont 6 4 E 20 3 E       Field         : 123",
+        "AS",
+        "cfont 6 4 E 20 5 E       Other         : value a",
+        "cfont 5 65 E     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~are",
+        "cfont 6 3 E 10 6 E       803 Cannot connect                 "
+        "Following prose starts here.",
+        "cfont 5 4 X     Next prose"};
+    const auto rendered = geist::detail::render_gml_records(decoded);
+    auto joined = std::string{};
+    for (const auto& record : rendered) {
+      joined += "\n" + record;
+    }
+    if (joined.find(":line.Field : 123") == std::string::npos ||
+        joined.find(":line.Other : value") == std::string::npos ||
+        joined.find(":line.803 Cannot connect") == std::string::npos ||
+        joined.find(":p.Following prose starts here.") == std::string::npos ||
+        joined.find("\nAS") != std::string::npos ||
+        joined.find("Event 803") != std::string::npos) {
+      ok = false;
+      std::cerr << "banner-gated all-E display ownership failed\n";
+    }
+  }
+
   ok &= expect_records(
       "subject-index margins preserve leading prose",
       {"SI overview, operating cost enhancements    The operational aspects "
