@@ -1955,6 +1955,7 @@ struct GmlRenderState {
   bool table_has_picture = false;
   std::string table_visual_buffer;
   std::vector<std::string> pending_table_row;
+  std::vector<SelectControl> table_physical_row_selects;
 };
 
 std::string trim_right_ascii(std::string value) {
@@ -2499,6 +2500,29 @@ void append_table_visual_line(GmlRenderState& state,
        ++index) {
     cells[index] = normalized_line[index];
   }
+
+  // CSELECT coordinates belong to the untouched physical display row.  The
+  // table grid has already consumed its separators here, so link insertion can
+  // no longer shift later cell boundaries or leak into the following row.
+  for (const auto& control : state.table_physical_row_selects) {
+    const auto display = select_display_text(control);
+    if (!display || display->selected.empty()) {
+      continue;
+    }
+    const auto selected = dot_text(display->selected);
+    for (auto& cell : cells) {
+      const auto found = cell.find(selected);
+      if (found == std::string::npos) {
+        continue;
+      }
+      cell.replace(found,
+                   selected.size(),
+                   ":hdref refid='" + escape_gml_attr(control.target) + "'." +
+                       selected + ":ehdref.");
+      break;
+    }
+  }
+  state.table_physical_row_selects.clear();
 
   auto has_any_cell = false;
   for (const auto& cell : cells) {
@@ -4587,8 +4611,16 @@ std::string render_gml_segment(std::string segment,
     if (!control) {
       return {};
     }
-    return render_table_body_gml(render_table_select_fragment(*control),
-                                 state);
+    auto row_control = *control;
+    if (const auto grid = row_control.display_fragment.find('?');
+        grid != std::string::npos) {
+      // Native selector columns include the ordinary three-column display
+      // margin, not the variable decoded marker field before the table grid.
+      row_control.display_fragment =
+          "   " + row_control.display_fragment.substr(grid);
+    }
+    state.table_physical_row_selects.push_back(std::move(row_control));
+    return render_table_body_gml(control->display_fragment, state);
   }
   if (state.in_table && !ascii_starts_with_case_insensitive(lower, "sretbl") &&
       !is_table_picture_select &&
@@ -4811,6 +4843,7 @@ std::string render_gml_segment(std::string segment,
     state.table_has_picture = false;
     state.table_visual_buffer.clear();
     state.pending_table_row.clear();
+    state.table_physical_row_selects.clear();
     state.table_font_heading_continuation = false;
     state.table_font_heading_can_continue = false;
     // Generic trimming treats terminal decoder placeholders as padding.  A
@@ -4947,6 +4980,7 @@ std::string render_gml_segment(std::string segment,
     state.table_event_qualifier_layout = false;
     state.table_has_picture = false;
     state.table_visual_buffer.clear();
+    state.table_physical_row_selects.clear();
     state.table_font_heading_continuation = false;
     state.table_font_heading_can_continue = false;
     const auto trailing = dot_text(rest_after_first_word(segment));

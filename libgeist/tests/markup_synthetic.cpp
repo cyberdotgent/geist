@@ -225,11 +225,23 @@ int main() {
     left.resize(23, ' ');
     auto continuation = std::string("about:");
     continuation.resize(23, ' ');
+    auto first_label = std::string("LNM OS/2 agent traps");
+    first_label.resize(23, ' ');
+    auto first_target = std::string("\"LNM OS/2 Agent Application Traps\" in");
+    first_target.resize(48, ' ');
+    auto second_label = std::string("SNMP token-ring traps");
+    second_label.resize(23, ' ');
+    auto second_target = std::string("\"SNMP Token-Ring Traps\" in topic 4.2");
+    second_target.resize(48, ' ');
     const std::vector<std::string> decoded{
         "SRTBLGRID " + std::string(73, '?'),
         "cfont 5 3 2               ?" + left + "?Read:",
         "cfont 5 6 2           ?" + continuation + "?" +
             std::string(48, ' ') + "?" + std::string(62, '?'),
+        "cselect 29 37 FIRST address    ?" + first_label + "?" +
+            first_target + "?" + std::string(62, '?'),
+        "cselect 29 36 SECOND any    ?" + second_label + "?" +
+            second_target + "?" + std::string(62, '?'),
         "SRETBL"};
     const auto rendered = geist::detail::render_gml_records(decoded);
     const auto has_left = std::find(
@@ -238,9 +250,20 @@ int main() {
                           rendered.end();
     const auto has_right = std::find(rendered.begin(), rendered.end(),
                                      ":c col='1'.Read:") != rendered.end();
-    if (!has_left || !has_right) {
+    const auto has_first_link = std::any_of(
+        rendered.begin(), rendered.end(), [](const auto& record) {
+          return record.find(":hdref refid='FIRST'.\"LNM OS/2 Agent ") !=
+                 std::string::npos;
+        });
+    const auto has_second_link = std::any_of(
+        rendered.begin(), rendered.end(), [](const auto& record) {
+          return record.find(
+                     ":hdref refid='SECOND'.\"SNMP Token-Ring Traps\"") !=
+                 std::string::npos;
+        });
+    if (!has_left || !has_right || !has_first_link || !has_second_link) {
       ok = false;
-      std::cerr << "SRTBL opening border geometry was discarded\n";
+      std::cerr << "fixed table geometry or CSELECT ownership was lost\n";
     }
   }
 
