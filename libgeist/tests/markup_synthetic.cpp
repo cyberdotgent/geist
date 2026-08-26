@@ -165,16 +165,6 @@ int main() {
        ":p.This book was prepared and formatted."});
 
   ok &= expect_records(
-      "all-E log rows keep one literal row and suppress marker fields",
-      {"cfont 6 4 E 11 2 E       User ID     : 0       a",
-       "cfont 5 4 2     Next prose"},
-      {":line.User ID : 0", ":p.:hp2.Next:ehp2. prose"});
-  ok &= expect_records(
-      "all-E rules discard unstyled alphabetic marker slots",
-      {"cfont 5 10 E      ~~~~~~~~~~   marker"},
-      {":line.~~~~~~~~~~"});
-
-  ok &= expect_records(
       "subject-index margins preserve leading prose",
       {"SI overview, operating cost enhancements    The operational aspects "
        "of IMS are enhanced.",

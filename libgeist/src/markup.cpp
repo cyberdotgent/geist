@@ -4168,48 +4168,6 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
       !state.in_vnotice &&
       strip_fixed_prefix_before_first_span(
           raw_trailing, spans, state.in_semantic_message_catalog);
-  const auto all_e_fixed_row = !spans.empty() &&
-      std::all_of(spans.begin(), spans.end(), [](const auto& span) {
-        return ascii_equals_case_insensitive(span.code, "e");
-      });
-  if (!state.in_semantic_message_catalog && all_e_fixed_row) {
-    raw_trailing = blank_fixed_prose_row_markers(std::move(raw_trailing));
-    auto prose = std::string{};
-    if (spans.size() >= 10 && raw_trailing.size() > 82) {
-      prose = trim_ascii(raw_trailing.substr(82));
-      raw_trailing.resize(82);
-    }
-    auto styled_end = std::size_t{0};
-    for (const auto& span : spans) {
-      styled_end = std::max(styled_end, span.offset + span.length);
-    }
-    const auto raw_last = raw_trailing.find_last_not_of(" \t\r\n");
-    if (spans.size() == 1 && raw_last != std::string::npos &&
-        raw_last >= styled_end + 3 &&
-        std::isalpha(static_cast<unsigned char>(raw_trailing[raw_last])) != 0) {
-      auto marker_begin = raw_last;
-      while (marker_begin > styled_end &&
-             std::isalpha(static_cast<unsigned char>(
-                 raw_trailing[marker_begin - 1])) != 0) {
-        --marker_begin;
-      }
-      if (marker_begin >= styled_end) {
-        raw_trailing.resize(marker_begin);
-      }
-    }
-    auto row = collapse_ascii_whitespace(std::move(raw_trailing));
-    const auto final_gap = row.find_last_of(' ');
-    if (final_gap != std::string::npos && final_gap + 2 == row.size() &&
-        std::isalpha(static_cast<unsigned char>(row.back())) != 0) {
-      row.resize(final_gap);
-    }
-    auto output = row.empty() ? std::string{}
-                              : render_simple_gml_control("line", row);
-    if (!prose.empty()) {
-      output += "\n" + render_simple_gml_control("p", std::move(prose));
-    }
-    return output;
-  }
   const auto lower_raw_trailing = ascii_lower(raw_trailing);
   const auto c_cc = state.in_vnotice ? std::string::npos
                                      : lower_raw_trailing.find("c.cc");
@@ -5363,32 +5321,6 @@ struct GmlAppendResult {
   bool merged_with_previous = false;
 };
 
-bool fixed_font_marker_before_literal_row(
-    const std::vector<std::string>& segments,
-    std::size_t segment_index) {
-  if (segment_index + 1 >= segments.size()) {
-    return false;
-  }
-  const auto marker = trim_ascii(segments[segment_index]);
-  if (marker.empty() || marker.size() > 4 ||
-      !std::all_of(marker.begin(), marker.end(), [](const auto ch) {
-        return std::isalnum(static_cast<unsigned char>(ch)) != 0;
-      })) {
-    return false;
-  }
-  auto next = trim_ascii(segments[segment_index + 1]);
-  if (!ascii_starts_with_case_insensitive(next, "cfont")) {
-    return false;
-  }
-  next = trim_ascii(rest_after_first_word(next));
-  std::size_t cursor = 0;
-  const auto spans = parse_font_spans(next, cursor);
-  return !spans.empty() &&
-      std::all_of(spans.begin(), spans.end(), [](const auto& span) {
-        return ascii_equals_case_insensitive(span.code, "e");
-      });
-}
-
 std::vector<GmlAppendResult> append_rendered_gml_line(
     std::vector<std::string>& rendered,
     const std::string& line) {
@@ -5457,9 +5389,6 @@ std::vector<std::string> render_gml_records(
     auto segments = split_decoded_markup_segments(decoded_records[record_index]);
     for (std::size_t segment_index = 0; segment_index < segments.size();
          ++segment_index) {
-      if (fixed_font_marker_before_literal_row(segments, segment_index)) {
-        continue;
-      }
       const auto allow_topic_header = record_index == 0 && segment_index == 0;
       auto line = render_gml_segment(std::move(segments[segment_index]),
                                      allow_topic_header,
@@ -5507,10 +5436,6 @@ std::vector<BooLogicalRecordTrace> trace_gml_records(
       }
 
       const auto allow_topic_header = record_index == 0 && segment_index == 0;
-      if (fixed_font_marker_before_literal_row(traced.segments,
-                                               segment_index)) {
-        continue;
-      }
       auto line = render_gml_segment(segment, allow_topic_header, state);
       auto appended = append_rendered_gml_line(rendered, line);
       for (auto& result : appended) {
