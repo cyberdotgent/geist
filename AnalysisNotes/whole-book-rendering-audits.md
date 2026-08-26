@@ -157,3 +157,31 @@ publication citations were checked directly. Remaining genuine fixed-form
 and selector defects found by the all-topic review are tracked in the
 follow-up GitHub issue 48 rather than being hidden by the aggregate similarity
 score. Existing independent residuals remain in issues 43--45.
+
+## SC31-711 implicit-grid investigation
+
+Issue 48 topics `1.1` and `1.3` were compared with hosted BookServer book
+`SC31-711` (document SC31-7111-00, DT `19941010174546`). Cached references:
+
+- `/tmp/geist-SC31-711-post45-live/reference/0012-1.1.html`
+- `/tmp/geist-SC31-711-post45-live/reference/0014-1.3.html`
+
+The repository scan began with every CFONT heading whose first span is column
+3 and which has at least three HP2 spans: 7,792 headings and 5,213 unique
+candidate logical records after deduplication. Candidate records received a
+two-record source lookahead. The topic-1.1 signature occurred only in genuine
+SC31 grids. Topic 1.3's reset prefix had sparse false positives in SC31 message
+prose, notably logical records 161--162, so classification also requires two
+header groups, six repeated origins, stable columns, and source-tail ownership.
+GG24-4302 topic `1.0` run-in headings were an explicit negative fixture.
+
+`bootrace` supplied decoded segment/font-span traces. A temporary diagnostic
+built against the candidate-local source API printed encoded token value and
+width, resolved Unicode words, token index, and payload range. Every selected
+slice was checked against the initial decoded logical record. BookServer HTML
+established 18 directory rows and 19 process rows, including continuations.
+
+The implementation retains one eight-byte payload range per logical record and
+materializes provenance only after cheap CFONT geometry selects a topic. The
+source dictionary is created on first request and reused, avoiding an eager
+per-book provenance cache while retaining one- versus two-byte token identity.

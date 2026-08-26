@@ -165,7 +165,7 @@ std::vector<ResourceEntry> build_resources(
     const BooDirectory& directory);
 std::vector<std::string> render_gml_records(
     const std::vector<std::string>& decoded_records);
-std::vector<std::string> render_gml_records_with_fixed_form_source(
+std::vector<std::string> render_gml_records_with_source_layout(
     const std::vector<std::string>& decoded_records,
     const std::vector<DecodedLogicalRecordSource>& sources);
 std::string strip_fixed_line_overflow_tokens(

@@ -1,4 +1,5 @@
 #include "geist/detail/internal.hpp"
+#include "geist/detail/implicit_grid.hpp"
 
 #include <algorithm>
 #include <array>
@@ -5622,90 +5623,262 @@ std::vector<std::string> render_gml_records(
   return rendered;
 }
 
-std::vector<std::string> render_gml_records_with_fixed_form_source(
+std::vector<std::string> render_gml_records_with_source_layout(
     const std::vector<std::string>& decoded_records,
     const std::vector<DecodedLogicalRecordSource>& sources) {
   auto rendered = render_gml_records(decoded_records);
-  std::vector<std::uint16_t> source_words;
-  for (const auto& source : sources) {
-    source_words.insert(source_words.end(), source.assembled.words.begin(),
-                        source.assembled.words.end());
-  }
-  const auto grid = extract_box_fixed_form_grid(source_words);
-  if (!grid || grid->separator_columns.size() < 3) {
+  const auto box_replacement =
+      [&]() -> std::optional<std::vector<std::string>> {
+    std::vector<std::uint16_t> source_words;
+    for (const auto& source : sources) {
+      source_words.insert(source_words.end(), source.assembled.words.begin(),
+                          source.assembled.words.end());
+    }
+    const auto grid = extract_box_fixed_form_grid(source_words);
+    if (!grid || grid->separator_columns.size() < 3) {
+      return std::nullopt;
+    }
+    const auto has_visible_continuation = std::any_of(
+        grid->physical_rows.begin(), grid->physical_rows.end(),
+        [](const auto& row) {
+          return row.kind == FixedFormPhysicalRowKind::continuation &&
+                 std::any_of(row.cells.begin(), row.cells.end(),
+                             [](const auto& cell) {
+                               return std::any_of(
+                                   cell.begin(), cell.end(), [](const auto ch) {
+                                     return std::isalnum(
+                                                static_cast<unsigned char>(ch)) !=
+                                            0;
+                                   });
+                             });
+        });
+    if (!has_visible_continuation) {
+      return std::nullopt;
+    }
+    const auto rows = aggregate_fixed_form_rows(
+        grid->physical_rows, grid->separator_columns.size() - 1);
+    if (rows.size() < 2) {
+      return std::nullopt;
+    }
+
+    const auto table = std::find_if(
+        rendered.begin(), rendered.end(), [](const auto& record) {
+          return ascii_starts_with_case_insensitive(record, ":table ") &&
+                 ascii_lower(record).find("form='true'") != std::string::npos;
+        });
+    if (table == rendered.end()) {
+      return std::nullopt;
+    }
+    if (std::find_if(table + 1, rendered.end(), [](const auto& record) {
+          return ascii_starts_with_case_insensitive(record, ":table ") &&
+                 ascii_lower(record).find("form='true'") != std::string::npos;
+        }) != rendered.end()) {
+      return std::nullopt;
+    }
+    const auto end = std::find_if(
+        table + 1, rendered.end(), [](const auto& record) {
+          return ascii_starts_with_case_insensitive(record, ":etable.");
+        });
+    if (end == rendered.end()) {
+      return std::nullopt;
+    }
+
+    std::vector<std::string> replacement;
+    replacement.reserve((rows.size() + 1) * (rows.front().size() + 1));
+    // Fixed forms synthesize their semantic column heading from the SRTBL
+    // frame; it is not repeated inside the source box stream. Preserve exactly
+    // that first normalized row and replace only the source-owned body.
+    const auto first_row = std::find_if(
+        table + 1, end, [](const auto& record) { return record == ":row."; });
+    if (first_row != end) {
+      const auto second_row = std::find_if(
+          first_row + 1, end,
+          [](const auto& record) { return record == ":row."; });
+      replacement.insert(replacement.end(), first_row, second_row);
+    }
+    for (const auto& row : rows) {
+      if (row.size() != rows.front().size()) {
+        return std::nullopt;
+      }
+      replacement.push_back(":row.");
+      for (std::size_t column = 0; column < row.size(); ++column) {
+        replacement.push_back(":c col='" + std::to_string(column) + "'." +
+                              dot_table_cell_text(
+                                  expand_fixed_form_symbols(row[column])));
+      }
+    }
+    rendered.erase(table + 1, end);
+    rendered.insert(table + 1,
+                    std::make_move_iterator(replacement.begin()),
+                    std::make_move_iterator(replacement.end()));
     return rendered;
-  }
-  const auto has_visible_continuation = std::any_of(
-      grid->physical_rows.begin(), grid->physical_rows.end(),
-      [](const auto& row) {
-        return row.kind == FixedFormPhysicalRowKind::continuation &&
-               std::any_of(row.cells.begin(), row.cells.end(),
-                           [](const auto& cell) {
-                             return std::any_of(
-                                 cell.begin(), cell.end(), [](const auto ch) {
-                                   return std::isalnum(
-                                              static_cast<unsigned char>(ch)) !=
-                                          0;
-                                 });
-                           });
-      });
-  if (!has_visible_continuation) {
-    return rendered;
-  }
-  const auto rows = aggregate_fixed_form_rows(
-      grid->physical_rows, grid->separator_columns.size() - 1);
-  if (rows.size() < 2) {
-    return rendered;
+  }();
+  if (box_replacement) {
+    return *box_replacement;
   }
 
-  const auto table = std::find_if(
-      rendered.begin(), rendered.end(), [](const auto& record) {
-        return ascii_starts_with_case_insensitive(record, ":table ") &&
-               ascii_lower(record).find("form='true'") != std::string::npos;
-      });
-  if (table == rendered.end()) {
-    return rendered;
-  }
-  if (std::find_if(table + 1, rendered.end(), [](const auto& record) {
-        return ascii_starts_with_case_insensitive(record, ":table ") &&
-               ascii_lower(record).find("form='true'") != std::string::npos;
-      }) != rendered.end()) {
-    return rendered;
-  }
-  const auto end = std::find_if(
-      table + 1, rendered.end(), [](const auto& record) {
-        return ascii_starts_with_case_insensitive(record, ":etable.");
-      });
-  if (end == rendered.end()) {
-    return rendered;
-  }
+  struct ImplicitCandidate {
+    ImplicitGrid grid;
+    std::vector<std::string> headings;
+    std::vector<std::string> projected_headings;
+    std::size_t record_index = 0;
+    std::size_t segment_index = 0;
+  };
+  std::vector<ImplicitCandidate> candidates;
+  for (std::size_t record_index = 0;
+       record_index < decoded_records.size(); ++record_index) {
+    const auto& record = decoded_records[record_index];
+    const auto segments = split_decoded_markup_segments(record);
+    for (std::size_t segment_index = 0; segment_index < segments.size();
+         ++segment_index) {
+      const auto& segment = segments[segment_index];
+      const auto first = ascii_lower(first_word(segment));
+      if (first != "cfont") {
+        continue;
+      }
+      auto value = trim_ascii(rest_after_first_word(segment));
+      std::size_t cursor = 0;
+      const auto spans = parse_font_spans(value, cursor);
+      if (spans.size() < 3 ||
+          !std::all_of(spans.begin(), spans.end(), [](const auto& span) {
+            return ascii_equals_case_insensitive(span.code, "2");
+          })) {
+        continue;
+      }
+      std::vector<ImplicitGridHeaderSpan> geometry;
+      geometry.reserve(spans.size());
+      for (const auto& span : spans) {
+        geometry.push_back({span.offset, span.length});
+      }
+      if (!is_implicit_grid_header_geometry(geometry)) {
+        continue;
+      }
+      const auto grid = extract_implicit_grid(sources, geometry);
+      if (!grid || !grid->owns_source_tail) {
+        continue;
+      }
 
+      const auto traced = trace_font_spans(segment, 0, 0, {});
+      if (traced.size() != spans.size()) {
+        continue;
+      }
+      ImplicitCandidate candidate{*grid, {}, {}, record_index, segment_index};
+      std::size_t group = 0;
+      candidate.headings.emplace_back();
+      candidate.projected_headings.emplace_back();
+      for (std::size_t index = 0; index < spans.size(); ++index) {
+        if (index > 0 &&
+            spans[index].offset >=
+                spans[index - 1].offset + spans[index - 1].length + 2) {
+          ++group;
+          candidate.headings.emplace_back();
+          candidate.projected_headings.emplace_back();
+        }
+        if (!candidate.headings[group].empty()) {
+          candidate.headings[group] += " ";
+          candidate.projected_headings[group] += " ";
+        }
+        candidate.headings[group] += traced[index].text;
+        candidate.projected_headings[group] += traced[index].projected_gml;
+      }
+      if (candidate.headings.size() == 2 &&
+          std::all_of(candidate.headings.begin(), candidate.headings.end(),
+                      [](const auto& heading) { return !heading.empty(); })) {
+        candidates.push_back(std::move(candidate));
+      }
+    }
+  }
+  if (candidates.size() != 1) {
+    return rendered;
+  }
+  const auto& candidate = candidates.front();
+  for (std::size_t record_index = candidate.record_index;
+       record_index < decoded_records.size(); ++record_index) {
+    const auto segments =
+        split_decoded_markup_segments(decoded_records[record_index]);
+    const auto first_segment = record_index == candidate.record_index
+                                   ? candidate.segment_index + 1
+                                   : std::size_t{0};
+    for (std::size_t segment_index = first_segment;
+         segment_index < segments.size(); ++segment_index) {
+      const auto begin = skip_decoded_separators(segments[segment_index]);
+      if (looks_like_gml_control_at(segments[segment_index], begin)) {
+        return rendered;
+      }
+    }
+  }
+  const auto header = std::find_if(
+      rendered.begin(), rendered.end(), [&](const auto& line) {
+        return std::all_of(candidate.projected_headings.begin(),
+                           candidate.projected_headings.end(),
+                           [&](const auto& heading) {
+          return line.find(heading) != std::string::npos;
+        });
+      });
+  if (header == rendered.end()) {
+    return rendered;
+  }
+  auto header_index = static_cast<std::size_t>(header - rendered.begin());
+  const auto markers = source_row_markers(sources, candidate.grid.key_origin);
+  for (std::size_t line_index = 0; line_index < header_index; ++line_index) {
+    auto& line = rendered[line_index];
+    for (const auto& marker : markers) {
+      const auto needle = marker.marker + " " + marker.following_text;
+      auto found = line.find(needle);
+      if (found == std::string::npos) {
+        continue;
+      }
+      const auto marker_is_word = std::all_of(
+          marker.marker.begin(), marker.marker.end(), [](const auto ch) {
+            const auto byte = static_cast<unsigned char>(ch);
+            return std::isalnum(byte) != 0 || ch == '_';
+          });
+      const auto at_word_boundary =
+          found == 0 ||
+          std::isalnum(static_cast<unsigned char>(line[found - 1])) == 0;
+      if (marker_is_word && at_word_boundary) {
+        line.erase(found, marker.marker.size() + 1);
+      } else if (!marker_is_word) {
+        const auto begins_display_line =
+            ascii_starts_with_case_insensitive(line, ":line.");
+        if (begins_display_line) {
+          auto continuation = trim_ascii(
+              line.substr(found + marker.marker.size() + 1));
+          line.resize(found);
+          rendered.insert(rendered.begin() + line_index + 1,
+                          ":p." + std::move(continuation));
+          ++line_index;
+          ++header_index;
+          break;
+        } else {
+          line.erase(found, marker.marker.size());
+        }
+      }
+    }
+  }
+  // Source-backed extraction owns every physical row through the selected
+  // topic's final source record. Only then is it safe to suppress the
+  // flattened CFONT tail, which otherwise loses physical row boundaries.
   std::vector<std::string> replacement;
-  replacement.reserve((rows.size() + 1) * (rows.front().size() + 1));
-  // Fixed forms synthesize their semantic column heading from the SRTBL
-  // frame; it is not repeated inside the source box stream. Preserve exactly
-  // that first normalized row and replace only the source-owned body.
-  const auto first_row = std::find_if(
-      table + 1, end, [](const auto& record) { return record == ":row."; });
-  if (first_row != end) {
-    const auto second_row = std::find_if(
-        first_row + 1, end,
-        [](const auto& record) { return record == ":row."; });
-    replacement.insert(replacement.end(), first_row, second_row);
+  replacement.push_back(":table cols='2'.");
+  replacement.push_back(":row.");
+  for (std::size_t column = 0; column < candidate.headings.size(); ++column) {
+    replacement.push_back(":c col='" + std::to_string(column) + "'." +
+                          dot_table_cell_text(candidate.headings[column]));
   }
-  for (const auto& row : rows) {
-    if (row.size() != rows.front().size()) {
+  for (const auto& row : candidate.grid.semantic_rows) {
+    if (row.size() != 2) {
       return rendered;
     }
     replacement.push_back(":row.");
     for (std::size_t column = 0; column < row.size(); ++column) {
       replacement.push_back(":c col='" + std::to_string(column) + "'." +
-                            dot_table_cell_text(
-                                expand_fixed_form_symbols(row[column])));
+                            dot_table_cell_text(row[column]));
     }
   }
-  rendered.erase(table + 1, end);
-  rendered.insert(table + 1,
+  replacement.push_back(":etable.");
+  rendered.erase(rendered.begin() + header_index, rendered.end());
+  rendered.insert(rendered.end(),
                   std::make_move_iterator(replacement.begin()),
                   std::make_move_iterator(replacement.end()));
   return rendered;

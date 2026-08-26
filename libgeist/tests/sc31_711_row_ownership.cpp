@@ -1,0 +1,315 @@
+#include "geist/document.hpp"
+
+#include <cctype>
+#include <filesystem>
+#include <iostream>
+#include <string>
+
+namespace {
+
+int failures = 0;
+
+std::string canonical_visible_text(const std::string& markdown) {
+  std::string visible;
+  visible.reserve(markdown.size());
+  for (std::size_t index = 0; index < markdown.size(); ++index) {
+    const auto ch = markdown[index];
+    if (ch == '<' && index + 1 < markdown.size() &&
+        (std::isalpha(static_cast<unsigned char>(markdown[index + 1])) != 0 ||
+         markdown[index + 1] == '/' || markdown[index + 1] == '!')) {
+      const auto end = markdown.find('>', index + 1);
+      index = end == std::string::npos ? markdown.size() : end;
+      if (!visible.empty() && visible.back() != ' ') {
+        visible.push_back(' ');
+      }
+      continue;
+    }
+    if (ch == ']' && index + 1 < markdown.size() &&
+        markdown[index + 1] == '(') {
+      const auto end = markdown.find(')', index + 2);
+      if (end != std::string::npos) {
+        index = end;
+      }
+      continue;
+    }
+    if (ch == '*' || ch == '`' || ch == '[' || ch == ']') {
+      continue;
+    }
+    if (std::isspace(static_cast<unsigned char>(ch)) != 0 || ch == '|') {
+      if (!visible.empty() && visible.back() != ' ') {
+        visible.push_back(' ');
+      }
+      continue;
+    }
+    visible.push_back(ch);
+  }
+  while (!visible.empty() && visible.back() == ' ') {
+    visible.pop_back();
+  }
+  return visible;
+}
+
+void require_contains(const std::string& text, const std::string& expected,
+                      const char* label) {
+  if (text.find(expected) != std::string::npos) {
+    return;
+  }
+  std::cerr << "missing " << label << ": " << expected << "\n";
+  ++failures;
+}
+
+void require_absent(const std::string& text, const std::string& unexpected,
+                    const char* label) {
+  if (text.find(unexpected) == std::string::npos) {
+    return;
+  }
+  std::cerr << "unexpected " << label << ": " << unexpected << "\n";
+  ++failures;
+}
+
+void require_once(const std::string& text, const std::string& expected,
+                  const char* label) {
+  const auto first = text.find(expected);
+  if (first != std::string::npos &&
+      text.find(expected, first + expected.size()) == std::string::npos) {
+    return;
+  }
+  std::cerr << "expected exactly one " << label << ": " << expected << "\n";
+  ++failures;
+}
+
+void require_visible_once(const std::string& markdown,
+                          const std::string& expected,
+                          const char* label) {
+  require_once(canonical_visible_text(markdown), expected, label);
+}
+
+void require_visible_near(const std::string& markdown,
+                          const std::string& left,
+                          const std::string& right,
+                          std::size_t maximum_distance,
+                          const char* label) {
+  const auto visible = canonical_visible_text(markdown);
+  const auto left_at = visible.find(left);
+  const auto right_at = left_at == std::string::npos
+                            ? std::string::npos
+                            : visible.find(right, left_at + left.size());
+  if (left_at != std::string::npos && right_at != std::string::npos &&
+      right_at - left_at <= maximum_distance) {
+    return;
+  }
+  std::cerr << "missing associated " << label << ": " << left << " -> "
+            << right << "\n";
+  ++failures;
+}
+
+void require_same_markdown_row(const std::string& markdown,
+                               const std::string& left,
+                               const std::string& right,
+                               const char* label) {
+  for (std::size_t begin = 0; begin <= markdown.size();) {
+    const auto end = markdown.find('\n', begin);
+    const auto line = markdown.substr(
+        begin, end == std::string::npos ? std::string::npos : end - begin);
+    if (!line.empty() && line.front() == '|') {
+      const auto visible = canonical_visible_text(line);
+      if (visible.find(left) != std::string::npos &&
+          visible.find(right) != std::string::npos) {
+        return;
+      }
+    }
+    if (end == std::string::npos) {
+      break;
+    }
+    begin = end + 1;
+  }
+  std::cerr << "missing same-row " << label << ": " << left << " -> "
+            << right << "\n";
+  ++failures;
+}
+
+} // namespace
+
+int main() {
+  const auto book = std::filesystem::path(GEIST_REPO_ROOT) / "BOO" /
+                    "SC31-711.boo";
+  const auto document = geist::BooDocument::open(book);
+
+  const auto directories = document.topic_markdown("1.1");
+  for (const auto* expected : {
+           "/usr/lpp/lnm/gifs",
+           "GIF files",
+           "/usr/lpp/lnm/registration",
+           "Registration files",
+           "/usr/lpp/lnm/reports",
+           "Files related to report generation, including history files",
+       }) {
+    require_visible_once(directories, expected, "directory row content");
+  }
+  require_visible_near(directories, "/usr/lpp/lnm/gifs", "GIF files", 80,
+                       "GIF directory row");
+  require_visible_near(directories, "/usr/lpp/lnm/registration",
+                       "Registration files", 100, "registration row");
+  for (const auto* leaked : {"GIF files=", "Registration filesaddress"}) {
+    require_absent(directories, leaked, "directory-row marker");
+  }
+
+  const auto processes = document.topic_markdown("1.3");
+  require_contains(processes, "`man` `topic`\n\nWhere topic is",
+                   "source-owned command/prose row boundary");
+  require_visible_once(processes, "lnmhubint", "lnmhubint process");
+  require_visible_near(
+      processes, "lnmhubint",
+      "Communicates with the Hub Manager iubd daemon to manage the LNM for "
+      "AIX Hub Manager integration function.",
+      180, "lnmhubint process row");
+  for (const auto* leaked : {"\nagent in the", "lnmhubint/", "process.("}) {
+    require_absent(processes, leaked, "process-row marker");
+  }
+
+  const auto application_problems = document.topic_markdown("2.3.1");
+  require_once(application_problems, "correspond to DFI message numbers",
+               "DFI explanation");
+  require_once(application_problems, "A \"1\" has been appended to the DFI",
+               "DFI number explanation");
+  for (const auto* leaked : {"DFI > message", "DFI / message"}) {
+    require_absent(application_problems, leaked, "DFI row marker");
+  }
+
+  const auto chapter_traps = document.topic_markdown("4.0");
+  require_visible_near(chapter_traps, "For information", "about:", 80,
+                       "trap cross-reference table heading");
+  require_contains(chapter_traps, "Read:",
+                   "trap cross-reference table value heading");
+  for (const auto& row : {
+           std::pair{"LNM OS/2 agent traps", "in topic 4.1"},
+           std::pair{"SNMP token-ring traps", "in topic 4.2"},
+           std::pair{"SNMP bridge traps", "in topic 4.3"},
+           std::pair{"FDDI traps", "in topic 4.4"},
+       }) {
+    require_visible_near(chapter_traps, row.first, row.second, 220,
+                         "trap cross-reference row");
+  }
+  require_absent(chapter_traps, "\nAS\n", "standalone trap marker");
+
+  const auto fddi_traps = document.topic_markdown("4.4");
+  require_once(fddi_traps,
+               "For more information about the data associated with each of "
+               "these traps",
+               "FDDI trap introduction");
+  for (const auto* leaked : {"each of / these traps",
+                             "ringInoperative cleared in segment. / All"}) {
+    require_absent(fddi_traps, leaked, "FDDI row marker");
+  }
+
+  const auto netview_form = document.topic_markdown("2.4.4");
+  require_contains(netview_form,
+                   "Which mode was AIX NetView/6000 operating",
+                   "NetView mode question");
+  require_contains(netview_form, "Read-Write", "NetView mode choice");
+  require_contains(netview_form, "ovobjprint", "NetView object-count command");
+  require_same_markdown_row(netview_form,
+                            "Which mode was AIX NetView/6000 operating",
+                            "in at the time of the problem?",
+                            "complete NetView mode question");
+  require_same_markdown_row(netview_form, "ovobjprint", "head",
+                            "ovobjprint command row");
+  require_same_markdown_row(netview_form,
+                            "Number of objects to hold in ovwdb", "cache",
+                            "ovwdb cache row");
+  require_same_markdown_row(netview_form,
+                            "Number of seconds between storing",
+                            "data to the GTMD database", "GTMD row");
+  require_absent(netview_form, "&ballot.", "unexpanded ballot macro");
+  require_absent(netview_form, "| a |", "standalone form marker a");
+  require_absent(netview_form, "| address |",
+                 "standalone form marker address");
+
+  const auto log = document.topic_markdown("3.1");
+  for (const auto* expected : {
+           "Process ID", "Subsystem", "User ID", "Log Class", "Device ID",
+           "Path ID", "Connection ID", "Log Instance", "Software",
+           "Hostname", "803", "Cannot", "internet address: 9.67.164.24",
+       }) {
+    require_contains(canonical_visible_text(log), expected,
+                     "formatted log field");
+  }
+  require_visible_near(log, "803", "Cannot connect to LNM OS/2 Agent", 100,
+                       "formatted event row");
+  for (const auto* leaked : {"\nAS\n", "originate.("}) {
+    require_absent(log, leaked, "log-row marker");
+  }
+
+  const auto comments_to_ibm = document.topic_markdown("BACK_2");
+  require_contains(comments_to_ibm, "Publication No. SC31-7111-00",
+                   "comments publication number");
+  require_contains(comments_to_ibm, "1-800-227-5088", "comments FAX number");
+  require_once(comments_to_ibm,
+               "If you prefer to send comments by mail",
+               "comments-by-mail instruction");
+  require_once(comments_to_ibm,
+               "If you prefer to send comments by FAX",
+               "comments-by-FAX instruction");
+  require_absent(comments_to_ibm, "SC31-7111-00/    If",
+                 "comments row marker");
+  require_absent(comments_to_ibm, "you.adapter", "comments adapter marker");
+  require_absent(comments_to_ibm, "<B>", "raw comments HTML");
+
+  const auto questionnaire = document.topic_markdown("COMMENTS");
+  require_visible_once(questionnaire, "Overall, how satisfied are you with",
+                       "overall satisfaction question heading");
+  require_visible_near(questionnaire, "Overall, how satisfied are you with",
+                       "the information in this book?", 180,
+                       "overall satisfaction question");
+  require_visible_once(questionnaire, "How satisfied are you that the",
+                       "information-quality question heading");
+  require_visible_near(questionnaire, "How satisfied are you that the",
+                       "information in this book is:", 180,
+                       "information-quality question");
+  require_contains(questionnaire, "Satisfied", "satisfaction choice");
+  require_contains(questionnaire, "Dissatisfied", "dissatisfaction choice");
+  for (const auto* criterion : {"Accurate", "Complete", "Easy to find",
+                                "Easy to understand", "Well organized",
+                                "Applicable to your task"}) {
+    require_visible_once(questionnaire, criterion,
+                         "information-quality criterion");
+  }
+  require_absent(questionnaire, "<B>", "raw questionnaire HTML");
+
+  struct PublicationTopic {
+    const char* id;
+    const char* title;
+  };
+  for (const auto& publication : {
+           PublicationTopic{"BACK_1.1",
+                            "Getting Started with LAN Network Manager for AIX "
+                            "(SC31-7109)"},
+           PublicationTopic{"BACK_1.7",
+                            "FDDI SNMP Proxy Agent User's Guide (GC17-0383)"},
+           PublicationTopic{"BACK_1.11",
+                            "NETCENTER Operator Tutorial (GC75-0109)"},
+           PublicationTopic{"BACK_1.12.2",
+                            "OSF/Motif Series (5 volumes)"},
+       }) {
+    const auto markdown = document.topic_markdown(publication.id);
+    require_once(markdown, publication.title, "publication row");
+    require_absent(markdown, "<B>", "raw publication HTML");
+  }
+  require_absent(document.topic_markdown("BACK_1.1"),
+                 "(SC31-7109)=", "publication trailing marker");
+  require_absent(document.topic_markdown("BACK_1.1"),
+                 "(SC31-7109))", "publication duplicate punctuation");
+  require_absent(document.topic_markdown("BACK_1.7"),
+                 "(GC17-0383)bridge", "publication carry marker");
+  require_absent(document.topic_markdown("BACK_1.11"),
+                 "(GC75-0109)=", "publication trailing marker");
+  require_absent(document.topic_markdown("BACK_1.12.2"),
+                 "publications:agent", "publication leading marker");
+  require_visible_once(
+      document.topic_markdown("BACK_1.11"),
+      "NETCENTER Graphic Network Monitor Service Point Interface "
+      "Installation (SC75-0111)",
+      "second NETCENTER publication row");
+
+  return failures == 0 ? 0 : 1;
+}

@@ -140,6 +140,52 @@ std::optional<std::pair<std::size_t, std::size_t>> header_columns(
 
 } // namespace
 
+bool is_implicit_grid_header_geometry(
+    const std::vector<ImplicitGridHeaderSpan>& header_spans) {
+  return header_columns(header_spans).has_value();
+}
+
+std::vector<SourceRowMarker> source_row_markers(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    std::size_t key_origin) {
+  std::vector<SourceRowMarker> markers;
+  for (const auto& record : records) {
+    for (std::size_t token = 1; token + 1 < record.tokens.size(); ++token) {
+      if (!exact_spaces(record.tokens[token], key_origin)) {
+        continue;
+      }
+      // Structural marker slots are encoded through the compact one-byte
+      // token map. Ordinary preceding dictionary words use two-byte keys and
+      // remain part of their physical line.
+      if (token - 1 >= record.encoded_tokens.size() ||
+          record.encoded_tokens[token - 1].width != 1) {
+        continue;
+      }
+      const auto token_text = [](const TokenWords& words) {
+        TokenWords visible;
+        for (const auto word : words) {
+          if (word >= 0x20 && word != 0x2666) {
+            visible.push_back(word);
+          }
+        }
+        return trim(token_words_to_ascii(visible));
+      };
+      auto marker = token_text(record.tokens[token - 1]);
+      auto following = token_text(record.tokens[token + 1]);
+      marker = trim(std::move(marker));
+      following = trim(std::move(following));
+      if (marker.empty() || following.empty() || marker.size() > 24 ||
+          std::all_of(marker.begin(), marker.end(), [](const auto ch) {
+            return std::isspace(static_cast<unsigned char>(ch)) != 0;
+          })) {
+        continue;
+      }
+      markers.push_back({std::move(marker), std::move(following)});
+    }
+  }
+  return markers;
+}
+
 std::optional<ImplicitGrid> extract_implicit_grid(
     const std::vector<DecodedLogicalRecordSource>& records,
     const std::vector<ImplicitGridHeaderSpan>& header_spans) {
@@ -150,7 +196,9 @@ std::optional<ImplicitGrid> extract_implicit_grid(
 
   std::size_t a_count = 0;
   std::size_t b_count = 0;
-  for (const auto& record : records) {
+  for (std::size_t record_index = 0; record_index < records.size();
+       ++record_index) {
+    const auto& record = records[record_index];
     for (std::size_t token = 0; token < record.tokens.size(); ++token) {
       a_count += signature_a(record, token);
       b_count += signature_b(record, token);
@@ -167,7 +215,9 @@ std::optional<ImplicitGrid> extract_implicit_grid(
   ImplicitGrid grid;
   grid.key_origin = columns->first;
   grid.value_origin = columns->second;
-  for (const auto& record : records) {
+  for (std::size_t record_index = 0; record_index < records.size();
+       ++record_index) {
+    const auto& record = records[record_index];
     std::vector<Boundary> boundaries;
     std::vector<bool> keyed_tokens(record.tokens.size(), false);
     for (std::size_t token = 0; token < record.tokens.size(); ++token) {
@@ -246,6 +296,11 @@ std::optional<ImplicitGrid> extract_implicit_grid(
       }
       if (!row.key.empty() || !row.value.empty()) {
         grid.physical_rows.push_back(std::move(row));
+        if (record_index + 1 == records.size() &&
+            index + 1 == boundaries.size() &&
+            end == record.tokens.size()) {
+          grid.owns_source_tail = true;
+        }
       }
     }
   }
@@ -262,7 +317,7 @@ std::optional<ImplicitGrid> extract_implicit_grid(
       (*pending)[1] += physical.value;
     }
   }
-  if (grid.semantic_rows.size() < 4) {
+  if (grid.semantic_rows.size() < 4 || !grid.owns_source_tail) {
     return std::nullopt;
   }
   return grid;

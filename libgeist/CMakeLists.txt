@@ -236,6 +236,15 @@ target_compile_definitions(implicit_grid_test PRIVATE
 )
 add_test(NAME implicit_grid_test COMMAND implicit_grid_test)
 
+add_executable(sc31_711_row_ownership_test
+  tests/sc31_711_row_ownership.cpp
+)
+target_link_libraries(sc31_711_row_ownership_test PRIVATE geist::geist_static)
+target_compile_definitions(sc31_711_row_ownership_test PRIVATE
+  GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+add_test(NAME sc31_711_row_ownership_test COMMAND sc31_711_row_ownership_test)
+
 add_executable(fixed_display_synthetic_test
   tests/fixed_display_synthetic.cpp
 )

@@ -1,5 +1,6 @@
 #include "geist/detail/implicit_grid.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
@@ -89,6 +90,14 @@ geist::detail::DecodedLogicalRecordSource synthetic_b_rows() {
 
 int main() {
   const auto synthetic = synthetic_b_rows();
+  const auto synthetic_markers =
+      geist::detail::source_row_markers({synthetic}, 3);
+  require(synthetic_markers.size() == 6 &&
+              synthetic_markers.front().marker == ">" &&
+              synthetic_markers.front().following_text == "key0",
+          "source row marker ownership was not retained");
+  require(geist::detail::source_row_markers({synthetic}, 4).empty(),
+          "wrong column origin fabricated source row markers");
   const auto synthetic_grid = geist::detail::extract_implicit_grid(
       {synthetic}, {{3, 3}, {7, 4}, {18, 5}});
   require(synthetic_grid && synthetic_grid->semantic_rows.size() == 6 &&
@@ -97,6 +106,20 @@ int main() {
   require(!geist::detail::extract_implicit_grid(
                {synthetic}, {{3, 3}, {7, 4}, {12, 5}}),
           "single-group CFONT heading activated an implicit grid");
+  const std::string synthetic_header =
+      "cfont 3 3 2 7 4 2 18 5 2    Key Col        Value";
+  const auto synthetic_rendered =
+      geist::detail::render_gml_records_with_source_layout(
+          {synthetic_header}, {synthetic});
+  require(std::find(synthetic_rendered.begin(), synthetic_rendered.end(),
+                    ":table cols='2'.") != synthetic_rendered.end(),
+          "proven tail-owned implicit grid was not rendered");
+  const auto guarded_tail =
+      geist::detail::render_gml_records_with_source_layout(
+          {synthetic_header, "SI semantic tail"}, {synthetic});
+  require(std::find(guarded_tail.begin(), guarded_tail.end(),
+                    ":table cols='2'.") == guarded_tail.end(),
+          "implicit grid suppressed a later semantic control");
 
   const auto root = std::filesystem::path(GEIST_REPO_ROOT) / "BOO";
   geist::detail::LogicalDecodeContext sc31;

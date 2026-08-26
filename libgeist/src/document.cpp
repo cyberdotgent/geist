@@ -1,4 +1,5 @@
 #include "geist/detail/internal.hpp"
+#include "geist/detail/implicit_grid.hpp"
 
 #include <algorithm>
 #include <array>
@@ -19,7 +20,7 @@ using namespace detail;
 
 namespace {
 
-bool has_fixed_form_source_candidate(
+bool has_box_form_source_candidate(
     const std::vector<std::string>& records) {
   auto candidates = std::size_t{0};
   for (const auto& record : records) {
@@ -42,10 +43,37 @@ bool has_fixed_form_source_candidate(
   return candidates == 1;
 }
 
-void load_fixed_form_source_if_candidate(
+bool has_implicit_grid_source_candidate(
+    const std::vector<std::string>& records) {
+  for (const auto& record : records) {
+    const auto lower = ascii_lower(record);
+    for (auto found = lower.find("cfont "); found != std::string::npos;
+         found = lower.find("cfont ", found + 6)) {
+      std::istringstream values(record.substr(found + 6));
+      std::vector<ImplicitGridHeaderSpan> spans;
+      while (true) {
+        std::size_t offset = 0;
+        std::size_t length = 0;
+        std::string code;
+        if (!(values >> offset >> length >> code) ||
+            !ascii_equals_case_insensitive(code, "2")) {
+          break;
+        }
+        spans.push_back({offset, length});
+      }
+      if (is_implicit_grid_header_geometry(spans)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+void load_source_layout_if_candidate(
     const std::shared_ptr<LogicalDecodeContext>& context,
     TopicData& topic) {
-  if (!has_fixed_form_source_candidate(topic.raw_records)) {
+  if (!has_box_form_source_candidate(topic.raw_records) &&
+      !has_implicit_grid_source_candidate(topic.raw_records)) {
     return;
   }
   topic.fixed_layout_sources = decode_logical_record_sources(
@@ -217,7 +245,7 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
                   topic_data.start_logical_record - 1,
               context->decoded_records.begin() +
                   topic_data.end_logical_record - 1);
-          load_fixed_form_source_if_candidate(context, topic_data);
+          load_source_layout_if_candidate(context, topic_data);
           TocEntry loaded;
           loaded.id = entry_id;
           loaded.title = entry_title;
@@ -340,7 +368,7 @@ std::string BooDocument::topic_markdown(const std::string& topic_id) const {
   topic.raw_records.assign(
       decode_context_->decoded_records.begin() + topic.start_logical_record - 1,
       decode_context_->decoded_records.begin() + topic.end_logical_record - 1);
-  load_fixed_form_source_if_candidate(decode_context_, topic);
+  load_source_layout_if_candidate(decode_context_, topic);
   TocEntry entry;
   entry.id = topic.id;
   entry.title = topic.title;

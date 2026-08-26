@@ -1217,3 +1217,40 @@ styled physical row contains a complete citation even when its leading marker
 field decodes as punctuation or an alphabetic carry token. Preserve those
 rows independently of the fixed-layout `ST` introduction; the introduction
 and citation stream have separate ownership.
+
+## Implicit CFONT grids
+
+Some fixed two-column grids have no `SRTBL` frame or box-drawing characters.
+Their header is an all-HP2 `CFONT` row whose spans form two display-column
+groups, while following physical rows survive only in the encoded token
+stream. `SC31-711.boo` supplies the verified examples:
+
+| Topic | Logical records | Payload file offsets | Header columns |
+| --- | --- | --- | --- |
+| 1.1 | 19--20 | `0xB2E3..0xB4BE`, `0xB4BF..0xB589` | key 3, value 28 |
+| 1.2 | 21 | `0xB58B..0xB733` | key 3, value 23 |
+| 1.3 | 22--23 | `0xB735..0xB8D6`, `0xB8D8..0xBA30` | key 3, value 18 |
+
+Topic 1.1 keyed rows repeatedly begin with the one-byte encoded sequence
+`09 17 00 7A 00 17 00`. Through the token map this resolves to three display
+spaces followed by `/usr/`; `00 17 00 4E` retains the `/lnm` component. A
+token containing exactly 28 spaces begins a value-only continuation. Records
+19--20 contain 18 semantic rows after continuations are folded.
+
+Topic 1.3 uses repeated prefix `01 00 nn 09`, where `09` resolves to the exact
+three-space key origin and `nn` is a one-byte marker-field token. Six or more
+repetitions, two header groups, and stable origins are required together: the
+prefix occurs sparsely in ordinary message prose. Records 22--23 yield 19
+semantic rows. A continued logical record can inherit row-control state; only
+the nearest col-3 origin before its first complete prefix starts the first row.
+
+The token immediately before an exact col-3 origin is a structural marker slot
+when encoded by a one-byte token-map entry. In record 22, token 97 resolves to
+`agent`, token 98 is the exact three-space origin, and token 99 begins `in`;
+`agent` is not prose. The same record has `(` before the col-3 origin of
+`Where`, proving a new physical row after styled `man topic`. Two-byte
+dictionary words before a row origin remain ordinary text.
+
+These identities are layout evidence, not universal magic values. Establish
+the two-group all-HP2 header first, then lazily require repeated source-owned
+rows. Flattened ASCII cannot distinguish these grids from aligned prose.

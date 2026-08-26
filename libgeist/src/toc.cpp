@@ -1205,7 +1205,7 @@ void attach_topic_data(TocEntry& entry, const TopicData& topic) {
   entry.end_logical_record = topic.end_logical_record;
   entry.raw_records = topic.fixed_layout_sources.empty()
                           ? render_gml_records(topic.raw_records)
-                          : render_gml_records_with_fixed_form_source(
+                          : render_gml_records_with_source_layout(
                                 topic.raw_records,
                                 topic.fixed_layout_sources);
   std::vector<std::string> publication_rows;
