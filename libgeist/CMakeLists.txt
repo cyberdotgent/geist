@@ -90,6 +90,7 @@ set(GEIST_SOURCES
   src/logical.cpp
   src/markup.cpp
   src/message_ir.cpp
+  src/message_topic_ir.cpp
   src/menu_ir.cpp
   src/menu_topic_ir.cpp
   src/markdown.cpp
@@ -254,6 +255,16 @@ target_compile_definitions(logical_source_index_test PRIVATE
   GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
 )
 add_test(NAME logical_source_index_test COMMAND logical_source_index_test)
+
+add_executable(message_topic_ir_synthetic_test
+  tests/message_topic_ir_synthetic.cpp
+)
+target_link_libraries(message_topic_ir_synthetic_test PRIVATE geist::geist_static)
+target_compile_definitions(message_topic_ir_synthetic_test PRIVATE
+  GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+add_test(NAME message_topic_ir_synthetic_test
+  COMMAND message_topic_ir_synthetic_test)
 
 add_executable(implicit_grid_test
   tests/implicit_grid.cpp
