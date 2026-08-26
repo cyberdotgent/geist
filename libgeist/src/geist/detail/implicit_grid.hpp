@@ -39,4 +39,10 @@ std::optional<ImplicitGrid> extract_implicit_grid(
     const std::vector<DecodedLogicalRecordSource>& records,
     const std::vector<ImplicitGridHeaderSpan>& header_spans);
 
+std::optional<ImplicitGrid> extract_terminal_styled_grid(
+    const DecodedLogicalRecordSource& record,
+    const DecodedMarkupSegmentSpan& segment,
+    const std::vector<ImplicitGridHeaderSpan>& header_spans,
+    const std::vector<std::string>& headings);
+
 } // namespace geist::detail

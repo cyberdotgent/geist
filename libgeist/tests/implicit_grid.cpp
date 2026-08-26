@@ -125,6 +125,53 @@ int main() {
   geist::detail::LogicalDecodeContext sc31;
   open_context(root / "SC31-711.boo", sc31);
 
+  const auto trademark_sources =
+      geist::detail::decode_logical_record_sources(sc31, 10, 11);
+  const auto trademark_segments =
+      geist::detail::split_decoded_markup_segment_spans(
+          sc31.decoded_records[9]);
+  const auto trademark_segment = std::find_if(
+      trademark_segments.begin(), trademark_segments.end(), [](const auto& span) {
+        return span.text.rfind("cfont 3 4 1", 0) == 0;
+      });
+  require(trademark_segment != trademark_segments.end(),
+          "missing SC31 terminal CFONT segment span");
+  const auto trademark_grid = geist::detail::extract_terminal_styled_grid(
+      trademark_sources.front(), *trademark_segment,
+      {{3, 4}, {20, 9}, {30, 2}}, {"Term", "Trademark of"});
+  require(trademark_grid && trademark_grid->semantic_rows.size() == 2 &&
+              contains(trademark_grid->semantic_rows, "DynaText",
+                       "Electronic Book Technologies, Inc.") &&
+              contains(trademark_grid->semantic_rows, "Motif",
+                       "Open Software Foundation, Inc."),
+          "SC31 terminal styled grid lost its exact source rows");
+  auto two_byte_origin = trademark_sources.front();
+  two_byte_origin.encoded_tokens[273].width = 2;
+  require(!geist::detail::extract_terminal_styled_grid(
+              two_byte_origin, *trademark_segment,
+              {{3, 4}, {20, 9}, {30, 2}}, {"Term", "Trademark of"}),
+          "two-byte row-origin lookalike activated a terminal grid");
+  auto two_byte_padding = trademark_sources.front();
+  two_byte_padding.encoded_tokens[272].width = 2;
+  require(!geist::detail::extract_terminal_styled_grid(
+              two_byte_padding, *trademark_segment,
+              {{3, 4}, {20, 9}, {30, 2}}, {"Term", "Trademark of"}),
+          "two-byte padding lookalike activated a terminal grid");
+  auto nonterminal = *trademark_segment;
+  --nonterminal.output_end;
+  require(!geist::detail::extract_terminal_styled_grid(
+              trademark_sources.front(), nonterminal,
+              {{3, 4}, {20, 9}, {30, 2}}, {"Term", "Trademark of"}),
+          "nonterminal styled segment activated a grid");
+  require(!geist::detail::extract_terminal_styled_grid(
+              trademark_sources.front(), *trademark_segment,
+              {{3, 4}, {21, 9}, {31, 2}}, {"Term", "Trademark of"}) &&
+              !geist::detail::extract_terminal_styled_grid(
+                  trademark_sources.front(), *trademark_segment,
+                  {{3, 4}, {20, 9}, {30, 2}, {45, 3}},
+                  {"Term", "Trademark of"}),
+          "shifted or three-group header geometry activated a terminal grid");
+
   const auto directories = geist::detail::extract_implicit_grid(
       geist::detail::decode_logical_record_sources(sc31, 19, 21),
       {{3, 9}, {28, 4}, {33, 2}, {36, 5}});

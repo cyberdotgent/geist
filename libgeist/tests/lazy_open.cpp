@@ -507,6 +507,17 @@ int main() {
               trademarks.find("| IBM |  |") == std::string::npos &&
               trademarks.find("| NetView |  |") == std::string::npos,
           "headerless trademark box retained the legacy singleton schema");
+  require(trademarks.find("| *Term* | *Trademark* *of* |") !=
+              std::string::npos &&
+              trademarks.find(
+                  "| DynaText | Electronic Book Technologies, Inc. |") !=
+                  std::string::npos &&
+              trademarks.find(
+                  "| Motif | Open Software Foundation, Inc. |") !=
+                  std::string::npos &&
+              trademarks.find("*Term* *Trademark* *of* DynaText") ==
+                  std::string::npos,
+          "terminal styled grid lost its headings or paired rows");
   const auto intended_audience =
       problem_determination.topic_markdown("PREFACE.1");
   require(intended_audience.find(

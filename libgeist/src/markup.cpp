@@ -5804,6 +5804,116 @@ std::vector<std::string> render_gml_records_with_source_layout(
     rendered = *box_replacement;
   }
 
+  struct TerminalStyledCandidate {
+    ImplicitGrid grid;
+    std::vector<std::string> headings;
+    std::vector<std::string> projected;
+  };
+  std::vector<TerminalStyledCandidate> terminal_candidates;
+  if (sources.size() == decoded_records.size()) {
+    for (std::size_t record_index = 0; record_index < decoded_records.size();
+         ++record_index) {
+      const auto segments = split_decoded_markup_segment_spans(
+          decoded_records[record_index]);
+      for (const auto& segment_span : segments) {
+        if (ascii_lower(first_word(segment_span.text)) != "cfont") {
+          continue;
+        }
+        auto value = trim_ascii(rest_after_first_word(segment_span.text));
+        std::size_t cursor = 0;
+        const auto spans = parse_font_spans(value, cursor);
+        if (spans.size() < 3 ||
+            !std::all_of(spans.begin(), spans.end(), [](const auto& span) {
+              return ascii_equals_case_insensitive(span.code, "1");
+            })) {
+          continue;
+        }
+        std::vector<ImplicitGridHeaderSpan> geometry;
+        for (const auto& span : spans) {
+          geometry.push_back({span.offset, span.length});
+        }
+        if (!is_implicit_grid_header_geometry(geometry)) {
+          continue;
+        }
+        const auto traced = trace_font_spans(segment_span.text, 0, 0, {});
+        if (traced.size() != spans.size()) {
+          continue;
+        }
+        TerminalStyledCandidate candidate;
+        candidate.headings.emplace_back();
+        candidate.projected.emplace_back();
+        for (std::size_t index = 0, group = 0; index < spans.size(); ++index) {
+          if (index > 0 && spans[index].offset >=
+                               spans[index - 1].offset +
+                                   spans[index - 1].length + 2) {
+            ++group;
+            candidate.headings.emplace_back();
+            candidate.projected.emplace_back();
+          }
+          if (!candidate.headings[group].empty()) {
+            candidate.headings[group] += " ";
+            candidate.projected[group] += " ";
+          }
+          candidate.headings[group] += traced[index].text;
+          candidate.projected[group] += traced[index].projected_gml;
+        }
+        if (record_index + 1 != decoded_records.size()) {
+          continue;
+        }
+        const auto grid = extract_terminal_styled_grid(
+            sources[record_index], segment_span, geometry,
+            candidate.headings);
+        if (grid) {
+          candidate.grid = *grid;
+          terminal_candidates.push_back(std::move(candidate));
+        }
+      }
+    }
+  }
+  if (terminal_candidates.size() == 1) {
+    const auto& candidate = terminal_candidates.front();
+    const auto paragraph = std::find_if(
+        rendered.begin(), rendered.end(), [&](const auto& line) {
+          return std::all_of(candidate.projected.begin(),
+                             candidate.projected.end(),
+                             [&](const auto& heading) {
+                               return line.find(heading) != std::string::npos;
+                             });
+        });
+    if (paragraph != rendered.end() &&
+        std::find_if(paragraph + 1, rendered.end(), [&](const auto& line) {
+          return std::all_of(candidate.projected.begin(),
+                             candidate.projected.end(),
+                             [&](const auto& heading) {
+                               return line.find(heading) != std::string::npos;
+                             });
+        }) == rendered.end()) {
+      std::vector<std::string> replacement{":table cols='2'.", ":row."};
+      for (std::size_t column = 0; column < 2; ++column) {
+        replacement.push_back(":c col='" + std::to_string(column) + "'." +
+                              candidate.projected[column]);
+      }
+      for (const auto& row : candidate.grid.semantic_rows) {
+        replacement.push_back(":row.");
+        replacement.push_back(":c col='0'." + dot_table_cell_text(row[0]));
+        replacement.push_back(":c col='1'." + dot_table_cell_text(row[1]));
+      }
+      replacement.push_back(":etable.");
+      const auto at = static_cast<std::size_t>(paragraph - rendered.begin());
+      const auto header_at = rendered[at].find(candidate.projected.front());
+      auto insert_at = at;
+      if (header_at != std::string::npos && header_at > 3) {
+        rendered[at] = trim_ascii(rendered[at].substr(0, header_at));
+        insert_at = at + 1;
+      } else {
+        rendered.erase(rendered.begin() + at);
+      }
+      rendered.insert(rendered.begin() + insert_at,
+                      std::make_move_iterator(replacement.begin()),
+                      std::make_move_iterator(replacement.end()));
+    }
+  }
+
   struct ImplicitCandidate {
     ImplicitGrid grid;
     std::vector<std::string> headings;
