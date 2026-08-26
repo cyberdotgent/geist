@@ -89,6 +89,7 @@ set(GEIST_SOURCES
   src/markup.cpp
   src/message_ir.cpp
   src/menu_ir.cpp
+  src/menu_topic_ir.cpp
   src/markdown.cpp
   src/ownership_ir.cpp
   src/img/mmr.cpp
@@ -341,6 +342,18 @@ target_compile_definitions(generated_list_topic_ir_synthetic_test PRIVATE
 )
 add_test(NAME generated_list_topic_ir_synthetic_test
   COMMAND generated_list_topic_ir_synthetic_test)
+
+add_executable(menu_topic_ir_synthetic_test
+  tests/menu_topic_ir_synthetic.cpp
+)
+target_link_libraries(menu_topic_ir_synthetic_test
+  PRIVATE geist::geist_static
+)
+target_compile_definitions(menu_topic_ir_synthetic_test PRIVATE
+  GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+add_test(NAME menu_topic_ir_synthetic_test
+  COMMAND menu_topic_ir_synthetic_test)
 
 add_executable(topic_document_lowering_test
   tests/topic_document_lowering.cpp

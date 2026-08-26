@@ -555,6 +555,18 @@ in `packet.boo` contain an untyped `cz BREAK 3` control, while
 swallows visible payload. Those control grammars must be typed before the three
 topics or the complete generated-list family can enter production routing.
 
+Menu provenance is now explicit down to decoded output cell, token/word,
+inserted-space kind, word value, and token byte range. A strict `MenuTopicIR`
+wraps that core with metadata, optional anchor, title, menu boundaries, and
+typed raw topic targets. Of 1,898 topics containing `CMENU`, 44 pass the older
+inner menu recognizer and only six prove a complete whole-topic envelope:
+`SC34-425.boo` topics `1.8.5.5`, `1.8.15.5`, and `1.8.18.5`;
+`FA1PLMM0.boo` `5.6`; `SC33-033.boo` `5.3`; and `SH12-565.boo`
+`APPENDIX1.9.5`. Production remains blocked because the inner recognizer still
+uses the document's `topic_titles` map for canonical validation. None of the six
+requires its terminal-marker repair, so a future strict raw-payload extraction
+path should be able to remove that dependency without changing their semantics.
+
 The publication-catalog adapter is the second complete semantic-to-document
 lowering and is now enabled in production. `PublicationCatalogIR` retains
 physical source rows for its title and introduction as well as every

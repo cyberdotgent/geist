@@ -41,6 +41,48 @@ const std::string* find_title(
   return found == titles.end() ? nullptr : &found->second;
 }
 
+std::vector<MenuSourceCellIR> source_cells(
+    const DecodedLogicalRecordSource& record, const OutputRangeIR& range) {
+  std::vector<MenuSourceCellIR> result;
+  const auto words = decoded_byte_range_to_word_range(record.assembled, range);
+  for (auto output = words.begin; output < words.end; ++output) {
+    if (output >= record.assembled.words.size() ||
+        output >= record.assembled.sources.size())
+      return {};
+    const auto& source = record.assembled.sources[output];
+    if (source.token_index >= record.ir.tokens.size()) return {};
+    const auto& token = record.ir.tokens[source.token_index];
+    result.push_back(
+        {record.logical_record,
+         output,
+         source.token_index,
+         source.word_index,
+         source.kind == LogicalWordSourceKind::token_word
+             ? MenuSourceCellKind::token_word
+             : MenuSourceCellKind::inserted_space,
+         record.assembled.words[output],
+         token.byte_range});
+  }
+  return result;
+}
+
+bool same_cells(const std::vector<MenuSourceCellIR>& left,
+                const std::vector<MenuSourceCellIR>& right) {
+  if (left.size() != right.size()) return false;
+  for (std::size_t index = 0; index < left.size(); ++index) {
+    const auto& a = left[index];
+    const auto& b = right[index];
+    if (a.logical_record != b.logical_record ||
+        a.output_word_index != b.output_word_index ||
+        a.token_index != b.token_index || a.word_index != b.word_index ||
+        a.kind != b.kind || a.word != b.word ||
+        a.token_bytes.begin != b.token_bytes.begin ||
+        a.token_bytes.end != b.token_bytes.end)
+      return false;
+  }
+  return true;
+}
+
 } // namespace
 
 std::optional<MenuIR> extract_menu_ir(
@@ -80,6 +122,13 @@ std::optional<MenuIR> extract_menu_ir(
       item.logical_record = record.logical_record;
       item.segment_index = segment.segment_index;
       item.target = target;
+      item.target_output = segment.operand_range;
+      item.label_output = segment.payload_range;
+      item.target_cells = source_cells(record, segment.operand_range);
+      item.label_cells = source_cells(record, segment.payload_range);
+      if (item.target_cells.empty() || item.label_cells.empty())
+        return fail("menu item target or label has no exact source cells: " +
+                    target);
       const auto canonical_text = normalized(*canonical);
       item.text = payload;
       if (!ascii_equals_case_insensitive(payload, canonical_text)) {
@@ -141,6 +190,12 @@ bool verify_menu_ir(
     if (actual.logical_record != expected.logical_record ||
         actual.segment_index != expected.segment_index ||
         actual.target != expected.target || actual.text != expected.text ||
+        actual.target_output.begin != expected.target_output.begin ||
+        actual.target_output.end != expected.target_output.end ||
+        actual.label_output.begin != expected.label_output.begin ||
+        actual.label_output.end != expected.label_output.end ||
+        !same_cells(actual.target_cells, expected.target_cells) ||
+        !same_cells(actual.label_cells, expected.label_cells) ||
         actual.terminal_marker_token != expected.terminal_marker_token ||
         actual.terminal_marker_encoded.has_value() !=
             expected.terminal_marker_encoded.has_value() ||
@@ -168,7 +223,9 @@ std::string format_menu_ir(const MenuIR& menu) {
     const auto& item = menu.items[index];
     output << "menu_item=" << index << " record=" << item.logical_record
            << " segment=" << item.segment_index << " target='" << item.target
-           << "' text='" << item.text << "'";
+           << "' text='" << item.text << "' target_cells="
+           << item.target_cells.size() << " label_cells="
+           << item.label_cells.size();
     if (item.terminal_marker_token) {
       output << " terminal_marker_token=" << *item.terminal_marker_token;
       if (item.terminal_marker_encoded)
