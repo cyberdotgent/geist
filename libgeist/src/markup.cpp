@@ -1353,6 +1353,9 @@ std::vector<SelectDisplayLineCandidate> select_display_line_candidates(
 std::optional<SelectedDisplayText> select_display_text(
     const SelectControl& control) {
   auto display_fragment = control.display_fragment;
+  auto display_row = assemble_fixed_display_row({display_fragment});
+  blank_fixed_display_marker_fields(display_row, true);
+  display_fragment = std::move(display_row.text);
   if (ascii_starts_with_case_insensitive(control.target, "fig")) {
     const auto aligned_gap = display_fragment.find("    ");
     if (aligned_gap != std::string::npos && aligned_gap > 0 &&
@@ -4108,6 +4111,11 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
       }
     }
   }
+  if (state.in_semantic_message_catalog ||
+      state.current_record_has_message_catalog) {
+    raw_trailing =
+        blank_fixed_prose_row_markers(std::move(raw_trailing), true);
+  }
   if (state.in_semantic_message_catalog) {
     raw_trailing =
         strip_semantic_message_label_carryover(std::move(raw_trailing));
@@ -4236,7 +4244,9 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
     }
   }
   raw_trailing = blank_fixed_prose_row_markers(
-      std::move(raw_trailing), state.in_semantic_message_catalog);
+      std::move(raw_trailing),
+      state.in_semantic_message_catalog ||
+          state.current_record_has_message_catalog);
   const auto projected_base_column = font_base_column_from_visual_prefix(
       raw_trailing, state.current_font_base_column);
   const auto semantic_styled_heading_row =

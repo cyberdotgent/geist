@@ -585,6 +585,26 @@ int main() {
                   std::string::npos,
           "redirected trap catalog remained preformatted or leaked metadata");
 
+  const auto fddi_traps = problem_determination.topic_markdown("4.4");
+  require(fddi_traps.find(
+              "ringInoperative cleared in segment. All stations on the ring "
+              "are reset to their previous status") != std::string::npos &&
+              fddi_traps.find(
+                  "The status of the resource is set to normal. Forward to "
+                  "AIX NetView/6000 with resource name.") !=
+                  std::string::npos,
+          "FDDI response continuation rows lost their text or ownership");
+  require(fddi_traps.find("segment. / All") == std::string::npos &&
+              fddi_traps.find("domain.- The status") == std::string::npos,
+          "FDDI response continuation leaked physical-row markers");
+
+  const auto agent_problems =
+      problem_determination.topic_markdown("2.3.1");
+  require(agent_problems.find("correspond to DFI message numbers") !=
+              std::string::npos &&
+              agent_problems.find("DFI > message") == std::string::npos,
+          "selector projection retained its fixed-row marker field");
+
   const auto symbolic_traps =
       problem_determination.topic_markdown("4.1.2");
   require(symbolic_traps.find("<pre>") == std::string::npos &&
