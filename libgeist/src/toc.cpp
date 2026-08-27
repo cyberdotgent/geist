@@ -358,133 +358,6 @@ std::string clean_fixed_st_row_markers(std::string value) {
   return value;
 }
 
-std::string clean_fixed_rendered_line(std::string value) {
-  // Alphabetic overflow values are marker-field contents, not magic words.
-  // Identify the field from its four-column padding and its row-boundary
-  // position so newly observed values require no vocabulary update.
-  for (auto gap = std::size_t{0}; gap + 4 <= value.size();) {
-    gap = value.find("    ", gap);
-    if (gap == std::string::npos) {
-      break;
-    }
-    auto token_begin = gap;
-    while (token_begin > 0 &&
-           std::isalpha(static_cast<unsigned char>(value[token_begin - 1])) !=
-               0) {
-      --token_begin;
-    }
-    auto origin = token_begin;
-    while (origin > 0 &&
-           std::isspace(static_cast<unsigned char>(value[origin - 1])) != 0) {
-      --origin;
-    }
-    const auto after_terminal =
-        token_begin > 0 &&
-        (value[token_begin - 1] == ')' || value[token_begin - 1] == ':' ||
-         value[token_begin - 1] == ';' || value[token_begin - 1] == '.' ||
-         std::isdigit(static_cast<unsigned char>(value[token_begin - 1])) != 0);
-    if (token_begin != gap && (origin == 0 || after_terminal)) {
-      value.replace(token_begin, gap - token_begin, gap - token_begin, ' ');
-    }
-    gap += 4;
-  }
-  value = trim_ascii(std::move(value));
-  for (auto close = value.find(')'); close != std::string::npos;
-       close = value.find(')', close + 1)) {
-    auto marker_end = close + 1;
-    if (marker_end >= value.size()) {
-      continue;
-    }
-    if (value[marker_end] == '<' || value[marker_end] == '>' ||
-        value[marker_end] == '/' || value[marker_end] == '"' ||
-        value[marker_end] == '=') {
-      ++marker_end;
-    } else {
-      while (marker_end < value.size() &&
-             std::isalpha(static_cast<unsigned char>(value[marker_end])) != 0) {
-        ++marker_end;
-      }
-    }
-    if (marker_end > close + 1 &&
-        (marker_end == value.size() ||
-         std::isspace(static_cast<unsigned char>(value[marker_end])) != 0)) {
-      value.erase(close + 1, marker_end - close - 1);
-    }
-  }
-  while (!value.empty() &&
-         (value.back() == '<' || value.back() == '>' || value.back() == '/' ||
-          value.back() == '"' || value.back() == '=')) {
-    value.pop_back();
-    value = trim_ascii(std::move(value));
-  }
-  // A terminal alphabetic marker can lack the following padding when the
-  // physical row ends at the record boundary.  Bibliographic rows provide an
-  // unambiguous terminal `)` coordinate for this case.
-  const auto close = value.rfind(')');
-  if (close != std::string::npos && close + 1 < value.size() &&
-      std::all_of(value.begin() + static_cast<std::ptrdiff_t>(close + 1),
-                  value.end(), [](const auto ch) {
-                    return std::isalpha(static_cast<unsigned char>(ch)) != 0;
-                  })) {
-    value.resize(close + 1);
-  }
-  return value;
-}
-
-bool looks_like_publication_catalog_row(const std::string& value) {
-  const auto lower = ascii_lower(value);
-  for (const auto* marker : {"(sc", "(gc", "(ga", "(sg", "(sh", "(sa",
-                             "(sx", "(zz", "(isbn"}) {
-    if (lower.find(marker) != std::string::npos) {
-      return true;
-    }
-  }
-  return false;
-}
-
-struct PublicationBlock {
-  std::string title;
-  std::string description;
-};
-
-std::optional<PublicationBlock> start_publication_block(std::string value) {
-  const auto lower = ascii_lower(value);
-  auto identifier = std::string::npos;
-  for (const auto* marker : {"(sc", "(gc", "(ga", "(sg", "(sh", "(sa",
-                             "(sx", "(zz", "(isbn"}) {
-    const auto found = lower.find(marker);
-    if (found != std::string::npos) {
-      identifier = std::min(identifier, found);
-    }
-  }
-  if (identifier == std::string::npos) {
-    return std::nullopt;
-  }
-  const auto close = value.find(')', identifier + 1);
-  if (close == std::string::npos) {
-    return std::nullopt;
-  }
-
-  PublicationBlock block;
-  block.title = clean_fixed_rendered_line(value.substr(0, close + 1));
-  auto trailing = value.substr(close + 1);
-  const auto first = trailing.find_first_not_of(" \t\r\n");
-  if (first != std::string::npos && first == 0 &&
-      std::string("()-<>/:=\"").find(trailing[first]) != std::string::npos &&
-      (first + 1 == trailing.size() ||
-       std::isspace(static_cast<unsigned char>(trailing[first + 1])) != 0)) {
-    auto content = first + 1;
-    while (content < trailing.size() &&
-           std::isspace(static_cast<unsigned char>(trailing[content])) != 0) {
-      ++content;
-    }
-    trailing.erase(first, content - first);
-  }
-  block.description = clean_fixed_rendered_line(
-      clean_fixed_st_row_markers(std::move(trailing)));
-  return block;
-}
-
 static bool contains_srmsg_control(const std::string& value) {
   const auto lower = ascii_lower(value);
   auto search = std::size_t{0};
@@ -1199,37 +1072,6 @@ void attach_topic_data(
           entry.raw_records, message_prose->lexical_markers);
     }
   }
-  std::vector<std::string> publication_rows;
-  std::vector<PublicationBlock> publication_blocks;
-  if (ascii_lower(entry.title).find("publications") != std::string::npos) {
-    for (const auto& record : entry.raw_records) {
-      auto content = raw_gml_content_preserve_space(record);
-      if (auto block = start_publication_block(content)) {
-        publication_blocks.push_back(std::move(*block));
-      } else if (!publication_blocks.empty() &&
-                 (raw_gml_tag(record) == "p" ||
-                  raw_gml_tag(record) == "line")) {
-        auto continuation = clean_fixed_rendered_line(
-            clean_fixed_st_row_markers(std::move(content)));
-        if (!continuation.empty()) {
-          auto& description = publication_blocks.back().description;
-          if (!description.empty()) {
-            description.push_back(' ');
-          }
-          description += std::move(continuation);
-        }
-      }
-      if (!looks_like_publication_catalog_row(content)) {
-        continue;
-      }
-      content = clean_fixed_rendered_line(std::move(content));
-      if (!content.empty() &&
-          std::find(publication_rows.begin(), publication_rows.end(), content) ==
-              publication_rows.end()) {
-        publication_rows.push_back(std::move(content));
-      }
-    }
-  }
   const auto is_message_catalog =
       std::any_of(topic.raw_records.begin(),
                   topic.raw_records.end(),
@@ -1249,35 +1091,6 @@ void attach_topic_data(
       ++heading;
     }
     if (heading == entry.raw_records.end()) {
-      return;
-    }
-
-    if (!publication_blocks.empty() && is_topic_title_record(*heading)) {
-      const auto dot = heading->find('.');
-      if (dot != std::string::npos) {
-        heading->resize(dot + 1);
-        *heading += entry.title;
-      }
-      auto intro = topic_st_body_text_after_toc_title(topic, entry.title);
-      const auto lower_intro = ascii_lower(intro);
-      const auto cfont = lower_intro.find("cfont ");
-      if (cfont != std::string::npos) {
-        intro.resize(cfont);
-      }
-      intro = clean_fixed_rendered_line(
-          clean_fixed_st_row_markers(std::move(intro)));
-      entry.raw_records.erase(heading + 1, entry.raw_records.end());
-      if (!intro.empty()) {
-        entry.raw_records.push_back(":p." + std::move(intro));
-      }
-      for (auto& block : publication_blocks) {
-        if (!block.title.empty()) {
-          entry.raw_records.push_back(":p." + std::move(block.title));
-        }
-        if (!block.description.empty()) {
-          entry.raw_records.push_back(":p." + std::move(block.description));
-        }
-      }
       return;
     }
 
@@ -1526,11 +1339,6 @@ void attach_topic_data(
                   raw_record_duplicates_st_body(*continuation, body_text);
               auto continuation_content = strip_leading_visual_bar(
                   raw_gml_content_preserve_space(*continuation));
-              if (ascii_lower(entry.title).find("publications") !=
-                  std::string::npos) {
-                continuation_content = clean_fixed_rendered_line(
-                    std::move(continuation_content));
-              }
               if (!continuation_content.empty() && !duplicate_of_fixed_body) {
                 inline_fixed_continuations.push_back(
                     std::move(continuation_content));
@@ -1544,10 +1352,6 @@ void attach_topic_data(
               inline_fixed_continuations.empty() ? ":xmp."
                                                  : ":xmp inline='html'."};
           for (auto line : split_reflow_off_body_lines(std::move(body_text))) {
-            if (ascii_lower(entry.title).find("publications") !=
-                std::string::npos) {
-              line = clean_fixed_rendered_line(std::move(line));
-            }
             preserved.push_back(":xline." + std::move(line));
           }
           for (auto& continuation : inline_fixed_continuations) {
@@ -1560,37 +1364,6 @@ void attach_topic_data(
         } else if (!body_text.empty()) {
           entry.raw_records.insert(heading + 1, ":p." + body_text);
         }
-      }
-    }
-  }
-  auto rendered_publication_text = std::string{};
-  for (const auto& record : entry.raw_records) {
-    if (!rendered_publication_text.empty()) {
-      rendered_publication_text.push_back(' ');
-    }
-    rendered_publication_text += clean_fixed_rendered_line(
-        raw_gml_content_preserve_space(record));
-  }
-  rendered_publication_text =
-      collapse_ascii_whitespace(std::move(rendered_publication_text));
-  for (auto& publication : publication_rows) {
-    const auto already_present =
-        rendered_publication_text.find(
-            collapse_ascii_whitespace(publication)) != std::string::npos;
-    if (!already_present) {
-      entry.raw_records.push_back(":line." + std::move(publication));
-    }
-  }
-  if (!publication_rows.empty()) {
-    for (auto& record : entry.raw_records) {
-      const auto content = raw_gml_content_preserve_space(record);
-      if (!looks_like_publication_catalog_row(content)) {
-        continue;
-      }
-      const auto dot = record.find('.');
-      if (dot != std::string::npos) {
-        record.resize(dot + 1);
-        record += clean_fixed_rendered_line(content);
       }
     }
   }

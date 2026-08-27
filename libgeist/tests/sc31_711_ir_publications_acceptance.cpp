@@ -177,5 +177,80 @@ int main() {
   require_contains(team, "The Team That Wrote This Redbook",
                    "team biography heading");
 
+  // BACK_1.3: the seventh entry control ends its record with an empty payload
+  // and originates its run on the next record's leading text segment. The
+  // typed lowering carries all eight entries with no marker-slot leak and a
+  // collapsed introduction (hosted BACK_1.3, DT=19941010174546).
+  const auto netview = markdown_visible_text(document.topic_markdown("BACK_1.3"));
+  require_contains(netview,
+                   "The following publications compose the library for "
+                   "Version 2 of the AIX SystemView NetView/6000 program:",
+                   "NetView/6000 introduction");
+  require_contains(netview,
+                   "AIX SystemView NetView/6000 Concepts: A General "
+                   "Information Manual (GC31-6179)",
+                   "wrapped NetView/6000 publication row");
+  require_separate_paragraphs(
+      netview, "AIX SystemView NetView/6000 Problem Determination (SC31-7021)",
+      "AIX SystemView NetView/6000 Programmer's Guide (SC31-7022)",
+      "deferred-origin NetView/6000 entry");
+  require_separate_paragraphs(
+      netview, "AIX SystemView NetView/6000 Programmer's Reference (SC31-7023)",
+      "AIX SystemView NetView/6000 User's Guide (SC31-7024)",
+      "final NetView/6000 entries");
+  require_absent(netview, "ADAPTER", "NetView/6000 marker-slot leak");
+  require_absent(netview, "AIX         SystemView",
+                 "NetView/6000 introduction padding");
+
+  // D.3: a citation catalog with a deferred-origin entry; hosted D.3
+  // (DT=19971218054640) lists ten bulleted publications.
+  const auto other = markdown_visible_text(redbook.topic_markdown("D.3"));
+  require_contains(other,
+                   "These publications are also relevant as further "
+                   "information sources.",
+                   "redbook publication introduction");
+  require_separate_paragraphs(
+      other,
+      "CICS/VSE, Server Support for CICS Clients, Version 2 Release 3, "
+      "SC33-1712",
+      "CICS/VSE, Resource Definition (Online), Version 2 Release 3, SC33-0708",
+      "redbook publication entries");
+  require_contains(other, "CICS Family: Inter-Product Communication, SC33-0824",
+                   "redbook entry before the record boundary");
+  require_contains(other,
+                   "CICS Family: Communicating from CICS on System/390, "
+                   "SC33-1697",
+                   "redbook deferred-origin entry");
+  require_absent(other, "<pre>", "redbook publication preformatted fallback");
+
+  // BIBLIOGRAPHY.9: a title-only envelope (no introduction) whose three
+  // whole-line entries share the column-3 list margin; hosted BIBLIOGRAPHY.9
+  // (DT=19911015203151) renders three separate entries.
+  const auto netview_host = geist::BooDocument::open(
+      std::filesystem::path(GEIST_REPO_ROOT) / "BOO" / "SC31-605.boo");
+  const auto related =
+      markdown_visible_text(netview_host.topic_markdown("BIBLIOGRAPHY.9"));
+  require_separate_paragraphs(
+      related,
+      "SAA Common User Access: Advanced Interface Design Guide (SC26-4582)",
+      "SNA Management Service Reference (SC30-3346)",
+      "related publications first and second entries");
+  require_separate_paragraphs(related,
+                              "SNA Management Service Reference (SC30-3346)",
+                              "SNA Technical Overview (GC30-3073)",
+                              "related publications second and third entries");
+  const auto ncp = markdown_visible_text(netview_host.topic_markdown("BIBLIOGRAPHY.5"));
+  require_separate_paragraphs(ncp, "NCP and SSP Library Supplement (SD35-0251)",
+                              "NCP and SSP Diagnosis and Reference Supplement "
+                              "(LD35-0252)",
+                              "NCP publication entries");
+
+  // BIBLIOGRAPHY.3 and BIBLIOGRAPHY.6 carry the introduction on the title row
+  // behind a five-space gap; the title/introduction boundary is ambiguous and
+  // the catalog fails closed to the legacy path.
+  const auto vtam = markdown_visible_text(netview_host.topic_markdown("BIBLIOGRAPHY.3"));
+  require_absent(vtam, "## BIBLIOGRAPHY.3 VTAM V3R4 Information The following",
+                 "ambiguous title/introduction merged into the heading");
+
   return failures == 0 ? 0 : 1;
 }

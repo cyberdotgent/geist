@@ -34,6 +34,10 @@ struct PublicationCatalogIR {
 // segments each originating one entry run, complete layout/ownership
 // representation of that envelope, and publication semantics (a whole-word
 // `publication(s)` title role or an IBM publication number on every entry).
+// An entry control whose payload is empty at a record boundary originates its
+// run on the next record's leading text segment (a deferred entry origin).
+// The introduction is optional: a single-row title run yields title plus
+// entries, and introduction provenance exists exactly when the text does.
 // Font operand spelling and segment/run counts are not admission evidence.
 // Ambiguous or partially owned candidates fail closed and return no catalog.
 std::optional<PublicationCatalogIR> extract_publication_catalog_ir(

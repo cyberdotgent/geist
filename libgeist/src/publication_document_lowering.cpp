@@ -37,10 +37,12 @@ bool verify_catalog(const PublicationCatalogIR &catalog, std::string *error) {
     return fail(error, "publication title is empty");
   if (catalog.title_source_rows.empty())
     return fail(error, "publication title provenance is empty");
-  if (catalog.introduction.empty())
-    return fail(error, "publication introduction is empty");
-  if (catalog.introduction_source_rows.empty())
-    return fail(error, "publication introduction provenance is empty");
+  // A catalog may have no introduction (title plus entries); provenance then
+  // must be absent as well.
+  if (catalog.introduction.empty() != catalog.introduction_source_rows.empty())
+    return fail(error, catalog.introduction.empty()
+                           ? "publication introduction provenance without text"
+                           : "publication introduction provenance is empty");
   if (catalog.entries.empty())
     return fail(error, "publication catalog has no entries");
 
@@ -203,13 +205,15 @@ lower_publication_catalog_to_document_ir(TopicIdentityIR topic,
   document.blocks.push_back(
       BlockIR{std::move(heading), std::move(heading_origin)});
 
-  auto introduction_origin = catalog_text_origin(
-      catalog.introduction_source_rows, "publication catalog introduction");
-  ParagraphBlockIR introduction;
-  introduction.content.push_back(
-      text_inline(catalog.introduction, introduction_origin));
-  document.blocks.push_back(
-      BlockIR{std::move(introduction), std::move(introduction_origin)});
+  if (!catalog.introduction.empty()) {
+    auto introduction_origin = catalog_text_origin(
+        catalog.introduction_source_rows, "publication catalog introduction");
+    ParagraphBlockIR introduction;
+    introduction.content.push_back(
+        text_inline(catalog.introduction, introduction_origin));
+    document.blocks.push_back(
+        BlockIR{std::move(introduction), std::move(introduction_origin)});
+  }
 
   for (const auto &entry : catalog.entries) {
     for (const auto &source_paragraph : entry.paragraphs) {
