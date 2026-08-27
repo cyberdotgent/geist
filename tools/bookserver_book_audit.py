@@ -59,7 +59,9 @@ class StructureParser(HTMLParser):
             self.counts["tables"] += 1
         elif tag == "img":
             self.counts["images"] += 1
-        elif tag == "a":
+        elif tag == "a" and any(name == "href" for name, _ in attrs):
+            # <a name="..."> anchors (topic headers, MSG/GLS entries) are not
+            # links; Markdown anchors are not counted on the local side either.
             self.counts["links"] += 1
         elif tag in {"ul", "ol", "dl"}:
             self.counts["lists"] += 1
