@@ -338,7 +338,8 @@ bool structural_padding_token(const LogicalTokenIR &token) {
 
 std::string opaque_continuation_prefix(
     const std::vector<DecodedLogicalRecordSource> &records,
-    const MessageOwnershipIndex &ownership, const PhysicalRowIR &row) {
+    const MessageOwnershipIndex &ownership, const PhysicalRowIR &row,
+    DocumentSourceSliceIR *source_slice = nullptr) {
   if (row.start != PhysicalRowStartKind::record_continuation)
     return {};
   const auto *record = find_record(records, row.logical_record);
@@ -354,6 +355,8 @@ std::string opaque_continuation_prefix(
       token_end = std::min(
           token_end, record->control_segments[index].source_tokens.front());
   std::string result;
+  std::optional<std::size_t> first_token;
+  std::optional<std::size_t> last_token;
   for (std::size_t output = range.begin;
        output < range.end && output < record->assembled.sources.size();
        ++output) {
@@ -372,15 +375,27 @@ std::string opaque_continuation_prefix(
         found->second->disposition != SourceDisposition::opaque ||
         found->second->word > 0xff || unmapped_cell(*record, *found->second))
       continue;
+    if (!first_token)
+      first_token = source.token_index;
+    last_token = source.token_index;
     result.push_back(static_cast<char>(found->second->word));
   }
-  return collapse_ascii_whitespace(trim_ascii(std::move(result)));
+  result = collapse_ascii_whitespace(trim_ascii(std::move(result)));
+  if (!result.empty() && source_slice != nullptr && first_token && last_token) {
+    const auto &first = record->ir.tokens[*first_token];
+    const auto &last = record->ir.tokens[*last_token];
+    *source_slice = {row.logical_record,     row.segment_index,
+                     *first_token,           *last_token + 1,
+                     first.byte_range.begin, last.byte_range.end};
+  }
+  return result;
 }
 
 std::string
 opaque_segment_suffix(const std::vector<DecodedLogicalRecordSource> &records,
                       const MessageOwnershipIndex &ownership,
-                      const PhysicalRowIR &row) {
+                      const PhysicalRowIR &row,
+                      DocumentSourceSliceIR *source_slice = nullptr) {
   const auto *record = find_record(records, row.logical_record);
   if (record == nullptr || row.segment_index >= record->control_segments.size())
     return {};
@@ -388,6 +403,8 @@ opaque_segment_suffix(const std::vector<DecodedLogicalRecordSource> &records,
   const auto range = decoded_byte_range_to_word_range(record->assembled,
                                                       segment.payload_range);
   std::string result;
+  std::optional<std::size_t> first_token;
+  std::optional<std::size_t> last_token;
   for (std::size_t output = range.begin;
        output < range.end && output < record->assembled.sources.size();
        ++output) {
@@ -406,9 +423,20 @@ opaque_segment_suffix(const std::vector<DecodedLogicalRecordSource> &records,
         found->second->disposition != SourceDisposition::opaque ||
         found->second->word > 0xff || unmapped_cell(*record, *found->second))
       continue;
+    if (!first_token)
+      first_token = source.token_index;
+    last_token = source.token_index;
     result.push_back(static_cast<char>(found->second->word));
   }
-  return collapse_ascii_whitespace(trim_ascii(std::move(result)));
+  result = collapse_ascii_whitespace(trim_ascii(std::move(result)));
+  if (!result.empty() && source_slice != nullptr && first_token && last_token) {
+    const auto &first = record->ir.tokens[*first_token];
+    const auto &last = record->ir.tokens[*last_token];
+    *source_slice = {row.logical_record,     row.segment_index,
+                     *first_token,           *last_token + 1,
+                     first.byte_range.begin, last.byte_range.end};
+  }
+  return result;
 }
 
 struct OpaqueSegmentFragment {
@@ -646,7 +674,11 @@ semantic_row(const std::vector<DecodedLogicalRecordSource> &records,
   auto visible = collapse_ascii_whitespace(trim_ascii(
       owned_row_text(ownership, row, row_index, suppress_terminal_layout_word,
                      &result.terminal_layout_token)));
-  const auto prefix = opaque_continuation_prefix(records, ownership, row);
+  DocumentSourceSliceIR prefix_source;
+  const auto prefix =
+      opaque_continuation_prefix(records, ownership, row, &prefix_source);
+  if (!prefix.empty())
+    result.leading_source_slices.push_back(prefix_source);
   result.marker_disposition =
       marker_disposition(row, section_label, row_index, !prefix.empty());
   if (row.marker &&
@@ -668,9 +700,13 @@ semantic_row(const std::vector<DecodedLogicalRecordSource> &records,
     visible = row.marker->decoded_text +
               (visible.empty() ? std::string{} : std::string{" "}) + visible;
   if (recover_segment_suffix) {
-    const auto suffix = opaque_segment_suffix(records, ownership, row);
-    if (!suffix.empty())
+    DocumentSourceSliceIR suffix_source;
+    const auto suffix =
+        opaque_segment_suffix(records, ownership, row, &suffix_source);
+    if (!suffix.empty()) {
       visible += (visible.empty() ? std::string{} : std::string{" "}) + suffix;
+      result.trailing_source_slices.push_back(suffix_source);
+    }
   }
   result.text = std::move(visible);
   return result;
@@ -1046,6 +1082,12 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
       MessageParagraphIR paragraph;
       paragraph.text = semantic.text;
       paragraph.source_rows.push_back(semantic.source_row);
+      paragraph.source_slices.insert(paragraph.source_slices.end(),
+                                     semantic.leading_source_slices.begin(),
+                                     semantic.leading_source_slices.end());
+      paragraph.source_slices.insert(paragraph.source_slices.end(),
+                                     semantic.trailing_source_slices.begin(),
+                                     semantic.trailing_source_slices.end());
       paragraph.semantic_rows.push_back(semantic);
       if (semantic.source_row.second < run.rows.size()) {
         const auto &source_row = run.rows[semantic.source_row.second];
@@ -1260,6 +1302,25 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
       const auto &segment_rows =
           indexed_rows == rows_by_segment.end() ? no_rows : indexed_rows->second;
       for (auto &fragment : fragments) {
+        const auto claims_fragment = [&](const MessageParagraphIR &paragraph) {
+          return std::any_of(
+              paragraph.source_slices.begin(), paragraph.source_slices.end(),
+              [&](const auto &source) {
+                return source.logical_record == fragment.source.logical_record &&
+                       source.segment_index == fragment.source.segment_index &&
+                       source.token_begin <= fragment.source.token_begin &&
+                       source.token_end >= fragment.source.token_end;
+              });
+        };
+        const auto collection_claims = [&](const auto &paragraphs) {
+          return std::any_of(paragraphs.begin(), paragraphs.end(),
+                             claims_fragment);
+        };
+        if (claims_fragment(entry.headline) ||
+            collection_claims(entry.headline_continuations) ||
+            collection_claims(entry.sections[0].paragraphs) ||
+            collection_claims(entry.sections[1].paragraphs))
+          continue;
         std::optional<MessageSourceRowIR> preceding_row;
         auto preceding_end = std::size_t{};
         auto next_begin = std::numeric_limits<std::size_t>::max();
@@ -1310,26 +1371,18 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
         if (recovered.text.empty())
           continue;
         recovered.source_slices.push_back(fragment.source);
-        auto append_if_new = [&](auto &paragraphs) {
-          const auto already_present = std::any_of(
-              paragraphs.begin(), paragraphs.end(), [&](const auto &paragraph) {
-                return paragraph.text.find(recovered.text) != std::string::npos;
-              });
-          if (!already_present)
-            paragraphs.push_back(std::move(recovered));
-        };
         if (coordinate < meaning_coordinate) {
-          append_if_new(entry.headline_continuations);
+          entry.headline_continuations.push_back(std::move(recovered));
         } else if (coordinate < action_coordinate) {
           recovered.text = section_payload(MessageSectionKind::meaning,
                                            std::move(recovered.text));
           if (!recovered.text.empty())
-            append_if_new(entry.sections[0].paragraphs);
+            entry.sections[0].paragraphs.push_back(std::move(recovered));
         } else {
           recovered.text = section_payload(MessageSectionKind::action,
                                            std::move(recovered.text));
           if (!recovered.text.empty())
-            append_if_new(entry.sections[1].paragraphs);
+            entry.sections[1].paragraphs.push_back(std::move(recovered));
         }
       }
     }
@@ -1360,8 +1413,16 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
       const auto already_present = std::any_of(
           entry.sections[0].paragraphs.begin(),
           entry.sections[0].paragraphs.end(), [&](const auto &paragraph) {
-            return !meaning_tail.empty() &&
-                   paragraph.text.find(meaning_tail) != std::string::npos;
+            return std::any_of(
+                paragraph.source_slices.begin(), paragraph.source_slices.end(),
+                [&](const auto &source) {
+                  return source.logical_record ==
+                             meaning_tail_source.logical_record &&
+                         source.segment_index ==
+                             meaning_tail_source.segment_index &&
+                         source.token_begin <= meaning_tail_source.token_begin &&
+                         source.token_end >= meaning_tail_source.token_end;
+                });
           });
       if (!meaning_tail.empty() && !already_present) {
         MessageParagraphIR recovered;
@@ -1385,8 +1446,14 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
       const auto already_present = std::any_of(
           entry.sections[1].paragraphs.begin(),
           entry.sections[1].paragraphs.end(), [&](const auto &paragraph) {
-            return !boundary_text.empty() &&
-                   paragraph.text.find(boundary_text) != std::string::npos;
+            return std::any_of(
+                paragraph.source_slices.begin(), paragraph.source_slices.end(),
+                [&](const auto &source) {
+                  return source.logical_record == boundary_source.logical_record &&
+                         source.segment_index == boundary_source.segment_index &&
+                         source.token_begin <= boundary_source.token_begin &&
+                         source.token_end >= boundary_source.token_end;
+                });
           });
       if (!boundary_text.empty() && !already_present) {
         MessageParagraphIR recovered;
@@ -1397,22 +1464,6 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
         std::stable_sort(entry.sections[1].paragraphs.begin(),
                          entry.sections[1].paragraphs.end(), source_order);
       }
-    }
-
-    for (auto &section : entry.sections) {
-      std::string row_text;
-      for (const auto &paragraph : section.paragraphs)
-        if (!paragraph.recovered_unformatted_segment)
-          append_text(row_text, paragraph.text);
-      section.paragraphs.erase(
-          std::remove_if(section.paragraphs.begin(), section.paragraphs.end(),
-                         [&](const auto &paragraph) {
-                           return paragraph.recovered_unformatted_segment &&
-                                  paragraph.text.size() > 3 &&
-                                  row_text.find(paragraph.text) !=
-                                      std::string::npos;
-                         }),
-          section.paragraphs.end());
     }
 
     if (entry.headline.text.find(entry.id) == std::string::npos) {
