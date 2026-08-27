@@ -1,5 +1,6 @@
 #include "geist/detail/document_ir.hpp"
 
+#include <algorithm>
 #include <iomanip>
 #include <sstream>
 #include <tuple>
@@ -107,10 +108,30 @@ bool verify_block(const BlockIR& block, std::string* error) {
           return !node.id.empty() || fail(error, "anchor id is empty");
         } else if constexpr (std::is_same_v<T, ListBlockIR>) {
           if (node.items.empty()) return fail(error, "list is empty");
+          const auto explicit_ordinals = static_cast<std::size_t>(
+              std::count_if(node.items.begin(), node.items.end(),
+                            [](const auto& item) {
+                              return item.source_ordinal.has_value();
+                            }));
+          if (!node.ordered && explicit_ordinals != 0)
+            return fail(error, "unordered list item has a source ordinal");
+          if (node.ordered && explicit_ordinals != 0 &&
+              explicit_ordinals != node.items.size())
+            return fail(error, "ordered list source ordinals are incomplete");
+          std::uint64_t previous_ordinal = 0;
           for (const auto& item : node.items) {
             if (!verify_origin(item.origin, error) ||
                 !verify_inlines(item.content, false, error))
               return false;
+            if (item.source_ordinal) {
+              if (*item.source_ordinal == 0)
+                return fail(error, "ordered list source ordinal is zero");
+              if (*item.source_ordinal <= previous_ordinal)
+                return fail(
+                    error,
+                    "ordered list source ordinals are not strictly increasing");
+              previous_ordinal = *item.source_ordinal;
+            }
           }
           return true;
         } else if constexpr (std::is_same_v<T, DefinitionListBlockIR>) {
@@ -344,6 +365,8 @@ std::string format_document_ir(const DocumentIR& document) {
             for (std::size_t item = 0; item < node.items.size(); ++item) {
               if (item != 0) out << ' ';
               out << "item=";
+              if (node.items[item].source_ordinal)
+                out << "ordinal=" << *node.items[item].source_ordinal << ' ';
               format_inlines(out, node.items[item].content);
               format_entry_origin(out, node.items[item].origin);
             }

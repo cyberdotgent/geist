@@ -338,7 +338,13 @@ std::string render_block(const BlockNodeIR &block,
           for (std::size_t index = 0; index < node.items.size(); ++index) {
             if (index != 0)
               result.push_back('\n');
-            result += node.ordered ? "1. " : "- ";
+            if (node.ordered) {
+              result += std::to_string(
+                            node.items[index].source_ordinal.value_or(1)) +
+                        ". ";
+            } else {
+              result += "- ";
+            }
             result += render_inlines(node.items[index].content,
                                      InlineContext::single_line, options);
           }

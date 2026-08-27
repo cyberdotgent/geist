@@ -104,6 +104,12 @@ int main() {
   ordered.ordered = true;
   ordered.items = {{text("one"), origin()}, {text("two"), origin()}};
   document.blocks.push_back(block(std::move(ordered)));
+  ListBlockIR source_numbered;
+  source_numbered.ordered = true;
+  source_numbered.items = {{text("nine"), origin(), 9},
+                           {text("ten"), origin(), 10},
+                           {text("twelve"), origin(), 12}};
+  document.blocks.push_back(block(std::move(source_numbered)));
 
   DefinitionListBlockIR definitions;
   definitions.entries = {
@@ -171,7 +177,11 @@ int main() {
       !contains(formatted, "xref=anchor:\"section one\"",
                 "formatter omitted anchor target kind") ||
       !contains(formatted, "xref=resource:\"manuals/a b.pdf\"",
-                "formatter omitted resource target kind"))
+                "formatter omitted resource target kind") ||
+      !contains(formatted, "item=ordinal=9 [text=\"nine\"",
+                "formatter omitted an explicit list source ordinal") ||
+      !contains(formatted, "item=ordinal=12 [text=\"twelve\"",
+                "formatter omitted a nonconsecutive list source ordinal"))
     return 1;
   const auto fallback_output = render_document_markdown(document);
   if (!contains(fallback_output, "[topic](<Chapter%20One>)",
@@ -218,8 +228,41 @@ int main() {
       !contains(output, "- first \\- item\n- second",
                 "unordered list structure failed") ||
       !contains(output, "1. one\n1. two", "ordered list structure failed") ||
+      !contains(output, "9. nine\n10. ten\n12. twelve",
+                "ordered list source ordinals were not preserved") ||
       !contains(output, "- **Term:** Definition \\[literal\\]",
                 "definition list structure failed"))
+    return 1;
+
+  auto invalid_list = document;
+  auto &unordered_with_ordinal =
+      std::get<ListBlockIR>(invalid_list.blocks[3].node);
+  unordered_with_ordinal.items.front().source_ordinal = 1;
+  error.clear();
+  if (!require(!verify_document_ir(invalid_list, &error) &&
+                   error == "unordered list item has a source ordinal",
+               "verifier admitted an ordinal on an unordered list"))
+    return 1;
+
+  invalid_list = document;
+  auto &partially_numbered =
+      std::get<ListBlockIR>(invalid_list.blocks[4].node);
+  partially_numbered.items.front().source_ordinal = 1;
+  error.clear();
+  if (!require(!verify_document_ir(invalid_list, &error) &&
+                   error == "ordered list source ordinals are incomplete",
+               "verifier admitted partially explicit source ordinals"))
+    return 1;
+
+  invalid_list = document;
+  auto &nonincreasing = std::get<ListBlockIR>(invalid_list.blocks[5].node);
+  nonincreasing.items[1].source_ordinal = 9;
+  error.clear();
+  if (!require(
+          !verify_document_ir(invalid_list, &error) &&
+              error ==
+                  "ordered list source ordinals are not strictly increasing",
+          "verifier admitted repeated source ordinals"))
     return 1;
 
   if (!contains(output,

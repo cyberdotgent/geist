@@ -3,6 +3,7 @@
 #include "geist/detail/provenance_ir.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -80,6 +81,10 @@ struct AnchorBlockIR {
 struct ListItemIR {
   InlineSequenceIR content;
   DocumentNodeOriginIR origin;
+  // An explicit source ordinal is distinct from the item's position in this
+  // vector. It permits ordered lists that start above one or contain gaps.
+  // The trailing field preserves existing two-member aggregate callers.
+  std::optional<std::uint64_t> source_ordinal = std::nullopt;
 };
 
 struct ListBlockIR {
