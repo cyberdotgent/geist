@@ -127,6 +127,50 @@ int main() {
                "lowerer admitted conflicting topic geometry"))
     return 1;
 
+  // A title-only envelope has no introduction and no introduction provenance;
+  // it lowers to the heading followed directly by the entry paragraphs.
+  auto title_only = catalog();
+  title_only.introduction.clear();
+  title_only.introduction_source_rows.clear();
+  error.clear();
+  const auto lowered_title_only =
+      lower_publication_catalog_to_document_ir(topic, title_only, &error);
+  if (!require(lowered_title_only.has_value(), error) ||
+      !require(lowered_title_only->blocks.size() == 4,
+               "title-only catalog did not lower to heading plus entries") ||
+      !require(std::get_if<ParagraphBlockIR>(
+                   &lowered_title_only->blocks[1].node) != nullptr &&
+                   std::get<TextInlineIR>(
+                       std::get<ParagraphBlockIR>(
+                           lowered_title_only->blocks[1].node)
+                           .content.front()
+                           .node)
+                           .text == "Book One, GC00-0001",
+               "title-only catalog first entry is not the second block") ||
+      !require(verify_publication_catalog_document_ir(
+                   title_only, *lowered_title_only, &error),
+               error))
+    return 1;
+
+  auto orphan_provenance = catalog();
+  orphan_provenance.introduction.clear();
+  error.clear();
+  if (!require(!lower_publication_catalog_to_document_ir(
+                   topic, orphan_provenance, &error) &&
+                   error ==
+                       "publication introduction provenance without text",
+               "lowerer admitted introduction provenance without text"))
+    return 1;
+
+  auto lost_provenance = catalog();
+  lost_provenance.introduction_source_rows.clear();
+  error.clear();
+  if (!require(!lower_publication_catalog_to_document_ir(
+                   topic, lost_provenance, &error) &&
+                   error == "publication introduction provenance is empty",
+               "lowerer admitted an introduction without provenance"))
+    return 1;
+
   std::cout << "publication document lowering synthetic checks passed\n";
   return 0;
 }

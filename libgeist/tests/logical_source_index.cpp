@@ -124,7 +124,8 @@ void verify_book(const std::filesystem::path &path, std::uint32_t first,
   if (publication) {
     std::string publication_error;
     require(!publication->title_source_rows.empty() &&
-                !publication->introduction_source_rows.empty(),
+                publication->introduction_source_rows.empty() ==
+                    publication->introduction.empty(),
             "publication heading text lost physical-row provenance");
     if (path.filename() == "SC31-711.boo" && first == 519)
       require(publication->title_source_rows.front() ==
@@ -684,6 +685,30 @@ void verify_publication_negatives(const std::filesystem::path &root,
   // Technical newsletter whose title carries a document number but whose
   // entries do not.
   verify_book(root / "DREICMST.boo", 50, 51, benchmark, false);
+  // Prose paragraph whose single inline font span cites one publication
+  // number (PRG1SORT PREFACE.1): a citation catalog needs at least two
+  // entry-run entries.
+  verify_book(root / "PRG1SORT.boo", 9, 10, benchmark, false);
+  // Introduction carried on the title row behind a five-space gap (SC31-605
+  // BIBLIOGRAPHY.3 and BIBLIOGRAPHY.6): the title/introduction boundary is
+  // ambiguous and fails closed.
+  verify_book(root / "SC31-605.boo", 709, 711, benchmark, false);
+  verify_book(root / "SC31-605.boo", 714, 715, benchmark, false);
+}
+
+// Catalogs admitted by envelope geometry that the origin-row guard formerly
+// declined: a deferred entry origin at a record boundary (SC31-711 BACK_1.3,
+// ITPPIBOK BIBLIOGRAPHY.2, SG24-204 D.3), a title-only envelope with no
+// introduction and whole-line entries at one list margin (SC31-605
+// BIBLIOGRAPHY.9), and margin-level markerless entry rows (SC31-605
+// BIBLIOGRAPHY.5). Each was verified against the hosted rendering.
+void verify_publication_margin_positives(const std::filesystem::path &root,
+                                         bool benchmark) {
+  verify_book(root / "SC31-711.boo", 522, 524, benchmark, true);
+  verify_book(root / "ITPPIBOK.BOO", 533, 536, benchmark, true);
+  verify_book(root / "SG24-204.boo", 479, 481, benchmark, true);
+  verify_book(root / "SC31-605.boo", 719, 720, benchmark, true);
+  verify_book(root / "SC31-605.boo", 713, 714, benchmark, true);
 }
 
 int main() {
@@ -697,6 +722,7 @@ int main() {
     verify_book(root / "SG24-204.boo", 18, 19, benchmark, false);
     verify_book(root / "QS3X36CM.BOO", 7, 9, benchmark, false);
     verify_publication_negatives(root, benchmark);
+    verify_publication_margin_positives(root, benchmark);
     return 0;
   }
   verify_book(root / "SC31-711.boo", 19, 21, benchmark);
@@ -726,6 +752,7 @@ int main() {
   // now that style spelling is deliberately irrelevant.
   verify_book(root / "QS3X36CM.BOO", 7, 9, benchmark, false);
   verify_publication_negatives(root, benchmark);
+  verify_publication_margin_positives(root, benchmark);
   verify_paged_topic_index(root / "GG24-395.boo", 317, 248, 599, 824, 827);
   verify_paged_topic_index(root / "DREICMST.boo", 374, 248, 496, 735, 753);
   verify_paged_topic_index(root / "SC09-138.boo", 546, 248, 910, 2427, 2428);

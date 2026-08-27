@@ -1,5 +1,6 @@
 #include "geist/detail/publication_ir.hpp"
 
+#include "geist/detail/font_span_ir.hpp"
 #include "geist/detail/internal.hpp"
 
 #include <algorithm>
@@ -162,6 +163,20 @@ std::size_t wide_gap(const std::string& text) {
   return std::string::npos;
 }
 
+bool ambiguous_field_gap(const std::string& text) {
+  for (std::size_t begin = 0; begin < text.size();) {
+    if (text[begin] != ' ') {
+      ++begin;
+      continue;
+    }
+    auto end = begin;
+    while (end < text.size() && text[end] == ' ') ++end;
+    if (end - begin >= 4 && end - begin < 8 && end < text.size()) return true;
+    begin = end;
+  }
+  return false;
+}
+
 std::vector<std::string> split_wide_fields(const std::string& text) {
   std::vector<std::string> fields;
   const auto gap = wide_gap(text);
@@ -255,11 +270,23 @@ std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
   std::optional<SegmentCoordinate> title_segment;
   std::set<SegmentCoordinate> entry_segments;
   std::set<SegmentCoordinate> envelope_segments;
+  // An entry control whose payload is empty because the record ends right
+  // after its operands carries its entry in the next record's leading text
+  // segment. That text segment is the deferred origin of the entry run and is
+  // keyed back to the entry control coordinate it belongs to.
+  std::map<SegmentCoordinate, SegmentCoordinate> deferred_entry_origins;
+  std::optional<SegmentCoordinate> pending_empty_entry;
+  std::optional<std::size_t> entry_margin_column;
   bool saw_entry_control = false;
   for (const auto& record : records) {
     for (const auto& segment : record.control_segments) {
       const SegmentCoordinate coordinate{record.logical_record,
                                          segment.segment_index};
+      if (pending_empty_entry && segment.segment_index == 0 &&
+          segment.kind == BookControlKind::text &&
+          record.logical_record == pending_empty_entry->first + 1)
+        deferred_entry_origins.emplace(coordinate, *pending_empty_entry);
+      pending_empty_entry.reset();
       if (segment.kind == BookControlKind::heading_level) {
         heading_level = ascii_lower(trim_ascii(range_text(
             record, segment.operand_range)));
@@ -270,9 +297,23 @@ std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
         title_segment = coordinate;
         envelope_segments.insert(coordinate);
       } else if (segment.kind == BookControlKind::font) {
+        // Entries share one list margin: the first styled span of every
+        // entry control sits at the same display column. A control whose
+        // operand does not decode, or whose first span sits elsewhere, is an
+        // inline phrase rather than a block entry and fails the envelope.
+        const auto spans = decode_font_control_spans(record, segment);
+        if (!spans || spans->spans.empty()) return std::nullopt;
+        if (!entry_margin_column) {
+          entry_margin_column = spans->spans.front().column;
+        } else if (*entry_margin_column != spans->spans.front().column) {
+          return std::nullopt;
+        }
         saw_entry_control = true;
         entry_segments.insert(coordinate);
         envelope_segments.insert(coordinate);
+        if (segment.payload_range.begin == segment.payload_range.end &&
+            segment.segment_index + 1 == record.control_segments.size())
+          pending_empty_entry = coordinate;
       } else if (title_segment && !saw_entry_control &&
                  segment.kind == BookControlKind::text) {
         return std::nullopt;
@@ -300,29 +341,37 @@ std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
   // or entry run whose origin row sits on the matching typed segment, each
   // typed title/entry segment must originate exactly one run, and every row
   // of every run must lie inside the envelope. Text segments may only continue
-  // a run; nothing outside the envelope may be represented.
+  // a run, except the deferred origin of an empty-payload entry control, whose
+  // text run is keyed to that control; nothing outside the envelope may be
+  // represented.
   std::set<SegmentCoordinate> run_origin_segments;
   std::set<SegmentCoordinate> represented_segments;
   for (const auto& run : layout.runs) {
     if (run.rows.empty()) return std::nullopt;
     const auto& origin = run.rows.front();
-    const SegmentCoordinate origin_coordinate{origin.logical_record,
-                                              origin.segment_index};
+    SegmentCoordinate origin_coordinate{origin.logical_record,
+                                        origin.segment_index};
     const auto* origin_segment = find_segment(records, origin);
     if (origin_segment == nullptr || origin_segment->kind != run.control_kind ||
-        origin.run != run.id ||
-        !run_origin_segments.insert(origin_coordinate).second)
+        origin.run != run.id)
       return std::nullopt;
-    if (run.control_kind == BookControlKind::title) {
+    auto entry_kind = run.control_kind;
+    if (run.control_kind == BookControlKind::text) {
+      const auto deferred = deferred_entry_origins.find(origin_coordinate);
+      if (deferred == deferred_entry_origins.end()) return std::nullopt;
+      origin_coordinate = deferred->second;
+      entry_kind = BookControlKind::font;
+      // The empty-payload entry control is represented by its deferred run.
+      represented_segments.insert(origin_coordinate);
+    }
+    if (!run_origin_segments.insert(origin_coordinate).second)
+      return std::nullopt;
+    if (entry_kind == BookControlKind::title) {
       if (title_run != nullptr || origin_coordinate != *title_segment)
         return std::nullopt;
       title_run = &run;
-    } else if (run.control_kind == BookControlKind::font) {
+    } else if (entry_kind == BookControlKind::font) {
       if (entry_segments.count(origin_coordinate) == 0) return std::nullopt;
-      if (origin.start == PhysicalRowStartKind::placeholder_wrap ||
-          (origin.start == PhysicalRowStartKind::control_payload &&
-           origin.native_origin <= 3))
-        return std::nullopt;
       if (origin.marker && (origin.marker->decoded_text == "[" ||
                             origin.marker->decoded_text == "]"))
         return std::nullopt;
@@ -397,6 +446,10 @@ std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
   catalog.title_source_rows.push_back(title_row_sources.front());
   const auto gap = wide_gap(title_rows.front());
   if (gap == std::string::npos) {
+    // Without a wide field boundary the row is the title alone; an internal
+    // spacing run wider than a word gap but narrower than a field boundary
+    // leaves the title/introduction split ambiguous and fails closed.
+    if (ambiguous_field_gap(title_rows.front())) return std::nullopt;
     catalog.title = collapse_ascii_whitespace(title_rows.front());
   } else {
     catalog.title = collapse_ascii_whitespace(title_rows.front().substr(0, gap));
@@ -422,7 +475,11 @@ std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
     }
   }
   catalog.introduction = collapse_ascii_whitespace(catalog.introduction);
-  if (catalog.title.empty() || catalog.introduction.empty())
+  // A single-row title run with no wide field carries no introduction; the
+  // catalog is then title plus entries. Introduction provenance exists exactly
+  // when introduction text does.
+  if (catalog.title.empty() ||
+      catalog.introduction.empty() != catalog.introduction_source_rows.empty())
     return std::nullopt;
 
   const DisplayRunIR* previous_entry_run = nullptr;
@@ -521,8 +578,13 @@ std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
   if (!std::any_of(catalog.entries.begin(), catalog.entries.end(),
                    entry_run_owned))
     return std::nullopt;
+  // A catalog without a `publication(s)` title role is admitted only as a
+  // citation list: every entry carries an IBM publication number and at least
+  // two entries are independently controlled entry runs. A single cited
+  // number is a sentence citing a manual, not a catalog.
   const auto citation_catalog =
-      !catalog.entries.empty() &&
+      std::count_if(catalog.entries.begin(), catalog.entries.end(),
+                    entry_run_owned) >= 2 &&
       std::all_of(catalog.entries.begin(), catalog.entries.end(),
                   [](const auto& entry) {
                     return has_ibm_document_number(entry.text);
