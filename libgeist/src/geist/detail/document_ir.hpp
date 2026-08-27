@@ -14,8 +14,17 @@ struct TextInlineIR {
   std::string text;
 };
 
+enum class EmphasisKindIR {
+  emphasis,
+  strong,
+  strong_emphasis,
+};
+
+// Typed inline emphasis. The kind is a presentation fact carried from typed
+// font provenance (HP1/HP2/HP3); renderers choose the target syntax.
 struct EmphasisInlineIR {
   std::string text;
+  EmphasisKindIR kind = EmphasisKindIR::emphasis;
 };
 
 struct CodeInlineIR {
