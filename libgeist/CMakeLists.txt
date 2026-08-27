@@ -586,3 +586,24 @@ add_executable(geist_open_benchmark
   tests/open_benchmark.cpp
 )
 target_link_libraries(geist_open_benchmark PRIVATE geist::geist_static)
+
+# Whole-corpus sweeps, full-book exports, and multi-minute production renders.
+# They remain part of the full gate; iterate with `ctest -LE slow` and run
+# `ctest -L slow -j4` (they contend for memory bandwidth, not CPU) before
+# committing.
+set_tests_properties(
+  message_topic_ir_synthetic_test
+  message_document_lowering_synthetic_test
+  message_section_blocks_ir_synthetic_test
+  message_production_test
+  logical_source_index_test
+  generated_list_topic_ir_synthetic_test
+  glossary_catalog_ir_synthetic_test
+  selector_display_ir_synthetic_test
+  qs3x36cm_markdown_test
+  sc31_711_cross_references_test
+  lazy_open_sc34_425_test
+  lazy_open_sc31_711_catalogs_test
+  boo2git_glossary_test
+  boo2git_message_links_test
+  PROPERTIES LABELS slow)

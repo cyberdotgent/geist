@@ -953,3 +953,8 @@
   them in parallel and a failure names its book. SC34-425 alone costs ~98 s
   and SC31-711's message/glossary catalogs ~140 s; those are the profiling
   targets if decoded-IR caching is pursued.
+- Labelled the whole-corpus sweeps, full-book exports, and multi-minute
+  production renders `slow` in CTest. `ctest -LE slow -j16` runs the 40-test
+  iteration tier in about 19 s; the 14 `slow` tests remain the full gate and
+  should run at `-j4` because they contend for memory bandwidth (at `-j16`
+  they take four to six times longer each).
