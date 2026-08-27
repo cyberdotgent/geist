@@ -12,6 +12,25 @@ import sys
 import urllib.request
 
 
+FOOTER_PATTERN = re.compile(
+    r"<hr>\s*<br>\s*<a href=\"[^\"]*\">\s*<img src=\"/bookmgr/(?:prev|next)\.gif",
+    re.IGNORECASE,
+)
+
+
+def strip_bookserver_footer(source: str) -> str:
+    """Cut the hosted page at the prev/next navigation that ends the body.
+
+    The body is delimited by bare <hr> tags, but BookServer also emits
+    decorative rules inside the body: catalog separators wrapped as
+    <a name="MSG ..."><hr></a> and attributed letter rules such as
+    <hr size=4 width=100>. Only the bare <hr> before the navigation ends the
+    topic.
+    """
+    match = FOOTER_PATTERN.search(source)
+    return source[: match.start()] if match else source
+
+
 def normalize_inline(value: str) -> str:
     value = html.unescape(value)
     value = value.replace("\xa0", " ")
@@ -19,6 +38,11 @@ def normalize_inline(value: str) -> str:
     value = re.sub(r"\s+([,.;:!?])", r"\1", value)
     value = re.sub(r"(\*{1,3})\s+", r"\1", value)
     value = re.sub(r"\s+(\*{1,3})", r"\1", value)
+    # BookServer emphasizes word by word (<B>a</B> <B>b</B>) while Markdown
+    # styles one run; compare the content, not the span boundaries.
+    value = value.replace("****", " ").replace("**", "").replace("*", "")
+    # Label/body spacing differs between <B>Label:</B> body and Markdown.
+    value = re.sub(r":\s+", ":", value)
     return value
 
 
@@ -38,9 +62,10 @@ class BookServerParser(HTMLParser):
         if self.done:
             return
         if tag == "hr":
+            # The footer is stripped before parsing; the first <hr> opens the
+            # body and later rules are decorative separators.
             if self.in_content:
                 self.flush()
-                self.done = True
             else:
                 self.in_content = True
             return
@@ -105,11 +130,42 @@ class BookServerParser(HTMLParser):
         self.marker_stack = []
 
 
+ANCHOR_ONLY = re.compile(r"^(?:<a id=\"[^\"]*\"></a>\s*)+$")
+
+
+def merge_label_blocks(blocks: list[str]) -> list[str]:
+    """Remove anchor-only blocks and attach bare label blocks to their body.
+
+    BookServer sometimes emits a section label such as "Meaning:" as its own
+    block and sometimes inline with the body; Markdown anchors have no hosted
+    counterpart. Neither difference is content.
+    """
+    result: list[str] = []
+    pending: str | None = None
+    for block in blocks:
+        kind, _, text = block.partition(": ")
+        if kind == "P" and ANCHOR_ONLY.match(text):
+            continue
+        if pending is not None:
+            if kind == "P":
+                block = f"P: {pending}{text}"
+            else:
+                result.append(f"P: {pending}")
+            pending = None
+        if kind == "P" and text.endswith(":") and len(text.split()) <= 3:
+            pending = text
+            continue
+        result.append(block)
+    if pending is not None:
+        result.append(f"P: {pending}")
+    return result
+
+
 def normalize_bookserver_html(source: str) -> list[str]:
     parser = BookServerParser()
-    parser.feed(source)
+    parser.feed(strip_bookserver_footer(source))
     parser.flush()
-    return parser.blocks
+    return merge_label_blocks(parser.blocks)
 
 
 def normalize_markdown_heading(text: str) -> str:
@@ -126,7 +182,13 @@ def normalize_markdown(source: str) -> list[str]:
     def flush_paragraph() -> None:
         if not paragraph:
             return
-        value = normalize_inline(" ".join(paragraph))
+        value = " ".join(paragraph)
+        # Markdown-only syntax: backslash escapes, list markers, and the
+        # em-dash used to join definition-list terms to their descriptions.
+        value = re.sub(r"\\(.)", r"\1", value)
+        value = re.sub(r"(^|\s)[-*]\s+", r"\1", value)
+        value = value.replace("\u2014", " ")
+        value = normalize_inline(value)
         if value:
             blocks.append(f"P: {value}")
         paragraph.clear()
@@ -150,7 +212,8 @@ def normalize_markdown(source: str) -> list[str]:
         paragraph.append(line)
 
     flush_paragraph()
-    return blocks
+    return merge_label_blocks(blocks)
+
 
 
 def fetch_url(url: str, timeout: float) -> str:

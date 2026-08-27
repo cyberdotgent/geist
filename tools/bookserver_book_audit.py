@@ -20,6 +20,7 @@ import urllib.request
 from bookserver_html_compare import (
     normalize_bookserver_html,
     normalize_markdown,
+    strip_bookserver_footer,
 )
 
 
@@ -43,9 +44,9 @@ class StructureParser(HTMLParser):
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         tag = tag.lower()
         if tag == "hr":
-            if self.in_content:
-                self.done = True
-            elif not self.done:
+            # The footer is stripped before parsing; the first <hr> opens the
+            # body and later rules are decorative separators.
+            if not self.in_content:
                 self.in_content = True
             return
         if not self.in_content or self.done:
@@ -206,7 +207,7 @@ def markdown_structure(source: str) -> dict[str, int]:
 
 def reference_structure(source: str) -> dict[str, int]:
     parser = StructureParser()
-    parser.feed(source)
+    parser.feed(strip_bookserver_footer(source))
     return parser.counts
 
 
