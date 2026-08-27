@@ -91,6 +91,7 @@ set(GEIST_SOURCES
   src/logical.cpp
   src/markup.cpp
   src/message_ir.cpp
+  src/message_section_blocks_ir.cpp
   src/message_document_lowering.cpp
   src/message_topic_ir.cpp
   src/menu_document_lowering.cpp
@@ -268,6 +269,17 @@ target_compile_definitions(message_topic_ir_synthetic_test PRIVATE
 )
 add_test(NAME message_topic_ir_synthetic_test
   COMMAND message_topic_ir_synthetic_test)
+
+add_executable(message_section_blocks_ir_synthetic_test
+  tests/message_section_blocks_ir_synthetic.cpp
+)
+target_link_libraries(message_section_blocks_ir_synthetic_test
+  PRIVATE geist::geist_static)
+target_compile_definitions(message_section_blocks_ir_synthetic_test PRIVATE
+  GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+add_test(NAME message_section_blocks_ir_synthetic_test
+  COMMAND message_section_blocks_ir_synthetic_test)
 
 add_executable(message_document_lowering_synthetic_test
   tests/message_document_lowering_synthetic.cpp

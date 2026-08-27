@@ -361,12 +361,12 @@ int main() {
   const auto web_figures = web_demo.topic_markdown("FIGURES");
   require(web_figures.find("c.sp 3p p c") == std::string::npos,
           "generated figure-list spacing control leaked into Markdown");
-  require(web_figures.find("[1\\.  BookManager product family   1\\.2]") !=
+  require(web_figures.find(
+              "[1. BookManager product family 1.2](#FIGBIGPIC)") !=
               std::string::npos &&
               web_figures.find(
-                  "[3\\.  External JPEG format image presented in\\-line   "
-                  "1\\.4\\.1]") !=
-                  std::string::npos,
+                  "[3. External JPEG format image presented in-line 1.4.1]"
+                  "(#FIGMONET1)") != std::string::npos,
           "external-picture figure index retained selector metadata");
 
   const auto configuration_manager =
@@ -910,8 +910,9 @@ int main() {
 
   const auto lnm_messages = problem_determination.topic_markdown("5.0");
   require(lnm_messages.find(
-              "See [Chapter 2, \"Problem](#HDRPROBS) "
-              "[Determination\" in topic 2.0](#HDRPROBS) for instructions") !=
+              "See [Chapter 2, \"Problem](<#HDRPROBS>) "
+              "[Determination\" in topic 2\\.0](<#HDRPROBS>) for "
+              "instructions") !=
               std::string::npos,
           "wrapped same-target selectors lost their visible link sequence");
   for (const auto* expected : {
@@ -919,9 +920,9 @@ int main() {
            "<a id=\"MSG 1000-1999\"></a>",
            "<a id=\"MSG 2389\"></a>",
            "<a id=\"MSG 2502\"></a>",
-           "Restart** **the** **Concentrator** **view",
-           "concentrator** **view** **is** **set** **to** **unknown",
-           "has** **been** **removed** **from** **the** **database",
+           "Restart the Concentrator view application after the agent communication is reestablished",
+           "The view will be set to unknown while the problem persists",
+           "has been removed from the database",
            "This message usually indicates that the other process failed",
        }) {
     require(lnm_messages.find(expected) != std::string::npos,
@@ -935,8 +936,8 @@ int main() {
     require(lnm_messages.find(leaked) == std::string::npos,
             "LNM message catalog retained row carryover or metadata");
   }
-  require(substring_count(lnm_messages, "\n**Meaning:**") == 396 &&
-              substring_count(lnm_messages, "\n**Action:**") == 396,
+  require(substring_count(lnm_messages, "\n*Meaning:*") == 396 &&
+              substring_count(lnm_messages, "\n*Action:*") == 396,
           "LNM message catalog lost typed Meaning/Action paragraph boundaries");
 
   const auto lnm_glossary =
@@ -969,13 +970,13 @@ int main() {
           "LNM glossary introduction was lost or duplicated");
   for (const auto* expected : {
            "\n- The American National Standard Dictionary for Information "
-           "Systems, ANSI X3.172-1990",
-           "\n- The ANSI/EIA Standard--440-A, Fiber Optic Terminology.",
+           "Systems, ANSI X3\\.172\\-1990",
+           "\n- The ANSI/EIA Standard\\-\\-440\\-A, Fiber Optic Terminology\\.",
            "\n- The Information Technology Vocabulary, developed by "
            "Subcommittee 1",
-           "\n- The Network Working Group Request for Comments: 1208.",
-           "\n- The IBM Dictionary of Computing, New York: McGraw-Hill, "
-           "1994.",
+           "\n- The Network Working Group Request for Comments: 1208\\.",
+           "\n- The IBM Dictionary of Computing, New York: McGraw\\-Hill, "
+           "1994\\.",
            "**Contrast with:** This refers to a term",
            "**Deprecated term for:** This indicates that the term should not "
            "be used.",

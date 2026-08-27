@@ -110,11 +110,11 @@ int main() {
           "2.4.9 logging reference is not one complete anchor");
 
   const auto messages = sc31.topic_markdown("5.0");
-  require(count(messages, "](#HDRPROBS)") == 2 &&
-              messages.find("[Chapter 2, \"Problem](#HDRPROBS) ") !=
+  require(count(messages, "](<#HDRPROBS>)") == 2 &&
+              messages.find("[Chapter 2, \"Problem](<#HDRPROBS>) ") !=
                   std::string::npos &&
               messages.find(
-                  "[Determination\" in topic 2.0](#HDRPROBS)") !=
+                  "[Determination\" in topic 2\\.0](<#HDRPROBS>)") !=
                   std::string::npos,
           "5.0 changed the hosted two-anchor Problem Determination reference");
 
@@ -146,11 +146,11 @@ int main() {
           "packet footnote selector changed multiplicity");
   const auto figures = geist::BooDocument::open(root / "IEAC6MST.BOO")
                            .topic_markdown("FIGURES");
-  require(count(figures, "](<#FIGALLO>)") == 2 &&
-              figures.find("[2\\-2\\.  Sample CLIST to Add IPCS Libraries to "
-                           "Data Set Concatenations and](<#FIGALLO>)") !=
+  require(count(figures, "](#FIGALLO)") == 2 &&
+              figures.find("[2-2. Sample CLIST to Add IPCS Libraries to "
+                           "Data Set Concatenations and](#FIGALLO)") !=
                   std::string::npos &&
-              figures.find("[Access IPCS   2\\.6](<#FIGALLO>)") !=
+              figures.find("[Access IPCS 2.6](#FIGALLO)") !=
                   std::string::npos,
           "IEAC6MST adjacent typed same-target figure selectors were merged");
 }

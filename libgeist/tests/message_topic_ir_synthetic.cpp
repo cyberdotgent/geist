@@ -270,6 +270,29 @@ int main() {
     return text;
   };
 
+  for (const auto &entry : topic->catalog.entries) {
+    const auto headline = heading_text(entry.id);
+    require(headline.rfind(entry.id + " ", 0) == 0,
+            "message headline does not begin with its source ID");
+    auto after_id = entry.id.size();
+    while (after_id < headline.size() && headline[after_id] == ' ')
+      ++after_id;
+    require(headline.compare(after_id, entry.id.size(), entry.id) != 0,
+            "message headline repeats its source ID");
+    auto placeholder_depth = std::size_t{};
+    for (const auto character : headline) {
+      if (character == '<')
+        ++placeholder_depth;
+      else if (character == '>') {
+        require(placeholder_depth != 0,
+                "message headline has an unmatched closing placeholder");
+        --placeholder_depth;
+      }
+    }
+    require(placeholder_depth == 0,
+            "message headline has an unmatched opening placeholder");
+  }
+
   // Compact one-byte values are contextual boundary tokens, not a semantic
   // word range.  Value 34 at native origin 17 is an exact structural
   // collision: it is a non-visible row artifact in MSG739, but the lexical
@@ -283,6 +306,26 @@ int main() {
               artifact_and.row->marker->decoded_text == "and" &&
               lexical_and.row->marker->decoded_text == "and",
           "value-34 boundary collision lost its exact source evidence");
+  auto missing_boundary = ownership;
+  const auto boundary_cell = std::find_if(
+      missing_boundary.row_cells.begin(), missing_boundary.row_cells.end(),
+      [&](const auto &cell) {
+        return cell.run == artifact_and.source_row.first &&
+               cell.row_index == artifact_and.source_row.second &&
+               cell.logical_record == artifact_and.row->logical_record &&
+               cell.token_index == artifact_and.row->marker->token_index &&
+               cell.role == geist::detail::RowCellRole::boundary;
+      });
+  require(boundary_cell != missing_boundary.row_cells.end(),
+          "value-34 artifact has no positioned boundary evidence");
+  boundary_cell->role = geist::detail::RowCellRole::content;
+  boundary_cell->display_column = 0;
+  std::string missing_boundary_error;
+  require(!geist::detail::extract_message_topic_ir(
+              sources, layout, missing_boundary, &missing_boundary_error) &&
+              !missing_boundary_error.empty(),
+          "message extraction admitted a marker without its positioned "
+          "boundary role");
   const auto *artifact_and_semantic =
       find_semantic_row(message("739"), artifact_and.source_row);
   const auto *lexical_and_semantic =

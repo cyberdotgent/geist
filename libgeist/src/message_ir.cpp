@@ -45,6 +45,34 @@ bool numeric_message_id(const std::string &value) {
          numeric_id_part(value.substr(hyphen + 1));
 }
 
+bool starts_once_with_message_id(std::string_view text, std::string_view id) {
+  if (id.empty() || text.size() < id.size() || text.substr(0, id.size()) != id ||
+      (text.size() != id.size() &&
+       std::isspace(static_cast<unsigned char>(text[id.size()])) == 0))
+    return false;
+  auto next = id.size();
+  while (next < text.size() &&
+         std::isspace(static_cast<unsigned char>(text[next])) != 0)
+    ++next;
+  return text.substr(next, id.size()) != id ||
+         (next + id.size() < text.size() &&
+          std::isspace(static_cast<unsigned char>(text[next + id.size()])) == 0);
+}
+
+bool balanced_angle_placeholders(std::string_view text) {
+  auto depth = std::size_t{};
+  for (const auto character : text) {
+    if (character == '<')
+      ++depth;
+    else if (character == '>') {
+      if (depth == 0)
+        return false;
+      --depth;
+    }
+  }
+  return depth == 0;
+}
+
 const DecodedLogicalRecordSource *
 find_record(const std::vector<DecodedLogicalRecordSource> &records,
             std::uint32_t logical_record);
@@ -189,6 +217,8 @@ bool token_text_is(const LogicalTokenIR &token, std::string_view expected) {
 
 struct MessageOwnershipIndex {
   std::map<MessageSourceRowIR, std::vector<const OwnedSourceCellIR *>> rows;
+  std::map<MessageSourceRowIR, std::vector<const PositionedRowCellIR *>>
+      positioned_rows;
   std::map<MessageCellKey, const OwnedSourceCellIR *> cells;
   std::map<std::uint32_t, const DecodedLogicalRecordSource *> records;
   std::map<std::uint32_t, std::vector<std::vector<std::size_t>>> token_outputs;
@@ -262,6 +292,8 @@ index_message_ownership(const std::vector<DecodedLogicalRecordSource> &records,
     if (cell.run != 0)
       result.rows[{cell.run, cell.row_index}].push_back(&cell);
   }
+  for (const auto &cell : ownership.row_cells)
+    result.positioned_rows[{cell.run, cell.row_index}].push_back(&cell);
   return result;
 }
 
@@ -436,10 +468,10 @@ std::string owned_row_text(const MessageOwnershipIndex &ownership,
            std::count(row.visible_text.begin(), row.visible_text.end(), '<') <
                std::count(row.visible_text.begin(), row.visible_text.end(),
                           '>'));
-      // Compact values 19..43 are the terminal row-control alphabet only at
-      // this exact pre-section boundary. Preserve closing `>` when it balances
-      // a source placeholder on the same row; an otherwise isolated `<`/`>`
-      // is layout punctuation.
+      // TODO: This non-row terminal field still lacks a positioned ownership
+      // role. Keep the observed compact alphabet until OwnershipIR represents
+      // supplemental field boundaries; delimiter balancing prevents dropping
+      // source punctuation in the meantime.
       if (source.encoded.width == 1 && source.encoded.value >= 19 &&
           source.encoded.value <= 43 &&
           (alphabetic || terminal_punctuation)) {
@@ -661,14 +693,42 @@ bool closes_unmatched_delimiter(std::string_view prefix,
   return depth != 0;
 }
 
+bool opens_unmatched_delimiter(std::string_view opening,
+                               std::string_view suffix) {
+  if (opening.size() != 1)
+    return false;
+  const auto closing = [opening]() -> char {
+    switch (opening.front()) {
+    case '<': return '>';
+    case '(': return ')';
+    case '[': return ']';
+    case '{': return '}';
+    default: return '\0';
+    }
+  }();
+  if (closing == '\0')
+    return false;
+  auto depth = std::size_t{};
+  for (const auto character : suffix) {
+    if (character == opening.front())
+      ++depth;
+    else if (character == closing) {
+      if (depth == 0)
+        return true;
+      --depth;
+    }
+  }
+  return false;
+}
+
 std::vector<OpaqueSegmentFragment>
 opaque_segment_fragments(const DecodedLogicalRecordSource &record,
                          const MessageOwnershipIndex &ownership,
                          const ControlSegmentIR &segment) {
   const auto range =
       decoded_byte_range_to_word_range(record.assembled, segment.payload_range);
-  std::optional<std::size_t> terminal_layout_token;
-  std::optional<std::size_t> leading_layout_token;
+  auto terminal_layout_token = std::numeric_limits<std::size_t>::max();
+  auto leading_layout_token = std::numeric_limits<std::size_t>::max();
   for (std::size_t output = range.begin;
        output < range.end && output < record.assembled.sources.size();
        ++output) {
@@ -678,27 +738,26 @@ opaque_segment_fragments(const DecodedLogicalRecordSource &record,
     if (found != ownership.cells.end() &&
         found->second->disposition == SourceDisposition::opaque)
       terminal_layout_token = source.token_index;
-    if (!leading_layout_token && found != ownership.cells.end() &&
+    if (leading_layout_token == std::numeric_limits<std::size_t>::max() &&
+        found != ownership.cells.end() &&
         found->second->disposition == SourceDisposition::opaque)
       leading_layout_token = source.token_index;
   }
-  if (terminal_layout_token &&
-      *terminal_layout_token < record.ir.tokens.size()) {
-    const auto &token = record.ir.tokens[*terminal_layout_token];
-    // Fixed display fragments terminate immediately before the next typed
-    // control. At that exact boundary compact values 19..43 are the observed
-    // row-control alphabet (including token-map spellings such as "and" and
-    // "agent"), not prose. Preserve the same spellings everywhere else.
+  if (terminal_layout_token < record.ir.tokens.size()) {
+    const auto &token = record.ir.tokens[terminal_layout_token];
+    // TODO: Opaque, non-row fragments do not yet have positioned field roles.
+    // Keep the observed compact alphabet until OwnershipIR represents those
+    // boundaries; never use it to classify a positioned row marker.
     if (token.encoded.width != 1 || token.encoded.value < 19 ||
         token.encoded.value > 43)
-      terminal_layout_token.reset();
+      terminal_layout_token = std::numeric_limits<std::size_t>::max();
     else {
       std::string preceding_text;
       for (std::size_t output = range.begin;
            output < range.end && output < record.assembled.sources.size();
            ++output) {
         const auto &source = record.assembled.sources[output];
-        if (source.token_index == *terminal_layout_token)
+        if (source.token_index == terminal_layout_token)
           break;
         const auto found = ownership.cells.find(
             {record.logical_record, source.token_index, source.word_index});
@@ -709,14 +768,16 @@ opaque_segment_fragments(const DecodedLogicalRecordSource &record,
       }
       if (closes_unmatched_delimiter(preceding_text,
                                      decoded_token_text(token)))
-        terminal_layout_token.reset();
+        terminal_layout_token = std::numeric_limits<std::size_t>::max();
     }
   }
-  if (leading_layout_token && *leading_layout_token < record.ir.tokens.size()) {
-    const auto &token = record.ir.tokens[*leading_layout_token];
+  if (leading_layout_token < record.ir.tokens.size()) {
+    const auto &token = record.ir.tokens[leading_layout_token];
+    // TODO: As above, this opaque prefix needs a positioned supplemental-field
+    // role before its compact envelope can be retired safely.
     auto followed_by_padding = false;
     for (const auto source_token : segment.source_tokens) {
-      if (source_token <= *leading_layout_token ||
+      if (source_token <= leading_layout_token ||
           source_token >= record.ir.tokens.size())
         continue;
       followed_by_padding = structural_padding_token(record.ir.tokens[source_token]);
@@ -724,7 +785,25 @@ opaque_segment_fragments(const DecodedLogicalRecordSource &record,
     }
     if (token.encoded.width != 1 || token.encoded.value < 19 ||
         token.encoded.value > 43 || !followed_by_padding)
-      leading_layout_token.reset();
+      leading_layout_token = std::numeric_limits<std::size_t>::max();
+    else {
+      std::string following_text;
+      for (std::size_t output = range.begin;
+           output < range.end && output < record.assembled.sources.size();
+           ++output) {
+        const auto &source = record.assembled.sources[output];
+        if (source.token_index <= leading_layout_token)
+          continue;
+        const auto found = ownership.cells.find(
+            {record.logical_record, source.token_index, source.word_index});
+        if (found != ownership.cells.end() &&
+            found->second->disposition == SourceDisposition::opaque &&
+            found->second->word <= 0xff && !unmapped_cell(record, *found->second))
+          following_text.push_back(static_cast<char>(found->second->word));
+      }
+      if (opens_unmatched_delimiter(decoded_token_text(token), following_text))
+        leading_layout_token = std::numeric_limits<std::size_t>::max();
+    }
   }
   std::vector<OpaqueSegmentFragment> result;
   std::string text;
@@ -761,12 +840,8 @@ opaque_segment_fragments(const DecodedLogicalRecordSource &record,
         finish();
       continue;
     }
-    const auto is_leading_layout =
-        leading_layout_token.value_or(std::numeric_limits<std::size_t>::max()) ==
-        source.token_index;
-    const auto is_terminal_layout =
-        terminal_layout_token.value_or(
-            std::numeric_limits<std::size_t>::max()) == source.token_index;
+    const auto is_leading_layout = leading_layout_token == source.token_index;
+    const auto is_terminal_layout = terminal_layout_token == source.token_index;
     if (is_leading_layout || is_terminal_layout) {
       if (source.word_index == 0)
         suppressed_layout_tokens.push_back(
@@ -825,25 +900,50 @@ std::string complete_segment_text(const DecodedLogicalRecordSource &record,
   return result;
 }
 
-bool compact_fixed_row_candidate(const PhysicalRowIR &row) {
-  return row.marker &&
+bool has_positioned_boundary(const MessageOwnershipIndex &ownership,
+                             const MessageSourceRowIR &source,
+                             const PhysicalRowIR &row) {
+  if (!row.marker)
+    return false;
+  const auto positioned = ownership.positioned_rows.find(source);
+  return positioned != ownership.positioned_rows.end() &&
+         std::any_of(positioned->second.begin(), positioned->second.end(),
+                     [&](const auto *cell) {
+                       return cell->role == RowCellRole::boundary &&
+                              !cell->display_column &&
+                              cell->logical_record == row.logical_record &&
+                              cell->token_index == row.marker->token_index;
+                     });
+}
+
+bool compact_fixed_row_candidate(const MessageOwnershipIndex &ownership,
+                                 const DisplayRunIR &run,
+                                 std::size_t row_index) {
+  if (row_index >= run.rows.size())
+    return false;
+  const auto &row = run.rows[row_index];
+  // TODO: The positioned ledger marks every marker slot as a geometry-only
+  // boundary and cannot yet distinguish a fixed-field series from wrapped
+  // prose ordinals (MSG2267 `1`..`5`) or the value-34 `and` collision between
+  // MSG739 and MSG2108. Keep the observed compact alphabet and indentation as
+  // series evidence until OwnershipIR carries a typed boundary purpose.
+  return has_positioned_boundary(ownership, {run.id, row_index}, row) &&
          row.start == PhysicalRowStartKind::explicit_marker_slot &&
          !row.continues_previous_record && row.marker->encoded_width == 1 &&
          row.marker->encoded_value >= 19 && row.marker->encoded_value <= 43 &&
          row.native_origin >= 13;
 }
 
-bool has_compact_fixed_row_context(const DisplayRunIR &run,
-                                   std::size_t row_index) {
-  if (row_index >= run.rows.size() ||
-      !compact_fixed_row_candidate(run.rows[row_index]))
+bool has_fixed_row_context(const MessageOwnershipIndex &ownership,
+                           const DisplayRunIR &run, std::size_t row_index) {
+  if (!compact_fixed_row_candidate(ownership, run, row_index))
     return false;
   const auto &row = run.rows[row_index];
   const auto adjacent_candidate = [&](std::size_t candidate) {
     return candidate < run.rows.size() &&
            run.rows[candidate].logical_record == row.logical_record &&
            run.rows[candidate].segment_index == row.segment_index &&
-           compact_fixed_row_candidate(run.rows[candidate]);
+           compact_fixed_row_candidate(ownership, run, candidate);
   };
   // One compact spelling is ambiguous.  A neighboring row with the same
   // mechanical envelope establishes a fixed-position row series without
@@ -855,14 +955,14 @@ bool has_compact_fixed_row_context(const DisplayRunIR &run,
   // A font control can host one isolated indented row between two explicit
   // sentence rows.  In that envelope the compact slot is the row delimiter;
   // an otherwise identical compact word in an unstyled text run remains
-  // lexical.  This is the single-row counterpart of the repeated fixed-row
-  // evidence above and deliberately does not inspect decoded spelling.
+  // lexical.  This deliberately does not inspect decoded spelling.
   const auto sentence_row = [&](std::size_t candidate) {
     if (candidate >= run.rows.size())
       return false;
     const auto &neighbor = run.rows[candidate];
     return neighbor.logical_record == row.logical_record &&
            neighbor.segment_index == row.segment_index && neighbor.marker &&
+           has_positioned_boundary(ownership, {run.id, candidate}, neighbor) &&
            neighbor.start == PhysicalRowStartKind::explicit_marker_slot &&
            neighbor.native_origin == 1 &&
            neighbor.marker->encoded_width == 1 &&
@@ -874,12 +974,16 @@ bool has_compact_fixed_row_context(const DisplayRunIR &run,
 
 MessageMarkerDispositionIR marker_disposition(const DisplayRunIR &run,
                                               const PhysicalRowIR &row,
+                                              const MessageOwnershipIndex &ownership,
                                               bool section_label,
                                               std::size_t row_index,
-                                              bool has_opaque_prefix) {
+                                              bool has_opaque_prefix,
+                                              bool initial_headline_row) {
   if (!row.marker)
     return MessageMarkerDispositionIR::absent;
-  if (section_label)
+  if (!has_positioned_boundary(ownership, {run.id, row_index}, row))
+    return MessageMarkerDispositionIR::layout_artifact;
+  if (section_label || initial_headline_row)
     return MessageMarkerDispositionIR::layout_artifact;
   const auto &marker = *row.marker;
   const auto single = marker.decoded_text.size() == 1
@@ -891,8 +995,10 @@ MessageMarkerDispositionIR marker_disposition(const DisplayRunIR &run,
     return MessageMarkerDispositionIR::layout_artifact;
   if (single == '.' || single == ',' || single == ':' || single == ';' ||
       single == '!' || single == '?' || single == ']' || single == '}') {
-    // Value 4 is the catalog's mechanical soft-wrap placeholder, even though
-    // its token-map projection is a question mark.
+    // TODO: Positioned ownership currently identifies the marker as a row
+    // boundary but does not distinguish an isolated soft wrap from visible
+    // punctuation. Preserve the observed decoder sentinel until that lower
+    // layer supplies a typed boundary purpose.
     if (marker.encoded_value == 4)
       return MessageMarkerDispositionIR::layout_artifact;
     // A punctuation token at the first explicit marker slot belongs to the
@@ -916,7 +1022,7 @@ MessageMarkerDispositionIR marker_disposition(const DisplayRunIR &run,
     // alphabet only at the first explicit marker slot of a new run. The same
     // spelling elsewhere is lexical; high dictionary values such as MSG023's
     // "The" are lexical even after terminal punctuation.
-    if (has_compact_fixed_row_context(run, row_index))
+    if (has_fixed_row_context(ownership, run, row_index))
       return MessageMarkerDispositionIR::layout_artifact;
     return MessageMarkerDispositionIR::lexical_prefix;
   }
@@ -928,7 +1034,8 @@ semantic_row(const std::vector<DecodedLogicalRecordSource> &records,
              const MessageOwnershipIndex &ownership, const PhysicalRowIR &row,
              const DisplayRunIR &run, std::size_t row_index, bool section_label,
              bool suppress_terminal_layout_word = false,
-             bool recover_segment_suffix = false) {
+             bool recover_segment_suffix = false,
+             bool initial_headline_row = false) {
   MessageSemanticRowIR result;
   result.source_row = {run.id, row_index};
   auto visible = collapse_ascii_whitespace(trim_ascii(
@@ -940,7 +1047,8 @@ semantic_row(const std::vector<DecodedLogicalRecordSource> &records,
   if (!prefix.empty())
     result.leading_source_slices.push_back(prefix_source);
   result.marker_disposition =
-      marker_disposition(run, row, section_label, row_index, !prefix.empty());
+      marker_disposition(run, row, ownership, section_label, row_index,
+                         !prefix.empty(), initial_headline_row);
   if (row.marker &&
       result.marker_disposition ==
           MessageMarkerDispositionIR::opaque_continuation_suffix) {
@@ -1033,6 +1141,12 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
   if (records.empty() || !ownership.conflicts.empty())
     return fail("source ownership is unavailable or conflicted");
   const auto ownership_index = index_message_ownership(records, ownership);
+  for (const auto &run : layout.runs)
+    for (std::size_t row_index = 0; row_index < run.rows.size(); ++row_index)
+      if (run.rows[row_index].marker &&
+          !has_positioned_boundary(ownership_index, {run.id, row_index},
+                                   run.rows[row_index]))
+        return fail("message row lacks positioned boundary provenance");
 
   std::map<SegmentKey, std::vector<SegmentRow>> rows_by_segment;
   std::set<SegmentKey> later_continuation;
@@ -1046,10 +1160,24 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
           later_continuation.emplace(row.logical_record, segment);
     }
   std::map<SegmentKey, std::size_t> entry_by_segment;
+  // A record-terminal SRMSG with an empty payload has its payload (the
+  // message separator row) physically carried by the next record's leading
+  // text segment. That segment is message_start payload, not entry text.
+  std::set<SegmentKey> message_start_overflow;
   MessageCatalogIR catalog;
   std::optional<std::size_t> active;
   bool saw_nonnumeric_message = false;
+  bool pending_message_start_overflow = false;
   for (const auto &record : records) {
+    if (pending_message_start_overflow && !record.control_segments.empty() &&
+        record.control_segments.front().kind == BookControlKind::text &&
+        record.control_segments.front().segment_index == 0)
+      message_start_overflow.emplace(record.logical_record, 0);
+    pending_message_start_overflow =
+        !record.control_segments.empty() &&
+        record.control_segments.back().kind == BookControlKind::message_start &&
+        record.control_segments.back().payload_range.begin ==
+            record.control_segments.back().payload_range.end;
     for (const auto &segment : record.control_segments) {
       if (segment.kind == BookControlKind::message_start) {
         // Text physically carried in an SRMSG control's own payload precedes
@@ -1178,7 +1306,8 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
     if (!run_owner)
       continue;
     auto &entry = catalog.entries[*run_owner];
-    if (run.control_kind == BookControlKind::structural ||
+    if (run.control_kind == BookControlKind::message_start ||
+        run.control_kind == BookControlKind::structural ||
         run.control_kind == BookControlKind::unknown) {
       for (std::size_t row_index = 0; row_index < run.rows.size();
            ++row_index) {
@@ -1252,6 +1381,17 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
         return fail("message run contains an unowned visible row");
       const MessageSourceRowIR source{run.id, row_index};
       entry.source_rows.push_back(source);
+      const auto *row_record = find_record(records, row.logical_record);
+      if (row_record == nullptr ||
+          row.segment_index >= row_record->control_segments.size())
+        return fail("message row has no decoded source segment");
+      if (row_record->control_segments[row.segment_index].kind ==
+              BookControlKind::message_start ||
+          message_start_overflow.count(
+              {row.logical_record, row.segment_index}) != 0) {
+        entry.suppressed_source_rows.push_back(source);
+        continue;
+      }
       const auto is_explicit_label = run_kind && label_row_index == row_index;
       const auto is_label =
           run_kind && (is_explicit_label || run_paragraph.text.empty());
@@ -1259,12 +1399,51 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
           row_index + 1 == run.rows.size() ||
           run.rows[row_index + 1].logical_record != row.logical_record ||
           run.rows[row_index + 1].segment_index != row.segment_index;
+      const auto initial_headline_row =
+          !active_section[*run_owner] && !run_kind &&
+          entry.headline.source_rows.empty() &&
+          entry.headline.source_segments.empty() && run_paragraph.text.empty();
+      auto preceding_text = run_paragraph.text;
+      if (preceding_text.empty()) {
+        if (active_section[*run_owner]) {
+          const auto &paragraphs =
+              entry.sections[*active_section[*run_owner]].paragraphs;
+          for (const auto &paragraph : paragraphs)
+            append_text(preceding_text, paragraph.text);
+        } else {
+          preceding_text = entry.headline.text;
+          for (const auto &continuation : entry.headline_continuations)
+            append_text(preceding_text, continuation.text);
+        }
+      }
       auto semantic = semantic_row(
           records, ownership_index, row, run, row_index, is_label,
           final_segment_row &&
               (!active_section[*run_owner] && !run_kind &&
                row_index + 1 == run.rows.size()),
-          final_segment_row);
+          final_segment_row, initial_headline_row);
+      auto terminal_context = preceding_text;
+      append_text(terminal_context, semantic.text);
+      if (semantic.terminal_layout_token &&
+          closes_unmatched_delimiter(
+              terminal_context,
+              semantic.terminal_layout_token->decoded_text)) {
+        semantic.text += semantic.terminal_layout_token->decoded_text;
+        semantic.terminal_layout_token.reset();
+      }
+      if (!initial_headline_row && row.marker &&
+          semantic.marker_disposition !=
+              MessageMarkerDispositionIR::lexical_prefix &&
+          opens_unmatched_delimiter(row.marker->decoded_text, semantic.text)) {
+        semantic.marker_disposition =
+            MessageMarkerDispositionIR::lexical_prefix;
+        semantic.text = row.marker->decoded_text + semantic.text;
+      }
+      if (row.marker &&
+          closes_unmatched_delimiter(preceding_text,
+                                     row.marker->decoded_text))
+        semantic.marker_disposition =
+            MessageMarkerDispositionIR::punctuation_suffix;
       auto text = semantic.text;
       if (run_kind && is_explicit_label)
         text = typed_section_payload(catalog.boundaries[*run_boundary],
@@ -1433,6 +1612,8 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
           coordinate.second >= record->control_segments.size())
         continue;
       const auto &segment = record->control_segments[coordinate.second];
+      if (message_start_overflow.count(coordinate) != 0)
+        continue;
       const auto record_continuation =
           segment.kind == BookControlKind::unknown &&
           segment.segment_index == 0 &&
@@ -1463,8 +1644,9 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
             record->ir.tokens[lexical_tokens.front()].encoded.width == 1 &&
             record->ir.tokens[lexical_tokens.front()].encoded.value >= 19 &&
             record->ir.tokens[lexical_tokens.front()].encoded.value <= 43;
-        // Preserve even a single lexical word. Suppress only the exact
-        // one-token compact terminal-control envelope before SRMSG.
+        // TODO: Record-prefix fields have no positioned ownership role yet.
+        // Preserve even a single lexical word and retain this observed compact
+        // envelope only until supplemental boundary fields enter OwnershipIR.
         if (!terminal_marker_only)
           fragments.push_back({std::move(text), source, {}});
       } else {
@@ -1673,6 +1855,38 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
                                section.paragraphs.end());
     }
 
+    // Opaque fragments are attached and source-sorted after physical rows.
+    // Re-evaluate a row's tentative terminal suppression in that final source
+    // order so a delimiter can close a field introduced by an intervening
+    // opaque fragment.
+    auto headline_context = std::string{};
+    const auto restore_terminal_delimiter = [&](MessageParagraphIR &paragraph) {
+      for (auto &row : paragraph.semantic_rows) {
+        auto context = headline_context;
+        append_text(context, row.text);
+        if (row.terminal_layout_token &&
+            closes_unmatched_delimiter(
+                context, row.terminal_layout_token->decoded_text)) {
+          row.text += row.terminal_layout_token->decoded_text;
+          paragraph.text += row.terminal_layout_token->decoded_text;
+          row.terminal_layout_token.reset();
+        }
+      }
+      append_text(headline_context, paragraph.text);
+    };
+    if (!entry.headline.text.empty())
+      restore_terminal_delimiter(entry.headline);
+    for (auto &continuation : entry.headline_continuations)
+      restore_terminal_delimiter(continuation);
+
+    if (entry.headline.text.empty() &&
+        !entry.headline_continuations.empty() &&
+        starts_once_with_message_id(entry.headline_continuations.front().text,
+                                    entry.id)) {
+      entry.headline = std::move(entry.headline_continuations.front());
+      entry.headline_continuations.erase(
+          entry.headline_continuations.begin());
+    }
     if (entry.headline.text.empty()) {
       const auto *source = find_record(records, entry.logical_record);
       if (source != nullptr) {
@@ -1683,18 +1897,29 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
               return segment.kind == BookControlKind::font;
             });
         if (font != source->control_segments.end()) {
-          entry.headline.text = entry.id;
           const auto payload = collapse_ascii_whitespace(
               trim_ascii(range_text(*source, font->payload_range)));
-          append_text(entry.headline.text, payload);
-          entry.headline.source_segments.push_back(
-              {source->logical_record, font->segment_index});
+          if (!payload.empty()) {
+            entry.headline.text = entry.id;
+            append_text(entry.headline.text, payload);
+            entry.headline.source_segments.push_back(
+                {source->logical_record, font->segment_index});
+          }
         }
       }
     }
     if (entry.headline.text.empty() ||
         (entry.source_rows.empty() && entry.headline.source_segments.empty()))
       return fail("message entry lacks a source-proven headline: " + entry.id);
+    auto complete_headline = entry.headline.text;
+    for (const auto &continuation : entry.headline_continuations)
+      append_text(complete_headline, continuation.text);
+    if (!starts_once_with_message_id(complete_headline, entry.id))
+      return fail("message headline does not begin exactly once with its ID: " +
+                  entry.id + " [" + complete_headline + "]");
+    if (!balanced_angle_placeholders(complete_headline))
+      return fail("message headline has unbalanced placeholders: " + entry.id +
+                  " [" + complete_headline + "]");
     for (auto &section : entry.sections) {
       if (section.paragraphs.empty() ||
           section.paragraphs.front().text.empty() ||

@@ -932,3 +932,15 @@
   nine cross-book tests, and completed a fresh live 82-topic BookServer audit
   before closing issue 42 and transferring residual fixed-form cases to issue
   48.
+- Continued issue 58 P0 after a session handoff. Record-terminal empty-payload
+  `SRMSG` controls now own their overflowed separator row in the next record's
+  leading text segment (MSG2350's leaked `=`), the fixed-row series check keeps
+  compact-envelope evidence because the positioned ledger marks every marker
+  slot as a geometry-only boundary (MSG2267 ordinals, value-34 MSG739/MSG2108),
+  and the isolated `message_section_blocks_ir` layer selects MSG508's explicit
+  fallback from a row-less recovered paragraph. All 396 message headlines are
+  asserted to begin exactly once with their ID with balanced placeholders.
+  Refreshed `lazy_open` and `sc31_711_cross_references` expectations that
+  predated the typed message, generated-list, and glossary renderers; the
+  glossary introduction labels (`Contrast with:`) lost hosted bold styling in
+  typed glossary lowering and remain a recorded follow-up.

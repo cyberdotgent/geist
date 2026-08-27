@@ -57,6 +57,43 @@ int main() {
   require(count(markdown, "\n*Meaning:*") == 396 &&
               count(markdown, "\n*Action:*") == 396,
           "typed Meaning/Action boundary inventory changed");
+  auto message_cursor = std::size_t{};
+  auto verified_headlines = std::size_t{};
+  while ((message_cursor = markdown.find("<a id=\"MSG ", message_cursor)) !=
+         std::string::npos) {
+    const auto id_begin = message_cursor + std::string{"<a id=\"MSG "}.size();
+    const auto id_end = markdown.find("\"", id_begin);
+    require(id_end != std::string::npos,
+            "message anchor has no terminating quote");
+    const auto id = markdown.substr(id_begin, id_end - id_begin);
+    const auto headline_begin = markdown.find("\n\n*", id_end);
+    const auto headline_end = headline_begin == std::string::npos
+                                  ? std::string::npos
+                                  : markdown.find("*\n", headline_begin + 3);
+    require(headline_begin != std::string::npos &&
+                headline_end != std::string::npos,
+            "message anchor has no emphasized headline");
+    auto rendered_id = id;
+    for (auto dash = rendered_id.find('-'); dash != std::string::npos;
+         dash = rendered_id.find('-', dash + 2))
+      rendered_id.insert(dash, "\\");
+    const auto headline = markdown.substr(headline_begin + 3,
+                                          headline_end - headline_begin - 3);
+    require(headline.rfind(rendered_id + " ", 0) == 0,
+            "rendered message headline does not begin with its anchor ID: " +
+                id);
+    auto after_id = rendered_id.size();
+    while (after_id < headline.size() && headline[after_id] == ' ')
+      ++after_id;
+    require(headline.compare(after_id, rendered_id.size(), rendered_id) != 0,
+            "rendered message headline repeats its anchor ID: " + id);
+    require(count(headline, "\\<") == count(headline, "\\>"),
+            "rendered message headline has unbalanced placeholders: " + id);
+    ++verified_headlines;
+    message_cursor = headline_end + 2;
+  }
+  require(verified_headlines == 396,
+          "rendered message headline inventory changed");
   require(count(markdown, "](<#HDRPROBS>)") == 2 &&
               markdown.find("[Chapter 2, \"Problem](<#HDRPROBS>) "
                             "[Determination\" in topic 2\\.0](<#HDRPROBS>)") !=
