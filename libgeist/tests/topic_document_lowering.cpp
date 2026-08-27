@@ -32,7 +32,7 @@ int main() {
 
   std::string rejection;
   const auto nonmatch =
-      try_lower_topic_to_document_ir(identity(), {}, &rejection);
+      try_lower_topic_to_document_ir(identity(), {}, nullptr, &rejection);
   if (!require(!nonmatch, "source-free topic was admitted as typed") ||
       !require(rejection.empty(), "non-match was reported as a rejection"))
     return 1;

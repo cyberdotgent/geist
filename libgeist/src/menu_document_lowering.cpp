@@ -113,6 +113,14 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR identity,
   document.topic = std::move(identity);
   const auto heading_level =
       static_cast<std::uint32_t>(menu.heading_level.back() - '0');
+
+  if (menu.anchor) {
+    auto anchor_origin =
+        slice_origin(menu.anchor->source, "menu topic source anchor");
+    document.blocks.push_back(
+        {AnchorBlockIR{menu.anchor->id}, std::move(anchor_origin)});
+  }
+
   auto heading_origin = slice_origin(menu.title_source, "menu topic heading");
   auto heading_text_origin = cell_origin(menu.title_source, {&menu.title_cells},
                                          "menu topic heading text");
@@ -121,11 +129,20 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR identity,
                       {{TextInlineIR{menu.title}, heading_text_origin}}},
        heading_origin});
 
-  if (menu.anchor) {
-    auto anchor_origin =
-        slice_origin(menu.anchor->source, "menu topic source anchor");
+  for (const auto &paragraph : menu.introductions) {
+    if (paragraph.text.empty() || !valid_slice(paragraph.source) ||
+        !cells_belong_to(paragraph.cells, paragraph.source)) {
+      fail(error, "menu introduction semantics are incomplete");
+      return std::nullopt;
+    }
+    auto paragraph_origin =
+        slice_origin(paragraph.source, "menu topic introduction");
+    auto text_origin = cell_origin(paragraph.source, {&paragraph.cells},
+                                   "menu topic introduction text");
     document.blocks.push_back(
-        {AnchorBlockIR{menu.anchor->id}, std::move(anchor_origin)});
+        {ParagraphBlockIR{{{TextInlineIR{paragraph.text},
+                            std::move(text_origin)}}},
+         std::move(paragraph_origin)});
   }
 
   ListBlockIR list;

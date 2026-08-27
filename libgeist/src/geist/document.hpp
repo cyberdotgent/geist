@@ -18,6 +18,7 @@
 namespace geist {
 
 namespace detail {
+struct BookTopicCatalogIR;
 struct LogicalDecodeContext;
 }
 
@@ -96,6 +97,7 @@ private:
   mutable std::vector<std::string> raw_gml_records_;
   mutable bool raw_gml_records_loaded_ = false;
   std::vector<ResourceEntry> resources_;
+  std::shared_ptr<const detail::BookTopicCatalogIR> topic_catalog_ir_;
   std::shared_ptr<detail::LogicalDecodeContext> decode_context_;
 };
 

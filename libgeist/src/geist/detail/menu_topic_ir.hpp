@@ -31,6 +31,12 @@ struct MenuTopicSegmentIR {
   DocumentSourceSliceIR source;
 };
 
+struct MenuTopicParagraphIR {
+  std::string text;
+  DocumentSourceSliceIR source;
+  std::vector<MenuSourceCellIR> cells;
+};
+
 struct MenuTargetValidationEntryIR {
   std::string target;
   std::string label;
@@ -63,6 +69,7 @@ struct MenuTopicIR {
   std::string title;
   DocumentSourceSliceIR title_source;
   std::vector<MenuSourceCellIR> title_cells;
+  std::vector<MenuTopicParagraphIR> introductions;
   std::optional<MenuTopicAnchorIR> anchor;
   std::vector<MenuTopicItemIR> items;
   std::vector<MenuTopicSegmentIR> segments;

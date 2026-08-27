@@ -109,10 +109,18 @@ bool same_topic(const MenuTopicIR &left, const MenuTopicIR &right) {
   if (left.heading_level != right.heading_level || left.title != right.title ||
       !same_slice(left.title_source, right.title_source) ||
       !same_cells(left.title_cells, right.title_cells) ||
+      left.introductions.size() != right.introductions.size() ||
       left.anchor.has_value() != right.anchor.has_value() ||
       left.items.size() != right.items.size() ||
       left.segments.size() != right.segments.size())
     return false;
+  for (std::size_t index = 0; index < left.introductions.size(); ++index) {
+    const auto &a = left.introductions[index];
+    const auto &b = right.introductions[index];
+    if (a.text != b.text || !same_slice(a.source, b.source) ||
+        !same_cells(a.cells, b.cells))
+      return false;
+  }
   if (left.anchor && (left.anchor->id != right.anchor->id ||
                       !same_slice(left.anchor->source, right.anchor->source)))
     return false;
@@ -133,6 +141,125 @@ bool same_topic(const MenuTopicIR &left, const MenuTopicIR &right) {
       return false;
   }
   return true;
+}
+
+std::string cell_text(const std::vector<MenuSourceCellIR> &cells) {
+  TokenWords words;
+  words.reserve(cells.size());
+  for (const auto &cell : cells)
+    words.push_back(cell.word);
+  return collapse_ascii_whitespace(
+      trim_ascii(token_words_to_ascii(words)));
+}
+
+bool ascii_space(std::uint16_t word) {
+  return word <= 0x7f &&
+         std::isspace(static_cast<unsigned char>(word)) != 0;
+}
+
+void trim_cells(std::vector<MenuSourceCellIR> &cells) {
+  while (!cells.empty() && ascii_space(cells.front().word))
+    cells.erase(cells.begin());
+  while (!cells.empty() && ascii_space(cells.back().word))
+    cells.pop_back();
+}
+
+const OwnedSourceCellIR *owned_cell(const OwnershipIR &ownership,
+                                    const MenuSourceCellIR &cell) {
+  const auto found = std::find_if(
+      ownership.cells.begin(), ownership.cells.end(), [&](const auto &owned) {
+        return owned.logical_record == cell.logical_record &&
+               owned.token_index == cell.token_index &&
+               owned.word_index == cell.word_index;
+      });
+  return found == ownership.cells.end() ? nullptr : &*found;
+}
+
+bool split_title_and_introduction(
+    const std::vector<MenuSourceCellIR> &payload_cells,
+    const LayoutIR &layout, const OwnershipIR &ownership,
+    std::vector<MenuSourceCellIR> *title,
+    std::vector<MenuSourceCellIR> *introduction) {
+  struct PaddingRun {
+    std::size_t begin = 0;
+    std::size_t end = 0;
+    DisplayRunId run = 0;
+    std::size_t row = 0;
+  };
+  std::vector<PaddingRun> padding_runs;
+  for (const auto &cell : payload_cells) {
+    const auto *owned = owned_cell(ownership, cell);
+    if (owned == nullptr ||
+        owned->disposition != SourceDisposition::layout_padding)
+      continue;
+    if (padding_runs.empty() ||
+        padding_runs.back().end != cell.output_word_index ||
+        padding_runs.back().run != owned->run ||
+        padding_runs.back().row != owned->row_index) {
+      padding_runs.push_back({cell.output_word_index,
+                              cell.output_word_index + 1, owned->run,
+                              owned->row_index});
+    } else {
+      padding_runs.back().end = cell.output_word_index + 1;
+    }
+  }
+
+  std::vector<PaddingRun> candidates;
+  for (const auto &padding : padding_runs) {
+    // The observed menu title/intro form is a fixed 50-column layout: a
+    // source-proven gap of at least ten cells ends immediately before column
+    // 50. Shorter padding remains ordinary within-field layout.
+    if (padding.end - padding.begin < 10)
+      continue;
+    const MenuSourceCellIR *origin = nullptr;
+    const MenuSourceCellIR *before = nullptr;
+    const MenuSourceCellIR *after = nullptr;
+    for (const auto &cell : payload_cells) {
+      const auto *owned = owned_cell(ownership, cell);
+      if (owned == nullptr || owned->run != padding.run ||
+          owned->row_index != padding.row)
+        continue;
+      if (owned->disposition == SourceDisposition::layout_origin)
+        origin = &cell;
+      if (owned->disposition != SourceDisposition::visible_content)
+        continue;
+      if (cell.output_word_index < padding.begin)
+        before = &cell;
+      else if (cell.output_word_index >= padding.end && after == nullptr)
+        after = &cell;
+    }
+    const auto run = std::find_if(layout.runs.begin(), layout.runs.end(),
+                                  [&](const auto &candidate) {
+                                    return candidate.id == padding.run;
+                                  });
+    if (origin == nullptr || before == nullptr || after == nullptr ||
+        run == layout.runs.end() || padding.row >= run->rows.size())
+      continue;
+    const auto &row = run->rows[padding.row];
+    const auto intro_column = row.native_origin +
+                              (after->output_word_index -
+                               origin->output_word_index) -
+                              1;
+    if (intro_column == 50)
+      candidates.push_back(padding);
+  }
+  if (candidates.size() > 1)
+    return false;
+  if (candidates.empty()) {
+    *title = payload_cells;
+    trim_cells(*title);
+    return !title->empty();
+  }
+  const auto &separator = candidates.front();
+  for (const auto &cell : payload_cells) {
+    if (cell.output_word_index < separator.begin)
+      title->push_back(cell);
+    else if (cell.output_word_index >= separator.end)
+      introduction->push_back(cell);
+  }
+  trim_cells(*title);
+  trim_cells(*introduction);
+  return !title->empty() && !introduction->empty();
 }
 
 } // namespace
@@ -291,13 +418,24 @@ extract_menu_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
       segments[index].segment->malformed)
     return reject("menu topic has no canonical ST title");
   const auto &title_segment = *segments[index].segment;
-  result.title = collapse_ascii_whitespace(trim_ascii(
-      range_text(*segments[index].record, title_segment.payload_range)));
   result.title_source = source_slice(*segments[index].record, title_segment);
-  result.title_cells =
+  const auto payload_cells =
       source_cells(*segments[index].record, title_segment.payload_range);
+  std::vector<MenuSourceCellIR> introduction_cells;
+  if (!split_title_and_introduction(payload_cells, layout, ownership,
+                                    &result.title_cells,
+                                    &introduction_cells))
+    return reject("menu topic ST title/intro ownership is incomplete");
+  result.title = cell_text(result.title_cells);
+  if (!introduction_cells.empty())
+    result.introductions.push_back(
+        {cell_text(introduction_cells), result.title_source,
+         std::move(introduction_cells)});
   if (result.title.empty() || result.title_cells.empty())
     return reject("menu topic title text or provenance is empty");
+  if (!result.introductions.empty() &&
+      result.introductions.front().text.empty())
+    return reject("menu topic introduction text is empty");
   ++index;
 
   if (index >= segments.size() ||
@@ -311,6 +449,9 @@ extract_menu_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
   std::set<CellKey> visible_cells;
   if (!insert_unique_cells(visible_cells, result.title_cells))
     return reject("menu topic title source cells overlap");
+  for (const auto &paragraph : result.introductions)
+    if (!insert_unique_cells(visible_cells, paragraph.cells))
+      return reject("menu topic introduction source cells overlap");
   std::size_t menu_index = 0;
   while (index < segments.size() &&
          segments[index].segment->kind == BookControlKind::menu_item) {
@@ -376,6 +517,7 @@ std::string format_menu_topic_ir(const MenuTopicIR &topic) {
   std::ostringstream out;
   out << "menu_topic heading_level=" << topic.heading_level << " title='"
       << topic.title << "' items=" << topic.items.size()
+      << " introductions=" << topic.introductions.size()
       << " segments=" << topic.segments.size();
   if (topic.anchor)
     out << " anchor='" << topic.anchor->id << "'";

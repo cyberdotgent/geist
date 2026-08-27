@@ -6,10 +6,14 @@
 #include "geist/detail/fixed_prose_topic_ir.hpp"
 #include "geist/detail/internal.hpp"
 #include "geist/detail/layout_ir.hpp"
+#include "geist/detail/menu_document_lowering.hpp"
+#include "geist/detail/menu_ir.hpp"
+#include "geist/detail/menu_topic_ir.hpp"
 #include "geist/detail/ownership_ir.hpp"
 #include "geist/detail/publication_document_lowering.hpp"
 #include "geist/detail/publication_ir.hpp"
 
+#include <algorithm>
 #include <utility>
 
 namespace geist::detail {
@@ -23,15 +27,20 @@ void reject(std::string *error, std::string message) {
 void prepend_topic_id_to_heading(DocumentIR &document) {
   if (document.topic.id.empty() || document.blocks.empty())
     return;
-  auto *heading = std::get_if<HeadingBlockIR>(&document.blocks.front().node);
-  if (heading == nullptr)
+  const auto heading_block =
+      std::find_if(document.blocks.begin(), document.blocks.end(),
+                   [](auto &block) {
+                     return std::holds_alternative<HeadingBlockIR>(block.node);
+                   });
+  if (heading_block == document.blocks.end())
     return;
+  auto &heading = std::get<HeadingBlockIR>(heading_block->node);
 
   InlineIR identity;
   identity.node = TextInlineIR{document.topic.id + " "};
   identity.origin.derivation = DocumentDerivationIR::synthesized;
   identity.origin.detail = "public topic identity prefix";
-  heading->content.insert(heading->content.begin(), std::move(identity));
+  heading.content.insert(heading.content.begin(), std::move(identity));
 }
 
 } // namespace
@@ -39,6 +48,7 @@ void prepend_topic_id_to_heading(DocumentIR &document) {
 std::optional<DocumentIR> try_lower_topic_to_document_ir(
     TopicIdentityIR topic,
     const std::vector<DecodedLogicalRecordSource> &sources,
+    const BookTopicCatalogIR *book_topic_catalog,
     std::string *typed_rejection) {
   if (typed_rejection != nullptr)
     typed_rejection->clear();
@@ -63,9 +73,22 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
       extract_publication_catalog_ir(sources, layout, ownership);
   const auto fixed_prose =
       extract_fixed_prose_topic_ir(sources, layout, ownership, nullptr);
+  std::optional<MenuTopicIR> menu;
+  std::optional<MenuTargetValidationIR> menu_validation;
+  if (book_topic_catalog != nullptr) {
+    const auto raw_menu = extract_source_menu_ir(sources, nullptr);
+    if (raw_menu) {
+      menu_validation =
+          validate_source_menu_targets(*raw_menu, *book_topic_catalog, nullptr);
+      if (menu_validation)
+        menu = extract_menu_topic_ir(sources, *menu_validation, layout,
+                                     ownership, nullptr);
+    }
+  }
   const auto family_count = static_cast<unsigned>(delivery.has_value()) +
                             static_cast<unsigned>(publications.has_value()) +
-                            static_cast<unsigned>(fixed_prose.has_value());
+                            static_cast<unsigned>(fixed_prose.has_value()) +
+                            static_cast<unsigned>(menu.has_value());
   if (family_count == 0)
     return std::nullopt;
   if (family_count != 1) {
@@ -107,7 +130,7 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
       reject(typed_rejection, family + " document rejected: " + error);
       return std::nullopt;
     }
-  } else {
+  } else if (fixed_prose) {
     family = "fixed prose";
     if (!verify_fixed_prose_topic_ir(sources, layout, ownership, *fixed_prose,
                                      &error)) {
@@ -118,6 +141,19 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
         lower_fixed_prose_topic_to_document_ir(topic, *fixed_prose, &error);
     if (!document || !verify_fixed_prose_topic_document_ir(
                          *fixed_prose, *document, &error)) {
+      reject(typed_rejection, family + " document rejected: " + error);
+      return std::nullopt;
+    }
+  } else {
+    family = "menu";
+    if (!verify_menu_topic_ir(sources, *menu_validation, layout, ownership,
+                              *menu, &error)) {
+      reject(typed_rejection, family + " semantics rejected: " + error);
+      return std::nullopt;
+    }
+    document = lower_menu_topic_to_document_ir(topic, *menu, &error);
+    if (!document ||
+        !verify_menu_topic_document_ir(*menu, *document, &error)) {
       reject(typed_rejection, family + " document rejected: " + error);
       return std::nullopt;
     }

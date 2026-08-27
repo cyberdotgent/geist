@@ -412,21 +412,32 @@ void rewrite_resource_placeholders(
 void rewrite_topic_links(std::string& markdown,
                          const std::map<std::string, std::string>& links) {
   std::size_t offset = 0;
-  while ((offset = markdown.find("](#", offset)) != std::string::npos) {
-    const auto target_begin = offset + 3;
-    const auto target_end = markdown.find(')', target_begin);
-    if (target_end == std::string::npos) {
-      break;
+  while ((offset = markdown.find("](", offset)) != std::string::npos) {
+    const auto destination_begin = offset + 2;
+    const auto angled = destination_begin < markdown.size() &&
+                        markdown[destination_begin] == '<';
+    const auto marker = destination_begin + static_cast<std::size_t>(angled);
+    if (marker >= markdown.size() || (!angled && markdown[marker] != '#')) {
+      offset = destination_begin;
+      continue;
     }
+    const auto target_begin =
+        marker + static_cast<std::size_t>(markdown[marker] == '#');
+    const auto target_end = markdown.find(angled ? '>' : ')', target_begin);
+    if (target_end == std::string::npos ||
+        (angled && (target_end + 1 >= markdown.size() ||
+                    markdown[target_end + 1] != ')')))
+      break;
     const auto target =
         markdown.substr(target_begin, target_end - target_begin);
     const auto found = links.find(lowercase(target));
     if (found == links.end()) {
-      offset = target_end + 1;
+      offset = target_end + 1 + static_cast<std::size_t>(angled);
       continue;
     }
     const auto replacement = "](" + markdown_escape_url(found->second) + ")";
-    markdown.replace(offset, (target_end + 1) - offset, replacement);
+    const auto destination_end = target_end + 1 + static_cast<std::size_t>(angled);
+    markdown.replace(offset, destination_end - offset, replacement);
     offset += replacement.size();
   }
 }
@@ -531,6 +542,20 @@ std::string wrap_topic_navigation(std::string markdown,
          "\n";
 }
 
+bool has_leading_markdown_heading(const std::string& markdown) {
+  auto offset = std::size_t{};
+  while (offset < markdown.size() && markdown.compare(offset, 7, "<a id=\"") == 0) {
+    const auto anchor_end = markdown.find("</a>", offset + 7);
+    if (anchor_end == std::string::npos)
+      return false;
+    offset = anchor_end + 4;
+    while (offset < markdown.size() &&
+           (markdown[offset] == '\r' || markdown[offset] == '\n'))
+      ++offset;
+  }
+  return offset < markdown.size() && markdown[offset] == '#';
+}
+
 std::string render_topic_markdown(
     const geist::TocEntry& entry,
     const std::map<std::string, std::string>& markdown_links,
@@ -539,7 +564,7 @@ std::string render_topic_markdown(
     const TopicOutput* previous,
     const TopicOutput* next) {
   auto markdown = entry.markdown();
-  if (markdown.empty() || markdown.front() != '#') {
+  if (!has_leading_markdown_heading(markdown)) {
     markdown = "# " + entry.title + "\n\n" + markdown;
   }
   rewrite_topic_links(markdown, markdown_links);

@@ -111,6 +111,28 @@ void inventory_complete_menu_topics() {
       require(verify_menu_topic_ir(sources, *target_validation, layout,
                                    ownership, *semantic, &error),
               "canonical menu topic failed verification: " + error);
+      if (entry.path().filename() == "SC33-033.boo" && topic.id == "5.3") {
+        require(semantic->title == "Data sets and file processing" &&
+                    semantic->introductions.size() == 1 &&
+                    semantic->introductions.front().text ==
+                        "The PGF file names, file types, and record types used "
+                        "(according to the subsystem environment) for symbol "
+                        "sets, chart formats, and chart data are shown in the "
+                        "following tables." &&
+                    !semantic->introductions.front().cells.empty(),
+                "SC33-033 menu title/intro column ownership changed");
+      }
+      if (entry.path().filename() == "SH12-565.boo" &&
+          topic.id == "APPENDIX1.9.5") {
+        require(semantic->title ==
+                        "Events Issued by NetView FTP V2.2.1 MVS" &&
+                    semantic->introductions.size() == 1 &&
+                    semantic->introductions.front().text ==
+                        "The following describes the events issued by NetView "
+                        "FTP V2.2.1 MVS." &&
+                    !semantic->introductions.front().cells.empty(),
+                "SH12-565 menu title/intro column ownership changed");
+      }
 
       TopicIdentityIR topic_identity;
       topic_identity.id = topic.id;
@@ -127,9 +149,35 @@ void inventory_complete_menu_topics() {
               "canonical menu DocumentIR failed verification: " + error);
       require(document_ir->topic.heading_level == semantic->heading_level,
               "source-proven menu heading level was not authoritative");
-      const auto list_index = semantic->anchor ? 2U : 1U;
+      const auto heading_index = semantic->anchor ? 1U : 0U;
+      const auto list_index = heading_index + 1U + semantic->introductions.size();
       require(document_ir->blocks.size() == list_index + 1,
               "menu DocumentIR did not preserve title/anchor/list shape");
+      if (semantic->anchor) {
+        require(std::get_if<AnchorBlockIR>(&document_ir->blocks[0].node) !=
+                        nullptr &&
+                    std::get_if<HeadingBlockIR>(&document_ir->blocks[1].node) !=
+                        nullptr,
+                "menu DocumentIR did not preserve anchor-before-title source "
+                "order");
+        auto reordered = *document_ir;
+        std::swap(reordered.blocks[0], reordered.blocks[1]);
+        require(!verify_menu_topic_document_ir(*semantic, reordered),
+                "menu DocumentIR verifier admitted title-before-anchor order");
+      } else {
+        require(std::get_if<HeadingBlockIR>(&document_ir->blocks[0].node) !=
+                    nullptr,
+                "unanchored menu DocumentIR does not begin with its title");
+      }
+      for (std::size_t paragraph = 0;
+           paragraph < semantic->introductions.size(); ++paragraph) {
+        const auto *prose = std::get_if<ParagraphBlockIR>(
+            &document_ir->blocks[heading_index + 1 + paragraph].node);
+        require(prose != nullptr && prose->content.size() == 1 &&
+                    std::get<TextInlineIR>(prose->content.front().node).text ==
+                        semantic->introductions[paragraph].text,
+                "menu introduction did not lower as an independent paragraph");
+      }
       const auto *list =
           std::get_if<ListBlockIR>(&document_ir->blocks[list_index].node);
       require(list != nullptr && !list->ordered &&
@@ -248,6 +296,30 @@ void inventory_complete_menu_topics() {
       require(!verify_menu_topic_ir(sources, *target_validation, layout,
                                     ownership, mutated),
               "menu topic verifier admitted mutated title provenance");
+      if (!semantic->introductions.empty()) {
+        mutated = *semantic;
+        mutated.introductions.front().text += "-changed";
+        require(!verify_menu_topic_ir(sources, *target_validation, layout,
+                                      ownership, mutated),
+                "menu topic verifier admitted mutated introduction text");
+        mutated = *semantic;
+        ++mutated.introductions.front().cells.front().word;
+        require(!verify_menu_topic_ir(sources, *target_validation, layout,
+                                      ownership, mutated),
+                "menu topic verifier admitted mutated introduction cells");
+        mutated = *semantic;
+        mutated.introductions.push_back(mutated.introductions.front());
+        require(!verify_menu_topic_ir(sources, *target_validation, layout,
+                                      ownership, mutated),
+                "menu topic verifier admitted a second title/intro split");
+        mutated = *semantic;
+        mutated.title_cells.push_back(
+            mutated.introductions.front().cells.front());
+        require(!verify_menu_topic_ir(sources, *target_validation, layout,
+                                      ownership, mutated),
+                "menu topic verifier admitted an intervening visible cell "
+                "owned by both title and intro");
+      }
       mutated = *semantic;
       ++mutated.segments.front().source.token_begin;
       require(!verify_menu_topic_ir(sources, *target_validation, layout,

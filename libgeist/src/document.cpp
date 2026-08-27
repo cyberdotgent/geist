@@ -1,4 +1,5 @@
 #include "geist/detail/internal.hpp"
+#include "geist/detail/book_topic_catalog_ir.hpp"
 #include "geist/detail/comment_delivery_ir.hpp"
 #include "geist/detail/implicit_grid.hpp"
 #include "geist/detail/procedure_rows.hpp"
@@ -190,6 +191,7 @@ struct TopicLoaderBundle {
 
 struct LazyTopicState {
   std::shared_ptr<LogicalDecodeContext> context;
+  std::shared_ptr<const BookTopicCatalogIR> topic_catalog;
   std::shared_ptr<const std::map<std::string, std::string>> topic_titles;
   TopicData topic;
   std::string id;
@@ -207,7 +209,8 @@ struct LazyTopicState {
     load_source_layout_if_candidate(context, topic);
     if (has_comment_delivery_source_candidate(topic.raw_records) ||
         has_publication_ir_source_candidate(topic.raw_records) ||
-        has_st_fixed_prose_source_candidate(topic.raw_records)) {
+        has_st_fixed_prose_source_candidate(topic.raw_records) ||
+        has_menu_ir_source_candidate(topic.raw_records)) {
       typed_sources = topic.fixed_layout_sources.empty()
                           ? decode_logical_record_sources(
                                 *context, topic.start_logical_record,
@@ -222,10 +225,12 @@ TopicLoaderBundle make_topic_loaders(
     const std::shared_ptr<LogicalDecodeContext>& context, TopicData topic,
     std::string id, std::string title, std::uint32_t level,
     std::uint32_t style,
+    const std::shared_ptr<const BookTopicCatalogIR>& topic_catalog,
     const std::shared_ptr<const std::map<std::string, std::string>>&
         topic_titles) {
   auto state = std::make_shared<LazyTopicState>();
   state->context = context;
+  state->topic_catalog = topic_catalog;
   state->topic_titles = topic_titles;
   state->topic = std::move(topic);
   state->id = std::move(id);
@@ -248,7 +253,7 @@ TopicLoaderBundle make_topic_loaders(
     state->load();
     auto document = try_lower_topic_to_document_ir(
         topic_identity(state->topic, state->id, state->title),
-        state->typed_sources);
+        state->typed_sources, state->topic_catalog.get());
     if (!document) return {};
     return std::make_shared<const DocumentIR>(std::move(*document));
   };
@@ -402,6 +407,17 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
     }
   }
   document.toc_ = build_table_of_contents(contents_records, topics, false);
+  std::string catalog_error;
+  auto topic_catalog = build_book_topic_catalog_ir(
+      document.topics_, document.toc_, &catalog_error);
+  if (!topic_catalog || !verify_book_topic_catalog_ir(
+                            document.topics_, document.toc_, *topic_catalog,
+                            &catalog_error)) {
+    throw std::runtime_error("invalid book topic catalog IR: " +
+                             catalog_error);
+  }
+  document.topic_catalog_ir_ =
+      std::make_shared<const BookTopicCatalogIR>(std::move(*topic_catalog));
   for (const auto& entry : document.toc_)
     document.topic_titles_[entry.id] = entry.title;
   const auto topic_titles =
@@ -419,7 +435,7 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
     const auto entry_style = entry.style;
     auto loaders = make_topic_loaders(context, std::move(topic_data), entry_id,
                                       entry_title, entry_level, entry_style,
-                                      topic_titles);
+                                      document.topic_catalog_ir_, topic_titles);
     entry.raw_record_loader_ = std::move(loaders.raw);
     entry.document_ir_loader_ = std::move(loaders.document);
   }
@@ -539,7 +555,8 @@ std::string BooDocument::topic_markdown(const std::string& topic_id) const {
   const auto topic_titles =
       std::make_shared<const std::map<std::string, std::string>>(topic_titles_);
   auto loaders = make_topic_loaders(decode_context_, topic, topic.id,
-                                    topic.title, 0, 0, topic_titles);
+                                    topic.title, 0, 0, topic_catalog_ir_,
+                                    topic_titles);
   entry.raw_record_loader_ = std::move(loaders.raw);
   entry.document_ir_loader_ = std::move(loaders.document);
   return entry.markdown();
