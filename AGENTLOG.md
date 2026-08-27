@@ -962,3 +962,24 @@
   `message_topic_ir_synthetic`; CTest registers the focused form as
   `message_topic_ir_focused_test` in the iteration tier (about 48 s) and keeps
   the full sweep under the `slow` label.
+- Unattended issue 58 run (2026-08-27/28, `c82c0ed`..`2124d97`), fix families
+  worked in parallel worktrees and integrated onto main one at a time. Two
+  `ee31d26` regressions explained every non-message failure: non-numeric
+  `SH<id>` topic starts demoted to text (menus, generated lists, comments,
+  topic lowering) and empty-operand `c…` controls keeping their `.`
+  terminator. Landed: glossary introduction emphasis from CFONT spans, typed
+  message section blocks in DocumentIR (MSG807 table, MSG739 list, MSG508
+  fence) with bold headlines/labels, paged topic-start index chains for books
+  with more than 248 topics, SRMSG trap-catalog introductions/continuations
+  and then a typed trap-catalog lowering for ten SC31-711 topics, typed menus
+  in the hosted `Subtopics:` shape, and the M9 slices: string prefilters,
+  publication font-segment admission and the `toc.cpp` publication repairs,
+  the glossary/message GML projectors and the SRMSG marker projection, and
+  the section C rendered-text census (dead repairs deleted, the literal
+  marker-word list replaced by layout marker-slot evidence). Every refactor
+  was proven zero-delta over the whole corpus; every behaviour change was
+  reviewed against the hosted BookServer. M10 evidence: full CTest 57/57,
+  76/7,341 intentional corpus deltas, fresh live 82-topic audit with 18
+  classified flags, all recorded in
+  `AnalysisNotes/sc31-711-m10-audit-2026-08-28.md`. Audit tooling now
+  compares whole hosted bodies and counts only `href` anchors as links.
