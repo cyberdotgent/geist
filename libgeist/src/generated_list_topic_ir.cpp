@@ -15,6 +15,8 @@ namespace {
 
 using CellKey = std::tuple<std::uint32_t, std::size_t, std::size_t,
                            SelectorSourceCellKind>;
+using OwnedKey =
+    std::tuple<std::uint32_t, std::size_t, std::size_t>;
 
 bool fail(std::string* error, std::string message) {
   if (error != nullptr) *error = std::move(message);
@@ -41,8 +43,255 @@ DocumentSourceSliceIR source_slice(const DecodedLogicalRecordSource& record,
   return result;
 }
 
-bool presentable(std::uint16_t word) {
-  return word >= 0x21 && word != '?' && word != 0x2666;
+const DecodedLogicalRecordSource* find_record(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    std::uint32_t logical_record) {
+  const auto found = std::find_if(records.begin(), records.end(),
+                                  [&](const auto& record) {
+                                    return record.logical_record ==
+                                           logical_record;
+                                  });
+  return found == records.end() ? nullptr : &*found;
+}
+
+bool decoder_artifact(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const SelectorDisplayCellIR& cell) {
+  if (!cell.source ||
+      cell.source->kind != SelectorSourceCellKind::token_word)
+    return false;
+  const auto* record = find_record(records, cell.source->logical_record);
+  if (record == nullptr || cell.source->token_index >= record->ir.tokens.size())
+    return false;
+  const auto& unmapped =
+      record->ir.tokens[cell.source->token_index].unmapped_word_indices;
+  return std::find(unmapped.begin(), unmapped.end(),
+                   cell.source->word_index) != unmapped.end();
+}
+
+std::optional<GeneratedListEntryIR> make_entry(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const OwnershipIR& ownership, const SelectorDisplayRowIR& row,
+    bool repeated_target_continuation, std::string* error) {
+  if (row.spans.size() != 1 || row.spans.front().cell_begin >=
+                                   row.spans.front().cell_end ||
+      row.spans.front().cell_end > row.cells.size()) {
+    fail(error, "generated-list entry has invalid selector geometry");
+    return std::nullopt;
+  }
+  std::map<OwnedKey, const OwnedSourceCellIR*> owned;
+  for (const auto& cell : ownership.cells)
+    owned.emplace(OwnedKey{cell.logical_record, cell.token_index,
+                           cell.word_index},
+                  &cell);
+  const auto owned_cell = [&](const SelectorDisplayCellIR& cell)
+      -> const OwnedSourceCellIR* {
+    if (!cell.source ||
+        cell.source->kind != SelectorSourceCellKind::token_word)
+      return nullptr;
+    const auto found = owned.find(
+        {cell.source->logical_record, cell.source->token_index,
+         cell.source->word_index});
+    return found == owned.end() ? nullptr : found->second;
+  };
+  const auto first_row_marker = [&](const SelectorDisplayCellIR& cell) {
+    const auto* source = owned_cell(cell);
+    return source != nullptr &&
+           source->disposition == SourceDisposition::marker_slot &&
+           source->run == row.owner.run &&
+           source->row_index == row.owner.physical_row_index;
+  };
+  const auto label_anchor = [&](const SelectorDisplayCellIR& cell) {
+    if (decoder_artifact(records, cell) || first_row_marker(cell))
+      return false;
+    const auto* source = owned_cell(cell);
+    return source != nullptr &&
+           (source->disposition == SourceDisposition::visible_content ||
+            source->disposition == SourceDisposition::opaque);
+  };
+  const auto payload_word_count = [&](const SelectorDisplayCellIR& cell) {
+    if (!cell.source ||
+        cell.source->kind != SelectorSourceCellKind::token_word)
+      return std::size_t{0};
+    const auto* record = find_record(records, cell.source->logical_record);
+    if (record == nullptr || cell.source->token_index >= record->ir.tokens.size())
+      return std::size_t{0};
+    const auto& token = record->ir.tokens[cell.source->token_index];
+    return token.decoded_words.size() -
+           static_cast<std::size_t>(token.has_spacing_control);
+  };
+
+  const auto& span = row.spans.front();
+  auto first = span.cell_begin;
+  while (first < row.cells.size() && !label_anchor(row.cells[first])) ++first;
+  const auto first_visible = std::find_if(
+      row.cells.begin() + static_cast<std::ptrdiff_t>(first), row.cells.end(),
+      [&](const auto& cell) {
+        const auto* source = owned_cell(cell);
+        return source != nullptr &&
+               source->disposition == SourceDisposition::visible_content &&
+               !decoder_artifact(records, cell) && !first_row_marker(cell);
+      });
+  const auto first_restored_marker = std::find_if(
+      row.cells.begin() + static_cast<std::ptrdiff_t>(first), row.cells.end(),
+      [](const auto& cell) {
+        return cell.origin ==
+               SelectorDisplayCellOrigin::restored_native_marker;
+      });
+  // A deferred row may carry opaque bytes from the prior record.  They are
+  // decoration when the actual row payload begins before any restored
+  // separator marker (IEAC6MST FIGURES 81); otherwise they contain the
+  // source-owned ordinal preceding that separator (GG24-395 FIGURES 59).
+  if (first < row.cells.size()) {
+    const auto* source = owned_cell(row.cells[first]);
+    if (source != nullptr && source->disposition == SourceDisposition::opaque &&
+        first_visible != row.cells.end() &&
+        (first_restored_marker == row.cells.end() ||
+         first_visible < first_restored_marker))
+      first = static_cast<std::size_t>(
+          std::distance(row.cells.begin(), first_visible));
+  }
+
+  // Some generated lists encode a native line marker as an isolated token
+  // between padding and the ordinal rather than as MarkerSlotIR.  Its exact
+  // one-cell token geometry plus a following content token proves the role;
+  // the decoded value is irrelevant.
+  if (!repeated_target_continuation && first < row.cells.size() &&
+      payload_word_count(row.cells[first]) == 1) {
+    auto next = first + 1;
+    while (next < row.cells.size() && !label_anchor(row.cells[next])) ++next;
+    const auto* candidate = owned_cell(row.cells[first]);
+    const auto* following =
+        next < row.cells.size() ? owned_cell(row.cells[next]) : nullptr;
+    auto padded_visible_leader = false;
+    if (candidate != nullptr &&
+        candidate->disposition == SourceDisposition::visible_content &&
+        first > 0) {
+      const auto* previous = owned_cell(row.cells[first - 1]);
+      padded_visible_leader =
+          previous != nullptr &&
+          previous->disposition == SourceDisposition::layout_padding;
+    }
+    const auto opaque_leader =
+        candidate != nullptr && following != nullptr &&
+        candidate->disposition == SourceDisposition::opaque &&
+        following->disposition == SourceDisposition::opaque;
+    const auto isolated_visible_leader =
+        candidate != nullptr && following != nullptr &&
+        candidate->disposition == SourceDisposition::visible_content &&
+        following->disposition == SourceDisposition::visible_content &&
+        payload_word_count(row.cells[next]) > 1 &&
+        first_restored_marker != row.cells.end() &&
+        next < static_cast<std::size_t>(
+                   std::distance(row.cells.begin(), first_restored_marker));
+    if (next < row.cells.size() && row.cells[first].source &&
+        row.cells[next].source &&
+        (row.cells[first].source->logical_record !=
+             row.cells[next].source->logical_record ||
+         row.cells[first].source->token_index !=
+             row.cells[next].source->token_index) &&
+        (padded_visible_leader || isolated_visible_leader || opaque_leader)) {
+      first = next;
+    }
+  }
+  auto last = row.cells.size();
+  while (last > first && !label_anchor(row.cells[last - 1])) --last;
+  if (first == last) {
+    fail(error, "generated-list entry has no source-proven label anchor");
+    return std::nullopt;
+  }
+
+  GeneratedListEntryIR entry;
+  entry.display = row;
+  entry.selector = span.selector;
+  entry.target = span.target;
+  entry.cell_dispositions.resize(row.cells.size(),
+                                 GeneratedListCellDispositionIR::structural);
+  for (std::size_t index = 0; index < row.cells.size(); ++index) {
+    const auto& cell = row.cells[index];
+    auto disposition = GeneratedListCellDispositionIR::structural;
+    if (decoder_artifact(records, cell)) {
+      disposition = GeneratedListCellDispositionIR::decoder_artifact;
+    } else if (index < first || first_row_marker(cell)) {
+      disposition = cell.source
+                        ? GeneratedListCellDispositionIR::layout_decoration
+                        : GeneratedListCellDispositionIR::structural;
+    } else if (index < last) {
+      disposition = GeneratedListCellDispositionIR::label_fragment;
+    }
+    entry.cell_dispositions[index] = disposition;
+  }
+  entry.suppressed_prefix_dispositions.reserve(
+      row.suppressed_prefix_cells.size());
+  for (const auto& cell : row.suppressed_prefix_cells)
+    entry.suppressed_prefix_dispositions.push_back(
+        decoder_artifact(records, cell)
+            ? GeneratedListCellDispositionIR::decoder_artifact
+            : cell.source
+                  ? GeneratedListCellDispositionIR::layout_decoration
+                  : GeneratedListCellDispositionIR::structural);
+
+  for (std::size_t begin = 0; begin < row.cells.size();) {
+    if (entry.cell_dispositions[begin] !=
+        GeneratedListCellDispositionIR::label_fragment) {
+      ++begin;
+      continue;
+    }
+    const auto role = begin < span.cell_end
+                          ? GeneratedListLabelFragmentRoleIR::selected_payload
+                          : GeneratedListLabelFragmentRoleIR::source_extension;
+    auto end = begin + 1;
+    while (end < row.cells.size() &&
+           entry.cell_dispositions[end] ==
+               GeneratedListCellDispositionIR::label_fragment &&
+           (role == GeneratedListLabelFragmentRoleIR::selected_payload
+                ? end < span.cell_end
+                : end >= span.cell_end))
+      ++end;
+    GeneratedListLabelFragmentIR fragment;
+    fragment.role = role;
+    fragment.cell_begin = begin;
+    fragment.cell_end = end;
+    fragment.cells.assign(row.cells.begin() + static_cast<std::ptrdiff_t>(begin),
+                          row.cells.begin() + static_cast<std::ptrdiff_t>(end));
+    std::set<std::pair<std::uint32_t, std::size_t>> source_tokens;
+    for (const auto& cell : fragment.cells)
+      if (cell.source)
+        source_tokens.emplace(cell.source->logical_record,
+                              cell.source->token_index);
+    for (const auto& source_token : source_tokens) {
+      const auto* record = find_record(records, source_token.first);
+      if (record == nullptr || source_token.second >= record->ir.tokens.size()) {
+        fail(error, "generated-list label fragment references a missing token");
+        return std::nullopt;
+      }
+      const auto segment = std::find_if(
+          record->control_segments.begin(), record->control_segments.end(),
+          [&](const auto& candidate) {
+            return std::find(candidate.source_tokens.begin(),
+                             candidate.source_tokens.end(),
+                             source_token.second) !=
+                   candidate.source_tokens.end();
+          });
+      if (segment == record->control_segments.end()) {
+        fail(error,
+             "generated-list label token has no typed control segment");
+        return std::nullopt;
+      }
+      const auto& token = record->ir.tokens[source_token.second];
+      fragment.source_slices.push_back(
+          {source_token.first, segment->segment_index, source_token.second,
+           source_token.second + 1, token.byte_range.begin,
+           token.byte_range.end});
+    }
+    entry.label_fragments.push_back(std::move(fragment));
+    begin = end;
+  }
+  if (entry.label_fragments.empty()) {
+    fail(error, "generated-list entry has no typed label fragment");
+    return std::nullopt;
+  }
+  return entry;
 }
 
 bool same_topic(const GeneratedListTopicIR& left,
@@ -84,8 +333,10 @@ bool same_topic(const GeneratedListTopicIR& left,
     return true;
   };
   for (std::size_t index = 0; index < left.entries.size(); ++index) {
-    const auto& a = left.entries[index];
-    const auto& b = right.entries[index];
+    const auto& entry_a = left.entries[index];
+    const auto& entry_b = right.entries[index];
+    const auto& a = entry_a.display;
+    const auto& b = entry_b.display;
     if (std::tie(a.id, a.owner.logical_record, a.owner.segment_index,
                  a.owner.run, a.owner.physical_row_index, a.owner.token_begin,
                  a.owner.token_end, a.association, a.hard_boundary) !=
@@ -96,7 +347,16 @@ bool same_topic(const GeneratedListTopicIR& left,
         !same_cells(a.cells, b.cells) ||
         !same_cells(a.suppressed_prefix_cells,
                     b.suppressed_prefix_cells) ||
-        a.spans.size() != b.spans.size())
+        a.spans.size() != b.spans.size() ||
+        !same_ref(entry_a.selector, entry_b.selector) ||
+        std::tie(entry_a.target.kind, entry_a.target.raw_target,
+                 entry_a.target.resolved_target) !=
+            std::tie(entry_b.target.kind, entry_b.target.raw_target,
+                     entry_b.target.resolved_target) ||
+        entry_a.cell_dispositions != entry_b.cell_dispositions ||
+        entry_a.suppressed_prefix_dispositions !=
+            entry_b.suppressed_prefix_dispositions ||
+        entry_a.label_fragments.size() != entry_b.label_fragments.size())
       return false;
     for (std::size_t span = 0; span < a.spans.size(); ++span) {
       const auto& x = a.spans[span];
@@ -107,6 +367,25 @@ bool same_topic(const GeneratedListTopicIR& left,
               std::tie(y.target.kind, y.target.raw_target,
                        y.target.resolved_target, y.cell_begin, y.cell_end))
         return false;
+    }
+    for (std::size_t fragment = 0;
+         fragment < entry_a.label_fragments.size(); ++fragment) {
+      const auto& x = entry_a.label_fragments[fragment];
+      const auto& y = entry_b.label_fragments[fragment];
+      if (std::tie(x.role, x.cell_begin, x.cell_end) !=
+              std::tie(y.role, y.cell_begin, y.cell_end) ||
+          !same_cells(x.cells, y.cells) ||
+          x.source_slices.size() != y.source_slices.size())
+        return false;
+      for (std::size_t slice = 0; slice < x.source_slices.size(); ++slice) {
+        const auto& p = x.source_slices[slice];
+        const auto& q = y.source_slices[slice];
+        if (std::tie(p.logical_record, p.segment_index, p.token_begin,
+                     p.token_end, p.byte_begin, p.byte_end) !=
+            std::tie(q.logical_record, q.segment_index, q.token_begin,
+                     q.token_end, q.byte_begin, q.byte_end))
+          return false;
+      }
     }
   }
   for (std::size_t index = 0; index < left.segments.size(); ++index) {
@@ -322,7 +601,6 @@ std::optional<GeneratedListTopicIR> extract_generated_list_topic_ir(
       const auto words = decoded_byte_range_to_word_range(record.assembled,
                                                           segment.payload_range);
       for (auto output = words.begin; output < words.end; ++output) {
-        if (!presentable(record.assembled.words[output])) continue;
         const auto& source = record.assembled.sources[output];
         if (source.kind != LogicalWordSourceKind::token_word) continue;
         const auto disposition = dispositions.find(
@@ -344,7 +622,25 @@ std::optional<GeneratedListTopicIR> extract_generated_list_topic_ir(
       }
     }
   }
-  result.entries = display->rows;
+  result.entries.reserve(display->rows.size());
+  for (std::size_t index = 0; index < display->rows.size(); ++index) {
+    const auto& row = display->rows[index];
+    const auto repeated_target =
+        index != 0 && !row.spans.empty() &&
+        !display->rows[index - 1].spans.empty() &&
+        row.spans.front().target.kind ==
+            display->rows[index - 1].spans.front().target.kind &&
+        row.spans.front().target.raw_target ==
+            display->rows[index - 1].spans.front().target.raw_target &&
+        row.spans.front().target.resolved_target ==
+            display->rows[index - 1].spans.front().target.resolved_target;
+    auto entry = make_entry(records, ownership, row, repeated_target,
+                            &inner_error);
+    if (!entry)
+      return reject("generated-list entry semantics rejected: " +
+                    inner_error);
+    result.entries.push_back(std::move(*entry));
+  }
   if (error != nullptr) error->clear();
   return result;
 }
@@ -369,12 +665,23 @@ std::string format_generated_list_topic_ir(const GeneratedListTopicIR& topic) {
       << (topic.kind == GeneratedListTopicKindIR::figures ? "figures" : "tables")
       << " title='" << topic.title << "' entries=" << topic.entries.size()
       << " segments=" << topic.segments.size() << '\n';
-  for (const auto& row : topic.entries) {
+  for (const auto& entry : topic.entries) {
+    const auto& row = entry.display;
+    TokenWords label_words;
+    for (const auto& fragment : entry.label_fragments)
+      for (const auto& cell : fragment.cells)
+        label_words.push_back(cell.word);
     out << "entry row=" << row.id << " source=" << row.owner.logical_record
-        << ':' << row.owner.segment_index << " cells=" << row.cells.size();
-    for (const auto& span : row.spans)
-      out << " target='" << span.target.raw_target << "' span=["
-          << span.cell_begin << ',' << span.cell_end << ')';
+        << ':' << row.owner.segment_index << " cells=" << row.cells.size()
+        << " target='" << entry.target.raw_target << "' fragments="
+        << entry.label_fragments.size() << " label='"
+        << token_words_to_ascii(label_words) << "'";
+    for (const auto& fragment : entry.label_fragments)
+      out << ' ' << (fragment.role ==
+                              GeneratedListLabelFragmentRoleIR::selected_payload
+                          ? "selected"
+                          : "extension")
+          << "=[" << fragment.cell_begin << ',' << fragment.cell_end << ')';
     out << '\n';
   }
   for (const auto& segment : topic.segments)

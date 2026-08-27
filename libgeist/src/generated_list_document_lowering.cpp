@@ -15,49 +15,33 @@ bool fail(std::string* error, std::string message) {
   return false;
 }
 
-DocumentNodeOriginIR row_origin(const SelectorDisplayRowIR& row,
-                                std::size_t begin, std::size_t end,
-                                std::string detail) {
+DocumentNodeOriginIR fragment_origin(const GeneratedListEntryIR& entry,
+                                     std::string detail) {
   DocumentNodeOriginIR origin;
   origin.derivation = DocumentDerivationIR::semantic_lowering;
   origin.detail = std::move(detail);
-  if (row.owner.run != 0)
-    origin.rows.push_back({row.owner.run, row.owner.physical_row_index});
-  std::set<std::tuple<std::uint32_t, std::size_t, std::uint32_t,
-                      std::uint32_t>> slices;
-  for (auto index = begin; index < end; ++index) {
-    const auto& source = row.cells[index].source;
-    if (!source) continue;
-    slices.emplace(source->logical_record, source->token_index,
-                   source->token_bytes.begin, source->token_bytes.end);
-  }
+  if (entry.display.owner.run != 0)
+    origin.rows.push_back({entry.display.owner.run,
+                           entry.display.owner.physical_row_index});
+  std::set<std::tuple<std::uint32_t, std::size_t, std::size_t, std::size_t,
+                      std::uint32_t, std::uint32_t>> slices;
+  for (const auto& fragment : entry.label_fragments)
+    for (const auto& slice : fragment.source_slices)
+      slices.emplace(slice.logical_record, slice.segment_index,
+                     slice.token_begin, slice.token_end, slice.byte_begin,
+                     slice.byte_end);
   for (const auto& slice : slices)
-    origin.slices.push_back({std::get<0>(slice), row.owner.segment_index,
-                             std::get<1>(slice), std::get<1>(slice) + 1,
-                             std::get<2>(slice), std::get<3>(slice)});
+    origin.slices.push_back({std::get<0>(slice), std::get<1>(slice),
+                             std::get<2>(slice), std::get<3>(slice),
+                             std::get<4>(slice), std::get<5>(slice)});
   return origin;
 }
 
-std::string cell_text(const SelectorDisplayRowIR& row, std::size_t begin,
-                      std::size_t end) {
+std::string label_text(const GeneratedListEntryIR& entry) {
   TokenWords words;
-  words.reserve(end - begin);
-  for (auto index = begin; index < end; ++index)
-    words.push_back(row.cells[index].word);
+  for (const auto& fragment : entry.label_fragments)
+    for (const auto& cell : fragment.cells) words.push_back(cell.word);
   return token_words_to_ascii(words);
-}
-
-bool visible(std::uint16_t word) {
-  return word >= 0x21 && word != '?' && word != 0x2666;
-}
-
-void append_text(InlineSequenceIR& inlines, const SelectorDisplayRowIR& row,
-                 std::size_t begin, std::size_t end) {
-  if (begin == end) return;
-  auto text = cell_text(row, begin, end);
-  if (text.empty()) return;
-  auto origin = row_origin(row, begin, end, "generated-list row text");
-  inlines.push_back({TextInlineIR{std::move(text)}, std::move(origin)});
 }
 
 CrossReferenceTargetIR target(const SelectorTargetIR& source) {
@@ -91,36 +75,23 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR identity,
   document.blocks.push_back(
       {HeadingBlockIR{1, {std::move(heading_text)}}, heading_origin});
 
-  for (const auto& row : list.entries) {
-    if (row.spans.size() != 1 || row.cells.empty()) {
-      fail(error, "generated-list entry geometry is incomplete");
+  for (const auto& entry : list.entries) {
+    if (entry.label_fragments.empty()) {
+      fail(error, "generated-list entry semantics are incomplete");
       return std::nullopt;
     }
-    auto begin = std::size_t{0};
-    auto end = row.cells.size();
-    while (begin < end && !visible(row.cells[begin].word)) ++begin;
-    while (end > begin && !visible(row.cells[end - 1].word)) --end;
-    const auto& span = row.spans.front();
-    auto link_begin = std::max(begin, span.cell_begin);
-    auto link_end = std::min(end, span.cell_end);
-    while (link_begin < link_end && row.cells[link_begin].word == ' ')
-      ++link_begin;
-    while (link_end > link_begin && row.cells[link_end - 1].word == ' ')
-      --link_end;
-    if (link_begin == link_end) {
+    auto label = label_text(entry);
+    if (label.empty()) {
       fail(error, "generated-list entry has an empty link label");
       return std::nullopt;
     }
-    InlineSequenceIR content;
-    append_text(content, row, begin, link_begin);
     auto link_origin =
-        row_origin(row, link_begin, link_end, "generated-list link label");
+        fragment_origin(entry, "generated-list typed link label");
+    InlineSequenceIR content;
     content.push_back(
-        {CrossReferenceInlineIR{target(span.target),
-                                cell_text(row, link_begin, link_end)},
+        {CrossReferenceInlineIR{target(entry.target), std::move(label)},
          link_origin});
-    append_text(content, row, link_end, end);
-    auto block_origin = row_origin(row, begin, end, "generated-list entry");
+    auto block_origin = fragment_origin(entry, "generated-list entry");
     document.blocks.push_back(
         {ParagraphBlockIR{std::move(content)}, std::move(block_origin)});
   }

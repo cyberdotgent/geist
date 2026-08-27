@@ -1,5 +1,6 @@
 #include "geist/detail/book_ir.hpp"
 
+#include <algorithm>
 #include <limits>
 
 namespace geist::detail {
@@ -62,6 +63,13 @@ bool verify_token_ir(const LogicalRecordIR& record, std::string* error) {
         token.spacing_control != spacing) {
       return fail("logical token spacing metadata differs from decoded words");
     }
+    std::vector<std::size_t> unmapped;
+    for (std::size_t word = 0; word < token.decoded_words.size(); ++word)
+      if (token.decoded_words[word] ==
+          std::numeric_limits<std::uint16_t>::max())
+        unmapped.push_back(word);
+    if (token.unmapped_word_indices != unmapped)
+      return fail("logical token unmapped-word provenance is invalid");
     expected = token.byte_range.end;
   }
   if (expected != record.payload_range.end) {

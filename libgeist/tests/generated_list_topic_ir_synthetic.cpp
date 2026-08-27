@@ -7,7 +7,9 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <set>
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace {
@@ -24,6 +26,45 @@ void require(bool condition, const std::string& message) {
 
 TokenWords words(const std::string& text) {
   return TokenWords(text.begin(), text.end());
+}
+
+std::string label_text(const geist::detail::GeneratedListEntryIR& entry) {
+  TokenWords label;
+  for (const auto& fragment : entry.label_fragments)
+    for (const auto& cell : fragment.cells) label.push_back(cell.word);
+  return geist::detail::token_words_to_ascii(label);
+}
+
+void require_entry_partition(
+    const geist::detail::GeneratedListEntryIR& entry) {
+  require(entry.cell_dispositions.size() == entry.display.cells.size() &&
+              entry.suppressed_prefix_dispositions.size() ==
+                  entry.display.suppressed_prefix_cells.size(),
+          "generated-list entry disposition coverage is incomplete");
+  std::vector<std::size_t> fragment_coverage(entry.display.cells.size());
+  for (const auto& fragment : entry.label_fragments) {
+    require(fragment.cell_begin < fragment.cell_end &&
+                fragment.cell_end <= entry.display.cells.size() &&
+                fragment.cells.size() ==
+                    fragment.cell_end - fragment.cell_begin &&
+                !fragment.source_slices.empty(),
+            "generated-list label fragment range or provenance is invalid");
+    for (std::size_t index = fragment.cell_begin;
+         index < fragment.cell_end; ++index) {
+      ++fragment_coverage[index];
+      require(fragment.cells[index - fragment.cell_begin].word ==
+                  entry.display.cells[index].word,
+              "generated-list fragment differs from display evidence");
+    }
+  }
+  for (std::size_t index = 0; index < fragment_coverage.size(); ++index)
+    require(fragment_coverage[index] ==
+                (entry.cell_dispositions[index] ==
+                         geist::detail::GeneratedListCellDispositionIR::
+                             label_fragment
+                     ? 1U
+                     : 0U),
+            "generated-list cell does not have exactly one disposition");
 }
 
 DecodedLogicalRecordSource make_source(std::uint32_t logical_record,
@@ -93,19 +134,30 @@ void verify_synthetic_contract() {
                  value.ownership, mutated, &error),
             "generated-list verifier admitted mutated heading provenance");
     mutated = *list;
-    require(mutated.entries.front().cells.front().source.has_value(),
+    require(mutated.entries.front().display.cells.front().source.has_value(),
             "synthetic generated row has no source provenance");
-    ++mutated.entries.front().cells.front().source->token_bytes.end;
+    ++mutated.entries.front()
+          .display.cells.front()
+          .source->token_bytes.end;
     require(!geist::detail::verify_generated_list_topic_ir(
                  value.sources, value.selectors, value.layout,
                  value.ownership, mutated, &error),
             "generated-list verifier admitted mutated cell provenance");
     mutated = *list;
-    mutated.entries.front().spans.front().target.raw_target = "OTHER";
+    mutated.entries.front().target.raw_target = "OTHER";
     require(!geist::detail::verify_generated_list_topic_ir(
                  value.sources, value.selectors, value.layout,
                  value.ownership, mutated, &error),
             "generated-list verifier admitted mutated raw target identity");
+    mutated = *list;
+    ++mutated.entries.front()
+          .label_fragments.front()
+          .source_slices.front()
+          .segment_index;
+    require(!geist::detail::verify_generated_list_topic_ir(
+                 value.sources, value.selectors, value.layout,
+                 value.ownership, mutated, &error),
+            "generated-list verifier admitted mutated fragment provenance");
   }
   geist::detail::TopicIdentityIR identity;
   identity.id = "FIGURES";
@@ -289,11 +341,36 @@ void verify_generated_control_evidence(
   }
 }
 
+void require_fixed_prefixes(
+    const geist::detail::GeneratedListTopicIR& list,
+    const std::vector<std::pair<std::size_t, std::string>>& expected,
+    std::size_t* audited) {
+  for (const auto& item : expected) {
+    require(item.first != 0 && item.first <= list.entries.size(),
+            "generated-list prefix audit index is invalid");
+    const auto& entry = list.entries[item.first - 1];
+    const auto label = label_text(entry);
+    require(label.rfind(item.second, 0) == 0,
+            "generated-list label retained source decoration at entry " +
+                std::to_string(item.first) + ": " + label);
+    require(std::find(entry.cell_dispositions.begin(),
+                      entry.cell_dispositions.end(),
+                      geist::detail::GeneratedListCellDispositionIR::
+                          layout_decoration) !=
+                entry.cell_dispositions.end() ||
+                !entry.suppressed_prefix_dispositions.empty(),
+            "generated-list fixed prefix has no conserved decoration");
+    ++*audited;
+  }
+}
+
 void verify_corpus_inventory() {
   const auto directory = std::filesystem::path(GEIST_REPO_ROOT) / "BOO";
   std::vector<std::string> admitted;
   std::vector<std::string> rejected_candidates;
   auto entries = std::size_t{0};
+  auto audited_prefixes = std::size_t{0};
+  auto audited_artifacts = std::size_t{0};
   for (const auto& file : std::filesystem::directory_iterator(directory)) {
     if (!file.is_regular_file()) continue;
     auto extension = file.path().extension().string();
@@ -329,6 +406,84 @@ void verify_corpus_inventory() {
                   sources, *selectors, layout, ownership, *list, &error),
               "admitted generated-list topic did not verify: " +
                   file.path().filename().string() + ':' + topic.id + ' ' + error);
+      for (const auto& entry : list->entries) require_entry_partition(entry);
+      const auto filename = file.path().filename().string();
+      if (filename == "FA1PLMM0.boo" && topic.id == "FIGURES")
+        require_fixed_prefixes(*list, {{41, "39."}}, &audited_prefixes);
+      if (filename == "GC23-046.boo" && topic.id == "FIGURES")
+        require_fixed_prefixes(
+            *list,
+            {{17, "16."}, {18, "17."}, {19, "18."}, {20, "19."},
+             {21, "20."}, {22, "21."}, {23, "22."}, {26, "25."},
+             {32, "31."}},
+            &audited_prefixes);
+      if (filename == "GC23-046.boo" && topic.id == "TABLES") {
+        require_fixed_prefixes(
+            *list,
+            {{17, "17."}, {18, "18."}, {20, "19."}, {22, "20."},
+             {23, "21."}, {24, "22."}, {25, "23."}, {27, "24."},
+             {28, "25"}, {29, "26."}, {30, "27."}, {32, "28."}},
+            &audited_prefixes);
+        const auto exp_label = label_text(list->entries[18]);
+        const auto wto_label = label_text(list->entries[20]);
+        require(exp_label.rfind("(CIDSIEXP)", 0) == 0 &&
+                    wto_label.rfind("(CIDSIWTO)", 0) == 0,
+                "payload punctuation negative was treated as decoration: " +
+                    exp_label + " / " + wto_label);
+      }
+      if (filename == "GG24-395.boo" && topic.id == "FIGURES")
+        require_fixed_prefixes(
+            *list,
+            {{11, "11."}, {12, "12."}, {24, "24."}, {25, "25."},
+             {26, "26."}, {27, "27."}, {28, "28."}, {29, "29."},
+             {30, "30."}, {31, "31."}, {32, "32."}, {33, "33."},
+             {37, "37."}, {59, "59"}, {61, "60."}, {63, "61."},
+             {79, "77."}},
+            &audited_prefixes);
+      if (filename == "IEAC6MST.BOO" && topic.id == "FIGURES") {
+        require_fixed_prefixes(*list, {{81, "7-9."}}, &audited_prefixes);
+        const auto& cross_record = list->entries[80];
+        require(cross_record.selector.logical_record + 1 ==
+                    cross_record.display.owner.logical_record &&
+                    std::all_of(
+                        cross_record.label_fragments.begin(),
+                        cross_record.label_fragments.end(),
+                        [&](const auto& fragment) {
+                          return std::all_of(
+                              fragment.source_slices.begin(),
+                              fragment.source_slices.end(),
+                              [&](const auto& slice) {
+                                return slice.logical_record ==
+                                       cross_record.display.owner.logical_record;
+                              });
+                        }),
+                "cross-record label provenance was assigned to its selector");
+      }
+      if (filename == "SC09-138.boo" && topic.id == "TABLES") {
+        require_fixed_prefixes(*list, {{19, "17."}, {27, "24."}},
+                               &audited_prefixes);
+        const std::vector<std::pair<std::size_t, std::string>> artifacts{
+            {8, "6.  CMOD options   3.2"},
+            {21, "Operations   5.5.2"},
+            {34, "Environments   8.5.9"},
+        };
+        for (const auto& item : artifacts) {
+          const auto& entry = list->entries[item.first - 1];
+          require(label_text(entry) == item.second &&
+                      std::find(entry.cell_dispositions.begin(),
+                                entry.cell_dispositions.end(),
+                                geist::detail::
+                                    GeneratedListCellDispositionIR::
+                                        decoder_artifact) !=
+                          entry.cell_dispositions.end(),
+                  "typed decoder artifact entered a generated-list label");
+          ++audited_artifacts;
+        }
+        require(label_text(list->entries[26]) ==
+                    "24.  Description of __dyn_t data structure elements   "
+                    "8.1.10.3",
+                "source extension suffix was not retained exactly");
+      }
       geist::detail::TopicIdentityIR identity;
       identity.id = topic.id;
       identity.title = topic.title;
@@ -342,6 +497,33 @@ void verify_corpus_inventory() {
                   geist::detail::verify_generated_list_topic_document_ir(
                       *list, *document, &error),
               "generated list did not lower canonically: " + error);
+      for (std::size_t index = 0; index < list->entries.size(); ++index) {
+        using Slice = std::tuple<std::uint32_t, std::size_t, std::size_t,
+                                 std::size_t, std::uint32_t, std::uint32_t>;
+        std::set<Slice> expected_slices;
+        for (const auto& fragment : list->entries[index].label_fragments)
+          for (const auto& slice : fragment.source_slices)
+            expected_slices.emplace(
+                slice.logical_record, slice.segment_index, slice.token_begin,
+                slice.token_end, slice.byte_begin, slice.byte_end);
+        const auto* paragraph = document && index + 1 < document->blocks.size()
+                                    ? std::get_if<geist::detail::ParagraphBlockIR>(
+                                          &document->blocks[index + 1].node)
+                                    : nullptr;
+        const auto* link =
+            paragraph && paragraph->content.size() == 1
+                ? std::get_if<geist::detail::CrossReferenceInlineIR>(
+                      &paragraph->content.front().node)
+                : nullptr;
+        std::set<Slice> actual_slices;
+        if (link)
+          for (const auto& slice : paragraph->content.front().origin.slices)
+            actual_slices.emplace(
+                slice.logical_record, slice.segment_index, slice.token_begin,
+                slice.token_end, slice.byte_begin, slice.byte_end);
+        require(link && expected_slices == actual_slices,
+                "generated-list lowering invented or lost fragment provenance");
+      }
       admitted.push_back(file.path().filename().string() + ':' + topic.id + ':' +
                          std::to_string(list->entries.size()));
       entries += list->entries.size();
@@ -370,6 +552,8 @@ void verify_corpus_inventory() {
           "whole-topic generated-list inventory changed");
   require(rejected_candidates == expected_rejections,
           "generated-list fail-closed candidate inventory changed");
+  require(audited_prefixes == 42 && audited_artifacts == 3,
+          "generated-list 45-row semantic audit inventory changed");
 }
 #endif
 

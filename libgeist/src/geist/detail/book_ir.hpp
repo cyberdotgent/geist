@@ -34,6 +34,10 @@ struct LogicalTokenIR {
   SourceByteRange byte_range;
   bool has_spacing_control = false;
   std::uint16_t spacing_control = 3;
+  // Word ordinals which the code-page decoder could not map.  Keep this as
+  // typed decoder provenance so semantic consumers never need to infer an
+  // artifact from its rendered replacement character.
+  std::vector<std::size_t> unmapped_word_indices;
 };
 
 struct LogicalRecordIR {

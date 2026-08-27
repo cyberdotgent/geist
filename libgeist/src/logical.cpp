@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iterator>
+#include <limits>
 #include <map>
 #include <optional>
 #include <set>
@@ -509,6 +510,10 @@ LogicalRecordIR decode_record_payload_ir(
     token.spacing_control = token.has_spacing_control
                                 ? token.decoded_words.front()
                                 : std::uint16_t{3};
+    for (std::size_t word = 0; word < token.decoded_words.size(); ++word)
+      if (token.decoded_words[word] ==
+          std::numeric_limits<std::uint16_t>::max())
+        token.unmapped_word_indices.push_back(word);
     record.tokens.push_back(std::move(token));
   }
   return record;
