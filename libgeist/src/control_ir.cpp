@@ -55,7 +55,9 @@ BookControlKind classify(std::string opcode) {
   opcode = ascii_lower(std::move(opcode));
   // Topic-start controls encode the topic number in the opcode itself (for
   // example SH5.0). A lexical word such as "shutdown" at the start of a
-  // continuation record is prose, not a topic boundary.
+  // continuation record is prose, not a topic boundary.  Non-numeric topic
+  // ids are promoted afterwards by promote_corroborated_topic_start when the
+  // record envelope proves them.
   if (opcode.size() > 2 && opcode.rfind("sh", 0) == 0 &&
       std::isdigit(static_cast<unsigned char>(opcode[2])) != 0)
     return BookControlKind::topic_start;
@@ -106,6 +108,47 @@ BookControlKind classify(std::string opcode) {
       }))
     return BookControlKind::structural;
   return BookControlKind::text;
+}
+
+bool topic_identifier_word(const std::string &text, const WordSpan &word) {
+  if (word.end - word.begin <= 2 ||
+      ascii_lower(text.substr(word.begin, 2)) != "sh")
+    return false;
+  return std::all_of(text.begin() + static_cast<std::ptrdiff_t>(word.begin),
+                     text.begin() + static_cast<std::ptrdiff_t>(word.end),
+                     [](const unsigned char ch) {
+                       return std::isalnum(ch) != 0 || ch == '_' ||
+                              ch == '-' || ch == '.';
+                     });
+}
+
+// Topic identifiers are not always numeric (APPENDIX1.9.5, GLOSSARY, BACK_1.7
+// are real BookManager topic ids).  A record-leading SH word whose segment
+// carries nothing else and that is immediately followed by the CTOPICN
+// control is the topic-start control by envelope evidence, independent of
+// its spelling.  Without that corroboration the word remains prose.
+void promote_corroborated_topic_start(const std::string &text,
+                                      std::vector<ControlSegmentIR> &segments) {
+  if (segments.size() < 2 || segments[0].kind != BookControlKind::text ||
+      segments[1].kind != BookControlKind::topic_number ||
+      segments[0].complete.begin != 0)
+    return;
+  auto &segment = segments[0];
+  auto begin = segment.complete.begin;
+  while (begin < segment.complete.end &&
+         (std::isspace(static_cast<unsigned char>(text[begin])) != 0 ||
+          text[begin] == ',' || text[begin] == '?')) {
+    ++begin;
+  }
+  const auto words = words_in(text, begin, segment.complete.end);
+  if (words.size() != 1 || !topic_identifier_word(text, words[0]))
+    return;
+  segment.kind = BookControlKind::topic_start;
+  segment.opcode =
+      text.substr(words[0].begin, words[0].end - words[0].begin);
+  segment.opcode_range = {words[0].begin, words[0].end};
+  segment.operand_range = {words[0].end, words[0].end};
+  segment.payload_range = {words[0].end, segment.complete.end};
 }
 
 std::size_t fixed_operand_count(BookControlKind kind) {
@@ -268,6 +311,7 @@ decode_control_segments(std::uint32_t logical_record,
         assembled, word_range.begin, word_range.end);
     result.push_back(std::move(segment));
   }
+  promote_corroborated_topic_start(text, result);
   return result;
 }
 
