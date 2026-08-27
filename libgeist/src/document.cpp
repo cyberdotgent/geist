@@ -173,7 +173,7 @@ bool has_glossary_ir_source_candidate(
   return heading && term;
 }
 
-void load_source_layout_if_candidate(
+bool load_source_layout_if_candidate(
     const std::shared_ptr<LogicalDecodeContext>& context,
     TopicData& topic) {
   topic.use_legacy_source_layout =
@@ -189,10 +189,11 @@ void load_source_layout_if_candidate(
       !has_menu_ir_source_candidate(topic.raw_records) &&
       !has_generated_list_ir_source_candidate(topic.raw_records) &&
       !has_glossary_ir_source_candidate(topic.raw_records)) {
-    return;
+    return false;
   }
   topic.fixed_layout_sources = decode_logical_record_sources(
       *context, topic.start_logical_record, topic.end_logical_record);
+  return true;
 }
 
 TopicIdentityIR topic_identity(const TopicData& topic, const std::string& id,
@@ -221,27 +222,24 @@ struct LazyTopicState {
   std::string title;
   std::uint32_t level = 0;
   std::uint32_t style = 0;
-  std::vector<DecodedLogicalRecordSource> typed_sources;
-  bool loaded = false;
+  bool raw_loaded = false;
+  bool sources_loaded = false;
 
-  void load() {
-    if (loaded) return;
+  void load_raw() {
+    if (raw_loaded) return;
     topic.raw_records.assign(
         context->decoded_records.begin() + topic.start_logical_record - 1,
         context->decoded_records.begin() + topic.end_logical_record - 1);
-    load_source_layout_if_candidate(context, topic);
-    if (has_comment_delivery_source_candidate(topic.raw_records) ||
-        has_publication_ir_source_candidate(topic.raw_records) ||
-        has_st_fixed_prose_source_candidate(topic.raw_records) ||
-        has_menu_ir_source_candidate(topic.raw_records) ||
-        has_generated_list_ir_source_candidate(topic.raw_records)) {
-      typed_sources = topic.fixed_layout_sources.empty()
-                          ? decode_logical_record_sources(
-                                *context, topic.start_logical_record,
-                                topic.end_logical_record)
-                          : topic.fixed_layout_sources;
-    }
-    loaded = true;
+    sources_loaded = load_source_layout_if_candidate(context, topic);
+    raw_loaded = true;
+  }
+
+  void load_sources() {
+    load_raw();
+    if (sources_loaded) return;
+    topic.fixed_layout_sources = decode_logical_record_sources(
+        *context, topic.start_logical_record, topic.end_logical_record);
+    sources_loaded = true;
   }
 };
 
@@ -264,7 +262,7 @@ TopicLoaderBundle make_topic_loaders(
 
   TopicLoaderBundle loaders;
   loaders.raw = [state]() {
-    state->load();
+    state->load_raw();
     TocEntry loaded;
     loaded.id = state->id;
     loaded.title = state->title;
@@ -274,10 +272,10 @@ TopicLoaderBundle make_topic_loaders(
     return std::move(loaded.raw_records);
   };
   loaders.document = [state]() -> std::shared_ptr<const DocumentIR> {
-    state->load();
+    state->load_sources();
     auto document = try_lower_topic_to_document_ir(
         topic_identity(state->topic, state->id, state->title),
-        state->typed_sources, state->topic_catalog.get());
+        state->topic.fixed_layout_sources, state->topic_catalog.get());
     if (!document) return {};
     return std::make_shared<const DocumentIR>(std::move(*document));
   };
