@@ -1181,10 +1181,10 @@ void attach_topic_data(
       return;
     }
   }
-  entry.raw_records = topic.use_legacy_source_layout
-                          ? render_gml_records_with_source_layout(
-                                topic.raw_records, topic.fixed_layout_sources)
-                          : render_gml_records(topic.raw_records);
+  entry.raw_records = topic.fixed_layout_sources.empty()
+                          ? render_gml_records(topic.raw_records)
+                          : render_gml_records_with_source_layout(
+                                topic.raw_records, topic.fixed_layout_sources);
   if (topic_titles != nullptr && !topic.fixed_layout_sources.empty()) {
     project_verified_menu_gml(entry.raw_records, topic.fixed_layout_sources,
                               *topic_titles);
