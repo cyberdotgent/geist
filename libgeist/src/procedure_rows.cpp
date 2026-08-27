@@ -162,18 +162,6 @@ bool source_owned_origin(const Candidate& item,
 
 } // namespace
 
-bool has_numbered_procedure_candidate(
-    const std::vector<std::string>& decoded_records) {
-  const auto found = candidates(decoded_records);
-  for (std::size_t index = 1; index < found.size(); ++index) {
-    if (found[index].number == found[index - 1].number + 1 &&
-        found[index].origin == found[index - 1].origin &&
-        !local_barrier(decoded_records, found[index - 1], found[index]))
-      return true;
-  }
-  return false;
-}
-
 std::vector<std::vector<bool>> numbered_procedure_step_segments(
     const std::vector<std::string>& decoded_records,
     const std::vector<DecodedLogicalRecordSource>& sources) {

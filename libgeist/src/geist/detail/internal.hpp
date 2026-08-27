@@ -122,11 +122,9 @@ struct TopicData {
   std::uint32_t start_logical_record = 0;
   std::uint32_t end_logical_record = 0;
   std::vector<std::string> raw_records;
-  // Populated only for a selected topic whose lightweight decoded stream
-  // contains a fixed-form candidate. Kept topic-local and discarded after
-  // normalized GML construction.
+  // Positioned source decode for the selected topic, populated lazily once
+  // per topic and shared by typed lowering and the compatibility renderer.
   std::vector<DecodedLogicalRecordSource> fixed_layout_sources;
-  bool use_legacy_source_layout = false;
 };
 
 enum class EbcdicCodePage {

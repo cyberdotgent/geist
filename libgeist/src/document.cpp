@@ -1,8 +1,6 @@
 #include "geist/detail/internal.hpp"
 #include "geist/detail/book_topic_catalog_ir.hpp"
 #include "geist/detail/comment_delivery_ir.hpp"
-#include "geist/detail/implicit_grid.hpp"
-#include "geist/detail/procedure_rows.hpp"
 #include "geist/detail/selector_display_ir.hpp"
 #include "geist/detail/source_rows.hpp"
 #include "geist/detail/topic_document_lowering.hpp"
@@ -25,153 +23,6 @@ namespace geist {
 using namespace detail;
 
 namespace {
-
-bool has_box_form_source_candidate(
-    const std::vector<std::string>& records) {
-  auto candidates = std::size_t{0};
-  for (const auto& record : records) {
-    const auto lower = ascii_lower(record);
-    for (auto table = lower.find("srtbl"); table != std::string::npos;
-         table = lower.find("srtbl", table + 5)) {
-      const auto close = lower.find("sretbl", table + 5);
-      const auto limit = close == std::string::npos ? record.size() : close;
-      auto run = std::size_t{0};
-      auto proven_form = false;
-      for (auto cursor = table + 5; cursor < limit; ++cursor) {
-        run = record[cursor] == '?' ? run + 1 : 0;
-        proven_form = proven_form || run >= 40;
-      }
-      if (proven_form) {
-        ++candidates;
-      }
-    }
-  }
-  return candidates == 1;
-}
-
-bool has_implicit_grid_source_candidate(
-    const std::vector<std::string>& records) {
-  for (const auto& record : records) {
-    const auto lower = ascii_lower(record);
-    for (auto found = lower.find("cfont "); found != std::string::npos;
-         found = lower.find("cfont ", found + 6)) {
-      std::istringstream values(record.substr(found + 6));
-      std::vector<ImplicitGridHeaderSpan> spans;
-      while (true) {
-        std::size_t offset = 0;
-        std::size_t length = 0;
-        std::string code;
-        if (!(values >> offset >> length >> code) ||
-            !ascii_equals_case_insensitive(code, "2")) {
-          break;
-        }
-        spans.push_back({offset, length});
-      }
-      if (is_implicit_grid_header_geometry(spans)) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-bool has_generated_toc_source_candidate(
-    const std::vector<std::string>& records) {
-  return std::any_of(records.begin(), records.end(), [](const auto& record) {
-    return ascii_lower(record).find("ctoce ") != std::string::npos;
-  });
-}
-
-bool has_selector_source_candidate(const std::vector<std::string>& records) {
-  return std::any_of(records.begin(), records.end(), [](const auto& record) {
-    return ascii_lower(record).find("cselect ") != std::string::npos;
-  });
-}
-
-bool has_comment_delivery_source_candidate(
-    const std::vector<std::string>& records) {
-  return std::any_of(records.begin(), records.end(), [](const auto& record) {
-    const auto lower = ascii_lower(record);
-    return lower.find("csourcefn rcfaddr") != std::string::npos;
-  });
-}
-
-bool has_st_fixed_prose_source_candidate(
-    const std::vector<std::string>& records) {
-  auto count = std::size_t{0};
-  for (const auto& record : records) {
-    for (const auto& segment : split_decoded_markup_segments(record)) {
-      if (!ascii_starts_with_case_insensitive(segment, "st ")) {
-        continue;
-      }
-      ++count;
-      if (segment.size() < 160 || segment.find("          ") ==
-                                      std::string::npos) {
-        return false;
-      }
-    }
-  }
-  return count == 1;
-}
-
-bool has_publication_ir_source_candidate(
-    const std::vector<std::string>& records) {
-  bool heading = false;
-  bool title = false;
-  bool font = false;
-  for (const auto& record : records) {
-    for (const auto& segment : split_decoded_markup_segments(record)) {
-      const auto lower = ascii_lower(trim_ascii(segment));
-      heading = heading ||
-                ascii_starts_with_case_insensitive(lower, "chdlevel :h2") ||
-                ascii_starts_with_case_insensitive(lower, "chdlevel :h3");
-      title = title || ascii_starts_with_case_insensitive(lower, "st ");
-      font = font || ascii_starts_with_case_insensitive(lower, "cfont ");
-    }
-  }
-  return heading && title && font;
-}
-
-bool has_menu_ir_source_candidate(const std::vector<std::string>& records) {
-  return std::any_of(records.begin(), records.end(), [](const auto& record) {
-    return ascii_lower(record).find("cmenu") != std::string::npos &&
-           ascii_lower(record).find("cmitem") != std::string::npos;
-  });
-}
-
-bool has_glossary_ir_source_candidate(
-    const std::vector<std::string>& records) {
-  bool heading = false;
-  bool term = false;
-  for (const auto& record : records) {
-    const auto lower = ascii_lower(record);
-    heading = heading || lower.find("chdlevel :glossary") != std::string::npos;
-    term = term || lower.find("srgls") != std::string::npos;
-  }
-  return heading && term;
-}
-
-bool load_source_layout_if_candidate(
-    const std::shared_ptr<LogicalDecodeContext>& context,
-    TopicData& topic) {
-  topic.use_legacy_source_layout =
-      has_box_form_source_candidate(topic.raw_records) ||
-      has_implicit_grid_source_candidate(topic.raw_records) ||
-      has_numbered_procedure_candidate(topic.raw_records) ||
-      has_semantic_srmsg_source_candidate(topic.raw_records) ||
-      has_generated_toc_source_candidate(topic.raw_records) ||
-      has_selector_source_candidate(topic.raw_records) ||
-      has_st_fixed_prose_source_candidate(topic.raw_records);
-  if (!topic.use_legacy_source_layout &&
-      !has_publication_ir_source_candidate(topic.raw_records) &&
-      !has_menu_ir_source_candidate(topic.raw_records) &&
-      !has_glossary_ir_source_candidate(topic.raw_records)) {
-    return false;
-  }
-  topic.fixed_layout_sources = decode_logical_record_sources(
-      *context, topic.start_logical_record, topic.end_logical_record);
-  return true;
-}
 
 TopicIdentityIR topic_identity(const TopicData& topic, const std::string& id,
                                const std::string& title) {
@@ -207,10 +58,11 @@ struct LazyTopicState {
     topic.raw_records.assign(
         context->decoded_records.begin() + topic.start_logical_record - 1,
         context->decoded_records.begin() + topic.end_logical_record - 1);
-    sources_loaded = load_source_layout_if_candidate(context, topic);
     raw_loaded = true;
   }
 
+  // Every topic is offered the same positioned source decode once; typed
+  // lowering and the compatibility renderer share this single cache.
   void load_sources() {
     load_raw();
     if (sources_loaded) return;
@@ -239,7 +91,7 @@ TopicLoaderBundle make_topic_loaders(
 
   TopicLoaderBundle loaders;
   loaders.raw = [state]() {
-    state->load_raw();
+    state->load_sources();
     TocEntry loaded;
     loaded.id = state->id;
     loaded.title = state->title;
@@ -634,8 +486,7 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
     if (auto* destination = trace_for(fixed_prose->logical_record))
       destination->ir_semantic_blocks.push_back(
           detail::format_fixed_prose_ir(*fixed_prose));
-  } else if (!fixed_prose_extraction_error.empty() && !sources.empty() &&
-             has_st_fixed_prose_source_candidate(records)) {
+  } else if (!fixed_prose_extraction_error.empty() && !sources.empty()) {
     if (auto* destination = trace_for(sources.front().logical_record))
       destination->ir_semantic_blocks.push_back(
           "fixed_prose_ir_rejected=" + fixed_prose_extraction_error);
@@ -652,8 +503,7 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
     if (auto* destination = trace_for(sources.front().logical_record))
       destination->ir_semantic_blocks.push_back(
           detail::format_comment_delivery_ir(*comment_delivery));
-  } else if (!comment_extraction_error.empty() && !sources.empty() &&
-             has_comment_delivery_source_candidate(records)) {
+  } else if (!comment_extraction_error.empty() && !sources.empty()) {
     if (auto* destination = trace_for(sources.front().logical_record))
       destination->ir_semantic_blocks.push_back(
           "comment_delivery_ir_rejected=" + comment_extraction_error);
@@ -730,8 +580,7 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
         destination->ir_semantic_blocks.push_back(
             "selector_display_ir_rejected=" + display_extraction_error);
     }
-  } else if (!selector_extraction_error.empty() && !sources.empty() &&
-             has_selector_source_candidate(records)) {
+  } else if (!selector_extraction_error.empty() && !sources.empty()) {
     if (auto* destination = trace_for(sources.front().logical_record))
       destination->ir_semantic_blocks.push_back(
           "selector_catalog_ir_rejected=" + selector_extraction_error);
@@ -746,8 +595,7 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
     if (auto* destination = trace_for(sources.front().logical_record))
       destination->ir_semantic_blocks.push_back(
           detail::format_menu_ir(*menu));
-  } else if (!menu_extraction_error.empty() && !sources.empty() &&
-             has_menu_ir_source_candidate(records)) {
+  } else if (!menu_extraction_error.empty() && !sources.empty()) {
     if (auto* destination = trace_for(sources.front().logical_record))
       destination->ir_semantic_blocks.push_back(
           "menu_ir_rejected=" + menu_extraction_error);
