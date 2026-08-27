@@ -14,15 +14,17 @@ if(NOT result EQUAL 0)
 endif()
 
 file(READ "${OUTPUT}/5-6.md" typed_menu)
+# Hosted FA1PLMM0 5.6 (DT=19910927114801): `Subtopics:` followed by
+# `5.6.1 Functions Supported by the VM/VSE Interface`.
 string(FIND "${typed_menu}"
-  "[Functions Supported by the VM/VSE Interface](5-6-1.md)"
+  "Subtopics:\n\n- [5\\.6\\.1 Functions Supported by the VM/VSE Interface](5-6-1.md)"
   typed_resolved)
-string(FIND "${typed_menu}" "](<5.6.1>)" typed_raw)
+string(FIND "${typed_menu}" "](<" typed_raw)
 string(FIND "${typed_menu}" "# VM/VSE Interface" duplicate_heading)
 if(typed_resolved EQUAL -1 OR NOT typed_raw EQUAL -1 OR
    NOT duplicate_heading EQUAL -1)
   message(FATAL_ERROR
-    "canonical typed menu target or anchor-leading heading was not exported")
+    "canonical typed menu Subtopics lead, id-prefixed target, or anchor-leading heading was not exported")
 endif()
 
 file(READ "${OUTPUT}/6-2-1.md" legacy_topic)

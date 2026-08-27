@@ -145,11 +145,13 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR identity,
          std::move(paragraph_origin)});
   }
 
-  ListBlockIR list;
-  list.ordered = false;
-  DocumentNodeOriginIR list_origin;
-  list_origin.derivation = DocumentDerivationIR::semantic_lowering;
-  list_origin.detail = "menu topic item list";
+  // The menu lowers to a typed MenuBlockIR: `Subtopics:` and the `<id> `
+  // label prefix are BookServer render-time output (see document_ir.hpp), so
+  // they are not materialized here; only source-proven items are carried.
+  MenuBlockIR menu_block;
+  DocumentNodeOriginIR menu_origin;
+  menu_origin.derivation = DocumentDerivationIR::semantic_lowering;
+  menu_origin.detail = "menu topic subtopic menu";
   std::set<std::pair<std::uint32_t, std::size_t>> owned_cells;
   for (const auto &item : menu.items) {
     if (item.target.kind != CrossReferenceTargetKindIR::topic ||
@@ -171,17 +173,16 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR identity,
           return std::nullopt;
         }
 
-    auto item_origin = slice_origin(item.source, "menu topic item");
-    auto link_origin =
+    auto item_origin =
         cell_origin(item.source, {&item.target_cells, &item.label_cells},
-                    "menu topic link target and label");
-    list.items.push_back(
-        {{{CrossReferenceInlineIR{item.target, item.label}, link_origin}},
-         item_origin});
-    add_slice(list_origin, item.source);
+                    "menu topic item target and label");
+    add_slice(item_origin, item.source);
+    canonicalize_slices(item_origin);
+    menu_block.items.push_back({item.target, item.label, std::move(item_origin)});
+    add_slice(menu_origin, item.source);
   }
-  canonicalize_slices(list_origin);
-  document.blocks.push_back({std::move(list), std::move(list_origin)});
+  canonicalize_slices(menu_origin);
+  document.blocks.push_back({std::move(menu_block), std::move(menu_origin)});
 
   std::string document_error;
   if (!verify_document_ir(document, &document_error)) {

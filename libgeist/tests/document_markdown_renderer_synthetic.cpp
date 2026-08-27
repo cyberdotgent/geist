@@ -152,6 +152,12 @@ int main() {
   index.entries = {{text("Alpha [entry]"), "#alpha one", origin()},
                    {text("Beta"), "other(topic)", origin()}};
   document.blocks.push_back(block(std::move(index)));
+  MenuBlockIR menu;
+  menu.items = {{{CrossReferenceTargetKindIR::topic, "2.1.1"},
+                 "Displaying [Status]", origin()},
+                {{CrossReferenceTargetKindIR::topic, "2.1.2"}, "Checking",
+                 origin()}};
+  document.blocks.push_back(block(std::move(menu)));
   document.blocks.push_back(
       block(OpaqueBlockIR{"control*kind", "raw ``` payload\nsecond line"}));
 
@@ -183,9 +189,36 @@ int main() {
       !contains(formatted, "item=ordinal=12 [text=\"twelve\"",
                 "formatter omitted a nonconsecutive list source ordinal"))
     return 1;
+  auto empty_menu = document;
+  std::get<MenuBlockIR>(empty_menu.blocks[empty_menu.blocks.size() - 2].node)
+      .items.clear();
+  if (!require(!verify_document_ir(empty_menu, &error) &&
+                   error == "menu is empty",
+               "verifier admitted an empty menu block"))
+    return 1;
+  auto anchor_menu = document;
+  std::get<MenuBlockIR>(anchor_menu.blocks[anchor_menu.blocks.size() - 2].node)
+      .items.front()
+      .target.kind = CrossReferenceTargetKindIR::anchor;
+  if (!require(!verify_document_ir(anchor_menu, &error) &&
+                   error == "menu item is incomplete",
+               "verifier admitted a non-topic menu item target"))
+    return 1;
+  if (!contains(formatted,
+                "menu items=[target=\"2.1.1\" label=\"Displaying [Status]\"",
+                "formatter omitted the menu block items"))
+    return 1;
   const auto fallback_output = render_document_markdown(document);
   if (!contains(fallback_output, "[topic](<Chapter%20One>)",
-                "context-free topic fallback changed semantic identity"))
+                "context-free topic fallback changed semantic identity") ||
+      // The reader-generated `Subtopics:` lead and `<id> ` label prefix are
+      // renderer expansions of the typed menu block; the unresolved
+      // destination is the legacy `#<id>` form.
+      !contains(fallback_output,
+                "Subtopics:\n\n"
+                "- [2\\.1\\.1 Displaying \\[Status\\]](<#2.1.1>)\n"
+                "- [2\\.1\\.2 Checking](<#2.1.2>)",
+                "context-free menu block expansion changed"))
     return 1;
 
   DocumentMarkdownRendererOptions options;
@@ -291,6 +324,12 @@ int main() {
                 "- [Alpha \\[entry\\]](<#alpha%20one>)\n"
                 "- [Beta](<other(topic)>)",
                 "index group structure failed") ||
+      !contains(output,
+                "Subtopics:\n\n"
+                "- [2\\.1\\.1 Displaying \\[Status\\]]"
+                "(<topics/chapter-one.md>)\n"
+                "- [2\\.1\\.2 Checking](<topics/chapter-one.md>)",
+                "resolved menu block structure failed") ||
       !contains(output,
                 "**Opaque control\\*kind content:**\n\n"
                 "````\nraw ``` payload\nsecond line\n````",

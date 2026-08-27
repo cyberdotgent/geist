@@ -141,6 +141,15 @@ std::string cross_reference_destination(
   throw std::logic_error("invalid cross-reference target kind");
 }
 
+std::string menu_destination(const CrossReferenceTargetIR &target,
+                             const DocumentMarkdownRendererOptions &options) {
+  if (options.resolve_cross_reference) {
+    if (const auto resolved = options.resolve_cross_reference(target))
+      return *resolved;
+  }
+  return '#' + target.value;
+}
+
 std::string footnote_label(const std::string &value) {
   std::ostringstream result;
   for (const auto raw_ch : value) {
@@ -432,6 +441,27 @@ std::string render_block(const BlockNodeIR &block,
                       render_inlines(node.entries[index].term,
                                      InlineContext::single_line, options) +
                       "](" + markdown_destination(node.entries[index].target) +
+                      ')';
+          }
+          return result;
+        } else if constexpr (std::is_same_v<T, MenuBlockIR>) {
+          // BookServer presentation of a generated menu: the `Subtopics:`
+          // lead line and the `<topic id> <label>` link text are reader
+          // output (hosted FA1PLMM0 5.6, SC33-033 5.3, SC34-425 1.8.5.5,
+          // SH12-565 APPENDIX1.9.5, SC31-711 2.1), not source text.  The
+          // unresolved destination is the same `#<id>` form the legacy
+          // `:li refid` route produces so that boo2git rewrites both alike.
+          std::string result = "Subtopics:\n\n";
+          for (std::size_t index = 0; index < node.items.size(); ++index) {
+            if (index != 0)
+              result.push_back('\n');
+            const auto &item = node.items[index];
+            result += "- [" +
+                      escape_markdown_text(item.target.value + ' ' +
+                                           item.label) +
+                      "](" +
+                      markdown_destination(menu_destination(item.target,
+                                                            options)) +
                       ')';
           }
           return result;

@@ -155,6 +155,24 @@ struct FootnoteBlockIR {
   InlineSequenceIR content;
 };
 
+// One entry of a reader-generated subtopic menu (BOO `CMITEM <id> <text>`).
+// The target keeps the raw topic identity; `label` is the source-proven
+// visible text without any reader-added prefix.
+struct MenuBlockItemIR {
+  CrossReferenceTargetIR target;
+  std::string label;
+  DocumentNodeOriginIR origin;
+};
+
+// A reader-generated subtopic menu (BOO `CMENU` ... `CEMENU`).  BookServer
+// synthesizes the `Subtopics:` lead line and prefixes every visible label with
+// its target topic id at render time (`bookmgr.exe` `sub_405FC`, see
+// Format/markup.md); neither exists in BOO source, so this block carries only
+// the typed items and each renderer expands that presentation itself.
+struct MenuBlockIR {
+  std::vector<MenuBlockItemIR> items;
+};
+
 struct IndexEntryIR {
   InlineSequenceIR term;
   std::string target;
@@ -190,8 +208,8 @@ using BlockNodeIR =
     std::variant<HeadingBlockIR, ParagraphBlockIR, AnchorBlockIR, ListBlockIR,
                  DefinitionListBlockIR, TableBlockIR, PreformattedBlockIR,
                  NoteBlockIR, PublicationListBlockIR, FigureBlockIR,
-                 FootnoteBlockIR, IndexGroupBlockIR, OpaqueBlockIR,
-                 LegacyGmlRegionIR>;
+                 FootnoteBlockIR, IndexGroupBlockIR, MenuBlockIR,
+                 OpaqueBlockIR, LegacyGmlRegionIR>;
 
 struct BlockIR {
   BlockNodeIR node;

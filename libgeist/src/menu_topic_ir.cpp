@@ -176,6 +176,100 @@ const OwnedSourceCellIR *owned_cell(const OwnershipIR &ownership,
   return found == ownership.cells.end() ? nullptr : &*found;
 }
 
+// Second observed ST title/intro form (SC34-425 1.8.5.5 / 1.8.15.5 /
+// 1.8.18.5, LR696 segment 8): the payload occupies two physical rows of one
+// display run.  Row 0 (native origin 1) holds the title; row 1 starts at a
+// marker slot LayoutIR types as a `?`-run placeholder wrap (token 29, one
+// encoded width-1 word shown as eleven U+2500 cells), followed by three
+// origin cells (native origin 3) and the introduction prose.  Hosted
+// BookServer (DT=19921112160049) shows `1.8.5.5   Example` as the heading
+// and `   This example calls the DBUTIL service.` as a separate line
+// indented by exactly those origin cells, and never displays the marker.  A
+// 50-column title field would have carried the intro in row 0 with a padding
+// run; a plain soft wrap of the title keeps the row origin.  The split is
+// decided from LayoutIR row membership/origins and OwnershipIR dispositions
+// only; no spelling is inspected.  Marker-slot and origin cells are layout
+// and belong to neither text.
+bool split_title_and_introduction_at_marker_row(
+    const std::vector<MenuSourceCellIR> &payload_cells,
+    const LayoutIR &layout, const OwnershipIR &ownership,
+    std::vector<MenuSourceCellIR> *title,
+    std::vector<MenuSourceCellIR> *introduction) {
+  const DisplayRunIR *run = nullptr;
+  for (const auto &cell : payload_cells) {
+    const auto *owned = owned_cell(ownership, cell);
+    if (owned == nullptr)
+      continue;
+    const auto found = std::find_if(layout.runs.begin(), layout.runs.end(),
+                                    [&](const auto &candidate) {
+                                      return candidate.id == owned->run;
+                                    });
+    if (found == layout.runs.end() || (run != nullptr && run != &*found))
+      return false;
+    run = &*found;
+  }
+  if (run == nullptr || run->rows.size() < 2 ||
+      run->rows[0].start != PhysicalRowStartKind::control_payload ||
+      run->rows[0].marker.has_value() ||
+      run->rows[1].start != PhysicalRowStartKind::placeholder_wrap ||
+      run->rows[1].break_before != PhysicalBreakKind::soft_wrap ||
+      !run->rows[1].marker.has_value() ||
+      run->rows[1].native_origin <= run->rows[0].native_origin)
+    return false;
+  // Further rows may only continue the introduction as ordinary wraps.
+  for (std::size_t row = 2; row < run->rows.size(); ++row)
+    if (run->rows[row].start == PhysicalRowStartKind::placeholder_wrap ||
+        run->rows[row].start == PhysicalRowStartKind::control_payload)
+      return false;
+
+  // Unowned cells are inserted spaces; they follow the preceding owned cell
+  // (leading ones precede the title and are trimmed).
+  auto current_row = std::size_t{0};
+  auto intro_visible = false;
+  for (const auto &cell : payload_cells) {
+    const auto *owned = owned_cell(ownership, cell);
+    if (owned != nullptr) {
+      if (owned->row_index < current_row)
+        return false;
+      current_row = owned->row_index;
+    } else if (cell.kind != MenuSourceCellKind::inserted_space) {
+      return false;
+    }
+    if (current_row == 0) {
+      // Row 0 carries its own origin cells before the title text.
+      if (owned == nullptr ||
+          owned->disposition == SourceDisposition::visible_content)
+        title->push_back(cell);
+      else if (owned->disposition != SourceDisposition::layout_origin &&
+               owned->disposition != SourceDisposition::layout_padding)
+        return false;
+      continue;
+    }
+    if (owned != nullptr) {
+      switch (owned->disposition) {
+      case SourceDisposition::visible_content:
+        intro_visible = true;
+        introduction->push_back(cell);
+        break;
+      case SourceDisposition::marker_slot:
+      case SourceDisposition::layout_origin:
+      case SourceDisposition::layout_padding:
+        if (intro_visible &&
+            owned->disposition == SourceDisposition::marker_slot)
+          return false;
+        break;
+      default:
+        return false;
+      }
+    } else if (intro_visible) {
+      introduction->push_back(cell);
+    }
+  }
+  trim_cells(*title);
+  trim_cells(*introduction);
+  return !title->empty() && !introduction->empty();
+}
+
 bool split_title_and_introduction(
     const std::vector<MenuSourceCellIR> &payload_cells,
     const LayoutIR &layout, const OwnershipIR &ownership,
@@ -247,6 +341,12 @@ bool split_title_and_introduction(
   if (candidates.size() > 1)
     return false;
   if (candidates.empty()) {
+    if (split_title_and_introduction_at_marker_row(payload_cells, layout,
+                                                   ownership, title,
+                                                   introduction))
+      return true;
+    title->clear();
+    introduction->clear();
     *title = payload_cells;
     trim_cells(*title);
     return !title->empty();
