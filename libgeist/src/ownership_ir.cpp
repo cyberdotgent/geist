@@ -38,6 +38,53 @@ const char* disposition_name(SourceDisposition disposition) {
   return "invalid";
 }
 
+const char* role_name(RowCellRole role) {
+  switch (role) {
+  case RowCellRole::boundary: return "boundary";
+  case RowCellRole::origin: return "origin";
+  case RowCellRole::padding: return "padding";
+  case RowCellRole::content: return "content";
+  }
+  return "invalid";
+}
+
+RowCellRole row_role(SourceDisposition disposition) {
+  switch (disposition) {
+  case SourceDisposition::marker_slot: return RowCellRole::boundary;
+  case SourceDisposition::layout_origin: return RowCellRole::origin;
+  case SourceDisposition::layout_padding: return RowCellRole::padding;
+  case SourceDisposition::visible_content: return RowCellRole::content;
+  default: return RowCellRole::content;
+  }
+}
+
+std::map<CellKey, std::size_t> row_display_columns(
+    const DecodedLogicalRecordSource& record, const PhysicalRowIR& row,
+    std::size_t origin_token) {
+  std::map<CellKey, std::size_t> columns;
+  bool started = false;
+  std::size_t column = 0;
+  for (const auto& source : record.assembled.sources) {
+    if (!started) {
+      started = source.kind == LogicalWordSourceKind::token_word &&
+                source.token_index == origin_token && source.word_index == 0;
+      if (!started) continue;
+    }
+    if (source.kind == LogicalWordSourceKind::token_word &&
+        source.token_index >= row.token_end)
+      break;
+    if (source.kind == LogicalWordSourceKind::token_word &&
+        source.token_index >= origin_token &&
+        source.token_index < row.token_end) {
+      columns.emplace(CellKey{record.logical_record, source.token_index,
+                              source.word_index},
+                      column);
+    }
+    ++column;
+  }
+  return columns;
+}
+
 } // namespace
 
 OwnershipIR build_ownership_ir(
@@ -142,6 +189,45 @@ OwnershipIR build_ownership_ir(
       }
     }
   }
+
+  // Project row-owned cells into display coordinates without interpreting any
+  // marker spelling. Decoder-inserted spaces advance the column but have no
+  // source cell of their own, so gaps in this ledger are intentional.
+  for (const auto& run : layout.runs) {
+    for (std::size_t row_index = 0; row_index < run.rows.size(); ++row_index) {
+      const auto& row = run.rows[row_index];
+      const auto source = std::find_if(
+          records.begin(), records.end(), [&](const auto& record) {
+            return record.logical_record == row.logical_record;
+          });
+      if (source == records.end()) continue;
+      const auto origin_token = row.marker ? row.token_begin + 1
+                                           : row.token_begin;
+      const auto columns = row_display_columns(*source, row, origin_token);
+      for (const auto& cell : result.cells) {
+        if (cell.run != run.id || cell.row_index != row_index) continue;
+        PositionedRowCellIR positioned;
+        positioned.run = run.id;
+        positioned.row_index = row_index;
+        positioned.logical_record = cell.logical_record;
+        positioned.token_index = cell.token_index;
+        positioned.word_index = cell.word_index;
+        positioned.word = cell.word;
+        positioned.role = row_role(cell.disposition);
+        if (positioned.role != RowCellRole::boundary) {
+          const auto found = columns.find(
+              {cell.logical_record, cell.token_index, cell.word_index});
+          if (found == columns.end()) {
+            result.conflicts.push_back(
+                "row-owned source cell has no mechanical display column");
+            continue;
+          }
+          positioned.display_column = found->second;
+        }
+        result.row_cells.push_back(std::move(positioned));
+      }
+    }
+  }
   return result;
 }
 
@@ -168,10 +254,13 @@ bool verify_ownership_ir(
     std::size_t markers = 0;
   };
   std::map<std::pair<DisplayRunId, std::size_t>, RowCounts> row_counts;
+  std::map<CellKey, const OwnedSourceCellIR*> owned_cells;
   for (const auto& cell : ownership.cells) {
     if (!unique.emplace(cell.logical_record, cell.token_index, cell.word_index)
              .second)
       return fail("ownership ledger contains duplicate source cells");
+    owned_cells.emplace(
+        CellKey{cell.logical_record, cell.token_index, cell.word_index}, &cell);
     auto& counts = row_counts[{cell.run, cell.row_index}];
     if (cell.disposition == SourceDisposition::visible_content)
       ++counts.visible;
@@ -188,6 +277,38 @@ bool verify_ownership_ir(
         return fail("marker row owns no marker source cell");
     }
   }
+  const auto canonical = build_ownership_ir(records, layout);
+  if (!canonical.conflicts.empty())
+    return fail("could not reconstruct positioned row-cell ledger");
+  if (ownership.row_cells.size() != canonical.row_cells.size())
+    return fail("positioned row-cell ledger does not conserve row ownership");
+  std::set<CellKey> positioned_unique;
+  for (std::size_t index = 0; index < ownership.row_cells.size(); ++index) {
+    const auto& cell = ownership.row_cells[index];
+    const auto& expected_cell = canonical.row_cells[index];
+    if (!positioned_unique
+             .emplace(cell.logical_record, cell.token_index, cell.word_index)
+             .second)
+      return fail("positioned row-cell ledger contains duplicate source cells");
+    if (cell.run != expected_cell.run ||
+        cell.row_index != expected_cell.row_index ||
+        cell.logical_record != expected_cell.logical_record ||
+        cell.token_index != expected_cell.token_index ||
+        cell.word_index != expected_cell.word_index ||
+        cell.word != expected_cell.word || cell.role != expected_cell.role ||
+        cell.display_column != expected_cell.display_column)
+      return fail("positioned row-cell ledger differs from source geometry");
+    if ((cell.role == RowCellRole::boundary) ==
+        cell.display_column.has_value())
+      return fail("boundary/display cell has an invalid column state");
+    const auto owned = owned_cells.find(
+        {cell.logical_record, cell.token_index, cell.word_index});
+    if (owned == owned_cells.end() || owned->second->run != cell.run ||
+        owned->second->row_index != cell.row_index ||
+        owned->second->word != cell.word ||
+        row_role(owned->second->disposition) != cell.role)
+      return fail("positioned row cell does not match source ownership");
+  }
   if (error != nullptr) error->clear();
   return true;
 }
@@ -198,6 +319,8 @@ std::string format_ownership_ir(const OwnershipIR& ownership) {
     if (cell.run == 0 && cell.disposition == SourceDisposition::opaque) continue;
     out << format_owned_source_cell_ir(cell) << '\n';
   }
+  for (const auto& cell : ownership.row_cells)
+    out << "positioned " << format_positioned_row_cell_ir(cell) << '\n';
   for (const auto& conflict : ownership.conflicts)
     out << "conflict=" << conflict << '\n';
   return out.str();
@@ -210,6 +333,19 @@ std::string format_owned_source_cell_ir(const OwnedSourceCellIR& cell) {
       << " disposition=" << disposition_name(cell.disposition);
   if (cell.run != 0)
     out << " run=" << cell.run << " row=" << cell.row_index;
+  return out.str();
+}
+
+std::string format_positioned_row_cell_ir(const PositionedRowCellIR& cell) {
+  std::ostringstream out;
+  out << "run=" << cell.run << " row=" << cell.row_index
+      << " record=" << cell.logical_record << " token=" << cell.token_index
+      << " word=" << cell.word_index << " value=" << cell.word
+      << " role=" << role_name(cell.role) << " column=";
+  if (cell.display_column)
+    out << *cell.display_column;
+  else
+    out << "none";
   return out.str();
 }
 

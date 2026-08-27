@@ -85,6 +85,32 @@ int main() {
                                        visible_content;
                           }),
           "ownership ledger did not retain its structural disposition classes");
+  const auto positioned = [&](std::uint32_t record, std::size_t token,
+                              std::size_t word) {
+    return std::find_if(ownership.row_cells.begin(), ownership.row_cells.end(),
+                        [&](const auto& cell) {
+                          return cell.logical_record == record &&
+                                 cell.token_index == token &&
+                                 cell.word_index == word;
+                        });
+  };
+  const auto opening_boundary = positioned(10, 1, 0);
+  const auto opening_origin = positioned(10, 2, 2);
+  const auto opening_content = positioned(10, 3, 0);
+  require(opening_boundary != ownership.row_cells.end() &&
+              opening_boundary->role == geist::detail::RowCellRole::boundary &&
+              !opening_boundary->display_column &&
+              opening_origin != ownership.row_cells.end() &&
+              opening_origin->role == geist::detail::RowCellRole::origin &&
+              opening_origin->display_column == 2 &&
+              opening_content != ownership.row_cells.end() &&
+              opening_content->role == geist::detail::RowCellRole::content &&
+              opening_content->display_column == 3,
+          "positioned ledger lost boundary/origin/content source geometry");
+  require(ownership.row_cells.size() ==
+              std::count_if(ownership.cells.begin(), ownership.cells.end(),
+                            [](const auto& cell) { return cell.run != 0; }),
+          "positioned ledger does not correspond exactly to row ownership");
 
   const auto generated_controls = make_record(
       20, {{3, 'c','.','s','p',' ','3','p',' ','p',' ','c'},
@@ -108,6 +134,9 @@ int main() {
   require(geist::detail::format_ownership_ir(ownership).find(
               "disposition=") != std::string::npos,
           "ownership IR has no stable diagnostic projection");
+  require(geist::detail::format_ownership_ir(ownership).find(
+              "role=boundary column=none") != std::string::npos,
+          "positioned row-cell IR has no stable diagnostic projection");
 
   auto duplicate = ownership;
   duplicate.cells.push_back(duplicate.cells.back());
@@ -122,6 +151,92 @@ int main() {
               {opening, continuation}, layout, missing, &error) &&
               !error.empty(),
           "ownership ledger with a source-cell gap passed verification");
+
+  auto duplicate_position = ownership;
+  duplicate_position.row_cells.push_back(duplicate_position.row_cells.back());
+  require(!geist::detail::verify_ownership_ir(
+              {opening, continuation}, layout, duplicate_position, &error) &&
+              !error.empty(),
+          "duplicate positioned source cell passed verification");
+
+  auto moved_position = ownership;
+  auto movable = std::find_if(moved_position.row_cells.begin(),
+                              moved_position.row_cells.end(), [](auto& cell) {
+                                return cell.display_column.has_value();
+                              });
+  require(movable != moved_position.row_cells.end(),
+          "positioned test fixture has no display cell");
+  ++*movable->display_column;
+  require(!geist::detail::verify_ownership_ir(
+              {opening, continuation}, layout, moved_position, &error) &&
+              !error.empty(),
+          "moved positioned source cell passed verification");
+
+  auto semantic_boundary = ownership;
+  auto boundary = std::find_if(
+      semantic_boundary.row_cells.begin(), semantic_boundary.row_cells.end(),
+      [](const auto& cell) {
+        return cell.role == geist::detail::RowCellRole::boundary;
+      });
+  require(boundary != semantic_boundary.row_cells.end(),
+          "positioned test fixture has no boundary cell");
+  boundary->display_column = 0;
+  require(!geist::detail::verify_ownership_ir(
+              {opening, continuation}, layout, semantic_boundary, &error) &&
+              !error.empty(),
+          "semantic boundary placement passed geometry verification");
+
+  auto mismatched_role = ownership;
+  auto owned_origin = std::find_if(
+      mismatched_role.cells.begin(), mismatched_role.cells.end(),
+      [](const auto& cell) {
+        return cell.disposition ==
+               geist::detail::SourceDisposition::layout_origin;
+      });
+  require(owned_origin != mismatched_role.cells.end(),
+          "ownership test fixture has no origin cell");
+  owned_origin->disposition =
+      geist::detail::SourceDisposition::visible_content;
+  require(!geist::detail::verify_ownership_ir(
+              {opening, continuation}, layout, mismatched_role, &error) &&
+              !error.empty(),
+          "positioned role/source-ownership mismatch passed verification");
+
+  const auto spelling_neutral = make_record(
+      19, {{3, 'c','f','o','n','t',' ','3',' ','4',' ','C'},
+           {'a','n','d'}, {' ',' '}, {'A'}, {'B'}});
+  const auto spelling_neutral_layout =
+      geist::detail::extract_layout_ir({spelling_neutral});
+  const auto spelling_neutral_ownership = geist::detail::build_ownership_ir(
+      {spelling_neutral}, spelling_neutral_layout);
+  require(geist::detail::verify_ownership_ir(
+              {spelling_neutral}, spelling_neutral_layout,
+              spelling_neutral_ownership, &error) &&
+              spelling_neutral_layout.runs.size() == 1 &&
+              spelling_neutral_layout.runs.front().rows.size() == 1,
+          "lexical-looking compact boundary did not retain source geometry");
+  const auto& spelling_cells = spelling_neutral_ownership.row_cells;
+  require(std::count_if(spelling_cells.begin(), spelling_cells.end(),
+                        [](const auto& cell) {
+                          return cell.role ==
+                                     geist::detail::RowCellRole::boundary &&
+                                 !cell.display_column;
+                        }) == 3,
+          "boundary role depended on decoded marker spelling");
+  const auto second_content = std::find_if(
+      spelling_cells.begin(), spelling_cells.end(), [](const auto& cell) {
+        return cell.token_index == 4 && cell.word_index == 0;
+      });
+  require(second_content != spelling_cells.end() &&
+              second_content->display_column == 4,
+          "decoder-inserted spacing was not preserved as a column gap");
+
+  const auto wide_lookalike = make_record(
+      21, {{3, 'c','f','o','n','t',' ','3',' ','4',' ','C'},
+           {'a','n','d'}, {' ',' '}, {'t','e','x','t'}},
+      {1, 2, 1, 1});
+  require(geist::detail::extract_layout_ir({wide_lookalike}).runs.empty(),
+          "multi-byte lexical lookalike became a compact boundary");
 
   const auto separated = geist::detail::extract_layout_ir(
       {opening, make_record(12, continuation.tokens)});
