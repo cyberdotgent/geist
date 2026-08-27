@@ -102,11 +102,13 @@ int main() {
   const auto web_figures = web_demo.topic_markdown("FIGURES");
   require(web_figures.find("c.sp 3p p c") == std::string::npos,
           "generated figure-list spacing control leaked into Markdown");
-  require(web_figures.find(
-              "[1. BookManager product family 1.2](#FIGBIGPIC)") !=
-              std::string::npos &&
+  // Typed generated-list form from 9def3e3; XWEBDEMO FIGURES only fell back
+  // to the legacy route while non-numeric topic-start controls (SHFIGURES)
+  // were misclassified as prose.
+  require(web_figures.find("[1\\.  BookManager product family   1\\.2]"
+                           "(<#FIGBIGPIC>)") != std::string::npos &&
               web_figures.find(
-                  "[3. External JPEG format image presented in-line 1.4.1]"
-                  "(#FIGMONET1)") != std::string::npos,
+                  "[3\\.  External JPEG format image presented in\\-line   "
+                  "1\\.4\\.1](<#FIGMONET1>)") != std::string::npos,
           "external-picture figure index retained selector metadata");
 }

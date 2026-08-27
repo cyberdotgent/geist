@@ -148,11 +148,14 @@ int main() {
           "packet footnote selector changed multiplicity");
   const auto figures = geist::BooDocument::open(root / "IEAC6MST.BOO")
                            .topic_markdown("FIGURES");
-  require(count(figures, "](#FIGALLO)") == 2 &&
-              figures.find("[2-2. Sample CLIST to Add IPCS Libraries to "
-                           "Data Set Concatenations and](#FIGALLO)") !=
+  // Typed generated-list form from 9def3e3; IEAC6MST FIGURES only fell back
+  // to the legacy route while non-numeric topic-start controls (SHFIGURES)
+  // were misclassified as prose.
+  require(count(figures, "](<#FIGALLO>)") == 2 &&
+              figures.find("[2\\-2\\.  Sample CLIST to Add IPCS Libraries to "
+                           "Data Set Concatenations and](<#FIGALLO>)") !=
                   std::string::npos &&
-              figures.find("[Access IPCS 2.6](#FIGALLO)") !=
+              figures.find("[Access IPCS   2\\.6](<#FIGALLO>)") !=
                   std::string::npos,
           "IEAC6MST adjacent typed same-target figure selectors were merged");
 }
