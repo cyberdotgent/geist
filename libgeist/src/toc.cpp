@@ -1,5 +1,6 @@
 #include "geist/detail/internal.hpp"
 #include "geist/detail/message_prose_rows.hpp"
+#include "geist/detail/structural_marker_rows.hpp"
 
 #include <algorithm>
 #include <array>
@@ -250,6 +251,8 @@ bool line_ends_paragraph(const std::string& line) {
   return !trimmed.empty() && paragraph_punctuation(trimmed.back());
 }
 
+// M9 keep: fixed-body visual `|` rails; changes 838 legacy-route rows in 119
+// topics (GG24-395, FA1PLMM0, QSYSNEWG, ...). Replaced by `LayoutIR` rows.
 std::string strip_leading_visual_bar(std::string line) {
   line = trim_ascii(std::move(line));
   if (!line.empty() && line.front() == '|') {
@@ -263,6 +266,11 @@ std::string strip_leading_visual_bar(std::string line) {
   return line;
 }
 
+// M9 keep: legacy-route catalog introductions: SC31-711 2.4.9, 4.1.1,
+// 4.1.2, 4.1.3, 4.3.1, 4.3.2, 4.3.4, 4.3.5, GX27-3999-00 B.0, SC09-138 F.1
+// (`?` placeholder runs, record-boundary bytes, one `srmsg ` truncation,
+// trailing `)` slot glyphs). Replaced by `MessageTopicIR` introduction
+// paragraphs (typed trap-catalog lowering).
 std::string normalize_message_catalog_intro(std::string value) {
   const auto lower = ascii_lower(value);
   if (const auto srmsg = lower.find("srmsg "); srmsg != std::string::npos) {
@@ -283,22 +291,6 @@ std::string normalize_message_catalog_intro(std::string value) {
       output.push_back(' ');
       continue;
     }
-    const auto is_visual_marker = [](char ch) {
-      return ch == '(' || ch == ')' || ch == '<' || ch == '>' || ch == '-' ||
-             ch == '/' || ch == ':' || ch == '=' || ch == '!';
-    };
-    if (is_visual_marker(value[cursor])) {
-      auto padding = cursor + 1;
-      while (padding < value.size() &&
-             std::isspace(static_cast<unsigned char>(value[padding])) != 0) {
-        ++padding;
-      }
-      if (padding - cursor >= 3) {
-        output.push_back(' ');
-        cursor = padding;
-        continue;
-      }
-    }
     output.push_back(value[cursor++]);
   }
   auto normalized = collapse_ascii_whitespace(std::move(output));
@@ -309,16 +301,20 @@ std::string normalize_message_catalog_intro(std::string value) {
     normalized.pop_back();
     normalized = trim_ascii(std::move(normalized));
   }
-  if (ascii_starts_with_case_insensitive(normalized, "cfont ")) {
-    normalized = trim_ascii(normalized.substr(5));
-  }
   return normalized;
 }
 
-std::string clean_fixed_st_row_markers(std::string value) {
-  static constexpr std::array<std::string_view, 9> kAlphaMarkers = {
-      "action", "address", "adapter", "agent", "are", "can", "an", "as",
-      "a"};
+// M9 keep: legacy-only SRMSG catalog introductions and `ST` form prefixes.
+// Fires (corpus census, whole-corpus `boo2git`): SC31-711 4.1.1, 4.3.1, 4.3.2
+// (`<` glyph slot), 4.3.4, 4.3.5 (`(`/`)` glyph slots), 4.1.2 (structural
+// word slot `can`, LR101 marker bytes 0x10950). Retires with a typed
+// trap-catalog lowering (`MessageTopicIR` introduction). The glyph slot
+// characters before the four-space padding are the legacy fixed-row marker
+// glyph set (`is_fixed_st_row_marker` plus `"`); the alphabetic slot words are proven
+// by `StructuralMarkerRowEvidence` rather than by a spelling list.
+std::string clean_fixed_st_row_markers(
+    std::string value,
+    const StructuralMarkerRowEvidence& marker_rows) {
   for (auto gap = std::size_t{0}; gap < value.size();) {
     gap = value.find("    ", gap);
     if (gap == std::string::npos) {
@@ -339,16 +335,9 @@ std::string clean_fixed_st_row_markers(std::string value) {
                  0) {
         --token_begin;
       }
-      const auto token = ascii_lower(value.substr(token_begin,
-                                                  gap - token_begin));
-      const auto recognized =
-          std::find(kAlphaMarkers.begin(), kAlphaMarkers.end(), token) !=
-          kAlphaMarkers.end();
-      const auto attached_to_punctuation =
-          token_begin > 0 &&
-          (value[token_begin - 1] == '.' || value[token_begin - 1] == ')' ||
-           value[token_begin - 1] == ':');
-      if (recognized && attached_to_punctuation) {
+      if (token_begin < gap &&
+          marker_rows.marker_word_length_at(value, token_begin) ==
+              gap - token_begin) {
         value.erase(token_begin, gap - token_begin);
         gap = token_begin;
       }
@@ -449,31 +438,15 @@ bool fixed_st_row_marker_at(const std::string& value, std::size_t cursor) {
          std::isspace(static_cast<unsigned char>(value[cursor + 2])) != 0;
 }
 
-std::size_t fixed_st_alpha_row_marker_length_at(const std::string& value,
-                                                std::size_t cursor) {
-  if (cursor == 0 || cursor >= value.size() ||
-      (value[cursor - 1] != '.' && value[cursor - 1] != ')' &&
-       value[cursor - 1] != ':')) {
-    return 0;
-  }
-  auto end = cursor;
-  while (end < value.size() &&
-         std::isalpha(static_cast<unsigned char>(value[end])) != 0) {
-    ++end;
-  }
-  if (end == cursor || end + 3 >= value.size() || value.compare(end, 4, "    ") != 0) {
-    return 0;
-  }
-  static constexpr std::array<std::string_view, 9> kAlphaMarkers = {
-      "action", "address", "adapter", "agent", "are", "can", "an", "as",
-      "a"};
-  const auto token = std::string_view(value).substr(cursor, end - cursor);
-  return std::find(kAlphaMarkers.begin(), kAlphaMarkers.end(), token) !=
-                 kAlphaMarkers.end()
-             ? end - cursor
-             : 0;
-}
-
+// M9 keep: glyph/`?`/wide-gap row-marker inference on flattened `ST` bodies
+// (`is_fixed_st_row_marker`, `fixed_st_row_marker_at`,
+// `has_reflow_off_line_markers`, `split_reflow_off_body_lines`,
+// `preserve_reflow_off_st_body_lines`, `strip_leading_visual_bar`). Corpus
+// census: `has_reflow_off_line_markers` selects the fixed body for 431
+// legacy-route topics in 31 books (for example IBMMMSTR FRONT_1, SC31-711
+// FRONT_1/BACK_1, GG24-4302-00 3.1); the glyph marker split fires in 361 of
+// them. Replaced by `LayoutIR` marker slots / `fixed_prose_ir.cpp` once the
+// typed fixed-prose lowering admits those bodies.
 bool has_reflow_off_line_markers(const std::string& value) {
   auto spaces = std::size_t{0};
   for (const auto ch : value) {
@@ -494,7 +467,9 @@ bool has_reflow_off_line_markers(const std::string& value) {
 
 constexpr char kSyntheticRecordBoundary = '\x1E';
 
-std::vector<std::string> split_reflow_off_body_lines(std::string value) {
+std::vector<std::string> split_reflow_off_body_lines(
+    std::string value,
+    const StructuralMarkerRowEvidence& marker_rows) {
   value = trim_ascii(std::move(value));
   std::vector<std::string> lines;
   std::string line;
@@ -526,8 +501,11 @@ std::vector<std::string> split_reflow_off_body_lines(std::string value) {
 
   for (std::size_t cursor = 0;
        cursor < value.size() && !reached_inline_control;) {
+    // A structural marker word (IBMMMSTR FRONT_1 LR6 `10577.an    The`)
+    // is proven by the typed row whose slot it fills; see
+    // structural_marker_rows.hpp.
     const auto alpha_marker_length =
-        fixed_st_alpha_row_marker_length_at(value, cursor);
+        marker_rows.marker_word_length_at(value, cursor);
     if (alpha_marker_length != 0) {
       flush_line(false);
       cursor += alpha_marker_length;
@@ -741,6 +719,11 @@ std::optional<std::size_t> st_body_begin_after_title(
   }
 
   auto cursor = title.size();
+  // M9 keep: a single-space title marker glyph (not the padded fixed-row
+  // form) in 16 legacy-route topics: FA1PLMM0 16.10.5, 5.1.7.1; N2AH1MST
+  // 1.2.3, FRONT_1; QSYSINFO APPENDIX1.4.2.9; SC24-5520-00 2.4.11.2,
+  // 2.4.16.2, 2.4.7.2, 5.10.4; SC31-711 2.4.8, 3.1, 4.1.1, 4.1.2, 4.1.3,
+  // 4.2.2, 4.3.5. Replaced by the title row's `MarkerSlotIR`.
   const auto is_legacy_title_marker = [](char ch) {
     return ch == '-' || ch == '>' || ch == '/' || ch == '<' || ch == '(';
   };
@@ -777,7 +760,12 @@ std::optional<std::size_t> st_body_begin_after_title(
   return cursor;
 }
 
-std::vector<std::string> render_st_form_items(const std::string& body) {
+// M9 keep: `__` form-item envelopes in SC31-711 2.4.5, 2.4.6, 2.4.7, 2.4.8,
+// 2.4.9 (legacy route). Replaced by a typed form-list structure once those
+// selector-introduced topics lower through Document IR.
+std::vector<std::string> render_st_form_items(
+    const std::string& body,
+    const StructuralMarkerRowEvidence& marker_rows) {
   const auto find_delimiter = [&](std::size_t search) {
     for (auto found = body.find("__", search); found != std::string::npos;
          found = body.find("__", found + 2)) {
@@ -800,20 +788,13 @@ std::vector<std::string> render_st_form_items(const std::string& body) {
   auto cursor = find_delimiter(0);
   auto prefix = cursor == std::string::npos
                     ? std::string{}
-                    : normalize_message_catalog_intro(
-                          clean_fixed_st_row_markers(body.substr(0, cursor)));
+                    : normalize_message_catalog_intro(clean_fixed_st_row_markers(
+                          body.substr(0, cursor), marker_rows));
   while (cursor != std::string::npos) {
     const auto begin = cursor + 2;
     const auto next = find_delimiter(begin);
     auto item = collapse_ascii_whitespace(body.substr(
         begin, next == std::string::npos ? std::string::npos : next - begin));
-    while (!item.empty() &&
-           (item.front() == '-' || item.front() == '/' ||
-            item.front() == '<' || item.front() == '>' ||
-            item.front() == '(')) {
-      item.erase(item.begin());
-      item = trim_ascii(std::move(item));
-    }
     while (!item.empty() &&
            (item.back() == '-' || item.back() == '/' || item.back() == '<' ||
             item.back() == '>' || item.back() == '(')) {
@@ -1014,17 +995,15 @@ std::string topic_st_following_control_after_toc_title(
   return following_control;
 }
 
+// M9 keep: QSYSNEWG GLOSSARY only (legacy route; a flattened ` cfont `
+// continuation and a trailing `(` slot glyph). Replaced by
+// `GlossaryCatalogIR` once that glossary is admitted.
 std::string clean_glossary_intro_fixed_line(std::string line) {
   if (const auto control = ascii_lower(line).find(" cfont ");
       control != std::string::npos) {
     line.resize(control);
   }
   line = trim_ascii(std::move(line));
-  const auto gap = line.find("    ");
-  if (gap != std::string::npos && gap > 0 && gap <= 11 &&
-      line.find_first_of(" \t\r\n") == gap) {
-    line.erase(0, line.find_first_not_of(" \t\r\n", gap));
-  }
   while (!line.empty() &&
          (line.back() == '<' || line.back() == '>' || line.back() == '/' ||
           line.back() == '"' || line.back() == '(' || line.back() == ')' ||
@@ -1043,6 +1022,7 @@ void attach_topic_data(
   entry.topic_number = topic.topic_number;
   entry.start_logical_record = topic.start_logical_record;
   entry.end_logical_record = topic.end_logical_record;
+  const StructuralMarkerRowEvidence marker_rows(topic.fixed_layout_sources);
   if (!topic.fixed_layout_sources.empty()) {
     if (auto publication = render_verified_publication_catalog_gml(
             topic.fixed_layout_sources)) {
@@ -1113,9 +1093,9 @@ void attach_topic_data(
         ++intro_end;
       }
       if (intro_end != intro_begin) {
-        intro = normalize_message_catalog_intro(
-            clean_fixed_st_row_markers(strip_fixed_line_overflow_tokens(
-                std::move(intro), true)));
+        intro = normalize_message_catalog_intro(clean_fixed_st_row_markers(
+            strip_fixed_line_overflow_tokens(std::move(intro), true),
+            marker_rows));
         intro_begin = entry.raw_records.erase(intro_begin, intro_end);
         if (!intro.empty()) {
           entry.raw_records.insert(intro_begin, ":p." + std::move(intro));
@@ -1139,7 +1119,8 @@ void attach_topic_data(
       std::vector<std::string> body_records;
       if (has_reflow_off_line_markers(body_text)) {
         body_records.push_back(":xmp.");
-        for (auto line : split_reflow_off_body_lines(std::move(body_text))) {
+        for (auto line : split_reflow_off_body_lines(std::move(body_text),
+                                                     marker_rows)) {
           body_records.push_back(":xline." + std::move(line));
         }
         body_records.push_back(":exmp.");
@@ -1209,7 +1190,8 @@ void attach_topic_data(
           }
           erase_begin = entry.raw_records.erase(erase_begin, erase_end);
           std::vector<std::string> preserved{":xmp."};
-          for (auto line : split_reflow_off_body_lines(std::move(body_text))) {
+          for (auto line : split_reflow_off_body_lines(std::move(body_text),
+                                                       marker_rows)) {
             line = clean_glossary_intro_fixed_line(std::move(line));
             if (!line.empty()) {
               preserved.push_back(":xline." + std::move(line));
@@ -1224,7 +1206,7 @@ void attach_topic_data(
                                    std::make_move_iterator(preserved.end()));
           return;
         }
-        auto form_records = render_st_form_items(body_text);
+        auto form_records = render_st_form_items(body_text, marker_rows);
         if (!form_records.empty()) {
           entry.raw_records.insert(
               heading + 1,
@@ -1241,9 +1223,9 @@ void attach_topic_data(
             ++erase_end;
           }
           erase_begin = entry.raw_records.erase(erase_begin, erase_end);
-          auto intro = normalize_message_catalog_intro(
-              clean_fixed_st_row_markers(strip_fixed_line_overflow_tokens(
-                  std::move(body_text), true)));
+          auto intro = normalize_message_catalog_intro(clean_fixed_st_row_markers(
+              strip_fixed_line_overflow_tokens(std::move(body_text), true),
+              marker_rows));
           if (!intro.empty()) {
             erase_begin = entry.raw_records.insert(
                 erase_begin, ":p." + std::move(intro));
@@ -1281,18 +1263,10 @@ void attach_topic_data(
         } else if (following_control == "cselect" ||
                    following_control == "cfont") {
           auto cselect_intro = trim_ascii(body_text);
-          if (following_control == "cselect") {
-            while (!cselect_intro.empty() &&
-                   (cselect_intro.back() == '?' ||
-                    std::isspace(static_cast<unsigned char>(
-                        cselect_intro.back())) != 0)) {
-              cselect_intro.pop_back();
-            }
-            cselect_intro = trim_ascii(std::move(cselect_intro));
-            if (!cselect_intro.empty() && cselect_intro.back() == ':') {
-              cselect_intro =
-                  preserve_reflow_off_st_body_lines(std::move(cselect_intro));
-            }
+          if (following_control == "cselect" && !cselect_intro.empty() &&
+              cselect_intro.back() == ':') {
+            cselect_intro =
+                preserve_reflow_off_st_body_lines(std::move(cselect_intro));
           }
           entry.raw_records.insert(heading + 1, ":p." + cselect_intro);
         } else if (!body_text.empty() && has_reflow_off_line_markers(body_text)) {
@@ -1351,7 +1325,8 @@ void attach_topic_data(
           std::vector<std::string> preserved{
               inline_fixed_continuations.empty() ? ":xmp."
                                                  : ":xmp inline='html'."};
-          for (auto line : split_reflow_off_body_lines(std::move(body_text))) {
+          for (auto line : split_reflow_off_body_lines(std::move(body_text),
+                                                       marker_rows)) {
             preserved.push_back(":xline." + std::move(line));
           }
           for (auto& continuation : inline_fixed_continuations) {
