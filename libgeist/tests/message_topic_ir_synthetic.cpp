@@ -55,6 +55,51 @@ extract(const geist::detail::LogicalDecodeContext &context, std::uint32_t first,
                                                  error);
 }
 
+struct BoundaryRowFixture {
+  geist::detail::MessageSourceRowIR source_row;
+  const geist::detail::PhysicalRowIR *row = nullptr;
+};
+
+BoundaryRowFixture find_boundary_row(const geist::detail::LayoutIR &layout,
+                                     std::uint32_t logical_record,
+                                     std::uint16_t encoded_value,
+                                     std::size_t native_origin,
+                                     const std::string &visible_prefix) {
+  for (const auto &run : layout.runs) {
+    for (std::size_t index = 0; index < run.rows.size(); ++index) {
+      const auto &row = run.rows[index];
+      if (row.logical_record == logical_record && row.marker &&
+          row.marker->encoded_value == encoded_value &&
+          row.marker->encoded_width == 1 &&
+          row.native_origin == native_origin &&
+          row.visible_text.rfind(visible_prefix, 0) == 0)
+        return {{run.id, index}, &row};
+    }
+  }
+  return {};
+}
+
+const geist::detail::MessageSemanticRowIR *
+find_semantic_row(const geist::detail::MessageEntryIR &entry,
+                  const geist::detail::MessageSourceRowIR &source_row) {
+  const auto in_paragraph = [&](const auto &paragraph) {
+    const auto found = std::find_if(
+        paragraph.semantic_rows.begin(), paragraph.semantic_rows.end(),
+        [&](const auto &row) { return row.source_row == source_row; });
+    return found == paragraph.semantic_rows.end() ? nullptr : &*found;
+  };
+  if (const auto *row = in_paragraph(entry.headline))
+    return row;
+  for (const auto &paragraph : entry.headline_continuations)
+    if (const auto *row = in_paragraph(paragraph))
+      return row;
+  for (const auto &section : entry.sections)
+    for (const auto &paragraph : section.paragraphs)
+      if (const auto *row = in_paragraph(paragraph))
+        return row;
+  return nullptr;
+}
+
 void verify_corpus_inventory() {
   const auto directory = std::filesystem::path(GEIST_REPO_ROOT) / "BOO";
   std::vector<std::string> admitted;
@@ -155,6 +200,68 @@ int main() {
     }
     return text;
   };
+
+  // Compact one-byte values are contextual boundary tokens, not a semantic
+  // word range.  Value 34 at native origin 17 is an exact structural
+  // collision: it is a non-visible row artifact in MSG739, but the lexical
+  // word "and" in MSG2108.  Keep both source coordinates in one regression so
+  // a value/origin suppression rule cannot satisfy the test.
+  const auto artifact_and =
+      find_boundary_row(layout, 290, 34, 17, "/usr/lpp/lnm/nls/");
+  const auto lexical_and =
+      find_boundary_row(layout, 343, 34, 17, "issuing get requests");
+  require(artifact_and.row != nullptr && lexical_and.row != nullptr &&
+              artifact_and.row->marker->decoded_text == "and" &&
+              lexical_and.row->marker->decoded_text == "and",
+          "value-34 boundary collision lost its exact source evidence");
+  const auto *artifact_and_semantic =
+      find_semantic_row(message("739"), artifact_and.source_row);
+  const auto *lexical_and_semantic =
+      find_semantic_row(message("2108"), lexical_and.source_row);
+  require(artifact_and_semantic != nullptr &&
+              artifact_and_semantic->marker_disposition ==
+                  geist::detail::MessageMarkerDispositionIR::layout_artifact &&
+              artifact_and_semantic->text.rfind("/usr/lpp/lnm/nls/", 0) == 0 &&
+              lexical_and_semantic != nullptr &&
+              lexical_and_semantic->marker_disposition ==
+                  geist::detail::MessageMarkerDispositionIR::lexical_prefix &&
+              lexical_and_semantic->text.rfind("and issuing get requests", 0) ==
+                  0,
+          "value-34 boundary roles were inferred from the compact spelling");
+
+  // Value 28 is independently ambiguous: MSG607's boundary byte is a layout
+  // artifact before "entered", while MSG2108 owns the same compact spelling
+  // as the lexical prefix of "a timer socket failure".
+  const auto artifact_a = find_boundary_row(layout, 249, 28, 13, "entered");
+  const auto lexical_a =
+      find_boundary_row(layout, 342, 28, 18, "timer socket failure");
+  require(artifact_a.row != nullptr && lexical_a.row != nullptr &&
+              artifact_a.row->marker->decoded_text == "a" &&
+              lexical_a.row->marker->decoded_text == "a",
+          "value-28 boundary collision lost its exact source evidence");
+  const auto *artifact_a_semantic =
+      find_semantic_row(message("607"), artifact_a.source_row);
+  const auto *lexical_a_semantic =
+      find_semantic_row(message("2108"), lexical_a.source_row);
+  require(artifact_a_semantic != nullptr &&
+              artifact_a_semantic->marker_disposition ==
+                  geist::detail::MessageMarkerDispositionIR::layout_artifact &&
+              artifact_a_semantic->text.rfind("entered", 0) == 0 &&
+              lexical_a_semantic != nullptr &&
+              lexical_a_semantic->marker_disposition ==
+                  geist::detail::MessageMarkerDispositionIR::lexical_prefix &&
+              lexical_a_semantic->text.rfind("a timer socket failure", 0) == 0,
+          "value-28 boundary roles were inferred from the compact spelling");
+
+  require(section_text("739", 1).find("and /usr/lpp/lnm/nls/") ==
+                  std::string::npos &&
+              section_text("607", 1).find("parameters a entered") ==
+                  std::string::npos &&
+              section_text("2108", 1).find("and issuing get requests") !=
+                  std::string::npos &&
+              section_text("2108", 1).find("a timer socket failure") !=
+                  std::string::npos,
+          "compact boundary collision changed the intended visible prose");
   require(section_text("203", 1) ==
               "After exiting the AIX NetView/6000 graphical interface, stop "
               "LNM for AIX. Then execute ovstop followed by ovstart. Use "
