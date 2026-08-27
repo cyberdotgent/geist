@@ -917,5 +917,13 @@ int main() {
           "message catalog without metadata entered whole-topic IR");
   require(!extract(context, 435, 518, &error),
           "glossary source entered message topic IR");
+  // The whole-corpus admission sweep is the gate, not an iteration check.
+  // GEIST_SKIP_CORPUS_SWEEP keeps the focused SC31-711 assertions above and
+  // skips the sweep; CTest registers both forms.
+  if (std::getenv("GEIST_SKIP_CORPUS_SWEEP") != nullptr) {
+    std::cerr << "message_topic_ir_synthetic: corpus sweep skipped "
+                 "(GEIST_SKIP_CORPUS_SWEEP)\n";
+    return 0;
+  }
   verify_corpus_inventory();
 }

@@ -269,6 +269,11 @@ target_compile_definitions(message_topic_ir_synthetic_test PRIVATE
 )
 add_test(NAME message_topic_ir_synthetic_test
   COMMAND message_topic_ir_synthetic_test)
+# Same binary without the whole-corpus sweep for the iteration tier.
+add_test(NAME message_topic_ir_focused_test
+  COMMAND message_topic_ir_synthetic_test)
+set_tests_properties(message_topic_ir_focused_test PROPERTIES
+  ENVIRONMENT GEIST_SKIP_CORPUS_SWEEP=1)
 
 add_executable(message_section_blocks_ir_synthetic_test
   tests/message_section_blocks_ir_synthetic.cpp

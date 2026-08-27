@@ -958,3 +958,7 @@
   iteration tier in about 19 s; the 14 `slow` tests remain the full gate and
   should run at `-j4` because they contend for memory bandwidth (at `-j16`
   they take four to six times longer each).
+- `GEIST_SKIP_CORPUS_SWEEP` skips the whole-corpus admission sweep in
+  `message_topic_ir_synthetic`; CTest registers the focused form as
+  `message_topic_ir_focused_test` in the iteration tier (about 48 s) and keeps
+  the full sweep under the `slow` label.
