@@ -654,6 +654,33 @@ trailing separators. Tests therefore assert Markdown-visible publication text
 while retaining strict occurrence counts and paragraph-structure checks; legacy
 Markdown byte parity is neither required nor restored.
 
+## M9 heuristic-removal audit
+
+Typed Markdown bypass does not by itself make the legacy transformations dead:
+`TocEntry::gml_records()` remains public and the existing migration tests
+explicitly require its output to remain available before and after typed
+rendering. The first safe cleanup is therefore the flattened-string admission
+prefilter in `document.cpp`. When a document loader is invoked, it can decode
+the typed source once and let the canonical family extractors fail closed;
+string searches should not decide whether the typed dispatcher sees a topic.
+That slice should also merge `fixed_layout_sources` and `typed_sources` into one
+lazy source cache, with decode-count, GML immutability, exact family inventory,
+full CTest, and corpus gates.
+
+Publication all-C font admission is not dead code. `all_c_font()` remains an
+active recognizer condition in `publication_ir.cpp`, so retiring all-C semantic
+inference requires a source-envelope/ownership recognizer refactor and a new
+negative test; deleting the existing condition would silently widen admission.
+Likewise, publication title/string repairs in `toc.cpp`, menu and message
+post-render projectors in `markup.cpp`, generated-selector compatibility
+cleanup, and the global legacy Markdown state machine remain observable on raw
+or untyped paths. They must be removed only in separate slices after branch-hit
+audits show they are unreachable or after the corresponding public raw-GML
+policy is intentionally changed. The planned order is: typed-source prefilter
+and cache consolidation; publication all-C refactor; unreachable publication
+repair deletion; menu/message projector removal after production migration;
+and only then any global legacy-adapter retirement.
+
 ## Source trail
 
 - Fixture: `BOO/SC31-711.boo`
