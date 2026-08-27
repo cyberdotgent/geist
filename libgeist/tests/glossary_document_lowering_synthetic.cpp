@@ -12,19 +12,19 @@
 
 namespace {
 
-void require(bool condition, const std::string& message) {
+void require(bool condition, const std::string &message) {
   if (!condition) {
     std::cerr << "glossary_document_lowering_synthetic: " << message << '\n';
     std::exit(1);
   }
 }
 
-void open_context(const std::filesystem::path& path,
-                  geist::detail::LogicalDecodeContext& context) {
+void open_context(const std::filesystem::path &path,
+                  geist::detail::LogicalDecodeContext &context) {
   context.bytes = geist::detail::read_file(path);
   const auto directory_page = geist::detail::read_be16(context.bytes, 0);
-  const auto base = static_cast<std::size_t>(directory_page) *
-                    geist::boo_page_size;
+  const auto base =
+      static_cast<std::size_t>(directory_page) * geist::boo_page_size;
   context.directory.page_number = directory_page;
   context.directory.token_threshold = context.bytes[base + 0x14];
   context.directory.token_map_offset =
@@ -43,7 +43,7 @@ void open_context(const std::filesystem::path& path,
       context.bytes, context.directory, &context.record_payload_ranges);
 }
 
-std::string visible_markdown(const std::string& markdown) {
+std::string visible_markdown(const std::string &markdown) {
   std::string visible;
   visible.reserve(markdown.size());
   for (std::size_t index = 0; index < markdown.size(); ++index) {
@@ -63,8 +63,7 @@ std::string visible_markdown(const std::string& markdown) {
 
 int main() {
   geist::detail::LogicalDecodeContext context;
-  open_context(std::filesystem::path(GEIST_REPO_ROOT) / "BOO" /
-                   "SC31-711.boo",
+  open_context(std::filesystem::path(GEIST_REPO_ROOT) / "BOO" / "SC31-711.boo",
                context);
   const auto sources =
       geist::detail::decode_logical_record_sources(context, 435, 518);
@@ -84,22 +83,23 @@ int main() {
   const auto document = geist::detail::lower_glossary_catalog_to_document_ir(
       topic, *catalog, &error);
   require(document.has_value(), error);
-  require(geist::detail::verify_glossary_catalog_document_ir(
-              *catalog, *document, &error),
+  require(geist::detail::verify_glossary_catalog_document_ir(*catalog,
+                                                             *document, &error),
           error);
 
   auto section_headings = std::size_t{0};
   auto definitions = std::size_t{0};
   auto anchors = std::size_t{0};
   auto tables = std::size_t{0};
-  const geist::detail::BlockIR* dlci_definition = nullptr;
-  const geist::detail::BlockIR* dlci_table = nullptr;
+  const geist::detail::BlockIR *dlci_definition = nullptr;
+  const geist::detail::BlockIR *dlci_table = nullptr;
   auto after_dlci_anchor = false;
-  for (const auto& block : document->blocks) {
-    if (const auto* heading =
+  for (const auto &block : document->blocks) {
+    if (const auto *heading =
             std::get_if<geist::detail::HeadingBlockIR>(&block.node)) {
-      if (heading->level == 2) ++section_headings;
-    } else if (const auto* anchor =
+      if (heading->level == 2)
+        ++section_headings;
+    } else if (const auto *anchor =
                    std::get_if<geist::detail::AnchorBlockIR>(&block.node)) {
       ++anchors;
       after_dlci_anchor =
@@ -107,7 +107,8 @@ int main() {
     } else if (std::holds_alternative<geist::detail::DefinitionListBlockIR>(
                    block.node)) {
       ++definitions;
-      if (after_dlci_anchor) dlci_definition = &block;
+      if (after_dlci_anchor)
+        dlci_definition = &block;
       after_dlci_anchor = false;
     } else if (std::holds_alternative<geist::detail::TableBlockIR>(
                    block.node)) {
@@ -122,26 +123,25 @@ int main() {
           "DLCI table was omitted, duplicated, or detached from its entry");
   require(dlci_table->origin.rows.size() == 5,
           "DLCI table did not own its five physical source rows exactly once");
-  for (const auto& row : dlci_table->origin.rows)
+  for (const auto &row : dlci_table->origin.rows)
     require(std::none_of(dlci_definition->origin.rows.begin(),
                          dlci_definition->origin.rows.end(),
-                         [&](const auto& prose_row) {
+                         [&](const auto &prose_row) {
                            return prose_row.display_run == row.display_run &&
                                   prose_row.row_index == row.row_index;
                          }),
             "DLCI physical table row was duplicated in definition prose");
 
-  const auto markdown =
-      geist::detail::render_document_markdown(*document);
+  const auto markdown = geist::detail::render_document_markdown(*document);
   const auto visible = visible_markdown(markdown);
-  for (const auto& entry : catalog->entries) {
-    require(visible.find(geist::detail::collapse_ascii_whitespace(entry.term)) !=
-                std::string::npos,
+  for (const auto &entry : catalog->entries) {
+    require(visible.find(geist::detail::collapse_ascii_whitespace(
+                entry.term)) != std::string::npos,
             "Markdown lost glossary term: " + entry.term);
     require(visible.find(entry.definition.prose) != std::string::npos,
             "Markdown lost glossary definition: " + entry.term);
   }
-  for (const auto* expected :
+  for (const auto *expected :
        {"| DLCI Values | Function |", "| 1-15 | reserved |",
         "| 1023 | in-channel layer management |"})
     require(visible.find(expected) != std::string::npos,
@@ -156,6 +156,19 @@ int main() {
   require(visible.find("encoded, multiplexed, and transmitted") !=
               std::string::npos,
           "comma punctuation carry was lost");
+  require(visible.find("keys on the keyboard") != std::string::npos &&
+              visible.find("input speed and greater") != std::string::npos &&
+              visible.find("UNIX operating system. The RISC System/6000") !=
+                  std::string::npos &&
+              visible.find("keys on the:") == std::string::npos &&
+              visible.find("speed and:") == std::string::npos &&
+              visible.find("operating system.:") == std::string::npos,
+          "structural marker punctuation leaked through canonical lowering");
+  require(
+      visible.find("program can use the AIX NetView Service Point program to "
+                   "communicate with the NetView and NETCENTER programs.") !=
+          std::string::npos,
+      "record-leading glossary continuation was not lowered");
   require(visible.find("a and mouse button") == std::string::npos &&
               visible.find("a adapter frame-relay") == std::string::npos,
           "fixed marker-code projections leaked into Markdown");
@@ -169,8 +182,8 @@ int main() {
           .definition.front()
           .node)
       .text += " changed";
-  require(!geist::detail::verify_glossary_catalog_document_ir(
-              *catalog, changed, &error),
+  require(!geist::detail::verify_glossary_catalog_document_ir(*catalog, changed,
+                                                              &error),
           "glossary DocumentIR verifier admitted changed visible content");
   auto changed_catalog = *catalog;
   std::swap(changed_catalog.items[0], changed_catalog.items[1]);

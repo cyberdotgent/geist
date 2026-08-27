@@ -19,6 +19,16 @@ struct GlossaryCatalogCellIR {
   std::size_t row_index = 0;
 };
 
+// A marker-started row can continue a display run from the preceding logical
+// record even when source words precede that row's compact marker. LayoutIR
+// deliberately leaves that record-leading text opaque; the complete glossary
+// envelope can refine the exact contiguous prefix into semantic ownership.
+struct GlossaryContinuationPrefixIR {
+  std::string semantic_text;
+  DocumentSourceSliceIR source;
+  std::vector<GlossaryCatalogCellIR> cells;
+};
+
 enum class GlossaryMarkerDispositionIR {
   absent,
   layout_artifact,
@@ -47,6 +57,7 @@ struct GlossaryDefinitionRowIR {
   GlossaryDefinitionRowRoleIR role = GlossaryDefinitionRowRoleIR::prose;
   std::size_t native_origin = 0;
   PhysicalBreakKind break_before = PhysicalBreakKind::unknown;
+  std::optional<GlossaryContinuationPrefixIR> continuation_prefix;
   DocumentSourceRowIR source_row;
   DocumentSourceSliceIR source;
   std::vector<GlossaryCatalogCellIR> cells;
@@ -155,18 +166,18 @@ struct GlossaryCatalogIR {
 // owned cells are visible content. Marker, origin, and padding spans are
 // omitted by source disposition, never by character value.
 std::optional<std::string> project_glossary_semantic_row_text(
-    const DecodedLogicalRecordSource& record, const PhysicalRowIR& row,
-    const std::vector<GlossaryCatalogCellIR>& cells,
-    std::string* error = nullptr);
+    const DecodedLogicalRecordSource &record, const PhysicalRowIR &row,
+    const std::vector<GlossaryCatalogCellIR> &cells,
+    std::string *error = nullptr);
 
 std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
-    const std::vector<DecodedLogicalRecordSource>& records,
-    const LayoutIR& layout, const OwnershipIR& ownership,
-    std::string* error = nullptr);
+    const std::vector<DecodedLogicalRecordSource> &records,
+    const LayoutIR &layout, const OwnershipIR &ownership,
+    std::string *error = nullptr);
 bool verify_glossary_catalog_ir(
-    const std::vector<DecodedLogicalRecordSource>& records,
-    const LayoutIR& layout, const OwnershipIR& ownership,
-    const GlossaryCatalogIR& catalog, std::string* error = nullptr);
-std::string format_glossary_catalog_ir(const GlossaryCatalogIR& catalog);
+    const std::vector<DecodedLogicalRecordSource> &records,
+    const LayoutIR &layout, const OwnershipIR &ownership,
+    const GlossaryCatalogIR &catalog, std::string *error = nullptr);
+std::string format_glossary_catalog_ir(const GlossaryCatalogIR &catalog);
 
 } // namespace geist::detail
