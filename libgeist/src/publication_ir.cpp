@@ -5,7 +5,9 @@
 #include <algorithm>
 #include <cctype>
 #include <map>
+#include <set>
 #include <sstream>
+#include <string_view>
 
 namespace geist::detail {
 namespace {
@@ -34,28 +36,6 @@ std::string range_text(const DecodedLogicalRecordSource& record,
   const auto text = token_words_to_ascii(record.assembled.words);
   if (range.begin > range.end || range.end > text.size()) return {};
   return text.substr(range.begin, range.end - range.begin);
-}
-
-bool all_c_font(const DecodedLogicalRecordSource& record,
-                const ControlSegmentIR& segment) {
-  auto operands = trim_ascii(range_text(record, segment.operand_range));
-  std::vector<std::string> words;
-  for (std::size_t begin = 0; begin < operands.size();) {
-    while (begin < operands.size() &&
-           std::isspace(static_cast<unsigned char>(operands[begin])) != 0)
-      ++begin;
-    auto end = begin;
-    while (end < operands.size() &&
-           std::isspace(static_cast<unsigned char>(operands[end])) == 0)
-      ++end;
-    if (begin < end) words.push_back(operands.substr(begin, end - begin));
-    begin = end;
-  }
-  if (words.empty() || words.size() % 3 != 0) return false;
-  for (std::size_t word = 2; word < words.size(); word += 3) {
-    if (!ascii_equals_case_insensitive(words[word], "C")) return false;
-  }
-  return true;
 }
 
 std::string trim_layout(std::string value) {
@@ -132,7 +112,7 @@ std::string compose_row(
                 0;
         const auto terminal_run_marker =
             final_row && terminal_text.size() == 1 &&
-            std::string("</(").find(terminal_text.front()) !=
+            std::string("</($").find(terminal_text.front()) !=
                 std::string::npos;
         if (structurally_attached || terminal_run_marker)
           visible.erase(prefix_size);
@@ -204,6 +184,48 @@ bool ends_complete_statement(const std::string& text) {
   return std::string(".!?:;)]").find(text.back()) != std::string::npos;
 }
 
+bool publication_catalog_lexeme(const std::string& text) {
+  const auto lower = ascii_lower(text);
+  constexpr auto stem = std::string_view{"publication"};
+  for (auto at = lower.find(stem); at != std::string::npos;
+       at = lower.find(stem, at + 1)) {
+    const auto before_word =
+        at != 0 && std::isalnum(static_cast<unsigned char>(lower[at - 1])) != 0;
+    auto end = at + stem.size();
+    if (end < lower.size() && lower[end] == 's') ++end;
+    const auto after_word =
+        end < lower.size() &&
+        std::isalnum(static_cast<unsigned char>(lower[end])) != 0;
+    if (!before_word && !after_word) return true;
+  }
+  return false;
+}
+
+bool has_ibm_document_number(const std::string& text) {
+  // IBM publication numbers in the admitted catalogs use the stable
+  // two-letter/two-digit, hyphen, four-digit family (for example SC09-1308).
+  // Recognize the schema, not any specific document or topic identity.
+  for (std::size_t at = 0; at + 9 <= text.size(); ++at) {
+    const auto alpha = [&](const std::size_t index) {
+      return std::isalpha(static_cast<unsigned char>(text[index])) != 0;
+    };
+    const auto digit = [&](const std::size_t index) {
+      return std::isdigit(static_cast<unsigned char>(text[index])) != 0;
+    };
+    if (!alpha(at) || !alpha(at + 1) || !digit(at + 2) ||
+        !digit(at + 3) || text[at + 4] != '-' || !digit(at + 5) ||
+        !digit(at + 6) || !digit(at + 7) || !digit(at + 8))
+      continue;
+    const auto before_word =
+        at != 0 && std::isalnum(static_cast<unsigned char>(text[at - 1])) != 0;
+    const auto after_word =
+        at + 9 < text.size() &&
+        std::isalnum(static_cast<unsigned char>(text[at + 9])) != 0;
+    if (!before_word && !after_word) return true;
+  }
+  return false;
+}
+
 void append_paragraph_text(PublicationParagraphIR& paragraph,
                            const std::string& text) {
   if (!paragraph.text.empty() &&
@@ -218,13 +240,18 @@ void append_paragraph_text(PublicationParagraphIR& paragraph,
 std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
     const LayoutIR& layout, const OwnershipIR& ownership) {
-  if (records.empty() || !ownership.conflicts.empty()) return std::nullopt;
+  if (records.empty() || !verify_layout_ir(records, layout) ||
+      !verify_ownership_ir(records, layout, ownership))
+    return std::nullopt;
   const DisplayRunIR* title_run = nullptr;
   std::vector<const DisplayRunIR*> font_runs;
   std::size_t font_segments = 0;
   std::string heading_level;
   bool saw_title = false;
   bool saw_font = false;
+  using SegmentCoordinate = std::pair<std::uint32_t, std::size_t>;
+  std::set<SegmentCoordinate> envelope_segments;
+  std::set<SegmentCoordinate> run_origin_segments;
   for (const auto& record : records) {
     for (const auto& segment : record.control_segments) {
       if (segment.kind == BookControlKind::heading_level) {
@@ -235,15 +262,20 @@ std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
       } else if (segment.kind == BookControlKind::title) {
         if (saw_title || saw_font) return std::nullopt;
         saw_title = true;
+        envelope_segments.emplace(record.logical_record,
+                                  segment.segment_index);
       } else if (segment.kind == BookControlKind::font) {
         saw_font = true;
         ++font_segments;
-        if (!all_c_font(record, segment)) return std::nullopt;
+        envelope_segments.emplace(record.logical_record,
+                                  segment.segment_index);
       } else if (saw_title && !saw_font &&
                  segment.kind == BookControlKind::text) {
         return std::nullopt;
-      } else if (saw_font && segment.kind != BookControlKind::text) {
-        return std::nullopt;
+      } else if (saw_font) {
+        if (segment.kind != BookControlKind::text) return std::nullopt;
+        envelope_segments.emplace(record.logical_record,
+                                  segment.segment_index);
       } else if (!saw_title &&
                  (segment.kind == BookControlKind::structural ||
                   segment.kind == BookControlKind::unknown ||
@@ -269,8 +301,25 @@ std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
     } else if (run.control_kind == BookControlKind::font) {
       font_runs.push_back(&run);
     }
+    if (run.rows.empty()) return std::nullopt;
+    const auto& origin = run.rows.front();
+    const auto* origin_segment = find_segment(records, origin);
+    if (origin_segment == nullptr || origin_segment->kind != run.control_kind ||
+        origin.run != run.id ||
+        !run_origin_segments
+             .emplace(origin.logical_record, origin.segment_index)
+             .second)
+      return std::nullopt;
+    for (const auto& row : run.rows) {
+      const auto* segment = find_segment(records, row);
+      if (segment == nullptr || row.run != run.id ||
+          envelope_segments.count(
+              {row.logical_record, row.segment_index}) == 0)
+        return std::nullopt;
+    }
   }
-  if (title_run == nullptr || font_runs.size() != font_segments)
+  if (title_run == nullptr || font_runs.size() != font_segments ||
+      run_origin_segments.size() != font_segments + 1)
     return std::nullopt;
   for (const auto& run : layout.runs) {
     if (run.control_kind != BookControlKind::title &&
@@ -290,34 +339,57 @@ std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
   if (font_runs.size() == 1 && font_runs.front()->rows.size() != 1)
     return std::nullopt;
 
-  // Every printable source cell in a font segment must be classified by a
-  // control or physical row. This is the all-or-nothing admission gate.
+  // Every typed title/font source segment must start exactly one matching
+  // display run. Text segments in the post-title envelope may only continue
+  // such a run, and every envelope segment must be represented by a physical
+  // row. Font operand spelling is deliberately not semantic evidence.
+  std::set<SegmentCoordinate> expected_run_origins;
+  std::set<SegmentCoordinate> represented_segments;
+  for (const auto& record : records) {
+    for (const auto& segment : record.control_segments) {
+      const SegmentCoordinate coordinate{record.logical_record,
+                                         segment.segment_index};
+      if (segment.kind == BookControlKind::title ||
+          segment.kind == BookControlKind::font)
+        expected_run_origins.insert(coordinate);
+    }
+  }
+  for (const auto& run : layout.runs)
+    for (const auto& row : run.rows)
+      represented_segments.emplace(row.logical_record, row.segment_index);
+  if (run_origin_segments != expected_run_origins ||
+      represented_segments != envelope_segments)
+    return std::nullopt;
+
+  // Every printable source cell in the complete publication envelope must be
+  // classified by a control or physical row. This is the all-or-nothing
+  // admission gate, including cross-record text continuations.
   std::map<std::pair<std::uint32_t, std::size_t>,
            std::vector<const OwnedSourceCellIR*>>
       cells_by_token;
   for (const auto& cell : ownership.cells)
     cells_by_token[{cell.logical_record, cell.token_index}].push_back(&cell);
-  for (const auto& run : layout.runs) {
-    if (run.control_kind != BookControlKind::font) continue;
-    for (const auto& row : run.rows) {
-      const auto* segment = find_segment(records, row);
-      if (segment == nullptr) return std::nullopt;
-      for (const auto token : segment->source_tokens) {
-        const auto found = cells_by_token.find({row.logical_record, token});
+  for (const auto& record : records) {
+    for (const auto& segment : record.control_segments) {
+      if (envelope_segments.count(
+              {record.logical_record, segment.segment_index}) == 0)
+        continue;
+      for (const auto token : segment.source_tokens) {
+        const auto found =
+            cells_by_token.find({record.logical_record, token});
         if (found == cells_by_token.end()) return std::nullopt;
         for (const auto* owned : found->second) {
           const auto& cell = *owned;
           const auto ascii_space =
               cell.word <= 0xff &&
               std::isspace(static_cast<unsigned char>(cell.word)) != 0;
-          if (cell.logical_record == row.logical_record &&
+          if (cell.logical_record == record.logical_record &&
               cell.token_index == token && cell.word >= 0x20 &&
               cell.word != 0x2666 && !ascii_space &&
               cell.disposition == SourceDisposition::opaque)
             return std::nullopt;
         }
       }
-      break;
     }
   }
 
@@ -446,6 +518,14 @@ std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
       std::remove_if(catalog.entries.begin(), catalog.entries.end(),
                      [](const auto& entry) { return entry.text.empty(); }),
       catalog.entries.end());
+  const auto citation_catalog =
+      !catalog.entries.empty() &&
+      std::all_of(catalog.entries.begin(), catalog.entries.end(),
+                  [](const auto& entry) {
+                    return has_ibm_document_number(entry.text);
+                  });
+  if (!publication_catalog_lexeme(catalog.title) && !citation_catalog)
+    return std::nullopt;
   return catalog.entries.empty() ? std::nullopt
                                  : std::optional<PublicationCatalogIR>(
                                        std::move(catalog));

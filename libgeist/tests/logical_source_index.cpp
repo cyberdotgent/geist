@@ -370,9 +370,42 @@ void verify_book(const std::filesystem::path &path, std::uint32_t first,
         }
       }
     }
-    require(!geist::detail::extract_publication_catalog_ir(non_c_sources,
-                                                           layout, ownership),
-            "non-C font stream entered the publication semantic IR");
+    require(geist::detail::extract_publication_catalog_ir(
+                non_c_sources, layout, ownership)
+                .has_value(),
+            "font operand spelling incorrectly remained publication semantic "
+            "evidence");
+    auto mismatched_layout = layout;
+    const auto font_run = std::find_if(
+        mismatched_layout.runs.begin(), mismatched_layout.runs.end(),
+        [](const auto &run) {
+          return run.control_kind == geist::detail::BookControlKind::font &&
+                 !run.rows.empty();
+        });
+    require(font_run != mismatched_layout.runs.end(),
+            "publication fixture has no font run to mutate");
+    if (font_run != mismatched_layout.runs.end()) {
+      ++font_run->rows.front().segment_index;
+      require(!geist::detail::extract_publication_catalog_ir(
+                  sources, mismatched_layout, ownership),
+              "publication admission ignored an inexact source/run envelope");
+    }
+    auto opaque_ownership = ownership;
+    const auto visible_cell = std::find_if(
+        opaque_ownership.cells.begin(), opaque_ownership.cells.end(),
+        [](const auto &cell) {
+          return cell.disposition ==
+                     geist::detail::SourceDisposition::visible_content &&
+                 cell.run != 0;
+        });
+    require(visible_cell != opaque_ownership.cells.end(),
+            "publication fixture has no visible ownership cell to mutate");
+    if (visible_cell != opaque_ownership.cells.end()) {
+      visible_cell->disposition = geist::detail::SourceDisposition::opaque;
+      require(!geist::detail::extract_publication_catalog_ir(
+                  sources, layout, opaque_ownership),
+              "publication admission ignored opaque printable ownership");
+    }
     std::size_t ansi_rows = 0;
     for (const auto &run : layout.runs) {
       for (const auto &row : run.rows) {
@@ -524,6 +557,21 @@ void verify_book(const std::filesystem::path &path, std::uint32_t first,
                 catalog_contains(*publication, "GC09-1417"),
             "C/370 publication IR lost a cross-book catalog entry");
   }
+  if (path.filename() == "QSYSINFO.BOO" && first == 743) {
+    require(publication.has_value() && publication->entries.size() == 4 &&
+                catalog_contains(*publication, "SX41-0005") &&
+                catalog_contains(*publication, "SC41-0008") &&
+                catalog_contains(*publication, "SX41-0007") &&
+                catalog_contains(*publication, "SC41-0009"),
+            "QSYSINFO manual catalog lost an independent publication entry");
+    require(std::all_of(publication->entries.begin(),
+                        publication->entries.end(), [](const auto &entry) {
+                          return entry.paragraphs.size() == 1 &&
+                                 entry.text.rfind("PC Support/400:", 0) == 0 &&
+                                 entry.text.find('$') == std::string::npos;
+                        }),
+            "QSYSINFO manual names and citations lost their aligned fields");
+  }
 
   const auto *cached_dictionary = context.source_dictionary.get();
   const auto repeated =
@@ -556,6 +604,15 @@ void verify_book(const std::filesystem::path &path, std::uint32_t first,
 int main() {
   const auto root = std::filesystem::path(GEIST_REPO_ROOT) / "BOO";
   const bool benchmark = std::getenv("GEIST_BENCH_SOURCE_INDEX") != nullptr;
+  if (std::getenv("GEIST_PUBLICATION_IR_ONLY") != nullptr) {
+    verify_book(root / "SC31-711.boo", 528, 529, benchmark, true);
+    verify_book(root / "GG24-395.boo", 580, 581, benchmark, true);
+    verify_book(root / "SC09-138.boo", 2267, 2270, benchmark, true);
+    verify_book(root / "QSYSINFO.BOO", 743, 744, benchmark, true);
+    verify_book(root / "SG24-204.boo", 18, 19, benchmark, false);
+    verify_book(root / "QS3X36CM.BOO", 7, 9, benchmark, false);
+    return 0;
+  }
   verify_book(root / "SC31-711.boo", 19, 21, benchmark);
   verify_book(root / "SC31-711.boo", 22, 24, benchmark);
   verify_book(root / "SC31-711.boo", 70, 71, benchmark);
@@ -575,4 +632,11 @@ int main() {
   verify_book(root / "FA1PLMM0.boo", 600, 601, benchmark, false);
   verify_book(root / "SC26-457.boo", 36, 37, benchmark, false);
   verify_book(root / "SG24-204.boo", 481, 482, benchmark, false);
+  verify_book(root / "QSYSINFO.BOO", 743, 744, benchmark, true);
+  verify_book(root / "SG24-204.boo", 18, 19, benchmark, false);
+  // This AS/400 prose topic has an H2 title followed by cfont rows, but its
+  // source envelope contains an independent text run. It was formerly rejected
+  // incidentally by non-C font operands and must remain outside publication IR
+  // now that style spelling is deliberately irrelevant.
+  verify_book(root / "QS3X36CM.BOO", 7, 9, benchmark, false);
 }
