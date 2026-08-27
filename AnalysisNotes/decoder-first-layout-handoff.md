@@ -594,6 +594,27 @@ source-token slices that supplied their fragments rather than inheriting the
 selector's record. The canonical lowerer consumes only these typed fragments
 and targets, so no Markdown-specific cleanup remains in that layer.
 
+Generated lists are now enabled as an exclusive production family. The lazy
+loader's compatibility prefilter only decides whether to decode typed sources;
+the typed dispatcher independently requires the FIGLIST/TLIST heading, title,
+selector catalog, complete generated-list envelope, canonical semantic
+verification, and canonical Document-IR verification. All 28 topics are TOC
+entries and use the same route through direct `topic_markdown()` and `boo2git`;
+public GML remains unchanged and non-generated topics retain the whole-topic
+legacy fallback.
+
+The fresh production export contains the same 34 book directories, 7,885
+files, and 7,396 Markdown files as the menu baseline. Exactly the 28 admitted
+`figures.md`/`tables.md` files change. They contain 1,196 generated entry links
+plus the unchanged six navigation links per file: 909 entry destinations
+resolve to local resources/topics/anchors and 287 retain stable raw anchor
+identity because the exporter has no corresponding local target. No entry has
+an empty label, none of the 42 typed decoration prefixes enters Markdown, the
+three decoder artifacts remain excluded by provenance, and the lexical
+`(CIDSIEXP)`/`(CIDSIWTO)`, `7-9`, and `8.1.10.3` evidence remains visible.
+These are reviewed structural/escaping/link-resolution deltas; legacy byte
+identity is not an acceptance condition.
+
 Menu provenance is now explicit down to decoded output cell, token/word,
 inserted-space kind, word value, and token byte range. A strict `MenuTopicIR`
 wraps that core with metadata, optional anchor, title, menu boundaries, and
