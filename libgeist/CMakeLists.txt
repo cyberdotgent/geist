@@ -93,6 +93,7 @@ set(GEIST_SOURCES
   src/markup.cpp
   src/message_ir.cpp
   src/message_prose_rows.cpp
+  src/structural_marker_rows.cpp
   src/message_section_blocks_ir.cpp
   src/message_document_lowering.cpp
   src/message_topic_ir.cpp

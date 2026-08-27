@@ -293,6 +293,15 @@ std::string gml_content_preserve_space(const std::string& record) {
   return record.substr(offset);
 }
 
+// M9 keep: legacy-route GML content still carries flattened control names.
+// Corpus census (whole-corpus `boo2git`, legacy-route topics only): `c.cc`
+// 76 topics, `cfont` 57, `:h3`/`:h4` 32, `cmenu`/`cmitem`/`cemenu` 26,
+// `picture` 11, `cforwardlevel` 8, `chdlevel` 4, `cparent` 3,
+// `cbacklevel` 2, `ctopicn` 2, `csourcefn` 1; for example GG24-4302-00
+// 3.1, SC33-033 4.x, FA1PLMM0 H.x, SC09-2417-00 4.3.3.1. `csummary` and the
+// `<image>`/`<other>`/`<internet>` placeholders never fired and are gone.
+// Replaced by `ControlIR` operand ranges (controls never reach text) as each
+// family lowers through Document IR.
 std::string strip_leaked_layout_controls(std::string text,
                                          bool preserve_space = false) {
   const auto original = text;
@@ -302,8 +311,7 @@ std::string strip_leaked_layout_controls(std::string text,
     std::string matched;
     for (const auto* token : {"c.cc", "cmenu", "cmitem", "cemenu",
                               "ctopicn", "cparent", "cforwardlevel",
-                              "cbacklevel", "csummary", "chdlevel",
-                              "csourcefn"}) {
+                              "cbacklevel", "chdlevel", "csourcefn"}) {
       const auto position = lower.find(token);
       if (position < best) {
         best = position;
@@ -330,16 +338,6 @@ std::string strip_leaked_layout_controls(std::string text,
   }
 
   for (const auto* marker : {":h3", ":h4"}) {
-    for (;;) {
-      const auto position = ascii_lower(text).find(marker);
-      if (position == std::string::npos) {
-        break;
-      }
-      text.erase(position, std::string(marker).size());
-    }
-  }
-
-  for (const auto* marker : {"<image>", "<other>", "<internet>"}) {
     for (;;) {
       const auto position = ascii_lower(text).find(marker);
       if (position == std::string::npos) {
@@ -713,6 +711,8 @@ void append_text_fence(std::string& output, std::vector<std::string>& lines) {
   lines.clear();
 }
 
+// M9 keep: every book's EDITION topic (28 legacy-route topics). Replaced by
+// `InlineIR` once edition notices lower through Document IR.
 std::string strip_inline_gml_markup(std::string text) {
   std::string output;
   output.reserve(text.size());
@@ -737,23 +737,9 @@ std::string strip_inline_gml_markup(std::string text) {
   return collapse_ascii_whitespace(std::move(output));
 }
 
-void replace_all(std::string& text,
-                 const std::string& needle,
-                 const std::string& replacement) {
-  if (needle.empty()) {
-    return;
-  }
-  for (auto found = text.find(needle); found != std::string::npos;
-       found = text.find(needle, found + replacement.size())) {
-    text.replace(found, needle.size(), replacement);
-  }
-}
-
 void append_edition_notice_markdown(std::string& output,
                                     const std::string& raw) {
   auto text = strip_inline_gml_markup(raw);
-  replace_all(text, "( May 1 991)", "(May 1991)");
-  replace_all(text, "RPG/400, 400", "RPG/400 400");
 
   const auto applies = text.find("This edition applies");
   if (applies == std::string::npos) {
@@ -761,8 +747,6 @@ void append_edition_notice_markdown(std::string& output,
     return;
   }
   auto heading = trim_ascii(text.substr(0, applies));
-  replace_all(heading, "( ", "(");
-  replace_all(heading, " )", ")");
   append_block(output, "**" + heading + "**");
 
   const auto terms = text.find("The following terms, denoted by an asterisk");
@@ -1436,6 +1420,9 @@ std::size_t nearest_table_column(const std::vector<int>& columns, int column) {
   return best;
 }
 
+// M9 keep: 618 legacy-route table envelopes without a recognized grid
+// (SC24-5527-02 156 topics, SC33-033 126, QSYSINFO 56, SC24-5520-00 28,
+// GG24-395 20, ACPZMST1 13, ...). Replaced by `TableBlockIR`.
 std::string table_fallback_markdown(const std::string& id,
                                     const std::string& caption) {
   std::ostringstream output;
@@ -1895,6 +1882,9 @@ std::string render_markdown_records(const std::vector<std::string>& records) {
         append_block(output, pending_copyright_note);
         pending_copyright_note.clear();
       }
+      // M9 keep: generated-menu examples in 18 legacy-route topics
+      // (GG24-4302-00 3.1, 5.1, 9.4.4, ...; DREICMST 1.7.7.2, 2.19.1,
+      // FRONT_1, PREFACE; packet 4.4). Replaced by `MenuTopicIR`.
       example_is_generated_menu = false;
       for (auto lookahead = record_index + 1; lookahead < records.size();
            ++lookahead) {
