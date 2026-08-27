@@ -125,6 +125,23 @@ int main() {
   require(command_types.size() == 25 && command_types.count("23006") == 1 &&
               command_types.count("103000") == 1,
           "MSG807 command keys are incomplete or ambiguous");
+  // Cell text follows the semantic row projection: the marker spellings
+  // `action`/`an` that message semantics carried into three rows are claimed
+  // as structural cells, and the terminal `>` delimiter restored by message
+  // semantics is kept.
+  for (const auto &row : command_table.rows) {
+    require(row.cells[0].text.find("action") == std::string::npos &&
+                row.cells[1].text.find("action ") == std::string::npos &&
+                row.cells[1].text.rfind("an ", 0) != 0,
+            "MSG807 table cell leaked a structural marker spelling");
+    if (row.cells[0].text == "31161")
+      require(row.cells[1].text ==
+                  "LAN CAU QUERY UNIT=<unit id> MOD=<module number> ATTR=LOBE",
+              "MSG807 row 31161 lost its restored delimiter or continuation");
+    if (row.cells[0].text == "31096")
+      require(row.cells[1].text == "LAN CAU QUERY UNIT=<unit id> ATTR=WRAP",
+              "MSG807 row 31096 text changed");
+  }
 
   const auto *message_739 = find_block(blocks, *catalog, "739");
   require(

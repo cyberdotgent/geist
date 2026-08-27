@@ -1,10 +1,16 @@
 #include "geist/detail/message_document_lowering.hpp"
 
+#include "geist/detail/internal.hpp"
+
 #include <algorithm>
 #include <cctype>
+#include <map>
 #include <optional>
+#include <set>
 #include <tuple>
+#include <type_traits>
 #include <utility>
+#include <variant>
 
 namespace geist::detail {
 namespace {
@@ -301,10 +307,409 @@ BlockIR paragraph_block(InlineSequenceIR content,
   return {ParagraphBlockIR{std::move(content)}, std::move(block_origin)};
 }
 
-std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
-                                             const MessageTopicIR &message,
-                                             std::string *error) {
-  if (!verify_message_shape(message, error))
+std::string compact(std::string value) {
+  return collapse_ascii_whitespace(trim_ascii(std::move(value)));
+}
+
+void append_text(std::string &destination, const std::string &text) {
+  const auto value = compact(text);
+  if (value.empty())
+    return;
+  if (!destination.empty())
+    destination.push_back(' ');
+  destination += value;
+}
+
+using TokenKey = std::pair<std::uint32_t, std::size_t>;
+using SourceTokenIndex = std::map<TokenKey, const MessageTopicSourceTokenIR *>;
+
+SourceTokenIndex index_source_tokens(const MessageTopicIR &message) {
+  SourceTokenIndex result;
+  for (const auto &token : message.source_tokens)
+    result[{token.logical_record, token.token_index}] = &token;
+  return result;
+}
+
+// Exact token/byte provenance for positioned source cells claimed by a
+// structured block. Every claimed cell must resolve to a decoded payload
+// token of this topic; a cell outside the topic ledger is a lowering error,
+// not something to render without provenance.
+bool add_cell_slices(const SourceTokenIndex &tokens,
+                     const std::vector<MessageStructuredSourceCellIR> &cells,
+                     DocumentNodeOriginIR &destination) {
+  for (const auto &cell : cells) {
+    const auto token = tokens.find({cell.logical_record, cell.token_index});
+    if (token == tokens.end() || !token->second->decoded_segment)
+      return false;
+    destination.slices.push_back(
+        {cell.logical_record, *token->second->decoded_segment,
+         cell.token_index, cell.token_index + 1, token->second->bytes.begin,
+         token->second->bytes.end});
+  }
+  return true;
+}
+
+void add_source_rows(const std::vector<MessageSourceRowIR> &rows,
+                     DocumentNodeOriginIR &destination) {
+  for (const auto &row : rows)
+    add_row(destination, {row.first, row.second});
+}
+
+struct SectionBlockClaims {
+  // Claimed physical rows in block order (first appearance).
+  std::vector<MessageSourceRowIR> rows;
+  // Cells the block retains as structural evidence only (no rendered text).
+  std::set<TokenKey> structural_tokens;
+};
+
+SectionBlockClaims block_claims(const MessageSectionBlockIR &block) {
+  SectionBlockClaims claims;
+  std::set<MessageSourceRowIR> seen;
+  const auto claim_rows = [&](const std::vector<MessageSourceRowIR> &rows) {
+    for (const auto &row : rows)
+      if (seen.insert(row).second)
+        claims.rows.push_back(row);
+  };
+  const auto claim_structural =
+      [&](const std::vector<MessageStructuredSourceCellIR> &cells) {
+        for (const auto &cell : cells)
+          claims.structural_tokens.insert(
+              {cell.logical_record, cell.token_index});
+      };
+  std::visit(
+      [&](const auto &node) {
+        using T = std::decay_t<decltype(node)>;
+        if constexpr (std::is_same_v<T, MessageStructuredTableBlockIR>) {
+          const auto visit_row = [&](const MessageStructuredTableRowIR &row) {
+            for (const auto &cell : row.cells)
+              claim_rows(cell.source_rows);
+            claim_structural(row.structural_cells);
+          };
+          visit_row(node.header);
+          for (const auto &row : node.rows)
+            visit_row(row);
+        } else if constexpr (std::is_same_v<T, MessageStructuredListBlockIR>) {
+          claim_rows(node.lead_in.source_rows);
+          for (const auto &item : node.items) {
+            claim_rows(item.source_rows);
+            claim_structural(item.structural_cells);
+          }
+        } else {
+          for (const auto &line : node.lines)
+            claim_rows({line.source_row});
+        }
+      },
+      block.node);
+  return claims;
+}
+
+const MessageTopicRowIR *find_topic_row(const MessageTopicIR &message,
+                                        const MessageSourceRowIR &source) {
+  for (const auto &row : message.rows)
+    if (row.source_row.display_run == source.first &&
+        row.source_row.row_index == source.second)
+      return &row;
+  return nullptr;
+}
+
+// The paragraph's text as the structured block accounts for it. A compact
+// marker whose spelling message semantics carried into the row text, but
+// which the block claims as a positioned structural cell, is exactly the
+// marker's decoded text at the front of the paragraph. Nothing else is
+// removed; any other disagreement fails the conservation check.
+std::optional<std::string>
+claimed_paragraph_text(const MessageTopicIR &message,
+                       const MessageParagraphIR &paragraph,
+                       const SectionBlockClaims &claims) {
+  auto text = compact(paragraph.text);
+  if (paragraph.semantic_rows.empty())
+    return text;
+  const auto &first = paragraph.semantic_rows.front();
+  if (first.marker_disposition != MessageMarkerDispositionIR::lexical_prefix &&
+      first.marker_disposition != MessageMarkerDispositionIR::list_prefix)
+    return text;
+  const auto *row = find_topic_row(message, first.source_row);
+  if (row == nullptr || !row->marker ||
+      claims.structural_tokens.count(
+          {row->marker->logical_record, row->marker->token_index}) == 0)
+    return text;
+  const auto marker = compact(row->marker->decoded_text);
+  if (text == marker)
+    return std::string{};
+  if (text.size() > marker.size() &&
+      text.compare(0, marker.size(), marker) == 0 && text[marker.size()] == ' ')
+    return text.substr(marker.size() + 1);
+  return std::nullopt;
+}
+
+struct StructuredSectionLowering {
+  std::string prose_before;
+  DocumentNodeOriginIR prose_before_origin;
+  std::optional<BlockIR> block;
+  std::string prose_after;
+  DocumentNodeOriginIR prose_after_origin;
+};
+
+// Lowers one message section around its verified structured block. The
+// section's paragraphs stay in source order: paragraphs before the block's
+// row span remain prose, the block's rows become the typed node, and
+// paragraphs after the span remain prose. The union of rendered text is
+// checked to equal the flattened section text so no source words are lost,
+// duplicated, or invented by the structural interpretation.
+std::optional<StructuredSectionLowering>
+lower_structured_section(const MessageTopicIR &message,
+                         const SourceTokenIndex &tokens,
+                         const MessageSectionIR &section,
+                         const MessageSectionBlockIR &block,
+                         const std::string &entry_id, std::string *error) {
+  const auto claims = block_claims(block);
+  const auto reject = [&](const std::string &reason) {
+    fail(error, "message " + entry_id + " structured section " + reason);
+    return std::optional<StructuredSectionLowering>{};
+  };
+  if (claims.rows.empty())
+    return reject("claims no source rows");
+
+  // Map claimed rows to the paragraphs that own them.
+  std::map<MessageSourceRowIR, std::size_t> owner;
+  for (std::size_t index = 0; index < section.paragraphs.size(); ++index)
+    for (const auto &row : section.paragraphs[index].semantic_rows)
+      if (!owner.emplace(row.source_row, index).second)
+        return reject("has a row owned by two paragraphs");
+  const std::set<MessageSourceRowIR> claimed(claims.rows.begin(),
+                                             claims.rows.end());
+  std::optional<std::size_t> span_begin;
+  std::optional<std::size_t> span_end;
+  for (const auto &row : claims.rows) {
+    const auto found = owner.find(row);
+    if (found == owner.end())
+      return reject("claims a row outside its section");
+    span_begin =
+        span_begin ? std::min(*span_begin, found->second) : found->second;
+    span_end = span_end ? std::max(*span_end, found->second) : found->second;
+  }
+  std::vector<bool> paragraph_claimed(section.paragraphs.size(), false);
+  for (std::size_t index = 0; index < section.paragraphs.size(); ++index) {
+    const auto &rows = section.paragraphs[index].semantic_rows;
+    const auto count = static_cast<std::size_t>(
+        std::count_if(rows.begin(), rows.end(), [&](const auto &row) {
+          return claimed.count(row.source_row) != 0;
+        }));
+    if (count != 0 && count != rows.size())
+      return reject("claims part of a multi-row paragraph");
+    paragraph_claimed[index] = count != 0;
+  }
+  const auto preformatted =
+      std::holds_alternative<MessageStructuredPreformattedBlockIR>(block.node);
+  for (auto index = *span_begin; index <= *span_end; ++index)
+    if (!paragraph_claimed[index] && !preformatted)
+      return reject("has unplaced prose inside its row span");
+
+  // Expected text of the typed node in rendering order. Preformatted lines
+  // interleave unclaimed source-ordered paragraphs (row-less recovered
+  // fields) so nothing inside the span is dropped or reordered.
+  std::vector<std::string> pieces;
+  std::vector<std::string> lines;
+  std::visit(
+      [&](const auto &node) {
+        using T = std::decay_t<decltype(node)>;
+        if constexpr (std::is_same_v<T, MessageStructuredTableBlockIR>) {
+          const auto visit_row = [&](const MessageStructuredTableRowIR &row) {
+            for (const auto &cell : row.cells)
+              pieces.push_back(compact(cell.text));
+          };
+          visit_row(node.header);
+          for (const auto &row : node.rows)
+            visit_row(row);
+        } else if constexpr (std::is_same_v<T, MessageStructuredListBlockIR>) {
+          pieces.push_back(compact(node.lead_in.text));
+          for (const auto &item : node.items)
+            pieces.push_back(compact(item.text));
+        } else {
+          for (auto index = *span_begin; index <= *span_end; ++index) {
+            const auto &paragraph = section.paragraphs[index];
+            if (!paragraph_claimed[index]) {
+              lines.push_back(compact(paragraph.text));
+              continue;
+            }
+            for (const auto &row : paragraph.semantic_rows)
+              for (const auto &line : node.lines)
+                if (line.source_row == row.source_row)
+                  lines.push_back(compact(line.text));
+          }
+          pieces = lines;
+        }
+      },
+      block.node);
+  std::string block_text;
+  for (const auto &piece : pieces)
+    append_text(block_text, piece);
+  if (block_text.empty())
+    return reject("renders no text");
+
+  std::string claimed_text;
+  for (auto index = *span_begin; index <= *span_end; ++index) {
+    const auto text =
+        claimed_paragraph_text(message, section.paragraphs[index], claims);
+    if (!text)
+      return reject("carries a structural marker outside its row start");
+    append_text(claimed_text, *text);
+  }
+  const auto at = claimed_text.find(block_text);
+  if (at == std::string::npos ||
+      claimed_text.find(block_text, at + 1) != std::string::npos ||
+      (at != 0 && claimed_text[at - 1] != ' ') ||
+      (at + block_text.size() < claimed_text.size() &&
+       claimed_text[at + block_text.size()] != ' '))
+    return reject("does not conserve the flattened section text");
+  const auto prefix = compact(claimed_text.substr(0, at));
+  const auto suffix = compact(claimed_text.substr(at + block_text.size()));
+
+  StructuredSectionLowering result;
+  result.prose_before_origin = origin("message section paragraph text");
+  result.prose_after_origin = origin("message section paragraph text");
+  const auto prose_origin = [&](std::size_t index) {
+    return paragraph_origin(message, section.paragraphs[index],
+                            "message section paragraph text");
+  };
+  for (std::size_t index = 0; index < *span_begin; ++index) {
+    append_text(result.prose_before, section.paragraphs[index].text);
+    merge_origin(result.prose_before_origin, prose_origin(index));
+  }
+  if (!prefix.empty()) {
+    append_text(result.prose_before, prefix);
+    merge_origin(result.prose_before_origin, prose_origin(*span_begin));
+  }
+  if (!suffix.empty()) {
+    append_text(result.prose_after, suffix);
+    merge_origin(result.prose_after_origin, prose_origin(*span_end));
+  }
+  for (auto index = *span_end + 1; index < section.paragraphs.size();
+       ++index) {
+    append_text(result.prose_after, section.paragraphs[index].text);
+    merge_origin(result.prose_after_origin, prose_origin(index));
+  }
+
+  auto block_origin = origin("message structured section block");
+  for (auto index = *span_begin; index <= *span_end; ++index)
+    merge_origin(block_origin,
+                 paragraph_origin(message, section.paragraphs[index],
+                                  "message structured section block"));
+  bool provenance = true;
+  const auto cell_origin =
+      [&](const std::vector<MessageSourceRowIR> &rows,
+          const std::vector<MessageStructuredSourceCellIR> &cells,
+          const char *detail) {
+        auto cell_result = origin(detail);
+        add_source_rows(rows, cell_result);
+        provenance = provenance && add_cell_slices(tokens, cells, cell_result);
+        canonicalize(cell_result);
+        merge_origin(block_origin, cell_result);
+        return cell_result;
+      };
+  const auto text_inline = [](const std::string &text,
+                              const DocumentNodeOriginIR &node_origin) {
+    return InlineIR{TextInlineIR{text}, node_origin};
+  };
+  std::visit(
+      [&](const auto &node) {
+        using T = std::decay_t<decltype(node)>;
+        if constexpr (std::is_same_v<T, MessageStructuredTableBlockIR>) {
+          TableBlockIR table;
+          table.header_rows = 1;
+          const auto lower_row = [&](const MessageStructuredTableRowIR &row) {
+            TableRowIR target;
+            target.origin = origin("message table row");
+            for (const auto &cell : row.cells) {
+              TableCellIR lowered;
+              lowered.origin = cell_origin(cell.source_rows, cell.source_cells,
+                                           "message table cell");
+              const auto text = compact(cell.text);
+              if (!text.empty())
+                lowered.content.push_back(text_inline(text, lowered.origin));
+              merge_origin(target.origin, lowered.origin);
+              target.cells.push_back(std::move(lowered));
+            }
+            merge_origin(target.origin,
+                         cell_origin({}, row.structural_cells,
+                                     "message table structural cells"));
+            table.rows.push_back(std::move(target));
+          };
+          lower_row(node.header);
+          for (const auto &row : node.rows)
+            lower_row(row);
+          result.block = BlockIR{std::move(table), block_origin};
+        } else if constexpr (std::is_same_v<T, MessageStructuredListBlockIR>) {
+          // The lead-in sentence stays with the preceding prose paragraph;
+          // its cells remain part of the block's provenance.
+          const auto lead_origin =
+              cell_origin(node.lead_in.source_rows, node.lead_in.source_cells,
+                          "message list lead-in");
+          append_text(result.prose_before, node.lead_in.text);
+          merge_origin(result.prose_before_origin, lead_origin);
+          ListBlockIR list;
+          for (const auto &item : node.items) {
+            auto item_origin = cell_origin(item.source_rows, item.source_cells,
+                                           "message list item");
+            merge_origin(item_origin,
+                         cell_origin({}, item.structural_cells,
+                                     "message list structural cells"));
+            ListItemIR lowered;
+            lowered.content.push_back(
+                text_inline(compact(item.text), item_origin));
+            lowered.origin = item_origin;
+            list.items.push_back(std::move(lowered));
+          }
+          result.block = BlockIR{std::move(list), block_origin};
+        } else {
+          for (const auto &line : node.lines)
+            cell_origin({line.source_row}, line.source_cells,
+                        "message preformatted line");
+          PreformattedBlockIR preformatted_block;
+          preformatted_block.lines = lines;
+          result.block = BlockIR{std::move(preformatted_block), block_origin};
+        }
+      },
+      block.node);
+  if (!provenance)
+    return reject("cell lacks token provenance");
+  canonicalize(block_origin);
+  result.block->origin = block_origin;
+  canonicalize(result.prose_before_origin);
+  canonicalize(result.prose_after_origin);
+  return result;
+}
+
+const MessageSectionBlockIR *
+section_block(const MessageSectionBlocksIR &blocks, std::size_t entry_index,
+              std::size_t section_index) {
+  for (const auto &block : blocks.blocks)
+    if (block.entry_index == entry_index &&
+        block.section_index == section_index)
+      return &block;
+  return nullptr;
+}
+
+bool verify_blocks_shape(const MessageTopicIR &message,
+                         const MessageSectionBlocksIR &blocks,
+                         std::string *error) {
+  std::set<std::pair<std::size_t, std::size_t>> owners;
+  for (const auto &block : blocks.blocks) {
+    if (block.entry_index >= message.catalog.entries.size() ||
+        block.section_index >=
+            message.catalog.entries[block.entry_index].sections.size())
+      return fail(error, "message structured block owner is invalid");
+    if (!owners.insert({block.entry_index, block.section_index}).second)
+      return fail(error, "message section has more than one structured block");
+  }
+  return true;
+}
+
+std::optional<DocumentIR>
+canonical_document(TopicIdentityIR topic, const MessageTopicIR &message,
+                   const MessageSectionBlocksIR &blocks, std::string *error) {
+  if (!verify_message_shape(message, error) ||
+      !verify_blocks_shape(message, blocks, error))
     return std::nullopt;
   if ((!topic.id.empty() && topic.id != message.metadata.raw_topic_id) ||
       (topic.start_logical_record != 0 &&
@@ -322,6 +727,7 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
 
   DocumentIR document;
   document.topic = std::move(topic);
+  const auto tokens = index_source_tokens(message);
 
   // Both named source boundaries precede ST, so they precede the heading in
   // the canonical document as well. Renderers must not rediscover this order.
@@ -382,41 +788,70 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
     }
     canonicalize(headline_origin);
     const auto headline_inline_origin = headline_origin;
+    // BookServer renders every headline word and the section labels as bold
+    // runs; the typed document keeps that as strong emphasis.
     document.blocks.push_back(paragraph_block(
-        {{EmphasisInlineIR{std::move(headline_text)}, headline_inline_origin}},
+        {{EmphasisInlineIR{std::move(headline_text), EmphasisKindIR::strong},
+          headline_inline_origin}},
         std::move(headline_origin)));
 
-    for (const auto &section : entry.sections) {
+    for (std::size_t section_index = 0; section_index < entry.sections.size();
+         ++section_index) {
+      const auto &section = entry.sections[section_index];
       auto label_origin = origin("message section label");
       for (const auto &row : section.label_source_rows)
         add_row(label_origin, {row.first, row.second});
       for (const auto &slice : section.label_source_slices)
         add_slice(label_origin, slice);
       canonicalize(label_origin);
-      auto block_origin = label_origin;
       const auto *label =
           section.kind == MessageSectionKind::meaning ? "Meaning:" : "Action:";
+
       std::string section_text;
-      for (std::size_t paragraph_index = 0;
-           paragraph_index < section.paragraphs.size(); ++paragraph_index) {
-        if (paragraph_index != 0)
-          section_text.push_back(' ');
-        const auto &paragraph = section.paragraphs[paragraph_index];
-        auto text_origin = paragraph_origin(message, paragraph,
-                                            "message section paragraph text");
-        merge_origin(block_origin, text_origin);
-        section_text += paragraph.text;
+      auto text_origin = origin("message section paragraph text");
+      std::optional<StructuredSectionLowering> structured;
+      const auto *block = section_block(blocks, index, section_index);
+      if (block != nullptr) {
+        structured = lower_structured_section(message, tokens, section, *block,
+                                              entry.id, error);
+        if (!structured)
+          return std::nullopt;
+        section_text = structured->prose_before;
+        text_origin = structured->prose_before_origin;
+      } else {
+        for (std::size_t paragraph_index = 0;
+             paragraph_index < section.paragraphs.size(); ++paragraph_index) {
+          if (paragraph_index != 0)
+            section_text.push_back(' ');
+          const auto &paragraph = section.paragraphs[paragraph_index];
+          merge_origin(text_origin,
+                       paragraph_origin(message, paragraph,
+                                        "message section paragraph text"));
+          section_text += paragraph.text;
+        }
       }
+
+      auto block_origin = label_origin;
+      merge_origin(block_origin, text_origin);
       InlineSequenceIR content;
-      content.push_back({EmphasisInlineIR{label}, std::move(label_origin)});
-      auto separator_origin = origin("message section separator");
-      separator_origin.derivation = DocumentDerivationIR::synthesized;
-      content.push_back({TextInlineIR{" "}, std::move(separator_origin)});
-      const auto section_text_origin = block_origin;
-      content.push_back(
-          {TextInlineIR{section_text}, std::move(section_text_origin)});
+      content.push_back({EmphasisInlineIR{label, EmphasisKindIR::strong},
+                         std::move(label_origin)});
+      if (!section_text.empty()) {
+        auto separator_origin = origin("message section separator");
+        separator_origin.derivation = DocumentDerivationIR::synthesized;
+        content.push_back({TextInlineIR{" "}, std::move(separator_origin)});
+        content.push_back({TextInlineIR{section_text}, text_origin});
+      }
       document.blocks.push_back(
           paragraph_block(std::move(content), block_origin));
+      if (!structured)
+        continue;
+      document.blocks.push_back(std::move(*structured->block));
+      if (!structured->prose_after.empty())
+        document.blocks.push_back(
+            paragraph_block({{TextInlineIR{structured->prose_after},
+                              structured->prose_after_origin}},
+                            structured->prose_after_origin));
     }
   }
 
@@ -433,14 +868,17 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
 } // namespace
 
 std::optional<DocumentIR> lower_message_topic_to_document_ir(
-    TopicIdentityIR topic, const MessageTopicIR &message, std::string *error) {
-  return canonical_document(std::move(topic), message, error);
+    TopicIdentityIR topic, const MessageTopicIR &message,
+    const MessageSectionBlocksIR &blocks, std::string *error) {
+  return canonical_document(std::move(topic), message, blocks, error);
 }
 
 bool verify_message_topic_document_ir(const MessageTopicIR &message,
+                                      const MessageSectionBlocksIR &blocks,
                                       const DocumentIR &document,
                                       std::string *error) {
-  const auto expected = canonical_document(document.topic, message, error);
+  const auto expected =
+      canonical_document(document.topic, message, blocks, error);
   if (!expected)
     return false;
   if (format_document_ir(*expected) != format_document_ir(document))
