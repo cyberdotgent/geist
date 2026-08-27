@@ -292,6 +292,80 @@ int main() {
   };
   require_trailing_field("2 - No such name", 46, 164394);
   require_trailing_field("3 - Bad value", 53, 164402);
+
+  const auto message_2121_text = heading_text("2121");
+  if (message_2121_text !=
+          "2121 Error accessing the Bridge config file in = <function>. "
+          "Return code = <number> fileName = <filename>, record = <record> "
+          "File = <filename>, Line = <line number>")
+    std::cerr << "message 2121 heading: " << message_2121_text << '\n';
+  require(
+      message_2121_text ==
+          "2121 Error accessing the Bridge config file in = <function>. "
+          "Return code = <number> fileName = <filename>, record = <record> "
+          "File = <filename>, Line = <line number>",
+      "message 2121 did not preserve its complete parameterized heading");
+  std::vector<const geist::detail::MessageParagraphIR *> message_2121_heading{
+      &message("2121").headline};
+  for (const auto &paragraph : message("2121").headline_continuations)
+    message_2121_heading.push_back(&paragraph);
+  const geist::detail::MessageSemanticRowIR *delimiter_bridge = nullptr;
+  const geist::detail::PhysicalRowIR *delimiter_bridge_row = nullptr;
+  bool retained_terminal_delimiter = false;
+  bool retained_leading_layout_token = false;
+  bool retained_second_layout_token = false;
+  bool retained_row_layout_token = false;
+  for (const auto *paragraph : message_2121_heading) {
+    retained_leading_layout_token |= std::any_of(
+        paragraph->suppressed_layout_tokens.begin(),
+        paragraph->suppressed_layout_tokens.end(), [](const auto &token) {
+          return token.logical_record == 354 && token.token_index == 141 &&
+                 token.bytes.begin == 152008 && token.bytes.end == 152009;
+        });
+    retained_second_layout_token |= std::any_of(
+        paragraph->suppressed_layout_tokens.begin(),
+        paragraph->suppressed_layout_tokens.end(), [](const auto &token) {
+          return token.logical_record == 354 && token.token_index == 197 &&
+                 token.bytes.begin == 152071 && token.bytes.end == 152072;
+        });
+    retained_terminal_delimiter |= std::any_of(
+        paragraph->source_slices.begin(), paragraph->source_slices.end(),
+        [](const auto &source) {
+          return source.logical_record == 354 && source.segment_index == 6 &&
+                 source.token_begin <= 214 && source.token_end == 215 &&
+                 source.byte_end == 152094;
+        });
+    for (const auto &row : paragraph->semantic_rows) {
+      if (row.terminal_layout_token &&
+          row.terminal_layout_token->logical_record == 354 &&
+          row.terminal_layout_token->token_index == 174)
+        retained_row_layout_token = true;
+      if (row.marker_disposition != geist::detail::
+                                        MessageMarkerDispositionIR::
+                                            closing_delimiter_bridge)
+        continue;
+      delimiter_bridge = &row;
+      for (const auto &run : layout.runs)
+        if (run.id == row.source_row.first &&
+            row.source_row.second < run.rows.size())
+          delimiter_bridge_row = &run.rows[row.source_row.second];
+    }
+  }
+  require(delimiter_bridge != nullptr && delimiter_bridge_row != nullptr &&
+              delimiter_bridge_row->marker &&
+              delimiter_bridge_row->marker->logical_record == 354 &&
+              delimiter_bridge_row->marker->token_index == 150 &&
+              delimiter_bridge_row->marker->byte_range.begin == 152020 &&
+              delimiter_bridge_row->marker->byte_range.end == 152021 &&
+              delimiter_bridge->leading_source_slices.size() == 1 &&
+              delimiter_bridge->leading_source_slices.front().token_begin ==
+                  143 &&
+              delimiter_bridge->leading_source_slices.front().token_end ==
+                  149,
+          "message 2121 lost the typed closing-delimiter bridge");
+  require(retained_terminal_delimiter && retained_leading_layout_token &&
+              retained_second_layout_token && retained_row_layout_token,
+          "message 2121 boundary decisions lost exact source provenance");
   require(message("218").sections[1].paragraphs.front().text ==
                   "Refer to the man page for usage." &&
               ((!message("218")
@@ -535,6 +609,47 @@ int main() {
   require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
                                                   mutated),
           "message verifier admitted a changed marker disposition");
+  mutated = *topic;
+  auto mutated_2121 = std::find_if(
+      mutated.catalog.entries.begin(), mutated.catalog.entries.end(),
+      [](const auto &entry) { return entry.id == "2121"; });
+  require(mutated_2121 != mutated.catalog.entries.end(),
+          "message verifier fixture lost message 2121");
+  auto *mutated_bridge =
+      static_cast<geist::detail::MessageSemanticRowIR *>(nullptr);
+  const auto find_mutated_bridge = [&](auto &paragraph) {
+    for (auto &row : paragraph.semantic_rows)
+      if (row.marker_disposition == geist::detail::MessageMarkerDispositionIR::
+                                        closing_delimiter_bridge)
+        mutated_bridge = &row;
+  };
+  find_mutated_bridge(mutated_2121->headline);
+  for (auto &paragraph : mutated_2121->headline_continuations)
+    find_mutated_bridge(paragraph);
+  require(mutated_bridge != nullptr,
+          "message verifier fixture has no closing-delimiter bridge");
+  mutated_bridge->marker_disposition =
+      geist::detail::MessageMarkerDispositionIR::layout_artifact;
+  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+                                                  mutated),
+          "message verifier admitted a suppressed closing delimiter");
+  mutated = *topic;
+  mutated_2121 = std::find_if(
+      mutated.catalog.entries.begin(), mutated.catalog.entries.end(),
+      [](const auto &entry) { return entry.id == "2121"; });
+  auto *terminal_field = static_cast<geist::detail::DocumentSourceSliceIR *>(
+      nullptr);
+  for (auto &paragraph : mutated_2121->headline_continuations)
+    for (auto &source : paragraph.source_slices)
+      if (source.logical_record == 354 && source.segment_index == 6 &&
+          source.token_end == 215)
+        terminal_field = &source;
+  require(terminal_field != nullptr,
+          "message verifier fixture has no terminal delimited field");
+  --terminal_field->token_end;
+  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+                                                  mutated),
+          "message verifier admitted a shortened terminal field source");
   mutated = *topic;
   auto *terminal_layout_token =
       static_cast<geist::detail::MessageTerminalLayoutTokenIR *>(nullptr);

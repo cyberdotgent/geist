@@ -21,6 +21,7 @@ enum class MessageMarkerDispositionIR {
   absent,
   lexical_prefix,
   opaque_continuation_suffix,
+  closing_delimiter_bridge,
   punctuation_suffix,
   list_prefix,
   layout_artifact,
@@ -77,6 +78,10 @@ struct MessageParagraphIR {
   std::vector<MessageSourceRowIR> source_rows;
   std::vector<std::pair<std::uint32_t, std::size_t>> source_segments;
   std::vector<DocumentSourceSliceIR> source_slices;
+  // Compact tokens suppressed from recovered opaque fields because their
+  // source geometry identifies them as boundary controls. Keeping the exact
+  // token evidence makes that suppression independently auditable.
+  std::vector<MessageTerminalLayoutTokenIR> suppressed_layout_tokens;
   // Exact row-by-row semantic projection. Marker disposition records why a
   // compact source slot contributes text or remains layout evidence.
   std::vector<MessageSemanticRowIR> semantic_rows;

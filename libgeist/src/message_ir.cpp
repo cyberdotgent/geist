@@ -117,6 +117,8 @@ bool section_equal(const MessageSectionIR &left,
                              a.source_segments == b.source_segments &&
                              source_slices_equal(a.source_slices,
                                                  b.source_slices) &&
+                             a.suppressed_layout_tokens ==
+                                 b.suppressed_layout_tokens &&
                              a.semantic_rows == b.semantic_rows;
                     });
 }
@@ -131,6 +133,8 @@ bool entry_equal(const MessageEntryIR &left, const MessageEntryIR &right) {
       left.headline.source_segments != right.headline.source_segments ||
       !source_slices_equal(left.headline.source_slices,
                            right.headline.source_slices) ||
+      left.headline.suppressed_layout_tokens !=
+          right.headline.suppressed_layout_tokens ||
       left.headline.semantic_rows != right.headline.semantic_rows ||
       left.headline_continuations.size() !=
           right.headline_continuations.size() ||
@@ -149,6 +153,8 @@ bool entry_equal(const MessageEntryIR &left, const MessageEntryIR &right) {
         !source_slices_equal(
             left.headline_continuations[index].source_slices,
             right.headline_continuations[index].source_slices) ||
+        left.headline_continuations[index].suppressed_layout_tokens !=
+            right.headline_continuations[index].suppressed_layout_tokens ||
         left.headline_continuations[index].semantic_rows !=
             right.headline_continuations[index].semantic_rows)
       return false;
@@ -262,7 +268,7 @@ std::string owned_row_text(const MessageOwnershipIndex &ownership,
               });
       const auto decoded = trim_ascii(token_words_to_ascii(source.decoded_words));
       const auto terminal_punctuation =
-          decoded == "<" ||
+          decoded == "<" || decoded == "-" ||
           (decoded == ">" &&
            std::count(row.visible_text.begin(), row.visible_text.end(), '<') <
                std::count(row.visible_text.begin(), row.visible_text.end(),
@@ -326,7 +332,8 @@ std::string owned_row_text(const MessageOwnershipIndex &ownership,
 
 bool structural_padding_token(const LogicalTokenIR &token) {
   const auto begin = token.has_spacing_control ? std::size_t{1} : 0;
-  return begin < token.decoded_words.size() &&
+  return (begin < token.decoded_words.size() ||
+          (token.has_spacing_control && begin == token.decoded_words.size())) &&
          std::all_of(
              token.decoded_words.begin() + static_cast<std::ptrdiff_t>(begin),
              token.decoded_words.end(),
@@ -442,7 +449,54 @@ opaque_segment_suffix(const std::vector<DecodedLogicalRecordSource> &records,
 struct OpaqueSegmentFragment {
   std::string text;
   DocumentSourceSliceIR source;
+  std::vector<MessageTerminalLayoutTokenIR> suppressed_layout_tokens;
 };
+
+std::string decoded_token_text(const LogicalTokenIR &token) {
+  std::string text;
+  for (const auto word : token.decoded_words)
+    if (word <= 0xff)
+      text.push_back(static_cast<char>(word));
+  return text;
+}
+
+MessageTerminalLayoutTokenIR
+layout_token_evidence(const DecodedLogicalRecordSource &record,
+                      std::size_t token_index) {
+  const auto &token = record.ir.tokens[token_index];
+  return {record.logical_record, token_index, token.encoded, token.byte_range,
+          decoded_token_text(token)};
+}
+
+bool closes_unmatched_delimiter(std::string_view prefix,
+                                std::string_view closing) {
+  if (closing.size() != 1)
+    return false;
+  const auto opener = [closing]() -> char {
+    switch (closing.front()) {
+    case '>':
+      return '<';
+    case ')':
+      return '(';
+    case ']':
+      return '[';
+    case '}':
+      return '{';
+    default:
+      return '\0';
+    }
+  }();
+  if (opener == '\0')
+    return false;
+  auto depth = std::size_t{};
+  for (const auto ch : prefix) {
+    if (ch == opener)
+      ++depth;
+    else if (ch == closing.front() && depth != 0)
+      --depth;
+  }
+  return depth != 0;
+}
 
 std::vector<OpaqueSegmentFragment>
 opaque_segment_fragments(const DecodedLogicalRecordSource &record,
@@ -451,6 +505,7 @@ opaque_segment_fragments(const DecodedLogicalRecordSource &record,
   const auto range =
       decoded_byte_range_to_word_range(record.assembled, segment.payload_range);
   std::optional<std::size_t> terminal_layout_token;
+  std::optional<std::size_t> leading_layout_token;
   for (std::size_t output = range.begin;
        output < range.end && output < record.assembled.sources.size();
        ++output) {
@@ -460,6 +515,9 @@ opaque_segment_fragments(const DecodedLogicalRecordSource &record,
     if (found != ownership.cells.end() &&
         found->second->disposition == SourceDisposition::opaque)
       terminal_layout_token = source.token_index;
+    if (!leading_layout_token && found != ownership.cells.end() &&
+        found->second->disposition == SourceDisposition::opaque)
+      leading_layout_token = source.token_index;
   }
   if (terminal_layout_token &&
       *terminal_layout_token < record.ir.tokens.size()) {
@@ -471,9 +529,43 @@ opaque_segment_fragments(const DecodedLogicalRecordSource &record,
     if (token.encoded.width != 1 || token.encoded.value < 19 ||
         token.encoded.value > 43)
       terminal_layout_token.reset();
+    else {
+      std::string preceding_text;
+      for (std::size_t output = range.begin;
+           output < range.end && output < record.assembled.sources.size();
+           ++output) {
+        const auto &source = record.assembled.sources[output];
+        if (source.token_index == *terminal_layout_token)
+          break;
+        const auto found = ownership.cells.find(
+            {record.logical_record, source.token_index, source.word_index});
+        if (found != ownership.cells.end() &&
+            found->second->disposition == SourceDisposition::opaque &&
+            found->second->word <= 0xff && !unmapped_cell(record, *found->second))
+          preceding_text.push_back(static_cast<char>(found->second->word));
+      }
+      if (closes_unmatched_delimiter(preceding_text,
+                                     decoded_token_text(token)))
+        terminal_layout_token.reset();
+    }
+  }
+  if (leading_layout_token && *leading_layout_token < record.ir.tokens.size()) {
+    const auto &token = record.ir.tokens[*leading_layout_token];
+    auto followed_by_padding = false;
+    for (const auto source_token : segment.source_tokens) {
+      if (source_token <= *leading_layout_token ||
+          source_token >= record.ir.tokens.size())
+        continue;
+      followed_by_padding = structural_padding_token(record.ir.tokens[source_token]);
+      break;
+    }
+    if (token.encoded.width != 1 || token.encoded.value < 19 ||
+        token.encoded.value > 43 || !followed_by_padding)
+      leading_layout_token.reset();
   }
   std::vector<OpaqueSegmentFragment> result;
   std::string text;
+  std::vector<MessageTerminalLayoutTokenIR> suppressed_layout_tokens;
   std::optional<std::size_t> first_token;
   std::optional<std::size_t> last_token;
   const auto finish = [&] {
@@ -486,22 +578,41 @@ opaque_segment_fragments(const DecodedLogicalRecordSource &record,
     if (!text.empty() && first_token && last_token) {
       const auto &first = record.ir.tokens[*first_token];
       const auto &last = record.ir.tokens[*last_token];
-      result.push_back(
-          {std::move(text),
-           {record.logical_record, segment.segment_index, *first_token,
-            *last_token + 1, first.byte_range.begin, last.byte_range.end}});
+      result.push_back({
+          std::move(text),
+          {record.logical_record, segment.segment_index, *first_token,
+           *last_token + 1, first.byte_range.begin, last.byte_range.end},
+          std::move(suppressed_layout_tokens)});
     }
     text.clear();
     first_token.reset();
     last_token.reset();
+    suppressed_layout_tokens.clear();
   };
   for (std::size_t output = range.begin;
        output < range.end && output < record.assembled.sources.size();
        ++output) {
     const auto &source = record.assembled.sources[output];
-    if (source.token_index >= record.ir.tokens.size() ||
-        (terminal_layout_token &&
-         source.token_index == *terminal_layout_token) ||
+    if (source.token_index >= record.ir.tokens.size()) {
+      if (!text.empty())
+        finish();
+      continue;
+    }
+    const auto is_leading_layout =
+        leading_layout_token.value_or(std::numeric_limits<std::size_t>::max()) ==
+        source.token_index;
+    const auto is_terminal_layout =
+        terminal_layout_token.value_or(
+            std::numeric_limits<std::size_t>::max()) == source.token_index;
+    if (is_leading_layout || is_terminal_layout) {
+      if (source.word_index == 0)
+        suppressed_layout_tokens.push_back(
+            layout_token_evidence(record, source.token_index));
+      if (!text.empty() && is_terminal_layout)
+        finish();
+      continue;
+    }
+    if (
         structural_padding_token(record.ir.tokens[source.token_index])) {
       if (!text.empty())
         finish();
@@ -1334,7 +1445,7 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
         // Preserve even a single lexical word. Suppress only the exact
         // one-token compact terminal-control envelope before SRMSG.
         if (!terminal_marker_only)
-          fragments.push_back({std::move(text), source});
+          fragments.push_back({std::move(text), source, {}});
       } else {
         fragments =
             opaque_segment_fragments(*record, ownership_index, segment);
@@ -1364,6 +1475,7 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
             collection_claims(entry.sections[1].paragraphs))
           continue;
         std::optional<MessageSourceRowIR> preceding_row;
+        std::optional<MessageSourceRowIR> following_row;
         auto preceding_end = std::size_t{};
         auto next_begin = std::numeric_limits<std::size_t>::max();
         for (const auto &[source_row, token_begin, token_end] : segment_rows) {
@@ -1372,9 +1484,64 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
             preceding_row = source_row;
             preceding_end = token_end;
           }
-          if (token_begin >= fragment.source.token_end)
-            next_begin = std::min(next_begin, token_begin);
+          if (token_begin >= fragment.source.token_end &&
+              token_begin < next_begin) {
+            following_row = source_row;
+            next_begin = token_begin;
+          }
         }
+        const auto find_physical_row = [&](const MessageSourceRowIR &source)
+            -> const PhysicalRowIR * {
+          const auto run = std::find_if(
+              layout.runs.begin(), layout.runs.end(),
+              [&](const auto &candidate) { return candidate.id == source.first; });
+          if (run == layout.runs.end() || source.second >= run->rows.size())
+            return nullptr;
+          return &run->rows[source.second];
+        };
+        const auto rebuild_paragraph_text = [](MessageParagraphIR &paragraph) {
+          paragraph.text.clear();
+          for (const auto &row : paragraph.semantic_rows)
+            append_text(paragraph.text, row.text);
+        };
+        const auto attach_to_following_row = [&](MessageParagraphIR &paragraph) {
+          if (!following_row || fragment.source.token_end > next_begin ||
+              std::find(paragraph.source_rows.begin(),
+                        paragraph.source_rows.end(), *following_row) ==
+                  paragraph.source_rows.end())
+            return false;
+          const auto *physical = find_physical_row(*following_row);
+          if (physical == nullptr || !physical->marker ||
+              physical->marker->token_index < fragment.source.token_end ||
+              physical->marker->token_index > next_begin ||
+              !closes_unmatched_delimiter(fragment.text,
+                                          physical->marker->decoded_text))
+            return false;
+          for (auto token = fragment.source.token_end;
+               token < physical->marker->token_index; ++token)
+            if (token >= record->ir.tokens.size() ||
+                !structural_padding_token(record->ir.tokens[token]))
+              return false;
+          const auto semantic = std::find_if(
+              paragraph.semantic_rows.begin(), paragraph.semantic_rows.end(),
+              [&](const auto &row) { return row.source_row == *following_row; });
+          if (semantic == paragraph.semantic_rows.end())
+            return false;
+          semantic->text = fragment.text + physical->marker->decoded_text +
+                           (semantic->text.empty() ? std::string{}
+                                                   : std::string{" "}) +
+                           semantic->text;
+          semantic->marker_disposition =
+              MessageMarkerDispositionIR::closing_delimiter_bridge;
+          semantic->leading_source_slices.push_back(fragment.source);
+          paragraph.source_slices.push_back(fragment.source);
+          paragraph.suppressed_layout_tokens.insert(
+              paragraph.suppressed_layout_tokens.end(),
+              fragment.suppressed_layout_tokens.begin(),
+              fragment.suppressed_layout_tokens.end());
+          rebuild_paragraph_text(paragraph);
+          return true;
+        };
         const auto attach_to_paragraph = [&](MessageParagraphIR &paragraph) {
           if (!preceding_row || fragment.source.token_end > next_begin)
             return false;
@@ -1384,6 +1551,10 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
             return false;
           append_text(paragraph.text, fragment.text);
           paragraph.source_slices.push_back(fragment.source);
+          paragraph.suppressed_layout_tokens.insert(
+              paragraph.suppressed_layout_tokens.end(),
+              fragment.suppressed_layout_tokens.begin(),
+              fragment.suppressed_layout_tokens.end());
           const auto semantic = std::find_if(
               paragraph.semantic_rows.begin(), paragraph.semantic_rows.end(),
               [&](const auto &row) { return row.source_row == *preceding_row; });
@@ -1397,14 +1568,22 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
           return std::any_of(paragraphs.begin(), paragraphs.end(),
                              attach_to_paragraph);
         };
+        const auto attach_to_next_row = [&](auto &paragraphs) {
+          return std::any_of(paragraphs.begin(), paragraphs.end(),
+                             attach_to_following_row);
+        };
         if (coordinate < meaning_coordinate) {
-          if (attach_to_preceding_row(entry.headline_continuations) ||
+          if (attach_to_next_row(entry.headline_continuations) ||
+              attach_to_following_row(entry.headline) ||
+              attach_to_preceding_row(entry.headline_continuations) ||
               attach_to_paragraph(entry.headline))
             continue;
         } else if (coordinate < action_coordinate) {
-          if (attach_to_preceding_row(entry.sections[0].paragraphs))
+          if (attach_to_next_row(entry.sections[0].paragraphs) ||
+              attach_to_preceding_row(entry.sections[0].paragraphs))
             continue;
-        } else if (attach_to_preceding_row(entry.sections[1].paragraphs)) {
+        } else if (attach_to_next_row(entry.sections[1].paragraphs) ||
+                   attach_to_preceding_row(entry.sections[1].paragraphs)) {
           continue;
         }
         MessageParagraphIR recovered;
@@ -1413,6 +1592,8 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
         if (recovered.text.empty())
           continue;
         recovered.source_slices.push_back(fragment.source);
+        recovered.suppressed_layout_tokens =
+            std::move(fragment.suppressed_layout_tokens);
         if (coordinate < meaning_coordinate) {
           entry.headline_continuations.push_back(std::move(recovered));
         } else if (coordinate < action_coordinate) {
