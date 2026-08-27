@@ -146,12 +146,45 @@ int main() {
     }
     return text;
   };
-  require(message("203").sections[1].paragraphs.front().text ==
+  const auto section_text = [&](const std::string &id, std::size_t section) {
+    std::string text;
+    for (const auto &paragraph : message(id).sections[section].paragraphs) {
+      if (!text.empty())
+        text.push_back(' ');
+      text += paragraph.text;
+    }
+    return text;
+  };
+  require(section_text("203", 1) ==
               "After exiting the AIX NetView/6000 graphical interface, stop "
               "LNM for AIX. Then execute ovstop followed by ovstart. Use "
               "ovstatus to verify the AIX NetView/6000 daemons are running. "
               "Restart LNM for AIX.",
           "message 203 lost its source-owned record continuation");
+  const auto &reasons = message("2267").sections[0].paragraphs;
+  const auto require_trailing_field = [&](const std::string &text,
+                                          std::size_t token_begin,
+                                          std::uint32_t byte_begin) {
+    const auto paragraph =
+        std::find_if(reasons.begin(), reasons.end(), [&](const auto &item) {
+          return item.text == text;
+        });
+    require(paragraph != reasons.end() &&
+                paragraph->semantic_rows.size() == 1 &&
+                paragraph->semantic_rows.front().trailing_source_slices.size() ==
+                    1,
+            "message 2267 lost a typed trailing list field");
+    const auto &source =
+        paragraph->semantic_rows.front().trailing_source_slices.front();
+    require(source.logical_record == 392 && source.segment_index == 0 &&
+                source.token_begin == token_begin &&
+                source.token_end == token_begin + 1 &&
+                source.byte_begin == byte_begin &&
+                source.byte_end == byte_begin + 1,
+            "message 2267 trailing field provenance changed");
+  };
+  require_trailing_field("2 - No such name", 46, 164394);
+  require_trailing_field("3 - Bad value", 53, 164402);
   require(message("218").sections[1].paragraphs.front().text ==
                   "Refer to the man page for usage." &&
               ((!message("218")

@@ -53,6 +53,10 @@ struct MessageSemanticRowIR {
   MessageMarkerDispositionIR marker_disposition =
       MessageMarkerDispositionIR::absent;
   std::optional<MessageTerminalLayoutTokenIR> terminal_layout_token;
+  // Printable cells between this row and the next admitted row boundary.
+  // These retain the exact token/byte slices of lexical trailing fields that
+  // LayoutIR could not safely include in the primary physical row.
+  std::vector<DocumentSourceSliceIR> trailing_source_slices;
   std::string text;
 };
 
@@ -61,6 +65,7 @@ inline bool operator==(const MessageSemanticRowIR &left,
   return left.source_row == right.source_row &&
          left.marker_disposition == right.marker_disposition &&
          left.terminal_layout_token == right.terminal_layout_token &&
+         left.trailing_source_slices == right.trailing_source_slices &&
          left.text == right.text;
 }
 

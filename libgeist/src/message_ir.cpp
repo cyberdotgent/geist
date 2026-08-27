@@ -411,10 +411,15 @@ opaque_segment_suffix(const std::vector<DecodedLogicalRecordSource> &records,
   return collapse_ascii_whitespace(trim_ascii(std::move(result)));
 }
 
-std::string opaque_segment_text(const DecodedLogicalRecordSource &record,
-                                const MessageOwnershipIndex &ownership,
-                                const ControlSegmentIR &segment,
-                                DocumentSourceSliceIR *source_slice) {
+struct OpaqueSegmentFragment {
+  std::string text;
+  DocumentSourceSliceIR source;
+};
+
+std::vector<OpaqueSegmentFragment>
+opaque_segment_fragments(const DecodedLogicalRecordSource &record,
+                         const MessageOwnershipIndex &ownership,
+                         const ControlSegmentIR &segment) {
   const auto range =
       decoded_byte_range_to_word_range(record.assembled, segment.payload_range);
   std::optional<std::size_t> terminal_layout_token;
@@ -439,9 +444,29 @@ std::string opaque_segment_text(const DecodedLogicalRecordSource &record,
         token.encoded.value > 43)
       terminal_layout_token.reset();
   }
-  std::string result;
+  std::vector<OpaqueSegmentFragment> result;
+  std::string text;
   std::optional<std::size_t> first_token;
   std::optional<std::size_t> last_token;
+  const auto finish = [&] {
+    if (text.empty()) {
+      first_token.reset();
+      last_token.reset();
+      return;
+    }
+    text = collapse_ascii_whitespace(trim_ascii(std::move(text)));
+    if (!text.empty() && first_token && last_token) {
+      const auto &first = record.ir.tokens[*first_token];
+      const auto &last = record.ir.tokens[*last_token];
+      result.push_back(
+          {std::move(text),
+           {record.logical_record, segment.segment_index, *first_token,
+            *last_token + 1, first.byte_range.begin, last.byte_range.end}});
+    }
+    text.clear();
+    first_token.reset();
+    last_token.reset();
+  };
   for (std::size_t output = range.begin;
        output < range.end && output < record.assembled.sources.size();
        ++output) {
@@ -449,32 +474,31 @@ std::string opaque_segment_text(const DecodedLogicalRecordSource &record,
     if (source.token_index >= record.ir.tokens.size() ||
         (terminal_layout_token &&
          source.token_index == *terminal_layout_token) ||
-        structural_padding_token(record.ir.tokens[source.token_index]))
+        structural_padding_token(record.ir.tokens[source.token_index])) {
+      if (!text.empty())
+        finish();
       continue;
+    }
     if (source.kind == LogicalWordSourceKind::inserted_space) {
-      if (!result.empty())
-        result.push_back(' ');
+      if (!text.empty())
+        text.push_back(' ');
       continue;
     }
     const auto found = ownership.cells.find(
         {record.logical_record, source.token_index, source.word_index});
     if (found == ownership.cells.end() ||
         found->second->disposition != SourceDisposition::opaque ||
-        found->second->word > 0xff || unmapped_cell(record, *found->second))
+        found->second->word > 0xff || unmapped_cell(record, *found->second)) {
+      if (!text.empty())
+        finish();
       continue;
+    }
     if (!first_token)
       first_token = source.token_index;
     last_token = source.token_index;
-    result.push_back(static_cast<char>(found->second->word));
+    text.push_back(static_cast<char>(found->second->word));
   }
-  result = collapse_ascii_whitespace(trim_ascii(std::move(result)));
-  if (!result.empty() && source_slice != nullptr && first_token && last_token) {
-    const auto &first = record.ir.tokens[*first_token];
-    const auto &last = record.ir.tokens[*last_token];
-    *source_slice = {record.logical_record,  segment.segment_index,
-                     *first_token,           *last_token + 1,
-                     first.byte_range.begin, last.byte_range.end};
-  }
+  finish();
   return result;
 }
 
@@ -829,6 +853,15 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
   const auto ownership_index = index_message_ownership(records, ownership);
 
   using SegmentKey = std::pair<std::uint32_t, std::size_t>;
+  using SegmentRow =
+      std::tuple<MessageSourceRowIR, std::size_t, std::size_t>;
+  std::map<SegmentKey, std::vector<SegmentRow>> rows_by_segment;
+  for (const auto &run : layout.runs)
+    for (std::size_t row_index = 0; row_index < run.rows.size(); ++row_index) {
+      const auto &row = run.rows[row_index];
+      rows_by_segment[{row.logical_record, row.segment_index}].push_back(
+          {{run.id, row_index}, row.token_begin, row.token_end});
+    }
   std::map<SegmentKey, std::size_t> entry_by_segment;
   MessageCatalogIR catalog;
   std::optional<std::size_t> active;
@@ -1217,42 +1250,95 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
       if (segment.kind != BookControlKind::text &&
           segment.kind != BookControlKind::font && !record_continuation)
         continue;
-      DocumentSourceSliceIR recovered_source;
-      MessageParagraphIR recovered;
-      recovered.text =
-          record_continuation
-              ? complete_segment_text(*record, segment, &recovered_source)
-              : opaque_segment_text(*record, ownership_index, segment,
-                                    &recovered_source);
-      // A lone unknown word before SRMSG is the fixed row's terminal marker,
-      // not flowing prose. Real record continuations contain at least one
-      // lexical boundary (including short tails such as "and reopened.").
-      if (record_continuation && recovered.text.find(' ') == std::string::npos)
-        continue;
-      recovered.recovered_unformatted_segment = true;
-      if (recovered.text.empty())
-        continue;
-      recovered.source_slices.push_back(recovered_source);
-      auto append_if_new = [&](auto &paragraphs) {
-        const auto already_present = std::any_of(
-            paragraphs.begin(), paragraphs.end(), [&](const auto &paragraph) {
-              return paragraph.text.find(recovered.text) != std::string::npos;
-            });
-        if (!already_present)
-          paragraphs.push_back(std::move(recovered));
-      };
-      if (coordinate < meaning_coordinate) {
-        append_if_new(entry.headline_continuations);
-      } else if (coordinate < action_coordinate) {
-        recovered.text = section_payload(MessageSectionKind::meaning,
-                                         std::move(recovered.text));
-        if (!recovered.text.empty())
-          append_if_new(entry.sections[0].paragraphs);
+      std::vector<OpaqueSegmentFragment> fragments;
+      if (record_continuation) {
+        DocumentSourceSliceIR source;
+        auto text = complete_segment_text(*record, segment, &source);
+        // A lone unknown word before SRMSG is the fixed row's terminal marker,
+        // not flowing prose. Real record continuations contain at least one
+        // lexical boundary (including short tails such as "and reopened.").
+        if (text.find(' ') != std::string::npos)
+          fragments.push_back({std::move(text), source});
       } else {
-        recovered.text = section_payload(MessageSectionKind::action,
-                                         std::move(recovered.text));
-        if (!recovered.text.empty())
-          append_if_new(entry.sections[1].paragraphs);
+        fragments =
+            opaque_segment_fragments(*record, ownership_index, segment);
+      }
+      const auto indexed_rows = rows_by_segment.find(coordinate);
+      static const std::vector<SegmentRow> no_rows;
+      const auto &segment_rows =
+          indexed_rows == rows_by_segment.end() ? no_rows : indexed_rows->second;
+      for (auto &fragment : fragments) {
+        std::optional<MessageSourceRowIR> preceding_row;
+        auto preceding_end = std::size_t{};
+        auto next_begin = std::numeric_limits<std::size_t>::max();
+        for (const auto &[source_row, token_begin, token_end] : segment_rows) {
+          if (token_end <= fragment.source.token_begin &&
+              (!preceding_row || token_end > preceding_end)) {
+            preceding_row = source_row;
+            preceding_end = token_end;
+          }
+          if (token_begin >= fragment.source.token_end)
+            next_begin = std::min(next_begin, token_begin);
+        }
+        const auto attach_to_paragraph = [&](MessageParagraphIR &paragraph) {
+          if (!preceding_row || fragment.source.token_end > next_begin)
+            return false;
+          if (std::find(paragraph.source_rows.begin(),
+                        paragraph.source_rows.end(), *preceding_row) ==
+              paragraph.source_rows.end())
+            return false;
+          append_text(paragraph.text, fragment.text);
+          paragraph.source_slices.push_back(fragment.source);
+          const auto semantic = std::find_if(
+              paragraph.semantic_rows.begin(), paragraph.semantic_rows.end(),
+              [&](const auto &row) { return row.source_row == *preceding_row; });
+          if (semantic != paragraph.semantic_rows.end()) {
+            append_text(semantic->text, fragment.text);
+            semantic->trailing_source_slices.push_back(fragment.source);
+          }
+          return true;
+        };
+        const auto attach_to_preceding_row = [&](auto &paragraphs) {
+          return std::any_of(paragraphs.begin(), paragraphs.end(),
+                             attach_to_paragraph);
+        };
+        if (coordinate < meaning_coordinate) {
+          if (attach_to_preceding_row(entry.headline_continuations) ||
+              attach_to_paragraph(entry.headline))
+            continue;
+        } else if (coordinate < action_coordinate) {
+          if (attach_to_preceding_row(entry.sections[0].paragraphs))
+            continue;
+        } else if (attach_to_preceding_row(entry.sections[1].paragraphs)) {
+          continue;
+        }
+        MessageParagraphIR recovered;
+        recovered.text = std::move(fragment.text);
+        recovered.recovered_unformatted_segment = true;
+        if (recovered.text.empty())
+          continue;
+        recovered.source_slices.push_back(fragment.source);
+        auto append_if_new = [&](auto &paragraphs) {
+          const auto already_present = std::any_of(
+              paragraphs.begin(), paragraphs.end(), [&](const auto &paragraph) {
+                return paragraph.text.find(recovered.text) != std::string::npos;
+              });
+          if (!already_present)
+            paragraphs.push_back(std::move(recovered));
+        };
+        if (coordinate < meaning_coordinate) {
+          append_if_new(entry.headline_continuations);
+        } else if (coordinate < action_coordinate) {
+          recovered.text = section_payload(MessageSectionKind::meaning,
+                                           std::move(recovered.text));
+          if (!recovered.text.empty())
+            append_if_new(entry.sections[0].paragraphs);
+        } else {
+          recovered.text = section_payload(MessageSectionKind::action,
+                                           std::move(recovered.text));
+          if (!recovered.text.empty())
+            append_if_new(entry.sections[1].paragraphs);
+        }
       }
     }
     const auto source_order = [&layout](const auto &left, const auto &right) {

@@ -19,6 +19,15 @@ struct DocumentSourceSliceIR {
   std::uint32_t byte_end = 0;
 };
 
+inline bool operator==(const DocumentSourceSliceIR &left,
+                       const DocumentSourceSliceIR &right) noexcept {
+  return left.logical_record == right.logical_record &&
+         left.segment_index == right.segment_index &&
+         left.token_begin == right.token_begin &&
+         left.token_end == right.token_end && left.byte_begin == right.byte_begin &&
+         left.byte_end == right.byte_end;
+}
+
 struct DocumentSourceRowIR {
   std::uint64_t display_run = 0;
   std::size_t row_index = 0;

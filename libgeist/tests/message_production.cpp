@@ -126,6 +126,7 @@ int main() {
            "a shutdown has been issued, it will be normal",
            "the bridge cannot be discovered",
            "matching entry in the SR port table or the TP port table",
+           "2 \\- No such name 3 \\- Bad value",
            "Restart the Concentrator view",
            "concentrator view is set to unknown",
            "has been removed from the database",
@@ -148,6 +149,7 @@ int main() {
            "Care and should",
            "execute\\) ovstop",
            "\\< available",
+           "No such name value",
        })
     require(markdown.find(artifact) == std::string::npos,
             std::string("message catalog retained a layout artifact: ") +
