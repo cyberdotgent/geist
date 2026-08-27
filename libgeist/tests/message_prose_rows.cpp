@@ -52,6 +52,20 @@ find_join(const std::vector<geist::detail::MessageProseRowJoinIR> &joins,
   return found == joins.end() ? nullptr : &*found;
 }
 
+// Typed trap catalogs render through DocumentIR, which escapes Markdown
+// punctuation; the rendered-text checks compare the visible text.
+std::string visible_text(const std::string &markdown) {
+  std::string visible;
+  visible.reserve(markdown.size());
+  for (std::size_t index = 0; index < markdown.size(); ++index) {
+    if (markdown[index] == '\\' && index + 1 < markdown.size())
+      visible.push_back(markdown[++index]);
+    else
+      visible.push_back(markdown[index]);
+  }
+  return visible;
+}
+
 bool starts_with(const std::string &text, const std::string &prefix) {
   return text.compare(0, prefix.size(), prefix) == 0;
 }
@@ -288,13 +302,13 @@ int main() {
   }
 
   const auto document = geist::BooDocument::open(root / "SC31-711.boo");
-  const auto application_traps = document.topic_markdown("4.1.2");
+  const auto application_traps = visible_text(document.topic_markdown("4.1.2"));
   require(application_traps.find(
               "**Action:** The socket connection between LNM for AIX and the "
               "LNM OS/2 agent has failed. Check the nettl log") !=
               std::string::npos,
           "4.1.2 socket error action paragraph was split");
-  const auto agent_traps = document.topic_markdown("4.1.3");
+  const auto agent_traps = visible_text(document.topic_markdown("4.1.3"));
   const auto first_trap = agent_traps.find("<a id=\"MSG 001\"></a>");
   require(first_trap != std::string::npos, "4.1.3 first trap anchor");
   const auto intro = agent_traps.substr(0, first_trap);
@@ -356,7 +370,7 @@ int main() {
               std::string::npos,
           "4.1.3 message 444 response paragraph was split");
 
-  const auto fddi_traps = document.topic_markdown("4.4");
+  const auto fddi_traps = visible_text(document.topic_markdown("4.4"));
   require(fddi_traps.find(
               "rpuNoResponse set in the 8240 concentrator. The status of the "
               "resource is set to marginal. Forward to AIX NetView/6000 with "

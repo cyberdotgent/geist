@@ -31,8 +31,9 @@ int main() {
            "4.1.3", "4.2.1", "4.2.2", "4.3.1", "4.3.2", "4.3.3",
            "4.3.4", "4.3.5",
        }) {
-    require(problem_determination.topic_markdown(nested).find(
-                std::string("### ") + nested + " ") != std::string::npos,
+    require(markdown_visible_text(problem_determination.topic_markdown(nested))
+                    .find(std::string("### ") + nested + " ") !=
+                std::string::npos,
             "leading anchor displaced a nested topic heading");
   }
   const auto trademarks =
@@ -188,14 +189,14 @@ int main() {
               additional_information.find("- lnmstatus") !=
                   std::string::npos,
           "additional-information form lost its prose prefix or item");
-  const auto frame_relay = problem_determination.topic_markdown("4.3.5");
+  const auto frame_relay = markdown_visible_text(problem_determination.topic_markdown("4.3.5"));
   require(frame_relay.find("This section lists the Frame Relay traps") !=
               std::string::npos &&
               frame_relay.find("- **1** — **Description:** DLCI state change") !=
                   std::string::npos,
           "message definition lost its introduction or label association");
   const auto token_ring_traps =
-      problem_determination.topic_markdown("4.2.2");
+      markdown_visible_text(problem_determination.topic_markdown("4.2.2"));
   require(token_ring_traps.find(
               "- **5** — **Description:** The status of a port") !=
               std::string::npos &&
@@ -212,7 +213,7 @@ int main() {
                   std::string::npos,
           "fixed trap rows leaked a marker or stale CFONT span");
 
-  const auto generic_traps = problem_determination.topic_markdown("4.1.1");
+  const auto generic_traps = markdown_visible_text(problem_determination.topic_markdown("4.1.1"));
   require(generic_traps.find(
               "- **2** — **Description:** linkDown **LNM** **for** **AIX** "
               "**Response:** Mark the agent unknown") != std::string::npos &&
@@ -224,7 +225,7 @@ int main() {
               generic_traps.find("then < attempt") == std::string::npos,
           "SRMSG metadata or fixed-row markers leaked into generic traps");
 
-  const auto agent_traps = problem_determination.topic_markdown("4.1.3");
+  const auto agent_traps = markdown_visible_text(problem_determination.topic_markdown("4.1.3"));
   const auto agent_first_trap = agent_traps.find("<a id=\"MSG 001\"></a>");
   require(agent_first_trap != std::string::npos,
           "LNM OS/2 agent trap catalog lost its first entry anchor");
@@ -260,7 +261,7 @@ int main() {
                   "Update status") != std::string::npos,
           "LNM OS/2 agent trap responses split at record continuations");
 
-  const auto bridge_traps = problem_determination.topic_markdown("4.3.2");
+  const auto bridge_traps = markdown_visible_text(problem_determination.topic_markdown("4.3.2"));
   const auto bridge_intro = std::string(
       "These traps are defined under the 1.3.6.1.4.1.2.6.21.3.2 "
       "enterprise ID");
@@ -277,7 +278,7 @@ int main() {
           "bridge trap metadata or trailing row marker leaked into Markdown");
 
   const auto redirected_traps =
-      problem_determination.topic_markdown("4.3.4");
+      markdown_visible_text(problem_determination.topic_markdown("4.3.4"));
   require(redirected_traps.find("```text") == std::string::npos &&
               redirected_traps.find(
                   "- **1** — **Description:** Link Alarm") !=
@@ -289,7 +290,7 @@ int main() {
                   std::string::npos,
           "redirected trap catalog remained preformatted or leaked metadata");
 
-  const auto fddi_traps = problem_determination.topic_markdown("4.4");
+  const auto fddi_traps = markdown_visible_text(problem_determination.topic_markdown("4.4"));
   const auto fddi_intro =
       std::string("For more information about the data associated with each "
                   "of these traps");
@@ -343,9 +344,9 @@ int main() {
           "active-table CFONT continuation merged the separate /tmp row");
 
   const auto symbolic_traps =
-      problem_determination.topic_markdown("4.1.2");
+      markdown_visible_text(problem_determination.topic_markdown("4.1.2"));
   require(symbolic_traps.find("<pre>") == std::string::npos &&
-              symbolic_traps.find("suggested actions. The traps") !=
+              symbolic_traps.find("suggested actions.\n\nThe traps") !=
                   std::string::npos &&
               symbolic_traps.find(
                   "<a id=\"MSG bridgeHistoryDataComplete\"></a>") !=

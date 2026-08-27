@@ -52,21 +52,6 @@ SourceRowBoundaryEvidence evidence_for(const std::string& marker) {
   return SourceRowBoundaryEvidence::compact_marker;
 }
 
-bool decimal(const std::string& value) {
-  return !value.empty() &&
-         std::all_of(value.begin(), value.end(), [](const char ch) {
-           return std::isdigit(static_cast<unsigned char>(ch)) != 0;
-         });
-}
-
-bool decimal_or_range(const std::string& value) {
-  const auto dash = value.find('-');
-  return decimal(value) ||
-         (dash != std::string::npos && value.find('-', dash + 1) ==
-                                          std::string::npos &&
-          decimal(value.substr(0, dash)) && decimal(value.substr(dash + 1)));
-}
-
 std::string visible_slice(const DecodedLogicalRecordSource& record,
                           std::size_t begin,
                           std::size_t end) {
@@ -175,91 +160,6 @@ std::vector<SourceRowMarker> source_row_markers(
     }
   }
   return markers;
-}
-
-bool has_semantic_srmsg_source_candidate(
-    const std::vector<std::string>& decoded_records) {
-  auto saw_semantic_message = false;
-  auto saw_font_row = false;
-  for (const auto& record : decoded_records) {
-    const auto lower = ascii_lower(record);
-    saw_font_row = saw_font_row || lower.find("cfont ") != std::string::npos;
-    for (auto at = lower.find("srmsg "); at != std::string::npos;
-         at = lower.find("srmsg ", at + 6)) {
-      auto value = at + 6;
-      while (value < lower.size() &&
-             std::isspace(static_cast<unsigned char>(lower[value])) != 0) {
-        ++value;
-      }
-      const auto operand_begin = value;
-      while (value < record.size() &&
-             std::isspace(static_cast<unsigned char>(record[value])) == 0) {
-        ++value;
-      }
-      const auto operand = record.substr(operand_begin, value - operand_begin);
-      const auto numeric_or_range = decimal_or_range(operand);
-      const auto symbolic = std::any_of(
-          operand.begin(), operand.end(), [](const char ch) {
-            return std::islower(static_cast<unsigned char>(ch)) != 0;
-          });
-      if (numeric_or_range || symbolic) {
-        saw_semantic_message = true;
-        break;
-      }
-    }
-  }
-  return saw_semantic_message && saw_font_row;
-}
-
-// M9 section D: still live. SRMSG trap catalogs that are not a complete
-// numeric Meaning/Action envelope (MessageCatalogIR rejects SC31-711 4.4 with
-// "source is not a complete Meaning/Action message envelope" and SC31-711
-// 4.1.2 with "source is not one numeric message catalog") have no typed
-// lowering, so removing this projection reintroduces the compact marker words
-// (`a`, `action`) into their legacy Markdown. Blocking topics (2026-08-27):
-// SC31-711 4.1.2 and 4.4.
-void project_semantic_srmsg_source_markers(
-    std::vector<std::string>& rendered,
-    const std::vector<std::string>& decoded_records,
-    const std::vector<DecodedLogicalRecordSource>& sources) {
-  if (!has_semantic_srmsg_source_candidate(decoded_records)) {
-    return;
-  }
-  for (const auto& row : slice_fixed_source_rows(sources, 3)) {
-    if (row.marker.text.empty() || row.text.empty() ||
-        !std::all_of(row.marker.text.begin(), row.marker.text.end(),
-                     [](char ch) {
-                       return std::isalpha(static_cast<unsigned char>(ch)) != 0;
-                     })) {
-      continue;
-    }
-    const auto following = row.text.substr(0, row.text.find_first_of(" \t\r\n"));
-    if (following.empty()) {
-      continue;
-    }
-    const auto needle = row.marker.text + " " + following;
-    auto projected = false;
-    for (auto& line : rendered) {
-      for (auto at = line.find(needle); at != std::string::npos;
-           at = line.find(needle, at)) {
-        const auto left_boundary = at == 0 ||
-            std::isalnum(static_cast<unsigned char>(line[at - 1])) == 0;
-        const auto after = at + needle.size();
-        const auto right_boundary = after == line.size() ||
-            std::isalnum(static_cast<unsigned char>(line[after])) == 0;
-        if (!left_boundary || !right_boundary) {
-          ++at;
-          continue;
-        }
-        line.erase(at, row.marker.text.size() + 1);
-        projected = true;
-        break;
-      }
-      if (projected) {
-        break;
-      }
-    }
-  }
 }
 
 std::vector<std::string> clean_source_owned_toc_title_markers(

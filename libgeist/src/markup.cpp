@@ -5700,7 +5700,6 @@ std::vector<std::string> render_gml_records_with_source_layout(
         source_cleaned_records, sources);
     rendered = render_gml_records_impl(layout_records, &procedure_steps);
   }
-  project_semantic_srmsg_source_markers(rendered, layout_records, sources);
   const auto box_replacement =
       [&]() -> std::optional<std::vector<std::string>> {
     std::vector<std::uint16_t> source_words;

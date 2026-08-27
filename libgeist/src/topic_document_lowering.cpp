@@ -19,6 +19,8 @@
 #include "geist/detail/publication_document_lowering.hpp"
 #include "geist/detail/publication_ir.hpp"
 #include "geist/detail/selector_ir.hpp"
+#include "geist/detail/trap_catalog_document_lowering.hpp"
+#include "geist/detail/trap_catalog_ir.hpp"
 
 #include <algorithm>
 #include <utility>
@@ -117,8 +119,16 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
   const auto glossary =
       extract_glossary_catalog_ir(sources, layout, ownership, nullptr);
   std::optional<MessageTopicIR> message;
-  if (message_source_candidate(sources))
+  std::optional<TrapCatalogIR> trap_catalog;
+  if (message_source_candidate(sources)) {
     message = extract_message_topic_ir(sources, layout, ownership, nullptr);
+    // Both SRMSG families share the source envelope; the Meaning/Action
+    // catalog is the more specific recognizer, so the section-label catalog
+    // is offered only where it declines.
+    if (!message)
+      trap_catalog = extract_trap_catalog_ir(sources, layout, ownership,
+                                             topic.title, nullptr);
+  }
   std::optional<GeneratedListTopicIR> generated_list;
   std::optional<SelectorCatalogIR> generated_selectors;
   if (generated_list_source_candidate(sources)) {
@@ -144,6 +154,7 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
                             static_cast<unsigned>(fixed_prose.has_value()) +
                             static_cast<unsigned>(glossary.has_value()) +
                             static_cast<unsigned>(message.has_value()) +
+                            static_cast<unsigned>(trap_catalog.has_value()) +
                             static_cast<unsigned>(generated_list.has_value()) +
                             static_cast<unsigned>(menu.has_value());
   if (family_count == 0)
@@ -234,6 +245,21 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
         lower_message_topic_to_document_ir(topic, *message, blocks, &error);
     if (!document || !verify_message_topic_document_ir(*message, blocks,
                                                        *document, &error)) {
+      reject(typed_rejection, family + " document rejected: " + error);
+      return std::nullopt;
+    }
+  } else if (trap_catalog) {
+    family = "trap catalog";
+    if (!verify_trap_catalog_ir(sources, layout, ownership, *trap_catalog,
+                                &error)) {
+      reject(typed_rejection, family + " semantics rejected: " + error);
+      return std::nullopt;
+    }
+    topic.heading_level = trap_catalog->heading_level;
+    document =
+        lower_trap_catalog_to_document_ir(topic, *trap_catalog, &error);
+    if (!document ||
+        !verify_trap_catalog_document_ir(*trap_catalog, *document, &error)) {
       reject(typed_rejection, family + " document rejected: " + error);
       return std::nullopt;
     }

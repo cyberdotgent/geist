@@ -7,6 +7,7 @@
 #include <cctype>
 #include <functional>
 #include <map>
+#include <set>
 #include <sstream>
 #include <tuple>
 #include <utility>
@@ -112,6 +113,18 @@ bool hard_boundary_after_token(const DecodedLogicalRecordSource& record,
                                const MarkerOriginLookup& marker_origin,
                                std::size_t* boundary_token) {
   if (!control_only_spacing_token(record, token)) return false;
+  // Signature B begins with sentence punctuation (`resource` `.` control-only
+  // `as` three spaces): a control-only token after an unterminated word
+  // (`bridge` control-only `can` three spaces, `...21.5.1` at a record end)
+  // attaches a wrapped display line of the same paragraph.
+  if (token == 0) return false;
+  const auto& previous = record.tokens[token - 1];
+  const auto last_visible = std::find_if(
+      previous.rbegin(), previous.rend(),
+      [](const auto word) { return word >= 0x20 && word != ' '; });
+  if (last_visible == previous.rend() ||
+      (*last_visible != '.' && *last_visible != '!' && *last_visible != '?'))
+    return false;
   auto next = token + 1;
   while (next < end && control_only_spacing_token(record, next)) ++next;
   if (next < end) {
@@ -217,12 +230,34 @@ extract_message_prose_introduction_ir(
   const auto envelope = introduction_envelope(records, error);
   if (!envelope) return std::nullopt;
   const auto& [title, catalog] = *envelope;
+  MessageProseEnvelopeIR explicit_envelope;
+  explicit_envelope.begin_record = title.record->logical_record;
+  explicit_envelope.begin_token = title.segment->source_tokens.back() + 1;
+  explicit_envelope.catalog_record = catalog.record->logical_record;
+  explicit_envelope.catalog_segment = catalog.segment->segment_index;
+  return extract_message_prose_paragraphs_ir(records, layout, ownership,
+                                             explicit_envelope, error);
+}
+
+std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const LayoutIR& layout, const OwnershipIR& ownership,
+    const MessageProseEnvelopeIR& envelope, std::string* error) {
   const auto reject = [&](std::string message) {
     fail(error, std::move(message));
     return std::optional<MessageProseIntroductionIR>{};
   };
+  const auto* begin_record = find_record(records, envelope.begin_record);
+  const auto* catalog_record = find_record(records, envelope.catalog_record);
+  if (begin_record == nullptr || catalog_record == nullptr ||
+      envelope.catalog_segment >= catalog_record->control_segments.size() ||
+      catalog_record->control_segments[envelope.catalog_segment]
+          .source_tokens.empty())
+    return reject("message prose envelope coordinates are invalid");
+  const auto& catalog_segment =
+      catalog_record->control_segments[envelope.catalog_segment];
 
-  // Token span strictly between the title segment and the catalog start.
+  // Token span strictly between the envelope start and the catalog start.
   struct RecordSpan {
     const DecodedLogicalRecordSource* record = nullptr;
     std::size_t begin = 0;
@@ -230,14 +265,13 @@ extract_message_prose_introduction_ir(
   };
   std::vector<RecordSpan> spans;
   for (const auto& record : records) {
-    if (record.logical_record < title.record->logical_record ||
-        record.logical_record > catalog.record->logical_record)
+    if (record.logical_record < begin_record->logical_record ||
+        record.logical_record > catalog_record->logical_record)
       continue;
     RecordSpan span{&record, 0, record.tokens.size()};
-    if (&record == title.record)
-      span.begin = title.segment->source_tokens.back() + 1;
-    if (&record == catalog.record)
-      span.end = catalog.segment->source_tokens.front();
+    if (&record == begin_record) span.begin = envelope.begin_token;
+    if (&record == catalog_record)
+      span.end = catalog_segment.source_tokens.front();
     if (span.begin > span.end)
       return reject("message prose title/catalog envelope is inverted");
     spans.push_back(span);
@@ -246,10 +280,14 @@ extract_message_prose_introduction_ir(
       const auto first = segment.source_tokens.front();
       const auto last = segment.source_tokens.back();
       if (last < span.begin || first >= span.end) continue;
-      if (first < span.begin || last >= span.end)
+      const auto straddles_start =
+          &record == begin_record && first < span.begin && last >= span.begin;
+      if ((first < span.begin && !straddles_start) || last >= span.end)
         return reject("message prose segment straddles the envelope");
       if (segment.kind != BookControlKind::text &&
-          segment.kind != BookControlKind::font)
+          segment.kind != BookControlKind::font &&
+          segment.kind != BookControlKind::structural &&
+          !(straddles_start && segment.kind == BookControlKind::title))
         return reject("message prose envelope contains a non-prose control: " +
                       segment.opcode);
     }
@@ -275,6 +313,7 @@ extract_message_prose_introduction_ir(
   for (std::size_t run_index = 0; run_index < layout.runs.size(); ++run_index) {
     const auto& run = layout.runs[run_index];
     std::size_t inside = 0;
+    std::size_t leading_outside = 0;
     for (std::size_t row_index = 0; row_index < run.rows.size(); ++row_index) {
       const auto& row = run.rows[row_index];
       const auto span = std::find_if(spans.begin(), spans.end(),
@@ -284,8 +323,28 @@ extract_message_prose_introduction_ir(
                                               row.logical_record;
                                      });
       if (span == spans.end() || row.token_begin < span->begin ||
-          row.token_end > span->end)
+          row.token_end > span->end) {
+        // The run that carries the envelope start may keep its leading rows
+        // (the topic title) outside the envelope.
+        if (inside == 0 && span != spans.end() &&
+            span->record == begin_record && row.token_end <= span->begin) {
+          ++leading_outside;
+          continue;
+        }
+        // The title row itself may continue with prose past the envelope
+        // start; its tokens from the start onwards belong to the envelope.
+        if (inside == 0 && span != spans.end() &&
+            span->record == begin_record && row.token_begin < span->begin &&
+            row.token_end > span->begin && row.token_end <= span->end) {
+          ++inside;
+          RowRef ref{run_index, row_index, &row};
+          rows_by_start.emplace(std::pair{row.logical_record, span->begin},
+                                ref);
+          for (auto token = span->begin; token < row.token_end; ++token)
+            row_by_token.emplace(std::pair{row.logical_record, token}, ref);
+        }
         continue;
+      }
       ++inside;
       RowRef ref{run_index, row_index, &row};
       rows_by_start.emplace(std::pair{row.logical_record, row.token_begin},
@@ -294,10 +353,12 @@ extract_message_prose_introduction_ir(
         row_by_token.emplace(std::pair{row.logical_record, token}, ref);
     }
     if (inside == 0) continue;
-    if (inside != run.rows.size())
+    if (inside + leading_outside != run.rows.size())
       return reject("message prose display run straddles the envelope");
     if (run.control_kind != BookControlKind::text &&
-        run.control_kind != BookControlKind::font)
+        run.control_kind != BookControlKind::font &&
+        run.control_kind != BookControlKind::title &&
+        run.control_kind != BookControlKind::structural)
       return reject("message prose envelope contains a non-prose run");
     if (!first_run) first_run = run_index;
     if (end_run && *end_run != run_index)
@@ -310,9 +371,9 @@ extract_message_prose_introduction_ir(
   result.first_run_index = *first_run;
   result.end_run_index = *end_run;
   result.first_catalog_segment =
-      token_slice(*catalog.record, catalog.segment->segment_index,
-                  catalog.segment->source_tokens.front(),
-                  catalog.segment->source_tokens.back() + 1);
+      token_slice(*catalog_record, catalog_segment.segment_index,
+                  catalog_segment.source_tokens.front(),
+                  catalog_segment.source_tokens.back() + 1);
 
   MessageProseParagraphIR current;
   bool open = false;
@@ -369,13 +430,41 @@ extract_message_prose_introduction_ir(
       piece_begin_token = token_end;
     };
 
+    // Opcode/operand tokens of controls inside the envelope (index entries,
+    // the deferred title control) are control text, never prose.
+    std::set<std::size_t> control_tokens;
+    for (const auto& segment : record.control_segments) {
+      if (segment.kind == BookControlKind::text ||
+          segment.payload_range.begin <= segment.complete.begin)
+        continue;
+      const auto words = decoded_byte_range_to_word_range(
+          record.assembled,
+          {segment.complete.begin, segment.payload_range.begin});
+      for (const auto token : source_tokens_intersecting_output(
+               record.assembled, words.begin, words.end))
+        control_tokens.insert(token);
+    }
     std::size_t current_segment = 0;
+    bool segment_row_seen = false;
     for (auto token = span.begin; token < span.end; ++token) {
       for (const auto& segment : record.control_segments)
         if (!segment.source_tokens.empty() &&
             segment.source_tokens.front() <= token &&
-            token <= segment.source_tokens.back())
+            token <= segment.source_tokens.back() &&
+            segment.segment_index != current_segment) {
           current_segment = segment.segment_index;
+          segment_row_seen = false;
+        }
+      if (row_by_token.count({record.logical_record, token}) != 0)
+        segment_row_seen = true;
+      if (control_tokens.count(token) != 0) {
+        const auto row_start =
+            rows_by_start.find({record.logical_record, token});
+        if (row_start != rows_by_start.end())
+          return reject("message prose control token starts a physical row");
+        piece.push_back(' ');
+        continue;
+      }
       const MarkerOriginLookup marker_origin =
           [&](std::size_t candidate) -> std::optional<std::size_t> {
         const auto found =
@@ -399,8 +488,28 @@ extract_message_prose_introduction_ir(
         const auto& ref = row_start->second;
         const auto run_id = layout.runs[ref.run_index].id;
         if (!current_run || *current_run != run_id) {
-          flush_piece(token, current_segment);
-          begin_paragraph(true);
+          // A new display run opens a paragraph when it is the first run or
+          // a CFONT run whose first span starts the display line at the
+          // three-space origin (`cfont 3 5 2 Note:`). A run that starts
+          // mid-line (`cfont 25 3 C` inside a sentence, a CFONT without
+          // spans, a record-continuation text run) wraps the open paragraph.
+          const auto& run = layout.runs[ref.run_index];
+          bool starts_line = !open;
+          if (!starts_line && run.control_kind == BookControlKind::font) {
+            const auto* row_record = find_record(records, ref.row->logical_record);
+            if (row_record != nullptr &&
+                ref.row->segment_index < row_record->control_segments.size()) {
+              const auto spans = decode_font_control_spans(
+                  *row_record,
+                  row_record->control_segments[ref.row->segment_index]);
+              starts_line = spans && !spans->spans.empty() &&
+                            spans->spans.front().column == 3;
+            }
+          }
+          if (starts_line) {
+            flush_piece(token, current_segment);
+            begin_paragraph(true);
+          }
           current_run = run_id;
         } else if (!open) {
           begin_paragraph(false);
@@ -422,6 +531,45 @@ extract_message_prose_introduction_ir(
           words.size() == 1 && words.front() < 0x80 &&
           std::isalnum(static_cast<unsigned char>(words.front())) == 0 &&
           words.front() != ' ' && last_visible_token(record, span.end) == token;
+      // A lone layout glyph that closes its decoded segment, or that a
+      // padding run follows, is the marker slot of a display line whose
+      // origin the next control swallowed (`each of /` before a CFONT).
+      const auto segment_terminal_glyph = [&] {
+        if (words.size() != 1 || words.front() >= 0x80 ||
+            std::string("-<>/\"=()[{").find(
+                static_cast<char>(words.front())) == std::string::npos)
+          return false;
+        const auto next = token + 1;
+        return next >= span.end || wide_space_token(record, next) ||
+               control_tokens.count(next) != 0;
+      }();
+      // The decoder's control boundary before the catalog start is one
+      // unowned non-alphanumeric word ending the envelope's last token.
+      const auto boundary_glyph_word = [&](std::size_t word) {
+        const auto owner = cells.find({record.logical_record, token, word});
+        if (&record != catalog_record || word + 1 != words.size() ||
+            words[word] >= 0x80 || words[word] == ' ' ||
+            std::isalnum(static_cast<unsigned char>(words[word])) != 0 ||
+            (owner != cells.end() &&
+             owner->second->disposition != SourceDisposition::opaque))
+          return false;
+        for (auto later = token + 1; later < span.end; ++later) {
+          const auto& later_words = record.tokens[later];
+          for (std::size_t index = 0; index < later_words.size(); ++index) {
+            const auto later_value = later_words[index];
+            if (later_value < 0x20 || later_value == ' ' ||
+                later_value == '?' || later_value > 0xff)
+              continue;
+            const auto later_cell =
+                cells.find({record.logical_record, later, index});
+            if (later_cell == cells.end() ||
+                later_cell->second->disposition !=
+                    SourceDisposition::control_operand)
+              return false;
+          }
+        }
+        return true;
+      };
       for (std::size_t word = 0; word < words.size(); ++word) {
         const auto value = words[word];
         // Spacing controls attach tokens; they never contribute a glyph or
@@ -434,14 +582,28 @@ extract_message_prose_introduction_ir(
         // Decoder placeholder words (control boundaries, `?` runs) sit
         // above the code page and never carry prose.
         if (disposition == SourceDisposition::control_operand ||
-            structural_marker || closing_delimiter || value > 0xff) {
+            structural_marker || closing_delimiter || segment_terminal_glyph ||
+            value > 0xff || boundary_glyph_word(word)) {
           piece.push_back(' ');
           continue;
         }
         if (disposition == SourceDisposition::opaque && value != ' ') {
           const auto admitted = record_continues_run && open &&
                                 token < *first_row_token;
-          if (!admitted)
+          // Unowned printable cells of a mid-record segment before its first
+          // physical row (or of a rowless segment) are control text that the
+          // decoder left unsegmented (index terms), not prose. Unowned cells
+          // after a row of the same segment are the gap LayoutIR leaves
+          // between two rows (a sentence stop before wide padding): prose.
+          const auto rowless =
+              row_by_token.count({record.logical_record, token}) == 0;
+          if (!admitted && current_segment != 0 && rowless &&
+              !segment_row_seen) {
+            piece.push_back(' ');
+            continue;
+          }
+          const auto row_gap = rowless && segment_row_seen;
+          if (!admitted && !row_gap)
             return reject("message prose envelope has an unowned source cell "
                           "at LR" + std::to_string(record.logical_record) +
                           " token " + std::to_string(token) + " word " +

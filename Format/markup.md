@@ -321,6 +321,46 @@ paragraphs and to keep `?`-run and record-continuation soft wraps (topic
 `4.4` messages 1 and 2, topic `4.1.3` messages 329 and 444) inside their
 paragraph.
 
+Two refinements of signature B were established while typing the remaining
+SC31-711 SRMSG trap catalogs (topics `4.1.1`--`4.3.4` and `4.4`) against the
+hosted BookServer rendering:
+
+- The sentence stop is part of the signature.  A control-only prefix-`1`
+  token after an unterminated word followed by a width-1 slot and three
+  spaces attaches a wrapped display line of the same paragraph: topic `4.3.4`
+  logical record 145 stores `bridge`, control-only `1`, `can`, three spaces,
+  `application.` and BookServer renders one paragraph; the same record ends
+  `...21.5.1` before a control-only token and logical record 146 continues
+  `enterprise ID` in the same paragraph.
+- A width-1 dictionary word or sentence-punctuation slot at the exact
+  three-space origin is the row boundary control only when the origin token is
+  followed directly by the row text (`actions.` `can` three spaces `The`,
+  `in this` `:` three spaces `SIC`).  When a padding token or a decoder
+  placeholder follows the origin, the slot word is the wrapped last word of the
+  previous display line and BookServer renders it: topic `4.2.2` logical
+  record 134 `send the` `trap` three spaces + four-space padding `to AIX`;
+  topic `4.4` logical record 165 `segment` `.` three spaces + separator
+  placeholder `Segment is resynchronized.`.  A lone layout glyph (`< ( ) - /
+  > = "`) that closes its decoded segment or precedes a padding run of two or
+  more spaces is a boundary slot whose origin the next control swallowed
+  (`each of /` before `CFONT 25 3 C` in topic `4.4`), unless it closes a
+  delimiter the same segment left open (`256 (snmp_br_dot1dStpPortState)`).
+
+The catalog labels themselves come from `CFONT` span geometry, not from a word
+list: in every entry the leading operand triples that start at the catalog
+origin column (`3`) and follow one another with single-space gaps (`3 3 2 7 3 2
+11 3 2 15 9 2` = `LNM` `for` `AIX` `Response:`, `3 12 2` = `Description:`,
+`3 7 2` = `Action:`) spell one label when the covered text ends with `:`; the
+first such chain of an entry that does not end with `:` and covers the whole
+line is the entry headline (`3 1 2 5 19 2` = `1 (fddiRPUNoResponse)`).  The
+ordered label sequence repeated by every entry is the catalog vocabulary; a
+labelled line that only some entries carry (`3 5 2` `Note:` in topic `4.4`
+entry `805306372`) is entry-local.  A `CFONT` with an empty payload at a
+record end takes the next record's leading text segment as its payload (topic
+`4.4` logical records 153/154 `LNM for AIX Response:` and 154/155 `7
+(fddiControlCartridgeError)`).  `libgeist` implements this as
+`trap_catalog_ir.cpp`.
+
 The important implementation rule is that this is not a hardcoded packet title
 or hardcoded three-line page rule. `:vnotice.` changes the interpretation of
 the following controls: the first body `CFONT` is the visual notice heading,

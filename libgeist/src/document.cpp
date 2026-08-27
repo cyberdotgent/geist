@@ -4,6 +4,7 @@
 #include "geist/detail/selector_display_ir.hpp"
 #include "geist/detail/source_rows.hpp"
 #include "geist/detail/topic_document_lowering.hpp"
+#include "geist/detail/trap_catalog_ir.hpp"
 
 #include <algorithm>
 #include <array>
@@ -545,10 +546,42 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
       destination->ir_semantic_blocks.push_back(
           detail::format_message_catalog_ir(*message_catalog));
   } else if (!message_extraction_error.empty() && !sources.empty() &&
-             has_semantic_srmsg_source_candidate(records)) {
+             std::any_of(sources.begin(), sources.end(),
+                         [](const auto& source) {
+                           return std::any_of(
+                               source.control_segments.begin(),
+                               source.control_segments.end(),
+                               [](const auto& segment) {
+                                 return segment.kind ==
+                                        detail::BookControlKind::message_start;
+                               });
+                         })) {
     if (auto* destination = trace_for(sources.front().logical_record))
       destination->ir_semantic_blocks.push_back(
           "message_catalog_ir_rejected=" + message_extraction_error);
+    std::string trap_extraction_error;
+    const auto toc_entry = std::find_if(
+        toc_.begin(), toc_.end(), [&](const TocEntry& candidate) {
+          return candidate.id == topic->id;
+        });
+    const auto trap_catalog = detail::extract_trap_catalog_ir(
+        sources, layout, ownership,
+        toc_entry == toc_.end() ? std::string{} : toc_entry->title,
+        &trap_extraction_error);
+    if (trap_catalog) {
+      std::string trap_error;
+      if (!detail::verify_trap_catalog_ir(sources, layout, ownership,
+                                          *trap_catalog, &trap_error))
+        throw std::runtime_error("invalid trap catalog IR trace: " +
+                                 trap_error);
+      if (auto* destination = trace_for(sources.front().logical_record))
+        destination->ir_semantic_blocks.push_back(
+            detail::format_trap_catalog_ir(*trap_catalog));
+    } else if (auto* destination =
+                   trace_for(sources.front().logical_record)) {
+      destination->ir_semantic_blocks.push_back(
+          "trap_catalog_ir_rejected=" + trap_extraction_error);
+    }
   }
   std::string selector_extraction_error;
   const auto selectors = detail::extract_selector_catalog_ir(

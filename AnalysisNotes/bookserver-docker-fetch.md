@@ -1422,3 +1422,34 @@ libgeist behavior, not asserted BOO-format semantics.  In particular, repeated
 raw signatures are treated as candidates only when the source also supplies
 stable physical columns and a multi-column header; the current evidence does
 not establish IBM's internal name for either signature.
+
+## SC31-711 trap-catalog typed lowering verification
+
+The section-label SRMSG catalogs of `SC31-711.boo` (topics `4.1.1`, `4.1.2`,
+`4.1.3`, `4.2.1`, `4.2.2`, `4.3.1`, `4.3.2`, `4.3.3`, `4.3.4`, `4.4`) now
+render through `TrapCatalogIR` (`libgeist/src/trap_catalog_ir.cpp`) and the
+DocumentIR route.  Every topic was compared word-for-word against the hosted
+rendering:
+
+```
+http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/SC31-711/<TOPIC>?DT=19941010174546
+```
+
+The hosted HTML (latin-1) was split at `<a name="MSG ...">` anchors into an
+introduction unit and one unit per entry; each unit's tag-stripped text was
+compared as a word sequence with the rendered Markdown (backslash escapes
+removed, `**` stripped, the `- ` bullet and the ` — ` separator dropped), and
+the introduction paragraph count was compared with the hosted `<p>` count.
+After the signature refinements documented in
+[markup.md](../Format/markup.md#source-owned-fixed-layout-evidence-in-sc31-711)
+the only remaining differences are the hosted `°`/`-` bullets of entry-local
+sub-lists (topic `4.1.2` `LNMOS2AgentSocketError`, topic `4.4` entries `15`,
+`1879048229`, `1879048232`, `1879048236`, `1879048239`, `1879048246`,
+`805306370`, `805306372`, `805306373`), which the definition-item shape
+flattens into the field text.  Topic `4.3.5` stays on the legacy path: its
+introduction prose is carried by a mis-segmented `cbacklevel` control whose
+cells have no positioned provenance, and the typed catalog fails closed rather
+than dropping that text.
+
+`bootrace <book> <topic> --ir` prints the admitted `trap_catalog` block (or
+the `trap_catalog_ir_rejected=` reason) among the semantic IR lines.

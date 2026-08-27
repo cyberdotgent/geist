@@ -357,7 +357,7 @@ int main() {
   }
   require_absent(chapter_traps, "\nAS\n", "standalone trap marker");
 
-  const auto fddi_traps = document.topic_markdown("4.4");
+  const auto fddi_traps = canonical_visible_text(document.topic_markdown("4.4"));
   require_once(fddi_traps,
                "For more information about the data associated with each of "
                "these traps",

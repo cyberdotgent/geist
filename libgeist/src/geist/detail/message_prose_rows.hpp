@@ -56,6 +56,38 @@ extract_message_prose_introduction_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
     const LayoutIR& layout, const OwnershipIR& ownership,
     std::string* error = nullptr);
+
+// Explicit prose envelope: the tokens from `begin_token` of `begin_record`
+// up to (excluding) the first source token of `catalog_segment` in
+// `catalog_record`. The display run and the decoded segment that contain the
+// envelope start may straddle it at their start (a title segment whose
+// payload continues with prose); every other run/segment must lie inside.
+// Structural controls inside the envelope (index entries) contribute only
+// their payload text; their operand cells are control-owned.
+struct MessageProseEnvelopeIR {
+  std::uint32_t begin_record = 0;
+  std::size_t begin_token = 0;
+  std::uint32_t catalog_record = 0;
+  std::size_t catalog_segment = 0;
+};
+
+inline bool operator==(const MessageProseEnvelopeIR& left,
+                       const MessageProseEnvelopeIR& right) {
+  return left.begin_record == right.begin_record &&
+         left.begin_token == right.begin_token &&
+         left.catalog_record == right.catalog_record &&
+         left.catalog_segment == right.catalog_segment;
+}
+
+inline bool operator!=(const MessageProseEnvelopeIR& left,
+                       const MessageProseEnvelopeIR& right) {
+  return !(left == right);
+}
+
+std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const LayoutIR& layout, const OwnershipIR& ownership,
+    const MessageProseEnvelopeIR& envelope, std::string* error = nullptr);
 std::string format_message_prose_introduction_ir(
     const MessageProseIntroductionIR& introduction);
 
