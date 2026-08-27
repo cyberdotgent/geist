@@ -156,11 +156,14 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR identity,
         item.target.value.empty() || item.label.empty() ||
         !valid_slice(item.source) ||
         !cells_belong_to(item.target_cells, item.source) ||
-        !cells_belong_to(item.label_cells, item.source)) {
+        !cells_belong_to(item.label_cells, item.source) ||
+        (!item.marker_cells.empty() &&
+         !cells_belong_to(item.marker_cells, item.source))) {
       fail(error, "menu item semantics are incomplete");
       return std::nullopt;
     }
-    for (const auto *cells : {&item.target_cells, &item.label_cells})
+    for (const auto *cells :
+         {&item.target_cells, &item.label_cells, &item.marker_cells})
       for (const auto &cell : *cells)
         if (!owned_cells.emplace(cell.logical_record, cell.output_word_index)
                  .second) {

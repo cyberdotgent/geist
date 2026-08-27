@@ -23,6 +23,9 @@ struct MenuTopicItemIR {
   DocumentSourceSliceIR source;
   std::vector<MenuSourceCellIR> target_cells;
   std::vector<MenuSourceCellIR> label_cells;
+  // Visible cells of a catalog-validated trailing display marker (`>`, `[`,
+  // `++`, ...).  They are owned by the item but carry no label text.
+  std::vector<MenuSourceCellIR> marker_cells;
 };
 
 struct MenuTopicSegmentIR {
@@ -47,12 +50,17 @@ struct MenuTargetValidationEntryIR {
   } existence = ExistenceEvidence::topic_header;
   enum class LabelEvidence { topic_title, toc_title, topic_title_and_toc }
       label_evidence = LabelEvidence::topic_title;
+  // Set when the raw label agreed with the canonical title only after its
+  // source-proven compact terminal token was excluded; `label` then holds the
+  // marker-stripped text.
+  std::optional<std::size_t> terminal_marker_token;
 };
 
 // Book-level semantic evidence that a raw CMITEM target exists and that its
-// source label needs no catalog-assisted repair.  Keeping this separate from
-// raw extraction prevents structural recognition from silently promoting an
-// unvalidated target to a typed topic reference.
+// source label agrees with the canonical title, either verbatim or with its
+// source-proven compact terminal token typed as a display marker.  Keeping
+// this separate from raw extraction prevents structural recognition from
+// silently promoting an unvalidated target to a typed topic reference.
 struct MenuTargetValidationIR {
   std::vector<MenuTargetValidationEntryIR> items;
 };

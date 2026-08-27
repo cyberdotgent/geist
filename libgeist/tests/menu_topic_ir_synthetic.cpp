@@ -47,6 +47,73 @@ void load_context(const std::filesystem::path &path,
       context.bytes, context.directory, &context.record_payload_ranges);
 }
 
+// SC31-711 4.1 "LNM OS/2 Agent Application Traps": its first CMITEM label is
+// `Generic Traps >` (logical record 98, segment 4), where `>` is a width-1
+// compact display token that BookServer does not show.  Source extraction
+// records that token as compact_terminal without consulting any catalog;
+// validation types it as a marker only because the remaining label cells
+// agree with the target's catalog title.
+void generic_traps_marker_contract(const MenuIR &menu,
+                                   const BookTopicCatalogIR &catalog,
+                                   const BooDocument &document) {
+  require(menu.items.size() == 3 && menu.items.front().target == "4.1.1" &&
+              menu.items.front().text == "Generic Traps >" &&
+              menu.items.front().compact_terminal.has_value() &&
+              menu.items.front().compact_terminal->display_cells == 1 &&
+              menu.items.front().compact_terminal->label_cell_begin ==
+                  menu.items.front().label_cells.size() - 1 &&
+              !menu.items[1].compact_terminal && !menu.items[2].compact_terminal,
+          "SC31-711 4.1 source-only compact terminal evidence changed");
+  const auto &terminal = *menu.items.front().compact_terminal;
+  require(menu.items.front().label_cells.back().token_index ==
+                  terminal.token_index &&
+              menu.items.front().label_cells.back().word == '>',
+          "SC31-711 4.1 compact terminal token does not own the `>` cell");
+
+  // The book's topic-header titles for 4.1.1-4.1.3 are the whole ST payload
+  // (title plus introduction), so header-preferred validation still declines
+  // this menu; the marker rule is not what blocks it.
+  std::string error;
+  require(!validate_source_menu_targets(menu, catalog, &error) &&
+              error.find("beyond its compact terminal token: 4.1.1") !=
+                  std::string::npos,
+          "SC31-711 4.1 validation outcome changed: " + error);
+
+  // Against TOC evidence alone the marker-stripped label agrees exactly.
+  const auto toc_only =
+      build_book_topic_catalog_ir({}, document.table_of_contents());
+  require(toc_only.has_value(), "SC31-711 TOC-only catalog was rejected");
+  const auto validation =
+      validate_source_menu_targets(menu, *toc_only, &error);
+  require(validation.has_value(),
+          "SC31-711 4.1 `Generic Traps >` was not admitted by marker-stripped "
+          "validation: " + error);
+  if (!validation)
+    return;
+  require(validation->items.size() == 3 &&
+              validation->items.front().label == "Generic Traps" &&
+              validation->items.front().terminal_marker_token ==
+                  terminal.token_index &&
+              validation->items.front().label_evidence ==
+                  MenuTargetValidationEntryIR::LabelEvidence::toc_title &&
+              !validation->items[1].terminal_marker_token &&
+              validation->items[1].label ==
+                  "LNM OS/2 Agent Application-Generated Traps" &&
+              !validation->items[2].terminal_marker_token,
+          "SC31-711 4.1 marker-stripped validation evidence changed");
+
+  // The marker is source evidence: without it the same label is rejected,
+  // and it cannot excuse a difference beyond the terminal token.
+  auto unproven = menu;
+  unproven.items.front().compact_terminal.reset();
+  require(!validate_source_menu_targets(unproven, *toc_only),
+          "validation stripped a marker without source evidence");
+  auto widened = menu;
+  widened.items.front().compact_terminal->label_cell_begin -= 2;
+  require(!validate_source_menu_targets(widened, *toc_only),
+          "validation admitted a label differing beyond its terminal token");
+}
+
 void inventory_complete_menu_topics() {
   const auto directory = std::filesystem::path(GEIST_REPO_ROOT) / "BOO";
   std::vector<std::string> admitted;
@@ -89,6 +156,8 @@ void inventory_complete_menu_topics() {
       const auto menu = extract_source_menu_ir(sources);
       if (!menu)
         continue;
+      if (entry.path().filename() == "SC31-711.boo" && topic.id == "4.1")
+        generic_traps_marker_contract(*menu, *catalog, document);
       const auto layout = extract_layout_ir(sources);
       const auto ownership = build_ownership_ir(sources, layout);
       // Census structure separately with deliberately unvalidated identity
@@ -259,6 +328,12 @@ void inventory_complete_menu_topics() {
       mutated_menu.items.front().terminal_marker_token = 0;
       require(!verify_source_menu_ir(sources, mutated_menu),
               "source-only menu verifier admitted unproven marker repair");
+      mutated_menu = *menu;
+      mutated_menu.items.front().compact_terminal =
+          MenuCompactTerminalTokenIR{};
+      require(!verify_source_menu_ir(sources, mutated_menu),
+              "source-only menu verifier admitted mutated compact terminal "
+              "evidence");
       auto mutated_catalog = *catalog;
       BookTopicCatalogEntryIR *mutated_entry = nullptr;
       for (auto &candidate : mutated_catalog.topics)
@@ -390,6 +465,44 @@ void catalog_contract() {
   raw_menu.items.front().text = "Contents title";
   require(!validate_source_menu_targets(raw_menu, *catalog),
           "TOC display title displaced available topic-header evidence");
+
+  // A label carrying one compact terminal token is admitted only when the
+  // raw item proves that token from source and the cells before it agree
+  // with the canonical title.
+  MenuIR marked;
+  marked.items.push_back({});
+  auto &item = marked.items.front();
+  item.target = "TOPIC";
+  item.text = "header TITLE >";
+  const std::string visible = "header TITLE >";
+  for (std::size_t index = 0; index < visible.size(); ++index) {
+    MenuSourceCellIR cell;
+    cell.logical_record = 10;
+    cell.output_word_index = 20 + index;
+    cell.token_index = index < 13 ? 5 : 6;
+    cell.word_index = index < 13 ? index : 0;
+    cell.word = static_cast<std::uint16_t>(visible[index]);
+    item.label_cells.push_back(cell);
+  }
+  require(!validate_source_menu_targets(marked, *catalog),
+          "validation stripped a terminal token without source evidence");
+  MenuCompactTerminalTokenIR terminal;
+  terminal.token_index = 6;
+  terminal.display_cells = 1;
+  terminal.label_cell_begin = 13;
+  item.compact_terminal = terminal;
+  const auto marked_validation = validate_source_menu_targets(marked, *catalog);
+  require(marked_validation && marked_validation->items.size() == 1 &&
+              marked_validation->items.front().label == "header TITLE" &&
+              marked_validation->items.front().terminal_marker_token == 6 &&
+              marked_validation->items.front().label_evidence ==
+                  MenuTargetValidationEntryIR::LabelEvidence::topic_title,
+          "source-proven compact terminal token was not typed as a marker");
+  item.text = "header TITL >";
+  item.label_cells.erase(item.label_cells.begin() + 11);
+  item.compact_terminal->label_cell_begin = 12;
+  require(!validate_source_menu_targets(marked, *catalog),
+          "validation admitted a label differing beyond its terminal token");
 
   const auto toc_only = build_book_topic_catalog_ir({}, toc);
   require(toc_only.has_value(), "TOC-only catalog evidence was rejected");

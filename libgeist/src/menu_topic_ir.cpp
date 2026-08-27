@@ -130,7 +130,8 @@ bool same_topic(const MenuTopicIR &left, const MenuTopicIR &right) {
     if (a.target.kind != b.target.kind || a.target.value != b.target.value ||
         a.label != b.label || !same_slice(a.source, b.source) ||
         !same_cells(a.target_cells, b.target_cells) ||
-        !same_cells(a.label_cells, b.label_cells))
+        !same_cells(a.label_cells, b.label_cells) ||
+        !same_cells(a.marker_cells, b.marker_cells))
       return false;
   }
   for (std::size_t index = 0; index < left.segments.size(); ++index) {
@@ -262,6 +263,33 @@ bool split_title_and_introduction(
   return !title->empty() && !introduction->empty();
 }
 
+// Splits a raw item's label cells at its source-proven compact terminal
+// token: the cells before it (trailing space trimmed) and the token's own
+// cells.  Returns false when the item carries no such token or the split does
+// not leave label text on both sides.
+bool split_label_at_compact_terminal(const MenuItemIR &item,
+                                     std::vector<MenuSourceCellIR> *label,
+                                     std::vector<MenuSourceCellIR> *marker) {
+  if (!item.compact_terminal ||
+      item.compact_terminal->label_cell_begin >= item.label_cells.size())
+    return false;
+  const auto &terminal = *item.compact_terminal;
+  label->assign(item.label_cells.begin(),
+                item.label_cells.begin() +
+                    static_cast<std::ptrdiff_t>(terminal.label_cell_begin));
+  marker->clear();
+  for (auto cell = item.label_cells.begin() +
+                   static_cast<std::ptrdiff_t>(terminal.label_cell_begin);
+       cell != item.label_cells.end(); ++cell) {
+    if (cell->token_index == terminal.token_index)
+      marker->push_back(*cell);
+    else if (!ascii_space(cell->word))
+      return false;
+  }
+  trim_cells(*label);
+  return !label->empty() && !marker->empty();
+}
+
 } // namespace
 
 std::optional<MenuTargetValidationIR> validate_source_menu_targets(
@@ -291,18 +319,33 @@ std::optional<MenuTargetValidationIR> validate_source_menu_targets(
     // relabeling and recreate the compatibility repair path this IR replaces.
     const auto &canonical_title = has_header ? entry->topic_header->title
                                              : entry->toc_entries.back().title;
-    const auto normalized_source =
-        collapse_ascii_whitespace(trim_ascii(source.text));
     const auto normalized_canonical =
         collapse_ascii_whitespace(trim_ascii(canonical_title));
-    if (!ascii_equals_case_insensitive(normalized_source,
-                                       normalized_canonical))
-      return reject("raw menu label differs from canonical catalog title: " +
-                    source.target);
+    auto label = collapse_ascii_whitespace(trim_ascii(source.text));
+    std::optional<std::size_t> terminal_marker_token;
+    if (!ascii_equals_case_insensitive(label, normalized_canonical)) {
+      // The label may end in one compact display marker (`>`, `[`, `++`).
+      // The raw item's source-proven terminal token is the only candidate:
+      // its cells are excluded and the remaining label cells must agree with
+      // the canonical title instead.  No marker spelling is consulted.
+      std::vector<MenuSourceCellIR> label_cells;
+      std::vector<MenuSourceCellIR> marker_cells;
+      if (!split_label_at_compact_terminal(source, &label_cells,
+                                           &marker_cells))
+        return reject("raw menu label differs from canonical catalog title: " +
+                      source.target);
+      label = cell_text(label_cells);
+      if (!ascii_equals_case_insensitive(label, normalized_canonical))
+        return reject("raw menu label differs from canonical catalog title "
+                      "beyond its compact terminal token: " +
+                      source.target);
+      terminal_marker_token = source.compact_terminal->token_index;
+    }
 
     MenuTargetValidationEntryIR validated;
     validated.target = source.target;
-    validated.label = source.text;
+    validated.label = label;
+    validated.terminal_marker_token = terminal_marker_token;
     validated.existence =
         has_header && has_toc
             ? MenuTargetValidationEntryIR::ExistenceEvidence::
@@ -314,13 +357,12 @@ std::optional<MenuTargetValidationIR> validate_source_menu_targets(
     const auto header_matches =
         has_header &&
         ascii_equals_case_insensitive(
-            normalized_source, collapse_ascii_whitespace(
-                                   trim_ascii(entry->topic_header->title)));
+            label, collapse_ascii_whitespace(
+                       trim_ascii(entry->topic_header->title)));
     const auto toc_matches =
         has_toc && ascii_equals_case_insensitive(
-                       normalized_source,
-                       collapse_ascii_whitespace(
-                           trim_ascii(entry->toc_entries.back().title)));
+                       label, collapse_ascii_whitespace(trim_ascii(
+                                  entry->toc_entries.back().title)));
     validated.label_evidence =
         header_matches && toc_matches
             ? MenuTargetValidationEntryIR::LabelEvidence::topic_title_and_toc
@@ -354,10 +396,27 @@ extract_menu_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
     return reject("menu topic source-only menu rejected: " + inner_error);
   if (menu->items.size() != target_validation.items.size())
     return reject("menu topic target validation count differs from source");
-  for (std::size_t item = 0; item < menu->items.size(); ++item)
-    if (menu->items[item].target != target_validation.items[item].target ||
-        menu->items[item].text != target_validation.items[item].label)
+  for (std::size_t item = 0; item < menu->items.size(); ++item) {
+    const auto &source = menu->items[item];
+    const auto &validated = target_validation.items[item];
+    if (source.target != validated.target)
       return reject("menu topic target validation differs from source");
+    if (!validated.terminal_marker_token) {
+      if (source.text != validated.label)
+        return reject("menu topic target validation differs from source");
+      continue;
+    }
+    std::vector<MenuSourceCellIR> label_cells;
+    std::vector<MenuSourceCellIR> marker_cells;
+    if (!source.compact_terminal ||
+        source.compact_terminal->token_index !=
+            *validated.terminal_marker_token ||
+        !split_label_at_compact_terminal(source, &label_cells,
+                                         &marker_cells) ||
+        cell_text(label_cells) != validated.label)
+      return reject("menu topic validated terminal marker differs from "
+                    "source evidence");
+  }
 
   struct SegmentRef {
     const DecodedLogicalRecordSource *record;
@@ -463,15 +522,26 @@ extract_menu_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
         item.logical_record != segments[index].record->logical_record ||
         item.segment_index != segment.segment_index)
       return reject("menu topic CMITEM does not match verified menu order");
-    if (!insert_unique_cells(visible_cells, item.target_cells) ||
-        !insert_unique_cells(visible_cells, item.label_cells))
-      return reject("menu topic visible source cell is owned more than once");
     MenuTopicItemIR semantic;
     semantic.target = {CrossReferenceTargetKindIR::topic, item.target};
-    semantic.label = item.text;
     semantic.source = source_slice(*segments[index].record, segment);
     semantic.target_cells = item.target_cells;
-    semantic.label_cells = item.label_cells;
+    const auto &validated = target_validation.items[menu_index];
+    if (validated.terminal_marker_token) {
+      if (!split_label_at_compact_terminal(item, &semantic.label_cells,
+                                           &semantic.marker_cells))
+        return reject("menu topic terminal marker cells are unavailable");
+      semantic.label = cell_text(semantic.label_cells);
+    } else {
+      semantic.label = item.text;
+      semantic.label_cells = item.label_cells;
+    }
+    if (semantic.label != validated.label)
+      return reject("menu topic label differs from validated label");
+    if (!insert_unique_cells(visible_cells, semantic.target_cells) ||
+        !insert_unique_cells(visible_cells, semantic.label_cells) ||
+        !insert_unique_cells(visible_cells, semantic.marker_cells))
+      return reject("menu topic visible source cell is owned more than once");
     result.items.push_back(std::move(semantic));
     ++menu_index;
     ++index;
@@ -528,7 +598,8 @@ std::string format_menu_topic_ir(const MenuTopicIR &topic) {
         << "' source=" << item.source.logical_record << ':'
         << item.source.segment_index
         << " target_cells=" << item.target_cells.size()
-        << " label_cells=" << item.label_cells.size() << '\n';
+        << " label_cells=" << item.label_cells.size()
+        << " marker_cells=" << item.marker_cells.size() << '\n';
   for (const auto &segment : topic.segments)
     out << "segment=" << segment.source.logical_record << ':'
         << segment.source.segment_index << " opcode='" << segment.opcode

@@ -5626,16 +5626,28 @@ render_verified_publication_catalog_gml(
   return rendered;
 }
 
-// M9 section D: this legacy-GML projector is still live. Typed menu lowering
-// (menu_topic_ir.cpp) declines every menu whose raw CMITEM label carries a
-// trailing compact marker word, because validate_source_menu_targets() compares
-// the unstripped source-only label against the catalog title before
-// MenuTopicIR types the terminal marker. Removing this projector changes the
-// Markdown of those legacy-path menus (label suffixes such as `<`, `[`, `++`,
-// `can` reappear). Corpus-blocking topics (2026-08-27): IBMMMSTR 1.10;
+// M9 section D: this legacy-GML projector is still live, and it is the
+// legacy menu route for every menu topic the typed route declines (121
+// Markdown files across 33 books on 2026-08-27, not only the 22 marker-suffix
+// topics): it supplies the `:li refid='<id>'.<id> <text>` form that
+// render_markdown_records() turns into BookServer's `Subtopics:` heading and
+// `<id> <label>` links, and it strips compact display markers (`<`, `[`,
+// `++`, `can`) from item labels. validate_source_menu_targets() now types
+// those markers from the raw item's source-proven compact terminal token, so
+// the marker suffix no longer blocks admission by itself. What still keeps
+// these topics on this path: (1) the 22 marker topics (IBMMMSTR 1.10;
 // SC09-2417-00 2.1, 2.1.3, 2.2.4, 2.3.6, 2.3.12, 3.1, 3.1.1, 3.1.4, 3.2.2,
 // 3.3, 3.3.1, 3.5.5, 4.3.6, 4.4.1, 4.4.2, 4.5; SC26-457 3.7.3; SC31-711 2.4,
-// 4.1, BACK_1, BACK_1.12.
+// 4.1, BACK_1, BACK_1.12) are not menu-only envelopes -- they carry prose,
+// index entries, font runs, fixed-form tables, or padded metadata payloads
+// that extract_menu_topic_ir() rejects; (2) their targets' topic-header
+// titles are whole ST payloads (title plus introduction, e.g. SC31-711 4.1.1
+// `Generic Traps-    the Section Lists ...`), so header-preferred validation
+// declines them even after marker stripping; (3) the typed menu lowering
+// emits neither `Subtopics:` nor the `<id> ` label prefix that BookServer
+// shows (hosted SC31-711 2.1, DT 19941010174546), so widening admission
+// would regress those topics. Retire this projector only once the typed
+// route reproduces that shape for mixed-content menu topics.
 bool project_verified_menu_gml(
     std::vector<std::string>& rendered,
     const std::vector<DecodedLogicalRecordSource>& sources,

@@ -32,6 +32,20 @@ struct MenuSourceCellIR {
   SourceByteRange token_bytes;
 };
 
+// Source-local structure of the final label token when it is one compact
+// width-1 encoded word without spacing control.  Source alone cannot decide
+// whether that word is a display marker (`>`, `[`, `++`) or the last word of
+// the title; catalog validation makes that decision from this evidence.
+struct MenuCompactTerminalTokenIR {
+  std::size_t token_index = 0;
+  EncodedLogicalToken encoded;
+  SourceByteRange bytes;
+  std::size_t display_cells = 0;
+  // Index into label_cells of the first cell produced by the token; every
+  // later label cell belongs to the token or is trailing inserted space.
+  std::size_t label_cell_begin = 0;
+};
+
 struct MenuItemIR {
   std::uint32_t logical_record = 0;
   std::size_t segment_index = 0;
@@ -41,6 +55,7 @@ struct MenuItemIR {
   OutputRangeIR label_output;
   std::vector<MenuSourceCellIR> target_cells;
   std::vector<MenuSourceCellIR> label_cells;
+  std::optional<MenuCompactTerminalTokenIR> compact_terminal;
   std::optional<std::size_t> terminal_marker_token;
   std::optional<EncodedLogicalToken> terminal_marker_encoded;
   std::optional<SourceByteRange> terminal_marker_bytes;
@@ -54,7 +69,8 @@ struct MenuIR {
 // Extract a menu using only the topic's decoded source.  Unlike the broader
 // compatibility path below, this does not infer or repair labels by consulting
 // the book-wide topic-title catalog.  Consequently terminal-marker metadata is
-// present only when a future source-local rule can prove it independently.
+// never present; only the source-local compact_terminal evidence is recorded,
+// and validate_source_menu_targets() decides whether it is a marker.
 std::optional<MenuIR> extract_source_menu_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
     std::string* error = nullptr);

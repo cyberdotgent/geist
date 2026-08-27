@@ -3,6 +3,7 @@
 #include "geist/detail/internal.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <iomanip>
 #include <sstream>
 
@@ -83,6 +84,61 @@ bool same_cells(const std::vector<MenuSourceCellIR>& left,
   return true;
 }
 
+bool ascii_space_word(std::uint16_t word) {
+  return word <= 0x7f && std::isspace(static_cast<unsigned char>(word)) != 0;
+}
+
+// Source-only structure of the final label token.  Mirrors the compact
+// marker form typed by extract_menu_ir(): one width-1 encoded token, no
+// spacing control, at most three display cells, and at least one label cell
+// before it.  No catalog is consulted here.
+std::optional<MenuCompactTerminalTokenIR> compact_terminal_token(
+    const DecodedLogicalRecordSource& record, const ControlSegmentIR& segment,
+    const std::vector<MenuSourceCellIR>& label_cells) {
+  const auto payload_tokens = source_tokens_intersecting_output(
+      record.assembled, segment.payload_range.begin,
+      segment.payload_range.end);
+  if (payload_tokens.empty()) return std::nullopt;
+  const auto token = payload_tokens.back();
+  if (token >= record.encoded_tokens.size() ||
+      token >= record.ir.tokens.size() ||
+      record.encoded_tokens[token].width != 1 ||
+      record.ir.tokens[token].has_spacing_control)
+    return std::nullopt;
+  const auto terminal = visible_token(record, token);
+  if (terminal.empty() || terminal.size() > 3) return std::nullopt;
+  const auto first = std::find_if(
+      label_cells.begin(), label_cells.end(),
+      [&](const auto& cell) { return cell.token_index == token; });
+  if (first == label_cells.begin() || first == label_cells.end())
+    return std::nullopt;
+  if (!std::all_of(first, label_cells.end(), [&](const auto& cell) {
+        return cell.token_index == token || ascii_space_word(cell.word);
+      }))
+    return std::nullopt;
+  MenuCompactTerminalTokenIR result;
+  result.token_index = token;
+  result.encoded = record.ir.tokens[token].encoded;
+  result.bytes = record.ir.tokens[token].byte_range;
+  result.display_cells = terminal.size();
+  result.label_cell_begin =
+      static_cast<std::size_t>(first - label_cells.begin());
+  return result;
+}
+
+bool same_compact_terminal(
+    const std::optional<MenuCompactTerminalTokenIR>& left,
+    const std::optional<MenuCompactTerminalTokenIR>& right) {
+  if (left.has_value() != right.has_value()) return false;
+  if (!left) return true;
+  return left->token_index == right->token_index &&
+         left->encoded == right->encoded &&
+         left->bytes.begin == right->bytes.begin &&
+         left->bytes.end == right->bytes.end &&
+         left->display_cells == right->display_cells &&
+         left->label_cell_begin == right->label_cell_begin;
+}
+
 } // namespace
 
 std::optional<MenuIR> extract_source_menu_ir(
@@ -127,6 +183,8 @@ std::optional<MenuIR> extract_source_menu_ir(
       if (item.target_cells.empty() || item.label_cells.empty())
         return fail("menu item target or label has no exact source cells: " +
                     item.target);
+      item.compact_terminal =
+          compact_terminal_token(record, segment, item.label_cells);
       menu.items.push_back(std::move(item));
     }
   }
@@ -159,6 +217,8 @@ bool verify_source_menu_ir(
         actual.label_output.end != expected.label_output.end ||
         !same_cells(actual.target_cells, expected.target_cells) ||
         !same_cells(actual.label_cells, expected.label_cells) ||
+        !same_compact_terminal(actual.compact_terminal,
+                               expected.compact_terminal) ||
         actual.terminal_marker_token.has_value() ||
         actual.terminal_marker_encoded.has_value() ||
         actual.terminal_marker_bytes.has_value() ||
@@ -324,6 +384,13 @@ std::string format_menu_ir(const MenuIR& menu) {
       if (item.terminal_marker_display_cells)
         output << " marker_cells=" << *item.terminal_marker_display_cells;
     }
+    if (item.compact_terminal)
+      output << " compact_terminal_token=" << item.compact_terminal->token_index
+             << " compact_terminal_bytes=[0x" << std::hex
+             << item.compact_terminal->bytes.begin << ",0x"
+             << item.compact_terminal->bytes.end << ')' << std::dec
+             << " compact_terminal_cells="
+             << item.compact_terminal->display_cells;
     output << '\n';
   }
   return output.str();
