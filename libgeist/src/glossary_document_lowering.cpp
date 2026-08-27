@@ -100,8 +100,90 @@ InlineIR text_inline(std::string text, const DocumentNodeOriginIR &source) {
   return {TextInlineIR{std::move(text)}, source};
 }
 
+bool verify_paragraph_emphasis(const GlossaryParagraphIR &paragraph,
+                               std::string *error) {
+  auto previous_end = std::size_t{0};
+  for (const auto &span : paragraph.emphasis) {
+    if (span.begin >= span.end || span.end > paragraph.text.size() ||
+        span.begin < previous_end)
+      return fail(error, "glossary emphasis range is not a conserved span");
+    if (paragraph.text[span.begin] == ' ' ||
+        paragraph.text[span.end - 1] == ' ')
+      return fail(error, "glossary emphasis range is not a display word");
+    if (span.source.logical_record == 0 ||
+        span.source.token_begin >= span.source.token_end)
+      return fail(error, "glossary emphasis has no font control provenance");
+    previous_end = span.end;
+  }
+  return true;
+}
+
+std::optional<EmphasisKindIR> emphasis_kind(FontStyleIR style) {
+  switch (style) {
+  case FontStyleIR::highlight_1:
+    return EmphasisKindIR::emphasis;
+  case FontStyleIR::highlight_2:
+    return EmphasisKindIR::strong;
+  case FontStyleIR::highlight_3:
+    return EmphasisKindIR::strong_emphasis;
+  case FontStyleIR::unknown:
+    break;
+  }
+  return std::nullopt;
+}
+
+// Lowers paragraph text to inlines. BookServer styles every display word by
+// its own CFONT triple; consecutive spans of one control and style separated
+// by exactly one space form a single typed emphasis run. Spans whose style
+// code has no documented highlight mapping stay plain text.
+InlineSequenceIR paragraph_inlines(const GlossaryParagraphIR &paragraph,
+                                   const DocumentNodeOriginIR &source) {
+  InlineSequenceIR content;
+  auto cursor = std::size_t{0};
+  const auto &text = paragraph.text;
+  for (std::size_t index = 0; index < paragraph.emphasis.size();) {
+    auto span = paragraph.emphasis[index];
+    ++index;
+    while (index < paragraph.emphasis.size()) {
+      const auto &next = paragraph.emphasis[index];
+      if (next.style != span.style || !(next.source == span.source) ||
+          next.begin != span.end + 1 || text[span.end] != ' ')
+        break;
+      span.end = next.end;
+      ++index;
+    }
+    const auto kind = emphasis_kind(span.style);
+    if (!kind)
+      continue;
+    if (span.begin > cursor)
+      content.push_back(
+          text_inline(text.substr(cursor, span.begin - cursor), source));
+    auto emphasis_origin = source;
+    emphasis_origin.detail = "glossary font emphasis";
+    add_slice(emphasis_origin, span.source);
+    canonicalize(emphasis_origin);
+    content.push_back(
+        {EmphasisInlineIR{text.substr(span.begin, span.end - span.begin), *kind},
+         std::move(emphasis_origin)});
+    cursor = span.end;
+  }
+  if (cursor < text.size() || content.empty())
+    content.push_back(text_inline(text.substr(cursor), source));
+  return content;
+}
+
 bool verify_catalog_shape(const GlossaryCatalogIR &catalog,
                           std::string *error) {
+  const auto &introduction = catalog.introduction;
+  if (!verify_paragraph_emphasis(introduction.lead, error) ||
+      !verify_paragraph_emphasis(introduction.cross_reference_lead, error))
+    return false;
+  for (const auto &paragraph : introduction.sources)
+    if (!verify_paragraph_emphasis(paragraph, error))
+      return false;
+  for (const auto &paragraph : introduction.cross_references)
+    if (!verify_paragraph_emphasis(paragraph, error))
+      return false;
   if (catalog.first_logical_record == 0 ||
       catalog.first_logical_record >= catalog.end_logical_record ||
       catalog.heading_level != "GLOSSARY" ||
@@ -215,8 +297,11 @@ BlockIR paragraph_block(const GlossaryParagraphIR &paragraph,
                         std::string detail) {
   auto source = paragraph_origin(paragraph, std::move(detail));
   ParagraphBlockIR block;
-  block.content.push_back(text_inline(paragraph.text, source));
-  return {std::move(block), std::move(source)};
+  block.content = paragraph_inlines(paragraph, source);
+  auto block_origin = source;
+  for (const auto &in : block.content)
+    merge_origin(block_origin, in.origin);
+  return {std::move(block), std::move(block_origin)};
 }
 
 BlockIR table_block(const GlossaryEmbeddedTableIR &source) {

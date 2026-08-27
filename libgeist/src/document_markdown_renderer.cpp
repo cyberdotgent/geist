@@ -199,6 +199,18 @@ std::string code_span(const std::string &value, bool table_cell = false) {
          (needs_padding ? " " : "") + delimiter;
 }
 
+std::string emphasis_delimiter(EmphasisKindIR kind) {
+  switch (kind) {
+  case EmphasisKindIR::emphasis:
+    return "*";
+  case EmphasisKindIR::strong:
+    return "**";
+  case EmphasisKindIR::strong_emphasis:
+    return "***";
+  }
+  return "*";
+}
+
 std::string render_inlines(const InlineSequenceIR &inlines,
                            InlineContext context,
                            const DocumentMarkdownRendererOptions &options) {
@@ -210,7 +222,8 @@ std::string render_inlines(const InlineSequenceIR &inlines,
           if constexpr (std::is_same_v<T, TextInlineIR>) {
             result += escape_markdown_text(node.text);
           } else if constexpr (std::is_same_v<T, EmphasisInlineIR>) {
-            result += '*' + escape_markdown_text(node.text) + '*';
+            const auto delimiter = emphasis_delimiter(node.kind);
+            result += delimiter + escape_markdown_text(node.text) + delimiter;
           } else if constexpr (std::is_same_v<T, CodeInlineIR>) {
             result +=
                 code_span(node.code, context == InlineContext::table_cell);

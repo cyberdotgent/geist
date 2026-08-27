@@ -78,6 +78,7 @@ set(GEIST_SOURCES
   src/fixed_prose_document_lowering.cpp
   src/fixed_prose_ir.cpp
   src/fixed_prose_topic_ir.cpp
+  src/font_span_ir.cpp
   src/generated_list_document_lowering.cpp
   src/generated_list_topic_ir.cpp
   src/glossary_catalog_ir.cpp

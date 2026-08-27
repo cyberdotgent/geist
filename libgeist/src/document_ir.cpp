@@ -250,6 +250,15 @@ const char* cross_reference_target_kind_name(
   return "invalid";
 }
 
+const char* emphasis_kind_name(EmphasisKindIR value) {
+  switch (value) {
+  case EmphasisKindIR::emphasis: return "emphasis";
+  case EmphasisKindIR::strong: return "strong";
+  case EmphasisKindIR::strong_emphasis: return "strong_emphasis";
+  }
+  return "invalid";
+}
+
 void format_origin(std::ostringstream& out,
                    const DocumentNodeOriginIR& origin) {
   out << " origin=" << derivation_name(origin.derivation);
@@ -276,7 +285,7 @@ void format_inlines(std::ostringstream& out, const InlineSequenceIR& inlines) {
           if constexpr (std::is_same_v<T, TextInlineIR>)
             out << "text=" << quoted(node.text);
           else if constexpr (std::is_same_v<T, EmphasisInlineIR>)
-            out << "emphasis=" << quoted(node.text);
+            out << emphasis_kind_name(node.kind) << '=' << quoted(node.text);
           else if constexpr (std::is_same_v<T, CodeInlineIR>)
             out << "code=" << quoted(node.code);
           else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>)

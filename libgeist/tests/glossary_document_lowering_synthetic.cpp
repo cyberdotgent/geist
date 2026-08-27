@@ -180,6 +180,55 @@ int main() {
   require(visible.find("???????????") == std::string::npos,
           "ownership-classified layout padding leaked into Markdown");
 
+  // Introduction cross-reference labels are bold in the hosted BookServer
+  // (`<B>Contrast</B> <B>with:</B>`). The emphasis is owned by the CFONT
+  // operand triples of LR436 (`cfont 3 8 2 12 5 2` for segment 2) and, for the
+  // record-leading `Deprecated term for:` row of LR437, by the span-only
+  // trailing control `cfont 3 10 2 14 4 2 19 4 2` of LR436 segment 7.
+  for (const auto *expected :
+       {"**Contrast with:** This refers to a term",
+        "**Synonym for:** This indicates that the term has the same meaning",
+        "**Synonymous with:** This is a backward reference",
+        "**See:** This refers the reader to multiple\\-word terms",
+        "**See also:** This refers the reader to terms",
+        "**Deprecated term for:** This indicates that the term should not "
+        "be used\\."})
+    require(markdown.find(expected) != std::string::npos,
+            std::string("Markdown lost typed introduction emphasis: ") +
+                expected);
+  require(markdown.find("**Contrast** **with:**") == std::string::npos,
+          "adjacent same-control emphasis spans were not joined");
+  const auto &cross_references = catalog->introduction.cross_references;
+  require(cross_references.size() == 6 &&
+              cross_references.front().emphasis.size() == 2 &&
+              cross_references.back().emphasis.size() == 3,
+          "introduction cross-references lost their typed font spans");
+  if (cross_references.size() == 6) {
+    for (const auto &span : cross_references.front().emphasis)
+      require(span.style == geist::detail::FontStyleIR::highlight_2 &&
+                  span.source.logical_record == 436 &&
+                  span.source.segment_index == 2 &&
+                  span.source.token_begin < span.source.token_end,
+              "Contrast with: emphasis is not owned by LR436 segment 2 CFONT");
+    for (const auto &span : cross_references.back().emphasis)
+      require(span.style == geist::detail::FontStyleIR::highlight_2 &&
+                  span.source.logical_record == 436 &&
+                  span.source.segment_index == 7,
+              "Deprecated term for: emphasis is not owned by the span-only "
+              "LR436 segment 7 CFONT");
+    require(cross_references.front().text.compare(
+                cross_references.front().emphasis.front().begin,
+                cross_references.front().emphasis.back().end -
+                    cross_references.front().emphasis.front().begin,
+                "Contrast with:") == 0,
+            "typed emphasis range does not cover the source label");
+  }
+  for (const auto &paragraph : catalog->introduction.sources)
+    for (const auto &span : paragraph.emphasis)
+      require(span.source.logical_record != 0 &&
+                  span.end <= paragraph.text.size(),
+              "source citation emphasis lacks provenance");
+
   auto changed = *document;
   std::get<geist::detail::TextInlineIR>(
       std::get<geist::detail::DefinitionListBlockIR>(changed.blocks.back().node)
@@ -200,6 +249,27 @@ int main() {
   require(!geist::detail::lower_glossary_catalog_to_document_ir(
               topic, changed_catalog, &error),
           "glossary lowerer admitted prose not derived from source rows");
+  if (!catalog->introduction.cross_references.empty() &&
+      !catalog->introduction.cross_references.front().emphasis.empty()) {
+    changed_catalog = *catalog;
+    changed_catalog.introduction.cross_references.front().emphasis.front().end =
+        changed_catalog.introduction.cross_references.front().text.size() + 1;
+    require(!geist::detail::lower_glossary_catalog_to_document_ir(
+                topic, changed_catalog, &error),
+            "glossary lowerer admitted emphasis outside its paragraph");
+    changed_catalog = *catalog;
+    changed_catalog.introduction.cross_references.front()
+        .emphasis.front()
+        .source.logical_record = 0;
+    require(!geist::detail::lower_glossary_catalog_to_document_ir(
+                topic, changed_catalog, &error),
+            "glossary lowerer admitted emphasis without font provenance");
+    changed_catalog = *catalog;
+    changed_catalog.introduction.cross_references.front().emphasis.clear();
+    require(!geist::detail::verify_glossary_catalog_ir(
+                sources, layout, ownership, changed_catalog, &error),
+            "glossary verifier admitted dropped font emphasis");
+  }
 
   std::cout << "glossary document lowering synthetic checks passed\n";
   return 0;

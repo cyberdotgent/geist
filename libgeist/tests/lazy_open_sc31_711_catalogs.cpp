@@ -80,7 +80,7 @@ int main() {
            "1994\\.",
            "**Contrast with:** This refers to a term",
            "**Deprecated term for:** This indicates that the term should not "
-           "be used.",
+           "be used\\.",
        }) {
     require(lnm_glossary.find(expected) != std::string::npos,
             "LNM glossary semantic introduction lost a citation or reference");

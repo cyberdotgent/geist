@@ -81,10 +81,91 @@ clean_terminal_boundary(const std::vector<DecodedLogicalRecordSource>& records,
   return text;
 }
 
+// A font span already proven against the visible text of one physical row,
+// expressed in byte offsets of that row's visible text.
+struct RowEmphasisIR {
+  std::size_t begin = 0;
+  std::size_t end = 0;
+  FontStyleIR style = FontStyleIR::unknown;
+  DocumentSourceSliceIR source;
+};
+
+// The font control whose operand governs the first physical row of a run:
+// the run's own CFONT, or, for a record-leading text row, a span-only CFONT
+// (empty payload) terminating the immediately preceding logical record.
+// Format/markup.md documents that BookServer applies such span-only controls
+// to the following physical text line.
+std::optional<FontControlSpansIR>
+governing_font_spans(const std::vector<DecodedLogicalRecordSource>& records,
+                     const DisplayRunIR& run, std::string* error) {
+  const auto& first = run.rows.front();
+  const auto* record = find_record(records, first.logical_record);
+  if (record == nullptr) return std::nullopt;
+  if (run.control_kind == BookControlKind::font) {
+    if (first.segment_index >= record->control_segments.size())
+      return std::nullopt;
+    return decode_font_control_spans(
+        *record, record->control_segments[first.segment_index], error);
+  }
+  if (run.control_kind != BookControlKind::text || first.segment_index != 0 ||
+      first.logical_record == 0)
+    return std::nullopt;
+  const auto* previous = find_record(records, first.logical_record - 1);
+  if (previous == nullptr || previous->control_segments.empty())
+    return std::nullopt;
+  const auto& trailing = previous->control_segments.back();
+  if (trailing.kind != BookControlKind::font ||
+      trailing.payload_range.begin != trailing.payload_range.end)
+    return std::nullopt;
+  return decode_font_control_spans(*previous, trailing, error);
+}
+
+// Maps operand triples onto the row's visible text. Columns are reader
+// display columns; the row's native origin is the column of its first visible
+// byte. Every span must cover whole space-delimited display words, or the
+// whole control is left unapplied.
+std::vector<RowEmphasisIR> map_font_spans(const FontControlSpansIR& fonts,
+                                          const PhysicalRowIR& row) {
+  std::vector<RowEmphasisIR> result;
+  const auto& visible = row.visible_text;
+  for (const auto& span : fonts.spans) {
+    if (span.column < row.native_origin) return {};
+    const auto begin = span.column - row.native_origin;
+    const auto end = begin + span.length;
+    if (end > visible.size() || visible[begin] == ' ' ||
+        visible[end - 1] == ' ' || (begin != 0 && visible[begin - 1] != ' ') ||
+        (end != visible.size() && visible[end] != ' '))
+      return {};
+    if (!result.empty() && begin < result.back().end) return {};
+    result.push_back({begin, end, span.style, fonts.operand_source});
+  }
+  return result;
+}
+
 void append_row(GlossaryParagraphIR& paragraph, const PhysicalRowIR& row,
-                std::size_t row_index, std::string text) {
+                std::size_t row_index, std::string text,
+                std::size_t text_offset = 0,
+                const std::vector<RowEmphasisIR>& row_emphasis = {}) {
+  // Index map from the uncompacted substring into its compact projection so
+  // proven row spans keep exact byte identity after whitespace collapse.
+  std::vector<std::size_t> compact_index(text.size(), std::string::npos);
+  std::string compacted;
+  bool in_space = false;
+  for (std::size_t i = 0; i < text.size(); ++i) {
+    const auto byte = static_cast<unsigned char>(text[i]);
+    if (std::isspace(byte) != 0 || byte < 0x20) {
+      in_space = true;
+      continue;
+    }
+    if (in_space && !compacted.empty()) compacted.push_back(' ');
+    compact_index[i] = compacted.size();
+    compacted.push_back(text[i]);
+    in_space = false;
+  }
+  const auto raw = text;
   text = compact(std::move(text));
   if (text.empty()) return;
+  if (compacted != text) compact_index.clear();
   if (!paragraph.text.empty() && row.marker &&
       row.marker->decoded_text.size() == 1 &&
       std::string(".,:;").find(row.marker->decoded_text.front()) !=
@@ -99,13 +180,28 @@ void append_row(GlossaryParagraphIR& paragraph, const PhysicalRowIR& row,
                   [](const unsigned char ch) { return std::islower(ch) != 0; });
   if (!paragraph.text.empty()) paragraph.text += ' ';
   if (lexical_carry) paragraph.text += row.marker->decoded_text + ' ';
+  const auto base = paragraph.text.size();
   paragraph.text += text;
   paragraph.source_rows.emplace_back(row.run, row_index);
+  if (compact_index.empty()) return;
+  for (const auto& span : row_emphasis) {
+    if (span.begin < text_offset || span.end > text_offset + raw.size())
+      continue;
+    const auto first = compact_index[span.begin - text_offset];
+    const auto last = compact_index[span.end - 1 - text_offset];
+    if (first == std::string::npos || last == std::string::npos) continue;
+    const auto expected =
+        raw.substr(span.begin - text_offset, span.end - span.begin);
+    if (text.compare(first, last + 1 - first, expected) != 0) continue;
+    paragraph.emphasis.push_back(
+        {base + first, base + last + 1, span.style, span.source});
+  }
 }
 
 bool paragraph_equal(const GlossaryParagraphIR& left,
                      const GlossaryParagraphIR& right) {
-  return left.text == right.text && left.source_rows == right.source_rows;
+  return left.text == right.text && left.source_rows == right.source_rows &&
+         left.emphasis == right.emphasis;
 }
 
 } // namespace
@@ -180,14 +276,25 @@ std::optional<GlossaryIntroductionIR> extract_glossary_introduction_ir(
   bool in_cross_references = false;
   for (const auto* run : body_runs) {
     GlossaryParagraphIR current;
+    std::string font_error;
+    const auto fonts = governing_font_spans(records, *run, &font_error);
+    if (!fonts && !font_error.empty())
+      return fail("glossary introduction font control rejected: " +
+                  font_error);
+    const auto first_row_emphasis =
+        fonts ? map_font_spans(*fonts, run->rows.front())
+              : std::vector<RowEmphasisIR>{};
     for (std::size_t row_index = 0; row_index < run->rows.size(); ++row_index) {
       const auto& row = run->rows[row_index];
       if (!before_first_term(row)) break;
+      const auto& row_emphasis =
+          row_index == 0 ? first_row_emphasis : std::vector<RowEmphasisIR>{};
       auto text = row.visible_text;
       const auto gap = wide_gap(text);
       if (gap != std::string::npos &&
           ends_statement(compact(text.substr(0, gap)))) {
-        append_row(current, row, row_index, text.substr(0, gap));
+        append_row(current, row, row_index, text.substr(0, gap), 0,
+                   row_emphasis);
         if (current.text.empty() || in_cross_references)
           return fail("ambiguous glossary cross-reference boundary");
         result.sources.push_back(std::move(current));
@@ -195,7 +302,7 @@ std::optional<GlossaryIntroductionIR> extract_glossary_introduction_ir(
         auto right = gap;
         while (right < text.size() && text[right] == ' ') ++right;
         append_row(result.cross_reference_lead, row, row_index,
-                   text.substr(right));
+                   text.substr(right), right, row_emphasis);
         in_cross_references = true;
         continue;
       }
@@ -205,7 +312,7 @@ std::optional<GlossaryIntroductionIR> extract_glossary_introduction_ir(
             .push_back(std::move(current));
         current = {};
       }
-      append_row(current, row, row_index, std::move(text));
+      append_row(current, row, row_index, std::move(text), 0, row_emphasis);
     }
     if (!current.text.empty())
       (in_cross_references ? result.cross_references : result.sources)
@@ -216,10 +323,14 @@ std::optional<GlossaryIntroductionIR> extract_glossary_introduction_ir(
       result.sources.size() != 5 || result.cross_reference_lead.text.empty() ||
       result.cross_references.size() != 6)
     return fail("glossary introduction semantic sections are incomplete");
-  for (auto& paragraph : result.cross_references)
+  for (auto& paragraph : result.cross_references) {
     while (paragraph.text.size() >= 2 &&
            paragraph.text.compare(paragraph.text.size() - 2, 2, "..") == 0)
       paragraph.text.pop_back();
+    for (const auto& span : paragraph.emphasis)
+      if (span.end > paragraph.text.size())
+        return fail("glossary emphasis outlives its cross-reference text");
+  }
   if (error != nullptr) error->clear();
   return result;
 }
@@ -267,6 +378,17 @@ format_glossary_introduction_ir(const GlossaryIntroductionIR& introduction) {
       if (i != 0) out << ',';
       out << paragraph.source_rows[i].first << ':'
           << paragraph.source_rows[i].second;
+    }
+    if (!paragraph.emphasis.empty()) {
+      out << " emphasis=";
+      for (std::size_t i = 0; i < paragraph.emphasis.size(); ++i) {
+        const auto& span = paragraph.emphasis[i];
+        if (i != 0) out << ',';
+        out << span.begin << ':' << span.end << ':'
+            << font_style_name(span.style) << '@' << span.source.logical_record
+            << ':' << span.source.segment_index << ':'
+            << span.source.token_begin << ':' << span.source.token_end;
+      }
     }
     out << '\n';
   };
