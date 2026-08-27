@@ -147,5 +147,35 @@ int main() {
       "IBM C/370 Installation and Customization for VSE, GC09-1417",
       "cross-book C/370 publication");
 
+  // Negatives: structurally publication-shaped topics that carry no
+  // publication semantics must stay on their legacy rendering rather than
+  // being lowered as independent publication paragraphs. GC23-046 FRONT_1.1 is
+  // a title-only envelope (a wrapped title run carrying a trademark list whose
+  // prose contains the word "publication"); it renders as one preformatted
+  // block. IBMMMSTR PREFACE.5 is syntax notation and SG24-204 PREFACE.1 a team
+  // biography, both with completely represented entry-run envelopes.
+  const auto trademarks = geist::BooDocument::open(
+      std::filesystem::path(GEIST_REPO_ROOT) / "BOO" / "GC23-046.boo");
+  const auto trademark_markdown = trademarks.topic_markdown("FRONT_1.1");
+  require_contains(trademark_markdown, "```text",
+                   "legacy preformatted trademark notice");
+  require_absent(trademark_markdown, "\n\nIBM\n\n",
+                 "trademark notice lowered as a publication entry");
+
+  const auto messages = geist::BooDocument::open(
+      std::filesystem::path(GEIST_REPO_ROOT) / "BOO" / "IBMMMSTR.boo");
+  const auto syntax = markdown_visible_text(messages.topic_markdown("PREFACE.5"));
+  require_contains(syntax,
+                   "Special notation that is used in this book follows:",
+                   "syntax notation legacy paragraph");
+  require_absent(syntax, "\n\nShift-out command\n\n",
+                 "syntax notation lowered as a publication entry");
+
+  const auto redbook = geist::BooDocument::open(
+      std::filesystem::path(GEIST_REPO_ROOT) / "BOO" / "SG24-204.boo");
+  const auto team = markdown_visible_text(redbook.topic_markdown("PREFACE.1"));
+  require_contains(team, "The Team That Wrote This Redbook",
+                   "team biography heading");
+
   return failures == 0 ? 0 : 1;
 }

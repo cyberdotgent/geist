@@ -29,8 +29,13 @@ struct PublicationCatalogIR {
   std::vector<PublicationEntryIR> entries;
 };
 
-// Recognizes an all-C, source-conserved publication stream. Ambiguous or
-// partially owned candidates fail closed and return no semantic catalog.
+// Recognizes a source-conserved publication catalog from its typed envelope:
+// one title control segment originating the title run, entry (font) control
+// segments each originating one entry run, complete layout/ownership
+// representation of that envelope, and publication semantics (a whole-word
+// `publication(s)` title role or an IBM publication number on every entry).
+// Font operand spelling and segment/run counts are not admission evidence.
+// Ambiguous or partially owned candidates fail closed and return no catalog.
 std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
     const LayoutIR& layout,

@@ -243,40 +243,43 @@ std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
   if (records.empty() || !verify_layout_ir(records, layout) ||
       !verify_ownership_ir(records, layout, ownership))
     return std::nullopt;
+  // The publication envelope is typed by source coordinates: exactly one
+  // title control segment followed by entry (font) control segments whose
+  // payloads may continue into text segments. No count of segments or runs is
+  // semantic evidence; admission rests on the layout/ownership representation
+  // of that envelope below.
   const DisplayRunIR* title_run = nullptr;
-  std::vector<const DisplayRunIR*> font_runs;
-  std::size_t font_segments = 0;
+  std::vector<const DisplayRunIR*> entry_runs;
   std::string heading_level;
-  bool saw_title = false;
-  bool saw_font = false;
   using SegmentCoordinate = std::pair<std::uint32_t, std::size_t>;
+  std::optional<SegmentCoordinate> title_segment;
+  std::set<SegmentCoordinate> entry_segments;
   std::set<SegmentCoordinate> envelope_segments;
-  std::set<SegmentCoordinate> run_origin_segments;
+  bool saw_entry_control = false;
   for (const auto& record : records) {
     for (const auto& segment : record.control_segments) {
+      const SegmentCoordinate coordinate{record.logical_record,
+                                         segment.segment_index};
       if (segment.kind == BookControlKind::heading_level) {
         heading_level = ascii_lower(trim_ascii(range_text(
             record, segment.operand_range)));
         if (!heading_level.empty() && heading_level.front() == ':')
           heading_level.erase(heading_level.begin());
       } else if (segment.kind == BookControlKind::title) {
-        if (saw_title || saw_font) return std::nullopt;
-        saw_title = true;
-        envelope_segments.emplace(record.logical_record,
-                                  segment.segment_index);
+        if (title_segment || saw_entry_control) return std::nullopt;
+        title_segment = coordinate;
+        envelope_segments.insert(coordinate);
       } else if (segment.kind == BookControlKind::font) {
-        saw_font = true;
-        ++font_segments;
-        envelope_segments.emplace(record.logical_record,
-                                  segment.segment_index);
-      } else if (saw_title && !saw_font &&
+        saw_entry_control = true;
+        entry_segments.insert(coordinate);
+        envelope_segments.insert(coordinate);
+      } else if (title_segment && !saw_entry_control &&
                  segment.kind == BookControlKind::text) {
         return std::nullopt;
-      } else if (saw_font) {
+      } else if (saw_entry_control) {
         if (segment.kind != BookControlKind::text) return std::nullopt;
-        envelope_segments.emplace(record.logical_record,
-                                  segment.segment_index);
-      } else if (!saw_title &&
+        envelope_segments.insert(coordinate);
+      } else if (!title_segment &&
                  (segment.kind == BookControlKind::structural ||
                   segment.kind == BookControlKind::unknown ||
                   segment.kind == BookControlKind::menu_start ||
@@ -290,73 +293,56 @@ std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
       }
     }
   }
-  if (!saw_title || font_segments == 0 ||
-      (heading_level != "h2" && heading_level != "h3"))
+  if (!title_segment || (heading_level != "h2" && heading_level != "h3"))
     return std::nullopt;
 
+  // Layout representation of the envelope: every display run must be a title
+  // or entry run whose origin row sits on the matching typed segment, each
+  // typed title/entry segment must originate exactly one run, and every row
+  // of every run must lie inside the envelope. Text segments may only continue
+  // a run; nothing outside the envelope may be represented.
+  std::set<SegmentCoordinate> run_origin_segments;
+  std::set<SegmentCoordinate> represented_segments;
   for (const auto& run : layout.runs) {
-    if (run.control_kind == BookControlKind::title) {
-      if (title_run != nullptr) return std::nullopt;
-      title_run = &run;
-    } else if (run.control_kind == BookControlKind::font) {
-      font_runs.push_back(&run);
-    }
     if (run.rows.empty()) return std::nullopt;
     const auto& origin = run.rows.front();
+    const SegmentCoordinate origin_coordinate{origin.logical_record,
+                                              origin.segment_index};
     const auto* origin_segment = find_segment(records, origin);
     if (origin_segment == nullptr || origin_segment->kind != run.control_kind ||
         origin.run != run.id ||
-        !run_origin_segments
-             .emplace(origin.logical_record, origin.segment_index)
-             .second)
+        !run_origin_segments.insert(origin_coordinate).second)
       return std::nullopt;
+    if (run.control_kind == BookControlKind::title) {
+      if (title_run != nullptr || origin_coordinate != *title_segment)
+        return std::nullopt;
+      title_run = &run;
+    } else if (run.control_kind == BookControlKind::font) {
+      if (entry_segments.count(origin_coordinate) == 0) return std::nullopt;
+      if (origin.start == PhysicalRowStartKind::placeholder_wrap ||
+          (origin.start == PhysicalRowStartKind::control_payload &&
+           origin.native_origin <= 3))
+        return std::nullopt;
+      if (origin.marker && (origin.marker->decoded_text == "[" ||
+                            origin.marker->decoded_text == "]"))
+        return std::nullopt;
+      entry_runs.push_back(&run);
+    } else {
+      return std::nullopt;
+    }
     for (const auto& row : run.rows) {
       const auto* segment = find_segment(records, row);
+      const SegmentCoordinate coordinate{row.logical_record,
+                                         row.segment_index};
       if (segment == nullptr || row.run != run.id ||
-          envelope_segments.count(
-              {row.logical_record, row.segment_index}) == 0)
+          envelope_segments.count(coordinate) == 0)
         return std::nullopt;
+      represented_segments.insert(coordinate);
     }
   }
-  if (title_run == nullptr || font_runs.size() != font_segments ||
-      run_origin_segments.size() != font_segments + 1)
-    return std::nullopt;
-  for (const auto& run : layout.runs) {
-    if (run.control_kind != BookControlKind::title &&
-        run.control_kind != BookControlKind::font)
-      return std::nullopt;
-    if (run.control_kind != BookControlKind::font) continue;
-    if (run.rows.empty() ||
-        run.rows.front().start == PhysicalRowStartKind::placeholder_wrap ||
-        (run.rows.front().start == PhysicalRowStartKind::control_payload &&
-         run.rows.front().native_origin <= 3))
-      return std::nullopt;
-    if (run.rows.front().marker &&
-        (run.rows.front().marker->decoded_text == "[" ||
-         run.rows.front().marker->decoded_text == "]"))
-      return std::nullopt;
-  }
-  if (font_runs.size() == 1 && font_runs.front()->rows.size() != 1)
-    return std::nullopt;
-
-  // Every typed title/font source segment must start exactly one matching
-  // display run. Text segments in the post-title envelope may only continue
-  // such a run, and every envelope segment must be represented by a physical
-  // row. Font operand spelling is deliberately not semantic evidence.
-  std::set<SegmentCoordinate> expected_run_origins;
-  std::set<SegmentCoordinate> represented_segments;
-  for (const auto& record : records) {
-    for (const auto& segment : record.control_segments) {
-      const SegmentCoordinate coordinate{record.logical_record,
-                                         segment.segment_index};
-      if (segment.kind == BookControlKind::title ||
-          segment.kind == BookControlKind::font)
-        expected_run_origins.insert(coordinate);
-    }
-  }
-  for (const auto& run : layout.runs)
-    for (const auto& row : run.rows)
-      represented_segments.emplace(row.logical_record, row.segment_index);
+  if (title_run == nullptr) return std::nullopt;
+  std::set<SegmentCoordinate> expected_run_origins = entry_segments;
+  expected_run_origins.insert(*title_segment);
   if (run_origin_segments != expected_run_origins ||
       represented_segments != envelope_segments)
     return std::nullopt;
@@ -439,8 +425,8 @@ std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
   if (catalog.title.empty() || catalog.introduction.empty())
     return std::nullopt;
 
-  const DisplayRunIR* previous_font_run = nullptr;
-  for (const auto* run : font_runs) {
+  const DisplayRunIR* previous_entry_run = nullptr;
+  for (const auto* run : entry_runs) {
     std::map<std::uint16_t, std::size_t> marker_counts;
     for (const auto& row : run->rows)
       if (lexical_marker(row) && row.native_origin == 3 &&
@@ -451,12 +437,12 @@ std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
             ? catalog.entries.back().paragraphs.back().text
             : std::string{};
     const auto continues_previous =
-        previous_font_run != nullptr && !catalog.entries.empty() &&
-        !run->rows.empty() && !previous_font_run->rows.empty() &&
+        previous_entry_run != nullptr && !catalog.entries.empty() &&
+        !run->rows.empty() && !previous_entry_run->rows.empty() &&
         wide_gap(run->rows.front().visible_text) != std::string::npos &&
         !ends_complete_statement(previous_text) &&
         !has_attached_terminal_artifact(
-            records, previous_font_run->rows.back());
+            records, previous_entry_run->rows.back());
     PublicationEntryIR* entry =
         continues_previous ? &catalog.entries.back() : nullptr;
     for (std::size_t row_index = 0; row_index < run->rows.size(); ++row_index) {
@@ -503,7 +489,7 @@ std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
         paragraph.source_rows.push_back({run->id, row_index});
       }
     }
-    previous_font_run = run;
+    previous_entry_run = run;
   }
   for (auto& entry : catalog.entries) {
     entry.text.clear();
@@ -518,6 +504,23 @@ std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
       std::remove_if(catalog.entries.begin(), catalog.entries.end(),
                      [](const auto& entry) { return entry.text.empty(); }),
       catalog.entries.end());
+  // Entries must be represented by entry runs. A title-only envelope (for
+  // example a trademark notice whose wrapped title run carries a list) has no
+  // entry representation and is not a catalog; title-run prefix rows are
+  // admitted only alongside entry-run entries.
+  const auto entry_run_owned = [&](const PublicationEntryIR& entry) {
+    return std::any_of(
+        entry.source_rows.begin(), entry.source_rows.end(),
+        [&](const auto& source) {
+          return std::any_of(entry_runs.begin(), entry_runs.end(),
+                             [&](const auto* run) {
+                               return run->id == source.first;
+                             });
+        });
+  };
+  if (!std::any_of(catalog.entries.begin(), catalog.entries.end(),
+                   entry_run_owned))
+    return std::nullopt;
   const auto citation_catalog =
       !catalog.entries.empty() &&
       std::all_of(catalog.entries.begin(), catalog.entries.end(),

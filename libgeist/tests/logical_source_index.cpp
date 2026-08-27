@@ -658,6 +658,34 @@ void verify_paged_topic_index(const std::filesystem::path &path,
 
 } // namespace
 
+// Structurally admissible non-catalogs. Each of these topics has an H2/H3
+// title run followed by a completely represented entry-run envelope (they were
+// admitted by a geometry-only recognizer candidate), or a title-only envelope
+// whose wrapped title run carries a list. None may enter publication IR: the
+// admission inventory over the corpus is exactly the 19 verified catalogs.
+void verify_publication_negatives(const std::filesystem::path &root,
+                                  bool benchmark) {
+  // Trademark notice: title-run-only envelope, no entry run, and the
+  // introduction prose contains the word "publication".
+  verify_book(root / "GC23-046.boo", 19, 20, benchmark, false);
+  // Trademarks and service marks list.
+  verify_book(root / "SH12-565.boo", 21, 22, benchmark, false);
+  // Team biography / acknowledgments.
+  verify_book(root / "GG24-4302-00.boo", 34, 35, benchmark, false);
+  // Syntax notation.
+  verify_book(root / "IBMMMSTR.boo", 18, 19, benchmark, false);
+  // Code / listing examples.
+  verify_book(root / "SC34-425.boo", 1418, 1419, benchmark, false);
+  verify_book(root / "SC26-457.boo", 907, 908, benchmark, false);
+  // Configuration prose.
+  verify_book(root / "DREICMST.boo", 367, 368, benchmark, false);
+  // Message symbol legend.
+  verify_book(root / "IBMMMSTR.boo", 48, 49, benchmark, false);
+  // Technical newsletter whose title carries a document number but whose
+  // entries do not.
+  verify_book(root / "DREICMST.boo", 50, 51, benchmark, false);
+}
+
 int main() {
   const auto root = std::filesystem::path(GEIST_REPO_ROOT) / "BOO";
   const bool benchmark = std::getenv("GEIST_BENCH_SOURCE_INDEX") != nullptr;
@@ -668,6 +696,7 @@ int main() {
     verify_book(root / "QSYSINFO.BOO", 743, 744, benchmark, true);
     verify_book(root / "SG24-204.boo", 18, 19, benchmark, false);
     verify_book(root / "QS3X36CM.BOO", 7, 9, benchmark, false);
+    verify_publication_negatives(root, benchmark);
     return 0;
   }
   verify_book(root / "SC31-711.boo", 19, 21, benchmark);
@@ -696,6 +725,7 @@ int main() {
   // incidentally by non-C font operands and must remain outside publication IR
   // now that style spelling is deliberately irrelevant.
   verify_book(root / "QS3X36CM.BOO", 7, 9, benchmark, false);
+  verify_publication_negatives(root, benchmark);
   verify_paged_topic_index(root / "GG24-395.boo", 317, 248, 599, 824, 827);
   verify_paged_topic_index(root / "DREICMST.boo", 374, 248, 496, 735, 753);
   verify_paged_topic_index(root / "SC09-138.boo", 546, 248, 910, 2427, 2428);
