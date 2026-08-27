@@ -1164,6 +1164,19 @@ The evidence was obtained with `bootrace.exe BOO/IEAC6MST.BOO FIGURES
 targets and row fragments in logical records 16--24; BookServer emits the
 corresponding rows in `<pre width="80">` with one anchor per row.
 
+Generated-list decoration is not identified by a fixed character vocabulary.
+Across the fixture corpus, 42 rows carry a source-owned prefix that display
+geometry classifies outside the semantic label: 38 use an embedded or carried
+vertical bar, one uses an asterisk, one carries an asterisk/slash pair, and two
+use other one-cell leaders. Three `SC09-138.boo` `TABLES` rows instead end in a
+decoder-unmapped source word. Those words must remain explicit decoder
+artifacts and must not be inferred from the replacement glyph rendered for
+them. Conversely, the leading parentheses in `(CIDSIEXP)` and `(CIDSIWTO)` are
+ordinary payload, and the continuation suffix `8.1.10.3` is source content.
+Implementations should decide these roles from token/row ownership, selector
+span and continuation geometry, and unmapped-word provenance, then retain a
+complete disposition for every cell.
+
 ## Structural CFONT rows and generated fixed catalogs
 
 `CFONT` triples describe styles at display columns; they do not make their
