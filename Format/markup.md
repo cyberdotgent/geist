@@ -301,6 +301,26 @@ signatures in topic `1.2`, showing why neither signature nor `CFONT` alone is a
 safe semantic-table activation rule.  The meanings of `ww` and the printable
 punctuation produced by some marker tokens remain unresolved.
 
+Signature B also marks paragraph starts inside flattened `CFONT` prose. In
+`SC31-711.boo` topic `4.1.3`, logical record 105 stores `resource` (token 6),
+`.` with spacing prefix `1` (token 7), a control-only prefix-`1` token (token
+8, BOO byte `0x10da7`), the width-1 marker token `as` (token 9, byte
+`0x10da8`), and a three-space origin (token 10) before `The traps in this
+section`; tokens 61--63 repeat the pattern as `agent`, `.`, control-only `1`,
+`bridge`, three spaces before `The redirected traps`.  BookServer renders a
+blank line at both positions.  Wrapped rows in the same records (`critical <
+state`, `Version (    2.0`) carry the glyph marker after an ordinary inserted
+space and no control-only token, and BookServer joins them.  The same
+control-only token followed by ordinary text (`OS`+`/`+`2`, `Note`+`:`,
+`2`+`.`+`0`) is inter-token attachment, not a boundary.  A control-only token
+that attaches a wide padding run after sentence punctuation (`actions.` +
+control-only `1` + 18 spaces + `When`, logical record 104 tokens 175--180) is
+the in-row form of the same blank line.  `libgeist` uses exactly this
+geometry (`message_prose_rows.cpp`) to restore the 4.1.3 introduction
+paragraphs and to keep `?`-run and record-continuation soft wraps (topic
+`4.4` messages 1 and 2, topic `4.1.3` messages 329 and 444) inside their
+paragraph.
+
 The important implementation rule is that this is not a hardcoded packet title
 or hardcoded three-line page rule. `:vnotice.` changes the interpretation of
 the following controls: the first body `CFONT` is the visual notice heading,
