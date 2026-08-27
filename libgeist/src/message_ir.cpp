@@ -973,18 +973,6 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
         }
       }
     }
-    if (!run_kind && active_section[*run_owner] && !run.rows.empty() &&
-        entry.sections[*active_section[*run_owner]].kind ==
-            MessageSectionKind::meaning &&
-        !entry.sections[*active_section[*run_owner]]
-             .paragraphs.back()
-             .text.empty() &&
-        run.rows.front().marker &&
-        run.rows.front().marker->decoded_text == ":") {
-      run_kind = MessageSectionKind::action;
-      label_row_index = 0;
-      explicit_label = false;
-    }
     if (run_kind) {
       if (entry.headline.text.find(entry.id) == std::string::npos) {
         const auto &source_row = run.rows[*label_row_index];
@@ -1039,13 +1027,11 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
           row_index + 1 == run.rows.size() ||
           run.rows[row_index + 1].logical_record != row.logical_record ||
           run.rows[row_index + 1].segment_index != row.segment_index;
-      const auto structured_row =
-          row.visible_text.find("    ") != std::string::npos;
       auto semantic = semantic_row(
           records, ownership_index, row, run.id, row_index, is_label,
           final_segment_row &&
-              (structured_row || (!active_section[*run_owner] && !run_kind &&
-                                  row_index + 1 == run.rows.size())),
+              (!active_section[*run_owner] && !run_kind &&
+               row_index + 1 == run.rows.size()),
           final_segment_row);
       auto text = semantic.text;
       if (run_kind && is_explicit_label && explicit_label)
@@ -1288,10 +1274,21 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
       if (record_continuation) {
         DocumentSourceSliceIR source;
         auto text = complete_segment_text(*record, segment, &source);
-        // A lone unknown word before SRMSG is the fixed row's terminal marker,
-        // not flowing prose. Real record continuations contain at least one
-        // lexical boundary (including short tails such as "and reopened.").
-        if (text.find(' ') != std::string::npos)
+        std::vector<std::size_t> lexical_tokens;
+        std::copy_if(segment.source_tokens.begin(), segment.source_tokens.end(),
+                     std::back_inserter(lexical_tokens), [&](const auto token) {
+                       return token < record->ir.tokens.size() &&
+                              !structural_padding_token(
+                                  record->ir.tokens[token]);
+                     });
+        const auto terminal_marker_only =
+            lexical_tokens.size() == 1 &&
+            record->ir.tokens[lexical_tokens.front()].encoded.width == 1 &&
+            record->ir.tokens[lexical_tokens.front()].encoded.value >= 19 &&
+            record->ir.tokens[lexical_tokens.front()].encoded.value <= 43;
+        // Preserve even a single lexical word. Suppress only the exact
+        // one-token compact terminal-control envelope before SRMSG.
+        if (!terminal_marker_only)
           fragments.push_back({std::move(text), source});
       } else {
         fragments =
