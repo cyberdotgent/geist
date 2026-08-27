@@ -610,7 +610,55 @@ std::string opaque_text_before_segment(
   return result;
 }
 
-MessageMarkerDispositionIR marker_disposition(const PhysicalRowIR &row,
+bool compact_fixed_row_candidate(const PhysicalRowIR &row) {
+  return row.marker &&
+         row.start == PhysicalRowStartKind::explicit_marker_slot &&
+         !row.continues_previous_record && row.marker->encoded_width == 1 &&
+         row.marker->encoded_value >= 19 && row.marker->encoded_value <= 43 &&
+         row.native_origin >= 13;
+}
+
+bool has_compact_fixed_row_context(const DisplayRunIR &run,
+                                   std::size_t row_index) {
+  if (row_index >= run.rows.size() ||
+      !compact_fixed_row_candidate(run.rows[row_index]))
+    return false;
+  const auto &row = run.rows[row_index];
+  const auto adjacent_candidate = [&](std::size_t candidate) {
+    return candidate < run.rows.size() &&
+           run.rows[candidate].logical_record == row.logical_record &&
+           run.rows[candidate].segment_index == row.segment_index &&
+           compact_fixed_row_candidate(run.rows[candidate]);
+  };
+  // One compact spelling is ambiguous.  A neighboring row with the same
+  // mechanical envelope establishes a fixed-position row series without
+  // consulting the marker's decoded word.
+  if ((row_index != 0 && adjacent_candidate(row_index - 1)) ||
+      adjacent_candidate(row_index + 1))
+    return true;
+
+  // A font control can host one isolated indented row between two explicit
+  // sentence rows.  In that envelope the compact slot is the row delimiter;
+  // an otherwise identical compact word in an unstyled text run remains
+  // lexical.  This is the single-row counterpart of the repeated fixed-row
+  // evidence above and deliberately does not inspect decoded spelling.
+  const auto sentence_row = [&](std::size_t candidate) {
+    if (candidate >= run.rows.size())
+      return false;
+    const auto &neighbor = run.rows[candidate];
+    return neighbor.logical_record == row.logical_record &&
+           neighbor.segment_index == row.segment_index && neighbor.marker &&
+           neighbor.start == PhysicalRowStartKind::explicit_marker_slot &&
+           neighbor.native_origin == 1 &&
+           neighbor.marker->encoded_width == 1 &&
+           neighbor.marker->encoded_value == 1;
+  };
+  return run.control_kind == BookControlKind::font && row_index != 0 &&
+         sentence_row(row_index - 1) && sentence_row(row_index + 1);
+}
+
+MessageMarkerDispositionIR marker_disposition(const DisplayRunIR &run,
+                                              const PhysicalRowIR &row,
                                               bool section_label,
                                               std::size_t row_index,
                                               bool has_opaque_prefix) {
@@ -653,10 +701,7 @@ MessageMarkerDispositionIR marker_disposition(const PhysicalRowIR &row,
     // alphabet only at the first explicit marker slot of a new run. The same
     // spelling elsewhere is lexical; high dictionary values such as MSG023's
     // "The" are lexical even after terminal punctuation.
-    if (row_index == 0 &&
-        row.start == PhysicalRowStartKind::explicit_marker_slot &&
-        !row.continues_previous_record && marker.encoded_width == 1 &&
-        marker.encoded_value >= 28 && marker.encoded_value <= 43)
+    if (has_compact_fixed_row_context(run, row_index))
       return MessageMarkerDispositionIR::layout_artifact;
     return MessageMarkerDispositionIR::lexical_prefix;
   }
@@ -666,11 +711,11 @@ MessageMarkerDispositionIR marker_disposition(const PhysicalRowIR &row,
 MessageSemanticRowIR
 semantic_row(const std::vector<DecodedLogicalRecordSource> &records,
              const MessageOwnershipIndex &ownership, const PhysicalRowIR &row,
-             DisplayRunId run, std::size_t row_index, bool section_label,
+             const DisplayRunIR &run, std::size_t row_index, bool section_label,
              bool suppress_terminal_layout_word = false,
              bool recover_segment_suffix = false) {
   MessageSemanticRowIR result;
-  result.source_row = {run, row_index};
+  result.source_row = {run.id, row_index};
   auto visible = collapse_ascii_whitespace(trim_ascii(
       owned_row_text(ownership, row, row_index, suppress_terminal_layout_word,
                      &result.terminal_layout_token)));
@@ -680,7 +725,7 @@ semantic_row(const std::vector<DecodedLogicalRecordSource> &records,
   if (!prefix.empty())
     result.leading_source_slices.push_back(prefix_source);
   result.marker_disposition =
-      marker_disposition(row, section_label, row_index, !prefix.empty());
+      marker_disposition(run, row, section_label, row_index, !prefix.empty());
   if (row.marker &&
       result.marker_disposition ==
           MessageMarkerDispositionIR::opaque_continuation_suffix) {
@@ -733,7 +778,7 @@ paragraph_for_segment(const std::vector<DecodedLogicalRecordSource> &records,
           row.segment_index != segment_index)
         continue;
       auto semantic =
-          semantic_row(records, ownership, row, run.id, row_index, false);
+          semantic_row(records, ownership, row, run, row_index, false);
       if (row.marker &&
           semantic.marker_disposition ==
               MessageMarkerDispositionIR::punctuation_suffix &&
@@ -765,7 +810,7 @@ MessageParagraphIR paragraph_before_segment(
           row.segment_index >= segment_index)
         continue;
       auto semantic =
-          semantic_row(records, ownership, row, run.id, row_index, false);
+          semantic_row(records, ownership, row, run, row_index, false);
       if (row.marker &&
           semantic.marker_disposition ==
               MessageMarkerDispositionIR::punctuation_suffix &&
@@ -1028,7 +1073,7 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
           run.rows[row_index + 1].logical_record != row.logical_record ||
           run.rows[row_index + 1].segment_index != row.segment_index;
       auto semantic = semantic_row(
-          records, ownership_index, row, run.id, row_index, is_label,
+          records, ownership_index, row, run, row_index, is_label,
           final_segment_row &&
               (!active_section[*run_owner] && !run_kind &&
                row_index + 1 == run.rows.size()),
