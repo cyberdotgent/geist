@@ -261,14 +261,24 @@ void verify_book(const std::filesystem::path &path, std::uint32_t first,
     const auto message_072 =
         std::find_if(catalog->entries.begin(), catalog->entries.end(),
                      [](const auto &entry) { return entry.id == "072"; });
+    const auto section_contains = [](const auto &section,
+                                     const std::string &text) {
+      return std::any_of(section.paragraphs.begin(), section.paragraphs.end(),
+                         [&](const auto &paragraph) {
+                           return paragraph.text.find(text) !=
+                                      std::string::npos &&
+                                  (!paragraph.source_rows.empty() ||
+                                   !paragraph.source_slices.empty());
+                         });
+    };
     require(catalog && message_072 != catalog->entries.end() &&
                 message_072->headline.text.find("System call connect failed") !=
                     std::string::npos &&
-                message_072->sections[0].paragraphs.front().text.find(
-                    "establish communication with a server") !=
-                    std::string::npos &&
-                message_072->sections[1].paragraphs.front().text.find(
-                    "If this error becomes critical") != std::string::npos,
+                section_contains(
+                    message_072->sections[0],
+                    "establish communication with a server") &&
+                section_contains(message_072->sections[1],
+                                 "If this error becomes critical"),
             "message catalog IR lost source-spanning headline or section text");
     require(catalog && std::any_of(
                            catalog->entries.begin(), catalog->entries.end(),

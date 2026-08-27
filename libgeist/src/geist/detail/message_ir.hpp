@@ -15,6 +15,12 @@ enum class MessageSectionKind {
   action,
 };
 
+enum class MessageSectionBoundaryShapeIR {
+  normal_row,
+  record_prefix,
+  pre_message_start,
+};
+
 using MessageSourceRowIR = std::pair<DisplayRunId, std::size_t>;
 
 enum class MessageMarkerDispositionIR {
@@ -87,6 +93,20 @@ struct MessageParagraphIR {
   std::vector<MessageSemanticRowIR> semantic_rows;
 };
 
+// Typed source boundary discovered before message paragraphs are assembled.
+// Label and payload provenance are disjoint: the renderer never has to search
+// recovered prose for "Meaning" or "Action".
+struct MessageSectionBoundaryIR {
+  MessageSectionKind kind = MessageSectionKind::meaning;
+  std::size_t owner_entry = 0;
+  MessageSectionBoundaryShapeIR shape =
+      MessageSectionBoundaryShapeIR::normal_row;
+  DocumentSourceSliceIR label_source;
+  std::optional<MessageSourceRowIR> label_source_row;
+  std::vector<DocumentSourceSliceIR> payload_source_slices;
+  std::vector<MessageSourceRowIR> payload_source_rows;
+};
+
 struct MessageSectionIR {
   MessageSectionKind kind = MessageSectionKind::meaning;
   DisplayRunId run = 0;
@@ -94,7 +114,9 @@ struct MessageSectionIR {
   std::uint32_t logical_record = 0;
   std::size_t segment_index = 0;
   bool recovered_record_continuation = false;
+  std::optional<std::size_t> boundary_index;
   std::vector<MessageSourceRowIR> label_source_rows;
+  std::vector<DocumentSourceSliceIR> label_source_slices;
   std::vector<MessageParagraphIR> paragraphs;
   std::vector<MessageSourceRowIR> source_rows;
 };
@@ -116,6 +138,7 @@ struct MessageEntryIR {
 };
 
 struct MessageCatalogIR {
+  std::vector<MessageSectionBoundaryIR> boundaries;
   std::vector<MessageEntryIR> entries;
 };
 

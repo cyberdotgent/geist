@@ -172,6 +172,75 @@ int main() {
                       .paragraphs.front()
                       .text == "None.",
           "message topic lost its complete catalog or terminal Action");
+  const auto boundary_shape_count = [&](const auto shape) {
+    return std::count_if(topic->catalog.boundaries.begin(),
+                         topic->catalog.boundaries.end(),
+                         [&](const auto &boundary) {
+                           return boundary.shape == shape;
+                         });
+  };
+  require(topic->catalog.boundaries.size() == 792,
+          "typed message boundary count changed");
+  require(boundary_shape_count(
+              geist::detail::MessageSectionBoundaryShapeIR::normal_row) == 772,
+          "normal-row message boundary count changed");
+  require(boundary_shape_count(
+              geist::detail::MessageSectionBoundaryShapeIR::record_prefix) ==
+              12,
+          "record-prefix message boundary count changed");
+  require(boundary_shape_count(
+              geist::detail::MessageSectionBoundaryShapeIR::
+                  pre_message_start) == 8,
+          "pre-SRMSG message boundary count changed");
+  std::vector<std::string> recovered_meaning;
+  std::vector<std::string> recovered_action;
+  for (std::size_t entry_index = 0;
+       entry_index < topic->catalog.entries.size(); ++entry_index) {
+    const auto &entry = topic->catalog.entries[entry_index];
+    for (const auto &section : entry.sections) {
+      require(section.boundary_index &&
+                  *section.boundary_index < topic->catalog.boundaries.size(),
+              "message section is not linked to its typed boundary");
+      const auto &boundary =
+          topic->catalog.boundaries[*section.boundary_index];
+      require(boundary.owner_entry == entry_index &&
+                  boundary.kind == section.kind &&
+                  boundary.label_source.token_begin <
+                      boundary.label_source.token_end &&
+                  boundary.label_source.byte_begin <
+                      boundary.label_source.byte_end &&
+                  std::all_of(
+                      boundary.payload_source_slices.begin(),
+                      boundary.payload_source_slices.end(),
+                      [](const auto &slice) {
+                        return slice.token_begin < slice.token_end &&
+                               slice.byte_begin < slice.byte_end;
+                      }),
+              "typed message boundary lost exact label/payload provenance");
+      if (boundary.shape ==
+          geist::detail::MessageSectionBoundaryShapeIR::normal_row)
+        continue;
+      (section.kind == geist::detail::MessageSectionKind::meaning
+           ? recovered_meaning
+           : recovered_action)
+          .push_back(entry.id);
+      require(section.recovered_record_continuation &&
+                  !section.label_source_slices.empty() &&
+                  !boundary.payload_source_slices.empty() &&
+                  !section.paragraphs.empty() &&
+                  (!section.paragraphs.front().source_slices.empty() ||
+                   !section.paragraphs.front().source_rows.empty()),
+              "recovered section relies on sentinel row coordinates");
+    }
+  }
+  require(recovered_meaning ==
+                  std::vector<std::string>{"209", "348", "509", "519",
+                                           "702", "801", "809", "2033",
+                                           "2134", "2211", "2260", "2275"} &&
+              recovered_action ==
+                  std::vector<std::string>{"322", "521", "556", "558",
+                                           "712", "740", "2031", "2214"},
+          "typed recovered Meaning/Action inventory changed");
   const auto message =
       [&](const std::string &id) -> const geist::detail::MessageEntryIR & {
     const auto found = std::find_if(
@@ -578,6 +647,35 @@ int main() {
   require(geist::detail::verify_message_topic_ir(sources, layout, ownership,
                                                  *topic, &error),
           error.empty() ? "message topic verification failed" : error.c_str());
+  auto mutated_boundaries = topic->catalog;
+  ++mutated_boundaries.boundaries.front().label_source.token_begin;
+  require(!geist::detail::same_message_catalog_ir(topic->catalog,
+                                                  mutated_boundaries),
+          "message boundary admitted changed label-token provenance");
+  mutated_boundaries = topic->catalog;
+  ++mutated_boundaries.boundaries.front()
+        .payload_source_slices.front()
+        .byte_begin;
+  require(!geist::detail::same_message_catalog_ir(topic->catalog,
+                                                  mutated_boundaries),
+          "message boundary admitted changed payload-byte provenance");
+  mutated_boundaries = topic->catalog;
+  mutated_boundaries.boundaries.front().owner_entry = 1;
+  require(!geist::detail::same_message_catalog_ir(topic->catalog,
+                                                  mutated_boundaries),
+          "message boundary admitted a nonlocal owner");
+  mutated_boundaries = topic->catalog;
+  std::swap(mutated_boundaries.boundaries[0],
+            mutated_boundaries.boundaries[1]);
+  require(!geist::detail::same_message_catalog_ir(topic->catalog,
+                                                  mutated_boundaries),
+          "message boundary admitted changed section order");
+  mutated_boundaries = topic->catalog;
+  mutated_boundaries.boundaries.front().shape =
+      geist::detail::MessageSectionBoundaryShapeIR::record_prefix;
+  require(!geist::detail::same_message_catalog_ir(topic->catalog,
+                                                  mutated_boundaries),
+          "message boundary admitted a changed continuation shape");
   require(geist::detail::format_message_topic_ir(*topic).find(
               "message_topic records=[172,435)") != std::string::npos,
           "message topic trace omitted its whole-record envelope");

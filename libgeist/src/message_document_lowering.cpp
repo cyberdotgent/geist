@@ -271,7 +271,9 @@ bool verify_message_shape(const MessageTopicIR &message, std::string *error) {
         return fail(error,
                     "message headline continuation lacks source provenance");
     for (const auto &section : entry.sections) {
-      if (section.paragraphs.empty())
+      if (section.paragraphs.empty() || section.label_source_slices.empty() ||
+          !std::all_of(section.label_source_slices.begin(),
+                       section.label_source_slices.end(), valid_slice))
         return fail(error, "message section has no paragraphs");
       for (const auto &paragraph : section.paragraphs)
         if (!source_proven(paragraph) ||
@@ -388,10 +390,8 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
       auto label_origin = origin("message section label");
       for (const auto &row : section.label_source_rows)
         add_row(label_origin, {row.first, row.second});
-      const auto *label_segment =
-          find_segment(message, section.logical_record, section.segment_index);
-      if (label_segment != nullptr)
-        add_slice(label_origin, label_segment->source);
+      for (const auto &slice : section.label_source_slices)
+        add_slice(label_origin, slice);
       canonicalize(label_origin);
       auto block_origin = label_origin;
       const auto *label =

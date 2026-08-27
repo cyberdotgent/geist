@@ -112,6 +112,28 @@ bool numeric_message_id(const std::string &value) {
          numeric_id_part(value.substr(hyphen + 1));
 }
 
+bool closes_unmatched_delimiter(std::string_view prefix,
+                                std::string_view closing) {
+  if (closing.size() != 1)
+    return false;
+  char opener = '\0';
+  switch (closing.front()) {
+  case '>': opener = '<'; break;
+  case ')': opener = '('; break;
+  case ']': opener = '['; break;
+  case '}': opener = '{'; break;
+  default: return false;
+  }
+  std::size_t depth = 0;
+  for (const auto character : prefix) {
+    if (character == opener)
+      ++depth;
+    else if (character == closing.front() && depth != 0)
+      --depth;
+  }
+  return depth != 0;
+}
+
 std::string first_word(std::string value) {
   value = trim_ascii(std::move(value));
   const auto end = value.find_first_of(" \t\r\n");
@@ -543,10 +565,10 @@ bool same_topic_envelope(const MessageTopicIR &left,
 
 } // namespace
 
-std::optional<MessageTopicIR>
-extract_message_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
-                         const LayoutIR &layout, const OwnershipIR &ownership,
-                         std::string *error) {
+std::optional<MessageTopicIR> extract_message_topic_ir_impl(
+    const std::vector<DecodedLogicalRecordSource> &records,
+    const LayoutIR &layout, const OwnershipIR &ownership,
+    bool include_catalog, std::string *error) {
   const auto reject =
       [&](std::string message) -> std::optional<MessageTopicIR> {
     fail(error, std::move(message));
@@ -675,14 +697,17 @@ extract_message_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
       !ascii_equals_case_insensitive(result.metadata.heading_level, "H1"))
     return reject("message topic metadata/heading envelope is incomplete");
 
-  auto catalog = extract_message_catalog_ir(records, layout, ownership,
-                                            &verification_error);
-  if (!catalog)
-    return reject("inner message catalog rejected: " + verification_error);
-  if (catalog->entries.size() != 396 || catalog->entries.front().id != "023" ||
-      catalog->entries.back().id != "2505")
-    return reject("message catalog fixture boundary is not canonical");
-  result.catalog = std::move(*catalog);
+  if (include_catalog) {
+    auto catalog = extract_message_catalog_ir(records, layout, ownership,
+                                              &verification_error);
+    if (!catalog)
+      return reject("inner message catalog rejected: " + verification_error);
+    if (catalog->entries.size() != 396 ||
+        catalog->entries.front().id != "023" ||
+        catalog->entries.back().id != "2505")
+      return reject("message catalog fixture boundary is not canonical");
+    result.catalog = std::move(*catalog);
+  }
 
   const auto selectors =
       extract_selector_catalog_ir(records, &verification_error);
@@ -812,8 +837,14 @@ extract_message_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
       result.anchors.push_back({"HDRMSGS", result.segments.back().source});
     }
   }
+  const auto numeric_messages = static_cast<std::size_t>(std::count_if(
+      ordered.begin(), ordered.end(), [](const auto &item) {
+        return item.segment->kind == BookControlKind::message_start &&
+               numeric_message_id(first_word(
+                   range_text(*item.record, item.segment->operand_range)));
+      }));
   if (result.segments.size() != ordered.size() ||
-      result.anchors.size() != result.catalog.entries.size() + 2)
+      result.anchors.size() != numeric_messages + 2)
     return reject("message source ledger or anchor set is incomplete");
   result.terminal_content_source = result.segments.back().source;
   if (result.segments.back().role != MessageTopicSegmentRoleIR::catalog ||
@@ -825,17 +856,272 @@ extract_message_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
   return result;
 }
 
+std::optional<MessageTopicIR>
+extract_message_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
+                         const LayoutIR &layout, const OwnershipIR &ownership,
+                         std::string *error) {
+  return extract_message_topic_ir_impl(records, layout, ownership, true, error);
+}
+
+bool message_topic_candidate_is_consistent(const MessageTopicIR &topic) {
+  const auto &introduction = topic.introduction;
+  if (topic.first_logical_record >= topic.end_logical_record ||
+      introduction.cells.empty() || introduction.paragraphs.size() != 5)
+    return false;
+  std::set<std::size_t> paragraph_break_cells;
+  for (std::size_t begin = 0; begin < introduction.cells.size();) {
+    if (introduction.cells[begin].source_disposition !=
+        SourceDisposition::layout_padding) {
+      ++begin;
+      continue;
+    }
+    auto end = begin + 1;
+    while (end < introduction.cells.size() &&
+           introduction.cells[end].introduction_row ==
+               introduction.cells[begin].introduction_row &&
+           introduction.cells[end].source_disposition ==
+               SourceDisposition::layout_padding)
+      ++end;
+    auto previous = begin;
+    while (previous != 0 &&
+           introduction.cells[previous - 1].introduction_row ==
+               introduction.cells[begin].introduction_row) {
+      --previous;
+      if (introduction.cells[previous].role ==
+          MessageIntroductionCellRoleIR::text)
+        break;
+    }
+    auto next = end;
+    while (next < introduction.cells.size() &&
+           introduction.cells[next].introduction_row ==
+               introduction.cells[begin].introduction_row &&
+           introduction.cells[next].role !=
+               MessageIntroductionCellRoleIR::text)
+      ++next;
+    if (end - begin >= 5 && previous < begin &&
+        introduction.cells[previous].word == '.' &&
+        next < introduction.cells.size() &&
+        introduction.cells[next].introduction_row ==
+            introduction.cells[begin].introduction_row)
+      for (auto cell = begin; cell < end; ++cell)
+        paragraph_break_cells.insert(cell);
+    begin = end;
+  }
+  if (paragraph_break_cells.empty())
+    return false;
+  std::vector<std::size_t> claims(introduction.cells.size());
+  std::size_t selector = 0;
+  std::optional<std::size_t> previous_source;
+  for (const auto &paragraph : introduction.paragraphs) {
+    if (paragraph.atoms.empty())
+      return false;
+    for (const auto &atom : paragraph.atoms) {
+      if (atom.cell_indices.empty() ||
+          !std::is_sorted(atom.cell_indices.begin(), atom.cell_indices.end()))
+        return false;
+      if (previous_source && atom.cell_indices.front() <= *previous_source)
+        return false;
+      previous_source = atom.cell_indices.back();
+      for (const auto cell : atom.cell_indices) {
+        if (cell >= introduction.cells.size())
+          return false;
+        ++claims[cell];
+      }
+      if (atom.kind == MessageIntroductionAtomKindIR::selector) {
+        if (!atom.target || selector >= topic.selectors.size() ||
+            atom.target->kind != topic.selectors[selector].target.kind ||
+            atom.target->value != topic.selectors[selector].target.value)
+          return false;
+        ++selector;
+      } else if (atom.target) {
+        return false;
+      }
+    }
+  }
+  if (selector != topic.selectors.size())
+    return false;
+  for (std::size_t cell = 0; cell < introduction.cells.size(); ++cell) {
+    const auto role = introduction.cells[cell].role;
+    const auto semantic = role == MessageIntroductionCellRoleIR::text ||
+                          role == MessageIntroductionCellRoleIR::selector;
+    if ((semantic && claims[cell] != 1) || (!semantic && claims[cell] != 0) ||
+        (role == MessageIntroductionCellRoleIR::paragraph_break) !=
+            (paragraph_break_cells.count(cell) != 0))
+      return false;
+  }
+  const auto coordinate = [](const auto &source) {
+    return std::make_tuple(source.logical_record, source.segment_index,
+                           source.token_begin, source.byte_begin);
+  };
+  for (std::size_t index = 1; index < topic.anchors.size(); ++index)
+    if (coordinate(topic.anchors[index].source) <=
+        coordinate(topic.anchors[index - 1].source))
+      return false;
+  return true;
+}
+
+bool message_catalog_candidate_is_consistent(
+    const std::vector<DecodedLogicalRecordSource> &records,
+    const LayoutIR &layout, const MessageCatalogIR &catalog) {
+  const auto valid_slice = [&](const DocumentSourceSliceIR &slice) {
+    const auto *record = find_record(records, slice.logical_record);
+    return record != nullptr && slice.token_begin < slice.token_end &&
+           slice.token_end <= record->ir.tokens.size() &&
+           slice.byte_begin ==
+               record->ir.tokens[slice.token_begin].byte_range.begin &&
+           slice.byte_end ==
+               record->ir.tokens[slice.token_end - 1].byte_range.end;
+  };
+  const auto valid_terminal_token = [&](const MessageTerminalLayoutTokenIR &item) {
+    const auto *record = find_record(records, item.logical_record);
+    return record != nullptr && item.token_index < record->ir.tokens.size() &&
+           item.encoded == record->ir.tokens[item.token_index].encoded &&
+           item.bytes.begin ==
+               record->ir.tokens[item.token_index].byte_range.begin &&
+           item.bytes.end ==
+               record->ir.tokens[item.token_index].byte_range.end;
+  };
+  const auto physical_row = [&](const MessageSourceRowIR &source)
+      -> const PhysicalRowIR * {
+    const auto run = std::find_if(layout.runs.begin(), layout.runs.end(),
+                                  [&](const auto &item) {
+                                    return item.id == source.first;
+                                  });
+    return run == layout.runs.end() || source.second >= run->rows.size()
+               ? nullptr
+               : &run->rows[source.second];
+  };
+  if (catalog.entries.size() != 396 || catalog.boundaries.size() != 792)
+    return false;
+  const auto check_paragraph = [&](const MessageParagraphIR &paragraph) {
+    std::string semantic_text;
+    for (const auto &row : paragraph.semantic_rows) {
+      const auto *physical = physical_row(row.source_row);
+      if (physical == nullptr)
+        return false;
+      if (row.terminal_layout_token &&
+          !valid_terminal_token(*row.terminal_layout_token))
+        return false;
+      for (const auto &slice : row.leading_source_slices)
+        if (!valid_slice(slice))
+          return false;
+      for (const auto &slice : row.trailing_source_slices)
+        if (!valid_slice(slice))
+          return false;
+      if (row.marker_disposition ==
+              MessageMarkerDispositionIR::lexical_prefix &&
+          (!physical->marker ||
+           row.text.rfind(physical->marker->decoded_text, 0) != 0))
+        return false;
+      if (row.marker_disposition ==
+              MessageMarkerDispositionIR::closing_delimiter_bridge &&
+          (row.leading_source_slices.empty() || !physical->marker))
+        return false;
+      if (!row.leading_source_slices.empty() && physical->marker) {
+        const auto &slice = row.leading_source_slices.front();
+        const auto *record = find_record(records, slice.logical_record);
+        std::string prefix;
+        if (record != nullptr) {
+          std::vector<TokenWords> words(
+              record->tokens.begin() +
+                  static_cast<std::ptrdiff_t>(slice.token_begin),
+              record->tokens.begin() +
+                  static_cast<std::ptrdiff_t>(slice.token_end));
+          prefix = collapse_ascii_whitespace(
+              trim_ascii(token_words_to_ascii(assemble_logical_record(words))));
+        }
+        if (closes_unmatched_delimiter(prefix,
+                                       physical->marker->decoded_text) &&
+            row.marker_disposition !=
+                MessageMarkerDispositionIR::closing_delimiter_bridge)
+          return false;
+      }
+      if (!row.text.empty()) {
+        if (!semantic_text.empty())
+          semantic_text.push_back(' ');
+        semantic_text += row.text;
+      }
+    }
+    if (!paragraph.semantic_rows.empty() && paragraph.text != semantic_text)
+      return false;
+    for (const auto &slice : paragraph.source_slices)
+      if (!valid_slice(slice))
+        return false;
+    for (const auto &item : paragraph.suppressed_layout_tokens)
+      if (!valid_terminal_token(item))
+        return false;
+    return true;
+  };
+  for (std::size_t entry_index = 0; entry_index < catalog.entries.size();
+       ++entry_index) {
+    const auto &entry = catalog.entries[entry_index];
+    if (entry.sections.size() != 2 ||
+        entry.sections[0].kind != MessageSectionKind::meaning ||
+        entry.sections[1].kind != MessageSectionKind::action)
+      return false;
+    for (std::size_t section_index = 0; section_index < 2; ++section_index) {
+      const auto &section = entry.sections[section_index];
+      if (!section.boundary_index ||
+          *section.boundary_index != entry_index * 2 + section_index ||
+          *section.boundary_index >= catalog.boundaries.size())
+        return false;
+      const auto &boundary = catalog.boundaries[*section.boundary_index];
+      if (boundary.owner_entry != entry_index ||
+          boundary.kind != section.kind || !valid_slice(boundary.label_source) ||
+          section.recovered_record_continuation !=
+              (boundary.shape != MessageSectionBoundaryShapeIR::normal_row) ||
+          section.label_source_slices.size() != 1 ||
+          !same_slice(section.label_source_slices.front(),
+                      boundary.label_source))
+        return false;
+      const auto *label_record =
+          find_record(records, boundary.label_source.logical_record);
+      if (label_record == nullptr)
+        return false;
+      const auto expected_label =
+          boundary.kind == MessageSectionKind::meaning ? "Meaning" : "Action";
+      const auto &label_token =
+          label_record->ir.tokens[boundary.label_source.token_begin];
+      if (label_token.decoded_words.size() !=
+              std::char_traits<char>::length(expected_label) ||
+          !std::equal(label_token.decoded_words.begin(),
+                      label_token.decoded_words.end(), expected_label,
+                      [](const auto word, const auto character) {
+                        return word == static_cast<unsigned char>(character);
+                      }))
+        return false;
+      for (const auto &slice : boundary.payload_source_slices)
+        if (!valid_slice(slice))
+          return false;
+      for (const auto &paragraph : section.paragraphs)
+        if (!check_paragraph(paragraph))
+          return false;
+    }
+    if (!check_paragraph(entry.headline))
+      return false;
+    for (const auto &paragraph : entry.headline_continuations)
+      if (!check_paragraph(paragraph))
+        return false;
+  }
+  return true;
+}
+
 bool verify_message_topic_ir(
     const std::vector<DecodedLogicalRecordSource> &records,
     const LayoutIR &layout, const OwnershipIR &ownership,
     const MessageTopicIR &topic, std::string *error) {
-  const auto canonical =
-      extract_message_topic_ir(records, layout, ownership, error);
-  if (!canonical)
+  if (!message_topic_candidate_is_consistent(topic))
+    return fail(error, "message topic candidate invariants are inconsistent");
+  if (!message_catalog_candidate_is_consistent(records, layout,
+                                               topic.catalog))
+    return fail(error, "message catalog candidate invariants are inconsistent");
+  const auto envelope = extract_message_topic_ir_impl(
+      records, layout, ownership, false, error);
+  if (!envelope || !same_topic_envelope(*envelope, topic))
+    return fail(error, "message topic source envelope is inconsistent");
+  if (!verify_message_catalog_ir(records, layout, ownership, topic.catalog,
+                                 error))
     return false;
-  if (!same_message_catalog_ir(canonical->catalog, topic.catalog) ||
-      !same_topic_envelope(*canonical, topic))
-    return fail(error, "message topic differs from canonical extraction");
   if (error != nullptr)
     error->clear();
   return true;
