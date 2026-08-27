@@ -92,6 +92,7 @@ set(GEIST_SOURCES
   src/markup.cpp
   src/message_ir.cpp
   src/message_topic_ir.cpp
+  src/menu_document_lowering.cpp
   src/menu_ir.cpp
   src/menu_topic_ir.cpp
   src/markdown.cpp

@@ -1,5 +1,6 @@
-#include "geist/detail/internal.hpp"
 #include "geist/detail/book_topic_catalog_ir.hpp"
+#include "geist/detail/internal.hpp"
+#include "geist/detail/menu_document_lowering.hpp"
 #include "geist/detail/menu_topic_ir.hpp"
 #include "geist/document.hpp"
 
@@ -47,6 +48,7 @@ void load_context(const std::filesystem::path &path,
 void inventory_complete_menu_topics() {
   const auto directory = std::filesystem::path(GEIST_REPO_ROOT) / "BOO";
   std::vector<std::string> admitted;
+  std::vector<std::string> lowered;
   std::size_t structurally_complete = 0;
   for (const auto &entry : std::filesystem::directory_iterator(directory)) {
     if (!entry.is_regular_file())
@@ -61,11 +63,11 @@ void inventory_complete_menu_topics() {
     std::string catalog_error;
     const auto catalog = build_book_topic_catalog_ir(
         document.topics(), document.table_of_contents(), &catalog_error);
-    require(catalog.has_value(), "book topic catalog extraction failed: " +
-                                     catalog_error);
+    require(catalog.has_value(),
+            "book topic catalog extraction failed: " + catalog_error);
     require(verify_book_topic_catalog_ir(document.topics(),
-                                         document.table_of_contents(),
-                                         *catalog, &catalog_error),
+                                         document.table_of_contents(), *catalog,
+                                         &catalog_error),
             "book topic catalog verification failed: " + catalog_error);
     LogicalDecodeContext context;
     load_context(entry.path(), &context);
@@ -102,14 +104,81 @@ void inventory_complete_menu_topics() {
       if (!target_validation)
         continue;
       std::string error;
-      const auto semantic =
-          extract_menu_topic_ir(sources, *target_validation, layout, ownership,
-                                &error);
+      const auto semantic = extract_menu_topic_ir(sources, *target_validation,
+                                                  layout, ownership, &error);
       if (!semantic)
         continue;
       require(verify_menu_topic_ir(sources, *target_validation, layout,
                                    ownership, *semantic, &error),
               "canonical menu topic failed verification: " + error);
+
+      TopicIdentityIR topic_identity;
+      topic_identity.id = topic.id;
+      topic_identity.title = topic.title;
+      topic_identity.heading_level = topic.heading_level;
+      topic_identity.topic_number = topic.topic_number;
+      topic_identity.start_logical_record = topic.start_logical_record;
+      topic_identity.end_logical_record = topic.end_logical_record;
+      const auto document_ir =
+          lower_menu_topic_to_document_ir(topic_identity, *semantic, &error);
+      require(document_ir.has_value(),
+              "canonical menu DocumentIR lowering failed: " + error);
+      require(verify_menu_topic_document_ir(*semantic, *document_ir, &error),
+              "canonical menu DocumentIR failed verification: " + error);
+      require(document_ir->topic.heading_level == semantic->heading_level,
+              "source-proven menu heading level was not authoritative");
+      const auto list_index = semantic->anchor ? 2U : 1U;
+      require(document_ir->blocks.size() == list_index + 1,
+              "menu DocumentIR did not preserve title/anchor/list shape");
+      const auto *list =
+          std::get_if<ListBlockIR>(&document_ir->blocks[list_index].node);
+      require(list != nullptr && !list->ordered &&
+                  list->items.size() == semantic->items.size(),
+              "menu DocumentIR did not preserve unordered item sequence");
+      for (std::size_t item_index = 0; item_index < list->items.size();
+           ++item_index) {
+        require(list->items[item_index].content.size() == 1,
+                "menu item did not lower to one semantic link");
+        const auto *link = std::get_if<CrossReferenceInlineIR>(
+            &list->items[item_index].content.front().node);
+        require(link != nullptr &&
+                    link->target.kind == CrossReferenceTargetKindIR::topic &&
+                    link->target.value ==
+                        semantic->items[item_index].target.value &&
+                    link->label == semantic->items[item_index].label,
+                "menu link label or raw topic target changed in lowering");
+        require(
+            !list->items[item_index].origin.slices.empty() &&
+                !list->items[item_index].content.front().origin.slices.empty(),
+            "menu link lost item or exact cell provenance");
+      }
+      auto mutated_document = *document_ir;
+      auto *mutated_list =
+          std::get_if<ListBlockIR>(&mutated_document.blocks[list_index].node);
+      auto *mutated_link = std::get_if<CrossReferenceInlineIR>(
+          &mutated_list->items.front().content.front().node);
+      mutated_link->target.value += "-changed";
+      require(!verify_menu_topic_document_ir(*semantic, mutated_document),
+              "menu DocumentIR verifier admitted a mutated target");
+      mutated_document = *document_ir;
+      mutated_list =
+          std::get_if<ListBlockIR>(&mutated_document.blocks[list_index].node);
+      mutated_link = std::get_if<CrossReferenceInlineIR>(
+          &mutated_list->items.front().content.front().node);
+      mutated_link->label += "-changed";
+      require(!verify_menu_topic_document_ir(*semantic, mutated_document),
+              "menu DocumentIR verifier admitted a mutated label");
+      mutated_document = *document_ir;
+      mutated_list =
+          std::get_if<ListBlockIR>(&mutated_document.blocks[list_index].node);
+      ++mutated_list->items.front()
+            .content.front()
+            .origin.slices.front()
+            .byte_begin;
+      require(!verify_menu_topic_document_ir(*semantic, mutated_document),
+              "menu DocumentIR verifier admitted mutated cell provenance");
+      lowered.push_back(entry.path().filename().string() + ':' + topic.id +
+                        ':' + std::to_string(list->items.size()));
       require(std::all_of(semantic->items.begin(), semantic->items.end(),
                           [](const auto &item) {
                             return item.target.kind ==
@@ -120,7 +189,8 @@ void inventory_complete_menu_topics() {
                           }),
               "menu target or exact visible-cell provenance was lost");
       require(std::all_of(target_validation->items.begin(),
-                          target_validation->items.end(), [](const auto &item) {
+                          target_validation->items.end(),
+                          [](const auto &item) {
                             return !item.target.empty() && !item.label.empty();
                           }),
               "catalog validation lost target identity or label evidence");
@@ -128,8 +198,9 @@ void inventory_complete_menu_topics() {
               "canonical source-only menu failed verification: " + error);
       auto mutated_menu = *menu;
       ++mutated_menu.items.front().target_cells.front().word;
-      require(!verify_source_menu_ir(sources, mutated_menu),
-              "source-only menu verifier admitted mutated target-cell evidence");
+      require(
+          !verify_source_menu_ir(sources, mutated_menu),
+          "source-only menu verifier admitted mutated target-cell evidence");
       mutated_menu = *menu;
       mutated_menu.items.front().text += "-changed";
       require(!verify_source_menu_ir(sources, mutated_menu),
@@ -185,6 +256,7 @@ void inventory_complete_menu_topics() {
     }
   }
   std::sort(admitted.begin(), admitted.end());
+  std::sort(lowered.begin(), lowered.end());
   auto expected = std::vector<std::string>{
       "FA1PLMM0.boo:5.6:1",      "SC33-033.boo:5.3:4",
       "SC34-425.boo:1.8.15.5:1", "SC34-425.boo:1.8.18.5:1",
@@ -195,15 +267,17 @@ void inventory_complete_menu_topics() {
   for (const auto &entry : admitted)
     inventory += "\n  " + entry;
   require(admitted == expected, "strict whole-topic menu admission inventory "
-                                "changed; admitted:" + inventory);
+                                "changed; admitted:" +
+                                    inventory);
+  require(lowered == expected,
+          "catalog-validated menu lowering inventory changed");
   require(structurally_complete == 153,
           "raw structural menu envelope inventory changed: " +
               std::to_string(structurally_complete));
 }
 
 void catalog_contract() {
-  std::vector<TopicInfo> topics{
-      {"TOPIC", "Header title", "h2", 7, 10, 20}};
+  std::vector<TopicInfo> topics{{"TOPIC", "Header title", "h2", 7, 10, 20}};
   std::vector<TocEntry> toc(1);
   toc[0].id = "topic";
   toc[0].title = "Contents title";
