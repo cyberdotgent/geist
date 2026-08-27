@@ -61,6 +61,13 @@ BookControlKind classify(std::string opcode) {
   if (opcode.size() > 2 && opcode.rfind("sh", 0) == 0 &&
       std::isdigit(static_cast<unsigned char>(opcode[2])) != 0)
     return BookControlKind::topic_start;
+  // A C control with an empty operand keeps the operand's '.' terminator
+  // attached to its opcode word: SC31-711 record 543 reads
+  // "ctopicn 91. cparent. cforwardlevel" and PRG1SORT record 119 reads
+  // "cparent 1.2. cforwardlevel. cbacklevel". Match the exact control name
+  // without that terminator; the byte remains inside the opcode range.
+  if (opcode.size() > 2 && opcode.front() == 'c' && opcode.back() == '.')
+    opcode.pop_back();
   if (opcode == "ctopicn")
     return BookControlKind::topic_number;
   if (opcode == "cparent")

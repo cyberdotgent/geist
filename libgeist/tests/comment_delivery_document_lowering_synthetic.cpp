@@ -72,7 +72,9 @@ CommentDeliveryIR comment_ir(LoadedBook &book, const TopicInfo &topic_info) {
       extract_comment_delivery_ir(sources, layout, ownership, &error);
   require(result.has_value(),
           error.empty() ? "comment extraction failed" : error);
-  return *result;
+  // Report and continue: an empty IR is rejected by the lowerer instead of
+  // dereferencing an absent value.
+  return result.value_or(CommentDeliveryIR{});
 }
 
 TopicIdentityIR identity(const TopicInfo &topic_info) {
@@ -167,6 +169,8 @@ int main() {
   const auto back = lower_comment_delivery_to_document_ir(identity(back_topic),
                                                           back_source, &error);
   require(back.has_value(), error);
+  if (!back.has_value())
+    return 1;
   require(std::holds_alternative<HeadingBlockIR>(back->blocks.front().node) &&
               std::get<TextInlineIR>(
                   std::get<HeadingBlockIR>(back->blocks.front().node)
@@ -275,6 +279,8 @@ int main() {
   const auto comments = lower_comment_delivery_to_document_ir(
       identity(comments_topic), comments_source, &error);
   require(comments.has_value(), error);
+  if (!comments.has_value())
+    return 1;
   require(
       std::holds_alternative<HeadingBlockIR>(comments->blocks.front().node) &&
           std::get<TextInlineIR>(
