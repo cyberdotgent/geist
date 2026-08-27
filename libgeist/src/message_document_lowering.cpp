@@ -244,9 +244,11 @@ bool verify_message_shape(const MessageTopicIR &message, std::string *error) {
     if (index != 0 && slice_key(message.anchors[index + 1].source) >=
                           slice_key(anchor.source))
       return fail(error, "message catalog anchors are not source ordered");
-    for (const auto &body : entry.body)
-      if (!source_proven(body) || !paragraph_coordinates_exist(message, body))
-        return fail(error, "message body paragraph lacks source provenance");
+    for (const auto &continuation : entry.headline_continuations)
+      if (!source_proven(continuation) ||
+          !paragraph_coordinates_exist(message, continuation))
+        return fail(error,
+                    "message headline continuation lacks source provenance");
     for (const auto &section : entry.sections) {
       if (section.paragraphs.empty())
         return fail(error, "message section has no paragraphs");
@@ -335,16 +337,20 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
 
     auto headline_origin =
         paragraph_origin(message, entry.headline, "message entry headline");
-    document.blocks.push_back(paragraph_block(
-        {{EmphasisInlineIR{entry.headline.text}, headline_origin}},
-        std::move(headline_origin)));
-
-    for (const auto &body : entry.body) {
-      auto body_origin =
-          paragraph_origin(message, body, "message entry body paragraph");
-      document.blocks.push_back(paragraph_block(
-          {{TextInlineIR{body.text}, body_origin}}, std::move(body_origin)));
+    auto headline_text = entry.headline.text;
+    for (const auto &continuation : entry.headline_continuations) {
+      auto body_origin = paragraph_origin(
+          message, continuation, "message entry headline continuation");
+      merge_origin(headline_origin, body_origin);
+      if (!headline_text.empty())
+        headline_text.push_back(' ');
+      headline_text += continuation.text;
     }
+    canonicalize(headline_origin);
+    const auto headline_inline_origin = headline_origin;
+    document.blocks.push_back(paragraph_block(
+        {{EmphasisInlineIR{std::move(headline_text)}, headline_inline_origin}},
+        std::move(headline_origin)));
 
     for (const auto &section : entry.sections) {
       for (std::size_t paragraph_index = 0;

@@ -829,14 +829,12 @@ bool verify_message_topic_ir(
     const std::vector<DecodedLogicalRecordSource> &records,
     const LayoutIR &layout, const OwnershipIR &ownership,
     const MessageTopicIR &topic, std::string *error) {
-  if (!verify_message_catalog_ir(records, layout, ownership, topic.catalog,
-                                 error))
-    return false;
   const auto canonical =
       extract_message_topic_ir(records, layout, ownership, error);
   if (!canonical)
     return false;
-  if (!same_topic_envelope(*canonical, topic))
+  if (!same_message_catalog_ir(canonical->catalog, topic.catalog) ||
+      !same_topic_envelope(*canonical, topic))
     return fail(error, "message topic differs from canonical extraction");
   if (error != nullptr)
     error->clear();

@@ -127,6 +127,101 @@ int main() {
                       .paragraphs.front()
                       .text == "None.",
           "message topic lost its complete catalog or terminal Action");
+  const auto message =
+      [&](const std::string &id) -> const geist::detail::MessageEntryIR & {
+    const auto found = std::find_if(
+        topic->catalog.entries.begin(), topic->catalog.entries.end(),
+        [&](const auto &entry) { return entry.id == id; });
+    require(found != topic->catalog.entries.end(),
+            "message regression entry is absent");
+    return *found;
+  };
+  const auto heading_text = [&](const std::string &id) {
+    const auto &entry = message(id);
+    auto text = entry.headline.text;
+    for (const auto &body : entry.headline_continuations) {
+      if (!text.empty())
+        text.push_back(' ');
+      text += body.text;
+    }
+    return text;
+  };
+  require(message("203").sections[1].paragraphs.front().text ==
+              "After exiting the AIX NetView/6000 graphical interface, stop "
+              "LNM for AIX. Then execute ovstop followed by ovstart. Use "
+              "ovstatus to verify the AIX NetView/6000 daemons are running. "
+              "Restart LNM for AIX.",
+          "message 203 lost its source-owned record continuation");
+  require(message("218").sections[1].paragraphs.front().text ==
+                  "Refer to the man page for usage." &&
+              !message("218")
+                   .sections[1]
+                   .paragraphs.front()
+                   .source_segments.empty() &&
+              message("218")
+                      .sections[1]
+                      .paragraphs.front()
+                      .source_segments.back() ==
+                  std::make_pair(std::uint32_t{183}, std::size_t{0}),
+          "message 218 did not retain its local pre-SRMSG Action source");
+  require(heading_text("2389").find("after the agent") != std::string::npos &&
+              heading_text("2389").find("Restart the Concentrator view") !=
+                  std::string::npos &&
+              heading_text("2389").find("Restart the a Concentrator") ==
+                  std::string::npos &&
+              heading_text("2390").find(
+                  "concentrator view is set to unknown") != std::string::npos &&
+              heading_text("2392").find("has been removed from the database") !=
+                  std::string::npos,
+          "message heading continuations lost source prose");
+  std::vector<std::tuple<std::size_t, std::uint16_t, std::uint8_t>>
+      terminal_layout_tokens;
+  const auto collect_terminal_layout_tokens = [&](const auto &paragraph) {
+    for (const auto &row : paragraph.semantic_rows)
+      if (row.terminal_layout_token)
+        terminal_layout_tokens.emplace_back(
+            row.terminal_layout_token->token_index,
+            row.terminal_layout_token->encoded.value,
+            row.terminal_layout_token->encoded.width);
+  };
+  collect_terminal_layout_tokens(message("2392").headline);
+  for (const auto &body : message("2392").headline_continuations)
+    collect_terminal_layout_tokens(body);
+  require(
+      std::find(terminal_layout_tokens.begin(), terminal_layout_tokens.end(),
+                std::make_tuple(std::size_t{107}, std::uint16_t{40},
+                                std::uint8_t{1})) !=
+              terminal_layout_tokens.end() &&
+          std::find(
+              terminal_layout_tokens.begin(), terminal_layout_tokens.end(),
+              std::make_tuple(std::size_t{159}, std::uint16_t{43},
+                              std::uint8_t{1})) != terminal_layout_tokens.end(),
+      "message layout tokens were suppressed without typed provenance");
+  const auto complete_catalog_text =
+      geist::detail::format_message_catalog_ir(topic->catalog);
+  require(complete_catalog_text.find(" can ") != std::string::npos,
+          "lexical value 44 was mistaken for the terminal control alphabet");
+  for (const auto *artifact :
+       {"LNM ? for AIX", "LNM - for AIX", "- Action", "an Action",
+        "action Meaning", "address Action", "? SRMSG"})
+    require(complete_catalog_text.find(artifact) == std::string::npos,
+            "message catalog retained a marker or control artifact");
+  std::size_t semantic_row_count = 0;
+  for (const auto &entry : topic->catalog.entries) {
+    const auto verify_paragraph_rows = [&](const auto &paragraph) {
+      require(paragraph.semantic_rows.size() == paragraph.source_rows.size(),
+              "message paragraph row semantics lost physical provenance");
+      semantic_row_count += paragraph.semantic_rows.size();
+    };
+    verify_paragraph_rows(entry.headline);
+    for (const auto &body : entry.headline_continuations)
+      verify_paragraph_rows(body);
+    for (const auto &section : entry.sections)
+      for (const auto &paragraph : section.paragraphs)
+        verify_paragraph_rows(paragraph);
+  }
+  require(semantic_row_count != 0,
+          "message catalog exposes no row-level semantic dispositions");
   require(topic->anchors.size() == 398 && topic->anchors.front().id == "MSG" &&
               topic->anchors[1].id == "HDRMSGS" &&
               topic->anchors[2].id == "MSG 023" &&
@@ -269,6 +364,45 @@ int main() {
   require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
                                                   mutated),
           "message topic verifier admitted a mutated typed target");
+  mutated = *topic;
+  auto &marker_rows = mutated.catalog.entries.front()
+                          .sections.front()
+                          .paragraphs.front()
+                          .semantic_rows;
+  const auto marker_row =
+      std::find_if(marker_rows.begin(), marker_rows.end(), [](const auto &row) {
+        return row.marker_disposition ==
+               geist::detail::MessageMarkerDispositionIR::layout_artifact;
+      });
+  require(marker_row != marker_rows.end(),
+          "message fixture has no typed layout marker");
+  marker_row->marker_disposition =
+      geist::detail::MessageMarkerDispositionIR::lexical_prefix;
+  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+                                                  mutated),
+          "message verifier admitted a changed marker disposition");
+  mutated = *topic;
+  auto *terminal_layout_token =
+      static_cast<geist::detail::MessageTerminalLayoutTokenIR *>(nullptr);
+  for (auto &entry : mutated.catalog.entries) {
+    const auto find_in_paragraph = [&](auto &paragraph) {
+      for (auto &row : paragraph.semantic_rows)
+        if (row.terminal_layout_token && terminal_layout_token == nullptr)
+          terminal_layout_token = &*row.terminal_layout_token;
+    };
+    find_in_paragraph(entry.headline);
+    for (auto &body : entry.headline_continuations)
+      find_in_paragraph(body);
+    for (auto &section : entry.sections)
+      for (auto &paragraph : section.paragraphs)
+        find_in_paragraph(paragraph);
+  }
+  require(terminal_layout_token != nullptr,
+          "message fixture has no typed terminal layout token");
+  ++terminal_layout_token->encoded.value;
+  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+                                                  mutated),
+          "message verifier admitted changed terminal layout evidence");
   mutated = *topic;
   mutated.introduction.paragraphs.erase(
       mutated.introduction.paragraphs.begin() + 1);

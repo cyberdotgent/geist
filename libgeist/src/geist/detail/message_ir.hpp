@@ -16,10 +16,59 @@ enum class MessageSectionKind {
 
 using MessageSourceRowIR = std::pair<DisplayRunId, std::size_t>;
 
+enum class MessageMarkerDispositionIR {
+  absent,
+  lexical_prefix,
+  punctuation_suffix,
+  list_prefix,
+  layout_artifact,
+};
+
+// A compact dictionary token which occupies the terminal control slot of a
+// pre-section display row. Its decoded spelling is not message prose, but the
+// token remains explicit source evidence rather than disappearing during text
+// projection.
+struct MessageTerminalLayoutTokenIR {
+  std::uint32_t logical_record = 0;
+  std::size_t token_index = 0;
+  EncodedLogicalToken encoded;
+  SourceByteRange bytes;
+  std::string decoded_text;
+};
+
+inline bool operator==(const MessageTerminalLayoutTokenIR &left,
+                       const MessageTerminalLayoutTokenIR &right) {
+  return left.logical_record == right.logical_record &&
+         left.token_index == right.token_index &&
+         left.encoded == right.encoded &&
+         left.bytes.begin == right.bytes.begin &&
+         left.bytes.end == right.bytes.end &&
+         left.decoded_text == right.decoded_text;
+}
+
+struct MessageSemanticRowIR {
+  MessageSourceRowIR source_row;
+  MessageMarkerDispositionIR marker_disposition =
+      MessageMarkerDispositionIR::absent;
+  std::optional<MessageTerminalLayoutTokenIR> terminal_layout_token;
+  std::string text;
+};
+
+inline bool operator==(const MessageSemanticRowIR &left,
+                       const MessageSemanticRowIR &right) {
+  return left.source_row == right.source_row &&
+         left.marker_disposition == right.marker_disposition &&
+         left.terminal_layout_token == right.terminal_layout_token &&
+         left.text == right.text;
+}
+
 struct MessageParagraphIR {
   std::string text;
   std::vector<MessageSourceRowIR> source_rows;
   std::vector<std::pair<std::uint32_t, std::size_t>> source_segments;
+  // Exact row-by-row semantic projection. Marker disposition records why a
+  // compact source slot contributes text or remains layout evidence.
+  std::vector<MessageSemanticRowIR> semantic_rows;
 };
 
 struct MessageSectionIR {
@@ -39,7 +88,9 @@ struct MessageEntryIR {
   std::uint32_t logical_record = 0;
   std::size_t segment_index = 0;
   MessageParagraphIR headline;
-  std::vector<MessageParagraphIR> body;
+  // Display runs after the initial headline and before Meaning/Action are
+  // semantically continuations of the emphasized message headline.
+  std::vector<MessageParagraphIR> headline_continuations;
   std::vector<MessageSectionIR> sections;
   // Complete ordered ledger of physical rows assigned to this message. Rows
   // carrying structural separator artifacts are retained separately rather
@@ -53,16 +104,15 @@ struct MessageCatalogIR {
 };
 
 std::optional<MessageCatalogIR> extract_message_catalog_ir(
-    const std::vector<DecodedLogicalRecordSource>& records,
-    const LayoutIR& layout,
-    const OwnershipIR& ownership,
-    std::string* error = nullptr);
+    const std::vector<DecodedLogicalRecordSource> &records,
+    const LayoutIR &layout, const OwnershipIR &ownership,
+    std::string *error = nullptr);
 bool verify_message_catalog_ir(
-    const std::vector<DecodedLogicalRecordSource>& records,
-    const LayoutIR& layout,
-    const OwnershipIR& ownership,
-    const MessageCatalogIR& catalog,
-    std::string* error = nullptr);
-std::string format_message_catalog_ir(const MessageCatalogIR& catalog);
+    const std::vector<DecodedLogicalRecordSource> &records,
+    const LayoutIR &layout, const OwnershipIR &ownership,
+    const MessageCatalogIR &catalog, std::string *error = nullptr);
+bool same_message_catalog_ir(const MessageCatalogIR &left,
+                             const MessageCatalogIR &right);
+std::string format_message_catalog_ir(const MessageCatalogIR &catalog);
 
 } // namespace geist::detail

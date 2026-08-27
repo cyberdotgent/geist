@@ -126,7 +126,7 @@ int main() {
 
   std::size_t expected_paragraphs = message->introduction.paragraphs.size();
   for (const auto &entry : message->catalog.entries) {
-    expected_paragraphs += 1 + entry.body.size();
+    expected_paragraphs += 1;
     for (const auto &section : entry.sections)
       expected_paragraphs += section.paragraphs.size();
   }
@@ -172,6 +172,21 @@ int main() {
           "[Determination\" in topic 2\\.0](<#HDRPROBS>) for instructions") !=
           std::string::npos,
       "message Markdown lost the adjacent typed selector sequence");
+  for (const auto *expected : {
+           "stop LNM for AIX\\. Then execute ovstop followed by ovstart\\. Use "
+           "ovstatus to verify the AIX NetView/6000 daemons are running\\. "
+           "Restart LNM for AIX\\.",
+           "Refer to the man page for usage\\.",
+           "Restart the Concentrator view application",
+           "concentrator view is set to unknown",
+           "has been removed from the database",
+       })
+    require(markdown.find(expected) != std::string::npos,
+            "message Markdown lost corrected source prose");
+  for (const auto *artifact :
+       {"LNM ? for AIX", "LNM - for AIX", "- Action", "an Action", "? SRMSG"})
+    require(markdown.find(artifact) == std::string::npos,
+            "message Markdown retained a source layout artifact");
 
   auto mutated_document = *document;
   std::swap(mutated_document.blocks[0], mutated_document.blocks[1]);
