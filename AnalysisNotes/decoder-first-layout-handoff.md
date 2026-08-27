@@ -544,18 +544,23 @@ selector spans and paragraph boundaries are not proven sufficiently to lower
 without presentation guesses. This is a representation checkpoint, not a
 Markdown migration claim.
 
-The complete `SC31-711.boo` glossary envelope is now represented separately
-from the earlier introduction prototype. `GlossaryCatalogIR` covers logical
+The complete `SC31-711.boo` glossary envelope is now represented and lowers
+canonically to output-neutral Document IR. `GlossaryCatalogIR` covers logical
 records `[435,518)`, all 281 term entries, 21 alphabet sections, the terminal
 `SRGLS`, raw term carry, physical definition rows, marker slots, exact source
-slices/ownership cells, and the full segment ledger. Canonical verification is
-field-for-field, including marker encoding and cell run/row provenance. The one
-embedded figure/table envelope is now also semantic: LR454's four nested
-controls and five physical rows produce a verified two-column grid with one
-header and six body rows, including source-proven lexical carry for `1-15`.
-Document-IR lowering remains disabled until a complete glossary-topic lowerer
-can sequence the introduction, sections, 281 definitions, and this table while
-replacing rather than duplicating its five physical rows.
+slices/ownership cells, and the full segment ledger. Its explicit 302-item
+sequence preserves the source interleaving of sections and terms. Definition
+prose is assembled only from preassembled token spans whose exact ownership is
+`visible_content`; marker, origin, and padding spans are omitted by disposition,
+never by character value. A focused check proves a lexical `What?` survives
+while a separate padding `???` token does not. The one embedded figure/table
+envelope is semantic: LR454's four nested controls and five physical rows
+produce a verified two-column grid with one header and six body rows, including
+source-proven lexical carry for `1-15`. Lowering emits 21 section headings, 281
+term anchors and definition entries, and one 7-by-2 table. The table owns its
+five physical source rows exactly once and those rows are disjoint from the
+definition prose. Production routing remains disabled until this complete
+Document IR is audited as its own Markdown migration slice.
 
 Generated figure/table lists now have a strict whole-topic model and canonical
 Document-IR lowering. It composes the verified selector catalog and display-row
