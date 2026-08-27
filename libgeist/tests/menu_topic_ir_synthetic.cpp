@@ -345,7 +345,11 @@ void inventory_complete_menu_topics() {
                                     inventory);
   require(lowered == expected,
           "catalog-validated menu lowering inventory changed");
-  require(structurally_complete == 153,
+  // 160 = the 153 envelopes admitted before ee31d26 plus seven topics whose
+  // empty-operand "cforwardlevel." metadata control was previously typed as an
+  // opaque structural segment: GG24-4302-00 6.7.1, PRG1SORT 1.2.1 and 1.3.1,
+  // SC24-5520-00 5.10, 6.11 and C.1, and SC34-425 FRONT_3.2.1.
+  require(structurally_complete == 160,
           "raw structural menu envelope inventory changed: " +
               std::to_string(structurally_complete));
 }
