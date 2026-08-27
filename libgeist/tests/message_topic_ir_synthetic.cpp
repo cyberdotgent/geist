@@ -146,6 +146,84 @@ int main() {
               topic->introduction_row_indices.size() == 20 &&
               !topic->rows.empty() && !topic->segments.empty(),
           "message heading/introduction or source ledgers are incomplete");
+  require(topic->introduction.paragraphs.size() == 5 &&
+              topic->introduction.paragraphs[0].atoms.size() == 1 &&
+              topic->introduction.paragraphs[1].atoms.size() == 1 &&
+              topic->introduction.paragraphs[2].atoms.size() == 1 &&
+              topic->introduction.paragraphs[3].atoms.size() == 1 &&
+              topic->introduction.paragraphs[4].atoms.size() == 5,
+          "message introduction lost its five source-proven paragraphs");
+  const auto &intro = topic->introduction.paragraphs;
+  require(
+      intro[0].atoms[0].text ==
+              "This chapter lists the LNM for AIX messages you can receive "
+              "when using LNM for AIX. Messages are listed by message ID "
+              "number and include an explanation of the message and "
+              "suggested actions." &&
+          intro[1].atoms[0].text ==
+              "Messages with numbers between 1000 and 1999 are sent to LNM "
+              "for AIX from the LNM OS/2 agent program. Refer to the "
+              "documentation that is provided with the LNM OS/2 agent for "
+              "an explanation of the message and suggested actions to take "
+              "to resolve the problem." &&
+          intro[2].atoms[0].text ==
+              "LNM for AIX appends a \"1\" to the front of the message "
+              "number that it receives from the LNM OS/2 agent. Before "
+              "consulting the LNM OS/2 agent documentation, identify the "
+              "appropriate message number for the LNM OS/2 agent by removing "
+              "the \"1\" from the number. For example, message number 1300 "
+              "on LNM for AIX corresponds to message number 300 on the LNM "
+              "OS/2 agent." &&
+          intro[3].atoms[0].text ==
+              "You can determine the process that generates a message by the "
+              "software name given for the message in the formatted nettl "
+              "log." &&
+          intro[4].atoms[0].text ==
+              "If you receive a message and are not able to find the message "
+              "in this chapter, call IBM Service for more information. See ",
+      "message introduction paragraph text is not source-canonical");
+  require(intro[4].atoms[1].kind ==
+                  geist::detail::MessageIntroductionAtomKindIR::selector &&
+              intro[4].atoms[1].text == "Chapter 2, \"Problem" &&
+              intro[4].atoms[1].target &&
+              intro[4].atoms[1].target->kind ==
+                  geist::detail::CrossReferenceTargetKindIR::anchor &&
+              intro[4].atoms[1].target->value == "HDRPROBS" &&
+              intro[4].atoms[2].kind ==
+                  geist::detail::MessageIntroductionAtomKindIR::text &&
+              intro[4].atoms[2].text == " " &&
+              intro[4].atoms[3].kind ==
+                  geist::detail::MessageIntroductionAtomKindIR::selector &&
+              intro[4].atoms[3].text == "Determination\" in topic 2.0" &&
+              intro[4].atoms[3].target &&
+              intro[4].atoms[3].target->value == "HDRPROBS",
+          "message introduction lost its two adjacent typed selectors");
+  std::vector<std::size_t> introduction_claims(
+      topic->introduction.cells.size());
+  for (const auto &paragraph : topic->introduction.paragraphs)
+    for (const auto &atom : paragraph.atoms)
+      for (const auto cell : atom.cell_indices) {
+        require(cell < introduction_claims.size(),
+                "message introduction atom references an invalid cell");
+        ++introduction_claims[cell];
+      }
+  for (std::size_t cell = 0; cell < introduction_claims.size(); ++cell) {
+    const auto semantic =
+        topic->introduction.cells[cell].role ==
+            geist::detail::MessageIntroductionCellRoleIR::text ||
+        topic->introduction.cells[cell].role ==
+            geist::detail::MessageIntroductionCellRoleIR::selector;
+    require(introduction_claims[cell] == (semantic ? 1u : 0u),
+            "message introduction source-cell conservation is not exact");
+  }
+  require(std::count_if(topic->introduction.cells.begin(),
+                        topic->introduction.cells.end(),
+                        [](const auto &cell) {
+                          return cell.role ==
+                                 geist::detail::MessageIntroductionCellRoleIR::
+                                     paragraph_break;
+                        }) == 20,
+          "message introduction lost its source-owned inline paragraph gap");
 
   std::set<std::pair<std::uint32_t, std::size_t>> segment_keys;
   for (const auto &segment : topic->segments)
@@ -191,6 +269,95 @@ int main() {
   require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
                                                   mutated),
           "message topic verifier admitted a mutated typed target");
+  mutated = *topic;
+  mutated.introduction.paragraphs.erase(
+      mutated.introduction.paragraphs.begin() + 1);
+  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+                                                  mutated),
+          "message topic verifier admitted a dropped intro paragraph");
+  mutated = *topic;
+  std::swap(mutated.introduction.paragraphs[1],
+            mutated.introduction.paragraphs[2]);
+  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+                                                  mutated),
+          "message topic verifier admitted reordered intro paragraphs");
+  mutated = *topic;
+  mutated.introduction.paragraphs[4].atoms.erase(
+      mutated.introduction.paragraphs[4].atoms.begin() + 2);
+  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+                                                  mutated),
+          "message topic verifier admitted merged adjacent selectors");
+  mutated = *topic;
+  mutated.introduction.paragraphs[4].atoms[1].target->value = "OTHER";
+  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+                                                  mutated),
+          "message topic verifier admitted a mutated intro selector target");
+  mutated = *topic;
+  mutated.introduction.paragraphs[4].atoms[1].text += " changed";
+  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+                                                  mutated),
+          "message topic verifier admitted a mutated intro selector label");
+  mutated = *topic;
+  mutated.introduction.paragraphs[4].atoms[1].cell_indices.pop_back();
+  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+                                                  mutated),
+          "message topic verifier admitted a shortened selector source span");
+  mutated = *topic;
+  const auto paragraph_break = std::find_if(
+      mutated.introduction.cells.begin(), mutated.introduction.cells.end(),
+      [](const auto &cell) {
+        return cell.role ==
+               geist::detail::MessageIntroductionCellRoleIR::paragraph_break;
+      });
+  require(paragraph_break != mutated.introduction.cells.end(),
+          "message introduction has no mutable paragraph gap");
+  paragraph_break->role = geist::detail::MessageIntroductionCellRoleIR::layout;
+  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+                                                  mutated),
+          "message topic verifier admitted a mutated paragraph gap");
+  mutated = *topic;
+  const auto ordinary_padding = std::find_if(
+      mutated.introduction.cells.begin(), mutated.introduction.cells.end(),
+      [](const auto &cell) {
+        return cell.role ==
+                   geist::detail::MessageIntroductionCellRoleIR::layout &&
+               cell.source_disposition ==
+                   geist::detail::SourceDisposition::layout_padding;
+      });
+  require(ordinary_padding != mutated.introduction.cells.end(),
+          "message introduction has no ordinary layout padding");
+  ordinary_padding->role =
+      geist::detail::MessageIntroductionCellRoleIR::paragraph_break;
+  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+                                                  mutated),
+          "message topic verifier admitted an invented padding break");
+  mutated = *topic;
+  const auto lexical_period = std::find_if(
+      mutated.introduction.cells.begin(), mutated.introduction.cells.end(),
+      [](const auto &cell) {
+        return cell.role ==
+                   geist::detail::MessageIntroductionCellRoleIR::text &&
+               cell.source_disposition ==
+                   geist::detail::SourceDisposition::marker_slot &&
+               cell.word == '.';
+      });
+  require(lexical_period != mutated.introduction.cells.end(),
+          "message introduction has no lexical marker period");
+  lexical_period->role = geist::detail::MessageIntroductionCellRoleIR::layout;
+  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+                                                  mutated),
+          "message topic verifier admitted a suppressed lexical period");
+  mutated = *topic;
+  std::swap(mutated.anchors[0], mutated.anchors[1]);
+  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+                                                  mutated),
+          "message topic verifier admitted reordered source anchors");
+  mutated = *topic;
+  mutated.introduction.paragraphs[4].atoms[0].cell_indices.push_back(
+      mutated.introduction.paragraphs[4].atoms[1].cell_indices.front());
+  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+                                                  mutated),
+          "message topic verifier admitted duplicated selected source text");
   mutated = *topic;
   mutated.catalog.entries.back().sections.back().paragraphs.front().text =
       "changed";
