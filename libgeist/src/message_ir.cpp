@@ -800,18 +800,6 @@ std::string section_payload(MessageSectionKind kind, std::string text) {
   return trim_ascii(text.substr(begin));
 }
 
-std::string clean_boundary_continuation(std::string value) {
-  value = collapse_ascii_whitespace(trim_ascii(std::move(value)));
-  const auto lexical = value.find_first_of(
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
-  if (lexical != std::string::npos)
-    value.erase(0, lexical);
-  for (auto marker = value.find(" ? "); marker != std::string::npos;
-       marker = value.find(" ? ", marker))
-    value.erase(marker, 2);
-  return collapse_ascii_whitespace(trim_ascii(std::move(value)));
-}
-
 std::tuple<std::uint32_t, std::size_t, std::size_t>
 first_source_coordinate(const LayoutIR &layout,
                         const MessageParagraphIR &paragraph) {
@@ -1369,7 +1357,6 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
           entry.sections[1].segment_index, &meaning_tail_source);
       meaning_tail =
           section_payload(MessageSectionKind::meaning, std::move(meaning_tail));
-      meaning_tail = clean_boundary_continuation(std::move(meaning_tail));
       const auto already_present = std::any_of(
           entry.sections[0].paragraphs.begin(),
           entry.sections[0].paragraphs.end(), [&](const auto &paragraph) {
@@ -1395,7 +1382,6 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
           &boundary_source);
       boundary_text =
           section_payload(MessageSectionKind::action, std::move(boundary_text));
-      boundary_text = clean_boundary_continuation(std::move(boundary_text));
       const auto already_present = std::any_of(
           entry.sections[1].paragraphs.begin(),
           entry.sections[1].paragraphs.end(), [&](const auto &paragraph) {
