@@ -67,6 +67,18 @@ For `QS3X36CM.BOO`, `0x0014` is 20 content pages and the terminal `0x00f1`
 matches the directory total logical-record count. For `OFCUSEOV.BOO`,
 `0x004d` is 77 content pages and the terminal total is `0x03f5`.
 
+Books whose content-page index does not fit in the directory page store a
+pointer root instead: the count word is `0` and the second word is the 1-based
+logical page (relative to the directory page) holding the whole table at page
+offset `0`, in the same `count, next, values` layout with `next` = `0`.
+
+| File | Directory page | Root words | Table page | Table words |
+| --- | ---: | --- | ---: | --- |
+| `SC09-138.boo` | `0x056` | `0000 00d8` | `0x056 + 0xd8 - 1 = 0x12d` | `00c4 0000 0001 0010 001b 0025 ...` (196 values, last `0x0979`) |
+| `SC34-425.boo` | `0x0db` | `0000 0108` | `0x0db + 0x108 - 1 = 0x1e2` | `00f4 0000 0001 000d 001b 0027 ...` (244 values) |
+| `N2AH1MST.BOO` | `0x001` | `0000 012d` | `0x001 + 0x12d - 1 = 0x12d` | `011a 0000 0001 000f 001c 0028 ...` (282 values) |
+| `SC24-5520-00.boo` | `0x020` | `0000 00c0` | `0x020 + 0xc0 - 1 = 0xdf` | `00ae 0000 0001 000d 0017 0024 ...` (174 values) |
+
 Only pages in this directory-declared content run contribute topic logical
 records. A page class alone is not sufficient. `GG24-4302-00.boo` declares 55
 content pages beginning at logical page 12 (physical pages 63–117) and a total
@@ -93,8 +105,10 @@ struct BooU16IndexDirect {
 ```
 
 The same lookup routine can follow continuation pages when the requested
-ordinal is greater than the current table's `count_be`; that paged case is
-implemented in the reader but was not needed for the sampled topic-start roots.
+ordinal is greater than the current table's `count_be`. Books with more than
+248 topics use it: the root's second word is then the 1-based logical page
+(relative to the directory page) of a continuation table with the same layout
+at page offset `0`. See the chained-table evidence in [topics.md](topics.md).
 
 Observed first topic-start words:
 
@@ -208,7 +222,5 @@ To read a BOO table of contents without using IBM binaries:
 ## Open Questions
 
 - The complete semantics of all four `CTOCDEF` numeric fields.
-- Whether books with very large topic counts use the paged continuation branch
-  of `BooLookupPagedU16Index` for the topic-start table.
 - Whether any BookManager variant stores an alternate generated TOC rather than
   literal `CTOCE` controls in the `CONTENTS` topic.

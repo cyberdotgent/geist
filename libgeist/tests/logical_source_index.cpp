@@ -1,6 +1,8 @@
 #include "geist/detail/internal.hpp"
+#include "geist/document.hpp"
 #include "test_failures.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
@@ -619,6 +621,41 @@ void verify_book(const std::filesystem::path &path, std::uint32_t first,
   }
 }
 
+// The directory topic-start index root holds at most 248 values and continues
+// in a table on the logical page named by its second word (Format/topics.md).
+// The first continuation value follows the root's last value and the final
+// value stays within the logical-record count.
+void verify_paged_topic_index(const std::filesystem::path &path,
+                              std::size_t topics, std::size_t root_values,
+                              std::uint32_t first_continuation,
+                              std::uint32_t last_start,
+                              std::uint32_t logical_records) {
+  const auto document = geist::BooDocument::open(path);
+  const auto bytes = geist::detail::read_file(path);
+  const auto starts =
+      geist::detail::parse_topic_record_starts(bytes, document.directory());
+  require(starts.size() == topics + 1 &&
+              document.directory().stream_table_count == topics,
+          "paged topic-start index did not yield every topic start");
+  if (starts.size() != topics + 1)
+    return;
+  require(std::is_sorted(starts.begin(), starts.end()) &&
+              starts.back() == document.directory().logical_record_count + 1,
+          "paged topic-start index is not a monotonic record sequence");
+  if (first_continuation != 0)
+    require(starts[root_values] == first_continuation &&
+                starts[topics - 1] == last_start &&
+                document.directory().logical_record_count == logical_records,
+            "paged topic-start continuation values changed");
+  std::size_t missing = 0;
+  for (const auto &topic : document.topics())
+    if (std::find(starts.begin(), starts.end(), topic.start_logical_record) ==
+        starts.end())
+      ++missing;
+  require(missing == 0,
+          "a decoded topic header is not in the topic-start index");
+}
+
 } // namespace
 
 int main() {
@@ -659,4 +696,8 @@ int main() {
   // incidentally by non-C font operands and must remain outside publication IR
   // now that style spelling is deliberately irrelevant.
   verify_book(root / "QS3X36CM.BOO", 7, 9, benchmark, false);
+  verify_paged_topic_index(root / "GG24-395.boo", 317, 248, 599, 824, 827);
+  verify_paged_topic_index(root / "DREICMST.boo", 374, 248, 496, 735, 753);
+  verify_paged_topic_index(root / "SC09-138.boo", 546, 248, 910, 2427, 2428);
+  verify_paged_topic_index(root / "IBMMMSTR.boo", 1677, 248, 0, 0, 0);
 }

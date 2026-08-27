@@ -258,23 +258,58 @@ TokenWords resolve_experimental_token(
   return found->second;
 }
 
-std::vector<std::uint32_t> parse_direct_u16_index(
+// Reads a 16-bit paged index (Format/topics.md, Format/table-of-contents.md).
+// Each table is `count_be, next_be, value_be[count]`. When the root holds fewer
+// than the expected values, `next_be` is the 1-based logical page (relative to
+// the directory page) of a continuation table with the same layout at page
+// offset 0; `0` ends the chain. Observed topic-start roots: GG24-395 (317
+// topics: root 248 values, next 0x4e -> page 0x151), DREICMST (374: next 0x3e
+// -> page 0x43), SC09-138 (546: next 0xd5 -> page 0x12a). Content-page roots
+// of SC09-138, SC34-425, N2AH1MST, and SC24-5520-00 hold no values at all
+// (`0000 <next>`) and point at one full table. With include_terminal the word
+// following the final table's values is read as the terminal entry. Fails
+// closed with an empty vector unless exactly the expected number of values is
+// collected.
+std::vector<std::uint32_t> parse_paged_u16_index(
     const std::vector<std::uint8_t>& bytes,
+    const BooDirectory& directory,
     std::size_t root,
     std::size_t expected_count,
     bool include_terminal) {
-  const auto value_count = expected_count + (include_terminal ? 1 : 0);
-  if (root + 4 > bytes.size() || read_be16(bytes, root) != expected_count ||
-      root + 4 + value_count * 2 > bytes.size()) {
-    return {};
-  }
-
   std::vector<std::uint32_t> values;
-  values.reserve(value_count);
-  for (std::size_t index = 0; index < value_count; ++index) {
-    values.push_back(read_be16(bytes, root + 4 + index * 2));
+  values.reserve(expected_count + 1);
+  std::set<std::size_t> visited;
+  auto table = root;
+  while (true) {
+    if (table + 4 > bytes.size() || !visited.insert(table).second) {
+      return {};
+    }
+    const auto count = static_cast<std::size_t>(read_be16(bytes, table));
+    const auto next = read_be16(bytes, table + 2);
+    if (values.size() + count > expected_count ||
+        table + 4 + count * 2 > bytes.size()) {
+      return {};
+    }
+    for (std::size_t index = 0; index < count; ++index) {
+      values.push_back(read_be16(bytes, table + 4 + index * 2));
+    }
+    if (values.size() == expected_count) {
+      if (include_terminal) {
+        const auto terminal = table + 4 + count * 2;
+        if (terminal + 2 > bytes.size()) {
+          return {};
+        }
+        values.push_back(read_be16(bytes, terminal));
+      }
+      return values;
+    }
+    if (next == 0) {
+      return {};
+    }
+    table = static_cast<std::size_t>(
+                physical_page_for_logical(directory, next)) *
+            boo_page_size;
   }
-  return values;
 }
 
 std::vector<std::uint32_t> parse_content_page_record_starts(
@@ -283,10 +318,11 @@ std::vector<std::uint32_t> parse_content_page_record_starts(
   const auto root = static_cast<std::size_t>(directory.page_number) *
                         boo_page_size +
                     directory.content_page_index_offset;
-  auto starts = parse_direct_u16_index(bytes,
-                                       root,
-                                       directory.content_page_count,
-                                       true);
+  auto starts = parse_paged_u16_index(bytes,
+                                      directory,
+                                      root,
+                                      directory.content_page_count,
+                                      true);
   // Unlike the per-page entries, the final word is the inclusive total
   // logical-record number rather than the next page's first record.
   if (!starts.empty()) {
@@ -301,10 +337,11 @@ std::vector<std::uint32_t> parse_topic_record_starts(
   const auto root = static_cast<std::size_t>(directory.page_number) *
                         boo_page_size +
                     directory.stream_table_offset;
-  auto starts = parse_direct_u16_index(bytes,
-                                       root,
-                                       directory.stream_table_count,
-                                       false);
+  auto starts = parse_paged_u16_index(bytes,
+                                      directory,
+                                      root,
+                                      directory.stream_table_count,
+                                      false);
   if (!starts.empty()) {
     starts.push_back(static_cast<std::uint32_t>(directory.logical_record_count) +
                      1);

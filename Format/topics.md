@@ -38,16 +38,42 @@ The directory fields used for topic storage are:
 | `0x003e` | Topic count. This matches decoded `CTOPICS`. |
 
 The topic-start index at directory offset `0x003c` uses the same 16-bit paged
-index format documented in [table-of-contents.md](table-of-contents.md). In the
-sampled books the root table is direct:
+index format documented in [table-of-contents.md](table-of-contents.md). Each
+table has the shape:
 
 ```c
-struct BooU16IndexDirect {
-  uint16_t count_be;
-  uint16_t reserved_or_base_be;  // Observed 0 in direct roots.
+struct BooU16IndexTable {
+  uint16_t count_be;             // Values stored in this table; the root holds at most 248 (0x00f8).
+  uint16_t next_page_be;         // 0 in the last table; otherwise the 1-based logical
+                                 // page (relative to the directory page, like 0x003a)
+                                 // holding the next table at page offset 0.
   uint16_t value_be[count];      // 1-based ordinal lookup uses value[ordinal - 1].
 };
 ```
+
+When the topic count at `0x003e` is at most 248 the root table is direct
+(`next_page_be` is `0`). Larger books split the index into a chain: the root
+holds the first 248 starts and `next_page_be` names the continuation page,
+whose table starts at offset `0` of that page and repeats the same layout.
+Continuation values keep ascending from the root's last value, a continuation
+table may hold far more than 248 values (`IBMMMSTR.boo` stores the remaining
+1429 in one table), and the chain is complete when exactly `topic count`
+values have been read. Verified by
+parsing every bundled book and matching every decoded `SH<id>` header record:
+
+| File | Topics (`0x003e`) | Root | Continuation | Interpretation |
+| --- | ---: | --- | --- | --- |
+| `GG24-395.boo` | `0x013d` (317) | directory page `0x104`, offset `0x68`: `00f8 004e 0003 0004 ...`, last value `0x0256` (598) | page `0x104 + 0x4e - 1 = 0x151`, file offset `0x151000`: `0045 0000 0257 025a 025b ...`, last value `0x0338` (824) | 248 + 69 starts; 827 logical records. |
+| `DREICMST.boo` | `0x0176` (374) | directory page `0x006`: `00f8 003e ...`, last value 495 | page `0x006 + 0x3e - 1 = 0x43`, file offset `0x43000`: `007e 0000 01f0 ...` (496 ...), last value 735 | 248 + 126 starts; 753 logical records. |
+| `SC09-138.boo` | `0x0222` (546) | directory page `0x056`: `00f8 00d5 ...`, last value 908 | page `0x056 + 0xd5 - 1 = 0x12a`, file offset `0x12a000`: `012a 0000 038e ...` (910 ...), last value 2427 | 248 + 298 starts; 2428 logical records. |
+| `IBMMMSTR.boo` | 1677 | directory page `0x001`: `00f8 ...`, last value 308 | one continuation table: `0595 0000 0135 0136 ...` (1429 values, 309 ...) | 248 + 1429 starts; a continuation table is not limited to 248 values. |
+
+The index is the authoritative topic-boundary evidence. In `SH12-565.boo`
+logical record 906 (inside `BIBLIOGRAPHY.2`, records 902-906) begins with the
+order number `SH19-6639` of a bibliography entry; it is not in the index and
+BookServer renders it as the last line of `BIBLIOGRAPHY.2`. A reader that
+detects topic headers by scanning decoded records for a leading `SH` word
+would split a spurious topic there.
 
 Observed topic-start roots:
 
@@ -135,9 +161,10 @@ To enumerate and address documentation pages:
 
 ## Open Questions
 
-- Whether very large books use the paged continuation branch of
-  `BooLookupPagedU16Index` for the topic-start root. The reader implements this
-  case, but sampled topic-start roots have been direct.
+- The exact `BooLookupPagedU16Index` control flow was not re-read for the
+  chained case; the continuation layout above is fixture-derived (four books,
+  every value cross-checked against decoded `SH<id>` header records) rather
+  than reader-code verified.
 - The exact BookServer URL normalization rules for ids containing punctuation
   and mixed case. The storage-level id match is verified; URL spelling is a
   server presentation detail.
