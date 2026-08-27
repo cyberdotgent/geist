@@ -382,6 +382,17 @@ target_compile_definitions(glossary_document_lowering_synthetic_test PRIVATE
 add_test(NAME glossary_document_lowering_synthetic_test
   COMMAND glossary_document_lowering_synthetic_test)
 
+add_executable(glossary_production_test
+  tests/glossary_production.cpp
+)
+target_link_libraries(glossary_production_test
+  PRIVATE geist::geist_static
+)
+target_compile_definitions(glossary_production_test PRIVATE
+  GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+add_test(NAME glossary_production_test COMMAND glossary_production_test)
+
 add_executable(menu_topic_ir_synthetic_test
   tests/menu_topic_ir_synthetic.cpp
 )
@@ -431,6 +442,14 @@ add_test(NAME boo2git_generated_list_links_test
     -DBOOK=${CMAKE_CURRENT_SOURCE_DIR}/../BOO/GG24-395.boo
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/boo2git-generated-list-output
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/boo2git_generated_list_links.cmake
+)
+
+add_test(NAME boo2git_glossary_test
+  COMMAND ${CMAKE_COMMAND}
+    -DBOO2GIT=$<TARGET_FILE:boo2git>
+    -DBOOK=${CMAKE_CURRENT_SOURCE_DIR}/../BOO/SC31-711.boo
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/boo2git-glossary-output
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/boo2git_glossary.cmake
 )
 
 add_executable(topic_document_lowering_test

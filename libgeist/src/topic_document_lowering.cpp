@@ -6,6 +6,8 @@
 #include "geist/detail/fixed_prose_topic_ir.hpp"
 #include "geist/detail/generated_list_document_lowering.hpp"
 #include "geist/detail/generated_list_topic_ir.hpp"
+#include "geist/detail/glossary_catalog_ir.hpp"
+#include "geist/detail/glossary_document_lowering.hpp"
 #include "geist/detail/internal.hpp"
 #include "geist/detail/layout_ir.hpp"
 #include "geist/detail/menu_document_lowering.hpp"
@@ -99,6 +101,8 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
       extract_publication_catalog_ir(sources, layout, ownership);
   const auto fixed_prose =
       extract_fixed_prose_topic_ir(sources, layout, ownership, nullptr);
+  const auto glossary =
+      extract_glossary_catalog_ir(sources, layout, ownership, nullptr);
   std::optional<GeneratedListTopicIR> generated_list;
   std::optional<SelectorCatalogIR> generated_selectors;
   if (generated_list_source_candidate(sources)) {
@@ -122,6 +126,7 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
   const auto family_count = static_cast<unsigned>(delivery.has_value()) +
                             static_cast<unsigned>(publications.has_value()) +
                             static_cast<unsigned>(fixed_prose.has_value()) +
+                            static_cast<unsigned>(glossary.has_value()) +
                             static_cast<unsigned>(generated_list.has_value()) +
                             static_cast<unsigned>(menu.has_value());
   if (family_count == 0)
@@ -176,6 +181,20 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
         lower_fixed_prose_topic_to_document_ir(topic, *fixed_prose, &error);
     if (!document || !verify_fixed_prose_topic_document_ir(
                          *fixed_prose, *document, &error)) {
+      reject(typed_rejection, family + " document rejected: " + error);
+      return std::nullopt;
+    }
+  } else if (glossary) {
+    family = "glossary";
+    if (!verify_glossary_catalog_ir(sources, layout, ownership, *glossary,
+                                    &error)) {
+      reject(typed_rejection, family + " semantics rejected: " + error);
+      return std::nullopt;
+    }
+    topic.heading_level = glossary->heading_level;
+    document = lower_glossary_catalog_to_document_ir(topic, *glossary, &error);
+    if (!document || !verify_glossary_catalog_document_ir(
+                         *glossary, *document, &error)) {
       reject(typed_rejection, family + " document rejected: " + error);
       return std::nullopt;
     }
