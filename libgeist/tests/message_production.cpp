@@ -56,8 +56,8 @@ int main() {
 
   require(count(markdown, "<a id=\"") == 398,
           "message source-anchor inventory changed");
-  require(count(markdown, "\n*Meaning:*") == 396 &&
-              count(markdown, "\n*Action:*") == 396,
+  require(count(markdown, "\n**Meaning:**") == 396 &&
+              count(markdown, "\n**Action:**") == 396,
           "typed Meaning/Action boundary inventory changed");
   auto message_cursor = std::size_t{};
   auto verified_headlines = std::size_t{};
@@ -68,10 +68,10 @@ int main() {
     require(id_end != std::string::npos,
             "message anchor has no terminating quote");
     const auto id = markdown.substr(id_begin, id_end - id_begin);
-    const auto headline_begin = markdown.find("\n\n*", id_end);
+    const auto headline_begin = markdown.find("\n\n**", id_end);
     const auto headline_end = headline_begin == std::string::npos
                                   ? std::string::npos
-                                  : markdown.find("*\n", headline_begin + 3);
+                                  : markdown.find("**\n", headline_begin + 4);
     require(headline_begin != std::string::npos &&
                 headline_end != std::string::npos,
             "message anchor has no emphasized headline");
@@ -79,8 +79,8 @@ int main() {
     for (auto dash = rendered_id.find('-'); dash != std::string::npos;
          dash = rendered_id.find('-', dash + 2))
       rendered_id.insert(dash, "\\");
-    const auto headline = markdown.substr(headline_begin + 3,
-                                          headline_end - headline_begin - 3);
+    const auto headline = markdown.substr(headline_begin + 4,
+                                          headline_end - headline_begin - 4);
     require(headline.rfind(rendered_id + " ", 0) == 0,
             "rendered message headline does not begin with its anchor ID: " +
                 id);
@@ -155,7 +155,7 @@ int main() {
           "message 218 envelope is absent");
   const auto recovered_218 =
       markdown.substr(message_218, message_219 - message_218);
-  require(recovered_218.find("*Action:* Refer to the man page for usage\\.") !=
+  require(recovered_218.find("**Action:** Refer to the man page for usage\\.") !=
               std::string::npos,
           "message 218 lost its local pre-SRMSG Action payload");
 
@@ -199,6 +199,58 @@ int main() {
                   {"<a id=\"MSG 2108\"></a>", "9\\. EZVDGapplication",
                    "10\\. EZVDGagent", "<a id=\"MSG 2109\"></a>"},
                   "message 2108 lost or reordered its numeric cases");
+  // Verified structured blocks: MSG807 command table, MSG739 checklist,
+  // MSG508 explicit preformatted fallback (the row-less `SNMP Trap` field
+  // keeps its own source-ordered line instead of a fabricated table cell).
+  require_ordered(
+      markdown,
+      {"<a id=\"MSG 807\"></a>",
+       "applications are described in the following list:\n\n"
+       "| Command type | Command |\n| --- | --- |\n"
+       "| 23006 | LAN ADP LIST SEG=\\<segment number\\> |\n"
+       "| 11011 | LAN ADP QUERY ADP=\\<adapter address\\> SEG=\\<segment "
+       "number\\> |\n",
+       "| 31096 | LAN CAU QUERY UNIT=\\<unit id\\> ATTR=WRAP |\n"
+       "| 31127 | LAN CAU QUERY UNIT=\\<unit id\\> MOD=\\<module number\\> |\n"
+       "| 31161 | LAN CAU QUERY UNIT=\\<unit id\\> MOD=\\<module number\\> "
+       "ATTR=LOBE |\n",
+       "| 103000 | LAN CAUQUAL LIST |\n\n**Action:** It is possible",
+       "<a id=\"MSG 808\"></a>"},
+      "MSG807 command table is not rendered as a Markdown table");
+  require(count(markdown, "\n| ") == 27,
+          "message Markdown table row inventory changed");
+  require_ordered(
+      markdown,
+      {"<a id=\"MSG 739\"></a>",
+       "Verify that the following conditions are true:\n\n"
+       "- /usr/lpp/lnm/databases contains lnmlnmemgr\\.pdf\n"
+       "- /usr/lib/nls/msg/\\<lang\\> contains a symbolic link to "
+       "/usr/lpp/lnm/nls/\\<lang\\>/lnmeapp\\.cat\n"
+       "- /usr/lib/nls/msg/\\<lang\\> contains a symbolic link to "
+       "/usr/lpp/lnm/nls/\\<lang\\>/lnmlnmemgr\\_dfi\\.cat\n\n"
+       "If everything is correctly set, contact IBM Service for more "
+       "information\\.\n\n<a id=\"MSG 740\"></a>"},
+      "MSG739 checklist is not rendered as a Markdown list");
+  require_ordered(
+      markdown,
+      {"<a id=\"MSG 508\"></a>",
+       "**Action:**\n\n```\nApplication Action\n"
+       "CP Consult the nettl log for messages associated\n"
+       "with the failure of lnmd and lnmtopod daemons.\n"
+       "Then restart LNM for AIX.\n"
+       "Topology Verify that lnmtopod is running (see message number\n"
+       "505)\nSNMP Trap\nVerify that AIX NetView/6000 is running properly\n"
+       "Then restart LNM for AIX.\n"
+       "lnmfddimgr Restart lnmfddimgr by selecting a FDDI object\n"
+       "and requesting a window.\n```\n\n<a id=\"MSG 509\"></a>"},
+      "MSG508 fallback is not rendered as one fenced block");
+  require(count(markdown, "\n```\n") == 2,
+          "message Markdown fenced block inventory changed");
+  for (const auto *artifact : {"| action ", "| an ", "action 31096",
+                               "an 31127", "an 31161"})
+    require(markdown.find(artifact) == std::string::npos,
+            "message table leaked a structural marker spelling");
+
   const auto message_2228 = markdown.find("<a id=\"MSG 2228\"></a>");
   const auto message_2237 = markdown.find("<a id=\"MSG 2237\"></a>");
   require(message_2228 != std::string::npos &&
@@ -215,10 +267,10 @@ int main() {
 
   const auto terminal = markdown.find("<a id=\"MSG 2505\"></a>");
   require(terminal != std::string::npos &&
-              markdown.find("*Meaning:* The lnmhubint received a second start "
+              markdown.find("**Meaning:** The lnmhubint received a second start "
                             "message",
                             terminal) != std::string::npos &&
-              markdown.find("*Action:* None", terminal) != std::string::npos,
+              markdown.find("**Action:** None", terminal) != std::string::npos,
           "terminal message 2505 lost its Meaning or Action content");
 
   const auto legacy = document.topic_markdown("2.1");

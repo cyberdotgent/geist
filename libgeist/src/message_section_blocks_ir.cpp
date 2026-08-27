@@ -10,6 +10,7 @@
 #include <sstream>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 
 namespace geist::detail {
 namespace {
@@ -163,6 +164,48 @@ void append_continuation(const RowView &row,
   }
 }
 
+// The row's semantic projection without a compact marker this block claims as
+// structural evidence. Message semantics may have carried a lexical marker
+// spelling into the row text; once the row is admitted as a fixed-field table
+// row, that marker is positioned boundary evidence, so exactly the marker's
+// decoded text is removed from the front of the projection. Everything else in
+// the semantic text (restored delimiters, attached opaque fields) is kept so
+// the block conserves the same words as the flattened section.
+std::optional<std::string> structural_row_text(const RowView &row) {
+  auto text = compact(row.semantic->text);
+  const auto lexical_marker =
+      row.physical->marker &&
+      (row.semantic->marker_disposition ==
+           MessageMarkerDispositionIR::lexical_prefix ||
+       row.semantic->marker_disposition ==
+           MessageMarkerDispositionIR::list_prefix);
+  if (!lexical_marker)
+    return text;
+  const auto marker = compact(row.physical->marker->decoded_text);
+  if (text == marker)
+    return std::string{};
+  if (text.size() > marker.size() && text.compare(0, marker.size(), marker) == 0 &&
+      text[marker.size()] == ' ')
+    return text.substr(marker.size() + 1);
+  return std::nullopt;
+}
+
+// Splits the row's structural text at the physically positioned first column
+// key. The key must open the semantic text exactly; the remainder is the
+// second column's text.
+std::optional<std::pair<std::string, std::string>>
+split_semantic_text(const RowView &row, const std::string &key) {
+  const auto text = structural_row_text(row);
+  if (!text)
+    return std::nullopt;
+  if (*text == key)
+    return std::make_pair(key, std::string{});
+  if (text->size() > key.size() && text->compare(0, key.size(), key) == 0 &&
+      (*text)[key.size()] == ' ')
+    return std::make_pair(key, text->substr(key.size() + 1));
+  return std::nullopt;
+}
+
 bool numeric_key(const std::string &value) {
   return value.size() >= 5 && value.size() <= 6 &&
          std::all_of(value.begin(), value.end(), [](const unsigned char ch) {
@@ -190,12 +233,16 @@ command_table(const std::vector<RowView> &rows) {
     return std::nullopt;
   const auto header_second = *header_first + header_split.second_text;
 
+  const auto header_text = split_semantic_text(*header, header_split.left);
+  if (!header_text || header_text->second != header_split.right)
+    return std::nullopt;
+
   MessageStructuredTableBlockIR table;
   assign_row_cells(*header, header_second, table.header, false);
   table.header.cells[0].column = 0;
   table.header.cells[1].column = header_split.second_text;
-  table.header.cells[0].text = header_split.left;
-  table.header.cells[1].text = header_split.right;
+  table.header.cells[0].text = header_text->first;
+  table.header.cells[1].text = header_text->second;
 
   std::set<std::string> keys;
   for (auto row = std::next(header); row != rows.end(); ++row) {
@@ -207,12 +254,15 @@ command_table(const std::vector<RowView> &rows) {
       const auto second = *first + split->second_text;
       if (!keys.insert(split->left).second)
         return std::nullopt;
+      const auto text = split_semantic_text(*row, split->left);
+      if (!text || text->second.empty())
+        return std::nullopt;
       MessageStructuredTableRowIR item;
       assign_row_cells(*row, second, item, false);
       item.cells[0].column = 0;
       item.cells[1].column = split->second_text;
-      item.cells[0].text = split->left;
-      item.cells[1].text = split->right;
+      item.cells[0].text = text->first;
+      item.cells[1].text = text->second;
       table.rows.push_back(std::move(item));
     } else {
       if (table.rows.empty())

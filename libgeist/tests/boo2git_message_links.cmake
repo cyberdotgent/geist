@@ -33,15 +33,24 @@ string(FIND "${messages}"
 count_occurrences(messages "](2-0.md)" resolved_count)
 string(FIND "${messages}" "(<#HDRPROBS>)" raw_target)
 count_occurrences(messages "\n# " heading_count)
-count_occurrences(messages "\n*Meaning:*" meaning_count)
-count_occurrences(messages "\n*Action:*" action_count)
+count_occurrences(messages "\n**Meaning:**" meaning_count)
+count_occurrences(messages "\n**Action:**" action_count)
 count_occurrences(messages "<a id=\"MSG " message_anchor_count)
 string(FIND "${messages}"
   "After exiting the AIX NetView/6000 graphical interface, stop LNM for AIX\\. Then execute ovstop followed by ovstart\\. Use ovstatus to verify the AIX NetView/6000 daemons are running\\. Restart LNM for AIX\\."
   message_203_action)
 string(FIND "${messages}"
-  "*Action:* Refer to the man page for usage\\."
+  "**Action:** Refer to the man page for usage\\."
   message_218_action)
+string(FIND "${messages}"
+  "| Command type | Command |\n| --- | --- |\n| 23006 | LAN ADP LIST SEG=\\<segment number\\> |"
+  message_807_table)
+string(FIND "${messages}"
+  "- /usr/lpp/lnm/databases contains lnmlnmemgr\\.pdf\n- /usr/lib/nls/msg/"
+  message_739_list)
+string(FIND "${messages}"
+  "```\nApplication Action\nCP Consult the nettl log"
+  message_508_preformatted)
 string(FIND "${messages}" "Restart the a Concentrator" bad_terminal_a)
 string(FIND "${messages}" "view agent is set to unknown" bad_terminal_agent)
 string(FIND "${messages}" "removed by from the database" bad_terminal_by)
@@ -51,6 +60,8 @@ if(first_resolved EQUAL -1 OR second_resolved EQUAL -1 OR
    NOT heading_count EQUAL 1 OR NOT meaning_count EQUAL 396 OR
    NOT action_count EQUAL 396 OR NOT message_anchor_count EQUAL 396 OR
    message_203_action EQUAL -1 OR message_218_action EQUAL -1 OR
+   message_807_table EQUAL -1 OR message_739_list EQUAL -1 OR
+   message_508_preformatted EQUAL -1 OR
    NOT bad_terminal_a EQUAL -1 OR NOT bad_terminal_agent EQUAL -1 OR
    NOT bad_terminal_by EQUAL -1)
   message(FATAL_ERROR

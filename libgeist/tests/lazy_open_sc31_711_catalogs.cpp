@@ -25,6 +25,9 @@ int main() {
            "The view will be set to unknown while the problem persists",
            "has been removed from the database",
            "This message usually indicates that the other process failed",
+           "| Command type | Command |\n| --- | --- |\n| 23006 | LAN ADP LIST",
+           "- /usr/lpp/lnm/databases contains lnmlnmemgr\\.pdf\n- ",
+           "```\nApplication Action\nCP Consult the nettl log",
        }) {
     require(lnm_messages.find(expected) != std::string::npos,
             "LNM message catalog lost an anchor or styled row text");
@@ -37,8 +40,8 @@ int main() {
     require(lnm_messages.find(leaked) == std::string::npos,
             "LNM message catalog retained row carryover or metadata");
   }
-  require(substring_count(lnm_messages, "\n*Meaning:*") == 396 &&
-              substring_count(lnm_messages, "\n*Action:*") == 396,
+  require(substring_count(lnm_messages, "\n**Meaning:**") == 396 &&
+              substring_count(lnm_messages, "\n**Action:**") == 396,
           "LNM message catalog lost typed Meaning/Action paragraph boundaries");
 
   const auto lnm_glossary =

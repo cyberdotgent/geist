@@ -223,9 +223,17 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
       return std::nullopt;
     }
     topic.heading_level = message->metadata.heading_level;
-    document = lower_message_topic_to_document_ir(topic, *message, &error);
-    if (!document ||
-        !verify_message_topic_document_ir(*message, *document, &error)) {
+    const auto blocks = extract_message_section_blocks_ir(layout, ownership,
+                                                          message->catalog);
+    if (!verify_message_section_blocks_ir(layout, ownership, message->catalog,
+                                          blocks, &error)) {
+      reject(typed_rejection, family + " structured blocks rejected: " + error);
+      return std::nullopt;
+    }
+    document =
+        lower_message_topic_to_document_ir(topic, *message, blocks, &error);
+    if (!document || !verify_message_topic_document_ir(*message, blocks,
+                                                       *document, &error)) {
       reject(typed_rejection, family + " document rejected: " + error);
       return std::nullopt;
     }
