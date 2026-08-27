@@ -5626,53 +5626,16 @@ render_verified_publication_catalog_gml(
   return rendered;
 }
 
-std::optional<std::vector<std::string>> render_verified_glossary_gml(
-    const std::vector<std::string>& decoded_records,
-    const std::vector<DecodedLogicalRecordSource>& sources) {
-  const auto layout = extract_layout_ir(sources);
-  std::string semantic_error;
-  if (!verify_layout_ir(sources, layout, &semantic_error))
-    return std::nullopt;
-  const auto ownership = build_ownership_ir(sources, layout);
-  if (!verify_ownership_ir(sources, layout, ownership, &semantic_error))
-    return std::nullopt;
-  const auto glossary =
-      extract_glossary_introduction_ir(sources, layout, ownership);
-  if (!glossary || !verify_glossary_introduction_ir(
-                       sources, layout, ownership, *glossary, &semantic_error))
-    return std::nullopt;
-
-  auto legacy =
-      render_gml_records_with_source_layout(decoded_records, sources);
-  const auto tail =
-      std::find_if(legacy.begin(), legacy.end(), [](const auto& line) {
-        return ascii_starts_with_case_insensitive(line, ":anchor id='GLS");
-      });
-  if (tail == legacy.end()) return std::nullopt;
-
-  std::vector<std::string> rendered;
-  for (auto current = legacy.begin(); current != tail; ++current)
-    if (ascii_starts_with_case_insensitive(*current, ":anchor "))
-      rendered.push_back(*current);
-  rendered.push_back(":p." + glossary->lead.text);
-  rendered.push_back(":ul.");
-  for (const auto& source : glossary->sources)
-    rendered.push_back(":li." + source.text);
-  rendered.push_back(":eul.");
-  rendered.push_back(":p." + glossary->cross_reference_lead.text);
-  for (const auto& reference : glossary->cross_references) {
-    const auto colon = reference.text.find(':');
-    if (colon == std::string::npos) {
-      rendered.push_back(":p." + reference.text);
-    } else {
-      rendered.push_back(":p.:hp2." + reference.text.substr(0, colon + 1) +
-                         ":ehp2." + reference.text.substr(colon + 1));
-    }
-  }
-  rendered.insert(rendered.end(), tail, legacy.end());
-  return rendered;
-}
-
+// M9 section D: this legacy-GML projector is still live. Typed menu lowering
+// (menu_topic_ir.cpp) declines every menu whose raw CMITEM label carries a
+// trailing compact marker word, because validate_source_menu_targets() compares
+// the unstripped source-only label against the catalog title before
+// MenuTopicIR types the terminal marker. Removing this projector changes the
+// Markdown of those legacy-path menus (label suffixes such as `<`, `[`, `++`,
+// `can` reappear). Corpus-blocking topics (2026-08-27): IBMMMSTR 1.10;
+// SC09-2417-00 2.1, 2.1.3, 2.2.4, 2.3.6, 2.3.12, 3.1, 3.1.1, 3.1.4, 3.2.2,
+// 3.3, 3.3.1, 3.5.5, 4.3.6, 4.4.1, 4.4.2, 4.5; SC26-457 3.7.3; SC31-711 2.4,
+// 4.1, BACK_1, BACK_1.12.
 bool project_verified_menu_gml(
     std::vector<std::string>& rendered,
     const std::vector<DecodedLogicalRecordSource>& sources,
@@ -5698,95 +5661,6 @@ bool project_verified_menu_gml(
     rendered[lines[index]] = ":li refid='" + item.target + "'." +
                              item.target + " " + item.text;
   }
-  return true;
-}
-
-bool project_verified_message_sections_gml(
-    std::vector<std::string>& rendered,
-    const std::vector<DecodedLogicalRecordSource>& sources) {
-  const auto layout = extract_layout_ir(sources);
-  std::string error;
-  if (!verify_layout_ir(sources, layout, &error)) return false;
-  const auto ownership = build_ownership_ir(sources, layout);
-  if (!verify_ownership_ir(sources, layout, ownership, &error)) return false;
-  const auto catalog = extract_message_catalog_ir(sources, layout, ownership);
-  if (!catalog || !verify_message_catalog_ir(
-                      sources, layout, ownership, *catalog, &error))
-    return false;
-  auto projected = rendered;
-
-  const auto anchor_for = [](const std::string& id) {
-    return ":anchor id='MSG " + id + "'.";
-  };
-  std::vector<std::size_t> anchors;
-  for (std::size_t index = 0; index < projected.size(); ++index)
-    if (ascii_starts_with_case_insensitive(projected[index],
-                                           ":anchor id='MSG "))
-      anchors.push_back(index);
-  if (anchors.size() != catalog->entries.size()) return false;
-  for (std::size_t index = 0; index < anchors.size(); ++index)
-    if (!ascii_equals_case_insensitive(projected[anchors[index]],
-                                       anchor_for(catalog->entries[index].id)))
-      return false;
-
-  const auto project_label = [&](const std::string& id,
-                                 const std::string& label) {
-    const auto anchor = std::find_if(
-        projected.begin(), projected.end(), [&](const auto& line) {
-          return ascii_equals_case_insensitive(line, anchor_for(id));
-        });
-    if (anchor == projected.end()) return false;
-    const auto end = std::find_if(
-        anchor + 1, projected.end(), [](const auto& line) {
-          return ascii_starts_with_case_insensitive(line, ":anchor id='MSG ");
-        });
-    const auto lower_label = ascii_lower(label + ":");
-    auto line = std::find_if(anchor + 1, end, [&](const auto& value) {
-      return ascii_lower(value).find(lower_label) != std::string::npos;
-    });
-    if (line == end) return false;
-
-    auto literal = ascii_lower(*line).find(lower_label);
-    const auto content = line->find('.');
-    if (content == std::string::npos || literal <= content) return false;
-    auto boundary = literal;
-    const auto opening = std::string(":hp2.");
-    const auto closing = std::string(":ehp2.");
-    const auto already_styled =
-        literal >= opening.size() &&
-        ascii_equals_case_insensitive(
-            line->substr(literal - opening.size(), opening.size()), opening) &&
-        literal + lower_label.size() + closing.size() <= line->size() &&
-        ascii_equals_case_insensitive(
-            line->substr(literal + lower_label.size(), closing.size()), closing);
-    if (already_styled) {
-      boundary -= opening.size();
-    } else {
-      line->replace(literal, lower_label.size(),
-                    opening + label + ":" + closing);
-    }
-
-    auto suffix = trim_ascii(line->substr(boundary));
-    const auto prefix = trim_ascii(line->substr(content + 1,
-                                                boundary - content - 1));
-    if (prefix.empty()) {
-      *line = ":p." + std::move(suffix);
-    } else {
-      line->erase(boundary);
-      *line = trim_ascii(*line);
-      projected.insert(line + 1, ":p." + std::move(suffix));
-    }
-    return true;
-  };
-
-  // Work backwards so record insertion cannot disturb the catalog ordering.
-  for (auto entry = catalog->entries.rbegin(); entry != catalog->entries.rend();
-       ++entry) {
-    if (!project_label(entry->id, "Action") ||
-        !project_label(entry->id, "Meaning"))
-      return false;
-  }
-  rendered = std::move(projected);
   return true;
 }
 

@@ -195,16 +195,10 @@ std::vector<std::string> render_gml_records(
 std::optional<std::vector<std::string>>
 render_verified_publication_catalog_gml(
     const std::vector<DecodedLogicalRecordSource>& sources);
-std::optional<std::vector<std::string>> render_verified_glossary_gml(
-    const std::vector<std::string>& decoded_records,
-    const std::vector<DecodedLogicalRecordSource>& sources);
 bool project_verified_menu_gml(
     std::vector<std::string>& rendered,
     const std::vector<DecodedLogicalRecordSource>& sources,
     const std::map<std::string, std::string>& topic_titles);
-bool project_verified_message_sections_gml(
-    std::vector<std::string>& rendered,
-    const std::vector<DecodedLogicalRecordSource>& sources);
 std::vector<std::string> render_gml_records_with_source_layout(
     const std::vector<std::string>& decoded_records,
     const std::vector<DecodedLogicalRecordSource>& sources);

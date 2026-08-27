@@ -211,6 +211,13 @@ bool has_semantic_srmsg_source_candidate(
   return saw_semantic_message && saw_font_row;
 }
 
+// M9 section D: still live. SRMSG trap catalogs that are not a complete
+// numeric Meaning/Action envelope (MessageCatalogIR rejects SC31-711 4.4 with
+// "source is not a complete Meaning/Action message envelope" and SC31-711
+// 4.1.2 with "source is not one numeric message catalog") have no typed
+// lowering, so removing this projection reintroduces the compact marker words
+// (`a`, `action`) into their legacy Markdown. Blocking topics (2026-08-27):
+// SC31-711 4.1.2 and 4.4.
 void project_semantic_srmsg_source_markers(
     std::vector<std::string>& rendered,
     const std::vector<std::string>& decoded_records,
