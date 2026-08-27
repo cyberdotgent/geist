@@ -177,9 +177,17 @@ void verify_book(const std::filesystem::path &path, std::uint32_t first,
                     sources, layout, ownership, *glossary, &glossary_error),
             glossary_error.empty() ? "glossary IR verification failed"
                                    : glossary_error.c_str());
-    require(glossary &&
+    const auto glossary_source_coordinate =
+        glossary && !glossary->sources.empty() &&
+                !glossary->sources.front().source_rows.empty()
+            ? "sources=" + std::to_string(
+                               glossary->sources.front().source_rows.front().first) +
+                  ":" + std::to_string(
+                            glossary->sources.front().source_rows.front().second)
+            : std::string{};
+    require(glossary && !glossary_source_coordinate.empty() &&
                 geist::detail::format_glossary_introduction_ir(*glossary).find(
-                    "sources=3:0") != std::string::npos,
+                    glossary_source_coordinate) != std::string::npos,
             "glossary IR trace omitted physical-row provenance");
     if (glossary) {
       auto mutated = *glossary;
