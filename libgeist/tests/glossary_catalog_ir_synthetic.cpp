@@ -55,6 +55,63 @@ std::optional<geist::detail::GlossaryCatalogIR> extract(
 } // namespace
 
 int main() {
+  {
+    geist::detail::DecodedLogicalRecordSource record;
+    record.logical_record = 9;
+    record.tokens = {{'x'}, {' ', ' ', ' '},
+                     {3, 'W', 'h', 'a', 't', '?'},
+                     {'?', '?', '?'}, {3, 'N', 'e', 'x', 't'}};
+    record.assembled =
+        geist::detail::assemble_logical_record_with_sources(record.tokens);
+    geist::detail::PhysicalRowIR row;
+    row.logical_record = 9;
+    row.token_begin = 0;
+    row.token_end = record.tokens.size();
+    std::vector<geist::detail::GlossaryCatalogCellIR> cells;
+    const auto add_token = [&](std::size_t token,
+                               geist::detail::SourceDisposition disposition) {
+      const auto first = record.tokens[token].front() < 4 ? 1u : 0u;
+      for (auto word = first; word < record.tokens[token].size(); ++word)
+        cells.push_back({9, token, word, record.tokens[token][word],
+                         disposition, 1, 0});
+    };
+    add_token(0, geist::detail::SourceDisposition::marker_slot);
+    add_token(1, geist::detail::SourceDisposition::layout_origin);
+    add_token(2, geist::detail::SourceDisposition::visible_content);
+    add_token(3, geist::detail::SourceDisposition::layout_padding);
+    add_token(4, geist::detail::SourceDisposition::visible_content);
+    std::string projection_error;
+    const auto projected = geist::detail::project_glossary_semantic_row_text(
+        record, row, cells, &projection_error);
+    require(projected && *projected == "What? Next",
+            "exact row projection removed a lexical question mark or retained "
+            "question padding");
+
+    auto relabeled = cells;
+    for (auto& cell : relabeled)
+      if (cell.token_index == 3)
+        cell.disposition = geist::detail::SourceDisposition::visible_content;
+    const auto padding_made_visible =
+        geist::detail::project_glossary_semantic_row_text(record, row,
+                                                          relabeled);
+    require(padding_made_visible &&
+                padding_made_visible->find("???") != std::string::npos,
+            "row projection ignored exact padding-token disposition");
+
+    relabeled = cells;
+    const auto lexical_question = std::find_if(
+        relabeled.begin(), relabeled.end(), [](const auto& cell) {
+          return cell.token_index == 2 && cell.word == '?';
+        });
+    require(lexical_question != relabeled.end(),
+            "synthetic lexical question cell is absent");
+    lexical_question->disposition =
+        geist::detail::SourceDisposition::layout_padding;
+    require(!geist::detail::project_glossary_semantic_row_text(
+                record, row, relabeled),
+            "row projection admitted mixed token dispositions");
+  }
+
   const auto root = std::filesystem::path(GEIST_REPO_ROOT) / "BOO";
   geist::detail::LogicalDecodeContext context;
   open_context(root / "SC31-711.boo", context);
@@ -78,6 +135,14 @@ int main() {
               catalog->sections.front().label == "A" &&
               catalog->sections.back().label == "X",
           "glossary alphabet section boundaries are incomplete");
+  require(catalog->items.size() == 302 &&
+              catalog->items.front().kind ==
+                  geist::detail::GlossaryCatalogItemKindIR::section &&
+              catalog->items.front().index == 0 &&
+              catalog->items[1].kind ==
+                  geist::detail::GlossaryCatalogItemKindIR::entry &&
+              catalog->items[1].index == 0,
+          "glossary source-ordered section/entry sequence is incomplete");
   require(catalog->introduction.title == "Glossary" &&
               catalog->introduction.sources.size() == 5 &&
               catalog->introduction.cross_references.size() == 6,
@@ -103,6 +168,18 @@ int main() {
       "ASCII (American National Standard Code for Information Interchange)");
   require(ascii != catalog->entries.end() && ascii->source_suffix == " a",
           "glossary term boundary did not conserve trailing source carry");
+  require(ascii != catalog->entries.end() &&
+              ascii->definition.prose.find(
+                  "for information interchange among data processing") !=
+                  std::string::npos,
+          "glossary definition lost a source-proven lexical marker carry");
+  const auto accelerator = find_entry("accelerator");
+  require(accelerator != catalog->entries.end() &&
+              accelerator->definition.prose.find("a and mouse button") ==
+                  std::string::npos &&
+              accelerator->definition.rows[2].marker_disposition ==
+                  geist::detail::GlossaryMarkerDispositionIR::layout_artifact,
+          "glossary definition promoted a fixed marker code into prose");
   const auto dlci = std::find_if(
       catalog->entries.begin(), catalog->entries.end(), [](const auto& entry) {
         return entry.term.find("data link connection identifier") == 0;
@@ -148,6 +225,14 @@ int main() {
               table.rows[2].cells[0].source_cells.front().token_index == 110 &&
               table.rows[2].cells[0].source_cells.back().token_index == 114,
           "glossary DLCI split 1-15 source carry was not conserved");
+  require(std::count_if(dlci->definition.rows.begin(),
+                        dlci->definition.rows.end(), [](const auto& row) {
+                          return row.role == geist::detail::
+                                                 GlossaryDefinitionRowRoleIR::
+                                                     embedded_table;
+                        }) == 5 &&
+              dlci->definition.prose.find("DLCI Values") == std::string::npos,
+          "glossary definition did not replace its five table rows exactly");
   require(std::any_of(catalog->entries.begin(), catalog->entries.end(),
                       [](const auto& entry) {
                         return !entry.source_suffix.empty();
@@ -208,6 +293,16 @@ int main() {
   require(!geist::detail::verify_glossary_catalog_ir(
               sources, layout, ownership, changed),
           "glossary verifier admitted an incomplete segment ledger");
+  changed = *catalog;
+  std::swap(changed.items[0], changed.items[1]);
+  require(!geist::detail::verify_glossary_catalog_ir(
+              sources, layout, ownership, changed),
+          "glossary verifier admitted a reordered source item sequence");
+  changed = *catalog;
+  changed.entries.front().definition.prose += " changed";
+  require(!geist::detail::verify_glossary_catalog_ir(
+              sources, layout, ownership, changed),
+          "glossary verifier admitted changed composed definition prose");
   changed = *catalog;
   changed.introduction.lead.source_rows.clear();
   require(!geist::detail::verify_glossary_catalog_ir(

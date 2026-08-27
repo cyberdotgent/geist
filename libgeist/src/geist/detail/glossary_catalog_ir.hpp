@@ -19,12 +19,32 @@ struct GlossaryCatalogCellIR {
   std::size_t row_index = 0;
 };
 
+enum class GlossaryMarkerDispositionIR {
+  absent,
+  layout_artifact,
+  term_delimiter,
+  prose_punctuation,
+  lexical_carry,
+};
+
+enum class GlossaryDefinitionRowRoleIR {
+  term_echo,
+  prose,
+  embedded_table,
+};
+
 // An exact physical fragment of a glossary definition.  visible_text and the
 // optional marker are deliberately kept separate: joining them is a rendering
 // decision, and several BOO rows use marker slots as lexical carry.
 struct GlossaryDefinitionRowIR {
   std::string visible_text;
+  // Ownership-backed projection with fixed-layout padding removed. The
+  // compact marker remains separate and is classified below.
+  std::string semantic_text;
   std::optional<MarkerSlotIR> marker;
+  GlossaryMarkerDispositionIR marker_disposition =
+      GlossaryMarkerDispositionIR::absent;
+  GlossaryDefinitionRowRoleIR role = GlossaryDefinitionRowRoleIR::prose;
   std::size_t native_origin = 0;
   PhysicalBreakKind break_before = PhysicalBreakKind::unknown;
   DocumentSourceRowIR source_row;
@@ -70,6 +90,10 @@ struct GlossaryEmbeddedTableIR {
 };
 
 struct GlossaryDefinitionIR {
+  // Canonical visible prose after the term echo and embedded-object rows have
+  // been removed. Marker carry is classified by the decoder-side catalog
+  // pass, never inferred by a renderer.
+  std::string prose;
   std::vector<GlossaryDefinitionRowIR> rows;
   std::vector<DocumentSourceSliceIR> structural_sources;
   std::optional<GlossaryEmbeddedTableIR> embedded_table;
@@ -98,6 +122,17 @@ struct GlossaryCatalogSegmentIR {
   DocumentSourceSliceIR source;
 };
 
+enum class GlossaryCatalogItemKindIR {
+  section,
+  entry,
+};
+
+struct GlossaryCatalogItemIR {
+  GlossaryCatalogItemKindIR kind = GlossaryCatalogItemKindIR::section;
+  std::size_t index = 0;
+  DocumentSourceSliceIR boundary_source;
+};
+
 // Complete, output-neutral ownership of a glossary topic.  Entries and section
 // markers are source ordered, while segments provide the whole-topic
 // conservation ledger (including metadata and the one observed embedded
@@ -109,9 +144,20 @@ struct GlossaryCatalogIR {
   GlossaryIntroductionIR introduction;
   std::vector<GlossarySectionIR> sections;
   std::vector<GlossaryEntryIR> entries;
+  // Explicit interleaving in source order. Consumers must not reconstruct
+  // catalog order alphabetically from sections and terms.
+  std::vector<GlossaryCatalogItemIR> items;
   DocumentSourceSliceIR terminal_source;
   std::vector<GlossaryCatalogSegmentIR> segments;
 };
+
+// Projects the authoritative assembled spans of exactly the tokens whose
+// owned cells are visible content. Marker, origin, and padding spans are
+// omitted by source disposition, never by character value.
+std::optional<std::string> project_glossary_semantic_row_text(
+    const DecodedLogicalRecordSource& record, const PhysicalRowIR& row,
+    const std::vector<GlossaryCatalogCellIR>& cells,
+    std::string* error = nullptr);
 
 std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
     const std::vector<DecodedLogicalRecordSource>& records,

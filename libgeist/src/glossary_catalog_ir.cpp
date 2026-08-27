@@ -76,6 +76,68 @@ bool begins_term(const std::string& text, const std::string& term) {
          text[term.size()] == '.';
 }
 
+bool alphabetic(const std::string& text) {
+  return !text.empty() &&
+         std::all_of(text.begin(), text.end(), [](const unsigned char ch) {
+           return std::isalpha(ch) != 0;
+         });
+}
+
+GlossaryMarkerDispositionIR marker_disposition(
+    const GlossaryDefinitionRowIR& row, bool first_prose_row,
+    const std::string& preceding_prose) {
+  if (!row.marker) return GlossaryMarkerDispositionIR::absent;
+  if (row.role != GlossaryDefinitionRowRoleIR::prose)
+    return GlossaryMarkerDispositionIR::layout_artifact;
+  const auto& marker = *row.marker;
+  if (first_prose_row && marker.decoded_text == ".")
+    return GlossaryMarkerDispositionIR::term_delimiter;
+  if (marker.decoded_text == "." || marker.decoded_text == ":" ||
+      marker.decoded_text == ",")
+    return GlossaryMarkerDispositionIR::prose_punctuation;
+  if (marker.decoded_text == ")" &&
+      std::count(preceding_prose.begin(), preceding_prose.end(), '(') >
+          std::count(preceding_prose.begin(), preceding_prose.end(), ')'))
+    return GlossaryMarkerDispositionIR::prose_punctuation;
+
+  // In this fixed catalog, origin 3 is the ordinary row-control column and
+  // encoded values below 40 are its observed layout alphabet. Their token-map
+  // projections (a/action/adapter/...) are not content. A word outside that
+  // column, or a normal dictionary token (>= 40), is source-proven lexical
+  // carry split from the following visible row by the compact origin slot.
+  if (alphabetic(marker.decoded_text) &&
+      (row.native_origin != 3 || marker.encoded_value >= 40))
+    return GlossaryMarkerDispositionIR::lexical_carry;
+  return GlossaryMarkerDispositionIR::layout_artifact;
+}
+
+std::string compose_definition_prose(
+    std::vector<GlossaryDefinitionRowIR>& rows) {
+  std::string result;
+  auto first_prose_row = true;
+  for (auto& row : rows) {
+    row.marker_disposition =
+        marker_disposition(row, first_prose_row, result);
+    if (row.role != GlossaryDefinitionRowRoleIR::prose) continue;
+    auto text = row.semantic_text;
+    if (text.empty()) continue;
+    if (row.marker_disposition ==
+        GlossaryMarkerDispositionIR::prose_punctuation) {
+      const auto& punctuation = row.marker->decoded_text;
+      if (!result.empty() && result.back() != punctuation.front())
+        result += punctuation;
+    } else if (row.marker_disposition ==
+               GlossaryMarkerDispositionIR::lexical_carry) {
+      if (!result.empty()) result.push_back(' ');
+      result += row.marker->decoded_text;
+    }
+    if (!result.empty()) result.push_back(' ');
+    result += std::move(text);
+    first_prose_row = false;
+  }
+  return result;
+}
+
 std::optional<std::string> semantic_term(
     const std::string& raw,
     const std::vector<GlossaryDefinitionRowIR>& rows) {
@@ -153,7 +215,10 @@ bool same_cell(const GlossaryCatalogCellIR& left,
 bool same_row(const GlossaryDefinitionRowIR& left,
               const GlossaryDefinitionRowIR& right) {
   if (left.visible_text != right.visible_text ||
+      left.semantic_text != right.semantic_text ||
       left.marker.has_value() != right.marker.has_value() ||
+      left.marker_disposition != right.marker_disposition ||
+      left.role != right.role ||
       left.native_origin != right.native_origin ||
       left.break_before != right.break_before ||
       left.source_row.display_run != right.source_row.display_run ||
@@ -317,6 +382,7 @@ bool same_catalog(const GlossaryCatalogIR& left,
       left.heading_level != right.heading_level ||
       left.sections.size() != right.sections.size() ||
       left.entries.size() != right.entries.size() ||
+      left.items.size() != right.items.size() ||
       !same_slice(left.terminal_source, right.terminal_source) ||
       left.segments.size() != right.segments.size())
     return false;
@@ -332,6 +398,7 @@ bool same_catalog(const GlossaryCatalogIR& left,
     const auto& b = right.entries[index];
     if (a.term != b.term || a.raw_term != b.raw_term ||
         a.source_suffix != b.source_suffix ||
+        a.definition.prose != b.definition.prose ||
         !same_slice(a.term_source, b.term_source) ||
         !same_rows(a.definition.rows, b.definition.rows) ||
         !same_slices(a.definition.structural_sources,
@@ -342,6 +409,13 @@ bool same_catalog(const GlossaryCatalogIR& left,
     if (a.definition.embedded_table &&
         !same_embedded_table(*a.definition.embedded_table,
                              *b.definition.embedded_table))
+      return false;
+  }
+  for (std::size_t index = 0; index < left.items.size(); ++index) {
+    const auto& a = left.items[index];
+    const auto& b = right.items[index];
+    if (a.kind != b.kind || a.index != b.index ||
+        !same_slice(a.boundary_source, b.boundary_source))
       return false;
   }
   for (std::size_t index = 0; index < left.segments.size(); ++index) {
@@ -355,6 +429,82 @@ bool same_catalog(const GlossaryCatalogIR& left,
 }
 
 } // namespace
+
+std::optional<std::string> project_glossary_semantic_row_text(
+    const DecodedLogicalRecordSource& record, const PhysicalRowIR& row,
+    const std::vector<GlossaryCatalogCellIR>& cells, std::string* error) {
+  const auto reject = [&](std::string message) -> std::optional<std::string> {
+    fail(error, std::move(message));
+    return std::nullopt;
+  };
+  if (row.logical_record != record.logical_record ||
+      row.token_begin >= row.token_end || row.token_end > record.tokens.size() ||
+      record.assembled.tokens.size() != record.tokens.size())
+    return reject("glossary semantic row token envelope is invalid");
+
+  std::vector<std::optional<SourceDisposition>> dispositions(
+      record.tokens.size());
+  for (auto token = row.token_begin; token < row.token_end; ++token) {
+    const auto& words = record.tokens[token];
+    const auto first_word =
+        !words.empty() && words.front() < 4 ? std::size_t{1} : 0;
+    auto owned_words = std::size_t{0};
+    for (const auto& cell : cells) {
+      if (cell.logical_record != row.logical_record ||
+          cell.token_index != token)
+        continue;
+      if (cell.word_index < first_word || cell.word_index >= words.size() ||
+          cell.word != words[cell.word_index])
+        return reject("glossary semantic row cell differs from source token");
+      if (dispositions[token] &&
+          *dispositions[token] != cell.disposition)
+        return reject("glossary source token has mixed row dispositions");
+      dispositions[token] = cell.disposition;
+      ++owned_words;
+    }
+    if (owned_words != words.size() - first_word)
+      return reject("glossary semantic row does not own every token word");
+    if (!dispositions[token]) continue;
+    switch (*dispositions[token]) {
+    case SourceDisposition::visible_content:
+    case SourceDisposition::marker_slot:
+    case SourceDisposition::layout_origin:
+    case SourceDisposition::layout_padding: break;
+    case SourceDisposition::control_operand:
+    case SourceDisposition::opaque:
+      return reject("glossary semantic row contains a non-row disposition");
+    }
+  }
+
+  TokenWords semantic_words;
+  std::size_t previous_output_end = 0;
+  auto have_visible = false;
+  for (auto token = row.token_begin; token < row.token_end; ++token) {
+    if (!dispositions[token] ||
+        *dispositions[token] != SourceDisposition::visible_content)
+      continue;
+    const auto& span = record.assembled.tokens[token];
+    if (span.output_begin > span.output_end ||
+        span.output_end > record.assembled.words.size())
+      return reject("glossary semantic row assembled span is invalid");
+    if (have_visible && previous_output_end < span.output_begin &&
+        (semantic_words.empty() || semantic_words.back() != ' '))
+      semantic_words.push_back(' ');
+    semantic_words.insert(
+        semantic_words.end(),
+        record.assembled.words.begin() +
+            static_cast<std::ptrdiff_t>(span.output_begin),
+        record.assembled.words.begin() +
+            static_cast<std::ptrdiff_t>(span.output_end));
+    previous_output_end = span.output_end;
+    have_visible = true;
+  }
+  auto result = collapse_ascii_whitespace(
+      trim_ascii(token_words_to_ascii(semantic_words)));
+  if (result.empty()) return reject("glossary row has no semantic visible content");
+  if (error != nullptr) error->clear();
+  return result;
+}
 
 std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
@@ -455,6 +605,12 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
       }
       if (item.cells.empty())
         return reject("glossary row has no owned source cells");
+      const auto semantic_text = project_glossary_semantic_row_text(
+          *record, row, item.cells, &verification_error);
+      if (!semantic_text)
+        return reject("glossary semantic row projection failed: " +
+                      verification_error);
+      item.semantic_text = *semantic_text;
       rows[{row.logical_record, row.segment_index}].push_back(std::move(item));
     }
   }
@@ -559,6 +715,9 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
         return reject("empty SRGLS is not a single-letter section marker");
       result.sections.push_back(
           {std::move(label), marker_source, std::move(content_rows)});
+      result.items.push_back({GlossaryCatalogItemKindIR::section,
+                              result.sections.size() - 1,
+                              result.sections.back().marker_source});
     } else {
       if (content_rows.empty())
         return reject("glossary term has no definition rows");
@@ -578,6 +737,18 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
                                        boundary.segment->payload_range);
       if (!has_source(entry.term_source))
         return reject("glossary term source provenance is incomplete");
+      content_rows.front().role = GlossaryDefinitionRowRoleIR::term_echo;
+      if (!embedded_rows.empty()) {
+        for (auto& row : content_rows)
+          if (std::any_of(embedded_rows.begin(), embedded_rows.end(),
+                          [&](const auto& embedded) {
+                            return same_slice(row.source, embedded.source);
+                          }))
+            row.role = GlossaryDefinitionRowRoleIR::embedded_table;
+      }
+      entry.definition.prose = compose_definition_prose(content_rows);
+      if (entry.definition.prose.empty())
+        return reject("glossary term has no semantic definition prose");
       entry.definition.rows = std::move(content_rows);
       entry.definition.structural_sources = std::move(structural_sources);
       if (!embedded_controls.empty() || !embedded_rows.empty()) {
@@ -590,6 +761,9 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
         entry.definition.embedded_table = std::move(*embedded);
       }
       result.entries.push_back(std::move(entry));
+      result.items.push_back({GlossaryCatalogItemKindIR::entry,
+                              result.entries.size() - 1,
+                              result.entries.back().term_source});
     }
     cursor = next_index;
   }
@@ -625,6 +799,7 @@ std::string format_glossary_catalog_ir(const GlossaryCatalogIR& catalog) {
       << catalog.end_logical_record << ") heading=" << catalog.heading_level
       << " sections=" << catalog.sections.size()
       << " entries=" << catalog.entries.size()
+      << " items=" << catalog.items.size()
       << " terminal=" << slice_projection(catalog.terminal_source)
       << " segments=" << catalog.segments.size() << '\n';
   out << format_glossary_introduction_ir(catalog.introduction);
@@ -639,7 +814,8 @@ std::string format_glossary_catalog_ir(const GlossaryCatalogIR& catalog) {
     out << "entry term='" << entry.term << "' raw='" << entry.raw_term
         << "' suffix='" << entry.source_suffix << "' source="
         << slice_projection(entry.term_source) << " rows="
-        << entry.definition.rows.size() << " structural=";
+        << entry.definition.rows.size() << " prose='"
+        << entry.definition.prose << "' structural=";
     for (const auto& source : entry.definition.structural_sources)
       out << slice_projection(source) << ',';
     out << '\n';
@@ -649,7 +825,11 @@ std::string format_glossary_catalog_ir(const GlossaryCatalogIR& catalog) {
           << " row=" << row.source_row.row_index
           << " origin=" << row.native_origin
           << " break=" << static_cast<int>(row.break_before)
-          << " marker='" << (row.marker ? row.marker->decoded_text : "")
+          << " semantic='" << row.semantic_text << "' marker='"
+          << (row.marker ? row.marker->decoded_text : "")
+          << " marker_disposition="
+          << static_cast<int>(row.marker_disposition)
+          << " role=" << static_cast<int>(row.role)
           << "' text='" << row.visible_text << "' cells=";
       for (const auto& cell : row.cells)
         out << cell.logical_record << ':' << cell.token_index << ':'
