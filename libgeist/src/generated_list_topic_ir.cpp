@@ -122,7 +122,7 @@ std::optional<GeneratedListEntryIR> make_entry(
   };
 
   const auto& span = row.spans.front();
-  auto first = span.cell_begin;
+  auto first = std::size_t{0};
   while (first < row.cells.size() && !label_anchor(row.cells[first])) ++first;
   const auto first_visible = std::find_if(
       row.cells.begin() + static_cast<std::ptrdiff_t>(first), row.cells.end(),
@@ -163,15 +163,6 @@ std::optional<GeneratedListEntryIR> make_entry(
     const auto* candidate = owned_cell(row.cells[first]);
     const auto* following =
         next < row.cells.size() ? owned_cell(row.cells[next]) : nullptr;
-    auto padded_visible_leader = false;
-    if (candidate != nullptr &&
-        candidate->disposition == SourceDisposition::visible_content &&
-        first > 0) {
-      const auto* previous = owned_cell(row.cells[first - 1]);
-      padded_visible_leader =
-          previous != nullptr &&
-          previous->disposition == SourceDisposition::layout_padding;
-    }
     const auto opaque_leader =
         candidate != nullptr && following != nullptr &&
         candidate->disposition == SourceDisposition::opaque &&
@@ -180,6 +171,8 @@ std::optional<GeneratedListEntryIR> make_entry(
         candidate != nullptr && following != nullptr &&
         candidate->disposition == SourceDisposition::visible_content &&
         following->disposition == SourceDisposition::visible_content &&
+        candidate->run == following->run &&
+        candidate->row_index == following->row_index &&
         payload_word_count(row.cells[next]) > 1 &&
         first_restored_marker != row.cells.end() &&
         next < static_cast<std::size_t>(
@@ -190,7 +183,7 @@ std::optional<GeneratedListEntryIR> make_entry(
              row.cells[next].source->logical_record ||
          row.cells[first].source->token_index !=
              row.cells[next].source->token_index) &&
-        (padded_visible_leader || isolated_visible_leader || opaque_leader)) {
+        (isolated_visible_leader || opaque_leader)) {
       first = next;
     }
   }

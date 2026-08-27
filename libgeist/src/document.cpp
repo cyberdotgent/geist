@@ -139,6 +139,28 @@ bool has_menu_ir_source_candidate(const std::vector<std::string>& records) {
   });
 }
 
+bool has_generated_list_ir_source_candidate(
+    const std::vector<std::string>& records) {
+  bool heading = false;
+  bool title = false;
+  bool selector = false;
+  for (const auto& record : records) {
+    for (const auto& segment : split_decoded_markup_segments(record)) {
+      const auto normalized = ascii_lower(trim_ascii(segment));
+      heading = heading ||
+                ascii_starts_with_case_insensitive(normalized,
+                                                   "chdlevel :figlist") ||
+                ascii_starts_with_case_insensitive(normalized,
+                                                   "chdlevel :tlist");
+      title = title ||
+              ascii_starts_with_case_insensitive(normalized, "st ");
+      selector = selector ||
+                 ascii_starts_with_case_insensitive(normalized, "cselect ");
+    }
+  }
+  return heading && title && selector;
+}
+
 bool has_glossary_ir_source_candidate(
     const std::vector<std::string>& records) {
   bool heading = false;
@@ -165,6 +187,7 @@ void load_source_layout_if_candidate(
   if (!topic.use_legacy_source_layout &&
       !has_publication_ir_source_candidate(topic.raw_records) &&
       !has_menu_ir_source_candidate(topic.raw_records) &&
+      !has_generated_list_ir_source_candidate(topic.raw_records) &&
       !has_glossary_ir_source_candidate(topic.raw_records)) {
     return;
   }
@@ -210,7 +233,8 @@ struct LazyTopicState {
     if (has_comment_delivery_source_candidate(topic.raw_records) ||
         has_publication_ir_source_candidate(topic.raw_records) ||
         has_st_fixed_prose_source_candidate(topic.raw_records) ||
-        has_menu_ir_source_candidate(topic.raw_records)) {
+        has_menu_ir_source_candidate(topic.raw_records) ||
+        has_generated_list_ir_source_candidate(topic.raw_records)) {
       typed_sources = topic.fixed_layout_sources.empty()
                           ? decode_logical_record_sources(
                                 *context, topic.start_logical_record,

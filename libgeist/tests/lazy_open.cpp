@@ -361,10 +361,11 @@ int main() {
   const auto web_figures = web_demo.topic_markdown("FIGURES");
   require(web_figures.find("c.sp 3p p c") == std::string::npos,
           "generated figure-list spacing control leaked into Markdown");
-  require(web_figures.find("[1. BookManager product family 1.2]") !=
+  require(web_figures.find("[1\\.  BookManager product family   1\\.2]") !=
               std::string::npos &&
               web_figures.find(
-                  "[3. External JPEG format image presented in-line 1.4.1]") !=
+                  "[3\\.  External JPEG format image presented in\\-line   "
+                  "1\\.4\\.1]") !=
                   std::string::npos,
           "external-picture figure index retained selector metadata");
 

@@ -442,6 +442,9 @@ void verify_corpus_inventory() {
             &audited_prefixes);
       if (filename == "IEAC6MST.BOO" && topic.id == "FIGURES") {
         require_fixed_prefixes(*list, {{81, "7-9."}}, &audited_prefixes);
+        require(label_text(list->entries[4]).rfind("2-2.  Sample CLIST", 0) ==
+                    0,
+                "one-cell ordinal was misclassified as layout decoration");
         const auto& cross_record = list->entries[80];
         require(cross_record.selector.logical_record + 1 ==
                     cross_record.display.owner.logical_record &&

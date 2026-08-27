@@ -405,12 +405,32 @@ target_compile_definitions(menu_production_test PRIVATE
 )
 add_test(NAME menu_production_test COMMAND menu_production_test)
 
+add_executable(generated_list_production_test
+  tests/generated_list_production.cpp
+)
+target_link_libraries(generated_list_production_test
+  PRIVATE geist::geist_static
+)
+target_compile_definitions(generated_list_production_test PRIVATE
+  GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+add_test(NAME generated_list_production_test
+  COMMAND generated_list_production_test)
+
 add_test(NAME boo2git_menu_links_test
   COMMAND ${CMAKE_COMMAND}
     -DBOO2GIT=$<TARGET_FILE:boo2git>
     -DBOOK=${CMAKE_CURRENT_SOURCE_DIR}/../BOO/FA1PLMM0.boo
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/boo2git-menu-links
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/boo2git_menu_links.cmake
+)
+
+add_test(NAME boo2git_generated_list_links_test
+  COMMAND ${CMAKE_COMMAND}
+    -DBOO2GIT=$<TARGET_FILE:boo2git>
+    -DBOOK=${CMAKE_CURRENT_SOURCE_DIR}/../BOO/GG24-395.boo
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/boo2git-generated-list-output
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/boo2git_generated_list_links.cmake
 )
 
 add_executable(topic_document_lowering_test
