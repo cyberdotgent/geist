@@ -249,6 +249,8 @@ bool same_row(const GlossaryDefinitionRowIR &left,
       left.break_before != right.break_before ||
       left.continuation_prefix.has_value() !=
           right.continuation_prefix.has_value() ||
+      left.terminal_delimiter.has_value() !=
+          right.terminal_delimiter.has_value() ||
       left.source_row.display_run != right.source_row.display_run ||
       left.source_row.row_index != right.source_row.row_index ||
       !same_slice(left.source, right.source) ||
@@ -266,6 +268,9 @@ bool same_row(const GlossaryDefinitionRowIR &left,
       if (!same_cell(a.cells[index], b.cells[index]))
         return false;
   }
+  if (left.terminal_delimiter &&
+      !same_cell(*left.terminal_delimiter, *right.terminal_delimiter))
+    return false;
   for (std::size_t index = 0; index < left.cells.size(); ++index)
     if (!same_cell(left.cells[index], right.cells[index]))
       return false;
@@ -554,6 +559,39 @@ std::optional<std::string> project_glossary_semantic_row_text(
   return result;
 }
 
+std::optional<GlossaryCatalogCellIR> classify_terminal_delimiter(
+    const DecodedLogicalRecordSource &record, const PhysicalRowIR &row,
+    bool final_row, std::vector<GlossaryCatalogCellIR> &cells) {
+  if (!final_row || row.token_end < row.token_begin + 2 ||
+      row.token_end > record.tokens.size() ||
+      row.token_end > record.encoded_tokens.size())
+    return std::nullopt;
+  const auto delimiter_token = row.token_end - 1;
+  const auto &delimiter_words = record.tokens[delimiter_token];
+  if (record.encoded_tokens[delimiter_token].width != 1 ||
+      delimiter_words.size() != 2 || delimiter_words.front() >= 4 ||
+      std::string(".,:;!?").find(
+          static_cast<char>(delimiter_words.back())) == std::string::npos)
+    return std::nullopt;
+  const auto delimiter = std::find_if(
+      cells.begin(), cells.end(), [&](const auto &cell) {
+        return cell.logical_record == record.logical_record &&
+               cell.token_index == delimiter_token && cell.word_index == 1 &&
+               cell.disposition == SourceDisposition::visible_content;
+      });
+  if (delimiter == cells.end())
+    return std::nullopt;
+  const auto preceding = std::find_if(
+      std::make_reverse_iterator(delimiter), cells.rend(),
+      [](const auto &cell) {
+        return cell.disposition == SourceDisposition::visible_content;
+      });
+  if (preceding == cells.rend() || preceding->word != delimiter->word)
+    return std::nullopt;
+  delimiter->disposition = SourceDisposition::layout_padding;
+  return *delimiter;
+}
+
 std::optional<GlossaryContinuationPrefixIR>
 continuation_prefix(const DecodedLogicalRecordSource &record,
                     const PhysicalRowIR &row, std::size_t row_index,
@@ -765,6 +803,8 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
       }
       if (item.cells.empty())
         return reject("glossary row has no owned source cells");
+      item.terminal_delimiter = classify_terminal_delimiter(
+          *record, row, row_index + 1 == run.rows.size(), item.cells);
       const auto semantic_text = project_glossary_semantic_row_text(
           *record, row, item.cells, &verification_error);
       if (!semantic_text)
@@ -999,6 +1039,10 @@ std::string format_glossary_catalog_ir(const GlossaryCatalogIR &catalog) {
           << row.semantic_text << "' marker='"
           << (row.marker ? row.marker->decoded_text : "")
           << " marker_disposition=" << static_cast<int>(row.marker_disposition)
+          << " terminal_delimiter="
+          << (row.terminal_delimiter
+                  ? std::to_string(row.terminal_delimiter->token_index)
+                  : "-")
           << " role=" << static_cast<int>(row.role) << "' text='"
           << row.visible_text << "' cells=";
       for (const auto &cell : row.cells)

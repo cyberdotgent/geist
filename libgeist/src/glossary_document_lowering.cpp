@@ -174,6 +174,11 @@ bool verify_catalog_shape(const GlossaryCatalogIR &catalog,
           composed.push_back(' ');
         composed += row.continuation_prefix->semantic_text;
       }
+      if (row.terminal_delimiter &&
+          row.terminal_delimiter->disposition !=
+              SourceDisposition::layout_padding)
+        return fail(error,
+                    "glossary terminal delimiter is not structural");
       auto row_text = row.semantic_text;
       if (row_text.empty())
         return fail(error, "glossary prose row has no visible content");

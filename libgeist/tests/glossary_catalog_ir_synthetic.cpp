@@ -248,6 +248,7 @@ int main() {
 
   std::set<std::tuple<std::uint32_t, std::size_t, std::size_t>> claimed_cells;
   auto prefix_count = std::size_t{};
+  auto terminal_delimiter_count = std::size_t{};
   for (const auto &entry : catalog->entries) {
     for (const auto &row : entry.definition.rows) {
       if (row.marker_disposition ==
@@ -261,6 +262,12 @@ int main() {
                 .emplace(cell.logical_record, cell.token_index, cell.word_index)
                 .second,
             "glossary source cell was claimed by multiple definition rows");
+      if (row.terminal_delimiter) {
+        ++terminal_delimiter_count;
+        require(row.terminal_delimiter->disposition ==
+                    geist::detail::SourceDisposition::layout_padding,
+                "terminal catalog delimiter remained visible prose");
+      }
       if (!row.continuation_prefix)
         continue;
       ++prefix_count;
@@ -273,6 +280,8 @@ int main() {
     }
   }
   require(prefix_count == 3, "glossary continuation-prefix inventory changed");
+  require(terminal_delimiter_count == 19,
+          "glossary terminal-delimiter inventory changed");
   const auto gateway = find_entry("gateway");
   const auto osi = find_entry("Open Systems Interconnection (OSI)");
   require(gateway != catalog->entries.end() &&
@@ -402,6 +411,23 @@ int main() {
   require(!geist::detail::verify_glossary_catalog_ir(sources, layout, ownership,
                                                      changed),
           "glossary verifier admitted missing continuation-prefix cells");
+  changed = *catalog;
+  const auto changed_terminal = std::find_if(
+      changed.entries.rbegin(), changed.entries.rend(), [](const auto &entry) {
+        return std::any_of(entry.definition.rows.begin(),
+                           entry.definition.rows.end(), [](const auto &row) {
+                             return row.terminal_delimiter.has_value();
+                           });
+      });
+  const auto changed_terminal_row = std::find_if(
+      changed_terminal->definition.rows.begin(),
+      changed_terminal->definition.rows.end(),
+      [](const auto &row) { return row.terminal_delimiter.has_value(); });
+  changed_terminal_row->terminal_delimiter->disposition =
+      geist::detail::SourceDisposition::visible_content;
+  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, ownership,
+                                                     changed),
+          "glossary verifier admitted a visible terminal delimiter");
   changed = *catalog;
   changed.segments.pop_back();
   require(!geist::detail::verify_glossary_catalog_ir(sources, layout, ownership,

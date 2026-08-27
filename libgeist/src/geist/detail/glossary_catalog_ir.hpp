@@ -58,6 +58,10 @@ struct GlossaryDefinitionRowIR {
   std::size_t native_origin = 0;
   PhysicalBreakKind break_before = PhysicalBreakKind::unknown;
   std::optional<GlossaryContinuationPrefixIR> continuation_prefix;
+  // Some completed catalog runs end with a compact punctuation delimiter
+  // immediately after the same source-visible punctuation. Keep that final
+  // cell as exact structural provenance instead of duplicating it in prose.
+  std::optional<GlossaryCatalogCellIR> terminal_delimiter;
   DocumentSourceRowIR source_row;
   DocumentSourceSliceIR source;
   std::vector<GlossaryCatalogCellIR> cells;

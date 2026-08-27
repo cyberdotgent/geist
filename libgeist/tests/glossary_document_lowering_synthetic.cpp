@@ -169,6 +169,9 @@ int main() {
                    "communicate with the NetView and NETCENTER programs.") !=
           std::string::npos,
       "record-leading glossary continuation was not lowered");
+  require(visible.find("Recommendation X.25..") == std::string::npos &&
+              visible.find("perform applications..") == std::string::npos,
+          "structural terminal delimiters duplicated visible punctuation");
   require(visible.find("a and mouse button") == std::string::npos &&
               visible.find("a adapter frame-relay") == std::string::npos,
           "fixed marker-code projections leaked into Markdown");
