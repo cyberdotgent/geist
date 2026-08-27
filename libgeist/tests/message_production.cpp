@@ -1,4 +1,5 @@
 #include "geist/document.hpp"
+#include "test_failures.hpp"
 
 #include <cstdlib>
 #include <filesystem>
@@ -11,7 +12,8 @@ namespace {
 void require(bool condition, const std::string &message) {
   if (!condition) {
     std::cerr << "message_production: " << message << '\n';
-    std::exit(1);
+    geist_test::record_failure();
+    return;
   }
 }
 

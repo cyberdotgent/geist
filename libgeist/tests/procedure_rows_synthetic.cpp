@@ -1,4 +1,5 @@
 #include "geist/detail/procedure_rows.hpp"
+#include "test_failures.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -6,7 +7,8 @@
 
 namespace {
 void require(bool value, const char* message) {
-  if (!value) { std::cerr << message << '\n'; std::exit(1); }
+  if (!value) { std::cerr << message << '\n'; geist_test::record_failure();
+  return; }
 }
 
 geist::detail::DecodedLogicalRecordSource source(std::uint32_t number,

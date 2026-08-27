@@ -1,4 +1,5 @@
 #include "geist/boo.hpp"
+#include "test_failures.hpp"
 #include "geist/detail/internal.hpp"
 #include "geist/detail/message_topic_ir.hpp"
 
@@ -16,7 +17,8 @@ namespace {
 void require(bool condition, const char *message) {
   if (!condition) {
     std::cerr << message << '\n';
-    std::exit(1);
+    geist_test::record_failure();
+    return;
   }
 }
 

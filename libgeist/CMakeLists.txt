@@ -564,16 +564,23 @@ target_link_libraries(fixed_display_synthetic_test PRIVATE geist::geist_static)
 
 add_test(NAME fixed_display_synthetic_test COMMAND fixed_display_synthetic_test)
 
-add_executable(lazy_open_test
-  tests/lazy_open.cpp
-)
-target_link_libraries(lazy_open_test PRIVATE geist::geist_static)
-target_compile_definitions(lazy_open_test
-  PRIVATE
-    GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
-)
-
-add_test(NAME lazy_open_test COMMAND lazy_open_test)
+# Per-book lazy-open integration tests. Each executable opens only the books it
+# asserts on so failures localize and CTest can run them in parallel.
+foreach(lazy_open_book
+    qs3x36cm gg24 xwebdemo sc41_485 sc34_425 prg1sort sh20_918 itppibok
+    sh12_565 sc24_546 sc31_711_topics sc31_711_catalogs fixed_displays)
+  add_executable(lazy_open_${lazy_open_book}_test
+    tests/lazy_open_${lazy_open_book}.cpp
+  )
+  target_link_libraries(lazy_open_${lazy_open_book}_test
+    PRIVATE geist::geist_static)
+  target_compile_definitions(lazy_open_${lazy_open_book}_test
+    PRIVATE
+      GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+  )
+  add_test(NAME lazy_open_${lazy_open_book}_test
+    COMMAND lazy_open_${lazy_open_book}_test)
+endforeach()
 
 add_executable(geist_open_benchmark
   tests/open_benchmark.cpp

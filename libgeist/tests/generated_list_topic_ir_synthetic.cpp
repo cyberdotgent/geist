@@ -1,4 +1,5 @@
 #include "geist/detail/generated_list_document_lowering.hpp"
+#include "test_failures.hpp"
 #include "geist/detail/generated_list_topic_ir.hpp"
 #include "geist/detail/internal.hpp"
 
@@ -20,7 +21,8 @@ using geist::detail::TokenWords;
 void require(bool condition, const std::string& message) {
   if (!condition) {
     std::cerr << message << '\n';
-    std::exit(1);
+    geist_test::record_failure();
+    return;
   }
 }
 

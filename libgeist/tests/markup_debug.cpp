@@ -1,4 +1,5 @@
 #include "geist/detail/internal.hpp"
+#include "test_failures.hpp"
 
 #include <cstdlib>
 #include <iostream>
@@ -15,7 +16,8 @@ void require_contains(const std::string& haystack,
   }
   std::cerr << "missing " << label << ": " << needle << "\n"
             << "actual: " << haystack << "\n";
-  std::exit(1);
+  geist_test::record_failure();
+  return;
 }
 
 void require_not_contains(const std::string& haystack,
@@ -26,7 +28,8 @@ void require_not_contains(const std::string& haystack,
   }
   std::cerr << "unexpected " << label << ": " << needle << "\n"
             << "actual: " << haystack << "\n";
-  std::exit(1);
+  geist_test::record_failure();
+  return;
 }
 
 } // namespace

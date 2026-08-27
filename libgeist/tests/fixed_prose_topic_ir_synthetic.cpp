@@ -1,4 +1,5 @@
 #include "geist/detail/fixed_prose_document_lowering.hpp"
+#include "test_failures.hpp"
 #include "geist/detail/internal.hpp"
 
 #include <algorithm>
@@ -17,7 +18,8 @@ using namespace geist::detail;
 void require(bool condition, const std::string& message) {
   if (!condition) {
     std::cerr << "fixed_prose_topic_ir_synthetic: " << message << '\n';
-    std::exit(1);
+    geist_test::record_failure();
+    return;
   }
 }
 

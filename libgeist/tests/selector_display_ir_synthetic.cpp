@@ -1,4 +1,5 @@
 #include "geist/detail/internal.hpp"
+#include "test_failures.hpp"
 #include "geist/detail/selector_display_ir.hpp"
 
 #include <algorithm>
@@ -18,7 +19,8 @@ using geist::detail::TokenWords;
 void require(bool condition, const std::string &message) {
   if (!condition) {
     std::cerr << message << '\n';
-    std::exit(1);
+    geist_test::record_failure();
+    return;
   }
 }
 

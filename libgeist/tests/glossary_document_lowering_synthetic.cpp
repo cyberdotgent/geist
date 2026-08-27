@@ -1,4 +1,5 @@
 #include "geist/detail/document_markdown_renderer.hpp"
+#include "test_failures.hpp"
 #include "geist/detail/glossary_catalog_ir.hpp"
 #include "geist/detail/glossary_document_lowering.hpp"
 #include "geist/detail/internal.hpp"
@@ -15,7 +16,8 @@ namespace {
 void require(bool condition, const std::string &message) {
   if (!condition) {
     std::cerr << "glossary_document_lowering_synthetic: " << message << '\n';
-    std::exit(1);
+    geist_test::record_failure();
+    return;
   }
 }
 

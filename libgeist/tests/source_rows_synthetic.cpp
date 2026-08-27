@@ -1,4 +1,5 @@
 #include "geist/detail/source_rows.hpp"
+#include "test_failures.hpp"
 
 #include <cstdlib>
 #include <iostream>
@@ -9,7 +10,8 @@ namespace {
 void require(bool condition, const char* message) {
   if (!condition) {
     std::cerr << message << '\n';
-    std::exit(1);
+    geist_test::record_failure();
+    return;
   }
 }
 

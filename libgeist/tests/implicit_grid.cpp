@@ -1,4 +1,5 @@
 #include "geist/detail/implicit_grid.hpp"
+#include "test_failures.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -10,7 +11,8 @@ namespace {
 void require(bool condition, const char* message) {
   if (!condition) {
     std::cerr << message << "\n";
-    std::exit(1);
+    geist_test::record_failure();
+    return;
   }
 }
 

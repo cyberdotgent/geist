@@ -1,4 +1,5 @@
 #include "geist/detail/internal.hpp"
+#include "test_failures.hpp"
 
 #include <chrono>
 #include <cstdlib>
@@ -15,7 +16,8 @@ namespace {
 void require(bool condition, const char *message) {
   if (!condition) {
     std::cerr << message << "\n";
-    std::exit(1);
+    geist_test::record_failure();
+    return;
   }
 }
 

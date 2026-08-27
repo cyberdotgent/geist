@@ -1,4 +1,5 @@
 #include "geist/detail/book_topic_catalog_ir.hpp"
+#include "test_failures.hpp"
 #include "geist/detail/internal.hpp"
 #include "geist/detail/menu_document_lowering.hpp"
 #include "geist/detail/menu_topic_ir.hpp"
@@ -20,7 +21,8 @@ using namespace geist::detail;
 void require(bool condition, const std::string &message) {
   if (!condition) {
     std::cerr << "menu_topic_ir_synthetic: " << message << '\n';
-    std::exit(1);
+    geist_test::record_failure();
+    return;
   }
 }
 

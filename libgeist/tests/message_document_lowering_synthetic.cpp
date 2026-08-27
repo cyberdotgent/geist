@@ -1,4 +1,5 @@
 #include "geist/boo.hpp"
+#include "test_failures.hpp"
 #include "geist/detail/document_markdown_renderer.hpp"
 #include "geist/detail/internal.hpp"
 #include "geist/detail/message_document_lowering.hpp"
@@ -15,7 +16,8 @@ namespace {
 void require(bool condition, const std::string &message) {
   if (!condition) {
     std::cerr << message << '\n';
-    std::exit(1);
+    geist_test::record_failure();
+    return;
   }
 }
 

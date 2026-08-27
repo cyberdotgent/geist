@@ -944,3 +944,12 @@
   predated the typed message, generated-list, and glossary renderers; the
   glossary introduction labels (`Contrast with:`) lost hosted bold styling in
   typed glossary lowering and remain a recorded follow-up.
+- Sped up the test loop without changing library behaviour. Every
+  `require`-family helper now records failures through
+  `tests/test_failures.hpp` and keeps running, so one execution enumerates all
+  failing expectations while the process still exits non-zero. Split the
+  1,047-line `lazy_open` integration test into thirteen per-book
+  `lazy_open_*` executables sharing `lazy_open_support.hpp`, so CTest runs
+  them in parallel and a failure names its book. SC34-425 alone costs ~98 s
+  and SC31-711's message/glossary catalogs ~140 s; those are the profiling
+  targets if decoded-IR caching is pursued.

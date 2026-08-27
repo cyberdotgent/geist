@@ -1,4 +1,5 @@
 #include "geist/detail/comment_delivery_document_lowering.hpp"
+#include "test_failures.hpp"
 #include "geist/detail/internal.hpp"
 
 #include <cstdlib>
@@ -19,7 +20,8 @@ void require(bool condition, const std::string &message) {
   if (!condition) {
     std::cerr << "comment_delivery_document_lowering_synthetic: " << message
               << '\n';
-    std::exit(1);
+    geist_test::record_failure();
+    return;
   }
 }
 
