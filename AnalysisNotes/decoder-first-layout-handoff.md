@@ -581,6 +581,19 @@ forms remain malformed and opaque. An all-topic corpus scan consequently admits
 all 28 complete `FIGURES`/`TABLES` topics across 18 fixtures, conserving all
 1,196 selector rows with no false positives or rejected generated-list topics.
 
+The entry model now also separates selected/source-extension label fragments
+from layout decoration, structural cells, and decoder artifacts before
+Document-IR lowering. This classification uses source ownership, token and row
+geometry, restored-marker position, continuation identity, and explicit
+unmapped-word provenance; it does not recognize decoration by its rendered
+character. The corpus gate accounts for all cells, covers the 42 observed
+decoration-prefix rows and three unmapped terminal artifacts, and separately
+proves that lexical `(CIDSIEXP)` and `(CIDSIWTO)` prefixes and the `8.1.10.3`
+source extension remain label content. Cross-record labels retain the exact
+source-token slices that supplied their fragments rather than inheriting the
+selector's record. The canonical lowerer consumes only these typed fragments
+and targets, so no Markdown-specific cleanup remains in that layer.
+
 Menu provenance is now explicit down to decoded output cell, token/word,
 inserted-space kind, word value, and token byte range. A strict `MenuTopicIR`
 wraps that core with metadata, optional anchor, title, menu boundaries, and
@@ -601,13 +614,43 @@ invented. Header titles are authoritative when present and TOC evidence remains
 explicit corroboration. Catalog-only validation retains the same six-topic
 boundary across all 153 raw envelopes. Those six topics now also lower
 canonically to output-neutral Document IR: the source title becomes a heading,
-the optional source anchor remains an anchor block, and all items form one
-unordered list whose sole inline per item is a typed topic cross-reference.
+the optional source anchor remains an anchor block in source order, and all
+items form one unordered list whose sole inline per item is a typed topic
+cross-reference.
 Labels and raw target identities are copied unchanged, while heading and link
 origins retain canonical token/byte slices from the exact title, target, and
-label cells. Target, label, and provenance mutations reject. Production still
-needs to build and share this catalog once with the whole-topic dispatcher;
-widening based on raw shape alone remains unsound.
+label cells. Two ST payloads also contain introductory prose in a second fixed
+column: `SC33-033.boo` `5.3` uses a 20-cell gap and `SH12-565.boo`
+`APPENDIX1.9.5` a 10-cell gap, with both introductions starting at physical
+column 50. The typed splitter groups only contiguous `layout_padding` cells on
+one owned run/row, requires visible cells on both sides and that exact column
+geometry, and rejects multiple qualifying gaps. Every other payload cell is
+partitioned once into the title or introduction evidence. Lowering therefore
+emits those introductions as independent paragraphs rather than merging them
+into headings. Target, label, intro, order, and provenance mutations reject.
+
+Menu production now builds and verifies one `BookTopicCatalogIR` after the
+TopicInfo and TOC indexes exist, retains it on `BooDocument`, and shares it with
+both TOC-backed and direct lazy topic loaders. The dispatcher admits a menu
+only after source-only extraction and catalog validation and includes it in the
+same exactly-one-family check as comments, publications, and fixed prose. The
+other 147 structurally complete raw menu envelopes remain on the legacy path;
+no title-map repair or output-string cleanup participates in admission. Public
+GML remains unchanged and repeated typed rendering is stable.
+
+The fresh 34-book export contains the same 34 book directories, 7,885 files,
+and 7,396 Markdown files as the publication baseline. Exactly five files
+change: the two established typed fixed-prose files in `ITPPIBOK.BOO`, plus the
+three menu topics that have TOC projections (`FA1PLMM0.boo/5-6.md`,
+`SC33-033.boo/5-3.md`, and
+`SH12-565.boo/appendix1-9-5.md`). The three admitted `SC34-425.boo` menu topics
+(`1.8.5.5`, `1.8.15.5`, and `1.8.18.5`) are TopicInfo-only and are covered by
+the direct `topic_markdown()` route; they intentionally produce no `boo2git`
+files. Semantic review confirms source-order anchors, separate title/intro
+blocks, exact raw labels and targets, exporter-resolved topic filenames, and no
+spillover. The exporter resolves both typed angled destinations and legacy
+plain anchor destinations; an anchor-leading typed document no longer receives
+a duplicate fallback heading.
 
 The publication-catalog adapter is the second complete semantic-to-document
 lowering and is now enabled in production. `PublicationCatalogIR` retains
