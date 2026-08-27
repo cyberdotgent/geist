@@ -1176,11 +1176,6 @@ void attach_topic_data(
       entry.raw_records = std::move(*publication);
       return;
     }
-    if (auto glossary = render_verified_glossary_gml(
-            topic.raw_records, topic.fixed_layout_sources)) {
-      entry.raw_records = std::move(*glossary);
-      return;
-    }
   }
   entry.raw_records = topic.fixed_layout_sources.empty()
                           ? render_gml_records(topic.raw_records)
@@ -1190,9 +1185,6 @@ void attach_topic_data(
     project_verified_menu_gml(entry.raw_records, topic.fixed_layout_sources,
                               *topic_titles);
   }
-  if (!topic.fixed_layout_sources.empty())
-    project_verified_message_sections_gml(entry.raw_records,
-                                          topic.fixed_layout_sources);
   std::optional<MessageProseSourceIR> message_prose;
   if (!topic.fixed_layout_sources.empty() &&
       std::any_of(topic.raw_records.begin(), topic.raw_records.end(),
