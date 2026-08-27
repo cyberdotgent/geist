@@ -1,5 +1,6 @@
 #include "geist/detail/book_topic_catalog_ir.hpp"
 #include "test_failures.hpp"
+#include "geist/detail/document_markdown_renderer.hpp"
 #include "geist/detail/internal.hpp"
 #include "geist/detail/menu_document_lowering.hpp"
 #include "geist/detail/menu_topic_ir.hpp"
@@ -249,55 +250,89 @@ void inventory_complete_menu_topics() {
                         semantic->introductions[paragraph].text,
                 "menu introduction did not lower as an independent paragraph");
       }
-      const auto *list =
-          std::get_if<ListBlockIR>(&document_ir->blocks[list_index].node);
-      require(list != nullptr && !list->ordered &&
-                  list->items.size() == semantic->items.size(),
-              "menu DocumentIR did not preserve unordered item sequence");
-      for (std::size_t item_index = 0; item_index < list->items.size();
+      const auto *menu_block =
+          std::get_if<MenuBlockIR>(&document_ir->blocks[list_index].node);
+      require(menu_block != nullptr &&
+                  menu_block->items.size() == semantic->items.size(),
+              "menu DocumentIR did not lower to one typed menu block");
+      for (std::size_t item_index = 0; item_index < menu_block->items.size();
            ++item_index) {
-        require(list->items[item_index].content.size() == 1,
-                "menu item did not lower to one semantic link");
-        const auto *link = std::get_if<CrossReferenceInlineIR>(
-            &list->items[item_index].content.front().node);
-        require(link != nullptr &&
-                    link->target.kind == CrossReferenceTargetKindIR::topic &&
-                    link->target.value ==
+        const auto &item = menu_block->items[item_index];
+        require(item.target.kind == CrossReferenceTargetKindIR::topic &&
+                    item.target.value ==
                         semantic->items[item_index].target.value &&
-                    link->label == semantic->items[item_index].label,
-                "menu link label or raw topic target changed in lowering");
-        require(
-            !list->items[item_index].origin.slices.empty() &&
-                !list->items[item_index].content.front().origin.slices.empty(),
-            "menu link lost item or exact cell provenance");
+                    item.label == semantic->items[item_index].label,
+                "menu item label or raw topic target changed in lowering");
+        const auto &source = semantic->items[item_index].source;
+        const auto owns_item_slice = std::any_of(
+            item.origin.slices.begin(), item.origin.slices.end(),
+            [&](const auto &slice) {
+              return slice.logical_record == source.logical_record &&
+                     slice.token_begin == source.token_begin &&
+                     slice.token_end == source.token_end &&
+                     slice.byte_begin == source.byte_begin &&
+                     slice.byte_end == source.byte_end;
+            });
+        const auto owns_cell_slice = std::any_of(
+            item.origin.slices.begin(), item.origin.slices.end(),
+            [&](const auto &slice) {
+              return slice.token_end == slice.token_begin + 1 &&
+                     slice.token_begin >= source.token_begin &&
+                     slice.token_end <= source.token_end;
+            });
+        require(owns_item_slice && owns_cell_slice,
+                "menu item lost item or exact cell provenance");
+      }
+      // `Subtopics:` and the `<id> ` label prefix are BookServer render-time
+      // output; the typed block must not carry them as text.
+      const auto formatted_ir = format_document_ir(*document_ir);
+      require(formatted_ir.find("Subtopics") == std::string::npos,
+              "menu DocumentIR materialized reader-generated text");
+      const auto markdown = render_document_markdown(*document_ir);
+      require(markdown.find("\n\nSubtopics:\n\n- [") != std::string::npos,
+              "typed menu Markdown lost its Subtopics lead line");
+      for (const auto &item : semantic->items) {
+        std::string prefixed;
+        for (const auto ch : item.target.value + ' ' + item.label) {
+          if (std::string("\\`*_{}[]<>()#+-.!|~").find(ch) !=
+              std::string::npos)
+            prefixed.push_back('\\');
+          prefixed.push_back(ch);
+        }
+        require(markdown.find("- [" + prefixed + "](<#" + item.target.value +
+                              ">)") != std::string::npos,
+                "typed menu Markdown lost the `<id> <title>` label form for " +
+                    item.target.value);
       }
       auto mutated_document = *document_ir;
-      auto *mutated_list =
-          std::get_if<ListBlockIR>(&mutated_document.blocks[list_index].node);
-      auto *mutated_link = std::get_if<CrossReferenceInlineIR>(
-          &mutated_list->items.front().content.front().node);
-      mutated_link->target.value += "-changed";
+      auto *mutated_block =
+          std::get_if<MenuBlockIR>(&mutated_document.blocks[list_index].node);
+      mutated_block->items.front().target.value += "-changed";
       require(!verify_menu_topic_document_ir(*semantic, mutated_document),
               "menu DocumentIR verifier admitted a mutated target");
       mutated_document = *document_ir;
-      mutated_list =
-          std::get_if<ListBlockIR>(&mutated_document.blocks[list_index].node);
-      mutated_link = std::get_if<CrossReferenceInlineIR>(
-          &mutated_list->items.front().content.front().node);
-      mutated_link->label += "-changed";
+      mutated_block =
+          std::get_if<MenuBlockIR>(&mutated_document.blocks[list_index].node);
+      mutated_block->items.front().label += "-changed";
       require(!verify_menu_topic_document_ir(*semantic, mutated_document),
               "menu DocumentIR verifier admitted a mutated label");
       mutated_document = *document_ir;
-      mutated_list =
-          std::get_if<ListBlockIR>(&mutated_document.blocks[list_index].node);
-      ++mutated_list->items.front()
-            .content.front()
-            .origin.slices.front()
-            .byte_begin;
+      mutated_block =
+          std::get_if<MenuBlockIR>(&mutated_document.blocks[list_index].node);
+      ++mutated_block->items.front().origin.slices.front().byte_begin;
       require(!verify_menu_topic_document_ir(*semantic, mutated_document),
               "menu DocumentIR verifier admitted mutated cell provenance");
+      mutated_document = *document_ir;
+      mutated_block =
+          std::get_if<MenuBlockIR>(&mutated_document.blocks[list_index].node);
+      mutated_block->items.front().label =
+          mutated_block->items.front().target.value + ' ' +
+          mutated_block->items.front().label;
+      require(!verify_menu_topic_document_ir(*semantic, mutated_document),
+              "menu DocumentIR verifier admitted a label with a decoder-"
+              "injected id prefix");
       lowered.push_back(entry.path().filename().string() + ':' + topic.id +
-                        ':' + std::to_string(list->items.size()));
+                        ':' + std::to_string(menu_block->items.size()));
       require(std::all_of(semantic->items.begin(), semantic->items.end(),
                           [](const auto &item) {
                             return item.target.kind ==

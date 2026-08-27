@@ -195,6 +195,15 @@ bool verify_block(const BlockIR& block, std::string* error) {
               return fail(error, "index entry is incomplete");
           }
           return true;
+        } else if constexpr (std::is_same_v<T, MenuBlockIR>) {
+          if (node.items.empty()) return fail(error, "menu is empty");
+          for (const auto& item : node.items) {
+            if (!verify_origin(item.origin, error)) return false;
+            if (item.target.kind != CrossReferenceTargetKindIR::topic ||
+                item.target.value.empty() || item.label.empty())
+              return fail(error, "menu item is incomplete");
+          }
+          return true;
         } else if constexpr (std::is_same_v<T, OpaqueBlockIR>) {
           return !node.kind.empty() ||
                  fail(error, "opaque block kind is empty");
@@ -456,6 +465,15 @@ std::string format_document_ir(const DocumentIR& document) {
               format_inlines(out, node.entries[entry].term);
               out << " target=" << quoted(node.entries[entry].target);
               format_entry_origin(out, node.entries[entry].origin);
+            }
+            out << ']';
+          } else if constexpr (std::is_same_v<T, MenuBlockIR>) {
+            out << " menu items=[";
+            for (std::size_t item = 0; item < node.items.size(); ++item) {
+              if (item != 0) out << ' ';
+              out << "target=" << quoted(node.items[item].target.value)
+                  << " label=" << quoted(node.items[item].label);
+              format_entry_origin(out, node.items[item].origin);
             }
             out << ']';
           } else if constexpr (std::is_same_v<T, OpaqueBlockIR>) {
