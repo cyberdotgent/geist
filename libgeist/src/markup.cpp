@@ -1150,22 +1150,6 @@ std::string picture_resource_id(const std::string& target) {
   return target.substr(3);
 }
 
-std::string render_fontdef_gml(std::string value) {
-  const auto equals = value.find('=');
-  if (equals != std::string::npos) {
-    value = value.substr(equals + 1);
-  }
-  std::istringstream input(value);
-  std::string code;
-  if (!(input >> code)) {
-    return render_simple_gml_control("fontdef", std::move(value));
-  }
-  std::string style;
-  std::getline(input, style);
-  return ":fontdef code='" + escape_gml_attr(code) + "' style='" +
-         escape_gml_attr(dot_text(style)) + "'.";
-}
-
 struct SelectControl {
   std::size_t column = 0;
   std::size_t length = 0;
@@ -1417,35 +1401,6 @@ std::optional<SelectedDisplayText> select_display_text(
     return candidate;
   }
   return std::nullopt;
-}
-
-std::string render_table_select_fragment(const SelectControl& control) {
-  auto fragment = control.display_fragment;
-  const auto display = select_display_text(control);
-  if (!display || display->selected.empty()) {
-    return fragment;
-  }
-  auto selected = std::string::npos;
-  auto nearest_distance = std::numeric_limits<std::size_t>::max();
-  for (auto candidate = fragment.find(display->selected);
-       candidate != std::string::npos;
-       candidate = fragment.find(display->selected, candidate + 1)) {
-    const auto distance = candidate > control.column
-                              ? candidate - control.column
-                              : control.column - candidate;
-    if (distance < nearest_distance) {
-      selected = candidate;
-      nearest_distance = distance;
-    }
-  }
-  if (selected == std::string::npos) {
-    return fragment;
-  }
-  fragment.replace(selected,
-                   display->selected.size(),
-                   ":hdref refid='" + escape_gml_attr(control.target) + "'." +
-                       display->selected + ":ehdref.");
-  return fragment;
 }
 
 std::string render_selects_gml(std::vector<SelectControl> controls,
@@ -2194,28 +2149,6 @@ std::string dot_table_cell_text(std::string value) {
   value = dot_text(std::move(value));
   std::replace(value.begin(), value.end(), literal_table_question, '?');
   return value;
-}
-
-std::vector<std::string> extract_table_visual_cells(const std::string& value) {
-  std::vector<std::string> cells;
-  const auto first_separator = value.find('?');
-  if (first_separator == std::string::npos) {
-    return cells;
-  }
-
-  auto cursor = first_separator + 1;
-  while (cursor < value.size()) {
-    const auto next = value.find('?', cursor);
-    if (next == std::string::npos) {
-      auto trailing = clean_table_cell_text(value.substr(cursor));
-      cells.push_back(std::move(trailing));
-      break;
-    }
-    cells.push_back(clean_table_cell_text(value.substr(cursor,
-                                                       next - cursor)));
-    cursor = next + 1;
-  }
-  return cells;
 }
 
 bool is_table_border_run(const std::string& value, std::size_t offset) {
@@ -4058,27 +3991,6 @@ std::string render_labeled_box_gml(GmlRenderState& state) {
   }
   output += "\n:elblbox.";
   return output;
-}
-
-std::string render_generated_title_font_line(std::string value) {
-  const auto last_close = value.rfind(":ehp");
-  if (last_close == std::string::npos) {
-    return render_simple_gml_control("p", std::move(value));
-  }
-
-  const auto close_end = value.find('.', last_close);
-  if (close_end == std::string::npos || close_end + 1 >= value.size()) {
-    return render_simple_gml_control("p", std::move(value));
-  }
-
-  auto highlighted = trim_ascii(value.substr(0, close_end + 1));
-  auto trailing = trim_ascii(value.substr(close_end + 1));
-  if (highlighted.empty() || trailing.empty()) {
-    return render_simple_gml_control("p", std::move(value));
-  }
-
-  return render_simple_gml_control("p", std::move(highlighted)) + "\n" +
-         render_simple_gml_control("p", std::move(trailing));
 }
 
 std::string parse_fontdef_style(std::string value, std::string& code) {

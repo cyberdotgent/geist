@@ -178,43 +178,6 @@ std::string raw_gml_content_preserve_space(const std::string& record) {
   return record.substr(dot + 1);
 }
 
-std::size_t find_decoded_control(const std::string& record,
-                                 const std::string& lower_record,
-                                 const std::string& control) {
-  auto search = std::size_t{0};
-  while (search < lower_record.size()) {
-    const auto found = lower_record.find(control, search);
-    if (found == std::string::npos) {
-      return std::string::npos;
-    }
-    auto separator = found;
-    while (separator > 0 &&
-           std::isspace(static_cast<unsigned char>(record[separator - 1])) !=
-               0) {
-      --separator;
-    }
-    if (separator == 0 || record[separator - 1] == '?' ||
-        record[separator - 1] == ',') {
-      return found;
-    }
-    if (control == "st ") {
-      const auto source = lower_record.rfind("csourcefn", found);
-      const auto comma = lower_record.rfind(',', found);
-      const auto question = lower_record.rfind('?', found);
-      const auto previous_separator = std::max(
-          comma == std::string::npos ? std::size_t{0} : comma,
-          question == std::string::npos ? std::size_t{0} : question);
-      if (source != std::string::npos && source >= previous_separator &&
-          found > 0 &&
-          std::isspace(static_cast<unsigned char>(record[found - 1])) != 0) {
-        return found;
-      }
-    }
-    search = found + 1;
-  }
-  return std::string::npos;
-}
-
 std::size_t find_st_control(const std::string& record,
                             const std::string& lower_record) {
   auto search = std::size_t{0};
