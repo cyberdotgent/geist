@@ -127,6 +127,7 @@ int main() {
            "the bridge cannot be discovered",
            "matching entry in the SR port table or the TP port table",
            "2 \\- No such name 3 \\- Bad value",
+           "If the problem persists, contact IBM Service for more information",
            "Restart the Concentrator view",
            "concentrator view is set to unknown",
            "has been removed from the database",
@@ -159,6 +160,14 @@ int main() {
                   {"<a id=\"MSG 2108\"></a>", "9\\. EZVDGapplication",
                    "10\\. EZVDGagent", "<a id=\"MSG 2109\"></a>"},
                   "message 2108 lost or reordered its numeric cases");
+  const auto message_2228 = markdown.find("<a id=\"MSG 2228\"></a>");
+  const auto message_2237 = markdown.find("<a id=\"MSG 2237\"></a>");
+  require(message_2228 != std::string::npos &&
+              message_2237 != std::string::npos &&
+              markdown.find("If the problem persists, contact IBM Service for "
+                            "more information\\.",
+                            message_2228) < message_2237,
+          "message 2228 lost its structural-warning payload sentence");
   require_ordered(markdown,
                   {"<a id=\"MSG 2503\"></a>", "following command",
                    "core image", "od \\-c core", "Record the information",

@@ -1247,8 +1247,12 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
                       record->control_segments.end(), [](const auto &item) {
                         return item.kind == BookControlKind::message_start;
                       });
+      const auto structural_payload =
+          segment.kind == BookControlKind::structural &&
+          segment.payload_range.begin < segment.payload_range.end;
       if (segment.kind != BookControlKind::text &&
-          segment.kind != BookControlKind::font && !record_continuation)
+          segment.kind != BookControlKind::font && !record_continuation &&
+          !structural_payload)
         continue;
       std::vector<OpaqueSegmentFragment> fragments;
       if (record_continuation) {
