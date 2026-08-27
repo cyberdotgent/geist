@@ -92,6 +92,7 @@ set(GEIST_SOURCES
   src/logical.cpp
   src/markup.cpp
   src/message_ir.cpp
+  src/message_prose_rows.cpp
   src/message_section_blocks_ir.cpp
   src/message_document_lowering.cpp
   src/message_topic_ir.cpp
@@ -307,6 +308,15 @@ target_compile_definitions(message_production_test PRIVATE
   GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
 )
 add_test(NAME message_production_test COMMAND message_production_test)
+
+add_executable(message_prose_rows_test
+  tests/message_prose_rows.cpp
+)
+target_link_libraries(message_prose_rows_test PRIVATE geist::geist_static)
+target_compile_definitions(message_prose_rows_test PRIVATE
+  GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+add_test(NAME message_prose_rows_test COMMAND message_prose_rows_test)
 
 add_executable(implicit_grid_test
   tests/implicit_grid.cpp

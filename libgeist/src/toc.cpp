@@ -1,4 +1,5 @@
 #include "geist/detail/internal.hpp"
+#include "geist/detail/message_prose_rows.hpp"
 
 #include <algorithm>
 #include <array>
@@ -1192,6 +1193,20 @@ void attach_topic_data(
   if (!topic.fixed_layout_sources.empty())
     project_verified_message_sections_gml(entry.raw_records,
                                           topic.fixed_layout_sources);
+  std::optional<MessageProseSourceIR> message_prose;
+  if (!topic.fixed_layout_sources.empty() &&
+      std::any_of(topic.raw_records.begin(), topic.raw_records.end(),
+                  [](const auto& record) {
+                    return contains_srmsg_control(record);
+                  })) {
+    message_prose = build_message_prose_source_ir(topic.fixed_layout_sources);
+    if (message_prose) {
+      project_message_prose_row_joins_gml(entry.raw_records,
+                                          message_prose->joins);
+      project_message_prose_lexical_markers_gml(
+          entry.raw_records, message_prose->lexical_markers);
+    }
+  }
   std::vector<std::string> publication_rows;
   std::vector<PublicationBlock> publication_blocks;
   if (ascii_lower(entry.title).find("publications") != std::string::npos) {
@@ -1425,7 +1440,38 @@ void attach_topic_data(
               clean_fixed_st_row_markers(strip_fixed_line_overflow_tokens(
                   std::move(body_text), true)));
           if (!intro.empty()) {
-            entry.raw_records.insert(erase_begin, ":p." + std::move(intro));
+            erase_begin = entry.raw_records.insert(
+                erase_begin, ":p." + std::move(intro));
+            ++erase_begin;
+          }
+          // Prose rows between the ST title segment and the first numeric
+          // SRMSG (for example the SC31-711 4.1.3 note and enterprise-ID
+          // paragraphs) are restored from typed row evidence rather than
+          // silently erased with the ST duplicates.
+          // Paragraphs whose text the ST-derived introduction already
+          // carries (a malformed CFONT continuation flattened into the ST
+          // body) are not emitted twice.
+          if (message_prose && message_prose->introduction) {
+            const auto emitted = collapse_ascii_whitespace(
+                erase_begin == entry.raw_records.begin()
+                    ? std::string{}
+                    : raw_gml_content_preserve_space(*(erase_begin - 1)));
+            std::vector<std::string> restored;
+            auto rendered = render_message_prose_introduction_gml(
+                topic.fixed_layout_sources, message_prose->layout,
+                *message_prose->introduction);
+            for (std::size_t index = 0;
+                 index < message_prose->introduction->paragraphs.size() &&
+                 index < rendered.size();
+                 ++index) {
+              const auto& text = collapse_ascii_whitespace(
+                  message_prose->introduction->paragraphs[index].text);
+              if (!text.empty() && emitted.find(text) == std::string::npos)
+                restored.push_back(std::move(rendered[index]));
+            }
+            entry.raw_records.insert(
+                erase_begin, std::make_move_iterator(restored.begin()),
+                std::make_move_iterator(restored.end()));
           }
         } else if (following_control == "cselect" ||
                    following_control == "cfont") {
