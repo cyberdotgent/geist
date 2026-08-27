@@ -154,15 +154,29 @@ int main() {
           "message 203 lost its source-owned record continuation");
   require(message("218").sections[1].paragraphs.front().text ==
                   "Refer to the man page for usage." &&
-              !message("218")
-                   .sections[1]
-                   .paragraphs.front()
-                   .source_segments.empty() &&
-              message("218")
-                      .sections[1]
-                      .paragraphs.front()
-                      .source_segments.back() ==
-                  std::make_pair(std::uint32_t{183}, std::size_t{0}),
+              ((!message("218")
+                     .sections[1]
+                     .paragraphs.front()
+                     .source_segments.empty() &&
+                message("218")
+                        .sections[1]
+                        .paragraphs.front()
+                        .source_segments.back() ==
+                    std::make_pair(std::uint32_t{183}, std::size_t{0})) ||
+               (!message("218")
+                     .sections[1]
+                     .paragraphs.front()
+                     .source_slices.empty() &&
+                message("218")
+                        .sections[1]
+                        .paragraphs.front()
+                        .source_slices.back()
+                        .logical_record == 183 &&
+                message("218")
+                        .sections[1]
+                        .paragraphs.front()
+                        .source_slices.back()
+                        .segment_index == 0)),
           "message 218 did not retain its local pre-SRMSG Action source");
   require(heading_text("2389").find("after the agent") != std::string::npos &&
               heading_text("2389").find("Restart the Concentrator view") !=

@@ -12,14 +12,14 @@ using geist::detail::AssembledLogicalRecord;
 using geist::detail::LogicalWordSourceKind;
 using geist::detail::TokenWords;
 
-void require(bool condition, const std::string& message) {
+void require(bool condition, const std::string &message) {
   if (!condition) {
     std::cerr << message << "\n";
     std::exit(1);
   }
 }
 
-TokenWords legacy_assemble(const std::vector<TokenWords>& tokens) {
+TokenWords legacy_assemble(const std::vector<TokenWords> &tokens) {
   TokenWords output;
   std::uint16_t spacing_control = 2;
   const auto remove_pending_space = [&]() {
@@ -28,7 +28,7 @@ TokenWords legacy_assemble(const std::vector<TokenWords>& tokens) {
     }
   };
 
-  for (const auto& token : tokens) {
+  for (const auto &token : tokens) {
     auto words = token;
     spacing_control = words.empty() ? 3 : words.front();
     if (!words.empty() && words.front() < 4) {
@@ -57,7 +57,7 @@ TokenWords legacy_assemble(const std::vector<TokenWords>& tokens) {
     output.pop_back();
   }
   if (!output.empty() && output.front() != ' ' && output.front() != 'S') {
-    for (auto& word : output) {
+    for (auto &word : output) {
       if (word == ' ' || word == '=' || word == 0) {
         break;
       }
@@ -67,15 +67,15 @@ TokenWords legacy_assemble(const std::vector<TokenWords>& tokens) {
   return output;
 }
 
-void verify_map(const std::vector<TokenWords>& tokens,
-                const AssembledLogicalRecord& assembled) {
+void verify_map(const std::vector<TokenWords> &tokens,
+                const AssembledLogicalRecord &assembled) {
   require(assembled.sources.size() == assembled.words.size(),
           "assembly source map has the wrong size");
   require(assembled.tokens.size() == tokens.size(),
           "assembly token spans have the wrong size");
   std::size_t previous_end = 0;
   for (std::size_t index = 0; index < assembled.tokens.size(); ++index) {
-    const auto& span = assembled.tokens[index];
+    const auto &span = assembled.tokens[index];
     require(span.token_index == index, "token span has the wrong index");
     require(span.output_begin <= span.output_end &&
                 span.output_end <= assembled.words.size(),
@@ -87,15 +87,14 @@ void verify_map(const std::vector<TokenWords>& tokens,
   require(previous_end == assembled.words.size(),
           "token spans do not contain the complete assembled record");
   for (std::size_t index = 0; index < assembled.sources.size(); ++index) {
-    const auto& source = assembled.sources[index];
+    const auto &source = assembled.sources[index];
     require(source.token_index < tokens.size(),
             "mapped source token is outside input");
-    const auto& span = assembled.tokens[source.token_index];
+    const auto &span = assembled.tokens[source.token_index];
     require(index >= span.output_begin && index < span.output_end,
             "mapped source word is outside its token span");
-    const auto expected_has_control =
-        !tokens[source.token_index].empty() &&
-        tokens[source.token_index].front() < 4;
+    const auto expected_has_control = !tokens[source.token_index].empty() &&
+                                      tokens[source.token_index].front() < 4;
     require(source.has_control == expected_has_control &&
                 span.has_control == expected_has_control,
             "mapped source has incorrect control-prefix metadata");
@@ -121,19 +120,18 @@ void verify_map(const std::vector<TokenWords>& tokens,
   }
 }
 
-void verify_segment_spans(const std::string& record) {
-  const auto spans =
-      geist::detail::split_decoded_markup_segment_spans(record);
+void verify_segment_spans(const std::string &record) {
+  const auto spans = geist::detail::split_decoded_markup_segment_spans(record);
   std::vector<std::string> projected;
-  for (const auto& span : spans) {
+  for (const auto &span : spans) {
     require(span.output_begin < span.output_end &&
                 span.output_end <= record.size(),
             "decoded segment span is outside its record");
-    require(record.substr(span.output_begin,
-                          span.output_end - span.output_begin)
+    require(
+        record.substr(span.output_begin, span.output_end - span.output_begin)
                     .find(span.text) != std::string::npos ||
-                span.text.find('?') == std::string::npos,
-            "decoded segment text lost its source range");
+            span.text.find('?') == std::string::npos,
+        "decoded segment text lost its source range");
     projected.push_back(span.text);
   }
   // The legacy API is now a value-only view of the span-preserving splitter.
@@ -190,13 +188,13 @@ void verify_token_ir_contract() {
 
 void verify_control_ir_contract() {
   const std::vector<TokenWords> tokens = {
-      {2, 'c','f','o','n','t',' ','3',' ','4',' ','C',' ','8',' ','2',' ',
-       'C',' ','8','2','4','0',' ','C','o','n','c','e','n','t','r','a','t','o','r',
-       '?'},
-      {2, 'c','s','e','l','e','c','t',' ','2','9',' ','3','7',' ','H','D','R',
-       ' ','v','i','s','i','b','l','e',','},
-      {2, 'S','T',' ','T','i','t','l','e',' ','b','o','d','y'},
-      {2, '?','S','R','E','T','B','L',','},
+      {2,   'c', 'f', 'o', 'n', 't', ' ', '3', ' ', '4', ' ', 'C', ' ',
+       '8', ' ', '2', ' ', 'C', ' ', '8', '2', '4', '0', ' ', 'C', 'o',
+       'n', 'c', 'e', 'n', 't', 'r', 'a', 't', 'o', 'r', '?'},
+      {2,   'c', 's', 'e', 'l', 'e', 'c', 't', ' ', '2', '9', ' ', '3', '7',
+       ' ', 'H', 'D', 'R', ' ', 'v', 'i', 's', 'i', 'b', 'l', 'e', ','},
+      {2, 'S', 'T', ' ', 'T', 'i', 't', 'l', 'e', ' ', 'b', 'o', 'd', 'y'},
+      {2, '?', 'S', 'R', 'E', 'T', 'B', 'L', ','},
   };
   const auto assembled =
       geist::detail::assemble_logical_record_with_sources(tokens);
@@ -211,16 +209,32 @@ void verify_control_ir_contract() {
               segments[2].kind == geist::detail::BookControlKind::title &&
               segments[3].kind == geist::detail::BookControlKind::table_end,
           "typed control IR classified known controls incorrectly");
-  const auto slice = [&](const geist::detail::OutputRangeIR& range) {
+
+  const auto lexical_kind = [](geist::detail::TokenWords words) {
+    const auto lexical = geist::detail::assemble_logical_record_with_sources(
+        {{std::move(words)}});
+    const auto decoded = geist::detail::decode_control_segments(13, lexical);
+    return decoded.size() == 1 ? decoded.front().kind
+                               : geist::detail::BookControlKind::unknown;
+  };
+  require(lexical_kind({2, 's', 'h', 'u', 't', 'd', 'o', 'w', 'n', ' ', 'h',
+                        'a', 's', ' ', 'b', 'e', 'e', 'n'}) ==
+                  geist::detail::BookControlKind::text &&
+              lexical_kind({2, 'C', 'o', 'n', 's', 'e', 'q', 'u', 'e', 'n', 't',
+                            'l', 'y', ',', ' ', 't', 'h', 'e'}) ==
+                  geist::detail::BookControlKind::text &&
+              lexical_kind({2, 'S', 'R', ',', ' ', 'T', 'P', ',', ' ', 'a', 'n',
+                            'd'}) == geist::detail::BookControlKind::text,
+          "lexical SH/C/SR prefixes were mistaken for control opcodes");
+  const auto slice = [&](const geist::detail::OutputRangeIR &range) {
     return geist::detail::trim_ascii(
         text.substr(range.begin, range.end - range.begin));
   };
   const auto font_operands = slice(segments[0].operand_range);
   const auto font_payload = slice(segments[0].payload_range);
-  require(font_operands == "3 4 C 8 2 C" &&
-              font_payload == "8240 Concentrator",
-          "digit-leading CFONT split is incorrect: operands='" +
-              font_operands + "' payload='" + font_payload + "'");
+  require(font_operands == "3 4 C 8 2 C" && font_payload == "8240 Concentrator",
+          "digit-leading CFONT split is incorrect: operands='" + font_operands +
+              "' payload='" + font_payload + "'");
   require(slice(segments[1].operand_range) == "29 37 HDR" &&
               slice(segments[1].payload_range) == "visible",
           "CSELECT operand/payload ranges are incorrect");
@@ -229,58 +243,58 @@ void verify_control_ir_contract() {
           "ST payload range is incorrect");
   require(!segments[0].source_tokens.empty() &&
               geist::detail::ascii_lower(
-                  geist::detail::format_control_segment_ir(segments[0])).find(
-                  "opcode=cfont") != std::string::npos,
+                  geist::detail::format_control_segment_ir(segments[0]))
+                      .find("opcode=cfont") != std::string::npos,
           "control IR lost provenance or its stable diagnostic");
 
   auto malformed = segments;
   malformed[1].payload_range.begin++;
-  require(!geist::detail::verify_control_segments(assembled, malformed,
-                                                   &error) &&
-              !error.empty(),
-          "control IR gap did not fail verification");
+  require(
+      !geist::detail::verify_control_segments(assembled, malformed, &error) &&
+          !error.empty(),
+      "control IR gap did not fail verification");
 
   const auto spacing = geist::detail::assemble_logical_record_with_sources(
-      {{{2, 'c','.','s','p',' ','3','p',' ','p',' ','c'}}});
+      {{{2, 'c', '.', 's', 'p', ' ', '3', 'p', ' ', 'p', ' ', 'c'}}});
   const auto spacing_segments =
       geist::detail::decode_control_segments(13, spacing);
   const auto spacing_text = geist::detail::token_words_to_ascii(spacing.words);
   const auto directive = geist::detail::assemble_logical_record_with_sources(
-      {{{2, 'c','z',' ','O','F','F',' ','E','F','I','G','L','I','S','T',' ','0',' ','0'}}});
+      {{{2,   'c', 'z', ' ', 'O', 'F', 'F', ' ', 'E', 'F',
+         'I', 'G', 'L', 'I', 'S', 'T', ' ', '0', ' ', '0'}}});
   const auto directive_segments =
       geist::detail::decode_control_segments(14, directive);
   const auto directive_text =
       geist::detail::token_words_to_ascii(directive.words);
-  const auto exact_slice = [](const std::string& source,
-                              const geist::detail::OutputRangeIR& range) {
+  const auto exact_slice = [](const std::string &source,
+                              const geist::detail::OutputRangeIR &range) {
     return geist::detail::trim_ascii(
         source.substr(range.begin, range.end - range.begin));
   };
-  require(spacing_segments.size() == 1 &&
-              spacing_segments[0].kind ==
-                  geist::detail::BookControlKind::spacing &&
-              !spacing_segments[0].malformed &&
-              exact_slice(spacing_text, spacing_segments[0].operand_range) ==
-                  "3p p c" &&
-              spacing_segments[0].payload_range.begin ==
-                  spacing_segments[0].payload_range.end &&
-              directive_segments.size() == 1 &&
-              directive_segments[0].kind ==
-                  geist::detail::BookControlKind::layout_directive &&
-              !directive_segments[0].malformed &&
-              exact_slice(directive_text,
-                          directive_segments[0].operand_range) ==
-                  "OFF EFIGLIST 0 0" &&
-              directive_segments[0].payload_range.begin ==
-                  directive_segments[0].payload_range.end,
-          "generated-list control operand/payload ranges are incorrect");
+  require(
+      spacing_segments.size() == 1 &&
+          spacing_segments[0].kind == geist::detail::BookControlKind::spacing &&
+          !spacing_segments[0].malformed &&
+          exact_slice(spacing_text, spacing_segments[0].operand_range) ==
+              "3p p c" &&
+          spacing_segments[0].payload_range.begin ==
+              spacing_segments[0].payload_range.end &&
+          directive_segments.size() == 1 &&
+          directive_segments[0].kind ==
+              geist::detail::BookControlKind::layout_directive &&
+          !directive_segments[0].malformed &&
+          exact_slice(directive_text, directive_segments[0].operand_range) ==
+              "OFF EFIGLIST 0 0" &&
+          directive_segments[0].payload_range.begin ==
+              directive_segments[0].payload_range.end,
+      "generated-list control operand/payload ranges are incorrect");
 
   const auto malformed_spacing =
       geist::detail::assemble_logical_record_with_sources(
-          {{{2, 'c','.','s','p',' ','4','p',' ','p',' ','c'}}});
+          {{{2, 'c', '.', 's', 'p', ' ', '4', 'p', ' ', 'p', ' ', 'c'}}});
   const auto malformed_directive =
       geist::detail::assemble_logical_record_with_sources(
-          {{{2, 'c','z',' ','B','R','E','A','K',' ','4'}}});
+          {{{2, 'c', 'z', ' ', 'B', 'R', 'E', 'A', 'K', ' ', '4'}}});
   const auto malformed_spacing_segments =
       geist::detail::decode_control_segments(15, malformed_spacing);
   const auto malformed_directive_segments =
@@ -305,11 +319,11 @@ void verify_control_ir_contract() {
 int main() {
   verify_token_ir_contract();
   verify_control_ir_contract();
-  for (const auto& record : {
-           std::string("  ST title, cfont 3 5 2     text  "),
-           std::string("alpha???????????????????? cselect 3 5 target text"),
-           std::string("SRMSG 12, cfont 3 2 2   12"),
-           std::string(75, ' ') + " cfont 3 4 2 fixed"}) {
+  for (const auto &record :
+       {std::string("  ST title, cfont 3 5 2     text  "),
+        std::string("alpha???????????????????? cselect 3 5 target text"),
+        std::string("SRMSG 12, cfont 3 2 2   12"),
+        std::string(75, ' ') + " cfont 3 4 2 fixed"}) {
     verify_segment_spans(record);
   }
   const std::string exact_record = "  ST title cfont 3 4 2 text  ";
@@ -324,7 +338,7 @@ int main() {
           "decoded segment half-open offsets are not exact");
 
   const auto intersection = geist::detail::assemble_logical_record_with_sources(
-      {{{'a','b'}}, {{3, 'c', 'd'}}, {{3, 'e'}}});
+      {{{'a', 'b'}}, {{3, 'c', 'd'}}, {{3, 'e'}}});
   require(geist::detail::output_spans_intersect(1, 3, 2, 4) &&
               !geist::detail::output_spans_intersect(1, 2, 2, 4),
           "half-open output-span intersection is incorrect");
@@ -337,23 +351,27 @@ int main() {
   geist::detail::DecodedLogicalRecordSource selector;
   selector.logical_record = 9;
   selector.tokens = {
-      {'c','s','e','l','e','c','t',' ','3',' ','7',' ','H','D','R'},
-      {'a','c','t','i','o','n'},
-      {' ',' ',' '},
-      {'C','h','a','p','t','e','r'},
+      {'c', 's', 'e', 'l', 'e', 'c', 't', ' ', '3', ' ', '7', ' ', 'H', 'D',
+       'R'},
+      {'a', 'c', 't', 'i', 'o', 'n'},
+      {' ', ' ', ' '},
+      {'C', 'h', 'a', 'p', 't', 'e', 'r'},
   };
   selector.encoded_tokens = {{0x80, 2}, {0x1c, 1}, {0x09, 1}, {0x81, 2}};
   selector.assembled =
       geist::detail::assemble_logical_record_with_sources(selector.tokens);
-  const auto refresh_typed_source = [](auto& source) {
+  const auto refresh_typed_source = [](auto &source) {
     source.ir.logical_record = source.logical_record;
     source.ir.tokens.clear();
     std::uint32_t byte = 0;
     for (std::size_t index = 0; index < source.tokens.size(); ++index) {
       const auto encoded = source.encoded_tokens[index];
-      source.ir.tokens.push_back(
-          {index, encoded, source.tokens[index],
-           {byte, byte + encoded.width}, false, 3});
+      source.ir.tokens.push_back({index,
+                                  encoded,
+                                  source.tokens[index],
+                                  {byte, byte + encoded.width},
+                                  false,
+                                  3});
       byte += encoded.width;
     }
     source.ir.payload_range = {0, byte};
@@ -361,8 +379,8 @@ int main() {
         source.logical_record, source.assembled);
   };
   refresh_typed_source(selector);
-  const auto selector_record = geist::detail::token_words_to_ascii(
-      selector.assembled.words);
+  const auto selector_record =
+      geist::detail::token_words_to_ascii(selector.assembled.words);
   const auto selector_cleaned =
       geist::detail::clean_source_owned_selector_display_markers(
           {selector_record}, {selector});
@@ -371,44 +389,42 @@ int main() {
               selector_cleaned[0].find("Chapter") != std::string::npos,
           "source-owned selector display marker was not removed");
   std::string selector_error;
-  const auto selector_ir = geist::detail::extract_selector_catalog_ir(
-      {selector}, &selector_error);
-  require(selector_ir && selector_ir->selectors.size() == 1 &&
-              selector_ir->selectors.front().target == "HDR" &&
-              selector_ir->selectors.front().column == 3 &&
-              selector_ir->selectors.front().length == 7 &&
-              !selector_ir->selectors.front().source_tokens.empty() &&
-              selector_ir->selectors.front().source_byte_ranges.size() ==
-                  selector_ir->selectors.front().source_tokens.size() &&
-              selector_ir->selectors.front().display_marker_slot &&
-              selector_ir->selectors.front()
-                      .display_marker_slot->decoded_text == "action",
-          selector_error.empty() ? "selector did not enter typed IR"
-                                 : selector_error.c_str());
+  const auto selector_ir =
+      geist::detail::extract_selector_catalog_ir({selector}, &selector_error);
+  require(
+      selector_ir && selector_ir->selectors.size() == 1 &&
+          selector_ir->selectors.front().target == "HDR" &&
+          selector_ir->selectors.front().column == 3 &&
+          selector_ir->selectors.front().length == 7 &&
+          !selector_ir->selectors.front().source_tokens.empty() &&
+          selector_ir->selectors.front().source_byte_ranges.size() ==
+              selector_ir->selectors.front().source_tokens.size() &&
+          selector_ir->selectors.front().display_marker_slot &&
+          selector_ir->selectors.front().display_marker_slot->decoded_text ==
+              "action",
+      selector_error.empty() ? "selector did not enter typed IR"
+                             : selector_error.c_str());
   require(selector_ir && geist::detail::verify_selector_catalog_ir(
                              {selector}, *selector_ir, &selector_error),
           selector_error.empty() ? "selector IR verification failed"
                                  : selector_error.c_str());
-  require(selector_ir && geist::detail::format_selector_catalog_ir(
-                             *selector_ir).find("marker='action'") !=
-                             std::string::npos,
+  require(selector_ir && geist::detail::format_selector_catalog_ir(*selector_ir)
+                                 .find("marker='action'") != std::string::npos,
           "selector IR trace omitted marker provenance");
   if (selector_ir) {
     auto mutated = *selector_ir;
     mutated.selectors.front().length = 6;
-    require(!geist::detail::verify_selector_catalog_ir(
-                {selector}, mutated),
+    require(!geist::detail::verify_selector_catalog_ir({selector}, mutated),
             "selector IR verifier admitted a mutated display span");
     mutated = *selector_ir;
     mutated.selectors.front().source_byte_ranges.front().end++;
-    require(!geist::detail::verify_selector_catalog_ir(
-                {selector}, mutated),
+    require(!geist::detail::verify_selector_catalog_ir({selector}, mutated),
             "selector IR verifier admitted mutated byte provenance");
   }
   auto utf8_prefix_selector = selector;
   utf8_prefix_selector.tokens.insert(
       utf8_prefix_selector.tokens.begin(),
-      {'S','T',' ','n','a',0x00e9,'v','e',','});
+      {'S', 'T', ' ', 'n', 'a', 0x00e9, 'v', 'e', ','});
   utf8_prefix_selector.encoded_tokens.insert(
       utf8_prefix_selector.encoded_tokens.begin(), {0x84, 2});
   utf8_prefix_selector.assembled =
@@ -424,8 +440,8 @@ int main() {
           "UTF-8 text before CSELECT corrupted word-coordinate provenance: " +
               utf8_error);
   auto signed_selector = selector;
-  signed_selector.tokens[0] = {
-      'c','s','e','l','e','c','t',' ','+','3',' ','7',' ','H','D','R'};
+  signed_selector.tokens[0] = {'c', 's', 'e', 'l', 'e', 'c', 't', ' ',
+                               '+', '3', ' ', '7', ' ', 'H', 'D', 'R'};
   signed_selector.assembled =
       geist::detail::assemble_logical_record_with_sources(
           signed_selector.tokens);
@@ -460,13 +476,14 @@ int main() {
               {prose_record}, {selector}) ==
               std::vector<std::string>({prose_record}),
           "non-selector prose activated selector marker cleanup");
-  for (const auto* semantic_target :
+  for (const auto *semantic_target :
        {"LNK", "PICIMAGE", "FTNFTNUNIQ1", "FIGLIST1", "TLIST1"}) {
     auto semantic = selector;
-    semantic.tokens[0] = {'c','s','e','l','e','c','t',' ','3',' ','7',' '};
-    semantic.tokens[0].insert(semantic.tokens[0].end(), semantic_target,
-                              semantic_target + std::char_traits<char>::length(
-                                                    semantic_target));
+    semantic.tokens[0] = {'c', 's', 'e', 'l', 'e', 'c',
+                          't', ' ', '3', ' ', '7', ' '};
+    semantic.tokens[0].insert(
+        semantic.tokens[0].end(), semantic_target,
+        semantic_target + std::char_traits<char>::length(semantic_target));
     semantic.assembled =
         geist::detail::assemble_logical_record_with_sources(semantic.tokens);
     refresh_typed_source(semantic);
@@ -478,28 +495,28 @@ int main() {
                 semantic_target);
   }
   auto combined_origin = selector;
-  combined_origin.tokens[1] = {'a','c','t','i','o','n',' ',' ',' '};
+  combined_origin.tokens[1] = {'a', 'c', 't', 'i', 'o', 'n', ' ', ' ', ' '};
   combined_origin.tokens.erase(combined_origin.tokens.begin() + 2);
-  combined_origin.encoded_tokens.erase(
-      combined_origin.encoded_tokens.begin() + 2);
+  combined_origin.encoded_tokens.erase(combined_origin.encoded_tokens.begin() +
+                                       2);
   combined_origin.assembled =
       geist::detail::assemble_logical_record_with_sources(
           combined_origin.tokens);
   refresh_typed_source(combined_origin);
-  const auto combined_record = geist::detail::token_words_to_ascii(
-      combined_origin.assembled.words);
+  const auto combined_record =
+      geist::detail::token_words_to_ascii(combined_origin.assembled.words);
   require(geist::detail::clean_source_owned_selector_display_markers(
               {combined_record}, {combined_origin}) ==
               std::vector<std::string>({combined_record}),
           "combined marker/origin token activated selector cleanup");
   auto out_of_range = selector;
-  out_of_range.tokens[0] = {
-      'c','s','e','l','e','c','t',' ','9','9',' ','7',' ','H','D','R'};
+  out_of_range.tokens[0] = {'c', 's', 'e', 'l', 'e', 'c', 't', ' ',
+                            '9', '9', ' ', '7', ' ', 'H', 'D', 'R'};
   out_of_range.assembled =
       geist::detail::assemble_logical_record_with_sources(out_of_range.tokens);
   refresh_typed_source(out_of_range);
-  const auto out_of_range_record = geist::detail::token_words_to_ascii(
-      out_of_range.assembled.words);
+  const auto out_of_range_record =
+      geist::detail::token_words_to_ascii(out_of_range.assembled.words);
   require(geist::detail::clean_source_owned_selector_display_markers(
               {out_of_range_record}, {out_of_range}) ==
               std::vector<std::string>({out_of_range_record}),
@@ -511,8 +528,8 @@ int main() {
               std::vector<std::string>({ambiguous_record}),
           "ambiguous selector/source pairing did not fail closed");
   auto mismatched_operand_record = selector_record;
-  const auto column_at = geist::detail::ascii_lower(
-      mismatched_operand_record).find("cselect 3 7");
+  const auto column_at =
+      geist::detail::ascii_lower(mismatched_operand_record).find("cselect 3 7");
   require(column_at != std::string::npos,
           "selector fixture omitted its operand prefix");
   mismatched_operand_record.replace(column_at, 11, "cselect 4 7");
@@ -526,13 +543,13 @@ int main() {
           "record/source cardinality mismatch did not fail closed");
   geist::detail::DecodedLogicalRecordSource table_start;
   table_start.logical_record = 8;
-  table_start.tokens = {{'S','R','T','B','L','T','E','S','T'}};
+  table_start.tokens = {{'S', 'R', 'T', 'B', 'L', 'T', 'E', 'S', 'T'}};
   table_start.encoded_tokens = {{0x82, 2}};
   table_start.assembled =
       geist::detail::assemble_logical_record_with_sources(table_start.tokens);
   refresh_typed_source(table_start);
-  const auto table_start_record = geist::detail::token_words_to_ascii(
-      table_start.assembled.words);
+  const auto table_start_record =
+      geist::detail::token_words_to_ascii(table_start.assembled.words);
   require(geist::detail::clean_source_owned_selector_display_markers(
               {table_start_record, selector_record}, {table_start, selector}) ==
               std::vector<std::string>({table_start_record, selector_record}),
@@ -551,12 +568,13 @@ int main() {
       {{2, 'S', 'T', ' '}, {3, 'b'}},
       {{2, 'a', '='}, {3, 'b'}},
       {{2, 0x00e9, ' '}, {3, 'x'}},
-      {{2, '?'}, {2, '-', ' ', ' ', ' ', ' '},
-       {2, 'o', 'v', 'o', 'b', 'j', 'p', 'r', 'i', 'n', 't', ' ', '|',
-        ' ', 'h', 'e', 'a', 'd'}},
+      {{2, '?'},
+       {2, '-', ' ', ' ', ' ', ' '},
+       {2, 'o', 'v', 'o', 'b', 'j', 'p', 'r', 'i', 'n', 't', ' ', '|', ' ', 'h',
+        'e', 'a', 'd'}},
   };
 
-  for (const auto& tokens : cases) {
+  for (const auto &tokens : cases) {
     const auto assembled =
         geist::detail::assemble_logical_record_with_sources(tokens);
     require(assembled.words == legacy_assemble(tokens),
@@ -580,8 +598,8 @@ int main() {
       geist::detail::assemble_logical_record_with_sources({{'a', 'b'}});
   require(!unprefixed.tokens.front().has_control &&
               unprefixed.tokens.front().spacing_control == 3 &&
-              std::all_of(unprefixed.sources.begin(),
-                          unprefixed.sources.end(), [](const auto& source) {
+              std::all_of(unprefixed.sources.begin(), unprefixed.sources.end(),
+                          [](const auto &source) {
                             return !source.has_control &&
                                    source.spacing_control == 3;
                           }),

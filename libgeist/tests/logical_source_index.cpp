@@ -1,7 +1,7 @@
 #include "geist/detail/internal.hpp"
 
-#include <cstdlib>
 #include <chrono>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -12,25 +12,24 @@
 
 namespace {
 
-void require(bool condition, const char* message) {
+void require(bool condition, const char *message) {
   if (!condition) {
     std::cerr << message << "\n";
     std::exit(1);
   }
 }
 
-bool catalog_contains(
-    const geist::detail::PublicationCatalogIR& catalog,
-    const std::string& expected) {
+bool catalog_contains(const geist::detail::PublicationCatalogIR &catalog,
+                      const std::string &expected) {
   return std::any_of(catalog.entries.begin(), catalog.entries.end(),
-                     [&](const auto& entry) {
+                     [&](const auto &entry) {
                        return entry.text.find(expected) != std::string::npos;
                      });
 }
 
 bool catalog_entries_are_distinct(
-    const geist::detail::PublicationCatalogIR& catalog,
-    const std::string& left, const std::string& right) {
+    const geist::detail::PublicationCatalogIR &catalog, const std::string &left,
+    const std::string &right) {
   auto left_entry = catalog.entries.size();
   auto right_entry = catalog.entries.size();
   for (std::size_t index = 0; index < catalog.entries.size(); ++index) {
@@ -57,17 +56,15 @@ std::size_t resident_kib() {
   return 0;
 }
 
-void verify_book(const std::filesystem::path& path,
-                 std::uint32_t first,
-                 std::uint32_t end,
-                 bool benchmark = false,
+void verify_book(const std::filesystem::path &path, std::uint32_t first,
+                 std::uint32_t end, bool benchmark = false,
                  std::optional<bool> expected_publication = std::nullopt) {
   const auto started = std::chrono::steady_clock::now();
   geist::detail::LogicalDecodeContext context;
   context.bytes = geist::detail::read_file(path);
   const auto directory_page = geist::detail::read_be16(context.bytes, 0);
-  const auto base = static_cast<std::size_t>(directory_page) *
-                    geist::boo_page_size;
+  const auto base =
+      static_cast<std::size_t>(directory_page) * geist::boo_page_size;
   context.directory.page_number = directory_page;
   context.directory.token_threshold = context.bytes[base + 0x14];
   context.directory.token_map_offset =
@@ -104,18 +101,17 @@ void verify_book(const std::filesystem::path& path,
   std::string layout_error;
   const auto layout_valid =
       geist::detail::verify_layout_ir(sources, layout, &layout_error);
-  require(layout_valid,
-          layout_error.empty() ? "layout IR verification failed"
-                               : layout_error.c_str());
+  require(layout_valid, layout_error.empty() ? "layout IR verification failed"
+                                             : layout_error.c_str());
   const auto ownership = geist::detail::build_ownership_ir(sources, layout);
   std::string ownership_error;
   const auto ownership_valid = geist::detail::verify_ownership_ir(
       sources, layout, ownership, &ownership_error);
-  require(ownership_valid,
-          ownership_error.empty() ? "ownership IR verification failed"
-                                  : ownership_error.c_str());
-  const auto publication = geist::detail::extract_publication_catalog_ir(
-      sources, layout, ownership);
+  require(ownership_valid, ownership_error.empty()
+                               ? "ownership IR verification failed"
+                               : ownership_error.c_str());
+  const auto publication =
+      geist::detail::extract_publication_catalog_ir(sources, layout, ownership);
   if (expected_publication)
     require(publication.has_value() == *expected_publication,
             *expected_publication
@@ -140,8 +136,8 @@ void verify_book(const std::filesystem::path& path,
     require(!geist::detail::verify_publication_catalog_ir(
                 sources, layout, ownership, publication_without_title_source),
             "publication verifier admitted missing title provenance");
-    require(geist::detail::format_publication_catalog_ir(*publication).find(
-                "sources=") != std::string::npos,
+    require(geist::detail::format_publication_catalog_ir(*publication)
+                    .find("sources=") != std::string::npos,
             "publication catalog IR has no stable provenance projection");
   }
   if (path.filename() == "SC31-711.boo" && first == 435) {
@@ -170,19 +166,20 @@ void verify_book(const std::filesystem::path& path,
                 glossary->sources[4].text.find(
                     "The IBM Dictionary of Computing") == 0,
             "glossary IR lost or contaminated a source citation");
-    require(glossary && glossary->cross_references.front().text.find(
-                            "Contrast with:") == 0 &&
+    require(glossary &&
+                glossary->cross_references.front().text.find(
+                    "Contrast with:") == 0 &&
                 glossary->cross_references.back().text.find(
                     "Deprecated term for:") == 0,
             "glossary IR lost a cross-reference explanation");
-    require(glossary && geist::detail::verify_glossary_introduction_ir(
-                            sources, layout, ownership, *glossary,
-                            &glossary_error),
+    require(glossary &&
+                geist::detail::verify_glossary_introduction_ir(
+                    sources, layout, ownership, *glossary, &glossary_error),
             glossary_error.empty() ? "glossary IR verification failed"
                                    : glossary_error.c_str());
-    require(glossary && geist::detail::format_glossary_introduction_ir(
-                            *glossary).find("sources=3:0") !=
-                            std::string::npos,
+    require(glossary &&
+                geist::detail::format_glossary_introduction_ir(*glossary).find(
+                    "sources=3:0") != std::string::npos,
             "glossary IR trace omitted physical-row provenance");
     if (glossary) {
       auto mutated = *glossary;
@@ -204,58 +201,66 @@ void verify_book(const std::filesystem::path& path,
                 catalog->entries[1].id == "062" &&
                 catalog->entries.back().id == "2505",
             "message catalog IR lost its canonical entry sequence");
-    require(catalog && std::all_of(
-                           catalog->entries.begin(), catalog->entries.end(),
-                           [](const auto& entry) {
-                             return entry.sections.size() == 2 &&
-                                    entry.sections[0].kind ==
-                                        geist::detail::MessageSectionKind::
-                                            meaning &&
-                                    entry.sections[1].kind ==
-                                        geist::detail::MessageSectionKind::
-                                            action;
-                           }),
+    require(catalog &&
+                std::all_of(
+                    catalog->entries.begin(), catalog->entries.end(),
+                    [](const auto &entry) {
+                      return entry.sections.size() == 2 &&
+                             entry.sections[0].kind ==
+                                 geist::detail::MessageSectionKind::meaning &&
+                             entry.sections[1].kind ==
+                                 geist::detail::MessageSectionKind::action;
+                    }),
             "message catalog IR lost Meaning/Action section order");
-    require(catalog && std::all_of(
-                           catalog->entries.begin(), catalog->entries.end(),
-                           [](const auto& entry) {
-                             if (entry.headline.text.empty()) return false;
-                             std::map<geist::detail::MessageSourceRowIR,
-                                      std::size_t>
-                                 owned;
-                             for (const auto& row : entry.headline.source_rows)
-                               ++owned[row];
-                             for (const auto& body : entry.body)
-                               for (const auto& row : body.source_rows)
-                                 ++owned[row];
-                             for (const auto& section : entry.sections) {
-                               if (section.paragraphs.size() != 1 ||
-                                   section.paragraphs.front().text.empty())
-                                 return false;
-                               for (const auto& row : section.source_rows)
-                                 ++owned[row];
-                             }
-                             for (const auto& row : entry.suppressed_source_rows)
-                               ++owned[row];
-                             if (owned.size() != entry.source_rows.size())
-                               return false;
-                             if (std::any_of(
-                                     entry.source_rows.begin(),
-                                     entry.source_rows.end(),
-                                     [&](const auto& row) {
-                                       const auto found = owned.find(row);
-                                       return found == owned.end() ||
-                                              found->second != 1;
-                                     }))
-                               return false;
-                             return std::all_of(
-                                 owned.begin(), owned.end(),
-                                 [](const auto& item) { return item.second == 1; });
-                           }),
-            "message entry ledgers do not conserve each physical row exactly once");
+    require(
+        catalog &&
+            std::all_of(
+                catalog->entries.begin(), catalog->entries.end(),
+                [](const auto &entry) {
+                  if (entry.headline.text.empty())
+                    return false;
+                  std::map<geist::detail::MessageSourceRowIR, std::size_t>
+                      owned;
+                  for (const auto &row : entry.headline.source_rows)
+                    ++owned[row];
+                  for (const auto &continuation : entry.headline_continuations)
+                    for (const auto &row : continuation.source_rows)
+                      ++owned[row];
+                  for (const auto &section : entry.sections) {
+                    if (section.paragraphs.empty() ||
+                        std::any_of(
+                            section.paragraphs.begin(),
+                            section.paragraphs.end(),
+                            [](const auto &paragraph) {
+                              return paragraph.text.empty() ||
+                                     (paragraph.source_rows.empty() &&
+                                      paragraph.source_segments.empty() &&
+                                      paragraph.source_slices.empty());
+                            }))
+                      return false;
+                    for (const auto &paragraph : section.paragraphs)
+                      for (const auto &row : paragraph.source_rows)
+                        ++owned[row];
+                  }
+                  for (const auto &row : entry.suppressed_source_rows)
+                    ++owned[row];
+                  if (owned.size() != entry.source_rows.size())
+                    return false;
+                  if (std::any_of(
+                          entry.source_rows.begin(), entry.source_rows.end(),
+                          [&](const auto &row) {
+                            const auto found = owned.find(row);
+                            return found == owned.end() || found->second != 1;
+                          }))
+                    return false;
+                  return std::all_of(
+                      owned.begin(), owned.end(),
+                      [](const auto &item) { return item.second == 1; });
+                }),
+        "message entry ledgers do not conserve each physical row exactly once");
     const auto message_072 =
         std::find_if(catalog->entries.begin(), catalog->entries.end(),
-                     [](const auto& entry) { return entry.id == "072"; });
+                     [](const auto &entry) { return entry.id == "072"; });
     require(catalog && message_072 != catalog->entries.end() &&
                 message_072->headline.text.find("System call connect failed") !=
                     std::string::npos &&
@@ -267,33 +272,33 @@ void verify_book(const std::filesystem::path& path,
             "message catalog IR lost source-spanning headline or section text");
     require(catalog && std::any_of(
                            catalog->entries.begin(), catalog->entries.end(),
-                           [](const auto& entry) {
+                           [](const auto &entry) {
                              return std::any_of(
                                  entry.sections.begin(), entry.sections.end(),
-                                 [](const auto& section) {
+                                 [](const auto &section) {
                                    return section.recovered_record_continuation;
                                  });
                            }),
             "message catalog IR did not expose split-record label recovery");
-    require(catalog && geist::detail::verify_message_catalog_ir(
-                           sources, layout, ownership, *catalog,
-                           &message_error),
+    require(catalog &&
+                geist::detail::verify_message_catalog_ir(
+                    sources, layout, ownership, *catalog, &message_error),
             message_error.empty() ? "message catalog IR verification failed"
                                   : message_error.c_str());
     require(catalog && geist::detail::format_message_catalog_ir(*catalog).find(
-                            "message_catalog entries=396") != std::string::npos,
+                           "message_catalog entries=396") != std::string::npos,
             "message catalog IR trace omitted the canonical catalog size");
     if (catalog) {
       auto mutated = *catalog;
       mutated.entries.front().id = "24";
-      require(!geist::detail::verify_message_catalog_ir(
-                  sources, layout, ownership, mutated),
+      require(!geist::detail::verify_message_catalog_ir(sources, layout,
+                                                        ownership, mutated),
               "message catalog verifier admitted a mutated message ID");
       mutated = *catalog;
       mutated.entries.front().sections.front().paragraphs.front().text +=
           " changed";
-      require(!geist::detail::verify_message_catalog_ir(
-                  sources, layout, ownership, mutated),
+      require(!geist::detail::verify_message_catalog_ir(sources, layout,
+                                                        ownership, mutated),
               "message catalog verifier admitted mutated section text");
     }
   }
@@ -316,24 +321,25 @@ void verify_book(const std::filesystem::path& path,
     require(sources[index].encoded_tokens.size() ==
                 sources[index].tokens.size(),
             "encoded and resolved token streams diverged");
-    const auto& range = context.record_payload_ranges[logical_record - 1];
+    const auto &range = context.record_payload_ranges[logical_record - 1];
     auto payload_offset = static_cast<std::size_t>(range.begin);
-    for (const auto& encoded : sources[index].encoded_tokens) {
+    for (const auto &encoded : sources[index].encoded_tokens) {
       require(encoded.width == 1 || encoded.width == 2,
               "encoded token width is invalid");
       std::uint16_t value = context.bytes[payload_offset++];
       if (encoded.width == 2) {
-        value = static_cast<std::uint16_t>(
-            (value << 8) | context.bytes[payload_offset++]);
+        value = static_cast<std::uint16_t>((value << 8) |
+                                           context.bytes[payload_offset++]);
       }
       require(value == encoded.value,
               "encoded token identity differs from payload bytes");
     }
     require(payload_offset == range.end,
             "encoded tokens do not consume the exact payload slice");
-    require(geist::detail::token_words_to_ascii(sources[index].assembled.words) ==
-                context.decoded_records[logical_record - 1],
-            "source assembly differs from initial record decode");
+    require(
+        geist::detail::token_words_to_ascii(sources[index].assembled.words) ==
+            context.decoded_records[logical_record - 1],
+        "source assembly differs from initial record decode");
     std::string segment_error;
     require(geist::detail::verify_control_segments(
                 sources[index].assembled, sources[index].control_segments,
@@ -353,9 +359,10 @@ void verify_book(const std::filesystem::path& path,
                                  "X3T9/92-X3T9.5/84-49 REV 7.2 June 25, 1992"),
             "FDDI publication IR merged or lost the independent ANSI rows");
     auto non_c_sources = sources;
-    for (auto& record : non_c_sources) {
-      for (const auto& segment : record.control_segments) {
-        if (segment.kind != geist::detail::BookControlKind::font) continue;
+    for (auto &record : non_c_sources) {
+      for (const auto &segment : record.control_segments) {
+        if (segment.kind != geist::detail::BookControlKind::font)
+          continue;
         for (auto word = segment.operand_range.begin;
              word < segment.operand_range.end; ++word) {
           if (record.assembled.words[word] == 'C')
@@ -363,12 +370,12 @@ void verify_book(const std::filesystem::path& path,
         }
       }
     }
-    require(!geist::detail::extract_publication_catalog_ir(
-                 non_c_sources, layout, ownership),
+    require(!geist::detail::extract_publication_catalog_ir(non_c_sources,
+                                                           layout, ownership),
             "non-C font stream entered the publication semantic IR");
     std::size_t ansi_rows = 0;
-    for (const auto& run : layout.runs) {
-      for (const auto& row : run.rows) {
+    for (const auto &run : layout.runs) {
+      for (const auto &row : run.rows) {
         if (row.marker && row.marker->decoded_text == "bridge" &&
             row.visible_text.find("American National Standards Institute") !=
                 std::string::npos) {
@@ -383,12 +390,12 @@ void verify_book(const std::filesystem::path& path,
     const std::map<std::string, std::string> titles{
         {"2.4.1", "Customer Information"},
         {"2.4.2", "Software Version Levels and Applied PTFs on the LNM for "
-                    "AIX Workstation"},
+                  "AIX Workstation"},
         {"2.4.3", "Hardware Configuration of the LNM for AIX Workstation"},
         {"2.4.4", "AIX NetView/6000 Considerations"},
         {"2.4.5", "Customer Information"},
         {"2.4.6", "Software Version Levels and Applied PTFs on the LNM for "
-                    "AIX Workstation"},
+                  "AIX Workstation"},
         {"2.4.7", "Hardware Configuration on the LNM for AIX Workstation"},
         {"2.4.8", "AIX NetView/6000 Considerations"},
         {"2.4.9", "Additional Problem Information"},
@@ -396,19 +403,18 @@ void verify_book(const std::filesystem::path& path,
     std::string menu_error;
     const auto menu =
         geist::detail::extract_menu_ir(sources, titles, &menu_error);
-    require(menu.has_value(),
-            menu_error.empty() ? "CMENU did not enter menu IR"
-                               : menu_error.c_str());
+    require(menu.has_value(), menu_error.empty() ? "CMENU did not enter menu IR"
+                                                 : menu_error.c_str());
     require(menu && menu->items.size() == titles.size(),
             "menu IR did not preserve all CMITEM targets");
     require(menu &&
                 std::count_if(menu->items.begin(), menu->items.end(),
-                              [](const auto& item) {
+                              [](const auto &item) {
                                 return item.terminal_marker_token.has_value();
                               }) == 4,
             "menu IR did not isolate the four terminal source tokens");
     require(menu && geist::detail::verify_menu_ir(sources, titles, *menu,
-                                                   &menu_error),
+                                                  &menu_error),
             menu_error.empty() ? "menu IR verification failed"
                                : menu_error.c_str());
     require(menu && geist::detail::format_menu_ir(*menu).find(
@@ -430,25 +436,24 @@ void verify_book(const std::filesystem::path& path,
     require(publication.has_value(),
             "general publication stream did not enter the semantic IR");
     if (publication && !catalog_contains(*publication, "management problems")) {
-      for (const auto& entry : publication->entries)
+      for (const auto &entry : publication->entries)
         std::cerr << "publication entry: " << entry.text << '\n';
     }
     require(catalog_contains(*publication, "management problems"),
             "publication IR lost its cross-record continuation");
     const auto continuation = std::find_if(
-        layout.runs.begin(), layout.runs.end(), [](const auto& run) {
-          return std::any_of(run.rows.begin(), run.rows.end(),
-                             [](const auto& row) {
-                               return row.logical_record == 520 &&
-                                      row.continues_previous_record &&
-                                      row.visible_text.find(
-                                          "management problems") !=
-                                          std::string::npos;
-                             });
+        layout.runs.begin(), layout.runs.end(), [](const auto &run) {
+          return std::any_of(
+              run.rows.begin(), run.rows.end(), [](const auto &row) {
+                return row.logical_record == 520 &&
+                       row.continues_previous_record &&
+                       row.visible_text.find("management problems") !=
+                           std::string::npos;
+              });
         });
     if (continuation == layout.runs.end()) {
-      for (const auto& run : layout.runs) {
-        for (const auto& row : run.rows) {
+      for (const auto &run : layout.runs) {
+        for (const auto &row : run.rows) {
           std::cerr << geist::detail::format_physical_row_ir(row) << '\n';
         }
       }
@@ -464,20 +469,18 @@ void verify_book(const std::filesystem::path& path,
                 catalog_contains(*publication, "GG24-4334"),
             "bridge publication IR lost its markerless or final entry");
     const auto markerless = std::any_of(
-        layout.runs.begin(), layout.runs.end(), [](const auto& run) {
-          return std::any_of(run.rows.begin(), run.rows.end(),
-                             [](const auto& row) {
-                               return row.start ==
-                                          geist::detail::PhysicalRowStartKind::
-                                              control_payload &&
-                                      row.visible_text.find(
-                                          "IBM 8229 Bridge Manual") !=
-                                          std::string::npos;
-                             });
+        layout.runs.begin(), layout.runs.end(), [](const auto &run) {
+          return std::any_of(
+              run.rows.begin(), run.rows.end(), [](const auto &row) {
+                return row.start == geist::detail::PhysicalRowStartKind::
+                                        control_payload &&
+                       row.visible_text.find("IBM 8229 Bridge Manual") !=
+                           std::string::npos;
+              });
         });
     if (!markerless) {
-      for (const auto& run : layout.runs) {
-        for (const auto& row : run.rows) {
+      for (const auto &run : layout.runs) {
+        for (const auto &row : run.rows) {
           std::cerr << geist::detail::format_physical_row_ir(row) << '\n';
         }
       }
@@ -503,9 +506,10 @@ void verify_book(const std::filesystem::path& path,
             "AIX publication IR lost a first or wrapped row");
   }
   if (path.filename() == "SC31-711.boo" && first == 535) {
-    require(publication.has_value() && catalog_entries_are_distinct(
-                *publication, "Prentice-Hall, 1989",
-                "Programming and Applications with Xt"),
+    require(publication.has_value() &&
+                catalog_entries_are_distinct(
+                    *publication, "Prentice-Hall, 1989",
+                    "Programming and Applications with Xt"),
             "X Window publication IR merged independent publications");
   }
   if (path.filename() == "GG24-395.boo" && first == 580) {
@@ -521,7 +525,7 @@ void verify_book(const std::filesystem::path& path,
             "C/370 publication IR lost a cross-book catalog entry");
   }
 
-  const auto* cached_dictionary = context.source_dictionary.get();
+  const auto *cached_dictionary = context.source_dictionary.get();
   const auto repeated =
       geist::detail::decode_logical_record_sources(context, first, end);
   const auto repeated_source = std::chrono::steady_clock::now();
@@ -538,11 +542,9 @@ void verify_book(const std::filesystem::path& path,
     std::cout << path.filename().string()
               << " open_ms=" << millis(started, opened)
               << " first_source_ms=" << millis(opened, first_source)
-              << " repeat_source_ms=" << millis(first_source,
-                                                  repeated_source)
+              << " repeat_source_ms=" << millis(first_source, repeated_source)
               << " open_rss_kib=" << open_rss
-              << " source_rss_kib=" << source_rss
-              << " index_bytes="
+              << " source_rss_kib=" << source_rss << " index_bytes="
               << context.record_payload_ranges.size() *
                      sizeof(geist::detail::LogicalRecordPayloadRange)
               << "\n";

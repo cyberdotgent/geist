@@ -91,6 +91,7 @@ set(GEIST_SOURCES
   src/logical.cpp
   src/markup.cpp
   src/message_ir.cpp
+  src/message_document_lowering.cpp
   src/message_topic_ir.cpp
   src/menu_document_lowering.cpp
   src/menu_ir.cpp
@@ -267,6 +268,27 @@ target_compile_definitions(message_topic_ir_synthetic_test PRIVATE
 )
 add_test(NAME message_topic_ir_synthetic_test
   COMMAND message_topic_ir_synthetic_test)
+
+add_executable(message_document_lowering_synthetic_test
+  tests/message_document_lowering_synthetic.cpp
+)
+target_link_libraries(message_document_lowering_synthetic_test
+  PRIVATE geist::geist_static
+)
+target_compile_definitions(message_document_lowering_synthetic_test PRIVATE
+  GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+add_test(NAME message_document_lowering_synthetic_test
+  COMMAND message_document_lowering_synthetic_test)
+
+add_executable(message_production_test
+  tests/message_production.cpp
+)
+target_link_libraries(message_production_test PRIVATE geist::geist_static)
+target_compile_definitions(message_production_test PRIVATE
+  GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+add_test(NAME message_production_test COMMAND message_production_test)
 
 add_executable(implicit_grid_test
   tests/implicit_grid.cpp
@@ -450,6 +472,14 @@ add_test(NAME boo2git_glossary_test
     -DBOOK=${CMAKE_CURRENT_SOURCE_DIR}/../BOO/SC31-711.boo
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/boo2git-glossary-output
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/boo2git_glossary.cmake
+)
+
+add_test(NAME boo2git_message_links_test
+  COMMAND ${CMAKE_COMMAND}
+    -DBOO2GIT=$<TARGET_FILE:boo2git>
+    -DBOOK=${CMAKE_CURRENT_SOURCE_DIR}/../BOO/SC31-711.boo
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/boo2git-message-output
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/boo2git_message_links.cmake
 )
 
 add_executable(topic_document_lowering_test

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "geist/detail/ownership_ir.hpp"
+#include "geist/detail/provenance_ir.hpp"
 
 #include <optional>
 #include <string>
@@ -19,6 +20,7 @@ using MessageSourceRowIR = std::pair<DisplayRunId, std::size_t>;
 enum class MessageMarkerDispositionIR {
   absent,
   lexical_prefix,
+  opaque_continuation_suffix,
   punctuation_suffix,
   list_prefix,
   layout_artifact,
@@ -64,8 +66,10 @@ inline bool operator==(const MessageSemanticRowIR &left,
 
 struct MessageParagraphIR {
   std::string text;
+  bool recovered_unformatted_segment = false;
   std::vector<MessageSourceRowIR> source_rows;
   std::vector<std::pair<std::uint32_t, std::size_t>> source_segments;
+  std::vector<DocumentSourceSliceIR> source_slices;
   // Exact row-by-row semantic projection. Marker disposition records why a
   // compact source slot contributes text or remains layout evidence.
   std::vector<MessageSemanticRowIR> semantic_rows;

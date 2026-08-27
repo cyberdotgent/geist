@@ -13,6 +13,8 @@
 #include "geist/detail/menu_document_lowering.hpp"
 #include "geist/detail/menu_ir.hpp"
 #include "geist/detail/menu_topic_ir.hpp"
+#include "geist/detail/message_document_lowering.hpp"
+#include "geist/detail/message_topic_ir.hpp"
 #include "geist/detail/ownership_ir.hpp"
 #include "geist/detail/publication_document_lowering.hpp"
 #include "geist/detail/publication_ir.hpp"
@@ -32,11 +34,10 @@ void reject(std::string *error, std::string message) {
 void prepend_topic_id_to_heading(DocumentIR &document) {
   if (document.topic.id.empty() || document.blocks.empty())
     return;
-  const auto heading_block =
-      std::find_if(document.blocks.begin(), document.blocks.end(),
-                   [](auto &block) {
-                     return std::holds_alternative<HeadingBlockIR>(block.node);
-                   });
+  const auto heading_block = std::find_if(
+      document.blocks.begin(), document.blocks.end(), [](auto &block) {
+        return std::holds_alternative<HeadingBlockIR>(block.node);
+      });
   if (heading_block == document.blocks.end())
     return;
   auto &heading = std::get<HeadingBlockIR>(heading_block->node);
@@ -71,6 +72,18 @@ bool generated_list_source_candidate(
   return heading && title && selector;
 }
 
+bool message_source_candidate(
+    const std::vector<DecodedLogicalRecordSource> &sources) {
+  auto message_starts = std::size_t{};
+  for (const auto &record : sources)
+    message_starts += static_cast<std::size_t>(
+        std::count_if(record.control_segments.begin(),
+                      record.control_segments.end(), [](const auto &segment) {
+                        return segment.kind == BookControlKind::message_start;
+                      }));
+  return message_starts > 1;
+}
+
 } // namespace
 
 std::optional<DocumentIR> try_lower_topic_to_document_ir(
@@ -103,6 +116,9 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
       extract_fixed_prose_topic_ir(sources, layout, ownership, nullptr);
   const auto glossary =
       extract_glossary_catalog_ir(sources, layout, ownership, nullptr);
+  std::optional<MessageTopicIR> message;
+  if (message_source_candidate(sources))
+    message = extract_message_topic_ir(sources, layout, ownership, nullptr);
   std::optional<GeneratedListTopicIR> generated_list;
   std::optional<SelectorCatalogIR> generated_selectors;
   if (generated_list_source_candidate(sources)) {
@@ -127,6 +143,7 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
                             static_cast<unsigned>(publications.has_value()) +
                             static_cast<unsigned>(fixed_prose.has_value()) +
                             static_cast<unsigned>(glossary.has_value()) +
+                            static_cast<unsigned>(message.has_value()) +
                             static_cast<unsigned>(generated_list.has_value()) +
                             static_cast<unsigned>(menu.has_value());
   if (family_count == 0)
@@ -163,8 +180,8 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
     // metadata field may include packed controls after CHDLEVEL when the
     // source uses spaced separators.
     topic.heading_level = publications->heading_level;
-    document = lower_publication_catalog_to_document_ir(
-        topic, *publications, &error);
+    document =
+        lower_publication_catalog_to_document_ir(topic, *publications, &error);
     if (!document || !verify_publication_catalog_document_ir(
                          *publications, *document, &error)) {
       reject(typed_rejection, family + " document rejected: " + error);
@@ -179,8 +196,8 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
     }
     document =
         lower_fixed_prose_topic_to_document_ir(topic, *fixed_prose, &error);
-    if (!document || !verify_fixed_prose_topic_document_ir(
-                         *fixed_prose, *document, &error)) {
+    if (!document || !verify_fixed_prose_topic_document_ir(*fixed_prose,
+                                                           *document, &error)) {
       reject(typed_rejection, family + " document rejected: " + error);
       return std::nullopt;
     }
@@ -193,8 +210,22 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
     }
     topic.heading_level = glossary->heading_level;
     document = lower_glossary_catalog_to_document_ir(topic, *glossary, &error);
-    if (!document || !verify_glossary_catalog_document_ir(
-                         *glossary, *document, &error)) {
+    if (!document ||
+        !verify_glossary_catalog_document_ir(*glossary, *document, &error)) {
+      reject(typed_rejection, family + " document rejected: " + error);
+      return std::nullopt;
+    }
+  } else if (message) {
+    family = "message catalog";
+    if (!verify_message_topic_ir(sources, layout, ownership, *message,
+                                 &error)) {
+      reject(typed_rejection, family + " semantics rejected: " + error);
+      return std::nullopt;
+    }
+    topic.heading_level = message->metadata.heading_level;
+    document = lower_message_topic_to_document_ir(topic, *message, &error);
+    if (!document ||
+        !verify_message_topic_document_ir(*message, *document, &error)) {
       reject(typed_rejection, family + " document rejected: " + error);
       return std::nullopt;
     }
@@ -206,8 +237,8 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
       reject(typed_rejection, family + " semantics rejected: " + error);
       return std::nullopt;
     }
-    document = lower_generated_list_topic_to_document_ir(
-        topic, *generated_list, &error);
+    document = lower_generated_list_topic_to_document_ir(topic, *generated_list,
+                                                         &error);
     if (!document || !verify_generated_list_topic_document_ir(
                          *generated_list, *document, &error)) {
       reject(typed_rejection, family + " document rejected: " + error);
@@ -221,8 +252,7 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
       return std::nullopt;
     }
     document = lower_menu_topic_to_document_ir(topic, *menu, &error);
-    if (!document ||
-        !verify_menu_topic_document_ir(*menu, *document, &error)) {
+    if (!document || !verify_menu_topic_document_ir(*menu, *document, &error)) {
       reject(typed_rejection, family + " document rejected: " + error);
       return std::nullopt;
     }
@@ -230,8 +260,7 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
 
   prepend_topic_id_to_heading(*document);
   if (!verify_document_ir(*document, &error)) {
-    reject(typed_rejection,
-           family + " identity policy rejected: " + error);
+    reject(typed_rejection, family + " identity policy rejected: " + error);
     return std::nullopt;
   }
   return document;

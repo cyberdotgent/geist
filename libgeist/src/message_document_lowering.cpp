@@ -1,6 +1,8 @@
 #include "geist/detail/message_document_lowering.hpp"
 
 #include <algorithm>
+#include <cctype>
+#include <optional>
 #include <tuple>
 #include <utility>
 
@@ -108,6 +110,8 @@ DocumentNodeOriginIR paragraph_origin(const MessageTopicIR &message,
     if (segment != nullptr)
       add_slice(result, segment->source);
   }
+  for (const auto &source : paragraph.source_slices)
+    add_slice(result, source);
   canonicalize(result);
   return result;
 }
@@ -137,18 +141,35 @@ introduction_atom_origin(const MessageTopicIR &message,
 }
 
 bool source_proven(const MessageParagraphIR &paragraph) {
-  return !paragraph.text.empty() &&
-         (!paragraph.source_rows.empty() || !paragraph.source_segments.empty());
+  return !paragraph.text.empty() && (!paragraph.source_rows.empty() ||
+                                     !paragraph.source_segments.empty() ||
+                                     !paragraph.source_slices.empty());
 }
 
 bool paragraph_coordinates_exist(const MessageTopicIR &message,
                                  const MessageParagraphIR &paragraph) {
-  return std::all_of(paragraph.source_segments.begin(),
-                     paragraph.source_segments.end(),
-                     [&](const auto &coordinate) {
-                       return find_segment(message, coordinate.first,
-                                           coordinate.second) != nullptr;
-                     });
+  const auto segments =
+      std::all_of(paragraph.source_segments.begin(),
+                  paragraph.source_segments.end(), [&](const auto &coordinate) {
+                    return find_segment(message, coordinate.first,
+                                        coordinate.second) != nullptr;
+                  });
+  const auto slices = std::all_of(
+      paragraph.source_slices.begin(), paragraph.source_slices.end(),
+      [&](const auto &slice) {
+        if (!valid_slice(slice) || slice.token_begin >= slice.token_end)
+          return false;
+        return std::all_of(message.source_tokens.begin(),
+                           message.source_tokens.end(), [&](const auto &token) {
+                             if (token.logical_record != slice.logical_record ||
+                                 token.token_index < slice.token_begin ||
+                                 token.token_index >= slice.token_end)
+                               return true;
+                             return token.bytes.begin >= slice.byte_begin &&
+                                    token.bytes.end <= slice.byte_end;
+                           });
+      });
+  return segments && slices;
 }
 
 bool verify_message_shape(const MessageTopicIR &message, std::string *error) {
@@ -255,8 +276,19 @@ bool verify_message_shape(const MessageTopicIR &message, std::string *error) {
       for (const auto &paragraph : section.paragraphs)
         if (!source_proven(paragraph) ||
             !paragraph_coordinates_exist(message, paragraph))
-          return fail(error,
-                      "message section paragraph lacks source provenance");
+          return fail(
+              error,
+              "message " + entry.id + " " +
+                  (section.kind == MessageSectionKind::meaning ? "Meaning"
+                                                               : "Action") +
+                  " paragraph lacks source provenance at " +
+                  (paragraph.source_segments.empty()
+                       ? std::string{"row-only paragraph"}
+                       : std::to_string(
+                             paragraph.source_segments.front().first) +
+                             ":" +
+                             std::to_string(
+                                 paragraph.source_segments.front().second)));
     }
   }
   return true;
@@ -353,36 +385,38 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
         std::move(headline_origin)));
 
     for (const auto &section : entry.sections) {
+      auto label_origin = origin("message section label");
+      for (const auto &row : section.label_source_rows)
+        add_row(label_origin, {row.first, row.second});
+      const auto *label_segment =
+          find_segment(message, section.logical_record, section.segment_index);
+      if (label_segment != nullptr)
+        add_slice(label_origin, label_segment->source);
+      canonicalize(label_origin);
+      auto block_origin = label_origin;
+      const auto *label =
+          section.kind == MessageSectionKind::meaning ? "Meaning:" : "Action:";
+      std::string section_text;
       for (std::size_t paragraph_index = 0;
            paragraph_index < section.paragraphs.size(); ++paragraph_index) {
+        if (paragraph_index != 0)
+          section_text.push_back(' ');
         const auto &paragraph = section.paragraphs[paragraph_index];
         auto text_origin = paragraph_origin(message, paragraph,
                                             "message section paragraph text");
-        InlineSequenceIR content;
-        auto block_origin = text_origin;
-        if (paragraph_index == 0) {
-          auto label_origin = origin("message section label");
-          for (const auto &row : section.label_source_rows)
-            add_row(label_origin, {row.first, row.second});
-          const auto *label_segment = find_segment(
-              message, section.logical_record, section.segment_index);
-          if (label_segment != nullptr)
-            add_slice(label_origin, label_segment->source);
-          canonicalize(label_origin);
-          merge_origin(block_origin, label_origin);
-          const auto *label = section.kind == MessageSectionKind::meaning
-                                  ? "Meaning:"
-                                  : "Action:";
-          content.push_back({EmphasisInlineIR{label}, std::move(label_origin)});
-          auto separator_origin = origin("message section separator");
-          separator_origin.derivation = DocumentDerivationIR::synthesized;
-          content.push_back({TextInlineIR{" "}, std::move(separator_origin)});
-        }
-        content.push_back(
-            {TextInlineIR{paragraph.text}, std::move(text_origin)});
-        document.blocks.push_back(
-            paragraph_block(std::move(content), std::move(block_origin)));
+        merge_origin(block_origin, text_origin);
+        section_text += paragraph.text;
       }
+      InlineSequenceIR content;
+      content.push_back({EmphasisInlineIR{label}, std::move(label_origin)});
+      auto separator_origin = origin("message section separator");
+      separator_origin.derivation = DocumentDerivationIR::synthesized;
+      content.push_back({TextInlineIR{" "}, std::move(separator_origin)});
+      const auto section_text_origin = block_origin;
+      content.push_back(
+          {TextInlineIR{section_text}, std::move(section_text_origin)});
+      document.blocks.push_back(
+          paragraph_block(std::move(content), block_origin));
     }
   }
 

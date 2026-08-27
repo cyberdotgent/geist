@@ -127,11 +127,10 @@ int main() {
   std::size_t expected_paragraphs = message->introduction.paragraphs.size();
   for (const auto &entry : message->catalog.entries) {
     expected_paragraphs += 1;
-    for (const auto &section : entry.sections)
-      expected_paragraphs += section.paragraphs.size();
+    expected_paragraphs += entry.sections.size();
   }
   require(count_blocks(*document, paragraph_block) == expected_paragraphs,
-          "message DocumentIR lost a semantic paragraph");
+          "message DocumentIR lost a semantic section paragraph");
 
   const auto &final_intro =
       std::get<geist::detail::ParagraphBlockIR>(document->blocks[7].node);
@@ -163,8 +162,8 @@ int main() {
                         "<a id=\"HDRMSGS\"></a>\n\n# Chapter 5\\. Messages") ==
               0,
           "message Markdown does not retain source header order");
-  require(substring_count(markdown, "\n*Meaning:* ") == 396 &&
-              substring_count(markdown, "\n*Action:* ") == 396,
+  require(substring_count(markdown, "\n*Meaning:*") == 396 &&
+              substring_count(markdown, "\n*Action:*") == 396,
           "message Markdown lost canonical section boundaries");
   require(
       markdown.find(
