@@ -539,10 +539,17 @@ Its source ledger has one item for each of the 2,279 decoded segments and
 retains 4,698 physical rows with ownership cells; the final `2505` Action
 (`None.`) is an explicit terminal boundary. Truncated, metadata-less, and
 glossary envelopes reject, and the corpus admission scan accepts only this one
-topic. No production Document-IR route is enabled yet: the wrapped introductory
-selector spans and paragraph boundaries are not proven sufficiently to lower
-without presentation guesses. This is a representation checkpoint, not a
-Markdown migration claim.
+topic. Its introduction is now semantic rather than an untyped row list: exact
+source-cell ranges form five paragraphs, including the one intra-row boundary
+proven by a 20-cell layout-padding run after terminal punctuation. Two adjacent
+selector atoms retain their independent source intervals and typed
+`anchor:HDRPROBS` targets; selected cells replace prose cells exactly once and
+are never rediscovered by label-string search. Marker carry, row breaks,
+padding, and selector replacement are assigned before atom text is composed.
+Mutations to paragraph order, padding boundaries, lexical carry, selector
+targets/labels/ranges, anchor order, or cell claims reject. No production
+Document-IR route is enabled yet; canonical whole-topic lowering and a separate
+Markdown corpus audit remain the next slice.
 
 The complete `SC31-711.boo` glossary envelope is now represented and lowers
 canonically to output-neutral Document IR. `GlossaryCatalogIR` covers logical
