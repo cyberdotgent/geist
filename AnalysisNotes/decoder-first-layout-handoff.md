@@ -2,10 +2,11 @@
 
 ## Status
 
-This note records the stopping point for rendering issue #48 after commit
-`d2f3111`.  All experimental publication and CMITEM implementations described
-below were rejected and reverted.  The repository was clean before this note
-was added.
+This note began as the stopping point for rendering issue #48 after commit
+`d2f3111`; it is now the cumulative handoff for the decoder-first Markdown
+migration. The rejected publication and CMITEM experiments below remain useful
+negative evidence, while the later milestone sections record the typed
+implementation that superseded them.
 
 Issue #48 is not one remaining string-cleanup bug.  It groups several cases in
 which physical display structure was flattened before semantic ownership was
@@ -69,6 +70,54 @@ carry the following facts as typed data:
 Some of these facts are directly encoded.  Others, especially hard versus soft
 breaks, are state derived by the IBM reader.  Geist must reproduce that layout
 state during decoding instead of inferring it later from rendered text.
+
+## Markdown-only target architecture and milestone status
+
+The current target is deliberately one-way and Markdown-only:
+
+```text
+BOO bytes
+  -> Token IR (encoded identity, decoded words, byte ranges)
+  -> Control IR (typed operands and payload ranges)
+  -> Layout IR (display runs, physical rows, origins, breaks, marker slots)
+  -> family semantic IR (message, glossary, menu, publication, ...)
+  -> output-neutral Document IR
+  -> Markdown renderer
+```
+
+The compatibility GML projection remains available for public/raw callers and
+for topics whose complete semantic envelope does not yet admit. It is not an
+intermediate representation for new Markdown work. Semantic extractors consume
+Token, Control, Layout, and Ownership IR; the Markdown renderer consumes only a
+verified Document IR and cannot inspect decoder controls or rediscover layout.
+
+Ownership and conservation are the contract between the layers. Every decoded
+source cell must have exactly one disposition: control operand, layout origin
+or padding, marker slot, visible semantic content, explicit opaque content, or
+an explicitly conserved structural artifact. Semantic nodes retain physical
+row identity and token/word/BOO-byte provenance. Canonical verifiers re-extract
+the model and reject altered text, order, provenance, duplicate ownership,
+unowned printable cells, or ambiguous continuation attachment. A renderer test
+can consequently validate Markdown structure without pretending that Markdown
+can be validated directly from the tokenized BOO stream.
+
+The milestone state as of 2026-08-27 is:
+
+| Milestone | Evidence-backed status |
+| --- | --- |
+| Token/Control/Layout/Ownership foundations | Implemented and independently verified, including source-cell conservation and cross-record display runs. |
+| Document IR boundary and pure Markdown renderer | Implemented. Typed render acceptance is semantic correctness and stable Markdown, not legacy byte parity. |
+| Complete-family production routing | Implemented for the verified generated-list, fixed-prose, comment/delivery, publication, menu, and glossary families described below. Public GML remains unchanged. |
+| Numeric message topic envelope | Implemented for the one admitted `SC31-711.boo:5.0` topic, including its complete catalog, anchors, introduction, selectors, and source ledger. Direct Markdown lowering is under active semantic audit. |
+| Message trailing-field and continuation conservation | Partially implemented. The audit has recovered previously lost continuations and records suppressed terminal tokens explicitly, but the unresolved boundary-token requirement below prevents this slice from being called complete. |
+| Structured message tables/lists | Not complete. Representative source geometry is now known for MSG508, MSG807, and MSG739, but no general fail-closed, per-cell-provenance admission has yet been verified. |
+| Legacy heuristic retirement | The typed-source lazy cache was consolidated and definition-only layout helpers were removed. Public GML projectors and the publication all-C constraint remain reachable and are intentionally retained pending stronger evidence. |
+| Final corpus and hosted audit | Pending for the combined final message implementation. Earlier per-slice corpus counts and hosted checks below remain valid only for their stated baselines. |
+
+HTML and other rendered backends are deferred. Document IR is intentionally
+output-neutral so another renderer can be added later, but this plan neither
+implements nor validates an HTML pipeline. Markdown correctness, the original
+issue #48 failures, and source conservation are the present scope.
 
 ## Intended decoder primitive
 
@@ -730,6 +779,119 @@ to its baseline, including heading level, paragraph boundaries and order, and
 trailing separators. Tests therefore assert Markdown-visible publication text
 while retaining strict occurrence counts and paragraph-structure checks; legacy
 Markdown byte parity is neither required nor restored.
+
+## Message boundary fields and structured-block evidence
+
+The complete message envelope does not make every Action or Meaning body plain
+prose. Fixed message rows carry a compact boundary field alongside their visible
+columns. Depending on row geometry, that field can be lexical continuation,
+punctuation, a list prefix, a table key, or layout-only evidence. Its decoded
+spelling is not a sufficient discriminator. The current typed model records
+known suppressed terminal fields as `MessageTerminalLayoutTokenIR`, including
+logical record, token ordinal, encoded identity/width, byte range, and decoded
+text. That is necessary but not yet sufficient: the latest whole-topic audit
+found boundary fields on ordinary section and structured rows, not only the
+terminal pre-section row for which the first rule was introduced.
+
+One repeatable example is MSG806 in logical record 307. `bootrace --ir` reports
+run 1158 with a row whose visible text is `connection to the LNM OS/2 Agent was
+dropped` and whose compact marker is value 21, decoded `)`, at BOO byte range
+`[0x2148e,0x2148f)`. Treating that compact field as prose produces `why the)
+connection`; removing every value-21 token would destroy real closing
+parentheses elsewhere. MSG739 supplies the alphabetic counterpart in logical
+record 290: aligned checklist rows have compact fields `a` (value 28), `are`
+(37), `and` (34), `are` (37), and `be` (40), while their visible payloads are
+paths and predicates. Those words are structural in these exact slots, even
+though the same dictionary identities are lexical in other rows. Conversely,
+the verified MSG2392 heading retains typed evidence for structural compact
+tokens 107/value 40 and 159/value 43 without generalizing those values across
+the catalog.
+
+The unresolved decoder requirement is therefore a positioned boundary-cell
+ledger for every physical row. It must retain the display column occupied by
+each owned token/word and distinguish the boundary field from the row's visible
+cell ranges before semantic extraction. `native_origin` plus flattened
+`visible_text` is not enough when a marker slot supplies a real first-column
+value or an opaque record prefix supplies a complete row. Until that ledger is
+implemented and conserved, widening a decoded-value allow/deny range is not an
+acceptable fix.
+
+### MSG508: two-column Application/Action table
+
+MSG508 spans logical records 230--231. Its source geometry is stable:
+
+- LR230 run 541 is the header `Application  Action`; its two CFONT spans begin
+  at display columns 13 and 26, giving relative cell origins 0 and 13.
+- Run 542 begins `CP` followed by 11 spaces and its Action at the second
+  origin. Its following physical rows continue the same Action cell.
+- Run 543 carries `Topology` in a lexical marker slot and begins the Action at
+  column 26; the `505)` row is an Action continuation.
+- LR231 begins with `SNMP Trap` followed by four spaces and its Action, then a
+  continuation `Then restart LNM for AIX.`
+- Run 546 has the ten-character key `lnmfddimgr`, three spaces, and its Action;
+  the following row continues that Action.
+
+The current Layout IR omits LR231's record-leading `SNMP Trap` row because it
+precedes the first typed control in that record; semantic recovery can conserve
+its words but cannot assign table cells reliably. Layout extraction must first
+promote such fixed-position opaque prefixes to provenance-bearing
+`record_continuation` rows. The source order is already clear and must not be
+reordered: CP, Topology, SNMP Trap, then lnmfddimgr.
+
+### MSG807: two-column Command type/Command table
+
+MSG807 spans logical records 308--310. LR308 run 1166 is the header
+`Command type   Command`. Both the header and every primary data row place the
+second cell at relative column 15. The 25 primary keys are unique five- or
+six-digit command types, from `23006` through `103000`. Wrapped rows have no
+new numeric key and continue the immediately preceding Command cell. Examples
+include `<segment` plus `number>` and `<module number` plus `> ATTR=LOBE`.
+
+The trace also demonstrates why decoded marker text is not a schema. Runs
+1181, 1182, and 1184 have compact fields decoded as `action`, `an`, and `an`;
+they are layout fields beside the numeric key rows. Other compact fields such
+as `segment` or `>` can complete a placeholder inside the Command cell. A
+positioned ownership map makes those cases distinct; flattened string cleanup
+does not.
+
+### MSG739: hanging checklist
+
+MSG739's Action introduces a checklist with `Verify that the following
+conditions are true:`. In LR290, three logical items start at native origin 13
+and their path continuations start at origin 17. They state that the database
+directory contains `lnmlnmemgr.pdf` and that two catalog paths contain symbolic
+links to the corresponding files under `/usr/lpp/lnm/nls/<lang>/`. The compact
+`a`/`are`/`and`/`are`/`be` fields cited above are not item text. A large physical
+gap before `If everything is correctly set...` ends the checklist and resumes
+ordinary Action prose.
+
+### Fail-closed Table/List IR admission
+
+Structured message blocks should be represented in the semantic layer before
+Document IR lowering, for example as a section-block variant containing
+paragraph, table, list, or row-preserving preformatted fallback. A table/list
+cell must retain its text, source rows and slices, and exact owned cell keys
+(`logical_record`, `token_index`, `word_index`). Admission should require:
+
+- a source-proven header or list lead-in and at least two independently aligned
+  body rows (three for a markerless hanging list);
+- stable column origins proven by positioned CFONT/Layout cells, not whitespace
+  after text normalization;
+- unique attachment of every continuation to the immediately preceding cell
+  or item;
+- a hard end at the next section, message anchor, object boundary, or
+  geometrically proven return to prose;
+- exact one-time assignment of every visible owned cell, with every boundary,
+  padding, and marker cell separately conserved by disposition; and
+- canonical re-extraction equality, including per-cell provenance and source
+  order.
+
+Any ambiguous split, incomplete opaque-prefix row, competing continuation
+parent, or unowned printable cell must reject the semantic table/list. The
+fallback should preserve physical rows as preformatted content rather than
+flattening them into misleading prose. Once admitted, the semantic table/list
+lowers directly to output-neutral `TableBlockIR` or `ListBlockIR`; the Markdown
+renderer only serializes that structure and performs no source-layout repair.
 
 ## M9 heuristic-removal audit
 
