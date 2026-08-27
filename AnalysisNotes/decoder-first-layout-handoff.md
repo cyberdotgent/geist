@@ -592,9 +592,15 @@ TOC projection, including logical-record spans and source-order indexes; exact
 token/byte provenance is unavailable at that public boundary and is not
 invented. Header titles are authoritative when present and TOC evidence remains
 explicit corroboration. Catalog-only validation retains the same six-topic
-boundary across all 153 raw envelopes. Production still needs to build and
-share this catalog once with the whole-topic dispatcher; widening based on raw
-shape alone remains unsound.
+boundary across all 153 raw envelopes. Those six topics now also lower
+canonically to output-neutral Document IR: the source title becomes a heading,
+the optional source anchor remains an anchor block, and all items form one
+unordered list whose sole inline per item is a typed topic cross-reference.
+Labels and raw target identities are copied unchanged, while heading and link
+origins retain canonical token/byte slices from the exact title, target, and
+label cells. Target, label, and provenance mutations reject. Production still
+needs to build and share this catalog once with the whole-topic dispatcher;
+widening based on raw shape alone remains unsound.
 
 The publication-catalog adapter is the second complete semantic-to-document
 lowering and is now enabled in production. `PublicationCatalogIR` retains
