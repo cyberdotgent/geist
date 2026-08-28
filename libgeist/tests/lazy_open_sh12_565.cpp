@@ -10,7 +10,7 @@ int main() {
   const auto smf_layout =
       geist::BooDocument::open(root / "SH12-565.boo")
           .topic_markdown("APPENDIX1.8");
-  require(smf_layout.find("number of *triplets*. Each triplet") !=
+  require(smf_layout.find("number of *triplets*\\. Each triplet") !=
               std::string::npos &&
               smf_layout.find("**2** Delete **3** Query") !=
                   std::string::npos,

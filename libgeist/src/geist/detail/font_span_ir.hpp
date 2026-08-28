@@ -16,11 +16,25 @@ struct DecodedLogicalRecordSource;
 // documented in Format/markup.md ("Font And Highlight Controls"): `1`..`3`
 // are the GML highlight phrases HP1..HP3. Every other code is retained as an
 // opaque style so consumers can conserve the span without claiming a style.
+// The CFONTDEF code table is identical in all 33 corpus books (checked with
+// `bootrace --fonts` over every fixture): `1`..`3` HP1..HP3, `4` HP4, `C`
+// CIT, `X` XPH, `E` XMP, `P` PK, `V` PV, `R` RK, `H`..`M` H1..H6.  Hosted
+// BookServer renders CIT as <cite>, XPH/XMP/HP4 as <tt>/<samp>, PK as
+// <kbd>, PV as <var>, RK/H1-H4/H6 as <b> and H5 as <i> (FA1PLMM0 11.5,
+// ACPZMST1 8.14.1/2.4.1.2, GC23-046 B.2, DREICMST 1.4.2.1, FA1PLMM0 9.3.1).
+// Every other code is retained as an opaque style so consumers can conserve
+// the span without claiming a presentation.
 enum class FontStyleIR {
   unknown,
   highlight_1,
   highlight_2,
   highlight_3,
+  citation,        // C: italic citation
+  example_phrase,  // X, E, 4: monospace example text
+  keyword,         // P: monospace parameter keyword (<kbd>)
+  variable,        // V: italic programming variable (<var>)
+  bold_phrase,     // R, H, I, J, K, M: bold keyword / inline heading
+  italic_phrase,   // L: italic inline heading
 };
 
 // One `<column> <length> <code>` operand triple of a CFONT control. Columns

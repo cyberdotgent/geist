@@ -167,8 +167,10 @@ int main() {
     require_absent(chapter_three, leaked, "chapter source-row marker");
   }
 
+  // FRONT_1 renders through the typed prose family, equal to hosted.
   const auto fixed_notices = document.topic_markdown("FRONT_1");
-  require_contains(fixed_notices, "```text", "fixed notices display");
+  require_contains(fixed_notices, "IBM Director of Licensing, IBM Corporation",
+                   "notices prose");
   require_contains(fixed_notices, "IBM Director of Licensing",
                    "fixed notices address");
   require_contains(document.topic_markdown("2.1"), "nettl log",
@@ -208,9 +210,9 @@ int main() {
 
   const auto worksheet_menu = document.topic_markdown("2.4");
   for (const auto* expected : {
-           "[2.4.2 Software Version Levels and Applied PTFs on the LNM for "
-           "AIX Workstation](#2.4.2)",
-           "[2.4.5 Customer Information](#2.4.5)",
+           "[2\\.4\\.2 Software Version Levels and Applied PTFs on the LNM "
+           "for AIX Workstation](<#2.4.2>)",
+           "[2\\.4\\.5 Customer Information](<#2.4.5>)",
        }) {
     require_contains(worksheet_menu, expected, "verified CMITEM title");
   }
@@ -219,7 +221,7 @@ int main() {
     require_absent(worksheet_menu, leaked, "CMITEM terminal source token");
   }
   const auto trap_menu = document.topic_markdown("4.1");
-  require_contains(trap_menu, "[4.1.1 Generic Traps](#4.1.1)",
+  require_contains(trap_menu, "[4\\.1\\.1 Generic Traps](<#4.1.1>)",
                    "verified trap CMITEM title");
   require_absent(trap_menu, "Generic Traps >](#4.1.1)",
                  "trap CMITEM terminal source token");
@@ -228,7 +230,7 @@ int main() {
       bibliography_menu,
       // The legacy list route escapes literal `_`/`*` in item text (the
       // typed renderer's convention, compare the `BACK\_1\.8` heading).
-      "[BACK\\_1.8 AIX Operating System Publications](#BACK_1.8)",
+      "[BACK\\_1\\.8 AIX Operating System Publications](<#BACK_1.8>)",
       "verified bibliography CMITEM title");
   require_absent(bibliography_menu, "Publications can](#BACK_1.8)",
                  "bibliography CMITEM terminal source token");
@@ -328,9 +330,10 @@ int main() {
 
   const auto tracing = document.topic_markdown("2.1.3");
   for (const auto* boundary : {
-           "following command:\n\n`ps` `-ef` `|` `grep` `lnm_process`\n\nwhere ",
-           "\n\n**2.** Turn on tracing by entering the command:\n\n",
-           "simply starts tracing for the process.\n\n**3.** Turn off tracing",
+           "following command:\n\n`ps -ef | grep lnm_process`\n\nwhere ",
+           "\n\n**2\\.** Turn on tracing by entering the command:\n\n",
+           "simply starts tracing for the process\\.\n\n**3\\.** Turn off "
+           "tracing",
        }) {
     require_contains(tracing, boundary,
                      "source-owned tracing procedure boundary");
@@ -338,9 +341,9 @@ int main() {
 
   const auto clearing = document.topic_markdown("2.1.4");
   require_contains(clearing,
-                   "1. Stop the AIX NetView/6000 graphical interface.\n\n"
-                   "**2.** Issue the **ovstop** command.\n\n"
-                   "**3.** Issue the **ovstart** command.",
+                   "**1\\.** Stop the AIX NetView/6000 graphical interface\\."
+                   "\n\n**2\\.** Issue the **ovstop** command\\.\n\n"
+                   "**3\\.** Issue the **ovstart** command\\.",
                    "source-owned database procedure steps");
 
   const auto chapter_traps = document.topic_markdown("4.0");

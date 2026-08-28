@@ -115,6 +115,11 @@ set(GEIST_SOURCES
   src/img/png.cpp
   src/properties.cpp
   src/procedure_rows.cpp
+  src/prose_topic_blocks.cpp
+  src/prose_topic_document_lowering.cpp
+  src/prose_topic_ir.cpp
+  src/prose_topic_lines.cpp
+  src/prose_topic_stream.cpp
   src/publication_document_lowering.cpp
   src/publication_ir.cpp
   src/resources.cpp
@@ -438,6 +443,17 @@ target_compile_definitions(fixed_table_block_ir_synthetic_test PRIVATE
 )
 add_test(NAME fixed_table_block_ir_synthetic_test
   COMMAND fixed_table_block_ir_synthetic_test)
+add_executable(prose_topic_ir_synthetic_test
+  tests/prose_topic_ir_synthetic.cpp
+)
+target_link_libraries(prose_topic_ir_synthetic_test
+  PRIVATE geist::geist_static
+)
+target_compile_definitions(prose_topic_ir_synthetic_test PRIVATE
+  GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+add_test(NAME prose_topic_ir_synthetic_test
+  COMMAND prose_topic_ir_synthetic_test)
 
 add_executable(generated_list_topic_ir_synthetic_test
   tests/generated_list_topic_ir_synthetic.cpp

@@ -79,12 +79,14 @@ int main() {
               "products, **IMS** **CS/2** and **IMS** **CS** **for** "
               "**Windows**") != std::string::npos,
           "marker-led CFONT row tore client/server product names");
+  // 9.4.7 renders through the typed prose family: the HP1 span over the
+  // phrase is one emphasis inline, as hosted BookServer italicizes it (the
+  // legacy route drew it as a per-word <I> example block).
   const auto message_routing = split_header.topic_markdown("9.4.7");
-  require(message_routing.find("<I>every</I> <I>system</I> <I>involved</I> "
-                               "<I>in</I> <I>the</I> <I>processing</I>") !=
+  require(message_routing.find("*every system involved in the processing*") !=
               std::string::npos &&
               message_routing.find("cfont ") == std::string::npos,
-          "fixed example lost CFONT styling or leaked its control");
+          "prose paragraph lost CFONT styling or leaked its control");
   require(message_routing.find("LU6.2 device") ==
               message_routing.rfind("LU6.2 device"),
           "fixed example duplicated its styled continuation");
