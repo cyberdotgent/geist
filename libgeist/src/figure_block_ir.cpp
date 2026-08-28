@@ -68,6 +68,8 @@ bool same_block(const FigureSourceBlockIR &left,
       left.anchor != right.anchor || !same_ref(left.selector, right.selector) ||
       left.target_kind != right.target_kind || left.target != right.target ||
       left.placeholder_text != right.placeholder_text ||
+      left.body_kind != right.body_kind ||
+      left.lines.size() != right.lines.size() ||
       left.index_terms != right.index_terms ||
       left.caption.has_value() != right.caption.has_value() ||
       left.suppressed_rows.size() != right.suppressed_rows.size() ||
@@ -84,6 +86,17 @@ bool same_block(const FigureSourceBlockIR &left,
   for (std::size_t index = 0; index < left.suppressed_rows.size(); ++index)
     if (!same_row(left.suppressed_rows[index], right.suppressed_rows[index]))
       return false;
+  for (std::size_t index = 0; index < left.lines.size(); ++index) {
+    const auto &a = left.lines[index];
+    const auto &b = right.lines[index];
+    if (a.logical_record != b.logical_record ||
+        a.prefix_token != b.prefix_token || a.token_end != b.token_end ||
+        a.text != b.text || a.rows.size() != b.rows.size())
+      return false;
+    for (std::size_t row = 0; row < a.rows.size(); ++row)
+      if (!same_row(a.rows[row], b.rows[row]))
+        return false;
+  }
   for (std::size_t index = 0; index < left.cells.size(); ++index)
     if (!same_cell(left.cells[index], right.cells[index]))
       return false;
@@ -394,6 +407,116 @@ Classified classify_cells(const std::vector<CellSlot> &cells) {
   return result;
 }
 
+// ---------------------------------------------------------------------------
+// Display lines of a logical record.
+//
+// A record payload is a sequence of <length byte><tokens> display lines
+// (FA1PLMM0 record 37, GG24-4302-00 records 261-265, ACPZMST1 records
+// 54-57: every record of the swept figure topics parses exactly, and the
+// lines match the hosted <pre> output line for line).  The length byte is a
+// one-byte token whose dictionary spelling is arbitrary; its encoded value
+// is the byte itself.
+struct DisplayLine {
+  std::size_t prefix_token = 0; // the length byte
+  std::size_t token_end = 0;    // exclusive end of the line's tokens
+};
+
+std::optional<std::vector<DisplayLine>> record_display_lines(
+    const DecodedLogicalRecordSource &record) {
+  const auto &tokens = record.ir.tokens;
+  std::vector<DisplayLine> lines;
+  std::size_t at = 0;
+  while (at < tokens.size()) {
+    const auto &prefix = tokens[at];
+    if (prefix.byte_range.end != prefix.byte_range.begin + 1)
+      return std::nullopt;
+    const auto line_end = prefix.byte_range.end + prefix.encoded.value;
+    auto end = at + 1;
+    while (end < tokens.size() && tokens[end].byte_range.end <= line_end)
+      ++end;
+    const auto boundary = end < tokens.size()
+                              ? tokens[end].byte_range.begin
+                              : record.ir.payload_range.end;
+    if (boundary != line_end)
+      return std::nullopt;
+    lines.push_back({at, end});
+    at = end;
+  }
+  return lines;
+}
+
+bool body_visible(std::uint16_t word) {
+  return word > 0x20 && word != 0xA0 && !(word >= 0x2500 && word <= 0x25FF);
+}
+
+// Hosted display text of a line's tokens: token words in order with the
+// decoder's inter-token spaces, spacing prefixes dropped, the inserted space
+// that precedes the next line's length byte dropped.
+std::string display_line_text(const DecodedLogicalRecordSource &record,
+                              const DisplayLine &line) {
+  std::string text;
+  bool started = false;
+  bool pending_space = false;
+  for (const auto &source : record.assembled.sources) {
+    if (source.kind == LogicalWordSourceKind::inserted_space) {
+      if (started)
+        pending_space = true;
+      continue;
+    }
+    if (source.token_index <= line.prefix_token)
+      continue;
+    if (source.token_index >= line.token_end)
+      break;
+    const auto &words = record.tokens[source.token_index];
+    if (source.word_index >= words.size() ||
+        (source.word_index == 0 && words[0] < 4))
+      continue;
+    if (pending_space) {
+      text.push_back(' ');
+      pending_space = false;
+    }
+    started = true;
+    text += figure_display_glyph(words[source.word_index]);
+  }
+  return text;
+}
+
+bool blank_line(const std::string &text) {
+  return std::all_of(text.begin(), text.end(),
+                     [](const auto ch) { return ch == ' '; });
+}
+
+// A full-width rule without corners, the `frame=rule` figure frame; hosted
+// shows it as an empty line (SC09-138 1.3.1, GC23-046 6.2, SC28-1881-05
+// 1.6) while a cornered box top/bottom is displayed.
+// A dashed rule ("_ _ _ _", SC34-425 1.3.4, drawn from separate one-glyph
+// tokens with decoder-inserted spaces) is drawn content and stays.
+bool frame_rule_line(const DecodedLogicalRecordSource &record,
+                     const DisplayLine &line, const std::string &text) {
+  for (auto token = line.prefix_token + 1; token < line.token_end; ++token) {
+    const auto &words = record.tokens[token];
+    for (std::size_t index = 0; index < words.size(); ++index) {
+      const auto word = words[index];
+      if ((index == 0 && word < 4) || word == 0x2500 || word == ' ' ||
+          word == 0xA0)
+        continue;
+      return false;
+    }
+  }
+  const auto trimmed = trim_ascii(text);
+  return !trimmed.empty() &&
+         std::all_of(trimmed.begin(), trimmed.end(),
+                     [](const auto ch) { return ch == '_'; });
+}
+
+// "Figure N. Title" possibly behind a change bar ("| Figure  1-4. ...").
+std::optional<std::string> line_caption_text(const std::string &text) {
+  auto trimmed = trim_ascii(text);
+  while (!trimmed.empty() && (trimmed.front() == '|' || trimmed.front() == ' '))
+    trimmed.erase(trimmed.begin());
+  return caption_text(trimmed);
+}
+
 struct Region {
   std::vector<SegmentView> segments; // begin .. end inclusive, source order
   bool anchored = false;
@@ -516,6 +639,353 @@ struct Extractor {
     return false;
   }
 
+
+  // Lines of one record intersecting [first_token, last_token], in order.
+  struct LineView {
+    const DecodedLogicalRecordSource *record = nullptr;
+    DisplayLine line;
+  };
+
+  std::vector<DocumentSourceRowIR> rows_in(const DecodedLogicalRecordSource &record,
+                                           const DisplayLine &line) const {
+    std::vector<DocumentSourceRowIR> result;
+    for (const auto &[row_key, physical] : physical_rows) {
+      if (physical->logical_record != record.logical_record)
+        continue;
+      if (physical->token_begin < line.token_end &&
+          line.prefix_token < physical->token_end)
+        result.push_back({row_key.first, row_key.second});
+    }
+    std::sort(result.begin(), result.end(), [](const auto &a, const auto &b) {
+      return std::make_pair(a.display_run, a.row_index) <
+             std::make_pair(b.display_run, b.row_index);
+    });
+    return result;
+  }
+
+  // Output byte at which a record-local token starts.
+  std::optional<std::size_t> token_output_byte(
+      const DecodedLogicalRecordSource &record, std::size_t token) const {
+    const auto &offsets = byte_offsets.at(record.logical_record);
+    for (const auto &span : record.assembled.tokens)
+      if (span.token_index == token && span.output_begin < offsets.size())
+        return offsets[span.output_begin];
+    return std::nullopt;
+  }
+
+  std::optional<FigureBlockDeclineIR>
+  admit_preformatted(const Region &region, FigureSourceBlockIR &block) const {
+    block.body_kind = FigureBodyKindIR::preformatted;
+    if (!region.anchored)
+      return decline(region, "figure region has no picture selector");
+    const auto &begin = region.segments.front();
+    const auto &end = region.segments.back();
+
+    // 1. Structural content of the region.  Only SR/menu/message opcodes
+    //    are trusted here: the control decoder reads words of a drawn line
+    //    ("cforwardlevel", "cselect" in the RMF report of GG24-4302-00
+    //    record 262) as controls, so C-controls are judged by whether they
+    //    open a display line (step 3).
+    for (std::size_t index = 0; index < region.segments.size(); ++index) {
+      const auto &segment = *region.segments[index].segment;
+      const auto interior = index != 0 && index + 1 != region.segments.size();
+      switch (segment.kind) {
+      case BookControlKind::table_start:
+      case BookControlKind::table_end:
+        return decline(region, "figure region contains a table");
+      case BookControlKind::menu_start:
+      case BookControlKind::menu_item:
+      case BookControlKind::menu_end:
+        return decline(region, "figure region contains a menu");
+      case BookControlKind::message_start:
+        return decline(region, "figure region contains a message catalog");
+      case BookControlKind::structural:
+        if (interior)
+          return decline(region, "figure region contains structural control " +
+                                     segment.opcode);
+        break;
+      default:
+        break;
+      }
+    }
+
+    // 2. Display lines of the region's records.
+    const auto begin_index = begin.record_index;
+    const auto end_index = end.record_index;
+    std::vector<LineView> lines;
+    for (auto index = begin_index; index <= end_index; ++index) {
+      const auto &record = records[index];
+      const auto parsed = record_display_lines(record);
+      if (!parsed)
+        return decline(region, "display line prefixes of record " +
+                                   std::to_string(record.logical_record) +
+                                   " are misaligned");
+      for (const auto &line : *parsed)
+        lines.push_back({&record, line});
+    }
+    // SRFIG opens its line; SREFIG opens its line (after at most blank or
+    // comma tokens); the region is the lines in between.
+    if (begin.segment->source_tokens.empty())
+      return decline(region, "SRFIG has no source tokens");
+    const auto srfig_token = begin.segment->source_tokens.front();
+    const auto &end_record = *end.record;
+    const auto marker = figure_end(end_record, *end.segment);
+    std::vector<std::size_t> end_tokens;
+    if (marker)
+      end_tokens = tokens_in_bytes(end_record, byte_offsets.at(end_record.logical_record), *marker);
+    if (end_tokens.empty())
+      return decline(region, "SREFIG has no source tokens");
+    const auto end_token = *std::max_element(end_tokens.begin(), end_tokens.end());
+    const auto marker_first = *std::min_element(end_tokens.begin(), end_tokens.end());
+    std::size_t first_line = lines.size();
+    std::size_t last_line = lines.size();
+    for (std::size_t index = 0; index < lines.size(); ++index) {
+      const auto &view = lines[index];
+      if (view.record == begin.record && view.line.prefix_token < srfig_token &&
+          srfig_token < view.line.token_end) {
+        if (view.line.prefix_token + 1 != srfig_token)
+          return decline(region, "SRFIG does not open a display line");
+        first_line = index;
+      }
+      if (view.record == &end_record && view.line.prefix_token < marker_first &&
+          marker_first < view.line.token_end)
+        last_line = index;
+    }
+    if (first_line >= lines.size() || last_line >= lines.size() ||
+        last_line < first_line)
+      return decline(region, "figure region lines could not be located");
+    {
+      const auto &view = lines[last_line];
+      for (auto token = view.line.prefix_token + 1; token < marker_first; ++token)
+        for (const auto word : end_record.tokens[token])
+          if (word >= 4 && word != ' ' && word != ',' && word != 0xA0)
+            return decline(region, "SREFIG does not open a display line");
+    }
+
+    // Tokens of the SRFIG line beyond the opcode/operands would be body text
+    // on the anchor line; none is admitted until hosted shows the shape.
+    {
+      const auto &view = lines[first_line];
+      const auto payload_begin = begin.segment->payload_range.begin;
+      for (auto token = srfig_token; token < view.line.token_end; ++token) {
+        const auto at = token_output_byte(*view.record, token);
+        if (at && *at >= payload_begin)
+          return decline(region, "SRFIG line carries payload");
+      }
+    }
+
+    // 3. Classify the interior lines.
+    enum class LineKind { blank, control, index, caption, body, spacing };
+    struct Classified {
+      LineKind kind = LineKind::blank;
+      std::string text;
+    };
+    std::vector<Classified> classes(lines.size());
+    for (auto index = first_line + 1; index < last_line; ++index) {
+      const auto &view = lines[index];
+      const auto &record = *view.record;
+      const auto &line = view.line;
+      auto &result = classes[index];
+      if (line.prefix_token + 1 == line.token_end) {
+        result.kind = LineKind::blank;
+        continue;
+      }
+      const auto first = line.prefix_token + 1;
+      const auto &segments = token_segments.at(record.logical_record);
+      const auto owner = segments.find(first);
+      if (owner != segments.end()) {
+        const auto &segment = record.control_segments[owner->second];
+        if (!segment.source_tokens.empty() &&
+            segment.source_tokens.front() == first &&
+            segment.kind != BookControlKind::text) {
+          if (segment.kind == BookControlKind::select)
+            return decline(region, "drawn figure contains a selector");
+          if (segment.kind != BookControlKind::font &&
+              segment.kind != BookControlKind::spacing &&
+              segment.kind != BookControlKind::layout_directive)
+            return decline(region, "drawn figure contains control " +
+                                       segment.opcode);
+          for (auto token = first; token < line.token_end; ++token) {
+            const auto at = token_output_byte(record, token);
+            if (at && *at >= segment.payload_range.begin &&
+                segment.payload_range.end > segment.payload_range.begin)
+              return decline(region, "control line carries payload");
+          }
+          result.kind = LineKind::control;
+          continue;
+        }
+      }
+      result.text = display_line_text(record, line);
+      if (blank_line(result.text))
+        result.kind = LineKind::blank;
+      else if (ascii_starts_with_case_insensitive(trim_ascii(result.text), "si "))
+        result.kind = LineKind::index;
+      else if (line_caption_text(result.text))
+        result.kind = LineKind::caption;
+      else
+        result.kind = LineKind::body;
+    }
+
+    // 4. Sequence: body lines, then an optional caption with wrapped
+    //    continuation lines, then only spacing.
+    std::size_t caption_at = lines.size();
+    std::size_t caption_end = lines.size(); // exclusive
+    for (auto index = first_line + 1; index < last_line; ++index) {
+      const auto kind = classes[index].kind;
+      if (caption_at == lines.size()) {
+        if (kind == LineKind::caption) {
+          caption_at = index;
+          caption_end = index + 1;
+        }
+        continue;
+      }
+      if (kind == LineKind::body && caption_end == index) {
+        caption_end = index + 1; // wrapped caption title
+        continue;
+      }
+      if (kind == LineKind::body || kind == LineKind::caption)
+        return decline(region, "drawn figure has text after its caption '" +
+                                   collapse_ascii_whitespace(
+                                       trim_ascii(classes[index].text)) +
+                                   "'");
+    }
+    std::size_t body_begin = lines.size();
+    std::size_t body_end = lines.size();
+    for (auto index = first_line + 1; index < std::min(caption_at, last_line); ++index)
+      if (classes[index].kind == LineKind::body) {
+        if (body_begin == lines.size())
+          body_begin = index;
+        body_end = index + 1;
+      }
+    if (body_begin == lines.size())
+      return decline(region, "drawn figure has no body lines");
+    if (frame_rule_line(*lines[body_begin].record, lines[body_begin].line,
+                        classes[body_begin].text)) {
+      classes[body_begin].kind = LineKind::spacing;
+      while (body_begin < body_end && classes[body_begin].kind != LineKind::body)
+        ++body_begin;
+    }
+    if (body_end > body_begin &&
+        frame_rule_line(*lines[body_end - 1].record, lines[body_end - 1].line,
+                        classes[body_end - 1].text)) {
+      classes[body_end - 1].kind = LineKind::spacing;
+      while (body_end > body_begin && classes[body_end - 1].kind != LineKind::body)
+        --body_end;
+    }
+    if (body_begin >= body_end)
+      return decline(region, "drawn figure has no body lines");
+    for (auto index = first_line + 1; index < last_line; ++index)
+      if (classes[index].kind == LineKind::blank &&
+          (index < body_begin || index >= body_end))
+        classes[index].kind = LineKind::spacing;
+
+    for (auto index = body_begin; index < body_end; ++index) {
+      const auto &view = lines[index];
+      if (classes[index].kind != LineKind::body &&
+          classes[index].kind != LineKind::blank)
+        continue;
+      FigurePreformattedLineIR out;
+      out.logical_record = view.record->logical_record;
+      out.prefix_token = view.line.prefix_token;
+      out.token_end = view.line.token_end;
+      out.text = classes[index].text;
+      out.rows = rows_in(*view.record, view.line);
+      block.lines.push_back(std::move(out));
+    }
+    if (caption_at < lines.size()) {
+      std::string text;
+      FigureCaptionIR caption;
+      for (auto index = caption_at; index < caption_end; ++index) {
+        auto part = trim_ascii(classes[index].text);
+        if (index == caption_at)
+          part = *line_caption_text(part);
+        if (!text.empty())
+          text += " ";
+        text += collapse_ascii_whitespace(part);
+        for (const auto &row : rows_in(*lines[index].record, lines[index].line))
+          caption.rows.push_back(row);
+      }
+      caption.text = text;
+      block.caption = std::move(caption);
+    }
+    for (auto index = first_line + 1; index < last_line; ++index)
+      if (classes[index].kind == LineKind::index)
+        block.index_terms.push_back(collapse_ascii_whitespace(
+            trim_ascii(classes[index].text)));
+
+    // 5. Claim every source cell of the region exactly once.
+    std::map<std::pair<std::uint32_t, std::size_t>, LineKind> token_kind;
+    std::map<std::pair<std::uint32_t, std::size_t>, bool> token_prefix;
+    for (auto index = first_line; index <= last_line; ++index) {
+      const auto &view = lines[index];
+      const auto record = view.record->logical_record;
+      token_prefix[{record, view.line.prefix_token}] = true;
+      auto kind = classes[index].kind;
+      if (index == first_line)
+        kind = LineKind::control;
+      for (auto token = view.line.prefix_token + 1; token < view.line.token_end; ++token)
+        token_kind[{record, token}] = kind;
+    }
+    const auto begin_token = lines[first_line].line.prefix_token;
+    for (const auto &cell : ownership.cells) {
+      const auto found = record_index.find(cell.logical_record);
+      if (found == record_index.end())
+        continue;
+      const auto index = found->second;
+      if (index < begin_index || index > end_index)
+        continue;
+      if (index == begin_index && cell.token_index < begin_token)
+        continue;
+      if (index == end_index && cell.token_index > end_token)
+        continue;
+      const auto &record = records[index];
+      FigureSourceCellIR claimed;
+      claimed.logical_record = cell.logical_record;
+      claimed.segment_index = owning_segment(cell.logical_record, cell.token_index);
+      claimed.token_index = cell.token_index;
+      claimed.word_index = cell.word_index;
+      claimed.word = cell.word;
+      if (cell.token_index < record.ir.tokens.size())
+        claimed.token_bytes = record.ir.tokens[cell.token_index].byte_range;
+      const auto spacing_prefix = cell.word_index == 0 && cell.word < 4;
+      if (token_prefix.count({cell.logical_record, cell.token_index}) != 0) {
+        claimed.role = FigureCellRoleIR::line_prefix;
+      } else if (index == end_index && cell.token_index >= lines[last_line].line.prefix_token + 1) {
+        claimed.role = FigureCellRoleIR::boundary;
+      } else {
+        const auto kind = token_kind.find({cell.logical_record, cell.token_index});
+        if (kind == token_kind.end())
+          return decline(region, "figure region cell is outside its lines");
+        switch (kind->second) {
+        case LineKind::control:
+          claimed.role = FigureCellRoleIR::control;
+          break;
+        case LineKind::index:
+          claimed.role = FigureCellRoleIR::index_term;
+          break;
+        case LineKind::caption:
+          claimed.role = spacing_prefix ? FigureCellRoleIR::control
+                         : body_visible(cell.word) ? FigureCellRoleIR::caption_content
+                                                   : FigureCellRoleIR::caption_layout;
+          break;
+        case LineKind::body:
+        case LineKind::blank:
+          claimed.role = spacing_prefix ? FigureCellRoleIR::control
+                         : body_visible(cell.word) ? FigureCellRoleIR::body_content
+                                                   : FigureCellRoleIR::body_layout;
+          break;
+        case LineKind::spacing:
+          claimed.role = FigureCellRoleIR::spacing;
+          break;
+        }
+      }
+      block.cells.push_back(std::move(claimed));
+    }
+    if (block.cells.empty())
+      return decline(region, "figure region owns no source cells");
+    return std::nullopt;
+  }
+
   std::optional<FigureBlockDeclineIR> admit(const Region &region,
                                             FigureSourceBlockIR &block) const {
     const auto &begin = region.segments.front();
@@ -525,10 +995,10 @@ struct Extractor {
     block.span.anchored = region.anchored;
     block.anchor = region.anchor;
 
-    // ASCII-art and CFONT-boxed figures carry no picture at all; report that
-    // before any structural detail so the census reads by family.
+    // ASCII-art and CFONT-boxed figures carry no picture at all: their body
+    // is reproduced line for line instead.
     if (!has_picture(region))
-      return decline(region, "figure region has no picture selector");
+      return admit_preformatted(region, block);
 
     // 1. Structural content of the region.
     const SelectorIR *picture = nullptr;
@@ -980,11 +1450,41 @@ const char *role_name(FigureCellRoleIR role) {
   case FigureCellRoleIR::caption_layout: return "caption-layout";
   case FigureCellRoleIR::caption_content: return "caption-content";
   case FigureCellRoleIR::index_term: return "index-term";
+  case FigureCellRoleIR::line_prefix: return "line-prefix";
+  case FigureCellRoleIR::body_content: return "body-content";
+  case FigureCellRoleIR::body_layout: return "body-layout";
+  case FigureCellRoleIR::spacing: return "spacing";
   }
   return "invalid";
 }
 
 } // namespace
+
+std::string figure_display_glyph(std::uint16_t word) {
+  if (word >= 0x20 && word <= 0x7E)
+    return std::string(1, static_cast<char>(word));
+  switch (word) {
+  case 0xA0: return " ";
+  // Hosted BookServer <pre> output of box-drawing words (FA1PLMM0
+  // PREFACE.3, ACPZMST1 1.2.5, DREICMST 1.1.1.1, SC24-546 3.4).
+  case 0x2500: return "_";
+  case 0x2502: return "|";
+  case 0x250C: case 0x2510: case 0x252C: return " ";
+  case 0x2514: case 0x2518: case 0x2534:
+  case 0x251C: case 0x2524: case 0x253C: return "|";
+  // The decoder's bullet placeholder; hosted shows the degree-sign byte
+  // (SH20-918 FRONT_1.3).
+  case 0x2666: return "\xC2\xB0";
+  // Arrows keep their glyph; hosted's per-book display tables turn them
+  // into substitution or control bytes (ACPZMST1 1.2.5, SC34-425 1.3.4).
+  case 0x2190: return "\xE2\x86\x90";
+  case 0x2191: return "\xE2\x86\x91";
+  case 0x2192: return "\xE2\x86\x92";
+  case 0x2193: return "\xE2\x86\x93";
+  default: break;
+  }
+  return token_words_to_ascii({word});
+}
 
 FigureBlocksIR extract_figure_blocks_ir(
     const std::vector<DecodedLogicalRecordSource> &records,
@@ -1013,8 +1513,14 @@ bool verify_figure_blocks_ir(
     ledger[{cell.logical_record, cell.token_index, cell.word_index}] = &cell;
   std::set<CellKey> claimed;
   for (const auto &block : blocks.blocks) {
-    if (block.target.empty())
-      return fail("figure block has no target");
+    const auto preformatted = block.body_kind == FigureBodyKindIR::preformatted;
+    if (preformatted ? !block.target.empty() : block.target.empty())
+      return fail("figure block target does not match its body kind");
+    if (preformatted && (block.lines.empty() || !block.span.anchored))
+      return fail("preformatted figure has no body lines");
+    if (preformatted && (block.lines.front().text.empty() ||
+                         block.lines.back().text.empty()))
+      return fail("preformatted figure body is not trimmed");
     if (block.span.anchored == block.anchor.empty())
       return fail("figure anchor does not match its span kind");
     if (block.cells.empty())
@@ -1030,10 +1536,24 @@ bool verify_figure_blocks_ir(
       switch (cell.role) {
       case FigureCellRoleIR::caption_content:
         // Row-owned visible content, or segment-owned (row-less) text; the
-        // content/layout split is by word, not by row disposition.
+        // content/layout split is by word, not by row disposition.  Inside a
+        // drawn figure the Layout IR may have read a visible one-byte word
+        // as a marker slot ("IMS", GG24-4302-00 record 262), so only control
+        // material is rejected there.
         if (owner.disposition == SourceDisposition::control_operand ||
-            owner.disposition == SourceDisposition::marker_slot)
+            (!preformatted &&
+             owner.disposition == SourceDisposition::marker_slot))
           return fail("caption content cell is control or marker material");
+        break;
+      case FigureCellRoleIR::body_content:
+      case FigureCellRoleIR::body_layout:
+      case FigureCellRoleIR::line_prefix:
+      case FigureCellRoleIR::spacing:
+        // The ledger's control-operand reading of words inside drawn
+        // lines is the same misread as above, so no disposition is
+        // rejected; the canonical re-extraction below is the check.
+        if (!preformatted)
+          return fail("picture figure carries preformatted cell roles");
         break;
       case FigureCellRoleIR::caption_layout:
         if (owner.disposition == SourceDisposition::control_operand)
@@ -1075,13 +1595,17 @@ std::string format_figure_blocks_ir(const FigureBlocksIR &blocks) {
         << block.span.begin.segment_index << ".."
         << block.span.end.logical_record << ':' << block.span.end.segment_index
         << (block.span.anchored ? " anchor='" + block.anchor + "'"
-                                : std::string{" anchorless"})
-        << " target="
-        << (block.target_kind == FigureTargetKindIR::book_resource
-                ? "resource:"
-                : "external:")
-        << block.target << " selector=" << block.selector.logical_record << ':'
-        << block.selector.segment_index << ':' << block.selector.ordinal;
+                                : std::string{" anchorless"});
+    if (block.body_kind == FigureBodyKindIR::preformatted)
+      out << " preformatted lines=" << block.lines.size();
+    else
+      out << " target="
+          << (block.target_kind == FigureTargetKindIR::book_resource
+                  ? "resource:"
+                  : "external:")
+          << block.target << " selector=" << block.selector.logical_record
+          << ':' << block.selector.segment_index << ':'
+          << block.selector.ordinal;
     if (!block.placeholder_text.empty())
       out << " placeholder='" << block.placeholder_text << "'";
     if (block.caption)
