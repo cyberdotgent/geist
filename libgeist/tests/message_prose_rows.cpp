@@ -301,6 +301,148 @@ int main() {
     }
   }
 
+  // N2AH1MST (MVS System Messages ADY-IDC, hosted DT 19910329000100): the
+  // same width-1 marker geometry carries row-boundary controls whose decoded
+  // spelling is a dictionary word. The trailing line fill separates them.
+  {
+    geist::detail::LogicalDecodeContext mvs;
+    open_context(root / "N2AH1MST.BOO", mvs);
+    const auto find_marker =
+        [](const std::vector<geist::detail::MessageProseLexicalMarkerIR> &markers,
+           std::uint32_t logical_record, std::size_t token)
+        -> const geist::detail::MessageProseLexicalMarkerIR * {
+      const auto found = std::find_if(
+          markers.begin(), markers.end(), [&](const auto &marker) {
+            return marker.source.logical_record == logical_record &&
+                   marker.source.token_begin == token;
+          });
+      return found == markers.end() ? nullptr : &*found;
+    };
+
+    // 18.0 "COF Messages": logical records 1555-1662.
+    {
+      const auto sources =
+          geist::detail::decode_logical_record_sources(mvs, 1555, 1663);
+      std::string error;
+      const auto prose =
+          geist::detail::build_message_prose_source_ir(sources, &error);
+      require(prose.has_value(), "N2AH1MST 18.0 prose source rejected: " + error);
+      if (prose) {
+        // COF001I: `virtual` + slot `access` (LR1555 token 111, byte 0x93f2c,
+        // value 28) + one 10-space origin run + `lookaside`. Hosted renders
+        // `start the virtual lookaside facility (VLF)`: the slot is a row
+        // boundary, not text.
+        require(find_marker(prose->lexical_markers, 1555, 111) == nullptr,
+                "N2AH1MST 18.0 COF001I `access` boundary slot typed as lexical");
+        require(find_marker(prose->lexical_markers, 1617, 207) == nullptr,
+                "N2AH1MST 18.0 COF020I `access` boundary slot typed as lexical");
+        // COF001I System Action: `job step,` + slot `the` (LR1555 token 218,
+        // byte 0x93fb5, value 90) + 7-space fill + 14-space origin + `system`.
+        // Hosted: `in a background job step, the` / `system issues`.
+        const auto *the = find_marker(prose->lexical_markers, 1555, 218);
+        require(the != nullptr && the->marker.decoded_text == "the" &&
+                    the->marker.encoded_value == 90 &&
+                    the->line_fill.token_index == 219 &&
+                    the->line_fill.width == 7 &&
+                    the->line_fill.bytes.begin == 0x93fb6 &&
+                    the->previous_visible_text ==
+                        "If you attempted to start VLF in a background job "
+                        "step," &&
+                    the->visible_text ==
+                        "system issues this message to the job log.",
+                "N2AH1MST 18.0 COF001I hanging `the` provenance");
+        const auto *system = find_marker(prose->lexical_markers, 1555, 246);
+        require(system != nullptr && system->marker.decoded_text == "system" &&
+                    system->line_fill.width == 14,
+                "N2AH1MST 18.0 COF001I hanging `system` provenance");
+      }
+    }
+
+    // 26.0 "ICU Messages": logical records 2177-2259.
+    {
+      const auto sources =
+          geist::detail::decode_logical_record_sources(mvs, 2177, 2260);
+      std::string error;
+      const auto prose =
+          geist::detail::build_message_prose_source_ir(sources, &error);
+      require(prose.has_value(), "N2AH1MST 26.0 prose source rejected: " + error);
+      if (prose) {
+        // ICU056I Operator Response: `Notify the security` + slot `a`
+        // (LR2251 token 60, byte 0xcffd9, value 27) + one 10-space origin run
+        // + `administrator.`. Hosted: `Notify the security administrator.`
+        require(find_marker(prose->lexical_markers, 2251, 60) == nullptr,
+                "N2AH1MST 26.0 ICU056I `a` boundary slot typed as lexical");
+      }
+    }
+
+    // 22.0 "IAR Messages": logical records 1975-1990. IAR009I lists two
+    // bulleted actions; each item record opens `(` + 10-space origin +
+    // bullet sentinel + 2 spaces + text, so neither is a soft wrap.
+    {
+      const auto sources =
+          geist::detail::decode_logical_record_sources(mvs, 1975, 1991);
+      std::string error;
+      const auto prose =
+          geist::detail::build_message_prose_source_ir(sources, &error);
+      require(prose.has_value(), "N2AH1MST 22.0 prose source rejected: " + error);
+      if (prose) {
+        require(find_join(prose->joins, 1984, 0) == nullptr,
+                "N2AH1MST 22.0 IAR009I first bullet item typed as a soft wrap");
+        require(find_join(prose->joins, 1985, 0) == nullptr,
+                "N2AH1MST 22.0 IAR009I second bullet item typed as a soft wrap");
+        // A genuine `?`-run wrap in the same topic is still typed.
+        const auto *up = find_join(prose->joins, 1985, 136);
+        require(up != nullptr && up->visible_text == "up." &&
+                    up->start == geist::detail::PhysicalRowStartKind::placeholder_wrap,
+                "N2AH1MST 22.0 IAR009I placeholder wrap join");
+      }
+    }
+
+    // 23.0 "ICH Messages": logical records 1990-2112. ICH409I `This message
+    // is issued if:` is followed by the ordinal item `1.` (LR2009 tokens 2-4:
+    // `1`, attached `.`, space) and ICH408I `... puts the SETROPTS` by the
+    // boundary slot `access` (LR2038 token 56, byte 0xbd9cb, value 28).
+    {
+      const auto sources =
+          geist::detail::decode_logical_record_sources(mvs, 1990, 2113);
+      std::string error;
+      const auto prose =
+          geist::detail::build_message_prose_source_ir(sources, &error);
+      require(prose.has_value(), "N2AH1MST 23.0 prose source rejected: " + error);
+      if (prose) {
+        require(find_join(prose->joins, 2009, 0) == nullptr,
+                "N2AH1MST 23.0 ICH409I ordinal item typed as a soft wrap");
+        require(find_marker(prose->lexical_markers, 2038, 56) == nullptr,
+                "N2AH1MST 23.0 ICH408I `access` boundary slot typed as lexical");
+        // `not specified for` + `the` (LR2038 token 46, value 90) + 10-space
+        // fill + 10-space origin + `profile`: hosted keeps `for the profile`.
+        const auto *the = find_marker(prose->lexical_markers, 2038, 46);
+        require(the != nullptr && the->line_fill.width == 10,
+                "N2AH1MST 23.0 ICH408I hanging `the` provenance");
+      }
+    }
+
+    const auto mvs_document = geist::BooDocument::open(root / "N2AH1MST.BOO");
+    const auto cof = visible_text(mvs_document.topic_markdown("18.0"));
+    require(cof.find("virtual access lookaside") == std::string::npos &&
+                cof.find("start the virtual lookaside facility (VLF)") !=
+                    std::string::npos,
+            "N2AH1MST 18.0 restored the `access` boundary slot");
+    const auto icu = visible_text(mvs_document.topic_markdown("26.0"));
+    require(icu.find("security a administrator") == std::string::npos &&
+                icu.find("Notify the security administrator.") !=
+                    std::string::npos,
+            "N2AH1MST 26.0 restored the `a` boundary slot");
+    const auto iar = visible_text(mvs_document.topic_markdown("22.0"));
+    require(iar.find("using the BUFF option Decrease the need") ==
+                std::string::npos,
+            "N2AH1MST 22.0 joined the IAR009I bullet items");
+    const auto ich = visible_text(mvs_document.topic_markdown("23.0"));
+    require(ich.find("SETROPTS access MLACTIVE") == std::string::npos &&
+                ich.find("is issued if: 1. During") == std::string::npos,
+            "N2AH1MST 23.0 restored `access` or joined the ordinal item");
+  }
+
   const auto document = geist::BooDocument::open(root / "SC31-711.boo");
   const auto application_traps = visible_text(document.topic_markdown("4.1.2"));
   require(application_traps.find(

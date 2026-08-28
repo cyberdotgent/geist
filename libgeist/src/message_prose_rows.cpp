@@ -99,6 +99,47 @@ bool wide_space_token(const DecodedLogicalRecordSource& record,
                      [](const auto word) { return word == ' '; });
 }
 
+// An all-space token of any width: a display line's trailing fill or the
+// origin run of the next line.
+bool space_run_token(const DecodedLogicalRecordSource& record,
+                     std::size_t token) {
+  return token < record.tokens.size() && !record.tokens[token].empty() &&
+         std::all_of(record.tokens[token].begin(), record.tokens[token].end(),
+                     [](const auto word) { return word == ' '; });
+}
+
+// The decoder-separator sentinel the logical decoder emits for the bullet
+// glyph of a list item (BookServer renders it as `°`); see layout_ir.cpp,
+// which keeps it out of a row's visible text.
+constexpr std::uint16_t kDecoderSeparatorSentinel = 0x2666;
+
+// True when the first visible content of the row starting at `token_begin`
+// (its marker slot and origin run skipped) is a list-item prefix: the
+// decoder-separator bullet sentinel, or an ordinal made of a digit-only token,
+// a `.` attached by a spacing control, and a space run. Such a row starts its
+// own block; it is never a soft wrap of the previous row.
+bool list_item_prefix_row(const DecodedLogicalRecordSource& record,
+                          const PhysicalRowIR& row) {
+  auto token = row.token_begin;
+  if (row.marker && row.marker->token_index == token) ++token;
+  while (token < record.tokens.size() && space_run_token(record, token))
+    ++token;
+  if (token >= record.tokens.size()) return false;
+  const auto& words = record.tokens[token];
+  if (std::any_of(words.begin(), words.end(), [](const auto word) {
+        return word == kDecoderSeparatorSentinel;
+      }))
+    return true;
+  const auto digits =
+      !words.empty() && std::all_of(words.begin(), words.end(), [](const auto word) {
+        return word < 0x80 && std::isdigit(static_cast<int>(word)) != 0;
+      });
+  if (!digits || token + 2 >= record.tokens.size()) return false;
+  const auto& stop = record.tokens[token + 1];
+  return stop.size() == 2 && stop.front() < 4 && stop.back() == '.' &&
+         space_run_token(record, token + 2);
+}
+
 // Format/markup.md "Repeated row-control signatures" signature B: a
 // control-only spacing token that attaches the next token, where that next
 // token is a fixed-row marker slot at the exact three-space origin, a wide
@@ -787,6 +828,9 @@ extract_message_prose_row_joins_ir(
                   gap_allows_join(*record, 0, row.token_begin + 1, &row);
       }
       if (!allowed) continue;
+      // A bullet or ordinal after the origin run opens a list item, not a
+      // wrapped line (N2AH1MST 22.0 LR1984/LR1985, 23.0 LR2009).
+      if (list_item_prefix_row(*record, row)) continue;
       MessageProseRowJoinIR join;
       join.source_row = {run.id, row_index};
       join.source = token_slice(*record, row.segment_index, row.token_begin,
@@ -872,12 +916,25 @@ std::vector<MessageProseLexicalMarkerIR> extract_message_prose_lexical_markers_i
         continue;
       const auto* record = find_record(records, row.logical_record);
       if (record == nullptr) continue;
+      // A hanging word is followed by the previous display line's trailing
+      // fill run and then the origin run of this line; a slot followed by a
+      // single origin run is the row-boundary control (see the header).
+      const auto fill = row.marker->token_index + 1;
+      const auto origin = fill + 1;
+      if (origin >= row.token_end || !space_run_token(*record, fill) ||
+          !space_run_token(*record, origin))
+        continue;
       MessageProseLexicalMarkerIR item;
       item.source_row = {run.id, row_index};
       item.source = token_slice(*record, row.segment_index,
                                 row.marker->token_index,
                                 row.marker->token_index + 1);
       item.marker = *row.marker;
+      item.line_fill.logical_record = record->logical_record;
+      item.line_fill.token_index = fill;
+      item.line_fill.width = record->tokens[fill].size();
+      if (fill < record->ir.tokens.size())
+        item.line_fill.bytes = record->ir.tokens[fill].byte_range;
       item.previous_visible_text = collapse(previous.visible_text);
       item.visible_text = collapse(row.visible_text);
       if (item.previous_visible_text.empty() || item.visible_text.empty())
@@ -918,7 +975,8 @@ std::string format_message_prose_lexical_marker_ir(
       << " row=" << marker.source_row.row_index << " LR"
       << marker.source.logical_record << ':' << marker.source.segment_index
       << " token=" << marker.source.token_begin << " marker='"
-      << marker.marker.decoded_text << "' previous='"
+      << marker.marker.decoded_text << "' fill=" << marker.line_fill.width
+      << " previous='"
       << marker.previous_visible_text << "' text='" << marker.visible_text
       << "'";
   return out.str();

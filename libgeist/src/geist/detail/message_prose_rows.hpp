@@ -99,7 +99,13 @@ std::vector<std::string> render_message_prose_introduction_gml(
     const LayoutIR& layout, const MessageProseIntroductionIR& introduction);
 
 // A catalog row that LayoutIR typed as a soft wrap of the previous row of its
-// display run and that no control-only spacing boundary separates from it.
+// display run, that no control-only spacing boundary separates from it, and
+// whose first visible content is not a list-item prefix. A row that opens
+// with the decoder-separator sentinel (the bullet glyph BookServer renders as
+// `°`; N2AH1MST 22.0 LR1985 tokens 0-4 `(` 10 spaces sentinel 2 spaces
+// `Decrease`) or with an ordinal (a digit-only token, an attached `.`, a
+// space; N2AH1MST 23.0 LR2009 tokens 2-5 `1` `.` ` ` `During`) starts its own
+// block even though the record geometry continues the run.
 struct MessageProseRowJoinIR {
   DocumentSourceRowIR source_row;
   DocumentSourceSliceIR source;
@@ -124,14 +130,34 @@ std::size_t project_message_prose_row_joins_gml(
     std::vector<std::string>& rendered,
     const std::vector<MessageProseRowJoinIR>& joins);
 
-// A dictionary-word marker slot outside the three-space origin: source-owned
-// text that the flattened legacy renderer sometimes drops (`Add correlation
-// information`, `received was incorrect`). The row geometry, not the word's
-// spelling, identifies it as lexical.
+// The trailing fill run of a display line: the all-space token between a
+// hanging marker word and the origin run of the next display line.
+struct MessageProseLineFillIR {
+  std::uint32_t logical_record = 0;
+  std::size_t token_index = 0;
+  std::size_t width = 0;
+  SourceByteRange bytes;
+};
+
+// A dictionary-word marker slot that is the hanging last word of the
+// previous display line: source-owned text that the flattened legacy renderer
+// sometimes drops (`Add correlation information`, `received was incorrect`).
+// The row geometry, not the word's spelling, identifies it as lexical: a
+// hanging word is followed by the line's trailing fill run and then the
+// origin run of the next line, two consecutive space-run tokens
+// (SC31-711 LR106 `correlation` 6-space fill 3-space origin `information`;
+// N2AH1MST LR1555 bytes 0x93fb5 `5a 0c 10`: `the`, 7-space fill, 14-space
+// origin, `system`). A width-1 slot followed by a single origin run is the
+// row-boundary control of the next line, whatever its decoded spelling
+// (N2AH1MST LR1555 bytes 0x93f2c `1c 0d`: `access`, 10-space origin,
+// `lookaside`; hosted renders `virtual lookaside`), exactly like the layout
+// glyphs `( ) - / =` in the same slot. Slots without the fill run are not
+// typed as lexical (fail closed).
 struct MessageProseLexicalMarkerIR {
   DocumentSourceRowIR source_row;
   DocumentSourceSliceIR source;
   MarkerSlotIR marker;
+  MessageProseLineFillIR line_fill;
   std::string previous_visible_text;
   std::string visible_text;
 };

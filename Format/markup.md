@@ -346,6 +346,45 @@ hosted BookServer rendering:
   (`each of /` before `CFONT 25 3 C` in topic `4.4`), unless it closes a
   delimiter the same segment left open (`256 (snmp_br_dot1dStpPortState)`).
 
+A third refinement separates the hanging last word of a display line from a
+row-boundary control whose one-byte value happens to resolve to a dictionary
+word.  Neither the encoded value nor the spelling decides it (`N2AH1MST.BOO`
+value `28` = `access`, `27` = `a`, `42` = `continues` are boundary controls,
+while value `90` = `the`, `87` = `system`, `56` = `is` are text; in
+`SC31-711.boo` value `28` = `a` and `37` = `are` are text).  The evidence is
+the trailing line fill: a hanging word is followed by *two* space-run tokens,
+the fill of the line it ends and the origin run of the next line.  Topic `18.0`
+logical record 1555, BOO byte `0x93fb5`: `5a 0c 10 57` = `the`, 7-space fill,
+14-space origin, `system` (hosted line `... in a background job step, the` is
+73 columns, 73 + 7 = 80); byte `0x93fd8`: `57 10 10` = `system`, fill, origin.
+`SC31-711.boo` logical record 106 byte `0x10fe3`: `38 0c 09` =
+`correlation`, 6-space fill, 3-space origin; record 152 byte `0x147e9`:
+`25 12 09` = `are`, 18-space fill, 3-space origin; record 153 token 295
+`was` + 1-space fill + 3-space origin.  A boundary control is followed by the
+origin run alone: `N2AH1MST.BOO` byte `0x93f2c`: `ea 75 1c 0d d6 75` =
+`virtual`, `access`, 10-space origin, `lookaside` (hosted: `start the virtual
+lookaside facility (VLF)`); topic `23.0` record 2038 byte `0xbd9cb`:
+`SETROPTS` `access` 10-space origin `MLACTIVE(FAILURES)`; topic `26.0` record
+2251 byte `0xcffd9`: `security` `a` 10-space origin `administrator.`.  The
+layout glyphs `( ) - / = <` in the same slot show the same single-run shape
+(`01 00 14 0d` = `.`, control-only, `(`, 10 spaces before `start VLF`).
+Checked against the hosted pages of N2AH1MST topics `4.0`, `18.0`, `22.0`,
+`23.0`, `26.0` and SC31-711 `4.1.3`, `4.4` (about 650 marker slots): every
+slot with the two-run shape whose phrase could be located is hosted text, and
+no single-run slot word appears in hosted text except numeric return-code
+labels inside fixed tables (`12  Unable to`), which `message_prose_rows.cpp`
+leaves untyped (fail closed).
+
+List items inside a record continuation are not soft wraps even though the
+record geometry continues the display run.  `N2AH1MST.BOO` topic `22.0`
+records 1984 and 1985 each open `14 0d 03 07` = `(`, 10-space origin, the
+decoder-separator sentinel (BookServer's `°` bullet), 2 spaces, `Increase` /
+`Decrease`; topic `23.0` record 2009 opens `18 0d` + `1`, `.` with spacing
+prefix `1`, a 1-space run, `During` (hosted `1.  During the index search`).
+Genuine continuation wraps in the same book (`4.0` record 287 `:` 10 spaces
+`modified.`, `16.0` record 1280 `-` 10 spaces `provided by the MVS`) carry no
+such prefix.
+
 The catalog labels themselves come from `CFONT` span geometry, not from a word
 list: in every entry the leading operand triples that start at the catalog
 origin column (`3`) and follow one another with single-space gaps (`3 3 2 7 3 2
