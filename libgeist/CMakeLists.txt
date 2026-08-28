@@ -76,6 +76,8 @@ set(GEIST_SOURCES
   src/ebcdic.cpp
   src/fixed_display.cpp
   src/fixed_prose_document_lowering.cpp
+  src/fixed_table_block_ir.cpp
+  src/fixed_table_document_lowering.cpp
   src/fixed_prose_ir.cpp
   src/fixed_prose_topic_ir.cpp
   src/font_span_ir.cpp
@@ -411,6 +413,18 @@ target_compile_definitions(fixed_prose_topic_ir_synthetic_test PRIVATE
 )
 add_test(NAME fixed_prose_topic_ir_synthetic_test
   COMMAND fixed_prose_topic_ir_synthetic_test)
+
+add_executable(fixed_table_block_ir_synthetic_test
+  tests/fixed_table_block_ir_synthetic.cpp
+)
+target_link_libraries(fixed_table_block_ir_synthetic_test
+  PRIVATE geist::geist_static
+)
+target_compile_definitions(fixed_table_block_ir_synthetic_test PRIVATE
+  GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+add_test(NAME fixed_table_block_ir_synthetic_test
+  COMMAND fixed_table_block_ir_synthetic_test)
 
 add_executable(generated_list_topic_ir_synthetic_test
   tests/generated_list_topic_ir_synthetic.cpp
