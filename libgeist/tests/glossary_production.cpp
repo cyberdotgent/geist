@@ -92,9 +92,11 @@ int main() {
                   std::string::npos,
           "terminal glossary definition was truncated or reordered");
 
+  // 2.1 is not a glossary; it renders through the typed prose family with
+  // its trailing menu (`<#id>` destinations are the typed convention).
   const auto legacy = document.topic_markdown("2.1");
   require(legacy.find("Subtopics:") != std::string::npos &&
-              legacy.find("](#2.1.1)") != std::string::npos,
-          "non-glossary topic lost the legacy fallback route");
+              legacy.find("](<#2.1.1>)") != std::string::npos,
+          "non-glossary topic lost its subtopic menu");
 #endif
 }

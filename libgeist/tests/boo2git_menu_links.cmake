@@ -29,7 +29,7 @@ endif()
 
 file(READ "${OUTPUT}/6-2-1.md" legacy_topic)
 string(FIND "${legacy_topic}"
-  "topic 6.4.1](6-4-1.md)" legacy_resolved)
+  "topic 6\\.4\\.1](6-4-1.md)" legacy_resolved)
 string(FIND "${legacy_topic}" "](#6.4.1)" legacy_raw)
 if(legacy_resolved EQUAL -1 OR NOT legacy_raw EQUAL -1)
   message(FATAL_ERROR

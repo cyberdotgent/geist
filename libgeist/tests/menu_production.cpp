@@ -105,12 +105,14 @@ int main() {
                   " typed rendering changed public GML");
   }
 
+  // SC31-711 2.4 is declined by the menu family (its catalog header title
+  // is the ST-glued compatibility projection) and renders through the typed
+  // prose family, whose trailing menu validates the labels against the TOC
+  // titles; the output equals hosted BookServer word for word.
   const auto legacy = geist::BooDocument::open(root / "SC31-711.boo");
   const auto nonadmitted = legacy.topic_markdown("2.4");
-  require(nonadmitted.find(
-              "Subtopics:\n\n- [2.4.1 Customer Information](#2.4.1)") !=
-                  std::string::npos &&
-              nonadmitted.find("](<") == std::string::npos,
-          "catalog-rejected menu spilled into the typed production route");
+  require(nonadmitted.find("Subtopics:\n\n- [2\\.4\\.1 Customer "
+                           "Information](<#2.4.1>)") != std::string::npos,
+          "prose topic lost its catalog-validated trailing menu");
 #endif
 }

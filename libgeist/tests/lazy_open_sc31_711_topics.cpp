@@ -65,22 +65,25 @@ int main() {
               trademarks.find("*Term* *Trademark* *of* DynaText") ==
                   std::string::npos,
           "terminal styled grid lost its headings or paired rows");
+  // PREFACE.1 renders through the typed prose family: the two hosted
+  // paragraphs flow (row markers `>` / `)` are typed marker slots) and the
+  // renderer escapes sentence punctuation.
   const auto intended_audience =
       problem_determination.topic_markdown("PREFACE.1");
   require(intended_audience.find(
               "You should read this book if you are a network administrator, "
-              "planner, or\n   operator who will use LNM for AIX.") !=
+              "planner, or operator who will use LNM for AIX\\.") !=
               std::string::npos &&
               intended_audience.find(
                   "Before reading this book, you should have a general "
                   "understanding of") != std::string::npos,
-          "ST title repair lost PREFACE.1 fixed-body prose");
+          "typed prose lost PREFACE.1 body prose");
   require(intended_audience.find(
-              "about LNM for AIX messages and traps.\n\n   Before reading") !=
+              "about LNM for AIX messages and traps\\.\n\nBefore reading") !=
               std::string::npos &&
               intended_audience.find("or >") == std::string::npos &&
               intended_audience.find("of )") == std::string::npos,
-          "ST title repair lost a paragraph break or leaked row markers");
+          "typed prose lost a paragraph break or leaked row markers");
   const auto generated_index = problem_determination.topic_markdown("INDEX");
   for (const auto* expected : {
            "- adapter problems, [2.2.4](#2.2.4)",
@@ -122,11 +125,14 @@ int main() {
           "fixed customer form lost its field/value rows");
   require(customer_form.find(", ,") == std::string::npos,
           "fixed customer form collapsed back into punctuation");
+  // 2.4.5 / 2.4.7 render through the typed prose family: each `__`
+  // checklist row is its own paragraph with the ballot glyph kept as hosted
+  // BookServer prints it (escaped for Markdown).
   const auto customer_checklist =
       problem_determination.topic_markdown("2.4.5");
-  for (const auto* expected : {"- Customer number",
-                               "- LNM for AIX component ID",
-                               "- Describe the symptoms of the problem"}) {
+  for (const auto* expected : {"\\_\\_ Customer number",
+                               "\\_\\_ LNM for AIX component ID",
+                               "\\_\\_ Describe the symptoms of the problem"}) {
     require(customer_checklist.find(expected) != std::string::npos,
             "fixed customer checklist lost an item");
   }
@@ -182,16 +188,15 @@ int main() {
   const auto hardware_checklist =
       problem_determination.topic_markdown("2.4.7");
   for (const auto* expected : {
-           "- Amount of memory (RAM) installed",
-           "- Amount of paging space available",
-           "- Amount of free space available in the file system that contains "
-           "`/usr/OV`",
-           "- Amount of free space available in `/tmp`"}) {
+           "\\_\\_ Amount of memory \\(RAM\\) installed",
+           "\\_\\_ Amount of paging space available",
+           "\\_\\_ Amount of free space available in the file system that "
+           "contains `/usr/OV`\n\n",
+           "\\_\\_ Amount of free space available in `/tmp`"}) {
     require(hardware_checklist.find(expected) != std::string::npos,
             "hardware checklist lost an item or its CFONT continuation");
   }
-  require(hardware_checklist.find("__") == std::string::npos &&
-              hardware_checklist.find("`free`") == std::string::npos &&
+  require(hardware_checklist.find("`free`") == std::string::npos &&
               hardware_checklist.find("\n`/usr/OV`") == std::string::npos,
           "hardware checklist leaked its ballot glyph or misplaced a span");
   // 2.4.6: the source trademark marker `Motif**` (FRONT_1.1 documents the
@@ -199,7 +204,7 @@ int main() {
   // emphasis.
   const auto software_checklist =
       problem_determination.topic_markdown("2.4.6");
-  require(software_checklist.find("- Motif\\*\\* and X11") !=
+  require(software_checklist.find("\\_\\_ Motif\\*\\* and X11") !=
               std::string::npos,
           "software checklist trademark marker was not escaped");
   const auto additional_information =

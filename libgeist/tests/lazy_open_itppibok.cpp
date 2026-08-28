@@ -16,15 +16,19 @@ int main() {
                   std::string::npos &&
               tpns_edition.find("c.cp") == std::string::npos,
           "ITPPIBOK edition changed while projecting visible CCP prose");
+  // PREFACE.2 renders through the typed prose family (word for word equal to
+  // hosted BookServer DT 19910628074854); the typed renderer spells anchor
+  // destinations as `<#id>` and escapes Markdown punctuation.
   const auto tpns_how_to = tpns.topic_markdown("PREFACE.2");
   const auto experienced = tpns_how_to.find("are an experienced TPNS user");
   require(experienced != std::string::npos &&
               tpns_how_to.substr(0, experienced).find("<BOOK>") ==
                   std::string::npos &&
-              tpns_how_to.find("[Appendix A,](#HDRMIG)", experienced) !=
+              tpns_how_to.find("[Appendix A,](<#HDRMIG>)", experienced) !=
                   std::string::npos &&
               tpns_how_to.find(
-                  "[\"Migrating from Previous Versions of TPNS\"](#HDRMIG)",
-                  experienced) != std::string::npos,
-          "length-preserving ST projection shifted TPNS selector prose");
+                  "[\"Migrating from Previous Versions of TPNS\"](<#HDRMIG>)",
+                  experienced) != std::string::npos &&
+              tpns_how_to.find("Inst alling") == std::string::npos,
+          "typed prose shifted or tore TPNS selector prose");
 }

@@ -142,10 +142,9 @@ int main() {
                    results_gml_before == results_gml_after &&
                    !results_gml_after.empty(),
                "typed fixed prose changed or discarded public GML records") ||
-      !require(partial_prose.find("`TPNSSID1` `APPL`") !=
-                       std::string::npos &&
-                   partial_prose.find("<BOOK>") != std::string::npos,
-               "partial fixed prose envelope did not retain legacy content") ||
+      !require(partial_prose.find("`TPNSSID1 APPL") != std::string::npos &&
+                   partial_prose.find("<BOOK>") == std::string::npos,
+               "prose topic lost its example phrase or leaked a marker") ||
       !require(back.find("If you prefer to send comments by mail") !=
                    std::string::npos,
                "typed delivery content was not rendered") ||

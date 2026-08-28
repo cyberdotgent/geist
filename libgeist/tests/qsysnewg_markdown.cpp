@@ -102,21 +102,22 @@ int main() {
                        "hidden SI term before later paragraph");
 
   const auto front_notices = topic_markdown(document, "FRONT_1");
+  // FRONT_1 renders through the typed prose family (word for word equal to
+  // hosted BookServer DT 19910524085706): the notices flow as paragraphs and
+  // the renderer escapes Markdown punctuation in the identity and body.
   require_contains(front_notices,
-                   "# FRONT_1 Notices",
+                   "# FRONT\\_1 Notices",
                    "TOC-derived FRONT_1 heading");
   require_contains(front_notices,
-                   "   References in this publication to IBM products, "
-                   "programs, or services do\n"
-                   "   not imply",
+                   "References in this publication to IBM products, "
+                   "programs, or services do not imply",
                    "FRONT_1 heading-carried first paragraph");
   require_contains(front_notices,
-                   "```text\n   References in this publication",
-                   "FRONT_1 fixed-width body");
+                   "\n\nReferences in this publication",
+                   "FRONT_1 body paragraph");
   require_contains(front_notices,
-                   "   This publication contains examples of data and reports "
-                   "used in daily\n"
-                   "   business operations.",
+                   "This publication contains examples of data and reports "
+                   "used in daily business operations\\.",
                    "FRONT_1 following logical record");
   require_not_contains(front_notices,
                        "# FRONT_1 Notices References",

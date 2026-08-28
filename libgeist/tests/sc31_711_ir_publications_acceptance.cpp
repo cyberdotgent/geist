@@ -157,8 +157,8 @@ int main() {
   const auto trademarks = geist::BooDocument::open(
       std::filesystem::path(GEIST_REPO_ROOT) / "BOO" / "GC23-046.boo");
   const auto trademark_markdown = trademarks.topic_markdown("FRONT_1.1");
-  require_contains(trademark_markdown, "```text",
-                   "legacy preformatted trademark notice");
+  require_contains(trademark_markdown, "denoted by an asterisk",
+                   "trademark notice prose");
   require_absent(trademark_markdown, "\n\nIBM\n\n",
                  "trademark notice lowered as a publication entry");
 

@@ -16,6 +16,8 @@
 #include "geist/detail/message_document_lowering.hpp"
 #include "geist/detail/message_topic_ir.hpp"
 #include "geist/detail/ownership_ir.hpp"
+#include "geist/detail/prose_topic_document_lowering.hpp"
+#include "geist/detail/prose_topic_ir.hpp"
 #include "geist/detail/publication_document_lowering.hpp"
 #include "geist/detail/publication_ir.hpp"
 #include "geist/detail/selector_ir.hpp"
@@ -187,8 +189,37 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
                             static_cast<unsigned>(trap_catalog.has_value()) +
                             static_cast<unsigned>(generated_list.has_value()) +
                             static_cast<unsigned>(menu.has_value());
-  if (family_count == 0)
-    return std::nullopt;
+  if (family_count == 0) {
+    // Ordinary prose is offered last: only a topic every specific family
+    // declined can be admitted here, so the family count stays at one.
+    auto prose = extract_prose_topic_ir(sources, layout, ownership, topic.title,
+                                        book_topic_catalog, &error);
+    if (!prose) {
+      if (trace != nullptr)
+        trace->declined.push_back("prose: " + error);
+      reject(typed_rejection, "prose topic rejected: " + error);
+      return std::nullopt;
+    }
+    if (trace != nullptr)
+      trace->family = "prose";
+    if (!verify_prose_topic_ir(sources, layout, ownership, topic.title,
+                               book_topic_catalog, *prose, &error)) {
+      reject(typed_rejection, "prose semantics rejected: " + error);
+      return std::nullopt;
+    }
+    auto document = lower_prose_topic_to_document_ir(topic, *prose, &error);
+    if (!document ||
+        !verify_prose_topic_document_ir(*prose, *document, &error)) {
+      reject(typed_rejection, "prose document rejected: " + error);
+      return std::nullopt;
+    }
+    prepend_topic_id_to_heading(*document);
+    if (!verify_document_ir(*document, &error)) {
+      reject(typed_rejection, "prose identity policy rejected: " + error);
+      return std::nullopt;
+    }
+    return document;
+  }
   if (family_count != 1) {
     reject(typed_rejection,
            "topic source ambiguously matches multiple typed families");
