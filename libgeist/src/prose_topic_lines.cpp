@@ -270,9 +270,9 @@ struct LineBuilder {
       }
       case ItemKind::span:
         if (!finish_title() || !finish_index()) return false;
-        if (!pending_controls.empty())
-          return fail(error, "font/selector control has no display text "
-                             "before a table/figure span");
+        // A CFONT/CSELECT whose display text lies inside the span styles the
+        // block's own content; the block models it and owns those tokens.
+        pending_controls.clear();
         out.span_marks.push_back(
             {item.span_index, out.lines.size(), out.body_anchors.size()});
         line_open = false;

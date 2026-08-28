@@ -365,7 +365,8 @@ int main() {
   // Fail-closed classes: a declined table envelope or figure region rejects
   // the whole topic, and so does a picture without a resource catalog.
   reject("ACPZMST1.boo", "FRONT_1.2", "table envelope 'TBLUNIQ1' declined: box has no top rule");
-  reject("ACPZMST1.boo", "1.1.3", "declined: figure region has no picture selector");
+  reject("DREICMST.boo", "1.2.1",
+         "declined: figure region is not terminated before the next SRFIG");
   {
     const auto extracted = extract("SC31-711.boo", "3.2");
     std::string error;

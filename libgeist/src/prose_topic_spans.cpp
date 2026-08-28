@@ -376,10 +376,9 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
            decline.reason == "figure starts inside a table") &&
           inside_table(regions, records, decline.begin))
         continue;
-      // A picture-less frame around table spans is planned after the spans
-      // have claimed their tokens.
-      if (decline.reason == "figure region has no picture selector" &&
-          decline.end)
+      // A frame around table spans is planned after the spans have claimed
+      // their tokens.
+      if (decline.reason == "figure region contains a table" && decline.end)
         continue;
       return fail(error, (decline.anchor.empty()
                               ? std::string("figure region")
@@ -414,15 +413,35 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
     std::sort(region.claims.begin(), region.claims.end());
     region.claims.erase(std::unique(region.claims.begin(), region.claims.end()),
                         region.claims.end());
-    for (const auto& [record, token] : region.claims) {
-      const auto before = record < extent.begin_record ||
-                          (record == extent.begin_record &&
-                           token < extent.begin_token);
-      const auto after = record > extent.end_record ||
-                         (record == extent.end_record && token > extent.end_token);
-      if (before || after || token >= records[record].ir.tokens.size())
-        return fail(error, std::string(name) +
-                               " block claims a token outside its region");
+    {
+      // A block may also claim the spacing token that carries its opening
+      // control's display-line break (the bare token before `SRFIG`,
+      // ACPZMST1 1.1.3).  Such a token lies outside the control-derived
+      // region and stays with the stream, which gives it its spacing role;
+      // a claim outside the region that carries a visible word would mean
+      // the block reached into prose and rejects the topic.
+      std::vector<Claim> inside;
+      for (const auto& claim : region.claims) {
+        const auto& [record, token] = claim;
+        if (token >= records[record].ir.tokens.size())
+          return fail(error, std::string(name) +
+                                 " block claims a token that does not exist");
+        const auto before = record < extent.begin_record ||
+                            (record == extent.begin_record &&
+                             token < extent.begin_token);
+        const auto after = record > extent.end_record ||
+                           (record == extent.end_record &&
+                            token > extent.end_token);
+        if (!before && !after) {
+          inside.push_back(claim);
+          continue;
+        }
+        const auto view = view_token(records, record, token);
+        if (!region_structure(view))
+          return fail(error, std::string(name) + " block claims visible token '" +
+                                 body_text(view) + "' outside its region");
+      }
+      region.claims = std::move(inside);
     }
     auto claim = region.claims.begin();
     for (auto record = extent.begin_record; record <= extent.end_record;
@@ -465,8 +484,7 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
     plan.regions.push_back(planned);
   }
   for (const auto& decline : topic.figures.declined) {
-    if (decline.reason != "figure region has no picture selector" ||
-        !decline.end)
+    if (decline.reason != "figure region contains a table" || !decline.end)
       continue;
     if (!plan_frame(records, decline, ledger, plan, error)) return false;
   }
