@@ -27,8 +27,14 @@ int main() {
               sclm_glossary.find("access key.  An identifier") !=
                   std::string::npos,
           "SCLM glossary lost its fixed-layout rows");
+  // 1.9.2 renders through the typed prose route (one composed drawn-figure
+  // span): hosted DT 19921112160049 serves `<a name="FIGFIGUNIQ63">` and the
+  // program inside `<pre width="80">`, which the figure block lowers to a
+  // bare fence.
   const auto pli_example = sclm.topic_markdown("1.9.2");
-  require(pli_example.find("```text") != std::string::npos &&
+  require(pli_example.find("```") != std::string::npos &&
+              pli_example.find("<a id=\"FIGFIGUNIQ63\"></a>") !=
+                  std::string::npos &&
               pli_example.find("SCLM SERVICE PROCEDURES") !=
                   std::string::npos &&
               pli_example.find("**SCLM**") == std::string::npos,

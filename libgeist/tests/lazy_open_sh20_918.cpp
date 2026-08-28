@@ -13,7 +13,8 @@ int main() {
   require(starter_trademarks.find(
               "The following terms are trademarks of other companies as "
               "follows:") != std::string::npos &&
-              starter_trademarks.find("PostScript Adobe Systems Incorporated") !=
+              starter_trademarks.find(
+                  "| PostScript | Adobe Systems Incorporated |") !=
                   std::string::npos &&
               starter_trademarks.find("c.cp") == std::string::npos,
           "SH20 trademark tables changed while projecting visible CCP prose");

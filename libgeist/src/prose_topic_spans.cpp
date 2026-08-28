@@ -177,6 +177,17 @@ bool table_region(const std::vector<DecodedLogicalRecordSource>& records,
               link.column, link.length, link.target))
         return fail(error, "table '" + block.object_id +
                                "' contains a selector that is not canonical");
+      // A `PIC<n>`/`LNK` selector in a table cell is a picture, not a cross
+      // reference: hosted BookServer serves the cell as an `<img>` (GG24-395
+      // 3.3.8, `<a href="picture-69?mode=zoom"><img ... alt="PICTURE 69">`,
+      // DT 19941215160749).  The table block has no picture cell, so the
+      // topic fails closed instead of degrading the image to a link.
+      {
+        const auto target = ascii_lower(link.target);
+        if (target.rfind("pic", 0) == 0 || target == "lnk")
+          return fail(error, "table '" + block.object_id +
+                                 "' contains a picture or external selector");
+      }
       link.logical_record = records[record].logical_record;
       for (const auto token : segment.source_tokens)
         if (!std::binary_search(operands.begin(), operands.end(), token))
