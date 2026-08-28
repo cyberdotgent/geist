@@ -195,9 +195,13 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
     auto prose = extract_prose_topic_ir(sources, layout, ownership, topic.title,
                                         book_topic_catalog, &error);
     if (!prose) {
+      if (trace != nullptr)
+        trace->declined.push_back("prose: " + error);
       reject(typed_rejection, "prose topic rejected: " + error);
       return std::nullopt;
     }
+    if (trace != nullptr)
+      trace->family = "prose";
     if (!verify_prose_topic_ir(sources, layout, ownership, topic.title,
                                book_topic_catalog, *prose, &error)) {
       reject(typed_rejection, "prose semantics rejected: " + error);
