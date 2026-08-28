@@ -178,23 +178,57 @@ and figure spans (one admitted region each, `extract_figure_blocks_ir` ->
 
 ### Measured
 
-`bootrace --coverage` over every book except N2AH1MST (which exceeds a
-1500 s budget on both builds): **2,659 -> 3,305 typed topics** against main
-`9146631`.  Gains by pre-move class: mixed 506, figures 90, fixed
-rows/tables 56, selectors 3.  Whole-corpus `boo2git --force`: 664 changed
-files, 655 of them topics that moved to the typed route; the other 9 are
-topics that now fail closed rather than print a `c.<xx>` control opcode
-glued into a text run (hosted serves no such word; SH20-918 3.31.1).
+Baseline: main `8c3372e` (gap-column tables admitted, ownership-disposition
+conflicts fixed), built from a `git archive` of that commit into a scratch
+build tree.  `bootrace --coverage` over every book, N2AH1MST included (it
+now finishes in the same budget as the rest):
 
-Hosted word-level sample of 59 moved topics across 21 books (21 of them
-carrying both a table and a figure): typed better on 51, equal on 6, and
-two GC23-046 topics are not decisive because the hosted copy is edition
-GC23-0469-02 while the fixture is -01.
+- **2,665 -> 3,364 of 7,362 typed topics (36.2% -> 45.7%, +699)**.
+- 708 topics moved legacy -> typed; 9 moved typed -> legacy because they now
+  fail closed rather than print a `c.<xx>` control opcode the decoder glued
+  into a text run (hosted serves no such word: DREICMST 1.7.7.3 and B.1,
+  SC33-033 B.3, SH12-565 5.1.7.1/APPENDIX1.2.5.1/APPENDIX1.4.8.3.2/
+  APPENDIX1.5.4/BIBLIOGRAPHY.2, SH20-918 3.31.1).
+- Gains by pre-move structural class: mixed 517, fixed rows/tables 97,
+  figures/images 91, selectors 3.  By signature: selectors+figures 197,
+  tables 97, tables+selectors 93, figures 91, tables+figures 59,
+  tables+figures+menu 27, selectors+figures+menu 25,
+  tables+selectors+figures 23, figures+menu 23, lists+selectors+figures 21,
+  tables+menu 21, lists+figures 17, and 13 more.
+- Every book grows or stays level; largest: SC24-5520-00 +152, SC26-457 +66,
+  FA1PLMM0 +64, SC31-605 +62, SC09-138 +47, DREICMST +46.
+
+Whole-corpus `boo2git --force` before/after (N2AH1MST excluded from the
+export as before): **715 changed files, 0 added, 0 removed**; 706 are topics
+that moved to the typed route and the other 9 are the fail-closed
+regressions listed above.  No file changed for any topic that stayed on the
+same route.
+
+Hosted word-level sample of **86 moved topics across 23 books** (29 of them
+carrying both a table and a figure), each of them a topic whose exported
+Markdown actually changed: typed **better on 76, equal on 10, worse on
+none**.  The comparison uses two tokenizations - the literal one and a
+markup-independent one (alphanumeric runs, image alt text and `<br>`
+dropped) - because hosted `<kbd>`/`<var>` markup splits words such as
+`INFILE(` + `ddname` that a typed table cell keeps glued.
+
+Hosted DTs were re-derived from the live catalog
+(`bookmgr.exe/FINDBOOK?filter=&SUBMIT=Find`, 11,930 `CCONTENTS?DT=` entries)
+against `AnalysisNotes/bookserver-dataset-2026-08-25.md`.  Corrections:
+GC23-046 is `19920330095121` (the `-02` DT answers with a cover page) and
+SC09-138 is `19910321130500`.  SC24-5520-00, SC24-5527-02, SC28-1881-05,
+SC09-2417-00, GX27-3999-00 and packet are absent from the hosted catalog
+("could not be located") and are excluded from hosted sampling.
 
 | Difference class | Typed behaviour | Decision |
 | --- | --- | --- |
-| Drawn/picture figure captions and box bodies hosted shows and legacy drops | emitted from the typed figure block | keep (the 51 "better" rows are mostly this) |
-| Table cell line breaks | kept as `<br>` inside the cell, as hosted's `<pre>` rows | keep |
-| Image alt text | the caption text; not displayed by any renderer | keep; the comparison harness ignores alt text |
+| Drawn/picture figure captions and box bodies hosted shows and legacy drops | emitted from the typed figure block | keep (most of the 76 "better" rows) |
+| Table cells legacy split into extra columns and truncated (SC26-457 3.24 `INDATASET(entryna`) | one cell with `<br>` line breaks, as hosted's `<pre>` rows | keep |
+| Figure anchor id | `FIG<id>`, the served spelling; legacy truncated it (`FDCE107` for hosted `FIGFDCE107`) | keep |
+| Image alt text | the caption text; not displayed by any renderer | keep; the harness ignores alt text |
+| Word boundaries inside a table cell | hosted splits `INFILE(` from `ddname` on `<kbd>`/`<var>` markup | accept: markup-only boundary, no text lost |
+| `&amp;`, `\<stdio\.h\>` | kept as written | keep; only the harness has to unescape them |
 | Hosted-only glyphs (`°` bullets, `©`) | dropped, as the legacy route drops them | accept |
-| Hosted edition differs (GC23-046, SC24-5520-00 book-info pages) | not comparable | excluded from the verdict |
+| A `PIC<n>`/`LNK` selector inside a table cell | rejects the topic | fail closed: hosted serves the cell as an `<img>` (GG24-395 3.3.8) and the table block has no picture cell |
+| A `c.<xx>` opcode glued to a text run | rejects the topic | fail closed: hosted serves no such word |
+| Hosted edition differs / book absent from the catalog | not comparable | excluded from the verdict |
