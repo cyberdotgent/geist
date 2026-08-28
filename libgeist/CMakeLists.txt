@@ -98,6 +98,8 @@ set(GEIST_SOURCES
   src/structural_marker_rows.cpp
   src/form_item_rows.cpp
   src/message_section_blocks_ir.cpp
+  src/figure_block_ir.cpp
+  src/figure_document_lowering.cpp
   src/message_document_lowering.cpp
   src/message_topic_ir.cpp
   src/trap_catalog_ir.cpp
@@ -294,6 +296,17 @@ target_compile_definitions(message_section_blocks_ir_synthetic_test PRIVATE
 )
 add_test(NAME message_section_blocks_ir_synthetic_test
   COMMAND message_section_blocks_ir_synthetic_test)
+
+add_executable(figure_block_ir_synthetic_test
+  tests/figure_block_ir_synthetic.cpp
+)
+target_link_libraries(figure_block_ir_synthetic_test
+  PRIVATE geist::geist_static)
+target_compile_definitions(figure_block_ir_synthetic_test PRIVATE
+  GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+add_test(NAME figure_block_ir_synthetic_test
+  COMMAND figure_block_ir_synthetic_test)
 
 add_executable(trap_catalog_ir_synthetic_test
   tests/trap_catalog_ir_synthetic.cpp
