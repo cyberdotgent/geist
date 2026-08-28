@@ -4,9 +4,14 @@
 // was compared by hand (AnalysisNotes/typed-route-census-2026-08-28.md lists
 // the DT values): the anchor name, the picture resource or external path,
 // the "PICTURE n" placeholder that the image replaces, and the caption.
-// Negative cases prove the extractor fails closed: a picture selector owned
-// by a table (GG24-395 3.3.x) is reported as table-owned rather than admitted
-// as a figure, and ASCII/CFONT figures without a picture are declined.
+// ASCII/CFONT-drawn figures (no picture selector) are admitted as
+// preformatted figures whose body lines were compared line for line with
+// the hosted <pre> output (FA1PLMM0 PREFACE.3, ACPZMST1 1.2.5, GG24-4302-00
+// 3.3.4, SG24-204 3.1, SH20-918 FRONT_1.3, SC34-425 1.3.4, SC09-138 1.3.1,
+// QSYSNEWG 2.1).  Negative cases prove the extractor fails closed: a picture
+// selector owned by a table (GG24-395 3.3.x) is reported as table-owned
+// rather than admitted as a figure, a drawn figure wrapping an SRTBL is
+// declined as a table, and a region carrying a menu is declined.
 
 #include "geist/boo.hpp"
 #include "geist/detail/figure_block_ir.hpp"
@@ -18,6 +23,7 @@
 #include <filesystem>
 #include <iostream>
 #include <map>
+#include <utility>
 #include <memory>
 #include <set>
 #include <string>
@@ -224,6 +230,87 @@ void check_lowering(const geist::detail::FigureSourceBlockIR &figure,
   }
 }
 
+struct PreformattedExpected {
+  const char *book;
+  const char *topic;
+  const char *anchor;
+  std::size_t line_count;
+  const char *caption;
+  std::vector<std::pair<std::size_t, std::string>> lines;
+};
+
+// Anchor + preformatted body (+ emphasised caption paragraph), with
+// provenance, verified against the canonical lowering and the document
+// verifier; mutations are rejected.
+void check_preformatted_lowering(const geist::detail::FigureSourceBlockIR &figure,
+                                 const std::string &label) {
+  std::string error;
+  auto blocks =
+      geist::detail::lower_figure_block_to_document_blocks(figure, &error);
+  require(blocks.has_value(), label + ": lowering failed: " + error);
+  if (!blocks)
+    return;
+  require(geist::detail::verify_figure_document_blocks(figure, *blocks, &error),
+          label + ": lowered blocks failed verification: " + error);
+  const auto expected_blocks = figure.caption ? 3u : 2u;
+  require(blocks->size() == expected_blocks,
+          label + ": unexpected lowered block count");
+  if (blocks->size() != expected_blocks)
+    return;
+  const auto *anchor =
+      std::get_if<geist::detail::AnchorBlockIR>(&(*blocks)[0].node);
+  require(anchor != nullptr && anchor->id == figure.anchor,
+          label + ": lowered anchor lost its id");
+  const auto *body =
+      std::get_if<geist::detail::PreformattedBlockIR>(&(*blocks)[1].node);
+  require(body != nullptr && body->lines.size() == figure.lines.size(),
+          label + ": lowered body is not the preformatted block");
+  if (body != nullptr)
+    for (std::size_t index = 0; index < figure.lines.size(); ++index)
+      require(body->lines[index] == figure.lines[index].text,
+              label + ": lowered body line differs");
+  require(!(*blocks)[1].origin.slices.empty(),
+          label + ": lowered body carries no provenance");
+  if (figure.caption) {
+    const auto *paragraph =
+        std::get_if<geist::detail::ParagraphBlockIR>(&(*blocks)[2].node);
+    require(paragraph != nullptr && paragraph->content.size() == 1,
+            label + ": lowered caption is not a paragraph");
+    if (paragraph != nullptr && paragraph->content.size() == 1) {
+      const auto *emphasis = std::get_if<geist::detail::EmphasisInlineIR>(
+          &paragraph->content.front().node);
+      require(emphasis != nullptr && emphasis->text == figure.caption->text,
+              label + ": lowered caption text differs");
+    }
+  }
+  geist::detail::DocumentIR document;
+  document.topic.id = "figure";
+  document.topic.title = "figure";
+  document.blocks = *blocks;
+  require(geist::detail::verify_document_ir(document, &error),
+          label + ": document verification failed: " + error);
+
+  auto mutated = *blocks;
+  std::get<geist::detail::PreformattedBlockIR>(mutated[1].node).lines.back() +=
+      "x";
+  require(!geist::detail::verify_figure_document_blocks(figure, mutated),
+          label + ": mutated body line was accepted");
+  mutated = *blocks;
+  mutated[1].origin.slices.pop_back();
+  require(!geist::detail::verify_figure_document_blocks(figure, mutated),
+          label + ": mutated body origin was accepted");
+  if (figure.caption) {
+    mutated = *blocks;
+    std::get<geist::detail::EmphasisInlineIR>(
+        std::get<geist::detail::ParagraphBlockIR>(mutated[2].node)
+            .content.front()
+            .node)
+        .text += "!";
+    require(!geist::detail::verify_figure_document_blocks(figure, mutated),
+            label + ": mutated caption was accepted");
+  }
+}
+
 const geist::detail::FigureSourceBlockIR *
 find_figure(const Topic &topic, const std::string &anchor) {
   for (const auto &block : topic.figures.blocks)
@@ -388,16 +475,204 @@ int main() {
                 ": table-owned picture was not reported");
   }
 
-  // Negative: CFONT-boxed prose figure (FA1PLMM0 PREFACE.3) and the fixed
-  // RMF report figures (GG24-4302-00 3.3.4) carry no picture.
+  // Preformatted (ASCII/CFONT-drawn) figures.  Every expected line below is
+  // the hosted <pre> line (DT values as in AnalysisNotes); the body line
+  // count is the hosted count between the frame and the caption.
+  const PreformattedExpected drawn[] = {
+      // CFONT-boxed prose; no caption; the top corners are blanks, the
+      // bottom corners bars, exactly as hosted draws them.
+      {"FA1PLMM0.boo", "PREFACE.3", "FIGFIGUNIQ1", 10, "",
+       {{0, "    " + std::string(72, '_') + " "},
+        {2, "   | The manual VSE/ESA Networking Support has planning "
+            "information for     |"},
+        {9, "   |" + std::string(72, '_') + "|"}}},
+      // Two-box diagram; arrows keep their glyphs (hosted shows the
+      // reader's substitution bytes there).
+      {"ACPZMST1.boo", "1.2.5", "FIGRSCOM2", 13,
+       "Figure 2. Communications between a User Program and a Resource "
+       "Manager",
+       {{0, "                ______________             ______________ "},
+        {2, "               | | User     | |           | | Resource | |"},
+        {3, "    Requester  | | Program  | \xE2\x86\x90___________\xE2\x86\x92 | "
+            "Manager  | |   Server"},
+        {9, "                   NetWare                    OS/2,"}}},
+      // Region spans logical records 56 and 57.
+      {"ACPZMST1.boo", "1.2.5", "FIGCOMP", 17,
+       "Figure 3. Communications between Programs on Different Systems",
+       {{2, "   |__________________________|       "
+            "|__________________________|"},
+        {5, "    __________________________          "
+            "_________________________ "}}},
+      // 132-column RMF report inside a 72-column box: the right border
+      // overwrites the report in the stream; the caption wraps onto a
+      // second line.  Region spans records 261-265.
+      {"GG24-4302-00.boo", "3.3.4", "FIGRMFWL01", 43,
+       "Figure 12. RMF Workload Activity Report for IMS System Address "
+       "Spaces: Control Region, DL/1 SAS, and DBRC",
+       {{2, "   |                                                W O R K L O "
+            "A D   A C T | V I T Y"},
+        {5, "   |       SP5.1.0                 RPT VERSION 5.1.0          "
+            "TIME 14.30.11 |"}}},
+      {"GG24-4302-00.boo", "3.3.4", "FIGRMFWL02", 53,
+       "Figure 13. RMF Workload Activity Report for IMS Dependent Regions",
+       {}},
+      {"SG24-204.boo", "3.1", "FIGVSEHW1", 19, "Figure 16. VSE IPL Procedure",
+       {}},
+      // Bullets inside a boxed list render as hosted's degree-sign byte.
+      {"SH20-918.boo", "FRONT_1.3", "FIGFIGUNIQ6", 37, "",
+       {{5, "   | \xC2\xB0   The GML starter set profile:  DSMPROF4      "
+            "                       |"}}},
+      // A dashed rule drawn from one-glyph tokens is body, not a frame.
+      {"SC34-425.boo", "1.3.4", "FIGDEVPROC", 47, "Figure 13. Development Cycle",
+       {{0, "                             _ _ _ _ _ _ _ _ _ _ _ _ _"},
+        {3, "                            |       |  MODIFY   |     |"}}},
+      // frame=rule figure: the rule lines hosted shows as empty are
+      // spacing, the listing is the body.
+      {"SC09-138.boo", "1.3.1", "FIGBIO1", 48, "Figure 1. Biorhythm Program",
+       {{0, "   /***************************************************************"},
+        {2, "    *  Description: Calculates biorhythm based on current         *"},
+        {5, ""}}},
+      {"SC09-138.boo", "1.3.1", "FIGBIO1SUB", 35,
+       "Figure 2. Function for Biorhythm Program", {}},
+      {"QSYSNEWG.BOO", "2.1", "FIGFIGUNIQ13", 28, "", {}},
+  };
+  for (const auto &item : drawn) {
+    const std::string label =
+        std::string(item.book) + " " + item.topic + " " + item.anchor;
+    const auto topic = corpus.topic(item.book, item.topic);
+    const auto *figure = find_figure(topic, item.anchor);
+    require(figure != nullptr,
+            label + ": drawn figure was not admitted\n" +
+                geist::detail::format_figure_blocks_ir(topic.figures));
+    if (figure == nullptr)
+      continue;
+    require(figure->body_kind == geist::detail::FigureBodyKindIR::preformatted &&
+                figure->target.empty() && figure->span.anchored,
+            label + ": drawn figure is not preformatted");
+    require(figure->lines.size() == item.line_count,
+            label + ": expected " + std::to_string(item.line_count) +
+                " body lines, got " + std::to_string(figure->lines.size()));
+    for (const auto &[index, text] : item.lines)
+      require(index < figure->lines.size() &&
+                  figure->lines[index].text == text,
+              label + ": body line " + std::to_string(index) + " is '" +
+                  (index < figure->lines.size() ? figure->lines[index].text
+                                                : std::string("<missing>")) +
+                  "'");
+    const std::string caption = figure->caption ? figure->caption->text : "";
+    require(caption == item.caption, label + ": caption is '" + caption + "'");
+    check_conservation(topic, label);
+    check_preformatted_lowering(*figure, label);
+
+    // Mutations must be rejected by the verifier.
+    const auto &book = corpus.book(item.book);
+    auto mutated = topic.figures;
+    std::string error;
+    for (auto &block : mutated.blocks)
+      if (block.anchor == item.anchor)
+        block.lines.front().text += "x";
+    require(!geist::detail::verify_figure_blocks_ir(
+                topic.sources, topic.layout, topic.ownership, topic.selectors,
+                book.resource_ids, mutated, &error),
+            label + ": mutated body line was accepted");
+    mutated = topic.figures;
+    for (auto &block : mutated.blocks)
+      if (block.anchor == item.anchor)
+        block.cells.pop_back();
+    require(!geist::detail::verify_figure_blocks_ir(
+                topic.sources, topic.layout, topic.ownership, topic.selectors,
+                book.resource_ids, mutated, &error),
+            label + ": drawn figure with a dropped cell was accepted");
+  }
+
+  // Every cell of a drawn figure region is claimed exactly once with a
+  // preformatted role: the length byte of each line, the SRFIG opcode, body
+  // words, and the SREFIG boundary.
   {
     const auto topic = corpus.topic("FA1PLMM0.boo", "PREFACE.3");
+    const auto *figure = find_figure(topic, "FIGFIGUNIQ1");
+    std::map<geist::detail::FigureCellRoleIR, std::size_t> roles;
+    if (figure != nullptr)
+      for (const auto &cell : figure->cells)
+        ++roles[cell.role];
+    using Role = geist::detail::FigureCellRoleIR;
+    require(figure != nullptr && roles[Role::line_prefix] >= 12 &&
+                roles[Role::control] > 0 && roles[Role::body_content] > 0 &&
+                roles[Role::body_layout] > 0 && roles[Role::boundary] > 0 &&
+                roles[Role::placeholder_suppressed] == 0,
+            "FA1PLMM0 PREFACE.3: drawn figure cell roles are incomplete");
+    // Each body line owns the tokens between its length byte and the next.
+    if (figure != nullptr)
+      for (std::size_t index = 1; index < figure->lines.size(); ++index) {
+        const auto &previous = figure->lines[index - 1];
+        const auto &line = figure->lines[index];
+        require(line.prefix_token + 1 < line.token_end &&
+                    (line.logical_record != previous.logical_record ||
+                     previous.token_end <= line.prefix_token),
+                "FA1PLMM0 PREFACE.3: body lines overlap");
+      }
+  }
+
+  // Negative: a drawn figure wrapping an SRTBL is the table family's
+  // (SC31-711 2.4.1 FIGTBLUNIQ2 / TBLTBLUNIQ2, IEAC6MST 1.4 FIGDSLIB).
+  for (const auto &[book, id] : {std::pair{"SC31-711.boo", "2.4.1"},
+                                 std::pair{"IEAC6MST.BOO", "1.4"}}) {
+    const auto topic = corpus.topic(book, id);
     require(topic.figures.blocks.empty() &&
-                declined_with(topic, "no picture selector"),
-            "FA1PLMM0 PREFACE.3: ASCII figure was not declined as such");
-    const auto reports = corpus.topic("GG24-4302-00.boo", "3.3.4");
-    require(reports.figures.blocks.empty() && !reports.figures.declined.empty(),
-            "GG24-4302-00 3.3.4: fixed report figure was admitted");
+                declined_with(topic, "contains a table"),
+            std::string(book) + " " + id +
+                ": figure wrapping a table was not declined as a table");
+  }
+  // Negative: a region carrying a menu (SC28-1881-05 1.6 FIGFIGUNIQ71).
+  {
+    const auto topic = corpus.topic("SC28-1881-05.boo", "1.6");
+    require(find_figure(topic, "FIGFIGUNIQ71") == nullptr &&
+                declined_with(topic, "contains a menu"),
+            "SC28-1881-05 1.6: figure carrying a menu was admitted");
+  }
+  // Negative: prose after the caption.  PRG1SORT 1.1.4.3.2 FIGSELCDF carries
+  // the caption's wrapped second line behind three "SI" index lines, so the
+  // region ends with a line the block cannot prove is caption rather than
+  // body text and is declined instead of guessed at (hosted joins the two
+  // caption lines; the only such region in the corpus).
+  {
+    const auto topic = corpus.topic("PRG1SORT.boo", "1.1.4.3.2");
+    require(find_figure(topic, "FIGSELCDF") == nullptr &&
+                declined_with(topic, "text after its caption"),
+            "PRG1SORT 1.1.4.3.2: prose after the caption was admitted");
+  }
+  // Negative: a body line whose length byte is at or above the book's token
+  // threshold is read as a two-byte token, so the display lines of the
+  // record do not add up and the region is declined (PRG1SORT D.5.1).
+  {
+    const auto topic = corpus.topic("PRG1SORT.boo", "D.5.1");
+    require(find_figure(topic, "FIGFIGUNIQ136") == nullptr &&
+                declined_with(topic, "display line prefixes"),
+            "PRG1SORT D.5.1: misaligned display lines were admitted");
+  }
+  // Negative: a selector inside a drawn figure is a link the preformatted
+  // body cannot carry (SH20-918 2.1 FIGSTRUC).
+  {
+    const auto topic = corpus.topic("SH20-918.boo", "2.1");
+    require(find_figure(topic, "FIGSTRUC") == nullptr &&
+                declined_with(topic, "contains a selector"),
+            "SH20-918 2.1: drawn figure with a selector was admitted");
+  }
+  // A drawn figure whose body spans a record boundary keeps one line per
+  // display line across the join (ACPZMST1 1.2.5 FIGCOMP: records 56-57;
+  // GG24-4302-00 3.3.4 FIGRMFWL01: records 261-265).
+  for (const auto &[book, id, anchor] :
+       {std::tuple{"ACPZMST1.boo", "1.2.5", "FIGCOMP"},
+        std::tuple{"GG24-4302-00.boo", "3.3.4", "FIGRMFWL01"}}) {
+    const auto topic = corpus.topic(book, id);
+    const auto *figure = find_figure(topic, anchor);
+    std::set<std::uint32_t> records;
+    if (figure != nullptr)
+      for (const auto &line : figure->lines)
+        records.insert(line.logical_record);
+    require(figure != nullptr && records.size() > 1,
+            std::string(book) + " " + id + " " + anchor +
+                ": body does not span a record boundary");
   }
 
   std::cout << "figure block IR checks passed\n";

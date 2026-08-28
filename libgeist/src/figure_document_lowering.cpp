@@ -59,14 +59,126 @@ bool same_inlines(const InlineSequenceIR &left, const InlineSequenceIR &right) {
   if (left.size() != right.size())
     return false;
   for (std::size_t index = 0; index < left.size(); ++index) {
-    const auto *left_text = std::get_if<TextInlineIR>(&left[index].node);
-    const auto *right_text = std::get_if<TextInlineIR>(&right[index].node);
-    if (left_text == nullptr || right_text == nullptr ||
-        left_text->text != right_text->text ||
+    if (left[index].node.index() != right[index].node.index() ||
         !same_origin(left[index].origin, right[index].origin))
       return false;
+    const auto *left_text = std::get_if<TextInlineIR>(&left[index].node);
+    const auto *right_text = std::get_if<TextInlineIR>(&right[index].node);
+    const auto *left_emphasis = std::get_if<EmphasisInlineIR>(&left[index].node);
+    const auto *right_emphasis = std::get_if<EmphasisInlineIR>(&right[index].node);
+    if (left_text != nullptr && right_text != nullptr) {
+      if (left_text->text != right_text->text)
+        return false;
+    } else if (left_emphasis != nullptr && right_emphasis != nullptr) {
+      if (left_emphasis->text != right_emphasis->text ||
+          left_emphasis->kind != right_emphasis->kind)
+        return false;
+    } else {
+      return false;
+    }
   }
   return true;
+}
+
+void add_sorted_rows(DocumentNodeOriginIR &origin,
+                     std::vector<DocumentSourceRowIR> rows) {
+  std::sort(rows.begin(), rows.end(), [](const auto &a, const auto &b) {
+    return std::make_pair(a.display_run, a.row_index) <
+           std::make_pair(b.display_run, b.row_index);
+  });
+  rows.erase(std::unique(rows.begin(), rows.end(),
+                         [](const auto &a, const auto &b) {
+                           return a.display_run == b.display_run &&
+                                  a.row_index == b.row_index;
+                         }),
+             rows.end());
+  for (const auto &row : rows)
+    origin.rows.push_back(row);
+}
+
+// Anchor + preformatted body + emphasised caption paragraph for a drawn
+// figure.  The body lines are the hosted display lines; the caption keeps
+// the presentation of a picture figure's caption.
+std::optional<std::vector<BlockIR>>
+lower_preformatted_figure(const FigureSourceBlockIR &figure,
+                          std::string *error) {
+  if (figure.lines.empty()) {
+    fail(error, "preformatted figure has no body lines");
+    return std::nullopt;
+  }
+  std::vector<BlockIR> blocks;
+  BlockIR anchor;
+  anchor.node = AnchorBlockIR{figure.anchor};
+  anchor.origin.derivation = DocumentDerivationIR::semantic_lowering;
+  anchor.origin.detail = "figure anchor";
+  add_cell_slices(anchor.origin, figure.cells, [&](const auto &cell) {
+    return cell.role == FigureCellRoleIR::control &&
+           cell.logical_record == figure.span.begin.logical_record &&
+           cell.segment_index == figure.span.begin.segment_index;
+  });
+  if (anchor.origin.slices.empty()) {
+    fail(error, "figure anchor has no source slice");
+    return std::nullopt;
+  }
+  blocks.push_back(std::move(anchor));
+
+  PreformattedBlockIR body;
+  std::vector<DocumentSourceRowIR> body_rows;
+  for (const auto &line : figure.lines) {
+    body.lines.push_back(line.text);
+    body_rows.insert(body_rows.end(), line.rows.begin(), line.rows.end());
+  }
+  BlockIR block;
+  block.node = std::move(body);
+  block.origin.derivation = DocumentDerivationIR::semantic_lowering;
+  block.origin.detail = "figure block: preformatted body";
+  add_cell_slices(block.origin, figure.cells, [&](const auto &cell) {
+    if (cell.role == FigureCellRoleIR::caption_content ||
+        cell.role == FigureCellRoleIR::caption_layout)
+      return false;
+    if (cell.role == FigureCellRoleIR::control &&
+        cell.logical_record == figure.span.begin.logical_record &&
+        cell.segment_index == figure.span.begin.segment_index)
+      return false;
+    return true;
+  });
+  add_sorted_rows(block.origin, std::move(body_rows));
+  blocks.push_back(std::move(block));
+
+  if (figure.caption) {
+    if (figure.caption->text.empty()) {
+      fail(error, "figure caption is incomplete");
+      return std::nullopt;
+    }
+    InlineIR caption;
+    caption.node = EmphasisInlineIR{figure.caption->text,
+                                    EmphasisKindIR::emphasis};
+    caption.origin.derivation = DocumentDerivationIR::semantic_lowering;
+    caption.origin.detail = "figure caption";
+    add_cell_slices(caption.origin, figure.cells, [](const auto &cell) {
+      return cell.role == FigureCellRoleIR::caption_content;
+    });
+    add_sorted_rows(caption.origin, figure.caption->rows);
+    if (caption.origin.slices.empty()) {
+      fail(error, "figure caption has no source slice");
+      return std::nullopt;
+    }
+    BlockIR paragraph;
+    ParagraphBlockIR node;
+    node.content.push_back(std::move(caption));
+    paragraph.node = std::move(node);
+    paragraph.origin.derivation = DocumentDerivationIR::semantic_lowering;
+    paragraph.origin.detail = "figure caption";
+    add_cell_slices(paragraph.origin, figure.cells, [](const auto &cell) {
+      return cell.role == FigureCellRoleIR::caption_content ||
+             cell.role == FigureCellRoleIR::caption_layout;
+    });
+    add_sorted_rows(paragraph.origin, figure.caption->rows);
+    blocks.push_back(std::move(paragraph));
+  }
+  if (error != nullptr)
+    error->clear();
+  return blocks;
 }
 
 } // namespace
@@ -74,6 +186,14 @@ bool same_inlines(const InlineSequenceIR &left, const InlineSequenceIR &right) {
 std::optional<std::vector<BlockIR>>
 lower_figure_block_to_document_blocks(const FigureSourceBlockIR &figure,
                                       std::string *error) {
+  if (figure.body_kind == FigureBodyKindIR::preformatted) {
+    if (!figure.target.empty() || figure.cells.empty() ||
+        figure.span.anchored == figure.anchor.empty()) {
+      fail(error, "preformatted figure block is inconsistent");
+      return std::nullopt;
+    }
+    return lower_preformatted_figure(figure, error);
+  }
   if (figure.target.empty()) {
     fail(error, "figure block has no target");
     return std::nullopt;
@@ -178,6 +298,15 @@ bool verify_figure_document_blocks(const FigureSourceBlockIR &figure,
       if (node->resource != actual_node.resource)
         return fail(error, "figure resource differs from canonical");
       if (!same_inlines(node->caption, actual_node.caption))
+        return fail(error, "figure caption differs from canonical");
+    } else if (const auto *node =
+                   std::get_if<PreformattedBlockIR>(&expected.node)) {
+      if (node->lines != std::get<PreformattedBlockIR>(actual.node).lines)
+        return fail(error, "figure body lines differ from canonical");
+    } else if (const auto *node =
+                   std::get_if<ParagraphBlockIR>(&expected.node)) {
+      if (!same_inlines(node->content,
+                        std::get<ParagraphBlockIR>(actual.node).content))
         return fail(error, "figure caption differs from canonical");
     } else {
       return fail(error, "figure lowering produced an unexpected block");

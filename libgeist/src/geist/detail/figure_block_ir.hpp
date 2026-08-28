@@ -34,15 +34,44 @@ namespace geist::detail {
 // image replaces them; this block records those cells as suppressed so the
 // composer can prove every source cell inside the region has exactly one
 // disposition.  A bare picture selector outside any SRFIG/SRTBL is admitted
-// as an anchorless figure.  Everything else (ASCII-art and CFONT-boxed
-// figures without a picture, tables inside figures, picture selectors owned
-// by a table, several pictures in one region, prose rows inside the region,
-// unterminated regions) is declined with a reason and left to other
-// families.
+// as an anchorless figure.
+//
+// A region without a picture selector is an ASCII/CFONT-drawn figure whose
+// body hosted BookServer shows verbatim inside its <pre> (FA1PLMM0
+// PREFACE.3, ACPZMST1 1.2.5, GG24-4302-00 3.3.4, SC09-138 1.3.1, SH20-918
+// FRONT_1.3).  Its geometry comes from the display-line structure of the
+// logical record itself: a record payload is a sequence of
+//
+//   <length byte> <that many bytes of tokens>
+//
+// display lines (FA1PLMM0 record 37: byte 0x0b before the box top, 0x05
+// before the empty box row, 0x15 before each 21-byte CFONT prose row;
+// GG24-4302-00 record 262: 0x05, 0x1a, 0x3a before the RMF report rows).
+// The length byte is what the Layout IR sees as a width-1 "marker slot"
+// whose dictionary spelling is meaningless ('call', 'command', box
+// junctions, space runs).  The tokens of a line, with the decoder's
+// inter-token spaces, are the hosted display columns exactly; box-drawing
+// words render as hosted does ('_' for U+2500, '|' for U+2502 and the
+// bottom/side junctions, blank for the top corners).  Such a region is
+// admitted as a preformatted figure: its lines become body lines, a
+// "Figure N. Title" line (with wrapped continuation lines) becomes the
+// caption, blank lines around the body and rule-only frame lines (which
+// hosted shows as empty lines: SC09-138 1.3.1, GC23-046 6.2) are spacing,
+// and CFONT/spacing controls between lines are control cells.
+//
+// Everything else (tables inside figures, picture selectors owned by a
+// table, several pictures in one region, selectors or prose after the
+// caption inside a drawn figure, misaligned line prefixes, unterminated
+// regions) is declined with a reason and left to other families.
 
 enum class FigureTargetKindIR {
   book_resource,
   external_image,
+};
+
+enum class FigureBodyKindIR {
+  picture,      // image resource replaces the drawn placeholder
+  preformatted, // ASCII/CFONT-drawn body reproduced line for line
 };
 
 enum class FigureCellRoleIR {
@@ -52,6 +81,10 @@ enum class FigureCellRoleIR {
   caption_layout,        // marker/origin/padding cells of the caption rows
   caption_content,       // visible caption cells
   index_term,            // "SI term" subject-index entries (never displayed)
+  line_prefix,           // length byte opening a display line
+  body_content,          // visible word of a preformatted body line
+  body_layout,           // space / box-drawing word of a body line
+  spacing,               // blank or frame-rule lines around the body
 };
 
 struct FigureSourceCellIR {
@@ -87,16 +120,35 @@ struct FigureCaptionIR {
   std::vector<DocumentSourceRowIR> rows;
 };
 
+// One display line of a preformatted figure body.  `prefix_token` is the
+// record-local length-byte token; the line's content tokens are
+// [prefix_token + 1, token_end).  `text` is the hosted display line (UTF-8;
+// decoder-inserted spaces included).  `rows` are the Layout IR rows that
+// intersect the line, for provenance only: the Layout IR splits drawn lines
+// by prose rules and its rows do not delimit them.
+struct FigurePreformattedLineIR {
+  std::uint32_t logical_record = 0;
+  std::size_t prefix_token = 0;
+  std::size_t token_end = 0;
+  std::string text;
+  std::vector<DocumentSourceRowIR> rows;
+};
+
 struct FigureSourceBlockIR {
   FigureBlockSpanIR span;
   // "FIG4302RSX": the SRFIG opcode without its SR prefix, which is the name
   // hosted BookServer emits as the anchor and the target cross references
   // select.  Empty for an anchorless figure.
   std::string anchor;
+  FigureBodyKindIR body_kind = FigureBodyKindIR::picture;
+  // Picture figures only.
   SelectorRefIR selector;
   FigureTargetKindIR target_kind = FigureTargetKindIR::book_resource;
   // Resource id ("9") or the external path ("/bookmgr/monetcoq.jpg").
   std::string target;
+  // Preformatted figures only: the body lines in display order (interior
+  // blank lines included, surrounding spacing excluded).
+  std::vector<FigurePreformattedLineIR> lines;
   // Decoder placeholder text for the picture cell when present ("PICTURE 9").
   std::string placeholder_text;
   std::optional<FigureCaptionIR> caption;
@@ -138,6 +190,12 @@ bool verify_figure_blocks_ir(
     const SelectorCatalogIR &selectors,
     const std::set<std::string> &resource_ids, const FigureBlocksIR &blocks,
     std::string *error = nullptr);
+
+// Hosted BookServer display of one decoded token word inside a preformatted
+// figure line (UTF-8).  Box-drawing words follow the hosted <pre> output;
+// arrows keep their glyph (hosted's per-book display tables turn them into
+// substitution bytes).
+std::string figure_display_glyph(std::uint16_t word);
 
 std::string format_figure_blocks_ir(const FigureBlocksIR &blocks);
 

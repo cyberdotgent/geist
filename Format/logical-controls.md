@@ -162,6 +162,64 @@ The stream reader stores each token reference in an internal 8-byte descriptor.
 The descriptor also records segmentation metadata used later when the iterator
 assembles one decoded logical record from one or more token records.
 
+### Display Lines Inside A Record Payload
+
+Verified on the topic records of drawn (`SRFIG` without a picture) figures:
+the token references of a record payload are grouped into display lines, each
+introduced by one byte holding the byte length of the tokens that follow it:
+
+```text
+payload := line*
+line    := length_byte token_reference{length_byte bytes}
+```
+
+The length byte is below the token threshold, so a token-reference reader
+resolves it as a one-byte dictionary token whose spelling is unrelated to the
+line (`call`, `command`, a box junction, a run of spaces).  Its value is the
+line length, not a dictionary reference.  Evidence (`bootrace`/probe token
+ordinals, encoded values, byte widths):
+
+| File / record | Length byte | Following tokens | Sum of token bytes | Hosted line |
+| --- | --- | --- | --- | --- |
+| `FA1PLMM0.boo` record 37, token 35 | `0x0b` | tokens 36-43: 3 spaces, `U+250C`, 63 `U+2500`, prefix-only, 9 `U+2500`, prefix-only, `U+2510` | 1+2+1+2+1+1+1+2 = 11 | `    ____…____ ` (box top) |
+| `FA1PLMM0.boo` record 37, token 44 | `0x05` | tokens 45-49: 3 spaces, `U+2502`, 63 spaces, 8 spaces, `U+2502` | 5 | `   \|` + 72 blanks + `\|` |
+| `FA1PLMM0.boo` record 37, token 50 | `0x0b` | tokens 51-60: `cfont 16 7 3 24 10 3 35 7 3` | 11 | (font control, no line) |
+| `FA1PLMM0.boo` record 37, token 61 | `0x15` | tokens 62-78: 3 spaces, `U+2502`, `The manual VSE/ESA … for`, 4 spaces, `U+2502` | 21 | `   \| The manual VSE/ESA Networking Support has planning information for     \|` |
+| `FA1PLMM0.boo` record 38, token 0 / token 3 | `0x02` / `0x17` | `SREFIG` / 3 spaces, `Details about other manuals … are` | 2 / 23 | (control) / `   Details about other manuals available for VSE/ESA and its components are` |
+| `GG24-4302-00.boo` record 262, token 0 | `0x05` | tokens 1-5 | 5 | blank box row |
+| `GG24-4302-00.boo` record 262, token 6 | `0x1a` | tokens 7-25 (16-space dictionary word is the length byte itself) | 26 | `   \| ------…-\|----… SERV. CLASS PERIOD(S)` |
+| `GG24-4302-00.boo` record 262, token 32 | `0x3a` (`call`) | tokens 33-75 | 58 | `   \| REPORT BY: POLICY=WSTPOL01 …` |
+| `ACPZMST1.boo` record 55, token 0 | `0x1a` | tokens 1-20 | 26 | `    Requester  \| \| Program  \| …` |
+
+Every record of the topics FA1PLMM0 `PREFACE.3`, ACPZMST1 `1.2.5`,
+GG24-4302-00 `3.3.4` (records 261-265), SC09-138 `1.3.1`, SC34-425 `1.3.4`,
+SH20-918 `FRONT_1.3`, GC23-046 `6.2`, DREICMST `1.1.1.1`, PRG1SORT `1.1.2`,
+SC24-546 `3.4`, SC24-5520-00 `1.1.26`, QSYSNEWG `2.1`, SG24-204 `3.1`, and
+IEAC6MST `1.4` parses this way with every line ending exactly on a token
+boundary and the record ending exactly at a line end (no line spans a record).
+Controls (`SHPREFACE.3`, `ctopicn 10`, `ST  Where to …`, `SRFIGFIGUNIQ1`,
+`cfont …`, `SREFIG`) each occupy a line of their own; a zero-length line is an
+empty display line.
+
+Displayed line text is the line's token words in order with the assembler's
+inter-token spaces (spacing prefixes applied), the space the assembler
+inserts before the next length byte excluded.  For reflow-off content
+(figure bodies) hosted BookServer shows exactly that text, one `<pre>` line
+per display line, with box-drawing words rendered as `_` (`U+2500`), `|`
+(`U+2502`, `U+2514`, `U+2518`, `U+2534`, `U+251C`, `U+2524`, `U+253C`) and
+blank (`U+250C`, `U+2510`, `U+252C`); a full-width rule line without corners
+directly after `SRFIG` or before the caption (the `frame=rule` frame,
+SC09-138 `1.3.1`, GC23-046 `6.2`) is shown as an empty line.  The arrow
+words `U+2190`-`U+2193` and the bullet `U+2666` reach the hosted page through
+the book's display translation tables (`ÿ`, `"`, dropped, `°`), which
+`libgeist` does not yet apply.
+
+This is the structure the Layout IR describes as a width-1 "marker slot"
+followed by a "native origin": the marker slot is the next line's length
+byte and the origin is simply the line's leading space token.  The
+prose-reflow interpretation of those slots in [markup.md](markup.md) is
+unchanged; this section records the byte-level fact behind them.
+
 ## Token Resolution
 
 A token reference resolves to a word-counted 16-bit character-code record:
