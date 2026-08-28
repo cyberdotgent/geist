@@ -1,4 +1,5 @@
 #include "geist/detail/internal.hpp"
+#include "geist/detail/form_item_rows.hpp"
 #include "geist/detail/message_prose_rows.hpp"
 #include "geist/detail/structural_marker_rows.hpp"
 
@@ -846,6 +847,56 @@ std::vector<std::string> render_st_form_items(
   return records;
 }
 
+// SC31-711 2.4.7: the checklist's CFONT display runs (a continuation row of
+// the third item and the fourth ballot row) are projected by the legacy font
+// route as one `:line.` record each, directly after the heading. When typed
+// row evidence proves those rows are checklist rows and each `:line.` record
+// conserves exactly one row's visible text, the records are folded into the
+// `__` form list instead: a ballot row opens a new item, any other row
+// continues the previous item. Anything else leaves both untouched.
+void fold_form_item_font_rows(
+    std::vector<std::string>& raw_records,
+    std::vector<std::string>::iterator first_after_heading,
+    const std::vector<DecodedLogicalRecordSource>& sources,
+    std::vector<std::string>& form_records) {
+  if (sources.empty() || form_records.empty() ||
+      form_records.back() != ":eul.") {
+    return;
+  }
+  const auto rows = extract_form_item_font_rows_ir(sources);
+  if (!rows || rows->empty()) {
+    return;
+  }
+  auto cursor = first_after_heading;
+  for (const auto& row : *rows) {
+    // The legacy `:line.` record still shows the ballot glyph.
+    const auto expected =
+        (row.starts_item ? std::string("__ ") : std::string{}) + row.plain_text;
+    if (cursor == raw_records.end() || raw_gml_tag(*cursor) != "line" ||
+        form_item_plain_text(raw_gml_content_preserve_space(*cursor)) !=
+            expected) {
+      return;
+    }
+    ++cursor;
+  }
+  // A leading continuation row continues the last ST item, which must exist.
+  if (!rows->front().starts_item &&
+      !ascii_starts_with_case_insensitive(
+          form_records[form_records.size() - 2], ":li.")) {
+    return;
+  }
+  raw_records.erase(first_after_heading, cursor);
+  form_records.pop_back();
+  for (const auto& row : *rows) {
+    if (row.starts_item) {
+      form_records.push_back(":li." + row.gml_text);
+    } else {
+      form_records.back() += " " + row.gml_text;
+    }
+  }
+  form_records.push_back(":eul.");
+}
+
 std::string topic_st_body_after_toc_title(const TopicData& topic,
                                           const std::string& title) {
   if (topic.raw_records.empty() || title.empty()) {
@@ -1208,6 +1259,8 @@ void attach_topic_data(
         }
         auto form_records = render_st_form_items(body_text, marker_rows);
         if (!form_records.empty()) {
+          fold_form_item_font_rows(entry.raw_records, heading + 1,
+                                   topic.fixed_layout_sources, form_records);
           entry.raw_records.insert(
               heading + 1,
               std::make_move_iterator(form_records.begin()),

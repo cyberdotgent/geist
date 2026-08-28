@@ -226,7 +226,9 @@ int main() {
   const auto bibliography_menu = document.topic_markdown("BACK_1");
   require_contains(
       bibliography_menu,
-      "[BACK_1.8 AIX Operating System Publications](#BACK_1.8)",
+      // The legacy list route escapes literal `_`/`*` in item text (the
+      // typed renderer's convention, compare the `BACK\_1\.8` heading).
+      "[BACK\\_1.8 AIX Operating System Publications](#BACK_1.8)",
       "verified bibliography CMITEM title");
   require_absent(bibliography_menu, "Publications can](#BACK_1.8)",
                  "bibliography CMITEM terminal source token");
