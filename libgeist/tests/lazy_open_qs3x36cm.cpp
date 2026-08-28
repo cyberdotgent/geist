@@ -26,7 +26,7 @@ int main() {
   require(intro->raw_records.empty(),
           "opening eagerly rendered a TOC topic body");
   const auto markdown = intro->markdown();
-  require(markdown.find("# 1.0 Introduction") != std::string::npos,
+  require(markdown.find("# 1\\.0 Introduction") != std::string::npos,
           "lazy TOC entry rendering produced unexpected Markdown");
 
   const auto packet = geist::BooDocument::open(root / "packet.boo");

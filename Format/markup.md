@@ -1486,3 +1486,33 @@ separate three-space token and `station`. Direct adjacency to the established
 row origin distinguishes the structural slot from the lexical article. The
 decoded spelling and numeric reference are book-local evidence only; neither
 is a universal marker vocabulary.
+
+## Flattened prose display rows
+
+Ordinary prose topics of the 1.x books (SC31-711, QSYSINFO, SC24-5520-00,
+FA1PLMM0, SC09-138, ...) store each formatted display line as tokens whose
+spacing runs and one-byte slots encode the row geometry. BookServer renders
+them inside `<pre width="80">` with one `<p>` per paragraph, which makes the
+hosted page an exact oracle for the grammar below (checked over SC31-711
+`2.2.1`, `2.2.3`, `2.3.2`, `3.2`, `2.4.5`, `2.4.7`, `PREFACE.1`, QSYSINFO
+`1.1.5`, `1.1.6`, SH20-918 `2.2.2`, FA1PLMM0 `CHANGES.1`, `2.2.2`, ITPPIBOK
+`PREFACE.2`, GG24-4302-00 `9.4.7`; hosted DTs in `AnalysisNotes/`).
+
+| Token shape | Meaning | Evidence |
+| --- | --- | --- |
+| Two or more adjacent space-run tokens | Row break: every run but the last is end-of-row fill, the last is the next row's origin (indent). A one-byte word before the pair is visible text (the row's last word). | SC31-711 LR88 `is` + 18 spaces + 3 spaces + `managing`; hosted `...that it is` / `managing by`. QSYSINFO LR44 `of` + 6 + 3 spaces; the legacy route dropped these words. |
+| One-byte visible token + one space run of 3 or more cells + visible token | The one-byte token is the row's marker slot (not displayed), the run is the origin. Applies to glyphs (`( ) - < > / = : "`), placeholder runs, and compact dictionary words alike. | SC31-711 LR57 `application` + 3 spaces + `__`, `a` + 3 spaces + `suggestions`; LR90 `action` + 3 spaces; hosted shows none of these words. LR57 `,` + 10 spaces + `log` renders `trapd` / `log` without the comma. |
+| One-byte visible token + a 1-cell space run | Not a row break: the run is a literal inter-sentence space and the token is text. | SC31-711 LR57 `2.1.` + 1 space + `Next`; hosted `topic 2.1.  Next`. |
+| Standalone punctuation glyph + fill/origin pair | Marker slot in both shapes. Attached punctuation (`conditions:`, `useful.`, bare spacing token before it) stays text. | SC31-711 LR41 `Getting` `/` + `cfont` + 4 spaces + 3 spaces + `Started`; hosted `Getting` / `Started`. LR58 `useful.` + 13 + 10 spaces keeps the period. |
+| Bare spacing-prefix token (byte `00`, decoded prefix 1 alone) after the last visible token of a row | One `<p>` before the next row. Two bare tokens produce two `<p>`. A bare token followed by a visible token is attach glue (`Note` `:`, `AS` `/` `400`, `X'48'`). | SC31-711 LR88 `resource.` + bare + 18 + 3 spaces + `All traps` is a hosted `<p>`; LR58 tokens 52-55 `.` + bare + bare + `)` + 3 spaces give `<p><p>`; LR58 `useful.` + 13 + 10 spaces without a bare token stays inside the item. |
+| `0x2666` glyph (`◆`, hosted `°`) as the first cell after the origin, then a 2-cell run | Unordered list item; continuation rows use a deeper origin. Items are not separated by `<p>` in SC31-711 `2.2.3` but are in `2.3.2`. | SC31-711 LR41 `cfont 11 5 2 21 4 2` + 10 + 3 spaces + `◆` + 2 spaces + `The ovwdb`; hosted `°   The <B>ovwdb</B>`. |
+| Placeholder run (box-drawing `0x2500`-`0x25FF`, unmapped words) | Never text: a marker slot before an origin, trailing fill before a control, the slot glued between `ST` and the title, or a visual row marker (`|`, `│`) opening a row directly before its text. | GC23-046 LR151 `ST` + bare + `|` + `CIDTABL`; ACPZMST1 LR78 `csourcefn ACPFWCMD` + `┐` + `ST` + bare + `│` + `Querying`; hosted prints the `│` rows as `|`. |
+| `SI <term words>` up to the first row break | Hidden subject-index term; the row break after it starts body text. The term's last word can be the two-run marker word of that break. | SC31-711 LR88 `SI traps, working with` + 14 + 3 spaces + `LNM for AIX obtains`. |
+
+Display columns for `CFONT` and `CSELECT` spans count the origin cells, each
+visible token's cells and one synthetic space after every visible token
+(none after a space run or after a prefix-2 token, none before a prefix-0/1
+token): `cfont 11 5 2` on `   ◆  The ovwdb` selects `ovwdb`, `cselect 62 13`
+on `   have form numbers ... in "Other AS/400` selects `"Other AS/400`
+(QSYSINFO LR44). A span ends before attached punctuation (`AIX.`,
+`"Bibliography"`), as hosted `<cite>AIX</cite>.` shows.

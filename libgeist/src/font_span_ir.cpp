@@ -26,6 +26,23 @@ FontStyleIR style_for_code(const std::string& code) {
   if (code == "1") return FontStyleIR::highlight_1;
   if (code == "2") return FontStyleIR::highlight_2;
   if (code == "3") return FontStyleIR::highlight_3;
+  if (code.size() != 1) return FontStyleIR::unknown;
+  switch (static_cast<char>(std::tolower(static_cast<unsigned char>(code[0])))) {
+  case 'c': return FontStyleIR::citation;
+  case 'x':
+  case 'e':
+  case '4': return FontStyleIR::example_phrase;
+  case 'p': return FontStyleIR::keyword;
+  case 'v': return FontStyleIR::variable;
+  case 'r':
+  case 'h':
+  case 'i':
+  case 'j':
+  case 'k':
+  case 'm': return FontStyleIR::bold_phrase;
+  case 'l': return FontStyleIR::italic_phrase;
+  default: break;
+  }
   return FontStyleIR::unknown;
 }
 
@@ -39,6 +56,18 @@ const char* font_style_name(FontStyleIR style) {
     return "hp2";
   case FontStyleIR::highlight_3:
     return "hp3";
+  case FontStyleIR::citation:
+    return "cit";
+  case FontStyleIR::example_phrase:
+    return "xph";
+  case FontStyleIR::keyword:
+    return "pk";
+  case FontStyleIR::variable:
+    return "pv";
+  case FontStyleIR::bold_phrase:
+    return "bold";
+  case FontStyleIR::italic_phrase:
+    return "italic";
   case FontStyleIR::unknown:
     break;
   }
