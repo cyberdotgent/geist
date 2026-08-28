@@ -40,6 +40,9 @@ prose display rows"; this note keeps the procedure and the hosted trail.
 | DREICMST | 19911219125856 |
 | GC23-046 | 19930208105051 (hosted edition differs) |
 | ITPPIBOK | 19910628074854 |
+| IEAC6MST | 19920124000100 (discovered from its hosted `CCONTENTS`) |
+| SC28-1881-05 | 19920313000100 |
+| SC24-5527-02 | 19920529132045 (hosted serves different topic bodies under these ids) |
 
 ## Difference classes against hosted and legacy
 
