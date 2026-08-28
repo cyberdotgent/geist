@@ -92,10 +92,79 @@ confirming they are display content, not operands.
 
 ## Result
 
-`bootrace --coverage` over all 35 fixtures: 0 topics with the ownership
-rejection (was 96); all 96 now reach the typed families and are declined by
-them (93 with the ordinary prose/mixed reason chain, 3 with the comment
-delivery shape reason); no topic changed route or family anywhere in the
-corpus (71 typed before and after). `boo2git --force` over the 13 affected
-books before and after the change is byte-identical. Fast tier 46/46, slow
-gate 15/15.
+Measured on the merged library state (this branch) against `main` `afc62c0`,
+`bootrace <book> --coverage` over all 34 fixtures (7,396 TOC topics):
+
+| | topics | typed route | pre-family ownership rejections |
+| --- | ---: | ---: | ---: |
+| `afc62c0` (before) | 7,396 | 2,665 | 96 |
+| this branch (after) | 7,396 | 2,665 | 0 |
+
+All 96 topics now pass ownership and are offered to every typed family. None is
+admitted: all 96 are declined by the prose family that landed in `afc62c0`, for
+reasons that belong to families still being built:
+
+| prose-family decline | topics |
+| --- | ---: |
+| body control `SRTBL…` outside the prose model | 59 |
+| structural control `SRFIG…` is not a bare anchor | 16 |
+| `SRV*` control carries visible payload (`SRVREQT`, `SRVBLDS`, `SRVRECS`, `SRVAPPS`, `SRVREQ`, `SRVDESCT`, `SRVDEP`) | 14 |
+| selector targets a picture or external link | 3 |
+| `c.cp` control carries visible payload | 2 |
+| body control `CMITEM` outside the prose model | 1 |
+| first record lacks the topic metadata envelope | 1 |
+
+The two largest groups are exactly the fixed-table (677 admitted envelopes) and
+figure (306 admitted regions) block families already built and waiting on the
+prose composer, so these 96 are now reachable by that work. Typed coverage is
+therefore unchanged at 2,665, and the ratchet baseline in
+`typed_route_inventory.cpp` is not raised: no book gained a typed topic. What
+changed is that the 96 stop being a pre-family wall and become ordinary
+family-level declines.
+
+Route and family are identical for every one of the 7,396 topics before and
+after. `bootrace --ir` over the 96 reports zero `run_conflict` rows and no
+`invalid source IR trace`; SC34-425 1.7.1 and SH20-918 FRONT_1.3, which
+previously threw, now emit a complete trace. The run-scoped
+`OwnershipRunConflictIR` path is therefore unexercised by the corpus and is
+held open by the synthetic fixtures only, as the fail-closed reserve for a
+genuinely ambiguous shape.
+
+`boo2git --force` over all 34 books before (`afc62c0` build) and after: the
+rendered corpus is byte-identical - 7,830 files per side across the 33
+fast books with no differing, added or removed file, and N2AH1MST identical
+separately. No file changed, as required: no topic moved to a typed route.
+
+Hosted confirmation that the absorbed glyphs are display content, not operands
+(`http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/<BOOK>/<TOPIC>?DT=<dt>`):
+
+- SC24-5527-02 1.1.5 (`DT=19920529132045`, class 1): the run absorbed into the
+  `SRETBL` opcode is the table's visible horizontal rule
+  (`_______________________ ________________________ …`), and the topic renders
+  as an 8-rule bordered table.
+- SC28-1881-05 1.45 (`DT=19920313000100`, class 2): the glyph taken as the
+  `cmitem` operand is the syntax diagram's left rail; every diagram row on the
+  hosted page opens with a visible `|`.
+- GG24-4302-00 3.2.14 (class 2): hosted rows `|     5 DBF#FPU0 …` /
+  `|       BUFFER - NBA=` as recorded above.
+
+## Follow-up for the family owners
+
+`ownership.conflicts` is now empty for all 7,396 topics, so the 161 SRTBL
+envelopes the fixed-table sweep declined with "source ownership is conflicted"
+(`fixed_table_block_ir.cpp:1086`, `:1119`) no longer decline for that reason;
+the same holds for the `ownership.conflicts` gates in `glossary_ir.cpp:217`,
+`message_ir.cpp:1141`, `message_section_blocks_ir.cpp:500`/`:535` and
+`trap_catalog_ir.cpp:506`.
+
+None of those gates yet inspects `run_conflicts`. A conflicted run owns no
+cells, so its content stays `opaque` rather than being reported as missing. The
+corpus contains no run conflict today, and each family's canonical
+re-extraction verifier is expected to catch the shortfall as a conservation
+failure, but a family that wants the ledger to cover the whole topic should
+test `ownership.run_conflicts.empty()` (or `ownership_run_conflicted(run)`)
+alongside `conflicts`. Left to the owners of those files rather than changed
+here.
+
+Tests: fast tier 47/47 (46 on `main` plus `ownership_ir_synthetic_test`), slow
+gate 15/15 including `typed_route_inventory_test`.
