@@ -92,11 +92,26 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
     TopicIdentityIR topic,
     const std::vector<DecodedLogicalRecordSource> &sources,
     const BookTopicCatalogIR *book_topic_catalog,
-    std::string *typed_rejection) {
+    std::string *typed_rejection, TypedLoweringTraceIR *trace) {
   if (typed_rejection != nullptr)
     typed_rejection->clear();
+  if (trace != nullptr)
+    *trace = TypedLoweringTraceIR{};
   if (sources.empty())
     return std::nullopt;
+  // Recognizer diagnostics are collected only when a trace is requested; the
+  // production route passes no error sinks, exactly as before.
+  std::string declined;
+  std::string *const declined_sink = trace != nullptr ? &declined : nullptr;
+  const auto note_declined = [&](const char *family, bool matched) {
+    if (trace == nullptr || matched) {
+      declined.clear();
+      return;
+    }
+    trace->declined.push_back(std::string(family) + ": " +
+                              (declined.empty() ? "declined" : declined));
+    declined.clear();
+  };
 
   const auto layout = extract_layout_ir(sources);
   std::string error;
@@ -111,42 +126,57 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
   }
 
   const auto delivery =
-      extract_comment_delivery_ir(sources, layout, ownership, nullptr);
+      extract_comment_delivery_ir(sources, layout, ownership, declined_sink);
+  note_declined("comment delivery", delivery.has_value());
   const auto publications =
       extract_publication_catalog_ir(sources, layout, ownership);
+  note_declined("publication catalog", publications.has_value());
   const auto fixed_prose =
-      extract_fixed_prose_topic_ir(sources, layout, ownership, nullptr);
+      extract_fixed_prose_topic_ir(sources, layout, ownership, declined_sink);
+  note_declined("fixed prose", fixed_prose.has_value());
   const auto glossary =
-      extract_glossary_catalog_ir(sources, layout, ownership, nullptr);
+      extract_glossary_catalog_ir(sources, layout, ownership, declined_sink);
+  note_declined("glossary", glossary.has_value());
   std::optional<MessageTopicIR> message;
   std::optional<TrapCatalogIR> trap_catalog;
   if (message_source_candidate(sources)) {
-    message = extract_message_topic_ir(sources, layout, ownership, nullptr);
+    message =
+        extract_message_topic_ir(sources, layout, ownership, declined_sink);
+    note_declined("message catalog", message.has_value());
     // Both SRMSG families share the source envelope; the Meaning/Action
     // catalog is the more specific recognizer, so the section-label catalog
     // is offered only where it declines.
-    if (!message)
+    if (!message) {
       trap_catalog = extract_trap_catalog_ir(sources, layout, ownership,
-                                             topic.title, nullptr);
+                                             topic.title, declined_sink);
+      note_declined("trap catalog", trap_catalog.has_value());
+    }
   }
   std::optional<GeneratedListTopicIR> generated_list;
   std::optional<SelectorCatalogIR> generated_selectors;
   if (generated_list_source_candidate(sources)) {
-    generated_selectors = extract_selector_catalog_ir(sources, nullptr);
-    if (generated_selectors)
+    generated_selectors = extract_selector_catalog_ir(sources, declined_sink);
+    note_declined("generated list selectors", generated_selectors.has_value());
+    if (generated_selectors) {
       generated_list = extract_generated_list_topic_ir(
-          sources, *generated_selectors, layout, ownership, nullptr);
+          sources, *generated_selectors, layout, ownership, declined_sink);
+      note_declined("generated list", generated_list.has_value());
+    }
   }
   std::optional<MenuTopicIR> menu;
   std::optional<MenuTargetValidationIR> menu_validation;
   if (book_topic_catalog != nullptr) {
-    const auto raw_menu = extract_source_menu_ir(sources, nullptr);
+    const auto raw_menu = extract_source_menu_ir(sources, declined_sink);
+    note_declined("menu source", raw_menu.has_value());
     if (raw_menu) {
-      menu_validation =
-          validate_source_menu_targets(*raw_menu, *book_topic_catalog, nullptr);
-      if (menu_validation)
+      menu_validation = validate_source_menu_targets(
+          *raw_menu, *book_topic_catalog, declined_sink);
+      note_declined("menu targets", menu_validation.has_value());
+      if (menu_validation) {
         menu = extract_menu_topic_ir(sources, *menu_validation, layout,
-                                     ownership, nullptr);
+                                     ownership, declined_sink);
+        note_declined("menu", menu.has_value());
+      }
     }
   }
   const auto family_count = static_cast<unsigned>(delivery.has_value()) +
@@ -167,6 +197,16 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
 
   std::optional<DocumentIR> document;
   std::string family;
+  // `family` is assigned once below; publish it to the trace on every exit so
+  // a verification rejection still names the family that claimed the topic.
+  struct FamilyPublisher {
+    const std::string &family;
+    TypedLoweringTraceIR *trace;
+    ~FamilyPublisher() {
+      if (trace != nullptr)
+        trace->family = family;
+    }
+  } family_publisher{family, trace};
   if (delivery) {
     family = "comment delivery";
     if (!verify_comment_delivery_ir(sources, layout, ownership, *delivery,
