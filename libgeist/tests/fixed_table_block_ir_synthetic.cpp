@@ -6,8 +6,28 @@
 //   GG24-4302-00 10.2   caption row, bold header, multi-line bullet cells
 //   SC31-605 2.1        caption row, two-line header, 89 rows over 10 records
 //   SC31-605 3.5        four-column event table with wrapped cells
-// plus negatives (no SRTBL, CFONT-only directory grid, prose) and mutation
-// rejection for both verifiers.
+// and rule-less gap-column SRTBL tables (hosted pages fetched 2026-08-28,
+// SC33-033 DT=19930422134757, QSYSINFO DT=19910524120827, SC24-5527-02
+// Service Guide DT=19921218151459, SC31-711 DT=19941010174546):
+//   QSYSINFO APPENDIX1.4.1.1  HP2 header over an empty first cell, `___`
+//                             order form cell, `,` terminal slot before SRETBL
+//   QSYSINFO APPENDIX1.4      ten rows, one-byte `Guide` kept before CFONT
+//   SC33-033 PREFACE.6        two-column bibliography: 18-line cell, wrapped
+//                             first cell, `GDDM-` `PGF` one-byte word in-line
+//   SC33-033 4.6              bold signature caption + paragraph break, two
+//                             tables, `)` kept before a glyph marker
+//   SC24-5527-02 3.8.4.2      vertically centred command/explanation row,
+//                             `built..` duplicate period, code listing declined
+//   SC24-5527-02 2.2          revision-bar lines, empty second cell row
+//   SC31-711 GLOSSARY         bold header, rows separated by blank lines
+// SC24-5527-02 1.4 is checked alongside them as a control: its underscore
+// rules make it a `box` table, so the gap model must not claim it.
+// SC24-5520-00 3.8.1.10.2/3.8.1.11 pin the header rule itself: their first
+// rows are italic (`<I>` on the hosted page), not bold, so they are body
+// rows and not headers.
+// plus negatives (no SRTBL, CFONT-only directory grid, prose, aligned code
+// listings, single-line envelopes, ragged gaps) and mutation rejection for
+// both verifiers.
 
 #include "geist/boo.hpp"
 #include "geist/detail/document_ir.hpp"
@@ -433,6 +453,267 @@ void test_sc31_605_series1_events() {
           "3.5 second wrapped cell");
 }
 
+void test_gap_qsysinfo_order_form() {
+  const auto topic = extract("QSYSINFO.BOO", "APPENDIX1.4.1.1");
+  require(topic.blocks.blocks.size() == 1 && topic.blocks.declined.empty(),
+          "APPENDIX1.4.1.1 must admit exactly one table");
+  if (topic.blocks.blocks.size() != 1)
+    return;
+  const auto &block = topic.blocks.blocks.front();
+  require(block.geometry == FixedTableGeometryIR::gap &&
+              block.object_id == "TBLUNIQ4" && block.left_column == 3 &&
+              block.separator_columns == std::vector<std::size_t>{12, 27},
+          "APPENDIX1.4.1.1 gap geometry (hosted: `___` at 3, order number at "
+          "12, title at 27)");
+  require(block.header_rows == 1 && block.body.size() == 2 && !block.caption,
+          "APPENDIX1.4.1.1 HP2 header line and one body row");
+  if (block.body.size() != 2)
+    return;
+  require(cell_text(block.body[0], 0).empty() &&
+              cell_text(block.body[0], 1) == "Order No" &&
+              cell_text(block.body[0], 2) == "Title",
+          "APPENDIX1.4.1.1 header cells (empty first cell)");
+  require(cell_text(block.body[1], 0) == "___" &&
+              cell_text(block.body[1], 1) == "SA41-9604" &&
+              cell_text(block.body[1], 2) ==
+                  "Total System Package and Preloaded System Guide",
+          "APPENDIX1.4.1.1 body row (`___` is a visible order-form cell, the "
+          "`,` after `Guide` a hidden terminal slot)");
+  const auto lowered = lower_fixed_table_block_to_document_ir(block);
+  const auto *table = lowered_table(lowered);
+  require(table != nullptr && table->header_rows == 1 && table->rows.size() == 2,
+          "APPENDIX1.4.1.1 lowers to a header and one row");
+
+  const auto appendix = extract("QSYSINFO.BOO", "APPENDIX1.4");
+  require(appendix.blocks.blocks.size() == 1 && appendix.blocks.declined.empty(),
+          "APPENDIX1.4 must admit exactly one table");
+  if (appendix.blocks.blocks.size() == 1) {
+    const auto &planning = appendix.blocks.blocks.front();
+    require(planning.header_rows == 1 && planning.body.size() == 11,
+            "APPENDIX1.4 header and ten body rows");
+    const auto *physical = find_row(planning, "___");
+    require(physical != nullptr, "APPENDIX1.4 rows start with `___`");
+    if (planning.body.size() == 11) {
+      require(cell_text(planning.body[5], 1) == "GA41-0001" &&
+                  cell_text(planning.body[5], 2) == "Physical Planning Guide",
+              "APPENDIX1.4 one-byte `Guide` before CFONT is content");
+      require(cell_lines(planning.body[4], 2) ==
+                  std::vector<std::string>{
+                      "New Products Planning Information for Version 2",
+                      "Release 1"},
+              "APPENDIX1.4 wrapped title cell keeps both display lines");
+    }
+  }
+}
+
+void test_gap_sc33_bibliography() {
+  const auto topic = extract("SC33-033.boo", "PREFACE.6");
+  require(topic.blocks.blocks.size() == 1 && topic.blocks.declined.empty(),
+          "PREFACE.6 must admit exactly one table");
+  if (topic.blocks.blocks.size() != 1)
+    return;
+  const auto &block = topic.blocks.blocks.front();
+  require(block.geometry == FixedTableGeometryIR::gap &&
+              block.left_column == 3 &&
+              block.separator_columns == std::vector<std::size_t>{26} &&
+              block.header_rows == 0 && !block.caption && block.body.size() == 5,
+          "PREFACE.6 two gap columns (hosted: products at 3, titles at 26), "
+          "five rows");
+  if (block.body.size() != 5)
+    return;
+  const auto base = cell_lines(block.body[0], 1);
+  require(cell_text(block.body[0], 0) == "GDDM Base" && base.size() == 18 &&
+              base[0] == "GDDM Base Application Programming Guide, SC33-0867" &&
+              base[1] == "GDDM Base Application Programming Reference" &&
+              base[2] == "SC33-0868" &&
+              base[5] == "GDDM/MVS Installation: Planning, Testing, and" &&
+              base[17] == "GDDM Using the Image Symbol Editor, SC33-0920",
+          "PREFACE.6 first row: 18 title lines, `SC33-0868` continuation "
+          "line, `, and` kept before the CFONT");
+  require(cell_lines(block.body[2], 0) ==
+                  std::vector<std::string>{"GDDM Interactive", "Map Definition"} &&
+              cell_text(block.body[2], 1) ==
+                  "GDDM Interactive Map Definition, SC33-0338",
+          "PREFACE.6 wrapped first cell joins its row");
+  require(cell_text(block.body[4], 0) == "GDDM-PGF" &&
+              cell_lines(block.body[4], 1).size() == 5 &&
+              cell_lines(block.body[4], 1)[0] ==
+                  "GDDM-PGF Application Programming Guide, SC33-0913",
+          "PREFACE.6 `GDDM-` `PGF` one-byte word stays in line");
+  // Words the Layout IR dropped are claimed from the opaque ledger.
+  std::size_t unpositioned = 0;
+  for (const auto &row : block.body)
+    for (const auto &cell : row.cells)
+      for (const auto &line : cell.lines)
+        unpositioned += line.unpositioned_cells.size();
+  require(unpositioned == 9, "PREFACE.6 claims nine unpositioned words");
+}
+
+void test_gap_sc33_function_signature() {
+  const auto topic = extract("SC33-033.boo", "4.6");
+  require(topic.blocks.blocks.size() == 2 && topic.blocks.declined.empty(),
+          "4.6 must admit both tables");
+  if (topic.blocks.blocks.size() != 2)
+    return;
+  const auto &codes = topic.blocks.blocks[0];
+  require(codes.object_id == "TBLUNIQ4" && codes.caption &&
+              cell_text(*codes.caption, 0) == "CHAATT      (count, array)" &&
+              codes.header_rows == 0 && codes.body.size() == 2,
+          "4.6 bold signature line cut off by a paragraph break is the caption");
+  if (codes.body.size() == 2)
+    require(cell_text(codes.body[0], 0) == "APL code" &&
+                cell_text(codes.body[0], 1) == "735" &&
+                cell_text(codes.body[1], 0) == "PGF RCP code" &&
+                cell_text(codes.body[1], 1) == "X'10020701' (268568321)",
+            "4.6 code rows (`,` before SRETBL hidden)");
+  const auto &defaults = topic.blocks.blocks[1];
+  require(defaults.object_id == "TBLUNIQ5" && !defaults.caption &&
+              defaults.body.size() == 3 &&
+              cell_text(defaults.body[0], 0) == "color" &&
+              cell_text(defaults.body[0], 1) ==
+                  "green (displays), black (printers)" &&
+              cell_text(defaults.body[1], 0) == "line type" &&
+              cell_text(defaults.body[2], 1) == "normal",
+          "4.6 defaults table: `line type` one-byte word in line, `)` kept "
+          "before a glyph marker");
+  const auto lowered = lower_fixed_table_block_to_document_ir(codes);
+  require(lowered.size() == 3 &&
+              std::holds_alternative<ParagraphBlockIR>(lowered[1].node),
+          "4.6 caption lowers to a paragraph before the table");
+}
+
+void test_gap_sc24_command_tables() {
+  const auto build = extract("SC24-5527-02.boo", "3.8.4.2");
+  require(build.blocks.blocks.size() == 1 && build.blocks.declined.size() == 2,
+          "3.8.4.2 admits the command row and declines the two listings");
+  if (build.blocks.blocks.size() == 1) {
+    const auto &row = build.blocks.blocks.front();
+    require(row.object_id == "TBLUNIQ98" && row.body.size() == 1 &&
+                row.separator_columns == std::vector<std::size_t>{50} &&
+                cell_text(row.body[0], 0) == "vmfbld ppf esa cms (status setup" &&
+                cell_lines(row.body[0], 1) ==
+                    std::vector<std::string>{
+                        "This command will update the Build Status",
+                        "Table with a status of serviced for each",
+                        "object that needs to be built."},
+            "3.8.4.2 centred row: command on the middle line, one period");
+  }
+  for (const auto &decline : build.blocks.declined) {
+    if (decline.object_id == "TBLUNIQ99")
+      require(decline.reason == "gap table has a single column",
+              "3.8.4.2 VMFBLD2185R message listing has no gap column: " +
+                  decline.reason);
+    if (decline.object_id == "TBLUNIQ100")
+      require(decline.reason == "gap table has a single display line",
+              "3.8.4.2 `vmfview build` is one line: " + decline.reason);
+  }
+
+  const auto refresh = extract("SC24-5527-02.boo", "2.2");
+  require(refresh.blocks.blocks.size() == 1,
+          "2.2 admits the attach/vmfins table");
+  if (refresh.blocks.blocks.size() == 1) {
+    const auto &table = refresh.blocks.blocks.front();
+    require(table.object_id == "TBLUNIQ24" && table.body.size() == 2 &&
+                cell_text(table.body[0], 0) == "attach rdev * 181" &&
+                cell_lines(table.body[0], 1).size() == 3 &&
+                cell_text(table.body[1], 0) == "vmfins install info" &&
+                cell_text(table.body[1], 1).empty(),
+            "2.2 revision-bar lines are structural; second row has an empty "
+            "explanation");
+  }
+
+  const auto names = extract("SC24-5527-02.boo", "1.4");
+  require(names.blocks.blocks.size() == 1, "1.4 admits the PPF name table");
+  if (names.blocks.blocks.size() == 1) {
+    const auto &table = names.blocks.blocks.front();
+    require(table.object_id == "INTPPFN" && table.caption &&
+                cell_text(*table.caption, 0) ==
+                    "Table  1-1. VM/ESA Component PPF File Names and Aliases" &&
+                table.header_rows == 1 && table.body.size() == 9 &&
+                table.separator_columns.size() == 2 &&
+                cell_lines(table.body[0], 2) ==
+                    std::vector<std::string>{"Component Name as",
+                                             "Defined in ESA $PPF",
+                                             "and ESALCL $PPF"} &&
+                cell_text(table.body[1], 0) == "6VMVMK20" &&
+                cell_text(table.body[8], 2) == "AVS/AVSSFS",
+            "1.4 underscore-drawn table stays a box table");
+    require(table.geometry == FixedTableGeometryIR::box,
+            "1.4 has underscore rules, so the gap model must not claim it");
+  }
+}
+
+void test_gap_sc31_glossary() {
+  const auto topic = extract("SC31-711.boo", "GLOSSARY");
+  require(topic.blocks.blocks.size() == 1 && topic.blocks.declined.empty(),
+          "GLOSSARY admits the DLCI table");
+  if (topic.blocks.blocks.size() != 1)
+    return;
+  const auto &block = topic.blocks.blocks.front();
+  require(block.geometry == FixedTableGeometryIR::gap &&
+              block.header_rows == 1 && block.body.size() == 7 &&
+              cell_text(block.body[0], 0) == "DLCI Values" &&
+              cell_text(block.body[0], 1) == "Function" &&
+              cell_text(block.body[3], 0) == "16-991" &&
+              cell_text(block.body[3], 1) ==
+                  "assigned using frame-relay connection procedures" &&
+              cell_text(block.body[6], 0) == "1023",
+          "GLOSSARY bold header and six rows separated by blank lines");
+}
+
+void test_gap_negatives() {
+  // A command listing whose output lines carry no origin pattern runs
+  // together: wider than a page, declined; the aligned `query rdr` output
+  // is not a table.
+  const auto listing = extract("SC24-5527-02.boo", "3.8.4.6");
+  bool width = false;
+  for (const auto &decline : listing.blocks.declined)
+    if (decline.object_id == "TBLUNIQ114")
+      width = decline.reason == "gap table line exceeds the page width";
+  require(width, "3.8.4.6 `query rdr * all` listing is declined");
+  for (const auto &block : listing.blocks.blocks)
+    require(block.separator_columns.size() <= 2,
+            "3.8.4.6 admitted tables have at most three columns");
+  // One-line envelopes and ragged address blocks.
+  const auto addresses = extract("SG24-204.boo", "BACK_1.2");
+  bool single = false;
+  bool ragged = false;
+  for (const auto &decline : addresses.blocks.declined) {
+    if (decline.object_id == "TBLUNIQ18")
+      single = decline.reason == "gap table has a single display line";
+    if (decline.object_id == "TBLUNIQ20")
+      ragged = decline.reason.rfind("cell text has an unaligned gap", 0) == 0;
+  }
+  require(single && ragged,
+          "BACK_1.2 single-line and ragged-gap envelopes are declined");
+}
+
+// Typed CFONT provenance only makes the first row a header when it is set in
+// a bold face. SC24-5520-00 renders the first row of its CPED allocate-data
+// tables in italic (`<I>VM</I> <I>architected</I> <I>area</I> ...` on the
+// hosted page, DT=19911011135123), which is emphasis inside a body row, not a
+// column header.
+void test_box_italic_first_row_is_not_a_header() {
+  for (const char *id : {"3.8.1.10.2", "3.8.1.11"}) {
+    const auto topic = extract("SC24-5520-00.boo", id);
+    require(!topic.blocks.blocks.empty(),
+            std::string(id) + " admits its allocate-data boxes");
+    for (const auto &block : topic.blocks.blocks) {
+      if (block.body.empty())
+        continue;
+      const auto first = cell_text(block.body.front(), 1);
+      if (first != "VM architected area starts here" &&
+          first != "FMH5 starts here")
+        continue;
+      require(block.geometry == FixedTableGeometryIR::box &&
+                  block.header_rows == 0 &&
+                  block.body.front().kind == FixedTableRowKindIR::body,
+              std::string(id) + " " + block.object_id +
+                  ": an italic first row is a body row, not a header");
+    }
+  }
+}
+
 void test_negatives() {
   // A CFONT-headed directory grid without box rules is not a fixed table.
   const auto directory = extract("SC31-711.boo", "1.1");
@@ -475,6 +756,13 @@ int main() {
   test_sc31_605_block_005();
   test_sc31_605_series1_events();
   test_negatives();
+  test_box_italic_first_row_is_not_a_header();
+  test_gap_qsysinfo_order_form();
+  test_gap_sc33_bibliography();
+  test_gap_sc33_function_signature();
+  test_gap_sc24_command_tables();
+  test_gap_sc31_glossary();
+  test_gap_negatives();
   std::cout << "fixed_table_block_ir_synthetic: done\n";
   return 0;
 }

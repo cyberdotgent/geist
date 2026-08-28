@@ -71,9 +71,20 @@ struct FixedTableRowIR {
   std::size_t line_count = 0;
 };
 
-// A box-drawn fixed table recovered from one SRTBL ... SRETBL envelope.
+enum class FixedTableGeometryIR {
+  // Box rules and junctions fix the geometry (`separator_columns` are the
+  // interior border columns).
+  box,
+  // Rule-less table: cells are separated by gap columns that stay blank in
+  // every display line (`separator_columns` are the start columns of the
+  // second and later cells).
+  gap,
+};
+
+// A fixed table recovered from one SRTBL ... SRETBL envelope, either
+// box-drawn or rule-less (gap columns).
 //
-// Geometry model (evidence: SC31-711 FRONT_1.1/4.0, GG24-4302-00 10.2,
+// Box geometry model (evidence: SC31-711 FRONT_1.1/4.0, GG24-4302-00 10.2,
 // SC31-605 2.1/3.5, SC24-5527-02 1.5.1.1, FA1PLMM0 F.1 against the hosted
 // BookServer pages):
 // - Every display line of the envelope is `[hidden one-byte marker slot]*
@@ -93,10 +104,44 @@ struct FixedTableRowIR {
 //   slot/origin of the line it opens. Both are restored from the box width
 //   and left column. A reflow-off visual `|` marker between origin and
 //   border is structural, as is the decoder placeholder glyph U+2666.
-// - The first content row is the header when typed CFONT spans highlight
-//   every one of its visible words.
+// - The first content row is the header when typed CFONT spans set every one
+//   of its visible words in a bold face (`highlight_2`, `highlight_3`,
+//   `bold_phrase`). Other known styles do not qualify: SC24-5520-00
+//   3.8.1.10.2/3.8.1.11 open their CPED allocate-data boxes with an italic
+//   row (`<I>VM architected area starts here</I>` on the hosted page), which
+//   is emphasis inside a body row, not a column header.
+//
+// Gap geometry model, used when the envelope draws no box (no U+250C top
+// rule). Evidence: SC33-033 PREFACE.6/4.6/4.7, QSYSINFO APPENDIX1.4.1.x,
+// SC24-5527-02 3.8.4.2/2.2 against the hosted BookServer pages:
+// - A display line is `[hidden one-byte marker slot | fill run |
+//   control-only prefix token]* <exact-space origin> <content>`. The origin
+//   is the last space run before same-segment content; every column is the
+//   assembled output index relative to the origin's first space (a page
+//   column). A line ends at the next origin pattern; a one-byte non-space
+//   token directly before a control or the envelope end is a hidden
+//   terminal slot (`,` before SRETBL in QSYSINFO, `?` before CFONT in
+//   SC24-5527-02) and never content.
+// - A line boundary is certain when a control lies between the previous
+//   content and the origin, when two space runs meet (line fill + origin),
+//   when the marker slots are box glyphs, or when a control-only prefix
+//   token precedes a glyph marker (that token is a paragraph break: the
+//   hosted page shows a blank line). A one-byte dictionary word followed by
+//   one space run (`GDDM-` `PGF` 14 spaces `GDDM-PGF`, `table.` 1 space
+//   `When`) is ambiguous: it opens a new line only when the run's length is
+//   an established cell start column and the in-line reading is not.
+// - Cell starts are the columns where some line starts a word and every
+//   line leaves the two preceding columns blank; a table needs at least two
+//   cells, and every content word must lie inside one cell. A reflow-off
+//   revision bar (`|` directly after a one-space origin) is structural.
+// - Rows: paragraph breaks separate line groups; inside a group whose first
+//   line has first-cell content, every such line starts a row (continuation
+//   lines with an empty first cell extend it); a group whose first line has
+//   an empty first cell is one vertically centred row (SC24-5527-02
+//   `vmfbld` command/explanation rows).
 // Anything else fails closed and is reported as a decline with its reason.
 struct FixedTableBlockIR {
+  FixedTableGeometryIR geometry = FixedTableGeometryIR::box;
   LayoutRowRangeIR rows;
   std::vector<DocumentSourceRowIR> source_rows;
   // SRTBL operand, e.g. `TBLUNIQ1`, and the control's source position.

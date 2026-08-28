@@ -4,6 +4,7 @@
 #include "geist/detail/internal.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <limits>
 #include <map>
 #include <set>
@@ -18,6 +19,11 @@ using CellKey = std::tuple<std::uint32_t, std::size_t, std::size_t>;
 using SourcePosition = std::pair<std::uint32_t, std::size_t>;
 
 constexpr std::size_t npos = std::numeric_limits<std::size_t>::max();
+
+// Widest display line seen in a hosted fixed table (GG24-4302-00 10.2 box
+// is 120 columns); a line wider than a 132-column page ran two lines
+// together.
+constexpr std::size_t kPageWidth = 132;
 
 constexpr std::uint16_t kHorizontal = 0x2500;
 constexpr std::uint16_t kVertical = 0x2502;
@@ -60,6 +66,12 @@ struct Word {
   bool token_start = false;
   std::uint8_t width = 0;
   bool spaces_token = false;
+  // A token that is only a spacing prefix (`0`..`3`): attachment between
+  // words, or a paragraph break before a line origin. Never displayed.
+  bool control_only = false;
+  // The token lies inside some control segment's source tokens (a token
+  // between segments is a hidden slot, e.g. `,` before SRETBL).
+  bool covered = false;
   std::size_t segment = 0;
 };
 
@@ -76,6 +88,13 @@ struct Line {
   // The top rule lost its right corner to a following control; the width is
   // taken from its last rule glyph.
   bool corner_implied = false;
+  // Gap geometry: a control-only prefix token closed the previous line, so
+  // the hosted page shows a blank line before this one (row separator).
+  bool paragraph_before = false;
+  // Gap geometry: content columns that start a cell for certain (first word
+  // of the line, words after an unambiguous in-line gap of two or more
+  // blank columns).
+  std::vector<std::size_t> cell_starts;
   std::vector<PlacedWord> words;
   std::vector<const Word *> structural_before;
   std::vector<std::size_t> junctions;
@@ -242,6 +261,17 @@ public:
           ir_tokens[block.object_source.token_end - 1].byte_range.end;
     }
 
+    if (!has_top_rule(start, end)) {
+      block.geometry = FixedTableGeometryIR::gap;
+      if (!split_gap_lines(start, end, reason))
+        return std::nullopt;
+      attach_font_spans(candidate, start, end);
+      if (!build_gap_rows(block, reason))
+        return std::nullopt;
+      detect_header(block);
+      lines_.clear();
+      return block;
+    }
     const auto split = split_lines(candidate, start, end, block, reason);
     if (split)
       attach_font_spans(candidate, start, end);
@@ -259,12 +289,16 @@ public:
 private:
   std::vector<Word> record_words(const DecodedLogicalRecordSource &record,
                                  std::size_t token_begin,
-                                 std::size_t token_end) const {
+                                 std::size_t token_end,
+                                 bool keep_control_only = false) const {
     std::vector<std::size_t> covered(record.tokens.size(), npos);
+    std::vector<bool> selector(record.tokens.size(), false);
     for (const auto &segment : record.control_segments)
       for (const auto token : segment.source_tokens)
-        if (token < covered.size())
+        if (token < covered.size()) {
           covered[token] = segment.segment_index;
+          selector[token] = segment.kind == BookControlKind::select;
+        }
     std::map<std::pair<std::size_t, std::size_t>, std::size_t> outputs;
     for (std::size_t output = 0; output < record.assembled.sources.size();
          ++output) {
@@ -284,13 +318,24 @@ private:
           !values.empty() &&
           std::all_of(values.begin(), values.end(),
                       [](const auto value) { return value == ' '; });
+      const auto control_only = values.size() == 1 && values[0] < 4;
       bool first = true;
       for (std::size_t index = 0; index < values.size(); ++index) {
         const auto disposition =
             dispositions_.find({record.logical_record, token, index});
         if (disposition != dispositions_.end() &&
             disposition->second->disposition ==
-                SourceDisposition::control_operand)
+                SourceDisposition::control_operand &&
+            !(keep_control_only && control_only))
+          continue;
+        // Gap geometry: the link operands of a CSELECT (`LNK <BOOK> <>
+        // <SC24-5527-02> <ANY> <HCPA2>`) are opaque, unpositioned words that
+        // the hosted page never shows; they are not line content.
+        if (keep_control_only && selector[token] &&
+            disposition != dispositions_.end() &&
+            disposition->second->disposition == SourceDisposition::opaque &&
+            positioned_.find({record.logical_record, token, index}) ==
+                positioned_.end())
           continue;
         Word word;
         word.record = &record;
@@ -310,12 +355,58 @@ private:
                          ? record.encoded_tokens[token].width
                          : 0;
         word.spaces_token = spaces;
+        word.control_only = control_only;
+        word.covered = covered[token] != npos;
         word.segment = segment;
         words.push_back(word);
         first = false;
       }
     }
     return words;
+  }
+
+  // True when the envelope draws a box: a U+250C top-left corner directly
+  // followed by a U+2500 rule or a junction (a lone U+250C is a hidden
+  // marker slot glyph). Everything else takes the gap geometry.
+  bool has_top_rule(const SourcePosition &start,
+                    const SourcePosition &end) const {
+    for (const auto &record : records_) {
+      if (record.logical_record < start.first ||
+          record.logical_record > end.first)
+        continue;
+      const auto token_begin =
+          record.logical_record == start.first ? start.second : 0;
+      const auto token_end = record.logical_record == end.first
+                                 ? end.second
+                                 : record.tokens.size();
+      for (auto token = token_begin;
+           token < token_end && token < record.tokens.size(); ++token) {
+        const auto &values = record.tokens[token];
+        for (std::size_t index = 0; index < values.size(); ++index) {
+          if (values[index] != 0x250c)
+            continue;
+          std::uint16_t following = 0;
+          if (index + 1 < values.size()) {
+            following = values[index + 1];
+          } else {
+            // Skip control-only attachment tokens between the glyphs.
+            auto next = token + 1;
+            while (next < token_end && next < record.tokens.size() &&
+                   record.tokens[next].size() == 1 &&
+                   record.tokens[next][0] < 4)
+              ++next;
+            if (next < token_end && next < record.tokens.size() &&
+                !record.tokens[next].empty()) {
+              const auto &words = record.tokens[next];
+              following = words[0] < 4 && words.size() > 1 ? words[1] : words[0];
+            }
+          }
+          if (following == kHorizontal || junction(following))
+            return true;
+        }
+      }
+    }
+    return false;
   }
 
   static std::string position(const Word &word) {
@@ -844,6 +935,672 @@ private:
     return true;
   }
 
+  // ---- Gap geometry (rule-less tables) ----------------------------------
+
+  static bool glyph_word(std::uint16_t value) {
+    return (value >= 0x2500 && value <= 0x257f) || value == 0x2666;
+  }
+
+  // Every word of the one-byte token at `at` is a box/placeholder glyph.
+  static bool glyph_token(const std::vector<Word> &words, std::size_t at) {
+    const auto stop = skip_token(words, at);
+    for (auto index = at; index < stop; ++index)
+      if (!glyph_word(words[index].value))
+        return false;
+    return true;
+  }
+
+  struct OriginMatch {
+    bool found = false;
+    // First space word of the origin run and first content word after it.
+    std::size_t origin = npos;
+    std::size_t content = npos;
+    // First word of the structural slot run (hidden marker slot, fills,
+    // control-only tokens) before the origin; words between the match start
+    // and it are content of the current line.
+    std::size_t slot_begin = npos;
+    // A control-only prefix token opens the slot run (paragraph break).
+    bool paragraph = false;
+    // The origin is one space and the content a revision bar: the
+    // change-bar line shape, always a line boundary.
+    bool bar = false;
+    // The slot run has no glyph marker and holds one one-byte dictionary
+    // word: either a hidden marker slot or the hanging content word of the
+    // current line.
+    bool ambiguous = false;
+  };
+
+  // Matches `[control-only | one-byte token | fill run]* <origin>
+  // <content>` at token `at`; the origin is the last space run before
+  // same-segment positioned content. With a glyph marker in the run every
+  // one-byte dictionary word before it is content; without one, the last
+  // dictionary word is the (ambiguous) slot candidate.
+  static OriginMatch match_origin(const std::vector<Word> &words,
+                                  std::size_t at) {
+    OriginMatch match;
+    std::size_t index = at;
+    std::size_t last_glyph = npos;
+    std::size_t last_dictionary = npos;
+    std::size_t after_dictionary = at;
+    while (index < words.size()) {
+      const auto &word = words[index];
+      if (!word.token_start)
+        return match;
+      const auto next = skip_token(words, index);
+      if (word.control_only) {
+        index = next;
+        continue;
+      }
+      if (word.spaces_token) {
+        if (next < words.size() && !words[next].spaces_token &&
+            !words[next].control_only &&
+            words[next].segment == word.segment &&
+            words[next].output != npos && word.output != npos) {
+          match.found = true;
+          match.origin = index;
+          match.content = next;
+          break;
+        }
+        index = next;
+        continue;
+      }
+      if (word.width == 1) {
+        if (glyph_token(words, index)) {
+          last_glyph = index;
+        } else {
+          last_dictionary = index;
+          after_dictionary = next;
+        }
+        index = next;
+        continue;
+      }
+      return match;
+    }
+    if (!match.found)
+      return match;
+    // A one-space origin followed by a revision bar is the change-bar line
+    // shape (` | ====> qquit`): the run before it is structural for
+    // certain, its dictionary word a hidden slot.
+    match.bar = revision_bar(words, match.content) &&
+                skip_token(words, match.origin) == match.origin + 1;
+    if (last_glyph != npos) {
+      match.slot_begin = last_dictionary != npos && last_dictionary < last_glyph
+                             ? after_dictionary
+                             : at;
+      if (last_dictionary != npos && last_dictionary > last_glyph) {
+        match.slot_begin = last_dictionary;
+        match.ambiguous = !match.bar;
+      }
+    } else if (last_dictionary != npos) {
+      match.slot_begin = last_dictionary;
+      match.ambiguous = !match.bar;
+    } else {
+      match.slot_begin = at;
+    }
+    // A control-only token directly before the slot run opens it.
+    while (match.slot_begin > at && words[match.slot_begin - 1].control_only &&
+           words[match.slot_begin - 1].token_start)
+      --match.slot_begin;
+    for (auto index = match.slot_begin; index < match.origin; ++index)
+      if (words[index].control_only)
+        match.paragraph = true;
+    return match;
+  }
+
+  static bool revision_bar(const std::vector<Word> &words, std::size_t at) {
+    return words[at].width == 1 && words[at].value == '|' &&
+           words[at].token_start &&
+           (at + 1 >= words.size() || words[at + 1].token_start);
+  }
+
+  struct GapLineState {
+    std::size_t line = npos;
+    std::size_t base = 0;
+    std::size_t last_content = npos;
+    // Content columns that start a cell for certain: the first word of the
+    // line and words after an unambiguous in-line gap of two or more blank
+    // columns.
+    std::vector<std::size_t> starts;
+    std::size_t previous_end = 0;
+    bool previous_ambiguous = false;
+  };
+
+  // A one-byte token that can be a hidden terminal slot before a control:
+  // a placeholder run (box glyphs, `?`), a token outside every control
+  // segment (`,` after the CFONT payload before SRETBL in QSYSINFO), or
+  // attached punctuation repeating the previous token (`built. .` in
+  // SC24-5527-02 3.8.4.2). A dictionary word (`Guide`, `and`) never is.
+  static bool terminal_slot(const std::vector<Word> &words, std::size_t at) {
+    std::size_t begin = at;
+    while (begin > 0 && words[begin - 1].token == words[at].token)
+      --begin;
+    const auto stop = skip_token(words, begin);
+    bool placeholder = true;
+    for (auto index = begin; index < stop; ++index)
+      if (!glyph_word(words[index].value) && words[index].value != '?')
+        placeholder = false;
+    if (placeholder || !words[begin].covered)
+      return true;
+    if (begin == 0 || stop - begin != 1)
+      return false;
+    const auto value = words[begin].value;
+    const auto punctuation = value < 0x80 && !std::isalnum(static_cast<int>(value));
+    const auto &previous = words[begin - 1];
+    return punctuation && previous.width == 1 && previous.value == value &&
+           previous.token + 1 == words[begin].token;
+  }
+
+  // Closes the open line: a one-byte non-space token that is the last
+  // content before the record end or a control is a hidden terminal slot;
+  // a line without content (revision bar only) is a blank line.
+  void close_gap_line(const std::vector<Word> &words, GapLineState &state,
+                      std::vector<const Word *> &pending, bool &paragraph,
+                      bool envelope_end = false) {
+    if (state.line == npos)
+      return;
+    auto &line = lines_[state.line];
+    line.cell_starts = state.starts;
+    if (state.last_content != npos) {
+      const auto &last = words[state.last_content];
+      if (last.width == 1 && !last.spaces_token) {
+        std::size_t after = state.last_content + 1;
+        while (after < words.size() &&
+               (words[after].token == last.token || words[after].spaces_token ||
+                words[after].control_only))
+          ++after;
+        // Before SRETBL every trailing one-byte token is a hidden slot
+        // (`qquit.`, `vmfview build.`, `Guide,`); before a CFONT only the
+        // placeholder/uncovered/duplicate shapes are.
+        const bool hidden =
+            (after >= words.size() && envelope_end) ||
+            ((after >= words.size() || words[after].segment != last.segment) &&
+             terminal_slot(words, state.last_content));
+        if (hidden) {
+          std::vector<PlacedWord> kept;
+          for (const auto &placed : line.words) {
+            if (placed.word->token == last.token)
+              line.structural_before.push_back(placed.word);
+            else
+              kept.push_back(placed);
+          }
+          line.words = std::move(kept);
+        }
+      }
+    }
+    const auto blank = std::all_of(
+        line.words.begin(), line.words.end(),
+        [](const PlacedWord &placed) { return placed.word->value == ' '; });
+    if (blank) {
+      for (const auto *word : line.structural_before)
+        pending.push_back(word);
+      for (const auto &placed : line.words)
+        pending.push_back(placed.word);
+      paragraph = true;
+      lines_.pop_back();
+    }
+    state = GapLineState{};
+  }
+
+  // One pass over the envelope words. `starts` (null in the first pass)
+  // resolves ambiguous slot runs: a one-byte word followed by one space run
+  // opens a new line only when the run puts the next word on an established
+  // cell start column.
+  bool scan_gap(const std::set<std::size_t> *starts, std::string &reason) {
+    lines_.clear();
+    trailing_.clear();
+    std::vector<const Word *> pending;
+    bool paragraph = false;
+    for (std::size_t record_index = 0; record_index < words_.size();
+         ++record_index) {
+      const auto &words = words_[record_index];
+      GapLineState state;
+      std::size_t at = 0;
+      const auto open_line = [&](const OriginMatch &match, bool para) {
+        for (auto index = at; index < match.content; ++index)
+          pending.push_back(&words[index]);
+        Line line;
+        line.record = words[match.origin].record;
+        line.first_token = words[match.origin].token;
+        line.paragraph_before = paragraph || para;
+        line.structural_before = std::move(pending);
+        pending.clear();
+        paragraph = false;
+        lines_.push_back(std::move(line));
+        state = GapLineState{};
+        state.line = lines_.size() - 1;
+        state.base = words[match.origin].output;
+        at = match.content;
+        if (revision_bar(words, at) && words[at].output == state.base + 1) {
+          lines_.back().structural_before.push_back(&words[at]);
+          ++at;
+        }
+      };
+      while (at < words.size()) {
+        const auto &word = words[at];
+        const auto next = skip_token(words, at);
+        if (state.line == npos) {
+          const auto match = match_origin(words, at);
+          if (!match.found) {
+            bool content = false;
+            for (auto index = at; index < words.size(); ++index)
+              if (!words[index].spaces_token && !words[index].control_only &&
+                  words[index].width != 1)
+                content = true;
+            if (content) {
+              reason = at == 0 && record_index > 0
+                           ? "logical record continues a table line at " +
+                                 position(word)
+                           : "table line has no origin at " + position(word);
+              return false;
+            }
+            for (auto index = at; index < words.size(); ++index)
+              pending.push_back(&words[index]);
+            paragraph = paragraph || match.paragraph;
+            at = words.size();
+            break;
+          }
+          open_line(match, match.paragraph);
+          continue;
+        }
+        auto &line = lines_[state.line];
+        if (word.spaces_token || word.control_only ||
+            (word.width == 1 && word.token_start)) {
+          const auto match = match_origin(words, at);
+          if (match.found) {
+            const auto &origin = words[match.origin];
+            // A control between the last content and this token: the token
+            // opens the next line. A control between this token and the
+            // origin: the token still belongs to this line (the terminal
+            // slot rule at close hides the last one-byte token).
+            const bool control_before =
+                state.last_content != npos &&
+                word.segment != words[state.last_content].segment;
+            const bool control_after = origin.segment != word.segment;
+            bool boundary = control_before || (match.bar && !control_after);
+            if (!boundary && !control_after && match.origin != at &&
+                state.last_content != npos) {
+              if (!match.ambiguous) {
+                boundary = true;
+              } else if (starts != nullptr) {
+                const auto new_column =
+                    words[match.content].output - origin.output;
+                boundary = starts->count(new_column) != 0;
+              }
+            }
+            if (boundary && match.slot_begin == at) {
+              close_gap_line(words, state, pending, paragraph);
+              open_line(match, match.paragraph);
+              continue;
+            }
+            if (control_after && word.control_only &&
+                (next >= words.size() || words[next].segment != word.segment ||
+                 words[next].spaces_token || glyph_token(words, next)))
+              paragraph = true;
+          }
+          if (word.spaces_token) {
+            for (auto index = at; index < next; ++index) {
+              if (words[index].output == npos || words[index].output < state.base) {
+                reason = "table line has no display position at " +
+                         position(words[index]);
+                return false;
+              }
+              line.words.push_back({words[index].output - state.base,
+                                    &words[index]});
+            }
+            state.previous_ambiguous =
+                state.last_content != npos &&
+                words[state.last_content].width == 1;
+            at = next;
+            continue;
+          }
+          if (word.control_only ||
+              (word.width == 1 && glyph_token(words, at))) {
+            for (auto index = at; index < next; ++index)
+              line.structural_before.push_back(&words[index]);
+            at = next;
+            continue;
+          }
+        }
+        // Content token.
+        bool first_word = true;
+        for (auto index = at; index < next; ++index) {
+          const auto &current = words[index];
+          if (current.value < 4)
+            continue;
+          if (current.output == npos || current.output < state.base) {
+            reason = "table line has no display position at " +
+                     position(current);
+            return false;
+          }
+          const auto column = current.output - state.base;
+          if (first_word && current.value != ' ') {
+            if (state.last_content == npos)
+              state.starts.push_back(column);
+            else if (column >= state.previous_end + 2 &&
+                     !state.previous_ambiguous)
+              state.starts.push_back(column);
+          }
+          first_word = false;
+          line.words.push_back({column, &current});
+          state.last_content = index;
+          state.previous_end = column + 1;
+        }
+        state.previous_ambiguous = false;
+        at = next;
+      }
+      close_gap_line(words, state, pending, paragraph,
+                     record_index + 1 == words_.size());
+    }
+    trailing_ = std::move(pending);
+    return true;
+  }
+
+  bool split_gap_lines(const SourcePosition &start, const SourcePosition &end,
+                       std::string &reason) {
+    words_.clear();
+    for (const auto &record : records_) {
+      if (record.logical_record < start.first ||
+          record.logical_record > end.first)
+        continue;
+      const auto token_begin =
+          record.logical_record == start.first ? start.second : 0;
+      const auto token_end = record.logical_record == end.first
+                                 ? end.second
+                                 : record.tokens.size();
+      words_.push_back(record_words(record, token_begin, token_end, true));
+    }
+    if (!scan_gap(nullptr, reason))
+      return false;
+    std::set<std::size_t> starts;
+    for (const auto &line : lines_)
+      starts.insert(line.cell_starts.begin(), line.cell_starts.end());
+    if (!scan_gap(&starts, reason))
+      return false;
+    if (lines_.empty()) {
+      reason = "table envelope has no display lines";
+      return false;
+    }
+    return true;
+  }
+
+  static bool first_cell_content(const Line &line, std::size_t boundary) {
+    for (const auto &placed : line.words)
+      if (placed.word->value != ' ' && placed.column < boundary)
+        return true;
+    return false;
+  }
+
+  // Visible extent of the line's words inside [begin, end).
+  static std::pair<std::size_t, std::size_t>
+  cell_extent(const Line &line, std::size_t begin, std::size_t end) {
+    std::size_t low = npos;
+    std::size_t high = 0;
+    for (const auto &placed : line.words) {
+      if (placed.word->value == ' ' || placed.column < begin ||
+          placed.column >= end)
+        continue;
+      low = std::min(low, placed.column);
+      high = std::max(high, placed.column + 1);
+    }
+    return {low, high};
+  }
+
+  // A line whose only content is in the first cell continues the previous
+  // row when that text could not have fitted on the row's last first-cell
+  // line (the cell is at most `starts[1] - starts[0] - 2` wide):
+  // `GDDM Interactive` / `Map Definition` in SC33-033 PREFACE.6.
+  static bool wrapped_first_cell(
+      const std::vector<std::vector<const Line *>> &rows, const Line &line,
+      const std::vector<std::size_t> &starts) {
+    if (rows.empty() || rows.back().empty())
+      return false;
+    for (const auto &placed : line.words)
+      if (placed.word->value != ' ' && placed.column >= starts[1])
+        return false;
+    const auto width = starts[1] - starts[0] - 2;
+    const auto current = cell_extent(line, starts[0], starts[1]);
+    const auto previous = cell_extent(*rows.back().back(), starts[0], starts[1]);
+    if (current.first == npos || previous.first == npos)
+      return false;
+    const auto joined = (previous.second - starts[0]) + 1 +
+                        (current.second - current.first);
+    return joined > width;
+  }
+
+  bool build_gap_rows(FixedTableBlockIR &block, std::string &reason) {
+    for (const auto *word : trailing_)
+      claim(block.structural_cells, *word);
+
+    // Cell starts: columns where some line starts a word and every line
+    // leaves the two preceding columns blank. A first line that is cut off
+    // by a paragraph break and does not fit the geometry of the remaining
+    // lines is the caption (SC33-033 4.6 `CHAATT      (count, array)`).
+    std::size_t first_line = 0;
+    std::vector<std::size_t> starts;
+    std::size_t first = npos;
+    std::size_t extent = 0;
+    if (lines_.size() < 2) {
+      // One display line cannot establish gap columns (SC24-5527-02
+      // 3.8.4.6 `query rdr * all` output, SG24-204 BACK_1.2 addresses).
+      reason = "gap table has a single display line";
+      return false;
+    }
+    if (!gap_geometry(0, starts, first, extent)) {
+      if (lines_.size() > 2 && lines_[1].paragraph_before &&
+          gap_geometry(1, starts, first, extent))
+        first_line = 1;
+      else {
+        reason = starts.empty() ? "gap table has no content rows"
+                                : "gap table has a single column";
+        return false;
+      }
+    }
+    if (extent > kPageWidth) {
+      // A display line cannot exceed the page: the origin pattern was
+      // missed and several lines ran together (SC24-5527-02 3.8.4.6
+      // `query rdr * all` listing).
+      reason = "gap table line exceeds the page width";
+      return false;
+    }
+    block.left_column = first;
+    block.width = extent - first;
+    block.separator_columns.assign(starts.begin() + 1, starts.end());
+    if (first_line == 1) {
+      FixedTableRowIR row;
+      row.kind = FixedTableRowKindIR::caption;
+      row.line_count = 1;
+      row.cells.resize(1);
+      std::vector<std::size_t> span{0};
+      if (!fill_gap_row(row, {&lines_[0]}, span, reason))
+        return false;
+      row.source_rows = row_sources(row);
+      block.caption = std::move(row);
+    }
+
+    // Leading lines whose every word is font-highlighted are the header row
+    // when a plain line follows them (QSYSINFO `Order No       Title` over a
+    // row that starts with `___`).
+    std::vector<std::vector<const Line *>> rows;
+    std::size_t header_lines = first_line;
+    while (header_lines < lines_.size() && highlighted_line(lines_[header_lines]))
+      ++header_lines;
+    if (header_lines == lines_.size())
+      header_lines = first_line;
+    if (header_lines > first_line) {
+      rows.emplace_back();
+      for (std::size_t index = first_line; index < header_lines; ++index)
+        rows.back().push_back(&lines_[index]);
+    }
+    std::vector<std::vector<const Line *>> groups;
+    for (std::size_t index = header_lines; index < lines_.size(); ++index) {
+      const auto &line = lines_[index];
+      if (groups.empty() || (line.paragraph_before && !groups.back().empty()))
+        groups.emplace_back();
+      groups.back().push_back(&line);
+    }
+    for (const auto &group : groups) {
+      if (!first_cell_content(*group.front(), starts[1])) {
+        rows.push_back(group);
+        continue;
+      }
+      for (const auto *line : group) {
+        if ((first_cell_content(*line, starts[1]) &&
+             !wrapped_first_cell(rows, *line, starts)) ||
+            rows.empty())
+          rows.emplace_back();
+        rows.back().push_back(line);
+      }
+    }
+
+    for (const auto &group : rows) {
+      FixedTableRowIR row;
+      row.kind = FixedTableRowKindIR::body;
+      row.line_count = group.size();
+      row.cells.resize(starts.size());
+      if (!fill_gap_row(row, group, starts, reason))
+        return false;
+      for (const auto &cell : row.cells)
+        for (const auto &line : cell.lines)
+          if (ragged_gap(line.text)) {
+            reason = "cell text has an unaligned gap: '" + line.text + "'";
+            return false;
+          }
+      row.source_rows = row_sources(row);
+      block.body.push_back(std::move(row));
+    }
+    if (block.body.empty()) {
+      reason = "gap table has no content rows";
+      return false;
+    }
+    return true;
+  }
+
+  // Cell starts over lines_[from..): false when fewer than two cells
+  // result (`starts` then holds what was found; empty when no content).
+  bool gap_geometry(std::size_t from, std::vector<std::size_t> &starts,
+                    std::size_t &first, std::size_t &extent) const {
+    starts.clear();
+    first = npos;
+    extent = 0;
+    std::vector<std::set<std::size_t>> occupied;
+    std::set<std::size_t> word_starts;
+    for (std::size_t index = from; index < lines_.size(); ++index) {
+      const auto &line = lines_[index];
+      occupied.emplace_back();
+      std::size_t previous = npos;
+      for (const auto &placed : line.words) {
+        if (placed.word->value == ' ')
+          continue;
+        occupied.back().insert(placed.column);
+        if (previous == npos || placed.column != previous + 1)
+          word_starts.insert(placed.column);
+        previous = placed.column;
+        first = std::min(first, placed.column);
+        extent = std::max(extent, placed.column + 1);
+      }
+    }
+    if (first == npos)
+      return false;
+    starts.push_back(first);
+    for (const auto column : word_starts) {
+      if (column <= first + 1)
+        continue;
+      bool clear = true;
+      for (const auto &columns : occupied)
+        if (columns.count(column - 1) != 0 || columns.count(column - 2) != 0) {
+          clear = false;
+          break;
+        }
+      if (clear)
+        starts.push_back(column);
+    }
+    return starts.size() >= 2;
+  }
+
+  // An internal run of three or more spaces, or of two spaces not closing a
+  // sentence, means the words did not share one cell.
+  static bool ragged_gap(const std::string &text) {
+    for (std::size_t index = 0; index + 1 < text.size(); ++index) {
+      if (text[index] != ' ' || text[index + 1] != ' ')
+        continue;
+      std::size_t run = 0;
+      while (index + run < text.size() && text[index + run] == ' ')
+        ++run;
+      const auto before = index > 0 ? text[index - 1] : ' ';
+      if (run > 2 || (before != '.' && before != ':' && before != '?' &&
+                      before != '!' && before != ')'))
+        return true;
+      index += run;
+    }
+    return false;
+  }
+
+  // Distributes the lines' words over `row.cells` by the cell start columns
+  // and claims their structure on the row.
+  bool fill_gap_row(FixedTableRowIR &row,
+                    const std::vector<const Line *> &group,
+                    const std::vector<std::size_t> &starts,
+                    std::string &reason) {
+    const auto cells = row.cells.size();
+    for (std::size_t index = 0; index < cells; ++index)
+      row.cells[index].column = index;
+    for (const auto *line : group) {
+      for (const auto *word : line->structural_before)
+        claim(row.structural_cells, *word);
+      std::vector<TokenWords> texts(cells);
+      std::vector<std::vector<PositionedRowCellIR>> claims(cells);
+      std::vector<std::vector<OwnedSourceCellIR>> unpositioned(cells);
+      std::vector<std::vector<const Word *>> cell_words(cells);
+      for (const auto &placed : line->words) {
+        if (placed.word->value == ' ' || placed.word->value == 0x2666) {
+          claim(row.structural_cells, *placed.word);
+          continue;
+        }
+        std::size_t cell = 0;
+        while (cell + 1 < cells && starts[cell + 1] <= placed.column)
+          ++cell;
+        if (placed.column < starts[cell]) {
+          reason = "cell word lies left of the first column at " +
+                   position(*placed.word);
+          return false;
+        }
+        const auto offset = placed.column - starts[cell];
+        auto &text = texts[cell];
+        if (text.size() <= offset)
+          text.resize(offset + 1, ' ');
+        text[offset] = placed.word->value;
+        cell_words[cell].push_back(placed.word);
+        if (placed.word->positioned != nullptr) {
+          claims[cell].push_back(*placed.word->positioned);
+        } else if (placed.word->owned != nullptr &&
+                   placed.word->owned->run == 0 &&
+                   placed.word->owned->disposition ==
+                       SourceDisposition::opaque) {
+          unpositioned[cell].push_back(*placed.word->owned);
+        } else {
+          reason = "cell word has no source cell at " + position(*placed.word);
+          return false;
+        }
+      }
+      for (std::size_t cell = 0; cell < cells; ++cell) {
+        if (claims[cell].empty() && unpositioned[cell].empty())
+          continue;
+        FixedTableCellLineIR cell_line;
+        cell_line.text = trim_ascii(token_words_to_ascii(texts[cell]));
+        if (cell_line.text.empty()) {
+          for (const auto &claim : claims[cell])
+            row.structural_cells.push_back(claim);
+          continue;
+        }
+        cell_line.source_cells = std::move(claims[cell]);
+        cell_line.unpositioned_cells = std::move(unpositioned[cell]);
+        cell_line.slice = line_slice(cell_words[cell]);
+        row.cells[cell].lines.push_back(std::move(cell_line));
+      }
+    }
+    return true;
+  }
+
   static DocumentSourceSliceIR line_slice(const std::vector<const Word *> &words) {
     DocumentSourceSliceIR slice;
     if (words.empty())
@@ -932,8 +1689,38 @@ private:
     }
   }
 
-  // The first content row is a header when typed font provenance highlights
-  // every visible word of every one of its display lines.
+  // Header rows are set in a face the hosted page renders bold: HP2, HP3
+  // and the RK/H1..H6 phrases. HP1/CIT italics and PK/PV/XPH monospace mark
+  // ordinary cell content (QSYSINFO title cells are HP1 under an HP2
+  // header).
+  static bool header_style(FontStyleIR style) {
+    return style == FontStyleIR::highlight_2 ||
+           style == FontStyleIR::highlight_3 ||
+           style == FontStyleIR::bold_phrase;
+  }
+
+  // Every visible word of the line lies inside a bold font span.
+  static bool highlighted_line(const Line &line) {
+    bool any = false;
+    for (const auto &placed : line.words) {
+      if (placed.word->value == ' ' || placed.word->value == 0x2666)
+        continue;
+      any = true;
+      const auto highlighted = std::any_of(
+          line.font_spans.begin(), line.font_spans.end(),
+          [&](const auto &span) {
+            return header_style(span.style) &&
+                   placed.column >= span.column &&
+                   placed.column < span.column + span.length;
+          });
+      if (!highlighted)
+        return false;
+    }
+    return any;
+  }
+
+  // The first content row is a header when typed font provenance sets
+  // every visible word of every one of its display lines in a bold face.
   void detect_header(FixedTableBlockIR &block) {
     if (block.body.empty())
       return;
@@ -956,7 +1743,7 @@ private:
         const auto highlighted = std::any_of(
             line.font_spans.begin(), line.font_spans.end(),
             [&](const auto &span) {
-              return span.style != FontStyleIR::unknown &&
+              return header_style(span.style) &&
                      placed.column >= span.column &&
                      placed.column < span.column + span.length;
             });
@@ -1210,7 +1997,9 @@ bool verify_fixed_table_blocks_ir(
 std::string format_fixed_table_blocks_ir(const FixedTableBlocksIR &blocks) {
   std::ostringstream out;
   for (const auto &block : blocks.blocks) {
-    out << "table object='" << block.object_id << "' rows=[" << block.rows.begin
+    out << "table object='" << block.object_id << "' geometry="
+        << (block.geometry == FixedTableGeometryIR::gap ? "gap" : "box")
+        << " rows=[" << block.rows.begin
         << ',' << block.rows.end << ") source=" << block.object_source.logical_record
         << ':' << block.object_source.segment_index << ':'
         << block.object_source.token_begin << ':' << block.object_source.token_end
