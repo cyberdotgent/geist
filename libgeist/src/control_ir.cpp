@@ -12,11 +12,49 @@ namespace {
 struct WordSpan {
   std::size_t begin = 0;
   std::size_t end = 0;
+  // The word projects display-geometry code points (see
+  // display_geometry_word); such a word is payload, never opcode or operand.
+  bool geometry = false;
 };
 
+// Box-drawing code points (U+2500-U+257F) are display geometry emitted from
+// the glyph dictionary: table rules, junctions and syntax-diagram rails. They
+// are never opcode or operand material. The ASCII projection flattens them to
+// '?', so this class is decided on the assembled code points, not on the
+// projected spelling.
+bool display_geometry_word(std::uint16_t word) {
+  return word >= 0x2500 && word <= 0x257F;
+}
+
+// Byte-level map of the assembled output marking every byte that projects a
+// display-geometry code point.
+std::vector<bool> display_geometry_bytes(const AssembledLogicalRecord &assembled,
+                                         std::size_t text_size) {
+  std::vector<bool> geometry(text_size, false);
+  std::size_t byte = 0;
+  for (const auto word : assembled.words) {
+    const auto width = token_words_to_ascii({word}).size();
+    if (display_geometry_word(word)) {
+      for (std::size_t at = byte; at < byte + width && at < text_size; ++at)
+        geometry[at] = true;
+    }
+    byte += width;
+  }
+  return geometry;
+}
+
+// Splits [begin, end) into words on whitespace and on every transition between
+// display-geometry bytes and other bytes. A control name or operand adjacent
+// to a table rule without an intervening decoder space (SRETBL followed by a
+// zero-width control token and a horizontal rule; CMITEM followed by a
+// vertical rail) therefore ends at the glyph boundary instead of absorbing it.
 std::vector<WordSpan> words_in(const std::string &text, std::size_t begin,
-                               std::size_t end) {
+                               std::size_t end,
+                               const std::vector<bool> &geometry = {}) {
   std::vector<WordSpan> words;
+  const auto geometry_at = [&](std::size_t at) {
+    return at < geometry.size() && geometry[at];
+  };
   auto cursor = begin;
   while (cursor < end) {
     while (cursor < end &&
@@ -26,11 +64,13 @@ std::vector<WordSpan> words_in(const std::string &text, std::size_t begin,
     if (cursor == end)
       break;
     const auto word_begin = cursor;
+    const auto word_geometry = geometry_at(cursor);
     while (cursor < end &&
-           std::isspace(static_cast<unsigned char>(text[cursor])) == 0) {
+           std::isspace(static_cast<unsigned char>(text[cursor])) == 0 &&
+           geometry_at(cursor) == word_geometry) {
       ++cursor;
     }
-    words.push_back({word_begin, cursor});
+    words.push_back({word_begin, cursor, word_geometry});
   }
   return words;
 }
@@ -230,6 +270,7 @@ std::vector<ControlSegmentIR>
 decode_control_segments(std::uint32_t logical_record,
                         const AssembledLogicalRecord &assembled) {
   const auto text = token_words_to_ascii(assembled.words);
+  const auto geometry = display_geometry_bytes(assembled, text.size());
   const auto decoded = split_decoded_markup_segment_spans(text);
   std::vector<ControlSegmentIR> result;
   result.reserve(decoded.size());
@@ -248,7 +289,15 @@ decode_control_segments(std::uint32_t logical_record,
             text[begin] == ',' || text[begin] == '?')) {
       ++begin;
     }
-    const auto words = words_in(text, begin, source.output_end);
+    auto words = words_in(text, begin, source.output_end, geometry);
+    // Operand parsing sees only the words before the first geometry word: a
+    // control's operands end where display geometry begins, and the geometry
+    // itself is payload. A leading geometry word cannot be an opcode (its
+    // projection never classifies as a control), so it leaves the segment
+    // as text exactly as before.
+    words.erase(std::find_if(words.begin(), words.end(),
+                             [](const WordSpan &word) { return word.geometry; }),
+                words.end());
     if (words.empty()) {
       segment.kind = BookControlKind::text;
       segment.opcode_range = {begin, begin};
