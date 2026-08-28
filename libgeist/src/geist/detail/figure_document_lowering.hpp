@@ -11,7 +11,10 @@ namespace geist::detail {
 
 // Lowers one verified figure block to output-neutral document blocks: an
 // AnchorBlockIR for the SRFIG anchor (when the figure is anchored) followed
-// by a FigureBlockIR carrying the image target and the caption text.  The
+// by a FigureBlockIR carrying the image target and the caption text.  A
+// preformatted (ASCII/CFONT-drawn) figure lowers instead to the anchor, a
+// PreformattedBlockIR holding the hosted display lines, and, when present,
+// a ParagraphBlockIR whose single emphasised inline is the caption.  The
 // suppressed placeholder rows and box cells are carried as provenance of the
 // figure block, so the composer can prove they were consumed rather than
 // dropped.  No BOO control text is interpreted at this boundary.
