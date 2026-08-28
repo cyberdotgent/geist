@@ -60,3 +60,70 @@ prose display rows"; this note keeps the procedure and the hosted trail.
   dropped.  Values 48 and above are kept as text (QSYSNEWG `400`, `IBM`).
 - Nested bullet lists flatten into the parent item's text (word-equal to
   hosted; the DocumentIR list item has no child blocks).
+
+## Composition: table and figure spans (2026-08-28, later run)
+
+The prose family previously failed a whole topic closed whenever it saw an
+`SRTBL` envelope or an `SRFIG` figure.  The body is now a sequence of spans
+in source order: prose spans (the display-row model above) interleaved with
+table spans (`extract_fixed_table_blocks_ir` →
+`lower_fixed_table_block_to_document_ir`) and figure spans
+(`extract_figure_blocks_ir` → `lower_figure_block_to_document_blocks`).
+
+Procedure and conservation rule:
+
+1. `plan_spans` (`libgeist/src/prose_topic_spans.cpp`) runs *before* the body
+   token stream is built.  It extracts every table envelope and every figure
+   region of the topic and fails the topic closed if any one of them is
+   declined by its extractor, so there are no partially typed topics.
+2. Each admitted region becomes a source extent (first control token through
+   last owned token).  Every token the block claims takes the span's ledger
+   role (`table` / `figure`) and names the span; a token inside the extent
+   that the block does not claim is admitted only when it carries no visible
+   word (bare spacing, space run, decoder placeholder run, separator, or a
+   one-byte hidden marker slot) and becomes region structure of the same
+   span.  Any other token inside a region rejects the topic.
+3. The stream pass then skips every segment inside a region, so prose text
+   and span text can never claim the same token; double claims are refused by
+   the ledger.  Prose glued after `SRETBL`/`SREFIG` in the closing segment
+   re-enters the stream as body text.
+4. A picture-less `SRFIG<id>` frame around table spans contributes only its
+   anchor: hosted BookServer serves `<a name="FIGTBLUNIQ6">` immediately
+   before `<a name="TBLTBLUNIQ6">` on SC31-711 4.0.  Recorded in
+   `Format/markup.md` under `SRTBL<id>`.
+5. Verification: the topic verifier re-extracts the spans canonically and
+   compares them cell for cell, checks that every span position is in source
+   order, that every span-role token names its own span, and that no prose
+   block claims a token inside a span; the DocumentIR verifier re-lowers.
+   `libgeist/tests/prose_topic_spans_synthetic.cpp` adds mutation tests
+   (dropped span, dropped table block, span moved to another position,
+   figure caption edited, table cell edited, prose text claiming a span
+   token, prose paragraph inserted at a span position).
+
+### Hosted DT corrections
+
+The DTs used in the first prose run were wrong for two books and unavailable
+for several others; the authoritative list is the live catalog
+(`bookmgr.exe/FINDBOOK?filter=&SUBMIT=Find`, 11,930 `BOOKS/<id>/CCONTENTS?DT=`
+entries) cross-checked with `AnalysisNotes/bookserver-dataset-2026-08-25.md`:
+
+| Book | DT | Note |
+| --- | --- | --- |
+| GC23-046 | `19920330095121` | `19930208105051` is the `-02` edition and answers with a cover page |
+| SC09-138 | `19910321130500` | earlier value was a different edition |
+| SC24-5520-00 | — | "could not be located in the BookServer catalog" |
+| SC24-5527-02, SC28-1881-05, SC09-2417-00, GX27-3999-00, packet | — | same; excluded from hosted sampling |
+| IEAC6MST | `19920124000100` | |
+| OFCUSEOV | `19900805103816` | |
+| N2AH1MST | `19910329000100` | |
+
+### Difference classes of the composed route
+
+| Class | Typed behaviour | Decision |
+| --- | --- | --- |
+| Figure image alt text | `![Figure 33\. …](<resource:16>)` repeats the caption; legacy wrote `![Resource 16]` | keep: the alt text is the caption hosted prints, and the legacy alt was wrong |
+| Figure anchor id | `FIG<id>` (hosted `<a name="FIGFDCE107">`); legacy truncated it to `FDCE107` | keep: matches hosted |
+| Table cell word boundaries | hosted splits `INFILE(` from `ddname` because `<kbd>`/`<var>` markup sits between them; the typed cell is one word | accept: markup-only boundary, no text lost |
+| Multi-line table cells | joined with `<br>`; legacy split them into extra columns and truncated cells (SC26-457 3.24 `INDATASET(entryna`) | keep: typed reproduces hosted |
+| Angle-bracketed literals (`\<stdio\.h\>`) | kept | keep: hosted prints them; only the word-diff harness has to ignore them |
+| A `c.<xx>` opcode glued to a text run by the decoder | rejects the topic | fail closed: hosted serves no such word (SH20-918 3.31.1, DREICMST 1.7.7.3, SH12-565 1.1.2, GG24-4302-00 8.1.5), and the previous behaviour printed it |

@@ -119,6 +119,7 @@ set(GEIST_SOURCES
   src/prose_topic_document_lowering.cpp
   src/prose_topic_ir.cpp
   src/prose_topic_lines.cpp
+  src/prose_topic_spans.cpp
   src/prose_topic_stream.cpp
   src/publication_document_lowering.cpp
   src/publication_ir.cpp
@@ -454,6 +455,17 @@ target_compile_definitions(prose_topic_ir_synthetic_test PRIVATE
 )
 add_test(NAME prose_topic_ir_synthetic_test
   COMMAND prose_topic_ir_synthetic_test)
+add_executable(prose_topic_spans_synthetic_test
+  tests/prose_topic_spans_synthetic.cpp
+)
+target_link_libraries(prose_topic_spans_synthetic_test
+  PRIVATE geist::geist_static
+)
+target_compile_definitions(prose_topic_spans_synthetic_test PRIVATE
+  GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+add_test(NAME prose_topic_spans_synthetic_test
+  COMMAND prose_topic_spans_synthetic_test)
 
 add_executable(generated_list_topic_ir_synthetic_test
   tests/generated_list_topic_ir_synthetic.cpp

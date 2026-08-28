@@ -3,6 +3,7 @@
 #include "geist/detail/document_ir.hpp"
 
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -24,12 +25,15 @@ struct TypedLoweringTraceIR {
 // Attempts one complete typed whole-topic representation from lossless source
 // records. A non-match or any rejected/ambiguous semantic envelope returns no
 // document, leaving the caller's existing whole-topic compatibility path
-// untouched.
+// untouched. `resource_ids` are the book's lower-cased resource catalog ids;
+// without them a figure span cannot prove its picture and its topic fails
+// closed.
 std::optional<DocumentIR> try_lower_topic_to_document_ir(
     TopicIdentityIR topic,
     const std::vector<DecodedLogicalRecordSource> &sources,
     const BookTopicCatalogIR *book_topic_catalog = nullptr,
     std::string *typed_rejection = nullptr,
-    TypedLoweringTraceIR *trace = nullptr);
+    TypedLoweringTraceIR *trace = nullptr,
+    const std::set<std::string> *resource_ids = nullptr);
 
 } // namespace geist::detail

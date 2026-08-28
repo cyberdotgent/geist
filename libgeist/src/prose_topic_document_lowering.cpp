@@ -1,6 +1,10 @@
 #include "geist/detail/prose_topic_document_lowering.hpp"
 
+#include "geist/detail/figure_document_lowering.hpp"
+#include "geist/detail/fixed_table_document_lowering.hpp"
+
 #include <algorithm>
+#include <tuple>
 #include <utility>
 
 namespace geist::detail {
@@ -38,6 +42,97 @@ EmphasisKindIR emphasis_kind(FontStyleIR style) {
 
 bool code_style(FontStyleIR style) {
   return style == FontStyleIR::example_phrase || style == FontStyleIR::keyword;
+}
+
+// The one selector whose payload holds every source cell of a table cell
+// line and whose column range (line-relative, origin cell == 0, like the
+// block's border and separator columns) meets the cell's column range, or
+// nullptr.  Positioned display columns are not used: the Layout IR can
+// split a table line into several physical rows, each with its own column
+// base (SC31-711 4.0 row 1).
+const ProseTableLinkIR* line_link(const ProseTopicIR& prose, std::size_t span,
+                                  const FixedTableBlockIR& block,
+                                  std::size_t cell_index,
+                                  const FixedTableCellLineIR& line) {
+  const auto cell_begin = (cell_index == 0
+                               ? block.left_column
+                               : block.separator_columns[cell_index - 1]) + 1;
+  const auto cell_end = cell_index < block.separator_columns.size()
+                            ? block.separator_columns[cell_index]
+                            : block.left_column + block.width;
+  const ProseTableLinkIR* result = nullptr;
+  for (const auto& link : prose.table_links) {
+    if (link.span != span) continue;
+    if (link.column >= cell_end || link.column + link.length <= cell_begin)
+      continue;
+    bool covers = !line.source_cells.empty() || !line.unpositioned_cells.empty();
+    const auto owned = [&](std::uint32_t record, std::size_t token) {
+      return record == link.logical_record &&
+             std::binary_search(link.payload_tokens.begin(),
+                                link.payload_tokens.end(), token);
+    };
+    for (const auto& cell : line.source_cells)
+      covers = covers && owned(cell.logical_record, cell.token_index);
+    for (const auto& cell : line.unpositioned_cells)
+      covers = covers && owned(cell.logical_record, cell.token_index);
+    if (!covers) continue;
+    if (result != nullptr) return nullptr;  // two selectors: ambiguous
+    result = &link;
+  }
+  return result;
+}
+
+// Replaces the text of every fully selector-covered cell line of the lowered
+// table rows by a cross reference to the selector target.  Rows correspond
+// one to one to the block's body rows; the caption is a paragraph and is
+// left as text.
+bool link_table_cells(const ProseTopicIR& prose, std::size_t span,
+                      const FixedTableBlockIR& block,
+                      std::vector<BlockIR>& lowered, std::string* error) {
+  const auto table = std::find_if(lowered.begin(), lowered.end(),
+                                  [](const auto& candidate) {
+                                    return std::holds_alternative<TableBlockIR>(
+                                        candidate.node);
+                                  });
+  if (table == lowered.end()) return fail(error, "table span has no table");
+  auto& rows = std::get<TableBlockIR>(table->node).rows;
+  if (rows.size() != block.body.size())
+    return fail(error, "lowered table rows differ from the block rows");
+  for (std::size_t row = 0; row < rows.size(); ++row) {
+    if (rows[row].cells.size() != block.body[row].cells.size())
+      return fail(error, "lowered table cells differ from the block cells");
+    for (std::size_t cell = 0; cell < rows[row].cells.size(); ++cell) {
+      auto& content = rows[row].cells[cell].content;
+      const auto& lines = block.body[row].cells[cell].lines;
+      // Lines alternate with hard breaks: text, break, text, ...
+      if (content.size() != (lines.empty() ? 0 : lines.size() * 2 - 1))
+        return fail(error, "lowered table cell lines differ from the block");
+      for (std::size_t line = 0; line < lines.size(); ++line) {
+        auto& node = content[line * 2];
+        const auto* text = std::get_if<TextInlineIR>(&node.node);
+        if (text == nullptr)
+          return fail(error, "lowered table cell line is not text");
+        const auto* link = line_link(prose, span, block, cell, lines[line]);
+        if (link == nullptr) continue;
+        CrossReferenceInlineIR reference;
+        reference.target = {CrossReferenceTargetKindIR::anchor, link->target};
+        reference.label = text->text;
+        node.node = std::move(reference);
+        node.origin.detail = "fixed table cell line (CSELECT reference)";
+        node.origin.slices.push_back(link->source);
+        std::sort(node.origin.slices.begin(), node.origin.slices.end(),
+                  [](const auto& left, const auto& right) {
+                    return std::make_tuple(left.logical_record,
+                                           left.segment_index, left.token_begin,
+                                           left.token_end) <
+                           std::make_tuple(right.logical_record,
+                                           right.segment_index,
+                                           right.token_begin, right.token_end);
+                  });
+      }
+    }
+  }
+  return true;
 }
 
 bool lower_inlines(const ProseBlockIR& block, InlineSequenceIR& content,
@@ -99,19 +194,65 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
   document.blocks.push_back(
       {HeadingBlockIR{level, {std::move(heading_text)}}, heading_origin});
 
-  const auto emit_anchors = [&](std::size_t position, bool after_menu = false) {
+  // Table and figure spans lower through their own typed blocks; the prose
+  // family only places them.
+  std::size_t emitted_spans = 0;
+  std::string span_error;
+  const auto emit_span = [&](const ProseSpanIR& span) -> bool {
+    if (span.kind == ProseSpanKindIR::table) {
+      if (span.index >= prose.tables.blocks.size())
+        return fail(&span_error, "table span addresses no table block");
+      const auto& table = prose.tables.blocks[span.index];
+      auto blocks = lower_fixed_table_block_to_document_ir(table);
+      if (blocks.empty()) return fail(&span_error, "table span lowered to nothing");
+      const auto span_index =
+          static_cast<std::size_t>(&span - prose.spans.data());
+      if (!link_table_cells(prose, span_index, table, blocks, &span_error))
+        return false;
+      for (auto& block : blocks) document.blocks.push_back(std::move(block));
+    } else {
+      if (span.index >= prose.figures.blocks.size())
+        return fail(&span_error, "figure span addresses no figure block");
+      auto blocks = lower_figure_block_to_document_blocks(
+          prose.figures.blocks[span.index], &span_error);
+      if (!blocks) return false;
+      for (auto& block : *blocks) document.blocks.push_back(std::move(block));
+    }
+    ++emitted_spans;
+    return true;
+  };
+  // Anchors and spans placed at one position keep their source order: a span
+  // follows the first `anchors_before` anchors of that position.
+  const auto emit_anchors = [&](std::size_t position,
+                                bool after_menu = false) -> bool {
+    std::size_t ordinal = 0;
+    const auto flush_spans = [&]() -> bool {
+      for (const auto& span : prose.spans)
+        if (span.position == position && span.anchors_before == ordinal &&
+            !emit_span(span))
+          return false;
+      return true;
+    };
+    if (!after_menu && !flush_spans()) return false;
     for (const auto& anchor : prose.anchors) {
       if (anchor.position != position || anchor.after_menu != after_menu)
         continue;
       document.blocks.push_back(
           {AnchorBlockIR{anchor.id},
            origin({anchor.source}, "prose source anchor")});
+      if (after_menu) continue;
+      ++ordinal;
+      if (!flush_spans()) return false;
     }
+    return true;
   };
 
   std::size_t index = 0;
   while (index < prose.blocks.size()) {
-    emit_anchors(index);
+    if (!emit_anchors(index)) {
+      fail(error, "prose span rejected: " + span_error);
+      return std::nullopt;
+    }
     const auto& block = prose.blocks[index];
     if (block.kind == ProseBlockKindIR::paragraph) {
       ParagraphBlockIR paragraph;
@@ -145,7 +286,14 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
     document.blocks.push_back(
         {std::move(list), origin(std::move(list_slices), "prose list")});
   }
-  emit_anchors(prose.blocks.size());
+  if (!emit_anchors(prose.blocks.size())) {
+    fail(error, "prose span rejected: " + span_error);
+    return std::nullopt;
+  }
+  if (emitted_spans != prose.spans.size()) {
+    fail(error, "prose span was never placed");
+    return std::nullopt;
+  }
 
   if (!prose.menu_items.empty()) {
     MenuBlockIR menu;

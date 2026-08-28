@@ -94,7 +94,8 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
     TopicIdentityIR topic,
     const std::vector<DecodedLogicalRecordSource> &sources,
     const BookTopicCatalogIR *book_topic_catalog,
-    std::string *typed_rejection, TypedLoweringTraceIR *trace) {
+    std::string *typed_rejection, TypedLoweringTraceIR *trace,
+    const std::set<std::string> *resource_ids) {
   if (typed_rejection != nullptr)
     typed_rejection->clear();
   if (trace != nullptr)
@@ -193,7 +194,8 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
     // Ordinary prose is offered last: only a topic every specific family
     // declined can be admitted here, so the family count stays at one.
     auto prose = extract_prose_topic_ir(sources, layout, ownership, topic.title,
-                                        book_topic_catalog, &error);
+                                        book_topic_catalog, &error,
+                                        resource_ids);
     if (!prose) {
       if (trace != nullptr)
         trace->declined.push_back("prose: " + error);
@@ -203,7 +205,8 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
     if (trace != nullptr)
       trace->family = "prose";
     if (!verify_prose_topic_ir(sources, layout, ownership, topic.title,
-                               book_topic_catalog, *prose, &error)) {
+                               book_topic_catalog, *prose, &error,
+                               resource_ids)) {
       reject(typed_rejection, "prose semantics rejected: " + error);
       return std::nullopt;
     }

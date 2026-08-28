@@ -3,6 +3,7 @@
 #include "geist/detail/book_topic_catalog_ir.hpp"
 #include "geist/detail/implicit_grid.hpp"
 #include "geist/detail/prose_topic_internal.hpp"
+#include "geist/detail/selector_ir.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -33,7 +34,7 @@ std::optional<ProseTopicIR> extract_prose_topic_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
     const LayoutIR& layout, const OwnershipIR& ownership,
     const std::string& title, const BookTopicCatalogIR* book_topic_catalog,
-    std::string* error) {
+    std::string* error, const std::set<std::string>* resource_ids) {
   const auto reject = [&](std::string message) -> std::optional<ProseTopicIR> {
     fail(error, std::move(message));
     return std::nullopt;
@@ -52,7 +53,15 @@ std::optional<ProseTopicIR> extract_prose_topic_ir(
   Ledger ledger(records);
   Envelope envelope;
   if (!parse_envelope(records, ledger, envelope, error)) return std::nullopt;
+  // Table and figure spans claim their regions before the stream pass, so
+  // the prose model only ever sees the tokens between them.
+  ProseTopicIR topic;
+  SpanPlan plan;
+  if (!plan_spans(records, layout, ownership, resource_ids, ledger, topic, plan,
+                  error))
+    return std::nullopt;
   StreamBuild stream;
+  stream.plan = &plan;
   if (!collect_stream(records, envelope, ledger, stream, error))
     return std::nullopt;
   // A plural CFONT header over repeated encoded row controls is a
@@ -74,7 +83,6 @@ std::optional<ProseTopicIR> extract_prose_topic_ir(
     return reject("ST title '" + lines.title +
                   "' does not match the topic title '" + title + "'");
 
-  ProseTopicIR topic;
   topic.record_count = records.size();
   topic.token_count = ledger.entries.size();
   topic.heading_level = envelope.heading_level;
@@ -117,7 +125,7 @@ std::optional<ProseTopicIR> extract_prose_topic_ir(
                     " belongs to no block");
   }
   topic.ledger = std::move(ledger.entries);
-  if (topic.blocks.empty() && topic.menu_items.empty())
+  if (topic.blocks.empty() && topic.menu_items.empty() && topic.spans.empty())
     return reject("topic body has no prose blocks");
   if (error != nullptr) error->clear();
   return topic;
@@ -127,7 +135,8 @@ bool verify_prose_topic_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
     const LayoutIR& layout, const OwnershipIR& ownership,
     const std::string& title, const BookTopicCatalogIR* book_topic_catalog,
-    const ProseTopicIR& topic, std::string* error) {
+    const ProseTopicIR& topic, std::string* error,
+    const std::set<std::string>* resource_ids) {
   std::size_t total = 0;
   for (const auto& record : records) total += record.ir.tokens.size();
   if (topic.ledger.size() != total || topic.token_count != total ||
@@ -136,6 +145,7 @@ bool verify_prose_topic_ir(
   std::set<std::pair<std::uint32_t, std::size_t>> seen;
   std::map<std::pair<std::uint32_t, std::size_t>, const ProseTokenDispositionIR*>
       by_token;
+  std::vector<std::size_t> span_tokens(topic.spans.size(), 0);
   for (const auto& entry : topic.ledger) {
     if (!seen.emplace(entry.token.logical_record, entry.token.token_index).second)
       return fail(error, "prose ledger lists a token twice");
@@ -143,9 +153,69 @@ bool verify_prose_topic_ir(
       return fail(error, "prose ledger holds an unassigned token");
     if ((entry.role == ProseTokenRoleIR::text) != (entry.block != npos))
       return fail(error, "text disposition and block ownership disagree");
+    const auto span_role = entry.role == ProseTokenRoleIR::table ||
+                           entry.role == ProseTokenRoleIR::figure;
+    if (span_role != (entry.span != npos))
+      return fail(error, "span disposition and span ownership disagree");
+    if (span_role) {
+      if (entry.span >= topic.spans.size())
+        return fail(error, "token is owned by a span that does not exist");
+      const auto& span = topic.spans[entry.span];
+      if ((span.kind == ProseSpanKindIR::table) !=
+          (entry.role == ProseTokenRoleIR::table))
+        return fail(error, "token role disagrees with its span kind");
+      ++span_tokens[entry.span];
+    }
     by_token.emplace(std::make_pair(entry.token.logical_record,
                                     entry.token.token_index),
                      &entry);
+  }
+  // Every span owns at least one token and addresses a verified block; the
+  // block verifiers re-extract the canonical blocks and check each claimed
+  // source cell against the ownership ledger.
+  for (std::size_t index = 0; index < topic.spans.size(); ++index) {
+    const auto& span = topic.spans[index];
+    if (span_tokens[index] == 0) return fail(error, "span owns no token");
+    if (span.position > topic.blocks.size())
+      return fail(error, "span position is outside the block sequence");
+    if (span.kind == ProseSpanKindIR::table
+            ? span.index >= topic.tables.blocks.size()
+            : span.index >= topic.figures.blocks.size())
+      return fail(error, "span addresses no typed block");
+  }
+  for (const auto& link : topic.table_links) {
+    if (link.span >= topic.spans.size() ||
+        topic.spans[link.span].kind != ProseSpanKindIR::table)
+      return fail(error, "table link belongs to no table span");
+    if (link.target.empty() || link.length == 0)
+      return fail(error, "table link is incomplete");
+    for (const auto token : link.payload_tokens) {
+      const auto found = by_token.find({link.logical_record, token});
+      if (found == by_token.end() ||
+          found->second->role != ProseTokenRoleIR::table ||
+          found->second->span != link.span)
+        return fail(error, "table link payload is not owned by its span");
+    }
+  }
+  {
+    std::string block_error;
+    if (!topic.tables.blocks.empty() || !topic.tables.declined.empty()) {
+      if (!verify_fixed_table_blocks_ir(records, layout, ownership,
+                                        {0, count_layout_rows(layout)},
+                                        topic.tables, &block_error))
+        return fail(error, "table spans rejected: " + block_error);
+    }
+    if (!topic.figures.blocks.empty() || !topic.figures.declined.empty()) {
+      SelectorCatalogIR selectors;
+      if (const auto catalog = extract_selector_catalog_ir(records))
+        selectors = *catalog;
+      const std::set<std::string> no_resources;
+      if (!verify_figure_blocks_ir(records, layout, ownership, selectors,
+                                   resource_ids != nullptr ? *resource_ids
+                                                           : no_resources,
+                                   topic.figures, &block_error))
+        return fail(error, "figure spans rejected: " + block_error);
+    }
   }
   // Every text token is covered by exactly one inline slice and every inline
   // slice covers only text tokens of its own inline.
@@ -176,8 +246,9 @@ bool verify_prose_topic_ir(
     if (entry.role == ProseTokenRoleIR::text &&
         covered.count({entry.token.logical_record, entry.token.token_index}) == 0)
       return fail(error, "visible token is covered by no inline");
-  const auto canonical = extract_prose_topic_ir(records, layout, ownership,
-                                                title, book_topic_catalog, error);
+  const auto canonical =
+      extract_prose_topic_ir(records, layout, ownership, title,
+                             book_topic_catalog, error, resource_ids);
   if (!canonical) return false;
   if (format_prose_topic_ir(*canonical) != format_prose_topic_ir(topic))
     return fail(error, "prose topic differs from canonical extraction");
@@ -202,6 +273,8 @@ const char* prose_token_role_name(ProseTokenRoleIR role) {
   case ProseTokenRoleIR::index_keyword: return "index_keyword";
   case ProseTokenRoleIR::index_term: return "index_term";
   case ProseTokenRoleIR::menu: return "menu";
+  case ProseTokenRoleIR::table: return "table";
+  case ProseTokenRoleIR::figure: return "figure";
   }
   return "invalid";
 }
@@ -272,6 +345,25 @@ std::string format_prose_topic_ir(const ProseTopicIR& topic) {
     format_slices(out, {item.source});
     out << '\n';
   }
+  for (std::size_t index = 0; index < topic.spans.size(); ++index) {
+    const auto& span = topic.spans[index];
+    out << "span " << index << ' '
+        << (span.kind == ProseSpanKindIR::table ? "table" : "figure")
+        << " index=" << span.index << " position=" << span.position
+        << " anchors_before=" << span.anchors_before << '\n';
+  }
+  for (const auto& link : topic.table_links) {
+    out << "table_link span=" << link.span << " column=" << link.column
+        << " length=" << link.length << " target=" << link.target
+        << " record=" << link.logical_record << " payload=";
+    for (const auto token : link.payload_tokens) out << token << ',';
+    format_slices(out, {link.source});
+    out << '\n';
+  }
+  if (!topic.tables.blocks.empty() || !topic.tables.declined.empty())
+    out << "tables\n" << format_fixed_table_blocks_ir(topic.tables);
+  if (!topic.figures.blocks.empty() || !topic.figures.declined.empty())
+    out << "figures\n" << format_figure_blocks_ir(topic.figures);
   std::map<ProseTokenRoleIR, std::size_t> counts;
   for (const auto& entry : topic.ledger) ++counts[entry.role];
   out << "ledger";
@@ -279,6 +371,13 @@ std::string format_prose_topic_ir(const ProseTopicIR& topic) {
     out << ' ' << prose_token_role_name(role) << '=' << count;
   out << '\n';
   for (const auto& entry : topic.ledger) {
+    if (entry.role == ProseTokenRoleIR::table ||
+        entry.role == ProseTokenRoleIR::figure) {
+      out << "  " << prose_token_role_name(entry.role) << ' '
+          << entry.token.logical_record << ':' << entry.token.token_index
+          << " span=" << entry.span << '\n';
+      continue;
+    }
     if (entry.role != ProseTokenRoleIR::text) continue;
     out << "  text " << entry.token.logical_record << ':'
         << entry.token.token_index << " block=" << entry.block
