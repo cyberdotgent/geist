@@ -129,12 +129,15 @@ int main() {
             "heading-attached topic prose was discarded");
   }
 
+  // Typed route (prose composition over the fixed-table block): the rows
+  // match hosted BookServer DT 19950308184737 cell for cell; the legacy
+  // renderer merged the spanning group row into the row after it.
   const auto dbctl_table = split_header.topic_markdown("10.2");
-  require(dbctl_table.find(
-              "| Processing Cost Enhancements | N-way data sharing | ** |") !=
+  require(dbctl_table.find("| Processing Cost Enhancements |  |  |\n"
+                           "| N\\-way data sharing | \\*\\* | \\*\\* |") !=
               std::string::npos,
           "explicit table row boundaries were merged");
-  require(dbctl_table.find("| Dropped Local DL/1 support |  |  |") !=
+  require(dbctl_table.find("| Dropped Local DL/1 support |  | \\* |") !=
               std::string::npos,
           "final explicit table rows were discarded");
 
@@ -162,7 +165,7 @@ int main() {
   for (const auto* expected : {"END/SEC   12.03", "ENDED     10826",
                                "RESPONSE TIME BREAKDOWN",
                                "INTERVAL 14.59.579", "RESOURCE GROUP=*NONE",
-                               "Figure 13."}) {
+                               "Figure 13\\."}) {
     require(rmf_reports.find(expected) != std::string::npos,
             "fixed report lost a representative row");
   }

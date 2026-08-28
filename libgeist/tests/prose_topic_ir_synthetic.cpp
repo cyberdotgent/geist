@@ -19,6 +19,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -42,6 +43,7 @@ struct LoadedBook {
   BooDocument document;
   LogicalDecodeContext context;
   std::optional<BookTopicCatalogIR> catalog;
+  std::set<std::string> resource_ids;
 
   explicit LoadedBook(const std::filesystem::path& path)
       : document(BooDocument::open(path)) {
@@ -66,6 +68,8 @@ struct LoadedBook {
     std::string error;
     catalog = build_book_topic_catalog_ir(document.topics(),
                                           document.table_of_contents(), &error);
+    for (const auto& resource : document.resources())
+      resource_ids.insert(ascii_lower(resource.id));
   }
 };
 
@@ -88,6 +92,7 @@ struct Extracted {
   OwnershipIR ownership;
   TopicIdentityIR identity;
   const BookTopicCatalogIR* catalog = nullptr;
+  const std::set<std::string>* resource_ids = nullptr;
   std::optional<ProseTopicIR> prose;
   std::string error;
 };
@@ -113,9 +118,11 @@ Extracted extract(const std::string& file, const std::string& id) {
   result.identity.start_logical_record = info->start_logical_record;
   result.identity.end_logical_record = info->end_logical_record;
   result.catalog = loaded.catalog ? &*loaded.catalog : nullptr;
+  result.resource_ids = &loaded.resource_ids;
   result.prose = extract_prose_topic_ir(result.sources, result.layout,
                                         result.ownership, entry->title,
-                                        result.catalog, &result.error);
+                                        result.catalog, &result.error,
+                                        result.resource_ids);
   return result;
 }
 
@@ -130,7 +137,8 @@ std::string admit(const std::string& file, const std::string& id,
   std::string error;
   require(verify_prose_topic_ir(extracted.sources, extracted.layout,
                                 extracted.ownership, extracted.identity.title,
-                                extracted.catalog, *extracted.prose, &error),
+                                extracted.catalog, *extracted.prose, &error,
+                                extracted.resource_ids),
           label + " verification failed: " + error);
   for (const auto& entry : extracted.prose->ledger)
     require(entry.role != ProseTokenRoleIR::unassigned,
@@ -143,7 +151,8 @@ std::string admit(const std::string& file, const std::string& id,
           label + " document verification failed: " + error);
   std::string rejection;
   const auto routed = try_lower_topic_to_document_ir(
-      extracted.identity, extracted.sources, extracted.catalog, &rejection);
+      extracted.identity, extracted.sources, extracted.catalog, &rejection,
+      nullptr, extracted.resource_ids);
   require(routed.has_value(), label + " dispatcher declined: " + rejection);
   if (routed) {
     const auto prose_block = std::find_if(
@@ -357,8 +366,10 @@ void mutation_fixtures() {
 }
 
 void negative_fixtures() {
-  reject("SC31-711.boo", "3.2", "SRFIGTRPFLOW is not a bare anchor");
-  reject("ACPZMST1.boo", "FRONT_1.2", "SRTBLTBLUNIQ1 is outside the prose");
+  // Tables and figures compose (tests/prose_topic_spans_synthetic.cpp); a
+  // declined envelope still rejects the whole topic.
+  reject("ACPZMST1.boo", "FRONT_1.2",
+         "table envelope 'TBLUNIQ1' declined: cell text has an unaligned gap: 'AIX/6000                 AIXwindows'");
   reject("ITPPIBOK.BOO", "1.3.7", "picture or external link");
   reject("SC24-546.boo", "3.1", "metadata controls are incomplete");
   reject("PRG1SORT.boo", "1.1.5.1", "control-like word 'SRCFILE'");

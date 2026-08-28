@@ -47,6 +47,8 @@ struct LineBuilder {
   // spacing tokens.
   std::size_t next_token(std::size_t index) const {
     for (auto cursor = index + 1; cursor < items.size(); ++cursor) {
+      // A table/figure span is a hard boundary: no row geometry crosses it.
+      if (items[cursor].kind == ItemKind::span) return npos;
       if (items[cursor].kind != ItemKind::token) continue;
       if (is_bare(items[cursor].token)) continue;
       return cursor;
@@ -399,6 +401,17 @@ struct LineBuilder {
         line_open = false;
         break;
       }
+      case ItemKind::span:
+        if (!finish_title() || !finish_index()) return false;
+        // A CFONT/CSELECT whose display text lies inside the span styles the
+        // block's own content; the block models it and owns those tokens.
+        pending_controls.clear();
+        out.span_marks.push_back(
+            {item.span_index, out.lines.size(), out.body_anchors.size()});
+        line_open = false;
+        pending_space = false;
+        skip_until = npos;
+        break;
       case ItemKind::token:
         if (!token(index)) return false;
         break;
@@ -726,6 +739,27 @@ struct LineBuilder {
                     [](const auto word) { return word == unmapped_word; }))
       return fail(error, "unmapped word '" + body_text(view) +
                              "' inside prose text at " + where(view));
+    // A `c.<xx>` word is a body control opcode, never visible text: the
+    // `c.cp <n>` pagination form is modelled by the stream pass and hosted
+    // BookServer serves no such word at all (checked on SH20-918 3.31.1,
+    // DREICMST 1.7.7.3, SH12-565 1.1.2 and GG24-4302-00 8.1.5).  When the
+    // decoder loses the control boundary the opcode stays glued to a text
+    // run; fail the topic closed instead of printing the control.
+    {
+      const auto text = body_text(view);
+      for (std::size_t at = text.find("c."); at != std::string::npos;
+           at = text.find("c.", at + 1)) {
+        if (at != 0 && text[at - 1] != ' ') continue;
+        std::size_t end = at + 2;
+        while (end < text.size() &&
+               std::islower(static_cast<unsigned char>(text[end])) != 0)
+          ++end;
+        if (end - at < 4) continue;  // `c.` plus at least two opcode letters
+        if (end != text.size() && text[end] != ' ') continue;
+        return fail(error, "body control '" + text.substr(at, end - at) +
+                               "' is glued into prose text at " + where(view));
+      }
+    }
     return append_visible(view, ProseTokenRoleIR::text);
   }
 

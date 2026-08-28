@@ -78,8 +78,12 @@ std::vector<BlockIR>
 lower_fixed_table_block_to_document_ir(const FixedTableBlockIR &block) {
   std::vector<BlockIR> result;
 
+  // Hosted BookServer names the table anchor after the whole SRTBL opcode
+  // without its `SR` prefix: SC31-711 4.0 `SRTBLTBLUNIQ6` is served as
+  // `<a name="TBLTBLUNIQ6">`, and cross references select the same spelling
+  // (GG24-4302-00 10.2 `cselect ... TBLDBCTL51` for `SRTBLDBCTL51`).
   BlockIR anchor;
-  anchor.node = AnchorBlockIR{block.object_id};
+  anchor.node = AnchorBlockIR{"TBL" + block.object_id};
   anchor.origin = origin_for("fixed table object");
   anchor.origin.slices.push_back(block.object_source);
   result.push_back(std::move(anchor));

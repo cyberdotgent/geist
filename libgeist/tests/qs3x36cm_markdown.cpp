@@ -96,12 +96,16 @@ int main() {
   require_contains(contents, "Summarize", "generated contents summary marker");
 
   const auto appendix = topic_markdown(document, "A.0");
+  // A.0 renders through the typed prose route (composed table span): the
+  // heading keeps the hosted text with the typed renderer's escaping and
+  // single-space normalization (hosted `<H1> A.0   Appendix.  AS/400 Control
+  // Language Commands</H1>`, DT 19910524075122).
   require_contains(appendix,
-                   "# A.0 Appendix.  AS/400 Control Language Commands",
+                   "# A\\.0 Appendix\\. AS/400 Control Language Commands",
                    "appendix heading");
   require_contains(appendix,
                    "Following is a complete list of the AS/400 control "
-                   "language (CL) commands",
+                   "language \\(CL\\) commands",
                    "appendix prose");
   if (appendix.find("# Appendix. AS/400 Control Language Commands Following") !=
       std::string::npos) {

@@ -465,6 +465,72 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
       for (const auto token : segment.source_tokens)
         if (token < claimed.size()) claimed[token] = true;
       const auto lower_opcode = ascii_lower(segment.opcode);
+      if (build.plan != nullptr) {
+        // A segment of a planned table/figure region: the region's tokens
+        // are already owned by their span (prose_topic_spans.cpp); the span
+        // enters the stream once, at its first segment, and any token of
+        // the closing segment the region does not own (`SREFIG? The
+        // routers ...`) is body text.
+        const auto* region =
+            build.plan->region_of_segment(record_index, segment_index);
+        const auto* frame =
+            build.plan->frame_of_segment(record_index, segment_index);
+        if (region != nullptr || frame != nullptr) {
+          if (!title_seen)
+            return fail(error, "table/figure region precedes the ST title");
+          if (menu_open)
+            return fail(error, "content follows the trailing menu");
+          if (frame != nullptr && frame->begin_record == record_index &&
+              frame->begin_segment == segment_index) {
+            Item item;
+            item.kind = ItemKind::anchor;
+            item.anchor_id = frame->anchor_id;
+            item.source = frame->source;
+            build.items.push_back(std::move(item));
+          }
+          if (region != nullptr && region->begin_record == record_index &&
+              region->begin_segment == segment_index) {
+            Item item;
+            item.kind = ItemKind::span;
+            item.span_index = region->span;
+            build.items.push_back(std::move(item));
+          }
+          bool first_payload = true;
+          for (const auto token : segment.source_tokens) {
+            if (ledger.at(record_index, token).role !=
+                ProseTokenRoleIR::unassigned)
+              continue;
+            const auto view = view_token(records, record_index, token);
+            // Spacing and the punctuation the decoder glues to the end
+            // marker (`SREFIG.`, GG24-4302-00 5.1.8) precede any payload.
+            if (first_payload &&
+                (is_padding(view) || is_separator(view) ||
+                 (punctuation_glyph_token(view) &&
+                  std::all_of(view.body.begin(), view.body.end(),
+                              [](const auto word) {
+                                return word == '.' || word == ',' ||
+                                       word == ';';
+                              })))) {
+              if (!ledger.assign(record_index, token, ProseTokenRoleIR::padding,
+                                 error))
+                return false;
+              continue;
+            }
+            Item item;
+            item.kind = ItemKind::token;
+            item.token = view_token(records, record_index, token);
+            item.continuation_start = first_payload;
+            first_payload = false;
+            build.items.push_back(std::move(item));
+          }
+          if (!first_payload) {
+            Item end;
+            end.kind = ItemKind::segment_end;
+            build.items.push_back(std::move(end));
+          }
+          continue;
+        }
+      }
       const auto push_payload = [&](ProseTokenRoleIR control_role,
                                     bool title_payload, bool index_payload,
                                     bool continuation) -> bool {

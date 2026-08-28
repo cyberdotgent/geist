@@ -21,7 +21,9 @@ int main() {
     }
   }
   for (const auto* expected : {
-           "| Action Code | Event Type | Event or Alert Text |",
+           // Typed route: the two-line header keeps its hosted line break
+           // (DT 19911015203151 shows `Action` / `Code` on two rows).
+           "| Action<br>Code | Event<br>Type | Event or Alert Text |",
            "TRANSFER MICROCODE DUMP",
            "MACHINE CHECK:STORE CONTROLLER",
            "USER APPLICATION GENERATED",
@@ -51,7 +53,7 @@ int main() {
   const auto event_3725 = document.topic_markdown("3.8");
   const auto event_3647 = document.topic_markdown("3.3");
   for (const auto* expected : {
-           "| Event Code | Qualifier 1 | Qualifier 2 | Qualifier 3 |",
+           "| Event<br>Code | Qualifier 1 | Qualifier 2 | Qualifier 3 |",
            "| 00504 | Panel message |  |  |",
            "| 00505 | Panel message |  |  |",
        }) {

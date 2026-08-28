@@ -85,14 +85,16 @@ int main() {
                        "Of**ficial I**n**troductory C**h**apter**",
                        "torn Official Introductory Chapter emphasis");
 
+  // Typed route (prose composition): the renderer escapes sentence
+  // punctuation; the words are those of hosted DT 19910524085706.
   const auto typical_system = topic_markdown(document, "1.2");
   require_contains(typical_system,
                    "Computers come in many forms and are used for many "
-                   "different things. Here",
+                   "different things\\. Here",
                    "aligned SI visible opening paragraph");
   require_contains(typical_system,
                    "There are many different devices for input, process, "
-                   "output, and storage.",
+                   "output, and storage\\.",
                    "aligned SI visible later paragraph");
   require_not_contains(typical_system,
                        "computer, description of",
@@ -247,13 +249,16 @@ int main() {
     }
   }
 
+  // Typed route: the fixed-table block keeps the source's double space in
+  // the caption and the five hosted columns (the legacy renderer shifted the
+  // `Prompt` row by one column).
   const auto function_keys = topic_markdown(document, "F.1");
   require_contains(function_keys,
-                   "Figure F-1. Function Key Differences",
+                   "Figure  F\\-1\\. Function Key Differences",
                    "function-key table title");
   require_contains(function_keys,
-                   "| Help | CF4 | Requests command<br>name or parameter"
-                   "<br>value assistance | Refresh |",
+                   "| Prompt | F4 | Help | CF4 | Requests command<br>name or "
+                   "parameter<br>value assistance |",
                    "function-key table row");
   require_not_contains(function_keys,
                        "```text",

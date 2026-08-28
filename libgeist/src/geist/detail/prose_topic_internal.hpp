@@ -8,12 +8,14 @@
 #include <cstdint>
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
 
 // Internal working types of the prose topic family, shared by its
-// extraction units: prose_topic_stream.cpp (envelope and body token stream),
+// extraction units: prose_topic_spans.cpp (table/figure span plan),
+// prose_topic_stream.cpp (envelope and body token stream),
 // prose_topic_lines.cpp (display rows), prose_topic_blocks.cpp (blocks,
 // inlines, trailing menu) and prose_topic_ir.cpp (extraction entry point,
 // verification, formatting).
@@ -61,12 +63,21 @@ std::string body_text(const TokenView& view);
 
 std::size_t segment_of(const DecodedLogicalRecordSource& record,
                        std::size_t token);
+// Tokens whose decoded output intersects the opcode/operand ranges of a
+// segment (sorted ascending); the remaining segment tokens are its payload.
+std::vector<std::size_t> operand_tokens(
+    const DecodedLogicalRecordSource& record, const ControlSegmentIR& segment);
 DocumentSourceSliceIR token_slice(const DecodedLogicalRecordSource& record,
                                   std::size_t begin, std::size_t end);
 std::vector<DocumentSourceSliceIR> slices_for(
     const std::vector<DecodedLogicalRecordSource>& records,
     const std::vector<std::pair<std::size_t, std::size_t>>& refs);
 bool valid_anchor_id(const std::string& value);
+// `<column> <length> <target>` selector operands.
+bool parse_selector_operand(const std::string& text, std::size_t& column,
+                            std::size_t& length, std::string& target);
+std::string operand_text(const DecodedLogicalRecordSource& record,
+                         const OutputRangeIR& range);
 std::string normalize_title(std::string value);
 
 enum class ItemKind {
@@ -74,6 +85,7 @@ enum class ItemKind {
   font,
   select,
   anchor,
+  span,  // a table/figure span; every token of its region is already owned
   segment_end,
   layout,  // a `CZ` layout directive (prose_topic_cz.cpp)
 };
@@ -104,6 +116,7 @@ struct Item {
   std::size_t length = 0;
   std::string target;
   std::string anchor_id;
+  std::size_t span_index = 0;
   DocumentSourceSliceIR source;
   LayoutDirective directive;
 };
@@ -127,7 +140,7 @@ struct Ledger {
     return entries[index.at({(*records)[record].logical_record, token})];
   }
   bool assign(std::size_t record, std::size_t token, ProseTokenRoleIR role,
-              std::string* error) {
+              std::string* error, std::size_t span = npos) {
     auto& entry = at(record, token);
     if (entry.role != ProseTokenRoleIR::unassigned) {
       return fail(error, "token " + std::to_string(token) + " of record " +
@@ -135,9 +148,75 @@ struct Ledger {
                              " received two dispositions");
     }
     entry.role = role;
+    entry.span = span;
     return true;
   }
 };
+
+// Source extent of one table/figure span: the segments of records
+// [begin_record, end_record] from the region's first token to its last
+// owned token.  A segment inside a region is skipped by the stream pass;
+// tokens of the closing segment that the region does not own (the prose
+// glued after `SRETBL`/`SREFIG`) enter the stream as body text.
+struct SpanRegion {
+  std::size_t span = 0;
+  std::size_t begin_record = 0;
+  std::size_t begin_segment = 0;
+  std::size_t begin_token = 0;
+  std::size_t end_record = 0;
+  std::size_t end_segment = 0;
+  std::size_t end_token = 0;  // inclusive
+};
+
+// A picture-less `SRFIG<id> ... SREFIG` frame around one or more table
+// spans (SC31-711 4.0 `SRFIGTBLUNIQ6` around `SRTBLTBLUNIQ6`; hosted
+// BookServer serves `<a name="FIGTBLUNIQ6">` before the table anchor).  The
+// frame contributes only its anchor; its outline placeholders are padding
+// and every visible token inside it belongs to a table span.
+struct FrameRegion {
+  std::size_t begin_record = 0;
+  std::size_t begin_segment = 0;
+  std::size_t end_record = 0;
+  std::size_t end_segment = 0;
+  std::string anchor_id;
+  DocumentSourceSliceIR source;
+};
+
+struct SpanPlan {
+  std::vector<SpanRegion> regions;  // source order
+  std::vector<FrameRegion> frames;
+  template <typename Region>
+  static const Region* find_segment(const std::vector<Region>& list,
+                                    std::size_t record, std::size_t segment) {
+    for (const auto& region : list) {
+      if (record < region.begin_record || record > region.end_record) continue;
+      if (record == region.begin_record && segment < region.begin_segment)
+        continue;
+      if (record == region.end_record && segment > region.end_segment)
+        continue;
+      return &region;
+    }
+    return nullptr;
+  }
+  const SpanRegion* region_of_segment(std::size_t record,
+                                      std::size_t segment) const {
+    return find_segment(regions, record, segment);
+  }
+  const FrameRegion* frame_of_segment(std::size_t record,
+                                      std::size_t segment) const {
+    return find_segment(frames, record, segment);
+  }
+};
+
+// Extracts every table envelope and figure region of the topic, fails
+// closed on any decline, claims every token of every region in the ledger
+// (block cells with the span's role, blank/placeholder tokens as region
+// structure, anything visible rejects) and records the spans on `topic`
+// without positions.
+bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
+                const LayoutIR& layout, const OwnershipIR& ownership,
+                const std::set<std::string>* resource_ids, Ledger& ledger,
+                ProseTopicIR& topic, SpanPlan& plan, std::string* error);
 
 struct Envelope {
   std::string heading_level;
@@ -148,6 +227,7 @@ struct Envelope {
 };
 
 struct StreamBuild {
+  const SpanPlan* plan = nullptr;  // input: table/figure regions to skip
   std::vector<Item> items;
   std::vector<ProseAnchorIR> leading_anchors;
   std::vector<ProseAnchorIR> trailing_anchors;
@@ -193,8 +273,18 @@ struct Line {
   std::vector<Span> links;
 };
 
+// A table/figure span between two display lines: the span precedes
+// lines[line] (== lines.size() at the end) and follows the first
+// `anchors_seen` body anchors.
+struct SpanMark {
+  std::size_t span = 0;
+  std::size_t line = 0;
+  std::size_t anchors_seen = 0;
+};
+
 struct LineBuild {
   std::vector<Line> lines;
+  std::vector<SpanMark> span_marks;
   std::vector<ProseAnchorIR> body_anchors;
   std::vector<ProseIndexTermIR> index_terms;
   std::string title;

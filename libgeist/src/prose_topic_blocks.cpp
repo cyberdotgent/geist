@@ -207,6 +207,13 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
   std::vector<std::pair<std::size_t, std::size_t>> ranges;  // [begin,end)
   std::vector<bool> is_item;
   std::vector<std::size_t> origins;
+  // A table/figure span between two lines ends the block before it.
+  std::set<std::size_t> span_lines;
+  for (const auto& mark : lines_build.span_marks) {
+    if (mark.span >= topic.spans.size() || mark.line > lines.size())
+      return fail(error, "span mark addresses no span or line");
+    span_lines.insert(mark.line);
+  }
   std::size_t index = 0;
   std::size_t carried_breaks = 0;
   while (index < lines.size()) {
@@ -224,6 +231,7 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
     auto end = index + 1;
     while (end < lines.size()) {
       const auto& next = lines[end];
+      if (span_lines.count(end) != 0) break;
       if (next.breaks_before != 0 || next.anchor_before || next.bullet) break;
       if (next.cells.size() <= next.text_begin) break;
       if (first.bullet && next.origin <= first.origin) break;
@@ -255,6 +263,7 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
   }
   // Anchors: leading ones precede block 0; body anchors precede the block
   // that starts at their line, or the end.
+  const auto leading_anchors = topic.anchors.size();
   for (std::size_t anchor = 0; anchor < lines_build.body_anchors.size();
        ++anchor) {
     auto placed = lines_build.body_anchors[anchor];
@@ -268,6 +277,32 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
     }
     topic.anchors.push_back(std::move(placed));
   }
+  // Spans precede the first block starting at or after their line (or the
+  // end) and, within that position, follow the leading anchors and the body
+  // anchors already seen at their line.
+  std::vector<bool> placed_spans(topic.spans.size(), false);
+  for (const auto& mark : lines_build.span_marks) {
+    if (placed_spans[mark.span])
+      return fail(error, "span is marked twice");
+    placed_spans[mark.span] = true;
+    std::size_t position = ranges.size();
+    for (std::size_t block_index = 0; block_index < ranges.size(); ++block_index)
+      if (ranges[block_index].first >= mark.line) {
+        position = block_index;
+        break;
+      }
+    auto& span = topic.spans[mark.span];
+    span.position = position;
+    span.anchors_before = position == 0 ? leading_anchors : 0;
+    for (std::size_t anchor = 0;
+         anchor < mark.anchors_seen && anchor < lines_build.body_anchors.size();
+         ++anchor)
+      if (topic.anchors[leading_anchors + anchor].position == position)
+        ++span.anchors_before;
+  }
+  if (std::any_of(placed_spans.begin(), placed_spans.end(),
+                  [](const bool placed) { return !placed; }))
+    return fail(error, "table/figure span never reached the body stream");
   return true;
 }
 

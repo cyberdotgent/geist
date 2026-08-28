@@ -40,7 +40,9 @@ int main() {
                   std::string::npos,
           "qualified all-E gate changed FA1PLMM0 DFHPEP listing");
   const auto destination_table = fa1.topic_markdown("H.2");
-  require(destination_table.find("```text") != std::string::npos &&
+  // H.2 renders through the typed prose route; the composed figure span
+  // opens its preformatted block with a bare fence.
+  require(destination_table.find("```") != std::string::npos &&
               destination_table.find("DFHDCT TYPE=INITIAL,SUFFIX=SP") !=
                   std::string::npos,
           "qualified all-E gate changed FA1PLMM0 appendix listing");

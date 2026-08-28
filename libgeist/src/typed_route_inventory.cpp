@@ -272,7 +272,8 @@ detail::TypedRouteInventoryIR BooDocument::typed_route_inventory() const {
 
     TypedLoweringTraceIR trace;
     const auto document = try_lower_topic_to_document_ir(
-        identity, sources, topic_catalog_ir_.get(), &topic.rejection, &trace);
+        identity, sources, topic_catalog_ir_.get(), &topic.rejection, &trace,
+        &resource_ids);
     topic.family = trace.family;
     topic.declined = std::move(trace.declined);
     topic.route = document ? TypedRouteKind::typed : TypedRouteKind::legacy;
