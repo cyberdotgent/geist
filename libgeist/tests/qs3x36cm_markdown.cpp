@@ -34,9 +34,10 @@ int main() {
   const auto intro = topic_markdown(document, "1.0");
   require_contains(intro,
                    "[Appendix, \"AS/400 Control Language Commands\" in topic "
-                   "A.0](#HDRAPA). Detailed information",
+                   "A\\.0](<#HDRAPA>)\\. Detailed information",
                    "column-selected Appendix link");
-  require_contains(intro, "the *CL* *Reference*.", "HP1 CL Reference spans");
+  // Typed prose merges adjacent same-style CFONT words into one span.
+  require_contains(intro, "the *CL Reference*\\.", "HP1 CL Reference spans");
 
   const auto online = topic_markdown(document, "1.1");
   require_contains(online, "*verb* part of the command", "verb emphasis");

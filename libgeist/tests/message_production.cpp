@@ -274,8 +274,9 @@ int main() {
           "terminal message 2505 lost its Meaning or Action content");
 
   const auto legacy = document.topic_markdown("2.1");
+  // 2.1 renders through the typed prose family (`<#id>` menu destinations).
   require(legacy.find("Subtopics:") != std::string::npos &&
-              legacy.find("](#2.1.1)") != std::string::npos,
+              legacy.find("](<#2.1.1>)") != std::string::npos,
           "non-message topic lost the legacy fallback route");
 #endif
 }
