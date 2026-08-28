@@ -41,6 +41,7 @@ enum class ProseTokenRoleIR {
   index_keyword,   // the `SI` word
   index_term,      // hidden subject-index term words
   menu,            // CMENU/CMITEM/CEMENU tokens (validated separately)
+  ordinal,         // explicit item number of a CZ ordered-list row (`1.`)
 };
 
 struct ProseTokenRefIR {
@@ -71,16 +72,40 @@ struct ProseInlineIR {
   std::vector<DocumentSourceSliceIR> slices;
 };
 
+// The `CZ` dialect (Format/markup.md, "CZ layout directives") adds the
+// explicit block kinds below; the flattened dialect only produces paragraphs
+// and list items.
 enum class ProseBlockKindIR {
   paragraph,
   list_item,
+  definition_entry,  // `CZ FLOW DT`: term inlines, then definition inlines
+  heading,           // `CZ FLOW H2`..`H5` with visible text
+  note,              // `CZ FLOW NT` / `NOTE`: label inlines, then content
+  footnote,          // `CZ FLOW FN` between `SRFTN<id>` and `SREFTN`
+  preformatted,      // `CZ OFF XMP` .. `CZ OFF EXMP`: verbatim display rows
 };
 
 struct ProseBlockIR {
   ProseBlockKindIR kind = ProseBlockKindIR::paragraph;
-  // Consecutive list items sharing a list ordinal form one list.
+  // Consecutive list items (or definition entries) sharing a list ordinal
+  // form one list.
   std::size_t list_ordinal = 0;
   std::size_t origin = 0;
+  // List items of an ordered list (`CZ FLOW OL` / `NOTEL`); `ordinal` is the
+  // explicit source number text (`1.`) when the row carries one.
+  bool ordered = false;
+  std::string ordinal;
+  // Heading level (2..5) of a heading block.
+  std::size_t heading_level = 0;
+  // Footnote anchor id of a footnote block.
+  std::string anchor_id;
+  // The first `term_inline_count` inlines form the term (definition entry)
+  // or the label (note); the remaining inlines are the body.
+  std::size_t term_inline_count = 0;
+  // Preformatted blocks: the display rows verbatim (common indent removed,
+  // blank rows kept); `inlines` then holds one text inline per non-blank
+  // row for provenance.
+  std::vector<std::string> preformatted_lines;
   std::vector<ProseInlineIR> inlines;
   std::vector<DocumentSourceSliceIR> slices;
 };
@@ -132,5 +157,6 @@ bool verify_prose_topic_ir(
     const ProseTopicIR& topic, std::string* error = nullptr);
 std::string format_prose_topic_ir(const ProseTopicIR& topic);
 const char* prose_token_role_name(ProseTokenRoleIR role);
+const char* prose_block_kind_name(ProseBlockKindIR kind);
 
 } // namespace geist::detail

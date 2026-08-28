@@ -75,6 +75,20 @@ enum class ItemKind {
   select,
   anchor,
   segment_end,
+  layout,  // a `CZ` layout directive (prose_topic_cz.cpp)
+};
+
+// One `CZ <mode> <tag> [<left> <indent>]` directive of the CZ dialect
+// (Format/markup.md, "CZ layout directives").  `mode` and `tag` are lower
+// case; `anchor_id` carries the `SRFTN<id>` of a footnote (`flow fn`) and
+// `SREFTN` arrives as `off fn`.
+struct LayoutDirective {
+  std::string mode;  // flow, off, break
+  std::string tag;   // p, pc, ul, li, dl, dt, nt, fn, h2, eul, xmp, ...
+  std::size_t left = 0;
+  std::size_t indent = 0;
+  std::string anchor_id;
+  DocumentSourceSliceIR source;
 };
 
 struct Item {
@@ -91,6 +105,7 @@ struct Item {
   std::string target;
   std::string anchor_id;
   DocumentSourceSliceIR source;
+  LayoutDirective directive;
 };
 
 struct Ledger {
@@ -167,7 +182,12 @@ struct Line {
   bool anchor_before = false;
   std::size_t anchor_index = npos;
   bool bullet = false;
-  std::size_t text_begin = 0;  // first cell after origin/bullet/gap
+  // First text cell: the cells before it are the origin run, a bullet glyph
+  // or slot, a change bar, and (CZ ordered items) the ordinal label.
+  std::size_t text_begin = 0;
+  // Governing CZ directive (index into LineBuild::directives), npos in the
+  // flattened dialect.
+  std::size_t directive = npos;
   std::vector<Cell> cells;
   std::vector<Span> fonts;
   std::vector<Span> links;
@@ -179,15 +199,36 @@ struct LineBuild {
   std::vector<ProseIndexTermIR> index_terms;
   std::string title;
   std::vector<std::pair<std::size_t, std::size_t>> title_refs;
+  // CZ directives in source order; empty for the flattened dialect.
+  std::vector<LayoutDirective> directives;
 };
 
 bool build_lines(const std::vector<DecodedLogicalRecordSource>& records,
                  const std::vector<Item>& items, Ledger& ledger,
                  LineBuild& out, std::string* error);
 std::string line_text(const Line& line);
+// Builds one block's inlines from the display lines [begin, end); text cells
+// before each line's `text_begin` are excluded.
+bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
+                 const std::vector<Line>& lines, std::size_t begin,
+                 std::size_t end, ProseBlockIR& block, Ledger& ledger,
+                 std::size_t block_index, std::string* error);
 bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
                   const LineBuild& lines_build, Ledger& ledger,
                   ProseTopicIR& topic, std::string* error);
+
+// CZ dialect (prose_topic_cz.cpp).  `collect_layout_directive` parses one
+// `cz` control segment, assigns its opcode/operand tokens and pushes the
+// layout item followed by the payload tokens; `build_cz_blocks` replaces the
+// origin-based block grouping when the stream carried directives.
+bool collect_layout_directive(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    std::size_t record_index, const ControlSegmentIR& segment,
+    std::string& pending_footnote_id, Ledger& ledger,
+    std::vector<Item>& items, std::string* error);
+bool build_cz_blocks(const std::vector<DecodedLogicalRecordSource>& records,
+                     const LineBuild& lines_build, Ledger& ledger,
+                     ProseTopicIR& topic, std::string* error);
 bool build_menu(const std::vector<DecodedLogicalRecordSource>& records,
                 const StreamBuild& build,
                 const BookTopicCatalogIR* book_topic_catalog, Ledger& ledger,

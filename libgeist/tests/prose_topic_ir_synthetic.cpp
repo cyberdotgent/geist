@@ -360,7 +360,6 @@ void negative_fixtures() {
   reject("SC31-711.boo", "3.2", "SRFIGTRPFLOW is not a bare anchor");
   reject("ACPZMST1.boo", "FRONT_1.2", "SRTBLTBLUNIQ1 is outside the prose");
   reject("ITPPIBOK.BOO", "1.3.7", "picture or external link");
-  reject("packet.boo", "1.1", "body control cz is outside the prose model");
   reject("SC24-546.boo", "3.1", "metadata controls are incomplete");
   reject("PRG1SORT.boo", "1.1.5.1", "control-like word 'SRCFILE'");
   reject("ACPZMST1.boo", "COVER", "is not an h1-h6 prose heading");
@@ -382,12 +381,180 @@ void negative_fixtures() {
   }
 }
 
+
+// `CZ` dialect (Format/markup.md, "CZ layout directives").  Every fixture
+// below was compared word for word against hosted BookServer: packet
+// (DT 20260614112503), SC41-485 (DT 19951003131222), SC09-2417-00 as hosted
+// book id `SC09-241` (DT 19961114175628) and GX27-3999-00 as `GX27-399`
+// (DT 19950730184057); the local BOO basenames are not the hosted ids for
+// the last two (AnalysisNotes/prose-topic-cz-2026-08-28.md).
+void cz_fixtures() {
+  // `CZ FLOW UL`/`LI` list, `CZ FLOW P` paragraphs across an `SI` term,
+  // `CZ OFF XMP` example blocks, `SRFTN`/`CZ FLOW FN` footnotes and their
+  // `CSELECT` anchors.
+  {
+    Extracted kept;
+    const auto markdown = admit("packet.boo", "3.2", &kept);
+    require(contains(markdown,
+                     "```\n# name callsign speed paclen window description\n"),
+            "3.2 example block lost its leading `#`");
+    require(contains(markdown,
+                     "To define an AX\\.25 port, edit `/etc/ax25/axports`, "
+                     "and, use tabs for everything, not spaces:"),
+            "3.2 paragraph split at the SI term");
+    require(contains(markdown, "[\\(12\\)](<#FTNFTNUNIQ21>)"),
+            "3.2 footnote selector");
+    require(contains(markdown, "<a id=\"FTNFTNUNIQ21\"></a>"),
+            "3.2 footnote anchor id");
+    require(contains(markdown, "connections\\)\\!\n"),
+            "3.2 footnote kept its row terminator");
+    if (kept.prose) {
+      require(count_blocks(*kept.prose, ProseBlockKindIR::preformatted) == 4,
+              "3.2 example block count");
+      require(count_blocks(*kept.prose, ProseBlockKindIR::footnote) == 4,
+              "3.2 footnote count");
+    }
+  }
+  // Footnote body ending in a doubled period: hosted prints one.
+  {
+    const auto markdown = admit("packet.boo", "1.1");
+    require(contains(markdown, "medium access control technique\\."),
+            "1.1 footnote terminator");
+    require(!contains(markdown, "technique\\.\\."), "1.1 doubled terminator");
+  }
+  // `CZ FLOW DL`/`DT` definition list whose terms are whole `HP2` spans:
+  // hosted `<dt>   <B>List</B><dd><B>Configuration</B> ...`.
+  {
+    Extracted kept;
+    const auto markdown = admit("SC41-485.boo", "1.1", &kept);
+    require(contains(markdown,
+                     "- **List:** **Configuration Descriptions** "
+                     "\\(QDCLCFGD\\) returns"),
+            "1.1 definition entry");
+    require(!contains(markdown, "****List**"),
+            "1.1 doubled the term emphasis");
+    if (kept.prose)
+      require(count_blocks(*kept.prose,
+                           ProseBlockKindIR::definition_entry) == 5,
+              "1.1 definition entry count");
+  }
+  // Definition list with unstyled terms and a trailing decoder separator
+  // before `cmenu` that hosted does not print.
+  {
+    const auto markdown = admit("SC41-485.boo", "1.2.5");
+    require(contains(markdown, "- **CPF24B4 E:** Severe error while"),
+            "1.2.5 definition entry");
+  }
+  {
+    const auto markdown = admit("SC41-485.boo", "1.3.3");
+    require(contains(markdown, "[topic 1\\.3\\.4](<#HDRCFGSFLD>)\\."),
+            "1.3.3 selector label");
+    require(!contains(markdown, "1\\.3\\.4\\.,"),
+            "1.3.3 kept the separator before cmenu");
+  }
+  // `CZ OFF XMP` C++ example: the `{` that a `CFONT` span covers is display
+  // text, the uncovered `;` that ends the next row is the row slot.
+  {
+    const auto markdown = admit("SC09-2417-00.boo", "4.5.2.2");
+    require(contains(markdown, "void payroll::calc (employee *pe) {\n"),
+            "4.5.2.2 example block lost a brace");
+    require(contains(markdown, "> **Note:** In the above program"),
+            "4.5.2.2 note block");
+  }
+  // `CZ FLOW OL` ordered list.
+  admit("GX27-3999-00.boo", "2.1");
+  admit("SC09-2417-00.boo", "2.1");
+
+  // Mutations of the CZ-only structures.
+  auto extracted = extract("packet.boo", "3.2");
+  require(extracted.prose.has_value(), "cz mutation fixture rejected");
+  if (!extracted.prose) return;
+  const auto verify = [&](const ProseTopicIR& topic) {
+    return verify_prose_topic_ir(extracted.sources, extracted.layout,
+                                 extracted.ownership, extracted.identity.title,
+                                 extracted.catalog, topic, nullptr);
+  };
+  require(verify(*extracted.prose), "cz fixture failed verification");
+  {
+    auto mutated = *extracted.prose;
+    for (auto& block : mutated.blocks)
+      if (block.kind == ProseBlockKindIR::preformatted &&
+          !block.preformatted_lines.empty()) {
+        block.preformatted_lines.front() = "x";
+        break;
+      }
+    require(!verify(mutated), "altered example row passed verification");
+  }
+  {
+    auto mutated = *extracted.prose;
+    for (auto& block : mutated.blocks)
+      if (block.kind == ProseBlockKindIR::footnote) {
+        block.anchor_id = "FTNOTHER";
+        break;
+      }
+    require(!verify(mutated), "altered footnote anchor passed verification");
+  }
+  {
+    auto mutated = *extracted.prose;
+    for (auto& block : mutated.blocks)
+      if (block.kind == ProseBlockKindIR::list_item) {
+        block.ordered = !block.ordered;
+        break;
+      }
+    require(!verify(mutated), "altered list ordering passed verification");
+  }
+  {
+    auto definitions = extract("SC41-485.boo", "1.1");
+    require(definitions.prose.has_value(), "SC41-485 1.1 rejected");
+    if (definitions.prose) {
+      auto mutated = *definitions.prose;
+      for (auto& block : mutated.blocks)
+        if (block.kind == ProseBlockKindIR::definition_entry) {
+          block.term_inline_count += 1;
+          break;
+        }
+      require(!verify_prose_topic_ir(
+                  definitions.sources, definitions.layout,
+                  definitions.ownership, definitions.identity.title,
+                  definitions.catalog, mutated, nullptr),
+              "moved definition term boundary passed verification");
+    }
+  }
+
+  // A closing directive carries the text that follows its region as
+  // paragraphs: `cz OFF EXMP 2 2` (packet 2.4.1) and `cz OFF EOL 0 0`
+  // (SC09-2417-00 4.2.2), both hosted-verified.
+  {
+    const auto markdown = admit("packet.boo", "2.4.1");
+    require(contains(markdown, "```\n2062:41FE:653A:9882:511:FFE9:8392:412D\n"
+                               "```\n\nNote that zeros are omitted"),
+            "2.4.1 lost the text on cz OFF EXMP");
+  }
+  {
+    const auto markdown = admit("SC09-2417-00.boo", "4.2.2");
+    require(contains(markdown, "The best way to instantiate templates depends"),
+            "4.2.2 lost the text on cz OFF EOL");
+  }
+
+  // Fail-closed CZ classes: one topic per unmodelled shape.
+  // A `cz FLOW DL` header row (hosted `<dl>\n   <B>Option</B>    <B>Tag</B>`)
+  // has no typed counterpart yet.
+  reject("SC09-2417-00.boo", "3.1.2.2", "cz flow dl carries display text");
+  reject("packet.boo", "4.5.1",
+         "cz flow h5 without text is not the last directive");
+  reject("SC09-2417-00.boo", "1.1.4.3", "cz flow dt");
+  // A CFONT span that starts inside a compiled word (hosted
+  // `not write<kbd>N4ABC-0</kbd>`, one source token).
+  reject("packet.boo", "2.1.1", "span starts inside a word");
+}
+
 } // namespace
 
 int main() {
   positive_fixtures();
   mutation_fixtures();
   negative_fixtures();
+  cz_fixtures();
   geist_test::exit_with_failures();
   std::cout << "prose_topic_ir_synthetic: ok\n";
   return 0;
