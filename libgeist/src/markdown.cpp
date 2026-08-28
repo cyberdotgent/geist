@@ -459,11 +459,25 @@ void append_html_escaped(std::string& output, const std::string& text) {
   }
 }
 
-std::string render_inline_markdown(std::string text) {
+std::string render_inline_markdown(std::string text);
+
+// `escape_emphasis_delimiters` backslash-escapes literal `*` and `_` in
+// visible text outside code spans so source text such as the SC31-711
+// trademark marker `Motif**` (FRONT_1.1 explains the `**` convention) is not
+// parsed as Markdown emphasis. The typed renderer escapes all Markdown
+// punctuation (`escape_markdown_text`); the legacy route only escapes the two
+// emphasis delimiters, which is the minimum that keeps item text literal.
+std::string render_inline_markdown(std::string text,
+                                   bool escape_emphasis_delimiters) {
   std::string output;
   output.reserve(text.size());
+  auto in_code_span = false;
   for (std::size_t cursor = 0; cursor < text.size();) {
     if (text[cursor] != ':') {
+      if (escape_emphasis_delimiters && !in_code_span &&
+          (text[cursor] == '*' || text[cursor] == '_')) {
+        output.push_back('\\');
+      }
       output.push_back(text[cursor++]);
       continue;
     }
@@ -483,8 +497,9 @@ std::string render_inline_markdown(std::string text) {
       const auto target = inline_gml_attr(attrs, "refid");
       const auto href = inline_gml_attr(attrs, "href");
       if (close != std::string::npos && !target.empty()) {
-        auto label = render_inline_markdown(text.substr(dot + 1,
-                                                        close - (dot + 1)));
+        auto label = render_inline_markdown(
+            text.substr(dot + 1, close - (dot + 1)),
+            escape_emphasis_delimiters);
         if (label.empty()) {
           label = target;
         }
@@ -493,8 +508,9 @@ std::string render_inline_markdown(std::string text) {
         continue;
       }
       if (close != std::string::npos && !href.empty()) {
-        auto label = render_inline_markdown(text.substr(dot + 1,
-                                                        close - (dot + 1)));
+        auto label = render_inline_markdown(
+            text.substr(dot + 1, close - (dot + 1)),
+            escape_emphasis_delimiters);
         if (label.empty()) {
           label = href;
         }
@@ -509,8 +525,9 @@ std::string render_inline_markdown(std::string text) {
                                                         dot - cursor - 1),
                                             "resource");
       if (close != std::string::npos && !resource.empty()) {
-        auto label = render_inline_markdown(text.substr(dot + 1,
-                                                        close - (dot + 1)));
+        auto label = render_inline_markdown(
+            text.substr(dot + 1, close - (dot + 1)),
+            escape_emphasis_delimiters);
         if (label.empty()) {
           label = "Resource " + resource;
         }
@@ -529,10 +546,17 @@ std::string render_inline_markdown(std::string text) {
       continue;
     }
 
+    if (marker == "`") {
+      in_code_span = !closing;
+    }
     output += marker;
     cursor = dot + 1;
   }
   return output;
+}
+
+std::string render_inline_markdown(std::string text) {
+  return render_inline_markdown(std::move(text), false);
 }
 
 std::string render_inline_html(std::string text) {
@@ -1057,7 +1081,8 @@ void flush_pending_title_page_lines(
 
 void append_list_item(std::string& output, std::string text) {
   const auto target = gml_record_attr(text, "refid");
-  text = gml_markdown_content(std::move(text));
+  text = render_inline_markdown(
+      strip_leaked_layout_controls(gml_content(text)), true);
   if (!target.empty()) {
     if (text.empty()) {
       text = target;

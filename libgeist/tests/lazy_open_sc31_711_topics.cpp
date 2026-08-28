@@ -175,6 +175,33 @@ int main() {
     require(network_checklist.find(expected) != std::string::npos,
             "complex fixed questionnaire lost an item or continuation");
   }
+  // 2.4.7: the third item's CFONT continuation row (`/usr/OV`, LR78
+  // segment 9) and the fourth ballot row (LR78 segment 10) are folded into
+  // the checklist from typed row evidence; the CFONT spans land on `/usr/OV`
+  // and `/tmp` as the hosted reader draws them.
+  const auto hardware_checklist =
+      problem_determination.topic_markdown("2.4.7");
+  for (const auto* expected : {
+           "- Amount of memory (RAM) installed",
+           "- Amount of paging space available",
+           "- Amount of free space available in the file system that contains "
+           "`/usr/OV`",
+           "- Amount of free space available in `/tmp`"}) {
+    require(hardware_checklist.find(expected) != std::string::npos,
+            "hardware checklist lost an item or its CFONT continuation");
+  }
+  require(hardware_checklist.find("__") == std::string::npos &&
+              hardware_checklist.find("`free`") == std::string::npos &&
+              hardware_checklist.find("\n`/usr/OV`") == std::string::npos,
+          "hardware checklist leaked its ballot glyph or misplaced a span");
+  // 2.4.6: the source trademark marker `Motif**` (FRONT_1.1 documents the
+  // `**` convention) is literal text, escaped so Markdown cannot read it as
+  // emphasis.
+  const auto software_checklist =
+      problem_determination.topic_markdown("2.4.6");
+  require(software_checklist.find("- Motif\\*\\* and X11") !=
+              std::string::npos,
+          "software checklist trademark marker was not escaped");
   const auto additional_information =
       problem_determination.topic_markdown("2.4.9");
   const auto support_intro = std::string(
