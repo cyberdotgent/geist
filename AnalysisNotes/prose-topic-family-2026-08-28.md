@@ -127,3 +127,71 @@ entries) cross-checked with `AnalysisNotes/bookserver-dataset-2026-08-25.md`:
 | Multi-line table cells | joined with `<br>`; legacy split them into extra columns and truncated cells (SC26-457 3.24 `INDATASET(entryna`) | keep: typed reproduces hosted |
 | Angle-bracketed literals (`\<stdio\.h\>`) | kept | keep: hosted prints them; only the word-diff harness has to ignore them |
 | A `c.<xx>` opcode glued to a text run by the decoder | rejects the topic | fail closed: hosted serves no such word (SH20-918 3.31.1, DREICMST 1.7.7.3, SH12-565 1.1.2, GG24-4302-00 8.1.5), and the previous behaviour printed it |
+
+## Composition: table and figure spans (2026-08-29)
+
+The prose body is now a sequence of spans in source order: prose spans
+interleaved with table spans (one admitted `SRTBL ... SRETBL` envelope each,
+`extract_fixed_table_blocks_ir` -> `lower_fixed_table_block_to_document_ir`)
+and figure spans (one admitted region each, `extract_figure_blocks_ir` ->
+`lower_figure_block_to_document_blocks`).  Implementation:
+`libgeist/src/prose_topic_spans.cpp` plus the span hooks in
+`prose_topic_stream/lines/blocks/document_lowering`.
+
+### Conservation model
+
+1. `plan_spans` runs before the body stream pass.  It extracts every table
+   envelope and figure region of the topic and fails the topic closed on any
+   decline, so there are no partially typed topics.
+2. Each region is the source extent from its opening control's first token
+   to its last owned token.  Every token of every block is claimed with the
+   span's ledger role (`table` / `figure`) and names its span; an unclaimed
+   token inside a region is admitted only when it carries no visible word
+   (bare spacing, space run, decoder placeholder, one-byte marker slot),
+   anything else rejects the topic.  A block claim that falls outside its
+   region is admitted only for such an invisible token (the spacing token
+   before `SRFIG`, ACPZMST1 1.1.3) and stays with the stream.
+3. The stream pass skips the region's segments, emitting one span item at
+   its first segment; tokens of the closing segment that the region does not
+   own (`SREFIG?  The routers ...`) re-enter the stream as body text.
+4. A span is a hard row boundary in the display-line pass and splits the
+   block before it; spans and anchors at one position keep their source
+   order (`ProseSpanIR::anchors_before`).
+5. `verify_prose_topic_ir` re-extracts canonically, proves every span token
+   and span/block reference, and runs `verify_fixed_table_blocks_ir` /
+   `verify_figure_blocks_ir` over the composed block sets; the DocumentIR
+   verifier runs over the composed document.
+
+### Anchors and links proven against hosted
+
+- A picture-less `SRFIG<id>` wrapping a table is a frame: it contributes
+  only its anchor (SC31-711 4.0 serves `<a name="FIGTBLUNIQ6">` then
+  `<a name="TBLTBLUNIQ6">`, DT 19941010174546).
+- The table anchor is the whole `SRTBL` opcode without `SR` (`TBL<id>`);
+  cross references select that spelling (GG24-4302-00 10.2 `TBLDBCTL51`).
+- A `CSELECT` inside a table span whose column range meets a cell and whose
+  payload covers a whole cell line lowers that line to a cross reference
+  (SC31-711 4.0 "LNM OS/2 Agent Application Traps" in / topic 4.1).
+
+### Measured
+
+`bootrace --coverage` over every book except N2AH1MST (which exceeds a
+1500 s budget on both builds): **2,659 -> 3,305 typed topics** against main
+`9146631`.  Gains by pre-move class: mixed 506, figures 90, fixed
+rows/tables 56, selectors 3.  Whole-corpus `boo2git --force`: 664 changed
+files, 655 of them topics that moved to the typed route; the other 9 are
+topics that now fail closed rather than print a `c.<xx>` control opcode
+glued into a text run (hosted serves no such word; SH20-918 3.31.1).
+
+Hosted word-level sample of 59 moved topics across 21 books (21 of them
+carrying both a table and a figure): typed better on 51, equal on 6, and
+two GC23-046 topics are not decisive because the hosted copy is edition
+GC23-0469-02 while the fixture is -01.
+
+| Difference class | Typed behaviour | Decision |
+| --- | --- | --- |
+| Drawn/picture figure captions and box bodies hosted shows and legacy drops | emitted from the typed figure block | keep (the 51 "better" rows are mostly this) |
+| Table cell line breaks | kept as `<br>` inside the cell, as hosted's `<pre>` rows | keep |
+| Image alt text | the caption text; not displayed by any renderer | keep; the comparison harness ignores alt text |
+| Hosted-only glyphs (`°` bullets, `©`) | dropped, as the legacy route drops them | accept |
+| Hosted edition differs (GC23-046, SC24-5520-00 book-info pages) | not comparable | excluded from the verdict |
