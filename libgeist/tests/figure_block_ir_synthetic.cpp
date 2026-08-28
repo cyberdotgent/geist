@@ -630,6 +630,50 @@ int main() {
                 declined_with(topic, "contains a menu"),
             "SC28-1881-05 1.6: figure carrying a menu was admitted");
   }
+  // Negative: prose after the caption.  PRG1SORT 1.1.4.3.2 FIGSELCDF carries
+  // the caption's wrapped second line behind three "SI" index lines, so the
+  // region ends with a line the block cannot prove is caption rather than
+  // body text and is declined instead of guessed at (hosted joins the two
+  // caption lines; the only such region in the corpus).
+  {
+    const auto topic = corpus.topic("PRG1SORT.boo", "1.1.4.3.2");
+    require(find_figure(topic, "FIGSELCDF") == nullptr &&
+                declined_with(topic, "text after its caption"),
+            "PRG1SORT 1.1.4.3.2: prose after the caption was admitted");
+  }
+  // Negative: a body line whose length byte is at or above the book's token
+  // threshold is read as a two-byte token, so the display lines of the
+  // record do not add up and the region is declined (PRG1SORT D.5.1).
+  {
+    const auto topic = corpus.topic("PRG1SORT.boo", "D.5.1");
+    require(find_figure(topic, "FIGFIGUNIQ136") == nullptr &&
+                declined_with(topic, "display line prefixes"),
+            "PRG1SORT D.5.1: misaligned display lines were admitted");
+  }
+  // Negative: a selector inside a drawn figure is a link the preformatted
+  // body cannot carry (SH20-918 2.1 FIGSTRUC).
+  {
+    const auto topic = corpus.topic("SH20-918.boo", "2.1");
+    require(find_figure(topic, "FIGSTRUC") == nullptr &&
+                declined_with(topic, "contains a selector"),
+            "SH20-918 2.1: drawn figure with a selector was admitted");
+  }
+  // A drawn figure whose body spans a record boundary keeps one line per
+  // display line across the join (ACPZMST1 1.2.5 FIGCOMP: records 56-57;
+  // GG24-4302-00 3.3.4 FIGRMFWL01: records 261-265).
+  for (const auto &[book, id, anchor] :
+       {std::tuple{"ACPZMST1.boo", "1.2.5", "FIGCOMP"},
+        std::tuple{"GG24-4302-00.boo", "3.3.4", "FIGRMFWL01"}}) {
+    const auto topic = corpus.topic(book, id);
+    const auto *figure = find_figure(topic, anchor);
+    std::set<std::uint32_t> records;
+    if (figure != nullptr)
+      for (const auto &line : figure->lines)
+        records.insert(line.logical_record);
+    require(figure != nullptr && records.size() > 1,
+            std::string(book) + " " + id + " " + anchor +
+                ": body does not span a record boundary");
+  }
 
   std::cout << "figure block IR checks passed\n";
   return 0;

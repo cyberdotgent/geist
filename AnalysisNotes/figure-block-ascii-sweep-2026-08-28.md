@@ -66,7 +66,7 @@ Every `SRFIG` region of every TOC topic (`scratch sweep.cpp` over the figure
 extractor, `verify_figure_blocks_ir` and the document lowering verifier on
 every admitted block; 0 verification failures):
 
-| | before (`63ba8ee`) | after |
+| | before (`afc62c0`) | after |
 |---|---|---|
 | regions | 1,766 | 1,766 |
 | admitted | 306 (pictures) | 1,247 (305 resource, 1 external, 941 preformatted, 22,928 body lines) |
@@ -85,6 +85,27 @@ every admitted block; 0 verification failures):
 Topics with any figure region: 1,185. Fully admitted: figures class 133 of
 138 (was 0), mixed class 692 of 1,036 (was 162); partially 33.
 
+Both columns were measured with the same scratch sweep tool over the same
+1,766 regions, the `before` one linked against a build of `afc62c0`. No
+region admitted as a picture figure before is admitted differently after
+(region-by-region diff over all 1,766); the 941 preformatted regions are
+purely additive.
+
+## Independent re-verification
+
+Re-run on `afc62c0` + this workload with a freshly built baseline:
+
+- hosted line-for-line over 23 drawn figures in 13 books (fresh fetches):
+  **582 body lines, 544 identical, 38 differing**, every difference an arrow
+  word (`←`/`→`/`↑`/`↓` against hosted `\x1b`, `ÿ`, `"`, `\x19`) at the same
+  column count; every caption identical;
+- 31 `boorender --md` spot renders byte-identical against the `afc62c0`
+  baseline build (the block is not wired into the dispatcher).
+
 Follow-ups: read a length byte at or above the token threshold as a length,
 not a two-byte token, in the record decoder (60 regions, PRG1SORT 1.1.3.1);
-apply the book's display translation tables so arrow words match hosted.
+apply the book's display translation tables so arrow words match hosted;
+stitch a caption's wrapped continuation line across intervening `SI`
+index-entry lines (1 region: PRG1SORT 1.1.4.3.2 `FIGSELCDF`, currently
+declined as "text after its caption", which is the fail-closed behaviour and
+the fixture for that decline).
