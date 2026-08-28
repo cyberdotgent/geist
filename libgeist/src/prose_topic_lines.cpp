@@ -156,6 +156,13 @@ struct LineBuilder {
                                         [](char ch) { return ch == '_'; });
   }
 
+  static bool alpha_word(const TokenView& view) {
+    return !view.body.empty() &&
+           std::all_of(view.body.begin(), view.body.end(), [](const auto word) {
+             return word < 0x80 && std::isalpha(static_cast<int>(word)) != 0;
+           });
+  }
+
   static bool alnum_word(const TokenView& view) {
     return !view.body.empty() &&
            std::all_of(view.body.begin(), view.body.end(), [](const auto word) {
@@ -193,9 +200,15 @@ struct LineBuilder {
       // punctuation (FA1PLMM0 record 1133 `Messages` + `access`).
       const auto attached =
           !pending_space || view.prefix == 0 || view.prefix == 1;
+      // A glued one-byte word in the row-control byte range is the slot
+      // whatever precedes it: N2AH1MST PREFACE.4 `to:` + `access` (0x1c),
+      // `Reference.` + `an` (the compact-marker collision in Format/markup.md).
       const auto glued_word =
-          attached && alnum_word(view) && !last_visible.empty() &&
-          std::isalnum(static_cast<unsigned char>(last_visible.back())) != 0;
+          attached && alnum_word(view) &&
+          ((!last_visible.empty() &&
+            std::isalnum(static_cast<unsigned char>(last_visible.back())) !=
+                0) ||
+           view.value < row_control_byte_limit);
       if (!(punctuation_glyph(view) && !attached) && !glued_word)
         return false;
       auto last = next_token(space);
@@ -404,6 +417,15 @@ struct LineBuilder {
       }
       return true;
     }
+    // A glued alphabetic one-byte token in the row-control byte range is a
+    // slot whatever follows it: N2AH1MST record 17 `to:` + `access` (0x1c)
+    // directly before the `/` row marker of the next row.
+    if (view.width == 1 && view.value < row_control_byte_limit &&
+        (!pending_space || view.prefix == 0 || view.prefix == 1) &&
+        !in_title && !in_index && line_open && line_visible_cells != 0 &&
+        alpha_word(view) && !last_visible.empty() &&
+        std::isalnum(static_cast<unsigned char>(last_visible.back())) == 0)
+      return assign(view, ProseTokenRoleIR::marker);
     if (marker_at(index, origin_index)) {
       if (!assign(view, ProseTokenRoleIR::marker)) return false;
       for (auto cursor = next_token(index); cursor != origin_index;
