@@ -375,6 +375,12 @@ add_executable(layout_ir_synthetic_test
 target_link_libraries(layout_ir_synthetic_test PRIVATE geist::geist_static)
 add_test(NAME layout_ir_synthetic_test COMMAND layout_ir_synthetic_test)
 
+add_executable(ownership_ir_synthetic_test
+  tests/ownership_ir_synthetic.cpp
+)
+target_link_libraries(ownership_ir_synthetic_test PRIVATE geist::geist_static)
+add_test(NAME ownership_ir_synthetic_test COMMAND ownership_ir_synthetic_test)
+
 add_executable(selector_display_ir_synthetic_test
   tests/selector_display_ir_synthetic.cpp
 )
