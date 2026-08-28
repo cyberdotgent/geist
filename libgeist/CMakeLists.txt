@@ -111,8 +111,11 @@ set(GEIST_SOURCES
   src/img/png.cpp
   src/properties.cpp
   src/procedure_rows.cpp
+  src/prose_topic_blocks.cpp
   src/prose_topic_document_lowering.cpp
   src/prose_topic_ir.cpp
+  src/prose_topic_lines.cpp
+  src/prose_topic_stream.cpp
   src/publication_document_lowering.cpp
   src/publication_ir.cpp
   src/resources.cpp
