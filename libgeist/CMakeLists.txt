@@ -123,6 +123,7 @@ set(GEIST_SOURCES
   src/strings.cpp
   src/toc.cpp
   src/topic_document_lowering.cpp
+  src/typed_route_inventory.cpp
   src/util.cpp
 )
 
@@ -548,6 +549,18 @@ target_compile_definitions(topic_document_lowering_test PRIVATE
 )
 add_test(NAME topic_document_lowering_test COMMAND topic_document_lowering_test)
 
+# Typed-route coverage ratchet for issue #58: lowers every TOC topic of every
+# BOO fixture (no Markdown rendering) and fails when the typed count drops
+# below the committed baseline.
+add_executable(typed_route_inventory_test
+  tests/typed_route_inventory.cpp
+)
+target_link_libraries(typed_route_inventory_test PRIVATE geist::geist_static)
+target_compile_definitions(typed_route_inventory_test PRIVATE
+  GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+add_test(NAME typed_route_inventory_test COMMAND typed_route_inventory_test)
+
 add_executable(document_ir_synthetic_test
   tests/document_ir_synthetic.cpp
 )
@@ -651,4 +664,5 @@ set_tests_properties(
   lazy_open_sc31_711_catalogs_test
   boo2git_glossary_test
   boo2git_message_links_test
+  typed_route_inventory_test
   PROPERTIES LABELS slow)

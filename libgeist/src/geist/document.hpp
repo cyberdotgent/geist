@@ -20,6 +20,7 @@ namespace geist {
 namespace detail {
 struct BookTopicCatalogIR;
 struct LogicalDecodeContext;
+struct TypedRouteInventoryIR;
 }
 
 struct BooFontTrace {
@@ -73,6 +74,10 @@ public:
       const noexcept;
   GEIST_API std::vector<BooLogicalRecordTrace> trace_logical_records(
       const std::string& topic_id) const;
+  // Reports, for every TOC topic, whether typed Document IR lowering claims
+  // it (and which family) or the legacy string pipeline renders it. Lowering
+  // only; no Markdown is rendered. See geist/detail/typed_route_inventory.hpp.
+  GEIST_API detail::TypedRouteInventoryIR typed_route_inventory() const;
 
   // Returns an exact 4096-byte physical page payload.
   GEIST_API std::vector<std::uint8_t> read_page(std::uint32_t page_number)

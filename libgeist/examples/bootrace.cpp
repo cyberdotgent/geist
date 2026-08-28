@@ -1,5 +1,6 @@
 #include "geist/boo.hpp"
 #include "geist/detail/internal.hpp"
+#include "geist/detail/typed_route_inventory.hpp"
 
 #include <exception>
 #include <iostream>
@@ -11,7 +12,8 @@ namespace {
 
 void usage() {
   std::cerr << "usage: bootrace <book.boo> <topic-id> "
-               "[--all|--records|--segments|--fonts|--ir]\n";
+               "[--all|--records|--segments|--fonts|--ir]\n"
+               "       bootrace <book.boo> --coverage\n";
 }
 
 std::string tsv_escape(const std::string& value) {
@@ -50,6 +52,36 @@ int main(int argc, char** argv) {
   if (argc != 3 && argc != 4) {
     usage();
     return 2;
+  }
+
+  if (argc == 3 && std::string(argv[2]) == "--coverage") {
+    try {
+      const auto document = geist::BooDocument::open(argv[1]);
+      const auto inventory = document.typed_route_inventory();
+      std::cout << "id\tlevel\troute\tfamily\treason\tclass\tsignature\n";
+      for (const auto& topic : inventory.topics) {
+        std::cout << tsv_escape(topic.id) << "\t" << topic.level << "\t"
+                  << (topic.route == geist::detail::TypedRouteKind::typed
+                          ? "typed"
+                          : "legacy")
+                  << "\t" << tsv_escape(topic.family) << "\t"
+                  << tsv_escape(geist::detail::typed_route_reason(topic))
+                  << "\t"
+                  << tsv_escape(geist::detail::classify_topic_structure(
+                         topic.id, topic.structure))
+                  << "\t"
+                  << tsv_escape(geist::detail::topic_structure_signature(
+                         topic.structure))
+                  << "\n";
+      }
+      std::cout << "# summary\ttyped=" << inventory.typed_count
+                << "\tlegacy=" << inventory.legacy_count
+                << "\ttotal=" << inventory.topics.size() << "\n";
+      return 0;
+    } catch (const std::exception& error) {
+      std::cerr << "bootrace: " << error.what() << "\n";
+      return 1;
+    }
   }
 
   const std::string mode = argc == 4 ? argv[3] : "--all";
