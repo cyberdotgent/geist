@@ -978,7 +978,7 @@
   the section C rendered-text census (dead repairs deleted, the literal
   marker-word list replaced by layout marker-slot evidence). Every refactor
   was proven zero-delta over the whole corpus; every behaviour change was
-  reviewed against the hosted BookServer. M10 evidence: full CTest 57/57,
+  reviewed against the hosted BookServer. Not delivered: typed rendering covers 71 of 7,308 topics; the legacy string pipeline still renders the rest. Evidence gathered: full CTest 57/57,
   76/7,341 intentional corpus deltas, fresh live 82-topic audit with 18
   classified flags, all recorded in
   `AnalysisNotes/sc31-711-m10-audit-2026-08-28.md`. Audit tooling now
