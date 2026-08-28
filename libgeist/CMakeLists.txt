@@ -96,6 +96,8 @@ set(GEIST_SOURCES
   src/structural_marker_rows.cpp
   src/form_item_rows.cpp
   src/message_section_blocks_ir.cpp
+  src/figure_block_ir.cpp
+  src/figure_document_lowering.cpp
   src/message_document_lowering.cpp
   src/message_topic_ir.cpp
   src/trap_catalog_ir.cpp
