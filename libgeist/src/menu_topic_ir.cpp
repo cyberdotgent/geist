@@ -1,5 +1,6 @@
 #include "geist/detail/menu_topic_ir.hpp"
 
+#include "geist/detail/display_lines.hpp"
 #include "geist/detail/internal.hpp"
 
 #include <algorithm>
@@ -270,7 +271,33 @@ bool split_title_and_introduction_at_marker_row(
   return !title->empty() && !introduction->empty();
 }
 
-bool split_title_and_introduction(
+// The `ST` opcode's own display line: the exclusive end of its tokens, and
+// every display line's length-byte token, which is never display text
+// (display_lines.hpp).  `token_end` is `npos` when the record does not parse
+// into display lines or the opcode owns none.
+constexpr auto no_display_line_end = static_cast<std::size_t>(-1);
+
+struct TitleRowIR {
+  std::size_t token_end = no_display_line_end;
+  std::set<std::size_t> line_prefix_tokens;
+};
+
+TitleRowIR title_row(const DecodedLogicalRecordSource &record,
+                     const ControlSegmentIR &title_segment) {
+  TitleRowIR result;
+  const auto lines = record_display_lines(record);
+  if (!lines || title_segment.source_tokens.empty())
+    return result;
+  const auto opcode = title_segment.source_tokens.front();
+  for (const auto &line : *lines) {
+    result.line_prefix_tokens.insert(line.prefix_token);
+    if (opcode > line.prefix_token && opcode < line.token_end)
+      result.token_end = line.token_end;
+  }
+  return result;
+}
+
+bool split_title_and_introduction_rules(
     const std::vector<MenuSourceCellIR> &payload_cells,
     const LayoutIR &layout, const OwnershipIR &ownership,
     std::vector<MenuSourceCellIR> *title,
@@ -361,6 +388,56 @@ bool split_title_and_introduction(
   trim_cells(*title);
   trim_cells(*introduction);
   return !title->empty() && !introduction->empty();
+}
+
+// The title is the visible text of the `ST` display line, and the payload
+// beyond that row is the topic's introduction (topic_header_title.hpp).  The
+// rules above decide *where* the split falls; the row decides whether they
+// found the right place.  A payload that leaves the row and is not split
+// exactly on the row break -- or an introduction that swallows a display
+// line's length byte, which is never display text -- fails closed here, and
+// the topic is lowered as prose instead.  SC34-425 record 98 is the shape
+// this rejects: `ST  Overview of Configuration Management Tasks` on line 8,
+// the introduction on lines 10-11, and no modelled split between them.
+bool split_title_and_introduction(
+    const std::vector<MenuSourceCellIR> &payload_cells,
+    const LayoutIR &layout, const OwnershipIR &ownership,
+    std::vector<MenuSourceCellIR> *title,
+    std::vector<MenuSourceCellIR> *introduction, const TitleRowIR &row) {
+  if (!split_title_and_introduction_rules(payload_cells, layout, ownership,
+                                          title, introduction))
+    return false;
+  const auto reject = [&] {
+    title->clear();
+    introduction->clear();
+    return false;
+  };
+  if (row.token_end == no_display_line_end)
+    return reject();
+  if (std::any_of(title->begin(), title->end(), [&](const auto &cell) {
+        return cell.token_index >= row.token_end;
+      }))
+    return reject();
+  if (std::any_of(introduction->begin(), introduction->end(),
+                  [&](const auto &cell) {
+                    return cell.token_index < row.token_end;
+                  }))
+    return reject();
+  // A display line's length byte is never display text, whatever dictionary
+  // word a token reader resolves it to: DREICMST record 48 spells the one
+  // closing line 10 as `.`, which the introduction would otherwise show as a
+  // second full stop after `... in the previous release.` -- hosted (DT
+  // 19911219125856) prints one.
+  const auto split_introduction = !introduction->empty();
+  introduction->erase(
+      std::remove_if(introduction->begin(), introduction->end(),
+                     [&](const auto &cell) {
+                       return row.line_prefix_tokens.count(cell.token_index) !=
+                              0;
+                     }),
+      introduction->end());
+  trim_cells(*introduction);
+  return !split_introduction || !introduction->empty();
 }
 
 // Splits a raw item's label cells at one source-proven terminal token: the
@@ -642,9 +719,10 @@ extract_menu_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
   const auto payload_cells =
       source_cells(*segments[index].record, title_segment.payload_range);
   std::vector<MenuSourceCellIR> introduction_cells;
-  if (!split_title_and_introduction(payload_cells, layout, ownership,
-                                    &result.title_cells,
-                                    &introduction_cells))
+  if (!split_title_and_introduction(
+          payload_cells, layout, ownership, &result.title_cells,
+          &introduction_cells,
+          title_row(*segments[index].record, title_segment)))
     return reject("menu topic ST title/intro ownership is incomplete");
   result.title = cell_text(result.title_cells);
   if (!introduction_cells.empty())

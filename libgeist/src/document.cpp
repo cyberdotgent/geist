@@ -231,7 +231,7 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
       decode_experimental_logical_records(bytes,
                                           document.directory_,
                                           &context->record_payload_ranges);
-  const auto topics = build_topics(context->decoded_records, false);
+  const auto topics = build_topics(*context, false);
   const auto first_topic_record = topics.empty()
                                       ? context->decoded_records.size() + 1
                                       : topics.front().start_logical_record;

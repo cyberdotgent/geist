@@ -71,14 +71,20 @@ void generic_traps_marker_contract(const MenuIR &menu,
               menu.items.front().label_cells.back().word == '>',
           "SC31-711 4.1 compact terminal token does not own the `>` cell");
 
-  // The book's topic-header titles for 4.1.1-4.1.3 are the whole ST payload
-  // (title plus introduction), so header-preferred validation still declines
-  // this menu; the marker rule is not what blocks it.
+  // The book's topic-header titles for 4.1.1-4.1.3 are now the visible text
+  // of each target's own `ST` display line (topic_header_title.hpp), not the
+  // whole `ST` payload run, so header-preferred validation admits this menu
+  // and the marker rule is what carries the `>`.
   std::string error;
-  require(!validate_source_menu_targets(menu, catalog, &error) &&
-              error.find("beyond its compact terminal token: 4.1.1") !=
-                  std::string::npos,
+  const auto header_validation =
+      validate_source_menu_targets(menu, catalog, &error);
+  require(header_validation.has_value(),
           "SC31-711 4.1 validation outcome changed: " + error);
+  require(header_validation->items.front().label == "Generic Traps" &&
+              header_validation->items.front().terminal_marker_token ==
+                  terminal.token_index,
+          "SC31-711 4.1 header-preferred validation did not strip the `>` "
+          "marker");
 
   // Against TOC evidence alone the marker-stripped label agrees exactly.
   const auto toc_only =
@@ -441,10 +447,91 @@ void inventory_complete_menu_topics() {
   }
   std::sort(admitted.begin(), admitted.end());
   std::sort(lowered.begin(), lowered.end());
+  // The topic-header title a menu label is validated against is now the
+  // visible text of the target's own `ST` display line
+  // (topic_header_title.hpp) rather than the whole `ST` payload run, so
+  // header-preferred validation reaches these 79 menu topics instead of the
+  // six that previously agreed by accident.  All six are still here.
   auto expected = std::vector<std::string>{
-      "FA1PLMM0.boo:5.6:1",      "SC33-033.boo:5.3:4",
-      "SC34-425.boo:1.8.15.5:1", "SC34-425.boo:1.8.18.5:1",
-      "SC34-425.boo:1.8.5.5:1",  "SH12-565.boo:APPENDIX1.9.5:3",
+      "DREICMST.boo:CHANGES.2:2",
+      "FA1PLMM0.boo:1.3:5",
+      "FA1PLMM0.boo:1.4:17",
+      "FA1PLMM0.boo:10.5:2",
+      "FA1PLMM0.boo:16.1:4",
+      "FA1PLMM0.boo:17.1.2:4",
+      "FA1PLMM0.boo:18.1.1:2",
+      "FA1PLMM0.boo:2.1:3",
+      "FA1PLMM0.boo:4.12.1:4",
+      "FA1PLMM0.boo:4.1:2",
+      "FA1PLMM0.boo:4.4:1",
+      "FA1PLMM0.boo:5.1.7:2",
+      "FA1PLMM0.boo:5.2:4",
+      "FA1PLMM0.boo:5.6:1",
+      "FA1PLMM0.boo:6.2:2",
+      "FA1PLMM0.boo:6.4:1",
+      "FA1PLMM0.boo:8.2:3",
+      "FA1PLMM0.boo:I.4:2",
+      "GC28-183.boo:APPENDIX1.4.1:4",
+      "GC28-183.boo:APPENDIX1.4.2:3",
+      "PRG1SORT.boo:1.2.1:4",
+      "PRG1SORT.boo:2.2.2:15",
+      "PRG1SORT.boo:2.3.4:13",
+      "PRG1SORT.boo:2.4.4:20",
+      "PRG1SORT.boo:2.5.2:2",
+      "PRG1SORT.boo:A.1.2:1",
+      "SC09-138.boo:1.3.3:2",
+      "SC09-138.boo:3.3.5:2",
+      "SC09-138.boo:4.4.4:2",
+      "SC09-138.boo:5.5.15:3",
+      "SC09-138.boo:5.5.3:2",
+      "SC09-138.boo:5.5.4:2",
+      "SC09-138.boo:6.2.4:3",
+      "SC09-138.boo:8.3.1:8",
+      "SC09-138.boo:8.3.5:4",
+      "SC09-138.boo:8.3:5",
+      "SC09-138.boo:8.5:11",
+      "SC24-5520-00.boo:3.8:10",
+      "SC24-5520-00.boo:6.11:15",
+      "SC26-457.boo:3.23.2:1",
+      "SC26-457.boo:3.27.2:1",
+      "SC26-457.boo:3.3.2:1",
+      "SC28-1881-05.boo:1.26.1:2",
+      "SC33-033.boo:5.3:4",
+      "SC33-033.boo:CHANGES.1:2",
+      "SC33-033.boo:CHANGES.2:3",
+      "SC34-425.boo:1.8.10.5:2",
+      "SC34-425.boo:1.8.11.5:1",
+      "SC34-425.boo:1.8.12.5:2",
+      "SC34-425.boo:1.8.13.5:1",
+      "SC34-425.boo:1.8.14.5:2",
+      "SC34-425.boo:1.8.15.5:1",
+      "SC34-425.boo:1.8.16.5:1",
+      "SC34-425.boo:1.8.17.9:2",
+      "SC34-425.boo:1.8.18.5:1",
+      "SC34-425.boo:1.8.19.5:2",
+      "SC34-425.boo:1.8.21.5:1",
+      "SC34-425.boo:1.8.22.5:1",
+      "SC34-425.boo:1.8.23.5:2",
+      "SC34-425.boo:1.8.3.12:2",
+      "SC34-425.boo:1.8.4.5:1",
+      "SC34-425.boo:1.8.5.5:1",
+      "SC34-425.boo:1.8.6.5:2",
+      "SC34-425.boo:1.8.7.5:2",
+      "SC34-425.boo:1.8.8.5:2",
+      "SC34-425.boo:1.8.9.5:1",
+      "SC34-425.boo:2.3:19",
+      "SC34-425.boo:2.9.2.3:5",
+      "SH12-565.boo:2.1.5.7:1",
+      "SH12-565.boo:APPENDIX1.2.2:2",
+      "SH12-565.boo:APPENDIX1.4.8:3",
+      "SH12-565.boo:APPENDIX1.5.8:1",
+      "SH12-565.boo:APPENDIX1.5.9:3",
+      "SH12-565.boo:APPENDIX1.9.5.1:3",
+      "SH12-565.boo:APPENDIX1.9.5.3:7",
+      "SH12-565.boo:APPENDIX1.9.5:3",
+      "SH20-918.boo:3.33:16",
+      "SH20-918.boo:B.2:18",
+      "SH20-918.boo:B.3:6",
   };
   std::sort(expected.begin(), expected.end());
   std::string inventory;
@@ -455,11 +542,12 @@ void inventory_complete_menu_topics() {
                                     inventory);
   require(lowered == expected,
           "catalog-validated menu lowering inventory changed");
-  // 160 = the 153 envelopes admitted before ee31d26 plus seven topics whose
-  // empty-operand "cforwardlevel." metadata control was previously typed as an
-  // opaque structural segment: GG24-4302-00 6.7.1, PRG1SORT 1.2.1 and 1.3.1,
-  // SC24-5520-00 5.10, 6.11 and C.1, and SC34-425 FRONT_3.2.1.
-  require(structurally_complete == 160,
+  // 80 of the 160 envelopes this counted before: a menu topic whose `ST`
+  // payload leaves the opcode's display line without a modelled split now
+  // fails closed instead of taking the whole run as its title
+  // (menu_topic_ir.cpp, split_title_and_introduction).  Those topics reach
+  // the typed route as prose, so the corpus rendering is unchanged.
+  require(structurally_complete == 80,
           "raw structural menu envelope inventory changed: " +
               std::to_string(structurally_complete));
 }

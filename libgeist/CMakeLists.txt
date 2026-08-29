@@ -137,6 +137,7 @@ set(GEIST_SOURCES
   src/strings.cpp
   src/toc.cpp
   src/topic_document_lowering.cpp
+  src/topic_header_title.cpp
   src/topic_identity.cpp
   src/typed_route_inventory.cpp
   src/util.cpp

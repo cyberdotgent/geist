@@ -555,18 +555,12 @@ bool build_menu(const std::vector<DecodedLogicalRecordSource>& records,
                         }))
           return true;
         if (!entry->topic_header) return false;
-        // A glued header title is the label followed by a one-cell row
-        // marker and the first body row; the label must end at that
-        // non-alphanumeric boundary.
-        const auto header =
-            collapse_ascii_whitespace(trim_ascii(entry->topic_header->title));
-        if (header.size() < candidate.size()) return false;
-        if (!ascii_equals_case_insensitive(header.substr(0, candidate.size()),
-                                           candidate))
-          return false;
-        return header.size() == candidate.size() ||
-               std::isalnum(static_cast<unsigned char>(
-                   header[candidate.size()])) == 0;
+        // The header title is now the visible text of the target's own `ST`
+        // display line (topic_header_title.hpp), which is the same row the
+        // label is a projection of, so the two agree exactly or not at all.
+        return ascii_equals_case_insensitive(
+            candidate,
+            collapse_ascii_whitespace(trim_ascii(entry->topic_header->title)));
       };
       auto label = collapse_ascii_whitespace(trim_ascii(item.text));
       auto matches = label_matches(label);

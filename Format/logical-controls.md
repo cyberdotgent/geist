@@ -848,6 +848,80 @@ Fifty-eight topics across sixteen books carry at least one such byte, spelling
 `cbacklevel`, `cforwardlevel`, `chdlevel`, `cparent`, `cmitem`, `csourcefn`,
 `ctopicn` and `csummary`.
 
+### A Topic Title Is Its `ST` Display Line
+
+The topic header's title is the visible text of the `ST` control's **display
+line** -- not the `ST` payload run of the flattened decoded record, which
+continues past the row break into the topic's body. A reader that reads the
+flattened string and stops at the next decoder boundary reads a title that
+runs on through the topic's index terms and first paragraphs, and in the books
+where the preceding `CSOURCEFN` operand happens to end in the letters `ST` it
+keeps the opcode word itself in front of the title.
+
+Hosted BookServer serves the row. QSYSINFO `2.1.21` (DT `19910524120827`)
+heads the topic
+
+```
+<H3> 2.1.21   SC09-1159, Languages:  System/38-Compatible COBOL User's Guide and</H3>
+```
+
+and opens the body with `Reference`, while the flattened payload runs on to
+`... and Re`; the book's own TOC projection of the same control carries the
+full `... Guide and Reference`. Catalog string, TOC projection and display row
+are three different truncations of one word run, and the heading is the row.
+
+Byte-level evidence, GC28-183 `5.8.1.1` (DT `19930625102617`), record 728:
+
+| Line | Length-byte token | Tokens | Text |
+| ---: | ---: | --- | --- |
+| 7 | 21 | [22,24) | `csourcefn IEAB5EST` |
+| 8 | 24 | [25,29) | `ST  Multiple Destinations` |
+| 9 | 29 | [30,30) | (empty -- paragraph break) |
+| 10 | 30 | [31,35) | `SI destinations, multiple` |
+| 11 | 35 | [36,54) | `   For example, to print a report in Chicago, New York, Paris, and Los` |
+
+The flattened record joins lines 8-11 into one `ST` payload, and because
+`IEAB5EST ` ends in `ST `, a string search for the opcode starts the value one
+word early and yields `ST  Multiple Destinations???? SI Destinations, Multiple
+for Example, …`. Line 8 alone is the title.
+
+Reading the row needs three further rules, each decided positionally:
+
+* **The opcode word opens the line.** The title line is the first display line
+  of the metadata record whose first visible token spells `ST`. That reaches
+  the form where the flattened splitter classifies an `ST` control and the
+  form where the opcode is glued to a one-cell marker (`ST|`) and is split as
+  a text segment instead.
+* **A marker slot glued to the opcode is layout**, and the title begins after
+  the space that follows it: GC23-046 `7.0` record 192 token 29 is the ASCII
+  change bar `|` and hosted (DT `19920330095121`) heads the topic
+  `Chapter 7.  Online Books`; ACPZMST1 `5.4` record 284 has `U+2502` in the
+  same position and hosted (DT `19920319123146`) heads it
+  `/etc/inittab File Definitions`. An `ST` followed by a *space* carries no
+  marker, so a leading punctuation word there is title text: SC24-5520-00
+  `6.11.3` is `ST  *ACCOUNT System Service`, SH20-918 `3.1` is
+  `ST  :ABSTRACT--Document Abstract`, SC09-138 `4.7.1` is `ST  __amrc` and
+  SC09-138 `8.1.1` is `ST  #pragma Preprocessor Directive`; hosted heads all
+  four with the punctuation.
+* **A following control segment ends the title unless it is display text.**
+  A control-shaped word with a displayed word in front of it on the same
+  display line is that row's text ("A Control-Shaped Word Inside A Row Is
+  Display Text"): SC24-5527-02 record 605 line 8 is
+  `ST  Create an APPLY List from Two SRVAPPS Tables`, one row, and `SRVAPPS`
+  is the table's name.
+
+An `ST` line with no payload is an empty title; the heading is then the topic
+number alone (see the empty-`ST` rule above).
+
+Measured over the 34 fixtures: 10,502 of the 10,503 topics resolve an `ST`
+display line (SH12-565 `19-6639` has none and is the only fallback), and 7,242
+of the 7,362 titles that also have a TOC projection agree with it exactly. Of
+the 120 that do not, 33 are empty-`ST` topics, about 22 are TOC projections
+carrying a stray trailing artifact (`%`, `;`, `'`, `:MSGNO`, `[`, `//`,
+`----------`, `<BOOK>`, `$`) and about 65 are titles the row truncates while
+the TOC carries the full string, the QSYSINFO `2.1.21` shape. All 120 were
+checked against the hosted heading and all 120 agree with the display row.
+
 ### The Metadata Envelope Spans Records
 
 The topic metadata run — `SH<id>`, `CTOPICN`, `CPARENT`, `CFORWARDLEVEL`,

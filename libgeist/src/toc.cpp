@@ -2,6 +2,7 @@
 #include "geist/detail/form_item_rows.hpp"
 #include "geist/detail/message_prose_rows.hpp"
 #include "geist/detail/structural_marker_rows.hpp"
+#include "geist/detail/topic_header_title.hpp"
 
 #include <algorithm>
 #include <array>
@@ -1446,9 +1447,9 @@ std::vector<std::string> build_raw_gml_records(
   return records;
 }
 
-std::vector<TopicData> build_topics(
-    const std::vector<std::string>& decoded_records,
-    bool copy_records) {
+std::vector<TopicData> build_topics(const LogicalDecodeContext& context,
+                                    bool copy_records) {
+  const auto& decoded_records = context.decoded_records;
   std::vector<TopicData> topics;
 
   std::vector<std::size_t> header_indexes;
@@ -1512,8 +1513,26 @@ std::vector<TopicData> build_topics(
     topic.id = extract_topic_header_id(header);
     topic.heading_level =
         extract_control_value_until_boundary(metadata, "chdlevel ");
+    // The header title is the visible text of the `ST` display line
+    // (topic_header_title.hpp).  The flattened `ST` payload run below is only
+    // the fallback for a record whose display lines do not parse or that
+    // carries no `ST` line at all; it stops at the first decoder boundary,
+    // which is not where the display row breaks.
+    std::optional<std::string> display_line_title;
+    for (auto candidate = metadata_record;
+         candidate < record_end && candidate < metadata_record + 6;
+         ++candidate) {
+      const auto sources = decode_logical_record_sources(
+          context, static_cast<std::uint32_t>(candidate + 1),
+          static_cast<std::uint32_t>(candidate + 2));
+      if (sources.empty()) break;
+      display_line_title = topic_header_title_of_record(sources.front());
+      if (display_line_title) break;
+    }
     topic.title = normalize_toc_title(
-        extract_control_value_until_boundary(metadata, "st "));
+        display_line_title
+            ? *display_line_title
+            : extract_control_value_until_boundary(metadata, "st "));
     if (!topic.id.empty() && seen_topic_ids.insert(topic.id).second) {
       topics.push_back(std::move(topic));
     }

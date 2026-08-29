@@ -86,3 +86,11 @@ differential of its own with a hosted check on every topic whose title moves.
 Do not instead relax the label comparison to "label is a prefix of the header
 title": that would admit a label that is a genuine prefix of a genuinely
 different title, and it would hide the extraction defect rather than fix it.
+
+## Fixed
+
+Fixed in `topic_header_title.cpp` / `build_topics`; see
+`AnalysisNotes/topic-header-title-display-line-2026-08-29.md` and
+`Format/logical-controls.md`, "A Topic Title Is Its `ST` Display Line".  The
+class went 46 -> 3; the three that remain are the same defect in the *menu
+label* rather than in the header title.

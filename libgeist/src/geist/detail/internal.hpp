@@ -274,9 +274,12 @@ std::vector<TocEntry> build_table_of_contents(
     bool attach_records = true);
 std::vector<std::string> build_raw_gml_records(
     const std::vector<TopicData>& topics);
-std::vector<TopicData> build_topics(
-    const std::vector<std::string>& decoded_records,
-    bool copy_records = true);
+// Topic identities, boundaries and header titles.  The title is read off the
+// `ST` display line of the topic's own metadata record, so this needs the
+// positioned decode context and not only the flattened record strings
+// (topic_header_title.hpp).
+std::vector<TopicData> build_topics(const LogicalDecodeContext& context,
+                                    bool copy_records = true);
 
 BooBookProperties build_book_properties(
     const std::vector<BooLogicalControl>& controls);
