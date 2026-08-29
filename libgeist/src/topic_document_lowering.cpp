@@ -46,6 +46,14 @@ void prepend_topic_id_to_heading(DocumentIR &document) {
     return;
   auto &heading = std::get<HeadingBlockIR>(heading_block->node);
 
+  // A family that carries no title of its own already put the identity in
+  // the heading (an `ST` control with an empty payload: hosted BookServer
+  // serves `<H3> 8.1.1.1 </H3>`), so the prefix is not repeated and no
+  // trailing separator is written.
+  if (!heading.content.empty() &&
+      heading.content.front().origin.detail == "public topic identity prefix")
+    return;
+
   InlineIR identity;
   identity.node = TextInlineIR{document.topic.id + " "};
   identity.origin.derivation = DocumentDerivationIR::synthesized;

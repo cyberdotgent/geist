@@ -398,6 +398,75 @@ void positive_fixtures() {
               "QSYSNEWG 1.0 has no reflowed paragraph");
     }
   }
+  // An `ST` control with an empty payload: the topic has no title of its own
+  // and hosted BookServer heads it with its number alone
+  // (`<H3> 8.1.1.1 </H3>`, SC09-138 DT 19910321130500), starting the body
+  // with the styled word the catalog reuses as the TOC label.
+  {
+    Extracted kept;
+    const auto markdown = admit("SC09-138.boo", "8.1.1.1", &kept);
+    require(contains(markdown, "### 8\\.1\\.1\\.1\n"),
+            "SC09-138 8.1.1.1 heading is the topic number alone");
+    require(contains(markdown, "`chars`"), "SC09-138 8.1.1.1 body opens");
+    if (kept.prose) require(kept.prose->title.empty(), "8.1.1.1 empty title");
+  }
+  // The same control preceded by an `SR<id>` anchor the flattened string
+  // could not classify, because the next display line's length byte is glued
+  // to the opcode word (record 1229 line 8 is exactly `SRHDRPCHECK`, line 9
+  // exactly `ST`).  Hosted serves
+  // `<a name="HDRPCHECK"><H3> 8.1.1.2 </H3></a>`.
+  {
+    const auto markdown = admit("SC09-138.boo", "8.1.1.2");
+    require(contains(markdown, "### 8\\.1\\.1\\.2\n"),
+            "SC09-138 8.1.1.2 heading is the topic number alone");
+    require(contains(markdown, "<a id=\"HDRPCHECK\"></a>"),
+            "SC09-138 8.1.1.2 leading anchor");
+  }
+  // A text segment in front of the `ST` whose only visible token is the
+  // display line's length byte: SC26-457 record 549 token 0 has encoded
+  // value 39 and spells `'`, and hosted DT 19911220191142 heads 3.14.2.3
+  // with no apostrophe.
+  {
+    const auto markdown = admit("SC26-457.boo", "3.14.2.3");
+    require(!contains(markdown, "3\\.14\\.2\\.3 '"),
+            "SC26-457 3.14.2.3 heading has no length-byte apostrophe");
+  }
+  // The list bullet stored as a two-byte dictionary token (QS3X36CM record 7
+  // token 81 value 56323, IBMMMSTR record 44 token 145 value 46595); hosted
+  // DT 19910524075122 and DT 19911004151140 serve both list rows.
+  {
+    const auto markdown = admit("QS3X36CM.BOO", "1.1");
+    require(contains(markdown, "Press F4 on a blank command line"),
+            "QS3X36CM 1.1 two-byte bullet");
+  }
+  {
+    const auto markdown = admit("IBMMMSTR.boo", "1.0");
+    require(contains(markdown, "Compiler control messages"),
+            "IBMMMSTR 1.0 two-byte bullet");
+  }
+  // A box-drawing run with a displayed word in front of it on its own display
+  // line is that row's text: SC24-5520-00 record 45 line 12 is the caption
+  // `    <-________ 4 bytes _____->` above a drawn box.
+  admit("SC24-5520-00.boo", "1.1.1");
+  // A subject-index display line inside a drawn box does not interrupt the
+  // box (hosted carries no `SI` bytes): QSYSNEWG record 80's `What Are Entry
+  // Fields?` box holds `SI field, field keys` and `SI keys, field`.
+  {
+    Extracted kept;
+    const auto markdown = admit("QSYSNEWG.BOO", "3.1.1.1", &kept);
+    require(contains(markdown, "| Fields are really nothing more than blank "
+                               "lines (input areas) waiting  |"),
+            "QSYSNEWG 3.1.1.1 box body row");
+    require(!contains(markdown, "field keys"),
+            "QSYSNEWG 3.1.1.1 hides the boxed index line");
+    if (kept.prose) {
+      const auto terms = std::count_if(
+          kept.prose->index_terms.begin(), kept.prose->index_terms.end(),
+          [](const auto& term) { return term.term == "field, field keys"; });
+      require(terms == 1, "QSYSNEWG 3.1.1.1 boxed index term");
+    }
+  }
+  admit("IEAC6MST.BOO", "1.3");
   {
     Extracted kept;
     const auto markdown = admit("OFCUSEOV.BOO", "1.18.2", &kept);

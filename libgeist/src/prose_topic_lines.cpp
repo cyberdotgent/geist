@@ -1019,6 +1019,10 @@ struct LineBuilder {
       }
       switch (item.kind) {
       case ItemKind::segment_end:
+        // An `ST` control with no payload completes the title with no words;
+        // the topic's heading is then its number alone (see
+        // `prose_topic_stream.cpp`, the empty-title case).
+        if (item.empty_title) title_done = true;
         if (!finish_title() || !finish_index()) return false;
         break;
       case ItemKind::layout: {

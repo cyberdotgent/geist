@@ -110,6 +110,9 @@ struct Item {
   // An inter-segment token claimed by no control segment.
   bool separator = false;
   bool title_start = false;
+  // The `ST` control carried no payload token at all, so the topic's title is
+  // empty and this segment end completes it.
+  bool empty_title = false;
   bool index_start = false;
   bool continuation_start = false;
   std::vector<FontSpanIR> spans;
@@ -252,6 +255,9 @@ struct StreamBuild {
   std::vector<ProseIndexTermIR> trailing_index_terms;
   std::size_t menu_record = npos;  // first record holding menu controls
   std::size_t menu_segment = npos;
+  // Source slice of an `ST` control with no payload: an empty title still
+  // needs provenance, and the control's own tokens are it.
+  std::optional<DocumentSourceSliceIR> empty_title_source;
 };
 
 bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,

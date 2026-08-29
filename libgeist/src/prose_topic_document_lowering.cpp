@@ -264,8 +264,7 @@ std::optional<std::uint64_t> item_ordinal(const ProseBlockIR& block,
 std::optional<DocumentIR> lower_prose_topic_to_document_ir(
     TopicIdentityIR identity, const ProseTopicIR& prose, std::string* error) {
   if (prose.heading_level.size() != 2 || prose.heading_level.front() != 'h' ||
-      prose.heading_level.back() < '1' || prose.heading_level.back() > '6' ||
-      prose.title.empty()) {
+      prose.heading_level.back() < '1' || prose.heading_level.back() > '6') {
     fail(error, "prose topic heading is incomplete");
     return std::nullopt;
   }
@@ -277,9 +276,22 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
   const auto level =
       static_cast<std::uint32_t>(prose.heading_level.back() - '0');
   auto heading_origin = origin({prose.title_source}, "prose heading");
-  InlineIR heading_text{TextInlineIR{prose.title}, heading_origin};
+  // An `ST` control with an empty payload leaves the heading to the topic
+  // identity prefix alone, which is what hosted BookServer serves
+  // (`<H3> 8.1.1.1 </H3>`, SC09-138 DT 19910321130500).
+  std::vector<InlineIR> heading_content;
+  if (prose.title.empty()) {
+    InlineIR identity_only;
+    identity_only.node = TextInlineIR{document.topic.id};
+    identity_only.origin.derivation = DocumentDerivationIR::synthesized;
+    identity_only.origin.detail = "public topic identity prefix";
+    heading_content.push_back(std::move(identity_only));
+  } else {
+    heading_content.push_back(
+        InlineIR{TextInlineIR{prose.title}, heading_origin});
+  }
   document.blocks.push_back(
-      {HeadingBlockIR{level, {std::move(heading_text)}}, heading_origin});
+      {HeadingBlockIR{level, std::move(heading_content)}, heading_origin});
 
   // Table and figure spans lower through their own typed blocks; the prose
   // family only places them.

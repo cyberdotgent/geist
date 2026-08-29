@@ -90,7 +90,11 @@ std::optional<ProseTopicIR> extract_prose_topic_ir(
   // corroboration is positional: each must be a prefix of that run.  A title
   // that is not a prefix of its own source (a dropped leading glyph, a
   // compact word glued onto the last word) still fails closed.
-  {
+  // An `ST` control with no payload: the topic has no title of its own and
+  // the catalog string is the book's separate projection, so there is nothing
+  // to corroborate positionally.  Provenance is the control's own tokens.
+  const auto empty_title = stream.empty_title_source.has_value();
+  if (!empty_title) {
     const auto typed = normalize_title(lines.title);
     const auto catalog = normalize_title(title);
     const auto run = normalize_title(lines.title_run);
@@ -109,7 +113,10 @@ std::optional<ProseTopicIR> extract_prose_topic_ir(
   topic.heading_level = envelope.heading_level;
   topic.heading_form = envelope.heading_form;
   topic.title = lines.title;
-  {
+  if (empty_title) {
+    topic.title.clear();
+    topic.title_source = *stream.empty_title_source;
+  } else {
     auto refs = lines.title_refs;
     std::sort(refs.begin(), refs.end());
     const auto slices = slices_for(records, refs);

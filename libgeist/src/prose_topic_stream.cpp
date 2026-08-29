@@ -923,8 +923,35 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           return fail(error, "topic carries a second ST control");
         if (segment.malformed) return fail(error, "ST control is malformed");
         title_seen = true;
+        const auto before = build.items.size();
         if (!push_payload(ProseTokenRoleIR::envelope, true, false, false))
           return false;
+        // An `ST` control with no payload token is an empty title, not a
+        // broken one: hosted BookServer heads such a topic with its number
+        // alone.  SC09-138 record 1228 writes `csourcefn EDCUPRAG`, a
+        // boundary, `ST` (token 25), a boundary and then `cfont 3 5 E` whose
+        // payload `chars` is the topic's first body word; DT 19910321130500
+        // serves `<H3> 8.1.1.1 </H3>` and opens the body with
+        // `   <samp>chars</samp>`.  Verified the same way on 2.1.1.7, 4.1.1,
+        // 4.1.2, 8.1.1.2, 8.1.1.5 and 8.7.2.1.
+        std::size_t payload = 0;
+        for (auto index = before; index < build.items.size(); ++index)
+          if (build.items[index].kind == ItemKind::token) ++payload;
+        if (payload == 0) {
+          for (auto index = before; index < build.items.size(); ++index)
+            if (build.items[index].kind == ItemKind::segment_end)
+              build.items[index].empty_title = true;
+          std::vector<std::pair<std::size_t, std::size_t>> refs;
+          for (const auto token : segment.source_tokens)
+            refs.push_back({record_index, token});
+          const auto slices = slices_for(records, refs);
+          if (slices.empty())
+            return fail(error, "ST control has no source provenance");
+          auto slice = slices.front();
+          slice.token_end = slices.back().token_end;
+          slice.byte_end = slices.back().byte_end;
+          build.empty_title_source = slice;
+        }
         break;
       }
       case BookControlKind::structural: {
@@ -1130,6 +1157,103 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           }
         }
         if (!title_seen) {
+          // Before the title the record still carries the metadata envelope,
+          // and the display line decides what of it is displayed at all.
+          //
+          // 1. A length byte is never display text, whatever dictionary word
+          //    it resolves to.  SC26-457 record 549 token 0 is the first
+          //    display line's length byte (encoded value 39) and spells `'`,
+          //    which `decode_control_segments` split off as a text segment in
+          //    front of the `ST`; hosted DT 19911220191142 serves
+          //    `<H4> 3.14.2.3   Deleting an Entry-Sequenced VSAM Cluster ...`
+          //    with no apostrophe.
+          // 2. An `SR<id>` anchor that is the only displayed word of its own
+          //    display line is the envelope anchor variant `parse_envelope`
+          //    already models -- it only reaches here because the *next*
+          //    line's length byte is glued to the opcode word in the
+          //    flattened string, so `classify` sees `SRHDRPCHECK.` and
+          //    refuses the identifier.  SC09-138 record 1229 line 8 is
+          //    exactly `SRHDRPCHECK` and line 9 exactly `ST`; hosted DT
+          //    19910321130500 serves 8.1.1.2 as
+          //    `<a name="HDRPCHECK"><H3> 8.1.1.2 </H3></a>`.  Verified the
+          //    same way on 4.1.1 (`HDRETOHEAP`), 4.1.3 and 8.1.1.5.
+          const auto lines = record_display_lines(record);
+          const auto line_of = [&](const std::size_t token)
+              -> const DisplayLineIR* {
+            if (!lines) return nullptr;
+            for (const auto& candidate : *lines)
+              if (token >= candidate.prefix_token &&
+                  token < candidate.token_end)
+                return &candidate;
+            return nullptr;
+          };
+          bool length_byte_only = false;
+          if (first_visible) {
+            const auto* line = line_of(*first_visible);
+            if (line != nullptr && line->prefix_token == *first_visible) {
+              // Case 1: the segment opens on a length byte.  Look past it for
+              // the first token that really is displayed.
+              first_visible.reset();
+              for (const auto token : segment.source_tokens) {
+                if (token <= line->prefix_token) continue;
+                if (is_visible(view_token(records, record_index, token))) {
+                  first_visible = token;
+                  break;
+                }
+              }
+              length_byte_only = !first_visible.has_value();
+            }
+          }
+          if (length_byte_only) {
+            for (const auto token : segment.source_tokens) {
+              const auto view = view_token(records, record_index, token);
+              if (!ledger.assign(record_index, token,
+                                 is_visible(view) ? ProseTokenRoleIR::marker
+                                                  : ProseTokenRoleIR::padding,
+                                 error))
+                return false;
+            }
+            break;
+          }
+          if (first_visible) {
+            const auto* line = line_of(*first_visible);
+            const auto word = body_text(
+                view_token(records, record_index, *first_visible));
+            const auto lower = ascii_lower(word);
+            const auto anchor_shaped =
+                word.size() > 2 && lower.rfind("sr", 0) == 0 &&
+                !reserved_structural(lower) &&
+                std::all_of(word.begin(), word.end(),
+                            [](const unsigned char ch) {
+                              return std::isalnum(ch) != 0 || ch == '_';
+                            });
+            bool alone = line != nullptr;
+            if (alone)
+              for (auto token = line->prefix_token + 1;
+                   token < line->token_end; ++token)
+                if (token != *first_visible &&
+                    is_visible(view_token(records, record_index, token)))
+                  alone = false;
+            if (anchor_shaped && alone) {
+              ProseAnchorIR anchor;
+              anchor.id = word.substr(2);
+              anchor.source = token_slice(record, segment.source_tokens.front(),
+                                          segment.source_tokens.back() + 1);
+              for (const auto token : segment.source_tokens) {
+                const auto view = view_token(records, record_index, token);
+                if (!ledger.assign(record_index, token,
+                                   token == *first_visible
+                                       ? ProseTokenRoleIR::envelope
+                                       : (is_padding(view)
+                                              ? ProseTokenRoleIR::padding
+                                              : ProseTokenRoleIR::envelope),
+                                   error))
+                  return false;
+              }
+              build.leading_anchors.push_back(std::move(anchor));
+              break;
+            }
+          }
           // `ST| <title>`: the title control glued to a one-cell marker is
           // split as a text segment (GC23-046 record 151, QSYSNEWG PREFACE).
           if (!first_visible ||

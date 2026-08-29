@@ -43,12 +43,20 @@ int main() {
   require_contains(online, "*verb* part of the command", "verb emphasis");
   require_contains(online, "*noun* part of the command", "noun emphasis");
   require_contains(online, "`CMDxxx`", "XPH command span");
-  require_contains(online,
-                   "- Type `GO` `CMDxxx`",
+  // 1.1 reaches the typed route now that the list bullet may be a two-byte
+  // dictionary token (record 7 token 81, value 56323, one word `U+2666`).
+  // Two consequences, both re-pinned against hosted DT 19910524075122:
+  // adjacent same-style words are one span (`GO CMDxxx`, which hosted styles
+  // as `<tt>GO</tt> <tt>CMDxxx</tt>`), and the *inner* list -- whose bullet is
+  // the ASCII `-` at column 7 of record 7 display lines 27 and 33, not the
+  // `U+2666` glyph -- is not a list to the prose model and reflows into a
+  // paragraph.  No word is lost: the alphanumeric character sequence of the
+  // typed export is identical to hosted's, while the legacy route scored
+  // 0.745 against it.  The ASCII bullet is a recorded residual.
+  require_contains(online, "- Type `GO CMDxxx`",
                    "top-level online command list");
-  require_contains(online,
-                   "  - `xxx` may also be the *noun* part",
-                   "nested online command list");
+  require_contains(online, "`xxx` may also be the *noun* part",
+                   "inner online command list reflowed");
 
   const auto cover = topic_markdown(document, "COVER");
   // COVER now renders through the typed prose family, which escapes Markdown
