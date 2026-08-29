@@ -303,6 +303,86 @@ does consume the separator it fired on: SH12-565 `3.1.6` stores the example
 command `F QH,F XY,SRV=(3,2,2)` and the comma before `SRV` is dropped with the
 boundary.
 
+#### A Box-Drawing Run Inside A Row Is Display Text Too
+
+The same corroboration decides the decoder's box-drawing runs
+(`U+2500`-`U+25FF`).  A run of box words is row geometry -- a marker slot, a
+drawn box outline, the reader's `<hr>` -- only where it **opens** its display
+line.  With a displayed word already in front of it on that line, it stands
+inside a drawn row, and hosted BookServer prints its glyphs.  Byte-level
+examples, one per shape:
+
+| Record and line | Display text | Hosted |
+| --- | --- | --- |
+| SC24-546 record 44 line 17 | `       The >>___ symbol indicates the beginning of a statement.` | DT 19940323131240 prints the `>>___` inside the sentence |
+| SC24-546 record 45 line 9 | `       >>__STATEMENT__required_item____ ... ____><` | a railroad diagram, printed verbatim |
+| SC09-2417-00 record 715 line 26 | `   >>__extern__"string-literal"__{ declaration-list }____ ... ____><` | `SC09-241` DT 19961114175628, inside `cz OFF SYNTAX` |
+| SC33-033 record 75 line 14 | `    ------------------ General-Use Programming Interface ------------------- ` | DT 19930422134757; the fence's first and last cell are drawn, the dashes between them are ASCII |
+| SC24-5520-00 record 45 line 12 | `    <-________ 4 bytes _____->` | the arrow caption above a drawn box |
+
+Two riders the corpus differential forced.
+
+* The word in front must be **displayed**, not merely visible in the token
+  stream.  A control opcode is a visible token of its own display line and
+  draws nothing: ACPZMST1 record 284 line 8 is `ST` (token 26), `U+2502`
+  (token 28), `/` (token 29) and the title, and the `U+2502` is the documented
+  `ST` title marker slot, which hosted does not print (`<H2> 5.4
+  /etc/inittab File Definitions</H2>`).
+* A drawn corner renders as a **blank column**, so the closing `U+2500` of the
+  SC33-033 fence occupies a cell that carries no character.
+
+#### The List Bullet May Be A Two-Byte Token
+
+The bullet glyph `U+2666` is an ordinary dictionary word, so the encoder is
+free to store it either as a one-byte token or as a two-byte dictionary
+reference; both open a list row.  QS3X36CM record 7 token 81 is encoded value
+56323, width 2, one word `U+2666`, opening the display line `   °   Press F4
+on a blank command line to see the Major Command Groups menu.` which hosted DT
+19910524075122 serves verbatim; IBMMMSTR record 44 token 145 is value 46595,
+width 2, opening `   °   Compiler control messages (numbers 0002 through
+0049) are mainly` at DT 19911004151140.  Only the decoder's unmapped word
+`U+FFFF` still has to be one byte to be structure: a width-2 `?` is a question
+mark.
+
+#### An `ST` Control With No Payload Is An Empty Title
+
+The `ST` control may carry no payload token at all.  The topic then has no
+title of its own and hosted BookServer heads it with its number alone.
+SC09-138 record 1228 writes `csourcefn EDCUPRAG` (tokens 22/23), a boundary,
+`ST` (token 25, encoded value 120), a boundary, and then `cfont 3 5 E` whose
+payload -- a three-cell origin run and the word `chars` -- is the topic's
+first body word.  Hosted DT 19910321130500 serves
+
+```
+<H3> 8.1.1.1 </H3>
+<pre width="80"><!-- * -->
+   <samp>chars</samp>
+```
+
+while the same book's CONTENTS lists the topic as `chars`: the catalog string
+is the book's separate projection of the topic, not a truncation of this
+control, so there is nothing to corroborate positionally.  Checked the same
+way on SC09-138 2.1.1.7, 4.1.1, 4.1.2, 8.1.1.2, 8.1.1.5 and 8.7.2.1.  A sweep
+of every legacy topic of the 34 fixtures found the shape in SC09-138 only, 40
+topics.
+
+Two consequences for what stands *in front of* such a control, both readings
+of facts already established above.
+
+* A **length byte** in front of the `ST` is not display text, whatever
+  dictionary word it resolves to.  SC26-457 record 549 token 0 is the first
+  display line's length byte, encoded value 39, and spells `'`; the flattened
+  string split it off as a text segment in front of the title, and hosted DT
+  19911220191142 heads 3.14.2.3 with no apostrophe.
+* An `SR<id>` word that is the **only displayed word of its own display line**
+  in front of the `ST` is the envelope anchor variant.  It reaches the body
+  stream only because the *next* line's length byte is glued to the opcode
+  word in the flattened string, so a classifier sees `SRHDRPCHECK.` and
+  refuses the identifier.  SC09-138 record 1229 display line 8 is exactly
+  `SRHDRPCHECK` and line 9 exactly `ST`; hosted serves
+  `<a name="HDRPCHECK"><H3> 8.1.1.2 </H3></a>`, and the same holds for
+  4.1.1 (`HDRETOHEAP`), 4.1.3 (`HDRETOSIZE`) and 8.1.1.5 (`HDRENVIRON`).
+
 ## Token Resolution
 
 A token reference resolves to a word-counted 16-bit character-code record:
