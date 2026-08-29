@@ -9,14 +9,14 @@ is in `Format/logical-controls.md`, "Display Lines Inside A Record Payload".
 ## Starting point
 
 `build/bootrace <book> --coverage` over all 34 fixtures at `main`
-`843404c`: **3,768 / 7,362 typed**, of which 294 topics rejected with
+`843404c`: **3,768 / 7,362 typed**, of which 562 topics rejected with
 
 ```
 prose topic rejected: placeholder run '?' is followed by visible text at record N token M
 ```
 
-(the class was 493 topics before the `CZ` slice landed and re-routed part of
-it).  `is_placeholder_run` covers the box-drawing block `U+2500`-`U+25FF`
+(the class was 493 topics at `de88511`, before the `CZ` slice re-routed
+other rejections into it).  `is_placeholder_run` covers the box-drawing block `U+2500`-`U+25FF`
 plus the decoder's unmapped word `U+FFFF`; the family refused any such run
 that a visible token followed on the same row.
 
@@ -26,11 +26,12 @@ that a visible token followed on the same row.
    `extract_prose_topic_ir` per TOC topic) parsed the rejection message,
    printed a ±12-token window around the failing token with encoded width,
    value, spacing prefix and decoded code points, and emitted one line per
-   failing topic so the 294 sites could be clustered.
-2. Two shapes accounted for essentially all of them:
+   failing topic so the sites could be clustered.
+2. Two shapes accounted for essentially all of them (counts from the 493
+   sites of the first census):
    * a one-byte token holding one or two `U+FFFF` words right after an `SI`
-     keyword (≈250 sites) — structured subject-index entries;
-   * a `U+250C` corner followed by more box-drawing runs (≈240 sites) —
+     keyword (255 sites) — structured subject-index entries;
+   * a `U+250C` corner followed by more box-drawing runs (238 sites) —
      boxes drawn straight into the prose display lines.
 3. Both were resolved against the **display-line** structure of the record
    rather than against the flattened decoded string.  A second probe mode
@@ -101,7 +102,9 @@ sampling.
   SH20-918 +47, OFCUSEOV +28, IEAC6MST +6, QSYSNEWG +6, SC24-5527-02 +6,
   SG24-204 +6, SH12-565 +6, FA1PLMM0 +3, SC24-5520-00 +2, GC23-046 +1.  No
   book regressed and no topic moved typed -> legacy.
-* The rejection class itself: 294 -> 86 topics.
+* The rejection class itself: **562 -> 86 topics**, and it is the only
+  rejection class whose count changed at all; every other reason keeps its
+  exact `843404c` count.
 * Whole-corpus `boo2git --force` before/after: **268 changed files, 0 added,
   0 removed** — exactly the 268 topics that moved to the typed route.  No
   file changed for a topic that stayed on the same route, so this slice has
