@@ -116,6 +116,31 @@ the hosted catalog and are excluded from hosted sampling.
 | `CSELECT` / `CFONT` inside a drawn box (SC31-711, GG24-4302-00 `NOTICES`) | preformatted rows, link and bold dropped | accept: same precedent as every other drawn box; the rows are character-identical to hosted |
 | Markdown escaping of a topic that moved route (`5\.1`, `SX41\-8209\-00`) | escaped | accept; tests re-pinned |
 
+## Merged measurement and one recorded regression
+
+Re-measured after merging `main` `51a686e` (the sub-token span slice):
+**5,720 -> 6,271 of 7,362 (77.7% -> 85.2%, +551)**.  Every book grew.
+
+Nine topics that `main` typed now fail closed, all through rules the two
+slices share rather than through wrong output: ACPZMST1 `8.14.1`/`8.18.1`,
+SC24-546 `6.2.11`, SC26-457 `2.1`/`3.9.1.1`/`3.14.1.2` hit the new "row
+columns are unproven" span rule on rows whose columns this slice moved, and
+ACPZMST1 `8.2`, SC26-457 `3.2.2.2`, OFCUSEOV `6.4.3` hit "nested or
+misaligned list items" because a list item's origin now differs from the
+previous item's (1 vs 7 and 4 vs 7 -- lists interleaved with drawn screen
+boxes).  They fall back to the legacy renderer, which loses hosted words on
+eight of the nine (up to 68 in OFCUSEOV `6.4.3`), so this is a real render
+regression for those topics and not only a coverage one.  Handed forward:
+the origins those three lists disagree on are worth re-deriving from the
+display-line indent rather than from the row builder's `implied_origin`.
+
+Whole-corpus `boo2git --force` against `main` `51a686e`: **1,502 changed
+files, 0 added, 0 removed** -- 560 topics that moved legacy -> typed, the 9
+above, and 932 already-typed topics the row fix corrects.  Hosted sample of
+**75 moved topics across 26 books**: better 63, equal 12, worse 0; and of
+**99 already-typed changed topics across 26 books**: better 9, equal 90,
+worse 0.
+
 ## Residual
 
 **1,256 legacy topics.**  The class this slice owns is down to 81 + 18.  What

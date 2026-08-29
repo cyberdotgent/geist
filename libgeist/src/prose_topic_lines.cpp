@@ -238,6 +238,25 @@ struct LineBuilder {
     return true;
   }
 
+  // The row's visual marker glyph stands directly before the row's text, or
+  // before one gap run and then the text: GC23-046 2.3.2 record 48 draws the
+  // change-bar row ` |     Â°   For SMP/E Reference:` as `|`, a four-cell gap
+  // and the bullet, and hosted (DT 19920330095121) prints the bar in the
+  // margin and the bullet in its own column.
+  bool marker_precedes_row_text(std::size_t index) const {
+    if (index + 1 >= items.size() ||
+        items[index + 1].kind != ItemKind::token)
+      return false;
+    auto next = index + 1;
+    if (is_space_run(items[next].token)) {
+      const auto after = next_token(next);
+      if (after == npos || !is_token(after)) return false;
+      next = after;
+    }
+    return is_visible(items[next].token) &&
+           !is_placeholder_run(items[next].token);
+  }
+
   // Consumes a display line's length byte as the row-control slot of the row
   // it opens: it ends the row before it and, when a single space run follows
   // in front of the row's text, that run is the new row's origin.
@@ -1298,9 +1317,7 @@ struct LineBuilder {
         // (ACPZMST1 3.11 record 180): they carry no character.
         (is_placeholder_run(view) ||
          !pending_span_covers(line().cells.size(), view.body.size())) &&
-        index + 1 < items.size() && items[index + 1].kind == ItemKind::token &&
-        is_visible(items[index + 1].token) &&
-        !is_placeholder_run(items[index + 1].token)) {
+        marker_precedes_row_text(index)) {
       // A visual row marker (`|`, box glyph) opening the row directly before
       // its text (GC23-046 record 151 `| ◆ The number of orders`, ACPZMST1
       // record 78 `│ The following sections`).  The glyph is not prose text,
