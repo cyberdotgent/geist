@@ -119,10 +119,18 @@ bool verify_block(const BlockIR& block, std::string* error) {
               explicit_ordinals != node.items.size())
             return fail(error, "ordered list source ordinals are incomplete");
           std::uint64_t previous_ordinal = 0;
+          std::uint32_t previous_depth = 0;
+          bool first_item = true;
           for (const auto& item : node.items) {
             if (!verify_origin(item.origin, error) ||
                 !verify_inlines(item.content, false, error))
               return false;
+            // A list may only descend one level at a time, and its first item
+            // is its shallowest.
+            if (first_item ? item.depth != 0 : item.depth > previous_depth + 1)
+              return fail(error, "list item depth skips a level");
+            previous_depth = item.depth;
+            first_item = false;
             if (item.source_ordinal) {
               if (*item.source_ordinal == 0)
                 return fail(error, "ordered list source ordinal is zero");
@@ -383,6 +391,8 @@ std::string format_document_ir(const DocumentIR& document) {
             for (std::size_t item = 0; item < node.items.size(); ++item) {
               if (item != 0) out << ' ';
               out << "item=";
+              if (node.items[item].depth != 0)
+                out << "depth=" << node.items[item].depth << ' ';
               if (node.items[item].source_ordinal)
                 out << "ordinal=" << *node.items[item].source_ordinal << ' ';
               format_inlines(out, node.items[item].content);

@@ -2150,3 +2150,113 @@ keeps `Generic object name` whole.
   `2.1.3` record 39 `cfont 53 6 5 60 4 5` produces
   `The <U>window</U> <U>size</U> controls how`.  The document model has no
   underline node, so such a phrase keeps plain emphasis.
+
+## Generated CONTENTS and INDEX topics as display-line control records
+
+A book's generated table of contents (`CHDLEVEL :TOC`, topic id `CONTENTS`)
+and its generated index (`CHDLEVEL :INDEX`, topic id `INDEX`) contain **no
+display rows at all**.  Every record of both topics parses cleanly into the
+length-prefixed display lines documented in
+`Format/logical-controls.md` ("Display Lines Inside A Record Payload"), and in
+these two topics **each display line holds exactly one control**.  That makes
+the display-line walk their complete and verifiable segmentation, and it makes
+the flattened decoded string unnecessary for reading them.
+
+Verified over the whole 34-fixture corpus: 34 `CONTENTS` topics and 29 `INDEX`
+topics, every record's lines parse, and each of the 36,972 body lines opens
+with one of the controls listed below.  Nothing else occurs.
+
+| Line | Occurrences | Role |
+| --- | ---: | --- |
+| `SH<contents\|index>` | 34 / 29 | Topic-start control (first line of the topic). |
+| `CTOPICN`, `CPARENT`, `CFORWARDLEVEL`, `CBACKLEVEL`, `CSUMMARY`, `CHDLEVEL`, `CSOURCEFN` | 63 each | Metadata envelope. |
+| `ST <title>` | 63 | Topic title. |
+| `SR<id>` | 2 | Structural anchor (`SRHDRINDEX`, `SRSPTPAGENO`). |
+| `CTOCDEF=<n> <operands>` | 238 | Per-style TOC row format. |
+| `CTOCE <depth> <style> <topic id> <title>` | 7,412 | One TOC entry. |
+| `CIDELM <word>` | 29 | Declares the index field delimiter. |
+| `CGPSEP <D><label>` | 627 | Index letter-group separator. |
+| `CITERM <D>term<D>level<D>target...` | 28,483 | One index term. |
+| `CENDINDEX` | 29 | End of the generated index body. |
+| `C.SP 1 P` | 17 | Spacing. |
+| `CZ BREAK 3`, `CZ OFF TOC`, `CZ OFF ETOC 0 0` | 19 | Region directives around the body. |
+
+### Byte-level evidence
+
+`SC31-711.boo` (DT `19941010174546`), logical record 6, payload at `0xa435`:
+
+| Token | Encoded | Words | Role |
+| ---: | --- | --- | --- |
+| 30 | value 5, width 1 | 11 x U+2500 | length byte of a five-byte line |
+| 31 | value 56495, width 2 | `ctocdef=0` | opcode |
+| 32-34 | values 169/168/179, width 1 | `1`, `0`, `2` | operands |
+| 60 | value 9, width 1 | three spaces | length byte of a nine-byte line |
+| 61 | value 60, width 1 | `ctoce` | opcode |
+| 62-63 | values 168/169, width 1 | `0`, `1` | depth, style |
+| 64 | value 56447, width 2 | `COVER` | topic id |
+| 65-66 | width 2 | `Book`, `Cover` | title |
+
+Every length byte's *encoded value* equals the payload byte count of the line
+that follows it, and the byte is never display text whatever its dictionary
+word happens to spell.  Record 7 token 70 (value 23, word `/`) is the length
+byte after `ctoce 2 3 2.4.1 Customer Information`; hosted serves that entry as
+`Customer Information` with no trailing slash.  This retires the earlier
+string-level note that a "decoder carry-over after a target may include a
+padded or standalone row marker such as `-`, `(`, `<`, or `/`": those glyphs
+are always the next line's length byte.
+
+`SC31-711.boo` logical record 538, payload at `0x34456`:
+
+| Token | Encoded | Words | Role |
+| ---: | --- | --- | --- |
+| 31 | value 56150, width 2 | `cidelm` | opcode |
+| 32 | value 4, width 1 | U+25BA | the declared delimiter |
+| 34 | value 56101, width 2 | `cgpsep` | opcode |
+| 35 | value 55302, width 2 | U+25BA, `A` | delimiter **inside** a token |
+| 37 | value 49, width 1 | `citerm` | opcode |
+| 38-49 | mixed | U+25BA `adapter problems` U+25BA `1` U+25BA `2.2.4` | fields |
+
+### `CTOCE`
+
+`CTOCE <depth> <style> <topic id> <title...>`.  `depth` is the entry's 0-based
+nesting level; hosted indents by two columns per level and serves the entry
+label as `<a name="<id>"><id></a> ... <a href="<id>?DT=..."><title></a>`.
+`style` selects the `CTOCDEF=<style>` row format, which drives BookServer's
+boldness and blank-line grouping.  The title runs to the end of the display
+line, so its internal spacing survives verbatim: SC31-711 `1.0` is
+`Chapter 1.  Files and Daemons` with two spaces, exactly as hosted serves it.
+
+### `CIDELM`, `CGPSEP`, `CITERM`
+
+`CIDELM <word>` declares the field delimiter for the whole index.  In all 29
+corpus indexes the declared word is U+25BA, but its encoded token differs by
+book (value 4 in most, value 3 in `SC31-605`, a two-byte token in `OFCUSEOV`
+and `PRG1SORT`), so a reader must take the delimiter from `CIDELM` and must
+split on the delimiter **word**, not on a token boundary: the compiler freely
+glues the delimiter into the following dictionary token (`OFCUSEOV` record 995
+`citerm <D>access codes<D>1` is three tokens, the first spelling
+`<D>access`).
+
+`CGPSEP <D><label>` is the letter group separator; `label` is one delimited
+field ("A", "Numerics", "Special Characters").
+
+`CITERM <D>term<D>level<D>target<D>target...`:
+
+- `term` is the visible term, printed verbatim including leading spaces.
+- `level` is a single non-zero digit, 1-based; hosted indents by two columns
+  per level above 1.
+- every field after the level is one more target for the same term.
+- a **trailing empty field** is a term with no target of its own -- a parent
+  whose children carry the targets (`GC28-183` record 917
+  `//*DATASET statement`, hosted DT `19930625102617` prints it unlinked above
+  its indented `use` child).
+- a target field of the form `<id> to <id>` is a page range, which hosted
+  serves as two links joined by the word `to` (`GC23-046` record 293
+  `citerm <D>target system<D>2<D>5.2.4 to 5.3`, hosted DT `19920330095121`:
+  `<a href="5.2.4">5.2.4</a> to <a href="5.3">5.3</a>`).  All 136 multi-word
+  target fields in the corpus are exactly this three-word shape.
+
+A term field can be genuinely empty: `SH20-918` record 636 token 275 is a
+two-byte token spelling the delimiter twice, so that `citerm` states a level
+and a `See` child but no term text.  Hosted DT `19910520154851` truncates its
+own output before that group, so nothing adjudicates it.

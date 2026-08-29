@@ -84,6 +84,8 @@ set(GEIST_SOURCES
   src/font_span_ir.cpp
   src/generated_list_document_lowering.cpp
   src/generated_list_topic_ir.cpp
+  src/generated_toc_index_document_lowering.cpp
+  src/generated_toc_index_ir.cpp
   src/glossary_catalog_ir.cpp
   src/glossary_document_lowering.cpp
   src/glossary_ir.cpp
@@ -489,6 +491,18 @@ target_compile_definitions(generated_list_topic_ir_synthetic_test PRIVATE
 )
 add_test(NAME generated_list_topic_ir_synthetic_test
   COMMAND generated_list_topic_ir_synthetic_test)
+
+add_executable(generated_toc_index_ir_synthetic_test
+  tests/generated_toc_index_ir_synthetic.cpp
+)
+target_link_libraries(generated_toc_index_ir_synthetic_test
+  PRIVATE geist::geist_static
+)
+target_compile_definitions(generated_toc_index_ir_synthetic_test PRIVATE
+  GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+add_test(NAME generated_toc_index_ir_synthetic_test
+  COMMAND generated_toc_index_ir_synthetic_test)
 
 add_executable(glossary_catalog_ir_synthetic_test
   tests/glossary_catalog_ir_synthetic.cpp
