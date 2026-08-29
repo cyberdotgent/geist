@@ -274,13 +274,16 @@ int main() {
                        "|Prompt|",
                        "table cells spilled into fixed text");
 
+  // 8.6 reaches the typed route since the change-bar margin fix, so the
+  // renderer escapes sentence punctuation; the words are hosted's
+  // (DT 19910524085706).
   const auto print_display = topic_markdown(document, "8.6");
   // 8.6 now renders through the typed prose family, which escapes Markdown
   // punctuation; the paragraph itself is unchanged and matches hosted DT
   // 19910524085706 word for word.
   require_contains(print_display,
                    "You can use the Print key to print any display you see "
-                   "on your screen",
+                   "on your screen\\.",
                    "aligned SI visible print paragraph");
   require_not_contains(print_display,
                        "print display You can use",

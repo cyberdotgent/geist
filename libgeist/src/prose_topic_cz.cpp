@@ -437,10 +437,9 @@ struct CzBuilder {
         if (cell.record == npos) continue;
         auto& entry = ledger.at(cell.record, cell.token);
         if (entry.role != ProseTokenRoleIR::text) continue;
-        if (entry.block != npos && entry.block != index)
-          return fail(error, "text token shared by two blocks");
-        entry.block = index;
-        entry.inline_index = block.inlines.size();
+        if (!claim_token_whole(records, ledger, cell.record, cell.token, index,
+                               block.inlines.size(), error))
+          return false;
         refs.emplace_back(cell.record, cell.token);
       }
       std::sort(refs.begin(), refs.end());
