@@ -28,20 +28,29 @@ EmphasisKindIR emphasis_kind(FontStyleIR style) {
   switch (style) {
   case FontStyleIR::highlight_2:
   case FontStyleIR::bold_phrase: return EmphasisKindIR::strong;
-  case FontStyleIR::highlight_3: return EmphasisKindIR::strong_emphasis;
+  case FontStyleIR::highlight_3:
+  // HP7 is bold plus underscore (<B><U>); Markdown has no underscore, so it
+  // lowers like the other bold-plus-slanted highlight.
+  case FontStyleIR::highlight_7: return EmphasisKindIR::strong_emphasis;
   case FontStyleIR::highlight_1:
+  // HP5 is <U> in hosted BookServer; Markdown has no underscore run, so the
+  // underscored phrase lowers to ordinary emphasis.
+  case FontStyleIR::highlight_5:
   case FontStyleIR::citation:
   case FontStyleIR::variable:
   case FontStyleIR::italic_phrase:
   case FontStyleIR::example_phrase:
   case FontStyleIR::keyword:
+  case FontStyleIR::keyword_define:
   case FontStyleIR::unknown: break;
   }
   return EmphasisKindIR::emphasis;
 }
 
 bool code_style(FontStyleIR style) {
-  return style == FontStyleIR::example_phrase || style == FontStyleIR::keyword;
+  return style == FontStyleIR::example_phrase ||
+         style == FontStyleIR::keyword ||
+         style == FontStyleIR::keyword_define;
 }
 
 // The one selector whose payload holds every source cell of a table cell

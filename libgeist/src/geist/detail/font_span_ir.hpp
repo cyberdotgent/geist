@@ -22,16 +22,33 @@ struct DecodedLogicalRecordSource;
 // BookServer renders CIT as <cite>, XPH/XMP/HP4 as <tt>/<samp>, PK as
 // <kbd>, PV as <var>, RK/H1-H4/H6 as <b> and H5 as <i> (FA1PLMM0 11.5,
 // ACPZMST1 8.14.1/2.4.1.2, GC23-046 B.2, DREICMST 1.4.2.1, FA1PLMM0 9.3.1).
-// Every other code is retained as an opaque style so consumers can conserve
-// the span without claiming a presentation.
+// Three further codes are hosted-verified on two books each: `5` (HP5) as
+// <U> (QSYSNEWG 2.3 `cfont 59 3 5` -> `<U>see</U>`; SC34-425 1.8
+// `cfont 42 11 5` -> `<U>underscored</U>`), `7` (HP7) as <B><U>
+// (QSYSNEWG 5.1.4 `cfont 19 11 7 31 9 7 41 8 7` ->
+// `<B><U>Operational</B></U> <B><U>Assistant</B></U> <B><U>overview</B></U>`;
+// SG24-204 5.2.1 `cfont 33 1 7` -> `<B><U>L</B></U>`), and `Q` (PKDEF) as
+// <dfn> (PRG1SORT 2.1.4 `<dfn>*CURLIB</dfn>`; SC26-457 3.4.1.2
+// `<dfn>LIST</dfn>`).  Every other code is retained as an opaque style so
+// consumers can conserve the span without claiming a presentation.
+//
+// The final operand triple of a control can carry a trailing `,` separator
+// glued to its style code as a prefix-1 token (`cfont 4 4 R,`).  The comma is
+// not part of the code and not display text: hosted BookServer renders
+// ACPZMST1 FRONT_1.1 `cfont 4 4 R,` as `<B>GUPI</B>` and GC28-183 2.2.1
+// `cfont 17 1 E,` as `<samp>.</samp>`, in both cases with no comma and with
+// the same geometry as the comma-less form in the same record.
 enum class FontStyleIR {
   unknown,
   highlight_1,
   highlight_2,
   highlight_3,
+  highlight_5,     // 5 (HP5): underscored phrase (<U>)
+  highlight_7,     // 7 (HP7): bold plus underscored phrase (<B><U>)
   citation,        // C: italic citation
   example_phrase,  // X, E, 4: monospace example text
   keyword,         // P: monospace parameter keyword (<kbd>)
+  keyword_define,  // Q: defined parameter keyword (<dfn>)
   variable,        // V: italic programming variable (<var>)
   bold_phrase,     // R, H, I, J, K, M: bold keyword / inline heading
   italic_phrase,   // L: italic inline heading

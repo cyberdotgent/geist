@@ -88,6 +88,26 @@ struct LineBuilder {
     return true;
   }
 
+  // A CFONT/CSELECT operand addresses display columns of one display row, so
+  // a row that already carries a span reaching past its current cell count
+  // has not ended: the wide space run in front of the next word is in-row
+  // spacing, not a markerless row break.  Two-column definition rows are the
+  // shape that proves it: ACPZMST1 3.6 stores `cselect 43 3 SPTUSERID` and
+  // `cfont 3 6 2` for the single hosted row
+  // `   Userid                   User ID (topic 4.3)`, and DREICMST 2.8.1
+  // stores `cfont 3 3 2 7 4 2 17 3 2 21 4 2` for the single hosted row
+  // `   RFT Name      Log Type`.
+  bool span_continues_row() const {
+    if (!line_open || out.lines.empty()) return false;
+    const auto& current = out.lines.back();
+    const auto reaches = [&](const std::vector<Span>& spans) {
+      for (const auto& span : spans)
+        if (span.end > current.cells.size()) return true;
+      return false;
+    };
+    return reaches(current.fonts) || reaches(current.links);
+  }
+
   // Finishes the ST title at the first structural boundary.
   bool finish_title() {
     if (!in_title) return true;
@@ -200,8 +220,15 @@ struct LineBuilder {
       // one-byte alphanumeric piece glued (no space) onto a preceding word:
       // genuine text never joins two alphanumeric pieces without
       // punctuation (FA1PLMM0 record 1133 `Messages` + `access`).
+      // "Attached" means no display space separates this token from the
+      // previous visible cell of the same row.  The first visible token of a
+      // freshly opened row stands at the row origin and is attached to
+      // nothing: ACPZMST1 6.2 record 305 stores `cfont 4 4 R,` + origin run
+      // + the one-byte word `GUPI` + a fill/origin pair, and hosted serves
+      // that row as `    <B>GUPI</B>`.
       const auto attached =
-          !pending_space || view.prefix == 0 || view.prefix == 1;
+          !(line_open && line_visible_cells == 0) &&
+          (!pending_space || view.prefix == 0 || view.prefix == 1);
       // A glued one-byte word in the row-control byte range is the slot
       // whatever precedes it: N2AH1MST PREFACE.4 `to:` + `access` (0x1c),
       // `Reference.` + `an` (the compact-marker collision in Format/markup.md).
@@ -370,6 +397,7 @@ struct LineBuilder {
       // `are` + 3 spaces + `discussed`).  The gap after a ballot token
       // (`__`) is display spacing inside the row.
       if (view.body.size() >= 3 && pending_space && line_visible_cells != 0 &&
+          !span_continues_row() &&
           index + 1 < items.size() && items[index + 1].kind == ItemKind::token &&
           visible_at(next_token(index)) &&
           !is_placeholder_run(items[next_token(index)].token) &&
@@ -486,8 +514,18 @@ struct LineBuilder {
         !is_placeholder_run(items[index + 1].token)) {
       // A visual row marker (`|`, box glyph) opening the row directly before
       // its text (GC23-046 record 151 `| ◆ The number of orders`, ACPZMST1
-      // record 78 `│ The following sections`).
-      return assign(view, ProseTokenRoleIR::marker);
+      // record 78 `│ The following sections`).  The glyph is not prose text,
+      // but hosted BookServer prints it in its own display column
+      // (ACPZMST1 1.2.3.1 ` | A local resource ...`, GG24-395 PREFACE.3
+      // ` | Part 1, "Introduction"`), so the row keeps a blank cell for it
+      // and for the spacing that follows.  Dropping those cells shifted
+      // every CFONT/CSELECT column of the row by two.
+      if (!assign(view, ProseTokenRoleIR::marker)) return false;
+      for (std::size_t word = 0; word < view.body.size(); ++word)
+        line().cells.push_back({npos, 0, " ", true});
+      line().text_begin = line().cells.size();
+      pending_space = view.prefix != 2;
+      return true;
     }
     if (line_visible_cells == 0 && is_glyph(view) && view.width == 1) {
       // A glyph opening the line is the list bullet.

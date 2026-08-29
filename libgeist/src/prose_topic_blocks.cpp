@@ -62,11 +62,20 @@ bool resolve_spans(const Line& line, std::vector<Attr>& attrs,
       return " [" + std::to_string(span.begin) + "," +
              std::to_string(span.end) + ") on '" + line_text(line) + "'";
     };
-    if (begin >= end || end > line.cells.size())
+    if (begin >= end || begin >= line.cells.size())
       return fail(error, "font/selector span [" + std::to_string(begin) + "," +
                              std::to_string(end) +
                              ") exceeds the display line of " +
-                             std::to_string(line.cells.size()) + " cells");
+                             std::to_string(line.cells.size()) + " cells" +
+                             where());
+    // A span may run past the last cell the row model materialised: the
+    // stored row keeps its trailing display padding, which carries no word.
+    // Hosted BookServer styles only the visible text (ACPZMST1 8.1
+    // `cselect 3 38 HDRXCCOE` on a 40-column row, GG24-395 PREFACE.3
+    // `cselect 3 22 HDRHPRT100` on a 23-column row), and a highlight never
+    // continues onto the next display row: every wrapped phrase carries its
+    // own triple on each row.
+    if (end > line.cells.size()) end = line.cells.size();
     while (begin < end && line.cells[begin].space) ++begin;
     while (end > begin && line.cells[end - 1].space) --end;
     if (begin >= end) return fail(error, "font/selector span is blank" + where());
