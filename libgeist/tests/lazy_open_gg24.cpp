@@ -119,8 +119,8 @@ int main() {
       {"5.0", "This chapter describes the IMS Version 5.1 enhancements"},
       {"5.1.1", "RSR requires the services of DBRC"},
       {"7.0", "those enhancements that do not fall into any of the previous"},
-      {"8.0", "This chapter brings IMS V5.1 into true perspective"},
-      {"10.1", "Before IMS 5.1, CICS users had the choice"},
+      {"8.0", "This chapter brings IMS V5\\.1 into true perspective"},
+      {"10.1", "Before IMS 5\\.1, CICS users had the choice"},
       {"11.0", "The ability to access common data from many systems"},
   };
   for (const auto& regression : heading_body_cases) {
@@ -150,12 +150,17 @@ int main() {
   }
 
   const auto image_figure = split_header.topic_markdown("5.1.8");
-  require(image_figure.find("![Resource 9](resource:9)") != std::string::npos,
+  // Typed route: the figure block keeps the caption as the image alt text
+  // and the picture selector's resource id, as hosted BookServer serves it
+  // (DT 19950308184737: `<img src=".../P9.GIF" alt="PICTURE 9">` under
+  // `Figure 20. RSR Components`).
+  require(image_figure.find("![Figure 20\\. RSR Components](<resource:9>)") !=
+              std::string::npos,
           "image-backed figure lost its resource");
   require(image_figure.find("```text") == std::string::npos,
           "image-backed figure retained its duplicate ASCII placeholder");
   const auto delayed_image = split_header.topic_markdown("8.5.3");
-  require(delayed_image.find("![Resource 25](resource:25)") !=
+  require(delayed_image.find("![Figure 42\\. TCP/IP Access](<resource:25>)") !=
               std::string::npos,
           "picture selector without inline display text lost its resource");
   require(delayed_image.find("```text") == std::string::npos,

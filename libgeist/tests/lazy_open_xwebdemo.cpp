@@ -85,18 +85,30 @@ int main() {
               web_external_pictures.find(
                   "/ An exciting new capability") == std::string::npos,
           "external-picture selector alternatives leaked into prose");
+  // Typed route: `LNK <OTHER>/<INTERNET>` selectors lower to external cross
+  // references and the selector's kind word (`<OTHER>` byte 13,
+  // `<INTERNET>` 12) is the display row's slot, exactly as hosted
+  // BookServer DT 19970423182524 serves the rows:
+  //   `<a href="/bookmgr/entprise.mpg">Warp us out of here!</a> (MPEG video)`
+  //   `<a href="ftp://software.raleigh.ibm.com/os2/internet/webexplorer">`
+  //   `<a href="http://www.ibm.com/">The IBM Home Page</a>.`
   const auto web_multimedia = web_demo.topic_markdown("1.4.2");
-  require(web_multimedia.find("[Warp us out of here!](/bookmgr/entprise.mpg)") !=
+  require(web_multimedia.find(
+              "[Warp us out of here\\!](</bookmgr/entprise.mpg>)") !=
               std::string::npos &&
-              web_multimedia.find("[scream!](/bookmgr/scream1.wav)") !=
+              web_multimedia.find("[scream\\!](</bookmgr/scream1.wav>)") !=
                   std::string::npos,
           "external multimedia selectors lost labels or targets");
+  for (const auto* leaked : {"<OTHER>", "<INTERNET>"}) {
+    require(web_multimedia.find(leaked) == std::string::npos,
+            "external selector kind word leaked into the display row");
+  }
   require(web_demo.topic_markdown("1.4.3").find(
-              "[here](ftp://software.raleigh.ibm.com/os2/internet/webexplorer)") !=
-              std::string::npos,
+              "[here](<ftp://software.raleigh.ibm.com/os2/internet/"
+              "webexplorer>)") != std::string::npos,
           "external FTP selector lost its label or target");
   require(web_demo.topic_markdown("1.4.4").find(
-              "[The IBM Home Page](http://www.ibm.com/)") !=
+              "[The IBM Home Page](<http://www.ibm.com/>)") !=
               std::string::npos,
           "external HTTP selector lost its label or target");
   const auto web_figures = web_demo.topic_markdown("FIGURES");

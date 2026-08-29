@@ -23,9 +23,15 @@ int main() {
               dre_edition_markdown.find("Service Level Reporter") !=
                   std::string::npos,
           "all-E banner gate changed DREICMST ordinary CFONT prose");
+  // The `.` that closed the last CMITEM is the menu's record terminator
+  // token, not label text: hosted BookServer DT 19911219125856 serves
+  // `<li> 2.1.3 Tables Used for Accounting</li>` (and the same token shape
+  // gives record 28's doubled `10577..`).
   require(dre_edition.topic_markdown("2.1").find(
-              "Tables Used for Accounting.") != std::string::npos,
-          "menu IR removed a punctuation token with its own row origin");
+              "Tables Used for Accounting](") != std::string::npos &&
+              dre_edition.topic_markdown("2.1").find(
+                  "Tables Used for Accounting.") == std::string::npos,
+          "menu IR kept the CMITEM record terminator in the label");
   const auto fa1 = geist::BooDocument::open(root / "FA1PLMM0.boo");
   const auto dynamic_classes = fa1.topic_markdown("6.4.1");
   require(dynamic_classes.find(

@@ -361,6 +361,22 @@ void positive_fixtures() {
               "OFCUSEOV 1.18.2 preformatted block count");
   }
   {
+    // `LNK <BOOK> <> <> <SC30-3290> <> <TPNSGU>` selectors lower to external
+    // cross references to the other book's contents, and the CFONT phrase
+    // inside the selector phrase is the link's own label: hosted BookServer
+    // DT 19910628074854 serves
+    // `<a href="../../DOCNUM/SC30-3290/CCONTENTS"><cite>TPNS</cite>
+    // <cite>General</cite> <cite>Utilities</cite></a>`.
+    const auto markdown = admit("ITPPIBOK.BOO", "1.3.7");
+    require(contains(markdown,
+                     "[TPNS General Utilities](<DOCNUM/SC30-3290/CCONTENTS>)"),
+            "ITPPIBOK 1.3.7 cross-book selector");
+    require(contains(markdown, "[TPNS Operation](<DOCNUM/SC30-3289/CCONTENTS>)"),
+            "ITPPIBOK 1.3.7 second cross-book selector");
+    require(!contains(markdown, "<BOOK>"),
+            "ITPPIBOK 1.3.7 leaked a LNK alternative");
+  }
+  {
     const auto markdown = admit("SC09-138.boo", "2.1.1.2");
     require(contains(markdown, "DEFAULT:"), "SC09-138 2.1.1.2 body");
     require(!contains(markdown, "4XMP"),
@@ -434,7 +450,6 @@ void negative_fixtures() {
   // declined envelope still rejects the whole topic.
   reject("ACPZMST1.boo", "FRONT_1.2",
          "table envelope 'TBLUNIQ1' declined: cell text has an unaligned gap: 'AIX/6000                 AIXwindows'");
-  reject("ITPPIBOK.BOO", "1.3.7", "picture or external link");
   reject("SC24-546.boo", "3.1", "metadata controls are incomplete");
   reject("PRG1SORT.boo", "1.1.5.1", "control-like word 'SRCFILE'");
   reject("ACPZMST1.boo", "COVER", "is not an h1-h6 prose heading");

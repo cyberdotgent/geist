@@ -405,7 +405,21 @@ struct LineBuilder {
             std::isalnum(static_cast<unsigned char>(last_visible.back())) !=
                 0) ||
            view.value < row_control_byte_limit);
-      if (!(punctuation_glyph(view) && !attached) && !glued_word)
+      // A free-standing width-1 token in the row-control byte range is the
+      // row's slot whatever its dictionary spelling.  XWEBDEMO 1.4.2-1.4.4
+      // open every external-link row with `<INTERNET>` (byte 12), `<OTHER>`
+      // (13) or `<IMAGE>` (11) before the row's fill/origin pair; hosted
+      // BookServer prints none of them (`<a href="http://www.ibm.com/">The
+      // IBM Home Page</a>.` is the whole row of 1.4.4).
+      // Restricted to a token that stands before any row is open: inside an
+      // open row such a word is display text that the row's own CFONT and
+      // CSELECT columns count (ITPPIBOK 2.5, SH12-565 3.1.5).
+      const auto control_byte_slot =
+          attached && !line_open && !in_title && !in_index &&
+          !alnum_word(view) && !punctuation_glyph(view) &&
+          view.value < row_control_byte_limit;
+      if (!(punctuation_glyph(view) && !attached) && !glued_word &&
+          !control_byte_slot)
         return false;
       auto last = next_token(space);
       while (space_at(next_token(last))) last = next_token(last);
@@ -820,6 +834,20 @@ struct LineBuilder {
         alpha_word(view) && !last_visible.empty() &&
         std::isalnum(static_cast<unsigned char>(last_visible.back())) == 0)
       return assign(view, ProseTokenRoleIR::marker);
+    // Two width-1 tokens in the row-control byte range in a row: only the
+    // second opens the display row, the first is padding.  XWEBDEMO 1.4.2
+    // and 1.4.3 place the external selector's kind word (`<OTHER>` 13,
+    // `<INTERNET>` 12) in front of the row's own marker (`/` 18, `:H1` 21);
+    // the hosted page shows neither and starts the row at its origin.
+    if (view.width == 1 && view.value < row_control_byte_limit && !line_open &&
+        !alnum_word(view) && !in_title && !in_index) {
+      const auto next = next_token(index);
+      std::size_t next_origin = npos;
+      if (next != npos && is_token(next) && items[next].token.width == 1 &&
+          items[next].token.value < row_control_byte_limit &&
+          marker_at(next, next_origin))
+        return assign(view, ProseTokenRoleIR::padding);
+    }
     if (marker_at(index, origin_index)) {
       if (!assign(view, ProseTokenRoleIR::marker)) return false;
       for (auto cursor = next_token(index); cursor != origin_index;
