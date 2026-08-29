@@ -493,15 +493,126 @@ void mutation_fixtures() {
   }
 }
 
+// Front matter and envelope variants (issue #58).  Every fixture below was
+// checked against hosted BookServer at the DT recorded beside it.
+void front_matter_fixtures() {
+  // `CHDLEVEL :<form>`: front-matter topics name their heading form instead
+  // of a level.  Hosted serves every one of them as `<H1>`.
+  const struct {
+    const char* file;
+    const char* id;
+    const char* form;
+  } forms[] = {
+      {"GG24-4302-00.boo", "EDITION", "vnotice"},      // DT 19950308184737
+      {"SC31-711.boo", "PREFACE", "preface"},          // DT 19941010174546
+      {"SC24-5520-00.boo", "NOTICES", "notices"},      // absent from catalog
+      {"SH20-918.boo", "GLOSSARY", "glossary"},        // DT 19910520154851
+      {"SH20-918.boo", "TITLE", "title"},              // DT 19910520154851
+      {"ITPPIBOK.BOO", "BIBLIOGRAPHY", "bibliog"},     // DT 19910628074854
+      {"SC33-033.boo", "ABSTRACT", "abstract"},        // DT 19930422134757
+      {"GG24-395.boo", "ABBREVIATIONS", "abbrev"},     // DT 19941215160749
+      {"SC24-546.boo", "CHANGES", "soa"},              // DT 19940323131240
+  };
+  for (const auto& entry : forms) {
+    Extracted extracted;
+    const auto markdown = admit(entry.file, entry.id, &extracted);
+    const std::string label =
+        std::string(entry.file) + " " + entry.id + " (" + entry.form + ")";
+    if (!extracted.prose) continue;
+    require(extracted.prose->heading_form == entry.form,
+            label + " kept heading form '" + extracted.prose->heading_form +
+                "'");
+    require(extracted.prose->heading_level == "h1",
+            label + " is not a level-1 heading");
+    require(contains(markdown, "\n# ") || markdown.rfind("# ", 0) == 0,
+            label + " did not render a level-1 heading");
+  }
+
+  // Envelope anchor variant: `SRLEN <text>` between `CSUMMARY` and
+  // `CHDLEVEL`.  Hosted serves the whole control without `SR` as the anchor
+  // name and prints none of its payload: SC33-033 4.99 record 594
+  // `SRLEN CHYQST` is `<a name="LEN CHYQST">` at DT 19930422134757.
+  {
+    Extracted extracted;
+    admit("SC33-033.boo", "4.99", &extracted);
+    if (extracted.prose) {
+      const auto& anchors = extracted.prose->anchors;
+      require(std::any_of(anchors.begin(), anchors.end(),
+                          [](const auto& anchor) {
+                            return anchor.id.rfind("LEN ", 0) == 0;
+                          }),
+              "SC33-033 4.99 lost its LEN envelope anchor");
+    }
+  }
+  // `SRLEN` with no payload names the bare anchor `LEN` (SC34-425 2.5
+  // record 1478, hosted `<a name="LEN"><a name="HDRADVTP">`, DT
+  // 19921112160049).
+  {
+    Extracted extracted;
+    admit("SC34-425.boo", "2.5", &extracted);
+    if (extracted.prose) {
+      const auto& anchors = extracted.prose->anchors;
+      require(std::any_of(anchors.begin(), anchors.end(),
+                          [](const auto& anchor) { return anchor.id == "LEN"; }),
+              "SC34-425 2.5 lost its bare LEN envelope anchor");
+    }
+  }
+
+  // A body `SR<id>` anchor keeps its own id and its payload is display text
+  // hosted wraps in the anchor: ACPZMST1 record 155
+  // `SRSPTSETDC A domain controller handles ...` is served as
+  // `<a name="SPTSETDC">   A domain controller handles ...</a>`
+  // (DT 19920319123146).
+  {
+    Extracted extracted;
+    const auto markdown = admit("ACPZMST1.boo", "3.1", &extracted);
+    require(contains(markdown, "<a id=\"SPTSETDC\"></a>"),
+            "ACPZMST1 3.1 lost its body anchor");
+    require(contains(markdown, "A domain controller handles communications"),
+            "ACPZMST1 3.1 lost the anchor's display payload");
+  }
+
+  // `c.cp` pagination: the operand is the token adjacent to the opcode; a
+  // space run before the next word proves there is none and the rest of the
+  // segment is display text the legacy route dropped.
+  {
+    // FA1PLMM0 record 369: `c.cp` + spacing + `The columns ...`; hosted DT
+    // 19910927114801 serves `   The columns have the following meaning:`.
+    const auto markdown = admit("FA1PLMM0.boo", "6.4.1");
+    require(contains(markdown, "The columns have the following meaning:"),
+            "FA1PLMM0 6.4.1 dropped the c.cp display payload");
+    require(!contains(markdown, "c.cp"),
+            "FA1PLMM0 6.4.1 printed the c.cp opcode");
+  }
+  {
+    // DREICMST record 600: `c.cp` + `2i`; hosted DT 19911219125856 serves no
+    // `2i` in 2.20.3.1.4, so the unit-suffixed count is an operand.
+    const auto markdown = admit("DREICMST.boo", "2.20.3.1.4");
+    require(!contains(markdown, "2i") && !contains(markdown, "c.cp"),
+            "DREICMST 2.20.3.1.4 printed a c.cp operand");
+  }
+  {
+    // GC28-183 record 91: `c.sp 1 c` after the ST title; hosted DT
+    // 19930625102617 serves only the paragraph break.
+    const auto markdown = admit("GC28-183.boo", "1.3.3");
+    require(!contains(markdown, "c.sp") && !contains(markdown, "1 c"),
+            "GC28-183 1.3.3 printed the c.sp control");
+    require(contains(markdown, "Requesting Resources"),
+            "GC28-183 1.3.3 lost its heading");
+  }
+}
+
 void negative_fixtures() {
   // Tables and figures compose (tests/prose_topic_spans_synthetic.cpp); a
   // declined envelope still rejects the whole topic.
   reject("ACPZMST1.boo", "4.3",
          "table envelope 'TBLUNIQ39' declined: visible source between table "
          "lines");
-  reject("SC24-546.boo", "3.1", "metadata controls are incomplete");
   reject("PRG1SORT.boo", "1.1.5.1", "control-like word 'SRCFILE'");
-  reject("ACPZMST1.boo", "COVER", "is not an h1-h6 prose heading");
+  // COVER still fails closed: its front-matter `cover` heading form is
+  // admitted, but the cover art rows are a placeholder run followed by
+  // visible text, which the display-row model does not describe.
+  reject("ACPZMST1.boo", "COVER", "is followed by visible text");
   // Plural CFONT header over repeated row controls: the legacy route draws
   // this NetView directory list as a table; prose must not flatten it.
   reject("SC31-711.boo", "1.2", "implicit two-column grid");
@@ -694,6 +805,7 @@ void cz_fixtures() {
 int main() {
   positive_fixtures();
   mutation_fixtures();
+  front_matter_fixtures();
   negative_fixtures();
   cz_fixtures();
   geist_test::exit_with_failures();

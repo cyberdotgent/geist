@@ -55,16 +55,19 @@ int main() {
                    "Document Number SX41-8209-00\n\nProgram Number 5738-SS1",
                    "cover metadata line split");
 
+  // EDITION renders through the typed prose family (front-matter `vnotice`
+  // heading form).  Word for word equal to hosted DT 19910524075122, which
+  // serves the trademark list as `<pre>` rows the typed route reflows; the
+  // renderer escapes Markdown punctuation and keeps the hosted `\u00a9`.
   const auto edition = topic_markdown(document, "EDITION");
   require_contains(edition,
-                   "**First Edition (May 1991)**",
+                   "**First Edition \\(May 1991\\)**",
                    "edition notice heading");
+  require_contains(edition, "RPG/400 400",
+                   "edition trademark list entries");
   require_contains(edition,
-                   "RPG/400<br>\n400",
-                   "edition trademark list line split");
-  require_contains(edition,
-                   "**Copyright International Business Machines Corporation "
-                   "1991. All rights reserved.**",
+                   "Copyright International Business Machines Corporation "
+                   "1991\\. All rights reserved\\.**",
                    "edition copyright line");
 
   const auto command_index = topic_markdown(document, "2.0");

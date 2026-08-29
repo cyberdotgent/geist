@@ -134,33 +134,35 @@ int main() {
   require_contains(preface,
                    "# PREFACE About This Guide",
                    "TOC-derived PREFACE heading");
+  // PREFACE renders through the typed prose family (front-matter `preface`
+  // heading form).  Word for word equal to hosted BookServer DT
+  // 19910524085706, which serves the body as `<pre>` rows led by a `|`
+  // change bar and `°` list markers; the typed route reflows the rows into
+  // paragraphs and list items and escapes Markdown punctuation.
   require_contains(preface,
-                   "<pre>\n"
-                   "   This guide contains a very basic approach",
-                   "PREFACE fixed-width first body block");
+                   "This guide contains a very basic approach to learning "
+                   "about and using the AS/400 system",
+                   "PREFACE first body block");
   require_contains(preface,
-                   "   ° Sign on or off the AS/400 system from a display station.",
+                   "- Sign on or off the AS/400 system from a display "
+                   "station\\.",
                    "PREFACE task list line");
-  require_contains(preface,
-                   "   ° Use online help.",
+  require_contains(preface, "- Use online help\\.",
                    "PREFACE visual bullet glyph");
   require_contains(preface,
-                   "   ° Send and receive messages and work with message queues.",
+                   "- Send and receive messages and work with message "
+                   "queues\\.",
                    "PREFACE continued visual bullet mode");
   require_not_contains(preface,
-                       "° This manual is similar",
+                       "- This manual is similar",
                        "PREFACE bullet mode stops before next paragraph");
   require_contains(preface,
-                   "about a particular topic. The <I>Publications</I> "
-                   "<I>Guide</I>",
+                   "about a particular topic\\. The *Publications Guide*",
                    "PREFACE font continuation");
   require_contains(preface,
-                   "see the <a href=\"#HDRBIBL\">&quot;Bibliography&quot; in</a> "
-                   "<a href=\"#HDRBIBL\">topic BIBLIOGRAPHY</a>.\n</pre>",
+                   "see the [\"Bibliography\" in](<#HDRBIBL>) "
+                   "[topic BIBLIOGRAPHY](<#HDRBIBL>)",
                    "PREFACE visual CSELECT links");
-  require_not_contains(preface,
-                       "</pre>\n\nabout a particular topic",
-                       "premature PREFACE fixed-width close");
   require_not_contains(preface, "ST|", "leaked PREFACE ST control");
   require_not_contains(preface, "# About This Guide", "duplicate PREFACE heading");
   require_not_contains(preface, " | ", "stray PREFACE visual marker");

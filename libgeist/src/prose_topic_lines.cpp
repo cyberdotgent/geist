@@ -442,6 +442,13 @@ struct LineBuilder {
       // A glued one-byte word in the row-control byte range is the slot
       // whatever precedes it: N2AH1MST PREFACE.4 `to:` + `access` (0x1c),
       // `Reference.` + `an` (the compact-marker collision in Format/markup.md).
+      // "Glued onto a preceding word" needs that word on the *open* row: a
+      // one-byte token that opens a row after its own origin run is the
+      // row's text, whatever the previous row ended with.  QS3X36CM EDITION
+      // record 3 lists the trademark `400` on its own row directly after
+      // `RPG/400` (hosted DT 19910524075122 prints `   RPG/400` then
+      // `   400`), and `400` (encoded value 219) is above the row-control
+      // range.
       const auto glued_word =
           attached && !row_origin_word && alnum_word(view) &&
           ((!last_visible.empty() &&
@@ -875,6 +882,27 @@ struct LineBuilder {
     // The byte stands at a row boundary, so a plain word glued behind it on
     // the same row is display text: SC26-457 3.14.2.8 record 560 token 113
     // `(` + `and` + `their` is served as `(and their associated entries)`.
+    // The byte also may not sit inside a glued compound: SG24-204 PREFACE
+    // record 17 spells `step-by-step` as the glued run `step` `-` `by` `-`
+    // `step`, where `by` has encoded value 0x2f and both neighbours are
+    // one-cell punctuation; hosted (DT 19971218054640) serves
+    // `a step-by-step manner`, so the slot reading would drop `by`.
+    const auto glued_continuation = [&]() {
+      bool attach = false;
+      for (auto cursor = index + 1; cursor < items.size(); ++cursor) {
+        const auto& following = items[cursor];
+        if (following.kind != ItemKind::token) return false;
+        const auto& view_next = following.token;
+        if (is_bare(view_next)) {
+          if (view_next.prefix != 0 && view_next.prefix != 1) return false;
+          attach = true;
+          continue;
+        }
+        if (!is_visible(view_next)) return false;
+        return attach || view_next.prefix == 0 || view_next.prefix == 1;
+      }
+      return false;
+    };
     if (!cz_mode && view.width == 1 && view.value < row_control_byte_limit &&
         (!pending_space || view.prefix == 0 || view.prefix == 1) &&
         !in_title && !in_index && line_open && line_visible_cells != 0 &&
@@ -886,7 +914,8 @@ struct LineBuilder {
           (items[after].token.width == 1 &&
            (punctuation_glyph(items[after].token) ||
             is_placeholder_run(items[after].token)));
-      if (row_boundary) return assign(view, ProseTokenRoleIR::marker);
+      if (row_boundary && !glued_continuation())
+        return assign(view, ProseTokenRoleIR::marker);
     }
     // Two width-1 tokens in the row-control byte range in a row: only the
     // second opens the display row, the first is padding.  XWEBDEMO 1.4.2
