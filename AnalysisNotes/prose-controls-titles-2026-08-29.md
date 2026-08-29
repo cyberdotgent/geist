@@ -107,38 +107,44 @@ logical record. Break points observed, one per required control — GC28-183
 
 ## Measurement
 
-Baseline is `main` `f8607f6`, measured with a build of it.
+Baseline is `main` `51a686e`, measured with a build of it.
 
-* Coverage `bootrace --coverage` over all 34 fixtures: **5,363 -> 5,677 /
-  7,362 (72.9 %)**, 314 topics moved legacy -> typed, none the other way.
-  Per book: SC33-033 +105, QSYSINFO +56, SH12-565 +23, SC31-605 +18,
-  OFCUSEOV +12, SC24-5520-00 +11, SC09-138 +9, SC24-546 +9, DREICMST +8,
-  SC28-1881-05 +8, PRG1SORT +6, SH20-918 +6, SC09-2417-00 +5, SC26-457 +5,
-  ACPZMST1 +4, FA1PLMM0 +4, GC28-183 +4, IEAC6MST +4, GG24-4302-00 +3,
-  ITPPIBOK +3, SC34-425 +3, QSYSNEWG +2, SC24-5527-02 +2, GG24-395 +1,
-  SC31-711 +1, SG24-204 +1, packet +1.
-  No book regressed.
-* Reason counts on the same two builds: glued body control **107 -> 1**
-  (IBMMMSTR PREFACE.6's `c.rev`, no hosted evidence gathered); first record
-  lacks the envelope **69 -> 3** (SC26-457 FRONT_2.1.1/2.1.2/3.2, whose `ST`
-  is swallowed by the `csourcefn` segment, a different shape); ST title
-  mismatch **79 -> 0**; control-like word **99 -> 73** (the remainder is the
-  generated TOC/INDEX family below).
-* Whole-corpus `boo2git --force`: **314 changed files, 0 added, 0 removed** —
-  exactly the 314 moved topics, with no already-typed topic changed (checked
-  both ways).
-* Hosted, character-level against the served `<pre>`: 62 of the moved topics
-  across 24 books were servable. **Typed better on 39, equal on 23, worse on
-  0.** Difference classes, all decided:
-  * bullet glyph `°` rendered as a Markdown list marker — convention;
-  * grid cell order — SC09-138 FRONT_1.2's trademark grid and FA1PLMM0
-    14.2.4's access-rights table keep every cell (multiset-identical to
-    hosted; legacy loses 10 and 17 words respectively) but group them into
-    two columns where hosted lays out three. Follow-up for the gap-table
-    column model;
+* Coverage `bootrace --coverage` over all 34 fixtures: **5,720 -> 6,072 /
+  7,362 (82.5 %)**, 352 topics moved legacy -> typed, none the other way.
+  Per book: SC33-033 +105, QSYSINFO +56, OFCUSEOV +33, SH12-565 +27,
+  SC31-605 +18, SC24-5520-00 +12, SC24-546 +11, SC09-138 +10, DREICMST +9,
+  SC28-1881-05 +9, PRG1SORT +7, SH20-918 +6, SC09-2417-00 +5, SC26-457 +5,
+  ACPZMST1 +5, IEAC6MST +4, QSYSNEWG +4, SC24-5527-02 +4, GC28-183 +4,
+  FA1PLMM0 +4, ITPPIBOK +3, GG24-4302-00 +3, SC34-425 +3, packet +2,
+  SC31-711 +1, GG24-395 +1, SG24-204 +1. No book regressed.
+* Reason counts on the same two builds: glued body control **107 -> 1**;
+  first record lacks the envelope **69 -> 3**; ST title mismatch **79 -> 0**;
+  control-like word **99 -> 73** (the remainder is the generated TOC/INDEX
+  family below). All four residuals are listed under "Still fail-closed".
+* Whole-corpus `boo2git --force`: **352 changed files, 0 added, 0 removed** --
+  exactly the 352 moved topics, with no already-typed topic changed (checked
+  in both directions).
+* Hosted, character-level against the served `<pre>`: 63 of the moved topics
+  across 24 books were servable (`ACPZMST1 DREICMST FA1PLMM0 GC23-046
+  GC28-183 GG24-395 GG24-4302-00 IEAC6MST ITPPIBOK OFCUSEOV PRG1SORT QSYSINFO
+  QSYSNEWG SC09-138 SC09-2417-00 SC24-546 SC26-457 SC31-605 SC31-711 SC33-033
+  SC34-425 SG24-204 SH12-565 SH20-918`; SC24-5520-00, SC24-5527-02,
+  SC28-1881-05 and packet are absent from the hosted catalog).
+  **Typed better on 43, equal on 20, worse on 0.** Difference classes, all
+  decided:
+  * bullet glyph `°` rendered as a Markdown list marker -- convention;
+  * grid cell order -- FA1PLMM0 14.2.4's access-rights table and SC09-138
+    FRONT_1.2's trademark grid keep every cell (word multiset identical to
+    hosted, while legacy loses 17 and 10 words respectively) but group them
+    into two columns where hosted lays out three. The character-sequence
+    metric scores those two as "worse"; both are content-complete, and the
+    column grouping is a follow-up for the gap-table model;
   * adjacent same-style words merged into one Markdown span
     (`<B>a</B> <B>b</B>` -> `**a b**`);
-  * anchors emitted as `<a id="...">` by both routes.
+  * anchors emitted as `<a id="...">` by both routes;
+  * topics the host serves from a different edition (ACPZMST1 5.4/5.7,
+    ITPPIBOK 2.4.3, PRG1SORT B.0, SC34-425 1.5.5, SC24-546 E.3) -- legacy and
+    typed lose identically.
 
 ## Still fail-closed
 
