@@ -918,23 +918,13 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         auto spans = decode_font_control_spans(record, segment, &font_error);
         if (!spans)
           return fail(error, "font control rejected: " + font_error);
-        for (auto& span : spans->spans) {
-          // The decoder can glue its `,` separator onto the last code word
-          // (packet 3.6.1 `cfont 5 1 E,`); the code is the letter before it.
-          if (span.style == FontStyleIR::unknown && span.code.size() == 2 &&
-              span.code.back() == ',')
-            span.style = font_style_for_code(span.code.substr(0, 1));
-          // Single-digit style codes 5..9 are underline phrases (packet
-          // 2.1.3 `cfont 53 6 5 60 4 5`, hosted
-          // `<U>window</U> <U>size</U>`); the document model has no
-          // underline node, so the phrase keeps plain emphasis.
-          if (span.style == FontStyleIR::unknown && span.code.size() == 1 &&
-              span.code.front() >= '5' && span.code.front() <= '9')
-            span.style = FontStyleIR::highlight_1;
+        // The `,` operand separator and the underscored highlight phrases
+        // `5`..`9` are part of the CFONT operand syntax and of the CFONTDEF
+        // code table; both are resolved by decode_font_control_spans.
+        for (const auto& span : spans->spans)
           if (span.style == FontStyleIR::unknown)
             return fail(error, "font style code '" + span.code +
                                    "' is not a highlight phrase");
-        }
         Item item;
         item.kind = ItemKind::font;
         item.spans = std::move(spans->spans);

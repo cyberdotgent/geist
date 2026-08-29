@@ -48,7 +48,9 @@ three fires anywhere in the corpus.
 canonical catalog title, and `build_menu`'s fallback re-checks every item
 against the TOC title.  The fallback always reported the *first* pass's error,
 so the census had to be taken by instrumenting the fallback itself.  Over the
-221 rejected topics the differences were:
+221 topics that carried the reason when the census was taken (229 by the time
+the slice landed, as other slices released more topics onto it) the failing
+items were:
 
 | Class | Items | Cause |
 | --- | ---: | --- |
@@ -61,7 +63,7 @@ last payload token, width one, spacing control, only visible word `.`,
 immediately before the `CEMENU` opcode token) and validation may exclude it
 exactly the way it already excludes a compact display marker.
 
-Still fail-closed: 33 topics whose target's header title is corrupt in a way
+Still fail-closed: 38 topics whose target's header title is corrupt in a way
 no positioned evidence resolves — an `ST ` opcode glued into the title
 (SC34-425 1.8.3, 2.10.4), a header taken from a different record entirely
 (SC34-425 2.3.19, 2.7.2, APPENDIX1.1.4, IBMMMSTR 4.3), or a TOC title that is
@@ -71,34 +73,38 @@ not a comparison relaxation.
 
 ## Measurement
 
-* Coverage `bootrace --coverage` over all 34 fixtures: **4,103 → 4,421 /
-  7,362**, 318 topics moved legacy → typed, none the other way.
-* Whole-corpus `boo2git --force`: 328 files changed, 0 added, 0 removed.
-  318 are the moved topics; the other 10 (SC09-2417-00 x7, packet x3) are
-  topics already typed on both sides where a leading row-control slot glyph
-  (`(`, `[`, `*`, `-`, `"`, `*/`) no longer leaks.  Hosted SC09-241 DT
-  `19961114175628` `BIBLIOGRAPHY.1` and `2.1.3.5` confirm the glyphs are not
-  displayed.
-* Hosted word-level sample: 34 moved topics across 12 books (including
-  XWEBDEMO and GG24-4302-00).  Typed better on 18, equal on 16, worse on 0;
-  19 word-identical to hosted against 10 for legacy.  The only remaining
-  difference class in the sample is the Markdown anchor element
-  (`<a id="HDR..."></a>`) both routes emit where hosted names an existing
-  element.
+Baseline is `main` `918eee9`; the slice is measured against a build of it.
 
-Hosted ids/DTs used: XWEBDEMO `19970423182524`, GG24-4302-00
-`19950308184737`, ITPPIBOK `19910628074854`, DREICMST `19911219125856`,
-SC34-425 `19921112160049`, SC24-546 `19940323131240`, SH12-565
-`19941206115523`, GC28-183 `19930625102617`, GG24-395 `19941215160749`,
-SC09-138 `19910321130500`, SC41-485 `19951003131222`, FA1PLMM0
-`19910927114801`, SC09-2417-00 served as `SC09-241` `19961114175628`.
+* Coverage `bootrace --coverage` over all 34 fixtures: **4,505 -> 4,809 /
+  7,362**, 304 topics moved legacy -> typed, none the other way.  Per book:
+  DREICMST +92, GG24-4302-00 +78, ITPPIBOK +64, SC24-5527-02 +15, SC34-425
+  +14, SC24-546 +14, SH12-565 +11, SC28-1881-05 +8, XWEBDEMO +3, GC28-183 +2,
+  GG24-395 +2, SC41-485 +1.
+* Bucket A ("selector targets a picture or external link"): 205 -> 0 topics
+  carry that reason; 113 of the 205 reach the typed route, the other 92 stop
+  at a later check of the span/row model.
+* Bucket B ("raw menu label differs..."): 229 -> 38; 191 moved.
+* Whole-corpus `boo2git --force`: 314 files changed, 0 added, 0 removed.
+  304 are the moved topics; the other 10 (SC09-2417-00 x7, packet x3) are
+  topics already typed on both sides where a leading row-control slot glyph
+  (`(`, `[`, `*`, `-`, `"`, `=`, `)`, `*/`) no longer leaks.  Hosted SC09-241
+  DT `19961114175628` `BIBLIOGRAPHY.1`, `2.1.3.5`, `2.3.9.1` and `4.2.1`
+  confirm the glyphs are not displayed.
+* Hosted word-level sample: 30 moved topics across 9 books (including
+  XWEBDEMO and GG24-4302-00).  Typed better on 18, equal on 12, worse on 0;
+  16 word-identical to hosted against 8 for legacy.  Two difference classes
+  remain and both are accepted: the Markdown anchor element
+  (`<a id="HDR..."></a>`) that both routes emit where hosted names an
+  existing element, and a picture figure's caption appearing both as the
+  image alt text and as the caption paragraph (ITPPIBOK 5.2.4) - existing
+  `figure_document_lowering` behaviour, hosted uses `alt="PICTURE 4"`.
 
 ## Follow-ups
 
 * The record terminator `.` also closes an `ST`/text payload, and the prose
   body prints it: about 2% of typed topics end a paragraph with a doubled
   period (`Purchase, NY 10577..`, GG24-4302-00 8.0 `... environment..`).
-  This predates this slice — it is visible on `88cbc81` too — and belongs to
+  This predates this slice — it is visible on `918eee9` too — and belongs to
   the prose row model rather than the menu.
 * `ProseTableLinkIR` already lowers a `CSELECT` covering a whole table cell
   line to a cross reference; it carries only an anchor target.  Giving it the

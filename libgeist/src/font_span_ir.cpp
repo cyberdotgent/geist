@@ -26,9 +26,15 @@ FontStyleIR style_for_code(const std::string& code) {
   if (code == "1") return FontStyleIR::highlight_1;
   if (code == "2") return FontStyleIR::highlight_2;
   if (code == "3") return FontStyleIR::highlight_3;
+  if (code == "5") return FontStyleIR::highlight_5;
+  if (code == "6") return FontStyleIR::highlight_6;
+  if (code == "7") return FontStyleIR::highlight_7;
+  if (code == "8") return FontStyleIR::highlight_8;
+  if (code == "9") return FontStyleIR::highlight_9;
   if (code.size() != 1) return FontStyleIR::unknown;
   switch (static_cast<char>(std::tolower(static_cast<unsigned char>(code[0])))) {
   case 'c': return FontStyleIR::citation;
+  case 'q': return FontStyleIR::keyword_define;
   case 'x':
   case 'e':
   case '4': return FontStyleIR::example_phrase;
@@ -60,6 +66,18 @@ const char* font_style_name(FontStyleIR style) {
     return "hp2";
   case FontStyleIR::highlight_3:
     return "hp3";
+  case FontStyleIR::highlight_5:
+    return "hp5";
+  case FontStyleIR::highlight_6:
+    return "hp6";
+  case FontStyleIR::highlight_7:
+    return "hp7";
+  case FontStyleIR::highlight_8:
+    return "hp8";
+  case FontStyleIR::highlight_9:
+    return "hp9";
+  case FontStyleIR::keyword_define:
+    return "pkdef";
   case FontStyleIR::citation:
     return "cit";
   case FontStyleIR::example_phrase:
@@ -105,6 +123,13 @@ decode_font_control_spans(const DecodedLogicalRecordSource& record,
     words.push_back(text.substr(cursor, end - cursor));
     cursor = end;
   }
+  // The final triple of a control can carry a trailing `,` separator glued to
+  // its style code (`cfont 4 4 R,`); it is neither part of the code nor
+  // display text. See geist/detail/font_span_ir.hpp for the hosted evidence
+  // on ACPZMST1 FRONT_1.1 and GC28-183 2.2.1. A comma anywhere else stays in
+  // its word and fails the operand closed.
+  if (!words.empty() && words.back().size() > 1 && words.back().back() == ',')
+    words.back().pop_back();
   if (words.empty() || words.size() % 3 != 0) {
     fail(error, "font operand is not a sequence of complete triples");
     return std::nullopt;

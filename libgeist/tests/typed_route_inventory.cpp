@@ -41,20 +41,20 @@ struct BookBaseline {
 };
 
 constexpr BookBaseline kBaseline[] = {
-    {"ACPZMST1.boo", 90}, {"DREICMST.boo", 300}, {"FA1PLMM0.boo", 343},
-    {"GC23-046.boo", 53}, {"GC28-183.boo", 71}, {"GG24-395.boo", 114},
-    {"GG24-4302-00.boo", 163}, {"GX27-3999-00.boo", 14}, {"IBMMMSTR.boo", 22},
-    {"IEAC6MST.BOO", 93}, {"ITPPIBOK.BOO", 199}, {"N2AH1MST.BOO", 10},
-    {"OFCUSEOV.BOO", 65}, {"PRG1SORT.boo", 134}, {"QS3X36CM.BOO", 4},
-    {"QSYSINFO.BOO", 301}, {"QSYSNEWG.BOO", 64}, {"SC09-138.boo", 306},
-    {"SC09-2417-00.boo", 240}, {"SC24-546.boo", 102},
-    {"SC24-5520-00.boo", 496}, {"SC24-5527-02.boo", 111},
-    {"SC26-457.boo", 203}, {"SC28-1881-05.boo", 50}, {"SC31-605.boo", 77},
-    {"SC31-711.boo", 62}, {"SC33-033.boo", 76}, {"SC34-425.boo", 147},
-    {"SC41-485.boo", 15}, {"SG24-204.boo", 67}, {"SH12-565.boo", 191},
-    {"SH20-918.boo", 151}, {"XWEBDEMO.boo", 4}, {"packet.boo", 83},
+    {"ACPZMST1.boo", 124}, {"DREICMST.boo", 308}, {"FA1PLMM0.boo", 354},
+    {"GC23-046.boo", 64}, {"GC28-183.boo", 92}, {"GG24-395.boo", 142},
+    {"GG24-4302-00.boo", 166}, {"GX27-3999-00.boo", 14}, {"IBMMMSTR.boo", 23},
+    {"IEAC6MST.BOO", 130}, {"ITPPIBOK.BOO", 201}, {"N2AH1MST.BOO", 10},
+    {"OFCUSEOV.BOO", 75}, {"PRG1SORT.boo", 146}, {"QS3X36CM.BOO", 5},
+    {"QSYSINFO.BOO", 303}, {"QSYSNEWG.BOO", 94}, {"SC09-138.boo", 334},
+    {"SC09-2417-00.boo", 240}, {"SC24-546.boo", 112},
+    {"SC24-5520-00.boo", 521}, {"SC24-5527-02.boo", 136},
+    {"SC26-457.boo", 263}, {"SC28-1881-05.boo", 52}, {"SC31-605.boo", 77},
+    {"SC31-711.boo", 63}, {"SC33-033.boo", 79}, {"SC34-425.boo", 158},
+    {"SC41-485.boo", 15}, {"SG24-204.boo", 67}, {"SH12-565.boo", 195},
+    {"SH20-918.boo", 159}, {"XWEBDEMO.boo", 4}, {"packet.boo", 83},
 };
-constexpr std::size_t kBaselineTotal = 4421;
+constexpr std::size_t kBaselineTotal = 4809;
 
 void require(bool condition, const std::string &message) {
   if (!condition) {
