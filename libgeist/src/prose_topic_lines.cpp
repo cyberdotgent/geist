@@ -1,7 +1,10 @@
 #include "geist/detail/prose_topic_internal.hpp"
 
+#include "geist/detail/display_lines.hpp"
+
 #include <algorithm>
 #include <cctype>
+#include <map>
 
 namespace geist::detail::prose_internal {
 
@@ -21,6 +24,18 @@ struct LineBuilder {
   bool in_title = false;
   bool title_done = false;
   bool in_index = false;
+  // A structured subject-index entry occupies exactly one display line of its
+  // record (`SI ??3HI1?0?Physical Planning Guide`, QSYSINFO 2.1.1 record 72;
+  // `SI ??4XMP@?0?AGGREGATE?  compile-time option`, SC09-138 2.1.1.2 record
+  // 132).  Hosted BookServer displays no part of such a line, exactly as it
+  // displays no part of a plain `SI term` line, and the visible body text
+  // that the flattened decoded string glues after the separator is a
+  // separate display line (QSYSNEWG 2.1 record 40: `SI display station` is
+  // one line, `| If your display station ...` the next).  Inside the index
+  // line the decoder placeholders are the entry's field separators; the
+  // fields themselves stay opaque.
+  std::size_t index_record = npos;
+  std::size_t index_line_end = npos;  // exclusive token end of the SI line
   ProseIndexTermIR current_term;
   std::vector<std::pair<std::size_t, std::size_t>> term_refs;
   bool pending_space = false;
@@ -30,6 +45,9 @@ struct LineBuilder {
   std::vector<std::size_t> pending_controls;
   bool line_open = false;
   std::size_t line_visible_cells = 0;
+  // Drawn box regions of the topic (prose_topic_boxes.cpp), admitted only
+  // where no table/figure span already owns their tokens.
+  std::vector<BoxRegion> boxes;
   // CZ dialect: the stream carries layout items; every display line belongs
   // to the most recent directive.
   bool cz_mode = false;
@@ -66,6 +84,110 @@ struct LineBuilder {
   }
   bool assign(const TokenView& view, ProseTokenRoleIR role) {
     return ledger.assign(view.record, view.token, role, error);
+  }
+
+  // Display lines of a record, parsed once (Format/logical-controls.md,
+  // "Display Lines Inside A Record Payload").
+  std::map<std::size_t, std::optional<std::vector<DisplayLineIR>>> line_cache;
+  const std::vector<DisplayLineIR>* display_lines_of(std::size_t record) {
+    auto found = line_cache.find(record);
+    if (found == line_cache.end())
+      found = line_cache
+                  .emplace(record, record_display_lines(records[record]))
+                  .first;
+    return found->second ? &*found->second : nullptr;
+  }
+  // Exclusive token end of the display line whose first token is `token`, or
+  // npos when the record's lines do not parse or `token` opens no line.
+  std::size_t display_line_end_at(std::size_t record, std::size_t token) {
+    const auto* lines = display_lines_of(record);
+    if (lines == nullptr) return npos;
+    for (const auto& line : *lines)
+      if (line.prefix_token + 1 == token && line.token_end > token)
+        return line.token_end;
+    return npos;
+  }
+
+  // The drawn box region covering `record`/`token`, or nullptr.
+  const BoxRegion* box_at(std::size_t record, std::size_t token) const {
+    for (const auto& region : boxes) {
+      if (record < region.begin_record || record > region.end_record) continue;
+      if (record == region.begin_record && token < region.begin_token) continue;
+      if (record == region.end_record && token > region.end_token) continue;
+      return &region;
+    }
+    return nullptr;
+  }
+
+  const BoxRegion* box_at_logical(std::uint32_t logical_record,
+                                  std::size_t token) const {
+    for (std::size_t record = 0; record < records.size(); ++record)
+      if (records[record].logical_record == logical_record)
+        return box_at(record, token);
+    return nullptr;
+  }
+
+  // Emits one preformatted row per display line of the region and gives every
+  // source token of the region its ledger role.
+  bool emit_box(const BoxRegion& region) {
+    if (!finish_title() || !finish_index()) return false;
+    pending_controls.clear();
+    line_open = false;
+    pending_space = false;
+    last_visible.clear();
+    bool first = true;
+    for (const auto& box_line : region.lines) {
+      const auto& record = records[box_line.record];
+      Line row;
+      row.box = true;
+      row.origin = 0;
+      row.breaks_before = first ? trailing_bare : 0;
+      row.directive = current_directive;
+      if (first && anchor_pending) {
+        row.anchor_before = true;
+        row.anchor_index = pending_anchor_index;
+        anchor_pending = false;
+      }
+      first = false;
+      for (const auto& cell : display_line_cells(record, box_line.line)) {
+        row.cells.push_back({cell.token == npos ? npos : box_line.record,
+                             cell.token == npos ? 0 : cell.token,
+                             figure_display_glyph(cell.word),
+                             cell.word == ' '});
+      }
+      row.text_begin = 0;
+      out.lines.push_back(std::move(row));
+    }
+    trailing_bare = 0;
+    // Every token from the top rule's length byte to the bottom rule's last
+    // token belongs to the region.
+    for (auto record = region.begin_record; record <= region.end_record;
+         ++record) {
+      const auto begin = record == region.begin_record ? region.begin_token : 0;
+      const auto end = record == region.end_record
+                           ? region.end_token
+                           : records[record].ir.tokens.size() - 1;
+      for (auto token = begin; token <= end; ++token) {
+        if (ledger.at(record, token).role != ProseTokenRoleIR::unassigned)
+          continue;
+        const auto view = view_token(records, record, token);
+        auto role = ProseTokenRoleIR::text;
+        const auto line_prefix = std::any_of(
+            region.lines.begin(), region.lines.end(),
+            [&](const auto& box_line) {
+              return box_line.record == record &&
+                     box_line.line.prefix_token == token;
+            });
+        if (line_prefix || is_placeholder_run(view))
+          role = ProseTokenRoleIR::marker;
+        else if (is_bare(view))
+          role = ProseTokenRoleIR::spacing;
+        else if (is_space_run(view))
+          role = ProseTokenRoleIR::fill;
+        if (!ledger.assign(record, token, role, error)) return false;
+      }
+    }
+    return true;
   }
 
   void open_line(std::size_t origin_cells, const TokenView* origin) {
@@ -109,6 +231,8 @@ struct LineBuilder {
   bool finish_index() {
     if (!in_index) return true;
     in_index = false;
+    index_record = npos;
+    index_line_end = npos;
     current_term.term = collapse_ascii_whitespace(current_term.term);
     current_term.slices = slices_for(records, term_refs);
     if (current_term.term.empty())
@@ -356,8 +480,29 @@ struct LineBuilder {
     cz_mode = std::any_of(items.begin(), items.end(), [](const auto& item) {
       return item.kind == ItemKind::layout;
     });
+    // Drawn box regions are a flattened-dialect shape; the CZ dialect names
+    // its own verbatim blocks (`cz OFF XMP`).
+    if (cz_mode) boxes.clear();
     for (std::size_t index = 0; index < items.size(); ++index) {
       const auto& item = items[index];
+      // Every item inside a drawn box region belongs to its preformatted
+      // block: the region is emitted once, at its first token, and the
+      // CFONT controls inside it style nothing the block keeps.
+      if (item.kind == ItemKind::token) {
+        const auto* region = box_at(item.token.record, item.token.token);
+        if (region != nullptr) {
+          if (region->begin_record == item.token.record &&
+              region->begin_token == item.token.token && !emit_box(*region))
+            return false;
+          continue;
+        }
+      } else if ((item.kind == ItemKind::font ||
+                  item.kind == ItemKind::select) &&
+                 item.source.token_end > item.source.token_begin &&
+                 box_at_logical(item.source.logical_record,
+                                item.source.token_begin) != nullptr) {
+        continue;
+      }
       switch (item.kind) {
       case ItemKind::segment_end:
         if (!finish_title() || !finish_index()) return false;
@@ -442,6 +587,12 @@ struct LineBuilder {
       }
       skip_until = npos;
     }
+    // A structured index entry is exactly one display line: its last token
+    // is the last token of the line that the `SI` keyword opened.
+    if (in_index && current_term.structured && index_line_end != npos &&
+        view.record == index_record && view.token >= index_line_end) {
+      if (!finish_index()) return false;
+    }
     if (item.title_start) {
       in_title = true;
       out.title.clear();
@@ -454,6 +605,8 @@ struct LineBuilder {
       const auto keyword = body_text(view);
       if (ascii_lower(keyword) != "si")
         return fail(error, "SI keyword mismatch");
+      index_record = view.record;
+      index_line_end = display_line_end_at(view.record, view.token);
       return assign(view, ProseTokenRoleIR::index_keyword);
     }
 
@@ -626,10 +779,19 @@ struct LineBuilder {
           index + 1 >= items.size() ||
           items[index + 1].kind != ItemKind::token || item.separator;
       const auto title_marker = in_title && out.title.empty();
-      if (next != npos && !space_at(next) && !before_control && !title_marker)
+      if (next != npos && !space_at(next) && !before_control && !title_marker) {
+        if (in_index && index_line_end != npos && view.record == index_record &&
+            view.token < index_line_end) {
+          // Field separator of a structured subject-index line; the whole
+          // line is hidden (hosted QSYSINFO 2.1.1 DT 19910524120827 and
+          // SC09-138 2.1.1.2 DT 19910321130500 display none of it).
+          current_term.structured = true;
+          return assign(view, ProseTokenRoleIR::index_structure);
+        }
         return fail(error, "placeholder run '" + body_text(view) +
                                "' is followed by visible text at " +
                                where(view));
+      }
       if (title_marker) return assign(view, ProseTokenRoleIR::marker);
       if (in_title && !finish_title()) return false;
       if (in_index && !finish_index()) return false;
@@ -771,6 +933,28 @@ bool build_lines(const std::vector<DecodedLogicalRecordSource>& records,
                  const std::vector<Item>& items, Ledger& ledger,
                  LineBuild& out, std::string* error) {
   LineBuilder builder(records, items, ledger, out, error);
+  // A drawn box region whose tokens a table or figure span already owns is
+  // that span's business (the box outline of an SRTBL envelope); only a
+  // region the prose model owns end to end becomes a preformatted block.
+  for (auto& region : plan_boxes(records)) {
+    bool owned = false;
+    for (auto record = region.begin_record;
+         record <= region.end_record && !owned; ++record) {
+      const auto begin = record == region.begin_record ? region.begin_token : 0;
+      const auto end = record == region.end_record
+                           ? region.end_token
+                           : records[record].ir.tokens.size() - 1;
+      for (auto token = begin; token <= end; ++token) {
+        const auto role = ledger.at(record, token).role;
+        if (role == ProseTokenRoleIR::table ||
+            role == ProseTokenRoleIR::figure) {
+          owned = true;
+          break;
+        }
+      }
+    }
+    if (!owned) builder.boxes.push_back(std::move(region));
+  }
   return builder.run();
 }
 
