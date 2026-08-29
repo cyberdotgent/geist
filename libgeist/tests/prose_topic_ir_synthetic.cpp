@@ -541,8 +541,9 @@ void front_matter_fixtures() {
 void negative_fixtures() {
   // Tables and figures compose (tests/prose_topic_spans_synthetic.cpp); a
   // declined envelope still rejects the whole topic.
-  reject("ACPZMST1.boo", "FRONT_1.2",
-         "table envelope 'TBLUNIQ1' declined: cell text has an unaligned gap: 'AIX/6000                 AIXwindows'");
+  reject("ACPZMST1.boo", "4.3",
+         "table envelope 'TBLUNIQ39' declined: visible source between table "
+         "lines");
   reject("ITPPIBOK.BOO", "1.3.7", "picture or external link");
   reject("PRG1SORT.boo", "1.1.5.1", "control-like word 'SRCFILE'");
   // COVER still fails closed: its front-matter `cover` heading form is

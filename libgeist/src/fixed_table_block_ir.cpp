@@ -1,6 +1,7 @@
 #include "geist/detail/fixed_table_block_ir.hpp"
 
 #include "geist/detail/font_span_ir.hpp"
+#include "geist/detail/display_lines.hpp"
 #include "geist/detail/internal.hpp"
 
 #include <algorithm>
@@ -191,6 +192,10 @@ public:
       positioned_.emplace(key(cell), &cell);
     for (const auto &row : flat_)
       rows_by_id_.emplace(std::make_pair(row.run, row.row_index), row.row);
+    for (const auto &cell : ownership.row_cells)
+      by_row_[{cell.run, cell.row_index}].push_back(&cell);
+    for (std::size_t index = 0; index < records_.size(); ++index)
+      record_index_.emplace(records_[index].logical_record, index);
   }
 
   const std::vector<FlatRow> &flat() const { return flat_; }
@@ -261,29 +266,267 @@ public:
           ir_tokens[block.object_source.token_end - 1].byte_range.end;
     }
 
+    auto table = block;
+    std::string table_reason;
+    if (extract_table_geometry(candidate, start, end, table, table_reason)) {
+      lines_.clear();
+      return table;
+    }
+    lines_.clear();
+    // No column structure was proven.  The envelope's display lines still
+    // are, through the record's length-byte line model, so the region is
+    // reproduced verbatim instead of failing the whole topic.
+    std::string preformatted_reason;
+    if (admit_preformatted(candidate, start, end, block, preformatted_reason))
+      return block;
+    reason = table_reason + "; not preformatted: " + preformatted_reason;
+    return std::nullopt;
+  }
+
+  bool extract_table_geometry(const Candidate &candidate,
+                              const SourcePosition &start,
+                              const SourcePosition &end,
+                              FixedTableBlockIR &block, std::string &reason) {
     if (!has_top_rule(start, end)) {
       block.geometry = FixedTableGeometryIR::gap;
       if (!split_gap_lines(start, end, reason))
-        return std::nullopt;
+        return false;
       attach_font_spans(candidate, start, end);
       if (!build_gap_rows(block, reason))
-        return std::nullopt;
+        return false;
       detect_header(block);
-      lines_.clear();
-      return block;
+      return true;
     }
     const auto split = split_lines(candidate, start, end, block, reason);
     if (split)
       attach_font_spans(candidate, start, end);
     if (!split)
-      return std::nullopt;
+      return false;
     if (!classify_lines(block, reason))
-      return std::nullopt;
+      return false;
     if (!build_rows(block, reason))
-      return std::nullopt;
+      return false;
     detect_header(block);
-    lines_.clear();
-    return block;
+    return true;
+  }
+
+  // --- Preformatted admission ------------------------------------------
+  //
+  // Every SRTBL envelope, whatever it draws, is a run of display lines of
+  // its logical records: `<length byte><that many bytes of tokens>`
+  // (`record_display_lines`).  Hosted BookServer serves those lines
+  // verbatim inside `<pre>` -- box rules included -- so an envelope whose
+  // column structure cannot be proven is still reproduced exactly instead
+  // of failing its topic.  Evidence: SC09-138 7.5.2 `TBLUNIQ116` (a box
+  // table whose caption line follows the bottom rule),
+  // SC24-5527-02 3.6.2 `TBLUNIQ47`/`TBLUNIQ49` (a single command line
+  // wrapped in SRTBL, served as `   <B>vmfrec</B> <B>ppf</B> ...`).
+  //
+  // Fails closed when a record does not parse into display lines, when the
+  // SRTBL or SRETBL control does not sit on a line boundary, when a line
+  // mixes a control with visible text, when the envelope carries a
+  // selector (its link would have no cell to attach to), or when no
+  // non-blank line remains.
+  struct PreLine {
+    const DecodedLogicalRecordSource *record = nullptr;
+    DisplayLineIR line;
+  };
+
+  static bool blank_text(const std::string &text) {
+    return text.find_first_not_of(' ') == std::string::npos;
+  }
+
+  static std::string trim_trailing_spaces(std::string text) {
+    const auto last = text.find_last_not_of(' ');
+    text.erase(last == std::string::npos ? 0 : last + 1);
+    return text;
+  }
+
+  std::vector<DocumentSourceRowIR>
+  rows_in(const FixedTableBlockIR &block, const PreLine &view) const {
+    std::vector<DocumentSourceRowIR> rows;
+    for (auto ordinal = block.rows.begin; ordinal < block.rows.end; ++ordinal) {
+      const auto &row = *flat_[ordinal].row;
+      if (row.logical_record != view.record->logical_record)
+        continue;
+      if (row.token_end <= view.line.prefix_token ||
+          row.token_begin >= view.line.token_end)
+        continue;
+      rows.push_back({flat_[ordinal].run, flat_[ordinal].row_index});
+    }
+    return rows;
+  }
+
+  const std::vector<std::size_t> &
+  byte_offsets(const DecodedLogicalRecordSource &record) const {
+    auto found = byte_offsets_.find(record.logical_record);
+    if (found != byte_offsets_.end())
+      return found->second;
+    std::vector<std::size_t> offsets(record.assembled.words.size() + 1);
+    for (std::size_t word = 0; word < record.assembled.words.size(); ++word)
+      offsets[word + 1] =
+          offsets[word] +
+          token_words_to_ascii({record.assembled.words[word]}).size();
+    return byte_offsets_.emplace(record.logical_record, std::move(offsets))
+        .first->second;
+  }
+
+  // True when every token of `line` after its length byte lies in the
+  // control's opcode/operand bytes, i.e. the line displays nothing.
+  static bool control_only_line(const DecodedLogicalRecordSource &record,
+                                const std::vector<std::size_t> &offsets,
+                                const ControlSegmentIR &segment,
+                                const DisplayLineIR &line) {
+    if (segment.payload_range.end <= segment.payload_range.begin)
+      return true;
+    for (const auto &span : record.assembled.tokens) {
+      if (span.token_index <= line.prefix_token ||
+          span.token_index >= line.token_end)
+        continue;
+      if (span.output_begin >= offsets.size())
+        return false;
+      if (offsets[span.output_begin] >= segment.payload_range.begin)
+        return false;
+    }
+    return true;
+  }
+
+  bool admit_preformatted(const Candidate &candidate,
+                          const SourcePosition &start,
+                          const SourcePosition &end,
+                          FixedTableBlockIR &block, std::string &reason) {
+    const auto begin_record = record_index_.find(start.first);
+    const auto end_record = record_index_.find(end.first);
+    if (begin_record == record_index_.end() ||
+        end_record == record_index_.end() ||
+        end_record->second < begin_record->second) {
+      reason = "envelope records are not in the topic";
+      return false;
+    }
+    std::vector<PreLine> lines;
+    for (auto index = begin_record->second; index <= end_record->second;
+         ++index) {
+      const auto &record = records_[index];
+      const auto parsed = record_display_lines(record);
+      if (!parsed) {
+        reason = "record " + std::to_string(record.logical_record) +
+                 " does not parse into display lines";
+        return false;
+      }
+      for (const auto &line : *parsed)
+        lines.push_back({&record, line});
+    }
+
+    // The SRTBL control must close a display line and SRETBL must open one:
+    // otherwise part of a line lies outside the envelope and the region is
+    // not a whole number of lines.
+    std::size_t first = lines.size();
+    std::size_t last = lines.size();
+    for (std::size_t index = 0; index < lines.size(); ++index) {
+      const auto &view = lines[index];
+      if (view.record->logical_record == start.first &&
+          view.line.prefix_token <= start.second &&
+          start.second < view.line.token_end)
+        first = index;
+      if (view.record->logical_record == end.first &&
+          view.line.prefix_token <= end.second &&
+          end.second < view.line.token_end)
+        last = index;
+    }
+    if (first == lines.size() || last == lines.size() || last < first) {
+      reason = "envelope controls are not on display lines";
+      return false;
+    }
+    // The SRTBL control's segment reaches to the next control, which for a
+    // box table is the whole envelope; only the opcode token itself proves
+    // the line boundary.
+    if (lines[first].line.token_end != start.second + 1) {
+      reason = "SRTBL does not close its display line";
+      return false;
+    }
+    for (auto token = lines[last].line.prefix_token + 1; token < end.second;
+         ++token)
+      for (const auto word : lines[last].record->tokens[token])
+        if (word >= 4 && word != ' ' && word != ',' && word != 0xA0) {
+          reason = "SRETBL does not open its display line";
+          return false;
+        }
+
+    // Classify the interior lines.  A line that is exactly one non-text
+    // control segment styles or spaces the lines around it and is never
+    // displayed; anything else is reproduced.
+    std::vector<std::pair<const PreLine *, std::string>> body;
+    for (auto index = first + 1; index < last; ++index) {
+      const auto &view = lines[index];
+      const auto &record = *view.record;
+      const auto content_begin = view.line.prefix_token + 1;
+      const auto &offsets = byte_offsets(record);
+      bool control_line = false;
+      // A control segment reaches from its opcode to the next control, so a
+      // segment that started on an earlier line only styles this one; the
+      // line is a control line when it opens a segment and carries none of
+      // that segment's payload.
+      for (const auto &segment : record.control_segments) {
+        if (segment.kind == BookControlKind::text ||
+            segment.source_tokens.empty())
+          continue;
+        const auto segment_begin = segment.source_tokens.front();
+        if (segment_begin < content_begin ||
+            segment_begin >= view.line.token_end)
+          continue;
+        if (segment.kind == BookControlKind::select) {
+          reason = "preformatted region contains a selector";
+          return false;
+        }
+        if (segment.kind != BookControlKind::font &&
+            segment.kind != BookControlKind::spacing &&
+            segment.kind != BookControlKind::layout_directive) {
+          reason = "preformatted region contains control " + segment.opcode;
+          return false;
+        }
+        if (segment_begin != content_begin ||
+            !control_only_line(record, offsets, segment, view.line)) {
+          reason = "preformatted line mixes control " + segment.opcode +
+                   " with display text";
+          return false;
+        }
+        control_line = true;
+      }
+      if (control_line)
+        continue;
+      body.emplace_back(&view,
+                        trim_trailing_spaces(
+                            display_line_text(record, view.line)));
+    }
+    while (!body.empty() && blank_text(body.front().second))
+      body.erase(body.begin());
+    while (!body.empty() && blank_text(body.back().second))
+      body.pop_back();
+    if (body.empty()) {
+      reason = "preformatted region has no display lines";
+      return false;
+    }
+
+    block.geometry = FixedTableGeometryIR::preformatted;
+    for (const auto &[view, text] : body) {
+      FixedTablePreformattedLineIR line;
+      line.logical_record = view->record->logical_record;
+      line.prefix_token = view->line.prefix_token;
+      line.token_end = view->line.token_end;
+      line.text = text;
+      line.rows = rows_in(block, *view);
+      block.preformatted_lines.push_back(std::move(line));
+    }
+    // Every positioned cell of the envelope's rows belongs to the region.
+    for (auto ordinal = block.rows.begin; ordinal < block.rows.end; ++ordinal) {
+      const auto found =
+          by_row_.find({flat_[ordinal].run, flat_[ordinal].row_index});
+      if (found == by_row_.end())
+        continue;
+      for (const auto *cell : found->second)
+        block.structural_cells.push_back(*cell);
+    }
+    return true;
   }
 
 private:
@@ -1763,6 +2006,11 @@ private:
   std::map<CellKey, const PositionedRowCellIR *> positioned_;
   std::map<std::pair<DisplayRunId, std::size_t>, const PhysicalRowIR *>
       rows_by_id_;
+  std::map<std::pair<DisplayRunId, std::size_t>,
+           std::vector<const PositionedRowCellIR *>>
+      by_row_;
+  std::map<std::uint32_t, std::size_t> record_index_;
+  mutable std::map<std::uint32_t, std::vector<std::size_t>> byte_offsets_;
   std::vector<std::vector<Word>> words_;
   std::vector<Line> lines_;
   std::vector<const Word *> trailing_;
@@ -1978,6 +2226,22 @@ bool verify_fixed_table_blocks_ir(
     if (claimed != expected)
       return fail("fixed table does not claim every positioned cell of its "
                   "rows exactly once");
+    if (block.geometry == FixedTableGeometryIR::preformatted) {
+      if (block.preformatted_lines.empty())
+        return fail("preformatted table region has no display lines");
+      if (!block.body.empty() || block.caption ||
+          !block.separator_columns.empty())
+        return fail("preformatted table region carries table geometry");
+      bool blank = true;
+      for (const auto &line : block.preformatted_lines)
+        if (line.text.find_first_not_of(' ') != std::string::npos)
+          blank = false;
+      if (blank)
+        return fail("preformatted table region has no visible line");
+      continue;
+    }
+    if (!block.preformatted_lines.empty())
+      return fail("fixed table carries preformatted lines");
     if (block.body.empty() || block.separator_columns.empty())
       return fail("fixed table has no body rows or columns");
     if (block.header_rows > block.body.size())
@@ -1998,7 +2262,10 @@ std::string format_fixed_table_blocks_ir(const FixedTableBlocksIR &blocks) {
   std::ostringstream out;
   for (const auto &block : blocks.blocks) {
     out << "table object='" << block.object_id << "' geometry="
-        << (block.geometry == FixedTableGeometryIR::gap ? "gap" : "box")
+        << (block.geometry == FixedTableGeometryIR::gap      ? "gap"
+            : block.geometry == FixedTableGeometryIR::preformatted
+                ? "preformatted"
+                : "box")
         << " rows=[" << block.rows.begin
         << ',' << block.rows.end << ") source=" << block.object_source.logical_record
         << ':' << block.object_source.segment_index << ':'
@@ -2016,6 +2283,13 @@ std::string format_fixed_table_blocks_ir(const FixedTableBlocksIR &blocks) {
       emit_row(out, *block.caption);
     for (const auto &row : block.body)
       emit_row(out, row);
+    for (const auto &line : block.preformatted_lines) {
+      out << " pre " << line.logical_record << ':' << line.prefix_token << ':'
+          << line.token_end << " rows=";
+      for (const auto &row : line.rows)
+        out << row.display_run << ':' << row.row_index << ',';
+      out << " text='" << line.text << "'\n";
+    }
     out << " block_structural=";
     emit_cells(out, block.structural_cells);
     out << '\n';
