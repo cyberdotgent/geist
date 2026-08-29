@@ -94,6 +94,12 @@ struct ListItemIR {
   // vector. It permits ordered lists that start above one or contain gaps.
   // The trailing field preserves existing two-member aggregate callers.
   std::optional<std::uint64_t> source_ordinal = std::nullopt;
+  // Nesting level inside the same list block, 0 for a top-level item.  A
+  // source that states the nesting of every item as a number -- the generated
+  // table of contents (`CTOCE <depth> ...`) and the generated index (`CITERM
+  // <D>term<D><level>...`) -- keeps one list block whose items carry their own
+  // depth, rather than a tree the source never draws.
+  std::uint32_t depth = 0;
 };
 
 struct ListBlockIR {

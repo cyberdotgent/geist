@@ -181,10 +181,10 @@ int main() {
 
   const auto contents = document.topic_markdown("CONTENTS");
   for (const auto* expected : {
-           "[Customer Information](#2.4.1)",
-           "[Customer Information](#2.4.5)",
-           "[Additional Problem Information](#2.4.9)",
-           "[AIX Operating System Publications](#BACK_1.8)",
+           "[Customer Information](<#2.4.1>)",
+           "[Customer Information](<#2.4.5>)",
+           "[Additional Problem Information](<#2.4.9>)",
+           "[AIX Operating System Publications](<#BACK_1.8>)",
        }) {
     require_contains(contents, expected, "source-cleaned CONTENTS title");
   }
