@@ -304,6 +304,70 @@ void positive_fixtures() {
       require(kept.prose->title == "Action-Flag Messages", "I.6.1 title");
   }
   admit("FA1PLMM0.boo", "CHANGES.1");
+  // Structured subject-index lines: `SI ??3HI1?0?<title>?` and
+  // `SI ??4XMP@?0?<term>?  <term>`.  The whole display line is hidden;
+  // hosted QSYSINFO 2.1.1 (DT 19910524120827) and SC09-138 2.1.1.2
+  // (DT 19910321130500) display none of its fields.
+  {
+    Extracted kept;
+    const auto markdown = admit("QSYSINFO.BOO", "2.1.1", &kept);
+    require(contains(markdown, "*Publication Description*: The"),
+            "QSYSINFO 2.1.1 body");
+    require(!contains(markdown, "3HI1"),
+            "QSYSINFO 2.1.1 rendered a structured index field");
+    if (kept.prose) {
+      require(kept.prose->index_terms.size() == 4,
+              "QSYSINFO 2.1.1 index term count");
+      const auto structured = std::count_if(
+          kept.prose->index_terms.begin(), kept.prose->index_terms.end(),
+          [](const auto& term) { return term.structured; });
+      require(structured == 2, "QSYSINFO 2.1.1 structured index terms");
+      require(!kept.prose->index_terms.front().structured &&
+                  kept.prose->index_terms.front().term ==
+                      "planning, physical",
+              "QSYSINFO 2.1.1 plain index term");
+    }
+  }
+  // Drawn box regions: a screen box (OFCUSEOV 1.10 DT 19900805103816) and a
+  // labelled note box (QSYSNEWG 1.0 DT 19910524085706).  Hosted BookServer
+  // prints the region's display lines verbatim inside its <pre>, so the rows
+  // become one preformatted block; the legacy route dropped the outline and
+  // reflowed the rows into the body paragraph.
+  {
+    Extracted kept;
+    const auto markdown = admit("QSYSNEWG.BOO", "1.0", &kept);
+    require(contains(markdown, "```\n ___ In a Hurry? ____"),
+            "QSYSNEWG 1.0 box top rule");
+    require(contains(markdown,
+                     "| This chapter contains background information about "
+                     "computers and       |"),
+            "QSYSNEWG 1.0 box body row");
+    require(contains(markdown, "|______"), "QSYSNEWG 1.0 box bottom rule");
+    if (kept.prose) {
+      require(count_blocks(*kept.prose, ProseBlockKindIR::preformatted) == 1,
+              "QSYSNEWG 1.0 preformatted block count");
+      require(count_blocks(*kept.prose, ProseBlockKindIR::paragraph) == 0,
+              "QSYSNEWG 1.0 has no reflowed paragraph");
+    }
+  }
+  {
+    Extracted kept;
+    const auto markdown = admit("OFCUSEOV.BOO", "1.18.2", &kept);
+    require(contains(markdown,
+                     "|   Type information, press Enter to schedule."),
+            "OFCUSEOV 1.18.2 box body row");
+    if (kept.prose)
+      require(count_blocks(*kept.prose, ProseBlockKindIR::preformatted) == 1,
+              "OFCUSEOV 1.18.2 preformatted block count");
+  }
+  {
+    const auto markdown = admit("SC09-138.boo", "2.1.1.2");
+    require(contains(markdown, "DEFAULT:"), "SC09-138 2.1.1.2 body");
+    require(!contains(markdown, "4XMP"),
+            "SC09-138 2.1.1.2 rendered a structured index field");
+    require(!contains(markdown, "compile-time option"),
+            "SC09-138 2.1.1.2 rendered a hidden index term");
+  }
 }
 
 void mutation_fixtures() {
@@ -491,6 +555,11 @@ void negative_fixtures() {
   // Plural CFONT header over repeated row controls: the legacy route draws
   // this NetView directory list as a table; prose must not flatten it.
   reject("SC31-711.boo", "1.2", "implicit two-column grid");
+  // A box-drawing run that opens no drawn box region and stands inside a
+  // text run stays fail-closed (SC24-546 1.3.1, `The >> ___ symbol indicates
+  // the beginning of a statement`).
+  reject("SC24-546.boo", "1.3.1",
+         "is followed by visible text at record 44 token 90");
   // A trailing menu needs the book catalog to validate its targets.
   {
     auto extracted = extract("SC31-711.boo", "2.3.2");
