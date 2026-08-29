@@ -57,7 +57,12 @@ properties of this slice:
   removed (this also hides a literal `*` inside a code span, so code examples
   were additionally diffed by eye).
 
-## Difference classes seen in the 48-topic sample
+## Difference classes seen in the 55-topic sample
+
+Sample: 55 typed topics across the four books (14 SC09-2417-00, 10 packet,
+10 GX27-3999-00, 10 SC41-485 drawn at random from the typed set, plus 11
+topics chosen for the structures this slice added). Typed scored equal to or
+better than legacy on every one; 38 are word-identical to hosted.
 
 | Class | Decision |
 | --- | --- |
@@ -66,6 +71,8 @@ properties of this slice:
 | ` ``` ` fence with no info string where the legacy route wrote ` ```text ` | Typed renderer convention. Accepted; `packet_markdown_test` updated. |
 | Ordered-list numbers present in the Markdown (`GX27-3999-00` 2.1, 2.8) | Markdown carries the ordinal that hosted renders from `<ol>`. Equal to the legacy route. Accepted. |
 | `packet` 3.2 keeps `an`, 6.3.1.2 `(`/`an`, 4.4.3 `which`, 3.7.2 `are` | Compact one-byte dictionary words before a fill/origin pair that hosted drops. Recorded as an open residual in `Format/markup.md`; the two candidate rules tried (row-width fit, run length equal to the directive indent) each broke verified topics elsewhere, so the model keeps them as text and fails no topic over it. |
-| `SC09-2417-00` 3.1.4.2 drops four `\` characters | Continuation backslashes of a C macro example. Open; the row shape is not yet distinguished from a row-control slot. |
+| `SC09-2417-00` 3.1.4.2 / 3.1.4.6 / 4.2.1 drop `\` continuation characters of a C macro example, and `4.5.2.2` a `*` inside a code span | The `\` is an open residual (its row shape is not yet distinguished from a row-control slot); the `*` is an artefact of the comparison, which strips Markdown emphasis delimiters. |
+| `SC09-2417-00` 2.2.3.2 `the,` and `packet` 6.0 `determination,` | A decoder separator mid-topic that row text does follow but hosted still drops. Open; the fixed case (separator directly before the next control opcode, `SC41-485` 1.3.3) is modelled. |
+| `packet` TABLES adds `TABLES`, `GX27-3999-00` 2.1/2.8 add `1.`/`2.`/`3.` | Heading text and ordered-list numbers the Markdown carries and hosted renders from `<H*>`/`<ol>`. Identical to the legacy route. Accepted. |
 
 Everything else in the sample is word-identical to hosted.
