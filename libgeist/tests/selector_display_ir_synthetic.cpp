@@ -60,7 +60,7 @@ struct Pipeline {
   std::vector<DecodedLogicalRecordSource> sources;
   geist::detail::SelectorCatalogIR selectors;
   geist::detail::LayoutIR layout;
-  geist::detail::OwnershipIR ownership;
+  std::optional<geist::detail::VerifiedOwnershipIR> ownership;
 };
 
 Pipeline pipeline(std::vector<DecodedLogicalRecordSource> sources) {
@@ -72,13 +72,12 @@ Pipeline pipeline(std::vector<DecodedLogicalRecordSource> sources) {
   require(selectors.has_value(), "raw selector extraction failed: " + error);
   result.selectors = *selectors;
   result.layout = geist::detail::extract_layout_ir(result.sources);
-  result.ownership =
-      geist::detail::build_ownership_ir(result.sources, result.layout);
   require(
       geist::detail::verify_layout_ir(result.sources, result.layout, &error),
       "synthetic layout verification failed: " + error);
-  require(geist::detail::verify_ownership_ir(result.sources, result.layout,
-                                             result.ownership, &error),
+  result.ownership = geist::detail::build_verified_ownership_ir(
+      result.sources, result.layout, &error);
+  require(result.ownership.has_value(),
           "synthetic ownership verification failed: " + error);
   return result;
 }
@@ -86,7 +85,7 @@ Pipeline pipeline(std::vector<DecodedLogicalRecordSource> sources) {
 std::optional<geist::detail::SelectorDisplayIR>
 extract(const Pipeline &value, std::string *error = nullptr) {
   return geist::detail::extract_selector_display_ir(
-      value.sources, value.selectors, value.layout, value.ownership, error);
+      value.sources, value.selectors, value.layout, *value.ownership, error);
 }
 
 std::vector<TokenWords> inline_selector(const std::string &operands,
@@ -118,7 +117,7 @@ void verify_inline_and_provenance() {
           "inline selector row lost source-cell byte provenance");
   require(display && geist::detail::verify_selector_display_ir(
                          value.sources, value.selectors, value.layout,
-                         value.ownership, *display, &error),
+                         *value.ownership, *display, &error),
           "inline selector display verifier failed: " + error);
   require(display && geist::detail::format_selector_display_ir(*display).find(
                          "association=inline") != std::string::npos,
@@ -127,7 +126,8 @@ void verify_inline_and_provenance() {
     auto mutated = *display;
     mutated.rows[0].spans[0].cell_end = 6;
     require(!geist::detail::verify_selector_display_ir(
-                value.sources, value.selectors, value.layout, value.ownership,
+                value.sources, value.selectors, value.layout,
+                *value.ownership,
                 mutated),
             "selector display verifier admitted mutated geometry");
   }
@@ -198,7 +198,7 @@ void verify_source_proven_contiguous_marker_restoration() {
                    : ""));
   require(display && geist::detail::verify_selector_display_ir(
                          value.sources, value.selectors, value.layout,
-                         value.ownership, *display, &error),
+                         *value.ownership, *display, &error),
           "restored selector display verifier failed: " + error);
 
   const auto noncontiguous = pipeline(
@@ -337,7 +337,7 @@ void verify_generated_list_contract() {
       "exact FIGLIST did not restore its minimal generated prefix: " + error);
   require(display && geist::detail::verify_selector_display_ir(
                          value.sources, value.selectors, value.layout,
-                         value.ownership, *display, &error),
+                         *value.ownership, *display, &error),
           "generated selector row did not verify canonically: " + error);
 
   const auto wrong_title = pipeline(
@@ -418,10 +418,13 @@ void inventory_generated_lists() {
       if (!selectors)
         continue;
       const auto layout = geist::detail::extract_layout_ir(sources);
-      const auto ownership = geist::detail::build_ownership_ir(sources, layout);
       std::string error;
+      const auto ownership =
+          geist::detail::build_verified_ownership_ir(sources, layout, &error);
+      require(ownership.has_value(),
+              "generated-list fixture ownership is not verifiable: " + error);
       const auto display = geist::detail::extract_selector_display_ir(
-          sources, *selectors, layout, ownership, &error);
+          sources, *selectors, layout, *ownership, &error);
       const auto generated =
           display && !display->rows.empty() &&
           std::all_of(display->rows.begin(), display->rows.end(),
@@ -437,7 +440,7 @@ void inventory_generated_lists() {
                             return row.hard_boundary && row.spans.size() == 1;
                           }) &&
               geist::detail::verify_selector_display_ir(
-                  sources, *selectors, layout, ownership, *display, &error),
+                  sources, *selectors, layout, *ownership, *display, &error),
           "generated-list fixture did not conserve one verified hard row "
           "per selector: " +
               entry.path().filename().string() + ':' + topic.id + ' ' + error);
@@ -507,11 +510,15 @@ void verify_sc31_native_continuation() {
       context, found->start_logical_record, found->end_logical_record);
   const auto selectors = geist::detail::extract_selector_catalog_ir(sources);
   const auto layout = geist::detail::extract_layout_ir(sources);
-  const auto ownership = geist::detail::build_ownership_ir(sources, layout);
   std::string error;
+  const auto ownership =
+      geist::detail::build_verified_ownership_ir(sources, layout, &error);
+  require(ownership.has_value(),
+          "SC31 5.0 ownership is not verifiable: " + error);
   const auto display = selectors
                            ? geist::detail::extract_selector_display_ir(
-                                 sources, *selectors, layout, ownership, &error)
+                                 sources, *selectors, layout, *ownership,
+                                 &error)
                            : std::nullopt;
   std::string selected_text;
   if (display && !display->rows.empty() && !display->rows[0].spans.empty()) {
@@ -544,7 +551,7 @@ void verify_sc31_native_continuation() {
               error + " selected='" + selected_text + "'");
   require(display &&
               geist::detail::verify_selector_display_ir(
-                  sources, *selectors, layout, ownership, *display, &error),
+                  sources, *selectors, layout, *ownership, *display, &error),
           "SC31 5.0 selector continuation failed verification: " + error);
 }
 #endif

@@ -70,10 +70,13 @@ int main() {
   const auto sources =
       geist::detail::decode_logical_record_sources(context, 435, 518);
   const auto layout = geist::detail::extract_layout_ir(sources);
-  const auto ownership = geist::detail::build_ownership_ir(sources, layout);
+  const auto ownership =
+      geist::detail::build_verified_ownership_ir(sources, layout);
+  require(ownership.has_value(),
+          "synthetic glossary ownership is not verifiable");
   std::string error;
   const auto catalog = geist::detail::extract_glossary_catalog_ir(
-      sources, layout, ownership, &error);
+      sources, layout, *ownership, &error);
   require(catalog.has_value(), error);
 
   geist::detail::TopicIdentityIR topic;
@@ -267,7 +270,7 @@ int main() {
     changed_catalog = *catalog;
     changed_catalog.introduction.cross_references.front().emphasis.clear();
     require(!geist::detail::verify_glossary_catalog_ir(
-                sources, layout, ownership, changed_catalog, &error),
+                sources, layout, *ownership, changed_catalog, &error),
             "glossary verifier admitted dropped font emphasis");
   }
 

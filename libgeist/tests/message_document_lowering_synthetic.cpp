@@ -120,10 +120,14 @@ int main() {
   const auto sources =
       geist::detail::decode_logical_record_sources(context, 172, 435);
   const auto layout = geist::detail::extract_layout_ir(sources);
-  const auto ownership = geist::detail::build_ownership_ir(sources, layout);
   std::string error;
+  const auto verified =
+      geist::detail::build_verified_ownership_ir(sources, layout, &error);
+  require(verified.has_value(),
+          error.empty() ? "message ownership is not verifiable" : error);
+  const auto& ownership = verified->ir();
   const auto message = geist::detail::extract_message_topic_ir(
-      sources, layout, ownership, &error);
+      sources, layout, *verified, &error);
   require(message.has_value(),
           error.empty() ? "message extraction failed" : error);
   const auto blocks = geist::detail::extract_message_section_blocks_ir(

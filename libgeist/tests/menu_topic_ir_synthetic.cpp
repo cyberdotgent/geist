@@ -166,14 +166,18 @@ void inventory_complete_menu_topics() {
       if (entry.path().filename() == "SC31-711.boo" && topic.id == "4.1")
         generic_traps_marker_contract(*menu, *catalog, document);
       const auto layout = extract_layout_ir(sources);
-      const auto ownership = build_ownership_ir(sources, layout);
+      // An unverifiable ledger declines every family, exactly as the menu
+      // extractor's own verification did.
+      const auto ownership = build_verified_ownership_ir(sources, layout);
+      if (!ownership)
+        continue;
       // Census structure separately with deliberately unvalidated identity
       // evidence.  Such evidence must never be used for production lowering:
       // source alone cannot establish that a CMITEM operand names a real topic.
       MenuTargetValidationIR identity;
       for (const auto &item : menu->items)
         identity.items.push_back({item.target, item.text});
-      if (!extract_menu_topic_ir(sources, identity, layout, ownership))
+      if (!extract_menu_topic_ir(sources, identity, layout, *ownership))
         continue;
       ++structurally_complete;
 
@@ -183,11 +187,11 @@ void inventory_complete_menu_topics() {
         continue;
       std::string error;
       const auto semantic = extract_menu_topic_ir(sources, *target_validation,
-                                                  layout, ownership, &error);
+                                                  layout, *ownership, &error);
       if (!semantic)
         continue;
       require(verify_menu_topic_ir(sources, *target_validation, layout,
-                                   ownership, *semantic, &error),
+                                   *ownership, *semantic, &error),
               "canonical menu topic failed verification: " + error);
       if (entry.path().filename() == "SC33-033.boo" && topic.id == "5.3") {
         require(semantic->title == "Data sets and file processing" &&
@@ -394,7 +398,7 @@ void inventory_complete_menu_topics() {
       auto mutated_validation = *target_validation;
       mutated_validation.items.front().label += "-changed";
       require(!extract_menu_topic_ir(sources, mutated_validation, layout,
-                                     ownership),
+                                     *ownership),
               "menu topic extractor admitted mutated catalog evidence");
       admitted.push_back(entry.path().filename().string() + ':' + topic.id +
                          ':' + std::to_string(semantic->items.size()));
@@ -402,46 +406,46 @@ void inventory_complete_menu_topics() {
       auto mutated = *semantic;
       mutated.items.front().target.value += "-changed";
       require(!verify_menu_topic_ir(sources, *target_validation, layout,
-                                    ownership, mutated),
+                                    *ownership, mutated),
               "menu topic verifier admitted a mutated raw target identity");
       mutated = *semantic;
       ++mutated.items.front().label_cells.front().word;
       require(!verify_menu_topic_ir(sources, *target_validation, layout,
-                                    ownership, mutated),
+                                    *ownership, mutated),
               "menu topic verifier admitted mutated cell content");
       mutated = *semantic;
       ++mutated.title_source.byte_begin;
       require(!verify_menu_topic_ir(sources, *target_validation, layout,
-                                    ownership, mutated),
+                                    *ownership, mutated),
               "menu topic verifier admitted mutated title provenance");
       if (!semantic->introductions.empty()) {
         mutated = *semantic;
         mutated.introductions.front().text += "-changed";
         require(!verify_menu_topic_ir(sources, *target_validation, layout,
-                                      ownership, mutated),
+                                      *ownership, mutated),
                 "menu topic verifier admitted mutated introduction text");
         mutated = *semantic;
         ++mutated.introductions.front().cells.front().word;
         require(!verify_menu_topic_ir(sources, *target_validation, layout,
-                                      ownership, mutated),
+                                      *ownership, mutated),
                 "menu topic verifier admitted mutated introduction cells");
         mutated = *semantic;
         mutated.introductions.push_back(mutated.introductions.front());
         require(!verify_menu_topic_ir(sources, *target_validation, layout,
-                                      ownership, mutated),
+                                      *ownership, mutated),
                 "menu topic verifier admitted a second title/intro split");
         mutated = *semantic;
         mutated.title_cells.push_back(
             mutated.introductions.front().cells.front());
         require(!verify_menu_topic_ir(sources, *target_validation, layout,
-                                      ownership, mutated),
+                                      *ownership, mutated),
                 "menu topic verifier admitted an intervening visible cell "
                 "owned by both title and intro");
       }
       mutated = *semantic;
       ++mutated.segments.front().source.token_begin;
       require(!verify_menu_topic_ir(sources, *target_validation, layout,
-                                    ownership, mutated),
+                                    *ownership, mutated),
               "menu topic verifier admitted mutated envelope provenance");
     }
   }

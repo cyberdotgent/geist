@@ -474,10 +474,18 @@ bool ownership_run_conflicted(const OwnershipIR& ownership, DisplayRunId run) {
                      [&](const auto& conflict) { return conflict.run == run; });
 }
 
-bool verify_ownership_ir(
+namespace {
+
+// The shared body of verification. `canonical` is the ledger the source
+// geometry mechanically implies; passing it in lets a freshly built ledger be
+// verified without building the same ledger a second time. build_ownership_ir
+// is a pure function of (records, layout), so for a ledger that was just built
+// from those inputs the rebuild is the identical value by construction and
+// every comparison against it is the one it would have made anyway.
+bool verify_ownership_ir_against(
     const std::vector<DecodedLogicalRecordSource>& records,
     const LayoutIR& layout, const OwnershipIR& ownership,
-    std::string* error) {
+    const OwnershipIR& canonical, std::string* error) {
   const auto fail = [&](const std::string& message) {
     if (error != nullptr) *error = message;
     return false;
@@ -537,7 +545,6 @@ bool verify_ownership_ir(
         return fail("marker row owns no marker source cell");
     }
   }
-  const auto canonical = build_ownership_ir(records, layout);
   if (!canonical.conflicts.empty())
     return fail("could not reconstruct positioned row-cell ledger");
   if (ownership.run_conflicts.size() != canonical.run_conflicts.size() ||
@@ -577,6 +584,78 @@ bool verify_ownership_ir(
   }
   if (error != nullptr) error->clear();
   return true;
+}
+
+} // namespace
+
+bool verify_ownership_ir(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const LayoutIR& layout, const OwnershipIR& ownership,
+    std::string* error) {
+  return verify_ownership_ir_against(records, layout, ownership,
+                                     build_ownership_ir(records, layout),
+                                     error);
+}
+
+namespace {
+
+std::uint32_t record_number(
+    const std::vector<DecodedLogicalRecordSource>& records, std::size_t index) {
+  return index < records.size() ? records[index].logical_record : 0;
+}
+
+} // namespace
+
+VerifiedOwnershipIR::VerifiedOwnershipIR(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const LayoutIR& layout, OwnershipIR ownership)
+    : records_(&records),
+      layout_(&layout),
+      record_count_(records.size()),
+      run_count_(layout.runs.size()),
+      first_logical_record_(record_number(records, 0)),
+      last_logical_record_(
+          record_number(records, records.empty() ? 0 : records.size() - 1)),
+      ownership_(std::move(ownership)) {}
+
+bool VerifiedOwnershipIR::covers(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const LayoutIR& layout) const {
+  return &records == records_ && &layout == layout_ &&
+         records.size() == record_count_ &&
+         layout.runs.size() == run_count_ &&
+         record_number(records, 0) == first_logical_record_ &&
+         record_number(records, records.empty() ? 0 : records.size() - 1) ==
+             last_logical_record_;
+}
+
+std::optional<VerifiedOwnershipIR> build_verified_ownership_ir(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const LayoutIR& layout, std::string* error) {
+  auto ownership = build_ownership_ir(records, layout);
+  if (!verify_ownership_ir_against(records, layout, ownership, ownership,
+                                   error))
+    return std::nullopt;
+  return VerifiedOwnershipIR(records, layout, std::move(ownership));
+}
+
+std::optional<VerifiedOwnershipIR> verified_ownership_ir(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const LayoutIR& layout, OwnershipIR ownership, std::string* error) {
+  if (!verify_ownership_ir(records, layout, ownership, error))
+    return std::nullopt;
+  return VerifiedOwnershipIR(records, layout, std::move(ownership));
+}
+
+bool ownership_verified_for(
+    const VerifiedOwnershipIR& ownership,
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const LayoutIR& layout, std::string* error) {
+  if (ownership.covers(records, layout)) {
+    if (error != nullptr) error->clear();
+    return true;
+  }
+  return verify_ownership_ir(records, layout, ownership.ir(), error);
 }
 
 std::string format_ownership_ir(const OwnershipIR& ownership) {

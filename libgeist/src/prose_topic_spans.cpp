@@ -1,5 +1,6 @@
 #include "geist/detail/prose_topic_internal.hpp"
 
+#include "geist/detail/display_lines.hpp"
 #include "geist/detail/selector_ir.hpp"
 #include "geist/detail/selector_link_ir.hpp"
 
@@ -396,6 +397,38 @@ bool plan_frame(const std::vector<DecodedLogicalRecordSource>& records,
     const auto last = record == frame.end_record
                           ? last_token
                           : records[record].ir.tokens.size() - 1;
+    // A captioned frame carries display lines of its own beside the table it
+    // frames -- DREICMST 1.2.1 record 79 line `   split=yes.` between
+    // `SRFIGLOGPROC` and the inner `SRFIGXXX`, and record 84's
+    // `Figure 5. Where SLR Gets Its Data.` after the inner `SREFIG`; hosted
+    // DT 19911219125856 serves both as text, the first inside the
+    // `<a name="FIGLOGPROC">` anchor.  Such a line carries no table-owned
+    // token, so its words stay unassigned for the stream pass to lower as
+    // body text.  A visible token on a line the table does own is still the
+    // conservation failure the frame must fail closed on.
+    const auto lines = record_display_lines(records[record]);
+    // A display line's length byte is a length, never text, whatever word
+    // the dictionary spells for it: DREICMST record 84 token 247 is the
+    // `SREFIG` line's length byte and spells `.`, which hosted does not
+    // print after `Figure 5. Where SLR Gets Its Data`.
+    const auto length_byte = [&](const std::size_t at) {
+      if (!lines) return false;
+      for (const auto& line : *lines)
+        if (line.prefix_token == at) return true;
+      return false;
+    };
+    const auto line_owned_by_table = [&](const std::size_t at) {
+      if (!lines) return true;
+      for (const auto& line : *lines) {
+        if (at <= line.prefix_token || at >= line.token_end) continue;
+        for (auto other = line.prefix_token + 1; other < line.token_end;
+             ++other)
+          if (ledger.at(record, other).role == ProseTokenRoleIR::table)
+            return true;
+        return false;
+      }
+      return true;
+    };
     for (auto token = first; token <= last; ++token) {
       const auto& entry = ledger.at(record, token);
       if (entry.role == ProseTokenRoleIR::table) {
@@ -404,10 +437,12 @@ bool plan_frame(const std::vector<DecodedLogicalRecordSource>& records,
       }
       if (entry.role != ProseTokenRoleIR::unassigned) continue;
       const auto view = view_token(records, record, token);
-      if (!region_structure(view))
+      if (!region_structure(view) && !length_byte(token)) {
+        if (!line_owned_by_table(token)) continue;
         return fail(error, label + " declined: " + decline.reason +
                                " (visible token '" + body_text(view) +
                                "' outside any table)");
+      }
       if (!ledger.assign(record, token, ProseTokenRoleIR::padding, error))
         return false;
     }
@@ -551,6 +586,14 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
       const auto last = record == extent.end_record
                             ? extent.end_token
                             : records[record].ir.tokens.size() - 1;
+      // A display line's length byte is structure whatever word the
+      // dictionary spells for it (GG24-395 COMMENTS record 826 token 0 is
+      // byte 65 and spells `cparent`; SH20-918 3.16 record 216 token 52
+      // spells `cfont`), so no block has to claim it.
+      const auto lines = record_display_lines(records[record]);
+      std::vector<bool> line_prefix(records[record].ir.tokens.size(), false);
+      if (lines)
+        for (const auto& line : *lines) line_prefix[line.prefix_token] = true;
       for (auto token = first; token <= last; ++token) {
         while (claim != region.claims.end() &&
                *claim < Claim{record, token})
@@ -559,7 +602,7 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
             claim != region.claims.end() && *claim == Claim{record, token};
         if (!claimed) {
           const auto view = view_token(records, record, token);
-          if (!region_structure(view) &&
+          if (!region_structure(view) && !line_prefix[token] &&
               !(region.kind == ProseSpanKindIR::table &&
                 table_marker_slot(view)))
             return fail(error, "visible token '" + body_text(view) +

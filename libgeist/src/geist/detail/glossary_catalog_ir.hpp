@@ -176,11 +176,11 @@ std::optional<std::string> project_glossary_semantic_row_text(
 
 std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
     const std::vector<DecodedLogicalRecordSource> &records,
-    const LayoutIR &layout, const OwnershipIR &ownership,
+    const LayoutIR &layout, const VerifiedOwnershipIR &ownership,
     std::string *error = nullptr);
 bool verify_glossary_catalog_ir(
     const std::vector<DecodedLogicalRecordSource> &records,
-    const LayoutIR &layout, const OwnershipIR &ownership,
+    const LayoutIR &layout, const VerifiedOwnershipIR &ownership,
     const GlossaryCatalogIR &catalog, std::string *error = nullptr);
 std::string format_glossary_catalog_ir(const GlossaryCatalogIR &catalog);
 

@@ -84,7 +84,7 @@ LoadedBook& book(const std::string& file) {
 struct Extracted {
   std::vector<DecodedLogicalRecordSource> sources;
   LayoutIR layout;
-  OwnershipIR ownership;
+  std::optional<VerifiedOwnershipIR> ownership;
   TopicIdentityIR identity;
   const BookTopicCatalogIR* catalog = nullptr;
   const std::set<std::string>* resource_ids = nullptr;
@@ -92,7 +92,7 @@ struct Extracted {
   std::string error;
 
   bool verify(const ProseTopicIR& candidate, std::string* error_out) const {
-    return verify_prose_topic_ir(sources, layout, ownership, identity.title,
+    return verify_prose_topic_ir(sources, layout, *ownership, identity.title,
                                  catalog, candidate, error_out, resource_ids);
   }
 };
@@ -110,7 +110,9 @@ Extracted extract(const std::string& file, const std::string& id) {
   result.sources = decode_logical_record_sources(
       loaded.context, info->start_logical_record, info->end_logical_record);
   result.layout = extract_layout_ir(result.sources);
-  result.ownership = build_ownership_ir(result.sources, result.layout);
+  result.ownership =
+      build_verified_ownership_ir(result.sources, result.layout, &result.error);
+  if (!result.ownership) return result;
   result.identity.id = entry->id;
   result.identity.title = entry->title;
   result.identity.heading_level = info->heading_level;
@@ -120,7 +122,7 @@ Extracted extract(const std::string& file, const std::string& id) {
   result.catalog = loaded.catalog ? &*loaded.catalog : nullptr;
   result.resource_ids = &loaded.resource_ids;
   result.prose = extract_prose_topic_ir(result.sources, result.layout,
-                                        result.ownership, entry->title,
+                                        *result.ownership, entry->title,
                                         result.catalog, &result.error,
                                         result.resource_ids);
   return result;
@@ -423,14 +425,29 @@ int main() {
   reject("IEAC6MST.BOO", "7.9",
          "table envelope 'CLISTS' declined: visible source between table "
          "lines");
-  reject("DREICMST.boo", "1.2.1",
-         "declined: figure region has no picture selector (unterminated "
-         "before the next SRFIG)");
+  // Nested figure regions: DREICMST 1.2.1 records 79-84 wrap
+  // `SRFIGXXX`/`SRTBLXXX` in an outer `SRFIGLOGPROC`, closed by two
+  // `SREFIG`.  Hosted DT 19911219125856 serves
+  // `<a name="FIGLOGPROC">   split=yes.</a>` and then
+  // `<a name="FIGXXX"><a name="TBLXXX">` on the table's top rule, so both
+  // anchors, the lead line and the caption are real; the region used to be
+  // declined as unterminated at the inner opener.
+  {
+    Extracted kept;
+    const auto markdown = admit("DREICMST.boo", "1.2.1", kept);
+    require(contains(markdown, "split = yes"),
+            "DREICMST 1.2.1 lost the outer figure's lead line: " + markdown);
+    require(contains(markdown, "Figure 5"),
+            "DREICMST 1.2.1 lost the outer figure's caption: " + markdown);
+    require(contains(markdown, "id=\"FIGLOGPROC\"") &&
+                contains(markdown, "id=\"TBLXXX\""),
+            "DREICMST 1.2.1 lost a nested anchor: " + markdown);
+  }
   {
     const auto extracted = extract("SC31-711.boo", "3.2");
     std::string error;
     const auto without = extract_prose_topic_ir(
-        extracted.sources, extracted.layout, extracted.ownership,
+        extracted.sources, extracted.layout, *extracted.ownership,
         extracted.identity.title, extracted.catalog, &error, nullptr);
     require(!without.has_value() &&
                 contains(error, "picture resource 1 is not in the resource catalog"),

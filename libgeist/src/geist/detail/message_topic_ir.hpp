@@ -151,11 +151,12 @@ struct MessageTopicIR {
 
 std::optional<MessageTopicIR>
 extract_message_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
-                         const LayoutIR &layout, const OwnershipIR &ownership,
+                         const LayoutIR &layout,
+                         const VerifiedOwnershipIR &ownership,
                          std::string *error = nullptr);
 bool verify_message_topic_ir(
     const std::vector<DecodedLogicalRecordSource> &records,
-    const LayoutIR &layout, const OwnershipIR &ownership,
+    const LayoutIR &layout, const VerifiedOwnershipIR &ownership,
     const MessageTopicIR &topic, std::string *error = nullptr);
 std::string format_message_topic_ir(const MessageTopicIR &topic);
 

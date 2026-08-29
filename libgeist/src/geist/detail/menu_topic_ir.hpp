@@ -86,12 +86,12 @@ struct MenuTopicIR {
 std::optional<MenuTopicIR>
 extract_menu_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
                       const MenuTargetValidationIR &target_validation,
-                      const LayoutIR &layout, const OwnershipIR &ownership,
+                      const LayoutIR &layout, const VerifiedOwnershipIR &ownership,
                       std::string *error = nullptr);
 bool verify_menu_topic_ir(
     const std::vector<DecodedLogicalRecordSource> &records,
     const MenuTargetValidationIR &target_validation,
-    const LayoutIR &layout, const OwnershipIR &ownership,
+    const LayoutIR &layout, const VerifiedOwnershipIR &ownership,
     const MenuTopicIR &topic, std::string *error = nullptr);
 std::string format_menu_topic_ir(const MenuTopicIR &topic);
 

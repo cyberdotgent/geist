@@ -165,11 +165,15 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
     reject(typed_rejection, "topic layout rejected: " + error);
     return std::nullopt;
   }
-  const auto ownership = build_ownership_ir(sources, layout);
-  if (!verify_ownership_ir(sources, layout, ownership, &error)) {
+  // Built and verified exactly once for the topic. Every family below is
+  // offered the verified handle, so none of them can be handed an unverified
+  // ledger and none of them re-derives one.
+  const auto verified = build_verified_ownership_ir(sources, layout, &error);
+  if (!verified) {
     reject(typed_rejection, "topic ownership rejected: " + error);
     return std::nullopt;
   }
+  const auto& ownership = *verified;
 
   const auto delivery =
       extract_comment_delivery_ir(sources, layout, ownership, declined_sink);

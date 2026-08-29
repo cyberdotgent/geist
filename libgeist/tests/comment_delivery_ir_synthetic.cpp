@@ -59,13 +59,16 @@ std::optional<geist::detail::CommentDeliveryIR> extract_topic(
     std::vector<geist::detail::DecodedLogicalRecordSource>* sources_out =
         nullptr,
     geist::detail::LayoutIR* layout_out = nullptr,
-    geist::detail::OwnershipIR* ownership_out = nullptr) {
+    std::optional<geist::detail::VerifiedOwnershipIR>* ownership_out =
+        nullptr) {
   auto sources = geist::detail::decode_logical_record_sources(
       book.context, topic.start_logical_record, topic.end_logical_record);
   auto layout = geist::detail::extract_layout_ir(sources);
-  auto ownership = geist::detail::build_ownership_ir(sources, layout);
+  auto ownership = geist::detail::build_verified_ownership_ir(sources, layout,
+                                                              error);
+  if (!ownership) return std::nullopt;
   const auto result = geist::detail::extract_comment_delivery_ir(
-      sources, layout, ownership, error);
+      sources, layout, *ownership, error);
   if (sources_out != nullptr) *sources_out = std::move(sources);
   if (layout_out != nullptr) *layout_out = std::move(layout);
   if (ownership_out != nullptr) *ownership_out = std::move(ownership);
@@ -115,7 +118,7 @@ int main() {
   require(back_2 != nullptr, "SC31 fixture has no BACK_2 topic");
   std::vector<geist::detail::DecodedLogicalRecordSource> delivery_sources;
   geist::detail::LayoutIR delivery_layout;
-  geist::detail::OwnershipIR delivery_ownership;
+  std::optional<geist::detail::VerifiedOwnershipIR> delivery_ownership;
   const auto delivery = extract_topic(
       *sc31, *back_2, &error, &delivery_sources, &delivery_layout,
       &delivery_ownership);
@@ -135,7 +138,7 @@ int main() {
           "BACK_2 semantic block shape is incomplete");
   require(delivery && geist::detail::verify_comment_delivery_ir(
                           delivery_sources, delivery_layout,
-                          delivery_ownership, *delivery, &error),
+                          *delivery_ownership, *delivery, &error),
           error.empty() ? "BACK_2 semantic verifier failed" : error.c_str());
   require(delivery &&
               delivery->blocks[0].lines[10].marker_disposition ==
@@ -183,13 +186,13 @@ int main() {
     auto mutated = *delivery;
     mutated.blocks[1].lines.front().token_end++;
     require(!geist::detail::verify_comment_delivery_ir(
-                delivery_sources, delivery_layout, delivery_ownership,
+                delivery_sources, delivery_layout, *delivery_ownership,
                 mutated),
             "comment verifier admitted mutated delivery provenance");
     mutated = *delivery;
     mutated.blocks[0].lines[4].fields.front().affixes.front().text = "!";
     require(!geist::detail::verify_comment_delivery_ir(
-                delivery_sources, delivery_layout, delivery_ownership,
+                delivery_sources, delivery_layout, *delivery_ownership,
                 mutated),
             "comment verifier admitted mutated semantic affix content");
   }
@@ -198,7 +201,7 @@ int main() {
   require(comments != nullptr, "SC31 fixture has no COMMENTS topic");
   std::vector<geist::detail::DecodedLogicalRecordSource> form_sources;
   geist::detail::LayoutIR form_layout;
-  geist::detail::OwnershipIR form_ownership;
+  std::optional<geist::detail::VerifiedOwnershipIR> form_ownership;
   const auto form = extract_topic(*sc31, *comments, &error, &form_sources,
                                   &form_layout, &form_ownership);
   require(form.has_value(),
@@ -223,7 +226,7 @@ int main() {
               form->blocks[3].lines.back().logical_record == 546,
           "COMMENTS semantic objects or structural tail are incomplete");
   require(form && geist::detail::verify_comment_delivery_ir(
-                      form_sources, form_layout, form_ownership, *form,
+                      form_sources, form_layout, *form_ownership, *form,
                       &error),
           error.empty() ? "COMMENTS semantic verifier failed" : error.c_str());
   require(form && semantic_affixes(*form).size() == 8 &&
@@ -248,28 +251,28 @@ int main() {
     auto mutated = *form;
     mutated.blocks[1].object_id += "changed";
     require(!geist::detail::verify_comment_delivery_ir(
-                form_sources, form_layout, form_ownership, mutated),
+                form_sources, form_layout, *form_ownership, mutated),
             "comment verifier admitted a mutated form object");
     mutated = *form;
     mutated.blocks.pop_back();
     require(!geist::detail::verify_comment_delivery_ir(
-                form_sources, form_layout, form_ownership, mutated),
+                form_sources, form_layout, *form_ownership, mutated),
             "comment verifier admitted incomplete form ownership");
     mutated = *form;
     mutated.blocks[3].lines[17].marker_disposition =
         geist::detail::CommentMarkerDisposition::layout_artifact;
     require(!geist::detail::verify_comment_delivery_ir(
-                form_sources, form_layout, form_ownership, mutated),
+                form_sources, form_layout, *form_ownership, mutated),
             "comment verifier admitted a changed lexical marker disposition");
     mutated = *form;
     mutated.blocks[3].lines[17].fields[1].token_begin++;
     require(!geist::detail::verify_comment_delivery_ir(
-                form_sources, form_layout, form_ownership, mutated),
+                form_sources, form_layout, *form_ownership, mutated),
             "comment verifier admitted a changed semantic field boundary");
     mutated = *form;
     mutated.suppressed_fragments.pop_back();
     require(!geist::detail::verify_comment_delivery_ir(
-                form_sources, form_layout, form_ownership, mutated),
+                form_sources, form_layout, *form_ownership, mutated),
             "comment verifier admitted an escaped structural fragment");
   }
   require(form &&

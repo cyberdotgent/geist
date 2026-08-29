@@ -325,6 +325,29 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
           &record == begin_record && first < span.begin && last >= span.begin;
       if ((first < span.begin && !straddles_start) || last >= span.end)
         return reject("message prose segment straddles the envelope");
+      if (segment.kind == BookControlKind::spacing) {
+        // `c.sp` is a SCRIPT vertical-space directive; its whole display line
+        // is the control (SC34-425 record 1476 line 10 is exactly
+        // `c.sp 1 c`), so it draws nothing and its tokens are control text,
+        // not prose. A spacing segment that owns visible content is not
+        // explained here and stays fail-closed.
+        for (const auto token : segment.source_tokens)
+          for (std::size_t word = 0; word < record.tokens[token].size();
+               ++word) {
+            const auto owner = std::find_if(
+                ownership.cells.begin(), ownership.cells.end(),
+                [&](const auto& cell) {
+                  return cell.logical_record == record.logical_record &&
+                         cell.token_index == token && cell.word_index == word;
+                });
+            if (owner != ownership.cells.end() &&
+                owner->disposition == SourceDisposition::visible_content)
+              return reject(
+                  "message prose spacing control carries visible text: " +
+                  segment.opcode);
+          }
+        continue;
+      }
       if (segment.kind != BookControlKind::text &&
           segment.kind != BookControlKind::font &&
           segment.kind != BookControlKind::structural &&
@@ -475,6 +498,13 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
     // the deferred title control) are control text, never prose.
     std::set<std::size_t> control_tokens;
     for (const auto& segment : record.control_segments) {
+      if (segment.kind == BookControlKind::spacing) {
+        // A `c.sp` line draws nothing: opcode and operand alike are control
+        // text, so the whole segment is withheld from the prose pieces.
+        for (const auto token : segment.source_tokens)
+          control_tokens.insert(token);
+        continue;
+      }
       if (segment.kind == BookControlKind::text ||
           segment.payload_range.begin <= segment.complete.begin)
         continue;
@@ -988,9 +1018,13 @@ std::optional<MessageProseSourceIR> build_message_prose_source_ir(
   MessageProseSourceIR result;
   result.layout = extract_layout_ir(records);
   if (!verify_layout_ir(records, result.layout, error)) return std::nullopt;
-  result.ownership = build_ownership_ir(records, result.layout);
-  if (!verify_ownership_ir(records, result.layout, result.ownership, error))
-    return std::nullopt;
+  // One build, one verification: verify_ownership_ir would have rebuilt the
+  // canonical ledger to compare against, and copying the verified ledger into
+  // the result costs far less than deriving it a second time.
+  const auto verified =
+      build_verified_ownership_ir(records, result.layout, error);
+  if (!verified) return std::nullopt;
+  result.ownership = verified->ir();
   auto joins = extract_message_prose_row_joins_ir(records, result.layout,
                                                   result.ownership, error);
   if (!joins) return std::nullopt;

@@ -512,6 +512,81 @@ std::vector<BooLogicalControl> extract_logical_controls(
   return controls;
 }
 
+namespace {
+
+// Decodes one token at `cursor`.  A byte at or above the book's token
+// threshold starts a two-byte dictionary reference as long as a second byte
+// is available before `two_byte_end`.
+LogicalTokenIR decode_one_token(
+    const std::vector<std::uint8_t>& bytes,
+    const BooDirectory& directory,
+    const std::map<std::uint16_t, TokenWords>& token_strings,
+    std::size_t& cursor,
+    std::size_t two_byte_end,
+    std::size_t token_index) {
+  const auto token_begin = cursor;
+  const auto first = bytes[cursor++];
+  LogicalTokenIR token;
+  token.token_index = token_index;
+  if (first >= directory.token_threshold && cursor < two_byte_end) {
+    const auto second = bytes[cursor++];
+    token.encoded = {static_cast<std::uint16_t>((first << 8) | second), 2};
+    token.decoded_words =
+        resolve_experimental_token(bytes, directory, token_strings, first,
+                                   second);
+  } else {
+    token.encoded = {first, 1};
+    token.decoded_words = resolve_experimental_token(
+        bytes, directory, token_strings, first, std::nullopt);
+  }
+  token.byte_range = {static_cast<std::uint32_t>(token_begin),
+                      static_cast<std::uint32_t>(cursor)};
+  token.has_spacing_control =
+      !token.decoded_words.empty() && token.decoded_words.front() < 4;
+  token.spacing_control =
+      token.has_spacing_control ? token.decoded_words.front()
+                                : std::uint16_t{3};
+  for (std::size_t word = 0; word < token.decoded_words.size(); ++word)
+    if (token.decoded_words[word] == std::numeric_limits<std::uint16_t>::max())
+      token.unmapped_word_indices.push_back(word);
+  return token;
+}
+
+// Re-decodes the payload as the length-prefixed display lines it is
+// (`Format/logical-controls.md`, "Display Lines Inside A Record Payload"):
+// one byte of line length, then exactly that many bytes of tokens.  The
+// plain left-to-right walk cannot express a length byte that is itself at or
+// above the token threshold -- it swallows the line's first content byte
+// into a two-byte dictionary reference and every following line prefix lands
+// mid-token (PRG1SORT record 47 byte 0xe5ae is length 0xdc but reads as
+// token 0xdc18 `classification`, a word hosted never prints).  Declines
+// unless every line lands exactly on a token boundary.
+std::optional<std::vector<LogicalTokenIR>> decode_display_line_tokens(
+    const std::vector<std::uint8_t>& bytes,
+    const BooDirectory& directory,
+    const std::map<std::uint16_t, TokenWords>& token_strings,
+    std::size_t payload_begin,
+    std::size_t payload_end) {
+  std::vector<LogicalTokenIR> tokens;
+  for (auto cursor = payload_begin; cursor < payload_end;) {
+    const auto length = bytes[cursor];
+    const auto line_end = cursor + 1 + length;
+    if (line_end > payload_end) return std::nullopt;
+    auto prefix_cursor = cursor;
+    tokens.push_back(decode_one_token(bytes, directory, token_strings,
+                                      prefix_cursor, cursor + 1,
+                                      tokens.size()));
+    cursor = prefix_cursor;
+    while (cursor < line_end)
+      tokens.push_back(decode_one_token(bytes, directory, token_strings,
+                                        cursor, payload_end, tokens.size()));
+    if (cursor != line_end) return std::nullopt;
+  }
+  return tokens;
+}
+
+} // namespace
+
 LogicalRecordIR decode_record_payload_ir(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory,
@@ -525,34 +600,19 @@ LogicalRecordIR decode_record_payload_ir(
       static_cast<std::uint32_t>(payload_begin),
       static_cast<std::uint32_t>(payload_end),
   };
-  for (auto cursor = payload_begin; cursor < payload_end;) {
-    const auto token_begin = cursor;
-    const auto first = bytes[cursor++];
-    LogicalTokenIR token;
-    token.token_index = record.tokens.size();
-    if (first >= directory.token_threshold && cursor < payload_end) {
-      const auto second = bytes[cursor++];
-      token.encoded = {
-          static_cast<std::uint16_t>((first << 8) | second), 2};
-      token.decoded_words = resolve_experimental_token(
-          bytes, directory, token_strings, first, second);
-    } else {
-      token.encoded = {first, 1};
-      token.decoded_words = resolve_experimental_token(
-          bytes, directory, token_strings, first, std::nullopt);
-    }
-    token.byte_range = {static_cast<std::uint32_t>(token_begin),
-                        static_cast<std::uint32_t>(cursor)};
-    token.has_spacing_control = !token.decoded_words.empty() &&
-                                token.decoded_words.front() < 4;
-    token.spacing_control = token.has_spacing_control
-                                ? token.decoded_words.front()
-                                : std::uint16_t{3};
-    for (std::size_t word = 0; word < token.decoded_words.size(); ++word)
-      if (token.decoded_words[word] ==
-          std::numeric_limits<std::uint16_t>::max())
-        token.unmapped_word_indices.push_back(word);
-    record.tokens.push_back(std::move(token));
+  for (auto cursor = payload_begin; cursor < payload_end;)
+    record.tokens.push_back(decode_one_token(bytes, directory, token_strings,
+                                             cursor, payload_end,
+                                             record.tokens.size()));
+  // The plain walk is authoritative wherever it already agrees with the
+  // record's own display-line structure; only a record whose line prefixes
+  // land mid-token is re-decoded line by line, and only when that re-decode
+  // consumes every line exactly.
+  if (!token_display_lines(record.tokens, record.payload_range.end)) {
+    auto relined = decode_display_line_tokens(bytes, directory, token_strings,
+                                              payload_begin, payload_end);
+    if (relined && token_display_lines(*relined, record.payload_range.end))
+      record.tokens = std::move(*relined);
   }
   return record;
 }

@@ -173,11 +173,11 @@ payload := line*
 line    := length_byte token_reference{length_byte bytes}
 ```
 
-The length byte is below the token threshold, so a token-reference reader
-resolves it as a one-byte dictionary token whose spelling is unrelated to the
-line (`call`, `command`, a box junction, a run of spaces).  Its value is the
-line length, not a dictionary reference.  Evidence (`bootrace`/probe token
-ordinals, encoded values, byte widths):
+The length byte is usually below the token threshold, so a token-reference
+reader resolves it as a one-byte dictionary token whose spelling is unrelated
+to the line (`call`, `command`, a box junction, a run of spaces).  Its value
+is the line length, not a dictionary reference.  Evidence (`bootrace`/probe
+token ordinals, encoded values, byte widths):
 
 | File / record | Length byte | Following tokens | Sum of token bytes | Hosted line |
 | --- | --- | --- | --- | --- |
@@ -213,6 +213,26 @@ SC09-138 `1.3.1`, GC23-046 `6.2`) is shown as an empty line.  The arrow
 words `U+2190`-`U+2193` and the bullet `U+2666` reach the hosted page through
 the book's display translation tables (`ÿ`, `"`, dropped, `°`), which
 `libgeist` does not yet apply.
+
+##### A Length Byte May Be At Or Above The Token Threshold
+
+Nothing constrains the length byte to the compact range: a line of 0xdc = 220
+bytes stores 0xdc as its length even in a book whose token threshold is 0xd6.
+A left-to-right token reader then takes it for the first byte of a two-byte
+dictionary reference, swallows the line's first content byte, and every
+following length byte lands mid-token, so the payload no longer parses as
+display lines at all.
+
+| File / record | Byte | Value | Read left-to-right as | Correct reading |
+| --- | --- | --- | --- | --- |
+| `PRG1SORT.boo` record 47 (threshold 0xd6) | 0xe5ae | 0xdc | token 0xdc18, width 2, spelling `classification` | length 220; the next byte 0x18 is the line's first token, a 3-cell space run |
+
+Hosted BookServer prints no `classification` anywhere in PRG1SORT `1.1.3.1`.
+Twenty-six PRG1SORT topics carry such a line.  A decoder therefore has to be
+prepared to re-read a record payload line by line -- one byte of length, then
+exactly that many bytes of tokens -- and should do so only when the resulting
+walk consumes every line exactly, since the plain walk is right everywhere
+else.
 
 This is the structure the Layout IR describes as a width-1 "marker slot"
 followed by a "native origin": the marker slot is the next line's length
@@ -847,6 +867,25 @@ dir_name is the …`, which hosted prints in full.
 Fifty-eight topics across sixteen books carry at least one such byte, spelling
 `cbacklevel`, `cforwardlevel`, `chdlevel`, `cparent`, `cmitem`, `csourcefn`,
 `ctopicn` and `csummary`.
+
+The rule is not about metadata opcodes: a length byte resolves to whatever
+one-byte dictionary word its value indexes, and the flattened splitter cuts a
+segment wherever that word looks like a control or a word boundary. The same
+byte therefore also spells body controls and ordinary words. N2AH1MST (DT
+`19910329000100`), where the message catalogs put one control per display
+line:
+
+| Record | Token | Encoded value | Width | Spells | The line it opens |
+| ---: | ---: | ---: | ---: | --- | --- |
+| 2365 | 0 | 37 | 1 | `cfont` | `   IDC0874I FOLLOWING NOT ALPHABETIC - INSUFFICIENT WORK SPACE FOR SORT` (the real `cfont` is token 1) |
+| 2400 | 95 | 37 | 1 | `cfont` | `   IDC01551I type CACHING STATUS: stat FOR SD X'ss' DEV X'dd''` |
+| 2284 | 0 | 31 | 1 | `are` | `   IDC0064I text UPDATED IN CARTRIDGE LABELS AND INVENTORY RECORD` |
+
+Hosted prints none of `cfont`, `cfont`, `are`. Three dispositions follow, and
+a consumer needs all three: a segment whose tokens are *all* length bytes is
+not a control at all; a segment whose *first* token is one is that display
+line's text with no control in front of it; and a length byte inside a
+segment draws nothing wherever it falls.
 
 ### A Topic Title Is Its `ST` Display Line
 

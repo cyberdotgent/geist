@@ -766,6 +766,23 @@ treats terminal `?` as disposable punctuation before fixed-row recovery.
 `QSYSNEWG.BOO` topic `F.1`; table parsing must take precedence over fixed-screen
 row recovery while the table scope is active.
 
+**Figure regions nest.** A captioned figure that frames a ruled table is
+stored as an outer `SRFIG<caption-id>` around an inner
+`SRFIG<table-id> ... SRTBL<table-id> ... SRETBL SREFIG`, closed by a second
+`SREFIG`; the outer region may carry display lines of its own before the
+inner opener and after the inner `SREFIG`.  `DREICMST.boo` records 79-84 of
+topic `1.2.1` spell, in order, `SRFIGLOGPROC`, the display line
+`   split=yes.`, `SRFIGXXX`, `SRTBLXXX`, the drawn table, `SRETBL`, `SREFIG`,
+the caption line `Figure 5. Where SLR Gets Its Data`, `SREFIG`.  Hosted
+BookServer at DT `19911219125856` serves
+`<a name="FIGLOGPROC">   split=yes.</a>` and then
+`<a name="FIGXXX"><a name="TBLXXX">` on the table's top rule, so both anchors
+and both text lines are real.  The same shape occurs in `FA1PLMM0.boo`
+(`SRFIGENV` / `SRFIG1234` / `SRTBL1234`), `SC28-1881-05.boo` `2.2` (two inner
+tables under one outer figure) and `GC28-183.boo` `COVER`.  A decoder that
+treats a second `SRFIG` as evidence that the first was unterminated loses the
+outer figure's anchor, its lead line and its caption.
+
 Bold and emphasis should therefore be implemented through the `CFONT` plus
 `CFONTDEF` pipeline, not by searching for literal `<b>` markup. `HP1`, `HP2`,
 and `HP3` are GML-derived highlighted-phrase levels. The PACKET `PREFACE`

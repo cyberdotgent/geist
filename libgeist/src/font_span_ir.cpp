@@ -32,7 +32,7 @@ FontStyleIR style_for_code(const std::string& code) {
   if (code == "8") return FontStyleIR::highlight_8;
   if (code == "9") return FontStyleIR::highlight_9;
   if (code.size() != 1) return FontStyleIR::unknown;
-  switch (static_cast<char>(std::tolower(static_cast<unsigned char>(code[0])))) {
+  switch (ascii_lower_char(code[0])) {
   case 'c': return FontStyleIR::citation;
   case 'q': return FontStyleIR::keyword_define;
   case 'x':

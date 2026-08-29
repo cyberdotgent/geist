@@ -51,8 +51,8 @@ std::optional<std::string> content_after_title(const std::string& content,
     }
 
     if (content_cursor >= content.size() ||
-        std::tolower(static_cast<unsigned char>(content[content_cursor])) !=
-            std::tolower(static_cast<unsigned char>(title[title_cursor]))) {
+        detail::ascii_lower_char(content[content_cursor]) !=
+            detail::ascii_lower_char(title[title_cursor])) {
       return std::nullopt;
     }
     ++content_cursor;

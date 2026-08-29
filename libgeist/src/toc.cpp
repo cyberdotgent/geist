@@ -1075,17 +1075,29 @@ void attach_topic_data(
   entry.start_logical_record = topic.start_logical_record;
   entry.end_logical_record = topic.end_logical_record;
   const StructuralMarkerRowEvidence marker_rows(topic.fixed_layout_sources);
+  // The topic's layout and ownership ledger are built and verified once here
+  // and handed to both renderers below; each of them used to derive its own.
+  std::optional<LayoutIR> layout;
+  std::optional<VerifiedOwnershipIR> ownership;
   if (!topic.fixed_layout_sources.empty()) {
+    layout = extract_layout_ir(topic.fixed_layout_sources);
+    std::string geometry_error;
+    if (verify_layout_ir(topic.fixed_layout_sources, *layout, &geometry_error))
+      ownership = build_verified_ownership_ir(topic.fixed_layout_sources,
+                                              *layout, &geometry_error);
     if (auto publication = render_verified_publication_catalog_gml(
-            topic.fixed_layout_sources)) {
+            topic.fixed_layout_sources, *layout,
+            ownership ? &*ownership : nullptr)) {
       entry.raw_records = std::move(*publication);
       return;
     }
   }
-  entry.raw_records = topic.fixed_layout_sources.empty()
-                          ? render_gml_records(topic.raw_records)
-                          : render_gml_records_with_source_layout(
-                                topic.raw_records, topic.fixed_layout_sources);
+  entry.raw_records =
+      topic.fixed_layout_sources.empty()
+          ? render_gml_records(topic.raw_records)
+          : render_gml_records_with_source_layout(
+                topic.raw_records, topic.fixed_layout_sources, *layout,
+                ownership ? &*ownership : nullptr, true);
   if (topic_titles != nullptr && !topic.fixed_layout_sources.empty()) {
     project_verified_menu_gml(entry.raw_records, topic.fixed_layout_sources,
                               *topic_titles);
