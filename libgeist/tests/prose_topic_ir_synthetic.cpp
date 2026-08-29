@@ -693,6 +693,18 @@ void front_matter_fixtures() {
             "FA1PLMM0 I.6.1 glued a row-control word onto its heading");
   }
 
+  {
+    // ACPZMST1 COVER: the cover art rows used to fail closed as a placeholder
+    // run followed by visible text.  Hosted DT 19920319123146 serves the same
+    // five blocks the typed route now emits.
+    const auto markdown = admit("ACPZMST1.boo", "COVER");
+    for (const auto* expected : {
+             "**VM Programmable Workstation Communication Services**",
+             "**VM PWSCS Online Documentation**", "Version 1\\.1",
+             "Document Number GC24\\-5647\\-01", "Program Number 5684\\-138"})
+      require(contains(markdown, expected), "ACPZMST1 COVER lost a cover row");
+  }
+
   // A word only opens a control segment when the record encoder wrote a
   // boundary token before it; a prose word spelled like a control does not.
   // (This decides the *text* segments the decoded-string splitter opens. A
@@ -747,10 +759,6 @@ void negative_fixtures() {
          "table envelope 'TBLUNIQ10' declined: visible source between table "
          "lines");
 
-  // COVER still fails closed: its front-matter `cover` heading form is
-  // admitted, but the cover art rows are a placeholder run followed by
-  // visible text, which the display-row model does not describe.
-  reject("ACPZMST1.boo", "COVER", "is followed by visible text");
   // PRG1SORT 1.1.5.1 used to stand here for `control-like word 'SRCFILE'`;
   // that word carries no boundary token, so it is now admitted as the prose
   // it is (see the positive fixture above).

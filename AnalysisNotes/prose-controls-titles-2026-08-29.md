@@ -107,44 +107,54 @@ logical record. Break points observed, one per required control — GC28-183
 
 ## Measurement
 
-Baseline is `main` `d03c2a9`, measured with a build of it.
+Two baselines, because `main` moved four times while this slice ran.
 
-* Coverage `bootrace --coverage` over all 34 fixtures: **5,727 -> 6,086 /
-  7,362 (82.7 %)**, 359 topics moved legacy -> typed, none the other way.
-  Per book: SC33-033 +105, QSYSINFO +63, OFCUSEOV +33, SH12-565 +27,
-  SC31-605 +18, SC24-5520-00 +12, SC24-546 +11, SC09-138 +10, DREICMST +9,
-  SC28-1881-05 +9, PRG1SORT +7, SH20-918 +6, SC09-2417-00 +5, SC26-457 +5,
-  ACPZMST1 +5, IEAC6MST +4, QSYSNEWG +4, SC24-5527-02 +4, GC28-183 +4,
-  FA1PLMM0 +4, ITPPIBOK +3, GG24-4302-00 +3, SC34-425 +3, packet +2,
-  SC31-711 +1, GG24-395 +1, SG24-204 +1. No book regressed.
-* Reason counts on the same two builds: glued body control **107 -> 1**;
-  first record lacks the envelope **69 -> 3**; ST title mismatch **86 -> 0**;
-  control-like word **99 -> 73** (the remainder is the generated TOC/INDEX
-  family below). All four residuals are listed under "Still fail-closed".
-* Whole-corpus `boo2git --force`: **359 changed files, 0 added, 0 removed** --
-  exactly the 359 moved topics, with no already-typed topic changed (checked
-  in both directions).
-* Hosted, character-level against the served `<pre>`: 63 of the moved topics
-  across 24 books were servable (`ACPZMST1 DREICMST FA1PLMM0 GC23-046
+**Against `main` `d03c2a9`** (before the other slices in flight landed) the
+slice was worth **5,727 -> 6,086 / 7,362**, 359 topics moved legacy -> typed
+and 359 changed export files, zero collateral. Reason counts on that pair:
+glued body control 107 -> 1, first record lacks the envelope 69 -> 3, ST title
+mismatch 86 -> 0, control-like word 99 -> 73.
+
+**Against `main` `5430892`**, the baseline this branch is merged onto, the
+other slices had already released many of the same topics by other routes, so
+the incremental figure is smaller:
+
+* Coverage `bootrace --coverage` over all 34 fixtures: **6,285 -> 6,416 /
+  7,362 (87.1 %)**, 131 topics moved legacy -> typed, none the other way.
+  Per book: QSYSINFO +48, SC24-5520-00 +12, SC09-2417-00 +7, PRG1SORT +7,
+  SH12-565 +6, SC24-546 +5, SC24-5527-02 +5, SC09-138 +5, SC26-457 +4,
+  ACPZMST1 +4, SC34-425 +3, SH20-918 +2, IEAC6MST +2, SC33-033 +2,
+  GC28-183 +2, DREICMST +2, ITPPIBOK +2, packet +2, SC31-605 +2,
+  OFCUSEOV +2, FA1PLMM0 +2, SC31-711 +1, GG24-4302-00 +1, GG24-395 +1,
+  GC23-046 +1, QSYSNEWG +1. No book regressed.
+* Whole-corpus `boo2git --force`: **132 changed files, 0 added, 0 removed** --
+  the 131 moved topics plus exactly one already-typed topic the slice
+  *corrects*: GG24-4302-00 4.2.2, where the baseline splits
+  `Both types of groups are defined with the same DBRC command, INIT.DBDSGRP.`
+  from `A DBDS group (for DBRC purposes) is defined with:` and hosted DT
+  19950308184737 serves them as one paragraph.
+* Hosted, character-level against the served `<pre>`: 58 of the moved topics
+  across 23 books were servable (`ACPZMST1 DREICMST FA1PLMM0 GC23-046
   GC28-183 GG24-395 GG24-4302-00 IEAC6MST ITPPIBOK OFCUSEOV PRG1SORT QSYSINFO
   QSYSNEWG SC09-138 SC09-2417-00 SC24-546 SC26-457 SC31-605 SC31-711 SC33-033
-  SC34-425 SG24-204 SH12-565 SH20-918`; SC24-5520-00, SC24-5527-02,
-  SC28-1881-05 and packet are absent from the hosted catalog).
-  **Typed better on 43, equal on 20, worse on 0.** Difference classes, all
-  decided:
+  SC34-425 SH12-565 SH20-918`; SC24-5520-00, SC24-5527-02, SC28-1881-05 and
+  packet are absent from the hosted catalog). **Typed better on 38, equal on
+  20, worse on 0.** Difference classes, all decided:
   * bullet glyph `°` rendered as a Markdown list marker -- convention;
-  * grid cell order -- FA1PLMM0 14.2.4's access-rights table and SC09-138
-    FRONT_1.2's trademark grid keep every cell (word multiset identical to
-    hosted, while legacy loses 17 and 10 words respectively) but group them
+  * grid cell order -- SC09-138 FRONT_1.2's trademark grid and FA1PLMM0
+    14.2.4's access-rights table keep every cell (word multiset identical to
+    hosted, while legacy loses 10 and 17 words respectively) but group them
     into two columns where hosted lays out three. The character-sequence
-    metric scores those two as "worse"; both are content-complete, and the
+    metric scores those two "worse"; both are content-complete, and the
     column grouping is a follow-up for the gap-table model;
   * adjacent same-style words merged into one Markdown span
-    (`<B>a</B> <B>b</B>` -> `**a b**`);
+    (`<B>a</B> <B>b</B>` -> `**a b**`), and a cross-reference label kept whole
+    where legacy split it mid-word (`A [pplications"`, SC09-138 8.5.2);
   * anchors emitted as `<a id="...">` by both routes;
   * topics the host serves from a different edition (ACPZMST1 5.4/5.7,
-    ITPPIBOK 2.4.3, PRG1SORT B.0, SC34-425 1.5.5, SC24-546 E.3) -- legacy and
-    typed lose identically.
+    ITPPIBOK 2.4.3, PRG1SORT A.0/B.0/1.6.1.2, SC34-425 1.5.5, SC24-546 E.3,
+    SC09-2417-00 PREFACE.2/2.3.11.2, SC26-457 3.18.2, SC33-033 3.0) --
+    legacy and typed lose identically.
 
 ## Still fail-closed
 

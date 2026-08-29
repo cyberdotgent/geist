@@ -206,11 +206,6 @@ void promote_corroborated_topic_start(const std::string &text,
 // `?` (the projection of the attach-control word 0x0001, of a bullet glyph and
 // of every box word alike), so the string-level segment splitter — which
 // requires a space, `=`, `,` or `.` after the opcode — cannot see it at all.
-// One-byte encoded values below this limit are display-line length bytes and
-// row-control slots (Format/logical-controls.md, "Display Lines Inside A
-// Record Payload"); their dictionary spelling carries no control meaning.
-constexpr std::uint16_t row_control_byte_value_limit = 48;
-
 bool script_control_words(const TokenWords &words) {
   if (words.size() < 4 || words[0] != 'c' || words[1] != '.')
     return false;
@@ -241,7 +236,11 @@ split_glued_body_controls(const AssembledLogicalRecord &assembled,
                           const std::vector<EncodedLogicalToken> &encoded,
                           const std::string &text,
                           std::vector<DecodedMarkupSegmentSpan> spans) {
-  std::vector<std::size_t> cuts;
+  struct Cut {
+    std::size_t begin = 0;
+    std::size_t opcode_end = 0;
+  };
+  std::vector<Cut> cuts;
   // The assembled output carries the decoder's inserted spacing, so a token's
   // assembled words can start or end with a space run; the token's own word is
   // what is between them.
@@ -260,37 +259,61 @@ split_glued_body_controls(const AssembledLogicalRecord &assembled,
     const auto &token = assembled.tokens[index];
     if (!script_control_words(words_of(token)))
       continue;
-    // A one-byte token whose encoded value is below the row-control limit is
-    // the next display line's length byte, whatever its dictionary spelling:
-    // IBMMMSTR 3.1 record 1244 token 139 has encoded value 31 and width 1 and
-    // spells `c.cc`, and it stands exactly where a length byte stands -- after
-    // the `:` that ends `Messages print at run-time when:` and before the
-    // three-cell origin run of the row `1.  An error occurs ...`.  Reading it
-    // as a control drops the colon and merges the two numbered rows.  The
-    // genuine body controls are two-byte dictionary tokens (FA1PLMM0 record
-    // 353 token 73 `c.cp` value 49655, GG24-4302-00 record 613 token 19
-    // `c.cc` value 52750, SC33-033 record 241 token 56 `c.cc` value 53126).
-    if (index < encoded.size() && encoded[index].width == 1 &&
-        encoded[index].value < row_control_byte_value_limit)
+    // Only a two-byte dictionary token is a body control.  A one-byte token
+    // that merely spells `c.<xx>` is display-line geometry the row model owns:
+    // IBMMMSTR 3.1 record 1244 token 139 (encoded value 31) spells `c.cc` and
+    // stands exactly where a display line's length byte stands -- after the
+    // `:` that ends `Messages print at run-time when:` and before the
+    // three-cell origin run of `1.  An error occurs ...`; OFCUSEOV 1.4
+    // records 83 and 87 (value 55) spell `c.cp` at the row break hosted
+    // serves as a `<p>` between the numbered steps.  Reading either as a
+    // control loses that break.  The genuine controls are two-byte tokens:
+    // FA1PLMM0 record 353 token 73 `c.cp` value 49655, GG24-4302-00 record
+    // 613 token 19 `c.cc` value 52750, SC33-033 record 241 token 56 `c.cc`
+    // value 53126, SC09-138 record 1482 token 48 `c.pa`.
+    if (index < encoded.size() && encoded[index].width != 2)
       continue;
     auto begin = token.output_begin;
     if (index != 0 &&
         control_separator_words(words_of(assembled.tokens[index - 1])))
       begin = assembled.tokens[index - 1].output_begin;
     cuts.push_back(
-        decoded_word_range_to_byte_range(assembled, {begin, begin}).begin);
+        {decoded_word_range_to_byte_range(assembled, {begin, begin}).begin,
+         decoded_word_range_to_byte_range(assembled,
+                                          {token.output_end, token.output_end})
+             .begin});
   }
   if (cuts.empty())
     return spans;
+  // A cut only earns its segment when display material follows the opcode
+  // inside the same span.  Where the rest of the span is layout, the control
+  // is already the row boundary the display-row model reads, and splitting it
+  // out loses that boundary: SH12-565 1.1.3.1 record 37 ends its span with
+  // `c.cp` and a 63-cell fill run, and hosted DT 19941206115523 serves a
+  // `<p>` between the numbered steps there.
+  const auto display_between = [&](std::size_t byte_begin,
+                                   std::size_t byte_end) {
+    const auto range = decoded_byte_range_to_word_range(
+        assembled, {byte_begin, byte_end});
+    for (auto word = range.begin; word < range.end && word < text.size();
+         ++word) {
+      const auto value = assembled.words[word];
+      if (value >= 0x21 && value != 0x7F && value < 0x2500)
+        return true;
+    }
+    return false;
+  };
   std::vector<DecodedMarkupSegmentSpan> result;
   result.reserve(spans.size() + cuts.size());
   for (auto &span : spans) {
     auto begin = span.output_begin;
-    for (const auto cut : cuts) {
-      if (cut <= begin || cut >= span.output_end)
+    for (const auto &cut : cuts) {
+      if (cut.begin <= begin || cut.begin >= span.output_end)
         continue;
-      result.push_back({begin, cut, text.substr(begin, cut - begin)});
-      begin = cut;
+      if (!display_between(cut.opcode_end, span.output_end))
+        continue;
+      result.push_back({begin, cut.begin, text.substr(begin, cut.begin - begin)});
+      begin = cut.begin;
     }
     if (begin == span.output_begin) {
       result.push_back(std::move(span));
