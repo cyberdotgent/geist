@@ -272,6 +272,7 @@ const char* prose_token_role_name(ProseTokenRoleIR role) {
   case ProseTokenRoleIR::text: return "text";
   case ProseTokenRoleIR::index_keyword: return "index_keyword";
   case ProseTokenRoleIR::index_term: return "index_term";
+  case ProseTokenRoleIR::index_structure: return "index_structure";
   case ProseTokenRoleIR::menu: return "menu";
   case ProseTokenRoleIR::table: return "table";
   case ProseTokenRoleIR::figure: return "figure";
@@ -336,6 +337,7 @@ std::string format_prose_topic_ir(const ProseTopicIR& topic) {
   }
   for (const auto& term : topic.index_terms) {
     out << "index_term '" << term.term << "'";
+    if (term.structured) out << " structured";
     format_slices(out, term.slices);
     out << '\n';
   }

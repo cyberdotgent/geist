@@ -304,6 +304,38 @@ void positive_fixtures() {
       require(kept.prose->title == "Action-Flag Messages", "I.6.1 title");
   }
   admit("FA1PLMM0.boo", "CHANGES.1");
+  // Structured subject-index lines: `SI ??3HI1?0?<title>?` and
+  // `SI ??4XMP@?0?<term>?  <term>`.  The whole display line is hidden;
+  // hosted QSYSINFO 2.1.1 (DT 19910524120827) and SC09-138 2.1.1.2
+  // (DT 19910321130500) display none of its fields.
+  {
+    Extracted kept;
+    const auto markdown = admit("QSYSINFO.BOO", "2.1.1", &kept);
+    require(contains(markdown, "*Publication Description*: The"),
+            "QSYSINFO 2.1.1 body");
+    require(!contains(markdown, "3HI1"),
+            "QSYSINFO 2.1.1 rendered a structured index field");
+    if (kept.prose) {
+      require(kept.prose->index_terms.size() == 4,
+              "QSYSINFO 2.1.1 index term count");
+      const auto structured = std::count_if(
+          kept.prose->index_terms.begin(), kept.prose->index_terms.end(),
+          [](const auto& term) { return term.structured; });
+      require(structured == 2, "QSYSINFO 2.1.1 structured index terms");
+      require(!kept.prose->index_terms.front().structured &&
+                  kept.prose->index_terms.front().term ==
+                      "planning, physical",
+              "QSYSINFO 2.1.1 plain index term");
+    }
+  }
+  {
+    const auto markdown = admit("SC09-138.boo", "2.1.1.2");
+    require(contains(markdown, "DEFAULT:"), "SC09-138 2.1.1.2 body");
+    require(!contains(markdown, "4XMP"),
+            "SC09-138 2.1.1.2 rendered a structured index field");
+    require(!contains(markdown, "compile-time option"),
+            "SC09-138 2.1.1.2 rendered a hidden index term");
+  }
 }
 
 void mutation_fixtures() {

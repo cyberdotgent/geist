@@ -69,6 +69,7 @@ set(GEIST_SOURCES
   src/comment_delivery_ir.cpp
   src/comment_delivery_document_lowering.cpp
   src/control_ir.cpp
+  src/display_lines.cpp
   src/document.cpp
   src/document_ir.cpp
   src/document_lowering.cpp

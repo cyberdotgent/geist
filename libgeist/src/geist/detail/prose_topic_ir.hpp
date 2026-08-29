@@ -49,6 +49,7 @@ enum class ProseTokenRoleIR {
   text,            // visible prose cell(s)
   index_keyword,   // the `SI` word
   index_term,      // hidden subject-index term words
+  index_structure, // hidden separators of a structured subject-index line
   menu,            // CMENU/CMITEM/CEMENU tokens (validated separately)
   table,           // claimed by a table span (fixed-table block)
   figure,          // claimed by a figure span (figure block)
@@ -110,6 +111,12 @@ struct ProseAnchorIR {
 
 struct ProseIndexTermIR {
   std::string term;
+  // A structured `SI` display line: the hidden term carries decoder
+  // placeholder separators around index formatting fields
+  // (`SI ??3HI1?0?Physical Planning Guide`, QSYSINFO 2.1.1 record 72).  The
+  // whole display line is hidden, so the fields stay opaque; `term` is the
+  // line's visible words in source order.
+  bool structured = false;
   std::vector<DocumentSourceSliceIR> slices;
 };
 

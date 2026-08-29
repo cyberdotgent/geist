@@ -1,7 +1,10 @@
 #include "geist/detail/prose_topic_internal.hpp"
 
+#include "geist/detail/display_lines.hpp"
+
 #include <algorithm>
 #include <cctype>
+#include <map>
 
 namespace geist::detail::prose_internal {
 
@@ -21,6 +24,18 @@ struct LineBuilder {
   bool in_title = false;
   bool title_done = false;
   bool in_index = false;
+  // A structured subject-index entry occupies exactly one display line of its
+  // record (`SI ??3HI1?0?Physical Planning Guide`, QSYSINFO 2.1.1 record 72;
+  // `SI ??4XMP@?0?AGGREGATE?  compile-time option`, SC09-138 2.1.1.2 record
+  // 132).  Hosted BookServer displays no part of such a line, exactly as it
+  // displays no part of a plain `SI term` line, and the visible body text
+  // that the flattened decoded string glues after the separator is a
+  // separate display line (QSYSNEWG 2.1 record 40: `SI display station` is
+  // one line, `| If your display station ...` the next).  Inside the index
+  // line the decoder placeholders are the entry's field separators; the
+  // fields themselves stay opaque.
+  std::size_t index_record = npos;
+  std::size_t index_line_end = npos;  // exclusive token end of the SI line
   ProseIndexTermIR current_term;
   std::vector<std::pair<std::size_t, std::size_t>> term_refs;
   bool pending_space = false;
@@ -59,6 +74,28 @@ struct LineBuilder {
   }
   bool assign(const TokenView& view, ProseTokenRoleIR role) {
     return ledger.assign(view.record, view.token, role, error);
+  }
+
+  // Display lines of a record, parsed once (Format/logical-controls.md,
+  // "Display Lines Inside A Record Payload").
+  std::map<std::size_t, std::optional<std::vector<DisplayLineIR>>> line_cache;
+  const std::vector<DisplayLineIR>* display_lines_of(std::size_t record) {
+    auto found = line_cache.find(record);
+    if (found == line_cache.end())
+      found = line_cache
+                  .emplace(record, record_display_lines(records[record]))
+                  .first;
+    return found->second ? &*found->second : nullptr;
+  }
+  // Exclusive token end of the display line whose first token is `token`, or
+  // npos when the record's lines do not parse or `token` opens no line.
+  std::size_t display_line_end_at(std::size_t record, std::size_t token) {
+    const auto* lines = display_lines_of(record);
+    if (lines == nullptr) return npos;
+    for (const auto& line : *lines)
+      if (line.prefix_token + 1 == token && line.token_end > token)
+        return line.token_end;
+    return npos;
   }
 
   void open_line(std::size_t origin_cells, const TokenView* origin) {
@@ -101,6 +138,8 @@ struct LineBuilder {
   bool finish_index() {
     if (!in_index) return true;
     in_index = false;
+    index_record = npos;
+    index_line_end = npos;
     current_term.term = collapse_ascii_whitespace(current_term.term);
     current_term.slices = slices_for(records, term_refs);
     if (current_term.term.empty())
@@ -309,6 +348,12 @@ struct LineBuilder {
       }
       skip_until = npos;
     }
+    // A structured index entry is exactly one display line: its last token
+    // is the last token of the line that the `SI` keyword opened.
+    if (in_index && current_term.structured && index_line_end != npos &&
+        view.record == index_record && view.token >= index_line_end) {
+      if (!finish_index()) return false;
+    }
     if (item.title_start) {
       in_title = true;
       out.title.clear();
@@ -321,6 +366,8 @@ struct LineBuilder {
       const auto keyword = body_text(view);
       if (ascii_lower(keyword) != "si")
         return fail(error, "SI keyword mismatch");
+      index_record = view.record;
+      index_line_end = display_line_end_at(view.record, view.token);
       return assign(view, ProseTokenRoleIR::index_keyword);
     }
 
@@ -408,10 +455,19 @@ struct LineBuilder {
           index + 1 >= items.size() ||
           items[index + 1].kind != ItemKind::token || item.separator;
       const auto title_marker = in_title && out.title.empty();
-      if (next != npos && !space_at(next) && !before_control && !title_marker)
+      if (next != npos && !space_at(next) && !before_control && !title_marker) {
+        if (in_index && index_line_end != npos && view.record == index_record &&
+            view.token < index_line_end) {
+          // Field separator of a structured subject-index line; the whole
+          // line is hidden (hosted QSYSINFO 2.1.1 DT 19910524120827 and
+          // SC09-138 2.1.1.2 DT 19910321130500 display none of it).
+          current_term.structured = true;
+          return assign(view, ProseTokenRoleIR::index_structure);
+        }
         return fail(error, "placeholder run '" + body_text(view) +
                                "' is followed by visible text at " +
                                where(view));
+      }
       if (title_marker) return assign(view, ProseTokenRoleIR::marker);
       if (in_title && !finish_title()) return false;
       if (in_index && !finish_index()) return false;
