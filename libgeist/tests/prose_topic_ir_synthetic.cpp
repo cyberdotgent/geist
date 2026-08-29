@@ -832,10 +832,24 @@ void cz_fixtures() {
     require(contains(markdown, "using `CLIST`s\\."),
             "3.3.1 lost the sub-word highlight");
   }
-  // A row whose left margin the model cannot prove still fails closed: every
-  // span of GG24-4302-00 PREFACE.2's publication rows is off by the same
-  // amount, so admitting them would tear `IMS/ESA` into `IMS/E` + `SA`.
-  reject("GG24-4302-00.boo", "PREFACE.2", "row columns are unproven");
+  // GG24-4302-00 PREFACE.2's publication rows used to fail closed here: the
+  // list continues across a record boundary and the bullet of the first row
+  // of record 31 reached the stream between two controls, where it was
+  // dropped as padding, moving that row's text from column 7 to column 2 and
+  // displacing every `cfont 7 7 C 15 2 C ...` column of it.  The bullet is
+  // display structure now, so the row carries the same columns as its
+  // siblings and hosted (DT 19950308184737) serves them identically.
+  {
+    const auto markdown = admit("GG24-4302-00.boo", "PREFACE.2");
+    require(contains(markdown,
+                     "- *IMS/ESA V5 Release Planning Guide, GC26\\-8031*"),
+            "PREFACE.2 lost the cross-record list item");
+  }
+  // A row whose left margin the model still cannot prove fails closed:
+  // SG24-204 5.3.3 builds `TCP/IP Listener Definition as shown inFigure 90`
+  // with the space before `Figure` missing, so the selector span reaches
+  // from inside `inFigure` across a gap.
+  reject("SG24-204.boo", "5.3.3", "row columns are unproven");
 }
 
 } // namespace

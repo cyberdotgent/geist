@@ -54,6 +54,11 @@ struct ControlSegmentIR {
   OutputRangeIR payload_range;
   std::vector<std::size_t> source_tokens;
   bool malformed = false;
+  // Set when a later pass proved the control-shaped word that opens this
+  // segment to be ordinary display text, so the segment carries no control
+  // at all (`demote_bullet_owned_structural_controls`, display_lines.hpp).
+  // The segment boundary itself stays: the flattened string split there.
+  bool display_text = false;
 };
 
 // Converts a decoded UTF-8 byte range to the corresponding half-open range in

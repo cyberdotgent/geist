@@ -839,9 +839,22 @@ Every reflowed prose row BookServer serves begins with a three-column margin:
 `   ` normally and ` | ` when the row carries a revision change bar.  The
 columns a `CFONT`/`CSELECT` operand names count from column 0 of that margin.
 
-The change bar is stored as a `U+2502` (or ASCII `|`) width-1 token in the row's
-marker slot, before the row's origin run, and it stands for the whole margin --
-the row's origin run then measures only the indent after it:
+The change bar is stored as a `U+2502` (or ASCII `|`) width-1 token in the
+leading whitespace of the row's display line, before the row's origin run, and
+it stands for the whole margin -- the row's origin run then measures only the
+indent after it.
+
+Under the display-line model the margin is not inferred at all, it is read:
+the line is `<length byte> <space run> <bar> <space run> <first word>`, and the
+margin is the display columns the line spends before that first word minus the
+cells of the space run that ends them.  The bar occupies one column and the
+assembler inserts one space behind it, so a one-cell leading run gives the
+documented three columns.  Byte-level, ACPZMST1 record 459 display line 11 is
+tokens 114..118 -- length byte (value 26), a one-cell space (value 18), the
+`U+2502` bar (value 150), a four-cell space run (value 21) and `XC` -- whose
+cells are `' '`, `'|'`, the inserted space, four origin cells and the text at
+column 7, exactly the hosted row.  OFCUSEOV record 839 line 0 stores the same
+shape with an ASCII bar (value 135) and a `U+2666` bullet behind it.
 
 | Book / topic | Stored | Hosted | Operand |
 | --- | --- | --- | --- |
@@ -854,7 +867,24 @@ bullet stands at column 3 and the row's text at column 7: GG24-395 `PREFACE.3`
 stores `U+2502` + `U+2666` + a two-cell gap for ` | °   Chapter 1, "A
 Client/Server Overview"` and links it with `cselect 7 37`; GC23-046 `7.5.4`
 stores the same shape for ` | °   Do an APPLY CHECK ... Figure 19 ...` with
-`cselect 53 12`.
+`cselect 53 12`.  OFCUSEOV `6.4.3` proves the same columns from the other side:
+its revised list items (` |     °   Leave the prompt blank ...`, record 839)
+carry the bullet at column 7 and the text at column 11, the columns its
+unrevised siblings (`       °   Type a 1 (Use) ...`) already carry, so the list
+is aligned only when the bar's three columns are counted.
+
+### The list bullet is display structure between controls
+
+A `U+2666` bullet claimed by no control segment is the row's list marker, not
+padding, wherever the row's text follows it.  GG24-4302-00 `PREFACE.2`
+continues one bibliography list across a record boundary: record 31's first
+display line is `<length byte> <three-cell origin> <U+2666> <two-cell gap>
+IMS`, and the bullet reaches the token stream between the `cfont 7 7 C 15 2 C
+18 9 C 28 10 C 39 3 C 43 9 C` that ends record 30 and that control's own
+payload.  Hosted (DT 19950308184737) serves the row as `   °   <cite>IMS/ESA</cite>
+...` exactly like the sixteen sibling rows inside record 30, whose bullets are
+control payload; dropping the glyph moves the row's text from column 7 to
+column 2 and displaces every operand column of that `cfont`.
 
 ### A span holds its row open
 

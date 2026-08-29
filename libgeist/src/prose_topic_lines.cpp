@@ -266,12 +266,111 @@ struct LineBuilder {
   // `c.cc 4` line and the hosted page runs `... by the following marking:`
   // straight into the next paragraph with no bullet, and FA1PLMM0 11.3.1
   // (DT 19910927114801) spells the same slot with a `U+2500` run.
+
+  // The revision margin of one display line: the columns the line spends in
+  // front of its first word when a change bar stands in that whitespace.
+  struct Margin {
+    std::size_t origin_item = npos;  // the space run that ends the margin
+    std::size_t last_item = npos;    // last token of the margin
+    std::size_t origin_cells = 0;    // display cells of the origin run
+    std::size_t margin_cells = 0;    // columns before the origin run
+  };
+
+  // A change bar (`U+2502` or ASCII `|`) standing in the leading whitespace
+  // of a display line is the reader's revision margin, not the row's first
+  // word.  Where a record's display lines parse, that margin is exactly the
+  // columns the line spends before its first word, so it is measured from
+  // the line's own cells instead of guessed.
+  //
+  // Byte-level evidence.  OFCUSEOV record 839 opens display line 0 with the
+  // length byte (value 22), a one-cell space (value 10), the ASCII bar
+  // (value 135), a four-cell space run and the `U+2666` bullet; the line's
+  // cells are ` `, `|`, the assembler's space, four origin cells, the bullet
+  // at column 7, and the text at column 11.  Hosted 6.4.3 (DT
+  // 19900805103816) serves ` |     °   Leave the prompt blank ...` -- the
+  // same columns its unrevised sibling items carry, which is why the list
+  // was rejected as misaligned while the bar column was lost.  ACPZMST1
+  // record 459 line 11 stores the identical shape with a `U+2502` bar
+  // (tokens 114..118: space, bar, four-cell origin, `XC`) and hosted 8.14.1
+  // (DT 19920319123146) serves ` |     XC_NOTIFY_MSG, ...` for
+  // `cfont 7 13 4`, the operand counting from column 0 of the margin.
+  // SC24-546 6.2.11 (`cfont 4 6 9` on ` |     is 9, VM supports ...`) and
+  // SC26-457 2.1/3.9.1.1/3.14.1.2 repeat it.
+  bool change_bar_margin_line(std::size_t index, Margin& margin) {
+    const auto& view = items[index].token;
+    const auto* lines = display_lines_of(view.record);
+    if (lines == nullptr) return false;
+    const DisplayLineIR* line = nullptr;
+    for (const auto& candidate : *lines)
+      if (candidate.prefix_token == view.token) line = &candidate;
+    if (line == nullptr) return false;
+    std::size_t bars = 0;
+    std::size_t text_token = npos;
+    for (auto cursor = next_token(index); cursor != npos && is_token(cursor);
+         cursor = next_token(cursor)) {
+      const auto& cell = items[cursor].token;
+      if (cell.record != view.record || cell.token >= line->token_end) break;
+      if (is_space_run(cell)) {
+        margin.origin_item = cursor;
+        margin.last_item = cursor;
+        continue;
+      }
+      if (change_bar_slot(cell)) {
+        if (++bars > 1) return false;
+        margin.origin_item = npos;
+        margin.last_item = cursor;
+        continue;
+      }
+      // The first word of the line: a visible token the row displays.  A
+      // placeholder run carries no character, so it never proves the margin.
+      if (!is_visible(cell) || is_placeholder_run(cell)) return false;
+      text_token = cell.token;
+      break;
+    }
+    if (bars != 1 || margin.last_item == npos || text_token == npos)
+      return false;
+    const auto cells = display_line_cells(records[view.record], *line);
+    std::size_t text_column = npos;
+    for (std::size_t column = 0; column < cells.size(); ++column)
+      if (cells[column].token == text_token) {
+        text_column = column;
+        break;
+      }
+    if (text_column == npos || text_column == 0) return false;
+    margin.origin_cells = margin.origin_item == npos
+                              ? 0
+                              : items[margin.origin_item].token.body.size();
+    if (margin.origin_cells > text_column) return false;
+    margin.margin_cells = text_column - margin.origin_cells;
+    return true;
+  }
   bool row_control_length_byte(std::size_t index) {
     const auto& view = items[index].token;
     if (!finish_title() || !finish_index()) return false;
     if (!assign(view, ProseTokenRoleIR::marker)) return false;
     line_open = false;
     pending_space = false;
+    Margin margin;
+    if (change_bar_margin_line(index, margin)) {
+      for (auto cursor = next_token(index);
+           cursor != npos && cursor <= margin.last_item;
+           cursor = next_token(cursor)) {
+        const auto& cell = items[cursor].token;
+        if (cursor == margin.origin_item) {
+          if (!assign(cell, ProseTokenRoleIR::origin)) return false;
+        } else if (!assign(cell, is_space_run(cell)
+                                     ? ProseTokenRoleIR::fill
+                                     : ProseTokenRoleIR::marker)) {
+          return false;
+        }
+      }
+      open_line(margin.origin_cells,
+                margin.origin_item == npos ? nullptr
+                                           : &items[margin.origin_item].token,
+                margin.margin_cells);
+      skip_until = margin.last_item;
+      return true;
+    }
     const auto next = next_token(index);
     if (space_at(next) && !space_at(next_token(next)) &&
         visible_at(next_token(next))) {

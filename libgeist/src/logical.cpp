@@ -1,4 +1,5 @@
 #include "geist/detail/internal.hpp"
+#include "geist/detail/display_lines.hpp"
 
 #include <algorithm>
 #include <array>
@@ -671,6 +672,7 @@ decode_logical_record_sources(const LogicalDecodeContext& context,
     decoded.assembled = assemble_logical_record_with_sources(decoded.tokens);
     decoded.control_segments =
         decode_control_segments(logical_record, decoded.assembled);
+    demote_bullet_owned_structural_controls(decoded);
     std::string segment_error;
     if (!verify_control_segments(decoded.assembled, decoded.control_segments,
                                  &segment_error)) {

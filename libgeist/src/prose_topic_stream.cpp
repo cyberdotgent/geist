@@ -583,9 +583,19 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
             ledger.at(record_index, token).role != ProseTokenRoleIR::unassigned)
           continue;
         const auto view = view_token(records, record_index, token);
+        // A list bullet standing between two controls is display structure,
+        // not padding: GG24-4302-00 PREFACE.2 continues its bibliography list
+        // across a record boundary, so record 31's first display line
+        // (`   °   IMS/ESA V5 Release Planning Guide, GC26-8031`, tokens
+        // 0..4: length byte, three-cell origin, `U+2666`, two-cell gap,
+        // `IMS`) reaches the stream before that record's first control.
+        // Dropping the glyph moved the row's text from column 7 to column 2
+        // and displaced every `cfont 7 7 C 15 2 C ...` column of the row,
+        // while the identical rows inside a control payload kept it.  Hosted
+        // DT 19950308184737 serves this row exactly like its siblings.
         if (title_seen && !menu_open &&
             (is_bare(view) || is_space_run(view) || is_placeholder_run(view) ||
-             (cz_seen && is_bullet_glyph(view)) ||
+             is_bullet_glyph(view) ||
              (cz_seen && is_separator(view) && view.body.size() == 1 &&
               ((view.width == 2 && view.body.front() == '?') ||
                row_text_follows(token))))) {
@@ -1113,6 +1123,15 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
             end.kind = ItemKind::segment_end;
             build.items.push_back(std::move(end));
           }
+          break;
+        }
+        // A control-shaped word the display-line pass proved to be display
+        // text opens no control: the flattened string split the segment
+        // there, but the row it belongs to continues (SH12-565 4.3.5's list
+        // item `SRCVPAC`).  Its tokens are body text in place.
+        if (segment.display_text) {
+          if (!push_payload(ProseTokenRoleIR::control, false, false, false))
+            return false;
           break;
         }
         const auto continuation =

@@ -259,6 +259,29 @@ hosted BookServer on at least two books:
   hosted pages carry `<hr>` in their place.  This is distinct from the
   full-width rule line *inside* a figure frame described above, which hosted
   shows as an empty `<pre>` line.
+* **The line's leading whitespace is the row's left margin, measured, not
+  guessed.**  A `U+2502`/ASCII `|` change bar standing in that whitespace
+  occupies one display column plus the assembler's space, and the space run
+  that ends the whitespace is the row's origin run; the row therefore starts
+  at the column of the line's first word.  Details and hosted citations in
+  `markup.md`, "The three-column left margin".
+
+#### A Control-Shaped Word Behind A Bullet Is Display Text
+
+The flattened decoded string splits a segment wherever a control-shaped word
+follows a marker, and any identifier-shaped word beginning `SR` classifies as
+a structural (anchor) control.  The display line disproves some of them: a
+`U+2666` list bullet in front of the word, on the word's own display line,
+makes the word that list item's display text.
+
+SH12-565 record 282 display line 31 is `<length byte> <three-cell origin>
+<U+2666> <two-cell gap> SRCVPAC`, the fourth of five items in the list
+`LOGMODE / RUSIZES / PSNDPAC / SRCVPAC / SSNDPAC.`; hosted `4.3.5` (DT
+19941206115523) serves all five as `   °   <name>`.  Record 702 (`SRCVPAC`)
+and record 339 (`SRVPREF`) repeat it in the same book, and SC24-5527-02
+spells `SRVAPPS` the same way in eight records.  Across the 34 fixtures 11 of
+the 14,392 structural segments stand behind a bullet and all 11 are prose;
+none of the remaining 14,381 does.
 
 ## Token Resolution
 

@@ -60,4 +60,26 @@ struct DisplayLineCellIR {
 std::vector<DisplayLineCellIR> display_line_cells(
     const DecodedLogicalRecordSource& record, const DisplayLineIR& line);
 
+// The `U+2666` list bullet the reader draws in front of a list item's text.
+constexpr std::uint16_t list_bullet_word = 0x2666;
+
+// Display-line corroboration of the `SR<id>` structural controls.
+//
+// A word that begins with `SR` and is otherwise identifier-shaped is taken
+// for a structural control by the flattened-string classifier, which cannot
+// see that some of them are ordinary prose.  A display line proves it: a
+// list bullet in front of the word on its own line makes the word that
+// list item's display text, and hosted BookServer prints it.
+//
+// SH12-565 record 282 display line 31 is `<length byte> <three-cell origin>
+// <U+2666> <two-cell gap> SRCVPAC`, one of the five items of the list
+// `LOGMODE / RUSIZES / PSNDPAC / SRCVPAC / SSNDPAC.`, and hosted 4.3.5 (DT
+// 19941206115523) serves all five as `   °   <name>`; the classifier had
+// been swallowing the fourth as an anchor.  Record 702 (`SRCVPAC`) and
+// record 339 (`SRVPREF`) repeat it in the same book, as does SC24-5527-02's
+// `SRVAPPS` in eight records.  A real anchor never stands behind a bullet:
+// of the 14,392 structural segments in the 34 fixtures only these 11 do.
+void demote_bullet_owned_structural_controls(
+    DecodedLogicalRecordSource& record);
+
 } // namespace geist::detail

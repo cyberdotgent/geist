@@ -89,4 +89,34 @@ std::vector<DisplayLineCellIR> display_line_cells(
   return cells;
 }
 
+void demote_bullet_owned_structural_controls(
+    DecodedLogicalRecordSource& record) {
+  if (record.control_segments.empty()) return;
+  const auto lines = record_display_lines(record);
+  if (!lines) return;
+  for (auto& segment : record.control_segments) {
+    if (segment.kind != BookControlKind::structural ||
+        segment.source_tokens.empty())
+      continue;
+    const auto opcode_token = segment.source_tokens.front();
+    for (const auto& line : *lines) {
+      if (opcode_token <= line.prefix_token || opcode_token >= line.token_end)
+        continue;
+      bool bullet = false;
+      for (auto token = line.prefix_token + 1; token < opcode_token; ++token) {
+        const auto& words = record.ir.tokens[token].decoded_words;
+        if (words.size() == 1 && words[0] == list_bullet_word) bullet = true;
+      }
+      if (!bullet) break;
+      segment.kind = BookControlKind::text;
+      segment.display_text = true;
+      segment.opcode.clear();
+      segment.opcode_range = {segment.complete.begin, segment.complete.begin};
+      segment.operand_range = segment.opcode_range;
+      segment.payload_range = {segment.complete.begin, segment.complete.end};
+      break;
+    }
+  }
+}
+
 } // namespace geist::detail
