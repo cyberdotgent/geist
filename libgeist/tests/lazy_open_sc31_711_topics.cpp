@@ -9,13 +9,18 @@ int main() {
 
   const auto problem_determination =
       geist::BooDocument::open(root / "SC31-711.boo");
+  // NOTICES is a drawn `___ Note ___` box: the region's rows now lower as a
+  // preformatted block that reproduces hosted (DT 19941010174546) character
+  // for character inside its `<pre>`, so the `CSELECT` link and the `<B>`
+  // label are dropped exactly as they are in every other drawn box.
   const auto notices = problem_determination.topic_markdown("NOTICES");
   require(notices.find(
-              "Before using this document, read the general information "
-              "under") != std::string::npos &&
-              notices.find("[\"Notices\" in topic FRONT_1](#HDRNOT)") !=
-                  std::string::npos,
+              "Before using this document, read the general information") !=
+                  std::string::npos &&
+              notices.find("\"Notices\" in topic FRONT_1") != std::string::npos,
           "ordinary CFONT overflow trimming dropped notice prose");
+  require(notices.find("___ Note ___") != std::string::npos,
+          "NOTICES lost its drawn box outline");
   const auto how_to_use =
       problem_determination.topic_markdown("PREFACE.2");
   require(how_to_use.find("[action Chapter 3") == std::string::npos &&

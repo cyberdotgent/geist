@@ -97,7 +97,17 @@ struct Candidate {
 };
 
 // A display line whose every token belongs to the opcode/operand range of a
-// `cfont` control: it draws nothing and may stand inside a region.
+// control: the line draws nothing and may stand inside a region.  A control
+// that carries display text keeps that text in its payload tokens, which lie
+// outside the opcode/operand range and therefore end the candidate.
+//
+// `CSELECT` is the shape that proves the generalisation: GC23-046 NOTICES
+// (DT 19920330095121) draws a closed `U+250C .. U+2518` box whose fourth row
+// is the whole line `cselect 43 26 HDRNOTICES`, and hosted BookServer prints
+// the box with no line for the control -- the selector styles column 43 of
+// the *next* row (`<a href="FRONT_1...">&quot;Notices&quot; in topic
+// FRONT_1</a>`).  SC24-5527-02 3.10.4.4 (record 2039) and SC09-2417-00
+// NOTICES draw the same shape.
 bool control_only_line(const DecodedLogicalRecordSource& record,
                        const DisplayLineIR& line) {
   if (line.token_end <= line.prefix_token + 1) return false;
@@ -105,7 +115,6 @@ bool control_only_line(const DecodedLogicalRecordSource& record,
     const auto segment_index = segment_of(record, token);
     if (segment_index >= record.control_segments.size()) return false;
     const auto& segment = record.control_segments[segment_index];
-    if (ascii_lower(segment.opcode) != "cfont") return false;
     const auto operands = operand_tokens(record, segment);
     if (!std::binary_search(operands.begin(), operands.end(), token))
       return false;

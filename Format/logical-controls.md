@@ -220,6 +220,46 @@ byte and the origin is simply the line's leading space token.  The
 prose-reflow interpretation of those slots in [markup.md](markup.md) is
 unchanged; this section records the byte-level fact behind them.
 
+#### Display Lines Govern Reflowed Prose Too
+
+The same structure decides the row model of ordinary reflowed prose, not
+only of reflow-off figure bodies.  Four consequences, each checked against
+hosted BookServer on at least two books:
+
+* **The length byte is the row-control slot, always and only.**  No token
+  inside a line is a slot, however much its token geometry looks like one,
+  and the length byte is never the row's origin run or display text.  Its
+  dictionary spelling is arbitrary, so it may read as a box-drawing run
+  (`U+2500`), a bullet (`U+2666`), a space run, a word (`as`, `a`, `are`) or
+  an ordinary `.`; hosted prints none of them.  Evidence: SC33-033
+  `PREFACE.1` record 18 token 219 spells `U+2666` in front of the `c.cc 4`
+  line and hosted (DT 19930422134757) shows no bullet there; SC33-033 `4.5`
+  record 176 spells the length bytes of its three `SI` lines as three- and
+  six-cell space runs; SC31-711 `3.1` record 46 spells the length bytes of
+  the `nettl` log example as `as`, `a` and `are`, and hosted (DT
+  19941010174546) keeps the example rows apart with none of those words;
+  FA1PLMM0 `17.2.3.1` record 713 ends a line with the one-byte word `a`,
+  which a geometry rule took for the slot -- hosted (DT 19910927114801)
+  serves `available to a user; CEOS a subset ...`; DREICMST `1.1` ends a
+  paragraph `... systems management.` and the next line's length byte spells
+  `.`, which a flattening reader prints as a second full stop.
+* **An empty display line is the paragraph break**, and it is the only one:
+  hosted answers it with `<p>`.  Bare spacing markers inside a line that
+  draws nothing (an `SI` entry, a body control line) are not breaks.
+* **A display line whose whole visible content is one `c.<xx>` opcode and at
+  most one operand is a body control line and draws nothing** -- `c.cc 12`
+  (GG24-4302-00 `2.2.3`, DT 19950308184737), `c.cc 4` (SC33-033 `PREFACE.1`),
+  a bare `c.cp` (DREICMST `1.5.6.3`, DT 19911219125856).  Such a line reaches
+  a token reader as ordinary text only when the decoder lost the control
+  boundary; the display-line structure is what restores it.
+* **A display line whose whole visible content is `U+2500` rule words is the
+  reader's horizontal rule.**  Hosted serves it as `<hr>` and prints no
+  character of it: ACPZMST1 `COVER` (DT 19920319123146) and DREICMST `COVER`
+  (DT 19911219125856) both draw the cover frame as two such lines and both
+  hosted pages carry `<hr>` in their place.  This is distinct from the
+  full-width rule line *inside* a figure frame described above, which hosted
+  shows as an empty `<pre>` line.
+
 ## Token Resolution
 
 A token reference resolves to a word-counted 16-bit character-code record:

@@ -1870,8 +1870,39 @@ is not a region.
 | `OFCUSEOV.BOO` records 151-153 | 5250 screen box with a change bar on most rows | DT `19900805103816`, identical |
 | `SH20-918.boo` record 140, tokens 43-209 | syntax diagram with an inner grid of `U+2502` rails | DT `19910520154851`, identical |
 
-Hosted keeps the `CFONT` highlighting of words inside a box (`<B>In</B>`);
-a preformatted lowering cannot, which is the only observed difference.
+Any display line whose every token lies in the opcode/operand range of a
+control may stand between the rows -- not only a `cfont` one.  The line draws
+nothing, and a control that carries display text keeps that text in payload
+tokens outside the range, which end the candidate.  `CSELECT` is the shape
+that proves it: GC23-046 `NOTICES` (DT `19920330095121`) draws a closed box
+whose fourth row is the whole line `cselect 43 26 HDRNOTICES`, and hosted
+prints the box with no line for the control -- the selector styles column 43
+of the *next* row (`<a href="FRONT_1...">&quot;Notices&quot; in topic
+FRONT_1</a>`).  SC24-5527-02 `3.10.4.4`, SC09-2417-00 `NOTICES`, SC31-711
+`NOTICES` (DT `19941010174546`) and GG24-4302-00 `NOTICES` (DT
+`19950308184737`) draw the same shape.
+
+Hosted keeps the `CFONT` highlighting of words inside a box (`<B>In</B>`) and
+resolves a `CSELECT` inside one into an `<a href=...>`; a preformatted
+lowering carries neither, which is the only observed difference.
+
+### Verbatim `CZ` regions
+
+The `CZ` dialect names three verbatim regions, each opened by `cz OFF <tag>`
+and closed by `cz OFF E<tag>`, and hosted BookServer serves all three inside
+their own `<pre>` block, character for character:
+
+| Tag | Hosted marker | Evidence |
+| --- | --- | --- |
+| `XMP` | `<pre width="80">` | packet `2.4.1` |
+| `SCREEN` | `<pre width="80">` | SC09-2417-00 `3.2.3`, served as `SC09-241` DT `19961114175628` -- the `PURCHASE ORDER FORM` display, reproduced line for line including its drawn frame |
+| `LBLBOX` | `<pre width="132"><!-- lblbox -->` | SC09-2417-00 `NOTICES`, same DT -- the `___ Note! ___` box, and hosted names the region in the comment |
+
+Inside a verbatim region a box-drawing run is display content, not row
+geometry: the frame words occupy their own display columns and hosted prints
+their display glyphs.  Drawn box *regions* are a flattened-dialect shape and
+are not planned inside the `CZ` dialect, which names its verbatim blocks
+itself.
 
 ### Front-matter heading forms
 

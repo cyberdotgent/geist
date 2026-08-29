@@ -521,13 +521,27 @@ struct CzBuilder {
               const std::vector<std::pair<std::size_t, std::size_t>>& groups,
               const std::string& name, const std::string& tag) {
     {
-      if (directive.mode == "off" && tag == "xmp") {
+      // `SCREEN` is the second verbatim region of the dialect and behaves
+      // exactly like `XMP`: hosted BookServer serves the rows between
+      // `cz OFF SCREEN` and `cz OFF ESCREEN` inside its own `<pre
+      // width="80">`, character for character, including the drawn frame
+      // (SC09-2417-00 3.2.3, served as `SC09-241` DT 19961114175628, record
+      // 549 lines 9-16 -- the `PURCHASE ORDER FORM` display; SC24-5527-02
+      // draws the same shape).
+      if (directive.mode == "off" &&
+          (tag == "xmp" || tag == "screen" || tag == "lblbox")) {
+        std::string opener;
+        for (const auto ch : tag)
+          opener.push_back(
+              static_cast<char>(std::toupper(static_cast<unsigned char>(ch))));
+        const auto closer_tag = "e" + tag;
         if (index + 1 >= build.directives.size() ||
             build.directives[index + 1].mode != "off" ||
-            build.directives[index + 1].tag != "exmp")
-          return fail(error, "cz OFF XMP is not closed by cz OFF EXMP");
+            build.directives[index + 1].tag != closer_tag)
+          return fail(error, "cz OFF " + opener + " is not closed by cz OFF E" +
+                                 opener);
         if (range.first == npos)
-          return fail(error, "cz OFF XMP block has no display rows");
+          return fail(error, "cz OFF " + opener + " block has no display rows");
         if (!preformatted(range.first, range.second)) return false;
         // The closing directive carries the body text that follows the
         // example block as ordinary paragraphs at its own left/indent
