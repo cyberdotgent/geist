@@ -108,6 +108,141 @@ struct LineBuilder {
     return npos;
   }
 
+  // True when `view` is the length byte that opens a display line of its
+  // record (Format/logical-controls.md, "Display Lines Inside A Record
+  // Payload").  The byte's value is the line's byte count; the dictionary
+  // word a token reader resolves it to is incidental, so a box-drawing or
+  // geometric-shape spelling is not a drawn glyph.
+  bool opens_display_line(const TokenView& view) {
+    const auto* lines = display_lines_of(view.record);
+    if (lines == nullptr) return false;
+    for (const auto& line : *lines)
+      if (line.prefix_token == view.token) return true;
+    return false;
+  }
+
+  // The display line that covers `token`, or nullptr.
+  const DisplayLineIR* display_line_of(std::size_t record, std::size_t token) {
+    const auto* lines = display_lines_of(record);
+    if (lines == nullptr) return nullptr;
+    for (const auto& line : *lines)
+      if (token >= line.prefix_token && token < line.token_end) return &line;
+    return nullptr;
+  }
+
+  // A display line whose whole visible content is one `c.<xx>` body-control
+  // opcode standing at the line origin, with at most one operand word after
+  // it, is a body control line and draws nothing.  It reaches the line
+  // builder as text only when the decoder lost the control boundary, and the
+  // display-line structure is what restores it.
+  //
+  // Hosted BookServer prints no such line: SC33-033 PREFACE.1 (DT
+  // 19930422134757) stores `c.cc 4` between the paragraph that ends
+  // `... the following marking:` and the fence line, and the hosted page
+  // shows only those two; GG24-4302-00 2.2.3 (DT 19950308184737) stores
+  // `c.cc 12` and DREICMST 1.5.6.3 (DT 19911219125856) a bare `c.cp`, and
+  // neither word appears in either hosted topic.
+  bool body_control_line(std::size_t index) {
+    const auto& view = items[index].token;
+    const auto* line = display_line_of(view.record, view.token);
+    if (line == nullptr || view.token != line->prefix_token + 1) return false;
+    const auto text = ascii_lower(body_text(view));
+    if (text.size() < 4 || text.compare(0, 2, "c.") != 0) return false;
+    for (std::size_t at = 2; at < text.size(); ++at)
+      if (std::islower(static_cast<unsigned char>(text[at])) == 0) return false;
+    std::size_t visible = 0;
+    std::size_t last = index;
+    for (auto cursor = index + 1; cursor < items.size(); ++cursor) {
+      if (items[cursor].kind == ItemKind::segment_end) continue;
+      if (items[cursor].kind != ItemKind::token) return false;
+      const auto& next = items[cursor].token;
+      if (next.record != view.record || next.token >= line->token_end) break;
+      if (is_visible(next) && ++visible > 1) return false;
+      last = cursor;
+    }
+    for (auto cursor = index; cursor <= last; ++cursor) {
+      if (items[cursor].kind != ItemKind::token) continue;
+      const auto& owned = items[cursor].token;
+      // Bare spacing tokens keep their `spacing` role from the skip walk.
+      if (is_bare(owned)) continue;
+      if (!assign(owned, is_visible(owned) ? ProseTokenRoleIR::control
+                                           : ProseTokenRoleIR::padding))
+        return false;
+    }
+    skip_until = last;
+    return true;
+  }
+
+  // A display line whose whole visible content is box-rule words (`U+2500`)
+  // is the reader's horizontal rule, not prose: hosted BookServer serves it
+  // as `<hr>` and prints no character of it (ACPZMST1 COVER DT
+  // 19920319123146 and DREICMST COVER DT 19911219125856 both draw the cover
+  // frame as two such lines and both hosted pages carry `<hr>` in their
+  // place).  The row draws no word, so the line builder emits no row and the
+  // tokens stay structural.  Residual: the Document IR has no thematic-break
+  // node, so the rule is dropped rather than lowered; the legacy renderer
+  // drops it too, so no word and no rule is lost against it.
+  bool display_rule_line(std::size_t index) {
+    const auto& view = items[index].token;
+    const auto* line = display_line_of(view.record, view.token);
+    if (line == nullptr) return false;
+    bool rule = false;
+    for (auto token = line->prefix_token + 1; token < line->token_end;
+         ++token) {
+      const auto cell = view_token(records, view.record, token);
+      if (is_bare(cell) || is_space_run(cell)) continue;
+      if (!std::all_of(cell.body.begin(), cell.body.end(),
+                       [](const auto word) { return word == 0x2500; }))
+        return false;
+      rule = true;
+    }
+    if (!rule) return false;
+    if (!finish_title() || !finish_index()) return false;
+    std::size_t last = index;
+    for (auto cursor = index; cursor < items.size(); ++cursor) {
+      if (items[cursor].kind == ItemKind::segment_end) continue;
+      if (items[cursor].kind != ItemKind::token) break;
+      const auto& owned = items[cursor].token;
+      if (owned.record != view.record || owned.token >= line->token_end) break;
+      // Bare spacing tokens keep their `spacing` role from the skip walk.
+      if (!is_bare(owned) &&
+          !assign(owned, is_space_run(owned) ? ProseTokenRoleIR::fill
+                                             : ProseTokenRoleIR::marker))
+        return false;
+      last = cursor;
+    }
+    skip_until = last;
+    line_open = false;
+    pending_space = false;
+    return true;
+  }
+
+  // Consumes a display line's length byte as the row-control slot of the row
+  // it opens: it ends the row before it and, when a single space run follows
+  // in front of the row's text, that run is the new row's origin.
+  //
+  // Hosted BookServer prints nothing for the byte: SC33-033 PREFACE.1 (DT
+  // 19930422134757) record 18 token 219 spells `U+2666` in front of the
+  // `c.cc 4` line and the hosted page runs `... by the following marking:`
+  // straight into the next paragraph with no bullet, and FA1PLMM0 11.3.1
+  // (DT 19910927114801) spells the same slot with a `U+2500` run.
+  bool row_control_length_byte(std::size_t index) {
+    const auto& view = items[index].token;
+    if (!finish_title() || !finish_index()) return false;
+    if (!assign(view, ProseTokenRoleIR::marker)) return false;
+    line_open = false;
+    pending_space = false;
+    const auto next = next_token(index);
+    if (space_at(next) && !space_at(next_token(next)) &&
+        visible_at(next_token(next))) {
+      const auto& origin = items[next].token;
+      if (!assign(origin, ProseTokenRoleIR::origin)) return false;
+      open_line(origin.body.size(), &origin);
+      skip_until = next;
+    }
+    return true;
+  }
+
   // The drawn box region covering `record`/`token`, or nullptr.
   const BoxRegion* box_at(std::size_t record, std::size_t token) const {
     for (const auto& region : boxes) {
@@ -578,8 +713,13 @@ struct LineBuilder {
             !trim_footnote_terminator())
           return false;
         if (item.directive.mode == "off") {
-          if (item.directive.tag == "xmp") xmp_mode = true;
-          else if (item.directive.tag == "exmp") xmp_mode = false;
+          if (item.directive.tag == "xmp" || item.directive.tag == "screen" ||
+              item.directive.tag == "lblbox")
+            xmp_mode = true;
+          else if (item.directive.tag == "exmp" ||
+                   item.directive.tag == "escreen" ||
+                   item.directive.tag == "elblbox")
+            xmp_mode = false;
         }
         out.directives.push_back(item.directive);
         current_directive = out.directives.size() - 1;
@@ -682,6 +822,12 @@ struct LineBuilder {
     }
 
     if (is_space_run(view)) {
+      // A display line's length byte is the row-control slot of the row it
+      // opens, never that row's origin run, whatever dictionary word a token
+      // reader resolves the byte to.  SC33-033 4.5 record 176 spells the
+      // length bytes of its three `SI` lines as three- and six-cell space
+      // runs; reading them as origins opened three rows with no text at all.
+      if (opens_display_line(view)) return row_control_length_byte(index);
       const auto next = next_token(index);
       if (space_at(next)) {
         // Fill/origin pair: every run but the last is fill.
@@ -827,6 +973,28 @@ struct LineBuilder {
       }
       return assign(view, ProseTokenRoleIR::padding);
     }
+    // Inside a `cz OFF XMP` / `cz OFF SCREEN` verbatim region the drawn
+    // frame is display content, not row geometry: hosted BookServer prints
+    // the box words in their own columns inside the region's `<pre
+    // width="80">` (SC09-2417-00 3.2.3, served as `SC09-241` DT
+    // 19961114175628, reproduces the `PURCHASE ORDER FORM` frame line for
+    // line).  The cells carry the hosted display glyph of each word, exactly
+    // as an admitted drawn box region does.
+    if (xmp_mode && is_placeholder_run(view) &&
+        std::all_of(view.body.begin(), view.body.end(),
+                    [](const auto word) { return box_word(word); })) {
+      if (!ensure_line()) return false;
+      if (pending_space && view.prefix != 0 && view.prefix != 1)
+        line().cells.push_back({npos, 0, " ", true});
+      for (const auto word : view.body)
+        line().cells.push_back(
+            {view.record, view.token, figure_display_glyph(word), false});
+      ++line_visible_cells;
+      last_visible.clear();
+      pending_space = view.prefix != 2;
+      trailing_bare = 0;
+      return assign(view, ProseTokenRoleIR::text);
+    }
     std::size_t origin_index = npos;
     const auto line_start_marker =
         line_open && line_visible_cells == 0 && view.width == 1 &&
@@ -854,6 +1022,8 @@ struct LineBuilder {
           current_term.structured = true;
           return assign(view, ProseTokenRoleIR::index_structure);
         }
+        if (opens_display_line(view)) return row_control_length_byte(index);
+        if (display_rule_line(index)) return true;
         return fail(error, "placeholder run '" + body_text(view) +
                                "' is followed by visible text at " +
                                where(view));
@@ -980,6 +1150,8 @@ struct LineBuilder {
       trailing_bare = 0;
       return assign(view, ProseTokenRoleIR::index_term);
     }
+    if ((is_glyph(view) || is_placeholder_run(view)) && opens_display_line(view))
+      return row_control_length_byte(index);
     if (!line_open) open_line(0, nullptr);
     trailing_bare = 0;
     if (line_visible_cells == 0 && view.width == 1 &&
@@ -1061,6 +1233,7 @@ struct LineBuilder {
           ++end;
         if (end - at < 4) continue;  // `c.` plus at least two opcode letters
         if (end != text.size() && text[end] != ' ') continue;
+        if (body_control_line(index)) return true;
         return fail(error, "body control '" + text.substr(at, end - at) +
                                "' is glued into prose text at " + where(view));
       }
