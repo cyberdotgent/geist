@@ -62,7 +62,7 @@ constexpr BookBaseline kBaseline[] = {
     {"IBMMMSTR.boo", 41},
     {"IEAC6MST.BOO", 197},
     {"ITPPIBOK.BOO", 245},
-    {"N2AH1MST.BOO", 19},
+    {"N2AH1MST.BOO", 34},
     {"OFCUSEOV.BOO", 179},
     {"PRG1SORT.boo", 175},
     {"QS3X36CM.BOO", 10},
@@ -78,7 +78,7 @@ constexpr BookBaseline kBaseline[] = {
     {"SC31-605.boo", 109},
     {"SC31-711.boo", 75},
     {"SC33-033.boo", 215},
-    {"SC34-425.boo", 211},
+    {"SC34-425.boo", 221},
     {"SC41-485.boo", 27},
     {"SG24-204.boo", 86},
     {"SH12-565.boo", 274},
@@ -86,7 +86,7 @@ constexpr BookBaseline kBaseline[] = {
     {"XWEBDEMO.boo", 9},
     {"packet.boo", 120},
 };
-constexpr std::size_t kBaselineTotal = 6843;
+constexpr std::size_t kBaselineTotal = 6868;
 
 void require(bool condition, const std::string &message) {
   if (!condition) {

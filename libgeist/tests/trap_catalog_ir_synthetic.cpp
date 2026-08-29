@@ -342,5 +342,72 @@ int main() {
             "4.3.5 must fail closed on the mis-segmented control: " + error);
   }
 
+  // N2AH1MST 4.0 "AMA Messages": a section-label catalog whose field labels
+  // do not share the headline's origin column. Record 281 line 13 draws the
+  // headline at column 3 (`cfont 3 7 2 11 8 2 20 10 2 31 9 2` over
+  // `AMA100I AMASPZAP PROCESSING COMPLETED`) and line 16 the first field at
+  // column 10 (`cfont 10 12 2` over `Explanation:`). Hosted DT
+  // 19910329000100 serves the entry as `<a name="MSG AMA100I">` with
+  // `<B>Explanation:</B>`, `<B>Source:</B>`, `<B>System</B> <B>Action:</B>`
+  // and `<B>System</B> <B>Programmer</B> <B>Response:</B>`, which is the
+  // vocabulary the catalog itself repeats.
+  {
+    geist::detail::LogicalDecodeContext mvs;
+    open_context(root / "N2AH1MST.BOO", mvs);
+    const auto mvs_document = geist::BooDocument::open(root / "N2AH1MST.BOO");
+    const auto topic = std::find_if(
+        mvs_document.topics().begin(), mvs_document.topics().end(),
+        [](const auto &candidate) { return candidate.id == "4.0"; });
+    require(topic != mvs_document.topics().end(), "N2AH1MST 4.0 is missing");
+    if (topic != mvs_document.topics().end()) {
+      const auto sources = geist::detail::decode_logical_record_sources(
+          mvs, topic->start_logical_record, topic->end_logical_record);
+      const auto layout = geist::detail::extract_layout_ir(sources);
+      const auto ownership = geist::detail::build_ownership_ir(sources, layout);
+      std::string error;
+      const auto catalog = geist::detail::extract_trap_catalog_ir(
+          sources, layout, ownership, "AMA Messages", &error);
+      require(catalog.has_value(), "N2AH1MST 4.0 rejected: " + error);
+      if (catalog) {
+        require(geist::detail::verify_trap_catalog_ir(sources, layout,
+                                                     ownership, *catalog,
+                                                     &error),
+                "N2AH1MST 4.0 canonical verification failed: " + error);
+        // The vocabulary is the ordered label run *every* entry repeats;
+        // `System Programmer Response:` is a field of AMA100I but some AMA
+        // entries answer with `Operator Response:` instead, so it stays an
+        // entry-local field rather than part of the envelope.
+        const std::vector<std::string> ama = {"Explanation:", "Source:",
+                                              "System Action:"};
+        require(catalog->label_vocabulary == ama,
+                "N2AH1MST 4.0 label vocabulary differs");
+        require(catalog->origin_column == 3,
+                "N2AH1MST 4.0 headline origin column");
+        const auto *first = find_entry(*catalog, "AMA100I");
+        require(first != nullptr, "N2AH1MST 4.0 has no AMA100I entry");
+        if (first != nullptr) {
+          require(first->headline.body.text ==
+                      "AMA100I AMASPZAP PROCESSING COMPLETED",
+                  "N2AH1MST 4.0 AMA100I headline [" +
+                      first->headline.body.text + "]");
+          require(first->fields.size() == ama.size() + 1 &&
+                      !first->fields.empty() &&
+                      first->fields.front().line.spans.size() == 1 &&
+                      first->fields.front().line.spans.front().span.column == 10,
+                  "N2AH1MST 4.0 AMA100I field label column");
+        }
+        // `IDC0014I LASTCC=cde` (record 2280 line 12, `cfont 3 8 2 12 7 2 19
+        // 3 V`) abuts two spans with no gap; `AMA133I CHECKSUM ERROR.  NO-GO`
+        // (record 305 line 26) leaves two spaces after the sentence stop.
+        // Both belong to the headline chain.
+        const auto *checksum = find_entry(*catalog, "AMA133I");
+        require(checksum != nullptr &&
+                    checksum->headline.spans_text ==
+                        "AMA133I CHECKSUM ERROR. NO-GO SWITCH SET",
+                "N2AH1MST 4.0 AMA133I headline spans across the wide gap");
+      }
+    }
+  }
+
   return 0;
 }
