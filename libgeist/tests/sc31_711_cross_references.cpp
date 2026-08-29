@@ -146,8 +146,10 @@ int main() {
           "GG24 two-row notices reference changed shape");
   const auto packet = geist::BooDocument::open(root / "packet.boo")
                           .topic_markdown("1.1");
-  require(count(packet, "](#FTNFTNUNIQ1)") == 1 &&
-              packet.find("[(1)](#FTNFTNUNIQ1)") != std::string::npos,
+  // packet 1.1 now renders through the typed CZ prose family; hosted
+  // (DT 20260614112503) shows one `<a href="...#FTNFTNUNIQ1"> (1)</a>`.
+  require(count(packet, "](<#FTNFTNUNIQ1>)") == 1 &&
+              packet.find("[\\(1\\)](<#FTNFTNUNIQ1>)") != std::string::npos,
           "packet footnote selector changed multiplicity");
   const auto figures = geist::BooDocument::open(root / "IEAC6MST.BOO")
                            .topic_markdown("FIGURES");

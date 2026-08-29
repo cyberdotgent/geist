@@ -1516,3 +1516,101 @@ token): `cfont 11 5 2` on `   ◆  The ovwdb` selects `ovwdb`, `cselect 62 13`
 on `   have form numbers ... in "Other AS/400` selects `"Other AS/400`
 (QSYSINFO LR44). A span ends before attached punctuation (`AIX.`,
 `"Bibliography"`), as hosted `<cite>AIX</cite>.` shows.
+
+## CZ layout directives
+
+Version 1.2/1.3 books compiled with an explicit block model (`SC09-2417-00`,
+`SC41-485`, `GX27-3999-00`, `packet`) store **every** block boundary of a
+topic body as a `CZ` control segment; the display rows between two `CZ`
+controls belong to the directive that opened them and follow the grammar in
+"Flattened prose display rows" above. This is a different dialect from the
+1.x books, which carry no `CZ` in their bodies and reconstruct blocks from
+row geometry only. A reader can decide which dialect a topic uses by testing
+whether the body contains any `CZ` control at all.
+
+### Directive grammar
+
+```text
+cz <mode> <tag> [<left> <indent>]
+```
+
+| Field | Values | Meaning |
+| --- | --- | --- |
+| `mode` | `FLOW`, `OFF`, `BREAK` | `FLOW` opens or emits a flowed block, `OFF` opens or closes a non-flowed region, `BREAK` is a vertical break carrying one count operand and no tag. |
+| `tag` | `P`, `PC`, `GD`, `PT`, `UL`, `OL`, `SL`, `NOTEL`, `DL`, `PARML`, `LI`, `DT`, `NT`, `NOTE`, `FN`, `H2`..`H5`, `XMP`, `EXMP`, `E<list>` | Block kind. `E<list>` (`EUL`, `EOL`, `ESL`, `EDL`, `ENOTEL`, `EPARML`, `ENT`) closes the matching open list. |
+| `left` | decimal | Display column of the directive's first row. |
+| `indent` | decimal | Display column of the directive's continuation rows. |
+
+`FLOW`/`OFF` carry either both operands or none; `BREAK` carries exactly one.
+Evidence: `packet.boo` topic `3.2`, logical record 80 — `cz BREAK 3`,
+`cz FLOW P 3 3`, `cz FLOW UL 3 3`, `cz FLOW LI 3 7`, `cz OFF EUL 0 0`,
+`cz OFF XMP`, `cz OFF EXMP 2 2`; `SC41-485` topic `1.1`, record 8 —
+`cz FLOW DL 3 3` with five `cz FLOW DT 3 12` entries and `cz OFF EDL`.
+
+The last directive of a topic is frequently an empty `cz FLOW H<n>` that only
+announces the heading level of the next topic; it carries no display rows, and
+only the topic's footnotes may follow it (`packet` `1.1`, record 17,
+`cz FLOW H3 3 3` before `SRFTNFTNUNIQ1`).
+
+### Structures BookServer derives from the directives
+
+| Directive sequence | Hosted HTML | Evidence |
+| --- | --- | --- |
+| `FLOW UL` … repeated `FLOW LI` … `OFF EUL` | `<ul><li>` per item | `packet` `3.2`: `<li>        The <I>port</I> <I>name</I>, a textual name ...` |
+| `FLOW OL`/`FLOW NOTEL` … `FLOW LI` … | `<ol><li>`; the item's leading `1.`/`a.` is the stored ordinal label | `GX27-3999-00` `2.1`, `2.8` |
+| `FLOW DL` … repeated `FLOW DT` … `OFF EDL` | `<dl><dt>term<dd>definition` | `SC41-485` `1.1` `<dt>   <B>List</B><dd><B>Configuration</B> <B>Descriptions</B> (QDCLCFGD) ...`, `1.2.5` `<dt>   CPF24B4 E<dd>Severe error ...` |
+| `FLOW NT` / `FLOW NOTE` | label run (`Note:`) then the note body | `SC09-2417-00` `4.5.2.2` |
+| `OFF XMP` … `OFF EXMP` | `<pre width="80">` with one `<samp>` per word | `packet` `3.2`, `SC09-2417-00` `4.5.2.2` |
+| `SRFTN<id>` … `FLOW FN` … `SREFTN` | `<a name="<id>"><h5>` footnote block, targeted by `CSELECT <col> <len> <id>` | `packet` `1.1` `SRFTNFTNUNIQ1` / `cselect 16 4 FTNFTNUNIQ1`, `3.2` `SRFTNFTNUNIQ21`..`24` |
+| `FLOW H2`..`H5` with rows | in-topic heading of that level | `SC09-2417-00` `2.2` |
+
+The `DT` row stores the term in the columns from `left` up to `indent` and the
+definition in the remainder of the same row; a word that straddles the
+`indent` column belongs to the term. `SC41-485` `1.2.2` `cz FLOW DT 7 16`
+keeps `Generic object name` whole.
+
+### Row details specific to the dialect
+
+- A `CZ` row-control slot is a **glyph or placeholder** token. Compact
+  one-byte tokens that decode to whole dictionary words (`and`, `a`, `by`,
+  `protocol`) are display text wherever they stand, because the rows are
+  justified and their space runs are in-row gaps: `packet` `1.1` `PRNET,` +
+  3 spaces + `and` + 3 spaces + `SATNET` renders as one hosted line, and
+  `packet` `3.2` record 83 `... to  send  and` + 10 spaces + `receive`
+  renders `send  and` / `receive`. (Unresolved: `packet` `3.2` record 84
+  `NET/ROM` + `an` + fill + origin, where hosted drops `an`; no positioned
+  distinction separates it from the two cases above yet.)
+- A one-cell slot after the origin run and before a one- or two-cell gap is
+  the bullet of a `FLOW LI` row (`SC09-2417-00` `2.1` record 137). It occupies
+  one display cell plus one space, which keeps the `CFONT`/`CSELECT` columns
+  of the row aligned.
+- A `|` in the margin with an encoded value at or above the row-control byte
+  limit is a revision change bar, never text (`SC41-485` `1.2.2` record 52).
+- An ordinary punctuation glyph opening a row **is** display text in this
+  dialect (`packet` `3.2` record 80 token 255 `#` before `name`, styled by
+  `cfont 5 1 E`, hosted `<samp>#</samp>`); only `|` and box-drawing
+  placeholders are margin markers.
+- Inside `OFF XMP` … `OFF EXMP` the block's `CFONT` spans cover every
+  displayed word, so a one-byte token that a span of the open row covers is
+  text and not a row slot: `SC09-2417-00` `4.5.2.2` keeps the trailing `{` of
+  `void payroll::calc (employee *pe) {` (hosted `<samp>{</samp>`) while the
+  uncovered `;` that ends the next source row stays the slot.
+- A compiled `FLOW FN` body always ends with a standalone `.` token that
+  hosted does not print: `packet` `1.1` record 17 `technique..` renders
+  `technique.`, `3.2` record 85 `ax0..` renders `ax0.`, record 86
+  `connections)!.` renders `connections)!`.
+- A one-cell decoder separator (`,`, `?`) that no control segment owns is
+  display text only when row text follows it directly. Before the next
+  control opcode it is decoder punctuation: `SC41-485` `1.3.3` record 50
+  token 132 `,` sits between `topic 1.3.4.` and `cmenu`, and hosted prints
+  `topic 1.3.4.` only.
+- `SRGLS <term>` is a glossary-style field anchor whose id is
+  `GLS <term words>`; the term is anchor identity, not display text, and the
+  following `FLOW GD` paragraph repeats it (`SC41-485` `1.2.4`, hosted
+  `<a name="GLS Configuration description name">`).
+- The decoder can glue its `,` separator onto the last `CFONT` code word
+  (`packet` `3.6.1` `cfont 5 1 E,`); the style code is the letter before it.
+  The single-digit style codes `5`..`9` render as hosted `<U>`: `packet`
+  `2.1.3` record 39 `cfont 53 6 5 60 4 5` produces
+  `The <U>window</U> <U>size</U> controls how`.  The document model has no
+  underline node, so such a phrase keeps plain emphasis.

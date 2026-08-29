@@ -88,11 +88,18 @@ std::string body_text(const TokenView& view) {
 
 std::size_t segment_of(const DecodedLogicalRecordSource& record,
                        std::size_t token) {
-  for (const auto& segment : record.control_segments)
+  // A token claimed by no segment (an inter-segment decoder separator that
+  // is text in the CZ dialect) reports the segment it follows so slice
+  // keys stay monotonic.
+  std::size_t preceding = 0;
+  for (const auto& segment : record.control_segments) {
     if (std::binary_search(segment.source_tokens.begin(),
                            segment.source_tokens.end(), token))
       return segment.segment_index;
-  return 0;
+    if (!segment.source_tokens.empty() && segment.source_tokens.back() < token)
+      preceding = segment.segment_index;
+  }
+  return preceding;
 }
 
 DocumentSourceSliceIR token_slice(const DecodedLogicalRecordSource& record,
@@ -358,6 +365,13 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
                     StreamBuild& build, std::string* error) {
   bool title_seen = false;
   bool menu_open = false;
+  // `SRFTN<id>` of the CZ dialect names the footnote the next `cz FLOW FN`
+  // directive opens (packet 1.1 record 17).
+  std::string pending_footnote_id;
+  // Set once a `cz` directive has been collected: unclaimed one-cell
+  // decoder separators then reach the display-row pass, which decides
+  // between bullet slot, split-off text and padding.
+  bool cz_seen = false;
   if (envelope.glued_title) {
     title_seen = true;
     bool first_payload = true;
@@ -387,6 +401,29 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
     // the paragraph break, a placeholder run the row slot), so they enter the
     // stream in source order; before the title they are envelope padding.
     std::size_t cursor = 0;
+    // A one-cell decoder separator claimed by no segment is display text
+    // only when row text follows it directly (a space run or a visible
+    // word that is not itself a separator or placeholder); before a control
+    // opcode or a placeholder slot it is decoder punctuation.
+    // Every token any control segment owns, known before the segments are
+    // walked: `claimed` only fills in as the walk proceeds, so a separator
+    // sitting directly before the next control opcode would otherwise see
+    // that opcode as row text (SC41-485 1.3.3 record 50 token 132 `,` before
+    // `cmenu`, which hosted does not print).
+    std::vector<bool> owned_by_segment(record.ir.tokens.size(), false);
+    for (const auto& segment : record.control_segments)
+      for (const auto token : segment.source_tokens)
+        if (token < owned_by_segment.size()) owned_by_segment[token] = true;
+    const auto row_text_follows = [&](std::size_t token) {
+      const auto next = token + 1;
+      if (next >= record.ir.tokens.size() || claimed[next] ||
+          owned_by_segment[next])
+        return false;
+      const auto view = view_token(records, record_index, next);
+      return is_space_run(view) ||
+             (is_visible(view) && !is_placeholder_run(view) &&
+              !is_separator(view));
+    };
     const auto emit_unclaimed = [&](std::size_t end) -> bool {
       for (; cursor < end && cursor < record.ir.tokens.size(); ++cursor) {
         const auto token = cursor;
@@ -395,7 +432,11 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           continue;
         const auto view = view_token(records, record_index, token);
         if (title_seen && !menu_open &&
-            (is_bare(view) || is_space_run(view) || is_placeholder_run(view))) {
+            (is_bare(view) || is_space_run(view) || is_placeholder_run(view) ||
+             (cz_seen && is_bullet_glyph(view)) ||
+             (cz_seen && is_separator(view) && view.body.size() == 1 &&
+              ((view.width == 2 && view.body.front() == '?') ||
+               row_text_follows(token))))) {
           Item item;
           item.kind = ItemKind::token;
           item.token = view;
@@ -594,6 +635,22 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
                               view_token(records, record_index, token));
                         }))
           continue;
+        if (segment.kind == BookControlKind::layout_directive) {
+          // The compiled menu sits inside the last open CZ list; its closer
+          // and the next-level announcement follow it (SC09-2417-00 2.1
+          // `cz OFF EUL 0 0`, `cz FLOW H2 3 3`).  They carry no text.
+          const auto before = build.items.size();
+          if (!collect_layout_directive(records, record_index, segment,
+                                        pending_footnote_id, ledger,
+                                        build.items, error))
+            return false;
+          for (auto index = before; index < build.items.size(); ++index)
+            if (build.items[index].kind == ItemKind::token &&
+                is_visible(build.items[index].token) &&
+                !is_placeholder_run(build.items[index].token))
+              return fail(error, "content follows the trailing menu");
+          continue;
+        }
         return fail(error, "content follows the trailing menu");
       }
 
@@ -608,6 +665,83 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         break;
       }
       case BookControlKind::structural: {
+        if (!segment.malformed && title_seen &&
+            lower_opcode.rfind("srftn", 0) == 0 && lower_opcode.size() > 5) {
+          // Footnote start of the CZ dialect: like every `SR<id>` anchor the
+          // id is the whole opcode after `SR` (packet 1.1 record 17
+          // `SRFTNFTNUNIQ1`, targeted by `cselect 16 4 FTNFTNUNIQ1`); the
+          // `FTN` prefix marks it as the footnote the next `cz FLOW FN`
+          // body carries.
+          if (!pending_footnote_id.empty())
+            return fail(error, "SR" + pending_footnote_id +
+                                   " is not closed before " + segment.opcode);
+          if (!assign_segment_tokens(records, ledger, record_index, segment,
+                                     ProseTokenRoleIR::control, false, error))
+            return false;
+          pending_footnote_id = segment.opcode.substr(2);
+          if (!valid_anchor_id(pending_footnote_id))
+            return fail(error, "footnote id '" + pending_footnote_id +
+                                   "' is invalid");
+          break;
+        }
+        if (!segment.malformed && title_seen && lower_opcode == "sreftn") {
+          if (!assign_segment_tokens(records, ledger, record_index, segment,
+                                     ProseTokenRoleIR::control, false, error))
+            return false;
+          const auto operands = operand_tokens(record, segment);
+          Item item;
+          item.kind = ItemKind::layout;
+          item.directive.mode = "off";
+          item.directive.tag = "fn";
+          if (!operands.empty())
+            item.directive.source =
+                token_slice(record, operands.front(), operands.back() + 1);
+          build.items.push_back(std::move(item));
+          break;
+        }
+        if (!segment.malformed && title_seen && lower_opcode == "srgls") {
+          // Glossary-style field anchor of the CZ dialect: `SRGLS <term>`
+          // names the anchor `GLS <term>` (SC41-485 1.2.4; hosted
+          // `<a name="GLS Configuration description name">`).  The term
+          // words are anchor identity, not display text; the following
+          // `cz FLOW GD` paragraph repeats them.
+          const auto operands = operand_tokens(record, segment);
+          std::string term;
+          std::size_t first = npos;
+          std::size_t last = 0;
+          for (const auto token : segment.source_tokens) {
+            const auto view = view_token(records, record_index, token);
+            const auto is_operand = std::binary_search(
+                operands.begin(), operands.end(), token);
+            if (!is_operand && (is_padding(view) || is_separator(view))) {
+              if (!ledger.assign(record_index, token,
+                                 ProseTokenRoleIR::padding, error))
+                return false;
+              continue;
+            }
+            if (!ledger.assign(record_index, token, ProseTokenRoleIR::control,
+                               error))
+              return false;
+            if (first == npos) first = token;
+            last = token;
+            if (!is_operand) {
+              if (!term.empty()) term.push_back(' ');
+              term += body_text(view);
+            }
+          }
+          if (first == npos)
+            return fail(error, "SRGLS control has no source token");
+          ProseAnchorIR anchor;
+          anchor.id = "GLS";
+          if (!term.empty()) anchor.id += " " + collapse_ascii_whitespace(term);
+          anchor.source = token_slice(record, first, last + 1);
+          Item item;
+          item.kind = ItemKind::anchor;
+          item.anchor_id = anchor.id;
+          item.source = anchor.source;
+          build.items.push_back(std::move(item));
+          break;
+        }
         if (segment.malformed || lower_opcode.rfind("sr", 0) != 0 ||
             reserved_structural(lower_opcode))
           return fail(error, "structural control " + segment.opcode +
@@ -615,9 +749,33 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         const auto id = segment.opcode.substr(2);
         if (!valid_anchor_id(id))
           return fail(error, "anchor id '" + id + "' is invalid");
-        if (!assign_segment_tokens(records, ledger, record_index, segment,
-                                   ProseTokenRoleIR::control, false, error))
-          return false;
+        {
+          // A one-byte row-control glyph can be glued to the anchor before
+          // the title (SC09-2417-00 2.2 record 188 `SRHDRHCPGIO <<`).
+          const auto operands = operand_tokens(record, segment);
+          for (const auto token : segment.source_tokens) {
+            const auto view = view_token(records, record_index, token);
+            if (std::binary_search(operands.begin(), operands.end(), token)) {
+              if (!ledger.assign(record_index, token,
+                                 ProseTokenRoleIR::control, error))
+                return false;
+              continue;
+            }
+            const auto glyph_slot = view.width == 1 &&
+                                    view.value < row_control_byte_limit &&
+                                    punctuation_glyph_token(view);
+            if (!is_padding(view) && !is_separator(view) && !glyph_slot)
+              return fail(error, "control " + segment.opcode +
+                                     " carries visible payload '" +
+                                     body_text(view) + "' in record " +
+                                     std::to_string(record.logical_record));
+            if (!ledger.assign(record_index, token,
+                               glyph_slot ? ProseTokenRoleIR::marker
+                                          : ProseTokenRoleIR::padding,
+                               error))
+              return false;
+          }
+        }
         const auto operands = operand_tokens(record, segment);
         if (operands.empty())
           return fail(error, "anchor control has no source token");
@@ -750,10 +908,23 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         auto spans = decode_font_control_spans(record, segment, &font_error);
         if (!spans)
           return fail(error, "font control rejected: " + font_error);
-        for (const auto& span : spans->spans)
+        for (auto& span : spans->spans) {
+          // The decoder can glue its `,` separator onto the last code word
+          // (packet 3.6.1 `cfont 5 1 E,`); the code is the letter before it.
+          if (span.style == FontStyleIR::unknown && span.code.size() == 2 &&
+              span.code.back() == ',')
+            span.style = font_style_for_code(span.code.substr(0, 1));
+          // Single-digit style codes 5..9 are underline phrases (packet
+          // 2.1.3 `cfont 53 6 5 60 4 5`, hosted
+          // `<U>window</U> <U>size</U>`); the document model has no
+          // underline node, so the phrase keeps plain emphasis.
+          if (span.style == FontStyleIR::unknown && span.code.size() == 1 &&
+              span.code.front() >= '5' && span.code.front() <= '9')
+            span.style = FontStyleIR::highlight_1;
           if (span.style == FontStyleIR::unknown)
             return fail(error, "font style code '" + span.code +
                                    "' is not a highlight phrase");
+        }
         Item item;
         item.kind = ItemKind::font;
         item.spans = std::move(spans->spans);
@@ -790,6 +961,16 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         build.menu_segment = segment_index;
         break;
       }
+      case BookControlKind::layout_directive: {
+        if (!title_seen)
+          return fail(error, "layout directive precedes the title");
+        if (!collect_layout_directive(records, record_index, segment,
+                                      pending_footnote_id, ledger, build.items,
+                                      error))
+          return false;
+        cz_seen = true;
+        break;
+      }
       default:
         return fail(error, "body control " +
                                (segment.opcode.empty() ? std::string("<text>")
@@ -804,6 +985,9 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
     if (!emit_unclaimed(record.ir.tokens.size())) return false;
   }
   if (!title_seen) return fail(error, "topic has no ST title");
+  if (!pending_footnote_id.empty())
+    return fail(error, "SR" + pending_footnote_id +
+                           " is not followed by cz FLOW FN");
   return true;
 }
 

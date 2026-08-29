@@ -274,8 +274,22 @@ const char* prose_token_role_name(ProseTokenRoleIR role) {
   case ProseTokenRoleIR::index_term: return "index_term";
   case ProseTokenRoleIR::index_structure: return "index_structure";
   case ProseTokenRoleIR::menu: return "menu";
+  case ProseTokenRoleIR::ordinal: return "ordinal";
   case ProseTokenRoleIR::table: return "table";
   case ProseTokenRoleIR::figure: return "figure";
+  }
+  return "invalid";
+}
+
+const char* prose_block_kind_name(ProseBlockKindIR kind) {
+  switch (kind) {
+  case ProseBlockKindIR::paragraph: return "paragraph";
+  case ProseBlockKindIR::list_item: return "list_item";
+  case ProseBlockKindIR::definition_entry: return "definition_entry";
+  case ProseBlockKindIR::heading: return "heading";
+  case ProseBlockKindIR::note: return "note";
+  case ProseBlockKindIR::footnote: return "footnote";
+  case ProseBlockKindIR::preformatted: return "preformatted";
   }
   return "invalid";
 }
@@ -312,13 +326,21 @@ std::string format_prose_topic_ir(const ProseTopicIR& topic) {
   }
   for (std::size_t index = 0; index < topic.blocks.size(); ++index) {
     const auto& block = topic.blocks[index];
-    out << "block " << index << ' '
-        << (block.kind == ProseBlockKindIR::list_item ? "list_item" : "paragraph")
+    out << "block " << index << ' ' << prose_block_kind_name(block.kind)
         << " origin=" << block.origin;
-    if (block.kind == ProseBlockKindIR::list_item)
+    if (block.kind == ProseBlockKindIR::list_item ||
+        block.kind == ProseBlockKindIR::definition_entry)
       out << " list=" << block.list_ordinal;
+    if (block.ordered) out << " ordered";
+    if (!block.ordinal.empty()) out << " ordinal='" << block.ordinal << "'";
+    if (block.heading_level != 0) out << " level=" << block.heading_level;
+    if (!block.anchor_id.empty()) out << " anchor=" << block.anchor_id;
+    if (block.term_inline_count != 0)
+      out << " term_inlines=" << block.term_inline_count;
     format_slices(out, block.slices);
     out << '\n';
+    for (const auto& row : block.preformatted_lines)
+      out << "  row '" << row << "'\n";
     for (const auto& inline_node : block.inlines) {
       out << "  ";
       switch (inline_node.kind) {

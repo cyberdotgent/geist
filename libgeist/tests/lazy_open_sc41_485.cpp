@@ -14,18 +14,24 @@ int main() {
   for (const auto* expected : {"CPF24B4 E", "CPF26A8 E", "CPF26A9 E",
                                "CPF26AA E", "CPF3C21 E", "CPF3C90 E",
                                "CPF3CF1 E", "CPF9872 E"}) {
+    // Typed `CZ FLOW DT` definition list; hosted 1.2.5 (DT 19951003131222)
+    // shows `<dt>   CPF24B4 E<dd>Severe error ...` and the typed renderer
+    // writes the term as `- **term:** definition`.
     require(configuration_errors.find("- **" + std::string(expected) +
-                                      "** — ") != std::string::npos,
+                                      ":** ") != std::string::npos,
             "definition list lost an error-code association");
   }
   const auto configuration_actions =
       configuration_manager.topic_markdown("1.1");
-  require(configuration_actions.find("- **List** — ") !=
-              std::string::npos &&
-              configuration_actions.find("- **Retrieve** — ") !=
+  // Hosted 1.1: `<dt>   <B>List</B><dd><B>Configuration</B> <B>Descriptions</B>
+  // (QDCLCFGD) returns ...`.  The term is emphasised by the renderer, so the
+  // wholly highlighted source term lowers as plain text.
+  require(configuration_actions.find(
+              "- **List:** **Configuration Descriptions** \\(QDCLCFGD\\) "
+              "returns a list of configuration descriptions") !=
                   std::string::npos &&
-              configuration_actions.find("(QDCLCFGD)") !=
-                  std::string::npos,
+              configuration_actions.find("- **Retrieve:** **Configuration "
+                                         "Status**") != std::string::npos,
           "definition list lost an action description");
   const auto configuration_qualifiers =
       configuration_manager.topic_markdown("1.2.2");

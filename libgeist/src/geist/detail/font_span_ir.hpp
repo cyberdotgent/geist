@@ -63,5 +63,8 @@ decode_font_control_spans(const DecodedLogicalRecordSource& record,
                           std::string* error = nullptr);
 
 const char* font_style_name(FontStyleIR style);
+// The style of one CFONT code word (`1`..`3`, `C`, `X`, `E`, `4`, `P`, `V`,
+// `R`, `H`..`M`, `L`); unknown for any other code.
+FontStyleIR font_style_for_code(const std::string& code);
 
 } // namespace geist::detail

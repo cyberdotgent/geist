@@ -189,13 +189,20 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
     run_begin = run_end;
   }
   std::sort(block_refs.begin(), block_refs.end());
-  block.slices = slices_for(records, block_refs);
+  // A CZ definition entry or note builds its term and body with two calls
+  // on one block; the term precedes the body in source order.
+  auto slices = slices_for(records, block_refs);
+  block.slices.insert(block.slices.end(), slices.begin(), slices.end());
   return true;
 }
 
 bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
                   const LineBuild& lines_build, Ledger& ledger,
                   ProseTopicIR& topic, std::string* error) {
+  // The CZ dialect names every block boundary; the origin heuristics below
+  // are for the flattened dialect only.
+  if (!lines_build.directives.empty())
+    return build_cz_blocks(records, lines_build, ledger, topic, error);
   const auto& lines = lines_build.lines;
   std::vector<std::pair<std::size_t, std::size_t>> ranges;  // [begin,end)
   std::vector<bool> is_item;

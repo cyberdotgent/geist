@@ -45,6 +45,13 @@ struct LineBuilder {
   std::vector<std::size_t> pending_controls;
   bool line_open = false;
   std::size_t line_visible_cells = 0;
+  // CZ dialect: the stream carries layout items; every display line belongs
+  // to the most recent directive.
+  bool cz_mode = false;
+  // Inside `cz OFF XMP` .. `cz OFF EXMP`: the rows are verbatim example
+  // text, not reflowed prose, so no visible token is a row-control slot.
+  bool xmp_mode = false;
+  std::size_t current_directive = npos;
 
   Line& line() { return out.lines.back(); }
 
@@ -102,6 +109,7 @@ struct LineBuilder {
     Line fresh;
     fresh.origin = origin_cells;
     fresh.breaks_before = trailing_bare;
+    fresh.directive = current_directive;
     trailing_bare = 0;
     if (anchor_pending) {
       fresh.anchor_before = true;
@@ -229,9 +237,70 @@ struct LineBuilder {
            });
   }
 
+  // Display column the next visible token would occupy on the open row.
+  std::size_t next_column(const TokenView& view) const {
+    if (!line_open || out.lines.empty()) return npos;
+    const auto extra =
+        pending_space && view.prefix != 0 && view.prefix != 1 ? 1u : 0u;
+    return out.lines.back().cells.size() + extra;
+  }
+
+  // True when the open row already carries a CFONT span over the column the
+  // token would occupy.
+  bool covered_by_font_span(const TokenView& view) const {
+    const auto column = next_column(view);
+    if (column == npos) return false;
+    for (const auto& span : out.lines.back().fonts)
+      if (column >= span.begin && column < span.end) return true;
+    return false;
+  }
+
+  // Widest display row completed so far.  CZ rows are justified to one
+  // width, so the widest finished row is the row width of the topic.
+  std::size_t widest_row() const {
+    std::size_t widest = 0;
+    for (std::size_t seen = 0; seen + 1 < out.lines.size(); ++seen)
+      widest = std::max(widest, out.lines[seen].cells.size());
+    return widest;
+  }
+
+  // True when the space run at `space_index`, preceded by `extra_cells` of
+  // visible text still to be appended to the open row, keeps the following
+  // word inside the topic's row width.  Such a run is an in-row
+  // justification gap rather than an implied row break: packet 1.1 keeps
+  // `PRNET,   and   SATNET   (a   satellite ...` on one 77-cell row.
+  bool run_fits_row(std::size_t extra_cells, std::size_t space_index) const {
+    if (!cz_mode || !line_open || out.lines.empty()) return false;
+    const auto widest = widest_row();
+    if (widest < 40) return false;
+    const auto after = next_token(space_index);
+    if (!visible_at(after)) return false;
+    const auto width = out.lines.back().cells.size() +
+                       (pending_space ? 1u : 0u) + extra_cells +
+                       items[space_index].token.body.size() +
+                       items[after].token.body.size();
+    return width <= widest;
+  }
+
   bool marker_at(std::size_t index, std::size_t& origin_index) const {
     const auto& view = items[index].token;
     if (view.width != 1 || !is_visible(view)) return false;
+    // Example blocks style every displayed word with the block's `CFONT`
+    // spans (hosted `<samp>...</samp>` per word), so a one-byte token that
+    // falls inside a span of the open row is display text and not a row
+    // slot: SC09-2417-00 4.5.2.2 `void payroll::calc (employee *pe) {`
+    // covers the trailing `{`, while the `;` that ends the next row is
+    // covered by no span and stays the slot.
+    if (xmp_mode && covered_by_font_span(view)) return false;
+    // CZ dialect: a compact one-byte token is a whole dictionary word
+    // (`and`, `a`, `protocol`) displayed wherever it stands, and the rows are
+    // justified, so a space run behind it is an in-row gap or a plain row
+    // break (packet 1.1 `PRNET,   and   SATNET`, packet 3.2 `... to  send
+    // and` + 10 spaces + `receive`).  Only glyphs and placeholder slots mark
+    // rows here.  Residual: packet 3.2 record 84 `NET/ROM` + `an` + fill +
+    // origin, where hosted drops `an`; no positioned distinction separates it
+    // from the cases above yet.
+    if (cz_mode && alnum_word(view)) return false;
     const auto space = next_token(index);
     if (!space_at(space)) return false;
     if (space_at(next_token(space))) {
@@ -259,6 +328,14 @@ struct LineBuilder {
     }
     const auto after = next_token(space);
     if (space_at(after) || !visible_at(after)) return false;
+    // CZ dialect: a one-byte token glued to the word before it (SC09-2417-00
+    // 3.1.7 `QXXITOP(` + `)` before the next row's origin run) ends an
+    // exactly full row as text; only a free-standing glyph is a slot.
+    if (cz_mode && line_open && line_visible_cells != 0 &&
+        (view.prefix == 0 || view.prefix == 1 ||
+         (!pending_space && !out.lines.back().cells.empty() &&
+          !out.lines.back().cells.back().space)))
+      return false;
     // `( sp1 │ text` / `a sp1 │ text` (ACPZMST1 record 35 tokens 134 and
     // 163): the one-byte slot before a one-cell origin and the row's visual
     // marker glyph; the glyph proves the row start.
@@ -271,9 +348,12 @@ struct LineBuilder {
     if (run_length(space) >= 3 && alnum_word(view) &&
         view.value >= row_control_byte_limit)
       return false;
-    // Exception: the following token is itself a marker candidate.
+    // Exception: the following token is itself a marker candidate.  In the
+    // CZ dialect a one-byte word after the origin run is text (justified
+    // rows: packet 2.2 `-` + 3 spaces + `a` + 3 spaces + `network`).
     const auto& following = items[after].token;
-    if (following.width == 1 && !is_bullet_glyph(following)) {
+    if (following.width == 1 && !is_bullet_glyph(following) &&
+        !(cz_mode && alnum_word(following))) {
       const auto space2 = next_token(after);
       if (space_at(space2) && run_length(space2) >= 3) {
         const auto after2 = next_token(space2);
@@ -284,13 +364,66 @@ struct LineBuilder {
     return true;
   }
 
+  // Every compiled `cz FLOW FN` body ends with a row-terminator `.` token
+  // that hosted does not print: packet 3.2 record 85 `... start with ax so,
+  // ax0..` renders `ax0.`, record 86 `... connections)!.` renders
+  // `connections)!`, and packet 1.1 record 17 `technique..` renders
+  // `technique.`.  The terminator is always a standalone one-cell `.`
+  // token, so a body that ends any other way is not modelled.
+  bool trim_footnote_terminator() {
+    if (out.lines.empty() || out.lines.back().directive != current_directive)
+      return fail(error, "cz FLOW FN body has no display row");
+    auto& cells = out.lines.back().cells;
+    if (cells.size() < 2 || cells.back().space ||
+        cells.back().record == npos || cells.back().text != ".")
+      return fail(error, "cz FLOW FN body does not end with a row terminator");
+    const auto& terminator = cells.back();
+    const auto& previous = cells[cells.size() - 2];
+    if (previous.record == terminator.record &&
+        previous.token == terminator.token)
+      return fail(error,
+                  "cz FLOW FN row terminator is glued to the last word");
+    auto& entry = ledger.at(terminator.record, terminator.token);
+    if (entry.role != ProseTokenRoleIR::text)
+      return fail(error, "cz FLOW FN row terminator is not display text");
+    entry.role = ProseTokenRoleIR::marker;
+    cells.pop_back();
+    return true;
+  }
+
   bool run() {
+    cz_mode = std::any_of(items.begin(), items.end(), [](const auto& item) {
+      return item.kind == ItemKind::layout;
+    });
     for (std::size_t index = 0; index < items.size(); ++index) {
       const auto& item = items[index];
       switch (item.kind) {
       case ItemKind::segment_end:
         if (!finish_title() || !finish_index()) return false;
         break;
+      case ItemKind::layout: {
+        if (!finish_title() || !finish_index()) return false;
+        if (item.directive.mode == "off" && item.directive.tag == "fn" &&
+            !trim_footnote_terminator())
+          return false;
+        if (item.directive.mode == "off") {
+          if (item.directive.tag == "xmp") xmp_mode = true;
+          else if (item.directive.tag == "exmp") xmp_mode = false;
+        }
+        out.directives.push_back(item.directive);
+        current_directive = out.directives.size() - 1;
+        // A row opened by the previous directive's trailing slot and a lone
+        // origin run that carries no text yet belongs to this directive.
+        if (line_open && line_visible_cells == 0 && !out.lines.empty() &&
+            out.lines.back().cells.size() <= out.lines.back().text_begin &&
+            !out.lines.back().bullet) {
+          out.lines.back().directive = current_directive;
+        } else {
+          line_open = false;
+        }
+        pending_space = false;
+        break;
+      }
       case ItemKind::font:
       case ItemKind::select:
         if (in_title) return fail(error, "font/selector inside the ST title");
@@ -416,11 +549,15 @@ struct LineBuilder {
       // spaces + `the following` renders at indent 3; SC24-5520-00 LR51
       // `are` + 3 spaces + `discussed`).  The gap after a ballot token
       // (`__`) is display spacing inside the row.
+      // CZ dialect rows are justified to one width (packet 1.1: 77 cells
+      // `PRNET,   and   SATNET   (a   satellite ...`); a run that keeps the
+      // next word inside the widest row seen so far is an in-row gap.
+      const auto fits_row = [&]() { return run_fits_row(0, index); };
       if (view.body.size() >= 3 && pending_space && line_visible_cells != 0 &&
           index + 1 < items.size() && items[index + 1].kind == ItemKind::token &&
           visible_at(next_token(index)) &&
           !is_placeholder_run(items[next_token(index)].token) &&
-          !ballot_token(last_visible)) {
+          !ballot_token(last_visible) && !fits_row()) {
         if (!assign(view, ProseTokenRoleIR::fill)) return false;
         if (!finish_title() || !finish_index()) return false;
         open_line(implied_origin, nullptr);
@@ -437,6 +574,87 @@ struct LineBuilder {
       return assign(view, ProseTokenRoleIR::gap);
     }
     // Visible token.
+    if (cz_mode && line_open && line_visible_cells == 0 && !in_title &&
+        !in_index && view.width == 1 && view.body.size() == 1) {
+      const auto next = next_token(index);
+      const auto after = space_at(next) ? next_token(next) : npos;
+      const auto text_follows = visible_at(after) && !space_at(after);
+      // A one-cell slot after the origin run and before a one- or two-cell
+      // gap is the bullet of a `cz FLOW LI` row (SC09-2417-00 2.1 record
+      // 137 `<` + 3 spaces + slot + 2 spaces + `"Introducing`; hosted
+      // `<li>`).  It counts one display cell plus the synthetic space, which
+      // keeps CFONT/CSELECT columns aligned (`cselect 7 55` on LI 3 7).
+      // The slot decodes as a placeholder word or as the literal decoder
+      // separator `?` (SC09-2417-00 4.2 record 894); neither is text.
+      const auto slot = is_placeholder_run(view) ||
+                        (item.separator && (view.body.front() == '?' ||
+                                            is_bullet_glyph(view)));
+      if (slot && text_follows && run_length(next) <= 2) {
+        line().bullet = true;
+        if (!assign(view, ProseTokenRoleIR::bullet)) return false;
+        line().cells.push_back({view.record, view.token, "?", false});
+        line().cells.push_back({npos, 0, " ", true});
+        const auto& gap = items[next].token;
+        append_space_cells(gap, true);
+        if (!assign(gap, ProseTokenRoleIR::gap)) return false;
+        ++line_visible_cells;
+        pending_space = false;
+        skip_until = next;
+        line().text_begin = line().cells.size();
+        return true;
+      }
+      // A change bar opening the row before its gap (SC41-485 1.2.2 record
+      // 52 `|` + 4 spaces + `Object name` on DT 7 16, hosted `| Object
+      // name`): one display cell in the margin, never text.  The bar's
+      // encoded value is above the row-control range, unlike marker slots.
+      if (view.body.front() == '|' && view.value >= row_control_byte_limit &&
+          space_at(next) && text_follows) {
+        if (!assign(view, ProseTokenRoleIR::marker)) return false;
+        line().cells.push_back({view.record, view.token, "|", false});
+        line().cells.push_back({npos, 0, " ", true});
+        const auto& gap = items[next].token;
+        append_space_cells(gap, true);
+        if (!assign(gap, ProseTokenRoleIR::gap)) return false;
+        pending_space = false;
+        skip_until = next;
+        line().text_begin = line().cells.size();
+        return true;
+      }
+    }
+    if (cz_mode && item.separator && !is_placeholder_run(view) &&
+        (is_separator(view) || is_bullet_glyph(view)) &&
+        view.body.size() == 1) {
+      // Unclaimed one-cell decoder separators of the CZ dialect.  A `,`
+      // glued (attach prefix) to the word before it is text the decoder split
+      // off (SC09-2417-00 3.1.7 `QXXITOP(),`; hosted prints it).  A `?`
+      // before a lone space run and text is the slot that closes the row and
+      // the run is the next row's origin (SC41-485 1.1 record 6
+      // `configuration` + `?` + 7 spaces + `descriptions`).  Anything else is
+      // padding.
+      if (view.body.front() == ',' && line_open && line_visible_cells != 0 &&
+          (view.prefix == 0 || view.prefix == 1))
+        return append_visible(view, ProseTokenRoleIR::text);
+      // A `?` stored as a dictionary word (width 2) is a question mark
+      // (packet 1.1 record 15 `network` + bare + `?`); the one-byte `?` is
+      // the row slot.
+      if (view.body.front() == '?' && view.width == 2 && line_open &&
+          line_visible_cells != 0)
+        return append_visible(view, ProseTokenRoleIR::text);
+      if (view.body.front() == '?' || is_bullet_glyph(view)) {
+        const auto next = next_token(index);
+        if (space_at(next) && !space_at(next_token(next)) &&
+            visible_at(next_token(next))) {
+          if (!finish_title() || !finish_index()) return false;
+          if (!assign(view, ProseTokenRoleIR::marker)) return false;
+          const auto& origin = items[next].token;
+          if (!assign(origin, ProseTokenRoleIR::origin)) return false;
+          open_line(origin.body.size(), &origin);
+          skip_until = next;
+          return true;
+        }
+      }
+      return assign(view, ProseTokenRoleIR::padding);
+    }
     std::size_t origin_index = npos;
     const auto line_start_marker =
         line_open && line_visible_cells == 0 && view.width == 1 &&
@@ -489,7 +707,7 @@ struct LineBuilder {
     // A glued alphabetic one-byte token in the row-control byte range is a
     // slot whatever follows it: N2AH1MST record 17 `to:` + `access` (0x1c)
     // directly before the `/` row marker of the next row.
-    if (view.width == 1 && view.value < row_control_byte_limit &&
+    if (!cz_mode && view.width == 1 && view.value < row_control_byte_limit &&
         (!pending_space || view.prefix == 0 || view.prefix == 1) &&
         !in_title && !in_index && line_open && line_visible_cells != 0 &&
         alpha_word(view) && !last_visible.empty() &&
@@ -537,6 +755,11 @@ struct LineBuilder {
     trailing_bare = 0;
     if (line_visible_cells == 0 && view.width == 1 &&
         (punctuation_glyph(view) || is_placeholder_run(view)) &&
+        // CZ rows carry their markers as explicit slots (bullet, change bar,
+        // `?`), so an ordinary punctuation glyph opening a row is display
+        // text there: packet 3.2 record 80 token 255 `#` before `name` is
+        // styled by `cfont 5 1 E` and hosted prints `<samp>#</samp>`.
+        (!cz_mode || is_placeholder_run(view) || view.body.front() == '|') &&
         index + 1 < items.size() && items[index + 1].kind == ItemKind::token &&
         is_visible(items[index + 1].token) &&
         !is_placeholder_run(items[index + 1].token)) {
