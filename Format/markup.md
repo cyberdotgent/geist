@@ -1969,6 +1969,93 @@ their display glyphs.  Drawn box *regions* are a flattened-dialect shape and
 are not planned inside the `CZ` dialect, which names its verbatim blocks
 itself.
 
+### `CZ` object regions: `TABLE`, `FIG`
+
+Besides the verbatim regions above, `cz OFF <tag>` / `cz OFF E<tag>` also
+delimits the two *object* regions the book already carries as `SR` structural
+spans.  The `CZ` directive is a boundary only: it draws nothing itself, and
+the object's rows belong to the `SRTBL`/`SRFIG` span, exactly as they do in
+the flattened dialect.
+
+| Region | Directive pair | Object span | Order |
+| --- | --- | --- | --- |
+| Table | `cz OFF TABLE` … `cz OFF ETABLE` | `SRTBL<id>` … `SRETBL` | the opener stands **before** `SRTBL`, the closer **after** `SRETBL` |
+| Figure | `cz OFF FIG` … `cz OFF EFIG` | `SRFIG<id>` … `SREFIG` | `SRFIG` stands **before** the opener, the closer **after** `SREFIG` |
+
+Byte-level evidence, `packet.boo` (hosted id `packet`, DT `20260614112503`):
+
+- Topic `2.4.4`, logical record 65: segment 11 `cz OFF TABLE`, segment 12
+  `SRTBLTBLUNIQ17` with the caption row `Table 1. IPv4 Address Classes`, the
+  header row `Class` / `Range` / `Default Netmask` and the five class rows,
+  then record 67 segment 3 `SRETBL` and segment 4 `cz OFF ETABLE 0 0`.
+- Topic `1.3`, logical record 29: segment 2 `SRFIGFIGUNIQ5`, segment 3
+  `cz OFF FIG`, segment 4 `cselect 35 9 PIC1 … PICTURE 1   Figure 1. VHF/UHF
+  LMR audio frequency range`, segment 5 `SREFIG`, segment 6
+  `cz OFF EFIG 0 0`.  Hosted serves that region as
+  `<pre width="132"><!-- figure --><a name="FIGFIGUNIQ5"> <a
+  href="picture-1?mode=zoom"><img … alt="PICTURE 1"></a></a>` followed by the
+  caption.
+
+Two consequences follow from the object span owning the region:
+
+- The opener carries no display rows of its own; the closer carries the body
+  text that follows the object as ordinary paragraphs at its own
+  `left`/`indent`, the same rule `cz OFF EXMP` and the list closers follow.
+- The pairing is not always one-to-one.  A figure region may frame a table,
+  in which case only the `ETABLE` closer is written: `SC41-485` `1.2`,
+  record 8 segments 22-25 are `cz OFF LBLBOX`, a `CFONT` header row,
+  `SRFIGTBLUNIQ1` and `SRTBLTBLUNIQ1`, and record 9 segments 1-4 are
+  `SRETBL`, `SREFIG`, `cz OFF ETABLE 2 2`, `cz OFF ELBLBOX 0 0` -- with no
+  `cz OFF TABLE` anywhere.  A reader must therefore treat the directive as
+  corroborating evidence and take the region extent from the `SR` span.
+
+Corpus census of the directive pairs over the five `CZ` fixtures:
+
+| Book | `TABLE`/`ETABLE` | `FIG`/`EFIG` |
+| --- | --- | --- |
+| `SC09-2417-00` | 39 / 39 | 29 / 29 |
+| `GX27-3999-00` | 19 / 19 | 3 / 3 |
+| `SC41-485` | 10 / 15 | 0 / 0 |
+| `packet` | 7 / 7 | 9 / 9 |
+| `XWEBDEMO` | 0 / 0 | 3 / 3 |
+
+Other `cz OFF <tag>` region names observed and not yet modelled:
+`ARTWORK`/`EARTWORK` (an inline picture region closed by `cz OFF EHP0` in
+`GX27-3999-00` `2.4`, `SC41-485` `COMMENTS`), `SYNTAX`/`ESYNTAX`,
+`LINES`/`ELINES`, `MSGL`/`EMSGL`, and the front-matter names `COVER`,
+`TIPAGE`, `TOC`, `FIGLIST`, `TLIST`.
+
+### Footnotes in the flattened dialect
+
+The `SRFTN<id>` … `SREFTN` footnote pair exists in both dialects, but only the
+`CZ` dialect interposes a `cz FLOW FN` directive to carry the body.  In the
+flattened dialect the body is stored **in the `SRFTN<id>` control's own
+payload** and runs until `SREFTN`; the anchor id is the opcode without `SR`,
+as for every other `SR` anchor.
+
+`GC23-046` topic `5.1.1` (DT `19920330095121`), logical record 65: segment 1
+is `SRFTNESAFN` followed by tokens 56-59 -- the display line's length byte
+(encoded value 19), a four-cell origin run, `(` and `)` -- and then the
+sentence `MVS/XA is a trademark of the IBM Corporation.`; segment 2 is
+`SREFTN`.  Hosted serves
+
+```html
+<a name="FTNESAFN"><hr>
+<h5>
+    ( ) MVS/XA is a trademark of the IBM Corporation.
+</h5></a>
+```
+
+so the payload is body text and the marker is `FTNESAFN`.
+
+`SREFTN` itself displays nothing.  The flattened string splitter can glue the
+record's `.` separator onto it and emit it as a *text* segment rather than a
+structural one: `GG24-4302-00` `6.7`, record 560 segment 2 is `SREFTN.` over
+tokens 75-78 (the `,` separator, the two-byte word `SREFTN`, the attach
+control, and the attach control plus `.`), and hosted (DT `19950308184737`)
+closes the footnote with `</h5></a>` and prints neither the opcode nor the
+stop.
+
 ### Front-matter heading forms
 
 `CHDLEVEL` names the *kind* of a front-matter topic instead of an `h1`-`h6`

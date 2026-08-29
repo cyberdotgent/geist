@@ -68,18 +68,27 @@ int main() {
   require(web_demo.topic_markdown("1.0").find(
               "![Image](/bookmgr/product.gif)") != std::string::npos,
           "external product image selector was malformed");
+  // `cz OFF FIG` .. `cz OFF EFIG` delimits the region, so 1.4.1 lowers
+  // through the figure block.  Hosted (DT 19970423182524) names the anchor
+  // `<a name="FIGMONET1">` -- the whole `SRFIG` id, which the legacy route
+  // truncated to `MONET1` -- and prints the caption `Figure 3. External JPEG
+  // format image presented in-line` under the `<img>`; the legacy route also
+  // leaked the selector's `<IMAGE` alternative into the paragraph.
   const auto web_external_pictures = web_demo.topic_markdown("1.4.1");
   require(web_external_pictures.find(
-              "![Image](/bookmgr/monetcoq.jpg)") != std::string::npos,
+              "![Figure 3\\. External JPEG format image presented in\\-line\\.]"
+              "(</bookmgr/monetcoq.jpg>)") != std::string::npos,
           "inline external JPEG selector was malformed");
   require(web_external_pictures.find(
-              "](/bookmgr/monetley.jpg)") != std::string::npos,
+              "](</bookmgr/monetley.jpg>)") != std::string::npos,
           "linked external JPEG selector lost its target");
-  require(web_external_pictures.find("[Figure 3](#FIGMONET1)") !=
+  require(web_external_pictures.find("[Figure 3](<#FIGMONET1>)") !=
               std::string::npos &&
-              web_external_pictures.find("[Figure 2](#FIGOVERVIE)") !=
+              web_external_pictures.find("[Figure 2](<#FIGOVERVIE>)") !=
                   std::string::npos,
           "external-picture cross-reference labels were torn");
+  require(web_external_pictures.find("<IMAGE") == std::string::npos,
+          "selector alternative leaked into the paragraph");
   require(web_external_pictures.find("<IMAGE>") == std::string::npos &&
               web_external_pictures.find("<OTHER>") == std::string::npos &&
               web_external_pictures.find(

@@ -128,26 +128,42 @@ int main() {
                        "cbacklevel",
                        "decoded garbage control text after cendindex");
 
+  // `cz OFF FIG` .. `cz OFF EFIG` now delimits the figure region for the
+  // typed route, so 1.3 lowers through the figure block: hosted (DT
+  // 20260614112503) serves `<a name="FIGFIGUNIQ5">` with `<img ... alt=
+  // "PICTURE 1">` and the caption `Figure 1. VHF/UHF LMR audio frequency
+  // range` below it.  The typed span joiner also keeps a CFONT run that
+  // covers consecutive words as one inline, so hosted's per-word
+  // `<B><I>audio</B></I> <B><I>interface;</B></I>` becomes one emphasis.
   const auto figures = topic_markdown(document, "1.3");
   require_contains(figures,
-                   "through its ***audio*** ***interface;*** it also likely "
-                   "has the ability to ***key*** ***the*** ***radio***",
-                   "whole-word HP3 spans in topic 1.3");
+                   "through its ***audio interface;*** it also likely "
+                   "has the ability to ***key the radio***",
+                   "HP3 spans in topic 1.3");
   require_contains(figures,
-                   "**VOX** **control** **for** **bidirectional** **packet**",
-                   "whole-word HP2 spans around VOX/control");
+                   "**you cannot use your radio's VOX control for "
+                   "bidirectional packet**",
+                   "HP2 span around VOX/control");
   require_not_contains(figures,
                        "****VOX**** cont**rol for**",
                        "old torn VOX/control emphasis");
+  // The audio callout is a `cz OFF LBLBOX` verbatim region, reproduced
+  // character for character inside a fence the way hosted serves its
+  // `<pre width="132"><!-- lblbox -->`.  Hosted bolds words inside that
+  // `<pre>`; a preformatted block carries no inlines, so the region keeps
+  // the words and drops the emphasis (recorded residual).
   require_contains(figures,
-                   "**tapping** **the** **discriminator** and **directly** "
-                   "**driving** **the** **modulator.**",
-                   "whole-word HP2 spans in audio callout");
+                   "by  tapping the discriminator and directly driving "
+                   "the modulator. This",
+                   "audio callout text inside the verbatim lblbox region");
   require_contains(figures,
-                   "![Resource 1](resource:1)",
+                   "<a id=\"FIGFIGUNIQ5\"></a>",
+                   "figure region anchor keeps the whole SRFIG id");
+  require_contains(figures,
+                   "](<resource:1>)",
                    "figure image resource block");
   require_contains(figures,
-                   "Figure 1. VHF/UHF LMR audio frequency range",
+                   "Figure 1\\. VHF/UHF LMR audio frequency range",
                    "figure caption text");
   require_not_contains(figures,
                        "PICTURE 1 Figure 1. VHF/UHF LMR ![",
@@ -177,15 +193,25 @@ int main() {
                        "[Back](#fnref-FTNFTNUNIQ1)",
                        "BookServer footnote body has no local back link");
 
+  // `cz OFF TABLE` .. `cz OFF ETABLE` now delimits the `SRTBLTBLUNIQ17`
+  // envelope for the typed route, so the table lowers through the
+  // fixed-table block.  Hosted (DT 20260614112503) gives class C the range
+  // `192.0.0.0 - 223.255.255.255` and class E `240.0.0.0 -
+  // 255.255.255.255`; the legacy route dropped both continuation cells.
   const auto address_classes = topic_markdown(document, "2.4.4");
   require_contains(address_classes,
                    "| Class | Range | Default Netmask |",
                    "IPv4 address-class table keeps all three columns");
   require_contains(address_classes,
-                   "| C | 192.0.0.0 | 255.255.255.0 |",
-                   "IPv4 class C netmask cell");
+                   "| C | 192\\.0\\.0\\.0 \\-<br>223\\.255\\.255\\.255 | "
+                   "255\\.255\\.255\\.0 |",
+                   "IPv4 class C range and netmask cells");
   require_contains(address_classes,
-                   "| D | 224.0.0.0 -<br>239.255.255.255 | "
+                   "| D | 224\\.0\\.0\\.0 \\-<br>239\\.255\\.255\\.255 | "
                    "none, used for<br>multicast |",
                    "IPv4 class D continuation cell ownership");
+  require_contains(address_classes,
+                   "| E | 240\\.0\\.0\\.0 \\-<br>255\\.255\\.255\\.255 | "
+                   "none, experimental |",
+                   "IPv4 class E range cell");
 }

@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <cctype>
+#include <map>
+#include <optional>
 #include <sstream>
 
 namespace geist::detail::prose_internal {
@@ -574,6 +576,36 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
                     StreamBuild& build, std::string* error) {
   bool title_seen = false;
   bool menu_open = false;
+  // Which dialect the topic is written in: a body that carries any `CZ`
+  // control names every block boundary explicitly, a body that carries none
+  // reconstructs its blocks from row geometry (Format/markup.md, "CZ layout
+  // directives").  The two spell footnotes differently, so the dialect has
+  // to be known before the first `SRFTN<id>` rather than discovered at it.
+  const auto cz_dialect = std::any_of(
+      records.begin(), records.end(), [](const auto& source) {
+        return std::any_of(source.control_segments.begin(),
+                           source.control_segments.end(),
+                           [](const auto& segment) {
+                             return segment.kind ==
+                                    BookControlKind::layout_directive;
+                           });
+      });
+  // Display lines per record, decoded once: a record whose lines parse
+  // proves where every row-control length byte stands.
+  std::map<std::size_t, std::optional<std::vector<DisplayLineIR>>> record_lines;
+  const auto length_byte_at = [&](std::size_t record_index,
+                                  std::size_t token) {
+    auto entry = record_lines.find(record_index);
+    if (entry == record_lines.end())
+      entry = record_lines
+                  .emplace(record_index,
+                           record_display_lines(records[record_index]))
+                  .first;
+    if (!entry->second) return false;
+    for (const auto& line : *entry->second)
+      if (line.prefix_token == token) return true;
+    return false;
+  };
   // `SRFTN<id>` of the CZ dialect names the footnote the next `cz FLOW FN`
   // directive opens (packet 1.1 record 17).
   std::string pending_footnote_id;
@@ -928,7 +960,7 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         break;
       }
       case BookControlKind::structural: {
-        if (!segment.malformed && title_seen &&
+        if (!segment.malformed && title_seen && cz_dialect &&
             lower_opcode.rfind("srftn", 0) == 0 && lower_opcode.size() > 5) {
           // Footnote start of the CZ dialect: like every `SR<id>` anchor the
           // id is the whole opcode after `SR` (packet 1.1 record 17
@@ -945,6 +977,22 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           if (!valid_anchor_id(pending_footnote_id))
             return fail(error, "footnote id '" + pending_footnote_id +
                                    "' is invalid");
+          break;
+        }
+        if (!segment.malformed && title_seen && !cz_dialect &&
+            lower_opcode == "sreftn") {
+          // The flattened dialect has no `cz FLOW FN` to open: the footnote
+          // body is carried in the `SRFTN<id>` control's own payload and
+          // `SREFTN` only ends it.  Hosted BookServer serves GC23-046 5.1.1
+          // (DT 19920330095121) as
+          // `<a name="FTNESAFN"><hr><h5>     ( ) MVS/XA is a trademark of
+          // the IBM Corporation.</h5></a>`, so the id is the opcode without
+          // `SR` -- the `SRFTN<id>` anchor of record 65 segment 1, whose
+          // payload is that sentence -- and the end marker itself displays
+          // nothing.
+          if (!assign_segment_tokens(records, ledger, record_index, segment,
+                                     ProseTokenRoleIR::control, false, error))
+            return false;
           break;
         }
         if (!segment.malformed && title_seen && lower_opcode == "sreftn") {
@@ -1005,8 +1053,12 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           build.items.push_back(std::move(item));
           break;
         }
+        // A `SRFTN<id>` of the flattened dialect is an ordinary body
+        // anchor whose payload is the footnote text (see `sreftn` above).
         if (segment.malformed || lower_opcode.rfind("sr", 0) != 0 ||
-            reserved_structural(lower_opcode))
+            (reserved_structural(lower_opcode) &&
+             !(!cz_dialect && lower_opcode.rfind("srftn", 0) == 0 &&
+               lower_opcode.size() > 5)))
           return fail(error, "structural control " + segment.opcode +
                                  " is not a bare anchor");
         const auto id = segment.opcode.substr(2);
@@ -1250,6 +1302,32 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
             return false;
           break;
         }
+        // The flattened dialect's footnote end marker can arrive as a text
+        // segment, because the flattened splitter cuts on the record's `.`
+        // separator and glues it to the opcode: GG24-4302-00 6.7 record 560
+        // segment 2 is `SREFTN.` over tokens 75-78 -- the `,` separator, the
+        // two-byte word `SREFTN`, the attach control and the attach control
+        // plus `.` -- and hosted (DT 19950308184737) closes the footnote with
+        // `</h5></a>`, printing neither the opcode nor the stop.
+        if (!cz_dialect && first_text == "sreftn") {
+          for (const auto token : segment.source_tokens) {
+            if (token == *first_visible) {
+              if (!ledger.assign(record_index, token,
+                                 ProseTokenRoleIR::control, error))
+                return false;
+              continue;
+            }
+            const auto view = view_token(records, record_index, token);
+            if (!is_padding(view) && !is_separator(view) &&
+                !(view.width == 1 && punctuation_glyph_token(view)))
+              return fail(error, "SREFTN end marker carries visible payload '" +
+                                     body_text(view) + "'");
+            if (!ledger.assign(record_index, token, ProseTokenRoleIR::padding,
+                               error))
+              return false;
+          }
+          break;
+        }
         // The decoded-string splitter opens a segment wherever a word is
         // spelled like a control.  A word is only a control when the record
         // encoder wrote a boundary before it: a decoder-separator token
@@ -1409,11 +1487,42 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         cz_seen = true;
         break;
       }
-      default:
+      default: {
+        // Where a record's display lines parse, the length byte that opens a
+        // line is that row's control slot -- always and only -- whatever
+        // dictionary word it happens to spell (Format/logical-controls.md,
+        // "Display Lines Govern Reflowed Prose Too").  The one-byte
+        // dictionary tokens that spell the topic-metadata opcodes sit in the
+        // same low value range as the length bytes, so the flattened
+        // splitter opens a metadata segment on a byte that is really row
+        // geometry.  After the `ST` title no metadata control is legitimate,
+        // so a segment that is exactly one such length byte is the slot and
+        // opens no control: SC31-711 3.3 record 94 token 0 (encoded value
+        // 45, width 1) spells `cbacklevel` and token 119 (value 48) spells
+        // `chdlevel`, and each opens a display line of the `SRWRN` warning
+        // block; hosted (DT 19941010174546) serves that block as
+        // `<em>Warning:</em> ... <em>impaired.</em>` with neither word and
+        // with the row breaks those bytes carry.  The byte re-enters the
+        // token stream so the display-row pass gives it the same row-control
+        // slot it gives every other length byte.
+        if (title_seen && !segment.source_tokens.empty() &&
+            length_byte_at(record_index, segment.source_tokens.front())) {
+          for (const auto token : segment.source_tokens) {
+            Item item;
+            item.kind = ItemKind::token;
+            item.token = view_token(records, record_index, token);
+            build.items.push_back(std::move(item));
+          }
+          Item end;
+          end.kind = ItemKind::segment_end;
+          build.items.push_back(std::move(end));
+          break;
+        }
         return fail(error, "body control " +
                                (segment.opcode.empty() ? std::string("<text>")
                                                        : segment.opcode) +
                                " is outside the prose model");
+      }
       }
     }
     if (menu_open) {

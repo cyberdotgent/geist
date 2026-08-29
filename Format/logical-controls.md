@@ -734,6 +734,40 @@ Unresolved: the last three are still resolved to `SR<id>` anchors by opcode
 spelling alone, so the word disappears from the body and only the anchor
 remains. The legacy renderer loses the same words.
 
+### A Metadata Opcode In The Body Is A Display-Line Length Byte
+
+The one-byte dictionary tokens that spell the topic-metadata opcodes sit in the
+same low encoded-value range as the length bytes that open display lines, so
+the flattened splitter opens a metadata segment on a byte that is really row
+geometry. Where a record's display lines parse, the length byte that opens a
+line is that row's control slot -- always and only -- whatever dictionary word
+it happens to spell, and after the topic's `ST` control no metadata control is
+legitimate. Such a segment is therefore the slot and opens no control; the byte
+carries the row break and displays nothing, and any tokens the splitter put in
+the same segment are that row's display text.
+
+Byte-level evidence, SC31-711 `3.3` (DT `19941010174546`), inside the
+`SRWRN` … `SREWRN` warning block:
+
+| Record | Token | Encoded value | Width | Spells | Role |
+| ---: | ---: | ---: | ---: | --- | --- |
+| 94 | 0 | 45 | 1 | `cbacklevel` | length byte of the `Warning:  Do not modify …` line |
+| 94 | 119 | 48 | 1 | `chdlevel` | length byte of the `unable to receive traps …` line |
+
+Hosted serves that block as `<em>Warning:</em> <em>Do</em> <em>not</em>
+<em>modify</em> … <em>impaired.</em>` and prints neither word. The genuine
+envelope controls of the same topic stand in record 91 *before* the `ST`, each
+preceded by its own boundary byte (`cbacklevel 3.2` in segment 4).
+
+SC31-711 `1.4` (record 24 segment 13) shows the second shape, where the same
+byte carries display text after it in one segment:
+`cforwardlevel    /usr/lpp/lnm/reports/lnmlnmemon/dir_name directory, where
+dir_name is the …`, which hosted prints in full.
+
+Fifty-eight topics across sixteen books carry at least one such byte, spelling
+`cbacklevel`, `cforwardlevel`, `chdlevel`, `cparent`, `cmitem`, `csourcefn`,
+`ctopicn` and `csummary`.
+
 ### The Metadata Envelope Spans Records
 
 The topic metadata run — `SH<id>`, `CTOPICN`, `CPARENT`, `CFORWARDLEVEL`,

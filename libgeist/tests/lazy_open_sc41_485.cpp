@@ -33,21 +33,35 @@ int main() {
               configuration_actions.find("- **Retrieve:** **Configuration "
                                          "Status**") != std::string::npos,
           "definition list lost an action description");
+  // 1.2.2 now reaches the typed route: hosted (DT 19951003131222) serves the
+  // qualifier rows as a definition list -- `<dt><B>*APPC</B><dd>APPC
+  // controllers and devices only` -- which the typed route lowers as a
+  // definition entry (the `:` after the term is the renderer's dt/dd
+  // separator).  The legacy route tore the term's emphasis and dropped the
+  // tail of every description.
   const auto configuration_qualifiers =
       configuration_manager.topic_markdown("1.2.2");
-  for (const auto* expected : {"***APPC** APPC controllers",
-                               "***FR** Frame relay lines",
-                               "***LANPRT** LAN printer devices",
-                               "***OPT** Optical devices",
-                               "***SNUF** SNA upline facility devices"}) {
+  for (const auto* expected :
+       {"- **\\*APPC:** APPC controllers and devices only",
+        "- **\\*FR:** Frame relay lines only",
+        "- **\\*LANPRT:** LAN printer devices only",
+        "- **\\*OPT:** Optical devices only",
+        "- **\\*SNUF:** SNA upline facility devices only"}) {
     require(configuration_qualifiers.find(expected) != std::string::npos,
             "visual-bar CFONT row tore a configuration qualifier");
   }
   require(configuration_qualifiers.find("**|**") == std::string::npos,
           "visual-bar CFONT row highlighted its structural marker");
+  // Hosted serves the cross-book links as
+  // `../../DOCNUM/SC41-4801/HDRERRCOD` and `../../DOCNUM/SC41-4801/
+  // CCONTENTS`; the legacy route emitted `#SC41-4801/4801` and split the
+  // label into `"Err [or Code Parameter" in]`.
   require(configuration_qualifiers.find("cselect") == std::string::npos &&
               configuration_qualifiers.find("<BOOK>") == std::string::npos &&
-              configuration_qualifiers.find("SC41-4801/4801") !=
+              configuration_qualifiers.find(
+                  "[\"Error Code Parameter\"](<DOCNUM/SC41-4801/HDRERRCOD>)") !=
+                  std::string::npos &&
+              configuration_qualifiers.find("<DOCNUM/SC41-4801/CCONTENTS>") !=
                   std::string::npos,
           "cross-book table selector metadata leaked or lost its target");
 }
