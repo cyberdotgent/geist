@@ -33,7 +33,7 @@ std::vector<bool> display_geometry_bytes(const AssembledLogicalRecord &assembled
   std::vector<bool> geometry(text_size, false);
   std::size_t byte = 0;
   for (const auto word : assembled.words) {
-    const auto width = token_words_to_ascii({word}).size();
+    const auto width = token_word_ascii_width(word);
     if (display_geometry_word(word)) {
       for (std::size_t at = byte; at < byte + width && at < text_size; ++at)
         geometry[at] = true;
@@ -351,7 +351,7 @@ OutputRangeIR word_range_for_bytes(const AssembledLogicalRecord &assembled,
   OutputRangeIR result{assembled.words.size(), assembled.words.size()};
   std::size_t byte = 0;
   for (std::size_t word = 0; word < assembled.words.size(); ++word) {
-    const auto width = token_words_to_ascii({assembled.words[word]}).size();
+    const auto width = token_word_ascii_width(assembled.words[word]);
     if (result.begin == assembled.words.size() && byte + width > byte_begin) {
       result.begin = word;
     }
@@ -388,7 +388,7 @@ decoded_word_range_to_byte_range(const AssembledLogicalRecord &assembled,
       result.end = byte;
       break;
     }
-    byte += token_words_to_ascii({assembled.words[word]}).size();
+    byte += token_word_ascii_width(assembled.words[word]);
   }
   return result;
 }

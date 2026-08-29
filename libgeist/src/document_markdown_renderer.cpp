@@ -360,6 +360,8 @@ std::string render_block(const BlockNodeIR &block,
           for (std::size_t index = 0; index < node.items.size(); ++index) {
             if (index != 0)
               result.push_back('\n');
+            result.append(
+                static_cast<std::size_t>(node.items[index].depth) * 2, ' ');
             if (node.ordered) {
               result += std::to_string(
                             node.items[index].source_ordinal.value_or(1)) +

@@ -3,27 +3,125 @@
 #include "geist/detail/internal.hpp"
 
 #include <algorithm>
+#include <functional>
+#include <limits>
 #include <map>
 #include <numeric>
 #include <set>
 #include <sstream>
 #include <tuple>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
 
 namespace geist::detail {
 namespace {
 
 using CellKey = std::tuple<std::uint32_t, std::size_t, std::size_t>;
 
+// Ordered containers keyed by CellKey dominated ownership construction: every
+// lookup walked a red-black tree and compared a three-field tuple at each
+// node. The keys are only ever inserted and probed, never iterated in order,
+// so hashing (or, better, direct indexing) is behaviour-preserving.
+struct CellKeyHash {
+  std::size_t operator()(const CellKey& key) const noexcept {
+    auto mix = [](std::size_t seed, std::size_t value) {
+      return seed ^ (value + 0x9e3779b97f4a7c15ULL + (seed << 6) +
+                     (seed >> 2));
+    };
+    std::size_t seed = std::get<0>(key);
+    seed = mix(seed, std::get<1>(key));
+    return mix(seed, std::get<2>(key));
+  }
+};
+
+struct RunRowKeyHash {
+  std::size_t operator()(
+      const std::pair<DisplayRunId, std::size_t>& key) const noexcept {
+    const std::size_t seed = static_cast<std::size_t>(key.first);
+    return seed ^ (key.second + 0x9e3779b97f4a7c15ULL + (seed << 6) +
+                   (seed >> 2));
+  }
+};
+
+constexpr std::size_t no_index = std::numeric_limits<std::size_t>::max();
+
+// Source-cell lookup for the ownership ledger. build_ownership_ir appends one
+// cell per source word in record/token/word order, so the ledger index of a
+// cell is arithmetic once the per-token base offsets are known. Records with a
+// repeated logical record number cannot be resolved that way, so those fall
+// back to the exact ordered map the flat index replaces.
+class SourceCellIndex {
+public:
+  explicit SourceCellIndex(
+      const std::vector<DecodedLogicalRecordSource>& records)
+      : records_(&records) {
+    bases_.resize(records.size());
+    std::size_t next = 0;
+    for (std::size_t record = 0; record < records.size(); ++record) {
+      if (!first_record_.emplace(records[record].logical_record, record).second)
+        duplicated_ = true;
+      const auto& tokens = records[record].tokens;
+      bases_[record].resize(tokens.size());
+      for (std::size_t token = 0; token < tokens.size(); ++token) {
+        bases_[record][token] = next;
+        next += tokens[token].size();
+      }
+    }
+    if (!duplicated_) return;
+    std::size_t index = 0;
+    for (const auto& record : records) {
+      for (std::size_t token = 0; token < record.tokens.size(); ++token) {
+        for (std::size_t word = 0; word < record.tokens[token].size(); ++word) {
+          fallback_.emplace(CellKey{record.logical_record, token, word},
+                            index);
+          ++index;
+        }
+      }
+    }
+  }
+
+  // Ledger index of one source cell, or no_index when the records do not
+  // contain it.
+  std::size_t find(std::uint32_t logical_record, std::size_t token,
+                   std::size_t word) const {
+    if (duplicated_) {
+      const auto found = fallback_.find(CellKey{logical_record, token, word});
+      return found == fallback_.end() ? no_index : found->second;
+    }
+    const auto record = record_index(logical_record);
+    if (record == no_index) return no_index;
+    const auto& tokens = (*records_)[record].tokens;
+    if (token >= tokens.size() || word >= tokens[token].size())
+      return no_index;
+    return bases_[record][token] + word;
+  }
+
+  // First record carrying this logical record number, matching the linear
+  // search it replaces.
+  const DecodedLogicalRecordSource* record(std::uint32_t logical_record) const {
+    const auto index = record_index(logical_record);
+    return index == no_index ? nullptr : &(*records_)[index];
+  }
+
+private:
+  std::size_t record_index(std::uint32_t logical_record) const {
+    const auto found = first_record_.find(logical_record);
+    return found == first_record_.end() ? no_index : found->second;
+  }
+
+  const std::vector<DecodedLogicalRecordSource>* records_;
+  std::unordered_map<std::uint32_t, std::size_t> first_record_;
+  std::vector<std::vector<std::size_t>> bases_;
+  bool duplicated_ = false;
+  std::map<CellKey, std::size_t> fallback_;
+};
+
 bool structural_padding(const TokenWords& token) {
   return !token.empty() &&
          std::all_of(token.begin(), token.end(), [](const auto word) {
            return word == ' ' || word == '?' || word == 0x2666 || word < 0x20;
          });
-}
-
-bool intersects(const OutputRangeIR& range, std::size_t begin,
-                std::size_t end) {
-  return begin < range.end && range.begin < end;
 }
 
 const char* disposition_name(SourceDisposition disposition) {
@@ -72,32 +170,57 @@ RowCellRole row_role(SourceDisposition disposition) {
   }
 }
 
-std::map<CellKey, std::size_t> row_display_columns(
-    const DecodedLogicalRecordSource& record, const PhysicalRowIR& row,
-    std::size_t origin_token) {
-  std::map<CellKey, std::size_t> columns;
-  bool started = false;
-  std::size_t column = 0;
-  for (const auto& source : record.assembled.sources) {
-    if (!started) {
-      started = source.kind == LogicalWordSourceKind::token_word &&
-                source.token_index == origin_token && source.word_index == 0;
-      if (!started) continue;
+// Display columns for one row's source cells. The keys only ever span this
+// record and the half-open token range [origin_token, row.token_end), so the
+// ledger is a dense table rather than an ordered map: the lookups are the same
+// first-writer-wins lookups, without the tuple comparisons.
+class RowDisplayColumns {
+public:
+  RowDisplayColumns(const DecodedLogicalRecordSource& record,
+                    const PhysicalRowIR& row, std::size_t origin_token)
+      : logical_record_(record.logical_record), token_begin_(origin_token) {
+    if (origin_token < row.token_end)
+      columns_.resize(row.token_end - origin_token);
+    bool started = false;
+    std::size_t column = 0;
+    for (const auto& source : record.assembled.sources) {
+      if (!started) {
+        started = source.kind == LogicalWordSourceKind::token_word &&
+                  source.token_index == origin_token && source.word_index == 0;
+        if (!started) continue;
+      }
+      if (source.kind == LogicalWordSourceKind::token_word &&
+          source.token_index >= row.token_end)
+        break;
+      if (source.kind == LogicalWordSourceKind::token_word &&
+          source.token_index >= origin_token &&
+          source.token_index < row.token_end) {
+        auto& words = columns_[source.token_index - origin_token];
+        if (words.size() <= source.word_index)
+          words.resize(source.word_index + 1, no_index);
+        // The ordered map this replaces kept the first entry per key.
+        if (words[source.word_index] == no_index)
+          words[source.word_index] = column;
+      }
+      ++column;
     }
-    if (source.kind == LogicalWordSourceKind::token_word &&
-        source.token_index >= row.token_end)
-      break;
-    if (source.kind == LogicalWordSourceKind::token_word &&
-        source.token_index >= origin_token &&
-        source.token_index < row.token_end) {
-      columns.emplace(CellKey{record.logical_record, source.token_index,
-                              source.word_index},
-                      column);
-    }
-    ++column;
   }
-  return columns;
-}
+
+  std::size_t find(std::uint32_t logical_record, std::size_t token,
+                   std::size_t word) const {
+    if (logical_record != logical_record_ || token < token_begin_)
+      return no_index;
+    const auto slot = token - token_begin_;
+    if (slot >= columns_.size() || word >= columns_[slot].size())
+      return no_index;
+    return columns_[slot][word];
+  }
+
+private:
+  std::uint32_t logical_record_ = 0;
+  std::size_t token_begin_ = 0;
+  std::vector<std::vector<std::size_t>> columns_;
+};
 
 bool conflicts_equal(const OwnershipRunConflictIR& left,
                      const OwnershipRunConflictIR& right) {
@@ -115,17 +238,19 @@ OwnershipIR build_ownership_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
     const LayoutIR& layout) {
   OwnershipIR result;
-  std::map<CellKey, std::size_t> cells;
+  const SourceCellIndex cells(records);
+  std::size_t total_cells = 0;
+  for (const auto& record : records)
+    for (const auto& token : record.tokens) total_cells += token.size();
+  result.cells.reserve(total_cells);
   for (const auto& record : records) {
     for (std::size_t token = 0; token < record.tokens.size(); ++token) {
       for (std::size_t word = 0; word < record.tokens[token].size(); ++word) {
         auto disposition = SourceDisposition::opaque;
         if (word == 0 && record.tokens[token][word] < 4)
           disposition = SourceDisposition::control_operand;
-        const auto index = result.cells.size();
         result.cells.push_back({record.logical_record, token, word,
                                 record.tokens[token][word], disposition, 0, 0});
-        cells.emplace(CellKey{record.logical_record, token, word}, index);
       }
     }
   }
@@ -139,28 +264,52 @@ OwnershipIR build_ownership_ir(
          ++output) {
       byte_offsets[output + 1] =
           byte_offsets[output] +
-          token_words_to_ascii({record.assembled.words[output]}).size();
+          token_word_ascii_width(record.assembled.words[output]);
     }
+    // A word is structural when it meets any segment's opcode or operand
+    // range, so scanning every segment per word is scanning their union.
+    // Merging the ranges once keeps the same answer at a single cursor walk:
+    // the byte offsets increase with the output index.
+    std::vector<std::pair<std::size_t, std::size_t>> structural_ranges;
+    structural_ranges.reserve(record.control_segments.size() * 2);
+    for (const auto& segment : record.control_segments) {
+      for (const auto& range : {segment.opcode_range, segment.operand_range}) {
+        if (range.begin < range.end)
+          structural_ranges.emplace_back(range.begin, range.end);
+      }
+    }
+    std::sort(structural_ranges.begin(), structural_ranges.end());
+    std::size_t merged = 0;
+    for (const auto& range : structural_ranges) {
+      if (merged != 0 && range.first <= structural_ranges[merged - 1].second) {
+        structural_ranges[merged - 1].second =
+            std::max(structural_ranges[merged - 1].second, range.second);
+        continue;
+      }
+      structural_ranges[merged++] = range;
+    }
+    structural_ranges.resize(merged);
+    std::size_t cursor = 0;
     for (std::size_t output = 0; output < record.assembled.sources.size();
          ++output) {
       const auto& source = record.assembled.sources[output];
       if (source.kind != LogicalWordSourceKind::token_word) continue;
-      const auto structural = std::any_of(
-          record.control_segments.begin(), record.control_segments.end(),
-          [&](const auto& segment) {
-            return intersects(segment.opcode_range, byte_offsets[output],
-                              byte_offsets[output + 1]) ||
-                   intersects(segment.operand_range, byte_offsets[output],
-                              byte_offsets[output + 1]);
-          });
+      const auto begin = byte_offsets[output];
+      const auto end = byte_offsets[output + 1];
+      while (cursor < structural_ranges.size() &&
+             structural_ranges[cursor].second <= begin)
+        ++cursor;
+      const auto structural = cursor < structural_ranges.size() &&
+                              structural_ranges[cursor].first < end;
       if (!structural) continue;
-      const auto found = cells.find(
-          {record.logical_record, source.token_index, source.word_index});
-      if (found == cells.end()) {
+      const auto found =
+          cells.find(record.logical_record, source.token_index,
+                     source.word_index);
+      if (found == no_index) {
         result.conflicts.push_back("ownership references a missing source cell");
         continue;
       }
-      auto& cell = result.cells[found->second];
+      auto& cell = result.cells[found];
       if (cell.disposition == SourceDisposition::opaque)
         cell.disposition = SourceDisposition::control_operand;
     }
@@ -175,9 +324,14 @@ OwnershipIR build_ownership_ir(
     SourceDisposition disposition = SourceDisposition::opaque;
     std::size_t row = 0;
   };
+  // One stamp per ledger cell replaces a per-run ordered set of staged cell
+  // indices: a cell is already staged for this run when its stamp matches the
+  // run's generation.
+  std::vector<std::size_t> staged_stamp(result.cells.size(), 0);
+  std::size_t generation = 0;
   for (const auto& run : layout.runs) {
     std::vector<Staged> staged;
-    std::set<std::size_t> staged_cells;
+    ++generation;
     std::optional<OwnershipRunConflictIR> conflict;
     const auto stage = [&](const PhysicalRowIR& row, std::size_t row_index,
                            std::size_t token, std::size_t word,
@@ -190,13 +344,13 @@ OwnershipIR build_ownership_ir(
       candidate.token_index = token;
       candidate.word_index = word;
       candidate.requested = disposition;
-      const auto found = cells.find({row.logical_record, token, word});
-      if (found == cells.end()) {
+      const auto found = cells.find(row.logical_record, token, word);
+      if (found == no_index) {
         candidate.kind = OwnershipConflictKind::missing_source_cell;
         conflict = candidate;
         return;
       }
-      const auto& cell = result.cells[found->second];
+      const auto& cell = result.cells[found];
       candidate.word = cell.word;
       candidate.existing = cell.disposition;
       if (cell.disposition != SourceDisposition::opaque &&
@@ -205,21 +359,20 @@ OwnershipIR build_ownership_ir(
         conflict = candidate;
         return;
       }
-      if (cell.run != 0 || !staged_cells.insert(found->second).second) {
+      const auto already_staged = staged_stamp[found] == generation;
+      if (cell.run != 0 || already_staged) {
         candidate.kind = OwnershipConflictKind::duplicate_row_assignment;
         conflict = candidate;
         return;
       }
-      staged.push_back({found->second, disposition, row_index});
+      staged_stamp[found] = generation;
+      staged.push_back({found, disposition, row_index});
     };
     for (std::size_t row_index = 0;
          row_index < run.rows.size() && !conflict; ++row_index) {
       const auto& row = run.rows[row_index];
-      const auto source = std::find_if(
-          records.begin(), records.end(), [&](const auto& record) {
-            return record.logical_record == row.logical_record;
-          });
-      if (source == records.end()) {
+      const auto* source = cells.record(row.logical_record);
+      if (source == nullptr) {
         result.conflicts.push_back("physical row has no source record");
         break;
       }
@@ -246,20 +399,27 @@ OwnershipIR build_ownership_ir(
     // any marker spelling. Decoder-inserted spaces advance the column but have
     // no source cell of their own, so gaps in this ledger are intentional.
     std::vector<PositionedRowCellIR> positioned_run;
+    positioned_run.reserve(staged.size());
+    // Staged entries are appended in row order, so each row's entries are one
+    // contiguous stretch: a cursor replaces rescanning every staged entry per
+    // row.
+    std::size_t staged_cursor = 0;
     if (!conflict) {
       for (std::size_t row_index = 0;
            row_index < run.rows.size() && !conflict; ++row_index) {
         const auto& row = run.rows[row_index];
-        const auto source = std::find_if(
-            records.begin(), records.end(), [&](const auto& record) {
-              return record.logical_record == row.logical_record;
-            });
-        if (source == records.end()) break;
+        const auto* source = cells.record(row.logical_record);
+        if (source == nullptr) break;
         const auto origin_token = row.marker ? row.token_begin + 1
                                              : row.token_begin;
-        const auto columns = row_display_columns(*source, row, origin_token);
-        for (const auto& entry : staged) {
-          if (entry.row != row_index) continue;
+        const RowDisplayColumns columns(*source, row, origin_token);
+        while (staged_cursor < staged.size() &&
+               staged[staged_cursor].row < row_index)
+          ++staged_cursor;
+        for (std::size_t index = staged_cursor;
+             index < staged.size() && staged[index].row == row_index;
+             ++index) {
+          const auto& entry = staged[index];
           const auto& cell = result.cells[entry.cell];
           PositionedRowCellIR positioned;
           positioned.run = run.id;
@@ -271,8 +431,8 @@ OwnershipIR build_ownership_ir(
           positioned.role = row_role(entry.disposition);
           if (positioned.role != RowCellRole::boundary) {
             const auto found = columns.find(
-                {cell.logical_record, cell.token_index, cell.word_index});
-            if (found == columns.end()) {
+                cell.logical_record, cell.token_index, cell.word_index);
+            if (found == no_index) {
               OwnershipRunConflictIR candidate;
               candidate.run = run.id;
               candidate.row_index = row_index;
@@ -286,7 +446,7 @@ OwnershipIR build_ownership_ir(
               conflict = candidate;
               break;
             }
-            positioned.display_column = found->second;
+            positioned.display_column = found;
           }
           positioned_run.push_back(std::move(positioned));
         }
@@ -331,20 +491,29 @@ bool verify_ownership_ir(
       });
   if (ownership.cells.size() != expected)
     return fail("ownership ledger does not cover every source cell");
-  std::set<CellKey> unique;
   struct RowCounts {
     std::size_t visible = 0;
     std::size_t markers = 0;
   };
-  std::map<std::pair<DisplayRunId, std::size_t>, RowCounts> row_counts;
-  std::map<CellKey, const OwnedSourceCellIR*> owned_cells;
+  std::unordered_map<std::pair<DisplayRunId, std::size_t>, RowCounts,
+                     RunRowKeyHash>
+      row_counts;
+  std::unordered_map<CellKey, const OwnedSourceCellIR*, CellKeyHash>
+      owned_cells;
+  owned_cells.reserve(ownership.cells.size());
+  std::unordered_set<DisplayRunId> conflicted_runs;
+  for (const auto& conflict : ownership.run_conflicts)
+    conflicted_runs.insert(conflict.run);
   for (const auto& cell : ownership.cells) {
-    if (!unique.emplace(cell.logical_record, cell.token_index, cell.word_index)
+    // One index serves both roles: the ledger is duplicate-free exactly when
+    // every cell key is inserted for the first time.
+    if (!owned_cells
+             .emplace(CellKey{cell.logical_record, cell.token_index,
+                              cell.word_index},
+                      &cell)
              .second)
       return fail("ownership ledger contains duplicate source cells");
-    owned_cells.emplace(
-        CellKey{cell.logical_record, cell.token_index, cell.word_index}, &cell);
-    if (cell.run != 0 && ownership_run_conflicted(ownership, cell.run))
+    if (cell.run != 0 && conflicted_runs.count(cell.run) != 0)
       return fail("conflicted display run still owns a source cell");
     auto& counts = row_counts[{cell.run, cell.row_index}];
     if (cell.disposition == SourceDisposition::visible_content)
@@ -358,7 +527,7 @@ bool verify_ownership_ir(
       return fail("ownership conflict references a run outside the layout");
   }
   for (const auto& run : layout.runs) {
-    if (ownership_run_conflicted(ownership, run.id)) continue;
+    if (conflicted_runs.count(run.id) != 0) continue;
     for (std::size_t row = 0; row < run.rows.size(); ++row) {
       const auto found = row_counts.find({run.id, row});
       if (found == row_counts.end() || found->second.visible == 0)
@@ -378,7 +547,8 @@ bool verify_ownership_ir(
     return fail("run-scoped ownership conflicts differ from source geometry");
   if (ownership.row_cells.size() != canonical.row_cells.size())
     return fail("positioned row-cell ledger does not conserve row ownership");
-  std::set<CellKey> positioned_unique;
+  std::unordered_set<CellKey, CellKeyHash> positioned_unique;
+  positioned_unique.reserve(ownership.row_cells.size());
   for (std::size_t index = 0; index < ownership.row_cells.size(); ++index) {
     const auto& cell = ownership.row_cells[index];
     const auto& expected_cell = canonical.row_cells[index];

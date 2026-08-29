@@ -343,6 +343,17 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
                          return anchor.position == position;
                        });
   };
+  // A table or figure span placed between two items of one list splits the
+  // list, exactly as an anchor does: the run below only visits the position
+  // it stops at, so a span inside an unbroken run would never be emitted
+  // (SC09-2417-00 6.2.3, where `cz OFF TABLE` stands between two
+  // `cz FLOW LI` items of the same `cz FLOW UL`).
+  const auto span_at = [&](std::size_t position) {
+    return std::any_of(prose.spans.begin(), prose.spans.end(),
+                       [&](const auto& span) {
+                         return span.position == position;
+                       });
+  };
   // Items of one CZ list can be interleaved with paragraphs (a `cz FLOW P`
   // inside a list item); each run of items becomes one list block and the
   // ordinal keeps counting across the runs.
@@ -446,7 +457,7 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
                            entry.slices.end());
         list.entries.push_back(std::move(lowered));
         ++index;
-        if (anchor_at(index)) break;
+        if (anchor_at(index) || span_at(index)) break;
       }
       document.blocks.push_back(
           {std::move(list),
@@ -476,7 +487,7 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
       list.items.push_back(std::move(lowered));
       ++index;
       // An anchor inside a list splits it.
-      if (anchor_at(index)) break;
+      if (anchor_at(index) || span_at(index)) break;
     }
     document.blocks.push_back(
         {std::move(list), origin(std::move(list_slices), "prose list")});
