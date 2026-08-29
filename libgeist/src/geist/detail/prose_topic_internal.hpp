@@ -335,6 +335,10 @@ struct BoxLine {
 
 struct BoxRegion {
   std::vector<BoxLine> lines;  // source order, control-only lines dropped
+  // Subject-index display lines the region skipped: hosted displays no part
+  // of them, but their words are the topic's index terms, so the line builder
+  // lowers them instead of printing them.
+  std::vector<BoxLine> index_lines;
   std::size_t begin_record = 0;
   std::size_t begin_token = 0;  // the top rule's length byte
   std::size_t end_record = 0;

@@ -60,6 +60,16 @@ struct DisplayLineCellIR {
 std::vector<DisplayLineCellIR> display_line_cells(
     const DecodedLogicalRecordSource& record, const DisplayLineIR& line);
 
+// One trace line per display line: index, the length byte's token and encoded
+// value, the line's token range, the hosted display text, and a per-column
+// class string (`.` space, `B` box drawing `U+2500`-`U+25FF`, `?` the
+// decoder's unmapped word `U+FFFF`, `x` any other word).  The class string is
+// what makes a placeholder site decidable: it separates a drawn rule from a
+// placeholder glued into a text run without reading the flattened string.
+std::string format_display_line_ir(const DecodedLogicalRecordSource& record,
+                                   const DisplayLineIR& line,
+                                   std::size_t index);
+
 // Display-line corroboration of the control-shaped words the flattened
 // decoded string splits a segment on.
 //

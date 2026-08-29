@@ -1,4 +1,5 @@
 #include "geist/detail/display_lines.hpp"
+#include <sstream>
 
 #include "geist/detail/figure_block_ir.hpp"
 
@@ -87,6 +88,30 @@ std::vector<DisplayLineCellIR> display_line_cells(
                       cells.push_back({word, token});
                     });
   return cells;
+}
+
+std::string format_display_line_ir(const DecodedLogicalRecordSource& record,
+                                   const DisplayLineIR& line,
+                                   const std::size_t index) {
+  const auto& prefix = record.ir.tokens[line.prefix_token];
+  std::string classes;
+  for (const auto word : display_line_columns(record, line)) {
+    if (word == ' ')
+      classes.push_back('.');
+    else if (word >= 0x2500 && word <= 0x25ff)
+      classes.push_back('B');
+    else if (word == 0xffff)
+      classes.push_back('?');
+    else
+      classes.push_back('x');
+  }
+  std::ostringstream out;
+  out << "line=" << index << " prefix_token=" << line.prefix_token
+      << " length=" << prefix.encoded.value << " tokens=["
+      << line.prefix_token + 1 << ',' << line.token_end << ") cols="
+      << classes.size() << " class='" << classes << "' text='"
+      << display_line_text(record, line) << '\'';
+  return out.str();
 }
 
 namespace {

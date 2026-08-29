@@ -165,6 +165,19 @@ struct LineBuilder {
     return nullptr;
   }
 
+  // A displayed word already stands in front of `view` on its own display
+  // line, so `view` is inside a drawn row rather than in front of one.  This
+  // is the same corroboration `demote_display_line_owned_controls` applies to
+  // a control-shaped word (Format/logical-controls.md, "A Control-Shaped Word
+  // Inside A Row Is Display Text"), read here for box-drawing runs.
+  bool display_word_precedes_in_line(const TokenView& view) {
+    const auto* line = display_line_of(view.record, view.token);
+    if (line == nullptr || view.token == line->prefix_token) return false;
+    for (auto token = line->prefix_token + 1; token < view.token; ++token)
+      if (is_visible(view_token(records, view.record, token))) return true;
+    return false;
+  }
+
   // A display line whose whole visible content is one `c.<xx>` body-control
   // opcode standing at the line origin, with at most one operand word after
   // it, is a body control line and draws nothing.  It reaches the line
@@ -467,6 +480,47 @@ struct LineBuilder {
       out.lines.push_back(std::move(row));
     }
     trailing_bare = 0;
+    // A subject-index line inside the region draws nothing (hosted carries no
+    // `SI` bytes), so it contributes no row -- but its words are an index
+    // term, exactly as an `SI` line outside a box is.  Its tokens take the
+    // index roles rather than `text`, which keeps the block-conservation
+    // check honest: an unprinted word must not be claimed as prose.
+    for (const auto& index_line : region.index_lines) {
+      const auto& record = records[index_line.record];
+      ProseIndexTermIR term;
+      std::vector<std::pair<std::size_t, std::size_t>> refs;
+      bool keyword = true;
+      for (auto token = index_line.line.prefix_token + 1;
+           token < index_line.line.token_end; ++token) {
+        const auto view = view_token(records, index_line.record, token);
+        if (is_bare(view)) {
+          if (!assign(view, ProseTokenRoleIR::spacing)) return false;
+          continue;
+        }
+        if (is_space_run(view)) {
+          if (!assign(view, ProseTokenRoleIR::fill)) return false;
+          continue;
+        }
+        if (keyword) {
+          keyword = false;
+          if (ascii_lower(body_text(view)) != "si")
+            return fail(error, "box index line does not open with SI");
+          if (!assign(view, ProseTokenRoleIR::index_keyword)) return false;
+          continue;
+        }
+        if (!term.term.empty() && view.prefix != 0 && view.prefix != 1)
+          term.term.push_back(' ');
+        term.term += body_text(view);
+        refs.push_back({index_line.record, token});
+        if (!assign(view, ProseTokenRoleIR::index_term)) return false;
+      }
+      (void)record;
+      term.term = collapse_ascii_whitespace(term.term);
+      if (term.term.empty())
+        return fail(error, "box index line has an empty index term");
+      term.slices = slices_for(records, refs);
+      out.index_terms.push_back(std::move(term));
+    }
     // Every token from the top rule's length byte to the bottom rule's last
     // token belongs to the region.
     for (auto record = region.begin_record; record <= region.end_record;
@@ -1247,7 +1301,38 @@ struct LineBuilder {
     // 19961114175628, reproduces the `PURCHASE ORDER FORM` frame line for
     // line).  The cells carry the hosted display glyph of each word, exactly
     // as an admitted drawn box region does.
-    if (xmp_mode && is_placeholder_run(view) &&
+    // The same holds outside a verbatim region wherever the record's own
+    // display line puts a displayed word in front of the run: the run then
+    // stands inside a drawn row, so it is that row's display content and not
+    // row geometry.  It is the rule `demote_display_line_owned_controls`
+    // applies to control-shaped words, read for box-drawing runs.  Hosted
+    // evidence on four books:
+    //   SC24-546 record 44 line 17
+    //     `       The >>___ symbol indicates the beginning of a statement.`
+    //     -- `The` and `>>` precede the three `U+2500` cells (DT
+    //     19940323131240);
+    //   SC09-2417-00 record 715 line 26
+    //     `   >>__extern__"string-literal"__{ declaration-list }____...__><`
+    //     -- a railroad diagram whose first rule follows `>>` (`SC09-241`
+    //     DT 19961114175628);
+    //   SC33-033 record 75 line 14
+    //     `    ------------------ General-Use Programming Interface ---...`
+    //     -- an ASCII-dash fence whose first and last cell are drawn
+    //     (DT 19930422134757);
+    //   SC24-5520-00 record 45 line 12 `    <-________ 4 bytes _____->`,
+    //     the arrow caption above a drawn box.
+    // A run with nothing displayed in front of it on its line keeps every
+    // reading it had: the box region, the `U+2500` rule line and the marker
+    // slot all start their own line.
+    // The row must already carry a display cell as well: a control opcode is
+    // a visible token of its display line but draws nothing, and the `ST`
+    // title line is written `ST` + slot + title (ACPZMST1 record 284 tokens
+    // 26/28/29 `ST` `U+2502` `/`), where the box word is the documented title
+    // marker slot and not a drawn cell.
+    if (is_placeholder_run(view) &&
+        (xmp_mode ||
+         (line_open && line_visible_cells != 0 &&
+          display_word_precedes_in_line(view))) &&
         std::all_of(view.body.begin(), view.body.end(),
                     [](const auto word) { return box_word(word); })) {
       if (!ensure_line()) return false;
@@ -1493,7 +1578,17 @@ struct LineBuilder {
       pending_space = view.prefix != 2;
       return true;
     }
-    if (line_visible_cells == 0 && is_glyph(view) && view.width == 1) {
+    // The bullet is a dictionary word, so the encoder is free to store it in a
+    // two-byte token; only the decoder's unmapped word has to stay one byte
+    // (a width-2 `?` is a question mark, see the CZ separator branch above).
+    // Byte-level evidence: QS3X36CM record 7 token 81 is value 56323 width 2,
+    // one word `U+2666`, opening the display line
+    // `   °   Press F4 on a blank command line ...` which hosted DT
+    // 19910524075122 serves verbatim; IBMMMSTR record 44 token 145 is value
+    // 46595 width 2 opening `   °   Compiler control messages (numbers 0002
+    // through 0049) are mainly`, served by DT 19911004151140.
+    if (line_visible_cells == 0 && is_glyph(view) &&
+        (view.width == 1 || is_bullet_glyph(view))) {
       // A glyph opening the line is the list bullet.
       // The bullet keeps the spacing that separates it from whatever the row
       // already carries: a change bar in front of it holds its own column and

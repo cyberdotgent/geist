@@ -1,4 +1,5 @@
 #include "geist/detail/internal.hpp"
+#include "geist/detail/display_lines.hpp"
 #include "geist/detail/book_topic_catalog_ir.hpp"
 #include "geist/detail/fixed_table_block_ir.hpp"
 #include "geist/detail/comment_delivery_ir.hpp"
@@ -473,6 +474,13 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
           detail::format_control_segment_ir(segment));
     for (const auto& token : source.ir.tokens)
       destination->ir_tokens.push_back(detail::format_logical_token_ir(token));
+    if (const auto lines = detail::record_display_lines(source)) {
+      for (std::size_t index = 0; index < lines->size(); ++index)
+        destination->ir_display_lines.push_back(
+            detail::format_display_line_ir(source, (*lines)[index], index));
+    } else {
+      destination->ir_display_lines.push_back("display lines do not parse");
+    }
   }
   for (const auto& run : layout.runs) {
     for (const auto& row : run.rows) {

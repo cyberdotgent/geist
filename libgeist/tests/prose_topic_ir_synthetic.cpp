@@ -765,11 +765,14 @@ void negative_fixtures() {
   // Plural CFONT header over repeated row controls: the legacy route draws
   // this NetView directory list as a table; prose must not flatten it.
   reject("SC31-711.boo", "1.2", "implicit two-column grid");
-  // A box-drawing run that opens no drawn box region and stands inside a
-  // text run stays fail-closed (SC24-546 1.3.1, `The >> ___ symbol indicates
-  // the beginning of a statement`).
+  // A box-drawing run with a displayed word in front of it on its own display
+  // line is that row's text and is now printed (SC24-546 record 44 line 17,
+  // `       The >>___ symbol indicates the beginning of a statement.`).  What
+  // stays fail-closed is the run that opens its line: record 45 line 16 is
+  // the alternative branch `                      |_optional_item_|` of a
+  // railroad syntax diagram, which draws no closed box region.
   reject("SC24-546.boo", "1.3.1",
-         "is followed by visible text at record 44 token 90");
+         "is followed by visible text at record 45 token 137");
   // A trailing menu needs the book catalog to validate its targets.
   {
     auto extracted = extract("SC31-711.boo", "2.3.2");

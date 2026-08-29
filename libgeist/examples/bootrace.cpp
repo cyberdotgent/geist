@@ -12,7 +12,7 @@ namespace {
 
 void usage() {
   std::cerr << "usage: bootrace <book.boo> <topic-id> "
-               "[--all|--records|--segments|--fonts|--ir|--tokens]\n"
+               "[--all|--records|--segments|--fonts|--ir|--tokens|--lines]\n"
                "       bootrace <book.boo> --coverage\n";
 }
 
@@ -90,8 +90,9 @@ int main(int argc, char** argv) {
   const auto show_fonts = mode == "--all" || mode == "--fonts";
   const auto show_ir = mode == "--all" || mode == "--ir";
   const auto show_tokens = mode == "--tokens";
+  const auto show_lines = mode == "--lines";
   if (!show_records && !show_segments && !show_fonts && !show_ir &&
-      !show_tokens) {
+      !show_tokens && !show_lines) {
     usage();
     return 2;
   }
@@ -167,6 +168,15 @@ int main(int argc, char** argv) {
       for (const auto& record : trace)
         for (const auto& token : record.ir_tokens)
           std::cout << record.logical_record << "\t" << tsv_escape(token)
+                    << "\n";
+    }
+
+    if (show_lines) {
+      std::cout << "# display lines\n";
+      std::cout << "logical_record\tdetail\n";
+      for (const auto& record : trace)
+        for (const auto& line : record.ir_display_lines)
+          std::cout << record.logical_record << "\t" << tsv_escape(line)
                     << "\n";
     }
 

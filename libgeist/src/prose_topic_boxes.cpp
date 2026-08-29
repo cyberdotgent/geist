@@ -92,6 +92,7 @@ struct Candidate {
   std::size_t left = 0;
   std::size_t right = 0;
   bool control_only = false;
+  bool index = false;
   std::string text;
   std::vector<std::uint16_t> columns;
 };
@@ -122,6 +123,36 @@ bool control_only_line(const DecodedLogicalRecordSource& record,
   return true;
 }
 
+// A subject-index display line: the line's first displayable token is the `SI`
+// keyword.  Hosted BookServer displays no part of such a line -- it carries
+// zero `SI` bytes -- so an index entry standing between two rows of a drawn
+// box does not interrupt the box any more than a `cfont` control line does.
+// The same reading is already the fixed-table block's
+// (`fixed_table_block_ir.cpp`, preformatted `SI` lines).
+//
+// Evidence: QSYSNEWG record 80 draws the `What Are Entry Fields?` box from
+// display line 14 (`    ___ What Are Entry Fields? ______ ...`) to its bottom
+// rule, and lines 17/18 inside it are `SI field, field keys` and `SI keys,
+// field`; hosted DT 19910524085706 serves the box unbroken and prints
+// neither entry.  IEAC6MST record 63 line 27 opens the `Performance
+// Consideration` box and lines 29/30 are `SI DASD (direct access storage
+// device), performance ...` and `SI tape, performance in dump processing`;
+// hosted DT 19920124000100 serves the same shape.
+bool index_line(const DecodedLogicalRecordSource& record,
+                const DisplayLineIR& line) {
+  for (auto token = line.prefix_token + 1;
+       token < line.token_end && token < record.tokens.size(); ++token) {
+    const auto& words = record.tokens[token];
+    if (words.empty()) continue;
+    if (std::all_of(words.begin(), words.end(), [](const auto word) {
+          return word < 4 || word == ' ' || word == 0xA0;
+        }))
+      continue;
+    return ascii_lower(token_words_to_ascii(words)) == "si";
+  }
+  return false;
+}
+
 } // namespace
 
 std::vector<BoxRegion> plan_boxes(
@@ -139,7 +170,9 @@ std::vector<BoxRegion> plan_boxes(
       candidate.text = display_line_text(record, line);
       candidate.kind =
           classify(candidate.columns, candidate.left, candidate.right);
-      candidate.control_only = control_only_line(record, line);
+      candidate.index = index_line(record, line);
+      candidate.control_only =
+          control_only_line(record, line) || candidate.index;
       candidates.push_back(std::move(candidate));
     }
   }
@@ -171,6 +204,11 @@ std::vector<BoxRegion> plan_boxes(
     BoxRegion region;
     for (auto cursor = index; cursor <= end; ++cursor) {
       const auto& candidate = candidates[cursor];
+      if (candidate.index) {
+        region.index_lines.push_back({candidate.record, candidate.line,
+                                      candidate.text, candidate.columns});
+        continue;
+      }
       if (candidate.control_only) continue;
       region.lines.push_back(
           {candidate.record, candidate.line, candidate.text, candidate.columns});
