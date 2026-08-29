@@ -1,5 +1,6 @@
 #include "geist/detail/trap_catalog_ir.hpp"
 
+#include "geist/detail/display_lines.hpp"
 #include "geist/detail/internal.hpp"
 
 #include <algorithm>
@@ -117,14 +118,80 @@ struct RowRef {
 
 struct SourceIndex {
   std::map<CellKey, const OwnedSourceCellIR *> cells;
+  // Display-line length bytes, per record. A record payload is a run of
+  // `<length byte><that many bytes of tokens>` display lines
+  // (Format/logical-controls.md, "Display Lines Inside A Record Payload");
+  // the length byte draws nothing whatever dictionary word it resolves to.
+  // N2AH1MST record 2284 token 0 is the one-byte value 31 that spells `are`
+  // and opens the 31-byte line `   IDC0064I text UPDATED IN CARTRIDGE ...`,
+  // which the flattened splitter had cut off as a leading text segment.
+  std::set<TokenKey> line_prefix_tokens;
+  // Tokens of a body-control display line. A line whose whole visible content
+  // is one `c.<xx>` opcode at the line origin with at most one operand word
+  // after it draws nothing (`prose_topic_lines.cpp`, `body_control_line`:
+  // hosted prints neither SC33-033 PREFACE.1's `c.cc 4` nor DREICMST
+  // 1.5.6.3's bare `c.cp`). N2AH1MST record 261 line 3 is exactly `c.cc 15`,
+  // and the flattened splitter left it inside the surrounding text segment.
+  std::set<TokenKey> body_control_tokens;
+  // Tokens of a display line no physical row covers. LayoutIR builds no row
+  // for a footnote block's payload (N2AH1MST record 177 line 40,
+  // `    (*) IBM is a trademark of the IBM Corporation.`, inside
+  // `SRFTNFTNUNIQ16` ... `SREFTN`), yet the display line is there and hosted
+  // 2.0 prints it. Such a line's printable cells are admitted as unrowed
+  // text rather than treated as an ownership gap.
+  std::set<TokenKey> unrowed_line_tokens;
+  // Length bytes of empty display lines, per record and in token order. An
+  // empty display line is the only paragraph break a record spells.
+  std::map<std::uint32_t, std::vector<std::size_t>> empty_line_prefixes;
   std::map<TokenKey, RowRef> marker_rows;
   std::map<TokenKey, RowRef> rows_by_token;
   std::map<TokenKey, std::vector<RowRef>> rows_by_segment;
 };
 
-SourceIndex index_sources(const LayoutIR &layout,
+SourceIndex index_sources(const std::vector<DecodedLogicalRecordSource> &records,
+                          const LayoutIR &layout,
                           const OwnershipIR &ownership) {
   SourceIndex index;
+  const auto visible_word = [](const LogicalTokenIR &token) {
+    return std::any_of(token.decoded_words.begin(), token.decoded_words.end(),
+                       [](const auto word) { return word > ' '; });
+  };
+  const auto body_control_opcode = [](const LogicalTokenIR &token) {
+    std::string text;
+    for (const auto word : token.decoded_words) {
+      if (word > 0xff)
+        return false;
+      text.push_back(static_cast<char>(word));
+    }
+    if (text.size() < 4 || text.compare(0, 2, "c.") != 0)
+      return false;
+    return std::all_of(text.begin() + 2, text.end(), [](const unsigned char ch) {
+      return std::islower(ch) != 0;
+    });
+  };
+  for (const auto &record : records)
+    if (const auto lines = record_display_lines(record))
+      for (const auto &line : *lines) {
+        index.line_prefix_tokens.emplace(record.logical_record,
+                                         line.prefix_token);
+        const auto first = line.prefix_token + 1;
+        if (first >= line.token_end)
+          index.empty_line_prefixes[record.logical_record].push_back(
+              line.prefix_token);
+        if (first >= line.token_end || first >= record.ir.tokens.size() ||
+            !body_control_opcode(record.ir.tokens[first]))
+          continue;
+        std::size_t further = 0;
+        for (auto token = first + 1;
+             token < line.token_end && token < record.ir.tokens.size(); ++token)
+          if (visible_word(record.ir.tokens[token]))
+            ++further;
+        if (further > 1)
+          continue;
+        for (auto token = first;
+             token < line.token_end && token < record.ir.tokens.size(); ++token)
+          index.body_control_tokens.emplace(record.logical_record, token);
+      }
   for (const auto &cell : ownership.cells)
     index.cells.emplace(
         CellKey{cell.logical_record, cell.token_index, cell.word_index},
@@ -142,7 +209,84 @@ SourceIndex index_sources(const LayoutIR &layout,
       index.rows_by_segment[{row.logical_record, row.segment_index}]
           .push_back(ref);
     }
+  for (const auto &record : records)
+    if (const auto lines = record_display_lines(record))
+      for (const auto &line : *lines) {
+        bool rowed = false;
+        for (auto token = line.prefix_token + 1; token < line.token_end; ++token)
+          if (index.rows_by_token.count({record.logical_record, token}) != 0)
+            rowed = true;
+        if (rowed)
+          continue;
+        for (auto token = line.prefix_token + 1; token < line.token_end; ++token)
+          index.unrowed_line_tokens.emplace(record.logical_record, token);
+      }
   return index;
+}
+
+// A segment whose every token is a display-line length byte is not a
+// control at all: the byte is the row-control slot and only happens to
+// resolve to a control-shaped dictionary word. N2AH1MST record 2365 token 0
+// is the one-byte value 37 spelling `cfont`, which opens the 37-byte line
+// `   IDC0874I FOLLOWING NOT ALPHABETIC - INSUFFICIENT WORK SPACE FOR SORT`
+// whose real `cfont` control is token 1.
+// The segment's opcode is the display line's length byte: the flattened
+// splitter read the byte as a control word and cut a segment there, but the
+// byte is the row-control slot and the rest of the segment is the line's
+// display text. N2AH1MST record 2400 token 95 is the one-byte value 37
+// spelling `cfont`, and tokens 96-120 are the headline
+// `   IDC01551I type CACHING STATUS: stat FOR SD X'ss' DEV X'dd''`.
+bool segment_opcode_is_display_line_prefix(
+    const SourceIndex &index, const DecodedLogicalRecordSource &record,
+    const ControlSegmentIR &segment) {
+  return !segment.source_tokens.empty() &&
+         index.line_prefix_tokens.count(
+             {record.logical_record, segment.source_tokens.front()}) != 0;
+}
+
+bool segment_is_display_line_prefix(const SourceIndex &index,
+                                    const DecodedLogicalRecordSource &record,
+                                    const ControlSegmentIR &segment) {
+  return !segment.source_tokens.empty() &&
+         std::all_of(segment.source_tokens.begin(), segment.source_tokens.end(),
+                     [&](const auto token) {
+                       return index.line_prefix_tokens.count(
+                                  {record.logical_record, token}) != 0;
+                     });
+}
+
+// A control that draws nothing of its own: `c.sp` is a SCRIPT vertical-space
+// directive and `cselect` marks a hotspot region of the *following* display
+// line (N2AH1MST record 252 line 10 is the whole line `cselect 34 4
+// FTNFTNUNIQ17`, and the `(*)` it points at is drawn by line 11). Neither
+// contributes a display cell, so both are admitted only after proving they
+// own no visible content.
+bool nondrawing_control(const SourceIndex &index,
+                        const DecodedLogicalRecordSource &record,
+                        const ControlSegmentIR &segment) {
+  if (segment.kind != BookControlKind::spacing &&
+      segment.kind != BookControlKind::select)
+    return false;
+  for (const auto token : segment.source_tokens)
+    for (std::size_t word = 0; word < record.ir.tokens[token].decoded_words.size();
+         ++word) {
+      const auto cell = index.cells.find({record.logical_record, token, word});
+      if (cell != index.cells.end() &&
+          cell->second->disposition == SourceDisposition::visible_content)
+        return false;
+    }
+  return true;
+}
+
+bool empty_line_between(const SourceIndex &index, std::uint32_t record,
+                        std::size_t from_token, std::size_t to_token) {
+  const auto found = index.empty_line_prefixes.find(record);
+  if (found == index.empty_line_prefixes.end())
+    return false;
+  for (const auto prefix : found->second)
+    if (prefix > from_token && prefix < to_token)
+      return true;
+  return false;
 }
 
 bool all_space_token(const LogicalTokenIR &token) {
@@ -211,12 +355,21 @@ struct Piece {
 
 // Projects one decoded segment payload into text, ledgering every payload
 // cell with exactly one role.
+// `highlighted_columns` is the display width the segment's own CFONT spans
+// reach from the first span's column. A layout glyph inside that width is
+// highlighted display text, not a marker slot: N2AH1MST record 197 line 5 is
+// `   AHL040 NOT A LEGAL FORM OF THE MACRO. CHECK THE MF=` and its control
+// `cfont … 51 3 2` highlights `MF=` through column 54, so the closing `=`
+// (its own one-byte token at the segment end) is the third character of a
+// highlighted word. Hosted serves `<B>MF=</B>`.
 bool walk_payload(const DecodedLogicalRecordSource &record,
                   const ControlSegmentIR &segment, const SourceIndex &index,
                   TrapTextIR &out, std::vector<TrapSourceCellIR> &cells,
-                  std::string *error, bool operand_tail = false) {
-  const auto range =
-      decoded_byte_range_to_word_range(record.assembled, segment.payload_range);
+                  std::string *error, bool operand_tail = false,
+                  std::size_t highlighted_columns = 0,
+                  bool whole_segment = false) {
+  const auto range = decoded_byte_range_to_word_range(
+      record.assembled, whole_segment ? segment.complete : segment.payload_range);
   std::vector<Piece> pieces;
   std::string display;
   std::string gap;
@@ -235,6 +388,9 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
           }))
         rows.push_back(row);
   };
+  // Display width of the pieces emitted so far, in the same accumulation the
+  // final `display` string uses, so a CFONT column can be tested mid-walk.
+  std::size_t running = 0;
   const auto emit_char = [&](std::size_t token, char ch, bool glue) {
     if (pieces.empty() || pieces.back().token != token) {
       Piece piece;
@@ -242,11 +398,14 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
       piece.glue = glue || (!pending_space && !pieces.empty());
       piece.display_gap = piece.glue ? std::string{} : gap;
       piece.cell_begin = cells.size();
+      if (!pieces.empty() && !piece.glue)
+        running += piece.display_gap.size();
       pieces.push_back(std::move(piece));
     }
     pending_space = false;
     gap.clear();
     pieces.back().text.push_back(ch);
+    ++running;
   };
   for (std::size_t output = range.begin;
        output < range.end && output < record.assembled.sources.size();
@@ -265,6 +424,9 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
     const auto value = record.ir.tokens[token].decoded_words[word];
     if (!first_token)
       first_token = token;
+    if (!pieces.empty() && last_token &&
+        empty_line_between(index, record.logical_record, *last_token, token))
+      out.paragraph_break = true;
     last_token = token;
     const auto covering = index.rows_by_token.find({record.logical_record, token});
     if (covering != index.rows_by_token.end()) {
@@ -283,10 +445,31 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
     cell.word = value;
     cell.disposition = disposition;
     const auto marker = index.marker_rows.find({record.logical_record, token});
-    if (marker != index.marker_rows.end()) {
+    if (index.line_prefix_tokens.count({record.logical_record, token}) != 0 ||
+        index.body_control_tokens.count({record.logical_record, token}) != 0) {
+      // The display line's length byte is the row-control slot, always and
+      // only; whatever word it resolves to it draws nothing. Nor does a
+      // body-control line.
+      cell.role = TrapCellRoleIR::layout_marker;
+      pending_space = true;
+      if (gap.empty())
+        gap.push_back(' ');
+    } else if (marker != index.marker_rows.end()) {
       add_row(marker->second);
       cell.role = marker_role(record, *marker->second.row, pieces.empty());
-      if (cell.role == TrapCellRoleIR::punctuation_marker) {
+      // A LayoutIR marker slot inside a column the segment's own CFONT
+      // highlights is display text, not a row control: N2AH1MST record 2171
+      // line 10 is `   ICT1033 CRYPTOGRAPHY CIPHER FUNCTION FAILED -  CODE
+      // xx` and its `cfont ... 47 1 2 ...` highlights the `-` at column 47,
+      // which hosted serves as `<B>-</B>`. The display line's length byte is
+      // the only true row-control slot, and this token is not one.
+      if (cell.role == TrapCellRoleIR::layout_marker &&
+          marker->second.row->marker->decoded_text.size() == 1 &&
+          value >= 0x20 && value <= 0xff && value != ' ' &&
+          running + 1 <= highlighted_columns) {
+        cell.role = TrapCellRoleIR::text;
+        emit_char(token, static_cast<char>(value), false);
+      } else if (cell.role == TrapCellRoleIR::punctuation_marker) {
         if (value <= 0xff)
           emit_char(token, static_cast<char>(value), true);
       } else if (cell.role == TrapCellRoleIR::lexical_marker) {
@@ -331,7 +514,8 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
       // before a wide padding run), and for the SRMSG operand tail. An
       // unowned printable cell anywhere else is not explained.
       if (covering != index.rows_by_token.end() ||
-          (!operand_tail && segment.segment_index != 0 && !row_seen))
+          (!operand_tail && segment.segment_index != 0 && !row_seen &&
+           index.unrowed_line_tokens.count({record.logical_record, token}) == 0))
         return fail(error, "trap payload has an unowned cell outside a record "
                            "prefix or row gap at LR" +
                                std::to_string(record.logical_record) +
@@ -348,6 +532,18 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
   // open. Such glyphs are conserved as terminal_glyph cells.
   std::string preceding;
   std::vector<Piece> kept;
+  // Display offsets of the pieces before any of them is withheld, so a CFONT
+  // column can be compared against them.
+  std::vector<std::size_t> piece_end;
+  {
+    std::string preview;
+    for (const auto &piece : pieces) {
+      if (!preview.empty() && !piece.glue)
+        preview += piece.display_gap;
+      preview += piece.text;
+      piece_end.push_back(preview.size());
+    }
+  }
   for (std::size_t index = 0; index < pieces.size(); ++index) {
     const auto &piece = pieces[index];
     const auto &token = record.ir.tokens[piece.token];
@@ -357,7 +553,10 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
         (next < record.ir.tokens.size() &&
          all_space_token(record.ir.tokens[next]) &&
          record.ir.tokens[next].decoded_words.size() >= 2);
-    if (token.encoded.width == 1 && piece.text.size() == 1 &&
+    const auto inside_highlight =
+        out.display_text.empty() && piece_end[index] <= highlighted_columns;
+    if (!inside_highlight && token.encoded.width == 1 &&
+        piece.text.size() == 1 &&
         layout_glyph(piece.text.front()) && followed_by_padding &&
         !closes_open_delimiter(preceding, piece.text.front())) {
       for (auto &cell : cells)
@@ -397,55 +596,77 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
 }
 
 
-// Leading chain of CFONT spans starting at the catalog origin column whose
-// members follow one another with single-space gaps.
-std::vector<FontSpanIR> leading_chain(const FontControlSpansIR &spans,
-                                      std::size_t origin_column) {
+// Leading run of CFONT spans that opens the row, verified against the row's
+// own display text: the run starts at `origin_column`, and between two
+// consecutive spans the display text holds nothing but spaces. Nothing about
+// the gap width is assumed. N2AH1MST record 2280 line 12 (`cfont 3 8 2 12 7 2
+// 19 3 V` over `IDC0014I LASTCC=cde`) abuts two spans with no gap at all
+// because the word is `LASTCC=cde`; record 305 line 26 (`cfont … 20 6 2 28 5
+// 2 …` over `AMA133I CHECKSUM ERROR.  NO-GO SWITCH SET`) leaves two spaces
+// after the sentence stop. Both are the same fact — the gap is spacing — and
+// the display text is the evidence for it.
+//
+// The longest valid opening run is returned; a span the display text
+// disproves ends the run rather than failing, so a highlighted word later in
+// a field's text stays out of the label.
+std::vector<FontSpanIR> map_leading_chain(const FontControlSpansIR &spans,
+                                          std::size_t origin_column,
+                                          const std::string &display,
+                                          std::vector<TrapStyledSpanIR> &out,
+                                          std::string &joined) {
+  out.clear();
+  joined.clear();
   auto sorted = spans.spans;
   std::stable_sort(sorted.begin(), sorted.end(),
                    [](const auto &left, const auto &right) {
                      return left.column < right.column;
                    });
   std::vector<FontSpanIR> chain;
+  std::size_t previous_end = 0;
   for (const auto &span : sorted) {
-    if (span.length == 0)
+    if (span.length == 0 || span.column < origin_column)
       break;
-    if (chain.empty()) {
-      if (span.column != origin_column)
-        break;
-    } else if (span.column != chain.back().column + chain.back().length + 1) {
-      break;
-    }
-    chain.push_back(span);
-  }
-  return chain;
-}
-
-bool map_chain(const std::vector<FontSpanIR> &chain, std::size_t origin_column,
-               const std::string &display, std::vector<TrapStyledSpanIR> &out,
-               std::string &joined) {
-  out.clear();
-  joined.clear();
-  for (const auto &span : chain) {
-    if (span.column < origin_column)
-      return false;
     const auto offset = span.column - origin_column;
-    const auto end = offset + span.length;
+    auto end = offset + span.length;
+    if (offset >= display.size())
+      break;
+    // The span may reach past the segment's own payload: where the flattened
+    // splitter fired on a `{0x0001, ','}` boundary token the separator glyph
+    // it consumed is outside the payload, so the row text stops one character
+    // short of the column the CFONT covers. N2AH1MST record 258 line 5 is
+    // `   AHL146I ... DURING THE CCW SCAN,` with `cfont ... 67 5 2` over
+    // `SCAN,`, and record 258 segment 2 ends at the comma. The span is then
+    // clipped to what the payload retained rather than disproved; the lost
+    // separator is the residual recorded in `demote_display_line_owned_
+    // controls`, which legacy loses too.
     if (end > display.size())
-      return false;
-    if (offset != 0 && display[offset - 1] != ' ')
-      return false;
-    if (end != display.size() && display[end] != ' ')
-      return false;
-    const auto text = display.substr(offset, span.length);
+      end = display.size();
+    if (chain.empty()) {
+      if (offset != 0)
+        break;
+    } else {
+      if (offset < previous_end)
+        break;
+      const auto gap = display.substr(previous_end, offset - previous_end);
+      if (!std::all_of(gap.begin(), gap.end(),
+                       [](const char ch) { return ch == ' '; }))
+        break;
+    }
+    const auto text = display.substr(offset, end - offset);
     if (text.empty() || text.front() == ' ' || text.back() == ' ')
-      return false;
-    out.push_back({text, span});
-    if (!joined.empty())
+      break;
+    if (!joined.empty() && offset != previous_end)
       joined.push_back(' ');
     joined += text;
+    out.push_back({text, span});
+    chain.push_back(span);
+    previous_end = end;
   }
-  return !out.empty();
+  if (chain.empty()) {
+    out.clear();
+    joined.clear();
+  }
+  return chain;
 }
 
 bool starts_with_word(const std::string &text, const std::string &prefix) {
@@ -469,6 +690,7 @@ bool same_text(const TrapTextIR &left, const TrapTextIR &right) {
                       });
   };
   return left.text == right.text && left.display_text == right.display_text &&
+         left.paragraph_break == right.paragraph_break &&
          left.source_slices == right.source_slices &&
          rows_equal(left.source_rows, right.source_rows) &&
          left.cell_begin == right.cell_begin && left.cell_end == right.cell_end;
@@ -525,7 +747,7 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
   if (starts.empty())
     return reject("source has no SRMSG entry");
 
-  const auto index = index_sources(layout, ownership);
+  const auto index = index_sources(records, layout, ownership);
   TrapCatalogIR catalog;
   catalog.first_logical_record = records.front().logical_record;
   catalog.end_logical_record = records.back().logical_record + 1;
@@ -537,6 +759,9 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
        ++index_in_order) {
     const auto &ref = ordered[index_in_order];
     const auto &segment = *ref.segment;
+    if (segment_is_display_line_prefix(index, *ref.record, segment) ||
+        nondrawing_control(index, *ref.record, segment))
+      continue;
     const auto operand_text = collapse(range_text(*ref.record, segment.operand_range));
     switch (segment.kind) {
     case BookControlKind::topic_start:
@@ -572,6 +797,12 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
       break;
     case BookControlKind::text:
     case BookControlKind::font:
+    case BookControlKind::spacing:
+    // `cselect` marks a hotspot region of the display lines that follow it,
+    // and the flattened splitter gives it their text as its payload; in the
+    // header that text is introduction prose, which
+    // `extract_message_prose_paragraphs_ir` reads from the display rows.
+    case BookControlKind::select:
       break;
     default:
       return reject("trap catalog header contains an unsupported control: " +
@@ -648,6 +879,15 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
 
   // Entries.
   std::optional<std::size_t> origin_column;
+  // The column the catalog's own field labels start at. SC31-711's trap
+  // catalogs indent headline and labels alike (both `cfont 3 …`), but that
+  // is a property of one catalog, not of the family: N2AH1MST 4.0 writes its
+  // headline at column 3 (`cfont 3 7 2 11 8 2 …` over
+  // `AMA100I AMASPZAP PROCESSING COMPLETED`) and every field label at column
+  // 10 (`cfont 10 12 2` over `Explanation:`). The label column is therefore
+  // discovered from the first labelled line of the catalog and then required
+  // of every later label, exactly as the label vocabulary is.
+  std::optional<std::size_t> label_column;
   for (std::size_t entry_index = 0; entry_index < starts.size();
        ++entry_index) {
     const auto begin = starts[entry_index];
@@ -682,7 +922,23 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
     for (auto at = begin + 1; at < end; ++at) {
       const auto &ref = ordered[at];
       const auto &segment = *ref.segment;
-      if (segment.kind == BookControlKind::font) {
+      if (segment_is_display_line_prefix(index, *ref.record, segment) ||
+          nondrawing_control(index, *ref.record, segment))
+        continue;
+      const auto opcode_is_line_prefix =
+          segment_opcode_is_display_line_prefix(index, *ref.record, segment);
+      if (!opcode_is_line_prefix &&
+          segment.kind == BookControlKind::message_start &&
+          segment.payload_range.begin == segment.payload_range.end &&
+          collapse(range_text(*ref.record, segment.operand_range)).empty()) {
+        // An `SRMSG` with neither operand nor payload is a bare anchor:
+        // N2AH1MST record 177 line 38 is the whole one-byte line `SRMSG`,
+        // and hosted 2.0 (DT 19910329000100) serves it as `<a name="MSG">`
+        // immediately before the footnote anchor. It draws nothing.
+        catalog.anchors.push_back({"MSG", segment_slice(*ref.record, segment)});
+        continue;
+      }
+      if (!opcode_is_line_prefix && segment.kind == BookControlKind::font) {
         std::string font_error;
         const auto spans =
             decode_font_control_spans(*ref.record, segment, &font_error);
@@ -692,8 +948,22 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
         TrapLineIR line;
         line.font_source = segment_slice(*ref.record, segment);
         line.body.cell_begin = entry.cells.size();
+        std::size_t highlighted_columns = 0;
+        {
+          std::size_t first_column = 0;
+          bool have_first = false;
+          for (const auto &span : spans->spans)
+            if (span.length != 0 && (!have_first || span.column < first_column)) {
+              first_column = span.column;
+              have_first = true;
+            }
+          for (const auto &span : spans->spans)
+            if (have_first && span.length != 0)
+              highlighted_columns = std::max(
+                  highlighted_columns, span.column + span.length - first_column);
+        }
         if (!walk_payload(*ref.record, segment, index, line.body, entry.cells,
-                          error))
+                          error, false, highlighted_columns))
           return std::nullopt;
         // A font control whose payload is empty at the record end carries its
         // text in the next record's leading text segment.
@@ -708,23 +978,68 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           if (!walk_payload(*ordered[at].record, *ordered[at].segment, index,
                             line.body, entry.cells, error))
             return std::nullopt;
+        } else if (line.body.text.empty() && at + 1 < end &&
+                   ordered[at + 1].record == ref.record &&
+                   segment_opcode_is_display_line_prefix(
+                       index, *ref.record, *ordered[at + 1].segment)) {
+          // Same fact one segment earlier: a CFONT whose span list fills the
+          // whole segment leaves an empty payload, and the flattened splitter
+          // then cut the row's own text off at its display-line length byte.
+          // N2AH1MST record 2400 segment 2 is `cfont 3 9 2 13 4 V ...` with
+          // an empty payload and segment 3 opens on token 95, the one-byte
+          // value 37 that spells `cfont` and is line 7's length byte; tokens
+          // 96-120 are the headline text.
+          ++at;
+          if (!walk_payload(*ordered[at].record, *ordered[at].segment, index,
+                            line.body, entry.cells, error, false,
+                            highlighted_columns, true))
+            return std::nullopt;
         }
         line.body.cell_end = entry.cells.size();
-        const auto chain = leading_chain(
-            *spans, origin_column ? *origin_column
-                                  : (spans->spans.empty()
-                                         ? std::size_t{0}
-                                         : spans->spans.front().column));
-        if (!chain.empty()) {
-          if (!map_chain(chain, chain.front().column, line.body.display_text,
-                         line.spans, line.spans_text))
-            return reject("trap entry font spans do not map onto its row text: " +
-                          entry.id + " [" + line.body.display_text + "]");
+        const auto front_column = spans->spans.empty()
+                                      ? std::size_t{0}
+                                      : spans->spans.front().column;
+        std::vector<FontSpanIR> chain;
+        if (!have_headline) {
+          chain = map_leading_chain(
+              *spans, origin_column ? *origin_column : front_column,
+              line.body.display_text, line.spans, line.spans_text);
+        } else {
+          // A field label is the highlighted run that opens the row and ends
+          // in `:`. Look for it at the catalog's label column first, then at
+          // the headline origin.
+          const auto anchor = label_column ? *label_column : front_column;
+          std::vector<TrapStyledSpanIR> candidate_spans;
+          std::string candidate_text;
+          auto candidate =
+              map_leading_chain(*spans, anchor, line.body.display_text,
+                                candidate_spans, candidate_text);
+          if (!candidate.empty() && !candidate_text.empty() &&
+              candidate_text.back() == ':') {
+            chain = std::move(candidate);
+            line.spans = std::move(candidate_spans);
+            line.spans_text = std::move(candidate_text);
+          } else if (origin_column && anchor != *origin_column) {
+            chain = map_leading_chain(*spans, *origin_column,
+                                      line.body.display_text, line.spans,
+                                      line.spans_text);
+          } else {
+            chain = std::move(candidate);
+            line.spans = std::move(candidate_spans);
+            line.spans_text = std::move(candidate_text);
+          }
         }
         if (!chain.empty() && !have_headline) {
           if (!origin_column)
             origin_column = chain.front().column;
-          if (!line.spans_text.empty() && line.spans_text.back() == ':')
+          // A headline may legitimately end in `:` (N2AH1MST record 2315
+          // line 24, `IDC498D ACCESS REQUESTED TO text VOL=SER=volser: REPLY
+          // Y OR N text is:`). Where the catalog's label column is known and
+          // differs from the headline origin the column decides; only where
+          // the two coincide is the trailing colon still evidence of a label.
+          if (!line.spans_text.empty() && line.spans_text.back() == ':' &&
+              (!origin_column || !label_column ||
+               *label_column == *origin_column))
             return reject("trap entry starts with a field label: " + entry.id);
           if (collapse(line.body.text) != collapse(line.spans_text))
             return reject("trap entry headline is not fully highlighted: " +
@@ -737,6 +1052,8 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           if (!starts_with_word(line.body.text, line.spans_text))
             return reject("trap field text does not begin with its label: " +
                           entry.id);
+          if (!label_column)
+            label_column = chain.front().column;
           TrapFieldIR field;
           field.label_text = line.spans_text;
           field.line = std::move(line);
@@ -764,13 +1081,15 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
                                   line.body.source_rows.end());
           body.cell_end = line.body.cell_end;
         }
-      } else if (segment.kind == BookControlKind::text ||
+      } else if (opcode_is_line_prefix ||
+                 segment.kind == BookControlKind::text ||
                  segment.kind == BookControlKind::unknown ||
+                 segment.kind == BookControlKind::select ||
                  segment.kind == BookControlKind::structural) {
         TrapTextIR piece;
         piece.cell_begin = entry.cells.size();
         if (!walk_payload(*ref.record, segment, index, piece, entry.cells,
-                          error))
+                          error, false, 0, opcode_is_line_prefix))
           return std::nullopt;
         piece.cell_end = entry.cells.size();
         if (current == nullptr) {
@@ -789,6 +1108,16 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
         if (body.cell_end != piece.cell_begin)
           return reject("trap entry continuation is not contiguous: " +
                         entry.id);
+        if (piece.paragraph_break)
+          body.paragraph_break = true;
+        if (!body.source_slices.empty() && !piece.source_slices.empty() &&
+            body.source_slices.back().logical_record ==
+                piece.source_slices.front().logical_record &&
+            empty_line_between(index,
+                               body.source_slices.back().logical_record,
+                               body.source_slices.back().token_end - 1,
+                               piece.source_slices.front().token_begin))
+          body.paragraph_break = true;
         if (!body.text.empty() && !piece.text.empty())
           body.text.push_back(' ');
         body.text += piece.text;
@@ -907,12 +1236,11 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
             const auto spans = decode_font_control_spans(
                 *record, record->control_segments[row.segment_index]);
             if (spans) {
-              const auto chain = leading_chain(*spans, catalog.origin_column);
               std::string joined;
               std::vector<TrapStyledSpanIR> mapped;
-              if (!chain.empty() &&
-                  map_chain(chain, catalog.origin_column, item.text, mapped,
-                            joined))
+              if (!map_leading_chain(*spans, catalog.origin_column, item.text,
+                                     mapped, joined)
+                       .empty())
                 item.leading_spans = std::move(mapped);
             }
           }

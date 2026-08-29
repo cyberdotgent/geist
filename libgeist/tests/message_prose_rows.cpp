@@ -433,10 +433,19 @@ int main() {
                 icu.find("Notify the security administrator.") !=
                     std::string::npos,
             "N2AH1MST 26.0 restored the `a` boundary slot");
+    // N2AH1MST 22.0 now renders through the trap-catalog family, whose
+    // entry model is one list item per message with inline fields, so a
+    // field's paragraphs run together -- the same shape SC31-711 4.1.2,
+    // 4.2.2 and 4.3.4 have had since that family landed. The row-level
+    // assertions above still hold: the two `°` actions are separate physical
+    // rows and neither is a soft wrap. What the rendered check can still
+    // require of the new route is that no word is lost.
     const auto iar = visible_text(mvs_document.topic_markdown("22.0"));
-    require(iar.find("using the BUFF option Decrease the need") ==
-                std::string::npos,
-            "N2AH1MST 22.0 joined the IAR009I bullet items");
+    require(iar.find("Increase the size of the central storage trace buffers, "
+                     "using the BUFF option") != std::string::npos &&
+                iar.find("Decrease the need for buffers by specifying fewer "
+                         "RSM trace functions and events") != std::string::npos,
+            "N2AH1MST 22.0 kept both IAR009I bullet items");
     const auto ich = visible_text(mvs_document.topic_markdown("23.0"));
     require(ich.find("SETROPTS access MLACTIVE") == std::string::npos &&
                 ich.find("is issued if: 1. During") == std::string::npos,

@@ -868,6 +868,25 @@ Fifty-eight topics across sixteen books carry at least one such byte, spelling
 `cbacklevel`, `cforwardlevel`, `chdlevel`, `cparent`, `cmitem`, `csourcefn`,
 `ctopicn` and `csummary`.
 
+The rule is not about metadata opcodes: a length byte resolves to whatever
+one-byte dictionary word its value indexes, and the flattened splitter cuts a
+segment wherever that word looks like a control or a word boundary. The same
+byte therefore also spells body controls and ordinary words. N2AH1MST (DT
+`19910329000100`), where the message catalogs put one control per display
+line:
+
+| Record | Token | Encoded value | Width | Spells | The line it opens |
+| ---: | ---: | ---: | ---: | --- | --- |
+| 2365 | 0 | 37 | 1 | `cfont` | `   IDC0874I FOLLOWING NOT ALPHABETIC - INSUFFICIENT WORK SPACE FOR SORT` (the real `cfont` is token 1) |
+| 2400 | 95 | 37 | 1 | `cfont` | `   IDC01551I type CACHING STATUS: stat FOR SD X'ss' DEV X'dd''` |
+| 2284 | 0 | 31 | 1 | `are` | `   IDC0064I text UPDATED IN CARTRIDGE LABELS AND INVENTORY RECORD` |
+
+Hosted prints none of `cfont`, `cfont`, `are`. Three dispositions follow, and
+a consumer needs all three: a segment whose tokens are *all* length bytes is
+not a control at all; a segment whose *first* token is one is that display
+line's text with no control in front of it; and a length byte inside a
+segment draws nothing wherever it falls.
+
 ### The Metadata Envelope Spans Records
 
 The topic metadata run — `SH<id>`, `CTOPICN`, `CPARENT`, `CFORWARDLEVEL`,

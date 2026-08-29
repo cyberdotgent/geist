@@ -73,6 +73,15 @@ inline bool operator==(const TrapSourceCellIR &left,
 struct TrapTextIR {
   std::string text;
   std::string display_text;
+  // Set when an empty display line -- the only paragraph break a record
+  // spells -- falls inside this projected text. `TrapLineIR` carries one
+  // paragraph, so such a body runs its paragraphs together. That has been
+  // the family's behaviour since SC31-711: rejecting it was measured and
+  // costs SC31-711 4.1.2, 4.2.2 and 4.3.4, which are typed on `main`.
+  // Recorded here, and compared canonically, rather than enforced;
+  // representing a multi-paragraph field needs an entry model whose fields
+  // can hold blocks, which `ListItemIR` (inline content only) cannot.
+  bool paragraph_break = false;
   std::vector<DocumentSourceSliceIR> source_slices;
   std::vector<DocumentSourceRowIR> source_rows;
   std::size_t cell_begin = 0;
