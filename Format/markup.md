@@ -804,6 +804,88 @@ topic `A.3` similarly has a one-byte token expanding to a long run of
 asterisks.  Encoded width, dictionary identity, punctuation, or menu position
 alone therefore cannot establish marker ownership.
 
+### CMITEM record terminator tokens
+
+Verified: the last `CMITEM` of a menu can end with a token that is the
+record's structural terminator rather than label text.  It is always the same
+shape: the item's final payload token, encoded width one, carrying a spacing
+control whose only visible word is `.`, and standing immediately before the
+first source token of the `CEMENU` control.  BookServer never prints it.
+
+`DREICMST.boo` record 28 (topic `FRONT_1`) shows the shape twice in one
+record, which is what proves it is a terminator and not punctuation:
+
+| Token | Words (decoded values) | Role |
+| ---: | --- | --- |
+| 257 | `1`, `46` | sentence period of `Purchase, NY 10577.` |
+| 259 | `1`, `46` | terminator of the `ST` payload |
+| 260 | `cmenu` | menu start |
+| 283 | `Trademarks` | last `CMITEM` label |
+| 284 | `1`, `46` | terminator of the `CMITEM` payload |
+| 285 | `cemenu` | menu end |
+
+Word `1` is the decoder's no-space control, so both tokens render as a bare
+`.`; the flattened decoded record consequently reads `... Purchase, NY
+10577..` and `... cmitem FRONT_1.2 Trademarks. cemenu`.  BookServer at DT
+`19911219125856` serves `Purchase, NY 10577.` and
+`<li> FRONT_1.2 Trademarks</li>` — one period, no trailing period on the
+label.  The same shape closes the last item of `GG24-4302-00.boo` record 45
+(`cmitem 2.6 Discontinued Support.`, hosted `2.6 Discontinued Support`) and of
+`DREICMST.boo` record 52 (`cmitem 1.1.2 Implementing SLR.`).
+
+Only the last item of a menu can carry one, because the adjacency to the
+`CEMENU` opcode token is part of the shape.  A `.` inside a label, or a final
+`.` token that is not adjacent to `CEMENU`, is ordinary text.
+
+### LNK selector alternatives
+
+Verified: a `CSELECT` whose operand target is the literal `LNK` carries its
+real destination in the leading tokens of its payload.  Each alternative is
+exactly one decoded token spelled `<...>`; six are always present and an
+optional seventh carries the BookServer base URL.  None of them is displayed.
+
+```
+cselect <column> <length> LNK <kind> <a2> <a3> <a4> <a5> <a6> [<server>] [row text]
+```
+
+`ITPPIBOK.BOO` record 42 segment 11 tokenises as `cselect` (265 `LNK`), then
+one token per alternative: 266 `<BOOK>`, 267 `<>`, 268 `<>`, 269
+`<SC31-6008>`, 270 `<>`, 271 `<TPNSDF>`.  The payload ends there; the
+selector's column/length address the next display row, which the following
+`cfont` segment carries.
+
+| Kind | Fixture and topic | Alternatives | Hosted `href` |
+| --- | --- | --- | --- |
+| `<BOOK>` | `ITPPIBOK.BOO` `1.3.3` | `<BOOK> <> <> <SC31-6008> <> <TPNSDF>` | `../../DOCNUM/SC31-6008/CCONTENTS` |
+| `<BOOK>` | `GG24-395.boo` `PREFACE.4.1` | `<BOOK> <> <> <GG24-3070> <ANY> <G243070>` | `../../DOCNUM/GG24-3070/CCONTENTS` |
+| `<HDR>` | `SC41-485.boo` `1.2.3` | `<HDR> <FMTRTVI> <> <SC41-4801> <> <4801>` | `../../DOCNUM/SC41-4801/HDRFMTRTVI?ScrollTOP=HDRFMTRTVI#HDRFMTRTVI` |
+| `<OTHER>` | `XWEBDEMO.boo` `1.4.4` | `<OTHER> <INTERNET> <> <http://www.ibm.com/> <> <IBMHOME>` | `http://www.ibm.com/` |
+| `<IMAGE>` | `XWEBDEMO.boo` `1.4.1` | `<IMAGE> <INTERNET> <> </bookmgr/monetcoq.jpg> <> <MONET1>` | `<img src="/bookmgr/monetcoq.jpg">` |
+
+So alternative 1 is the kind, alternative 2 the target heading name of a
+`<HDR>` link (BookServer prefixes `HDR` to it), alternative 4 the document
+number of a `<BOOK>`/`<HDR>` link or the URL of an `<OTHER>`/`<IMAGE>` one,
+and alternative 6 the target's own identifier.  Hosted DTs used: ITPPIBOK
+`19910628074854`, GG24-395 `19941215160749`, SC41-485 `19951003131222`,
+XWEBDEMO `19970423182524`.
+
+A `<BOOK>`/`<HDR>` link's display phrase is usually also covered by a `CFONT`
+span, which BookServer renders as `<cite>` words *inside* the anchor
+(`<a href="../../DOCNUM/SC30-3290/CCONTENTS"><cite>TPNS</cite>
+<cite>General</cite> <cite>Utilities</cite></a>`, ITPPIBOK 1.3.7).
+
+### Selector kind words as row-control slots
+
+Verified: the selector kind word of an external link is also the display row's
+one-byte control slot.  In `XWEBDEMO.boo` topic `1.4.4` every row opens with
+token `<INTERNET>` (encoded byte `0x0C`) before the row's fill/origin pair;
+`1.4.2` and `1.4.3` use `<OTHER>` (`0x0D`) and `<IMAGE>` (`0x0B`), sometimes
+followed by a second control-byte token that is the row's usual marker glyph
+(`/` `0x12`, `:H1` `0x15`).  All of these encoded values fall in the
+row-control byte range already documented for marker slots, and BookServer at
+DT `19970423182524` prints none of them: topic `1.4.4` serves exactly
+`<a href="http://www.ibm.com/">The IBM Home Page</a>.` per row.
+
 ### Glossary introduction rows
 
 Verified in `SC31-711.boo` topic `GLOSSARY`: the material between the `ST`
