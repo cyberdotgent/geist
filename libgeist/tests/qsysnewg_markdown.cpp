@@ -32,11 +32,11 @@ void require_not_contains(const std::string& haystack,
 }
 
 std::vector<std::string> fenced_text_rows(const std::string& markdown) {
-  const auto begin = markdown.find("```text\n");
+  const auto begin = markdown.find("```\n");
   if (begin == std::string::npos) {
     return {};
   }
-  const auto rows_begin = begin + std::string("```text\n").size();
+  const auto rows_begin = begin + std::string("```\n").size();
   const auto end = markdown.find("```", rows_begin);
   if (end == std::string::npos) {
     return {};
@@ -171,16 +171,16 @@ int main() {
                    "Before you can use the AS/400 system you must sign on",
                    "SREFIG trailing paragraph");
   require_contains(sign_on,
-                   "unique **user** **name**",
+                   "unique **user name**",
                    "bar-row user name emphasis");
   require_contains(sign_on,
                    "secret **password**",
                    "bar-row password emphasis");
-  require_contains(sign_on, "**If...**", "If branch emphasis");
-  require_contains(sign_on, "**Then...**", "Then branch emphasis");
+  require_contains(sign_on, "**If\\.\\.\\.**", "If branch emphasis");
+  require_contains(sign_on, "**Then\\.\\.\\.**", "Then branch emphasis");
   require_contains(sign_on,
-                   "*Security* *Concepts* *and* *Planning* manual and the "
-                   "*Operator's* *Guide*.",
+                   "*Security Concepts and Planning* manual and the "
+                   "*Operator's Guide*\\.",
                    "manual title emphasis");
   require_not_contains(sign_on, "uniqu**e us**", "torn user emphasis");
   require_not_contains(sign_on, "Secu*rity", "torn Security emphasis");
@@ -191,12 +191,12 @@ int main() {
                    "If your display station screen is blank",
                    "SI pipe-visible continuation");
   require_contains(lets_go,
-                   "the **Sign** **On** display comes on.",
+                   "the **Sign On** display comes on\\.",
                    "Sign On emphasis");
   require_contains(lets_go,
-                   "the **User** line and the **Password** line.",
+                   "the **User** line and the **Password** line\\.",
                    "User and Password line emphasis");
-  require_contains(lets_go, "```text\n", "text figure fence");
+  require_contains(lets_go, "```\n", "text figure fence");
   require_contains(lets_go,
                    "    ________________________________",
                    "text figure top border");
@@ -225,7 +225,7 @@ int main() {
                    "text figure bottom border");
   require_contains(lets_go,
                    "You can ignore the information in the upper right corner "
-                   "of the display.",
+                   "of the display\\.",
                    "SREFIG trailing text");
   require_contains(lets_go,
                    "**Note:** If the word **password** does not appear",

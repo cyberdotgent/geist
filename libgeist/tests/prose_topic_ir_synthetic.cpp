@@ -188,6 +188,54 @@ std::size_t count_blocks(const ProseTopicIR& prose, ProseBlockKindIR kind) {
 }
 
 void positive_fixtures() {
+  // Font/selector span geometry (issue #58): a CFONT/CSELECT operand
+  // addresses display columns of one display row.
+  {
+    // Two-column definition rows: the wide in-row gap is not a row break
+    // while a span of the row still reaches past the text written so far.
+    // Hosted SH20-918 2.2.2 serves one row per term
+    // (`<B><I>TERMS</B></I>     <B><I>DESCRIPTIONS</B></I>`).
+    const auto markdown = admit("SH20-918.boo", "2.2.2");
+    require(contains(markdown, "***TERMS DESCRIPTIONS***"),
+            "2.2.2 two-column header row was split");
+    require(contains(markdown,
+                     "**Term One** Definition description for first term"),
+            "2.2.2 two-column term row was split");
+  }
+  {
+    // The row marker glyph keeps its display column: hosted ACPZMST1 1.2.3.1
+    // serves ` | A local resource ...` with `local` at column 5 and
+    // `resource` at column 11 (`cfont 5 5 3 11 8 3`).
+    const auto markdown = admit("ACPZMST1.boo", "1.2.3.1");
+    require(contains(markdown, "A ***local resource*** is known only"),
+            "1.2.3.1 marker column shifted the HP3 spans");
+    require(!contains(markdown, " | "), "1.2.3.1 printed the row marker");
+  }
+  {
+    // A selector that runs past the last materialised cell covers the row's
+    // trailing display padding; hosted ACPZMST1 8.1 links exactly
+    // `"Check_On_Event (XCCOE)" in topic 8.2`.
+    const auto markdown = admit("ACPZMST1.boo", "8.1");
+    require(contains(markdown,
+                     "[\"Check\\_On\\_Event \\(XCCOE\\)\" in topic 8\\.2]"
+                     "(<#HDRXCCOE>)"),
+            "8.1 lost the padded cross reference");
+  }
+  {
+    // `cfont 4 4 R,`: the trailing `,` is an operand separator, `R` is RK,
+    // and the one-byte word at the row origin is display text, not a marker
+    // slot.  Hosted ACPZMST1 6.2 serves `    <B>GUPI</B>`.
+    const auto markdown = admit("ACPZMST1.boo", "6.2");
+    require(contains(markdown, "**GUPI**"), "6.2 lost the RK phrase");
+  }
+  {
+    // `//` opening a row is display text when a pending span opens on its
+    // own column; hosted GC28-183 2.2.3 serves
+    // `<samp>//</samp>        <samp>PEND</samp>`.
+    const auto markdown = admit("GC28-183.boo", "2.2.3");
+    require(contains(markdown, "`//PAYROLL PROC . . // PEND`"),
+            "2.2.3 dropped the styled // row");
+  }
   // One wrapped paragraph; the SI term is suppressed and the two-run marker
   // word `for` (SC31-711 LR37 token 82) is text, as hosted renders it.
   {
@@ -374,9 +422,6 @@ void negative_fixtures() {
   reject("SC24-546.boo", "3.1", "metadata controls are incomplete");
   reject("PRG1SORT.boo", "1.1.5.1", "control-like word 'SRCFILE'");
   reject("ACPZMST1.boo", "COVER", "is not an h1-h6 prose heading");
-  // Two-column definition-list example (`TERMS  DESCRIPTIONS` header): the
-  // implied row break misaligns the header spans, so the form fails closed.
-  reject("SH20-918.boo", "2.2.2", "exceeds the display line");
   // Plural CFONT header over repeated row controls: the legacy route draws
   // this NetView directory list as a table; prose must not flatten it.
   reject("SC31-711.boo", "1.2", "implicit two-column grid");

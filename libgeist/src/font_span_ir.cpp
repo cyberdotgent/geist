@@ -27,7 +27,10 @@ FontStyleIR style_for_code(const std::string& code) {
   if (code == "2") return FontStyleIR::highlight_2;
   if (code == "3") return FontStyleIR::highlight_3;
   if (code == "5") return FontStyleIR::highlight_5;
+  if (code == "6") return FontStyleIR::highlight_6;
   if (code == "7") return FontStyleIR::highlight_7;
+  if (code == "8") return FontStyleIR::highlight_8;
+  if (code == "9") return FontStyleIR::highlight_9;
   if (code.size() != 1) return FontStyleIR::unknown;
   switch (static_cast<char>(std::tolower(static_cast<unsigned char>(code[0])))) {
   case 'c': return FontStyleIR::citation;
@@ -65,8 +68,14 @@ const char* font_style_name(FontStyleIR style) {
     return "hp3";
   case FontStyleIR::highlight_5:
     return "hp5";
+  case FontStyleIR::highlight_6:
+    return "hp6";
   case FontStyleIR::highlight_7:
     return "hp7";
+  case FontStyleIR::highlight_8:
+    return "hp8";
+  case FontStyleIR::highlight_9:
+    return "hp9";
   case FontStyleIR::keyword_define:
     return "pkdef";
   case FontStyleIR::citation:

@@ -116,6 +116,23 @@ struct LineBuilder {
     return reaches(current.fonts) || reaches(current.links);
   }
 
+  // True when a control that is still waiting for its display text covers
+  // exactly the `cells` display columns starting at `column`.  An exact
+  // match is what proves a glyph is styled display text; a span that merely
+  // starts there could still be a span over the row's first word.
+  bool pending_span_covers(std::size_t column, std::size_t cells) const {
+    for (const auto control : pending_controls) {
+      const auto& item = items[control];
+      if (item.kind == ItemKind::font) {
+        for (const auto& span : item.spans)
+          if (span.column == column && span.length == cells) return true;
+      } else if (item.column == column && item.length == cells) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   // Finishes the ST title at the first structural boundary.
   bool finish_title() {
     if (!in_title) return true;
@@ -289,20 +306,19 @@ struct LineBuilder {
       // one-byte alphanumeric piece glued (no space) onto a preceding word:
       // genuine text never joins two alphanumeric pieces without
       // punctuation (FA1PLMM0 record 1133 `Messages` + `access`).
-      // "Attached" means no display space separates this token from the
-      // previous visible cell of the same row.  The first visible token of a
-      // freshly opened row stands at the row origin and is attached to
-      // nothing: ACPZMST1 6.2 record 305 stores `cfont 4 4 R,` + origin run
-      // + the one-byte word `GUPI` + a fill/origin pair, and hosted serves
-      // that row as `    <B>GUPI</B>`.
       const auto attached =
-          !(line_open && line_visible_cells == 0) &&
-          (!pending_space || view.prefix == 0 || view.prefix == 1);
+          !pending_space || view.prefix == 0 || view.prefix == 1;
+      // The first visible token of a freshly opened row stands at the row
+      // origin, so it is glued to nothing even though no pending space
+      // separates it: ACPZMST1 6.2 record 305 stores `cfont 4 4 R,` + a
+      // four-cell origin run + the one-byte word `GUPI` + a fill/origin
+      // pair, and hosted serves that row as `    <B>GUPI</B>`.
+      const auto row_origin_word = line_open && line_visible_cells == 0;
       // A glued one-byte word in the row-control byte range is the slot
       // whatever precedes it: N2AH1MST PREFACE.4 `to:` + `access` (0x1c),
       // `Reference.` + `an` (the compact-marker collision in Format/markup.md).
       const auto glued_word =
-          attached && alnum_word(view) &&
+          attached && !row_origin_word && alnum_word(view) &&
           ((!last_visible.empty() &&
             std::isalnum(static_cast<unsigned char>(last_visible.back())) !=
                 0) ||
@@ -676,16 +692,37 @@ struct LineBuilder {
       }
       return true;
     }
-    // A glued alphabetic one-byte token in the row-control byte range is a
-    // slot whatever follows it: N2AH1MST record 17 `to:` + `access` (0x1c)
-    // directly before the `/` row marker of the next row.
+    // A glued alphabetic one-byte token in the row-control byte range is the
+    // display-line length byte of the next row: N2AH1MST record 17 `to:` +
+    // `access` (0x1c) directly before the `/` row marker of the next row.
+    // The byte stands at a row boundary, so a plain word glued behind it on
+    // the same row is display text: SC26-457 3.14.2.8 record 560 token 113
+    // `(` + `and` + `their` is served as `(and their associated entries)`.
     if (!cz_mode && view.width == 1 && view.value < row_control_byte_limit &&
         (!pending_space || view.prefix == 0 || view.prefix == 1) &&
         !in_title && !in_index && line_open && line_visible_cells != 0 &&
         alpha_word(view) && !last_visible.empty() &&
-        std::isalnum(static_cast<unsigned char>(last_visible.back())) == 0)
-      return assign(view, ProseTokenRoleIR::marker);
-    if (marker_at(index, origin_index)) {
+        std::isalnum(static_cast<unsigned char>(last_visible.back())) == 0) {
+      const auto after = next_token(index);
+      const auto row_boundary =
+          after == npos || space_at(after) ||
+          (items[after].token.width == 1 &&
+           (punctuation_glyph(items[after].token) ||
+            is_placeholder_run(items[after].token)));
+      if (row_boundary) return assign(view, ProseTokenRoleIR::marker);
+    }
+    // A pending span that opens on this token's own display column proves it
+    // is styled display text rather than the row's marker slot: GC28-183
+    // 2.2.3 `cfont 5 2 E 15 4 E` over `     //        PEND` is served as
+    // `<samp>//</samp>        <samp>PEND</samp>`.
+    // CZ rows carry their marker slots explicitly, so the geometry exemption
+    // is limited to the flowed dialect (SC09-2417-00 2.1.3.4 `++` before a
+    // `cz flow nt` label stays a slot).
+    const auto styled_at_column =
+        line_open && !cz_mode && !is_placeholder_run(view) &&
+        line_visible_cells == 0 &&
+        pending_span_covers(line().cells.size(), view.body.size());
+    if (!styled_at_column && marker_at(index, origin_index)) {
       if (!assign(view, ProseTokenRoleIR::marker)) return false;
       for (auto cursor = next_token(index); cursor != origin_index;
            cursor = next_token(cursor))
@@ -732,6 +769,16 @@ struct LineBuilder {
         // text there: packet 3.2 record 80 token 255 `#` before `name` is
         // styled by `cfont 5 1 E` and hosted prints `<samp>#</samp>`.
         (!cz_mode || is_placeholder_run(view) || view.body.front() == '|') &&
+        // A pending CFONT/CSELECT span that opens on the glyph's own display
+        // column proves the glyph is styled display text, not a row marker:
+        // FA1PLMM0 3.5.1 `cfont 5 2 E 8 3 E ...` over `     // JOB COPY ...`
+        // and GC28-183 2.2.3 `cfont 5 2 E 15 4 E` over `     //        PEND`
+        // are served as `<samp>//</samp> <samp>JOB</samp> ...` and
+        // `<samp>//</samp>        <samp>PEND</samp>`.
+        // Decoder placeholder runs stay markers whatever the geometry says
+        // (ACPZMST1 3.11 record 180): they carry no character.
+        (is_placeholder_run(view) ||
+         !pending_span_covers(line().cells.size(), view.body.size())) &&
         index + 1 < items.size() && items[index + 1].kind == ItemKind::token &&
         is_visible(items[index + 1].token) &&
         !is_placeholder_run(items[index + 1].token)) {

@@ -127,7 +127,10 @@ std::optional<EmphasisKindIR> emphasis_kind(FontStyleIR style) {
   case FontStyleIR::highlight_3:
     return EmphasisKindIR::strong_emphasis;
   case FontStyleIR::highlight_5:
+  case FontStyleIR::highlight_6:
   case FontStyleIR::highlight_7:
+  case FontStyleIR::highlight_8:
+  case FontStyleIR::highlight_9:
   case FontStyleIR::citation:
   case FontStyleIR::example_phrase:
   case FontStyleIR::keyword:

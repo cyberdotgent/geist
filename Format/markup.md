@@ -735,9 +735,87 @@ Bold and emphasis should therefore be implemented through the `CFONT` plus
 `CFONTDEF` pipeline, not by searching for literal `<b>` markup. `HP1`, `HP2`,
 and `HP3` are GML-derived highlighted-phrase levels. The PACKET `PREFACE`
 fixture confirms that BookServer renders `HP3` as bold plus italic in normal
-body text. Exact visual mapping for the remaining highlighted phrase levels and
-special styles is still a presentation rule that needs direct renderer
-confirmation; the storage layer identifies the semantic style code.
+body text.
+
+### Style-Code Presentation Verified Against Hosted BookServer
+
+Each row below was read off a hosted BookServer page whose `CFONT` operand is
+quoted in the evidence column; every rule was checked on at least two books.
+
+| Code | `CFONTDEF` name | Hosted HTML | Evidence |
+| --- | --- | --- | --- |
+| `1` | `HP1` | `<I>` | ACPZMST1 `FRONT_1.1` `cfont 44 11 1 56 11 1` -> `<I>general-use</I> <I>programming</I>`; QSYSNEWG `2.0` |
+| `2` | `HP2` | `<B>` | QSYSNEWG `2.3` `cfont 43 8 2 52 7 2` -> `<B>Security</B> <B>Officer</B>`; DREICMST `2.8.1` |
+| `3` | `HP3` | `<B><I>` | ACPZMST1 `1.2.3.1` `cfont 5 5 3 11 8 3` -> `<B><I>local</B></I> <B><I>resource</B></I>`; packet `PREFACE` |
+| `5` | `HP5` | `<U>` | QSYSNEWG `2.3` `cfont 59 3 5` -> `<U>see</U>`; SC34-425 `1.8` `cfont 42 11 5` -> `<U>underscored</U>` |
+| `7` | `HP7` | `<B><U>` | QSYSNEWG `5.1.4` `cfont 19 11 7 31 9 7 41 8 7` -> `<B><U>Operational</B></U> <B><U>Assistant</B></U> <B><U>overview</B></U>`; SG24-204 `5.2.1` `cfont 33 1 7` -> `<B><U>L</B></U>` |
+| `9` | `HP9` | `<TT><U>` | OFCUSEOV `5.2` `cfont 25 1 9` -> `<TT><U>/</TT></U>` |
+| `C` | `CIT` | `<cite>` | ACPZMST1 `FRONT_1.1` `cfont 3 8 C ...` -> `<cite>Managing</cite>`; DREICMST `2.8.1` |
+| `E` | `XMP` | `<samp>` | GC28-183 `2.2.1` `cfont 17 1 E,` -> `<samp>.</samp>`; FA1PLMM0 `3.5.1` |
+| `P` | `PK` | `<kbd>` | SC26-457 `3.4.1.2`; PRG1SORT `2.1.4` |
+| `Q` | `PKDEF` | `<dfn>` | PRG1SORT `2.1.4` -> `<dfn>*CURLIB</dfn>`; SC26-457 `3.4.1.2` -> `<dfn>LIST</dfn>` |
+| `R` | `RK` | `<B>` | ACPZMST1 `FRONT_1.1` `cfont 4 4 R,` -> `<B>GUPI</B>`; ACPZMST1 `6.2` |
+| `V` | `PV` | `<var>` | SC26-457 `3.4.1.2`; GC23-046 `6.0` |
+
+`HP5`..`HP9` form a family: each is the underscored form of the code five
+below it, so `5` underscores `H0` (plain), `6` `HP1`, `7` `HP2`, `8` `HP3` and
+`9` `HP4`. The three verified rows above (`5` plain `<U>`, `7` `<B><U>`,
+`9` `<TT><U>`) match that pattern exactly.
+
+The last operand triple of a `CFONT` control can carry a `,` separator glued
+to its style code as a prefix-1 token, so the decoded operand reads
+`CFONT 4 4 R,`. The comma is neither part of the code nor display text:
+ACPZMST1 record 6 segment 16 stores `cfont 4 4 R,` and hosted `FRONT_1.1`
+serves `    <B>GUPI</B>`, exactly what record 7 segment 1's comma-less
+`cfont 4 4 R 9 3 R` produces for `    <B>GUPI</B> <B>end</B>`. GC28-183 record
+146 stores `cfont 17 1 E,` for the `<samp>.</samp>` rows of topic `2.2.1`.
+
+### Spans And The Display Row
+
+A `CFONT`/`CSELECT` operand addresses display columns of exactly one display
+row, and a highlighted phrase never continues onto the next row: a wrapped
+phrase carries its own triple on every row it covers (ACPZMST1 `FRONT_1.1`
+splits one `:hp1.` phrase into `cfont 44 11 1 56 11 1` and, on the next row,
+`cfont 3 10 1 14 3 1 ...`). Three consequences a reader must honour:
+
+- **Trailing padding.** A span may run past the last visible column of the
+  row; the excess covers the row's stored trailing padding and styles nothing.
+  ACPZMST1 `8.1` stores `cselect 3 38 HDRXCCOE` for the 40-column row
+  `   "Check_On_Event (XCCOE)" in topic 8.2` and hosted links exactly that
+  text; GG24-395 `PREFACE.3` stores `cselect 3 22 HDRHPRT100` for the
+  23-column row ` | Part 1, "Introduction"`.
+- **Wide in-row gaps.** A wide space run between two words does not end the
+  row while a span of that row still reaches past the text written so far;
+  the gap is column padding of a two-column layout. ACPZMST1 `3.6` stores
+  `cselect 43 3 SPTUSERID` and `cfont 3 6 2` for the single hosted row
+  `   Userid                   User ID (topic 4.3)`; DREICMST `2.8.1` stores
+  `cfont 3 3 2 7 4 2 17 3 2 21 4 2` for `   RFT Name      Log Type`.
+- **Row markers hold a column.** The revision-bar/box glyph that opens a row
+  is not prose text, but it occupies its display column and so does the space
+  behind it; dropping them shifts every span of the row by two. Hosted
+  ACPZMST1 `1.2.3.1` serves ` | A local resource ...` with `local` at column
+  5 (`cfont 5 5 3`), and GG24-395 `PREFACE.3` serves ` | Part 1,
+  "Introduction"` with `Part` at column 3.
+
+A leading glyph is only a row marker when no pending span covers exactly its
+columns. When a span covers the glyph itself, the glyph is styled display
+text: FA1PLMM0 `3.5.1` `cfont 5 2 E 8 3 E ...` over `     // JOB COPY ...` is
+served as `<samp>//</samp> <samp>JOB</samp> ...`, and GC28-183 `2.2.3`
+`cfont 5 2 E 15 4 E` over `     //        PEND` as
+`<samp>//</samp>        <samp>PEND</samp>`.
+
+BookServer can also style part of one decoded word: GC23-046 `6.0`
+`cfont 43 1 V` is served as `SMPWRK<I>x</I>` and SG24-204 `5.2.1`
+`cfont 33 1 7 34 1 2` as `<B><U>L</B></U><B>U</B>`, both boundaries inside a
+single word.
+
+A `CFONT` span wholly inside a `CSELECT` span decorates the link text rather
+than nesting a separate phrase: hosted ACPZMST1 `8.1` serves
+`<a href="8.2..."><B>&quot;Check_On_Event</B> ... <B>8.2</B></a>`.
+
+Exact visual mapping for the style codes not listed above is still a
+presentation rule that needs direct renderer confirmation; the storage layer
+identifies the semantic style code.
 
 ## Cross-References And Menus
 

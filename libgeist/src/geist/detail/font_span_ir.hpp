@@ -22,15 +22,19 @@ struct DecodedLogicalRecordSource;
 // BookServer renders CIT as <cite>, XPH/XMP/HP4 as <tt>/<samp>, PK as
 // <kbd>, PV as <var>, RK/H1-H4/H6 as <b> and H5 as <i> (FA1PLMM0 11.5,
 // ACPZMST1 8.14.1/2.4.1.2, GC23-046 B.2, DREICMST 1.4.2.1, FA1PLMM0 9.3.1).
-// Three further codes are hosted-verified on two books each: `5` (HP5) as
-// <U> (QSYSNEWG 2.3 `cfont 59 3 5` -> `<U>see</U>`; SC34-425 1.8
-// `cfont 42 11 5` -> `<U>underscored</U>`), `7` (HP7) as <B><U>
-// (QSYSNEWG 5.1.4 `cfont 19 11 7 31 9 7 41 8 7` ->
-// `<B><U>Operational</B></U> <B><U>Assistant</B></U> <B><U>overview</B></U>`;
-// SG24-204 5.2.1 `cfont 33 1 7` -> `<B><U>L</B></U>`), and `Q` (PKDEF) as
-// <dfn> (PRG1SORT 2.1.4 `<dfn>*CURLIB</dfn>`; SC26-457 3.4.1.2
-// `<dfn>LIST</dfn>`).  Every other code is retained as an opaque style so
-// consumers can conserve the span without claiming a presentation.
+// `HP5`..`HP9` are the underscored highlight phrases: hosted BookServer
+// renders each as the underscore of the phrase five codes below it, so `5`
+// is `H0` underscored (<U>), `6` is `HP1` underscored, `7` is `HP2`
+// underscored (<B><U>), `8` is `HP3` underscored, and `9` is `HP4`
+// underscored (<TT><U>).  Hosted evidence: `5` -> `<U>see</U>`
+// (QSYSNEWG 2.3 `cfont 59 3 5`) and `<U>underscored</U>` (SC34-425 1.8
+// `cfont 42 11 5`); `7` -> `<B><U>Operational</B></U> <B><U>Assistant</B></U>
+// <B><U>overview</B></U>` (QSYSNEWG 5.1.4 `cfont 19 11 7 31 9 7 41 8 7`) and
+// `<B><U>L</B></U>` (SG24-204 5.2.1 `cfont 33 1 7`, which styles the `L` of
+// `LU` alone); `9` -> `<TT><U>/</TT></U>` (OFCUSEOV 5.2 `cfont 25 1 9`).
+// `Q` (PKDEF) is <dfn> (PRG1SORT 2.1.4 `<dfn>*CURLIB</dfn>`; SC26-457
+// 3.4.1.2 `<dfn>LIST</dfn>`).  Every other code is retained as an opaque
+// style so consumers can conserve the span without claiming a presentation.
 //
 // The final operand triple of a control can carry a trailing `,` separator
 // glued to its style code as a prefix-1 token (`cfont 4 4 R,`).  The comma is
@@ -43,8 +47,11 @@ enum class FontStyleIR {
   highlight_1,
   highlight_2,
   highlight_3,
-  highlight_5,     // 5 (HP5): underscored phrase (<U>)
-  highlight_7,     // 7 (HP7): bold plus underscored phrase (<B><U>)
+  highlight_5,     // 5 (HP5): underscored plain phrase (<U>)
+  highlight_6,     // 6 (HP6): underscored italic phrase
+  highlight_7,     // 7 (HP7): underscored bold phrase (<B><U>)
+  highlight_8,     // 8 (HP8): underscored bold italic phrase
+  highlight_9,     // 9 (HP9): underscored monospace phrase (<TT><U>)
   citation,        // C: italic citation
   example_phrase,  // X, E, 4: monospace example text
   keyword,         // P: monospace parameter keyword (<kbd>)
