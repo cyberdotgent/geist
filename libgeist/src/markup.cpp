@@ -4377,8 +4377,8 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
       raw_trailing, state.current_font_base_column);
   const auto semantic_styled_heading_row =
       state.in_semantic_message_catalog && !spans.empty() &&
-      ascii_lower(raw_trailing).find("meaning:") == std::string::npos &&
-      ascii_lower(raw_trailing).find("action:") == std::string::npos &&
+      !ascii_contains_case_insensitive(raw_trailing, "meaning:") &&
+      !ascii_contains_case_insensitive(raw_trailing, "action:") &&
       std::all_of(spans.begin(), spans.end(), [](const auto& span) {
         return ascii_equals_case_insensitive(span.code, "2");
       });
@@ -4954,7 +4954,7 @@ std::string render_gml_segment(std::string segment,
   if (ascii_starts_with_case_insensitive(lower, "srtbl")) {
     if (state.table_just_closed && !state.in_table &&
         segment.find('?') == std::string::npos &&
-        ascii_lower(segment).find("other trademarks") != std::string::npos) {
+        ascii_contains_case_insensitive(segment, "other trademarks")) {
       state.table_just_closed = false;
       auto payload = trim_ascii(segment.substr(5));
       const auto space = payload.find_first_of(" \t");
@@ -5676,8 +5676,7 @@ bool project_verified_menu_gml(
   for (std::size_t index = 0; index < menu->items.size(); ++index) {
     const auto& item = menu->items[index];
     const auto expected = "refid='" + item.target + "'";
-    if (ascii_lower(rendered[lines[index]]).find(ascii_lower(expected)) ==
-        std::string::npos)
+    if (!ascii_contains_case_insensitive(rendered[lines[index]], expected))
       return false;
   }
   for (std::size_t index = 0; index < menu->items.size(); ++index) {
@@ -5792,14 +5791,14 @@ std::vector<std::string> render_gml_records_with_source_layout(
     const auto table = std::find_if(
         rendered.begin(), rendered.end(), [](const auto& record) {
           return ascii_starts_with_case_insensitive(record, ":table ") &&
-                 ascii_lower(record).find("form='true'") != std::string::npos;
+                 ascii_contains_case_insensitive(record, "form='true'");
         });
     if (table == rendered.end()) {
       return std::nullopt;
     }
     if (std::find_if(table + 1, rendered.end(), [](const auto& record) {
           return ascii_starts_with_case_insensitive(record, ":table ") &&
-                 ascii_lower(record).find("form='true'") != std::string::npos;
+                 ascii_contains_case_insensitive(record, "form='true'");
         }) != rendered.end()) {
       return std::nullopt;
     }
