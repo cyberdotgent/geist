@@ -983,3 +983,24 @@
   classified flags, all recorded in
   `AnalysisNotes/sc31-711-m10-audit-2026-08-28.md`. Audit tooling now
   compares whole hosted bodies and counts only `href` anchors as links.
+- Re-targeted issue 58 on its actual objective after the coverage of the typed
+  renderer was measured for the first time: 71 of 7,362 topics. Added a
+  permanent measurement (`BooDocument::typed_route_inventory`,
+  `bootrace --coverage`, and a `typed_route_inventory_test` ratchet whose
+  per-book table may only grow) and a structural census of every legacy topic,
+  then worked the largest classes in parallel worktrees. Landed: the prose
+  topic family (display-row model verified line-for-line against hosted
+  `<pre>`, CFONT emphasis, selector links, trailing menus), reusable typed
+  blocks for fixed tables (box-rule and rule-less gap-column geometry) and
+  figures (picture and ASCII/CFONT-drawn), composition of table and figure
+  spans into prose bodies, and the `CZ` layout-directive dialect. Coverage
+  71 -> 3,768 of 7,362 topics (51.2%); full CTest 63/63.
+  Two root causes found along the way: control opcode/operand words were split
+  on the ASCII projection, where box-drawing code points read as `?`, which
+  swallowed display rules into control ranges (96 pre-family ownership
+  conflicts, now zero); and a record payload is a sequence of length-prefixed
+  display lines, the length byte being what Layout IR had read as a marker
+  slot (`Format/logical-controls.md`). Every refactor was proven zero-delta
+  over the whole corpus and every behaviour change was compared word-level
+  against the hosted BookServer, with each difference class decided and
+  recorded.
