@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstddef>
 #include <sstream>
 
 namespace geist::detail {
@@ -112,6 +113,120 @@ word_byte_offsets(const AssembledLogicalRecord& assembled) {
   return offsets;
 }
 
+// One `<column> <length>` display-geometry pair of a CFONT or CSELECT
+// operand. Both controls address display columns of exactly one display row
+// (Format/markup.md, "Spans And The Display Row").
+struct DisplaySpan {
+  std::size_t column = 0;
+  std::size_t length = 0;
+};
+
+std::string segment_operand_text(const DecodedLogicalRecordSource& record,
+                                 const ControlSegmentIR& segment) {
+  const auto text = token_words_to_ascii(record.assembled.words);
+  const auto& range = segment.operand_range;
+  if (range.begin >= range.end || range.end > text.size()) return {};
+  return text.substr(range.begin, range.end - range.begin);
+}
+
+// The display spans a font or selector control states. A CFONT operand is a
+// sequence of `<column> <length> <code>` triples; a CSELECT operand starts
+// with one `<column> <length>` pair. Anything else yields no spans, so the
+// caller keeps its existing behaviour.
+std::vector<DisplaySpan> segment_display_spans(
+    const DecodedLogicalRecordSource& record, const ControlSegmentIR& segment) {
+  if (segment.malformed) return {};
+  std::vector<std::string> words;
+  std::istringstream operands(segment_operand_text(record, segment));
+  std::string word;
+  while (operands >> word) words.push_back(word);
+  const auto decimal = [](const std::string& value, std::size_t& out) {
+    if (value.empty() || value.size() > 9) return false;
+    out = 0;
+    for (const auto ch : value) {
+      if (std::isdigit(static_cast<unsigned char>(ch)) == 0) return false;
+      out = out * 10 + static_cast<std::size_t>(ch - '0');
+    }
+    return true;
+  };
+  std::vector<DisplaySpan> spans;
+  if (segment.kind == BookControlKind::font) {
+    // The final triple may carry the `,` operand separator glued to its code.
+    if (words.empty() || words.size() % 3 != 0) return {};
+    for (std::size_t index = 0; index + 2 < words.size(); index += 3) {
+      DisplaySpan span;
+      if (!decimal(words[index], span.column) ||
+          !decimal(words[index + 1], span.length) || span.length == 0)
+        return {};
+      spans.push_back(span);
+    }
+    return spans;
+  }
+  if (segment.kind == BookControlKind::select) {
+    DisplaySpan span;
+    if (words.size() < 2 || !decimal(words[0], span.column) ||
+        !decimal(words[1], span.length) || span.length == 0)
+      return {};
+    spans.push_back(span);
+    return spans;
+  }
+  return {};
+}
+
+bool word_aligned(const std::string& text, std::size_t begin,
+                  std::size_t end) {
+  if (end <= begin || end > text.size()) return false;
+  if (text[begin] == ' ' || text[end - 1] == ' ') return false;
+  if (begin > 0 && text[begin - 1] != ' ') return false;
+  if (end < text.size() && text[end] != ' ') return false;
+  return true;
+}
+
+// A row boundary whose marker glyph a span of the same control covers is not
+// a marker slot at all: the glyph is styled display text of the row that is
+// still open (Format/markup.md, "Spans And The Display Row" -- "A leading
+// glyph is only a row marker when no pending span covers exactly its
+// columns", and "A span holds its row open").
+//
+// `row_text` is the display text of the open row extended over the candidate
+// marker token, and the marker's decoded word stands at its end. The
+// operand's columns and the row's display cells differ by one shift, the
+// row's left margin, which the Layout IR does not model; the shift is
+// therefore derived from the span that would cover the marker word exactly
+// and is admitted only when it is unique and makes *every* span of the
+// control land on whole display words of this row.
+bool span_covers_row_marker(const std::vector<DisplaySpan>& spans,
+                            const std::string& row_text,
+                            const std::string& marker_word) {
+  if (spans.empty() || marker_word.empty() ||
+      row_text.size() < marker_word.size())
+    return false;
+  const auto marker_begin = row_text.size() - marker_word.size();
+  if (row_text.compare(marker_begin, marker_word.size(), marker_word) != 0)
+    return false;
+  if (!word_aligned(row_text, marker_begin, row_text.size())) return false;
+  std::size_t admitted = 0;
+  for (const auto& covering : spans) {
+    // The shift is the row's left margin, so it is never negative. A row
+    // whose stored text is *longer* than the columns the operand names
+    // carries bytes the reader does not display -- a decoder placeholder run
+    // is the common case -- and the Layout IR cannot say where they fall, so
+    // such a row stays fail-closed.
+    if (covering.length != marker_word.size() ||
+        covering.column < marker_begin)
+      continue;
+    const auto shift = covering.column - marker_begin;
+    const auto aligned = std::all_of(
+        spans.begin(), spans.end(), [&](const DisplaySpan& span) {
+          return span.column >= shift &&
+                 word_aligned(row_text, span.column - shift,
+                              span.column - shift + span.length);
+        });
+    if (aligned) ++admitted;
+  }
+  return admitted == 1;
+}
+
 PhysicalBreakKind marker_break(const std::string& marker) {
   if (!marker.empty() &&
       std::all_of(marker.begin(), marker.end(),
@@ -183,6 +298,63 @@ LayoutIR extract_layout_ir(
                 [](const auto& left, const auto& right) {
                   return left.marker < right.marker;
                 });
+
+      // A marker/origin boundary whose row carries no display text at all is
+      // a candidate for two different readings: an empty display row, or a
+      // display word the row model mistook for a marker slot. The control's
+      // own operand decides. Only where a span of this control covers the
+      // marker word exactly, and the same margin shift puts every other span
+      // of the control on a whole display word of the same row, is the
+      // boundary withdrawn and its marker returned to the open row.
+      auto spans = segment_display_spans(record, segment);
+      if (spans.empty() && segment.kind == BookControlKind::text &&
+          segment.segment_index == 0) {
+        // A control payload that reaches the end of its record continues into
+        // the leading text segment of the immediately adjacent record, so its
+        // operand still states the geometry of the rows stored there. This is
+        // the same adjacency the display run itself is joined on below.
+        const auto previous = std::find_if(
+            records.begin(), records.end(), [&](const auto& candidate) {
+              return candidate.logical_record + 1 == record.logical_record;
+            });
+        if (previous != records.end() && !previous->control_segments.empty()) {
+          const auto& carried = previous->control_segments.back();
+          if (carried.kind == BookControlKind::font ||
+              carried.kind == BookControlKind::select)
+            spans = segment_display_spans(*previous, carried);
+        }
+      }
+      // Inner boundaries only, walked from the end so that withdrawing one
+      // leaves the rows in front of it to be judged against the list it
+      // leaves behind.
+      const auto candidates = spans.empty() ? std::size_t{1} : boundaries.size();
+      for (std::size_t at = candidates; at-- > 1;) {
+        const auto& boundary = boundaries[at];
+        const auto end = at + 1 < boundaries.size()
+                             ? boundaries[at + 1].marker
+                             : segment.source_tokens.back() + 1;
+        if (end <= boundary.origin || end > record.tokens.size()) continue;
+        if (!visible_slice(record, boundary.origin, end,
+                           record.tokens[boundary.origin].size())
+                 .empty())
+          continue;
+        const auto open = boundaries[at - 1].marker;
+        if (open >= boundary.marker ||
+            boundary.marker + 1 > record.tokens.size())
+          continue;
+        std::vector<TokenWords> tokens(record.tokens.begin() + open,
+                                       record.tokens.begin() +
+                                           boundary.marker + 1);
+        auto row_text =
+            token_words_to_ascii(assemble_logical_record(tokens));
+        while (!row_text.empty() && row_text.back() == ' ') row_text.pop_back();
+        if (!span_covers_row_marker(spans, row_text,
+                                    visible_token(
+                                        record.tokens[boundary.marker])))
+          continue;
+        boundaries.erase(boundaries.begin() +
+                         static_cast<std::ptrdiff_t>(at));
+      }
 
       DisplayRunIR run;
       run.id = next_run++;

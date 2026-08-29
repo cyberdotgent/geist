@@ -870,6 +870,44 @@ those lines is a row boundary whatever the spans say.
 | IEAC6MST `5.1.2` | `          <samp>RECORDSIZE(384 3072)</samp> <samp>)</samp>` | the trailing `)` is a styled cell |
 | SC09-138 `8.4.2.5` | `          a = b*(x*y*z);            /* Duplicates recognized */` | the `;` had been read as a length byte |
 
+### A span disproves an empty row
+
+The same evidence settles the opposite reading of a marker slot.  A width-1
+token carrying a word, followed by a run of spaces, has the shape of the
+marker/origin pair that opens the next display row, and a reader that takes it
+as one produces a row with no display text at all.  Two different things
+produce that shape:
+
+- a genuinely blank display row, whose marker really is a slot -- the
+  questionnaire and COMMENTS forms of SC31-711 are full of them; and
+- the last word of the row that is still open, whose trailing padding the
+  compact encoder stored as a separate token.
+
+The control's own operand tells them apart, because a `CFONT`/`CSELECT`
+operand names the display columns of exactly one display row.  Lay the row's
+stored text out from the marker slot that opened it, place the candidate word
+at its end, and look for the single left-margin shift under which one triple
+covers that word exactly and every other triple of the same control lands on a
+whole display word of the same row.  Where that shift exists and is unique, the
+word is styled display text and there is no row boundary in front of it.
+
+QSYSINFO record 631 segment 15 stores
+`cfont 39 9 1 49 12 1 62 5 1` over
+`___     --         SX41-9072        Automatic Installation Guide`.  Measured
+from the `___` marker the three words stand at 36, 46 and 59, so the shift is
+the documented three-column margin and column 62 is `Guide`; hosted
+`APPENDIX1.4.2.1` (DT 19910524120827) serves
+`   ___     --         SX41-9072        <I>Automatic</I> <I>Installation</I>
+<I>Guide</I>`.  The same holds for a row stored across the record boundary:
+record 631's trailing `cfont 39 5 1 45 6 1 52 3 1 56 8 1 65 5 1` addresses the
+row `___     01         SC41-0036        Basic Backup and Recovery Guide`
+whose bytes are in record 632, the record the run continues into.
+
+The shift is a left margin, so it is never negative.  A row whose stored bytes
+run *past* the columns the operand names -- a decoder placeholder run in front
+of the first display cell is the usual cause -- has no proven mapping onto the
+operand's coordinates, and such a row keeps its boundary.
+
 A `CFONT` span wholly inside a `CSELECT` span decorates the link text rather
 than nesting a separate phrase: hosted ACPZMST1 `8.1` serves
 `<a href="8.2..."><B>&quot;Check_On_Event</B> ... <B>8.2</B></a>`.
