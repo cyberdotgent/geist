@@ -217,6 +217,59 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
   return true;
 }
 
+// A drawn box region: its rows are the hosted display lines verbatim
+// (prose_topic_boxes.cpp).  One inline per row carries the row's source
+// provenance, exactly as the `cz OFF XMP` block does; rows drawn only from
+// box outline and spacing carry no inline.
+bool build_box_block(const std::vector<DecodedLogicalRecordSource>& records,
+                     const std::vector<Line>& lines, std::size_t begin,
+                     std::size_t end, ProseBlockIR& block, Ledger& ledger,
+                     std::size_t block_index, std::string* error) {
+  block.kind = ProseBlockKindIR::preformatted;
+  std::vector<std::string> rows;
+  std::vector<std::pair<std::size_t, std::size_t>> block_refs;
+  for (auto index = begin; index < end; ++index) {
+    const auto& line = lines[index];
+    auto text = line_text(line);
+    while (!text.empty() && text.back() == ' ') text.pop_back();
+    std::vector<std::pair<std::size_t, std::size_t>> refs;
+    for (const auto& cell : line.cells) {
+      if (cell.record == npos) continue;
+      auto& entry = ledger.at(cell.record, cell.token);
+      if (entry.role != ProseTokenRoleIR::text) continue;
+      if (entry.block != npos && entry.block != block_index)
+        return fail(error, "box row token is shared by two blocks");
+      entry.block = block_index;
+      entry.inline_index = block.inlines.size();
+      refs.emplace_back(cell.record, cell.token);
+    }
+    std::sort(refs.begin(), refs.end());
+    refs.erase(std::unique(refs.begin(), refs.end()), refs.end());
+    if (!refs.empty()) {
+      ProseInlineIR inline_node;
+      inline_node.text = text;
+      inline_node.slices = slices_for(records, refs);
+      block.inlines.push_back(std::move(inline_node));
+      block_refs.insert(block_refs.end(), refs.begin(), refs.end());
+    }
+    rows.push_back(std::move(text));
+  }
+  if (block.inlines.empty())
+    return fail(error, "drawn box block has no text row");
+  std::size_t indent = npos;
+  for (const auto& row : rows) {
+    if (row.empty()) continue;
+    indent = std::min(indent, row.find_first_not_of(' '));
+  }
+  if (indent == npos) indent = 0;
+  for (auto& row : rows)
+    if (!row.empty()) row.erase(0, indent);
+  block.preformatted_lines = std::move(rows);
+  std::sort(block_refs.begin(), block_refs.end());
+  block.slices = slices_for(records, block_refs);
+  return true;
+}
+
 bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
                   const LineBuild& lines_build, Ledger& ledger,
                   ProseTopicIR& topic, std::string* error) {
@@ -227,6 +280,7 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
   const auto& lines = lines_build.lines;
   std::vector<std::pair<std::size_t, std::size_t>> ranges;  // [begin,end)
   std::vector<bool> is_item;
+  std::vector<bool> is_box;
   std::vector<std::size_t> origins;
   // A table/figure span between two lines ends the block before it.
   std::set<std::size_t> span_lines;
@@ -239,6 +293,19 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
   std::size_t carried_breaks = 0;
   while (index < lines.size()) {
     const auto& first = lines[index];
+    // A drawn box region: its rows are verbatim display lines and form one
+    // preformatted block.
+    if (first.box) {
+      auto end = index + 1;
+      while (end < lines.size() && lines[end].box) ++end;
+      ranges.emplace_back(index, end);
+      is_item.push_back(false);
+      is_box.push_back(true);
+      origins.push_back(first.origin);
+      index = end;
+      carried_breaks = 0;
+      continue;
+    }
     if (first.cells.size() <= first.text_begin) {
       // A row without text is vertical spacing between blocks.
       if (first.bullet)
@@ -253,6 +320,7 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
     while (end < lines.size()) {
       const auto& next = lines[end];
       if (span_lines.count(end) != 0) break;
+      if (next.box) break;
       if (next.breaks_before != 0 || next.anchor_before || next.bullet) break;
       if (next.cells.size() <= next.text_begin) break;
       if (first.bullet && next.origin <= first.origin) break;
@@ -261,6 +329,7 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
     }
     ranges.emplace_back(index, end);
     is_item.push_back(first.bullet);
+    is_box.push_back(false);
     origins.push_back(first.origin);
     index = end;
   }
@@ -268,6 +337,14 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
   for (std::size_t block_index = 0; block_index < ranges.size(); ++block_index) {
     ProseBlockIR block;
     block.origin = origins[block_index];
+    if (is_box[block_index]) {
+      if (!build_box_block(records, lines, ranges[block_index].first,
+                           ranges[block_index].second, block, ledger,
+                           block_index, error))
+        return false;
+      topic.blocks.push_back(std::move(block));
+      continue;
+    }
     if (is_item[block_index]) {
       block.kind = ProseBlockKindIR::list_item;
       if (block_index == 0 || !is_item[block_index - 1])

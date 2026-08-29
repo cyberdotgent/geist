@@ -1,5 +1,6 @@
 #pragma once
 
+#include "geist/detail/display_lines.hpp"
 #include "geist/detail/font_span_ir.hpp"
 #include "geist/detail/internal.hpp"
 #include "geist/detail/prose_topic_ir.hpp"
@@ -270,6 +271,10 @@ struct Line {
   // Governing CZ directive (index into LineBuild::directives), npos in the
   // flattened dialect.
   std::size_t directive = npos;
+  // A row of a drawn box region: `cells` are the hosted display columns of
+  // the source display line, verbatim, and the row joins the preformatted
+  // block of its region instead of reflowing.
+  bool box = false;
   std::vector<Cell> cells;
   std::vector<Span> fonts;
   std::vector<Span> links;
@@ -294,6 +299,31 @@ struct LineBuild {
   // CZ directives in source order; empty for the flattened dialect.
   std::vector<LayoutDirective> directives;
 };
+
+// One drawn box region embedded in prose: a `U+250C ... U+2510` top rule,
+// one or more `U+2502 ... U+2502` side rows and a `U+2514 ... U+2518` bottom
+// rule, all at the same left/right columns, in consecutive display lines of
+// the topic (Format/markup.md, "Drawn box regions in prose").  Hosted
+// BookServer prints the region's display lines verbatim inside its <pre>.
+struct BoxLine {
+  std::size_t record = 0;
+  DisplayLineIR line;
+  std::string text;                    // hosted display text
+  std::vector<std::uint16_t> columns;  // one word per display column
+};
+
+struct BoxRegion {
+  std::vector<BoxLine> lines;  // source order, control-only lines dropped
+  std::size_t begin_record = 0;
+  std::size_t begin_token = 0;  // the top rule's length byte
+  std::size_t end_record = 0;
+  std::size_t end_token = 0;  // last token of the bottom rule, inclusive
+};
+
+// Every closed box region of the topic, in source order.  Declines silently
+// (returns no region) when a record's display lines do not parse.
+std::vector<BoxRegion> plan_boxes(
+    const std::vector<DecodedLogicalRecordSource>& records);
 
 bool build_lines(const std::vector<DecodedLogicalRecordSource>& records,
                  const std::vector<Item>& items, Ledger& ledger,

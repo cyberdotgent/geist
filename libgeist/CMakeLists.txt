@@ -69,6 +69,7 @@ set(GEIST_SOURCES
   src/comment_delivery_ir.cpp
   src/comment_delivery_document_lowering.cpp
   src/control_ir.cpp
+  src/display_lines.cpp
   src/document.cpp
   src/document_ir.cpp
   src/document_lowering.cpp
@@ -116,6 +117,7 @@ set(GEIST_SOURCES
   src/properties.cpp
   src/procedure_rows.cpp
   src/prose_topic_blocks.cpp
+  src/prose_topic_boxes.cpp
   src/prose_topic_cz.cpp
   src/prose_topic_document_lowering.cpp
   src/prose_topic_ir.cpp
