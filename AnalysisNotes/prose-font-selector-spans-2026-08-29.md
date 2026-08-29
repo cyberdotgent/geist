@@ -96,7 +96,7 @@ Three causes, all of them the row model rather than the operand.
   excluded (they carry no character), and so is the `CZ` dialect, whose rows
   carry explicit marker slots (SC09-2417-00 `2.1.3.4`).
 - **Genuine mid-word emphasis, left fail-closed.**  Hosted really does style
-  part of a word: GC23-046 `6.0` `cfont 43 1 V` -> `SMPWRK<I>x</I>`,
+  part of a word: GC23-046 `6.0` `cfont 43 1 1` -> `SMPWRK<I>x</I>`,
   SG24-204 `5.2.1` -> `<B><U>L</B></U><B>U</B>`.  Admitting it needs a
   sub-token slice in the inline ownership ledger (the ledger currently owns
   whole tokens, and a split word makes two inlines claim one token), so this

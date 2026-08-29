@@ -101,7 +101,7 @@ std::string line_text(const Line& line) {
 // BookServer gives every highlighted phrase its own operand triple, and a
 // triple whose boundary falls inside a decoded word always stays inside that
 // word: the sub-word cases hosted serves are `<TT>CLIST</TT>s` (SC09-138
-// 3.3.1 `cfont 24 5 9`), `SMPWRK<I>x</I>` (GC23-046 6.0 `cfont 43 1 V`),
+// 3.3.1 `cfont 24 5 4`), `SMPWRK<I>x</I>` (GC23-046 6.0 `cfont 43 1 1`),
 // `<B>EDCK</B><B><I>nnn</I></B>` (SC09-138 6.2.8.4) and `<B><U>L</B></U>`
 // (SG24-204 5.2.1).  A span that starts or ends inside a word *and* reaches
 // across a blank column is instead the signature of a row whose left margin
@@ -148,7 +148,7 @@ bool resolve_spans(const Line& line, std::vector<Attr>& attrs,
     if (begin >= end) return fail(error, "font/selector span is blank" + where());
     // A span boundary inside a decoded word is a fact of the format, not an
     // error: BookServer styles part of one word wherever the operand says so
-    // (GC23-046 6.0 `cfont 43 1 V` -> `SMPWRK<I>x</I>`, SG24-204 5.2.1
+    // (GC23-046 6.0 `cfont 43 1 1` -> `SMPWRK<I>x</I>`, SG24-204 5.2.1
     // `cfont 33 1 7 34 1 2` -> `<B><U>L</B></U><B>U</B>`, SC09-138 3.3.1
     // `<TT>CLIST</TT>s`).  The inline ledger owns the byte range inside the
     // token's decoded word, so the two inlines that meet inside a word each

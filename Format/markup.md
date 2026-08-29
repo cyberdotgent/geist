@@ -804,10 +804,71 @@ served as `<samp>//</samp> <samp>JOB</samp> ...`, and GC28-183 `2.2.3`
 `cfont 5 2 E 15 4 E` over `     //        PEND` as
 `<samp>//</samp>        <samp>PEND</samp>`.
 
-BookServer can also style part of one decoded word: GC23-046 `6.0`
-`cfont 43 1 V` is served as `SMPWRK<I>x</I>` and SG24-204 `5.2.1`
-`cfont 33 1 7 34 1 2` as `<B><U>L</B></U><B>U</B>`, both boundaries inside a
-single word.
+### Sub-word span boundaries
+
+BookServer styles part of one decoded word wherever the operand's columns fall
+inside one.  The boundary is a fact of the operand, not an error, and it always
+stays *inside* the word: a triple never starts in one word and ends in another.
+
+| Book / topic | Operand | Hosted |
+| --- | --- | --- |
+| GC23-046 `6.0` | `cfont 43 1 1` | `SMPWRK<I>x</I>` |
+| SG24-204 `5.2.1` | `cfont 33 1 7 34 1 2` | `<B><U>L</B></U><B>U</B>` |
+| SC09-138 `3.3.1` | `cfont 24 5 4` | `information on using <TT>CLIST</TT>s.` |
+| SC09-138 `6.2.8.4` | `cfont 7 4 2 11 3 3` | `<B>EDCK</B><B><I>nnn</I></B>` |
+| SC09-138 `8.1.10.7` | `cfont 18 7 X 25 3 1` | `The fields <TT>__dsorg</TT><I>xxx</I> refers` |
+| ACPZMST1 `4.6` | `cfont 3 3 V` | `<var>tpn</var>.` |
+
+The pattern behind the plural and suffix cases is that the stem is a dictionary
+token and the suffix is stored in the same compiled token, so an implementation
+that owns whole tokens cannot represent the split; ownership has to reach a byte
+range inside the token's decoded word.
+
+A span that starts or ends inside a word *and* also covers a blank display
+column is not this shape.  It is the signature of a row whose left margin the
+reader model has not reproduced: every triple of such a row is displaced by the
+same amount, so each one lands inside a word and reaches over the gap to the
+next.  GG24-4302-00 `PREFACE.2` is the clearest example -- its rows are stored
+as `°` + a two-cell origin run and hosted serves `   °   <cite>IMS/ESA</cite>
+<cite>V5</cite> <cite>Release</cite> ...` at column 7, so a model that puts the
+text at column 2 reads `cfont 7 7 C` as `SA V5 R`.
+
+### The three-column left margin
+
+Every reflowed prose row BookServer serves begins with a three-column margin:
+`   ` normally and ` | ` when the row carries a revision change bar.  The
+columns a `CFONT`/`CSELECT` operand names count from column 0 of that margin.
+
+The change bar is stored as a `U+2502` (or ASCII `|`) width-1 token in the row's
+marker slot, before the row's origin run, and it stands for the whole margin --
+the row's origin run then measures only the indent after it:
+
+| Book / topic | Stored | Hosted | Operand |
+| --- | --- | --- | --- |
+| ACPZMST1 `8.14.1` | `U+2502` + 4-cell origin | ` \|     XC_NOTIFY_MSG, VM PWSCS ...` | `cfont 7 13 9` |
+| GC23-046 `6.1` | `U+2502` + 4-cell origin | ` \|     <B>Note:</B>  If you decide ...` | `cfont 7 5 2` |
+| GG24-395 `2.4.1` | `U+2502` + 4-cell origin | ` \|     variable until the <I>Thread</I> <I>Y</I> ...` | `cfont 35 7 1` |
+
+A bullet glyph behind the bar keeps the assembler's space between them, so the
+bullet stands at column 3 and the row's text at column 7: GG24-395 `PREFACE.3`
+stores `U+2502` + `U+2666` + a two-cell gap for ` | °   Chapter 1, "A
+Client/Server Overview"` and links it with `cselect 7 37`; GC23-046 `7.5.4`
+stores the same shape for ` | °   Do an APPLY CHECK ... Figure 19 ...` with
+`cselect 53 12`.
+
+### A span holds its row open
+
+A span of the open row that reaches past the display cells written so far
+proves the row has not ended, so a one-byte token standing at that point is
+display text and not the next display line's length byte.  The record's own
+length-prefixed display-line structure is the arbiter: a token that opens one of
+those lines is a row boundary whatever the spans say.
+
+| Book / topic | Row | Operand |
+| --- | --- | --- |
+| SC24-546 `4.3.1` | `     <samp>ABBREV('Print','Pri')</samp>      -><B>    1</B>` | `cfont 5 21 E 32 2 2 38 1 E` |
+| IEAC6MST `5.1.2` | `          <samp>RECORDSIZE(384 3072)</samp> <samp>)</samp>` | the trailing `)` is a styled cell |
+| SC09-138 `8.4.2.5` | `          a = b*(x*y*z);            /* Duplicates recognized */` | the `;` had been read as a length byte |
 
 A `CFONT` span wholly inside a `CSELECT` span decorates the link text rather
 than nesting a separate phrase: hosted ACPZMST1 `8.1` serves

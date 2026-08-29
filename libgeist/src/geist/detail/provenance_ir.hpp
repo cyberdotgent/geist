@@ -19,7 +19,7 @@ struct DocumentSourceSliceIR {
   std::uint32_t byte_end = 0;
   // Sub-token boundaries, in bytes of the decoded word of the slice's single
   // token.  BookServer can style part of one decoded word (GC23-046 6.0
-  // `cfont 43 1 V` -> `SMPWRK<I>x</I>`, SC09-138 3.3.1 `cfont 24 5 9` ->
+  // `cfont 43 1 1` -> `SMPWRK<I>x</I>`, SC09-138 3.3.1 `cfont 24 5 4` ->
   // `<TT>CLIST</TT>s`), so an inline may own a byte range inside a token
   // instead of the whole token.  `character_end == 0` means the slice covers
   // its tokens whole; otherwise `token_end == token_begin + 1` and the slice
