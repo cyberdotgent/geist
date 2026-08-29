@@ -55,19 +55,19 @@ constexpr BookBaseline kBaseline[] = {
     {"OFCUSEOV.BOO", 163},
     {"PRG1SORT.boo", 167},
     {"QS3X36CM.BOO", 6},
-    {"QSYSINFO.BOO", 366},
-    {"QSYSNEWG.BOO", 123},
-    {"SC09-138.boo", 442},
-    {"SC09-2417-00.boo", 252},
-    {"SC24-546.boo", 256},
-    {"SC24-5520-00.boo", 599},
-    {"SC24-5527-02.boo", 217},
-    {"SC26-457.boo", 311},
-    {"SC28-1881-05.boo", 72},
-    {"SC31-605.boo", 99},
-    {"SC31-711.boo", 69},
-    {"SC33-033.boo", 194},
-    {"SC34-425.boo", 194},
+    {"QSYSINFO.BOO", 317},
+    {"QSYSNEWG.BOO", 119},
+    {"SC09-138.boo", 432},
+    {"SC09-2417-00.boo", 247},
+    {"SC24-546.boo", 245},
+    {"SC24-5520-00.boo", 587},
+    {"SC24-5527-02.boo", 213},
+    {"SC26-457.boo", 306},
+    {"SC28-1881-05.boo", 63},
+    {"SC31-605.boo", 81},
+    {"SC31-711.boo", 68},
+    {"SC33-033.boo", 89},
+    {"SC34-425.boo", 191},
     {"SC41-485.boo", 17},
     {"SG24-204.boo", 76},
     {"SH12-565.boo", 265},
@@ -75,7 +75,7 @@ constexpr BookBaseline kBaseline[] = {
     {"XWEBDEMO.boo", 5},
     {"packet.boo", 98},
 };
-constexpr std::size_t kBaselineTotal = 6072;
+constexpr std::size_t kBaselineTotal = 5727;
 
 void require(bool condition, const std::string &message) {
   if (!condition) {

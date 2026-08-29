@@ -5,6 +5,7 @@
 #include "geist/detail/selector_display_ir.hpp"
 #include "geist/detail/source_rows.hpp"
 #include "geist/detail/topic_document_lowering.hpp"
+#include "geist/detail/topic_identity.hpp"
 #include "geist/detail/trap_catalog_ir.hpp"
 
 #include <algorithm>
@@ -26,18 +27,6 @@ using namespace detail;
 
 namespace {
 
-TopicIdentityIR topic_identity(const TopicData& topic, const std::string& id,
-                               const std::string& title) {
-  TopicIdentityIR identity;
-  identity.id = id;
-  identity.title = title;
-  identity.heading_level = topic.heading_level;
-  identity.topic_number = topic.topic_number;
-  identity.start_logical_record = topic.start_logical_record;
-  identity.end_logical_record = topic.end_logical_record;
-  return identity;
-}
-
 std::shared_ptr<const std::set<std::string>> lowercase_resource_ids(
     const std::vector<ResourceEntry>& resources) {
   auto ids = std::make_shared<std::set<std::string>>();
@@ -56,6 +45,7 @@ struct LazyTopicState {
   std::shared_ptr<const std::set<std::string>> resource_ids;
   std::shared_ptr<const std::map<std::string, std::string>> topic_titles;
   TopicData topic;
+  TopicIdentityIR identity;
   std::string id;
   std::string title;
   std::uint32_t level = 0;
@@ -84,8 +74,8 @@ struct LazyTopicState {
 
 TopicLoaderBundle make_topic_loaders(
     const std::shared_ptr<LogicalDecodeContext>& context, TopicData topic,
-    std::string id, std::string title, std::uint32_t level,
-    std::uint32_t style,
+    TopicIdentityIR identity, std::string id, std::string title,
+    std::uint32_t level, std::uint32_t style,
     const std::shared_ptr<const BookTopicCatalogIR>& topic_catalog,
     const std::shared_ptr<const std::map<std::string, std::string>>&
         topic_titles,
@@ -96,6 +86,7 @@ TopicLoaderBundle make_topic_loaders(
   state->resource_ids = resource_ids;
   state->topic_titles = topic_titles;
   state->topic = std::move(topic);
+  state->identity = std::move(identity);
   state->id = std::move(id);
   state->title = std::move(title);
   state->level = level;
@@ -115,9 +106,9 @@ TopicLoaderBundle make_topic_loaders(
   loaders.document = [state]() -> std::shared_ptr<const DocumentIR> {
     state->load_sources();
     auto document = try_lower_topic_to_document_ir(
-        topic_identity(state->topic, state->id, state->title),
-        state->topic.fixed_layout_sources, state->topic_catalog.get(), nullptr,
-        nullptr, state->resource_ids.get());
+        state->identity, state->topic.fixed_layout_sources,
+        state->topic_catalog.get(), nullptr, nullptr,
+        state->resource_ids.get());
     if (!document) return {};
     return std::make_shared<const DocumentIR>(std::move(*document));
   };
@@ -301,10 +292,10 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
     const auto entry_title = entry.title;
     const auto entry_level = entry.level;
     const auto entry_style = entry.style;
-    auto loaders = make_topic_loaders(context, std::move(topic_data), entry_id,
-                                      entry_title, entry_level, entry_style,
-                                      document.topic_catalog_ir_, topic_titles,
-                                      resource_ids);
+    auto loaders = make_topic_loaders(
+        context, std::move(topic_data), make_topic_identity(entry), entry_id,
+        entry_title, entry_level, entry_style, document.topic_catalog_ir_,
+        topic_titles, resource_ids);
     entry.raw_record_loader_ = std::move(loaders.raw);
     entry.document_ir_loader_ = std::move(loaders.document);
   }
@@ -420,12 +411,16 @@ std::string BooDocument::topic_markdown(const std::string& topic_id) const {
   TocEntry entry;
   entry.id = topic.id;
   entry.title = topic.title;
+  entry.heading_level = topic.heading_level;
+  entry.topic_number = topic.topic_number;
+  entry.start_logical_record = topic.start_logical_record;
+  entry.end_logical_record = topic.end_logical_record;
   const auto topic_titles =
       std::make_shared<const std::map<std::string, std::string>>(topic_titles_);
-  auto loaders = make_topic_loaders(decode_context_, topic, topic.id,
-                                    topic.title, 0, 0, topic_catalog_ir_,
-                                    topic_titles,
-                                    lowercase_resource_ids(resources_));
+  auto loaders = make_topic_loaders(
+      decode_context_, topic, make_topic_identity(entry), topic.id,
+      topic.title, 0, 0, topic_catalog_ir_, topic_titles,
+      lowercase_resource_ids(resources_));
   entry.raw_record_loader_ = std::move(loaders.raw);
   entry.document_ir_loader_ = std::move(loaders.document);
   return entry.markdown();
