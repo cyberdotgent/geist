@@ -668,8 +668,11 @@ void front_matter_fixtures() {
 void negative_fixtures() {
   // Tables and figures compose (tests/prose_topic_spans_synthetic.cpp); a
   // declined envelope still rejects the whole topic.
-  reject("ACPZMST1.boo", "4.3",
-         "table envelope 'TBLUNIQ39' declined: visible source between table "
+  // ACPZMST1 4.3 `TBLUNIQ39` used to stand here; its envelope now lowers
+  // verbatim because a selector no longer blocks the preformatted route, so
+  // the class is pinned on an envelope that still declines both models.
+  reject("IEAC6MST.BOO", "4.3.4.1",
+         "table envelope 'TBLUNIQ10' declined: visible source between table "
          "lines");
   reject("PRG1SORT.boo", "1.1.5.1", "control-like word 'SRCFILE'");
   // COVER still fails closed: its front-matter `cover` heading form is

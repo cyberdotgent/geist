@@ -952,6 +952,28 @@ span, which BookServer renders as `<cite>` words *inside* the anchor
 (`<a href="../../DOCNUM/SC30-3290/CCONTENTS"><cite>TPNS</cite>
 <cite>General</cite> <cite>Utilities</cite></a>`, ITPPIBOK 1.3.7).
 
+### Selectors inside a table envelope
+
+Verified: a `CSELECT` between `SRTBL` and `SRETBL` is a display line of its
+own -- its opcode and operand bytes, and for a `LNK` selector its `<...>`
+alternative tokens, fill one `<length byte>` line and display nothing, the
+same shape a `CFONT` operand run has.  Its `<column> <length>` then address
+the *next* display line.
+
+Three destinations occur inside an envelope, each verified on the hosted
+page:
+
+| Target | Fixture and topic | Hosted rendering |
+| --- | --- | --- |
+| in-book anchor | `GG24-4302-00.boo` `10.2` `TBLDBCTL51` | `<a href="...#HDR...">` on the cell text |
+| `LNK <BOOK>` | `SC24-5527-02.boo` `3.9.4.4` `TBLUNIQ156`, DT `19921218151459` | cell lines `VM/ESA: Planning and` / `Administration` served as `<a href="../../DOCNUM/SC24-5521/CCONTENTS?DocnumLevel=ANY">` |
+| `PIC<n>` | `GG24-395.boo` `3.2.2` `TBLUNIQ6`, DT `19941215160749` | `<a href="picture-29?mode=zoom"><img src=".../P29.GIF" alt="PICTURE 29"></a>` over the selector's columns, inside the region's `<pre>` |
+
+The picture form is the one that carries content the display words do not:
+the region's own bytes spell only the `PICTURE 29` placeholder, so an
+envelope that carries a `PIC<n>` selector cannot be reproduced as text
+without losing the image resource.
+
 ### Selector kind words as row-control slots
 
 Verified: the selector kind word of an external link is also the display row's
@@ -1704,6 +1726,16 @@ words, `<sep1>` one; `<format>` is a digit followed by a GML highlight or
 example tag (`3HI1`, `4XMP@`) and `<flag>` has been `0` in every observed
 entry.  The fields are not otherwise decoded here because no reader output
 depends on them.
+
+An `SI` line also occurs *inside* an `SRTBL ... SRETBL` envelope, where it
+is equally invisible and is neither a table row nor preformatted text.
+`SC09-138.boo` 4.1.4 (DT `19910321130500`) wraps its `LANG` envelope around
+the three entries `SI ENGLISH run-time messages`,
+`SI UENGLISH run-time messages` and `SI KANJI run-time messages`, one per
+display line between the grid rows; the hosted page for that topic contains
+no `SI` byte at all.  `SC24-5527-02.boo` 4.1.1 record 380 opens the
+`XSESDSK` envelope with `SI VMSES/E, service disks` on the first line after
+`SRTBLXSESDSK` and the caption `Table 4-1. ...` on the next.
 
 The earlier reading of a "visible tail after `?`" on an `SI` row was an
 artifact of the flattened decoded string: the tail is the *next* display

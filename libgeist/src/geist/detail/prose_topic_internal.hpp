@@ -187,6 +187,9 @@ struct FrameRegion {
 struct SpanPlan {
   std::vector<SpanRegion> regions;  // source order
   std::vector<FrameRegion> frames;
+  // `SI` subject-index entries a table envelope carries; hidden, like the
+  // ones the display-line pass finds in prose.
+  std::vector<ProseIndexTermIR> index_terms;
   template <typename Region>
   static const Region* find_segment(const std::vector<Region>& list,
                                     std::size_t record, std::size_t segment) {
