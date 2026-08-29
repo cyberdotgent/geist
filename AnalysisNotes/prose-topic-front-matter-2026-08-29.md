@@ -11,13 +11,14 @@ procedure and the hosted trail.
 ## Rejection buckets attacked
 
 Measured with `build/bootrace <book> --coverage` over all 34 fixtures on
-main `f763774` (4,036 / 7,362 typed):
+main `918eee9` (4,505 / 7,362 typed); the counts were stable across the
+four main revisions this slice was rebased on:
 
 | Reason | Topics |
 | --- | --- |
 | `topic metadata controls are incomplete or out of order` | 272 |
 | `heading level '<form>' is not an h1-h6 prose heading` | 223 |
-| `c.cp control carries visible payload '<x>'` | 198 |
+| `c.cp control carries visible payload '<x>'` | 201 |
 | `c.cp control has no operand` | 41 |
 | `body control c.sp is outside the prose model` (surfaced once the above cleared) | 133 |
 | `control SR<id> carries visible payload '<x>'` (body anchors) | 23 |
@@ -150,21 +151,22 @@ hosted:
 
 ## Measured
 
-Baseline: main `f763774`, built from `git archive main libgeist` into a
+Baseline: main `918eee9`, built from `git archive main libgeist` into a
 scratch build tree.
 
-- **Typed-route coverage 4,036 → 4,291 of 7,362 (54.8 → 58.3%, +255)**;
-  255 topics moved legacy → typed, **none moved the other way**, and no
+- **Typed-route coverage 4,505 → 4,817 of 7,362 (61.2 → 65.4%, +312)**;
+  312 topics moved legacy → typed, **none moved the other way**, and no
   book regressed.
-- Largest per-book gains: SC24-546 +34, OFCUSEOV +25, SH12-565 +24,
-  FA1PLMM0 +23, IEAC6MST +18, SC24-5520-00 +17, SC34-425 +17,
-  SC09-138 +16, DREICMST +8, SC33-033 +8, GG24-395 +7, GC28-183 +6.
-- Whole-corpus `boo2git --force` before/after: **262 files changed, 0 added,
-  0 removed** — the 255 moved topics plus the seven already-typed topics of
-  the compound-word fix above.
+- Largest per-book gains: SC24-546 +42, OFCUSEOV +30, FA1PLMM0 +27,
+  SH12-565 +27, SC34-425 +26, SC09-138 +22, IEAC6MST +21,
+  SC24-5520-00 +18, DREICMST +10, GC28-183 +10, ACPZMST1 +9,
+  SC33-033 +9, GG24-395 +7.
+- Whole-corpus `boo2git --force` before/after: **319 files changed, 0
+  added, 0 removed** — the 312 moved topics plus the seven already-typed
+  topics of the compound-word fix above.
 - Hosted word-level comparison of **every** moved topic whose book is in
-  the hosted catalog: **223 topics across 26 books**, typed **better on 182,
-  equal on 39, worse on none**.
+  the hosted catalog: **278 topics across 26 books**, typed **better on 227,
+  equal on 49, worse on none**.
 
 ### Difference classes decided
 
@@ -181,6 +183,7 @@ scratch build tree.
 | `__` checklist rows | literal `\_\_ lnmstatus` | keep: hosted prints `__     lnmstatus` (SC31-711 2.4.9); legacy's `- lnmstatus` was wrong |
 | Multi-line fixed table rows (`SC33-033` 4.132) | one logical row `\| 703 \| CHSTRT \| ... \|` | keep: hosted's `<pre>` splits the code onto a second physical line, so a sequence diff reports a word-order change while the word multiset is identical except hosted's footer; legacy loses 15 content words |
 | Implicit multi-column word lists (`SC09-138` 6.2.7) | read column-major | accept: no word lost (multiset identical except hosted's footer); legacy loses four content words |
+| A rule-less `Term / Trademark of` grid the fixed-table block declines (`SC31-711` FRONT_1.1) | reflowed into one paragraph | **the one structural regression**: word for word equal to hosted and to legacy, but legacy's Markdown table was closer to hosted's aligned `<pre>` columns; the implicit-grid guard only fires on a plural `CFONT` header, recorded as a follow-up |
 
 Both "worse" sequence-ratio verdicts above were re-checked as word
 multisets: typed loses only hosted page chrome, legacy loses real content.
@@ -209,21 +212,20 @@ plus, from `AnalysisNotes/bookserver-dataset-2026-08-25.md`:
 `GX27-3999-00` and `packet` remain absent from the hosted catalog and are
 excluded from the hosted verdict.
 
-## Remaining rejections of the 3,071 legacy topics
+## Remaining rejections of the 2,545 legacy topics
 
-Top classes after this slice: font/selector span exceeds the display line
-415, span starts inside a word 247, placeholder run followed by visible text
-235, selector targets a picture or external link 178, table envelope
-declines (visible source between table lines 153, gap-table shapes 142, rule
-junctions 69), span ends inside a word 124, trailing menu label mismatches
-172, body control glued into prose text 96, `text segment begins with
-control-like word` 94 (of which `ctocdef=0` and `cidelm` are the generated
-TOC/index streams of `CONTENTS` and `INDEX`), placeholder glyph inside prose
-text 87, `ST title does not match the topic title` 74, `first record lacks
-the topic metadata envelope` 69.
+Top classes after this slice: visible token inside a table region claimed by
+no block 297, placeholder run followed by visible text 256, selector targets
+a picture or external link 224, span starts/ends inside a word 232,
+font/selector span exceeds the display line 120, trailing menu label
+mismatches 181, body control glued into prose text 100, `text segment begins
+with control-like word` 95 (of which `ctocdef=0` and `cidelm` are the
+generated TOC/index streams of `CONTENTS` and `INDEX`), placeholder glyph
+inside prose text 87, `ST title does not match the topic title` 77, `first
+record lacks the topic metadata envelope` 69, `body control SRMSG is outside
+the prose model` 49.
 
-Front matter specifically: `COVER` (29 topics) and `CONTENTS`/`INDEX`
-(63 topics) still fail closed — `COVER` on the placeholder-run class,
-`CONTENTS`/`INDEX` because their bodies are generated TOC/index streams
-(`ctocdef`, `ctoce`, `cidelm`, `citerm`) that belong to the generated-list
-family, not to prose.
+Front matter specifically: `COVER` still fails closed on the placeholder-run
+class, and `CONTENTS`/`INDEX` because their bodies are generated TOC/index
+streams (`ctocdef`, `ctoce`, `cidelm`, `citerm`) that belong to the
+generated-list family, not to prose.

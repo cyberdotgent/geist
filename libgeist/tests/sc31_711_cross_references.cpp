@@ -105,16 +105,18 @@ int main() {
                   "(<#HDRPRNETL>)") != std::string::npos,
           "2.3.4 clean sibling selectors regressed");
 
+  // 2.4.9 renders through the typed prose family; hosted DT 19941010174546
+  // serves both references whole on one display row, so each is one anchor.
   const auto additional = sc31.topic_markdown("2.4.9");
-  require(count(additional, "](#HDRPRLNMS)") == 1 &&
+  require(count(additional, "](<#HDRPRLNMS>)") == 1 &&
               additional.find(
                   "[\"Displaying LNM for AIX Status Information\" in topic "
-                  "2.1.1](#HDRPRLNMS)") != std::string::npos,
+                  "2\\.1\\.1](<#HDRPRLNMS>)") != std::string::npos,
           "2.4.9 status reference is not one complete anchor");
-  require(count(additional, "](#HDRLNMKLOG)") == 1 &&
+  require(count(additional, "](<#HDRLNMKLOG>)") == 1 &&
               additional.find(
-                  "[\"Logging with LNM for AIX\" in topic 3.1]"
-                  "(#HDRLNMKLOG)") != std::string::npos,
+                  "[\"Logging with LNM for AIX\" in topic 3\\.1]"
+                  "(<#HDRLNMKLOG>)") != std::string::npos,
           "2.4.9 logging reference is not one complete anchor");
 
   const auto messages = sc31.topic_markdown("5.0");
