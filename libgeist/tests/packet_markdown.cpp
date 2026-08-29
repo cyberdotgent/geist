@@ -61,8 +61,11 @@ int main() {
                        "title page metadata folded into title block");
 
   const auto base_stack = topic_markdown(document, "3.2");
+  // Typed `CZ OFF XMP` example block.  Hosted 3.2 (DT 20260614112503)
+  // opens the block with `<samp>#</samp> <samp>name</samp> ...`; the typed
+  // renderer writes a plain fence.
   require_contains(base_stack,
-                   "```text\n"
+                   "```\n"
                    "# name callsign speed paclen window description\n"
                    "#----- -------- ----- ------ ------ -----------\n"
                    "radio  WA4XYZ-1 1200  256    7      Real TNC\n"
@@ -71,13 +74,19 @@ int main() {
   require_not_contains(base_stack,
                        "# ``n`ame",
                        "example line rendered as Markdown heading");
+  // Hosted `<li> The  <I>interface</I>  <I>name</I>, ... device by<a
+  // href="...#FTNFTNUNIQ21"> (12)</a>`: one HP1 phrase over both words.
   require_contains(base_stack,
-                   "- The *interface* *name*, the name that the Linux kernel "
-                   "knows the network device by [(12)](#FTNFTNUNIQ21)",
+                   "- The *interface name*, the name that the Linux kernel "
+                   "knows the network device by "
+                   "[\\(12\\)](<#FTNFTNUNIQ21>)",
                    "list item with nested footnote link");
+  // Hosted keeps this one `<p>` across two display rows and marks the path
+  // with `<kbd>`; the `SI` term between the rows is not a paragraph break.
   require_contains(base_stack,
-                   "\n\nTo define an AX.25 port, edit /etc/ax25/axports, "
-                   "and, use tabs for everything, not spaces:\n\n",
+                   "\n\nTo define an AX\\.25 port, edit "
+                   "`/etc/ax25/axports`, and, use tabs for everything, not "
+                   "spaces:\n\n",
                    "paragraph after first list is not merged into list item");
   require_not_contains(base_stack,
                        "Linux AX.25, Configuring Ports, AX.25",
@@ -86,11 +95,11 @@ int main() {
                        "= To define an AX.25 port",
                        "decoded line marker in paragraph body");
   require_not_contains(base_stack,
-                       "[The *interface* *name*, the name that the Linux "
+                       "[The *interface name*, the name that the Linux "
                        "kernel knows the network device by",
                        "whole list item wrapped by nested footnote target");
   require_contains(base_stack,
-                   "```text\n"
+                   "```\n"
                    "# ax25_name min_obs def_qual worst_qual verbose\n"
                    "#---------- ------- -------- ---------- -------\n"
                    "radio       5       192      100        0\n"
@@ -148,12 +157,15 @@ int main() {
                        "word split around inline image");
 
   const auto original_packet = topic_markdown(document, "1.1");
+  // Typed `SRFTN<id>` / `CZ FLOW FN` footnotes: the anchor keeps the whole
+  // opcode after `SR` (the `cselect` target), and the compiled body's
+  // trailing row terminator `.` is not display text.
   require_contains(original_packet,
-                   "same CSMA medium access control technique.\n\n"
+                   "same CSMA medium access control technique\\.\n\n"
                    "<a id=\"FTNFTNUNIQ2\"></a>",
                    "footnote one has a single terminal period");
   require_contains(original_packet,
-                   "November 22, 1977, the Internet was born.",
+                   "November 22, 1977, the Internet was born\\.",
                    "footnote two has a single terminal period");
   require_not_contains(original_packet,
                        "technique..",

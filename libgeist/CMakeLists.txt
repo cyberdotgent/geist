@@ -116,6 +116,7 @@ set(GEIST_SOURCES
   src/properties.cpp
   src/procedure_rows.cpp
   src/prose_topic_blocks.cpp
+  src/prose_topic_cz.cpp
   src/prose_topic_document_lowering.cpp
   src/prose_topic_ir.cpp
   src/prose_topic_lines.cpp

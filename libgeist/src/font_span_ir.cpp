@@ -51,6 +51,10 @@ FontStyleIR style_for_code(const std::string& code) {
 
 } // namespace
 
+FontStyleIR font_style_for_code(const std::string& code) {
+  return style_for_code(code);
+}
+
 const char* font_style_name(FontStyleIR style) {
   switch (style) {
   case FontStyleIR::highlight_1:
