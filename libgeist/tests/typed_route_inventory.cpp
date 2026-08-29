@@ -12,6 +12,14 @@
 // new total into kBaselineTotal). Lowering the baseline is a regression and
 // needs an explicit explanation in the commit message.
 //
+// Every generated CONTENTS topic and every generated INDEX topic but one now
+// take the typed `generated navigation` route.  The exception is SH20-918
+// INDEX, whose record 636 token 275 is a two-byte token spelling the field
+// delimiter twice (`citerm` U+25BA U+25BA `1`), so that term carries no term
+// text at all; the family fails closed rather than invent one, and hosted
+// (DT 19910520154851) truncates its own output before that group, so nothing
+// can adjudicate it.
+//
 // Three topics still fail closed instead of printing a `c.<xx>` body control
 // opcode the decoder glued to a text run (hosted BookServer serves no such
 // word; checked on SH20-918 3.31.1 at DT 19910520154851, where the legacy and
@@ -43,42 +51,42 @@ struct BookBaseline {
 };
 
 constexpr BookBaseline kBaseline[] = {
-    {"ACPZMST1.boo", 184},
-    {"DREICMST.boo", 361},
-    {"FA1PLMM0.boo", 400},
-    {"GC23-046.boo", 94},
-    {"GC28-183.boo", 141},
-    {"GG24-395.boo", 192},
-    {"GG24-4302-00.boo", 221},
-    {"GX27-3999-00.boo", 23},
-    {"IBMMMSTR.boo", 29},
-    {"IEAC6MST.BOO", 193},
-    {"ITPPIBOK.BOO", 242},
-    {"N2AH1MST.BOO", 18},
-    {"OFCUSEOV.BOO", 177},
-    {"PRG1SORT.boo", 173},
-    {"QS3X36CM.BOO", 8},
-    {"QSYSINFO.BOO", 390},
-    {"QSYSNEWG.BOO", 147},
-    {"SC09-138.boo", 471},
-    {"SC09-2417-00.boo", 314},
-    {"SC24-546.boo", 286},
-    {"SC24-5520-00.boo", 632},
-    {"SC24-5527-02.boo", 289},
-    {"SC26-457.boo", 339},
-    {"SC28-1881-05.boo", 79},
-    {"SC31-605.boo", 104},
-    {"SC31-711.boo", 73},
-    {"SC33-033.boo", 214},
-    {"SC34-425.boo", 209},
-    {"SC41-485.boo", 25},
-    {"SG24-204.boo", 84},
-    {"SH12-565.boo", 272},
-    {"SH20-918.boo", 190},
-    {"XWEBDEMO.boo", 8},
-    {"packet.boo", 118},
+    {"ACPZMST1.boo", 186},
+    {"DREICMST.boo", 363},
+    {"FA1PLMM0.boo", 402},
+    {"GC23-046.boo", 96},
+    {"GC28-183.boo", 143},
+    {"GG24-395.boo", 194},
+    {"GG24-4302-00.boo", 223},
+    {"GX27-3999-00.boo", 25},
+    {"IBMMMSTR.boo", 30},
+    {"IEAC6MST.BOO", 195},
+    {"ITPPIBOK.BOO", 244},
+    {"N2AH1MST.BOO", 19},
+    {"OFCUSEOV.BOO", 179},
+    {"PRG1SORT.boo", 175},
+    {"QS3X36CM.BOO", 9},
+    {"QSYSINFO.BOO", 392},
+    {"QSYSNEWG.BOO", 149},
+    {"SC09-138.boo", 473},
+    {"SC09-2417-00.boo", 316},
+    {"SC24-546.boo", 288},
+    {"SC24-5520-00.boo", 634},
+    {"SC24-5527-02.boo", 291},
+    {"SC26-457.boo", 341},
+    {"SC28-1881-05.boo", 81},
+    {"SC31-605.boo", 106},
+    {"SC31-711.boo", 75},
+    {"SC33-033.boo", 215},
+    {"SC34-425.boo", 211},
+    {"SC41-485.boo", 27},
+    {"SG24-204.boo", 86},
+    {"SH12-565.boo", 274},
+    {"SH20-918.boo", 191},
+    {"XWEBDEMO.boo", 9},
+    {"packet.boo", 120},
 };
-constexpr std::size_t kBaselineTotal = 6700;
+constexpr std::size_t kBaselineTotal = 6762;
 
 void require(bool condition, const std::string &message) {
   if (!condition) {
