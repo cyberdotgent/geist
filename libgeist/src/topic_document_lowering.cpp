@@ -6,6 +6,8 @@
 #include "geist/detail/fixed_prose_topic_ir.hpp"
 #include "geist/detail/generated_list_document_lowering.hpp"
 #include "geist/detail/generated_list_topic_ir.hpp"
+#include "geist/detail/generated_toc_index_document_lowering.hpp"
+#include "geist/detail/generated_toc_index_ir.hpp"
 #include "geist/detail/glossary_catalog_ir.hpp"
 #include "geist/detail/glossary_document_lowering.hpp"
 #include "geist/detail/internal.hpp"
@@ -82,6 +84,39 @@ bool generated_list_source_candidate(
     }
   }
   return heading && title && selector;
+}
+
+// True when the token's decoded word run, ignoring a spacing-control prefix
+// word and ASCII case, spells `expected`.
+bool token_spells(const LogicalTokenIR &token, const char *expected) {
+  auto word = static_cast<std::size_t>(token.has_spacing_control);
+  for (const char *at = expected; *at != '\0'; ++at, ++word) {
+    if (word >= token.decoded_words.size())
+      return false;
+    const auto value = token.decoded_words[word];
+    if (value > 0x7F ||
+        std::tolower(static_cast<unsigned char>(value)) !=
+            static_cast<unsigned char>(*at))
+      return false;
+  }
+  return word == token.decoded_words.size();
+}
+
+// A generated navigation topic states its kind in its own `CHDLEVEL`.  The
+// candidate test reads that pair of tokens and nothing else, so no other
+// topic pays for the family.
+bool generated_navigation_source_candidate(
+    const std::vector<DecodedLogicalRecordSource> &sources) {
+  for (const auto &record : sources) {
+    const auto &tokens = record.ir.tokens;
+    for (std::size_t index = 0; index + 1 < tokens.size(); ++index) {
+      if (!token_spells(tokens[index], "chdlevel"))
+        continue;
+      return token_spells(tokens[index + 1], ":toc") ||
+             token_spells(tokens[index + 1], ":index");
+    }
+  }
+  return false;
 }
 
 bool message_source_candidate(
@@ -174,6 +209,12 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
       note_declined("generated list", generated_list.has_value());
     }
   }
+  std::optional<GeneratedTocIndexTopicIR> navigation;
+  if (generated_navigation_source_candidate(sources)) {
+    navigation = extract_generated_toc_index_topic_ir(
+        sources, book_topic_catalog, declined_sink);
+    note_declined("generated navigation", navigation.has_value());
+  }
   std::optional<MenuTopicIR> menu;
   std::optional<MenuTargetValidationIR> menu_validation;
   if (book_topic_catalog != nullptr) {
@@ -197,6 +238,7 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
                             static_cast<unsigned>(message.has_value()) +
                             static_cast<unsigned>(trap_catalog.has_value()) +
                             static_cast<unsigned>(generated_list.has_value()) +
+                            static_cast<unsigned>(navigation.has_value()) +
                             static_cast<unsigned>(menu.has_value());
   if (family_count == 0) {
     // Ordinary prose is offered last: only a topic every specific family
@@ -357,6 +399,21 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
                                                          &error);
     if (!document || !verify_generated_list_topic_document_ir(
                          *generated_list, *document, &error)) {
+      reject(typed_rejection, family + " document rejected: " + error);
+      return std::nullopt;
+    }
+  } else if (navigation) {
+    family = "generated navigation";
+    if (!verify_generated_toc_index_topic_ir(sources, book_topic_catalog,
+                                             *navigation, &error)) {
+      reject(typed_rejection, family + " semantics rejected: " + error);
+      return std::nullopt;
+    }
+    topic.heading_level = navigation->heading_level;
+    document = lower_generated_toc_index_topic_to_document_ir(
+        topic, *navigation, &error);
+    if (!document || !verify_generated_toc_index_topic_document_ir(
+                         *navigation, *document, &error)) {
       reject(typed_rejection, family + " document rejected: " + error);
       return std::nullopt;
     }

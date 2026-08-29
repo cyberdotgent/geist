@@ -29,11 +29,11 @@ int main() {
   const auto split_header_index = split_header.topic_markdown("INDEX");
   require(split_header_index.find(
               "## Special Characters\n\n"
-              "- /DIS TRAN architected for OTMA, [6.1.2](#6.1.2)") !=
+              "- /DIS TRAN architected for OTMA, [6\\.1\\.2](<#6.1.2>)") !=
               std::string::npos &&
               split_header_index.find(
-                  "- AOI callable services, [4.1.2.1](#4.1.2.1), "
-                  "[4.1.2.3](#4.1.2.3)") != std::string::npos,
+                  "- AOI callable services, [4\\.1\\.2\\.1](<#4.1.2.1>), "
+                  "[4\\.1\\.2\\.3](<#4.1.2.3>)") != std::string::npos,
           "generated index lost punctuation terms or multiple targets");
 
   // Only the directory-declared content run contains topic logical records.

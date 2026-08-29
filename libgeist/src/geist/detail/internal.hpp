@@ -165,6 +165,10 @@ bool byte_range_is_valid(const std::vector<std::uint8_t>& bytes,
 std::uint16_t map_token_word_to_lower_ascii(std::uint16_t word);
 std::uint16_t map_token_word_to_upper_ascii(std::uint16_t word);
 std::string token_words_to_ascii(const TokenWords& words);
+// Byte width one token word contributes to token_words_to_ascii, without
+// materialising the projection. Callers that only need offsets or widths must
+// use this instead of measuring a one-word projection string.
+std::size_t token_word_ascii_width(std::uint16_t word);
 
 std::string trim_right_spaces(std::string value);
 std::string trim_ascii(std::string value);

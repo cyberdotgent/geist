@@ -511,8 +511,9 @@ struct CzBuilder {
     }
     if (!stack.empty())
       return fail(error, "cz list " + stack.back().tag + " is not closed");
+    const auto leading_anchors = topic.anchors.size();
     place_anchors();
-    return true;
+    return place_spans(leading_anchors);
   }
 
   // One directive with its display-line range and text groups.
@@ -521,6 +522,41 @@ struct CzBuilder {
               const std::vector<std::pair<std::size_t, std::size_t>>& groups,
               const std::string& name, const std::string& tag) {
     {
+      // Object regions.  `cz OFF TABLE` .. `cz OFF ETABLE` delimits an
+      // `SRTBL` .. `SRETBL` table envelope and `cz OFF FIG` .. `cz OFF EFIG`
+      // an `SRFIG` .. `SREFIG` figure region.  Both objects are already
+      // claimed token for token by the span plan, which runs before the
+      // stream pass (prose_topic_spans.cpp), so the directive delimits but
+      // never draws: packet 2.4.4 record 65 segment 11 is `cz OFF TABLE`
+      // immediately followed by `SRTBLTBLUNIQ17` (segment 12) and closed by
+      // `SRETBL` / `cz OFF ETABLE 0 0` (record 67 segments 3-4); packet 1.3
+      // record 29 segments 2-6 are `SRFIGFIGUNIQ5`, `cz OFF FIG`, the
+      // `cselect 35 9 PIC1 ... PICTURE 1   Figure 1. ...` line, `SREFIG`,
+      // `cz OFF EFIG 0 0`.  The opener therefore carries no rows of its own,
+      // and the closer carries the body text that follows the object,
+      // exactly like `cz OFF EXMP` and the list closers.  A delimiter with
+      // no admitted span of its kind fails closed.
+      if (directive.mode == "off" &&
+          (tag == "table" || tag == "etable" || tag == "fig" ||
+           tag == "efig")) {
+        const auto kind = (tag == "table" || tag == "etable")
+                              ? ProseSpanKindIR::table
+                              : ProseSpanKindIR::figure;
+        if (std::none_of(topic.spans.begin(), topic.spans.end(),
+                         [kind](const ProseSpanIR& span) {
+                           return span.kind == kind;
+                         }))
+          return fail(error, name + " delimits no admitted " +
+                                 (kind == ProseSpanKindIR::table
+                                      ? "table envelope"
+                                      : "figure region"));
+        if (tag == "table" || tag == "fig") {
+          if (!groups.empty())
+            return fail(error, name + " carries display text");
+          return true;
+        }
+        return paragraphs(groups, 0);
+      }
       // `SCREEN` is the second verbatim region of the dialect and behaves
       // exactly like `XMP`: hosted BookServer serves the rows between
       // `cz OFF SCREEN` and `cz OFF ESCREEN` inside its own `<pre
@@ -637,6 +673,37 @@ struct CzBuilder {
       return fail(error, "CZ layout " + name + " is not modelled");
     }
   }
+  // A table/figure span precedes the first block whose first display row is
+  // at or after the span's own line, and follows the anchors already seen
+  // there -- the same placement `build_blocks` gives the flattened dialect.
+  bool place_spans(std::size_t leading_anchors) {
+    std::vector<bool> placed(topic.spans.size(), false);
+    for (const auto& mark : build.span_marks) {
+      if (mark.span >= topic.spans.size())
+        return fail(error, "span mark addresses no span");
+      if (placed[mark.span]) return fail(error, "span is marked twice");
+      placed[mark.span] = true;
+      std::size_t position = topic.blocks.size();
+      for (std::size_t block = 0; block < block_first_line.size(); ++block)
+        if (block_first_line[block] >= mark.line) {
+          position = block;
+          break;
+        }
+      auto& span = topic.spans[mark.span];
+      span.position = position;
+      span.anchors_before = position == 0 ? leading_anchors : 0;
+      for (std::size_t anchor = 0;
+           anchor < mark.anchors_seen && anchor < build.body_anchors.size();
+           ++anchor)
+        if (topic.anchors[leading_anchors + anchor].position == position)
+          ++span.anchors_before;
+    }
+    if (std::any_of(placed.begin(), placed.end(),
+                    [](const bool done) { return !done; }))
+      return fail(error, "table/figure span never reached the body stream");
+    return true;
+  }
+
   // Anchors precede the block whose first row follows them.
   void place_anchors() {
     for (std::size_t anchor = 0; anchor < build.body_anchors.size(); ++anchor) {

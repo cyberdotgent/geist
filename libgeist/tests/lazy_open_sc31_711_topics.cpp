@@ -96,9 +96,9 @@ int main() {
           "typed prose lost a paragraph break or leaked row markers");
   const auto generated_index = problem_determination.topic_markdown("INDEX");
   for (const auto* expected : {
-           "- adapter problems, [2.2.4](#2.2.4)",
-           "    - deleting agents, [2.3.1.5](#2.3.1.5)",
-           "- trademarks, [FRONT_1.1](#FRONT_1.1)",
+           "- adapter problems, [2\\.2\\.4](<#2.2.4>)",
+           "    - deleting agents, [2\\.3\\.1\\.5](<#2.3.1.5>)",
+           "- trademarks, [FRONT\\_1\\.1](<#FRONT_1.1>)",
        }) {
     require(generated_index.find(expected) != std::string::npos,
             "generated index lost a linked hierarchy entry");
