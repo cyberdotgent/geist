@@ -448,8 +448,9 @@ void mutation_fixtures() {
 void negative_fixtures() {
   // Tables and figures compose (tests/prose_topic_spans_synthetic.cpp); a
   // declined envelope still rejects the whole topic.
-  reject("ACPZMST1.boo", "FRONT_1.2",
-         "table envelope 'TBLUNIQ1' declined: cell text has an unaligned gap: 'AIX/6000                 AIXwindows'");
+  reject("ACPZMST1.boo", "4.3",
+         "table envelope 'TBLUNIQ39' declined: visible source between table "
+         "lines");
   reject("SC24-546.boo", "3.1", "metadata controls are incomplete");
   reject("PRG1SORT.boo", "1.1.5.1", "control-like word 'SRCFILE'");
   reject("ACPZMST1.boo", "COVER", "is not an h1-h6 prose heading");

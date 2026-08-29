@@ -364,7 +364,9 @@ int main() {
   }
   // Fail-closed classes: a declined table envelope or figure region rejects
   // the whole topic, and so does a picture without a resource catalog.
-  reject("ACPZMST1.boo", "FRONT_1.2", "table envelope 'TBLUNIQ1' declined: cell text has an unaligned gap: 'AIX/6000                 AIXwindows'");
+  reject("ACPZMST1.boo", "4.3",
+         "table envelope 'TBLUNIQ39' declined: visible source between table "
+         "lines");
   reject("DREICMST.boo", "1.2.1",
          "declined: figure region has no picture selector (unterminated "
          "before the next SRFIG)");

@@ -380,25 +380,32 @@ int main() {
   require_contains(fddi_traps, "received from a station",
                    "genuine FDDI article");
 
+  // 2.4.4 is a ruled `SRTBL` form the table model does not resolve into
+  // columns; the typed route reproduces the hosted display lines verbatim
+  // (DT=19941010174546), `&ballot.` included, because that is what the
+  // reader prints.
   const auto netview_form = document.topic_markdown("2.4.4");
   require_contains(netview_form,
                    "Which mode was AIX NetView/6000 operating",
                    "NetView mode question");
   require_contains(netview_form, "Read-Write", "NetView mode choice");
   require_contains(netview_form, "ovobjprint", "NetView object-count command");
-  require_same_markdown_row(netview_form,
-                            "Which mode was AIX NetView/6000 operating",
-                            "in at the time of the problem?",
-                            "complete NetView mode question");
-  require_same_markdown_row(netview_form, "ovobjprint", "head",
-                            "ovobjprint command row");
-  require_same_markdown_row(netview_form,
-                            "Number of objects to hold in ovwdb", "cache",
-                            "ovwdb cache row");
-  require_same_markdown_row(netview_form,
-                            "Number of seconds between storing",
-                            "data to the GTMD database", "GTMD row");
-  require_absent(netview_form, "&ballot.", "unexpanded ballot macro");
+  require_contains(netview_form,
+                   "   | in at the time of the problem?            | "
+                   "&ballot.  Read-Write       |",
+                   "complete NetView mode question");
+  require_contains(netview_form,
+                   "   |     (use the command ovobjprint | head)   | "
+                   "__________________________ |",
+                   "ovobjprint command row");
+  require_contains(netview_form,
+                   "   |     cache                                 |"
+                   "                            |",
+                   "ovwdb cache row");
+  require_contains(netview_form,
+                   "   |     data to the GTMD database             |"
+                   "                            |",
+                   "GTMD row");
   require_absent(netview_form, "| a |", "standalone form marker a");
   require_absent(netview_form, "| address |",
                  "standalone form marker address");

@@ -79,6 +79,21 @@ enum class FixedTableGeometryIR {
   // every display line (`separator_columns` are the start columns of the
   // second and later cells).
   gap,
+  // No column structure was proven, but the envelope's display lines were:
+  // the region is reproduced verbatim, exactly as the hosted BookServer
+  // serves it inside `<pre>`.  `preformatted_lines` carries the lines and
+  // `body`/`separator_columns` stay empty.
+  preformatted,
+};
+
+// One display line of a preformatted SRTBL region.
+struct FixedTablePreformattedLineIR {
+  std::uint32_t logical_record = 0;
+  std::size_t prefix_token = 0;
+  std::size_t token_end = 0;
+  // The line as the hosted reader shows it, trailing blanks removed.
+  std::string text;
+  std::vector<DocumentSourceRowIR> rows;
 };
 
 // A fixed table recovered from one SRTBL ... SRETBL envelope, either
@@ -139,6 +154,36 @@ enum class FixedTableGeometryIR {
 //   lines with an empty first cell extend it); a group whose first line has
 //   an empty first cell is one vertically centred row (SC24-5527-02
 //   `vmfbld` command/explanation rows).
+//
+// Preformatted geometry, used when neither column model is proven. An SRTBL
+// envelope is, whatever it draws, a run of display lines of its logical
+// records (`display_lines.hpp`: `<length byte><that many bytes of tokens>`),
+// and hosted BookServer serves those lines verbatim inside `<pre>` -- box
+// rules included. So an envelope with no provable columns is reproduced line
+// for line instead of failing its topic. Evidence (hosted pages fetched
+// 2026-08-29):
+// - SC24-5527-02 3.6.2 `TBLUNIQ47`/`TBLUNIQ49` (DT=19921218151459): a single
+//   command line wrapped in SRTBL, served as `   <B>vmfrec</B> <B>ppf</B>
+//   <B>esa</B> <B>vmses</B>` -- one line, no second cell, not a table. The
+//   trailing `.` the token reader shows is the spelling of the next line's
+//   length byte and is not displayed.
+// - SC24-5527-02 3.8.4.2 `TBLUNIQ99`: a VMFBLD2185R message listing, served
+//   as 26 plain lines including its blank ones.
+// - SC09-138 7.5.2 `TBLUNIQ116` (DT=19910321130500): a two-column box whose
+//   caption line follows the bottom rule inside the envelope.
+// - SC31-711 2.4.1-2.4.4 (DT=19941010174546): problem-determination forms
+//   whose answer cells are ruled off with horizontal box words; hosted keeps
+//   the unresolved `&ballot.` macro of 2.4.4 as source text.
+// The region is admitted only when every record it touches parses into
+// display lines, when SRTBL closes a line and SRETBL opens one (so the
+// region is a whole number of lines), when every control lies on a line of
+// its own carrying none of its payload, and when a non-blank line remains.
+// A CSELECT inside the region declines: its link would have no cell to
+// attach to. Rule lines, marker slots and blank lines are kept exactly as
+// the reader prints them; `body`, `caption` and `separator_columns` stay
+// empty and every positioned cell of the envelope's rows is claimed as
+// `structural_cells`.
+//
 // Anything else fails closed and is reported as a decline with its reason.
 struct FixedTableBlockIR {
   FixedTableGeometryIR geometry = FixedTableGeometryIR::box;
@@ -154,7 +199,10 @@ struct FixedTableBlockIR {
   std::optional<FixedTableRowIR> caption;
   std::size_t header_rows = 0;
   std::vector<FixedTableRowIR> body;
-  // Rule lines, hidden marker slots between lines, and blank rows.
+  // Preformatted geometry only: the region's display lines in source order.
+  std::vector<FixedTablePreformattedLineIR> preformatted_lines;
+  // Rule lines, hidden marker slots between lines, and blank rows. Under
+  // preformatted geometry this is every positioned cell of the region.
   std::vector<PositionedRowCellIR> structural_cells;
 };
 
