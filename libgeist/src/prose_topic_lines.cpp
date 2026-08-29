@@ -398,9 +398,16 @@ struct LineBuilder {
       // A glued one-byte word in the row-control byte range is the slot
       // whatever precedes it: N2AH1MST PREFACE.4 `to:` + `access` (0x1c),
       // `Reference.` + `an` (the compact-marker collision in Format/markup.md).
+      // "Glued onto a preceding word" needs that word on the *open* row: a
+      // one-byte token that opens a row after its own origin run is the
+      // row's text, whatever the previous row ended with.  QS3X36CM EDITION
+      // record 3 lists the trademark `400` on its own row directly after
+      // `RPG/400` (hosted DT 19910524075122 prints `   RPG/400` then
+      // `   400`), and `400` (encoded value 219) is above the row-control
+      // range.
       const auto glued_word =
           attached && alnum_word(view) &&
-          ((!last_visible.empty() &&
+          ((line_open && line_visible_cells != 0 && !last_visible.empty() &&
             std::isalnum(static_cast<unsigned char>(last_visible.back())) !=
                 0) ||
            view.value < row_control_byte_limit);

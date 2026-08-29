@@ -452,7 +452,7 @@ Topic headers begin with `SH<topic_id>` and are documented in
 | --- | --- | --- |
 | `SH<id>` | `SHcontents`, `SH1.0`, `SHpreface.5.1` | Topic identifier. |
 | `CTOPICN` | integer | 1-based topic number. |
-| `CHDLEVEL` | `:toc`, `:h1`, `:h2`, `:h3`, `:h4`, `:cover`, `:preface`, `:abstract`, `:notices`, `:vnotice`, `:figlist`, `:tlist`, `:abbrev` | Topic kind or heading depth. |
+| `CHDLEVEL` | `:h1`..`:h6`, and the front-matter forms `:toc`, `:cover`, `:preface`, `:abstract`, `:notices`, `:vnotice`, `:index`, `:glossary`, `:soa`, `:title`, `:bibliog`, `:abbrev`, `:figlist`, `:tlist` | Topic kind or heading depth. Every front-matter form is served as a level-1 heading; see "Front-matter heading forms". |
 | `ST` | free text | Topic title. |
 | `CPARENT`, `CFORWARDLEVEL`, `CBACKLEVEL` | topic ids | Navigation links between topics. |
 
@@ -1581,6 +1581,90 @@ is not a region.
 
 Hosted keeps the `CFONT` highlighting of words inside a box (`<B>In</B>`);
 a preformatted lowering cannot, which is the only observed difference.
+
+### Front-matter heading forms
+
+`CHDLEVEL` names the *kind* of a front-matter topic instead of an `h1`-`h6`
+depth.  Hosted BookServer renders every one of the observed forms as a
+level-1 heading; the form itself is never displayed.
+
+| Form | Topic ids | Hosted heading | Evidence |
+| --- | --- | --- | --- |
+| `cover` | `COVER` | `<H1> COVER   Book Cover</H1>` | `ACPZMST1` DT `19920319123146` |
+| `vnotice` | `EDITION` | `<H1> EDITION   Edition Notice</H1>` | `ACPZMST1`, `GG24-4302-00` DT `19950308184737` |
+| `toc` | `CONTENTS` | `<H1> CONTENTS   Table of Contents</H1>` | `ACPZMST1` |
+| `index` | `INDEX` | `<H1>    Index</H1>` | `ACPZMST1` |
+| `preface` | `PREFACE` | `<H1>    Preface</H1>` | `ACPZMST1`, `SC31-711` DT `19941010174546` |
+| `notices` | `NOTICES` | `<H1>    Notices</H1>` | `GC23-046` DT `19920330095121` |
+| `glossary` | `GLOSSARY` | `<H1>    Glossary</H1>` | `FA1PLMM0` DT `19910927114801`, `SH20-918` DT `19910520154851` |
+| `soa` | `CHANGES` | `<H1> CHANGES   Summary of Changes</H1>` | `DREICMST` DT `19911219125856` |
+| `title` | `TITLE` | `<H1> TITLE   Title Page</H1>` | `ITPPIBOK` DT `19910628074854` |
+| `bibliog` | `BIBLIOGRAPHY` | `<H1>    Bibliography</H1>` | `ITPPIBOK` |
+| `abstract` | `ABSTRACT` | `<H1>    Abstract</H1>` | `FA1PLMM0` |
+| `abbrev` | `ABBREVIATIONS` | `<H1> ABBREVIATIONS   List of Abbreviations</H1>` | `GG24-4302-00` |
+
+`figlist` and `tlist` name generated topics that the generated-list stream
+models separately.
+
+### Anchor controls in and around the metadata envelope
+
+A bare `SR<id>` structural control can stand **between** the topic metadata
+controls, most often as `SRLEN` between `CSUMMARY` and `CHDLEVEL`
+(`SC24-546`, `SC33-033`, `SC34-425`; 272 topics).  In that position the
+served anchor name is the control's **complete** decoded output without the
+leading `SR`, so a payload extends the *name* and nothing of it is displayed:
+
+| Record | Decoded control | Hosted |
+| --- | --- | --- |
+| `SC24-546` record 161, complete `[90,103)` | `SRLEN ADDRESS` | `<a name="LEN ADDRESS"><a name="HDRADDRESS"><H2> 3.1   ADDRESS</H2></a></a>` (DT `19940323131240`) |
+| `SC24-546` record 332 | `SRLEN` | `<a name="LEN"><a name="HDRBITOR">` |
+| `SC33-033` record 177 | `SRLEN CHAATT` | `<a name="LEN CHAATT">` (DT `19930422134757`) |
+| `SC34-425` record 1465 | `SRLEN FLMCSPDB DB2 Bind/Free Translator` | `<a name="LEN FLMCSPDB DB2 Bind/Free Translator">` (DT `19921112160049`) |
+
+A `SR<id>` anchor in the **body** behaves differently: its id is the opcode
+without `SR` and its payload is the first display line of the text it names,
+which hosted wraps in the anchor element.
+
+| Record | Decoded control | Hosted |
+| --- | --- | --- |
+| `ACPZMST1` record 155 | `SRSPTSETDC A domain controller handles ...` | `<a name="SPTSETDC">   A domain controller handles communications between CPI-Communications</a>` (DT `19920319123146`) |
+| `DREICMST` record 45 | `SRSPTAMEND Changes have been made ...` | anchor `SPTAMEND` over `   Changes have been made throughout this edition ...` (DT `19911219125856`) |
+| `SC33-033` record 177 | `SRSPTCHAATT` | `<a name="SPTCHAATT">   <I>Function</I>:  To establish axis line attributes.</a>` |
+
+### `c.cp` and `c.sp` pagination and spacing controls
+
+```text
+c.cp [<count>[<unit>]] [<display text>]
+c.sp <count> c | <count>p p c
+```
+
+`c.cp` is the keep-together (conditional page) control and `c.sp` is the
+vertical-space control.  Neither operand is ever displayed.  The record
+encoder emits **no spacing token between a control opcode and its operand**,
+so `c.cp`'s optional operand is exactly the token adjacent to the opcode; a
+spacing token in between proves there is no operand and the rest of the
+segment is ordinary display content that the reader lays out on the current
+display line.
+
+| Record (Token IR) | Reading | Hosted |
+| --- | --- | --- |
+| `IEAC6MST` record 79: `c.cp` `999` `      ` ` ` `|` `    ` `If` | operand `999`, then a row | ` \|     If you do not already have a dump directory, ...` (DT `19920124000100`) |
+| `GC23-046` record 31: `c.cp` `8DV` | operand only | `CHANGES.1` contains no `8DV` and no `DV` (DT `19920330095121`) |
+| `DREICMST` record 600: `c.cp` `2i` | operand only | `2.20.3.1.4` contains no `2i` (DT `19911219125856`) |
+| `SC34-425` record 267: `c.cp` `50p` | operand only | (DT `19921112160049`) |
+| `SC31-711` record 10: `c.cp` `54` then `:` `   ` `The` `following` | operand `54`, then a row | (DT `19941010174546`) |
+| `GC28-183` record 783: `c.cp` `              ` `   ` `6` `.` `SYSOUT` | **no** operand; `6.` opens a display row | `   6.  SYSOUT data sets (except DD3 and DD4) are printed on the form called` (DT `19930625102617`) |
+| `FA1PLMM0` record 369: `c.cp` ` ` `   ` `The` `columns` | no operand | `   The columns have the following meaning:` (DT `19910927114801`) |
+| `DREICMST` record 243: `c.cp` alone | no operand, no payload | — |
+
+Observed `c.cp` operands corpus wide: bare decimal counts (`4`..`999`) and
+the unit-suffixed forms `1i`, `2i`, `50p`, `8DV`.
+
+`c.sp` occurs in exactly three spellings across the corpus: `<n> c` (160
+segments), `<n> p` (16, all inside generated `INDEX` bodies) and `<n>p p c`
+(5).  `GC28-183` record 91 `c.sp 1 c` and `SC33-033` record 177 `c.sp 1 c`
+are served as nothing but the paragraph break between the heading and the
+following anchor.
 
 ## CZ layout directives
 
