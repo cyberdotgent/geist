@@ -272,7 +272,10 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
       if (blocks.empty()) return fail(&span_error, "table span lowered to nothing");
       const auto span_index =
           static_cast<std::size_t>(&span - prose.spans.data());
-      if (!link_table_cells(prose, span_index, table, blocks, &span_error))
+      // A preformatted region has no cells for a CSELECT to attach to; the
+      // table block declines such an envelope, so there is nothing to link.
+      if (table.geometry != FixedTableGeometryIR::preformatted &&
+          !link_table_cells(prose, span_index, table, blocks, &span_error))
         return false;
       for (auto& block : blocks) document.blocks.push_back(std::move(block));
     } else {

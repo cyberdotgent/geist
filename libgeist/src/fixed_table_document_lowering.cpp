@@ -88,6 +88,23 @@ lower_fixed_table_block_to_document_ir(const FixedTableBlockIR &block) {
   anchor.origin.slices.push_back(block.object_source);
   result.push_back(std::move(anchor));
 
+  // A region whose column structure was not proven lowers to its display
+  // lines, which is what the hosted reader serves inside <pre>.
+  if (block.geometry == FixedTableGeometryIR::preformatted) {
+    PreformattedBlockIR body;
+    BlockIR body_block;
+    body_block.origin = origin_for("fixed table region: preformatted body");
+    body_block.origin.slices.push_back(block.object_source);
+    for (const auto &line : block.preformatted_lines) {
+      body.lines.push_back(line.text);
+      for (const auto &row : line.rows)
+        add_row(body_block.origin, row);
+    }
+    body_block.node = std::move(body);
+    result.push_back(std::move(body_block));
+    return result;
+  }
+
   if (block.caption && !block.caption->cells.empty()) {
     BlockIR caption;
     ParagraphBlockIR paragraph;
@@ -118,8 +135,11 @@ lower_fixed_table_block_to_document_ir(const FixedTableBlockIR &block) {
 bool verify_fixed_table_document_ir(const FixedTableBlockIR &block,
                                     const std::vector<BlockIR> &lowered,
                                     std::string *error) {
-  if (block.body.empty())
+  if (block.geometry != FixedTableGeometryIR::preformatted && block.body.empty())
     return fail(error, "fixed table block has no body rows");
+  if (block.geometry == FixedTableGeometryIR::preformatted &&
+      block.preformatted_lines.empty())
+    return fail(error, "preformatted table region has no display lines");
   const auto canonical = lower_fixed_table_block_to_document_ir(block);
   const auto wrap = [](const std::vector<BlockIR> &blocks) {
     DocumentIR document;
@@ -137,6 +157,23 @@ bool verify_fixed_table_document_ir(const FixedTableBlockIR &block,
   if (format_document_ir(expected) != format_document_ir(actual))
     return fail(error, "fixed table document nodes differ from canonical "
                        "lowering");
+  if (block.geometry == FixedTableGeometryIR::preformatted) {
+    const auto body = std::find_if(
+        lowered.begin(), lowered.end(), [](const auto &candidate) {
+          return std::holds_alternative<PreformattedBlockIR>(candidate.node);
+        });
+    if (body == lowered.end())
+      return fail(error, "preformatted table region has no body block");
+    const auto &node = std::get<PreformattedBlockIR>(body->node);
+    if (node.lines.size() != block.preformatted_lines.size())
+      return fail(error, "preformatted table region lines are not conserved");
+    for (std::size_t index = 0; index < node.lines.size(); ++index)
+      if (node.lines[index] != block.preformatted_lines[index].text)
+        return fail(error, "preformatted table region text is not conserved");
+    if (error != nullptr)
+      error->clear();
+    return true;
+  }
   const auto table = std::find_if(
       lowered.begin(), lowered.end(), [](const auto &candidate) {
         return std::holds_alternative<TableBlockIR>(candidate.node);
