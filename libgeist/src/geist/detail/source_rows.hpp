@@ -70,5 +70,12 @@ std::vector<std::string> clean_source_owned_toc_title_markers(
 std::vector<std::string> project_source_owned_st_prose_rows(
     const std::vector<std::string>& decoded_records,
     const std::vector<DecodedLogicalRecordSource>& sources);
+// Same projection with the topic geometry supplied by the caller. A null
+// ledger means the geometry did not verify, which returns the records
+// unchanged exactly as the self-contained form does.
+std::vector<std::string> project_source_owned_st_prose_rows(
+    const std::vector<std::string>& decoded_records,
+    const std::vector<DecodedLogicalRecordSource>& sources,
+    const LayoutIR& layout, const VerifiedOwnershipIR* ownership);
 
 } // namespace geist::detail

@@ -172,9 +172,25 @@ std::size_t token_word_ascii_width(std::uint16_t word);
 
 std::string trim_right_spaces(std::string value);
 std::string trim_ascii(std::string value);
+// The ASCII case fold these helpers mean. std::tolower would do the same work
+// through a locale lookup on every character; the library never installs a
+// locale, so in the "C" locale the two agree on every byte, including the
+// bytes at 0x80 and above that both leave alone.
+inline char ascii_lower_char(char ch) {
+  return ch >= 'A' && ch <= 'Z' ? static_cast<char>(ch - 'A' + 'a') : ch;
+}
+
 std::string ascii_lower(std::string value);
 bool ascii_equals_case_insensitive(const std::string& left,
                                    const std::string& right);
+// Case-insensitive comparison that folds in place instead of building a
+// lower-cased copy of either side.
+bool ascii_equals_case_insensitive(std::string_view left,
+                                   std::string_view right);
+// True when `value` contains `needle` case-insensitively, without lower-casing
+// either string into a temporary.
+bool ascii_contains_case_insensitive(std::string_view value,
+                                     std::string_view needle);
 bool ascii_starts_with_case_insensitive(const std::string& value,
                                         std::string_view prefix);
 bool ascii_starts_with_case_insensitive(const std::string& value,
@@ -199,6 +215,14 @@ std::vector<std::string> render_gml_records(
 std::optional<std::vector<std::string>>
 render_verified_publication_catalog_gml(
     const std::vector<DecodedLogicalRecordSource>& sources);
+// Same rendering for a caller that already built the topic's layout and
+// verified its ownership ledger. A null ledger means the topic's geometry did
+// not verify, which declines the catalog exactly as the self-contained form
+// does.
+std::optional<std::vector<std::string>>
+render_verified_publication_catalog_gml(
+    const std::vector<DecodedLogicalRecordSource>& sources,
+    const LayoutIR& layout, const VerifiedOwnershipIR* ownership);
 bool project_verified_menu_gml(
     std::vector<std::string>& rendered,
     const std::vector<DecodedLogicalRecordSource>& sources,
@@ -206,6 +230,15 @@ bool project_verified_menu_gml(
 std::vector<std::string> render_gml_records_with_source_layout(
     const std::vector<std::string>& decoded_records,
     const std::vector<DecodedLogicalRecordSource>& sources);
+// Same rendering with the topic geometry supplied by the caller.
+// `publication_already_declined` says the caller has already offered these
+// sources to the publication catalog and been refused, so the offer is not
+// repeated.
+std::vector<std::string> render_gml_records_with_source_layout(
+    const std::vector<std::string>& decoded_records,
+    const std::vector<DecodedLogicalRecordSource>& sources,
+    const LayoutIR& layout, const VerifiedOwnershipIR* ownership,
+    bool publication_already_declined);
 std::string strip_fixed_line_overflow_tokens(
     std::string value,
     bool allow_wide_short_boundary = false,

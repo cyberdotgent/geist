@@ -47,8 +47,8 @@ std::string extract_topic_header_id(const std::string& decoded_record) {
   auto record = trim_ascii(decoded_record);
   const auto start = skip_decoded_separators(record);
   if (start + 3 > record.size() ||
-      std::tolower(static_cast<unsigned char>(record[start])) != 's' ||
-      std::tolower(static_cast<unsigned char>(record[start + 1])) != 'h') {
+      ascii_lower_char(record[start]) != 's' ||
+      ascii_lower_char(record[start + 1]) != 'h') {
     return {};
   }
 
@@ -512,8 +512,7 @@ bool looks_like_gml_control_at(const std::string& value, std::size_t offset) {
   if (offset >= value.size()) {
     return false;
   }
-  const auto initial = static_cast<char>(
-      std::tolower(static_cast<unsigned char>(value[offset])));
+  const auto initial = ascii_lower_char(value[offset]);
   if (initial != 'c' && initial != 'e' && initial != 's') {
     return false;
   }
@@ -534,7 +533,11 @@ bool looks_like_gml_control_at(const std::string& value, std::size_t offset) {
       "cfront",      "ccontents",  "cfigures",   "ctables",
       "cindex",      "cendindex",  "cidelm",     "cpicture"};
   for (const auto prefix : prefixes) {
-    if (!ascii_starts_with_case_insensitive(value, offset, prefix)) {
+    // Same answer, one character earlier: a prefix whose own initial differs
+    // from the folded initial can never match, so it never reaches the full
+    // case-insensitive comparison.
+    if (prefix.front() != initial ||
+        !ascii_starts_with_case_insensitive(value, offset, prefix)) {
       continue;
     }
     const auto end = offset + prefix.size();
@@ -5608,7 +5611,16 @@ render_verified_publication_catalog_gml(
     return std::nullopt;
   const auto ownership =
       build_verified_ownership_ir(sources, layout, &semantic_error);
-  if (!ownership) return std::nullopt;
+  return render_verified_publication_catalog_gml(
+      sources, layout, ownership ? &*ownership : nullptr);
+}
+
+std::optional<std::vector<std::string>>
+render_verified_publication_catalog_gml(
+    const std::vector<DecodedLogicalRecordSource>& sources,
+    const LayoutIR& layout, const VerifiedOwnershipIR* ownership) {
+  if (ownership == nullptr) return std::nullopt;
+  std::string semantic_error;
   const auto publication =
       extract_publication_catalog_ir(sources, layout, *ownership);
   if (!publication ||
@@ -5679,13 +5691,30 @@ bool project_verified_menu_gml(
 std::vector<std::string> render_gml_records_with_source_layout(
     const std::vector<std::string>& decoded_records,
     const std::vector<DecodedLogicalRecordSource>& sources) {
-  if (const auto publication =
-          render_verified_publication_catalog_gml(sources))
-    return *publication;
+  const auto layout = extract_layout_ir(sources);
+  std::string geometry_error;
+  std::optional<VerifiedOwnershipIR> ownership;
+  if (verify_layout_ir(sources, layout, &geometry_error))
+    ownership = build_verified_ownership_ir(sources, layout, &geometry_error);
+  return render_gml_records_with_source_layout(
+      decoded_records, sources, layout, ownership ? &*ownership : nullptr,
+      false);
+}
+
+std::vector<std::string> render_gml_records_with_source_layout(
+    const std::vector<std::string>& decoded_records,
+    const std::vector<DecodedLogicalRecordSource>& sources,
+    const LayoutIR& layout, const VerifiedOwnershipIR* ownership,
+    bool publication_already_declined) {
+  if (!publication_already_declined) {
+    if (const auto publication =
+            render_verified_publication_catalog_gml(sources, layout, ownership))
+      return *publication;
+  }
   const auto source_cleaned_records =
       clean_source_owned_toc_title_markers(decoded_records, sources);
-  const auto st_projected_records =
-      project_source_owned_st_prose_rows(source_cleaned_records, sources);
+  const auto st_projected_records = project_source_owned_st_prose_rows(
+      source_cleaned_records, sources, layout, ownership);
   auto procedure_steps =
       numbered_procedure_step_segments(st_projected_records, sources);
   auto layout_records =

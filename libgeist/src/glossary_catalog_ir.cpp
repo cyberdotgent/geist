@@ -73,10 +73,7 @@ bool exact_spaces(const TokenWords &words) {
 }
 
 std::string lower(std::string value) {
-  std::transform(value.begin(), value.end(), value.begin(),
-                 [](const unsigned char ch) {
-                   return static_cast<char>(std::tolower(ch));
-                 });
+  std::transform(value.begin(), value.end(), value.begin(), ascii_lower_char);
   return value;
 }
 

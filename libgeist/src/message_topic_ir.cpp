@@ -252,7 +252,6 @@ std::optional<MessageIntroductionIR> extract_message_introduction_ir(
     const LayoutIR &layout, const VerifiedOwnershipIR &verified_ownership,
     const SelectorCatalogIR &selectors, const MessageTopicIR &topic,
     std::string *error) {
-  const OwnershipIR &ownership = verified_ownership;
   const auto reject =
       [&](std::string message) -> std::optional<MessageIntroductionIR> {
     fail(error, std::move(message));
