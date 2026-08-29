@@ -3,6 +3,7 @@
 #include "geist/detail/book_topic_catalog_ir.hpp"
 #include "geist/detail/internal.hpp"
 #include "geist/detail/topic_document_lowering.hpp"
+#include "geist/detail/topic_identity.hpp"
 #include "geist/document.hpp"
 
 #include <algorithm>
@@ -245,28 +246,26 @@ detail::TypedRouteInventoryIR BooDocument::typed_route_inventory() const {
     resource_ids.insert(ascii_lower(resource.id));
 
   for (const auto &entry : toc_) {
-    const auto *catalog_entry =
-        find_book_topic_catalog_entry(*topic_catalog_ir_, entry.id);
-    if (catalog_entry == nullptr || !catalog_entry->topic_header)
-      continue;
-    const auto &header = *catalog_entry->topic_header;
-    const auto &info = topics_.at(header.topic_info_index);
-
     TypedRouteTopicIR topic;
     topic.id = entry.id;
     topic.title = entry.title;
     topic.level = entry.level;
 
-    TopicIdentityIR identity;
-    identity.id = entry.id;
-    identity.title = entry.title;
-    identity.heading_level = info.heading_level;
-    identity.topic_number = info.topic_number;
-    identity.start_logical_record = info.start_logical_record;
-    identity.end_logical_record = info.end_logical_record;
+    // The metric measures the route the export renderer takes, so it builds
+    // the identity through the same shared path the renderer uses and skips
+    // exactly the contents entries the renderer has no topic body for.
+    const auto identity = make_topic_identity(entry);
+    if (!topic_identity_has_body(identity)) {
+      topic.rejection = "contents entry has no topic body";
+      topic.route = TypedRouteKind::legacy;
+      ++inventory.legacy_count;
+      inventory.topics.push_back(std::move(topic));
+      continue;
+    }
 
     const auto sources = decode_logical_record_sources(
-        *decode_context_, info.start_logical_record, info.end_logical_record);
+        *decode_context_, identity.start_logical_record,
+        identity.end_logical_record);
     topic.structure = extract_topic_structure_ir(
         sources, extract_layout_ir(sources), resource_ids);
 
