@@ -407,7 +407,8 @@ struct LineBuilder {
       // range.
       const auto glued_word =
           attached && alnum_word(view) &&
-          ((line_open && line_visible_cells != 0 && !last_visible.empty() &&
+          (((in_title || in_index || (line_open && line_visible_cells != 0)) &&
+            !last_visible.empty() &&
             std::isalnum(static_cast<unsigned char>(last_visible.back())) !=
                 0) ||
            view.value < row_control_byte_limit);
