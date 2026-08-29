@@ -51,8 +51,12 @@ int main() {
                    "nested online command list");
 
   const auto cover = topic_markdown(document, "COVER");
+  // COVER now renders through the typed prose family, which escapes Markdown
+  // punctuation; the two metadata lines keep their own paragraphs, as hosted
+  // DT 19910524075122 serves them.
   require_contains(cover,
-                   "Document Number SX41-8209-00\n\nProgram Number 5738-SS1",
+                   "Document Number SX41\\-8209\\-00\n\nProgram Number "
+                   "5738\\-SS1",
                    "cover metadata line split");
 
   // EDITION renders through the typed prose family (front-matter `vnotice`

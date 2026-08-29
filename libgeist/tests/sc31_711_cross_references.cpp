@@ -144,10 +144,15 @@ int main() {
   // selector, and ordinary footnote selectors remain singular.
   const auto gg24 = geist::BooDocument::open(root / "GG24-4302-00.boo")
                         .topic_markdown("NOTICES");
-  require(count(gg24, "](#HDRNOTICES)") == 2 &&
-              gg24.find("[\"Special Notices\" in](#HDRNOTICES) ") !=
-                  std::string::npos &&
-              gg24.find("[topic FRONT_1](#HDRNOTICES)") != std::string::npos,
+  // GG24 NOTICES is a drawn `___ Take Note! ___` box, so its rows lower as a
+  // preformatted block that reproduces hosted (DT 19950308184737) character
+  // for character; a drawn box carries no inline markup, so the two-row
+  // `CSELECT` is dropped there exactly as `CFONT` is.
+  require(gg24.find("___ Take Note! ___") != std::string::npos &&
+              gg24.find("| to read the general information under \"Special "
+                        "Notices\" in") != std::string::npos &&
+              gg24.find("| topic FRONT_1.") != std::string::npos &&
+              count(gg24, "](#HDRNOTICES)") == 0,
           "GG24 two-row notices reference changed shape");
   const auto packet = geist::BooDocument::open(root / "packet.boo")
                           .topic_markdown("1.1");

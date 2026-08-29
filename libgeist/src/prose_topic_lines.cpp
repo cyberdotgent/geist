@@ -88,8 +88,9 @@ struct LineBuilder {
 
   // Display lines of a record, parsed once (Format/logical-controls.md,
   // "Display Lines Inside A Record Payload").
-  std::map<std::size_t, std::optional<std::vector<DisplayLineIR>>> line_cache;
-  const std::vector<DisplayLineIR>* display_lines_of(std::size_t record) {
+  mutable std::map<std::size_t, std::optional<std::vector<DisplayLineIR>>>
+      line_cache;
+  const std::vector<DisplayLineIR>* display_lines_of(std::size_t record) const {
     auto found = line_cache.find(record);
     if (found == line_cache.end())
       found = line_cache
@@ -113,11 +114,31 @@ struct LineBuilder {
   // Payload").  The byte's value is the line's byte count; the dictionary
   // word a token reader resolves it to is incidental, so a box-drawing or
   // geometric-shape spelling is not a drawn glyph.
-  bool opens_display_line(const TokenView& view) {
+  bool opens_display_line(const TokenView& view) const {
     const auto* lines = display_lines_of(view.record);
     if (lines == nullptr) return false;
     for (const auto& line : *lines)
       if (line.prefix_token == view.token) return true;
+    return false;
+  }
+
+  // A bare token is a paragraph break only when it is the length byte of a
+  // display line that draws nothing: an empty line is how the record spells
+  // the break, and hosted BookServer answers it with `<p>`.  Bare spacing
+  // markers *inside* a line are not breaks, and they are the only bare
+  // tokens a hidden line contributes -- FA1PLMM0 17.2.3.1 record 713 places
+  // four `SI` entries between the two display lines of one paragraph
+  // (`... available to a` / `user; CEOS a subset ...`), and hosted DT
+  // 19910927114801 serves that paragraph unbroken.
+  bool blank_display_line(const TokenView& view) {
+    const auto* lines = display_lines_of(view.record);
+    if (lines == nullptr) return true;  // unparsed record: keep the old count
+    for (const auto& line : *lines) {
+      if (line.prefix_token != view.token) continue;
+      for (auto token = line.prefix_token + 1; token < line.token_end; ++token)
+        if (is_visible(view_token(records, view.record, token))) return false;
+      return true;
+    }
     return false;
   }
 
@@ -543,6 +564,16 @@ struct LineBuilder {
   bool marker_at(std::size_t index, std::size_t& origin_index) const {
     const auto& view = items[index].token;
     if (view.width != 1 || !is_visible(view)) return false;
+    // The row-control slot of a row is the length byte that opens its
+    // display line (Format/logical-controls.md).  Where the record's display
+    // lines parse, a token inside a line is never the slot, however much its
+    // token geometry looks like one: FA1PLMM0 17.2.3.1 record 713 ends the
+    // display line `   CEOS.  CEMS makes ... available to a` with the
+    // one-byte word `a`, which the geometry rule took for the slot and the
+    // *next* line's length byte for its origin run -- hosted DT
+    // 19910927114801 serves `available to a user; CEOS a subset ...`.
+    if (display_lines_of(view.record) != nullptr && !opens_display_line(view))
+      return false;
     // Example blocks style every displayed word with the block's `CFONT`
     // spans (hosted `<samp>...</samp>` per word), so a one-byte token that
     // falls inside a span of the open row is display text and not a row
@@ -659,6 +690,16 @@ struct LineBuilder {
     if (out.lines.empty() || out.lines.back().directive != current_directive)
       return fail(error, "cz FLOW FN body has no display row");
     auto& cells = out.lines.back().cells;
+    if (cells.empty())
+      return fail(error, "cz FLOW FN body has no display row");
+    // The row terminator is the length byte of the display line that follows
+    // the footnote body, so where the record's display lines parse the row
+    // model has already taken it as that line's control slot and it never
+    // reaches the body's cells.  Only an unparsed record still needs the
+    // trailing `.` trimmed out of the text.
+    if (cells.back().record != npos &&
+        display_lines_of(cells.back().record) != nullptr)
+      return true;
     if (cells.size() < 2 || cells.back().space ||
         cells.back().record == npos || cells.back().text != ".")
       return fail(error, "cz FLOW FN body does not end with a row terminator");
@@ -817,17 +858,21 @@ struct LineBuilder {
 
     if (is_bare(view)) {
       pending_space = false;
-      ++trailing_bare;
+      if (blank_display_line(view)) ++trailing_bare;
       return assign(view, ProseTokenRoleIR::spacing);
     }
 
+    // The length byte that opens a display line is that row's control slot,
+    // whatever dictionary word a token reader resolves it to: it is never
+    // the row's origin run and never display text.  SC33-033 4.5 record 176
+    // spells the length bytes of its three `SI` lines as three- and
+    // six-cell space runs, and SC31-711 3.1 record 46 spells the length
+    // bytes of the `nettl` log example as the words `as`, `a` and `are`;
+    // hosted (DT 19941010174546) prints none of them and keeps the example
+    // rows apart.
+    if (opens_display_line(view)) return row_control_length_byte(index);
+
     if (is_space_run(view)) {
-      // A display line's length byte is the row-control slot of the row it
-      // opens, never that row's origin run, whatever dictionary word a token
-      // reader resolves the byte to.  SC33-033 4.5 record 176 spells the
-      // length bytes of its three `SI` lines as three- and six-cell space
-      // runs; reading them as origins opened three rows with no text at all.
-      if (opens_display_line(view)) return row_control_length_byte(index);
       const auto next = next_token(index);
       if (space_at(next)) {
         // Fill/origin pair: every run but the last is fill.
