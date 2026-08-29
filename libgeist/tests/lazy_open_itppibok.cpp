@@ -12,7 +12,7 @@ int main() {
   require(tpns_edition.find(
               "Teleprocessing Network Simulator Version 3 Relelease 2") !=
                   std::string::npos &&
-              tpns_edition.find("North Carolina 27709, U.S.A.") !=
+              tpns_edition.find("North Carolina 27709, U\\.S\\.A\\.") !=
                   std::string::npos &&
               tpns_edition.find("c.cp") == std::string::npos,
           "ITPPIBOK edition changed while projecting visible CCP prose");

@@ -181,6 +181,10 @@ struct ProseTopicIR {
   std::size_t record_count = 0;
   std::size_t token_count = 0;
   std::string heading_level;
+  // The raw lower-cased CHDLEVEL operand this level was proven from: `h1`..
+  // `h6`, or one of the front-matter forms (`cover`, `toc`, `preface`, ...)
+  // the reader serves as a level-1 heading.
+  std::string heading_form;
   std::string title;
   DocumentSourceSliceIR title_source;
   std::vector<ProseAnchorIR> anchors;

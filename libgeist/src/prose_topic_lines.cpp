@@ -649,13 +649,35 @@ struct LineBuilder {
       return true;
     }
     // A glued alphabetic one-byte token in the row-control byte range is a
-    // slot whatever follows it: N2AH1MST record 17 `to:` + `access` (0x1c)
-    // directly before the `/` row marker of the next row.
+    // slot whatever follows it: N2AH1MST record 118 `to:` + `access` (0x1c)
+    // directly before the row's origin run.  It must still close the row:
+    // a low-value word that continues a glued compound is genuine text, not
+    // a slot.  SG24-204 PREFACE record 17 spells `step-by-step` as the glued
+    // run `step` `-` `by` `-` `step`, where `by` has encoded value 0x22 and
+    // follows the punctuation cell `-`; hosted (DT 19971218054640) serves
+    // `a step-by-step manner`, so the slot reading would drop `by`.
+    const auto glued_continuation = [&]() {
+      bool attach = false;
+      for (auto cursor = index + 1; cursor < items.size(); ++cursor) {
+        const auto& following = items[cursor];
+        if (following.kind != ItemKind::token) return false;
+        const auto& view_next = following.token;
+        if (is_bare(view_next)) {
+          if (view_next.prefix != 0 && view_next.prefix != 1) return false;
+          attach = true;
+          continue;
+        }
+        if (!is_visible(view_next)) return false;
+        return attach || view_next.prefix == 0 || view_next.prefix == 1;
+      }
+      return false;
+    };
     if (!cz_mode && view.width == 1 && view.value < row_control_byte_limit &&
         (!pending_space || view.prefix == 0 || view.prefix == 1) &&
         !in_title && !in_index && line_open && line_visible_cells != 0 &&
         alpha_word(view) && !last_visible.empty() &&
-        std::isalnum(static_cast<unsigned char>(last_visible.back())) == 0)
+        std::isalnum(static_cast<unsigned char>(last_visible.back())) == 0 &&
+        !glued_continuation())
       return assign(view, ProseTokenRoleIR::marker);
     if (marker_at(index, origin_index)) {
       if (!assign(view, ProseTokenRoleIR::marker)) return false;

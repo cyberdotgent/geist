@@ -220,6 +220,9 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
 
 struct Envelope {
   std::string heading_level;
+  // The raw lower-cased CHDLEVEL operand: `h1`..`h6`, or a front-matter form
+  // such as `cover`/`toc`/`preface` that the reader serves as `h1`.
+  std::string heading_form;
   std::size_t body_segment_begin = 0;  // first non-envelope segment of record 0
   std::vector<ProseAnchorIR> leading_anchors;
   bool glued_title = false;

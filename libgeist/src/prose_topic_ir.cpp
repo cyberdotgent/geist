@@ -86,6 +86,7 @@ std::optional<ProseTopicIR> extract_prose_topic_ir(
   topic.record_count = records.size();
   topic.token_count = ledger.entries.size();
   topic.heading_level = envelope.heading_level;
+  topic.heading_form = envelope.heading_form;
   topic.title = lines.title;
   {
     auto refs = lines.title_refs;
@@ -314,7 +315,8 @@ std::string format_prose_topic_ir(const ProseTopicIR& topic) {
   std::ostringstream out;
   out << "prose_topic records=" << topic.record_count
       << " tokens=" << topic.token_count << " heading_level="
-      << topic.heading_level << " title='" << topic.title << "'";
+      << topic.heading_level << " heading_form=" << topic.heading_form
+      << " title='" << topic.title << "'";
   format_slices(out, {topic.title_source});
   out << '\n';
   for (const auto& anchor : topic.anchors) {

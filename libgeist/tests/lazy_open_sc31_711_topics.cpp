@@ -218,7 +218,7 @@ int main() {
                   support_intro,
                   support_intro_begin + support_intro.size()) ==
                   std::string::npos &&
-              additional_information.find("- lnmstatus") !=
+              additional_information.find("\\_\\_ lnmstatus") !=
                   std::string::npos,
           "additional-information form lost its prose prefix or item");
   const auto frame_relay = markdown_visible_text(problem_determination.topic_markdown("4.3.5"));

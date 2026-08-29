@@ -50,23 +50,27 @@ int main() {
                   std::string::npos,
           "COMMENTS topic lost its questionnaire body");
 
+  // EDITION renders through the typed prose family (front-matter `vnotice`
+  // heading form, hosted DT 19950308184737 serves it as `<H1> EDITION
+  // Edition Notice</H1>`); the typed renderer escapes Markdown punctuation
+  // and keeps the `\u00a9` glyph hosted prints before `Copyright`.
   const auto gg24_edition = split_header.topic_markdown("EDITION");
-  require(gg24_edition.find("**First Edition (February 1995)**") !=
+  require(gg24_edition.find("**First Edition \\(February 1995\\)**") !=
               std::string::npos &&
               gg24_edition.find("Version 5, Release 1 of IMS/ESA") !=
                   std::string::npos &&
               gg24_edition.find(
                   "Copyright International Business Machines Corporation "
-                  "1995. All rights reserved.") != std::string::npos,
+                  "1995\\. All rights reserved\\.") != std::string::npos,
           "GG24 edition notice did not retain its decoded edition data");
   require(gg24_edition.find("May 1991") == std::string::npos,
           "GG24 edition notice retained fixture-specific replacement text");
   require(gg24_edition.find(
-              "MVS/ESA Operating System.\n\nOrder publications") !=
+              "MVS/ESA Operating System\\.\n\nOrder publications") !=
               std::string::npos &&
               gg24_edition.find("comments may be addressed to:\n\nIBM "
                                 "Corporation") != std::string::npos &&
-              gg24_edition.find("San Jose, California 95193-0001\n\nWhen "
+              gg24_edition.find("San Jose, California 95193\\-0001\n\nWhen "
                                 "you send information") != std::string::npos,
           "GG24 edition notice lost its fixed-row paragraph boundaries");
   require(gg24_edition.find("95193-0001(") == std::string::npos &&

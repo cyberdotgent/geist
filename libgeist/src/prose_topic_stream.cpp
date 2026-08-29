@@ -266,6 +266,97 @@ bool assign_segment_tokens(const std::vector<DecodedLogicalRecordSource>& record
   return true;
 }
 
+// The `c.cp` keep-together depth: a decimal count with an optional unit
+// suffix.  Observed corpus-wide: bare counts (`4`..`999`), `1i`/`2i`
+// (inches), `50p` (points) and `8DV` (device units).
+bool pagination_operand(const std::string& text) {
+  std::size_t digits = 0;
+  while (digits < text.size() &&
+         std::isdigit(static_cast<unsigned char>(text[digits])) != 0)
+    ++digits;
+  if (digits == 0 || digits > 4 || text.size() - digits > 3) return false;
+  return std::all_of(text.begin() + static_cast<std::ptrdiff_t>(digits),
+                     text.end(), [](const unsigned char ch) {
+                       return std::isalpha(ch) != 0;
+                     });
+}
+
+// `c.sp` operands.  Corpus wide only two spellings occur: `<n> c` (the
+// common vertical skip) and `<n>p p c`.  Neither carries display text.
+bool vertical_space_operands(const std::string& lower_text) {
+  std::size_t digits = 0;
+  while (digits < lower_text.size() &&
+         std::isdigit(static_cast<unsigned char>(lower_text[digits])) != 0)
+    ++digits;
+  if (digits == 0 || digits > 3) return false;
+  const auto rest = lower_text.substr(digits);
+  return rest == " c" || rest == "p p c";
+}
+
+// Front matter carries a named `CHDLEVEL` form instead of an `h1`-`h6`
+// level.  Hosted BookServer serves every one of these forms as a level-1
+// heading; the form itself is never visible.  Verified topic by topic
+// against the hosted `<H1>` element: `cover` (ACPZMST1 COVER,
+// `<H1> COVER   Book Cover</H1>`, DT 19920319123146), `vnotice`
+// (ACPZMST1 EDITION), `toc` (ACPZMST1 CONTENTS), `index` (ACPZMST1 INDEX),
+// `preface` (ACPZMST1 PREFACE), `notices` (GC23-046 NOTICES, DT
+// 19920330095121), `glossary` (FA1PLMM0 GLOSSARY, DT 19910927114801),
+// `soa` (DREICMST CHANGES, DT 19911219125856), `title` (ITPPIBOK TITLE,
+// DT 19910628074854), `bibliog` (ITPPIBOK BIBLIOGRAPHY), `abstract`
+// (FA1PLMM0 ABSTRACT) and `abbrev` (GG24-4302-00 ABBREVIATIONS, DT
+// 19950308184737).  Anything else stays fail-closed.
+bool front_matter_heading_form(const std::string& lower_form) {
+  for (const char* form :
+       {"abbrev", "abstract", "bibliog", "cover", "glossary", "index",
+        "notices", "preface", "soa", "title", "toc", "vnotice"})
+    if (lower_form == form) return true;
+  return false;
+}
+
+// A bare `SR<id>` structural control (not one of the reserved block
+// openers/closers) standing among the topic metadata controls.
+bool envelope_anchor_segment(const ControlSegmentIR& segment) {
+  if (segment.kind != BookControlKind::structural || segment.malformed)
+    return false;
+  const auto lower = ascii_lower(segment.opcode);
+  return lower.rfind("sr", 0) == 0 && !reserved_structural(lower) &&
+         segment.opcode.size() > 2;
+}
+
+// The served anchor name is the control's complete decoded output without the
+// leading `SR`, so a payload extends the name: `SRLEN ADDRESS` is served as
+// `<a name="LEN ADDRESS">`.  Every token of the control is envelope metadata;
+// none of it is visible body text.
+bool claim_envelope_anchor(const std::vector<DecodedLogicalRecordSource>& records,
+                           Ledger& ledger, const ControlSegmentIR& segment,
+                           ProseAnchorIR& anchor, std::string* error) {
+  const auto& record = records.front();
+  auto id = trim_ascii(operand_text(record, segment.complete));
+  if (id.size() < 3 || ascii_lower(id).rfind("sr", 0) != 0)
+    return fail(error, "envelope anchor '" + id + "' is not an SR control");
+  id.erase(0, 2);
+  id = trim_ascii(id);
+  if (id.empty() ||
+      !std::all_of(id.begin(), id.end(), [](const unsigned char ch) {
+        return ch >= 0x20 && ch < 0x7F;
+      }))
+    return fail(error, "envelope anchor id '" + id + "' is invalid");
+  if (segment.source_tokens.empty())
+    return fail(error, "envelope anchor control has no source token");
+  for (const auto token : segment.source_tokens) {
+    const auto view = view_token(records, 0, token);
+    if (!ledger.assign(0, token,
+                       is_padding(view) ? ProseTokenRoleIR::padding
+                                        : ProseTokenRoleIR::envelope,
+                       error))
+      return false;
+  }
+  anchor.id = std::move(id);
+  anchor.source = token_slice(record, segment.source_tokens.front(),
+                              segment.source_tokens.back() + 1);
+  return true;
+}
+
 bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
                     Ledger& ledger, Envelope& envelope, std::string* error) {
   const auto& record = records.front();
@@ -296,6 +387,31 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
         return false;
       ++segment_cursor;
     }
+    // Envelope anchor variant: a bare `SR<id>` structural control can sit
+    // between the metadata controls.  Hosted BookServer serves it as a plain
+    // anchor immediately before the topic heading and prints nothing of its
+    // own; a visible payload extends the served anchor name rather than
+    // becoming body text.  Proven by `SRLEN <text>` between `csummary` and
+    // `chdlevel` in SC24-546, SC33-033 and SC34-425: SC24-546 3.1 record 161
+    // segment 6 (`SRLEN ADDRESS`, complete=[90,103)) is served as
+    // `<a name="LEN ADDRESS"><a name="HDRADDRESS"><H2> 3.1   ADDRESS</H2>`
+    // at DT 19940323131240; SC24-546 4.3.6 (`SRLEN` with no payload) is
+    // served as `<a name="LEN">`; SC34-425 2.4.3 as
+    // `<a name="LEN FLMCSPDB DB2 Bind/Free Translator">` at DT
+    // 19921112160049; SC33-033 4.6 as `<a name="LEN CHAATT">` at DT
+    // 19930422134757.  None of the payload text appears in the body.
+    while (segment_cursor < record.control_segments.size() &&
+           envelope_anchor_segment(record.control_segments[segment_cursor])) {
+      const auto& anchor_segment = record.control_segments[segment_cursor];
+      ProseAnchorIR anchor;
+      if (!claim_envelope_anchor(records, ledger, anchor_segment, anchor,
+                                 error))
+        return false;
+      envelope.leading_anchors.push_back(std::move(anchor));
+      ++segment_cursor;
+    }
+    if (segment_cursor >= record.control_segments.size())
+      return fail(error, "topic metadata controls are incomplete");
     const auto& segment = record.control_segments[segment_cursor];
     if (segment.kind != required[index])
       return fail(error, "topic metadata controls are incomplete or out of order");
@@ -348,10 +464,14 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
       record, record.control_segments[heading_segment].operand_range)));
   if (!heading_level.empty() && heading_level.front() == ':')
     heading_level.erase(heading_level.begin());
+  envelope.heading_form = heading_level;
   if (heading_level.size() != 2 || heading_level.front() != 'h' ||
-      heading_level.back() < '1' || heading_level.back() > '6')
-    return fail(error, "heading level '" + heading_level +
-                           "' is not an h1-h6 prose heading");
+      heading_level.back() < '1' || heading_level.back() > '6') {
+    if (!front_matter_heading_form(heading_level))
+      return fail(error, "heading level '" + heading_level +
+                             "' is not an h1-h6 prose heading");
+    heading_level = "h1";
+  }
   envelope.heading_level = heading_level;
   envelope.body_segment_begin = segment_cursor;
   return true;
@@ -372,6 +492,9 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
   // decoder separators then reach the display-row pass, which decides
   // between bullet slot, split-off text and padding.
   bool cz_seen = false;
+  // Anchors that stood among the topic metadata controls precede every
+  // anchor the body contributes, in source order.
+  build.leading_anchors = envelope.leading_anchors;
   if (envelope.glued_title) {
     title_seen = true;
     bool first_payload = true;
@@ -749,6 +872,48 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         const auto id = segment.opcode.substr(2);
         if (!valid_anchor_id(id))
           return fail(error, "anchor id '" + id + "' is invalid");
+        // A body anchor can carry the first display line of the text it
+        // names.  Hosted BookServer wraps that text in the anchor element
+        // and keeps it as body content -- unlike the metadata-envelope
+        // anchor above, whose payload extends the served anchor *name*.
+        //   ACPZMST1 record 155 `SRSPTSETDC A domain controller handles ...`
+        //     is served (DT 19920319123146) as `<a name="SPTSETDC">   A
+        //     domain controller handles communications between
+        //     CPI-Communications</a>` followed by the rest of the paragraph.
+        //   DREICMST record 45 `SRSPTAMEND Changes ...` is served (DT
+        //     19911219125856) with `   Changes have been made throughout
+        //     this edition and the previous edition,`.
+        //   SC33-033 record 177 `SRSPTCHAATT` names
+        //     `<a name="SPTCHAATT">   <I>Function</I>:  To establish axis
+        //     line attributes.</a>` (DT 19930422134757).
+        // The anchor id stays the opcode without `SR`; the payload re-enters
+        // the token stream as ordinary display content.
+        const auto anchor_operands = operand_tokens(record, segment);
+        const auto visible_payload = std::any_of(
+            segment.source_tokens.begin(), segment.source_tokens.end(),
+            [&](const auto token) {
+              if (std::binary_search(anchor_operands.begin(),
+                                     anchor_operands.end(), token))
+                return false;
+              const auto view = view_token(records, record_index, token);
+              const auto glyph_slot = view.width == 1 &&
+                                      view.value < row_control_byte_limit &&
+                                      punctuation_glyph_token(view);
+              return !is_padding(view) && !is_separator(view) && !glyph_slot;
+            });
+        if (visible_payload && title_seen) {
+          if (anchor_operands.empty())
+            return fail(error, "anchor control has no source token");
+          Item item;
+          item.kind = ItemKind::anchor;
+          item.anchor_id = id;
+          item.source = token_slice(record, anchor_operands.front(),
+                                    anchor_operands.back() + 1);
+          build.items.push_back(std::move(item));
+          if (!push_payload(ProseTokenRoleIR::control, false, false, false))
+            return false;
+          break;
+        }
         {
           // A one-byte row-control glyph can be glued to the anchor before
           // the title (SC09-2417-00 2.2 record 188 `SRHDRHCPGIO <<`).
@@ -843,52 +1008,73 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         const auto first_view = view_token(records, record_index, *first_visible);
         const auto first_text = ascii_lower(body_text(first_view));
         if (first_text == "c.cp") {
-          // `c.cp <n>` carries pagination state only (markup.cpp keeps the
-          // same reading); its trailing spacing tokens stay in the stream
-          // because they can carry the paragraph break.
-          bool operand_seen = false;
+          // `c.cp` is the keep-together pagination control.  Its optional
+          // operand is the token adjacent to the opcode in the record --
+          // the record encoder emits no spacing token between a control
+          // opcode and its operand, so an intervening space run proves that
+          // the next word is display content and not an operand.  Byte-level
+          // evidence from the Token IR:
+          //   IEAC6MST record 79: `c.cp` `999` `      ` ` ` `|` `    ` `If`
+          //     -- operand 999; hosted DT 19920124000100 serves
+          //     ` |     If you do not already have a dump directory, ...`.
+          //   GC23-046 record 31: `c.cp` `8DV`; hosted DT 19920330095121
+          //     serves no `8DV` and no `DV` anywhere in CHANGES.1.
+          //   DREICMST record 600: `c.cp` `2i`; hosted DT 19911219125856
+          //     serves no `2i` in 2.20.3.1.4.
+          //   SC34-425 record 267: `c.cp` `50p`; SC31-711 record 10:
+          //     `c.cp` `54` then the row `:` `   ` `The` `following`.
+          //   GC28-183 record 783: `c.cp` `              ` `   ` `6` `.`
+          //     -- no operand; hosted DT 19930625102617 serves
+          //     `   6.  SYSOUT data sets (except DD3 and DD4) are printed`.
+          //   FA1PLMM0 record 369: `c.cp` ` ` `   ` `The` `columns`;
+          //     hosted DT 19910927114801 serves
+          //     `   The columns have the following meaning:`.
+          //   DREICMST record 243: `c.cp` alone, no operand and no payload.
+          // Everything after the opcode and its operand is ordinary display
+          // content and re-enters the token stream; the legacy renderer
+          // dropped it unless it was spelled `<n>:<text>`.
+          std::size_t consumed = *first_visible;
+          for (std::size_t position = 0; position < segment.source_tokens.size();
+               ++position) {
+            if (segment.source_tokens[position] != *first_visible) continue;
+            if (position + 1 >= segment.source_tokens.size()) break;
+            const auto candidate = segment.source_tokens[position + 1];
+            const auto view = view_token(records, record_index, candidate);
+            if (is_padding(view)) break;
+            const auto text = body_text(view);
+            if (!pagination_operand(text))
+              return fail(error, "c.cp control carries visible payload '" +
+                                     text + "'");
+            consumed = candidate;
+            break;
+          }
+          bool payload_visible = false;
           for (const auto token : segment.source_tokens) {
             const auto view = view_token(records, record_index, token);
-            if (token <= *first_visible) {
+            if (token <= consumed) {
               if (!ledger.assign(record_index, token,
-                                 token == *first_visible
+                                 (token == *first_visible || token == consumed)
                                      ? ProseTokenRoleIR::control
                                      : ProseTokenRoleIR::padding,
                                  error))
                 return false;
               continue;
             }
-            if (!operand_seen) {
-              if (is_padding(view)) {
-                if (!ledger.assign(record_index, token,
-                                   ProseTokenRoleIR::padding, error))
-                  return false;
-                continue;
-              }
-              const auto text = body_text(view);
-              if (text.empty() ||
-                  !std::all_of(text.begin(), text.end(), [](unsigned char ch) {
-                    return std::isdigit(ch) != 0;
-                  }))
-                return fail(error, "c.cp control carries visible payload '" +
-                                       text + "'");
-              operand_seen = true;
-              if (!ledger.assign(record_index, token, ProseTokenRoleIR::control,
-                                 error))
-                return false;
-              continue;
-            }
-            if (!(is_bare(view) || is_space_run(view) ||
-                  is_placeholder_run(view)))
-              return fail(error, "c.cp control carries visible payload '" +
-                                     body_text(view) + "'");
             Item item;
             item.kind = ItemKind::token;
             item.token = view;
-            item.separator = true;
+            // Spacing after the control stands at a control boundary, the
+            // reading the pagination-only form already used.
+            item.separator =
+                is_bare(view) || is_space_run(view) || is_placeholder_run(view);
+            if (!item.separator) payload_visible = true;
             build.items.push_back(std::move(item));
           }
-          if (!operand_seen) return fail(error, "c.cp control has no operand");
+          if (payload_visible) {
+            Item end;
+            end.kind = ItemKind::segment_end;
+            build.items.push_back(std::move(end));
+          }
           break;
         }
         const auto continuation =
@@ -952,6 +1138,55 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         build.items.push_back(std::move(item));
         if (!push_payload(ProseTokenRoleIR::control, false, false, false))
           return false;
+        break;
+      }
+      case BookControlKind::spacing: {
+        // `c.sp` is the vertical-space control.  It has no display payload:
+        // hosted BookServer emits only a paragraph break where it stands
+        // (GC28-183 1.3.3 record 91 `c.sp 1 c`, DT 19930625102617;
+        // SC33-033 4.6 record 177 `c.sp 1 c` between the heading and
+        // `<a name="SPTCHAATT">`, DT 19930422134757; SC34-425 2.4.3 record
+        // 1465, DT 19921112160049).  Two operand spellings occur corpus
+        // wide: `<n> c` and `<n>p p c`; anything else fails closed.  The
+        // trailing spacing tokens stay in the stream because they can carry
+        // the paragraph break, the reading `c.cp` already uses.
+        if (!title_seen) return fail(error, "c.sp control precedes the title");
+        std::string operands;
+        std::size_t last_operand = npos;
+        std::optional<std::size_t> opcode_token;
+        for (const auto token : segment.source_tokens) {
+          const auto view = view_token(records, record_index, token);
+          if (!is_visible(view)) continue;
+          if (!opcode_token) {
+            opcode_token = token;
+            continue;
+          }
+          if (!operands.empty()) operands.push_back(' ');
+          operands += ascii_lower(body_text(view));
+          last_operand = token;
+        }
+        if (!opcode_token) return fail(error, "c.sp control has no opcode");
+        if (!vertical_space_operands(operands))
+          return fail(error, "c.sp control carries visible payload '" +
+                                 operands + "'");
+        const auto control_end =
+            last_operand == npos ? *opcode_token : last_operand;
+        for (const auto token : segment.source_tokens) {
+          const auto view = view_token(records, record_index, token);
+          if (token <= control_end) {
+            if (!ledger.assign(record_index, token,
+                               is_visible(view) ? ProseTokenRoleIR::control
+                                                : ProseTokenRoleIR::padding,
+                               error))
+              return false;
+            continue;
+          }
+          Item item;
+          item.kind = ItemKind::token;
+          item.token = view;
+          item.separator = true;
+          build.items.push_back(std::move(item));
+        }
         break;
       }
       case BookControlKind::menu_start: {

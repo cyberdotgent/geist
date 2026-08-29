@@ -146,9 +146,12 @@ int main() {
       "This book is designed as a reference manual for the IBM LAN Network "
       "Manager for AIX program",
       "source-owned preface body");
-  require_contains(preface, "(SNMP)-based token-ring LAN segments",
+  // PREFACE now renders through the typed prose family, which reflows the
+  // display rows into paragraphs and escapes Markdown punctuation.  Hosted
+  // (DT 19941010174546) serves the same words.
+  require_contains(preface, "\\(SNMP\\)\\-based token\\-ring LAN segments",
                    "source-cleaned SNMP prose row");
-  require_contains(preface, "(FDDI) segments, and SNMP-managed bridges",
+  require_contains(preface, "\\(FDDI\\) segments, and SNMP\\-managed bridges",
                    "source-cleaned FDDI prose row");
   for (const auto* leaked : {"Network < Manager", "protocol a (SNMP)",
                               "interface adapter (FDDI)"}) {
