@@ -4,9 +4,9 @@
 
 namespace geist::detail {
 
-std::optional<std::vector<DisplayLineIR>> record_display_lines(
-    const DecodedLogicalRecordSource& record) {
-  const auto& tokens = record.ir.tokens;
+std::optional<std::vector<DisplayLineIR>> token_display_lines(
+    const std::vector<LogicalTokenIR>& tokens,
+    const std::uint32_t payload_end) {
   std::vector<DisplayLineIR> lines;
   std::size_t at = 0;
   while (at < tokens.size()) {
@@ -16,14 +16,18 @@ std::optional<std::vector<DisplayLineIR>> record_display_lines(
     const auto line_end = prefix.byte_range.end + prefix.encoded.value;
     auto end = at + 1;
     while (end < tokens.size() && tokens[end].byte_range.end <= line_end) ++end;
-    const auto boundary = end < tokens.size()
-                              ? tokens[end].byte_range.begin
-                              : record.ir.payload_range.end;
+    const auto boundary =
+        end < tokens.size() ? tokens[end].byte_range.begin : payload_end;
     if (boundary != line_end) return std::nullopt;
     lines.push_back({at, end});
     at = end;
   }
   return lines;
+}
+
+std::optional<std::vector<DisplayLineIR>> record_display_lines(
+    const DecodedLogicalRecordSource& record) {
+  return token_display_lines(record.ir.tokens, record.ir.payload_range.end);
 }
 
 namespace {
@@ -99,10 +103,64 @@ bool visible_display_token(const LogicalTokenIR& token) {
 
 } // namespace
 
+namespace {
+
+// ASCII spelling of one token's own words, with the leading spacing control
+// and any surrounding space run removed.
+std::string token_word_text(const LogicalTokenIR& token) {
+  std::string text;
+  for (const auto word : token.decoded_words) {
+    if (word < 4) continue;
+    if (word > 0x7F) return {};
+    text.push_back(static_cast<char>(word));
+  }
+  const auto begin = text.find_first_not_of(' ');
+  if (begin == std::string::npos) return {};
+  return text.substr(begin, text.find_last_not_of(' ') + 1 - begin);
+}
+
+void demote_length_byte_controls(DecodedLogicalRecordSource& record,
+                                 const std::vector<DisplayLineIR>& lines) {
+  // A display line's length byte is a length and nothing else: whatever word
+  // the dictionary happens to spell for that byte, the reader never displays
+  // it and it never opens a control.  Where the byte's spelling is itself a
+  // control name the segment decoder reads it as one and the rest of the
+  // line becomes that control's payload -- FA1PLMM0 record 477 byte 0x3f00f
+  // is 0x39 = 57, spelled `cmitem`, and opens the 57-byte display line
+  // `                    LTAB=(10,00,...),          *` inside the drawn
+  // figure FIGFIGUNIQ9.  Genuine controls always sit at `prefix_token + 1`
+  // (FA1PLMM0 record 471: every one of `ctopicn`, `cparent`, `csummary`,
+  // `SRHDRPWRGEN`, `ST`, `SI`, `cfont` opens its line one token after that
+  // line's length byte).
+  std::vector<bool> prefix(record.ir.tokens.size(), false);
+  for (const auto& line : lines) prefix[line.prefix_token] = true;
+  for (auto& segment : record.control_segments) {
+    if (segment.kind == BookControlKind::text || segment.opcode.empty())
+      continue;
+    if (segment.source_tokens.empty()) continue;
+    const auto token = segment.source_tokens.front();
+    if (token >= prefix.size() || !prefix[token]) continue;
+    // Only when the length byte is what spells the opcode.  A segment that
+    // merely starts at the byte before its own opcode keeps its control.
+    if (ascii_lower(token_word_text(record.ir.tokens[token])) !=
+        ascii_lower(segment.opcode))
+      continue;
+    segment.kind = BookControlKind::text;
+    segment.display_text = true;
+    segment.opcode.clear();
+    segment.opcode_range = {segment.complete.begin, segment.complete.begin};
+    segment.operand_range = segment.opcode_range;
+    segment.payload_range = {segment.complete.begin, segment.complete.end};
+  }
+}
+
+} // namespace
+
 void demote_display_line_owned_controls(DecodedLogicalRecordSource& record) {
   if (record.control_segments.empty()) return;
   const auto lines = record_display_lines(record);
   if (!lines) return;
+  demote_length_byte_controls(record, *lines);
   for (std::size_t index = 0; index < record.control_segments.size(); ++index) {
     auto& segment = record.control_segments[index];
     if (segment.source_tokens.empty()) continue;

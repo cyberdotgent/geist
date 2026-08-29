@@ -623,12 +623,17 @@ int main() {
             std::string(book) + " " + id +
                 ": figure wrapping a table was not declined as a table");
   }
-  // Negative: a region carrying a menu (SC28-1881-05 1.6 FIGFIGUNIQ71).
+  // SC28-1881-05 1.6 FIGFIGUNIQ71 used to be declined as "contains a menu":
+  // its `cmitem` was a display line's length byte, not a control (record 477
+  // of FA1PLMM0 shows the same byte opening a 57-byte line).  The drawn
+  // syntax diagram is admitted now.
   {
     const auto topic = corpus.topic("SC28-1881-05.boo", "1.6");
-    require(find_figure(topic, "FIGFIGUNIQ71") == nullptr &&
-                declined_with(topic, "contains a menu"),
-            "SC28-1881-05 1.6: figure carrying a menu was admitted");
+    const auto *figure = find_figure(topic, "FIGFIGUNIQ71");
+    require(figure != nullptr &&
+                figure->body_kind == geist::detail::FigureBodyKindIR::preformatted &&
+                !figure->lines.empty(),
+            "SC28-1881-05 1.6: the drawn figure was not admitted");
   }
   // Negative: prose after the caption.  PRG1SORT 1.1.4.3.2 FIGSELCDF carries
   // the caption's wrapped second line behind three "SI" index lines, so the
@@ -641,14 +646,19 @@ int main() {
                 declined_with(topic, "text after its caption"),
             "PRG1SORT 1.1.4.3.2: prose after the caption was admitted");
   }
-  // Negative: a body line whose length byte is at or above the book's token
-  // threshold is read as a two-byte token, so the display lines of the
-  // record do not add up and the region is declined (PRG1SORT D.5.1).
+  // A body line whose length byte is at or above the book's token threshold
+  // used to be read as a two-byte token, so the record's display lines did
+  // not add up and the region was declined (PRG1SORT D.5.1).  The record
+  // decoder now re-reads such a payload line by line, so the region is
+  // admitted: PRG1SORT record 47 byte 0xe5ae is length 0xdc, not the
+  // two-byte token 0xdc18 `classification`.
   {
     const auto topic = corpus.topic("PRG1SORT.boo", "D.5.1");
-    require(find_figure(topic, "FIGFIGUNIQ136") == nullptr &&
-                declined_with(topic, "display line prefixes"),
-            "PRG1SORT D.5.1: misaligned display lines were admitted");
+    const auto *figure = find_figure(topic, "FIGFIGUNIQ136");
+    require(figure != nullptr &&
+                figure->body_kind == geist::detail::FigureBodyKindIR::preformatted &&
+                !figure->lines.empty(),
+            "PRG1SORT D.5.1: the drawn figure was not admitted");
   }
   // Negative: a selector inside a drawn figure is a link the preformatted
   // body cannot carry (SH20-918 2.1 FIGSTRUC).

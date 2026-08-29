@@ -323,9 +323,11 @@ int main() {
     }
   }
 
-  // 4.3.5 stays legacy: its introduction carries a mis-segmented control
-  // (`cbacklevel` inside the ST prose) whose cells have no positioned
-  // provenance, so the catalog fails closed instead of dropping text.
+  // 4.3.5 used to fail closed: the `cbacklevel` its introduction appeared to
+  // carry was a display line's length byte, not a control.  With the byte
+  // read as a length the catalog composes, and hosted DT 19941010174546
+  // serves exactly its one entry (`1` / `Description:  DLCI state change` /
+  // `LNM for AIX Response:  Poll the port.`).
   {
     const auto topic = std::find_if(
         document.topics().begin(), document.topics().end(),
@@ -337,9 +339,9 @@ int main() {
     std::string error;
     const auto catalog = geist::detail::extract_trap_catalog_ir(
         sources, layout, ownership, "Frame Relay Redirected Traps", &error);
-    require(!catalog.has_value() &&
-                error.find("cbacklevel") != std::string::npos,
-            "4.3.5 must fail closed on the mis-segmented control: " + error);
+    require(catalog.has_value() && catalog->entries.size() == 1 &&
+                catalog->entries.front().id == "1",
+            "4.3.5 trap catalog was not composed: " + error);
   }
 
   return 0;

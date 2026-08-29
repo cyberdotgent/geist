@@ -423,9 +423,11 @@ int main() {
   reject("IEAC6MST.BOO", "7.9",
          "table envelope 'CLISTS' declined: visible source between table "
          "lines");
+  // 1.2.1's nested `SRFIGLOGPROC` / `SRFIGXXX` frame now composes; the topic
+  // still fails closed, on record 84's footnote control `SRFTNSPE`, which
+  // no family models yet.
   reject("DREICMST.boo", "1.2.1",
-         "declined: figure region has no picture selector (unterminated "
-         "before the next SRFIG)");
+         "control SRFTNSPE carries visible payload");
   {
     const auto extracted = extract("SC31-711.boo", "3.2");
     std::string error;
