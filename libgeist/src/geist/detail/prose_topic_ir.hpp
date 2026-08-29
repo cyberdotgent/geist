@@ -1,6 +1,7 @@
 #pragma once
 
 #include "geist/detail/control_ir.hpp"
+#include "geist/detail/document_ir.hpp"
 #include "geist/detail/figure_block_ir.hpp"
 #include "geist/detail/fixed_table_block_ir.hpp"
 #include "geist/detail/font_span_ir.hpp"
@@ -82,6 +83,10 @@ struct ProseInlineIR {
   std::string text;
   FontStyleIR style = FontStyleIR::unknown;
   std::string target;
+  // Cross references only.  An internal `CSELECT <anchor>` is an anchor in
+  // the same book; a `CSELECT ... LNK` selector addresses another book or an
+  // external URL (see Format/markup.md, "LNK selector alternatives").
+  CrossReferenceTargetKindIR target_kind = CrossReferenceTargetKindIR::anchor;
   // Contiguous source token ranges, in source order.
   std::vector<DocumentSourceSliceIR> slices;
 };

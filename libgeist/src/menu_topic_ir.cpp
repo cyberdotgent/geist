@@ -363,31 +363,93 @@ bool split_title_and_introduction(
   return !title->empty() && !introduction->empty();
 }
 
-// Splits a raw item's label cells at its source-proven compact terminal
-// token: the cells before it (trailing space trimmed) and the token's own
-// cells.  Returns false when the item carries no such token or the split does
-// not leave label text on both sides.
-bool split_label_at_compact_terminal(const MenuItemIR &item,
-                                     std::vector<MenuSourceCellIR> *label,
-                                     std::vector<MenuSourceCellIR> *marker) {
-  if (!item.compact_terminal ||
-      item.compact_terminal->label_cell_begin >= item.label_cells.size())
-    return false;
-  const auto &terminal = *item.compact_terminal;
+// Splits a raw item's label cells at one source-proven terminal token: the
+// cells before it (trailing space trimmed) and the token's own cells.
+// Returns false when the split does not leave label text on both sides.
+bool split_label_at_token(const MenuItemIR &item, std::size_t token_index,
+                          std::size_t label_cell_begin,
+                          std::vector<MenuSourceCellIR> *label,
+                          std::vector<MenuSourceCellIR> *marker) {
+  if (label_cell_begin >= item.label_cells.size()) return false;
   label->assign(item.label_cells.begin(),
                 item.label_cells.begin() +
-                    static_cast<std::ptrdiff_t>(terminal.label_cell_begin));
+                    static_cast<std::ptrdiff_t>(label_cell_begin));
   marker->clear();
   for (auto cell = item.label_cells.begin() +
-                   static_cast<std::ptrdiff_t>(terminal.label_cell_begin);
+                   static_cast<std::ptrdiff_t>(label_cell_begin);
        cell != item.label_cells.end(); ++cell) {
-    if (cell->token_index == terminal.token_index)
+    if (cell->token_index == token_index)
       marker->push_back(*cell);
     else if (!ascii_space(cell->word))
       return false;
   }
   trim_cells(*label);
   return !label->empty() && !marker->empty();
+}
+
+// Splits a raw item's label cells at its source-proven compact terminal
+// token.
+bool split_label_at_compact_terminal(const MenuItemIR &item,
+                                     std::vector<MenuSourceCellIR> *label,
+                                     std::vector<MenuSourceCellIR> *marker) {
+  if (!item.compact_terminal) return false;
+  return split_label_at_token(item, item.compact_terminal->token_index,
+                              item.compact_terminal->label_cell_begin, label,
+                              marker);
+}
+
+// Splits a raw item's label cells at its source-proven record terminator
+// token (the `.` glyph standing immediately before CEMENU).
+bool split_label_at_terminator(const MenuItemIR &item,
+                               std::vector<MenuSourceCellIR> *label,
+                               std::vector<MenuSourceCellIR> *marker) {
+  if (!item.terminator) return false;
+  return split_label_at_token(item, item.terminator->token_index,
+                              item.terminator->label_cell_begin, label,
+                              marker);
+}
+
+// Re-splits a raw item at the terminal token a validation entry recorded.
+// The token must still be one of the item's two source-proven candidates.
+bool split_label_at_validated_terminal(const MenuItemIR &item,
+                                       std::size_t token_index,
+                                       std::vector<MenuSourceCellIR> *label,
+                                       std::vector<MenuSourceCellIR> *marker) {
+  if (item.terminator && item.terminator->token_index == token_index)
+    return split_label_at_terminator(item, label, marker);
+  if (item.compact_terminal &&
+      item.compact_terminal->token_index == token_index)
+    return split_label_at_compact_terminal(item, label, marker);
+  return false;
+}
+
+// The one terminal token, if any, whose exclusion makes a raw label agree
+// with `canonical`.  The record terminator is tried first: it is proven by
+// token adjacency to CEMENU rather than by its display width, so it is the
+// stronger evidence when an item carries both.
+bool label_without_terminal_token(const MenuItemIR &item,
+                                  const std::string &canonical,
+                                  std::string *label,
+                                  std::size_t *token_index) {
+  std::vector<MenuSourceCellIR> label_cells;
+  std::vector<MenuSourceCellIR> marker_cells;
+  if (split_label_at_terminator(item, &label_cells, &marker_cells)) {
+    const auto text = cell_text(label_cells);
+    if (ascii_equals_case_insensitive(text, canonical)) {
+      *label = text;
+      *token_index = item.terminator->token_index;
+      return true;
+    }
+  }
+  if (split_label_at_compact_terminal(item, &label_cells, &marker_cells)) {
+    const auto text = cell_text(label_cells);
+    if (ascii_equals_case_insensitive(text, canonical)) {
+      *label = text;
+      *token_index = item.compact_terminal->token_index;
+      return true;
+    }
+  }
+  return false;
 }
 
 } // namespace
@@ -424,22 +486,23 @@ std::optional<MenuTargetValidationIR> validate_source_menu_targets(
     auto label = collapse_ascii_whitespace(trim_ascii(source.text));
     std::optional<std::size_t> terminal_marker_token;
     if (!ascii_equals_case_insensitive(label, normalized_canonical)) {
-      // The label may end in one compact display marker (`>`, `[`, `++`).
-      // The raw item's source-proven terminal token is the only candidate:
-      // its cells are excluded and the remaining label cells must agree with
-      // the canonical title instead.  No marker spelling is consulted.
-      std::vector<MenuSourceCellIR> label_cells;
-      std::vector<MenuSourceCellIR> marker_cells;
-      if (!split_label_at_compact_terminal(source, &label_cells,
-                                           &marker_cells))
+      // The label may end in one compact display marker (`>`, `[`, `++`) or
+      // in the record terminator `.` that stands immediately before CEMENU.
+      // Only those two source-proven terminal tokens are candidates: the
+      // token's cells are excluded and the remaining label cells must agree
+      // with the canonical title instead.  No marker spelling is consulted.
+      std::string stripped;
+      std::size_t token = 0;
+      if (!source.compact_terminal && !source.terminator)
         return reject("raw menu label differs from canonical catalog title: " +
                       source.target);
-      label = cell_text(label_cells);
-      if (!ascii_equals_case_insensitive(label, normalized_canonical))
+      if (!label_without_terminal_token(source, normalized_canonical,
+                                        &stripped, &token))
         return reject("raw menu label differs from canonical catalog title "
                       "beyond its compact terminal token: " +
                       source.target);
-      terminal_marker_token = source.compact_terminal->token_index;
+      label = std::move(stripped);
+      terminal_marker_token = token;
     }
 
     MenuTargetValidationEntryIR validated;
@@ -508,11 +571,9 @@ extract_menu_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
     }
     std::vector<MenuSourceCellIR> label_cells;
     std::vector<MenuSourceCellIR> marker_cells;
-    if (!source.compact_terminal ||
-        source.compact_terminal->token_index !=
-            *validated.terminal_marker_token ||
-        !split_label_at_compact_terminal(source, &label_cells,
-                                         &marker_cells) ||
+    if (!split_label_at_validated_terminal(source,
+                                           *validated.terminal_marker_token,
+                                           &label_cells, &marker_cells) ||
         cell_text(label_cells) != validated.label)
       return reject("menu topic validated terminal marker differs from "
                     "source evidence");
@@ -628,8 +689,10 @@ extract_menu_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
     semantic.target_cells = item.target_cells;
     const auto &validated = target_validation.items[menu_index];
     if (validated.terminal_marker_token) {
-      if (!split_label_at_compact_terminal(item, &semantic.label_cells,
-                                           &semantic.marker_cells))
+      if (!split_label_at_validated_terminal(item,
+                                             *validated.terminal_marker_token,
+                                             &semantic.label_cells,
+                                             &semantic.marker_cells))
         return reject("menu topic terminal marker cells are unavailable");
       semantic.label = cell_text(semantic.label_cells);
     } else {

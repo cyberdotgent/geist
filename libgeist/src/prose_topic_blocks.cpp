@@ -53,7 +53,8 @@ std::string line_text(const Line& line) {
 }
 
 bool resolve_spans(const Line& line, std::vector<Attr>& attrs,
-                   std::vector<std::string>& targets, std::string* error) {
+                   std::vector<CrossReferenceTargetIR>& targets,
+                   std::string* error) {
   attrs.assign(line.cells.size(), Attr{});
   const auto apply = [&](const Span& span, bool link) -> bool {
     auto begin = span.begin;
@@ -88,16 +89,35 @@ bool resolve_spans(const Line& line, std::vector<Attr>& attrs,
         attr.style = span.style;
       }
     }
-    if (link) targets.push_back(span.target);
+    if (link) targets.push_back({span.target_kind, span.target});
     return true;
   };
   for (const auto& span : line.links)
     if (!apply(span, true)) return false;
   for (const auto& span : line.fonts)
     if (!apply(span, false)) return false;
-  for (const auto& attr : attrs)
-    if (attr.link != npos && attr.style != FontStyleIR::unknown)
-      return fail(error, "font span inside a selector span");
+  // A CFONT phrase inside a CSELECT phrase is how BookServer marks a linked
+  // book title (`<a href=...><cite>Defining</cite> <cite>TPNS</cite>
+  // <cite>Networks</cite></a>`, ITPPIBOK 1.3.3 / SC41-485 1.2.3): the whole
+  // styled phrase is the link's own label.  The document model has no nested
+  // inline, so the reference wins and the style is dropped; a font phrase
+  // that only partly overlaps a selector phrase stays ambiguous and rejects.
+  for (std::size_t cell = 0; cell < attrs.size(); ++cell) {
+    if (attrs[cell].link == npos || attrs[cell].style == FontStyleIR::unknown)
+      continue;
+    const auto style = attrs[cell].style;
+    const auto link = attrs[cell].link;
+    auto first = cell;
+    while (first > 0 && attrs[first - 1].style == style) --first;
+    auto last = cell;
+    while (last + 1 < attrs.size() && attrs[last + 1].style == style) ++last;
+    for (auto at = first; at <= last; ++at) {
+      if (line.cells[at].space) continue;
+      if (attrs[at].link != link)
+        return fail(error, "font span inside a selector span");
+    }
+    for (auto at = first; at <= last; ++at) attrs[at].style = FontStyleIR::unknown;
+  }
   return true;
 }
 
@@ -106,11 +126,11 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
                  std::size_t end, ProseBlockIR& block, Ledger& ledger,
                  std::size_t block_index, std::string* error) {
   std::vector<BlockChar> chars;
-  std::vector<std::string> targets;
+  std::vector<CrossReferenceTargetIR> targets;
   for (auto index = begin; index < end; ++index) {
     const auto& line = lines[index];
     std::vector<Attr> attrs;
-    std::vector<std::string> line_targets;
+    std::vector<CrossReferenceTargetIR> line_targets;
     if (!resolve_spans(line, attrs, line_targets, error)) return false;
     const auto target_base = targets.size();
     targets.insert(targets.end(), line_targets.begin(), line_targets.end());
@@ -154,7 +174,8 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
     const auto& attr = collapsed[run_begin].attr;
     if (attr.link != npos) {
       inline_node.kind = ProseInlineKindIR::cross_reference;
-      inline_node.target = targets[attr.link];
+      inline_node.target = targets[attr.link].value;
+      inline_node.target_kind = targets[attr.link].kind;
     } else if (attr.style != FontStyleIR::unknown) {
       inline_node.kind = ProseInlineKindIR::emphasis;
       inline_node.style = attr.style;
@@ -352,22 +373,35 @@ bool build_menu(const std::vector<DecodedLogicalRecordSource>& records,
         // non-alphanumeric boundary.
         const auto header =
             collapse_ascii_whitespace(trim_ascii(entry->topic_header->title));
-        return header.size() > candidate.size() &&
-               ascii_equals_case_insensitive(header.substr(0, candidate.size()),
-                                             candidate) &&
+        if (header.size() < candidate.size()) return false;
+        if (!ascii_equals_case_insensitive(header.substr(0, candidate.size()),
+                                           candidate))
+          return false;
+        return header.size() == candidate.size() ||
                std::isalnum(static_cast<unsigned char>(
                    header[candidate.size()])) == 0;
       };
       auto label = collapse_ascii_whitespace(trim_ascii(item.text));
       auto matches = label_matches(label);
-      if (!matches && item.compact_terminal) {
+      // The item's two source-proven terminal tokens carry no label text
+      // once the catalog agrees without them: the record terminator `.`
+      // standing before CEMENU, and a compact display marker.
+      const auto without = [&](std::size_t label_cell_begin) {
         std::string stripped;
         for (std::size_t cell = 0;
-             cell < item.compact_terminal->label_cell_begin &&
-             cell < item.label_cells.size();
-             ++cell)
+             cell < label_cell_begin && cell < item.label_cells.size(); ++cell)
           stripped += token_words_to_ascii({item.label_cells[cell].word});
-        stripped = collapse_ascii_whitespace(trim_ascii(stripped));
+        return collapse_ascii_whitespace(trim_ascii(stripped));
+      };
+      if (!matches && item.terminator) {
+        const auto stripped = without(item.terminator->label_cell_begin);
+        if (label_matches(stripped)) {
+          label = stripped;
+          matches = true;
+        }
+      }
+      if (!matches && item.compact_terminal) {
+        const auto stripped = without(item.compact_terminal->label_cell_begin);
         if (label_matches(stripped)) {
           label = stripped;
           matches = true;

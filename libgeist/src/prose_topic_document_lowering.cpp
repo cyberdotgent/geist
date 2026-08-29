@@ -190,10 +190,14 @@ bool lower_inlines(const ProseBlockIR& block, std::size_t begin,
       if (node.target.empty())
         return fail(error, "prose cross-reference has no target");
       CrossReferenceInlineIR reference;
-      reference.target = {CrossReferenceTargetKindIR::anchor, node.target};
+      reference.target = {node.target_kind, node.target};
       reference.label = node.text;
       lowered.node = std::move(reference);
-      lowered.origin = origin(node.slices, "prose CSELECT reference");
+      lowered.origin =
+          origin(node.slices,
+                 node.target_kind == CrossReferenceTargetKindIR::external
+                     ? "prose CSELECT LNK reference"
+                     : "prose CSELECT reference");
       break;
     }
     }

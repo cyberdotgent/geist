@@ -46,6 +46,24 @@ struct MenuCompactTerminalTokenIR {
   std::size_t label_cell_begin = 0;
 };
 
+// Source-local structure of a menu item's record terminator token: the item's
+// last payload token, a width-1 spacing-control token whose only visible word
+// is the `.` glyph, standing immediately before the CEMENU control's first
+// source token.  The same token shape closes the ST payload of the same
+// record and is what produces the doubled `10577..` there (DREICMST record 28
+// token 257 is the sentence period, token 259 the terminator), so a terminator
+// glyph carries no label text.  Only the last item of a menu can have one;
+// source alone records the evidence, catalog validation decides whether to
+// exclude it.
+struct MenuTerminatorTokenIR {
+  std::size_t token_index = 0;
+  EncodedLogicalToken encoded;
+  SourceByteRange bytes;
+  // Index into label_cells of the first cell produced by the token; every
+  // later label cell belongs to the token or is trailing inserted space.
+  std::size_t label_cell_begin = 0;
+};
+
 struct MenuItemIR {
   std::uint32_t logical_record = 0;
   std::size_t segment_index = 0;
@@ -56,6 +74,7 @@ struct MenuItemIR {
   std::vector<MenuSourceCellIR> target_cells;
   std::vector<MenuSourceCellIR> label_cells;
   std::optional<MenuCompactTerminalTokenIR> compact_terminal;
+  std::optional<MenuTerminatorTokenIR> terminator;
   std::optional<std::size_t> terminal_marker_token;
   std::optional<EncodedLogicalToken> terminal_marker_encoded;
   std::optional<SourceByteRange> terminal_marker_bytes;

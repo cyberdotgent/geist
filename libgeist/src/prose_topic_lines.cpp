@@ -145,7 +145,8 @@ struct LineBuilder {
                 {span.column, span.column + span.length, span.style, {}});
         } else {
           line().links.push_back({item.column, item.column + item.length,
-                                  FontStyleIR::unknown, item.target});
+                                  FontStyleIR::unknown, item.target,
+                                  item.target_kind});
         }
       }
       pending_controls.clear();

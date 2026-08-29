@@ -115,6 +115,7 @@ struct Item {
   std::size_t column = 0;
   std::size_t length = 0;
   std::string target;
+  CrossReferenceTargetKindIR target_kind = CrossReferenceTargetKindIR::anchor;
   std::string anchor_id;
   std::size_t span_index = 0;
   DocumentSourceSliceIR source;
@@ -254,6 +255,7 @@ struct Span {
   std::size_t end = 0;
   FontStyleIR style = FontStyleIR::unknown;
   std::string target;  // non-empty == cross-reference span
+  CrossReferenceTargetKindIR target_kind = CrossReferenceTargetKindIR::anchor;
 };
 
 struct Line {

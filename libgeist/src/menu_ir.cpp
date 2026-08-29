@@ -126,6 +126,55 @@ std::optional<MenuCompactTerminalTokenIR> compact_terminal_token(
   return result;
 }
 
+// Source-only structure of a menu item's record terminator token.  The item's
+// last payload token must be a width-1 encoded token carrying a spacing
+// control whose single visible word is `.`, and the very next source token
+// must open the CEMENU control.  Nothing about the label spelling is
+// consulted; only the last item of a menu can satisfy the adjacency.
+std::optional<MenuTerminatorTokenIR> menu_terminator_token(
+    const DecodedLogicalRecordSource& record, const ControlSegmentIR& segment,
+    const ControlSegmentIR* menu_end,
+    const std::vector<MenuSourceCellIR>& label_cells) {
+  if (menu_end == nullptr || menu_end->kind != BookControlKind::menu_end ||
+      menu_end->source_tokens.empty() || segment.source_tokens.empty())
+    return std::nullopt;
+  const auto token = segment.source_tokens.back();
+  if (menu_end->source_tokens.front() != token + 1) return std::nullopt;
+  if (token >= record.encoded_tokens.size() ||
+      token >= record.ir.tokens.size() || token >= record.tokens.size() ||
+      record.encoded_tokens[token].width != 1 ||
+      !record.ir.tokens[token].has_spacing_control)
+    return std::nullopt;
+  if (visible_token(record, token) != ".") return std::nullopt;
+  const auto first = std::find_if(
+      label_cells.begin(), label_cells.end(),
+      [&](const auto& cell) { return cell.token_index == token; });
+  if (first == label_cells.begin() || first == label_cells.end())
+    return std::nullopt;
+  if (!std::all_of(first, label_cells.end(), [&](const auto& cell) {
+        return cell.token_index == token || ascii_space_word(cell.word);
+      }))
+    return std::nullopt;
+  MenuTerminatorTokenIR result;
+  result.token_index = token;
+  result.encoded = record.ir.tokens[token].encoded;
+  result.bytes = record.ir.tokens[token].byte_range;
+  result.label_cell_begin =
+      static_cast<std::size_t>(first - label_cells.begin());
+  return result;
+}
+
+bool same_terminator(const std::optional<MenuTerminatorTokenIR>& left,
+                     const std::optional<MenuTerminatorTokenIR>& right) {
+  if (left.has_value() != right.has_value()) return false;
+  if (!left) return true;
+  return left->token_index == right->token_index &&
+         left->encoded == right->encoded &&
+         left->bytes.begin == right->bytes.begin &&
+         left->bytes.end == right->bytes.end &&
+         left->label_cell_begin == right->label_cell_begin;
+}
+
 bool same_compact_terminal(
     const std::optional<MenuCompactTerminalTokenIR>& left,
     const std::optional<MenuCompactTerminalTokenIR>& right) {
@@ -152,7 +201,9 @@ std::optional<MenuIR> extract_source_menu_ir(
   bool in_menu = false;
   bool saw_menu = false;
   for (const auto& record : records) {
-    for (const auto& segment : record.control_segments) {
+    for (std::size_t position = 0; position < record.control_segments.size();
+         ++position) {
+      const auto& segment = record.control_segments[position];
       if (segment.kind == BookControlKind::menu_start) {
         if (in_menu || saw_menu) return fail("nested or repeated menu");
         in_menu = true;
@@ -167,6 +218,9 @@ std::optional<MenuIR> extract_source_menu_ir(
       if (segment.kind != BookControlKind::menu_item) continue;
       if (!in_menu || segment.malformed || segment.source_tokens.empty())
         return fail("menu item is outside a valid menu");
+      const auto* following = position + 1 < record.control_segments.size()
+                                  ? &record.control_segments[position + 1]
+                                  : nullptr;
 
       MenuItemIR item;
       item.logical_record = record.logical_record;
@@ -185,6 +239,8 @@ std::optional<MenuIR> extract_source_menu_ir(
                     item.target);
       item.compact_terminal =
           compact_terminal_token(record, segment, item.label_cells);
+      item.terminator =
+          menu_terminator_token(record, segment, following, item.label_cells);
       menu.items.push_back(std::move(item));
     }
   }
@@ -219,6 +275,7 @@ bool verify_source_menu_ir(
         !same_cells(actual.label_cells, expected.label_cells) ||
         !same_compact_terminal(actual.compact_terminal,
                                expected.compact_terminal) ||
+        !same_terminator(actual.terminator, expected.terminator) ||
         actual.terminal_marker_token.has_value() ||
         actual.terminal_marker_encoded.has_value() ||
         actual.terminal_marker_bytes.has_value() ||
