@@ -107,22 +107,22 @@ logical record. Break points observed, one per required control — GC28-183
 
 ## Measurement
 
-Baseline is `main` `51a686e`, measured with a build of it.
+Baseline is `main` `d03c2a9`, measured with a build of it.
 
-* Coverage `bootrace --coverage` over all 34 fixtures: **5,720 -> 6,072 /
-  7,362 (82.5 %)**, 352 topics moved legacy -> typed, none the other way.
-  Per book: SC33-033 +105, QSYSINFO +56, OFCUSEOV +33, SH12-565 +27,
+* Coverage `bootrace --coverage` over all 34 fixtures: **5,727 -> 6,086 /
+  7,362 (82.7 %)**, 359 topics moved legacy -> typed, none the other way.
+  Per book: SC33-033 +105, QSYSINFO +63, OFCUSEOV +33, SH12-565 +27,
   SC31-605 +18, SC24-5520-00 +12, SC24-546 +11, SC09-138 +10, DREICMST +9,
   SC28-1881-05 +9, PRG1SORT +7, SH20-918 +6, SC09-2417-00 +5, SC26-457 +5,
   ACPZMST1 +5, IEAC6MST +4, QSYSNEWG +4, SC24-5527-02 +4, GC28-183 +4,
   FA1PLMM0 +4, ITPPIBOK +3, GG24-4302-00 +3, SC34-425 +3, packet +2,
   SC31-711 +1, GG24-395 +1, SG24-204 +1. No book regressed.
 * Reason counts on the same two builds: glued body control **107 -> 1**;
-  first record lacks the envelope **69 -> 3**; ST title mismatch **79 -> 0**;
+  first record lacks the envelope **69 -> 3**; ST title mismatch **86 -> 0**;
   control-like word **99 -> 73** (the remainder is the generated TOC/INDEX
   family below). All four residuals are listed under "Still fail-closed".
-* Whole-corpus `boo2git --force`: **352 changed files, 0 added, 0 removed** --
-  exactly the 352 moved topics, with no already-typed topic changed (checked
+* Whole-corpus `boo2git --force`: **359 changed files, 0 added, 0 removed** --
+  exactly the 359 moved topics, with no already-typed topic changed (checked
   in both directions).
 * Hosted, character-level against the served `<pre>`: 63 of the moved topics
   across 24 books were servable (`ACPZMST1 DREICMST FA1PLMM0 GC23-046
