@@ -45,6 +45,9 @@ struct LineBuilder {
   std::vector<std::size_t> pending_controls;
   bool line_open = false;
   std::size_t line_visible_cells = 0;
+  // Drawn box regions of the topic (prose_topic_boxes.cpp), admitted only
+  // where no table/figure span already owns their tokens.
+  std::vector<BoxRegion> boxes;
   // CZ dialect: the stream carries layout items; every display line belongs
   // to the most recent directive.
   bool cz_mode = false;
@@ -103,6 +106,88 @@ struct LineBuilder {
       if (line.prefix_token + 1 == token && line.token_end > token)
         return line.token_end;
     return npos;
+  }
+
+  // The drawn box region covering `record`/`token`, or nullptr.
+  const BoxRegion* box_at(std::size_t record, std::size_t token) const {
+    for (const auto& region : boxes) {
+      if (record < region.begin_record || record > region.end_record) continue;
+      if (record == region.begin_record && token < region.begin_token) continue;
+      if (record == region.end_record && token > region.end_token) continue;
+      return &region;
+    }
+    return nullptr;
+  }
+
+  const BoxRegion* box_at_logical(std::uint32_t logical_record,
+                                  std::size_t token) const {
+    for (std::size_t record = 0; record < records.size(); ++record)
+      if (records[record].logical_record == logical_record)
+        return box_at(record, token);
+    return nullptr;
+  }
+
+  // Emits one preformatted row per display line of the region and gives every
+  // source token of the region its ledger role.
+  bool emit_box(const BoxRegion& region) {
+    if (!finish_title() || !finish_index()) return false;
+    pending_controls.clear();
+    line_open = false;
+    pending_space = false;
+    last_visible.clear();
+    bool first = true;
+    for (const auto& box_line : region.lines) {
+      const auto& record = records[box_line.record];
+      Line row;
+      row.box = true;
+      row.origin = 0;
+      row.breaks_before = first ? trailing_bare : 0;
+      row.directive = current_directive;
+      if (first && anchor_pending) {
+        row.anchor_before = true;
+        row.anchor_index = pending_anchor_index;
+        anchor_pending = false;
+      }
+      first = false;
+      for (const auto& cell : display_line_cells(record, box_line.line)) {
+        row.cells.push_back({cell.token == npos ? npos : box_line.record,
+                             cell.token == npos ? 0 : cell.token,
+                             figure_display_glyph(cell.word),
+                             cell.word == ' '});
+      }
+      row.text_begin = 0;
+      out.lines.push_back(std::move(row));
+    }
+    trailing_bare = 0;
+    // Every token from the top rule's length byte to the bottom rule's last
+    // token belongs to the region.
+    for (auto record = region.begin_record; record <= region.end_record;
+         ++record) {
+      const auto begin = record == region.begin_record ? region.begin_token : 0;
+      const auto end = record == region.end_record
+                           ? region.end_token
+                           : records[record].ir.tokens.size() - 1;
+      for (auto token = begin; token <= end; ++token) {
+        if (ledger.at(record, token).role != ProseTokenRoleIR::unassigned)
+          continue;
+        const auto view = view_token(records, record, token);
+        auto role = ProseTokenRoleIR::text;
+        const auto line_prefix = std::any_of(
+            region.lines.begin(), region.lines.end(),
+            [&](const auto& box_line) {
+              return box_line.record == record &&
+                     box_line.line.prefix_token == token;
+            });
+        if (line_prefix || is_placeholder_run(view))
+          role = ProseTokenRoleIR::marker;
+        else if (is_bare(view))
+          role = ProseTokenRoleIR::spacing;
+        else if (is_space_run(view))
+          role = ProseTokenRoleIR::fill;
+        if (!ledger.assign(record, token, role, error)) return false;
+      }
+    }
+    return true;
   }
 
   void open_line(std::size_t origin_cells, const TokenView* origin) {
@@ -395,8 +480,29 @@ struct LineBuilder {
     cz_mode = std::any_of(items.begin(), items.end(), [](const auto& item) {
       return item.kind == ItemKind::layout;
     });
+    // Drawn box regions are a flattened-dialect shape; the CZ dialect names
+    // its own verbatim blocks (`cz OFF XMP`).
+    if (cz_mode) boxes.clear();
     for (std::size_t index = 0; index < items.size(); ++index) {
       const auto& item = items[index];
+      // Every item inside a drawn box region belongs to its preformatted
+      // block: the region is emitted once, at its first token, and the
+      // CFONT controls inside it style nothing the block keeps.
+      if (item.kind == ItemKind::token) {
+        const auto* region = box_at(item.token.record, item.token.token);
+        if (region != nullptr) {
+          if (region->begin_record == item.token.record &&
+              region->begin_token == item.token.token && !emit_box(*region))
+            return false;
+          continue;
+        }
+      } else if ((item.kind == ItemKind::font ||
+                  item.kind == ItemKind::select) &&
+                 item.source.token_end > item.source.token_begin &&
+                 box_at_logical(item.source.logical_record,
+                                item.source.token_begin) != nullptr) {
+        continue;
+      }
       switch (item.kind) {
       case ItemKind::segment_end:
         if (!finish_title() || !finish_index()) return false;
@@ -827,6 +933,28 @@ bool build_lines(const std::vector<DecodedLogicalRecordSource>& records,
                  const std::vector<Item>& items, Ledger& ledger,
                  LineBuild& out, std::string* error) {
   LineBuilder builder(records, items, ledger, out, error);
+  // A drawn box region whose tokens a table or figure span already owns is
+  // that span's business (the box outline of an SRTBL envelope); only a
+  // region the prose model owns end to end becomes a preformatted block.
+  for (auto& region : plan_boxes(records)) {
+    bool owned = false;
+    for (auto record = region.begin_record;
+         record <= region.end_record && !owned; ++record) {
+      const auto begin = record == region.begin_record ? region.begin_token : 0;
+      const auto end = record == region.end_record
+                           ? region.end_token
+                           : records[record].ir.tokens.size() - 1;
+      for (auto token = begin; token <= end; ++token) {
+        const auto role = ledger.at(record, token).role;
+        if (role == ProseTokenRoleIR::table ||
+            role == ProseTokenRoleIR::figure) {
+          owned = true;
+          break;
+        }
+      }
+    }
+    if (!owned) builder.boxes.push_back(std::move(region));
+  }
   return builder.run();
 }
 

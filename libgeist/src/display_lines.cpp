@@ -36,6 +36,7 @@ void walk_display_line(const DecodedLogicalRecordSource& record,
                        const DisplayLineIR& line, Visit visit) {
   bool started = false;
   bool pending_space = false;
+  constexpr auto no_token = static_cast<std::size_t>(-1);
   for (const auto& source : record.assembled.sources) {
     if (source.kind == LogicalWordSourceKind::inserted_space) {
       if (started) pending_space = true;
@@ -48,11 +49,11 @@ void walk_display_line(const DecodedLogicalRecordSource& record,
         (source.word_index == 0 && words[0] < 4))
       continue;
     if (pending_space) {
-      visit(static_cast<std::uint16_t>(' '));
+      visit(static_cast<std::uint16_t>(' '), no_token);
       pending_space = false;
     }
     started = true;
-    visit(words[source.word_index]);
+    visit(words[source.word_index], source.token_index);
   }
 }
 
@@ -61,19 +62,31 @@ void walk_display_line(const DecodedLogicalRecordSource& record,
 std::string display_line_text(const DecodedLogicalRecordSource& record,
                               const DisplayLineIR& line) {
   std::string text;
-  walk_display_line(record, line, [&](const std::uint16_t word) {
-    text += figure_display_glyph(word);
-  });
+  walk_display_line(record, line,
+                    [&](const std::uint16_t word, const std::size_t) {
+                      text += figure_display_glyph(word);
+                    });
   return text;
 }
 
 std::vector<std::uint16_t> display_line_columns(
     const DecodedLogicalRecordSource& record, const DisplayLineIR& line) {
   std::vector<std::uint16_t> columns;
-  walk_display_line(record, line, [&](const std::uint16_t word) {
-    columns.push_back(word);
-  });
+  walk_display_line(record, line,
+                    [&](const std::uint16_t word, const std::size_t) {
+                      columns.push_back(word);
+                    });
   return columns;
+}
+
+std::vector<DisplayLineCellIR> display_line_cells(
+    const DecodedLogicalRecordSource& record, const DisplayLineIR& line) {
+  std::vector<DisplayLineCellIR> cells;
+  walk_display_line(record, line,
+                    [&](const std::uint16_t word, const std::size_t token) {
+                      cells.push_back({word, token});
+                    });
+  return cells;
 }
 
 } // namespace geist::detail

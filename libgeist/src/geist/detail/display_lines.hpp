@@ -49,4 +49,15 @@ std::string display_line_text(const DecodedLogicalRecordSource& record,
 std::vector<std::uint16_t> display_line_columns(
     const DecodedLogicalRecordSource& record, const DisplayLineIR& line);
 
+// One entry per display column: the word and the record-local token it came
+// from.  `token` is `static_cast<std::size_t>(-1)` for a space the assembler
+// inserted between two tokens.
+struct DisplayLineCellIR {
+  std::uint16_t word = 0;
+  std::size_t token = static_cast<std::size_t>(-1);
+};
+
+std::vector<DisplayLineCellIR> display_line_cells(
+    const DecodedLogicalRecordSource& record, const DisplayLineIR& line);
+
 } // namespace geist::detail
