@@ -2,6 +2,7 @@
 
 #include "geist/detail/font_span_ir.hpp"
 #include "geist/detail/display_lines.hpp"
+#include "geist/detail/selector_link_ir.hpp"
 #include "geist/detail/internal.hpp"
 
 #include <algorithm>
@@ -266,6 +267,8 @@ public:
           ir_tokens[block.object_source.token_end - 1].byte_range.end;
     }
 
+    collect_index_lines(start, end, block);
+
     auto table = block;
     std::string table_reason;
     if (extract_table_geometry(candidate, start, end, table, table_reason)) {
@@ -281,6 +284,69 @@ public:
       return block;
     reason = table_reason + "; not preformatted: " + preformatted_reason;
     return std::nullopt;
+  }
+
+  // The first token of `line` that carries a displayable word, i.e. that is
+  // neither a spacing prefix (`0`..`3`) nor all blanks.
+  static std::size_t first_visible_token(
+      const DecodedLogicalRecordSource &record, const DisplayLineIR &line) {
+    for (auto token = line.prefix_token + 1;
+         token < line.token_end && token < record.tokens.size(); ++token) {
+      const auto &values = record.tokens[token];
+      if (values.empty())
+        continue;
+      if (std::all_of(values.begin(), values.end(), [](const auto value) {
+            return value < 4 || value == ' ' || value == 0xA0;
+          }))
+        continue;
+      return token;
+    }
+    return npos;
+  }
+
+  // A display line of the envelope whose first visible word is the `SI`
+  // subject-index keyword is an index entry, not table material: hosted
+  // BookServer prints no part of it (SC09-138 4.1.4 `LANG`, DT
+  // 19910321130500).  Recorded only when no word of the line holds a
+  // positioned display cell, so a line the layout does place stays with the
+  // geometry that owns it.
+  void collect_index_lines(const SourcePosition &start,
+                           const SourcePosition &end,
+                           FixedTableBlockIR &block) const {
+    for (const auto &record : records_) {
+      if (record.logical_record < start.first ||
+          record.logical_record > end.first)
+        continue;
+      const auto parsed = record_display_lines(record);
+      if (!parsed)
+        continue;
+      for (const auto &line : *parsed) {
+        if (record.logical_record == start.first &&
+            line.prefix_token <= start.second)
+          continue;
+        if (record.logical_record == end.first && line.token_end > end.second)
+          continue;
+        const auto keyword = first_visible_token(record, line);
+        if (keyword == npos)
+          continue;
+        if (ascii_lower(token_words_to_ascii(record.tokens[keyword])) != "si")
+          continue;
+        bool positioned = false;
+        for (auto token = keyword; token < line.token_end; ++token)
+          for (std::size_t word = 0; word < record.tokens[token].size(); ++word)
+            if (positioned_.count({record.logical_record, token, word}) != 0)
+              positioned = true;
+        if (positioned)
+          continue;
+        FixedTablePreformattedLineIR entry;
+        entry.logical_record = record.logical_record;
+        entry.prefix_token = keyword;
+        entry.token_end = line.token_end;
+        entry.text = trim_trailing_spaces(
+            collapse_ascii_whitespace(display_line_text(record, line)));
+        block.index_lines.push_back(std::move(entry));
+      }
+    }
   }
 
   bool extract_table_geometry(const Candidate &candidate,
@@ -371,21 +437,91 @@ public:
         .first->second;
   }
 
+  // True when the selector's operand target names a book picture resource.
+  static bool picture_selector(const DecodedLogicalRecordSource &record,
+                               const ControlSegmentIR &segment) {
+    const auto text = token_words_to_ascii(record.assembled.words);
+    const auto operand = ascii_lower(
+        text.substr(segment.operand_range.begin,
+                    segment.operand_range.end - segment.operand_range.begin));
+    const auto last = operand.find_last_not_of(' ');
+    if (last == std::string::npos)
+      return false;
+    const auto space = operand.find_last_of(' ', last);
+    const auto target =
+        operand.substr(space == std::string::npos ? 0 : space + 1,
+                       last - (space == std::string::npos ? 0 : space));
+    return target.rfind("pic", 0) == 0;
+  }
+
+  // Leading payload tokens of a `LNK` selector: the `<...>` alternatives
+  // that carry the destination (selector_link_ir.hpp).  They are control
+  // metadata -- the hosted page never displays one -- so a selector line
+  // that carries them still displays nothing.
+  static std::size_t link_alternative_tokens(
+      const DecodedLogicalRecordSource &record,
+      const ControlSegmentIR &segment) {
+    if (segment.kind != BookControlKind::select)
+      return 0;
+    const auto text = token_words_to_ascii(record.assembled.words);
+    const auto operand = ascii_lower(
+        text.substr(segment.operand_range.begin,
+                    segment.operand_range.end - segment.operand_range.begin));
+    const auto last = operand.find_last_not_of(' ');
+    if (last == std::string::npos)
+      return 0;
+    const auto first = operand.find_last_of(' ', last);
+    if (operand.substr(first == std::string::npos ? 0 : first + 1,
+                       last - (first == std::string::npos ? 0 : first)) != "lnk")
+      return 0;
+    std::vector<std::string> alternatives;
+    for (const auto token : segment.source_tokens) {
+      if (token >= record.tokens.size())
+        break;
+      const auto word = token_words_to_ascii(record.tokens[token]);
+      if (word.size() < 2 || word.front() != '<' || word.back() != '>')
+        continue;
+      alternatives.push_back(word);
+    }
+    std::string error;
+    if (!parse_selector_link(alternatives, &error))
+      return 0;
+    return alternatives.size();
+  }
+
   // True when every token of `line` after its length byte lies in the
-  // control's opcode/operand bytes, i.e. the line displays nothing.
+  // control's opcode/operand bytes, i.e. the line displays nothing.  A `LNK`
+  // selector's alternative tokens count with the operands.
   static bool control_only_line(const DecodedLogicalRecordSource &record,
                                 const std::vector<std::size_t> &offsets,
                                 const ControlSegmentIR &segment,
                                 const DisplayLineIR &line) {
     if (segment.payload_range.end <= segment.payload_range.begin)
       return true;
+    auto boundary = segment.payload_range.begin;
+    auto alternatives = link_alternative_tokens(record, segment);
+    if (alternatives != 0) {
+      for (const auto token : segment.source_tokens) {
+        if (token >= record.tokens.size())
+          break;
+        const auto word = token_words_to_ascii(record.tokens[token]);
+        if (word.size() < 2 || word.front() != '<' || word.back() != '>')
+          continue;
+        for (const auto &span : record.assembled.tokens)
+          if (span.token_index == token && span.output_begin < offsets.size())
+            boundary = std::max(
+                boundary, offsets[span.output_begin] + word.size());
+        if (--alternatives == 0)
+          break;
+      }
+    }
     for (const auto &span : record.assembled.tokens) {
       if (span.token_index <= line.prefix_token ||
           span.token_index >= line.token_end)
         continue;
       if (span.output_begin >= offsets.size())
         return false;
-      if (offsets[span.output_begin] >= segment.payload_range.begin)
+      if (offsets[span.output_begin] >= boundary)
         return false;
     }
     return true;
@@ -474,11 +610,20 @@ public:
         if (segment_begin < content_begin ||
             segment_begin >= view.line.token_end)
           continue;
-        if (segment.kind == BookControlKind::select) {
-          reason = "preformatted region contains a selector";
+        // A `PIC<n>` selector places a picture on the line: hosted
+        // BookServer serves `<a href="picture-29?mode=zoom"><img ...
+        // alt="PICTURE 29"></a>` over the columns it names (GG24-395 3.2.2
+        // `TBLUNIQ6`, DT 19941215160749).  A preformatted region reproduces
+        // display text only, so admitting one would replace the image with
+        // its `PICTURE n` placeholder words; the envelope fails closed and
+        // the picture keeps its resource.
+        if (segment.kind == BookControlKind::select &&
+            picture_selector(record, segment)) {
+          reason = "preformatted region contains a picture selector";
           return false;
         }
         if (segment.kind != BookControlKind::font &&
+            segment.kind != BookControlKind::select &&
             segment.kind != BookControlKind::spacing &&
             segment.kind != BookControlKind::layout_directive) {
           reason = "preformatted region contains control " + segment.opcode;
@@ -493,6 +638,16 @@ public:
         control_line = true;
       }
       if (control_line)
+        continue;
+      // A subject-index line displays nothing; it was recorded as an index
+      // entry and is not part of the reproduced region.
+      const auto index_line = std::any_of(
+          block.index_lines.begin(), block.index_lines.end(),
+          [&](const auto &entry) {
+            return entry.logical_record == record.logical_record &&
+                   entry.token_end == view.line.token_end;
+          });
+      if (index_line)
         continue;
       body.emplace_back(&view,
                         trim_trailing_spaces(
@@ -2290,6 +2445,9 @@ std::string format_fixed_table_blocks_ir(const FixedTableBlocksIR &blocks) {
         out << row.display_run << ':' << row.row_index << ',';
       out << " text='" << line.text << "'\n";
     }
+    for (const auto &line : block.index_lines)
+      out << " index " << line.logical_record << ':' << line.prefix_token << ':'
+          << line.token_end << " text='" << line.text << "'\n";
     out << " block_structural=";
     emit_cells(out, block.structural_cells);
     out << '\n';
