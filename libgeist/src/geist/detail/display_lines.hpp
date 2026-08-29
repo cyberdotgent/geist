@@ -60,26 +60,33 @@ struct DisplayLineCellIR {
 std::vector<DisplayLineCellIR> display_line_cells(
     const DecodedLogicalRecordSource& record, const DisplayLineIR& line);
 
-// The `U+2666` list bullet the reader draws in front of a list item's text.
-constexpr std::uint16_t list_bullet_word = 0x2666;
-
-// Display-line corroboration of the `SR<id>` structural controls.
+// Display-line corroboration of the control-shaped words the flattened
+// decoded string splits a segment on.
 //
-// A word that begins with `SR` and is otherwise identifier-shaped is taken
-// for a structural control by the flattened-string classifier, which cannot
-// see that some of them are ordinary prose.  A display line proves it: a
-// list bullet in front of the word on its own line makes the word that
-// list item's display text, and hosted BookServer prints it.
+// `decode_control_segments` works on the assembled string, where a
+// control-shaped word after a marker starts a new segment and any
+// identifier-shaped word beginning `SR` classifies as a structural control.
+// The record's display lines disprove some of those splits: a word with
+// another displayed word in front of it *on its own display line* stands
+// inside a row, so it is that row's display text and not a control.
 //
-// SH12-565 record 282 display line 31 is `<length byte> <three-cell origin>
-// <U+2666> <two-cell gap> SRCVPAC`, one of the five items of the list
-// `LOGMODE / RUSIZES / PSNDPAC / SRCVPAC / SSNDPAC.`, and hosted 4.3.5 (DT
-// 19941206115523) serves all five as `   °   <name>`; the classifier had
-// been swallowing the fourth as an anchor.  Record 702 (`SRCVPAC`) and
-// record 339 (`SRVPREF`) repeat it in the same book, as does SC24-5527-02's
-// `SRVAPPS` in eight records.  A real anchor never stands behind a bullet:
-// of the 14,392 structural segments in the 34 fixtures only these 11 do.
-void demote_bullet_owned_structural_controls(
-    DecodedLogicalRecordSource& record);
+// Marks such a segment `display_text` (and demotes a structural one to
+// `text`).  The segment boundary itself stays -- the flattened string really
+// did split there -- so a consumer must read the segment's payload as body
+// text in place.
+//
+// Evidence, over the 34 fixtures: of the 14,392 structural segments 9,138
+// open their display line, 4,987 open it and carry text after, 61 sit in a
+// record whose lines do not parse, and ~200 have a displayed word in front of
+// them.  Every one of those ~200 is prose (`SRVAPPS`, `SRVBLDS`, `SREPLACE`,
+// `SREF`, `SRCVPAC`, `SRPI`, `SRC1`, ...); no `SREFIG`, `SRFIG*`, `SRGLS`,
+// `SRHDR*`, `SRLIS*`, `SRLEN`, `SRTBL` or `SRFTN*` anchor is among them.
+// Worked example: DREICMST record 430 display line [195,205) reads
+// `       the command is saved in the SRC.`, and the flattened string split
+// `SRC.` off as its own segment; hosted 2.8.3 (DT 19911219125856) prints the
+// abbreviation.  SH12-565 record 282 line 31 is the list item
+// `   °   SRCVPAC` of `LOGMODE / RUSIZES / PSNDPAC / SRCVPAC / SSNDPAC.`,
+// all five of which hosted 4.3.5 (DT 19941206115523) serves.
+void demote_display_line_owned_controls(DecodedLogicalRecordSource& record);
 
 } // namespace geist::detail

@@ -417,11 +417,11 @@ int main() {
   }
   // Fail-closed classes: a declined table envelope or figure region rejects
   // the whole topic, and so does a picture without a resource catalog.
-  // ACPZMST1 4.3 `TBLUNIQ39` used to stand here; its envelope now lowers
-  // verbatim because a selector no longer blocks the preformatted route, so
-  // the class is pinned on an envelope that still declines both models.
-  reject("IEAC6MST.BOO", "4.3.4.1",
-         "table envelope 'TBLUNIQ10' declined: visible source between table "
+  // ACPZMST1 4.3 `TBLUNIQ39` and IEAC6MST 4.3.4.1 `TBLUNIQ10` used to stand
+  // here; both envelopes now compose, so the class is pinned on one that
+  // still declines both models.
+  reject("IEAC6MST.BOO", "7.9",
+         "table envelope 'CLISTS' declined: visible source between table "
          "lines");
   reject("DREICMST.boo", "1.2.1",
          "declined: figure region has no picture selector (unterminated "

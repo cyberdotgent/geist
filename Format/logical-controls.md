@@ -266,22 +266,42 @@ hosted BookServer on at least two books:
   at the column of the line's first word.  Details and hosted citations in
   `markup.md`, "The three-column left margin".
 
-#### A Control-Shaped Word Behind A Bullet Is Display Text
+#### A Control-Shaped Word Inside A Row Is Display Text
 
 The flattened decoded string splits a segment wherever a control-shaped word
-follows a marker, and any identifier-shaped word beginning `SR` classifies as
-a structural (anchor) control.  The display line disproves some of them: a
-`U+2666` list bullet in front of the word, on the word's own display line,
-makes the word that list item's display text.
+follows a marker or a `,`, and any identifier-shaped word beginning `SR`
+classifies as a structural (anchor) control.  The display line disproves some
+of those splits: a word with **another displayed word in front of it on its
+own display line** stands inside a row, so it is that row's display text and
+opens no control.
 
-SH12-565 record 282 display line 31 is `<length byte> <three-cell origin>
-<U+2666> <two-cell gap> SRCVPAC`, the fourth of five items in the list
-`LOGMODE / RUSIZES / PSNDPAC / SRCVPAC / SSNDPAC.`; hosted `4.3.5` (DT
-19941206115523) serves all five as `   °   <name>`.  Record 702 (`SRCVPAC`)
-and record 339 (`SRVPREF`) repeat it in the same book, and SC24-5527-02
-spells `SRVAPPS` the same way in eight records.  Across the 34 fixtures 11 of
-the 14,392 structural segments stand behind a bullet and all 11 are prose;
-none of the remaining 14,381 does.
+Over the 34 fixtures the 14,392 structural segments split as
+
+| Shape | Segments |
+| --- | ---: |
+| opens its display line, nothing after it | 9,138 |
+| opens its display line, text after it | 4,987 |
+| the record's display lines do not parse | 61 |
+| a displayed word in front of it | ~200 |
+
+and every one of the last group is prose -- `SRVAPPS`, `SRVBLDS`, `SREPLACE`,
+`SREF`, `SRCVPAC`, `SRPI`, `SRC1`, `SRCFILE`, `SRTF5` and friends -- while no
+`SREFIG`, `SRFIG*`, `SRGLS`, `SRHDR*`, `SRLIS*`, `SRLEN`, `SRTBL` or `SRFTN*`
+anchor is among them.
+
+Worked examples.  SH12-565 record 282 display line 31 is `<length byte>
+<three-cell origin> <U+2666> <two-cell gap> SRCVPAC`, the fourth of the five
+items `LOGMODE / RUSIZES / PSNDPAC / SRCVPAC / SSNDPAC.`; hosted `4.3.5` (DT
+19941206115523) serves all five as `   °   <name>`.  DREICMST record 430 line
+[195,205) reads `       the command is saved in the SRC.` and the split cut
+`SRC.` off as its own segment; hosted `2.8.3` (DT 19911219125856) prints the
+abbreviation.  SC24-5527-02 spells `SRVAPPS` the same way in eight records.
+
+The segment boundary itself is real -- the flattened string did split there --
+so a consumer reads the segment's payload as body text in place.  The split
+does consume the separator it fired on: SH12-565 `3.1.6` stores the example
+command `F QH,F XY,SRV=(3,2,2)` and the comma before `SRV` is dropped with the
+boundary.
 
 ## Token Resolution
 

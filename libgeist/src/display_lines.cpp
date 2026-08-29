@@ -89,33 +89,55 @@ std::vector<DisplayLineCellIR> display_line_cells(
   return cells;
 }
 
-void demote_bullet_owned_structural_controls(
-    DecodedLogicalRecordSource& record) {
+namespace {
+
+bool visible_display_token(const LogicalTokenIR& token) {
+  for (const auto word : token.decoded_words)
+    if (word != ' ') return true;
+  return false;
+}
+
+} // namespace
+
+void demote_display_line_owned_controls(DecodedLogicalRecordSource& record) {
   if (record.control_segments.empty()) return;
   const auto lines = record_display_lines(record);
   if (!lines) return;
-  for (auto& segment : record.control_segments) {
-    if (segment.kind != BookControlKind::structural ||
-        segment.source_tokens.empty())
+  for (std::size_t index = 0; index < record.control_segments.size(); ++index) {
+    auto& segment = record.control_segments[index];
+    if (segment.source_tokens.empty()) continue;
+    if (segment.kind != BookControlKind::structural &&
+        segment.kind != BookControlKind::text)
       continue;
-    const auto opcode_token = segment.source_tokens.front();
-    for (const auto& line : *lines) {
-      if (opcode_token <= line.prefix_token || opcode_token >= line.token_end)
-        continue;
-      bool bullet = false;
-      for (auto token = line.prefix_token + 1; token < opcode_token; ++token) {
-        const auto& words = record.ir.tokens[token].decoded_words;
-        if (words.size() == 1 && words[0] == list_bullet_word) bullet = true;
+    std::size_t first = record.ir.tokens.size();
+    for (const auto token : segment.source_tokens)
+      if (visible_display_token(record.ir.tokens[token])) {
+        first = token;
+        break;
       }
-      if (!bullet) break;
-      segment.kind = BookControlKind::text;
-      segment.display_text = true;
-      segment.opcode.clear();
-      segment.opcode_range = {segment.complete.begin, segment.complete.begin};
-      segment.operand_range = segment.opcode_range;
-      segment.payload_range = {segment.complete.begin, segment.complete.end};
-      break;
-    }
+    if (first >= record.ir.tokens.size()) continue;
+    const DisplayLineIR* line = nullptr;
+    for (const auto& candidate : *lines)
+      if (first > candidate.prefix_token && first < candidate.token_end)
+        line = &candidate;
+    if (line == nullptr) continue;
+    bool visible_before = false;
+    for (auto token = line->prefix_token + 1; token < first; ++token)
+      if (visible_display_token(record.ir.tokens[token])) visible_before = true;
+    if (!visible_before) continue;
+    // The boundary itself stays where the flattened string put it.  Giving
+    // the demoted segment the characters the split consumed (the `,` it fired
+    // on, which hosted prints -- SH12-565 3.1.6 `F QH,F XY,SRV=(3,2,2)`) was
+    // measured and reverted: reclaiming the gap back to the previous
+    // segment's end costs 60 topics, because that gap also carries padding
+    // the previous segment's own model relies on.  The dropped separator is a
+    // recorded residual instead.
+    segment.kind = BookControlKind::text;
+    segment.display_text = true;
+    segment.opcode.clear();
+    segment.opcode_range = {segment.complete.begin, segment.complete.begin};
+    segment.operand_range = segment.opcode_range;
+    segment.payload_range = {segment.complete.begin, segment.complete.end};
   }
 }
 

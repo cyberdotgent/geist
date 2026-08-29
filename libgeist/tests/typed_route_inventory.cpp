@@ -43,12 +43,12 @@ struct BookBaseline {
 };
 
 constexpr BookBaseline kBaseline[] = {
-    {"ACPZMST1.boo", 179},
-    {"DREICMST.boo", 359},
+    {"ACPZMST1.boo", 180},
+    {"DREICMST.boo", 360},
     {"FA1PLMM0.boo", 398},
     {"GC23-046.boo", 91},
     {"GC28-183.boo", 139},
-    {"GG24-395.boo", 190},
+    {"GG24-395.boo", 191},
     {"GG24-4302-00.boo", 217},
     {"GX27-3999-00.boo", 19},
     {"IBMMMSTR.boo", 26},
@@ -56,29 +56,29 @@ constexpr BookBaseline kBaseline[] = {
     {"ITPPIBOK.BOO", 235},
     {"N2AH1MST.BOO", 17},
     {"OFCUSEOV.BOO", 175},
-    {"PRG1SORT.boo", 165},
-    {"QS3X36CM.BOO", 7},
+    {"PRG1SORT.boo", 166},
+    {"QS3X36CM.BOO", 8},
     {"QSYSINFO.BOO", 340},
     {"QSYSNEWG.BOO", 146},
     {"SC09-138.boo", 459},
-    {"SC09-2417-00.boo", 259},
-    {"SC24-546.boo", 271},
-    {"SC24-5520-00.boo", 590},
-    {"SC24-5527-02.boo", 264},
-    {"SC26-457.boo", 332},
-    {"SC28-1881-05.boo", 74},
+    {"SC09-2417-00.boo", 261},
+    {"SC24-546.boo", 278},
+    {"SC24-5520-00.boo", 594},
+    {"SC24-5527-02.boo", 283},
+    {"SC26-457.boo", 333},
+    {"SC28-1881-05.boo", 75},
     {"SC31-605.boo", 98},
     {"SC31-711.boo", 71},
     {"SC33-033.boo", 212},
     {"SC34-425.boo", 205},
     {"SC41-485.boo", 22},
     {"SG24-204.boo", 83},
-    {"SH12-565.boo", 262},
-    {"SH20-918.boo", 178},
+    {"SH12-565.boo", 266},
+    {"SH20-918.boo", 180},
     {"XWEBDEMO.boo", 5},
     {"packet.boo", 102},
 };
-constexpr std::size_t kBaselineTotal = 6377;
+constexpr std::size_t kBaselineTotal = 6422;
 
 void require(bool condition, const std::string &message) {
   if (!condition) {

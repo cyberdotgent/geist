@@ -7,7 +7,7 @@ failed closed on `row columns are unproven` (6) and `nested or misaligned list
 items` (3).  The normative facts derived here are in `Format/markup.md`, "The
 three-column left margin" and "The list bullet is display structure between
 controls", and in `Format/logical-controls.md`, "Display Lines Govern Reflowed
-Prose Too" and "A Control-Shaped Word Behind A Bullet Is Display Text".
+Prose Too" and "A Control-Shaped Word Inside A Row Is Display Text".
 
 ## Starting point
 
@@ -81,7 +81,7 @@ unclaimed path and the row's text moved from column 7 to column 2 while its
 fifteen siblings stayed at 7.  Hosted (DT 19950308184737) serves all
 seventeen identically.  The glyph is now display structure in both dialects.
 
-### One control misparse this uncovered
+### One control misparse this uncovered, and the class it opened
 
 Emitting the bullet exposed a pre-existing word loss.  `classify()` reads any
 identifier-shaped word beginning `SR` as a structural anchor control, and
@@ -91,16 +91,53 @@ SSNDPAC.` whose fourth item was being swallowed as an anchor — hosted (DT
 textless bullet row and the topic fell out of the typed route, which is the
 honest reading but still a loss.
 
-The display line settles it: the word stands behind a `U+2666` bullet on its
-own line, so it is that list item's text.  A corpus sweep of every structural
-segment in the 34 fixtures (**14,392**) finds **11** standing behind a bullet
-— SH12-565 `SRCVPAC` ×2 and `SRVPREF`, SC24-5527-02 `SRVAPPS` ×8 — and all 11
-are prose.  `demote_bullet_owned_structural_controls`
-(`libgeist/src/display_lines.cpp`, called from `decode_logical_record_sources`)
-marks those segments `display_text`; the segment boundary stays, because the
-flattened string really did split there, and the prose stream pushes such a
-segment's payload as body text in place instead of rejecting it as a
-control-like word.
+The display line settles it, and settles the whole class.  A control-shaped
+word with **another displayed word in front of it on its own display line**
+stands inside a row, so it is that row's display text.  A corpus sweep of
+every structural segment in the 34 fixtures (**14,392**) splits as
+
+| Shape | Segments |
+| --- | ---: |
+| opens its display line, nothing after | 9,138 |
+| opens its display line, text after | 4,987 |
+| record's display lines do not parse | 61 |
+| a displayed word in front of it | ~200 |
+
+and every one of the ~200 is prose — `SRVAPPS`, `SRVBLDS`, `SREPLACE`, `SREF`,
+`SRCVPAC`, `SRPI`, `SRC1`, `SRCFILE`, `SRTF5`, … — while **no** `SREFIG`,
+`SRFIG*`, `SRGLS`, `SRHDR*`, `SRLIS*`, `SRLEN`, `SRTBL` or `SRFTN*` anchor is
+among them.  The same test applies to the `text` segments the split produced
+without any control at all, which is the whole `text segment begins with
+control-like word` `SR…` family: DREICMST record 430 line [195,205) reads
+`       the command is saved in the SRC.` and the flattened string had cut
+`SRC.` off as its own segment.
+
+`demote_display_line_owned_controls` (`libgeist/src/display_lines.cpp`, called
+from `decode_logical_record_sources`) marks such a segment `display_text`; the
+segment boundary stays, because the flattened string really did split there,
+and the prose stream pushes the payload as body text in place instead of
+rejecting it as a control-like word.
+
+**Measured on its own baseline** (the margin fix above): **6,377 → 6,422
+(+45)**, no book regressing and no topic moving typed → legacy; `text segment
+begins with control-like word` **99 → 81**, and the remaining `SR…` cases (12)
+are all words that *do* open their display line.  Two topics moved from this
+reason to `ST title does not match` (35 → 37), staying legacy.
+
+**Tried and reverted**: the split consumes the separator it fires on, so
+SH12-565 `3.1.6`'s example command loses one comma (`F QH,F XY,SRV=(3,2,2)` →
+`F QH,F XYSRV=(3,2,2)`; the legacy route drops `,SRV=(3,2,2)` entirely).
+Giving the demoted segment everything back to the previous segment's end
+recovers the comma but costs **60 topics**, because that gap also carries
+padding the previous segment's own model relies on.  Left as a residual.
+
+Two pinned tests moved with it, both hosted-checked before re-pinning:
+IEAC6MST `4.3.4.1`'s table envelope now composes (the `visible source between
+table lines` class is pinned on IEAC6MST `7.9` instead), and QS3X36CM `2.1`
+reaches the typed route, where hosted (DT 19910524075122) rules `#STRTUP1`'s
+two AS/400 commands off as two table rows -- which the typed table reproduces
+and the legacy one had merged into a single cell, gluing `list ofsubsystem`,
+`submitwith` and `systemBASIC` across its row breaks.
 
 ## Implementation
 
@@ -108,24 +145,27 @@ control-like word.
   and its use in `row_control_length_byte`.
 * `libgeist/src/prose_topic_stream.cpp` — the list bullet is a stream item in
   the flattened dialect too; a `display_text` segment is body text.
-* `libgeist/src/display_lines.{hpp,cpp}` — `list_bullet_word`,
-  `demote_bullet_owned_structural_controls`.
+* `libgeist/src/display_lines.{hpp,cpp}` —
+  `demote_display_line_owned_controls`.
 * `libgeist/src/geist/detail/control_ir.hpp` — `ControlSegmentIR::display_text`.
 * `libgeist/src/logical.cpp` — runs the demotion after `decode_control_segments`.
 
 ## Measured
 
-* `bootrace --coverage` over all 34 books: **6,285 → 6,377 of 7,362
-  (85.4% → 86.6%, +92)**.  **No book regressed and no topic moved typed →
-  legacy.**  Per book: SC26-457 +11, ACPZMST1 +17, QSYSNEWG +13, SC09-138 +7,
-  GG24-395 +7, SC24-546 +6, OFCUSEOV +6, IEAC6MST +5, SC34-425 +4, GC23-046
-  +3, PRG1SORT +3, FA1PLMM0 +2, SC24-5527-02 +2, and +1 each in GG24-4302-00,
-  ITPPIBOK, QSYSINFO, SC24-5520-00, SH12-565, SH20-918.
-* Rejection classes: **`row columns are unproven` 47 → 2** and **`nested or
-  misaligned list items` 43 → 1**.  No other class grew; `text segment begins
-  with control-like word` stayed at 99.
-* Whole-corpus `boo2git --force` before/after: **497 changed files, 0 added,
-  0 removed** — the **92** moved topics plus **405** already-typed topics the
+* `bootrace --coverage` over all 34 books: **6,285 → 6,422 of 7,362
+  (85.4% → 87.2%, +137)**.  **No book regressed and no topic moved typed →
+  legacy** at any step.  Per book: SC24-5527-02 +21, ACPZMST1 +18, QSYSNEWG
+  +13, SC24-546 +13, SC26-457 +12, GG24-395 +8, SC09-138 +7, OFCUSEOV +6,
+  IEAC6MST +5, SC24-5520-00 +5, SH12-565 +5, PRG1SORT +4, SC34-425 +4,
+  GC23-046 +3, SH20-918 +3, FA1PLMM0 +2, SC09-2417-00 +2, and +1 each in
+  DREICMST, GG24-4302-00, ITPPIBOK, QS3X36CM, QSYSINFO and SC28-1881-05.
+* Rejection classes: **`row columns are unproven` 47 → 2**, **`nested or
+  misaligned list items` 43 → 1**, **`text segment begins with control-like
+  word` 99 → 81** (the whole `SR…` half of that class), and `visible token …
+  claimed by no block` 34 → 31.  Only `ST title does not match` grew (35 → 37),
+  by two topics that stay legacy under a different reason.
+* Whole-corpus `boo2git --force` before/after: **556 changed files, 0 added,
+  0 removed** — the **137** moved topics plus **419** already-typed topics the
   margin fix corrects.  The correction is always the same kind: a paragraph
   the lost margin had split at every change-bar row is one paragraph again
   (ACPZMST1 `2.4` `**Log Messages**` + three fragments → one definition
@@ -158,12 +198,15 @@ better than the pre-regression typed output on one.  The residual counts are
 comparison artefacts, checked one by one: hosted glues `EMPTY|NOEMPTY` and the
 drawn box rails `|______|` into single tokens that the cell-splitting drops.
 
-* **65 moved topics across 16 books**: typed better **54**, equal **11**,
-  worse **0**; **26 are word-identical to hosted**.  (The one row the scorer
-  flagged, ACPZMST1 `7.3.1`, is an `&amp;` entity the comparator unescapes on
-  the hosted side only; typed recovers the word `use` legacy loses.)
-* **142 of the already-typed corrected topics, across 21 books**: better 2,
-  equal 140, **worse 0**; 61 word-identical.  The export changes are
+* **78 moved topics across 19 books**: typed better **65**, equal **11**,
+  worse **2**; **28 are word-identical to hosted**.  Both "worse" rows were
+  read: ACPZMST1 `7.3.1` is an `&amp;` entity the comparator unescapes on the
+  hosted side only (typed recovers the word `use` legacy loses), and SH12-565
+  `3.1.6` is the swallowed comma above plus railroad-diagram tokens hosted
+  glues -- its preformatted rows are character-identical to hosted's, and
+  legacy drops the whole `,SRV=(3,2,2)` tail.
+* **143 of the already-typed corrected topics, across 22 books**: better 6,
+  equal 137, **worse 0**; 59 word-identical.  The export changes are
   paragraph structure, not words, as expected of a margin fix.
 
 Hosted DTs are the table in `prose-display-line-rows-2026-08-29.md`;
@@ -172,7 +215,7 @@ absent from the hosted catalog and excluded from the samples.
 
 ## Residual
 
-**985 legacy topics.**  The two classes this slice owns are down to three
+**940 legacy topics.**  The two classes this slice owns are down to three
 topics, all genuinely fail-closed:
 
 * QSYSNEWG `A.4` (`nested or misaligned list items`);
@@ -182,7 +225,16 @@ topics, all genuinely fail-closed:
 * PRG1SORT `2.1.4`, a `(Source file name)` row whose span starts inside the
   parenthesis.
 
-Corpus-wide top reasons after this slice: control-like word at a text-segment
-start 99, placeholder run 82, missing metadata envelope 69, `SRMSG` outside
-the prose model 54, ST-title mismatch 35, unclaimed table token 34, `cz off
-table` 34, `cz off efig` 28.
+`text segment begins with control-like word` keeps **81**: 34 `ctocdef=0` (one
+per book, every `CONTENTS` topic), 29 `cidelm`/5 `citerm`/1 `ctoce` (the
+`INDEX` topics) — a generated-list slice, not a prose one — and 12 `SR…` words
+that *do* open their display line, so this rule says nothing about them.
+
+One known character loss: SH12-565 `3.1.6` drops the comma the segment split
+consumed (see "Tried and reverted" above); typed still recovers `,SRV=(3,2,2)`
+which legacy drops whole.
+
+Corpus-wide top reasons after this slice: placeholder run 82, control-like
+word at a text-segment start 81, missing metadata envelope 69, `SRMSG` outside
+the prose model 54, ST-title mismatch 37, `cz off table` 34, unclaimed table
+token 31, `cz off efig` 28.

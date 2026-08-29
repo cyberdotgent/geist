@@ -91,11 +91,19 @@ int main() {
                    "page reference block");
 
   const auto table = topic_markdown(document, "2.1");
+  // 2.1 now renders through the typed prose route.  Hosted (DT
+  // 19910524075122) rules `#STRTUP1`'s two AS/400 commands off as two table
+  // rows -- `| #STRTUP1 | ADDAJE | ... |` then `| | WRKSBSD | ... |` -- which
+  // the typed table reproduces; the legacy route merged them into one cell
+  // and glued `list ofsubsystem` across the row break.
   require_contains(table,
-                   "| #STRTUP1 | ADDAJE<br>WRKSBSD | Adds an autostart job "
-                   "entry to an<br>existing subsystem description<br>Allows "
-                   "you to work with a list of<br>subsystem descriptions |",
+                   "| \\#STRTUP1 | ADDAJE | Adds an autostart job "
+                   "entry to an<br>existing subsystem description |",
                    "first procedure table row");
+  require_contains(table,
+                   "|  | WRKSBSD | Allows you to work with a list "
+                   "of<br>subsystem descriptions |",
+                   "second procedure table row");
   require_contains(table,
                    "| ALERT | CHGMSGD | Changes an existing message<br>"
                    "description stored in a specified<br>message file |",
