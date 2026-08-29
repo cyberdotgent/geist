@@ -68,17 +68,19 @@ int main() {
                    "edition copyright line");
 
   const auto command_index = topic_markdown(document, "2.0");
+  // 2.0 is on the typed prose route (issue #58): the display rows of one
+  // hosted `<p>` flow into one paragraph, word for word as hosted serves
+  // them (DT 19910524075122).
   require_contains(command_index,
                    "System/36 procedures, control commands, and OCL "
-                   "statements are listed<br>\n"
-                   "alphabetically, with cross-references to AS/400* "
-                   "commands, beginning on<br>\n"
+                   "statements are listed alphabetically, with "
+                   "cross\\-references to AS/400\\* commands, beginning on "
                    "the following pages:",
                    "2.0 reflow-off intro lines");
   require_contains(command_index,
-                   "System/36 procedures     Page [2.1](#SPTPROC)\n"
-                   "System/36 control commands Page [2.2](#SPTCONTROL)\n"
-                   "System/36 OCL statements Page [2.3](#SPTOCL)",
+                   "System/36 procedures Page [2\\.1](<#SPTPROC>) "
+                   "System/36 control commands Page [2\\.2](<#SPTCONTROL>) "
+                   "System/36 OCL statements Page [2\\.3](<#SPTOCL>)",
                    "page reference block");
 
   const auto table = topic_markdown(document, "2.1");

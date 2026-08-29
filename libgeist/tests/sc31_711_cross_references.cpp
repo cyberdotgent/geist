@@ -64,21 +64,24 @@ int main() {
                   std::string::npos,
           "2.2 changed the hosted two-anchor application reference");
 
+  // 2.3.1 moved to the typed prose route (issue #58); anchors keep the
+  // typed destination spelling and Markdown escaping, with the same
+  // one-anchor and two-row references hosted serves.
   const auto os2 = sc31.topic_markdown("2.3.1");
-  require(count(os2, "](#HDRPRNETL)") == 1 &&
+  require(count(os2, "](<#HDRPRNETL>)") == 1 &&
               os2.find(
-                  "[\"Checking the nettl Log\" in topic 2.1.2]"
-                  "(#HDRPRNETL)") != std::string::npos,
+                  "[\"Checking the nettl Log\" in topic 2\\.1\\.2]"
+                  "(<#HDRPRNETL>)") != std::string::npos,
           "2.3.1 Checking-nettl reference is not one complete anchor");
-  require(count(os2, "](#HDRLMATRP)") == 2 &&
-              os2.find("[\"LNM](#HDRLMATRP) ") != std::string::npos &&
+  require(count(os2, "](<#HDRLMATRP>)") == 2 &&
+              os2.find("[\"LNM](<#HDRLMATRP>) ") != std::string::npos &&
               os2.find(
-                  "[OS/2 Agent Application Traps\" in topic 4.1]"
-                  "(#HDRLMATRP)") != std::string::npos,
+                  "[OS/2 Agent Application Traps\" in topic 4\\.1]"
+                  "(<#HDRLMATRP>)") != std::string::npos,
           "2.3.1 changed the hosted two-row LNM trap reference");
   require(os2.find(
-              "[\"Using the Tracing Command\" in topic 2.1.3]"
-              "(#HDRKILL30)") != std::string::npos,
+              "[\"Using the Tracing Command\" in topic 2\\.1\\.3]"
+              "(<#HDRKILL30>)") != std::string::npos,
           "2.3.1 tracing reference is not one complete anchor");
 
   for (const auto* topic : {"2.3.2", "2.3.3"}) {
