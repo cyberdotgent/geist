@@ -201,6 +201,15 @@ struct FixedTableBlockIR {
   std::vector<FixedTableRowIR> body;
   // Preformatted geometry only: the region's display lines in source order.
   std::vector<FixedTablePreformattedLineIR> preformatted_lines;
+  // Subject-index entries the envelope carries: a display line whose first
+  // visible word is the `SI` keyword.  Hosted BookServer displays none of it
+  // (SC09-138 4.1.4 DT=19910321130500 shows no `SI` byte at all although the
+  // `LANG` envelope carries `SI ENGLISH run-time messages`,
+  // `SI UENGLISH run-time messages` and `SI KANJI run-time messages`), so
+  // the line is neither a table row nor preformatted text; `text` keeps the
+  // entry verbatim so the term is not lost.  Admitted only when the line
+  // owns no positioned display cell, i.e. it is nowhere in the layout.
+  std::vector<FixedTablePreformattedLineIR> index_lines;
   // Rule lines, hidden marker slots between lines, and blank rows. Under
   // preformatted geometry this is every positioned cell of the region.
   std::vector<PositionedRowCellIR> structural_cells;

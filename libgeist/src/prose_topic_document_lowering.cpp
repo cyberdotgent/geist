@@ -150,10 +150,13 @@ bool link_table_cells(const ProseTopicIR& prose, std::size_t span,
         const auto* link = line_link(prose, span, block, cell, lines[line]);
         if (link == nullptr) continue;
         CrossReferenceInlineIR reference;
-        reference.target = {CrossReferenceTargetKindIR::anchor, link->target};
+        reference.target = {link->target_kind, link->target};
         reference.label = text->text;
         node.node = std::move(reference);
-        node.origin.detail = "fixed table cell line (CSELECT reference)";
+        node.origin.detail =
+            link->target_kind == CrossReferenceTargetKindIR::external
+                ? "fixed table cell line (CSELECT LNK reference)"
+                : "fixed table cell line (CSELECT reference)";
         node.origin.slices.push_back(link->source);
         std::sort(node.origin.slices.begin(), node.origin.slices.end(),
                   [](const auto& left, const auto& right) {

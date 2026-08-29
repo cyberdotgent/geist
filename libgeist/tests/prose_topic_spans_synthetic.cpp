@@ -362,10 +362,66 @@ int main() {
       mutations(kept, "GG24-4302-00 10.2");
     }
   }
+  {
+    // A `SI` subject-index line inside a table envelope is hidden and is
+    // claimed by the table span.  SC24-5527-02 4.1.1 record 380 opens the
+    // `XSESDSK` envelope with `SI VMSES/E, service disks`; hosted
+    // (DT 19921218151459) serves the caption line straight after the top
+    // rule and shows no `SI` byte.
+    Extracted kept;
+    const auto markdown = admit("SC24-5527-02.boo", "4.1.1", kept);
+    require(!contains(markdown, "SI VMSES") &&
+                !contains(markdown, "service disks"),
+            "4.1.1 printed the subject-index line of its table envelope");
+    require(contains(markdown, "Table  4\\-1\\. Service Disks for VMSES/E"),
+            "4.1.1 lost its table caption: " + markdown);
+    if (kept.prose) {
+      const auto& terms = kept.prose->index_terms;
+      require(std::count_if(terms.begin(), terms.end(),
+                            [](const auto& term) {
+                              return term.term == "SI VMSES/E, service disks";
+                            }) == 1,
+              "4.1.1 lost the envelope's subject-index term");
+    }
+  }
+  {
+    // A preformatted envelope may carry anchor and `LNK` selectors: their
+    // opcode, operands and `<...>` alternatives are one hidden display line
+    // each, so the region still reproduces exactly.
+    Extracted kept;
+    const auto markdown = admit("SC24-5527-02.boo", "ROADMAP", kept);
+    require(!contains(markdown, "cselect") && !contains(markdown, "<BOOK>") &&
+                !contains(markdown, "<SC24-5444>"),
+            "ROADMAP printed a selector operand: " + markdown);
+  }
+  {
+    // A `LNK` selector covering a whole table cell line lowers to the same
+    // external cross reference the prose inline carries: hosted
+    // SC24-5527-02 3.9.4.4 (DT 19921218151459) serves the `TBLUNIQ156` cell
+    // as `<a href="../../DOCNUM/SC24-5521/CCONTENTS?DocnumLevel=ANY">`.
+    Extracted kept;
+    const auto markdown = admit("SC24-5527-02.boo", "3.9.4.4", kept);
+    require(contains(markdown, "(<DOCNUM/SC24-5521/CCONTENTS>)"),
+            "3.9.4.4 lost its cross-book table cell link: " + markdown);
+    if (kept.prose) {
+      const auto& links = kept.prose->table_links;
+      require(std::any_of(links.begin(), links.end(),
+                          [](const auto& link) {
+                            return link.target_kind ==
+                                       CrossReferenceTargetKindIR::external &&
+                                   link.target ==
+                                       "DOCNUM/SC24-5521/CCONTENTS";
+                          }),
+              "3.9.4.4 table link is not typed as an external reference");
+    }
+  }
   // Fail-closed classes: a declined table envelope or figure region rejects
   // the whole topic, and so does a picture without a resource catalog.
-  reject("ACPZMST1.boo", "4.3",
-         "table envelope 'TBLUNIQ39' declined: visible source between table "
+  // ACPZMST1 4.3 `TBLUNIQ39` used to stand here; its envelope now lowers
+  // verbatim because a selector no longer blocks the preformatted route, so
+  // the class is pinned on an envelope that still declines both models.
+  reject("IEAC6MST.BOO", "4.3.4.1",
+         "table envelope 'TBLUNIQ10' declined: visible source between table "
          "lines");
   reject("DREICMST.boo", "1.2.1",
          "declined: figure region has no picture selector (unterminated "
