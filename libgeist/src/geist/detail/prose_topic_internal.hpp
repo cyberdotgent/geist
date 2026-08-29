@@ -225,9 +225,13 @@ struct Envelope {
   // The raw lower-cased CHDLEVEL operand: `h1`..`h6`, or a front-matter form
   // such as `cover`/`toc`/`preface` that the reader serves as `h1`.
   std::string heading_form;
-  std::size_t body_segment_begin = 0;  // first non-envelope segment of record 0
+  // First body segment.  The metadata run may span logical records, so the
+  // body starts at (body_record, body_segment_begin).
+  std::size_t body_record = 0;
+  std::size_t body_segment_begin = 0;
   std::vector<ProseAnchorIR> leading_anchors;
   bool glued_title = false;
+  std::size_t glued_title_record = 0;
   std::vector<std::size_t> glued_title_tokens;
 };
 

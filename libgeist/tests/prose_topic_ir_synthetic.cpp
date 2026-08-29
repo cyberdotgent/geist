@@ -591,6 +591,69 @@ void front_matter_fixtures() {
     require(!contains(markdown, "2i") && !contains(markdown, "c.cp"),
             "DREICMST 2.20.3.1.4 printed a c.cp operand");
   }
+  // A body control the record encoder writes with no boundary byte before it
+  // is still a control: `decode_control_segments` splits the decoded segment
+  // at the opcode's own source token, and the compact separator token in
+  // front of it (the attach control plus a comma) is the boundary, not text.
+  {
+    // FA1PLMM0 record 353: `PSF` `/` `VSE` `,`(value 2) `c.cp`(value 49655,
+    // width 2); hosted DT 19910927114801 serves the row as `   PSF/VSE`.
+    const auto markdown = admit("FA1PLMM0.boo", "6.1.2");
+    require(contains(markdown, "PSF/VSE") && !contains(markdown, "PSF/VSE,"),
+            "FA1PLMM0 6.1.2 printed the control separator as text");
+    require(!contains(markdown, "c.cp"),
+            "FA1PLMM0 6.1.2 printed the glued c.cp opcode");
+  }
+  {
+    // GG24-4302-00 record 613: `SREFIG` + bullet separator + `c.cc`(52750)
+    // + `20`; hosted DT 19950308184737 serves the figure and its caption and
+    // no `20`.
+    const auto markdown = admit("GG24-4302-00.boo", "8.1.5");
+    require(!contains(markdown, "c.cc"),
+            "GG24-4302-00 8.1.5 printed the glued c.cc opcode");
+    require(contains(markdown,
+                     "*Figure 33\\. Conceptual View of an IMS TM Parallel "
+                     "Sysplex of the Future*"),
+            "GG24-4302-00 8.1.5 lost its figure caption");
+  }
+  {
+    // SC09-138 record 1482: `each` `other` `.` `,` `c.pa`; hosted DT
+    // 19910321130500 serves `each other.` and nothing more.
+    const auto markdown = admit("SC09-138.boo", "8.3.1.8");
+    require(contains(markdown, "each other"),
+            "SC09-138 8.3.1.8 lost the text before the c.pa control");
+    require(!contains(markdown, "c.pa"),
+            "SC09-138 8.3.1.8 printed the glued c.pa opcode");
+  }
+  {
+    // IBMMMSTR record 1244 token 139 spells `c.cc` but is a one-byte token
+    // with encoded value 31: it is the next display line's length byte, not
+    // a control.  Reading it as a control drops the `:` that ends
+    // `Messages print at run-time when:` and merges the two numbered rows.
+    const auto markdown = admit("IBMMMSTR.boo", "3.1");
+    require(contains(markdown, "Messages print at run\\-time when:"),
+            "IBMMMSTR 3.1 lost the colon before a length byte spelt c.cc");
+    require(contains(markdown, "raised\\)\\.\n\n2\\. An on\\-condition"),
+            "IBMMMSTR 3.1 merged two rows across a length byte spelt c.cc");
+  }
+
+  // The metadata envelope is a run of control segments and may continue in
+  // the next logical record.
+  {
+    // QSYSINFO 2.1.57: record 163 carries `SH2.1.57`..`csummary`, record 164
+    // `chdlevel`, `csourcefn` and the `ST` title.
+    const auto markdown = admit("QSYSINFO.BOO", "2.1.57");
+    require(contains(markdown,
+                     "SC41\\-0011, Guide to Programming Application and Help "
+                     "Displays"),
+            "QSYSINFO 2.1.57 lost its heading across the envelope break");
+  }
+  {
+    // ACPZMST1 5.7 breaks after `csourcefn`, so record 290 opens with `ST`.
+    const auto markdown = admit("ACPZMST1.boo", "5.7");
+    require(contains(markdown, "Singl2multi File Definitions"),
+            "ACPZMST1 5.7 lost its heading across the envelope break");
+  }
   {
     // GC28-183 record 91: `c.sp 1 c` after the ST title; hosted DT
     // 19930625102617 serves only the paragraph break.

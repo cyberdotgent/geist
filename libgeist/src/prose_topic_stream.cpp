@@ -270,6 +270,19 @@ bool assign_segment_tokens(const std::vector<DecodedLogicalRecordSource>& record
 // The `c.cp` keep-together depth: a decimal count with an optional unit
 // suffix.  Observed corpus-wide: bare counts (`4`..`999`), `1i`/`2i`
 // (inches), `50p` (points) and `8DV` (device units).
+// SCRIPT page controls that carry no display of their own.  `c.cp` is the
+// keep-together depth, `c.cc` the conditional-column depth and `c.pa` the page
+// eject.  All three are stored as one dictionary token spelling `c.<xx>` and
+// hosted BookServer prints none of them: GG24-4302-00 8.1.5 record 613
+// (`SREFIG` + separator + `c.cc` + `20`) serves the figure and its caption
+// with no `20`; SC09-138 8.3.1.8 record 1482 (`each` `other` `.` `,` `c.pa`)
+// serves `each other.` and starts the next figure; FA1PLMM0 6.1.2 record 353
+// (`PSF` `/` `VSE` `,` `c.cp`) serves the list row as `PSF/VSE`, with neither
+// the comma nor the opcode.
+bool pagination_control(const std::string& lower_text) {
+  return lower_text == "c.cp" || lower_text == "c.cc" || lower_text == "c.pa";
+}
+
 bool pagination_operand(const std::string& text) {
   std::size_t digits = 0;
   while (digits < text.size() &&
@@ -329,9 +342,10 @@ bool envelope_anchor_segment(const ControlSegmentIR& segment) {
 // `<a name="LEN ADDRESS">`.  Every token of the control is envelope metadata;
 // none of it is visible body text.
 bool claim_envelope_anchor(const std::vector<DecodedLogicalRecordSource>& records,
-                           Ledger& ledger, const ControlSegmentIR& segment,
+                           Ledger& ledger, std::size_t record_index,
+                           const ControlSegmentIR& segment,
                            ProseAnchorIR& anchor, std::string* error) {
-  const auto& record = records.front();
+  const auto& record = records[record_index];
   auto id = trim_ascii(operand_text(record, segment.complete));
   if (id.size() < 3 || ascii_lower(id).rfind("sr", 0) != 0)
     return fail(error, "envelope anchor '" + id + "' is not an SR control");
@@ -345,8 +359,8 @@ bool claim_envelope_anchor(const std::vector<DecodedLogicalRecordSource>& record
   if (segment.source_tokens.empty())
     return fail(error, "envelope anchor control has no source token");
   for (const auto token : segment.source_tokens) {
-    const auto view = view_token(records, 0, token);
-    if (!ledger.assign(0, token,
+    const auto view = view_token(records, record_index, token);
+    if (!ledger.assign(record_index, token,
                        is_padding(view) ? ProseTokenRoleIR::padding
                                         : ProseTokenRoleIR::envelope,
                        error))
@@ -360,33 +374,66 @@ bool claim_envelope_anchor(const std::vector<DecodedLogicalRecordSource>& record
 
 bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
                     Ledger& ledger, Envelope& envelope, std::string* error) {
-  const auto& record = records.front();
   const std::vector<BookControlKind> required = {
       BookControlKind::topic_start, BookControlKind::topic_number,
       BookControlKind::parent,      BookControlKind::forward_level,
       BookControlKind::back_level,  BookControlKind::summary,
       BookControlKind::heading_level, BookControlKind::source_file};
-  if (record.control_segments.size() < required.size() + 1)
-    return fail(error, "first record lacks the topic metadata envelope");
-  std::size_t segment_cursor = 0;
-  std::size_t heading_segment = 0;
+  // The metadata envelope is a run of control segments, not a property of one
+  // logical record: the encoder breaks the record wherever the payload page
+  // ends, so the run can continue in the next record.  Byte-level evidence
+  // from `bootrace --ir`: GC28-183 2.3.5 keeps `sh2.3.5` and `ctopicn` in
+  // record 163 and `cparent`..`csourcefn` plus `SRHDRJBEXNET` and `ST` in
+  // record 164; QSYSINFO 2.1.57 breaks after `csummary` (record 163/164);
+  // SC34-425 1.5.5 after `chdlevel` (241/242); SC41-485 COMMENTS after
+  // `cbacklevel` (455/456); ACPZMST1 5.7 after `csourcefn` (289/290).  The
+  // cursor below therefore walks the segments of the topic in source order
+  // and the envelope simply ends where its controls end.
+  struct Cursor {
+    std::size_t record = 0;
+    std::size_t segment = 0;
+  };
+  Cursor cursor;
+  const auto at_end = [&]() {
+    while (cursor.record < records.size() &&
+           cursor.segment >= records[cursor.record].control_segments.size()) {
+      ++cursor.record;
+      cursor.segment = 0;
+    }
+    return cursor.record >= records.size();
+  };
+  const auto current = [&]() -> const ControlSegmentIR& {
+    return records[cursor.record].control_segments[cursor.segment];
+  };
+  {
+    // The topic must still open with its metadata run: enough segments must
+    // follow the start control for the eight required controls and the title.
+    std::size_t available = 0;
+    for (const auto& record : records)
+      available += record.control_segments.size();
+    if (records.front().control_segments.empty() ||
+        available < required.size() + 1)
+      return fail(error, "first record lacks the topic metadata envelope");
+  }
+  Cursor heading_cursor;
   for (std::size_t index = 0; index < required.size(); ++index) {
-    if (segment_cursor >= record.control_segments.size())
+    if (at_end())
       return fail(error, "topic metadata controls are incomplete");
     // A message-section heading topic carries one bare `SRMSG` inside its
     // metadata (SC31-711 record 127, SC09-138 record 2066); the control has
     // no operand and no payload.
-    if (record.control_segments[segment_cursor].kind ==
-            BookControlKind::message_start &&
-        segment_cursor + 1 < record.control_segments.size()) {
-      const auto& message = record.control_segments[segment_cursor];
+    if (current().kind == BookControlKind::message_start) {
+      const auto& message = current();
+      const auto message_record = cursor.record;
+      ++cursor.segment;
+      if (at_end())
+        return fail(error, "topic metadata controls are incomplete");
       if (message.payload_range.begin != message.payload_range.end ||
           message.operand_range.begin != message.operand_range.end)
         return fail(error, "SRMSG inside the envelope carries operands");
-      if (!assign_segment_tokens(records, ledger, 0, message,
+      if (!assign_segment_tokens(records, ledger, message_record, message,
                                  ProseTokenRoleIR::envelope, false, error))
         return false;
-      ++segment_cursor;
     }
     // Envelope anchor variant: a bare `SR<id>` structural control can sit
     // between the metadata controls.  Hosted BookServer serves it as a plain
@@ -401,24 +448,26 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
     // `<a name="LEN FLMCSPDB DB2 Bind/Free Translator">` at DT
     // 19921112160049; SC33-033 4.6 as `<a name="LEN CHAATT">` at DT
     // 19930422134757.  None of the payload text appears in the body.
-    while (segment_cursor < record.control_segments.size() &&
-           envelope_anchor_segment(record.control_segments[segment_cursor])) {
-      const auto& anchor_segment = record.control_segments[segment_cursor];
+    while (!at_end() && envelope_anchor_segment(current())) {
+      const auto& anchor_segment = current();
+      const auto anchor_record = cursor.record;
+      ++cursor.segment;
       ProseAnchorIR anchor;
-      if (!claim_envelope_anchor(records, ledger, anchor_segment, anchor,
-                                 error))
+      if (!claim_envelope_anchor(records, ledger, anchor_record,
+                                 anchor_segment, anchor, error))
         return false;
       envelope.leading_anchors.push_back(std::move(anchor));
-      ++segment_cursor;
     }
-    if (segment_cursor >= record.control_segments.size())
+    if (at_end())
       return fail(error, "topic metadata controls are incomplete");
-    const auto& segment = record.control_segments[segment_cursor];
+    const auto& segment = current();
+    const auto& record = records[cursor.record];
+    const auto record_index = cursor.record;
     if (segment.kind != required[index])
       return fail(error, "topic metadata controls are incomplete or out of order");
     if (segment.kind == BookControlKind::heading_level)
-      heading_segment = segment_cursor;
-    ++segment_cursor;
+      heading_cursor = cursor;
+    ++cursor.segment;
     if (segment.malformed && segment.kind != BookControlKind::forward_level &&
         segment.kind != BookControlKind::back_level &&
         segment.kind != BookControlKind::parent)
@@ -429,9 +478,10 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
       const auto operands = operand_tokens(record, segment);
       bool st_seen = false;
       for (const auto token : segment.source_tokens) {
-        const auto view = view_token(records, 0, token);
+        const auto view = view_token(records, record_index, token);
         if (std::binary_search(operands.begin(), operands.end(), token)) {
-          if (!ledger.assign(0, token, ProseTokenRoleIR::envelope, error))
+          if (!ledger.assign(record_index, token, ProseTokenRoleIR::envelope,
+                             error))
             return false;
           continue;
         }
@@ -441,13 +491,15 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
         }
         if (is_padding(view) || is_separator(view) ||
             (view.width == 1 && punctuation_glyph_token(view))) {
-          if (!ledger.assign(0, token, ProseTokenRoleIR::padding, error))
+          if (!ledger.assign(record_index, token, ProseTokenRoleIR::padding,
+                             error))
             return false;
           continue;
         }
         if (ascii_lower(body_text(view)) == "st") {
           st_seen = true;
-          if (!ledger.assign(0, token, ProseTokenRoleIR::envelope, error))
+          if (!ledger.assign(record_index, token, ProseTokenRoleIR::envelope,
+                             error))
             return false;
           continue;
         }
@@ -455,14 +507,17 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
                                body_text(view) + "'");
       }
       envelope.glued_title = st_seen;
+      envelope.glued_title_record = record_index;
       continue;
     }
-    if (!assign_segment_tokens(records, ledger, 0, segment,
+    if (!assign_segment_tokens(records, ledger, record_index, segment,
                                ProseTokenRoleIR::envelope, false, error))
       return false;
   }
+  const auto& heading_record = records[heading_cursor.record];
   auto heading_level = ascii_lower(trim_ascii(operand_text(
-      record, record.control_segments[heading_segment].operand_range)));
+      heading_record,
+      heading_record.control_segments[heading_cursor.segment].operand_range)));
   if (!heading_level.empty() && heading_level.front() == ':')
     heading_level.erase(heading_level.begin());
   envelope.heading_form = heading_level;
@@ -474,7 +529,12 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
     heading_level = "h1";
   }
   envelope.heading_level = heading_level;
-  envelope.body_segment_begin = segment_cursor;
+  at_end();
+  envelope.body_record = std::min(cursor.record, records.size() - 1);
+  envelope.body_segment_begin =
+      cursor.record < records.size()
+          ? cursor.segment
+          : records.back().control_segments.size();
   return true;
 }
 
@@ -502,7 +562,7 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
     for (const auto token : envelope.glued_title_tokens) {
       Item item;
       item.kind = ItemKind::token;
-      item.token = view_token(records, 0, token);
+      item.token = view_token(records, envelope.glued_title_record, token);
       item.title_start = first_payload;
       first_payload = false;
       build.items.push_back(std::move(item));
@@ -515,9 +575,13 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
        ++record_index) {
     const auto& record = records[record_index];
     const auto first_segment =
-        record_index == 0 ? envelope.body_segment_begin : std::size_t{0};
+        record_index < envelope.body_record
+            ? record.control_segments.size()
+            : (record_index == envelope.body_record
+                   ? envelope.body_segment_begin
+                   : std::size_t{0});
     std::vector<bool> claimed(record.ir.tokens.size(), false);
-    if (record_index == 0)
+    if (envelope.glued_title && record_index == envelope.glued_title_record)
       for (const auto token : envelope.glued_title_tokens)
         if (token < claimed.size()) claimed[token] = true;
     // Tokens claimed by no segment are inter-control separators.  Inside the
@@ -977,6 +1041,28 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
             break;
           }
         }
+        // The record encoder writes a compact separator token -- the attach
+        // control plus a comma -- before a body control it does not precede
+        // with a boundary byte.  It is the same separator that stands between
+        // `csummary` and `chdlevel` in FA1PLMM0 record 352, and hosted
+        // BookServer prints no comma for it (FA1PLMM0 6.1.2 record 353 serves
+        // `PSF/VSE`, SC09-138 8.3.1.8 record 1482 serves `each other.`).  It
+        // is recognised only where the control it separates follows it, so a
+        // display comma glued to the word before it stays text.
+        if (first_visible) {
+          const auto lead = view_token(records, record_index, *first_visible);
+          if (lead.has_prefix && lead.prefix == 1 && lead.body.size() == 1 &&
+              lead.body.front() == ',') {
+            for (const auto token : segment.source_tokens) {
+              if (token <= *first_visible) continue;
+              const auto view = view_token(records, record_index, token);
+              if (!is_visible(view)) continue;
+              if (pagination_control(ascii_lower(body_text(view))))
+                first_visible = token;
+              break;
+            }
+          }
+        }
         if (!title_seen) {
           // `ST| <title>`: the title control glued to a one-cell marker is
           // split as a text segment (GC23-046 record 151, QSYSNEWG PREFACE).
@@ -1017,7 +1103,7 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         }
         const auto first_view = view_token(records, record_index, *first_visible);
         const auto first_text = ascii_lower(body_text(first_view));
-        if (first_text == "c.cp") {
+        if (pagination_control(first_text)) {
           // `c.cp` is the keep-together pagination control.  Its optional
           // operand is the token adjacent to the opcode in the record --
           // the record encoder emits no spacing token between a control
@@ -1053,7 +1139,7 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
             if (is_padding(view)) break;
             const auto text = body_text(view);
             if (!pagination_operand(text))
-              return fail(error, "c.cp control carries visible payload '" +
+              return fail(error, first_text + " control carries visible payload '" +
                                      text + "'");
             consumed = candidate;
             break;

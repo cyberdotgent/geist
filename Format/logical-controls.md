@@ -581,6 +581,68 @@ The parser then recognizes these decoded controls:
 | `CAUTHOR=` | 8 bytes | Stores author metadata; repeated authors are concatenated with two spaces while under the reader's size limit. |
 | `CDOCNUM=` | 8 bytes | Stores document number metadata and terminates the header-control scan. |
 
+### Body Controls Without A Boundary Byte
+
+Most controls inside a topic record are preceded by a boundary byte that the
+decoded projection renders as a placeholder. The SCRIPT page controls are not
+always: `c.cp` (keep together), `c.cc` (conditional column) and `c.pa` (page
+eject) can follow the previous run with only a compact separator token, or with
+none at all. The control is still one whole dictionary token whose decoded
+words spell `c.` plus the two-letter opcode.
+
+| Book | Record | Tokens | Encoded (value/width) |
+| --- | ---: | --- | --- |
+| FA1PLMM0 | 353 | 71 `VSE`, 72 `,`, 73 `c.cp`, 74 attach, 75 rule run | 72 = 2/1 (words `0x0001`, `,`), 73 = 49655/2 |
+| GG24-4302-00 | 613 | 17 `SREFIG`, 18 bullet glyph, 19 `c.cc`, 20 `20` | 19 = 52750/2, 20 = 193/1 |
+| SC09-138 | 1482 | 45 `other`, 46 `.`, 47 `,`, 48 `c.pa` | 46 = 1/1 (words `0x0001`, `.`), 47 = 2/1, 48 = 2-byte |
+| SC33-033 | 241 | 53 `,`, 54 `SREFIG`, 55 junction glyph, 56 `c.cc`, 57 `2i` | 56 = 53126/2 |
+
+Two facts follow.
+
+* The compact token whose dictionary expansion is the attach control `0x0001`
+  followed by a single `,` is a **control separator**, not display text. The
+  same token stands between `csummary` and `chdlevel` in FA1PLMM0 record 352.
+  Hosted BookServer prints no comma for it: FA1PLMM0 6.1.2 serves the list row
+  as `   °   PSF/VSE`, and SC09-138 8.3.1.8 serves `each other.` with nothing
+  after it.
+* The operand rule is the one already documented for `c.cp`: the operand is
+  the token immediately adjacent to the opcode, with no spacing token between
+  them (`c.cc` `20`, `c.cc` `2i`). Everything after it is display text.
+
+The opcode cannot be recognised from the flattened decoded string. The byte
+before it projects to `?` — which is equally the projection of the attach
+control word, of a bullet glyph and of every box-drawing word — so a
+string-level scan that requires a space, `=`, `,` or `.` around the opcode
+cannot see the control at all.
+
+The reverse mistake is just as easy. A **one-byte** token whose encoded value
+is below the row-control limit (48) is the next display line's length byte
+(see "Display Lines Inside A Record Payload"), whatever its dictionary
+spelling. IBMMMSTR record 1244 token 139 has encoded value 31, width 1, and
+spells `c.cc`; it stands after the `:` that closes
+`Messages print at run-time when:` and before the three-cell origin run of the
+row `1.  An error occurs ...`. Reading it as a control drops that colon and
+merges two numbered rows. Only two-byte dictionary tokens are body controls.
+
+### The Metadata Envelope Spans Records
+
+The topic metadata run — `SH<id>`, `CTOPICN`, `CPARENT`, `CFORWARDLEVEL`,
+`CBACKLEVEL`, `CSUMMARY`, `CHDLEVEL`, `CSOURCEFN`, then `ST` — is a run of
+control segments, not a property of the topic's first logical record. The
+encoder breaks the record wherever the payload page ends, so the run continues
+in the next record. Observed break points, one per required control:
+
+| Book | Topic | Records | Break after |
+| --- | --- | --- | --- |
+| GC28-183 | 2.3.5 | 163/164 | `CTOPICN` |
+| SC41-485 | COMMENTS | 455/456 | `CBACKLEVEL` |
+| QSYSINFO | 2.1.57 | 163/164 | `CSUMMARY` |
+| SC34-425 | 1.5.5 | 241/242 | `CHDLEVEL` |
+| ACPZMST1 | 5.7 | 289/290 | `CSOURCEFN` |
+
+Sixty-nine topics in the corpus break this way. A reader must walk the segments
+of the topic in source order and end the envelope where its controls end.
+
 ## Reader Implementation Notes
 
 An independent reader that wants these controls should not scan the BOO file for

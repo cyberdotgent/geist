@@ -475,6 +475,8 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
     for (const auto& segment : source.control_segments)
       destination->ir_control_segments.push_back(
           detail::format_control_segment_ir(segment));
+    for (const auto& token : source.ir.tokens)
+      destination->ir_tokens.push_back(detail::format_logical_token_ir(token));
   }
   for (const auto& run : layout.runs) {
     for (const auto& row : run.rows) {

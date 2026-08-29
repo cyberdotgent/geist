@@ -670,7 +670,8 @@ decode_logical_record_sources(const LogicalDecodeContext& context,
     decoded.encoded_tokens = project_encoded_tokens(decoded.ir);
     decoded.assembled = assemble_logical_record_with_sources(decoded.tokens);
     decoded.control_segments =
-        decode_control_segments(logical_record, decoded.assembled);
+        decode_control_segments(logical_record, decoded.assembled,
+                                decoded.encoded_tokens);
     std::string segment_error;
     if (!verify_control_segments(decoded.assembled, decoded.control_segments,
                                  &segment_error)) {

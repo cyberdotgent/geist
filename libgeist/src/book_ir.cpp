@@ -1,7 +1,10 @@
 #include "geist/detail/book_ir.hpp"
 
+#include "geist/detail/internal.hpp"
+
 #include <algorithm>
 #include <limits>
+#include <sstream>
 
 namespace geist::detail {
 
@@ -79,6 +82,29 @@ bool verify_token_ir(const LogicalRecordIR& record, std::string* error) {
     error->clear();
   }
   return true;
+}
+
+std::string format_logical_token_ir(const LogicalTokenIR& token) {
+  std::ostringstream out;
+  out << "token=" << token.token_index
+      << " value=" << token.encoded.value
+      << " width=" << static_cast<unsigned>(token.encoded.width)
+      << " prefix=";
+  if (token.has_spacing_control)
+    out << token.spacing_control;
+  else
+    out << '-';
+  out << " bytes=[0x" << std::hex << token.byte_range.begin << ",0x"
+      << token.byte_range.end << ')' << std::dec << " words=";
+  if (token.decoded_words.empty()) {
+    out << "<none>";
+  } else {
+    out << '\'' << token_words_to_ascii(token.decoded_words) << '\'';
+    out << " values=";
+    for (std::size_t index = 0; index < token.decoded_words.size(); ++index)
+      out << (index == 0 ? "" : ",") << token.decoded_words[index];
+  }
+  return out.str();
 }
 
 } // namespace geist::detail

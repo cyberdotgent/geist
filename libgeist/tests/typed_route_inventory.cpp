@@ -12,11 +12,10 @@
 // new total into kBaselineTotal). Lowering the baseline is a regression and
 // needs an explicit explanation in the commit message.
 //
-// Nine topics across DREICMST, SC33-033, SH12-565 and SH20-918 fail closed
-// instead of printing a `c.<xx>` body control opcode the decoder glued to a
-// text run (hosted BookServer serves no such word; checked on SH20-918
-// 3.31.1 at DT 19910520154851, where the legacy and pre-composition typed
-// routes both print `same results., c.cp`). Every book still only grows.
+// A `c.<xx>` body control the decoder glued to a text run is now typed:
+// decode_control_segments splits the decoded segment at the opcode's own
+// source token (see Format/logical-controls.md, "Body controls without a
+// boundary byte"). Every book still only grows.
 //
 // Runtime: about 11 minutes uncontended, ~9 of them in N2AH1MST.BOO whose
 // SRMSG recognizers are slow; hence the `slow` label.
@@ -41,42 +40,42 @@ struct BookBaseline {
 };
 
 constexpr BookBaseline kBaseline[] = {
-    {"ACPZMST1.boo", 133},
-    {"DREICMST.boo", 321},
-    {"FA1PLMM0.boo", 380},
+    {"ACPZMST1.boo", 134},
+    {"DREICMST.boo", 328},
+    {"FA1PLMM0.boo", 384},
     {"GC23-046.boo", 66},
-    {"GC28-183.boo", 102},
+    {"GC28-183.boo", 104},
     {"GG24-395.boo", 149},
-    {"GG24-4302-00.boo", 170},
+    {"GG24-4302-00.boo", 172},
     {"GX27-3999-00.boo", 19},
     {"IBMMMSTR.boo", 24},
-    {"IEAC6MST.BOO", 151},
-    {"ITPPIBOK.BOO", 204},
+    {"IEAC6MST.BOO", 155},
+    {"ITPPIBOK.BOO", 205},
     {"N2AH1MST.BOO", 11},
-    {"OFCUSEOV.BOO", 105},
-    {"PRG1SORT.boo", 149},
+    {"OFCUSEOV.BOO", 117},
+    {"PRG1SORT.boo", 150},
     {"QS3X36CM.BOO", 6},
-    {"QSYSINFO.BOO", 306},
-    {"QSYSNEWG.BOO", 99},
-    {"SC09-138.boo", 356},
-    {"SC09-2417-00.boo", 242},
-    {"SC24-546.boo", 158},
-    {"SC24-5520-00.boo", 539},
-    {"SC24-5527-02.boo", 138},
-    {"SC26-457.boo", 264},
-    {"SC28-1881-05.boo", 58},
-    {"SC31-605.boo", 80},
-    {"SC31-711.boo", 67},
-    {"SC33-033.boo", 88},
-    {"SC34-425.boo", 184},
+    {"QSYSINFO.BOO", 311},
+    {"QSYSNEWG.BOO", 101},
+    {"SC09-138.boo", 362},
+    {"SC09-2417-00.boo", 247},
+    {"SC24-546.boo", 161},
+    {"SC24-5520-00.boo", 545},
+    {"SC24-5527-02.boo", 140},
+    {"SC26-457.boo", 267},
+    {"SC28-1881-05.boo", 66},
+    {"SC31-605.boo", 81},
+    {"SC31-711.boo", 68},
+    {"SC33-033.boo", 188},
+    {"SC34-425.boo", 187},
     {"SC41-485.boo", 15},
-    {"SG24-204.boo", 71},
-    {"SH12-565.boo", 226},
-    {"SH20-918.boo", 164},
+    {"SG24-204.boo", 72},
+    {"SH12-565.boo", 246},
+    {"SH20-918.boo", 168},
     {"XWEBDEMO.boo", 5},
-    {"packet.boo", 88},
+    {"packet.boo", 89},
 };
-constexpr std::size_t kBaselineTotal = 5138;
+constexpr std::size_t kBaselineTotal = 5343;
 
 void require(bool condition, const std::string &message) {
   if (!condition) {

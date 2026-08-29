@@ -55,4 +55,8 @@ project_encoded_tokens(const LogicalRecordIR& record);
 bool verify_token_ir(const LogicalRecordIR& record,
                      std::string* error = nullptr);
 
+// Readable one-line dump of one token: ordinal, encoded value/width, spacing
+// prefix, payload byte range and the decoded words.
+std::string format_logical_token_ir(const LogicalTokenIR& token);
+
 } // namespace geist::detail
