@@ -542,8 +542,10 @@ std::optional<MenuTargetValidationIR> validate_source_menu_targets(
 std::optional<MenuTopicIR>
 extract_menu_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
                       const MenuTargetValidationIR &target_validation,
-                      const LayoutIR &layout, const OwnershipIR &ownership,
+                      const LayoutIR &layout,
+                      const VerifiedOwnershipIR &verified_ownership,
                       std::string *error) {
+  const OwnershipIR &ownership = verified_ownership;
   const auto reject = [&](std::string message) -> std::optional<MenuTopicIR> {
     fail(error, std::move(message));
     return std::nullopt;
@@ -552,7 +554,8 @@ extract_menu_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
     return reject("menu topic source is empty");
   std::string inner_error;
   if (!verify_layout_ir(records, layout, &inner_error) ||
-      !verify_ownership_ir(records, layout, ownership, &inner_error))
+      !ownership_verified_for(verified_ownership, records, layout,
+                              &inner_error))
     return reject("menu topic prerequisite IR rejected: " + inner_error);
   const auto menu = extract_source_menu_ir(records, &inner_error);
   if (!menu || !verify_source_menu_ir(records, *menu, &inner_error))
@@ -732,7 +735,7 @@ extract_menu_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
 bool verify_menu_topic_ir(
     const std::vector<DecodedLogicalRecordSource> &records,
     const MenuTargetValidationIR &target_validation,
-    const LayoutIR &layout, const OwnershipIR &ownership,
+    const LayoutIR &layout, const VerifiedOwnershipIR &ownership,
     const MenuTopicIR &topic, std::string *error) {
   const auto canonical =
       extract_menu_topic_ir(records, target_validation, layout, ownership,

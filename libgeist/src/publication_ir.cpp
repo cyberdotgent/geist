@@ -254,10 +254,11 @@ void append_paragraph_text(PublicationParagraphIR& paragraph,
 
 std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
-    const LayoutIR& layout, const OwnershipIR& ownership) {
+    const LayoutIR& layout, const VerifiedOwnershipIR& verified_ownership) {
   if (records.empty() || !verify_layout_ir(records, layout) ||
-      !verify_ownership_ir(records, layout, ownership))
+      !ownership_verified_for(verified_ownership, records, layout))
     return std::nullopt;
+  const OwnershipIR& ownership = verified_ownership;
   // The publication envelope is typed by source coordinates: exactly one
   // title control segment followed by entry (font) control segments whose
   // payloads may continue into text segments. No count of segments or runs is
@@ -598,7 +599,7 @@ std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
 
 bool verify_publication_catalog_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
-    const LayoutIR& layout, const OwnershipIR& ownership,
+    const LayoutIR& layout, const VerifiedOwnershipIR& ownership,
     const PublicationCatalogIR& catalog, std::string* error) {
   const auto fail = [&](const std::string& message) {
     if (error != nullptr) *error = message;

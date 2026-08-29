@@ -135,11 +135,11 @@ struct CommentDeliveryIR {
 
 std::optional<CommentDeliveryIR> extract_comment_delivery_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
-    const LayoutIR& layout, const OwnershipIR& ownership,
+    const LayoutIR& layout, const VerifiedOwnershipIR& ownership,
     std::string* error = nullptr);
 bool verify_comment_delivery_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
-    const LayoutIR& layout, const OwnershipIR& ownership,
+    const LayoutIR& layout, const VerifiedOwnershipIR& ownership,
     const CommentDeliveryIR& delivery, std::string* error = nullptr);
 std::string format_comment_delivery_ir(const CommentDeliveryIR& delivery);
 

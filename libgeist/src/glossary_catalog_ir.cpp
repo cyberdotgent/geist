@@ -73,10 +73,7 @@ bool exact_spaces(const TokenWords &words) {
 }
 
 std::string lower(std::string value) {
-  std::transform(value.begin(), value.end(), value.begin(),
-                 [](const unsigned char ch) {
-                   return static_cast<char>(std::tolower(ch));
-                 });
+  std::transform(value.begin(), value.end(), value.begin(), ascii_lower_char);
   return value;
 }
 
@@ -702,7 +699,9 @@ continuation_prefix(const DecodedLogicalRecordSource &record,
 
 std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
     const std::vector<DecodedLogicalRecordSource> &records,
-    const LayoutIR &layout, const OwnershipIR &ownership, std::string *error) {
+    const LayoutIR &layout, const VerifiedOwnershipIR &verified_ownership,
+    std::string *error) {
+  const OwnershipIR &ownership = verified_ownership;
   const auto reject =
       [&](std::string message) -> std::optional<GlossaryCatalogIR> {
     fail(error, std::move(message));
@@ -713,7 +712,8 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
 
   std::string verification_error;
   if (!verify_layout_ir(records, layout, &verification_error) ||
-      !verify_ownership_ir(records, layout, ownership, &verification_error))
+      !ownership_verified_for(verified_ownership, records, layout,
+                              &verification_error))
     return reject("source layout/ownership is not canonical: " +
                   verification_error);
   for (std::size_t index = 1; index < records.size(); ++index)
@@ -988,13 +988,14 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
 
 bool verify_glossary_catalog_ir(
     const std::vector<DecodedLogicalRecordSource> &records,
-    const LayoutIR &layout, const OwnershipIR &ownership,
+    const LayoutIR &layout, const VerifiedOwnershipIR &verified_ownership,
     const GlossaryCatalogIR &catalog, std::string *error) {
+  const OwnershipIR &ownership = verified_ownership;
   if (!verify_glossary_introduction_ir(records, layout, ownership,
                                        catalog.introduction, error))
     return false;
   const auto canonical =
-      extract_glossary_catalog_ir(records, layout, ownership, error);
+      extract_glossary_catalog_ir(records, layout, verified_ownership, error);
   if (!canonical)
     return false;
   if (!same_catalog(*canonical, catalog))

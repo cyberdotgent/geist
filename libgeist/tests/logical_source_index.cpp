@@ -107,15 +107,14 @@ void verify_book(const std::filesystem::path &path, std::uint32_t first,
       geist::detail::verify_layout_ir(sources, layout, &layout_error);
   require(layout_valid, layout_error.empty() ? "layout IR verification failed"
                                              : layout_error.c_str());
-  const auto ownership = geist::detail::build_ownership_ir(sources, layout);
   std::string ownership_error;
-  const auto ownership_valid = geist::detail::verify_ownership_ir(
-      sources, layout, ownership, &ownership_error);
-  require(ownership_valid, ownership_error.empty()
-                               ? "ownership IR verification failed"
-                               : ownership_error.c_str());
+  const auto ownership = geist::detail::build_verified_ownership_ir(
+      sources, layout, &ownership_error);
+  require(ownership.has_value(), ownership_error.empty()
+                                     ? "ownership IR verification failed"
+                                     : ownership_error.c_str());
   const auto publication =
-      geist::detail::extract_publication_catalog_ir(sources, layout, ownership);
+      geist::detail::extract_publication_catalog_ir(sources, layout, *ownership);
   if (expected_publication)
     require(publication.has_value() == *expected_publication,
             *expected_publication
@@ -132,14 +131,14 @@ void verify_book(const std::filesystem::path &path, std::uint32_t first,
                   publication->introduction_source_rows.front(),
               "split publication heading did not retain its shared source row");
     require(geist::detail::verify_publication_catalog_ir(
-                sources, layout, ownership, *publication, &publication_error),
+                sources, layout, *ownership, *publication, &publication_error),
             publication_error.empty()
                 ? "publication catalog IR verification failed"
                 : publication_error.c_str());
     auto publication_without_title_source = *publication;
     publication_without_title_source.title_source_rows.clear();
     require(!geist::detail::verify_publication_catalog_ir(
-                sources, layout, ownership, publication_without_title_source),
+                sources, layout, *ownership, publication_without_title_source),
             "publication verifier admitted missing title provenance");
     require(geist::detail::format_publication_catalog_ir(*publication)
                     .find("sources=") != std::string::npos,
@@ -148,7 +147,7 @@ void verify_book(const std::filesystem::path &path, std::uint32_t first,
   if (path.filename() == "SC31-711.boo" && first == 435) {
     std::string glossary_error;
     const auto glossary = geist::detail::extract_glossary_introduction_ir(
-        sources, layout, ownership, &glossary_error);
+        sources, layout, *ownership, &glossary_error);
     require(glossary.has_value(),
             glossary_error.empty()
                 ? "glossary introduction did not enter semantic IR"
@@ -179,7 +178,7 @@ void verify_book(const std::filesystem::path &path, std::uint32_t first,
             "glossary IR lost a cross-reference explanation");
     require(glossary &&
                 geist::detail::verify_glossary_introduction_ir(
-                    sources, layout, ownership, *glossary, &glossary_error),
+                    sources, layout, *ownership, *glossary, &glossary_error),
             glossary_error.empty() ? "glossary IR verification failed"
                                    : glossary_error.c_str());
     const auto glossary_source_coordinate =
@@ -198,14 +197,14 @@ void verify_book(const std::filesystem::path &path, std::uint32_t first,
       auto mutated = *glossary;
       mutated.sources.front().text += " changed";
       require(!geist::detail::verify_glossary_introduction_ir(
-                  sources, layout, ownership, mutated),
+                  sources, layout, *ownership, mutated),
               "glossary IR verifier admitted mutated semantic text");
     }
   }
   if (path.filename() == "SC31-711.boo" && first == 172) {
     std::string message_error;
     const auto catalog = geist::detail::extract_message_catalog_ir(
-        sources, layout, ownership, &message_error);
+        sources, layout, *ownership, &message_error);
     require(catalog.has_value(),
             message_error.empty() ? "message catalog did not enter semantic IR"
                                   : message_error.c_str());
@@ -305,7 +304,7 @@ void verify_book(const std::filesystem::path &path, std::uint32_t first,
             "message catalog IR did not expose split-record label recovery");
     require(catalog &&
                 geist::detail::verify_message_catalog_ir(
-                    sources, layout, ownership, *catalog, &message_error),
+                    sources, layout, *ownership, *catalog, &message_error),
             message_error.empty() ? "message catalog IR verification failed"
                                   : message_error.c_str());
     require(catalog && geist::detail::format_message_catalog_ir(*catalog).find(
@@ -315,13 +314,13 @@ void verify_book(const std::filesystem::path &path, std::uint32_t first,
       auto mutated = *catalog;
       mutated.entries.front().id = "24";
       require(!geist::detail::verify_message_catalog_ir(sources, layout,
-                                                        ownership, mutated),
+                                                        *ownership, mutated),
               "message catalog verifier admitted a mutated message ID");
       mutated = *catalog;
       mutated.entries.front().sections.front().paragraphs.front().text +=
           " changed";
       require(!geist::detail::verify_message_catalog_ir(sources, layout,
-                                                        ownership, mutated),
+                                                        *ownership, mutated),
               "message catalog verifier admitted mutated section text");
     }
   }
@@ -394,7 +393,7 @@ void verify_book(const std::filesystem::path &path, std::uint32_t first,
       }
     }
     require(geist::detail::extract_publication_catalog_ir(
-                non_c_sources, layout, ownership)
+                non_c_sources, layout, *ownership)
                 .has_value(),
             "font operand spelling incorrectly remained publication semantic "
             "evidence");
@@ -410,10 +409,10 @@ void verify_book(const std::filesystem::path &path, std::uint32_t first,
     if (font_run != mismatched_layout.runs.end()) {
       ++font_run->rows.front().segment_index;
       require(!geist::detail::extract_publication_catalog_ir(
-                  sources, mismatched_layout, ownership),
+                  sources, mismatched_layout, *ownership),
               "publication admission ignored an inexact source/run envelope");
     }
-    auto opaque_ownership = ownership;
+    auto opaque_ownership = ownership->ir();
     const auto visible_cell = std::find_if(
         opaque_ownership.cells.begin(), opaque_ownership.cells.end(),
         [](const auto &cell) {
@@ -425,8 +424,16 @@ void verify_book(const std::filesystem::path &path, std::uint32_t first,
             "publication fixture has no visible ownership cell to mutate");
     if (visible_cell != opaque_ownership.cells.end()) {
       visible_cell->disposition = geist::detail::SourceDisposition::opaque;
-      require(!geist::detail::extract_publication_catalog_ir(
-                  sources, layout, opaque_ownership),
+      // The reclassified ledger still verifies, so it can be handed to the
+      // family as a verified handle; publication admission must reject it on
+      // its own evidence.
+      const auto opaque_verified = geist::detail::verified_ownership_ir(
+          sources, layout, opaque_ownership);
+      require(opaque_verified.has_value(),
+              "reclassified ownership unexpectedly failed verification");
+      require(!opaque_verified ||
+                  !geist::detail::extract_publication_catalog_ir(
+                      sources, layout, *opaque_verified),
               "publication admission ignored opaque printable ownership");
     }
     std::size_t ansi_rows = 0;

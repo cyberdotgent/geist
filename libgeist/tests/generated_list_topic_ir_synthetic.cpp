@@ -97,7 +97,7 @@ struct Pipeline {
   std::vector<DecodedLogicalRecordSource> sources;
   geist::detail::SelectorCatalogIR selectors;
   geist::detail::LayoutIR layout;
-  geist::detail::OwnershipIR ownership;
+  std::optional<geist::detail::VerifiedOwnershipIR> ownership;
 };
 
 Pipeline pipeline(std::vector<DecodedLogicalRecordSource> sources) {
@@ -110,7 +110,9 @@ Pipeline pipeline(std::vector<DecodedLogicalRecordSource> sources) {
   result.selectors = *selectors;
   result.layout = geist::detail::extract_layout_ir(result.sources);
   result.ownership =
-      geist::detail::build_ownership_ir(result.sources, result.layout);
+      geist::detail::build_verified_ownership_ir(result.sources, result.layout);
+  require(result.ownership.has_value(),
+          "synthetic generated-list ownership is not verifiable");
   return result;
 }
 
@@ -121,19 +123,19 @@ void verify_synthetic_contract() {
            words("ABCD")})});
   std::string error;
   const auto list = geist::detail::extract_generated_list_topic_ir(
-      value.sources, value.selectors, value.layout, value.ownership, &error);
+      value.sources, value.selectors, value.layout, *value.ownership, &error);
   require(list && list->entries.size() == 1 &&
               list->kind == geist::detail::GeneratedListTopicKindIR::figures &&
               geist::detail::verify_generated_list_topic_ir(
                   value.sources, value.selectors, value.layout,
-                  value.ownership, *list, &error),
+                  *value.ownership, *list, &error),
           "complete FIGLIST topic was rejected: " + error);
   if (list) {
     auto mutated = *list;
     ++mutated.heading_source.byte_end;
     require(!geist::detail::verify_generated_list_topic_ir(
                  value.sources, value.selectors, value.layout,
-                 value.ownership, mutated, &error),
+                 *value.ownership, mutated, &error),
             "generated-list verifier admitted mutated heading provenance");
     mutated = *list;
     require(mutated.entries.front().display.cells.front().source.has_value(),
@@ -143,13 +145,13 @@ void verify_synthetic_contract() {
           .source->token_bytes.end;
     require(!geist::detail::verify_generated_list_topic_ir(
                  value.sources, value.selectors, value.layout,
-                 value.ownership, mutated, &error),
+                 *value.ownership, mutated, &error),
             "generated-list verifier admitted mutated cell provenance");
     mutated = *list;
     mutated.entries.front().target.raw_target = "OTHER";
     require(!geist::detail::verify_generated_list_topic_ir(
                  value.sources, value.selectors, value.layout,
-                 value.ownership, mutated, &error),
+                 *value.ownership, mutated, &error),
             "generated-list verifier admitted mutated raw target identity");
     mutated = *list;
     ++mutated.entries.front()
@@ -158,7 +160,7 @@ void verify_synthetic_contract() {
           .segment_index;
     require(!geist::detail::verify_generated_list_topic_ir(
                  value.sources, value.selectors, value.layout,
-                 value.ownership, mutated, &error),
+                 *value.ownership, mutated, &error),
             "generated-list verifier admitted mutated fragment provenance");
   }
   geist::detail::TopicIdentityIR identity;
@@ -197,7 +199,8 @@ void verify_synthetic_contract() {
            words("cselect 3 4 FIGONE"), words("?"), words("   "),
            words("ABCD"), words("CMENU")})});
   require(!geist::detail::extract_generated_list_topic_ir(
-               extra.sources, extra.selectors, extra.layout, extra.ownership,
+               extra.sources, extra.selectors, extra.layout,
+               *extra.ownership,
                &error),
           "generated-list envelope admitted a trailing typed object");
 
@@ -207,7 +210,7 @@ void verify_synthetic_contract() {
            words("ABCD")})});
   require(!geist::detail::extract_generated_list_topic_ir(
                mismatch.sources, mismatch.selectors, mismatch.layout,
-               mismatch.ownership, &error),
+               *mismatch.ownership, &error),
           "generated-list envelope admitted a mismatched ST title");
 
   const auto directives = pipeline({make_source(
@@ -217,7 +220,7 @@ void verify_synthetic_contract() {
            words("   "), words("ABCD"), words("cz OFF EFIGLIST 0 0")})});
   const auto directed = geist::detail::extract_generated_list_topic_ir(
       directives.sources, directives.selectors, directives.layout,
-      directives.ownership, &error);
+      *directives.ownership, &error);
   require(directed && directed->entries.size() == 1,
           "typed generated-list directive envelope was rejected: " + error);
 
@@ -228,7 +231,7 @@ void verify_synthetic_contract() {
            words("ABCD"), words("cz OFF ETLIST 0 0")})});
   require(!geist::detail::extract_generated_list_topic_ir(
                wrong_directive.sources, wrong_directive.selectors,
-               wrong_directive.layout, wrong_directive.ownership, &error),
+               wrong_directive.layout, *wrong_directive.ownership, &error),
           "FIGLIST admitted TLIST-specific directives");
 
   const auto malformed_directive = pipeline({make_source(
@@ -237,7 +240,7 @@ void verify_synthetic_contract() {
            words("   "), words("ABCD")})});
   require(!geist::detail::extract_generated_list_topic_ir(
                malformed_directive.sources, malformed_directive.selectors,
-               malformed_directive.layout, malformed_directive.ownership,
+               malformed_directive.layout, *malformed_directive.ownership,
                &error),
           "generated list admitted an unknown CZ operand form");
 }
@@ -390,10 +393,13 @@ void verify_corpus_inventory() {
       const auto selectors = geist::detail::extract_selector_catalog_ir(sources);
       if (!selectors) continue;
       const auto layout = geist::detail::extract_layout_ir(sources);
-      const auto ownership = geist::detail::build_ownership_ir(sources, layout);
       std::string error;
-      const auto list = geist::detail::extract_generated_list_topic_ir(
-          sources, *selectors, layout, ownership, &error);
+      const auto ownership =
+          geist::detail::build_verified_ownership_ir(sources, layout, &error);
+      const auto list =
+          ownership ? geist::detail::extract_generated_list_topic_ir(
+                          sources, *selectors, layout, *ownership, &error)
+                    : std::optional<geist::detail::GeneratedListTopicIR>{};
       if (!list) {
         if (topic.id == "FIGURES" || topic.id == "TABLES")
           rejected_candidates.push_back(file.path().filename().string() + ':' +
@@ -405,7 +411,7 @@ void verify_corpus_inventory() {
         continue;
       }
       require(geist::detail::verify_generated_list_topic_ir(
-                  sources, *selectors, layout, ownership, *list, &error),
+                  sources, *selectors, layout, *ownership, *list, &error),
               "admitted generated-list topic did not verify: " +
                   file.path().filename().string() + ':' + topic.id + ' ' + error);
       for (const auto& entry : list->entries) require_entry_partition(entry);

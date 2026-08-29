@@ -401,22 +401,24 @@ bool same_topic(const GeneratedListTopicIR& left,
 std::optional<GeneratedListTopicIR> extract_generated_list_topic_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
     const SelectorCatalogIR& selectors, const LayoutIR& layout,
-    const OwnershipIR& ownership, std::string* error) {
+    const VerifiedOwnershipIR& verified_ownership, std::string* error) {
   const auto reject = [&](std::string message)
       -> std::optional<GeneratedListTopicIR> {
     fail(error, std::move(message));
     return std::nullopt;
   };
   if (records.empty()) return reject("generated-list source is empty");
+  const OwnershipIR& ownership = verified_ownership;
   std::string inner_error;
   if (!verify_selector_catalog_ir(records, selectors, &inner_error) ||
       !verify_layout_ir(records, layout, &inner_error) ||
-      !verify_ownership_ir(records, layout, ownership, &inner_error))
+      !ownership_verified_for(verified_ownership, records, layout,
+                              &inner_error))
     return reject("generated-list prerequisite IR rejected: " + inner_error);
   const auto display = extract_selector_display_ir(
-      records, selectors, layout, ownership, &inner_error);
+      records, selectors, layout, verified_ownership, &inner_error);
   if (!display || !verify_selector_display_ir(
-                      records, selectors, layout, ownership, *display,
+                      records, selectors, layout, verified_ownership, *display,
                       &inner_error))
     return reject("generated-list display rejected: " + inner_error);
   if (display->rows.empty() || display->rows.size() != selectors.selectors.size() ||
@@ -641,7 +643,7 @@ std::optional<GeneratedListTopicIR> extract_generated_list_topic_ir(
 bool verify_generated_list_topic_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
     const SelectorCatalogIR& selectors, const LayoutIR& layout,
-    const OwnershipIR& ownership, const GeneratedListTopicIR& topic,
+    const VerifiedOwnershipIR& ownership, const GeneratedListTopicIR& topic,
     std::string* error) {
   const auto canonical = extract_generated_list_topic_ir(
       records, selectors, layout, ownership, error);

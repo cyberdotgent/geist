@@ -47,8 +47,8 @@ std::string extract_topic_header_id(const std::string& decoded_record) {
   auto record = trim_ascii(decoded_record);
   const auto start = skip_decoded_separators(record);
   if (start + 3 > record.size() ||
-      std::tolower(static_cast<unsigned char>(record[start])) != 's' ||
-      std::tolower(static_cast<unsigned char>(record[start + 1])) != 'h') {
+      ascii_lower_char(record[start]) != 's' ||
+      ascii_lower_char(record[start + 1]) != 'h') {
     return {};
   }
 
@@ -512,8 +512,7 @@ bool looks_like_gml_control_at(const std::string& value, std::size_t offset) {
   if (offset >= value.size()) {
     return false;
   }
-  const auto initial = static_cast<char>(
-      std::tolower(static_cast<unsigned char>(value[offset])));
+  const auto initial = ascii_lower_char(value[offset]);
   if (initial != 'c' && initial != 'e' && initial != 's') {
     return false;
   }
@@ -534,7 +533,11 @@ bool looks_like_gml_control_at(const std::string& value, std::size_t offset) {
       "cfront",      "ccontents",  "cfigures",   "ctables",
       "cindex",      "cendindex",  "cidelm",     "cpicture"};
   for (const auto prefix : prefixes) {
-    if (!ascii_starts_with_case_insensitive(value, offset, prefix)) {
+    // Same answer, one character earlier: a prefix whose own initial differs
+    // from the folded initial can never match, so it never reaches the full
+    // case-insensitive comparison.
+    if (prefix.front() != initial ||
+        !ascii_starts_with_case_insensitive(value, offset, prefix)) {
       continue;
     }
     const auto end = offset + prefix.size();
@@ -4374,8 +4377,8 @@ std::string render_font_gml(std::string value, GmlRenderState& state) {
       raw_trailing, state.current_font_base_column);
   const auto semantic_styled_heading_row =
       state.in_semantic_message_catalog && !spans.empty() &&
-      ascii_lower(raw_trailing).find("meaning:") == std::string::npos &&
-      ascii_lower(raw_trailing).find("action:") == std::string::npos &&
+      !ascii_contains_case_insensitive(raw_trailing, "meaning:") &&
+      !ascii_contains_case_insensitive(raw_trailing, "action:") &&
       std::all_of(spans.begin(), spans.end(), [](const auto& span) {
         return ascii_equals_case_insensitive(span.code, "2");
       });
@@ -4951,7 +4954,7 @@ std::string render_gml_segment(std::string segment,
   if (ascii_starts_with_case_insensitive(lower, "srtbl")) {
     if (state.table_just_closed && !state.in_table &&
         segment.find('?') == std::string::npos &&
-        ascii_lower(segment).find("other trademarks") != std::string::npos) {
+        ascii_contains_case_insensitive(segment, "other trademarks")) {
       state.table_just_closed = false;
       auto payload = trim_ascii(segment.substr(5));
       const auto space = payload.find_first_of(" \t");
@@ -5606,13 +5609,22 @@ render_verified_publication_catalog_gml(
   std::string semantic_error;
   if (!verify_layout_ir(sources, layout, &semantic_error))
     return std::nullopt;
-  const auto ownership = build_ownership_ir(sources, layout);
-  if (!verify_ownership_ir(sources, layout, ownership, &semantic_error))
-    return std::nullopt;
+  const auto ownership =
+      build_verified_ownership_ir(sources, layout, &semantic_error);
+  return render_verified_publication_catalog_gml(
+      sources, layout, ownership ? &*ownership : nullptr);
+}
+
+std::optional<std::vector<std::string>>
+render_verified_publication_catalog_gml(
+    const std::vector<DecodedLogicalRecordSource>& sources,
+    const LayoutIR& layout, const VerifiedOwnershipIR* ownership) {
+  if (ownership == nullptr) return std::nullopt;
+  std::string semantic_error;
   const auto publication =
-      extract_publication_catalog_ir(sources, layout, ownership);
+      extract_publication_catalog_ir(sources, layout, *ownership);
   if (!publication ||
-      !verify_publication_catalog_ir(sources, layout, ownership, *publication,
+      !verify_publication_catalog_ir(sources, layout, *ownership, *publication,
                                      &semantic_error))
     return std::nullopt;
   std::vector<std::string> rendered;
@@ -5664,8 +5676,7 @@ bool project_verified_menu_gml(
   for (std::size_t index = 0; index < menu->items.size(); ++index) {
     const auto& item = menu->items[index];
     const auto expected = "refid='" + item.target + "'";
-    if (ascii_lower(rendered[lines[index]]).find(ascii_lower(expected)) ==
-        std::string::npos)
+    if (!ascii_contains_case_insensitive(rendered[lines[index]], expected))
       return false;
   }
   for (std::size_t index = 0; index < menu->items.size(); ++index) {
@@ -5679,13 +5690,30 @@ bool project_verified_menu_gml(
 std::vector<std::string> render_gml_records_with_source_layout(
     const std::vector<std::string>& decoded_records,
     const std::vector<DecodedLogicalRecordSource>& sources) {
-  if (const auto publication =
-          render_verified_publication_catalog_gml(sources))
-    return *publication;
+  const auto layout = extract_layout_ir(sources);
+  std::string geometry_error;
+  std::optional<VerifiedOwnershipIR> ownership;
+  if (verify_layout_ir(sources, layout, &geometry_error))
+    ownership = build_verified_ownership_ir(sources, layout, &geometry_error);
+  return render_gml_records_with_source_layout(
+      decoded_records, sources, layout, ownership ? &*ownership : nullptr,
+      false);
+}
+
+std::vector<std::string> render_gml_records_with_source_layout(
+    const std::vector<std::string>& decoded_records,
+    const std::vector<DecodedLogicalRecordSource>& sources,
+    const LayoutIR& layout, const VerifiedOwnershipIR* ownership,
+    bool publication_already_declined) {
+  if (!publication_already_declined) {
+    if (const auto publication =
+            render_verified_publication_catalog_gml(sources, layout, ownership))
+      return *publication;
+  }
   const auto source_cleaned_records =
       clean_source_owned_toc_title_markers(decoded_records, sources);
-  const auto st_projected_records =
-      project_source_owned_st_prose_rows(source_cleaned_records, sources);
+  const auto st_projected_records = project_source_owned_st_prose_rows(
+      source_cleaned_records, sources, layout, ownership);
   auto procedure_steps =
       numbered_procedure_step_segments(st_projected_records, sources);
   auto layout_records =
@@ -5763,14 +5791,14 @@ std::vector<std::string> render_gml_records_with_source_layout(
     const auto table = std::find_if(
         rendered.begin(), rendered.end(), [](const auto& record) {
           return ascii_starts_with_case_insensitive(record, ":table ") &&
-                 ascii_lower(record).find("form='true'") != std::string::npos;
+                 ascii_contains_case_insensitive(record, "form='true'");
         });
     if (table == rendered.end()) {
       return std::nullopt;
     }
     if (std::find_if(table + 1, rendered.end(), [](const auto& record) {
           return ascii_starts_with_case_insensitive(record, ":table ") &&
-                 ascii_lower(record).find("form='true'") != std::string::npos;
+                 ascii_contains_case_insensitive(record, "form='true'");
         }) != rendered.end()) {
       return std::nullopt;
     }

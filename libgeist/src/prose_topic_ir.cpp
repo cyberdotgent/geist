@@ -32,7 +32,7 @@ using namespace prose_internal;
 
 std::optional<ProseTopicIR> extract_prose_topic_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
-    const LayoutIR& layout, const OwnershipIR& ownership,
+    const LayoutIR& layout, const VerifiedOwnershipIR& verified_ownership,
     const std::string& title, const BookTopicCatalogIR* book_topic_catalog,
     std::string* error, const std::set<std::string>* resource_ids) {
   const auto reject = [&](std::string message) -> std::optional<ProseTopicIR> {
@@ -40,9 +40,11 @@ std::optional<ProseTopicIR> extract_prose_topic_ir(
     return std::nullopt;
   };
   if (records.empty()) return reject("topic has no records");
+  const OwnershipIR& ownership = verified_ownership;
   std::string verification_error;
   if (!verify_layout_ir(records, layout, &verification_error) ||
-      !verify_ownership_ir(records, layout, ownership, &verification_error))
+      !ownership_verified_for(verified_ownership, records, layout,
+                              &verification_error))
     return reject("source layout/ownership is not canonical: " +
                   verification_error);
   for (const auto& record : records)
@@ -164,10 +166,11 @@ std::optional<ProseTopicIR> extract_prose_topic_ir(
 
 bool verify_prose_topic_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
-    const LayoutIR& layout, const OwnershipIR& ownership,
+    const LayoutIR& layout, const VerifiedOwnershipIR& verified_ownership,
     const std::string& title, const BookTopicCatalogIR* book_topic_catalog,
     const ProseTopicIR& topic, std::string* error,
     const std::set<std::string>* resource_ids) {
+  const OwnershipIR& ownership = verified_ownership;
   std::size_t total = 0;
   for (const auto& record : records) total += record.ir.tokens.size();
   if (topic.ledger.size() != total || topic.token_count != total ||
@@ -331,7 +334,7 @@ bool verify_prose_topic_ir(
       return fail(error, "inline claims do not cover the decoded word");
   }
   const auto canonical =
-      extract_prose_topic_ir(records, layout, ownership, title,
+      extract_prose_topic_ir(records, layout, verified_ownership, title,
                              book_topic_catalog, error, resource_ids);
   if (!canonical) return false;
   if (format_prose_topic_ir(*canonical) != format_prose_topic_ir(topic))

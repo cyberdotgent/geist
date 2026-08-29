@@ -91,7 +91,7 @@ bool same_topic(const FixedProseTopicIR& left,
 
 std::optional<FixedProseTopicIR> extract_fixed_prose_topic_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
-    const LayoutIR& layout, const OwnershipIR& ownership,
+    const LayoutIR& layout, const VerifiedOwnershipIR& verified_ownership,
     std::string* error) {
   const auto reject =
       [&](std::string message) -> std::optional<FixedProseTopicIR> {
@@ -103,7 +103,8 @@ std::optional<FixedProseTopicIR> extract_fixed_prose_topic_ir(
 
   std::string verification_error;
   if (!verify_layout_ir(records, layout, &verification_error) ||
-      !verify_ownership_ir(records, layout, ownership, &verification_error))
+      !ownership_verified_for(verified_ownership, records, layout,
+                              &verification_error))
     return reject("source layout/ownership is not canonical: " +
                   verification_error);
 
@@ -157,7 +158,7 @@ std::optional<FixedProseTopicIR> extract_fixed_prose_topic_ir(
       heading_level.back() < '1' || heading_level.back() > '6')
     return reject("fixed prose topic heading level is invalid");
 
-  auto prose = extract_fixed_prose_ir(records, layout, ownership,
+  auto prose = extract_fixed_prose_ir(records, layout, verified_ownership,
                                       &verification_error);
   if (!prose)
     return reject("inner fixed prose rejected: " + verification_error);
@@ -195,7 +196,7 @@ std::optional<FixedProseTopicIR> extract_fixed_prose_topic_ir(
 
 bool verify_fixed_prose_topic_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
-    const LayoutIR& layout, const OwnershipIR& ownership,
+    const LayoutIR& layout, const VerifiedOwnershipIR& ownership,
     const FixedProseTopicIR& topic, std::string* error) {
   if (!verify_fixed_prose_ir(records, layout, ownership, topic.prose, error))
     return false;

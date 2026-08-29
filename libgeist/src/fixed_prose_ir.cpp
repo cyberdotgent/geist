@@ -119,16 +119,18 @@ bool prose_equal(const FixedProseIR& left, const FixedProseIR& right) {
 
 std::optional<FixedProseIR> extract_fixed_prose_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
-    const LayoutIR& layout, const OwnershipIR& ownership,
+    const LayoutIR& layout, const VerifiedOwnershipIR& verified_ownership,
     std::string* error) {
   const auto fail =
       [&](const std::string& message) -> std::optional<FixedProseIR> {
     if (error != nullptr) *error = message;
     return std::nullopt;
   };
+  const OwnershipIR& ownership = verified_ownership;
   std::string verification_error;
   if (!verify_layout_ir(records, layout, &verification_error) ||
-      !verify_ownership_ir(records, layout, ownership, &verification_error))
+      !ownership_verified_for(verified_ownership, records, layout,
+                              &verification_error))
     return fail("source layout/ownership is not canonical: " +
                 verification_error);
 
@@ -297,7 +299,7 @@ std::optional<FixedProseIR> extract_fixed_prose_ir(
 
 bool verify_fixed_prose_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
-    const LayoutIR& layout, const OwnershipIR& ownership,
+    const LayoutIR& layout, const VerifiedOwnershipIR& ownership,
     const FixedProseIR& prose, std::string* error) {
   const auto canonical = extract_fixed_prose_ir(records, layout, ownership);
   if (!canonical) {

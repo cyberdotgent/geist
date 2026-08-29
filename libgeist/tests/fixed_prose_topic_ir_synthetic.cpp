@@ -61,7 +61,7 @@ const TopicInfo& topic(const LoadedBook& book, const std::string& id) {
 struct Extracted {
   std::vector<DecodedLogicalRecordSource> sources;
   LayoutIR layout;
-  OwnershipIR ownership;
+  std::optional<VerifiedOwnershipIR> ownership;
   std::optional<FixedProseTopicIR> prose;
   std::string error;
 };
@@ -72,9 +72,11 @@ Extracted extract(LoadedBook& book, const std::string& id) {
   result.sources = decode_logical_record_sources(
       book.context, info.start_logical_record, info.end_logical_record);
   result.layout = extract_layout_ir(result.sources);
-  result.ownership = build_ownership_ir(result.sources, result.layout);
+  result.ownership =
+      build_verified_ownership_ir(result.sources, result.layout, &result.error);
+  if (!result.ownership) return result;
   result.prose = extract_fixed_prose_topic_ir(
-      result.sources, result.layout, result.ownership, &result.error);
+      result.sources, result.layout, *result.ownership, &result.error);
   return result;
 }
 
@@ -123,7 +125,7 @@ int main() {
           "whole-record or semantic source provenance is incomplete");
   require(verify_fixed_prose_topic_ir(
               communications.sources, communications.layout,
-              communications.ownership, *communications.prose,
+              *communications.ownership, *communications.prose,
               &communications.error),
           communications.error);
 
@@ -154,7 +156,7 @@ int main() {
   changed_source.segments.back().opcode = "ST-mutated";
   require(!verify_fixed_prose_topic_ir(
               expected_results.sources, expected_results.layout,
-              expected_results.ownership, changed_source, &error),
+              *expected_results.ownership, changed_source, &error),
           "canonical verifier admitted changed envelope provenance");
   auto changed_document = *document;
   std::get<TextInlineIR>(

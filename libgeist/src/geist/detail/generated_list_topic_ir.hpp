@@ -61,11 +61,11 @@ struct GeneratedListTopicIR {
 std::optional<GeneratedListTopicIR> extract_generated_list_topic_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
     const SelectorCatalogIR& selectors, const LayoutIR& layout,
-    const OwnershipIR& ownership, std::string* error = nullptr);
+    const VerifiedOwnershipIR& ownership, std::string* error = nullptr);
 bool verify_generated_list_topic_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
     const SelectorCatalogIR& selectors, const LayoutIR& layout,
-    const OwnershipIR& ownership, const GeneratedListTopicIR& topic,
+    const VerifiedOwnershipIR& ownership, const GeneratedListTopicIR& topic,
     std::string* error = nullptr);
 std::string format_generated_list_topic_ir(const GeneratedListTopicIR& topic);
 

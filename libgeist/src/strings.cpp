@@ -44,24 +44,28 @@ std::string trim_ascii(std::string value) {
 
 std::string ascii_lower(std::string value) {
   for (auto& ch : value) {
-    ch = static_cast<char>(
-        std::tolower(static_cast<unsigned char>(ch)));
+    ch = ascii_lower_char(ch);
   }
   return value;
 }
 
-bool ascii_equals_case_insensitive(const std::string& left,
-                                   const std::string& right) {
+bool ascii_equals_case_insensitive(std::string_view left,
+                                   std::string_view right) {
   if (left.size() != right.size()) {
     return false;
   }
   for (std::size_t i = 0; i < left.size(); ++i) {
-    if (std::tolower(static_cast<unsigned char>(left[i])) !=
-        std::tolower(static_cast<unsigned char>(right[i]))) {
+    if (ascii_lower_char(left[i]) != ascii_lower_char(right[i])) {
       return false;
     }
   }
   return true;
+}
+
+bool ascii_equals_case_insensitive(const std::string& left,
+                                   const std::string& right) {
+  return ascii_equals_case_insensitive(std::string_view(left),
+                                       std::string_view(right));
 }
 
 bool ascii_starts_with_case_insensitive(const std::string& value,
@@ -71,12 +75,31 @@ bool ascii_starts_with_case_insensitive(const std::string& value,
     return false;
   }
   for (std::size_t i = 0; i < prefix.size(); ++i) {
-    if (std::tolower(static_cast<unsigned char>(value[offset + i])) !=
-        std::tolower(static_cast<unsigned char>(prefix[i]))) {
+    if (ascii_lower_char(value[offset + i]) != ascii_lower_char(prefix[i])) {
       return false;
     }
   }
   return true;
+}
+
+bool ascii_contains_case_insensitive(std::string_view value,
+                                     std::string_view needle) {
+  if (needle.size() > value.size()) {
+    return false;
+  }
+  const auto last = value.size() - needle.size();
+  for (std::size_t offset = 0; offset <= last; ++offset) {
+    std::size_t index = 0;
+    while (index < needle.size() &&
+           ascii_lower_char(value[offset + index]) ==
+               ascii_lower_char(needle[index])) {
+      ++index;
+    }
+    if (index == needle.size()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 bool ascii_starts_with_case_insensitive(const std::string& value,

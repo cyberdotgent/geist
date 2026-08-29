@@ -224,8 +224,21 @@ std::vector<std::string> project_source_owned_st_prose_rows(
     const std::vector<DecodedLogicalRecordSource>& sources) {
   if (decoded_records.size() != sources.size()) return decoded_records;
   const auto layout = extract_layout_ir(sources);
-  const auto ownership = build_ownership_ir(sources, layout);
-  const auto prose = extract_fixed_prose_ir(sources, layout, ownership);
+  // The ledger is built and verified once here; extract_fixed_prose_ir used to
+  // repeat both. A ledger that fails verification declines the projection
+  // exactly as the inner extraction did.
+  const auto ownership = build_verified_ownership_ir(sources, layout);
+  return project_source_owned_st_prose_rows(
+      decoded_records, sources, layout, ownership ? &*ownership : nullptr);
+}
+
+std::vector<std::string> project_source_owned_st_prose_rows(
+    const std::vector<std::string>& decoded_records,
+    const std::vector<DecodedLogicalRecordSource>& sources,
+    const LayoutIR& layout, const VerifiedOwnershipIR* ownership) {
+  if (decoded_records.size() != sources.size()) return decoded_records;
+  if (ownership == nullptr) return decoded_records;
+  const auto prose = extract_fixed_prose_ir(sources, layout, *ownership);
   if (!prose) return decoded_records;
   const auto source = std::find_if(
       sources.begin(), sources.end(), [&](const auto& record) {

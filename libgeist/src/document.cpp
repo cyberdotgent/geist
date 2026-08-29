@@ -453,12 +453,18 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
       *decode_context_, topic->start_logical_record,
       topic->end_logical_record);
   const auto layout = detail::extract_layout_ir(sources);
-  const auto ownership = detail::build_ownership_ir(sources, layout);
   std::string ir_error;
-  if (!detail::verify_layout_ir(sources, layout, &ir_error) ||
-      !detail::verify_ownership_ir(sources, layout, ownership, &ir_error)) {
+  // One build, one verification for the whole trace: every consumer below
+  // receives the verified handle instead of re-deriving the ledger.
+  if (!detail::verify_layout_ir(sources, layout, &ir_error)) {
     throw std::runtime_error("invalid source IR trace: " + ir_error);
   }
+  const auto verified =
+      detail::build_verified_ownership_ir(sources, layout, &ir_error);
+  if (!verified) {
+    throw std::runtime_error("invalid source IR trace: " + ir_error);
+  }
+  const detail::OwnershipIR& ownership = *verified;
   const auto trace_for = [&](const std::uint32_t logical_record)
       -> BooLogicalRecordTrace* {
     if (logical_record < topic->start_logical_record) return nullptr;
@@ -499,11 +505,11 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
   }
   std::string fixed_prose_extraction_error;
   const auto fixed_prose = detail::extract_fixed_prose_ir(
-      sources, layout, ownership, &fixed_prose_extraction_error);
+      sources, layout, *verified, &fixed_prose_extraction_error);
   if (fixed_prose) {
     std::string fixed_prose_error;
     if (!detail::verify_fixed_prose_ir(
-            sources, layout, ownership, *fixed_prose, &fixed_prose_error))
+            sources, layout, *verified, *fixed_prose, &fixed_prose_error))
       throw std::runtime_error("invalid fixed prose IR trace: " +
                                fixed_prose_error);
     if (auto* destination = trace_for(fixed_prose->logical_record))
@@ -525,11 +531,11 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
   }
   std::string comment_extraction_error;
   const auto comment_delivery = detail::extract_comment_delivery_ir(
-      sources, layout, ownership, &comment_extraction_error);
+      sources, layout, *verified, &comment_extraction_error);
   if (comment_delivery && !sources.empty()) {
     std::string comment_error;
     if (!detail::verify_comment_delivery_ir(
-            sources, layout, ownership, *comment_delivery, &comment_error))
+            sources, layout, *verified, *comment_delivery, &comment_error))
       throw std::runtime_error("invalid comment/delivery IR trace: " +
                                comment_error);
     if (auto* destination = trace_for(sources.front().logical_record))
@@ -541,11 +547,11 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
           "comment_delivery_ir_rejected=" + comment_extraction_error);
   }
   const auto publication =
-      detail::extract_publication_catalog_ir(sources, layout, ownership);
+      detail::extract_publication_catalog_ir(sources, layout, *verified);
   if (publication && !sources.empty()) {
     std::string publication_error;
     if (!detail::verify_publication_catalog_ir(
-            sources, layout, ownership, *publication, &publication_error))
+            sources, layout, *verified, *publication, &publication_error))
       throw std::runtime_error("invalid publication IR trace: " +
                                publication_error);
     if (auto* destination = trace_for(sources.front().logical_record))
@@ -628,11 +634,11 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
           detail::format_selector_catalog_ir(*selectors));
     std::string display_extraction_error;
     const auto display = detail::extract_selector_display_ir(
-        sources, *selectors, layout, ownership, &display_extraction_error);
+        sources, *selectors, layout, *verified, &display_extraction_error);
     if (display) {
       std::string display_error;
       if (!detail::verify_selector_display_ir(
-              sources, *selectors, layout, ownership, *display,
+              sources, *selectors, layout, *verified, *display,
               &display_error))
         throw std::runtime_error("invalid selector display IR trace: " +
                                  display_error);

@@ -66,10 +66,13 @@ CommentDeliveryIR comment_ir(LoadedBook &book, const TopicInfo &topic_info) {
       book.context, topic_info.start_logical_record,
       topic_info.end_logical_record);
   const auto layout = extract_layout_ir(sources);
-  const auto ownership = build_ownership_ir(sources, layout);
   std::string error;
+  const auto ownership =
+      build_verified_ownership_ir(sources, layout, &error);
+  require(ownership.has_value(),
+          error.empty() ? "comment ownership is not verifiable" : error);
   const auto result =
-      extract_comment_delivery_ir(sources, layout, ownership, &error);
+      extract_comment_delivery_ir(sources, layout, *ownership, &error);
   require(result.has_value(),
           error.empty() ? "comment extraction failed" : error);
   // Report and continue: an empty IR is rejected by the lowerer instead of
