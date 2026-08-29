@@ -108,6 +108,8 @@ std::optional<ProseTopicIR> extract_prose_topic_ir(
   topic.index_terms.insert(topic.index_terms.end(),
                            stream.trailing_index_terms.begin(),
                            stream.trailing_index_terms.end());
+  topic.index_terms.insert(topic.index_terms.end(), plan.index_terms.begin(),
+                           plan.index_terms.end());
   if (!build_menu(records, stream, book_topic_catalog, ledger, topic, error))
     return std::nullopt;
   for (auto anchor : stream.trailing_anchors) {

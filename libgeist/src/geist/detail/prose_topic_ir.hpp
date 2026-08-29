@@ -193,7 +193,13 @@ struct ProseTableLinkIR {
   std::size_t span = 0;
   std::size_t column = 0;
   std::size_t length = 0;
+  // Canonical destination and its kind.  An in-book `CSELECT <anchor>` is an
+  // anchor; a `LNK` selector in a cell carries the same alternative list as
+  // an inline one (selector_link_ir.hpp) and resolves to an external
+  // destination -- GG24-395 3.3.6 `TBLUNIQ12` cell `IBM AIX Version 3.2 ...`
+  // is served as `<a href="../../DOCNUM/SC23-2456/CCONTENTS">`.
   std::string target;
+  CrossReferenceTargetKindIR target_kind = CrossReferenceTargetKindIR::anchor;
   std::uint32_t logical_record = 0;
   std::vector<std::size_t> payload_tokens;  // ascending
   DocumentSourceSliceIR source;

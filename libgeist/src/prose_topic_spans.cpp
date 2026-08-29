@@ -1,6 +1,7 @@
 #include "geist/detail/prose_topic_internal.hpp"
 
 #include "geist/detail/selector_ir.hpp"
+#include "geist/detail/selector_link_ir.hpp"
 
 #include <algorithm>
 #include <map>
@@ -30,6 +31,7 @@ struct Region {
   SpanRegion extent;
   std::vector<Claim> claims;
   std::vector<ProseTableLinkIR> links;
+  std::vector<ProseIndexTermIR> index_terms;
 };
 
 bool region_structure(const TokenView& view) {
@@ -170,6 +172,27 @@ bool table_region(const std::vector<DecodedLogicalRecordSource>& records,
       const auto operands = operand_tokens(records[record], segment);
       for (const auto token : operands) region.claims.emplace_back(record, token);
       if (segment.kind != BookControlKind::select) continue;
+      // A preformatted region has no cells for a link to attach to.  Hosted
+      // BookServer still serves the selector inside the `<pre>` -- GG24-395
+      // 3.2.2 `TBLUNIQ6` (DT 19941215160749) opens the region with
+      // `<a href="picture-29?mode=zoom"><img ... alt="PICTURE 29"></a>` on
+      // the columns the `cselect 3 11 PIC29` names -- but the alt text and
+      // the anchor label are the region's own display words, which the
+      // reproduced lines already carry verbatim.  Markdown has no inline
+      // inside a preformatted block, so the selector contributes its
+      // columns as text and its opcode/operand tokens stay region
+      // structure.  Nothing is dropped that the hosted page displays.
+      if (block.geometry == FixedTableGeometryIR::preformatted) {
+        for (const auto token : segment.source_tokens) {
+          if (std::binary_search(operands.begin(), operands.end(), token))
+            continue;
+          const auto text = body_text(view_token(records, record, token));
+          if (text.size() < 2 || text.front() != '<' || text.back() != '>')
+            break;
+          region.claims.emplace_back(record, token);
+        }
+        continue;
+      }
       ProseTableLinkIR link;
       if (segment.malformed || operands.empty() ||
           !parse_selector_operand(
@@ -177,25 +200,91 @@ bool table_region(const std::vector<DecodedLogicalRecordSource>& records,
               link.column, link.length, link.target))
         return fail(error, "table '" + block.object_id +
                                "' contains a selector that is not canonical");
-      // A `PIC<n>`/`LNK` selector in a table cell is a picture, not a cross
-      // reference: hosted BookServer serves the cell as an `<img>` (GG24-395
-      // 3.3.8, `<a href="picture-69?mode=zoom"><img ... alt="PICTURE 69">`,
-      // DT 19941215160749).  The table block has no picture cell, so the
-      // topic fails closed instead of degrading the image to a link.
+      // A `PIC<n>` selector in a table cell is a picture: hosted BookServer
+      // serves the cell as an `<img>` (GG24-395 3.3.8,
+      // `<a href="picture-69?mode=zoom"><img ... alt="PICTURE 69">`, DT
+      // 19941215160749).  The table block has no picture cell, so the topic
+      // fails closed instead of degrading the image to a link.
+      std::size_t alternatives = 0;
       {
         const auto target = ascii_lower(link.target);
-        if (target.rfind("pic", 0) == 0 || target == "lnk")
+        if (target.rfind("pic", 0) == 0)
           return fail(error, "table '" + block.object_id +
-                                 "' contains a picture or external selector");
+                                 "' contains a picture selector");
+        // A `LNK` selector in a cell is the same cross-book/external link
+        // the prose inline carries: its destination is the leading `<...>`
+        // alternative tokens of the payload, which are control metadata and
+        // never display text.
+        if (target == "lnk") {
+          std::vector<std::string> tokens;
+          for (const auto token : segment.source_tokens) {
+            if (std::binary_search(operands.begin(), operands.end(), token))
+              continue;
+            const auto text =
+                body_text(view_token(records, record, token));
+            if (text.size() < 2 || text.front() != '<' || text.back() != '>')
+              break;
+            tokens.push_back(text);
+          }
+          std::string link_error;
+          const auto parsed = parse_selector_link(tokens, &link_error);
+          if (!parsed)
+            return fail(error, "table '" + block.object_id +
+                                   "' selector rejected: " + link_error);
+          if (parsed->kind == SelectorLinkKindIR::external_image)
+            return fail(error, "table '" + block.object_id +
+                                   "' cell carries an external image");
+          alternatives = tokens.size();
+          link.target = parsed->destination;
+          link.target_kind = CrossReferenceTargetKindIR::external;
+        }
       }
       link.logical_record = records[record].logical_record;
-      for (const auto token : segment.source_tokens)
-        if (!std::binary_search(operands.begin(), operands.end(), token))
+      {
+        std::size_t skipped = 0;
+        for (const auto token : segment.source_tokens) {
+          if (std::binary_search(operands.begin(), operands.end(), token))
+            continue;
+          if (skipped < alternatives) {
+            ++skipped;
+            region.claims.emplace_back(record, token);
+            continue;
+          }
           link.payload_tokens.push_back(token);
+        }
+      }
       link.source = token_slice(records[record], operands.front(),
                                 operands.back() + 1);
       region.links.push_back(std::move(link));
     }
+  }
+
+  // Preformatted geometry reproduces the envelope line for line, so every
+  // token of every reproduced line belongs to the block whether or not the
+  // layout positioned it (DREICMST 2.1.3 `ACNTT1`: the header words `Table
+  // Name`/`Type`/`ID`/`Data`/`Description` carry no positioned cell).
+  for (const auto& line : block.preformatted_lines) {
+    const auto record = record_index_of(records, line.logical_record);
+    if (!record)
+      return fail(error, "table '" + block.object_id +
+                             "' reproduces a line outside the topic");
+    for (auto token = line.prefix_token; token < line.token_end; ++token)
+      region.claims.emplace_back(*record, token);
+  }
+  // A `SI` subject-index line inside the envelope displays nothing; its
+  // words are the hidden term (see FixedTableBlockIR::index_lines).
+  for (const auto& line : block.index_lines) {
+    const auto record = record_index_of(records, line.logical_record);
+    if (!record)
+      return fail(error, "table '" + block.object_id +
+                             "' carries an index line outside the topic");
+    for (auto token = line.prefix_token; token < line.token_end; ++token)
+      region.claims.emplace_back(*record, token);
+    ProseIndexTermIR term;
+    term.term = line.text;
+    term.slices.push_back(
+        token_slice(records[*record], line.prefix_token, line.token_end));
+    region.index_terms.push_back(std::move(term));
   }
 
   const auto claim_positioned = [&](const PositionedRowCellIR& cell) {
@@ -477,6 +566,7 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
                                    "' inside the " + name +
                                    " region of record " +
                                    std::to_string(records[record].logical_record) +
+                                   " token " + std::to_string(token) +
                                    " is claimed by no block");
         }
         if (!ledger.assign(record, token, role, error, span)) return false;
@@ -490,6 +580,8 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
       link.span = span;
       topic.table_links.push_back(std::move(link));
     }
+    for (auto& term : region.index_terms)
+      plan.index_terms.push_back(std::move(term));
     auto planned = extent;
     planned.span = span;
     plan.regions.push_back(planned);

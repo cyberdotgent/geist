@@ -1,5 +1,6 @@
 #include "geist/detail/internal.hpp"
 #include "geist/detail/book_topic_catalog_ir.hpp"
+#include "geist/detail/fixed_table_block_ir.hpp"
 #include "geist/detail/comment_delivery_ir.hpp"
 #include "geist/detail/selector_display_ir.hpp"
 #include "geist/detail/source_rows.hpp"
@@ -507,6 +508,15 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
     if (auto* destination = trace_for(sources.front().logical_record))
       destination->ir_semantic_blocks.push_back(
           "fixed_prose_ir_rejected=" + fixed_prose_extraction_error);
+  }
+  {
+    const auto tables = detail::extract_fixed_table_blocks_ir(
+        sources, layout, ownership, {0, detail::count_layout_rows(layout)});
+    if ((!tables.blocks.empty() || !tables.declined.empty()) &&
+        !sources.empty())
+      if (auto* destination = trace_for(sources.front().logical_record))
+        destination->ir_semantic_blocks.push_back(
+            detail::format_fixed_table_blocks_ir(tables));
   }
   std::string comment_extraction_error;
   const auto comment_delivery = detail::extract_comment_delivery_ir(
