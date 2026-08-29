@@ -173,11 +173,11 @@ payload := line*
 line    := length_byte token_reference{length_byte bytes}
 ```
 
-The length byte is below the token threshold, so a token-reference reader
-resolves it as a one-byte dictionary token whose spelling is unrelated to the
-line (`call`, `command`, a box junction, a run of spaces).  Its value is the
-line length, not a dictionary reference.  Evidence (`bootrace`/probe token
-ordinals, encoded values, byte widths):
+The length byte is usually below the token threshold, so a token-reference
+reader resolves it as a one-byte dictionary token whose spelling is unrelated
+to the line (`call`, `command`, a box junction, a run of spaces).  Its value
+is the line length, not a dictionary reference.  Evidence (`bootrace`/probe
+token ordinals, encoded values, byte widths):
 
 | File / record | Length byte | Following tokens | Sum of token bytes | Hosted line |
 | --- | --- | --- | --- | --- |
@@ -213,6 +213,26 @@ SC09-138 `1.3.1`, GC23-046 `6.2`) is shown as an empty line.  The arrow
 words `U+2190`-`U+2193` and the bullet `U+2666` reach the hosted page through
 the book's display translation tables (`ÿ`, `"`, dropped, `°`), which
 `libgeist` does not yet apply.
+
+##### A Length Byte May Be At Or Above The Token Threshold
+
+Nothing constrains the length byte to the compact range: a line of 0xdc = 220
+bytes stores 0xdc as its length even in a book whose token threshold is 0xd6.
+A left-to-right token reader then takes it for the first byte of a two-byte
+dictionary reference, swallows the line's first content byte, and every
+following length byte lands mid-token, so the payload no longer parses as
+display lines at all.
+
+| File / record | Byte | Value | Read left-to-right as | Correct reading |
+| --- | --- | --- | --- | --- |
+| `PRG1SORT.boo` record 47 (threshold 0xd6) | 0xe5ae | 0xdc | token 0xdc18, width 2, spelling `classification` | length 220; the next byte 0x18 is the line's first token, a 3-cell space run |
+
+Hosted BookServer prints no `classification` anywhere in PRG1SORT `1.1.3.1`.
+Twenty-six PRG1SORT topics carry such a line.  A decoder therefore has to be
+prepared to re-read a record payload line by line -- one byte of length, then
+exactly that many bytes of tokens -- and should do so only when the resulting
+walk consumes every line exactly, since the plain walk is right everywhere
+else.
 
 This is the structure the Layout IR describes as a width-1 "marker slot"
 followed by a "native origin": the marker slot is the next line's length
