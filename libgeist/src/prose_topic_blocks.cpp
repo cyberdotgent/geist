@@ -62,19 +62,51 @@ bool resolve_spans(const Line& line, std::vector<Attr>& attrs,
       return " [" + std::to_string(span.begin) + "," +
              std::to_string(span.end) + ") on '" + line_text(line) + "'";
     };
-    if (begin >= end || end > line.cells.size())
+    if (begin >= end || begin >= line.cells.size())
       return fail(error, "font/selector span [" + std::to_string(begin) + "," +
                              std::to_string(end) +
                              ") exceeds the display line of " +
-                             std::to_string(line.cells.size()) + " cells");
+                             std::to_string(line.cells.size()) + " cells" +
+                             where());
+    // A span may run past the last cell the row model materialised: the
+    // stored row keeps its trailing display padding, which carries no word.
+    // Hosted BookServer styles only the visible text (ACPZMST1 8.1
+    // `cselect 3 38 HDRXCCOE` on a 40-column row, GG24-395 PREFACE.3
+    // `cselect 3 22 HDRHPRT100` on a 23-column row), and a highlight never
+    // continues onto the next display row: every wrapped phrase carries its
+    // own triple on each row.
+    if (end > line.cells.size()) end = line.cells.size();
     while (begin < end && line.cells[begin].space) ++begin;
     while (end > begin && line.cells[end - 1].space) --end;
     if (begin >= end) return fail(error, "font/selector span is blank" + where());
+    // Hosted BookServer can style part of one decoded word (GC23-046 6.0
+    // `cfont 43 1 V` -> `SMPWRK<I>x</I>`, SG24-204 5.2.1
+    // `cfont 33 1 7 34 1 2` -> `<B><U>L</B></U><B>U</B>`), but the inline
+    // ownership ledger has no sub-token slice, so a boundary inside a word
+    // stays fail-closed.
     if (begin > line.text_begin && !boundary_between(line, begin - 1, begin))
       return fail(error, "span starts inside a word" + where());
     if (end < line.cells.size() && !boundary_between(line, end - 1, end))
       return fail(error, "span ends inside a word" + where());
     if (begin < line.text_begin) return fail(error, "span covers the bullet");
+    // A font span wholly inside one selector span decorates the link text:
+    // hosted BookServer serves ACPZMST1 8.1 as
+    // `<a href="8.2..."><B>&quot;Check_On_Event</B> ... <B>8.2</B></a>`.  The
+    // link is the semantic node and the typed cross reference carries the
+    // words; the decoration is dropped rather than nested.  A font span that
+    // only partly meets a selector span still fails the topic closed.
+    if (!link) {
+      auto inside = npos;
+      bool all_inside = true;
+      for (auto cell = begin; cell < end && all_inside; ++cell) {
+        if (line.cells[cell].space) continue;
+        const auto attached_link = attrs[cell].link;
+        if (attached_link == npos) all_inside = false;
+        else if (inside == npos) inside = attached_link;
+        else if (inside != attached_link) all_inside = false;
+      }
+      if (all_inside && inside != npos) return true;
+    }
     for (auto cell = begin; cell < end; ++cell) {
       if (line.cells[cell].space) continue;
       auto& attr = attrs[cell];

@@ -68,9 +68,15 @@ const char* phrase_tag(const FontSpanIR& span) {
     return "hp2";
   case FontStyleIR::highlight_3:
     return "hp3";
+  case FontStyleIR::highlight_5:
+  case FontStyleIR::highlight_6:
+  case FontStyleIR::highlight_7:
+  case FontStyleIR::highlight_8:
+  case FontStyleIR::highlight_9:
   case FontStyleIR::citation:
   case FontStyleIR::example_phrase:
   case FontStyleIR::keyword:
+  case FontStyleIR::keyword_define:
   case FontStyleIR::variable:
   case FontStyleIR::bold_phrase:
   case FontStyleIR::italic_phrase:
