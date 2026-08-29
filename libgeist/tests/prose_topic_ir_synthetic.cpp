@@ -89,7 +89,7 @@ LoadedBook& book(const std::string& file) {
 struct Extracted {
   std::vector<DecodedLogicalRecordSource> sources;
   LayoutIR layout;
-  OwnershipIR ownership;
+  std::optional<VerifiedOwnershipIR> ownership;
   TopicIdentityIR identity;
   const BookTopicCatalogIR* catalog = nullptr;
   const std::set<std::string>* resource_ids = nullptr;
@@ -110,7 +110,9 @@ Extracted extract(const std::string& file, const std::string& id) {
   result.sources = decode_logical_record_sources(
       loaded.context, info->start_logical_record, info->end_logical_record);
   result.layout = extract_layout_ir(result.sources);
-  result.ownership = build_ownership_ir(result.sources, result.layout);
+  result.ownership =
+      build_verified_ownership_ir(result.sources, result.layout, &result.error);
+  if (!result.ownership) return result;
   result.identity.id = entry->id;
   result.identity.title = entry->title;
   result.identity.heading_level = info->heading_level;
@@ -120,7 +122,7 @@ Extracted extract(const std::string& file, const std::string& id) {
   result.catalog = loaded.catalog ? &*loaded.catalog : nullptr;
   result.resource_ids = &loaded.resource_ids;
   result.prose = extract_prose_topic_ir(result.sources, result.layout,
-                                        result.ownership, entry->title,
+                                        *result.ownership, entry->title,
                                         result.catalog, &result.error,
                                         result.resource_ids);
   return result;
@@ -136,7 +138,7 @@ std::string admit(const std::string& file, const std::string& id,
   if (!extracted.prose) return {};
   std::string error;
   require(verify_prose_topic_ir(extracted.sources, extracted.layout,
-                                extracted.ownership, extracted.identity.title,
+                                *extracted.ownership, extracted.identity.title,
                                 extracted.catalog, *extracted.prose, &error,
                                 extracted.resource_ids),
           label + " verification failed: " + error);
@@ -441,7 +443,7 @@ void mutation_fixtures() {
   const auto& sources = extracted.sources;
   const auto verify = [&](const ProseTopicIR& mutated) {
     std::string error;
-    return verify_prose_topic_ir(sources, extracted.layout, extracted.ownership,
+    return verify_prose_topic_ir(sources, extracted.layout, *extracted.ownership,
                                  extracted.identity.title, extracted.catalog,
                                  mutated, &error);
   };
@@ -486,7 +488,7 @@ void mutation_fixtures() {
   {
     std::string error;
     const auto wrong = extract_prose_topic_ir(
-        sources, extracted.layout, extracted.ownership, "Another Title",
+        sources, extracted.layout, *extracted.ownership, "Another Title",
         extracted.catalog, &error);
     require(!wrong.has_value() && contains(error, "does not match"),
             "title mismatch was admitted");
@@ -775,7 +777,7 @@ void negative_fixtures() {
     auto extracted = extract("SC31-711.boo", "2.3.2");
     std::string error;
     const auto without = extract_prose_topic_ir(
-        extracted.sources, extracted.layout, extracted.ownership,
+        extracted.sources, extracted.layout, *extracted.ownership,
         extracted.identity.title, nullptr, &error);
     require(!without.has_value() && contains(error, "book topic catalog"),
             "menu admitted without a catalog");
@@ -872,7 +874,7 @@ void cz_fixtures() {
   if (!extracted.prose) return;
   const auto verify = [&](const ProseTopicIR& topic) {
     return verify_prose_topic_ir(extracted.sources, extracted.layout,
-                                 extracted.ownership, extracted.identity.title,
+                                 *extracted.ownership, extracted.identity.title,
                                  extracted.catalog, topic, nullptr);
   };
   require(verify(*extracted.prose), "cz fixture failed verification");
@@ -916,7 +918,7 @@ void cz_fixtures() {
         }
       require(!verify_prose_topic_ir(
                   definitions.sources, definitions.layout,
-                  definitions.ownership, definitions.identity.title,
+                  *definitions.ownership, definitions.identity.title,
                   definitions.catalog, mutated, nullptr),
               "moved definition term boundary passed verification");
     }

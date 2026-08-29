@@ -43,11 +43,11 @@ struct PublicationCatalogIR {
 std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
     const LayoutIR& layout,
-    const OwnershipIR& ownership);
+    const VerifiedOwnershipIR& ownership);
 bool verify_publication_catalog_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
     const LayoutIR& layout,
-    const OwnershipIR& ownership,
+    const VerifiedOwnershipIR& ownership,
     const PublicationCatalogIR& catalog,
     std::string* error = nullptr);
 std::string format_publication_catalog_ir(const PublicationCatalogIR& catalog);

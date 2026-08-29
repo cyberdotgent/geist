@@ -5606,13 +5606,13 @@ render_verified_publication_catalog_gml(
   std::string semantic_error;
   if (!verify_layout_ir(sources, layout, &semantic_error))
     return std::nullopt;
-  const auto ownership = build_ownership_ir(sources, layout);
-  if (!verify_ownership_ir(sources, layout, ownership, &semantic_error))
-    return std::nullopt;
+  const auto ownership =
+      build_verified_ownership_ir(sources, layout, &semantic_error);
+  if (!ownership) return std::nullopt;
   const auto publication =
-      extract_publication_catalog_ir(sources, layout, ownership);
+      extract_publication_catalog_ir(sources, layout, *ownership);
   if (!publication ||
-      !verify_publication_catalog_ir(sources, layout, ownership, *publication,
+      !verify_publication_catalog_ir(sources, layout, *ownership, *publication,
                                      &semantic_error))
     return std::nullopt;
   std::vector<std::string> rendered;

@@ -249,9 +249,10 @@ compose_source_cells(const std::vector<MessageIntroductionCellIR> &cells,
 
 std::optional<MessageIntroductionIR> extract_message_introduction_ir(
     const std::vector<DecodedLogicalRecordSource> &records,
-    const LayoutIR &layout, const OwnershipIR &ownership,
+    const LayoutIR &layout, const VerifiedOwnershipIR &verified_ownership,
     const SelectorCatalogIR &selectors, const MessageTopicIR &topic,
     std::string *error) {
+  const OwnershipIR &ownership = verified_ownership;
   const auto reject =
       [&](std::string message) -> std::optional<MessageIntroductionIR> {
     fail(error, std::move(message));
@@ -373,11 +374,12 @@ std::optional<MessageIntroductionIR> extract_message_introduction_ir(
     return reject("message introduction paragraph partition is not canonical");
 
   std::string display_error;
-  const auto display = extract_selector_display_ir(records, selectors, layout,
-                                                   ownership, &display_error);
+  const auto display = extract_selector_display_ir(
+      records, selectors, layout, verified_ownership, &display_error);
   if (!display ||
-      !verify_selector_display_ir(records, selectors, layout, ownership,
-                                  *display, &display_error) ||
+      !verify_selector_display_ir(records, selectors, layout,
+                                  verified_ownership, *display,
+                                  &display_error) ||
       display->rows.size() != 2 || display->bindings.size() != 2 ||
       display->rows[0].spans.size() != 1 || display->rows[1].spans.size() != 1)
     return reject("message introduction selector display rejected: " +
@@ -567,7 +569,7 @@ bool same_topic_envelope(const MessageTopicIR &left,
 
 std::optional<MessageTopicIR> extract_message_topic_ir_impl(
     const std::vector<DecodedLogicalRecordSource> &records,
-    const LayoutIR &layout, const OwnershipIR &ownership,
+    const LayoutIR &layout, const VerifiedOwnershipIR &verified_ownership,
     bool include_catalog, std::string *error) {
   const auto reject =
       [&](std::string message) -> std::optional<MessageTopicIR> {
@@ -576,9 +578,11 @@ std::optional<MessageTopicIR> extract_message_topic_ir_impl(
   };
   if (records.empty())
     return reject("message topic has no logical records");
+  const OwnershipIR &ownership = verified_ownership;
   std::string verification_error;
   if (!verify_layout_ir(records, layout, &verification_error) ||
-      !verify_ownership_ir(records, layout, ownership, &verification_error))
+      !ownership_verified_for(verified_ownership, records, layout,
+                              &verification_error))
     return reject("source layout/ownership is not canonical: " +
                   verification_error);
   for (std::size_t index = 1; index < records.size(); ++index)
@@ -786,7 +790,8 @@ std::optional<MessageTopicIR> extract_message_topic_ir_impl(
     return reject("message topic title projection is not canonical");
 
   auto introduction = extract_message_introduction_ir(
-      records, layout, ownership, *selectors, result, &verification_error);
+      records, layout, verified_ownership, *selectors, result,
+      &verification_error);
   if (!introduction)
     return reject("message introduction rejected: " + verification_error);
   result.introduction = std::move(*introduction);
@@ -858,7 +863,7 @@ std::optional<MessageTopicIR> extract_message_topic_ir_impl(
 
 std::optional<MessageTopicIR>
 extract_message_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
-                         const LayoutIR &layout, const OwnershipIR &ownership,
+                         const LayoutIR &layout, const VerifiedOwnershipIR &ownership,
                          std::string *error) {
   return extract_message_topic_ir_impl(records, layout, ownership, true, error);
 }
@@ -1108,15 +1113,16 @@ bool message_catalog_candidate_is_consistent(
 
 bool verify_message_topic_ir(
     const std::vector<DecodedLogicalRecordSource> &records,
-    const LayoutIR &layout, const OwnershipIR &ownership,
+    const LayoutIR &layout, const VerifiedOwnershipIR &verified_ownership,
     const MessageTopicIR &topic, std::string *error) {
+  const OwnershipIR &ownership = verified_ownership;
   if (!message_topic_candidate_is_consistent(topic))
     return fail(error, "message topic candidate invariants are inconsistent");
   if (!message_catalog_candidate_is_consistent(records, layout,
                                                topic.catalog))
     return fail(error, "message catalog candidate invariants are inconsistent");
   const auto envelope = extract_message_topic_ir_impl(
-      records, layout, ownership, false, error);
+      records, layout, verified_ownership, false, error);
   if (!envelope || !same_topic_envelope(*envelope, topic))
     return fail(error, "message topic source envelope is inconsistent");
   if (!verify_message_catalog_ir(records, layout, ownership, topic.catalog,

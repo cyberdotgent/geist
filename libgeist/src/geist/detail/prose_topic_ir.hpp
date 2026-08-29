@@ -244,13 +244,13 @@ struct ProseTopicIR {
 // fails closed.
 std::optional<ProseTopicIR> extract_prose_topic_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
-    const LayoutIR& layout, const OwnershipIR& ownership,
+    const LayoutIR& layout, const VerifiedOwnershipIR& ownership,
     const std::string& title, const BookTopicCatalogIR* book_topic_catalog,
     std::string* error = nullptr,
     const std::set<std::string>* resource_ids = nullptr);
 bool verify_prose_topic_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
-    const LayoutIR& layout, const OwnershipIR& ownership,
+    const LayoutIR& layout, const VerifiedOwnershipIR& ownership,
     const std::string& title, const BookTopicCatalogIR* book_topic_catalog,
     const ProseTopicIR& topic, std::string* error = nullptr,
     const std::set<std::string>* resource_ids = nullptr);

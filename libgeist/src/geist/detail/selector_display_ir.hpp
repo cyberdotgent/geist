@@ -122,12 +122,12 @@ struct SelectorDisplayIR {
 std::optional<SelectorDisplayIR> extract_selector_display_ir(
     const std::vector<DecodedLogicalRecordSource> &records,
     const SelectorCatalogIR &selectors, const LayoutIR &layout,
-    const OwnershipIR &ownership, std::string *error = nullptr);
+    const VerifiedOwnershipIR &ownership, std::string *error = nullptr);
 
 bool verify_selector_display_ir(
     const std::vector<DecodedLogicalRecordSource> &records,
     const SelectorCatalogIR &selectors, const LayoutIR &layout,
-    const OwnershipIR &ownership, const SelectorDisplayIR &display,
+    const VerifiedOwnershipIR &ownership, const SelectorDisplayIR &display,
     std::string *error = nullptr);
 
 std::string format_selector_display_ir(const SelectorDisplayIR &display);

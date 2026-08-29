@@ -51,8 +51,15 @@ extract(const geist::detail::LogicalDecodeContext &context, std::uint32_t first,
   const auto sources =
       geist::detail::decode_logical_record_sources(context, first, end);
   const auto layout = geist::detail::extract_layout_ir(sources);
-  const auto ownership = geist::detail::build_ownership_ir(sources, layout);
-  return geist::detail::extract_glossary_catalog_ir(sources, layout, ownership,
+  std::string inner;
+  const auto ownership =
+      geist::detail::build_verified_ownership_ir(sources, layout, &inner);
+  if (!ownership) {
+    if (error != nullptr)
+      *error = "source layout/ownership is not canonical: " + inner;
+    return std::nullopt;
+  }
+  return geist::detail::extract_glossary_catalog_ir(sources, layout, *ownership,
                                                     error);
 }
 
@@ -124,10 +131,12 @@ int main() {
   const auto sources =
       geist::detail::decode_logical_record_sources(context, 435, 518);
   const auto layout = geist::detail::extract_layout_ir(sources);
-  const auto ownership = geist::detail::build_ownership_ir(sources, layout);
+  const auto ownership =
+      geist::detail::build_verified_ownership_ir(sources, layout);
+  require(ownership.has_value(), "glossary ownership ledger is not verifiable");
   std::string error;
   const auto catalog = geist::detail::extract_glossary_catalog_ir(
-      sources, layout, ownership, &error);
+      sources, layout, *ownership, &error);
   require(catalog.has_value(),
           error.empty() ? "complete glossary did not enter catalog IR"
                         : error.c_str());
@@ -354,23 +363,23 @@ int main() {
               [](const auto &entry) { return !entry.source_suffix.empty(); }),
           "glossary term boundary evidence did not retain source carry");
 
-  require(geist::detail::verify_glossary_catalog_ir(sources, layout, ownership,
+  require(geist::detail::verify_glossary_catalog_ir(sources, layout, *ownership,
                                                     *catalog, &error),
           error.empty() ? "canonical glossary catalog failed verification"
                         : error.c_str());
   auto changed = *catalog;
   changed.entries.front().definition.rows.front().visible_text += " changed";
-  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, ownership,
+  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, *ownership,
                                                      changed),
           "glossary verifier admitted changed definition content");
   changed = *catalog;
   changed.entries.front().definition.rows.front().cells.pop_back();
-  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, ownership,
+  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, *ownership,
                                                      changed),
           "glossary verifier admitted missing owned source cells");
   changed = *catalog;
   changed.entries.front().definition.rows.front().cells.front().run += 1;
-  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, ownership,
+  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, *ownership,
                                                      changed),
           "glossary verifier admitted changed cell run provenance");
   changed = *catalog;
@@ -382,7 +391,7 @@ int main() {
               changed_dlci->definition.embedded_table.has_value(),
           "glossary embedded table mutation fixture is absent");
   changed_dlci->definition.embedded_table->rows[2].cells[0].text = "1-16";
-  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, ownership,
+  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, *ownership,
                                                      changed),
           "glossary verifier admitted changed embedded semantic cell");
   changed = *catalog;
@@ -391,14 +400,14 @@ int main() {
         return entry.term == "data link connection identifier (DLCI)";
       });
   changed_table_entry->definition.embedded_table->physical_rows.pop_back();
-  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, ownership,
+  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, *ownership,
                                                      changed),
           "glossary verifier admitted a missing embedded physical row");
   changed = *catalog;
   require(changed.entries.front().definition.rows.front().marker.has_value(),
           "glossary marker mutation fixture has no marker");
   changed.entries.front().definition.rows.front().marker->encoded_value += 1;
-  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, ownership,
+  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, *ownership,
                                                      changed),
           "glossary verifier admitted changed marker encoding provenance");
   changed = *catalog;
@@ -410,7 +419,7 @@ int main() {
       changed_aix->definition.rows.begin(), changed_aix->definition.rows.end(),
       [](const auto &row) { return row.continuation_prefix.has_value(); });
   changed_prefix->continuation_prefix->cells.pop_back();
-  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, ownership,
+  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, *ownership,
                                                      changed),
           "glossary verifier admitted missing continuation-prefix cells");
   changed = *catalog;
@@ -427,27 +436,27 @@ int main() {
       [](const auto &row) { return row.terminal_delimiter.has_value(); });
   changed_terminal_row->terminal_delimiter->disposition =
       geist::detail::SourceDisposition::visible_content;
-  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, ownership,
+  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, *ownership,
                                                      changed),
           "glossary verifier admitted a visible terminal delimiter");
   changed = *catalog;
   changed.segments.pop_back();
-  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, ownership,
+  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, *ownership,
                                                      changed),
           "glossary verifier admitted an incomplete segment ledger");
   changed = *catalog;
   std::swap(changed.items[0], changed.items[1]);
-  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, ownership,
+  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, *ownership,
                                                      changed),
           "glossary verifier admitted a reordered source item sequence");
   changed = *catalog;
   changed.entries.front().definition.prose += " changed";
-  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, ownership,
+  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, *ownership,
                                                      changed),
           "glossary verifier admitted changed composed definition prose");
   changed = *catalog;
   changed.introduction.lead.source_rows.clear();
-  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, ownership,
+  require(!geist::detail::verify_glossary_catalog_ir(sources, layout, *ownership,
                                                      changed),
           "glossary verifier admitted missing introduction provenance");
 

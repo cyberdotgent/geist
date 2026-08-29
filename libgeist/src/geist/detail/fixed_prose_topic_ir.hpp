@@ -38,11 +38,11 @@ struct FixedProseTopicIR {
 
 std::optional<FixedProseTopicIR> extract_fixed_prose_topic_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
-    const LayoutIR& layout, const OwnershipIR& ownership,
+    const LayoutIR& layout, const VerifiedOwnershipIR& ownership,
     std::string* error = nullptr);
 bool verify_fixed_prose_topic_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
-    const LayoutIR& layout, const OwnershipIR& ownership,
+    const LayoutIR& layout, const VerifiedOwnershipIR& ownership,
     const FixedProseTopicIR& topic, std::string* error = nullptr);
 std::string format_fixed_prose_topic_ir(const FixedProseTopicIR& topic);
 

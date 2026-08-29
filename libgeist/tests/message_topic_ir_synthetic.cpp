@@ -52,8 +52,10 @@ extract(const geist::detail::LogicalDecodeContext &context, std::uint32_t first,
   const auto sources =
       geist::detail::decode_logical_record_sources(context, first, end);
   const auto layout = geist::detail::extract_layout_ir(sources);
-  const auto ownership = geist::detail::build_ownership_ir(sources, layout);
-  return geist::detail::extract_message_topic_ir(sources, layout, ownership,
+  const auto ownership =
+      geist::detail::build_verified_ownership_ir(sources, layout, error);
+  if (!ownership) return std::nullopt;
+  return geist::detail::extract_message_topic_ir(sources, layout, *ownership,
                                                  error);
 }
 
@@ -149,10 +151,15 @@ int main() {
   const auto sources =
       geist::detail::decode_logical_record_sources(context, 172, 435);
   const auto layout = geist::detail::extract_layout_ir(sources);
-  const auto ownership = geist::detail::build_ownership_ir(sources, layout);
   std::string error;
-  const auto topic = geist::detail::extract_message_topic_ir(sources, layout,
-                                                             ownership, &error);
+  const auto verified =
+      geist::detail::build_verified_ownership_ir(sources, layout, &error);
+  require(verified.has_value(),
+          error.empty() ? "message ownership is not verifiable"
+                        : error.c_str());
+  const auto &ownership = verified->ir();
+  const auto topic = geist::detail::extract_message_topic_ir(
+      sources, layout, *verified, &error);
   require(topic.has_value(), error.empty()
                                  ? "complete message topic did not enter IR"
                                  : error.c_str());
@@ -323,8 +330,11 @@ int main() {
   boundary_cell->role = geist::detail::RowCellRole::content;
   boundary_cell->display_column = 0;
   std::string missing_boundary_error;
-  require(!geist::detail::extract_message_topic_ir(
-              sources, layout, missing_boundary, &missing_boundary_error) &&
+  // A ledger that drops the positioned boundary role is not verifiable, so no
+  // family can be handed it: extraction stays closed because the verified
+  // handle cannot be constructed at all.
+  require(!geist::detail::verify_ownership_ir(sources, layout, missing_boundary,
+                                              &missing_boundary_error) &&
               !missing_boundary_error.empty(),
           "message extraction admitted a marker without its positioned "
           "boundary role");
@@ -689,7 +699,7 @@ int main() {
               separator_tokens != 0,
           "message payload-token ledger lost source or separator tokens");
 
-  require(geist::detail::verify_message_topic_ir(sources, layout, ownership,
+  require(geist::detail::verify_message_topic_ir(sources, layout, *verified,
                                                  *topic, &error),
           error.empty() ? "message topic verification failed" : error.c_str());
   auto mutated_boundaries = topic->catalog;
@@ -727,12 +737,12 @@ int main() {
 
   auto mutated = *topic;
   mutated.metadata.source_file = "changed";
-  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+  require(!geist::detail::verify_message_topic_ir(sources, layout, *verified,
                                                   mutated),
           "message topic verifier admitted mutated metadata");
   mutated = *topic;
   mutated.selectors.front().target.value = "OTHER";
-  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+  require(!geist::detail::verify_message_topic_ir(sources, layout, *verified,
                                                   mutated),
           "message topic verifier admitted a mutated typed target");
   mutated = *topic;
@@ -749,7 +759,7 @@ int main() {
           "message fixture has no typed layout marker");
   marker_row->marker_disposition =
       geist::detail::MessageMarkerDispositionIR::lexical_prefix;
-  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+  require(!geist::detail::verify_message_topic_ir(sources, layout, *verified,
                                                   mutated),
           "message verifier admitted a changed marker disposition");
   mutated = *topic;
@@ -773,7 +783,7 @@ int main() {
           "message verifier fixture has no closing-delimiter bridge");
   mutated_bridge->marker_disposition =
       geist::detail::MessageMarkerDispositionIR::layout_artifact;
-  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+  require(!geist::detail::verify_message_topic_ir(sources, layout, *verified,
                                                   mutated),
           "message verifier admitted a suppressed closing delimiter");
   mutated = *topic;
@@ -790,7 +800,7 @@ int main() {
   require(terminal_field != nullptr,
           "message verifier fixture has no terminal delimited field");
   --terminal_field->token_end;
-  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+  require(!geist::detail::verify_message_topic_ir(sources, layout, *verified,
                                                   mutated),
           "message verifier admitted a shortened terminal field source");
   mutated = *topic;
@@ -812,40 +822,40 @@ int main() {
   require(terminal_layout_token != nullptr,
           "message fixture has no typed terminal layout token");
   ++terminal_layout_token->encoded.value;
-  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+  require(!geist::detail::verify_message_topic_ir(sources, layout, *verified,
                                                   mutated),
           "message verifier admitted changed terminal layout evidence");
   mutated = *topic;
   mutated.introduction.paragraphs.erase(
       mutated.introduction.paragraphs.begin() + 1);
-  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+  require(!geist::detail::verify_message_topic_ir(sources, layout, *verified,
                                                   mutated),
           "message topic verifier admitted a dropped intro paragraph");
   mutated = *topic;
   std::swap(mutated.introduction.paragraphs[1],
             mutated.introduction.paragraphs[2]);
-  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+  require(!geist::detail::verify_message_topic_ir(sources, layout, *verified,
                                                   mutated),
           "message topic verifier admitted reordered intro paragraphs");
   mutated = *topic;
   mutated.introduction.paragraphs[4].atoms.erase(
       mutated.introduction.paragraphs[4].atoms.begin() + 2);
-  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+  require(!geist::detail::verify_message_topic_ir(sources, layout, *verified,
                                                   mutated),
           "message topic verifier admitted merged adjacent selectors");
   mutated = *topic;
   mutated.introduction.paragraphs[4].atoms[1].target->value = "OTHER";
-  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+  require(!geist::detail::verify_message_topic_ir(sources, layout, *verified,
                                                   mutated),
           "message topic verifier admitted a mutated intro selector target");
   mutated = *topic;
   mutated.introduction.paragraphs[4].atoms[1].text += " changed";
-  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+  require(!geist::detail::verify_message_topic_ir(sources, layout, *verified,
                                                   mutated),
           "message topic verifier admitted a mutated intro selector label");
   mutated = *topic;
   mutated.introduction.paragraphs[4].atoms[1].cell_indices.pop_back();
-  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+  require(!geist::detail::verify_message_topic_ir(sources, layout, *verified,
                                                   mutated),
           "message topic verifier admitted a shortened selector source span");
   mutated = *topic;
@@ -858,7 +868,7 @@ int main() {
   require(paragraph_break != mutated.introduction.cells.end(),
           "message introduction has no mutable paragraph gap");
   paragraph_break->role = geist::detail::MessageIntroductionCellRoleIR::layout;
-  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+  require(!geist::detail::verify_message_topic_ir(sources, layout, *verified,
                                                   mutated),
           "message topic verifier admitted a mutated paragraph gap");
   mutated = *topic;
@@ -874,7 +884,7 @@ int main() {
           "message introduction has no ordinary layout padding");
   ordinary_padding->role =
       geist::detail::MessageIntroductionCellRoleIR::paragraph_break;
-  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+  require(!geist::detail::verify_message_topic_ir(sources, layout, *verified,
                                                   mutated),
           "message topic verifier admitted an invented padding break");
   mutated = *topic;
@@ -890,24 +900,24 @@ int main() {
   require(lexical_period != mutated.introduction.cells.end(),
           "message introduction has no lexical marker period");
   lexical_period->role = geist::detail::MessageIntroductionCellRoleIR::layout;
-  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+  require(!geist::detail::verify_message_topic_ir(sources, layout, *verified,
                                                   mutated),
           "message topic verifier admitted a suppressed lexical period");
   mutated = *topic;
   std::swap(mutated.anchors[0], mutated.anchors[1]);
-  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+  require(!geist::detail::verify_message_topic_ir(sources, layout, *verified,
                                                   mutated),
           "message topic verifier admitted reordered source anchors");
   mutated = *topic;
   mutated.introduction.paragraphs[4].atoms[0].cell_indices.push_back(
       mutated.introduction.paragraphs[4].atoms[1].cell_indices.front());
-  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+  require(!geist::detail::verify_message_topic_ir(sources, layout, *verified,
                                                   mutated),
           "message topic verifier admitted duplicated selected source text");
   mutated = *topic;
   mutated.catalog.entries.back().sections.back().paragraphs.front().text =
       "changed";
-  require(!geist::detail::verify_message_topic_ir(sources, layout, ownership,
+  require(!geist::detail::verify_message_topic_ir(sources, layout, *verified,
                                                   mutated),
           "message topic verifier admitted mutated terminal content");
 

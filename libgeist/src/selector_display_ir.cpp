@@ -443,7 +443,7 @@ const char *binding_name(SelectorBindingKind kind) {
 std::optional<SelectorDisplayIR> extract_selector_display_ir(
     const std::vector<DecodedLogicalRecordSource> &records,
     const SelectorCatalogIR &selectors, const LayoutIR &layout,
-    const OwnershipIR &ownership, std::string *error) {
+    const VerifiedOwnershipIR &verified_ownership, std::string *error) {
   const auto fail =
       [&](const std::string &message) -> std::optional<SelectorDisplayIR> {
     if (error != nullptr)
@@ -457,8 +457,10 @@ std::optional<SelectorDisplayIR> extract_selector_display_ir(
     return fail("selector control IR is invalid: " + verification_error);
   if (!verify_layout_ir(records, layout, &verification_error))
     return fail("selector layout IR is invalid: " + verification_error);
-  if (!verify_ownership_ir(records, layout, ownership, &verification_error))
+  if (!ownership_verified_for(verified_ownership, records, layout,
+                              &verification_error))
     return fail("selector ownership IR is invalid: " + verification_error);
+  const OwnershipIR &ownership = verified_ownership;
 
   std::map<SegmentKey, const SelectorIR *> selector_by_segment;
   for (const auto &selector : selectors.selectors) {
@@ -814,8 +816,8 @@ std::optional<SelectorDisplayIR> extract_selector_display_ir(
 bool verify_selector_display_ir(
     const std::vector<DecodedLogicalRecordSource> &records,
     const SelectorCatalogIR &selectors, const LayoutIR &layout,
-    const OwnershipIR &ownership, const SelectorDisplayIR &display,
-    std::string *error) {
+    const VerifiedOwnershipIR &verified_ownership,
+    const SelectorDisplayIR &display, std::string *error) {
   const auto fail = [&](const std::string &message) {
     if (error != nullptr)
       *error = message;
@@ -903,8 +905,8 @@ bool verify_selector_display_ir(
     previous_row = row.id;
   }
 
-  const auto canonical = extract_selector_display_ir(records, selectors, layout,
-                                                     ownership, nullptr);
+  const auto canonical = extract_selector_display_ir(
+      records, selectors, layout, verified_ownership, nullptr);
   if (!canonical)
     return fail("source does not admit canonical selector display IR");
   if (canonical->rows.size() != display.rows.size() ||

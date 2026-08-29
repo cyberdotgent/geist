@@ -176,17 +176,21 @@ int main() {
 
   const auto st = st_record();
   const auto st_decoded = geist::detail::token_words_to_ascii(st.assembled.words);
-  const auto st_layout = geist::detail::extract_layout_ir({st});
+  const std::vector<geist::detail::DecodedLogicalRecordSource> st_sources{st};
+  const auto st_layout = geist::detail::extract_layout_ir(st_sources);
   const auto st_ownership =
-      geist::detail::build_ownership_ir({st}, st_layout);
+      geist::detail::build_verified_ownership_ir(st_sources, st_layout);
   std::string st_error;
+  require(st_ownership.has_value(),
+          "synthetic ST ownership ledger is not verifiable");
   const auto st_ir = geist::detail::extract_fixed_prose_ir(
-      {st}, st_layout, st_ownership, &st_error);
+      st_sources, st_layout, *st_ownership, &st_error);
   require(st_ir && st_ir->title == u8"Titlé" &&
               st_ir->paragraph == "First row continued finished" &&
               st_ir->rows.size() == 2 &&
               geist::detail::verify_fixed_prose_ir(
-                  {st}, st_layout, st_ownership, *st_ir, &st_error) &&
+                  st_sources, st_layout, *st_ownership, *st_ir,
+                  &st_error) &&
               geist::detail::format_fixed_prose_ir(*st_ir).find(
                   "marker_bytes=") != std::string::npos,
           st_error.empty() ? "typed fixed prose IR was not admitted"
@@ -194,7 +198,8 @@ int main() {
   auto mutated_st_ir = *st_ir;
   mutated_st_ir.paragraph += " mutation";
   require(!geist::detail::verify_fixed_prose_ir(
-              {st}, st_layout, st_ownership, mutated_st_ir, &st_error) &&
+              st_sources, st_layout, *st_ownership, mutated_st_ir,
+              &st_error) &&
               !st_error.empty(),
           "mutated fixed prose passed canonical verification");
   const auto st_projected = geist::detail::project_source_owned_st_prose_rows(
