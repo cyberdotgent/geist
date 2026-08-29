@@ -624,6 +624,33 @@ spells `c.cc`; it stands after the `:` that closes
 row `1.  An error occurs ...`. Reading it as a control drops that colon and
 merges two numbered rows. Only two-byte dictionary tokens are body controls.
 
+### A Word Is A Control Only Where A Boundary Byte Precedes It
+
+The decoded string is not enough to tell a control from a prose word that is
+spelled like one, because the boundary byte before a control projects to `?`,
+and so do the attach-control word, every box-drawing word and every unmapped
+word. The boundary is a *token*:
+
+| Book | Record | Control | Boundary token before it |
+| --- | ---: | --- | --- |
+| ACPZMST1 CONTENTS | 18 | `ST` (token 25) | token 24, one word U+2514 |
+| ACPZMST1 CONTENTS | 18 | `ctocdef=0` (token 31) | token 30, one word U+2518 |
+| SC24-546 14.0 | 961 | `SRHDRIRRR` | the compact separator (attach + `,`) closing `csourcefn DMSB1IRR` |
+| QSYSINFO GLOSSARY | 756 | `SRGLS AFP` (token 190) | token 189, one word U+2666 |
+
+Prose words that look like controls carry no such boundary:
+
+| Book | Record | Word | Token before it | Hosted |
+| --- | ---: | --- | --- | --- |
+| PRG1SORT 1.1.5.1 | 80 | `SRCFILE` (token 2) | token 1, an 18-cell space run | `<tt>SRCFILE(LIBRAR2/FILE3)</tt>` |
+| SC24-546 14.0 | 961 | `SRRCMIT`, `SRRBACK` | the preceding sentence word | `either SRRCMIT or SRRBACK.` |
+| SC31-605 2.0 | — | `SRFILTER` | the preceding sentence word | `Use the SRFILTER command` |
+| SH12-565 3.1.11 | — | `SRVPREF` | the preceding sentence word | `the SRVPREF initialization parameter` |
+
+Unresolved: the last three are still resolved to `SR<id>` anchors by opcode
+spelling alone, so the word disappears from the body and only the anchor
+remains. The legacy renderer loses the same words.
+
 ### The Metadata Envelope Spans Records
 
 The topic metadata run — `SH<id>`, `CTOPICN`, `CPARENT`, `CFORWARDLEVEL`,

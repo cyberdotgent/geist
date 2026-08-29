@@ -637,6 +637,63 @@ void front_matter_fixtures() {
             "IBMMMSTR 3.1 merged two rows across a length byte spelt c.cc");
   }
 
+  // The `ST` title is one display row of its control payload, and the catalog
+  // title is a *string* projection of the same control that stops at a
+  // different point.  Both are truncations of one word run.
+  {
+    // SC24-546 E.2 record 1169 ends the `ST` segment with `)` (token 35);
+    // the fill/origin run that follows it belongs to the next segment, so it
+    // may not steal the title's last token.  Hosted DT 19940323131240 serves
+    // `<H2> E.2   The File Block (FBLOCK)</H2>`.
+    const auto markdown = admit("SC24-546.boo", "E.2");
+    require(contains(markdown, "The File Block \\(FBLOCK\\)"),
+            "SC24-546 E.2 lost the closing parenthesis of its heading");
+  }
+  {
+    // PRG1SORT 1.4: the typed title is the first display row
+    // (`... Produce a Record Address`), the catalog string runs on into the
+    // next row's `File`.  Hosted DT 19900829171904 heads the topic
+    // `<H1> 1.4   Chapter 4.  Sorting Records from a Single File to Produce
+    // a Record Address</H1>` and starts the body with `File`.
+    const auto markdown = admit("PRG1SORT.boo", "1.4");
+    require(contains(markdown,
+                     "Sorting Records from a Single File to Produce a Record "
+                     "Address\n"),
+            "PRG1SORT 1.4 heading does not end at the display row");
+  }
+  {
+    // ACPZMST1 5.4 stores `ST` + spacing + a placeholder slot + `/` + `etc`:
+    // only the first glyph is the slot, the `/` is the first title word.
+    const auto markdown = admit("ACPZMST1.boo", "5.4");
+    require(contains(markdown, "/etc/inittab File Definitions"),
+            "ACPZMST1 5.4 dropped the leading slash of its heading");
+  }
+  {
+    // FA1PLMM0 I.6.1 record 254 token 33 is the one-byte word `access`
+    // (encoded value 43), the documented compact-marker collision: it closes
+    // the title even though the segment ends there.
+    const auto markdown = admit("FA1PLMM0.boo", "I.6.1");
+    require(contains(markdown, "Action\\-Flag Messages\n") &&
+                !contains(markdown, "Messagesaccess"),
+            "FA1PLMM0 I.6.1 glued a row-control word onto its heading");
+  }
+
+  // A word only opens a control segment when the record encoder wrote a
+  // boundary token before it; a prose word spelled like a control does not.
+  // (This decides the *text* segments the decoded-string splitter opens. A
+  // boundary-less word that `classify` still resolves to a structural control
+  // -- SC24-546 14.0 `SRRCMIT`, SC31-605 2.0 `SRFILTER`, SH12-565 3.1.11
+  // `SRVPREF`, all of which hosted prints as ordinary words -- stays an
+  // anchor here and loses the word, exactly as the legacy route does.)
+  {
+    // PRG1SORT record 80 token 2 `SRCFILE` follows an 18-cell space run and
+    // is the CL parameter `SRCFILE(LIBRAR2/FILE3)`; hosted DT 19900829171904
+    // prints `<tt>SRCFILE(LIBRAR2/FILE3)</tt>`.
+    const auto markdown = admit("PRG1SORT.boo", "1.1.5.1");
+    require(contains(markdown, "SRCFILE(LIBRAR2/FILE3)"),
+            "PRG1SORT 1.1.5.1 lost the SRCFILE command parameter");
+  }
+
   // The metadata envelope is a run of control segments and may continue in
   // the next logical record.
   {
@@ -674,7 +731,7 @@ void negative_fixtures() {
   reject("IEAC6MST.BOO", "4.3.4.1",
          "table envelope 'TBLUNIQ10' declined: visible source between table "
          "lines");
-  reject("PRG1SORT.boo", "1.1.5.1", "control-like word 'SRCFILE'");
+
   // COVER still fails closed: its front-matter `cover` heading form is
   // admitted, but the cover art rows are a placeholder run followed by
   // visible text, which the display-row model does not describe.

@@ -653,6 +653,34 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
       for (const auto token : segment.source_tokens)
         if (token < claimed.size()) claimed[token] = true;
       const auto lower_opcode = ascii_lower(segment.opcode);
+      // The decoded-string splitter opens a segment wherever a word is
+      // spelled like a control.  A word is only a control when the record
+      // encoder wrote a boundary before it: a decoder-separator token (a
+      // box/unmapped glyph run) or the compact separator token (the attach
+      // control plus `,` or `.`).  Byte-level evidence: ACPZMST1 CONTENTS
+      // record 18 writes `ST` after token 24 (glyph U+2514) and `ctocdef=0`
+      // after token 30 (glyph U+2518); SC24-546 record 961 writes
+      // `SRHDRIRRR` after the compact `,` that closes `csourcefn DMSB1IRR`.
+      // Prose words that merely look like controls carry no such boundary:
+      // PRG1SORT 1.1.5.1 record 80 token 2 `SRCFILE` follows an 18-cell space
+      // run and is the CL parameter `SRCFILE(LIBRAR2/FILE3)` (hosted DT
+      // 19900829171904 serves `<tt>SRCFILE(LIBRAR2/FILE3)</tt>`), and
+      // SC24-546 14.0 record 961 spells the routine names `SRRCMIT or
+      // SRRBACK.` inside a sentence (hosted DT 19940323131240 serves them as
+      // ordinary words).
+      const auto boundary_before = [&]() {
+        if (segment.source_tokens.empty()) return true;
+        const auto first = segment.source_tokens.front();
+        if (first == 0) return true;
+        const auto before = view_token(records, record_index, first - 1);
+        // Decoder separators: a box/unmapped glyph run, the bullet glyph
+        // (QSYSINFO GLOSSARY record 756 token 189 stands between the previous
+        // entry and `SRGLS AFP`), or the compact separator token.
+        if (is_placeholder_run(before) || is_bullet_glyph(before)) return true;
+        return before.has_prefix && before.prefix == 1 &&
+               before.body.size() == 1 &&
+               (before.body.front() == ',' || before.body.front() == '.');
+      };
       if (build.plan != nullptr) {
         // A segment of a planned table/figure region: the region's tokens
         // are already owned by their span (prose_topic_spans.cpp); the span
@@ -1173,8 +1201,23 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           }
           break;
         }
+        // The decoded-string splitter opens a segment wherever a word is
+        // spelled like a control.  A word is only a control when the record
+        // encoder wrote a boundary before it: a decoder-separator token
+        // (a box/unmapped glyph run) or the compact separator token (the
+        // attach control plus `,` or `.`).  Byte-level evidence:
+        // ACPZMST1 CONTENTS record 18 writes `ST` after token 24 (glyph
+        // U+2514) and `ctocdef=0` after token 30 (glyph U+2518);
+        // SC24-546 record 961 writes `SRHDRIRRR` after the compact `,`.
+        // Prose words that merely look like controls carry no such boundary:
+        // PRG1SORT 1.1.5.1 record 80 token 2 `SRCFILE` follows an 18-cell
+        // space run and is the CL parameter `SRCFILE(LIBRAR2/FILE3)` (hosted
+        // DT 19900829171904 prints it), and SC24-546 14.0 record 961 spells
+        // the routine names `SRRCMIT or SRRBACK.` inside a sentence.  Such a
+        // segment is the previous row's prose, continued.
         const auto continuation =
-            record_index != 0 && segment_index == 0 && first_text != "si";
+            first_text != "si" &&
+            ((record_index != 0 && segment_index == 0) || !boundary_before());
         if (!continuation && first_text != "si")
           return fail(error, "text segment begins with control-like word '" +
                                  body_text(first_view) + "' in record " +

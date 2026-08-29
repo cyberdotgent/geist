@@ -305,6 +305,11 @@ struct LineBuild {
   std::vector<ProseAnchorIR> body_anchors;
   std::vector<ProseIndexTermIR> index_terms;
   std::string title;
+  // Every visible word of the `ST` control's payload, in source order,
+  // including the words after the display-row break that ends the title.
+  // Both the typed title and the legacy string projection of the same
+  // control are truncations of this run, so it is what corroborates them.
+  std::string title_run;
   std::vector<std::pair<std::size_t, std::size_t>> title_refs;
   // CZ directives in source order; empty for the flattened dialect.
   std::vector<LayoutDirective> directives;
