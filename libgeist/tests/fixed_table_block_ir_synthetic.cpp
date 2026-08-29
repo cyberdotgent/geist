@@ -25,9 +25,14 @@
 // SC24-5520-00 3.8.1.10.2/3.8.1.11 pin the header rule itself: their first
 // rows are italic (`<I>` on the hosted page), not bold, so they are body
 // rows and not headers.
-// plus negatives (no SRTBL, CFONT-only directory grid, prose, aligned code
-// listings, single-line envelopes, ragged gaps) and mutation rejection for
-// both verifiers.
+// plus negatives (no SRTBL, CFONT-only directory grid, prose) and mutation
+// rejection for both verifiers.
+// Envelopes with no provable column structure -- aligned code listings,
+// single-line commands, ragged address blocks -- are admitted as
+// preformatted regions instead: the display lines of their records
+// reproduced exactly as the hosted reader prints them
+// (SC24-5527-02 3.8.4.2 `TBLUNIQ99`/`TBLUNIQ100` at DT=19921218151459,
+// 3.8.4.6 `TBLUNIQ114`, SG24-204 BACK_1.2 `TBLUNIQ18`/`TBLUNIQ20`).
 
 #include "geist/boo.hpp"
 #include "geist/detail/document_ir.hpp"
@@ -584,9 +589,9 @@ void test_gap_sc33_function_signature() {
 
 void test_gap_sc24_command_tables() {
   const auto build = extract("SC24-5527-02.boo", "3.8.4.2");
-  require(build.blocks.blocks.size() == 1 && build.blocks.declined.size() == 2,
-          "3.8.4.2 admits the command row and declines the two listings");
-  if (build.blocks.blocks.size() == 1) {
+  require(build.blocks.blocks.size() == 3 && build.blocks.declined.empty(),
+          "3.8.4.2 admits the command row and both listings");
+  if (build.blocks.blocks.size() == 3) {
     const auto &row = build.blocks.blocks.front();
     require(row.object_id == "TBLUNIQ98" && row.body.size() == 1 &&
                 row.separator_columns == std::vector<std::size_t>{50} &&
@@ -598,20 +603,75 @@ void test_gap_sc24_command_tables() {
                         "object that needs to be built."},
             "3.8.4.2 centred row: command on the middle line, one period");
   }
-  for (const auto &decline : build.blocks.declined) {
-    if (decline.object_id == "TBLUNIQ99")
-      require(decline.reason == "gap table has a single column",
-              "3.8.4.2 VMFBLD2185R message listing has no gap column: " +
-                  decline.reason);
-    if (decline.object_id == "TBLUNIQ100")
-      require(decline.reason == "gap table has a single display line",
-              "3.8.4.2 `vmfview build` is one line: " + decline.reason);
+  // The VMFBLD2185R message listing and the one-line `vmfview build` command
+  // are not tables: hosted BookServer serves them as the plain <pre> lines
+  // reproduced here (DT=19921218151459).
+  if (build.blocks.blocks.size() == 3) {
+    const auto &listing = build.blocks.blocks[1];
+    require(listing.object_id == "TBLUNIQ99" &&
+                listing.geometry == FixedTableGeometryIR::preformatted &&
+                listing.body.empty() && !listing.caption &&
+                listing.preformatted_lines.size() == 26 &&
+                listing.preformatted_lines.front().text ==
+                    "   VMFBLD2185R The following source product parameter "
+                    "files have been serviced:" &&
+                listing.preformatted_lines[4].text ==
+                    "               before VMFBLD can be run." &&
+                listing.preformatted_lines[10].text.empty() &&
+                listing.preformatted_lines.back().text ==
+                    "                                                  1 to "
+                    "continue.",
+            "3.8.4.2 VMFBLD2185R listing is preformatted, not a table");
+    const auto &command = build.blocks.blocks[2];
+    require(command.object_id == "TBLUNIQ100" &&
+                command.geometry == FixedTableGeometryIR::preformatted &&
+                command.preformatted_lines.size() == 1 &&
+                command.preformatted_lines.front().text == "   vmfview build",
+            "3.8.4.2 `vmfview build` is one preformatted line");
+    const auto lowered = lower_fixed_table_block_to_document_ir(command);
+    std::string lowering_error;
+    require(lowered.size() == 2 &&
+                std::holds_alternative<AnchorBlockIR>(lowered[0].node) &&
+                std::holds_alternative<PreformattedBlockIR>(lowered[1].node) &&
+                verify_fixed_table_document_ir(command, lowered,
+                                               &lowering_error),
+            "3.8.4.2 preformatted region lowers to anchor + preformatted: " +
+                lowering_error);
+    // Mutation rejection for the preformatted path.
+    std::string error;
+    auto mutated = build.blocks;
+    mutated.blocks[2].preformatted_lines.front().text = "   vmfview built";
+    require(!verify_fixed_table_blocks_ir(build.sources, build.layout,
+                                          build.ownership, build.range, mutated,
+                                          &error),
+            "mutated preformatted line must be rejected");
+    mutated = build.blocks;
+    mutated.blocks[2].structural_cells.pop_back();
+    require(!verify_fixed_table_blocks_ir(build.sources, build.layout,
+                                          build.ownership, build.range, mutated,
+                                          &error),
+            "dropped preformatted structural claim must be rejected");
+    mutated = build.blocks;
+    mutated.blocks[1].preformatted_lines.erase(
+        mutated.blocks[1].preformatted_lines.begin() + 3);
+    require(!verify_fixed_table_blocks_ir(build.sources, build.layout,
+                                          build.ownership, build.range, mutated,
+                                          &error),
+            "dropped preformatted line must be rejected");
+    auto lowered_mutated = lowered;
+    std::get<PreformattedBlockIR>(lowered_mutated[1].node).lines[0] = "x";
+    require(!verify_fixed_table_document_ir(command, lowered_mutated, &error),
+            "mutated lowered preformatted text must be rejected");
+    lowered_mutated = lowered;
+    lowered_mutated.erase(lowered_mutated.begin() + 1);
+    require(!verify_fixed_table_document_ir(command, lowered_mutated, &error),
+            "dropped lowered preformatted block must be rejected");
   }
 
   const auto refresh = extract("SC24-5527-02.boo", "2.2");
-  require(refresh.blocks.blocks.size() == 1,
-          "2.2 admits the attach/vmfins table");
-  if (refresh.blocks.blocks.size() == 1) {
+  require(refresh.blocks.blocks.size() == 3 && refresh.blocks.declined.empty(),
+          "2.2 admits the attach/vmfins table and two preformatted regions");
+  if (refresh.blocks.blocks.size() == 3) {
     const auto &table = refresh.blocks.blocks.front();
     require(table.object_id == "TBLUNIQ24" && table.body.size() == 2 &&
                 cell_text(table.body[0], 0) == "attach rdev * 181" &&
@@ -623,8 +683,9 @@ void test_gap_sc24_command_tables() {
   }
 
   const auto names = extract("SC24-5527-02.boo", "1.4");
-  require(names.blocks.blocks.size() == 1, "1.4 admits the PPF name table");
-  if (names.blocks.blocks.size() == 1) {
+  require(names.blocks.blocks.size() == 2 && names.blocks.declined.empty(),
+          "1.4 admits the PPF name table and the PPFNOT note region");
+  if (names.blocks.blocks.size() == 2) {
     const auto &table = names.blocks.blocks.front();
     require(table.object_id == "INTPPFN" && table.caption &&
                 cell_text(*table.caption, 0) ==
@@ -662,30 +723,33 @@ void test_gap_sc31_glossary() {
 }
 
 void test_gap_negatives() {
-  // A command listing whose output lines carry no origin pattern runs
-  // together: wider than a page, declined; the aligned `query rdr` output
-  // is not a table.
+  // A command listing whose output lines carry no origin pattern is no
+  // table; it stays a verbatim region instead.
   const auto listing = extract("SC24-5527-02.boo", "3.8.4.6");
   bool width = false;
-  for (const auto &decline : listing.blocks.declined)
-    if (decline.object_id == "TBLUNIQ114")
-      width = decline.reason == "gap table line exceeds the page width";
-  require(width, "3.8.4.6 `query rdr * all` listing is declined");
+  for (const auto &block : listing.blocks.blocks)
+    if (block.object_id == "TBLUNIQ114")
+      width = block.geometry == FixedTableGeometryIR::preformatted &&
+              block.separator_columns.empty() && block.body.empty();
+  require(width && listing.blocks.declined.empty(),
+          "3.8.4.6 `query rdr * all` listing is not a table");
   for (const auto &block : listing.blocks.blocks)
     require(block.separator_columns.size() <= 2,
             "3.8.4.6 admitted tables have at most three columns");
-  // One-line envelopes and ragged address blocks.
+  // One-line envelopes and ragged address blocks stay out of the table
+  // model as well.
   const auto addresses = extract("SG24-204.boo", "BACK_1.2");
   bool single = false;
   bool ragged = false;
-  for (const auto &decline : addresses.blocks.declined) {
-    if (decline.object_id == "TBLUNIQ18")
-      single = decline.reason == "gap table has a single display line";
-    if (decline.object_id == "TBLUNIQ20")
-      ragged = decline.reason.rfind("cell text has an unaligned gap", 0) == 0;
+  for (const auto &block : addresses.blocks.blocks) {
+    if (block.object_id == "TBLUNIQ18")
+      single = block.geometry == FixedTableGeometryIR::preformatted &&
+               block.preformatted_lines.size() == 4;
+    if (block.object_id == "TBLUNIQ20")
+      ragged = block.geometry == FixedTableGeometryIR::preformatted;
   }
   require(single && ragged,
-          "BACK_1.2 single-line and ragged-gap envelopes are declined");
+          "BACK_1.2 single-line and ragged-gap envelopes are not tables");
 }
 
 // Typed CFONT provenance only makes the first row a header when it is set in

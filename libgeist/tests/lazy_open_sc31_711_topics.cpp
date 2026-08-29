@@ -114,15 +114,29 @@ int main() {
     require(filters.find(leaked) == std::string::npos,
             "fixed filter row marker or carryover token leaked");
   }
+  // 2.4.1/2.4.4 are `SRTBL` problem-determination forms whose answer cells
+  // are ruled off with horizontal box words. No column model is proven for
+  // them, so the typed route reproduces the region verbatim -- which is
+  // exactly what hosted BookServer serves inside `<pre>`
+  // (DT=19941010174546, fetched 2026-08-29). The legacy renderer used to
+  // invent a `Field | Value` header and expand `&ballot.` to `[ ]`; hosted
+  // does neither.
   const auto customer_form = problem_determination.topic_markdown("2.4.1");
-  require(customer_form.find("| Field | Value |") != std::string::npos &&
-              customer_form.find("| Customer number |  |") !=
-                  std::string::npos &&
-              customer_form.find("| LNM for AIX component ID |  |") !=
-                  std::string::npos &&
-              customer_form.find("| Problem symptoms |  |") !=
-                  std::string::npos,
-          "fixed customer form lost its field/value rows");
+  for (const auto* expected : {
+           "   | Customer number                           |"
+           "                            |",
+           "   |                                           | "
+           "__________________________ |",
+           "   |___________________________________________|"
+           "____________________________|",
+           "   | LNM for AIX component ID                  |"
+           "                            |",
+           "   | Problem symptoms                          |"
+           "                            |",
+       }) {
+    require(customer_form.find(expected) != std::string::npos,
+            "fixed customer form lost a hosted display line");
+  }
   require(customer_form.find(", ,") == std::string::npos,
           "fixed customer form collapsed back into punctuation");
   // 2.4.5 / 2.4.7 render through the typed prose family: each `__`
@@ -139,29 +153,32 @@ int main() {
   require(customer_checklist.find("```text") == std::string::npos,
           "fixed customer checklist was emitted as a code block");
   const auto netview_form = problem_determination.topic_markdown("2.4.4");
-  require(netview_form.find("[ ] Read") != std::string::npos &&
-              netview_form.find("[ ] Read-Write") != std::string::npos,
-          "fixed NetView form lost its ballot choices");
-  require(netview_form.find("&ballot.") == std::string::npos,
-          "fixed NetView form exposed its BookMaster ballot macro");
-  require(netview_form.find(
-              "Number of objects in the OVw database<br>(use the command "
-              "ovobjprint \\| head)") != std::string::npos,
-          "fixed NetView form lost its object-count command continuation");
   for (const auto* expected : {
-           "Which mode was AIX NetView/6000 operating<br>in at the time of "
-           "the problem?",
-           "[ ] Read<br>[ ] Read-Write",
-           "Number of objects to hold in ovwdb<br>cache",
-           "Number of seconds between storing<br>data to the GTMD database",
+           // The reader itself leaves `&ballot.` unresolved in this book.
+           "   | Which mode was AIX NetView/6000 operating | &ballot.  Read"
+           "             |",
+           "   | in at the time of the problem?            | &ballot.  "
+           "Read-Write       |",
+           "   | \xc2\xb0   Number of objects in the OVw database |"
+           "                            |",
+           "   |     (use the command ovobjprint | head)   | "
+           "__________________________ |",
+           "   | \xc2\xb0   Number of objects to hold in ovwdb    | "
+           "__________________________ |",
+           "   |     cache                                 |"
+           "                            |",
+           "   | \xc2\xb0   Number of seconds between storing     |"
+           "                            |",
+           "   |     data to the GTMD database             |"
+           "                            |",
        }) {
     require(netview_form.find(expected) != std::string::npos,
-            "source-owned fixed form continuation was split or moved");
+            "source-owned fixed form display line was split or moved");
   }
   require(netview_form.find("| a |") == std::string::npos &&
               netview_form.find("| address |") == std::string::npos &&
               netview_form.find("????????") == std::string::npos &&
-              netview_form.find("\\_\\_\\_\\_\\_") != std::string::npos,
+              netview_form.find("______________________") != std::string::npos,
           "fixed form leaked out-of-grid text or lost visible fill rules");
   const auto reader_questionnaire =
       problem_determination.topic_markdown("COMMENTS");
@@ -364,8 +381,10 @@ int main() {
   const auto filesystem_space =
       problem_determination.topic_markdown("2.4.3");
   require(filesystem_space.find(
-              "Amount of free space available in the<br>file system that "
-              "contains /usr/OV") != std::string::npos,
+              "   | Amount of free space available in the     |"
+              "                            |\n"
+              "   | file system that contains /usr/OV         | "
+              "__________________________ |") != std::string::npos,
           "active-table CFONT continuation lost the /usr/OV row");
   require(filesystem_space.find(
               "Amount of free space available in /tmp") !=
