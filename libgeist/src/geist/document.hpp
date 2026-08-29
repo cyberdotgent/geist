@@ -45,6 +45,7 @@ struct BooLogicalRecordTrace {
   std::vector<std::string> ir_physical_rows;
   std::vector<std::string> ir_ownership_cells;
   std::vector<std::string> ir_semantic_blocks;
+  std::vector<std::string> ir_tokens;
 };
 
 class BooDocument {

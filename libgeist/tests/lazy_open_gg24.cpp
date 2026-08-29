@@ -17,10 +17,14 @@ int main() {
   require(discontinued->raw_records.empty(),
           "opening eagerly rendered split-header topic body");
   const auto discontinued_markdown = split_header.topic_markdown("2.6");
-  require(discontinued_markdown.find("## 2.6 Discontinued Support") !=
+  require(discontinued_markdown.find("## 2\\.6 Discontinued Support") !=
               std::string::npos,
           "split-header topic lost its TOC heading");
-  require(discontinued_markdown.find("LU6.1 adapter") != std::string::npos,
+  // The typed route keeps the two `<p>` paragraphs hosted BookServer serves
+  // for this topic (DT 19950308184737); the legacy route ran them together.
+  require(discontinued_markdown.find(
+              "before migrating to IMS 5\\.1\\.\n\nThe LU6\\.1 adapter") !=
+              std::string::npos,
           "split-header topic lost its body");
   const auto split_header_index = split_header.topic_markdown("INDEX");
   require(split_header_index.find(

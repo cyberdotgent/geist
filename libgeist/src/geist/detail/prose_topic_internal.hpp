@@ -234,9 +234,13 @@ struct Envelope {
   // The raw lower-cased CHDLEVEL operand: `h1`..`h6`, or a front-matter form
   // such as `cover`/`toc`/`preface` that the reader serves as `h1`.
   std::string heading_form;
-  std::size_t body_segment_begin = 0;  // first non-envelope segment of record 0
+  // First body segment.  The metadata run may span logical records, so the
+  // body starts at (body_record, body_segment_begin).
+  std::size_t body_record = 0;
+  std::size_t body_segment_begin = 0;
   std::vector<ProseAnchorIR> leading_anchors;
   bool glued_title = false;
+  std::size_t glued_title_record = 0;
   std::vector<std::size_t> glued_title_tokens;
 };
 
@@ -307,6 +311,11 @@ struct LineBuild {
   std::vector<ProseAnchorIR> body_anchors;
   std::vector<ProseIndexTermIR> index_terms;
   std::string title;
+  // Every visible word of the `ST` control's payload, in source order,
+  // including the words after the display-row break that ends the title.
+  // Both the typed title and the legacy string projection of the same
+  // control are truncations of this run, so it is what corroborates them.
+  std::string title_run;
   std::vector<std::pair<std::size_t, std::size_t>> title_refs;
   // CZ directives in source order; empty for the flattened dialect.
   std::vector<LayoutDirective> directives;

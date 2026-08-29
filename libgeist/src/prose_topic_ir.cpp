@@ -79,9 +79,30 @@ std::optional<ProseTopicIR> extract_prose_topic_ir(
   if (!build_lines(records, stream.items, ledger, lines, error))
     return std::nullopt;
 
-  if (normalize_title(lines.title) != normalize_title(title))
-    return reject("ST title '" + lines.title +
-                  "' does not match the topic title '" + title + "'");
+  // The topic title the book catalog carries is a *string* projection of the
+  // same `ST` control: `build_topics` reads the flattened decoded record and
+  // stops at the first decoder boundary, which is not where the display row
+  // breaks.  Hosted BookServer serves the row: QSYSINFO 2.1.21 (DT
+  // 19910524120827) heads the topic `<H3> 2.1.21   SC09-1159, Languages:
+  // System/38-Compatible COBOL User's Guide and</H3>` and starts the body
+  // with `Reference`, while the catalog string runs on to `... and Re`.
+  // Both are therefore truncations of one word run -- the `ST` payload -- so
+  // corroboration is positional: each must be a prefix of that run.  A title
+  // that is not a prefix of its own source (a dropped leading glyph, a
+  // compact word glued onto the last word) still fails closed.
+  {
+    const auto typed = normalize_title(lines.title);
+    const auto catalog = normalize_title(title);
+    const auto run = normalize_title(lines.title_run);
+    const auto prefix_of_run = [&](const std::string& value) {
+      return !value.empty() && run.rfind(value, 0) == 0;
+    };
+    if (typed != catalog &&
+        !(prefix_of_run(typed) && prefix_of_run(catalog)))
+      return reject("ST title '" + lines.title +
+                    "' does not match the topic title '" + title +
+                    "' [run '" + lines.title_run + "']");
+  }
 
   topic.record_count = records.size();
   topic.token_count = ledger.entries.size();

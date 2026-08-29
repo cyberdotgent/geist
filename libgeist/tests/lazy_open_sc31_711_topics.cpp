@@ -197,12 +197,19 @@ int main() {
           "fixed questionnaire lost literal question punctuation");
   const auto network_checklist =
       problem_determination.topic_markdown("2.4.8");
+  // Typed form, verified against hosted DT 19941010174546: the `__` ballot
+  // rows are questions in their own right (the legacy route turned them into
+  // list items and dropped their `?`), and the bullet rows below them keep
+  // the bold command run hosted serves as `<B>ovobjprint</B> <B>|</B>
+  // <B>head</B>`.
   for (const auto* expected : {
-           "- Which AIX NetView/6000 applications were running",
+           "\\_\\_ Which AIX NetView/6000 applications were running at the "
+           "time of the problem?",
+           "\\_\\_ What is the size of the network you are managing?",
            "- Number of stations", "- Number of bridges",
            "- Number of concentrators",
-           "- Number of objects in the OVw database (use the command "
-           "**ovobjprint** **|** **head**)",
+           "- Number of objects in the OVw database \\(use the command "
+           "**ovobjprint \\| head**\\)",
            "- Number of objects to hold in ovwdb cache",
            "- Number of seconds between storing data"}) {
     require(network_checklist.find(expected) != std::string::npos,

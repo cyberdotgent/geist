@@ -198,6 +198,133 @@ void promote_corroborated_topic_start(const std::string &text,
   segment.payload_range = {words[0].end, segment.complete.end};
 }
 
+// The SCRIPT body controls (`c.cp` keep-together, `c.cc` conditional column,
+// `c.pa` page eject) are stored as one whole dictionary token spelling
+// `c.` plus the two-letter opcode.  Deciding this on the assembled words of a
+// single source token, not on the flattened projection, is what separates the
+// control from prose: the decoded string writes the boundary byte before it as
+// `?` (the projection of the attach-control word 0x0001, of a bullet glyph and
+// of every box word alike), so the string-level segment splitter — which
+// requires a space, `=`, `,` or `.` after the opcode — cannot see it at all.
+bool script_control_words(const TokenWords &words) {
+  if (words.size() < 4 || words[0] != 'c' || words[1] != '.')
+    return false;
+  return std::all_of(words.begin() + 2, words.end(),
+                     [](const std::uint16_t word) {
+                       return word >= 'a' && word <= 'z';
+                     });
+}
+
+// A one-byte dictionary token whose expansion is the attach control plus a
+// comma is the control separator the record encoder writes before a body
+// control (FA1PLMM0 record 353 token 72 and SC09-138 record 1482 token 47 both
+// carry encoded value 2, words {0x0001, ','}; the same separator stands
+// between `csummary` and `chdlevel` in FA1PLMM0 record 352).  Hosted
+// BookServer prints no comma there.
+bool control_separator_words(const TokenWords &words) {
+  std::size_t at = 0;
+  while (at < words.size() && words[at] == 1)
+    ++at;
+  return at + 1 == words.size() && words[at] == ',';
+}
+
+// Splits every decoded span that carries a body-control opcode token which the
+// string-level splitter left glued to the run before it.  Nothing else about
+// the span changes, so a record without such a token keeps its exact spans.
+std::vector<DecodedMarkupSegmentSpan>
+split_glued_body_controls(const AssembledLogicalRecord &assembled,
+                          const std::vector<EncodedLogicalToken> &encoded,
+                          const std::string &text,
+                          std::vector<DecodedMarkupSegmentSpan> spans) {
+  struct Cut {
+    std::size_t begin = 0;
+    std::size_t opcode_end = 0;
+  };
+  std::vector<Cut> cuts;
+  // The assembled output carries the decoder's inserted spacing, so a token's
+  // assembled words can start or end with a space run; the token's own word is
+  // what is between them.
+  const auto words_of = [&](const LogicalTokenSpan &token) {
+    auto begin = token.output_begin;
+    auto end = token.output_end;
+    while (begin < end && assembled.words[begin] == ' ')
+      ++begin;
+    while (end > begin && assembled.words[end - 1] == ' ')
+      --end;
+    return TokenWords(
+        assembled.words.begin() + static_cast<std::ptrdiff_t>(begin),
+        assembled.words.begin() + static_cast<std::ptrdiff_t>(end));
+  };
+  for (std::size_t index = 0; index < assembled.tokens.size(); ++index) {
+    const auto &token = assembled.tokens[index];
+    if (!script_control_words(words_of(token)))
+      continue;
+    // Only a two-byte dictionary token is a body control.  A one-byte token
+    // that merely spells `c.<xx>` is display-line geometry the row model owns:
+    // IBMMMSTR 3.1 record 1244 token 139 (encoded value 31) spells `c.cc` and
+    // stands exactly where a display line's length byte stands -- after the
+    // `:` that ends `Messages print at run-time when:` and before the
+    // three-cell origin run of `1.  An error occurs ...`; OFCUSEOV 1.4
+    // records 83 and 87 (value 55) spell `c.cp` at the row break hosted
+    // serves as a `<p>` between the numbered steps.  Reading either as a
+    // control loses that break.  The genuine controls are two-byte tokens:
+    // FA1PLMM0 record 353 token 73 `c.cp` value 49655, GG24-4302-00 record
+    // 613 token 19 `c.cc` value 52750, SC33-033 record 241 token 56 `c.cc`
+    // value 53126, SC09-138 record 1482 token 48 `c.pa`.
+    if (index < encoded.size() && encoded[index].width != 2)
+      continue;
+    auto begin = token.output_begin;
+    if (index != 0 &&
+        control_separator_words(words_of(assembled.tokens[index - 1])))
+      begin = assembled.tokens[index - 1].output_begin;
+    cuts.push_back(
+        {decoded_word_range_to_byte_range(assembled, {begin, begin}).begin,
+         decoded_word_range_to_byte_range(assembled,
+                                          {token.output_end, token.output_end})
+             .begin});
+  }
+  if (cuts.empty())
+    return spans;
+  // A cut only earns its segment when display material follows the opcode
+  // inside the same span.  Where the rest of the span is layout, the control
+  // is already the row boundary the display-row model reads, and splitting it
+  // out loses that boundary: SH12-565 1.1.3.1 record 37 ends its span with
+  // `c.cp` and a 63-cell fill run, and hosted DT 19941206115523 serves a
+  // `<p>` between the numbered steps there.
+  const auto display_between = [&](std::size_t byte_begin,
+                                   std::size_t byte_end) {
+    const auto range = decoded_byte_range_to_word_range(
+        assembled, {byte_begin, byte_end});
+    for (auto word = range.begin; word < range.end && word < text.size();
+         ++word) {
+      const auto value = assembled.words[word];
+      if (value >= 0x21 && value != 0x7F && value < 0x2500)
+        return true;
+    }
+    return false;
+  };
+  std::vector<DecodedMarkupSegmentSpan> result;
+  result.reserve(spans.size() + cuts.size());
+  for (auto &span : spans) {
+    auto begin = span.output_begin;
+    for (const auto &cut : cuts) {
+      if (cut.begin <= begin || cut.begin >= span.output_end)
+        continue;
+      if (!display_between(cut.opcode_end, span.output_end))
+        continue;
+      result.push_back({begin, cut.begin, text.substr(begin, cut.begin - begin)});
+      begin = cut.begin;
+    }
+    if (begin == span.output_begin) {
+      result.push_back(std::move(span));
+    } else {
+      result.push_back({begin, span.output_end,
+                        text.substr(begin, span.output_end - begin)});
+    }
+  }
+  return result;
+}
+
 std::size_t fixed_operand_count(BookControlKind kind) {
   switch (kind) {
   case BookControlKind::topic_number:
@@ -268,10 +395,13 @@ decoded_word_range_to_byte_range(const AssembledLogicalRecord &assembled,
 
 std::vector<ControlSegmentIR>
 decode_control_segments(std::uint32_t logical_record,
-                        const AssembledLogicalRecord &assembled) {
+                        const AssembledLogicalRecord &assembled,
+                        const std::vector<EncodedLogicalToken> &encoded_tokens) {
   const auto text = token_words_to_ascii(assembled.words);
   const auto geometry = display_geometry_bytes(assembled, text.size());
-  const auto decoded = split_decoded_markup_segment_spans(text);
+  const auto decoded = split_glued_body_controls(
+      assembled, encoded_tokens, text,
+      split_decoded_markup_segment_spans(text));
   std::vector<ControlSegmentIR> result;
   result.reserve(decoded.size());
   for (std::size_t index = 0; index < decoded.size(); ++index) {

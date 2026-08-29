@@ -13,7 +13,10 @@ Prose Too" and "A Control-Shaped Word Inside A Row Is Display Text".
 
 `build/bootrace <book> --coverage` over all 34 fixtures at `main` `5430892`:
 **6,285 / 7,362 typed**.  The two classes this slice owns: `row columns are
-unproven` **47**, `nested or misaligned list items` **43**.
+unproven` **47**, `nested or misaligned list items` **43**.  (`main` moved to
+`25f5bc1` while the slice ran; re-measured there the two classes are **48**
+and **44** and the baseline is **6,416**.  Every number under "Measured"
+below is against `25f5bc1`, after the merge.)
 
 ## What the two rules turned out to require
 
@@ -118,11 +121,16 @@ segment boundary stays, because the flattened string really did split there,
 and the prose stream pushes the payload as body text in place instead of
 rejecting it as a control-like word.
 
-**Measured on its own baseline** (the margin fix above): **6,377 → 6,422
-(+45)**, no book regressing and no topic moving typed → legacy; `text segment
-begins with control-like word` **99 → 81**, and the remaining `SR…` cases (12)
-are all words that *do* open their display line.  Two topics moved from this
-reason to `ST title does not match` (35 → 37), staying legacy.
+**Measured on its own baseline** at the time (`5430892` plus the margin fix):
+**6,377 → 6,422 (+45)**, no book regressing and no topic moving typed →
+legacy; `text segment begins with control-like word` **99 → 81**, and the
+remaining `SR…` cases (12) are all words that *do* open their display line.
+`main` `25f5bc1` then landed an independent rule for the same class — a word
+is only a control when the record encoder wrote a boundary before it — which
+reaches the same text segments.  Both are kept: the encoder boundary decides
+the *text* segments, and the display line decides the *structural* ones, where
+`SRCVPAC` and its ten siblings had been classified as anchors and their words
+dropped from topics that were already typed.
 
 **Tried and reverted**: the split consumes the separator it fires on, so
 SH12-565 `3.1.6`'s example command loses one comma (`F QH,F XY,SRV=(3,2,2)` →
@@ -152,20 +160,28 @@ and the legacy one had merged into a single cell, gluing `list ofsubsystem`,
 
 ## Measured
 
-* `bootrace --coverage` over all 34 books: **6,285 → 6,422 of 7,362
-  (85.4% → 87.2%, +137)**.  **No book regressed and no topic moved typed →
-  legacy** at any step.  Per book: SC24-5527-02 +21, ACPZMST1 +18, QSYSNEWG
-  +13, SC24-546 +13, SC26-457 +12, GG24-395 +8, SC09-138 +7, OFCUSEOV +6,
-  IEAC6MST +5, SC24-5520-00 +5, SH12-565 +5, PRG1SORT +4, SC34-425 +4,
-  GC23-046 +3, SH20-918 +3, FA1PLMM0 +2, SC09-2417-00 +2, and +1 each in
-  DREICMST, GG24-4302-00, ITPPIBOK, QS3X36CM, QSYSINFO and SC28-1881-05.
-* Rejection classes: **`row columns are unproven` 47 → 2**, **`nested or
-  misaligned list items` 43 → 1**, **`text segment begins with control-like
-  word` 99 → 81** (the whole `SR…` half of that class), and `visible token …
-  claimed by no block` 34 → 31.  Only `ST title does not match` grew (35 → 37),
-  by two topics that stay legacy under a different reason.
-* Whole-corpus `boo2git --force` before/after: **556 changed files, 0 added,
-  0 removed** — the **137** moved topics plus **419** already-typed topics the
+Against `main` `25f5bc1`, after merging it (the merge kept both sides in
+`prose_topic_stream.cpp`: `main`'s encoder-boundary rule for a control-shaped
+word, and this slice's `display_text` demotion, which decides the half the
+boundary cannot -- a word that carries a real boundary and is display text all
+the same).
+
+* `bootrace --coverage` over all 34 books: **6,416 → 6,544 of 7,362
+  (87.1% → 88.9%, +128)**.  **No book regressed and no topic moved typed →
+  legacy** at any step.  Per book: SC24-5527-02 +21, ACPZMST1 +17, QSYSNEWG
+  +13, SC24-546 +12, SC26-457 +11, GG24-395 +7, SC09-138 +7, OFCUSEOV +6,
+  IEAC6MST +5, SC34-425 +5, PRG1SORT +4, GC23-046 +3, SC24-5520-00 +3,
+  SH20-918 +3, FA1PLMM0 +2, QSYSINFO +2, SH12-565 +2, and +1 each in
+  DREICMST, GG24-4302-00, ITPPIBOK, QS3X36CM, SC09-2417-00 and SC28-1881-05.
+* Rejection classes: **`row columns are unproven` 48 → 2** and **`nested or
+  misaligned list items` 44 → 1**.  `text segment begins with control-like
+  word` is 73 on both sides -- `main` reaches the same `SR…` text segments
+  through its encoder-boundary rule -- so what this slice still contributes
+  there is the *structural* half that rule cannot see: `SRCVPAC` and its ten
+  siblings were classified as anchors, not as text segments at all, and their
+  words were dropped from topics that were already typed.
+* Whole-corpus `boo2git --force` before/after: **559 changed files, 0 added,
+  0 removed** — the **128** moved topics plus **431** already-typed topics the
   margin fix corrects.  The correction is always the same kind: a paragraph
   the lost margin had split at every change-bar row is one paragraph again
   (ACPZMST1 `2.4` `**Log Messages**` + three fragments → one definition
@@ -198,15 +214,12 @@ better than the pre-regression typed output on one.  The residual counts are
 comparison artefacts, checked one by one: hosted glues `EMPTY|NOEMPTY` and the
 drawn box rails `|______|` into single tokens that the cell-splitting drops.
 
-* **78 moved topics across 19 books**: typed better **65**, equal **11**,
-  worse **2**; **28 are word-identical to hosted**.  Both "worse" rows were
+* **75 moved topics across 18 books**: typed better **63**, equal **11**,
+  worse **1**; **29 are word-identical to hosted**.  The one "worse" row was
   read: ACPZMST1 `7.3.1` is an `&amp;` entity the comparator unescapes on the
-  hosted side only (typed recovers the word `use` legacy loses), and SH12-565
-  `3.1.6` is the swallowed comma above plus railroad-diagram tokens hosted
-  glues -- its preformatted rows are character-identical to hosted's, and
-  legacy drops the whole `,SRV=(3,2,2)` tail.
-* **143 of the already-typed corrected topics, across 22 books**: better 6,
-  equal 137, **worse 0**; 59 word-identical.  The export changes are
+  hosted side only, and typed recovers the word `use` that legacy loses.
+* **143 of the already-typed corrected topics, across 22 books**: better 7,
+  equal 136, **worse 0**; 58 word-identical.  The export changes are
   paragraph structure, not words, as expected of a margin fix.
 
 Hosted DTs are the table in `prose-display-line-rows-2026-08-29.md`;
@@ -215,7 +228,7 @@ absent from the hosted catalog and excluded from the samples.
 
 ## Residual
 
-**940 legacy topics.**  The two classes this slice owns are down to three
+**818 legacy topics.**  The two classes this slice owns are down to three
 topics, all genuinely fail-closed:
 
 * QSYSNEWG `A.4` (`nested or misaligned list items`);
@@ -225,16 +238,11 @@ topics, all genuinely fail-closed:
 * PRG1SORT `2.1.4`, a `(Source file name)` row whose span starts inside the
   parenthesis.
 
-`text segment begins with control-like word` keeps **81**: 34 `ctocdef=0` (one
-per book, every `CONTENTS` topic), 29 `cidelm`/5 `citerm`/1 `ctoce` (the
-`INDEX` topics) — a generated-list slice, not a prose one — and 12 `SR…` words
-that *do* open their display line, so this rule says nothing about them.
-
 One known character loss: SH12-565 `3.1.6` drops the comma the segment split
 consumed (see "Tried and reverted" above); typed still recovers `,SRV=(3,2,2)`
 which legacy drops whole.
 
-Corpus-wide top reasons after this slice: placeholder run 82, control-like
-word at a text-segment start 81, missing metadata envelope 69, `SRMSG` outside
-the prose model 54, ST-title mismatch 37, `cz off table` 34, unclaimed table
-token 31, `cz off efig` 28.
+Corpus-wide top reasons after this slice: placeholder run 81, control-like
+word at a text-segment start 73, `SRMSG` outside the prose model 54, `cz off
+table` 35, unclaimed table token 31, `cz off efig` 29, misaligned figure
+prefixes 26, ST title never completed 26.

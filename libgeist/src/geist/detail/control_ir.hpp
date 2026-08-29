@@ -1,5 +1,7 @@
 #pragma once
 
+#include "geist/detail/book_ir.hpp"
+
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -69,9 +71,16 @@ OutputRangeIR decoded_byte_range_to_word_range(
 OutputRangeIR decoded_word_range_to_byte_range(
     const AssembledLogicalRecord& assembled, const OutputRangeIR& words);
 
+// `encoded_tokens` is the record's encoded token projection, in token order.
+// It is optional only for synthetic assembled records in tests; production
+// decoding always supplies it, because the encoded width and value of a token
+// separate a body-control opcode from a display-line length byte whose
+// dictionary spelling merely looks like one.
 std::vector<ControlSegmentIR>
 decode_control_segments(std::uint32_t logical_record,
-                        const AssembledLogicalRecord& assembled);
+                        const AssembledLogicalRecord& assembled,
+                        const std::vector<EncodedLogicalToken>& encoded_tokens =
+                            {});
 bool verify_control_segments(const AssembledLogicalRecord& assembled,
                              const std::vector<ControlSegmentIR>& segments,
                              std::string* error = nullptr);

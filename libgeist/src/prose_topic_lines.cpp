@@ -22,6 +22,13 @@ struct LineBuilder {
   std::string* error;
 
   bool in_title = false;
+  // True from the first word of the `ST` payload until the accumulated run is
+  // long enough to decide any catalog title against it; the title itself stops
+  // earlier, at the first display-row break.
+  bool in_title_segment = false;
+  // One marker slot at most stands between `ST` and the first title word.
+  bool title_marker_seen = false;
+  std::size_t title_run_rows = 0;
   bool title_done = false;
   bool in_index = false;
   // A structured subject-index entry occupies exactly one display line of its
@@ -72,6 +79,13 @@ struct LineBuilder {
       return cursor;
     }
     return npos;
+  }
+  // True when a control-segment boundary separates the two item positions.
+  bool segment_end_between(std::size_t from, std::size_t to) const {
+    if (to == npos) to = items.size();
+    for (auto cursor = from + 1; cursor < to && cursor < items.size(); ++cursor)
+      if (items[cursor].kind == ItemKind::segment_end) return true;
+    return false;
   }
   bool space_at(std::size_t index) const {
     return index != npos && is_token(index) && is_space_run(items[index].token);
@@ -614,7 +628,25 @@ struct LineBuilder {
       line().cells.push_back({view.record, view.token, " ", true});
   }
 
+  // Accumulates the `ST` payload's visible word run (see LineBuild::title_run).
+  void append_title_run(const TokenView& view) {
+    if (!in_title_segment) return;
+    // Words on different display rows are separate words; inside one row the
+    // token's own attach prefix decides, exactly as for the row cells.
+    const auto row_changed = out.lines.size() != title_run_rows;
+    title_run_rows = out.lines.size();
+    if (!out.title_run.empty() &&
+        (row_changed ||
+         (pending_space && view.prefix != 0 && view.prefix != 1)))
+      out.title_run.push_back(' ');
+    out.title_run += body_text(view);
+    // The run only has to outlast the longest catalog title in the corpus;
+    // no catalog title reaches this length.
+    if (out.title_run.size() > 512) in_title_segment = false;
+  }
+
   bool append_visible(const TokenView& view, ProseTokenRoleIR role) {
+    append_title_run(view);
     if (!ensure_line()) return false;
     if (pending_space && view.prefix != 0 && view.prefix != 1)
       line().cells.push_back({npos, 0, " ", true});
@@ -763,6 +795,21 @@ struct LineBuilder {
     // from the cases above yet.
     if (cz_mode && alnum_word(view)) return false;
     const auto space = next_token(index);
+    // The ST payload is one control segment, and hosted BookServer serves it
+    // as the topic's own heading element, so no display row runs from the
+    // title into the body.  Reading a marker/origin pair across the segment
+    // end steals the title's last token: SC24-546 E.2 record 1169 ends the
+    // `ST` segment with `)` (token 35), and the fill/origin run that follows
+    // belongs to the next segment's first row, which turned the heading into
+    // `The File Block (FBLOCK`.  Hosted DT 19940323131240 serves
+    // `<H2> E.2   The File Block (FBLOCK)</H2>`.
+    // Only a punctuation glyph is rescued this way: a one-byte token spelling
+    // a whole dictionary *word* is the documented compact-marker collision
+    // (Format/markup.md) and closes the title wherever it stands -- FA1PLMM0
+    // I.6.1 record 254 token 33 (`access`, encoded value 43), SC24-5520-00
+    // 3.7.5.2 (`and`) and SH20-918 3.33.14 (`an`) all end their heading there.
+    if (in_title && !alnum_word(view) && segment_end_between(index, space))
+      return false;
     if (!space_at(space)) return false;
     if (space_at(next_token(space))) {
       // Fill/origin pair: a standalone glyph is a marker here, and so is a
@@ -1013,7 +1060,10 @@ struct LineBuilder {
     }
     if (item.title_start) {
       in_title = true;
+      in_title_segment = true;
+      title_marker_seen = false;
       out.title.clear();
+      out.title_run.clear();
     }
     if (item.index_start) {
       if (in_index) return fail(error, "nested SI control");
@@ -1245,7 +1295,10 @@ struct LineBuilder {
                                "' is followed by visible text at " +
                                where(view));
       }
-      if (title_marker) return assign(view, ProseTokenRoleIR::marker);
+      if (title_marker) {
+        title_marker_seen = true;
+        return assign(view, ProseTokenRoleIR::marker);
+      }
       if (in_title && !finish_title()) return false;
       if (in_index && !finish_index()) return false;
       if (!assign(view, ProseTokenRoleIR::marker)) return false;
@@ -1372,13 +1425,21 @@ struct LineBuilder {
 
     if ((in_title || in_index) && is_bullet_glyph(view))
       return assign(view, ProseTokenRoleIR::padding);
-    if (in_title && out.title.empty() && view.width == 1 &&
-        punctuation_glyph(view))
+    // The title's own row carries at most one marker slot.  A second
+    // one-cell glyph in front of the first title word is display text:
+    // ACPZMST1 5.4 and 5.5 store `ST` + spacing + a placeholder slot + `/` +
+    // `etc` + `/` + `inittab`, and the catalog title is
+    // `/etc/inittab File Definitions`.
+    if (in_title && !title_marker_seen && out.title.empty() &&
+        view.width == 1 && punctuation_glyph(view)) {
+      title_marker_seen = true;
       return assign(view, ProseTokenRoleIR::marker);
+    }
     if (in_title) {
       if (pending_space && view.prefix != 0 && view.prefix != 1)
         out.title.push_back(' ');
       out.title += body_text(view);
+      append_title_run(view);
       last_visible = body_text(view);
       pending_space = view.prefix != 2;
       out.title_refs.emplace_back(view.record, view.token);

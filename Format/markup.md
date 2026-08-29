@@ -465,6 +465,41 @@ Evidence:
 | `GG24-4302-00.boo` | `SHfigures ... CHDLEVEL :figlist ... ST Figures` |
 | `SC26-4221-08.boo` | `SHnotices ... CHDLEVEL :notices ... ST Notices` |
 
+### The ST Title Is One Display Row
+
+The `ST` payload is display material like any other: it is laid out in display
+rows, and hosted BookServer serves **the first row** as the topic's heading
+element. Everything after that row's break is body text.
+
+| Book | Topic | `ST` payload | Hosted heading | Body starts |
+| --- | --- | --- | --- | --- |
+| PRG1SORT | 1.4 | `Chapter 4.  Sorting Records from a Single File to Produce a Record Address` + row break + `File` | `<H1> 1.4   Chapter 4.  Sorting Records from a Single File to Produce a Record Address</H1>` | `<I>File</I>` |
+| QSYSINFO | 2.1.21 | `SC09-1159, Languages:  System/38-Compatible COBOL User's Guide and` + row break + `Reference` | the same row | `<I>Reference</I>` |
+
+Two consequences for an implementer.
+
+* A row's marker/origin pair may not be read **across the end of the `ST`
+  control segment**: SC24-546 E.2 record 1169 ends that segment with `)`
+  (token 35, encoded value 37, width 1) and the fill/origin run that follows
+  belongs to the next segment's first row. Reading it as this row's marker
+  slot turns `The File Block (FBLOCK)` into `The File Block (FBLOCK`. The
+  exception is the documented compact-marker collision: a one-byte token
+  spelling a whole dictionary *word* is a row-control byte wherever it stands
+  (FA1PLMM0 I.6.1 `access`, encoded value 43; SC24-5520-00 3.7.5.2 `and`;
+  SH20-918 3.33.14 `an`).
+* At most one marker slot stands between `ST` and the first title word.
+  ACPZMST1 5.4 and 5.5 store `ST` + spacing + a placeholder slot + `/` +
+  `etc` + `/` + `inittab`; the `/` is the first character of the title
+  (`/etc/inittab File Definitions`), not a second slot.
+
+The topic title the book catalog carries is a **string** projection of the same
+control (it reads the flattened decoded record and stops at the first decoder
+boundary), so it neither equals the display row nor is wrong: both are
+truncations of one word run. QSYSINFO 2.1.21's catalog title runs on to
+`... and Re`; PRG1SORT 1.4's runs on to `... Record Address File`. A reader
+that has the display rows should take the heading from the row and use the
+catalog string only to corroborate it positionally.
+
 ## Cover And Title Page Rendering
 
 BookManager cover and title-page topics are generated from book metadata and
