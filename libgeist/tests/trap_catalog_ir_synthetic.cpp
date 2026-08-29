@@ -323,11 +323,16 @@ int main() {
     }
   }
 
-  // 4.3.5 used to fail closed: the `cbacklevel` its introduction appeared to
-  // carry was a display line's length byte, not a control.  With the byte
-  // read as a length the catalog composes, and hosted DT 19941010174546
-  // serves exactly its one entry (`1` / `Description:  DLCI state change` /
-  // `LNM for AIX Response:  Poll the port.`).
+  // 4.3.5 stays legacy.  The `cbacklevel` its introduction appears to carry
+  // is really a display line's length byte, and with the byte read as a
+  // length the catalog composes and matches hosted DT 19941010174546 word
+  // for word (`1` / `Description:  DLCI state change` / `LNM for AIX
+  // Response:  Poll the port.`).  Neither way of getting there is safe yet:
+  // demoting the metadata opcodes globally makes the message family print
+  // the byte's spelling inside SC31-711 5.0's message texts, and letting the
+  // segment through this envelope check truncates the introduction at
+  // `... are defined under` because the envelope span ends there
+  // (AnalysisNotes/figure-table-length-byte-2026-08-29.md).  Fail closed.
   {
     const auto topic = std::find_if(
         document.topics().begin(), document.topics().end(),
@@ -339,9 +344,9 @@ int main() {
     std::string error;
     const auto catalog = geist::detail::extract_trap_catalog_ir(
         sources, layout, ownership, "Frame Relay Redirected Traps", &error);
-    require(catalog.has_value() && catalog->entries.size() == 1 &&
-                catalog->entries.front().id == "1",
-            "4.3.5 trap catalog was not composed: " + error);
+    require(!catalog.has_value() &&
+                error.find("cbacklevel") != std::string::npos,
+            "4.3.5 must fail closed on the mis-segmented control: " + error);
   }
 
   return 0;

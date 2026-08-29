@@ -2,6 +2,8 @@
 
 #include "geist/detail/figure_block_ir.hpp"
 
+#include <algorithm>
+
 namespace geist::detail {
 
 std::optional<std::vector<DisplayLineIR>> token_display_lines(
@@ -137,6 +139,23 @@ void demote_length_byte_controls(DecodedLogicalRecordSource& record,
   for (auto& segment : record.control_segments) {
     if (segment.kind == BookControlKind::text || segment.opcode.empty())
       continue;
+    // Only the object-scope opcodes are demoted here.  The topic-metadata
+    // and font opcodes are length bytes just as often, but they are also
+    // read by the message and trap families, which render a segment's
+    // payload as text and would print the byte's spelling; the prose stream
+    // already withdraws those (prose_topic_stream.cpp, "Where a record's
+    // display lines parse ...").
+    switch (segment.kind) {
+    case BookControlKind::menu_start:
+    case BookControlKind::menu_item:
+    case BookControlKind::menu_end:
+    case BookControlKind::table_start:
+    case BookControlKind::table_end:
+    case BookControlKind::message_start:
+      break;
+    default:
+      continue;
+    }
     if (segment.source_tokens.empty()) continue;
     const auto token = segment.source_tokens.front();
     if (token >= prefix.size() || !prefix[token]) continue;
