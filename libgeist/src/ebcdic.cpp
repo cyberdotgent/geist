@@ -88,6 +88,12 @@ std::uint16_t map_token_word_to_lower_ascii(std::uint16_t word) {
   return word;
 }
 
+std::size_t token_word_ascii_width(std::uint16_t word) {
+  // Mirrors token_words_to_ascii exactly: every word projects to one byte
+  // except the Latin-1 range, which projects to a two-byte UTF-8 sequence.
+  return (word >= 0x00A1 && word <= 0x00FF) ? 2 : 1;
+}
+
 std::string token_words_to_ascii(const TokenWords& words) {
   std::string output;
   output.reserve(words.size());
