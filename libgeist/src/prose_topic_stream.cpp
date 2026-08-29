@@ -139,6 +139,34 @@ std::vector<DocumentSourceSliceIR> slices_for(
 }
 
 
+// Records that `inline_index` of `block` owns the whole decoded word of one
+// text token.  Rows that own their source verbatim (drawn boxes, `cz OFF XMP`
+// example blocks) call this once per token; the reflowed prose path in
+// prose_topic_blocks.cpp builds its claims cell by cell because a span may
+// split one word between two inlines.
+bool claim_token_whole(const std::vector<DecodedLogicalRecordSource>& records,
+                       Ledger& ledger, std::size_t record, std::size_t token,
+                       std::size_t block, std::size_t inline_index,
+                       std::string* error) {
+  auto& entry = ledger.at(record, token);
+  if (entry.block != npos && entry.block != block)
+    return fail(error, "text token shared by two blocks");
+  if (!entry.claims.empty()) {
+    const auto& claim = entry.claims.front();
+    if (entry.claims.size() != 1 || claim.block != block ||
+        claim.inline_index != inline_index)
+      return fail(error, "text token claimed by two inlines");
+    return true;
+  }
+  entry.block = block;
+  entry.inline_index = inline_index;
+  entry.claims.push_back(
+      {block, inline_index, 0,
+       static_cast<std::uint32_t>(
+           body_text(view_token(records, record, token)).size())});
+  return true;
+}
+
 bool valid_anchor_id(const std::string& value) {
   return !value.empty() &&
          std::all_of(value.begin(), value.end(), [](const unsigned char ch) {

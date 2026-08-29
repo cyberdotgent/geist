@@ -108,6 +108,26 @@ struct LineBuilder {
     return npos;
   }
 
+  // True when the record's payload parses into length-prefixed display lines
+  // and `token` is one line's length byte (Format/logical-controls.md,
+  // "Display Lines Inside A Record Payload").  That byte is a real row
+  // boundary whatever the reflow heuristics say.
+  bool display_line_prefix_at(std::size_t record, std::size_t token) {
+    const auto* lines = display_lines_of(record);
+    if (lines == nullptr) return false;
+    for (const auto& line : *lines)
+      if (line.prefix_token == token) return true;
+    return false;
+  }
+  // True when the record's display lines parse and `token` opens none of
+  // them, so the token is inside a display line whatever the reflow
+  // heuristics would make of it.  A record whose lines do not parse answers
+  // false: without that structure there is no proof either way.
+  bool inside_display_line(std::size_t record, std::size_t token) {
+    if (display_lines_of(record) == nullptr) return false;
+    return !display_line_prefix_at(record, token);
+  }
+
   // The drawn box region covering `record`/`token`, or nullptr.
   const BoxRegion* box_at(std::size_t record, std::size_t token) const {
     for (const auto& region : boxes) {
@@ -190,9 +210,25 @@ struct LineBuilder {
     return true;
   }
 
-  void open_line(std::size_t origin_cells, const TokenView* origin) {
+  // The revision change bar (`U+2502` or ASCII `|`) that stands in a row's
+  // marker slot, before the row's origin run.  BookServer prints it in the
+  // three-column left margin it puts in front of every reflowed prose row
+  // (` | ` for a revised row, `   ` otherwise), so the row's stored origin
+  // run measures the indent *after* that margin and the columns a
+  // CFONT/CSELECT operand names include it (Format/markup.md, "Spans And
+  // The Display Row").
+  static constexpr std::size_t change_bar_margin_cells = 3;
+  static bool change_bar_slot(const TokenView& view) {
+    return view.width == 1 && view.body.size() == 1 &&
+           (view.body[0] == 0x2502 || view.body[0] == '|');
+  }
+
+  void open_line(std::size_t origin_cells, const TokenView* origin,
+                 std::size_t margin_cells = 0) {
     Line fresh;
-    fresh.origin = origin_cells;
+    fresh.origin = origin_cells + margin_cells;
+    for (std::size_t cell = 0; cell < margin_cells; ++cell)
+      fresh.cells.push_back({npos, 0, " ", true});
     fresh.breaks_before = trailing_bare;
     fresh.directive = current_directive;
     trailing_bare = 0;
@@ -204,7 +240,7 @@ struct LineBuilder {
     if (origin != nullptr) {
       for (std::size_t word = 0; word < origin->body.size(); ++word)
         fresh.cells.push_back({origin->record, origin->token, " ", true});
-      implied_origin = origin->body.size();
+      implied_origin = origin->body.size() + margin_cells;
     }
     fresh.text_begin = fresh.cells.size();
     out.lines.push_back(std::move(fresh));
@@ -235,7 +271,25 @@ struct LineBuilder {
         if (span.end > current.cells.size()) return true;
       return false;
     };
-    return reaches(current.fonts) || reaches(current.links);
+    if (reaches(current.fonts) || reaches(current.links)) return true;
+    // A control the row has already met but whose display text has not
+    // arrived yet can address the same row: the second `cfont` of SC24-546
+    // 4.3.1 is stored between the example and the `->` that follows it.  Only
+    // a span that starts past the cells written so far proves that, because a
+    // control standing at a row boundary introduces the *next* row and its
+    // columns start again at that row's left margin.
+    if (line_visible_cells == 0) return false;
+    for (const auto control : pending_controls) {
+      const auto& item = items[control];
+      if (item.kind == ItemKind::font) {
+        for (const auto& span : item.spans)
+          if (span.column >= current.cells.size() && span.length != 0)
+            return true;
+      } else if (item.column >= current.cells.size() && item.length != 0) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // True when a control that is still waiting for its display text covers
@@ -876,6 +930,25 @@ struct LineBuilder {
       }
       return true;
     }
+    // A span of the open row that reaches past the cells written so far
+    // proves the row has not ended, so a one-byte token standing there is
+    // display text and not the next row's length byte or marker slot.
+    // Hosted evidence: SC24-546 4.3.1 serves
+    // `     ABBREV('Print','Pri')      -><B>    1</B>` as one row, whose
+    // second `cfont` names columns 32..34; IEAC6MST 5.1.2 serves
+    // `          RECORDSIZE(384 3072) )` with `cfont 31 1 E` over the
+    // trailing `)`; SC09-138 8.4.2.5 serves
+    // `          a = b*(x*y*z);            /* Duplicates recognized */`,
+    // whose `;` the row model had read as the next line's length byte.
+    // Decoder placeholder runs carry no character, so they stay slots
+    // whatever the geometry says (ACPZMST1 3.11 record 180).
+    // A token the record's own display-line structure names as a length byte
+    // is a row boundary whatever the spans say.
+    const auto span_holds_row = !cz_mode && line_open && !in_title &&
+                                !in_index && line_visible_cells != 0 &&
+                                !is_placeholder_run(view) &&
+                                inside_display_line(view.record, view.token) &&
+                                span_continues_row();
     // A glued alphabetic one-byte token in the row-control byte range is the
     // display-line length byte of the next row: N2AH1MST record 17 `to:` +
     // `access` (0x1c) directly before the `/` row marker of the next row.
@@ -903,7 +976,8 @@ struct LineBuilder {
       }
       return false;
     };
-    if (!cz_mode && view.width == 1 && view.value < row_control_byte_limit &&
+    if (!cz_mode && !span_holds_row && view.width == 1 &&
+        view.value < row_control_byte_limit &&
         (!pending_space || view.prefix == 0 || view.prefix == 1) &&
         !in_title && !in_index && line_open && line_visible_cells != 0 &&
         alpha_word(view) && !last_visible.empty() &&
@@ -942,7 +1016,8 @@ struct LineBuilder {
         line_open && !cz_mode && !is_placeholder_run(view) &&
         line_visible_cells == 0 &&
         pending_span_covers(line().cells.size(), view.body.size());
-    if (!styled_at_column && marker_at(index, origin_index)) {
+    if (!styled_at_column && !span_holds_row &&
+        marker_at(index, origin_index)) {
       if (!assign(view, ProseTokenRoleIR::marker)) return false;
       for (auto cursor = next_token(index); cursor != origin_index;
            cursor = next_token(cursor))
@@ -950,7 +1025,14 @@ struct LineBuilder {
       const auto& origin = items[origin_index].token;
       if (!assign(origin, ProseTokenRoleIR::origin)) return false;
       if (!finish_title() || !finish_index()) return false;
-      open_line(origin.body.size(), &origin);
+      // A change bar in the slot stands for the row's whole left margin:
+      // hosted ACPZMST1 8.14.1 serves ` |     XC_NOTIFY_MSG, ...` for the
+      // stored `U+2502` + four-cell origin run and marks the phrase with
+      // `cfont 7 13 9`; GC23-046 6.1 serves ` |     Note:` for `U+2502` +
+      // four cells with `cfont 7 5 2`; GG24-395 2.4.1 serves
+      // ` |     variable until the Thread Y ...` with `cfont 35 7 1`.
+      open_line(origin.body.size(), &origin,
+                change_bar_slot(view) ? change_bar_margin_cells : 0);
       skip_until = origin_index;
       return true;
     }
@@ -1019,6 +1101,15 @@ struct LineBuilder {
     }
     if (line_visible_cells == 0 && is_glyph(view) && view.width == 1) {
       // A glyph opening the line is the list bullet.
+      // The bullet keeps the spacing that separates it from whatever the row
+      // already carries: a change bar in front of it holds its own column and
+      // the assembler's space behind the bar is a display column too.  Hosted
+      // GG24-395 PREFACE.3 serves ` | °   Chapter 1, "A Client/Server
+      // Overview"` for `U+2502` + `U+2666` + a two-cell gap and links it with
+      // `cselect 7 37`; GC23-046 7.5.4 serves ` | °   Do an APPLY CHECK ...
+      // Figure 19 ...` with `cselect 53 12`.
+      if (pending_space && view.prefix != 0 && view.prefix != 1)
+        line().cells.push_back({npos, 0, " ", true});
       line().bullet = true;
       if (!assign(view, ProseTokenRoleIR::bullet)) return false;
       line().cells.push_back({view.record, view.token, word_text(view.body[0]),
