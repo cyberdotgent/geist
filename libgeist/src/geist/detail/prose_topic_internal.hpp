@@ -155,6 +155,12 @@ struct Ledger {
   }
 };
 
+// Gives one text token whole to `block`/`inline_index` in the ledger.
+bool claim_token_whole(const std::vector<DecodedLogicalRecordSource>& records,
+                       Ledger& ledger, std::size_t record, std::size_t token,
+                       std::size_t block, std::size_t inline_index,
+                       std::string* error);
+
 // Source extent of one table/figure span: the segments of records
 // [begin_record, end_record] from the region's first token to its last
 // owned token.  A segment inside a region is skipped by the stream pass;

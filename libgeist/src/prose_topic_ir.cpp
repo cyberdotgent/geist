@@ -241,9 +241,25 @@ bool verify_prose_topic_ir(
         return fail(error, "figure spans rejected: " + block_error);
     }
   }
-  // Every text token is covered by exactly one inline slice and every inline
-  // slice covers only text tokens of its own inline.
-  std::set<std::pair<std::uint32_t, std::size_t>> covered;
+  // Every text token is covered by inline slices that reproduce the ledger's
+  // claims exactly, and those claims partition the token's decoded word.  A
+  // token whose display columns a CFONT/CSELECT span splits is owned by two
+  // or more inlines, each holding one byte range of the word.
+  std::map<std::uint32_t, std::size_t> record_index;
+  for (std::size_t index = 0; index < records.size(); ++index)
+    record_index.emplace(records[index].logical_record, index);
+  const auto word_length =
+      [&](std::uint32_t logical_record, std::size_t token) -> std::uint32_t {
+    const auto found = record_index.find(logical_record);
+    if (found == record_index.end()) return 0;
+    return static_cast<std::uint32_t>(
+        prose_internal::body_text(
+            prose_internal::view_token(records, found->second, token))
+            .size());
+  };
+  std::map<std::pair<std::uint32_t, std::size_t>,
+           std::vector<ProseInlineClaimIR>>
+      covered;
   for (std::size_t block = 0; block < topic.blocks.size(); ++block) {
     const auto& node = topic.blocks[block];
     if (node.inlines.empty()) return fail(error, "prose block has no inlines");
@@ -253,23 +269,60 @@ bool verify_prose_topic_ir(
       for (const auto& slice : inline_node.slices) {
         if (slice.token_begin >= slice.token_end)
           return fail(error, "inline slice is empty");
+        if (slice_is_partial(slice) &&
+            slice.token_end != slice.token_begin + 1)
+          return fail(error, "sub-token slice spans more than one token");
         for (auto token = slice.token_begin; token < slice.token_end; ++token) {
           const auto found = by_token.find({slice.logical_record, token});
           if (found == by_token.end() ||
               found->second->role != ProseTokenRoleIR::text ||
-              found->second->block != block ||
-              found->second->inline_index != index)
+              found->second->block != block)
             return fail(error, "inline slice covers a token it does not own");
-          if (!covered.emplace(slice.logical_record, token).second)
-            return fail(error, "token covered by two inline slices");
+          const auto length = word_length(slice.logical_record, token);
+          const auto begin = slice_is_partial(slice) ? slice.character_begin : 0;
+          const auto end = slice_is_partial(slice) ? slice.character_end : length;
+          if (begin >= end || end > length)
+            return fail(error, "sub-token slice is outside the decoded word");
+          covered[{slice.logical_record, token}].push_back(
+              {block, index, begin, end});
         }
       }
     }
   }
-  for (const auto& entry : topic.ledger)
-    if (entry.role == ProseTokenRoleIR::text &&
-        covered.count({entry.token.logical_record, entry.token.token_index}) == 0)
+  for (const auto& entry : topic.ledger) {
+    if (entry.role != ProseTokenRoleIR::text) {
+      if (!entry.claims.empty())
+        return fail(error, "a non-text token carries inline claims");
+      continue;
+    }
+    const auto key = std::make_pair(entry.token.logical_record,
+                                    entry.token.token_index);
+    const auto found = covered.find(key);
+    if (found == covered.end())
       return fail(error, "visible token is covered by no inline");
+    const auto& claims = found->second;
+    if (claims.size() != entry.claims.size())
+      return fail(error, "inline slices disagree with the ledger claims");
+    std::uint32_t cursor = 0;
+    for (std::size_t index = 0; index < claims.size(); ++index) {
+      const auto& claim = claims[index];
+      const auto& expected = entry.claims[index];
+      if (claim.block != expected.block ||
+          claim.inline_index != expected.inline_index ||
+          claim.character_begin != expected.character_begin ||
+          claim.character_end != expected.character_end)
+        return fail(error, "inline slices disagree with the ledger claims");
+      if (claim.character_begin != cursor)
+        return fail(error, "inline claims do not cover the decoded word");
+      cursor = claim.character_end;
+      if (index == 0 &&
+          (claim.block != entry.block || claim.inline_index != entry.inline_index))
+        return fail(error, "ledger claim disagrees with the token's inline");
+    }
+    if (cursor != word_length(entry.token.logical_record,
+                              entry.token.token_index))
+      return fail(error, "inline claims do not cover the decoded word");
+  }
   const auto canonical =
       extract_prose_topic_ir(records, layout, ownership, title,
                              book_topic_catalog, error, resource_ids);
@@ -329,6 +382,8 @@ void format_slices(std::ostream& out,
     out << slice.logical_record << ':' << slice.segment_index << ':'
         << slice.token_begin << '-' << slice.token_end << ":0x" << std::hex
         << slice.byte_begin << "-0x" << slice.byte_end << std::dec;
+    if (slice_is_partial(slice))
+      out << ':' << slice.character_begin << '+' << slice.character_end;
   }
   out << ']';
 }

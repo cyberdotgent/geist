@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <map>
 #include <set>
 
 namespace geist::detail::prose_internal {
@@ -29,11 +30,56 @@ struct BlockChar {
   std::size_t record = npos;
   std::size_t token = 0;
   bool space = false;
+  // Byte offset of this display cell inside its token's decoded word.
+  std::uint32_t offset = 0;
 };
 
-// A span boundary must not split a run of word characters; attached
-// punctuation (`AIX.`, `"Bibliography"`) stays outside the styled phrase, as
-// BookServer renders it.
+// One inline's byte range inside a token's decoded word, in source order.
+struct TokenClaim {
+  std::size_t record = 0;
+  std::size_t token = 0;
+  std::uint32_t begin = 0;
+  std::uint32_t end = 0;
+};
+
+// Turns the claims of one inline into source slices: whole tokens compress
+// into contiguous token ranges exactly as before, while a token the inline
+// owns only in part becomes a single-token slice carrying the byte range.
+// BookServer styles part of a decoded word wherever a span boundary falls
+// inside one (GC23-046 6.0 `SMPWRK<I>x</I>`, SC09-138 3.3.1
+// `<TT>CLIST</TT>s`), so the ledger has to own sub-token ranges to keep
+// exactly one owner per display character.
+std::vector<DocumentSourceSliceIR> slices_for_claims(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const std::vector<TokenClaim>& claims) {
+  std::vector<DocumentSourceSliceIR> result;
+  std::vector<std::pair<std::size_t, std::size_t>> whole;
+  const auto flush = [&]() {
+    if (whole.empty()) return;
+    auto slices = slices_for(records, whole);
+    result.insert(result.end(), slices.begin(), slices.end());
+    whole.clear();
+  };
+  for (const auto& claim : claims) {
+    const auto length = static_cast<std::uint32_t>(
+        body_text(view_token(records, claim.record, claim.token)).size());
+    if (claim.begin == 0 && claim.end == length) {
+      whole.emplace_back(claim.record, claim.token);
+      continue;
+    }
+    flush();
+    auto slice = token_slice(records[claim.record], claim.token,
+                             claim.token + 1);
+    slice.character_begin = claim.begin;
+    slice.character_end = claim.end;
+    result.push_back(slice);
+  }
+  flush();
+  return result;
+}
+
+// A span boundary that falls inside a run of word characters is either a
+// genuine sub-word highlight or the symptom of a row whose columns are off.
 bool word_char(const std::string& text) {
   if (text.empty()) return false;
   const auto ch = static_cast<unsigned char>(text.front());
@@ -50,6 +96,26 @@ std::string line_text(const Line& line) {
   std::string text;
   for (const auto& cell : line.cells) text += cell.text;
   return text;
+}
+
+// BookServer gives every highlighted phrase its own operand triple, and a
+// triple whose boundary falls inside a decoded word always stays inside that
+// word: the sub-word cases hosted serves are `<TT>CLIST</TT>s` (SC09-138
+// 3.3.1 `cfont 24 5 4`), `SMPWRK<I>x</I>` (GC23-046 6.0 `cfont 43 1 1`),
+// `<B>EDCK</B><B><I>nnn</I></B>` (SC09-138 6.2.8.4) and `<B><U>L</B></U>`
+// (SG24-204 5.2.1).  A span that starts or ends inside a word *and* reaches
+// across a blank column is instead the signature of a row whose left margin
+// the model has not proven: every span of such a row is off by the same
+// amount and the words come out torn.  That fails the topic closed.
+bool torn_across_a_gap(const Line& line, std::size_t begin, std::size_t end) {
+  const auto aligned_begin =
+      begin <= line.text_begin || boundary_between(line, begin - 1, begin);
+  const auto aligned_end =
+      end >= line.cells.size() || boundary_between(line, end - 1, end);
+  if (aligned_begin && aligned_end) return false;
+  for (auto cell = begin; cell < end; ++cell)
+    if (line.cells[cell].space) return true;
+  return false;
 }
 
 bool resolve_spans(const Line& line, std::vector<Attr>& attrs,
@@ -80,15 +146,19 @@ bool resolve_spans(const Line& line, std::vector<Attr>& attrs,
     while (begin < end && line.cells[begin].space) ++begin;
     while (end > begin && line.cells[end - 1].space) --end;
     if (begin >= end) return fail(error, "font/selector span is blank" + where());
-    // Hosted BookServer can style part of one decoded word (GC23-046 6.0
-    // `cfont 43 1 V` -> `SMPWRK<I>x</I>`, SG24-204 5.2.1
-    // `cfont 33 1 7 34 1 2` -> `<B><U>L</B></U><B>U</B>`), but the inline
-    // ownership ledger has no sub-token slice, so a boundary inside a word
-    // stays fail-closed.
-    if (begin > line.text_begin && !boundary_between(line, begin - 1, begin))
-      return fail(error, "span starts inside a word" + where());
-    if (end < line.cells.size() && !boundary_between(line, end - 1, end))
-      return fail(error, "span ends inside a word" + where());
+    // A span boundary inside a decoded word is a fact of the format, not an
+    // error: BookServer styles part of one word wherever the operand says so
+    // (GC23-046 6.0 `cfont 43 1 1` -> `SMPWRK<I>x</I>`, SG24-204 5.2.1
+    // `cfont 33 1 7 34 1 2` -> `<B><U>L</B></U><B>U</B>`, SC09-138 3.3.1
+    // `<TT>CLIST</TT>s`).  The inline ledger owns the byte range inside the
+    // token's decoded word, so the two inlines that meet inside a word each
+    // own their own half and no token is claimed twice.
+    if (torn_across_a_gap(line, begin, end))
+      return fail(error, "row columns are unproven: span [" +
+                             std::to_string(span.begin) + "," +
+                             std::to_string(span.end) +
+                             ") both splits a word and crosses a blank column "
+                             "on '" + line_text(line) + "'");
     if (begin < line.text_begin) return fail(error, "span covers the bullet");
     // A font span wholly inside one selector span decorates the link text:
     // hosted BookServer serves ACPZMST1 8.1 as
@@ -147,13 +217,24 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
     if (!resolve_spans(line, attrs, line_targets, error)) return false;
     const auto target_base = targets.size();
     targets.insert(targets.end(), line_targets.begin(), line_targets.end());
-    if (index != begin) chars.push_back({" ", {}, npos, 0, true});
-    for (std::size_t cell = line.text_begin; cell < line.cells.size(); ++cell) {
+    if (index != begin) chars.push_back({" ", {}, npos, 0, true, 0});
+    // Byte offset of every cell inside its own token's decoded word: cells of
+    // one token are emitted in word order, so the running total over the row
+    // is that offset.
+    std::map<std::pair<std::size_t, std::size_t>, std::uint32_t> offsets;
+    for (std::size_t cell = 0; cell < line.cells.size(); ++cell) {
       const auto& source = line.cells[cell];
+      std::uint32_t offset = 0;
+      if (source.record != npos) {
+        auto& running = offsets[{source.record, source.token}];
+        offset = running;
+        running += static_cast<std::uint32_t>(source.text.size());
+      }
+      if (cell < line.text_begin) continue;
       auto attr = attrs[cell];
       if (attr.link != npos) attr.link += target_base;
       chars.push_back({source.text, attr, source.record, source.token,
-                       source.space});
+                       source.space, offset});
     }
   }
   // Collapse whitespace; a space takes the attributes of its neighbours when
@@ -193,28 +274,45 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
       inline_node.kind = ProseInlineKindIR::emphasis;
       inline_node.style = attr.style;
     }
-    std::vector<std::pair<std::size_t, std::size_t>> refs;
+    // The inline's cells, merged into one claim per token: contiguous byte
+    // ranges of the token's decoded word, in source order.
+    std::vector<TokenClaim> claims;
     for (auto index = run_begin; index < run_end; ++index) {
-      inline_node.text += collapsed[index].text;
-      if (collapsed[index].record != npos)
-        refs.emplace_back(collapsed[index].record, collapsed[index].token);
+      const auto& ch = collapsed[index];
+      inline_node.text += ch.text;
+      if (ch.record == npos) continue;
+      if (ledger.at(ch.record, ch.token).role != ProseTokenRoleIR::text)
+        continue;  // space-run/origin cells keep their layout role
+      const auto end = ch.offset + static_cast<std::uint32_t>(ch.text.size());
+      if (!claims.empty() && claims.back().record == ch.record &&
+          claims.back().token == ch.token) {
+        if (claims.back().end != ch.offset)
+          return fail(error, "inline owns a discontinuous part of a word");
+        claims.back().end = end;
+        continue;
+      }
+      claims.push_back({ch.record, ch.token, ch.offset, end});
     }
-    // Space cells carry the space-run token; drop those refs (their role is
-    // gap/origin) and keep only text tokens.
     std::vector<std::pair<std::size_t, std::size_t>> text_refs;
-    for (const auto& ref : refs) {
-      auto& entry = ledger.at(ref.first, ref.second);
-      if (entry.role != ProseTokenRoleIR::text) continue;
+    for (const auto& claim : claims) {
+      auto& entry = ledger.at(claim.record, claim.token);
       if (entry.block != npos && entry.block != block_index)
         return fail(error, "text token shared by two blocks");
-      entry.block = block_index;
-      entry.inline_index = block.inlines.size();
-      text_refs.push_back(ref);
+      if (!entry.claims.empty() &&
+          entry.claims.back().character_end != claim.begin)
+        return fail(error, "token claimed twice by one inline run");
+      if (entry.claims.empty()) {
+        entry.block = block_index;
+        entry.inline_index = block.inlines.size();
+      }
+      entry.claims.push_back({block_index, block.inlines.size(), claim.begin,
+                              claim.end});
+      text_refs.emplace_back(claim.record, claim.token);
     }
     std::sort(text_refs.begin(), text_refs.end());
     text_refs.erase(std::unique(text_refs.begin(), text_refs.end()),
                     text_refs.end());
-    inline_node.slices = slices_for(records, text_refs);
+    inline_node.slices = slices_for_claims(records, claims);
     block_refs.insert(block_refs.end(), text_refs.begin(), text_refs.end());
     if (inline_node.kind != ProseInlineKindIR::text &&
         inline_node.slices.empty())
@@ -250,10 +348,9 @@ bool build_box_block(const std::vector<DecodedLogicalRecordSource>& records,
       if (cell.record == npos) continue;
       auto& entry = ledger.at(cell.record, cell.token);
       if (entry.role != ProseTokenRoleIR::text) continue;
-      if (entry.block != npos && entry.block != block_index)
-        return fail(error, "box row token is shared by two blocks");
-      entry.block = block_index;
-      entry.inline_index = block.inlines.size();
+      if (!claim_token_whole(records, ledger, cell.record, cell.token,
+                             block_index, block.inlines.size(), error))
+        return false;
       refs.emplace_back(cell.record, cell.token);
     }
     std::sort(refs.begin(), refs.end());

@@ -62,12 +62,28 @@ struct ProseTokenRefIR {
   std::size_t token_index = 0;
 };
 
+// One inline's claim on a text token.  A token is normally claimed whole by
+// exactly one inline (`character_begin == 0` and `character_end` the length of
+// the token's decoded word); a token whose display columns a CFONT/CSELECT
+// span splits is claimed by two or more inlines, each owning one byte range of
+// the decoded word, contiguous and in order (Format/markup.md, "Spans And The
+// Display Row").
+struct ProseInlineClaimIR {
+  std::size_t block = static_cast<std::size_t>(-1);
+  std::size_t inline_index = static_cast<std::size_t>(-1);
+  std::uint32_t character_begin = 0;
+  std::uint32_t character_end = 0;
+};
+
 struct ProseTokenDispositionIR {
   ProseTokenRefIR token;
   ProseTokenRoleIR role = ProseTokenRoleIR::unassigned;
-  // Owning block/inline for text cells; npos otherwise.
+  // Owning block/inline for text cells; npos otherwise.  For a token split
+  // between inlines these name the first claim; `claims` carries them all.
   std::size_t block = static_cast<std::size_t>(-1);
   std::size_t inline_index = static_cast<std::size_t>(-1);
+  // Source order, contiguous, covering the token's decoded word exactly.
+  std::vector<ProseInlineClaimIR> claims;
   // Owning span (index into ProseTopicIR::spans) for table/figure tokens;
   // npos otherwise.
   std::size_t span = static_cast<std::size_t>(-1);

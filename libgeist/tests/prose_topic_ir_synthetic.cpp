@@ -918,9 +918,33 @@ void cz_fixtures() {
   reject("packet.boo", "4.5.1",
          "cz flow h5 without text is not the last directive");
   reject("SC09-2417-00.boo", "1.1.4.3", "cz flow dt");
-  // A CFONT span that starts inside a compiled word (hosted
-  // `not write<kbd>N4ABC-0</kbd>`, one source token).
-  reject("packet.boo", "2.1.1", "span starts inside a word");
+
+  // Sub-token inline ownership: a CFONT span that starts inside a compiled
+  // word.  packet 2.1.1 stores one token spelling `writeN4ABC-0` and the
+  // span covers only its `N4ABC-0` half, which the reader serves as
+  // `not write<kbd>N4ABC-0</kbd>`; the ledger gives each half to its own
+  // inline.
+  {
+    Extracted keep;
+    const auto markdown = admit("packet.boo", "2.1.1", &keep);
+    require(contains(markdown, "would not write`N4ABC-0`, but would instead"),
+            "2.1.1 lost the sub-word highlight");
+    bool split = false;
+    for (const auto& entry : keep.prose->ledger)
+      if (entry.claims.size() > 1) split = true;
+    require(split, "2.1.1 has no token split between two inlines");
+  }
+  // SC09-138 3.3.1 ends a span inside a word: hosted serves
+  // `information on using <TT>CLIST</TT>s.`
+  {
+    const auto markdown = admit("SC09-138.boo", "3.3.1");
+    require(contains(markdown, "using `CLIST`s\\."),
+            "3.3.1 lost the sub-word highlight");
+  }
+  // A row whose left margin the model cannot prove still fails closed: every
+  // span of GG24-4302-00 PREFACE.2's publication rows is off by the same
+  // amount, so admitting them would tear `IMS/ESA` into `IMS/E` + `SA`.
+  reject("GG24-4302-00.boo", "PREFACE.2", "row columns are unproven");
 }
 
 } // namespace
