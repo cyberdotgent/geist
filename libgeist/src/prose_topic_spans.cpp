@@ -586,6 +586,14 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
       const auto last = record == extent.end_record
                             ? extent.end_token
                             : records[record].ir.tokens.size() - 1;
+      // A display line's length byte is structure whatever word the
+      // dictionary spells for it (GG24-395 COMMENTS record 826 token 0 is
+      // byte 65 and spells `cparent`; SH20-918 3.16 record 216 token 52
+      // spells `cfont`), so no block has to claim it.
+      const auto lines = record_display_lines(records[record]);
+      std::vector<bool> line_prefix(records[record].ir.tokens.size(), false);
+      if (lines)
+        for (const auto& line : *lines) line_prefix[line.prefix_token] = true;
       for (auto token = first; token <= last; ++token) {
         while (claim != region.claims.end() &&
                *claim < Claim{record, token})
@@ -594,7 +602,7 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
             claim != region.claims.end() && *claim == Claim{record, token};
         if (!claimed) {
           const auto view = view_token(records, record, token);
-          if (!region_structure(view) &&
+          if (!region_structure(view) && !line_prefix[token] &&
               !(region.kind == ProseSpanKindIR::table &&
                 table_marker_slot(view)))
             return fail(error, "visible token '" + body_text(view) +
