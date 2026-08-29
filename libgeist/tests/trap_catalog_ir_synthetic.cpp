@@ -323,9 +323,16 @@ int main() {
     }
   }
 
-  // 4.3.5 stays legacy: its introduction carries a mis-segmented control
-  // (`cbacklevel` inside the ST prose) whose cells have no positioned
-  // provenance, so the catalog fails closed instead of dropping text.
+  // 4.3.5 stays legacy.  The `cbacklevel` its introduction appears to carry
+  // is really a display line's length byte, and with the byte read as a
+  // length the catalog composes and matches hosted DT 19941010174546 word
+  // for word (`1` / `Description:  DLCI state change` / `LNM for AIX
+  // Response:  Poll the port.`).  Neither way of getting there is safe yet:
+  // demoting the metadata opcodes globally makes the message family print
+  // the byte's spelling inside SC31-711 5.0's message texts, and letting the
+  // segment through this envelope check truncates the introduction at
+  // `... are defined under` because the envelope span ends there
+  // (AnalysisNotes/figure-table-length-byte-2026-08-29.md).  Fail closed.
   {
     const auto topic = std::find_if(
         document.topics().begin(), document.topics().end(),

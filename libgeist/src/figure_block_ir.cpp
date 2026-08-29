@@ -927,6 +927,17 @@ struct Extractor {
     block.span.anchored = region.anchored;
     block.anchor = region.anchor;
 
+    // A ruled table anywhere inside the region makes it the table family's
+    // frame, whatever else the region carries.  This is decided before any
+    // other structural content because a captioned frame opens an inner
+    // `SRFIG<tbl>` one segment ahead of its `SRTBL<tbl>` (DREICMST 1.6.1
+    // records 137-140), and reading that opener as an interior structural
+    // control declined the frame the table family plans.
+    for (const auto &view : region.segments)
+      if (view.segment->kind == BookControlKind::table_start ||
+          view.segment->kind == BookControlKind::table_end)
+        return decline(region, "figure region contains a table");
+
     // ASCII-art and CFONT-boxed figures carry no picture at all: their body
     // is reproduced line for line instead.
     if (!has_picture(region))
@@ -1294,7 +1305,16 @@ struct Extractor {
 
   FigureBlocksIR run() const {
     FigureBlocksIR result;
-    std::optional<Region> open;
+    // Figure regions nest.  A captioned figure that frames a ruled table is
+    // written as an outer `SRFIG<caption>` around an inner
+    // `SRFIG<tbl> ... SRTBL<tbl> ... SRETBL SREFIG`, closed by a second
+    // `SREFIG` -- DREICMST 1.2.1 records 79-84 spell
+    // `SRFIGLOGPROC`, `SRFIGXXX`, `SRTBLXXX`, `SRETBL`, `SREFIG`, `SREFIG`,
+    // and hosted DT 19911219125856 serves exactly that as
+    // `<a name="FIGLOGPROC">   split=yes.</a>` followed by
+    // `<a name="FIGXXX"><a name="TBLXXX">` on the table's top rule.  Reading
+    // the inner opener as an unterminated outer region lost both.
+    std::vector<Region> open;
     bool table_open = false;
     const auto close = [&](Region region) {
       FigureSourceBlockIR block;
@@ -1312,16 +1332,8 @@ struct Extractor {
         if (segment.kind == BookControlKind::table_end)
           table_open = false;
         if (figure_start(segment)) {
-          if (open) {
-            result.declined.push_back(decline(
-                *open,
-                has_picture(*open)
-                    ? "figure region is not terminated before the next SRFIG"
-                    : "figure region has no picture selector (unterminated "
-                      "before the next SRFIG)",
-                false));
-            open.reset();
-          }
+          for (auto &enclosing : open)
+            enclosing.segments.push_back(view);
           Region region;
           region.anchored = true;
           region.anchor = segment.opcode.substr(2);
@@ -1331,14 +1343,15 @@ struct Extractor {
                 decline(region, "figure starts inside a table", false));
             continue;
           }
-          open = std::move(region);
+          open.push_back(std::move(region));
           continue;
         }
-        if (open) {
-          open->segments.push_back(view);
+        if (!open.empty()) {
+          for (auto &enclosing : open)
+            enclosing.segments.push_back(view);
           if (figure_end(record, segment)) {
-            close(std::move(*open));
-            open.reset();
+            close(std::move(open.back()));
+            open.pop_back();
           }
           continue;
         }
@@ -1363,13 +1376,16 @@ struct Extractor {
         }
       }
     }
-    if (open)
+    while (!open.empty()) {
+      const auto &region = open.back();
       result.declined.push_back(decline(
-          *open,
-          has_picture(*open)
+          region,
+          has_picture(region)
               ? "figure region is not terminated"
               : "figure region has no picture selector (unterminated)",
           false));
+      open.pop_back();
+    }
     return result;
   }
 };

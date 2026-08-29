@@ -28,9 +28,16 @@ struct DisplayLineIR {
   std::size_t token_end = 0;     // exclusive end of the line's tokens
 };
 
+// Walks a token list as length-prefixed display lines, or declines when a
+// line does not end exactly on a token boundary (a length byte at or above
+// the token threshold is tokenised as two bytes and breaks the walk).  The
+// record decoder uses this to decide whether its plain left-to-right token
+// walk already agrees with the record's own line structure.
+std::optional<std::vector<DisplayLineIR>> token_display_lines(
+    const std::vector<LogicalTokenIR>& tokens, std::uint32_t payload_end);
+
 // Parses the record payload into display lines, or declines when a line does
-// not end exactly on a token boundary (a length byte at or above the token
-// threshold is tokenised as two bytes and breaks the walk).
+// not end exactly on a token boundary.
 std::optional<std::vector<DisplayLineIR>> record_display_lines(
     const DecodedLogicalRecordSource& record);
 

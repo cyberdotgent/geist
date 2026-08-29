@@ -425,9 +425,24 @@ int main() {
   reject("IEAC6MST.BOO", "7.9",
          "table envelope 'CLISTS' declined: visible source between table "
          "lines");
-  reject("DREICMST.boo", "1.2.1",
-         "declined: figure region has no picture selector (unterminated "
-         "before the next SRFIG)");
+  // Nested figure regions: DREICMST 1.2.1 records 79-84 wrap
+  // `SRFIGXXX`/`SRTBLXXX` in an outer `SRFIGLOGPROC`, closed by two
+  // `SREFIG`.  Hosted DT 19911219125856 serves
+  // `<a name="FIGLOGPROC">   split=yes.</a>` and then
+  // `<a name="FIGXXX"><a name="TBLXXX">` on the table's top rule, so both
+  // anchors, the lead line and the caption are real; the region used to be
+  // declined as unterminated at the inner opener.
+  {
+    Extracted kept;
+    const auto markdown = admit("DREICMST.boo", "1.2.1", kept);
+    require(contains(markdown, "split = yes"),
+            "DREICMST 1.2.1 lost the outer figure's lead line: " + markdown);
+    require(contains(markdown, "Figure 5"),
+            "DREICMST 1.2.1 lost the outer figure's caption: " + markdown);
+    require(contains(markdown, "id=\"FIGLOGPROC\"") &&
+                contains(markdown, "id=\"TBLXXX\""),
+            "DREICMST 1.2.1 lost a nested anchor: " + markdown);
+  }
   {
     const auto extracted = extract("SC31-711.boo", "3.2");
     std::string error;
