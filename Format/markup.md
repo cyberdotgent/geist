@@ -1595,6 +1595,71 @@ on `   have form numbers ... in "Other AS/400` selects `"Other AS/400`
 (QSYSINFO LR44). A span ends before attached punctuation (`AIX.`,
 `"Bibliography"`), as hosted `<cite>AIX</cite>.` shows.
 
+### Structured subject-index display lines
+
+A record payload is a sequence of display lines
+(`<length byte><that many bytes of tokens>`, see
+[logical-controls.md](logical-controls.md) "Display Lines Inside A Record
+Payload"), and an `SI` subject-index entry always occupies exactly one such
+line.  Nothing on that line is displayed.
+
+Beside the plain `SI <term words>` form, the compiler emits a *structured*
+entry whose fields are separated by one-byte decoder placeholders (words the
+dictionary does not map, printed as `?`):
+
+```text
+SI <sep2> <format> <sep1> <flag> <sep1> <term words> [<sep1> <term words>]...
+```
+
+| File / record | Display line | Hosted |
+| --- | --- | --- |
+| `QSYSINFO.BOO` record 72, tokens 43-56 | `SI ??3HI1?0?Physical Planning Guide` | nothing (DT `19910524120827`) |
+| `SC09-138.boo` record 132, tokens 35-54 | `SI ??4XMP@?0?AGGREGATE?  compile-time option` | nothing (DT `19910321130500`) |
+| `SC09-138.boo` record 132, from token 56 | `SI ??4XMP@?0?NOAGGREGATE?  compile-time option` | nothing |
+
+The `<sep2>` after the keyword is a one-byte token holding two unmapped
+words, `<sep1>` one; `<format>` is a digit followed by a GML highlight or
+example tag (`3HI1`, `4XMP@`) and `<flag>` has been `0` in every observed
+entry.  The fields are not otherwise decoded here because no reader output
+depends on them.
+
+The earlier reading of a "visible tail after `?`" on an `SI` row was an
+artifact of the flattened decoded string: the tail is the *next* display
+line.  `QSYSNEWG.BOO` record 40 holds `SI display station` on one line and
+`| If your display station screen is blank, ...` on the next, and hosted
+serves exactly the second line.
+
+### Drawn box regions in prose
+
+A "screen", "note" or syntax-diagram box outside any `SRFIG`/`SRTBL`
+envelope is drawn straight into the topic's display lines with the
+box-drawing words `U+2500`-`U+2518`.  Hosted BookServer prints those lines
+verbatim inside its `<pre width="80">`, applying the display glyphs of
+[logical-controls.md](logical-controls.md) (`_` for `U+2500`, `|` for
+`U+2502` and the bottom/side junctions, blank for the top corners).
+
+A region is
+
+| Row | Geometry |
+| --- | --- |
+| top rule | `U+250C` at column L, `U+2510` at column R > L; the interior carries the rule and, when the box is labelled, the label (`___ In a Hurry? ___`) |
+| side | `U+2502` (or the `U+251C`/`U+2524` junctions) at exactly L and R; the interior is drawn content, including the rails and junctions of an inner grid |
+| bottom rule | `U+2514` at L, `U+2518` at R, only rules, junctions and spaces between |
+
+with an optional change bar (the ASCII `|` word the reader prints in the left
+margin) before column L on any row, and `cfont` control lines allowed between
+the rows.  All rows share L and R; a candidate with no matching bottom rule
+is not a region.
+
+| File / record | Region | Hosted |
+| --- | --- | --- |
+| `QSYSNEWG.BOO` record 18, tokens 75-204 | labelled note box `___ In a Hurry? ___` | DT `19910524085706`, 11 `<pre>` lines, identical |
+| `OFCUSEOV.BOO` records 151-153 | 5250 screen box with a change bar on most rows | DT `19900805103816`, identical |
+| `SH20-918.boo` record 140, tokens 43-209 | syntax diagram with an inner grid of `U+2502` rails | DT `19910520154851`, identical |
+
+Hosted keeps the `CFONT` highlighting of words inside a box (`<B>In</B>`);
+a preformatted lowering cannot, which is the only observed difference.
+
 ## CZ layout directives
 
 Version 1.2/1.3 books compiled with an explicit block model (`SC09-2417-00`,

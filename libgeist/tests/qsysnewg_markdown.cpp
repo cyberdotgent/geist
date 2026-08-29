@@ -69,15 +69,20 @@ int main() {
       std::filesystem::path(GEIST_REPO_ROOT) / "BOO" / "QSYSNEWG.BOO";
   const auto document = geist::BooDocument::open(book);
 
+  // Typed route (drawn box region): hosted DT 19910524085706 prints the box
+  // verbatim inside its <pre>, so the rows are a preformatted block.  The
+  // legacy route dropped the box outline and glued the closing row into the
+  // body paragraph; the CFONT bold hosted shows inside the box is the one
+  // thing a preformatted block cannot carry.
   const auto intro = topic_markdown(document, "1.0");
-  require_contains(intro, "**In** **a** **Hurry?**", "visual box heading");
+  require_contains(intro, " ___ In a Hurry? ____", "visual box top rule");
   require_contains(intro,
-                   "**Official** **Introductory** **Chapter**",
-                   "visual box closing heading");
+                   "| Official Introductory Chapter",
+                   "visual box closing row");
   require_contains(intro,
-                   "This chapter contains background information about "
-                   "computers and computer terminology",
-                   "visual box body text");
+                   "| This chapter contains background information about "
+                   "computers and       |",
+                   "visual box body row");
   require_not_contains(intro,
                        "**Hu**r**r**y",
                        "torn Hurry emphasis");

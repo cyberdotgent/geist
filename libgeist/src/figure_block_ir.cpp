@@ -1,5 +1,7 @@
 #include "geist/detail/figure_block_ir.hpp"
 
+#include "geist/detail/display_lines.hpp"
+
 #include "geist/detail/internal.hpp"
 
 #include <algorithm>
@@ -407,78 +409,8 @@ Classified classify_cells(const std::vector<CellSlot> &cells) {
   return result;
 }
 
-// ---------------------------------------------------------------------------
-// Display lines of a logical record.
-//
-// A record payload is a sequence of <length byte><tokens> display lines
-// (FA1PLMM0 record 37, GG24-4302-00 records 261-265, ACPZMST1 records
-// 54-57: every record of the swept figure topics parses exactly, and the
-// lines match the hosted <pre> output line for line).  The length byte is a
-// one-byte token whose dictionary spelling is arbitrary; its encoded value
-// is the byte itself.
-struct DisplayLine {
-  std::size_t prefix_token = 0; // the length byte
-  std::size_t token_end = 0;    // exclusive end of the line's tokens
-};
-
-std::optional<std::vector<DisplayLine>> record_display_lines(
-    const DecodedLogicalRecordSource &record) {
-  const auto &tokens = record.ir.tokens;
-  std::vector<DisplayLine> lines;
-  std::size_t at = 0;
-  while (at < tokens.size()) {
-    const auto &prefix = tokens[at];
-    if (prefix.byte_range.end != prefix.byte_range.begin + 1)
-      return std::nullopt;
-    const auto line_end = prefix.byte_range.end + prefix.encoded.value;
-    auto end = at + 1;
-    while (end < tokens.size() && tokens[end].byte_range.end <= line_end)
-      ++end;
-    const auto boundary = end < tokens.size()
-                              ? tokens[end].byte_range.begin
-                              : record.ir.payload_range.end;
-    if (boundary != line_end)
-      return std::nullopt;
-    lines.push_back({at, end});
-    at = end;
-  }
-  return lines;
-}
-
 bool body_visible(std::uint16_t word) {
   return word > 0x20 && word != 0xA0 && !(word >= 0x2500 && word <= 0x25FF);
-}
-
-// Hosted display text of a line's tokens: token words in order with the
-// decoder's inter-token spaces, spacing prefixes dropped, the inserted space
-// that precedes the next line's length byte dropped.
-std::string display_line_text(const DecodedLogicalRecordSource &record,
-                              const DisplayLine &line) {
-  std::string text;
-  bool started = false;
-  bool pending_space = false;
-  for (const auto &source : record.assembled.sources) {
-    if (source.kind == LogicalWordSourceKind::inserted_space) {
-      if (started)
-        pending_space = true;
-      continue;
-    }
-    if (source.token_index <= line.prefix_token)
-      continue;
-    if (source.token_index >= line.token_end)
-      break;
-    const auto &words = record.tokens[source.token_index];
-    if (source.word_index >= words.size() ||
-        (source.word_index == 0 && words[0] < 4))
-      continue;
-    if (pending_space) {
-      text.push_back(' ');
-      pending_space = false;
-    }
-    started = true;
-    text += figure_display_glyph(words[source.word_index]);
-  }
-  return text;
 }
 
 bool blank_line(const std::string &text) {
@@ -492,7 +424,7 @@ bool blank_line(const std::string &text) {
 // A dashed rule ("_ _ _ _", SC34-425 1.3.4, drawn from separate one-glyph
 // tokens with decoder-inserted spaces) is drawn content and stays.
 bool frame_rule_line(const DecodedLogicalRecordSource &record,
-                     const DisplayLine &line, const std::string &text) {
+                     const DisplayLineIR &line, const std::string &text) {
   for (auto token = line.prefix_token + 1; token < line.token_end; ++token) {
     const auto &words = record.tokens[token];
     for (std::size_t index = 0; index < words.size(); ++index) {
@@ -643,11 +575,11 @@ struct Extractor {
   // Lines of one record intersecting [first_token, last_token], in order.
   struct LineView {
     const DecodedLogicalRecordSource *record = nullptr;
-    DisplayLine line;
+    DisplayLineIR line;
   };
 
   std::vector<DocumentSourceRowIR> rows_in(const DecodedLogicalRecordSource &record,
-                                           const DisplayLine &line) const {
+                                           const DisplayLineIR &line) const {
     std::vector<DocumentSourceRowIR> result;
     for (const auto &[row_key, physical] : physical_rows) {
       if (physical->logical_record != record.logical_record)
