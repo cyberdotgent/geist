@@ -16,16 +16,26 @@ int main() {
                   std::string::npos &&
               sclm_messages.find("**FLM00000**") == std::string::npos,
           "SCLM message catalog was flattened into styled prose");
+  // APPENDIX1.5.4 now renders through the typed prose family, which keeps the
+  // `CFONT` phrases as one emphasis inline each, exactly as hosted DT
+  // 19921112160049 styles them (`<B>ACCT</B> <B>AND</B> ... <B>FLMALTC:</B>
+  // <I>aaaaaaaa</I>`, then `<B>Macro:</B>  FLMAEND`).
   const auto sclm_mnotes = sclm.topic_markdown("APPENDIX1.5.4");
-  require(sclm_mnotes.find("<pre>") != std::string::npos &&
-              sclm_mnotes.find("ACCT AND EXPACCT NAMES SAME") !=
-                  std::string::npos &&
+  require(sclm_mnotes.find("**ACCT AND EXPACCT NAMES SAME IN FLMCNTRL, "
+                           "FLMALTC:** *aaaaaaaa*") != std::string::npos &&
+              sclm_mnotes.find("**Macro:** FLMAEND") != std::string::npos &&
               sclm_mnotes.find("**ACCT**") == std::string::npos,
           "SCLM MNOTE catalog was flattened into styled prose");
+  // GLOSSARY now renders through the typed glossary family: each entry keeps
+  // its `GLS <term>` anchor and the `CFONT` over the term, as hosted DT
+  // 19921112160049 serves it (`<a name="GLS access key">   <B>access</B>
+  // <B>key</B>.  An identifier used to restrict access to a member.</a>`).
   const auto sclm_glossary = sclm.topic_markdown("GLOSSARY");
-  require(sclm_glossary.find("<pre>") != std::string::npos &&
-              sclm_glossary.find("access key.  An identifier") !=
-                  std::string::npos,
+  require(sclm_glossary.find("<a id=\"GLS access key\"></a>") !=
+                  std::string::npos &&
+              sclm_glossary.find(
+                  "**access key**\\. An identifier used to restrict access to "
+                  "a member") != std::string::npos,
           "SCLM glossary lost its fixed-layout rows");
   // 1.9.2 renders through the typed prose route (one composed drawn-figure
   // span): hosted DT 19921112160049 serves `<a name="FIGFIGUNIQ63">` and the

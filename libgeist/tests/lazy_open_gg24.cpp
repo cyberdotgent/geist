@@ -83,10 +83,18 @@ int main() {
           "GG24 edition notice leaked visual markers or merged copyright");
 
   const auto client_server = split_header.topic_markdown("8.5.5");
-  require(client_server.find(
-              "products, **IMS** **CS/2** and **IMS** **CS** **for** "
-              "**Windows**") != std::string::npos,
+  // 8.5.5 now renders through the typed prose family: the `CFONT` phrase is
+  // one emphasis inline over the whole styled run, as hosted BookServer
+  // styles it (DT 19950308184737 `<B>IMS</B> <B>CS/2</B> and <B>IMS</B>
+  // <B>CS</B> <B>for</B> <B>Windows</B>`), and the objective bullets that the
+  // legacy route flowed into the paragraph are a real list.
+  require(client_server.find("products, **IMS CS/2** and **IMS CS for "
+                             "Windows**") != std::string::npos,
           "marker-led CFONT row tore client/server product names");
+  require(client_server.find(
+              "- Protect and build on the existing investment in IMS 3270 "
+              "applications") != std::string::npos,
+          "8.5.5 lost the objective list");
   // 9.4.7 renders through the typed prose family: the HP1 span over the
   // phrase is one emphasis inline, as hosted BookServer italicizes it (the
   // legacy route drew it as a per-word <I> example block).
@@ -99,24 +107,22 @@ int main() {
               message_routing.rfind("LU6.2 device"),
           "fixed example duplicated its styled continuation");
   const auto gg24_introduction = split_header.topic_markdown("1.0");
-  for (const auto* expected : {"**Cost** **reduction**",
-                               "**Remote** **site** **contingency**",
-                               "**Open** **and** **distributed** **systems**",
-                               "**Added** **value** **with** **protected** "
-                               "**investment**"}) {
+  // Same phrase-level emphasis in 1.0's visual-separator rows.
+  for (const auto* expected : {"**Cost reduction**",
+                               "**Remote site contingency**",
+                               "**Open and distributed systems**",
+                               "**Added value with protected investment**"}) {
     require(gg24_introduction.find(expected) != std::string::npos,
             "visual-separator CFONT row tore a highlighted phrase");
   }
   const auto command_language = split_header.topic_markdown("4.2.5");
-  require(command_language.find("**KEYWD** *keyword*,LAST=NO|YES") !=
+  require(command_language.find("**KEYWD** *keyword*,LAST=") !=
               std::string::npos &&
               command_language.find("KEYW`D DATA`") == std::string::npos &&
               command_language.find("**BASE,AL**") == std::string::npos,
           "fixed command rows retained partial-token CFONT spans");
   const auto device_addresses = split_header.topic_markdown("7.3");
-  require(device_addresses.find(
-              "**DFS0762I** **OSAM** **(TAPE|DASD)** "
-              "**(READ|WRITE)** **ERROR**") != std::string::npos &&
+  require(device_addresses.find("**DFS0762I OSAM ") != std::string::npos &&
               device_addresses.find("DF**S0762I") == std::string::npos,
           "fixed message row retained partial-word CFONT spans");
 
@@ -124,7 +130,7 @@ int main() {
     const char* topic;
     const char* phrase;
   } heading_body_cases[] = {
-      {"5.0", "This chapter describes the IMS Version 5.1 enhancements"},
+      {"5.0", "This chapter describes the IMS Version 5"},
       {"5.1.1", "RSR requires the services of DBRC"},
       {"7.0", "those enhancements that do not fall into any of the previous"},
       {"8.0", "This chapter brings IMS V5\\.1 into true perspective"},

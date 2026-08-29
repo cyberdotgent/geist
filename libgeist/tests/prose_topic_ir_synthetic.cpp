@@ -558,6 +558,21 @@ void front_matter_fixtures() {
     }
   }
 
+  // A cover frame: the full-width `U+2500` rule lines are the reader's
+  // horizontal rule, which hosted serves as `<hr>` and which carries no
+  // word, so the cover's own rows are all that is left (ACPZMST1 COVER DT
+  // 19920319123146, DREICMST COVER DT 19911219125856).
+  {
+    const auto markdown = admit("ACPZMST1.boo", "COVER");
+    require(contains(markdown,
+                     "**VM Programmable Workstation Communication Services**") &&
+                contains(markdown, "Document Number GC24") &&
+                contains(markdown, "Program Number 5684"),
+            "ACPZMST1 COVER lost its cover rows");
+    require(!contains(markdown, "____"),
+            "ACPZMST1 COVER printed the display rule");
+  }
+
   // A body `SR<id>` anchor keeps its own id and its payload is display text
   // hosted wraps in the anchor: ACPZMST1 record 155
   // `SRSPTSETDC A domain controller handles ...` is served as
@@ -736,6 +751,9 @@ void negative_fixtures() {
   // admitted, but the cover art rows are a placeholder run followed by
   // visible text, which the display-row model does not describe.
   reject("ACPZMST1.boo", "COVER", "is followed by visible text");
+  // PRG1SORT 1.1.5.1 used to stand here for `control-like word 'SRCFILE'`;
+  // that word carries no boundary token, so it is now admitted as the prose
+  // it is (see the positive fixture above).
   // Plural CFONT header over repeated row controls: the legacy route draws
   // this NetView directory list as a table; prose must not flatten it.
   reject("SC31-711.boo", "1.2", "implicit two-column grid");
