@@ -24,7 +24,7 @@ The Display Row"; this note keeps the procedure and the measurement.
 
 ## What each rejection cluster turned out to be
 
-### "non-highlight font code" (39 topics on the baseline)
+### "non-highlight font code" (40 topics on the baseline)
 
 Two unrelated causes.
 
@@ -53,7 +53,7 @@ Two unrelated causes.
   to code, consistent with the `CZ` slice's coarser "5..9 keep plain
   emphasis" rule and strictly closer to hosted where the code is verified.
 
-### "font or selector span exceeds the display line" (306 topics)
+### "font or selector span exceeds the display line" (314 topics)
 
 Three causes, all of them the row model rather than the operand.
 
@@ -80,7 +80,7 @@ Three causes, all of them the row model rather than the operand.
   its own triple per row — so the span end clamps to the row.  A span that
   *starts* past the row still fails the topic closed.
 
-### "span starts inside a word" (213 topics)
+### "span starts inside a word" (221 topics)
 
 - **A one-byte word at the row origin was read as a glued marker slot.**  The
   "glued alphanumeric one-byte word" rule fired for the first visible token
@@ -102,7 +102,7 @@ Three causes, all of them the row model rather than the operand.
   whole tokens, and a split word makes two inlines claim one token), so this
   stays a documented residual.
 
-### "font span inside a selector span" (30 topics)
+### "font span inside a selector span" (31 topics)
 
 Hosted nests the phrase inside the link (`<a href="8.2..."><B>&quot;Check_On_
 Event</B> ... <B>8.2</B></a>`, ACPZMST1 `8.1`).  The typed model keeps the
@@ -121,22 +121,22 @@ the documented N2AH1MST record 17 `to:` + `access` + `/` case a slot.
 
 ## Measured
 
-Baseline: main `f763774`, built from `git archive f763774 libgeist` into a
+Baseline: main `88cbc81`, built from `git archive 88cbc81 libgeist` into a
 scratch tree.  `bootrace --coverage` over every fixture, N2AH1MST included.
 
-- **4,036 -> 4,414 of 7,362 typed topics (54.8% -> 60.0%, +378)**; 378 topics
+- **4,103 -> 4,505 of 7,362 typed topics (55.7% -> 61.2%, +402)**; 402 topics
   moved legacy -> typed and none moved the other way.  26 of the 34 books
-  gain; largest: SC26-457 +60, SC09-138 +49, IEAC6MST +37, QSYSNEWG +30,
-  GG24-395 +28, ACPZMST1 +25, SC24-5520-00 +25, GC28-183 +21.
+  gain; largest: SC26-457 +60, SC09-138 +50, IEAC6MST +37, ACPZMST1 +34,
+  QSYSNEWG +30, GG24-395 +28, SC24-5520-00 +25, GC28-183 +21,
+  SC24-5527-02 +20.
 - Rejection clusters, before -> after: font/selector span exceeds the display
-  line 306 -> 84, span starts inside a word 213 -> 114, span ends inside a
-  word 79 -> 67, non-highlight font code 39 -> 2, font span inside a selector
-  span 30 -> 0, blank span 18 -> 22 (rows whose remaining shift now lands the
-  span on padding).
+  line 314 -> 88, span starts inside a word 221 -> 116, span ends inside a
+  word 79 -> 67, non-highlight font code 40 -> 2, font span inside a selector
+  span 31 -> 0, blank span 27 -> 22.
 
 - Whole-corpus `boo2git --force` before/after (N2AH1MST excluded from the
-  export, as in earlier runs): **428 changed topic files, 0 added, 0
-  removed**.  378 are the topics that moved to the typed route; the other 50
+  export, as in earlier runs): **452 changed topic files, 0 added, 0
+  removed**.  402 are the topics that moved to the typed route; the other 50
   are topics that were already typed and whose rendering the row-geometry
   fixes corrected.  No topic left the typed route.
 
@@ -147,7 +147,7 @@ Two samples, both comparing hosted body words and hosted inline markup
 href>`) against the Markdown of both builds, with Markdown syntax and
 escaping stripped and anchors (`<a name>`) excluded:
 
-- **59 moved topics across 23 books**: typed better on 53, equal on 6, worse
+- **59 moved topics across 23 books**: typed better on 54, equal on 5, worse
   on none.  Books absent from the hosted catalog (SC24-5520-00,
   SC24-5527-02, SC28-1881-05, SC09-2417-00, GX27-3999-00, packet) and
   N2AH1MST are excluded from the sample.
@@ -166,7 +166,7 @@ escaping stripped and anchors (`<a name>`) excluded:
 
 ## Residual span-family rejections
 
-`span starts inside a word` 114, `exceeds the display line` 84 (spans whose
+`span starts inside a word` 116, `exceeds the display line` 88 (spans whose
 row still begins after the span's first column), `ends inside a word` 67,
 `blank span` 22, malformed font control 8, `overlapping font spans` 3,
 `font style code` 2 (`W`/`Z`, one book each, no second-book evidence).
