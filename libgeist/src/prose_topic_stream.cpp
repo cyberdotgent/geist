@@ -877,6 +877,18 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           bool break_seen = false;
           for (const auto token : segment.source_tokens) {
             const auto view = view_token(records, record_index, token);
+            // A trailing subject-index run crosses display lines, so it
+            // walks over the length bytes that open them.  Such a byte is
+            // the row-control slot: it neither opens an `SI` entry when its
+            // dictionary spelling happens to be `si`, nor contributes a word
+            // to the term when it spells one (QSYSNEWG record 232 token 0 is
+            // the byte 51, spelled `any`).
+            if (is_row_control_slot(records, view)) {
+              if (!ledger.assign(record_index, token, ProseTokenRoleIR::padding,
+                                 error))
+                return false;
+              continue;
+            }
             if (!keyword_seen) {
               if (is_padding(view) || is_separator(view)) {
                 if (!ledger.assign(record_index, token,
