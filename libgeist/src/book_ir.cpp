@@ -1,5 +1,6 @@
 #include "geist/detail/book_ir.hpp"
 
+#include "geist/detail/display_lines.hpp"
 #include "geist/detail/internal.hpp"
 
 #include <algorithm>
@@ -77,6 +78,12 @@ bool verify_token_ir(const LogicalRecordIR& record, std::string* error) {
   }
   if (expected != record.payload_range.end) {
     return fail("logical token IR leaves an unconsumed payload suffix");
+  }
+  // The stored display-line framing is part of the token IR's contract: a
+  // consumer that reads `TokenFramingRole` must be able to trust that the
+  // roles and the stored lines agree with the payload bytes.
+  if (!verify_display_line_framing(record, error)) {
+    return false;
   }
   if (error != nullptr) {
     error->clear();

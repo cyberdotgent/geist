@@ -590,21 +590,11 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
                                     BookControlKind::layout_directive;
                            });
       });
-  // Display lines per record, decoded once: a record whose lines parse
-  // proves where every row-control length byte stands.
-  std::map<std::size_t, std::optional<std::vector<DisplayLineIR>>> record_lines;
-  const auto length_byte_at = [&](std::size_t record_index,
-                                  std::size_t token) {
-    auto entry = record_lines.find(record_index);
-    if (entry == record_lines.end())
-      entry = record_lines
-                  .emplace(record_index,
-                           record_display_lines(records[record_index]))
-                  .first;
-    if (!entry->second) return false;
-    for (const auto& line : *entry->second)
-      if (line.prefix_token == token) return true;
-    return false;
+  // The decoder's stored display-line framing proves where every row-control
+  // length byte stands.
+  const auto length_byte_at = [&](const std::size_t record_index,
+                                  const std::size_t token) {
+    return is_display_line_length_token(records[record_index], token);
   };
   // `SRFTN<id>` of the CZ dialect names the footnote the next `cz FLOW FN`
   // directive opens (packet 1.1 record 17).
@@ -1229,15 +1219,8 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           //    19910321130500 serves 8.1.1.2 as
           //    `<a name="HDRPCHECK"><H3> 8.1.1.2 </H3></a>`.  Verified the
           //    same way on 4.1.1 (`HDRETOHEAP`), 4.1.3 and 8.1.1.5.
-          const auto lines = record_display_lines(record);
-          const auto line_of = [&](const std::size_t token)
-              -> const DisplayLineIR* {
-            if (!lines) return nullptr;
-            for (const auto& candidate : *lines)
-              if (token >= candidate.prefix_token &&
-                  token < candidate.token_end)
-                return &candidate;
-            return nullptr;
+          const auto line_of = [&](const std::size_t token) {
+            return display_line_of_token(record, token);
           };
           bool length_byte_only = false;
           if (first_visible) {

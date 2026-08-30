@@ -412,10 +412,7 @@ bool plan_frame(const std::vector<DecodedLogicalRecordSource>& records,
     // `SREFIG` line's length byte and spells `.`, which hosted does not
     // print after `Figure 5. Where SLR Gets Its Data`.
     const auto length_byte = [&](const std::size_t at) {
-      if (!lines) return false;
-      for (const auto& line : *lines)
-        if (line.prefix_token == at) return true;
-      return false;
+      return is_display_line_length_token(records[record], at);
     };
     const auto line_owned_by_table = [&](const std::size_t at) {
       if (!lines) return true;
@@ -590,10 +587,6 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
       // dictionary spells for it (GG24-395 COMMENTS record 826 token 0 is
       // byte 65 and spells `cparent`; SH20-918 3.16 record 216 token 52
       // spells `cfont`), so no block has to claim it.
-      const auto lines = record_display_lines(records[record]);
-      std::vector<bool> line_prefix(records[record].ir.tokens.size(), false);
-      if (lines)
-        for (const auto& line : *lines) line_prefix[line.prefix_token] = true;
       for (auto token = first; token <= last; ++token) {
         while (claim != region.claims.end() &&
                *claim < Claim{record, token})
@@ -602,7 +595,8 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
             claim != region.claims.end() && *claim == Claim{record, token};
         if (!claimed) {
           const auto view = view_token(records, record, token);
-          if (!region_structure(view) && !line_prefix[token] &&
+          if (!region_structure(view) &&
+              !is_display_line_length_token(records[record], token) &&
               !(region.kind == ProseSpanKindIR::table &&
                 table_marker_slot(view)))
             return fail(error, "visible token '" + body_text(view) +

@@ -1,4 +1,5 @@
 #include "geist/detail/internal.hpp"
+#include "geist/detail/display_lines.hpp"
 #include "test_failures.hpp"
 
 #include <algorithm>
@@ -377,6 +378,7 @@ int main() {
       byte += encoded.width;
     }
     source.ir.payload_range = {0, byte};
+    geist::detail::assign_display_line_framing(source.ir);
     source.control_segments = geist::detail::decode_control_segments(
         source.logical_record, source.assembled);
   };
