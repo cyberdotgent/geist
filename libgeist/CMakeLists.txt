@@ -313,6 +313,17 @@ target_compile_definitions(message_section_blocks_ir_synthetic_test PRIVATE
 add_test(NAME message_section_blocks_ir_synthetic_test
   COMMAND message_section_blocks_ir_synthetic_test)
 
+add_executable(topic_link_targets_test
+  tests/topic_link_targets.cpp
+)
+target_link_libraries(topic_link_targets_test
+  PRIVATE geist::geist_static)
+target_compile_definitions(topic_link_targets_test PRIVATE
+  GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+add_test(NAME topic_link_targets_test
+  COMMAND topic_link_targets_test)
+
 add_executable(figure_block_ir_synthetic_test
   tests/figure_block_ir_synthetic.cpp
 )
