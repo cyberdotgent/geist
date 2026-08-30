@@ -41,7 +41,10 @@ change, and the unordered/ordered counters name it on the same line.
 
 Everything is counted with fenced blocks masked out for structure purposes:
 a ``- `` inside a code fence is verbatim text, not a bullet.  Words inside a
-fence *are* counted, because verbatim text is book content.
+fence *are* counted, because verbatim text is book content -- but Markdown
+link syntax inside a fence is stripped like it is anywhere else, because a
+verbatim topic spells its cross references into its rows and the link
+destination is not a word of the book.
 
 Exit status is 1 when any topic gained or lost a word (the gate), 0 otherwise.
 Use --no-gate to always exit 0.
@@ -126,8 +129,18 @@ def scan_markdown(source: str) -> TopicScan:
             continue
 
         if fence is not None:
-            # Verbatim content: words count, Markdown syntax does not exist.
-            scan.words.update(WORD_RE.findall(line))
+            # Verbatim content: every word counts, including the ones the
+            # typed families would have turned into structure.
+            #
+            # A verbatim row is not entirely free of Markdown, though: a
+            # topic that renders verbatim still resolves the cross references
+            # its `cselect` controls name, and the only bytes that adds to the
+            # row are the link syntax around the columns the selector marks
+            # (issue #72).  Strip that syntax the same way it is stripped
+            # outside a fence, so the gate measures book words and not link
+            # destinations.  Nothing else is stripped here: `<...>` and `\`
+            # inside a fence are book text, not markup.
+            scan.words.update(WORD_RE.findall(LINK_RE.sub(r"\1", line)))
             continue
 
         if BOLD_ORDINAL_RE.match(line):

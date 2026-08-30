@@ -85,6 +85,25 @@ int main() {
             "1.1 lost a footnote anchor its selector targets");
   }
 
+  // A topic no typed family claims still resolves the references its
+  // `cselect` controls name (issue #72). packet 4.5.1 renders verbatim and
+  // carries one: `cselect 42 5 FTNFTNUNIQ50` over the footnote marker of the
+  // row that follows it. The anchor it names is printed by this same topic,
+  // so the file has to carry it -- a footnote is reachable only from its own
+  // page, which is why `best_effort_anchors` publishes none book-wide.
+  const auto verbatim = packet.topic_markdown("4.5.1");
+  require(verbatim.find("<!-- geist-render: severity=best-effort") !=
+              std::string::npos,
+          "4.5.1 no longer renders verbatim; the pin below tests nothing");
+  require(count(verbatim, "](<#FTNFTNUNIQ50>)") == 1 &&
+              verbatim.find("[\\(37\\)](<#FTNFTNUNIQ50>)") ==
+                  std::string::npos &&
+              verbatim.find("[(37)](<#FTNFTNUNIQ50>)") != std::string::npos,
+          "4.5.1 lost the verbatim cross reference over its footnote marker, "
+          "or escaped it: verbatim rows are never Markdown-escaped");
+  require(verbatim.find("<a id=\"FTNFTNUNIQ50\"></a>") != std::string::npos,
+          "4.5.1 lost the footnote anchor its own link targets");
+
   // A book-wide guard: every anchor destination any topic emits resolves
   // somewhere in the book -- to an anchor some topic defines, or to a topic
   // id.  This is what stops a lowering change from inventing targets.
