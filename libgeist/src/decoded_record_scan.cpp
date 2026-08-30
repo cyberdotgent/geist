@@ -932,6 +932,27 @@ std::vector<BooLogicalRecordTrace> trace_decoded_records(
   return traced_records;
 }
 
+bool control_key_begins_at(const std::string& decoded_record,
+                           const std::string& lower_record,
+                           std::size_t key_start) {
+  if (key_start + 2 >= decoded_record.size() ||
+      lower_record[key_start] != 'c') {
+    return false;
+  }
+  const auto max_key_end =
+      std::min(decoded_record.size(), key_start + std::size_t{20});
+  for (auto cursor = key_start + 1; cursor < max_key_end; ++cursor) {
+    const auto ch = static_cast<unsigned char>(lower_record[cursor]);
+    if (decoded_record[cursor] == '=') {
+      return cursor > key_start + 1;
+    }
+    if (std::isalnum(ch) == 0 && decoded_record[cursor] != '_') {
+      return false;
+    }
+  }
+  return false;
+}
+
 bool looks_like_control_boundary(const std::string& decoded_record,
                                  const std::string& lower_record,
                                  std::size_t offset) {
@@ -952,22 +973,7 @@ bool looks_like_control_boundary(const std::string& decoded_record,
     return false;
   }
 
-  if (lower_record[key_start] != 'c') {
-    return false;
-  }
-
-  const auto max_key_end =
-      std::min(decoded_record.size(), key_start + std::size_t{20});
-  for (auto cursor = key_start + 1; cursor < max_key_end; ++cursor) {
-    const auto ch = static_cast<unsigned char>(lower_record[cursor]);
-    if (decoded_record[cursor] == '=') {
-      return cursor > key_start + 1;
-    }
-    if (std::isalnum(ch) == 0 && decoded_record[cursor] != '_') {
-      return false;
-    }
-  }
-  return false;
+  return control_key_begins_at(decoded_record, lower_record, key_start);
 }
 
 } // namespace geist::detail

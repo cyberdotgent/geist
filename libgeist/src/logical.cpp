@@ -449,8 +449,47 @@ TokenWords assemble_logical_record(const std::vector<TokenWords>& tokens) {
   return assemble_logical_record_with_sources(tokens).words;
 }
 
+namespace {
+
+// True when `[begin, end)` of the projection holds anything a control value
+// could be made of.  A separator token never does: it is punctuation, spaces,
+// or the `?` an unrepresentable word projects to.
+bool token_span_carries_a_word(const std::string& decoded_record,
+                               std::size_t begin,
+                               std::size_t end) {
+  for (auto cursor = begin; cursor < end && cursor < decoded_record.size();
+       ++cursor) {
+    const auto ch = static_cast<unsigned char>(decoded_record[cursor]);
+    if (ch == ' ' || ch == ',' || ch == '?') {
+      continue;
+    }
+    return true;
+  }
+  return false;
+}
+
+} // namespace
+
+std::vector<std::size_t> assembled_token_output_offsets(
+    const AssembledLogicalRecord& assembled) {
+  std::vector<std::size_t> word_offsets(assembled.words.size() + 1, 0);
+  for (std::size_t index = 0; index < assembled.words.size(); ++index) {
+    word_offsets[index + 1] =
+        word_offsets[index] + token_word_ascii_width(assembled.words[index]);
+  }
+  std::vector<std::size_t> offsets;
+  offsets.reserve(assembled.tokens.size());
+  for (const auto& token : assembled.tokens) {
+    if (token.output_begin < word_offsets.size()) {
+      offsets.push_back(word_offsets[token.output_begin]);
+    }
+  }
+  return offsets;
+}
+
 std::vector<BooLogicalControl> extract_logical_controls(
-    const std::string& decoded_record) {
+    const std::string& decoded_record,
+    const std::vector<std::size_t>& token_offsets) {
   struct ControlKey {
     const char* canonical;
     const char* lower;
@@ -486,21 +525,40 @@ std::vector<BooLogicalControl> extract_logical_controls(
         value_end = std::min(value_end, next);
       }
     }
-    for (auto cursor = value_begin; cursor + 3 < decoded_record.size();
-         ++cursor) {
-      if (looks_like_control_boundary(decoded_record, lower_record, cursor)) {
-        value_end = std::min(value_end, cursor);
+    // Any later token that itself opens a `c<name>=` key ends this value,
+    // whatever the separator between them renders as. The keys above are the
+    // ones the book properties read; the auxiliary keys around them
+    // (`csource=`, `cbasenum=`, `cfontdef=`, ...) are not read but still close
+    // the value that precedes them.
+    const auto first_later_token = static_cast<std::size_t>(
+        std::lower_bound(token_offsets.begin(), token_offsets.end(),
+                         value_begin) -
+        token_offsets.begin());
+    for (auto index = first_later_token; index < token_offsets.size();
+         ++index) {
+      // A token that opens exactly at the value's end is the next control
+      // itself: the separator in front of it still has to leave the value.
+      if (token_offsets[index] > value_end) {
         break;
       }
-    }
-    static const std::array<const char*, 8> auxiliary_boundaries = {
-        "?csource=", "?cbasenum=", "?cdoclevel=", "?cfront=",
-        "?ccontents=", "?cfigures=", "?ctables=", "?cindex="};
-    for (const auto* boundary : auxiliary_boundaries) {
-      const auto next = lower_record.find(boundary, value_begin);
-      if (next != std::string::npos) {
-        value_end = std::min(value_end, next);
+      if (!control_key_begins_at(decoded_record, lower_record,
+                                 token_offsets[index])) {
+        continue;
       }
+      // The tokens between the value and the key spell the separator, and
+      // belong to neither.  Whatever they render as -- a comma, a run of
+      // spaces, a placeholder -- they carry no word of the value, so the
+      // value ends where that run begins.
+      auto boundary = token_offsets[index];
+      while (index > first_later_token &&
+             token_offsets[index - 1] >= value_begin &&
+             !token_span_carries_a_word(decoded_record,
+                                        token_offsets[index - 1], boundary)) {
+        boundary = token_offsets[index - 1];
+        --index;
+      }
+      value_end = boundary;
+      break;
     }
 
     auto value =
@@ -658,10 +716,17 @@ const std::map<std::uint16_t, TokenWords>& source_dictionary_for(
 std::vector<std::string> decode_experimental_logical_records(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory,
-    std::vector<LogicalRecordPayloadRange>* payload_ranges) {
+    std::vector<LogicalRecordPayloadRange>* payload_ranges,
+    std::vector<std::vector<std::size_t>>* header_token_offsets) {
   std::vector<std::string> records;
   if (payload_ranges != nullptr) {
     payload_ranges->clear();
+  }
+  // Token offsets are only kept while the book header is still open; a whole
+  // book's worth would be several megabytes nothing reads.
+  bool header_open = header_token_offsets != nullptr;
+  if (header_open) {
+    header_token_offsets->clear();
   }
   const auto token_strings = decode_experimental_dictionary(bytes, directory);
   if (token_strings.empty()) {
@@ -713,8 +778,20 @@ std::vector<std::string> decode_experimental_logical_records(
       }
       const auto record_tokens = project_token_words(record_ir);
 
-      const auto decoded_words = assemble_logical_record(record_tokens);
-      records.push_back(token_words_to_ascii(decoded_words));
+      const auto assembled =
+          assemble_logical_record_with_sources(record_tokens);
+      records.push_back(token_words_to_ascii(assembled.words));
+      if (header_open) {
+        header_token_offsets->push_back(
+            assembled_token_output_offsets(assembled));
+        // The book header's controls are read up to and including the record
+        // that files `cdocnum=`, and in no case past the first topic; nothing
+        // after either point is a header control.
+        if (ascii_contains_case_insensitive(records.back(), "cdocnum=") ||
+            is_topic_header_record(records.back())) {
+          header_open = false;
+        }
+      }
       if (payload_ranges != nullptr) {
         payload_ranges->push_back(
             {static_cast<std::uint32_t>(length_offset),
@@ -786,10 +863,16 @@ decode_logical_record_sources(const LogicalDecodeContext& context,
 }
 
 std::vector<BooLogicalControl> extract_book_logical_controls(
-    const std::vector<std::string>& decoded_records) {
+    const std::vector<std::string>& decoded_records,
+    const std::vector<std::vector<std::size_t>>& record_token_offsets) {
+  static const std::vector<std::size_t> no_token_offsets;
   std::vector<BooLogicalControl> controls;
-  for (const auto& decoded : decoded_records) {
-    auto record_controls = extract_logical_controls(decoded);
+  for (std::size_t index = 0; index < decoded_records.size(); ++index) {
+    const auto& decoded = decoded_records[index];
+    auto record_controls = extract_logical_controls(
+        decoded, index < record_token_offsets.size()
+                     ? record_token_offsets[index]
+                     : no_token_offsets);
     const auto has_docnum =
         std::any_of(record_controls.begin(),
                     record_controls.end(),
