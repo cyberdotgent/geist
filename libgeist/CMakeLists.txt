@@ -228,6 +228,7 @@ foreach(synthetic_test
     fixed_display_synthetic
     implicit_grid
     inline_picture_ir_synthetic
+    prose_index_term_line_synthetic
     glossary_catalog_ir_synthetic)
   geist_add_test(${synthetic_test})
 endforeach()

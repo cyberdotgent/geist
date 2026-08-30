@@ -704,6 +704,38 @@ struct LineBuilder {
     return true;
   }
 
+  // True when the item after `index` is another token of the display line the
+  // open `SI` keyword started.
+  //
+  // A subject-index entry occupies exactly one display line and draws
+  // nothing, so the record's own framing bounds its term.  The decoded-string
+  // splitter, which knows nothing of that framing, opens a new segment
+  // wherever a term word is spelled like a control, and so cuts the term away
+  // from the keyword that owns it: SH12-565 4.7.5.1 record 374 display line
+  // 15 is `SI SRVMODE, server initialization parameter` over tokens 90..95
+  // and is cut before `SRVMODE` at token 91 (lines 14, 16 and 17 are the same
+  // shape), and APPENDIX1.5.9.2 record 700 display line 15 is `SI SRCVPAC`
+  // over tokens 111..112, cut before `SRCVPAC`.  Hosted (SH12-5657-04 DT
+  // 19941206115523) displays no part of any of those lines, so no word of
+  // them is body text.  Such a boundary is the splitter's, not the encoder's,
+  // and it may not end the term; the line end does that, in `token()`.
+  //
+  // Fail closed: only a *token* may continue the term.  A font or selector
+  // control, an anchor, a span or a layout directive inside the line is real
+  // structure the index model does not claim, so it still ends the term and
+  // the topic still declines when the term is then empty.
+  bool index_line_open_after(std::size_t index) const {
+    if (!in_index || index_record == npos || index_line_end == npos)
+      return false;
+    for (auto next = index + 1; next < items.size(); ++next) {
+      if (items[next].kind == ItemKind::segment_end) continue;
+      if (items[next].kind != ItemKind::token) return false;
+      const auto& view = items[next].token;
+      return view.record == index_record && view.token < index_line_end;
+    }
+    return false;
+  }
+
   bool finish_index() {
     if (!in_index) return true;
     in_index = false;
@@ -1066,7 +1098,11 @@ struct LineBuilder {
         // the topic's heading is then its number alone (see
         // `prose_topic_stream.cpp`, the empty-title case).
         if (item.empty_title) title_done = true;
-        if (!finish_title() || !finish_index()) return false;
+        if (!finish_title()) return false;
+        // A segment boundary that stands inside the `SI` keyword's own
+        // display line is not one the record encoder wrote, so it does not
+        // end the index term (see `index_line_open_after`).
+        if (!index_line_open_after(index) && !finish_index()) return false;
         break;
       case ItemKind::layout: {
         if (!finish_title() || !finish_index()) return false;
@@ -1153,10 +1189,12 @@ struct LineBuilder {
       }
       skip_until = npos;
     }
-    // A structured index entry is exactly one display line: its last token
-    // is the last token of the line that the `SI` keyword opened.
-    if (in_index && current_term.structured && index_line_end != npos &&
-        view.record == index_record && view.token >= index_line_end) {
+    // An index entry is exactly one display line: its last token is the last
+    // token of the line that the `SI` keyword opened.  This is the same
+    // framing that decides the entry draws nothing, so it bounds the term of
+    // every `SI`, structured or plain.
+    if (in_index && index_line_end != npos && view.record == index_record &&
+        view.token >= index_line_end) {
       if (!finish_index()) return false;
     }
     if (item.title_start) {
