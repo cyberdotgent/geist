@@ -12,6 +12,7 @@
 // catalog whose table candidate fell back to preformatted) is gone with the
 // books that cannot be published (issue #59).
 
+#include "geist/detail/document_markdown_renderer.hpp"
 #include "geist/detail/render_diagnostic_ir.hpp"
 #include "geist/detail/typed_route_inventory.hpp"
 #include "geist/document.hpp"
@@ -141,6 +142,181 @@ void best_effort_topic() {
           "the verbatim route emits them as preformatted content");
 }
 
+// Issue #81, the shape a block-scoped decline would take: a topic whose
+// frame, and every block but one, are proven, and whose one unproven region
+// is emitted verbatim and marked degraded.
+//
+// This is a synthetic pin on the *mechanism*, not on any family. It exists
+// because packet carries no `typed-degraded` topic (see the header note), so
+// the corpus-backed pin that used to stand on SC31-711 5.0 is gone, and
+// because AnalysisNotes/block-level-degradation-2026-08-31.md rests on three
+// claims about this layer that ought to be assertions rather than prose:
+//
+//   1. `verify_document_ir` accepts a document containing a degraded block
+//      without any relaxation -- fidelity is orthogonal to verification, so
+//      admitting a degraded block weakens no structural guarantee.
+//   2. One degraded block, and only a degraded block, moves the topic from
+//      `typed` to `typed-degraded`; the block's own reason code reaches the
+//      reader through `render_diagnostic_comment`.
+//   3. Degradation is unreachable when the frame is unproven: a declined
+//      lowering is `best-effort` and carries no degradations at all.
+//
+// It also pins the honesty gap the note recommends closing: the Markdown
+// renderer is fidelity-blind, so an unproven verbatim region is today
+// byte-identical to a proven one and only the topic-level marker separates
+// them.
+void degraded_block_topic() {
+  using namespace geist::detail;
+
+  const auto slice_at = [](const std::uint32_t record,
+                           const std::size_t segment) {
+    DocumentSourceSliceIR slice;
+    slice.logical_record = record;
+    slice.segment_index = segment;
+    slice.token_begin = 0;
+    slice.token_end = 12;
+    return slice;
+  };
+  const auto region_slice = slice_at(29, 4);
+
+  const auto inline_at = [&](const std::string &text,
+                             const std::uint32_t record,
+                             const std::size_t segment) {
+    InlineIR node;
+    node.node = TextInlineIR{text};
+    node.origin.derivation = DocumentDerivationIR::decoded;
+    node.origin.slices = {slice_at(record, segment)};
+    return node;
+  };
+
+  const auto build = [&](const DocumentFidelityIR fidelity) {
+    DocumentIR document;
+    document.topic.id = "PREFACE.2.1";
+    document.topic.title = "Syntax Diagrams";
+    document.topic.start_logical_record = 28;
+    document.topic.end_logical_record = 32;
+
+    BlockIR heading;
+    heading.node =
+        HeadingBlockIR{2, {inline_at("Syntax Diagrams", 28, 0)}};
+    heading.origin.derivation = DocumentDerivationIR::semantic_lowering;
+    heading.origin.detail = "topic heading";
+    heading.origin.slices = {slice_at(28, 0)};
+    document.blocks.push_back(std::move(heading));
+
+    BlockIR before;
+    before.node = ParagraphBlockIR{
+        {inline_at("Read the syntax diagrams from left to right.", 29, 3)}};
+    before.origin.derivation = DocumentDerivationIR::semantic_lowering;
+    before.origin.detail = "prose paragraph";
+    before.origin.slices = {slice_at(29, 3)};
+    document.blocks.push_back(std::move(before));
+
+    // The unproven region. Its boundary is a matched `cz OFF SYNTAX` ..
+    // `cz OFF ESYNTAX` pair, so the block owns exactly the region's rows and
+    // asserts nothing about their shape.
+    BlockIR region;
+    PreformattedBlockIR verbatim;
+    verbatim.lines = {"   >>__STATEMENT__ _______________ ___________><",
+                      "                  |_optional_item_|"};
+    region.node = std::move(verbatim);
+    region.origin.derivation = DocumentDerivationIR::semantic_lowering;
+    region.origin.detail = "cz OFF SYNTAX region: verbatim body";
+    region.origin.slices = {region_slice};
+    region.origin.fidelity = fidelity;
+    if (fidelity == DocumentFidelityIR::degraded) {
+      region.origin.degradation_code = "cz-off-region-unmodelled";
+      region.origin.degradation_detail =
+          "cz OFF SYNTAX is not modelled; the region is bounded by its own "
+          "matched cz OFF ESYNTAX and is emitted verbatim";
+    }
+    document.blocks.push_back(std::move(region));
+
+    BlockIR after;
+    after.node = ParagraphBlockIR{
+        {inline_at("Optional items appear below the main path.", 29, 7)}};
+    after.origin.derivation = DocumentDerivationIR::semantic_lowering;
+    after.origin.detail = "prose paragraph";
+    after.origin.slices = {slice_at(29, 7)};
+    document.blocks.push_back(std::move(after));
+    return document;
+  };
+
+  const auto degraded_document = build(DocumentFidelityIR::degraded);
+  const auto typed_document = build(DocumentFidelityIR::typed);
+
+  // (1) Verification is fidelity-agnostic. The same structural check that
+  // guards every typed document accepts this one unchanged; nothing had to be
+  // relaxed to let a degraded block through.
+  std::string error;
+  require(verify_document_ir(degraded_document, &error),
+          "a document carrying a degraded block still verifies: " + error);
+  require(verify_document_ir(typed_document, &error),
+          "the same document without the degradation verifies: " + error);
+
+  // (2) The degraded block, and nothing else, changes the topic's claim.
+  TypedLoweringTraceIR trace;
+  trace.family = "prose";
+  const auto degraded = classify_typed_lowering(
+      degraded_document.topic, &degraded_document, {}, trace);
+  require(degraded.severity == geist::RenderSeverity::typed_degraded,
+          "one degraded block makes the topic typed-degraded, is " +
+              std::string(geist::to_string(degraded.severity)));
+  require(degraded.route == "typed", "a degraded topic still took the typed "
+                                     "route, is " + degraded.route);
+  require(degraded.reason == "degraded-block",
+          "the topic reason names the degraded block, is " + degraded.reason);
+  require(degraded.degradations.size() == 1,
+          "exactly the one unproven region is named");
+  require(!degraded.degradations.empty() &&
+              degraded.degradations.front().reason ==
+                  "cz-off-region-unmodelled",
+          "the block's own reason code survives into the diagnostic");
+  require(!degraded.degradations.empty() &&
+              degraded.degradations.front().source.logical_record ==
+                  region_slice.logical_record,
+          "the degradation names the region's source record, not the topic's");
+
+  const auto clean = classify_typed_lowering(typed_document.topic,
+                                             &typed_document, {}, trace);
+  require(clean.severity == geist::RenderSeverity::typed,
+          "the identical document without the degradation is plain typed");
+  require(clean.degradations.empty(), "and carries no degradations");
+
+  // The reader is told, in the file, that one block is unproven and why.
+  const auto marker = geist::render_diagnostic_comment(degraded);
+  require(contains(marker, "severity=typed-degraded"),
+          "the marker states the severity: " + marker);
+  require(contains(marker, "degraded=cz-off-region-unmodelled"),
+          "the marker names the unproven construct: " + marker);
+  require(contains(marker, "cz OFF SYNTAX is not modelled"),
+          "the marker carries the block's explanation: " + marker);
+  require(geist::render_diagnostic_comment(clean).empty(),
+          "and the undegraded twin carries no marker at all");
+
+  // (3) Degradation cannot be reached without a proven frame. When no typed
+  // family claimed the topic there is no document, so there is no block to
+  // degrade and the topic falls whole -- exactly as it does today.
+  const auto unframed = classify_typed_lowering(
+      degraded_document.topic, nullptr,
+      "prose topic rejected: topic carries a second ST control", trace);
+  require(unframed.severity == geist::RenderSeverity::best_effort,
+          "an unproven frame is best-effort, never degraded");
+  require(unframed.degradations.empty(),
+          "an unproven frame names no degraded block");
+
+  // The honesty gap, pinned rather than fixed (see the note's recommendation
+  // 4): the Markdown renderer does not read `fidelity`, so the unproven
+  // region and a proven verbatim region of the same rows render identically.
+  // Only the topic-level marker separates them, which does not scale to a
+  // topic carrying several verbatim regions of mixed provenance.
+  require(render_document_markdown(degraded_document) ==
+              render_document_markdown(typed_document),
+          "today a degraded block renders exactly like a proven one; the "
+          "block-level marking this note recommends would break this "
+          "assertion, and that is the point of it");
+}
+
 // The synthetic tail of the ladder: `failed` is reserved for a topic whose
 // records could not be decoded at all, and is kept apart from a topic that
 // decodes cleanly and simply has no body.
@@ -247,6 +423,7 @@ int main() {
   declined_topic();
   declared_table_topic();
   best_effort_topic();
+  degraded_block_topic();
   escalation_ladder();
   inventory_agrees_with_render("packet.boo");
   std::cout << "render diagnostic assertions complete\n";
