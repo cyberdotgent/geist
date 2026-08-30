@@ -51,6 +51,12 @@ struct MessageProseIntroductionIR {
   std::vector<MessageProseParagraphIR> paragraphs;
 };
 
+// Discovers the envelope itself: the display runs between the title run and
+// the first numeric SRMSG segment. This no longer feeds any legacy-GML
+// projection -- its only corpus hit, SC31-711 4.1.3, now renders through
+// `TrapCatalogIR`, which builds the same envelope from the catalog's own
+// entry starts and passes it to `extract_message_prose_paragraphs_ir`. It is
+// retained as the layout-derived cross-check of that envelope.
 std::optional<MessageProseIntroductionIR>
 extract_message_prose_introduction_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
@@ -90,13 +96,6 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
     const MessageProseEnvelopeIR& envelope, std::string* error = nullptr);
 std::string format_message_prose_introduction_ir(
     const MessageProseIntroductionIR& introduction);
-
-// Emits one `:p.` GML record per paragraph. Font highlight spans of the run's
-// CFONT control are applied only when they cover a whole leading word
-// sequence of the paragraph exactly; otherwise the paragraph stays plain.
-std::vector<std::string> render_message_prose_introduction_gml(
-    const std::vector<DecodedLogicalRecordSource>& records,
-    const LayoutIR& layout, const MessageProseIntroductionIR& introduction);
 
 // A catalog row that LayoutIR typed as a soft wrap of the previous row of its
 // display run, that no control-only spacing boundary separates from it, and

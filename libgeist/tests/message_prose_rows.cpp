@@ -170,11 +170,6 @@ int main() {
                             }),
                 "4.1.3 LR105 continuation prefix provenance");
       }
-      const auto rendered = geist::detail::render_message_prose_introduction_gml(
-          sources, prose->layout, *prose->introduction);
-      require(rendered.size() == 4 &&
-                  starts_with(rendered[0], ":p.:hp2.Note::ehp2. These traps"),
-              "4.1.3 introduction GML applies the CFONT highlight span");
     }
 
     // Record-continuation rows without a spacing boundary are soft wraps.

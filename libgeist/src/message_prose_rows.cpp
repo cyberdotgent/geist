@@ -725,55 +725,6 @@ std::string format_message_prose_introduction_ir(
   return out.str();
 }
 
-std::vector<std::string> render_message_prose_introduction_gml(
-    const std::vector<DecodedLogicalRecordSource>& records,
-    const LayoutIR& layout, const MessageProseIntroductionIR& introduction) {
-  std::vector<std::string> rendered;
-  for (const auto& paragraph : introduction.paragraphs) {
-    auto text = paragraph.text;
-    if (!paragraph.source_rows.empty()) {
-      const auto& first = paragraph.source_rows.front();
-      const auto run = std::find_if(
-          layout.runs.begin(), layout.runs.end(),
-          [&](const auto& candidate) { return candidate.id == first.display_run; });
-      if (run != layout.runs.end() && first.row_index < run->rows.size() &&
-          run->control_kind == BookControlKind::font) {
-        const auto& row = run->rows[first.row_index];
-        const auto* record = find_record(records, row.logical_record);
-        if (record != nullptr &&
-            row.segment_index < record->control_segments.size()) {
-          const auto spans = decode_font_control_spans(
-              *record, record->control_segments[row.segment_index]);
-          if (spans) {
-            for (const auto& span : spans->spans) {
-              const char* tag = span.style == FontStyleIR::highlight_1   ? "hp1"
-                                : span.style == FontStyleIR::highlight_2 ? "hp2"
-                                : span.style == FontStyleIR::highlight_3 ? "hp3"
-                                                                          : nullptr;
-              // The span must start at the row origin, begin with the row's
-              // own visible text, and end on a word boundary of the
-              // projected paragraph (a punctuation marker slot may follow
-              // the row's last word inside the span).
-              const auto visible = collapse(row.visible_text);
-              if (tag == nullptr || span.column != row.native_origin ||
-                  span.length == 0 || span.length < visible.size() ||
-                  span.length > text.size() ||
-                  text.compare(0, visible.size(), visible) != 0 ||
-                  !word_boundary_at(text, span.length))
-                continue;
-              text = ":" + std::string(tag) + "." + text.substr(0, span.length) +
-                     ":e" + tag + "." + text.substr(span.length);
-              break;
-            }
-          }
-        }
-      }
-    }
-    rendered.push_back(":p." + text);
-  }
-  return rendered;
-}
-
 std::optional<std::vector<MessageProseRowJoinIR>>
 extract_message_prose_row_joins_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
