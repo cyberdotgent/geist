@@ -103,13 +103,13 @@ resolver:
 
 | Directory field | `QS3X36CM.BOO` | `OFCUSEOV.BOO` | Use in reader |
 | ---: | ---: | ---: | --- |
-| `0x0014` byte | `0xdc` | `0xd5` | Token threshold. Record bytes below this value are one-byte token IDs. |
+| `0x0014` byte | `0xdc` | `0xd5` | Token threshold. Record bytes below this value are one-byte token IDs. The same value is stored again as the big-endian word at `0x0024`; the two agree in all 34 fixtures. |
 | `0x0022` word | `0x0c8c` | `0x0c8c` | Offset of the two-byte token map used for one-byte token IDs. |
 | `0x0026` word | `0x0e44` | `0x0e38` | Offset of the version-2 dictionary token-lookup index root in the directory page. |
 | `0x0028` word | `0x0002` | `0x0002` | First dictionary/cache page loaded for token records. |
-| `0x0034` word | `0x0e82` | `0x0ed2` | Offset of another in-page table used by the logical stream machinery. |
-| `0x003c` word | `0x0068` | `0x0068` | Offset of the stream/page table. |
-| `0x003e` word | `0x000a` | `0x00c9` | Stream/page table count. |
+| `0x0034` word | `0x0e82` | `0x0ed2` | Offset of the content-page logical-record index. Named "another in-page table used by the logical stream machinery" in earlier drafts; it is the index documented in [table-of-contents.md](table-of-contents.md#content-page-record-index). |
+| `0x003c` word | `0x0068` | `0x0068` | Offset of the topic-start index. Named "the stream/page table" in earlier drafts; it is the index documented in [topics.md](topics.md). `0x0068` in all 34 fixtures. |
+| `0x003e` word | `0x000a` | `0x00c9` | Topic count, matching decoded `CTOPICS`. Named "stream/page table count" in earlier drafts. |
 
 ## Record Lengths
 
@@ -164,14 +164,50 @@ assembles one decoded logical record from one or more token records.
 
 ### Display Lines Inside A Record Payload
 
-Verified on the topic records of drawn (`SRFIG` without a picture) figures:
-the token references of a record payload are grouped into display lines, each
+The token references of a record payload are grouped into display lines, each
 introduced by one byte holding the byte length of the tokens that follow it:
 
 ```text
 payload := line*
 line    := length_byte token_reference{length_byte bytes}
 ```
+
+**Corpus scope.** This was originally derived from the topic records of drawn
+(`SRFIG` without a picture) figures. The 2026-08-30 documentation audit walked
+it over the whole corpus instead: every record of every topic of all 34 `BOO/`
+fixtures — 35,109 logical records, 895,011 display lines — parses exactly, with
+every line ending on a token boundary and every record ending exactly at a line
+end. There is not one record in the corpus where the walk fails, and no line
+spans a record. The display-line walk is therefore the primary segmentation of a
+record payload; the flattened decoded string is a projection of it, not the
+other way round.
+
+**The length byte is always exactly one byte.** Of the 894,877 length bytes the
+audit could resolve back to a source byte, 894,877 are one byte wide. There is
+no long form and no escape: a line of 236 bytes stores `0xec` in one byte (see
+"A Length Byte May Be At Or Above The Token Threshold" below).
+
+**What the length byte's dictionary entry spells is arbitrary.** Resolving each
+length byte as if it were a one-byte token reference gives, over the 894,877
+measured:
+
+| Dictionary entry at that index | Lines | Share |
+| --- | ---: | ---: |
+| A box-drawing/geometry word (`U+2500`-`U+25FF`) | 320,228 | 35.8% |
+| A run of spaces | 276,903 | 30.9% |
+| A single punctuation or glyph word | 231,410 | 25.9% |
+| Something else (mixed word runs, spacing controls) | 52,047 | 5.8% |
+| A whole alphabetic dictionary word | 14,285 | 1.6% |
+| Digits | 4 | 0.0% |
+
+The last two rows are the ones that mislead a string-level reader. The most
+frequent alphabetic spellings are `a` (2,445 lines), `are` (1,388), `an`
+(1,238), `and` (950), `be` (866), `as` (736), `access` (478), `by` (428),
+`cfont` (392), `argument` (368), `c.cc` (349). Every earlier section of this
+document and of [markup.md](markup.md) that characterises such a token by
+*geometry* — "a carry word", "a marker slot", "a token followed by exactly four
+padding spaces" — is describing this same byte through the flattened string.
+Where such a rule and the display-line walk disagree, the walk is right.
 
 The length byte is usually below the token threshold, so a token-reference
 reader resolves it as a one-byte dictionary token whose spelling is unrelated
@@ -191,12 +227,12 @@ token ordinals, encoded values, byte widths):
 | `GG24-4302-00.boo` record 262, token 32 | `0x3a` (`call`) | tokens 33-75 | 58 | `   \| REPORT BY: POLICY=WSTPOL01 …` |
 | `ACPZMST1.boo` record 55, token 0 | `0x1a` | tokens 1-20 | 26 | `    Requester  \| \| Program  \| …` |
 
-Every record of the topics FA1PLMM0 `PREFACE.3`, ACPZMST1 `1.2.5`,
-GG24-4302-00 `3.3.4` (records 261-265), SC09-138 `1.3.1`, SC34-425 `1.3.4`,
-SH20-918 `FRONT_1.3`, GC23-046 `6.2`, DREICMST `1.1.1.1`, PRG1SORT `1.1.2`,
-SC24-546 `3.4`, SC24-5520-00 `1.1.26`, QSYSNEWG `2.1`, SG24-204 `3.1`, and
-IEAC6MST `1.4` parses this way with every line ending exactly on a token
-boundary and the record ending exactly at a line end (no line spans a record).
+The topics FA1PLMM0 `PREFACE.3`, ACPZMST1 `1.2.5`, GG24-4302-00 `3.3.4`
+(records 261-265), SC09-138 `1.3.1`, SC34-425 `1.3.4`, SH20-918 `FRONT_1.3`,
+GC23-046 `6.2`, DREICMST `1.1.1.1`, PRG1SORT `1.1.2`, SC24-546 `3.4`,
+SC24-5520-00 `1.1.26`, QSYSNEWG `2.1`, SG24-204 `3.1` and IEAC6MST `1.4` were
+the original hand-checked sample; the corpus-wide walk above supersedes it as
+the evidence and keeps it as worked examples.
 Controls (`SHPREFACE.3`, `ctopicn 10`, `ST  Where to …`, `SRFIGFIGUNIQ1`,
 `cfont …`, `SREFIG`) each occupy a line of their own; a zero-length line is an
 empty display line.
@@ -227,12 +263,23 @@ display lines at all.
 | --- | --- | --- | --- | --- |
 | `PRG1SORT.boo` record 47 (threshold 0xd6) | 0xe5ae | 0xdc | token 0xdc18, width 2, spelling `classification` | length 220; the next byte 0x18 is the line's first token, a 3-cell space run |
 
-Hosted BookServer prints no `classification` anywhere in PRG1SORT `1.1.3.1`.
-Twenty-six PRG1SORT topics carry such a line.  A decoder therefore has to be
-prepared to re-read a record payload line by line -- one byte of length, then
-exactly that many bytes of tokens -- and should do so only when the resulting
-walk consumes every line exactly, since the plain walk is right everywhere
-else.
+Read as a *one*-byte reference the same byte spells `redirecting`, so neither
+reading is display text. Hosted BookServer (DT `19900829171904`) prints neither
+`classification` nor `redirecting` anywhere in PRG1SORT `1.1.3.1`; the line the
+byte introduces is the ruled bottom row
+`   |__ __ __|__|__ __ ... __|`, which hosted serves verbatim.
+
+Corpus-wide sweep of all 895,011 display lines: **`PRG1SORT.boo` is the only
+book in the 34 fixtures with any such line**, and it has 230 of them, spread
+over 28 topics (`1.1.3.1`, `1.2.1.1.1`, `1.2.1.2.1`, `1.2.1.3.1`, `1.2.1.4`,
+`1.3.1.1.1`, `1.4.2.1.1`, `1.5.2.1.1`, `1.5.2.2.1`, `1.5.2.3.1`, `1.5.2.4.1`,
+`1.6.1.1.1`, `1.6.1.2.1`, `2.2`, `2.3.2`, `2.3.4.11.2`, `2.4.2`, `2.4.4.6`,
+`2.5`, `D.1`, `D.1.1`, `D.1.2`, `D.2.1`, `D.2.2`, `D.2.3`, `D.3.1`, `D.4.1`,
+`D.5.1`). The longest display line in the corpus is 236 bytes, also in
+`PRG1SORT.boo`. A decoder therefore has to be prepared to re-read a record
+payload line by line -- one byte of length, then exactly that many bytes of
+tokens -- and should do so only when the resulting walk consumes every line
+exactly, since the plain walk is right everywhere else.
 
 This is the structure the Layout IR describes as a width-1 "marker slot"
 followed by a "native origin": the marker slot is the next line's length
@@ -301,10 +348,17 @@ Over the 34 fixtures the 14,392 structural segments split as
 | --- | ---: |
 | opens its display line, nothing after it | 9,138 |
 | opens its display line, text after it | 4,987 |
-| the record's display lines do not parse | 61 |
+| the record's display lines do not parse | 0 (was 61) |
 | a displayed word in front of it | ~200 |
 
-and every one of the last group is prose -- `SRVAPPS`, `SRVBLDS`, `SREPLACE`,
+The third row is corrected. When this table was first written, 61 segments sat
+in records whose payload the display-line walk could not consume. The
+2026-08-30 audit re-ran the walk over every record of every topic of all 34
+fixtures and found **no** record that fails to parse (35,109 records, 895,011
+lines). The other three rows were not re-derived in that audit and are carried
+forward from the original measurement.
+
+Every one of the last group is prose -- `SRVAPPS`, `SRVBLDS`, `SREPLACE`,
 `SREF`, `SRCVPAC`, `SRPI`, `SRC1`, `SRCFILE`, `SRTF5` and friends -- while no
 `SREFIG`, `SRFIG*`, `SRGLS`, `SRHDR*`, `SRLIS*`, `SRLEN`, `SRTBL` or `SRFTN*`
 anchor is among them.
@@ -383,8 +437,10 @@ while the same book's CONTENTS lists the topic as `chars`: the catalog string
 is the book's separate projection of the topic, not a truncation of this
 control, so there is nothing to corroborate positionally.  Checked the same
 way on SC09-138 2.1.1.7, 4.1.1, 4.1.2, 8.1.1.2, 8.1.1.5 and 8.7.2.1.  A sweep
-of every legacy topic of the 34 fixtures found the shape in SC09-138 only, 40
-topics.
+of the `ST` display line of every one of the 10,502 topics of the 34 fixtures
+found the shape in `SC09-138.boo` only, **41 topics** (an earlier sweep
+restricted to legacy-routed topics reported 40 and missed that book's `FRONT`
+topic, whose envelope is itself irregular).
 
 Two consequences for what stands *in front of* such a control, both readings
 of facts already established above.
@@ -864,9 +920,28 @@ byte carries display text after it in one segment:
 `cforwardlevel    /usr/lpp/lnm/reports/lnmlnmemon/dir_name directory, where
 dir_name is the …`, which hosted prints in full.
 
-Fifty-eight topics across sixteen books carry at least one such byte, spelling
-`cbacklevel`, `cforwardlevel`, `chdlevel`, `cparent`, `cmitem`, `csourcefn`,
-`ctopicn` and `csummary`.
+Corrected count. An earlier sample gave "fifty-eight topics across sixteen
+books". The 2026-08-30 audit resolved every one of the 894,877 length bytes of
+the corpus against the book's own dictionary and counted the display lines that
+stand *after* the topic's `ST` line and whose length byte spells one of the
+eight metadata opcodes:
+
+| Spelling | Topics | Books |
+| --- | ---: | ---: |
+| `cforwardlevel` | 192 | 18 |
+| `cbacklevel` | 129 | 16 |
+| `chdlevel` | 115 | 16 |
+| `cparent` | 111 | 13 |
+| `cmitem` | 99 | 18 |
+| `csourcefn` | 65 | 8 |
+| `ctopicn` | 62 | 11 |
+| `csummary` | 44 | 10 |
+
+**637 topics across 25 books** carry at least one. Widening the test to any
+control opcode — adding `cfont` (392 lines, 245 topics, 19 books), `c.cc` (349
+lines, 315 topics, `IBMMMSTR.boo` alone), `citerm`, `ctoce`, `cselect`, `cmenu`,
+`cemenu` and `c.cp` — gives **1,004 topics across 26 books**. A string-level
+control scanner mis-fires on all of them.
 
 The rule is not about metadata opcodes: a length byte resolves to whatever
 one-byte dictionary word its value indexes, and the flattened splitter cuts a
@@ -952,14 +1027,27 @@ Reading the row needs three further rules, each decided positionally:
 An `ST` line with no payload is an empty title; the heading is then the topic
 number alone (see the empty-`ST` rule above).
 
-Measured over the 34 fixtures: 10,502 of the 10,503 topics resolve an `ST`
-display line (SH12-565 `19-6639` has none and is the only fallback), and 7,242
-of the 7,362 titles that also have a TOC projection agree with it exactly. Of
-the 120 that do not, 33 are empty-`ST` topics, about 22 are TOC projections
-carrying a stray trailing artifact (`%`, `;`, `'`, `:MSGNO`, `[`, `//`,
-`----------`, `<BOOK>`, `$`) and about 65 are titles the row truncates while
-the TOC carries the full string, the QSYSINFO `2.1.21` shape. All 120 were
-checked against the hosted heading and all 120 agree with the display row.
+Measured over the 34 fixtures: **every one of the 10,502 topics the directories
+declare resolves an `ST` display line** — no topic is without one. (The earlier
+"10,502 of 10,503, SH12-565 `19-6639` has none" reading counted `libgeist`'s
+spurious 10,503rd topic; record 906 of `SH12-565.boo` is not a topic at all, see
+[topics.md](topics.md#the-envelope-is-a-fixed-nine-line-sequence).)
+
+Of the 7,412 topics that also have a `CTOCE` projection of the title, **7,317
+agree with the display row exactly and 95 differ** (earlier: 7,242 of 7,362; the
+denominator moved because every `CTOCE` target now resolves). The 95 fall in the
+two documented shapes: titles the display row truncates while the TOC carries
+the full string (the QSYSINFO `2.1.21` shape — `GC23-046` `A.0`, `PRG1SORT`
+`1.4`, `1.5.2.1`, `1.6.1.2`, `A.0`, `B.0`, `C.3.1` and others), and the 41
+empty-`ST` topics whose TOC entry carries a name (`SC09-138` `4.1.1` `HEAP`,
+`4.1.2` `ISAINC`, ...). Where the two disagree the hosted heading follows the
+display row.
+
+`ST` with no payload at all occurs in **41 topics**, every one of them in
+`SC09-138.boo` (earlier: 40; the 41st is that book's `FRONT` topic, which the
+earlier legacy-route-only sweep did not reach). The other 40 are
+`2.1.1.7`, `2.1.1.12`, `2.1.1.30`, `4.1.1`-`4.1.9`, `8.1.1.1`-`8.1.1.22`,
+`8.7.2.1`-`8.7.2.6`.
 
 ### The Metadata Envelope Spans Records
 
@@ -977,8 +1065,40 @@ in the next record. Observed break points, one per required control:
 | SC34-425 | 1.5.5 | 241/242 | `CHDLEVEL` |
 | ACPZMST1 | 5.7 | 289/290 | `CSOURCEFN` |
 
-Sixty-nine topics in the corpus break this way. A reader must walk the segments
-of the topic in source order and end the envelope where its controls end.
+**93 topics in the corpus break this way** (an earlier sample said sixty-nine).
+The audit walked the display lines of all 10,502 topics and counted those whose
+envelope — first line through the `ST` line — occupies more than one logical
+record. Every break is between two adjacent records; no envelope spans three.
+The break falls after these controls:
+
+| Break after | Topics |
+| --- | ---: |
+| `CSOURCEFN` | 21 |
+| `CBACKLEVEL` | 16 |
+| `CTOPICN` | 12 |
+| `CFORWARDLEVEL` | 8 |
+| `CPARENT` | 7 |
+| `CHDLEVEL` | 6 |
+| `CSUMMARY` | 6 |
+| the `SH<id>` line itself | 9 |
+| an interleaved `SR` anchor line (`SRHDR<id>`, `SRMSG`) | 8 |
+
+The last two rows are the ones the original table missed. The encoder can break
+the record immediately after the topic's own `SH<id>` line — `GC28-183` `2.0`
+(records 132/133), `GC28-183` `4.5.5` (566/567), `GG24-4302-00` `2.6` (84/85),
+`SC24-546` `4.3.74` (517/518), `SC34-425` `1.8.20.4` (888/889), `packet` `4.5.5`
+(238/239), `ITPPIBOK` `7.3` (240/241), `OFCUSEOV` `PREFACE.2` (16/17),
+`QSYSNEWG` `B.3` (327/328) — and immediately after an interleaved anchor line —
+`FA1PLMM0` `H.9` after `SRHDRTSTSP` (1061/1062), `GG24-395` `3.3.1.1` after
+`SRHDRHAPC101` (343/344), `IBMMMSTR` `3.6.121` after `SRMSG` (1413/1414),
+`SC24-546` `B.2` (1037/1038), `SC26-457` `D.0` (1043/1044), `SG24-204` `5.3`
+(213/214) and `6.2` (239/240), `IEAC6MST` `7.3` (435/436). The books involved
+overall are
+`SC34-425.boo` (11 topics), `IBMMMSTR.boo` (10), `SC09-138.boo` and
+`SC24-5520-00.boo` (6 each), and 24 more with fewer.
+
+A reader must walk the display lines of the topic in source order, across
+record boundaries, and end the envelope at the `ST` line.
 
 ## Reader Implementation Notes
 

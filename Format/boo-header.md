@@ -65,19 +65,59 @@ Decoded page-0 text:
 
 ## Directory Page
 
-The directory page starts with 16 zero bytes, followed by fixed fields and
-in-page offsets. In the two fixtures this page is physical page 1, so the
-absolute file offset is `0x1000 + directory_offset`.
+The directory page starts with a 16-byte prefix, followed by fixed fields and
+in-page offsets. In the two original fixtures this page is physical page 1, so
+the absolute file offset is `0x1000 + directory_offset`; in shifted books it is
+`directory_page * 4096 + directory_offset`.
+
+### The 16-Byte Prefix Is A Dialect Flag, Not Padding
+
+Corrected. Earlier text here said "the directory page starts with 16 zero
+bytes". That is true of 28 of the 34 fixtures and false of six:
+
+| Bytes `0x0000..0x000f` of the directory page | Books |
+| --- | --- |
+| all zero | 28 books |
+| `00 00 00 00 00 00 00 00 00 01 03 00 00 00 00 00` | `GX27-3999-00.boo`, `SC09-2417-00.boo`, `SC41-485.boo`, `SG24-204.boo`, `packet.boo` |
+| `00 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00` | `XWEBDEMO.boo` |
+
+The six books with a non-zero byte at `0x0009` are **exactly** the six books
+whose decoded book header carries `CBLDVERS=1.3.0`, and **exactly** the six
+whose topic bodies use the `CZ` block-layout dialect described in
+[markup.md](markup.md#cz-layout-directives). The other 28 carry no `CBLDVERS=`
+at all and contain no `CZ` control anywhere. The correlation is three-way and
+exact over the 34 fixtures, with no book on either side of it.
+
+That makes `directory[0x0009] != 0` a one-byte, pre-decode test for which body
+dialect a book uses — a reader can pick its layout path before resolving a
+single token, instead of scanning every topic body for a `CZ` control as
+[markup.md](markup.md) previously required.
+
+Two cautions. The sample is six books against twenty-eight, so this is a
+**strong hypothesis, not a proven field**: the byte could equally be a build
+generation number that happens to coincide with the dialect. And byte `0x000a`
+distinguishes `packet`/`SC41-485`/`SG24-204`/`SC09-2417-00`/`GX27-3999-00`
+(`0x03`) from `XWEBDEMO` (`0x00`) for a reason the corpus does not explain;
+`XWEBDEMO.boo` is the fixture with `LNK` web-link selectors, so `0x000a` may be
+a sub-generation. Neither byte is read by any reader path identified in
+`ephwam.dll` so far.
+
+Note also that the *container* version at `0x0010` is `" 1.2"` in all 34
+fixtures, including all six of these. Container version and build version are
+different fields and the corpus never varies the first.
 
 The reader validates the version string at directory offset `0x0010`. It checks
 for bytes `40 f1 4b` followed by one of the accepted EBCDIC digit bytes:
 
 - `f0`: version variant 0, treated as older layout.
 - `f1`: version variant 1.
-- `f2`: version variant 2, used by both repository fixtures.
+- `f2`: version variant 2, used by every bundled fixture.
 - `f3`: version variant 3, extended layout with additional fields.
 
-In both fixtures the bytes at `0x0010..0x0013` are EBCDIC `" 1.2"`.
+The bytes at `0x0010..0x0013` are EBCDIC `" 1.2"` (`40 f1 4b f2`) in **all 34**
+fixtures. Variants `f0`, `f1` and `f3` are documented from the reader code and
+are **not exercised by any bundled book**: no fixture-derived layout evidence
+exists for them, and an implementation cannot be tested against them here.
 
 ### Fixed Fields Used By The Reader
 
@@ -108,6 +148,58 @@ where only the storage role is verified.
 | `0x004e` | 8 | EBCDIC `07:51:22` | EBCDIC `10:38:16` | Directory timestamp time, `HH:MM:SS`. |
 | `0x0056` | 2 | `0x0000` | `0x0000` | Scalar read by the parser; semantic unresolved. |
 | `0x0058` | 2 | `0x0000` | `0x0000` | Scalar read by the parser; semantic unresolved. |
+
+### Which Of These Fields Actually Vary
+
+Reading every field above from all 34 fixtures separates the fields that carry
+book-specific data from the ones that are constants of the version-2 layout.
+This matters because a constant cannot be given a meaning from this corpus, no
+matter how it is described.
+
+| Directory offset | Distinct values in 34 books | Value if constant |
+| ---: | ---: | --- |
+| `0x0010` (version text) | 1 | `40 f1 4b f2` = `" 1.2"` |
+| `0x0014` byte (token threshold) | 20 | varies, `0xa9`..`0xdc` |
+| `0x0015` byte | 1 | `0xf0` |
+| `0x0016` (last logical page) | 29 | varies |
+| `0x0018` | 1 | `0x0000` |
+| `0x001a` | 1 | `0x089c` |
+| `0x001c..0x0021` | 1 | six zero bytes |
+| `0x0022` (token map offset) | 1 | `0x0c8c` |
+| `0x0024` (token threshold, word) | 20 | varies; **always equals the byte at `0x0014`** |
+| `0x0026` (dictionary root offset) | 15 | varies |
+| `0x0028` (first dictionary page) | 1 | `0x0002` |
+| `0x002a` | 34 | varies |
+| `0x002c` | 34 | varies |
+| `0x002e` (dictionary page count) | 13 | varies |
+| `0x0034` (content-page index offset) | 23 | varies |
+| `0x0036` (total logical records) | 34 | varies |
+| `0x0038` (content page count) | 31 | varies |
+| `0x003a` (first content page) | 13 | varies |
+| `0x003c` (topic-start index offset) | 1 | `0x0068` |
+| `0x003e` (topic count) | 33 | varies |
+| `0x0040` (second table offset) | 1 | `0x025c` |
+| `0x0042` | 1 | `0x0000` |
+| `0x004c` (code page) | 1 | `0x01f4` = 500 |
+| `0x0056`, `0x0058`, `0x005a` | 1 each | `0x0000` |
+
+Two consequences for an implementer.
+
+* **The token threshold is stored twice.** The byte at `0x0014` and the
+  big-endian word at `0x0024` hold the same value in all 34 fixtures, with no
+  exception. [logical-controls.md](logical-controls.md) documents it at
+  `0x0014` and this note documented it at `0x0024`; both are correct and the
+  duplication is the reason. Read either; do not treat them as different
+  fields.
+* **`0x001a` = `0x089c`, `0x0022` = `0x0c8c`, `0x003c` = `0x0068`,
+  `0x0040` = `0x025c`, `0x0028` = `0x0002` and `0x004c` = `0x01f4` are
+  constants of every bundled book.** They are described above as offsets and
+  selectors, and the reader code does read them as such, but the corpus offers
+  no differential evidence for any of them: a decoder that hardcoded all six
+  would pass on every fixture here. Anything derived from their *variation* is
+  therefore unproven. The same applies to the all-zero fields `0x0018`,
+  `0x001c..0x0021`, `0x0042`, `0x0056`, `0x0058` and `0x005a`, whose semantics
+  are simply unknown.
 | `0x005a` | 2 | `0x0000` | `0x0000` | Scalar read by the parser; semantic unresolved. |
 | `0x003c` table | variable | starts `00 0a 00 02 ...` | starts `00 c9 00 03 ...` | First variable table; first word repeats the count. |
 | `0x0040` table | variable | starts `01 3f 00 00 ...` | starts `01 8e 00 57 ...` | Second variable table; entry layout unresolved. |

@@ -68,12 +68,24 @@ parsing every bundled book and matching every decoded `SH<id>` header record:
 | `SC09-138.boo` | `0x0222` (546) | directory page `0x056`: `00f8 00d5 ...`, last value 908 | page `0x056 + 0xd5 - 1 = 0x12a`, file offset `0x12a000`: `012a 0000 038e ...` (910 ...), last value 2427 | 248 + 298 starts; 2428 logical records. |
 | `IBMMMSTR.boo` | 1677 | directory page `0x001`: `00f8 ...`, last value 308 | one continuation table: `0595 0000 0135 0136 ...` (1429 values, 309 ...) | 248 + 1429 starts; a continuation table is not limited to 248 values. |
 
+Every row of the table above was re-read from the fixture bytes during the
+2026-08-30 documentation audit and every value in it still holds. The audit
+additionally checked that the chain walk terminates with exactly `topic count`
+values in all 34 fixtures, and that the sum of the 34 directory `0x003e` words
+is 10,502.
+
 The index is the authoritative topic-boundary evidence. In `SH12-565.boo`
 logical record 906 (inside `BIBLIOGRAPHY.2`, records 902-906) begins with the
 order number `SH19-6639` of a bibliography entry; it is not in the index and
 BookServer renders it as the last line of `BIBLIOGRAPHY.2`. A reader that
 detects topic headers by scanning decoded records for a leading `SH` word
 would split a spurious topic there.
+
+Two independent checks confirm the split is spurious: the record carries none
+of the nine envelope controls documented above, and `SH12-565.boo`'s directory
+`0x003e` is 296 while a scan-based enumeration of that book yields 297 topics.
+(As of this audit `libgeist` still makes exactly this split; see
+[README.md](README.md#where-the-code-disagrees-with-this-documentation).)
 
 Observed topic-start roots:
 
@@ -91,13 +103,105 @@ its relationship to neighboring topics.
 | Control | Meaning |
 | --- | --- |
 | `SH<id>` | Public topic identifier. This is the identifier used by TOC entries and BookServer topic URLs. |
-| `CTOPICN` | 1-based topic number. This should match the ordinal used in the topic-start index. |
-| `CPARENT` | Parent topic identifier, if present. |
-| `CFORWARDLEVEL` | Next topic identifier at the same navigation level, if present. |
-| `CBACKLEVEL` | Previous topic identifier at the same navigation level, if present. |
-| `CSUMMARY` | Summary/count triplet. In `CONTENTS`, the first and third values match the topic count in sampled fixtures. |
-| `CHDLEVEL` | Topic kind or heading level, such as `:toc`, `:h1`, `:h2`, `:h3`, `:cover`, `:preface`, `:figlist`, or `:tlist`. |
-| `ST` | Display title. |
+| `CTOPICN` | 1-based topic number. This should match the ordinal used in the topic-start index. Always carries an operand. |
+| `CPARENT` | Parent topic identifier. The control is always written; the operand is absent for a top-level topic (624 of 10,502 topics). |
+| `CFORWARDLEVEL` | Next topic identifier at the same navigation level. Always written; operand absent in 1,931 topics. |
+| `CBACKLEVEL` | Previous topic identifier at the same navigation level. Always written; operand absent in 1,931 topics. |
+| `CSUMMARY a b c` | Display-row and child counts; see below. |
+| `CHDLEVEL` | Topic kind or heading level; see the complete observed value list below. |
+| `CSOURCEFN` | Original source member/file name. Always carries an operand. |
+| `ST` | Display title. Its first display line is the title; see [logical-controls.md](logical-controls.md#a-topic-title-is-its-st-display-line). |
+
+### The Envelope Is A Fixed Nine-Line Sequence
+
+The 34 `BOO/` fixtures declare 10,502 topics in total (the sum of their
+directory `0x003e` words). Every one of them resolves an `ST` display line, and
+in 10,501 of them the controls before it are exactly
+
+```text
+SH<id>
+CTOPICN <n>
+CPARENT [<id>]
+CFORWARDLEVEL [<id>]
+CBACKLEVEL [<id>]
+CSUMMARY <a> <b> <c>
+CHDLEVEL :<kind>
+CSOURCEFN <name>
+ST [<title>]
+```
+
+one control per display line, in that order, with no control omitted and none
+repeated. The order never varies and the set never varies, so a reader can
+consume the envelope positionally. Zero, one or more bare `SR<id>` anchor lines
+may be interleaved; only three anchor opcodes occur in that position across the
+corpus — `SRHDR<id>` (3,094 lines), `SRMSG <id>` (1,664) and `SRLEN [<name>]`
+(273, in `SC24-546.boo`, `SC33-033.boo` and `SC34-425.boo` only).
+
+The single exception is `SC09-138.boo` topic `FRONT`: `SH`, `CTOPICN`,
+`CPARENT`, `CFORWARDLEVEL`, `CBACKLEVEL`, `CSUMMARY`, then eleven
+`C.REV <label>` lines, then an empty `ST`. It carries no `CHDLEVEL` and no
+`CSOURCEFN`, so a reader that requires either will lose that topic.
+
+Any *other* record that looks like a topic header is a false split. The
+canonical counter-example is `SH12-565.boo` record 906, described under
+"Directory Fields" below: it begins with the order number `SH19-6639`, has no
+envelope at all, and is not in the topic-start index.
+
+`C.REV` is the SCRIPT revision-code control. It occurs on 22 display lines in
+four books (`IBMMMSTR.boo` `PREFACE.6` record 19 is `c.rev PREF |`, declaring
+the revision character used for that book's change bars) and is the only
+envelope-position control outside the nine above.
+
+### `CSUMMARY <a> <b> <c>`
+
+Verified over all 10,502 declared topics:
+
+| Field | Meaning | Evidence |
+| --- | --- | --- |
+| `a` | The topic's display-row count: the number of the topic's body display lines that are not control lines. | Reproduced for 10,432 of 10,502 topics with a simple "line does not open with a control opcode" classifier; the 70 residual topics are attributable to the classifier, not to the field. Strong hypothesis. |
+| `b` | The number of topics whose `CPARENT` names this topic, i.e. its direct children. | Exact in 10,502 of 10,502 topics. Verified. |
+| `c` | Equal to `a` in every topic. | Exact in 10,502 of 10,502 topics. Verified. |
+
+The earlier note that "in `CONTENTS`, the first and third values match the topic
+count" was a two-fixture sampling artifact and is retired. In `CONTENTS`,
+`a` and `c` equal the number of `CTOCE` entries in that topic — exact in all 34
+books — which is the same as the directory topic count only when every topic is
+listed in the TOC. That holds in 21 of 34 books; in the other 13 the two
+numbers differ, sometimes by a lot (`IBMMMSTR.boo` has 1,677 topics and
+`CSUMMARY 60 0 60`, `SC34-425.boo` has 822 topics and `CSUMMARY 260 0 260`).
+
+### `CHDLEVEL` Observed Values
+
+Complete census over the 10,501 topics that carry the control:
+
+| Value | Topics | Topic ids |
+| --- | ---: | --- |
+| `:H0` | 50 | Numbered "Part" topics. |
+| `:H1` | 538 | Numbered topics. |
+| `:H2` | 2,454 | Numbered topics. |
+| `:H3` | 3,568 | Numbered topics. |
+| `:H4` | 1,981 | Numbered topics. |
+| `:H5` | 40 | Numbered topics. |
+| `:MSGNO` | 1,617 | Numbered message-catalog topics. |
+| `:COVER` | 29 | `COVER` |
+| `:VNOTICE` | 32 | `EDITION` |
+| `:TOC` | 34 | `CONTENTS` |
+| `:INDEX` | 29 | `INDEX` |
+| `:PREFACE` | 27 | `PREFACE` |
+| `:NOTICES` | 21 | `NOTICES` |
+| `:FIGLIST` | 18 | `FIGURES` |
+| `:GLOSSARY` | 18 | `GLOSSARY` |
+| `:TLIST` | 10 | `TABLES` |
+| `:SOA` | 9 | `CHANGES` |
+| `:TITLE` | 9 | `TITLE` |
+| `:BIBLIOG` | 9 | `BIBLIOGRAPHY` |
+| `:ABSTRACT` | 5 | `ABSTRACT` |
+| `:ABBREV` | 3 | `ABBREVIATIONS` |
+
+`:H6` does not occur in the corpus even though `CTOCDEF=6` is defined in every
+book. Each front-matter value maps to exactly one topic id in every book where
+it occurs, so the value is a reliable way to find `CONTENTS`, `INDEX` and the
+rest without string-matching topic ids.
 
 Examples:
 

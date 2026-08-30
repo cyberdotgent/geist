@@ -275,7 +275,23 @@ payload is the raw converted web object byte range. `BookServerExtractConvertedO
 copies this range into the BookServer picture cache using the extension inferred
 from the description `type` attribute.
 
-Fixture `SC26-4221-08.boo` verifies the group ordering against actual bytes:
+The following byte table is attributed to a fixture `SC26-4221-08.boo`.
+**That file is not in `BOO/`** and is cited by no note in `AnalysisNotes/`, so
+the offsets below cannot be reproduced from this repository. They are the
+historical source of the version-1.4 group ordering and should be treated as an
+**unverified hypothesis** until the fixture is added or the same layout is
+re-derived from a bundled book.
+
+The *shape* they describe is exercised by a bundled fixture: `XWEBDEMO.boo`
+carries two `converted_v14` resources with `type="image/gif"width="620"height="480"`
+and `type="image/gif"width="576"height="576"` descriptions. Only the specific
+offsets in the table below are unreproducible.
+
+Note that the version numbering here is the **resource descriptor layout**
+version, not the container version: the directory version text at offset
+`0x0010` is `" 1.2"` in all 34 fixtures, `XWEBDEMO.boo` included (see
+[boo-header.md](boo-header.md)). A reader must not select the descriptor layout
+from the container version string.
 
 | Offset | Bytes | Decoded meaning |
 | ---: | --- | --- |
