@@ -101,17 +101,17 @@ these diagnostics; use `boorender --raw` or `bootrace` when analyzing them.
 | `CTOCE <level> <style> <id> <title>` | `:li.<title>` | One generated TOC entry represented as list item text. | Source-style approximation. |
 | `CZ OFF ETOC` | `:etoc.` | End of the generated TOC region. | There is **no standalone `ETOC` control**. Only the five `CZ`-dialect books close `CONTENTS` this way; the other 29 have no terminator and the TOC ends with the topic's record range. See [table-of-contents.md](table-of-contents.md#there-is-no-standalone-etoc-control). |
 | `CFONTDEF=<code> <name>` | suppressed | Font/style code definition. | The current source-style projection does not yet reconstruct inline `:hpN.` spans from these definitions. |
-| `CFONT <triples...> [text]` | trailing text preserved as inline `:hpN.` spans when present; span-only records are applied to the following plain text segment | Repeated `<offset> <length> <font_code>` triples, sometimes followed by decoded visible text. Offsets are display-column coordinates in the reader line model. Apply them before source-style whitespace collapse, using the active `CZ FLOW` indent column for same-line text. Span-only continuation records use the following physical text line's paragraph column. Do not recover by scoring word boundaries. | Verified against `packet.boo` topic `1.3`: `CFONT 27 5 3 33 10 3` has no trailing text, but BookSrv applies it to the following `FM radio through its audio interface;` line and emphasizes `audio interface;`; later `CFONT 17 3 2 ... 64 13 2` emphasizes whole words `you cannot use your radio's VOX control for bidirectional`. |
+| `CFONT <triples...> [text]` | trailing text preserved as inline `:hpN.` spans when present; span-only records are applied to the following plain text segment | Repeated `<offset> <length> <font_code>` triples, sometimes followed by decoded visible text. Offsets are absolute display-column coordinates in the fixed display line. Apply them before source-style whitespace collapse, using the active `CZ FLOW` indent column for same-line text. Span-only continuation records use the following physical text line's paragraph column. Do not recover by scoring word boundaries. | Verified against `packet.boo` topic `1.3`: `CFONT 27 5 3 33 10 3` has no trailing text, but hosted BookServer applies it to the following `FM radio through its audio interface;` line and emphasizes `audio interface;`; later `CFONT 17 3 2 ... 64 13 2` emphasizes whole words `you cannot use your radio's VOX control for bidirectional`. |
 | `CSELECT <col> <len> <target> [text]` | `:pinline.<before> :hdref refid='<target>'.<selected>:ehdref. <after>` | Selectable link/cross-reference. The target may be a topic id, anchor id, or footnote id. `col` is an absolute zero-based display-cell column and `len` is the selected display-cell count; neither is relative to the end of the decoded fragment. | Verified against `GG24-4302-00.boo` topic `NOTICES` and `packet.boo` topic `1.1`. |
 | `CSELECT <col> <len> PIC<n> [text]` inside a figure | `:image resource='<n>'.` plus `:figcap.<caption>` | Selectable embedded picture placeholder. The `PIC<n>` selection is replaced by the rendered picture; surrounding figure caption text remains ordinary caption text. A leading generated `PICTURE <n>` label is reader metadata and is not part of the visible caption. Markdown keeps the BOO resource as `resource:<n>` so exporters can resolve it. | Verified against `packet.boo` topic `1.3`, where BookServer renders `PIC1` as `/bookmgr/pictures/packet.20260614112503.P1.GIF`, followed by caption `Figure 1. VHF/UHF LMR audio frequency range`. |
 | `CSELECT <col> <len> PIC<n> [text]` inside `SRTBL` | `:image resource='<n>'.` plus the visible table text | Some generated product-overview layouts use a table solely to place a picture beside prose. `PIC<n>` still denotes the BOO resource; `PICTURE <n>` and adjacent `SI` keys are non-visible metadata. Visible text can continue in the next logical record and after `SRETBL`, so neither boundary ends the paragraph. | Verified against `GG24-395.boo` logical records 528 (`PIC68`, topic `3.3.7`), 581--582 (`PIC81`, topic `3.3.11`), and 635 (`PIC91`, topic `3.3.15`), compared with BookServer DT `19941215160749`. |
 | `CSELECT <col> <len> LNK <kind> ... <target> ... [text]` | Inline image or external Markdown link | `LNK` alternatives describe presentation and transport. An `IMAGE` first alternative embeds the path; `OTHER`/`INTERNET` selects the display-cell span as a link. Observed targets include BOO-relative `/bookmgr/...`, `http://`, and `ftp://` paths. Empty `<>` alternatives and symbolic names are metadata, not visible prose. | Verified against `XWEBDEMO.boo` topics `1.0`, `1.4.1`--`1.4.4`: `/bookmgr/product.gif`, `/bookmgr/monetley.jpg`, `/bookmgr/*.avi|*.mpg|*.wav`, FTP, and HTTP targets; BookServer DT `19970423182524`. |
-| `CMENU` | `:ul type='menu'.` | Start of generated selectable menu/list. | BookSrv emits a `Subtopics:` heading and an HTML `<ul>` for PACKET topic `1.0`; raw output keeps it distinct from ordinary source `:ul.` lists. |
-| `CMITEM <id> <text>` | `:li refid='<id>'.<id> <text>` | Menu item target and visible label. | Verified in BookSrv `bookmgr.exe`; the first token is the href target and is also preserved in visible subtopic text. |
+| `CMENU` | `:ul type='menu'.` | Start of generated selectable menu/list. | hosted BookServer emits a `Subtopics:` heading and an HTML `<ul>` for PACKET topic `1.0`; raw output keeps it distinct from ordinary source `:ul.` lists. |
+| `CMITEM <id> <text>` | `:li refid='<id>'.<id> <text>` | Menu item target and visible label. | Verified against `packet.boo` topic `1.0`: hosted BookServer emits `<li>  <a href="1.1?..."> 1.1 Original Packet Radio</a>`, so the first token is both the href target and the leading words of the visible label. |
 | `CEMENU` | `:eul.` | End of menu/list. | Observed menu/list terminator. |
 | `SR<id>` | `:anchor id='<id>'.` | Generic spot/section anchor. `CSELECT` can target this id directly. | Verified by `QS3X36CM.BOO` links such as `sptproc`, `sptcontrol`, and `sptocl`. |
-| `SRFTN<id>` followed by `CZ FLOW FN ...` | `:fn id='<id>'.<text>` | Start of a generated footnote body. The `id` is the footnote target used by a `CSELECT` reference. | Verified by `packet.boo` topic `1.1` and BookSrv `sub_405FC`, which emits `<a name="FTNFTNUNIQ1"><hr><h5>...`. |
-| `SREFTN` | `:efn.` | End of a generated footnote body. In PACKET generated footnote bodies, a doubled terminal period immediately before `SREFTN` contributes one visible period; the second period is the generated-body terminator convention. | Verified by `packet.boo` topic `1.1` and BookSrv `sub_405FC`; hosted BookServer renders both footnote bodies with one final period. |
+| `SRFTN<id>` followed by `CZ FLOW FN ...` | `:fn id='<id>'.<text>` | Start of a generated footnote body. The `id` is the footnote target used by a `CSELECT` reference. | Verified by `packet.boo` topic `1.1`: hosted BookServer emits `<a name="FTNFTNUNIQ1"><hr><h5>` at the start of the generated footnote body. |
+| `SREFTN` | `:efn.` | End of a generated footnote body. In PACKET generated footnote bodies, a doubled terminal period immediately before `SREFTN` contributes one visible period; the second period is the generated-body terminator convention. | Verified by `packet.boo` topic `1.1`: hosted BookServer renders both footnote bodies with one final period, and closes each with `</h5></a>`. |
 | `SRFIG<id>` | `:fig id='<id>'.` plus optional figure body records | Figure anchor/start id. The id is the contiguous topic-id-like token after `SRFIG`; trailing decoded bytes are figure content, not part of the id. | Verified against `QSYSNEWG.BOO` topic `2.1`: `SRFIGFIGUNIQ13` is followed by a fixed-width text screen in the same segment. |
 | `SREFIG [text]` | `:efig.` plus optional following body text | Figure end marker. Trailing decoded bytes after `SREFIG` are following visible text, not part of the marker. This payload establishes a new display run and must not be joined backward across the figure/table end controls. | Verified against `QSYSNEWG.BOO` topics `2.0` and `2.1`, where BookServer renders body text immediately after the figure closes, and `SC31-711.boo` topic `COMMENTS`, logical record 544 segment 2, whose `SREFIG` payload begins `Specific Comments or Problems:` and continues through records 545--546. The first following ruled-row marker is at BOO byte `0x34FF5`. |
 | `SRTBL<id>` | `:table id='<id>'.` | Table anchor/start id. The served anchor name is the whole opcode without `SR`, i.e. `TBL<id>`, and cross references select that spelling; a picture-less `SRFIG<id>` wrapping the table is served as its own `FIG<id>` anchor directly before it. | Verified against `SC31-711.boo` topic `4.0` (`SRFIGTBLUNIQ6`, `SRTBLTBLUNIQ6`), served at DT `19941010174546` as `<a name="FIGTBLUNIQ6">` then `<a name="TBLTBLUNIQ6">`, and `GG24-4302-00.boo` topic `10.2`, whose `CSELECT ... TBLDBCTL51` targets `SRTBLDBCTL51`. |
@@ -120,14 +120,14 @@ these diagnostics; use `boorender --raw` or `bootrace` when analyzing them.
 | `SI <index-term>` | suppressed; the whole line displays nothing | Subject-index metadata embedded in body flow. An `SI` entry always occupies **exactly one display line**, and nothing on that line is displayed. Two spellings occur: the plain `SI <term words>` form and the structured form `SI <sep2> <format> <sep1> <flag> <sep1> <term words>[<sep1> <term words>]...`. See "Structured subject-index display lines" below. | Verified over the corpus; 29,239 `SI` display lines in 31 books. **Retired reading:** this row previously described "an optional visible tail after `?`, `|`, or a wide alignment gap" that stayed body content. That tail was an artifact of the flattened decoded string joining two display lines. `QSYSNEWG.BOO` record 40 holds `SI display station` on one line and `| If your display station screen is blank, ...` on the *next*; hosted BookServer serves exactly the second line, and the `SI` line contributes nothing. The same holds for `packet.boo` `3.2` and `QSYSNEWG.BOO` `1.2`. |
 | `CZ Flow <tag> <left> <indent> <text>` | `:<tag>.<text>` | Flowing paragraph/list/heading control. Empty `UL`, `OL`, `DL`, and `LI` flow controls are structural boundaries and must still be emitted. | Verified against `packet.boo` topic `3.2`: `CZ FLOW UL` and empty `CZ FLOW LI` records precede `CFONT`/`CSELECT` visible list-item bodies. BookServer renders these as list items, not as text merged into the previous paragraph. |
 | `CZ Break <n> <text>` | `:p.<text>` when text is present | Break/layout control with optional visible text. | Source-style approximation. |
-| `CZ Off <tag>` | matching end tag for known block tags, otherwise suppressed | End/disable layout mode. | Verified for table controls in BookSrv `bookmgr.exe`; see the table/layout evidence below. |
+| `CZ Off <tag>` | matching end tag for known block tags, otherwise suppressed | End/disable layout mode. | Verified for table controls against hosted BookServer output; see the table/layout evidence below. |
 | `CZ Off XMP` / `CZ Off EXMP` | `:xmp.` / `:exmp.` with `:xline.` records for intervening visible lines | Literal example/preformatted mode. Visible text between the controls is line-preserving; style-only `CFONT` records inside the block do not create blank lines. | Verified against `packet.boo` topic `3.2` and source `packet.script` `:xmp.` blocks for `/etc/ax25/axports`, `/etc/ax25/nrbroadcast`, and `/etc/ax25/rsports`. |
-| `ST` reflow-off body followed by inline continuation controls | `:xmp inline='html'.` / `:xline.` / `:exmp.` when the fixed block contains inline markup | Generated fixed-width topic-body blocks can span logical records that contain inline `CFONT` or `CSELECT` controls. These controls do not terminate the fixed-width block; they render inside the active preformatted output. | Verified against `QSYSNEWG.BOO` topic `PREFACE`: hosted BookServer keeps `Publications Guide` italics and `Bibliography` links inside `<pre width="80">`. IDA `bookmgr.exe` opens the pre block at `BookServer_render_topic_body_html` `0x45239`, copies fixed rows via `Scm_Getln`/`Scm_Xoutcpy`, and emits `</pre>` only later at `0x4548e` or the final guard at `0x45572`. |
+| `ST` reflow-off body followed by inline continuation controls | `:xmp inline='html'.` / `:xline.` / `:exmp.` when the fixed block contains inline markup | Generated fixed-width topic-body blocks can span logical records that contain inline `CFONT` or `CSELECT` controls. These controls do not terminate the fixed-width block; they render inside the active preformatted output. | Verified against `QSYSNEWG.BOO` topic `PREFACE`: hosted BookServer keeps `Publications Guide` italics and `Bibliography` links inside a single `<pre width="80">` block, and does not close the block at the inline control. |
 | Same-target `CSELECT` spans split across fixed display rows | Separate adjacent semantic links with the complete visible phrase preserved | A physical row boundary can divide one human-readable reference into multiple selector objects. Preserve each selector and normalize only the display whitespace; target equality alone does not prove that selectors should be collapsed. | `SC31-711.boo` topic `5.0`, logical records 172--173, selects `Chapter 2, "Problem` at column 56 and `Determination" in topic 2.0` at column 3 on the continuation row. BookServer emits two adjacent `2.0#HDRPROBS` anchors. `QSYSNEWG.BOO` `PREFACE` and `GG24-4302-00.boo` `NOTICES` independently require separate same-target selectors. |
 | `CITERM <term><sep><level>[<sep><target>...]` | `:i1 level='<level>' refids='<targets>'.<term>` | Generated index entry. Level is positive hierarchy depth and is not visible text. Each valid target is a topic ID; entries may be targetless parents or carry multiple targets. | Verified against `SC31-711.boo` (`adapter problems`, nested targetless parents, symbolic `FRONT_1.1`) and `GG24-4302-00.boo` (punctuation-led terms and multiple targets). |
 | `CGPSEP <fields>` | `:grpsep.<fields>` | Index group separator. | Source-style approximation. |
 | Other `C...` controls | suppressed | Generated or unresolved control-like words. | Fallback behavior for source-style raw output. |
-| Plain text span | `:p.<text>`, or `:pinline.<text>` for marker-led wrapped continuations | Remaining decoded prose after known controls are separated. Wrapped continuation records can start with a printable line-marker byte before indentation; the marker is suppressed and the text continues the active paragraph. | Verified against `packet.boo` topic `1.1`, where decoded `$    Professor Norman Abramson...` continues the preceding `CZ FLOW P ... networking was` paragraph in BookSrv without a `$` or paragraph break. |
+| Plain text span | `:p.<text>`, or `:pinline.<text>` for marker-led wrapped continuations | Remaining decoded prose after known controls are separated. Wrapped continuation records can start with a printable line-marker byte before indentation; the marker is suppressed and the text continues the active paragraph. | Verified against `packet.boo` topic `1.1`, where decoded `$    Professor Norman Abramson...` continues the preceding `CZ FLOW P ... networking was` paragraph in hosted BookServer output without a `$` or paragraph break. |
 
 ### Structural ST Title/Body Form
 
@@ -174,7 +174,7 @@ Decoded wrapped lines can also carry the same printable line-marker byte inside
 visible text fields, not only as standalone plain text spans. In `packet.boo`
 topic `1.1`, examples include `*    or affordable-to-construct`, `!    connect
 their sites`, `$    system`, and `-        equipment`; topic `1.3` adds `)    ?
-TNC...` and `:    ? As such...`. BookSrv suppresses these marker bytes and
+TNC...` and `:    ? As such...`. Hosted BookServer suppresses these marker bytes and
 keeps only the wrapped prose. Source-style projection therefore removes a
 leading marker when it is followed by at least two whitespace bytes, or when a
 marker is stranded at the end of a wrapped segment, and appears at the start of
@@ -528,13 +528,14 @@ BookServer evidence from the hosted packet book:
 | `/BOOKS/packet/COVER?DT=20260614112503` | The title words are emitted as bold HTML, followed by paragraph breaks between subtitle, author, document number, part number, and file number. |
 | `/BOOKS/packet/TITLE?DT=20260614112503` | The title, subtitle, and first author line are emitted as one bold title block with line breaks between the three lines, followed by paragraph breaks for document number, date, and author. |
 
-Reader binary evidence:
-
-| Source | Evidence |
-| --- | --- |
-| `Official Readers/BookSrv-Win32/bookmgr.exe` via `rabin2 -zz` and `r2` | The main topic renderer function at `0x000405fc` references the `CFONT`, `CHDLEVEL`, `TITLE`, and `COVER` strings. The same function tests for `TITLE` and `COVER` at `0x00044377..0x000443c8` and sets a title/cover state flag before normal body output continues. |
-| `Official Readers/BookSrv-Win32/bookmgr.exe` via `r2`, `fcn.0004f69c` | The HTML text escaping helper maps byte `0x0a` to the literal output string `<BR>\n`, explaining the line breaks inside the bold title block. |
-| `Official Readers/BookSrv-Win32/ephwam.dll` via `rabin2 -zz` and `r2` | Book metadata controls such as `CTITLE=`, `CSTITLE=`, `CDOCNUM=`, `CDATE=`, and `CAUTHOR=` are owned by the BOO/logical-record expansion layer, separate from the BookServer HTML presentation function. |
+What this shows about the format: the `TITLE` and `COVER` topics are treated
+differently from ordinary body topics -- their leading lines become one emphasis
+block with line breaks between them, rather than separate paragraphs -- and the
+book-level metadata controls (`CTITLE=`, `CSTITLE=`, `CDOCNUM=`, `CDATE=`,
+`CAUTHOR=`) are separate from that presentation. The metadata controls are
+documented in [boo-header.md](boo-header.md) and
+[logical-controls.md](logical-controls.md); the title-page projection below is a
+rendering decision built on them.
 
 This matters for Markdown conversion: treating the BookServer `<pre>` wrapper
 as a Markdown fenced code block preserves line breaks but incorrectly suppresses
@@ -643,7 +644,7 @@ CFONT <column_or_offset> <span_length> <font_code> ...
 ```
 
 The first field is a display-column coordinate, not an offset in already
-collapsed Markdown/plain text. The reader expands BOO logical records into a
+collapsed Markdown/plain text. A decoder expands BOO logical records into a
 display line, tracks the active layout indent from `CZ FLOW <tag> <left>
 <indent>`, applies font spans in that display coordinate space, and only then
 collapses the source-style spacing for flowing text. For example, PACKET topic
@@ -1030,14 +1031,11 @@ Examples:
 | --- | --- |
 | `QS3X36CM.BOO` | `CMENU CMITEM 1.1 Displaying as/400 Commands Online CEMENU` |
 | `packet.boo` | Topic `1.0`: `CMENU`, `CMITEM 1.1 Original Packet Radio`, `CMITEM 1.2 Ham Packet Radio`, `CMITEM 1.3 Bringing it Together`, `CEMENU`; hosted BookServer renders these as linked `Subtopics:` entries. |
-| `bookmgr.exe.i64` | `sub_405FC` emits the generated menu heading `Subtopics:` at `0x44b0b`; recognizes `CMITEM` at `0x44b8c`; then builds the item `href` from the first token and emits the remaining text inside the anchor at `0x44c56`. |
 | `packet.boo` | Topic `1.1`: `CSELECT 16 4 FTNFTNUNIQ1 ... technologies. (1)` followed later by `SRFTNFTNUNIQ1`, `CZ FLOW FN ...`, and `SREFTN`; hosted BookServer links only `(1)` and renders the footnote at the bottom under anchor `FTNFTNUNIQ1`. Topic `5.1.2` has consecutive selectors `CSELECT 11 5 FTNFTNUNIQ57` and `CSELECT 16 5 FTNFTNUNIQ58`; only the second carries the completed line `locator: (44) (45)`, and the two five-cell spans select `(44)` and `(45)` on that same line. |
 | `packet.boo` | Full raw render contains 67 footnote records and 67 unique `FTNFTNUNIQ...` ids, so the generated ids can be reused as stable Markdown anchors for this document. |
-| `bookmgr.exe.i64` | `sub_405FC` tokenizes `CSELECT` at `0x42471`. `RenderDisplayLineObjectsAndSelections` at `0x4b483` parses the absolute column and length, copies the gap from the complete display line, emits exactly the selected cells, and resumes at `column + length`. |
 | `QS3X36CM.BOO` | `CSELECT 33 3 sptproc ... System/36 procedures     Page 2.1` selects `2.1`; target anchor `SRsptproc` appears inside topic `2.1`. |
 | `GG24-4302-00.boo` | Topic `NOTICES`: `CSELECT 43 30 HDRNOTICES ... to read the general information under "Special Notices" in` selects `"Special Notices" in` plus fixed-layout padding, and `CSELECT 5 13 HDRNOTICES ... topic FRONT_1.` selects `topic FRONT_1` but not the period. |
 | `GG24-4302-00.boo` | `CSELECT 3 8 fig4302hp1 ... Figure 1.` selects `Figure 1`. |
-| `SC26-4221-08.boo` (**not in `BOO/`** — unverifiable, see note below) | `CSELECT 7 22 hdrlanguag` |
 
 ### CMITEM terminal marker slots
 
@@ -1300,8 +1298,8 @@ using those first three cells as the header row, preserving ordinary text that
 begins with `C` (for example `Cancel(c)` and `Clrjobq`), and grouping later
 cells with AS/400 command-looking tokens such as `endjob`, `wrkjobq`, and
 `chgsplfa`. This is a renderer fallback, not a complete format fact: the exact
-byte-level row/column layout for these flat legacy table records still needs
-reader-code confirmation.
+byte-level row/column layout for these flat legacy table records is still
+unresolved.
 
 `packet.boo` demonstrates another table form generated from BookMaster
 `:table`, `:tcap`, `:row`, and `:c` source records. In the decoded logical
@@ -1312,17 +1310,16 @@ repeat the separators with blank cells for columns that continue empty.
 BookServer reconstructs these records as HTML `<table>` rows with monospace
 cells and `<br>` for wrapped cell lines.
 
-Reader-code verification in `Official Readers/BookSrv-Win32/bookmgr.exe.i64`
-confirms that table layout controls are mode switches, not visible body text.
-The chapter renderer `sub_405FC` compares decoded records against
-`CZ OFF TABLE` at `0x421af`, `0x43036`, `0x43194`, and `0x433a2`; the matching
-branches set table/layout state, call the table-state reset helper at
-`0x69440`, and in one path emit `</pre><pre width="132"><!-- table -->`.
-The same renderer compares `CZ OFF ETABLE` at `0x439ad` alongside end-of-figure
-and end-of-labeled-box controls before closing/restarting preformatted layout.
-Therefore a source-style raw projection should suppress these `CZ OFF TABLE`
-and `CZ OFF ETABLE` records or translate them into structural table boundaries,
-not render them as literal paragraph text.
+Hosted output confirms that these table layout controls are mode switches, not
+visible body text. `packet.boo` topic `2.4.4` decodes `cz OFF TABLE` immediately
+before `SRTBLTBLUNIQ17` and `cz OFF ETABLE 0 0` immediately after `SRETBL`.
+At `DT=20260614112503` the hosted page for that topic emits
+`</pre><pre width="132"><!-- table -->` followed by
+`<table border cellpading="3">` at the first control, and
+`</table><pre width="132"><!-- * -->` at the second. Neither control appears as
+text anywhere on the page. A source-style raw projection must therefore suppress
+`CZ OFF TABLE` and `CZ OFF ETABLE` records or translate them into structural
+table boundaries, not render them as literal paragraph text.
 
 For example, `packet.boo` topic `2.4.4` contains `SRTBLTBLUNIQ17` followed by
 the boxed row text for `Class`, `Range`, and `Default Netmask`. The hosted
@@ -1394,15 +1391,13 @@ Evidence:
 | --- | --- |
 | `GG24-4302-00.boo` | `CSELECT 3 8 fig4302hp1 ... SRFIGfig4302hp1 ... CSELECT 35 9 pic1 ... Figure 1. Parallel Transaction Server` |
 | `GG24-4302-00.boo` | `CSELECT 3 8 fig4302rs1 ... SRFIGfig4302rs1 ... CSELECT 35 9 pic2 ... Figure 2. Remote Site Recovery` |
-| `SC26-4221-08.boo` (**not in `BOO/`** — unverifiable) | `CSELECT 3 10 Pic1 ... Picture 1 represents ...` |
-| `SC26-4221-08.boo` (**not in `BOO/`** — unverifiable) | `CSELECT 3 8 Figv2pubs ... SRFIGv2pubs ... SRTBLv2pubs ... Figure 1` |
+| `packet.boo` | Topic `1.3`: `CSELECT ... PIC1` inside a figure, rendered by hosted BookServer as `/bookmgr/pictures/packet.20260614112503.P1.GIF` followed by the caption `Figure 1. VHF/UHF LMR audio frequency range`. |
 | `QS3X36CM.BOO` | Topic `2.2`: `SRTBLtbluniq2`, header cells `System/36`, `As/400`, `As/400 Function`, entries such as `Cancel(c) job`, `endjob`, `Clrjobq`, `wrkjobq`, and final `SRETBL`. |
 | `packet.boo` | Topic `2.4.4`: `SRTBLTBLUNIQ17`, fixed-width boxed rows for `Table 1. IPv4 Address Classes`, and final `SRETBL`; hosted BookServer renders the same block as an HTML table. |
 | `packet.boo` | Topic `3.9`: `SRTBLTBLUNIQ40`, wrapped boxed rows for `Table 4. Linux Packet Programs`; hosted BookServer keeps wrapped description lines inside the same table cell. |
 | `SC31-605.boo` | Topic `2.1`, logical records 48–57: `SRTBL005`, 74-column fixed rows from action code `01` through `81`, and final `SRETBL`; records 49–57 are table continuations, not empty topic padding. |
 | `SC31-605.boo` | Topic `3.5`, logical records 416–433: `SRTBLS1`, a four-column `Event Code` / qualifier grid, five-hex-digit row keys `02101`–`0216B`, wrapped qualifier cells, and boundary pairs such as `02135`/`02136`. |
 | `SC31-605.boo` | Topic `3.8`, logical records 469–472: event rows `02D01`–`02D0F`; `02D0B`–`02D0E` continue `line addresses` in qualifier columns 2 and 3. |
-| `bookmgr.exe.i64` | `sub_405FC` recognizes `CZ OFF TABLE` and `CZ OFF ETABLE` as table layout controls; `sub_69440` resets table/layout accumulation globals. |
 
 The resource table stores raw assets as documented in [assets.md](assets.md).
 For observed BookServer picture references, body ids such as `pic1` map to BOO
@@ -1416,20 +1411,32 @@ list, figure, table, and box layout. These are content/layout controls rather
 than raw text. Six of the 34 fixtures are such books; the identification test
 and the corrected version story are under "CZ layout directives" below.
 
-Observed examples attributed to `SC26-4221-08.boo`. **That file is not in `BOO/`**: it is cited by six claims across `Format/` and by none of `AnalysisNotes/`, and none of its identifiers (`v2pubs`, `hdrlanguag`) occurs in any of the 34 bundled fixtures. These rows cannot be reproduced from this repository and are retained only as the historical source of the control names. Treat them as unverified until the fixture is added or the claim is re-derived from a bundled book. The tag list itself is independently confirmed by the `CZ` census under "CZ layout directives".
+`packet.boo` is the version-1.3 fixture in this repository, and decoding all
+124 of its topics gives the complete `CZ` census below. No other repository
+fixture decodes any `CZ` control, so this list is the observed universe here.
 
-| Decoded evidence | Interpretation |
-| --- | --- |
-| `CZ Break 3` | Layout break before the following content. |
-| `CZ off Fig` | End or disable figure layout mode. |
-| `CZ off Table` | Table layout boundary; BookSrv treats this as structural and resets table/layout state. |
-| `CZ off Etable` | End or disable table layout mode; BookSrv treats this as structural rather than visible text. |
-| `CZ off Lblbox` | Start of a compiled labeled-box visual block; BookSrv emits a preformatted `<!-- lblbox -->` block. |
-| `CZ off Elblbox` | End or disable labeled-box layout mode. |
-| `CZ flow p 3 3` | Paragraph flow control. |
-| `CZ flow sl 3 3` | Simple-list flow control. |
-| `CZ flow li 7 7` | List-item flow control. |
-| `CZ flow dl`, `CZ flow dt`, `CZ flow dd` | Definition-list, term, and description flow controls. |
+| Decoded control | Occurrences in `packet.boo` | Interpretation |
+| --- | ---: | --- |
+| `CZ flow p` | 442 | Paragraph flow control. |
+| `CZ off xmp` / `CZ off exmp` | 221 / 221 | Start and end of a literal example block. |
+| `CZ flow li` | 209 | List-item flow control. |
+| `CZ break 3` | 85 | Layout break before the following content. |
+| `CZ flow fn` | 67 | Footnote-body flow control; follows an `SRFTN<id>` anchor. |
+| `CZ flow dt` | 64 | Definition-list term. |
+| `CZ flow h2` / `h3` / `h4` / `h5` | 10 / 38 / 18 / 40 | Heading-level flow controls. |
+| `CZ flow ul` / `CZ off eul` | 31 / 31 | Unordered list start and end. |
+| `CZ flow ol` / `CZ off eol` | 16 / 16 | Ordered list start and end. |
+| `CZ flow dl` / `CZ off edl` | 8 / 8 | Definition list start and end. |
+| `CZ off fig` / `CZ off efig` | 9 / 9 | Figure layout boundary. |
+| `CZ off lblbox` / `CZ off elblbox` | 8 / 8 | Labeled-box visual block; hosted BookServer emits a preformatted `<!-- lblbox -->` block. |
+| `CZ flow gd` | 8 | Group-definition flow control. |
+| `CZ off table` / `CZ off etable` | 7 / 7 | Table layout boundary; hosted BookServer emits `<pre width="132"><!-- table --><table ...>` and `</table>` respectively, and renders neither as text. |
+| `CZ flow note` | 1 | Note block. |
+| `CZ off cover` / `ecover`, `toc` / `etoc`, `tipage` / `etipage`, `tlist` / `etlist`, `figlist` / `efiglist` | 1 each | Front-matter and generated-list block boundaries. |
+
+Note that the paired `CZ off <tag>` / `CZ off e<tag>` spelling is what the
+stream stores: `off` introduces the mode for both the opening and closing form,
+and the `e`-prefixed tag is what distinguishes the close.
 
 An independent reader can initially preserve these controls structurally and map
 them to renderer-specific block/list constructs later.
@@ -1533,7 +1540,7 @@ sequence instead of treating every cleaned `:p.` as one paragraph:
 | `2.0` | The `ST` first-body text is a three-line fixed-width paragraph, followed by three `CSELECT` page references as a fixed-width page-reference block; the selected topic numbers are inline links at the end of each preserved line. |
 | `A.0` | `SRHDRAPA` may precede the `ST` heading text in the decoded stream. If the TOC renderer has already emitted the topic heading, a following heading record whose text begins with the same title and continues with body prose should be demoted to a paragraph containing only the prose. |
 | `QSYSNEWG FRONT_1` | `SRHDRNOTICES` precedes `ST Notices ...` in the decoded stream. The normalized records are `:anchor id='HDRNOTICES'.` followed by `:h1.Notices References ...`; BookServer emits the TOC-derived topic heading and then a `<pre width="80"><!-- * -->` block. A compatible renderer must preserve `References ...` and following continuation records as fixed reflow-off lines rather than discarding the heading record as a duplicate or flattening the body into one paragraph. |
-| `QSYSNEWG PREFACE` | `SRHDRABOUT ? ST| About This Guide ...` stores the topic title and first body text in the same topic-header record. Hosted BookServer emits `<a name="HDRABOUT"><h1>| PREFACE   About This Guide</h1></a>` followed by `<pre width="80"><!-- * -->`. The `ST|` marker is a topic-title control followed by a visual row marker, not literal text. In the fixed body, rows of the form `| ?   text` immediately after a colon-introduced list are rendered by BookServer with ISO-8859-1 byte `0xb0` (`°`) before the text; `ephwam.dll`'s `Scm_Xoutcpy` maps the underlying BookManager character word through the output table before writing that byte. A compatible Markdown projection must not leak `ST|` or visual `|` row markers, must preserve the `°` simple-list marker through the list block, and `CSELECT` spans on later bar-prefixed lines are measured against the fixed display line before marker cleanup. |
+| `QSYSNEWG PREFACE` | `SRHDRABOUT ? ST| About This Guide ...` stores the topic title and first body text in the same topic-header record. Hosted BookServer emits `<a name="HDRABOUT"><h1>| PREFACE   About This Guide</h1></a>` followed by `<pre width="80"><!-- * -->`. The `ST|` marker is a topic-title control followed by a visual row marker, not literal text. In the fixed body, rows of the form `| ?   text` immediately after a colon-introduced list are rendered by BookServer with ISO-8859-1 byte `0xb0` (`°`) before the text; that byte is the BookServer output-code-page rendering of the underlying token word, tabulated in [encoding.md](encoding.md). A compatible Markdown projection must not leak `ST|` or visual `|` row markers, must preserve the `°` simple-list marker through the list block, and `CSELECT` spans on later bar-prefixed lines are measured against the fixed display line before marker cleanup. |
 
 `VNOTICE` contains book-specific notice data. Its `VNHD` payload begins with the
 edition label and continues with applicability prose; the following paragraph
@@ -1644,10 +1651,10 @@ control `CFONT 8 10 2 19 2 2 22 4 2 27 4 2` followed by the visible row
 | 22 | 4 | 2 (`HP2`) | `This` |
 | 27 | 4 | 2 (`HP2`) | `Book` |
 
-BookServer's `sub_405FC` recognizes `CFONT` and calls `sub_4920A`, which
-parses the repeated offset/length/font triples. Its display-line renderer
-applies them to the fixed-width row before trimming or collapsing whitespace.
-It emits `<B>Production</B> <B>of</B> <B>This</B> <B>Book</B>`. Applying these
+Hosted BookServer emits
+`<B>Production</B> <B>of</B> <B>This</B> <B>Book</B>` for this row, which shows
+the spans are applied to the fixed-width row *before* trimming or collapsing
+whitespace. Applying these
 spans to the already-trimmed row with the ordinary paragraph base column
 shifts the first span and produces the incorrect `ction of T` emphasis.
 Visual-box rows must therefore use ordered whole-word matching when the row
