@@ -2,50 +2,27 @@
 
 Book-level controls such as `CLANGUAGE=`, `CVERSION=`, `CTITLE=`, and
 `CDOCNUM=` are not stored as raw ASCII or raw EBCDIC strings in the BOO files.
-They are stored as tokenized logical records. The IBM reader reconstructs each
-record by reading compact token references from logical-record pages, resolving
-those references through the directory token table and dictionary pages, and
-then converting the resulting 16-bit character codes to bytes before comparing
-against control-key strings.
+They are stored as tokenized logical records. A decoder reconstructs each record
+by reading compact token references from logical-record pages, resolving those
+references through the directory token table and dictionary pages, and then
+converting the resulting 16-bit character codes to bytes before matching
+control-key strings.
 
-## Reader-Code Evidence
+## Decoding Pipeline
 
-The relevant `ephwam.dll` path is:
+The stages below are the format's own layers. Each is documented with fixture
+evidence in its own section further down, and the whole pipeline is verified end
+to end by comparing decoded text against the hosted BookServer rendering of the
+same book and topic.
 
-| Routine | Address | Role |
-| --- | ---: | --- |
-| Logical control parser | `0x1217645` | Iterates decoded logical records and compares against `CLANGUAGE=`, `CVERSION=`, `CBLDVERS=`, `CTITLE=`, `CDOCNUM=`, and related keys. |
-| Logical record iterator | `0x12217c6` | Concatenates the token payloads that form one decoded logical record. The first decoded record must start with `L` (`0x004c`). |
-| Stream record reader | `0x121eee1` | Reads one length-prefixed encoded record and expands its token references into token descriptors. |
-| Record-length helper | `0x1216189` | Reads compact record lengths: one byte for values `0x00..0xef`, or two bytes for long form. |
-| Token resolver | `0x1218250` | Resolves a token descriptor to a word-counted 16-bit character-code record. |
-| Extended-token resolver | `0x1218ac5` / `0x1218593` | Walks dictionary pages for token references at or above the directory token threshold. |
-| Character-code decoder | `0x121ac63` | Converts the 16-bit character-code records to NUL-terminated text strings. |
-
-The `ephwam.dll` IDB now has descriptive names on this path:
-
-| IDA name | Address | Verified behavior |
-| --- | ---: | --- |
-| `BooReadCompactRecordLength` | `0x1216189` | Reads the one- or two-byte record length prefix. |
-| `BooDecodeTokenReferenceNumber` | `0x1216247` | Converts a 2- or 3-byte token reference into a sequential token number. |
-| `BooResolveTokenTextRecord` | `0x1218250` | Resolves a one-byte or extended token reference to a word-counted token text record, using the cache for one-byte token IDs. |
-| `BooResolveExtendedTokenReference` | `0x1218ac5` | Seeks and advances dictionary state until the requested extended token record is reconstructed. |
-| `BooSeekDictionaryTokenRecord` | `0x1218cef` | Searches dictionary index groups for the requested token key and leaves the cursor at the matching dictionary delta record. |
-| `BooApplyDictionaryDeltaRecord` | `0x1218593` | Applies one dictionary delta/update record to the current reconstructed token-word buffer. |
-| `BooSkipDictionaryTokenRecords` | `0x12188d8` | Advances the dictionary cursor across a requested number of delta records. |
-| `BooResetDictionaryCursorForToken` | `0x1218b43` | Loads a base token text record at the current cursor and resets the reconstructed token buffer. |
-| `BooMapTokenWordBufferNormalTable` | `0x121a0ea` | Maps a word-counted token buffer through the current translation table. |
-| `BooMapTokenWordBufferUpperTable` | `0x1219f22` | Maps a word-counted token buffer through an alternate uppercase-oriented table. |
-| `BooMapTokenWordToUpper` | `0x121a765` | Maps one token word, uppercasing ASCII `a..z` to `A..Z` in the simple path. |
-| `BooMapTokenWordToLower` | `0x121a9e4` | Maps one token word, lowercasing ASCII `A..Z` to `a..z` in the simple path. |
-| `BooLoadTranslationTablePage` | `0x121c31c` | Loads and caches a 4096-byte translation table page by table number. |
-| `BooCompareTokenWordStrings` | `0x121611a` | Compares token-word strings while applying the reader's search collation rules. |
-| `BooEncodeUnicodeWordsToSearchBytes` | `0x1219c94` | Encodes token words to the byte keys used by dictionary lookup kind `2`. |
-| `BooEncodeUnicodeWordToSearchByte` | `0x1219265` | Encodes one Unicode/token word to a dictionary-search byte. |
-
-The CGI IDB (`bookmgr.exe`) calls `Scm_Bopen` and `Scm_Binfo` from
-`ephwam.dll`; it consumes the returned metadata but does not parse these
-tokenized records itself.
+| Stage | What it consumes | What it produces |
+| --- | --- | --- |
+| Record framing | A content page | A sequence of length-prefixed encoded records. The length prefix is one byte for values `0x00..0xef` and two bytes in the long form. See [Record Lengths](#record-lengths). |
+| Token reference decoding | One encoded record payload | A sequence of token numbers. A byte below the directory token threshold (`0x0024`) is a one-byte token; higher values introduce a 2- or 3-byte extended reference. |
+| Token resolution | A token number | A word-counted record of 16-bit token words, read from the directory token map for one-byte tokens and from the dictionary pages for extended tokens. |
+| Dictionary reconstruction | A dictionary base record plus its delta records | The full token word buffer, after applying the retained-prefix, literal-append, and case-table transforms described under [Dictionary Pages And Delta Records](#dictionary-pages-and-delta-records). |
+| Character conversion | Token words | Display bytes, through the code-page translation table pages. |
+| Record assembly | The resolved tokens of one record | The decoded logical record text, applying the inter-token spacing and suppression prefixes documented in [encoding.md](encoding.md). |
 
 ## Fixture Evidence
 
@@ -60,15 +37,14 @@ byte strings:
 | ASCII `CDOCNUM=` / EBCDIC CP037 `CDOCNUM=` | not present | not present |
 
 Both fixtures contain tokenized logical records in the `0x0000` content run and
-also contain dense trailing `0x0001` logical-record pages. The book-header
-control parser initializes logical stream 0 and reads from the content-stream
-records first; an implementation that scans only the trailing `0x0001` run will
-miss `CLANGUAGE=`, `CVERSION=`, `CTITLE=`, `CDOCNUM=`, and related controls.
+also contain dense trailing `0x0001` logical-record pages. The book-level
+metadata controls live in the content-stream records, not in that trailing run;
+an implementation that scans only the trailing `0x0001` run will miss `CLANGUAGE=`, `CVERSION=`, `CTITLE=`, `CDOCNUM=`, and related controls.
 
-The hosted BookServer instance provides a reader-output check for
+The hosted BookServer instance provides an independent output check for
 `QS3X36CM.BOO`. Its contents page reports:
 
-| Reader field | Hosted BookServer output |
+| Decoded field | Hosted BookServer output |
 | --- | --- |
 | HTML title/address title | `AS/400 Command Cross-Reference` |
 | Document number | `SX41-8209-00` |
@@ -77,7 +53,7 @@ The hosted BookServer instance provides a reader-output check for
 
 Any decoder that produces strings such as
 `as/400CommandCross-reference` or `CopyrightibmCorp.1991` has not reproduced
-the reader's token-word translation and logical-record spacing path.
+the token-word translation and logical-record spacing rules correctly.
 
 The record pages have a common page shape:
 
@@ -101,13 +77,13 @@ Observed logical-record pages:
 The page-1 directory identifies the dictionary/token-table inputs used by the
 resolver:
 
-| Directory field | `QS3X36CM.BOO` | `OFCUSEOV.BOO` | Use in reader |
+| Directory field | `QS3X36CM.BOO` | `OFCUSEOV.BOO` | Use |
 | ---: | ---: | ---: | --- |
 | `0x0014` byte | `0xdc` | `0xd5` | Token threshold. Record bytes below this value are one-byte token IDs. |
 | `0x0022` word | `0x0c8c` | `0x0c8c` | Offset of the two-byte token map used for one-byte token IDs. |
 | `0x0026` word | `0x0e44` | `0x0e38` | Offset of the version-2 dictionary token-lookup index root in the directory page. |
 | `0x0028` word | `0x0002` | `0x0002` | First dictionary/cache page loaded for token records. |
-| `0x0034` word | `0x0e82` | `0x0ed2` | Offset of another in-page table used by the logical stream machinery. |
+| `0x0034` word | `0x0e82` | `0x0ed2` | Offset of the content-page logical-record index. |
 | `0x003c` word | `0x0068` | `0x0068` | Offset of the stream/page table. |
 | `0x003e` word | `0x000a` | `0x00c9` | Stream/page table count. |
 
@@ -116,7 +92,7 @@ resolver:
 Records inside logical-record pages start at page offset `0x0004`. Each record
 has a compact length prefix followed immediately by that many payload bytes.
 
-The reader length helper at `0x1216189` implements:
+The compact length is decoded as:
 
 ```c
 uint16_t read_record_length(uint8_t const **cursor) {
@@ -154,13 +130,16 @@ For the version-2 fixtures:
    fixtures), it is a one-byte token ID.
 3. If the byte is at or above the threshold, read one following byte; the two
    bytes form a big-endian extended token reference.
-4. The version-3 reader branch can use a three-byte extended token reference
-   when the directory version is ` 1.3` and the extended-token flag/range is
-   active.
+4. A three-byte extended token reference form exists for directory version
+   ` 1.3` when the extended-token range is active. No repository fixture uses
+   it, so it is recorded here as an unverified variant.
 
-The stream reader stores each token reference in an internal 8-byte descriptor.
-The descriptor also records segmentation metadata used later when the iterator
-assembles one decoded logical record from one or more token records.
+Token references stay individually addressable after this step: a decoder must
+keep each token's identity, assembled start column, and visible length, because
+the spacing rules in [encoding.md](encoding.md) and the display-line rules below
+operate on token boundaries. In particular, an actual two-character `ST` control
+token must stay distinguishable from the same two letters at the end of ordinary
+token text such as `4302ABST`.
 
 ### Display Lines Inside A Record Payload
 
@@ -213,7 +192,7 @@ SC09-138 `1.3.1`, GC23-046 `6.2`) is shown as an empty line.  The arrow
 words `U+2190`-`U+2193` and the bullet `U+2666` are served as the single
 display bytes `0x1b`, `0x22`, `0xff`, `0x19` and `0xb0` -- one column each,
 no character dropped and no column shifted.  That mapping belongs to the
-reader's output code page, not to the book: see
+BookServer output code page, not to the book: see
 [encoding.md](encoding.md), "Hosted Display Bytes For The Non-ASCII Graphic
 Words", which records the table, the byte evidence, and why `libgeist` emits
 the Unicode characters instead.
@@ -273,11 +252,11 @@ hosted BookServer on at least two books:
 * **A display line whose whole visible content is one `c.<xx>` opcode and at
   most one operand is a body control line and draws nothing** -- `c.cc 12`
   (GG24-4302-00 `2.2.3`, DT 19950308184737), `c.cc 4` (SC33-033 `PREFACE.1`),
-  a bare `c.cp` (DREICMST `1.5.6.3`, DT 19911219125856).  Such a line reaches
-  a token reader as ordinary text only when the decoder lost the control
+  a bare `c.cp` (DREICMST `1.5.6.3`, DT 19911219125856).  Such a line reads
+  as ordinary text only when the decoder has lost the control
   boundary; the display-line structure is what restores it.
-* **A display line whose whole visible content is `U+2500` rule words is the
-  reader's horizontal rule.**  Hosted serves it as `<hr>` and prints no
+* **A display line whose whole visible content is `U+2500` rule words is a
+  horizontal rule.**  Hosted serves it as `<hr>` and prints no
   character of it: ACPZMST1 `COVER` (DT 19920319123146) and DREICMST `COVER`
   (DT 19911219125856) both draw the cover frame as two such lines and both
   hosted pages carry `<hr>` in their place.  This is distinct from the
@@ -331,7 +310,7 @@ boundary.
 
 The same corroboration decides the decoder's box-drawing runs
 (`U+2500`-`U+25FF`).  A run of box words is row geometry -- a marker slot, a
-drawn box outline, the reader's `<hr>` -- only where it **opens** its display
+drawn box outline, a horizontal rule -- only where it **opens** its display
 line.  With a displayed word already in front of it on that line, it stands
 inside a drawn row, and hosted BookServer prints its glyphs.  Byte-level
 examples, one per shape:
@@ -413,7 +392,7 @@ A token reference resolves to a word-counted 16-bit character-code record:
 
 ```c
 struct BooTokenTextRecord {
-  uint16_t word_count_be_or_host;  // Reader stores/uses this as a count.
+  uint16_t word_count_be_or_host;  // Count of token words that follow.
   uint16_t words[word_count];      // Character-code tokens, not raw bytes.
 };
 ```
@@ -459,9 +438,8 @@ documented above. Examples:
 | `OFCUSEOV.BOO` | 2 | `0x02ef` | `f2 fa` | 762 |
 
 These page-2 blocks are dictionary text/delta containers. They are not the
-version-2 token-lookup root itself. For the repository fixtures,
-`BooSeekDictionaryTokenRecord` starts extended-token lookup in the directory
-page at the offset stored in directory word `0x0026`.
+version-2 token-lookup root itself. Extended-token lookup starts in the
+directory page, at the offset stored in directory word `0x0026`.
 
 The lookup root is a compact-length-indexed block:
 
@@ -483,9 +461,9 @@ Observed version-2 root index blocks:
 
 Each index entry begins with the same compact length encoding used for logical
 and dictionary records. In the version-2 token-reference lookup path, the first
-two payload bytes are the searchable extended-token key. The reader compares
-exactly this key width, then leaves the dictionary cursor at the byte immediately
-after the key when it reaches a terminal entry. The entry end is
+two payload bytes are the searchable extended-token key. The comparison uses
+exactly that key width; at a terminal entry the dictionary cursor is left at the
+byte immediately after the key. The entry end is
 `entry_payload + entry_length`.
 
 ```c
@@ -590,12 +568,13 @@ cursor is:
 continuation = entry_payload + token_key_width + 1 + prefix_length;
 ```
 
-The reader also has a 16-bit text-mode branch where the prefix consumes
-`2 * prefix_length` bytes before the continuation cursor.
+A 16-bit dictionary text mode also exists, in which the prefix consumes
+`2 * prefix_length` bytes before the continuation cursor. No repository fixture
+selects it.
 
 The block control byte determines how the continuation cursor is used:
 
-| Control value at time of decision | Reader action |
+| Control value at time of decision | Action |
 | ---: | --- |
 | `0` | Terminal match. Set the current dictionary delta range to `entry_payload + token_key_width .. entry_payload + entry_length`. |
 | `1` or `2` | Descend into the selected entry's continuation subrange. The next scan is bounded by `continuation .. entry_end`; the control is decremented at the top of the next pass. |
@@ -603,13 +582,14 @@ The block control byte determines how the continuation cursor is used:
 | `4` or `5` | Descend into the selected entry's continuation subrange first; after one or two counted-down passes, control `3` performs the page jump. |
 
 Controls `3` and `1` are verified in both repository fixtures. Controls `2`,
-`4`, and `5` are present in the reader logic but were not needed by the sampled
-version-2 root-to-terminal token paths above.
+`4`, and `5` are structurally implied by the control encoding but were not
+exercised by the sampled version-2 root-to-terminal token paths above; treat
+them as unverified.
 
-Once the seek routine finds the requested token key, it stores dictionary cursor
-state in the book handle:
+Once the requested token key is found, a decoder needs this cursor state to
+apply the delta records that follow:
 
-| Cursor field role | Reader behavior |
+| Cursor field role | Meaning |
 | --- | --- |
 | Dictionary page number | Selects the active dictionary page buffer. |
 | Current record offset | Points at the matched delta record inside that page. |
@@ -619,9 +599,9 @@ state in the book handle:
 
 ### Delta Operation Byte
 
-`BooApplyDictionaryDeltaRecord` and `BooSkipDictionaryTokenRecords` both parse a
-delta/update record from the current dictionary cursor. The first byte is split
-into a two-bit mode and a six-bit count:
+A delta/update record is parsed from the current dictionary cursor. Applying a
+record and skipping a record read the same framing. The first byte is split into
+a two-bit mode and a six-bit count:
 
 ```c
 uint8_t op = *cursor++;
@@ -633,21 +613,20 @@ The verified operation behavior is:
 
 | Mode | Observed behavior |
 | ---: | --- |
-| `0` | Transform the current reconstructed token buffer through `BooMapTokenWordBufferUpperTable`, then lowercase/map each indexed word with `BooMapTokenWordToLower`. The reader stores a leading length word in the buffer, so each payload byte is applied at `index + 1`; a lengthless implementation can use the payload byte as a zero-based word index. In the skip path, the cursor skips `count` payload bytes. |
-| `1` | Start a new reconstructed token buffer with `count` existing words, read a second six-bit literal count from the next byte, transform the retained buffer through `BooMapTokenWordBufferNormalTable`, then append that many literal words. |
-| `2` | Transform the current reconstructed token buffer through `BooMapTokenWordBufferNormalTable`, then apply optional indexed uppercase/mapping substitutions with `BooMapTokenWordToUpper`. The reader applies payload bytes at `index + 1` because of the leading length word. In the skip path, this mode skips `count` payload bytes. |
+| `0` | Transform the current reconstructed token buffer with the uppercase-table transform, then apply the word-lowercase transform to each indexed word. The buffer is word-counted with a leading length word, so a payload byte addresses word `index + 1`; a lengthless implementation can use the payload byte as a zero-based word index. When skipping rather than applying, the cursor skips `count` payload bytes. |
+| `1` | Start a new reconstructed token buffer with `count` retained words, read a second six-bit literal count from the next byte, apply the normal-table transform to the retained buffer, then append that many literal words. |
+| `2` | Apply the normal-table transform to the current reconstructed token buffer, then apply the word-uppercase transform at the indexed positions. Payload bytes address word `index + 1` because of the leading length word. When skipping, this mode skips `count` payload bytes. |
 | `3` | Transform the current reconstructed token buffer through the normal table, then append `count` literal words. This shares the append path used by mode `1`. |
 
 Literal words are read in one of two forms:
 
 | Dictionary text mode | Literal storage |
 | --- | --- |
-| Mode value `1` in the book handle | Literal words are big-endian 16-bit values. |
-| Other observed version-2 path | Literal bytes index the codepage table at handle offset `+3472`, producing 16-bit token words. For the repository fixtures this is the reader's CP500 table selected from directory word `0x004c` (`0x01f4`). |
+| 16-bit dictionary text mode | Literal words are big-endian 16-bit values. |
+| Single-byte dictionary text mode (all repository fixtures) | Literal bytes index the dictionary literal code-page table, producing 16-bit token words. For the repository fixtures that table is CP500, selected by directory word `0x004c` (`0x01f4`, decimal 500). |
 
-The codepage table used for dictionary literals is not an output character
-decoder. It maps compact dictionary bytes to the reader's internal token-word
-space. Those token words still need the delta transforms above and the final
+The code-page table used for dictionary literals is not an output character
+decoder. It maps compact dictionary bytes into the token-word space. Those token words still need the delta transforms above and the final
 translation-table decode described below. Treating low-valued token words as
 ASCII or Unicode text is an implementation shortcut and is not sufficient for
 BookManager metadata strings.
@@ -655,12 +634,12 @@ BookManager metadata strings.
 The buffer transforms used by the delta modes are table-backed token-word
 transforms:
 
-| Transform routine | Table selection in the common single-byte path |
+| Transform | Table selection in the common single-byte path |
 | --- | --- |
-| `BooMapTokenWordBufferUpperTable` | For each word, table group `(word >> 11)` is loaded as table number `group + 13`; out-of-range groups use the substitution word. |
-| `BooMapTokenWordBufferNormalTable` | For each word, table group `(word >> 11)` is loaded as table number `group + 19`; out-of-range groups use the substitution word. |
-| `BooMapTokenWordToUpper` | Words below `0x00df` use the simple ASCII `a..z` to `A..Z` path when applicable; other words are mapped through the uppercase table path. |
-| `BooMapTokenWordToLower` | Words below `0x00c0` use the simple ASCII `A..Z` to `a..z` path when applicable; other words are mapped through the normal/lower table path. |
+| Uppercase-table buffer transform | For each word, table group `(word >> 11)` is loaded as table number `group + 13`; out-of-range groups use the substitution word. |
+| Normal-table buffer transform | For each word, table group `(word >> 11)` is loaded as table number `group + 19`; out-of-range groups use the substitution word. |
+| Word uppercase | Words below `0x00df` use the simple ASCII `a..z` to `A..Z` path when applicable; other words are mapped through the uppercase table path. |
+| Word lowercase | Words below `0x00c0` use the simple ASCII `A..Z` to `a..z` path when applicable; other words are mapped through the normal/lower table path. |
 
 For multibyte code pages the same routines select alternate table ranges
 (`group + 65` for uppercase-oriented mapping and `group + 97` for normal
@@ -678,7 +657,7 @@ struct BooReconstructedTokenText {
 };
 ```
 
-This structure is in reader memory. The on-disk data stores only delta/update
+This is the in-memory reconstruction. The on-disk data stores only delta/update
 records, not this expanded form.
 
 ## Character Conversion
@@ -694,8 +673,8 @@ spaces in `CTITLE=`, `CSTITLE=`, `CCOPYRIGHT=`, or similar controls indicate
 that the iterator's token-boundary spacing/suppression rules have not been
 implemented, even if the underlying token strings are otherwise resolved.
 
-`BooDecodeTokenWordsToText` then converts the 16-bit words to text. A token word
-is split into a translation table number and an index:
+The 16-bit words are then converted to text. A token word is split into a
+translation table number and an index:
 
 ```c
 uint16_t word = token_words[i];
@@ -703,8 +682,8 @@ uint16_t table_no = (word >> 11) + 1;
 uint16_t table_index = word & 0x07ff;
 ```
 
-When the current table does not match `table_no`, the reader calls
-`BooLoadTranslationTablePage(session, table_no, err)`.
+A decoder loads translation table `table_no` when it is not the table already
+loaded.
 
 The translation-table loader reads one complete 4096-byte page:
 
@@ -721,16 +700,15 @@ book-buffer id and table number.
 The table entry is a big-endian 16-bit value at `table_page + table_index * 2`.
 In the common single-byte output path, words at or below `0x2fff` are decoded
 through the table and the low byte of the table value is emitted. Words above
-`0x2fff`, and decoded byte `0x1a`, emit the reader's configured substitution
-byte instead.
+`0x2fff`, and decoded byte `0x1a`, emit a substitution byte instead.
 
-For DBCS/stateful code pages (`933`, `935`, `937`, `939`), the reader emits
+For DBCS/stateful code pages (`933`, `935`, `937`, `939`), output carries
 shift-out byte `0x0e` before double-byte values and shift-in byte `0x0f` before
 returning to single-byte values. For multibyte code pages including `932`,
 `938`, `942`, `948`, `949`, `950`, and `1381`, table values above `0x00ff` can
 be emitted as two-byte values rather than collapsed to the low byte.
 
-Only after this conversion does the reader compare against literal keys such as
+Only after this conversion do the decoded strings match literal keys such as
 `CLANGUAGE=`, `CVERSION=`, and `CDOCNUM=`.
 
 The complete text path is therefore:
@@ -746,27 +724,27 @@ The complete text path is therefore:
 
 ## Logical Header-Control Sequence
 
-The book-open path initializes the logical stream at stream number 0, then reads
-logical records until metadata extraction is complete.
+Book metadata lives in logical stream 0, read from its first records.
 
-The first selected logical record must decode to a record beginning with
-`L` (`0x004c`). If it does not, the reader treats the book open as invalid.
+The first logical record decodes to a record beginning with `L` (`0x004c`) in
+every repository fixture; a file where it does not is not a well-formed BOO
+book.
 
-The parser then recognizes these decoded controls:
+The controls that follow are:
 
-| Decoded control key | Value starts after | Reader behavior |
+| Decoded control key | Value starts after | Meaning |
 | --- | ---: | --- |
-| `CLANGUAGE=` | 10 bytes | Stores book language metadata. |
-| `CVERSION=` | 9 bytes | Stores version metadata if no build-version override has been seen. |
-| `CBLDVERS=` | 9 bytes | Stores build/version metadata and overrides `CVERSION=`. |
-| `CREFLOW=ON` or `CREFLOW=on` | 10 bytes | Enables the reflow flag. |
-| `CTITLE=` | 7 bytes | Stores full title metadata. |
-| `CSTITLE=` | 8 bytes | Stores short title metadata. |
-| `CCOPYRIGHT=` | 11 bytes | Stores copyright metadata. |
-| `CSECURITY=` | 10 bytes | Stores security metadata. |
-| `CDATE=` | 6 bytes | Stores date metadata. |
-| `CAUTHOR=` | 8 bytes | Stores author metadata; repeated authors are concatenated with two spaces while under the reader's size limit. |
-| `CDOCNUM=` | 8 bytes | Stores document number metadata and terminates the header-control scan. |
+| `CLANGUAGE=` | 10 bytes | Book language metadata. |
+| `CVERSION=` | 9 bytes | Version metadata; superseded by `CBLDVERS=` when both are present. |
+| `CBLDVERS=` | 9 bytes | Build/version metadata. |
+| `CREFLOW=ON` or `CREFLOW=on` | 10 bytes | Book text is reflowable. |
+| `CTITLE=` | 7 bytes | Full title metadata. |
+| `CSTITLE=` | 8 bytes | Short title metadata. |
+| `CCOPYRIGHT=` | 11 bytes | Copyright metadata. |
+| `CSECURITY=` | 10 bytes | Security metadata. See [security.md](security.md). |
+| `CDATE=` | 6 bytes | Date metadata. |
+| `CAUTHOR=` | 8 bytes | Author metadata. Repeated `CAUTHOR=` controls are concatenated, separated by two spaces. |
+| `CDOCNUM=` | 8 bytes | Document number metadata. It is the last control in the metadata envelope in every fixture. |
 
 ### Body Controls Without A Boundary Byte
 
@@ -984,7 +962,7 @@ in the next record. Observed break points, one per required control:
 Sixty-nine topics in the corpus break this way. A reader must walk the segments
 of the topic in source order and end the envelope where its controls end.
 
-## Reader Implementation Notes
+## Implementation Notes
 
 An independent reader that wants these controls should not scan the BOO file for
 the strings above. It should:
@@ -996,7 +974,7 @@ the strings above. It should:
 4. Resolve token references through the token map and dictionary pages.
 5. Apply dictionary delta records, including their normal/uppercase/lowercase
    token-word table transforms.
-6. Assemble logical records with the reader's token-boundary spacing and
+6. Assemble logical records with the token-boundary spacing and
    suppression rules.
 7. Convert the resolved 16-bit token-word records to bytes through the BOO
    translation-table pages.
@@ -1005,17 +983,15 @@ the strings above. It should:
 The remaining unresolved pieces are now narrower:
 
 - the exact meaning of the dictionary block header byte at offset `+1`;
-- the exact cursor-field layout in a clean public structure rather than the IBM
-  reader's in-memory handle offsets;
-- fixture evidence for reader-supported dictionary index controls `2`, `4`,
-  and `5`;
+- fixture evidence for dictionary index controls `2`, `4`, and `5`, which the
+  control encoding implies but no repository fixture exercises;
 - complete byte-for-byte reproduction of every code-page-specific output path;
-- complete public documentation of the logical-record iterator's spacing and
-  suppression control words beyond the observed metadata strings.
+- complete documentation of the record-assembly spacing and suppression control
+  words beyond the observed metadata strings.
 
 The delta operation byte and reconstructed token buffer behavior are identified,
 the dictionary index continuation subfields are identified for the observed
-version-2 fixtures, and the translation-table loader is identified.
+version-2 fixtures, and the translation-table page selection is identified.
 
 ## Payload Indexing And Encoded Token Identity
 

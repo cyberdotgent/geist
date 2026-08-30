@@ -5,24 +5,24 @@ range of decoded logical records, not a physical 4096-byte page and not a raw
 SGML file. The table of contents points at topics by their public topic
 identifier, while random access uses a directory topic-start index.
 
-## Reader-Code Evidence
+## Topic Addressing Model
 
-The connected `ephwam.dll` IDB verifies the topic access path:
+A topic is addressed by number, not by scanning for a marker:
 
-| IDA name | Address | Verified behavior |
-| --- | ---: | --- |
-| `BooSelectTopicByNumber` | `0x122202e` | Selects a 1-based topic number, stores it in the book cursor, reads the topic-start logical-record number, and seeks the logical cursor there. |
-| `BooGetTopicStartRecordNumber` | `0x1222310` | Reads directory `0x003c` with `BooLookupPagedU16Index`; for `topic_count + 1`, returns `total_logical_records + 1` as the terminal bound. |
-| `BooSeekTopicStartRecord` | `0x1221e53` | Positions the decoded-record cursor at the selected logical record. |
-| `Scm_Loctopic` | `0x121cb89` | Public reader entry that calls `BooSelectTopicByNumber(runtime, handle, topic_number)`. |
-| `Scm_Getln` | `0x121d526` | Returns the next decoded logical record from the selected topic cursor. |
-| `Scm_Sztopic` | `0x121e12a` | Computes topic size as `start(topic + 1) - start(topic)`. |
-| `BooFindTopicControlValue` | `0x121f636` | Selects the current topic and scans decoded topic records for a named control such as `SH`, then restores the caller's cursor. |
-| `BooGetCurrentTopicIdFromHeader` | `0x121f7d6` | Retrieves the current topic id from the topic header's `SH` control. |
+1. Topic number `n` (1-based) yields a start logical-record number from the
+   topic-start index at directory offset `0x003c`.
+2. The topic occupies logical records `[start(n), start(n + 1))`. For the last
+   topic, the terminal bound is `total_logical_records + 1`, the value at
+   directory offset `0x0036` plus one.
+3. There is no topic-end marker in the record stream. Topic size is
+   `start(n + 1) - start(n)`.
 
-`Scm_Sztopic` is the strongest boundary evidence: the reader does not search
-for an end marker to size a topic. It subtracts adjacent entries in the
-topic-start table.
+This is verified purely from fixtures. In the books tabulated under
+[Directory Fields](#directory-fields), every value in the topic-start index
+resolves to a decoded logical record that begins with an `SH<id>` topic header,
+and the entry count matches directory field `0x003e`. The `SH12-565.boo`
+counter-example below shows why the index, and not a scan for leading `SH`, is
+authoritative.
 
 ## Directory Fields
 
@@ -161,10 +161,10 @@ To enumerate and address documentation pages:
 
 ## Open Questions
 
-- The exact `BooLookupPagedU16Index` control flow was not re-read for the
-  chained case; the continuation layout above is fixture-derived (four books,
-  every value cross-checked against decoded `SH<id>` header records) rather
-  than reader-code verified.
+- The continuation-chain layout above is fixture-derived: four books, every
+  value cross-checked against decoded `SH<id>` header records. No fixture in
+  this repository needs a third table in the chain, so whether the chain can
+  extend past one continuation is untested here.
 - The exact BookServer URL normalization rules for ids containing punctuation
   and mixed case. The storage-level id match is verified; URL spelling is a
   server presentation detail.

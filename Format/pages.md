@@ -10,8 +10,8 @@ This page is a stub for BOO page-level structures.
   word. In the original two fixtures it is `0x0001`, pointing to the directory
   at physical page 1. Later fixtures verify that this can point farther into
   the file, for example `SC09-2417-00.boo` uses directory page `0x002b`.
-- Directory-page fields that name pages are 1-based logical page numbers. The
-  observed BookServer reader maps a logical page to a physical file page with:
+- Directory-page fields that name pages are 1-based logical page numbers. A
+  logical page maps to a physical file page with:
 
   ```text
   physical_page = directory_page + logical_page - 1

@@ -7,44 +7,31 @@ directory; the container descriptor layout is documented in [assets.md](assets.m
 ## Current Implementation Status
 
 MMR support is implemented in `libgeist` for the observed legacy kind `I`
-ImageMark wrapper and the CCITT fax line streams verified against hosted
+wrapper and the CCITT fax line streams verified against hosted
 BookServer output. The public PNG renderer treats `legacy-mmr` as a renderable
 format, the same way it treats `legacy-gdf`, while still reporting unsupported
 or not-yet-mapped fax variants as clear render errors.
 
 The implementation is self-contained. It uses the standard CCITT T.4/T.6
-white/black run tables and 2D modes, with wrapper handling derived from the IBM
-reader IDBs and verified against BookServer output. It does not embed or copy
-libtiff source.
+white/black run tables and 2D modes, with wrapper handling derived from the
+fixtures and verified against hosted BookServer output. It does not embed or
+copy third-party fax-decoder source.
 
-## Reader Evidence
+## Payload Family
 
-The attached BookServer and Transmogrifier IDBs establish that legacy kind `I`
-payloads use the reader's MMR path rather than the GDF filter path:
+Legacy kind `I` payloads are a wrapper around CCITT fax (MMR) compressed
+bitmap data. They are not GDF and not a standard image container: the stored
+bytes begin with a fixed wrapper prefix, never with `GIF87a`, `GIF89a`, `BM`,
+or a JPEG SOI marker. Every one of the 558 kind `I` descriptors across the
+repository fixtures points at a payload starting `00 08 d3 a8 7b`.
 
-| Binary / IDB | Evidence |
-| --- | --- |
-| `Official Readers/BookSrv-Win32/bookmgr.exe.i64` | `RenderDisplayLineObjectsAndSelections` delegates legacy picture conversion through the imported `ephimage` path while also applying display-line selections. The byte-level MMR decoder is not in `bookmgr.exe`. |
-| `Official Readers/BookSrv-Win32/ephimage.dll` | Local symbol/string evidence includes `process_mmr_pict`, `InitDecompress`, `WRcheckparms`, `WRraster`, `WRruns`, `dinitmmr`, `dlinemmr`, `decline`, `deceol`, `readcd`, and `writere`. |
-| `Official Readers/Transmogrifier/transmog.exe` | Debug/object strings include `D:\Transmogrifier\source\ephdmmr.obj`, `_dinitmmr`, `_dlinemmr`, `_decline`, `_dlineabic`, and `?lConvertMMRtoGIF0:`. |
-| `Official Readers/Transmogrifier/transmog.exe.i64` | The converted-output path reads legacy kind `I` bytes, calls the MMR writer, and emits a GIF object in the rewritten version 1.4 book. |
-
-`Official Readers/BookSrv-Win32/ephimage.dll` exports the relevant entry points
-used for harnessing and comparison:
-
-| Export | RVA | Verified role |
-| --- | ---: | --- |
-| `ephimage` | `0x000107e4` | High-level conversion entry. Arguments match `argv`: book path, picture id, output GIF path, optional `/NOSCALE`. |
-| `ConvertPicture__FPcclT3PP6__filei` | `0x00010160` | Reads a legacy descriptor payload and dispatches by kind byte. |
-| `process_mmr_pict` | `0x00011018` | Kind `I` MMR/ImageMark conversion path. |
-| `InitDecompress` | `0x00010fa0` | Initializes the decompressor state with image width. |
-| `ecline` / `decline_main` | `0x00022db5` / `0x00022dd1` | Main line-decompression loop. |
-| `dinitmmr` / `dlinemmr` | `0x00023f95` / `0x00024069` | MMR-family state setup and table-driven line decoder. |
-| `writere`, `WRraster`, `WRruns` | `0x000233aa`, `0x000257e0`, `0x00025b91` | Convert decoded transition runs into the packed monochrome output raster. |
+The hosted BookServer serves these resources as GIFs generated on demand; see
+[assets.md](assets.md). The GIF is the rendered artifact, so it is usable as an
+independent check of a decoder's output but is not what the book stores.
 
 ## Observed Payload Wrapper
 
-Observed kind `I` payloads contain an ImageMark-style wrapper before the MMR
+Observed kind `I` payloads contain a fixed-shape wrapper before the MMR
 compressed bitmap data. Resource `1` in `GG24-4302-00.boo` is the clearest
 fixture:
 
@@ -56,10 +43,10 @@ fixture:
 | `0x32` | `00 64` | Unresolved metadata value. Earlier notes mistook this field for width; `QSYSNEWG` and `GG24-4302-00` both show it as `100`. |
 | `0x34` | `00 64` | Unresolved metadata value. Earlier notes mistook this field for height; `QSYSNEWG` and `GG24-4302-00` both show it as `100`. |
 | `0x3a` | `d3 ee 7b 40` | Additional wrapper marker before bitmap payload metadata. |
-| `0x42` | `03 c0` | Bitmap width: `960`. Confirmed by Transmogrifier trace behavior and rendered output. |
-| `0x44` | `03 40` | Bitmap height: `832`. Confirmed by Transmogrifier trace behavior and rendered output. |
+| `0x42` | `03 c0` | Bitmap width: `960`. Confirmed by decoded raster geometry and by the hosted GIF for this resource. |
+| `0x44` | `03 40` | Bitmap height: `832`. Confirmed by decoded raster geometry and by the hosted GIF for this resource. |
 | `0x46` | `01 00` | Unresolved flag or depth-like field. |
-| `0x48` | `1c ac` | First compressed segment record length. The reader byte-swaps this word, subtracts `8`, and passes that byte count to the decompressor. |
+| `0x48` | `1c ac` | First compressed segment record length, big-endian, including the 8-byte segment header. Subtract `8` for the compressed byte count. |
 | `0x50` | `00 1b 50 d4...` | First byte consumed by the decompressor for the first segment. |
 
 The corresponding legacy descriptor for that payload is:
@@ -72,37 +59,45 @@ f1 40 40 40 40 40 40 40 c9 00 1c fc 00 00 99 f0
 id "1", kind I, length 0x001cfc, absolute payload offset 0x000099f0
 ```
 
-Another kind `I` fixture, `GG66-3212-00.boo` resource `3`, has the same wrapper
-shape but different dimensions:
+Other kind `I` fixtures have the same wrapper shape with different dimensions,
+which confirms that the dimension fields are per-resource and not constants:
 
-| Relative offset in payload | Bytes / value | Current interpretation |
-| ---: | --- | --- |
-| `0x00` | `00 08 d3 a8 7b` | Same wrapper prefix. |
-| `0x2e` | `09 60 09 60` | Same unresolved repeated value. |
-| `0x42` | `03 40` | Candidate bitmap width: `832`. |
-| `0x44` | `01 80` | Candidate bitmap height: `384`. |
-| `0x48` | `06 74` | Candidate first segment record length. This equals descriptor length `0x06c4` minus the `0x50` bytes before compressed data; the segment record length itself includes the 8-byte segment header. |
+| Fixture, resource | `0x42` width | `0x44` height | `0x46` | `0x48` first segment length |
+| --- | ---: | ---: | --- | ---: |
+| `GG24-4302-00.boo` `1` | `03 c0` / 960 | `03 40` / 832 | `01 00` | `0x1cac` |
+| `GG24-4302-00.boo` `3` | `03 a0` / 928 | `03 60` / 864 | `01 00` | `0x105e` |
+| `QSYSNEWG.BOO` `1` | `00 cd` / 205 | `01 9d` / 413 | `01 00` | `0x0517` |
+| `SC33-033.boo` `2` | `04 e0` / 1248 | `02 40` / 576 | `01 00` | `0x0cee` |
+
+In every one of these, the first segment length equals
+`descriptor_length - 0x50`, so the compressed data occupies exactly the payload
+from `0x50` to the end minus the trailing terminator record.
 
 ## Segment Framing
 
-IDA decompilation of `TransmogConvertMmrBufferToGif` verifies the first segment
-framing:
+The compressed data is carried in a chain of segment records:
 
-1. Copy the 32-byte image header from payload-relative `0x28`.
-2. Use the big-endian bitmap width and height at payload-relative `0x42` and
-   `0x44` (`0x1a` and `0x1c` inside the copied image header).
-3. Set the first segment header pointer to payload-relative `0x48`.
-4. Read the big-endian segment length word at `0x48`, subtract `8`, and store
-   that as the compressed byte count.
-5. Set the decompressor input pointer to payload-relative `0x50`.
-6. Call `ecline` repeatedly. Status `0x2000` advances to the next segment by
-   adding the previous compressed byte count plus the 8-byte segment header.
-7. Invert the completed bitmap vertically with `gbm_ref_vert`, then write GIF
-   output with `gif_w`.
+1. The 32-byte image header begins at payload-relative `0x28`. Bitmap width and
+   height are the big-endian words at payload-relative `0x42` and `0x44`
+   (offsets `0x1a` and `0x1c` inside that header).
+2. The first segment record header is at payload-relative `0x48`. Its first word
+   is the big-endian record length, counted from the start of the header and
+   including the 8-byte header itself.
+3. Compressed bytes for that segment therefore start at
+   `segment_header + 8` -- payload-relative `0x50` for the first segment -- and
+   run for `segment_length - 8` bytes.
+4. The next record starts at `previous_segment_header + segment_length`, with
+   the same shape.
+5. The chain ends with a record whose length is exactly `8`, i.e. a header with
+   no compressed body, which lands exactly on the end of the payload.
+6. The decoded bitmap is stored bottom-up: invert it vertically to obtain the
+   image as rendered.
 
-Multiple compressed segment records can follow each other. The next record
-starts at `previous_segment_header + segment_length`; its compressed data starts
-8 bytes later.
+The chain rule is fixture-verified. Walking it from `0x48` in
+`GG24-4302-00.boo` resources `1`, `2` and `3`, `QSYSNEWG.BOO` resources `1`,
+`12` and `56`, and `SC33-033.boo` resources `1` and `2` lands in every case on
+a terminal `8`-byte record ending exactly at the descriptor's declared payload
+length, with no bytes left over.
 
 ## Fax Coding
 
@@ -125,9 +120,8 @@ use a tag bit, but the hosted BookServer-backed fixture below uses the tagged
 T.4 form.
 
 The decoded reference line must be stored as alternating white/black run
-lengths, not as absolute transition positions. This matches libtiff's
-`curruns`/`refruns` model and the Transmogrifier IDB's `sub_4381D9` behavior,
-which emits paired transition words and validates monotonic run structure. Each
+lengths, not as absolute transition positions. This is the same run-pair model
+TIFF fax decoders use, and it must validate monotonic run structure. Each
 decoded line also carries the final imaginary zero-length run used by the next
 2D line. The earlier absolute-transition model happened to work for simpler
 resources, including `QSYSNEWG` resource `1`, but desynchronized on dense 2D
@@ -146,21 +140,6 @@ when the tag bit is consumed. Treating the bit after EOL as image data causes
 the line to desynchronize.
 
 ## Reference Render
-
-A 32-bit harness calling the exported `ephimage` entry rendered
-`GG24-4302-00.boo` resource `1` to a recognizable reference image. The generated
-GIF starts with:
-
-```text
-47 49 46 38 37 61 c0 03 40 03 80 00 00 ff ff ff
-GIF87a, width 960, height 832
-```
-
-The image content is a black-and-white "Parallel S/390 microprocessors" diagram
-with the expected end-user workstation, MVS/IMS boxes, ESCON Director, and
-shared-data disks. The harness output was kept under ignored `tmp/` as
-`tmp/ibm-gg24-4302-1.gif` and converted to
-`tmp/ibm-gg24-4302-1.png` for visual comparison.
 
 The hosted BookServer-backed fixture used for pixel-level validation is
 `QSYSNEWG.BOO` resource `1`:
@@ -198,22 +177,24 @@ public API. The two resources that previously failed are:
 The remaining pixel deltas are sparse binary stroke differences after scaling,
 not decode failures or dimension mismatches. Visual inspection of the local PNGs
 and downloaded BookServer artifacts on 2026-06-18 judged resources `12` and
-`56` visually identical for BookManager rendering purposes. The IDB's
-`ScaleMonoBitmap2xTo5x` routine expands each source pixel to `2 x 2` bytes and
-averages `5 x 5` blocks, but the hosted BookServer GIFs for these topics are
-binary rather than grayscale; nearest-neighbor phase `(0,0)` remains the
-closest verified local match and preserves the exact `P1` match above.
+`56` visually identical for BookManager rendering purposes.
 
-Future implementation should continue from the reader functions named above,
-especially `dinitmmr`, `dlinemmr`, `decline`, `deceol`, and `readcd`, rather
-than treating every legacy kind `I` resource as a raw TIFF Group 4 stream.
+The hosted artifacts are scaled by two fifths, and their pixels are binary
+rather than grayscale, so the scaling is not an area average. Nearest-neighbor
+sampling at phase `(0,0)` is the closest match found against hosted output and
+preserves the exact `P1` match above.
+
+A decoder should treat a kind `I` payload as this wrapper plus its segment
+chain, not as a raw TIFF Group 4 stream: the segment framing, the tagged-EOL
+line form, and the bottom-up storage all differ from a bare Group 4 strip.
 
 ## Open Questions
 
-- Identify the full ImageMark/GDI payload grammar used around the compressed
-  MMR segments.
+- Identify the full wrapper-record grammar around the compressed MMR segments.
+  Only the fields tabulated above are accounted for; the rest of the 0x50-byte
+  prologue is unexplained.
 - Identify the unresolved metadata fields at payload offsets `0x32` and
   `0x34`.
 - Audit more kind `I` books as fixtures are mapped to hosted BookServer
-  artifacts, especially if future samples expose additional ImageMark wrapper
-  records or fax stream framing.
+  artifacts, especially if future samples expose additional wrapper records or
+  fax stream framing.
