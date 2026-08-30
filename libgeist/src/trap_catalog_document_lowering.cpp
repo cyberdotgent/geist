@@ -262,6 +262,9 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
     document.blocks.push_back({std::move(list), std::move(list_origin)});
   }
 
+  // Every container names at least the BOO bytes its own content names
+  // before the document is verified.
+  normalize_document_origin_slices(document);
   std::string document_error;
   if (!verify_document_ir(document, &document_error))
     return reject("invalid trap DocumentIR: " + document_error);

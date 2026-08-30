@@ -18,6 +18,12 @@ bool require(bool condition, const std::string& message) {
   return condition;
 }
 
+DocumentNodeOriginIR lowered() {
+  DocumentNodeOriginIR result;
+  result.derivation = DocumentDerivationIR::semantic_lowering;
+  return result;
+}
+
 InlineIR text(std::string value) {
   InlineIR result;
   result.node = TextInlineIR{std::move(value)};
@@ -84,6 +90,7 @@ int main() {
   heading.level = 1;
   heading.content.push_back(text("Typed introduction"));
   BlockIR heading_block;
+  heading_block.origin = lowered();
   heading_block.node = std::move(heading);
   typed.blocks.push_back(std::move(heading_block));
   typed.blocks.push_back(paragraph("Body"));
@@ -91,13 +98,16 @@ int main() {
   TableBlockIR table;
   table.header_rows = 1;
   TableRowIR header;
-  header.cells.push_back(TableCellIR{{text("Name")}, {}});
-  header.cells.push_back(TableCellIR{{text("Value")}, {}});
+  header.origin = lowered();
+  header.cells.push_back(TableCellIR{{text("Name")}, lowered()});
+  header.cells.push_back(TableCellIR{{text("Value")}, lowered()});
   TableRowIR body;
-  body.cells.push_back(TableCellIR{{text("Mode")}, {}});
-  body.cells.push_back(TableCellIR{{text("Safe")}, {}});
+  body.origin = lowered();
+  body.cells.push_back(TableCellIR{{text("Mode")}, lowered()});
+  body.cells.push_back(TableCellIR{{text("Safe")}, lowered()});
   table.rows = {std::move(header), std::move(body)};
   BlockIR table_block;
+  table_block.origin = lowered();
   table_block.node = std::move(table);
   typed.blocks.push_back(std::move(table_block));
 
@@ -198,6 +208,42 @@ int main() {
   if (!require(!verify_document_ir(unordered_source, &error) &&
                    error == "source slices are duplicated or out of order",
                "verifier admitted out-of-order provenance"))
+    return 1;
+
+  // A node that never named its source reaches verification claiming the
+  // default `decoded` derivation.  It has to say `synthesized` instead.
+  auto unsourced = typed;
+  unsourced.blocks[1].origin = DocumentNodeOriginIR{};
+  error.clear();
+  if (!require(!verify_document_ir(unsourced, &error) &&
+                   error == "decoded node origin names no source slice",
+               "verifier admitted a node that named no source"))
+    return 1;
+
+  // A block that names its own source has to name at least the source its
+  // children name.
+  auto uncovered = typed;
+  {
+    auto child = slice;
+    child.logical_record = 202;
+    std::get<ParagraphBlockIR>(uncovered.blocks[1].node)
+        .content.front()
+        .origin.slices.push_back(child);
+  }
+  error.clear();
+  if (!require(!verify_document_ir(uncovered, &error) &&
+                   error ==
+                       "block slices do not cover a child node's source slice",
+               "verifier admitted a block that misses its child's source"))
+    return 1;
+
+  // Normalizing lifts the child's slice into the block that holds it.
+  auto normalized = uncovered;
+  normalize_document_origin_slices(normalized);
+  error.clear();
+  if (!require(verify_document_ir(normalized, &error), error) ||
+      !require(normalized.blocks[1].origin.slices.size() == 2,
+               "normalizing did not lift the child's source slice"))
     return 1;
 
   auto mixed_legacy = legacy;

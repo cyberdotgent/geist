@@ -2,6 +2,7 @@
 
 #include "geist/export.hpp"
 #include "geist/render_diagnostic.hpp"
+#include "geist/trace.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -34,6 +35,10 @@ struct TocEntry {
   // same single pass that produces `markdown()`, so the two can never
   // disagree; both are cached after the first call.
   GEIST_API const RenderDiagnostic& render_diagnostic() const;
+  // Renders exactly the same bytes as `markdown()` and fills `trace` with the
+  // map from rendered output ranges back to the nodes, and thus to the BOO
+  // file bytes, that produced them.
+  GEIST_API std::string markdown(RenderTrace& trace) const;
 
 private:
   void render() const;

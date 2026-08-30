@@ -432,6 +432,9 @@ lower_glossary_catalog_to_document_ir(TopicIdentityIR topic,
       document.blocks.push_back(table_block(*entry.definition.embedded_table));
   }
 
+  // Every container names at least the BOO bytes its own content names
+  // before the document is verified.
+  normalize_document_origin_slices(document);
   std::string document_error;
   if (!verify_document_ir(document, &document_error)) {
     fail(error, "invalid glossary DocumentIR: " + document_error);

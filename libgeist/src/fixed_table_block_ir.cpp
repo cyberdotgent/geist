@@ -30,6 +30,25 @@ constexpr std::size_t kPageWidth = 132;
 constexpr std::uint16_t kHorizontal = 0x2500;
 constexpr std::uint16_t kVertical = 0x2502;
 
+// Source coordinates of one whole display line's token run.
+DocumentSourceSliceIR display_line_slice(
+    const DecodedLogicalRecordSource &record, std::size_t token_begin,
+    std::size_t token_end) {
+  DocumentSourceSliceIR slice;
+  slice.logical_record = record.logical_record;
+  slice.token_begin = token_begin;
+  slice.token_end = token_end;
+  for (const auto &segment : record.control_segments)
+    if (std::binary_search(segment.source_tokens.begin(),
+                           segment.source_tokens.end(), token_begin))
+      slice.segment_index = segment.segment_index;
+  if (token_begin < token_end && token_end <= record.ir.tokens.size()) {
+    slice.byte_begin = record.ir.tokens[token_begin].byte_range.begin;
+    slice.byte_end = record.ir.tokens[token_end - 1].byte_range.end;
+  }
+  return slice;
+}
+
 bool left_border(std::uint16_t word) {
   return word == 0x250c || word == 0x251c || word == 0x2514;
 }
@@ -670,6 +689,8 @@ public:
       line.token_end = view->line.token_end;
       line.text = text;
       line.rows = rows_in(block, *view);
+      line.slice = display_line_slice(*view->record, line.prefix_token,
+                                      line.token_end);
       block.preformatted_lines.push_back(std::move(line));
     }
     // Every positioned cell of the envelope's rows belongs to the region.

@@ -77,6 +77,16 @@ public:
   // topic, caching the Markdown on the TOC entries as it goes. See
   // geist/render_diagnostic.hpp.
   GEIST_API std::vector<RenderDiagnostic> render_diagnostics() const;
+  // The same rendered bytes as `topic_markdown`, with the output-range to
+  // source-byte map beside them.
+  GEIST_API std::string topic_markdown(const std::string& topic_id,
+                                       RenderTrace& trace) const;
+  // Re-decodes the BOO file bytes a trace slice names and returns the display
+  // text they hold.  This reads the file again rather than restating what the
+  // renderer believed, so it can prove or disprove a slice.  Throws when the
+  // named window does not tile into whole tokens.
+  GEIST_API std::string decode_trace_slice(const RenderTraceSlice& slice)
+      const;
   GEIST_API const std::vector<ResourceEntry>& resources() const noexcept;
   GEIST_API const TocEntry* find_toc_entry(const std::string& topic_id)
       const noexcept;
