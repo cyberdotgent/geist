@@ -617,6 +617,41 @@ LogicalRecordIR decode_record_payload_ir(
   return record;
 }
 
+// Re-decodes the token run stored in `[byte_begin, byte_end)` of the BOO
+// file straight from the file bytes, with no record, layout, or semantic
+// context.  A provenance slice names a byte range that begins and ends on a
+// token boundary, so a caller can prove a rendered element against the file
+// by decoding exactly those bytes again.  Returns nothing when the window is
+// outside the file or does not tile into whole tokens.
+std::optional<std::vector<LogicalTokenIR>> decode_source_byte_range_tokens(
+    const std::vector<std::uint8_t>& bytes,
+    const BooDirectory& directory,
+    const std::map<std::uint16_t, TokenWords>& token_strings,
+    std::size_t byte_begin,
+    std::size_t byte_end) {
+  if (byte_begin > byte_end || byte_end > bytes.size()) return std::nullopt;
+  std::vector<LogicalTokenIR> tokens;
+  for (auto cursor = byte_begin; cursor < byte_end;) {
+    tokens.push_back(decode_one_token(bytes, directory, token_strings, cursor,
+                                      byte_end, tokens.size()));
+    if (cursor > byte_end) return std::nullopt;
+  }
+  return tokens;
+}
+
+const std::map<std::uint16_t, TokenWords>& source_dictionary_for(
+    const LogicalDecodeContext& context) {
+  const std::lock_guard<std::mutex> lock(context.source_dictionary_mutex);
+  if (!context.source_dictionary) {
+    auto dictionary =
+        decode_experimental_dictionary(context.bytes, context.directory);
+    context.source_dictionary =
+        std::make_shared<const std::map<std::uint16_t, TokenWords>>(
+            std::move(dictionary));
+  }
+  return *context.source_dictionary;
+}
+
 std::vector<std::string> decode_experimental_logical_records(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory,

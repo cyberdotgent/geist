@@ -1,6 +1,7 @@
 #pragma once
 
 #include "geist/export.hpp"
+#include "geist/trace.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -28,6 +29,10 @@ struct TocEntry {
 
   GEIST_API const std::vector<std::string>& gml_records() const;
   GEIST_API std::string markdown() const;
+  // Renders exactly the same bytes as `markdown()` and fills `trace` with the
+  // map from rendered output ranges back to the nodes, and thus to the BOO
+  // file bytes, that produced them.
+  GEIST_API std::string markdown(RenderTrace& trace) const;
 
 private:
   mutable std::vector<std::string> cached_raw_records_;

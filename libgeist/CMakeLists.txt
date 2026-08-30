@@ -128,11 +128,13 @@ set(GEIST_SOURCES
   src/prose_topic_stream.cpp
   src/publication_document_lowering.cpp
   src/publication_ir.cpp
+  src/render_trace.cpp
   src/resources.cpp
   src/selector_display_ir.cpp
   src/selector_ir.cpp
   src/selector_link_ir.cpp
   src/source_rows.cpp
+  src/source_slice_text.cpp
   src/source_segments.cpp
   src/strings.cpp
   src/toc.cpp

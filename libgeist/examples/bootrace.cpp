@@ -13,7 +13,8 @@ namespace {
 void usage() {
   std::cerr << "usage: bootrace <book.boo> <topic-id> "
                "[--all|--records|--segments|--fonts|--ir|--tokens|--lines]\n"
-               "       bootrace <book.boo> --coverage\n";
+               "       bootrace <book.boo> --coverage\n"
+               "       bootrace <book.boo> <topic-id> --explain-offset <n>\n";
 }
 
 std::string tsv_escape(const std::string& value) {
@@ -49,9 +50,76 @@ std::string join_records(const std::vector<std::string>& records) {
 } // namespace
 
 int main(int argc, char** argv) {
-  if (argc != 3 && argc != 4) {
+  if (argc != 3 && argc != 4 && argc != 5) {
     usage();
     return 2;
+  }
+
+  if (argc == 5 && std::string(argv[3]) == "--explain-offset") {
+    try {
+      const auto document = geist::BooDocument::open(argv[1]);
+      const auto* entry = document.find_toc_entry(argv[2]);
+      if (entry == nullptr) {
+        std::cerr << "bootrace: BOO topic id was not found: " << argv[2]
+                  << "\n";
+        return 1;
+      }
+      geist::RenderTrace trace;
+      const auto text = entry->markdown(trace);
+      const auto offset =
+          static_cast<std::size_t>(std::stoull(std::string(argv[4])));
+      if (offset >= text.size()) {
+        std::cerr << "bootrace: output offset is past the end of the render ("
+                  << text.size() << " bytes)\n";
+        return 1;
+      }
+      const auto* span = trace.span_at(offset);
+      if (span == nullptr) {
+        std::cerr << "bootrace: this topic renders through the legacy route "
+                     "and carries no typed provenance\n";
+        return 1;
+      }
+      std::cout << "offset\t" << offset << "\n";
+      std::cout << "character\t"
+                << tsv_escape(std::string(1, text[offset])) << "\n";
+      std::cout << "output_span\t" << span->output_begin << "\t"
+                << span->output_end << "\t"
+                << tsv_escape(text.substr(
+                       span->output_begin,
+                       span->output_end - span->output_begin))
+                << "\n";
+      std::cout << "role\t" << geist::render_trace_role_name(span->role)
+                << "\n";
+      std::cout << "reason\t" << tsv_escape(span->reason) << "\n";
+      std::cout << "node\t" << tsv_escape(span->node_path) << "\n";
+      std::cout << "derivation\t" << tsv_escape(span->derivation) << "\n";
+      std::cout << "origin_detail\t" << tsv_escape(span->origin_detail)
+                << "\n";
+      if (span->slices.empty())
+        std::cout << "source\tnone: this run is renderer output, not BOO "
+                     "source text\n";
+      for (const auto& slice : span->slices) {
+        std::cout << "source\tlogical_record=" << slice.logical_record
+                  << "\tsegment=" << slice.segment_index << "\ttokens="
+                  << slice.token_begin << ":" << slice.token_end
+                  << "\tboo_bytes=" << slice.byte_begin << ":"
+                  << slice.byte_end;
+        if (slice.character_end != 0)
+          std::cout << "\tcharacters=" << slice.character_begin << ":"
+                    << slice.character_end;
+        std::cout << "\ttext=";
+        try {
+          std::cout << tsv_escape(document.decode_trace_slice(slice));
+        } catch (const std::exception& error) {
+          std::cout << "<unreadable: " << error.what() << ">";
+        }
+        std::cout << "\n";
+      }
+      return 0;
+    } catch (const std::exception& error) {
+      std::cerr << "bootrace: " << error.what() << "\n";
+      return 1;
+    }
   }
 
   if (argc == 3 && std::string(argv[2]) == "--coverage") {

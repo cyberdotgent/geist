@@ -112,6 +112,11 @@ struct LogicalDecodeContext {
   mutable std::shared_ptr<const std::map<std::uint16_t, TokenWords>>
       source_dictionary;
   mutable std::mutex source_dictionary_mutex;
+  // Last record decoded for a provenance query. Resolving a rendered span
+  // asks for many slices of one record in a row, so one memo turns a whole
+  // topic's proof from quadratic into linear.
+  mutable std::uint32_t source_record_memo_id = 0;
+  mutable std::shared_ptr<const LogicalRecordIR> source_record_memo;
 };
 
 struct TopicData {
@@ -279,6 +284,29 @@ std::vector<std::string> decode_experimental_logical_records(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory,
     std::vector<LogicalRecordPayloadRange>* payload_ranges = nullptr);
+// Decodes one logical record's payload from the file bytes. This is the token
+// decoder the whole pipeline is built on, exposed so a provenance slice can be
+// proven against the file by decoding its record again.
+LogicalRecordIR decode_record_payload_ir(
+    const std::vector<std::uint8_t>& bytes,
+    const BooDirectory& directory,
+    const std::map<std::uint16_t, TokenWords>& token_strings,
+    std::size_t payload_begin,
+    std::size_t payload_end,
+    std::uint32_t logical_record);
+// Re-decodes the whole tokens stored in `[byte_begin, byte_end)` of the BOO
+// file with no record or layout context, so a provenance slice can be proven
+// against the file bytes it names. Empty when the window does not tile into
+// whole tokens.
+std::optional<std::vector<LogicalTokenIR>> decode_source_byte_range_tokens(
+    const std::vector<std::uint8_t>& bytes,
+    const BooDirectory& directory,
+    const std::map<std::uint16_t, TokenWords>& token_strings,
+    std::size_t byte_begin,
+    std::size_t byte_end);
+// The context's token dictionary, built on first use.
+const std::map<std::uint16_t, TokenWords>& source_dictionary_for(
+    const LogicalDecodeContext& context);
 std::vector<DecodedLogicalRecordSource>
 decode_logical_record_sources(const LogicalDecodeContext& context,
                               std::uint32_t first_logical_record,
