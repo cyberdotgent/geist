@@ -32,9 +32,24 @@ struct MessageStructuredTableRowIR {
   std::vector<MessageStructuredSourceCellIR> structural_cells;
 };
 
+struct MessageStructuredPreformattedLineIR {
+  std::string text;
+  MessageSourceRowIR source_row;
+  std::vector<MessageStructuredSourceCellIR> source_cells;
+};
+
+// A fixed-field listing inside a message section.  The recovered columns are
+// kept for consumers and provenance and own every source cell of the region,
+// but the block renders `lines`: hosted BookServer serves the listing as
+// plain preformatted lines inside the topic's `<pre>`, one per display row
+// with each wrapped continuation on its own line, and emits no HTML `<table>`
+// (SC31-711 5.0, DT 19941010174546).
 struct MessageStructuredTableBlockIR {
   MessageStructuredTableRowIR header;
   std::vector<MessageStructuredTableRowIR> rows;
+  // The region as the reader prints it, in source order.  These lines carry
+  // no claim of their own: the rows above already own every cell.
+  std::vector<MessageStructuredPreformattedLineIR> lines;
 };
 
 struct MessageStructuredListItemIR {
@@ -47,12 +62,6 @@ struct MessageStructuredListItemIR {
 struct MessageStructuredListBlockIR {
   MessageStructuredCellIR lead_in;
   std::vector<MessageStructuredListItemIR> items;
-};
-
-struct MessageStructuredPreformattedLineIR {
-  std::string text;
-  MessageSourceRowIR source_row;
-  std::vector<MessageStructuredSourceCellIR> source_cells;
 };
 
 struct MessageStructuredPreformattedBlockIR {

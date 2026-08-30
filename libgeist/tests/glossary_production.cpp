@@ -56,9 +56,12 @@ int main() {
            "- **accelerator:** \\(1\\) In the AIXwindows "
            "program",
            "<a id=\"GLS data link connection identifier (DLCI)\"></a>",
-           "| DLCI Values | Function |",
-           "| 1\\-15 | reserved |",
-           "| 1023 | in\\-channel layer management |",
+           // The embedded fixed-layout object renders verbatim: hosted
+           // serves it as fixed columns of plain text inside the topic's
+           // `<pre>` and emits no `<table>` (DT 19941010174546).
+           "DLCI Values  Function",
+           "1-15         reserved",
+           "1023         in-channel layer management",
            "<a id=\"GLS wildcard character\"></a>",
            "- **wildcard character:** Synonym for "
            "pattern\\-matching character\\.",

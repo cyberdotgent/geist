@@ -422,27 +422,22 @@ bool append_table(const CommentDeliveryBlockIR &source, DocumentIR &document,
     return fail(error,
                 "questionnaire table does not have bounded field geometry");
 
-  TableBlockIR table;
+  // The field geometry above proves the form's shape, but the form is drawn,
+  // not tabulated: hosted BookServer serves SC31-711 COMMENTS `TBLUNIQ8` and
+  // `TBLUNIQ9` inside the topic's `<pre width="80">` as the underscore-and-bar
+  // box itself -- `   | <B>Overall,</B> ... |   Satisfied   |  Dissatisfied |`
+  // over `   |____...____|_______________|_______________|` -- and emits no
+  // `<table>` element on the page (DT 19941010174546).  This family's source
+  // lines are one visible field each and carry no box rule, so the verbatim
+  // text is rebuilt from the proven three-field rows at a single column stop:
+  // the same reading order and the same fixed columns, without asserting a
+  // grid the reader never shows.
+  std::vector<std::vector<const SemanticFieldRef *>> rows;
   const auto append_row = [&](std::size_t begin, std::size_t count) {
-    TableRowIR row;
-    row.origin.derivation = DocumentDerivationIR::semantic_lowering;
-    row.origin.detail = "comment questionnaire row";
-    for (std::size_t position = begin; position < begin + count; ++position) {
-      const auto &field = fields[position];
-      TableCellIR cell;
-      cell.content.push_back(text_inline(*field.line, *field.field));
-      cell.origin = field_origin(*field.line, *field.field);
-      cell.origin.detail = "comment questionnaire cell";
-      append_origin(row.origin, cell.origin);
-      row.cells.push_back(std::move(cell));
-    }
-    while (row.cells.size() < 3) {
-      TableCellIR padding;
-      padding.origin.derivation = DocumentDerivationIR::synthesized;
-      padding.origin.detail = "rectangular questionnaire table padding";
-      row.cells.push_back(std::move(padding));
-    }
-    table.rows.push_back(std::move(row));
+    std::vector<const SemanticFieldRef *> row;
+    for (std::size_t position = begin; position < begin + count; ++position)
+      row.push_back(&fields[position]);
+    rows.push_back(std::move(row));
   };
   append_row(0, 3);
   auto offset = std::size_t{3};
@@ -454,12 +449,28 @@ bool append_table(const CommentDeliveryBlockIR &source, DocumentIR &document,
     append_row(offset, 3);
     offset += 3;
   }
-  table.header_rows = 1;
+  std::size_t stop = 0;
+  for (const auto &row : rows)
+    if (!row.empty())
+      stop = std::max(stop, field_text(*row.front()->field).size());
+  stop += 2;
+  PreformattedBlockIR drawn;
+  for (const auto &row : rows) {
+    std::string text;
+    for (std::size_t index = 0; index < row.size(); ++index) {
+      if (index != 0 && text.size() < stop * index)
+        text.append(stop * index - text.size(), ' ');
+      text += field_text(*row[index]->field);
+    }
+    while (!text.empty() && text.back() == ' ')
+      text.pop_back();
+    drawn.lines.push_back(std::move(text));
+  }
 
   BlockIR block;
-  block.node = std::move(table);
+  block.node = std::move(drawn);
   block.origin.derivation = DocumentDerivationIR::semantic_lowering;
-  block.origin.detail = "comment questionnaire table";
+  block.origin.detail = "comment questionnaire form: verbatim rows";
   for (const auto &line : source.lines) {
     const auto fields = semantic_fields(line);
     if (fields.empty())

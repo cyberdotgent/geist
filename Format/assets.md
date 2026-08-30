@@ -1,50 +1,31 @@
 # BOO Assets and Media Resources
 
 BOO files can embed image resources before the logical BOO directory page. These
-resources are not normal 4096-byte logical pages and are not GIF/BMP/JPEG files
-as stored. The BookServer reader retrieves raw BOO/resource bytes, then the
-separate `ephimage`/ImageMark path converts the stored image payload to a GIF for
-HTML output.
+resources are not normal 4096-byte logical pages and, for the legacy families,
+are not GIF/BMP/JPEG files as stored.
 
-## Verified Reader Flow
+## Stored Payload Versus Rendered Asset
 
-The attached `Official Readers/BookSrv-Win32/ephwam.dll.i64` IDB shows that
-export `Scm_Makeres(runtime, book_handle, logical_page_number)` is only a raw
-resource-page loader:
+The stored payload and the web image a reader shows are two different things,
+and the container documents only the former.
 
-1. It validates the book handle.
-2. It calls `BooGetOrLoadPageBuffer(..., logical_page_number, allocation_class =
-   3, &error_code)`.
-3. `BooGetOrLoadPageBuffer` either returns a cached page buffer or calls
-   `BooReadPhysicalPageIntoBuffer`.
-4. `BooReadPhysicalPageIntoBuffer` seeks to
-   `((directory_page + logical_page_number) << 12) - 4096` and reads exactly
-   4096 bytes. The IDB path performs no GIF/BMP/JPEG decoding, decompression,
-   decryption, or format conversion.
+The hosted BookServer makes the distinction observable. For
+`GG24-4302-00.boo` topic `2.1.1` at `DT=19950308184737` it serves:
 
-The BookServer image renderer is outside the currently attached IDB, but the
-companion binaries identify the conversion stage:
+```html
+<img src="/bookmgr/pictures/GG24-4302-00.19950308184737.P1.GIF" alt="PICTURE 1">
+```
 
-| Binary | Offset | Evidence |
-| --- | ---: | --- |
-| `Official Readers/BookSrv-Win32/bookmgr.exe` | `0x092450` | `BOOKNAME.P999Z.GIF` |
-| `Official Readers/BookSrv-Win32/bookmgr.exe` | `0x092470` | `ephimage.exe` |
-| `Official Readers/BookSrv-Win32/bookmgr.exe` | `0x092480` | `/NOSCALE` |
-| `Official Readers/BookSrv-Win32/bookmgr.exe` | `0x09248c` | `/bookmgr/pictures` |
-| `Official Readers/BookSrv-Win32/ephimage.dll` | `0x016e7c` | `Requested GIF  Name = %s` |
-| `Official Readers/BookSrv-Win32/ephimage.dll` | `0x017034` | `imgdf2.flt` |
-| `Official Readers/BookSrv-Win32/ephimage.dll` | `0x01705c` | `ebgif2.flt` |
-| `Official Readers/BookSrv-Win32/ephimage.dll` | `0x01708c` | `Picture %s is an image of size %hux%hu` |
-| `Official Readers/BookSrv-Win32/ephimage.dll` | `0x01719c` | `GIF89a` |
-| `Official Readers/BookSrv-Win32/ephimage.dll` | `0x0171a4` | `GIF87a` |
-| `Official Readers/BookSrv-Win32/isgdi32.dll` | `0x09f1aa` | `CBeginFigure` |
-| `Official Readers/BookSrv-Win32/isgdi32.dll` | `0x09f298` | `CEndFigure` |
-| `Official Readers/BookSrv-Win32/isgdi32.dll` | `0x0a1c58` | `HELPCGI_GDI` |
-| `Official Readers/BookSrv-Win32/isgdi32.dll` | `0x0a1cc8` | `ImageMark Software Labs v03.01` |
+The served artifact is a GIF whose name is
+`<book>.<build timestamp>.P<picture id>.GIF`, generated on demand from the
+stored payload; `P1` corresponds to descriptor id `1`. In the book itself, that
+same resource is a legacy kind `I` payload that does not begin with `GIF87a` or
+`GIF89a` at all (see the payload prefixes below).
 
-This separates the stored BOO asset payload from the rendered web asset: a BOO
-reader should first expose or extract the stored payload exactly; GIF generation
-is a reader/rendering concern.
+The consequence for an implementer is the rule this note follows throughout: a
+BOO reader must expose or extract the stored payload byte-exactly. Converting
+it to a web image format is a rendering concern layered on top, documented per
+payload family in [GDF.md](GDF.md) and [MMR.md](MMR.md).
 
 ## Embedded Resource Area
 
@@ -92,9 +73,8 @@ The range `0x00000118..0x000002e7` is the observed resource-directory body. It
 contains image descriptors and ends immediately before the first image payload at
 `0x000002e8`.
 
-Most image descriptors are 16 bytes. The descriptor starts with the picture id;
-the one-byte legacy kind follows the id and selects the conversion path used by
-the IBM readers and Transmogrifier:
+Image descriptors are 16 bytes. The descriptor starts with the picture id; the
+one-byte legacy kind follows the id and identifies the stored payload family:
 
 | Field | Size | Encoding | Meaning |
 | --- | ---: | --- | --- |
@@ -149,7 +129,7 @@ Most payloads observed in `GG24-4302-00.boo` begin with the same 32-byte prefix:
 ```
 
 The bytes `d3 a8` and `d3 a7` are EBCDIC `Ly` and `Lx`, which fits an
-ImageMark/GDI coordinate-oriented image stream. The stored payload does not start
+coordinate-oriented image stream. The stored payload does not start
 with `GIF87a`, `GIF89a`, `BM`, or a valid JPEG header in the verified sample.
 Byte-pattern hits for `BM` and `ff d8 ff` inside the payload area are internal
 payload bytes, not standalone external image-file signatures.
@@ -163,168 +143,120 @@ the per-format notes linked below.
 | Kind byte | EBCDIC | Observed path |
 | ---: | --- | --- |
 | `0xc7` | `G` | Legacy GDF image payload. See [GDF.md](GDF.md). |
-| `0xc9` | `I` | Legacy MMR/ImageMark-style image payload. See [MMR.md](MMR.md). |
-| `0xd4` | `M` | Legacy MET payload. The IBM tools classify bitmap and vector MET data before conversion. |
+| `0xc9` | `I` | Legacy MMR (CCITT fax) image payload. See [MMR.md](MMR.md). |
+| `0xd4` | `M` | Legacy MET payload. **Unverified**: no repository fixture uses this kind byte, and no hosted book has been observed serving one. |
 
-Unknown kind bytes produce `Unknown data type encountered %s` in the utility.
+A decoder should reject an unrecognised kind byte rather than guess a payload
+family, because the descriptor gives no other type information.
 
-Local fixture verification on the filesystem BOO set found legacy descriptor
-kinds `0xc7` and `0xc9`:
+Fixture verification over the whole repository BOO set found legacy descriptor
+kinds `0xc7` and `0xc9` only:
 
-| Kind byte | Count | Example fixture | First verified descriptor and payload evidence |
+| Kind byte | Descriptors in this repository | Example fixture | First verified descriptor and payload evidence |
 | ---: | ---: | --- | --- |
-| `0xc7` / `G` | `2576` | `GG66-3212-00.boo` | Descriptor at `0x0118`: `f1 40 40 40 40 40 40 40 c7 00 4e 64 00 00 01 58`; payload at `0x0158` begins `01 12 00 04 00 00 00 00 42 64 00 01 00 00 00 00...`. |
-| `0xc9` / `I` | `19843` | `GG24-4302-00.boo` | Descriptor at `0x0118`: `f1 40 40 40 40 40 40 40 c9 00 1c fc 00 00 99 f0`; payload at `0x99f0` begins `00 08 d3 a8 7b 00 00 00 00 20 d3 a7 7b 00 00 00...`. |
+| `0xc7` / `G` | 65 in 10 books | `FA1PLMM0.boo` | Descriptor at `0x0118`: `f1 40 40 40 40 40 40 40 c7 00 48 de 00 00 01 38`; payload at `0x0138` begins `01 12 00 04 00 00 00 00 42 64 00 01 00 00 00 00...`. |
+| `0xc9` / `I` | 558 in 16 books | `GG24-4302-00.boo` | Descriptor at `0x0118`: `f1 40 40 40 40 40 40 40 c9 00 1c fc 00 00 99 f0`; payload at `0x99f0` begins `00 08 d3 a8 7b 00 00 00 00 20 d3 a7 7b 00 00 00...`. |
 
-## Version 1.2/1.3 Picture Directory
+Full kind census over the 23 repository books that carry a picture directory
+(counting group-0 descriptors, one per picture):
 
-The loaded BookServer stack supports legacy version 1.2/1.3 picture directories
-through `Official Readers/BookSrv-Win32/ephimage.dll`. The CGI renderer in
-`bookmgr.exe` first attempts the version 1.4 converted-object lookup described
-below; when that does not find a converted object, it calls the `ephimage`
-helper path to locate and convert a legacy picture payload.
+| Kind | Books | Descriptors |
+| --- | --- | ---: |
+| `0xc7` / `G` | `FA1PLMM0`, `IEAC6MST`, `SC09-138`, `SC24-5520-00`, `SC26-457`, `SC28-1881-05`, `SC34-425`, `SH20-918`, `XWEBDEMO`, `packet` | 65 |
+| `0xc9` / `I` | `DREICMST`, `GG24-395`, `GG24-4302-00`, `GX27-3999-00`, `ITPPIBOK`, `QSYSNEWG`, `SC09-2417-00`, `SC24-546`, `SC24-5527-02`, `SC26-457`, `SC33-033`, `SG24-204`, `SH12-565`, `SH20-918`, `XWEBDEMO`, `HLCRUG21` | 558 |
 
-`EphImageFindLegacyPictureDescriptor` reads the old picture directory directly
-from the BOO header area, before the logical directory page:
+No other kind byte occurs in any repository fixture. `0xd4` / `M` is listed
+above as a family the container's type tag can express, but it is unverified
+here.
 
-1. Read page-0 bytes `0x0000..0x0001` as the physical directory page.
-2. Seek to `(directory_page << 12)` and read 20 bytes from the physical directory
-   page. Bytes at directory-page offsets `+9..+10` identify the legacy picture
-   layout version for this path. If those bytes are `01 03`, the helper treats
-   the picture directory as version 1.3; otherwise it uses the version 1.2
-   offset. The Transmogrifier applies the same 1.2/1.3 distinction when
-   rewriting old picture books.
-3. Seek to page-0 offset `0x0004` and read a 32-bit big-endian picture/object
-   count. If it is zero, the utility prints `Book %s contains no pictures`.
-4. For version 1.2 books, read picture descriptors starting at page-0 offset
-   `0x0118`/decimal `280`. For version 1.3 books, skip the first descriptor
-   group and read the second descriptor group at
-   `0x0118 + (16 * picture_count)`.
+## Picture Directory Versions
 
-Each legacy descriptor consumed by `EphImageFindLegacyPictureDescriptor` and
-`TransmogConvertLegacyPicturesToWorkFiles` is 16 bytes:
+The two bytes at directory-page offsets `+9..+10` select the picture-directory
+layout. Across the 23 repository books that carry a picture directory, exactly
+three values occur, and each one determines how many 16-byte descriptor groups
+follow the fixed 280-byte (`0x0118`) page-0 header area:
 
-| Field | Size | Encoding | Meaning |
-| --- | ---: | --- | --- |
-| `id` | 8 | EBCDIC text, padded | Object/picture id used as the base temporary filename. |
-| `kind` | 1 | EBCDIC byte | Legacy payload family (`G`, `I`, `M`, etc.). |
-| `length` | 3 | big-endian unsigned integer | Payload length in bytes. |
-| `offset` | 4 | big-endian unsigned integer | Absolute payload offset in the BOO file. |
+| Bytes at `+9..+10` | Layout | Descriptor groups | Repository fixtures |
+| --- | --- | ---: | --- |
+| `00 00` | version 1.2 | 1 | 16 books, e.g. `GG24-4302-00.boo`, `QSYSNEWG.BOO`, `SC34-425.boo` |
+| `01 03` | version 1.3 | 2 | `GX27-3999-00.boo`, `SC09-2417-00.boo`, `SG24-204.boo`, `packet.boo` |
+| `01 00` | version 1.4 | 3 | `XWEBDEMO.boo`, `Official Readers/SoftCopy/HLCRUG21.boo` |
 
-This matches the image descriptors observed in `GG24-4302-00.boo` if viewed from
-the `0x0118` body offset:
+The object count is the 32-bit big-endian value at page-0 offsets
+`0x0004..0x0007` in every version. Group `n` begins at
+`0x0118 + (n * 16 * object_count)`, and the first payload begins immediately
+after the last group. This is verified by construction: for every fixture, the
+lowest payload offset named by any descriptor equals
+`0x0118 + (group_count * 16 * object_count)`.
 
-```text
-0x0118: f1 40 40 40 40 40 40 40  c9 00 1c fc 00 00 99 f0
-        id "1"                    kind I, length 0x001cfc, offset 0x000099f0
+| Fixture | Version | Objects | Groups end at | Lowest payload offset |
+| --- | --- | ---: | ---: | ---: |
+| `GG24-4302-00.boo` | 1.2 | 29 | `0x0002e8` | `0x0002e8` |
+| `SC34-425.boo` | 1.2 | 32 | `0x000318` | `0x000318` |
+| `GX27-3999-00.boo` | 1.3 | 19 | `0x000378` | `0x000378` |
+| `SG24-204.boo` | 1.3 | 123 | `0x001078` | `0x001078` |
+| `packet.boo` | 1.3 | 9 | `0x000238` | `0x000238` |
+| `XWEBDEMO.boo` | 1.4 | 2 | `0x000178` | `0x000178` |
+| `HLCRUG21.boo` | 1.4 | 135 | `0x00247c` | `0x00247c` |
 
-0x0128: f1 f0 40 40 40 40 40 40  c9 00 2d 0b 00 02 0d 66
-        id "10"                   kind I, length 0x002d0b, offset 0x00020d66
-```
+### Version 1.2
 
-The earlier 16-byte view starting at `0x0120` still describes the same bytes, but
-the Transmogrifier establishes that the descriptor starts with the 8-byte id and
-then the 8-byte `(kind, length, offset)` tuple. Therefore the directory/control
-entry at `0x0110` points to the descriptor body at `0x0118`.
+One descriptor group at `0x0118`, in the legacy 16-byte form documented under
+[Page-0 Resource Directory](#page-0-resource-directory): 8-byte EBCDIC id,
+1-byte kind, 3-byte big-endian length, 4-byte big-endian absolute payload
+offset.
 
-## Version 1.4 Converted Object Layout
+### Version 1.3
 
-The loaded `bookmgr.exe` IDB confirms direct runtime support for version 1.4
-converted-object descriptors. `BookServerFindConvertedObjectDescriptors` reads
-page 0, reads the physical directory page, and requires directory-page bytes
-`+9..+10` to be `01 00`. If the bytes do not match, it returns failure to the
-caller, which can then use the legacy `ephimage` path.
+Two descriptor groups, both in the same legacy 16-byte form. In all four
+version-1.3 fixtures the two groups are **byte-identical**: group 1 is an exact
+duplicate of group 0, covering the same ids, kinds, lengths and payload offsets.
+A decoder may therefore read group 0 and ignore group 1, but it must account for
+group 1's size when computing where payloads begin.
 
-The version 1.4 object count is the 32-bit big-endian value at page-0 offsets
-`0x0004..0x0007`. Descriptor groups start immediately after the fixed 280-byte
-page-0 header area:
+### Version 1.4 Converted Object Layout
 
-| Group | Start offset | BookServer use |
-| ---: | ---: | --- |
-| `0` | `0x0118 + (0 * 16 * object_count)` | Low-resolution or placeholder object descriptors. The loaded BookServer direct lookup does not use this group. |
-| `1` | `0x0118 + (1 * 16 * object_count)` | Object-data descriptors. |
-| `2` | `0x0118 + (2 * 16 * object_count)` | Object-description descriptors. |
+Three descriptor groups, and only group 0 uses the legacy form:
 
-For groups 1 and 2, the reader copies matching 16-byte entries to the caller,
-and `RenderDisplayLineObjectsAndSelections` decodes them
-with this layout:
+| Group | Start offset | Descriptor form | Content |
+| ---: | ---: | --- | --- |
+| `0` | `0x0118` | legacy: id[8], kind[1], length[3], offset[4] | The original legacy payload, still stored. Both 1.4 fixtures carry kind `G` or kind `I` payloads here. |
+| `1` | `0x0118 + 16 * n` | id[8], length[4], offset[4] | The converted web object. |
+| `2` | `0x0118 + 32 * n` | id[8], length[4], offset[4] | The object description string. |
+
+Groups 1 and 2 use a different tail from group 0: a full 32-bit length and no
+one-byte kind field.
 
 | Field | Size | Encoding | Meaning |
 | --- | ---: | --- | --- |
-| `id` | 8 | EBCDIC-ish object id, padded with `0x40` | Object id matched against the requested picture id. |
-| `length` | 4 | big-endian unsigned integer | Length of the description or object-data payload. |
-| `offset` | 4 | big-endian unsigned integer | Absolute byte offset of the description or object-data payload. |
-
-This is not the legacy `kind[1] + length[3] + offset[4]` tail. The version 1.4
-groups used by BookServer store full 32-bit lengths and have no one-byte legacy
-payload-kind field.
+| `id` | 8 | EBCDIC, padded with `0x40` | Object id; matches the group-0 id for the same picture. |
+| `length` | 4 | big-endian unsigned integer | Length of the object data or description payload. |
+| `offset` | 4 | big-endian unsigned integer | Absolute byte offset of that payload in the BOO file. |
 
 The group-2 description payload is stored as two-byte characters, normally
-`00 xx` pairs for ASCII text. `BookServerReadConvertedObjectDescription` reads
-the byte range, detects a leading zero byte, collapses each pair to the second
-byte, and NUL-terminates the resulting string. The CGI renderer then lowercases
-the description and looks for MIME attributes such as:
+`00 xx` pairs for ASCII text: a leading zero byte identifies the form, each pair
+collapses to its second byte, and the result is an attribute string.
+
+Verified against both version-1.4 fixtures:
+
+| Fixture | Object | Group 1 descriptor | Payload signature | Group 2 decoded description |
+| --- | --- | --- | --- | --- |
+| `XWEBDEMO.boo` | `1` | at `0x0138`: `f1 40 40 40 40 40 40 40 00 00 28 15 00 00 61 ca` | `GIF89a` at `0x61ca` | `type="image/gif"width="620"height="480"` |
+| `XWEBDEMO.boo` | `2` | at `0x0148`: id `2`, length `0x00003b4b`, offset `0x000089e0` | `GIF89a` at `0x89e0` | `type="image/gif"width="576"height="576"` |
+| `HLCRUG21.boo` | `1` | at `0x0988`: id `1`, length `0x0000936f`, offset `0x00451a48` | `GIF87a` at `0x451a48` | `type="image/gif"width="1005"height="629"` |
+| `HLCRUG21.boo` | `10` | at `0x0998`: id `10`, length `0x0000039d`, offset `0x006d1f88` | `GIF89a` at `0x6d1f88` | `type="image/gif"width="17"height="17"` |
+
+The description carries a MIME type and, when known, pixel dimensions:
 
 ```text
 type="image/gif"
 type='image/jpeg'
 ```
 
-It also consumes width and height attributes when present. The group-1 object
-payload is the raw converted web object byte range. `BookServerExtractConvertedObjectDataToFile`
-copies this range into the BookServer picture cache using the extension inferred
-from the description `type` attribute.
-
-The following byte table is attributed to a fixture `SC26-4221-08.boo`.
-**That file is not in `BOO/`** and is cited by no note in `AnalysisNotes/`, so
-the offsets below cannot be reproduced from this repository. They are the
-historical source of the version-1.4 group ordering and should be treated as an
-**unverified hypothesis** until the fixture is added or the same layout is
-re-derived from a bundled book.
-
-The *shape* they describe is exercised by a bundled fixture: `XWEBDEMO.boo`
-carries two `converted_v14` resources with `type="image/gif"width="620"height="480"`
-and `type="image/gif"width="576"height="576"` descriptions. Only the specific
-offsets in the table below are unreproducible.
-
-Note that the version numbering here is the **resource descriptor layout**
-version, not the container version: the directory version text at offset
-`0x0010` is `" 1.2"` in all 34 fixtures, `XWEBDEMO.boo` included (see
-[boo-header.md](boo-header.md)). A reader must not select the descriptor layout
-from the container version string.
-
-| Offset | Bytes | Decoded meaning |
-| ---: | --- | --- |
-| `0x0118` | `f1 40 40 40 40 40 40 40 c9 00 00 a5 00 00 03 58` | Group 0 legacy/placeholder descriptor for id `1`. |
-| `0x01d8` | `f1 40 40 40 40 40 40 40 00 00 03 8b 00 00 0a d8` | Group 1 object-data descriptor for id `1`: length `0x0000038b`, offset `0x00000ad8`. The payload at `0x0ad8` starts with `GIF87a`. |
-| `0x0298` | `f1 40 40 40 40 40 40 40 00 00 00 4a 00 00 35 44` | Group 2 description descriptor for id `1`: length `0x0000004a`, offset `0x00003544`. The payload at `0x3544` is `00 74 00 79 00 70 00 65...`, decoding to `type="image/gif"width="14"height="26"`. |
-
-The Transmogrifier does not just change image bytes in place. It builds a new
-version 1.4 BOO file in a temporary stream, then patches the header tables with
-new offsets and lengths.
-
-The rewrite sequence in `TransmogRewriteBookWithConvertedObjects` is:
-
-| Progress marker | Function | Stored data written to new book |
-| --- | --- | --- |
-| `h`/`x`/`L` | `TransmogCopyHeaderAndPictureDirectory` | Copies the original header and picture directory area through `0x0118 + 16 * picture_count`. |
-| `x`/`L` | `TransmogWriteNullLowResPictureDirectory` | Writes low-resolution picture directory entries with original ids but zero offset/length fields. This is done twice. |
-| `L` | `TransmogCopyOriginalObjectData` | Copies original object payloads into the new stream and records their new offsets/lengths in an in-memory table. |
-| `O` | `TransmogAppendConvertedObjectData` | Finds converted files in the temporary `.pic` directory, appends their bytes to the new stream, and records offset/length. |
-| `D` | `TransmogWriteObjectDescriptions` | Writes object descriptions after object data. Descriptions are stored as two-byte characters: a leading `0x00` followed by the ASCII byte. |
-| `T` | `TransmogAppendTextComponentAsVersion14` | Appends the original logical/text component but writes version bytes `01 00` in the copied text header area. |
-| `N` | `TransmogPatchHeaderAndWriteOutputBook` | Writes the output BOO and patches header-directory offset/length fields from the in-memory object table. |
-
-`TransmogAppendConvertedObjectData` stores a MIME-style type string for each
-converted object:
-
-```text
-type="image/%s"
-```
-
-The `%s` value comes from the converted file extension found in the temporary
-picture directory. Width and height descriptions are added by
-`TransmogDescribeWebImageObject`.
+Trailing NUL bytes can pad the description to its declared length; strip them
+after collapsing the byte pairs. The group-1 payload is the converted web object
+byte range, stored verbatim, and in both fixtures every group-1 payload begins
+with a valid `GIF87a` or `GIF89a` signature.
 
 ## Version 1.4 Object Data
 
@@ -342,12 +274,12 @@ verified layout as follows:
    directory page number.
 2. If the directory page number is greater than `1`, treat bytes before
    `directory_page * 4096` as a possible pre-directory resource area.
-3. In page 0, look for the resource-directory control entry at `0x0110`:
-   marker `0x00`, 24-bit length, 32-bit absolute offset, and EBCDIC id. In the
-   verified version 1.2 image fixture this points to the descriptor body at
-   `0x0118`.
-4. Walk 16-byte image descriptors inside the directory body. Decode id, kind,
-   length, and offset as documented above.
+3. Read the object count from page-0 offsets `0x0004..0x0007`, and the
+   picture-directory version from directory-page bytes `+9..+10`
+   (`00 00` = 1.2, `01 03` = 1.3, `01 00` = 1.4). Group 0 always begins at
+   page-0 offset `0x0118`.
+4. Walk `object_count` 16-byte legacy descriptors in group 0. Decode id, kind,
+   length, and offset as documented above. Reject an unrecognised kind byte.
 5. Validate each descriptor by checking that `offset + length` is less than or
    equal to `directory_page * 4096`; image payloads must not overlap the logical
    BOO directory.
@@ -357,7 +289,7 @@ verified layout as follows:
 For version 1.4 converted objects:
 
 1. Read the same page-0 object count at `0x0004..0x0007`.
-2. Require directory-page bytes `+9..+10` to be `01 00`.
+2. Confirm directory-page bytes `+9..+10` are `01 00`.
 3. Read group 1 entries as raw object-data descriptors and group 2 entries as
    description descriptors.
 4. Decode group 2 description payloads from `00 xx` two-byte characters when a
@@ -373,7 +305,9 @@ For version 1.4 converted objects:
   topics and figure lists.
 - Determine whether non-image media resources use kind bytes beyond the verified
   local legacy `G` (`0xc7`) and `I` (`0xc9`) descriptor families.
-- Verify version 1.3 and 1.4 descriptor groups against committed BOO fixtures
-  that actually contain those layout versions. The reader-code layout is
-  verified from the loaded IDBs; the current local fixture evidence still
-  centers on a version 1.2-style legacy image directory.
+- Whether a version-1.3 book can ever carry two *differing* descriptor groups.
+  In all four repository 1.3 fixtures the two groups are byte-identical, so the
+  purpose of the duplicate is unexplained.
+- Whether a version-1.4 group-1 payload can hold a format other than GIF. Both
+  1.4 fixtures declare only `type="image/gif"`, so JPEG, PNG, and TIFF
+  descriptions remain unverified here.

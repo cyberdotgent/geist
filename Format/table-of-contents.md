@@ -15,26 +15,20 @@ topic whose header begins with `SHcontents`, then parse the `CTOCE` controls in
 that topic. The same logical topic record also contains `CTOCDEF` controls that
 define the presentation styles used by `CTOCE` entries.
 
-## Reader-Code Evidence
+## Lookup Model
 
-The connected `ephwam.dll` IDB has these high-confidence names on the topic and
-logical-record path:
+Two paged 16-bit indexes in the directory page make the lookup possible without
+scanning:
 
-| IDA name | Address | Verified behavior |
-| --- | ---: | --- |
-| `BooSelectTopicByNumber` | `0x122202e` | Implements `Scm_Loctopic`; selects a topic number, initializes the logical cursor, and seeks to that topic's start record. |
-| `BooSeekTopicStartRecord` | `0x1221e53` | Loads the content page for a logical record number and walks compact-length records to set the current record payload bounds. |
-| `BooGetTopicStartRecordNumber` | `0x1222310` | Looks up a topic's start logical-record number from the directory `0x003c` topic-start table. |
-| `BooLookupPagedU16Index` | `0x1221c99` | Generic paged 16-bit index lookup used by the topic-start table and the content-page record index. |
-| `BooLocateLogicalRecordByNumber` | `0x1221c1b` | Maps a logical record number to a content page using the directory `0x0034` content-page index. |
-| `BooFindIndexOrdinalForRecordNumber` | `0x12221b7` | Binary-search helper over paged 16-bit indexes. |
-| `BooSaveLogicalCursorState` | `0x12224e7` | Copies the 22-byte logical cursor state from the book handle. |
-| `BooRestoreLogicalCursorState` | `0x12224d1` | Restores the 22-byte logical cursor state. |
+1. The content-page record index at directory offset `0x0034` maps a logical
+   record number to the content page that holds it, so a decoder can jump
+   straight to the right page and then walk compact-length records inside it.
+2. The topic-start index at directory offset `0x003c` maps a 1-based topic
+   number to its first logical record.
 
-`Scm_Qrytopic` returns the currently selected topic number from the cursor
-state. `Scm_Szqrytpc` returns the directory topic count. `Scm_Getln` reads the
-next decoded logical record for the selected topic through
-`BooReadNextLogicalRecord`.
+Both use the same table shape, documented in [topics.md](topics.md). Neither
+index stores a byte offset: they store logical record and page numbers, and the
+byte offset is computed arithmetically from the directory page base.
 
 ## Directory Indexes
 
@@ -43,17 +37,17 @@ The directory page contains two indexes that make topic lookup efficient:
 | Directory field | `QS3X36CM.BOO` | `OFCUSEOV.BOO` | Meaning |
 | ---: | ---: | ---: | --- |
 | `0x0034` word | `0x0e82` | `0x0ed2` | Offset in the directory page of the content-page logical-record index. |
-| `0x0036` word | `0x00f1` | `0x03f5` | Total logical-record count used by `Scm_Szbook` and topic bounds. |
+| `0x0036` word | `0x00f1` | `0x03f5` | Total logical-record count; also the source of the terminal topic bound. |
 | `0x0038` word | `0x0014` | `0x004d` | Content page count. |
 | `0x003a` word | `0x0007` | `0x000a` | First content logical page; convert to a physical page with the directory-page base described in [pages.md](pages.md). |
 | `0x003c` word | `0x0068` | `0x0068` | Offset in the directory page of the topic-start index. |
-| `0x003e` word | `0x000a` | `0x00c9` | Topic count returned by `Scm_Szqrytpc`; matches decoded `CTOPICS`. |
+| `0x003e` word | `0x000a` | `0x00c9` | Topic count; matches the decoded `CTOPICS` control. |
 
 ### Content-Page Record Index
 
 The index at directory offset `0x0034` starts with the content page count and is
 followed by start logical-record numbers for each content page plus a terminal
-total. It lets the reader map a logical record number to a physical content
+total. It lets a decoder map a logical record number to a physical content
 page before walking compact-length records within that page.
 
 Observed words:
@@ -93,8 +87,7 @@ topic range 779–782 (end-exclusive API bound 783).
 
 The index at directory offset `0x003c` maps topic numbers to start logical
 record numbers. In the bundled fixtures the table fits directly in the
-directory page. The reader uses `BooLookupPagedU16Index`, whose direct-table
-layout is:
+directory page. The direct-table layout is:
 
 ```c
 struct BooU16IndexDirect {
@@ -104,8 +97,8 @@ struct BooU16IndexDirect {
 };
 ```
 
-The same lookup routine can follow continuation pages when the requested
-ordinal is greater than the current table's `count_be`. Books with more than
+A lookup follows continuation pages when the requested ordinal is greater than
+the current table's `count_be`. Books with more than
 248 topics use it: the root's second word is then the 1-based logical page
 (relative to the directory page) of a continuation table with the same layout
 at page offset `0`. See the chained-table evidence in [topics.md](topics.md).
@@ -127,7 +120,7 @@ for TOC reconstruction are:
 
 | Control | Meaning |
 | --- | --- |
-| `SH<id>` | Topic identifier. BookServer uses this as the URL/topic anchor, preserving reader-normalized case such as `CONTENTS`, `PREFACE.5.1`, or `1.0`. |
+| `SH<id>` | Topic identifier. BookServer uses this as the URL/topic anchor. Hosted URLs show it upper-cased for word-shaped ids (`CONTENTS`, `PREFACE.5.1`) and unchanged for numeric ids (`1.0`). |
 | `CTOPICN` | Sequential 1-based topic number. |
 | `CPARENT` | Parent topic identifier. The control is always present; the operand is absent for a top-level topic. |
 | `CFORWARDLEVEL` | Next topic at the same navigation level. Control always present, operand may be absent. |

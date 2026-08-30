@@ -53,9 +53,19 @@ int main() {
               "their first occurrence in this publication, are trademarks "
               "of other companies:") != std::string::npos,
           "visible CCP trademark paragraph was dropped");
+  // The box renders verbatim, line for line with hosted, which serves it
+  // inside `<pre width="80">` and emits no `<table>` element.
   for (const auto* pair : {
-           "| IBM | NetView |", "| AIX | SystemView |", "| PS/2 | OS/2 |",
-           "| RISC System/6000 | RS/6000 |", "| NETCENTER | RT |",
+           "   | IBM                                | NetView               "
+           "            |",
+           "   | AIX                                | SystemView            "
+           "            |",
+           "   | PS/2                               | OS/2                  "
+           "            |",
+           "   | RISC System/6000                   | RS/6000               "
+           "            |",
+           "   | NETCENTER                          | RT                    "
+           "            |",
        }) {
     require(trademarks.find(pair) != std::string::npos,
             "headerless trademark box lost a paired row");
@@ -108,11 +118,23 @@ int main() {
                                "    - adapter problems") != std::string::npos,
           "generated index lost targetless parent hierarchy");
   const auto filters = problem_determination.topic_markdown("3.3");
+  // Re-pinned when the `W`/`G` warning-block style codes were admitted and
+  // 3.3 moved from the legacy route to the typed one, both checked against
+  // hosted DT 19941010174546:
+  //
+  //  * `event display.` and `One kind of filter` are two paragraphs there
+  //    (`event display.` then `<p>` then `One kind ...`), not one sentence.
+  //    The legacy render this used to pin also delivered the topic's
+  //    paragraphs out of order and truncated three of them.
+  //  * the warning block is served `<em>Warning:</em> <em>Do</em>
+  //    <em>not</em> <em>modify</em> ... <em>impaired.</em>`, so the words
+  //    now carry emphasis; the prose family's convention merges adjacent
+  //    same-style words into one run.
   for (const auto* expected : {
-           "event display. One kind of filter",
+           "event display\\.\n\nOne kind of filter",
            "enterprise ID of the agent",
            "**Note:** Use care when making any changes",
-           "Warning: Do not modify the filters",
+           "*Warning:* *Do not modify the filters",
        }) {
     require(filters.find(expected) != std::string::npos,
             "fixed filter prose lost text or semantic boundaries");

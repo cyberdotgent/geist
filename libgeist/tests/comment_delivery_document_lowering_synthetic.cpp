@@ -303,29 +303,36 @@ int main() {
                                   block.node);
                             }) < 10,
           "COMMENTS title prose remained split by source fields");
+  // The questionnaire forms are drawn, not tabulated: hosted BookServer serves
+  // `TBLUNIQ8`/`TBLUNIQ9` inside the topic's own `<pre width="80">` as the
+  // underscore-and-bar box and emits no `<table>` element anywhere on the page
+  // (DT 19941010174546).  Both forms and the response area therefore lower to
+  // preformatted blocks.
   require(std::count_if(comments->blocks.begin(), comments->blocks.end(),
                         [](const auto &block) {
                           return std::holds_alternative<TableBlockIR>(
                               block.node);
-                        }) == 2,
-          "COMMENTS questionnaire objects did not lower to two tables");
+                        }) == 0,
+          "COMMENTS questionnaire objects must not lower to Markdown tables");
   require(std::count_if(comments->blocks.begin(), comments->blocks.end(),
                         [](const auto &block) {
                           return std::holds_alternative<PreformattedBlockIR>(
                               block.node);
-                        }) == 1,
-          "COMMENTS response area did not lower to one preformatted block");
+                        }) == 3,
+          "COMMENTS did not lower to two forms and one response area");
 
   std::vector<const BlockIR *> table_blocks;
   std::vector<const BlockIR *> anchor_blocks;
   const BlockIR *response_block = nullptr;
   for (const auto &block : comments->blocks) {
-    if (std::holds_alternative<TableBlockIR>(block.node))
-      table_blocks.push_back(&block);
     if (std::holds_alternative<AnchorBlockIR>(block.node))
       anchor_blocks.push_back(&block);
-    if (std::holds_alternative<PreformattedBlockIR>(block.node))
-      response_block = &block;
+    if (std::holds_alternative<PreformattedBlockIR>(block.node)) {
+      if (table_blocks.size() < 2)
+        table_blocks.push_back(&block);
+      else
+        response_block = &block;
+    }
   }
   require(table_blocks.size() == 2 && response_block != nullptr,
           "COMMENTS typed semantic objects are absent");
@@ -337,39 +344,26 @@ int main() {
               anchor_blocks[0]->origin.slices.size() == 1 &&
               anchor_blocks[0]->origin.slices.front().logical_record == 543,
           "COMMENTS table anchors lost source identity/provenance");
-  const auto &first_table = std::get<TableBlockIR>(table_blocks[0]->node);
-  const auto &second_table = std::get<TableBlockIR>(table_blocks[1]->node);
-  require(first_table.rows.size() == 2 && first_table.header_rows == 1 &&
-              first_table.rows.front().cells.size() == 3 &&
-              first_table.rows.front().origin.rows.size() == 3 &&
-              second_table.rows.size() == 8 && second_table.header_rows == 1 &&
-              second_table.rows.front().cells.size() == 3 &&
-              second_table.rows[1].cells.size() == 3 &&
-              second_table.rows[1].cells[1].content.empty() &&
-              second_table.rows[1].cells[1].origin.derivation ==
-                  DocumentDerivationIR::synthesized &&
-              second_table.rows[1].cells[2].content.empty(),
-          "COMMENTS table geometry retained decoration rows or changed");
-  const auto cell_text = [](const TableBlockIR &table, std::size_t row,
-                            std::size_t column) -> const std::string & {
-    return std::get<TextInlineIR>(
-               table.rows[row].cells[column].content.front().node)
-        .text;
-  };
-  require(cell_text(first_table, 0, 0) ==
-                  "Overall, how satisfied are you with" &&
-              cell_text(first_table, 0, 1) == "Satisfied" &&
-              cell_text(first_table, 0, 2) == "Dissatisfied" &&
-              cell_text(first_table, 1, 0) ==
-                  "the information in this book?" &&
-              cell_text(first_table, 1, 1) == "__" &&
-              cell_text(first_table, 1, 2) == "__" &&
-              cell_text(second_table, 1, 0) ==
-                  "information in this book is:" &&
-              cell_text(second_table, 2, 0) == "Accurate" &&
-              cell_text(second_table, 2, 1) == "__" &&
-              cell_text(second_table, 2, 2) == "__" &&
-              cell_text(second_table, 7, 0) == "Applicable to your task",
+  const auto &first_table =
+      std::get<PreformattedBlockIR>(table_blocks[0]->node);
+  const auto &second_table =
+      std::get<PreformattedBlockIR>(table_blocks[1]->node);
+  require(first_table.lines.size() == 2 && second_table.lines.size() == 8,
+          "COMMENTS form rows retained decoration rows or changed");
+  // The three proven fields of each row are laid out at one column stop, in
+  // the order and the columns the source draws them; the second form's second
+  // line is the continued question, whose answer cells are empty.
+  require(first_table.lines[0] ==
+                  "Overall, how satisfied are you with  Satisfied            "
+                  "                Dissatisfied" &&
+              first_table.lines[1] ==
+                  "the information in this book?        __                   "
+                  "                __" &&
+              second_table.lines[1] == "information in this book is:" &&
+              second_table.lines[2] ==
+                  "Accurate                        __                        "
+                  "      __" &&
+              second_table.lines[7].rfind("Applicable to your task", 0) == 0,
           "COMMENTS semantic fields were not assembled into logical rows");
   require(table_blocks[0]->origin.rows.front().display_run == 3 &&
               table_blocks[1]->origin.rows.front().display_run == 8,

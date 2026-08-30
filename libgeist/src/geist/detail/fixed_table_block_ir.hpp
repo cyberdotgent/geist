@@ -80,9 +80,11 @@ enum class FixedTableGeometryIR {
   // second and later cells).
   gap,
   // No column structure was proven, but the envelope's display lines were:
-  // the region is reproduced verbatim, exactly as the hosted BookServer
-  // serves it inside `<pre>`.  `preformatted_lines` carries the lines and
-  // `body`/`separator_columns` stay empty.
+  // `preformatted_lines` carries the lines and `body`/`separator_columns`
+  // stay empty.  `box` and `gap` blocks also carry `preformatted_lines`,
+  // because the rendering is verbatim for every geometry unless the source
+  // declared a `:table`; the geometry says only what was proven about the
+  // region's columns, never how it is rendered.
   preformatted,
 };
 
@@ -98,6 +100,48 @@ struct FixedTablePreformattedLineIR {
   // preformatted line traces to the BOO bytes it was decoded from rather than
   // only to the enclosing SRTBL opcode.
   DocumentSourceSliceIR slice;
+};
+
+// A picture placed inside a fixed-layout region by a `cselect <c> <l>
+// PIC<n>` selector.
+//
+// The compiler wrote the words `PICTURE <n>` into the region's display bytes
+// where the picture belongs, and hosted BookServer replaces exactly the
+// selector's columns with the image: GG24-395 3.3.8 `TBLUNIQ14`
+// (DT 19941215160749) carries `cselect 3 11 PIC69` and the display line
+// `    PICTURE 69     SystemView Host Management Facilities/VM ...`, and is
+// served as
+//
+//   <a href="picture-69?mode=zoom"><img src=".../P69.GIF" alt="PICTURE 69">
+//   </a>                SystemView Host Management Facilities/VM ...
+//
+// inside the topic's `<pre width="80">`: three spaces, the image, then the
+// line's own text at column 19 -- the same 19 columns of leading whitespace
+// the source line has once its placeholder words are removed.  GX27-3999-00
+// 1.3 `NOSENVI` (DT 19950730184057) does the same four times inside one
+// envelope, one icon per table row.
+//
+// So the region keeps its art and its picture both: the columns
+// `[column, column + length)` of `line` are blanked in the reproduced text
+// (which is then exactly hosted's `<pre>` line) and the picture is recorded
+// here, to be rendered as an image beside the verbatim block.  Reproducing
+// the placeholder words instead would spell `PICTURE 69` where hosted shows
+// the image, which is how an earlier attempt lost the picture.
+struct FixedTablePictureIR {
+  // Resource catalog id, i.e. the digits of `PIC<n>` ("69").
+  std::string resource;
+  // The display words the region's bytes spell there ("PICTURE 69"), which
+  // are also hosted's `alt` text.  Blanked out of the line text.
+  std::string placeholder;
+  // Index into `preformatted_lines` of the line the picture sits on.
+  std::size_t line = 0;
+  // Line-relative columns the selector covers, i.e. the blanked span.
+  std::size_t column = 0;
+  std::size_t length = 0;
+  // The CSELECT opcode/operand extent.
+  std::uint32_t logical_record = 0;
+  std::size_t segment_index = 0;
+  DocumentSourceSliceIR source;
 };
 
 // A fixed table recovered from one SRTBL ... SRETBL envelope, either
@@ -159,7 +203,17 @@ struct FixedTablePreformattedLineIR {
 //   an empty first cell is one vertically centred row (SC24-5527-02
 //   `vmfbld` command/explanation rows).
 //
-// Preformatted geometry, used when neither column model is proven. An SRTBL
+// Preformatted geometry is the region's default rendering, and is used
+// whenever the envelope carries no `cz OFF TABLE` declaration -- whether or
+// not a column model would have proven. The BOO file holds no table
+// structure of its own: `SRTBLDBCTL51` (GG24-4302-00 10.2) is an object id
+// followed by pre-rasterized character art (a 120-character box-rule run, the
+// caption, more rule runs), with no column definitions and no cell
+// boundaries. The compiler flattened `:table` markup into a fixed-width grid
+// at build time, so the file holds a picture of a table; and many of these
+// regions are not data grids at all but captured terminal screens (see
+// `cz OFF SCREEN` in `Format/markup.md`), where any column inference would
+// shred a widget such as OFCUSEOV 1.1's calendar into cells. An SRTBL
 // envelope is, whatever it draws, a run of display lines of its logical
 // records (`display_lines.hpp`: `<length byte><that many bytes of tokens>`),
 // and hosted BookServer serves those lines verbatim inside `<pre>` -- box
@@ -182,8 +236,10 @@ struct FixedTablePreformattedLineIR {
 // display lines, when SRTBL closes a line and SRETBL opens one (so the
 // region is a whole number of lines), when every control lies on a line of
 // its own carrying none of its payload, and when a non-blank line remains.
-// A CSELECT inside the region declines: its link would have no cell to
-// attach to. Rule lines, marker slots and blank lines are kept exactly as
+// A CSELECT inside the region that names a picture is admitted and recorded
+// in `pictures` (see `FixedTablePictureIR`); any other CSELECT contributes
+// its columns as text, because a fenced block carries no link.
+// Rule lines, marker slots and blank lines are kept exactly as
 // the reader prints them; `body`, `caption` and `separator_columns` stay
 // empty and every positioned cell of the envelope's rows is claimed as
 // `structural_cells`.
@@ -191,6 +247,21 @@ struct FixedTablePreformattedLineIR {
 // Anything else fails closed and is reported as a decline with its reason.
 struct FixedTableBlockIR {
   FixedTableGeometryIR geometry = FixedTableGeometryIR::box;
+  // The envelope is delimited by a `cz OFF TABLE` layout directive.  That
+  // directive is how the later BookMaster compiler records a source `:table`
+  // whose column structure survived the build, and it is the only signal in
+  // the file that separates a data grid from character art: hosted BookServer
+  // emits an HTML `<table>` for exactly these regions and reproduces every
+  // other fixed-layout region verbatim inside `<pre>`.
+  //
+  // Measured over all 861 corpus topics that produced a Markdown table
+  // (2026-08-30, 32 books, hosted pages fetched per book at the DT of the
+  // matching document number): `cz OFF TABLE` present and hosted `<table>`
+  // 32, absent and no hosted `<table>` 826, present without hosted `<table>`
+  // 3 (GX27-3999-00 A.0, SC41-485 1.2.4 and 1.3.4 -- hosted still marks the
+  // region `<!-- table -->` and then falls back to `<pre>` on its own page
+  // width).  No corpus topic serves an HTML table without the directive.
+  bool source_declared_table = false;
   LayoutRowRangeIR rows;
   std::vector<DocumentSourceRowIR> source_rows;
   // SRTBL operand, e.g. `TBLUNIQ1`, and the control's source position.
@@ -205,6 +276,9 @@ struct FixedTableBlockIR {
   std::vector<FixedTableRowIR> body;
   // Preformatted geometry only: the region's display lines in source order.
   std::vector<FixedTablePreformattedLineIR> preformatted_lines;
+  // Pictures the region's CSELECT selectors place on those lines, in line
+  // order.  Their placeholder words are blanked out of the line text.
+  std::vector<FixedTablePictureIR> pictures;
   // Subject-index entries the envelope carries: a display line whose first
   // visible word is the `SI` keyword.  Hosted BookServer displays none of it
   // (SC09-138 4.1.4 DT=19910321130500 shows no `SI` byte at all although the

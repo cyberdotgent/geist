@@ -614,6 +614,9 @@ LogicalRecordIR decode_record_payload_ir(
     if (relined && token_display_lines(*relined, record.payload_range.end))
       record.tokens = std::move(*relined);
   }
+  // The framing is decided here, once, and stored on the record: every
+  // consumer reads it instead of walking the payload again.
+  assign_display_line_framing(record);
   return record;
 }
 

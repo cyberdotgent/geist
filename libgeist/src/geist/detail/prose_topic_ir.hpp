@@ -138,16 +138,19 @@ struct ProseBlockIR {
   // The first `term_inline_count` inlines form the term (definition entry)
   // or the label (note); the remaining inlines are the body.
   std::size_t term_inline_count = 0;
-  // Preformatted blocks: the display rows verbatim (common indent removed,
-  // blank rows kept); `inlines` then holds one text inline per non-blank
-  // row for provenance.
+  // Preformatted blocks: the display rows verbatim, at the display columns
+  // they occupy -- the region's own left margin is kept, as hosted
+  // BookServer keeps it inside `<pre>` -- with blank rows kept; `inlines`
+  // then holds one text inline per non-blank row for provenance.
   std::vector<std::string> preformatted_lines;
-  // Machine-readable degradation code when this block is a verbatim fallback
-  // rather than a source-declared structure.  A `cz OFF XMP` example block is
-  // preformatted because the source says so and leaves this empty; a drawn box
-  // region is preformatted because nothing inside it could be proven, and sets
-  // it, so the render diagnostic can report the topic as typed-degraded.
-  std::string degradation_code;
+  // Machine-readable name of the verbatim region kind when the block is
+  // preformatted for a reason other than a source `cz OFF XMP`/`SCREEN`
+  // declaration: a drawn box region sets `prose-drawn-box-verbatim`.  Both
+  // render the same way -- character art the compiler rasterized at build
+  // time, reproduced line for line as hosted BookServer serves it inside
+  // `<pre>` -- so this names the region for consumers and provenance and no
+  // longer degrades the topic's render severity.
+  std::string verbatim_kind;
   std::vector<ProseInlineIR> inlines;
   std::vector<DocumentSourceSliceIR> slices;
 };
@@ -206,6 +209,12 @@ struct ProseTableLinkIR {
   // is served as `<a href="../../DOCNUM/SC23-2456/CCONTENTS">`.
   std::string target;
   CrossReferenceTargetKindIR target_kind = CrossReferenceTargetKindIR::anchor;
+  // A `PIC<n>` selector: `target` is the resource catalog id and the cell
+  // line it covers is an image, not a link.  Hosted BookServer serves the
+  // cell as `<a href="picture-16?mode=zoom"><img ... alt="PICTURE 16"></a>`
+  // (GX27-3999-00 3.2 `NOSENV2`, DT 19950730184057), replacing exactly the
+  // `PICTURE 16` placeholder words the compiler wrote into the cell.
+  bool picture = false;
   std::uint32_t logical_record = 0;
   std::vector<std::size_t> payload_tokens;  // ascending
   DocumentSourceSliceIR source;

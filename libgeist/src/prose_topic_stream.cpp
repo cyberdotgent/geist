@@ -590,21 +590,11 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
                                     BookControlKind::layout_directive;
                            });
       });
-  // Display lines per record, decoded once: a record whose lines parse
-  // proves where every row-control length byte stands.
-  std::map<std::size_t, std::optional<std::vector<DisplayLineIR>>> record_lines;
-  const auto length_byte_at = [&](std::size_t record_index,
-                                  std::size_t token) {
-    auto entry = record_lines.find(record_index);
-    if (entry == record_lines.end())
-      entry = record_lines
-                  .emplace(record_index,
-                           record_display_lines(records[record_index]))
-                  .first;
-    if (!entry->second) return false;
-    for (const auto& line : *entry->second)
-      if (line.prefix_token == token) return true;
-    return false;
+  // The decoder's stored display-line framing proves where every row-control
+  // length byte stands.
+  const auto length_byte_at = [&](const std::size_t record_index,
+                                  const std::size_t token) {
+    return is_display_line_length_token(records[record_index], token);
   };
   // `SRFTN<id>` of the CZ dialect names the footnote the next `cz FLOW FN`
   // directive opens (packet 1.1 record 17).
@@ -1229,15 +1219,8 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           //    19910321130500 serves 8.1.1.2 as
           //    `<a name="HDRPCHECK"><H3> 8.1.1.2 </H3></a>`.  Verified the
           //    same way on 4.1.1 (`HDRETOHEAP`), 4.1.3 and 8.1.1.5.
-          const auto lines = record_display_lines(record);
-          const auto line_of = [&](const std::size_t token)
-              -> const DisplayLineIR* {
-            if (!lines) return nullptr;
-            for (const auto& candidate : *lines)
-              if (token >= candidate.prefix_token &&
-                  token < candidate.token_end)
-                return &candidate;
-            return nullptr;
+          const auto line_of = [&](const std::size_t token) {
+            return display_line_of_token(record, token);
           };
           bool length_byte_only = false;
           if (first_visible) {
@@ -1480,6 +1463,45 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
       }
       case BookControlKind::font: {
         if (!title_seen) return fail(error, "font control precedes the title");
+        // A `cfont` opcode that is itself a display line's length byte opens
+        // no control: the byte is a length and nothing else, whatever
+        // dictionary word it happens to spell (Format/logical-controls.md,
+        // "A Metadata Opcode In The Body Is A Display-Line Length Byte").
+        // The signature is exact -- the segment starts on the length byte,
+        // the byte's own word spells the opcode, and the operand carries no
+        // complete `<column> <length> <code>` triple, because what follows
+        // the byte is the line's display text.
+        //
+        // Byte-level, two books: SC24-546 record 79 has tokens 108 (value 44,
+        // the length of display line 3) and 109 (value 59, the word `cfont`)
+        // opening the genuine `cfont 13 2 X ... 67 3 X`, then token 149 --
+        // the same encoded value 59, this time the length of the 59-byte
+        // display line `             ¬<  ¬=  ¬==  >>  ...` -- which the
+        // flattened splitter read as a second `cfont`.  N2AH1MST record 89
+        // spells it adjacently: token 31 (value 37, the length of line 4) and
+        // token 32 (value 37, the opcode word) are byte-identical neighbours,
+        // and only the first is geometry.  OFCUSEOV record 276 token 0
+        // (value 59) is the length byte of the calendar box's first row.
+        // The byte re-enters the token stream so the display-row pass gives
+        // it the row-control slot it gives every other length byte.
+        if (!segment.source_tokens.empty() &&
+            length_byte_at(record_index, segment.source_tokens.front()) &&
+            ascii_equals_case_insensitive(
+                body_text(view_token(records, record_index,
+                                     segment.source_tokens.front())),
+                segment.opcode) &&
+            segment.malformed) {
+          for (const auto token : segment.source_tokens) {
+            Item item;
+            item.kind = ItemKind::token;
+            item.token = view_token(records, record_index, token);
+            build.items.push_back(std::move(item));
+          }
+          Item end;
+          end.kind = ItemKind::segment_end;
+          build.items.push_back(std::move(end));
+          break;
+        }
         std::string font_error;
         auto spans = decode_font_control_spans(record, segment, &font_error);
         if (!spans)

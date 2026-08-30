@@ -309,7 +309,29 @@ std::string render_legacy_topic_markdown(const TocEntry& entry) {
 } // namespace
 
 std::string BooDocument::markdown() const {
-  return detail::render_markdown_records(raw_gml_records());
+  // The whole book is the concatenation of its topics, each rendered by the
+  // same route `TocEntry::markdown()` uses. Rendering the book as one
+  // undifferentiated record stream, as this once did, discards the topic
+  // boundaries the typed pipeline needs and is lossier for every topic that
+  // the typed route handles.
+  std::string out;
+  for (const auto& entry : toc_) {
+    const auto topic = entry.markdown();
+    if (topic.empty()) {
+      continue;
+    }
+    if (!out.empty()) {
+      if (out.back() != '\n') {
+        out.push_back('\n');
+      }
+      out.push_back('\n');
+    }
+    out += topic;
+  }
+  if (!out.empty() && out.back() != '\n') {
+    out.push_back('\n');
+  }
+  return out;
 }
 
 namespace detail {
@@ -619,23 +641,6 @@ std::string render_inline_markdown(std::string text,
         }
         output += "[" + label + "](" + href + ")";
         cursor = close + std::string(":ehdref.").size();
-        continue;
-      }
-    }
-    if (ascii_starts_with_case_insensitive(tag, "image ")) {
-      const auto close = text.find(":eimage.", dot + 1);
-      const auto resource = inline_gml_attr(text.substr(cursor + 1,
-                                                        dot - cursor - 1),
-                                            "resource");
-      if (close != std::string::npos && !resource.empty()) {
-        auto label = render_inline_markdown(
-            text.substr(dot + 1, close - (dot + 1)),
-            escape_emphasis_delimiters);
-        if (label.empty()) {
-          label = "Resource " + resource;
-        }
-        output += "![" + label + "](resource:" + resource + ")";
-        cursor = close + std::string(":eimage.").size();
         continue;
       }
     }

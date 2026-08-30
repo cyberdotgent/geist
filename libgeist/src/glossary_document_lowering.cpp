@@ -316,33 +316,45 @@ BlockIR paragraph_block(const GlossaryParagraphIR &paragraph,
   return {std::move(block), std::move(block_origin)};
 }
 
+// The glossary's one embedded fixed-layout object, reproduced verbatim from
+// its physical rows.  Hosted BookServer serves SC31-711's `TBLUNIQ7` inside
+// the topic's `<pre>` as `   <B>DLCI</B> <B>Values</B>    <B>Function</B>` /
+// `   0              in-channel signaling` / ... -- fixed columns of plain
+// text, no `<table>` element on the page (DT 19941010174546).  The recovered
+// two-column grid stays in `GlossaryEmbeddedTableIR::rows` for consumers and
+// provenance; it is no longer what the Markdown asserts.
 BlockIR table_block(const GlossaryEmbeddedTableIR &source) {
-  auto block_origin = origin("glossary embedded table");
+  auto block_origin = origin("glossary embedded fixed-layout object: verbatim "
+                             "rows");
   for (const auto &control : source.controls)
     add_slice(block_origin, control.source);
   for (const auto &row : source.physical_rows)
     merge_origin(block_origin, row_origin(row, "glossary embedded table row"));
 
-  TableBlockIR table;
-  table.header_rows = source.header_rows;
-  for (const auto &source_row : source.rows) {
-    TableRowIR row;
-    row.origin = origin("glossary embedded table semantic row");
-    for (const auto &source_cell : source_row.cells) {
-      TableCellIR cell;
-      cell.origin = origin("glossary embedded table semantic cell");
-      for (const auto &source_coordinate : source_cell.source_cells)
-        add_row(cell.origin, source_coordinate.run,
-                source_coordinate.row_index);
-      canonicalize(cell.origin);
-      cell.content.push_back(text_inline(source_cell.text, cell.origin));
-      merge_origin(row.origin, cell.origin);
-      row.cells.push_back(std::move(cell));
+  // The physical rows of this object do not follow its display lines -- the
+  // compact marker slots split one lexical value across two of them (the
+  // recorded "1-" / "15" boundary) -- so the verbatim text is rebuilt from the
+  // proven column grid instead: each row is its cells at a single column stop,
+  // which is the shape hosted draws.
+  std::size_t stop = 0;
+  for (const auto &row : source.rows)
+    if (!row.cells.empty())
+      stop = std::max(stop, row.cells.front().text.size());
+  stop += 2;
+  PreformattedBlockIR body;
+  for (const auto &row : source.rows) {
+    std::string text;
+    for (std::size_t index = 0; index < row.cells.size(); ++index) {
+      if (index != 0 && text.size() < stop * index)
+        text.append(stop * index - text.size(), ' ');
+      text += row.cells[index].text;
     }
-    table.rows.push_back(std::move(row));
+    while (!text.empty() && text.back() == ' ')
+      text.pop_back();
+    body.lines.push_back(std::move(text));
   }
   canonicalize(block_origin);
-  return {std::move(table), std::move(block_origin)};
+  return {std::move(body), std::move(block_origin)};
 }
 
 } // namespace

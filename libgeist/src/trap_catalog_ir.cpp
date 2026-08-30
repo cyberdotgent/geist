@@ -125,7 +125,6 @@ struct SourceIndex {
   // N2AH1MST record 2284 token 0 is the one-byte value 31 that spells `are`
   // and opens the 31-byte line `   IDC0064I text UPDATED IN CARTRIDGE ...`,
   // which the flattened splitter had cut off as a leading text segment.
-  std::set<TokenKey> line_prefix_tokens;
   // Tokens of a body-control display line. A line whose whole visible content
   // is one `c.<xx>` opcode at the line origin with at most one operand word
   // after it draws nothing (`prose_topic_lines.cpp`, `body_control_line`:
@@ -172,8 +171,6 @@ SourceIndex index_sources(const std::vector<DecodedLogicalRecordSource> &records
   for (const auto &record : records)
     if (const auto lines = record_display_lines(record))
       for (const auto &line : *lines) {
-        index.line_prefix_tokens.emplace(record.logical_record,
-                                         line.prefix_token);
         const auto first = line.prefix_token + 1;
         if (first >= line.token_end)
           index.empty_line_prefixes[record.logical_record].push_back(
@@ -237,21 +234,18 @@ SourceIndex index_sources(const std::vector<DecodedLogicalRecordSource> &records
 // spelling `cfont`, and tokens 96-120 are the headline
 // `   IDC01551I type CACHING STATUS: stat FOR SD X'ss' DEV X'dd''`.
 bool segment_opcode_is_display_line_prefix(
-    const SourceIndex &index, const DecodedLogicalRecordSource &record,
+    const DecodedLogicalRecordSource &record,
     const ControlSegmentIR &segment) {
   return !segment.source_tokens.empty() &&
-         index.line_prefix_tokens.count(
-             {record.logical_record, segment.source_tokens.front()}) != 0;
+         is_display_line_length_token(record, segment.source_tokens.front());
 }
 
-bool segment_is_display_line_prefix(const SourceIndex &index,
-                                    const DecodedLogicalRecordSource &record,
+bool segment_is_display_line_prefix(const DecodedLogicalRecordSource &record,
                                     const ControlSegmentIR &segment) {
   return !segment.source_tokens.empty() &&
          std::all_of(segment.source_tokens.begin(), segment.source_tokens.end(),
                      [&](const auto token) {
-                       return index.line_prefix_tokens.count(
-                                  {record.logical_record, token}) != 0;
+                       return is_display_line_length_token(record, token);
                      });
 }
 
@@ -445,7 +439,7 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
     cell.word = value;
     cell.disposition = disposition;
     const auto marker = index.marker_rows.find({record.logical_record, token});
-    if (index.line_prefix_tokens.count({record.logical_record, token}) != 0 ||
+    if (is_display_line_length_token(record, token) ||
         index.body_control_tokens.count({record.logical_record, token}) != 0) {
       // The display line's length byte is the row-control slot, always and
       // only; whatever word it resolves to it draws nothing. Nor does a
@@ -759,7 +753,7 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
        ++index_in_order) {
     const auto &ref = ordered[index_in_order];
     const auto &segment = *ref.segment;
-    if (segment_is_display_line_prefix(index, *ref.record, segment) ||
+    if (segment_is_display_line_prefix(*ref.record, segment) ||
         nondrawing_control(index, *ref.record, segment))
       continue;
     const auto operand_text = collapse(range_text(*ref.record, segment.operand_range));
@@ -922,11 +916,11 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
     for (auto at = begin + 1; at < end; ++at) {
       const auto &ref = ordered[at];
       const auto &segment = *ref.segment;
-      if (segment_is_display_line_prefix(index, *ref.record, segment) ||
+      if (segment_is_display_line_prefix(*ref.record, segment) ||
           nondrawing_control(index, *ref.record, segment))
         continue;
       const auto opcode_is_line_prefix =
-          segment_opcode_is_display_line_prefix(index, *ref.record, segment);
+          segment_opcode_is_display_line_prefix(*ref.record, segment);
       if (!opcode_is_line_prefix &&
           segment.kind == BookControlKind::message_start &&
           segment.payload_range.begin == segment.payload_range.end &&
@@ -981,7 +975,7 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
         } else if (line.body.text.empty() && at + 1 < end &&
                    ordered[at + 1].record == ref.record &&
                    segment_opcode_is_display_line_prefix(
-                       index, *ref.record, *ordered[at + 1].segment)) {
+                       *ref.record, *ordered[at + 1].segment)) {
           // Same fact one segment earlier: a CFONT whose span list fills the
           // whole segment leaves an empty payload, and the flattened splitter
           // then cut the row's own text off at its display-line length byte.

@@ -25,7 +25,8 @@ int main() {
            "The view will be set to unknown while the problem persists",
            "has been removed from the database",
            "This message usually indicates that the other process failed",
-           "| Command type | Command |\n| --- | --- |\n| 23006 | LAN ADP LIST",
+           // MSG807's listing renders verbatim, as hosted serves it.
+           "```\nCommand type Command\n23006 LAN ADP LIST",
            "- /usr/lpp/lnm/databases contains lnmlnmemgr\\.pdf\n- ",
            "```\nApplication Action\nCP Consult the nettl log",
        }) {

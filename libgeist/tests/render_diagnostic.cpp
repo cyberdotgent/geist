@@ -126,23 +126,27 @@ void message_preformatted_fallback_topic() {
           "the marker names the degraded block");
 }
 
-// A verbatim SRTBL region degrades its topic the same way.
+// A verbatim SRTBL region does NOT degrade its topic.  The BOO file stores
+// character art, not a grid -- `SRTBLDBCTL51` (GG24-4302-00 10.2) is an object
+// id followed by a 120-character box-rule run, a caption and more rule runs,
+// with no column definitions and no cell boundaries -- and the hosted
+// BookServer reproduces every such region verbatim inside `<pre>`, emitting no
+// `<table>` element anywhere on this corpus except where the source itself
+// declares `cz OFF TABLE`.  So reproducing the art line for line *equals* the
+// reference renderer: nothing the source contains is lost, and degradation is
+// reserved for real loss.  SC31-711 2.4.1 is a drawn problem-determination
+// form; hosted (DT 19941010174546) serves it as `<pre>` box art.
 void verbatim_table_region_topic() {
   const auto document = geist::BooDocument::open(book("SC31-711.boo"));
   const auto &entry = topic(document, "2.4.1");
   const auto &diagnostic = entry.render_diagnostic();
-  require(diagnostic.severity == geist::RenderSeverity::typed_degraded,
-          "SC31-711 2.4.1 should be typed-degraded, is " +
+  require(diagnostic.severity == geist::RenderSeverity::typed,
+          "SC31-711 2.4.1 should be typed, is " +
               std::string(geist::to_string(diagnostic.severity)));
-  auto found = false;
-  for (const auto &degradation : diagnostic.degradations) {
-    if (degradation.reason != "fixed-table-verbatim")
-      continue;
-    found = true;
-    require(degradation.block == "fixed table region: preformatted body",
-            "the degradation names the block, is " + degradation.block);
-  }
-  require(found, "2.4.1 reports a verbatim SRTBL region");
+  require(diagnostic.degradations.empty(),
+          "2.4.1 must report no degradation for its verbatim SRTBL region");
+  require(entry.markdown().find("<!--") == std::string::npos,
+          "a clean topic carries no render-diagnostic comment");
 }
 
 // Fail-closed must never mean withholding content.  SC26-457 FRONT_2.1.1 is a

@@ -386,7 +386,10 @@ void positive_fixtures() {
   {
     Extracted kept;
     const auto markdown = admit("QSYSNEWG.BOO", "1.0", &kept);
-    require(contains(markdown, "```\n ___ In a Hurry? ____"),
+    // The region keeps its own left margin: hosted (QSYSNEWG DT
+    // 19910524085706) opens the box at display column 4 with the rule
+    // `    ___ In a Hurry? ____...` and puts the frame at column 3.
+    require(contains(markdown, "```\n    ___ In a Hurry? ____"),
             "QSYSNEWG 1.0 box top rule");
     require(contains(markdown,
                      "| This chapter contains background information about "
@@ -478,6 +481,32 @@ void positive_fixtures() {
     if (kept.prose)
       require(count_blocks(*kept.prose, ProseBlockKindIR::preformatted) == 1,
               "OFCUSEOV 1.18.2 preformatted block count");
+  }
+  {
+    // A captured OS/400 terminal screen, not a data grid: OFCUSEOV 1.11's
+    // `Work with Mail` frame carries an option list, a dashed `------From-------`
+    // spanning label over three narrower column headings, and the function-key
+    // footer, all inside one drawn frame.  Any column inference would shred it,
+    // so the frame is reproduced exactly as hosted BookServer serves it inside
+    // `<pre>` (DT 19900805103816).  OFCUSEOV carries no `cz` directives at all,
+    // so these screens are recognised by the drawn frame rather than by a
+    // `cz OFF SCREEN` marker.
+    Extracted kept;
+    const auto markdown = admit("OFCUSEOV.BOO", "1.11", &kept);
+    for (const auto* row : {
+             "|     |                                   Work with Mail       "
+             "                          |",
+             "|     |                    ------From-------                   "
+             "                 Date     |",
+             "|     |   Opt  Status      User ID  Address   Description      "
+             "                 Received |",
+             "|     |   __   NEW         SJONES   ROCH      Budget Meeting   "
+             "                 04/21/88 |",
+             "|     |   F3=Exit           F5=Refresh   F6=Outgoing mail "
+             "status                         |",
+         })
+      require(contains(markdown, row),
+              "OFCUSEOV 1.11 screen capture lost a frame row");
   }
   {
     // `LNK <BOOK> <> <> <SC30-3290> <> <TPNSGU>` selectors lower to external
@@ -870,8 +899,12 @@ void cz_fixtures() {
   {
     Extracted kept;
     const auto markdown = admit("packet.boo", "3.2", &kept);
-    require(contains(markdown,
-                     "```\n# name callsign speed paclen window description\n"),
+    // The `cz OFF XMP` region keeps its own left margin: hosted (packet DT
+    // 20260614112503) serves the listing at display column 5,
+    // `     # name callsign speed paclen window description`.
+    require(contains(
+                markdown,
+                "```\n     # name callsign speed paclen window description\n"),
             "3.2 example block lost its leading `#`");
     require(contains(markdown,
                      "To define an AX\\.25 port, edit `/etc/ax25/axports`, "
@@ -1001,8 +1034,11 @@ void cz_fixtures() {
   // (SC09-2417-00 4.2.2), both hosted-verified.
   {
     const auto markdown = admit("packet.boo", "2.4.1");
-    require(contains(markdown, "```\n2062:41FE:653A:9882:511:FFE9:8392:412D\n"
-                               "```\n\nNote that zeros are omitted"),
+    // Hosted (packet DT 20260614112503) serves the address at display
+    // column 5, `     2062:41FE:653A:9882:511:FFE9:8392:412D`.
+    require(contains(markdown,
+                     "```\n     2062:41FE:653A:9882:511:FFE9:8392:412D\n"
+                     "```\n\nNote that zeros are omitted"),
             "2.4.1 lost the text on cz OFF EXMP");
   }
   {

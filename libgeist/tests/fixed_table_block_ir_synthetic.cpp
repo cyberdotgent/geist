@@ -33,6 +33,11 @@
 // reproduced exactly as the hosted reader prints them
 // (SC24-5527-02 3.8.4.2 `TBLUNIQ99`/`TBLUNIQ100` at DT=19921218151459,
 // 3.8.4.6 `TBLUNIQ114`, SG24-204 BACK_1.2 `TBLUNIQ18`/`TBLUNIQ20`).
+// A region may also carry a `PIC<n>` picture selector, which hosted serves
+// as an `<img>` over the columns the selector names: GG24-395 3.3.8
+// `TBLUNIQ14` (one picture, DT=19941215160749) and GX27-3999-00 1.3
+// `NOSENVI` (four, DT=19950730184057) check that the columns are blanked out
+// of the reproduced art and the picture kept.
 
 #include "geist/boo.hpp"
 #include "geist/detail/document_ir.hpp"
@@ -173,6 +178,16 @@ const TableBlockIR *lowered_table(const std::vector<BlockIR> &blocks) {
   return nullptr;
 }
 
+// Every SRTBL envelope the source did not declare a `:table` with
+// `cz OFF TABLE` lowers to its display lines, exactly as the hosted
+// BookServer serves them inside `<pre>`.
+const PreformattedBlockIR *lowered_verbatim(const std::vector<BlockIR> &blocks) {
+  for (const auto &block : blocks)
+    if (const auto *body = std::get_if<PreformattedBlockIR>(&block.node))
+      return body;
+  return nullptr;
+}
+
 std::string inline_text(const InlineSequenceIR &content) {
   std::string text;
   for (const auto &in : content) {
@@ -221,17 +236,27 @@ void test_sc31_711_trademark_box() {
   require(block.rows.begin == 2 && block.rows.end == 8,
           "FRONT_1.1 row span");
 
+  // The recovered columns stay in the IR, but the Markdown is the drawn box
+  // itself: hosted serves exactly these eleven lines inside `<pre width="80">`
+  // (`   | IBM                                | NetView                           |`
+  // over `   |____...____|____...____|`) and emits no `<table>` element.
   const auto lowered = lower_fixed_table_block_to_document_ir(block);
-  const auto *table = lowered_table(lowered);
+  const auto *verbatim = lowered_verbatim(lowered);
   require(lowered.size() == 2 &&
               std::holds_alternative<AnchorBlockIR>(lowered.front().node) &&
-              table != nullptr && table->header_rows == 0 &&
-              table->rows.size() == 5,
-          "FRONT_1.1 lowers to an anchor and a headerless table");
-  if (table != nullptr && table->rows.size() == 5)
-    require(inline_text(table->rows[3].cells[0].content) ==
-                "RISC System/6000",
-            "FRONT_1.1 lowered cell text");
+              lowered_table(lowered) == nullptr && verbatim != nullptr &&
+              verbatim->lines.size() == 11,
+          "FRONT_1.1 lowers to an anchor and the drawn box verbatim");
+  if (verbatim != nullptr && verbatim->lines.size() == 11) {
+    require(verbatim->lines[0] ==
+                "    ____________________________________ "
+                "___________________________________",
+            "FRONT_1.1 verbatim top rule");
+    require(verbatim->lines[7] ==
+                "   | RISC System/6000                   | RS/6000            "
+                "               |",
+            "FRONT_1.1 verbatim RISC row");
+  }
 
   // Row-range API: the exact span admits, a disjoint span ignores, and a
   // partial span declines without admitting anything.
@@ -278,16 +303,17 @@ void test_sc31_711_trademark_box() {
           "altered source cell must be rejected");
   // Mutation rejection for the document lowering verifier.
   auto lowered_mutated = lowered;
-  auto *mutated_table = std::get_if<TableBlockIR>(&lowered_mutated.back().node);
-  if (mutated_table != nullptr) {
-    std::get<TextInlineIR>(mutated_table->rows[0].cells[1].content[0].node)
-        .text = "NetVieW";
+  auto *mutated_body =
+      std::get_if<PreformattedBlockIR>(&lowered_mutated.back().node);
+  if (mutated_body != nullptr) {
+    mutated_body->lines[1] = "   | IBN";
     require(!verify_fixed_table_document_ir(block, lowered_mutated, &error),
-            "mutated lowered text must be rejected");
+            "mutated lowered line must be rejected");
     lowered_mutated = lowered;
-    std::get_if<TableBlockIR>(&lowered_mutated.back().node)->header_rows = 1;
+    std::get_if<PreformattedBlockIR>(&lowered_mutated.back().node)
+        ->lines.pop_back();
     require(!verify_fixed_table_document_ir(block, lowered_mutated, &error),
-            "mutated lowered header count must be rejected");
+            "dropped lowered line must be rejected");
     lowered_mutated = lowered;
     lowered_mutated.erase(lowered_mutated.begin());
     require(!verify_fixed_table_document_ir(block, lowered_mutated, &error),
@@ -339,13 +365,21 @@ void test_sc31_711_trap_directory() {
               cell_text(block.body[4], 1) ==
                   "\"FDDI SNMP Proxy Agent Traps\" in topic 4.4",
           "4.0 last body row");
+  // Hosted serves the same envelope verbatim: `   | For information       |
+  // Read:                                          |` on its own line, then
+  // `   | about:                |` on the next -- the header's display line
+  // break is a real line, not a `<br>` inside a cell.
   const auto lowered = lower_fixed_table_block_to_document_ir(block);
-  const auto *table = lowered_table(lowered);
-  require(table != nullptr && table->header_rows == 1 &&
-              table->rows.size() == 5 &&
-              inline_text(table->rows[0].cells[0].content) ==
-                  "For information\nabout:",
-          "4.0 lowered header keeps the display line break");
+  const auto *verbatim = lowered_verbatim(lowered);
+  require(lowered_table(lowered) == nullptr && verbatim != nullptr &&
+              verbatim->lines.size() > 2 &&
+              verbatim->lines[1] ==
+                  "   | For information       | Read:                         "
+                  "                 |" &&
+              verbatim->lines[2] ==
+                  "   | about:                |                               "
+                  "                 |",
+          "4.0 lowers verbatim and keeps the header's two display lines");
 }
 
 void test_gg24_dbctl_overview() {
@@ -383,12 +417,16 @@ void test_gg24_dbctl_overview() {
               cell_text(block.body[30], 1) == "*" &&
               cell_text(block.body[30], 2).empty(),
           "10.2 last row");
+  // The caption is not lifted out of the art: hosted draws it inside the box,
+  // `   | Table 15. DBCTL 5.1 Overview ... |` between two rules, so the
+  // verbatim body carries it in place and the lowering emits anchor + body.
   const auto lowered = lower_fixed_table_block_to_document_ir(block);
-  require(lowered.size() == 3 &&
-              std::holds_alternative<ParagraphBlockIR>(lowered[1].node) &&
-              inline_text(std::get<ParagraphBlockIR>(lowered[1].node).content) ==
-                  "Table 15. DBCTL 5.1 Overview",
-          "10.2 caption lowers to a paragraph before the table");
+  const auto *verbatim = lowered_verbatim(lowered);
+  require(lowered.size() == 2 && verbatim != nullptr &&
+              lowered_table(lowered) == nullptr && verbatim->lines.size() > 1 &&
+              verbatim->lines[1].rfind("   | Table 15. DBCTL 5.1 Overview", 0) ==
+                  0,
+          "10.2 lowers verbatim with the caption drawn inside the box");
 }
 
 void test_sc31_605_block_005() {
@@ -485,9 +523,9 @@ void test_gap_qsysinfo_order_form() {
           "APPENDIX1.4.1.1 body row (`___` is a visible order-form cell, the "
           "`,` after `Guide` a hidden terminal slot)");
   const auto lowered = lower_fixed_table_block_to_document_ir(block);
-  const auto *table = lowered_table(lowered);
-  require(table != nullptr && table->header_rows == 1 && table->rows.size() == 2,
-          "APPENDIX1.4.1.1 lowers to a header and one row");
+  require(lowered_table(lowered) == nullptr &&
+              lowered_verbatim(lowered) != nullptr,
+          "APPENDIX1.4.1.1 lowers to its display lines, as hosted serves them");
 
   const auto appendix = extract("QSYSINFO.BOO", "APPENDIX1.4");
   require(appendix.blocks.blocks.size() == 1 && appendix.blocks.declined.empty(),
@@ -581,10 +619,12 @@ void test_gap_sc33_function_signature() {
               cell_text(defaults.body[2], 1) == "normal",
           "4.6 defaults table: `line type` one-byte word in line, `)` kept "
           "before a glyph marker");
+  // Gap-column envelopes render verbatim too: the caption line is one of the
+  // region's display lines and hosted prints it in place.
   const auto lowered = lower_fixed_table_block_to_document_ir(codes);
-  require(lowered.size() == 3 &&
-              std::holds_alternative<ParagraphBlockIR>(lowered[1].node),
-          "4.6 caption lowers to a paragraph before the table");
+  require(lowered.size() == 2 && lowered_table(lowered) == nullptr &&
+              lowered_verbatim(lowered) != nullptr,
+          "4.6 lowers to its display lines, caption line included");
 }
 
 void test_gap_sc24_command_tables() {
@@ -811,6 +851,90 @@ void test_negatives() {
   }
 }
 
+// A `PIC<n>` selector inside a fixed-layout region.  Hosted BookServer
+// replaces exactly the selector's columns with the image and leaves the rest
+// of the display line in place, so the region keeps its art *and* its
+// picture: the columns are blanked in the reproduced text and the picture is
+// recorded.  Reproducing the placeholder words instead would spell
+// `PICTURE 69` where hosted shows the image.
+//   GG24-395 3.3.8 `TBLUNIQ14`  DT=19941215160749, one picture, prose beside
+//   GX27-3999-00 1.3 `NOSENVI`  DT=19950730184057, four icons, one per row
+void test_picture_regions() {
+  const auto overview = extract("GG24-395.boo", "3.3.8");
+  require(overview.blocks.blocks.size() == 1 &&
+              overview.blocks.declined.empty(),
+          "3.3.8 admits its picture-bearing envelope");
+  if (overview.blocks.blocks.size() != 1)
+    return;
+  const auto &region = overview.blocks.blocks.front();
+  require(region.object_id == "TBLUNIQ14" && !region.source_declared_table &&
+              region.pictures.size() == 1,
+          "3.3.8 records exactly one picture");
+  if (region.pictures.size() == 1) {
+    const auto &picture = region.pictures.front();
+    require(picture.resource == "69" && picture.placeholder == "PICTURE 69" &&
+                picture.line == 0 && picture.column == 3 &&
+                picture.length == 11,
+            "3.3.8 picture is PIC69 over columns [3,14) of the first line");
+    require(region.preformatted_lines.front().text ==
+                "                   SystemView Host Management Facilities/VM "
+                "(HMF/VM, 5684-157),",
+            "3.3.8 blanks the placeholder columns, as hosted's <pre> does");
+  }
+  const auto lowered = lower_fixed_table_block_to_document_ir(region);
+  const auto *figure =
+      lowered.size() == 3 ? std::get_if<FigureBlockIR>(&lowered[1].node)
+                          : nullptr;
+  require(lowered.size() == 3 && figure != nullptr &&
+              figure->resource == "resource:69" &&
+              lowered_verbatim(lowered) != nullptr,
+          "3.3.8 lowers to anchor + image + verbatim art");
+
+  const auto adapters = extract("GX27-3999-00.boo", "1.3");
+  require(adapters.blocks.blocks.size() == 1, "1.3 admits its envelope");
+  if (adapters.blocks.blocks.size() == 1) {
+    const auto &box = adapters.blocks.blocks.front();
+    std::vector<std::string> resources;
+    for (const auto &picture : box.pictures)
+      resources.push_back(picture.resource);
+    require(resources == std::vector<std::string>{"3", "4", "5", "6"},
+            "1.3 records one icon per table row, in line order");
+    for (const auto &picture : box.pictures)
+      require(picture.line < box.preformatted_lines.size() &&
+                  box.preformatted_lines[picture.line].text.find(
+                      "PICTURE") == std::string::npos,
+              "1.3 blanks every placeholder out of the reproduced art");
+  }
+
+  // Mutation rejection: an image may not be dropped, moved or left spelling
+  // its placeholder words.
+  std::string error;
+  auto mutated = overview.blocks;
+  mutated.blocks[0].pictures.clear();
+  require(!verify_fixed_table_blocks_ir(overview.sources, overview.layout,
+                                        overview.ownership, overview.range,
+                                        mutated, &error),
+          "dropped picture must be rejected");
+  mutated = overview.blocks;
+  mutated.blocks[0].pictures.front().resource = "70";
+  require(!verify_fixed_table_blocks_ir(overview.sources, overview.layout,
+                                        overview.ownership, overview.range,
+                                        mutated, &error),
+          "retargeted picture must be rejected");
+  mutated = overview.blocks;
+  mutated.blocks[0].preformatted_lines.front().text =
+      "    PICTURE 69     SystemView Host Management Facilities/VM "
+      "(HMF/VM, 5684-157),";
+  require(!verify_fixed_table_blocks_ir(overview.sources, overview.layout,
+                                        overview.ownership, overview.range,
+                                        mutated, &error),
+          "placeholder words left in the picture's columns must be rejected");
+  auto lowered_mutated = lowered;
+  lowered_mutated.erase(lowered_mutated.begin() + 1);
+  require(!verify_fixed_table_document_ir(region, lowered_mutated, &error),
+          "lowering that loses the image must be rejected");
+}
+
 } // namespace
 
 int main() {
@@ -827,6 +951,7 @@ int main() {
   test_gap_sc24_command_tables();
   test_gap_sc31_glossary();
   test_gap_negatives();
+  test_picture_regions();
   std::cout << "fixed_table_block_ir_synthetic: done\n";
   return 0;
 }

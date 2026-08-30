@@ -310,16 +310,32 @@ int main() {
               "4.0 tokens are owned by the table span");
       require(contains(markdown, "<a id=\"FIGTBLUNIQ6\"></a>\n\n<a id=\"TBLTBLUNIQ6\"></a>"),
               "4.0 anchors keep the hosted order: " + markdown);
-      // CSELECT cells link line by line, as hosted and legacy do.
-      require(contains(markdown, "| LNM OS/2 agent traps | [\"LNM OS/2 Agent "
-                                 "Application Traps\" in](<#HDRLMATRP>)<br>"
-                                 "[topic 4\\.1](<#HDRLMATRP>) |"),
-              "4.0 table row links: " + markdown);
+      // The envelope renders as the drawn box hosted serves inside its
+      // `<pre width="80">`, line for line.
+      require(contains(markdown,
+                       "```\n"
+                       "    _______________________ "
+                       "________________________________________________\n"
+                       "   | For information       | Read:                    "
+                       "                      |\n"),
+              "4.0 verbatim box: " + markdown);
+      require(contains(markdown,
+                       "   | LNM OS/2 agent traps  | \"LNM OS/2 Agent "
+                       "Application Traps\" in          |\n"
+                       "   |                       | topic 4.1               "
+                       "                       |\n"),
+              "4.0 verbatim CSELECT row: " + markdown);
+      // The five CSELECT links are still recovered and still carried by the
+      // IR; a fenced block cannot hold a Markdown link, so the rendering
+      // drops the anchor and keeps the text, exactly as the reader shows it
+      // in a plain-text client.
       require(prose.table_links.size() == 5,
               "4.0 has five table links");
       require(contains(markdown, "they originate\\.\n\nWhen the LNM"),
               "4.0 paragraphs before the table: " + markdown);
-      require(contains(markdown, "topic 4\\.4](<#HDRFDDITRP>) |\n\nSubtopics:"),
+      require(contains(markdown,
+                       "|_______________________|_______________________________"
+                       "_________________|\n```\n\nSubtopics:"),
               "4.0 menu follows the table: " + markdown);
       mutations(kept, "SC31-711 4.0");
     }
@@ -363,7 +379,14 @@ int main() {
       require(prose.spans.size() == 1 && prose.tables.blocks.size() == 1 &&
                   prose.tables.blocks.front().caption.has_value(),
               "10.2 has one captioned table span");
-      require(contains(markdown, "<a id=\"TBLDBCTL51\"></a>\n\nTable 15\\. DBCTL 5\\.1 Overview\n\n|  | TM | DBCTL |\n| --- | --- | --- |"),
+      // Hosted draws the caption inside the box, between the top rule and the
+      // header row, so the verbatim body carries it in place rather than
+      // lifting it into a paragraph.
+      require(contains(markdown,
+                       "<a id=\"TBLDBCTL51\"></a>\n\n```\n"),
+              "10.2 anchor precedes the verbatim body: " + markdown);
+      require(contains(markdown, "   | Table 15. DBCTL 5.1 Overview") &&
+                  contains(markdown, "|         TM        |       DBCTL      |"),
               "10.2 caption and header: " + markdown);
       require(contains(markdown, "[Table 15](<#TBLDBCTL51>)"),
               "10.2 cross reference targets the table anchor: " + markdown);
@@ -381,7 +404,7 @@ int main() {
     require(!contains(markdown, "SI VMSES") &&
                 !contains(markdown, "service disks"),
             "4.1.1 printed the subject-index line of its table envelope");
-    require(contains(markdown, "Table  4\\-1\\. Service Disks for VMSES/E"),
+    require(contains(markdown, "Table  4-1. Service Disks for VMSES/E"),
             "4.1.1 lost its table caption: " + markdown);
     if (kept.prose) {
       const auto& terms = kept.prose->index_terms;
@@ -407,10 +430,21 @@ int main() {
     // external cross reference the prose inline carries: hosted
     // SC24-5527-02 3.9.4.4 (DT 19921218151459) serves the `TBLUNIQ156` cell
     // as `<a href="../../DOCNUM/SC24-5521/CCONTENTS?DocnumLevel=ANY">`.
+    // The envelope now renders verbatim, and a fenced block cannot hold a
+    // Markdown link, so the cell keeps hosted's *text* and drops its anchor;
+    // the recovered link itself stays in `ProseTopicIR::table_links`.
     Extracted kept;
     const auto markdown = admit("SC24-5527-02.boo", "3.9.4.4", kept);
-    require(contains(markdown, "(<DOCNUM/SC24-5521/CCONTENTS>)"),
-            "3.9.4.4 lost its cross-book table cell link: " + markdown);
+    require(contains(markdown, "VM/ESA: Planning and") &&
+                contains(markdown, "Administration."),
+            "3.9.4.4 lost its cross-book table cell text: " + markdown);
+    require(kept.prose && !kept.prose->table_links.empty() &&
+                std::any_of(kept.prose->table_links.begin(),
+                            kept.prose->table_links.end(),
+                            [](const auto& link) {
+                              return link.target == "DOCNUM/SC24-5521/CCONTENTS";
+                            }),
+            "3.9.4.4 lost the recovered cross-book table cell link");
     if (kept.prose) {
       const auto& links = kept.prose->table_links;
       require(std::any_of(links.begin(), links.end(),

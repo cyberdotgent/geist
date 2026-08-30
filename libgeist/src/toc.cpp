@@ -251,8 +251,11 @@ bool line_ends_paragraph(const std::string& line) {
   return !trimmed.empty() && paragraph_punctuation(trimmed.back());
 }
 
-// M9 keep: fixed-body visual `|` rails; changes 838 legacy-route rows in 119
-// topics (GG24-395, FA1PLMM0, QSYSNEWG, ...). Replaced by `LayoutIR` rows.
+// M9 keep: fixed-body visual `|` rails.  Effect census at typed coverage
+// 6,986/7,362 (disable, re-export the whole corpus, `diff -r`): 9 dependent
+// topics - GG24-4302-00 FRONT_1, ITPPIBOK A.2.1, QSYSNEWG 6.3.1/7.7.2.1,
+// SC24-546 2.1.3, SC24-5527-02 COMMENTS, SC33-033 A.2/A.3, SC34-425 2.5.6.
+// Replaced by `LayoutIR` rows.
 std::string strip_leading_visual_bar(std::string line) {
   line = trim_ascii(std::move(line));
   if (!line.empty() && line.front() == '|') {
@@ -266,10 +269,10 @@ std::string strip_leading_visual_bar(std::string line) {
   return line;
 }
 
-// M9 keep: legacy-route catalog introductions: SC31-711 2.4.9, 4.1.1,
-// 4.1.2, 4.1.3, 4.3.1, 4.3.2, 4.3.4, 4.3.5, GX27-3999-00 B.0, SC09-138 F.1
-// (`?` placeholder runs, record-boundary bytes, one `srmsg ` truncation,
-// trailing `)` slot glyphs). Replaced by `MessageTopicIR` introduction
+// M9 keep: legacy-route catalog introductions.  Effect census at typed
+// coverage 6,986/7,362: 3 dependent topics - GX27-3999-00 B.0, SC09-138 F.1,
+// SC31-711 4.3.5. The SC31-711 2.4.9/4.1.x/4.3.1-4.3.4 topics named in the
+// earlier census are typed now. Replaced by `MessageTopicIR` introduction
 // paragraphs (typed trap-catalog lowering).
 std::string normalize_message_catalog_intro(std::string value) {
   const auto lower = ascii_lower(value);
@@ -305,9 +308,11 @@ std::string normalize_message_catalog_intro(std::string value) {
 }
 
 // M9 keep: legacy-only SRMSG catalog introductions and `ST` form prefixes.
-// Fires (corpus census, whole-corpus `boo2git`): SC31-711 4.1.1, 4.3.1, 4.3.2
-// (`<` glyph slot), 4.3.4, 4.3.5 (`(`/`)` glyph slots). Retires with a typed
-// trap-catalog lowering (`MessageTopicIR` introduction). The glyph slot
+// Effect census at typed coverage 6,986/7,362: exactly 1 dependent topic,
+// SC31-711 4.3.5 (`(`/`)` glyph slots); 4.1.1/4.3.1/4.3.2/4.3.4 are typed
+// now, so the function still runs on them but its output is discarded.
+// Retires with a typed trap-catalog lowering
+// (`MessageTopicIR` introduction). The glyph slot
 // characters before the four-space padding are the legacy fixed-row marker
 // glyph set (`is_fixed_st_row_marker` plus `"`).
 std::string clean_fixed_st_row_markers(std::string value) {
@@ -425,11 +430,13 @@ bool fixed_st_row_marker_at(const std::string& value, std::size_t cursor) {
 // (`is_fixed_st_row_marker`, `fixed_st_row_marker_at`,
 // `has_reflow_off_line_markers`, `split_reflow_off_body_lines`,
 // `preserve_reflow_off_st_body_lines`, `strip_leading_visual_bar`). Corpus
-// census: `has_reflow_off_line_markers` selects the fixed body for 431
-// legacy-route topics in 31 books (for example IBMMMSTR FRONT_1, SC31-711
-// FRONT_1/BACK_1, GG24-4302-00 3.1); the glyph marker split fires in 361 of
-// them. Replaced by `LayoutIR` marker slots / `fixed_prose_ir.cpp` once the
-// typed fixed-prose lowering admits those bodies.
+// effect census at typed coverage 6,986/7,362 (disable, re-export the whole
+// corpus, `diff -r`): 14 dependent topics - FA1PLMM0 9.3/9.3.1, GG24-4302-00
+// FRONT_1, IBMMMSTR TITLE, ITPPIBOK A.2.1, N2AH1MST 1.2.5, QSYSNEWG
+// 6.3.1/7.7.2.1, SC24-546 2.1.3, SC24-5527-02 COMMENTS, SC31-711 BACK_1.12,
+// SC33-033 A.2/A.3, SC34-425 2.5.6. Replaced by `LayoutIR` marker slots /
+// `fixed_prose_ir.cpp` once the typed fixed-prose lowering admits those
+// bodies.
 bool has_reflow_off_line_markers(const std::string& value) {
   auto spaces = std::size_t{0};
   for (const auto ch : value) {
@@ -727,89 +734,6 @@ std::optional<std::size_t> st_body_begin_after_title(
   return cursor;
 }
 
-// M9 keep: `__` form-item envelopes in SC31-711 2.4.5, 2.4.6, 2.4.7, 2.4.8,
-// 2.4.9 (legacy route). Replaced by a typed form-list structure once those
-// selector-introduced topics lower through Document IR.
-std::vector<std::string> render_st_form_items(const std::string& body) {
-  const auto find_delimiter = [&](std::size_t search) {
-    for (auto found = body.find("__", search); found != std::string::npos;
-         found = body.find("__", found + 2)) {
-      const auto separated_before =
-          found == 0 ||
-          std::isspace(static_cast<unsigned char>(body[found - 1])) != 0 ||
-          body[found - 1] == '?';
-      const auto separated_after =
-          found + 2 == body.size() ||
-          std::isspace(static_cast<unsigned char>(body[found + 2])) != 0 ||
-          body[found + 2] == '?';
-      if (separated_before && separated_after) {
-        return found;
-      }
-    }
-    return std::string::npos;
-  };
-
-  std::vector<std::string> records;
-  auto cursor = find_delimiter(0);
-  auto prefix = cursor == std::string::npos
-                    ? std::string{}
-                    : normalize_message_catalog_intro(
-                          clean_fixed_st_row_markers(body.substr(0, cursor)));
-  while (cursor != std::string::npos) {
-    const auto begin = cursor + 2;
-    const auto next = find_delimiter(begin);
-    auto item = collapse_ascii_whitespace(body.substr(
-        begin, next == std::string::npos ? std::string::npos : next - begin));
-    while (!item.empty() &&
-           (item.back() == '-' || item.back() == '/' || item.back() == '<' ||
-            item.back() == '>' || item.back() == '(')) {
-      item.pop_back();
-      item = trim_ascii(std::move(item));
-    }
-    for (auto marker = item.find(" < "); marker != std::string::npos;
-         marker = item.find(" < ", marker)) {
-      item.replace(marker, 3, " ");
-    }
-    for (auto marker = item.find("( Number of ");
-         marker != std::string::npos;
-         marker = item.find("( Number of ", marker)) {
-      item.replace(marker, 2, " ");
-    }
-
-    std::vector<std::string> item_parts;
-    auto part_begin = std::size_t{0};
-    auto part_end = item.find(" Number of ");
-    while (part_end != std::string::npos) {
-      item_parts.push_back(trim_ascii(item.substr(part_begin,
-                                                  part_end - part_begin)));
-      part_begin = part_end + 1;
-      part_end = item.find(" Number of ", part_begin);
-    }
-    item_parts.push_back(trim_ascii(item.substr(part_begin)));
-    for (auto& part : item_parts) {
-      while (!part.empty() &&
-             (part.back() == '-' || part.back() == '/' ||
-              part.back() == '<' || part.back() == '>' ||
-              part.back() == '(')) {
-        part.pop_back();
-        part = trim_ascii(std::move(part));
-      }
-      if (!part.empty()) {
-        records.push_back(":li." + std::move(part));
-      }
-    }
-    cursor = next;
-  }
-  if (records.empty()) {
-    return records;
-  }
-  records.insert(records.begin(), ":ul type='form'.");
-  records.push_back(":eul.");
-  if (!prefix.empty()) {
-    records.insert(records.begin(), ":p." + std::move(prefix));
-  }
-  return records;
-}
 
 std::string topic_st_body_after_toc_title(const TopicData& topic,
                                           const std::string& title) {
@@ -961,24 +885,6 @@ std::string topic_st_following_control_after_toc_title(
 }
 
 // M9 keep: QSYSNEWG GLOSSARY only (legacy route; a flattened ` cfont `
-// continuation and a trailing `(` slot glyph). Replaced by
-// `GlossaryCatalogIR` once that glossary is admitted.
-std::string clean_glossary_intro_fixed_line(std::string line) {
-  if (const auto control = ascii_lower(line).find(" cfont ");
-      control != std::string::npos) {
-    line.resize(control);
-  }
-  line = trim_ascii(std::move(line));
-  while (!line.empty() &&
-         (line.back() == '<' || line.back() == '>' || line.back() == '/' ||
-          line.back() == '"' || line.back() == '(' || line.back() == ')' ||
-          line.back() == '=')) {
-    line.pop_back();
-    line = trim_ascii(std::move(line));
-  }
-  return line;
-}
-
 void attach_topic_data(
     TocEntry& entry,
     const TopicData& topic,
@@ -1180,7 +1086,6 @@ void attach_topic_data(
           erase_begin = entry.raw_records.erase(erase_begin, erase_end);
           std::vector<std::string> preserved{":xmp."};
           for (auto line : split_reflow_off_body_lines(std::move(body_text))) {
-            line = clean_glossary_intro_fixed_line(std::move(line));
             if (!line.empty()) {
               preserved.push_back(":xline." + std::move(line));
             }
@@ -1194,13 +1099,7 @@ void attach_topic_data(
                                    std::make_move_iterator(preserved.end()));
           return;
         }
-        auto form_records = render_st_form_items(body_text);
-        if (!form_records.empty()) {
-          entry.raw_records.insert(
-              heading + 1,
-              std::make_move_iterator(form_records.begin()),
-              std::make_move_iterator(form_records.end()));
-        } else if (!trailing_text.empty()) {
+        if (!trailing_text.empty()) {
           entry.raw_records.insert(heading + 1, ":p." + trailing_text);
         } else if (is_message_catalog && !body_text.empty()) {
           auto erase_begin = heading + 1;
@@ -1338,18 +1237,6 @@ std::vector<TocEntry> build_table_of_contents(
     toc.insert(toc.end(), entries.begin(), entries.end());
   }
   return toc;
-}
-
-std::vector<std::string> build_raw_gml_records(
-    const std::vector<TopicData>& topics) {
-  std::vector<std::string> records;
-  for (const auto& topic : topics) {
-    auto topic_records = render_gml_records(topic.raw_records);
-    records.insert(records.end(),
-                   std::make_move_iterator(topic_records.begin()),
-                   std::make_move_iterator(topic_records.end()));
-  }
-  return records;
 }
 
 std::vector<TopicData> build_topics(const LogicalDecodeContext& context,

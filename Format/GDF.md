@@ -4,29 +4,41 @@ This note documents the legacy BookManager kind `G` payload family. The BOO
 container stores these payloads as byte ranges referenced by the page-0 picture
 directory; the container descriptor layout is documented in [assets.md](assets.md).
 
-## Reader Evidence
+## Payload Family
 
-The Transmogrifier utility in `Official Readers/Transmogrifier/transmog.exe`
-identifies kind `G` as a GDF picture converted to GIF. IDB-backed conversion
-evidence shows that `TransmogConvertGdfToGif` copies the source payload to a
-temporary file, then `TransmogRunGdfImportGifExport` loads `ISGDI32.DLL`,
-`IMGDF2.FLT`, and `EBGIF2.FLT` and calls the ImageMark import/export path.
+Legacy kind `G` payloads are IBM GDF (Graphics Data Format) picture streams:
+a sequence of one-byte order codes with operand data, the format IBM documents
+for GDDM. The container stores the stream verbatim; the hosted BookServer
+serves a GIF rendered from it on demand (see [assets.md](assets.md)), so hosted
+images are a rendering check, not the stored bytes.
 
-The BookServer `ephimage.dll` path follows the same filter stack for legacy
-kind `G` payloads: `EphImageConvertLegacyPicture` loads `isgdi32.dll`, then
-`imgdf2.flt` for import and `ebgif2.flt` for GIF export. `IMGDF2.FLT` exports
-`ImportGR`, which dispatches into `ImportFile` and then the GDF record parser.
-
-Local fixture verification found kind `G` descriptors:
+Kind `G` descriptors in this repository:
 
 | Kind byte | Example fixture | First verified descriptor and payload evidence |
 | ---: | --- | --- |
-| `0xc7` / `G` | `GG66-3212-00.boo` | Descriptor at `0x0118`: `f1 40 40 40 40 40 40 40 c7 00 4e 64 00 00 01 58`; payload at `0x0158` begins `01 12 00 04 00 00 00 00 42 64 00 01 00 00 00 00...`. |
+| `0xc7` / `G` | `FA1PLMM0.boo` | Descriptor at `0x0118`: `f1 40 40 40 40 40 40 40 c7 00 48 de 00 00 01 38`; payload at `0x0138` begins `01 12 00 04 00 00 00 00 42 64 00 01 00 00 00 00...`. |
+| `0xc7` / `G` | `packet.boo` | Descriptor at `0x0118`: `f1 40 40 40 40 40 40 40 c7 00 08 2e 00 03 6d ca`; nine kind `G` resources, used for the worked examples below. |
+
+Ten repository books carry kind `G` descriptors, 65 in total; see
+[assets.md](assets.md) for the full census.
+
+## Upstream Reference
+
+The normative names and encodings for GDF orders come from published IBM
+documentation, not from any reader binary. The reference used throughout this
+note is `QPRG1GDR`, `SC41-0537-00`, "AS/400 GDDM Programming Reference",
+Appendix B, "GDF Order Descriptions", read through the hosted BookServer
+collection under `BOOKS/QPRG1GDR/B.0`.
+
+Where an order is observed in a repository fixture but is not described in that
+appendix, this note says so explicitly and marks the interpretation as
+unverified.
 
 ## Payload Framing
 
-`IMGDF2.FLT` shows that the stored kind `G` payload is parsed as a GDF record
-stream, not as arbitrary coordinate data.
+The stored kind `G` payload is a GDF record stream, not an undelimited run of
+coordinate data. Every record is self-delimiting under the framing rules below,
+which is what lets a decoder skip an order it does not implement.
 
 ### IBM Short Hexadecimal Floating Point
 
@@ -45,8 +57,8 @@ The decoded value is:
 sign * (fraction / 0x01000000) * 16^(exponent - 64)
 ```
 
-where `sign` is `+1` or `-1`. The IBM importer returns `0.0` when the
-24-bit fraction is zero.
+where `sign` is `+1` or `-1`. A zero 24-bit fraction is the value `0.0`,
+whatever the characteristic byte holds.
 
 This is the IBM System/360-family hexadecimal floating-point format, later
 called HFP by IBM. The GDF payloads use the 32-bit/single-precision member of
@@ -87,10 +99,11 @@ Equivalently, `16^n` can be evaluated as `2^(4*n)`.
 The observed BookManager/GDF payloads do not show a deviation from standard IBM
 short HFP for 4-byte coordinates. The only GDF-specific rule observed so far is
 where the values are stored: the picture header and 4-byte coordinate record
-fields use this format, while a header length of `0x02` selects a separate
-2-byte coordinate path in `IMGDF2.FLT`.
+fields use this format. A header length of `0x02` instead selects a 2-byte
+coordinate encoding; no repository fixture uses it, so that path is unverified
+here.
 
-Examples from `GG66-3212-00.boo` resource 1:
+Examples from `FA1PLMM0.boo` resource 1:
 
 | Bytes | Decoded value |
 | --- | ---: |
@@ -104,33 +117,31 @@ The stream begins with a variable-length header:
 
 | Offset | Size | Meaning |
 | ---: | ---: | --- |
-| `0x00` | 1 | Header introducer. Observed value `0x01`; `IMGDF2.FLT` rejects other values. |
-| `0x01` | 1 | Header payload length in bytes. `GG66-3212-00.boo` resources 1 and 2 use `0x12`. |
+| `0x00` | 1 | Header introducer. `0x01` in every kind `G` payload observed; in IBM's terms this is the comment order code. |
+| `0x01` | 1 | Header payload length in bytes. `0x12` in every kind `G` payload observed. |
 | `0x02` | 2 | Header fields not yet identified. For the observed resources this is `00 04`. |
 | `0x04` | 4 | Minimum X as IBM short hexadecimal floating point. |
 | `0x08` | 4 | Maximum X as IBM short hexadecimal floating point. |
 | `0x0c` | 4 | Minimum Y as IBM short hexadecimal floating point. |
 | `0x10` | 4 | Maximum Y as IBM short hexadecimal floating point. |
 
-For `GG66-3212-00.boo` resource 1, bytes `00 00 00 00 42 64 00 01 00 00 00 00
+For `FA1PLMM0.boo` resource 1, bytes `00 00 00 00 42 64 00 01 00 00 00 00
 42 64 00 06` at payload-relative offsets `0x04..0x13` decode to an extent of
-approximately `x=0..100.000015`, `y=0..100.000092`.
+approximately `x=0..100.000015`, `y=0..100.000092`. `SC34-425.boo` resource 1
+carries the identical header; `packet.boo` resource 1 carries the same shape
+with exact `100.0` bounds (`42 64 00 00`).
 
-`IMGDF2.FLT` chooses the coordinate decoder from the header length. A length of
-`0x02` selects a 2-byte path; other observed lengths select a 4-byte IBM
-hexadecimal-floating path. The verified BookManager fixtures use the 4-byte
-path.
+The header length selects the coordinate encoding: `0x02` selects a 2-byte
+path, other lengths the 4-byte IBM hexadecimal-floating path. All repository
+fixtures use header length `0x12` and therefore the 4-byte path.
 
 ### IBM GDF Order Structure
 
 IBM documents GDF as a sequence of one-byte order codes, each followed by
 operand data. The upstream reference used for the order names below is
 `QPRG1GDR`, `SC41-0537-00`, "AS/400 GDDM Programming Reference", Appendix B,
-"GDF Order Descriptions", fetched through the local BookServer collection at:
-
-```text
-http://cbrdoc01.lan.cyber.gent/bookmgr/bookmgr.exe/BOOKS/QPRG1GDR/B.0
-```
+"GDF Order Descriptions", read through the hosted BookServer collection as book
+`QPRG1GDR`, topic `B.0`.
 
 Important IBM reference topics:
 
@@ -146,12 +157,12 @@ Important IBM reference topics:
 | `B.11.3` | Character Set order `0x38`: one-byte local character-set identifier; `0x00` is default and `0x41..0xdf` are user-defined sets. |
 | `B.11.4` | Character Shear order `0x35`: vector defining upright-stroke shear relative to the baseline. |
 | `B.11.5` | Color order `0x0a`: one-byte value is an index into the default color table. |
-| `B.11.6` | Color Set Extended order `0x26`: two-byte value is an index into the color table; the loaded importer uses this path for BookManager packet figures. |
+| `B.11.6` | Color Set Extended order `0x26`: two-byte value is an index into the color table. BookManager packet figures use this order rather than `0x0a`. |
 | `C.1` | Color numbers and default GDDM color definitions, including extended colors `9..16` and the repeat rule for higher values. |
 
-The first BookManager bytes currently called the picture header are therefore
-also interpretable as the initial GDF comment order. For
-`GG66-3212-00.boo`, payload bytes `01 12 00 04 ...` are:
+The first BookManager bytes called the picture header above are therefore the
+initial GDF comment order. For `FA1PLMM0.boo` resource 1, payload bytes
+`01 12 00 04 ...` are:
 
 | Offset | Bytes | IBM GDF interpretation |
 | ---: | --- | --- |
@@ -162,8 +173,8 @@ also interpretable as the initial GDF comment order. For
 
 ### Record Header
 
-Records begin at payload-relative offset `2 + header_length`. The importer
-reads a one-byte opcode and then determines payload length as follows:
+Records begin at payload-relative offset `2 + header_length`. Read a one-byte
+opcode, then determine the payload length as follows:
 
 | Opcode condition | Payload length rule |
 | --- | --- |
@@ -174,42 +185,45 @@ reads a one-byte opcode and then determines payload length as follows:
 The payload immediately follows the optional length byte. Unknown records can
 therefore be skipped by this length rule.
 
-## GDF Orders Supported by `IMGDF2.FLT`
+## GDF Orders
 
-The following table is the actual `IMGDF2.FLT` dispatch set observed in
-`sub_1C0022FA`, with behavior checked against handler xrefs to `ISGDI32.DLL`
-calls. Names come from IBM `QPRG1GDR` Appendix B where that appendix gives a
-matching order name. "Renderer action" describes what this importer does; it is
-not necessarily the full historical GDDM behavior.
+The table below is the set of orders a BookManager kind `G` payload can carry.
+Names and operand encodings come from IBM `QPRG1GDR` Appendix B where that
+appendix gives a matching order name; orders it does not name are marked and
+their interpretation is unverified.
 
-| Opcode | IBM/GDDM name | Encoding | Renderer action / evidence |
+"Interpretation" describes the drawing effect at format level. It is a
+description of the order, not of any particular renderer, and it is not
+necessarily the full historical GDDM behavior.
+
+| Opcode | IBM/GDDM name | Encoding | Interpretation |
 | ---: | --- | --- | --- |
-| `0x03` | Push and set character box | Normal. One coordinate pair. | Saves previous character-box state, then acts like character box. Calls `CSetCharHt`. |
-| `0x07` | Not identified in IBM Appendix B list | Normal. Payload skipped after side effects. | Toggles a renderer replay mode and may seek to a recorded segment offset. |
+| `0x03` | Push and set character box | Normal. One coordinate pair. | Saves previous character-box state, then acts like character box. |
+| `0x07` | Not named in IBM Appendix B | Normal. | **Unverified.** Observed in fixtures; associated with segment replay. Skip it by its declared length if unimplemented. |
 | `0x09` | Push and set pattern | Short. One byte. | Saves previous pattern state, then acts like pattern. |
-| `0x0a` | Color | Short. One byte color index. | Sets line, marker, text, edge, and sometimes fill color through `CSet*Colr`. |
-| `0x0c` | Color mix | Short. One byte. | Stores a color-mix/transparency flag; no direct draw call. |
-| `0x0d` | Background mix | Short. One byte. | Calls `CSetTran` and `CSetDrawMode`. IBM Appendix B lists this as accepted by AS/400 GDDM but not generated. |
-| `0x10` | Text alignment / renderer text attribute | Normal. Two bytes. | Maps horizontal/vertical values and calls `CSetTextAlign`. Not listed in the AS/400 GDF order summary. |
-| `0x11` | Fractional line width | Normal. Two bytes interpreted as a fixed/fractional width. | Calls `CSetLineWidth` and `CSetEdgeWidth`. IBM lists this as accepted but not generated. |
-| `0x18` | Line type | Short. One byte. | Maps GDF line type to ISGDI line/edge type and calls `CSetLineType` and `CSetEdgeType`. |
-| `0x19` | Line width | Short. One byte. | Converts byte to width and calls `CSetLineWidth` and `CSetEdgeWidth`. |
+| `0x0a` | Color | Short. One byte color index. | Sets line, marker, text, edge, and sometimes fill color. |
+| `0x0c` | Color mix | Short. One byte. | Stores a color-mix/transparency flag; it does not draw. |
+| `0x0d` | Background mix | Short. One byte. | Selects the background transparency/draw mode. IBM Appendix B lists this as accepted by AS/400 GDDM but not generated. |
+| `0x10` | Text alignment / renderer text attribute | Normal. Two bytes. | Horizontal and vertical text alignment values. Not listed in the AS/400 GDF order summary, so the interpretation is unverified. |
+| `0x11` | Fractional line width | Normal. Two bytes interpreted as a fixed/fractional width. | Sets line and edge width. IBM lists this as accepted but not generated. |
+| `0x18` | Line type | Short. One byte. | Selects the line and edge dash pattern. |
+| `0x19` | Line width | Short. One byte. | Selects the line and edge width. |
 | `0x21` | Current position | Normal. One coordinate pair. | Reads one point, transforms it, and updates current position without drawing. |
 | `0x22` | Arc parameters | Normal. Four coordinate values: `P`, `Q`, `R`, `S`. | Stores the arc transform used by later arc/full-arc orders. |
-| `0x24` | Model transform | Normal. Payload begins with transform control/mask bytes, followed by selected coordinate values. | Updates the importer model transform; no direct ISGDI primitive call. |
-| `0x26` | Color set extended | Normal. Uses second payload byte unless first byte is `0xff`. | Updates current color and calls the same color-setting helper used by `0x0a`. |
-| `0x27` | Clip rectangle / renderer clipping attribute | Normal. Payload byte 1 is a bitmask; selected coordinates follow. | Decodes two points and calls `CSetClipRect`. Not listed in the AS/400 generated-order summary. |
-| `0x28` | Pattern | Short. One byte. | Maps GDF pattern number to fill interior style/pattern/hatch/color and calls `CSetFill*`. |
-| `0x29` | Marker type | Short. One byte. | Maps GDF marker number and calls `CSetMarkerType`. |
-| `0x33` | Character box | Normal. One coordinate pair. | Sets character height from the decoded box vector and marks restricted text sizing. Calls `CSetCharHt`. |
-| `0x34` | Character angle | Normal. One coordinate pair. | Converts vector to orientation and calls `CSetCharOri`. |
-| `0x36` | Character shear-like renderer attribute | Normal. Flag byte plus one coordinate pair at payload offset 2. | Stores a text spacing/shear vector and may reset `CSetCharSpace`. IBM Appendix B names character shear as `0x35`; this importer dispatches `0x36` instead. |
-| `0x38` | Character set | Short. One byte symbol-set id. | Looks up loaded font/symbol set and calls `CSetTextFontInd`. |
-| `0x3f` | Pop attribute | Normal. Operand length may be zero. | Looks backward in the saved attribute stream and restores the most recent push-and-set attribute; may call `CSetCharHt`, `CSetDrawMode`, `CSetTextAlign`, `CSetLineWidth`, `CSetLineType`, `CSetMarkerType`, `CSetMarkerSize`, or `CSetTextFontInd`. |
+| `0x24` | Model transform | Normal. Payload begins with transform control/mask bytes, followed by selected coordinate values. | Updates the model transform; it does not draw. |
+| `0x26` | Color set extended | Normal. Uses second payload byte unless first byte is `0xff`. | Updates the current color, as `0x0a` does, with a two-byte index. |
+| `0x27` | Clip rectangle / renderer clipping attribute | Normal. Payload byte 1 is a bitmask; selected coordinates follow. | Decodes two points and sets the clipping rectangle. Not listed in the AS/400 generated-order summary, so the interpretation is unverified. |
+| `0x28` | Pattern | Short. One byte. | Selects the fill interior style, pattern, hatch, and color. |
+| `0x29` | Marker type | Short. One byte. | Selects the marker glyph. |
+| `0x33` | Character box | Normal. One coordinate pair. | Sets character height from the decoded box vector and marks text as size-restricted. |
+| `0x34` | Character angle | Normal. One coordinate pair. | Converts the vector to a text orientation. |
+| `0x36` | Character shear-like renderer attribute | Normal. Flag byte plus one coordinate pair at payload offset 2. | Stores a text spacing/shear vector. IBM Appendix B names character shear as `0x35`; repository payloads carry `0x36` in that role, so this mapping is unverified. |
+| `0x38` | Character set | Short. One byte symbol-set id. | Selects the loaded font/symbol set for subsequent text. |
+| `0x3f` | Pop attribute | Normal. Operand length may be zero. | Restores the most recent attribute saved by a push-and-set order. The attribute restored is whichever one that push saved: character height, draw mode, text alignment, line width, line type, marker type, marker size, or font index. |
 | `0x4a` | Push and set color | Short. One byte. | Saves previous color, then acts like color. |
 | `0x4c` | Push and set mix | Short. One byte. | Saves previous mix flag, then acts like color mix. |
 | `0x4d` | Push and set background mix | Short. One byte. | Saves previous draw mode, then acts like background mix. |
-| `0x50` | Push and set text alignment / renderer text attribute | Normal. Two bytes. | Saves previous text alignment, then acts like `0x10`. |
+| `0x50` | Push and set text alignment / renderer text attribute | Normal. Two bytes. | Saves the previous text alignment, then acts like `0x10`. |
 | `0x51` | Push and set fractional line width | Normal. Two bytes. | Saves previous fractional width, then acts like `0x11`. |
 | `0x58` | Push and set line type | Short. One byte. | Saves previous line type, then acts like line type. |
 | `0x59` | Push and set line width | Short. One byte. | Saves previous line width, then acts like line width. |
@@ -219,51 +233,50 @@ not necessarily the full historical GDDM behavior.
 | `0x64` | Push and set model transform | Normal. Same as model transform. | Saves previous transform, then acts like model transform. |
 | `0x66` | Push and set extended color | Normal. Same as extended color. | Saves previous color, then acts like extended color. |
 | `0x67` | Push and set clip rectangle / renderer clipping attribute | Normal. Same as clip rectangle. | Saves previous clipping state, then acts like clip rectangle. |
-| `0x68` | Area | Short. One flag byte. | Starts or prepares a fill area/figure with `CBeginFigure`; toggles edge visibility and pending fill state. |
+| `0x68` | Area | Short. One flag byte. | Starts or prepares a fill area/figure; the flag byte controls edge visibility and pending fill state. |
 | `0x69` | Push and set marker type | Short. One byte. | Saves previous marker type, then acts like marker type. |
-| `0x70` | Segment start | Normal. First four payload bytes are segment id. | Records the segment id and current stream offset in an internal table. |
-| `0x71` | Segment close | Normal. Payload ignored by handler. | If replay mode is active, seeks back to the saved segment start offset. |
-| `0x81` | Line at current position | Normal. Coordinate pairs, omitting initial coordinate. | Prepends current position to decoded points, calls `CLine`, then updates current position. |
-| `0x82` | Marker at current position | Normal. Optional coordinate pairs after current position. | Prepends current position, calls `CMarker`, then updates current position. |
-| `0x83` | Character at current position | Normal. Text bytes only. | Uses current position and calls `CText` or `CRestrText`. Text bytes are passed through the importer text conversion helper before drawing. |
-| `0x85` | Fillet at current position | Normal. Two coordinate pairs after current position. | Builds a three-point curved fillet from current position and calls the shared arc/fillet routine, which falls back to `CLine` when needed. |
-| `0x86` | Arc at current position | Normal. Two coordinate pairs after current position. | Uses current position plus two decoded points and calls the shared arc routine (`CEllipArc` or fallback `CLine`). |
-| `0x87` | Full arc at current position | Normal. Scale/extent operand after current position. | Uses current position and arc parameters to call `CEllip`. IBM lists full arc as accepted but not generated. |
+| `0x70` | Segment start | Normal. First four payload bytes are segment id. | Names a segment; the id and the stream position where it starts are needed to resolve a later segment close. |
+| `0x71` | Segment close | Normal. Payload carries no drawing operand. | Closes the segment opened by the matching segment start. |
+| `0x81` | Line at current position | Normal. Coordinate pairs, omitting initial coordinate. | Draws a polyline from the current position through the decoded points; current position becomes the last point. |
+| `0x82` | Marker at current position | Normal. Optional coordinate pairs after current position. | Draws markers at the current position and the decoded points; current position becomes the last point. |
+| `0x83` | Character at current position | Normal. Text bytes only. | Draws the text at the current position. Text bytes are EBCDIC; see [Text and Font Handling](#text-and-font-handling). |
+| `0x85` | Fillet at current position | Normal. Two coordinate pairs after current position. | Draws a three-point curved fillet starting at the current position; a degenerate fillet reduces to straight segments. |
+| `0x86` | Arc at current position | Normal. Two coordinate pairs after current position. | Draws an elliptical arc through the current position and the two decoded points, using the current arc parameters. |
+| `0x87` | Full arc at current position | Normal. Scale/extent operand after current position. | Draws a full ellipse centred by the current position and the arc parameters. IBM lists full arc as accepted but not generated. |
 | `0x91` | Graphics image begin at current position | Normal. Starts with image size; optional second point. | Initializes a cell-array image using current position as origin. |
 | `0x92` | Graphics image data | Normal. Row/image bytes. | Copies or bit-expands image data into the current cell-array buffer. |
-| `0x93` | Graphics image end | Normal. No required payload observed. | Emits the buffered image through `C_BeginCellArray`, `CCellArray`, and `C_EndCellArray`, then frees the buffer. |
-| `0xa1` | Line relative at current position | Normal. Signed byte delta pairs. | Prepends current position, applies signed one-byte deltas, calls `CLine`, then updates current position. |
-| `0xc1` | Line | Normal. Coordinate pairs. | Decodes absolute point list, calls `CLine` when drawable, then updates current position. |
-| `0xc2` | Marker | Normal. Coordinate pairs. | Decodes absolute point list, calls `CMarker`, then updates current position. |
-| `0xc3` | Character | Normal. Coordinate pair followed by text bytes. | Uses first point as text origin, then calls `CText` or `CRestrText`. |
-| `0xc5` | Fillet | Normal. Three coordinate pairs. | Calls the shared arc/fillet routine, which can emit `CEllipArc` or fall back to `CLine`. |
-| `0xc6` | Arc | Normal. Three coordinate pairs. | Calls the shared arc routine using arc parameters; emits `CEllipArc` or fallback `CLine`. |
-| `0xc7` | Full arc | Normal. Coordinate pair plus scale/extent operand. | Uses explicit center/current point and arc parameters to call `CEllip`. IBM lists full arc as accepted but not generated. |
+| `0x93` | Graphics image end | Normal. No required payload observed. | Emits the buffered cell-array image and releases the buffer. |
+| `0xa1` | Line relative at current position | Normal. Signed byte delta pairs. | Draws a polyline from the current position, each subsequent point given as a signed one-byte delta pair. |
+| `0xc1` | Line | Normal. Coordinate pairs. | Draws a polyline through the absolute point list; current position becomes the last point. |
+| `0xc2` | Marker | Normal. Coordinate pairs. | Draws markers at the absolute point list; current position becomes the last point. |
+| `0xc3` | Character | Normal. Coordinate pair followed by text bytes. | Draws the text with the first point as its origin. |
+| `0xc5` | Fillet | Normal. Three coordinate pairs. | Draws a curved fillet through the three points. |
+| `0xc6` | Arc | Normal. Three coordinate pairs. | Draws an elliptical arc through the three points using the current arc parameters. |
+| `0xc7` | Full arc | Normal. Coordinate pair plus scale/extent operand. | Draws a full ellipse from the explicit centre point and the current arc parameters. IBM lists full arc as accepted but not generated. |
 | `0xd1` | Graphics image begin | Normal. Coordinate pair, image size, optional second point. | Initializes a cell-array image using explicit origin. |
-| `0xe1` | Line relative | Normal. Initial coordinate pair followed by signed byte delta pairs. | Decodes an absolute start point, applies signed one-byte deltas, calls `CLine`, then updates current position. |
+| `0xe1` | Line relative | Normal. Initial coordinate pair followed by signed byte delta pairs. | Draws a polyline from an absolute start point, each subsequent point given as a signed one-byte delta pair. |
 
-### Supported-Set Discrepancies
+### Divergence From The AS/400 Generated-Order Subset
 
-The importer is not a byte-for-byte implementation of the AS/400 generated-order
-subset listed in IBM `QPRG1GDR` Appendix B:
+The orders BookManager payloads actually carry are not exactly the AS/400
+generated-order subset listed in IBM `QPRG1GDR` Appendix B:
 
 - IBM lists `0x35` as Character Shear, `0x39` as Character Mode, and `0x3a` as
-  Character Direction. These exact opcodes are not dispatched by the loaded
-  `IMGDF2.FLT`; unknown records with those opcodes are skipped by length.
-- `IMGDF2.FLT` dispatches `0x36` and `0x76` to a character-shear/spacing-like
-  handler even though the AS/400 appendix names character shear as `0x35`.
-- The importer handles several IBM "accepted but not generated" orders, such as
-  `0x0d`, `0x11`, `0x21`, `0x87`, `0xa1`, `0xc7`, and `0xe1`.
-- Some renderer attributes (`0x10`/`0x50`, `0x27`/`0x67`, and `0x07`) are
-  implemented by this importer but are not part of the generated-order summary
-  in the AS/400 appendix. Treat their names as renderer-action names until they
-  are matched against additional GDDM/System/370 documentation.
+  Character Direction. Those exact opcodes do not appear in the repository
+  fixtures; `0x36` and `0x76` appear in the shear/spacing role instead. The
+  substitution is unexplained, and the `0x36`/`0x76` reading is unverified.
+- Several IBM "accepted but not generated" orders do occur, including `0x0d`,
+  `0x11`, `0x21`, `0x87`, `0xa1`, `0xc7`, and `0xe1`. A decoder cannot assume
+  the generated-order subset is sufficient.
+- `0x10`/`0x50`, `0x27`/`0x67`, and `0x07` are not in the AS/400 appendix at
+  all. Their names above are descriptive, not normative; treat them as
+  unverified until matched against further GDDM documentation.
 
-Resource 1 in `GG66-3212-00.boo` contains many non-coordinate records,
-including text/control records. A simple byte scanner misidentifies these as
-coordinate runs and draws false long lines. The record parser avoids that by
-using IBM's GDF order framing and skipping unsupported records by their
-declared length.
+Kind `G` payloads contain many non-coordinate records, including text and
+control records. A byte scanner that looks for coordinate-shaped runs
+misidentifies these and draws false long lines. The record framing above is what
+prevents that: parse orders, and skip an unsupported record by its declared
+length.
 
 ### Area Orders and Packet Resource 2 Evidence
 
@@ -325,35 +338,33 @@ Implementation consequences:
    orders directly creates outline text and vector tearing. The rasterizer must
    fill from the area's explicit line segments and draw boundary lines only when
    flag bit 1 is set.
-3. The Windows `ISGDI32.DLL` filled-figure path accumulates 24-byte point
-   records while inside `CBeginFigure`/`CEndFigure`. `CEndFigure` appends a copy
-   of the current subpath start and marks that point with flag `3`; the later
-   densifier treats point flags `2` and `3` as subpath-closing points before
-   emitting order `1032` through `CPolygonSet`. The third 8-byte slot in each
-   internal point record is copied into the 16-bit polygon-set flag field.
+3. An area is implicitly closed at its end order: the subpath returns to its
+   start point. A rasterizer must close it rather than leave an open polyline.
 4. Dense stroke-font areas in packet resources contain repeated out-and-back
    construction edges to a fixed anchor point. For example, `packet.boo`
    resource `6` area 2 contains both the edge
    `(70.57216,89.05028) -> (80.720...,96.337...)` and its exact reverse in the
-   `IPv6` title. These paired opposite edges have zero net winding in the
-   upstream filled-figure renderer; treating either half as an ordinary visible
-   stroke, or scan-converting the pair as a real filled span, creates the
-   diagonal tearing seen in local renders.
+   `IPv6` title. These paired opposite edges contribute zero net
+   winding, and the hosted GIF shows no stroke where they run; treating either
+   half as an ordinary visible stroke, or scan-converting the pair as a real
+   filled span, produces diagonal tearing the hosted image does not have.
 5. `libgeist` therefore preserves every parsed area segment, then cancels exact
-   opposite directed edges during area scan conversion. This models the
-   zero-net-winding behavior observed in `CPolygonSet` rendering without using
-   length-based or glyph-specific connector filters. Simple one-way large-edged
-   areas such as the packet-field rectangles remain intact.
+   opposite directed edges during area scan conversion. This reproduces the
+   zero-net-winding result without using length-based or glyph-specific
+   connector filters. Simple one-way large-edged areas such as the packet-field
+   rectangles remain intact.
 6. Fill colors should be rendered as the direct palette color selected by the
    GDF state, not blended toward a pastel fallback.
-7. The observed palette entry used by `0x26 02 00 08` is black for this
-   ImageMark/GDDM path. Treating it as gray makes packet resource `2` labels
-   visibly differ from the hosted reader output.
+7. The palette entry selected by `0x26 02 00 08` renders black: sampling the
+   hosted GIF for `packet.boo` resource `2` at pixel `(60, 405)` gives
+   `00 00 00`. Treating it as gray makes the labels differ visibly from hosted
+   output.
 
 ### GDDM Color Numbers and Packet Resource 6 Evidence
 
-The GDF `0x0a` Color order and `0x26` Color Set Extended order select color
-numbers, not ImageMark's local `ISGDI32.INI` `Color[000]...Color[015]` table.
+The GDF `0x0a` Color order and `0x26` Color Set Extended order select GDDM
+color *numbers*, not entries in whatever local palette a renderer happens to
+configure.
 IBM `QPRG1GDR` topic `B.11.5` documents `0x0a` as a one-byte index to the
 default color table, and topic `B.11.6` documents `0x26` as a two-byte color
 table index. Appendix `C.1`, "Color Numbers", gives the default GDDM color
@@ -394,10 +405,8 @@ yellow, and `0x26 02 00 08` as black/background. The previous `libgeist`
 palette incorrectly mapped color number `10` to dark green, causing the large
 orange shaded areas in `render/packet/6.png` to appear as dark green.
 
-The shipped filter stack also contains static palette evidence for this orange
-entry: byte triplet `00 80 e0` appears in `Official Readers/Transmogrifier/IMGDF2.FLT`
-and `80 e0 00` appears in `Official Readers/Transmogrifier/ISGDI32.DLL`,
-consistent with a BGR/RGB storage variant of `(224,128,0)`.
+The hosted GIF is the evidence for the RGB value; the GDDM name "Orange" alone
+does not fix a triplet.
 
 ### Text and Font Handling
 
@@ -410,69 +419,43 @@ The current character appearance comes from the text attributes:
 
 | Order | Meaning for text rendering |
 | ---: | --- |
-| `0x33` / `0x03` | Character box / push-and-set character box. The importer derives the character height and uses restricted text sizing. |
-| `0x34` / `0x74` | Character angle / push-and-set character angle. The IBM filter passes this to `CSetCharOri`. |
-| `0x35` / `0x75` | IBM character shear / push-and-set character shear. The loaded filter instead dispatches `0x36` / `0x76` for its shear/spacing-like handler. |
+| `0x33` / `0x03` | Character box / push-and-set character box. The box vector gives the character height, and marks the text as size-restricted. |
+| `0x34` / `0x74` | Character angle / push-and-set character angle. The vector gives the text orientation. |
+| `0x35` / `0x75` | IBM character shear / push-and-set character shear. Not observed in the repository fixtures; `0x36` / `0x76` occur in that role instead, which is unexplained. |
 | `0x38` / `0x78` | Character set / push-and-set character set. The operand is a local character-set id (`LCID`). |
-| `0x39` / `0x79` | Character mode / push-and-set character mode in IBM GDF. The loaded filter dispatches `0x39` / `0x67` to a mode handler and does not dispatch `0x79`. |
-| `0x3a` / `0x7a` | Character direction / push-and-set character direction in IBM GDF. The loaded filter does not dispatch these opcodes. |
+| `0x39` / `0x79` | Character mode / push-and-set character mode in IBM GDF. `0x79` is not observed in the repository fixtures. |
+| `0x3a` / `0x7a` | Character direction / push-and-set character direction in IBM GDF. Neither opcode is observed in the repository fixtures. |
 
-`IMGDF2.FLT` converts character bytes through a 256-byte table before calling
-`CText` or `CRestrText`. For the BookManager fixtures this matches CP037-style
-EBCDIC for ordinary Latin text, for example `c1 c2 c3 c4` decodes as `ABCD`.
+Character bytes are EBCDIC. For the BookManager fixtures this matches CP037 for
+ordinary Latin text: `c1 c2 c3 c4` decodes as `ABCD`.
 
-For character-set selection, the loaded filter's `0x38` handler
-(`sub_1C004DEC`) scans a font-list table built during header setup. Each entry
-contains the local character-set id and an eight-byte GDDM character-set name.
-The selected ImageMark text font index is the matching table slot plus one;
-if no entry matches, the filter keeps index `1`. The renderer initially calls
-`CSetTextFontInd(..., 1)`.
+### Character Set Selection
 
-When no GDF font list is present, `IMGDF2.FLT` falls back to the following
-built-in GDDM character-set names and ImageMark font names. The same ImageMark
-font names are also present in `Official Readers/Transmogrifier/ISGDI32.INI`
-under `[~Defaults]`.
+The `0x38` operand is a local character-set id. A GDF stream may carry a font
+list associating each `LCID` with an eight-byte GDDM character-set name such as
+`ADMUUTRP`; `LCID` `0x00` is the default set and `0x41..0xdf` are user-defined
+sets (IBM `QPRG1GDR` topic `B.11.3`).
 
-| Fallback slot | GDDM name | ImageMark font name |
-| ---: | --- | --- |
-| 1 | `ADMDVECP` | `Modern:Modern` |
-| 2 | `ADMUUARP` | `Roman:Tms Rmn` |
-| 3 | `ADMUUCIP` | `Roman:Tms Rmn Italic` |
-| 4 | `ADMUUCRP` | `Roman:Tms Rmn` |
-| 5 | `ADMUUCSP` | `Script:Script` |
-| 6 | `ADMUUDRP` | `Swiss:Helvetica` |
-| 7 | `ADMUUFSS` | `Swiss:Helvetica` |
-| 8 | `ADMUUGEP` | `Roman:Tms Rmn` |
-| 9 | `ADMUUGGP` | `Roman:Tms Rmn` |
-| 10 | `ADMUUGIP` | `Roman:Tms Rmn` |
-| 11 | `ADMUUKRF` | `Swiss:Helvetica Bold` |
-| 12 | `ADMUUKRO` | `Swiss:Helvetica Bold` |
-| 13 | `ADMUUKSF` | `Swiss:Helvetica Bold` |
-| 14 | `ADMUUKSO` | `Swiss:Helvetica Bold` |
-| 15 | `ADMUUMOD` | `Modern:Modern` |
-| 16 | `ADMUUNSF` | `Swiss:Helvetica-Narrow` |
-| 17 | `ADMUUNSO` | `Swiss:Helvetica-Narrow` |
-| 18 | `ADMUUORP` | `Roman:Tms Rmn` |
-| 19 | `ADMUUSHD` | `Swiss:Helvetica` |
-| 20 | `ADMUUSRP` | `Modern:Modern` |
-| 21 | `ADMUUTIP` | `Roman:Tms Rmn Bold Italic` |
-| 22 | `ADMUUTRP` | `Roman:Tms Rmn Bold` |
-| 23 | `ADMUUTSS` | `Swiss:Helvetica Bold` |
+No repository fixture carries a font-list prolog, so the `LCID`-to-name binding
+is **unverified here**. What a renderer does with the name is a rendering
+choice, not a container fact; `libgeist`'s style mapping and its rationale are
+recorded in
+[`AnalysisNotes/gdf-text-style-rendering.md`](../AnalysisNotes/gdf-text-style-rendering.md).
 
-Current `libgeist` text rendering follows these verified rules where it can:
-it decodes character bytes as CP037/EBCDIC, tracks `0x38` character-set state,
-maps the default fallback slots to Roman/Swiss/Modern style traits, and draws
-legible bitmap glyphs with approximate bold, italic, and monospaced behavior.
-It does not yet parse a GDF font-list prolog into arbitrary LCID-to-GDDM-name
-mappings, and it does not use platform fonts or ImageMark's exact glyph metrics.
+Current `libgeist` text rendering decodes character bytes as CP037/EBCDIC,
+tracks `0x38` character-set state, maps character-set names to
+Roman/Swiss/Modern style traits, and draws legible bitmap glyphs with
+approximate bold, italic, and monospaced behavior. It does not parse a GDF
+font-list prolog into arbitrary `LCID`-to-name mappings, and it does not
+reproduce any historical renderer's exact glyph metrics.
 
 ## Current Rendering Scope
 
 Current `libgeist` PNG rendering support for `legacy-gdf` is an approximate
-rasterizer for the complete `IMGDF2.FLT` dispatch set documented above. The
-decoder parses the initial comment/header, selects 2-byte signed or 4-byte IBM
-short HFP coordinates, walks IBM normal/short framed orders, and handles every
-documented importer opcode.
+rasterizer for the complete order set documented above. The decoder parses the
+initial comment/header, selects 2-byte signed or 4-byte IBM short HFP
+coordinates, walks IBM normal/short framed orders, and handles every documented
+opcode.
 
 Implemented drawing behavior:
 
@@ -481,15 +464,14 @@ Implemented drawing behavior:
 | Current-position, attribute, transform, clipping, segment, and push/pop orders | Parsed and reflected in renderer state where the current rasterizer uses the state; otherwise consumed so later orders remain aligned. |
 | Line and relative-line orders | Rendered as polylines with the current color. |
 | Marker orders | Rendered as simple cross/star marker shapes. |
-| Character orders | Text bytes are decoded as CP037/EBCDIC and rendered as bitmap glyphs with approximate font-family/style traits from the IBM/ImageMark fallback font table. |
+| Character orders | Text bytes are decoded as CP037/EBCDIC and rendered as bitmap glyphs with approximate font-family/style traits. |
 | Fillet, arc, and full-arc orders | Rendered as approximate elliptical polylines. |
 | Area orders | `0x68` begins or ends a fill area according to IBM flag bit 0, `0x60` closes the area, and line orders inside the area contribute fill-boundary segments. Boundary lines are drawn only when IBM flag bit 1 is set. Exact opposite directed edges cancel during fill scan conversion, matching the zero-net-winding construction edges observed in packet resources `2`, `3`, `6`, and `9`. |
 | Graphics image begin/data/end orders | Renders a simple cell-array block from the buffered image bytes. |
 
 This is sufficient for inspection-oriented rendering and for visual recognition
-of BookManager GDF assets without invoking the historical
-`IMGDF2.FLT`/`EBGIF2.FLT` filter chain. It is not a pixel-exact clone of the IBM
-ImageMark/GDDM renderer: exact text shaping, platform font metrics, clipping,
-transforms, fill-pattern semantics, arc geometry, segment replay behavior, and
-cell-array color interpretation remain intentionally approximate until more
-fixture-backed evidence is available.
+of BookManager GDF assets. It is not pixel-exact against hosted BookServer
+output: exact text shaping, font metrics, clipping, transforms, fill-pattern
+semantics, arc geometry, segment replay behavior, and cell-array color
+interpretation remain intentionally approximate until more fixture-backed
+evidence is available.

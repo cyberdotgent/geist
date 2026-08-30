@@ -1,5 +1,6 @@
 #include "geist/detail/prose_topic_document_lowering.hpp"
 
+#include "geist/detail/figure_block_ir.hpp"
 #include "geist/detail/figure_document_lowering.hpp"
 #include "geist/detail/fixed_table_document_lowering.hpp"
 
@@ -48,6 +49,10 @@ EmphasisKindIR emphasis_kind(FontStyleIR style) {
   case FontStyleIR::keyword:
   case FontStyleIR::keyword_define:
   case FontStyleIR::highlight_9:
+  // WARNING (`W`) and WARNINGTEXT (`G`) are hosted `<em>` on all four books
+  // that carry them, so both take the default emphasis.
+  case FontStyleIR::warning:
+  case FontStyleIR::warning_text:
   case FontStyleIR::unknown: break;
   }
   return EmphasisKindIR::emphasis;
@@ -149,6 +154,31 @@ bool link_table_cells(const ProseTopicIR& prose, std::size_t span,
           return fail(error, "lowered table cell line is not text");
         const auto* link = line_link(prose, span, block, cell, lines[line]);
         if (link == nullptr) continue;
+        // A picture selector replaces the cell line that spells its
+        // `PICTURE n` placeholder with the image itself, which is what
+        // hosted BookServer serves there.
+        if (link->picture) {
+          ImageInlineIR image;
+          image.resource = "resource:" + link->target;
+          image.alt_text = figure_picture_placeholder(link->target);
+          if (text->text != image.alt_text)
+            return fail(error, "picture cell line does not spell '" +
+                                   image.alt_text + "'");
+          node.node = std::move(image);
+          node.origin.detail = "fixed table cell line (CSELECT picture)";
+          node.origin.slices.push_back(link->source);
+          std::sort(node.origin.slices.begin(), node.origin.slices.end(),
+                    [](const auto& left, const auto& right) {
+                      return std::make_tuple(left.logical_record,
+                                             left.segment_index,
+                                             left.token_begin, left.token_end) <
+                             std::make_tuple(right.logical_record,
+                                             right.segment_index,
+                                             right.token_begin,
+                                             right.token_end);
+                    });
+          continue;
+        }
         CrossReferenceInlineIR reference;
         reference.target = {link->target_kind, link->target};
         reference.label = text->text;
@@ -306,9 +336,15 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
       if (blocks.empty()) return fail(&span_error, "table span lowered to nothing");
       const auto span_index =
           static_cast<std::size_t>(&span - prose.spans.data());
-      // A preformatted region has no cells for a CSELECT to attach to; the
-      // table block declines such an envelope, so there is nothing to link.
-      if (table.geometry != FixedTableGeometryIR::preformatted &&
+      // A verbatim region has no cells for a CSELECT to attach to: the table
+      // block declines an envelope that carries one, and every envelope the
+      // source did not declare a `:table` now renders as its display lines.
+      // So the cell links apply only to a lowered Markdown table.
+      const auto lowered_table =
+          std::any_of(blocks.begin(), blocks.end(), [](const auto& candidate) {
+            return std::holds_alternative<TableBlockIR>(candidate.node);
+          });
+      if (lowered_table &&
           !link_table_cells(prose, span_index, table, blocks, &span_error))
         return false;
       for (auto& block : blocks) document.blocks.push_back(std::move(block));
@@ -430,14 +466,12 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
       }
       auto preformatted_origin =
           origin(block.slices, "prose CZ example block");
-      if (!block.degradation_code.empty()) {
+      // A drawn box region reproduces its display rows exactly as hosted
+      // BookServer serves them inside `<pre>`, which makes it clean rather
+      // than degraded: the source holds character art, not a structure we
+      // failed to recover.
+      if (!block.verbatim_kind.empty())
         preformatted_origin.detail = "prose drawn box region: verbatim rows";
-        preformatted_origin.fidelity = DocumentFidelityIR::degraded;
-        preformatted_origin.degradation_code = block.degradation_code;
-        preformatted_origin.degradation_detail =
-            "drawn box region has no proven structure; display rows kept "
-            "verbatim";
-      }
       document.blocks.push_back({PreformattedBlockIR{block.preformatted_lines},
                                  std::move(preformatted_origin)});
       ++index;

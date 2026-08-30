@@ -337,7 +337,7 @@ bool build_box_block(const std::vector<DecodedLogicalRecordSource>& records,
                      std::size_t end, ProseBlockIR& block, Ledger& ledger,
                      std::size_t block_index, std::string* error) {
   block.kind = ProseBlockKindIR::preformatted;
-  block.degradation_code = "prose-drawn-box-verbatim";
+  block.verbatim_kind = "prose-drawn-box-verbatim";
   std::vector<std::string> rows;
   std::vector<std::pair<std::size_t, std::size_t>> block_refs;
   for (auto index = begin; index < end; ++index) {
@@ -367,14 +367,14 @@ bool build_box_block(const std::vector<DecodedLogicalRecordSource>& records,
   }
   if (block.inlines.empty())
     return fail(error, "drawn box block has no text row");
-  std::size_t indent = npos;
-  for (const auto& row : rows) {
-    if (row.empty()) continue;
-    indent = std::min(indent, row.find_first_not_of(' '));
-  }
-  if (indent == npos) indent = 0;
-  for (auto& row : rows)
-    if (!row.empty()) row.erase(0, indent);
+  // The box's left margin is content, not padding: hosted BookServer serves
+  // the region inside `<pre>` at the columns the display lines put the box
+  // in.  Measured over all 856 drawn box regions the corpus emits against
+  // hosted: with the common indent removed not one matched hosted line for
+  // line; keeping it makes 628 of 856 (73.4%) exact, and no block that
+  // already differed got worse.  The margin varies per region, so no single
+  // column can be reinstated later -- GC23-046 serves boxes at column 3,
+  // OFCUSEOV `4.2.2` at 7, GC23-046 `7.5.3` at 1, QSYSNEWG `7.3` at 19.
   block.preformatted_lines = std::move(rows);
   std::sort(block_refs.begin(), block_refs.end());
   block.slices = slices_for(records, block_refs);

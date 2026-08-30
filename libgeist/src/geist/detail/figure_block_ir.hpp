@@ -191,6 +191,20 @@ bool verify_figure_blocks_ir(
     const std::set<std::string> &resource_ids, const FigureBlocksIR &blocks,
     std::string *error = nullptr);
 
+// A selector target that names a book picture resource: `PIC` followed by
+// decimal digits only (`PIC69`).  Shared with the fixed-layout region block,
+// which meets the same selector inside an SRTBL envelope.
+bool figure_picture_target(const std::string &target);
+
+// The resource catalog id a picture target addresses (`PIC69` -> `69`), or
+// an empty string when `target` is not a picture target.
+std::string figure_picture_resource(const std::string &target);
+
+// The decoder placeholder words the compiler wrote into the display bytes
+// where the picture goes (`69` -> `PICTURE 69`).  Hosted BookServer replaces
+// exactly these words with the `<img>` and uses them as its `alt` text.
+std::string figure_picture_placeholder(const std::string &resource);
+
 // Hosted BookServer display of one decoded token word inside a preformatted
 // figure line (UTF-8).  Box-drawing words follow the hosted <pre> output;
 // arrows keep their glyph (hosted's per-book display tables turn them into

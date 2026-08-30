@@ -115,7 +115,7 @@ int main() {
       if (after_dlci_anchor)
         dlci_definition = &block;
       after_dlci_anchor = false;
-    } else if (std::holds_alternative<geist::detail::TableBlockIR>(
+    } else if (std::holds_alternative<geist::detail::PreformattedBlockIR>(
                    block.node)) {
       ++tables;
       if (dlci_definition != nullptr && dlci_table == nullptr)
@@ -124,8 +124,11 @@ int main() {
   }
   require(section_headings == 21 && definitions == 281 && anchors == 281,
           "source-ordered 21-section/281-entry structure changed");
+  // The glossary's one embedded fixed-layout object lowers verbatim: hosted
+  // serves it as fixed columns of plain text inside the topic's `<pre>` and
+  // emits no `<table>` element (DT 19941010174546).
   require(tables == 1 && dlci_definition != nullptr && dlci_table != nullptr,
-          "DLCI table was omitted, duplicated, or detached from its entry");
+          "DLCI object was omitted, duplicated, or detached from its entry");
   require(dlci_table->origin.rows.size() == 5,
           "DLCI table did not own its five physical source rows exactly once");
   for (const auto &row : dlci_table->origin.rows)
@@ -146,11 +149,31 @@ int main() {
     require(visible.find(entry.definition.prose) != std::string::npos,
             "Markdown lost glossary definition: " + entry.term);
   }
+  // Hosted (DT 19941010174546) prints, inside the glossary topic's `<pre>`:
+  //   `   <B>DLCI</B> <B>Values</B>    <B>Function</B>`
+  //   `   0              in-channel signaling`
+  //   `   1-15           reserved`
+  // ... so the Markdown reproduces the same fixed columns line for line.
+  // Hosted (DT 19941010174546) prints the object as fixed columns of plain
+  // text; the column stop is rebuilt from the proven grid (13) rather than
+  // from the source display column (15), because this family's physical rows
+  // split a value across two of them.
+  // `visible` collapses whitespace runs, so the column padding itself is
+  // checked on the raw Markdown below.
   for (const auto *expected :
-       {"| DLCI Values | Function |", "| 1-15 | reserved |",
-        "| 1023 | in-channel layer management |"})
+       {"DLCI Values Function", "0 in-channel signaling", "1-15 reserved",
+        "1023 in-channel layer management"})
     require(visible.find(expected) != std::string::npos,
-            "Markdown lost typed DLCI table structure");
+            std::string("Markdown lost the verbatim DLCI object line: ") +
+                expected);
+  for (const auto *expected :
+       {"DLCI Values  Function\n", "0            in-channel signaling\n",
+        "1008-1022    reserved\n"})
+    require(markdown.find(expected) != std::string::npos,
+            std::string("Markdown lost the verbatim DLCI column stop: ") +
+                expected);
+  require(markdown.find("| DLCI Values |") == std::string::npos,
+          "the glossary embedded object must not render as a Markdown table");
   require(visible.find("information interchange among data processing") !=
               std::string::npos,
           "lexical information carry was lost");

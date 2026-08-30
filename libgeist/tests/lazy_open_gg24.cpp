@@ -3,6 +3,8 @@
 
 #include <filesystem>
 #include <string>
+#include <utility>
+#include <vector>
 
 int main() {
   const auto root = std::filesystem::path(GEIST_REPO_ROOT) / "BOO";
@@ -143,16 +145,24 @@ int main() {
             "heading-attached topic prose was discarded");
   }
 
-  // Typed route (prose composition over the fixed-table block): the rows
-  // match hosted BookServer DT 19950308184737 cell for cell; the legacy
+  // Typed route (prose composition over the fixed-table block): the region is
+  // reproduced line for line as hosted BookServer serves it inside
+  // `<pre width="80">` (DT 19950308184737), rules included; the legacy
   // renderer merged the spanning group row into the row after it.
   const auto dbctl_table = split_header.topic_markdown("10.2");
-  require(dbctl_table.find("| Processing Cost Enhancements |  |  |\n"
-                           "| N\\-way data sharing | \\*\\* | \\*\\* |") !=
-              std::string::npos,
+  require(dbctl_table.find(
+              "   | Processing Cost Enhancements                             "
+              "                     |                   |                  |")
+                  != std::string::npos &&
+              dbctl_table.find(
+                  "   | N-way data sharing                                   "
+                  "                         |         ** "
+                  "       |        **        |") != std::string::npos,
           "explicit table row boundaries were merged");
-  require(dbctl_table.find("| Dropped Local DL/1 support |  | \\* |") !=
-              std::string::npos,
+  require(dbctl_table.find(
+              "   | Dropped Local DL/1 support                               "
+              "                     |                   |         *        |")
+                  != std::string::npos,
           "final explicit table rows were discarded");
 
   const auto exit_table = split_header.topic_markdown("3.6.2");
@@ -212,10 +222,31 @@ int main() {
 
   const auto product_overview =
       geist::BooDocument::open(root / "GG24-395.boo");
-  for (const auto* topic : {"3.2.1", "3.2.3", "3.3.1", "3.3.3", "3.3.4",
-                            "3.3.7", "3.3.8", "3.3.9", "3.3.10",
-                            "3.3.11", "3.3.12", "3.3.13", "3.3.15",
-                            "3.3.16", "3.3.18"}) {
+  // A picture selector inside a fixed-layout region keeps its BOO resource
+  // and hosted's own name for it: the region renders verbatim and the image
+  // is emitted beside it, over the columns the selector blanked out of the
+  // reproduced art (GG24-395 3.3.8 is served as
+  // `<a href="picture-69?mode=zoom"><img ... alt="PICTURE 69"></a>` inside
+  // the topic's `<pre width="80">`, DT 19941215160749).  3.3.4 and 3.3.15
+  // still route legacy, which spells the same destination without the
+  // angle-bracket form the typed renderer uses.
+  for (const auto& [topic, resource] :
+       std::vector<std::pair<const char*, const char*>>{
+           {"3.2.1", "25"}, {"3.2.3", "33"}, {"3.3.1", "35"},
+           {"3.3.3", "48"}, {"3.3.7", "68"}, {"3.3.8", "69"},
+           {"3.3.9", "70"}, {"3.3.10", "77"}, {"3.3.11", "81"},
+           {"3.3.12", "82"}, {"3.3.13", "83"}, {"3.3.16", "92"},
+           {"3.3.18", "95"}}) {
+    const auto markdown = product_overview.topic_markdown(topic);
+    const auto image = std::string("![PICTURE ") + resource + "](<resource:" +
+                       resource + ">)";
+    require(markdown.find(image) != std::string::npos,
+            "picture selector in a table lost its BOO resource");
+    require(markdown.find("PICTURE " + std::string(resource) + " ") ==
+                std::string::npos,
+            "reproduced region kept the placeholder words the image replaces");
+  }
+  for (const auto* topic : {"3.3.4", "3.3.15"}) {
     require(product_overview.topic_markdown(topic).find("](resource:") !=
                 std::string::npos,
             "picture selector in a table lost its BOO resource");

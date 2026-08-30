@@ -1,4 +1,5 @@
 #include "geist/detail/internal.hpp"
+#include "geist/detail/display_lines.hpp"
 #include "test_failures.hpp"
 #include "geist/detail/selector_display_ir.hpp"
 
@@ -49,6 +50,7 @@ DecodedLogicalRecordSource make_source(std::uint32_t logical_record,
   }
   source.ir.payload_range = {static_cast<std::uint32_t>(logical_record * 100),
                              byte};
+  geist::detail::assign_display_line_framing(source.ir);
   source.assembled =
       geist::detail::assemble_logical_record_with_sources(source.tokens);
   source.control_segments = geist::detail::decode_control_segments(

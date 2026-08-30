@@ -256,16 +256,17 @@ int main() {
     }
   }
 
-  // Typed route: the fixed-table block keeps the source's double space in
-  // the caption and the five hosted columns (the legacy renderer shifted the
-  // `Prompt` row by one column).
+  // Typed route, verbatim: the region keeps the source's double space in the
+  // caption and the five hosted columns exactly as drawn (the legacy renderer
+  // shifted the `Prompt` row by one column).  Hosted (DT 19910524085706)
+  // serves the whole envelope inside `<pre>` and emits no `<table>`.
   const auto function_keys = topic_markdown(document, "F.1");
   require_contains(function_keys,
-                   "Figure  F\\-1\\. Function Key Differences",
+                   "   | Figure  F-1. Function Key Differences",
                    "function-key table title");
   require_contains(function_keys,
-                   "| Prompt | F4 | Help | CF4 | Requests command<br>name or "
-                   "parameter<br>value assistance |",
+                   "   | Prompt     | F4         | Help       | CF4        | "
+                   "Requests command   |",
                    "function-key table row");
   require_not_contains(function_keys,
                        "```text",

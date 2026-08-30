@@ -521,6 +521,8 @@ lower_structured_section(const MessageTopicIR &message,
           visit_row(node.header);
           for (const auto &row : node.rows)
             visit_row(row);
+          for (const auto &line : node.lines)
+            lines.push_back(compact(line.text));
         } else if constexpr (std::is_same_v<T, MessageStructuredListBlockIR>) {
           pieces.push_back(compact(node.lead_in.text));
           for (const auto &item : node.items)
@@ -615,30 +617,27 @@ lower_structured_section(const MessageTopicIR &message,
       [&](const auto &node) {
         using T = std::decay_t<decltype(node)>;
         if constexpr (std::is_same_v<T, MessageStructuredTableBlockIR>) {
-          TableBlockIR table;
-          table.header_rows = 1;
+          // The recovered columns own the region's cells and stay in the IR;
+          // the Markdown is the listing as hosted prints it, one line per
+          // display row.  Hosted BookServer serves SC31-711 5.0's `Command
+          // type` / `Command` listing inside the topic's `<pre width="80">`
+          // and emits no `<table>` element (DT 19941010174546).
           const auto lower_row = [&](const MessageStructuredTableRowIR &row) {
-            TableRowIR target;
-            target.origin = origin("message table row");
-            for (const auto &cell : row.cells) {
-              TableCellIR lowered;
-              lowered.origin = cell_origin(cell.source_rows, cell.source_cells,
-                                           "message table cell");
-              const auto text = compact(cell.text);
-              if (!text.empty())
-                lowered.content.push_back(text_inline(text, lowered.origin));
-              merge_origin(target.origin, lowered.origin);
-              target.cells.push_back(std::move(lowered));
-            }
-            merge_origin(target.origin,
-                         cell_origin({}, row.structural_cells,
-                                     "message table structural cells"));
-            table.rows.push_back(std::move(target));
+            for (const auto &cell : row.cells)
+              cell_origin(cell.source_rows, cell.source_cells,
+                          "message table cell");
+            cell_origin({}, row.structural_cells,
+                        "message table structural cells");
           };
           lower_row(node.header);
           for (const auto &row : node.rows)
             lower_row(row);
-          result.block = BlockIR{std::move(table), block_origin};
+          PreformattedBlockIR listing;
+          for (const auto &line : node.lines) {
+            listing.lines.push_back(compact(line.text));
+            cell_origin({line.source_row}, {}, "message table display line");
+          }
+          result.block = BlockIR{std::move(listing), block_origin};
         } else if constexpr (std::is_same_v<T, MessageStructuredListBlockIR>) {
           // The lead-in sentence stays with the preceding prose paragraph;
           // its cells remain part of the block's provenance.
