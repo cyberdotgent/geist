@@ -803,6 +803,21 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           claimed[token] = true;
           continue;
         }
+        // A display line's length byte is the row-control slot, always and
+        // only.  It is a raw byte the token reader resolves through the
+        // dictionary, so it routinely spells an ordinary word -- SC26-457
+        // record 543 line 13 opens with the byte 33, which the book's
+        // dictionary spells `-`.  Once a control's payload ends at its own
+        // display line the byte belongs to no segment, and reading its
+        // spelling would decline the topic over a byte hosted never prints.
+        // Checked last, so a byte that already reads as row structure keeps
+        // the role the row geometry is built from.
+        if (is_row_control_slot(records, view)) {
+          if (!ledger.assign(record_index, token, ProseTokenRoleIR::padding,
+                             error))
+            return false;
+          continue;
+        }
         if (!is_padding(view) && !is_separator(view))
           return fail(error, "unclaimed visible token '" + body_text(view) +
                                  "' in record " +

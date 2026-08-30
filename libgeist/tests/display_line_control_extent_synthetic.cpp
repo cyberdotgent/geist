@@ -247,6 +247,122 @@ void an_opcode_stops_at_the_display_line() {
               "', not the word on the anchor's own display line 'SRHDRABC'");
 }
 
+// A compiled menu item's label is bounded by the item's own display line, in
+// both directions (issue #77).
+//
+// The label must not run past the line end and pick up the next line's length
+// byte: SC26-457 record 543 display line 18 ends at `Example 8`, and the byte
+// behind it is line 19's length, spelled `----------` by that book's
+// dictionary.  Hosted serves the label without the rule, and the menu pass
+// rejects the topic because the label no longer equals the catalogue title.
+const geist::detail::ControlSegmentIR *only_menu_item(
+    const DecodedLogicalRecordSource &record) {
+  const geist::detail::ControlSegmentIR *item = nullptr;
+  for (const auto &segment : record.control_segments)
+    if (segment.kind == geist::detail::BookControlKind::menu_item) {
+      if (item != nullptr) return nullptr;
+      item = &segment;
+    }
+  return item;
+}
+
+std::string label_of(const DecodedLogicalRecordSource &record,
+                     const geist::detail::ControlSegmentIR &item) {
+  return geist::detail::trim_ascii(slice(record, item.payload_range));
+}
+
+void a_menu_label_stops_at_the_display_line() {
+  DecodedLogicalRecordSource record;
+  record.logical_record = 543;
+  // Line 0: eight bytes of tokens spelling `cmitem 1.1 Alpha Beta`.
+  append(record, 8, 1, {3, 'l', 'e', 'a', 'd'});
+  append(record, 0x80, 2, {'c', 'm', 'i', 't', 'e', 'm'});
+  append(record, 0x81, 2, {'1', '.', '1'});
+  append(record, 0x82, 2, {'A', 'l', 'p', 'h', 'a'});
+  append(record, 0x83, 2, {'B', 'e', 't', 'a'});
+  // Line 1: its length byte is spelled `----------`, the shape of a drawn
+  // rule, and the row it opens is the next item's text.
+  append(record, 4, 1, {3, '-', '-', '-', '-', '-', '-', '-', '-', '-', '-'});
+  append(record, 0x84, 2, {'G', 'a', 'm', 'm', 'a'});
+  append(record, 0x85, 2, {'D', 'e', 'l', 't', 'a'});
+  refresh(record);
+  geist::detail::demote_display_line_owned_controls(record);
+
+  require(record.ir.display_lines_parse,
+          "the menu record's display lines did not parse");
+  require(record.ir.tokens[5].framing == TokenFramingRole::line_length,
+          "token 5 is the second line's length byte and was not stamped as "
+          "one");
+  const auto text = geist::detail::token_words_to_ascii(record.assembled.words);
+  require(text.find("Beta ----------") != std::string::npos,
+          "the fixture no longer reproduces the glued spelling this pins; "
+          "assembled text is '" + text + "'");
+
+  const auto *item = only_menu_item(record);
+  require(item != nullptr, "no single cmitem control was decoded");
+  if (item == nullptr) return;
+  require(label_of(record, *item) == "Alpha Beta",
+          "the label is '" + label_of(record, *item) +
+              "', not the text on the item's own display line 'Alpha Beta'");
+}
+
+// The other direction: a word inside the label spelled like a control opens a
+// segment of its own, and the label stops short.  SC24-5527-02 record 592
+// display line 2 is `cmitem 6.3.7 Create an APPLY List from Two SRVAPPS
+// Tables` and arrives as two segments, because `SRVAPPS` reads as an SR
+// anchor.  It is not one: a genuine control opens its own display line, and
+// this word stands inside one.
+void a_menu_label_reaches_the_end_of_its_display_line() {
+  DecodedLogicalRecordSource record;
+  record.logical_record = 592;
+  // Line 0: `cmitem 1.1 Alpha SRVAPPS Beta`, ten bytes of tokens.
+  append(record, 10, 1, {3, 'l', 'e', 'a', 'd'});
+  append(record, 0x80, 2, {'c', 'm', 'i', 't', 'e', 'm'});
+  append(record, 0x81, 2, {'1', '.', '1'});
+  append(record, 0x82, 2, {'A', 'l', 'p', 'h', 'a'});
+  append(record, 0x83, 2, {'S', 'R', 'V', 'A', 'P', 'P', 'S'});
+  append(record, 0x84, 2, {'B', 'e', 't', 'a'});
+  // Line 1: an ordinary row, so the record frames into two lines.
+  append(record, 2, 1, {3, 'n', 'e', 'x', 't'});
+  append(record, 0x85, 2, {'G', 'a', 'm', 'm', 'a'});
+  refresh(record);
+  require(record.control_segments.size() > 1,
+          "the fixture no longer reproduces the split this pins: the "
+          "flattened splitter did not open a segment on `SRVAPPS`");
+  geist::detail::demote_display_line_owned_controls(record);
+
+  const auto *item = only_menu_item(record);
+  require(item != nullptr, "no single cmitem control was decoded");
+  if (item == nullptr) return;
+  require(label_of(record, *item) == "Alpha SRVAPPS Beta",
+          "the label is '" + label_of(record, *item) +
+              "', not the whole text of the item's own display line "
+              "'Alpha SRVAPPS Beta'");
+}
+
+// Fail-closed: a record whose payload does not tile into display lines has no
+// decided boundary, so nothing is bounded and nothing is absorbed.
+void an_unframed_menu_label_is_not_bounded() {
+  DecodedLogicalRecordSource record;
+  record.logical_record = 4;
+  append(record, 99, 1, {3, 'l', 'e', 'a', 'd'});
+  append(record, 0x80, 2, {'c', 'm', 'i', 't', 'e', 'm'});
+  append(record, 0x81, 2, {'1', '.', '1'});
+  append(record, 0x82, 2, {'A', 'l', 'p', 'h', 'a'});
+  append(record, 4, 1, {3, '-', '-', '-', '-', '-', '-', '-', '-', '-', '-'});
+  append(record, 0x83, 2, {'G', 'a', 'm', 'm', 'a'});
+  refresh(record);
+  geist::detail::demote_display_line_owned_controls(record);
+  require(!record.ir.display_lines_parse,
+          "the unframed fixture unexpectedly framed into display lines");
+  const auto *item = only_menu_item(record);
+  require(item != nullptr, "no single cmitem control was decoded");
+  if (item == nullptr) return;
+  require(label_of(record, *item) == "Alpha ---------- Gamma",
+          "an unframed record has no decided line boundary and must keep its "
+          "previous reading; the label is '" + label_of(record, *item) + "'");
+}
+
 } // namespace
 
 int main() {
@@ -254,5 +370,8 @@ int main() {
   cz_operands_stop_at_the_display_line();
   an_unframed_record_decides_nothing();
   a_length_byte_is_never_display_text();
+  a_menu_label_stops_at_the_display_line();
+  a_menu_label_reaches_the_end_of_its_display_line();
+  an_unframed_menu_label_is_not_bounded();
   return 0;
 }

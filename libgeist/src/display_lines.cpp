@@ -294,6 +294,84 @@ void demote_length_byte_controls(DecodedLogicalRecordSource& record) {
   }
 }
 
+// A compiled menu item's label is bounded by the item's own display line.
+// The flattened decoded string carries no mark at that boundary, so the
+// splitter gets it wrong in both directions and the label the menu pass
+// reconstructs no longer equals the catalogue title the item names:
+//
+//   * it runs past the line end and picks up the next line's length byte.
+//     SC26-457 record 543 display line 18 is exactly
+//     `cmitem 3.14.2.8 ... Catalog:  Example 8` (tokens 136-147); token 148
+//     is line 19's length byte, and this book's dictionary spells the byte
+//     35 as `----------`, so the label arrives with a rule glued to it that
+//     hosted never prints.
+//   * it stops short of the line end, because a word inside the label is
+//     spelled like a control and the splitter opened a segment on it.
+//     SC24-5527-02 record 592 display line 2 is
+//     `cmitem 6.3.7 Create an APPLY List from Two SRVAPPS Tables`
+//     (tokens 34-49) and arrives as two segments; the demotion above has
+//     already established that `SRVAPPS` is display text, because a genuine
+//     control opens its own display line and this one does not.
+//
+// Both are the same correction: the item's extent is the framing's, not the
+// flattened string's.  A record with no decided framing, or an item whose
+// label already ends exactly at its line end, keeps its previous reading.
+void bound_menu_items_to_display_lines(DecodedLogicalRecordSource& record) {
+  const auto text_size = token_words_to_ascii(record.assembled.words).size();
+  const auto byte_of_token = [&](const std::size_t token) {
+    if (token >= record.assembled.tokens.size()) return text_size;
+    const auto begin = record.assembled.tokens[token].output_begin;
+    return decoded_word_range_to_byte_range(record.assembled, {begin, begin})
+        .begin;
+  };
+  const auto retoken = [&](ControlSegmentIR& segment) {
+    const auto words =
+        decoded_byte_range_to_word_range(record.assembled, segment.complete);
+    segment.source_tokens =
+        source_tokens_intersecting_output(record.assembled, words.begin,
+                                          words.end);
+  };
+  std::vector<ControlSegmentIR> bounded;
+  bounded.reserve(record.control_segments.size());
+  for (std::size_t index = 0; index < record.control_segments.size();
+       ++index) {
+    auto segment = record.control_segments[index];
+    const auto* line =
+        segment.kind == BookControlKind::menu_item &&
+                !segment.source_tokens.empty()
+            ? display_line_of_token(record, segment.source_tokens.front())
+            : nullptr;
+    // An opcode standing on the length byte itself is no control at all; the
+    // demotion above withdraws those, and one that survives is not bounded
+    // here.
+    if (line == nullptr || segment.source_tokens.front() == line->prefix_token) {
+      segment.segment_index = bounded.size();
+      bounded.push_back(std::move(segment));
+      continue;
+    }
+    const auto line_end = byte_of_token(line->token_end);
+    // Everything the splitter left on this line after the item belongs to the
+    // item's label.  Only display text is absorbed: a segment the demotion
+    // left as a control opens its own line and cannot be inside this one.
+    while (index + 1 < record.control_segments.size()) {
+      const auto& next = record.control_segments[index + 1];
+      if (next.kind != BookControlKind::text || next.source_tokens.empty() ||
+          display_line_of_token(record, next.source_tokens.front()) != line)
+        break;
+      segment.complete.end = next.complete.end;
+      ++index;
+    }
+    if (line_end > segment.payload_range.begin &&
+        line_end < segment.complete.end)
+      segment.complete.end = line_end;
+    segment.payload_range.end = segment.complete.end;
+    retoken(segment);
+    segment.segment_index = bounded.size();
+    bounded.push_back(std::move(segment));
+  }
+  record.control_segments = std::move(bounded);
+}
+
 } // namespace
 
 void demote_display_line_owned_controls(DecodedLogicalRecordSource& record) {
@@ -337,6 +415,7 @@ void demote_display_line_owned_controls(DecodedLogicalRecordSource& record) {
     segment.operand_range = segment.opcode_range;
     segment.payload_range = {segment.complete.begin, segment.complete.end};
   }
+  bound_menu_items_to_display_lines(record);
 }
 
 } // namespace geist::detail

@@ -57,24 +57,24 @@ BASELINE = {
     "SC09-138.boo": 522,
     "SC09-2417-00.boo": 324,
     "SC24-546.boo": 298,
-    "SC24-5520-00.boo": 644,
-    "SC24-5527-02.boo": 298,
-    "SC26-457.boo": 355,
+    "SC24-5520-00.boo": 645,
+    "SC24-5527-02.boo": 300,
+    "SC26-457.boo": 356,
     "SC28-1881-05.boo": 88,
     "SC31-605.boo": 109,
     "SC31-711.boo": 78,
-    "SC33-033.boo": 220,
+    "SC33-033.boo": 221,
     "SC34-425.boo": 244,
     "SC41-485.boo": 29,
     "SG24-204.boo": 87,
     "SH12-565.boo": 284,
     "SH20-918.boo": 200,
-    "XWEBDEMO.boo": 9,
+    "XWEBDEMO.boo": 10,
     # packet.boo is the one redistributable fixture; it now lives inside the
     # published library at libgeist/tests/fixtures/.
     "packet.boo": 120,
 }
-BASELINE_TOTAL = 7143
+BASELINE_TOTAL = 7149
 
 SUMMARY = re.compile(r"^# summary\ttyped=(\d+)\tlegacy=(\d+)\ttotal=(\d+)")
 
