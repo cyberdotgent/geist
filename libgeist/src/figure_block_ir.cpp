@@ -70,6 +70,7 @@ bool same_block(const FigureSourceBlockIR &left,
       left.anchor != right.anchor || !same_ref(left.selector, right.selector) ||
       left.target_kind != right.target_kind || left.target != right.target ||
       left.placeholder_text != right.placeholder_text ||
+      left.additional_pictures.size() != right.additional_pictures.size() ||
       left.body_kind != right.body_kind ||
       left.lines.size() != right.lines.size() ||
       left.index_terms != right.index_terms ||
@@ -77,6 +78,14 @@ bool same_block(const FigureSourceBlockIR &left,
       left.suppressed_rows.size() != right.suppressed_rows.size() ||
       left.cells.size() != right.cells.size())
     return false;
+  for (std::size_t index = 0; index < left.additional_pictures.size();
+       ++index) {
+    const auto &a = left.additional_pictures[index];
+    const auto &b = right.additional_pictures[index];
+    if (!same_ref(a.selector, b.selector) || a.target_kind != b.target_kind ||
+        a.target != b.target || a.placeholder_text != b.placeholder_text)
+      return false;
+  }
   if (left.caption) {
     if (left.caption->text != right.caption->text ||
         left.caption->rows.size() != right.caption->rows.size())
@@ -1289,14 +1298,26 @@ struct Extractor {
         if (selector->inside_table)
           return decline(region, "picture selector is table-owned");
         if (exact_picture_target(selector->target)) {
-          if (picture != nullptr)
-            return decline(region, "figure region contains several pictures");
+          // Several picture selectors under one caption are one figure
+          // (SC26-457 3.2.1 PIC1 + PIC2, B.1.3 PIC4 + PIC5, SC34-425 2.1.2
+          // PIC21 + PIC22; hosted stacks the images under one caption).
+          const auto target = selector->target.substr(3);
+          if (resource_ids.count(ascii_lower(target)) == 0)
+            return decline(region, "picture resource " + target +
+                                       " is not in the resource catalog");
+          if (picture != nullptr) {
+            if (block.target_kind != FigureTargetKindIR::book_resource)
+              return decline(region, "figure region contains several "
+                                     "pictures");
+            block.additional_pictures.push_back(
+                {{selector->logical_record, selector->segment_index,
+                  selector->selector_ordinal},
+                 FigureTargetKindIR::book_resource, target, {}});
+            break;
+          }
           picture = selector;
           block.target_kind = FigureTargetKindIR::book_resource;
-          block.target = selector->target.substr(3);
-          if (resource_ids.count(ascii_lower(block.target)) == 0)
-            return decline(region, "picture resource " + block.target +
-                                       " is not in the resource catalog");
+          block.target = target;
         } else if (ascii_equals_case_insensitive(selector->target, "lnk")) {
           const auto external = external_image(selector->display_payload);
           if (!external)
@@ -1335,21 +1356,37 @@ struct Extractor {
       metadata_end = picture->payload_range.begin +
                      external_image(picture->display_payload)->metadata_bytes;
 
+    struct PlaceholderSlot {
+      const std::string *target = nullptr;
+      FigureTargetKindIR kind = FigureTargetKindIR::book_resource;
+      std::string *placeholder = nullptr;
+    };
+    std::vector<PlaceholderSlot> placeholder_slots;
+    placeholder_slots.push_back(
+        {&block.target, block.target_kind, &block.placeholder_text});
+    for (auto &extra : block.additional_pictures)
+      placeholder_slots.push_back(
+          {&extra.target, extra.target_kind, &extra.placeholder_text});
+    std::size_t placeholders_seen = 0;
+
     const auto apply = [&](const Classified &classified,
                            const std::vector<CellSlot> &cells,
                            const DocumentSourceRowIR *row)
         -> std::optional<FigureBlockDeclineIR> {
       if (classified.placeholder) {
-        if (block.target_kind == FigureTargetKindIR::book_resource &&
+        // One placeholder per picture, in source order.
+        if (placeholders_seen >= placeholder_slots.size())
+          return decline(region, "figure region has several placeholders");
+        auto &slot = placeholder_slots[placeholders_seen];
+        if (slot.kind == FigureTargetKindIR::book_resource &&
             ascii_lower(classified.placeholder->number) !=
-                ascii_lower(block.target))
+                ascii_lower(*slot.target))
           return decline(region, "placeholder PICTURE " +
                                      classified.placeholder->number +
                                      " names a different picture than " +
-                                     block.target);
-        if (!block.placeholder_text.empty())
-          return decline(region, "figure region has several placeholders");
-        block.placeholder_text = classified.placeholder->text;
+                                     *slot.target);
+        *slot.placeholder = classified.placeholder->text;
+        ++placeholders_seen;
       }
       if (classified.caption) {
         if (block.caption)

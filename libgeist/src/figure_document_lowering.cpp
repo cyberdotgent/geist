@@ -303,47 +303,74 @@ lower_figure_block_to_document_blocks(const FigureSourceBlockIR &figure,
     blocks.push_back(std::move(anchor));
   }
 
-  FigureBlockIR node;
-  node.resource = figure.target_kind == FigureTargetKindIR::book_resource
-                      ? "resource:" + figure.target
-                      : figure.target;
-  if (figure.caption) {
-    if (figure.caption->text.empty()) {
-      fail(error, "figure caption is incomplete");
+  // One image block per picture selector, in source order; hosted stacks
+  // them and puts the caption under the last (SC26-457 3.2.1, B.1.3,
+  // SC34-425 2.1.2).
+  const auto owned_by = [](const FigureSourceCellIR &cell,
+                           const SelectorRefIR &selector) {
+    return cell.logical_record == selector.logical_record &&
+           cell.segment_index == selector.segment_index;
+  };
+  const auto count = figure.additional_pictures.size() + 1;
+  for (std::size_t index = 0; index < count; ++index) {
+    const auto book_resource =
+        index == 0 ? figure.target_kind == FigureTargetKindIR::book_resource
+                   : figure.additional_pictures[index - 1].target_kind ==
+                         FigureTargetKindIR::book_resource;
+    const auto &target =
+        index == 0 ? figure.target : figure.additional_pictures[index - 1].target;
+    FigureBlockIR node;
+    node.resource = book_resource ? "resource:" + target : target;
+    if (figure.caption && index + 1 == count) {
+      if (figure.caption->text.empty()) {
+        fail(error, "figure caption is incomplete");
+        return std::nullopt;
+      }
+      auto content = caption_inlines(figure, false);
+      if (content.empty() || content.front().origin.slices.empty()) {
+        fail(error, "figure caption has no source slice");
+        return std::nullopt;
+      }
+      node.caption = std::move(content);
+    }
+    BlockIR block;
+    block.node = std::move(node);
+    block.origin.derivation = DocumentDerivationIR::semantic_lowering;
+    block.origin.detail = book_resource ? "figure block: book resource"
+                                        : "figure block: external image";
+    if (index == 0) {
+      add_cell_slices(block.origin, figure.cells, [&](const auto &cell) {
+        if (figure.span.anchored && cell.role == FigureCellRoleIR::control &&
+            cell.logical_record == figure.span.begin.logical_record &&
+            cell.segment_index == figure.span.begin.segment_index)
+          return false;
+        for (const auto &extra : figure.additional_pictures)
+          if (owned_by(cell, extra.selector))
+            return false;
+        return true;
+      });
+      // A caption spread over several display lines is carried by several
+      // physical rows; the document's row ledger wants them in source order
+      // and once each.
+      auto rows = figure.suppressed_rows;
+      if (figure.caption && count == 1)
+        rows.insert(rows.end(), figure.caption->rows.begin(),
+                    figure.caption->rows.end());
+      add_sorted_rows(block.origin, std::move(rows));
+    } else {
+      const auto &selector = figure.additional_pictures[index - 1].selector;
+      add_cell_slices(block.origin, figure.cells, [&](const auto &cell) {
+        return owned_by(cell, selector);
+      });
+      if (figure.caption && index + 1 == count)
+        add_sorted_rows(block.origin, figure.caption->rows);
+    }
+    if (block.origin.slices.empty()) {
+      fail(error, "figure block has no source slice");
       return std::nullopt;
     }
-    auto content = caption_inlines(figure, false);
-    if (content.empty() || content.front().origin.slices.empty()) {
-      fail(error, "figure caption has no source slice");
-      return std::nullopt;
-    }
-    node.caption = std::move(content);
+    blocks.push_back(std::move(block));
   }
-
-  BlockIR block;
-  block.node = std::move(node);
-  block.origin.derivation = DocumentDerivationIR::semantic_lowering;
-  block.origin.detail = figure.target_kind == FigureTargetKindIR::book_resource
-                            ? "figure block: book resource"
-                            : "figure block: external image";
-  add_cell_slices(block.origin, figure.cells, [&](const auto &cell) {
-    if (figure.span.anchored && cell.role == FigureCellRoleIR::control &&
-        cell.logical_record == figure.span.begin.logical_record &&
-        cell.segment_index == figure.span.begin.segment_index)
-      return false;
-    return true;
-  });
-  {
-    // A caption spread over several display lines is carried by several
-    // physical rows; the document's row ledger wants them in source order
-    // and once each.
-    auto rows = figure.suppressed_rows;
-    if (figure.caption)
-      rows.insert(rows.end(), figure.caption->rows.begin(),
-                  figure.caption->rows.end());
-    add_sorted_rows(block.origin, std::move(rows));
-  }
-  blocks.push_back(std::move(block));
 
   if (error != nullptr)
     error->clear();

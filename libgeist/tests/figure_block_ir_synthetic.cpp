@@ -614,6 +614,27 @@ int main() {
       }
   }
 
+  // Several picture selectors under one caption are one figure.  SC26-457
+  // 3.2.1 record 160/161 spells PIC1 then PIC2 with the single caption
+  // "Figure 2. ALTER Parameters ..."; hosted DT 19911220230217 stacks both
+  // images under the FIGVSAMATT anchor.  SC34-425 2.1.2 is PIC21 + PIC22.
+  for (const auto &[book, id, anchor, first, second] :
+       {std::tuple{"SC26-457.boo", "3.2.1", "FIGVSAMATT", "1", "2"},
+        std::tuple{"SC26-457.boo", "B.1.3", "FIGLDNO", "4", "5"},
+        std::tuple{"SC34-425.boo", "2.1.2", "FIGLIB01", "21", "22"}}) {
+    const auto topic = corpus.topic(book, id);
+    const auto *figure = find_figure(topic, anchor);
+    require(figure != nullptr && figure->target == first &&
+                figure->additional_pictures.size() == 1 &&
+                figure->additional_pictures[0].target == second &&
+                figure->placeholder_text == std::string("PICTURE ") + first &&
+                figure->additional_pictures[0].placeholder_text ==
+                    std::string("PICTURE ") + second &&
+                figure->caption.has_value(),
+            std::string(book) + " " + id +
+                ": the region's second picture was not admitted");
+  }
+
   // Negative: a drawn figure wrapping an SRTBL is the table family's
   // (SC31-711 2.4.1 FIGTBLUNIQ2 / TBLTBLUNIQ2, IEAC6MST 1.4 FIGDSLIB).
   // IEAC6MST 1.4 also carries the picture figure FIGTSOAPPL, which is

@@ -137,6 +137,17 @@ struct FigureLinkIR {
   DocumentSourceSliceIR source;
 };
 
+// A picture region may carry several picture selectors under one caption:
+// SC26-457 3.2.1 `FIGVSAMATT` is PIC1 + PIC2, B.1.3 `FIGLDNO` is PIC4 +
+// PIC5, SC34-425 2.1.2 `FIGLIB01` is PIC21 + PIC22, and hosted BookServer
+// serves the images stacked with one caption beneath them all.
+struct FigurePictureIR {
+  SelectorRefIR selector;
+  FigureTargetKindIR target_kind = FigureTargetKindIR::book_resource;
+  std::string target;
+  std::string placeholder_text;
+};
+
 struct FigureCaptionIR {
   std::string text;
   std::vector<DocumentSourceRowIR> rows;
@@ -178,6 +189,8 @@ struct FigureSourceBlockIR {
   // Preformatted figures only: the body lines in display order (interior
   // blank lines included, surrounding spacing excluded).
   std::vector<FigurePreformattedLineIR> lines;
+  // Pictures after the first, in source order.
+  std::vector<FigurePictureIR> additional_pictures;
   // Decoder placeholder text for the picture cell when present ("PICTURE 9").
   std::string placeholder_text;
   std::optional<FigureCaptionIR> caption;
