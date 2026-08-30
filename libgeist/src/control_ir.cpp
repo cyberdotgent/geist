@@ -560,6 +560,25 @@ decode_control_segments(std::uint32_t logical_record,
       segment.operand_range = {begin, begin};
       segment.payload_range = {begin, source.output_end};
     } else {
+      // An opcode ends where its own display line ends.  The flattened string
+      // carries no mark at that boundary, so the next line's length byte is
+      // glued straight onto the opcode word and the glued spelling then
+      // classifies as ordinary text: SC31-711 record 14 display line 1 is
+      // exactly `SRHDRAIXHIGH` (token 17) and the `-` behind it is line 2's
+      // length byte (token 18), and the anchor arrives as `SRHDRAIXHIGH-`.
+      // The framing is what separates them.  A record with no decided framing
+      // clips nothing and keeps its previous reading.
+      {
+        const auto opcode_words = decoded_byte_range_to_word_range(
+            assembled, {words[0].begin, words[0].end});
+        const auto opcode_tokens = source_tokens_intersecting_output(
+            assembled, opcode_words.begin, opcode_words.end);
+        if (!opcode_tokens.empty()) {
+          const auto line_end = display_line_end_byte(opcode_tokens.front());
+          if (line_end > words[0].begin && line_end < words[0].end)
+            words[0].end = line_end;
+        }
+      }
       const auto opcode_end =
           opcode_end_without_separator(assembled, text, words[0]);
       segment.opcode = text.substr(words[0].begin, opcode_end - words[0].begin);

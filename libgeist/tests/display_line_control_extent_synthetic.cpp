@@ -204,9 +204,53 @@ void a_length_byte_is_never_display_text() {
           "the decoder's own framing failed its consistency check: " + error);
 }
 
+// The opcode itself ends at the display line too.  The flattened string glues
+// the next line's length byte straight onto the opcode word -- SC31-711
+// record 14 line 1 is exactly `SRHDRAIXHIGH` and the `-` behind it is line 2's
+// length byte -- and the glued spelling `SRHDRAIXHIGH-` then classifies as
+// ordinary text, so the anchor is lost.
+void an_opcode_stops_at_the_display_line() {
+  DecodedLogicalRecordSource record;
+  record.logical_record = 11;
+  // Line 0: length byte covering the 2-byte anchor token.
+  append(record, 2, 1, {3, 'z', 'e', 'r', 'o'});
+  // The anchor closes its line with no trailing space, so the next line's
+  // length byte lands directly against it in the flattened string.
+  append(record, 0x70, 2, {2, 'S', 'R', 'H', 'D', 'R', 'A', 'B', 'C'});
+  // Line 1: its length byte is spelled `-`; the flattened string therefore
+  // reads `SRHDRABC-` as one word and no mark separates the two.
+  append(record, 2, 1, {3, '-'});
+  append(record, 0x71, 2, {'B', 'o', 'd', 'y'});
+  refresh(record);
+
+  require(record.ir.display_lines_parse,
+          "the anchor record's display lines did not parse");
+  require(record.ir.tokens[2].framing == TokenFramingRole::line_length,
+          "token 2 is the second line's length byte and was not stamped as "
+          "one");
+  const auto text = geist::detail::token_words_to_ascii(record.assembled.words);
+  require(text.find("SRHDRABC-") != std::string::npos,
+          "the fixture no longer reproduces the glued spelling this pins; "
+          "assembled text is '" + text + "'");
+
+  const geist::detail::ControlSegmentIR *anchor = nullptr;
+  for (const auto &segment : record.control_segments)
+    if (segment.kind == geist::detail::BookControlKind::structural)
+      anchor = &segment;
+  require(anchor != nullptr,
+          "the anchor was not decoded as a structural control; its opcode "
+          "absorbed the next display line's length byte and the glued word "
+          "classified as text");
+  if (anchor == nullptr) return;
+  require(anchor->opcode == "SRHDRABC",
+          "opcode is '" + anchor->opcode +
+              "', not the word on the anchor's own display line 'SRHDRABC'");
+}
+
 } // namespace
 
 int main() {
+  an_opcode_stops_at_the_display_line();
   cz_operands_stop_at_the_display_line();
   an_unframed_record_decides_nothing();
   a_length_byte_is_never_display_text();

@@ -49,7 +49,7 @@ BASELINE = {
     "IEAC6MST.BOO": 201,
     "ITPPIBOK.BOO": 255,
     "N2AH1MST.BOO": 41,
-    "OFCUSEOV.BOO": 189,
+    "OFCUSEOV.BOO": 192,
     "PRG1SORT.boo": 205,
     "QS3X36CM.BOO": 10,
     "QSYSINFO.BOO": 413,
@@ -58,11 +58,11 @@ BASELINE = {
     "SC09-2417-00.boo": 324,
     "SC24-546.boo": 298,
     "SC24-5520-00.boo": 644,
-    "SC24-5527-02.boo": 297,
+    "SC24-5527-02.boo": 298,
     "SC26-457.boo": 355,
     "SC28-1881-05.boo": 88,
     "SC31-605.boo": 109,
-    "SC31-711.boo": 77,
+    "SC31-711.boo": 78,
     "SC33-033.boo": 220,
     "SC34-425.boo": 244,
     "SC41-485.boo": 29,
@@ -74,7 +74,7 @@ BASELINE = {
     # published library at libgeist/tests/fixtures/.
     "packet.boo": 120,
 }
-BASELINE_TOTAL = 7138
+BASELINE_TOTAL = 7143
 
 SUMMARY = re.compile(r"^# summary\ttyped=(\d+)\tlegacy=(\d+)\ttotal=(\d+)")
 
