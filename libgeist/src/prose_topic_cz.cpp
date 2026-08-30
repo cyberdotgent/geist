@@ -455,13 +455,21 @@ struct CzBuilder {
     while (!rows.empty() && rows.front().empty()) rows.erase(rows.begin());
     if (block.inlines.empty())
       return fail(error, "cz OFF XMP block has no display rows");
-    std::size_t indent = npos;
-    for (const auto& row : rows) {
-      if (row.empty()) continue;
-      indent = std::min(indent, row.find_first_not_of(' '));
-    }
-    for (auto& row : rows)
-      if (!row.empty()) row.erase(0, indent);
+    // The region's own left margin is content: hosted BookServer serves the
+    // rows inside `<pre>` at the columns the display lines put them in, so
+    // the block keeps them.  Measured over all 486 `cz OFF XMP` blocks the
+    // corpus emits (SC09-2417-00 263, packet 223) against hosted: with the
+    // common indent removed not one block matched hosted line for line;
+    // keeping it makes 454 of 486 (93.4%) exact, and no block that already
+    // differed got worse.  The margin is per region, not per book --
+    // SC09-2417-00 `3.1.3.5` (DT 19961114175628) serves its `#pragma
+    // mapinc` example at column 5 and the three DDS listings below it at
+    // column 10, on one page.
+    //
+    // This is not the re-indent `prose_topic_lines.cpp` guards against.
+    // That one *infers* a margin from a two-run display line and would add
+    // ten columns SC09-2417-00 `4.1.9.4`'s COBOL listing does not have; the
+    // rows here are already at their read columns and are simply not shifted.
     block.preformatted_lines = std::move(rows);
     std::sort(block_refs.begin(), block_refs.end());
     block.slices = slices_for(records, block_refs);

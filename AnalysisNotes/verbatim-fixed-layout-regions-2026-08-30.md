@@ -93,7 +93,11 @@ is a one-class, measured gap and the obvious next slice.
 
 ## Difference classes still open
 
-- The region's left margin, above (prose/figure families only).
+- ~~The region's left margin, above (prose/figure families only).~~ Closed by
+  the margin slice; see
+  `AnalysisNotes/verbatim-region-left-margin-2026-08-30.md`.  The strip was in
+  the prose family only (`cz OFF XMP` and drawn box regions); the figure and
+  fixed-table families already kept the margin.
 - The per-book display-translation table: hosted maps `→`/`←`/`↑`/`↓` and the
   `°` bullet through the book's own table; Geist prints the source glyph.
 - The reflow-off revision bar: hosted prints ` | ` in the leftmost columns of a
