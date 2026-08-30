@@ -210,9 +210,13 @@ per display line, with box-drawing words rendered as `_` (`U+2500`), `|`
 blank (`U+250C`, `U+2510`, `U+252C`); a full-width rule line without corners
 directly after `SRFIG` or before the caption (the `frame=rule` frame,
 SC09-138 `1.3.1`, GC23-046 `6.2`) is shown as an empty line.  The arrow
-words `U+2190`-`U+2193` and the bullet `U+2666` reach the hosted page through
-the book's display translation tables (`ÿ`, `"`, dropped, `°`), which
-`libgeist` does not yet apply.
+words `U+2190`-`U+2193` and the bullet `U+2666` are served as the single
+display bytes `0x1b`, `0x22`, `0xff`, `0x19` and `0xb0` -- one column each,
+no character dropped and no column shifted.  That mapping belongs to the
+reader's output code page, not to the book: see
+[encoding.md](encoding.md), "Hosted Display Bytes For The Non-ASCII Graphic
+Words", which records the table, the byte evidence, and why `libgeist` emits
+the Unicode characters instead.
 
 ##### A Length Byte May Be At Or Above The Token Threshold
 
