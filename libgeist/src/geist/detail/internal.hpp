@@ -217,13 +217,9 @@ std::vector<ResourceEntry> build_resources(
     const BooDirectory& directory);
 std::vector<std::string> render_gml_records(
     const std::vector<std::string>& decoded_records);
-std::optional<std::vector<std::string>>
-render_verified_publication_catalog_gml(
-    const std::vector<DecodedLogicalRecordSource>& sources);
-// Same rendering for a caller that already built the topic's layout and
-// verified its ownership ledger. A null ledger means the topic's geometry did
-// not verify, which declines the catalog exactly as the self-contained form
-// does.
+// Renders a verified publication catalog for a caller that already built the
+// topic's layout and ownership ledger. A null ledger means the topic's
+// geometry did not verify, which declines the catalog.
 std::optional<std::vector<std::string>>
 render_verified_publication_catalog_gml(
     const std::vector<DecodedLogicalRecordSource>& sources,
@@ -333,8 +329,6 @@ std::vector<TocEntry> build_table_of_contents(
     const std::vector<std::string>& decoded_records,
     const std::vector<TopicData>& topics,
     bool attach_records = true);
-std::vector<std::string> build_raw_gml_records(
-    const std::vector<TopicData>& topics);
 // Topic identities, boundaries and header titles.  The title is read off the
 // `ST` display line of the topic's own metadata record, so this needs the
 // positioned decode context and not only the flattened record strings
