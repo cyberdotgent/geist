@@ -584,14 +584,34 @@ decode_control_segments(std::uint32_t logical_record,
             operands.push_back(ascii_lower(text.substr(
                 words[word].begin, words[word].end - words[word].begin)));
           }
+          // `cz <mode> <tag> [<left> <indent>]`. The tag names a region and
+          // the compiler spells many of them (TABLE, XMP, FIG, COVER, and
+          // their `E`-prefixed closers); enumerating the ones seen so far
+          // left every other tag "malformed", which zeroes the operand range
+          // and leaks the operand words into body text as if they were
+          // prose. The grammar, not the tag vocabulary, is what decides.
+          const auto alphanumeric_tag = [](const std::string &word) {
+            return !word.empty() &&
+                   std::all_of(word.begin(), word.end(),
+                               [](const unsigned char ch) {
+                                 return std::isalnum(ch) != 0;
+                               });
+          };
+          const auto decimal_operand = [](const std::string &word) {
+            return !word.empty() &&
+                   std::all_of(word.begin(), word.end(),
+                               [](const unsigned char ch) {
+                                 return std::isdigit(ch) != 0;
+                               });
+          };
           segment.malformed =
               !((operands.size() == 2 && operands[0] == "break" &&
                  operands[1] == "3") ||
                 (operands.size() == 2 && operands[0] == "off" &&
-                 (operands[1] == "figlist" || operands[1] == "tlist")) ||
+                 alphanumeric_tag(operands[1])) ||
                 (operands.size() == 4 && operands[0] == "off" &&
-                 (operands[1] == "efiglist" || operands[1] == "etlist") &&
-                 operands[2] == "0" && operands[3] == "0"));
+                 alphanumeric_tag(operands[1]) &&
+                 decimal_operand(operands[2]) && decimal_operand(operands[3])));
           operand_words = segment.malformed ? 0 : words.size() - 1;
         } else if (operand_words > words.size() - 1) {
           segment.malformed = true;
