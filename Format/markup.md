@@ -643,6 +643,20 @@ The `CFONT` field layout observed so far is repeated triples:
 CFONT <column_or_offset> <span_length> <font_code> ...
 ```
 
+**A style code is one character of the book's own `CFONTDEF` table**, with the
+`,` operand separator optionally glued to the last triple's code.  The table
+is byte-identical in all 34 corpus books (swept with `bootrace --fonts`):
+`0`-`9`, `A`-`M`, `O`-`R`, `T`-`Z` and `_`; there is no `N` and no `S`.  A
+reader must stop the triple walk at the first word that is not such a code,
+because the row's own display text can begin with numbers and would otherwise
+be eaten as another triple: `SC33-033.boo` record 493 segment 12 is
+`CFONT 17 3 E 26 3 E 35 3 E 44 3 E` over the display row
+`                      190      195      200      205`, and reading
+`190 195 200` as a fifth triple both invents a span with the impossible code
+`200` and hides three numbers from the row.  `FA1PLMM0.boo` record 655
+segment 4 is the same shape over
+`                    3350    30      (results in 1410 entries)`.
+
 The first field is a display-column coordinate, not an offset in already
 collapsed Markdown/plain text. A decoder expands BOO logical records into a
 display line, tracks the active layout indent from `CZ FLOW <tag> <left>
@@ -819,6 +833,29 @@ quoted in the evidence column; every rule was checked on at least two books.
 | `Q` | `PKDEF` | `<dfn>` | PRG1SORT `2.1.4` -> `<dfn>*CURLIB</dfn>`; SC26-457 `3.4.1.2` -> `<dfn>LIST</dfn>` |
 | `R` | `RK` | `<B>` | ACPZMST1 `FRONT_1.1` `cfont 4 4 R,` -> `<B>GUPI</B>`; ACPZMST1 `6.2` |
 | `V` | `PV` | `<var>` | SC26-457 `3.4.1.2`; GC23-046 `6.0` |
+| `W` | `WARNING` | `<em>` | SC26-457 `1.6.5` `cfont 3 8 W ...` -> `<em>Warning:</em>`; SC31-711 `3.3`; SH12-565 `FRONT_1.1` |
+| `G` | `WARNINGTEXT` | `<em>` | GC23-046 `6.9.3`; SC26-457 `1.6.5`; SC31-711 `3.3`; SH12-565 `FRONT_1.1` |
+
+`W` and `G` are the two halves of one GML warning block: `W` styles its
+`Warning:` lead and `G` every word of its body, and the block is anchored
+`<a name="WRN">`.  SH12-565 `FRONT_1.1` (DT `19941206115523`) serves
+
+```
+<a name="WRN">   <em>Warning:</em> <em>Do</em> <em>not</em> <em>use</em> <em>this</em> <em>Diagnosis,</em> ...</a>
+```
+
+and SC26-457 `1.6.5`, SC31-711 `3.3` and GC23-046 `6.9.3` the same shape.
+Corpus-wide the two codes occur only in those four books: a `bootrace
+--fonts` sweep of all 7,362 topics finds 7 `W` spans and 363 `G` spans.
+
+`Z` (`PVDEF`) and `_` (`UNDERSCORE`) have exactly one witness each and no
+verified presentation.  The same sweep finds `Z` only in SC26-457 `1.3`
+(`cfont 3 7 P 11 10 Z 22 4 P 27 1 P 29 10 Z 39 1 P`, whose hosted row is
+`<kbd>COMMAND</kbd> <dfn>parameters</dfn> <kbd>....</kbd> <kbd>[</kbd>
+<dfn>terminator</dfn><kbd>]</kbd>`, so `PVDEF` presents there exactly as
+`PKDEF` does) and `_` only in SC24-5527-02 `COMMENTS`, a book the hosted
+catalog does not serve.  One book is not evidence that a presentation
+generalises.
 
 `HP5`..`HP9` form a family: each is the underscored form of the code five
 below it, so `5` underscores `H0` (plain), `6` `HP1`, `7` `HP2`, `8` `HP3` and
@@ -935,6 +972,25 @@ its revised list items (` |     °   Leave the prompt blank ...`, record 839)
 carry the bullet at column 7 and the text at column 11, the columns its
 unrevised siblings (`       °   Type a 1 (Use) ...`) already carry, so the list
 is aligned only when the bar's three columns are counted.
+
+A display line may also spend **two or more** space runs before its first
+word, with no change bar at all; the row model reads such a pair as the
+fill/origin pair that opens the *next* row and the row then loses every column
+the first run spans.  The line's own cells give the margin here too, and the
+`CFONT` operand corroborates it by naming the column of the line's first word.
+Title pages are the shape that proves it, one wide row per line:
+
+| Book / record / line | Stored | Operand | First word at |
+| --- | --- | --- | ---: |
+| SC24-546 record 3 line 17 | length byte (token 83), 63-cell run, 3-cell run, `Release` | `cfont 66 7 2 74 3 2` | 66 |
+| N2AH1MST record 2 line 10 | token 33, 63-cell run, 7-cell run, `MVS` | `cfont 70 7 2` | 70 |
+| IBMMMSTR record 2 line 12 | token 57, 63-cell run, 2-cell run, `Programming` | `cfont 65 12 2` | 65 |
+
+Hosted serves all three rows at those columns (DTs `19940323131240`,
+`19910329000100`, `19911004151140`).  The corroboration is required: without
+it the same measurement re-indents the verbatim rows of a `cz OFF XMP`
+listing, so it is limited to the flattened dialect and to lines whose leading
+whitespace really is more than one run.
 
 ### The list bullet is display structure between controls
 

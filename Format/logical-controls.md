@@ -944,6 +944,28 @@ not a control at all; a segment whose *first* token is one is that display
 line's text with no control in front of it; and a length byte inside a
 segment draws nothing wherever it falls.
 
+A `CFONT` opened on such a byte is decidable without any hosted lookup,
+because the operand settles it: a genuine `CFONT` is followed by at least one
+complete `<column> <length> <code>` triple, while a length byte that happens
+to spell `cfont` is followed by the line's display text.  The signature is
+exact -- the segment starts on a display line's length byte, the byte's own
+dictionary word spells the opcode, and no complete triple follows.  Eighteen
+topics across eight books carry one:
+
+| Book | Record | Token | Encoded value | Width | Spells | The line it opens |
+| --- | ---: | ---: | ---: | ---: | --- | --- |
+| SC24-546 | 79 | 149 | 59 | 1 | `cfont` | `             ¬<  ¬=  ¬==  >>  <<  >>=  ...` (59 bytes) |
+| N2AH1MST | 89 | 31 | 37 | 1 | `cfont` | `       CBDA803I An MVSCP configuration was used for IPL, ...` (37 bytes) |
+| OFCUSEOV | 276 | 0 | 59 | 1 | `cfont` | `       |   10/23/89       10/24/89 ...`, the first row of a drawn calendar box |
+
+SC24-546 record 79 spells both readings within four display lines of each
+other: token 108 (value 44) is the length byte of line 3 and token 109 (value
+59) the genuine opcode word of `cfont 13 2 X … 67 3 X`, while token 149 -- the
+same encoded value 59 -- is the length of line 4 and carries no triple at all.
+N2AH1MST record 89 spells them adjacently: tokens 31 and 32 are both value 37,
+the first the length of display line 4 and the second the opcode of
+`cfont 7 8 P 16 2 P …`.
+
 ### A Topic Title Is Its `ST` Display Line
 
 The topic header's title is the visible text of the `ST` control's **display

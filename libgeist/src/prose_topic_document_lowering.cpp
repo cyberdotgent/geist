@@ -48,6 +48,10 @@ EmphasisKindIR emphasis_kind(FontStyleIR style) {
   case FontStyleIR::keyword:
   case FontStyleIR::keyword_define:
   case FontStyleIR::highlight_9:
+  // WARNING (`W`) and WARNINGTEXT (`G`) are hosted `<em>` on all four books
+  // that carry them, so both take the default emphasis.
+  case FontStyleIR::warning:
+  case FontStyleIR::warning_text:
   case FontStyleIR::unknown: break;
   }
   return EmphasisKindIR::emphasis;

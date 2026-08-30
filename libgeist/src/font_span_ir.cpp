@@ -40,6 +40,8 @@ FontStyleIR style_for_code(const std::string& code) {
   case '4': return FontStyleIR::example_phrase;
   case 'p': return FontStyleIR::keyword;
   case 'v': return FontStyleIR::variable;
+  case 'w': return FontStyleIR::warning;
+  case 'g': return FontStyleIR::warning_text;
   case 'r':
   case 'h':
   case 'i':
@@ -90,6 +92,10 @@ const char* font_style_name(FontStyleIR style) {
     return "bold";
   case FontStyleIR::italic_phrase:
     return "italic";
+  case FontStyleIR::warning:
+    return "warning";
+  case FontStyleIR::warning_text:
+    return "warningtext";
   case FontStyleIR::unknown:
     break;
   }
