@@ -295,8 +295,30 @@ struct Classified {
   std::optional<PlaceholderText> placeholder;
   std::optional<std::string> caption;
   std::vector<std::string> index_terms;
+  // The row's tail was absorbed into the region's display-line caption.
+  bool caption_lines = false;
   bool prose = false;
   std::string prose_text;
+};
+
+// The caption of one figure region read off its display lines.
+struct RegionCaption {
+  std::string text;
+  // Record-local tokens of the caption's display lines.
+  std::set<std::pair<std::uint32_t, std::size_t>> tokens;
+  // Length bytes of every display line of the region: structure, never
+  // display text, and never a caption terminator.
+  std::set<std::pair<std::uint32_t, std::size_t>> structure;
+
+  bool owns(const CellKey &key) const {
+    const std::pair<std::uint32_t, std::size_t> at{std::get<0>(key),
+                                                   std::get<1>(key)};
+    return tokens.count(at) != 0 || structure.count(at) != 0;
+  }
+
+  bool is_structure(const CellKey &key) const {
+    return structure.count({std::get<0>(key), std::get<1>(key)}) != 0;
+  }
 };
 
 // One character per cell so classification positions map back to cells.
@@ -326,7 +348,8 @@ bool has_alnum(const std::string &text) {
 // but owns no source cell.
 using CellSlot = std::optional<CellRef>;
 
-Classified classify_cells(const std::vector<CellSlot> &cells) {
+Classified classify_cells(const std::vector<CellSlot> &cells,
+                          const RegionCaption *caption = nullptr) {
   Classified result;
   result.roles.assign(cells.size(), FigureCellRoleIR::placeholder_suppressed);
   std::string text;
@@ -399,6 +422,30 @@ Classified classify_cells(const std::vector<CellSlot> &cells) {
       continue;
     }
     if (has_alnum(text.substr(pos))) {
+      // The rest of this row is the region's caption when every remaining
+      // cell sits on one of the caption's own display lines.  The Layout IR
+      // frames a caption row at the marker word before the title and ends it
+      // at the length byte that opens the continuation line, so the tail of
+      // a caption reaches this point looking like prose.
+      if (caption != nullptr) {
+        bool owned = true;
+        for (auto at = pos; at < cells.size(); ++at)
+          if (cells[at] && !caption->owns(cells[at]->key)) {
+            owned = false;
+            break;
+          }
+        if (owned) {
+          for (auto at = pos; at < cells.size(); ++at)
+            if (cells[at])
+              result.roles[at] =
+                  visible_word(cells[at]->word) &&
+                          !caption->is_structure(cells[at]->key)
+                      ? FigureCellRoleIR::caption_content
+                      : FigureCellRoleIR::caption_layout;
+          result.caption_lines = true;
+          break;
+        }
+      }
       result.prose = true;
       result.prose_text =
           collapse_ascii_whitespace(trim_ascii(text.substr(pos)));
@@ -605,6 +652,132 @@ struct Extractor {
     return std::nullopt;
   }
 
+  // The caption of an anchored figure region as its own display lines carry
+  // it.
+  //
+  // A caption is one "Figure N. Title" display line plus the lines that
+  // continue it, and hosted BookServer indents every continuation line to
+  // the column at which the title starts on the first line:
+  //
+  //   SH20-918 1.5 record 50 lines 21-24   caption at column 3, title and
+  //     continuations at column 13 (hosted DT 19910520154851 prints the four
+  //     lines under one another);
+  //   DREICMST 1.1.1.2.1 records 61-62 (lines 39-43 and 0-3), same columns,
+  //     hosted DT 19911219125856;
+  //   ITPPIBOK 5.2 record 169 lines 26-27, same columns, hosted DT
+  //     19910628074854;
+  //   SC09-2417-00 2.2.4.5 record 236 lines 10-11, caption at column 3 and
+  //     the continuation "Length" at column 14, hosted DT 19961114175628.
+  //
+  // The Layout IR does not delimit a caption.  It opens a row at the marker
+  // word in front of the title -- "Figure" itself in IEAC6MST 1.2 record 50
+  // token 130, the sentence "." in ITPPIBOK 5.2 record 169 token 192 -- and
+  // ends a row at the length byte that opens the continuation line, so a
+  // row-by-row reading of the region sees the caption's tail as prose and
+  // the caption's head as truncated.  Reading the caption off the display
+  // lines keeps it whole; the rows that carry it are then caption rows.
+  std::optional<RegionCaption> region_caption(const Region &region) const {
+    if (!region.anchored)
+      return std::nullopt;
+    const auto &begin = region.segments.front();
+    const auto &end = region.segments.back();
+    if (begin.segment->source_tokens.empty())
+      return std::nullopt;
+    std::vector<LineView> lines;
+    for (auto index = begin.record_index; index <= end.record_index; ++index) {
+      const auto &record = records[index];
+      const auto parsed = record_display_lines(record);
+      if (!parsed)
+        return std::nullopt;
+      for (const auto &line : *parsed)
+        lines.push_back({&record, line});
+    }
+    const auto srfig_token = begin.segment->source_tokens.front();
+    const auto &end_record = *end.record;
+    const auto marker = figure_end(end_record, *end.segment);
+    if (!marker)
+      return std::nullopt;
+    const auto end_tokens = tokens_in_bytes(
+        end_record, byte_offsets.at(end_record.logical_record), *marker);
+    if (end_tokens.empty())
+      return std::nullopt;
+    const auto marker_first =
+        *std::min_element(end_tokens.begin(), end_tokens.end());
+    std::size_t first_line = lines.size();
+    std::size_t last_line = lines.size();
+    for (std::size_t index = 0; index < lines.size(); ++index) {
+      const auto &view = lines[index];
+      if (view.record == begin.record && view.line.prefix_token < srfig_token &&
+          srfig_token < view.line.token_end)
+        first_line = index;
+      if (view.record == &end_record &&
+          view.line.prefix_token < marker_first &&
+          marker_first < view.line.token_end)
+        last_line = index;
+    }
+    if (first_line >= lines.size() || last_line >= lines.size() ||
+        last_line <= first_line)
+      return std::nullopt;
+
+    RegionCaption result;
+    for (auto index = first_line; index <= last_line; ++index)
+      result.structure.insert({lines[index].record->logical_record,
+                               lines[index].line.prefix_token});
+
+    std::size_t caption_at = lines.size();
+    std::string head;
+    std::size_t title_column = 0;
+    for (auto index = first_line + 1; index < last_line; ++index) {
+      const auto text =
+          display_line_text(*lines[index].record, lines[index].line);
+      const auto caption = line_caption_text(text);
+      if (!caption)
+        continue;
+      // The title column: past the leading spaces and change bar, past
+      // "Figure", past the number, past the spaces before the title.
+      std::size_t at = 0;
+      while (at < text.size() && (text[at] == ' ' || text[at] == '|'))
+        ++at;
+      at += 6; // "Figure"
+      while (at < text.size() && text[at] == ' ')
+        ++at;
+      while (at < text.size() && text[at] != ' ')
+        ++at;
+      while (at < text.size() && text[at] == ' ')
+        ++at;
+      if (at >= text.size())
+        return std::nullopt;
+      caption_at = index;
+      head = *caption;
+      title_column = at;
+      break;
+    }
+    if (caption_at == lines.size())
+      return std::nullopt;
+
+    std::size_t caption_end = caption_at + 1;
+    std::string text = head;
+    for (auto index = caption_at + 1; index < last_line; ++index) {
+      const auto next =
+          display_line_text(*lines[index].record, lines[index].line);
+      std::size_t start = 0;
+      while (start < next.size() && next[start] == ' ')
+        ++start;
+      if (start >= next.size() || start != title_column)
+        break;
+      text += " " + trim_ascii(next);
+      caption_end = index + 1;
+    }
+    result.text = collapse_ascii_whitespace(text);
+    if (result.text.empty())
+      return std::nullopt;
+    for (auto index = caption_at; index < caption_end; ++index)
+      for (auto token = lines[index].line.prefix_token;
+           token < lines[index].line.token_end; ++token)
+        result.tokens.insert({lines[index].record->logical_record, token});
+    return result;
+  }
+
   std::optional<FigureBlockDeclineIR>
   admit_preformatted(const Region &region, FigureSourceBlockIR &block) const {
     block.body_kind = FigureBodyKindIR::preformatted;
@@ -772,7 +945,13 @@ struct Extractor {
         continue;
       }
       if (kind == LineKind::body && caption_end == index) {
-        caption_end = index + 1; // wrapped caption title
+        // Wrapped caption title.  The line is caption material, not body:
+        // classifying it as body left its words claimed by the verbatim
+        // block while only the caption's first line reached the caption's
+        // own slices, so the caption's tail traced to no bytes at all
+        // (SC24-5520-00 1.1.26 `Operation` at 0x3e7c7:0x3e7c9).
+        classes[index].kind = LineKind::caption;
+        caption_end = index + 1;
         continue;
       }
       if (kind == LineKind::body || kind == LineKind::caption)
@@ -1025,6 +1204,8 @@ struct Extractor {
     //    material of a segment before its first row) inside the region.
     std::map<CellKey, FigureCellRoleIR> cell_roles;
     const PhysicalRowIR *caption_row = nullptr;
+    const auto line_caption = region_caption(region);
+    std::vector<DocumentSourceRowIR> line_caption_rows;
     const auto picture_key = SegmentKey{picture->logical_record,
                                         picture->segment_index};
     std::size_t metadata_end = 0;
@@ -1165,7 +1346,10 @@ struct Extractor {
                                         ? std::uint16_t{' '}
                                         : cell->word});
           }
-        auto classified = classify_cells(cells);
+        auto classified = classify_cells(
+            cells, line_caption ? &*line_caption : nullptr);
+        if (classified.caption_lines)
+          line_caption_rows.push_back(row_key);
         if (classified.prose && caption_row != nullptr &&
             row->run == caption_row->run &&
             (row->start == PhysicalRowStartKind::placeholder_wrap ||
@@ -1183,11 +1367,24 @@ struct Extractor {
         if (classified.prose)
           return decline(region, "figure region contains prose row '" +
                                      classified.prose_text + "'");
-        if (auto declined = apply(classified, cells, &row_key))
+        if (auto declined = apply(classified, cells,
+                                  classified.caption_lines ? nullptr
+                                                           : &row_key))
           return declined;
         if (classified.caption)
           caption_row = row;
       }
+    }
+
+    // Rows that carry the caption's display lines but not its "Figure N."
+    // head hand the caption its whole text and their own rows.
+    if (!line_caption_rows.empty()) {
+      if (!block.caption)
+        block.caption = FigureCaptionIR{line_caption->text, {}};
+      else
+        block.caption->text = line_caption->text;
+      for (const auto &row : line_caption_rows)
+        block.caption->rows.push_back(row);
     }
 
     // 3. Claim every source cell inside the region exactly once.

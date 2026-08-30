@@ -27,6 +27,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <algorithm>
 #include <tuple>
 #include <variant>
 
@@ -615,11 +616,16 @@ int main() {
 
   // Negative: a drawn figure wrapping an SRTBL is the table family's
   // (SC31-711 2.4.1 FIGTBLUNIQ2 / TBLTBLUNIQ2, IEAC6MST 1.4 FIGDSLIB).
-  for (const auto &[book, id] : {std::pair{"SC31-711.boo", "2.4.1"},
-                                 std::pair{"IEAC6MST.BOO", "1.4"}}) {
+  // IEAC6MST 1.4 also carries the picture figure FIGTSOAPPL, which is
+  // admitted; only the table-wrapping region must be declined.
+  for (const auto &[book, id, anchor] :
+       {std::tuple{"SC31-711.boo", "2.4.1", "FIGTBLUNIQ2"},
+        std::tuple{"IEAC6MST.BOO", "1.4", "FIGDSLIB"}}) {
     const auto topic = corpus.topic(book, id);
-    require(topic.figures.blocks.empty() &&
-                declined_with(topic, "contains a table"),
+    const auto admitted = std::any_of(
+        topic.figures.blocks.begin(), topic.figures.blocks.end(),
+        [&](const auto &block) { return block.anchor == anchor; });
+    require(!admitted && declined_with(topic, "contains a table"),
             std::string(book) + " " + id +
                 ": figure wrapping a table was not declined as a table");
   }

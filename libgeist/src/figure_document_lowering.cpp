@@ -33,12 +33,6 @@ void add_cell_slices(DocumentNodeOriginIR &origin,
                              std::get<3>(slice), std::get<4>(slice)});
 }
 
-void add_rows(DocumentNodeOriginIR &origin,
-              const std::vector<DocumentSourceRowIR> &rows) {
-  for (const auto &row : rows)
-    origin.rows.push_back(row);
-}
-
 bool same_origin(const DocumentNodeOriginIR &left,
                  const DocumentNodeOriginIR &right) {
   if (left.derivation != right.derivation || left.detail != right.detail ||
@@ -246,7 +240,7 @@ lower_figure_block_to_document_blocks(const FigureSourceBlockIR &figure,
     add_cell_slices(caption.origin, figure.cells, [](const auto &cell) {
       return cell.role == FigureCellRoleIR::caption_content;
     });
-    add_rows(caption.origin, figure.caption->rows);
+    add_sorted_rows(caption.origin, figure.caption->rows);
     if (caption.origin.slices.empty()) {
       fail(error, "figure caption has no source slice");
       return std::nullopt;
@@ -267,9 +261,16 @@ lower_figure_block_to_document_blocks(const FigureSourceBlockIR &figure,
       return false;
     return true;
   });
-  add_rows(block.origin, figure.suppressed_rows);
-  if (figure.caption)
-    add_rows(block.origin, figure.caption->rows);
+  {
+    // A caption spread over several display lines is carried by several
+    // physical rows; the document's row ledger wants them in source order
+    // and once each.
+    auto rows = figure.suppressed_rows;
+    if (figure.caption)
+      rows.insert(rows.end(), figure.caption->rows.begin(),
+                  figure.caption->rows.end());
+    add_sorted_rows(block.origin, std::move(rows));
+  }
   blocks.push_back(std::move(block));
 
   if (error != nullptr)
