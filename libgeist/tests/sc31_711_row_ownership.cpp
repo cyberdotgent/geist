@@ -287,13 +287,18 @@ int main() {
     require_absent(directories, leaked, "directory-row marker");
   }
 
+  // 1.2 is a fixed-layout region, so it is reproduced verbatim rather than
+  // rebuilt as a Markdown table -- the rendering hosted BookServer serves.
+  // Its wrapped rows survive that way: `/usr/OV/registration/C` carries its
+  // description on the following line, which a rebuilt table would have run
+  // together with the next directory.
   const auto netview_directories = document.topic_markdown("1.2");
-  require_contains(netview_directories, "| Directory | Type of Files |",
-                   "NetView directory table header");
+  require_contains(netview_directories, "   Directory           Type of Files",
+                   "NetView directory heading row");
   std::size_t netview_rows = 0;
-  for (std::size_t at = netview_directories.find("\n| /usr/OV/");
+  for (std::size_t at = netview_directories.find("\n   /usr/OV/");
        at != std::string::npos;
-       at = netview_directories.find("\n| /usr/OV/", at + 1)) {
+       at = netview_directories.find("\n   /usr/OV/", at + 1)) {
     ++netview_rows;
   }
   if (netview_rows != 9) {
@@ -310,7 +315,10 @@ int main() {
   }
 
   const auto processes = document.topic_markdown("1.3");
-  require_contains(processes, "`man` `topic`\n\nWhere topic is",
+  // Verbatim: the command line and the sentence that follows it stay on
+  // their own source rows, which is the boundary this fixture exists to pin.
+  require_contains(processes,
+                   "     man topic\n   Where topic is",
                    "source-owned command/prose row boundary");
   require_visible_once(processes, "lnmhubint", "lnmhubint process");
   require_visible_near(

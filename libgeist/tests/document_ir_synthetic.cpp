@@ -1,5 +1,4 @@
 #include "geist/detail/document_ir.hpp"
-#include "geist/detail/document_lowering.hpp"
 #include "geist/detail/document_markdown_renderer.hpp"
 #include "geist/toc.hpp"
 
@@ -48,42 +47,6 @@ int main() {
   identity.start_logical_record = 100;
   identity.end_logical_record = 102;
 
-  // This list spans several records. Passing those records through separate
-  // renderer calls would lose the list state carried by the legacy renderer.
-  const std::vector<std::string> records = {
-      ":h1.Introduction", ":ul.", ":li.First item", ":li.Second item",
-      ":eul.", ":p.Second paragraph"};
-  auto legacy = lower_legacy_topic_to_document_ir(identity, records);
-  std::string error;
-  if (!require(verify_document_ir(legacy, &error), error) ||
-      !require(legacy.blocks.size() == 1,
-               "legacy adapter must create exactly one stateful region"))
-    return 1;
-  const auto* region =
-      std::get_if<LegacyGmlRegionIR>(&legacy.blocks.front().node);
-  if (!require(region != nullptr, "adapter block is not legacy GML") ||
-      !require(region->normalized_records == records,
-               "adapter changed record text or boundaries") ||
-      !require(region->state_scope == LegacyRendererStateScopeIR::whole_topic,
-               "adapter did not preserve whole-topic renderer state"))
-    return 1;
-
-  const auto rendered = render_document_markdown(legacy);
-  if (!require(rendered ==
-                   "# Introduction\n\n- First item\n- Second item\n\nSecond "
-                   "paragraph\n",
-               "whole-topic adapter changed legacy Markdown output"))
-    return 1;
-
-  const auto formatted = format_document_ir(legacy);
-  if (!require(formatted.find("legacy_gml scope=whole_topic records=6") !=
-                   std::string::npos,
-               "formatter omitted compatibility boundary") ||
-      !require(formatted.find("record=\":li.First item\"") !=
-                   std::string::npos,
-               "formatter omitted a normalized record"))
-    return 1;
-
   DocumentIR typed;
   typed.topic = identity;
   HeadingBlockIR heading;
@@ -121,7 +84,7 @@ int main() {
   typed.blocks[1].origin.slices.push_back(slice);
   typed.blocks[1].origin.rows.push_back(DocumentSourceRowIR{9, 3});
 
-  error.clear();
+  std::string error;
   if (!require(verify_document_ir(typed, &error), error)) return 1;
   const auto typed_format = format_document_ir(typed);
   if (!require(typed_format.find("block 0 heading level=1") !=
@@ -149,7 +112,7 @@ int main() {
                "typed document did not render stable Markdown"))
     return 1;
 
-  auto incomplete_legacy = legacy;
+  auto incomplete_legacy = typed;
   incomplete_legacy.topic.id.clear();
   auto rejected_invalid_document = false;
   auto rejection_message = std::string{};
@@ -166,19 +129,13 @@ int main() {
                "invalid DocumentIR rejection did not retain verifier detail"))
     return 1;
 
-  geist::TocEntry anonymous_entry;
-  anonymous_entry.raw_records = {":p.Public compatibility entry"};
-  if (!require(anonymous_entry.markdown() == "Public compatibility entry\n",
-               "IR handoff broke an identity-free public TocEntry"))
-    return 1;
-
   auto identity_free_typed = typed;
   identity_free_typed.topic.id.clear();
   identity_free_typed.topic.title.clear();
   error.clear();
   if (!require(!verify_document_ir(identity_free_typed, &error) &&
                    error == "document topic identity is incomplete",
-               "identity-free exception leaked beyond the legacy adapter"))
+               "a document must always name the topic it renders"))
     return 1;
 
   auto invalid_table = typed;
@@ -246,14 +203,6 @@ int main() {
                "normalizing did not lift the child's source slice"))
     return 1;
 
-  auto mixed_legacy = legacy;
-  mixed_legacy.blocks.push_back(paragraph("must not split renderer state"));
-  error.clear();
-  if (!require(!verify_document_ir(mixed_legacy, &error) &&
-                   error ==
-                       "whole-topic legacy region is mixed or duplicated",
-               "verifier admitted a partial legacy state scope"))
-    return 1;
 
   auto empty_identity = typed;
   empty_identity.topic.id.clear();

@@ -7,7 +7,7 @@
 namespace {
 
 void usage() {
-  std::cerr << "usage: boorender <book.boo> [topic-id] (--raw|--md|--trace)\n";
+  std::cerr << "usage: boorender <book.boo> [topic-id] (--md|--trace)\n";
 }
 
 std::string escape(const std::string& value) {
@@ -72,7 +72,7 @@ int main(int argc, char** argv) {
     const auto has_topic_id = argc == 4;
     const std::string mode = argv[has_topic_id ? 3 : 2];
     const auto document = geist::BooDocument::open(argv[1]);
-    if (mode == "--raw" || mode == "--md" || mode == "--trace") {
+    if (mode == "--md" || mode == "--trace") {
       const auto* entry =
           has_topic_id ? document.find_toc_entry(argv[2]) : nullptr;
       if (has_topic_id && entry == nullptr) {
@@ -80,13 +80,7 @@ int main(int argc, char** argv) {
                   << "\n";
         return 1;
       }
-      if (mode == "--raw") {
-        const auto& records = has_topic_id ? entry->gml_records()
-                                           : document.raw_gml_records();
-        for (const auto& record : records) {
-          std::cout << record << '\n';
-        }
-      } else if (mode == "--md") {
+      if (mode == "--md") {
         std::cout << (has_topic_id ? entry->markdown() : document.markdown());
       } else {
         if (!has_topic_id) {

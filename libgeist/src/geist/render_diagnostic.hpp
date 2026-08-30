@@ -25,13 +25,10 @@ enum class RenderSeverity {
   // are present; the structure around them is not asserted. See
   // `RenderDiagnostic::degradations`.
   typed_degraded,
-  // No typed family would claim the topic, so the legacy string renderer
-  // produced the Markdown. `detail` carries the exact typed rejection.
-  legacy_fallback,
-  // Neither the typed nor the legacy route produced any content, so the
-  // topic's own source display rows were emitted verbatim. The reader gets
-  // the words in source order and roughly the source shape, with no typed
-  // structure at all.
+  // No typed family would claim the topic, so its own source display rows
+  // were emitted verbatim. The reader gets the words in source order and
+  // roughly the source shape, with no typed structure at all. `detail`
+  // carries the exact typed rejection.
   best_effort,
   // Not even the source rows could be recovered. The topic renders as a
   // diagnostic placeholder naming itself, its source record range and the
@@ -78,7 +75,7 @@ struct RenderDiagnostic {
   // Machine-readable reason code. Stable across releases; see
   // render_diagnostic.cpp for the enumeration.
   std::string reason;
-  // Human-readable detail. For `legacy_fallback` this is the exact typed
+  // Human-readable detail. For `best_effort` this is the exact typed
   // rejection string that `bootrace --coverage` reports.
   std::string detail;
   RenderSourceCoordinates source;

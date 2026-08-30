@@ -71,12 +71,8 @@ bool verify_document_render_trace(const DocumentRenderTraceIR &trace,
 
 // Render a verified document as stable Markdown. Typed nodes are rendered
 // without consulting decoder or semantic-layer state. A sole whole-topic
-// LegacyGmlRegionIR remains an indivisible adapter call because the legacy
-// renderer carries state across records.
-//
-// `trace`, when not null, receives the output-range to node-path map. The
-// rendered bytes are identical whether or not a trace is requested, and a
-// null trace costs nothing beyond one null check per emitted run.
+std::string escape_markdown_text(const std::string &value);
+
 std::string render_document_markdown(
     const DocumentIR &document,
     const DocumentMarkdownRendererOptions &options = {},

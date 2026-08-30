@@ -41,6 +41,12 @@ std::vector<std::string>
 best_effort_lines(const std::vector<DecodedLogicalRecordSource> &sources,
                   const std::string &title);
 
+// The anchor ids the topic's structural controls name, in source order and
+// without duplicates.  The id is the control opcode without its `SR` prefix,
+// which is the same evidence the typed families read.
+std::vector<std::string>
+best_effort_anchors(const std::vector<DecodedLogicalRecordSource> &sources);
+
 // Stage 2: the render escalation.  Fail-closed is a rule about *claiming
 // structure*; it must never mean withholding content, so this is the guard
 // that turns a silently empty topic into an explicit lower-fidelity
@@ -56,7 +62,10 @@ void escalate_render_diagnostic(RenderDiagnostic &diagnostic,
 
 // Markdown for the `best_effort` route: the verbatim rows in a fenced block,
 // appended to whatever the higher route managed to produce.
-std::string render_best_effort_markdown(const std::vector<std::string> &lines);
+std::string render_best_effort_markdown(
+    const TopicIdentityIR &topic,
+    const std::vector<std::string> &lines,
+    const std::vector<std::string> &anchors);
 
 // Markdown for the `failed` route: a placeholder naming the topic, its source
 // record range and the reason, so an absent topic is debuggable rather than

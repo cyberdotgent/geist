@@ -1,5 +1,4 @@
-#include <cstdio>
-#include <cstdlib>
+#include "geist/detail/document_markdown_renderer.hpp"
 #include "geist/detail/render_diagnostic_ir.hpp"
 
 #include "geist/detail/figure_block_ir.hpp"
@@ -32,8 +31,6 @@ const char* to_string(RenderSeverity severity) noexcept {
     return "typed";
   case RenderSeverity::typed_degraded:
     return "typed-degraded";
-  case RenderSeverity::legacy_fallback:
-    return "legacy-fallback";
   case RenderSeverity::best_effort:
     return "best-effort";
   case RenderSeverity::failed:
@@ -161,8 +158,8 @@ RenderDiagnostic classify_typed_lowering(const TopicIdentityIR& topic,
   diagnostic.source = topic_coordinates(topic);
 
   if (document == nullptr) {
-    diagnostic.severity = RenderSeverity::legacy_fallback;
-    diagnostic.route = "legacy";
+    diagnostic.severity = RenderSeverity::best_effort;
+    diagnostic.route = "best-effort";
     diagnostic.reason = "typed-lowering-declined";
     // Exactly the string `bootrace --coverage` prints, by construction: the
     // metric and the renderer read this one field.
@@ -347,6 +344,47 @@ std::vector<std::string> best_effort_lines(
   return lines;
 }
 
+std::vector<std::string> best_effort_anchors(
+    const std::vector<DecodedLogicalRecordSource>& sources) {
+  std::vector<std::string> anchors;
+  for (const auto& record : sources) {
+    const auto ascii = token_words_to_ascii(record.assembled.words);
+    for (const auto& segment : record.control_segments) {
+      if (segment.display_text) continue;
+      // `SRMSG <id>` names the message it opens; the anchor is the operand,
+      // spelled the way the rest of the book references it.
+      if (segment.kind == BookControlKind::message_start) {
+        if (segment.operand_range.end <= segment.operand_range.begin) continue;
+        const auto begin = std::min(segment.operand_range.begin, ascii.size());
+        const auto end = std::min(segment.operand_range.end, ascii.size());
+        auto id = trim_ascii(ascii.substr(begin, end - begin));
+        if (id.empty()) continue;
+        id = "MSG " + id;
+        if (std::find(anchors.begin(), anchors.end(), id) == anchors.end())
+          anchors.push_back(std::move(id));
+        continue;
+      }
+      if (segment.kind != BookControlKind::structural &&
+          segment.kind != BookControlKind::table_start)
+        continue;
+      // The opcode is `SR` plus the anchor id; `SRTBL<id>` and `SRFIG<id>`
+      // name the object, and a bare `SR<id>` names a spot in the text.
+      const auto& opcode = segment.opcode;
+      if (opcode.size() <= 2) continue;
+      if (ascii_lower(opcode.substr(0, 2)) != "sr") continue;
+      auto id = opcode.substr(2);
+      if (id.empty()) continue;
+      // A footnote is local to the page that carries it, not a destination
+      // the book can reference; the typed families resolve `SRFTN` to
+      // nothing, and a verbatim topic must not publish one either.
+      if (ascii_lower(id.substr(0, 3)) == "ftn") continue;
+      if (std::find(anchors.begin(), anchors.end(), id) == anchors.end())
+        anchors.push_back(std::move(id));
+    }
+  }
+  return anchors;
+}
+
 void escalate_render_diagnostic(RenderDiagnostic& diagnostic,
                                 bool has_content,
                                 bool best_effort_available,
@@ -355,13 +393,18 @@ void escalate_render_diagnostic(RenderDiagnostic& diagnostic,
     return;
   if (best_effort_available) {
     diagnostic.severity = RenderSeverity::best_effort;
-    // The declining route's own explanation is kept: it is why we are here.
-    diagnostic.detail = diagnostic.detail.empty()
-                            ? "no route produced content"
-                            : "no route produced content (" +
-                                  diagnostic.detail + ")";
     diagnostic.route = "best-effort";
-    diagnostic.reason = "no-structured-content";
+    // A topic the typed dispatcher declined already says so, and its own
+    // rejection is the precise explanation; restating it as "no structured
+    // content" would replace the reason with a vaguer one and wrap the
+    // detail in a second layer of prose.
+    if (diagnostic.reason != "typed-lowering-declined") {
+      diagnostic.detail = diagnostic.detail.empty()
+                              ? "no route produced content"
+                              : "no route produced content (" +
+                                    diagnostic.detail + ")";
+      diagnostic.reason = "no-structured-content";
+    }
     return;
   }
   if (source_decoded) {
@@ -386,8 +429,42 @@ void escalate_render_diagnostic(RenderDiagnostic& diagnostic,
   diagnostic.reason = "no-recoverable-source";
 }
 
-std::string render_best_effort_markdown(const std::vector<std::string>& lines) {
-  std::string markdown = "```text\n";
+std::string render_best_effort_markdown(
+    const TopicIdentityIR& topic,
+    const std::vector<std::string>& lines,
+    const std::vector<std::string>& anchors) {
+  std::string markdown;
+  // The topic names itself, exactly as every typed route does: the heading
+  // level the source proved, then the public topic identity, then the title.
+  // Without it a verbatim topic would arrive with no heading at all and the
+  // reader would lose its place in the book.
+  // The level is spelled either as the source writes it (`:H3`) or as the
+  // typed families normalise it (`h3`); both name the same level.
+  // Only the first word is the level: on a topic whose metadata run does not
+  // parse, the recorded value is the whole flattened remainder of the record
+  // (SC31-711 4.3.5), and the level is still its first token.
+  auto heading_level = ascii_lower(topic.heading_level);
+  heading_level = heading_level.substr(0, heading_level.find_first_of(" \t"));
+  if (!heading_level.empty() && heading_level.front() == ':')
+    heading_level.erase(0, 1);
+  const auto level = heading_level.size() == 2 && heading_level.front() == 'h' &&
+                             heading_level.back() >= '1' &&
+                             heading_level.back() <= '6'
+                         ? static_cast<std::size_t>(heading_level.back() - '0')
+                         : std::size_t{1};
+  markdown += std::string(level, 0x23) + " ";
+  if (!topic.id.empty())
+    markdown += escape_markdown_text(topic.id) + " ";
+  markdown += escape_markdown_text(topic.title);
+  markdown += "\n\n";
+  // The topic names these objects even though it claims no structure around
+  // them; without them every cross reference elsewhere in the book that
+  // points here would dangle.
+  for (const auto& id : anchors)
+    markdown += "<a id=\"" + id + "\"></a>\n";
+  if (!markdown.empty())
+    markdown += "\n";
+  markdown += "```text\n";
   for (const auto& line : lines) {
     markdown += line;
     markdown += "\n";

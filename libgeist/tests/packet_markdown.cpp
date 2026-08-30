@@ -43,15 +43,19 @@ int main() {
   const auto document = geist::BooDocument::open(book);
 
   const auto title_page = topic_markdown(document, "TITLE");
+  // TITLE is declined by the prose family (`cz off tipage carries display
+  // text`), so the page is reproduced verbatim: the lines keep the source's
+  // own right alignment instead of being rebuilt as emphasised runs joined
+  // by `<br>`. The order and the words are what this fixture guards.
   require_contains(title_page,
-                   "**Amateur Packet Radio**<br>\n"
-                   "**A Complete Tutorial**<br>\n"
-                   "**Evie Cooper**",
+                   "Amateur Packet Radio\n"
+                   "                                                          "
+                   "A Complete Tutorial\n",
                    "title page leading title block");
   require_contains(title_page,
-                   "\n\nDocument Number 9963-0413-56\n\n"
-                   "January 15, 2026\n\n"
-                   "Evie Cooper",
+                   "Document Number 9963-0413-56\n"
+                   "                                                             "
+                   "January 15, 2026\n",
                    "title page metadata lines");
   require_not_contains(title_page,
                        "Evie Cooper D**ocumen**",

@@ -108,20 +108,6 @@ int main() {
   require(!geist::detail::extract_implicit_grid(
                {synthetic}, {{3, 3}, {7, 4}, {12, 5}}),
           "single-group CFONT heading activated an implicit grid");
-  const std::string synthetic_header =
-      "cfont 3 3 2 7 4 2 18 5 2    Key Col        Value";
-  const auto synthetic_rendered =
-      geist::detail::render_gml_records_with_source_layout(
-          {synthetic_header}, {synthetic});
-  require(std::find(synthetic_rendered.begin(), synthetic_rendered.end(),
-                    ":table cols='2'.") != synthetic_rendered.end(),
-          "proven tail-owned implicit grid was not rendered");
-  const auto guarded_tail =
-      geist::detail::render_gml_records_with_source_layout(
-          {synthetic_header, "SI semantic tail"}, {synthetic});
-  require(std::find(guarded_tail.begin(), guarded_tail.end(),
-                    ":table cols='2'.") == guarded_tail.end(),
-          "implicit grid suppressed a later semantic control");
 
   const auto root = std::filesystem::path(GEIST_REPO_ROOT) / "BOO";
   geist::detail::LogicalDecodeContext sc31;

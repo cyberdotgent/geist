@@ -27,10 +27,7 @@ struct TocEntry {
   std::uint32_t topic_number = 0;
   std::uint32_t start_logical_record = 0;
   std::uint32_t end_logical_record = 0;
-  // GML-style raw projection of the decoded BookManager topic records.
-  std::vector<std::string> raw_records;
 
-  GEIST_API const std::vector<std::string>& gml_records() const;
   GEIST_API std::string markdown() const;
   // How well this topic rendered, by which route, and why. Computed by the
   // same single pass that produces `markdown()`, so the two can never
@@ -48,8 +45,6 @@ struct TocEntry {
 
 private:
   void render() const;
-  mutable std::vector<std::string> cached_raw_records_;
-  std::function<std::vector<std::string>()> raw_record_loader_;
   mutable std::shared_ptr<const detail::TopicLoweringOutcomeIR>
       cached_lowering_;
   mutable bool document_load_attempted_ = false;
@@ -61,6 +56,9 @@ private:
   mutable std::vector<LinkTarget> cached_link_targets_;
   mutable bool link_targets_built_ = false;
   mutable std::string cached_markdown_;
+  // The anchor ids a verbatim-rendered topic named; empty for a typed topic,
+  // whose Document IR carries them instead.
+  mutable std::vector<std::string> cached_best_effort_anchors_;
   mutable RenderDiagnostic cached_diagnostic_;
   mutable bool rendered_ = false;
   friend class BooDocument;

@@ -56,7 +56,6 @@ struct ImageInlineIR {
 struct HardBreakInlineIR {};
 
 // Permanent escape hatch for understood-but-unrepresentable inline content.
-// This is distinct from LegacyGmlRegionIR, which is temporary migration debt.
 struct OpaqueInlineIR {
   std::string kind;
   std::string content;
@@ -224,24 +223,12 @@ struct OpaqueBlockIR {
   std::string content;
 };
 
-enum class LegacyRendererStateScopeIR {
-  whole_topic,
-};
-
-// Temporary migration boundary.  The records must be passed to the legacy
-// renderer together and in order so its cross-record state remains intact.
-struct LegacyGmlRegionIR {
-  std::vector<std::string> normalized_records;
-  LegacyRendererStateScopeIR state_scope =
-      LegacyRendererStateScopeIR::whole_topic;
-};
-
 using BlockNodeIR =
     std::variant<HeadingBlockIR, ParagraphBlockIR, AnchorBlockIR, ListBlockIR,
                  DefinitionListBlockIR, TableBlockIR, PreformattedBlockIR,
                  NoteBlockIR, PublicationListBlockIR, FigureBlockIR,
                  FootnoteBlockIR, IndexGroupBlockIR, MenuBlockIR,
-                 OpaqueBlockIR, LegacyGmlRegionIR>;
+                 OpaqueBlockIR>;
 
 struct BlockIR {
   BlockNodeIR node;

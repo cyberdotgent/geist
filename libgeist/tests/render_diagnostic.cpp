@@ -70,16 +70,17 @@ void fully_typed_topic() {
           "the diagnostic names the topic's source record range");
 }
 
-// One of the topics the typed dispatcher declines reports `legacy-fallback`
+// One of the topics the typed dispatcher declines reports `best-effort`
 // carrying the exact typed rejection `bootrace --coverage` prints.
-void legacy_fallback_topic() {
+void declined_topic() {
   const auto document = geist::BooDocument::open(book("SC31-711.boo"));
   const auto &entry = topic(document, "PREFACE.2");
   const auto &diagnostic = entry.render_diagnostic();
-  require(diagnostic.severity == geist::RenderSeverity::legacy_fallback,
-          "SC31-711 PREFACE.2 should be legacy-fallback, is " +
+  require(diagnostic.severity == geist::RenderSeverity::best_effort,
+          "SC31-711 PREFACE.2 should be best-effort, is " +
               std::string(geist::to_string(diagnostic.severity)));
-  require(diagnostic.route == "legacy", "PREFACE.2 route should be legacy");
+  require(diagnostic.route == "best-effort",
+          "PREFACE.2 route should be best-effort");
   require(diagnostic.reason == "typed-lowering-declined",
           "PREFACE.2 reason code, is " + diagnostic.reason);
   require(diagnostic.detail ==
@@ -88,8 +89,8 @@ void legacy_fallback_topic() {
           "PREFACE.2 carries its real typed rejection, is: " +
               diagnostic.detail);
   const auto markdown = entry.markdown();
-  require(contains(markdown, "<!-- geist-render: severity=legacy-fallback"),
-          "a legacy-routed topic's Markdown opens with the marker");
+  require(contains(markdown, "<!-- geist-render: severity=best-effort"),
+          "a declined topic's Markdown opens with the marker");
   require(contains(markdown, "SRHDRAIXHIGH"),
           "the marker carries the rejection into the file");
 }
@@ -161,7 +162,10 @@ void best_effort_topic() {
           "SC26-457 FRONT_2.1.1 should be best-effort, is " +
               std::string(geist::to_string(diagnostic.severity)));
   require(diagnostic.route == "best-effort", "route should be best-effort");
-  require(diagnostic.reason == "no-structured-content",
+  // The topic is declined by every typed family, so the decline is the
+  // reason. `no-structured-content` now names the narrower case where a
+  // typed document existed but rendered nothing.
+  require(diagnostic.reason == "typed-lowering-declined",
           "reason code, is " + diagnostic.reason);
   require(contains(diagnostic.detail,
                    "first record lacks the topic metadata envelope"),
@@ -186,12 +190,12 @@ void escalation_ladder() {
 
   auto declined = geist::detail::classify_typed_lowering(
       identity, nullptr, "family rejected: no envelope", {});
-  require(declined.severity == geist::RenderSeverity::legacy_fallback,
-          "a declined lowering classifies as legacy-fallback");
+  require(declined.severity == geist::RenderSeverity::best_effort,
+          "a declined lowering classifies as best-effort");
 
   auto with_content = declined;
   geist::detail::escalate_render_diagnostic(with_content, true, true, true);
-  require(with_content.severity == geist::RenderSeverity::legacy_fallback,
+  require(with_content.severity == geist::RenderSeverity::best_effort,
           "a route that produced content is not escalated");
 
   auto verbatim = declined;
@@ -201,7 +205,7 @@ void escalation_ladder() {
 
   auto empty_body = declined;
   geist::detail::escalate_render_diagnostic(empty_body, false, false, true);
-  require(empty_body.severity == geist::RenderSeverity::legacy_fallback,
+  require(empty_body.severity == geist::RenderSeverity::best_effort,
           "a topic that decodes and has no body keeps its route severity");
   require(empty_body.reason == "empty-topic-body",
           "an empty topic is reported as such, is " + empty_body.reason);
@@ -277,7 +281,7 @@ void inventory_agrees_with_render(const std::string &name) {
 
 int main() {
   fully_typed_topic();
-  legacy_fallback_topic();
+  declined_topic();
   message_preformatted_fallback_topic();
   verbatim_table_region_topic();
   best_effort_topic();

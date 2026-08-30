@@ -48,7 +48,7 @@ bool is_markdown_punctuation(char ch) {
   }
 }
 
-std::string escape_markdown_text(const std::string &value) {
+std::string escape_markdown_text_impl(const std::string &value) {
   std::string result;
   result.reserve(value.size());
   for (std::size_t index = 0; index < value.size(); ++index) {
@@ -313,11 +313,11 @@ void append_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
         [&](const auto &node) {
           using T = std::decay_t<decltype(node)>;
           if constexpr (std::is_same_v<T, TextInlineIR>) {
-            sink.content(escape_markdown_text(node.text), "text", origin);
+            sink.content(escape_markdown_text_impl(node.text), "text", origin);
           } else if constexpr (std::is_same_v<T, EmphasisInlineIR>) {
             const auto delimiter = emphasis_delimiter(node.kind);
             sink.syntax(delimiter, "emphasis delimiter", origin);
-            sink.content(escape_markdown_text(node.text), "emphasis text",
+            sink.content(escape_markdown_text_impl(node.text), "emphasis text",
                          origin);
             sink.syntax(delimiter, "emphasis delimiter", origin);
           } else if constexpr (std::is_same_v<T, CodeInlineIR>) {
@@ -330,7 +330,7 @@ void append_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
             const auto label =
                 node.label.empty() ? node.target.value : node.label;
             sink.syntax("[", "link syntax", origin);
-            sink.content(escape_markdown_text(label), "link label", origin);
+            sink.content(escape_markdown_text_impl(label), "link label", origin);
             sink.syntax("](", "link syntax", origin);
             sink.syntax(markdown_destination(
                             cross_reference_destination(node.target, options)),
@@ -338,7 +338,7 @@ void append_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
             sink.syntax(")", "link syntax", origin);
           } else if constexpr (std::is_same_v<T, ImageInlineIR>) {
             sink.syntax("![", "image syntax", origin);
-            sink.content(escape_markdown_text(node.alt_text), "image alt text",
+            sink.content(escape_markdown_text_impl(node.alt_text), "image alt text",
                          origin);
             sink.syntax("](", "image syntax", origin);
             sink.syntax(markdown_destination(node.resource),
@@ -373,9 +373,9 @@ void append_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
 std::string figure_alt_text(const std::string &resource) {
   static constexpr std::string_view book_resource = "resource:";
   if (resource.compare(0, book_resource.size(), book_resource) == 0)
-    return escape_markdown_text("PICTURE " +
+    return escape_markdown_text_impl("PICTURE " +
                                 resource.substr(book_resource.size()));
-  return escape_markdown_text(resource);
+  return escape_markdown_text_impl(resource);
 }
 
 void append_fenced_block(RenderSink &sink,
@@ -601,11 +601,11 @@ void append_block(RenderSink &sink, const BlockIR &block,
             // The reader prefixes the visible label with the target topic id;
             // the id is a source-proven CMITEM operand, the separating space
             // is reader presentation.
-            sink.content(escape_markdown_text(item.target.value),
+            sink.content(escape_markdown_text_impl(item.target.value),
                          "menu item target id", item_origin);
-            sink.generated(escape_markdown_text(" "),
+            sink.generated(escape_markdown_text_impl(" "),
                            "reader-generated menu label separator");
-            sink.content(escape_markdown_text(item.label), "menu item label",
+            sink.content(escape_markdown_text_impl(item.label), "menu item label",
                          item_origin);
             sink.syntax("](", "menu item syntax", item_origin);
             sink.syntax(
@@ -615,7 +615,7 @@ void append_block(RenderSink &sink, const BlockIR &block,
           }
         } else if constexpr (std::is_same_v<T, OpaqueBlockIR>) {
           sink.syntax("**Opaque ", "opaque block syntax", block_origin);
-          sink.content(escape_markdown_text(node.kind), "opaque block kind",
+          sink.content(escape_markdown_text_impl(node.kind), "opaque block kind",
                        block_origin);
           sink.syntax(" content:**\n\n", "opaque block syntax", block_origin);
           append_fenced_block(sink, std::vector<std::string>{node.content},
@@ -690,6 +690,10 @@ bool verify_document_render_trace(const DocumentRenderTraceIR &trace,
   return true;
 }
 
+std::string escape_markdown_text(const std::string &value) {
+  return escape_markdown_text_impl(value);
+}
+
 std::string render_document_markdown(
     const DocumentIR &document,
     const DocumentMarkdownRendererOptions &options,
@@ -699,30 +703,6 @@ std::string render_document_markdown(
     throw std::invalid_argument("invalid DocumentIR: " + error);
   if (trace != nullptr)
     trace->spans.clear();
-
-  // The legacy adapter remains one indivisible whole-topic call because its
-  // state machine carries state across normalized record boundaries.
-  if (document.blocks.size() == 1) {
-    if (const auto *region =
-            std::get_if<LegacyGmlRegionIR>(&document.blocks.front().node)) {
-      if (region->state_scope != LegacyRendererStateScopeIR::whole_topic)
-        throw std::invalid_argument(
-            "DocumentIR Markdown adapter requires one whole-topic legacy "
-            "region");
-      auto rendered = render_markdown_records(region->normalized_records);
-      if (trace != nullptr && !rendered.empty()) {
-        DocumentTraceSpanIR span;
-        span.output_begin = 0;
-        span.output_end = rendered.size();
-        span.role = DocumentTraceRoleIR::syntax;
-        span.reason = "legacy whole-topic adapter";
-        span.path.push_back({"block", 0});
-        span.origin = document.blocks.front().origin;
-        trace->spans.push_back(std::move(span));
-      }
-      return rendered;
-    }
-  }
 
   RenderSink sink(trace);
   for (std::size_t index = 0; index < document.blocks.size(); ++index) {

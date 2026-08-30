@@ -419,9 +419,13 @@ int main() {
 
     const auto mvs_document = geist::BooDocument::open(root / "N2AH1MST.BOO");
     const auto cof = visible_text(mvs_document.topic_markdown("18.0"));
+    // 18.0 is declined by the prose family (`SRMSG` is outside its model) and
+    // reproduced verbatim, so the sentence keeps its source row break between
+    // `virtual` and `lookaside`. What this fixture guards is the boundary
+    // slot: `access` must not reappear between the two words.
     require(cof.find("virtual access lookaside") == std::string::npos &&
-                cof.find("start the virtual lookaside facility (VLF)") !=
-                    std::string::npos,
+                cof.find("start the virtual") != std::string::npos &&
+                cof.find("lookaside facility (VLF)") != std::string::npos,
             "N2AH1MST 18.0 restored the `access` boundary slot");
     const auto icu = visible_text(mvs_document.topic_markdown("26.0"));
     require(icu.find("security a administrator") == std::string::npos &&

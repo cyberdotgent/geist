@@ -46,7 +46,6 @@ int main() {
   const auto document = geist::BooDocument::open(root / "SC31-711.boo");
   const auto *entry = document.find_toc_entry("5.0");
   require(entry != nullptr, "message catalog is not a TOC topic");
-  const auto gml_before = entry->gml_records();
 
   const auto rendered = document.topic_markdown("5.0");
   const auto repeated = document.topic_markdown("5.0");
@@ -71,8 +70,6 @@ int main() {
   const auto markdown =
       marker_end == std::string::npos ? rendered
                                       : rendered.substr(marker_end + 5);
-  require(entry->gml_records() == gml_before && !gml_before.empty(),
-          "typed rendering changed public GML");
 
   require(count(markdown, "<a id=\"") == 398,
           "message source-anchor inventory changed");

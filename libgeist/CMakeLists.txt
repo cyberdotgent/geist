@@ -72,7 +72,6 @@ set(GEIST_SOURCES
   src/display_lines.cpp
   src/document.cpp
   src/document_ir.cpp
-  src/document_lowering.cpp
   src/document_markdown_renderer.cpp
   src/ebcdic.cpp
   src/fixed_display.cpp
@@ -202,12 +201,6 @@ target_link_libraries(gdf_synthetic_test PRIVATE geist::geist_static)
 
 add_test(NAME gdf_synthetic_test COMMAND gdf_synthetic_test)
 
-add_executable(markup_debug_test
-  tests/markup_debug.cpp
-)
-target_link_libraries(markup_debug_test PRIVATE geist::geist_static)
-
-add_test(NAME markup_debug_test COMMAND markup_debug_test)
 
 add_executable(qs3x36cm_markdown_test
   tests/qs3x36cm_markdown.cpp
@@ -264,12 +257,6 @@ target_compile_definitions(mmr_qsysnewg_test
 
 add_test(NAME mmr_qsysnewg_test COMMAND mmr_qsysnewg_test)
 
-add_executable(markup_synthetic_test
-  tests/markup_synthetic.cpp
-)
-target_link_libraries(markup_synthetic_test PRIVATE geist::geist_static)
-
-add_test(NAME markup_synthetic_test COMMAND markup_synthetic_test)
 
 add_executable(logical_synthetic_test
   tests/logical_synthetic.cpp

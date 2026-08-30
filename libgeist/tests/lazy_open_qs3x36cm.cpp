@@ -23,8 +23,6 @@ int main() {
 
   const auto* intro = document.find_toc_entry("1.0");
   require(intro != nullptr, "missing 1.0 TOC entry");
-  require(intro->raw_records.empty(),
-          "opening eagerly rendered a TOC topic body");
   const auto markdown = intro->markdown();
   require(markdown.find("# 1\\.0 Introduction") != std::string::npos,
           "lazy TOC entry rendering produced unexpected Markdown");

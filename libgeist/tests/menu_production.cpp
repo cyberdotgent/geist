@@ -73,9 +73,7 @@ int main() {
   for (const auto &fixture : fixtures) {
     const auto document = geist::BooDocument::open(root / fixture.book);
     const auto *entry = document.find_toc_entry(fixture.topic);
-    std::vector<std::string> gml_before;
-    if (entry != nullptr)
-      gml_before = entry->gml_records();
+    (void)entry;
     const auto markdown = document.topic_markdown(fixture.topic);
     const auto again = document.topic_markdown(fixture.topic);
     require(markdown == again,
@@ -99,10 +97,6 @@ int main() {
     require(markdown.find(fixture.required_intro) != std::string::npos,
             std::string(fixture.book) + ':' + fixture.topic +
                 " lost its independent source-proven introduction");
-    if (entry != nullptr)
-      require(entry->gml_records() == gml_before && !gml_before.empty(),
-              std::string(fixture.book) + ':' + fixture.topic +
-                  " typed rendering changed public GML");
   }
 
   // SC31-711 2.4 is declined by the menu family (its catalog header title

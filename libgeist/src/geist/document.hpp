@@ -69,7 +69,6 @@ public:
       const;
   GEIST_API const std::vector<TocEntry>& table_of_contents() const noexcept;
   GEIST_API const std::vector<TopicInfo>& topics() const noexcept;
-  GEIST_API const std::vector<std::string>& raw_gml_records() const;
   GEIST_API std::string markdown() const;
   GEIST_API std::string topic_markdown(const std::string& topic_id) const;
   // Render provenance for every TOC topic, parallel to table_of_contents():
@@ -117,8 +116,6 @@ private:
   std::vector<TocEntry> toc_;
   std::vector<TopicInfo> topics_;
   std::map<std::string, std::string> topic_titles_;
-  mutable std::vector<std::string> raw_gml_records_;
-  mutable bool raw_gml_records_loaded_ = false;
   std::vector<ResourceEntry> resources_;
   std::shared_ptr<const detail::BookTopicCatalogIR> topic_catalog_ir_;
   std::shared_ptr<detail::LogicalDecodeContext> decode_context_;

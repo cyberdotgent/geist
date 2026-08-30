@@ -1,5 +1,4 @@
 #include "geist/detail/document_ir.hpp"
-#include "geist/detail/document_lowering.hpp"
 #include "geist/detail/document_markdown_renderer.hpp"
 
 #include <iostream>
@@ -348,15 +347,6 @@ int main() {
                 "**Opaque control\\*kind content:**\n\n"
                 "````\nraw ``` payload\nsecond line\n````",
                 "opaque block escaping/fencing failed"))
-    return 1;
-
-  // The migration adapter deliberately retains exact legacy behavior; typed
-  // output above is judged by semantic structure, not byte parity with it.
-  TopicIdentityIR identity;
-  const std::vector<std::string> records = {":h1.Legacy", ":p.Body"};
-  const auto legacy = lower_legacy_topic_to_document_ir(identity, records);
-  if (!require(render_document_markdown(legacy) == "# Legacy\n\nBody\n",
-               "sole whole-topic legacy adapter changed behavior"))
     return 1;
 
   std::cout << "document Markdown renderer synthetic checks passed\n";

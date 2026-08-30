@@ -38,7 +38,6 @@ std::shared_ptr<const std::set<std::string>> lowercase_resource_ids(
 }
 
 struct TopicLoaderBundle {
-  std::function<std::vector<std::string>()> raw;
   std::function<std::shared_ptr<const TopicLoweringOutcomeIR>()> document;
   std::function<TopicBestEffortIR()> best_effort;
 };
@@ -97,18 +96,8 @@ TopicLoaderBundle make_topic_loaders(
   state->style = style;
 
   TopicLoaderBundle loaders;
-  loaders.raw = [state]() {
-    state->load_sources();
-    TocEntry loaded;
-    loaded.id = state->id;
-    loaded.title = state->title;
-    loaded.level = state->level;
-    loaded.style = state->style;
-    attach_topic_data(loaded, state->topic, state->topic_titles.get());
-    return std::move(loaded.raw_records);
-  };
   // The rejection string and the decline trace are kept, not discarded: they
-  // are what a legacy-routed topic tells the consumer about itself, and they
+  // are what a declined topic tells the consumer about itself, and they
   // are the same strings `bootrace --coverage` reports.
   loaders.document = [state]() -> std::shared_ptr<const TopicLoweringOutcomeIR> {
     state->load_sources();
@@ -126,6 +115,7 @@ TopicLoaderBundle make_topic_loaders(
     result.source_decoded = !state->topic.fixed_layout_sources.empty();
     result.lines = best_effort_lines(state->topic.fixed_layout_sources,
                                      state->identity.title);
+    result.anchors = best_effort_anchors(state->topic.fixed_layout_sources);
     return result;
   };
   return loaders;
@@ -312,7 +302,6 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
         context, std::move(topic_data), make_topic_identity(entry), entry_id,
         entry_title, entry_level, entry_style, document.topic_catalog_ir_,
         topic_titles, resource_ids);
-    entry.raw_record_loader_ = std::move(loaders.raw);
     entry.document_ir_loader_ = std::move(loaders.document);
     entry.best_effort_loader_ = std::move(loaders.best_effort);
   }
@@ -364,25 +353,6 @@ const std::vector<TocEntry>& BooDocument::table_of_contents() const noexcept {
 
 const std::vector<TopicInfo>& BooDocument::topics() const noexcept {
   return topics_;
-}
-
-const std::vector<std::string>& BooDocument::raw_gml_records() const {
-  if (!raw_gml_records_loaded_) {
-    for (const auto& topic : topics_) {
-      std::vector<std::string> decoded(
-          decode_context_->decoded_records.begin() +
-              topic.start_logical_record - 1,
-          decode_context_->decoded_records.begin() +
-              topic.end_logical_record - 1);
-      auto rendered = render_gml_records(decoded);
-      raw_gml_records_.insert(
-          raw_gml_records_.end(),
-          std::make_move_iterator(rendered.begin()),
-          std::make_move_iterator(rendered.end()));
-    }
-    raw_gml_records_loaded_ = true;
-  }
-  return raw_gml_records_;
 }
 
 const std::vector<ResourceEntry>& BooDocument::resources() const noexcept {
@@ -445,7 +415,6 @@ std::string BooDocument::topic_markdown(const std::string& topic_id) const {
       decode_context_, topic, make_topic_identity(entry), topic.id,
       topic.title, 0, 0, topic_catalog_ir_, topic_titles,
       lowercase_resource_ids(resources_));
-  entry.raw_record_loader_ = std::move(loaders.raw);
   entry.document_ir_loader_ = std::move(loaders.document);
   entry.best_effort_loader_ = std::move(loaders.best_effort);
   return entry.markdown();

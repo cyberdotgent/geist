@@ -34,13 +34,10 @@ int main() {
   const auto document = geist::BooDocument::open(root / "SC31-711.boo");
   const auto* entry = document.find_toc_entry("GLOSSARY");
   require(entry != nullptr, "glossary is not a TOC topic");
-  const auto gml_before = entry->gml_records();
 
   const auto markdown = document.topic_markdown("GLOSSARY");
   const auto repeated = document.topic_markdown("GLOSSARY");
   require(markdown == repeated, "repeated typed rendering changed");
-  require(entry->gml_records() == gml_before && !gml_before.empty(),
-          "typed rendering changed public GML");
 
   require(count(markdown, "\n# ") == 0 &&
               count(markdown, "# GLOSSARY Glossary") == 1,

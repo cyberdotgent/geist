@@ -1,6 +1,5 @@
 #include "geist/detail/internal.hpp"
 
-#include "geist/detail/document_lowering.hpp"
 #include "geist/detail/document_markdown_renderer.hpp"
 #include "geist/detail/render_diagnostic_ir.hpp"
 #include "geist/detail/topic_lowering_outcome.hpp"
@@ -83,22 +82,6 @@ std::optional<std::string> content_after_title(const std::string& content,
 
 } // namespace
 
-const std::vector<std::string>& TocEntry::gml_records() const {
-  if (cached_raw_records_.empty() && raw_record_loader_) {
-    cached_raw_records_ = raw_record_loader_();
-  }
-  return cached_raw_records_.empty() ? raw_records : cached_raw_records_;
-}
-
-namespace {
-
-// The legacy string-pipeline render of one topic. Unchanged behaviour; it is
-// only separated out so the single render pass below can choose between it,
-// the typed route and the verbatim last resort.
-std::string render_legacy_topic_markdown(const TocEntry& entry);
-
-} // namespace
-
 std::string TocEntry::markdown() const {
   render();
   return cached_markdown_;
@@ -154,9 +137,11 @@ void TocEntry::render() const {
     cached_diagnostic_.reason = "no-typed-lowering-attempted";
     cached_diagnostic_.detail.clear();
   }
+  // A topic the typed dispatcher declines produces nothing here; the
+  // verbatim route below is what renders it. There is no second renderer.
   cached_markdown_ = document != nullptr
                          ? detail::render_document_markdown(*document)
-                         : render_legacy_topic_markdown(*this);
+                         : std::string();
 
   const auto has_content = detail::markdown_has_content(cached_markdown_);
   detail::TopicBestEffortIR verbatim;
@@ -170,7 +155,10 @@ void TocEntry::render() const {
       cached_markdown_ += "\n";
     if (!cached_markdown_.empty())
       cached_markdown_ += "\n";
-    cached_markdown_ += detail::render_best_effort_markdown(verbatim.lines);
+    cached_best_effort_anchors_ = verbatim.anchors;
+    cached_markdown_ +=
+        detail::render_best_effort_markdown(identity, verbatim.lines,
+                                            verbatim.anchors);
   } else if (cached_diagnostic_.severity == RenderSeverity::failed) {
     if (!cached_markdown_.empty() && cached_markdown_.back() != '\n')
       cached_markdown_ += "\n";
@@ -194,117 +182,6 @@ void TocEntry::render() const {
 
 namespace {
 
-std::string render_legacy_topic_markdown(const TocEntry& entry) {
-  const auto& id = entry.id;
-  const auto& title = entry.title;
-  const auto level = entry.level;
-  auto records = entry.gml_records();
-  auto replaced_heading = false;
-  auto heading_index = std::size_t{0};
-  while (heading_index < records.size() &&
-         detail::ascii_starts_with_case_insensitive(
-             records[heading_index], ":anchor ")) {
-    ++heading_index;
-  }
-  if (heading_index < records.size() && !records[heading_index].empty() &&
-      !id.empty() && !title.empty()) {
-    auto& heading = records[heading_index];
-    const auto dot = heading.find('.');
-    if (dot != std::string::npos && heading.front() == ':') {
-      auto tag_end = std::size_t{1};
-      while (tag_end < dot &&
-             std::isalnum(static_cast<unsigned char>(heading[tag_end])) !=
-                 0) {
-        ++tag_end;
-      }
-      const auto tag =
-          detail::ascii_lower(heading.substr(1, tag_end - 1));
-      if (tag == "h1" || tag == "h2" || tag == "h3" || tag == "h4" ||
-          tag == "h5" || tag == "ih2" || tag == "preface" ||
-          tag == "appendix") {
-        const auto content = heading.substr(dot + 1);
-        const auto rest = content_after_title(content, title);
-        heading.resize(dot + 1);
-        heading += id + " " + title;
-        if (rest && !rest->empty()) {
-          records.insert(records.begin() +
-                             static_cast<std::ptrdiff_t>(heading_index + 1),
-                         ":p." + *rest);
-        }
-        if (heading_index > 0) {
-          std::rotate(records.begin(),
-                      records.begin() +
-                          static_cast<std::ptrdiff_t>(heading_index),
-                      records.begin() +
-                          static_cast<std::ptrdiff_t>(heading_index + 1));
-        }
-        replaced_heading = true;
-      }
-    }
-  }
-  if (!replaced_heading && !id.empty() && !title.empty()) {
-    auto tag = std::string{"h1"};
-    if (level > 0) {
-      tag = "h2";
-    }
-    records.insert(records.begin(), ":" + tag + "." + id + " " + title);
-    const auto normalize = [](std::string value) {
-      value = detail::collapse_ascii_whitespace(std::move(value));
-      value = detail::ascii_lower(std::move(value));
-      return value;
-    };
-    const auto normalized_title = normalize(title);
-    for (auto cursor = records.begin() + 1; cursor != records.end();
-         ++cursor) {
-      const auto dot = cursor->find('.');
-      if (dot == std::string::npos || cursor->empty() || cursor->front() != ':') {
-        continue;
-      }
-      auto tag_end = std::size_t{1};
-      while (tag_end < dot &&
-             std::isalnum(static_cast<unsigned char>((*cursor)[tag_end])) !=
-                 0) {
-        ++tag_end;
-      }
-      const auto existing_tag =
-          detail::ascii_lower(cursor->substr(1, tag_end - 1));
-      if (existing_tag != "h1" && existing_tag != "h2" &&
-          existing_tag != "h3" && existing_tag != "preface" &&
-          existing_tag != "appendix") {
-        continue;
-      }
-      auto content = cursor->substr(dot + 1);
-      const auto normalized_content = normalize(content);
-      if (!detail::ascii_starts_with_case_insensitive(normalized_content,
-                                                      normalized_title)) {
-        continue;
-      }
-      auto rest = content_after_title(content, title).value_or(std::string{});
-      if (rest.empty()) {
-        const auto following = normalized_content.find(" following is ");
-        if (following != std::string::npos) {
-          rest = content.substr(std::min(content.size(), following + 1));
-        }
-      }
-      if (rest.empty()) {
-        records.erase(cursor);
-      } else {
-        *cursor = ":p." + detail::trim_ascii(std::move(rest));
-      }
-      break;
-    }
-  }
-  detail::TopicIdentityIR identity;
-  identity.id = entry.id;
-  identity.title = entry.title;
-  identity.heading_level = entry.heading_level;
-  identity.topic_number = entry.topic_number;
-  identity.start_logical_record = entry.start_logical_record;
-  identity.end_logical_record = entry.end_logical_record;
-  return detail::render_document_markdown(
-      detail::lower_legacy_topic_to_document_ir(std::move(identity),
-                                                std::move(records)));
-}
 
 } // namespace
 

@@ -9,7 +9,10 @@ int main() {
 
   const auto sclm = geist::BooDocument::open(root / "SC34-425.boo");
   const auto sclm_messages = sclm.topic_markdown("APPENDIX1.5.3");
-  require(sclm_messages.find("<pre>") != std::string::npos &&
+  // The topic is declined by the prose family (`SRMSG` is outside its model)
+  // and reproduced verbatim in a fenced block, keeping the catalog's own
+  // columns; it still names every message it opens, so references resolve.
+  require(sclm_messages.find("```text") != std::string::npos &&
               sclm_messages.find("FLM00000 MESSAGE ID") !=
                   std::string::npos &&
               sclm_messages.find("<a id=\"MSG FLM00101\"></a>") !=

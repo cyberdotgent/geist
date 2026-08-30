@@ -26,6 +26,12 @@ struct TopicLoweringOutcomeIR {
 struct TopicBestEffortIR {
   bool source_decoded = false;
   std::vector<std::string> lines;
+  // The anchor ids the topic's own structural controls name (`SRFIG...`,
+  // `SRTBL...`, `SRSPT...`).  A topic that renders verbatim still *names*
+  // these objects, and cross references elsewhere in the book point at them,
+  // so they are emitted and reported even though no structure is claimed
+  // around them.
+  std::vector<std::string> anchors;
 };
 
 } // namespace geist::detail

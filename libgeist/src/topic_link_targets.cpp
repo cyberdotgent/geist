@@ -148,54 +148,6 @@ std::vector<LinkTarget> document_link_targets(const DocumentIR& document) {
   return targets;
 }
 
-// The legacy answer, unchanged in behaviour: the same scan `boo2git` used to
-// run inline over `TocEntry::gml_records()`.  It is reached only by a topic
-// that renders through the legacy string route.
-std::vector<LinkTarget> gml_link_targets(
-    const std::vector<std::string>& records) {
-  std::vector<LinkTarget> targets;
-  auto pending_figure = std::string::npos;
-  for (const auto& record : records) {
-    if (record.rfind(":anchor ", 0) == 0) {
-      auto id = raw_attr(record, "id");
-      if (!id.empty())
-        targets.push_back({LinkTargetKind::anchor, std::move(id), {}});
-      continue;
-    }
-    if (record.rfind(":fig ", 0) == 0) {
-      pending_figure = std::string::npos;
-      auto id = raw_attr(record, "id");
-      if (!id.empty()) {
-        targets.push_back({LinkTargetKind::figure, std::move(id), {}});
-        pending_figure = targets.size() - 1;
-      }
-      continue;
-    }
-    if (record.rfind(":table ", 0) == 0) {
-      auto id = raw_attr(record, "id");
-      if (!id.empty())
-        targets.push_back({LinkTargetKind::table, std::move(id), {}});
-      continue;
-    }
-    if (record.rfind(":image ", 0) == 0) {
-      const auto resource = raw_attr(record, "resource");
-      if (pending_figure != std::string::npos && !resource.empty()) {
-        targets[pending_figure].resource = "resource:" + resource;
-        pending_figure = std::string::npos;
-      }
-      continue;
-    }
-    if (record.rfind(":hdref ", 0) == 0) {
-      const auto resource = picture_resource_id(raw_attr(record, "refid"));
-      if (pending_figure != std::string::npos && !resource.empty()) {
-        targets[pending_figure].resource = "resource:" + resource;
-        pending_figure = std::string::npos;
-      }
-    }
-  }
-  return targets;
-}
-
 } // namespace detail
 
 const std::vector<LinkTarget>& TocEntry::link_targets() const {
@@ -207,9 +159,23 @@ const std::vector<LinkTarget>& TocEntry::link_targets() const {
       cached_lowering_ && cached_lowering_->document
           ? &*cached_lowering_->document
           : nullptr;
-  cached_link_targets_ = document != nullptr
-                             ? detail::document_link_targets(*document)
-                             : detail::gml_link_targets(gml_records());
+  if (document != nullptr) {
+    cached_link_targets_ = detail::document_link_targets(*document);
+    return cached_link_targets_;
+  }
+  // A topic that renders verbatim still names the objects its structural
+  // controls name, and cross references elsewhere point at them. The kind
+  // follows the id's own prefix, which is the evidence the typed families
+  // read too.
+  for (const auto& id : cached_best_effort_anchors_) {
+    auto kind = LinkTargetKind::anchor;
+    const auto head = detail::ascii_lower(id.substr(0, 3));
+    if (head == "fig")
+      kind = LinkTargetKind::figure;
+    else if (head == "tbl")
+      kind = LinkTargetKind::table;
+    cached_link_targets_.push_back({kind, id, {}});
+  }
   return cached_link_targets_;
 }
 

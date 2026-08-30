@@ -320,12 +320,10 @@ bool verify_block(const BlockIR& block, std::string* error) {
               return fail(error, "menu item is incomplete");
           }
           return true;
-        } else if constexpr (std::is_same_v<T, OpaqueBlockIR>) {
+        } else {
+          static_assert(std::is_same_v<T, OpaqueBlockIR>);
           return !node.kind.empty() ||
                  fail(error, "opaque block kind is empty");
-        } else {
-          return node.state_scope == LegacyRendererStateScopeIR::whole_topic ||
-                 fail(error, "legacy region has invalid renderer state scope");
         }
       },
       block.node);
@@ -548,32 +546,15 @@ void normalize_document_origin_slices(DocumentIR& document) {
 }
 
 bool verify_document_ir(const DocumentIR& document, std::string* error) {
-  const auto is_identity_free_legacy_adapter =
-      document.topic.id.empty() && document.topic.title.empty() &&
-      document.blocks.size() == 1 &&
-      std::holds_alternative<LegacyGmlRegionIR>(document.blocks.front().node);
-  if ((document.topic.id.empty() || document.topic.title.empty()) &&
-      !is_identity_free_legacy_adapter)
+  if (document.topic.id.empty() || document.topic.title.empty())
     return fail(error, "document topic identity is incomplete");
   if (document.topic.end_logical_record != 0 &&
       document.topic.start_logical_record > document.topic.end_logical_record)
     return fail(error, "topic logical-record range is reversed");
   if (document.blocks.empty()) return fail(error, "document has no blocks");
-  auto legacy_regions = std::size_t{0};
   for (const auto& block : document.blocks)
-    if (!verify_block(block, error)) {
+    if (!verify_block(block, error))
       return false;
-    } else if (const auto* legacy =
-                   std::get_if<LegacyGmlRegionIR>(&block.node)) {
-      ++legacy_regions;
-      if (legacy->normalized_records.empty())
-        return fail(error, "legacy region has no normalized records");
-      if (block.origin.derivation != DocumentDerivationIR::legacy_adapter)
-        return fail(error, "legacy region has a nonlegacy origin");
-    }
-  if (legacy_regions != 0 &&
-      (legacy_regions != 1 || document.blocks.size() != 1))
-    return fail(error, "whole-topic legacy region is mixed or duplicated");
   return true;
 }
 
@@ -710,14 +691,10 @@ std::string format_document_ir(const DocumentIR& document) {
               format_entry_origin(out, node.items[item].origin);
             }
             out << ']';
-          } else if constexpr (std::is_same_v<T, OpaqueBlockIR>) {
+          } else {
+            static_assert(std::is_same_v<T, OpaqueBlockIR>);
             out << " opaque kind=" << quoted(node.kind)
                 << " content=" << quoted(node.content);
-          } else {
-            out << " legacy_gml scope=whole_topic records="
-                << node.normalized_records.size();
-            for (const auto& record : node.normalized_records)
-              out << " record=" << quoted(record);
           }
         },
         block.node);

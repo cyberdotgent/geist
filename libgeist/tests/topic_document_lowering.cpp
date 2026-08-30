@@ -45,19 +45,15 @@ int main() {
   const auto *back_entry = document.find_toc_entry("BACK_2");
   if (!require(back_entry != nullptr, "BACK_2 is absent from the public TOC"))
     return 1;
-  const auto back_gml_before = back_entry->gml_records();
   const auto back = back_entry->markdown();
   const auto back_again = back_entry->markdown();
-  const auto back_gml_after = back_entry->gml_records();
   const auto comments = document.topic_markdown("COMMENTS");
   const auto *publication_entry = document.find_toc_entry("BACK_1.1");
   if (!require(publication_entry != nullptr,
                "publication is absent from the public TOC"))
     return 1;
-  const auto publication_gml_before = publication_entry->gml_records();
   const auto publication = publication_entry->markdown();
   const auto publication_again = publication_entry->markdown();
-  const auto publication_gml_after = publication_entry->gml_records();
   const auto *ordinary_entry = document.find_toc_entry("2.1");
   if (!require(ordinary_entry != nullptr, "ordinary topic is absent from TOC"))
     return 1;
@@ -73,14 +69,10 @@ int main() {
                    partial_prose_entry != nullptr,
                "fixed prose production fixtures are absent from the TOC"))
     return 1;
-  const auto communications_gml_before = communications_entry->gml_records();
   const auto communications = communications_entry->markdown();
   const auto communications_again = communications_entry->markdown();
-  const auto communications_gml_after = communications_entry->gml_records();
-  const auto results_gml_before = results_entry->gml_records();
   const auto results = results_entry->markdown();
   const auto results_again = results_entry->markdown();
-  const auto results_gml_after = results_entry->gml_records();
   const auto partial_prose = partial_prose_entry->markdown();
 
   const geist::TopicInfo *direct_topic = nullptr;
@@ -99,17 +91,12 @@ int main() {
                "typed delivery heading lost public topic identity") ||
       !require(back == back_again,
                "repeated typed Markdown rendering was unstable") ||
-      !require(back_gml_before == back_gml_after && !back_gml_after.empty(),
-               "typed rendering changed or discarded public GML records") ||
       !require(comments.rfind("# COMMENTS ", 0) == 0,
                "typed questionnaire heading lost public topic identity") ||
       !require(publication.rfind("## BACK\\_1\\.1 ", 0) == 0,
                "typed publication heading lost public topic identity") ||
       !require(publication == publication_again,
                "repeated typed publication rendering was unstable") ||
-      !require(publication_gml_before == publication_gml_after &&
-                   !publication_gml_after.empty(),
-               "typed publication changed or discarded public GML records") ||
       !require(publication.find(
                    "Getting Started with LAN Network Manager for AIX "
                    "\\(SC31\\-7109\\)") != std::string::npos,
@@ -139,11 +126,6 @@ int main() {
       !require(communications == communications_again &&
                    results == results_again,
                "repeated typed fixed prose rendering was unstable") ||
-      !require(communications_gml_before == communications_gml_after &&
-                   !communications_gml_after.empty() &&
-                   results_gml_before == results_gml_after &&
-                   !results_gml_after.empty(),
-               "typed fixed prose changed or discarded public GML records") ||
       !require(partial_prose.find("`TPNSSID1 APPL") != std::string::npos &&
                    partial_prose.find("<BOOK>") == std::string::npos,
                "prose topic lost its example phrase or leaked a marker") ||

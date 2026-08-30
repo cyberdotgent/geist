@@ -75,7 +75,6 @@ int main() {
     require(toc != nullptr,
             std::string(fixture.book) + ':' + fixture.topic +
                 " is not a TOC-exported topic");
-    const auto gml_before = toc->gml_records();
     const auto markdown = document.topic_markdown(fixture.topic);
     const auto again = document.topic_markdown(fixture.topic);
     require(markdown == again,
@@ -87,9 +86,6 @@ int main() {
     require(count(markdown, "](<#") == fixture.entries,
             std::string(fixture.book) + ':' + fixture.topic +
                 " link count differs from typed entry inventory");
-    require(toc->gml_records() == gml_before && !gml_before.empty(),
-            std::string(fixture.book) + ':' + fixture.topic +
-                " typed rendering changed public GML");
     total_entries += fixture.entries;
 
     if (std::string(fixture.book) == "GG24-395.boo" &&

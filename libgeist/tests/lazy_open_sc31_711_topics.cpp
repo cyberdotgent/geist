@@ -23,12 +23,16 @@ int main() {
           "NOTICES lost its drawn box outline");
   const auto how_to_use =
       problem_determination.topic_markdown("PREFACE.2");
-  require(how_to_use.find("[action Chapter 3") == std::string::npos &&
-              how_to_use.find("[adapter Chapter 4") == std::string::npos &&
+  // PREFACE.2 is declined by every typed family (a text segment opens with
+  // the control-like word `SRHDRAIXHIGH`), so it renders verbatim: the cross
+  // references read as the source writes them, without Markdown link syntax.
+  // What must not come back are the marker tokens the row model owns.
+  require(how_to_use.find("action Chapter 3") == std::string::npos &&
+              how_to_use.find("adapter Chapter 4") == std::string::npos &&
               how_to_use.find(
-                  "[Chapter 3, \"Understanding Logs, Traps, and Filters\"") !=
+                  "Chapter 3, \"Understanding Logs, Traps, and Filters\"") !=
                   std::string::npos &&
-              how_to_use.find("[Chapter 4, \"Traps\" in topic 4.0]") !=
+              how_to_use.find("Chapter 4, \"Traps\" in topic 4.0") !=
                   std::string::npos,
           "selector display rows retained source-owned marker tokens");
   for (const auto* nested : {
@@ -278,9 +282,12 @@ int main() {
                   std::string::npos,
           "additional-information form lost its prose prefix or item");
   const auto frame_relay = markdown_visible_text(problem_determination.topic_markdown("4.3.5"));
+  // 4.3.5 is declined by the prose family (`SRMSG` is outside its model), so
+  // it is reproduced verbatim: the trap number and its labels keep the source
+  // rows rather than being rebuilt as a definition list.
   require(frame_relay.find("This section lists the Frame Relay traps") !=
               std::string::npos &&
-              frame_relay.find("- **1** — **Description:** DLCI state change") !=
+              frame_relay.find("   1\n   Description:  DLCI state change") !=
                   std::string::npos,
           "message definition lost its introduction or label association");
   const auto token_ring_traps =

@@ -141,29 +141,33 @@ int main() {
     }
   }
 
-  // Whole books: for every typed topic, every figure and table the legacy
-  // projection names is named by the typed answer too, with the same kind and
-  // the same reference id.  This is the equivalence the corpus differential
-  // rests on; anchors are excluded because the typed families deliberately
-  // spell some of them differently (a message anchor keeps its symbolic tail,
-  // a glossary anchor its whole term).
+  // Whole books: the typed IR is now the only answer, so there is no second
+  // projection to check it against. What is still worth pinning is that the
+  // answer does not shrink -- a family that stops naming its figures would
+  // otherwise break every reference to them silently -- so the figure and
+  // table targets these books name are counted and ratcheted. Raise the
+  // number when a slice legitimately names more; never lower it.
+  constexpr std::size_t kNamedObjectBaseline = 285;
+  std::size_t named_objects = 0;
   for (const auto* name : {"XWEBDEMO.boo", "ACPZMST1.boo", "SC33-033.boo"}) {
     const auto document = geist::BooDocument::open(book_path(name));
     for (const auto& entry : document.table_of_contents()) {
-      if (entry.render_diagnostic().route != "typed")
-        continue;
-      const auto& typed = entry.link_targets();
-      for (const auto& legacy :
-           geist::detail::gml_link_targets(entry.gml_records())) {
-        if (legacy.kind == geist::LinkTargetKind::anchor)
+      for (const auto& target : entry.link_targets()) {
+        if (target.kind != geist::LinkTargetKind::figure &&
+            target.kind != geist::LinkTargetKind::table)
           continue;
-        require(names(typed, legacy.kind, legacy.id),
+        require(!target.id.empty(),
                 std::string(name) + " " + entry.id +
-                    ": the typed IR cannot name " + legacy.id +
-                    ", which the legacy projection names: " + describe(typed));
+                    ": a named object has an empty reference id");
+        ++named_objects;
       }
     }
   }
+  std::cout << "# named figure/table targets\t" << named_objects << "\n";
+  require(named_objects >= kNamedObjectBaseline,
+          "the typed IR names fewer figures and tables than the recorded "
+          "baseline: " + std::to_string(named_objects) + " < " +
+              std::to_string(kNamedObjectBaseline));
 
   std::cout << "topic link target checks passed\n";
   return 0;
