@@ -50,6 +50,12 @@ file_offset = physical_page * 4096;
   multibyte code page, so these paths are recorded as unverified.
 - Dictionary lookup kind `2` uses a separate reverse search-key encoding of
   token words rather than the output translation-table decoder.
+- There is exactly one body-text storage path. Topic text lives only in the
+  `0x0000` content page run, addressed through the content-page record index at
+  directory `0x0034`; `0x0100` pages hold dictionary base and delta records and
+  `0x0001` pages hold the token index, and neither stores a topic logical
+  record. Every one of the corpus's logical records resolves inside the content
+  run in all 35 fixtures. See [pages.md](pages.md#the-four-page-roles).
 
 See [boo-header.md](boo-header.md) for the current header and page-run
 evidence.
@@ -73,9 +79,19 @@ synthetic inter-token spacing:
    then emits the remaining token words. This is observed before punctuation
    such as the period after generated topic numbers.
 5. Prefix `2` means no synthetic space should be appended after this token.
-6. Other prefixes or tokens without a low-valued prefix use the default
-   inter-token spacing behavior observed in version-2 fixtures: append a
-   synthetic space after the token unless the token already ends in a space.
+6. Prefix `3` is the default: append a synthetic space after this token. It is
+   also the value an assembler must assume for a token that carries no prefix
+   at all, and for an empty token record.
+
+There are exactly four spacing prefixes. A token word is a prefix only when its
+value is below `4`; `4` and above is the first word of the token's text. Two
+further rules complete the assembler:
+
+7. A token whose own last word is already a space suppresses the synthetic
+   space after it, exactly as prefix `2` would.
+8. The synthetic space appended after the **last** token of a record is removed
+   again unless that token's effective prefix was `2`. A record therefore never
+   ends in an assembler-inserted blank.
 
 The important implementation rule is that spacing prefixes operate on the
 assembler's pending blank, not on arbitrary output bytes. Consecutive prefix-0
@@ -266,13 +282,22 @@ BookServer output `AS/400 Command Cross-Reference` and
 
 ## Open Questions
 
-- Complete byte-for-byte behavior for every supported code page and fallback
-  substitution path.
-- Fixture evidence for dictionary index controls `2`, `4`, and `5`, which the
-  control encoding implies but the repository fixtures did not need on the
-  sampled root-to-terminal paths.
-- Whether body text uses the same logical-record tokenization path throughout
-  all page classes, or whether some page classes have additional text storage
-  variants.
-- Complete field-level documentation of all logical-record iterator spacing and
-  suppression controls beyond the verified low-valued prefixes above.
+- Behaviour for code pages other than `500`. Directory word `0x004c` selects the
+  dictionary literal table and every fixture stores `500`, so the corpus cannot
+  exercise the DBCS shift-byte paths or the alternate table ranges
+  (`group + 65` / `group + 97`) that the multibyte path uses. A book built for
+  code page `933`, `935`, `937` or `939` is what would settle it. Until then a
+  reader should reject a `0x004c` value it does not implement rather than
+  decode with the wrong table.
+- Dictionary index controls `2`, `4` and `5`. Measured across all 35 fixtures:
+  the control byte of the dictionary root index block named by directory word
+  `0x0026` is `0x03` in every book, and the control byte of every `0x0100`
+  dictionary page — the first byte of its class word — is `0x01`. So only
+  controls `3`, `1` and the terminal `0` are ever reached, and `2`, `4` and `5`
+  are unattested rather than merely unsampled. A book with a deeper dictionary
+  index would be needed to observe them; a reader may fail closed on them.
+- Complete field-level documentation of the logical-record iterator's
+  suppression controls **inside** a token's word sequence. The four
+  inter-token prefixes above are complete and verified; what is not documented
+  here is the behaviour of low-valued words that appear later in a token's
+  words rather than first.

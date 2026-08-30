@@ -60,14 +60,28 @@ area:
 
 ## Page-0 Resource Directory
 
-`GG24-4302-00.boo` has a resource directory entry at page-0 offset `0x0110`:
+The eight bytes at page-0 offset `0x0110` are a header for the descriptor area
+itself, in the same shape as a descriptor's tail: a kind byte, a 24-bit length
+and a 32-bit offset. It describes **group 0 only**.
+
+`GG24-4302-00.boo`:
 
 | Offset | Bytes | Decoded meaning |
 | ---: | --- | --- |
-| `0x0110` | `00` | Directory/control entry marker. |
-| `0x0111` | `00 01 d0` | 24-bit big-endian length: `0x0001d0` bytes. |
-| `0x0114` | `00 00 01 18` | 32-bit big-endian offset: `0x00000118`. |
+| `0x0108` | eight zero bytes | Zero in all 35 fixtures. |
+| `0x0110` | `00` | Kind byte, always `0x00` for this header entry. |
+| `0x0111` | `00 01 d0` | 24-bit big-endian length: `0x0001d0` = 464 = `29 objects * 16`. |
+| `0x0114` | `00 00 01 18` | 32-bit big-endian offset: `0x00000118`, where group 0 starts. |
 | `0x0118` | `f1 40 40 40 40 40 40 40` | EBCDIC id field: `1` padded with EBCDIC spaces. |
+
+The length is `16 * object_count` in every fixture that has objects — including
+the version-1.3 and version-1.4 books, whose additional groups it does **not**
+cover (`packet.boo` `0x90` = 9 objects, `SG24-204.boo` `0x07b0` = 123,
+`XWEBDEMO.boo` `0x20` = 2). A reader should size the descriptor area from the
+object count and the group count, as described under
+[Picture Directory Versions](#picture-directory-versions), not from this
+length. In books with no objects the whole 16 bytes at `0x0108`..`0x0117` are
+zero.
 
 The range `0x00000118..0x000002e7` is the observed resource-directory body. It
 contains image descriptors and ends immediately before the first image payload at
@@ -121,16 +135,18 @@ Selected entries in payload-offset order:
 | `20` | `0x0002b880` | `0x001bd7` | `0x0002d457` |
 | `27` | `0x00031948` | `0x001763` | `0x000330ab` |
 
-Most payloads observed in `GG24-4302-00.boo` begin with the same 32-byte prefix:
+Every kind `I` payload in `GG24-4302-00.boo` begins with the same 32-byte
+prefix:
 
 ```text
 00 08 d3 a8 7b 00 00 00 00 20 d3 a7 7b 00 00 00
 00 00 00 00 00 00 00 00 2d 00 00 00 00 00 00 00
 ```
 
-The bytes `d3 a8` and `d3 a7` are EBCDIC `Ly` and `Lx`, which fits an
-coordinate-oriented image stream. The stored payload does not start
-with `GIF87a`, `GIF89a`, `BM`, or a valid JPEG header in the verified sample.
+These are the first two structured fields of the image object -- begin image
+object and image output control -- decoded in
+[MMR.md](MMR.md#the-payload-is-a-structured-field-chain). The stored payload
+does not start with `GIF87a`, `GIF89a`, `BM`, or a valid JPEG header.
 Byte-pattern hits for `BM` and `ff d8 ff` inside the payload area are internal
 payload bytes, not standalone external image-file signatures.
 
@@ -149,21 +165,25 @@ the per-format notes linked below.
 A decoder should reject an unrecognised kind byte rather than guess a payload
 family, because the descriptor gives no other type information.
 
-Fixture verification over the whole repository BOO set found legacy descriptor
-kinds `0xc7` and `0xc9` only:
+Reading the kind byte of every group-0 descriptor in the corpus finds `0xc7`
+and `0xc9` only:
 
 | Kind byte | Descriptors in this repository | Example fixture | First verified descriptor and payload evidence |
 | ---: | ---: | --- | --- |
 | `0xc7` / `G` | 65 in 10 books | `FA1PLMM0.boo` | Descriptor at `0x0118`: `f1 40 40 40 40 40 40 40 c7 00 48 de 00 00 01 38`; payload at `0x0138` begins `01 12 00 04 00 00 00 00 42 64 00 01 00 00 00 00...`. |
-| `0xc9` / `I` | 558 in 16 books | `GG24-4302-00.boo` | Descriptor at `0x0118`: `f1 40 40 40 40 40 40 40 c9 00 1c fc 00 00 99 f0`; payload at `0x99f0` begins `00 08 d3 a8 7b 00 00 00 00 20 d3 a7 7b 00 00 00...`. |
+| `0xc9` / `I` | 559 in 17 books | `GG24-4302-00.boo` | Descriptor at `0x0118`: `f1 40 40 40 40 40 40 40 c9 00 1c fc 00 00 99 f0`; payload at `0x99f0` begins `00 08 d3 a8 7b 00 00 00 00 20 d3 a7 7b 00 00 00...`. |
 
-Full kind census over the 23 repository books that carry a picture directory
-(counting group-0 descriptors, one per picture):
+Full kind census over the 24 books of the corpus that carry at least one
+picture (counting group-0 descriptors, one per picture; 624 in total):
 
 | Kind | Books | Descriptors |
 | --- | --- | ---: |
 | `0xc7` / `G` | `FA1PLMM0`, `IEAC6MST`, `SC09-138`, `SC24-5520-00`, `SC26-457`, `SC28-1881-05`, `SC34-425`, `SH20-918`, `XWEBDEMO`, `packet` | 65 |
-| `0xc9` / `I` | `DREICMST`, `GG24-395`, `GG24-4302-00`, `GX27-3999-00`, `ITPPIBOK`, `QSYSNEWG`, `SC09-2417-00`, `SC24-546`, `SC24-5527-02`, `SC26-457`, `SC33-033`, `SG24-204`, `SH12-565`, `SH20-918`, `XWEBDEMO`, `HLCRUG21` | 558 |
+| `0xc9` / `I` | `DREICMST`, `GG24-395`, `GG24-4302-00`, `GX27-3999-00`, `ITPPIBOK`, `QSYSNEWG`, `SC09-2417-00`, `SC24-546`, `SC24-5527-02`, `SC26-457`, `SC31-711`, `SC33-033`, `SG24-204`, `SH12-565`, `SH20-918`, `XWEBDEMO`, `HLCRUG21` | 559 |
+
+Three books carry both kinds (`SC26-457`, `SH20-918`, `XWEBDEMO`), so the kind
+byte is per picture, not per book. `SC41-485.boo` declares a version-1.3
+picture directory but has an object count of zero and no descriptors at all.
 
 No other kind byte occurs in any repository fixture. `0xd4` / `M` is listed
 above as a family the container's type tag can express, but it is unverified
@@ -172,15 +192,20 @@ here.
 ## Picture Directory Versions
 
 The two bytes at directory-page offsets `+9..+10` select the picture-directory
-layout. Across the 23 repository books that carry a picture directory, exactly
-three values occur, and each one determines how many 16-byte descriptor groups
-follow the fixed 280-byte (`0x0118`) page-0 header area:
+layout. Across the 24 books of the corpus that carry at least one picture,
+exactly three values occur, and each one determines how many 16-byte descriptor
+groups follow the fixed 280-byte (`0x0118`) page-0 header area:
 
-| Bytes at `+9..+10` | Layout | Descriptor groups | Repository fixtures |
+| Bytes at `+9..+10` | Layout | Descriptor groups | Fixtures with pictures |
 | --- | --- | ---: | --- |
-| `00 00` | version 1.2 | 1 | 16 books, e.g. `GG24-4302-00.boo`, `QSYSNEWG.BOO`, `SC34-425.boo` |
+| `00 00` | version 1.2 | 1 | 18 books, e.g. `GG24-4302-00.boo`, `QSYSNEWG.BOO`, `SC34-425.boo` |
 | `01 03` | version 1.3 | 2 | `GX27-3999-00.boo`, `SC09-2417-00.boo`, `SG24-204.boo`, `packet.boo` |
 | `01 00` | version 1.4 | 3 | `XWEBDEMO.boo`, `Official Readers/SoftCopy/HLCRUG21.boo` |
+
+`SC41-485.boo` also declares `01 03` but has no pictures, which is why the
+version byte is counted here only for books that do. Counting all 35 fixtures
+regardless, the split is 28 / 5 / 2; see
+[boo-header.md](boo-header.md#the-16-byte-prefix-is-a-dialect-flag-not-padding).
 
 The object count is the 32-bit big-endian value at page-0 offsets
 `0x0004..0x0007` in every version. Group `n` begins at
@@ -209,7 +234,7 @@ offset.
 ### Version 1.3
 
 Two descriptor groups, both in the same legacy 16-byte form. In all four
-version-1.3 fixtures the two groups are **byte-identical**: group 1 is an exact
+version-1.3 fixtures that have pictures the two groups are **byte-identical**: group 1 is an exact
 duplicate of group 0, covering the same ids, kinds, lengths and payload offsets.
 A decoder may therefore read group 0 and ignore group 1, but it must account for
 group 1's size when computing where payloads begin.
@@ -220,7 +245,7 @@ Three descriptor groups, and only group 0 uses the legacy form:
 
 | Group | Start offset | Descriptor form | Content |
 | ---: | ---: | --- | --- |
-| `0` | `0x0118` | legacy: id[8], kind[1], length[3], offset[4] | The original legacy payload, still stored. Both 1.4 fixtures carry kind `G` or kind `I` payloads here. |
+| `0` | `0x0118` | legacy: id[8], kind[1], length[3], offset[4] | The original legacy payload, still stored. `XWEBDEMO.boo` carries one kind `G` and one kind `I`; all 135 of `HLCRUG21.boo`'s are kind `I`. |
 | `1` | `0x0118 + 16 * n` | id[8], length[4], offset[4] | The converted web object. |
 | `2` | `0x0118 + 32 * n` | id[8], length[4], offset[4] | The object description string. |
 
@@ -299,15 +324,56 @@ For version 1.4 converted objects:
    objects may already be standard web image files; legacy objects still remain
    legacy payloads and must not be converted by container extraction.
 
+## How A Topic References An Image
+
+A body topic names an image with a `CSELECT` selector whose target is `PIC`
+followed by the decimal resource id, and the descriptor id is that target with
+the three-letter prefix removed. The match is case-insensitive on the prefix
+and the remainder must be all digits.
+
+```text
+descriptor_id = selector_target[3:]      // "PIC1" -> "1", "pic21" -> "21"
+```
+
+`GX27-3999-00.boo` topic `FRONT_1`, logical record 9, segment 11 is
+
+```text
+cselect 3 9 PIC1       PICTURE 1
+```
+
+and the hosted BookServer at DT `19950730184057` serves that row as
+
+```html
+<a href="picture-1?mode=zoom"><img
+  src="/bookmgr/pictures/GX27-3999-00.19950730184057.P1.GIF" alt="PICTURE 1"></a>
+```
+
+so target `PIC1` names descriptor id `1`, which that book's group-0 descriptor
+table carries as EBCDIC `f1 40 40 40 40 40 40 40`. The visible text on the row
+is the placeholder `PICTURE <id>` a text-only reader shows in place of the
+image, not a caption.
+
+The selector sits inside a `cz OFF ARTWORK` region or a figure region; several
+selectors may share one caption (`SC26-457.boo` `3.2.1` uses `PIC1` and `PIC2`
+under one caption, and hosted stacks both images). See
+[markup.md](markup.md#cz-layout-directives) for the region grammar.
+
 ## Open Questions
 
-- Identify the logical-record controls that reference image ids from document
-  topics and figure lists.
 - Determine whether non-image media resources use kind bytes beyond the verified
-  local legacy `G` (`0xc7`) and `I` (`0xc9`) descriptor families.
+  local legacy `G` (`0xc7`) and `I` (`0xc9`) descriptor families. The corpus has
+  624 descriptors and only those two kinds; a book carrying a `0xd4` / `M`
+  payload would settle whether the kind byte's range is wider than the two
+  families this note documents.
 - Whether a version-1.3 book can ever carry two *differing* descriptor groups.
-  In all four repository 1.3 fixtures the two groups are byte-identical, so the
-  purpose of the duplicate is unexplained.
-- Whether a version-1.4 group-1 payload can hold a format other than GIF. Both
-  1.4 fixtures declare only `type="image/gif"`, so JPEG, PNG, and TIFF
-  descriptions remain unverified here.
+  Re-checked byte for byte: in all four repository 1.3 fixtures with objects
+  (`GX27-3999-00`, `SC09-2417-00`, `SG24-204`, `packet`) group 1 is an exact
+  copy of group 0, so the purpose of the duplicate is unexplained. A 1.3 book
+  whose groups differ, or a hosted book that serves two artifacts for one
+  picture id, would settle it.
+- Whether a version-1.4 group-1 payload can hold a format other than GIF.
+  Measured over both 1.4 fixtures: all 137 group-1 payloads (135 in
+  `HLCRUG21.boo`, 2 in `XWEBDEMO.boo`) begin with `GIF87a` or `GIF89a`, and all
+  137 group-2 descriptions declare `type="image/gif"`. JPEG, PNG and TIFF
+  remain expressible but unwitnessed. A reader must dispatch on the declared
+  MIME type rather than assume GIF.
