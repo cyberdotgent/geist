@@ -1,3 +1,12 @@
+// Topic dispatch and render-trace provenance.
+//
+// The typed dispatcher must decline cleanly on a source-free topic, render
+// stable Markdown for the families it accepts, and name the BOO file bytes
+// behind every rendered word.  The families pinned here are the ones packet
+// carries: prose, generated navigation, generated list, and a declared table
+// inside a prose topic.  The comment-delivery, publication, trap-catalog and
+// fixed-prose pins went with the books that cannot be published (issue #59).
+
 #include "geist/detail/topic_document_lowering.hpp"
 #include "geist/detail/document_ir.hpp"
 #include "geist/detail/internal.hpp"
@@ -39,102 +48,67 @@ int main() {
       !require(rejection.empty(), "non-match was reported as a rejection"))
     return 1;
 
-#ifdef GEIST_REPO_ROOT
+#ifdef GEIST_FIXTURE_DIR
   const auto document = geist::BooDocument::open(
-      std::filesystem::path(GEIST_REPO_ROOT) / "BOO" / "SC31-711.boo");
-  const auto *back_entry = document.find_toc_entry("BACK_2");
-  if (!require(back_entry != nullptr, "BACK_2 is absent from the public TOC"))
-    return 1;
-  const auto back = back_entry->markdown();
-  const auto back_again = back_entry->markdown();
-  const auto comments = document.topic_markdown("COMMENTS");
-  const auto *publication_entry = document.find_toc_entry("BACK_1.1");
-  if (!require(publication_entry != nullptr,
-               "publication is absent from the public TOC"))
-    return 1;
-  const auto publication = publication_entry->markdown();
-  const auto publication_again = publication_entry->markdown();
+      std::filesystem::path(GEIST_FIXTURE_DIR) / "packet.boo");
+
+  const auto *contents_entry = document.find_toc_entry("CONTENTS");
+  const auto *figures_entry = document.find_toc_entry("FIGURES");
+  const auto *table_entry = document.find_toc_entry("2.4.4");
   const auto *ordinary_entry = document.find_toc_entry("2.1");
-  if (!require(ordinary_entry != nullptr, "ordinary topic is absent from TOC"))
+  if (!require(contents_entry != nullptr && figures_entry != nullptr &&
+                   table_entry != nullptr && ordinary_entry != nullptr,
+               "production fixtures are absent from the public TOC"))
     return 1;
+
+  const auto contents = contents_entry->markdown();
+  const auto contents_again = contents_entry->markdown();
+  const auto figures = figures_entry->markdown();
+  const auto figures_again = figures_entry->markdown();
+  const auto table = table_entry->markdown();
+  const auto table_again = table_entry->markdown();
   const auto ordinary = ordinary_entry->markdown();
   const auto ordinary_again = ordinary_entry->markdown();
 
-  const auto itp = geist::BooDocument::open(
-      std::filesystem::path(GEIST_REPO_ROOT) / "BOO" / "ITPPIBOK.BOO");
-  const auto *communications_entry = itp.find_toc_entry("2.1.2");
-  const auto *results_entry = itp.find_toc_entry("4.1.2");
-  const auto *partial_prose_entry = itp.find_toc_entry("2.4.2.2");
-  if (!require(communications_entry != nullptr && results_entry != nullptr &&
-                   partial_prose_entry != nullptr,
-               "fixed prose production fixtures are absent from the TOC"))
-    return 1;
-  const auto communications = communications_entry->markdown();
-  const auto communications_again = communications_entry->markdown();
-  const auto results = results_entry->markdown();
-  const auto results_again = results_entry->markdown();
-  const auto partial_prose = partial_prose_entry->markdown();
-
-  const geist::TopicInfo *direct_topic = nullptr;
+  // Every topic id in the lightweight index reaches the loader, including any
+  // that the public TOC does not list.
   for (const auto &topic : document.topics()) {
-    if (document.find_toc_entry(topic.id) == nullptr) {
-      direct_topic = &topic;
-      break;
-    }
+    if (!require(!document.topic_markdown(topic.id).empty(),
+                 "direct topic loader route returned empty Markdown for " +
+                     topic.id))
+      return 1;
   }
-  if (!require(direct_topic != nullptr, "fixture has no non-TOC topic") ||
-      !require(!document.topic_markdown(direct_topic->id).empty(),
-               "direct non-TOC loader route returned empty Markdown"))
-    return 1;
 
-  if (!require(back.rfind("# BACK\\_2 ", 0) == 0,
-               "typed delivery heading lost public topic identity") ||
-      !require(back == back_again,
-               "repeated typed Markdown rendering was unstable") ||
-      !require(comments.rfind("# COMMENTS ", 0) == 0,
-               "typed questionnaire heading lost public topic identity") ||
-      !require(publication.rfind("## BACK\\_1\\.1 ", 0) == 0,
-               "typed publication heading lost public topic identity") ||
-      !require(publication == publication_again,
-               "repeated typed publication rendering was unstable") ||
-      !require(publication.find(
-                   "Getting Started with LAN Network Manager for AIX "
-                   "\\(SC31\\-7109\\)") != std::string::npos,
-               "typed publication content was not rendered") ||
-      !require(publication.find("<B>") == std::string::npos,
-               "typed publication retained raw HTML") ||
-      !require(comments.find("<a id=\"TBLUNIQ8\"></a>") !=
-                   std::string::npos &&
-                   comments.find("<a id=\"TBLTBLUNIQ9\"></a>") !=
-                       std::string::npos,
-               "typed questionnaire lost stable table anchors") ||
+  if (!require(contents.rfind("# CONTENTS ", 0) == 0,
+               "generated navigation heading lost public topic identity") ||
+      !require(contents == contents_again,
+               "repeated generated navigation rendering was unstable") ||
+      !require(contents.find("`1.0` [An Introduction to Packet Radio](<#1.0>)")
+                   != std::string::npos,
+               "generated navigation content was not rendered") ||
+      !require(contents.find("<B>") == std::string::npos,
+               "generated navigation retained raw HTML") ||
+      !require(figures.rfind("# FIGURES ", 0) == 0,
+               "generated list heading lost public topic identity") ||
+      !require(figures == figures_again,
+               "repeated generated list rendering was unstable") ||
+      !require(figures.find("LoRa Frame Format") != std::string::npos,
+               "generated list content was not rendered") ||
+      !require(table.rfind("##### 2\\.4\\.4 Address Classes", 0) == 0,
+               "typed table topic heading lost public topic identity") ||
+      !require(table == table_again,
+               "repeated typed table rendering was unstable") ||
+      !require(table.find("<a id=\"TBLTBLUNIQ17\"></a>") != std::string::npos,
+               "typed table lost its stable anchor") ||
+      !require(table.find("| Class | Range | Default Netmask |") !=
+                   std::string::npos,
+               "typed table lost its header row") ||
       !require(!ordinary.empty() && ordinary.front() == '#',
-               "typed non-match did not retain legacy topic rendering") ||
+               "typed prose topic did not render a heading") ||
       !require(ordinary == ordinary_again,
-               "repeated ordinary fallback rendering was unstable") ||
-      !require(communications.rfind("### 2\\.1\\.2 ", 0) == 0 &&
-                   communications.find("Communications Controller "
-                                       "Requirements") != std::string::npos &&
-                   communications.find("TPNS CHEAPP \\(Channel end\\)") !=
-                       std::string::npos,
-               "unanchored fixed prose did not use typed Markdown") ||
-      !require(results.rfind("### 4\\.1\\.2 Expected Results", 0) == 0 &&
-                   results.find("<a id=\"HDRPLNEXR\"></a>") !=
-                       std::string::npos &&
-                   results.find("60 logon requests") != std::string::npos,
-               "anchored fixed prose did not use typed Markdown") ||
-      !require(communications == communications_again &&
-                   results == results_again,
-               "repeated typed fixed prose rendering was unstable") ||
-      !require(partial_prose.find("`TPNSSID1 APPL") != std::string::npos &&
-                   partial_prose.find("<BOOK>") == std::string::npos,
-               "prose topic lost its example phrase or leaked a marker") ||
-      !require(back.find("If you prefer to send comments by mail") !=
-                   std::string::npos,
-               "typed delivery content was not rendered") ||
-      !require(comments.find("the information in this book?") !=
-                   std::string::npos,
-               "typed questionnaire lost semantic punctuation"))
+               "repeated prose rendering was unstable") ||
+      !require(ordinary.find("<BOOK>") == std::string::npos,
+               "prose topic leaked a selector alternative"))
     return 1;
 
   // ---------------------------------------------------------------------
@@ -147,32 +121,31 @@ int main() {
     const char *word;         // rendered text to look for
     const char *node_path;    // producing node
     const char *reason;       // trace class of the run
-    std::uint32_t logical_record;
-    std::uint32_t byte_begin; // BOO file offset of the slice
+    std::size_t slice_count;  // how many source slices back the run
+    std::uint32_t logical_record; // of the first slice
+    std::uint32_t byte_begin; // BOO file offset of the first slice
     std::uint32_t byte_end;
     const char *source_text;  // what those bytes decode to
   };
   const TracePin pins[] = {
-      // prose heading
-      {"FRONT_1.1", "Trademarks", "block[0]/inline[1]", "text", 10, 43576,
-       43578, "Trademarks"},
-      // fixed-layout region inside a prose topic.  The region renders as the
-      // drawn box verbatim -- hosted BookServer serves it inside `<pre>` and
-      // emits no `<table>` element -- so the producing node is the region's
-      // second display line, not a table cell.
-      {"FRONT_1.1", "NetView", "block[5]/line[1]",
-       "preformatted line", 10, 43669, 43680,
-       "       ?IBM                               ?NetView                    "
-       "      ?"},
       // generated navigation heading
-      {"CONTENTS", "Table of Contents", "block[0]/inline[1]", "text", 6,
-       42060, 42068, " ST TableofContents"},
-      // trap catalog heading
-      {"4.1.1", "Generic Traps", "block[0]/inline[1]", "text", 99, 67228,
-       67234, " GenericTraps"},
-      // comment delivery title
-      {"BACK_2", "Communicating Your Comments to IBM", "block[0]/inline[1]",
-       "text", 541, 215672, 215680, "CommunicatingYourCommentstoIBM"},
+      {"CONTENTS", "Table of Contents", "block[0]/inline[1]", "text", 1, 7,
+       267371, 267379, "???????????????????????ST TableofContents"},
+      // prose heading
+      {"2.4.4", "Address Classes", "block[0]/inline[1]", "text", 1, 65,
+       286500, 286504, "AddressClasses"},
+      // a cell of a declared `cz OFF TABLE` grid
+      {"2.4.4", "Default Netmask", "block[4]/row[0]/cell[2]/inline[0]", "text",
+       1, 65, 286670, 286674, "DefaultNetmask"},
+      // generated list entry label, assembled from twelve source runs
+      {"FIGURES", "LoRa Frame Format", "block[9]/inline[0]", "link label", 12,
+       11, 268990, 268991, "9"},
+      // a selector label broken over two display rows
+      {"6.2", "Web Locations of Packet", "block[1]/inline[1]", "link label", 2,
+       308, 364738, 364739, "\""},
+      // a preformatted line inside a prose topic
+      {"A.0", "rsync", "block[3]/line[0]", "preformatted line", 6, 364, 379674,
+       379678, "$rsync-"},
   };
   for (const auto &pin : pins) {
     const auto *entry = document.find_toc_entry(pin.topic);
@@ -213,7 +186,7 @@ int main() {
         !require(span->reason == pin.reason,
                  std::string("traced word class is ") + span->reason + " in " +
                      pin.topic) ||
-        !require(span->slices.size() == 1,
+        !require(span->slices.size() == pin.slice_count,
                  std::string("traced word names ") +
                      std::to_string(span->slices.size()) +
                      " slices in " + pin.topic))
@@ -233,6 +206,13 @@ int main() {
                      document.decode_trace_slice(slice) + "' in " +
                      pin.topic))
       return 1;
+    // Every later slice of a multi-run label must name real bytes too.
+    for (const auto &part : span->slices) {
+      if (!require(part.byte_end > part.byte_begin,
+                   std::string("a traced slice names an empty byte range in ") +
+                       pin.topic))
+        return 1;
+    }
   }
 #endif
 

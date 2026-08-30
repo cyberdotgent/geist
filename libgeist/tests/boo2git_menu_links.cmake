@@ -13,25 +13,45 @@ if(NOT result EQUAL 0)
   message(FATAL_ERROR "boo2git failed (${result}): ${stdout}${stderr}")
 endif()
 
-file(READ "${OUTPUT}/5-6.md" typed_menu)
-# Hosted FA1PLMM0 5.6 (DT=19910927114801): `Subtopics:` followed by
-# `5.6.1 Functions Supported by the VM/VSE Interface`.
+# Hosted packet 1.0 (DT=20260614112503): `Subtopics:` followed by the three
+# child topics. The exporter rewrites each `<#id>` target to the child's file
+# and must not leave an id-prefixed target behind, nor repeat the topic title
+# as a second heading.
+file(READ "${OUTPUT}/1-0.md" typed_menu)
 string(FIND "${typed_menu}"
-  "Subtopics:\n\n- [5\\.6\\.1 Functions Supported by the VM/VSE Interface](5-6-1.md)"
+  "Subtopics:\n\n- [1\\.1 Original Packet Radio](1-1.md)"
   typed_resolved)
 string(FIND "${typed_menu}" "](<" typed_raw)
-string(FIND "${typed_menu}" "# VM/VSE Interface" duplicate_heading)
+string(FIND "${typed_menu}" "# An Introduction to Packet Radio" duplicate_heading)
 if(typed_resolved EQUAL -1 OR NOT typed_raw EQUAL -1 OR
    NOT duplicate_heading EQUAL -1)
   message(FATAL_ERROR
-    "canonical typed menu Subtopics lead, id-prefixed target, or anchor-leading heading was not exported")
+    "canonical typed menu Subtopics lead, id-prefixed target, or "
+    "anchor-leading heading was not exported: "
+    "resolved=${typed_resolved} raw=${typed_raw} "
+    "duplicate=${duplicate_heading}")
 endif()
 
-file(READ "${OUTPUT}/6-2-1.md" legacy_topic)
-string(FIND "${legacy_topic}"
-  "topic 6\\.4\\.1](6-4-1.md)" legacy_resolved)
-string(FIND "${legacy_topic}" "](#6.4.1)" legacy_raw)
-if(legacy_resolved EQUAL -1 OR NOT legacy_raw EQUAL -1)
+# A deeper menu whose children are themselves nested topics.
+file(READ "${OUTPUT}/6-3.md" nested_menu)
+string(FIND "${nested_menu}"
+  "- [6\\.3\\.1 Interfaces](6-3-1.md)" nested_resolved)
+string(FIND "${nested_menu}" "](<" nested_raw)
+if(nested_resolved EQUAL -1 OR NOT nested_raw EQUAL -1)
   message(FATAL_ERROR
-    "legacy anchor-style topic target rewriting regressed")
+    "nested menu target rewriting regressed: "
+    "resolved=${nested_resolved} raw=${nested_raw}")
+endif()
+
+# A body cross reference to another topic's `SR<id>` anchor resolves to that
+# topic's file plus the fragment, not to a bare in-page anchor.
+file(READ "${OUTPUT}/6-2.md" cross_reference)
+string(FIND "${cross_reference}"
+  "[\"Web Locations of Packet](a-0.md) [Radio Software\" in topic A\\.0](a-0.md)"
+  cross_resolved)
+string(FIND "${cross_reference}" "](<#HDRURLS>)" cross_raw)
+if(cross_resolved EQUAL -1 OR NOT cross_raw EQUAL -1)
+  message(FATAL_ERROR
+    "body cross-reference target rewriting regressed: "
+    "resolved=${cross_resolved} raw=${cross_raw}")
 endif()

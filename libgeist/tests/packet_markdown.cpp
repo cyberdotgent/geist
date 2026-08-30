@@ -39,7 +39,7 @@ std::string topic_markdown(const geist::BooDocument& document,
 
 int main() {
   const auto book =
-      std::filesystem::path(GEIST_REPO_ROOT) / "BOO" / "packet.boo";
+      std::filesystem::path(GEIST_FIXTURE_DIR) / "packet.boo";
   const auto document = geist::BooDocument::open(book);
 
   const auto title_page = topic_markdown(document, "TITLE");

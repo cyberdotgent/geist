@@ -2,10 +2,14 @@
 // lowering and fail-closed classes over real fixtures.
 //
 // Positive fixtures were compared word for word against hosted BookServer
-// (DT in AnalysisNotes): SC31-711 2.2.1/2.2.3/2.3.2, QSYSINFO 1.1.5,
-// SH20-918 1.4.1/1.1, FA1PLMM0 CHANGES.1.  Negative fixtures cover one topic per
+// (packet DT 20260614112503).  Negative fixtures cover one topic per
 // fail-closed class; each must reject with the named reason so a later
 // widening of the model is a deliberate change here as well.
+//
+// This used to run over 27 books.  Only packet.boo may be redistributed, so
+// the fixtures that pinned two-column definition rows, screen captures,
+// structured `SI` index fields, cross-book `LNK` selectors, `c.<xx>` body
+// controls and the empty-`ST` heading forms are gone with them (issue #59).
 #include "geist/detail/book_topic_catalog_ir.hpp"
 #include "geist/detail/document_markdown_renderer.hpp"
 #include "geist/detail/internal.hpp"
@@ -82,7 +86,7 @@ LoadedBook& book(const std::string& file) {
   auto& loaded = books();
   if (loaded.count(file) == 0)
     loaded[file] = std::make_unique<LoadedBook>(
-        std::filesystem::path(GEIST_REPO_ROOT) / "BOO" / file);
+        std::filesystem::path(GEIST_FIXTURE_DIR) / file);
   return *loaded[file];
 }
 
@@ -193,349 +197,140 @@ void positive_fixtures() {
   // Font/selector span geometry (issue #58): a CFONT/CSELECT operand
   // addresses display columns of one display row.
   {
-    // Two-column definition rows: the wide in-row gap is not a row break
-    // while a span of the row still reaches past the text written so far.
-    // Hosted SH20-918 2.2.2 serves one row per term
-    // (`<B><I>TERMS</B></I>     <B><I>DESCRIPTIONS</B></I>`).
-    const auto markdown = admit("SH20-918.boo", "2.2.2");
-    require(contains(markdown, "***TERMS DESCRIPTIONS***"),
-            "2.2.2 two-column header row was split");
-    require(contains(markdown,
-                     "**Term One** Definition description for first term"),
-            "2.2.2 two-column term row was split");
-  }
-  {
-    // The row marker glyph keeps its display column: hosted ACPZMST1 1.2.3.1
-    // serves ` | A local resource ...` with `local` at column 5 and
-    // `resource` at column 11 (`cfont 5 5 3 11 8 3`).
-    const auto markdown = admit("ACPZMST1.boo", "1.2.3.1");
-    require(contains(markdown, "A ***local resource*** is known only"),
-            "1.2.3.1 marker column shifted the HP3 spans");
-    require(!contains(markdown, " | "), "1.2.3.1 printed the row marker");
-  }
-  {
-    // A selector that runs past the last materialised cell covers the row's
-    // trailing display padding; hosted ACPZMST1 8.1 links exactly
-    // `"Check_On_Event (XCCOE)" in topic 8.2`.
-    const auto markdown = admit("ACPZMST1.boo", "8.1");
-    require(contains(markdown,
-                     "[\"Check\\_On\\_Event \\(XCCOE\\)\" in topic 8\\.2]"
-                     "(<#HDRXCCOE>)"),
-            "8.1 lost the padded cross reference");
-  }
-  {
-    // `cfont 4 4 R,`: the trailing `,` is an operand separator, `R` is RK,
-    // and the one-byte word at the row origin is display text, not a marker
-    // slot.  Hosted ACPZMST1 6.2 serves `    <B>GUPI</B>`.
-    const auto markdown = admit("ACPZMST1.boo", "6.2");
-    require(contains(markdown, "**GUPI**"), "6.2 lost the RK phrase");
-  }
-  {
-    // `//` opening a row is display text when a pending span opens on its
-    // own column; hosted GC28-183 2.2.3 serves
-    // `<samp>//</samp>        <samp>PEND</samp>`.
-    const auto markdown = admit("GC28-183.boo", "2.2.3");
-    require(contains(markdown, "`//PAYROLL PROC . . // PEND`"),
-            "2.2.3 dropped the styled // row");
-  }
-  // One wrapped paragraph; the SI term is suppressed and the two-run marker
-  // word `for` (SC31-711 LR37 token 82) is text, as hosted renders it.
-  {
+    // A CFONT emphasis span inside a wrapped paragraph, and an `SI` subject
+    // index term that is conserved but never displayed.
     Extracted kept;
-    const auto markdown = admit("SC31-711.boo", "2.2.1", &kept);
-    require(contains(markdown, "look at the nettl log for information"),
-            "2.2.1 lost the fill-run marker word");
-    require(!contains(markdown, "agent discovery problems"),
-            "2.2.1 rendered the SI index term");
+    const auto markdown = admit("packet.boo", "2.2.1", &kept);
+    require(contains(markdown, "NET/ROM often uses *node name aliases\\.*"),
+            "2.2.1 lost its emphasis span");
+    require(contains(markdown, "your own node could be named `WECNOD`"),
+            "2.2.1 lost a monospaced span");
     if (kept.prose) {
-      require(kept.prose->index_terms.size() == 1 &&
-                  kept.prose->index_terms.front().term ==
-                      "agent discovery problems",
-              "2.2.1 index term provenance is wrong");
-      require(kept.prose->blocks.size() == 1, "2.2.1 block count");
+      require(!kept.prose->index_terms.empty(),
+              "2.2.1 conserved no index term");
+      for (const auto& term : kept.prose->index_terms)
+        require(!contains(markdown, term.term),
+                "2.2.1 rendered the SI index term '" + term.term + "'");
     }
   }
-  // Paragraph, three bullet items with HP2 emphasis, closing paragraph with
-  // a CIT citation; the standalone `/` glyph before a fill/origin pair is a
-  // marker (hosted shows `Getting` / `Started`).
+  // A drawn box region: hosted BookServer prints the region's display lines
+  // verbatim inside its `<pre>`, so the rows become one preformatted block.
+  // The legacy route dropped the outline and reflowed the rows into the body
+  // paragraph.
   {
     Extracted kept;
-    const auto markdown = admit("SC31-711.boo", "2.2.3", &kept);
-    require(contains(markdown, "- The **ovwdb** and **gtmd** processes are "
-                               "running\\."),
-            "2.2.3 first list item");
-    // Adjacent same-style CIT words merge into one emphasis span.
+    const auto markdown = admit("packet.boo", "2.2.1", &kept);
     require(contains(markdown,
-                     "*Getting Started with LAN Network Manager for AIX*\\."),
-            "2.2.3 citation");
-    require(!contains(markdown, "Getting /"), "2.2.3 kept the `/` marker");
-    if (kept.prose) {
-      require(count_blocks(*kept.prose, ProseBlockKindIR::list_item) == 3,
-              "2.2.3 list item count");
-      require(count_blocks(*kept.prose, ProseBlockKindIR::paragraph) == 2,
-              "2.2.3 paragraph count");
-    }
-  }
-  // Anchor, checklist paragraphs, links split across rows, XPH code spans,
-  // nested bullet rows, and a trailing CMENU validated through the glued
-  // header title.
-  {
-    Extracted kept;
-    const auto markdown = admit("SC31-711.boo", "2.3.2", &kept);
-    require(contains(markdown, "<a id=\"HDRSTRPRB\"></a>"), "2.3.2 anchor");
+                     "```\n    ___ So, what are all these layers? "),
+            "2.2.1 box top rule");
     require(contains(markdown,
-                     "[\"Gathering Problem Information\" in topic 2\\.1]"
-                     "(<#HDRHOWTSL>)"),
-            "2.3.2 cross-reference");
-    require(contains(markdown, "`ps -ef | grep lnm`"), "2.3.2 code spans");
-    require(contains(markdown, "- lnmtrmon is running and is a child"),
-            "2.3.2 bullet item");
-    require(contains(markdown, "Subtopics:\n\n- [2\\.3\\.2\\.1 Permanent "
-                               "Hourglass on SNMP Token\\-Ring Windows]"
-                               "(<#2.3.2.1>)"),
-            "2.3.2 trailing menu");
-    require(!contains(markdown, "trapd,"), "2.3.2 kept the `,` marker slot");
-    if (kept.prose) require(kept.prose->menu_items.size() == 1, "2.3.2 menu");
-  }
-  // Two-run marker words `of` restored, a selector split over two rows, and
-  // a Note paragraph whose label is an HP2 span.
-  {
-    const auto markdown = admit("QSYSINFO.BOO", "1.1.5");
-    require(contains(markdown, "basic concepts of the AS/400 system"),
-            "1.1.5 lost a fill-run marker word");
-    require(contains(markdown, "[\"Other AS/400](<#HDRRELI>) [Information "
-                               "from IBM\" in topic 2\\.2](<#HDRRELI>)"),
-            "1.1.5 split selector");
-    require(contains(markdown, "**Note:** The videotapes"), "1.1.5 note");
-  }
-  // Bullet items with SI terms between them, CFONT emphasis and a trailing
-  // menu whose one-byte final label word (`GML`) is title text.
-  admit("SH20-918.boo", "1.4.1");
-  {
-    Extracted kept;
-    admit("SH20-918.boo", "1.4", &kept);
-    if (kept.prose)
-      require(std::any_of(kept.prose->menu_items.begin(),
-                          kept.prose->menu_items.end(),
-                          [](const auto& item) {
-                            return item.label ==
-                                   "Advantages of Using SCRIPT/VS and GML";
-                          }),
-              "SH20-918 1.4 menu label lost its one-byte final word");
-  }
-  admit("SH20-918.boo", "1.1");
-  // Bare spacing tokens inside the title are attach glue (`X'48'`).
-  {
-    Extracted kept;
-    admit("SC24-5520-00.boo", "1.1.20", &kept);
-    if (kept.prose)
-      require(kept.prose->title == "Diagnose Code X'48'--Second Level SVC 76",
-              "1.1.20 title");
-  }
-  // Title glued into the csourcefn control (`csourcefn X ? ST? title`).
-  {
-    Extracted kept;
-    admit("ACPZMST1.boo", "2.2", &kept);
-    if (kept.prose)
-      require(kept.prose->title == "Querying VM PWSCS", "ACPZMST1 2.2 title");
-  }
-  // Anchor after the trailing menu.
-  {
-    Extracted kept;
-    const auto markdown = admit("ACPZMST1.boo", "1.1", &kept);
-    require(contains(markdown, "(<#1.1.3>)\n\n<a id=\"SPTSNA1\"></a>"),
-            "ACPZMST1 1.1 anchor after menu");
-  }
-  // Glued one-byte marker word after the title (`Messages` + `access`).
-  {
-    Extracted kept;
-    admit("FA1PLMM0.boo", "I.6.1", &kept);
-    if (kept.prose)
-      require(kept.prose->title == "Action-Flag Messages", "I.6.1 title");
-  }
-  admit("FA1PLMM0.boo", "CHANGES.1");
-  // Structured subject-index lines: `SI ??3HI1?0?<title>?` and
-  // `SI ??4XMP@?0?<term>?  <term>`.  The whole display line is hidden;
-  // hosted QSYSINFO 2.1.1 (DT 19910524120827) and SC09-138 2.1.1.2
-  // (DT 19910321130500) display none of its fields.
-  {
-    Extracted kept;
-    const auto markdown = admit("QSYSINFO.BOO", "2.1.1", &kept);
-    require(contains(markdown, "*Publication Description*: The"),
-            "QSYSINFO 2.1.1 body");
-    require(!contains(markdown, "3HI1"),
-            "QSYSINFO 2.1.1 rendered a structured index field");
-    if (kept.prose) {
-      require(kept.prose->index_terms.size() == 4,
-              "QSYSINFO 2.1.1 index term count");
-      const auto structured = std::count_if(
-          kept.prose->index_terms.begin(), kept.prose->index_terms.end(),
-          [](const auto& term) { return term.structured; });
-      require(structured == 2, "QSYSINFO 2.1.1 structured index terms");
-      require(!kept.prose->index_terms.front().structured &&
-                  kept.prose->index_terms.front().term ==
-                      "planning, physical",
-              "QSYSINFO 2.1.1 plain index term");
-    }
-  }
-  // Drawn box regions: a screen box (OFCUSEOV 1.10 DT 19900805103816) and a
-  // labelled note box (QSYSNEWG 1.0 DT 19910524085706).  Hosted BookServer
-  // prints the region's display lines verbatim inside its <pre>, so the rows
-  // become one preformatted block; the legacy route dropped the outline and
-  // reflowed the rows into the body paragraph.
-  {
-    Extracted kept;
-    const auto markdown = admit("QSYSNEWG.BOO", "1.0", &kept);
-    // The region keeps its own left margin: hosted (QSYSNEWG DT
-    // 19910524085706) opens the box at display column 4 with the rule
-    // `    ___ In a Hurry? ____...` and puts the frame at column 3.
-    require(contains(markdown, "```\n    ___ In a Hurry? ____"),
-            "QSYSNEWG 1.0 box top rule");
-    require(contains(markdown,
-                     "| This chapter contains background information about "
-                     "computers and       |"),
-            "QSYSNEWG 1.0 box body row");
-    require(contains(markdown, "|______"), "QSYSNEWG 1.0 box bottom rule");
-    if (kept.prose) {
-      require(count_blocks(*kept.prose, ProseBlockKindIR::preformatted) == 1,
-              "QSYSNEWG 1.0 preformatted block count");
-      require(count_blocks(*kept.prose, ProseBlockKindIR::paragraph) == 0,
-              "QSYSNEWG 1.0 has no reflowed paragraph");
-    }
-  }
-  // An `ST` control with an empty payload: the topic has no title of its own
-  // and hosted BookServer heads it with its number alone
-  // (`<H3> 8.1.1.1 </H3>`, SC09-138 DT 19910321130500), starting the body
-  // with the styled word the catalog reuses as the TOC label.
-  {
-    Extracted kept;
-    const auto markdown = admit("SC09-138.boo", "8.1.1.1", &kept);
-    require(contains(markdown, "### 8\\.1\\.1\\.1\n"),
-            "SC09-138 8.1.1.1 heading is the topic number alone");
-    require(contains(markdown, "`chars`"), "SC09-138 8.1.1.1 body opens");
-    if (kept.prose) require(kept.prose->title.empty(), "8.1.1.1 empty title");
-  }
-  // The same control preceded by an `SR<id>` anchor the flattened string
-  // could not classify, because the next display line's length byte is glued
-  // to the opcode word (record 1229 line 8 is exactly `SRHDRPCHECK`, line 9
-  // exactly `ST`).  Hosted serves
-  // `<a name="HDRPCHECK"><H3> 8.1.1.2 </H3></a>`.
-  {
-    const auto markdown = admit("SC09-138.boo", "8.1.1.2");
-    require(contains(markdown, "### 8\\.1\\.1\\.2\n"),
-            "SC09-138 8.1.1.2 heading is the topic number alone");
-    require(contains(markdown, "<a id=\"HDRPCHECK\"></a>"),
-            "SC09-138 8.1.1.2 leading anchor");
-  }
-  // A text segment in front of the `ST` whose only visible token is the
-  // display line's length byte: SC26-457 record 549 token 0 has encoded
-  // value 39 and spells `'`, and hosted DT 19911220191142 heads 3.14.2.3
-  // with no apostrophe.
-  {
-    const auto markdown = admit("SC26-457.boo", "3.14.2.3");
-    require(!contains(markdown, "3\\.14\\.2\\.3 '"),
-            "SC26-457 3.14.2.3 heading has no length-byte apostrophe");
-  }
-  // The list bullet stored as a two-byte dictionary token (QS3X36CM record 7
-  // token 81 value 56323, IBMMMSTR record 44 token 145 value 46595); hosted
-  // DT 19910524075122 and DT 19911004151140 serve both list rows.
-  {
-    const auto markdown = admit("QS3X36CM.BOO", "1.1");
-    require(contains(markdown, "Press F4 on a blank command line"),
-            "QS3X36CM 1.1 two-byte bullet");
-  }
-  {
-    const auto markdown = admit("IBMMMSTR.boo", "1.0");
-    require(contains(markdown, "Compiler control messages"),
-            "IBMMMSTR 1.0 two-byte bullet");
-  }
-  // A box-drawing run with a displayed word in front of it on its own display
-  // line is that row's text: SC24-5520-00 record 45 line 12 is the caption
-  // `    <-________ 4 bytes _____->` above a drawn box.
-  admit("SC24-5520-00.boo", "1.1.1");
-  // A subject-index display line inside a drawn box does not interrupt the
-  // box (hosted carries no `SI` bytes): QSYSNEWG record 80's `What Are Entry
-  // Fields?` box holds `SI field, field keys` and `SI keys, field`.
-  {
-    Extracted kept;
-    const auto markdown = admit("QSYSNEWG.BOO", "3.1.1.1", &kept);
-    require(contains(markdown, "| Fields are really nothing more than blank "
-                               "lines (input areas) waiting  |"),
-            "QSYSNEWG 3.1.1.1 box body row");
-    require(!contains(markdown, "field keys"),
-            "QSYSNEWG 3.1.1.1 hides the boxed index line");
-    if (kept.prose) {
-      const auto terms = std::count_if(
-          kept.prose->index_terms.begin(), kept.prose->index_terms.end(),
-          [](const auto& term) { return term.term == "field, field keys"; });
-      require(terms == 1, "QSYSNEWG 3.1.1.1 boxed index term");
-    }
-  }
-  admit("IEAC6MST.BOO", "1.3");
-  {
-    Extracted kept;
-    const auto markdown = admit("OFCUSEOV.BOO", "1.18.2", &kept);
-    require(contains(markdown,
-                     "|   Type information, press Enter to schedule."),
-            "OFCUSEOV 1.18.2 box body row");
+                     "     Network stacks are divvied up into \"layers,\" "
+                     "and this notation is used |"),
+            "2.2.1 box body row");
+    require(contains(markdown, "|________"), "2.2.1 box bottom rule");
     if (kept.prose)
       require(count_blocks(*kept.prose, ProseBlockKindIR::preformatted) == 1,
-              "OFCUSEOV 1.18.2 preformatted block count");
+              "2.2.1 preformatted block count");
   }
+  // A trailing CMENU validated through the book topic catalog: the labels are
+  // the catalog's titles and the destinations are topic ids.
   {
-    // A captured OS/400 terminal screen, not a data grid: OFCUSEOV 1.11's
-    // `Work with Mail` frame carries an option list, a dashed `------From-------`
-    // spanning label over three narrower column headings, and the function-key
-    // footer, all inside one drawn frame.  Any column inference would shred it,
-    // so the frame is reproduced exactly as hosted BookServer serves it inside
-    // `<pre>` (DT 19900805103816).  OFCUSEOV carries no `cz` directives at all,
-    // so these screens are recognised by the drawn frame rather than by a
-    // `cz OFF SCREEN` marker.
     Extracted kept;
-    const auto markdown = admit("OFCUSEOV.BOO", "1.11", &kept);
-    for (const auto* row : {
-             "|     |                                   Work with Mail       "
-             "                          |",
-             "|     |                    ------From-------                   "
-             "                 Date     |",
-             "|     |   Opt  Status      User ID  Address   Description      "
-             "                 Received |",
-             "|     |   __   NEW         SJONES   ROCH      Budget Meeting   "
-             "                 04/21/88 |",
-             "|     |   F3=Exit           F5=Refresh   F6=Outgoing mail "
-             "status                         |",
-         })
-      require(contains(markdown, row),
-              "OFCUSEOV 1.11 screen capture lost a frame row");
-  }
-  {
-    // `LNK <BOOK> <> <> <SC30-3290> <> <TPNSGU>` selectors lower to external
-    // cross references to the other book's contents, and the CFONT phrase
-    // inside the selector phrase is the link's own label: hosted BookServer
-    // DT 19910628074854 serves
-    // `<a href="../../DOCNUM/SC30-3290/CCONTENTS"><cite>TPNS</cite>
-    // <cite>General</cite> <cite>Utilities</cite></a>`.
-    const auto markdown = admit("ITPPIBOK.BOO", "1.3.7");
+    const auto markdown = admit("packet.boo", "1.0", &kept);
     require(contains(markdown,
-                     "[TPNS General Utilities](<DOCNUM/SC30-3290/CCONTENTS>)"),
-            "ITPPIBOK 1.3.7 cross-book selector");
-    require(contains(markdown, "[TPNS Operation](<DOCNUM/SC30-3289/CCONTENTS>)"),
-            "ITPPIBOK 1.3.7 second cross-book selector");
-    require(!contains(markdown, "<BOOK>"),
-            "ITPPIBOK 1.3.7 leaked a LNK alternative");
+                     "Subtopics:\n\n- [1\\.1 Original Packet Radio](<#1.1>)"),
+            "1.0 trailing menu");
+    require(contains(markdown, "- [1\\.3 Bringing it Together](<#1.3>)"),
+            "1.0 last menu item");
+    if (kept.prose)
+      require(kept.prose->menu_items.size() == 3, "1.0 menu item count");
   }
+  // A menu that follows body prose and a figure in the same topic.
   {
-    const auto markdown = admit("SC09-138.boo", "2.1.1.2");
-    require(contains(markdown, "DEFAULT:"), "SC09-138 2.1.1.2 body");
-    require(!contains(markdown, "4XMP"),
-            "SC09-138 2.1.1.2 rendered a structured index field");
-    require(!contains(markdown, "compile-time option"),
-            "SC09-138 2.1.1.2 rendered a hidden index term");
+    Extracted kept;
+    const auto markdown = admit("packet.boo", "2.4", &kept);
+    require(contains(markdown, "<a id=\"FIGFIGUNIQ16\"></a>"),
+            "2.4 figure anchor");
+    require(contains(markdown, "*Figure 6\\. IPv4 and IPv6 Packets*"),
+            "2.4 figure caption");
+    require(contains(markdown, "- [2\\.4\\.1 IPv4 and IPv6](<#2.4.1>)"),
+            "2.4 menu after a figure");
+    if (kept.prose)
+      require(kept.prose->menu_items.size() == 6, "2.4 menu item count");
+  }
+  // Bullet items with inline code spans and a closing paragraph.
+  {
+    Extracted kept;
+    const auto markdown = admit("packet.boo", "2.4", &kept);
+    require(contains(markdown,
+                     "- `TCP` \\(Transmission Control Protocol\\), used to "
+                     "set up virtual circuits"),
+            "2.4 first list item");
+    require(contains(markdown,
+                     "- `SCTP` \\(Stream Control Transmission Protocol\\), "
+                     "an evolved version of TCP that never caught on"),
+            "2.4 last list item");
+    if (kept.prose)
+      require(count_blocks(*kept.prose, ProseBlockKindIR::list_item) == 4,
+              "2.4 list item count");
+  }
+  // A `Note:` paragraph whose label is an emphasis span.
+  {
+    const auto markdown = admit("packet.boo", "EDITION");
+    require(contains(markdown, "> **Note:** This is the initial version"),
+            "EDITION note block");
+    require(contains(markdown,
+                     "**First Edition, January 27, 2026**"),
+            "EDITION lost its styled first line");
+  }
+  // An emphasis span that begins inside a compiled word: packet 2.1.1 stores
+  // one token spelling `writeN4ABC-0` and the span covers only its
+  // `N4ABC-0` half, which the reader serves as `not write<kbd>N4ABC-0</kbd>`;
+  // the ledger gives each half to its own inline.
+  {
+    Extracted keep;
+    const auto markdown = admit("packet.boo", "2.1.1", &keep);
+    require(contains(markdown, "would not write`N4ABC-0`, but would instead"),
+            "2.1.1 lost the sub-word highlight");
+    bool split = false;
+    for (const auto& entry : keep.prose->ledger)
+      if (entry.claims.size() > 1) split = true;
+    require(split, "2.1.1 has no token split between two inlines");
+  }
+  // Every typed prose topic of the book extracts, verifies, lowers and
+  // verifies again, with no unassigned token anywhere in its ledger.  This is
+  // the whole-book conservation sweep the corpus fixtures used to provide.
+  {
+    auto& loaded = book("packet.boo");
+    std::size_t admitted = 0;
+    for (const auto& info : loaded.document.topics()) {
+      const auto* entry = loaded.document.find_toc_entry(info.id);
+      if (entry == nullptr) continue;
+      if (entry->render_diagnostic().family != "prose") continue;
+      const auto extracted = extract("packet.boo", info.id);
+      require(extracted.prose.has_value(),
+              "packet " + info.id + " has family prose but was rejected: " +
+                  extracted.error);
+      if (!extracted.prose) continue;
+      std::string error;
+      require(verify_prose_topic_ir(
+                  extracted.sources, extracted.layout, *extracted.ownership,
+                  extracted.identity.title, extracted.catalog,
+                  *extracted.prose, &error, extracted.resource_ids),
+              "packet " + info.id + " verification failed: " + error);
+      for (const auto& entry_row : extracted.prose->ledger)
+        require(entry_row.role != ProseTokenRoleIR::unassigned,
+                "packet " + info.id + " ledger has an unassigned token");
+      ++admitted;
+    }
+    require(admitted == 116,
+            "packet prose family topic count changed: " +
+                std::to_string(admitted));
   }
 }
 
 void mutation_fixtures() {
-  auto extracted = extract("SC31-711.boo", "2.2.3");
+  auto extracted = extract("packet.boo", "2.4");
   require(extracted.prose.has_value(), "mutation fixture rejected");
   if (!extracted.prose) return;
   const auto& sources = extracted.sources;
@@ -566,8 +361,8 @@ void mutation_fixtures() {
   }
   {
     auto mutated = *extracted.prose;
-    mutated.index_terms.clear();
-    require(!verify(mutated), "dropped index term passed verification");
+    mutated.menu_items.pop_back();
+    require(!verify(mutated), "dropped menu item passed verification");
   }
   {
     std::string error;
@@ -587,14 +382,27 @@ void mutation_fixtures() {
     std::string error;
     const auto wrong = extract_prose_topic_ir(
         sources, extracted.layout, *extracted.ownership, "Another Title",
-        extracted.catalog, &error);
+        extracted.catalog, &error, extracted.resource_ids);
     require(!wrong.has_value() && contains(error, "does not match"),
-            "title mismatch was admitted");
+            "title mismatch was admitted, error: " + error);
+  }
+  // An index term dropped from a topic that carries one.
+  {
+    auto indexed = extract("packet.boo", "2.2.1");
+    require(indexed.prose.has_value(), "index mutation fixture rejected");
+    if (indexed.prose && !indexed.prose->index_terms.empty()) {
+      auto mutated = *indexed.prose;
+      mutated.index_terms.clear();
+      require(!verify_prose_topic_ir(
+                  indexed.sources, indexed.layout, *indexed.ownership,
+                  indexed.identity.title, indexed.catalog, mutated, nullptr),
+              "dropped index term passed verification");
+    }
   }
 }
 
-// Front matter and envelope variants (issue #58).  Every fixture below was
-// checked against hosted BookServer at the DT recorded beside it.
+// Front matter and envelope variants (issue #58).  The corpus used to supply
+// nine `CHDLEVEL :<form>` values; packet carries three (issue #59).
 void front_matter_fixtures() {
   // `CHDLEVEL :<form>`: front-matter topics name their heading form instead
   // of a level.  Hosted serves every one of them as `<H1>`.
@@ -603,15 +411,9 @@ void front_matter_fixtures() {
     const char* id;
     const char* form;
   } forms[] = {
-      {"GG24-4302-00.boo", "EDITION", "vnotice"},      // DT 19950308184737
-      {"SC31-711.boo", "PREFACE", "preface"},          // DT 19941010174546
-      {"SC24-5520-00.boo", "NOTICES", "notices"},      // absent from catalog
-      {"SH20-918.boo", "GLOSSARY", "glossary"},        // DT 19910520154851
-      {"SH20-918.boo", "TITLE", "title"},              // DT 19910520154851
-      {"ITPPIBOK.BOO", "BIBLIOGRAPHY", "bibliog"},     // DT 19910628074854
-      {"SC33-033.boo", "ABSTRACT", "abstract"},        // DT 19930422134757
-      {"GG24-395.boo", "ABBREVIATIONS", "abbrev"},     // DT 19941215160749
-      {"SC24-546.boo", "CHANGES", "soa"},              // DT 19940323131240
+      {"packet.boo", "NOTICES", "notices"},
+      {"packet.boo", "EDITION", "vnotice"},
+      {"packet.boo", "PREFACE", "preface"},
   };
   for (const auto& entry : forms) {
     Extracted extracted;
@@ -628,254 +430,52 @@ void front_matter_fixtures() {
             label + " did not render a level-1 heading");
   }
 
-  // Envelope anchor variant: `SRLEN <text>` between `CSUMMARY` and
-  // `CHDLEVEL`.  Hosted serves the whole control without `SR` as the anchor
-  // name and prints none of its payload: SC33-033 4.99 record 594
-  // `SRLEN CHYQST` is `<a name="LEN CHYQST">` at DT 19930422134757.
+  // A body `SR<id>` anchor keeps its own id, and the display payload that
+  // follows it in the same control is text hosted wraps in the anchor.
   {
     Extracted extracted;
-    admit("SC33-033.boo", "4.99", &extracted);
-    if (extracted.prose) {
-      const auto& anchors = extracted.prose->anchors;
-      require(std::any_of(anchors.begin(), anchors.end(),
-                          [](const auto& anchor) {
-                            return anchor.id.rfind("LEN ", 0) == 0;
-                          }),
-              "SC33-033 4.99 lost its LEN envelope anchor");
-    }
-  }
-  // `SRLEN` with no payload names the bare anchor `LEN` (SC34-425 2.5
-  // record 1478, hosted `<a name="LEN"><a name="HDRADVTP">`, DT
-  // 19921112160049).
-  {
-    Extracted extracted;
-    admit("SC34-425.boo", "2.5", &extracted);
-    if (extracted.prose) {
-      const auto& anchors = extracted.prose->anchors;
-      require(std::any_of(anchors.begin(), anchors.end(),
-                          [](const auto& anchor) { return anchor.id == "LEN"; }),
-              "SC34-425 2.5 lost its bare LEN envelope anchor");
-    }
-  }
-
-  // A cover frame: the full-width `U+2500` rule lines are the reader's
-  // horizontal rule, which hosted serves as `<hr>` and which carries no
-  // word, so the cover's own rows are all that is left (ACPZMST1 COVER DT
-  // 19920319123146, DREICMST COVER DT 19911219125856).
-  {
-    const auto markdown = admit("ACPZMST1.boo", "COVER");
-    require(contains(markdown,
-                     "**VM Programmable Workstation Communication Services**") &&
-                contains(markdown, "Document Number GC24") &&
-                contains(markdown, "Program Number 5684"),
-            "ACPZMST1 COVER lost its cover rows");
-    require(!contains(markdown, "____"),
-            "ACPZMST1 COVER printed the display rule");
-  }
-
-  // A body `SR<id>` anchor keeps its own id and its payload is display text
-  // hosted wraps in the anchor: ACPZMST1 record 155
-  // `SRSPTSETDC A domain controller handles ...` is served as
-  // `<a name="SPTSETDC">   A domain controller handles ...</a>`
-  // (DT 19920319123146).
-  {
-    Extracted extracted;
-    const auto markdown = admit("ACPZMST1.boo", "3.1", &extracted);
-    require(contains(markdown, "<a id=\"SPTSETDC\"></a>"),
-            "ACPZMST1 3.1 lost its body anchor");
-    require(contains(markdown, "A domain controller handles communications"),
-            "ACPZMST1 3.1 lost the anchor's display payload");
-  }
-
-  // `c.cp` pagination: the operand is the token adjacent to the opcode; a
-  // space run before the next word proves there is none and the rest of the
-  // segment is display text the legacy route dropped.
-  {
-    // FA1PLMM0 record 369: `c.cp` + spacing + `The columns ...`; hosted DT
-    // 19910927114801 serves `   The columns have the following meaning:`.
-    const auto markdown = admit("FA1PLMM0.boo", "6.4.1");
-    require(contains(markdown, "The columns have the following meaning:"),
-            "FA1PLMM0 6.4.1 dropped the c.cp display payload");
-    require(!contains(markdown, "c.cp"),
-            "FA1PLMM0 6.4.1 printed the c.cp opcode");
-  }
-  {
-    // DREICMST record 600: `c.cp` + `2i`; hosted DT 19911219125856 serves no
-    // `2i` in 2.20.3.1.4, so the unit-suffixed count is an operand.
-    const auto markdown = admit("DREICMST.boo", "2.20.3.1.4");
-    require(!contains(markdown, "2i") && !contains(markdown, "c.cp"),
-            "DREICMST 2.20.3.1.4 printed a c.cp operand");
-  }
-  // A body control the record encoder writes with no boundary byte before it
-  // is still a control: `decode_control_segments` splits the decoded segment
-  // at the opcode's own source token, and the compact separator token in
-  // front of it (the attach control plus a comma) is the boundary, not text.
-  {
-    // FA1PLMM0 record 353: `PSF` `/` `VSE` `,`(value 2) `c.cp`(value 49655,
-    // width 2); hosted DT 19910927114801 serves the row as `   PSF/VSE`.
-    const auto markdown = admit("FA1PLMM0.boo", "6.1.2");
-    require(contains(markdown, "PSF/VSE") && !contains(markdown, "PSF/VSE,"),
-            "FA1PLMM0 6.1.2 printed the control separator as text");
-    require(!contains(markdown, "c.cp"),
-            "FA1PLMM0 6.1.2 printed the glued c.cp opcode");
-  }
-  {
-    // GG24-4302-00 record 613: `SREFIG` + bullet separator + `c.cc`(52750)
-    // + `20`; hosted DT 19950308184737 serves the figure and its caption and
-    // no `20`.
-    const auto markdown = admit("GG24-4302-00.boo", "8.1.5");
-    require(!contains(markdown, "c.cc"),
-            "GG24-4302-00 8.1.5 printed the glued c.cc opcode");
-    require(contains(markdown,
-                     "*Figure 33\\. Conceptual View of an IMS TM Parallel "
-                     "Sysplex of the Future*"),
-            "GG24-4302-00 8.1.5 lost its figure caption");
-  }
-  {
-    // SC09-138 record 1482: `each` `other` `.` `,` `c.pa`; hosted DT
-    // 19910321130500 serves `each other.` and nothing more.
-    const auto markdown = admit("SC09-138.boo", "8.3.1.8");
-    require(contains(markdown, "each other"),
-            "SC09-138 8.3.1.8 lost the text before the c.pa control");
-    require(!contains(markdown, "c.pa"),
-            "SC09-138 8.3.1.8 printed the glued c.pa opcode");
-  }
-  {
-    // IBMMMSTR record 1244 token 139 spells `c.cc` but is a one-byte token
-    // with encoded value 31: it is the next display line's length byte, not
-    // a control.  Reading it as a control drops the `:` that ends
-    // `Messages print at run-time when:` and merges the two numbered rows.
-    const auto markdown = admit("IBMMMSTR.boo", "3.1");
-    require(contains(markdown, "Messages print at run\\-time when:"),
-            "IBMMMSTR 3.1 lost the colon before a length byte spelt c.cc");
-    require(contains(markdown, "raised\\)\\.\n\n2\\. An on\\-condition"),
-            "IBMMMSTR 3.1 merged two rows across a length byte spelt c.cc");
+    const auto markdown = admit("packet.boo", "A.0", &extracted);
+    require(contains(markdown, "<a id=\"HDRURLS\"></a>"),
+            "A.0 lost its body anchor");
+    require(contains(markdown, "JNOS 2\\.0, Mainline"),
+            "A.0 lost the anchor's display payload");
+    if (extracted.prose)
+      require(!extracted.prose->anchors.empty(), "A.0 anchor provenance");
   }
 
   // The `ST` title is one display row of its control payload, and the catalog
   // title is a *string* projection of the same control that stops at a
   // different point.  Both are truncations of one word run.
   {
-    // SC24-546 E.2 record 1169 ends the `ST` segment with `)` (token 35);
-    // the fill/origin run that follows it belongs to the next segment, so it
-    // may not steal the title's last token.  Hosted DT 19940323131240 serves
-    // `<H2> E.2   The File Block (FBLOCK)</H2>`.
-    const auto markdown = admit("SC24-546.boo", "E.2");
-    require(contains(markdown, "The File Block \\(FBLOCK\\)"),
-            "SC24-546 E.2 lost the closing parenthesis of its heading");
-  }
-  {
-    // PRG1SORT 1.4: the typed title is the first display row
-    // (`... Produce a Record Address`), the catalog string runs on into the
-    // next row's `File`.  Hosted DT 19900829171904 heads the topic
-    // `<H1> 1.4   Chapter 4.  Sorting Records from a Single File to Produce
-    // a Record Address</H1>` and starts the body with `File`.
-    const auto markdown = admit("PRG1SORT.boo", "1.4");
-    require(contains(markdown,
-                     "Sorting Records from a Single File to Produce a Record "
-                     "Address\n"),
-            "PRG1SORT 1.4 heading does not end at the display row");
-  }
-  {
-    // ACPZMST1 5.4 stores `ST` + spacing + a placeholder slot + `/` + `etc`:
-    // only the first glyph is the slot, the `/` is the first title word.
-    const auto markdown = admit("ACPZMST1.boo", "5.4");
-    require(contains(markdown, "/etc/inittab File Definitions"),
-            "ACPZMST1 5.4 dropped the leading slash of its heading");
-  }
-  {
-    // FA1PLMM0 I.6.1 record 254 token 33 is the one-byte word `access`
-    // (encoded value 43), the documented compact-marker collision: it closes
-    // the title even though the segment ends there.
-    const auto markdown = admit("FA1PLMM0.boo", "I.6.1");
-    require(contains(markdown, "Action\\-Flag Messages\n") &&
-                !contains(markdown, "Messagesaccess"),
-            "FA1PLMM0 I.6.1 glued a row-control word onto its heading");
+    Extracted kept;
+    const auto markdown = admit("packet.boo", "5.1.2.1", &kept);
+    if (kept.prose)
+      require(!kept.prose->title.empty(),
+              "5.1.2.1 lost its heading across the envelope");
+    require(contains(markdown, "####"), "5.1.2.1 heading depth");
   }
 
+  // Deeply nested topic ids keep their own heading level.
   {
-    // ACPZMST1 COVER: the cover art rows used to fail closed as a placeholder
-    // run followed by visible text.  Hosted DT 19920319123146 serves the same
-    // five blocks the typed route now emits.
-    const auto markdown = admit("ACPZMST1.boo", "COVER");
-    for (const auto* expected : {
-             "**VM Programmable Workstation Communication Services**",
-             "**VM PWSCS Online Documentation**", "Version 1\\.1",
-             "Document Number GC24\\-5647\\-01", "Program Number 5684\\-138"})
-      require(contains(markdown, expected), "ACPZMST1 COVER lost a cover row");
-  }
-
-  // A word only opens a control segment when the record encoder wrote a
-  // boundary token before it; a prose word spelled like a control does not.
-  // (This decides the *text* segments the decoded-string splitter opens. A
-  // boundary-less word that `classify` still resolves to a structural control
-  // -- SC24-546 14.0 `SRRCMIT`, SC31-605 2.0 `SRFILTER`, SH12-565 3.1.11
-  // `SRVPREF`, all of which hosted prints as ordinary words -- stays an
-  // anchor here and loses the word, exactly as the legacy route does.)
-  {
-    // PRG1SORT record 80 token 2 `SRCFILE` follows an 18-cell space run and
-    // is the CL parameter `SRCFILE(LIBRAR2/FILE3)`; hosted DT 19900829171904
-    // prints `<tt>SRCFILE(LIBRAR2/FILE3)</tt>`.
-    const auto markdown = admit("PRG1SORT.boo", "1.1.5.1");
-    require(contains(markdown, "SRCFILE(LIBRAR2/FILE3)"),
-            "PRG1SORT 1.1.5.1 lost the SRCFILE command parameter");
-  }
-
-  // The metadata envelope is a run of control segments and may continue in
-  // the next logical record.
-  {
-    // QSYSINFO 2.1.57: record 163 carries `SH2.1.57`..`csummary`, record 164
-    // `chdlevel`, `csourcefn` and the `ST` title.
-    const auto markdown = admit("QSYSINFO.BOO", "2.1.57");
-    require(contains(markdown,
-                     "SC41\\-0011, Guide to Programming Application and Help "
-                     "Displays"),
-            "QSYSINFO 2.1.57 lost its heading across the envelope break");
-  }
-  {
-    // ACPZMST1 5.7 breaks after `csourcefn`, so record 290 opens with `ST`.
-    const auto markdown = admit("ACPZMST1.boo", "5.7");
-    require(contains(markdown, "Singl2multi File Definitions"),
-            "ACPZMST1 5.7 lost its heading across the envelope break");
-  }
-  {
-    // GC28-183 record 91: `c.sp 1 c` after the ST title; hosted DT
-    // 19930625102617 serves only the paragraph break.
-    const auto markdown = admit("GC28-183.boo", "1.3.3");
-    require(!contains(markdown, "c.sp") && !contains(markdown, "1 c"),
-            "GC28-183 1.3.3 printed the c.sp control");
-    require(contains(markdown, "Requesting Resources"),
-            "GC28-183 1.3.3 lost its heading");
+    const auto markdown = admit("packet.boo", "5.1.2.1.1");
+    require(contains(markdown, "5\\.1\\.2\\.1\\.1 "),
+            "5.1.2.1.1 lost its heading number");
   }
 }
 
 void negative_fixtures() {
-  // Tables and figures compose (tests/prose_topic_spans_synthetic.cpp); a
-  // declined envelope still rejects the whole topic.
-  // ACPZMST1 4.3 `TBLUNIQ39` and IEAC6MST 4.3.4.1 `TBLUNIQ10` used to stand
-  // here; both envelopes now compose, so the class is pinned on one that
-  // still declines both models.
-  reject("IEAC6MST.BOO", "7.9",
-         "table envelope 'CLISTS' declined: visible source between table "
-         "lines");
-
-  // PRG1SORT 1.1.5.1 used to stand here for `control-like word 'SRCFILE'`;
-  // that word carries no boundary token, so it is now admitted as the prose
-  // it is (see the positive fixture above).
-  // Plural CFONT header over repeated row controls: the legacy route draws
-  // this NetView directory list as a table; prose must not flatten it.
-  reject("SC31-711.boo", "1.2", "implicit two-column grid");
-  // A box-drawing run with a displayed word in front of it on its own display
-  // line is that row's text and is now printed (SC24-546 record 44 line 17,
-  // `       The >>___ symbol indicates the beginning of a statement.`).  What
-  // stays fail-closed is the run that opens its line: record 45 line 16 is
-  // the alternative branch `                      |_optional_item_|` of a
-  // railroad syntax diagram, which draws no closed box region.
-  reject("SC24-546.boo", "1.3.1",
-         "is followed by visible text at record 45 token 137");
+  // One topic per fail-closed class packet still carries; each must reject
+  // with the named reason so a later widening of the model is a deliberate
+  // change here as well.  The table, screen-capture, implicit-grid and
+  // unproven-margin classes went with the books that cannot be published
+  // (issue #59).
+  reject("packet.boo", "COVER", "cz off cover carries display text");
+  reject("packet.boo", "TITLE", "cz off tipage carries display text");
+  reject("packet.boo", "GLOSSARY",
+         "placeholder run '?' is followed by visible text");
   // A trailing menu needs the book catalog to validate its targets.
   {
-    auto extracted = extract("SC31-711.boo", "2.3.2");
+    auto extracted = extract("packet.boo", "1.0");
     std::string error;
     const auto without = extract_prose_topic_ir(
         extracted.sources, extracted.layout, *extracted.ownership,
@@ -885,13 +485,11 @@ void negative_fixtures() {
   }
 }
 
-
 // `CZ` dialect (Format/markup.md, "CZ layout directives").  Every fixture
 // below was compared word for word against hosted BookServer: packet
-// (DT 20260614112503), SC41-485 (DT 19951003131222), SC09-2417-00 as hosted
-// book id `SC09-241` (DT 19961114175628) and GX27-3999-00 as `GX27-399`
-// (DT 19950730184057); the local BOO basenames are not the hosted ids for
-// the last two (AnalysisNotes/prose-topic-cz-2026-08-28.md).
+// (DT 20260614112503).  The SC41-485, SC09-2417-00 and GX27-3999-00 fixtures
+// that pinned `CZ FLOW DL`/`DT`, `CZ FLOW OL` and `cz OFF EOL` went with the
+// books that cannot be published (issue #59).
 void cz_fixtures() {
   // `CZ FLOW UL`/`LI` list, `CZ FLOW P` paragraphs across an `SI` term,
   // `CZ OFF XMP` example blocks, `SRFTN`/`CZ FLOW FN` footnotes and their
@@ -930,48 +528,6 @@ void cz_fixtures() {
             "1.1 footnote terminator");
     require(!contains(markdown, "technique\\.\\."), "1.1 doubled terminator");
   }
-  // `CZ FLOW DL`/`DT` definition list whose terms are whole `HP2` spans:
-  // hosted `<dt>   <B>List</B><dd><B>Configuration</B> ...`.
-  {
-    Extracted kept;
-    const auto markdown = admit("SC41-485.boo", "1.1", &kept);
-    require(contains(markdown,
-                     "- **List:** **Configuration Descriptions** "
-                     "\\(QDCLCFGD\\) returns"),
-            "1.1 definition entry");
-    require(!contains(markdown, "****List**"),
-            "1.1 doubled the term emphasis");
-    if (kept.prose)
-      require(count_blocks(*kept.prose,
-                           ProseBlockKindIR::definition_entry) == 5,
-              "1.1 definition entry count");
-  }
-  // Definition list with unstyled terms and a trailing decoder separator
-  // before `cmenu` that hosted does not print.
-  {
-    const auto markdown = admit("SC41-485.boo", "1.2.5");
-    require(contains(markdown, "- **CPF24B4 E:** Severe error while"),
-            "1.2.5 definition entry");
-  }
-  {
-    const auto markdown = admit("SC41-485.boo", "1.3.3");
-    require(contains(markdown, "[topic 1\\.3\\.4](<#HDRCFGSFLD>)\\."),
-            "1.3.3 selector label");
-    require(!contains(markdown, "1\\.3\\.4\\.,"),
-            "1.3.3 kept the separator before cmenu");
-  }
-  // `CZ OFF XMP` C++ example: the `{` that a `CFONT` span covers is display
-  // text, the uncovered `;` that ends the next row is the row slot.
-  {
-    const auto markdown = admit("SC09-2417-00.boo", "4.5.2.2");
-    require(contains(markdown, "void payroll::calc (employee *pe) {\n"),
-            "4.5.2.2 example block lost a brace");
-    require(contains(markdown, "> **Note:** In the above program"),
-            "4.5.2.2 note block");
-  }
-  // `CZ FLOW OL` ordered list.
-  admit("GX27-3999-00.boo", "2.1");
-  admit("SC09-2417-00.boo", "2.1");
 
   // Mutations of the CZ-only structures.
   auto extracted = extract("packet.boo", "3.2");
@@ -1011,27 +567,9 @@ void cz_fixtures() {
       }
     require(!verify(mutated), "altered list ordering passed verification");
   }
-  {
-    auto definitions = extract("SC41-485.boo", "1.1");
-    require(definitions.prose.has_value(), "SC41-485 1.1 rejected");
-    if (definitions.prose) {
-      auto mutated = *definitions.prose;
-      for (auto& block : mutated.blocks)
-        if (block.kind == ProseBlockKindIR::definition_entry) {
-          block.term_inline_count += 1;
-          break;
-        }
-      require(!verify_prose_topic_ir(
-                  definitions.sources, definitions.layout,
-                  *definitions.ownership, definitions.identity.title,
-                  definitions.catalog, mutated, nullptr),
-              "moved definition term boundary passed verification");
-    }
-  }
 
   // A closing directive carries the text that follows its region as
-  // paragraphs: `cz OFF EXMP 2 2` (packet 2.4.1) and `cz OFF EOL 0 0`
-  // (SC09-2417-00 4.2.2), both hosted-verified.
+  // paragraphs: `cz OFF EXMP 2 2` (packet 2.4.1), hosted-verified.
   {
     const auto markdown = admit("packet.boo", "2.4.1");
     // Hosted (packet DT 20260614112503) serves the address at display
@@ -1041,60 +579,10 @@ void cz_fixtures() {
                      "```\n\nNote that zeros are omitted"),
             "2.4.1 lost the text on cz OFF EXMP");
   }
-  {
-    const auto markdown = admit("SC09-2417-00.boo", "4.2.2");
-    require(contains(markdown, "The best way to instantiate templates depends"),
-            "4.2.2 lost the text on cz OFF EOL");
-  }
 
   // Fail-closed CZ classes: one topic per unmodelled shape.
-  // A `cz FLOW DL` header row (hosted `<dl>\n   <B>Option</B>    <B>Tag</B>`)
-  // has no typed counterpart yet.
-  reject("SC09-2417-00.boo", "3.1.2.2", "cz flow dl carries display text");
   reject("packet.boo", "4.5.1",
          "cz flow h5 without text is not the last directive");
-  reject("SC09-2417-00.boo", "1.1.4.3", "cz flow dt");
-
-  // Sub-token inline ownership: a CFONT span that starts inside a compiled
-  // word.  packet 2.1.1 stores one token spelling `writeN4ABC-0` and the
-  // span covers only its `N4ABC-0` half, which the reader serves as
-  // `not write<kbd>N4ABC-0</kbd>`; the ledger gives each half to its own
-  // inline.
-  {
-    Extracted keep;
-    const auto markdown = admit("packet.boo", "2.1.1", &keep);
-    require(contains(markdown, "would not write`N4ABC-0`, but would instead"),
-            "2.1.1 lost the sub-word highlight");
-    bool split = false;
-    for (const auto& entry : keep.prose->ledger)
-      if (entry.claims.size() > 1) split = true;
-    require(split, "2.1.1 has no token split between two inlines");
-  }
-  // SC09-138 3.3.1 ends a span inside a word: hosted serves
-  // `information on using <TT>CLIST</TT>s.`
-  {
-    const auto markdown = admit("SC09-138.boo", "3.3.1");
-    require(contains(markdown, "using `CLIST`s\\."),
-            "3.3.1 lost the sub-word highlight");
-  }
-  // GG24-4302-00 PREFACE.2's publication rows used to fail closed here: the
-  // list continues across a record boundary and the bullet of the first row
-  // of record 31 reached the stream between two controls, where it was
-  // dropped as padding, moving that row's text from column 7 to column 2 and
-  // displacing every `cfont 7 7 C 15 2 C ...` column of it.  The bullet is
-  // display structure now, so the row carries the same columns as its
-  // siblings and hosted (DT 19950308184737) serves them identically.
-  {
-    const auto markdown = admit("GG24-4302-00.boo", "PREFACE.2");
-    require(contains(markdown,
-                     "- *IMS/ESA V5 Release Planning Guide, GC26\\-8031*"),
-            "PREFACE.2 lost the cross-record list item");
-  }
-  // A row whose left margin the model still cannot prove fails closed:
-  // SG24-204 5.3.3 builds `TCP/IP Listener Definition as shown inFigure 90`
-  // with the space before `Figure` missing, so the selector span reaches
-  // from inside `inFigure` across a gap.
-  reject("SG24-204.boo", "5.3.3", "row columns are unproven");
 }
 
 } // namespace

@@ -1,11 +1,16 @@
 // Render provenance (issue #58).
 //
 // Every rendered topic carries a typed diagnostic saying how well it was
-// rendered and why.  This test pins the four severities that occur in the
-// corpus against real fixtures, pins the synthetic ladder below them, and
-// proves that the diagnostic and the `bootrace --coverage` metric describe
-// every topic of a whole book identically -- they read the same
-// RenderDiagnostic, and this is the assertion that keeps it that way.
+// rendered and why.  This test pins the severities that occur in the one
+// redistributable fixture, pins the synthetic ladder below them, and proves
+// that the diagnostic and the `bootrace --coverage` metric describe every
+// topic of a whole book identically -- they read the same RenderDiagnostic,
+// and this is the assertion that keeps it that way.
+//
+// packet carries `typed` and `best-effort` but no `typed-degraded` topic, so
+// the degraded-block pin that used to stand on SC31-711 5.0 (a message
+// catalog whose table candidate fell back to preformatted) is gone with the
+// books that cannot be published (issue #59).
 
 #include "geist/detail/render_diagnostic_ir.hpp"
 #include "geist/detail/typed_route_inventory.hpp"
@@ -26,7 +31,7 @@ void require(const bool condition, const std::string &message) {
 }
 
 std::filesystem::path book(const std::string &name) {
-  return std::filesystem::path(GEIST_REPO_ROOT) / "BOO" / name;
+  return std::filesystem::path(GEIST_FIXTURE_DIR) / name;
 }
 
 const geist::TocEntry &topic(const geist::BooDocument &document,
@@ -49,15 +54,15 @@ bool contains(const std::string &haystack, const std::string &needle) {
 // all: that is what keeps the typed part of the corpus byte-identical to a
 // pipeline without a diagnostics channel.
 void fully_typed_topic() {
-  const auto document = geist::BooDocument::open(book("SC31-711.boo"));
+  const auto document = geist::BooDocument::open(book("packet.boo"));
   const auto &entry = topic(document, "2.1.1");
   const auto &diagnostic = entry.render_diagnostic();
   require(diagnostic.severity == geist::RenderSeverity::typed,
-          "SC31-711 2.1.1 should be typed, is " +
+          "packet 2.1.1 should be typed, is " +
               std::string(geist::to_string(diagnostic.severity)));
-  require(diagnostic.route == "typed", "SC31-711 2.1.1 route should be typed");
+  require(diagnostic.route == "typed", "packet 2.1.1 route should be typed");
   require(diagnostic.family == "prose",
-          "SC31-711 2.1.1 family should be prose, is " + diagnostic.family);
+          "packet 2.1.1 family should be prose, is " + diagnostic.family);
   require(diagnostic.degradations.empty(),
           "a fully typed topic has no degradations");
   require(geist::render_diagnostic_comment(diagnostic).empty(),
@@ -73,106 +78,64 @@ void fully_typed_topic() {
 // One of the topics the typed dispatcher declines reports `best-effort`
 // carrying the exact typed rejection `bootrace --coverage` prints.
 void declined_topic() {
-  const auto document = geist::BooDocument::open(book("SC31-711.boo"));
-  const auto &entry = topic(document, "PREFACE.2");
+  const auto document = geist::BooDocument::open(book("packet.boo"));
+  const auto &entry = topic(document, "4.5.1");
   const auto &diagnostic = entry.render_diagnostic();
   require(diagnostic.severity == geist::RenderSeverity::best_effort,
-          "SC31-711 PREFACE.2 should be best-effort, is " +
+          "packet 4.5.1 should be best-effort, is " +
               std::string(geist::to_string(diagnostic.severity)));
   require(diagnostic.route == "best-effort",
-          "PREFACE.2 route should be best-effort");
+          "4.5.1 route should be best-effort");
   require(diagnostic.reason == "typed-lowering-declined",
-          "PREFACE.2 reason code, is " + diagnostic.reason);
+          "4.5.1 reason code, is " + diagnostic.reason);
   require(diagnostic.detail ==
-              "prose topic rejected: text segment begins with control-like "
-              "word 'SRHDRAIXHIGH' in record 14",
-          "PREFACE.2 carries its real typed rejection, is: " +
-              diagnostic.detail);
+              "prose topic rejected: cz flow h5 without text is not the last "
+              "directive",
+          "4.5.1 carries its real typed rejection, is: " + diagnostic.detail);
   const auto markdown = entry.markdown();
   require(contains(markdown, "<!-- geist-render: severity=best-effort"),
           "a declined topic's Markdown opens with the marker");
-  require(contains(markdown, "SRHDRAIXHIGH"),
+  require(contains(markdown, "cz flow h5"),
           "the marker carries the rejection into the file");
 }
 
-// A typed topic whose message section could not prove its structure reports
-// `typed-degraded` and names the block, with the message family's own
-// fallback_reason surfaced unchanged.
-void message_preformatted_fallback_topic() {
-  const auto document = geist::BooDocument::open(book("SC31-711.boo"));
-  const auto &entry = topic(document, "5.0");
-  const auto &diagnostic = entry.render_diagnostic();
-  require(diagnostic.severity == geist::RenderSeverity::typed_degraded,
-          "SC31-711 5.0 should be typed-degraded, is " +
-              std::string(geist::to_string(diagnostic.severity)));
-  require(diagnostic.route == "typed", "5.0 still takes the typed route");
-  require(diagnostic.family == "message catalog",
-          "5.0 family should be the message catalog, is " + diagnostic.family);
-  require(diagnostic.degradations.size() == 1,
-          "5.0 has exactly one degraded block, has " +
-              std::to_string(diagnostic.degradations.size()));
-  if (diagnostic.degradations.size() == 1) {
-    const auto &degradation = diagnostic.degradations.front();
-    require(degradation.reason == "message-preformatted-fallback",
-            "5.0 degradation code, is " + degradation.reason);
-    require(degradation.detail ==
-                "table candidate has an unpositioned source continuation",
-            "5.0 surfaces the message family's own fallback_reason, is: " +
-                degradation.detail);
-    require(degradation.source.logical_record != 0,
-            "the degraded block names its source record");
-  }
-  require(contains(entry.markdown(),
-                   "degraded=message-preformatted-fallback"),
-          "the marker names the degraded block");
-}
-
-// A verbatim SRTBL region does NOT degrade its topic.  The BOO file stores
-// character art, not a grid -- `SRTBLDBCTL51` (GG24-4302-00 10.2) is an object
-// id followed by a 120-character box-rule run, a caption and more rule runs,
-// with no column definitions and no cell boundaries -- and the hosted
-// BookServer reproduces every such region verbatim inside `<pre>`, emitting no
-// `<table>` element anywhere on this corpus except where the source itself
-// declares `cz OFF TABLE`.  So reproducing the art line for line *equals* the
-// reference renderer: nothing the source contains is lost, and degradation is
-// reserved for real loss.  SC31-711 2.4.1 is a drawn problem-determination
-// form; hosted (DT 19941010174546) serves it as `<pre>` box art.
-void verbatim_table_region_topic() {
-  const auto document = geist::BooDocument::open(book("SC31-711.boo"));
-  const auto &entry = topic(document, "2.4.1");
+// A declared `cz OFF TABLE` grid lowers to a real table and does NOT degrade
+// its topic: degradation is reserved for real loss, and nothing is lost here.
+void declared_table_topic() {
+  const auto document = geist::BooDocument::open(book("packet.boo"));
+  const auto &entry = topic(document, "2.4.4");
   const auto &diagnostic = entry.render_diagnostic();
   require(diagnostic.severity == geist::RenderSeverity::typed,
-          "SC31-711 2.4.1 should be typed, is " +
+          "packet 2.4.4 should be typed, is " +
               std::string(geist::to_string(diagnostic.severity)));
   require(diagnostic.degradations.empty(),
-          "2.4.1 must report no degradation for its verbatim SRTBL region");
-  require(entry.markdown().find("<!--") == std::string::npos,
+          "2.4.4 must report no degradation for its declared table");
+  const auto markdown = entry.markdown();
+  require(markdown.find("<!--") == std::string::npos,
           "a clean topic carries no render-diagnostic comment");
+  require(contains(markdown, "| Class | Range | Default Netmask |"),
+          "2.4.4 lost the declared table it does not degrade over");
 }
 
-// Fail-closed must never mean withholding content.  SC26-457 FRONT_2.1.1 is a
-// record whose topic envelope does not parse: both routes produced a heading
-// and nothing else, and its words used to disappear silently.  It now exits
-// as `best-effort` carrying its own display lines.
+// Fail-closed must never mean withholding content.  packet GLOSSARY is
+// declined by every typed family (a placeholder run is followed by visible
+// text), and exits as `best-effort` carrying its own display lines rather
+// than dropping them.
 void best_effort_topic() {
-  const auto document = geist::BooDocument::open(book("SC26-457.boo"));
-  const auto &entry = topic(document, "FRONT_2.1.1");
+  const auto document = geist::BooDocument::open(book("packet.boo"));
+  const auto &entry = topic(document, "GLOSSARY");
   const auto &diagnostic = entry.render_diagnostic();
   require(diagnostic.severity == geist::RenderSeverity::best_effort,
-          "SC26-457 FRONT_2.1.1 should be best-effort, is " +
+          "packet GLOSSARY should be best-effort, is " +
               std::string(geist::to_string(diagnostic.severity)));
   require(diagnostic.route == "best-effort", "route should be best-effort");
-  // The topic is declined by every typed family, so the decline is the
-  // reason. `no-structured-content` now names the narrower case where a
-  // typed document existed but rendered nothing.
   require(diagnostic.reason == "typed-lowering-declined",
           "reason code, is " + diagnostic.reason);
-  require(contains(diagnostic.detail,
-                   "first record lacks the topic metadata envelope"),
+  require(contains(diagnostic.detail, "placeholder run"),
           "the declining route's own reason is kept, is: " +
               diagnostic.detail);
   const auto markdown = entry.markdown();
-  require(contains(markdown, "A new command, CANCEL, has been added."),
+  require(contains(markdown, "Constellation"),
           "the verbatim route emits the topic's own words");
   require(contains(markdown, "```text"),
           "the verbatim route emits them as preformatted content");
@@ -282,12 +245,10 @@ void inventory_agrees_with_render(const std::string &name) {
 int main() {
   fully_typed_topic();
   declined_topic();
-  message_preformatted_fallback_topic();
-  verbatim_table_region_topic();
+  declared_table_topic();
   best_effort_topic();
   escalation_ladder();
-  inventory_agrees_with_render("SC31-711.boo");
-  inventory_agrees_with_render("SC26-457.boo");
+  inventory_agrees_with_render("packet.boo");
   std::cout << "render diagnostic assertions complete\n";
   return 0;
 }

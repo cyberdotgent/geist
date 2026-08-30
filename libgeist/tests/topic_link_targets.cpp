@@ -1,19 +1,20 @@
 // What a topic names, read off the typed Document IR instead of the legacy
 // GML projection (issue #58).
 //
-// The book-wide link map `boo2git` builds used to come from
-// `TocEntry::gml_records()` for every TOC entry, which ran the legacy string
-// renderer for all 7,362 corpus topics rather than the 375 that render
-// through it.  These checks pin the equivalence that made the switch safe:
-// for a typed topic the two answers name the same ids with the same kinds,
-// and the kinds are the ones the destinations depend on -- a cross-reference
-// anchor resolves to the topic's file, a figure and a table to a fragment,
-// and a footnote to nothing at all because `SRFTN` produces no GML record.
+// The book-wide link map `boo2git` builds comes from the typed Document IR
+// rather than from `TocEntry::gml_records()`.  These checks pin the contract
+// that made the switch safe: a typed topic names the ids its destinations
+// depend on, with the kinds those destinations depend on -- a cross-reference
+// anchor resolves to the topic's file, a figure and a table to a fragment, a
+// figure that draws a stored book resource also names that resource, and a
+// footnote to nothing at all, because `SRFTN` produces no book-wide
+// destination.
 //
-// Every expectation below was read from the corpus, and each id also appears
-// in the exported Markdown: XWEBDEMO record 11's `SRFIGMONET1` is spelled
-// `MONET1` by `:fig id=`, referenced as `FIGMONET1`, and served by hosted
-// BookServer as `<a name="FIGMONET1">` (DT 19970423182524).
+// The corpus-wide equivalences this used to assert over XWEBDEMO, ACPZMST1,
+// SC33-033 and N2AH1MST went with those books (issue #59); packet carries the
+// figure, table, anchor and footnote shapes, but not the external-object
+// figure (XWEBDEMO 1.4.1's `/bookmgr/monetcoq.jpg`) or the trap catalog's
+// double-named entry (N2AH1MST 6.0).
 
 #include "geist/boo.hpp"
 #include "geist/detail/topic_link_targets.hpp"
@@ -32,10 +33,6 @@ void require(bool condition, const std::string& message) {
     std::cerr << "topic_link_targets: " << message << '\n';
     geist_test::record_failure();
   }
-}
-
-std::filesystem::path book_path(const std::string& name) {
-  return std::filesystem::path(GEIST_REPO_ROOT) / "BOO" / name;
 }
 
 const geist::TocEntry* find_topic(const geist::BooDocument& document,
@@ -80,87 +77,108 @@ std::string describe(const std::vector<geist::LinkTarget>& targets) {
 } // namespace
 
 int main() {
-  // A typed picture figure: the anchor the document places is `FIGMONET1`,
-  // the reference id is `MONET1`, and the external object is not a stored
-  // book resource, so references resolve to the anchor and not to an image.
+  const auto document = geist::BooDocument::open(
+      std::filesystem::path(GEIST_FIXTURE_DIR) / "packet.boo");
+
+  // A typed picture figure that draws a stored book resource: the reference
+  // id is the figure's own, and the target also names the resource the
+  // exporter has to write out.
   {
-    const auto document = geist::BooDocument::open(book_path("XWEBDEMO.boo"));
-    const auto* topic = find_topic(document, "1.4.1");
-    require(topic != nullptr, "XWEBDEMO 1.4.1 is missing");
+    const auto* topic = find_topic(document, "2.4");
+    require(topic != nullptr, "packet 2.4 is missing");
     if (topic != nullptr) {
       const auto& targets = topic->link_targets();
       require(topic->render_diagnostic().route == "typed",
-              "XWEBDEMO 1.4.1 no longer renders typed; this check needs a "
-              "typed topic");
-      require(names(targets, geist::LinkTargetKind::figure, "MONET1"),
-              "XWEBDEMO 1.4.1 does not name figure MONET1: " +
+              "packet 2.4 no longer renders typed; this check needs a typed "
+              "topic");
+      require(names(targets, geist::LinkTargetKind::figure, "FIGUNIQ16"),
+              "packet 2.4 does not name figure FIGUNIQ16: " +
                   describe(targets));
-      require(!names_any(targets, "FIGMONET1"),
-              "XWEBDEMO 1.4.1 names the placed anchor rather than the "
-              "reference id: " + describe(targets));
+      const auto figure = std::find_if(
+          targets.begin(), targets.end(), [](const auto& target) {
+            return target.id == "FIGUNIQ16";
+          });
+      require(figure != targets.end() && figure->resource == "resource:6",
+              "packet 2.4's figure does not resolve to book resource 6: " +
+                  describe(targets));
+      require(!names_any(targets, "FIGFIGUNIQ16"),
+              "packet 2.4 names the placed anchor rather than the reference "
+              "id: " + describe(targets));
     }
-    // The topic that prints footnote FTNBUILD reaches it only from inside
-    // itself; `SRFTN` produces no `:anchor` record, so the link map must not
-    // gain a book-wide destination for it.
-    const auto* footnote_topic = find_topic(document, "1.4");
-    require(footnote_topic != nullptr, "XWEBDEMO 1.4 is missing");
-    if (footnote_topic != nullptr)
-      require(!names_any(footnote_topic->link_targets(), "FTNBUILD"),
-              "XWEBDEMO 1.4 published its footnote as a book-wide "
-              "destination: " + describe(footnote_topic->link_targets()));
   }
 
-  // A typed prose topic names its `SR<id>` anchors as cross references, which
-  // resolve to the topic's file with no fragment.
+  // A typed table names a fragment and no resource.
   {
-    const auto document = geist::BooDocument::open(book_path("ACPZMST1.boo"));
-    const auto* topic = find_topic(document, "3.2");
-    require(topic != nullptr, "ACPZMST1 3.2 is missing");
+    const auto* topic = find_topic(document, "2.4.5");
+    require(topic != nullptr, "packet 2.4.5 is missing");
+    if (topic != nullptr) {
+      const auto& targets = topic->link_targets();
+      for (const auto* id : {"TBLTBLUNIQ18", "TBLTBLUNIQ19"}) {
+        require(names(targets, geist::LinkTargetKind::table, id),
+                std::string("packet 2.4.5 does not name table ") + id + ": " +
+                    describe(targets));
+      }
+      for (const auto& target : targets) {
+        require(target.kind != geist::LinkTargetKind::table ||
+                    target.resource.empty(),
+                "a table target names a book resource: " + describe(targets));
+      }
+    }
+  }
+
+  // A typed prose topic names its `SR<id>` anchor as a cross reference, which
+  // resolves to the topic's file with no fragment.
+  {
+    const auto* topic = find_topic(document, "A.0");
+    require(topic != nullptr, "packet A.0 is missing");
     if (topic != nullptr)
       require(names(topic->link_targets(), geist::LinkTargetKind::anchor,
-                    "HDRPMGR"),
-              "ACPZMST1 3.2 does not name anchor HDRPMGR: " +
+                    "HDRURLS"),
+              "packet A.0 does not name anchor HDRURLS: " +
                   describe(topic->link_targets()));
   }
 
-  // A trap catalog names the topic twice from inside one entry: N2AH1MST
-  // record 385 spells `SRMSG AMD083I` and `SRSPTE083I` side by side, and the
-  // book's own change summary links to the second.  The entry anchor is
-  // placed in the document; the second name is not, but both reach the topic.
+  // Footnotes reach their anchor only from inside their own topic; `SRFTN`
+  // produces no `:anchor` record, so the link map must not gain a book-wide
+  // destination for one.  packet 1.1 prints FTNFTNUNIQ1 and FTNFTNUNIQ2.
   {
-    const auto document = geist::BooDocument::open(book_path("N2AH1MST.BOO"));
-    const auto* topic = find_topic(document, "6.0");
-    require(topic != nullptr, "N2AH1MST 6.0 is missing");
+    const auto* topic = find_topic(document, "1.1");
+    require(topic != nullptr, "packet 1.1 is missing");
     if (topic != nullptr) {
-      const auto& targets = topic->link_targets();
-      require(names(targets, geist::LinkTargetKind::anchor, "MSG AMD083I"),
-              "N2AH1MST 6.0 does not name its entry anchor MSG AMD083I");
-      require(names(targets, geist::LinkTargetKind::anchor, "SPTE083I"),
-              "N2AH1MST 6.0 does not name SPTE083I, which its change "
-              "summary links to");
+      for (const auto* id : {"FTNFTNUNIQ1", "FTNFTNUNIQ2"}) {
+        require(!names_any(topic->link_targets(), id),
+                std::string("packet 1.1 published footnote ") + id +
+                    " as a book-wide destination: " +
+                    describe(topic->link_targets()));
+      }
+    }
+  }
+  // No topic anywhere in the book publishes a footnote anchor.
+  for (const auto& entry : document.table_of_contents()) {
+    for (const auto& target : entry.link_targets()) {
+      require(target.id.rfind("FTN", 0) != 0,
+              entry.id + " published footnote anchor " + target.id +
+                  " as a book-wide destination");
     }
   }
 
-  // Whole books: the typed IR is now the only answer, so there is no second
-  // projection to check it against. What is still worth pinning is that the
-  // answer does not shrink -- a family that stops naming its figures would
-  // otherwise break every reference to them silently -- so the figure and
-  // table targets these books name are counted and ratcheted. Raise the
-  // number when a slice legitimately names more; never lower it.
-  constexpr std::size_t kNamedObjectBaseline = 285;
+  // Whole book: the typed IR is the only answer, so there is no second
+  // projection to check it against. What is worth pinning is that the answer
+  // does not shrink -- a family that stops naming its figures would otherwise
+  // break every reference to them silently -- so the figure and table targets
+  // the book names are counted and ratcheted. Raise the number when a slice
+  // legitimately names more; never lower it.
+  constexpr std::size_t kNamedObjectBaseline = 16;
   std::size_t named_objects = 0;
-  for (const auto* name : {"XWEBDEMO.boo", "ACPZMST1.boo", "SC33-033.boo"}) {
-    const auto document = geist::BooDocument::open(book_path(name));
-    for (const auto& entry : document.table_of_contents()) {
-      for (const auto& target : entry.link_targets()) {
-        if (target.kind != geist::LinkTargetKind::figure &&
-            target.kind != geist::LinkTargetKind::table)
-          continue;
-        require(!target.id.empty(),
-                std::string(name) + " " + entry.id +
-                    ": a named object has an empty reference id");
-        ++named_objects;
-      }
+  for (const auto& entry : document.table_of_contents()) {
+    for (const auto& target : entry.link_targets()) {
+      if (target.kind != geist::LinkTargetKind::figure &&
+          target.kind != geist::LinkTargetKind::table)
+        continue;
+      require(!target.id.empty(),
+              "packet " + entry.id +
+                  ": a named object has an empty reference id");
+      ++named_objects;
     }
   }
   std::cout << "# named figure/table targets\t" << named_objects << "\n";
@@ -168,6 +186,24 @@ int main() {
           "the typed IR names fewer figures and tables than the recorded "
           "baseline: " + std::to_string(named_objects) + " < " +
               std::to_string(kNamedObjectBaseline));
+
+  // Every figure that names a resource names one the book actually stores.
+  for (const auto& entry : document.table_of_contents()) {
+    for (const auto& target : entry.link_targets()) {
+      if (target.resource.empty())
+        continue;
+      const auto id = target.resource.rfind("resource:", 0) == 0
+                          ? target.resource.substr(9)
+                          : target.resource;
+      require(std::any_of(document.resources().begin(),
+                          document.resources().end(),
+                          [&](const auto& resource) {
+                            return resource.id == id;
+                          }),
+              "packet " + entry.id + " names resource '" + target.resource +
+                  "', which the book does not store");
+    }
+  }
 
   std::cout << "topic link target checks passed\n";
   return 0;
