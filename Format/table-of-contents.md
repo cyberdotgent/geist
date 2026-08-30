@@ -291,14 +291,30 @@ To read a BOO table of contents without using IBM binaries:
 ## Open Questions
 
 - The complete semantics of the `CTOCDEF` numeric fields. Which style a `CTOCE`
-  uses is now fully determined (see above), but the meaning of the individual
+  uses is fully determined (see above), but the meaning of the individual
   operands of a `CTOCDEF` definition is not. The trailing operand of styles
   `2`..`6` (`0, 2, 4, 6, 8`) is not the rendered indent: hosted indents by two
-  columns per `CTOCE` nesting level, not per style. The definitions are byte-
-  identical in all 34 fixtures, so the corpus offers no differential evidence
-  and this cannot be resolved without a book that varies them.
-- Whether any BookManager variant stores an alternate generated TOC rather than
-  literal `CTOCE` controls in the `CONTENTS` topic.
-- Why `:H3`, `:H4` and `:MSGNO` topics are sometimes omitted from the TOC. The
-  omission is not random (all 1,617 `:MSGNO` topics are omitted) but no stored
-  field seen so far records the decision.
+  columns per `CTOCE` nesting level, not per style. All seven definitions are
+  byte-identical in all 34 fixtures — 238 lines of 34 identical seven-line
+  blocks — so the corpus offers no differential evidence at all. This is not
+  a gap an implementer has to close: because the definitions never vary, a
+  reader can hard-code the style-to-presentation mapping tabulated above and
+  skip the `CTOCDEF` lines entirely. What would settle it is a book whose
+  `CTOCDEF` lines differ from these seven.
+- Which topics get a `CTOCE`. The decision is per topic, not per book: books
+  carry both listed and unlisted `:H3` topics, and corpus-wide 697 `:H3`, 775
+  `:H4` and all 1,617 `:MSGNO` topics are omitted. Nothing in the omitted
+  topics' own storage records it — they carry the same nine-line envelope, the
+  same `CHDLEVEL`, and a `CSUMMARY` whose operands follow the same rules as a
+  listed topic's. `IBMMMSTR.boo` is the extreme case: 1,677 topics, 60 `CTOCE`
+  entries, and the 1,617 that are omitted are exactly its `:MSGNO` messages.
+  Since the `CONTENTS` topic stores the outcome and no other topic stores the
+  input, a reader has nothing to compute — it reads the `CTOCE` list. What
+  would settle the *why* is BookMaster source for a book whose `:h3` topics
+  split both ways.
+
+Retired: "whether any BookManager variant stores an alternate generated TOC
+rather than literal `CTOCE` controls". All 34 fixtures store literal `CTOCE`
+controls in a topic whose header is `SHcontents`, and the hosted BookServer
+serves that topic's rendering; there is no second mechanism to look for in this
+format.

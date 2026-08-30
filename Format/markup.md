@@ -904,6 +904,8 @@ quoted in the evidence column; every rule was checked on at least two books.
 | `Q` | `PKDEF` | `<dfn>` | PRG1SORT `2.1.4` -> `<dfn>*CURLIB</dfn>`; SC26-457 `3.4.1.2` -> `<dfn>LIST</dfn>` |
 | `R` | `RK` | `<B>` | ACPZMST1 `FRONT_1.1` `cfont 4 4 R,` -> `<B>GUPI</B>`; ACPZMST1 `6.2` |
 | `V` | `PV` | `<var>` | SC26-457 `3.4.1.2`; GC23-046 `6.0` |
+| `K` | `H4` | `<I>` | SC09-2417-00 `PREFACE.2.1` record 28 segment 17 `cfont 3 6 K 10 3 K ...` -> `<I>Syntax</I> <I>for</I> <I>Commands,</I> ...`; SC09-2417-00 `1.1.4.2` record 62 segment 23 -> `<I>User-Defined</I> <I>Header</I> <I>File</I>` |
+| `X` | `XPH` | `<tt>` | SC09-2417-00 `PREFACE.2.1` record 29 segment 2 `cfont 26 9 X` -> `<tt>STATEMENT</tt>`; SC09-2417-00 `PREFACE.2.2` record 34 segment 18 -> `<tt>Example</tt>` |
 | `W` | `WARNING` | `<em>` | SC26-457 `1.6.5` `cfont 3 8 W ...` -> `<em>Warning:</em>`; SC31-711 `3.3`; SH12-565 `FRONT_1.1` |
 | `G` | `WARNINGTEXT` | `<em>` | GC23-046 `6.9.3`; SC26-457 `1.6.5`; SC31-711 `3.3`; SH12-565 `FRONT_1.1` |
 
@@ -1706,31 +1708,59 @@ structure irreversibly.
 
 ## Open Questions
 
-- Complete byte-level separation for every inline control field and separator.
-- Exact visual mapping of `HP1` through `HP9`, `xph`, `Pk`, `Cit`, and related
-  styles in each IBM renderer.
-- Exact normalization from picture ids in body markup (`pic1`) to raw resource
-  ids in the resource descriptor table (`1`).
-- Full `CZ` control grammar for all paragraph, list, table, and figure layout
-  modes. The tag vocabulary is now complete for the corpus (see the census under
-  "CZ layout directives"), but `PROBD`, `ORESP`, `MSGL`/`EMSGL`,
-  `SYNTAX`/`ESYNTAX`, `LINES`/`ELINES` and `ARTWORK`/`EARTWORK` have no modelled
-  meaning, and `ARTWORK` closing with `EHP0` is unexplained.
+- Hosted presentation of the remaining font codes. Sixteen of the 35 defined
+  codes now have a hosted rendering verified in "Style-Code Presentation
+  Verified Against Hosted BookServer" (`1`, `2`, `3`, `5`, `7`, `9`, `C`, `E`,
+  `K`, `P`, `Q`, `R`, `V`, `W`, `G`, `X`). The unverified ones split into two
+  groups with different prospects:
+  - **`B` `CAUTION`, `D` `DANGER`, `F` `CAUTIONTEXT`, `O` `DANGERTEXT`** are
+    the remaining halves of the admonition family whose `W`/`G` pair is
+    verified as `<em>` for both the label and the body. They are the ones most
+    likely to follow the same shape, and a book on the hosted shelf that uses
+    `:caution.` or `:danger.` would settle them. No corpus fixture does.
+  - **`T` `TP`, `U` `MD`, `Y` `MDQUAL`, `A` `APL`, `Z` `PVDEF`,
+    `_` `UNDERSCORE`** have at most one witness each in the corpus and no
+    second book to generalise from. `Z` renders exactly as `Q` `PKDEF` does in
+    its single witness (SC26-457 `1.3`); `_` occurs only in SC24-5527-02
+    `COMMENTS`, which the hosted catalog does not serve.
+  - The remaining defined codes are the heading levels `H`..`M` and the plain
+    `H0`/`4`/`6`/`8` fills, which do not appear as inline spans in the corpus.
 - Full row/column grammar for every legacy cross-reference table variant beyond
-  the fixed-width `?`-separator rows verified in `QS3X36CM.BOO`.
-- Hosted presentation of the six admonition font codes `B` `CAUTION`,
-  `D` `DANGER`, `W` `WARNING`, `F` `CAUTIONTEXT`, `G` `WARNINGTEXT` and
-  `O` `DANGERTEXT`, and of `T` `TP`, `U` `MD`, `Y` `MDQUAL`, `A` `APL`,
-  `Z` `PVDEF` and `_` `UNDERSCORE`. Twelve of the 35 defined codes have a
-  hosted rendering verified in "Style-Code Presentation Verified Against Hosted
-  BookServer" (`1`, `2`, `3`, `5`, `7`, `9`, `C`, `E`, `P`, `Q`, `R`, `V`); the
-  other 23 do not.
+  the fixed-width `?`-separator rows verified in `QS3X36CM.BOO`. What is
+  missing specifically: whether a legacy cross-reference row can carry a
+  column separator other than `?`, and whether a row's column widths can vary
+  within one table. Both are answerable from any second book that uses the
+  legacy form; `QS3X36CM.BOO` is the only fixture that does.
 - What `c.rev` does to a row. The control and its two operands are identified
   (see "`c.rev` revision-code definitions"); the per-row marker that selects a
-  revision code has not been located in the token stream.
-- The meaning of the operands of a `CTOCDEF` definition. Which style a `CTOCE`
-  uses is fully determined; what the numbers inside a `CTOCDEF` mean is not, and
-  all 34 fixtures define them identically, so the corpus cannot decide it.
+  revision code has not been located in the token stream. Specifically: the 22
+  `c.rev` lines declare revision ids and bar characters, but no token in any
+  body record has been matched to one of those ids, and no hosted page has been
+  checked for a row drawn with a non-`|` bar character. `SC09-138.boo` `FRONT`
+  declares `c.rev GE G`, `c.rev HN H` and eight others with distinct
+  characters, so a hosted page of that book showing a `G` or `H` in the margin
+  would locate the marker.
+
+Retired here, because they are answered in the body above or in a linked note:
+
+- *Inline control field and separator separation* — the boundary rule is
+  "a word is a control only where a boundary byte precedes it", documented in
+  [logical-controls.md](logical-controls.md#a-word-is-a-control-only-where-a-boundary-byte-precedes-it),
+  and the operand grammars of `CFONT`, `CSELECT`, `CZ`, `CTOCE` and the `SR`
+  anchors are each tabulated above.
+- *Visual mapping of `HP1`..`HP9`, `xph`, `Pk`, `Cit`* — all in the style-code
+  table above (`1`, `2`, `3`, `5`, `7`, `9`, `X`, `P`, `C`), with the
+  `HP5`..`HP9` underscore family rule.
+- *Picture id normalisation* — a body target of `PIC<digits>` names the
+  descriptor id after the prefix; see
+  [assets.md](assets.md#how-a-topic-references-an-image).
+- *`CZ` grammar for `PROBD`, `ORESP`, `MSGL`, `SYNTAX`, `LINES`, `ARTWORK`, and
+  `ARTWORK` closing with `EHP0`* — see "The six region names that had no
+  modelled meaning" above.
+- *`CTOCDEF` operands* — the same question is tracked, with what would settle
+  it, in
+  [table-of-contents.md](table-of-contents.md#open-questions). A reader can
+  hard-code the style mapping and skip the definitions.
 
 ## Definition lists and fixed questionnaires
 
@@ -2357,19 +2387,94 @@ Complete corpus census of every `cz OFF <tag>` region name, with line counts:
 | `EUL`, `EOL`, `ESL`, `EDL`, `ENOTEL`, `EPARML`, `ENT` | 272, 50, 18, 73, 10, 5, 86 | List closers, modelled. |
 | `FIG` / `EFIG` | 44 / 44 | Object region, modelled. |
 | `SCREEN` / `ESCREEN` | 24 / 24 | Verbatim region, modelled. |
-| `SYNTAX` / `ESYNTAX` | 19 / 19 | Not modelled. |
+| `SYNTAX` / `ESYNTAX` | 19 / 19 | Verbatim region: railroad syntax diagram. |
 | `LBLBOX` / `ELBLBOX` | 15 / 15 | Verbatim region, modelled. |
-| `ARTWORK` / `EARTWORK` | 13 / 10 | Not modelled; three openers close with `cz OFF EHP0` (3 lines) instead — `GX27-3999-00` `2.4`, `SC41-485` `COMMENTS`. |
-| `LINES` / `ELINES` | 10 / 10 | Not modelled. |
+| `ARTWORK` / `EARTWORK` | 13 / 10 | Verbatim region holding a `PIC<n>` selector; three openers close with `cz OFF EHP0` (3 lines) instead — `GX27-3999-00` `2.4`, `SC41-485` `COMMENTS`. |
+| `LINES` / `ELINES` | 10 / 10 | Verbatim region: fixed lines, address blocks and forms. |
 | `TOC` / `ETOC` | 5 / 5 | Front-matter region. |
 | `COVER` / `ECOVER` | 4 / 4 | Front-matter region. |
 | `FIGLIST` / `EFIGLIST` | 2 / 2 | Front-matter region. |
 | `TIPAGE` / `ETIPAGE` | 2 / 2 | Front-matter region. |
-| `MSGL` / `EMSGL` | 1 / 1 | Not modelled. |
+| `MSGL` / `EMSGL` | 1 / 1 | Message-list region; its messages are `SRMSG<id>` anchors. |
 | `TLIST` / `ETLIST` | 1 / 1 | Front-matter region. |
 
 Nothing else occurs. `cz BREAK` accounts for 773 lines, `cz FLOW` for 5,855 and
 `cz OFF` for 2,147, a total of 8,775 `CZ` display lines.
+
+### The Six Region Names That Had No Modelled Meaning
+
+All six are ordinary regions of the two kinds this note already describes:
+`SYNTAX`, `LINES` and `ARTWORK` are **fixed-column verbatim regions** that
+hosted serves inside `<pre width="80">`, and `MSGL`, `PROBD` and `ORESP` are
+**message-list blocks**. A reader needs no new machinery for any of them.
+
+**`cz OFF SYNTAX` … `cz OFF ESYNTAX <left> <indent>`** wraps a railroad syntax
+diagram. `SC09-2417-00.boo` topic `PREFACE.2.1` (`How to Read the Syntax
+Diagrams`), logical record 29, segment 4 opens one and segment 6 closes it; the
+body is segment 5, whose `CFONT` reads `cfont 11 9 P 22 13 V`. Hosted at DT
+`19961114175628` serves it as
+
+```html
+</pre><pre width="80"><!-- * -->
+       &gt;&gt;__<kbd>STATEMENT</kbd>__<var>required_item</var>____________________&gt;&lt;
+</pre>
+```
+
+so column 11 length 9 covers exactly `STATEMENT` and column 22 length 13 covers
+exactly `required_item`: the `CFONT` operands are absolute display columns of
+the stored row, left padding included, exactly as everywhere else. The
+region's drawn characters (`>>`, `__`, `|`, `><`) are display text and must
+not be reflowed or stripped.
+
+**`cz OFF LINES` … `cz OFF ELINES <left> <indent>`** wraps a block of fixed
+lines that must not be reflowed — an address block or a form. `SC09-2417-00.boo`
+topic `EDITION`, logical record 4, segment 14 stores five rows beginning
+`IBM Canada Ltd. Laboratory`; hosted serves them one per line inside
+`<pre width="80">`. `SC41-485.boo` topic `COMMENTS` record 459 segment 16 and
+`GX27-3999-00.boo` topic `COMMENTS` record 148 segment 6 use the same region
+for a reader's-comment form whose rows are `Name . . . . ______`.
+
+**`cz OFF ARTWORK`** opens a fixed-column region holding a picture reference,
+and its picture is a `CSELECT` whose target is `PIC<n>`.
+`GX27-3999-00.boo` topic `FRONT_1`, record 9: segment 10 is `cz OFF ARTWORK`,
+segment 11 is `cselect 3 9 PIC1` with the row text `   PICTURE 1`, and hosted
+at DT `19950730184057` serves that row as
+
+```html
+</pre><pre width="80"><!-- * -->
+   <a href="picture-1?mode=zoom"><img
+     src="/bookmgr/pictures/GX27-3999-00.19950730184057.P1.GIF" alt="PICTURE 1"></a>
+```
+
+**`ARTWORK` closing with `cz OFF EHP0` is a region close like any other.** The
+same record's segment 12 is `cz OFF EHP0 0 0    The adapter kit consists of:`,
+and hosted emits that text and then `</pre>` — so `EHP0` ends the `<pre>`, the
+text the control carries belongs to the closing region, and what follows is
+flowed prose again. Three of the thirteen `ARTWORK` openers close this way
+rather than with `EARTWORK`; the two forms are interchangeable in the output.
+
+**`cz FLOW MSGL <left> <indent>` / `cz OFF MSGL`** opens a message list. The
+messages themselves are `SRMSG<id>` anchors, one per message, and hosted emits
+`<a name="MSG <id>"><hr></a>` before each. `GX27-3999-00.boo` topic `B.0`
+(`Appendix B. NDIS MAC Driver Messages`), logical record 104, segments 1 and 2
+open and close the region and segment 3 is `SRMSG LTC0008`.
+
+**`cz FLOW PROBD <left> <indent>`** and **`cz FLOW ORESP <left> <indent>`** are
+the two body blocks of a message: the problem description and the operator
+response. Both are ordinary flowed paragraphs indented to the `indent` operand,
+and both lead with a bolded label. In `GX27-3999-00.boo` `B.0` every one of the
+23 `PROBD` blocks leads with `Explanation:` and every one of the 23 `ORESP`
+blocks with `User Action:`; hosted serves record 105's pair as
+
+```html
+          <B>Explanation:</B>  The value provided for the parameter in the IBMMPC
+          module in PROTOCOL.INI is not the correct type.
+...
+          <B>User</B> <B>Action:</B>  Edit the PROTOCOL.INI file to change the value for
+```
+
+at column 10, the blocks' `indent` operand. They occur only in
+`GX27-3999-00.boo`, 23 each.
 
 ### Footnotes in the flattened dialect
 
@@ -2563,11 +2668,14 @@ directory byte, before any token is resolved; see
 [boo-header.md](boo-header.md#the-16-byte-prefix-is-a-dialect-flag-not-padding).
 Scanning the body for a `CZ` control still works and is the fallback.
 
-Corrected: the *container* version is `" 1.2"` in all 34 fixtures, this six
-included, so "version 1.3 and 1.4 books contain `CZ` controls" was conflating
-the container version at directory `0x0010` with the BookManager BUILD version
-in `CBLDVERS=`. No version-1.4 book is present in the corpus at all, and
-`CREFLOW=ON` is not the discriminator either: five of the six are reflow-on and
+Corrected: the *container* version at directory `0x0010` is `" 1.2"` in all 34
+fixtures, this six included, so "version 1.3 and 1.4 books contain `CZ`
+controls" was conflating three different version numbers — the container
+version, the picture-directory version at directory `0x0009..0x000a` (which
+[assets.md](assets.md#picture-directory-versions) numbers 1.2, 1.3 and 1.4),
+and the BookManager BUILD version in `CBLDVERS=`. No book in the corpus carries
+a container version other than `" 1.2"`, and `CREFLOW=ON` is not the
+discriminator either: five of the six are reflow-on and
 `SG24-204.boo` is reflow-off, while all 28 non-`CZ` books are reflow-off.
 
 ### Directive grammar
@@ -2579,7 +2687,7 @@ cz <mode> <tag> [<left> <indent>]
 | Field | Values | Meaning |
 | --- | --- | --- |
 | `mode` | `FLOW`, `OFF`, `BREAK` | `FLOW` opens or emits a flowed block, `OFF` opens or closes a non-flowed region, `BREAK` is a vertical break carrying one count operand and no tag. |
-| `tag` | Complete `FLOW` census: `P` (2,062), `LI` (1,376), `GD` (529), `DT` (505), `H3` (293), `UL` (272), `H4` (189), `H2` (144), `NT` (86), `DL` (73), `FN` (69), `H5` (53), `OL` (50), `PC` (37), `PT` (27), `ORESP` (23), `PROBD` (23), `SL` (18), `NOTE` (10), `NOTEL` (10), `PARML` (5), `MSGL` (1). `OFF` tags are listed in the region census above. | Block kind. `E<list>` (`EUL`, `EOL`, `ESL`, `EDL`, `ENOTEL`, `EPARML`, `ENT`) closes the matching open list. `PROBD` and `ORESP` (`GX27-3999-00` only, 23 each) and `MSGL` were missing from the earlier list and are not modelled; `XMP`/`EXMP` are `OFF` tags, not `FLOW` tags. |
+| `tag` | Complete `FLOW` census: `P` (2,062), `LI` (1,376), `GD` (529), `DT` (505), `H3` (293), `UL` (272), `H4` (189), `H2` (144), `NT` (86), `DL` (73), `FN` (69), `H5` (53), `OL` (50), `PC` (37), `PT` (27), `ORESP` (23), `PROBD` (23), `SL` (18), `NOTE` (10), `NOTEL` (10), `PARML` (5), `MSGL` (1). `OFF` tags are listed in the region census above. | Block kind. `E<list>` (`EUL`, `EOL`, `ESL`, `EDL`, `ENOTEL`, `EPARML`, `ENT`) closes the matching open list. `PROBD` (problem description) and `ORESP` (operator response) occur in `GX27-3999-00` only, 23 each, and `MSGL` opens a message list; all three are described under "The six region names that had no modelled meaning". `XMP`/`EXMP` are `OFF` tags, not `FLOW` tags. |
 | `left` | decimal | Display column of the directive's first row. |
 | `indent` | decimal | Display column of the directive's continuation rows. |
 
