@@ -431,6 +431,52 @@ decoded_word_range_to_byte_range(const AssembledLogicalRecord &assembled,
   return result;
 }
 
+// The string splitter opens a segment after the `,` it fires on and leaves the
+// comma in neither segment.  In front of a control that is right: the comma is
+// the record encoder's control separator, which hosted BookServer does not
+// print.  Where the word that fired the split is no control at all, the comma
+// is display text hosted does print -- SH12-565 record 205 spells the console
+// command `F QH,F XY,SRV=(3,2,2)`, whose display line carries the comma and
+// which hosted serves as `<kbd>XY,SRV=(3,2,2)</kbd>` (DT 19941206115523);
+// `SRV=(3,2,2)` only matched the splitter's `sr` prefix.  Such a segment takes
+// its comma back, and only it: one separator token, only into a segment that
+// carries no control, and only out of the gap the split left between two
+// segments, so no padding a neighbouring model relies on ever moves.
+// Reclaiming the whole gap instead was measured on an earlier slice and costs
+// 60 topics.
+void reclaim_split_separators(const std::string &text,
+                              const AssembledLogicalRecord &assembled,
+                              std::vector<ControlSegmentIR> &segments) {
+  for (std::size_t index = 1; index < segments.size(); ++index) {
+    auto &segment = segments[index];
+    if (segment.kind != BookControlKind::text ||
+        segment.payload_range.begin != segment.complete.begin)
+      continue;
+    const auto gap_begin = segments[index - 1].complete.end;
+    if (segment.complete.begin != gap_begin + 1 || gap_begin >= text.size() ||
+        text[gap_begin] != ',')
+      continue;
+    const auto separator = std::any_of(
+        assembled.tokens.begin(), assembled.tokens.end(),
+        [&](const LogicalTokenSpan &token) {
+          const auto words = token_body_word_range(assembled, token);
+          const auto bytes = decoded_word_range_to_byte_range(assembled, words);
+          return bytes.begin == gap_begin && bytes.end == gap_begin + 1 &&
+                 control_separator_words(token_body_words(assembled, token));
+        });
+    if (!separator)
+      continue;
+    segment.complete.begin = gap_begin;
+    segment.opcode_range = {gap_begin, gap_begin};
+    segment.operand_range = segment.opcode_range;
+    segment.payload_range.begin = gap_begin;
+    const auto word_range =
+        decoded_byte_range_to_word_range(assembled, segment.complete);
+    segment.source_tokens = source_tokens_intersecting_output(
+        assembled, word_range.begin, word_range.end);
+  }
+}
+
 std::vector<ControlSegmentIR>
 decode_control_segments(std::uint32_t logical_record,
                         const AssembledLogicalRecord &assembled,
@@ -536,6 +582,7 @@ decode_control_segments(std::uint32_t logical_record,
         assembled, word_range.begin, word_range.end);
     result.push_back(std::move(segment));
   }
+  reclaim_split_separators(text, assembled, result);
   promote_corroborated_topic_start(text, result);
   return result;
 }
