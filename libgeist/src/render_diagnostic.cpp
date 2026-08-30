@@ -340,20 +340,16 @@ bool body_control_display_line(const DecodedLogicalRecordSource& record,
 
 } // namespace
 
-std::vector<BestEffortLineIR> best_effort_display_lines(
+std::vector<std::string> best_effort_lines(
     const std::vector<DecodedLogicalRecordSource>& sources,
     const std::string& title) {
-  std::vector<BestEffortLineIR> lines;
-  for (std::size_t record_index = 0; record_index < sources.size();
-       ++record_index) {
-    const auto& record = sources[record_index];
+  std::vector<std::string> lines;
+  for (const auto& record : sources) {
     const auto display = record_display_lines(record);
     if (!display) continue;
     const auto controls = control_tokens(record);
     const auto index_markers = index_entry_marker_tokens(record);
-    for (std::size_t line_index = 0; line_index < display->size();
-         ++line_index) {
-      const auto& line = (*display)[line_index];
+    for (const auto& line : *display) {
       // An `SI` entry owns its whole display line and draws nothing on it.
       if (!index_markers.empty()) {
         bool is_index_entry = false;
@@ -369,15 +365,8 @@ std::vector<BestEffortLineIR> best_effort_display_lines(
       // A body-control line draws nothing, whether or not the decoder kept
       // the control boundary in front of its opcode.
       if (body_control_display_line(record, line)) continue;
-      BestEffortLineIR emitted;
-      emitted.record_index = record_index;
-      emitted.display_line_index = line_index;
-      auto& text = emitted.text;
+      std::string text;
       for (const auto& cell : display_line_cells(record, line)) {
-        // One byte offset per display column, so a consumer holding a column
-        // range -- a selector's covered span -- can find the bytes that
-        // column range names without re-deriving the row.
-        emitted.column_offsets.push_back(text.size());
         if (cell.token != static_cast<std::size_t>(-1) &&
             controls.count(cell.token) != 0) {
           // A control's own words draw nothing; keep the column so the row
@@ -387,7 +376,6 @@ std::vector<BestEffortLineIR> best_effort_display_lines(
         }
         text += figure_display_glyph(cell.word);
       }
-      emitted.column_offsets.push_back(text.size());
       while (!text.empty() && text.back() == ' ') text.pop_back();
       if (text.find_first_not_of(' ') == std::string::npos) continue;
       // The `ST` control's payload is the topic title, which the heading
@@ -399,20 +387,11 @@ std::vector<BestEffortLineIR> best_effort_display_lines(
       if (!title.empty() && lines.empty() && text.size() >= title.size() &&
           text.compare(text.size() - title.size(), title.size(), title) == 0)
         continue;
-      lines.push_back(std::move(emitted));
+      lines.push_back(std::move(text));
     }
   }
   // Trailing blank rows carry nothing; leading ones would only pad the block.
-  while (!lines.empty() && lines.back().text.empty()) lines.pop_back();
-  return lines;
-}
-
-std::vector<std::string> best_effort_lines(
-    const std::vector<DecodedLogicalRecordSource>& sources,
-    const std::string& title) {
-  std::vector<std::string> lines;
-  for (auto& line : best_effort_display_lines(sources, title))
-    lines.push_back(std::move(line.text));
+  while (!lines.empty() && lines.back().empty()) lines.pop_back();
   return lines;
 }
 
@@ -450,24 +429,6 @@ std::vector<std::string> best_effort_anchors(
       // the book can reference; the typed families resolve `SRFTN` to
       // nothing, and a verbatim topic must not publish one either.
       if (ascii_lower(id.substr(0, 3)) == "ftn") continue;
-      if (std::find(anchors.begin(), anchors.end(), id) == anchors.end())
-        anchors.push_back(std::move(id));
-    }
-  }
-  return anchors;
-}
-
-std::vector<std::string> best_effort_footnote_anchors(
-    const std::vector<DecodedLogicalRecordSource>& sources) {
-  std::vector<std::string> anchors;
-  for (const auto& record : sources) {
-    for (const auto& segment : record.control_segments) {
-      if (segment.display_text) continue;
-      if (segment.kind != BookControlKind::structural) continue;
-      const auto& opcode = segment.opcode;
-      if (opcode.size() <= 5) continue;
-      if (ascii_lower(opcode.substr(0, 5)) != "srftn") continue;
-      auto id = opcode.substr(2);
       if (std::find(anchors.begin(), anchors.end(), id) == anchors.end())
         anchors.push_back(std::move(id));
     }

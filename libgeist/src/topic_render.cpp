@@ -95,14 +95,10 @@ void TocEntry::render() const {
       cached_markdown_ += "\n";
     if (!cached_markdown_.empty())
       cached_markdown_ += "\n";
-    // The book-wide answer excludes the footnote destinations; the file the
-    // reader opens still has to carry them.
     cached_best_effort_anchors_ = verbatim.anchors;
-    auto emitted = verbatim.anchors;
-    emitted.insert(emitted.end(), verbatim.footnote_anchors.begin(),
-                   verbatim.footnote_anchors.end());
     cached_markdown_ +=
-        detail::render_best_effort_markdown(identity, verbatim.lines, emitted);
+        detail::render_best_effort_markdown(identity, verbatim.lines,
+                                            verbatim.anchors);
   } else if (cached_diagnostic_.severity == RenderSeverity::failed) {
     if (!cached_markdown_.empty() && cached_markdown_.back() != '\n')
       cached_markdown_ += "\n";

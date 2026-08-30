@@ -8,7 +8,6 @@
 #include <fstream>
 #include <iostream>
 #include <map>
-#include <set>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -436,92 +435,6 @@ void rewrite_resource_placeholders(
   }
 }
 
-// A verbatim topic's rows carry the cross references its `cselect` controls
-// name, spelled into the row around the columns the selector marks.  The
-// topic proves what the source says, but only the whole-book export knows
-// whether the destination is a place this book actually defines: a handful of
-// books reference anchors no topic in them names (SC34-425 `appendix1.5.3`
-// points at a topic 2.1.6.3 that is not in the book).  Inside a verbatim
-// block a link that resolves to nothing is worse than no link -- the row
-// reads as text either way -- so the link syntax is removed and the row is
-// left exactly as the source drew it.
-//
-// Only fenced rows are touched.  A prose cross reference that does not
-// resolve keeps its link: that is a lowering question, reported by the
-// dangling-destination census, not something to paper over here.
-void unlink_unresolved_verbatim_references(
-    std::string& markdown, const std::map<std::string, std::string>& links) {
-  std::vector<std::string> own_anchors = emitted_anchor_ids(markdown);
-  std::set<std::string> local;
-  for (const auto& id : own_anchors) {
-    local.insert(lowercase(id));
-  }
-  std::string output;
-  output.reserve(markdown.size());
-  std::string fence;
-  std::size_t cursor = 0;
-  while (cursor <= markdown.size()) {
-    auto end = markdown.find('\n', cursor);
-    const auto last = end == std::string::npos;
-    if (last) {
-      end = markdown.size();
-    }
-    auto line = markdown.substr(cursor, end - cursor);
-    cursor = end + 1;
-
-    std::size_t indent = 0;
-    while (indent < line.size() && indent < 3 && line[indent] == ' ') {
-      ++indent;
-    }
-    std::size_t run = 0;
-    while (indent + run < line.size() &&
-           (line[indent + run] == '`' || line[indent + run] == '~') &&
-           (run == 0 || line[indent + run] == line[indent])) {
-      ++run;
-    }
-    if (run >= 3) {
-      const std::string marker(3, line[indent]);
-      if (fence.empty()) {
-        fence = marker;
-      } else if (fence == marker) {
-        fence.clear();
-      }
-    } else if (!fence.empty()) {
-      // Right to left, so an earlier link's offsets stay valid.
-      std::size_t search = line.size();
-      while (search != 0) {
-        const auto at = line.rfind("](<#", search - 1);
-        if (at == std::string::npos) {
-          break;
-        }
-        search = at;
-        const auto target_begin = at + 4;
-        const auto target_end = line.find('>', target_begin);
-        if (target_end == std::string::npos ||
-            target_end + 1 >= line.size() || line[target_end + 1] != ')') {
-          continue;
-        }
-        const auto target =
-            lowercase(line.substr(target_begin, target_end - target_begin));
-        if (links.count(target) != 0 || local.count(target) != 0) {
-          continue;
-        }
-        const auto label = line.rfind('[', at);
-        if (label == std::string::npos) {
-          continue;
-        }
-        line.erase(at, (target_end + 2) - at);
-        line.erase(label, 1);
-      }
-    }
-    output += line;
-    if (!last) {
-      output.push_back('\n');
-    }
-  }
-  markdown = std::move(output);
-}
-
 void rewrite_topic_links(std::string& markdown,
                          const std::map<std::string, std::string>& links) {
   std::size_t offset = 0;
@@ -714,7 +627,6 @@ std::string render_topic_markdown(
   if (!has_leading_markdown_heading(markdown)) {
     markdown = "# " + entry.title + "\n\n" + markdown;
   }
-  unlink_unresolved_verbatim_references(markdown, markdown_links);
   rewrite_topic_links(markdown, markdown_links);
   rewrite_html_anchor_links(markdown, markdown_links);
   rewrite_resource_links(markdown, resource_links);
