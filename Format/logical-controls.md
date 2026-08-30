@@ -637,10 +637,13 @@ The block control byte determines how the continuation cursor is used:
 | `3` | Read a big-endian 16-bit page number at `continuation`, load that page, and resume scanning at page offset `0`. |
 | `4` or `5` | Descend into the selected entry's continuation subrange first; after one or two counted-down passes, control `3` performs the page jump. |
 
-Controls `3` and `1` are verified in both repository fixtures. Controls `2`,
-`4`, and `5` are structurally implied by the control encoding but were not
-exercised by the sampled version-2 root-to-terminal token paths above; treat
-them as unverified.
+Controls `3`, `1` and the terminal `0` are the only ones any book reaches.
+Measured across all 35 fixtures: the control byte of the root index block named
+by directory word `0x0026` is `0x03` in every book, and the control byte of
+every `0x0100` dictionary page — the first byte of its class word — is `0x01`.
+Controls `2`, `4` and `5` are therefore structurally implied by the control
+encoding but unattested in the corpus, not merely unsampled. An implementation
+may fail closed on them.
 
 Once the requested token key is found, a decoder needs this cursor state to
 apply the delta records that follow:

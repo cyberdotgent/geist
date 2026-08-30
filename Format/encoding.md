@@ -54,8 +54,10 @@ file_offset = physical_page * 4096;
   `0x0000` content page run, addressed through the content-page record index at
   directory `0x0034`; `0x0100` pages hold dictionary base and delta records and
   `0x0001` pages hold the token index, and neither stores a topic logical
-  record. Every one of the corpus's logical records resolves inside the content
-  run in all 35 fixtures. See [pages.md](pages.md#the-four-page-roles).
+  record. The content-page record index covers the whole record space: its
+  terminal value is the book's total logical-record count at directory `0x0036`
+  in every fixture, so no record lives outside the content run. See
+  [pages.md](pages.md#the-four-page-roles).
 
 See [boo-header.md](boo-header.md) for the current header and page-run
 evidence.

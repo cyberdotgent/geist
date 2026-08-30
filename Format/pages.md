@@ -40,7 +40,7 @@ one-off values:
 | First word | Pages | Books | Role |
 | ---: | ---: | ---: | --- |
 | `0x0000` | 2,742 | 34 | Content (topic logical-record) pages. |
-| `0x0001` | 450 | 34 | Trailing logical-record pages. |
+| `0x0001` | 450 | 34 | Token-index pages. |
 | `0x0100` | 307 | 34 | Dictionary/token pages. |
 | everything else | 2,467 | 32 | Not a class word. |
 
@@ -50,7 +50,9 @@ The tail is not a class vocabulary: the values are image bytes. `0x9249`,
 `0x4220`, `0x4222`, ... are the first bytes of legacy image payloads; `0xffff`
 appears in 37 pages of 9 books. These pages lie inside the embedded resource
 region described in [assets.md](assets.md), not inside any directory-declared
-page run.
+page run. The tail also holds the continuation pages of the directory's chained
+indexes, whose first word is a table's entry count — `OFCUSEOV.BOO` page 87's
+`0x010b` is one; see [A Continuation Page Has No Page Header](#a-continuation-page-has-no-page-header).
 
 An independent reader must therefore take page roles from the directory's page
 runs and must never classify a page by its first word alone. Classifying by
@@ -105,7 +107,7 @@ page-class word at all.
 This is what the "isolated `0x010b` page class" in `OFCUSEOV.BOO` was.
 Page 87 of that book begins `01 0b 00 00 e4 18 e4 15 e4 19 e4 15 ...` —
 `0x010b` = 267 is a **count**, `0x0000` is "no further continuation", and the
-534 bytes that follow are 267 four-byte stemming pairs. `OFCUSEOV.BOO`'s
+1,068 bytes that follow are 267 four-byte stemming pairs. `OFCUSEOV.BOO`'s
 directory `0x025c` root reads `018e 0057`: 398 entries here, continuation on
 logical page `0x57` = 87. The two counts sum to 665 pairs.
 
@@ -130,8 +132,8 @@ keys ascend across pages. In `QS3X36CM.BOO` the four pages 27..30 start at
 Within a page, entries use the same compact length prefix as every other BOO
 record and follow one another from page offset `4`. Walking `QS3X36CM.BOO`
 page 27 gives entries of 6, 19, 33, 3, 5, 5, 5, 5, 16, 2, 33, 33 bytes, and
-the walk consumes the page cleanly. The payloads are occurrence sets in at
-least two forms — short delta-style lists such as `01 03 01 02 01 01 01 01 7e
+the walk stays inside the page's declared used length. The payloads are
+occurrence sets in at least two forms — short delta-style lists such as `01 03 01 02 01 01 01 01 7e
 0e 02 01 09 02 0d 13 12 16 01`, and a 33-byte `01 ff` form whose 31 payload
 bytes are a bitmap wide enough for the book's 241 logical records.
 
