@@ -76,11 +76,22 @@ OutputRangeIR decoded_word_range_to_byte_range(
 // decoding always supplies it, because the encoded width and value of a token
 // separate a body-control opcode from a display-line length byte whose
 // dictionary spelling merely looks like one.
+//
+// `display_lines` is the record's display-line framing, already decided by
+// the record decoder (`assign_display_line_framing`, display_lines.hpp).  A
+// control's operands cannot run past the end of the display line the opcode
+// stands on, because the next line's length byte begins there; without the
+// framing the operand parser reads the whole trailing word list, which for a
+// segment that runs to the next control includes the body text of every
+// later display line.  Empty means the record's payload does not tile into
+// display lines, and then there is no framing to appeal to.  Never
+// re-derive it here: read what the decoder carried.
 std::vector<ControlSegmentIR>
 decode_control_segments(std::uint32_t logical_record,
                         const AssembledLogicalRecord& assembled,
                         const std::vector<EncodedLogicalToken>& encoded_tokens =
-                            {});
+                            {},
+                        const std::vector<DisplayLineIR>& display_lines = {});
 bool verify_control_segments(const AssembledLogicalRecord& assembled,
                              const std::vector<ControlSegmentIR>& segments,
                              std::string* error = nullptr);
