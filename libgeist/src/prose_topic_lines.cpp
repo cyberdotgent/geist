@@ -323,6 +323,11 @@ struct LineBuilder {
   // `cfont 7 13 4`, the operand counting from column 0 of the margin.
   // SC24-546 6.2.11 (`cfont 4 6 9` on ` |     is 9, VM supports ...`) and
   // SC26-457 2.1/3.9.1.1/3.14.1.2 repeat it.
+  //
+  // The same measurement also settles a line with no bar at all but with
+  // *two or more* leading space runs, which the row model would otherwise
+  // read as the fill/origin pair that opens the next row; see the guard at
+  // the end of the function for its conditions and title-page evidence.
   bool change_bar_margin_line(std::size_t index, Margin& margin) {
     const auto& view = items[index].token;
     const auto* lines = display_lines_of(view.record);
@@ -332,12 +337,14 @@ struct LineBuilder {
       if (candidate.prefix_token == view.token) line = &candidate;
     if (line == nullptr) return false;
     std::size_t bars = 0;
+    std::size_t runs = 0;
     std::size_t text_token = npos;
     for (auto cursor = next_token(index); cursor != npos && is_token(cursor);
          cursor = next_token(cursor)) {
       const auto& cell = items[cursor].token;
       if (cell.record != view.record || cell.token >= line->token_end) break;
       if (is_space_run(cell)) {
+        ++runs;
         margin.origin_item = cursor;
         margin.last_item = cursor;
         continue;
@@ -354,8 +361,7 @@ struct LineBuilder {
       text_token = cell.token;
       break;
     }
-    if (bars != 1 || margin.last_item == npos || text_token == npos)
-      return false;
+    if (margin.last_item == npos || text_token == npos) return false;
     const auto cells = display_line_cells(records[view.record], *line);
     std::size_t text_column = npos;
     for (std::size_t column = 0; column < cells.size(); ++column)
@@ -364,6 +370,40 @@ struct LineBuilder {
         break;
       }
     if (text_column == npos || text_column == 0) return false;
+    // Without a change bar the line's leading whitespace is a proven margin
+    // only under three conditions together, because the row model already has
+    // a rule for the ordinary shape and that rule must not move.
+    //
+    //  * The line spends **two or more** space runs before its first word.
+    //    One run is the shape `row_control_length_byte` already reads below
+    //    (`<length byte> <space run> <word>`) and reaches the same columns;
+    //    two runs are what the model has no rule for, so they fall through to
+    //    the fill/origin pair and the row loses everything the first run
+    //    spans -- SC24-546 `TITLE`'s `cfont 66 7 2 74 3 2` then lands on a
+    //    14-cell row instead of a 77-column one.
+    //  * A control still waiting for its display text opens a span at that
+    //    very column.  A `CFONT`/`CSELECT` operand addresses the display
+    //    columns of exactly one display row, so a triple starting on the
+    //    line's first word is the operand agreeing with the line.
+    //  * The flattened dialect.  CZ rows carry their margins explicitly, and
+    //    reading them off the line instead re-indents the verbatim rows of a
+    //    `cz OFF XMP` listing (measured on SC09-2417-00 `4.1.9.4`, whose
+    //    COBOL sample is one such region: its whole listing moved 10 columns
+    //    left).
+    //
+    // Byte-level, three books, each a title page stored as one wide row.
+    // SC24-546 record 3 display line 17 is the length byte (token 83), a
+    // 63-cell space run (84), a 3-cell space run (85) and `Release` (86), and
+    // the `cfont 66 7 2 74 3 2` in front of it names column 66 -- exactly
+    // where the line's own cells put `Release`.  N2AH1MST record 2 line 10 is
+    // token 33, a 63-cell run (34), a 7-cell run (35) and `MVS` (36) under
+    // `cfont 70 7 2`.  IBMMMSTR record 2 line 12 is token 57, a 63-cell run
+    // (58), a 2-cell run (59) and `Programming` (60) under `cfont 65 12 2`.
+    // Hosted serves all three rows at those columns (DTs 19940323131240,
+    // 19910329000100, 19911004151140).
+    if (bars != 1 &&
+        (cz_mode || runs < 2 || !pending_span_opens_at(text_column)))
+      return false;
     margin.origin_cells = margin.origin_item == npos
                               ? 0
                               : items[margin.origin_item].token.body.size();
@@ -638,6 +678,21 @@ struct LineBuilder {
   // exactly the `cells` display columns starting at `column`.  An exact
   // match is what proves a glyph is styled display text; a span that merely
   // starts there could still be a span over the row's first word.
+  // True when a control still waiting for its display text opens a span at
+  // exactly `column`.
+  bool pending_span_opens_at(std::size_t column) const {
+    for (const auto control : pending_controls) {
+      const auto& item = items[control];
+      if (item.kind == ItemKind::font) {
+        for (const auto& span : item.spans)
+          if (span.column == column && span.length != 0) return true;
+      } else if (item.column == column && item.length != 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   bool pending_span_covers(std::size_t column, std::size_t cells) const {
     for (const auto control : pending_controls) {
       const auto& item = items[control];
@@ -1154,6 +1209,21 @@ struct LineBuilder {
 
     if (is_space_run(view)) {
       const auto next = next_token(index);
+      // Measured and reverted: guarding this fill/origin pair with "a span of
+      // the open row reaches past the cells written so far"
+      // (Format/markup.md, "A span holds its row open") does hold the row
+      // open where the pair is the interior padding of one display line --
+      // SC33-033 record 872 line 18 is
+      // `     C*  ...(64 cells)...  *  02100000` under
+      // `cfont 5 2 E 74 1 E 77 8 E`, an 85-column comment-box row the model
+      // cuts after `C*`.  Exporting all 34 fixtures with and without that
+      // guard moves exactly six topics (SC33-033 `A.3.2`..`A.3.7`) and every
+      // one of them comes out *worse*: the recovered rows are all `E`-styled,
+      // so the reflow joins the whole FORTRAN listing into a single inline
+      // code span where hosted (DT 19930422134757) serves a `<pre>` of 120
+      // lines and the legacy route keeps one row per paragraph.  It is also a
+      // one-book rule.  Both reasons say leave the pair alone until the
+      // fixed-layout regions render verbatim.
       if (space_at(next)) {
         // Fill/origin pair: every run but the last is fill.
         auto cursor = index;
