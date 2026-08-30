@@ -119,6 +119,15 @@ struct ListItemIR {
   // <D>term<D><level>...`) -- keeps one list block whose items carry their own
   // depth, rather than a tree the source never draws.
   std::uint32_t depth = 0;
+  // The source wrote this item with no text of its own, and the lowering says
+  // so rather than leaving an unexplained empty item behind.  A list item
+  // carries content unless it declares this, so the strict rule stands
+  // everywhere it is not declared, and an item that declares it may carry no
+  // inline at all.  Its one use is the generated index of a book that states
+  // an entry whose term field is empty (`CITERM <D><D><level>`): the entries
+  // below it are its children, so it can be neither dropped -- that would
+  // reparent them -- nor given text the line does not carry.
+  bool empty_content = false;
 };
 
 struct ListBlockIR {

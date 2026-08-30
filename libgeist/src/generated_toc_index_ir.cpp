@@ -426,7 +426,23 @@ private:
       return fail(error, "CITERM carries fewer than a term and a level");
     GeneratedIndexTermIR term;
     term.term = trim_text(cell_text(view.cells, fields[0].begin, fields[0].end));
-    if (term.term.empty()) return fail(error, "CITERM carries no term text");
+    // A term field the line wrote as nothing at all.  The field is present --
+    // its two delimiter words stand adjacent on the display line, with no cell
+    // between them -- so its emptiness is the book's, exactly like the trailing
+    // empty target field of a parent term below.  SH20-918 record 636 line 18
+    // is `citerm <D><D>1` over tokens 274..277, where token 275 is the single
+    // two-byte word pair {U+25BA, U+25BA}: the whole "Special Characters"
+    // group's ampersand parent, whose child `See ampersand` carries the entry.
+    // It is the only such line in the corpus's 29 INDEX topics (27,530
+    // `citerm` lines), and rejecting it dropped that book's entire index.
+    //
+    // Fail closed twice over.  A field that trims to nothing but *has* cells is
+    // a spacing-only term, which is what a misdeclared delimiter would produce,
+    // and still rejects; and a textless term may carry no target of its own,
+    // because a link with no label would be structure the line does not name.
+    const auto term_written_empty = fields[0].begin == fields[0].end;
+    if (term.term.empty() && !term_written_empty)
+      return fail(error, "CITERM term field carries no term text");
     const auto level = trim_text(
         cell_text(view.cells, fields[1].begin, fields[1].end));
     if (!decimal_text(level) || level.size() != 1 || level == "0")
@@ -463,6 +479,8 @@ private:
                   fields[field].end, target.slices);
       term.targets.push_back(std::move(target));
     }
+    if (term.term.empty() && !term.targets.empty())
+      return fail(error, "CITERM with no term text carries a target");
     term.source = whole_line_slice(*view.record, view.line);
     cell_slices(*view.record, view.cells, fields[0].begin, fields[0].end,
                 term.term_slices);
