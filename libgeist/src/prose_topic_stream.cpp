@@ -365,6 +365,19 @@ bool front_matter_heading_form(const std::string& lower_form) {
   return false;
 }
 
+// The decoded spelling of a run of tokens, in token order, with the spacing
+// prefix of each dropped.  Used where a control's extent is bounded by the
+// carried display-line framing rather than by the flattened string, so its
+// text cannot be taken from a byte range of that string.
+std::string token_run_text(const std::vector<DecodedLogicalRecordSource>& records,
+                           std::size_t record_index,
+                           const std::vector<std::size_t>& tokens) {
+  std::string text;
+  for (const auto token : tokens)
+    text += body_text(view_token(records, record_index, token));
+  return text;
+}
+
 // A bare `SR<id>` structural control (not one of the reserved block
 // openers/closers) standing among the topic metadata controls.
 bool envelope_anchor_segment(const ControlSegmentIR& segment) {
@@ -561,6 +574,85 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
     if (!assign_segment_tokens(records, ledger, record_index, segment,
                                ProseTokenRoleIR::envelope, false, error))
       return false;
+  }
+  // A leading `SR<id>` anchor stands between `csourcefn` and the `ST` title,
+  // and the flattened splitter glues the title line into the anchor's
+  // segment.  ACPZMST1 record 72 spells the two apart exactly: display line
+  // 8 is `SRHDRNETCMD` (tokens 26-26) and line 9 is
+  // `ST| NetWare Domain Controller` (length byte 27, tokens 28-33), yet both
+  // arrive as segment 8.  Read on the flattened string the anchor "carries
+  // visible payload 'ST'" and the topic falls back to verbatim; read on the
+  // carried framing the anchor ends where its own display line ends, and the
+  // rest is the title -- the same hand-over `csourcefn` already performs for
+  // the same shape one control earlier.
+  //
+  // Fail-closed in both directions: an unframed record decides nothing and
+  // keeps the old reading, and a tail that does not open with `ST` is left
+  // to the body stream, which declines it as before.
+  while (!at_end() && !envelope.glued_title &&
+         envelope_anchor_segment(current())) {
+    const auto& segment = current();
+    const auto anchor_record = cursor.record;
+    const auto& record = records[anchor_record];
+    if (segment.source_tokens.empty()) break;
+    const auto* line = display_line_of_token(record, segment.source_tokens.front());
+    if (line == nullptr) break;
+    std::vector<std::size_t> own;
+    std::vector<std::size_t> tail;
+    for (const auto token : segment.source_tokens)
+      (token < line->token_end ? own : tail).push_back(token);
+    if (own.empty() || tail.empty()) break;
+    // The tail is a display line of its own; its leading structure (the
+    // length byte, spacing, the marker slot) precedes the `ST` opcode.
+    std::size_t st_at = npos;
+    for (const auto token : tail) {
+      const auto view = view_token(records, anchor_record, token);
+      if (is_row_control_slot(records, view) || is_padding(view) ||
+          is_separator(view) ||
+          (view.width == 1 && punctuation_glyph_token(view)))
+        continue;
+      if (ascii_lower(body_text(view)) == "st") st_at = token;
+      break;
+    }
+    if (st_at == npos) break;
+    auto id = trim_ascii(token_run_text(records, anchor_record, own));
+    if (id.size() < 3 || ascii_lower(id).rfind("sr", 0) != 0) break;
+    id.erase(0, 2);
+    id = trim_ascii(id);
+    if (id.empty() ||
+        !std::all_of(id.begin(), id.end(), [](const unsigned char ch) {
+          return ch >= 0x20 && ch < 0x7F;
+        }))
+      break;
+    for (const auto token : own) {
+      const auto view = view_token(records, anchor_record, token);
+      if (!ledger.assign(anchor_record, token,
+                         is_padding(view) ? ProseTokenRoleIR::padding
+                                          : ProseTokenRoleIR::envelope,
+                         error))
+        return false;
+    }
+    bool after_st = false;
+    for (const auto token : tail) {
+      if (after_st) {
+        envelope.glued_title_tokens.push_back(token);
+        continue;
+      }
+      const auto view = view_token(records, anchor_record, token);
+      if (!ledger.assign(anchor_record, token,
+                         token == st_at ? ProseTokenRoleIR::envelope
+                                        : ProseTokenRoleIR::padding,
+                         error))
+        return false;
+      if (token == st_at) after_st = true;
+    }
+    ProseAnchorIR anchor;
+    anchor.id = std::move(id);
+    anchor.source = token_slice(record, own.front(), own.back() + 1);
+    envelope.leading_anchors.push_back(std::move(anchor));
+    envelope.glued_title = true;
+    envelope.glued_title_record = anchor_record;
+    ++cursor.segment;
   }
   const auto& heading_record = records[heading_cursor.record];
   auto heading_level = ascii_lower(trim_ascii(operand_text(
