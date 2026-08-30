@@ -436,7 +436,7 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
 // resolve display-row framing) and the CZ block builder (which lowers it).
 inline bool cz_verbatim_region_tag(const std::string& tag) {
   return tag == "xmp" || tag == "screen" || tag == "lblbox" ||
-         tag == "syntax";
+         tag == "syntax" || tag == "lines";
 }
 inline bool cz_verbatim_region_closer(const std::string& tag) {
   return tag.size() > 1 && tag.front() == 'e' &&

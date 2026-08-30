@@ -44,7 +44,7 @@ BASELINE = {
     "GC28-183.boo": 145,
     "GG24-395.boo": 223,
     "GG24-4302-00.boo": 228,
-    "GX27-3999-00.boo": 29,
+    "GX27-3999-00.boo": 30,
     "IBMMMSTR.boo": 52,
     "IEAC6MST.BOO": 201,
     "ITPPIBOK.BOO": 255,
@@ -55,7 +55,7 @@ BASELINE = {
     "QSYSINFO.BOO": 413,
     "QSYSNEWG.BOO": 157,
     "SC09-138.boo": 522,
-    "SC09-2417-00.boo": 324,
+    "SC09-2417-00.boo": 340,
     "SC24-546.boo": 298,
     "SC24-5520-00.boo": 645,
     "SC24-5527-02.boo": 300,
@@ -65,14 +65,14 @@ BASELINE = {
     "SC31-711.boo": 78,
     "SC33-033.boo": 221,
     "SC34-425.boo": 244,
-    "SC41-485.boo": 29,
-    "SG24-204.boo": 90,
+    "SC41-485.boo": 34,
+    "SG24-204.boo": 91,
     "SH12-565.boo": 284,
     "SH20-918.boo": 200,
-    "XWEBDEMO.boo": 10,
-    "packet.boo": 120,
+    "XWEBDEMO.boo": 11,
+    "packet.boo": 121,
 }
-BASELINE_TOTAL = 7152
+BASELINE_TOTAL = 7177
 
 SUMMARY = re.compile(r"^# summary\ttyped=(\d+)\tlegacy=(\d+)\ttotal=(\d+)")
 
