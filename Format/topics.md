@@ -244,6 +244,12 @@ The hosted BookServer URL pattern is consistent with this. The known URL
 case-normalized `C` plus the `SHcontents` id. This URL evidence confirms the
 public addressing role of the topic id, not the physical storage address.
 
+How a server spells a topic id in a URL is a server presentation detail and not
+part of the file format: the stored id is the authority, and ids containing
+punctuation (`PREFACE.2.1`, `A.0`, `FRONT_1`) reach the hosted BookServer
+unchanged apart from case. A reader implementing this format must match on the
+stored `SH<id>` value, not on a URL spelling.
+
 ## Independent Reader Algorithm
 
 To enumerate and address documentation pages:
@@ -265,10 +271,11 @@ To enumerate and address documentation pages:
 
 ## Open Questions
 
-- The continuation-chain layout above is fixture-derived: four books, every
-  value cross-checked against decoded `SH<id>` header records. No fixture in
-  this repository needs a third table in the chain, so whether the chain can
-  extend past one continuation is untested here.
-- The exact BookServer URL normalization rules for ids containing punctuation
-  and mixed case. The storage-level id match is verified; URL spelling is a
-  server presentation detail.
+- Whether the chain can extend past one continuation. No fixture needs a third
+  table: the root holds at most 248 values, a continuation table starts at page
+  offset `0` and so can hold at most `(4096 - 4) / 2 = 2046`, and the largest
+  book in the corpus declares 1,677 topics — inside `248 + 2046 = 2294`. A book
+  with more than 2,294 topics must chain twice, and that is the fixture that
+  would settle it. Until one exists, a reader should implement the chain as a
+  loop with a visited-page set rather than as "root plus one continuation":
+  the stored `next_page_be` is what terminates it, and the loop costs nothing.
