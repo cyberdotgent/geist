@@ -339,7 +339,13 @@ int main() {
       require(prose.spans.front().position > 0 &&
                   prose.spans.front().position < prose.blocks.size(),
               "3.2 figure sits between prose blocks");
-      require(contains(markdown, "<a id=\"FIGTRPFLOW\"></a>\n\n![Figure 1\\. Trap Flow"),
+      // The image is named by its picture, as hosted BookServer names it
+      // (`alt="PICTURE 1"`; GG24-395 3.3.8 serves `alt="PICTURE 69"`,
+      // DT 19941215160749).  The caption follows the image as its own line,
+      // which is where hosted serves it too.
+      require(contains(markdown, "<a id=\"FIGTRPFLOW\"></a>\n\n"
+                                 "![PICTURE 1](<resource:1>)\n\n"
+                                 "*Figure 1\\. Trap Flow"),
               "3.2 figure anchor and image: " + markdown);
       require(contains(markdown, "and back again\\.\n\n<a id=\"FIGTRPFLOW\">"),
               "3.2 paragraph before the figure: " + markdown);

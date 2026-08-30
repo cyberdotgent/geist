@@ -6,6 +6,7 @@
 #include <cctype>
 #include <iomanip>
 #include <sstream>
+#include <string_view>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -361,42 +362,20 @@ void append_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
   }
 }
 
-void append_alt_text(RenderSink &sink, const InlineSequenceIR &inlines) {
-  for (std::size_t index = 0; index < inlines.size(); ++index) {
-    const PathScope step(sink, "inline", index);
-    const auto &in = inlines[index];
-    const auto *origin = &in.origin;
-    std::visit(
-        [&](const auto &node) {
-          using T = std::decay_t<decltype(node)>;
-          if constexpr (std::is_same_v<T, TextInlineIR> ||
-                        std::is_same_v<T, EmphasisInlineIR>) {
-            sink.content(escape_markdown_text(node.text), "figure alt text",
-                         origin);
-          } else if constexpr (std::is_same_v<T, CodeInlineIR>) {
-            sink.content(escape_markdown_text(node.code), "figure alt text",
-                         origin);
-          } else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>) {
-            sink.content(escape_markdown_text(node.label.empty()
-                                                  ? node.target.value
-                                                  : node.label),
-                         "figure alt text", origin);
-          } else if constexpr (std::is_same_v<T, ImageInlineIR>) {
-            sink.content(escape_markdown_text(node.alt_text.empty()
-                                                  ? node.resource
-                                                  : node.alt_text),
-                         "figure alt text", origin);
-          } else if constexpr (std::is_same_v<T, HardBreakInlineIR>) {
-            sink.syntax(" ", "figure alt text break", origin);
-          } else if constexpr (std::is_same_v<T, OpaqueInlineIR>) {
-            sink.content(escape_markdown_text(node.content.empty()
-                                                  ? node.kind
-                                                  : node.content),
-                         "figure alt text", origin);
-          }
-        },
-        in.node);
-  }
+
+// Hosted BookServer names a figure's image by the picture it shows, never by
+// the figure caption: GG24-395 3.3.8 serves the book resource as
+// `<img src=".../P69.GIF" alt="PICTURE 69">` (DT 19941215160749) and
+// XWEBDEMO 1.4.1 serves the external one as
+// `<img src="/bookmgr/monetcoq.jpg" alt="/bookmgr/monetcoq.jpg">`
+// (DT 19970423182524).  The caption is served separately, as the line under
+// the image, which is the paragraph this block renders after the image.
+std::string figure_alt_text(const std::string &resource) {
+  static constexpr std::string_view book_resource = "resource:";
+  if (resource.compare(0, book_resource.size(), book_resource) == 0)
+    return escape_markdown_text("PICTURE " +
+                                resource.substr(book_resource.size()));
+  return escape_markdown_text(resource);
 }
 
 void append_fenced_block(RenderSink &sink,
@@ -559,10 +538,9 @@ void append_block(RenderSink &sink, const BlockIR &block,
           }
         } else if constexpr (std::is_same_v<T, FigureBlockIR>) {
           sink.syntax("![", "image syntax", block_origin);
-          {
-            const PathScope field(sink, "alt", 0);
-            append_alt_text(sink, node.caption);
-          }
+          // Hosted names the image by the picture it shows, not by the
+          // caption; the string is renderer-generated, so it is not content.
+          sink.generated(figure_alt_text(node.resource), "figure alt text");
           sink.syntax("](", "image syntax", block_origin);
           sink.syntax(markdown_destination(node.resource),
                       "image destination", block_origin);

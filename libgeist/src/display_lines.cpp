@@ -228,12 +228,12 @@ void demote_display_line_owned_controls(DecodedLogicalRecordSource& record) {
       if (visible_display_token(record.ir.tokens[token])) visible_before = true;
     if (!visible_before) continue;
     // The boundary itself stays where the flattened string put it.  Giving
-    // the demoted segment the characters the split consumed (the `,` it fired
-    // on, which hosted prints -- SH12-565 3.1.6 `F QH,F XY,SRV=(3,2,2)`) was
-    // measured and reverted: reclaiming the gap back to the previous
-    // segment's end costs 60 topics, because that gap also carries padding
-    // the previous segment's own model relies on.  The dropped separator is a
-    // recorded residual instead.
+    // the demoted segment the whole gap back to the previous segment's end
+    // was measured and reverted: it costs 60 topics, because that gap also
+    // carries padding the previous segment's own model relies on.  The one
+    // character the split really consumed -- the separator it fired on -- is
+    // reclaimed exactly and only where it is display text, by
+    // `reclaim_split_separators` in control_ir.cpp.
     segment.kind = BookControlKind::text;
     segment.display_text = true;
     segment.opcode.clear();

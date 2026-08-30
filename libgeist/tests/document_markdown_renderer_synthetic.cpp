@@ -144,6 +144,13 @@ int main() {
   figure.resource = "figures/a b(1).png";
   figure.caption = text("Figure * one");
   document.blocks.push_back(block(std::move(figure)));
+
+  // A book resource is named by its picture, exactly as hosted BookServer
+  // names it (`alt="PICTURE 69"`, GG24-395 3.3.8 DT 19941215160749).
+  FigureBlockIR book_figure;
+  book_figure.resource = "resource:69";
+  book_figure.caption = text("Figure * two");
+  document.blocks.push_back(block(std::move(book_figure)));
   document.blocks.push_back(
       block(FootnoteBlockIR{"note ] one", text("Footnote body")}));
 
@@ -313,10 +320,17 @@ int main() {
                 "- **Book \\[A\\]**\n\n  First paragraph\\.\n\n"
                 "  Second paragraph\\.",
                 "publication structure failed") ||
+      // The image's alt text names the picture, never the caption: hosted
+      // BookServer serves `alt="/bookmgr/monetcoq.jpg"` for an external image
+      // (XWEBDEMO 1.4.1) and `alt="PICTURE 69"` for a book resource
+      // (GG24-395 3.3.8), with the caption served separately below it.
       !contains(output,
-                "![Figure \\* one](<figures/a%20b(1).png>)\n\n"
+                "![figures/a b\\(1\\)\\.png](<figures/a%20b(1).png>)\n\n"
                 "*Figure \\* one*",
                 "figure resource, alt text, or caption failed") ||
+      !contains(output,
+                "![PICTURE 69](<resource:69>)\n\n*Figure \\* two*",
+                "book-resource figure alt text failed") ||
       !contains(output, "[^note%20%5D%20one]: Footnote body",
                 "footnote label normalization failed") ||
       !contains(output,

@@ -228,6 +228,52 @@ bool control_separator_words(const TokenWords &words) {
   return at + 1 == words.size() && words[at] == ',';
 }
 
+// The token's own words: the assembled output carries the decoder's inserted
+// spacing, so a token's assembled words can start or end with a space run.
+OutputRangeIR token_body_word_range(const AssembledLogicalRecord &assembled,
+                                    const LogicalTokenSpan &token) {
+  auto begin = token.output_begin;
+  auto end = token.output_end;
+  while (begin < end && assembled.words[begin] == ' ')
+    ++begin;
+  while (end > begin && assembled.words[end - 1] == ' ')
+    --end;
+  return {begin, end};
+}
+
+TokenWords token_body_words(const AssembledLogicalRecord &assembled,
+                            const LogicalTokenSpan &token) {
+  const auto range = token_body_word_range(assembled, token);
+  return TokenWords(
+      assembled.words.begin() + static_cast<std::ptrdiff_t>(range.begin),
+      assembled.words.begin() + static_cast<std::ptrdiff_t>(range.end));
+}
+
+// A control separator token carries no space of its own, so the flattened
+// projection glues its comma to the opcode word in front of it: SC24-5527-02
+// record 145 token 128 spells `SRTBLTBLUNIQ37` and token 129 is the separator
+// (encoded value 2, words {0x0001, ','}), which the string reads as one word
+// `SRTBLTBLUNIQ37,`.  Hosted BookServer serves that table as
+// `<a name="TBLTBLUNIQ37">` (DT 19921218151459), with no comma anywhere.  The
+// separator keeps its place in the opcode *range* -- it stays structural in
+// the ownership ledger exactly as before -- only the opcode spelling drops it.
+std::size_t opcode_end_without_separator(const AssembledLogicalRecord &assembled,
+                                         const std::string &text,
+                                         const WordSpan &word) {
+  if (word.end == 0 || word.end > text.size() || text[word.end - 1] != ',')
+    return word.end;
+  for (const auto &token : assembled.tokens) {
+    const auto bytes = decoded_word_range_to_byte_range(
+        assembled, token_body_word_range(assembled, token));
+    if (bytes.end != word.end || bytes.begin <= word.begin)
+      continue;
+    if (!control_separator_words(token_body_words(assembled, token)))
+      continue;
+    return bytes.begin;
+  }
+  return word.end;
+}
+
 // Splits every decoded span that carries a body-control opcode token which the
 // string-level splitter left glued to the run before it.  Nothing else about
 // the span changes, so a record without such a token keeps its exact spans.
@@ -245,15 +291,7 @@ split_glued_body_controls(const AssembledLogicalRecord &assembled,
   // assembled words can start or end with a space run; the token's own word is
   // what is between them.
   const auto words_of = [&](const LogicalTokenSpan &token) {
-    auto begin = token.output_begin;
-    auto end = token.output_end;
-    while (begin < end && assembled.words[begin] == ' ')
-      ++begin;
-    while (end > begin && assembled.words[end - 1] == ' ')
-      --end;
-    return TokenWords(
-        assembled.words.begin() + static_cast<std::ptrdiff_t>(begin),
-        assembled.words.begin() + static_cast<std::ptrdiff_t>(end));
+    return token_body_words(assembled, token);
   };
   for (std::size_t index = 0; index < assembled.tokens.size(); ++index) {
     const auto &token = assembled.tokens[index];
@@ -393,6 +431,52 @@ decoded_word_range_to_byte_range(const AssembledLogicalRecord &assembled,
   return result;
 }
 
+// The string splitter opens a segment after the `,` it fires on and leaves the
+// comma in neither segment.  In front of a control that is right: the comma is
+// the record encoder's control separator, which hosted BookServer does not
+// print.  Where the word that fired the split is no control at all, the comma
+// is display text hosted does print -- SH12-565 record 205 spells the console
+// command `F QH,F XY,SRV=(3,2,2)`, whose display line carries the comma and
+// which hosted serves as `<kbd>XY,SRV=(3,2,2)</kbd>` (DT 19941206115523);
+// `SRV=(3,2,2)` only matched the splitter's `sr` prefix.  Such a segment takes
+// its comma back, and only it: one separator token, only into a segment that
+// carries no control, and only out of the gap the split left between two
+// segments, so no padding a neighbouring model relies on ever moves.
+// Reclaiming the whole gap instead was measured on an earlier slice and costs
+// 60 topics.
+void reclaim_split_separators(const std::string &text,
+                              const AssembledLogicalRecord &assembled,
+                              std::vector<ControlSegmentIR> &segments) {
+  for (std::size_t index = 1; index < segments.size(); ++index) {
+    auto &segment = segments[index];
+    if (segment.kind != BookControlKind::text ||
+        segment.payload_range.begin != segment.complete.begin)
+      continue;
+    const auto gap_begin = segments[index - 1].complete.end;
+    if (segment.complete.begin != gap_begin + 1 || gap_begin >= text.size() ||
+        text[gap_begin] != ',')
+      continue;
+    const auto separator = std::any_of(
+        assembled.tokens.begin(), assembled.tokens.end(),
+        [&](const LogicalTokenSpan &token) {
+          const auto words = token_body_word_range(assembled, token);
+          const auto bytes = decoded_word_range_to_byte_range(assembled, words);
+          return bytes.begin == gap_begin && bytes.end == gap_begin + 1 &&
+                 control_separator_words(token_body_words(assembled, token));
+        });
+    if (!separator)
+      continue;
+    segment.complete.begin = gap_begin;
+    segment.opcode_range = {gap_begin, gap_begin};
+    segment.operand_range = segment.opcode_range;
+    segment.payload_range.begin = gap_begin;
+    const auto word_range =
+        decoded_byte_range_to_word_range(assembled, segment.complete);
+    segment.source_tokens = source_tokens_intersecting_output(
+        assembled, word_range.begin, word_range.end);
+  }
+}
+
 std::vector<ControlSegmentIR>
 decode_control_segments(std::uint32_t logical_record,
                         const AssembledLogicalRecord &assembled,
@@ -434,8 +518,9 @@ decode_control_segments(std::uint32_t logical_record,
       segment.operand_range = {begin, begin};
       segment.payload_range = {begin, source.output_end};
     } else {
-      segment.opcode =
-          text.substr(words[0].begin, words[0].end - words[0].begin);
+      const auto opcode_end =
+          opcode_end_without_separator(assembled, text, words[0]);
+      segment.opcode = text.substr(words[0].begin, opcode_end - words[0].begin);
       segment.kind = classify(segment.opcode);
       segment.opcode_range = {words[0].begin, words[0].end};
       if (segment.kind == BookControlKind::text) {
@@ -497,6 +582,7 @@ decode_control_segments(std::uint32_t logical_record,
         assembled, word_range.begin, word_range.end);
     result.push_back(std::move(segment));
   }
+  reclaim_split_separators(text, assembled, result);
   promote_corroborated_topic_start(text, result);
   return result;
 }
