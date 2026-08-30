@@ -100,17 +100,10 @@ struct LineBuilder {
     return ledger.assign(view.record, view.token, role, error);
   }
 
-  // Display lines of a record, parsed once (Format/logical-controls.md,
-  // "Display Lines Inside A Record Payload").
-  mutable std::map<std::size_t, std::optional<std::vector<DisplayLineIR>>>
-      line_cache;
+  // The record decoder's stored display-line framing
+  // (Format/logical-controls.md, "Display Lines Inside A Record Payload").
   const std::vector<DisplayLineIR>* display_lines_of(std::size_t record) const {
-    auto found = line_cache.find(record);
-    if (found == line_cache.end())
-      found = line_cache
-                  .emplace(record, record_display_lines(records[record]))
-                  .first;
-    return found->second ? &*found->second : nullptr;
+    return record_display_lines(records[record]);
   }
   // Exclusive token end of the display line whose first token is `token`, or
   // npos when the record's lines do not parse or `token` opens no line.
@@ -129,11 +122,7 @@ struct LineBuilder {
   // word a token reader resolves it to is incidental, so a box-drawing or
   // geometric-shape spelling is not a drawn glyph.
   bool opens_display_line(const TokenView& view) const {
-    const auto* lines = display_lines_of(view.record);
-    if (lines == nullptr) return false;
-    for (const auto& line : *lines)
-      if (line.prefix_token == view.token) return true;
-    return false;
+    return is_display_line_length_token(records[view.record], view.token);
   }
 
   // A bare token is a paragraph break only when it is the length byte of a
@@ -454,11 +443,7 @@ struct LineBuilder {
   // "Display Lines Inside A Record Payload").  That byte is a real row
   // boundary whatever the reflow heuristics say.
   bool display_line_prefix_at(std::size_t record, std::size_t token) {
-    const auto* lines = display_lines_of(record);
-    if (lines == nullptr) return false;
-    for (const auto& line : *lines)
-      if (line.prefix_token == token) return true;
-    return false;
+    return is_display_line_length_token(records[record], token);
   }
   // True when the record's display lines parse and `token` opens none of
   // them, so the token is inside a display line whatever the reflow
