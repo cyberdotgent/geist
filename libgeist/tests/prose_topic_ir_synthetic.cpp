@@ -323,7 +323,7 @@ void positive_fixtures() {
                 "packet " + info.id + " ledger has an unassigned token");
       ++admitted;
     }
-    require(admitted == 116,
+    require(admitted == 117,
             "packet prose family topic count changed: " +
                 std::to_string(admitted));
   }
@@ -580,9 +580,30 @@ void cz_fixtures() {
             "2.4.1 lost the text on cz OFF EXMP");
   }
 
-  // Fail-closed CZ classes: one topic per unmodelled shape.
-  reject("packet.boo", "4.5.1",
-         "cz flow h5 without text is not the last directive");
+  // A trailing `cz FLOW H5` announces the next topic's level, and the
+  // footnote that follows it carries a verbatim block of its own: packet
+  // 4.5.1 record 225 ends `cz FLOW H5 3 3` / `SRFTNFTNUNIQ50` /
+  // `cz FLOW FN 3 7` and then `cz OFF XMP` .. `SREFTN` .. `cz OFF EXMP 6 6`.
+  // Hosted (DT 20260614112503) serves six `<pre width="80">` blocks, the
+  // last of them under `<a name="FTNFTNUNIQ50">`.
+  {
+    Extracted kept;
+    const auto markdown = admit("packet.boo", "4.5.1", &kept);
+    require(contains(markdown,
+                     "```\n         match in on $ext_if proto { 4, 94 } "
+                     "rdr-to $lan_ip\n```"),
+            "4.5.1 lost the footnote's own example block");
+    require(contains(markdown, "<a id=\"FTNFTNUNIQ50\"></a>"),
+            "4.5.1 lost its footnote anchor");
+    if (kept.prose)
+      require(count_blocks(*kept.prose, ProseBlockKindIR::preformatted) == 6,
+              "4.5.1 example block count");
+  }
+
+  // Fail-closed CZ classes: one topic per unmodelled shape.  `COVER` and
+  // `TITLE` are the generated front-matter regions, which hosted does not
+  // serve verbatim (Format/markup.md, "Cover And Title Page Rendering").
+  reject("packet.boo", "COVER", "cz off cover carries display text");
 }
 
 } // namespace
