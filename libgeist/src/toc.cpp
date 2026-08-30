@@ -152,35 +152,6 @@ bool is_topic_header_record(const std::string& decoded_record) {
              decoded_record.size() - cursor;
 }
 
-// M9 keep: fixed-body visual `|` rails.  Effect census at typed coverage
-// 6,986/7,362 (disable, re-export the whole corpus, `diff -r`): 9 dependent
-// topics - GG24-4302-00 FRONT_1, ITPPIBOK A.2.1, QSYSNEWG 6.3.1/7.7.2.1,
-// SC24-546 2.1.3, SC24-5527-02 COMMENTS, SC33-033 A.2/A.3, SC34-425 2.5.6.
-// Replaced by `LayoutIR` rows.
-// M9 keep: legacy-route catalog introductions.  Effect census at typed
-// coverage 6,986/7,362: 3 dependent topics - GX27-3999-00 B.0, SC09-138 F.1,
-// SC31-711 4.3.5. The SC31-711 2.4.9/4.1.x/4.3.1-4.3.4 topics named in the
-// earlier census are typed now. Replaced by `MessageTopicIR` introduction
-// paragraphs (typed trap-catalog lowering).
-// M9 keep: legacy-only SRMSG catalog introductions and `ST` form prefixes.
-// Effect census at typed coverage 6,986/7,362: exactly 1 dependent topic,
-// SC31-711 4.3.5 (`(`/`)` glyph slots); 4.1.1/4.3.1/4.3.2/4.3.4 are typed
-// now, so the function still runs on them but its output is discarded.
-// Retires with a typed trap-catalog lowering
-// (`MessageTopicIR` introduction). The glyph slot
-// characters before the four-space padding are the legacy fixed-row marker
-// glyph set (`is_fixed_st_row_marker` plus `"`).
-// M9 keep: glyph/`?`/wide-gap row-marker inference on flattened `ST` bodies
-// (`is_fixed_st_row_marker`, `fixed_st_row_marker_at`,
-// `has_reflow_off_line_markers`, `split_reflow_off_body_lines`,
-// `preserve_reflow_off_st_body_lines`, `strip_leading_visual_bar`). Corpus
-// effect census at typed coverage 6,986/7,362 (disable, re-export the whole
-// corpus, `diff -r`): 14 dependent topics - FA1PLMM0 9.3/9.3.1, GG24-4302-00
-// FRONT_1, IBMMMSTR TITLE, ITPPIBOK A.2.1, N2AH1MST 1.2.5, QSYSNEWG
-// 6.3.1/7.7.2.1, SC24-546 2.1.3, SC24-5527-02 COMMENTS, SC31-711 BACK_1.12,
-// SC33-033 A.2/A.3, SC34-425 2.5.6. Replaced by `LayoutIR` marker slots /
-// `fixed_prose_ir.cpp` once the typed fixed-prose lowering admits those
-// bodies.
 constexpr char kSyntheticRecordBoundary = '\x1E';
 
 void attach_topic_data(
