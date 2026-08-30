@@ -335,23 +335,6 @@ std::string clean_fixed_st_row_markers(std::string value) {
   return value;
 }
 
-static bool contains_srmsg_control(const std::string& value) {
-  const auto lower = ascii_lower(value);
-  auto search = std::size_t{0};
-  while (search < lower.size()) {
-    const auto found = lower.find("srmsg ", search);
-    if (found == std::string::npos) {
-      return false;
-    }
-    if (found == 0 ||
-        std::isalnum(static_cast<unsigned char>(lower[found - 1])) == 0) {
-      return true;
-    }
-    search = found + 1;
-  }
-  return false;
-}
-
 bool raw_record_duplicates_st_body(const std::string& record,
                                    const std::string& body_text) {
   const auto normalize_for_duplicate_check = [](std::string value) {
