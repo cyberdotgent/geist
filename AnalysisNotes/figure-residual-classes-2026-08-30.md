@@ -8,8 +8,9 @@ a figure region", "A bare `SRSPT<id>`" and "A figure region may carry
 several picture selectors"); this note records the measurements.
 
 Typed-route coverage over the 34 BOO fixtures, `bootrace <book> --coverage`
-before (a build of `main` `e50c60f`) and after: **7,032 -> 7,066 of 7,362
-(95.5% -> 96.0%)**.  34 topics moved to the typed route, **none moved off
+before (a separate build of `main`, measured both at `e50c60f`, where this
+branch started, and at `57b5909` after two other slices landed -- both give
+7,032) and after: **7,032 -> 7,066 of 7,362 (95.5% -> 96.0%)**.  34 topics moved to the typed route, **none moved off
 it**, and every book's count grew or stayed equal.
 
 | book | before | after |
@@ -162,7 +163,10 @@ per picture.  An external image alongside another picture is still declined.
 ## Verification
 
 * Whole-corpus `boo2git --force` over all 34 books, baseline built from
-  `main` `e50c60f`: **54 changed files**.  34 are the moved topics; the
+  `main` in a separate build directory: **54 changed files**.  Measured
+  twice, against `e50c60f` and again against `57b5909` after merging the
+  display-line-framing and verbatim-left-margin slices; the change set is
+  file for file identical.  34 are the moved topics; the
   other 20 are already-typed topics this slice corrects --
   * 17 cross references and three `figures.md` entries whose anchor id was
     truncated (`2-1.md#BDE` -> `2-1.md#FIGBDE`, `8-5-4-5.md#FREEC2` ->
@@ -178,8 +182,12 @@ per picture.  An external image alongside another picture is still declined.
   **better 29, equal 5, worse 0**.  Every "equal" page is a superset of
   hosted with nothing missing; the residue is Markdown link machinery
   (`.md` targets, `resource:1.png`, `<a id=...>`).
-* `ctest -LE slow`: 50/50.  `ctest -L slow`: 15/15.  Ratchet raised to
-  7,066.
+* `ctest -LE slow`: 50/50.  `ctest -L slow`: 15/15 (65/65 after merging
+  `main` `57b5909`).  Ratchet raised to 7,066.
+* `main` `57b5909` moved `record_display_lines` from returning an
+  `optional<vector<DisplayLineIR>>` to a pointer into stored decoder state.
+  This slice's two calls read the same way through either signature, so the
+  merge needed no change in `figure_block_ir.cpp`.
 
 ## Left open
 
