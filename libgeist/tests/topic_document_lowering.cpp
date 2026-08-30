@@ -174,9 +174,14 @@ int main() {
       // prose heading
       {"FRONT_1.1", "Trademarks", "block[0]/inline[1]", "text", 10, 43576,
        43578, "Trademarks"},
-      // fixed table cell inside a prose topic
-      {"FRONT_1.1", "NetView", "block[5]/row[0]/cell[1]/inline[0]",
-       "text", 10, 43676, 43677, "NetView"},
+      // fixed-layout region inside a prose topic.  The region renders as the
+      // drawn box verbatim -- hosted BookServer serves it inside `<pre>` and
+      // emits no `<table>` element -- so the producing node is the region's
+      // second display line, not a table cell.
+      {"FRONT_1.1", "NetView", "block[5]/line[1]",
+       "preformatted line", 10, 43669, 43680,
+       "       ?IBM                               ?NetView                    "
+       "      ?"},
       // generated navigation heading
       {"CONTENTS", "Table of Contents", "block[0]/inline[1]", "text", 6,
        42060, 42068, " ST TableofContents"},
