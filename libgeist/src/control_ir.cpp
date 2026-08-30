@@ -91,6 +91,32 @@ bool decimal_word(const std::string &text, const WordSpan &word,
   return true;
 }
 
+// The style code of a CFONT operand triple is one character of the book's own
+// `CFONTDEF` table, optionally followed by the `,` operand separator on the
+// control's last triple.  The table is byte-identical in all 34 fixtures
+// (`bootrace --fonts` over every book): `0`..`9`, `A`..`M`, `O`..`R`,
+// `T`..`Z` and `_`; there is no `N` and no `S`.  Requiring it stops the
+// triple walk at the first word of the row's display text, which is what a
+// numeric row of an example otherwise breaks: SC33-033 record 493 segment 12
+// is `cfont 17 3 E 26 3 E 35 3 E 44 3 E` over the display row
+// `                      190      195      200      205`, and reading
+// `190 195 200` as a fifth triple both invents a span and hides `190`, `195`
+// and `200` from the row.  FA1PLMM0 record 655 segment 4 is the same shape
+// over `                    3350    30      (results in 1410 entries)`.
+bool font_code_word(const std::string &text, const WordSpan &word) {
+  auto end = word.end;
+  if (end > word.begin && end - word.begin == 2 && text[end - 1] == ',')
+    --end;
+  if (end - word.begin != 1)
+    return false;
+  const auto code = ascii_lower_char(text[word.begin]);
+  if (code == '_')
+    return true;
+  if (code >= '0' && code <= '9')
+    return true;
+  return code >= 'a' && code <= 'z' && code != 'n' && code != 's';
+}
+
 BookControlKind classify(std::string opcode) {
   opcode = ascii_lower(std::move(opcode));
   // Topic-start controls encode the topic number in the opcode itself (for
@@ -449,7 +475,8 @@ decode_control_segments(std::uint32_t logical_record,
           operand_words = 0;
           for (std::size_t word = 1; word + 2 < words.size(); word += 3) {
             if (!decimal_word(text, words[word]) ||
-                !decimal_word(text, words[word + 1])) {
+                !decimal_word(text, words[word + 1]) ||
+                !font_code_word(text, words[word + 2])) {
               break;
             }
             operand_words += 3;

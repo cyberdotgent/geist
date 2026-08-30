@@ -36,6 +36,38 @@ struct DecodedLogicalRecordSource;
 // 3.4.1.2 `<dfn>LIST</dfn>`).  Every other code is retained as an opaque
 // style so consumers can conserve the span without claiming a presentation.
 //
+// `W` (WARNING) and `G` (WARNINGTEXT) are the two halves of one GML warning
+// block: `W` styles its `Warning:` lead and `G` every word of its body, and
+// hosted BookServer renders both as <em>.  Four books, each read off the
+// hosted page: GC23-046 `6.9.3` serves
+// `<em>Warning:</em>  <em>Do</em> <em>not</em> <em>use</em> <em>the</em>
+// <em>ISPF</em> <em>LIBDEF</em> ...`; SC26-457 `1.6.5`
+// `<em>Warning:</em>  <em>If</em> <em>the</em> <em>generic</em> ...`;
+// SC31-711 `3.3` `<em>Warning:</em>  <em>Do</em> <em>not</em>
+// <em>modify</em> ... <em>impaired.</em>`; SH12-565 `FRONT_1.1`
+// `<em>Warning:</em> <em>Do</em> <em>not</em> <em>use</em> ...`.  Every one
+// of those blocks is anchored `<a name="WRN">`.  Corpus-wide the two codes
+// occur only in those four books (7 `W` spans, 363 `G` spans, measured with
+// a `bootrace --fonts` sweep of all 7,362 topics).
+//
+// `Z` (PVDEF) and `_` (UNDERSCORE) stay fail-closed for want of a second
+// witness.  The same corpus sweep finds `Z` in one topic of one book
+// (SC26-457 `1.3` `cfont 3 7 P 11 10 Z 22 4 P 27 1 P 29 10 Z 39 1 P`, whose
+// hosted row is `<kbd>COMMAND</kbd> <dfn>parameters</dfn> <kbd>....</kbd>
+// <kbd>[</kbd> <dfn>terminator</dfn><kbd>]</kbd>`, so PVDEF presents exactly
+// like PKDEF there) and `_` in one topic of one book (SC24-5527-02
+// `COMMENTS`, which the hosted catalog does not serve at all).  One book is
+// not evidence that the presentation generalises, and the corpus records
+// repeatedly that identical geometry means different things in different
+// books, so both remain unknown.
+//
+// A style code is one character of the book's own `CFONTDEF` table.  That
+// table is byte-identical in all 34 fixtures (swept with `bootrace --fonts`):
+// `0`..`9` H0/HP1..HP9, `A` APL, `B` CAUTION, `C` CIT, `D` DANGER, `E` XMP,
+// `F` CAUTIONTEXT, `G` WARNINGTEXT, `H`..`M` H1..H6, `O` DANGERTEXT, `P` PK,
+// `Q` PKDEF, `R` RK, `T` TP, `U` MD, `V` PV, `W` WARNING, `X` XPH, `Y`
+// MDQUAL, `Z` PVDEF, `_` UNDERSCORE.  There is no `N` and no `S`.
+//
 // The final operand triple of a control can carry a trailing `,` separator
 // glued to its style code as a prefix-1 token (`cfont 4 4 R,`).  The comma is
 // not part of the code and not display text: hosted BookServer renders
@@ -59,6 +91,8 @@ enum class FontStyleIR {
   variable,        // V: italic programming variable (<var>)
   bold_phrase,     // R, H, I, J, K, M: bold keyword / inline heading
   italic_phrase,   // L: italic inline heading
+  warning,         // W: the `Warning:` lead of a warning block (<em>)
+  warning_text,    // G: the body of a warning block (<em>)
 };
 
 // One `<column> <length> <code>` operand triple of a CFONT control. Columns
