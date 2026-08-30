@@ -5638,28 +5638,29 @@ render_verified_publication_catalog_gml(
   return rendered;
 }
 
-// M9 section D: this legacy-GML projector is still live, and it is the
-// legacy menu route for every menu topic the typed route declines (121
-// Markdown files across 33 books on 2026-08-27, not only the 22 marker-suffix
-// topics): it supplies the `:li refid='<id>'.<id> <text>` form that
-// render_markdown_records() turns into BookServer's `Subtopics:` heading and
-// `<id> <label>` links, and it strips compact display markers (`<`, `[`,
-// `++`, `can`) from item labels. validate_source_menu_targets() now types
-// those markers from the raw item's source-proven compact terminal token, so
-// the marker suffix no longer blocks admission by itself. What still keeps
-// these topics on this path: (1) the 22 marker topics (IBMMMSTR 1.10;
-// SC09-2417-00 2.1, 2.1.3, 2.2.4, 2.3.6, 2.3.12, 3.1, 3.1.1, 3.1.4, 3.2.2,
-// 3.3, 3.3.1, 3.5.5, 4.3.6, 4.4.1, 4.4.2, 4.5; SC26-457 3.7.3; SC31-711 2.4,
-// 4.1, BACK_1, BACK_1.12) are not menu-only envelopes -- they carry prose,
-// index entries, font runs, fixed-form tables, or padded metadata payloads
-// that extract_menu_topic_ir() rejects; (2) their targets' topic-header
-// titles are whole ST payloads (title plus introduction, e.g. SC31-711 4.1.1
-// `Generic Traps-    the Section Lists ...`), so header-preferred validation
-// declines them even after marker stripping; (3) the typed menu lowering
-// emits neither `Subtopics:` nor the `<id> ` label prefix that BookServer
-// shows (hosted SC31-711 2.1, DT 19941010174546), so widening admission
-// would regress those topics. Retire this projector only once the typed
-// route reproduces that shape for mixed-content menu topics.
+// M9 keep: this legacy-GML projector rewrites the label of an already
+// rendered `:li refid='<id>'.` item with the typed menu item's text, which
+// strips the compact display markers (`<`, `[`, `++`, `can`) the flattened
+// route leaves on the label. It never creates records: it fails closed unless
+// the legacy render already carries exactly one `:li refid=` line per typed
+// menu item, in the same order and with the same targets.
+//
+// Measured over a whole-corpus `boo2git --force` (2026-08-30, coverage
+// 6,986 / 7,362): admitted on 1,552 topics, of which 1,529 are byte-for-byte
+// no-ops (the legacy label already equals the typed one) and 23 change the
+// records. Of those 23, 19 render through the typed route, so their patched
+// legacy records are discarded. Exactly four topics still depend on it for
+// corpus output:
+//   SC09-2417-00 3.3   (prose: content follows the trailing menu)
+//   SC09-2417-00 3.5.5 (prose: cz flow dl carries display text)
+//   SC09-2417-00 4.3.6 (prose: content follows the trailing menu)
+//   SC31-711 BACK_1.12 (prose: content follows the trailing menu)
+// The family that replaces it is the prose family's trailing-menu handling
+// (the `content follows the trailing menu` decline, 7 topics corpus-wide) plus
+// `cz FLOW DL` display text; retire this projector once those four topics are
+// typed. The typed menu lowering also emits neither `Subtopics:` nor the
+// `<id> ` label prefix BookServer shows (hosted SC31-711 2.1,
+// DT 19941010174546), so widening menu admission alone would not cover them.
 bool project_verified_menu_gml(
     std::vector<std::string>& rendered,
     const std::vector<DecodedLogicalRecordSource>& sources,

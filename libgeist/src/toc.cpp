@@ -1,7 +1,5 @@
 #include "geist/detail/internal.hpp"
-#include "geist/detail/form_item_rows.hpp"
 #include "geist/detail/message_prose_rows.hpp"
-#include "geist/detail/structural_marker_rows.hpp"
 #include "geist/detail/topic_header_title.hpp"
 
 #include <algorithm>
@@ -308,15 +306,11 @@ std::string normalize_message_catalog_intro(std::string value) {
 
 // M9 keep: legacy-only SRMSG catalog introductions and `ST` form prefixes.
 // Fires (corpus census, whole-corpus `boo2git`): SC31-711 4.1.1, 4.3.1, 4.3.2
-// (`<` glyph slot), 4.3.4, 4.3.5 (`(`/`)` glyph slots), 4.1.2 (structural
-// word slot `can`, LR101 marker bytes 0x10950). Retires with a typed
+// (`<` glyph slot), 4.3.4, 4.3.5 (`(`/`)` glyph slots). Retires with a typed
 // trap-catalog lowering (`MessageTopicIR` introduction). The glyph slot
 // characters before the four-space padding are the legacy fixed-row marker
-// glyph set (`is_fixed_st_row_marker` plus `"`); the alphabetic slot words are proven
-// by `StructuralMarkerRowEvidence` rather than by a spelling list.
-std::string clean_fixed_st_row_markers(
-    std::string value,
-    const StructuralMarkerRowEvidence& marker_rows) {
+// glyph set (`is_fixed_st_row_marker` plus `"`).
+std::string clean_fixed_st_row_markers(std::string value) {
   for (auto gap = std::size_t{0}; gap < value.size();) {
     gap = value.find("    ", gap);
     if (gap == std::string::npos) {
@@ -330,19 +324,6 @@ std::string clean_fixed_st_row_markers(
          value[gap - 1] == '"')) {
       value.erase(gap - 1, 1);
       --gap;
-    } else {
-      auto token_begin = gap;
-      while (token_begin > 0 &&
-             std::isalpha(static_cast<unsigned char>(value[token_begin - 1])) !=
-                 0) {
-        --token_begin;
-      }
-      if (token_begin < gap &&
-          marker_rows.marker_word_length_at(value, token_begin) ==
-              gap - token_begin) {
-        value.erase(token_begin, gap - token_begin);
-        gap = token_begin;
-      }
     }
     gap += 4;
   }
@@ -469,9 +450,7 @@ bool has_reflow_off_line_markers(const std::string& value) {
 
 constexpr char kSyntheticRecordBoundary = '\x1E';
 
-std::vector<std::string> split_reflow_off_body_lines(
-    std::string value,
-    const StructuralMarkerRowEvidence& marker_rows) {
+std::vector<std::string> split_reflow_off_body_lines(std::string value) {
   value = trim_ascii(std::move(value));
   std::vector<std::string> lines;
   std::string line;
@@ -503,20 +482,6 @@ std::vector<std::string> split_reflow_off_body_lines(
 
   for (std::size_t cursor = 0;
        cursor < value.size() && !reached_inline_control;) {
-    // A structural marker word (IBMMMSTR FRONT_1 LR6 `10577.an    The`)
-    // is proven by the typed row whose slot it fills; see
-    // structural_marker_rows.hpp.
-    const auto alpha_marker_length =
-        marker_rows.marker_word_length_at(value, cursor);
-    if (alpha_marker_length != 0) {
-      flush_line(false);
-      cursor += alpha_marker_length;
-      while (cursor < value.size() &&
-             std::isspace(static_cast<unsigned char>(value[cursor])) != 0) {
-        ++cursor;
-      }
-      continue;
-    }
     if (fixed_st_row_marker_at(value, cursor)) {
       flush_line(false);
       ++cursor;
@@ -765,9 +730,7 @@ std::optional<std::size_t> st_body_begin_after_title(
 // M9 keep: `__` form-item envelopes in SC31-711 2.4.5, 2.4.6, 2.4.7, 2.4.8,
 // 2.4.9 (legacy route). Replaced by a typed form-list structure once those
 // selector-introduced topics lower through Document IR.
-std::vector<std::string> render_st_form_items(
-    const std::string& body,
-    const StructuralMarkerRowEvidence& marker_rows) {
+std::vector<std::string> render_st_form_items(const std::string& body) {
   const auto find_delimiter = [&](std::size_t search) {
     for (auto found = body.find("__", search); found != std::string::npos;
          found = body.find("__", found + 2)) {
@@ -790,8 +753,8 @@ std::vector<std::string> render_st_form_items(
   auto cursor = find_delimiter(0);
   auto prefix = cursor == std::string::npos
                     ? std::string{}
-                    : normalize_message_catalog_intro(clean_fixed_st_row_markers(
-                          body.substr(0, cursor), marker_rows));
+                    : normalize_message_catalog_intro(
+                          clean_fixed_st_row_markers(body.substr(0, cursor)));
   while (cursor != std::string::npos) {
     const auto begin = cursor + 2;
     const auto next = find_delimiter(begin);
@@ -846,56 +809,6 @@ std::vector<std::string> render_st_form_items(
     records.insert(records.begin(), ":p." + std::move(prefix));
   }
   return records;
-}
-
-// SC31-711 2.4.7: the checklist's CFONT display runs (a continuation row of
-// the third item and the fourth ballot row) are projected by the legacy font
-// route as one `:line.` record each, directly after the heading. When typed
-// row evidence proves those rows are checklist rows and each `:line.` record
-// conserves exactly one row's visible text, the records are folded into the
-// `__` form list instead: a ballot row opens a new item, any other row
-// continues the previous item. Anything else leaves both untouched.
-void fold_form_item_font_rows(
-    std::vector<std::string>& raw_records,
-    std::vector<std::string>::iterator first_after_heading,
-    const std::vector<DecodedLogicalRecordSource>& sources,
-    std::vector<std::string>& form_records) {
-  if (sources.empty() || form_records.empty() ||
-      form_records.back() != ":eul.") {
-    return;
-  }
-  const auto rows = extract_form_item_font_rows_ir(sources);
-  if (!rows || rows->empty()) {
-    return;
-  }
-  auto cursor = first_after_heading;
-  for (const auto& row : *rows) {
-    // The legacy `:line.` record still shows the ballot glyph.
-    const auto expected =
-        (row.starts_item ? std::string("__ ") : std::string{}) + row.plain_text;
-    if (cursor == raw_records.end() || raw_gml_tag(*cursor) != "line" ||
-        form_item_plain_text(raw_gml_content_preserve_space(*cursor)) !=
-            expected) {
-      return;
-    }
-    ++cursor;
-  }
-  // A leading continuation row continues the last ST item, which must exist.
-  if (!rows->front().starts_item &&
-      !ascii_starts_with_case_insensitive(
-          form_records[form_records.size() - 2], ":li.")) {
-    return;
-  }
-  raw_records.erase(first_after_heading, cursor);
-  form_records.pop_back();
-  for (const auto& row : *rows) {
-    if (row.starts_item) {
-      form_records.push_back(":li." + row.gml_text);
-    } else {
-      form_records.back() += " " + row.gml_text;
-    }
-  }
-  form_records.push_back(":eul.");
 }
 
 std::string topic_st_body_after_toc_title(const TopicData& topic,
@@ -1074,7 +987,6 @@ void attach_topic_data(
   entry.topic_number = topic.topic_number;
   entry.start_logical_record = topic.start_logical_record;
   entry.end_logical_record = topic.end_logical_record;
-  const StructuralMarkerRowEvidence marker_rows(topic.fixed_layout_sources);
   // The topic's layout and ownership ledger are built and verified once here
   // and handed to both renderers below; each of them used to derive its own.
   std::optional<LayoutIR> layout;
@@ -1102,6 +1014,21 @@ void attach_topic_data(
     project_verified_menu_gml(entry.raw_records, topic.fixed_layout_sources,
                               *topic_titles);
   }
+  // M9 keep: the two remaining typed->legacy projections of
+  // `message_prose_rows.cpp`. Measured over a whole-corpus `boo2git --force`
+  // (2026-08-30, coverage 6,986 / 7,362): the joins change legacy records on
+  // 16 topics and the lexical markers on 15, but only these still render
+  // through the legacy route, so only these change corpus output --
+  //   joins:   N2AH1MST 16.0, 28.0; SC34-425 2.4.9, 2.4.13, 2.4.19, 2.4.32,
+  //            2.4.33, APPENDIX1.4
+  //   markers: SC34-425 2.4.9, 2.4.19, 2.4.27, 2.4.29, 2.4.32, 2.4.33,
+  //            APPENDIX1.4, APPENDIX1.5.3
+  // Every one of them is declined by the prose family with `body control
+  // SRMSG is outside the prose model`; they are message catalogs that neither
+  // `MessageTopicIR` nor `TrapCatalogIR` admits yet. Widening the message /
+  // trap catalog families over those 16 topics retires both projections --
+  // the introduction projection they used to sit beside was retired here once
+  // its only hit (SC31-711 4.1.3) moved to the typed route.
   std::optional<MessageProseSourceIR> message_prose;
   if (!topic.fixed_layout_sources.empty() &&
       std::any_of(topic.raw_records.begin(), topic.raw_records.end(),
@@ -1158,8 +1085,7 @@ void attach_topic_data(
       }
       if (intro_end != intro_begin) {
         intro = normalize_message_catalog_intro(clean_fixed_st_row_markers(
-            strip_fixed_line_overflow_tokens(std::move(intro), true),
-            marker_rows));
+            strip_fixed_line_overflow_tokens(std::move(intro), true)));
         intro_begin = entry.raw_records.erase(intro_begin, intro_end);
         if (!intro.empty()) {
           entry.raw_records.insert(intro_begin, ":p." + std::move(intro));
@@ -1183,8 +1109,7 @@ void attach_topic_data(
       std::vector<std::string> body_records;
       if (has_reflow_off_line_markers(body_text)) {
         body_records.push_back(":xmp.");
-        for (auto line : split_reflow_off_body_lines(std::move(body_text),
-                                                     marker_rows)) {
+        for (auto line : split_reflow_off_body_lines(std::move(body_text))) {
           body_records.push_back(":xline." + std::move(line));
         }
         body_records.push_back(":exmp.");
@@ -1254,8 +1179,7 @@ void attach_topic_data(
           }
           erase_begin = entry.raw_records.erase(erase_begin, erase_end);
           std::vector<std::string> preserved{":xmp."};
-          for (auto line : split_reflow_off_body_lines(std::move(body_text),
-                                                       marker_rows)) {
+          for (auto line : split_reflow_off_body_lines(std::move(body_text))) {
             line = clean_glossary_intro_fixed_line(std::move(line));
             if (!line.empty()) {
               preserved.push_back(":xline." + std::move(line));
@@ -1270,10 +1194,8 @@ void attach_topic_data(
                                    std::make_move_iterator(preserved.end()));
           return;
         }
-        auto form_records = render_st_form_items(body_text, marker_rows);
+        auto form_records = render_st_form_items(body_text);
         if (!form_records.empty()) {
-          fold_form_item_font_rows(entry.raw_records, heading + 1,
-                                   topic.fixed_layout_sources, form_records);
           entry.raw_records.insert(
               heading + 1,
               std::make_move_iterator(form_records.begin()),
@@ -1289,42 +1211,14 @@ void attach_topic_data(
             ++erase_end;
           }
           erase_begin = entry.raw_records.erase(erase_begin, erase_end);
-          auto intro = normalize_message_catalog_intro(clean_fixed_st_row_markers(
-              strip_fixed_line_overflow_tokens(std::move(body_text), true),
-              marker_rows));
+          auto body = strip_fixed_line_overflow_tokens(std::move(body_text),
+                                                       true);
+          auto intro = normalize_message_catalog_intro(
+              clean_fixed_st_row_markers(std::move(body)));
           if (!intro.empty()) {
             erase_begin = entry.raw_records.insert(
                 erase_begin, ":p." + std::move(intro));
             ++erase_begin;
-          }
-          // Prose rows between the ST title segment and the first numeric
-          // SRMSG (for example the SC31-711 4.1.3 note and enterprise-ID
-          // paragraphs) are restored from typed row evidence rather than
-          // silently erased with the ST duplicates.
-          // Paragraphs whose text the ST-derived introduction already
-          // carries (a malformed CFONT continuation flattened into the ST
-          // body) are not emitted twice.
-          if (message_prose && message_prose->introduction) {
-            const auto emitted = collapse_ascii_whitespace(
-                erase_begin == entry.raw_records.begin()
-                    ? std::string{}
-                    : raw_gml_content_preserve_space(*(erase_begin - 1)));
-            std::vector<std::string> restored;
-            auto rendered = render_message_prose_introduction_gml(
-                topic.fixed_layout_sources, message_prose->layout,
-                *message_prose->introduction);
-            for (std::size_t index = 0;
-                 index < message_prose->introduction->paragraphs.size() &&
-                 index < rendered.size();
-                 ++index) {
-              const auto& text = collapse_ascii_whitespace(
-                  message_prose->introduction->paragraphs[index].text);
-              if (!text.empty() && emitted.find(text) == std::string::npos)
-                restored.push_back(std::move(rendered[index]));
-            }
-            entry.raw_records.insert(
-                erase_begin, std::make_move_iterator(restored.begin()),
-                std::make_move_iterator(restored.end()));
           }
         } else if (following_control == "cselect" ||
                    following_control == "cfont") {
@@ -1391,8 +1285,7 @@ void attach_topic_data(
           std::vector<std::string> preserved{
               inline_fixed_continuations.empty() ? ":xmp."
                                                  : ":xmp inline='html'."};
-          for (auto line : split_reflow_off_body_lines(std::move(body_text),
-                                                       marker_rows)) {
+          for (auto line : split_reflow_off_body_lines(std::move(body_text))) {
             preserved.push_back(":xline." + std::move(line));
           }
           for (auto& continuation : inline_fixed_continuations) {
