@@ -6,9 +6,11 @@ Previous | [Index](README.md) | [Next](edition.md)
 
 **NetView**
 
-**Resource Alerts Reference Version 2 Release 2**
+**Resource Alerts Reference**
 
-Document Number SC31-6055-1
+Version 2 Release 2
+
+Document Number SC31\-6055\-1
 
 ---
 

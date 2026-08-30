@@ -4,13 +4,11 @@
 
 # COVER Book Cover
 
-**Application System/400(TM)**
+**Application System/400\(TM\)**
 
-**Office:**
+**Office: Using OfficeVision/400**
 
-Using OfficeVision/400
-
-Document Number SC21-9616-2
+Document Number SC21\-9616\-2
 
 ---
 

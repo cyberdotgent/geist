@@ -6,13 +6,15 @@
 
 **TPNS**
 
-**Planning and Installation Version 3 Release 2**
+**Planning and Installation**
 
-Document Number SH20-2488-5
+Version 3 Release 2
 
-Program Number 5688-121(
+Document Number SH20\-2488\-5
 
-File Number S370/4300/30XX-50
+Program Number 5688\-121
+
+File Number S370/4300/30XX\-50
 
 ---
 

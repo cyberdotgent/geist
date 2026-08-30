@@ -2,27 +2,27 @@
 
 ---
 
-### FRONT_1.1 Programming Interfaces
+### FRONT\_1\.1 Programming Interfaces
 
-<a id="FIGUNIQ1"></a>
+<a id="FIGFIGUNIQ1"></a>
 
-```text
+```
     ________________________________________________________________________ 
-   |                                                                                  |
-   | This book is intended to help the customer to:                                   |
-   |                                                                                  |
-   |   Keep MVS up and running correctly                                              |
-   |   Monitor system activity                                                        |
-   |   Diagnose and correct system problems                                           |
-   |   Diagnose and correct errors in problem programs                                |
-   |                                                                                  |
-   | It contains messages, message explanations, and actions to take in               |
-   | response to messages.                                                            |
-   |                                                                                  |
-   | This book documents no programming interfaces for use by customers in            |
-   | writing programs that request or receive the services of MVS/ESA                 |
-   | System Product Version 4.                                                        |
-   |                                                                                  |
+   |                                                                        |
+   | This book is intended to help the customer to:                         |
+   |                                                                        |
+   | °   Keep MVS up and running correctly                                  |
+   | °   Monitor system activity                                            |
+   | °   Diagnose and correct system problems                               |
+   | °   Diagnose and correct errors in problem programs                    |
+   |                                                                        |
+   | It contains messages, message explanations, and actions to take in     |
+   | response to messages.                                                  |
+   |                                                                        |
+   | This book documents no programming interfaces for use by customers in  |
+   | writing programs that request or receive the services of MVS/ESA       |
+   | System Product Version 4.                                              |
+   |                                                                        |
    |________________________________________________________________________|
 ```
 

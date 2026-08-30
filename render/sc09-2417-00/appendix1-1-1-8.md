@@ -2,11 +2,11 @@
 
 ---
 
-## APPENDIX1.1.1.8 Qualifiers
+### APPENDIX1\.1\.1\.8 Qualifiers
 
 <a id="HDRQLIF"></a>
 
-All access to an object that has a type that is qualified as `volatile` is retained.
+All access to an object that has a type that is qualified as `volatile` is retained\.
 
 ---
 

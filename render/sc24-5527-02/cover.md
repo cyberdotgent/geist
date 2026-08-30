@@ -4,17 +4,17 @@ Previous | [Index](README.md) | [Next](notices.md)
 
 # COVER Book Cover
 
-**Virtual Machine/**
+**Virtual Machine/ Enterprise Systems Architecture\(TM\)**
 
-**Enterprise Systems Architecture(TM)**
+**Service Guide**
 
-Service Guide Release 2
+Release 2
 
-Document Number SC24-5527-02
+Document Number SC24\-5527\-02
 
-Program Number 5684-112
+Program Number 5684\-112
 
-File Number S370/S390-37
+File Number S370/S390\-37
 
 ---
 

@@ -6,1808 +6,1808 @@
 
 ## Special Characters
 
-- &LASTCC variable 1 1.37
-- &SYSABNCD 1 1.46
-- &SYSABNRC 1 1.46
-- &SYSCMDRC 1 1.46
+- &amp;LASTCC variable, [1\.37](1-37.md)
+- &amp;SYSABNCD, [1\.46](1-46.md)
+- &amp;SYSABNRC, [1\.46](1-46.md)
+- &amp;SYSCMDRC, [1\.46](1-46.md)
 
 ## Numerics
 
-- 1403 printer 1 1.29
-- FCB operand of PRINTDS 2 1.29
-- 3203-5 Printer 1 1.29
-- 3211 Printer 1 1.4.2 1.26 1.29
-- 3800 Printer 1
-- BURST/NOBURST operand 2
-- ALLOCATE command 3 1.4.2
-- OUTDES command 3 1.26
-- PRINTDS command 3 1.29
-- CHARS operand 2
-- OUTDES command 3 1.26
-- CHARS operand of ALLOCATE 2 1.4.2
-- COPIES operand 2
-- ALLOCATE command 3 1.4.2
-- OUTDES command 3 1.26
-- PRINTDS command 3 1.29
-- FCB operand 2
-- ALLOCATE command 3 1.4.2
-- OUTDES command 3 1.26
-- PRINTDS command 3 1.29
-- FLASH operand 2
-- ALLOCATE command 3 1.4.2
-- OUTDES command 3 1.26
-- PRINTDS command 3 1.29
-- image-id operand 2
-- ALLOCATE command 3 1.4.2
-- PRINTDS command 3 1.29
-- MODIFY operand 2
-- ALLOCATE command 3 1.4.2
-- OUTDES command 3 1.26
-- PRINTDS command 3 1.29
+- 1403 printer, [1\.29](1-29.md)
+  - FCB operand of PRINTDS, [1\.29](1-29.md)
+- 3203\-5 Printer, [1\.29](1-29.md)
+- 3211 Printer, [1\.4\.2](<#1.4.2>), [1\.26](1-26.md), [1\.29](1-29.md)
+- 3800 Printer
+  - BURST/NOBURST operand
+    - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+    - OUTDES command, [1\.26](1-26.md)
+    - PRINTDS command, [1\.29](1-29.md)
+  - CHARS operand
+    - OUTDES command, [1\.26](1-26.md)
+  - CHARS operand of ALLOCATE, [1\.4\.2](<#1.4.2>)
+  - COPIES operand
+    - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+    - OUTDES command, [1\.26](1-26.md)
+    - PRINTDS command, [1\.29](1-29.md)
+  - FCB operand
+    - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+    - OUTDES command, [1\.26](1-26.md)
+    - PRINTDS command, [1\.29](1-29.md)
+  - FLASH operand
+    - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+    - OUTDES command, [1\.26](1-26.md)
+    - PRINTDS command, [1\.29](1-29.md)
+  - image\-id operand
+    - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+    - PRINTDS command, [1\.29](1-29.md)
+  - MODIFY operand
+    - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+    - OUTDES command, [1\.26](1-26.md)
+    - PRINTDS command, [1\.29](1-29.md)
 
 ## A
 
-- abbreviating keyword operands 1 1.2.1
-- abbreviations 1
-- for commands 2 2.5
-- ABSOLUTE operand 1
-- SCROLL command 2 2.23
-- AC operand of LINK command 1 1.17
-- ACCODE operand of ALLOCATE command 1 1.4.2
-- ACS (automatic class selection) 1 1.4.1.1
-- address operand 1
-- AT subcommand of TEST 2 1.43.6
-- CALL subcommand of TEST 2 1.43.9
-- RUN subcommand of TEST 2 1.43.61
-- address1 operand 1
-- COPY subcommand of TEST 2 1.43.12
-- address2 operand 1
-- COPY subcommand of TEST 2 1.43.12
-- advanced function printer (AFP) 1 1.26
-- ALARM operand 1
-- CHANGE.FUNCTION command 2 2.8
-- CHANGE.STREAM command 2 2.11
-- CHANGE.TERMINAL command 2 2.12
-- CHANGE.WINDOW command 2 2.5 2.13
-- ALIAS operand 1
-- DELETE command 2 1.9
-- LISTCAT command 2 1.20
-- RENAME command 2 1.33
-- ALIGN operand of ALLOCATE command 1 1.4.2
-- ALL operand 1
-- CHANGE subcommand of EDIT 2 1.11.4
-- HELP command 2 1.16
-- LISTCAT command 2 1.20
-- PRINTDS command 2 1.29
-- SMFIND command 2 1.37
-- ALLOCATE command 1 1.4
-- operands 2
-- ACCODE 3 1.4.2
-- ALIGN 3 1.4.2
-- ALTFILE 3 1.4.2
-- AVBLOCK 3 1.4.2
-- AVGREC 3 1.4.2
-- BFALN 3 1.4.2
-- BFTEK 3 1.4.2
-- BLKSIZE 3 1.4.2
-- BLOCK 3 1.4.2
-- BUFL 3 1.4.2
-- BUFNO 3 1.4.2
-- BUFOFF 3 1.4.2
-- BURST 3 1.4.2
-- CATALOG 3 1.4.2
-- CHARS 3 1.4.2
-- COPIES 3 1.4.2
-- CYLINDERS 3 1.4.2
-- DATACLAS 3 1.4.2
-- DELETE 3 1.4.2
-- DEN 3 1.4.2
-- DEST 3 1.4.2
-- DIAGNS 3 1.4.2
-- DIR 3 1.4.2
-- DSORG 3 1.4.2
-- DUMMY 3 1.4.2
-- EROPT 3 1.4.2
-- EXPDT 3 1.4.2
-- FCB 3 1.4.2
-- FILE or DDNAME 3 1.4.2
-- FLASH 3 1.4.2
-- FORMS 3 1.4.2
-- HOLD 3 1.4.2
-- image-id 3 1.4.2
-- INPUT 3 1.4.2
-- KEEP 3 1.4.2
-- KEYLEN 3 1.4.2
-- KEYOFF 3 1.4.2
-- LABEL 3 1.4.2
-- LIKE 3 1.4.2
-- LIMCT 3 1.4.2
-- LRECL 3 1.4.2
-- MAXVOL 3 1.4.2
-- MGMTCLAS 3 1.4.2
-- MOD 3 1.4.2
-- MODIFY 3 1.4.2
-- NCP 3 1.4.2
-- NEW 3 1.4.2
-- NOHOLD 3 1.4.2
-- OLD 3 1.4.2
-- OPTCD 3 1.4.2
-- OUTDES 3 1.4.2
-- OUTPUT 3 1.4.2
-- PARALLEL 3 1.4.2
-- POSITION 3 1.4.2
-- PRIVATE 3 1.4.2
-- PROTECT 3 1.4.2
-- RECFM 3 1.4.2
-- RECORG 3 1.4.2
-- REFDD 3 1.4.2
-- RELEASE 3 1.4.2
-- RETPD 3 1.4.2
-- REUSE 3 1.4.2
-- ROUND 3 1.4.2
-- SECMODEL 3 1.4.2
-- SEGMENT 3 1.4.2
-- SHR 3 1.4.2
-- SPACE 3 1.4.2
-- SPIN 3 1.4.2
-- STORCLAS 3 1.4.2
-- SYSOUT 3 1.4.2
-- TRACKS 3 1.4.2
-- UCOUNT 3 1.4.2
-- UCS 3 1.4.2
-- UNCATALOG 3 1.4.2
-- UNIT 3 1.4.2
-- USING 3 1.4.2
-- VERIFY 3 1.4.2
-- VOLUME 3 1.4.2
-- VSEQ 3 1.4.2
-- WRITER 3 1.4.2
-- ALLOCATE command under TEST 1 1.43.1
-- ALLOCATE subcommand of EDIT 1 1.11.1
-- allocation attributes 1 1.4.2
-- allocation of SMS data sets 1 1.4.1
-- ALLOCATION operand of LISTCAT command 1 1.20
-- ALTFILE operand of ALLOCATE command 1 1.4.2
-- ALTLIB command 1
-- in concurrent applications 2 1.5.3
-- in ISPF 2 1.5.4
-- in most applications 2 1.5.2
-- in the IPCS dialog 2 1.5.5
-- search order for libraries 2 1.5.1
-- stacking application-level requests 2 1.5.6
-- AMODE operand 1
-- GO subcommand of TEST 2 1.43.26 1.43.61
-- LINK command 2 1.17
-- LOADGO command 2 1.22
-- RUN subcommand of TEST 2 1.43.61
-- AMOUNT operand of SCROLL command 1 2.23
-- AND subcommand of TEST 1 1.43.2
-- ANY operand of SMFIND command 1 1.37
-- APPC/MVS transaction program, using TEST command 1 1.42
-- ASIS operand 1
-- CALL command 2 1.7
-- EDIT command 2 1.10
-- SMCOPY command 2 1.36
-- SMFIND command 2 1.37
-- ASM command 1
-- EDIT command 2 1.10
-- RUN command 2 1.34
-- assignment of values function of TEST 1 1.43.4
-- AT subcommand of TEST 1 1.43.6
-- address 2 1.43.6
-- COUNT 2 1.43.6
-- DEFER 2 1.43.6
-- NOTIFY 2 1.43.6
-- subcommands 2 1.43.6
-- TITLE 2 1.43.6
-- ATTRIB 1
-- command 2 1.6
-- command under TEST 2 1.43.8
-- subcommand of EDIT 2 1.11.2
-- attributes, allocation 1 1.4.2
-- ATTRLIST operand of FREE command 1 1.15
-- authorized command, running in unauthorized environment 1 1.46
-- automatic class selection routine 1 1.4.1 1.4.1.1
-- AVBLOCK operand of ALLOCATE command 1 1.4.2
-- AVGREC operand of ALLOCATE command 1 1.4.2
+- abbreviating keyword operands, [1\.2\.1](<#1.2.1>)
+- abbreviations
+  - for commands, [2\.5](2-5.md)
+- ABSOLUTE operand
+  - SCROLL command, [2\.23](2-23.md)
+- AC operand of LINK command, [1\.17](1-17.md)
+- ACCODE operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- ACS \(automatic class selection\), [1\.4\.1\.1](<#1.4.1.1>)
+- address operand
+  - AT subcommand of TEST, [1\.43\.6](<#1.43.6>)
+  - CALL subcommand of TEST, [1\.43\.9](<#1.43.9>)
+  - RUN subcommand of TEST, [1\.43\.61](<#1.43.61>)
+- address1 operand
+  - COPY subcommand of TEST, [1\.43\.12](<#1.43.12>)
+- address2 operand
+  - COPY subcommand of TEST, [1\.43\.12](<#1.43.12>)
+- advanced function printer \(AFP\), [1\.26](1-26.md)
+- ALARM operand
+  - CHANGE\.FUNCTION command, [2\.8](2-8.md)
+  - CHANGE\.STREAM command, [2\.11](2-11.md)
+  - CHANGE\.TERMINAL command, [2\.12](2-12.md)
+  - CHANGE\.WINDOW command, [2\.5](2-5.md), [2\.13](2-13.md)
+- ALIAS operand
+  - DELETE command, [1\.9](1-9.md)
+  - LISTCAT command, [1\.20](1-20.md)
+  - RENAME command, [1\.33](1-33.md)
+- ALIGN operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- ALL operand
+  - CHANGE subcommand of EDIT, [1\.11\.4](<#1.11.4>)
+  - HELP command, [1\.16](1-16.md)
+  - LISTCAT command, [1\.20](1-20.md)
+  - PRINTDS command, [1\.29](1-29.md)
+  - SMFIND command, [1\.37](1-37.md)
+- ALLOCATE command, [1\.4](1-4.md)
+  - operands
+    - ACCODE, [1\.4\.2](<#1.4.2>)
+    - ALIGN, [1\.4\.2](<#1.4.2>)
+    - ALTFILE, [1\.4\.2](<#1.4.2>)
+    - AVBLOCK, [1\.4\.2](<#1.4.2>)
+    - AVGREC, [1\.4\.2](<#1.4.2>)
+    - BFALN, [1\.4\.2](<#1.4.2>)
+    - BFTEK, [1\.4\.2](<#1.4.2>)
+    - BLKSIZE, [1\.4\.2](<#1.4.2>)
+    - BLOCK, [1\.4\.2](<#1.4.2>)
+    - BUFL, [1\.4\.2](<#1.4.2>)
+    - BUFNO, [1\.4\.2](<#1.4.2>)
+    - BUFOFF, [1\.4\.2](<#1.4.2>)
+    - BURST, [1\.4\.2](<#1.4.2>)
+    - CATALOG, [1\.4\.2](<#1.4.2>)
+    - CHARS, [1\.4\.2](<#1.4.2>)
+    - COPIES, [1\.4\.2](<#1.4.2>)
+    - CYLINDERS, [1\.4\.2](<#1.4.2>)
+    - DATACLAS, [1\.4\.2](<#1.4.2>)
+    - DELETE, [1\.4\.2](<#1.4.2>)
+    - DEN, [1\.4\.2](<#1.4.2>)
+    - DEST, [1\.4\.2](<#1.4.2>)
+    - DIAGNS, [1\.4\.2](<#1.4.2>)
+    - DIR, [1\.4\.2](<#1.4.2>)
+    - DSORG, [1\.4\.2](<#1.4.2>)
+    - DUMMY, [1\.4\.2](<#1.4.2>)
+    - EROPT, [1\.4\.2](<#1.4.2>)
+    - EXPDT, [1\.4\.2](<#1.4.2>)
+    - FCB, [1\.4\.2](<#1.4.2>)
+    - FILE or DDNAME, [1\.4\.2](<#1.4.2>)
+    - FLASH, [1\.4\.2](<#1.4.2>)
+    - FORMS, [1\.4\.2](<#1.4.2>)
+    - HOLD, [1\.4\.2](<#1.4.2>)
+    - image\-id, [1\.4\.2](<#1.4.2>)
+    - INPUT, [1\.4\.2](<#1.4.2>)
+    - KEEP, [1\.4\.2](<#1.4.2>)
+    - KEYLEN, [1\.4\.2](<#1.4.2>)
+    - KEYOFF, [1\.4\.2](<#1.4.2>)
+    - LABEL, [1\.4\.2](<#1.4.2>)
+    - LIKE, [1\.4\.2](<#1.4.2>)
+    - LIMCT, [1\.4\.2](<#1.4.2>)
+    - LRECL, [1\.4\.2](<#1.4.2>)
+    - MAXVOL, [1\.4\.2](<#1.4.2>)
+    - MGMTCLAS, [1\.4\.2](<#1.4.2>)
+    - MOD, [1\.4\.2](<#1.4.2>)
+    - MODIFY, [1\.4\.2](<#1.4.2>)
+    - NCP, [1\.4\.2](<#1.4.2>)
+    - NEW, [1\.4\.2](<#1.4.2>)
+    - NOHOLD, [1\.4\.2](<#1.4.2>)
+    - OLD, [1\.4\.2](<#1.4.2>)
+    - OPTCD, [1\.4\.2](<#1.4.2>)
+    - OUTDES, [1\.4\.2](<#1.4.2>)
+    - OUTPUT, [1\.4\.2](<#1.4.2>)
+    - PARALLEL, [1\.4\.2](<#1.4.2>)
+    - POSITION, [1\.4\.2](<#1.4.2>)
+    - PRIVATE, [1\.4\.2](<#1.4.2>)
+    - PROTECT, [1\.4\.2](<#1.4.2>)
+    - RECFM, [1\.4\.2](<#1.4.2>)
+    - RECORG, [1\.4\.2](<#1.4.2>)
+    - REFDD, [1\.4\.2](<#1.4.2>)
+    - RELEASE, [1\.4\.2](<#1.4.2>)
+    - RETPD, [1\.4\.2](<#1.4.2>)
+    - REUSE, [1\.4\.2](<#1.4.2>)
+    - ROUND, [1\.4\.2](<#1.4.2>)
+    - SECMODEL, [1\.4\.2](<#1.4.2>)
+    - SEGMENT, [1\.4\.2](<#1.4.2>)
+    - SHR, [1\.4\.2](<#1.4.2>)
+    - SPACE, [1\.4\.2](<#1.4.2>)
+    - SPIN, [1\.4\.2](<#1.4.2>)
+    - STORCLAS, [1\.4\.2](<#1.4.2>)
+    - SYSOUT, [1\.4\.2](<#1.4.2>)
+    - TRACKS, [1\.4\.2](<#1.4.2>)
+    - UCOUNT, [1\.4\.2](<#1.4.2>)
+    - UCS, [1\.4\.2](<#1.4.2>)
+    - UNCATALOG, [1\.4\.2](<#1.4.2>)
+    - UNIT, [1\.4\.2](<#1.4.2>)
+    - USING, [1\.4\.2](<#1.4.2>)
+    - VERIFY, [1\.4\.2](<#1.4.2>)
+    - VOLUME, [1\.4\.2](<#1.4.2>)
+    - VSEQ, [1\.4\.2](<#1.4.2>)
+    - WRITER, [1\.4\.2](<#1.4.2>)
+- ALLOCATE command under TEST, [1\.43\.1](<#1.43.1>)
+- ALLOCATE subcommand of EDIT, [1\.11\.1](<#1.11.1>)
+- allocation attributes, [1\.4\.2](<#1.4.2>)
+- allocation of SMS data sets, [1\.4\.1](<#1.4.1>)
+- ALLOCATION operand of LISTCAT command, [1\.20](1-20.md)
+- ALTFILE operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- ALTLIB command
+  - in concurrent applications, [1\.5\.3](<#1.5.3>)
+  - in ISPF, [1\.5\.4](<#1.5.4>)
+  - in most applications, [1\.5\.2](<#1.5.2>)
+  - in the IPCS dialog, [1\.5\.5](<#1.5.5>)
+  - search order for libraries, [1\.5\.1](<#1.5.1>)
+  - stacking application\-level requests, [1\.5\.6](<#1.5.6>)
+- AMODE operand
+  - GO subcommand of TEST, [1\.43\.26](<#1.43.26>), [1\.43\.61](<#1.43.61>)
+  - LINK command, [1\.17](1-17.md)
+  - LOADGO command, [1\.22](1-22.md)
+  - RUN subcommand of TEST, [1\.43\.61](<#1.43.61>)
+- AMOUNT operand of SCROLL command, [2\.23](2-23.md)
+- AND subcommand of TEST, [1\.43\.2](<#1.43.2>)
+- ANY operand of SMFIND command, [1\.37](1-37.md)
+- APPC/MVS transaction program, using TEST command, [1\.42](1-42.md)
+- ASIS operand
+  - CALL command, [1\.7](1-7.md)
+  - EDIT command, [1\.10](1-10.md)
+  - SMCOPY command, [1\.36](1-36.md)
+  - SMFIND command, [1\.37](1-37.md)
+- ASM command
+  - EDIT command, [1\.10](1-10.md)
+  - RUN command, [1\.34](1-34.md)
+- assignment of values function of TEST, [1\.43\.4](<#1.43.4>)
+- AT subcommand of TEST, [1\.43\.6](<#1.43.6>)
+  - address, [1\.43\.6](<#1.43.6>)
+  - COUNT, [1\.43\.6](<#1.43.6>)
+  - DEFER, [1\.43\.6](<#1.43.6>)
+  - NOTIFY, [1\.43\.6](<#1.43.6>)
+  - subcommands, [1\.43\.6](<#1.43.6>)
+  - TITLE, [1\.43\.6](<#1.43.6>)
+- ATTRIB
+  - command, [1\.6](1-6.md)
+  - command under TEST, [1\.43\.8](<#1.43.8>)
+  - subcommand of EDIT, [1\.11\.2](<#1.11.2>)
+- attributes, allocation, [1\.4\.2](<#1.4.2>)
+- ATTRLIST operand of FREE command, [1\.15](1-15.md)
+- authorized command, running in unauthorized environment, [1\.46](1-46.md)
+- automatic class selection routine, [1\.4\.1](<#1.4.1>), [1\.4\.1\.1](<#1.4.1.1>)
+- AVBLOCK operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- AVGREC operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
 
 ## B
 
-- background behavior of command 1
-- CALL 2 1.7
-- LOGOFF 2 1.23
-- LOGON 2 1.24
-- PROFILE 2 1.30
-- SUBMIT 2 1.40
-- BACKWARD operand 1
-- FIND command 2 2.17
-- SCROLL command 2 2.23
-- SMFIND command 2 1.37
-- BASELU operand of TEST command 1 1.42
-- batch processing, cancelling jobs 1 1.8
-- BEGIN operand 1
-- CONTINUE subcommand of OUTPUT 2 1.28.1
-- OUTPUT command 2 1.27
-- BFALN operand 1
-- ALLOCATE command 2 1.4.2
-- ATTRIB command 2 1.6
-- BFTEK operand 1
-- ALLOCATE command 2 1.4.2
-- ATTRIB command 2 1.6
-- BIND operand of PRINTDS command 1 1.29
-- BLKSIZE operand 1
-- ALLOCATE command 2 1.4.2
-- ATTRIB command 2 1.6
-- RECEIVE command 2 1.32
-- BLOCK operand 1
-- ALLOCATE command 2 1.4.2
-- EDIT command 2 1.10
-- RECEIVE command 2 1.32
-- BMARGIN operand of PRINTDS command 1 1.29
-- BOTTOM subcommand of EDIT 1 1.11.3
-- BREAK operand of TERMINAL command 1 1.41
-- BUFL (buffer-length) operand 1
-- ALLOCATE command 2 1.4.2
-- ATTRIB command 2 1.6
-- BUFNO (number-of-buffers) operand 1
-- ALLOCATE command 2 1.4.2
-- ATTRIB command 2 1.6
-- BUFOFF (block-prefix-length) operand 1
-- ALLOCATE command 2 1.4.2
-- ATTRIB command 2 1.6
-- BURST operand 1
-- ALLOCATE command 2 1.4.2
-- OUTDES command 2 1.26
-- PRINTDS command 2 1.29
+- background behavior of command
+  - CALL, [1\.7](1-7.md)
+  - LOGOFF, [1\.23](1-23.md)
+  - LOGON, [1\.24](1-24.md)
+  - PROFILE, [1\.30](1-30.md)
+  - SUBMIT, [1\.40](1-40.md)
+- BACKWARD operand
+  - FIND command, [2\.17](2-17.md)
+  - SCROLL command, [2\.23](2-23.md)
+  - SMFIND command, [1\.37](1-37.md)
+- BASELU operand of TEST command, [1\.42](1-42.md)
+- batch processing, cancelling jobs, [1\.8](1-8.md)
+- BEGIN operand
+  - CONTINUE subcommand of OUTPUT, [1\.28\.1](<#1.28.1>)
+  - OUTPUT command, [1\.27](1-27.md)
+- BFALN operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - ATTRIB command, [1\.6](1-6.md)
+- BFTEK operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - ATTRIB command, [1\.6](1-6.md)
+- BIND operand of PRINTDS command, [1\.29](1-29.md)
+- BLKSIZE operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - ATTRIB command, [1\.6](1-6.md)
+  - RECEIVE command, [1\.32](1-32.md)
+- BLOCK operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - EDIT command, [1\.10](1-10.md)
+  - RECEIVE command, [1\.32](1-32.md)
+- BMARGIN operand of PRINTDS command, [1\.29](1-29.md)
+- BOTTOM subcommand of EDIT, [1\.11\.3](<#1.11.3>)
+- BREAK operand of TERMINAL command, [1\.41](1-41.md)
+- BUFL \(buffer\-length\) operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - ATTRIB command, [1\.6](1-6.md)
+- BUFNO \(number\-of\-buffers\) operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - ATTRIB command, [1\.6](1-6.md)
+- BUFOFF \(block\-prefix\-length\) operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - ATTRIB command, [1\.6](1-6.md)
+- BURST operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - OUTDES command, [1\.26](1-26.md)
+  - PRINTDS command, [1\.29](1-29.md)
 
 ## C
 
-- CALL command 1 1.7
-- CALL operand of LOADGO command 1 1.22
-- CALL subcommand of TEST 1 1.43.9
-- CANCEL command 1 1.8
-- CANCEL command under TEST 1 1.43.11
-- CAPS operand 1
-- CALL command 2 1.7
-- EDIT command 2 1.10
-- SMCOPY command 2 1.36
-- CATALOG operand 1
-- ALLOCATE command 2 1.4.2
-- DELETE command 2 1.9
-- LISTCAT command 2 1.20
-- LISTDS command 2 1.21
-- CCHAR operand of PRINTDS command 1 1.29
-- CHANGE subcommand of EDIT 1 1.11.4
-- CHANGE.CURSOR command 1 2.7
-- CHANGE.FUNCTION command 1 2.8
-- CHANGE.MODE command 1 2.9
-- CHANGE.PFK command 1 2.10
-- CHANGE.STREAM command 1 2.11
-- CHANGE.TERMINAL command 1 2.12
-- CHANGE.WINDOW command 1 2.13
-- CHAR operand 1
-- PROFILE command 2 1.30
-- TERMINAL command 2 1.41
-- character arrangement table 1 1.26
-- CHARS operand 1
-- ALLOCATE command 2 1.4.2
-- OUTDES command 2 1.26
-- PRINTDS command 2 1.29
-- CHECK operand 1
-- RUN command 2 1.34
-- RUN subcommand of EDIT 2 1.11.33
-- CKPOINT subcommand of EDIT 1 1.11.6
-- CKPTLINE operand of OUTDES 1 1.26
-- CKPTPAGE operand of OUTDES 1 1.26
-- CKPTSEC operand of OUTDES 1 1.26
-- CLASS operand 1
-- OUTPUT command 2 1.27
-- PRINTDS command 2 1.29
-- CLASS operand of OUTDES 1 1.26
-- classes, SMS 1 1.4.1.1
-- CLEAR key, use of 1 2.1
-- CLEAR operand 1
-- CHANGE.STREAM command 2 2.11
-- TERMINAL command 2 1.41
-- CLIST operand 1
-- EDIT command 2 1.10
-- executing with EXEC command 2 1.13
-- CLUSTER operand 1
-- DELETE command 2 1.9
-- LISTCAT command 2 1.20
-- CN operand of SEND command 1 1.35
-- CNTL operand of EDIT command 1 1.10
-- COBLIB operand 1
-- LINK command 2 1.17
-- LOADGO command 2 1.22
-- COBOL operand 1
-- EDIT command 2 1.10
-- RUN command 2 1.34
-- Code and Go FORTRAN 1
-- EDIT command 2 1.10
-- column operand 1
-- CHANGE.CURSOR command 2 2.7
-- DEFINE.WINDOW command 2 2.14
-- COLUMNS operand 1
-- PRINTDS command 2 1.29
-- SCROLL command 2 2.23
-- command modifier, definition 1 2.2
-- command name, definition 1 2.2
-- comments 1 1.2.2
-- COMPACT operand of OUTDES 1 1.26
-- compaction table 1 1.26
-- compiler type, determining 1 1.34
-- constructs of data sets 1 1.4.2
-- CONTINUE subcommand of OUTPUT 1 1.28.1
-- CONTROL operand 1
-- abbreviation 2 2.5
-- CHANGE.TERMINAL command 2 2.12
-- CONTROL operand of OUTDES 1 1.26
-- control password operand of PROTECT command 1 1.31
-- control section tags 1 1.45.9
-- COPIES operand 1
-- ALLOCATE command 2 1.4.2
-- OUTDES command 2 1.26
-- PRINTDS command 2 1.29
-- copy modification module 1 1.26 1.29
-- COPY operand 1
-- CHANGE.FUNCTION command 2 2.8
-- RECEIVE command 2 1.32
-- COPY subcommand of 1
-- EDIT command 2 1.11.8
-- TEST command 2 1.43.12
-- COPYLIST operand of TRANSMIT command 1 1.45
-- count operand 1
-- CHANGE subcommand of EDIT 2 1.11.4
-- COPY subcommand of EDIT 2 1.11.8
-- DELETE subcommand of EDIT 2 1.11.10
-- DOWN subcommand of EDIT 2 1.11.12
-- LIST subcommand of EDIT 2 1.11.26
-- MOVE subcommand of EDIT 2 1.11.28
-- SCAN subcommand of EDIT 2 1.11.37
-- UP subcommand of EDIT 2 1.11.48
-- CP operand of TEST command 1 1.42
-- CREATION operand of LISTCAT command 1 1.20
-- cursor 1
-- changing the location of 2 2.7
-- permanent location 2 2.7
-- temporary location 2 2.7
-- CYLINDER operand 1
-- ALLOCATE command 2 1.4.2
-- RECEIVE command 2 1.32
+- CALL command, [1\.7](1-7.md)
+- CALL operand of LOADGO command, [1\.22](1-22.md)
+- CALL subcommand of TEST, [1\.43\.9](<#1.43.9>)
+- CANCEL command, [1\.8](1-8.md)
+- CANCEL command under TEST, [1\.43\.11](<#1.43.11>)
+- CAPS operand
+  - CALL command, [1\.7](1-7.md)
+  - EDIT command, [1\.10](1-10.md)
+  - SMCOPY command, [1\.36](1-36.md)
+- CATALOG operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - DELETE command, [1\.9](1-9.md)
+  - LISTCAT command, [1\.20](1-20.md)
+  - LISTDS command, [1\.21](1-21.md)
+- CCHAR operand of PRINTDS command, [1\.29](1-29.md)
+- CHANGE subcommand of EDIT, [1\.11\.4](<#1.11.4>)
+- CHANGE\.CURSOR command, [2\.7](2-7.md)
+- CHANGE\.FUNCTION command, [2\.8](2-8.md)
+- CHANGE\.MODE command, [2\.9](2-9.md)
+- CHANGE\.PFK command, [2\.10](2-10.md)
+- CHANGE\.STREAM command, [2\.11](2-11.md)
+- CHANGE\.TERMINAL command, [2\.12](2-12.md)
+- CHANGE\.WINDOW command, [2\.13](2-13.md)
+- CHAR operand
+  - PROFILE command, [1\.30](1-30.md)
+  - TERMINAL command, [1\.41](1-41.md)
+- character arrangement table, [1\.26](1-26.md)
+- CHARS operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - OUTDES command, [1\.26](1-26.md)
+  - PRINTDS command, [1\.29](1-29.md)
+- CHECK operand
+  - RUN command, [1\.34](1-34.md)
+  - RUN subcommand of EDIT, [1\.11\.33](<#1.11.33>)
+- CKPOINT subcommand of EDIT, [1\.11\.6](<#1.11.6>)
+- CKPTLINE operand of OUTDES, [1\.26](1-26.md)
+- CKPTPAGE operand of OUTDES, [1\.26](1-26.md)
+- CKPTSEC operand of OUTDES, [1\.26](1-26.md)
+- CLASS operand
+  - OUTPUT command, [1\.27](1-27.md)
+  - PRINTDS command, [1\.29](1-29.md)
+- CLASS operand of OUTDES, [1\.26](1-26.md)
+- classes, SMS, [1\.4\.1\.1](<#1.4.1.1>)
+- CLEAR key, use of, [2\.1](2-1.md)
+- CLEAR operand
+  - CHANGE\.STREAM command, [2\.11](2-11.md)
+  - TERMINAL command, [1\.41](1-41.md)
+- CLIST operand
+  - EDIT command, [1\.10](1-10.md)
+  - executing with EXEC command, [1\.13](1-13.md)
+- CLUSTER operand
+  - DELETE command, [1\.9](1-9.md)
+  - LISTCAT command, [1\.20](1-20.md)
+- CN operand of SEND command, [1\.35](1-35.md)
+- CNTL operand of EDIT command, [1\.10](1-10.md)
+- COBLIB operand
+  - LINK command, [1\.17](1-17.md)
+  - LOADGO command, [1\.22](1-22.md)
+- COBOL operand
+  - EDIT command, [1\.10](1-10.md)
+  - RUN command, [1\.34](1-34.md)
+- Code and Go FORTRAN
+  - EDIT command, [1\.10](1-10.md)
+- column operand
+  - CHANGE\.CURSOR command, [2\.7](2-7.md)
+  - DEFINE\.WINDOW command, [2\.14](2-14.md)
+- COLUMNS operand
+  - PRINTDS command, [1\.29](1-29.md)
+  - SCROLL command, [2\.23](2-23.md)
+- command modifier, definition, [2\.2](2-2.md)
+- command name, definition, [2\.2](2-2.md)
+- comments, [1\.2\.2](<#1.2.2>)
+- COMPACT operand of OUTDES, [1\.26](1-26.md)
+- compaction table, [1\.26](1-26.md)
+- compiler type, determining, [1\.34](1-34.md)
+- constructs of data sets, [1\.4\.2](<#1.4.2>)
+- CONTINUE subcommand of OUTPUT, [1\.28\.1](<#1.28.1>)
+- CONTROL operand
+  - abbreviation, [2\.5](2-5.md)
+  - CHANGE\.TERMINAL command, [2\.12](2-12.md)
+- CONTROL operand of OUTDES, [1\.26](1-26.md)
+- control password operand of PROTECT command, [1\.31](1-31.md)
+- control section tags, [1\.45\.9](<#1.45.9>)
+- COPIES operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - OUTDES command, [1\.26](1-26.md)
+  - PRINTDS command, [1\.29](1-29.md)
+- copy modification module, [1\.26](1-26.md), [1\.29](1-29.md)
+- COPY operand
+  - CHANGE\.FUNCTION command, [2\.8](2-8.md)
+  - RECEIVE command, [1\.32](1-32.md)
+- COPY subcommand of
+  - EDIT command, [1\.11\.8](<#1.11.8>)
+  - TEST command, [1\.43\.12](<#1.43.12>)
+- COPYLIST operand of TRANSMIT command, [1\.45](1-45.md)
+- count operand
+  - CHANGE subcommand of EDIT, [1\.11\.4](<#1.11.4>)
+  - COPY subcommand of EDIT, [1\.11\.8](<#1.11.8>)
+  - DELETE subcommand of EDIT, [1\.11\.10](<#1.11.10>)
+  - DOWN subcommand of EDIT, [1\.11\.12](<#1.11.12>)
+  - LIST subcommand of EDIT, [1\.11\.26](<#1.11.26>)
+  - MOVE subcommand of EDIT, [1\.11\.28](<#1.11.28>)
+  - SCAN subcommand of EDIT, [1\.11\.37](<#1.11.37>)
+  - UP subcommand of EDIT, [1\.11\.48](<#1.11.48>)
+- CP operand of TEST command, [1\.42](1-42.md)
+- CREATION operand of LISTCAT command, [1\.20](1-20.md)
+- cursor
+  - changing the location of, [2\.7](2-7.md)
+  - permanent location, [2\.7](2-7.md)
+  - temporary location, [2\.7](2-7.md)
+- CYLINDER operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - RECEIVE command, [1\.32](1-32.md)
 
 ## D
 
-- data check errors 1 1.26
-- data class for data set 1 1.4.2
-- data class, definition of 1 1.4.1.1
-- data encryption (TRANSMIT and RECEIVE) 1 1.45.5.1
-- Data Facility Hierarchical Storage Manager (DFHSM) 1 1.4.1.1
-- DATA operand 1
-- LISTCAT command 2 1.20
-- PROTECT command 2 1.31
-- data set 1
-- formatting 2 1.29
-- printing 2 1.29
-- profile, RACF 2 1.4.2
-- RACF protected 2 1.4.2
-- with Storage Management Subsystem 2 1.4.1
-- data-set-name operand 1
-- ALLOCATE command 2 1.4.2
-- LINK command 2 1.17
-- LISTDS command 2 1.21
-- LOADGO command 2 1.22
-- PRINTDS command 2 1.29
-- PROTECT command 2 1.31
-- SAVE subcommand of EDIT 2 1.11.35
-- DATACK operand of OUTDES 1 1.26
-- DATACLAS operand 1
-- ALLOCATE command 2 1.4.2
-- DC operand of LINK command 1 1.17
-- DCBS operand of LINK command 1 1.17
-- DCF (see Document Composition Facility) 1
-- DCF operand of PRINTDS command 1 1.29
-- DDNAME operand 1
-- FREE command 2 1.15
-- TRANSMIT command 2 1.45
-- DEFAULT operand of CHANGE.TERMINAL command 1 2.12
-- DEFAULT operand of OUTDES 1 1.26
-- default window 1 2.4 2.12
-- DEFINE.WINDOW command 1 2.14
-- defining allocation attributes 1 1.4.2
-- defining output descriptors 1 1.26
-- definition-text-string operand of CHANGE.PFK command 1 2.10
-- DELETE command 1 1.9
-- DELETE operand 1
-- ALLOCATE command 2 1.4.2
-- FREE command 2 1.15
-- OUTPUT command 2 1.27
-- PROTECT command 2 1.31
-- RECEIVE command 2 1.32
-- DELETE subcommand of 1
-- EDIT command 2 1.11.10
-- TEST command 2 1.43.14
-- DELETE.WINDOW command 1 2.15
-- delimiter 1 1.2.4
-- delimiter operand 1
-- CHANGE.PFK command 2 2.10
-- DEN operand 1
-- ALLOCATE command 2 1.4.2
-- ATTRIB command 2 1.6
-- DEST operand 1
-- ALLOCATE command 2 1.4.2
-- FREE command 2 1.15
-- OUTDES command 2 1.26
-- OUTPUT command 2 1.27
-- PRINTDS command 2 1.29
-- determining compiler type 1 1.34
-- DFHSM (see Data Facility Hierarchical Storage Manager) 1
-- diagnostic information 1 1.25
-- DIAGNS (TRACE) operand 1
-- ALLOCATE command 2 1.4.2
-- ATTRIB command 2 1.6
-- DIR operand of ALLOCATE command 1 1.4.2
-- directory operand 1
-- PRINTDS command 2 1.29
-- RECEIVE command 2 1.32
-- DISCONNECT operand of LOGOFF command 1 1.23
-- discrete data set profile 1 1.4.2
-- DISPLAY operand of RECEIVE command 1 1.32
-- displaying 1
-- allocated data sets 2 1.18
-- contents of broadcast data set 2 1.19
-- Document Composition Facility (DCF) 1 1.29
-- DOUBLE operand of PRINTDS command 1 1.29
-- DOWN subcommand of EDIT 1 1.11.12
-- DPAGELBL operand of OUTDES 1 1.26
-- DROP subcommand of TEST 1 1.43.16
-- DSNAME operand 1
-- ALLOCATE command 2 1.4.2
-- CALL command 2 1.7
-- EDIT command 2 1.10
-- FREE command 2 1.15
-- PRINTDS command 2 1.29
-- RECEIVE command 2 1.32
-- TRANSMIT command 2 1.45
-- DSNMAP command (VM/PC user) 1 1.25
-- DSORG operand 1
-- ALLOCATE command 2 1.4.2
-- ATTRIB command 2 1.6
-- DUMMY operand 1
-- ALLOCATE command 2 1.4.2
+- data check errors, [1\.26](1-26.md)
+- data class for data set, [1\.4\.2](<#1.4.2>)
+- data class, definition of, [1\.4\.1\.1](<#1.4.1.1>)
+- data encryption \(TRANSMIT and RECEIVE\), [1\.45\.5\.1](<#1.45.5.1>)
+- Data Facility Hierarchical Storage Manager \(DFHSM\), [1\.4\.1\.1](<#1.4.1.1>)
+- DATA operand
+  - LISTCAT command, [1\.20](1-20.md)
+  - PROTECT command, [1\.31](1-31.md)
+- data set
+  - formatting, [1\.29](1-29.md)
+  - printing, [1\.29](1-29.md)
+  - profile, RACF, [1\.4\.2](<#1.4.2>)
+  - RACF protected, [1\.4\.2](<#1.4.2>)
+  - with Storage Management Subsystem, [1\.4\.1](<#1.4.1>)
+- data\-set\-name operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - LINK command, [1\.17](1-17.md)
+  - LISTDS command, [1\.21](1-21.md)
+  - LOADGO command, [1\.22](1-22.md)
+  - PRINTDS command, [1\.29](1-29.md)
+  - PROTECT command, [1\.31](1-31.md)
+  - SAVE subcommand of EDIT, [1\.11\.35](<#1.11.35>)
+- DATACK operand of OUTDES, [1\.26](1-26.md)
+- DATACLAS operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- DC operand of LINK command, [1\.17](1-17.md)
+- DCBS operand of LINK command, [1\.17](1-17.md)
+- DCF \(see Document Composition Facility\)
+- DCF operand of PRINTDS command, [1\.29](1-29.md)
+- DDNAME operand
+  - FREE command, [1\.15](1-15.md)
+  - TRANSMIT command, [1\.45](1-45.md)
+- DEFAULT operand of CHANGE\.TERMINAL command, [2\.12](2-12.md)
+- DEFAULT operand of OUTDES, [1\.26](1-26.md)
+- default window, [2\.4](2-4.md), [2\.12](2-12.md)
+- DEFINE\.WINDOW command, [2\.14](2-14.md)
+- defining allocation attributes, [1\.4\.2](<#1.4.2>)
+- defining output descriptors, [1\.26](1-26.md)
+- definition\-text\-string operand of CHANGE\.PFK command, [2\.10](2-10.md)
+- DELETE command, [1\.9](1-9.md)
+- DELETE operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - FREE command, [1\.15](1-15.md)
+  - OUTPUT command, [1\.27](1-27.md)
+  - PROTECT command, [1\.31](1-31.md)
+  - RECEIVE command, [1\.32](1-32.md)
+- DELETE subcommand of
+  - EDIT command, [1\.11\.10](<#1.11.10>)
+  - TEST command, [1\.43\.14](<#1.43.14>)
+- DELETE\.WINDOW command, [2\.15](2-15.md)
+- delimiter, [1\.2\.4](<#1.2.4>)
+- delimiter operand
+  - CHANGE\.PFK command, [2\.10](2-10.md)
+- DEN operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - ATTRIB command, [1\.6](1-6.md)
+- DEST operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - FREE command, [1\.15](1-15.md)
+  - OUTDES command, [1\.26](1-26.md)
+  - OUTPUT command, [1\.27](1-27.md)
+  - PRINTDS command, [1\.29](1-29.md)
+- determining compiler type, [1\.34](1-34.md)
+- DFHSM \(see Data Facility Hierarchical Storage Manager\)
+- diagnostic information, [1\.25](1-25.md)
+- DIAGNS \(TRACE\) operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - ATTRIB command, [1\.6](1-6.md)
+- DIR operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- directory operand
+  - PRINTDS command, [1\.29](1-29.md)
+  - RECEIVE command, [1\.32](1-32.md)
+- DISCONNECT operand of LOGOFF command, [1\.23](1-23.md)
+- discrete data set profile, [1\.4\.2](<#1.4.2>)
+- DISPLAY operand of RECEIVE command, [1\.32](1-32.md)
+- displaying
+  - allocated data sets, [1\.18](1-18.md)
+  - contents of broadcast data set, [1\.19](1-19.md)
+- Document Composition Facility \(DCF\), [1\.29](1-29.md)
+- DOUBLE operand of PRINTDS command, [1\.29](1-29.md)
+- DOWN subcommand of EDIT, [1\.11\.12](<#1.11.12>)
+- DPAGELBL operand of OUTDES, [1\.26](1-26.md)
+- DROP subcommand of TEST, [1\.43\.16](<#1.43.16>)
+- DSNAME operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - CALL command, [1\.7](1-7.md)
+  - EDIT command, [1\.10](1-10.md)
+  - FREE command, [1\.15](1-15.md)
+  - PRINTDS command, [1\.29](1-29.md)
+  - RECEIVE command, [1\.32](1-32.md)
+  - TRANSMIT command, [1\.45](1-45.md)
+- DSNMAP command \(VM/PC user\), [1\.25](1-25.md)
+- DSORG operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - ATTRIB command, [1\.6](1-6.md)
+- DUMMY operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
 
 ## E
 
-- EDIT command 1
-- subcommands 2
-- ALLOCATE 3 1.11.1
-- ATTRIB 3 1.11.2
-- BOTTOM 3 1.11.3
-- CHANGE 3 1.11.4
-- CKPOINT 3 1.11.6
-- COPY 3 1.11.8
-- DELETE 3 1.11.10
-- DOWN 3 1.11.12
-- END 3 1.11.14
-- FIND 3 1.11.16
-- FREE 3 1.11.18
-- HELP 3 1.11.19
-- INPUT 3 1.11.20
-- INSERT 3 1.11.22
-- insert/replace/delete function 3 1.11.24
-- LIST 3 1.11.26
-- MOVE 3 1.11.28
-- PROFILE 3 1.11.30
-- RENUM 3 1.11.31
-- RUN 3 1.11.33
-- SAVE 3 1.11.35
-- SCAN 3 1.11.37
-- SEND 3 1.11.39
-- SUBMIT 3 1.11.40
-- TABSET 3 1.11.42
-- TOP 3 1.11.44
-- UNNUM 3 1.11.46
-- UP 3 1.11.48
-- VERIFY 3 1.11.50
-- EMODE operand of EDIT command 1 1.10
-- ENCIPHER operand of TRANSMIT command 1 1.45
-- encryption, data (TRANSMIT and RECEIVE) 1 1.45.5.1
-- END command 1 1.12 2.16
-- END operand 1
-- RECEIVE command 2 1.32
-- WHEN command 2 1.48.1
-- END subcommand of 1
-- EDIT command 2 1.11.14
-- OUTPUT command 2 1.28.3
-- TEST command 2 1.43.18
-- end-line-number operand 1
-- SAVE subcommand of EDIT 2 1.11.35
-- ENTRIES operand of LISTCAT command 1 1.20
-- EP operand of LOADGO command 1 1.22
-- EPILOG operand of TRANSMIT command 1 1.45
-- EQUATE operand 1
-- address 2 1.43.19
-- data-type 2 1.43.19
-- LENGTH 2 1.43.19
-- MULTIPLE 2 1.43.19
-- symbol 2 1.43.19
-- EQUATE subcommand of TEST 1 1.43.19
-- ERASE operand of DELETE command 1 1.9
-- EROPT operand 1
-- ALLOCATE command 2 1.4.2
-- ATTRIB command 2 1.6
-- EXEC command 1 1.13 1.13.1
-- EXEC as a subcommand 2 1.13.1
-- EXEC command under TEST 1 1.43.21
-- EXEC subcommand of EDIT 1 1.11.15
-- EXECUTIL command 1 1.14
-- executing CLIST, EXEC command 1 1.13
-- EXPDT (year-day) operand 1
-- ALLOCATE command 2 1.4.2
-- ATTRIB command 2 1.6
-- EXPIRATION operand of LISTCAT command 1 1.20
-- explicit form of EXEC command 1 1.13
-- extended implicit form of EXEC 1 1.13
-- external writer name 1 1.4.2 1.26 1.29
+- EDIT command
+  - subcommands
+    - ALLOCATE, [1\.11\.1](<#1.11.1>)
+    - ATTRIB, [1\.11\.2](<#1.11.2>)
+    - BOTTOM, [1\.11\.3](<#1.11.3>)
+    - CHANGE, [1\.11\.4](<#1.11.4>)
+    - CKPOINT, [1\.11\.6](<#1.11.6>)
+    - COPY, [1\.11\.8](<#1.11.8>)
+    - DELETE, [1\.11\.10](<#1.11.10>)
+    - DOWN, [1\.11\.12](<#1.11.12>)
+    - END, [1\.11\.14](<#1.11.14>)
+    - FIND, [1\.11\.16](<#1.11.16>)
+    - FREE, [1\.11\.18](<#1.11.18>)
+    - HELP, [1\.11\.19](<#1.11.19>)
+    - INPUT, [1\.11\.20](<#1.11.20>)
+    - INSERT, [1\.11\.22](<#1.11.22>)
+    - insert/replace/delete function, [1\.11\.24](<#1.11.24>)
+    - LIST, [1\.11\.26](<#1.11.26>)
+    - MOVE, [1\.11\.28](<#1.11.28>)
+    - PROFILE, [1\.11\.30](<#1.11.30>)
+    - RENUM, [1\.11\.31](<#1.11.31>)
+    - RUN, [1\.11\.33](<#1.11.33>)
+    - SAVE, [1\.11\.35](<#1.11.35>)
+    - SCAN, [1\.11\.37](<#1.11.37>)
+    - SEND, [1\.11\.39](<#1.11.39>)
+    - SUBMIT, [1\.11\.40](<#1.11.40>)
+    - TABSET, [1\.11\.42](<#1.11.42>)
+    - TOP, [1\.11\.44](<#1.11.44>)
+    - UNNUM, [1\.11\.46](<#1.11.46>)
+    - UP, [1\.11\.48](<#1.11.48>)
+    - VERIFY, [1\.11\.50](<#1.11.50>)
+- EMODE operand of EDIT command, [1\.10](1-10.md)
+- ENCIPHER operand of TRANSMIT command, [1\.45](1-45.md)
+- encryption, data \(TRANSMIT and RECEIVE\), [1\.45\.5\.1](<#1.45.5.1>)
+- END command, [1\.12](1-12.md), [2\.16](2-16.md)
+- END operand
+  - RECEIVE command, [1\.32](1-32.md)
+  - WHEN command, [1\.48\.1](<#1.48.1>)
+- END subcommand of
+  - EDIT command, [1\.11\.14](<#1.11.14>)
+  - OUTPUT command, [1\.28\.3](<#1.28.3>)
+  - TEST command, [1\.43\.18](<#1.43.18>)
+- end\-line\-number operand
+  - SAVE subcommand of EDIT, [1\.11\.35](<#1.11.35>)
+- ENTRIES operand of LISTCAT command, [1\.20](1-20.md)
+- EP operand of LOADGO command, [1\.22](1-22.md)
+- EPILOG operand of TRANSMIT command, [1\.45](1-45.md)
+- EQUATE operand
+  - address, [1\.43\.19](<#1.43.19>)
+  - data\-type, [1\.43\.19](<#1.43.19>)
+  - LENGTH, [1\.43\.19](<#1.43.19>)
+  - MULTIPLE, [1\.43\.19](<#1.43.19>)
+  - symbol, [1\.43\.19](<#1.43.19>)
+- EQUATE subcommand of TEST, [1\.43\.19](<#1.43.19>)
+- ERASE operand of DELETE command, [1\.9](1-9.md)
+- EROPT operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - ATTRIB command, [1\.6](1-6.md)
+- EXEC command, [1\.13](1-13.md), [1\.13\.1](<#1.13.1>)
+  - EXEC as a subcommand, [1\.13\.1](<#1.13.1>)
+- EXEC command under TEST, [1\.43\.21](<#1.43.21>)
+- EXEC subcommand of EDIT, [1\.11\.15](<#1.11.15>)
+- EXECUTIL command, [1\.14](1-14.md)
+- executing CLIST, EXEC command, [1\.13](1-13.md)
+- EXPDT \(year\-day\) operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - ATTRIB command, [1\.6](1-6.md)
+- EXPIRATION operand of LISTCAT command, [1\.20](1-20.md)
+- explicit form of EXEC command, [1\.13](1-13.md)
+- extended implicit form of EXEC, [1\.13](1-13.md)
+- external writer name, [1\.4\.2](<#1.4.2>), [1\.26](1-26.md), [1\.29](1-29.md)
 
 ## F
 
-- FCB operand 1
-- ALLOCATE command 2 1.4.2
-- OUTDES command 2 1.26
-- PRINTDS command 2 1.29
-- FIB commands (see foreground-initiated-background commands) 1
-- FILE operand of FREE command 1 1.15
-- FILE or DDNAME operand of PRINTDS command 1 1.29
-- FIND command 1 2.17
-- FIND subcommand of EDIT 1 1.11.16
-- FIRST operand 1
-- SMFIND command 2 1.37
-- FLASH operand 1
-- ALLOCATE command 2 1.4.2
-- OUTDES command 2 1.26
-- PRINTDS command 2 1.29
-- flash overlay 1 1.26
-- FOLD operand of PRINTDS command 1 1.29
-- foreground-initiated-background (FIB) commands 1
-- CANCEL 2 1.8
-- OUTPUT 2 1.27
-- STATUS 2 1.39
-- SUBMIT 2 1.40
-- format of commands 1 2.2
-- FORMAT operand 1
-- abbreviation 2 2.5
-- SMCOPY command 2 1.36
-- SNAPSHOT command 2 2.24
-- FORMDEF operand of OUTDES 1 1.26
-- forms control buffer (FCB) 1 1.4.2 1.26
-- FORMS operand 1
-- ALLOCATE command 2 1.4.2
-- OUTDES command 2 1.26
-- PRINTDS command 2 1.29
-- FORT operand 1
-- RUN command 2 1.34
-- FORTG operand 1
-- EDIT command 2 1.10
-- FORTGE operand 1
-- EDIT command 2 1.10
-- FORTGI operand 1
-- EDIT command 2 1.10
-- FORTH operand 1
-- EDIT command 2 1.10
-- FORTLIB operand 1
-- LINK command 2 1.17
-- LOADGO command 2 1.22
-- FORTRAN 1
-- (H) compiler 2 1.11.37
-- Code and Go 2 1.10
-- IV (E) 2 1.10
-- IV (G) 2 1.10
-- IV (G1) 2 1.10
-- IV (H) EXTCOMP statements 2 1.10
-- FORWARD operand 1
-- FIND command 2 2.17
-- SCROLL command 2 2.23
-- SMFIND command 2 1.37
-- FREE command 1 1.15
-- FREE subcommand of EDIT 1 1.11.18
-- freeing list of output descriptor names 1 1.15
-- FREEMAIN subcommand of TEST 1 1.43.22
-- FROMDATASET operand of SMCOPY command 1 1.36
-- FROMSTREAM operand of SMCOPY command 1 1.36
-- FULLSCREEN 1
-- logon 2 1.24
-- operand of TRANSMIT command 2 1.45
-- FUNCTION operand of HELP command 1 1.16
-- FUNCTION operand of QUERY command 1 2.19
+- FCB operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - OUTDES command, [1\.26](1-26.md)
+  - PRINTDS command, [1\.29](1-29.md)
+- FIB commands \(see foreground\-initiated\-background commands\)
+- FILE operand of FREE command, [1\.15](1-15.md)
+- FILE or DDNAME operand of PRINTDS command, [1\.29](1-29.md)
+- FIND command, [2\.17](2-17.md)
+- FIND subcommand of EDIT, [1\.11\.16](<#1.11.16>)
+- FIRST operand
+  - SMFIND command, [1\.37](1-37.md)
+- FLASH operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - OUTDES command, [1\.26](1-26.md)
+  - PRINTDS command, [1\.29](1-29.md)
+- flash overlay, [1\.26](1-26.md)
+- FOLD operand of PRINTDS command, [1\.29](1-29.md)
+- foreground\-initiated\-background \(FIB\) commands
+  - CANCEL, [1\.8](1-8.md)
+  - OUTPUT, [1\.27](1-27.md)
+  - STATUS, [1\.39](1-39.md)
+  - SUBMIT, [1\.40](1-40.md)
+- format of commands, [2\.2](2-2.md)
+- FORMAT operand
+  - abbreviation, [2\.5](2-5.md)
+  - SMCOPY command, [1\.36](1-36.md)
+  - SNAPSHOT command, [2\.24](2-24.md)
+- FORMDEF operand of OUTDES, [1\.26](1-26.md)
+- forms control buffer \(FCB\), [1\.4\.2](<#1.4.2>), [1\.26](1-26.md)
+- FORMS operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - OUTDES command, [1\.26](1-26.md)
+  - PRINTDS command, [1\.29](1-29.md)
+- FORT operand
+  - RUN command, [1\.34](1-34.md)
+- FORTG operand
+  - EDIT command, [1\.10](1-10.md)
+- FORTGE operand
+  - EDIT command, [1\.10](1-10.md)
+- FORTGI operand
+  - EDIT command, [1\.10](1-10.md)
+- FORTH operand
+  - EDIT command, [1\.10](1-10.md)
+- FORTLIB operand
+  - LINK command, [1\.17](1-17.md)
+  - LOADGO command, [1\.22](1-22.md)
+- FORTRAN
+  - \(H\) compiler, [1\.11\.37](<#1.11.37>)
+  - Code and Go, [1\.10](1-10.md)
+  - IV \(E\), [1\.10](1-10.md)
+  - IV \(G\), [1\.10](1-10.md)
+  - IV \(G1\), [1\.10](1-10.md)
+  - IV \(H\) EXTCOMP statements, [1\.10](1-10.md)
+- FORWARD operand
+  - FIND command, [2\.17](2-17.md)
+  - SCROLL command, [2\.23](2-23.md)
+  - SMFIND command, [1\.37](1-37.md)
+- FREE command, [1\.15](1-15.md)
+- FREE subcommand of EDIT, [1\.11\.18](<#1.11.18>)
+- freeing list of output descriptor names, [1\.15](1-15.md)
+- FREEMAIN subcommand of TEST, [1\.43\.22](<#1.43.22>)
+- FROMDATASET operand of SMCOPY command, [1\.36](1-36.md)
+- FROMSTREAM operand of SMCOPY command, [1\.36](1-36.md)
+- FULLSCREEN
+  - logon, [1\.24](1-24.md)
+  - operand of TRANSMIT command, [1\.45](1-45.md)
+- FUNCTION operand of HELP command, [1\.16](1-16.md)
+- FUNCTION operand of QUERY command, [2\.19](2-19.md)
 
 ## G
 
-- GENERATIONDATAGROUP operand 1
-- DELETE command 2 1.9
-- LISTCAT command 2 1.20
-- generic data set profile 1 1.4.2
-- GETMAIN subcommand of TEST 1 1.43.24
-- GETMAIN, operands of TEST 1
-- EQUATE 2 1.43.24
-- integer 2 1.43.24
-- LOC (ANY) 2 1.43.24
-- LOC (BELOW) 2 1.43.24
-- LOC (RES) 2 1.43.24
-- SP 2 1.43.24
-- GO operand of RUN command 1 1.34
-- GO subcommand of TEST 1 1.43.26
-- GOFORT operand 1
-- EDIT command 2 1.10
-- RUN command 2 1.34
-- GROUP operand of LOGON command 1 1.24
-- GROUPID operand of OUTDES 1 1.26
+- GENERATIONDATAGROUP operand
+  - DELETE command, [1\.9](1-9.md)
+  - LISTCAT command, [1\.20](1-20.md)
+- generic data set profile, [1\.4\.2](<#1.4.2>)
+- GETMAIN subcommand of TEST, [1\.43\.24](<#1.43.24>)
+- GETMAIN, operands of TEST
+  - EQUATE, [1\.43\.24](<#1.43.24>)
+  - integer, [1\.43\.24](<#1.43.24>)
+  - LOC \(ANY\), [1\.43\.24](<#1.43.24>)
+  - LOC \(BELOW\), [1\.43\.24](<#1.43.24>)
+  - LOC \(RES\), [1\.43\.24](<#1.43.24>)
+  - SP, [1\.43\.24](<#1.43.24>)
+- GO operand of RUN command, [1\.34](1-34.md)
+- GO subcommand of TEST, [1\.43\.26](<#1.43.26>)
+- GOFORT operand
+  - EDIT command, [1\.10](1-10.md)
+  - RUN command, [1\.34](1-34.md)
+- GROUP operand of LOGON command, [1\.24](1-24.md)
+- GROUPID operand of OUTDES, [1\.26](1-26.md)
 
 ## H
 
-- HALF operand 1
-- SCROLL command 2 2.23
-- halt processing of batch jobs 1 1.8
-- HELP command 1 1.16
-- HELP command under TEST 1 1.43.28
-- help information 1 1.16
-- HELP subcommand of 1
-- EDIT command 2 1.11.19
-- OUTPUT command 2 1.28.4
-- help text, specifying languages for 1 1.30
-- HELP, using 1 1.2.5
-- HERE operand 1
-- CONTINUE subcommand of OUTPUT 2 1.28.1
-- OUTPUT command 2 1.27
-- UNLOCK command 2 2.25
-- HIAR operand of LINK 1 1.17
-- hierarchy assignments 1 1.17
-- HISTORY operand 1
-- LISTALC command 2 1.18
-- LISTCAT command 2 1.20
-- LISTDS command 2 1.21
-- HOLD operand 1
-- ALLOCATE command 2 1.4.2
-- CHANGE.WINDOW command 2 2.5 2.13
-- DEFINE.WINDOW command 2 2.14
-- FREE command 2 1.15
-- LOGOFF command 2 1.23
-- OUTPUT command 2 1.27
-- HOLD or NOHOLD operand of PRINTDS command 1 1.29
-- host computer 1 1.25
+- HALF operand
+  - SCROLL command, [2\.23](2-23.md)
+- halt processing of batch jobs, [1\.8](1-8.md)
+- HELP command, [1\.16](1-16.md)
+- HELP command under TEST, [1\.43\.28](<#1.43.28>)
+- help information, [1\.16](1-16.md)
+- HELP subcommand of
+  - EDIT command, [1\.11\.19](<#1.11.19>)
+  - OUTPUT command, [1\.28\.4](<#1.28.4>)
+- help text, specifying languages for, [1\.30](1-30.md)
+- HELP, using, [1\.2\.5](<#1.2.5>)
+- HERE operand
+  - CONTINUE subcommand of OUTPUT, [1\.28\.1](<#1.28.1>)
+  - OUTPUT command, [1\.27](1-27.md)
+  - UNLOCK command, [2\.25](2-25.md)
+- HIAR operand of LINK, [1\.17](1-17.md)
+- hierarchy assignments, [1\.17](1-17.md)
+- HISTORY operand
+  - LISTALC command, [1\.18](1-18.md)
+  - LISTCAT command, [1\.20](1-20.md)
+  - LISTDS command, [1\.21](1-21.md)
+- HOLD operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - CHANGE\.WINDOW command, [2\.5](2-5.md), [2\.13](2-13.md)
+  - DEFINE\.WINDOW command, [2\.14](2-14.md)
+  - FREE command, [1\.15](1-15.md)
+  - LOGOFF command, [1\.23](1-23.md)
+  - OUTPUT command, [1\.27](1-27.md)
+- HOLD or NOHOLD operand of PRINTDS command, [1\.29](1-29.md)
+- host computer, [1\.25](1-25.md)
 
 ## I
 
-- I operand, INPUT subcommand of EDIT 1 1.11.20
-- IBM host computer 1 1.25
-- IBM Personal Computer 1 1.25
-- identifier operand of CHANGE.PFK command 1 2.10
-- image-id of ALLOCATE command 1 1.4.2
-- IMODE operand of EDIT command 1 1.10
-- implicit form of EXEC command 1 1.13
-- INCR operand 1
-- COPY subcommand of EDIT 2 1.11.8
-- MOVE subcommand of EDIT 2 1.11.28
-- increment operand 1
-- INPUT subcommand of EDIT 2 1.11.20
-- RENUM subcommand of EDIT 2 1.11.31
-- INDDNAME or INFILE operand of RECEIVE command 1 1.32
-- INDEX operand of LISTCAT command 1 1.20
-- INDEX operand of OUTDES 1 1.26
-- INDSNAME or INDATASET operand of RECEIVE command 1 1.32
-- INPUT operand 1
-- ALLOCATE command 2 1.4.2
-- ATTRIB command 2 1.6
-- CHANGE.FUNCTION command 2 2.8
-- CHANGE.WINDOW command 2 2.13
-- DEFINE.WINDOW command 2 2.14
-- INPUT subcommand of EDIT 1 1.11.20
-- INSERT subcommand of EDIT 1 1.11.22
-- insert/replace/delete function of EDIT 1 1.11.24
-- INTENSITY operand 1
-- CHANGE.FUNCTION command 2 2.8
-- PUT command 2 2.18
-- SMPUT command 2 1.38
-- INTERCOM operand of PROFILE command 1 1.30
-- IOTRACE operand of MVSSERV 1 1.25
+- I operand, INPUT subcommand of EDIT, [1\.11\.20](<#1.11.20>)
+- IBM host computer, [1\.25](1-25.md)
+- IBM Personal Computer, [1\.25](1-25.md)
+- identifier operand of CHANGE\.PFK command, [2\.10](2-10.md)
+- image\-id of ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- IMODE operand of EDIT command, [1\.10](1-10.md)
+- implicit form of EXEC command, [1\.13](1-13.md)
+- INCR operand
+  - COPY subcommand of EDIT, [1\.11\.8](<#1.11.8>)
+  - MOVE subcommand of EDIT, [1\.11\.28](<#1.11.28>)
+- increment operand
+  - INPUT subcommand of EDIT, [1\.11\.20](<#1.11.20>)
+  - RENUM subcommand of EDIT, [1\.11\.31](<#1.11.31>)
+- INDDNAME or INFILE operand of RECEIVE command, [1\.32](1-32.md)
+- INDEX operand of LISTCAT command, [1\.20](1-20.md)
+- INDEX operand of OUTDES, [1\.26](1-26.md)
+- INDSNAME or INDATASET operand of RECEIVE command, [1\.32](1-32.md)
+- INPUT operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - ATTRIB command, [1\.6](1-6.md)
+  - CHANGE\.FUNCTION command, [2\.8](2-8.md)
+  - CHANGE\.WINDOW command, [2\.13](2-13.md)
+  - DEFINE\.WINDOW command, [2\.14](2-14.md)
+- INPUT subcommand of EDIT, [1\.11\.20](<#1.11.20>)
+- INSERT subcommand of EDIT, [1\.11\.22](<#1.11.22>)
+- insert/replace/delete function of EDIT, [1\.11\.24](<#1.11.24>)
+- INTENSITY operand
+  - CHANGE\.FUNCTION command, [2\.8](2-8.md)
+  - PUT command, [2\.18](2-18.md)
+  - SMPUT command, [1\.38](1-38.md)
+- INTERCOM operand of PROFILE command, [1\.30](1-30.md)
+- IOTRACE operand of MVSSERV, [1\.25](1-25.md)
 
 ## J
 
-- JES printers 1 1.29
-- JES3 users 1 1.27
+- JES printers, [1\.29](1-29.md)
+- JES3 users, [1\.27](1-27.md)
 
 ## K
 
-- KEEP operand 1
-- ALLOCATE command 2 1.4.2
-- FREE command 2 1.15
-- OUTPUT command 2 1.27
-- KEEPTP operand of TEST command 1 1.42
-- KEYLEN operand 1
-- ALLOCATE command 2 1.4.2
-- ATTRIB command 2 1.6
-- KEYOFF operand of ALLOCATE command 1 1.4.2
-- keyword operand 1 1.1.2 1.2.1 2.2
+- KEEP operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - FREE command, [1\.15](1-15.md)
+  - OUTPUT command, [1\.27](1-27.md)
+- KEEPTP operand of TEST command, [1\.42](1-42.md)
+- KEYLEN operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - ATTRIB command, [1\.6](1-6.md)
+- KEYOFF operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- keyword operand, [1\.1\.2](<#1.1.2>), [1\.2\.1](<#1.2.1>), [2\.2](2-2.md)
 
 ## L
 
-- LABEL operand 1
-- ALLOCATE command 2 1.4.2
-- LISTDS command 2 1.21
-- languages 1
-- PLANGUAGE 2 1.30
-- primary 2 1.30
-- secondary 2 1.30
-- SLANGUAGE 2 1.30
-- LEFT operand of SCROLL command 1 2.23
-- LENGTH operand 1
-- COPY subcommand of TEST 2 1.43.12
-- LET operand of LINK command 1 1.17
-- LEVEL operand 1
-- LISTCAT command 2 1.20
-- LISTDS command 2 1.21
-- LIB operand 1
-- LINK command 2 1.17
-- LOADGO command 2 1.22
-- RUN command 2 1.34
-- RUN subcommand of EDIT 2 1.11.33
-- LIKE operand of ALLOCATE command 1 1.4.2
-- LIMCT (search-number) operand 1
-- ALLOCATE command 2 1.4.2
-- ATTRIB command 2 1.6
-- LINDEX operand of OUTDES 1 1.26
-- line continuation 1 1.2.3
-- line mode logon 1 1.24
-- line numbers, location 1 1.29
-- LINE operand 1
-- CHANGE.WINDOW command 2 2.13
-- DEFINE.WINDOW command 2 2.14
-- FIND command 2 2.17
-- SMCOPY command 2 1.36
-- SMFIND command 2 1.37
-- TRANSMIT command 2 1.45
-- line-number operand 1
-- INPUT subcommand of EDIT 2 1.11.20
-- SCROLL command 2 2.23
-- line-number-1 operand 1
-- CHANGE subcommand of EDIT 2 1.11.4
-- DELETE subcommand of EDIT 2 1.11.10
-- LIST subcommand of EDIT 2 1.11.26
-- SCAN subcommand of EDIT 2 1.11.37
-- line-number-2 operand 1
-- CHANGE subcommand of EDIT 2 1.11.4
-- DELETE subcommand of EDIT 2 1.11.10
-- LIST subcommand of EDIT 2 1.11.26
-- SCAN subcommand of EDIT 2 1.11.37
-- line1 operand 1
-- COPY subcommand of EDIT 2 1.11.8
-- MOVE subcommand of EDIT 2 1.11.28
-- line2 operand 1
-- COPY subcommand of EDIT 2 1.11.8
-- MOVE subcommand of EDIT 2 1.11.28
-- line3 operand 1
-- COPY subcommand of EDIT 2 1.11.8
-- MOVE subcommand of EDIT 2 1.11.28
-- line4 operand 1
-- COPY subcommand of EDIT 2 1.11.8
-- MOVE subcommand of EDIT 2 1.11.28
-- LINECT operand of OUTDES 1 1.26
-- lines operand 1
-- SCROLL command 2 2.23
-- lines operand of DEFINE.WINDOW command 1 2.14
-- LINES operand of PRINTDS command 1 1.29
-- LINK command 1 1.17
-- LINK command under TEST 1 1.43.29
-- LIST subcommand of 1
-- EDIT 2 1.11.26
-- TEST 2 1.43.30
-- LIST, operands of TEST 1
-- address 2 1.43.30
-- data-type 2 1.43.30
-- LENGTH 2 1.43.30
-- MULTIPLE 2 1.43.30
-- PRINT 2 1.43.30
-- LISTALC command 1 1.18
-- LISTALC command under TEST 1 1.43.32
-- LISTBC command 1 1.19
-- LISTBC command under TEST 1 1.43.33
-- LISTCAT command 1 1.20
-- LISTCAT command under TEST 1 1.43.34
-- LISTDCB subcommand of TEST 1 1.43.35
-- LISTDS command 1 1.21
-- LISTDS command under TEST 1 1.43.39
-- LISTMAP subcommand of TEST 1 1.43.40
-- LISTPSW operands of TEST 1
-- ADDR 2 1.43.42
-- PRINT 2 1.43.42
-- LISTPSW subcommand of TEST 1 1.43.42
-- LISTVP subcommand of TEST 1 1.43.46
-- LISTVSR subcommand of TEST 1 1.43.48
-- LMARGIN of PRINTDS 1 1.29
-- LMSG operand on RUN subcommand of EDIT 1 1.11.33
-- LOAD subcommand of TEST 1 1.43.50
-- LOADGO command 1
-- description 2 1.22
-- operands 2
-- CALL 3 1.22
-- COBLIB 3 1.22
-- data-set-list 3 1.22
-- FORTLIB 3 1.22
-- LIB 3 1.22
-- MAP 3 1.22
-- NAME 3 1.22
-- NOCALL 3 1.22
-- NOMAP 3 1.22
-- NOPRINT 3 1.22
-- NORES 3 1.22
-- NOTERM 3 1.22
-- PLIBASE 3 1.22
-- PLICMIX 3 1.22
-- PLILIB 3 1.22
-- PRINT 3 1.22
-- RES 3 1.22
-- TERM 3 1.22
-- LOG operand of TRANSMIT command 1 1.45
-- LOG(ALL) operand of TRANSMIT command 1 1.45
-- LOGDATASET operand of RECEIVE command 1 1.32
-- LOGDATASET operand of TRANSMIT command 1 1.45
-- LOGDSNAME operand of RECEIVE command 1 1.32
-- LOGDSNAME operand of TRANSMIT command 1 1.45
-- logging function of TRANSMIT and RECEIVE 1 1.45.7
-- LOGNAME operand of TRANSMIT command 1 1.45
-- LOGOFF command 1 1.23
-- LOGON command 1 1.24
-- LOGON, fullscreen 1 1.24
-- LPREC operand of RUN command 1 1.34
-- LRECL (logical-record-length) operand 1
-- ALLOCATE command 2 1.4.2
-- ATTRIB command 2 1.6
-- EDIT command 2 1.10
-- LU operand of TEST command 1 1.42
+- LABEL operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - LISTDS command, [1\.21](1-21.md)
+- languages
+  - PLANGUAGE, [1\.30](1-30.md)
+  - primary, [1\.30](1-30.md)
+  - secondary, [1\.30](1-30.md)
+  - SLANGUAGE, [1\.30](1-30.md)
+- LEFT operand of SCROLL command, [2\.23](2-23.md)
+- LENGTH operand
+  - COPY subcommand of TEST, [1\.43\.12](<#1.43.12>)
+- LET operand of LINK command, [1\.17](1-17.md)
+- LEVEL operand
+  - LISTCAT command, [1\.20](1-20.md)
+  - LISTDS command, [1\.21](1-21.md)
+- LIB operand
+  - LINK command, [1\.17](1-17.md)
+  - LOADGO command, [1\.22](1-22.md)
+  - RUN command, [1\.34](1-34.md)
+  - RUN subcommand of EDIT, [1\.11\.33](<#1.11.33>)
+- LIKE operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- LIMCT \(search\-number\) operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - ATTRIB command, [1\.6](1-6.md)
+- LINDEX operand of OUTDES, [1\.26](1-26.md)
+- line continuation, [1\.2\.3](<#1.2.3>)
+- line mode logon, [1\.24](1-24.md)
+- line numbers, location, [1\.29](1-29.md)
+- LINE operand
+  - CHANGE\.WINDOW command, [2\.13](2-13.md)
+  - DEFINE\.WINDOW command, [2\.14](2-14.md)
+  - FIND command, [2\.17](2-17.md)
+  - SMCOPY command, [1\.36](1-36.md)
+  - SMFIND command, [1\.37](1-37.md)
+  - TRANSMIT command, [1\.45](1-45.md)
+- line\-number operand
+  - INPUT subcommand of EDIT, [1\.11\.20](<#1.11.20>)
+  - SCROLL command, [2\.23](2-23.md)
+- line\-number\-1 operand
+  - CHANGE subcommand of EDIT, [1\.11\.4](<#1.11.4>)
+  - DELETE subcommand of EDIT, [1\.11\.10](<#1.11.10>)
+  - LIST subcommand of EDIT, [1\.11\.26](<#1.11.26>)
+  - SCAN subcommand of EDIT, [1\.11\.37](<#1.11.37>)
+- line\-number\-2 operand
+  - CHANGE subcommand of EDIT, [1\.11\.4](<#1.11.4>)
+  - DELETE subcommand of EDIT, [1\.11\.10](<#1.11.10>)
+  - LIST subcommand of EDIT, [1\.11\.26](<#1.11.26>)
+  - SCAN subcommand of EDIT, [1\.11\.37](<#1.11.37>)
+- line1 operand
+  - COPY subcommand of EDIT, [1\.11\.8](<#1.11.8>)
+  - MOVE subcommand of EDIT, [1\.11\.28](<#1.11.28>)
+- line2 operand
+  - COPY subcommand of EDIT, [1\.11\.8](<#1.11.8>)
+  - MOVE subcommand of EDIT, [1\.11\.28](<#1.11.28>)
+- line3 operand
+  - COPY subcommand of EDIT, [1\.11\.8](<#1.11.8>)
+  - MOVE subcommand of EDIT, [1\.11\.28](<#1.11.28>)
+- line4 operand
+  - COPY subcommand of EDIT, [1\.11\.8](<#1.11.8>)
+  - MOVE subcommand of EDIT, [1\.11\.28](<#1.11.28>)
+- LINECT operand of OUTDES, [1\.26](1-26.md)
+- lines operand
+  - SCROLL command, [2\.23](2-23.md)
+- lines operand of DEFINE\.WINDOW command, [2\.14](2-14.md)
+- LINES operand of PRINTDS command, [1\.29](1-29.md)
+- LINK command, [1\.17](1-17.md)
+- LINK command under TEST, [1\.43\.29](<#1.43.29>)
+- LIST subcommand of
+  - EDIT, [1\.11\.26](<#1.11.26>)
+  - TEST, [1\.43\.30](<#1.43.30>)
+- LIST, operands of TEST
+  - address, [1\.43\.30](<#1.43.30>)
+  - data\-type, [1\.43\.30](<#1.43.30>)
+  - LENGTH, [1\.43\.30](<#1.43.30>)
+  - MULTIPLE, [1\.43\.30](<#1.43.30>)
+  - PRINT, [1\.43\.30](<#1.43.30>)
+- LISTALC command, [1\.18](1-18.md)
+- LISTALC command under TEST, [1\.43\.32](<#1.43.32>)
+- LISTBC command, [1\.19](1-19.md)
+- LISTBC command under TEST, [1\.43\.33](<#1.43.33>)
+- LISTCAT command, [1\.20](1-20.md)
+- LISTCAT command under TEST, [1\.43\.34](<#1.43.34>)
+- LISTDCB subcommand of TEST, [1\.43\.35](<#1.43.35>)
+- LISTDS command, [1\.21](1-21.md)
+- LISTDS command under TEST, [1\.43\.39](<#1.43.39>)
+- LISTMAP subcommand of TEST, [1\.43\.40](<#1.43.40>)
+- LISTPSW operands of TEST
+  - ADDR, [1\.43\.42](<#1.43.42>)
+  - PRINT, [1\.43\.42](<#1.43.42>)
+- LISTPSW subcommand of TEST, [1\.43\.42](<#1.43.42>)
+- LISTVP subcommand of TEST, [1\.43\.46](<#1.43.46>)
+- LISTVSR subcommand of TEST, [1\.43\.48](<#1.43.48>)
+- LMARGIN of PRINTDS, [1\.29](1-29.md)
+- LMSG operand on RUN subcommand of EDIT, [1\.11\.33](<#1.11.33>)
+- LOAD subcommand of TEST, [1\.43\.50](<#1.43.50>)
+- LOADGO command
+  - description, [1\.22](1-22.md)
+  - operands
+    - CALL, [1\.22](1-22.md)
+    - COBLIB, [1\.22](1-22.md)
+    - data\-set\-list, [1\.22](1-22.md)
+    - FORTLIB, [1\.22](1-22.md)
+    - LIB, [1\.22](1-22.md)
+    - MAP, [1\.22](1-22.md)
+    - NAME, [1\.22](1-22.md)
+    - NOCALL, [1\.22](1-22.md)
+    - NOMAP, [1\.22](1-22.md)
+    - NOPRINT, [1\.22](1-22.md)
+    - NORES, [1\.22](1-22.md)
+    - NOTERM, [1\.22](1-22.md)
+    - PLIBASE, [1\.22](1-22.md)
+    - PLICMIX, [1\.22](1-22.md)
+    - PLILIB, [1\.22](1-22.md)
+    - PRINT, [1\.22](1-22.md)
+    - RES, [1\.22](1-22.md)
+    - TERM, [1\.22](1-22.md)
+- LOG operand of TRANSMIT command, [1\.45](1-45.md)
+- LOG\(ALL\) operand of TRANSMIT command, [1\.45](1-45.md)
+- LOGDATASET operand of RECEIVE command, [1\.32](1-32.md)
+- LOGDATASET operand of TRANSMIT command, [1\.45](1-45.md)
+- LOGDSNAME operand of RECEIVE command, [1\.32](1-32.md)
+- LOGDSNAME operand of TRANSMIT command, [1\.45](1-45.md)
+- logging function of TRANSMIT and RECEIVE, [1\.45\.7](<#1.45.7>)
+- LOGNAME operand of TRANSMIT command, [1\.45](1-45.md)
+- LOGOFF command, [1\.23](1-23.md)
+- LOGON command, [1\.24](1-24.md)
+- LOGON, fullscreen, [1\.24](1-24.md)
+- LPREC operand of RUN command, [1\.34](1-34.md)
+- LRECL \(logical\-record\-length\) operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - ATTRIB command, [1\.6](1-6.md)
+  - EDIT command, [1\.10](1-10.md)
+- LU operand of TEST command, [1\.42](1-42.md)
 
 ## M
 
-- MAIL operand 1
-- LISTBC command 2 1.19
-- LOGON command 2 1.24
-- management class of data set 1 1.4.2
-- management class, definition of 1 1.4.1.1
-- managing data sets 1 1.4.1
-- MAP operand of LINK command 1 1.17
-- MAX operand of SCROLL command 1 2.23
-- MAXVOL operand of ALLOCATE command 1 1.4.2
-- members of PDS, printing 1 1.29
-- MEMBERS operand 1
-- LISTALC command 2 1.18
-- LISTDS command 2 1.21
-- PRINTDS command 2 1.29
-- TRANSMIT command 2 1.45
-- message (MSG) function, change the streams for 1 2.8
-- MESSAGE operand of TRANSMIT command 1 1.45
-- MGMTCLAS operand 1
-- ALLOCATE command 2 1.4.2
-- MGMTCLAS operand of RECEIVE 1 1.32
-- MOD operand of ALLOCATE command 1 1.4.2
-- MODE operand of PROFILE command 1 1.30
-- model data set profile 1 1.4.2
-- MODIFY operand 1
-- ALLOCATE command 2 1.4.2
-- OUTDES command 2 1.26
-- PRINTDS command 2 1.29
-- module call 1 1.25
-- MOVE subcommand of EDIT 1 1.11.28
-- MSG operand of CHANGE.FUNCTION command 1 2.8
-- MSGDATASET operand of TRANSMIT command 1 1.45
-- MSGDDNAME operand of TRANSMIT command 1 1.45
-- MSGDSNAME operand of TRANSMIT command 1 1.45
-- MSGFILE operand of TRANSMIT command 1 1.45
-- MSGID (list) operand 1
-- HELP command 2 1.16
-- PROFILE command 2 1.30
-- MVSSERV command 1
-- diagnostic information 2 1.25
-- DSNMAP command 2 1.25
-- error messages 2 1.25
-- IBM Personal Computer 2 1.25
-- informational messages 2 1.25
-- IOTRACE operand 2 1.25
-- module calls 2 1.25
-- NOTRACE operand 2 1.25
-- syntax 2 1.25
-- terminal messages 2 1.25
-- trace data set 2 1.25
-- TRACE operand 2 1.25
-- TSO/E command 2 1.25
-- TSO/E Enhanced Connectivity Facility 2 1.25
-- VM/SP 2 1.25
+- MAIL operand
+  - LISTBC command, [1\.19](1-19.md)
+  - LOGON command, [1\.24](1-24.md)
+- management class of data set, [1\.4\.2](<#1.4.2>)
+- management class, definition of, [1\.4\.1\.1](<#1.4.1.1>)
+- managing data sets, [1\.4\.1](<#1.4.1>)
+- MAP operand of LINK command, [1\.17](1-17.md)
+- MAX operand of SCROLL command, [2\.23](2-23.md)
+- MAXVOL operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- members of PDS, printing, [1\.29](1-29.md)
+- MEMBERS operand
+  - LISTALC command, [1\.18](1-18.md)
+  - LISTDS command, [1\.21](1-21.md)
+  - PRINTDS command, [1\.29](1-29.md)
+  - TRANSMIT command, [1\.45](1-45.md)
+- message \(MSG\) function, change the streams for, [2\.8](2-8.md)
+- MESSAGE operand of TRANSMIT command, [1\.45](1-45.md)
+- MGMTCLAS operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- MGMTCLAS operand of RECEIVE, [1\.32](1-32.md)
+- MOD operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- MODE operand of PROFILE command, [1\.30](1-30.md)
+- model data set profile, [1\.4\.2](<#1.4.2>)
+- MODIFY operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - OUTDES command, [1\.26](1-26.md)
+  - PRINTDS command, [1\.29](1-29.md)
+- module call, [1\.25](1-25.md)
+- MOVE subcommand of EDIT, [1\.11\.28](<#1.11.28>)
+- MSG operand of CHANGE\.FUNCTION command, [2\.8](2-8.md)
+- MSGDATASET operand of TRANSMIT command, [1\.45](1-45.md)
+- MSGDDNAME operand of TRANSMIT command, [1\.45](1-45.md)
+- MSGDSNAME operand of TRANSMIT command, [1\.45](1-45.md)
+- MSGFILE operand of TRANSMIT command, [1\.45](1-45.md)
+- MSGID \(list\) operand
+  - HELP command, [1\.16](1-16.md)
+  - PROFILE command, [1\.30](1-30.md)
+- MVSSERV command
+  - diagnostic information, [1\.25](1-25.md)
+  - DSNMAP command, [1\.25](1-25.md)
+  - error messages, [1\.25](1-25.md)
+  - IBM Personal Computer, [1\.25](1-25.md)
+  - informational messages, [1\.25](1-25.md)
+  - IOTRACE operand, [1\.25](1-25.md)
+  - module calls, [1\.25](1-25.md)
+  - NOTRACE operand, [1\.25](1-25.md)
+  - syntax, [1\.25](1-25.md)
+  - terminal messages, [1\.25](1-25.md)
+  - trace data set, [1\.25](1-25.md)
+  - TRACE operand, [1\.25](1-25.md)
+  - TSO/E command, [1\.25](1-25.md)
+  - TSO/E Enhanced Connectivity Facility, [1\.25](1-25.md)
+  - VM/SP, [1\.25](1-25.md)
 
 ## N
 
-- name operand of LISTCAT command 1 1.20
-- NAMES data set 1
-- control section tags 2 1.45.9
-- function 2 1.45.8
-- nicknames section tags 2 1.45.10
-- NAMES operand of RECEIVE command 1 1.32
-- NCAL operand of LINK command 1 1.17
-- NCP operand 1
-- ALLOCATE command 2 1.4.2
-- ATTRIB command 2 1.6
-- NE operand of LINK command 1 1.17
-- NEW operand 1
-- ALLOCATE command 2 1.4.2
-- EDIT command 2 1.10
-- OUTDES command 2 1.26
-- new-line-number operand 1
-- RENUM subcommand of EDIT 2 1.11.31
-- SAVE subcommand of EDIT 2 1.11.35
-- new-name operand of RENAME command 1 1.33
-- NEW/OLD/MOD/SHR operand of RECEIVE command 1 1.32
-- NEWCLASS operand of OUTPUT command 1 1.27
-- NEWEST operand 1
-- CHANGE.WINDOW operand 2 2.13
-- DEFINE.WINDOW command 2 2.14
-- SCROLL command 2 2.23
-- UNLOCK command 2 2.25
-- NEXT operand on CONTINUE subcommand of OUTPUT 1 1.28.1
-- nicknames section tags 1 1.45.10
-- NO operand of CHANGE.FUNCTION command 1 2.8
-- NOBURST operand 1
-- OUTDES command 2 1.26
-- PRINTDS command 2 1.29
-- NOCOPY operand of CHANGE.FUNCTION command 1 2.8
-- NOCP operand of TEST command 1 1.42
-- NODC operand of LINK command 1 1.17
-- NODCF operand of PRINTDS command 1 1.29
-- NODEFAULT operand of OUTDES 1 1.26
-- NODISPLAY operand of RECEIVE command 1 1.32
-- NOEPILOG operand of TRANSMIT command 1 1.45
-- NOERASE operand of DELETE command 1 1.9
-- NOFORMAT operand of SMCOPY command 1 1.36
-- NOGO operand 1
-- RUN command 2 1.34
-- RUN subcommand of EDIT 2 1.11.33
-- NOHIAR operand of LINK 1 1.17
-- NOHOLD operand 1
-- ALLOCATE command 2 1.4.2
-- FREE command 2 1.15
-- OUTPUT command 2 1.27
-- NOINTERCOM operand of PROFILE command 1 1.30
-- NOKEEP operand of OUTPUT command 1 1.27
-- NOLET operand 1
-- LINK command 2 1.17
-- LOADGO command 2 1.22
-- NOLINE operand of PROFILE command 1 1.30
-- NOLINES operand of TERMINAL command 1 1.41
-- NOLIST operand 1
-- LINK command 2 1.17
-- NOLOG operand of TRANSMIT command 1 1.45
-- NOMAIL operand of LISTBC command 1 1.19
-- NOMAP operand 1
-- LINK command 2 1.17
-- LOADGO command 2 1.22
-- NOMODE operand of PROFILE command 1 1.30
-- NOMSGID operand of PROFILE command 1 1.30
-- non-VSAM data sets 1 1.2.6
-- NONAMES operand of RECEIVE command 1 1.32
-- NONCAL operand of LINK command 1 1.17
-- NONE operand of LINK command 1 1.17
-- NONOTICES operand 1
-- LISTBC command 2 1.19
-- LOGON command 2 1.24
-- NONOTIFY operand 1
-- SUBMIT command 2 1.40
-- SUBMIT subcommand of EDIT 2 1.11.40
-- TRANSMIT command 2 1.45
-- NONUM operand 1
-- EDIT command 2 1.10
-- PRINTDS command 2 1.29
-- NONVSAM or NVSAM operand 1
-- DELETE command 2 1.9
-- LISTCAT command 2 1.20
-- NOOL operand of LINK command 1 1.17
-- NOOVLY operand of LINK command 1 1.17
-- NOPAUSE operand 1
-- CONTINUE subcommand of OUTPUT 2 1.28.1
-- OUTPUT command 2 1.27
-- PROFILE command 2 1.30
-- RUN command 2 1.34
-- RUN subcommand of EDIT 2 1.11.33
-- NOPOINTER operand 1
-- COPY subcommand of TEST 2 1.43.12
-- NOPOINTER operand on COPY subcommand of TEST 1 1.43.12
-- NOPREFIX operand of PROFILE command 1 1.30
-- NOPREVIEW operand of RECEIVE command 1 1.32
-- NOPRINT operand of LOADGO command 1 1.22
-- NOPROLOG operand of TRANSMIT command 1 1.45
-- NOPROMPT operand 1
-- INPUT subcommand of EDIT 2 1.11.20
-- PROFILE command 2 1.30
-- NOPURGE operand 1
-- CANCEL command 2 1.8
-- DELETE command 2 1.9
-- NOPWREAD operand of PROTECT command 1 1.31
-- NORECOVER operand of EDIT command 1 1.10
-- NOREFR operand of LINK command 1 1.17
-- NORENT operand of LINK command 1 1.17
-- NORES operand of LOADGO command 1 1.22
-- NOREUS operand of LINK command 1 1.17
-- NOSAVE operand, END subcommand of EDIT 1 1.11.14
-- NOSCAN operand of EDIT command 1 1.10
-- NOSCRATCH operand of DELETE command 1 1.9
-- DELETE command 2 1.9
-- NOSCTR operand of LINK command 1 1.17
-- NOSECONDS operand of TERMINAL command 1 1.41
-- NOSTORE operand of RUN command 1 1.34
-- NOTERM operand 1
-- LINK command 2 1.17
-- LOADGO command 2 1.22
-- NOTEST operand 1
-- LINK command 2 1.17
-- RUN command 2 1.34
-- NOTICES operand 1
-- LISTBC command 2 1.19
-- LOGON command 2 1.24
-- NOTIFY operand 1
-- SUBMIT command 2 1.40
-- SUBMIT subcommand of EDIT 2 1.11.40
-- TRANSMIT command 2 1.45
-- NOTIMEOUT operand of TERMINAL command 1 1.41
-- NOTITLE operand of PRINTDS command 1 1.29
-- NOTRACE operand of MVSSERV 1 1.25
-- NOTRAN operand of TERMINAL command 1 1.41
-- NOTRANS operand of SMCOPY command 1 1.36
-- NOTRC operand of OUTDES 1 1.26
-- NOTRC operand of PRINTDS command 1 1.29
-- NOWAIT operand of SEND command 1 1.35
-- NOWRITE operand of PROTECT command 1 1.31
-- NOWTPMSG operand of PROFILE command 1 1.30
-- NOXCAL operand of LINK command 1 1.17
-- NOXREF operand of LINK command 1 1.17
-- NUM operand 1
-- EDIT command 2 1.10
-- PRINTDS command 2 1.29
+- name operand of LISTCAT command, [1\.20](1-20.md)
+- NAMES data set
+  - control section tags, [1\.45\.9](<#1.45.9>)
+  - function, [1\.45\.8](<#1.45.8>)
+  - nicknames section tags, [1\.45\.10](<#1.45.10>)
+- NAMES operand of RECEIVE command, [1\.32](1-32.md)
+- NCAL operand of LINK command, [1\.17](1-17.md)
+- NCP operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - ATTRIB command, [1\.6](1-6.md)
+- NE operand of LINK command, [1\.17](1-17.md)
+- NEW operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - EDIT command, [1\.10](1-10.md)
+  - OUTDES command, [1\.26](1-26.md)
+- new\-line\-number operand
+  - RENUM subcommand of EDIT, [1\.11\.31](<#1.11.31>)
+  - SAVE subcommand of EDIT, [1\.11\.35](<#1.11.35>)
+- new\-name operand of RENAME command, [1\.33](1-33.md)
+- NEW/OLD/MOD/SHR operand of RECEIVE command, [1\.32](1-32.md)
+- NEWCLASS operand of OUTPUT command, [1\.27](1-27.md)
+- NEWEST operand
+  - CHANGE\.WINDOW operand, [2\.13](2-13.md)
+  - DEFINE\.WINDOW command, [2\.14](2-14.md)
+  - SCROLL command, [2\.23](2-23.md)
+  - UNLOCK command, [2\.25](2-25.md)
+- NEXT operand on CONTINUE subcommand of OUTPUT, [1\.28\.1](<#1.28.1>)
+- nicknames section tags, [1\.45\.10](<#1.45.10>)
+- NO operand of CHANGE\.FUNCTION command, [2\.8](2-8.md)
+- NOBURST operand
+  - OUTDES command, [1\.26](1-26.md)
+  - PRINTDS command, [1\.29](1-29.md)
+- NOCOPY operand of CHANGE\.FUNCTION command, [2\.8](2-8.md)
+- NOCP operand of TEST command, [1\.42](1-42.md)
+- NODC operand of LINK command, [1\.17](1-17.md)
+- NODCF operand of PRINTDS command, [1\.29](1-29.md)
+- NODEFAULT operand of OUTDES, [1\.26](1-26.md)
+- NODISPLAY operand of RECEIVE command, [1\.32](1-32.md)
+- NOEPILOG operand of TRANSMIT command, [1\.45](1-45.md)
+- NOERASE operand of DELETE command, [1\.9](1-9.md)
+- NOFORMAT operand of SMCOPY command, [1\.36](1-36.md)
+- NOGO operand
+  - RUN command, [1\.34](1-34.md)
+  - RUN subcommand of EDIT, [1\.11\.33](<#1.11.33>)
+- NOHIAR operand of LINK, [1\.17](1-17.md)
+- NOHOLD operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - FREE command, [1\.15](1-15.md)
+  - OUTPUT command, [1\.27](1-27.md)
+- NOINTERCOM operand of PROFILE command, [1\.30](1-30.md)
+- NOKEEP operand of OUTPUT command, [1\.27](1-27.md)
+- NOLET operand
+  - LINK command, [1\.17](1-17.md)
+  - LOADGO command, [1\.22](1-22.md)
+- NOLINE operand of PROFILE command, [1\.30](1-30.md)
+- NOLINES operand of TERMINAL command, [1\.41](1-41.md)
+- NOLIST operand
+  - LINK command, [1\.17](1-17.md)
+- NOLOG operand of TRANSMIT command, [1\.45](1-45.md)
+- NOMAIL operand of LISTBC command, [1\.19](1-19.md)
+- NOMAP operand
+  - LINK command, [1\.17](1-17.md)
+  - LOADGO command, [1\.22](1-22.md)
+- NOMODE operand of PROFILE command, [1\.30](1-30.md)
+- NOMSGID operand of PROFILE command, [1\.30](1-30.md)
+- non\-VSAM data sets, [1\.2\.6](<#1.2.6>)
+- NONAMES operand of RECEIVE command, [1\.32](1-32.md)
+- NONCAL operand of LINK command, [1\.17](1-17.md)
+- NONE operand of LINK command, [1\.17](1-17.md)
+- NONOTICES operand
+  - LISTBC command, [1\.19](1-19.md)
+  - LOGON command, [1\.24](1-24.md)
+- NONOTIFY operand
+  - SUBMIT command, [1\.40](1-40.md)
+  - SUBMIT subcommand of EDIT, [1\.11\.40](<#1.11.40>)
+  - TRANSMIT command, [1\.45](1-45.md)
+- NONUM operand
+  - EDIT command, [1\.10](1-10.md)
+  - PRINTDS command, [1\.29](1-29.md)
+- NONVSAM or NVSAM operand
+  - DELETE command, [1\.9](1-9.md)
+  - LISTCAT command, [1\.20](1-20.md)
+- NOOL operand of LINK command, [1\.17](1-17.md)
+- NOOVLY operand of LINK command, [1\.17](1-17.md)
+- NOPAUSE operand
+  - CONTINUE subcommand of OUTPUT, [1\.28\.1](<#1.28.1>)
+  - OUTPUT command, [1\.27](1-27.md)
+  - PROFILE command, [1\.30](1-30.md)
+  - RUN command, [1\.34](1-34.md)
+  - RUN subcommand of EDIT, [1\.11\.33](<#1.11.33>)
+- NOPOINTER operand
+  - COPY subcommand of TEST, [1\.43\.12](<#1.43.12>)
+- NOPOINTER operand on COPY subcommand of TEST, [1\.43\.12](<#1.43.12>)
+- NOPREFIX operand of PROFILE command, [1\.30](1-30.md)
+- NOPREVIEW operand of RECEIVE command, [1\.32](1-32.md)
+- NOPRINT operand of LOADGO command, [1\.22](1-22.md)
+- NOPROLOG operand of TRANSMIT command, [1\.45](1-45.md)
+- NOPROMPT operand
+  - INPUT subcommand of EDIT, [1\.11\.20](<#1.11.20>)
+  - PROFILE command, [1\.30](1-30.md)
+- NOPURGE operand
+  - CANCEL command, [1\.8](1-8.md)
+  - DELETE command, [1\.9](1-9.md)
+- NOPWREAD operand of PROTECT command, [1\.31](1-31.md)
+- NORECOVER operand of EDIT command, [1\.10](1-10.md)
+- NOREFR operand of LINK command, [1\.17](1-17.md)
+- NORENT operand of LINK command, [1\.17](1-17.md)
+- NORES operand of LOADGO command, [1\.22](1-22.md)
+- NOREUS operand of LINK command, [1\.17](1-17.md)
+- NOSAVE operand, END subcommand of EDIT, [1\.11\.14](<#1.11.14>)
+- NOSCAN operand of EDIT command, [1\.10](1-10.md)
+- NOSCRATCH operand of DELETE command, [1\.9](1-9.md)
+  - DELETE command, [1\.9](1-9.md)
+- NOSCTR operand of LINK command, [1\.17](1-17.md)
+- NOSECONDS operand of TERMINAL command, [1\.41](1-41.md)
+- NOSTORE operand of RUN command, [1\.34](1-34.md)
+- NOTERM operand
+  - LINK command, [1\.17](1-17.md)
+  - LOADGO command, [1\.22](1-22.md)
+- NOTEST operand
+  - LINK command, [1\.17](1-17.md)
+  - RUN command, [1\.34](1-34.md)
+- NOTICES operand
+  - LISTBC command, [1\.19](1-19.md)
+  - LOGON command, [1\.24](1-24.md)
+- NOTIFY operand
+  - SUBMIT command, [1\.40](1-40.md)
+  - SUBMIT subcommand of EDIT, [1\.11\.40](<#1.11.40>)
+  - TRANSMIT command, [1\.45](1-45.md)
+- NOTIMEOUT operand of TERMINAL command, [1\.41](1-41.md)
+- NOTITLE operand of PRINTDS command, [1\.29](1-29.md)
+- NOTRACE operand of MVSSERV, [1\.25](1-25.md)
+- NOTRAN operand of TERMINAL command, [1\.41](1-41.md)
+- NOTRANS operand of SMCOPY command, [1\.36](1-36.md)
+- NOTRC operand of OUTDES, [1\.26](1-26.md)
+- NOTRC operand of PRINTDS command, [1\.29](1-29.md)
+- NOWAIT operand of SEND command, [1\.35](1-35.md)
+- NOWRITE operand of PROTECT command, [1\.31](1-31.md)
+- NOWTPMSG operand of PROFILE command, [1\.30](1-30.md)
+- NOXCAL operand of LINK command, [1\.17](1-17.md)
+- NOXREF operand of LINK command, [1\.17](1-17.md)
+- NUM operand
+  - EDIT command, [1\.10](1-10.md)
+  - PRINTDS command, [1\.29](1-29.md)
 
 ## O
 
-- OBJECT operand 1
-- RUN command 2 1.34
-- OFF operand 1
-- address 2 1.43.52
-- SCAN subcommand of EDIT 2 1.11.37
-- TABSET subcommand of EDIT 2 1.11.42
-- VERIFY subcommand of EDIT 2 1.11.50
-- OFF subcommand of TEST 1 1.43.52
-- OIDCARD operand of LOGON command 1 1.24
-- OL operand of LINK command 1 1.17
-- OLD operand 1
-- ALLOCATE command 2 1.4.2
-- EDIT command 2 1.10
-- old-line-number operand 1
-- SAVE subcommand of EDIT 2 1.11.35
-- old-name operand of RENAME command 1 1.33
-- OLDEST operand 1
-- SCROLL command 2 2.23
-- ON operand 1
-- SCAN subcommand of EDIT 2 1.11.37
-- TABSET subcommand of EDIT 2 1.11.42
-- VERIFY subcommand of EDIT 2 1.11.50
-- operand, description of 1
-- Session Manager 2 2.2
-- TSO/E 2 1.1
-- OPERANDS operand of HELP command 1 1.16
-- operator operand of WHEN command 1 1.48.1
-- OPT operand of RUN command 1 1.34
-- OPTCD operand 1
-- ALLOCATE command 2 1.4.2
-- ATTRIB command 2 1.6
-- OR subcommand of TEST, operands 1
-- address1 2 1.43.54
-- address2 2 1.43.54
-- LENGTH 2 1.43.54
-- POINTER 2 1.43.54
-- OUTDATASET operand of TRANSMIT command 1 1.45
-- OUTDDNAME operand of TRANSMIT command 1 1.45
-- OUTDES command 1
-- operands 2
-- ADDRESS 3 1.26
-- BUILDING 3 1.26
-- BURST or NOBURST 3 1.26
-- CHARS 3 1.26
-- CKPTLINE 3 1.26
-- CKPTPAGE 3 1.26
-- CKPTSEC 3 1.26
-- CLASS 3 1.26
-- COMPACT 3 1.26
-- CONTROL 3 1.26
-- COPIES 3 1.26
-- DATACK 3 1.26
-- DEFAULT 3 1.26
-- DEPT 3 1.26
-- DEST 3 1.26
-- DPAGELBL 3 1.26
-- FCB 3 1.26
-- FLASH 3 1.26
-- FORMDEF 3 1.26
-- FORMS 3 1.26
-- GROUPID 3 1.26
-- INDEX 3 1.26
-- LINDEX 3 1.26
-- LINECT 3 1.26
-- MODIFY 3 1.26
-- NAME 3 1.26
-- NEW 3 1.26
-- NODEFAULT 3 1.26
-- NOTIFY 3 1.26
-- NOTRC 3 1.26
-- OUTDISP 3 1.26
-- output descriptor name 3 1.26
-- PAGEDEF 3 1.26
-- PIMSG 3 1.26
-- PRMODE 3 1.26
-- PRTY 3 1.26
-- REUSE 3 1.26
-- ROOM 3 1.26
-- SYSAREA 3 1.26
-- TITLE 3 1.26
-- TRC 3 1.26
-- UCS 3 1.26
-- USERDATA 3 1.26
-- USERLIB 3 1.26
-- WRITER 3 1.26
-- PRINTDS command 2 1.29
-- OUTDES operand 1
-- ALLOCATE command 2 1.4.2
-- FREE command 2 1.15
-- OUTDSNAME operand of TRANSMIT command 1 1.45
-- OUTFILE operand of TRANSMIT command 1 1.45
-- output characteristics 1 1.29
-- output class 1 1.26
-- OUTPUT command 1 1.27
-- output descriptor name operand 1
-- OUTDES command 2 1.26
-- PRINTDS command 2 1.29
-- OUTPUT operand 1
-- ALLOCATE command 2 1.4.2
-- ATTRIB command 2 1.6
-- CHANGE.FUNCTION command 2 2.8
-- output sequence 1 1.27
-- OUTPUT subcommands 1 1.28
-- OVERLAP operand 1
-- CHANGE.WINDOW command 2 2.5 2.13
-- DEFINE.WINDOW command 2 2.14
-- OVLY operand of LINK command 1 1.17
+- OBJECT operand
+  - RUN command, [1\.34](1-34.md)
+- OFF operand
+  - address, [1\.43\.52](<#1.43.52>)
+  - SCAN subcommand of EDIT, [1\.11\.37](<#1.11.37>)
+  - TABSET subcommand of EDIT, [1\.11\.42](<#1.11.42>)
+  - VERIFY subcommand of EDIT, [1\.11\.50](<#1.11.50>)
+- OFF subcommand of TEST, [1\.43\.52](<#1.43.52>)
+- OIDCARD operand of LOGON command, [1\.24](1-24.md)
+- OL operand of LINK command, [1\.17](1-17.md)
+- OLD operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - EDIT command, [1\.10](1-10.md)
+- old\-line\-number operand
+  - SAVE subcommand of EDIT, [1\.11\.35](<#1.11.35>)
+- old\-name operand of RENAME command, [1\.33](1-33.md)
+- OLDEST operand
+  - SCROLL command, [2\.23](2-23.md)
+- ON operand
+  - SCAN subcommand of EDIT, [1\.11\.37](<#1.11.37>)
+  - TABSET subcommand of EDIT, [1\.11\.42](<#1.11.42>)
+  - VERIFY subcommand of EDIT, [1\.11\.50](<#1.11.50>)
+- operand, description of
+  - Session Manager, [2\.2](2-2.md)
+  - TSO/E, [1\.1](1-1.md)
+- OPERANDS operand of HELP command, [1\.16](1-16.md)
+- operator operand of WHEN command, [1\.48\.1](<#1.48.1>)
+- OPT operand of RUN command, [1\.34](1-34.md)
+- OPTCD operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - ATTRIB command, [1\.6](1-6.md)
+- OR subcommand of TEST, operands
+  - address1, [1\.43\.54](<#1.43.54>)
+  - address2, [1\.43\.54](<#1.43.54>)
+  - LENGTH, [1\.43\.54](<#1.43.54>)
+  - POINTER, [1\.43\.54](<#1.43.54>)
+- OUTDATASET operand of TRANSMIT command, [1\.45](1-45.md)
+- OUTDDNAME operand of TRANSMIT command, [1\.45](1-45.md)
+- OUTDES command
+  - operands
+    - ADDRESS, [1\.26](1-26.md)
+    - BUILDING, [1\.26](1-26.md)
+    - BURST or NOBURST, [1\.26](1-26.md)
+    - CHARS, [1\.26](1-26.md)
+    - CKPTLINE, [1\.26](1-26.md)
+    - CKPTPAGE, [1\.26](1-26.md)
+    - CKPTSEC, [1\.26](1-26.md)
+    - CLASS, [1\.26](1-26.md)
+    - COMPACT, [1\.26](1-26.md)
+    - CONTROL, [1\.26](1-26.md)
+    - COPIES, [1\.26](1-26.md)
+    - DATACK, [1\.26](1-26.md)
+    - DEFAULT, [1\.26](1-26.md)
+    - DEPT, [1\.26](1-26.md)
+    - DEST, [1\.26](1-26.md)
+    - DPAGELBL, [1\.26](1-26.md)
+    - FCB, [1\.26](1-26.md)
+    - FLASH, [1\.26](1-26.md)
+    - FORMDEF, [1\.26](1-26.md)
+    - FORMS, [1\.26](1-26.md)
+    - GROUPID, [1\.26](1-26.md)
+    - INDEX, [1\.26](1-26.md)
+    - LINDEX, [1\.26](1-26.md)
+    - LINECT, [1\.26](1-26.md)
+    - MODIFY, [1\.26](1-26.md)
+    - NAME, [1\.26](1-26.md)
+    - NEW, [1\.26](1-26.md)
+    - NODEFAULT, [1\.26](1-26.md)
+    - NOTIFY, [1\.26](1-26.md)
+    - NOTRC, [1\.26](1-26.md)
+    - OUTDISP, [1\.26](1-26.md)
+    - output descriptor name, [1\.26](1-26.md)
+    - PAGEDEF, [1\.26](1-26.md)
+    - PIMSG, [1\.26](1-26.md)
+    - PRMODE, [1\.26](1-26.md)
+    - PRTY, [1\.26](1-26.md)
+    - REUSE, [1\.26](1-26.md)
+    - ROOM, [1\.26](1-26.md)
+    - SYSAREA, [1\.26](1-26.md)
+    - TITLE, [1\.26](1-26.md)
+    - TRC, [1\.26](1-26.md)
+    - UCS, [1\.26](1-26.md)
+    - USERDATA, [1\.26](1-26.md)
+    - USERLIB, [1\.26](1-26.md)
+    - WRITER, [1\.26](1-26.md)
+  - PRINTDS command, [1\.29](1-29.md)
+- OUTDES operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - FREE command, [1\.15](1-15.md)
+- OUTDSNAME operand of TRANSMIT command, [1\.45](1-45.md)
+- OUTFILE operand of TRANSMIT command, [1\.45](1-45.md)
+- output characteristics, [1\.29](1-29.md)
+- output class, [1\.26](1-26.md)
+- OUTPUT command, [1\.27](1-27.md)
+- output descriptor name operand
+  - OUTDES command, [1\.26](1-26.md)
+  - PRINTDS command, [1\.29](1-29.md)
+- OUTPUT operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - ATTRIB command, [1\.6](1-6.md)
+  - CHANGE\.FUNCTION command, [2\.8](2-8.md)
+- output sequence, [1\.27](1-27.md)
+- OUTPUT subcommands, [1\.28](1-28.md)
+- OVERLAP operand
+  - CHANGE\.WINDOW command, [2\.5](2-5.md), [2\.13](2-13.md)
+  - DEFINE\.WINDOW command, [2\.14](2-14.md)
+- OVLY operand of LINK command, [1\.17](1-17.md)
 
 ## P
 
-- page labeling 1 1.26
-- PAGE operand 1
-- CHANGE.WINDOW command 2 2.13
-- DEFINE.WINDOW command 2 2.14
-- SCROLL command 2 2.23
-- PAGEDEF operand of OUTDES 1 1.26
-- PAGELEN operand of PRINTDS command 1 1.29
-- pages operand 1
-- SCROLL command 2 2.23
-- PAGESPACE operand 1
-- DELETE command 2 1.9
-- LISTCAT command 2 1.20
-- PARALLEL operand of ALLOCATE command 1 1.4.2
-- parameters operand of TEST command 1 1.42
-- PARM operand 1
-- RECEIVE command 2 1.32
-- TRANSMIT command 2 1.45
-- partitioned data set, printing 1 1.29
-- password 1
-- data set 2 1.31.3
-- DELETE command 2 1.9
-- EDIT command 2 1.10
-- operand of PROTECT command 2 1.31
-- password reprompt 1 1.24
-- PAUSE operand 1
-- CONTINUE subcommand of OUTPUT 2 1.28.1
-- OUTPUT command 2 1.27
-- PROFILE command 2 1.30
-- RUN command 2 1.34
-- RUN subcommand of EDIT 2 1.11.33
-- PDS operand of TRANSMIT command 1 1.45
-- personal computer 1 1.25
-- pfk-number operand of CHANGE.PFK command 1 2.2 2.10
-- PFKS operand 1
-- QUERY command 2 2.19
-- RESTORE command 2 2.21
-- SAVE operand 2 2.22
-- PIMSG operand of OUTDES 1 1.26
-- PLANGUAGE operand of PROFILE command 1 1.30
-- example 2 1.30.2
-- PLI operand 1
-- EDIT command 2 1.10
-- RUN command 2 1.34
-- PLIBASE operand of LINK command 1 1.17
-- PLIBASE operand of LOADGO command 1 1.22
-- PLICMIX operand of LINK command 1 1.17
-- PLICMIX operand of LOADGO command 1 1.22
-- PLIF operand of EDIT command 1 1.10
-- PLILIB operand of LOADGO command 1 1.22
-- POINTER operand 1
-- COPY subcommand of TEST 2 1.43.12
-- POINTER operand on COPY subcommand of TEST 1 1.43.12
-- POSITION operand of ALLOCATE command 1 1.4.2
-- position operand, FIND subcommand of EDIT 1 1.11.16
-- positional operand 1 2.2
-- POSITIONAL operand of HELP command 1 1.16
-- positional operands 1 1.1.1
-- PREFIX operand of PROFILE command 1 1.30
-- PREFORMAT operand of SMCOPY command 1 1.36
-- PREVIEW operand of RECEIVE command 1 1.32
-- PRINT operand 1
-- LINK command 2 1.17
-- OUTPUT command 2 1.27
-- SMCOPY command 2 1.36
-- print services facility (PSF) 1 1.26
-- PRINTDS command 1 1.29
-- operands 2
-- ALL 3 1.29
-- BIND or LMARGIN 3 1.29
-- BMARGIN 3 1.29
-- BURST or NOBURST 3 1.29
-- CCHAR 3 1.29
-- CHARS 3 1.29
-- CLASS 3 1.29
-- COLUMNS 3 1.29
-- COPIES 3 1.29
-- DCF or NODCF 3 1.29
-- DEST 3 1.29
-- DIRECTORY 3 1.29
-- DOUBLE 3 1.29
-- FCB 3 1.29
-- FILE or DDNAME 3 1.29
-- FLASH 3 1.29
-- FOLD or TRUNCATE 3 1.29
-- FORMS 3 1.29
-- HOLD or NOHOLD 3 1.29
-- LINES 3 1.29
-- MEMBERS 3 1.29
-- MODIFY 3 1.29
-- NONUM 3 1.29
-- NUM 3 1.29
-- OUTDES 3 1.29
-- PAGELEN 3 1.29
-- SINGLE 3 1.29
-- SNUM 3 1.29
-- TITLE or NOTITLE 3 1.29
-- TMARGIN 3 1.29
-- TODATASET or TODSNAME 3 1.29
-- TRC or NOTRC 3 1.29
-- TRIPLE 3 1.29
-- UCS 3 1.29
-- WRITER 3 1.29
-- printer support for SYSOUT data sets 1 1.4.2
-- printing on JES printers 1 1.29
-- priority, processing 1 1.26
-- PRIVATE operand of ALLOCATE command 1 1.4.2
-- PRMODE operand of OUTDES 1 1.26
-- process mode 1 1.26
-- processing priority 1 1.26
-- PROFILE command 1 1.30
-- PROFILE command under TEST 1 1.43.56
-- PROFILE subcommand of EDIT 1 1.11.30
-- program function (PF) keys 1
-- defining 2 2.10
-- information displayed 2 2.19
-- uses 2 2.1
-- PROLOG operand of TRANSMIT command 1 1.45
-- PROMPT operand 1
-- INPUT subcommand of EDIT 2 1.11.20
-- PROFILE command 2 1.30
-- PROTECT command 1 1.31
-- PROTECT operand 1
-- ALLOCATE command 2 1.4.2
-- CHANGE.WINDOW command 2 2.5 2.13
-- DEFINE.WINDOW command 2 2.14
-- PRTY operand of OUTDES 1 1.26
-- PURGE operand 1
-- CANCEL command 2 1.8
-- DELETE command 2 1.9
-- purging jobs 1 1.8
-- PUT command 1 2.18
-- PWREAD operand of PROTECT command 1 1.31
-- PWWRITE operand of PROTECT command 1 1.31
+- page labeling, [1\.26](1-26.md)
+- PAGE operand
+  - CHANGE\.WINDOW command, [2\.13](2-13.md)
+  - DEFINE\.WINDOW command, [2\.14](2-14.md)
+  - SCROLL command, [2\.23](2-23.md)
+- PAGEDEF operand of OUTDES, [1\.26](1-26.md)
+- PAGELEN operand of PRINTDS command, [1\.29](1-29.md)
+- pages operand
+  - SCROLL command, [2\.23](2-23.md)
+- PAGESPACE operand
+  - DELETE command, [1\.9](1-9.md)
+  - LISTCAT command, [1\.20](1-20.md)
+- PARALLEL operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- parameters operand of TEST command, [1\.42](1-42.md)
+- PARM operand
+  - RECEIVE command, [1\.32](1-32.md)
+  - TRANSMIT command, [1\.45](1-45.md)
+- partitioned data set, printing, [1\.29](1-29.md)
+- password
+  - data set, [1\.31\.3](<#1.31.3>)
+  - DELETE command, [1\.9](1-9.md)
+  - EDIT command, [1\.10](1-10.md)
+  - operand of PROTECT command, [1\.31](1-31.md)
+- password reprompt, [1\.24](1-24.md)
+- PAUSE operand
+  - CONTINUE subcommand of OUTPUT, [1\.28\.1](<#1.28.1>)
+  - OUTPUT command, [1\.27](1-27.md)
+  - PROFILE command, [1\.30](1-30.md)
+  - RUN command, [1\.34](1-34.md)
+  - RUN subcommand of EDIT, [1\.11\.33](<#1.11.33>)
+- PDS operand of TRANSMIT command, [1\.45](1-45.md)
+- personal computer, [1\.25](1-25.md)
+- pfk\-number operand of CHANGE\.PFK command, [2\.2](2-2.md), [2\.10](2-10.md)
+- PFKS operand
+  - QUERY command, [2\.19](2-19.md)
+  - RESTORE command, [2\.21](2-21.md)
+  - SAVE operand, [2\.22](2-22.md)
+- PIMSG operand of OUTDES, [1\.26](1-26.md)
+- PLANGUAGE operand of PROFILE command, [1\.30](1-30.md)
+  - example, [1\.30\.2](<#1.30.2>)
+- PLI operand
+  - EDIT command, [1\.10](1-10.md)
+  - RUN command, [1\.34](1-34.md)
+- PLIBASE operand of LINK command, [1\.17](1-17.md)
+- PLIBASE operand of LOADGO command, [1\.22](1-22.md)
+- PLICMIX operand of LINK command, [1\.17](1-17.md)
+- PLICMIX operand of LOADGO command, [1\.22](1-22.md)
+- PLIF operand of EDIT command, [1\.10](1-10.md)
+- PLILIB operand of LOADGO command, [1\.22](1-22.md)
+- POINTER operand
+  - COPY subcommand of TEST, [1\.43\.12](<#1.43.12>)
+- POINTER operand on COPY subcommand of TEST, [1\.43\.12](<#1.43.12>)
+- POSITION operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- position operand, FIND subcommand of EDIT, [1\.11\.16](<#1.11.16>)
+- positional operand, [2\.2](2-2.md)
+- POSITIONAL operand of HELP command, [1\.16](1-16.md)
+- positional operands, [1\.1\.1](<#1.1.1>)
+- PREFIX operand of PROFILE command, [1\.30](1-30.md)
+- PREFORMAT operand of SMCOPY command, [1\.36](1-36.md)
+- PREVIEW operand of RECEIVE command, [1\.32](1-32.md)
+- PRINT operand
+  - LINK command, [1\.17](1-17.md)
+  - OUTPUT command, [1\.27](1-27.md)
+  - SMCOPY command, [1\.36](1-36.md)
+- print services facility \(PSF\), [1\.26](1-26.md)
+- PRINTDS command, [1\.29](1-29.md)
+  - operands
+    - ALL, [1\.29](1-29.md)
+    - BIND or LMARGIN, [1\.29](1-29.md)
+    - BMARGIN, [1\.29](1-29.md)
+    - BURST or NOBURST, [1\.29](1-29.md)
+    - CCHAR, [1\.29](1-29.md)
+    - CHARS, [1\.29](1-29.md)
+    - CLASS, [1\.29](1-29.md)
+    - COLUMNS, [1\.29](1-29.md)
+    - COPIES, [1\.29](1-29.md)
+    - DCF or NODCF, [1\.29](1-29.md)
+    - DEST, [1\.29](1-29.md)
+    - DIRECTORY, [1\.29](1-29.md)
+    - DOUBLE, [1\.29](1-29.md)
+    - FCB, [1\.29](1-29.md)
+    - FILE or DDNAME, [1\.29](1-29.md)
+    - FLASH, [1\.29](1-29.md)
+    - FOLD or TRUNCATE, [1\.29](1-29.md)
+    - FORMS, [1\.29](1-29.md)
+    - HOLD or NOHOLD, [1\.29](1-29.md)
+    - LINES, [1\.29](1-29.md)
+    - MEMBERS, [1\.29](1-29.md)
+    - MODIFY, [1\.29](1-29.md)
+    - NONUM, [1\.29](1-29.md)
+    - NUM, [1\.29](1-29.md)
+    - OUTDES, [1\.29](1-29.md)
+    - PAGELEN, [1\.29](1-29.md)
+    - SINGLE, [1\.29](1-29.md)
+    - SNUM, [1\.29](1-29.md)
+    - TITLE or NOTITLE, [1\.29](1-29.md)
+    - TMARGIN, [1\.29](1-29.md)
+    - TODATASET or TODSNAME, [1\.29](1-29.md)
+    - TRC or NOTRC, [1\.29](1-29.md)
+    - TRIPLE, [1\.29](1-29.md)
+    - UCS, [1\.29](1-29.md)
+    - WRITER, [1\.29](1-29.md)
+- printer support for SYSOUT data sets, [1\.4\.2](<#1.4.2>)
+- printing on JES printers, [1\.29](1-29.md)
+- priority, processing, [1\.26](1-26.md)
+- PRIVATE operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- PRMODE operand of OUTDES, [1\.26](1-26.md)
+- process mode, [1\.26](1-26.md)
+- processing priority, [1\.26](1-26.md)
+- PROFILE command, [1\.30](1-30.md)
+- PROFILE command under TEST, [1\.43\.56](<#1.43.56>)
+- PROFILE subcommand of EDIT, [1\.11\.30](<#1.11.30>)
+- program function \(PF\) keys
+  - defining, [2\.10](2-10.md)
+  - information displayed, [2\.19](2-19.md)
+  - uses, [2\.1](2-1.md)
+- PROLOG operand of TRANSMIT command, [1\.45](1-45.md)
+- PROMPT operand
+  - INPUT subcommand of EDIT, [1\.11\.20](<#1.11.20>)
+  - PROFILE command, [1\.30](1-30.md)
+- PROTECT command, [1\.31](1-31.md)
+- PROTECT operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - CHANGE\.WINDOW command, [2\.5](2-5.md), [2\.13](2-13.md)
+  - DEFINE\.WINDOW command, [2\.14](2-14.md)
+- PRTY operand of OUTDES, [1\.26](1-26.md)
+- PURGE operand
+  - CANCEL command, [1\.8](1-8.md)
+  - DELETE command, [1\.9](1-9.md)
+- purging jobs, [1\.8](1-8.md)
+- PUT command, [2\.18](2-18.md)
+- PWREAD operand of PROTECT command, [1\.31](1-31.md)
+- PWWRITE operand of PROTECT command, [1\.31](1-31.md)
 
 ## Q
 
-- QUALIFY subcommand of TEST, operands 1
-- address 2 1.43.58
-- module-name.entryname 2 1.43.58
-- TCB 2 1.43.58
-- QUERY command 1 2.19
-- quoted string notation 1 1.11.4.1 1.11.16
+- QUALIFY subcommand of TEST, operands
+  - address, [1\.43\.58](<#1.43.58>)
+  - module\-name\.entryname, [1\.43\.58](<#1.43.58>)
+  - TCB, [1\.43\.58](<#1.43.58>)
+- QUERY command, [2\.19](2-19.md)
+- quoted string notation, [1\.11\.4\.1](<#1.11.4.1>), [1\.11\.16](<#1.11.16>)
 
 ## R
 
-- R operand, INPUT subcommand of EDIT 1 1.11.20
-- RACF data set profile 1 1.4.2
-- RACF job with user ID 1 1.30
-- RACF protected data set 1 1.4.2
-- reason codes, EXEC command 1 1.13.5
-- RECEIVE command 1
-- data encryption function 2 1.45.5.1
-- description 2 1.32
-- logging function 2 1.45.7
-- RECFM operand 1
-- ALLOCATE command 2 1.4.2
-- ATTRIB command 2 1.6
-- RECONNECT operand of LOGON command 1 1.24
-- record format 1 1.4.2 1.29
-- RECORG operand of ALLOCATE command 1 1.4.2
-- RECOVER facility operand of PROFILE 1 1.30
-- recovering, EDIT command 1 1.10
-- REFDD operand of ALLOCATE command 1 1.4.2
-- REFR operand of LINK command 1 1.17
-- RELEASE operand 1
-- ALLOCATE command 2 1.4.2
-- RECEIVE command 2 1.32
-- RENAME command 1 1.33
-- RENAME command under TEST 1 1.43.60
-- RENT operand of LINK command 1 1.17
-- RENUM operand 1
-- SAVE subcommand of EDIT 2 1.11.35
-- RENUM subcommand of EDIT 1 1.11.31
-- REPLACE operand of PROTECT command 1 1.31
-- requester 1 1.25
-- RES operand of LOADGO command 1 1.22
-- RESET command 1 2.20
-- RESTORE command 1 2.21
-- RESTORE operand of RECEIVE command 1 1.32
-- RESUME operand of UNLOCK command 1 2.25
-- RETPD (number-of-days) operand 1
-- ALLOCATE command 2 1.4.2
-- ATTRIB command 2 1.6
-- return codes 1
-- ALLOCATE 2 1.4.3
-- ATTRIB command 2 1.6.1
-- CALL command 2 1.7.1
-- CANCEL command 2 1.8.1
-- CHANGE.CURSOR command 2 2.7.1
-- CHANGE.FUNCTION command 2 2.8.1
-- CHANGE.MODE command 2 2.9.1
-- CHANGE.PFK command 2 2.10.1
-- CHANGE.STREAM command 2 2.11.1
-- CHANGE.TERMINAL command 2 2.12.1
-- CHANGE.WINDOW command 2 2.13.1
-- DEFINE.WINDOW command 2 2.14.1
-- DELETE command 2 1.9.1
-- DELETE.WINDOW command 2 2.15.1
-- EDIT command 2 1.10.1
-- EXEC command 2 1.13.5
-- FIND command 2 2.17.1
-- FREE command 2 1.15.1
-- HELP command 2 1.16.1
-- LINK command 2 1.17.1
-- LISTALC command 2 1.18.1
-- LISTBC command 2 1.19.1
-- MVSSERV command 2 1.25.1
-- OUTDES 2 1.26.2
-- OUTPUT command 2 1.27.1
-- PRINTDS command 2 1.29.3
-- PROFILE command 2 1.30.1
-- PROTECT command 2 1.31.4
-- PUT command 2 2.18.1
-- QUERY command 2 2.19.1
-- RECEIVE command 2 1.32.1
-- RENAME command 2 1.33.1
-- RESET command 2 2.20.1
-- RESTORE command 2 2.21.1
-- RUN command 2 1.34.1
-- SAVE command 2 2.22.1
-- SCROLL command 2 2.23.1
-- SEND command 2 1.35.1
-- SMCOPY command 2 1.36.1
-- SMFIND command 2 1.37.1
-- SMPUT command 2 1.38.1
-- SNAPSHOT command 2 2.24.1
-- STATUS command 2 1.39.1
-- SUBMIT command 2 1.40.1
-- TERMINAL command 2 1.41.1
-- TIME command 2 1.44.1
-- TRANSMIT command 2 1.45.1
-- TSOEXEC command 2 1.46.1
-- UNLOCK command 2 2.25.1
-- WHEN command 2 1.48.1
-- REUS operand of LINK command 1 1.17
-- REUSE operand of ALLOCATE command 1 1.4.2
-- REUSE operand of OUTDES 1 1.26
-- RIGHT operand of SCROLL command 1 2.23
-- RMODE operand 1
-- LINK command 2 1.17
-- ROUND operand of ALLOCATE command 1 1.4.2
-- row operand 1
-- CHANGE.CURSOR command 2 2.7
-- DEFINE.WINDOW command 2 2.14
-- RUN command 1 1.34
-- RUN subcommand of 1
-- EDIT command 2 1.11.33
-- TEST command 2 1.43.61
+- R operand, INPUT subcommand of EDIT, [1\.11\.20](<#1.11.20>)
+- RACF data set profile, [1\.4\.2](<#1.4.2>)
+- RACF job with user ID, [1\.30](1-30.md)
+- RACF protected data set, [1\.4\.2](<#1.4.2>)
+- reason codes, EXEC command, [1\.13\.5](<#1.13.5>)
+- RECEIVE command
+  - data encryption function, [1\.45\.5\.1](<#1.45.5.1>)
+  - description, [1\.32](1-32.md)
+  - logging function, [1\.45\.7](<#1.45.7>)
+- RECFM operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - ATTRIB command, [1\.6](1-6.md)
+- RECONNECT operand of LOGON command, [1\.24](1-24.md)
+- record format, [1\.4\.2](<#1.4.2>), [1\.29](1-29.md)
+- RECORG operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- RECOVER facility operand of PROFILE, [1\.30](1-30.md)
+- recovering, EDIT command, [1\.10](1-10.md)
+- REFDD operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- REFR operand of LINK command, [1\.17](1-17.md)
+- RELEASE operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - RECEIVE command, [1\.32](1-32.md)
+- RENAME command, [1\.33](1-33.md)
+- RENAME command under TEST, [1\.43\.60](<#1.43.60>)
+- RENT operand of LINK command, [1\.17](1-17.md)
+- RENUM operand
+  - SAVE subcommand of EDIT, [1\.11\.35](<#1.11.35>)
+- RENUM subcommand of EDIT, [1\.11\.31](<#1.11.31>)
+- REPLACE operand of PROTECT command, [1\.31](1-31.md)
+- requester, [1\.25](1-25.md)
+- RES operand of LOADGO command, [1\.22](1-22.md)
+- RESET command, [2\.20](2-20.md)
+- RESTORE command, [2\.21](2-21.md)
+- RESTORE operand of RECEIVE command, [1\.32](1-32.md)
+- RESUME operand of UNLOCK command, [2\.25](2-25.md)
+- RETPD \(number\-of\-days\) operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - ATTRIB command, [1\.6](1-6.md)
+- return codes
+  - ALLOCATE, [1\.4\.3](<#1.4.3>)
+  - ATTRIB command, [1\.6\.1](<#1.6.1>)
+  - CALL command, [1\.7\.1](<#1.7.1>)
+  - CANCEL command, [1\.8\.1](<#1.8.1>)
+  - CHANGE\.CURSOR command, [2\.7\.1](<#2.7.1>)
+  - CHANGE\.FUNCTION command, [2\.8\.1](<#2.8.1>)
+  - CHANGE\.MODE command, [2\.9\.1](<#2.9.1>)
+  - CHANGE\.PFK command, [2\.10\.1](<#2.10.1>)
+  - CHANGE\.STREAM command, [2\.11\.1](<#2.11.1>)
+  - CHANGE\.TERMINAL command, [2\.12\.1](<#2.12.1>)
+  - CHANGE\.WINDOW command, [2\.13\.1](<#2.13.1>)
+  - DEFINE\.WINDOW command, [2\.14\.1](<#2.14.1>)
+  - DELETE command, [1\.9\.1](<#1.9.1>)
+  - DELETE\.WINDOW command, [2\.15\.1](<#2.15.1>)
+  - EDIT command, [1\.10\.1](<#1.10.1>)
+  - EXEC command, [1\.13\.5](<#1.13.5>)
+  - FIND command, [2\.17\.1](<#2.17.1>)
+  - FREE command, [1\.15\.1](<#1.15.1>)
+  - HELP command, [1\.16\.1](<#1.16.1>)
+  - LINK command, [1\.17\.1](<#1.17.1>)
+  - LISTALC command, [1\.18\.1](<#1.18.1>)
+  - LISTBC command, [1\.19\.1](<#1.19.1>)
+  - MVSSERV command, [1\.25\.1](<#1.25.1>)
+  - OUTDES, [1\.26\.2](<#1.26.2>)
+  - OUTPUT command, [1\.27\.1](<#1.27.1>)
+  - PRINTDS command, [1\.29\.3](<#1.29.3>)
+  - PROFILE command, [1\.30\.1](<#1.30.1>)
+  - PROTECT command, [1\.31\.4](<#1.31.4>)
+  - PUT command, [2\.18\.1](<#2.18.1>)
+  - QUERY command, [2\.19\.1](<#2.19.1>)
+  - RECEIVE command, [1\.32\.1](<#1.32.1>)
+  - RENAME command, [1\.33\.1](<#1.33.1>)
+  - RESET command, [2\.20\.1](<#2.20.1>)
+  - RESTORE command, [2\.21\.1](<#2.21.1>)
+  - RUN command, [1\.34\.1](<#1.34.1>)
+  - SAVE command, [2\.22\.1](<#2.22.1>)
+  - SCROLL command, [2\.23\.1](<#2.23.1>)
+  - SEND command, [1\.35\.1](<#1.35.1>)
+  - SMCOPY command, [1\.36\.1](<#1.36.1>)
+  - SMFIND command, [1\.37\.1](<#1.37.1>)
+  - SMPUT command, [1\.38\.1](<#1.38.1>)
+  - SNAPSHOT command, [2\.24\.1](<#2.24.1>)
+  - STATUS command, [1\.39\.1](<#1.39.1>)
+  - SUBMIT command, [1\.40\.1](<#1.40.1>)
+  - TERMINAL command, [1\.41\.1](<#1.41.1>)
+  - TIME command, [1\.44\.1](<#1.44.1>)
+  - TRANSMIT command, [1\.45\.1](<#1.45.1>)
+  - TSOEXEC command, [1\.46\.1](<#1.46.1>)
+  - UNLOCK command, [2\.25\.1](<#2.25.1>)
+  - WHEN command, [1\.48\.1](<#1.48.1>)
+- REUS operand of LINK command, [1\.17](1-17.md)
+- REUSE operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- REUSE operand of OUTDES, [1\.26](1-26.md)
+- RIGHT operand of SCROLL command, [2\.23](2-23.md)
+- RMODE operand
+  - LINK command, [1\.17](1-17.md)
+- ROUND operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- row operand
+  - CHANGE\.CURSOR command, [2\.7](2-7.md)
+  - DEFINE\.WINDOW command, [2\.14](2-14.md)
+- RUN command, [1\.34](1-34.md)
+- RUN subcommand of
+  - EDIT command, [1\.11\.33](<#1.11.33>)
+  - TEST command, [1\.43\.61](<#1.43.61>)
 
 ## S
 
-- SAVE command 1 2.22
-- SAVE subcommand of 1
-- EDIT command 2 1.11.35
-- OUTPUT command 2 1.28.5
-- SCAN operand of EDIT command 1 1.10
-- SCAN subcommand of EDIT 1 1.11.37
-- SCRATCH operand of DELETE command 1 1.9
-- screen layout, Session Manager 1
-- information restored 2 2.21
-- information saved 2 2.22
-- SCREEN operand 1
-- RESTORE command 2 2.21
-- SAVE command 2 2.22
-- SCROLL command 1 2.23
-- SCRSIZE operand of TERMINAL command 1 1.41
-- SCTR operand of LINK command 1 1.17
-- SECLABEL 1
-- See also security label 2
-- operand of LOGON command 2 1.24
-- SECMODEL operand of ALLOCATE command 1 1.4.2
-- SECONDS operand of TERMINAL command 1 1.41
-- security label 1
-- cancelling jobs 2 1.8
-- for submitting jobs 2 1.40
-- LISTBC command 2
-- message processing 3 1.19
-- on job statement 2 1.40
-- on LOGON command 2 1.24
-- on output pages 2 1.26
-- processing job output 2 1.27
-- RECEIVE command 2
-- message processing 3 1.32.6
-- SEND command 2
-- message processing 3 1.35
-- TRANSMIT command 2
-- message processing 3 1.45.6
-- SEND command 1 1.35
-- SEND command under TEST 1 1.43.63
-- sequential data set, printing 1 1.29
-- SEQUENTIAL operand of TRANSMIT command 1 1.45
-- server 1 1.25
-- service request 1 1.25
-- session functions 1
-- change the streams for 2 2.8
-- information displayed 2 2.19
-- message (MSG) 2 2.8
-- Session Manager (SM) 2 2.8
-- TSO/E 2 2.8
-- Session Manager 1
-- commands 2
-- CHANGE.CURSOR 3 2.7
-- CHANGE.FUNCTION 3 2.8
-- CHANGE.MODE 3 2.9
-- CHANGE.PFK 3 2.2 2.10
-- CHANGE.STREAM 3 2.11
-- CHANGE.TERMINAL 3 2.4 2.12
-- CHANGE.WINDOW 3 2.5 2.13
-- DEFINE 3 2.5
-- DEFINE.WINDOW 3 2.14
-- DELETE 3 2.5
-- DELETE.WINDOW 3 2.15
-- description 3 2.0
-- END 3 2.16
-- FIND 3 2.17
-- format 3 2.2
-- how to enter 3 2.1
-- PUT 3 2.18
-- QUERY 3 2.19
-- QUERY.STREAMS 3 2.11
-- RESET 3 2.20
-- RESTORE 3 2.5 2.21
-- SAVE 3 2.22
-- SCROLL 3 2.5 2.23
-- SMCOPY 3 1.36
-- SMFIND 3 1.37
-- SMPUT 3 1.38
-- SNAPSHOT 3 2.24
-- summary 3 2.6
-- UNLOCK 3 2.25
-- VS/APL 3 2.9
-- session function, change the streams for 2 2.8
-- SHR operand of ALLOCATE command 1 1.4.2
-- SINGLE operand of PRINTDS command 1 1.29
-- SIZE operand 1
-- LINK command 2 1.17
-- RUN command 2 1.34
-- RUN subcommand of EDIT 2 1.11.33
-- SLANGUAGE operand of PROFILE command 1 1.30
-- example 2 1.30.2
-- SM operand of CHANGE.FUNCTION command 1 2.8
-- SMCOPY command 1 1.36
-- SMFIND command 1 1.37
-- SMPUT command 1 1.38
-- SMS classes 1 1.4.1.1
-- SMS data set 1 1.4.1
-- SMS-managed data set 1 1.4.2
-- SMSG operand on RUN subcommand of EDIT 1 1.11.33
-- SNAPSHOT command 1 2.24
-- SNUM operand 1
-- LIST subcommand of EDIT 2 1.11.26
-- PRINTDS command 2 1.29
-- SOURCE operand of RUN command 1 1.34
-- source statements, running 1 1.34
-- SPACE operand 1
-- ALLOCATE command 2 1.4.2
-- DELETE command 2 1.9
-- LISTCAT command 2 1.20
-- RECEIVE command 2 1.32
-- SPIN operand 1
-- FREE command 2 1.15
-- SPREC operand 1
-- RUN command 2 1.34
-- STATUS command 1 1.39
-- STATUS command under TEST 1 1.43.66
-- STATUS operand 1
-- LISTALC command 2 1.18
-- LISTDS command 2 1.21
-- storage administrator, role of 1 1.4.1
-- storage class for data set 1 1.4.2
-- storage class, definition of 1 1.4.1.1
-- Storage Management Subsystem classes 1 1.4.1.1
-- Storage Management Subsystem data set 1 1.4.1
-- STORCLAS operand 1
-- ALLOCATE command 2 1.4.2
-- STORCLAS operand of RECEIVE 1 1.32
-- STORE operand 1
-- RUN command 2 1.34
-- RUN subcommand of EDIT 2 1.11.33
-- STREAM operand of SMFIND command 1 1.37
-- stream-name operand 1
-- CHANGE.FUNCTION command 2 2.8
-- CHANGE.PFK command 2 2.10
-- CHANGE.STREAM command 2 2.11
-- CHANGE.WINDOW command 2 2.13
-- FIND command 2 2.17
-- PUT command 2 2.18
-- QUERY command 2 2.19
-- SMPUT command 2 1.38
-- SNAPSHOT command 2 2.24
-- STREAMS operand of QUERY command 1 2.19
-- streams, information displayed 1 2.19
-- string operand 1
-- CHANGE subcommand of EDIT 2 1.11.4
-- COPY subcommand of EDIT 2 1.11.8
-- FIND subcommand of EDIT 2 1.11.16
-- insert/replace/delete function of EDIT 2 1.11.24
-- MOVE subcommand of EDIT 2 1.11.28
-- SUBMIT 1
-- command 2 1.40
-- subcommand of EDIT 2 1.11.40
-- support in batch 2 1.40
-- under TEST 2 1.43.67
-- SUBSTITUTE operand of CHANGE.PFK command 1 2.10
-- summary of 1
-- Session Manager commands 2 2.6
-- TSO/E commands 2 1.3.1
-- surrogate job submission 1 1.40
-- syntax diagrams 1 1.2
-- SYNTAX operand of HELP command 1 1.16
-- syntax rules for 1
-- Session Manager commands 2 2.3
-- TSO/E commands and subcommands 2 1.1.2
-- SYSABNCD 1 1.46
-- SYSABNRC 1 1.46
-- SYSAREA operand of OUTDES 1 1.26
-- SYSCMDRC 1 1.46
-- SYSNAMES operand of LISTALC command 1 1.18
-- SYSOUT operand 1
-- ALLOCATE command 2 1.4.2
-- PRINTDS command 2 1.29
-- RECEIVE command 2 1.32
-- TRANSMIT command 2 1.45
-- SYSRC operand of WHEN command 1 1.48.1
-- system area 1 1.26
-- system printable area 1 1.26
+- SAVE command, [2\.22](2-22.md)
+- SAVE subcommand of
+  - EDIT command, [1\.11\.35](<#1.11.35>)
+  - OUTPUT command, [1\.28\.5](<#1.28.5>)
+- SCAN operand of EDIT command, [1\.10](1-10.md)
+- SCAN subcommand of EDIT, [1\.11\.37](<#1.11.37>)
+- SCRATCH operand of DELETE command, [1\.9](1-9.md)
+- screen layout, Session Manager
+  - information restored, [2\.21](2-21.md)
+  - information saved, [2\.22](2-22.md)
+- SCREEN operand
+  - RESTORE command, [2\.21](2-21.md)
+  - SAVE command, [2\.22](2-22.md)
+- SCROLL command, [2\.23](2-23.md)
+- SCRSIZE operand of TERMINAL command, [1\.41](1-41.md)
+- SCTR operand of LINK command, [1\.17](1-17.md)
+- SECLABEL
+  - See also security label
+  - operand of LOGON command, [1\.24](1-24.md)
+- SECMODEL operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- SECONDS operand of TERMINAL command, [1\.41](1-41.md)
+- security label
+  - cancelling jobs, [1\.8](1-8.md)
+  - for submitting jobs, [1\.40](1-40.md)
+  - LISTBC command
+    - message processing, [1\.19](1-19.md)
+  - on job statement, [1\.40](1-40.md)
+  - on LOGON command, [1\.24](1-24.md)
+  - on output pages, [1\.26](1-26.md)
+  - processing job output, [1\.27](1-27.md)
+  - RECEIVE command
+    - message processing, [1\.32\.6](<#1.32.6>)
+  - SEND command
+    - message processing, [1\.35](1-35.md)
+  - TRANSMIT command
+    - message processing, [1\.45\.6](<#1.45.6>)
+- SEND command, [1\.35](1-35.md)
+- SEND command under TEST, [1\.43\.63](<#1.43.63>)
+- sequential data set, printing, [1\.29](1-29.md)
+- SEQUENTIAL operand of TRANSMIT command, [1\.45](1-45.md)
+- server, [1\.25](1-25.md)
+- service request, [1\.25](1-25.md)
+- session functions
+  - change the streams for, [2\.8](2-8.md)
+  - information displayed, [2\.19](2-19.md)
+  - message \(MSG\), [2\.8](2-8.md)
+  - Session Manager \(SM\), [2\.8](2-8.md)
+  - TSO/E, [2\.8](2-8.md)
+- Session Manager
+  - commands
+    - CHANGE\.CURSOR, [2\.7](2-7.md)
+    - CHANGE\.FUNCTION, [2\.8](2-8.md)
+    - CHANGE\.MODE, [2\.9](2-9.md)
+    - CHANGE\.PFK, [2\.2](2-2.md), [2\.10](2-10.md)
+    - CHANGE\.STREAM, [2\.11](2-11.md)
+    - CHANGE\.TERMINAL, [2\.4](2-4.md), [2\.12](2-12.md)
+    - CHANGE\.WINDOW, [2\.5](2-5.md), [2\.13](2-13.md)
+    - DEFINE, [2\.5](2-5.md)
+    - DEFINE\.WINDOW, [2\.14](2-14.md)
+    - DELETE, [2\.5](2-5.md)
+    - DELETE\.WINDOW, [2\.15](2-15.md)
+    - description, [2\.0](2-0.md)
+    - END, [2\.16](2-16.md)
+    - FIND, [2\.17](2-17.md)
+    - format, [2\.2](2-2.md)
+    - how to enter, [2\.1](2-1.md)
+    - PUT, [2\.18](2-18.md)
+    - QUERY, [2\.19](2-19.md)
+    - QUERY\.STREAMS, [2\.11](2-11.md)
+    - RESET, [2\.20](2-20.md)
+    - RESTORE, [2\.5](2-5.md), [2\.21](2-21.md)
+    - SAVE, [2\.22](2-22.md)
+    - SCROLL, [2\.5](2-5.md), [2\.23](2-23.md)
+    - SMCOPY, [1\.36](1-36.md)
+    - SMFIND, [1\.37](1-37.md)
+    - SMPUT, [1\.38](1-38.md)
+    - SNAPSHOT, [2\.24](2-24.md)
+    - summary, [2\.6](2-6.md)
+    - UNLOCK, [2\.25](2-25.md)
+    - VS/APL, [2\.9](2-9.md)
+  - session function, change the streams for, [2\.8](2-8.md)
+- SHR operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- SINGLE operand of PRINTDS command, [1\.29](1-29.md)
+- SIZE operand
+  - LINK command, [1\.17](1-17.md)
+  - RUN command, [1\.34](1-34.md)
+  - RUN subcommand of EDIT, [1\.11\.33](<#1.11.33>)
+- SLANGUAGE operand of PROFILE command, [1\.30](1-30.md)
+  - example, [1\.30\.2](<#1.30.2>)
+- SM operand of CHANGE\.FUNCTION command, [2\.8](2-8.md)
+- SMCOPY command, [1\.36](1-36.md)
+- SMFIND command, [1\.37](1-37.md)
+- SMPUT command, [1\.38](1-38.md)
+- SMS classes, [1\.4\.1\.1](<#1.4.1.1>)
+- SMS data set, [1\.4\.1](<#1.4.1>)
+- SMS\-managed data set, [1\.4\.2](<#1.4.2>)
+- SMSG operand on RUN subcommand of EDIT, [1\.11\.33](<#1.11.33>)
+- SNAPSHOT command, [2\.24](2-24.md)
+- SNUM operand
+  - LIST subcommand of EDIT, [1\.11\.26](<#1.11.26>)
+  - PRINTDS command, [1\.29](1-29.md)
+- SOURCE operand of RUN command, [1\.34](1-34.md)
+- source statements, running, [1\.34](1-34.md)
+- SPACE operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - DELETE command, [1\.9](1-9.md)
+  - LISTCAT command, [1\.20](1-20.md)
+  - RECEIVE command, [1\.32](1-32.md)
+- SPIN operand
+  - FREE command, [1\.15](1-15.md)
+- SPREC operand
+  - RUN command, [1\.34](1-34.md)
+- STATUS command, [1\.39](1-39.md)
+- STATUS command under TEST, [1\.43\.66](<#1.43.66>)
+- STATUS operand
+  - LISTALC command, [1\.18](1-18.md)
+  - LISTDS command, [1\.21](1-21.md)
+- storage administrator, role of, [1\.4\.1](<#1.4.1>)
+- storage class for data set, [1\.4\.2](<#1.4.2>)
+- storage class, definition of, [1\.4\.1\.1](<#1.4.1.1>)
+- Storage Management Subsystem classes, [1\.4\.1\.1](<#1.4.1.1>)
+- Storage Management Subsystem data set, [1\.4\.1](<#1.4.1>)
+- STORCLAS operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- STORCLAS operand of RECEIVE, [1\.32](1-32.md)
+- STORE operand
+  - RUN command, [1\.34](1-34.md)
+  - RUN subcommand of EDIT, [1\.11\.33](<#1.11.33>)
+- STREAM operand of SMFIND command, [1\.37](1-37.md)
+- stream\-name operand
+  - CHANGE\.FUNCTION command, [2\.8](2-8.md)
+  - CHANGE\.PFK command, [2\.10](2-10.md)
+  - CHANGE\.STREAM command, [2\.11](2-11.md)
+  - CHANGE\.WINDOW command, [2\.13](2-13.md)
+  - FIND command, [2\.17](2-17.md)
+  - PUT command, [2\.18](2-18.md)
+  - QUERY command, [2\.19](2-19.md)
+  - SMPUT command, [1\.38](1-38.md)
+  - SNAPSHOT command, [2\.24](2-24.md)
+- STREAMS operand of QUERY command, [2\.19](2-19.md)
+- streams, information displayed, [2\.19](2-19.md)
+- string operand
+  - CHANGE subcommand of EDIT, [1\.11\.4](<#1.11.4>)
+  - COPY subcommand of EDIT, [1\.11\.8](<#1.11.8>)
+  - FIND subcommand of EDIT, [1\.11\.16](<#1.11.16>)
+  - insert/replace/delete function of EDIT, [1\.11\.24](<#1.11.24>)
+  - MOVE subcommand of EDIT, [1\.11\.28](<#1.11.28>)
+- SUBMIT
+  - command, [1\.40](1-40.md)
+  - subcommand of EDIT, [1\.11\.40](<#1.11.40>)
+  - support in batch, [1\.40](1-40.md)
+  - under TEST, [1\.43\.67](<#1.43.67>)
+- SUBSTITUTE operand of CHANGE\.PFK command, [2\.10](2-10.md)
+- summary of
+  - Session Manager commands, [2\.6](2-6.md)
+  - TSO/E commands, [1\.3\.1](<#1.3.1>)
+- surrogate job submission, [1\.40](1-40.md)
+- syntax diagrams, [1\.2](1-2.md)
+- SYNTAX operand of HELP command, [1\.16](1-16.md)
+- syntax rules for
+  - Session Manager commands, [2\.3](2-3.md)
+  - TSO/E commands and subcommands, [1\.1\.2](<#1.1.2>)
+- SYSABNCD, [1\.46](1-46.md)
+- SYSABNRC, [1\.46](1-46.md)
+- SYSAREA operand of OUTDES, [1\.26](1-26.md)
+- SYSCMDRC, [1\.46](1-46.md)
+- SYSNAMES operand of LISTALC command, [1\.18](1-18.md)
+- SYSOUT operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - PRINTDS command, [1\.29](1-29.md)
+  - RECEIVE command, [1\.32](1-32.md)
+  - TRANSMIT command, [1\.45](1-45.md)
+- SYSRC operand of WHEN command, [1\.48\.1](<#1.48.1>)
+- system area, [1\.26](1-26.md)
+- system printable area, [1\.26](1-26.md)
 
 ## T
 
-- table reference character 1 1.26 1.29
-- TABSET subcommand of EDIT 1 1.11.42
-- tag definitions 1
-- control section 2 1.45.9
-- nicknames section 2 1.45.10.1
-- TARGET operand 1
-- CHANGE.WINDOW command 2 2.5 2.13
-- DEFINE.WINDOW command 2 2.14
-- FIND command 2 2.17
-- TEMPORARY operand of CHANGE.CURSOR command 1 2.7
-- TERM operand 1
-- LINK command 2 1.17
-- LOADGO command 2 1.22
-- TERMINAL command 1 1.41
-- TERMINAL command under TEST 1 1.43.68
-- TERMINAL operand 1
-- QUERY command 2 2.19
-- TRANSMIT command 2 1.45
-- terminal, information displayed (Session Manager) 1 2.19
-- TEST 1
-- commands under TEST 2
-- ALLOCATE 3 1.43.1
-- ATTRIB 3 1.43.8
-- CANCEL 3 1.43.11
-- EXEC 3 1.43.21
-- LINK 3 1.43.29
-- LISTALC 3 1.43.32
-- LISTBC 3 1.43.33
-- LISTCAT 3 1.43.34
-- LISTDS 3 1.43.39
-- PROFILE 3 1.43.56
-- PROTECT 3 1.43.57
-- RENAME 3 1.43.60
-- SEND 3 1.43.63
-- STATUS 3 1.43.66
-- SUBMIT 3 1.43.67
-- TERMINAL 3 1.43.68
-- UNALLOC 3 1.43.69
-- subcommands 2
-- AND 3 1.43.2
-- AT 3 1.43.6
-- CALL 3 1.43.9
-- COPY 3 1.43.12
-- DELETE 3 1.43.14
-- DROP 3 1.43.16
-- END 3 1.43.18
-- EQUATE 3 1.43.19
-- FREEMAIN 3 1.43.22
-- GETMAIN 3 1.43.24
-- GO 3 1.43.26
-- HELP 3 1.43.28
-- LIST 3 1.43.30
-- list of 3 1.43
-- LISTDCB 3 1.43.35
-- LISTDEB 3 1.43.37
-- LISTMAP 3 1.43.40
-- LISTPSW 3 1.43.42
-- LISTTCB 3 1.43.44
-- LISTVP 3 1.43.46
-- LISTVSR 3 1.43.48
-- LOAD 3 1.43.50
-- OFF 3 1.43.52
-- OR 3 1.43.54
-- QUALIFY 3 1.43.58
-- RUN 3 1.43.61
-- SETVSR 3 1.43.64
-- WHERE 3 1.43.70
-- TEST operand 1
-- RUN command 2 1.34
-- TEXT operand 1
-- EDIT command 2 1.10
-- SEND command 2 1.35
-- text-string operand 1
-- FIND command 2 2.17
-- PUT command 2 2.18
-- SMFIND command 2 1.37
-- SMPUT command 2 1.38
-- TIME command 1 1.44
-- TIMEOUT operand of TERMINAL command 1 1.41
-- TITLE operand of PRINTDS command 1 1.29
-- TMARGIN operand of PRINTDS command 1 1.29
-- TMP initialization in background 1 1.30
-- TODATASET operand 1
-- PRINTDS command 2 1.29
-- SMCOPY command 2 1.36
-- TOP subcommand of EDIT 1 1.11.44
-- TOSTREAM operand of SMCOPY command 1 1.36
-- TP operand of TEST command 1 1.42
-- trace data set 1 1.25
-- TRACE operand of MVSSERV 1 1.25
-- TRACKS operand 1
-- ALLOCATE command 2 1.4.2
-- RECEIVE command 2 1.32
-- TRAN operand of TERMINAL command 1 1.41
-- TRANSMIT command 1 1.45
-- data encryption function 2 1.45.5.1
-- logging function 2 1.45.7
-- TRC operand of OUTDES 1 1.26
-- TRC operand of PRINTDS command 1 1.29
-- TRIPLE operand of PRINTDS command 1 1.29
-- TRTCH operand 1
-- ALLOCATE command 2 1.4.2
-- ATTRIB command 2 1.6
-- TRUNCATE operand of PRINTDS command 1 1.29
-- TSO/E command (VM/PC user) 1 1.25
-- TSO/E command, definition 1 1.1
-- TSO/E Enhanced Connectivity Facility 1 1.25
-- TSO/E Interactive Data Transmission 1
-- RECEIVE command 2 1.32
-- TRANSMIT command 2 1.45
-- TSOEXEC command 1 1.46
+- table reference character, [1\.26](1-26.md), [1\.29](1-29.md)
+- TABSET subcommand of EDIT, [1\.11\.42](<#1.11.42>)
+- tag definitions
+  - control section, [1\.45\.9](<#1.45.9>)
+  - nicknames section, [1\.45\.10\.1](<#1.45.10.1>)
+- TARGET operand
+  - CHANGE\.WINDOW command, [2\.5](2-5.md), [2\.13](2-13.md)
+  - DEFINE\.WINDOW command, [2\.14](2-14.md)
+  - FIND command, [2\.17](2-17.md)
+- TEMPORARY operand of CHANGE\.CURSOR command, [2\.7](2-7.md)
+- TERM operand
+  - LINK command, [1\.17](1-17.md)
+  - LOADGO command, [1\.22](1-22.md)
+- TERMINAL command, [1\.41](1-41.md)
+- TERMINAL command under TEST, [1\.43\.68](<#1.43.68>)
+- TERMINAL operand
+  - QUERY command, [2\.19](2-19.md)
+  - TRANSMIT command, [1\.45](1-45.md)
+- terminal, information displayed \(Session Manager\), [2\.19](2-19.md)
+- TEST
+  - commands under TEST
+    - ALLOCATE, [1\.43\.1](<#1.43.1>)
+    - ATTRIB, [1\.43\.8](<#1.43.8>)
+    - CANCEL, [1\.43\.11](<#1.43.11>)
+    - EXEC, [1\.43\.21](<#1.43.21>)
+    - LINK, [1\.43\.29](<#1.43.29>)
+    - LISTALC, [1\.43\.32](<#1.43.32>)
+    - LISTBC, [1\.43\.33](<#1.43.33>)
+    - LISTCAT, [1\.43\.34](<#1.43.34>)
+    - LISTDS, [1\.43\.39](<#1.43.39>)
+    - PROFILE, [1\.43\.56](<#1.43.56>)
+    - PROTECT, [1\.43\.57](<#1.43.57>)
+    - RENAME, [1\.43\.60](<#1.43.60>)
+    - SEND, [1\.43\.63](<#1.43.63>)
+    - STATUS, [1\.43\.66](<#1.43.66>)
+    - SUBMIT, [1\.43\.67](<#1.43.67>)
+    - TERMINAL, [1\.43\.68](<#1.43.68>)
+    - UNALLOC, [1\.43\.69](<#1.43.69>)
+  - subcommands
+    - AND, [1\.43\.2](<#1.43.2>)
+    - AT, [1\.43\.6](<#1.43.6>)
+    - CALL, [1\.43\.9](<#1.43.9>)
+    - COPY, [1\.43\.12](<#1.43.12>)
+    - DELETE, [1\.43\.14](<#1.43.14>)
+    - DROP, [1\.43\.16](<#1.43.16>)
+    - END, [1\.43\.18](<#1.43.18>)
+    - EQUATE, [1\.43\.19](<#1.43.19>)
+    - FREEMAIN, [1\.43\.22](<#1.43.22>)
+    - GETMAIN, [1\.43\.24](<#1.43.24>)
+    - GO, [1\.43\.26](<#1.43.26>)
+    - HELP, [1\.43\.28](<#1.43.28>)
+    - LIST, [1\.43\.30](<#1.43.30>)
+    - list of, [1\.43](1-43.md)
+    - LISTDCB, [1\.43\.35](<#1.43.35>)
+    - LISTDEB, [1\.43\.37](<#1.43.37>)
+    - LISTMAP, [1\.43\.40](<#1.43.40>)
+    - LISTPSW, [1\.43\.42](<#1.43.42>)
+    - LISTTCB, [1\.43\.44](<#1.43.44>)
+    - LISTVP, [1\.43\.46](<#1.43.46>)
+    - LISTVSR, [1\.43\.48](<#1.43.48>)
+    - LOAD, [1\.43\.50](<#1.43.50>)
+    - OFF, [1\.43\.52](<#1.43.52>)
+    - OR, [1\.43\.54](<#1.43.54>)
+    - QUALIFY, [1\.43\.58](<#1.43.58>)
+    - RUN, [1\.43\.61](<#1.43.61>)
+    - SETVSR, [1\.43\.64](<#1.43.64>)
+    - WHERE, [1\.43\.70](<#1.43.70>)
+- TEST operand
+  - RUN command, [1\.34](1-34.md)
+- TEXT operand
+  - EDIT command, [1\.10](1-10.md)
+  - SEND command, [1\.35](1-35.md)
+- text\-string operand
+  - FIND command, [2\.17](2-17.md)
+  - PUT command, [2\.18](2-18.md)
+  - SMFIND command, [1\.37](1-37.md)
+  - SMPUT command, [1\.38](1-38.md)
+- TIME command, [1\.44](1-44.md)
+- TIMEOUT operand of TERMINAL command, [1\.41](1-41.md)
+- TITLE operand of PRINTDS command, [1\.29](1-29.md)
+- TMARGIN operand of PRINTDS command, [1\.29](1-29.md)
+- TMP initialization in background, [1\.30](1-30.md)
+- TODATASET operand
+  - PRINTDS command, [1\.29](1-29.md)
+  - SMCOPY command, [1\.36](1-36.md)
+- TOP subcommand of EDIT, [1\.11\.44](<#1.11.44>)
+- TOSTREAM operand of SMCOPY command, [1\.36](1-36.md)
+- TP operand of TEST command, [1\.42](1-42.md)
+- trace data set, [1\.25](1-25.md)
+- TRACE operand of MVSSERV, [1\.25](1-25.md)
+- TRACKS operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - RECEIVE command, [1\.32](1-32.md)
+- TRAN operand of TERMINAL command, [1\.41](1-41.md)
+- TRANSMIT command, [1\.45](1-45.md)
+  - data encryption function, [1\.45\.5\.1](<#1.45.5.1>)
+  - logging function, [1\.45\.7](<#1.45.7>)
+- TRC operand of OUTDES, [1\.26](1-26.md)
+- TRC operand of PRINTDS command, [1\.29](1-29.md)
+- TRIPLE operand of PRINTDS command, [1\.29](1-29.md)
+- TRTCH operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - ATTRIB command, [1\.6](1-6.md)
+- TRUNCATE operand of PRINTDS command, [1\.29](1-29.md)
+- TSO/E command \(VM/PC user\), [1\.25](1-25.md)
+- TSO/E command, definition, [1\.1](1-1.md)
+- TSO/E Enhanced Connectivity Facility, [1\.25](1-25.md)
+- TSO/E Interactive Data Transmission
+  - RECEIVE command, [1\.32](1-32.md)
+  - TRANSMIT command, [1\.45](1-45.md)
+- TSOEXEC command, [1\.46](1-46.md)
 
 ## U
 
-- UCOUNT operand of ALLOCATE command 1 1.4.2
-- UCS operand 1
-- ALLOCATE command 2 1.4.2
-- OUTDES command 2 1.26
-- PRINTDS command 2 1.29
-- UNALLOC command under TEST 1 1.43.69
-- unauthorized command, running in unauthorized environment 1 1.46
-- UNCATALOG operand 1
-- ALLOCATE command 2 1.4.2
-- FREE command 2 1.15
-- UNIT operand 1
-- ALLOCATE command 2 1.4.2
-- RECEIVE command 2 1.32
-- universal character set name 1 1.4.2 1.26 1.29
-- UNLOCK command 1 2.23 2.25
-- UNNUM operand 1
-- SAVE subcommand of EDIT 2 1.11.35
-- UNNUM subcommand of EDIT 1 1.11.46
-- UP subcommand of EDIT 1 1.11.48
-- UPDATE operand 1
-- CHANGE.WINDOW command 2 2.5 2.13
-- DEFINE.WINDOW command 2 2.14
-- user data value 1 1.26
-- USER operand 1
-- SEND command 2 1.35
-- USERCATALOG operand of LISTCAT command 1 1.20
-- USERID operand of RECEIVE command 1 1.32
-- using HELP 1 1.2.5
-- USING operand of ALLOCATE command 1 1.4.2
+- UCOUNT operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- UCS operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - OUTDES command, [1\.26](1-26.md)
+  - PRINTDS command, [1\.29](1-29.md)
+- UNALLOC command under TEST, [1\.43\.69](<#1.43.69>)
+- unauthorized command, running in unauthorized environment, [1\.46](1-46.md)
+- UNCATALOG operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - FREE command, [1\.15](1-15.md)
+- UNIT operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - RECEIVE command, [1\.32](1-32.md)
+- universal character set name, [1\.4\.2](<#1.4.2>), [1\.26](1-26.md), [1\.29](1-29.md)
+- UNLOCK command, [2\.23](2-23.md), [2\.25](2-25.md)
+- UNNUM operand
+  - SAVE subcommand of EDIT, [1\.11\.35](<#1.11.35>)
+- UNNUM subcommand of EDIT, [1\.11\.46](<#1.11.46>)
+- UP subcommand of EDIT, [1\.11\.48](<#1.11.48>)
+- UPDATE operand
+  - CHANGE\.WINDOW command, [2\.5](2-5.md), [2\.13](2-13.md)
+  - DEFINE\.WINDOW command, [2\.14](2-14.md)
+- user data value, [1\.26](1-26.md)
+- USER operand
+  - SEND command, [1\.35](1-35.md)
+- USERCATALOG operand of LISTCAT command, [1\.20](1-20.md)
+- USERID operand of RECEIVE command, [1\.32](1-32.md)
+- using HELP, [1\.2\.5](<#1.2.5>)
+- USING operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
 
 ## V
 
-- VERIFY operand of ALLOCATE command 1 1.4.2
-- VERIFY subcommand of EDIT 1 1.11.50
-- VIEW operand 1
-- CHANGE.WINDOW command 2 2.5 2.13
-- DEFINE.WINDOW command 2 2.14
-- VLFNOTE command 1 1.47
-- VOLUME operand 1
-- ALLOCATE command 2 1.4.2
-- LISTCAT command 2 1.20
-- RECEIVE command 2 1.32
-- VSAM data sets 1 1.2.6
-- VSBASIC 1
-- EDIT command 2 1.10
-- RUN command 2 1.34
-- VSEQ operand of ALLOCATE command 1 1.4.2
+- VERIFY operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
+- VERIFY subcommand of EDIT, [1\.11\.50](<#1.11.50>)
+- VIEW operand
+  - CHANGE\.WINDOW command, [2\.5](2-5.md), [2\.13](2-13.md)
+  - DEFINE\.WINDOW command, [2\.14](2-14.md)
+- VLFNOTE command, [1\.47](1-47.md)
+- VOLUME operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - LISTCAT command, [1\.20](1-20.md)
+  - RECEIVE command, [1\.32](1-32.md)
+- VSAM data sets, [1\.2\.6](<#1.2.6>)
+- VSBASIC
+  - EDIT command, [1\.10](1-10.md)
+  - RUN command, [1\.34](1-34.md)
+- VSEQ operand of ALLOCATE command, [1\.4\.2](<#1.4.2>)
 
 ## W
 
-- WAIT operand of SEND command 1 1.35
-- WHEN command 1 1.48
-- WHERE subcommand of TEST 1 1.43.70
-- width operand of DEFINE.WINDOW command 1 2.14
-- WINDOW operand 1
-- RESTORE command 2 2.21
-- SAVE operand 2 2.22
-- window-name operand 1
-- CHANGE.CURSOR command 2 2.7
-- CHANGE.TERMINAL command 2 2.12
-- CHANGE.WINDOW command 2 2.13
-- DEFINE.WINDOW command 2 2.14
-- DELETE.WINDOW command 2 2.15
-- FIND command 2 2.17
-- RESTORE command 2 2.21
-- SAVE command 2 2.22
-- SCROLL command 2 2.23
-- UNLOCK command 2 2.25
-- windows 1
-- default 2 2.4
-- deleting 2 2.15
-- information displayed 2 2.19
-- information restored 2 2.21
-- information saved 2 2.22
-- WINDOWS operand of QUERY command 1 2.19
-- writer name 1 1.4.2
-- WRITER operand 1
-- ALLOCATE command 2 1.4.2
-- OUTDES command 2 1.26
-- PRINTDS command 2 1.29
+- WAIT operand of SEND command, [1\.35](1-35.md)
+- WHEN command, [1\.48](1-48.md)
+- WHERE subcommand of TEST, [1\.43\.70](<#1.43.70>)
+- width operand of DEFINE\.WINDOW command, [2\.14](2-14.md)
+- WINDOW operand
+  - RESTORE command, [2\.21](2-21.md)
+  - SAVE operand, [2\.22](2-22.md)
+- window\-name operand
+  - CHANGE\.CURSOR command, [2\.7](2-7.md)
+  - CHANGE\.TERMINAL command, [2\.12](2-12.md)
+  - CHANGE\.WINDOW command, [2\.13](2-13.md)
+  - DEFINE\.WINDOW command, [2\.14](2-14.md)
+  - DELETE\.WINDOW command, [2\.15](2-15.md)
+  - FIND command, [2\.17](2-17.md)
+  - RESTORE command, [2\.21](2-21.md)
+  - SAVE command, [2\.22](2-22.md)
+  - SCROLL command, [2\.23](2-23.md)
+  - UNLOCK command, [2\.25](2-25.md)
+- windows
+  - default, [2\.4](2-4.md)
+  - deleting, [2\.15](2-15.md)
+  - information displayed, [2\.19](2-19.md)
+  - information restored, [2\.21](2-21.md)
+  - information saved, [2\.22](2-22.md)
+- WINDOWS operand of QUERY command, [2\.19](2-19.md)
+- writer name, [1\.4\.2](<#1.4.2>)
+- WRITER operand
+  - ALLOCATE command, [1\.4\.2](<#1.4.2>)
+  - OUTDES command, [1\.26](1-26.md)
+  - PRINTDS command, [1\.29](1-29.md)
 
 ## X
 
-- XCAL operand of LINK command 1 1.17
-- XREF operand of LINK command 1 1.17
+- XCAL operand of LINK command, [1\.17](1-17.md)
+- XREF operand of LINK command, [1\.17](1-17.md)
 
 ---
 

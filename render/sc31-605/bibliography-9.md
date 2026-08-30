@@ -2,9 +2,13 @@
 
 ---
 
-## BIBLIOGRAPHY.9 Related Publications
+## BIBLIOGRAPHY\.9 Related Publications
 
-SAA Common User Access: Advanced Interface Design Guide (SC26-4582) SNA Management Service Reference (SC30-3346) SNA Technical Overview (GC30-3073)
+SAA Common User Access: Advanced Interface Design Guide \(SC26\-4582\)
+
+SNA Management Service Reference \(SC30\-3346\)
+
+SNA Technical Overview \(GC30\-3073\)
 
 ---
 

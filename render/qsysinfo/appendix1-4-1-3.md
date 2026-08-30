@@ -2,11 +2,18 @@
 
 ---
 
-### APPENDIX1.4.1.3 9402 System Unit
+### APPENDIX1\.4\.1\.3 9402 System Unit
 
 <a id="TBLTBLUNIQ6"></a>
 
-[Table: TBLTBLUNIQ6]
+```
+            Order No       Title
+   ___      SX21-9924      1" binder
+   ___      SA41-0005      AS/400* 9402 Attaching Workstation and
+                           Communications Cables
+   ___      SA41-9944      Twinaxial Workstation Controller Port Tester User's
+                           Guide
+```
 
 ---
 

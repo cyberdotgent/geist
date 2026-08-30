@@ -6,931 +6,919 @@
 
 ## Special Characters
 
-- :APARNUM 1 6.1.6
-- :COREQ 1 6.1.4
-- :DEP 1 5.1.4
-- :DEPS 1 6.1.5
-- :DESC 1 5.1.2
-- :DREQ 1 5.1.3
-- :DREQDEP 1 5.1.4
-- :ELU 1 5.4.1
-- :HARDREQ 1 6.1.4
-- :IFREQ 1 5.1.3 6.1.4
-- :LU 1 5.4.1
-- :NPRE 1 5.1.3
-- :OUTREQS 1 6.1.5
-- :PREREQ 1 5.1.3 6.1.4
-- :PRODID 1 5.1.3
-- :PTF 1 6.1.4
-- :PTFREQS 1 5.1.3
-- :RECID 1 5.4.1
-- :REQ 1 5.1.3
-- :SUBHARDREQ 1 6.1.4
-- :SUBIF 1 5.1.3 6.1.4
-- :SUBREQ 1 5.1.3 6.1.4
-- :SUP 1 5.1.3 6.1.4
-- :SUPBY 1 5.1.4 6.1.5
-- $ source files 1
-- CMS component 2 G.3
-- CP component 2 G.4
-- Dump Viewing Facility component 2 G.5
-- overview 2 G.0
-- REXX/VM component 2 G.2
-- updating 2 7.4.3
-- VMSES/E component 2 G.1
+- :APARNUM, [6\.1\.6](6-1-6.md)
+- :COREQ, [6\.1\.4](6-1-4.md)
+- :DEP, [5\.1\.4](5-1-4.md)
+- :DEPS, [6\.1\.5](6-1-5.md)
+- :DESC, [5\.1\.2](5-1-2.md)
+- :DREQ, [5\.1\.3](5-1-3.md)
+- :DREQDEP, [5\.1\.4](5-1-4.md)
+- :ELU, [5\.4\.1](5-4-1.md)
+- :HARDREQ, [6\.1\.4](6-1-4.md)
+- :IFREQ, [5\.1\.3](5-1-3.md), [6\.1\.4](6-1-4.md)
+- :LU, [5\.4\.1](5-4-1.md)
+- :NPRE, [5\.1\.3](5-1-3.md)
+- :OUTREQS, [6\.1\.5](6-1-5.md)
+- :PREREQ, [5\.1\.3](5-1-3.md), [6\.1\.4](6-1-4.md)
+- :PRODID, [5\.1\.3](5-1-3.md)
+- :PTF, [6\.1\.4](6-1-4.md)
+- :PTFREQS, [5\.1\.3](5-1-3.md)
+- :RECID, [5\.4\.1](5-4-1.md)
+- :REQ, [5\.1\.3](5-1-3.md)
+- :SUBHARDREQ, [6\.1\.4](6-1-4.md)
+- :SUBIF, [5\.1\.3](5-1-3.md), [6\.1\.4](6-1-4.md)
+- :SUBREQ, [5\.1\.3](5-1-3.md), [6\.1\.4](6-1-4.md)
+- :SUP, [5\.1\.3](5-1-3.md), [6\.1\.4](6-1-4.md)
+- :SUPBY, [5\.1\.4](5-1-4.md), [6\.1\.5](6-1-5.md)
+- $ source files
+  - CMS component, [G\.3](g-3.md)
+  - CP component, [G\.4](g-4.md)
+  - Dump Viewing Facility component, [G\.5](g-5.md)
+  - overview, [G\.0](g-0.md)
+  - REXX/VM component, [G\.2](g-2.md)
+  - updating, [7\.4\.3](7-4-3.md)
+  - VMSES/E component, [G\.1](g-1.md)
 
 ## A
 
-- AGWB3LIB EXEC 1 F.0
-- AGWBLHLP EXEC 1 F.0
-- AGWBLINF EXEC 1 F.0
-- AGWBLLIB EXEC 1 F.0
-- AGWBLSRC EXEC 1 F.0
-- AGWBLUTL EXEC 1 F.0
-- alternate 1
-- apply disk 2 1.5
-- disk 2 1.2
-- APAR descriptions 1 1.5
-- APARFIX command (ServiceLink) 1 7.1
-- application of service, flowchart 1 3.1
-- APPLY disks 1 1.5
-- apply status table 1 5.0 6.0
-- applying service 1
-- AVS component 2 3.13.3
-- CMS component 2 3.8.3
-- CP component 2 3.9.3
-- Dump Viewing Facility component 2 3.11.3
-- GCS component 2 3.10.3
-- local service 2 7.4
-- overview 2 1.2.3
-- REXX/VM component 2 3.7.3
-- TSAF component 2 3.12.3
-- VMSES/E component 2 3.6.3
-- ASSEMBLE MODULE 1 3.8.4.4
-- ATSBLHLP EXEC 1 F.0
-- ATSBLINF EXEC 1 F.0
-- ATSBLMES EXEC 1 F.0
-- ATSBLSRC EXEC 1 F.0
-- ATSMLOAD EXEC 1 F.0
-- audience of this book 1 PREFACE.1
-- AUX files 1 1.2.3
-- AVS 1
-- build lists 2
-- all 3 4.8.2
-- for select and copy functions 3 4.8.3
-- Build Status Table, updating 2 3.13.4.2
-- building new objects 2 3.13.4
-- detailed build tasks 2
-- build preparation 3 4.8
-- determining build lists to process 3 4.8.2
-- load libraries, rebuilding 3 4.8.4
-- select and copy serviced files 3 4.8.3
-- load libraries 2 4.8.4
-- merge processing 2 3.13.4.5
-- rebuilding HELP files 2 3.13.4.4
-- service disks and directories 2 4.8.1
-- service procedure 2 3.13
+- AGWB3LIB EXEC, [F\.0](f-0.md)
+- AGWBLHLP EXEC, [F\.0](f-0.md)
+- AGWBLINF EXEC, [F\.0](f-0.md)
+- AGWBLLIB EXEC, [F\.0](f-0.md)
+- AGWBLSRC EXEC, [F\.0](f-0.md)
+- AGWBLUTL EXEC, [F\.0](f-0.md)
+- alternate
+  - apply disk, [1\.5](1-5.md)
+  - disk, [1\.2](1-2.md)
+- APAR descriptions, [1\.5](1-5.md)
+- APARFIX command \(ServiceLink\), [7\.1](7-1.md)
+- application of service, flowchart, [3\.1](3-1.md)
+- APPLY disks, [1\.5](1-5.md)
+- apply status table, [5\.0](5-0.md), [6\.0](6-0.md)
+- applying service
+  - AVS component, [3\.13\.3](3-13-3.md)
+  - CMS component, [3\.8\.3](3-8-3.md)
+  - CP component, [3\.9\.3](3-9-3.md)
+  - Dump Viewing Facility component, [3\.11\.3](3-11-3.md)
+  - GCS component, [3\.10\.3](3-10-3.md)
+  - local service, [7\.4](7-4.md)
+  - overview, [1\.2\.3](1-2-3.md)
+  - REXX/VM component, [3\.7\.3](3-7-3.md)
+  - TSAF component, [3\.12\.3](3-12-3.md)
+  - VMSES/E component, [3\.6\.3](3-6-3.md)
+- ASSEMBLE MODULE, [3\.8\.4\.4](3-8-4-4.md)
+- ATSBLHLP EXEC, [F\.0](f-0.md)
+- ATSBLINF EXEC, [F\.0](f-0.md)
+- ATSBLMES EXEC, [F\.0](f-0.md)
+- ATSBLSRC EXEC, [F\.0](f-0.md)
+- ATSMLOAD EXEC, [F\.0](f-0.md)
+- audience of this book, [PREFACE\.1](preface-1.md)
+- AUX files, [1\.2\.3](1-2-3.md)
+- AVS
+  - build lists
+    - all, [4\.8\.2](4-8-2.md)
+    - for select and copy functions, [4\.8\.3](4-8-3.md)
+  - Build Status Table, updating, [3\.13\.4\.2](3-13-4-2.md)
+  - building new objects, [3\.13\.4](3-13-4.md)
+  - detailed build tasks
+    - build preparation, [4\.8](4-8.md)
+    - determining build lists to process, [4\.8\.2](4-8-2.md)
+    - load libraries, rebuilding, [4\.8\.4](4-8-4.md)
+    - select and copy serviced files, [4\.8\.3](4-8-3.md)
+  - load libraries, [4\.8\.4](4-8-4.md)
+  - merge processing, [3\.13\.4\.5](3-13-4-5.md)
+  - rebuilding HELP files, [3\.13\.4\.4](3-13-4-4.md)
+  - service disks and directories, [4\.8\.1](4-8-1.md)
+  - service procedure, [3\.13](3-13.md)
 
 ## B
 
-- BASE disks 1 1.5
-- bibliography 1 BIBLIOGRAPHY
-- bill-of-forms 1 BIBLIOGRAPHY.1
-- build 1
-- lists 2 F.0
-- status table 2 5.0 6.0
-- tasks by component 2 1.5.1.1
-- BUILD disks 1 1.5
-- building new levels of service 1
-- AVS component 2 3.13.4
-- CMS component 2 3.8.4
-- CP component 2 3.9.4
-- disks accessed 2 1.2.5
-- Dump Viewing Facility component 2 3.11.4
-- GCS component 2 3.10.4
-- overview 2 1.2.5 1.5.1
-- REXX/VM component 2 3.7.4
-- TSAF component 2 3.12.4
-- VMSES/E component 2 3.6.4
+- BASE disks, [1\.5](1-5.md)
+- bibliography, [BIBLIOGRAPHY](bibliography.md)
+- bill\-of\-forms, [BIBLIOGRAPHY\.1](bibliography-1.md)
+- build
+  - lists, [F\.0](f-0.md)
+  - status table, [5\.0](5-0.md), [6\.0](6-0.md)
+  - tasks by component, [1\.5\.1\.1](1-5-1-1.md)
+- BUILD disks, [1\.5](1-5.md)
+- building new levels of service
+  - AVS component, [3\.13\.4](3-13-4.md)
+  - CMS component, [3\.8\.4](3-8-4.md)
+  - CP component, [3\.9\.4](3-9-4.md)
+  - disks accessed, [1\.2\.5](1-2-5.md)
+  - Dump Viewing Facility component, [3\.11\.4](3-11-4.md)
+  - GCS component, [3\.10\.4](3-10-4.md)
+  - overview, [1\.2\.5](1-2-5.md), [1\.5\.1](1-5-1.md)
+  - REXX/VM component, [3\.7\.4](3-7-4.md)
+  - TSAF component, [3\.12\.4](3-12-4.md)
+  - VMSES/E component, [3\.6\.4](3-6-4.md)
 
 ## C
 
-- Callable Services Libraries (CSLs) 1 3.8.4.5
-- Callable Services Library (CSL) 1 4.3.7
-- Canadian French Product Parameter File 1 1.4
-- CANFR $PPF 1 1.4
-- changing IBM service defaults 1 2.2 3.5
-- Chinese Simplified Product Parameter File 1 1.4
-- CMS 1
-- $ source files 2 G.3
-- ASSEMBLE MODULE, rebuilding 2 3.8.4.4
-- build lists 2
-- all 3 4.3.2
-- and MODULEs to be rebuilt 3 4.3.6
-- for rebuilding executable MODULEs 3 4.3.6
-- for select and copy functions 3 4.3.3
-- to be rebuilt 3 3.8.4.4
-- Build Status Table, updating 2 3.8.4.2
-- building new objects 2 3.8.4
-- CSL disks 2 3.8.4.5
-- CSLs, rebuilding 2 3.8.4.5
-- detailed build tasks 2
-- build preparation 3 4.3
-- Callable Services Libraries, rebuilding 3 4.3.7
-- CSL, rebuilding 3 4.3.7
-- determining build lists to process 3 4.3.2
-- executable MODULEs, rebuilding 3 4.3.6
-- MACLIBs, updating 3 4.3.4
-- rebuild the CMS nucleus 3 4.3.9
-- select and copy serviced files 3 4.3.3
-- TXTLIBs, rebuilding 3 4.3.5
-- HELP files, rebuilding 2 3.8.5.1
-- IPL the nucleus 2 3.8.4.6
-- MACLIBs 2 4.3.4
-- merge processing 2 3.8.5.2
-- MODULE to be rebuilt 2 3.8.4.4
-- service disks 2 4.3.1
-- service procedure 2 3.8
-- testing the new level 2 3.8.5
-- CMS nucleus, IPLing 1 3.8.4.6
-- CMS saved system 1 3.14.3.1
-- CMS/DOS saved segments 1 3.14.1
-- CMSFILES saved segment 1 3.14.1
-- CMSLOAD EXEC 1 F.0
-- CMSMLOAD EXEC 1 F.0
-- CMSPIPES saved segment 1 3.14.1
-- CMSSAA EXEC 1 F.0
-- CMSSAA TXTLIB 1 4.3.5
-- CMSVMLIB saved segment 1 3.14.1
-- CMSXLOAD EXEC 1 F.0
-- commands used for service 1 1.6
-- component(s) 1
-- build dependencies 2 1.3
-- of VM/ESA 2 1.2
-- order of service 2 1.2 1.3
-- COR service 1
-- flowchart of application 2 3.1
-- main tasks 2 1.2
-- method of installing 2 3.1
-- order of application 2 1.2
-- overview 2 1.2
-- preparing 2
-- disks 3 3.3
-- the system 3 2.2 3.5
-- procedure 2 3.0
-- procedure overview 2 3.1
-- receiving service documentation 2 3.4
-- substituting disks 2 3.2
-- using substitute disks 2 3.2
-- corequisite publications 1 PREFACE.2 1.0
-- CP 1
-- $ source files 2 G.4
-- all 2 4.4.2
-- build lists 2
-- for CP utilities 3 4.4.6
-- for rebuilding executable MODULEs 3 4.4.5
-- for select and copy functions 3 4.4.3
-- Build Status Table, updating 2 3.9.4.1
-- building new objects 2 3.9.4
-- detailed build tasks 2
-- build preparation 3 4.4
-- CP nucleus build preparation 3 4.4.9
-- determining build lists to process 3 4.4.2
-- executable MODULEs, rebuilding 3 4.4.5
-- MACLIBs, updating 3 4.4.4
-- rebuilding CP utilities 3 4.4.6
-- stand-alone dump, rebuilding 3 4.4.7
-- MACLIBs 2 4.4.4
-- merge processing 2 3.9.4.6
-- nucleus 2
-- rebuilding HELP files 2 3.9.4.5
-- select and copy serviced files 2 4.4.3
-- service disks 2 4.4.1
-- service procedure 2 3.9
-- stand-alone dump, rebuilding 2 3.9.4.4
-- CP load list, updating 1 E.0
-- CP load map 1 3.9.4.3
-- CPLOAD EXEC 1 F.0
-- CSL (Callable Services Library) 1 4.3.7
-- CSLs (Callable Services Libraries) 1 3.8.4.5
-- customer local service 1 7.1
+- Callable Services Libraries \(CSLs\), [3\.8\.4\.5](3-8-4-5.md)
+- Callable Services Library \(CSL\), [4\.3\.7](4-3-7.md)
+- Canadian French Product Parameter File, [1\.4](1-4.md)
+- CANFR $PPF, [1\.4](1-4.md)
+- changing IBM service defaults, [2\.2](2-2.md), [3\.5](3-5.md)
+- Chinese Simplified Product Parameter File, [1\.4](1-4.md)
+- CMS
+  - $ source files, [G\.3](g-3.md)
+  - ASSEMBLE MODULE, rebuilding, [3\.8\.4\.4](3-8-4-4.md)
+  - build lists
+    - all, [4\.3\.2](4-3-2.md)
+    - and MODULEs to be rebuilt, [4\.3\.6](4-3-6.md)
+    - for rebuilding executable MODULEs, [4\.3\.6](4-3-6.md)
+    - for select and copy functions, [4\.3\.3](4-3-3.md)
+    - to be rebuilt, [3\.8\.4\.4](3-8-4-4.md)
+  - Build Status Table, updating, [3\.8\.4\.2](3-8-4-2.md)
+  - building new objects, [3\.8\.4](3-8-4.md)
+  - CSL disks, [3\.8\.4\.5](3-8-4-5.md)
+  - CSLs, rebuilding, [3\.8\.4\.5](3-8-4-5.md)
+  - detailed build tasks
+    - build preparation, [4\.3](4-3.md)
+    - Callable Services Libraries, rebuilding, [4\.3\.7](4-3-7.md)
+    - CSL, rebuilding, [4\.3\.7](4-3-7.md)
+    - determining build lists to process, [4\.3\.2](4-3-2.md)
+    - executable MODULEs, rebuilding, [4\.3\.6](4-3-6.md)
+    - MACLIBs, updating, [4\.3\.4](4-3-4.md)
+    - rebuild the CMS nucleus, [4\.3\.9](4-3-9.md)
+    - select and copy serviced files, [4\.3\.3](4-3-3.md)
+    - TXTLIBs, rebuilding, [4\.3\.5](4-3-5.md)
+  - HELP files, rebuilding, [3\.8\.5\.1](3-8-5-1.md)
+  - IPL the nucleus, [3\.8\.4\.6](3-8-4-6.md)
+  - MACLIBs, [4\.3\.4](4-3-4.md)
+  - merge processing, [3\.8\.5\.2](3-8-5-2.md)
+  - MODULE to be rebuilt, [3\.8\.4\.4](3-8-4-4.md)
+  - service disks, [4\.3\.1](4-3-1.md)
+  - service procedure, [3\.8](3-8.md)
+  - testing the new level, [3\.8\.5](3-8-5.md)
+- CMS nucleus, IPLing, [3\.8\.4\.6](3-8-4-6.md)
+- CMS saved system, [3\.14\.3\.1](3-14-3-1.md)
+- CMS/DOS saved segments, [3\.14\.1](3-14-1.md)
+- CMSFILES saved segment, [3\.14\.1](3-14-1.md)
+- CMSLOAD EXEC, [F\.0](f-0.md)
+- CMSMLOAD EXEC, [F\.0](f-0.md)
+- CMSPIPES saved segment, [3\.14\.1](3-14-1.md)
+- CMSSAA EXEC, [F\.0](f-0.md)
+- CMSSAA TXTLIB, [4\.3\.5](4-3-5.md)
+- CMSVMLIB saved segment, [3\.14\.1](3-14-1.md)
+- CMSXLOAD EXEC, [F\.0](f-0.md)
+- commands used for service, [1\.6](1-6.md)
+- component\(s\)
+  - build dependencies, [1\.3](1-3.md)
+  - of VM/ESA, [1\.2](1-2.md)
+  - order of service, [1\.2](1-2.md), [1\.3](1-3.md)
+- COR service
+  - flowchart of application, [3\.1](3-1.md)
+  - main tasks, [1\.2](1-2.md)
+  - method of installing, [3\.1](3-1.md)
+  - order of application, [1\.2](1-2.md)
+  - overview, [1\.2](1-2.md)
+  - preparing
+    - disks, [3\.3](3-3.md)
+    - the system, [2\.2](2-2.md), [3\.5](3-5.md)
+  - procedure, [3\.0](3-0.md)
+  - procedure overview, [3\.1](3-1.md)
+  - receiving service documentation, [3\.4](3-4.md)
+  - substituting disks, [3\.2](3-2.md)
+  - using substitute disks, [3\.2](3-2.md)
+- corequisite publications, [PREFACE\.2](preface-2.md), [1\.0](1-0.md)
+- CP
+  - $ source files, [G\.4](g-4.md)
+  - all, [4\.4\.2](4-4-2.md)
+  - build lists
+    - for CP utilities, [4\.4\.6](4-4-6.md)
+    - for rebuilding executable MODULEs, [4\.4\.5](4-4-5.md)
+    - for select and copy functions, [4\.4\.3](4-4-3.md)
+  - Build Status Table, updating, [3\.9\.4\.1](3-9-4-1.md)
+  - building new objects, [3\.9\.4](3-9-4.md)
+  - detailed build tasks
+    - build preparation, [4\.4](4-4.md)
+    - CP nucleus build preparation, [4\.4\.9](4-4-9.md)
+    - determining build lists to process, [4\.4\.2](4-4-2.md)
+    - executable MODULEs, rebuilding, [4\.4\.5](4-4-5.md)
+    - MACLIBs, updating, [4\.4\.4](4-4-4.md)
+    - rebuilding CP utilities, [4\.4\.6](4-4-6.md)
+    - stand\-alone dump, rebuilding, [4\.4\.7](4-4-7.md)
+  - MACLIBs, [4\.4\.4](4-4-4.md)
+  - merge processing, [3\.9\.4\.6](3-9-4-6.md)
+  - nucleus
+  - rebuilding HELP files, [3\.9\.4\.5](3-9-4-5.md)
+  - select and copy serviced files, [4\.4\.3](4-4-3.md)
+  - service disks, [4\.4\.1](4-4-1.md)
+  - service procedure, [3\.9](3-9.md)
+  - stand\-alone dump, rebuilding, [3\.9\.4\.4](3-9-4-4.md)
+- CP load list, updating, [E\.0](e-0.md)
+- CP load map, [3\.9\.4\.3](3-9-4-3.md)
+- CPLOAD EXEC, [F\.0](f-0.md)
+- CSL \(Callable Services Library\), [4\.3\.7](4-3-7.md)
+- CSLs \(Callable Services Libraries\), [3\.8\.4\.5](3-8-4-5.md)
+- customer local service, [7\.1](7-1.md)
 
 ## D
 
-- defaults for service, changing 1 2.2 3.5
-- DELTA disk 1 1.5
-- description table 1 5.0 6.0
-- detailed build steps 1
-- AVS 2 4.8
-- CMS 2 4.3
-- CP 2 4.4
-- Dump Viewing Facility 2 4.6
-- GCS 2 4.5
-- how to use 2 4.0
-- overview 2 4.0
-- REXX/VM 2 4.2
-- TSAF 2 4.7
-- VMSES/E 2 4.1
-- disk preparation for COR service 1 3.3
-- disk(s) 1
-- used for servicing 2
-- AVS component 3 1.5
-- CMS component 3 1.5
-- CP component 3 1.5
-- Dump Viewing Facility component 3 1.5
-- GCS component 3 1.5
-- REXX/VM component 3 1.5
-- TSAF component 3 1.5
-- VM/ESA 3 1.2
-- VMSES/E component 3 1.5
-- disks used to service VM/ESA 1 1.5
-- DMSBL490 EXEC 1 F.0
-- DMSBL493 EXEC 1 F.0
-- DMSBLAEN TXTLIB 1 4.3.5
-- DMSBLAMT TXTLIB 1 4.3.5
-- DMSBLASM EXEC 1 F.0
-- DMSBLBAS TXTLIB 1 4.3.5
-- DMSBLCEN TXTLIB 1 4.3.5
-- DMSBLCMT TXTLIB 1 4.3.5
-- DMSBLDOS EXEC 1 F.0
-- DMSBLHLP EXEC 1 F.0
-- DMSBLINF EXEC 1 F.0
-- DMSBLPRP EXEC 1 F.0
-- DMSBLSRC EXEC 1 F.0
-- DMSBLVML EXEC 1 F.0
-- DMSBLVMT EXEC 1 F.0
-- DMSGPI EXEC 1 F.0
-- DMSNGP 1 1.5
-- DMSOM EXEC 1 F.0
-- Dump Viewing Facility 1
-- $ source files 2 G.5
-- build lists 2
-- all 3 4.6.2
-- for select and copy functions 3 4.6.3
-- Build Status Table, updating 2 3.11.4.2
-- building new objects 2 3.11.4
-- detailed build tasks 2
-- build preparation 3 4.6
-- determining build lists to process 3 4.6.2
-- executable MODULEs, rebuilding 3 4.6.4
-- select and copy serviced files 3 4.6.3
-- merge processing 2 3.11.4.5
-- rebuilding HELP files 2 3.11.4.4
-- service disks 2 4.6.1
-- service procedure 2 3.11
+- defaults for service, changing, [2\.2](2-2.md), [3\.5](3-5.md)
+- DELTA disk, [1\.5](1-5.md)
+- description table, [5\.0](5-0.md), [6\.0](6-0.md)
+- detailed build steps
+  - AVS, [4\.8](4-8.md)
+  - CMS, [4\.3](4-3.md)
+  - CP, [4\.4](4-4.md)
+  - Dump Viewing Facility, [4\.6](4-6.md)
+  - GCS, [4\.5](4-5.md)
+  - how to use, [4\.0](4-0.md)
+  - overview, [4\.0](4-0.md)
+  - REXX/VM, [4\.2](4-2.md)
+  - TSAF, [4\.7](4-7.md)
+  - VMSES/E, [4\.1](4-1.md)
+- disk preparation for COR service, [3\.3](3-3.md)
+- disk\(s\)
+  - used for servicing
+    - AVS component, [1\.5](1-5.md)
+    - CMS component, [1\.5](1-5.md)
+    - CP component, [1\.5](1-5.md)
+    - Dump Viewing Facility component, [1\.5](1-5.md)
+    - GCS component, [1\.5](1-5.md)
+    - REXX/VM component, [1\.5](1-5.md)
+    - TSAF component, [1\.5](1-5.md)
+    - VM/ESA, [1\.2](1-2.md)
+    - VMSES/E component, [1\.5](1-5.md)
+- disks used to service VM/ESA, [1\.5](1-5.md)
+- DMSBL490 EXEC, [F\.0](f-0.md)
+- DMSBL493 EXEC, [F\.0](f-0.md)
+- DMSBLAEN TXTLIB, [4\.3\.5](4-3-5.md)
+- DMSBLAMT TXTLIB, [4\.3\.5](4-3-5.md)
+- DMSBLASM EXEC, [F\.0](f-0.md)
+- DMSBLBAS TXTLIB, [4\.3\.5](4-3-5.md)
+- DMSBLCEN TXTLIB, [4\.3\.5](4-3-5.md)
+- DMSBLCMT TXTLIB, [4\.3\.5](4-3-5.md)
+- DMSBLDOS EXEC, [F\.0](f-0.md)
+- DMSBLHLP EXEC, [F\.0](f-0.md)
+- DMSBLINF EXEC, [F\.0](f-0.md)
+- DMSBLPRP EXEC, [F\.0](f-0.md)
+- DMSBLSRC EXEC, [F\.0](f-0.md)
+- DMSBLVML EXEC, [F\.0](f-0.md)
+- DMSBLVMT EXEC, [F\.0](f-0.md)
+- DMSGPI EXEC, [F\.0](f-0.md)
+- DMSNGP, [1\.5](1-5.md)
+- DMSOM EXEC, [F\.0](f-0.md)
+- Dump Viewing Facility
+  - $ source files, [G\.5](g-5.md)
+  - build lists
+    - all, [4\.6\.2](4-6-2.md)
+    - for select and copy functions, [4\.6\.3](4-6-3.md)
+  - Build Status Table, updating, [3\.11\.4\.2](3-11-4-2.md)
+  - building new objects, [3\.11\.4](3-11-4.md)
+  - detailed build tasks
+    - build preparation, [4\.6](4-6.md)
+    - determining build lists to process, [4\.6\.2](4-6-2.md)
+    - executable MODULEs, rebuilding, [4\.6\.4](4-6-4.md)
+    - select and copy serviced files, [4\.6\.3](4-6-3.md)
+  - merge processing, [3\.11\.4\.5](3-11-4-5.md)
+  - rebuilding HELP files, [3\.11\.4\.4](3-11-4-4.md)
+  - service disks, [4\.6\.1](4-6-1.md)
+  - service procedure, [3\.11](3-11.md)
 
 ## E
 
-- emergency service 1 7.1
-- ESPAN $PPF 1 1.4
-- examples, layout of 1 PREFACE.4
-- EXECUPDT command 1 G.0
+- emergency service, [7\.1](7-1.md)
+- ESPAN $PPF, [1\.4](1-4.md)
+- examples, layout of, [PREFACE\.4](preface-4.md)
+- EXECUPDT command, [G\.0](g-0.md)
 
 ## F
 
-- file type abbreviation 1
-- obtaining 2 7.4.1 7.4.5
-- table 2 5.0
-- flowchart of service application 1 3.1
-- format of this book 1 PREFACE.4
-- FRANC $PPF 1 1.4
-- French Product Parameter File 1 1.4
+- file type abbreviation
+  - obtaining, [7\.4\.1](7-4-1.md), [7\.4\.5](7-4-5.md)
+  - table, [5\.0](5-0.md)
+- flowchart of service application, [3\.1](3-1.md)
+- format of this book, [PREFACE\.4](preface-4.md)
+- FRANC $PPF, [1\.4](1-4.md)
+- French Product Parameter File, [1\.4](1-4.md)
 
 ## G
 
-- GCS 1
-- build lists 2
-- all 3 4.5.2
-- for select and copy functions 3 4.5.3
-- Build Status Table, updating 2 3.10.4.2
-- building new objects 2 3.10.4
-- detailed build tasks 2
-- build preparation 3 4.5
-- determining build lists to process 3 4.5.2
-- GCS nucleus, rebuilding 3 4.5.7
-- load libraries, rebuilding 3 4.5.5
-- MACLIBs, updating 3 4.5.4
-- select and copy serviced files 3 4.5.3
-- MACLIBs 2 4.5.4
-- merge processing 2 3.10.4.6
-- nucleus, IPLing 2 3.10.4.4
-- rebuilding HELP files 2 3.10.4.5
-- service disks and directories 2 4.5.1
-- service procedure 2 3.10
-- GCTBLHLP EXEC 1 F.0
-- GCTBLINF EXEC 1 F.0
-- GCTBLPRP EXEC 1 F.0
-- GCTBLRST EXEC 1 F.0
-- GCTGPI EXEC 1 F.0
-- GCTLOAD EXEC 1 F.0
-- GER $PPF 1 1.4
-- German Product Parameter File 1 1.4
-- glossary 1 GLOSSARY
+- GCS
+  - build lists
+    - all, [4\.5\.2](4-5-2.md)
+    - for select and copy functions, [4\.5\.3](4-5-3.md)
+  - Build Status Table, updating, [3\.10\.4\.2](3-10-4-2.md)
+  - building new objects, [3\.10\.4](3-10-4.md)
+  - detailed build tasks
+    - build preparation, [4\.5](4-5.md)
+    - determining build lists to process, [4\.5\.2](4-5-2.md)
+    - GCS nucleus, rebuilding, [4\.5\.7](4-5-7.md)
+    - load libraries, rebuilding, [4\.5\.5](4-5-5.md)
+    - MACLIBs, updating, [4\.5\.4](4-5-4.md)
+    - select and copy serviced files, [4\.5\.3](4-5-3.md)
+  - MACLIBs, [4\.5\.4](4-5-4.md)
+  - merge processing, [3\.10\.4\.6](3-10-4-6.md)
+  - nucleus, IPLing, [3\.10\.4\.4](3-10-4-4.md)
+  - rebuilding HELP files, [3\.10\.4\.5](3-10-4-5.md)
+  - service disks and directories, [4\.5\.1](4-5-1.md)
+  - service procedure, [3\.10](3-10.md)
+- GCTBLHLP EXEC, [F\.0](f-0.md)
+- GCTBLINF EXEC, [F\.0](f-0.md)
+- GCTBLPRP EXEC, [F\.0](f-0.md)
+- GCTBLRST EXEC, [F\.0](f-0.md)
+- GCTGPI EXEC, [F\.0](f-0.md)
+- GCTLOAD EXEC, [F\.0](f-0.md)
+- GER $PPF, [1\.4](1-4.md)
+- German Product Parameter File, [1\.4](1-4.md)
+- glossary, [GLOSSARY](glossary.md)
 
 ## H
 
-- HANZI $PPF 1 1.4
-- HCPBL490 EXEC 1 F.0
-- HCPBL493 EXEC 1 F.0
-- HCPBLHLP EXEC 1 F.0
-- HCPBLIMG EXEC 1 F.0
-- HCPBLINS EXEC 1 F.0
-- HCPBLSAM EXEC 1 F.0
-- HCPBLSDK EXEC 1 F.0
-- HCPBLSRC EXEC 1 F.0
-- HCPBLUTL EXEC 1 F.0
-- HCPGPI EXEC 1 F.0
-- HCPMLOAD EXEC 1 F.0
-- HCPOM1 EXEC 1 F.0
-- HCPOM2 EXEC 1 F.0
-- HCPPSI EXEC 1 F.0
-- HCPRIO 1 1.5
-- HCPSYS 1 1.5
-- HCPXLOAD EXEC 1 F.0
-- HCSBL493 EXEC 1 F.0
-- HCSBLHLP EXEC 1 F.0
-- HCSBLMSG EXEC 1 F.0
-- HCSBLSRC EXEC 1 F.0
-- HCSMLOAD EXEC 1 F.0
-- HELP files, rebuilding 1
-- AVS 2 3.13.4.4
-- CMS 2 3.8.5.1
-- CP 2 3.9.4.5
-- Dump Viewing Facility 2 3.11.4.4
-- GCS 2 3.10.4.5
-- TSAF 2 3.12.4.4
-- VMSES/E 2 3.6.4.4
-- HELP saved segment 1 3.14.1
-- HELP, online 1 1.6.1
-- HELP, using online 1 1.6.1
+- HANZI $PPF, [1\.4](1-4.md)
+- HCPBL490 EXEC, [F\.0](f-0.md)
+- HCPBL493 EXEC, [F\.0](f-0.md)
+- HCPBLHLP EXEC, [F\.0](f-0.md)
+- HCPBLIMG EXEC, [F\.0](f-0.md)
+- HCPBLINS EXEC, [F\.0](f-0.md)
+- HCPBLSAM EXEC, [F\.0](f-0.md)
+- HCPBLSDK EXEC, [F\.0](f-0.md)
+- HCPBLSRC EXEC, [F\.0](f-0.md)
+- HCPBLUTL EXEC, [F\.0](f-0.md)
+- HCPGPI EXEC, [F\.0](f-0.md)
+- HCPMLOAD EXEC, [F\.0](f-0.md)
+- HCPOM1 EXEC, [F\.0](f-0.md)
+- HCPOM2 EXEC, [F\.0](f-0.md)
+- HCPPSI EXEC, [F\.0](f-0.md)
+- HCPRIO, [1\.5](1-5.md)
+- HCPSYS, [1\.5](1-5.md)
+- HCPXLOAD EXEC, [F\.0](f-0.md)
+- HCSBL493 EXEC, [F\.0](f-0.md)
+- HCSBLHLP EXEC, [F\.0](f-0.md)
+- HCSBLMSG EXEC, [F\.0](f-0.md)
+- HCSBLSRC EXEC, [F\.0](f-0.md)
+- HCSMLOAD EXEC, [F\.0](f-0.md)
+- HELP files, rebuilding
+  - AVS, [3\.13\.4\.4](3-13-4-4.md)
+  - CMS, [3\.8\.5\.1](3-8-5-1.md)
+  - CP, [3\.9\.4\.5](3-9-4-5.md)
+  - Dump Viewing Facility, [3\.11\.4\.4](3-11-4-4.md)
+  - GCS, [3\.10\.4\.5](3-10-4-5.md)
+  - TSAF, [3\.12\.4\.4](3-12-4-4.md)
+  - VMSES/E, [3\.6\.4\.4](3-6-4-4.md)
+- HELP saved segment, [3\.14\.1](3-14-1.md)
+- HELP, online, [1\.6\.1](1-6-1.md)
+- HELP, using online, [1\.6\.1](1-6-1.md)
 
 ## I
 
-- IBM local service 1 7.1
-- IBM service defaults, changing 1 2.2 3.5
-- installing preventive maintenance 1 1.1
-- intermediate 1
-- apply disk 2 1.5
-- disk 2 1.2
-- IOCPLOAD EXEC 1 F.0
-- IXXBLNUC EXEC 1 F.0
-- IXXBLSRC EXEC 1 F.0
-- IXXOM EXEC 1 F.0
+- IBM local service, [7\.1](7-1.md)
+- IBM service defaults, changing, [2\.2](2-2.md), [3\.5](3-5.md)
+- installing preventive maintenance, [1\.1](1-1.md)
+- intermediate
+  - apply disk, [1\.5](1-5.md)
+  - disk, [1\.2](1-2.md)
+- IOCPLOAD EXEC, [F\.0](f-0.md)
+- IXXBLNUC EXEC, [F\.0](f-0.md)
+- IXXBLSRC EXEC, [F\.0](f-0.md)
+- IXXOM EXEC, [F\.0](f-0.md)
 
 ## J
 
-- Japanese Product Parameter File 1 1.4
+- Japanese Product Parameter File, [1\.4](1-4.md)
 
 ## K
 
-- KANJI $PPF 1 1.4
+- KANJI $PPF, [1\.4](1-4.md)
 
 ## L
 
-- library, list of 1
-- related publications 2 BIBLIOGRAPHY.2
-- VM/ESA publications 2 BIBLIOGRAPHY.1
-- load map, CP 1 3.9.4.3
-- local 1
-- disk 2 1.5
-- sample disk 2 1.5
-- Version Vector Table 2 7.4.1
-- local service 1
-- $ source files, updating 2 7.4.3
-- applying 2 7.4
-- ASSEMBLE files, reassembling 2 7.4.3.2
-- customer 2 7.1
-- definition 2 7.1
-- disks used 2 7.3
-- electronically received 2 7.1
-- file type abbreviations 2 7.4.1 7.4.5
-- IBM 2 7.1
-- MACLIBs to be rebuilt 2 7.4.3.1
-- MACLIBs, updating 2 7.4.3.1
-- NLS files, compiling 2 7.4.3.3
-- overview 2 1.2.4 7.0
-- patches, applying and removing 2 7.4.4
-- preparation 2 7.1 7.2
-- re-applying 2
-- AVS component 3 3.13.3.1
-- CMS component 3 3.8.3.1
-- CP component 3 3.9.3.1
-- Dump Viewing Facility component 3 3.11.3.1
-- GCS component 3 3.10.3.1
-- REXX/VM component 3 3.7.3.1
-- TSAF component 3 3.12.3.1
-- VMSES/E component 3 3.6.3.1
-- rebuilding objects 2 7.5
-- receiving 2 7.3
-- source updates 2 7.4.2
-- update files, using 2 7.4.2.2
-- Version Vector Table, updating 2 7.4.1
-- VVT, updating 2 7.4.1
-- zaps, applying 2 7.4.5
-- LOCALMOD disk 1 1.5
-- LOCALSAM disk 1 1.5
-- LOGO CONFIG 1 1.5
+- library, list of
+  - related publications, [BIBLIOGRAPHY\.2](bibliography-2.md)
+  - VM/ESA publications, [BIBLIOGRAPHY\.1](bibliography-1.md)
+- load map, CP, [3\.9\.4\.3](3-9-4-3.md)
+- local
+  - disk, [1\.5](1-5.md)
+  - sample disk, [1\.5](1-5.md)
+  - Version Vector Table, [7\.4\.1](7-4-1.md)
+- local service
+  - $ source files, updating, [7\.4\.3](7-4-3.md)
+  - applying, [7\.4](7-4.md)
+  - ASSEMBLE files, reassembling, [7\.4\.3\.2](7-4-3-2.md)
+  - customer, [7\.1](7-1.md)
+  - definition, [7\.1](7-1.md)
+  - disks used, [7\.3](7-3.md)
+  - electronically received, [7\.1](7-1.md)
+  - file type abbreviations, [7\.4\.1](7-4-1.md), [7\.4\.5](7-4-5.md)
+  - IBM, [7\.1](7-1.md)
+  - MACLIBs to be rebuilt, [7\.4\.3\.1](7-4-3-1.md)
+  - MACLIBs, updating, [7\.4\.3\.1](7-4-3-1.md)
+  - NLS files, compiling, [7\.4\.3\.3](7-4-3-3.md)
+  - overview, [1\.2\.4](1-2-4.md), [7\.0](7-0.md)
+  - patches, applying and removing, [7\.4\.4](7-4-4.md)
+  - preparation, [7\.1](7-1.md), [7\.2](7-2.md)
+  - re\-applying
+    - AVS component, [3\.13\.3\.1](3-13-3-1.md)
+    - CMS component, [3\.8\.3\.1](3-8-3-1.md)
+    - CP component, [3\.9\.3\.1](3-9-3-1.md)
+    - Dump Viewing Facility component, [3\.11\.3\.1](3-11-3-1.md)
+    - GCS component, [3\.10\.3\.1](3-10-3-1.md)
+    - REXX/VM component, [3\.7\.3\.1](3-7-3-1.md)
+    - TSAF component, [3\.12\.3\.1](3-12-3-1.md)
+    - VMSES/E component, [3\.6\.3\.1](3-6-3-1.md)
+  - rebuilding objects, [7\.5](7-5.md)
+  - receiving, [7\.3](7-3.md)
+  - source updates, [7\.4\.2](7-4-2.md)
+  - update files, using, [7\.4\.2\.2](7-4-2-2.md)
+  - Version Vector Table, updating, [7\.4\.1](7-4-1.md)
+  - VVT, updating, [7\.4\.1](7-4-1.md)
+  - zaps, applying, [7\.4\.5](7-4-5.md)
+- LOCALMOD disk, [1\.5](1-5.md)
+- LOCALSAM disk, [1\.5](1-5.md)
+- LOGO CONFIG, [1\.5](1-5.md)
 
 ## M
 
-- merge processing 1
-- AVS 2 3.13.4.5
-- CMS 2 3.8.5.2
-- CP 2 3.9.4.6
-- Dump Viewing Facility 2 3.11.4.5
-- GCS 2 3.10.4.6
-- overview 2 1.2.1
-- REXX/VM 2 3.7.4.5
-- TSAF 2 3.12.4.5
-- VMSES/E 2 3.6.4.5
-- MVSXA 1 F.0
+- merge processing
+  - AVS, [3\.13\.4\.5](3-13-4-5.md)
+  - CMS, [3\.8\.5\.2](3-8-5-2.md)
+  - CP, [3\.9\.4\.6](3-9-4-6.md)
+  - Dump Viewing Facility, [3\.11\.4\.5](3-11-4-5.md)
+  - GCS, [3\.10\.4\.6](3-10-4-6.md)
+  - overview, [1\.2\.1](1-2-1.md)
+  - REXX/VM, [3\.7\.4\.5](3-7-4-5.md)
+  - TSAF, [3\.12\.4\.5](3-12-4-5.md)
+  - VMSES/E, [3\.6\.4\.5](3-6-4-5.md)
+- MVSXA, [F\.0](f-0.md)
 
 ## N
 
-- national languages, changing 1 C.0
-- NLS files, compiling 1 7.4.3.3
-- NLS, changing defaults 1 C.0
-- non-VMSES envelopes, receiving 1 B.0
-- nucleus, building 1 D.2
+- national languages, changing, [C\.0](c-0.md)
+- NLS files, compiling, [7\.4\.3\.3](7-4-3-3.md)
+- NLS, changing defaults, [C\.0](c-0.md)
+- non\-VMSES envelopes, receiving, [B\.0](b-0.md)
+- nucleus, building, [D\.2](d-2.md)
 
 ## O
 
-- object, building 1 D.1
-- objects 1 1.5
-- online HELP Facility, using 1 1.6.1
-- order of service 1 1.3
-- OSMACRO EXEC 1 F.0
-- OSMACRO1 EXEC 1 F.0
-- OSPSI EXEC 1 F.0
-- out-of-component requisites 1 1.3
-- overview of procedures 1 1.0
+- object, building, [D\.1](d-1.md)
+- objects, [1\.5](1-5.md)
+- online HELP Facility, using, [1\.6\.1](1-6-1.md)
+- order of service, [1\.3](1-3.md)
+- OSMACRO EXEC, [F\.0](f-0.md)
+- OSMACRO1 EXEC, [F\.0](f-0.md)
+- OSPSI EXEC, [F\.0](f-0.md)
+- out\-of\-component requisites, [1\.3](1-3.md)
+- overview of procedures, [1\.0](1-0.md)
 
 ## P
 
-- packaging service 1 1.4
-- patches, applying and removing 1 7.4.4
-- PPF (Product Parameter File) 1
-- base 2 1.4
-- base file names 2 1.4
-- CANFR $PPF file 2 1.4
-- ESPAN $PPF file 2 1.4
-- FRANC $PPF file 2 1.4
-- GER $PPF file 2 1.4
-- HANZI $PPF file 2 1.4
-- KANJI $PPF file 2 1.4
-- override 2 1.4
-- override file names 2 1.4
-- service packaging 2 1.4
-- UCENG $PPF file 2 1.4
-- preparation for service 1
-- AVS component 2 3.13.1
-- CMS component 2 3.8.1
-- CP component 2 3.9.1
-- Dump Viewing Facility component 2 3.11.1
-- GCS component 2 3.10.1
-- local service 2 7.2
-- REXX/VM component 2 3.7.1
-- TSAF component 2 3.12.1
-- VMSES/E component 2 3.6.1
-- prerequisites to using this book 1 PREFACE.2
-- preventive maintenance 1 1.1
-- procedures, layout of 1 PREFACE.4
-- procedures, overview 1 1.0
-- production 1
-- apply disk 2 1.5
-- delta disk 2 1.5
-- disk 2 1.2
-- level system 2 3.14
-- production, placing serviced components into 1
-- AVS 2 3.14.5
-- CMS 2 3.14.4
-- CMS saved system 2 3.14.3.1
-- CMS/DOS saved segments 2 3.14.1
-- CMSFILES saved segment 2 3.14.1
-- CMSINST saved segment 2 3.14.1
-- CMSPIPES saved segment 2 3.14.1
-- CMSVMLIB saved segment 2 3.14.1
-- CP nucleus 2 3.14.4
-- GCS 2 3.14.6
-- HELP saved segment 2 3.14.1
-- merging tested service 2 3.14.7
-- overview 2 1.2.6 3.14
-- saved segments, rebuilding 2 3.14.1
-- SVM saved segment 2 3.14.1
-- test CMS system disk 2 3.14.3
-- test tools disk 2 3.14.3
-- TSAF 2 3.14.5
-- VSE/VSAM saved segments 2 3.14.1
-- PSU (Product Service Upgrade) 1
-- build new service level 2 2.3.3
-- DASD sizes, determining 2 2.2
-- documentation needed 2 2.1
-- effect on tailored files 2 2.0
-- intended use 2 1.1
-- limitations 2 1.1
-- materials needed for use 2 2.1
-- overview 2 1.1
-- planning for use 2 2.0
-- preparation for 2 2.2
-- process additional service 2 2.3.2
-- reach-ahead service, determining 2 2.3
-- reapply local service 2 2.3.2
-- receive preapplied, prebuilt service 2 2.3.1
-- receiving the refresh tape 2 2.3
-- using 2 2.0
-- PTF-numbered parts 1 1.5
-- publications, list of 1
-- related 2 BIBLIOGRAPHY.2
-- VM/ESA 2 BIBLIOGRAPHY.1
-- purpose of this book 1 PREFACE
-- PUT service procedure 1 3.0
+- packaging service, [1\.4](1-4.md)
+- patches, applying and removing, [7\.4\.4](7-4-4.md)
+- PPF \(Product Parameter File\)
+  - base, [1\.4](1-4.md)
+  - base file names, [1\.4](1-4.md)
+  - CANFR $PPF file, [1\.4](1-4.md)
+  - ESPAN $PPF file, [1\.4](1-4.md)
+  - FRANC $PPF file, [1\.4](1-4.md)
+  - GER $PPF file, [1\.4](1-4.md)
+  - HANZI $PPF file, [1\.4](1-4.md)
+  - KANJI $PPF file, [1\.4](1-4.md)
+  - override, [1\.4](1-4.md)
+  - override file names, [1\.4](1-4.md)
+  - service packaging, [1\.4](1-4.md)
+  - UCENG $PPF file, [1\.4](1-4.md)
+- preparation for service
+  - AVS component, [3\.13\.1](3-13-1.md)
+  - CMS component, [3\.8\.1](3-8-1.md)
+  - CP component, [3\.9\.1](3-9-1.md)
+  - Dump Viewing Facility component, [3\.11\.1](3-11-1.md)
+  - GCS component, [3\.10\.1](3-10-1.md)
+  - local service, [7\.2](7-2.md)
+  - REXX/VM component, [3\.7\.1](3-7-1.md)
+  - TSAF component, [3\.12\.1](3-12-1.md)
+  - VMSES/E component, [3\.6\.1](3-6-1.md)
+- prerequisites to using this book, [PREFACE\.2](preface-2.md)
+- preventive maintenance, [1\.1](1-1.md)
+- procedures, layout of, [PREFACE\.4](preface-4.md)
+- procedures, overview, [1\.0](1-0.md)
+- production
+  - apply disk, [1\.5](1-5.md)
+  - delta disk, [1\.5](1-5.md)
+  - disk, [1\.2](1-2.md)
+  - level system, [3\.14](3-14.md)
+- production, placing serviced components into
+  - AVS, [3\.14\.5](3-14-5.md)
+  - CMS, [3\.14\.4](3-14-4.md)
+  - CMS saved system, [3\.14\.3\.1](3-14-3-1.md)
+  - CMS/DOS saved segments, [3\.14\.1](3-14-1.md)
+  - CMSFILES saved segment, [3\.14\.1](3-14-1.md)
+  - CMSINST saved segment, [3\.14\.1](3-14-1.md)
+  - CMSPIPES saved segment, [3\.14\.1](3-14-1.md)
+  - CMSVMLIB saved segment, [3\.14\.1](3-14-1.md)
+  - CP nucleus, [3\.14\.4](3-14-4.md)
+  - GCS, [3\.14\.6](3-14-6.md)
+  - HELP saved segment, [3\.14\.1](3-14-1.md)
+  - merging tested service, [3\.14\.7](3-14-7.md)
+  - overview, [1\.2\.6](1-2-6.md), [3\.14](3-14.md)
+  - saved segments, rebuilding, [3\.14\.1](3-14-1.md)
+  - SVM saved segment, [3\.14\.1](3-14-1.md)
+  - test CMS system disk, [3\.14\.3](3-14-3.md)
+  - test tools disk, [3\.14\.3](3-14-3.md)
+  - TSAF, [3\.14\.5](3-14-5.md)
+  - VSE/VSAM saved segments, [3\.14\.1](3-14-1.md)
+- PSU \(Product Service Upgrade\)
+  - build new service level, [2\.3\.3](2-3-3.md)
+  - DASD sizes, determining, [2\.2](2-2.md)
+  - documentation needed, [2\.1](2-1.md)
+  - effect on tailored files, [2\.0](2-0.md)
+  - intended use, [1\.1](1-1.md)
+  - limitations, [1\.1](1-1.md)
+  - materials needed for use, [2\.1](2-1.md)
+  - overview, [1\.1](1-1.md)
+  - planning for use, [2\.0](2-0.md)
+  - preparation for, [2\.2](2-2.md)
+  - process additional service, [2\.3\.2](2-3-2.md)
+  - reach\-ahead service, determining, [2\.3](2-3.md)
+  - reapply local service, [2\.3\.2](2-3-2.md)
+  - receive preapplied, prebuilt service, [2\.3\.1](2-3-1.md)
+  - receiving the refresh tape, [2\.3](2-3.md)
+  - using, [2\.0](2-0.md)
+- PTF\-numbered parts, [1\.5](1-5.md)
+- publications, list of
+  - related, [BIBLIOGRAPHY\.2](bibliography-2.md)
+  - VM/ESA, [BIBLIOGRAPHY\.1](bibliography-1.md)
+- purpose of this book, [PREFACE](preface.md)
+- PUT service procedure, [3\.0](3-0.md)
 
 ## R
 
-- receive status table 1 5.0 6.0
-- receiving service 1
-- AVS component 2 3.13.2
-- CMS component 2 3.8.2
-- CP component 2 3.9.2
-- Dump Viewing Facility component 2 3.11.2
-- electronically 2 A.0
-- GCS component 2 3.10.2
-- local service 2 7.3
-- non-VMSES envelopes 2 B.0
-- overview 2 1.2.2
-- REXX/VM component 2 3.7.2
-- TSAF component 2 3.12.2
-- using ServiceLink 2 A.0
-- VMSES/E component 2 3.6.2
-- Recommended Service Upgrade 1 1.1
-- reference service information 1 1.0
-- removing service 1
-- after building 2 8.1.1
-- all service 2 8.1.2
-- backing out all service 2 8.1.2
-- current service level 2 8.1.1
-- overview 2 8.0
-- requisite table 1 5.0 6.0
-- REXX/VM 1
-- $ source files 2 G.2
-- build lists 2
-- all 3 4.2.2
-- for select and copy functions 3 4.2.3
-- Build Status Table, updating 2 3.7.4.2
-- building new objects 2 3.7.4
-- detailed build tasks 2
-- build preparation 3 4.2
-- determining build lists to process 3 4.2.2
-- MACLIBs, updating 3 4.2.4
-- rebuild the nuclei 3 4.2.5
-- select and copy serviced files 3 4.2.3
-- MACLIB 2 4.2.4
-- merge processing 2 3.7.4.5
-- rebuild the nuclei 2 3.7.4.4
-- service disks 2 4.2.1
-- service procedure 2 3.7
+- receive status table, [5\.0](5-0.md), [6\.0](6-0.md)
+- receiving service
+  - AVS component, [3\.13\.2](3-13-2.md)
+  - CMS component, [3\.8\.2](3-8-2.md)
+  - CP component, [3\.9\.2](3-9-2.md)
+  - Dump Viewing Facility component, [3\.11\.2](3-11-2.md)
+  - electronically, [A\.0](a-0.md)
+  - GCS component, [3\.10\.2](3-10-2.md)
+  - local service, [7\.3](7-3.md)
+  - non\-VMSES envelopes, [B\.0](b-0.md)
+  - overview, [1\.2\.2](1-2-2.md)
+  - REXX/VM component, [3\.7\.2](3-7-2.md)
+  - TSAF component, [3\.12\.2](3-12-2.md)
+  - using ServiceLink, [A\.0](a-0.md)
+  - VMSES/E component, [3\.6\.2](3-6-2.md)
+- Recommended Service Upgrade, [1\.1](1-1.md)
+- reference service information, [1\.0](1-0.md)
+- removing service
+  - after building, [8\.1\.1](8-1-1.md)
+  - all service, [8\.1\.2](8-1-2.md)
+  - backing out all service, [8\.1\.2](8-1-2.md)
+  - current service level, [8\.1\.1](8-1-1.md)
+  - overview, [8\.0](8-0.md)
+- requisite table, [5\.0](5-0.md), [6\.0](6-0.md)
+- REXX/VM
+  - $ source files, [G\.2](g-2.md)
+  - build lists
+    - all, [4\.2\.2](4-2-2.md)
+    - for select and copy functions, [4\.2\.3](4-2-3.md)
+  - Build Status Table, updating, [3\.7\.4\.2](3-7-4-2.md)
+  - building new objects, [3\.7\.4](3-7-4.md)
+  - detailed build tasks
+    - build preparation, [4\.2](4-2.md)
+    - determining build lists to process, [4\.2\.2](4-2-2.md)
+    - MACLIBs, updating, [4\.2\.4](4-2-4.md)
+    - rebuild the nuclei, [4\.2\.5](4-2-5.md)
+    - select and copy serviced files, [4\.2\.3](4-2-3.md)
+  - MACLIB, [4\.2\.4](4-2-4.md)
+  - merge processing, [3\.7\.4\.5](3-7-4-5.md)
+  - rebuild the nuclei, [3\.7\.4\.4](3-7-4-4.md)
+  - service disks, [4\.2\.1](4-2-1.md)
+  - service procedure, [3\.7](3-7.md)
 
 ## S
 
-- SA.DUMP, rebuilding 1 3.9.4.4
-- sequence of servicing components 1 1.3
-- service 1
-- application flowchart 2 3.1
-- defaults, changing 2 2.2 3.5
-- dependencies 2 1.3
-- disks 2 1.2
-- disks used 2 1.5
-- documentation, receiving 2 3.4
-- installing 2
-- main tasks 2 1.2
-- packaging 2 1.4
-- procedure 2
-- AVS component 3 3.13
-- CMS component 3 3.8
-- CP component 3 3.9
-- Dump Viewing Facility component 3 3.11
-- GCS component 3 3.10
-- REXX/VM component 3 3.7
-- TSAF component 3 3.12
-- VMSES/E component 3 3.6
-- tools 2 1.6
-- service level inventories 1
-- :APARNUM 2 6.1.6
-- :COREQ 2 6.1.4
-- :DEPS 2 6.1.5
-- :HARDREQ 2 6.1.4
-- :IFREQ 2 6.1.4
-- :OUTREQS 2 6.1.5
-- :PREREQ 2 6.1.4
-- :PTF 2 6.1.4
-- :SUBHARDREQ 2 6.1.4
-- :SUBIF 2 6.1.4
-- :SUBREQ 2 6.1.4
-- :SUP 2 6.1.4
-- :SUPBY 2 6.1.5
-- adding local replacement files 2 6.5.2
-- an object 2 6.4.1
-- APARs 2
-- applied 3 6.3.2
-- contained in PTFs 3 6.1.6
-- received 3 6.1.2
-- apply processing, sample queries 2 6.3
-- apply status table 2 6.0
-- build 2
-- APPLY list of PTFs received 3 6.2.1
-- EXCLUDE list of dependents of a PTF 3 6.2.3
-- processing, sample queries 3 6.4
-- build an APPLY list containing requisites of a PTF 2 6.2.2
-- create an APPLY list from two
-
-tables 2 6.3.7
-
-- current level of a part 2 6.3.6
-- dependent PTFs 2 6.1.5
-- description of APARs received 2 6.1.3
-- description table 2 6.0
-- local source modifications 2 6.5.1
-- managing 2 6.0
-- objects requiring manual building 2 6.4.3
-- objects to build 2 6.4.2
-- overview 2 6.0
-- parts serviced by a PTF 2 6.3.3
-- parts serviced by an APAR 2 6.3.4
-- process local modifications 2 6.5
-- PTFs applied 2 6.3.1
-- PTFs received 2 6.1.1
-- receive 2
-- all PTFs on an APAR 3 6.1.7
-- processing, sample queries 3 6.1
-- status table 3 6.0
-- recovering 2 6.6
-- requisite PTFs 2 6.1.4
-- requisite table 2 6.0
-- service applied to a part 2 6.3.5
-- status table 2 6.0
-- updating the
-
-table 2 6.4.4
-
-- validate AUX file and VVT match 2 6.3.8
-- version vector table 2 6.0
-- service procedures 1 1.0
-- service refresh 1
-- build new service level 2 2.3.3
-- DASD sizes, determining 2 2.2
-- documentation needed 2 2.1
-- overview 2 2.0
-- preparation for 2 2.2
-- process additional service 2 2.3.2
-- reach-ahead service, determining 2 2.3
-- reapply local service 2 2.3.2
-- receive preapplied, prebuilt service 2 2.3.1
-- receiving the refresh tape 2 2.3
-- ServiceLink 1 A.0
-- ServiceLink APARFIX command 1 7.1
-- SERVLOAD EXEC 1 F.0
-- software inventories 1
-- service level 2
-- :APARNUM 3 6.1.6
-- :COREQ 3 6.1.4
-- :DEPS 3 6.1.5
-- :HARDREQ 3 6.1.4
-- :IFREQ 3 6.1.4
-- :OUTREQS 3 6.1.5
-- :PREREQ 3 6.1.4
-- :PTF 3 6.1.4
-- :SUBHARDREQ 3 6.1.4
-- :SUBIF 3 6.1.4
-- :SUBREQ 3 6.1.4
-- :SUP 3 6.1.4
-- :SUPBY 3 6.1.5
-- adding local replacement files 3 6.5.2
-- an object 3 6.4.1
-- APARs applied 3 6.3.2
-- APARs contained in PTFs 3 6.1.6
-- APARs received 3 6.1.2
-- apply processing, sample queries 3 6.3
-- apply status table 3 6.0
-- build an APPLY list containing requisites of a PTF 3 6.2.2
-- build an EXCLUDE list of dependents of a PTF 3 6.2.3
-- build processing, sample queries 3 6.4
-- build status table 3 6.0
-- building an APPLY list of PTFs received 3 6.2.1
-- create an APPLY list from two
-
-tables 3 6.3.7
-
-- current level of a part 3 6.3.6
-- dependent PTFs 3 6.1.5
-- description of APARs received 3 6.1.3
-- description table 3 6.0
-- local source modifications 3 6.5.1
-- managing 3 6.0
-- objects requiring manual building 3 6.4.3
-- objects to build 3 6.4.2
-- overview 3 6.0
-- parts serviced by a PTF 3 6.3.3
-- parts serviced by an APAR 3 6.3.4
-- process local modifications 3 6.5
-- PTFs applied 3 6.3.1
-- PTFs received 3 6.1.1
-- receive all PTFs on an APAR 3 6.1.7
-- receive processing, sample queries 3 6.1
-- receive status table 3 6.0
-- recovering 3 6.6
-- requisite PTFs 3 6.1.4
-- requisite table 3 6.0
-- service applied to a part 3 6.3.5
-- updating the
-
-table 3 6.4.4
-
-- validate AUX file and VVT match 3 6.3.8
-- version vector table 3 6.0
-- system level 2
-- :DEP 3 5.1.4
-- :DESC 3 5.1.2
-- :DREQ 3 5.1.3
-- :DREQDEP 3 5.1.4
-- :ELU 3 5.4.1
-- :IFREQ 3 5.1.3
-- :LU 3 5.4.1
-- :NPRE 3 5.1.3
-- :PPF 3 5.1.1
-- :PREREQ 3 5.1.3
-- :PRODID 3 5.1.3
-- :PTFREQS 3 5.1.3
-- :RECID 3 5.4.1
-- :REQ 3 5.1.3
-- :STAT 3 5.1.1
-- :SUBIF 3 5.1.3
-- :SUBREQ 3 5.1.3
-- :SUP 3 5.1.3
-- :SUPBY 3 5.1.4
-- adding products or components to inventory 3 5.4.2
-- apply processing, sample queries 3 5.2
-- apply status table 3 5.0
-- build processing, sample queries 3 5.3
-- build status table 3 5.0
-- description of products or components received 3 5.1.2
-- description table 3 5.0
-- file type abbreviation table 3 5.0
-- general VMFSIM queries 3 5.4
-- managing 3 5.0
-- overview 3 5.0
-- product or component requisites 3 5.1.3
-- receive processing, sample queries 3 5.1
-- receive status table 3 5.0
-- recovering 3 5.5
-- requisite table 3 5.0
-- status of products or components applied 3 5.2.1
-- status of products or components built 3 5.3.1
-- status of products or components received 3 5.1.1
-- VM SYSABRVT 3 5.0
-- VM SYSAPPS 3 5.0
-- VM SYSBLDS 3 5.0
-- VM SYSDESCT 3 5.0
-- VM SYSRECS 3 5.0
-- VM SYSREQT 3 5.0
-- source updates 1 7.4.2
-- Spanish Product Parameter File 1 1.4
-- stand-alone dump 1 3.9.4.4
-- SVM saved segment 1 3.14.1
-- SYSTEM CONFIG 1 1.5
-- SYSTEM disks 1 1.5
-- system generation tools 1 1.6
-- system level inventories 1
-- :DEP 2 5.1.4
-- :DESC 2 5.1.2
-- :DREQ 2 5.1.3
-- :DREQDEP 2 5.1.4
-- :ELU 2 5.4.1
-- :IFREQ 2 5.1.3
-- :LU 2 5.4.1
-- :NPRE 2 5.1.3
-- :PPF 2 5.1.1
-- :PREREQ 2 5.1.3
-- :PRODID 2 5.1.3
-- :PTFREQS 2 5.1.3
-- :RECID 2 5.4.1
-- :REQ 2 5.1.3
-- :STAT 2 5.1.1
-- :SUBIF 2 5.1.3
-- :SUBREQ 2 5.1.3
-- :SUP 2 5.1.3
-- :SUPBY 2 5.1.4
-- adding products or components to inventory 2 5.4.2
-- apply processing, sample queries 2 5.2
-- apply status table 2 5.0
-- build processing, sample queries 2 5.3
-- build status table 2 5.0
-- built, status of 2 5.3.1
-- default PPFs for products or components, determining 2 5.4.1
-- dependent products or components, determining 2 5.1.4
-- description of products or components received 2 5.1.2
-- description table 2 5.0
-- file type abbreviation table 2 5.0
-- general VMFSIM queries 2 5.4
-- managing 2 5.0
-- overview 2 5.0
-- products or components 2
-- applied, status of 3 5.2.1
-- requisites 3 5.1.3
-- receive processing, sample queries 2 5.1
-- receive status table 2 5.0
-- received, status of 2 5.1.1
-- recovering 2 5.5
-- requisite table 2 5.0
-- VM SYSABRVT 2 5.0
-- VM SYSAPPS 2 5.0
-- VM SYSBLDS 2 5.0
-- VM SYSDESCT 2 5.0
-- VM SYSRECS 2 5.0
-- VM SYSREQT 2 5.0
-- system preparation for COR service 1 2.2 3.5
+- SA\.DUMP, rebuilding, [3\.9\.4\.4](3-9-4-4.md)
+- sequence of servicing components, [1\.3](1-3.md)
+- service
+  - application flowchart, [3\.1](3-1.md)
+  - defaults, changing, [2\.2](2-2.md), [3\.5](3-5.md)
+  - dependencies, [1\.3](1-3.md)
+  - disks, [1\.2](1-2.md)
+  - disks used, [1\.5](1-5.md)
+  - documentation, receiving, [3\.4](3-4.md)
+  - installing
+  - main tasks, [1\.2](1-2.md)
+  - packaging, [1\.4](1-4.md)
+  - procedure
+    - AVS component, [3\.13](3-13.md)
+    - CMS component, [3\.8](3-8.md)
+    - CP component, [3\.9](3-9.md)
+    - Dump Viewing Facility component, [3\.11](3-11.md)
+    - GCS component, [3\.10](3-10.md)
+    - REXX/VM component, [3\.7](3-7.md)
+    - TSAF component, [3\.12](3-12.md)
+    - VMSES/E component, [3\.6](3-6.md)
+  - tools, [1\.6](1-6.md)
+- service level inventories
+  - :APARNUM, [6\.1\.6](6-1-6.md)
+  - :COREQ, [6\.1\.4](6-1-4.md)
+  - :DEPS, [6\.1\.5](6-1-5.md)
+  - :HARDREQ, [6\.1\.4](6-1-4.md)
+  - :IFREQ, [6\.1\.4](6-1-4.md)
+  - :OUTREQS, [6\.1\.5](6-1-5.md)
+  - :PREREQ, [6\.1\.4](6-1-4.md)
+  - :PTF, [6\.1\.4](6-1-4.md)
+  - :SUBHARDREQ, [6\.1\.4](6-1-4.md)
+  - :SUBIF, [6\.1\.4](6-1-4.md)
+  - :SUBREQ, [6\.1\.4](6-1-4.md)
+  - :SUP, [6\.1\.4](6-1-4.md)
+  - :SUPBY, [6\.1\.5](6-1-5.md)
+  - adding local replacement files, [6\.5\.2](6-5-2.md)
+  - an object, [6\.4\.1](6-4-1.md)
+  - APARs
+    - applied, [6\.3\.2](6-3-2.md)
+    - contained in PTFs, [6\.1\.6](6-1-6.md)
+    - received, [6\.1\.2](6-1-2.md)
+  - apply processing, sample queries, [6\.3](6-3.md)
+  - apply status table, [6\.0](6-0.md)
+  - build
+    - APPLY list of PTFs received, [6\.2\.1](6-2-1.md)
+    - EXCLUDE list of dependents of a PTF, [6\.2\.3](6-2-3.md)
+    - processing, sample queries, [6\.4](6-4.md)
+  - build an APPLY list containing requisites of a PTF, [6\.2\.2](6-2-2.md)
+  - create an APPLY list from two SRVAPPS tables, [6\.3\.7](6-3-7.md)
+  - current level of a part, [6\.3\.6](6-3-6.md)
+  - dependent PTFs, [6\.1\.5](6-1-5.md)
+  - description of APARs received, [6\.1\.3](6-1-3.md)
+  - description table, [6\.0](6-0.md)
+  - local source modifications, [6\.5\.1](6-5-1.md)
+  - managing, [6\.0](6-0.md)
+  - objects requiring manual building, [6\.4\.3](6-4-3.md)
+  - objects to build, [6\.4\.2](6-4-2.md)
+  - overview, [6\.0](6-0.md)
+  - parts serviced by a PTF, [6\.3\.3](6-3-3.md)
+  - parts serviced by an APAR, [6\.3\.4](6-3-4.md)
+  - process local modifications, [6\.5](6-5.md)
+  - PTFs applied, [6\.3\.1](6-3-1.md)
+  - PTFs received, [6\.1\.1](6-1-1.md)
+  - receive
+    - all PTFs on an APAR, [6\.1\.7](6-1-7.md)
+    - processing, sample queries, [6\.1](6-1.md)
+    - status table, [6\.0](6-0.md)
+  - recovering, [6\.6](6-6.md)
+  - requisite PTFs, [6\.1\.4](6-1-4.md)
+  - requisite table, [6\.0](6-0.md)
+  - service applied to a part, [6\.3\.5](6-3-5.md)
+  - status table, [6\.0](6-0.md)
+  - updating the SRVBLDS table, [6\.4\.4](6-4-4.md)
+  - validate AUX file and VVT match, [6\.3\.8](6-3-8.md)
+  - version vector table, [6\.0](6-0.md)
+- service procedures, [1\.0](1-0.md)
+- service refresh
+  - build new service level, [2\.3\.3](2-3-3.md)
+  - DASD sizes, determining, [2\.2](2-2.md)
+  - documentation needed, [2\.1](2-1.md)
+  - overview, [2\.0](2-0.md)
+  - preparation for, [2\.2](2-2.md)
+  - process additional service, [2\.3\.2](2-3-2.md)
+  - reach\-ahead service, determining, [2\.3](2-3.md)
+  - reapply local service, [2\.3\.2](2-3-2.md)
+  - receive preapplied, prebuilt service, [2\.3\.1](2-3-1.md)
+  - receiving the refresh tape, [2\.3](2-3.md)
+- ServiceLink, [A\.0](a-0.md)
+- ServiceLink APARFIX command, [7\.1](7-1.md)
+- SERVLOAD EXEC, [F\.0](f-0.md)
+- software inventories
+  - service level
+    - :APARNUM, [6\.1\.6](6-1-6.md)
+    - :COREQ, [6\.1\.4](6-1-4.md)
+    - :DEPS, [6\.1\.5](6-1-5.md)
+    - :HARDREQ, [6\.1\.4](6-1-4.md)
+    - :IFREQ, [6\.1\.4](6-1-4.md)
+    - :OUTREQS, [6\.1\.5](6-1-5.md)
+    - :PREREQ, [6\.1\.4](6-1-4.md)
+    - :PTF, [6\.1\.4](6-1-4.md)
+    - :SUBHARDREQ, [6\.1\.4](6-1-4.md)
+    - :SUBIF, [6\.1\.4](6-1-4.md)
+    - :SUBREQ, [6\.1\.4](6-1-4.md)
+    - :SUP, [6\.1\.4](6-1-4.md)
+    - :SUPBY, [6\.1\.5](6-1-5.md)
+    - adding local replacement files, [6\.5\.2](6-5-2.md)
+    - an object, [6\.4\.1](6-4-1.md)
+    - APARs applied, [6\.3\.2](6-3-2.md)
+    - APARs contained in PTFs, [6\.1\.6](6-1-6.md)
+    - APARs received, [6\.1\.2](6-1-2.md)
+    - apply processing, sample queries, [6\.3](6-3.md)
+    - apply status table, [6\.0](6-0.md)
+    - build an APPLY list containing requisites of a PTF, [6\.2\.2](6-2-2.md)
+    - build an EXCLUDE list of dependents of a PTF, [6\.2\.3](6-2-3.md)
+    - build processing, sample queries, [6\.4](6-4.md)
+    - build status table, [6\.0](6-0.md)
+    - building an APPLY list of PTFs received, [6\.2\.1](6-2-1.md)
+    - create an APPLY list from two SRVAPPS tables, [6\.3\.7](6-3-7.md)
+    - current level of a part, [6\.3\.6](6-3-6.md)
+    - dependent PTFs, [6\.1\.5](6-1-5.md)
+    - description of APARs received, [6\.1\.3](6-1-3.md)
+    - description table, [6\.0](6-0.md)
+    - local source modifications, [6\.5\.1](6-5-1.md)
+    - managing, [6\.0](6-0.md)
+    - objects requiring manual building, [6\.4\.3](6-4-3.md)
+    - objects to build, [6\.4\.2](6-4-2.md)
+    - overview, [6\.0](6-0.md)
+    - parts serviced by a PTF, [6\.3\.3](6-3-3.md)
+    - parts serviced by an APAR, [6\.3\.4](6-3-4.md)
+    - process local modifications, [6\.5](6-5.md)
+    - PTFs applied, [6\.3\.1](6-3-1.md)
+    - PTFs received, [6\.1\.1](6-1-1.md)
+    - receive all PTFs on an APAR, [6\.1\.7](6-1-7.md)
+    - receive processing, sample queries, [6\.1](6-1.md)
+    - receive status table, [6\.0](6-0.md)
+    - recovering, [6\.6](6-6.md)
+    - requisite PTFs, [6\.1\.4](6-1-4.md)
+    - requisite table, [6\.0](6-0.md)
+    - service applied to a part, [6\.3\.5](6-3-5.md)
+    - updating the SRVBLDS table, [6\.4\.4](6-4-4.md)
+    - validate AUX file and VVT match, [6\.3\.8](6-3-8.md)
+    - version vector table, [6\.0](6-0.md)
+  - system level
+    - :DEP, [5\.1\.4](5-1-4.md)
+    - :DESC, [5\.1\.2](5-1-2.md)
+    - :DREQ, [5\.1\.3](5-1-3.md)
+    - :DREQDEP, [5\.1\.4](5-1-4.md)
+    - :ELU, [5\.4\.1](5-4-1.md)
+    - :IFREQ, [5\.1\.3](5-1-3.md)
+    - :LU, [5\.4\.1](5-4-1.md)
+    - :NPRE, [5\.1\.3](5-1-3.md)
+    - :PPF, [5\.1\.1](5-1-1.md)
+    - :PREREQ, [5\.1\.3](5-1-3.md)
+    - :PRODID, [5\.1\.3](5-1-3.md)
+    - :PTFREQS, [5\.1\.3](5-1-3.md)
+    - :RECID, [5\.4\.1](5-4-1.md)
+    - :REQ, [5\.1\.3](5-1-3.md)
+    - :STAT, [5\.1\.1](5-1-1.md)
+    - :SUBIF, [5\.1\.3](5-1-3.md)
+    - :SUBREQ, [5\.1\.3](5-1-3.md)
+    - :SUP, [5\.1\.3](5-1-3.md)
+    - :SUPBY, [5\.1\.4](5-1-4.md)
+    - adding products or components to inventory, [5\.4\.2](5-4-2.md)
+    - apply processing, sample queries, [5\.2](5-2.md)
+    - apply status table, [5\.0](5-0.md)
+    - build processing, sample queries, [5\.3](5-3.md)
+    - build status table, [5\.0](5-0.md)
+    - description of products or components received, [5\.1\.2](5-1-2.md)
+    - description table, [5\.0](5-0.md)
+    - file type abbreviation table, [5\.0](5-0.md)
+    - general VMFSIM queries, [5\.4](5-4.md)
+    - managing, [5\.0](5-0.md)
+    - overview, [5\.0](5-0.md)
+    - product or component requisites, [5\.1\.3](5-1-3.md)
+    - receive processing, sample queries, [5\.1](5-1.md)
+    - receive status table, [5\.0](5-0.md)
+    - recovering, [5\.5](5-5.md)
+    - requisite table, [5\.0](5-0.md)
+    - status of products or components applied, [5\.2\.1](5-2-1.md)
+    - status of products or components built, [5\.3\.1](5-3-1.md)
+    - status of products or components received, [5\.1\.1](5-1-1.md)
+    - VM SYSABRVT, [5\.0](5-0.md)
+    - VM SYSAPPS, [5\.0](5-0.md)
+    - VM SYSBLDS, [5\.0](5-0.md)
+    - VM SYSDESCT, [5\.0](5-0.md)
+    - VM SYSRECS, [5\.0](5-0.md)
+    - VM SYSREQT, [5\.0](5-0.md)
+- source updates, [7\.4\.2](7-4-2.md)
+- Spanish Product Parameter File, [1\.4](1-4.md)
+- stand\-alone dump, [3\.9\.4\.4](3-9-4-4.md)
+- SVM saved segment, [3\.14\.1](3-14-1.md)
+- SYSTEM CONFIG, [1\.5](1-5.md)
+- SYSTEM disks, [1\.5](1-5.md)
+- system generation tools, [1\.6](1-6.md)
+- system level inventories
+  - :DEP, [5\.1\.4](5-1-4.md)
+  - :DESC, [5\.1\.2](5-1-2.md)
+  - :DREQ, [5\.1\.3](5-1-3.md)
+  - :DREQDEP, [5\.1\.4](5-1-4.md)
+  - :ELU, [5\.4\.1](5-4-1.md)
+  - :IFREQ, [5\.1\.3](5-1-3.md)
+  - :LU, [5\.4\.1](5-4-1.md)
+  - :NPRE, [5\.1\.3](5-1-3.md)
+  - :PPF, [5\.1\.1](5-1-1.md)
+  - :PREREQ, [5\.1\.3](5-1-3.md)
+  - :PRODID, [5\.1\.3](5-1-3.md)
+  - :PTFREQS, [5\.1\.3](5-1-3.md)
+  - :RECID, [5\.4\.1](5-4-1.md)
+  - :REQ, [5\.1\.3](5-1-3.md)
+  - :STAT, [5\.1\.1](5-1-1.md)
+  - :SUBIF, [5\.1\.3](5-1-3.md)
+  - :SUBREQ, [5\.1\.3](5-1-3.md)
+  - :SUP, [5\.1\.3](5-1-3.md)
+  - :SUPBY, [5\.1\.4](5-1-4.md)
+  - adding products or components to inventory, [5\.4\.2](5-4-2.md)
+  - apply processing, sample queries, [5\.2](5-2.md)
+  - apply status table, [5\.0](5-0.md)
+  - build processing, sample queries, [5\.3](5-3.md)
+  - build status table, [5\.0](5-0.md)
+  - built, status of, [5\.3\.1](5-3-1.md)
+  - default PPFs for products or components, determining, [5\.4\.1](5-4-1.md)
+  - dependent products or components, determining, [5\.1\.4](5-1-4.md)
+  - description of products or components received, [5\.1\.2](5-1-2.md)
+  - description table, [5\.0](5-0.md)
+  - file type abbreviation table, [5\.0](5-0.md)
+  - general VMFSIM queries, [5\.4](5-4.md)
+  - managing, [5\.0](5-0.md)
+  - overview, [5\.0](5-0.md)
+  - products or components
+    - applied, status of, [5\.2\.1](5-2-1.md)
+    - requisites, [5\.1\.3](5-1-3.md)
+  - receive processing, sample queries, [5\.1](5-1.md)
+  - receive status table, [5\.0](5-0.md)
+  - received, status of, [5\.1\.1](5-1-1.md)
+  - recovering, [5\.5](5-5.md)
+  - requisite table, [5\.0](5-0.md)
+  - VM SYSABRVT, [5\.0](5-0.md)
+  - VM SYSAPPS, [5\.0](5-0.md)
+  - VM SYSBLDS, [5\.0](5-0.md)
+  - VM SYSDESCT, [5\.0](5-0.md)
+  - VM SYSRECS, [5\.0](5-0.md)
+  - VM SYSREQT, [5\.0](5-0.md)
+- system preparation for COR service, [2\.2](2-2.md), [3\.5](3-5.md)
 
 ## T
 
-- TASK disks 1 1.5
-- text libraries 1 4.3.5
-- tools used for service 1 1.6
-- TSAF 1
-- build lists 2
-- all 3 4.7.2
-- for select and copy functions 3 4.7.3
-- Build Status Table, updating 2 3.12.4.2
-- building new objects 2 3.12.4
-- detailed build tasks 2
-- build preparation 3 4.7
-- determining build lists to process 3 4.7.2
-- executable MODULEs, rebuilding 3 4.7.4
-- select and copy serviced files 3 4.7.3
-- merge processing 2 3.12.4.5
-- rebuilding HELP files 2 3.12.4.4
-- service disks and directories 2 4.7.1
-- service procedure 2 3.12
-- two-column book format 1 PREFACE.4
-- TXTLIBs 1 4.3.5
+- TASK disks, [1\.5](1-5.md)
+- text libraries, [4\.3\.5](4-3-5.md)
+- tools used for service, [1\.6](1-6.md)
+- TSAF
+  - build lists
+    - all, [4\.7\.2](4-7-2.md)
+    - for select and copy functions, [4\.7\.3](4-7-3.md)
+  - Build Status Table, updating, [3\.12\.4\.2](3-12-4-2.md)
+  - building new objects, [3\.12\.4](3-12-4.md)
+  - detailed build tasks
+    - build preparation, [4\.7](4-7.md)
+    - determining build lists to process, [4\.7\.2](4-7-2.md)
+    - executable MODULEs, rebuilding, [4\.7\.4](4-7-4.md)
+    - select and copy serviced files, [4\.7\.3](4-7-3.md)
+  - merge processing, [3\.12\.4\.5](3-12-4-5.md)
+  - rebuilding HELP files, [3\.12\.4\.4](3-12-4-4.md)
+  - service disks and directories, [4\.7\.1](4-7-1.md)
+  - service procedure, [3\.12](3-12.md)
+- two\-column book format, [PREFACE\.4](preface-4.md)
+- TXTLIBs, [4\.3\.5](4-3-5.md)
 
 ## U
 
-- UCENG $PPF 1 1.4
-- update files 1 7.4.2.2
-- uppercase English Product Parameter File 1 1.4
-- user entries, layout of 1 PREFACE.4
-- using this book 1 PREFACE.4
+- UCENG $PPF, [1\.4](1-4.md)
+- update files, [7\.4\.2\.2](7-4-2-2.md)
+- uppercase English Product Parameter File, [1\.4](1-4.md)
+- user entries, layout of, [PREFACE\.4](preface-4.md)
+- using this book, [PREFACE\.4](preface-4.md)
 
 ## V
 
-- version vector table 1 6.0
-- VM SYSABRVT 1 5.0
-- VM SYSAPPS 1 5.0
-- VM SYSBLDS 1 5.0
-- VM SYSDESCT 1 5.0
-- VM SYSRECS 1 5.0
-- VM SYSREQT 1 5.0
-- VM/ESA (370 Feature) 1
-- VM/ESA HELP Facility, using 1 1.6.1
-- VM/ESA Recommended Service Upgrade 1 1.1
-- VMFBLHLP EXEC 1 F.0
-- VMFBLNON EXEC 1 F.0
-- VMFBLSES EXEC 1 F.0
-- VMFBLSRC EXEC 1 F.0
-- VMFBLSYS EXEC 1 F.0
-- VMFMLOAD EXEC 1 F.0
-- VMFMRDSK EXEC 1 1.2.1
-- VMFSBHLP 1 F.0
-- VMFSIM command 1 5.0
-- VMFSLOAD EXEC 1 F.0
-- VMSES/E 1
-- $ source files 2 G.1
-- build lists 2
-- all 3 4.1.2
-- for processing HELP segment 3 4.1.5
-- for rebuilding executable MODULEs 3 4.1.4
-- for select and copy function 3 4.1.3
-- Build Status Table, updating 2 3.6.4.2
-- building new objects 2 3.6.4
-- detailed build tasks 2
-- build preparation 3 4.1
-- determining build lists to process 3 4.1.2
-- executable MODULEs, rebuilding 3 4.1.4
-- select and copy serviced files 3 4.1.3
-- merge processing 2 3.6.4.5
-- rebuilding HELP files 2 3.6.4.4
-- service disks 2 4.1.1
-- service procedure 2 3.6
-- VMSES/E command information 1 1.0
-- VSE/VSAM saved segment 1 3.14.1
+- version vector table, [6\.0](6-0.md)
+- VM SYSABRVT, [5\.0](5-0.md)
+- VM SYSAPPS, [5\.0](5-0.md)
+- VM SYSBLDS, [5\.0](5-0.md)
+- VM SYSDESCT, [5\.0](5-0.md)
+- VM SYSRECS, [5\.0](5-0.md)
+- VM SYSREQT, [5\.0](5-0.md)
+- VM/ESA \(370 Feature\)
+- VM/ESA HELP Facility, using, [1\.6\.1](1-6-1.md)
+- VM/ESA Recommended Service Upgrade, [1\.1](1-1.md)
+- VMFBLHLP EXEC, [F\.0](f-0.md)
+- VMFBLNON EXEC, [F\.0](f-0.md)
+- VMFBLSES EXEC, [F\.0](f-0.md)
+- VMFBLSRC EXEC, [F\.0](f-0.md)
+- VMFBLSYS EXEC, [F\.0](f-0.md)
+- VMFMLOAD EXEC, [F\.0](f-0.md)
+- VMFMRDSK EXEC, [1\.2\.1](1-2-1.md)
+- VMFSBHLP, [F\.0](f-0.md)
+- VMFSIM command, [5\.0](5-0.md)
+- VMFSLOAD EXEC, [F\.0](f-0.md)
+- VMSES/E
+  - $ source files, [G\.1](g-1.md)
+  - build lists
+    - all, [4\.1\.2](4-1-2.md)
+    - for processing HELP segment, [4\.1\.5](4-1-5.md)
+    - for rebuilding executable MODULEs, [4\.1\.4](4-1-4.md)
+    - for select and copy function, [4\.1\.3](4-1-3.md)
+  - Build Status Table, updating, [3\.6\.4\.2](3-6-4-2.md)
+  - building new objects, [3\.6\.4](3-6-4.md)
+  - detailed build tasks
+    - build preparation, [4\.1](4-1.md)
+    - determining build lists to process, [4\.1\.2](4-1-2.md)
+    - executable MODULEs, rebuilding, [4\.1\.4](4-1-4.md)
+    - select and copy serviced files, [4\.1\.3](4-1-3.md)
+  - merge processing, [3\.6\.4\.5](3-6-4-5.md)
+  - rebuilding HELP files, [3\.6\.4\.4](3-6-4-4.md)
+  - service disks, [4\.1\.1](4-1-1.md)
+  - service procedure, [3\.6](3-6.md)
+- VMSES/E command information, [1\.0](1-0.md)
+- VSE/VSAM saved segment, [3\.14\.1](3-14-1.md)
 
 ## W
 
-- who should read this book 1 PREFACE.1
+- who should read this book, [PREFACE\.1](preface-1.md)
 
 ## Z
 
-- zaps 1
-- zaps, applying 1 7.4.5
+- zaps
+- zaps, applying, [7\.4\.5](7-4-5.md)
 
 ---
 

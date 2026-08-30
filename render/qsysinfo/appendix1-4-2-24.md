@@ -2,11 +2,16 @@
 
 ---
 
-### APPENDIX1.4.2.24 Advanced Function Printing Utility/400  (5738-AF1)
+### APPENDIX1\.4\.2\.24 Advanced Function Printing Utility/400 \(5738\-AF1\)
 
 <a id="TBLTBLUNIQ57"></a>
 
-[Table: TBLTBLUNIQ57]
+```
+           Binder     Order No         Title
+   ___     --         GC18-2431        LPS:  AFP Utilities
+   ___     89         SX21-9924        1" binder
+   ___     89         SH18-2416        AFP Utilities Guide and Reference
+```
 
 ---
 

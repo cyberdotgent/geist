@@ -2,9 +2,13 @@
 
 ---
 
-### APPENDIX1.5.1.1 K:SC18-2213, Communications:  SNA Hangeul 3270 PC Emulation User's Guide
+### APPENDIX1\.5\.1\.1 K:SC18\-2213, Communications: SNA Hangeul 3270 PC Emulation User's Guide
 
-SC18-2213 Publication Description: The SNA Hangeul 3270 PC Emulation User's Guide provides information on how to use SNA Hangeul 3270 PC emulation. *300* *pp.* Related Publications: None Intended Audience: Display station operator, system programmer
+*Publication Description*: The *SNA Hangeul 3270 PC Emulation User's Guide* provides information on how to use SNA Hangeul 3270 PC emulation\. *300 pp\.*
+
+*Related Publications*: None
+
+*Intended Audience*: Display station operator, system programmer
 
 ---
 

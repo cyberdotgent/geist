@@ -2,12 +2,12 @@
 
 ---
 
-## FRONT_1.3 Summary of Changes for VM/ESA Release 1.1
+## FRONT\_1\.3 Summary of Changes for VM/ESA Release 1\.1
 
 Subtopics:
 
-- [FRONT_1.3.1 New Function](front_1-3-1.md)
-- [FRONT_1.3.2 Additional Changes](front_1-3-2.md)
+- [FRONT\_1\.3\.1 New Function](front_1-3-1.md)
+- [FRONT\_1\.3\.2 Additional Changes](front_1-3-2.md)
 
 ---
 

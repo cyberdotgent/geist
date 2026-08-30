@@ -2,28 +2,75 @@
 
 ---
 
-## PREFACE.4 Where to Find More Information
+## PREFACE\.4 Where to Find More Information
 
 <a id="HDRPREWHER"></a>
 
-The following list shows the books in the TPNS library. For more
-
-information on related publications, see the ["Bibliography."](bibliography.md)
+The following list shows the books in the TPNS library\. For more information on related publications, see the ["Bibliography\."](bibliography.md)
 
 <a id="TBLTBLUNIQ3"></a>
 
-| Education | TPNS General Information |
-| --- | --- |
-| Planning and Installation | TPNS Planning and Installation |
-| SC31-6008 | Creating TPNS Message Generation Decks |
-| SH20-2489 | TPNS Script Generating Utilities |
-| SC30-3454 | TPNS STL Reference Card |
-| Using the TPNS Structured Translator Language (STL) and | SC31-6013 |
-| SC30-3289 | TPNS Messages and Codes |
-| TPNS General Utilities | SC30-3290 |
-| TPNS User Exits | SC31-6071 |
-| TPNS Master Index | GC31-6059 |
-| Binder and binder labels | GX75-0046 |
+```
+    ____________________________________________________________ ___________
+   | Education                                                  |           |
+   |____________________________________________________________|___________|
+   | TPNS General Information                                   | GH20-2487 |
+   |____________________________________________________________|___________|
+   | TPNS Primer                                                | SC31-6043 |
+   |____________________________________________________________|___________|
+   |                                                            |           |
+   |____________________________________________________________|___________|
+   | Planning and Installation                                  |           |
+   |____________________________________________________________|___________|
+   | TPNS Planning and Installation                             | SH20-2488 |
+   |____________________________________________________________|___________|
+   |                                                            |           |
+   |____________________________________________________________|___________|
+   | Resource and Message Traffic Definition                    |           |
+   |____________________________________________________________|___________|
+   | Defining TPNS Networks                                     | SC31-6008 |
+   |____________________________________________________________|___________|
+   | Creating TPNS Message Generation Decks                     | SC31-6009 |
+   |____________________________________________________________|___________|
+   | TPNS Language Reference                                    | SH20-2489 |
+   |____________________________________________________________|___________|
+   | TPNS Script Generating Utilities                           | SC30-3453 |
+   |____________________________________________________________|___________|
+   | TPNS Samples                                               | SC30-3454 |
+   |____________________________________________________________|___________|
+   | TPNS STL Reference Card                                    | SX75-0065 |
+   |____________________________________________________________|___________|
+   | Using the TPNS Structured Translator Language (STL) and    | SC31-6013 |
+   | the STL Translator                                         |           |
+   |____________________________________________________________|___________|
+   |                                                            |           |
+   |____________________________________________________________|___________|
+   | Operation                                                  |           |
+   |____________________________________________________________|___________|
+   | TPNS Operation                                             | SC30-3289 |
+   |____________________________________________________________|___________|
+   | TPNS Messages and Codes                                    | SC30-3310 |
+   |____________________________________________________________|___________|
+   | TPNS General Utilities                                     | SC30-3290 |
+   |____________________________________________________________|___________|
+   |                                                            |           |
+   |____________________________________________________________|___________|
+   | Customization                                              |           |
+   |____________________________________________________________|___________|
+   | TPNS User Exits                                            | SC31-6071 |
+   |____________________________________________________________|___________|
+   |                                                            |           |
+   |____________________________________________________________|___________|
+   | Miscellaneous                                              |           |
+   |____________________________________________________________|___________|
+   | TPNS Master Index                                          | GC31-6059 |
+   |____________________________________________________________|___________|
+   | Binder and binder labels                                   | GX75-0046 |
+   |____________________________________________________________|___________|
+   | TPNS Library (5 binders, 1 set of binder labels, all       | SBOF-1426 |
+   | manuals except TPNS General Information)                   |           |
+   |____________________________________________________________|___________|
+```
 
 ---
 

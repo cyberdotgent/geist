@@ -2,11 +2,17 @@
 
 ---
 
-### APPENDIX1.4.2.11 AS/400 BASIC (5738-BA1)
+### APPENDIX1\.4\.2\.11 AS/400 BASIC \(5738\-BA1\)
 
 <a id="TBLTBLUNIQ44"></a>
 
-[Table: TBLTBLUNIQ44]
+```
+           Binder     Order No         Title
+   ___     --         GC09-1365        LPS:  BASIC
+   ___     --         SX09-1050        BASIC Reference Summary
+   ___     67         SX21-9926        2" binder
+   ___     67         SC09-1157        BASIC User's Guide and Reference
+```
 
 ---
 

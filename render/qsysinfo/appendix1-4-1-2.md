@@ -2,11 +2,14 @@
 
 ---
 
-#### APPENDIX1.4.1.2 ASCII Work Station Controller Feature
+#### APPENDIX1\.4\.1\.2 ASCII Work Station Controller Feature
 
 <a id="TBLTBLUNIQ5"></a>
 
-[Table: TBLTBLUNIQ5]
+```
+            Order No       Title
+   ___      SA41-9922      ASCII Work Station Reference and Example
+```
 
 ---
 

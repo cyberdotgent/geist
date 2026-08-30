@@ -2,9 +2,9 @@
 
 ---
 
-#### PREFACE.4.3.2 Optional Books
+#### PREFACE\.4\.3\.2 Optional Books
 
-An installation's system programmer needs Routing and Descriptor Codes for the routing and descriptor codes for the messages that have these codes.
+An installation's system programmer needs *Routing and Descriptor Codes* for the routing and descriptor codes for the messages that have these codes\.
 
 ---
 

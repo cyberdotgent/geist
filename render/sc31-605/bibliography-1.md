@@ -2,17 +2,176 @@
 
 ---
 
-## BIBLIOGRAPHY.1 NetView Information
+<!-- geist-render: severity=best-effort route=best-effort reason=typed-lowering-declined records=695-706 detail="prose topic rejected: overlapping selector spans" -->
 
-Learning about NetView Graphic Monitor Facility (SK2T-6005) is an interactive OS/2-based training package (3.5-inch diskettes) that teaches operators how to use the NetView Graphic Monitor Facility to identify network problems. This training package uses graphics and interactive product simulations in a series of lessons that teach the basics of operation.
+## BIBLIOGRAPHY\.1 NetView Information
 
-Learning about NetView Operation (SK2T-1995) is an interactive DOS-based operator training package (3.5-inch diskettes) that teaches SNA and basic network management concepts to new and inexperienced NetView operators. This training package uses VGA graphics, animation, and interactive NetView product simulations in a series of lessons to teach the basics of NetView operation.
 
-**Note:** Information on installing, operating, and diagnosing problems in NetView and NetView Graphic Monitor Facility is available in hypertext form as well as in printed books. All of the following documentation is available in printed and hypertext format. Use BookManager READ to access the hypertext online documentation.
-
-[<BOOK> <> <> <SC31-6044> <> <CNMYA00>](#LNK) NetView V2R2 Administration Reference (SC31-6044) is for system programmers and network operators who need a complete understanding of the NetView resource definition statements. This book lists each statement in alphabetical order, giving its purpose and location. [<BOOK> <> <> <SC31-6098> <> <CNMYF00>](#LNK) NetView V2R2 Application Programming Guide (SC31-6098) explains how to write programs that send NMVT or CP-MSU formatted alerts to NetView, send data buffers to other application programs, and receive data buffers from other application programs. [<BOOK> <> <> <GC31-6123>](#LNK)<> <CNMYG00> NetView V2R2 at a Glance (GC31-6123) provides an overview of the NetView program. This book describes how NetView provides comprehensive system and network management for a wide variety of network environments, including SNA networks, non-SNA networks, local area networks, and voice networks. This book also describes NetView's major features, components, and automation capabilities. [<BOOK> <> <> <SC31-6101> <> <CNM](#LNK) YX00>
-
-NetView V2R2 Automation Planning (SC31-6101) describes an approach for automating the operation of your systems and networks. It includes information you should know before beginning to automate, discusses creating a plan to outline schedules and goals, and explains basic design guidelines for automation. [<BOOK> <> <> <LY43-0008> <> <CNMYW00>](#LNK) NetView V2R2 Automation Implementation (LY43-0008) describes how to <BOOK> <> <> <SC31-6101> [<> <CNMYX00>](#LNK) complete an automation project that you have planned using NetView V2R2 [<BOOK> <> <> <SC31-](#LNK) 6101> <> <CNMYX00> Automation Planning. It discusses issuing automatic responses to messages and alerts, performing routine operator tasks with command procedures, and other ways of automating system and network management. Reference material describes the NetView automation table, along with other facilities for routing and automation. [<BOOK> <> <> <SC31-6033> <> <CNMYB](#LNK) 00> NetView V2R2 Bridge Implementation (SC31-6033) explains how to plan for and implement the NetView Bridge function after NetView is installed. NetView Bridge is a set of application program interfaces (APIs) that allow NetView to interact with various types of databases. The step-by-step instructions tell you how to set up and customize the NetView Bridge function for your environment. In addition, this book will assist you in linking to databases that are external to NetView. [<BOOK> <> <> <SC31-6048> <> <CNM](#LNK) YC00> NetView V2R2 Customization Guide (SC31-6048) is designed for system programmers and others who want to customize the NetView program to reflect their network's needs or operating procedures. This book focuses on the different application programming interfaces that can be customized and explains how to modify NetView help panels and problem determination panels. [<BOOK> <> <> <SC31-6090> <> <CNMYJ00>](#LNK) NetView V2R2 Customization: Using Assembler (SC31-6090) describes the ways system programmers can tailor the NetView program to satisfy unique requirements or operating procedures. It discusses the uses and advantages of user-written programs (installation exit routines, command processors, and subtasks). It also provides instructions in designing, writing, and installing user-written programs in assembler. [<BOOK> <> <> <SC31-6089> <> <CNMYK00>](#LNK) NetView V2R2 Customization: Using PL/I and C (SC31-6089) describes the ways system programmers can tailor the NetView program to satisfy unique requirements or operating procedures. It discusses the uses and advantages of user-written programs (installation exit routines, command processors, and subtasks). It also provides instructions in designing, writing, and installing user-written programs in PL/I and C. [<BOOK> <> <> <SC31-6050> <> <CNMYL00>](#LNK) NetView V2R2 Customization: Writing Command Lists (SC31-6050) explains how to simplify network operator tasks by using command lists. It provides step-by-step instructions for writing simple and advanced command lists. [<BOOK> <> <> <SC31-6099> <> <CNMYN00>](#LNK) NetView V2R2 Graphic Monitor Facility Operation (SC31-6099) [(4)](#FTNMERBIB) explains how to use the NetView Graphic Monitor Facility to monitor networks, as well as how to customize the graphic representations of your network. This book complements the information in Learning about NetView Graphic Monitor Facility (3.5-inch diskettes) by giving more background information and details on the functions available to users. [<BOOK> <> <> <SC31-6105> <> <CNMYQ00>](#LNK) [<BOOK> <> <> <SC31-6006> <> <CNMYY00>](#LNK) [<BOOK> <> <> <SC31-6051> <> <CNMYZ00>](#LNK) NetView Installation and Administration Guide (MVS: SC31-6051) (VM: SC31-6006) [(4)](#FTNMERBIB)(VSE: SC31-6105) [(4)](#FTNMERBIB) helps system programmers install and prepare the NetView program for operation. It is arranged in a simplified, step-by-step style and is meant to be used in conjunction with <BOOK> <> <> <SC31-60 [21> <> <CNMYS00>](#LNK) <BOOK> <> <> <SC31-60 [07> <> <CNMYH00>](#LNK) <BOOK> <> <> <SC31-60 [47> <> <CNMYE00>](#LNK) the sample network documented in NetView Samples. NetView Library Supplement (VM and VSE: SD35-0236) [(4)](#FTNMERBIB) includes technical changes occurring after the initial availability of NetView V2R2 for MVS. [<BOOK> <> <> <SC31-60](#LNK) 97> <> <CNMYM00> NetView V2R2 Messages (SC31-6097) lists the messages issued by NetView and the NetView Graphic Monitor Facility. It explains briefly what each message means, what the system action is, what the response should be, and what the related commands are, if any. This manual is the printed version of the online message help. It is intended to be used whenever NetView online help is not available and not as a replacement for the online information. [<BOOK> <> <> <SC31-605](#LNK) 3> <> <CNMYU00> NetView V2R2 Operation (SC31-6053) provides system programmers and experienced network operators a comprehensive explanation of network management using the NetView program. Topics include detailed command explanation and panel flows, as well as information on how the various components interact with each other. This manual contains the printed version of the online command help. It is intended to be used whenever NetView online help is not available and not as a replacement for the online information. [<BOOK> <> <> <LY43-0005> <> <CNMYD00>](#LNK) NetView V2R2 Problem Determination and Diagnosis (LY43-0005) aids system programmers in identifying a NetView problem, classifying it, and describing it to an IBM Support Center. [<BOOK> <> <> <SC31-6055> <> <CNMYR00>](#LNK) NetView V2R2 Resource Alerts Reference (SC31-6055) lists the messages sent by NetView-supported hardware and software resources. It helps system programmers analyze the messages into their component parts: action codes, event types, message text, and qualifiers. The book is a reference for those who need more information than online help provides. [<BOOK> <> <> <S](#LNK) C31-6021> <> <CNMYS00> [<BOOK> <> <> <S](#LNK) C31-6007> <> <CNMYH00> [<BOOK> <> <> <S](#LNK) C31-6047> <> <CNMYE00> -- NetView Samples (MVS: SC31-6047) (VM: SC31 [-600](#FTNMERBIB) 7) (4) and (VSE: SC31-6021) [(4)](#FTNMERBIB) contains sample NetView, NCP, and VTAM definitions that network planners and system programmers can review when preparing for and installing NetView. The definitions are also available in machine-readable form on the NetView installation tape. [<BOOK> <> <> <SC31-6056>](#LNK)<> <CNMYT00> NetView V2R2 Tuning Guide (SC31-6056) [(4)](#FTNMERBIB) describes methods for controlling and improving the performance of the NetView V2R2 program. It is designed for system programmers who need to understand how NetView tuning values are determined and optimized. The following information units are not shipped as part of the NetView Hypertext Feature. NetView Command Summary (SX75-0042) is a reference card that provides network operators with the format of all the commands and the commonly used NetView command lists. The commands are listed in alphabetical order by component. NetView Storage Estimates (SK2T-1994 for PC-DOS; SK2T-1993 for JDOS on a PS/55) is an interactive PC-based tool that helps the user estimate storage requirements for NetView and the NetView Graphic Monitor Facility. This tool can be used for planning, installation, and tuning purposes. It is intended for network planners, system programmers, and IBM service personnel. Planning and Reference for NetView, NCP, and VTAM (SC31-6102) describes how to plan for NetView V2R2, NCP V5R4, and VTAM V3R4. It explains the functions available with NetView, NCP, and VTAM, the advantages of using them in different situations, and how to plan for those functions. It also contains cross-product or cross-task reference information, which may or may not be related to planning, and NCP storage estimates.
+```text
+   Learning about NetView Graphic Monitor Facility (SK2T-6005) is an
+   interactive OS/2-based training package (3.5-inch diskettes) that teaches
+   operators how to use the NetView Graphic Monitor Facility to identify
+   network problems.  This training package uses graphics and interactive
+   product simulations in a series of lessons that teach the basics of
+   operation.
+   Learning about NetView Operation (SK2T-1995) is an interactive DOS-based
+   operator training package (3.5-inch diskettes) that teaches SNA and basic
+   network management concepts to new and inexperienced NetView operators.
+   This training package uses VGA graphics, animation, and interactive
+   NetView product simulations in a series of lessons to teach the basics of
+   NetView operation.
+   Note:  Information on installing, operating, and diagnosing problems in
+   NetView and NetView Graphic Monitor Facility is available in hypertext
+   form as well as in printed books.
+   All of the following documentation is available in printed and hypertext
+   format.  Use BookManager READ to access the hypertext online
+   documentation.
+                 <BOOK> <> <> <SC31-6044> <> <CNMYA00>
+   NetView V2R2 Administration Reference  (SC31-6044) is for system
+   programmers and network operators who need a complete understanding of the
+   NetView resource definition statements.  This book lists each statement in
+   alphabetical order, giving its purpose and location.
+                 <BOOK> <> <> <SC31-6098> <> <CNMYF00>
+   NetView V2R2 Application Programming Guide (SC31-6098) explains how to
+   write programs that send NMVT or CP-MSU formatted alerts to NetView, send
+   data buffers to other application programs, and receive data buffers from
+   other application programs.
+                 <BOOK> <> <> <GC31-6123> <> <CNMYG00>
+   NetView V2R2 at a Glance (GC31-6123) provides an overview of the NetView
+   program.  This book describes how NetView provides comprehensive system
+   and network management for a wide variety of network environments,
+   including SNA networks, non-SNA networks, local area networks, and voice
+   networks.  This book also describes NetView's major features, components,
+   and automation capabilities.
+                 <BOOK> <> <> <SC31-6101> <> <CNMYX00>
+   NetView V2R2 Automation Planning  (SC31-6101) describes an approach for
+   automating the operation of your systems and networks.  It includes
+   information you should know before beginning to automate, discusses
+   creating a plan to outline schedules and goals, and explains basic design
+   guidelines for automation.
+                 <BOOK> <> <> <LY43-0008> <> <CNMYW00>
+   NetView V2R2 Automation Implementation  (LY43-0008) describes how to
+                  <BOOK> <> <> <SC31-6101> <> <CNMYX00>
+   complete an automation project that you have planned using NetView V2R2
+                 <BOOK> <> <> <SC31-6101> <> <CNMYX00>
+   Automation Planning.  It discusses issuing automatic responses to messages
+   and alerts, performing routine operator tasks with command procedures, and
+   other ways of automating system and network management.  Reference
+   material describes the NetView automation table, along with other
+   facilities for routing and automation.
+                 <BOOK> <> <> <SC31-6033> <> <CNMYB00>
+   NetView V2R2 Bridge Implementation  (SC31-6033) explains how to plan for
+   and implement the NetView Bridge function after NetView is installed.
+   NetView Bridge is a set of application program interfaces (APIs) that
+   allow NetView to interact with various types of databases.  The
+   step-by-step instructions tell you how to set up and customize the NetView
+   Bridge function for your environment.  In addition, this book will assist
+   you in linking to databases that are external to NetView.
+                 <BOOK> <> <> <SC31-6048> <> <CNMYC00>
+   NetView V2R2 Customization Guide  (SC31-6048) is designed for system
+   programmers and others who want to customize the NetView program to
+   reflect their network's needs or operating procedures.  This book focuses
+   on the different application programming interfaces that can be customized
+   and explains how to modify NetView help panels and problem determination
+   panels.
+                 <BOOK> <> <> <SC31-6090> <> <CNMYJ00>
+   NetView V2R2 Customization:  Using Assembler (SC31-6090) describes the
+   ways system programmers can tailor the NetView program to satisfy unique
+   requirements or operating procedures.  It discusses the uses and
+   advantages of user-written programs (installation exit routines, command
+   processors, and subtasks).  It also provides instructions in designing,
+   writing, and installing user-written programs in assembler.
+                 <BOOK> <> <> <SC31-6089> <> <CNMYK00>
+   NetView V2R2 Customization:  Using PL/I and C (SC31-6089) describes the
+   ways system programmers can tailor the NetView program to satisfy unique
+   requirements or operating procedures.  It discusses the uses and
+   advantages of user-written programs (installation exit routines, command
+   processors, and subtasks).  It also provides instructions in designing,
+   writing, and installing user-written programs in PL/I and C.
+                 <BOOK> <> <> <SC31-6050> <> <CNMYL00>
+   NetView V2R2 Customization:  Writing Command Lists (SC31-6050) explains
+   how to simplify network operator tasks by using command lists.  It
+   provides step-by-step instructions for writing simple and advanced command
+   lists.
+                 <BOOK> <> <> <SC31-6099> <> <CNMYN00>
+   NetView V2R2 Graphic Monitor Facility Operation (SC31-6099) (4) explains
+   how to use the NetView Graphic Monitor Facility to monitor networks, as
+   well as how to customize the graphic representations of your network.
+   This book complements the information in Learning about NetView Graphic
+   Monitor Facility (3.5-inch diskettes) by giving more background
+   information and details on the functions available to users.
+                 <BOOK> <> <> <SC31-6105> <> <CNMYQ00>
+                 <BOOK> <> <> <SC31-6006> <> <CNMYY00>
+                 <BOOK> <> <> <SC31-6051> <> <CNMYZ00>
+   NetView Installation and Administration Guide (MVS:  SC31-6051) (VM:
+   SC31-6006) (4) (VSE:  SC31-6105) (4) helps system programmers install and
+   prepare the NetView program for operation.  It is arranged in a
+   simplified, step-by-step style and is meant to be used in conjunction with
+                  <BOOK> <> <> <SC31-6021> <> <CNMYS00>
+                  <BOOK> <> <> <SC31-6007> <> <CNMYH00>
+                  <BOOK> <> <> <SC31-6047> <> <CNMYE00>
+   the sample network documented in NetView Samples.
+   NetView Library Supplement (VM and VSE:  SD35-0236) (4) includes technical
+   changes occurring after the initial availability of NetView V2R2 for MVS.
+                 <BOOK> <> <> <SC31-6097> <> <CNMYM00>
+   NetView V2R2 Messages  (SC31-6097) lists the messages issued by NetView
+   and the NetView Graphic Monitor Facility.  It explains briefly what each
+   message means, what the system action is, what the response should be, and
+   what the related commands are, if any.  This manual is the printed version
+   of the online message help.  It is intended to be used whenever NetView
+   online help is not available and not as a replacement for the online
+   information.
+                 <BOOK> <> <> <SC31-6053> <> <CNMYU00>
+   NetView V2R2 Operation  (SC31-6053) provides system programmers and
+   experienced network operators a comprehensive explanation of network
+   management using the NetView program.  Topics include detailed command
+   explanation and panel flows, as well as information on how the various
+   components interact with each other.  This manual contains the printed
+   version of the online command help.  It is intended to be used whenever
+   NetView online help is not available and not as a replacement for the
+   online information.
+                 <BOOK> <> <> <LY43-0005> <> <CNMYD00>
+   NetView V2R2 Problem Determination and Diagnosis  (LY43-0005) aids system
+   programmers in identifying a NetView problem, classifying it, and
+   describing it to an IBM Support Center.
+                 <BOOK> <> <> <SC31-6055> <> <CNMYR00>
+   NetView V2R2 Resource Alerts Reference  (SC31-6055) lists the messages
+   sent by NetView-supported hardware and software resources.  It helps
+   system programmers analyze the messages into their component parts:
+   action codes, event types, message text, and qualifiers.  The book is a
+   reference for those who need more information than online help provides.
+                 <BOOK> <> <> <SC31-6021> <> <CNMYS00>
+                 <BOOK> <> <> <SC31-6007> <> <CNMYH00>
+                 <BOOK> <> <> <SC31-6047> <> <CNMYE00>
+   NetView Samples (MVS: SC31-6047) (VM:  SC31-6007) (4) and (VSE:
+   SC31-6021) (4) contains sample NetView, NCP, and VTAM definitions that
+   network planners and system programmers can review when preparing for and
+   installing NetView.  The definitions are also available in
+   machine-readable form on the NetView installation tape.
+                 <BOOK> <> <> <SC31-6056> <> <CNMYT00>
+   NetView V2R2 Tuning Guide  (SC31-6056) (4) describes methods for
+   controlling and improving the performance of the NetView V2R2 program.  It
+   is designed for system programmers who need to understand how NetView
+   tuning values are determined and optimized.
+   The following information units  are not shipped as part of the NetView
+   Hypertext Feature.
+   NetView Command Summary  (SX75-0042) is a reference card that provides
+   network operators with the format of all the commands and the commonly
+   used NetView command lists.  The commands are listed in alphabetical order
+   by component.
+   NetView Storage Estimates (SK2T-1994 for PC-DOS; SK2T-1993 for JDOS on a
+   PS/55) is an interactive PC-based tool that helps the user estimate
+   storage requirements for NetView and the NetView Graphic Monitor Facility.
+   This tool can be used for planning, installation, and tuning purposes.  It
+   is intended for network planners, system programmers, and IBM service
+   personnel.
+   Planning and Reference for NetView, NCP, and VTAM (SC31-6102) describes
+   how to plan for NetView V2R2, NCP V5R4, and VTAM V3R4.  It explains the
+   functions available with NetView, NCP, and VTAM, the advantages of using
+   them in different situations, and how to plan for those functions.  It
+   also contains cross-product or cross-task reference information, which may
+   or may not be related to planning, and NCP storage estimates.
+```
 
 ---
 

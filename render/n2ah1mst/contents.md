@@ -4,7 +4,7 @@
 
 # CONTENTS Table of Contents
 
-[Summarize](#CONTENTS-summary)
+[Summarize](<#CONTENTS-summary>)
 
 - `TITLE` [Title Page](title.md)
 - `NOTICES` [Notices](notices.md)
@@ -30,8 +30,8 @@
   - `1.2` [Messages](1-2.md)
     - `1.2.1` [Message Format](1-2-1.md)
     - `1.2.2` [Messages Sent to MCS Consoles](1-2-2.md)
-    - `1.2.3` [Messages Sent to Hard-Copy Log in JES2 System](1-2-3.md)
-    - `1.2.4` [Messages Sent to Hard-Copy Log in JES3 System access](1-2-4.md)
+    - `1.2.3` [Messages Sent to Hard\-Copy Log in JES2 System](1-2-3.md)
+    - `1.2.4` [Messages Sent to Hard\-Copy Log in JES3 System](1-2-4.md)
     - `1.2.5` [Messages Sent to the Job Log, to Other Data Sets, and to Display Terminals](1-2-5.md)
 - `2.0` [ADY Messages](2-0.md)
 - `3.0` [AHL Messages](3-0.md)

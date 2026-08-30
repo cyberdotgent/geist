@@ -2,11 +2,30 @@
 
 ---
 
-### FRONT_1.2 Trademarks
+### FRONT\_1\.2 Trademarks
 
-access? The following terms, DENOTED BY AN ASTERISK (*), used in this publication, are trademarks of the IBM Corporation in the United States and/or other
+The following terms, **DENOTED BY AN ASTERISK \(\*\)**, used in this publication, are trademarks of the IBM Corporation in the United States and/or other countries:
 
-countries: AIX BookMaster DATABASE 2 DB2 Enterprise Systems Architecture/370 Hardware Configuration Definition Hiperbatch Hiperspace IBM MVS/DFP MVS/ESA MVS/SP MVS/XA Processor Resource/Systems Manager PR/SM SAA SQL Systems Application Architecture VM VTAM
+- AIX
+- BookMaster
+- DATABASE 2
+- DB2
+- Enterprise Systems Architecture/370
+- Hardware Configuration Definition
+- Hiperbatch
+- Hiperspace
+- IBM
+- MVS/DFP
+- MVS/ESA
+- MVS/SP
+- MVS/XA
+- Processor Resource/Systems Manager
+- PR/SM
+- SAA
+- SQL
+- Systems Application Architecture
+- VM
+- VTAM
 
 ---
 

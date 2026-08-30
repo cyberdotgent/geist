@@ -2,11 +2,9 @@
 
 ---
 
-### PREFACE.3.1 Technical Changes
+### PREFACE\.3\.1 Technical Changes
 
-Action codes C0 through C9 and CA through CF have been added to
-
-[Table 49 in topic 2.47](#TBLFFD).
+- Action codes C0 through C9 and CA through CF have been added to [Table 49 in topic 2\.47](<#TBLFFD>)\.
 
 ---
 

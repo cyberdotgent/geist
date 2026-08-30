@@ -2,14 +2,14 @@
 
 ---
 
-## APPENDIX1.1.2.2 Linkage Specifications
+### APPENDIX1\.1\.2\.2 Linkage Specifications
 
 <a id="HDRLSPE"></a>
 
 The valid values for the string literal in a linkage specification are:
 
-
-`"C++"` Default `"C"` C language linkage
+- **`"C++"`:** Default
+- **`"C"`:** C language linkage
 
 ---
 

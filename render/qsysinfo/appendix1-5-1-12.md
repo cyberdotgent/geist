@@ -2,9 +2,13 @@
 
 ---
 
-### APPENDIX1.5.1.12 SC40-1228, Communications:  SNA Traditional Chinese 3270PC Emulation User's Guide
+### APPENDIX1\.5\.1\.12 SC40\-1228, Communications: SNA Traditional Chinese 3270PC Emulation User's Guide
 
-Publication Description: The SNA Traditional Chinese 3270 PC Emulation User's Guide provides information on how to use SNA Chinese 3270 PC emulation. *300* *pp.* Related Publications: None Intended Audience: Display station operator, application programmer, system programmer
+*Publication Description*: The *SNA Traditional Chinese 3270 PC Emulation User's Guide* provides information on how to use SNA Chinese 3270 PC emulation\. *300 pp\.*
+
+*Related Publications*: None
+
+*Intended Audience*: Display station operator, application programmer, system programmer
 
 ---
 

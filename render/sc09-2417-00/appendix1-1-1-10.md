@@ -2,11 +2,11 @@
 
 ---
 
-## APPENDIX1.1.1.10 Statements
+### APPENDIX1\.1\.1\.10 Statements
 
 <a id="HDRSTSM"></a>
 
-Because the case values must be integers and cannot be duplicated, the maximum number of case values in a `switch` statement is 4294967296.
+Because the case values must be integers and cannot be duplicated, the maximum number of case values in a `switch` statement is 4294967296\.
 
 ---
 

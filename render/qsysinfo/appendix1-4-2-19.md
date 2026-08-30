@@ -2,11 +2,17 @@
 
 ---
 
-### APPENDIX1.4.2.19 Point-of-Sale Communications Utility/400 (5738-CF1)
+### APPENDIX1\.4\.2\.19 Point\-of\-Sale Communications Utility/400 \(5738\-CF1\)
 
 <a id="TBLTBLUNIQ52"></a>
 
-[Table: TBLTBLUNIQ52]
+```
+           Binder     Order No         Title
+   ___     --         GC41-9881        LPS:  Point-of-Sale Utility
+   ___     77         SX21-9924        1" binder
+   ___     77         SC41-9868        Point-of-Sale Communications
+                                       Utility/400 Programmer's Guide
+```
 
 ---
 

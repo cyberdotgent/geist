@@ -1,0 +1,38 @@
+file	id	severity	route	family	reason	records	degraded	detail
+cover.md	COVER	best-effort	best-effort		typed-lowering-declined	2-3		prose topic rejected: cz off cover carries display text
+notices.md	NOTICES	best-effort	best-effort		typed-lowering-declined	3-4		prose topic rejected: cz off elblbox: CZ layout cz off elblbox is not modelled
+edition.md	EDITION	typed	typed	prose	typed	4-7		
+contents.md	CONTENTS	typed	typed	generated navigation	typed	7-9		
+front_1.md	FRONT_1	best-effort	best-effort		typed-lowering-declined	9-10		prose topic rejected: cz off artwork: CZ layout cz off artwork is not modelled
+preface.md	PREFACE	typed	typed	prose	typed	10-11		
+preface-1.md	PREFACE.1	typed	typed	prose	typed	11-12		
+preface-2.md	PREFACE.2	typed	typed	prose	typed	12-13		
+1-0.md	1.0	typed	typed	prose	typed	13-15		
+1-1.md	1.1	typed	typed	prose	typed	15-17		
+1-2.md	1.2	typed	typed	prose	typed	17-19		
+1-3.md	1.3	typed	typed	prose	typed	21-24		
+2-0.md	2.0	typed	typed	prose	typed	24-26		
+2-1.md	2.1	typed	typed	prose	typed	26-27		
+2-2.md	2.2	typed	typed	prose	typed	27-29		
+2-3.md	2.3	typed	typed	prose	typed	29-30		
+2-4.md	2.4	best-effort	best-effort		typed-lowering-declined	30-31		prose topic rejected: cz off artwork: CZ layout cz off artwork is not modelled
+2-5.md	2.5	best-effort	best-effort		typed-lowering-declined	31-41		prose topic rejected: table envelope 'TBLUNIQ2' declined: table line does not end with a matching border; not preformatted: preformatted region contains control SRSPTCHART
+2-6.md	2.6	typed	typed	prose	typed	41-44		
+2-7.md	2.7	typed	typed	prose	typed	69-70		
+2-8.md	2.8	typed	typed	prose	typed	70-71		
+3-0.md	3.0	typed	typed	prose	typed	71-72		
+3-1.md	3.1	typed	typed	prose	typed	72-74		
+3-2.md	3.2	typed	typed	prose	typed	74-77		
+3-3.md	3.3	typed	typed	prose	typed	77-78		
+3-4.md	3.4	typed	typed	prose	typed	78-83		
+3-5.md	3.5	typed	typed	prose	typed	83-87		
+a-0.md	A.0	typed	typed	prose	typed	87-103		
+b-0.md	B.0	best-effort	best-effort		typed-lowering-declined	103-131		prose topic rejected: body control SRMSG is outside the prose model
+back_1.md	BACK_1	typed	typed	prose	typed	131-133		
+back_1-1.md	BACK_1.1	typed	typed	prose	typed	133-134		
+back_1-2.md	BACK_1.2	typed	typed	prose	typed	134-135		
+back_1-3.md	BACK_1.3	typed	typed	prose	typed	135-137		
+back_1-4.md	BACK_1.4	typed	typed	prose	typed	140-142		
+index.md	INDEX	typed	typed	generated navigation	typed	142-146		
+comments.md	COMMENTS	best-effort	best-effort		typed-lowering-declined	146-149		prose topic rejected: cz off lines carries display text
+# summary	best-effort=7	typed=29	total=36

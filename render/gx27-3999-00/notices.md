@@ -2,11 +2,21 @@
 
 ---
 
+<!-- geist-render: severity=best-effort route=best-effort reason=typed-lowering-declined records=3-4 detail="prose topic rejected: cz off elblbox: CZ layout cz off elblbox is not modelled" -->
+
 # NOTICES Notices
 
-<a id="FIGUNIQ1"></a>
+<a id="FIGFIGUNIQ1"></a>
+<a id="EFIG"></a>
 
-Note Before using this information and the product it supports, read the general information under ["Notices" in topic BACK_1](back_1.md).
+```text
+    ___ Note ___________________________________________________________
+   |                                                                    |
+   | Before using this information and the product it supports, read    |
+   | the general information under "Notices" in topic BACK_1.           |
+   |                                                                    |
+   |____________________________________________________________________|
+```
 
 ---
 

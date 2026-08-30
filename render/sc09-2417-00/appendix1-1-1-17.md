@@ -2,12 +2,12 @@
 
 ---
 
-## APPENDIX1.1.1.17 Memory Management
+### APPENDIX1\.1\.1\.17 Memory Management
 
 <a id="HDRMEMG"></a>
 
-- If the size requested is `0`, the `calloc()`, `malloc()`, and `realloc()` functions all return a `NULL` pointer.
-- Files are closed and temporary files are erased when the `abort()` function is called.
+- If the size requested is `0`, the `calloc()`, `malloc()`, and `realloc()` functions all return a `NULL` pointer\.
+- Files are closed and temporary files are erased when the `abort()` function is called\.
 
 ---
 

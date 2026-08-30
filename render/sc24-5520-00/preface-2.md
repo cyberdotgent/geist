@@ -2,9 +2,9 @@
 
 ---
 
-## PREFACE.2 Who Should Read This Book
+## PREFACE\.2 Who Should Read This Book
 
-This publication is intended for systems programmers, as well as applications programmers, who will be writing programs for VM/ESA.
+This publication is intended for systems programmers, as well as applications programmers, who will be writing programs for VM/ESA\.
 
 ---
 

@@ -2,15 +2,22 @@
 
 ---
 
-### APPENDIX1.5.2.1 Manuals Replaced in V2R1
+### APPENDIX1\.5\.2\.1 Manuals Replaced in V2R1
 
-The following V1R3 manuals no longer exist for V2R1; they have been     incorporated into other V2R1 manuals as shown:  cfont 7 10 C 18 9 C 28 3 C 32 3 C 36 7 C ;    ?   Operations Reference for DOS (PS/55), SH18-2412, was incorporated into              cfont 11 2 1 14 12 1 28 3 1 32 12 1 45 3 1 49 14 1 64 5 1          the PC Support/400:  DOS Installation and Administration Guide
+The following V1R3 manuals no longer exist for V2R1; they have been incorporated into other V2R1 manuals as shown:
 
-Operations Reference for DOS (PS/55), SH18-2412, was incorporated into the PC S*up*p*ort/400: DO*S *Ins*t*allation and* *Adm*i*nistration Gui*d*e* (PS/*55), SC*41-0008 / Operations Reference for OS/2 (PS/55), SH18-2413, was incorporated into the PC S*up*p*ort/400: OS*/2 *Ins*t*allation and* *Adm*i*nistration Gui*d*e* (PS/*55), SC*41-0009;
+- *Operations Reference for DOS \(PS/55\)*, SH18\-2412, was incorporated into the *PC Support/400: DOS Installation and Administration Guide \(PS/55\)*, SC41\-0008
+- *Operations Reference for OS/2 \(PS/55\)*, SH18\-2413, was incorporated into the *PC Support/400: OS/2 Installation and Administration Guide \(PS/55\)*, SC41\-0009
+- *PC Support \(for PS/55\): DOS and OS/2 Technical Reference*, was incorporated into the *PC Support/400: DOS and OS/2 Technical Reference*, SC41\-8091
+- *PCS Common Tasks*, GX18\-2491 was split into:
 
-PC Support (for PS/55): DOS and OS/2 Technical Reference, was
+*PC Support/400: DOS Common Tasks and Commands \(PS/55\)*, SX41\-0005
 
-incorporated into the PC S*up*p*ort/400: DO*S *and* *OS/*2 *Tec*h*nical* Refe*rence, SC*41-8091 PCS Common Tasks, GX18-2491 was split into:( PC Suppo*rt*/*400: DOS Co*mm*on* T*asks a*n*d Com*m*and*s *(PS/55)*, *SX41-0*005 a *P*C *Support/400*: *OS/*2 *Commo*n *Task*s *an*d *Command*s *(PS/55*), SX41-0007: PCS Messages and Problem Analysis Guide for DOS and OS/2, SH18-2186, was incorporated into online information Planning and Installation Guide for DOS (PS/55), SH18-2410, was incorporated into the PC S*up*p*ort/400: DO*S *Ins*t*allation and* *Administration* *Guide* *(PS/55)*, SC41-0008 Planning and Installation Guide for OS/2 (PS/55), SH18-2411, was incorporated into the PC S*up*p*ort/400: OS*/2 *Ins*t*allation and* *Administration* *Guide* *(PS/55)*, SC41-0009
+*PC Support/400: OS/2 Common Tasks and Commands \(PS/55\)*, SX41\-0007
+
+- *PCS Messages and Problem Analysis Guide for DOS and OS/2*, SH18\-2186, was incorporated into online information
+- *Planning and Installation Guide for DOS \(PS/55\)*, SH18\-2410, was incorporated into the *PC Support/400: DOS Installation and Administration Guide \(PS/55\)*, SC41\-0008
+- *Planning and Installation Guide for OS/2 \(PS/55\)*, SH18\-2411, was incorporated into the *PC Support/400: OS/2 Installation and Administration Guide \(PS/55\)*, SC41\-0009
 
 ---
 

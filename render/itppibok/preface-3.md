@@ -2,13 +2,11 @@
 
 ---
 
-## PREFACE.3 Graphic Conventions
+## PREFACE\.3 Graphic Conventions
 
-The following symbols used in this book describe network entities.
+The following symbols used in this book describe network entities\.
 
-![Resource 1](1.png)
-
-PICTURE 1
+![PICTURE 1](1.png)
 
 ---
 

@@ -4,15 +4,66 @@
 
 # CHANGES Summary of Changes
 
-| **Summary** **of** **Changes** | **for** **GC28-1631-2** >
+**Summary of Changes for GC28\-1631\-2 APAR OY46507 IPCS Support for REXX Execs and the TSO/E ALTLIB Command**
 
-**APAR** **OY46507** **IPCS** **Support** **for** **REXX** **Execs** **and** **the** **TSO/E** **ALTLIB** **Command** This major revision consists of changes to support APAR OY46507 and maintenance of existing information. Note that all references to REXX execs and the TSO/E ALTLIB command in this book are valid only if your installation has applied the maintenance for APAR OY46507. The following summarizes the changes for this revision:
+This major revision consists of changes to support APAR OY46507 and maintenance of existing information\. Note that all references to REXX execs and the TSO/E ALTLIB command in this book are valid only if your installation has applied the maintenance for APAR OY46507\.
 
-New Information [Chapter 3, "Using IPCS to Analyze Dumps" in topic 3.0](3-0.md) is a new chapter | that gives examples of how to use IPCS to analyze an SVC dump. [Chapter 7, "Using IPCS REXX Execs and CLISTs" in topic 7.0](7-0.md) explains | how to invoke REXX execs from IPCS and how to write your own IPCS REXX | execs. This chapter also contains new information on writing IPCS | CLISTs. ["Using ALTLIB" in topic 7.1.1](7-1-1.md) explains how to use the TSO/E ALTLIB | command in an IPCS dialog session. ["Combining and Processing Traces in Batch Mode" in topic 8.4](8-4.md) gives an | example of how to process a GTF trace in IPCS batch mode. Changed Information [Chapter 1, "Introduction to IPCS" in topic 1.0](1-0.md) has been restructured | to present a high-level overview of IPCS. [Chapter 2, "Accessing IPCS" in topic 2.0](2-0.md) clarifies the steps needed to | start the IPCS dialog. [Chapter 8, "Using IPCS in Batch Mode" in topic 8.0](8-0.md) highlights the | allocations needed to access IPCS in batch mode. Moved Information [Chapter 5, "Using the IPCS Dump Directory" in topic 5.0](5-0.md) is a new | chapter that describes the dump directory and its symbol table and | storage map. This information was formerly presented in the | "Accessing IPCS" and "Using IPCS Subcommands" chapters. [Chapter 9, "Printing IPCS Reports" in topic 9.0](9-0.md) is a new chapter that | explains how to print IPCS reports. This information was formerly | presented in the "Accessing IPCS" chapter. c.cp 20 **Summary** **of** **Changes** **for** **GC28-1631-1**
+The following summarizes the changes for this revision:
 
-**MVS/ESA** **System** **Product** **Version** **4** **Release** **2.0** This major revision consists of changes to support MVS/ESA System Product
+*New Information*
 
-Version 4 Release 2.0. New Information "Invo [king TSO/E Commands During an IPCS Session" in topic 3.4.5 in](3-4-5.md) Chapter 3 has been updated to include restrictions on CLISTs entered through the IPCS dialog. Chapt [er 4, "Using the IPCS Dialog" in topic 4.0 desc](4-0.md) ribes the APPCDATA and ASCHDATA component analysis options of the IPCS dialog. Changed information Chapter 2 explains that the CLOSE PRINT subcommand closes the print and table of contents files only. You can use the TSO/E FREE subcommand when these data sets are closed. Chapter 2 explains that the PRINT|NOPRINT and TERMINAL|NOTERMINAL keywords do not control certain non-report type messages. The JCL examples for the COPYDUMP subcommand in chapter 7 replace DUMMY with SYSOUT=* on the SYSTSPRT DD statement. **Changes** **for** **Version** **4** **for** **GC28-1631-0** **MVS/ESA** **System** **Product** **Version** **4** **Release** **1** This book contains information previously presented in MVS/ESA IPCS User's // Guide, GC28-1833-1 (which supports MVS/SP Version 3 Release 1.3). The following summarizes the changes to that information. New Information: Chapter 2 describes under what circumstances IPCS will not create a default dump directory, and how to customize your own dump directory. Chapter 3 describes the following new options in the IPCS dialog: COUPLE component option in dump component data analysis. Trace processing, which includes a new MERGE option. COPYTRC utility option. Chapter 3 also has a new topic on getting online help in the IPCS dialog. Chapter 5 documents three new subcommands: COPYTRC, COUPLE, and MERGE. Changed Information: Chapter 3 has the new list of IPCS subcommands and abbreviations for the subcommand entry panel. Moved Information: Several examples of subcommands in Chapter 5 are moved to the IPCS Command Reference The information on debugging a dump exit program has been moved to IPCS Customization.
+- [Chapter 3, "Using IPCS to Analyze Dumps" in topic 3\.0](3-0.md) is a new chapter that gives examples of how to use IPCS to analyze an SVC dump\.
+- [Chapter 7, "Using IPCS REXX Execs and CLISTs" in topic 7\.0](7-0.md) explains how to invoke REXX execs from IPCS and how to write your own IPCS REXX execs\. This chapter also contains new information on writing IPCS CLISTs\.
+- ["Using ALTLIB" in topic 7\.1\.1](7-1-1.md) explains how to use the TSO/E ALTLIB command in an IPCS dialog session\.
+- ["Combining and Processing Traces in Batch Mode" in topic 8\.4](8-4.md) gives an example of how to process a GTF trace in IPCS batch mode\.
+
+*Changed Information*
+
+- [Chapter 1, "Introduction to IPCS" in topic 1\.0](1-0.md) has been restructured to present a high\-level overview of IPCS\.
+- [Chapter 2, "Accessing IPCS" in topic 2\.0](2-0.md) clarifies the steps needed to start the IPCS dialog\.
+- [Chapter 8, "Using IPCS in Batch Mode" in topic 8\.0](8-0.md) highlights the allocations needed to access IPCS in batch mode\.
+
+*Moved Information*
+
+- [Chapter 5, "Using the IPCS Dump Directory" in topic 5\.0](5-0.md) is a new chapter that describes the dump directory and its symbol table and storage map\. This information was formerly presented in the "Accessing IPCS" and "Using IPCS Subcommands" chapters\.
+- [Chapter 9, "Printing IPCS Reports" in topic 9\.0](9-0.md) is a new chapter that explains how to print IPCS reports\. This information was formerly presented in the "Accessing IPCS" chapter\.
+
+**Summary of Changes for GC28\-1631\-1 MVS/ESA System Product Version 4 Release 2\.0**
+
+This major revision consists of changes to support MVS/ESA System Product Version 4 Release 2\.0\.
+
+*New Information*
+
+- ["Invoking TSO/E Commands During an IPCS Session" in topic 3\.4\.5](3-4-5.md) in Chapter 3 has been updated to include restrictions on CLISTs entered through the IPCS dialog\.
+- [Chapter 4, "Using the IPCS Dialog" in topic 4\.0](4-0.md) describes the APPCDATA and ASCHDATA component analysis options of the IPCS dialog\.
+
+*Changed information*
+
+- Chapter 2 explains that the CLOSE PRINT subcommand closes the print and table of contents files only\. You can use the TSO/E FREE subcommand when these data sets are closed\.
+- Chapter 2 explains that the PRINT\|NOPRINT and TERMINAL\|NOTERMINAL keywords do not control certain non\-report type messages\.
+- The JCL examples for the COPYDUMP subcommand in chapter 7 replace DUMMY with SYSOUT=\* on the SYSTSPRT DD statement\.
+
+**Changes for Version 4 for GC28\-1631\-0 MVS/ESA System Product Version 4 Release 1**
+
+This book contains information previously presented in *MVS/ESA IPCS User's Guide*, GC28\-1833\-1 \(which supports MVS/SP Version 3 Release 1\.3\)\. The following summarizes the changes to that information\.
+
+*New Information*: Chapter 2 describes under what circumstances IPCS will not create a default dump directory, and how to customize your own dump directory\.
+
+Chapter 3 describes the following new options in the IPCS dialog:
+
+- COUPLE component option in dump component data analysis\.
+- Trace processing, which includes a new MERGE option\.
+- COPYTRC utility option\.
+
+Chapter 3 also has a new topic on getting online help in the IPCS dialog\.
+
+Chapter 5 documents three new subcommands: COPYTRC, COUPLE, and MERGE\.
+
+*Changed Information*: Chapter 3 has the new list of IPCS subcommands and abbreviations for the subcommand entry panel\.
+
+*Moved Information*: Several examples of subcommands in Chapter 5 are moved to the *IPCS Command Reference*
+
+The information on debugging a dump exit program has been moved to *IPCS Customization*\.
 
 ---
 

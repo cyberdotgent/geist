@@ -8,11 +8,11 @@ Previous | [Index](README.md) | [Next](notices.md)
 
 **Command Reference**
 
-Document Number SC28-1881-05
+Document Number SC28\-1881\-05
 
-Program Number 5685-025
+Program Number 5685\-025
 
-File Number S370/S390-39
+File Number S370/S390\-39
 
 ---
 

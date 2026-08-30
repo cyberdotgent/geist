@@ -6,557 +6,557 @@
 
 ## A
 
-- accessing 1
-- Operational Assistant 2 2.5
-- advanced assistance level 1 4.1.3
-- Alternative key 1 3.1.1
-- application program messages 1 7.4.2
-- ASCII keyboards 1
-- 3101 Display Station 2 E.5.1
-- 3151 Display Station 2 E.5.2
-- 3151 with numeric key pad 2 E.5.2
-- 3151 without numeric key pad 2 E.5.2.1
-- 3160 Display Station 2 E.5.3
-- assistance level 1
-- advanced 2 4.1.3
-- basic 2 4.1.1
-- change 2 4.2
-- description of 2 4.1
-- intermediate 2 4.1.2
-- summary of 2 4.4
-- AS/400 operating system (OS/400) 1 1.8.1
-- AS/400 system 1
-- description of 2 1.8
-- introduction 2 1.0
-- models of 2 1.8
-- signing off 2 2.7
-- signing on 2 2.0
-- Attention key 1 3.1.1
+- accessing
+  - Operational Assistant, [2\.5](2-5.md)
+- advanced assistance level, [4\.1\.3](4-1-3.md)
+- Alternative key, [3\.1\.1](3-1-1.md)
+- application program messages, [7\.4\.2](7-4-2.md)
+- ASCII keyboards
+  - 3101 Display Station, [E\.5\.1](e-5-1.md)
+  - 3151 Display Station, [E\.5\.2](e-5-2.md)
+  - 3151 with numeric key pad, [E\.5\.2](e-5-2.md)
+  - 3151 without numeric key pad, [E\.5\.2\.1](e-5-2-1.md)
+  - 3160 Display Station, [E\.5\.3](e-5-3.md)
+- assistance level
+  - advanced, [4\.1\.3](4-1-3.md)
+  - basic, [4\.1\.1](4-1-1.md)
+  - change, [4\.2](4-2.md)
+  - description of, [4\.1](4-1.md)
+  - intermediate, [4\.1\.2](4-1-2.md)
+  - summary of, [4\.4](4-4.md)
+- AS/400 operating system \(OS/400\), [1\.8\.1](1-8-1.md)
+- AS/400 system
+  - description of, [1\.8](1-8.md)
+  - introduction, [1\.0](1-0.md)
+  - models of, [1\.8](1-8.md)
+  - signing off, [2\.7](2-7.md)
+  - signing on, [2\.0](2-0.md)
+- Attention key, [3\.1\.1](3-1-1.md)
 
 ## B
 
-- Backspace key 1 2.2.1
-- basic assistance level 1 4.1.1
-- batch jobs 1 8.1
-- break message 1 7.5.2
+- Backspace key, [2\.2\.1](2-2-1.md)
+- basic assistance level, [4\.1\.1](4-1-1.md)
+- batch jobs, [8\.1](8-1.md)
+- break message, [7\.5\.2](7-5-2.md)
 
 ## C
 
-- Caps Lock key 1 3.1.1
-- chaining, menu 1 5.1
-- change 1
-- assistance level 2 4.2
-- initial menu 2 C.1
-- password 2 5.2.1
-- CL (control language) 1
-- description of 2 A.0
-- review 2 A.4
-- summary 2 A.4
-- command 1
-- abbreviations 2 A.1
-- CRTLIB 2 A.3.1.1
-- *BLANK parameter 3 A.3.1.1
-- *PROD parameter 3 A.3.1.1
-- entry display 2 A.2.2
-- go 2 B.1 B.3
-- line, menu 2 A.2.1
-- parameters 2 A.0
-- prompt displays 2
-- function key differences on other systems 3 F.1.1
-- prompting 2 A.3.1
-- structure 2
-- action portion of commands 3 A.1
-- object portion of commands 3 A.1
-- computer 1
-- description of 2 1.2
-- instructions 2 1.2
-- keyboards, personal 2 3.1.2.1
-- messages 2 7.7.2.2
-- personal 2 1.5.3
-- processor 2 1.2
-- system 2 1.2
-- ways can be used 2 1.2
-- computer keyboards, using 1
-- display station 2 E.0
-- personal computer 2 E.0
-- computer operations 1
-- input 2 1.2
-- output 2 1.2
-- process 2 1.2
-- storage 2 1.2
-- Control key 1 3.1.1
-- control language 1
-- command, prompting 2 A.3.1
-- entering a command 2 A.2
-- keywords 2 A.1.1.1
-- structure 2 A.1
-- controlling 1
-- jobs 2 8.3
-- printer output 2 8.4
-- creating 1
-- library 2 A.3.1.1
-- CRTLIB command 1
-- *BLANK parameter 2 A.3.1.1
-- *PROD parameter 2 A.3.1.1
-- cursor 1 2.2
-- Cursor Down key 1 2.6
-- Cursor Left key 1 2.6
-- cursor movement keys 1 2.6
-- Cursor Right key 1 2.6
-- Cursor Up key 1 2.6
+- Caps Lock key, [3\.1\.1](3-1-1.md)
+- chaining, menu, [5\.1](5-1.md)
+- change
+  - assistance level, [4\.2](4-2.md)
+  - initial menu, [C\.1](c-1.md)
+  - password, [5\.2\.1](5-2-1.md)
+- CL \(control language\)
+  - description of, [A\.0](a-0.md)
+  - review, [A\.4](a-4.md)
+  - summary, [A\.4](a-4.md)
+- command
+  - abbreviations, [A\.1](a-1.md)
+  - CRTLIB, [A\.3\.1\.1](a-3-1-1.md)
+    - \*BLANK parameter, [A\.3\.1\.1](a-3-1-1.md)
+    - \*PROD parameter, [A\.3\.1\.1](a-3-1-1.md)
+  - entry display, [A\.2\.2](a-2-2.md)
+  - go, [B\.1](b-1.md), [B\.3](b-3.md)
+  - line, menu, [A\.2\.1](a-2-1.md)
+  - parameters, [A\.0](a-0.md)
+  - prompt displays
+    - function key differences on other systems, [F\.1\.1](f-1-1.md)
+  - prompting, [A\.3\.1](a-3-1.md)
+  - structure
+    - action portion of commands, [A\.1](a-1.md)
+    - object portion of commands, [A\.1](a-1.md)
+- computer
+  - description of, [1\.2](1-2.md)
+  - instructions, [1\.2](1-2.md)
+  - keyboards, personal, [3\.1\.2\.1](3-1-2-1.md)
+  - messages, [7\.7\.2\.2](7-7-2-2.md)
+  - personal, [1\.5\.3](1-5-3.md)
+  - processor, [1\.2](1-2.md)
+  - system, [1\.2](1-2.md)
+  - ways can be used, [1\.2](1-2.md)
+- computer keyboards, using
+  - display station, [E\.0](e-0.md)
+  - personal computer, [E\.0](e-0.md)
+- computer operations
+  - input, [1\.2](1-2.md)
+  - output, [1\.2](1-2.md)
+  - process, [1\.2](1-2.md)
+  - storage, [1\.2](1-2.md)
+- Control key, [3\.1\.1](3-1-1.md)
+- control language
+  - command, prompting, [A\.3\.1](a-3-1.md)
+  - entering a command, [A\.2](a-2.md)
+  - keywords, [A\.1\.1\.1](a-1-1-1.md)
+  - structure, [A\.1](a-1.md)
+- controlling
+  - jobs, [8\.3](8-3.md)
+  - printer output, [8\.4](8-4.md)
+- creating
+  - library, [A\.3\.1\.1](a-3-1-1.md)
+- CRTLIB command
+  - \*BLANK parameter, [A\.3\.1\.1](a-3-1-1.md)
+  - \*PROD parameter, [A\.3\.1\.1](a-3-1-1.md)
+- cursor, [2\.2](2-2.md)
+- Cursor Down key, [2\.6](2-6.md)
+- Cursor Left key, [2\.6](2-6.md)
+- cursor movement keys, [2\.6](2-6.md)
+- Cursor Right key, [2\.6](2-6.md)
+- Cursor Up key, [2\.6](2-6.md)
 
 ## D
 
-- Delete key 1 3.1.1
-- deleting messages 1 7.8
-- delivery mode 1 7.7.1
-- devices 1
-- input 2
-- keyboard 3 1.3
-- output 2
-- computer-produced speech 3 1.4
-- printers 3 1.4
-- work stations 3 1.4
-- storage 2
-- diskettes 3 1.5
-- magnetic disk 3 1.5
-- magnetic tape 3 1.5
-- main storage 3 1.5
-- differences on system, System Request menu 1 F.3
-- disk drive 1 1.5.2
-- diskettes 1 1.5.3
-- disks 1
-- floppy 2 1.5.3
-- magnetic 2 1.5.2
-- display 1
-- command entry 2 A.2.2
-- entry 2 5.2 6.2
-- information 2 5.4 6.2
-- interrupt user message 2 7.5.2
-- list 2 5.3 6.2
-- menu 2 5.1 6.2
-- Sign On 2 2.1
-- summary 2 5.5
-- system 2 5.0
-- user-requested message 2 7.5.3
-- using 2 5.0
-- display message display 1 7.5.2
-- display station 1 1.4 2.1
-- display station and personal computer keyboards 1 E.0
+- Delete key, [3\.1\.1](3-1-1.md)
+- deleting messages, [7\.8](7-8.md)
+- delivery mode, [7\.7\.1](7-7-1.md)
+- devices
+  - input
+    - keyboard, [1\.3](1-3.md)
+  - output
+    - computer\-produced speech, [1\.4](1-4.md)
+    - printers, [1\.4](1-4.md)
+    - work stations, [1\.4](1-4.md)
+  - storage
+    - diskettes, [1\.5](1-5.md)
+    - magnetic disk, [1\.5](1-5.md)
+    - magnetic tape, [1\.5](1-5.md)
+    - main storage, [1\.5](1-5.md)
+- differences on system, System Request menu, [F\.3](f-3.md)
+- disk drive, [1\.5\.2](1-5-2.md)
+- diskettes, [1\.5\.3](1-5-3.md)
+- disks
+  - floppy, [1\.5\.3](1-5-3.md)
+  - magnetic, [1\.5\.2](1-5-2.md)
+- display
+  - command entry, [A\.2\.2](a-2-2.md)
+  - entry, [5\.2](5-2.md), [6\.2](6-2.md)
+  - information, [5\.4](5-4.md), [6\.2](6-2.md)
+  - interrupt user message, [7\.5\.2](7-5-2.md)
+  - list, [5\.3](5-3.md), [6\.2](6-2.md)
+  - menu, [5\.1](5-1.md), [6\.2](6-2.md)
+  - Sign On, [2\.1](2-1.md)
+  - summary, [5\.5](5-5.md)
+  - system, [5\.0](5-0.md)
+  - user\-requested message, [7\.5\.3](7-5-3.md)
+  - using, [5\.0](5-0.md)
+- display message display, [7\.5\.2](7-5-2.md)
+- display station, [1\.4](1-4.md), [2\.1](2-1.md)
+- display station and personal computer keyboards, [E\.0](e-0.md)
 
 ## E
 
-- education, online 1 C.3
-- electronic computer chip 1 1.5.1
-- emulating 5250 keyboards, for personal computer 1 E.4.2
-- engraved function keys 1 3.1
-- enhanced keyboard 1
-- function keys 2 E.1
-- personal computer 2 E.4.3
-- Enter key 1 3.1.1
-- entering a command 1 A.2
-- entry displays 1 5.2 6.2
-- Erase Input key 1 3.1.1
-- error message 1 2.6.1
-- Error Reset key 1 3.1.1
-- extended help information 1 6.1
+- education, online, [C\.3](c-3.md)
+- electronic computer chip, [1\.5\.1](1-5-1.md)
+- emulating 5250 keyboards, for personal computer, [E\.4\.2](e-4-2.md)
+- engraved function keys, [3\.1](3-1.md)
+- enhanced keyboard
+  - function keys, [E\.1](e-1.md)
+  - personal computer, [E\.4\.3](e-4-3.md)
+- Enter key, [3\.1\.1](3-1-1.md)
+- entering a command, [A\.2](a-2.md)
+- entry displays, [5\.2](5-2.md), [6\.2](6-2.md)
+- Erase Input key, [3\.1\.1](3-1-1.md)
+- error message, [2\.6\.1](2-6-1.md)
+- Error Reset key, [3\.1\.1](3-1-1.md)
+- extended help information, [6\.1](6-1.md)
 
 ## F
 
-- F keys, special 1 3.1.2.3
-- field 1
-- field keys 2 3.1.1.1
-- help for menu displays 2 6.2
-- help information for 2 6.2
-- Field Advance key 1 2.3 3.1.1.1
-- Field Backspace key 1 3.1.1.1
-- Field Exit key 1 3.1.1.1
-- floppy disks 1 1.5.3
-- free format method 1 A.3.2
-- function 1
-- system request 2 D.0
-- type-ahead 2 D.2
-- function keys 1
-- engraved 2 3.1
-- for enhanced keyboard 2 E.1
-- for personal computer display station keyboard 2 E.4
-- for 122-key typewriter keyboard 2 E.2
-- for 5250 keyboards 2 E.3
-- numbered 2 3.1.2
-- system differences 2
-- on command prompt displays 3 F.1.1
-- on help displays 3 F.1.2
-- on list displays 3 F.2
-- on system menus 3 F.1.3
-- on work with displays 3 F.2
-- F21 key 1 4.2
+- F keys, special, [3\.1\.2\.3](3-1-2-3.md)
+- field
+  - field keys, [3\.1\.1\.1](3-1-1-1.md)
+  - help for menu displays, [6\.2](6-2.md)
+  - help information for, [6\.2](6-2.md)
+- Field Advance key, [2\.3](2-3.md), [3\.1\.1\.1](3-1-1-1.md)
+- Field Backspace key, [3\.1\.1\.1](3-1-1-1.md)
+- Field Exit key, [3\.1\.1\.1](3-1-1-1.md)
+- floppy disks, [1\.5\.3](1-5-3.md)
+- free format method, [A\.3\.2](a-3-2.md)
+- function
+  - system request, [D\.0](d-0.md)
+  - type\-ahead, [D\.2](d-2.md)
+- function keys
+  - engraved, [3\.1](3-1.md)
+  - for enhanced keyboard, [E\.1](e-1.md)
+  - for personal computer display station keyboard, [E\.4](e-4.md)
+  - for 122\-key typewriter keyboard, [E\.2](e-2.md)
+  - for 5250 keyboards, [E\.3](e-3.md)
+  - numbered, [3\.1\.2](3-1-2.md)
+  - system differences
+    - on command prompt displays, [F\.1\.1](f-1-1.md)
+    - on help displays, [F\.1\.2](f-1-2.md)
+    - on list displays, [F\.2](f-2.md)
+    - on system menus, [F\.1\.3](f-1-3.md)
+    - on work with displays, [F\.2](f-2.md)
+- F21 key, [4\.2](4-2.md)
 
 ## G
 
-- getting messages 1 7.7
-- go commands 1 B.1 B.3
+- getting messages, [7\.7](7-7.md)
+- go commands, [B\.1](b-1.md), [B\.3](b-3.md)
 
 ## H
 
-- help 1
-- display, function key differences 2 F.1.2
-- how to use 2 5.1.4
-- hypertext 2 6.2.1
-- key 2 2.6.1 3.1.1
-- help, online 1
-- extended help information 2 6.1
-- field 2 6.2
-- index search information 2 6.3
-- hexadecimal environment 1 D.2.1
-- hypertext 1 6.2.1
+- help
+  - display, function key differences, [F\.1\.2](f-1-2.md)
+  - how to use, [5\.1\.4](5-1-4.md)
+  - hypertext, [6\.2\.1](6-2-1.md)
+  - key, [2\.6\.1](2-6-1.md), [3\.1\.1](3-1-1.md)
+- help, online
+  - extended help information, [6\.1](6-1.md)
+  - field, [6\.2](6-2.md)
+  - index search information, [6\.3](6-3.md)
+- hexadecimal environment, [D\.2\.1](d-2-1.md)
+- hypertext, [6\.2\.1](6-2-1.md)
 
 ## I
 
-- IBM-enhanced personal computer keyboard 1 E.4.3
-- ID, user 1 4.3.2
-- index search 1
-- information 2 6.3
-- information displays 1 5.4 6.2
-- informational messages 1 7.1
-- information, online 1 6.0
-- input devices 1
-- bar code scanner 2 1.3
-- keyboard 2 1.3
-- magnetic card reader 2 1.3
-- push button telephone 2 1.3
-- inquiry messages 1 7.2
-- Insert key 1 3.1.1
-- intermediate assistance level 1 4.1.2
-- introduction 1
-- AS/400 system 2 1.0
+- IBM\-enhanced personal computer keyboard, [E\.4\.3](e-4-3.md)
+- ID, user, [4\.3\.2](4-3-2.md)
+- index search
+  - information, [6\.3](6-3.md)
+- information displays, [5\.4](5-4.md), [6\.2](6-2.md)
+- informational messages, [7\.1](7-1.md)
+- information, online, [6\.0](6-0.md)
+- input devices
+  - bar code scanner, [1\.3](1-3.md)
+  - keyboard, [1\.3](1-3.md)
+  - magnetic card reader, [1\.3](1-3.md)
+  - push button telephone, [1\.3](1-3.md)
+- inquiry messages, [7\.2](7-2.md)
+- Insert key, [3\.1\.1](3-1-1.md)
+- intermediate assistance level, [4\.1\.2](4-1-2.md)
+- introduction
+  - AS/400 system, [1\.0](1-0.md)
 
 ## J
 
-- job 1
-- batch 2 8.1
-- controlling 2 8.3
-- name 2 8.1.1
-- queue 2 8.1
-- tracking 2 8.2
+- job
+  - batch, [8\.1](8-1.md)
+  - controlling, [8\.3](8-3.md)
+  - name, [8\.1\.1](8-1-1.md)
+  - queue, [8\.1](8-1.md)
+  - tracking, [8\.2](8-2.md)
 
 ## K
 
-- key 1
-- F21 2 4.2
-- help 2 5.1.4
-- key pad, 3151 ASCII keyboard without numeric 1 E.5.2.1
-- keyboard differences 1 F.1
-- keyboard errors 1 2.6.1
-- keyboard summary 1 3.2
-- keyboards 1
-- ASCII 2 E.5 E.5.1 E.5.2 E.5.3
-- display station and personal computer 2 E.0
-- IBM-enhanced 2 3.1.2.1
-- IBM-enhanced personal computer 2 3.1.2.1
-- locked up 2 2.6.1
-- personal computer 2 3.1.2.1
-- personal computer style keyboards for personal computer 2 E.4.1
-- without numeric key pad, 3151 ASCII 2 E.5.2.1
-- 3101 Display Station 2 E.5.1
-- 3151 ASCII keyboard with numeric key pad 2 E.5.2.1
-- 3151 ASCII keyboard without numeric key pad 2 E.5.2
-- 3151 Display Station 2 E.5.2
-- 3160 Display Station 2 E.5.3
-- 5250 2 3.1.2.1
-- 5250 computer style keyboards for personal computer 2 E.4.2
-- keys 1
-- Alternative 2 3.1.1
-- Attention 2 3.1.1
-- Backspace 2 2.2.1
-- Caps Lock 2 3.1.1
-- Control 2 3.1.1
-- Cursor down 2 2.6
-- Cursor left 2 2.6
-- cursor movement 2 2.6
-- Cursor right 2 2.6
-- Cursor up 2 2.6
-- Delete 2 3.1.1
-- engraved function 2 3.1
-- Enter 2 3.1.1
-- Erase Input 2 3.1.1
-- Error Reset 2 3.1.1
-- field 2 3.1.1.1
-- Field Advance 2 2.3 3.1.1.1
-- Field Backspace 2 3.1.1.1
-- Field Exit 2 3.1.1.1
-- function 2
-- for enhanced keyboard 3 E.1
-- for personal computer display station keyboard 3 E.4
-- for 122-key typewriter keyboard 3 E.2
-- for 5250 keyboards 3 E.3
-- F12=Cancel 2 3.1.2.3
-- F1=Help 2 3.1.2.3
-- F24=More keys 2 3.1.2.3
-- F3 and F12 difference 2 5.1.3
-- F3=Exit 2 3.1.2.3
-- F4=Prompt 2 3.1.2.3
-- F5=Refresh 2 3.1.2.3
-- help 2 2.6.1 3.1.1
-- Insert 2 3.1.1
-- New Line 2 3.1.1.1
-- numbered function 2 3.1.2
-- Print 2 3.1.1
-- Roll 2 3.1.1 are
-- Shift 2 3.1.1 E.1 E.3 E.4.1 E.4.2 E.4.3
-- Shift Lock 2 3.1.1
-- special F 2 3.1.2.3
-- System Request 2 3.1.1
-- typematic 2 2.6
-- keystroke mistakes 1 2.6.1
-- keywords 1 A.1.1.1
+- key
+  - F21, [4\.2](4-2.md)
+  - help, [5\.1\.4](5-1-4.md)
+- key pad, 3151 ASCII keyboard without numeric, [E\.5\.2\.1](e-5-2-1.md)
+- keyboard differences, [F\.1](f-1.md)
+- keyboard errors, [2\.6\.1](2-6-1.md)
+- keyboard summary, [3\.2](3-2.md)
+- keyboards
+  - ASCII, [E\.5](e-5.md), [E\.5\.1](e-5-1.md), [E\.5\.2](e-5-2.md), [E\.5\.3](e-5-3.md)
+  - display station and personal computer, [E\.0](e-0.md)
+  - IBM\-enhanced, [3\.1\.2\.1](3-1-2-1.md)
+  - IBM\-enhanced personal computer, [3\.1\.2\.1](3-1-2-1.md)
+  - locked up, [2\.6\.1](2-6-1.md)
+  - personal computer, [3\.1\.2\.1](3-1-2-1.md)
+  - personal computer style keyboards for personal computer, [E\.4\.1](e-4-1.md)
+  - without numeric key pad, 3151 ASCII, [E\.5\.2\.1](e-5-2-1.md)
+  - 3101 Display Station, [E\.5\.1](e-5-1.md)
+  - 3151 ASCII keyboard with numeric key pad, [E\.5\.2\.1](e-5-2-1.md)
+  - 3151 ASCII keyboard without numeric key pad, [E\.5\.2](e-5-2.md)
+  - 3151 Display Station, [E\.5\.2](e-5-2.md)
+  - 3160 Display Station, [E\.5\.3](e-5-3.md)
+  - 5250, [3\.1\.2\.1](3-1-2-1.md)
+  - 5250 computer style keyboards for personal computer, [E\.4\.2](e-4-2.md)
+- keys
+  - Alternative, [3\.1\.1](3-1-1.md)
+  - Attention, [3\.1\.1](3-1-1.md)
+  - Backspace, [2\.2\.1](2-2-1.md)
+  - Caps Lock, [3\.1\.1](3-1-1.md)
+  - Control, [3\.1\.1](3-1-1.md)
+  - Cursor down, [2\.6](2-6.md)
+  - Cursor left, [2\.6](2-6.md)
+  - cursor movement, [2\.6](2-6.md)
+  - Cursor right, [2\.6](2-6.md)
+  - Cursor up, [2\.6](2-6.md)
+  - Delete, [3\.1\.1](3-1-1.md)
+  - engraved function, [3\.1](3-1.md)
+  - Enter, [3\.1\.1](3-1-1.md)
+  - Erase Input, [3\.1\.1](3-1-1.md)
+  - Error Reset, [3\.1\.1](3-1-1.md)
+  - field, [3\.1\.1\.1](3-1-1-1.md)
+  - Field Advance, [2\.3](2-3.md), [3\.1\.1\.1](3-1-1-1.md)
+  - Field Backspace, [3\.1\.1\.1](3-1-1-1.md)
+  - Field Exit, [3\.1\.1\.1](3-1-1-1.md)
+  - function
+    - for enhanced keyboard, [E\.1](e-1.md)
+    - for personal computer display station keyboard, [E\.4](e-4.md)
+    - for 122\-key typewriter keyboard, [E\.2](e-2.md)
+    - for 5250 keyboards, [E\.3](e-3.md)
+  - F12=Cancel, [3\.1\.2\.3](3-1-2-3.md)
+  - F1=Help, [3\.1\.2\.3](3-1-2-3.md)
+  - F24=More keys, [3\.1\.2\.3](3-1-2-3.md)
+  - F3 and F12 difference, [5\.1\.3](5-1-3.md)
+  - F3=Exit, [3\.1\.2\.3](3-1-2-3.md)
+  - F4=Prompt, [3\.1\.2\.3](3-1-2-3.md)
+  - F5=Refresh, [3\.1\.2\.3](3-1-2-3.md)
+  - help, [2\.6\.1](2-6-1.md), [3\.1\.1](3-1-1.md)
+  - Insert, [3\.1\.1](3-1-1.md)
+  - New Line, [3\.1\.1\.1](3-1-1-1.md)
+  - numbered function, [3\.1\.2](3-1-2.md)
+  - Print, [3\.1\.1](3-1-1.md)
+  - Roll, [3\.1\.1](3-1-1.md)
+  - Shift, [3\.1\.1](3-1-1.md), [E\.1](e-1.md), [E\.3](e-3.md), [E\.4\.1](e-4-1.md), [E\.4\.2](e-4-2.md), [E\.4\.3](e-4-3.md)
+  - Shift Lock, [3\.1\.1](3-1-1.md)
+  - special F, [3\.1\.2\.3](3-1-2-3.md)
+  - System Request, [3\.1\.1](3-1-1.md)
+  - typematic, [2\.6](2-6.md)
+- keystroke mistakes, [2\.6\.1](2-6-1.md)
+- keywords, [A\.1\.1\.1](a-1-1-1.md)
 
 ## L
 
-- language, control 1 A.0
-- level 1
-- advanced assistance 2 4.1.3
-- assistance 2 4.1
-- assistance, summary of 2 4.4
-- basic assistance 2 4.1.1
-- changing assistance 2 4.2
-- intermediate assistance 2 4.1.2
-- security 2 4.3.2
-- levels, security 1
-- level 10 2 4.3.2
-- level 20 2 4.3.2
-- level 30 2 4.3.2
-- library 1
-- create 2 A.3.1.1
-- list displays 1
-- common characteristics of 2 5.0
-- description of 2 5.3
-- function key differences 2 F.2
-- help for 2 6.2
+- language, control, [A\.0](a-0.md)
+- level
+  - advanced assistance, [4\.1\.3](4-1-3.md)
+  - assistance, [4\.1](4-1.md)
+  - assistance, summary of, [4\.4](4-4.md)
+  - basic assistance, [4\.1\.1](4-1-1.md)
+  - changing assistance, [4\.2](4-2.md)
+  - intermediate assistance, [4\.1\.2](4-1-2.md)
+  - security, [4\.3\.2](4-3-2.md)
+- levels, security
+  - level 10, [4\.3\.2](4-3-2.md)
+  - level 20, [4\.3\.2](4-3-2.md)
+  - level 30, [4\.3\.2](4-3-2.md)
+- library
+  - create, [A\.3\.1\.1](a-3-1-1.md)
+- list displays
+  - common characteristics of, [5\.0](5-0.md)
+  - description of, [5\.3](5-3.md)
+  - function key differences, [F\.2](f-2.md)
+  - help for, [6\.2](6-2.md)
 
 ## M
 
-- magnetic 1
-- disks 2 1.5.2
-- tapes 2 1.5.4
-- main operations 1 1.2
-- main storage 1 1.5.1
-- major functions, OS/400 1 1.8.1
-- managing 1
-- output 2 8.0
-- work 2 8.0
-- menu 1
-- chaining 2 5.1
-- changing initial menu 2 C.1
-- displays 2 5.1
-- Operational Assistant 2 5.0
-- system request 2 3.1.1
-- menu command line 1 A.2.1
-- messages 1
-- application program 2 7.4.2
-- computer 2 7.7.2.2
-- deleting 2 7.8
-- error 2 2.6.1
-- getting 2 7.7
-- informational 2 7.1
-- inquiry 2 7.2
-- line 2 7.5.1
-- message line 2 7.5.1
-- message queue, work station 2 7.3
-- queue 2 7.3
-- queue, work station 2 7.3
-- receiving 2 7.7
-- sending 2 7.6
-- sources 2 7.4
-- summary 2 7.9
-- system 2 7.4.1
-- user 2 7.4.3
-- mistakes 1
-- keystroke 2 2.6.1
-- typing 2 2.2.1
+- magnetic
+  - disks, [1\.5\.2](1-5-2.md)
+  - tapes, [1\.5\.4](1-5-4.md)
+- main operations, [1\.2](1-2.md)
+- main storage, [1\.5\.1](1-5-1.md)
+- major functions, OS/400, [1\.8\.1](1-8-1.md)
+- managing
+  - output, [8\.0](8-0.md)
+  - work, [8\.0](8-0.md)
+- menu
+  - chaining, [5\.1](5-1.md)
+  - changing initial menu, [C\.1](c-1.md)
+  - displays, [5\.1](5-1.md)
+  - Operational Assistant, [5\.0](5-0.md)
+  - system request, [3\.1\.1](3-1-1.md)
+- menu command line, [A\.2\.1](a-2-1.md)
+- messages
+  - application program, [7\.4\.2](7-4-2.md)
+  - computer, [7\.7\.2\.2](7-7-2-2.md)
+  - deleting, [7\.8](7-8.md)
+  - error, [2\.6\.1](2-6-1.md)
+  - getting, [7\.7](7-7.md)
+  - informational, [7\.1](7-1.md)
+  - inquiry, [7\.2](7-2.md)
+  - line, [7\.5\.1](7-5-1.md)
+  - message line, [7\.5\.1](7-5-1.md)
+  - message queue, work station, [7\.3](7-3.md)
+  - queue, [7\.3](7-3.md)
+  - queue, work station, [7\.3](7-3.md)
+  - receiving, [7\.7](7-7.md)
+  - sending, [7\.6](7-6.md)
+  - sources, [7\.4](7-4.md)
+  - summary, [7\.9](7-9.md)
+  - system, [7\.4\.1](7-4-1.md)
+  - user, [7\.4\.3](7-4-3.md)
+- mistakes
+  - keystroke, [2\.6\.1](2-6-1.md)
+  - typing, [2\.2\.1](2-2-1.md)
 
 ## N
 
-- name, job 1 8.1.1
-- New Line key 1 3.1.1.1
-- Norbert 1 1.1
-- numbered function keys 1 3.1.2
-- numeric key pad, 3151 ASCII keyboard with 1 E.5.2.1
-- numeric key pad, 3151 ASCII keyboard without 1 E.5.2.1
+- name, job, [8\.1\.1](8-1-1.md)
+- New Line key, [3\.1\.1\.1](3-1-1-1.md)
+- Norbert, [1\.1](1-1.md)
+- numbered function keys, [3\.1\.2](3-1-2.md)
+- numeric key pad, 3151 ASCII keyboard with, [E\.5\.2\.1](e-5-2-1.md)
+- numeric key pad, 3151 ASCII keyboard without, [E\.5\.2\.1](e-5-2-1.md)
 
 ## O
 
-- officer, security 1 2.3
-- online education 1 C.3
-- online help 1 6.0
-- online information summary 1 6.4
-- on/off switch 1 2.1
-- operating system 1 1.2 1.7
-- Operating System/400 1
-- major functions 2 1.8.1
-- Operational Assistant 1
-- accessing 2 2.5
-- Operational Assistant menu 1 5.0
-- optional parameters 1 A.1.1.3
-- OS/400 major functions 1
-- communication support 2 1.8.1
-- control language 2 1.8.1
-- data management 2 1.8.1
-- PC support 2 1.8.1
-- programmer services 2 1.8.1
-- security 2 1.8.1
-- system operator services 2 1.8.1
-- work management 2 1.8.1
-- output devices 1
-- computer-produced speech 2 1.4
-- printers 2 1.4
-- work stations 2 1.4
-- output queue 1 8.2
+- officer, security, [2\.3](2-3.md)
+- online education, [C\.3](c-3.md)
+- online help, [6\.0](6-0.md)
+- online information summary, [6\.4](6-4.md)
+- on/off switch, [2\.1](2-1.md)
+- operating system, [1\.2](1-2.md), [1\.7](1-7.md)
+- Operating System/400
+  - major functions, [1\.8\.1](1-8-1.md)
+- Operational Assistant
+  - accessing, [2\.5](2-5.md)
+- Operational Assistant menu, [5\.0](5-0.md)
+- optional parameters, [A\.1\.1\.3](a-1-1-3.md)
+- OS/400 major functions
+  - communication support, [1\.8\.1](1-8-1.md)
+  - control language, [1\.8\.1](1-8-1.md)
+  - data management, [1\.8\.1](1-8-1.md)
+  - PC support, [1\.8\.1](1-8-1.md)
+  - programmer services, [1\.8\.1](1-8-1.md)
+  - security, [1\.8\.1](1-8-1.md)
+  - system operator services, [1\.8\.1](1-8-1.md)
+  - work management, [1\.8\.1](1-8-1.md)
+- output devices
+  - computer\-produced speech, [1\.4](1-4.md)
+  - printers, [1\.4](1-4.md)
+  - work stations, [1\.4](1-4.md)
+- output queue, [8\.2](8-2.md)
 
 ## P
 
-- pad, 3151 ASCII keyboard with numeric key 1 E.5.2.1
-- pad, 3151 ASCII keyboard without numeric key 1 E.5.2.1
-- parameters 1
-- help for 2 A.3.1
-- optional 2 A.1.1.3
-- required 2 A.1.1.3
-- password 1
-- change 2 5.2.1
-- description of 2 2.0
-- line 2 2.1
-- personal computer 1 1.5.3
-- emulating 5250 keyboards 2 E.4.2
-- keyboards 2 3.1.2.1 E.0 E.4.1
-- Personal Computer AT 1
-- emulating 5250 keyboards 2 E.4.2
-- print display 1 8.6
-- Print key 1 3.1.1 8.6
-- print screen 1 8.6
-- printer output 1
-- controlling 2 8.4
-- processor 1 1.2 1.6
-- functions 2 1.6
-- PROD, parameter value 1 A.3.1.1
-- profile, user 1 4.3.1
-- program 1 1.2
-- prompt displays, function key differences on other systems 1 F.1.1
-- prompting for commands 1 A.3.1
+- pad, 3151 ASCII keyboard with numeric key, [E\.5\.2\.1](e-5-2-1.md)
+- pad, 3151 ASCII keyboard without numeric key, [E\.5\.2\.1](e-5-2-1.md)
+- parameters
+  - help for, [A\.3\.1](a-3-1.md)
+  - optional, [A\.1\.1\.3](a-1-1-3.md)
+  - required, [A\.1\.1\.3](a-1-1-3.md)
+- password
+  - change, [5\.2\.1](5-2-1.md)
+  - description of, [2\.0](2-0.md)
+  - line, [2\.1](2-1.md)
+- personal computer, [1\.5\.3](1-5-3.md)
+  - emulating 5250 keyboards, [E\.4\.2](e-4-2.md)
+  - keyboards, [3\.1\.2\.1](3-1-2-1.md), [E\.0](e-0.md), [E\.4\.1](e-4-1.md)
+- Personal Computer AT
+  - emulating 5250 keyboards, [E\.4\.2](e-4-2.md)
+- print display, [8\.6](8-6.md)
+- Print key, [3\.1\.1](3-1-1.md), [8\.6](8-6.md)
+- print screen, [8\.6](8-6.md)
+- printer output
+  - controlling, [8\.4](8-4.md)
+- processor, [1\.2](1-2.md), [1\.6](1-6.md)
+  - functions, [1\.6](1-6.md)
+- PROD, parameter value, [A\.3\.1\.1](a-3-1-1.md)
+- profile, user, [4\.3\.1](4-3-1.md)
+- program, [1\.2](1-2.md)
+- prompt displays, function key differences on other systems, [F\.1\.1](f-1-1.md)
+- prompting for commands, [A\.3\.1](a-3-1.md)
 
 ## Q
 
-- queue 1
-- message 2 7.3
-- work station message 2 7.3
+- queue
+  - message, [7\.3](7-3.md)
+  - work station message, [7\.3](7-3.md)
 
 ## R
 
-- receiving messages 1 7.7
-- required parameters 1 A.1.1.3
-- roll keys 1 3.1.1
+- receiving messages, [7\.7](7-7.md)
+- required parameters, [A\.1\.1\.3](a-1-1-3.md)
+- roll keys, [3\.1\.1](3-1-1.md)
 
 ## S
 
-- security 1
-- levels 2 4.3.2
-- officer 2 2.3
-- sending 1
-- messages 2 7.6
-- Shift key 1 3.1.1
-- Shift Lock key 1 3.1.1
-- Sign On display 1 2.1
-- signing off 1 2.7
-- signing on 1 2.0
-- signing on/off summary 1 2.8
-- signing on, change menu 1 C.1
-- spacebar 1 2.2.1
-- special F keys 1 3.1.2.3
-- storage 1 1.2
-- main 2 1.5.1
-- storage devices 1
-- diskettes 2 1.5
-- magnetic disk 2 1.5
-- magnetic tape 2 1.5
-- main storage 2 1.5
-- summary 1
-- assistance level 2 4.4
-- control language 2 A.4
-- displays 2 5.5
-- introduction 2 1.9
-- keyboard 2 3.2
-- message 2 7.9
-- online information 2 6.4
-- signing on/off 2 2.8
-- user profile 2 4.4
-- using displays 2 5.5
-- work management 2 8.5
-- switch, on/off 1 2.1
-- system 1
-- displays 2 5.0
-- function key differences 2 F.1 F.2
-- on command prompt displays 3 F.1.1
-- on help displays 3 F.1.2
-- on system menus 3 F.1.3
-- on work with displays 3 F.2
-- menus, function key differences 2 F.1.3
-- messages 2 7.4.1
-- operating 2 1.7
-- request key 2 3.1.1
-- request menu 2 3.1.1
-- sign on 2 2.0
-- system request function 1 D.0
+- security
+  - levels, [4\.3\.2](4-3-2.md)
+  - officer, [2\.3](2-3.md)
+- sending
+  - messages, [7\.6](7-6.md)
+- Shift key, [3\.1\.1](3-1-1.md)
+- Shift Lock key, [3\.1\.1](3-1-1.md)
+- Sign On display, [2\.1](2-1.md)
+- signing off, [2\.7](2-7.md)
+- signing on, [2\.0](2-0.md)
+- signing on/off summary, [2\.8](2-8.md)
+- signing on, change menu, [C\.1](c-1.md)
+- spacebar, [2\.2\.1](2-2-1.md)
+- special F keys, [3\.1\.2\.3](3-1-2-3.md)
+- storage, [1\.2](1-2.md)
+  - main, [1\.5\.1](1-5-1.md)
+- storage devices
+  - diskettes, [1\.5](1-5.md)
+  - magnetic disk, [1\.5](1-5.md)
+  - magnetic tape, [1\.5](1-5.md)
+  - main storage, [1\.5](1-5.md)
+- summary
+  - assistance level, [4\.4](4-4.md)
+  - control language, [A\.4](a-4.md)
+  - displays, [5\.5](5-5.md)
+  - introduction, [1\.9](1-9.md)
+  - keyboard, [3\.2](3-2.md)
+  - message, [7\.9](7-9.md)
+  - online information, [6\.4](6-4.md)
+  - signing on/off, [2\.8](2-8.md)
+  - user profile, [4\.4](4-4.md)
+  - using displays, [5\.5](5-5.md)
+  - work management, [8\.5](8-5.md)
+- switch, on/off, [2\.1](2-1.md)
+- system
+  - displays, [5\.0](5-0.md)
+  - function key differences, [F\.1](f-1.md), [F\.2](f-2.md)
+    - on command prompt displays, [F\.1\.1](f-1-1.md)
+    - on help displays, [F\.1\.2](f-1-2.md)
+    - on system menus, [F\.1\.3](f-1-3.md)
+    - on work with displays, [F\.2](f-2.md)
+  - menus, function key differences, [F\.1\.3](f-1-3.md)
+  - messages, [7\.4\.1](7-4-1.md)
+  - operating, [1\.7](1-7.md)
+  - request key, [3\.1\.1](3-1-1.md)
+  - request menu, [3\.1\.1](3-1-1.md)
+  - sign on, [2\.0](2-0.md)
+- system request function, [D\.0](d-0.md)
 
 ## T
 
-- Tab key 1 2.3
-- tape drive 1 1.5.4
-- tapes 1
-- magnetic 2 1.5.4
-- tracking your job 1 8.2
-- tutorial system support 1 C.3
-- type-ahead function 1 D.2
-- typematic keys 1 2.6
-- Cursor up 2 2.6
-- typical computer system 1 1.2
-- typing mistakes 1 2.2.1
+- Tab key, [2\.3](2-3.md)
+- tape drive, [1\.5\.4](1-5-4.md)
+- tapes
+  - magnetic, [1\.5\.4](1-5-4.md)
+- tracking your job, [8\.2](8-2.md)
+- tutorial system support, [C\.3](c-3.md)
+- type\-ahead function, [D\.2](d-2.md)
+- typematic keys, [2\.6](2-6.md)
+  - Cursor up, [2\.6](2-6.md)
+- typical computer system, [1\.2](1-2.md)
+- typing mistakes, [2\.2\.1](2-2-1.md)
 
 ## U
 
-- user 1
-- ID 2 4.3.2
-- line 2 2.2
-- messages 2 7.4.3
-- name 2 2.0
-- user profile 1
-- description of 2 4.3.1
-- summary of 2 4.4
-- using displays summary 1 5.5
+- user
+  - ID, [4\.3\.2](4-3-2.md)
+  - line, [2\.2](2-2.md)
+  - messages, [7\.4\.3](7-4-3.md)
+  - name, [2\.0](2-0.md)
+- user profile
+  - description of, [4\.3\.1](4-3-1.md)
+  - summary of, [4\.4](4-4.md)
+- using displays summary, [5\.5](5-5.md)
 
 ## V
 
-- values, parameter 1
-- system-defined 2 A.1.1.2
-- user-defined 2 A.1.1.2
+- values, parameter
+  - system\-defined, [A\.1\.1\.2](a-1-1-2.md)
+  - user\-defined, [A\.1\.1\.2](a-1-1-2.md)
 
 ## W
 
-- work management 1 8.0
-- summary of 2 8.5
-- work station message queue 1 7.3
-- work with displays, function key differences 1 F.2
-- work with messages display 1 7.5.3
+- work management, [8\.0](8-0.md)
+  - summary of, [8\.5](8-5.md)
+- work station message queue, [7\.3](7-3.md)
+- work with displays, function key differences, [F\.2](f-2.md)
+- work with messages display, [7\.5\.3](7-5-3.md)
 
 ## Numerics
 
-- 122 key-typewriter keyboard, function keys 1 E.2
-- 3101 Display Station keyboards 1 E.5.1
-- 3151 ASCII keyboard without numeric key pad 1 E.5.2.1
-- 3151 ASCII keyboards, using 1 E.5.2
-- 3151 Display Station keyboards 1 E.5.2
-- 3160 Display Station keyboards 1 E.5.3
-- 5250 keyboard 1 3.1.2.1
-- 9402 System Unit 1 1.8
-- 9404 System Unit 1 1.8
-- 9406 System Unit 1 1.8
+- 122 key\-typewriter keyboard, function keys, [E\.2](e-2.md)
+- 3101 Display Station keyboards, [E\.5\.1](e-5-1.md)
+- 3151 ASCII keyboard without numeric key pad, [E\.5\.2\.1](e-5-2-1.md)
+- 3151 ASCII keyboards, using, [E\.5\.2](e-5-2.md)
+- 3151 Display Station keyboards, [E\.5\.2](e-5-2.md)
+- 3160 Display Station keyboards, [E\.5\.3](e-5-3.md)
+- 5250 keyboard, [3\.1\.2\.1](3-1-2-1.md)
+- 9402 System Unit, [1\.8](1-8.md)
+- 9404 System Unit, [1\.8](1-8.md)
+- 9406 System Unit, [1\.8](1-8.md)
 
 ---
 

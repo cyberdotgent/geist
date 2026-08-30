@@ -2,11 +2,19 @@
 
 ---
 
-### APPENDIX1.4.2.16 AS/400 System/38 Utilities (5738-DB1)
+### APPENDIX1\.4\.2\.16 AS/400 System/38 Utilities \(5738\-DB1\)
 
 <a id="TBLTBLUNIQ49"></a>
 
-[Table: TBLTBLUNIQ49]
+```
+           Binder     Order No         Title
+   ___     --         GC09-1367        LPS:  System/38 Utilities
+   ___     73         SX21-9926        2" binder
+   ___     73         SC09-1218        Query/38 User's Guide and Reference
+   ___     73         SC09-1217        DFU/38 User's Guide and Reference
+   ___     73         SC41-9759        Text Management/38 User's Guide and
+                                       Reference
+```
 
 ---
 

@@ -6,1587 +6,1587 @@
 
 ## A
 
-- abend conditions 1
-- ALLOCATE (APPC) 2 F.3.3
-- CONFIRM (APPC) 2 F.4.3
-- CONFIRMED (APPC) 2 F.5.3
-- DEALLOCATE (APPC) 2 F.6.3
-- RECEIVE_AND_WAIT (APPC) 2 F.10.3
-- REQUEST_TO_SEND (APPC) 2 F.11.3
-- SEND_DATA (APPC) 2 F.12.3
-- SEND_ERROR (APPC) 2 F.13.3
-- ACCEPT 1
-- IUCV function 2
-- IUCV function used in APPC/VM 2 5.10.4
-- completion 3 5.10.4.9
-- condition codes 3 5.10.4.6
-- format 3 5.10.4.1
-- parameter descriptions 3 5.10.4.2
-- parameter list format 3 5.10.4.5
-- program exceptions 3 5.10.4.7
-- return codes 3 5.10.4.6
-- state changes 3 5.10.4.8
-- using 3 5.10.4
-- parameters for communication servers 2 5.10.4.4
-- ACCEPT (IUCV function) 1 2.4.1 to 2.4.1.7
-- access control interface 1 7.12.1
-- access security types 1
-- of APPC ALLOCATE 2 F.3.1
-- with APPCVM CONNECT 2 3.8.1.6
-- ACIPARMS parameter list 1
-- CP command format 2 7.12.1.5.2
-- DIAGNOSE format 2 7.12.1.5.3
-- general format 2 7.12.1.3
-- IUCV format 2 7.12.1.5.6
-- SPOOL format 2 7.12.1.5.5
-- VMCF format 2 7.12.1.5.7
-- address exceptions 1 1.1.6
-- address lists 1 3.8.3.5 3.8.6.6 3.8.7.10 3.8.10.10
-- addressability, parameter 1 3.7.5
-- addresses 1
-- absolute 2 1.1.5
-- guest 2 1.1.5
-- processing of 2 1.1.5
-- real 2 1.1.5
-- addressing exceptions 1
-- APPCVM CONNECT 2 3.8.1.9.2
-- APPCVM QRYSTATE 2 3.8.2.7
-- APPCVM RECEIVE 2 3.8.3.7
-- APPCVM SENDCNF 2 3.8.4.6
-- APPCVM SENDCNFD 2 3.8.5.6
-- APPCVM SENDDATA 2 3.8.6.8
-- APPCVM SENDERR 2 3.8.7.6
-- APPCVM SENDREQ 2 3.8.8.6
-- APPCVM SETMODFY 2 3.8.9.6
-- APPCVM SEVER 2 3.8.10.6
-- IUCV ACCEPT 2 5.10.4.7
-- IUCV CONNECT 2 5.10.5.6
-- IUCV DECLARE BUFFER 2 5.10.6.8
-- IUCV DESCRIBE 2 5.10.7.5
-- IUCV QUERY 2 5.10.8.5
-- IUCV SET CONTROL MASK 2 5.10.10.6
-- IUCV SET MASK 2 5.10.11.6
-- IUCV SEVER 2 5.10.12.6
-- IUCV TEST COMPLETION 2 5.10.13.6
-- Advanced Program-to-Program Communication (APPC) 1
-- conversations in 2 F.1
-- definition 2 3.7
-- error conditions 2 3.7.7.1
-- functions 2 F.2 to F.13.3
-- interrupts 2 F.1.2
-- return codes 2 F.1.4
-- Advanced Program-to-Program Communication/VM (APPC/VM) 1 3.7
-- basics 2 3.7.2
-- condition codes and return codes 2 3.7.6
-- differences from IUCV 2 4.9
-- error/sever codes 2 3.7.6.2
-- functions, assembler 2
-- CONNECT 3 3.8.1
-- defaults for optional parameters 3 3.7.5.1
-- invoking 3 3.7.3
-- QRYSTATE 3 3.8.2
-- RECEIVE 3 3.8.3
-- SENDCNF 3 3.8.4
-- SENDCNFD 3 3.8.5
-- SENDDATA 3 3.8.6
-- SENDERR 3 3.8.7
-- SENDREQ 3 3.8.8
-- SETMODFY 3 3.8.9
-- SEVER 3 3.8.10
-- state table 3 3.7.8
-- using 3 3.7.4
-- interrupts 2 3.7.2.3
-- IUCV functions for APPC/VM paths 2
-- ACCEPT 3 5.10.4
-- CONNECT 3 5.10.5
-- DCLBFR 3 5.10.6
-- DESCRIBE 3 5.10.7
-- QUERY 3 5.10.8
-- RTRVBFR 3 5.10.9
-- SETCMASK 3 5.10.10
-- SETMASK 3 5.10.11
-- SEVER 3 5.10.12
-- TESTCMPL 3 5.10.13
-- TESTMSG 3 5.10.14
-- managing a resource 2 3.7.4.4
-- overview 2 3.7
-- parameter lists 2 3.7.5
-- formatting with MF=L 3 3.7.5.4
-- reading 3 3.7.5.3
-- paths 2 3.7.2.1
-- performance 2 5.10.6.3
-- starting a conversation 2 3.7.4.1
-- state table for error conditions 2 3.7.8.2
-- state table for functions 2 3.7.8
-- states 2 3.7.2.2
-- allocate data 1 3.7.4.1 3.8.1.10.2
-- examples 2 3.8.1.11
-- receiving 2 3.8.3
-- ALLOCATE, APPC verb 1
-- abend conditions 2 F.3.3
-- mapped with APPC/VM 2 F.3
-- parameters 2 F.3.1
-- state changes 2 F.3.2
-- ALLOCD parameter of APPCVM CONNECT 1 3.8.1.3
-- answer data, APPCVM SENDDATA 1 3.8.6
-- APPC data 1 3.8.6.5
-- APPC (Advanced Program-to-Program Communication) 1
-- conversations in 2 F.1
-- definition 2 3.7
-- error conditions 2 3.7.7.1
-- functions 2 F.2 to F.13.3
-- interrupts 2 F.1.2
-- return codes 2 F.1.4
-- APPCPASS directory statement 1 3.8.1.6
-- APPCVM macro functions 1
-- CONNECT 2 3.8.1
-- defaults for optional parameters 2 3.7.5.1
-- invoking 2 3.7.3
-- QRYSTATE 2 3.8.2
-- RECEIVE 2 3.8.3
-- SENDCNF 2 3.8.4
-- SENDCNFD 2 3.8.5
-- SENDDATA 2 3.8.6
-- SENDERR 2 3.8.7
-- SENDREQ 2 3.8.8
-- SETMODFY 2 3.8.9
-- SEVER 2 3.8.10
-- state table 2 3.7.8
-- using 2 3.7.4
-- APPC/VM (Advanced Program-to-Program Communication/VM) 1 3.7
-- basics 2 3.7.2
-- condition codes and return codes 2 3.7.6
-- differences from IUCV 2 4.9
-- error/sever codes 2 3.7.6.2
-- functions, assembler 2
-- CONNECT 3 3.8.1
-- defaults for optional parameters 3 3.7.5.1
-- invoking 3 3.7.3
-- QRYSTATE 3 3.8.2
-- RECEIVE 3 3.8.3
-- SENDCNF 3 3.8.4
-- SENDCNFD 3 3.8.5
-- SENDDATA 3 3.8.6
-- SENDERR 3 3.8.7
-- SENDREQ 3 3.8.8
-- SETMODFY 3 3.8.9
-- SEVER 3 3.8.10
-- state table 3 3.7.8
-- using 3 3.7.4
-- interrupts 2 3.7.2.3
-- IUCV functions for APPC/VM paths 2
-- ACCEPT 3 5.10.4
-- CONNECT 3 5.10.5
-- DCLBFR 3 5.10.6
-- DESCRIBE 3 5.10.7
-- QUERY 3 5.10.8
-- RTRVBFR 3 5.10.9
-- SETCMASK 3 5.10.10
-- SETMASK 3 5.10.11
-- SEVER 3 5.10.12
-- TESTCMPL 3 5.10.13
-- TESTMSG 3 5.10.14
-- managing a resource 2 3.7.4.4
-- overview 2 3.7
-- parameter lists 2 3.7.5
-- formatting with MF=L 3 3.7.5.4
-- reading 3 3.7.5.3
-- paths 2 3.7.2.1
-- performance 2 5.10.6.3
-- starting a conversation 2 3.7.4.1
-- state table for error conditions 2 3.7.8.2
-- state table for functions 2 3.7.8
-- states 2 3.7.2.2
-- area for VM allocate data 1 3.8.1.10.2 3.8.1.11
-- asynchronous communications 1
-- not based on APPC 2 F.1.2
-- attributes, Audit and Protect 1
-- as a product-sensitive interface 2 7.12.1
-- description 2 7.12.1
-- Audit attributes 1
-- as a product-sensitive interface 2 7.12.1
-- description 2 7.12.1
-- Protect attributes 2
-- audit trail, IUCV 1
-- summary of 2 2.6.4
-- auditing 1
-- APPC commands 2 7.12.1.5.6
-- command auditing 2 7.12.1.5.6
-- IUCV commands 2 7.12.1.5.6
-- spool files 2 7.12.1.5.4
-- VMCF commands 2 7.12.1.5.7
-- authorization 1
-- connect to *IDENT 2 3.7.4.4
-- revoking a resource 2 3.7.4.5
+- abend conditions
+  - ALLOCATE \(APPC\), [F\.3\.3](f-3-3.md)
+  - CONFIRM \(APPC\), [F\.4\.3](f-4-3.md)
+  - CONFIRMED \(APPC\), [F\.5\.3](f-5-3.md)
+  - DEALLOCATE \(APPC\), [F\.6\.3](f-6-3.md)
+  - RECEIVE\_AND\_WAIT \(APPC\), [F\.10\.3](f-10-3.md)
+  - REQUEST\_TO\_SEND \(APPC\), [F\.11\.3](f-11-3.md)
+  - SEND\_DATA \(APPC\), [F\.12\.3](f-12-3.md)
+  - SEND\_ERROR \(APPC\), [F\.13\.3](f-13-3.md)
+- ACCEPT
+  - IUCV function
+  - IUCV function used in APPC/VM, [5\.10\.4](5-10-4.md)
+    - completion, [5\.10\.4\.9](5-10-4-9.md)
+    - condition codes, [5\.10\.4\.6](5-10-4-6.md)
+    - format, [5\.10\.4\.1](5-10-4-1.md)
+    - parameter descriptions, [5\.10\.4\.2](5-10-4-2.md)
+    - parameter list format, [5\.10\.4\.5](5-10-4-5.md)
+    - program exceptions, [5\.10\.4\.7](5-10-4-7.md)
+    - return codes, [5\.10\.4\.6](5-10-4-6.md)
+    - state changes, [5\.10\.4\.8](5-10-4-8.md)
+    - using, [5\.10\.4](5-10-4.md)
+  - parameters for communication servers, [5\.10\.4\.4](5-10-4-4.md)
+- ACCEPT \(IUCV function\), [2\.4\.1](2-4-1.md) to [2\.4\.1\.7](2-4-1-7.md)
+- access control interface, [7\.12\.1](7-12-1.md)
+- access security types
+  - of APPC ALLOCATE, [F\.3\.1](f-3-1.md)
+  - with APPCVM CONNECT, [3\.8\.1\.6](3-8-1-6.md)
+- ACIPARMS parameter list
+  - CP command format, [7\.12\.1\.5\.2](7-12-1-5-2.md)
+  - DIAGNOSE format, [7\.12\.1\.5\.3](7-12-1-5-3.md)
+  - general format, [7\.12\.1\.3](7-12-1-3.md)
+  - IUCV format, [7\.12\.1\.5\.6](7-12-1-5-6.md)
+  - SPOOL format, [7\.12\.1\.5\.5](7-12-1-5-5.md)
+  - VMCF format, [7\.12\.1\.5\.7](7-12-1-5-7.md)
+- address exceptions, [1\.1\.6](1-1-6.md)
+- address lists, [3\.8\.3\.5](3-8-3-5.md), [3\.8\.6\.6](3-8-6-6.md), [3\.8\.7\.10](3-8-7-10.md), [3\.8\.10\.10](3-8-10-10.md)
+- addressability, parameter, [3\.7\.5](3-7-5.md)
+- addresses
+  - absolute, [1\.1\.5](1-1-5.md)
+  - guest, [1\.1\.5](1-1-5.md)
+  - processing of, [1\.1\.5](1-1-5.md)
+  - real, [1\.1\.5](1-1-5.md)
+- addressing exceptions
+  - APPCVM CONNECT, [3\.8\.1\.9\.2](3-8-1-9-2.md)
+  - APPCVM QRYSTATE, [3\.8\.2\.7](3-8-2-7.md)
+  - APPCVM RECEIVE, [3\.8\.3\.7](3-8-3-7.md)
+  - APPCVM SENDCNF, [3\.8\.4\.6](3-8-4-6.md)
+  - APPCVM SENDCNFD, [3\.8\.5\.6](3-8-5-6.md)
+  - APPCVM SENDDATA, [3\.8\.6\.8](3-8-6-8.md)
+  - APPCVM SENDERR, [3\.8\.7\.6](3-8-7-6.md)
+  - APPCVM SENDREQ, [3\.8\.8\.6](3-8-8-6.md)
+  - APPCVM SETMODFY, [3\.8\.9\.6](3-8-9-6.md)
+  - APPCVM SEVER, [3\.8\.10\.6](3-8-10-6.md)
+  - IUCV ACCEPT, [5\.10\.4\.7](5-10-4-7.md)
+  - IUCV CONNECT, [5\.10\.5\.6](5-10-5-6.md)
+  - IUCV DECLARE BUFFER, [5\.10\.6\.8](5-10-6-8.md)
+  - IUCV DESCRIBE, [5\.10\.7\.5](5-10-7-5.md)
+  - IUCV QUERY, [5\.10\.8\.5](5-10-8-5.md)
+  - IUCV SET CONTROL MASK, [5\.10\.10\.6](5-10-10-6.md)
+  - IUCV SET MASK, [5\.10\.11\.6](5-10-11-6.md)
+  - IUCV SEVER, [5\.10\.12\.6](5-10-12-6.md)
+  - IUCV TEST COMPLETION, [5\.10\.13\.6](5-10-13-6.md)
+- Advanced Program\-to\-Program Communication \(APPC\)
+  - conversations in, [F\.1](f-1.md)
+  - definition, [3\.7](3-7.md)
+  - error conditions, [3\.7\.7\.1](3-7-7-1.md)
+  - functions, [F\.2](f-2.md) to [F\.13\.3](f-13-3.md)
+  - interrupts, [F\.1\.2](f-1-2.md)
+  - return codes, [F\.1\.4](f-1-4.md)
+- Advanced Program\-to\-Program Communication/VM \(APPC/VM\), [3\.7](3-7.md)
+  - basics, [3\.7\.2](3-7-2.md)
+  - condition codes and return codes, [3\.7\.6](3-7-6.md)
+  - differences from IUCV, [4\.9](4-9.md)
+  - error/sever codes, [3\.7\.6\.2](3-7-6-2.md)
+  - functions, assembler
+    - CONNECT, [3\.8\.1](3-8-1.md)
+    - defaults for optional parameters, [3\.7\.5\.1](3-7-5-1.md)
+    - invoking, [3\.7\.3](3-7-3.md)
+    - QRYSTATE, [3\.8\.2](3-8-2.md)
+    - RECEIVE, [3\.8\.3](3-8-3.md)
+    - SENDCNF, [3\.8\.4](3-8-4.md)
+    - SENDCNFD, [3\.8\.5](3-8-5.md)
+    - SENDDATA, [3\.8\.6](3-8-6.md)
+    - SENDERR, [3\.8\.7](3-8-7.md)
+    - SENDREQ, [3\.8\.8](3-8-8.md)
+    - SETMODFY, [3\.8\.9](3-8-9.md)
+    - SEVER, [3\.8\.10](3-8-10.md)
+    - state table, [3\.7\.8](3-7-8.md)
+    - using, [3\.7\.4](3-7-4.md)
+  - interrupts, [3\.7\.2\.3](3-7-2-3.md)
+  - IUCV functions for APPC/VM paths
+    - ACCEPT, [5\.10\.4](5-10-4.md)
+    - CONNECT, [5\.10\.5](5-10-5.md)
+    - DCLBFR, [5\.10\.6](5-10-6.md)
+    - DESCRIBE, [5\.10\.7](5-10-7.md)
+    - QUERY, [5\.10\.8](5-10-8.md)
+    - RTRVBFR, [5\.10\.9](5-10-9.md)
+    - SETCMASK, [5\.10\.10](5-10-10.md)
+    - SETMASK, [5\.10\.11](5-10-11.md)
+    - SEVER, [5\.10\.12](5-10-12.md)
+    - TESTCMPL, [5\.10\.13](5-10-13.md)
+    - TESTMSG, [5\.10\.14](5-10-14.md)
+  - managing a resource, [3\.7\.4\.4](3-7-4-4.md)
+  - overview, [3\.7](3-7.md)
+  - parameter lists, [3\.7\.5](3-7-5.md)
+    - formatting with MF=L, [3\.7\.5\.4](3-7-5-4.md)
+    - reading, [3\.7\.5\.3](3-7-5-3.md)
+  - paths, [3\.7\.2\.1](3-7-2-1.md)
+  - performance, [5\.10\.6\.3](5-10-6-3.md)
+  - starting a conversation, [3\.7\.4\.1](3-7-4-1.md)
+  - state table for error conditions, [3\.7\.8\.2](3-7-8-2.md)
+  - state table for functions, [3\.7\.8](3-7-8.md)
+  - states, [3\.7\.2\.2](3-7-2-2.md)
+- allocate data, [3\.7\.4\.1](3-7-4-1.md), [3\.8\.1\.10\.2](3-8-1-10-2.md)
+  - examples, [3\.8\.1\.11](3-8-1-11.md)
+  - receiving, [3\.8\.3](3-8-3.md)
+- ALLOCATE, APPC verb
+  - abend conditions, [F\.3\.3](f-3-3.md)
+  - mapped with APPC/VM, [F\.3](f-3.md)
+  - parameters, [F\.3\.1](f-3-1.md)
+  - state changes, [F\.3\.2](f-3-2.md)
+- ALLOCD parameter of APPCVM CONNECT, [3\.8\.1\.3](3-8-1-3.md)
+- answer data, APPCVM SENDDATA, [3\.8\.6](3-8-6.md)
+- APPC data, [3\.8\.6\.5](3-8-6-5.md)
+- APPC \(Advanced Program\-to\-Program Communication\)
+  - conversations in, [F\.1](f-1.md)
+  - definition, [3\.7](3-7.md)
+  - error conditions, [3\.7\.7\.1](3-7-7-1.md)
+  - functions, [F\.2](f-2.md) to [F\.13\.3](f-13-3.md)
+  - interrupts, [F\.1\.2](f-1-2.md)
+  - return codes, [F\.1\.4](f-1-4.md)
+- APPCPASS directory statement, [3\.8\.1\.6](3-8-1-6.md)
+- APPCVM macro functions
+  - CONNECT, [3\.8\.1](3-8-1.md)
+  - defaults for optional parameters, [3\.7\.5\.1](3-7-5-1.md)
+  - invoking, [3\.7\.3](3-7-3.md)
+  - QRYSTATE, [3\.8\.2](3-8-2.md)
+  - RECEIVE, [3\.8\.3](3-8-3.md)
+  - SENDCNF, [3\.8\.4](3-8-4.md)
+  - SENDCNFD, [3\.8\.5](3-8-5.md)
+  - SENDDATA, [3\.8\.6](3-8-6.md)
+  - SENDERR, [3\.8\.7](3-8-7.md)
+  - SENDREQ, [3\.8\.8](3-8-8.md)
+  - SETMODFY, [3\.8\.9](3-8-9.md)
+  - SEVER, [3\.8\.10](3-8-10.md)
+  - state table, [3\.7\.8](3-7-8.md)
+  - using, [3\.7\.4](3-7-4.md)
+- APPC/VM \(Advanced Program\-to\-Program Communication/VM\), [3\.7](3-7.md)
+  - basics, [3\.7\.2](3-7-2.md)
+  - condition codes and return codes, [3\.7\.6](3-7-6.md)
+  - differences from IUCV, [4\.9](4-9.md)
+  - error/sever codes, [3\.7\.6\.2](3-7-6-2.md)
+  - functions, assembler
+    - CONNECT, [3\.8\.1](3-8-1.md)
+    - defaults for optional parameters, [3\.7\.5\.1](3-7-5-1.md)
+    - invoking, [3\.7\.3](3-7-3.md)
+    - QRYSTATE, [3\.8\.2](3-8-2.md)
+    - RECEIVE, [3\.8\.3](3-8-3.md)
+    - SENDCNF, [3\.8\.4](3-8-4.md)
+    - SENDCNFD, [3\.8\.5](3-8-5.md)
+    - SENDDATA, [3\.8\.6](3-8-6.md)
+    - SENDERR, [3\.8\.7](3-8-7.md)
+    - SENDREQ, [3\.8\.8](3-8-8.md)
+    - SETMODFY, [3\.8\.9](3-8-9.md)
+    - SEVER, [3\.8\.10](3-8-10.md)
+    - state table, [3\.7\.8](3-7-8.md)
+    - using, [3\.7\.4](3-7-4.md)
+  - interrupts, [3\.7\.2\.3](3-7-2-3.md)
+  - IUCV functions for APPC/VM paths
+    - ACCEPT, [5\.10\.4](5-10-4.md)
+    - CONNECT, [5\.10\.5](5-10-5.md)
+    - DCLBFR, [5\.10\.6](5-10-6.md)
+    - DESCRIBE, [5\.10\.7](5-10-7.md)
+    - QUERY, [5\.10\.8](5-10-8.md)
+    - RTRVBFR, [5\.10\.9](5-10-9.md)
+    - SETCMASK, [5\.10\.10](5-10-10.md)
+    - SETMASK, [5\.10\.11](5-10-11.md)
+    - SEVER, [5\.10\.12](5-10-12.md)
+    - TESTCMPL, [5\.10\.13](5-10-13.md)
+    - TESTMSG, [5\.10\.14](5-10-14.md)
+  - managing a resource, [3\.7\.4\.4](3-7-4-4.md)
+  - overview, [3\.7](3-7.md)
+  - parameter lists, [3\.7\.5](3-7-5.md)
+    - formatting with MF=L, [3\.7\.5\.4](3-7-5-4.md)
+    - reading, [3\.7\.5\.3](3-7-5-3.md)
+  - paths, [3\.7\.2\.1](3-7-2-1.md)
+  - performance, [5\.10\.6\.3](5-10-6-3.md)
+  - starting a conversation, [3\.7\.4\.1](3-7-4-1.md)
+  - state table for error conditions, [3\.7\.8\.2](3-7-8-2.md)
+  - state table for functions, [3\.7\.8](3-7-8.md)
+  - states, [3\.7\.2\.2](3-7-2-2.md)
+- area for VM allocate data, [3\.8\.1\.10\.2](3-8-1-10-2.md), [3\.8\.1\.11](3-8-1-11.md)
+- asynchronous communications
+  - not based on APPC, [F\.1\.2](f-1-2.md)
+- attributes, Audit and Protect
+  - as a product\-sensitive interface, [7\.12\.1](7-12-1.md)
+  - description, [7\.12\.1](7-12-1.md)
+- Audit attributes
+  - as a product\-sensitive interface, [7\.12\.1](7-12-1.md)
+  - description, [7\.12\.1](7-12-1.md)
+  - Protect attributes
+- audit trail, IUCV
+  - summary of, [2\.6\.4](2-6-4.md)
+- auditing
+  - APPC commands, [7\.12\.1\.5\.6](7-12-1-5-6.md)
+  - command auditing, [7\.12\.1\.5\.6](7-12-1-5-6.md)
+  - IUCV commands, [7\.12\.1\.5\.6](7-12-1-5-6.md)
+  - spool files, [7\.12\.1\.5\.4](7-12-1-5-4.md)
+  - VMCF commands, [7\.12\.1\.5\.7](7-12-1-5-7.md)
+- authorization
+  - connect to \*IDENT, [3\.7\.4\.4](3-7-4-4.md)
+  - revoking a resource, [3\.7\.4\.5](3-7-4-5.md)
 
 ## B
 
-- backout_received state 1 3.7.8
-- backout_required state 1 3.7.8
-- backout_required 2
-- state table for APPC/VM error conditions 3 3.7.8.2
-- BASIC conversation type 1 3.8.1.3
-- bibliography 1 BIBLIOGRAPHY
-- BLOCKIO facility 1 6.11.4
-- buffer extension, interrupt 1 5.10.6.6
-- buffers 1
-- application 2 5.10.6.3
-- control 2 5.10.6.3
-- use by APPC 2 3.8.6.5
+- backout\_received state, [3\.7\.8](3-7-8.md)
+- backout\_required state, [3\.7\.8](3-7-8.md)
+  - backout\_required
+    - state table for APPC/VM error conditions, [3\.7\.8\.2](3-7-8-2.md)
+- BASIC conversation type, [3\.8\.1\.3](3-8-1-3.md)
+- bibliography, [BIBLIOGRAPHY](bibliography.md)
+- BLOCKIO facility, [6\.11\.4](6-11-4.md)
+- buffer extension, interrupt, [5\.10\.6\.6](5-10-6-6.md)
+- buffers
+  - application, [5\.10\.6\.3](5-10-6-3.md)
+  - control, [5\.10\.6\.3](5-10-6-3.md)
+  - use by APPC, [3\.8\.6\.5](3-8-6-5.md)
 
 ## C
 
-- CCED 1 3.8.1.9.5
-- changes, state 1
-- ALLOCATE (APPC) 2 F.3.2
-- APPCVM CONNECT 2 3.8.1.9.3
-- APPCVM QRYSTATE 2 3.8.2.8
-- APPCVM RECEIVE 2 3.8.3.8
-- APPCVM SEVER 2 3.8.10.7
-- CONFIRM (APPC) 2 F.4.2
-- CONFIRMED (APPC) 2 F.5.2
-- DCLBFR 2 5.10.6.9
-- DEALLOCATE (APPC) 2 F.6.2
-- IUCV ACCEPT 2 5.10.4.8
-- RECEIVE_AND_WAIT (APPC) 2 F.10.2
-- REQUEST_TO_SEND (APPC) 2 F.11.2
-- RETRIEVE BUFFER 2 5.10.9.4
-- SENDCNF 2 3.8.4.7
-- SENDCNFD 2 3.8.5.7
-- SENDDATA 2 3.8.6.9
-- SENDERR 2 3.8.7.7
-- SENDREQ 2 3.8.8.7
-- SEND_DATA (APPC) 2 F.12.2
-- SEND_ERROR (APPC) 2 F.13.2
-- SETMODFY 2 3.8.9.7
-- changing data flow direction 1 3.8.6.2
-- CLOSE function of *SPL system service 1 6.11.14.2
-- CLR function (HNDIUCV macro) 1
-- CMS communications directory 1
-- CMS communications directory, use in APPCVM CONNECT 1 3.7.4.1 3.8.1.3 3.8.1.5 3.8.1.6 3.8.1.10.2
-- CMS directory file 1
-- CMS interface to APPC/VM 1 6.11.6.1
-- CMSIUCV macro 1
-- codes, condition 1
-- See condition codes 2
-- codes, return 1
-- See return codes 2
-- collection of VM/ESA systems (TSAF Collection) 1
-- revoking gateways when merging 2 3.7.4.5
-- revoking resources when merging 2 3.7.4.5
-- commmunications routines (CPI) 1
-- communication 1
-- between virtual machines 2
-- IUCV 2
-- identify system service 3 6.11.6
-- communications partner 1
-- connecting to 2 3.8.1.10.1
-- receiving from 2 3.8.3.10
-- sending to (SENDCNFD) 2 3.8.5.9
-- sending to (SENDCNF) 2 3.8.4.9
-- sending to (SENDDATA) 2 3.8.6.11
-- sending to (SENDERR) 2 3.8.7.9
-- sending to (SENDREQ) 2 3.8.8.9
-- severing from 2 3.8.10.9
-- severing paths 2 5.10.9.6
-- communications servers 1
-- accepting connections 2 5.10.4.4
-- making connections 2 3.8.1.11
-- parameters on IUCV ACCEPT 2 5.10.4.4
-- communication, signals between virtual machine groups 1 6.11.13
-- completion codes 1 1.1.6
-- completion of functions 1
-- ACCEPT 2 5.10.4.9
-- APPCVM CONNECT 2 3.8.1.9.4
-- DCLBFR 2 5.10.6.10
-- DESCRIBE 2 5.10.7.7
-- RECEIVE 2 3.8.3.9
-- RETRIEVE BUFFER 2 5.10.9.5
-- SENDCNF 2 3.8.4.8
-- SENDCNFD 2 3.8.5.8
-- SENDDATA 2 3.8.6.10
-- SENDERR 2 3.8.7.8
-- SENDREQ 2 3.8.8.8
-- SETCMASK 2 5.10.10.8
-- SETMASK 2 5.10.11.8
-- SETMODFY 2 3.8.9.8
-- SEVER (APPCVM) 2 3.8.10.8
-- TESTCMPL 2 5.10.13.8
-- TESTMSG 2 5.10.14.5
-- COMSRV parameter of IUCV ACCEPT 1 5.10.4.4
-- condition codes 1 1.1.6
-- APPCVM 2
-- CONNECT 3 3.8.1.9.1
-- overview 3 3.7.6 3.7.6.1
-- QRYSTATE 3 3.8.2.6
-- RECEIVE 3 3.8.3.6
-- SENDCNF 3 3.8.4.5
-- SENDCNFD 3 3.8.5.5
-- SENDDATA 3 3.8.6.7
-- SENDERR 3 3.8.7.5
-- SENDREQ 3 3.8.8.5
-- SETMODFY 3 3.8.9.5
-- SEVER 3 3.8.10.5
-- DIAGNOSE codes 2
-- IUCV 2
-- ACCEPT 3 5.10.4.6
-- CONNECT 3 5.10.5.5
-- DECLARE BUFFER 3 5.10.6.7
-- DESCRIBE 3 5.10.7.4
-- QUERY 3 5.10.8.4
-- RETRIEVE BUFFER 3 5.10.9.2
-- SET CONTROL MASK 3 5.10.10.5
-- SET MASK 3 5.10.11.5
-- SEVER 3 5.10.12.5
-- TEST COMPLETION 3 5.10.13.5
-- TESTMSG 3 5.10.14.2
-- condition codes, IUCV 1 2.6.2
-- Confirm state 1 3.7.2.2 3.7.8
-- CONFIRM synchronization level 1 3.8.1.3
-- CONFIRMED, APPC verb 1
-- abend conditions 2 F.5.3
-- mapped with APPC/VM 2 F.5
-- parameters 2 F.5.1
-- state changes 2 F.5.2
-- CONFIRM, APPC verb 1
-- abend conditions 2 F.4.3
-- mapped with APPC/VM 2 F.4
-- parameters 2 F.4.1
-- state changes 2 F.4.2
-- CONNECT function of APPCVM 1 3.8.1
-- allocate data 2 3.8.1.10.2
-- communication servers 2 3.8.1.11
-- completion 2 3.8.1.9.4
-- condition codes 2 3.8.1.9.1
-- connection complete extended data 2 3.8.1.9.5
-- connection pending extended data 2 3.8.1.10.2
-- connection pending interrupt 2 3.8.1.10.1
-- description 2 3.8.1
-- FMH5 2 3.8.1.10.2
-- format 2 3.8.1.1
-- mapped with APPC 2 F.3
-- parameter descriptions 2 3.8.1.2
-- parameter list extension 2 3.8.1.6
-- parameter list format 2 3.8.1.5
-- pip variables 2 3.8.1.7 3.8.1.11.1
-- program exceptions 2 3.8.1.9.2
-- return codes 2 3.8.1.9.1
-- state changes 2 3.8.1.9.3
-- to communication partner 2 3.8.1.10.1
-- to start a conversation CONNECT with a resource ID. 2 3.7.4.1
-- VM architected area 2 3.8.1.10.2 3.8.1.11
-- CONNECT function of IUCV 1 5.10.5
-- used in APPC/VM 2 5.10.5
-- condition codes 3 5.10.5.5
-- format 3 5.10.5.1
-- parameter descriptions 3 5.10.5.2
-- parameter list format 3 5.10.5.4
-- program exceptions 3 5.10.5.6
-- return codes 3 5.10.5.5
-- to revoke a resource 3 3.7.4.5
-- using 3 5.10.5
-- *IDENT sever reason codes 2 6.11.7
-- Connect state 1 3.7.2.2 3.7.8
-- CONNECT (IUCV function) 1 2.4.2 to 2.4.2.7
-- connecting to programs 1
-- resource manager 2 3.7.4.4
-- connecting to *IDENT 1
-- to manage a resource 2 3.7.4.4
-- to revoke a resource 2 3.7.4.5
-- connection complete interrupts 1 3.7.2.3
-- extended data 2 3.8.1.9.5
-- format 2 3.8.1.9.1 3.8.1.9.4
-- connection parameter list extension 1 3.8.1.6
-- connection pending interrupts 1 3.7.2.3 3.8.1.10.1
-- extended data 2 3.8.1.10.2
-- format 2 3.8.1.10.1
-- control buffer 1 5.10.6.3
-- control path 1 5.10.6.3
-- Control Program (CP) 1
-- system service 2
-- See CP system services 3
-- conversations 1
-- APPC 2 F.1
-- starting an APPC one 2 F.1.1
-- states 2 3.7.2.2
-- CP system services 1
-- identify (*IDENT) 2 6.11.5
-- CPED 1 3.8.1.10.2
+- CCED, [3\.8\.1\.9\.5](3-8-1-9-5.md)
+- changes, state
+  - ALLOCATE \(APPC\), [F\.3\.2](f-3-2.md)
+  - APPCVM CONNECT, [3\.8\.1\.9\.3](3-8-1-9-3.md)
+  - APPCVM QRYSTATE, [3\.8\.2\.8](3-8-2-8.md)
+  - APPCVM RECEIVE, [3\.8\.3\.8](3-8-3-8.md)
+  - APPCVM SEVER, [3\.8\.10\.7](3-8-10-7.md)
+  - CONFIRM \(APPC\), [F\.4\.2](f-4-2.md)
+  - CONFIRMED \(APPC\), [F\.5\.2](f-5-2.md)
+  - DCLBFR, [5\.10\.6\.9](5-10-6-9.md)
+  - DEALLOCATE \(APPC\), [F\.6\.2](f-6-2.md)
+  - IUCV ACCEPT, [5\.10\.4\.8](5-10-4-8.md)
+  - RECEIVE\_AND\_WAIT \(APPC\), [F\.10\.2](f-10-2.md)
+  - REQUEST\_TO\_SEND \(APPC\), [F\.11\.2](f-11-2.md)
+  - RETRIEVE BUFFER, [5\.10\.9\.4](5-10-9-4.md)
+  - SENDCNF, [3\.8\.4\.7](3-8-4-7.md)
+  - SENDCNFD, [3\.8\.5\.7](3-8-5-7.md)
+  - SENDDATA, [3\.8\.6\.9](3-8-6-9.md)
+  - SENDERR, [3\.8\.7\.7](3-8-7-7.md)
+  - SENDREQ, [3\.8\.8\.7](3-8-8-7.md)
+  - SEND\_DATA \(APPC\), [F\.12\.2](f-12-2.md)
+  - SEND\_ERROR \(APPC\), [F\.13\.2](f-13-2.md)
+  - SETMODFY, [3\.8\.9\.7](3-8-9-7.md)
+- changing data flow direction, [3\.8\.6\.2](3-8-6-2.md)
+- CLOSE function of \*SPL system service, [6\.11\.14\.2](6-11-14-2.md)
+- CLR function \(HNDIUCV macro\)
+- CMS communications directory
+- CMS communications directory, use in APPCVM CONNECT, [3\.7\.4\.1](3-7-4-1.md), [3\.8\.1\.3](3-8-1-3.md), [3\.8\.1\.5](3-8-1-5.md), [3\.8\.1\.6](3-8-1-6.md), [3\.8\.1\.10\.2](3-8-1-10-2.md)
+- CMS directory file
+- CMS interface to APPC/VM, [6\.11\.6\.1](6-11-6-1.md)
+- CMSIUCV macro
+- codes, condition
+  - See condition codes
+- codes, return
+  - See return codes
+- collection of VM/ESA systems \(TSAF Collection\)
+  - revoking gateways when merging, [3\.7\.4\.5](3-7-4-5.md)
+  - revoking resources when merging, [3\.7\.4\.5](3-7-4-5.md)
+- commmunications routines \(CPI\)
+- communication
+  - between virtual machines
+  - IUCV
+    - identify system service, [6\.11\.6](6-11-6.md)
+- communications partner
+  - connecting to, [3\.8\.1\.10\.1](3-8-1-10-1.md)
+  - receiving from, [3\.8\.3\.10](3-8-3-10.md)
+  - sending to \(SENDCNFD\), [3\.8\.5\.9](3-8-5-9.md)
+  - sending to \(SENDCNF\), [3\.8\.4\.9](3-8-4-9.md)
+  - sending to \(SENDDATA\), [3\.8\.6\.11](3-8-6-11.md)
+  - sending to \(SENDERR\), [3\.8\.7\.9](3-8-7-9.md)
+  - sending to \(SENDREQ\), [3\.8\.8\.9](3-8-8-9.md)
+  - severing from, [3\.8\.10\.9](3-8-10-9.md)
+  - severing paths, [5\.10\.9\.6](5-10-9-6.md)
+- communications servers
+  - accepting connections, [5\.10\.4\.4](5-10-4-4.md)
+  - making connections, [3\.8\.1\.11](3-8-1-11.md)
+  - parameters on IUCV ACCEPT, [5\.10\.4\.4](5-10-4-4.md)
+- communication, signals between virtual machine groups, [6\.11\.13](6-11-13.md)
+- completion codes, [1\.1\.6](1-1-6.md)
+- completion of functions
+  - ACCEPT, [5\.10\.4\.9](5-10-4-9.md)
+  - APPCVM CONNECT, [3\.8\.1\.9\.4](3-8-1-9-4.md)
+  - DCLBFR, [5\.10\.6\.10](5-10-6-10.md)
+  - DESCRIBE, [5\.10\.7\.7](5-10-7-7.md)
+  - RECEIVE, [3\.8\.3\.9](3-8-3-9.md)
+  - RETRIEVE BUFFER, [5\.10\.9\.5](5-10-9-5.md)
+  - SENDCNF, [3\.8\.4\.8](3-8-4-8.md)
+  - SENDCNFD, [3\.8\.5\.8](3-8-5-8.md)
+  - SENDDATA, [3\.8\.6\.10](3-8-6-10.md)
+  - SENDERR, [3\.8\.7\.8](3-8-7-8.md)
+  - SENDREQ, [3\.8\.8\.8](3-8-8-8.md)
+  - SETCMASK, [5\.10\.10\.8](5-10-10-8.md)
+  - SETMASK, [5\.10\.11\.8](5-10-11-8.md)
+  - SETMODFY, [3\.8\.9\.8](3-8-9-8.md)
+  - SEVER \(APPCVM\), [3\.8\.10\.8](3-8-10-8.md)
+  - TESTCMPL, [5\.10\.13\.8](5-10-13-8.md)
+  - TESTMSG, [5\.10\.14\.5](5-10-14-5.md)
+- COMSRV parameter of IUCV ACCEPT, [5\.10\.4\.4](5-10-4-4.md)
+- condition codes, [1\.1\.6](1-1-6.md)
+  - APPCVM
+    - CONNECT, [3\.8\.1\.9\.1](3-8-1-9-1.md)
+    - overview, [3\.7\.6](3-7-6.md), [3\.7\.6\.1](3-7-6-1.md)
+    - QRYSTATE, [3\.8\.2\.6](3-8-2-6.md)
+    - RECEIVE, [3\.8\.3\.6](3-8-3-6.md)
+    - SENDCNF, [3\.8\.4\.5](3-8-4-5.md)
+    - SENDCNFD, [3\.8\.5\.5](3-8-5-5.md)
+    - SENDDATA, [3\.8\.6\.7](3-8-6-7.md)
+    - SENDERR, [3\.8\.7\.5](3-8-7-5.md)
+    - SENDREQ, [3\.8\.8\.5](3-8-8-5.md)
+    - SETMODFY, [3\.8\.9\.5](3-8-9-5.md)
+    - SEVER, [3\.8\.10\.5](3-8-10-5.md)
+  - DIAGNOSE codes
+  - IUCV
+    - ACCEPT, [5\.10\.4\.6](5-10-4-6.md)
+    - CONNECT, [5\.10\.5\.5](5-10-5-5.md)
+    - DECLARE BUFFER, [5\.10\.6\.7](5-10-6-7.md)
+    - DESCRIBE, [5\.10\.7\.4](5-10-7-4.md)
+    - QUERY, [5\.10\.8\.4](5-10-8-4.md)
+    - RETRIEVE BUFFER, [5\.10\.9\.2](5-10-9-2.md)
+    - SET CONTROL MASK, [5\.10\.10\.5](5-10-10-5.md)
+    - SET MASK, [5\.10\.11\.5](5-10-11-5.md)
+    - SEVER, [5\.10\.12\.5](5-10-12-5.md)
+    - TEST COMPLETION, [5\.10\.13\.5](5-10-13-5.md)
+    - TESTMSG, [5\.10\.14\.2](5-10-14-2.md)
+- condition codes, IUCV, [2\.6\.2](2-6-2.md)
+- Confirm state, [3\.7\.2\.2](3-7-2-2.md), [3\.7\.8](3-7-8.md)
+- CONFIRM synchronization level, [3\.8\.1\.3](3-8-1-3.md)
+- CONFIRMED, APPC verb
+  - abend conditions, [F\.5\.3](f-5-3.md)
+  - mapped with APPC/VM, [F\.5](f-5.md)
+  - parameters, [F\.5\.1](f-5-1.md)
+  - state changes, [F\.5\.2](f-5-2.md)
+- CONFIRM, APPC verb
+  - abend conditions, [F\.4\.3](f-4-3.md)
+  - mapped with APPC/VM, [F\.4](f-4.md)
+  - parameters, [F\.4\.1](f-4-1.md)
+  - state changes, [F\.4\.2](f-4-2.md)
+- CONNECT function of APPCVM, [3\.8\.1](3-8-1.md)
+  - allocate data, [3\.8\.1\.10\.2](3-8-1-10-2.md)
+  - communication servers, [3\.8\.1\.11](3-8-1-11.md)
+  - completion, [3\.8\.1\.9\.4](3-8-1-9-4.md)
+  - condition codes, [3\.8\.1\.9\.1](3-8-1-9-1.md)
+  - connection complete extended data, [3\.8\.1\.9\.5](3-8-1-9-5.md)
+  - connection pending extended data, [3\.8\.1\.10\.2](3-8-1-10-2.md)
+  - connection pending interrupt, [3\.8\.1\.10\.1](3-8-1-10-1.md)
+  - description, [3\.8\.1](3-8-1.md)
+  - FMH5, [3\.8\.1\.10\.2](3-8-1-10-2.md)
+  - format, [3\.8\.1\.1](3-8-1-1.md)
+  - mapped with APPC, [F\.3](f-3.md)
+  - parameter descriptions, [3\.8\.1\.2](3-8-1-2.md)
+  - parameter list extension, [3\.8\.1\.6](3-8-1-6.md)
+  - parameter list format, [3\.8\.1\.5](3-8-1-5.md)
+  - pip variables, [3\.8\.1\.7](3-8-1-7.md), [3\.8\.1\.11\.1](3-8-1-11-1.md)
+  - program exceptions, [3\.8\.1\.9\.2](3-8-1-9-2.md)
+  - return codes, [3\.8\.1\.9\.1](3-8-1-9-1.md)
+  - state changes, [3\.8\.1\.9\.3](3-8-1-9-3.md)
+  - to communication partner, [3\.8\.1\.10\.1](3-8-1-10-1.md)
+  - to start a conversation CONNECT with a resource ID\., [3\.7\.4\.1](3-7-4-1.md)
+  - VM architected area, [3\.8\.1\.10\.2](3-8-1-10-2.md), [3\.8\.1\.11](3-8-1-11.md)
+- CONNECT function of IUCV, [5\.10\.5](5-10-5.md)
+  - used in APPC/VM, [5\.10\.5](5-10-5.md)
+    - condition codes, [5\.10\.5\.5](5-10-5-5.md)
+    - format, [5\.10\.5\.1](5-10-5-1.md)
+    - parameter descriptions, [5\.10\.5\.2](5-10-5-2.md)
+    - parameter list format, [5\.10\.5\.4](5-10-5-4.md)
+    - program exceptions, [5\.10\.5\.6](5-10-5-6.md)
+    - return codes, [5\.10\.5\.5](5-10-5-5.md)
+    - to revoke a resource, [3\.7\.4\.5](3-7-4-5.md)
+    - using, [5\.10\.5](5-10-5.md)
+  - \*IDENT sever reason codes, [6\.11\.7](6-11-7.md)
+- Connect state, [3\.7\.2\.2](3-7-2-2.md), [3\.7\.8](3-7-8.md)
+- CONNECT \(IUCV function\), [2\.4\.2](2-4-2.md) to [2\.4\.2\.7](2-4-2-7.md)
+- connecting to programs
+  - resource manager, [3\.7\.4\.4](3-7-4-4.md)
+- connecting to \*IDENT
+  - to manage a resource, [3\.7\.4\.4](3-7-4-4.md)
+  - to revoke a resource, [3\.7\.4\.5](3-7-4-5.md)
+- connection complete interrupts, [3\.7\.2\.3](3-7-2-3.md)
+  - extended data, [3\.8\.1\.9\.5](3-8-1-9-5.md)
+  - format, [3\.8\.1\.9\.1](3-8-1-9-1.md), [3\.8\.1\.9\.4](3-8-1-9-4.md)
+- connection parameter list extension, [3\.8\.1\.6](3-8-1-6.md)
+- connection pending interrupts, [3\.7\.2\.3](3-7-2-3.md), [3\.8\.1\.10\.1](3-8-1-10-1.md)
+  - extended data, [3\.8\.1\.10\.2](3-8-1-10-2.md)
+  - format, [3\.8\.1\.10\.1](3-8-1-10-1.md)
+- control buffer, [5\.10\.6\.3](5-10-6-3.md)
+- control path, [5\.10\.6\.3](5-10-6-3.md)
+- Control Program \(CP\)
+  - system service
+    - See CP system services
+- conversations
+  - APPC, [F\.1](f-1.md)
+  - starting an APPC one, [F\.1\.1](f-1-1.md)
+  - states, [3\.7\.2\.2](3-7-2-2.md)
+- CP system services
+  - identify \(\*IDENT\), [6\.11\.5](6-11-5.md)
+- CPED, [3\.8\.1\.10\.2](3-8-1-10-2.md)
 
 ## D
 
-- DASD block I/O system service 1 6.11.4
-- DASD BLOCKIO facility 1 6.11.4
-- DATA parameter (APPC) 1
-- of RECEIVE_AND_WAIT 2 F.10.1
-- of SEND_DATA 2 F.12.1
-- data, how it is sent 1
-- details 2 3.8.6.5
-- overview 2 3.7.4.2
-- DCLBFR function 1
-- See DECLARE BUFFER function of IUCV 2
-- DCLBFR (Declare Buffer) (IUCV function) 1 2.4.3 to 2.4.3.7
-- DEALLOCATE, APPC verb 1
-- abend conditions 2 F.6.3
-- mapped with APPC/VM 2 F.6
-- parameters 2 F.6.1
-- state changes 2 F.6.2
-- DECLARE BUFFER function of IUCV 1 5.10.6
-- used with APPC/VM 2 5.10.6
-- condition codes 3 5.10.6.7
-- format 3 5.10.6.1
-- interrupt buffer extension 3 5.10.6.6
-- parameter descriptions 3 5.10.6.2
-- parameter list format 3 5.10.6.5
-- program exceptions 3 5.10.6.8
-- return codes 3 5.10.6.7
-- state changes 3 5.10.6.9
-- using 3 5.10.6
-- declaring buffers for interrupts 1 3.7.2.3
-- defaults for optional parameters on APPC/VM functions 1 3.7.5.1
-- defer_receive state 1 3.7.8
-- defer_sever state 1 3.7.8
-- DESCRIBE function of IUCV 1 5.10.7
-- used in APPC/VM 2 5.10.7
-- completion 3 5.10.7.7
-- condition codes 3 5.10.7.4
-- format 3 5.10.7.1
-- parameter descriptions 3 5.10.7.2
-- program exceptions 3 5.10.7.5
-- state changes 3 5.10.7.6
-- using 3 5.10.7
-- DESCRIBE (IUCV function) 1 2.4.4 to 2.4.4.7
-- DIAGNOSE code 1
-- X'BC', open and query spool file characteristics 2 1.1.42
-- X'84', directory update in-place 2 1.1.31
-- X'00' 2 1.1.7
-- X'04' 2 1.1.8
-- X'08' 2 1.1.9
-- X'0C' 2 1.1.10
-- X'10' 2 1.1.11
-- X'14' 2 1.1.12
-- X'18' 2 1.1.13
-- X'20' 2 1.1.14
-- X'24' 2 1.1.15
-- X'28' 2 1.1.16
-- X'34' 2 1.1.17
-- X'3C' 2 1.1.18
-- X'44' 2 1.1.19
-- X'48' 2 1.1.20
-- X'4C' 2 1.1.21
-- X'54' 2 1.1.22
-- X'58' 2 1.1.23
-- X'5C' 2 1.1.24
-- X'60' 2 1.1.25
-- X'64' 2 1.1.26
-- X'68' 2 1.1.27
-- X'70' 2 1.1.28
-- X'74' 2 1.1.29
-- X'7C' 2 1.1.30
-- X'84' 2 1.1.31
-- X'8C' 2 1.1.32
-- X'90' 2 1.1.33
-- X'94' 2 1.1.34
-- X'98' 2 1.1.35
-- X'A0' 2 1.1.36
-- X'A4' 2 1.1.37
-- X'A8' 2 1.1.38
-- X'B0' 2 1.1.39
-- X'B4' 2 1.1.40
-- X'B8' 2 1.1.41
-- X'BC' 2 1.1.42
-- X'C8' 2 1.1.43
-- X'CC' 2 1.1.44
-- X'D0' 2 1.1.45
-- X'D4' 2 1.1.46
-- X'D8' 2 1.1.47
-- X'DC' 2 1.1.48
-- X'E4' 2 1.1.49
-- X'EC' 2 1.1.50
-- X'F8' 2 1.1.51
-- X'210' 2 1.1.52
-- X'260' 2 1.1.53
-- DIAGNOSE code X'68' 1 7.12.1.5.7
-- DIAGNOSE Code X'68' Return Codes 1
-- DIAGNOSE instruction 1
-- See also DIAGNOSE code 2
-- directory update in-place 2 1.1.31
-- open and query spool file characteristics 2 1.1.42
-- VMCF function 2
-- return codes 3 1.1.27
-- DIAGNOSE X'A0' 1 7.12.1.5.3
-- DIAGNOSE X'64' 1 7.12.1.5.3
-- DIAGNOSE X'68' 1 7.12.1.5.3
-- DIAGNOSE X'7C' 1 7.12.1.5.3
-- DIAGNOSEs, security-relevant 1 7.12.1.5.3
-- directory 1
-- update in-place 2 1.1.31
-- directory operations 1
-- ACCOUNT 2 1.1.31
-- CPU 2 1.1.31
-- DISTRIB 2 1.1.31
-- EDITCHAR 2 1.1.31
-- IACCOUNT 2 1.1.31
-- IPL 2 1.1.31
-- LOGPASS 2 1.1.31
-- MACHINE 2 1.1.31
-- MAXSTOR 2 1.1.31
-- MDISK 2 1.1.31
-- OPTIONS 2 1.1.31
-- PRIORITY 2 1.1.31
-- PRIVLEGE 2 1.1.31
-- RMDISK 2 1.1.31
-- SCREEN 2 1.1.31
-- SHARE 2 1.1.31
-- SPOOLF 2 1.1.31
-- STORAGE 2 1.1.31
-- TACCOUNT 2 1.1.31
-- XAUTOLOG 2 1.1.31
-- XSTORE 2 1.1.31
-- directory, CMS communications 1
-- DISABLE function of *SPL system service 1 6.11.14.2.1
+- DASD block I/O system service, [6\.11\.4](6-11-4.md)
+- DASD BLOCKIO facility, [6\.11\.4](6-11-4.md)
+- DATA parameter \(APPC\)
+  - of RECEIVE\_AND\_WAIT, [F\.10\.1](f-10-1.md)
+  - of SEND\_DATA, [F\.12\.1](f-12-1.md)
+- data, how it is sent
+  - details, [3\.8\.6\.5](3-8-6-5.md)
+  - overview, [3\.7\.4\.2](3-7-4-2.md)
+- DCLBFR function
+  - See DECLARE BUFFER function of IUCV
+- DCLBFR \(Declare Buffer\) \(IUCV function\), [2\.4\.3](2-4-3.md) to [2\.4\.3\.7](2-4-3-7.md)
+- DEALLOCATE, APPC verb
+  - abend conditions, [F\.6\.3](f-6-3.md)
+  - mapped with APPC/VM, [F\.6](f-6.md)
+  - parameters, [F\.6\.1](f-6-1.md)
+  - state changes, [F\.6\.2](f-6-2.md)
+- DECLARE BUFFER function of IUCV, [5\.10\.6](5-10-6.md)
+  - used with APPC/VM, [5\.10\.6](5-10-6.md)
+    - condition codes, [5\.10\.6\.7](5-10-6-7.md)
+    - format, [5\.10\.6\.1](5-10-6-1.md)
+    - interrupt buffer extension, [5\.10\.6\.6](5-10-6-6.md)
+    - parameter descriptions, [5\.10\.6\.2](5-10-6-2.md)
+    - parameter list format, [5\.10\.6\.5](5-10-6-5.md)
+    - program exceptions, [5\.10\.6\.8](5-10-6-8.md)
+    - return codes, [5\.10\.6\.7](5-10-6-7.md)
+    - state changes, [5\.10\.6\.9](5-10-6-9.md)
+    - using, [5\.10\.6](5-10-6.md)
+- declaring buffers for interrupts, [3\.7\.2\.3](3-7-2-3.md)
+- defaults for optional parameters on APPC/VM functions, [3\.7\.5\.1](3-7-5-1.md)
+- defer\_receive state, [3\.7\.8](3-7-8.md)
+- defer\_sever state, [3\.7\.8](3-7-8.md)
+- DESCRIBE function of IUCV, [5\.10\.7](5-10-7.md)
+  - used in APPC/VM, [5\.10\.7](5-10-7.md)
+    - completion, [5\.10\.7\.7](5-10-7-7.md)
+    - condition codes, [5\.10\.7\.4](5-10-7-4.md)
+    - format, [5\.10\.7\.1](5-10-7-1.md)
+    - parameter descriptions, [5\.10\.7\.2](5-10-7-2.md)
+    - program exceptions, [5\.10\.7\.5](5-10-7-5.md)
+    - state changes, [5\.10\.7\.6](5-10-7-6.md)
+    - using, [5\.10\.7](5-10-7.md)
+- DESCRIBE \(IUCV function\), [2\.4\.4](2-4-4.md) to [2\.4\.4\.7](2-4-4-7.md)
+- DIAGNOSE code
+  - X'BC', open and query spool file characteristics, [1\.1\.42](1-1-42.md)
+  - X'84', directory update in\-place, [1\.1\.31](1-1-31.md)
+  - X'00', [1\.1\.7](1-1-7.md)
+  - X'04', [1\.1\.8](1-1-8.md)
+  - X'08', [1\.1\.9](1-1-9.md)
+  - X'0C', [1\.1\.10](1-1-10.md)
+  - X'10', [1\.1\.11](1-1-11.md)
+  - X'14', [1\.1\.12](1-1-12.md)
+  - X'18', [1\.1\.13](1-1-13.md)
+  - X'20', [1\.1\.14](1-1-14.md)
+  - X'24', [1\.1\.15](1-1-15.md)
+  - X'28', [1\.1\.16](1-1-16.md)
+  - X'34', [1\.1\.17](1-1-17.md)
+  - X'3C', [1\.1\.18](1-1-18.md)
+  - X'44', [1\.1\.19](1-1-19.md)
+  - X'48', [1\.1\.20](1-1-20.md)
+  - X'4C', [1\.1\.21](1-1-21.md)
+  - X'54', [1\.1\.22](1-1-22.md)
+  - X'58', [1\.1\.23](1-1-23.md)
+  - X'5C', [1\.1\.24](1-1-24.md)
+  - X'60', [1\.1\.25](1-1-25.md)
+  - X'64', [1\.1\.26](1-1-26.md)
+  - X'68', [1\.1\.27](1-1-27.md)
+  - X'70', [1\.1\.28](1-1-28.md)
+  - X'74', [1\.1\.29](1-1-29.md)
+  - X'7C', [1\.1\.30](1-1-30.md)
+  - X'84', [1\.1\.31](1-1-31.md)
+  - X'8C', [1\.1\.32](1-1-32.md)
+  - X'90', [1\.1\.33](1-1-33.md)
+  - X'94', [1\.1\.34](1-1-34.md)
+  - X'98', [1\.1\.35](1-1-35.md)
+  - X'A0', [1\.1\.36](1-1-36.md)
+  - X'A4', [1\.1\.37](1-1-37.md)
+  - X'A8', [1\.1\.38](1-1-38.md)
+  - X'B0', [1\.1\.39](1-1-39.md)
+  - X'B4', [1\.1\.40](1-1-40.md)
+  - X'B8', [1\.1\.41](1-1-41.md)
+  - X'BC', [1\.1\.42](1-1-42.md)
+  - X'C8', [1\.1\.43](1-1-43.md)
+  - X'CC', [1\.1\.44](1-1-44.md)
+  - X'D0', [1\.1\.45](1-1-45.md)
+  - X'D4', [1\.1\.46](1-1-46.md)
+  - X'D8', [1\.1\.47](1-1-47.md)
+  - X'DC', [1\.1\.48](1-1-48.md)
+  - X'E4', [1\.1\.49](1-1-49.md)
+  - X'EC', [1\.1\.50](1-1-50.md)
+  - X'F8', [1\.1\.51](1-1-51.md)
+  - X'210', [1\.1\.52](1-1-52.md)
+  - X'260', [1\.1\.53](1-1-53.md)
+- DIAGNOSE code X'68', [7\.12\.1\.5\.7](7-12-1-5-7.md)
+- DIAGNOSE Code X'68' Return Codes
+- DIAGNOSE instruction
+  - See also DIAGNOSE code
+  - directory update in\-place, [1\.1\.31](1-1-31.md)
+  - open and query spool file characteristics, [1\.1\.42](1-1-42.md)
+  - VMCF function
+    - return codes, [1\.1\.27](1-1-27.md)
+- DIAGNOSE X'A0', [7\.12\.1\.5\.3](7-12-1-5-3.md)
+- DIAGNOSE X'64', [7\.12\.1\.5\.3](7-12-1-5-3.md)
+- DIAGNOSE X'68', [7\.12\.1\.5\.3](7-12-1-5-3.md)
+- DIAGNOSE X'7C', [7\.12\.1\.5\.3](7-12-1-5-3.md)
+- DIAGNOSEs, security\-relevant, [7\.12\.1\.5\.3](7-12-1-5-3.md)
+- directory
+  - update in\-place, [1\.1\.31](1-1-31.md)
+- directory operations
+  - ACCOUNT, [1\.1\.31](1-1-31.md)
+  - CPU, [1\.1\.31](1-1-31.md)
+  - DISTRIB, [1\.1\.31](1-1-31.md)
+  - EDITCHAR, [1\.1\.31](1-1-31.md)
+  - IACCOUNT, [1\.1\.31](1-1-31.md)
+  - IPL, [1\.1\.31](1-1-31.md)
+  - LOGPASS, [1\.1\.31](1-1-31.md)
+  - MACHINE, [1\.1\.31](1-1-31.md)
+  - MAXSTOR, [1\.1\.31](1-1-31.md)
+  - MDISK, [1\.1\.31](1-1-31.md)
+  - OPTIONS, [1\.1\.31](1-1-31.md)
+  - PRIORITY, [1\.1\.31](1-1-31.md)
+  - PRIVLEGE, [1\.1\.31](1-1-31.md)
+  - RMDISK, [1\.1\.31](1-1-31.md)
+  - SCREEN, [1\.1\.31](1-1-31.md)
+  - SHARE, [1\.1\.31](1-1-31.md)
+  - SPOOLF, [1\.1\.31](1-1-31.md)
+  - STORAGE, [1\.1\.31](1-1-31.md)
+  - TACCOUNT, [1\.1\.31](1-1-31.md)
+  - XAUTOLOG, [1\.1\.31](1-1-31.md)
+  - XSTORE, [1\.1\.31](1-1-31.md)
+- directory, CMS communications
+- DISABLE function of \*SPL system service, [6\.11\.14\.2\.1](6-11-14-2-1.md)
 
 ## E
 
-- ENABLE function of *SPL system service 1 6.11.14.2.1
-- error codes 1
-- See condition codes 2
-- See return codes 2
-- error codes, APPC/VM 1 3.7.6.2
-- Error messages 1
-- produced by IUCV macro 2 2.6.4
-- establishing communication 1
-- identify system service 2 6.11.6
-- exceptions 1 1.1.6
-- extended data, connection complete 1 3.8.1.9.5
-- extended data, connection pending 1 3.8.1.10.2
-- Extended Spool File Block 1 E.10
-- extension for connection parameter list 1 3.8.1.6
-- extension, interrupt buffer 1 5.10.6.6
-- External Attribute Buffer 1 D.0 to D.1
-- format 2
-- External Attribute Buffer (XAB) 1
-- format 2 D.0
-- external interrupt 1
-- APPC/VM 2 3.7.2.3
-- buffer 3 3.7.2.3
-- connection complete 3 3.7.2.3 3.8.1.9.1
-- connection pending 3 3.7.2.3
-- creating buffers for 3 3.7.2.3
-- function complete 3 3.7.2.3
-- message pending 3 3.7.2.3 3.8.6.12
-- request-to-send 3 3.7.2.3
-- SENDREQ 3 3.7.2.3
-- sever 3 3.7.2.3 3.8.10.12
-- IUCV 2
-- sever 3 3.8.10.12
-- external interrupts, IUCV 1
-- format of 2 2.5 2.5.5
-- handling 2 2.3.12
-- external interrupt, IUCV 1
-- summary of interrupt types 2 2.6.3
+- ENABLE function of \*SPL system service, [6\.11\.14\.2\.1](6-11-14-2-1.md)
+- error codes
+  - See condition codes
+  - See return codes
+- error codes, APPC/VM, [3\.7\.6\.2](3-7-6-2.md)
+- Error messages
+  - produced by IUCV macro, [2\.6\.4](2-6-4.md)
+- establishing communication
+  - identify system service, [6\.11\.6](6-11-6.md)
+- exceptions, [1\.1\.6](1-1-6.md)
+- extended data, connection complete, [3\.8\.1\.9\.5](3-8-1-9-5.md)
+- extended data, connection pending, [3\.8\.1\.10\.2](3-8-1-10-2.md)
+- Extended Spool File Block, [E\.10](e-10.md)
+- extension for connection parameter list, [3\.8\.1\.6](3-8-1-6.md)
+- extension, interrupt buffer, [5\.10\.6\.6](5-10-6-6.md)
+- External Attribute Buffer, [D\.0](d-0.md) to [D\.1](d-1.md)
+  - format
+- External Attribute Buffer \(XAB\)
+  - format, [D\.0](d-0.md)
+- external interrupt
+  - APPC/VM, [3\.7\.2\.3](3-7-2-3.md)
+    - buffer, [3\.7\.2\.3](3-7-2-3.md)
+    - connection complete, [3\.7\.2\.3](3-7-2-3.md), [3\.8\.1\.9\.1](3-8-1-9-1.md)
+    - connection pending, [3\.7\.2\.3](3-7-2-3.md)
+    - creating buffers for, [3\.7\.2\.3](3-7-2-3.md)
+    - function complete, [3\.7\.2\.3](3-7-2-3.md)
+    - message pending, [3\.7\.2\.3](3-7-2-3.md), [3\.8\.6\.12](3-8-6-12.md)
+    - request\-to\-send, [3\.7\.2\.3](3-7-2-3.md)
+    - SENDREQ, [3\.7\.2\.3](3-7-2-3.md)
+    - sever, [3\.7\.2\.3](3-7-2-3.md), [3\.8\.10\.12](3-8-10-12.md)
+  - IUCV
+    - sever, [3\.8\.10\.12](3-8-10-12.md)
+- external interrupts, IUCV
+  - format of, [2\.5](2-5.md), [2\.5\.5](2-5-5.md)
+  - handling, [2\.3\.12](2-3-12.md)
+- external interrupt, IUCV
+  - summary of interrupt types, [2\.6\.3](2-6-3.md)
 
 ## F
 
-- fcode field of IUCV CONNECT 1 5.10.5.3 6.11.6
-- FILL parameter (APPC) 1
-- of RECEIVE_AND_WAIT 2 F.10.1
-- FLAG field 1
-- of CONNECT request (*IDENT) 2 5.10.5.3 6.11.6
-- FMH5 (Functional Management Header 5) 1
-- description 2 3.8.1.10.2
-- formatting IUCV and APPC/VM parameter lists with MF=L 1 3.7.5.4
-- full-duplex communications 1 4.9
-- function complete interrupts 1 3.7.2.3
-- APPCVM RECEIVE 2 3.8.3.6
-- APPCVM SENDCNF 2 3.8.4.5
-- APPCVM SENDCNFD 2 3.8.5.5 3.8.5.9
-- APPCVM SENDDATA 2 3.8.6.7
-- APPCVM SENDERR 2 3.8.7.5
-- APPCVM SEVER 2 3.8.10.5
-- function completion 1
-- APPCVM CONNECT 2 3.8.1.9.4
-- IUCV DCLBFR 2
-- IUCV DESCRIBE 2
-- IUCV RTRVBFR 2
-- IUCV SETMASK 2
-- IUCV SEVER 2
-- SENDERR 2 3.8.7.8
-- SENDREQ 2 3.8.8.8
-- SETCMASK 2 5.10.10.8
-- TESTCMPL 2 5.10.13.8
-- TESTMSG 2 5.10.14.5
+- fcode field of IUCV CONNECT, [5\.10\.5\.3](5-10-5-3.md), [6\.11\.6](6-11-6.md)
+- FILL parameter \(APPC\)
+  - of RECEIVE\_AND\_WAIT, [F\.10\.1](f-10-1.md)
+- FLAG field
+  - of CONNECT request \(\*IDENT\), [5\.10\.5\.3](5-10-5-3.md), [6\.11\.6](6-11-6.md)
+- FMH5 \(Functional Management Header 5\)
+  - description, [3\.8\.1\.10\.2](3-8-1-10-2.md)
+- formatting IUCV and APPC/VM parameter lists with MF=L, [3\.7\.5\.4](3-7-5-4.md)
+- full\-duplex communications, [4\.9](4-9.md)
+- function complete interrupts, [3\.7\.2\.3](3-7-2-3.md)
+  - APPCVM RECEIVE, [3\.8\.3\.6](3-8-3-6.md)
+  - APPCVM SENDCNF, [3\.8\.4\.5](3-8-4-5.md)
+  - APPCVM SENDCNFD, [3\.8\.5\.5](3-8-5-5.md), [3\.8\.5\.9](3-8-5-9.md)
+  - APPCVM SENDDATA, [3\.8\.6\.7](3-8-6-7.md)
+  - APPCVM SENDERR, [3\.8\.7\.5](3-8-7-5.md)
+  - APPCVM SEVER, [3\.8\.10\.5](3-8-10-5.md)
+- function completion
+  - APPCVM CONNECT, [3\.8\.1\.9\.4](3-8-1-9-4.md)
+  - IUCV DCLBFR
+  - IUCV DESCRIBE
+  - IUCV RTRVBFR
+  - IUCV SETMASK
+  - IUCV SEVER
+  - SENDERR, [3\.8\.7\.8](3-8-7-8.md)
+  - SENDREQ, [3\.8\.8\.8](3-8-8-8.md)
+  - SETCMASK, [5\.10\.10\.8](5-10-10-8.md)
+  - TESTCMPL, [5\.10\.13\.8](5-10-13-8.md)
+  - TESTMSG, [5\.10\.14\.5](5-10-14-5.md)
 
 ## G
 
-- gateways 1
-- managing, using *IDENT 2 6.11.5 to 6.11.7
-- GCS (Group Control System) 1
-- GDS (General Data Stream) Log Data variable format 1 3.8.7.10 3.8.10.10
-- General data stream (GDS) Log Data variable format 1 3.8.7.10 3.8.10.10
-- general format, ACIPARMS 1 7.12.1.3
-- GET_ATTRIBUTES, APPC verb 1
-- mapped with APPC/VM 2 F.8
-- global resources 1
-- managing 2 3.7.4.4
-- revoking your own 2 3.7.4.5
-- virtual machines connecting to 2 3.7.4.4
-- Group Control System 1
-- See GCS (Group Control System) 2
-- group, virtual machine 1 6.11.13
+- gateways
+  - managing, using \*IDENT, [6\.11\.5](6-11-5.md) to [6\.11\.7](6-11-7.md)
+- GCS \(Group Control System\)
+- GDS \(General Data Stream\) Log Data variable format, [3\.8\.7\.10](3-8-7-10.md), [3\.8\.10\.10](3-8-10-10.md)
+- General data stream \(GDS\) Log Data variable format, [3\.8\.7\.10](3-8-7-10.md), [3\.8\.10\.10](3-8-10-10.md)
+- general format, ACIPARMS, [7\.12\.1\.3](7-12-1-3.md)
+- GET\_ATTRIBUTES, APPC verb
+  - mapped with APPC/VM, [F\.8](f-8.md)
+- global resources
+  - managing, [3\.7\.4\.4](3-7-4-4.md)
+  - revoking your own, [3\.7\.4\.5](3-7-4-5.md)
+  - virtual machines connecting to, [3\.7\.4\.4](3-7-4-4.md)
+- Group Control System
+  - See GCS \(Group Control System\)
+- group, virtual machine, [6\.11\.13](6-11-13.md)
 
 ## H
 
-- HCPRPD 1 7.12.1.6
-- HCPRPI 1 7.12.1.4
-- HCPRPW 1 7.12.1.5
+- HCPRPD, [7\.12\.1\.6](7-12-1-6.md)
+- HCPRPI, [7\.12\.1\.4](7-12-1-4.md)
+- HCPRPW, [7\.12\.1\.5](7-12-1-5.md)
 
 ## I
 
-- *IDENT 1 3.7.4.4 6.11.5
-- Identify system service (*IDENT) 1 6.11.5 to 6.11.7
-- connecting to 2 3.7.4.4 5.10.5
-- establishing a connection 2 6.11.6
-- overview 2 3.7.4.4
-- processing requests to manage a resource 2 6.11.6.1
-- sever reason codes 2 6.11.7
-- severing connection to 2 3.7.4.5
-- IMMED value on APPCVM CONNECT 1 3.8.1.3
-- informing the virtual machine when sample or event data are available 1
-- by *MONITOR using IUCV SEND 2 6.11.9.3
-- input parameter lists 1
-- APPCVM 2
-- CONNECT 3 3.8.1.5
-- QRYSTATE 3 3.8.2.5
-- RECEIVE 3 3.8.3.4
-- SENDCNF 3 3.8.4.4
-- SENDCNFD 3 3.8.5.4
-- SENDDATA 3 3.8.6.4
-- SENDERR 3 3.8.7.4
-- SENDREQ 3 3.8.8.4
-- SETMODFY 3 3.8.9.4
-- SEVER 3 3.8.10.4
-- IUCV 2
-- ACCEPT 3 5.10.4.5
-- CONNECT 3 5.10.5.4
-- DECLARE BUFFER 3 5.10.6.5
-- QUERY 3 5.10.8.3
-- SET CONTROL MASK 3 5.10.10.4
-- SET MASK 3 5.10.11.4
-- SEVER 3 5.10.12.4
-- TEST COMPLETION 3 5.10.13.4
-- inter-user communication vehicle (IUCV) 1
-- See IUCV (inter-user communication vehicle) 2
-- Inter-User Communications Vehicle 1
-- See IUCV (Inter-User Communications Vehicle) 2
-- interface, product-sensitive 1 7.12.1
-- intermediate communications servers 1
-- accepting connections 2 5.10.4.4
-- making connections 2 3.8.1.11
-- parameters on IUCV ACCEPT 2 5.10.4.4
-- interrupt buffer extension 1 5.10.6.6
-- interrupts 1
-- APPC 2 F.1.2
-- APPC/VM 2 3.7.2.3
-- connection complete 2 3.7.2.3 3.8.1.9.1 3.8.1.9.4
-- connection pending 2 3.7.2.3 3.8.1.10.1
-- disabling for 2 5.10.10 5.10.11
-- enabling for 2 5.10.10 5.10.11
-- function complete 2 3.7.2.3 3.8.3.6 3.8.4.5 3.8.6.7 3.8.7.5
-- message pending 2 3.7.2.3 3.8.6.12
-- SENDREQ 2 3.7.2.3 3.8.8.9
-- sever 2 3.7.2.3 3.8.10.12
-- interrupt, external 1
-- See also external interrupt 2
-- APPC/VM 2 3.7.2.3
-- creating buffers for 2 3.7.2.3
-- IUCV 2
-- IPARML COPY file 1 3.7.5
-- IPARMLX COPY file 1 3.8.1.6
-- IPAUDIT definition 1 3.7.6.2
-- IPAUDIT field, description 1 3.7.6
-- IPCODE definition 1 3.7.6.2
-- IPCODE field, description 1 3.7.6
-- IPRCODE definition 1 3.7.6.2
-- IPRCODE field, description 1 3.7.6
-- IPWHATRC definition 1 3.7.6.2
-- IPWHATRC field, description 1 3.7.6
-- IUCV 1
-- command auditing 2 7.12.1.5.6
-- IUCV macro functions 1
-- ACCEPT 2
-- parameter list format 3 5.10.4.5
-- using 3 5.10.4
-- CONNECT 2 3.7.4.4 5.10.5
-- parameter list format 3 5.10.5.4
-- using 3 5.10.5
-- DECLARE BUFFER 2 5.10.6
-- parameter list format 3 5.10.6.5
-- using 3 5.10.6
-- defaults for optional parameters 2 3.7.5.1
-- DESCRIBE 2 5.10.7
-- PURGE 2
-- QUERY 2 5.10.8
-- QUIESCE 2
-- RECEIVE 2
-- REJECT 2
-- related to APPC/VM 2 3.7.3
-- REPLY 2
-- RESUME 2
-- RETRIEVE BUFFER 2 5.10.9
-- SEND 2
-- SET CONTROL MASK 2 5.10.10
-- SET MASK 2
-- SETMASK 2 5.10.11
-- SEVER 2 5.10.12
-- TEST COMPLETION 2
-- TEST MESSAGE 2 5.10.14
-- TESTCMPL 2 5.10.13
-- IUCV SEND 1
-- to the *SPL system service 2 6.11.14.2
-- IUCV (inter-user 1
-- functions 2
-- SEVER 3 2.4.16
-- IUCV (inter-user communication vehicle) 1
-- audit trail, summary 2 2.6.4
-- condition code summary 2 2.6.2
-- CP system services 2 6.11.1
-- error messages 2 2.6.4
-- external interrupt formats 2 2.5 2.5.5
-- external interrupt handling 2 2.3.3.3
-- external interrupt type, summary 2 2.6.3
-- function to parameter cross-reference 2 2.6.1
-- functional overview 2 2.3.3.4
-- functions 2
-- ACCEPT 3 2.4.1 to 2.4.1.7
-- CONNECT 3 2.4.2 to 2.4.2.7
-- DCLBFR (Declare Buffer) 3 2.4.3 to 2.4.3.7
-- DESCRIBE 3 2.4.4 to 2.4.4.7
-- PURGE 3 2.4.5 to 2.4.5.8
-- QUERY 3 2.4.6 to 2.4.6.3
-- QUIESCE 3 2.4.7 to 2.4.7.7
-- RECEIVE 3 2.4.8 to 2.4.8.8
-- REJECT 3 2.4.9 to 2.4.9.8
-- REPLY 3 2.4.10 to 2.4.10.9
-- RESUME 3 2.4.11 to 2.4.11.7
-- RTRVBFR 3 2.4.12 to 2.4.12.1
-- SEND 3 2.4.13 to 2.4.13.11
-- SETCMASK 3 2.4.14 to 2.4.14.6
-- SETMASK 3 2.4.15 to 2.4.15.6
-- SEVER 3 2.4.16.7
-- TESTCMPL 3 2.4.17 to 2.4.17.8
-- TESTMSG 3 2.4.18 to 2.4.18.3
-- how IUCV information is organized 2 2.3.2
-- invoking 2 2.3.3.4
-- message queues 2 2.3.3.2
-- path 2
-- definition of term 3 2.3.3.1
-- planning considerations 2 2.3.4
-- return code summary 2 2.6.2
-- supplying input to 2 2.3.3.5
-- system services 2 6.11.1
-- terminology 2 2.3.3.1
-- writing a program for 2
-- enabling IUCV 3 2.3.6
-- ending IUCV communications 3 2.3.10
-- establishing paths 3 2.3.7
-- handling external interrupts 3 2.3.12
-- passing data 3 2.3.8 2.3.8.4
-- reactivating paths 3 2.3.9.1
-- setting up a parameter list 3 2.3.5
-- severing paths 3 2.3.9.2
-- temporarily deactivating paths 3 2.3.9.1
-- IUCV (Inter-User Communications Vehicle) 1
-- communication 2
-- identify system service 3 6.11.6
-- differences from APPC/VM 2 4.9
-- external interrupt 2
-- functions 2
-- See IUCV macro functions 3
-- macro description 2
-- messages 2
-- paths 2
-- system services 2
-- identify 3 6.11.6
+- \*IDENT, [3\.7\.4\.4](3-7-4-4.md), [6\.11\.5](6-11-5.md)
+- Identify system service \(\*IDENT\), [6\.11\.5](6-11-5.md) to [6\.11\.7](6-11-7.md)
+  - connecting to, [3\.7\.4\.4](3-7-4-4.md), [5\.10\.5](5-10-5.md)
+  - establishing a connection, [6\.11\.6](6-11-6.md)
+  - overview, [3\.7\.4\.4](3-7-4-4.md)
+  - processing requests to manage a resource, [6\.11\.6\.1](6-11-6-1.md)
+  - sever reason codes, [6\.11\.7](6-11-7.md)
+  - severing connection to, [3\.7\.4\.5](3-7-4-5.md)
+- IMMED value on APPCVM CONNECT, [3\.8\.1\.3](3-8-1-3.md)
+- informing the virtual machine when sample or event data are available
+  - by \*MONITOR using IUCV SEND, [6\.11\.9\.3](6-11-9-3.md)
+- input parameter lists
+  - APPCVM
+    - CONNECT, [3\.8\.1\.5](3-8-1-5.md)
+    - QRYSTATE, [3\.8\.2\.5](3-8-2-5.md)
+    - RECEIVE, [3\.8\.3\.4](3-8-3-4.md)
+    - SENDCNF, [3\.8\.4\.4](3-8-4-4.md)
+    - SENDCNFD, [3\.8\.5\.4](3-8-5-4.md)
+    - SENDDATA, [3\.8\.6\.4](3-8-6-4.md)
+    - SENDERR, [3\.8\.7\.4](3-8-7-4.md)
+    - SENDREQ, [3\.8\.8\.4](3-8-8-4.md)
+    - SETMODFY, [3\.8\.9\.4](3-8-9-4.md)
+    - SEVER, [3\.8\.10\.4](3-8-10-4.md)
+  - IUCV
+    - ACCEPT, [5\.10\.4\.5](5-10-4-5.md)
+    - CONNECT, [5\.10\.5\.4](5-10-5-4.md)
+    - DECLARE BUFFER, [5\.10\.6\.5](5-10-6-5.md)
+    - QUERY, [5\.10\.8\.3](5-10-8-3.md)
+    - SET CONTROL MASK, [5\.10\.10\.4](5-10-10-4.md)
+    - SET MASK, [5\.10\.11\.4](5-10-11-4.md)
+    - SEVER, [5\.10\.12\.4](5-10-12-4.md)
+    - TEST COMPLETION, [5\.10\.13\.4](5-10-13-4.md)
+- inter\-user communication vehicle \(IUCV\)
+  - See IUCV \(inter\-user communication vehicle\)
+- Inter\-User Communications Vehicle
+  - See IUCV \(Inter\-User Communications Vehicle\)
+- interface, product\-sensitive, [7\.12\.1](7-12-1.md)
+- intermediate communications servers
+  - accepting connections, [5\.10\.4\.4](5-10-4-4.md)
+  - making connections, [3\.8\.1\.11](3-8-1-11.md)
+  - parameters on IUCV ACCEPT, [5\.10\.4\.4](5-10-4-4.md)
+- interrupt buffer extension, [5\.10\.6\.6](5-10-6-6.md)
+- interrupts
+  - APPC, [F\.1\.2](f-1-2.md)
+  - APPC/VM, [3\.7\.2\.3](3-7-2-3.md)
+  - connection complete, [3\.7\.2\.3](3-7-2-3.md), [3\.8\.1\.9\.1](3-8-1-9-1.md), [3\.8\.1\.9\.4](3-8-1-9-4.md)
+  - connection pending, [3\.7\.2\.3](3-7-2-3.md), [3\.8\.1\.10\.1](3-8-1-10-1.md)
+  - disabling for, [5\.10\.10](5-10-10.md), [5\.10\.11](5-10-11.md)
+  - enabling for, [5\.10\.10](5-10-10.md), [5\.10\.11](5-10-11.md)
+  - function complete, [3\.7\.2\.3](3-7-2-3.md), [3\.8\.3\.6](3-8-3-6.md), [3\.8\.4\.5](3-8-4-5.md), [3\.8\.6\.7](3-8-6-7.md), [3\.8\.7\.5](3-8-7-5.md)
+  - message pending, [3\.7\.2\.3](3-7-2-3.md), [3\.8\.6\.12](3-8-6-12.md)
+  - SENDREQ, [3\.7\.2\.3](3-7-2-3.md), [3\.8\.8\.9](3-8-8-9.md)
+  - sever, [3\.7\.2\.3](3-7-2-3.md), [3\.8\.10\.12](3-8-10-12.md)
+- interrupt, external
+  - See also external interrupt
+  - APPC/VM, [3\.7\.2\.3](3-7-2-3.md)
+  - creating buffers for, [3\.7\.2\.3](3-7-2-3.md)
+  - IUCV
+- IPARML COPY file, [3\.7\.5](3-7-5.md)
+- IPARMLX COPY file, [3\.8\.1\.6](3-8-1-6.md)
+- IPAUDIT definition, [3\.7\.6\.2](3-7-6-2.md)
+- IPAUDIT field, description, [3\.7\.6](3-7-6.md)
+- IPCODE definition, [3\.7\.6\.2](3-7-6-2.md)
+- IPCODE field, description, [3\.7\.6](3-7-6.md)
+- IPRCODE definition, [3\.7\.6\.2](3-7-6-2.md)
+- IPRCODE field, description, [3\.7\.6](3-7-6.md)
+- IPWHATRC definition, [3\.7\.6\.2](3-7-6-2.md)
+- IPWHATRC field, description, [3\.7\.6](3-7-6.md)
+- IUCV
+  - command auditing, [7\.12\.1\.5\.6](7-12-1-5-6.md)
+- IUCV macro functions
+  - ACCEPT
+    - parameter list format, [5\.10\.4\.5](5-10-4-5.md)
+    - using, [5\.10\.4](5-10-4.md)
+  - CONNECT, [3\.7\.4\.4](3-7-4-4.md), [5\.10\.5](5-10-5.md)
+    - parameter list format, [5\.10\.5\.4](5-10-5-4.md)
+    - using, [5\.10\.5](5-10-5.md)
+  - DECLARE BUFFER, [5\.10\.6](5-10-6.md)
+    - parameter list format, [5\.10\.6\.5](5-10-6-5.md)
+    - using, [5\.10\.6](5-10-6.md)
+  - defaults for optional parameters, [3\.7\.5\.1](3-7-5-1.md)
+  - DESCRIBE, [5\.10\.7](5-10-7.md)
+  - PURGE
+  - QUERY, [5\.10\.8](5-10-8.md)
+  - QUIESCE
+  - RECEIVE
+  - REJECT
+  - related to APPC/VM, [3\.7\.3](3-7-3.md)
+  - REPLY
+  - RESUME
+  - RETRIEVE BUFFER, [5\.10\.9](5-10-9.md)
+  - SEND
+  - SET CONTROL MASK, [5\.10\.10](5-10-10.md)
+  - SET MASK
+  - SETMASK, [5\.10\.11](5-10-11.md)
+  - SEVER, [5\.10\.12](5-10-12.md)
+  - TEST COMPLETION
+  - TEST MESSAGE, [5\.10\.14](5-10-14.md)
+  - TESTCMPL, [5\.10\.13](5-10-13.md)
+- IUCV SEND
+  - to the \*SPL system service, [6\.11\.14\.2](6-11-14-2.md)
+- IUCV \(inter\-user
+  - functions
+    - SEVER, [2\.4\.16](2-4-16.md)
+- IUCV \(inter\-user communication vehicle\)
+  - audit trail, summary, [2\.6\.4](2-6-4.md)
+  - condition code summary, [2\.6\.2](2-6-2.md)
+  - CP system services, [6\.11\.1](6-11-1.md)
+  - error messages, [2\.6\.4](2-6-4.md)
+  - external interrupt formats, [2\.5](2-5.md), [2\.5\.5](2-5-5.md)
+  - external interrupt handling, [2\.3\.3\.3](2-3-3-3.md)
+  - external interrupt type, summary, [2\.6\.3](2-6-3.md)
+  - function to parameter cross\-reference, [2\.6\.1](2-6-1.md)
+  - functional overview, [2\.3\.3\.4](2-3-3-4.md)
+  - functions
+    - ACCEPT, [2\.4\.1](2-4-1.md) to [2\.4\.1\.7](2-4-1-7.md)
+    - CONNECT, [2\.4\.2](2-4-2.md) to [2\.4\.2\.7](2-4-2-7.md)
+    - DCLBFR \(Declare Buffer\), [2\.4\.3](2-4-3.md) to [2\.4\.3\.7](2-4-3-7.md)
+    - DESCRIBE, [2\.4\.4](2-4-4.md) to [2\.4\.4\.7](2-4-4-7.md)
+    - PURGE, [2\.4\.5](2-4-5.md) to [2\.4\.5\.8](2-4-5-8.md)
+    - QUERY, [2\.4\.6](2-4-6.md) to [2\.4\.6\.3](2-4-6-3.md)
+    - QUIESCE, [2\.4\.7](2-4-7.md) to [2\.4\.7\.7](2-4-7-7.md)
+    - RECEIVE, [2\.4\.8](2-4-8.md) to [2\.4\.8\.8](2-4-8-8.md)
+    - REJECT, [2\.4\.9](2-4-9.md) to [2\.4\.9\.8](2-4-9-8.md)
+    - REPLY, [2\.4\.10](2-4-10.md) to [2\.4\.10\.9](2-4-10-9.md)
+    - RESUME, [2\.4\.11](2-4-11.md) to [2\.4\.11\.7](2-4-11-7.md)
+    - RTRVBFR, [2\.4\.12](2-4-12.md) to [2\.4\.12\.1](2-4-12-1.md)
+    - SEND, [2\.4\.13](2-4-13.md) to [2\.4\.13\.11](2-4-13-11.md)
+    - SETCMASK, [2\.4\.14](2-4-14.md) to [2\.4\.14\.6](2-4-14-6.md)
+    - SETMASK, [2\.4\.15](2-4-15.md) to [2\.4\.15\.6](2-4-15-6.md)
+    - SEVER, [2\.4\.16\.7](2-4-16-7.md)
+    - TESTCMPL, [2\.4\.17](2-4-17.md) to [2\.4\.17\.8](2-4-17-8.md)
+    - TESTMSG, [2\.4\.18](2-4-18.md) to [2\.4\.18\.3](2-4-18-3.md)
+  - how IUCV information is organized, [2\.3\.2](2-3-2.md)
+  - invoking, [2\.3\.3\.4](2-3-3-4.md)
+  - message queues, [2\.3\.3\.2](2-3-3-2.md)
+  - path
+    - definition of term, [2\.3\.3\.1](2-3-3-1.md)
+  - planning considerations, [2\.3\.4](2-3-4.md)
+  - return code summary, [2\.6\.2](2-6-2.md)
+  - supplying input to, [2\.3\.3\.5](2-3-3-5.md)
+  - system services, [6\.11\.1](6-11-1.md)
+  - terminology, [2\.3\.3\.1](2-3-3-1.md)
+  - writing a program for
+    - enabling IUCV, [2\.3\.6](2-3-6.md)
+    - ending IUCV communications, [2\.3\.10](2-3-10.md)
+    - establishing paths, [2\.3\.7](2-3-7.md)
+    - handling external interrupts, [2\.3\.12](2-3-12.md)
+    - passing data, [2\.3\.8](2-3-8.md), [2\.3\.8\.4](2-3-8-4.md)
+    - reactivating paths, [2\.3\.9\.1](2-3-9-1.md)
+    - setting up a parameter list, [2\.3\.5](2-3-5.md)
+    - severing paths, [2\.3\.9\.2](2-3-9-2.md)
+    - temporarily deactivating paths, [2\.3\.9\.1](2-3-9-1.md)
+- IUCV \(Inter\-User Communications Vehicle\)
+  - communication
+    - identify system service, [6\.11\.6](6-11-6.md)
+  - differences from APPC/VM, [4\.9](4-9.md)
+  - external interrupt
+  - functions
+    - See IUCV macro functions
+  - macro description
+  - messages
+  - paths
+  - system services
+    - identify, [6\.11\.6](6-11-6.md)
 
 ## L
 
-- leaving the *SIGNAL system service 1 6.11.13.5
-- LENGTH parameter (APPC) 1
-- of RECEIVE_AND_WAIT 2 F.10.1
-- of SEND_DATA 2 F.12.1
-- list format for macros 1
-- formatting parameter lists 2 3.7.5.4
-- lists, address 1 3.8.3.5 3.8.6.6 3.8.7.10 3.8.10.10
-- local resources 1
-- managing 2 3.7.4.4
-- revoking your own 2 3.7.4.5
-- virtual machines connecting to 2 3.7.4.4
-- log data 1
-- specifying 2 3.8.10.10
-- Log Data GDS variable format 1 3.8.7.10 3.8.10.10
-- logical records 1
-- definition 2 3.8.6.6
-- description 2 3.8.6.5
-- figure 2 3.8.6.5
-- length 2 3.8.6.6
-- LOG_DATA parameter (APPC) 1
-- of DEALLOCATE 2 F.6.1
-- of SEND_ERROR 2 F.13.1
-- LU_NAME parameter (APPC) 1
-- of ALLOCATE 2 F.3.1
+- leaving the \*SIGNAL system service, [6\.11\.13\.5](6-11-13-5.md)
+- LENGTH parameter \(APPC\)
+  - of RECEIVE\_AND\_WAIT, [F\.10\.1](f-10-1.md)
+  - of SEND\_DATA, [F\.12\.1](f-12-1.md)
+- list format for macros
+  - formatting parameter lists, [3\.7\.5\.4](3-7-5-4.md)
+- lists, address, [3\.8\.3\.5](3-8-3-5.md), [3\.8\.6\.6](3-8-6-6.md), [3\.8\.7\.10](3-8-7-10.md), [3\.8\.10\.10](3-8-10-10.md)
+- local resources
+  - managing, [3\.7\.4\.4](3-7-4-4.md)
+  - revoking your own, [3\.7\.4\.5](3-7-4-5.md)
+  - virtual machines connecting to, [3\.7\.4\.4](3-7-4-4.md)
+- log data
+  - specifying, [3\.8\.10\.10](3-8-10-10.md)
+- Log Data GDS variable format, [3\.8\.7\.10](3-8-7-10.md), [3\.8\.10\.10](3-8-10-10.md)
+- logical records
+  - definition, [3\.8\.6\.6](3-8-6-6.md)
+  - description, [3\.8\.6\.5](3-8-6-5.md)
+  - figure, [3\.8\.6\.5](3-8-6-5.md)
+  - length, [3\.8\.6\.6](3-8-6-6.md)
+- LOG\_DATA parameter \(APPC\)
+  - of DEALLOCATE, [F\.6\.1](f-6-1.md)
+  - of SEND\_ERROR, [F\.13\.1](f-13-1.md)
+- LU\_NAME parameter \(APPC\)
+  - of ALLOCATE, [F\.3\.1](f-3-1.md)
 
 ## M
 
-- macros 1
-- APPCVM 2 3.7.3
-- CONNECT 3 3.8.1
-- QRYSTATE 3 3.8.2
-- RECEIVE 3 3.8.3
-- SENDCNF 3 3.8.4
-- SENDCNFD 3 3.8.5
-- SENDDATA 3 3.8.6
-- SENDERR 3 3.8.7
-- SENDREQ 3 3.8.8
-- SEVER 3 3.8.10
-- IUCV 2
-- ACCEPT 3 5.10.4
-- CONNECT 3 5.10.5
-- DECLARE BUFFER 3 5.10.6
-- DESCRIBE 3 5.10.7
-- QUERY 3 5.10.8
-- related to APPC/VM 3 3.7.3
-- RETRIEVE BUFFER 3 5.10.9
-- SET CONTROL MASK 3 5.10.10
-- SET MASK 3 5.10.11
-- SEVER 3 5.10.12
-- TEST COMPLETION 3 5.10.13
-- TEST MESSAGE 3 5.10.14
-- managing a resource 1 3.7.4.4
-- MAPPED conversation type 1 3.8.1.3
-- mapping between APPC/VM and APPC 1
-- parameters and conditions 2 F.2 to F.13.3
-- merging collections 1
-- revoking gateways in 2 3.7.4.5
-- revoking resources in 2 3.7.4.5
-- MESSAGE function of *SPL system service 1 6.11.14.2.1
-- message pending interrupts 1 3.7.2.3 3.8.4.9 3.8.6.12
-- format 2 3.8.6.12
-- message queues (IUCV) 1 2.3.3.2
-- messages 1
-- IUCV 2
-- messages, sending 1 3.8.6.5
-- message, IUCV 1
-- definition of term 2 2.3.3.1
-- source virtual machine 2
-- definition of term 3 2.3.3.1
-- MF=L parameter 1
-- formatting parameter lists 2 3.7.5.4
-- mode name 1 3.8.1.6
-- MODE_NAME parameter (APPC) 1
-- of ALLOCATE 2 F.3.1
-- Monitor control area 1
-- horizontal and vertical views 2 6.11.9.3
-- monitor record 1
-- domains 2 B.0
-- how to print 2 B.0
-- where to find 2 B.0
-- MONWRITE utility 1
-- writer function 2
-- output from 3 C.0
+- macros
+  - APPCVM, [3\.7\.3](3-7-3.md)
+    - CONNECT, [3\.8\.1](3-8-1.md)
+    - QRYSTATE, [3\.8\.2](3-8-2.md)
+    - RECEIVE, [3\.8\.3](3-8-3.md)
+    - SENDCNF, [3\.8\.4](3-8-4.md)
+    - SENDCNFD, [3\.8\.5](3-8-5.md)
+    - SENDDATA, [3\.8\.6](3-8-6.md)
+    - SENDERR, [3\.8\.7](3-8-7.md)
+    - SENDREQ, [3\.8\.8](3-8-8.md)
+    - SEVER, [3\.8\.10](3-8-10.md)
+  - IUCV
+    - ACCEPT, [5\.10\.4](5-10-4.md)
+    - CONNECT, [5\.10\.5](5-10-5.md)
+    - DECLARE BUFFER, [5\.10\.6](5-10-6.md)
+    - DESCRIBE, [5\.10\.7](5-10-7.md)
+    - QUERY, [5\.10\.8](5-10-8.md)
+    - related to APPC/VM, [3\.7\.3](3-7-3.md)
+    - RETRIEVE BUFFER, [5\.10\.9](5-10-9.md)
+    - SET CONTROL MASK, [5\.10\.10](5-10-10.md)
+    - SET MASK, [5\.10\.11](5-10-11.md)
+    - SEVER, [5\.10\.12](5-10-12.md)
+    - TEST COMPLETION, [5\.10\.13](5-10-13.md)
+    - TEST MESSAGE, [5\.10\.14](5-10-14.md)
+- managing a resource, [3\.7\.4\.4](3-7-4-4.md)
+- MAPPED conversation type, [3\.8\.1\.3](3-8-1-3.md)
+- mapping between APPC/VM and APPC
+  - parameters and conditions, [F\.2](f-2.md) to [F\.13\.3](f-13-3.md)
+- merging collections
+  - revoking gateways in, [3\.7\.4\.5](3-7-4-5.md)
+  - revoking resources in, [3\.7\.4\.5](3-7-4-5.md)
+- MESSAGE function of \*SPL system service, [6\.11\.14\.2\.1](6-11-14-2-1.md)
+- message pending interrupts, [3\.7\.2\.3](3-7-2-3.md), [3\.8\.4\.9](3-8-4-9.md), [3\.8\.6\.12](3-8-6-12.md)
+  - format, [3\.8\.6\.12](3-8-6-12.md)
+- message queues \(IUCV\), [2\.3\.3\.2](2-3-3-2.md)
+- messages
+  - IUCV
+- messages, sending, [3\.8\.6\.5](3-8-6-5.md)
+- message, IUCV
+  - definition of term, [2\.3\.3\.1](2-3-3-1.md)
+  - source virtual machine
+    - definition of term, [2\.3\.3\.1](2-3-3-1.md)
+- MF=L parameter
+  - formatting parameter lists, [3\.7\.5\.4](3-7-5-4.md)
+- mode name, [3\.8\.1\.6](3-8-1-6.md)
+- MODE\_NAME parameter \(APPC\)
+  - of ALLOCATE, [F\.3\.1](f-3-1.md)
+- Monitor control area
+  - horizontal and vertical views, [6\.11\.9\.3](6-11-9-3.md)
+- monitor record
+  - domains, [B\.0](b-0.md)
+  - how to print, [B\.0](b-0.md)
+  - where to find, [B\.0](b-0.md)
+- MONWRITE utility
+  - writer function
+    - output from, [C\.0](c-0.md)
 
 ## N
 
-- NAMES files 1
-- non-CMS environment 1 4.9.4.2 5.10.2
-- NONE synchronization level 1 3.8.1.3
-- NOTIFY function of *SPL system service 1 6.11.14.3
+- NAMES files
+- non\-CMS environment, [4\.9\.4\.2](4-9-4-2.md), [5\.10\.2](5-10-2.md)
+- NONE synchronization level, [3\.8\.1\.3](3-8-1-3.md)
+- NOTIFY function of \*SPL system service, [6\.11\.14\.3](6-11-14-3.md)
 
 ## O
 
-- obtaining monitor records 1
-- process by the virtual machine 2 6.11.9.3
-- open and query spool file characteristics with DIAGNOSE code X'BC' 1 1.1.42
-- operation exceptions 1
-- APPCVM CONNECT 2 3.8.1.9.2
-- APPCVM QRYSTATE 2 3.8.2.7
-- APPCVM RECEIVE 2 3.8.3.7
-- APPCVM SENDCNF 2 3.8.4.6
-- APPCVM SENDCNFD 2 3.8.5.6
-- APPCVM SENDDATA 2 3.8.6.8
-- APPCVM SENDERR 2 3.8.7.6
-- APPCVM SENDREQ 2 3.8.8.6
-- APPCVM SETMODFY 2 3.8.9.6
-- APPCVM SEVER 2 3.8.10.6
-- IUCV ACCEPT 2 5.10.4.7
-- IUCV CONNECT 2 5.10.5.6
-- IUCV DECLARE BUFFER 2 5.10.6.8
-- IUCV DESCRIBE 2 5.10.7.5
-- IUCV QUERY 2 5.10.8.5
-- IUCV RETRIEVE BUFFER 2 5.10.9.3
-- IUCV SET CONTROL MASK 2 5.10.10.6
-- IUCV SET MASK 2 5.10.11.6
-- IUCV SEVER 2 5.10.12.6
-- IUCV TEST COMPLETION 2 5.10.13.6
-- IUCV TEST MESSAGE 2 5.10.14.3
-- output 1
-- from MONWRITE 2 C.0
-- output parameter lists 1
-- APPCVM 2
-- CONNECT 3 3.8.1.9.1
-- QRYSTATE 3 3.8.2.6
-- RECEIVE 3 3.8.3.6
-- SENDCNF 3 3.8.4.5
-- SENDCNFD 3 3.8.5.5
-- SENDDATA 3 3.8.6.7
-- SENDERR 3 3.8.7.5
-- IUCV 2
-- ACCEPT 3 5.10.4.6
-- CONNECT 3 5.10.5.5
-- DECLARE BUFFER 3 5.10.6.7
-- DESCRIBE 3 5.10.7.4
-- QUERY 3 5.10.8.6
-- SEVER 3 5.10.12.5
-- TEST COMPLETION 3 5.10.13.5
-- SENDREQ 2 3.8.8.5
-- SEVER (APPCVM) 2 3.8.10.5
-- overview of APPC/VM assembler interface 1 3.7
+- obtaining monitor records
+  - process by the virtual machine, [6\.11\.9\.3](6-11-9-3.md)
+- open and query spool file characteristics with DIAGNOSE code X'BC', [1\.1\.42](1-1-42.md)
+- operation exceptions
+  - APPCVM CONNECT, [3\.8\.1\.9\.2](3-8-1-9-2.md)
+  - APPCVM QRYSTATE, [3\.8\.2\.7](3-8-2-7.md)
+  - APPCVM RECEIVE, [3\.8\.3\.7](3-8-3-7.md)
+  - APPCVM SENDCNF, [3\.8\.4\.6](3-8-4-6.md)
+  - APPCVM SENDCNFD, [3\.8\.5\.6](3-8-5-6.md)
+  - APPCVM SENDDATA, [3\.8\.6\.8](3-8-6-8.md)
+  - APPCVM SENDERR, [3\.8\.7\.6](3-8-7-6.md)
+  - APPCVM SENDREQ, [3\.8\.8\.6](3-8-8-6.md)
+  - APPCVM SETMODFY, [3\.8\.9\.6](3-8-9-6.md)
+  - APPCVM SEVER, [3\.8\.10\.6](3-8-10-6.md)
+  - IUCV ACCEPT, [5\.10\.4\.7](5-10-4-7.md)
+  - IUCV CONNECT, [5\.10\.5\.6](5-10-5-6.md)
+  - IUCV DECLARE BUFFER, [5\.10\.6\.8](5-10-6-8.md)
+  - IUCV DESCRIBE, [5\.10\.7\.5](5-10-7-5.md)
+  - IUCV QUERY, [5\.10\.8\.5](5-10-8-5.md)
+  - IUCV RETRIEVE BUFFER, [5\.10\.9\.3](5-10-9-3.md)
+  - IUCV SET CONTROL MASK, [5\.10\.10\.6](5-10-10-6.md)
+  - IUCV SET MASK, [5\.10\.11\.6](5-10-11-6.md)
+  - IUCV SEVER, [5\.10\.12\.6](5-10-12-6.md)
+  - IUCV TEST COMPLETION, [5\.10\.13\.6](5-10-13-6.md)
+  - IUCV TEST MESSAGE, [5\.10\.14\.3](5-10-14-3.md)
+- output
+  - from MONWRITE, [C\.0](c-0.md)
+- output parameter lists
+  - APPCVM
+    - CONNECT, [3\.8\.1\.9\.1](3-8-1-9-1.md)
+    - QRYSTATE, [3\.8\.2\.6](3-8-2-6.md)
+    - RECEIVE, [3\.8\.3\.6](3-8-3-6.md)
+    - SENDCNF, [3\.8\.4\.5](3-8-4-5.md)
+    - SENDCNFD, [3\.8\.5\.5](3-8-5-5.md)
+    - SENDDATA, [3\.8\.6\.7](3-8-6-7.md)
+    - SENDERR, [3\.8\.7\.5](3-8-7-5.md)
+  - IUCV
+    - ACCEPT, [5\.10\.4\.6](5-10-4-6.md)
+    - CONNECT, [5\.10\.5\.5](5-10-5-5.md)
+    - DECLARE BUFFER, [5\.10\.6\.7](5-10-6-7.md)
+    - DESCRIBE, [5\.10\.7\.4](5-10-7-4.md)
+    - QUERY, [5\.10\.8\.6](5-10-8-6.md)
+    - SEVER, [5\.10\.12\.5](5-10-12-5.md)
+    - TEST COMPLETION, [5\.10\.13\.5](5-10-13-5.md)
+  - SENDREQ, [3\.8\.8\.5](3-8-8-5.md)
+  - SEVER \(APPCVM\), [3\.8\.10\.5](3-8-10-5.md)
+- overview of APPC/VM assembler interface, [3\.7](3-7.md)
 
 ## P
 
-- parameter addressability 1 3.7.5
-- parameter list 1
-- APPCVM 2 3.7.5
-- CONNECT 3 3.8.1.5
-- formatting with MF=L 3 3.7.5.4
-- QRYSTATE 3 3.8.2.5
-- reading 3 3.7.5.3
-- RECEIVE 3 3.8.3.4
-- SENDCNF 3 3.8.4.4
-- SENDCNFD 3 3.8.5.4
-- SENDDATA 3 3.8.6.4
-- SENDERR 3 3.8.7.4
-- SENDREQ 3 3.8.8.4
-- SETMODFY 3 3.8.9.4
-- SEVER 3 3.8.10.4
-- DIAGNOSE code 2
-- IUCV 2
-- ACCEPT 3 5.10.4.5
-- CONNECT 3 5.10.5.4
-- DECLARE BUFFER 3 5.10.6.5
-- formatting with MF=L 3 3.7.5.4
-- QUERY 3 5.10.8.3
-- reading 3 3.7.5.3
-- SET CONTROL MASK 3 5.10.10.4
-- SET MASK 3 5.10.11.4
-- SEVER 3 5.10.12.4
-- TEST COMPLETION 3 5.10.13.4
-- parameters for communication servers on IUCV ACCEPT 1 5.10.4.4
-- parameters, APPC 1
-- on ALLOCATE 2 F.3.1
-- on CONFIRM 2 F.4.1
-- on CONFIRMED 2 F.5.1
-- on DEALLOCATE 2 F.6.1
-- on RECEIVE_AND_WAIT 2 F.10.1
-- on REQUEST_TO_SEND 2 F.11.1
-- on SEND_DATA 2 F.12.1
-- on SEND_ERROR 2 F.13.1
-- partner, communications 1
-- connecting to 2 3.8.1.10.1
-- receiving from 2 3.8.3.10
-- sending to (SENDCNFD) 2 3.8.5.9
-- sending to (SENDCNF) 2 3.8.4.9
-- sending to (SENDDATA) 2 3.8.6.11
-- sending to (SENDERR) 2 3.8.7.9
-- sending to (SENDREQ) 2 3.8.8.9
-- severing from 2 3.8.10.9
-- severing paths 2 5.10.9.6
-- passwords 1
-- replacing directory entry 2 1.1.31
-- paths, APPC/VM 1 3.7.2.1
-- paths, IUCV 1
-- path, IUCV 1
-- definition of term 2 2.3.3.1
-- establishing 2 2.3.7
-- message 2
-- definition of term 3 2.3.3.1
-- severing 2 2.3.9.2
-- temporarily suspending communications over 2 2.3.9.1
-- pending interrupt, message 1 3.8.6.12
-- performance 1
-- APPC/VM 2 5.10.6.3
-- PIP parameter of APPC ALLOCATE 1 F.3.1
-- PIP variables 1 3.7.4.1
-- format 2 3.8.1.7
-- handling 2 3.8.1.11.1
-- receiving 2 3.8.3
-- specifying 2 3.8.1.7
-- prepare_received state 1 3.7.8
-- PREPARE_TO_RECEIVE (APPC verb) 1 F.9
-- print='*USERID (LU name qualifier)'.userid 1
-- product-sensitive interface 1 7.12.1
-- program exceptions 1
-- for APPCVM 2
-- CONNECT 3 3.8.1.9.2
-- QRYSTATE 3 3.8.2.7
-- RECEIVE 3 3.8.3.7
-- SENDCNF 3 3.8.4.6
-- SENDCNFD 3 3.8.5.6
-- SENDDATA 3 3.8.6.8
-- SENDERR 3 3.8.7.6
-- SENDREQ 3 3.8.8.6
-- SETMODFY 3 3.8.9.6
-- SEVER 3 3.8.10.6
-- for DIAGNOSE code 2
-- for IUCV 2
-- ACCEPT 3 5.10.4.7
-- CONNECT 3 5.10.5.6
-- DECLARE BUFFER 3 5.10.6.8
-- DESCRIBE 3 5.10.7.5
-- QUERY 3 5.10.8.5
-- RETRIEVE BUFFER 3 5.10.9.3
-- SET CONTROL MASK 3 5.10.10.6
-- SET MASK 3 5.10.11.6
-- SEVER 3 5.10.12.6
-- TEST COMPLETION 3 5.10.13.6
-- TEST MESSAGE 3 5.10.14.3
-- program interruptions 1
-- See program exceptions 2
-- Protect attributes 1
-- description 2 7.12.1
-- protection exceptions 1
-- APPCVM CONNECT 2 3.8.1.9.2
-- APPCVM QRYSTATE 2 3.8.2.7
-- APPCVM RECEIVE 2 3.8.3.7
-- APPCVM SENDCNF 2 3.8.4.6
-- APPCVM SENDCNFD 2 3.8.5.6
-- APPCVM SENDDATA 2 3.8.6.8
-- APPCVM SENDERR 2 3.8.7.6
-- APPCVM SENDREQ 2 3.8.8.6
-- APPCVM SETMODFY 2 3.8.9.6
-- APPCVM SEVER 2 3.8.10.6
-- IUCV ACCEPT 2 5.10.4.7
-- IUCV CONNECT 2 5.10.5.6
-- IUCV DECLARE BUFFER 2 5.10.6.8
-- IUCV DESCRIBE 2 5.10.7.5
-- IUCV QUERY 2 5.10.8.5
-- IUCV SET CONTROL MASK 2 5.10.10.6
-- IUCV SET MASK 2 5.10.11.6
-- IUCV SEVER 2 5.10.12.6
-- IUCV TEST COMPLETION 2 5.10.13.6
-- PURGE 1
-- IUCV function 2
-- PURGE function of *SPL system service 1 6.11.14.3
-- PURGE (IUCV function) 1 2.4.5 to 2.4.5.8
+- parameter addressability, [3\.7\.5](3-7-5.md)
+- parameter list
+  - APPCVM, [3\.7\.5](3-7-5.md)
+    - CONNECT, [3\.8\.1\.5](3-8-1-5.md)
+    - formatting with MF=L, [3\.7\.5\.4](3-7-5-4.md)
+    - QRYSTATE, [3\.8\.2\.5](3-8-2-5.md)
+    - reading, [3\.7\.5\.3](3-7-5-3.md)
+    - RECEIVE, [3\.8\.3\.4](3-8-3-4.md)
+    - SENDCNF, [3\.8\.4\.4](3-8-4-4.md)
+    - SENDCNFD, [3\.8\.5\.4](3-8-5-4.md)
+    - SENDDATA, [3\.8\.6\.4](3-8-6-4.md)
+    - SENDERR, [3\.8\.7\.4](3-8-7-4.md)
+    - SENDREQ, [3\.8\.8\.4](3-8-8-4.md)
+    - SETMODFY, [3\.8\.9\.4](3-8-9-4.md)
+    - SEVER, [3\.8\.10\.4](3-8-10-4.md)
+  - DIAGNOSE code
+  - IUCV
+    - ACCEPT, [5\.10\.4\.5](5-10-4-5.md)
+    - CONNECT, [5\.10\.5\.4](5-10-5-4.md)
+    - DECLARE BUFFER, [5\.10\.6\.5](5-10-6-5.md)
+    - formatting with MF=L, [3\.7\.5\.4](3-7-5-4.md)
+    - QUERY, [5\.10\.8\.3](5-10-8-3.md)
+    - reading, [3\.7\.5\.3](3-7-5-3.md)
+    - SET CONTROL MASK, [5\.10\.10\.4](5-10-10-4.md)
+    - SET MASK, [5\.10\.11\.4](5-10-11-4.md)
+    - SEVER, [5\.10\.12\.4](5-10-12-4.md)
+    - TEST COMPLETION, [5\.10\.13\.4](5-10-13-4.md)
+- parameters for communication servers on IUCV ACCEPT, [5\.10\.4\.4](5-10-4-4.md)
+- parameters, APPC
+  - on ALLOCATE, [F\.3\.1](f-3-1.md)
+  - on CONFIRM, [F\.4\.1](f-4-1.md)
+  - on CONFIRMED, [F\.5\.1](f-5-1.md)
+  - on DEALLOCATE, [F\.6\.1](f-6-1.md)
+  - on RECEIVE\_AND\_WAIT, [F\.10\.1](f-10-1.md)
+  - on REQUEST\_TO\_SEND, [F\.11\.1](f-11-1.md)
+  - on SEND\_DATA, [F\.12\.1](f-12-1.md)
+  - on SEND\_ERROR, [F\.13\.1](f-13-1.md)
+- partner, communications
+  - connecting to, [3\.8\.1\.10\.1](3-8-1-10-1.md)
+  - receiving from, [3\.8\.3\.10](3-8-3-10.md)
+  - sending to \(SENDCNFD\), [3\.8\.5\.9](3-8-5-9.md)
+  - sending to \(SENDCNF\), [3\.8\.4\.9](3-8-4-9.md)
+  - sending to \(SENDDATA\), [3\.8\.6\.11](3-8-6-11.md)
+  - sending to \(SENDERR\), [3\.8\.7\.9](3-8-7-9.md)
+  - sending to \(SENDREQ\), [3\.8\.8\.9](3-8-8-9.md)
+  - severing from, [3\.8\.10\.9](3-8-10-9.md)
+  - severing paths, [5\.10\.9\.6](5-10-9-6.md)
+- passwords
+  - replacing directory entry, [1\.1\.31](1-1-31.md)
+- paths, APPC/VM, [3\.7\.2\.1](3-7-2-1.md)
+- paths, IUCV
+- path, IUCV
+  - definition of term, [2\.3\.3\.1](2-3-3-1.md)
+  - establishing, [2\.3\.7](2-3-7.md)
+  - message
+    - definition of term, [2\.3\.3\.1](2-3-3-1.md)
+  - severing, [2\.3\.9\.2](2-3-9-2.md)
+  - temporarily suspending communications over, [2\.3\.9\.1](2-3-9-1.md)
+- pending interrupt, message, [3\.8\.6\.12](3-8-6-12.md)
+- performance
+  - APPC/VM, [5\.10\.6\.3](5-10-6-3.md)
+- PIP parameter of APPC ALLOCATE, [F\.3\.1](f-3-1.md)
+- PIP variables, [3\.7\.4\.1](3-7-4-1.md)
+  - format, [3\.8\.1\.7](3-8-1-7.md)
+  - handling, [3\.8\.1\.11\.1](3-8-1-11-1.md)
+  - receiving, [3\.8\.3](3-8-3.md)
+  - specifying, [3\.8\.1\.7](3-8-1-7.md)
+- prepare\_received state, [3\.7\.8](3-7-8.md)
+- PREPARE\_TO\_RECEIVE \(APPC verb\), [F\.9](f-9.md)
+- print='\*USERID \(LU name qualifier\)'\.userid
+- product\-sensitive interface, [7\.12\.1](7-12-1.md)
+- program exceptions
+  - for APPCVM
+    - CONNECT, [3\.8\.1\.9\.2](3-8-1-9-2.md)
+    - QRYSTATE, [3\.8\.2\.7](3-8-2-7.md)
+    - RECEIVE, [3\.8\.3\.7](3-8-3-7.md)
+    - SENDCNF, [3\.8\.4\.6](3-8-4-6.md)
+    - SENDCNFD, [3\.8\.5\.6](3-8-5-6.md)
+    - SENDDATA, [3\.8\.6\.8](3-8-6-8.md)
+    - SENDERR, [3\.8\.7\.6](3-8-7-6.md)
+    - SENDREQ, [3\.8\.8\.6](3-8-8-6.md)
+    - SETMODFY, [3\.8\.9\.6](3-8-9-6.md)
+    - SEVER, [3\.8\.10\.6](3-8-10-6.md)
+  - for DIAGNOSE code
+  - for IUCV
+    - ACCEPT, [5\.10\.4\.7](5-10-4-7.md)
+    - CONNECT, [5\.10\.5\.6](5-10-5-6.md)
+    - DECLARE BUFFER, [5\.10\.6\.8](5-10-6-8.md)
+    - DESCRIBE, [5\.10\.7\.5](5-10-7-5.md)
+    - QUERY, [5\.10\.8\.5](5-10-8-5.md)
+    - RETRIEVE BUFFER, [5\.10\.9\.3](5-10-9-3.md)
+    - SET CONTROL MASK, [5\.10\.10\.6](5-10-10-6.md)
+    - SET MASK, [5\.10\.11\.6](5-10-11-6.md)
+    - SEVER, [5\.10\.12\.6](5-10-12-6.md)
+    - TEST COMPLETION, [5\.10\.13\.6](5-10-13-6.md)
+    - TEST MESSAGE, [5\.10\.14\.3](5-10-14-3.md)
+- program interruptions
+  - See program exceptions
+- Protect attributes
+  - description, [7\.12\.1](7-12-1.md)
+- protection exceptions
+  - APPCVM CONNECT, [3\.8\.1\.9\.2](3-8-1-9-2.md)
+  - APPCVM QRYSTATE, [3\.8\.2\.7](3-8-2-7.md)
+  - APPCVM RECEIVE, [3\.8\.3\.7](3-8-3-7.md)
+  - APPCVM SENDCNF, [3\.8\.4\.6](3-8-4-6.md)
+  - APPCVM SENDCNFD, [3\.8\.5\.6](3-8-5-6.md)
+  - APPCVM SENDDATA, [3\.8\.6\.8](3-8-6-8.md)
+  - APPCVM SENDERR, [3\.8\.7\.6](3-8-7-6.md)
+  - APPCVM SENDREQ, [3\.8\.8\.6](3-8-8-6.md)
+  - APPCVM SETMODFY, [3\.8\.9\.6](3-8-9-6.md)
+  - APPCVM SEVER, [3\.8\.10\.6](3-8-10-6.md)
+  - IUCV ACCEPT, [5\.10\.4\.7](5-10-4-7.md)
+  - IUCV CONNECT, [5\.10\.5\.6](5-10-5-6.md)
+  - IUCV DECLARE BUFFER, [5\.10\.6\.8](5-10-6-8.md)
+  - IUCV DESCRIBE, [5\.10\.7\.5](5-10-7-5.md)
+  - IUCV QUERY, [5\.10\.8\.5](5-10-8-5.md)
+  - IUCV SET CONTROL MASK, [5\.10\.10\.6](5-10-10-6.md)
+  - IUCV SET MASK, [5\.10\.11\.6](5-10-11-6.md)
+  - IUCV SEVER, [5\.10\.12\.6](5-10-12-6.md)
+  - IUCV TEST COMPLETION, [5\.10\.13\.6](5-10-13-6.md)
+- PURGE
+  - IUCV function
+- PURGE function of \*SPL system service, [6\.11\.14\.3](6-11-14-3.md)
+- PURGE \(IUCV function\), [2\.4\.5](2-4-5.md) to [2\.4\.5\.8](2-4-5-8.md)
 
 ## Q
 
-- QRYSTATE function of APPCVM 1 3.8.2
-- condition codes 2 3.8.2.6
-- description 2 3.8.2
-- format 2 3.8.2.1
-- parameter description 2 3.8.2.2
-- parameter list format 2 3.8.2.5
-- program exceptions 2 3.8.2.7
-- state changes 2 3.8.2.8
-- QUERY 1
-- IUCV function 2
-- IUCV function used with APPC/VM 2 5.10.8
-- condition codes 3 5.10.8.4
-- format 3 5.10.8.1
-- parameter description 3 5.10.8.2
-- parameter list format 3 5.10.8.3
-- program exceptions 3 5.10.8.5
-- using 3 5.10.8
-- QUERY (IUCV function) 1 2.4.6 to 2.4.6.3
-- QUIESCE 1
-- IUCV function 2
-- QUIESCE (IUCV function) 1 2.4.7 to 2.4.7.7
+- QRYSTATE function of APPCVM, [3\.8\.2](3-8-2.md)
+  - condition codes, [3\.8\.2\.6](3-8-2-6.md)
+  - description, [3\.8\.2](3-8-2.md)
+  - format, [3\.8\.2\.1](3-8-2-1.md)
+  - parameter description, [3\.8\.2\.2](3-8-2-2.md)
+  - parameter list format, [3\.8\.2\.5](3-8-2-5.md)
+  - program exceptions, [3\.8\.2\.7](3-8-2-7.md)
+  - state changes, [3\.8\.2\.8](3-8-2-8.md)
+- QUERY
+  - IUCV function
+  - IUCV function used with APPC/VM, [5\.10\.8](5-10-8.md)
+    - condition codes, [5\.10\.8\.4](5-10-8-4.md)
+    - format, [5\.10\.8\.1](5-10-8-1.md)
+    - parameter description, [5\.10\.8\.2](5-10-8-2.md)
+    - parameter list format, [5\.10\.8\.3](5-10-8-3.md)
+    - program exceptions, [5\.10\.8\.5](5-10-8-5.md)
+    - using, [5\.10\.8](5-10-8.md)
+- QUERY \(IUCV function\), [2\.4\.6](2-4-6.md) to [2\.4\.6\.3](2-4-6-3.md)
+- QUIESCE
+  - IUCV function
+- QUIESCE \(IUCV function\), [2\.4\.7](2-4-7.md) to [2\.4\.7\.7](2-4-7-7.md)
 
 ## R
 
-- RDEVFTR 1 E.1
-- RDEVTYPC 1 E.2
-- RDEVTYPE 1 E.3
-- READ-SFBLOK function 1 6.11.14.2.1
-- READ-SPLINK function 1 6.11.14.2.1
-- READ-XAB function of *SPL system service 1 6.11.14.2.1
-- reading IUCV and APPV/VM parameter lists 1 3.7.5.3
-- reason codes from *IDENT sever 1 6.11.7
-- reason codes, SEVER 1
-- Identify System Service (*IDENT) 2 6.11.7
-- RECEIVE 1
-- IUCV function 2
-- RECEIVE function of APPCVM 1
-- addressing for 2 3.8.3.5
-- completion 2 3.8.3.9
-- condition codes 2 3.8.3.6
-- description 2 3.8.3
-- format 2 3.8.3.1
-- from communication partner 2 3.8.3.10
-- mapped with APPC 2 F.10
-- overview 2 3.7.4.2
-- parameter descriptions 2 3.8.3.2
-- parameter list format 2 3.8.3.4
-- program exceptions 2 3.8.3.7
-- return codes 2 3.8.3.6
-- state changes 2 3.8.3.8
-- state checks 2 3.8.3.8
-- Receive state 1 3.7.2.2 3.7.4.2 3.7.8
-- RECEIVE (IUCV function) 1 2.4.8 to 2.4.8.8
-- RECEIVE_AND_WAIT, APPC verb 1
-- abend conditions 2 F.10.3
-- mapped with APPC/VM 2 F.10
-- parameters 2 F.10.1
-- state changes 2 F.10.2
-- receiving data using APPC/VM 1 3.7.4.2
-- receiving signals from the *SIGNAL system service 1 6.11.13.4
-- REJECT 1
-- IUCV function 2
-- REJECT (IUCV function) 1 2.4.9 to 2.4.9.8
-- related publications 1 BIBLIOGRAPHY.2
-- REPLY 1
-- IUCV function 2
-- REPLY (IUCV function) 1 2.4.10 to 2.4.10.9
-- request-to-send interrupts 1 3.7.2.3
-- REQUEST_TO_SEND, APPC verb 1
-- abend conditions 2 F.11.3
-- mapped with APPC/VM 2 F.11
-- parameters 2 F.11.1
-- state changes 2 F.11.2
-- REQUEST_TO_SEND_RECEIVED parameter (APPC) 1
-- of CONFIRM 2 F.4.1
-- of RECEIVE_AND_WAIT 2 F.10.1
-- of SEND_DATA 2 F.12.1
-- of SEND_ERROR 2 F.13.1
-- Reset state 1 3.7.2.2 3.7.8
-- Resource Access Control Facility (RACF) 1
-- Resource Access Verification 1
-- resource ID 1
-- connecting to virtual machine 2 6.11.6.1
-- on CONNECT request to *IDENT 2 5.10.5.3
-- parameter 2
-- using *IDENT 2 6.11.5
-- RESOURCE ID field 1
-- of CONNECT request (*IDENT) 2 6.11.6
-- RESOURCE parameter (APPC) 1
-- of ALLOCATE 2 F.3.1
-- of CONFIRM 2 F.4.1
-- of CONFIRMED 2 F.5.1
-- of DEALLOCATE 2 F.6.1
-- of RECEIVE_AND_WAIT 2 F.10.1
-- of REQUEST_TO_SEND 2 F.11.1
-- of SEND_DATA 2 F.12.1
-- of SEND_ERROR 2 F.13.1
-- resources 1
-- managing 2 3.7.4.4
-- requesting to manage - how *IDENT processes 2 6.11.6.1
-- revoking your own 2 3.7.4.5
-- virtual machines connecting to 2 3.7.4.4
-- RESUME 1
-- IUCV function 2
-- RESUME (IUCV function) 1 2.4.11 to 2.4.11.7
-- RETRIEVE BUFFER function of IUCV 1 5.10.9
-- used in APPC/VM 2 5.10.9
-- completion 3 5.10.9.5
-- condition codes 3 5.10.9.2
-- format 3 5.10.9.1
-- program exceptions 3 5.10.9.3
-- state changes 3 5.10.9.4
-- using 3 5.10.9
-- return codes 1 1.1.6
-- APPC 2 F.1.4
-- APPCVM 2
-- CONNECT 3 3.8.1.9.1
-- overview 3 3.7.6 3.7.6.2
-- QRYSTATE 3 3.8.2.6
-- RECEIVE 3 3.8.3.6
-- SENDCNF 3 3.8.4.5
-- SENDCNFD 3 3.8.5.5
-- SENDDATA 3 3.8.6.7
-- SENDERR 3 3.8.7.5
-- SENDREQ 3 3.8.8.5
-- SETMODFY 3 3.8.9.5
-- SEVER 3 3.8.10.5
-- DIAGNOSE codes 2
-- IUCV 2
-- DCLBFR function 3 5.10.6.7
-- IUCV ACCEPT 3 5.10.4.6
-- IUCV CONNECT 3 5.10.5.5
-- SEVER 3 5.10.12.5
-- TEST COMPLETION 3 5.10.13.5
-- return codes, IUCV 1 2.6.2
-- RETURN_CODE parameter (APPC) 1
-- of ALLOCATE 2 F.3.1
-- of CONFIRM 2 F.4.1
-- of DEALLOCATE 2 F.6.1
-- of RECEIVE_AND_WAIT 2 F.10.1
-- of SEND_DATA 2 F.12.1
-- of SEND_ERROR 2 F.13.1
-- RETURN_CONTROL (WHEN_SESSION_ALLOCATED) parameter (APPC) 1 F.3.1
-- revoking 1
-- resources you do not own 2 3.7.4.5
-- your own resources 2 3.7.4.5
-- RTRVBFR function 1
-- See RETRIEVE BUFFER function of IUCV 2
-- RTRVBFR (IUCV function) 1 2.4.12 to 2.4.12.1
+- RDEVFTR, [E\.1](e-1.md)
+- RDEVTYPC, [E\.2](e-2.md)
+- RDEVTYPE, [E\.3](e-3.md)
+- READ\-SFBLOK function, [6\.11\.14\.2\.1](6-11-14-2-1.md)
+- READ\-SPLINK function, [6\.11\.14\.2\.1](6-11-14-2-1.md)
+- READ\-XAB function of \*SPL system service, [6\.11\.14\.2\.1](6-11-14-2-1.md)
+- reading IUCV and APPV/VM parameter lists, [3\.7\.5\.3](3-7-5-3.md)
+- reason codes from \*IDENT sever, [6\.11\.7](6-11-7.md)
+- reason codes, SEVER
+  - Identify System Service \(\*IDENT\), [6\.11\.7](6-11-7.md)
+- RECEIVE
+  - IUCV function
+- RECEIVE function of APPCVM
+  - addressing for, [3\.8\.3\.5](3-8-3-5.md)
+  - completion, [3\.8\.3\.9](3-8-3-9.md)
+  - condition codes, [3\.8\.3\.6](3-8-3-6.md)
+  - description, [3\.8\.3](3-8-3.md)
+  - format, [3\.8\.3\.1](3-8-3-1.md)
+  - from communication partner, [3\.8\.3\.10](3-8-3-10.md)
+  - mapped with APPC, [F\.10](f-10.md)
+  - overview, [3\.7\.4\.2](3-7-4-2.md)
+  - parameter descriptions, [3\.8\.3\.2](3-8-3-2.md)
+  - parameter list format, [3\.8\.3\.4](3-8-3-4.md)
+  - program exceptions, [3\.8\.3\.7](3-8-3-7.md)
+  - return codes, [3\.8\.3\.6](3-8-3-6.md)
+  - state changes, [3\.8\.3\.8](3-8-3-8.md)
+  - state checks, [3\.8\.3\.8](3-8-3-8.md)
+- Receive state, [3\.7\.2\.2](3-7-2-2.md), [3\.7\.4\.2](3-7-4-2.md), [3\.7\.8](3-7-8.md)
+- RECEIVE \(IUCV function\), [2\.4\.8](2-4-8.md) to [2\.4\.8\.8](2-4-8-8.md)
+- RECEIVE\_AND\_WAIT, APPC verb
+  - abend conditions, [F\.10\.3](f-10-3.md)
+  - mapped with APPC/VM, [F\.10](f-10.md)
+  - parameters, [F\.10\.1](f-10-1.md)
+  - state changes, [F\.10\.2](f-10-2.md)
+- receiving data using APPC/VM, [3\.7\.4\.2](3-7-4-2.md)
+- receiving signals from the \*SIGNAL system service, [6\.11\.13\.4](6-11-13-4.md)
+- REJECT
+  - IUCV function
+- REJECT \(IUCV function\), [2\.4\.9](2-4-9.md) to [2\.4\.9\.8](2-4-9-8.md)
+- related publications, [BIBLIOGRAPHY\.2](bibliography-2.md)
+- REPLY
+  - IUCV function
+- REPLY \(IUCV function\), [2\.4\.10](2-4-10.md) to [2\.4\.10\.9](2-4-10-9.md)
+- request\-to\-send interrupts, [3\.7\.2\.3](3-7-2-3.md)
+- REQUEST\_TO\_SEND, APPC verb
+  - abend conditions, [F\.11\.3](f-11-3.md)
+  - mapped with APPC/VM, [F\.11](f-11.md)
+  - parameters, [F\.11\.1](f-11-1.md)
+  - state changes, [F\.11\.2](f-11-2.md)
+- REQUEST\_TO\_SEND\_RECEIVED parameter \(APPC\)
+  - of CONFIRM, [F\.4\.1](f-4-1.md)
+  - of RECEIVE\_AND\_WAIT, [F\.10\.1](f-10-1.md)
+  - of SEND\_DATA, [F\.12\.1](f-12-1.md)
+  - of SEND\_ERROR, [F\.13\.1](f-13-1.md)
+- Reset state, [3\.7\.2\.2](3-7-2-2.md), [3\.7\.8](3-7-8.md)
+- Resource Access Control Facility \(RACF\)
+- Resource Access Verification
+- resource ID
+  - connecting to virtual machine, [6\.11\.6\.1](6-11-6-1.md)
+  - on CONNECT request to \*IDENT, [5\.10\.5\.3](5-10-5-3.md)
+  - parameter
+  - using \*IDENT, [6\.11\.5](6-11-5.md)
+- RESOURCE ID field
+  - of CONNECT request \(\*IDENT\), [6\.11\.6](6-11-6.md)
+- RESOURCE parameter \(APPC\)
+  - of ALLOCATE, [F\.3\.1](f-3-1.md)
+  - of CONFIRM, [F\.4\.1](f-4-1.md)
+  - of CONFIRMED, [F\.5\.1](f-5-1.md)
+  - of DEALLOCATE, [F\.6\.1](f-6-1.md)
+  - of RECEIVE\_AND\_WAIT, [F\.10\.1](f-10-1.md)
+  - of REQUEST\_TO\_SEND, [F\.11\.1](f-11-1.md)
+  - of SEND\_DATA, [F\.12\.1](f-12-1.md)
+  - of SEND\_ERROR, [F\.13\.1](f-13-1.md)
+- resources
+  - managing, [3\.7\.4\.4](3-7-4-4.md)
+  - requesting to manage \- how \*IDENT processes, [6\.11\.6\.1](6-11-6-1.md)
+  - revoking your own, [3\.7\.4\.5](3-7-4-5.md)
+  - virtual machines connecting to, [3\.7\.4\.4](3-7-4-4.md)
+- RESUME
+  - IUCV function
+- RESUME \(IUCV function\), [2\.4\.11](2-4-11.md) to [2\.4\.11\.7](2-4-11-7.md)
+- RETRIEVE BUFFER function of IUCV, [5\.10\.9](5-10-9.md)
+  - used in APPC/VM, [5\.10\.9](5-10-9.md)
+    - completion, [5\.10\.9\.5](5-10-9-5.md)
+    - condition codes, [5\.10\.9\.2](5-10-9-2.md)
+    - format, [5\.10\.9\.1](5-10-9-1.md)
+    - program exceptions, [5\.10\.9\.3](5-10-9-3.md)
+    - state changes, [5\.10\.9\.4](5-10-9-4.md)
+    - using, [5\.10\.9](5-10-9.md)
+- return codes, [1\.1\.6](1-1-6.md)
+  - APPC, [F\.1\.4](f-1-4.md)
+  - APPCVM
+    - CONNECT, [3\.8\.1\.9\.1](3-8-1-9-1.md)
+    - overview, [3\.7\.6](3-7-6.md), [3\.7\.6\.2](3-7-6-2.md)
+    - QRYSTATE, [3\.8\.2\.6](3-8-2-6.md)
+    - RECEIVE, [3\.8\.3\.6](3-8-3-6.md)
+    - SENDCNF, [3\.8\.4\.5](3-8-4-5.md)
+    - SENDCNFD, [3\.8\.5\.5](3-8-5-5.md)
+    - SENDDATA, [3\.8\.6\.7](3-8-6-7.md)
+    - SENDERR, [3\.8\.7\.5](3-8-7-5.md)
+    - SENDREQ, [3\.8\.8\.5](3-8-8-5.md)
+    - SETMODFY, [3\.8\.9\.5](3-8-9-5.md)
+    - SEVER, [3\.8\.10\.5](3-8-10-5.md)
+  - DIAGNOSE codes
+  - IUCV
+    - DCLBFR function, [5\.10\.6\.7](5-10-6-7.md)
+    - IUCV ACCEPT, [5\.10\.4\.6](5-10-4-6.md)
+    - IUCV CONNECT, [5\.10\.5\.5](5-10-5-5.md)
+    - SEVER, [5\.10\.12\.5](5-10-12-5.md)
+    - TEST COMPLETION, [5\.10\.13\.5](5-10-13-5.md)
+- return codes, IUCV, [2\.6\.2](2-6-2.md)
+- RETURN\_CODE parameter \(APPC\)
+  - of ALLOCATE, [F\.3\.1](f-3-1.md)
+  - of CONFIRM, [F\.4\.1](f-4-1.md)
+  - of DEALLOCATE, [F\.6\.1](f-6-1.md)
+  - of RECEIVE\_AND\_WAIT, [F\.10\.1](f-10-1.md)
+  - of SEND\_DATA, [F\.12\.1](f-12-1.md)
+  - of SEND\_ERROR, [F\.13\.1](f-13-1.md)
+- RETURN\_CONTROL \(WHEN\_SESSION\_ALLOCATED\) parameter \(APPC\), [F\.3\.1](f-3-1.md)
+- revoking
+  - resources you do not own, [3\.7\.4\.5](3-7-4-5.md)
+  - your own resources, [3\.7\.4\.5](3-7-4-5.md)
+- RTRVBFR function
+  - See RETRIEVE BUFFER function of IUCV
+- RTRVBFR \(IUCV function\), [2\.4\.12](2-4-12.md) to [2\.4\.12\.1](2-4-12-1.md)
 
 ## S
 
-- SAA (Systems Application Architecture) 1
-- security-relevant DIAGNOSEs 1 7.12.1.5.3
-- SELECT function of *SPL system service 1 6.11.14.2
-- SEND 1
-- IUCV function 2
-- SEND function of *SPL system service 1 6.11.14.3
-- Send state 1 3.7.2.2 3.7.4.2 3.7.8
-- SEND (IUCV function) 1 2.4.13 to 2.4.13.11
-- SENDCNF function of APPCVM 1 3.8.4
-- completion 2 3.8.4.8
-- condition codes 2 3.8.4.5
-- description 2 3.8.4
-- format 2 3.8.4.1
-- mapped with APPC 2 F.4 F.6
-- parameter descriptions 2 3.8.4.2
-- parameter list format 2 3.8.4.4
-- program exceptions 2 3.8.4.6
-- return codes 2 3.8.4.5
-- state changes 2 3.8.4.7
-- state checks 2 3.8.4.7
-- to communication partner 2 3.8.4.9
-- SENDCNFD function of APPCVM 1 3.8.5
-- completion 2 3.8.5.8
-- condition codes 2 3.8.5.5
-- description 2 3.8.5
-- format 2 3.8.5.1
-- mapped with APPC 2 F.5
-- parameter descriptions 2 3.8.5.2
-- parameter list format 2 3.8.5.4
-- program exceptions 2 3.8.5.6
-- return codes 2 3.8.5.5
-- state changes 2 3.8.5.7
-- state checks 2 3.8.5.7
-- to communication partner 2 3.8.5.9
-- SENDDATA function of APPCVM 1 3.8.6
-- addressing for 2 3.8.6.6
-- completion 2 3.8.6.10
-- condition codes 2 3.8.6.7
-- description 2 3.8.6
-- format 2 3.8.6.1
-- mapped with APPC 2 F.12
-- message pending interrupt 2 3.8.6.12
-- multiple 2 3.8.3.5 3.8.6.6
-- overview 2 3.7.4.2
-- parameter descriptions 2 3.8.6.2
-- parameter list format 2 3.8.6.4
-- program exceptions 2 3.8.6.8
-- return codes 2 3.8.6.7
-- setting up data 2 3.8.6.5
-- specifying buffers 2 3.8.6.6
-- state checks and changes 2 3.8.6.9
-- to communication partner 2 3.8.6.11
-- SENDERR function of APPCVM 1
-- addressing for 2 3.8.7.10 3.8.10.10
-- completion 2 3.8.7.8
-- mapped with APPC 2 F.13
-- parameter descriptions 2 3.8.7.2
-- parameter list format 2 3.8.7.4
-- program exceptions 2 3.8.7.6
-- return codes 2 3.8.7.5
-- specifying log data 2 3.8.7.10
-- state changes 2 3.8.7.7
-- to communication partner 2 3.8.7.9
-- sending data 1
-- details 2 3.8.6.5
-- overview 2 3.7.4.2
-- sending signals to the *SIGNAL system service 1 6.11.13.3
-- SENDREQ function of APPCVM 1 3.8.8
-- completion 2 3.8.8.8
-- condition codes 2 3.8.8.5
-- description 2 3.8.8
-- format 2 3.8.8.1
-- interrupt 2 3.8.8.9
-- mapped with APPC 2 F.11
-- parameter descriptions 2 3.8.8.2
-- parameter list format 2 3.8.8.4
-- program exceptions 2 3.8.8.6
-- return codes 2 3.8.8.5
-- state changes 2 3.8.8.7
-- state checks 2 3.8.8.7
-- to communication partner 2 3.8.8.9
-- SENDREQ interrupts 1 3.7.2.3
-- format 2 3.8.8.9
-- SEND_DATA, APPC verb 1
-- abend conditions 2 F.12.3
-- mapped with APPC/VM 2 F.12
-- parameters 2 F.12.1
-- state changes 2 F.12.2
-- SEND_ERROR, APPC verb 1
-- abend conditions 2 F.13.3
-- mapped with APPC/VM 2 F.13
-- parameters 2 F.13.1
-- state changes 2 F.13.2
-- servers, communications 1
-- considerations for 2 3.8.1.11
-- SET CONTROL MASK function of IUCV 1 5.10.10
-- used in APPC/VM 2 5.10.10
-- completion 3 5.10.10.8
-- condition codes 3 5.10.10.5
-- format 3 5.10.10.1
-- parameter descriptions 3 5.10.10.2
-- parameter list format 3 5.10.10.4
-- program exceptions 3 5.10.10.6
-- state changes 3 5.10.10.7
-- using 3 5.10.10
-- SET MASK function of IUCV 1 5.10.11
-- used in APPC/VM 2 5.10.11
-- completion 3 5.10.11.8
-- condition codes 3 5.10.11.5
-- description 3 5.10.11
-- format 3 5.10.11.1
-- parameter descriptions 3 5.10.11.2
-- parameter list format 3 5.10.11.4
-- program exceptions 3 5.10.11.6
-- state changes 3 5.10.11.7
-- SETCMASK function 1
-- See SET CONTROL MASK function of IUCV 2
-- SETCMASK (IUCV function) 1 2.4.14 to 2.4.14.6
-- SETMASK function 1
-- See SET MASK function of IUCV 2
-- SETMASK (IUCV function) 1 2.4.15 to 2.4.15.6
-- SETMODFY function of APPCVM 1 3.8.9
-- completion 2 3.8.9.8
-- condition codes 2 3.8.9.5
-- description 2 3.8.9
-- format 2 3.8.9.1
-- parameter descriptions 2 3.8.9.2
-- parameter list format 2 3.8.9.4
-- program exceptions 2 3.8.9.6
-- return codes 2 3.8.9.5
-- state checks and changes 2 3.8.9.7
-- to communication partner 2 3.8.9.9
-- setting defaults for optional parameters on APPC/VM functions 1 3.7.5.1
-- sever codes, APPC/VM 1 3.7.6.2 3.8.10.11
-- SEVER function of APPCVM 1 3.7.4.3 3.8.10
-- completion 2 3.8.10.8
-- condition codes 2 3.8.10.5
-- description 2 3.8.10
-- external interrupt format 2 3.8.10.12
-- format 2 3.8.10.1
-- from communication partner 2 3.8.10.9
-- mapped with APPC 2 F.6
-- overview 2 3.7.4.3
-- parameter descriptions 2 3.8.10.2
-- parameter list format 2 3.8.10.4
-- program exceptions 2 3.8.10.6
-- return codes 2 3.8.10.5
-- revoking your own resources 2 3.7.4.5
-- sever codes 2 3.8.10.11
-- specifying log data 2 3.8.10.10
-- state checks and changes 2 3.8.10.7
-- SEVER function of IUCV 1 5.10.12
-- programming exceptions 2 5.10.12.6
-- used in APPC/VM 2 5.10.12
-- completion 3 5.10.12.8
-- condition codes 3 5.10.12.5
-- external interrupt 3 5.10.12.10
-- external interrupt format 3 3.8.10.12
-- format 3 5.10.12.1
-- overview 3 3.7.4.3
-- parameter descriptions 3 5.10.12.2
-- parameter list format 3 5.10.12.4
-- return codes 3 5.10.12.5
-- state checks and state changes 3 5.10.12.7
-- to revoke a resource 3 3.7.4.5
-- *IDENT sever reason codes 2 6.11.7
-- sever interrupts 1 3.7.2.3
-- format 2 3.8.10.12
-- from IUCV SEVER 2 3.7.4.3
-- SEVER reason codes 1
-- Identify System Service (*IDENT) 2 6.11.7
-- sever reason codes from *IDENT 1 6.11.7
-- Sever state 1 3.7.2.2 3.7.8
-- SEVER (IUCV function) 1 2.4.16 to 2.4.16.7
-- severing connection to your partner 1
-- using APPCVM SEVER 2 3.7.4.3
-- using APPC/VM 2 3.7.4.1
-- using IUCV SEVER 2 3.7.4.3
-- SFBLOK 1 E.4
-- Signal (*SIGNAL) System Service 1 6.11.13 to 6.11.13.5
-- connecting with 2 6.11.13.2
-- establishing communications with 2 6.11.13.1
-- leaving 2 6.11.13.5
-- receiving signals 2 6.11.13.4
-- sending signals 2 6.11.13.3
-- size of messages 1 3.8.6.5
-- SNA (System Network Architecture) 1
-- relationship to APPC and APPC/VM 2 3.7
-- source virtual machine, IUCV 1
-- definition of term 2 2.3.3.1
-- target virtual machine 2
-- definition of term 3 2.3.3.1
-- specification exceptions 1
-- APPCVM CONNECT 2 3.8.1.9.2
-- APPCVM QRYSTATE 2 3.8.2.7
-- APPCVM RECEIVE 2 3.8.3.7
-- APPCVM SENDCNF 2 3.8.4.6
-- APPCVM SENDCNFD 2 3.8.5.6
-- APPCVM SENDDATA 2 3.8.6.8
-- APPCVM SENDERR 2 3.8.7.6
-- APPCVM SENDREQ 2 3.8.8.6
-- APPCVM SETMODFY 2 3.8.9.6
-- APPCVM SEVER 2 3.8.10.6
-- IUCV ACCEPT 2 5.10.4.7
-- IUCV CONNECT 2 5.10.5.6
-- IUCV DECLARE BUFFER 2 5.10.6.8
-- IUCV DESCRIBE 2 5.10.7.5
-- IUCV QUERY 2 5.10.8.5
-- IUCV SET CONTROL MASK 2 5.10.10.6
-- IUCV SET MASK 2 5.10.11.6
-- IUCV SEVER 2 5.10.12.6
-- IUCV TEST COMPLETION 2 5.10.13.6
-- specifying a PIP variables 1 3.8.1.7
-- specifying log data 1 3.8.7.10 3.8.10.10
-- SPLINK 1 E.5
-- SPOOL commands 1 7.12.1.5.5
-- spool file opening and characteristic querying with DIAGNOSE code X'BC' 1 1.1.42
-- spool files 1
-- auditing 2 7.12.1.5.4
-- starting a conversation with APPC/VM functions 1 3.7.4.1
-- state changes 1
-- ALLOCATE (APPC) 2 F.3.2
-- APPCVM CONNECT 2 3.8.1.9.3
-- APPCVM QRYSTATE 2 3.8.2.8
-- APPCVM RECEIVE 2 3.8.3.8
-- APPCVM SEVER 2 3.8.10.7
-- CONFIRM (APPC) 2 F.4.2
-- CONFIRMED (APPC) 2 F.5.2
-- DCLBFR 2 5.10.6.9
-- DEALLOCATE (APPC) 2 F.6.2
-- IUCV ACCEPT 2 5.10.4.8
-- RECEIVE_AND_WAIT (APPC) 2 F.10.2
-- REQUEST_TO_SEND (APPC) 2 F.11.2
-- RETRIEVE BUFFER 2 5.10.9.4
-- SENDCNF 2 3.8.4.7
-- SENDCNFD 2 3.8.5.7
-- SENDDATA 2 3.8.6.9
-- SENDERR 2 3.8.7.7
-- SENDREQ 2 3.8.8.7
-- SEND_DATA (APPC) 2 F.12.2
-- SEND_ERROR (APPC) 2 F.13.2
-- SETMODFY 2 3.8.9.7
-- state table 1 3.7.8
-- state table for APPC/VM functions 1 3.7.8
-- states, APPC/VM 1 3.7.2.2 3.7.8
-- backout_received 2 3.7.8
-- backout_required 2 3.7.8
-- Confirm 2 3.7.8
-- Connect 2 3.7.8
-- defer_receive 2 3.7.8
-- defer_sever 2 3.7.8
-- prepare_received 2 3.7.8
-- Receive 2 3.7.4.2 3.7.8
-- Reset 2 3.7.8
-- Send 2 3.7.4.2 3.7.8
-- Sever 2 3.7.8
-- table for error conditions 2 3.7.8.2
-- unsolicited_request_commit_received 2 3.7.8
-- summaries 1
-- state table 2 3.7.8
-- Symptom records 1
-- description 2 8.13.1
-- SYNCPT synchronization level 1 3.8.1.3
-- SYNC_LEVEL parameter (APPC) 1
-- of ALLOCATE 2 F.3.1
-- System Network Architecture (SNA) 1
-- relationship to APPC and APPC/VM 2 3.7
-- system service, CP 1
-- identify (*IDENT) 2 6.11.5
+- SAA \(Systems Application Architecture\)
+- security\-relevant DIAGNOSEs, [7\.12\.1\.5\.3](7-12-1-5-3.md)
+- SELECT function of \*SPL system service, [6\.11\.14\.2](6-11-14-2.md)
+- SEND
+  - IUCV function
+- SEND function of \*SPL system service, [6\.11\.14\.3](6-11-14-3.md)
+- Send state, [3\.7\.2\.2](3-7-2-2.md), [3\.7\.4\.2](3-7-4-2.md), [3\.7\.8](3-7-8.md)
+- SEND \(IUCV function\), [2\.4\.13](2-4-13.md) to [2\.4\.13\.11](2-4-13-11.md)
+- SENDCNF function of APPCVM, [3\.8\.4](3-8-4.md)
+  - completion, [3\.8\.4\.8](3-8-4-8.md)
+  - condition codes, [3\.8\.4\.5](3-8-4-5.md)
+  - description, [3\.8\.4](3-8-4.md)
+  - format, [3\.8\.4\.1](3-8-4-1.md)
+  - mapped with APPC, [F\.4](f-4.md), [F\.6](f-6.md)
+  - parameter descriptions, [3\.8\.4\.2](3-8-4-2.md)
+  - parameter list format, [3\.8\.4\.4](3-8-4-4.md)
+  - program exceptions, [3\.8\.4\.6](3-8-4-6.md)
+  - return codes, [3\.8\.4\.5](3-8-4-5.md)
+  - state changes, [3\.8\.4\.7](3-8-4-7.md)
+  - state checks, [3\.8\.4\.7](3-8-4-7.md)
+  - to communication partner, [3\.8\.4\.9](3-8-4-9.md)
+- SENDCNFD function of APPCVM, [3\.8\.5](3-8-5.md)
+  - completion, [3\.8\.5\.8](3-8-5-8.md)
+  - condition codes, [3\.8\.5\.5](3-8-5-5.md)
+  - description, [3\.8\.5](3-8-5.md)
+  - format, [3\.8\.5\.1](3-8-5-1.md)
+  - mapped with APPC, [F\.5](f-5.md)
+  - parameter descriptions, [3\.8\.5\.2](3-8-5-2.md)
+  - parameter list format, [3\.8\.5\.4](3-8-5-4.md)
+  - program exceptions, [3\.8\.5\.6](3-8-5-6.md)
+  - return codes, [3\.8\.5\.5](3-8-5-5.md)
+  - state changes, [3\.8\.5\.7](3-8-5-7.md)
+  - state checks, [3\.8\.5\.7](3-8-5-7.md)
+  - to communication partner, [3\.8\.5\.9](3-8-5-9.md)
+- SENDDATA function of APPCVM, [3\.8\.6](3-8-6.md)
+  - addressing for, [3\.8\.6\.6](3-8-6-6.md)
+  - completion, [3\.8\.6\.10](3-8-6-10.md)
+  - condition codes, [3\.8\.6\.7](3-8-6-7.md)
+  - description, [3\.8\.6](3-8-6.md)
+  - format, [3\.8\.6\.1](3-8-6-1.md)
+  - mapped with APPC, [F\.12](f-12.md)
+  - message pending interrupt, [3\.8\.6\.12](3-8-6-12.md)
+  - multiple, [3\.8\.3\.5](3-8-3-5.md), [3\.8\.6\.6](3-8-6-6.md)
+  - overview, [3\.7\.4\.2](3-7-4-2.md)
+  - parameter descriptions, [3\.8\.6\.2](3-8-6-2.md)
+  - parameter list format, [3\.8\.6\.4](3-8-6-4.md)
+  - program exceptions, [3\.8\.6\.8](3-8-6-8.md)
+  - return codes, [3\.8\.6\.7](3-8-6-7.md)
+  - setting up data, [3\.8\.6\.5](3-8-6-5.md)
+  - specifying buffers, [3\.8\.6\.6](3-8-6-6.md)
+  - state checks and changes, [3\.8\.6\.9](3-8-6-9.md)
+  - to communication partner, [3\.8\.6\.11](3-8-6-11.md)
+- SENDERR function of APPCVM
+  - addressing for, [3\.8\.7\.10](3-8-7-10.md), [3\.8\.10\.10](3-8-10-10.md)
+  - completion, [3\.8\.7\.8](3-8-7-8.md)
+  - mapped with APPC, [F\.13](f-13.md)
+  - parameter descriptions, [3\.8\.7\.2](3-8-7-2.md)
+  - parameter list format, [3\.8\.7\.4](3-8-7-4.md)
+  - program exceptions, [3\.8\.7\.6](3-8-7-6.md)
+  - return codes, [3\.8\.7\.5](3-8-7-5.md)
+  - specifying log data, [3\.8\.7\.10](3-8-7-10.md)
+  - state changes, [3\.8\.7\.7](3-8-7-7.md)
+  - to communication partner, [3\.8\.7\.9](3-8-7-9.md)
+- sending data
+  - details, [3\.8\.6\.5](3-8-6-5.md)
+  - overview, [3\.7\.4\.2](3-7-4-2.md)
+- sending signals to the \*SIGNAL system service, [6\.11\.13\.3](6-11-13-3.md)
+- SENDREQ function of APPCVM, [3\.8\.8](3-8-8.md)
+  - completion, [3\.8\.8\.8](3-8-8-8.md)
+  - condition codes, [3\.8\.8\.5](3-8-8-5.md)
+  - description, [3\.8\.8](3-8-8.md)
+  - format, [3\.8\.8\.1](3-8-8-1.md)
+  - interrupt, [3\.8\.8\.9](3-8-8-9.md)
+  - mapped with APPC, [F\.11](f-11.md)
+  - parameter descriptions, [3\.8\.8\.2](3-8-8-2.md)
+  - parameter list format, [3\.8\.8\.4](3-8-8-4.md)
+  - program exceptions, [3\.8\.8\.6](3-8-8-6.md)
+  - return codes, [3\.8\.8\.5](3-8-8-5.md)
+  - state changes, [3\.8\.8\.7](3-8-8-7.md)
+  - state checks, [3\.8\.8\.7](3-8-8-7.md)
+  - to communication partner, [3\.8\.8\.9](3-8-8-9.md)
+- SENDREQ interrupts, [3\.7\.2\.3](3-7-2-3.md)
+  - format, [3\.8\.8\.9](3-8-8-9.md)
+- SEND\_DATA, APPC verb
+  - abend conditions, [F\.12\.3](f-12-3.md)
+  - mapped with APPC/VM, [F\.12](f-12.md)
+  - parameters, [F\.12\.1](f-12-1.md)
+  - state changes, [F\.12\.2](f-12-2.md)
+- SEND\_ERROR, APPC verb
+  - abend conditions, [F\.13\.3](f-13-3.md)
+  - mapped with APPC/VM, [F\.13](f-13.md)
+  - parameters, [F\.13\.1](f-13-1.md)
+  - state changes, [F\.13\.2](f-13-2.md)
+- servers, communications
+  - considerations for, [3\.8\.1\.11](3-8-1-11.md)
+- SET CONTROL MASK function of IUCV, [5\.10\.10](5-10-10.md)
+  - used in APPC/VM, [5\.10\.10](5-10-10.md)
+    - completion, [5\.10\.10\.8](5-10-10-8.md)
+    - condition codes, [5\.10\.10\.5](5-10-10-5.md)
+    - format, [5\.10\.10\.1](5-10-10-1.md)
+    - parameter descriptions, [5\.10\.10\.2](5-10-10-2.md)
+    - parameter list format, [5\.10\.10\.4](5-10-10-4.md)
+    - program exceptions, [5\.10\.10\.6](5-10-10-6.md)
+    - state changes, [5\.10\.10\.7](5-10-10-7.md)
+    - using, [5\.10\.10](5-10-10.md)
+- SET MASK function of IUCV, [5\.10\.11](5-10-11.md)
+  - used in APPC/VM, [5\.10\.11](5-10-11.md)
+    - completion, [5\.10\.11\.8](5-10-11-8.md)
+    - condition codes, [5\.10\.11\.5](5-10-11-5.md)
+    - description, [5\.10\.11](5-10-11.md)
+    - format, [5\.10\.11\.1](5-10-11-1.md)
+    - parameter descriptions, [5\.10\.11\.2](5-10-11-2.md)
+    - parameter list format, [5\.10\.11\.4](5-10-11-4.md)
+    - program exceptions, [5\.10\.11\.6](5-10-11-6.md)
+    - state changes, [5\.10\.11\.7](5-10-11-7.md)
+- SETCMASK function
+  - See SET CONTROL MASK function of IUCV
+- SETCMASK \(IUCV function\), [2\.4\.14](2-4-14.md) to [2\.4\.14\.6](2-4-14-6.md)
+- SETMASK function
+  - See SET MASK function of IUCV
+- SETMASK \(IUCV function\), [2\.4\.15](2-4-15.md) to [2\.4\.15\.6](2-4-15-6.md)
+- SETMODFY function of APPCVM, [3\.8\.9](3-8-9.md)
+  - completion, [3\.8\.9\.8](3-8-9-8.md)
+  - condition codes, [3\.8\.9\.5](3-8-9-5.md)
+  - description, [3\.8\.9](3-8-9.md)
+  - format, [3\.8\.9\.1](3-8-9-1.md)
+  - parameter descriptions, [3\.8\.9\.2](3-8-9-2.md)
+  - parameter list format, [3\.8\.9\.4](3-8-9-4.md)
+  - program exceptions, [3\.8\.9\.6](3-8-9-6.md)
+  - return codes, [3\.8\.9\.5](3-8-9-5.md)
+  - state checks and changes, [3\.8\.9\.7](3-8-9-7.md)
+  - to communication partner, [3\.8\.9\.9](3-8-9-9.md)
+- setting defaults for optional parameters on APPC/VM functions, [3\.7\.5\.1](3-7-5-1.md)
+- sever codes, APPC/VM, [3\.7\.6\.2](3-7-6-2.md), [3\.8\.10\.11](3-8-10-11.md)
+- SEVER function of APPCVM, [3\.7\.4\.3](3-7-4-3.md), [3\.8\.10](3-8-10.md)
+  - completion, [3\.8\.10\.8](3-8-10-8.md)
+  - condition codes, [3\.8\.10\.5](3-8-10-5.md)
+  - description, [3\.8\.10](3-8-10.md)
+  - external interrupt format, [3\.8\.10\.12](3-8-10-12.md)
+  - format, [3\.8\.10\.1](3-8-10-1.md)
+  - from communication partner, [3\.8\.10\.9](3-8-10-9.md)
+  - mapped with APPC, [F\.6](f-6.md)
+  - overview, [3\.7\.4\.3](3-7-4-3.md)
+  - parameter descriptions, [3\.8\.10\.2](3-8-10-2.md)
+  - parameter list format, [3\.8\.10\.4](3-8-10-4.md)
+  - program exceptions, [3\.8\.10\.6](3-8-10-6.md)
+  - return codes, [3\.8\.10\.5](3-8-10-5.md)
+  - revoking your own resources, [3\.7\.4\.5](3-7-4-5.md)
+  - sever codes, [3\.8\.10\.11](3-8-10-11.md)
+  - specifying log data, [3\.8\.10\.10](3-8-10-10.md)
+  - state checks and changes, [3\.8\.10\.7](3-8-10-7.md)
+- SEVER function of IUCV, [5\.10\.12](5-10-12.md)
+  - programming exceptions, [5\.10\.12\.6](5-10-12-6.md)
+  - used in APPC/VM, [5\.10\.12](5-10-12.md)
+    - completion, [5\.10\.12\.8](5-10-12-8.md)
+    - condition codes, [5\.10\.12\.5](5-10-12-5.md)
+    - external interrupt, [5\.10\.12\.10](5-10-12-10.md)
+    - external interrupt format, [3\.8\.10\.12](3-8-10-12.md)
+    - format, [5\.10\.12\.1](5-10-12-1.md)
+    - overview, [3\.7\.4\.3](3-7-4-3.md)
+    - parameter descriptions, [5\.10\.12\.2](5-10-12-2.md)
+    - parameter list format, [5\.10\.12\.4](5-10-12-4.md)
+    - return codes, [5\.10\.12\.5](5-10-12-5.md)
+    - state checks and state changes, [5\.10\.12\.7](5-10-12-7.md)
+    - to revoke a resource, [3\.7\.4\.5](3-7-4-5.md)
+  - \*IDENT sever reason codes, [6\.11\.7](6-11-7.md)
+- sever interrupts, [3\.7\.2\.3](3-7-2-3.md)
+  - format, [3\.8\.10\.12](3-8-10-12.md)
+  - from IUCV SEVER, [3\.7\.4\.3](3-7-4-3.md)
+- SEVER reason codes
+  - Identify System Service \(\*IDENT\), [6\.11\.7](6-11-7.md)
+- sever reason codes from \*IDENT, [6\.11\.7](6-11-7.md)
+- Sever state, [3\.7\.2\.2](3-7-2-2.md), [3\.7\.8](3-7-8.md)
+- SEVER \(IUCV function\), [2\.4\.16](2-4-16.md) to [2\.4\.16\.7](2-4-16-7.md)
+- severing connection to your partner
+  - using APPCVM SEVER, [3\.7\.4\.3](3-7-4-3.md)
+  - using APPC/VM, [3\.7\.4\.1](3-7-4-1.md)
+  - using IUCV SEVER, [3\.7\.4\.3](3-7-4-3.md)
+- SFBLOK, [E\.4](e-4.md)
+- Signal \(\*SIGNAL\) System Service, [6\.11\.13](6-11-13.md) to [6\.11\.13\.5](6-11-13-5.md)
+  - connecting with, [6\.11\.13\.2](6-11-13-2.md)
+  - establishing communications with, [6\.11\.13\.1](6-11-13-1.md)
+  - leaving, [6\.11\.13\.5](6-11-13-5.md)
+  - receiving signals, [6\.11\.13\.4](6-11-13-4.md)
+  - sending signals, [6\.11\.13\.3](6-11-13-3.md)
+- size of messages, [3\.8\.6\.5](3-8-6-5.md)
+- SNA \(System Network Architecture\)
+  - relationship to APPC and APPC/VM, [3\.7](3-7.md)
+- source virtual machine, IUCV
+  - definition of term, [2\.3\.3\.1](2-3-3-1.md)
+  - target virtual machine
+    - definition of term, [2\.3\.3\.1](2-3-3-1.md)
+- specification exceptions
+  - APPCVM CONNECT, [3\.8\.1\.9\.2](3-8-1-9-2.md)
+  - APPCVM QRYSTATE, [3\.8\.2\.7](3-8-2-7.md)
+  - APPCVM RECEIVE, [3\.8\.3\.7](3-8-3-7.md)
+  - APPCVM SENDCNF, [3\.8\.4\.6](3-8-4-6.md)
+  - APPCVM SENDCNFD, [3\.8\.5\.6](3-8-5-6.md)
+  - APPCVM SENDDATA, [3\.8\.6\.8](3-8-6-8.md)
+  - APPCVM SENDERR, [3\.8\.7\.6](3-8-7-6.md)
+  - APPCVM SENDREQ, [3\.8\.8\.6](3-8-8-6.md)
+  - APPCVM SETMODFY, [3\.8\.9\.6](3-8-9-6.md)
+  - APPCVM SEVER, [3\.8\.10\.6](3-8-10-6.md)
+  - IUCV ACCEPT, [5\.10\.4\.7](5-10-4-7.md)
+  - IUCV CONNECT, [5\.10\.5\.6](5-10-5-6.md)
+  - IUCV DECLARE BUFFER, [5\.10\.6\.8](5-10-6-8.md)
+  - IUCV DESCRIBE, [5\.10\.7\.5](5-10-7-5.md)
+  - IUCV QUERY, [5\.10\.8\.5](5-10-8-5.md)
+  - IUCV SET CONTROL MASK, [5\.10\.10\.6](5-10-10-6.md)
+  - IUCV SET MASK, [5\.10\.11\.6](5-10-11-6.md)
+  - IUCV SEVER, [5\.10\.12\.6](5-10-12-6.md)
+  - IUCV TEST COMPLETION, [5\.10\.13\.6](5-10-13-6.md)
+- specifying a PIP variables, [3\.8\.1\.7](3-8-1-7.md)
+- specifying log data, [3\.8\.7\.10](3-8-7-10.md), [3\.8\.10\.10](3-8-10-10.md)
+- SPLINK, [E\.5](e-5.md)
+- SPOOL commands, [7\.12\.1\.5\.5](7-12-1-5-5.md)
+- spool file opening and characteristic querying with DIAGNOSE code X'BC', [1\.1\.42](1-1-42.md)
+- spool files
+  - auditing, [7\.12\.1\.5\.4](7-12-1-5-4.md)
+- starting a conversation with APPC/VM functions, [3\.7\.4\.1](3-7-4-1.md)
+- state changes
+  - ALLOCATE \(APPC\), [F\.3\.2](f-3-2.md)
+  - APPCVM CONNECT, [3\.8\.1\.9\.3](3-8-1-9-3.md)
+  - APPCVM QRYSTATE, [3\.8\.2\.8](3-8-2-8.md)
+  - APPCVM RECEIVE, [3\.8\.3\.8](3-8-3-8.md)
+  - APPCVM SEVER, [3\.8\.10\.7](3-8-10-7.md)
+  - CONFIRM \(APPC\), [F\.4\.2](f-4-2.md)
+  - CONFIRMED \(APPC\), [F\.5\.2](f-5-2.md)
+  - DCLBFR, [5\.10\.6\.9](5-10-6-9.md)
+  - DEALLOCATE \(APPC\), [F\.6\.2](f-6-2.md)
+  - IUCV ACCEPT, [5\.10\.4\.8](5-10-4-8.md)
+  - RECEIVE\_AND\_WAIT \(APPC\), [F\.10\.2](f-10-2.md)
+  - REQUEST\_TO\_SEND \(APPC\), [F\.11\.2](f-11-2.md)
+  - RETRIEVE BUFFER, [5\.10\.9\.4](5-10-9-4.md)
+  - SENDCNF, [3\.8\.4\.7](3-8-4-7.md)
+  - SENDCNFD, [3\.8\.5\.7](3-8-5-7.md)
+  - SENDDATA, [3\.8\.6\.9](3-8-6-9.md)
+  - SENDERR, [3\.8\.7\.7](3-8-7-7.md)
+  - SENDREQ, [3\.8\.8\.7](3-8-8-7.md)
+  - SEND\_DATA \(APPC\), [F\.12\.2](f-12-2.md)
+  - SEND\_ERROR \(APPC\), [F\.13\.2](f-13-2.md)
+  - SETMODFY, [3\.8\.9\.7](3-8-9-7.md)
+- state table, [3\.7\.8](3-7-8.md)
+- state table for APPC/VM functions, [3\.7\.8](3-7-8.md)
+- states, APPC/VM, [3\.7\.2\.2](3-7-2-2.md), [3\.7\.8](3-7-8.md)
+  - backout\_received, [3\.7\.8](3-7-8.md)
+  - backout\_required, [3\.7\.8](3-7-8.md)
+  - Confirm, [3\.7\.8](3-7-8.md)
+  - Connect, [3\.7\.8](3-7-8.md)
+  - defer\_receive, [3\.7\.8](3-7-8.md)
+  - defer\_sever, [3\.7\.8](3-7-8.md)
+  - prepare\_received, [3\.7\.8](3-7-8.md)
+  - Receive, [3\.7\.4\.2](3-7-4-2.md), [3\.7\.8](3-7-8.md)
+  - Reset, [3\.7\.8](3-7-8.md)
+  - Send, [3\.7\.4\.2](3-7-4-2.md), [3\.7\.8](3-7-8.md)
+  - Sever, [3\.7\.8](3-7-8.md)
+  - table for error conditions, [3\.7\.8\.2](3-7-8-2.md)
+  - unsolicited\_request\_commit\_received, [3\.7\.8](3-7-8.md)
+- summaries
+  - state table, [3\.7\.8](3-7-8.md)
+- Symptom records
+  - description, [8\.13\.1](8-13-1.md)
+- SYNCPT synchronization level, [3\.8\.1\.3](3-8-1-3.md)
+- SYNC\_LEVEL parameter \(APPC\)
+  - of ALLOCATE, [F\.3\.1](f-3-1.md)
+- System Network Architecture \(SNA\)
+  - relationship to APPC and APPC/VM, [3\.7](3-7.md)
+- system service, CP
+  - identify \(\*IDENT\), [6\.11\.5](6-11-5.md)
 
 ## T
 
-- target virtual machine, IUCV 1
-- definition of term 2 2.3.3.1
-- TEST COMPLETION function of IUCV 1 5.10.13
-- used with APPC/VM 2 5.10.13
-- condition codes 3 5.10.13.5
-- format 3 5.10.13.1
-- parameter descriptions 3 5.10.13.2
-- parameter list format 3 5.10.13.4
-- program exceptions 3 5.10.13.6
-- return codes 3 5.10.13.5
-- state changes 3 5.10.13.7
-- TEST MESSAGE function of IUCV 1 5.10.14
-- used in APPC/VM 2 5.10.14
-- completion 3 5.10.14.5
-- condition codes 3 5.10.14.2
-- format 3 5.10.14.1
-- program exception 3 5.10.14.3
-- state changes 3 5.10.14.4
-- TESTCMPL function 1
-- See TEST COMPLETION function of IUCV 2
-- TESTCMPL (IUCV function) 1 2.4.17 to 2.4.17.8
-- TESTMSG function 1
-- See TEST MESSAGE function of IUCV 2
-- TESTMSG (IUCV function) 1 2.4.18 to 2.4.18.3
-- TPN parameter (APPC) 1
-- of ALLOCATE 2 F.3.1
-- TSAF (Transparent Services Access Facility) 1
-- used to revoke a resource 2 6.11.6.2
-- TYPE parameter (APPC) 1
-- of ALLOCATE 2 F.3.1
-- of DEALLOCATE 2 F.6.1
-- of SEND_ERROR 2 F.13.1
+- target virtual machine, IUCV
+  - definition of term, [2\.3\.3\.1](2-3-3-1.md)
+- TEST COMPLETION function of IUCV, [5\.10\.13](5-10-13.md)
+  - used with APPC/VM, [5\.10\.13](5-10-13.md)
+    - condition codes, [5\.10\.13\.5](5-10-13-5.md)
+    - format, [5\.10\.13\.1](5-10-13-1.md)
+    - parameter descriptions, [5\.10\.13\.2](5-10-13-2.md)
+    - parameter list format, [5\.10\.13\.4](5-10-13-4.md)
+    - program exceptions, [5\.10\.13\.6](5-10-13-6.md)
+    - return codes, [5\.10\.13\.5](5-10-13-5.md)
+    - state changes, [5\.10\.13\.7](5-10-13-7.md)
+- TEST MESSAGE function of IUCV, [5\.10\.14](5-10-14.md)
+  - used in APPC/VM, [5\.10\.14](5-10-14.md)
+    - completion, [5\.10\.14\.5](5-10-14-5.md)
+    - condition codes, [5\.10\.14\.2](5-10-14-2.md)
+    - format, [5\.10\.14\.1](5-10-14-1.md)
+    - program exception, [5\.10\.14\.3](5-10-14-3.md)
+    - state changes, [5\.10\.14\.4](5-10-14-4.md)
+- TESTCMPL function
+  - See TEST COMPLETION function of IUCV
+- TESTCMPL \(IUCV function\), [2\.4\.17](2-4-17.md) to [2\.4\.17\.8](2-4-17-8.md)
+- TESTMSG function
+  - See TEST MESSAGE function of IUCV
+- TESTMSG \(IUCV function\), [2\.4\.18](2-4-18.md) to [2\.4\.18\.3](2-4-18-3.md)
+- TPN parameter \(APPC\)
+  - of ALLOCATE, [F\.3\.1](f-3-1.md)
+- TSAF \(Transparent Services Access Facility\)
+  - used to revoke a resource, [6\.11\.6\.2](6-11-6-2.md)
+- TYPE parameter \(APPC\)
+  - of ALLOCATE, [F\.3\.1](f-3-1.md)
+  - of DEALLOCATE, [F\.6\.1](f-6-1.md)
+  - of SEND\_ERROR, [F\.13\.1](f-13-1.md)
 
 ## U
 
-- unsolicited_request_commit_received state 1 3.7.8
-- update directory 1
-- in-place with DIAGNOSE code X'84' 2 1.1.31
-- user doubleword 1
-- VMCF function 2 1.1.27
-- using basic APPC/VM functions 1 3.7.4
+- unsolicited\_request\_commit\_received state, [3\.7\.8](3-7-8.md)
+- update directory
+  - in\-place with DIAGNOSE code X'84', [1\.1\.31](1-1-31.md)
+- user doubleword
+  - VMCF function, [1\.1\.27](1-1-27.md)
+- using basic APPC/VM functions, [3\.7\.4](3-7-4.md)
 
 ## V
 
-- VDEVFLAG 1 E.6
-- VDEVSTAT 1 E.7
-- VDEVTYPC and RDEVTYPC 1 E.8
-- VDEVTYPE and RDEVTYPE 1 E.9
-- VM architected area 1 3.8.1.10.2 3.8.1.11
-- VMBAT mode name 1 3.8.1.6
-- VMCF 1
-- command auditing 2 7.12.1.5.7
-- VMCF (Virtual Machine Communication Facility) 1
-- DIAGNOSE instruction 2
-- return codes 3 1.1.27
-- user doubleword 2 1.1.27
-- VMINT mode name 1 3.8.1.6
+- VDEVFLAG, [E\.6](e-6.md)
+- VDEVSTAT, [E\.7](e-7.md)
+- VDEVTYPC and RDEVTYPC, [E\.8](e-8.md)
+- VDEVTYPE and RDEVTYPE, [E\.9](e-9.md)
+- VM architected area, [3\.8\.1\.10\.2](3-8-1-10-2.md), [3\.8\.1\.11](3-8-1-11.md)
+- VMBAT mode name, [3\.8\.1\.6](3-8-1-6.md)
+- VMCF
+  - command auditing, [7\.12\.1\.5\.7](7-12-1-5-7.md)
+- VMCF \(Virtual Machine Communication Facility\)
+  - DIAGNOSE instruction
+    - return codes, [1\.1\.27](1-1-27.md)
+  - user doubleword, [1\.1\.27](1-1-27.md)
+- VMINT mode name, [3\.8\.1\.6](3-8-1-6.md)
 
 ## W
 
-- WHAT_RECEIVED parameter (APPC) 1
-- of RECEIVE_AND_WAIT 2 F.10.1
+- WHAT\_RECEIVED parameter \(APPC\)
+  - of RECEIVE\_AND\_WAIT, [F\.10\.1](f-10-1.md)
 
 ## Special Characters
 
-- *ACCOUNT System Service 1 6.11.3
-- *BLOCKIO System Service 1 6.11.4
-- *IDENT System Service 1 6.11.5
-- *IDENT (Identify System Service) 1 6.11.5
-- *IDENT (LU name qualifier) 1 3.8.1.6
-- *LOGREC System Service 1 6.11.8
-- *MONITOR System Service 1 6.11.9
-- *MSG System Service 1 6.11.10
-- *MSGALL System Service 1 6.11.11
-- *RPI System Service 1 6.11.12
-- *SIGNAL System Service 1 6.11.13
-- *SPL System Service 1 6.11.14
-- definition 2 6.11.14
-- establishing communications 2 6.11.14.1
-- functions 2 6.11.14
-- *SYMPTOM System Service 1 6.11.15
-- *USERID (LU name qualifier) 1 3.8.1.6
+- \*ACCOUNT System Service, [6\.11\.3](6-11-3.md)
+- \*BLOCKIO System Service, [6\.11\.4](6-11-4.md)
+- \*IDENT System Service, [6\.11\.5](6-11-5.md)
+- \*IDENT \(Identify System Service\), [6\.11\.5](6-11-5.md)
+- \*IDENT \(LU name qualifier\), [3\.8\.1\.6](3-8-1-6.md)
+- \*LOGREC System Service, [6\.11\.8](6-11-8.md)
+- \*MONITOR System Service, [6\.11\.9](6-11-9.md)
+- \*MSG System Service, [6\.11\.10](6-11-10.md)
+- \*MSGALL System Service, [6\.11\.11](6-11-11.md)
+- \*RPI System Service, [6\.11\.12](6-11-12.md)
+- \*SIGNAL System Service, [6\.11\.13](6-11-13.md)
+- \*SPL System Service, [6\.11\.14](6-11-14.md)
+  - definition, [6\.11\.14](6-11-14.md)
+  - establishing communications, [6\.11\.14\.1](6-11-14-1.md)
+  - functions, [6\.11\.14](6-11-14.md)
+- \*SYMPTOM System Service, [6\.11\.15](6-11-15.md)
+- \*USERID \(LU name qualifier\), [3\.8\.1\.6](3-8-1-6.md)
 
 ---
 

@@ -6,9 +6,11 @@ Previous | [Index](README.md) | [Next](notices.md)
 
 **International Technical Support Organization**
 
-**IMS/ESA Version 5.1 Guide February 1995**
+**IMS/ESA Version 5\.1 Guide**
 
-Document Number GG24-4302-00
+February 1995
+
+Document Number GG24\-4302\-00
 
 ---
 

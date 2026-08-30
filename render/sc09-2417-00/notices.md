@@ -4,9 +4,16 @@
 
 # NOTICES Notices
 
-> **Note!**
-
-> Not**e!** Before using this information and the product it supports, be sure cselect 43 26 HDRNOTICES & to read the general information under "Notices" in topic FRONT_1.
+```
+    ___ Note! __________________________________________________________
+   |
+    |
+     Before using this information and the product it supports, be sure |
+     to read the general information under "Notices" in topic FRONT_1.  |
+   |
+    |
+   |____________________________________________________________________|
+```
 
 ---
 

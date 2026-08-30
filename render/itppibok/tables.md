@@ -4,7 +4,7 @@
 
 # TABLES Tables
 
-< [BOOK> 1. TPNS Data Set Requirements](#TBLDISK) 2.1.1.1
+[1\.  TPNS Data Set Requirements   2\.1\.1\.1](<#TBLDISK>)
 
 ---
 

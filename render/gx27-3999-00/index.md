@@ -6,112 +6,112 @@
 
 ## A
 
-- adapter installation instructions 1 2.0
-- adapter labels 1 1.1
-- address 1
-- medium access control 2 1.1
-- universally administered 2 1.1
+- adapter installation instructions, [2\.0](2-0.md)
+- adapter labels, [1\.1](1-1.md)
+- address
+  - medium access control, [1\.1](1-1.md)
+  - universally administered, [1\.1](1-1.md)
 
 ## B
 
-- backup Reference Diskette 1
-- adapter diagnostics 2 3.4
-- configuring the adapter 2 2.5
-- backup, Option/Driver Diskette 1 2.1
-- backup, Reference Diskette 1 2.2
-- blank diskettes 1 1.2
+- backup Reference Diskette
+  - adapter diagnostics, [3\.4](3-4.md)
+  - configuring the adapter, [2\.5](2-5.md)
+- backup, Option/Driver Diskette, [2\.1](2-1.md)
+- backup, Reference Diskette, [2\.2](2-2.md)
+- blank diskettes, [1\.2](1-2.md)
 
 ## C
 
-- communication problem, solving 1 3.3
-- configuring the adapter 1 2.5
+- communication problem, solving, [3\.3](3-3.md)
+- configuring the adapter, [2\.5](2-5.md)
 
 ## D
 
-- drivers 1
-- automated installation 2 2.6
-- index to installation instructions 2 2.6
-- manual installation 2 A.0
-- NDIS MAC driver 2 2.6.2
-- NDIS MAC driver for LANManager 2 2.6.3
-- solving problems 2 3.2
+- drivers
+  - automated installation, [2\.6](2-6.md)
+  - index to installation instructions, [2\.6](2-6.md)
+  - manual installation, [A\.0](a-0.md)
+  - NDIS MAC driver, [2\.6\.2](<#2.6.2>)
+  - NDIS MAC driver for LANManager, [2\.6\.3](<#2.6.3>)
+  - solving problems, [3\.2](3-2.md)
 
 ## E
 
-- electronic emission notices 1 BACK_1.3
-- error messages, NDIS MAC driver 1 B.0
+- electronic emission notices, [BACK\_1\.3](back_1-3.md)
+- error messages, NDIS MAC driver, [B\.0](b-0.md)
 
 ## G
 
-- graphic symbols for network environment 1 2.6
+- graphic symbols for network environment, [2\.6](2-6.md)
 
 ## I
 
-- IBMMPCO.LAN file 1
-- See LAN driver for NetWare server 2
-- index to device driver instructions 1 2.6
-- installation materials 1 1.2
-- installation problems, solving 1 3.5
-- installing the adapter 1 2.0
+- IBMMPCO\.LAN file
+  - See LAN driver for NetWare server
+- index to device driver instructions, [2\.6](2-6.md)
+- installation materials, [1\.2](1-2.md)
+- installation problems, solving, [3\.5](3-5.md)
+- installing the adapter, [2\.0](2-0.md)
 
 ## L
 
-- LAN Adapter and Protocol Support (LAPS) 1 1.3 2.6.2
-- LAN driver for NetWare server 1
-- installation 2 2.6.1
-- LAPS (LAN Adapter and Protocol Support) 1 1.3 2.6.2
+- LAN Adapter and Protocol Support \(LAPS\), [1\.3](1-3.md), [2\.6\.2](<#2.6.2>)
+- LAN driver for NetWare server
+  - installation, [2\.6\.1](<#2.6.1>)
+- LAPS \(LAN Adapter and Protocol Support\), [1\.3](1-3.md), [2\.6\.2](<#2.6.2>)
 
 ## M
 
-- MAC (medium access control) address 1 1.1
-- making a backup copy 1
-- Option/Driver Diskette 2 2.1 2.2
-- maximum number of adapters 1 1.0
-- medium access control (MAC) address 1 1.1
-- messages 1
-- NDIS MAC driver 2 B.0
-- Microsoft LAN Manager station 1 1.3
-- Microsoft LANManager station 1 2.6
+- MAC \(medium access control\) address, [1\.1](1-1.md)
+- making a backup copy
+  - Option/Driver Diskette, [2\.1](2-1.md), [2\.2](2-2.md)
+- maximum number of adapters, [1\.0](1-0.md)
+- medium access control \(MAC\) address, [1\.1](1-1.md)
+- messages
+  - NDIS MAC driver, [B\.0](b-0.md)
+- Microsoft LAN Manager station, [1\.3](1-3.md)
+- Microsoft LANManager station, [2\.6](2-6.md)
 
 ## N
 
-- NDIS MAC driver messages 1 B.0
-- NetWare server 1 1.3 2.6
-- network environments 1
-- graphic symbols for 2 2.6
-- software needed 2 1.3
-- notices 1
-- electronic emission 2 BACK_1.3
-- general product 2 BACK_1
-- trademarks 2 BACK_1.4
+- NDIS MAC driver messages, [B\.0](b-0.md)
+- NetWare server, [1\.3](1-3.md), [2\.6](2-6.md)
+- network environments
+  - graphic symbols for, [2\.6](2-6.md)
+  - software needed, [1\.3](1-3.md)
+- notices
+  - electronic emission, [BACK\_1\.3](back_1-3.md)
+  - general product, [BACK\_1](back_1.md)
+  - trademarks, [BACK\_1\.4](back_1-4.md)
 
 ## O
 
-- Option/Driver Diskette, backup 1 2.1
+- Option/Driver Diskette, backup, [2\.1](2-1.md)
 
 ## P
 
-- problem solving 1 3.1
+- problem solving, [3\.1](3-1.md)
 
 ## R
 
-- Reference Diskette, backup 1 2.2
-- running adapter diagnostics 1 3.4
+- Reference Diskette, backup, [2\.2](2-2.md)
+- running adapter diagnostics, [3\.4](3-4.md)
 
 ## S
 
-- slot number in messages 1 B.0
+- slot number in messages, [B\.0](b-0.md)
 
 ## T
 
-- TCP/IP Version 1.2 for OS/2 1 A.0
-- testing the adapter 1 3.4
-- trademarks 1 BACK_1.4
-- troubleshooting problems 1 3.1
+- TCP/IP Version 1\.2 for OS/2, [A\.0](a-0.md)
+- testing the adapter, [3\.4](3-4.md)
+- trademarks, [BACK\_1\.4](back_1-4.md)
+- troubleshooting problems, [3\.1](3-1.md)
 
 ## U
 
-- universally administered address label 1 1.1
+- universally administered address label, [1\.1](1-1.md)
 
 ---
 

@@ -2,19 +2,68 @@
 
 ---
 
-## PREFACE.1 Purpose of This Book
+## PREFACE\.1 Purpose of This Book
 
-This manual describes: 1. DIAGNOSE codes for VM/ESA, providing: A reference, including how to use the codes A comparison of VM/ESA and VM/370 DIAGNOSE codes 2. The inter-user communication vehicle (IUCV), including: An IUCV overview An IUCV function reference IUCV external interrupt formats 3. The advanced program-to-program communication/VM (APPC/VM) interface, including: An APPC/VM overview APPC/VM sever, error, and sense codes APPC/VM macro functions 4. IUCV macro functions for use in APPC/VM 5. Migrating programs from IUCV to APPC/VM 6. CP system services 7. Using CP's access control interface 8. Symptom record reporting 9. The following in appendices: CP Macros for VM/ESA (ESA Feature) Monitor record information The Monitor writer function The extended attribute buffer (XAB) Data areas needed for DIAGNOSE codes
+This manual describes:
 
-APPC/VM mapped with APPC/VM This book contains information on VM/ESA programming interfaces and/or commands. VM/ESA provides you with a broad range of programming interfaces. These interfaces are available using the following facilities: EXEC statements (REXX instructions, for example) CMS Assembler macros and functions Callable service library (CSL) routines OS/MVS and DOS/VSE simulation interfaces CP DIAGNOSE instructions Certain VM/ESA control blocks Data record formats, such as accounting records, intended to be processed by application programs CP system services (*MSG, for example) CP Assembler macros, such as IUCV and APPCVM GCS Assembler macros In general, VM/ESA programming interfaces are designed to be used exclusively from programs (often using binary or other machine-level formats as parameter values) and are usually supported in a compatible manner from release to release. Programming interfaces are classified in two ways:
+1\. DIAGNOSE codes for VM/ESA, providing:
 
-**General-Use** **Programming** **Interfaces** (GUPI) are usually independent of
+- A reference, including how to use the codes
+- A comparison of VM/ESA and VM/370 DIAGNOSE codes
 
-the detailed design of the system. IBM intends to maintain these interfaces in a compatible manner from release to release.
+2\. The inter\-user communication vehicle \(IUCV\), including:
 
-**Product-Sensitive** **Programming** **Interfaces** (PSPI) have a close
+- An IUCV overview
+- An IUCV function reference
+- IUCV external interrupt formats
 
-relationship to, or require some knowledge of, the internal implementation of VM/ESA. Examples of these include installation-wide exits and special task facilities that may be required for tuning, diagnosing, monitoring, or customizing the product. Although release-to-release compatibility is an important goal, the compatibility of the interface may be affected by changes to the internal product design. IBM may also ship other program materials (primarily macros), but these are internal facilities designed only for use between VM/ESA components and modules and are not intended to be used as general-use programming interfaces.
+3\. The advanced program\-to\-program communication/VM \(APPC/VM\) interface, including:
+
+- An APPC/VM overview
+- APPC/VM sever, error, and sense codes
+- APPC/VM macro functions
+
+4\. IUCV macro functions for use in APPC/VM
+
+5\. Migrating programs from IUCV to APPC/VM
+
+6\. CP system services
+
+7\. Using CP's access control interface
+
+8\. Symptom record reporting
+
+9\. The following in appendices:
+
+- CP Macros for VM/ESA \(ESA Feature\)
+- Monitor record information
+- The Monitor writer function
+- The extended attribute buffer \(XAB\)
+- Data areas needed for DIAGNOSE codes
+- APPC/VM mapped with APPC/VM
+
+This book contains information on VM/ESA programming interfaces and/or commands\. VM/ESA provides you with a broad range of programming interfaces\. These interfaces are available using the following facilities:
+
+- EXEC statements \(REXX instructions, for example\)
+- CMS Assembler macros and functions
+- Callable service library \(CSL\) routines
+- OS/MVS and DOS/VSE simulation interfaces
+- CP DIAGNOSE instructions
+- Certain VM/ESA control blocks
+- Data record formats, such as accounting records, intended to be processed by application programs
+- CP system services \(\*MSG, for example\)
+- CP Assembler macros, such as IUCV and APPCVM
+- GCS Assembler macros
+
+In general, VM/ESA programming interfaces are designed to be used exclusively from programs \(often using binary or other machine\-level formats as parameter values\) and are usually supported in a compatible manner from release to release\.
+
+Programming interfaces are classified in two ways:
+
+**General\-Use Programming Interfaces** \(GUPI\) are usually independent of the detailed design of the system\. IBM intends to maintain these interfaces in a compatible manner from release to release\.
+
+**Product\-Sensitive Programming Interfaces** \(PSPI\) have a close relationship to, or require some knowledge of, the internal implementation of VM/ESA\. Examples of these include installation\-wide exits and special task facilities that may be required for tuning, diagnosing, monitoring, or customizing the product\. Although release\-to\-release compatibility is an important goal, the compatibility of the interface may be affected by changes to the internal product design\.
+
+IBM may also ship other program materials \(primarily macros\), but these are internal facilities designed only for use between VM/ESA components and modules and are not intended to be used as general\-use programming interfaces\.
 
 ---
 

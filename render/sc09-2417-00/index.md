@@ -6,875 +6,872 @@
 
 ## Special Characters
 
-- _DecimalT class template 1
-- macros 2 4.4.1.2
-- _DecimalT template class, using 1 3.1.7
-- _RIOFB_T structure 1 4.3.6.6
+- \_DecimalT class template
+  - macros, [4\.4\.1\.2](4-4-1-2.md)
+- \_DecimalT template class, using, [3\.1\.7](3-1-7.md)
+- \_RIOFB\_T structure, [4\.3\.6\.6](4-3-6-6.md)
 
 ## A
 
-- acquiring a default program device 1 3.3.1.7 ++
-- actions taken when a run-time error occurs 1 4.3.2.1
-- ANSI 1 PREFACE.3
-- implementation-defined behavior 2 APPENDIX1.1
-- RTTI implementation 2 4.5
-- standards supported 2 PREFACE.3
-- argument passing 1
-- by reference 2 4.1.4.2
-- by value directly 2 4.1.4.2
-- by value indirectly 2 4.1.4.2
-- match data type requirements 2 4.1.4.3
-- operational descriptors 2 4.1.4.3 4.1.13
-- arrays, size of 1 APPENDIX1.1.1.6 &
-- AS/400 back-end compile-time 1 2.3.12.1
-- AS/400 file descriptions 1
-- compiler generated output 2 3.1.2
-- disconnected mode 2 3.1.6
-- compiler options 3 3.1.6.1
-- header description 2 3.1.2.1
-- level checking 2 3.1.2.3
-- record format layout 2 3.1.1.2
-- referencing an AS/400 connection 2 3.1.1.1
-- retrieving 2 3.1.1
-- type definition structure 2 3.1.2.2
-- AS/400 system exceptions 1
-- C record files 2 4.3.6.6
-- C stream files 2 4.3.6.4
-- automatic template generation 1 4.2.4.2
+- acquiring a default program device, [3\.3\.1\.7](3-3-1-7.md)
+- actions taken when a run\-time error occurs, [4\.3\.2\.1](4-3-2-1.md)
+- ANSI, [PREFACE\.3](preface-3.md)
+  - implementation\-defined behavior, [APPENDIX1\.1](appendix1-1.md)
+  - RTTI implementation, [4\.5](4-5.md)
+  - standards supported, [PREFACE\.3](preface-3.md)
+- argument passing
+  - by reference, [4\.1\.4\.2](4-1-4-2.md)
+  - by value directly, [4\.1\.4\.2](4-1-4-2.md)
+  - by value indirectly, [4\.1\.4\.2](4-1-4-2.md)
+  - match data type requirements, [4\.1\.4\.3](4-1-4-3.md)
+  - operational descriptors, [4\.1\.4\.3](4-1-4-3.md), [4\.1\.13](4-1-13.md)
+- arrays, size of, [APPENDIX1\.1\.1\.6](appendix1-1-1-6.md)
+- AS/400 back\-end compile\-time, [2\.3\.12\.1](2-3-12-1.md)
+- AS/400 file descriptions
+  - compiler generated output, [3\.1\.2](3-1-2.md)
+  - disconnected mode, [3\.1\.6](3-1-6.md)
+    - compiler options, [3\.1\.6\.1](3-1-6-1.md)
+  - header description, [3\.1\.2\.1](3-1-2-1.md)
+  - level checking, [3\.1\.2\.3](3-1-2-3.md)
+  - record format layout, [3\.1\.1\.2](3-1-1-2.md)
+  - referencing an AS/400 connection, [3\.1\.1\.1](3-1-1-1.md)
+  - retrieving, [3\.1\.1](3-1-1.md)
+  - type definition structure, [3\.1\.2\.2](3-1-2-2.md)
+- AS/400 system exceptions
+  - C record files, [4\.3\.6\.6](4-3-6-6.md)
+  - C stream files, [4\.3\.6\.4](4-3-6-4.md)
+- automatic template generation, [4\.2\.4\.2](4-2-4-2.md)
 
 ## B
 
-- binary coded decimal data 1
-- conversion functions 2 3.1.7
-- binary stream database files 1
-- I/O considerations 2 3.2.2.3
-- binary stream display files 1
-- program devices 2 3.3.1.7
-- binary stream files 1
-- I/O considerations 2
-- diskette files 3 3.3.2.4
-- save files 3 3.3.2.4
-- tape files 3 3.3.2.4
-- opening (character at a time) 2 2.2.4.5
-- opening (record at a time) 2 2.2.4.6
-- opening, reading, writing 2 2.2.4.5
-- overview 2 2.2.3.3
-- reading (character at a time) 2 2.2.4.5
-- reading (record at a time) 2 2.2.4.6
-- updating 2 2.2.4.5
-- updating (character at a time) 2 2.2.4.5
-- writing (character at a time) 2 2.2.4.5
-- writing (record at a time) 2 2.2.4.6
-- binary stream ICF files 1
-- I/O considerations 2 3.3.1.9
-- program devices 2 3.3.1.9
-- binary stream subfiles 1
-- I/O considerations 2 3.3.1.8
-- binding 1
-- overview 2 1.1.2.2
+- binary coded decimal data
+  - conversion functions, [3\.1\.7](3-1-7.md)
+- binary stream database files
+  - I/O considerations, [3\.2\.2\.3](3-2-2-3.md)
+- binary stream display files
+  - program devices, [3\.3\.1\.7](3-3-1-7.md)
+- binary stream files
+  - I/O considerations
+    - diskette files, [3\.3\.2\.4](3-3-2-4.md)
+    - save files, [3\.3\.2\.4](3-3-2-4.md)
+    - tape files, [3\.3\.2\.4](3-3-2-4.md)
+  - opening \(character at a time\), [2\.2\.4\.5](2-2-4-5.md)
+  - opening \(record at a time\), [2\.2\.4\.6](2-2-4-6.md)
+  - opening, reading, writing, [2\.2\.4\.5](2-2-4-5.md)
+  - overview, [2\.2\.3\.3](2-2-3-3.md)
+  - reading \(character at a time\), [2\.2\.4\.5](2-2-4-5.md)
+  - reading \(record at a time\), [2\.2\.4\.6](2-2-4-6.md)
+  - updating, [2\.2\.4\.5](2-2-4-5.md)
+  - updating \(character at a time\), [2\.2\.4\.5](2-2-4-5.md)
+  - writing \(character at a time\), [2\.2\.4\.5](2-2-4-5.md)
+  - writing \(record at a time\), [2\.2\.4\.6](2-2-4-6.md)
+- binary stream ICF files
+  - I/O considerations, [3\.3\.1\.9](3-3-1-9.md)
+  - program devices, [3\.3\.1\.9](3-3-1-9.md)
+- binary stream subfiles
+  - I/O considerations, [3\.3\.1\.8](3-3-1-8.md)
+- binding
+  - overview, [1\.1\.2\.2](1-1-2-2.md)
 
 ## C
 
-- C streams 1
-- file types supported 2 2.2.1.1
-- C++ language 1
-- description 2 1.1
-- parameter passing styles 2 4.1.4.1
-- calling 1
-- EPM C 2 4.1.11
-- ILE C++ 2 4.1.10
-- ILE procedures 2 4.1.12
-- ILE programs 2 4.1.9
-- ILE-bindable APIs 2 4.1.12
-- OPM programs 2 4.1.8
-- calling programs/procedures 1 1.2.4
-- call stack 2 4.1.1.3
-- calling procedures 2 4.1.1.2
-- calling programs 2 4.1.1.1
-- changing names 2 4.1.5
-- creating C++ classes 2 4.1.6
-- data-type compatibility 2 4.1.4.4
-- library qualified calls 2 4.1.7
-- linkage specification 2 4.1.2
-- overview 2 4.1.1
-- passing parameters 2 4.1.4
-- within ILE 2 1.2.4
-- cancel handlers 1 4.3.3.5
-- reason codes 2 4.3.3.5
-- case values, limit of 1 APPENDIX1.1.1.10
-- CEEHDLR 1 4.3.3.3
-- CEEHDLU 1 4.3.3.3
-- CEEMRCR 1 4.3.3.4
-- changing a default program device 1 3.3.1.7
-- characters 1 APPENDIX1.1.1.2
-- code page 2 APPENDIX1.1.1.2
-- ctype functions 2 APPENDIX1.1.1.12
-- default type 2 APPENDIX1.1.1.2
-- escape sequences 2 APPENDIX1.1.1.2 [
-- implementation-defined behavior 2 APPENDIX1.1.1.2
-- multibyte 2 APPENDIX1.1.1.2 <<
-- checking the AS/400 system exceptions for C record files 1 4.3.6.6 <<
-- checking the AS/400 system exceptions for C stream files 1 4.3.6.4
-- checking the errno value 1 4.3.6.2 <
-- checking the major/minor return code 1 4.3.6.4
-- checking the return value of a function 1 4.3.6.1
-- classes, exception 1 4.3.3.4
-- clock function, era for 1 APPENDIX1.1.1.20
-- command 1
-- Add ICF Device (ADDICFDEVE) 2 3.3.1.9
-- Change ICF File (CHGICFF) 2
-- ACQPGMDEV parameter 3 3.3.1.9 [
-- Create a Display File (CRTDSPF) 2 3.3.1.3
-- Create DDM file (CRTDDMF) 2 3.2.2.1
-- Create ICF File (CRTICFF) 2 3.3.1.9
-- Override Diskette File (OVRDKTF) 2 3.3.2.3
-- Override ICF Device (OVRICFDEVE) 2 3.3.1.9
-- Override ICF File (OVRICFF) 2 3.3.1.9
-- common mechanism to return function results 1 4.1.4.1
-- compiler 1
-- differences between C and C++ 2 1.1
-- differences between ILE C and ILE C++ 2 4.4.1 <
-- differences between Windows C++ and ILE C++ 2 4.4.2
-- standards 2
-- C++ 3 1.1
-- compiler options 1 PREFACE.2.1
-- /F options 2 4.2.4.3
-- generation of files for template resolution 2 4.2.4.3
-- redirecting template-include files 2 4.2.4.2
-- syntax for 2 PREFACE.2.1
-- compiling 1
-- a program 2 1.1.2.2
-- overview 2 1.1.2.2
-- condition token 1 4.3.3.4
-- constructors 1 4.5.3
-- using RTTI operators 2 4.5.3
-- control boundary 1 4.3.2.3 4.3.4
-- conventions, file naming 1 2.2.1.2
-- creating programs 1 1.3.3.4
-- strategy to avoid 2 1.3.3.4
-- ctype functions, characters in 1 APPENDIX1.1.1.12
+- C streams
+  - file types supported, [2\.2\.1\.1](2-2-1-1.md)
+- C\+\+ language
+  - description, [1\.1](1-1.md)
+  - parameter passing styles, [4\.1\.4\.1](4-1-4-1.md)
+- calling
+  - EPM C, [4\.1\.11](4-1-11.md)
+  - ILE C\+\+, [4\.1\.10](4-1-10.md)
+  - ILE procedures, [4\.1\.12](4-1-12.md)
+  - ILE programs, [4\.1\.9](4-1-9.md)
+  - ILE\-bindable APIs, [4\.1\.12](4-1-12.md)
+  - OPM programs, [4\.1\.8](4-1-8.md)
+- calling programs/procedures, [1\.2\.4](1-2-4.md)
+  - call stack, [4\.1\.1\.3](4-1-1-3.md)
+  - calling procedures, [4\.1\.1\.2](4-1-1-2.md)
+  - calling programs, [4\.1\.1\.1](4-1-1-1.md)
+  - changing names, [4\.1\.5](4-1-5.md)
+  - creating C\+\+ classes, [4\.1\.6](4-1-6.md)
+  - data\-type compatibility, [4\.1\.4\.4](4-1-4-4.md)
+  - library qualified calls, [4\.1\.7](4-1-7.md)
+  - linkage specification, [4\.1\.2](4-1-2.md)
+  - overview, [4\.1\.1](4-1-1.md)
+  - passing parameters, [4\.1\.4](4-1-4.md)
+  - within ILE, [1\.2\.4](1-2-4.md)
+- cancel handlers, [4\.3\.3\.5](4-3-3-5.md)
+  - reason codes, [4\.3\.3\.5](4-3-3-5.md)
+- case values, limit of, [APPENDIX1\.1\.1\.10](appendix1-1-1-10.md)
+- CEEHDLR, [4\.3\.3\.3](4-3-3-3.md)
+- CEEHDLU, [4\.3\.3\.3](4-3-3-3.md)
+- CEEMRCR, [4\.3\.3\.4](4-3-3-4.md)
+- changing a default program device, [3\.3\.1\.7](3-3-1-7.md)
+- characters, [APPENDIX1\.1\.1\.2](appendix1-1-1-2.md)
+  - code page, [APPENDIX1\.1\.1\.2](appendix1-1-1-2.md)
+  - ctype functions, [APPENDIX1\.1\.1\.12](appendix1-1-1-12.md)
+  - default type, [APPENDIX1\.1\.1\.2](appendix1-1-1-2.md)
+  - escape sequences, [APPENDIX1\.1\.1\.2](appendix1-1-1-2.md)
+  - implementation\-defined behavior, [APPENDIX1\.1\.1\.2](appendix1-1-1-2.md)
+  - multibyte, [APPENDIX1\.1\.1\.2](appendix1-1-1-2.md)
+- checking the AS/400 system exceptions for C record files, [4\.3\.6\.6](4-3-6-6.md)
+- checking the AS/400 system exceptions for C stream files, [4\.3\.6\.4](4-3-6-4.md)
+- checking the errno value, [4\.3\.6\.2](4-3-6-2.md)
+- checking the major/minor return code, [4\.3\.6\.4](4-3-6-4.md)
+- checking the return value of a function, [4\.3\.6\.1](4-3-6-1.md)
+- classes, exception, [4\.3\.3\.4](4-3-3-4.md)
+- clock function, era for, [APPENDIX1\.1\.1\.20](appendix1-1-1-20.md)
+- command
+  - Add ICF Device \(ADDICFDEVE\), [3\.3\.1\.9](3-3-1-9.md)
+  - Change ICF File \(CHGICFF\)
+    - ACQPGMDEV parameter, [3\.3\.1\.9](3-3-1-9.md)
+  - Create a Display File \(CRTDSPF\), [3\.3\.1\.3](3-3-1-3.md)
+  - Create DDM file \(CRTDDMF\), [3\.2\.2\.1](3-2-2-1.md)
+  - Create ICF File \(CRTICFF\), [3\.3\.1\.9](3-3-1-9.md)
+  - Override Diskette File \(OVRDKTF\), [3\.3\.2\.3](3-3-2-3.md)
+  - Override ICF Device \(OVRICFDEVE\), [3\.3\.1\.9](3-3-1-9.md)
+  - Override ICF File \(OVRICFF\), [3\.3\.1\.9](3-3-1-9.md)
+- common mechanism to return function results, [4\.1\.4\.1](4-1-4-1.md)
+- compiler
+  - differences between C and C\+\+, [1\.1](1-1.md)
+  - differences between ILE C and ILE C\+\+, [4\.4\.1](4-4-1.md)
+  - differences between Windows C\+\+ and ILE C\+\+, [4\.4\.2](4-4-2.md)
+  - standards
+    - C\+\+, [1\.1](1-1.md)
+- compiler options, [PREFACE\.2\.1](preface-2-1.md)
+  - /F options, [4\.2\.4\.3](4-2-4-3.md)
+  - generation of files for template resolution, [4\.2\.4\.3](4-2-4-3.md)
+  - redirecting template\-include files, [4\.2\.4\.2](4-2-4-2.md)
+  - syntax for, [PREFACE\.2\.1](preface-2-1.md)
+- compiling
+  - a program, [1\.1\.2\.2](1-1-2-2.md)
+  - overview, [1\.1\.2\.2](1-1-2-2.md)
+- condition token, [4\.3\.3\.4](4-3-3-4.md)
+- constructors, [4\.5\.3](4-5-3.md)
+  - using RTTI operators, [4\.5\.3](4-5-3.md)
+- control boundary, [4\.3\.2\.3](4-3-2-3.md), [4\.3\.4](4-3-4.md)
+- conventions, file naming, [2\.2\.1\.2](2-2-1-2.md)
+- creating programs, [1\.3\.3\.4](1-3-3-4.md)
+  - strategy to avoid, [1\.3\.3\.4](1-3-3-4.md)
+- ctype functions, characters in, [APPENDIX1\.1\.1\.12](appendix1-1-1-12.md)
 
 ## D
 
-- data abstraction 1 1.1.3
-- data description specification 1 3.2.1.1
-- data management file system 1 ++
-- binary stream files, opening (character at a time) 2 2.2.4.5
-- binary stream files, opening (record at a time) 2 2.2.4.6 [
-- binary stream files, opening, reading, writing 2 2.2.4.5 ++
-- binary stream files, reading (character at a time) 2 2.2.4.5
-- binary stream files, reading (record at a time) 2 2.2.4.6
-- binary stream files, updating 2 2.2.4.5 ++
-- binary stream files, updating (character at a time) 2 2.2.4.5 ++
-- binary stream files, writing (character at a time) 2 2.2.4.5
-- binary stream files, writing (record at a time) 2 2.2.4.6
-- binary streams 2 2.2.3.3
-- C streams and file types 2 2.2.1.1
-- file naming conventions 2 2.2.1.2
-- file objects 2 2.2.1
-- fopen function 2 2.2.4
-- open modes 2 2.2.4.1
-- overview 2 2.2.1
-- record files 2 2.2.2
-- session I/O 2 2.2.4.2
-- stream buffering 2 2.2.4.3
-- stream files versus database files 2 2.2.3.1
-- text stream files, opening 2 2.2.4.4 [
-- text stream files, opening, reading, writing 2 2.2.4.4
-- text stream files, reading 2 2.2.4.4
-- text stream files, updating 2 2.2.4.4
-- text stream files, writing 2 2.2.4.4
-- text streams 2 2.2.3.2
-- data-type compatibility 1 4.1.8.4
-- CL command line call 2 4.1.4.4
-- ILE CL 2 4.1.4.4
-- ILE COBOL 2 4.1.4.4
-- ILE RPG 2 4.1.4.4
-- length of variables 2 4.1.4.4
-- OPM CL 2 4.1.4.4
-- OPM COBOL 2 4.1.4.4
-- OPM RPG 2 4.1.4.4
-- data-type mapping 1 3.1.5
-- database and DDM files 1
-- record functions 2 3.2.2.5
-- database files 1 3.2.1
-- access path 2 3.2.1.3
-- arrival sequence access path 2 3.2.1.3
-- binary stream functions 2
-- record-at-a-time processing 3 3.2.2.4
-- commitment control 2 3.2.3
-- comparisons with stream file 2 2.1.2.1
-- data file 2 3.2.1.2
-- keyed sequence access path 2 3.2.1.3
-- arranging key fields 3 3.2.1.3
-- duplicate key values 3 3.2.1.3
-- multiple record formats 2 3.1.3.6
-- null capable fields 2 3.2.1.7
-- open as binary files 2 3.2.2.1
-- open as record files 2 3.2.2.2
-- record-level description 2 3.2.1.1
-- sharing 2 3.2.1.6
-- database record 1
-- delete 2 3.2.1.4
-- lock conditions 2 3.2.1.5
-- database record file 1
-- arrival sequence 2 3.2.1.3
-- keyed sequence 2 3.2.1.3
-- record I/O functions 2 3.2.2.5
-- DDM files 1 3.2.1
-- declarators, limit of 1 APPENDIX1.1.1.9
-- declaring pointer variables 1 3.4.4
-- decreasing program size 1 2.3.12.3
-- default parameter passing styles 1 4.1.4.2
-- default program device, acquiring 1 3.3.1.7
-- default program device, changing 1 3.3.1.7
-- destructors 1 4.5.3
-- using RTTI operators 2 4.5.3
-- device files 1
-- device attributes feedback area 2 3.3.3
-- multiple record formats 2 3.1.4.6
-- separate indicator area 2
-- INDARA keyword 3 3.1.4.5
-- part of the file buffer 3 3.1.4.5
-- different passing methods 1 4.1.4.2
-- direct monitor handlers 1 4.3.3.4
-- disconnected mode 1 3.1.6
-- diskette files 1 3.3.2 3.3.2.3
-- blocking 2 3.3.2.4
-- using 2 3.3.2.3
-- display files 1 3.3.1
-- change the default program device 2 3.3.1.7
-- I/O considerations 2 3.3.1.7
-- display files, ICF files, printer files 1
-- I/O considerations 2 3.3.1.1
-- indicators in the file buffer 2 3.3.1.1
-- major/minor return codes 2 3.3.1.2
-- open as record files 2 3.3.1.4
-- option indicators 2 3.3.1.1
-- response indicators 2 3.3.1.1
-- separate indicator areas 2 3.3.1.1
-- display files, subfiles, ICF files, printer files 1
-- binary stream functions 2 3.3.1.5
-- open as binary stream files 2 3.3.1.3
-- record functions 2 3.3.1.6
-- document library services file system 1 2.1.1.4
-- dynamic binding 1 1.1.3
-- dynamic_cast operator 1 4.5.2.1
-- casting pointers 2 4.5.2.2
-- casting references 2 4.5.2.3
-- using to downcast 2 4.5.2.1
+- data abstraction, [1\.1\.3](1-1-3.md)
+- data description specification, [3\.2\.1\.1](3-2-1-1.md)
+- data management file system
+  - binary stream files, opening \(character at a time\), [2\.2\.4\.5](2-2-4-5.md)
+  - binary stream files, opening \(record at a time\), [2\.2\.4\.6](2-2-4-6.md)
+  - binary stream files, opening, reading, writing, [2\.2\.4\.5](2-2-4-5.md)
+  - binary stream files, reading \(character at a time\), [2\.2\.4\.5](2-2-4-5.md)
+  - binary stream files, reading \(record at a time\), [2\.2\.4\.6](2-2-4-6.md)
+  - binary stream files, updating, [2\.2\.4\.5](2-2-4-5.md)
+  - binary stream files, updating \(character at a time\), [2\.2\.4\.5](2-2-4-5.md)
+  - binary stream files, writing \(character at a time\), [2\.2\.4\.5](2-2-4-5.md)
+  - binary stream files, writing \(record at a time\), [2\.2\.4\.6](2-2-4-6.md)
+  - binary streams, [2\.2\.3\.3](2-2-3-3.md)
+  - C streams and file types, [2\.2\.1\.1](2-2-1-1.md)
+  - file naming conventions, [2\.2\.1\.2](2-2-1-2.md)
+  - file objects, [2\.2\.1](2-2-1.md)
+  - fopen function, [2\.2\.4](2-2-4.md)
+  - open modes, [2\.2\.4\.1](2-2-4-1.md)
+  - overview, [2\.2\.1](2-2-1.md)
+  - record files, [2\.2\.2](2-2-2.md)
+  - session I/O, [2\.2\.4\.2](2-2-4-2.md)
+  - stream buffering, [2\.2\.4\.3](2-2-4-3.md)
+  - stream files versus database files, [2\.2\.3\.1](2-2-3-1.md)
+  - text stream files, opening, [2\.2\.4\.4](2-2-4-4.md)
+  - text stream files, opening, reading, writing, [2\.2\.4\.4](2-2-4-4.md)
+  - text stream files, reading, [2\.2\.4\.4](2-2-4-4.md)
+  - text stream files, updating, [2\.2\.4\.4](2-2-4-4.md)
+  - text stream files, writing, [2\.2\.4\.4](2-2-4-4.md)
+  - text streams, [2\.2\.3\.2](2-2-3-2.md)
+- data\-type compatibility, [4\.1\.8\.4](4-1-8-4.md)
+  - CL command line call, [4\.1\.4\.4](4-1-4-4.md)
+  - ILE CL, [4\.1\.4\.4](4-1-4-4.md)
+  - ILE COBOL, [4\.1\.4\.4](4-1-4-4.md)
+  - ILE RPG, [4\.1\.4\.4](4-1-4-4.md)
+  - length of variables, [4\.1\.4\.4](4-1-4-4.md)
+  - OPM CL, [4\.1\.4\.4](4-1-4-4.md)
+  - OPM COBOL, [4\.1\.4\.4](4-1-4-4.md)
+  - OPM RPG, [4\.1\.4\.4](4-1-4-4.md)
+- data\-type mapping, [3\.1\.5](3-1-5.md)
+- database and DDM files
+  - record functions, [3\.2\.2\.5](3-2-2-5.md)
+- database files, [3\.2\.1](3-2-1.md)
+  - access path, [3\.2\.1\.3](3-2-1-3.md)
+  - arrival sequence access path, [3\.2\.1\.3](3-2-1-3.md)
+  - binary stream functions
+    - record\-at\-a\-time processing, [3\.2\.2\.4](3-2-2-4.md)
+  - commitment control, [3\.2\.3](3-2-3.md)
+  - comparisons with stream file, [2\.1\.2\.1](2-1-2-1.md)
+  - data file, [3\.2\.1\.2](3-2-1-2.md)
+  - keyed sequence access path, [3\.2\.1\.3](3-2-1-3.md)
+    - arranging key fields, [3\.2\.1\.3](3-2-1-3.md)
+    - duplicate key values, [3\.2\.1\.3](3-2-1-3.md)
+  - multiple record formats, [3\.1\.3\.6](3-1-3-6.md)
+  - null capable fields, [3\.2\.1\.7](3-2-1-7.md)
+  - open as binary files, [3\.2\.2\.1](3-2-2-1.md)
+  - open as record files, [3\.2\.2\.2](3-2-2-2.md)
+  - record\-level description, [3\.2\.1\.1](3-2-1-1.md)
+  - sharing, [3\.2\.1\.6](3-2-1-6.md)
+- database record
+  - delete, [3\.2\.1\.4](3-2-1-4.md)
+  - lock conditions, [3\.2\.1\.5](3-2-1-5.md)
+- database record file
+  - arrival sequence, [3\.2\.1\.3](3-2-1-3.md)
+  - keyed sequence, [3\.2\.1\.3](3-2-1-3.md)
+  - record I/O functions, [3\.2\.2\.5](3-2-2-5.md)
+- DDM files, [3\.2\.1](3-2-1.md)
+- declarators, limit of, [APPENDIX1\.1\.1\.9](appendix1-1-1-9.md)
+- declaring pointer variables, [3\.4\.4](3-4-4.md)
+- decreasing program size, [2\.3\.12\.3](2-3-12-3.md)
+- default parameter passing styles, [4\.1\.4\.2](4-1-4-2.md)
+- default program device, acquiring, [3\.3\.1\.7](3-3-1-7.md)
+- default program device, changing, [3\.3\.1\.7](3-3-1-7.md)
+- destructors, [4\.5\.3](4-5-3.md)
+  - using RTTI operators, [4\.5\.3](4-5-3.md)
+- device files
+  - device attributes feedback area, [3\.3\.3](3-3-3.md)
+  - multiple record formats, [3\.1\.4\.6](3-1-4-6.md)
+  - separate indicator area
+    - INDARA keyword, [3\.1\.4\.5](3-1-4-5.md)
+    - part of the file buffer, [3\.1\.4\.5](3-1-4-5.md)
+- different passing methods, [4\.1\.4\.2](4-1-4-2.md)
+- direct monitor handlers, [4\.3\.3\.4](4-3-3-4.md)
+- disconnected mode, [3\.1\.6](3-1-6.md)
+- diskette files, [3\.3\.2](3-3-2.md), [3\.3\.2\.3](3-3-2-3.md)
+  - blocking, [3\.3\.2\.4](3-3-2-4.md)
+  - using, [3\.3\.2\.3](3-3-2-3.md)
+- display files, [3\.3\.1](3-3-1.md)
+  - change the default program device, [3\.3\.1\.7](3-3-1-7.md)
+  - I/O considerations, [3\.3\.1\.7](3-3-1-7.md)
+- display files, ICF files, printer files
+  - I/O considerations, [3\.3\.1\.1](3-3-1-1.md)
+  - indicators in the file buffer, [3\.3\.1\.1](3-3-1-1.md)
+  - major/minor return codes, [3\.3\.1\.2](3-3-1-2.md)
+  - open as record files, [3\.3\.1\.4](3-3-1-4.md)
+  - option indicators, [3\.3\.1\.1](3-3-1-1.md)
+  - response indicators, [3\.3\.1\.1](3-3-1-1.md)
+  - separate indicator areas, [3\.3\.1\.1](3-3-1-1.md)
+- display files, subfiles, ICF files, printer files
+  - binary stream functions, [3\.3\.1\.5](3-3-1-5.md)
+  - open as binary stream files, [3\.3\.1\.3](3-3-1-3.md)
+  - record functions, [3\.3\.1\.6](3-3-1-6.md)
+- document library services file system, [2\.1\.1\.4](2-1-1-4.md)
+- dynamic binding, [1\.1\.3](1-1-3.md)
+- dynamic\_cast operator, [4\.5\.2\.1](4-5-2-1.md)
+  - casting pointers, [4\.5\.2\.2](4-5-2-2.md)
+  - casting references, [4\.5\.2\.3](4-5-2-3.md)
+  - using to downcast, [4\.5\.2\.1](4-5-2-1.md)
 
 ## E
 
-- enabling integrated file system stream I/O 1 2.1.3.5
-- encapsulation 1 1.1.3
-- entry module 1 1.3.1
-- EPM C, calling 1 4.1.11
-- era for clock function 1 APPENDIX1.1.1.20
-- errno macros 1
-- list of 2 4.3.6.3
-- errno values 1
-- checking 2 4.3.6.2
-- for the integrated file system 2 4.3.6.3
-- error macros 1
-- EBADMODE 2 2.2.4
-- EIOERROR 2 4.3.6.4
-- EIORECERR 2 4.3.6.4
-- EPAD 2 2.2.4.6
-- ERECIO 2 2.2.4.6
-- ETRUNC 2 2.2.4.4 2.2.4.6
-- mapping stream I/O exceptions 2 4.3.6.5
-- escape sequences 1 APPENDIX1.1.1.2 ++
-- example 1 3.3.1.8 3.3.1.9 3.3.2.3 4.2.3
-- acquiring a default program device 2 3.3.1.7
-- AS/400 pointers 2 3.4.4
-- AS/400 system exception handling 2 4.3.6.4
-- C++ 2 1.1.4
-- C++ objects in a C program 2 4.1.6.2
-- calling EPM C 2 4.1.11
-- calling ILE-bindable APIs 2 4.1.12
-- cancel handlers 2 4.3.3.5
-- changing a default program device 2 3.3.1.7
-- commitment control 2 3.2.3
-- condition handler intercepts a thrown exception 2 4.3.3.1
-- control boundary 2 4.3.4
-- database file INPUT fields 2 3.1.3.1
-- database file KEY fields 2 3.1.3.3
-- database file NULLFLDS fields 2 3.1.3.4
-- database record file in arrival sequence 2 3.2.1.3
-- database record file in keyed sequence 2 3.2.1.3
-- device file BOTH fields 2 3.1.4.3
-- device file INPUT fields 2 3.1.4.1
-- device file OUTPUT fields 2 3.1.4.2
-- direct monitor handler and signal function 2 4.3.3.4
-- direct monitor handlers using labels 2 4.3.3.4
-- direct monitor intercepts a thrown exception 2 4.3.3.1
-- dynamic_cast operator 2 4.5.2.2
-- exception percolation 2 4.3.5
-- externally described files 2 3.1.8
-- generating template definitions 2 4.2.3
-- I/O feedback area 2 2.2.6
-- ILE condition handler 2 4.3.3.3
-- multiple formats in a database file 2 3.1.3.6
-- multiple formats in a device file 2 3.1.4.6
-- ofstream and ifstream classes 2 2.1.3.5 <
-- opening, reading, writing to a binary stream file 2 2.2.4.5 <
-- opening, reading, writing to a text stream file 2 2.2.4.4
-- operational descriptors 2 4.1.13
-- other ways to handle errors 2 4.3.6
-- pointer declarations 2 3.4.4
-- printer files 2 3.3.1.10
-- promote an exception 2 4.3.3.4
-- record I/O functions 2 3.2.2.5
-- separate exception-handling program 2 4.3.3.2
-- setting up a signal handler 2 4.3.3.2
-- template-implementation file 2 4.2.4.2
-- template-include file 2 4.2.4.2
-- try-catch-throw 2 4.3.3.1 ]
-- try-catch-throw and direct monitor handlers 2 4.3.3.1 &
-- try-catch-throw and ILE condition handlers 2 4.3.3.1
-- two ILE condition handlers 2 4.3.3.3
-- typeid operator 2 4.5.2.4
-- updating a binary stream file 2 2.2.4.5
-- examples 1
-- calling ILE C++ 2 4.1.10
-- calling ILE programs 2 4.1.9
-- calling OPM programs 2 4.1.8
-- database file BOTH fields 2 3.1.3.2
-- device file OUTPUT fields and option indicators 2 3.1.4.5
-- dynamic screen manager APIs 2 2.2.4.2
-- indicators as part of the file buffer 2 3.3.1.1
-- indicators in a separate indicator area 2 3.3.1.1
-- performing level check on a database file 2 3.1.3.5
-- exception 1 4.5.2.5
-- bad_typeid 2 4.5.2.5
-- exception classes 1 4.3.3.2 4.3.3.4
-- exception handling 1
-- actions taken during run-time 2 4.3.2.1
-- AS/400 system exceptions 2 4.3.6.4
-- cancel handlers 2 4.3.3.5 <<
-- checking the AS/400 system exceptions for C record files 2 4.3.6.6
-- checking the errno value 2 4.3.6.2
-- checking the return value of a function 2 4.3.6.1
-- direct monitor handlers 2 4.3.3.4
-- errno macros 2 4.3.6.3
-- handling exceptions in your programs 2 4.3.3
-- ILE condition handlers 2 4.3.3.3
-- ILE message handling 2 4.3.2
-- nested exceptions 2 4.3.2.2
-- overview 2 4.3.1 <
-- record I/O error macro to exception mapping 2 4.3.6.5
-- signal function 2 4.3.3.2
-- try-catch-throw 2 4.3.3.1
-- unhandled exceptions default actions 2 4.3.2.3
-- exception message 1
-- types 2 4.3.2.1
-- exceptions, nested 1 4.3.2.2
-- exceptions, unhandled 1 4.3.2.3
-- externally described files 1
-- database files 2 3.1.3
-- device files 2 3.1.4
-- using 2 3.1.3 3.1.4
+- enabling integrated file system stream I/O, [2\.1\.3\.5](2-1-3-5.md)
+- encapsulation, [1\.1\.3](1-1-3.md)
+- entry module, [1\.3\.1](1-3-1.md)
+- EPM C, calling, [4\.1\.11](4-1-11.md)
+- era for clock function, [APPENDIX1\.1\.1\.20](appendix1-1-1-20.md)
+- errno macros
+  - list of, [4\.3\.6\.3](4-3-6-3.md)
+- errno values
+  - checking, [4\.3\.6\.2](4-3-6-2.md)
+  - for the integrated file system, [4\.3\.6\.3](4-3-6-3.md)
+- error macros
+  - EBADMODE, [2\.2\.4](2-2-4.md)
+  - EIOERROR, [4\.3\.6\.4](4-3-6-4.md)
+  - EIORECERR, [4\.3\.6\.4](4-3-6-4.md)
+  - EPAD, [2\.2\.4\.6](2-2-4-6.md)
+  - ERECIO, [2\.2\.4\.6](2-2-4-6.md)
+  - ETRUNC, [2\.2\.4\.4](2-2-4-4.md), [2\.2\.4\.6](2-2-4-6.md)
+  - mapping stream I/O exceptions, [4\.3\.6\.5](4-3-6-5.md)
+- escape sequences, [APPENDIX1\.1\.1\.2](appendix1-1-1-2.md)
+- example, [3\.3\.1\.8](3-3-1-8.md), [3\.3\.1\.9](3-3-1-9.md), [3\.3\.2\.3](3-3-2-3.md), [4\.2\.3](4-2-3.md)
+  - acquiring a default program device, [3\.3\.1\.7](3-3-1-7.md)
+  - AS/400 pointers, [3\.4\.4](3-4-4.md)
+  - AS/400 system exception handling, [4\.3\.6\.4](4-3-6-4.md)
+  - C\+\+, [1\.1\.4](1-1-4.md)
+  - C\+\+ objects in a C program, [4\.1\.6\.2](4-1-6-2.md)
+  - calling EPM C, [4\.1\.11](4-1-11.md)
+  - calling ILE\-bindable APIs, [4\.1\.12](4-1-12.md)
+  - cancel handlers, [4\.3\.3\.5](4-3-3-5.md)
+  - changing a default program device, [3\.3\.1\.7](3-3-1-7.md)
+  - commitment control, [3\.2\.3](3-2-3.md)
+  - condition handler intercepts a thrown exception, [4\.3\.3\.1](4-3-3-1.md)
+  - control boundary, [4\.3\.4](4-3-4.md)
+  - database file INPUT fields, [3\.1\.3\.1](3-1-3-1.md)
+  - database file KEY fields, [3\.1\.3\.3](3-1-3-3.md)
+  - database file NULLFLDS fields, [3\.1\.3\.4](3-1-3-4.md)
+  - database record file in arrival sequence, [3\.2\.1\.3](3-2-1-3.md)
+  - database record file in keyed sequence, [3\.2\.1\.3](3-2-1-3.md)
+  - device file BOTH fields, [3\.1\.4\.3](3-1-4-3.md)
+  - device file INPUT fields, [3\.1\.4\.1](3-1-4-1.md)
+  - device file OUTPUT fields, [3\.1\.4\.2](3-1-4-2.md)
+  - direct monitor handler and signal function, [4\.3\.3\.4](4-3-3-4.md)
+  - direct monitor handlers using labels, [4\.3\.3\.4](4-3-3-4.md)
+  - direct monitor intercepts a thrown exception, [4\.3\.3\.1](4-3-3-1.md)
+  - dynamic\_cast operator, [4\.5\.2\.2](4-5-2-2.md)
+  - exception percolation, [4\.3\.5](4-3-5.md)
+  - externally described files, [3\.1\.8](3-1-8.md)
+  - generating template definitions, [4\.2\.3](4-2-3.md)
+  - I/O feedback area, [2\.2\.6](2-2-6.md)
+  - ILE condition handler, [4\.3\.3\.3](4-3-3-3.md)
+  - multiple formats in a database file, [3\.1\.3\.6](3-1-3-6.md)
+  - multiple formats in a device file, [3\.1\.4\.6](3-1-4-6.md)
+  - ofstream and ifstream classes, [2\.1\.3\.5](2-1-3-5.md)
+  - opening, reading, writing to a binary stream file, [2\.2\.4\.5](2-2-4-5.md)
+  - opening, reading, writing to a text stream file, [2\.2\.4\.4](2-2-4-4.md)
+  - operational descriptors, [4\.1\.13](4-1-13.md)
+  - other ways to handle errors, [4\.3\.6](4-3-6.md)
+  - pointer declarations, [3\.4\.4](3-4-4.md)
+  - printer files, [3\.3\.1\.10](3-3-1-10.md)
+  - promote an exception, [4\.3\.3\.4](4-3-3-4.md)
+  - record I/O functions, [3\.2\.2\.5](3-2-2-5.md)
+  - separate exception\-handling program, [4\.3\.3\.2](4-3-3-2.md)
+  - setting up a signal handler, [4\.3\.3\.2](4-3-3-2.md)
+  - template\-implementation file, [4\.2\.4\.2](4-2-4-2.md)
+  - template\-include file, [4\.2\.4\.2](4-2-4-2.md)
+  - try\-catch\-throw, [4\.3\.3\.1](4-3-3-1.md)
+  - try\-catch\-throw and direct monitor handlers, [4\.3\.3\.1](4-3-3-1.md)
+  - try\-catch\-throw and ILE condition handlers, [4\.3\.3\.1](4-3-3-1.md)
+  - two ILE condition handlers, [4\.3\.3\.3](4-3-3-3.md)
+  - typeid operator, [4\.5\.2\.4](4-5-2-4.md)
+  - updating a binary stream file, [2\.2\.4\.5](2-2-4-5.md)
+- examples
+  - calling ILE C\+\+, [4\.1\.10](4-1-10.md)
+  - calling ILE programs, [4\.1\.9](4-1-9.md)
+  - calling OPM programs, [4\.1\.8](4-1-8.md)
+  - database file BOTH fields, [3\.1\.3\.2](3-1-3-2.md)
+  - device file OUTPUT fields and option indicators, [3\.1\.4\.5](3-1-4-5.md)
+  - dynamic screen manager APIs, [2\.2\.4\.2](2-2-4-2.md)
+  - indicators as part of the file buffer, [3\.3\.1\.1](3-3-1-1.md)
+  - indicators in a separate indicator area, [3\.3\.1\.1](3-3-1-1.md)
+  - performing level check on a database file, [3\.1\.3\.5](3-1-3-5.md)
+- exception, [4\.5\.2\.5](4-5-2-5.md)
+  - bad\_typeid, [4\.5\.2\.5](4-5-2-5.md)
+- exception classes, [4\.3\.3\.2](4-3-3-2.md), [4\.3\.3\.4](4-3-3-4.md)
+- exception handling
+  - actions taken during run\-time, [4\.3\.2\.1](4-3-2-1.md)
+  - AS/400 system exceptions, [4\.3\.6\.4](4-3-6-4.md)
+  - cancel handlers, [4\.3\.3\.5](4-3-3-5.md)
+  - checking the AS/400 system exceptions for C record files, [4\.3\.6\.6](4-3-6-6.md)
+  - checking the errno value, [4\.3\.6\.2](4-3-6-2.md)
+  - checking the return value of a function, [4\.3\.6\.1](4-3-6-1.md)
+  - direct monitor handlers, [4\.3\.3\.4](4-3-3-4.md)
+  - errno macros, [4\.3\.6\.3](4-3-6-3.md)
+  - handling exceptions in your programs, [4\.3\.3](4-3-3.md)
+  - ILE condition handlers, [4\.3\.3\.3](4-3-3-3.md)
+  - ILE message handling, [4\.3\.2](4-3-2.md)
+  - nested exceptions, [4\.3\.2\.2](4-3-2-2.md)
+  - overview, [4\.3\.1](4-3-1.md)
+  - record I/O error macro to exception mapping, [4\.3\.6\.5](4-3-6-5.md)
+  - signal function, [4\.3\.3\.2](4-3-3-2.md)
+  - try\-catch\-throw, [4\.3\.3\.1](4-3-3-1.md)
+  - unhandled exceptions default actions, [4\.3\.2\.3](4-3-2-3.md)
+- exception message
+  - types, [4\.3\.2\.1](4-3-2-1.md)
+- exceptions, nested, [4\.3\.2\.2](4-3-2-2.md)
+- exceptions, unhandled, [4\.3\.2\.3](4-3-2-3.md)
+- externally described files
+  - database files, [3\.1\.3](3-1-3.md)
+  - device files, [3\.1\.4](3-1-4.md)
+  - using, [3\.1\.3](3-1-3.md), [3\.1\.4](3-1-4.md)
 
 ## F
 
-- file description 1 2.2.1
-- file naming conventions 1 2.2.1.2
-- file objects 1 2.2.1
-- file server file system 1 2.1.1.7
-- function 1
-- _GetExcData 2 4.3.3.2
-- _Racquire 2 3.3.1.7
-- _Rdevatr 2 3.3.3
-- _Rfeod 2 3.3.2.5
-- _Rfeov 2 3.3.2.5
-- _Rformat 2 3.3.1.8
-- _Rindara 2 3.3.1.1
-- _Ropen 2 3.3.1.7
-- _Rpgmdev 2 3.3.1.7
-- _Rreadindv 2 3.3.1.7
-- _Rreadnc 2 3.3.1.8
-- checking the return value 2 4.3.6.1
-- fgetpos 2 APPENDIX1.1.1.16
-- fopen 2 2.2.4 3.3.1.3
-- fopen() 2 2.1.3
-- lrecl parameter 3 2.1.3.2
-- ftell 2 APPENDIX1.1.1.16
-- perror 2 4.3.6.2
-- raise 2 4.3.3.2
-- signal 2 4.3.3.2
-- signals raised 3 4.3.3.2
-- strerror 2 4.3.6.2
-- functions 1 4.2.4.2
-- clock 2 APPENDIX1.1.1.20 [
-- implementation-defined behavior 2 APPENDIX1.1.1.12
-- templates 2 4.2.4.2
-- structuring manually 3 4.2.4.3
-- template-include files 3 4.2.4.2
+- file description, [2\.2\.1](2-2-1.md)
+- file naming conventions, [2\.2\.1\.2](2-2-1-2.md)
+- file objects, [2\.2\.1](2-2-1.md)
+- file server file system, [2\.1\.1\.7](2-1-1-7.md)
+- function
+  - \_GetExcData, [4\.3\.3\.2](4-3-3-2.md)
+  - \_Racquire, [3\.3\.1\.7](3-3-1-7.md)
+  - \_Rdevatr, [3\.3\.3](3-3-3.md)
+  - \_Rfeod, [3\.3\.2\.5](3-3-2-5.md)
+  - \_Rfeov, [3\.3\.2\.5](3-3-2-5.md)
+  - \_Rformat, [3\.3\.1\.8](3-3-1-8.md)
+  - \_Rindara, [3\.3\.1\.1](3-3-1-1.md)
+  - \_Ropen, [3\.3\.1\.7](3-3-1-7.md)
+  - \_Rpgmdev, [3\.3\.1\.7](3-3-1-7.md)
+  - \_Rreadindv, [3\.3\.1\.7](3-3-1-7.md)
+  - \_Rreadnc, [3\.3\.1\.8](3-3-1-8.md)
+  - checking the return value, [4\.3\.6\.1](4-3-6-1.md)
+  - fgetpos, [APPENDIX1\.1\.1\.16](appendix1-1-1-16.md)
+  - fopen, [2\.2\.4](2-2-4.md), [3\.3\.1\.3](3-3-1-3.md)
+  - fopen\(\), [2\.1\.3](2-1-3.md)
+    - lrecl parameter, [2\.1\.3\.2](2-1-3-2.md)
+  - ftell, [APPENDIX1\.1\.1\.16](appendix1-1-1-16.md)
+  - perror, [4\.3\.6\.2](4-3-6-2.md)
+  - raise, [4\.3\.3\.2](4-3-3-2.md)
+  - signal, [4\.3\.3\.2](4-3-3-2.md)
+    - signals raised, [4\.3\.3\.2](4-3-3-2.md)
+  - strerror, [4\.3\.6\.2](4-3-6-2.md)
+- functions, [4\.2\.4\.2](4-2-4-2.md)
+  - clock, [APPENDIX1\.1\.1\.20](appendix1-1-1-20.md)
+  - implementation\-defined behavior, [APPENDIX1\.1\.1\.12](appendix1-1-1-12.md)
+  - templates, [4\.2\.4\.2](4-2-4-2.md)
+    - structuring manually, [4\.2\.4\.3](4-2-4-3.md)
+    - template\-include files, [4\.2\.4\.2](4-2-4-2.md)
 
-## G [
+## G
 
-- global variable _EXCP_MSGID 1 4.3.6.4
+- global variable \_EXCP\_MSGID, [4\.3\.6\.4](4-3-6-4.md)
 
 ## H
 
-- handle system errors 1 4.3.6.4
-- handle the signal 1 4.3.3.2
-- handling exceptions in your programs 1 4.3.3
-- header file 1
-- <errno.h> 2 4.3.6.2
-- <except.h> 2 4.3.3.4
-- <leawi.h> 2 4.1.13
-- <leod.h> 2 4.1.13
-- <recio.h> 2 3.2.1.7
-- <signal.h> 2 4.3.3.2
-- <stdio.h> 2 2.2.4
-- <stdlib.h> 2 2.3.9.1
-- help 1 PREFACE.4
-- contextual 2 PREFACE.4
-- from the command line 2 PREFACE.4.2
-- How Do I 2 PREFACE.4 &
-- inside VisualAge for C++ for AS/400 2 PREFACE.4.1
-- online documents 2 PREFACE.4
+- handle system errors, [4\.3\.6\.4](4-3-6-4.md)
+- handle the signal, [4\.3\.3\.2](4-3-3-2.md)
+- handling exceptions in your programs, [4\.3\.3](4-3-3.md)
+- header file
+  - \<errno\.h\>, [4\.3\.6\.2](4-3-6-2.md)
+  - \<except\.h\>, [4\.3\.3\.4](4-3-3-4.md)
+  - \<leawi\.h\>, [4\.1\.13](4-1-13.md)
+  - \<leod\.h\>, [4\.1\.13](4-1-13.md)
+  - \<recio\.h\>, [3\.2\.1\.7](3-2-1-7.md)
+  - \<signal\.h\>, [4\.3\.3\.2](4-3-3-2.md)
+  - \<stdio\.h\>, [2\.2\.4](2-2-4.md)
+  - \<stdlib\.h\>, [2\.3\.9\.1](2-3-9-1.md)
+- help, [PREFACE\.4](preface-4.md)
+  - contextual, [PREFACE\.4](preface-4.md)
+  - from the command line, [PREFACE\.4\.2](preface-4-2.md)
+  - How Do I, [PREFACE\.4](preface-4.md)
+  - inside VisualAge for C\+\+ for AS/400, [PREFACE\.4\.1](preface-4-1.md)
+  - online documents, [PREFACE\.4](preface-4.md)
 
 ## I
 
-- ICF files 1 3.3.1 3.3.1.9
-- I/O considerations 2 3.3.1.9
-- using 2 3.3.1.9
-- ILE 1 1.2
-- effects of 2 1.3.2
-- family of ILE compilers 2 1.2
-- overview 2 1.2
-- program call 2 1.2.4
-- program creation 2 1.2.2
-- program creation strategies 2 1.3.1
-- program management 2 1.2.3
-- program scenarios 2 1.3.3
-- ILE C 1 1.2
-- as ILE language 2 1.2
-- in mixed-language programs 2 1.3.3.2
-- ILE C++, calling 1 4.1.10
-- ILE CL 1 1.2
-- as ILE language 2 1.2
-- calling ILE C++ program 2 1.3.3.1
-- in mixed-language program 2 1.3.3.2
-- ILE COBOL 1 1.2
-- as ILE language 2 1.2
-- ILE condition handlers 1 4.3.3.3
-- move the resume cursor 2 4.3.3.4
-- percolate an exception 2 4.3.3.3
-- promote an exception 2 4.3.3.4
-- register 2 4.3.3.3
-- resume cursor, move 2 4.3.3.4
-- ILE message handling 1 4.3.2
-- ILE programs, calling 1 4.1.9
-- ILE-bindable APIs 1 1.2.6
-- calling 2 4.1.12
-- CEEHDLR 2 4.3.3.3
-- CEEHDLU 2 4.3.3.3
-- CEEMRCR 2 4.3.3.4
-- overview 2 1.2.6
-- procedure calls 2 4.1.12
-- implementation-defined behavior 1 APPENDIX1.1
-- include name 1 3.1.1.2
-- indicators as part of the file buffer 1 3.3.1.1
-- indicators in a separate indicator area 1 3.3.1.1
-- inheritance 1 1.1.3
-- integrated file system 1
-- binary streams 2 2.1.2.3
-- document library services file system 2 2.1.1.4
-- enabling 2 2.1.3.5
-- errno values 2 4.3.6.3
-- file server file system 2 2.1.1.7
-- fopen() function 2 2.1.3
-- LAN Server/400 file system 2 2.1.1.5
-- library file system 2 2.1.1.3
-- open modes 2 2.1.3.2
-- open systems file system 2 2.1.1.2
-- optical support file system 2 2.1.1.6
-- other file systems 2 2.1.3.6
-- overview 2 2.1.1
-- root file system 2 2.1.1.1
-- session I/O 2 2.1.3.3
-- storing data as a text or binary stream 2 2.1.3.1
-- stream buffering 2 2.1.3.4
-- stream files 2 2.1.2
-- stream files versus database files 2 2.1.2.1
-- text and binary stream files 2 2.1.3
-- text streams 2 2.1.2.2
-- international locale support 1 3.5
+- ICF files, [3\.3\.1](3-3-1.md), [3\.3\.1\.9](3-3-1-9.md)
+  - I/O considerations, [3\.3\.1\.9](3-3-1-9.md)
+  - using, [3\.3\.1\.9](3-3-1-9.md)
+- ILE, [1\.2](1-2.md)
+  - effects of, [1\.3\.2](1-3-2.md)
+  - family of ILE compilers, [1\.2](1-2.md)
+  - overview, [1\.2](1-2.md)
+  - program call, [1\.2\.4](1-2-4.md)
+  - program creation, [1\.2\.2](1-2-2.md)
+  - program creation strategies, [1\.3\.1](1-3-1.md)
+  - program management, [1\.2\.3](1-2-3.md)
+  - program scenarios, [1\.3\.3](1-3-3.md)
+- ILE C, [1\.2](1-2.md)
+  - as ILE language, [1\.2](1-2.md)
+  - in mixed\-language programs, [1\.3\.3\.2](1-3-3-2.md)
+- ILE C\+\+, calling, [4\.1\.10](4-1-10.md)
+- ILE CL, [1\.2](1-2.md)
+  - as ILE language, [1\.2](1-2.md)
+  - calling ILE C\+\+ program, [1\.3\.3\.1](1-3-3-1.md)
+  - in mixed\-language program, [1\.3\.3\.2](1-3-3-2.md)
+- ILE COBOL, [1\.2](1-2.md)
+  - as ILE language, [1\.2](1-2.md)
+- ILE condition handlers, [4\.3\.3\.3](4-3-3-3.md)
+  - move the resume cursor, [4\.3\.3\.4](4-3-3-4.md)
+  - percolate an exception, [4\.3\.3\.3](4-3-3-3.md)
+  - promote an exception, [4\.3\.3\.4](4-3-3-4.md)
+  - register, [4\.3\.3\.3](4-3-3-3.md)
+  - resume cursor, move, [4\.3\.3\.4](4-3-3-4.md)
+- ILE message handling, [4\.3\.2](4-3-2.md)
+- ILE programs, calling, [4\.1\.9](4-1-9.md)
+- ILE\-bindable APIs, [1\.2\.6](1-2-6.md)
+  - calling, [4\.1\.12](4-1-12.md)
+  - CEEHDLR, [4\.3\.3\.3](4-3-3-3.md)
+  - CEEHDLU, [4\.3\.3\.3](4-3-3-3.md)
+  - CEEMRCR, [4\.3\.3\.4](4-3-3-4.md)
+  - overview, [1\.2\.6](1-2-6.md)
+  - procedure calls, [4\.1\.12](4-1-12.md)
+- implementation\-defined behavior, [APPENDIX1\.1](appendix1-1.md)
+- include name, [3\.1\.1\.2](3-1-1-2.md)
+- indicators as part of the file buffer, [3\.3\.1\.1](3-3-1-1.md)
+- indicators in a separate indicator area, [3\.3\.1\.1](3-3-1-1.md)
+- inheritance, [1\.1\.3](1-1-3.md)
+- integrated file system
+  - binary streams, [2\.1\.2\.3](2-1-2-3.md)
+  - document library services file system, [2\.1\.1\.4](2-1-1-4.md)
+  - enabling, [2\.1\.3\.5](2-1-3-5.md)
+  - errno values, [4\.3\.6\.3](4-3-6-3.md)
+  - file server file system, [2\.1\.1\.7](2-1-1-7.md)
+  - fopen\(\) function, [2\.1\.3](2-1-3.md)
+  - LAN Server/400 file system, [2\.1\.1\.5](2-1-1-5.md)
+  - library file system, [2\.1\.1\.3](2-1-1-3.md)
+  - open modes, [2\.1\.3\.2](2-1-3-2.md)
+  - open systems file system, [2\.1\.1\.2](2-1-1-2.md)
+  - optical support file system, [2\.1\.1\.6](2-1-1-6.md)
+  - other file systems, [2\.1\.3\.6](2-1-3-6.md)
+  - overview, [2\.1\.1](2-1-1.md)
+  - root file system, [2\.1\.1\.1](2-1-1-1.md)
+  - session I/O, [2\.1\.3\.3](2-1-3-3.md)
+  - storing data as a text or binary stream, [2\.1\.3\.1](2-1-3-1.md)
+  - stream buffering, [2\.1\.3\.4](2-1-3-4.md)
+  - stream files, [2\.1\.2](2-1-2.md)
+  - stream files versus database files, [2\.1\.2\.1](2-1-2-1.md)
+  - text and binary stream files, [2\.1\.3](2-1-3.md)
+  - text streams, [2\.1\.2\.2](2-1-2-2.md)
+- international locale support, [3\.5](3-5.md)
 
 ## L
 
-- LAN Server/400 file system 1 2.1.1.5
-- language description 1 1.1
-- language standard 1 PREFACE.3 <
-- industry (ANSI, ISO) 2 PREFACE.3
-- LC_ALL locale variable 1 3.5.5
-- LC_COLLATE locale variable 1 3.5.5
-- LC_CTYPE locale variable 1 3.5.5
-- LC_MONETARY locale variable 1 3.5.5
-- LC_NUMERIC locale variable 1 3.5.5
-- LC_TIME locale variable 1 3.5.5
-- LC_TOD locale variable 1 3.5.5
-- library file system 1 2.1.1.3
-- library function 1 APPENDIX1.1.1.12 [
-- implementation-defined behavior 2 APPENDIX1.1.1.12
-- locale 1 3.5.5
-- customizing 2 3.5.5
-- environment variables 2 3.5.5.2
-- LC_TOD locale variable 2 3.5.5
-- locale library function 2 3.5.5
-- setting an active locale 2 3.5.5.1
+- LAN Server/400 file system, [2\.1\.1\.5](2-1-1-5.md)
+- language description, [1\.1](1-1.md)
+- language standard, [PREFACE\.3](preface-3.md)
+  - industry \(ANSI, ISO\), [PREFACE\.3](preface-3.md)
+- LC\_ALL locale variable, [3\.5\.5](3-5-5.md)
+- LC\_COLLATE locale variable, [3\.5\.5](3-5-5.md)
+- LC\_CTYPE locale variable, [3\.5\.5](3-5-5.md)
+- LC\_MONETARY locale variable, [3\.5\.5](3-5-5.md)
+- LC\_NUMERIC locale variable, [3\.5\.5](3-5-5.md)
+- LC\_TIME locale variable, [3\.5\.5](3-5-5.md)
+- LC\_TOD locale variable, [3\.5\.5](3-5-5.md)
+- library file system, [2\.1\.1\.3](2-1-1-3.md)
+- library function, [APPENDIX1\.1\.1\.12](appendix1-1-1-12.md)
+  - implementation\-defined behavior, [APPENDIX1\.1\.1\.12](appendix1-1-1-12.md)
+- locale, [3\.5\.5](3-5-5.md)
+  - customizing, [3\.5\.5](3-5-5.md)
+  - environment variables, [3\.5\.5\.2](3-5-5-2.md)
+  - LC\_TOD locale variable, [3\.5\.5](3-5-5.md)
+  - locale library function, [3\.5\.5](3-5-5.md)
+  - setting an active locale, [3\.5\.5\.1](3-5-5-1.md)
 
 ## M
 
-- macros 1 APPENDIX1.1.1.12
-- assert 2 APPENDIX1.1.1.12
-- defined by _DecimalT template class 2 4.4.1.2
-- NULL 2 APPENDIX1.1.1.12
-
-<
-
-- major/minor return code, checking 1 4.3.6.4
-- managing programs 1 1.2.3
-- mapping a C++ class to a C structure 1 4.1.6.1
-- mapping fields from externally described files 1 3.1.5
-- match data type requirements 1 4.1.4.2 4.1.8.4
-- migrating 1
-- C to C++ on AS/400 2 4.4.1 <<
-- Windows C++ to C++ on AS/400 2 4.4.2
-- multiple record formats 1
-- database file 2 3.1.3.6
-- device file 2 3.1.4.6
+- macros, [APPENDIX1\.1\.1\.12](appendix1-1-1-12.md)
+  - assert, [APPENDIX1\.1\.1\.12](appendix1-1-1-12.md)
+  - defined by \_DecimalT template class, [4\.4\.1\.2](4-4-1-2.md)
+  - NULL, [APPENDIX1\.1\.1\.12](appendix1-1-1-12.md)
+- major/minor return code, checking, [4\.3\.6\.4](4-3-6-4.md)
+- managing programs, [1\.2\.3](1-2-3.md)
+- mapping a C\+\+ class to a C structure, [4\.1\.6\.1](4-1-6-1.md)
+- mapping fields from externally described files, [3\.1\.5](3-1-5.md)
+- match data type requirements, [4\.1\.4\.2](4-1-4-2.md), [4\.1\.8\.4](4-1-8-4.md)
+- migrating
+  - C to C\+\+ on AS/400, [4\.4\.1](4-4-1.md)
+  - Windows C\+\+ to C\+\+ on AS/400, [4\.4\.2](4-4-2.md)
+- multiple record formats
+  - database file, [3\.1\.3\.6](3-1-3-6.md)
+  - device file, [3\.1\.4\.6](3-1-4-6.md)
 
 ## N
 
-- nested exceptions 1 4.3.2.2
-- null capable fields 1 3.2.1.7
-- NULL macro, definition 1 APPENDIX1.1.1.12
+- nested exceptions, [4\.3\.2\.2](4-3-2-2.md)
+- null capable fields, [3\.2\.1\.7](3-2-1-7.md)
+- NULL macro, definition, [APPENDIX1\.1\.1\.12](appendix1-1-1-12.md)
 
 ## O
 
-- object-oriented programming 1 1.1.3
-- open data path 1 3.2.1.6
-- I/O feedback area 2 2.2.6
-- open feedback area 2 2.2.5
-- open modes for integrated file system files 1 2.1.3.2
-- open pointer rules 1 3.4.2
-- open systems file system 1 2.1.1.2
-- opening binary stream files (character at a time) 1 2.2.4.5 <<
-- opening binary stream files (record at a time) 1 2.2.4.6
-- opening text stream files 1 2.2.4.4
-- operational descriptors 1 4.1.4.3
-- operator 1 4.5.2.1
-- dynamic_cast operator 2 4.5.2.1
-- typeid operator 2 4.5.2.4
-- operator overloading 1 1.1.1
-- OPM programs, calling 1 4.1.8
-- optical support file system 1 2.1.1.6
-- optimizing 1 2.3.12.3
-- for size 2 2.3.12.3
-- for speed 2 2.3.12.3
-- for speed and size 2 2.3.12.3
-- options, compiler 1 PREFACE.2.1
-- See also compiler options 2
-- other pointer rules 1 3.4.3
-- other than open pointers rules 1 3.4.3
-- overloaded function 1 1.1.4.3
+- object\-oriented programming, [1\.1\.3](1-1-3.md)
+- open data path, [3\.2\.1\.6](3-2-1-6.md)
+  - I/O feedback area, [2\.2\.6](2-2-6.md)
+  - open feedback area, [2\.2\.5](2-2-5.md)
+- open modes for integrated file system files, [2\.1\.3\.2](2-1-3-2.md)
+- open pointer rules, [3\.4\.2](3-4-2.md)
+- open systems file system, [2\.1\.1\.2](2-1-1-2.md)
+- opening binary stream files \(character at a time\), [2\.2\.4\.5](2-2-4-5.md)
+- opening binary stream files \(record at a time\), [2\.2\.4\.6](2-2-4-6.md)
+- opening text stream files, [2\.2\.4\.4](2-2-4-4.md)
+- operational descriptors, [4\.1\.4\.3](4-1-4-3.md)
+- operator, [4\.5\.2\.1](4-5-2-1.md)
+  - dynamic\_cast operator, [4\.5\.2\.1](4-5-2-1.md)
+  - typeid operator, [4\.5\.2\.4](4-5-2-4.md)
+- operator overloading, [1\.1\.1](1-1-1.md)
+- OPM programs, calling, [4\.1\.8](4-1-8.md)
+- optical support file system, [2\.1\.1\.6](2-1-1-6.md)
+- optimizing, [2\.3\.12\.3](2-3-12-3.md)
+  - for size, [2\.3\.12\.3](2-3-12-3.md)
+  - for speed, [2\.3\.12\.3](2-3-12-3.md)
+  - for speed and size, [2\.3\.12\.3](2-3-12-3.md)
+- options, compiler, [PREFACE\.2\.1](preface-2-1.md)
+  - See also compiler options
+- other pointer rules, [3\.4\.3](3-4-3.md)
+- other than open pointers rules, [3\.4\.3](3-4-3.md)
+- overloaded function, [1\.1\.4\.3](1-1-4-3.md)
 
 ## P
 
-- parameters 1
-- default passing styles 2 4.1.4.2
-- passing in C++ 2 4.1.4.1
-- passing in ILE 2 4.1.4
-- passing arguments 1 4.1.4.2
-- passing constants 1 4.1.4.4
-- passing styles 1 4.1.4.2
-- passing variables 1 4.1.4.4
-- performance tips 1 2.3.12.1
-- bit fields 2 2.3.1.2
-- block records 2 2.3.6.3
-- compiler performance option 2
-- /Asp 3 2.3.3.1
-- data types 2 2.3.9.2
-- direct monitor handler 2 2.3.4.3
-- dynamic heap 2 2.3.9.1
-- dynamic memory allocation calls 2 2.3.9.3
-- exception handling 2 2.3.4.1
-- exception messages 2
-- C2M 3 2.3.4.2
-- feedback information 2
-- _RIOFB_T 3 2.3.6.2
-- function calls operators 2 2.3.5.1
-- ILE bindable API 2
-- CEECZST 3 2.3.9.1
-- CEEFRST 3 2.3.9.1
-- indirect access 2 2.3.7.3
-- library names 2 2.3.6.10
-- open pointers 2 2.3.7.1
-- operators 2 2.3.11.2
-- overview 2 2.3
-- percolating exceptions 2 2.3.4.4
-- physical files 2 2.3.6.9
-- pointer comparisons 2 2.3.7.2
-- record I/O 2 2.3.6.1
-- register storage class 2 2.3.1.4
-- run-time limits 2 2.3.13
-- shared files 2 2.3.6.5
-- space considerations 2 2.3.9
-- space padding 2 2.3.9.4
-- static and global variables 2 2.3.1.3
-- stream functions 2 2.3.6.7
-- system buffer 2 2.3.6.4
-- tape files 2 2.3.6.6
-- volatile qualifier 2 2.3.1.1 <<
-- Windows front-end compile-time 2 2.3.12.2
-- pointer 1 4.5.2.2
-- dynamic_cast operator 2 4.5.2.2
-- pointers 1 3.4.3
-- casting rules 2 3.4.5
-- declaring pointer variables 2 3.4.4
-- open rules 2 3.4.2
-- overview 2 3.4.1
-- pass AS/400 pointers as arguments 2 3.4.4
-- size of 2 APPENDIX1.1.1.6
-- types 2 3.4.1
-- portability 1 PREFACE.3 [
-- considerations 2 PREFACE.3 APPENDIX1.1
-- porting ILE C to ILE C++ 1
-- binary coded decimal class library 2 4.4.1.2
-- character array initialization 2 4.4.1.8
-- file inclusion 2 4.4.1.6
-- function prototypes, declarations and pointers 2 4.4.1.7
-- header files 2 4.4.1.3
-- integrated file system 2 4.4.1.10
-- inter-language calls 2 4.4.1.1
-- name mangling 2 4.4.1.5
-- overview 2 4.4.1
-- set_terminate function 2 4.4.1.11
-- string literals 2 4.4.1.9
-- type checking 2 4.4.1.4
-- porting Windows C to ILE C++ 1
-- abort function 2 4.4.2.5
-- exception handler 2 4.4.2.9
-- externally described files 2 4.4.2.7
-- inter-language calls 2 4.4.2.3
-- operational descriptors 2 4.4.2.8
-- pointers 2 4.4.2.10
-- record I/O 2 4.4.2.4
-- user interface and GUI applications 2 4.4.2.6
-- Windows terms 2 4.4.2.2
-- porting Windows C++ to ILE C++ 1
-- overview 2 4.4.2
-- pragma 1
-- define 2 4.2.4.3
-- disable_handler 2 4.3.3.4
-- exception_handler 2 4.3.3.4
-- implementation 2 4.2.4.2
-- undeclared 2 4.2.4.2
-- preprocessor directives 1 1.1.4.3
-- printer files 1
-- FCFC 2 3.3.1
-- I/O considerations 2 3.3.1.10
-- using 2 3.3.1.10
-- procedure 1 4.1.1.2
-- procedure pointer call 2 4.1.1.2
-- static procedure call 2 4.1.1.2
-- program 1 4.1.1.1
-- calling 2 4.1.1.1
-- compiling 2 1.1.2.2
-- development process 2 1.1.2
-- OPM-compatible 2 1.3.3.4
-- preparing 2 1.1.2.1
-- program creation 1 1.3.3.4
-- strategy to avoid 2 1.3.3.4
-- program creation in ILE 1 1.2.2
-- program devices 1
-- I/O feedback area 2 2.2.6
-- program entry procedure (PEP) 1 4.1.1.3
-- and the call stack 2 4.1.1.3
-- program management 1 1.2.3
-- program-described files 1 3.2.1.1
-- program/procedure call 1 1.2.4
-- call stack 2 4.1.1.3
-- calling procedures 2 4.1.1.2
-- calling programs 2 4.1.1.1
-- changing names 2 4.1.5
-- creating C++ classes 2 4.1.6
-- data-type compatibility 2 4.1.4.4
-- library qualified calls 2 4.1.7
-- linkage specification 2 4.1.2
-- overview 2 4.1.1
-- passing parameters 2 4.1.4
-- within ILE 2 1.2.4
-- programming languages 1
-- C++ features 2 1.1.1
-- supported 2 1.2.1
+- parameters
+  - default passing styles, [4\.1\.4\.2](4-1-4-2.md)
+  - passing in C\+\+, [4\.1\.4\.1](4-1-4-1.md)
+  - passing in ILE, [4\.1\.4](4-1-4.md)
+- passing arguments, [4\.1\.4\.2](4-1-4-2.md)
+- passing constants, [4\.1\.4\.4](4-1-4-4.md)
+- passing styles, [4\.1\.4\.2](4-1-4-2.md)
+- passing variables, [4\.1\.4\.4](4-1-4-4.md)
+- performance tips, [2\.3\.12\.1](2-3-12-1.md)
+  - bit fields, [2\.3\.1\.2](2-3-1-2.md)
+  - block records, [2\.3\.6\.3](2-3-6-3.md)
+  - compiler performance option
+    - /Asp, [2\.3\.3\.1](2-3-3-1.md)
+  - data types, [2\.3\.9\.2](2-3-9-2.md)
+  - direct monitor handler, [2\.3\.4\.3](2-3-4-3.md)
+  - dynamic heap, [2\.3\.9\.1](2-3-9-1.md)
+  - dynamic memory allocation calls, [2\.3\.9\.3](2-3-9-3.md)
+  - exception handling, [2\.3\.4\.1](2-3-4-1.md)
+  - exception messages
+    - C2M, [2\.3\.4\.2](2-3-4-2.md)
+  - feedback information
+    - \_RIOFB\_T, [2\.3\.6\.2](2-3-6-2.md)
+  - function calls operators, [2\.3\.5\.1](2-3-5-1.md)
+  - ILE bindable API
+    - CEECZST, [2\.3\.9\.1](2-3-9-1.md)
+    - CEEFRST, [2\.3\.9\.1](2-3-9-1.md)
+  - indirect access, [2\.3\.7\.3](2-3-7-3.md)
+  - library names, [2\.3\.6\.10](2-3-6-10.md)
+  - open pointers, [2\.3\.7\.1](2-3-7-1.md)
+  - operators, [2\.3\.11\.2](2-3-11-2.md)
+  - overview, [2\.3](2-3.md)
+  - percolating exceptions, [2\.3\.4\.4](2-3-4-4.md)
+  - physical files, [2\.3\.6\.9](2-3-6-9.md)
+  - pointer comparisons, [2\.3\.7\.2](2-3-7-2.md)
+  - record I/O, [2\.3\.6\.1](2-3-6-1.md)
+  - register storage class, [2\.3\.1\.4](2-3-1-4.md)
+  - run\-time limits, [2\.3\.13](2-3-13.md)
+  - shared files, [2\.3\.6\.5](2-3-6-5.md)
+  - space considerations, [2\.3\.9](2-3-9.md)
+  - space padding, [2\.3\.9\.4](2-3-9-4.md)
+  - static and global variables, [2\.3\.1\.3](2-3-1-3.md)
+  - stream functions, [2\.3\.6\.7](2-3-6-7.md)
+  - system buffer, [2\.3\.6\.4](2-3-6-4.md)
+  - tape files, [2\.3\.6\.6](2-3-6-6.md)
+  - volatile qualifier, [2\.3\.1\.1](2-3-1-1.md)
+  - Windows front\-end compile\-time, [2\.3\.12\.2](2-3-12-2.md)
+- pointer, [4\.5\.2\.2](4-5-2-2.md)
+  - dynamic\_cast operator, [4\.5\.2\.2](4-5-2-2.md)
+- pointers, [3\.4\.3](3-4-3.md)
+  - casting rules, [3\.4\.5](3-4-5.md)
+  - declaring pointer variables, [3\.4\.4](3-4-4.md)
+  - open rules, [3\.4\.2](3-4-2.md)
+  - overview, [3\.4\.1](3-4-1.md)
+  - pass AS/400 pointers as arguments, [3\.4\.4](3-4-4.md)
+  - size of, [APPENDIX1\.1\.1\.6](appendix1-1-1-6.md)
+  - types, [3\.4\.1](3-4-1.md)
+- portability, [PREFACE\.3](preface-3.md)
+  - considerations, [PREFACE\.3](preface-3.md), [APPENDIX1\.1](appendix1-1.md)
+- porting ILE C to ILE C\+\+
+  - binary coded decimal class library, [4\.4\.1\.2](4-4-1-2.md)
+  - character array initialization, [4\.4\.1\.8](4-4-1-8.md)
+  - file inclusion, [4\.4\.1\.6](4-4-1-6.md)
+  - function prototypes, declarations and pointers, [4\.4\.1\.7](4-4-1-7.md)
+  - header files, [4\.4\.1\.3](4-4-1-3.md)
+  - integrated file system, [4\.4\.1\.10](4-4-1-10.md)
+  - inter\-language calls, [4\.4\.1\.1](4-4-1-1.md)
+  - name mangling, [4\.4\.1\.5](4-4-1-5.md)
+  - overview, [4\.4\.1](4-4-1.md)
+  - set\_terminate function, [4\.4\.1\.11](4-4-1-11.md)
+  - string literals, [4\.4\.1\.9](4-4-1-9.md)
+  - type checking, [4\.4\.1\.4](4-4-1-4.md)
+- porting Windows C to ILE C\+\+
+  - abort function, [4\.4\.2\.5](4-4-2-5.md)
+  - exception handler, [4\.4\.2\.9](4-4-2-9.md)
+  - externally described files, [4\.4\.2\.7](4-4-2-7.md)
+  - inter\-language calls, [4\.4\.2\.3](4-4-2-3.md)
+  - operational descriptors, [4\.4\.2\.8](4-4-2-8.md)
+  - pointers, [4\.4\.2\.10](4-4-2-10.md)
+  - record I/O, [4\.4\.2\.4](4-4-2-4.md)
+  - user interface and GUI applications, [4\.4\.2\.6](4-4-2-6.md)
+  - Windows terms, [4\.4\.2\.2](4-4-2-2.md)
+- porting Windows C\+\+ to ILE C\+\+
+  - overview, [4\.4\.2](4-4-2.md)
+- pragma
+  - define, [4\.2\.4\.3](4-2-4-3.md)
+  - disable\_handler, [4\.3\.3\.4](4-3-3-4.md)
+  - exception\_handler, [4\.3\.3\.4](4-3-3-4.md)
+  - implementation, [4\.2\.4\.2](4-2-4-2.md)
+  - undeclared, [4\.2\.4\.2](4-2-4-2.md)
+- preprocessor directives, [1\.1\.4\.3](1-1-4-3.md)
+- printer files
+  - FCFC, [3\.3\.1](3-3-1.md)
+  - I/O considerations, [3\.3\.1\.10](3-3-1-10.md)
+  - using, [3\.3\.1\.10](3-3-1-10.md)
+- procedure, [4\.1\.1\.2](4-1-1-2.md)
+  - procedure pointer call, [4\.1\.1\.2](4-1-1-2.md)
+  - static procedure call, [4\.1\.1\.2](4-1-1-2.md)
+- program, [4\.1\.1\.1](4-1-1-1.md)
+  - calling, [4\.1\.1\.1](4-1-1-1.md)
+  - compiling, [1\.1\.2\.2](1-1-2-2.md)
+  - development process, [1\.1\.2](1-1-2.md)
+  - OPM\-compatible, [1\.3\.3\.4](1-3-3-4.md)
+  - preparing, [1\.1\.2\.1](1-1-2-1.md)
+- program creation, [1\.3\.3\.4](1-3-3-4.md)
+  - strategy to avoid, [1\.3\.3\.4](1-3-3-4.md)
+- program creation in ILE, [1\.2\.2](1-2-2.md)
+- program devices
+  - I/O feedback area, [2\.2\.6](2-2-6.md)
+- program entry procedure \(PEP\), [4\.1\.1\.3](4-1-1-3.md)
+  - and the call stack, [4\.1\.1\.3](4-1-1-3.md)
+- program management, [1\.2\.3](1-2-3.md)
+- program\-described files, [3\.2\.1\.1](3-2-1-1.md)
+- program/procedure call, [1\.2\.4](1-2-4.md)
+  - call stack, [4\.1\.1\.3](4-1-1-3.md)
+  - calling procedures, [4\.1\.1\.2](4-1-1-2.md)
+  - calling programs, [4\.1\.1\.1](4-1-1-1.md)
+  - changing names, [4\.1\.5](4-1-5.md)
+  - creating C\+\+ classes, [4\.1\.6](4-1-6.md)
+  - data\-type compatibility, [4\.1\.4\.4](4-1-4-4.md)
+  - library qualified calls, [4\.1\.7](4-1-7.md)
+  - linkage specification, [4\.1\.2](4-1-2.md)
+  - overview, [4\.1\.1](4-1-1.md)
+  - passing parameters, [4\.1\.4](4-1-4.md)
+  - within ILE, [1\.2\.4](1-2-4.md)
+- programming languages
+  - C\+\+ features, [1\.1\.1](1-1-1.md)
+  - supported, [1\.2\.1](1-2-1.md)
 
 ## Q
 
-- QINLINE 1 2.2.4.2
+- QINLINE, [2\.2\.4\.2](2-2-4-2.md)
 
 ## R
 
-- reading binary stream files (character at a time) 1 2.2.4.5 <<
-- reading binary stream files (record at a time) 1 2.2.4.6
-- reading syntax diagrams 1 PREFACE.2.1
-- reading text stream files 1 2.2.4.4
-- reason codes for cancel handlers 1 4.3.3.5
-- record diskette files 1
-- blocking 2 3.3.2.5
-- read and write 2 3.3.2.5
-- record display files 1
-- I/O considerations 2 3.3.1.7
-- record field names 1 3.1.1.2
-- record files 1 2.2.2
-- I/O considerations 2
-- diskette 3 3.3.2.5
-- save 3 3.3.2.5
-- tape 3 3.3.2.5
-- record format name 1 3.1.1.2 <
-- record I/O error macro to exception mapping 1 4.3.6.5
-- record ICF files 1
-- I/O considerations 2 3.3.1.9
-- program devices 2 3.3.1.9
-- record subfiles 1
-- I/O considerations 2 3.3.1.8
-- record tape files 1
-- blocking 2 3.3.2.5
-- I/O considerations 2
-- using _Rfeod 3 3.3.2.5
-- using _Rfeov 3 3.3.2.5
-- redefining basic language operators 1 1.1.1
-- reducing program size 1 2.3.12.3
-- rename function 1 APPENDIX1.1.1.16
-- retrieve a return value from main 1 4.1.10
-- retrieving AS/400 file descriptions 1 3.1.1
-- return function results 1 4.1.4.1 4.1.10
-- return value of a function, checking 1 4.3.6.1
-- root file system 1 2.1.1.1
-- run time type information 1 4.5
-- C++ implementation 2 4.5
-- construtors and destructors 2 4.5.3
-- dynamic_cast operator 2 4.5.2.1
-- type_info class 2 4.5.2.5
-- typeid operator 2 4.5.2.4
-- run-time limits 1 2.3.13
+- reading binary stream files \(character at a time\), [2\.2\.4\.5](2-2-4-5.md)
+- reading binary stream files \(record at a time\), [2\.2\.4\.6](2-2-4-6.md)
+- reading syntax diagrams, [PREFACE\.2\.1](preface-2-1.md)
+- reading text stream files, [2\.2\.4\.4](2-2-4-4.md)
+- reason codes for cancel handlers, [4\.3\.3\.5](4-3-3-5.md)
+- record diskette files
+  - blocking, [3\.3\.2\.5](3-3-2-5.md)
+  - read and write, [3\.3\.2\.5](3-3-2-5.md)
+- record display files
+  - I/O considerations, [3\.3\.1\.7](3-3-1-7.md)
+- record field names, [3\.1\.1\.2](3-1-1-2.md)
+- record files, [2\.2\.2](2-2-2.md)
+  - I/O considerations
+    - diskette, [3\.3\.2\.5](3-3-2-5.md)
+    - save, [3\.3\.2\.5](3-3-2-5.md)
+    - tape, [3\.3\.2\.5](3-3-2-5.md)
+- record format name, [3\.1\.1\.2](3-1-1-2.md)
+- record I/O error macro to exception mapping, [4\.3\.6\.5](4-3-6-5.md)
+- record ICF files
+  - I/O considerations, [3\.3\.1\.9](3-3-1-9.md)
+  - program devices, [3\.3\.1\.9](3-3-1-9.md)
+- record subfiles
+  - I/O considerations, [3\.3\.1\.8](3-3-1-8.md)
+- record tape files
+  - blocking, [3\.3\.2\.5](3-3-2-5.md)
+  - I/O considerations
+    - using \_Rfeod, [3\.3\.2\.5](3-3-2-5.md)
+    - using \_Rfeov, [3\.3\.2\.5](3-3-2-5.md)
+- redefining basic language operators, [1\.1\.1](1-1-1.md)
+- reducing program size, [2\.3\.12\.3](2-3-12-3.md)
+- rename function, [APPENDIX1\.1\.1\.16](appendix1-1-1-16.md)
+- retrieve a return value from main, [4\.1\.10](4-1-10.md)
+- retrieving AS/400 file descriptions, [3\.1\.1](3-1-1.md)
+- return function results, [4\.1\.4\.1](4-1-4-1.md), [4\.1\.10](4-1-10.md)
+- return value of a function, checking, [4\.3\.6\.1](4-3-6-1.md)
+- root file system, [2\.1\.1\.1](2-1-1-1.md)
+- run time type information, [4\.5](4-5.md)
+  - C\+\+ implementation, [4\.5](4-5.md)
+  - construtors and destructors, [4\.5\.3](4-5-3.md)
+  - dynamic\_cast operator, [4\.5\.2\.1](4-5-2-1.md)
+  - type\_info class, [4\.5\.2\.5](4-5-2-5.md)
+  - typeid operator, [4\.5\.2\.4](4-5-2-4.md)
+- run\-time limits, [2\.3\.13](2-3-13.md)
 
 ## S
 
-- save files 1 3.3.2
-- session I/O, integrated file system 1 2.1.3.3
-- signal 1
-- SIG_DFL 2 4.3.3.2
-- SIG_IGN 2 4.3.3.2
-- SIGABRT 2 4.3.3.2
-- SIGFPE 2 4.3.3.2
-- SIGILL 2 4.3.3.2
-- SIGINT 2 4.3.3.2
-- SIGIO 2 4.3.3.2
-- SIGOTHER 2 4.3.3.2
-- SIGSEGV 2 4.3.3.2
-- SIGTERM 2 4.3.3.2
-- SIGUSR1 2 4.3.3.2
-- SIGUSR2 2 4.3.3.2
-- signal handler 1
-- change the state of nested 2 4.3.3
-- signal handling 1 4.3.3.2
-- signal handling-action definitions 1 4.3.3.2
-- source debug 1 1.2.5
-- overview 2 1.2.5
-- standards, language 1 PREFACE.3
-- storing data as a text or binary stream 1 2.1.3.1
-- strategies for creating ILE programs 1 1.3.1
-- stream buffering 1
-- fully buffered 2 2.1.3.4 2.2.4.3
-- line buffered 2 2.1.3.4 2.2.4.3
-- unbuffered 2 2.1.3.4 2.2.4.3
-- stream files 1
-- comparison to record files 2 2.1.2.1 2.2.3.1
-- open modes 2 2.2.4.1
-- processing 2 2.2.3
-- subfiles 1 3.3.1.8
-- I/O considerations 2 3.3.1.8
-- using 2 3.3.1.8
-- supported programming languages 1 1.2.1
-- syntax 1 PREFACE.2.1 <<
-- for commands, preprocessor directives, statements 2 PREFACE.2.1
-- for compiler options 2 PREFACE.2.1
-- how to read 2 PREFACE.2.1
-- syntax diagrams 1 PREFACE.2.1
+- save files, [3\.3\.2](3-3-2.md)
+- session I/O, integrated file system, [2\.1\.3\.3](2-1-3-3.md)
+- signal
+  - SIG\_DFL, [4\.3\.3\.2](4-3-3-2.md)
+  - SIG\_IGN, [4\.3\.3\.2](4-3-3-2.md)
+  - SIGABRT, [4\.3\.3\.2](4-3-3-2.md)
+  - SIGFPE, [4\.3\.3\.2](4-3-3-2.md)
+  - SIGILL, [4\.3\.3\.2](4-3-3-2.md)
+  - SIGINT, [4\.3\.3\.2](4-3-3-2.md)
+  - SIGIO, [4\.3\.3\.2](4-3-3-2.md)
+  - SIGOTHER, [4\.3\.3\.2](4-3-3-2.md)
+  - SIGSEGV, [4\.3\.3\.2](4-3-3-2.md)
+  - SIGTERM, [4\.3\.3\.2](4-3-3-2.md)
+  - SIGUSR1, [4\.3\.3\.2](4-3-3-2.md)
+  - SIGUSR2, [4\.3\.3\.2](4-3-3-2.md)
+- signal handler
+  - change the state of nested, [4\.3\.3](4-3-3.md)
+- signal handling, [4\.3\.3\.2](4-3-3-2.md)
+- signal handling\-action definitions, [4\.3\.3\.2](4-3-3-2.md)
+- source debug, [1\.2\.5](1-2-5.md)
+  - overview, [1\.2\.5](1-2-5.md)
+- standards, language, [PREFACE\.3](preface-3.md)
+- storing data as a text or binary stream, [2\.1\.3\.1](2-1-3-1.md)
+- strategies for creating ILE programs, [1\.3\.1](1-3-1.md)
+- stream buffering
+  - fully buffered, [2\.1\.3\.4](2-1-3-4.md), [2\.2\.4\.3](2-2-4-3.md)
+  - line buffered, [2\.1\.3\.4](2-1-3-4.md), [2\.2\.4\.3](2-2-4-3.md)
+  - unbuffered, [2\.1\.3\.4](2-1-3-4.md), [2\.2\.4\.3](2-2-4-3.md)
+- stream files
+  - comparison to record files, [2\.1\.2\.1](2-1-2-1.md), [2\.2\.3\.1](2-2-3-1.md)
+  - open modes, [2\.2\.4\.1](2-2-4-1.md)
+  - processing, [2\.2\.3](2-2-3.md)
+- subfiles, [3\.3\.1\.8](3-3-1-8.md)
+  - I/O considerations, [3\.3\.1\.8](3-3-1-8.md)
+  - using, [3\.3\.1\.8](3-3-1-8.md)
+- supported programming languages, [1\.2\.1](1-2-1.md)
+- syntax, [PREFACE\.2\.1](preface-2-1.md)
+  - for commands, preprocessor directives, statements, [PREFACE\.2\.1](preface-2-1.md)
+  - for compiler options, [PREFACE\.2\.1](preface-2-1.md)
+  - how to read, [PREFACE\.2\.1](preface-2-1.md)
+- syntax diagrams, [PREFACE\.2\.1](preface-2-1.md)
 
 ## T
 
-- tape files 1 3.3.2 3.3.2.3
-- blocking 2 3.3.2.4
-- using 2 3.3.2.3
-- tape files, diskette files, save files 1
-- binary stream files 2
-- I/O considerations 3 3.3.2.4
-- binary stream functions 2 3.3.2.6
-- I/O considerations 2 3.3.2.3
-- open as binary stream files 2 3.3.2.1
-- open as record files 2 3.3.2.2
-- record functions 2 3.3.2.7
-- template-implementation files 1 4.2.4.2
-- creating 2 4.2.4.2
-- naming 2 4.2.4.2
-- template-include files 1 4.2.4.2
-- templates 1 4.2.1
-- See also Language Reference 2
-- #pragma define 2 4.2.4.3
-- automatic instantiation 2 4.2.4.2
-- example 2 4.2.3
-- generating function definitions 2 4.2.2
-- how the compiler expands 2 4.2.2
-- implementation files 2 4.2.4.2
-- including everywhere 2 4.2.4.1
-- manual instantiation 2 4.2.4.3
-- TEMPINC directory 2 4.2.4.2
-- template-include files 2 4.2.4.2
-- terms 2 4.2.1
-- text stream files 1
-- opening 2 2.2.4.4
-- opening, reading, writing 2 2.2.4.4
-- reading 2 2.2.4.4
-- updating 2 2.2.4.4
-- writing 2 2.2.4.4
-- text streams 1 2.2.3.2
-- stderr 2 2.1.3.3 2.2.4.2
-- stdin 2 2.1.3.3 2.2.4.2
-- stdout 2 2.1.3.3 2.2.4.2
-- time 1 3.5.5
-- zone, specifying 2 3.5.5
-- translation 1 APPENDIX1.1.1.15
-- try-catch-throw 1 4.3.3.1
-- type information 1 4.5.1
-- extended class 2 4.5.4.1
-- for RTTI 2 4.5.1
-- usage 2 4.5.2.5
+- tape files, [3\.3\.2](3-3-2.md), [3\.3\.2\.3](3-3-2-3.md)
+  - blocking, [3\.3\.2\.4](3-3-2-4.md)
+  - using, [3\.3\.2\.3](3-3-2-3.md)
+- tape files, diskette files, save files
+  - binary stream files
+    - I/O considerations, [3\.3\.2\.4](3-3-2-4.md)
+  - binary stream functions, [3\.3\.2\.6](3-3-2-6.md)
+  - I/O considerations, [3\.3\.2\.3](3-3-2-3.md)
+  - open as binary stream files, [3\.3\.2\.1](3-3-2-1.md)
+  - open as record files, [3\.3\.2\.2](3-3-2-2.md)
+  - record functions, [3\.3\.2\.7](3-3-2-7.md)
+- template\-implementation files, [4\.2\.4\.2](4-2-4-2.md)
+  - creating, [4\.2\.4\.2](4-2-4-2.md)
+  - naming, [4\.2\.4\.2](4-2-4-2.md)
+- template\-include files, [4\.2\.4\.2](4-2-4-2.md)
+- templates, [4\.2\.1](4-2-1.md)
+  - See also Language Reference
+  - \#pragma define, [4\.2\.4\.3](4-2-4-3.md)
+  - automatic instantiation, [4\.2\.4\.2](4-2-4-2.md)
+  - example, [4\.2\.3](4-2-3.md)
+  - generating function definitions, [4\.2\.2](4-2-2.md)
+  - how the compiler expands, [4\.2\.2](4-2-2.md)
+  - implementation files, [4\.2\.4\.2](4-2-4-2.md)
+  - including everywhere, [4\.2\.4\.1](4-2-4-1.md)
+  - manual instantiation, [4\.2\.4\.3](4-2-4-3.md)
+  - TEMPINC directory, [4\.2\.4\.2](4-2-4-2.md)
+  - template\-include files, [4\.2\.4\.2](4-2-4-2.md)
+  - terms, [4\.2\.1](4-2-1.md)
+- text stream files
+  - opening, [2\.2\.4\.4](2-2-4-4.md)
+  - opening, reading, writing, [2\.2\.4\.4](2-2-4-4.md)
+  - reading, [2\.2\.4\.4](2-2-4-4.md)
+  - updating, [2\.2\.4\.4](2-2-4-4.md)
+  - writing, [2\.2\.4\.4](2-2-4-4.md)
+- text streams, [2\.2\.3\.2](2-2-3-2.md)
+  - stderr, [2\.1\.3\.3](2-1-3-3.md), [2\.2\.4\.2](2-2-4-2.md)
+  - stdin, [2\.1\.3\.3](2-1-3-3.md), [2\.2\.4\.2](2-2-4-2.md)
+  - stdout, [2\.1\.3\.3](2-1-3-3.md), [2\.2\.4\.2](2-2-4-2.md)
+- time, [3\.5\.5](3-5-5.md)
+  - zone, specifying, [3\.5\.5](3-5-5.md)
+- translation, [APPENDIX1\.1\.1\.15](appendix1-1-1-15.md)
+- try\-catch\-throw, [4\.3\.3\.1](4-3-3-1.md)
+- type information, [4\.5\.1](4-5-1.md)
+  - extended class, [4\.5\.4\.1](4-5-4-1.md)
+  - for RTTI, [4\.5\.1](4-5-1.md)
+  - usage, [4\.5\.2\.5](4-5-2-5.md)
 
 ## U
 
-- updating binary stream files (character at a time) 1 2.2.4.5
-- updating text stream files 1 2.2.4.4
-- user entry procedure (UEP) 1 4.1.1.3
-- and the call stack 2 4.1.1.3
+- updating binary stream files \(character at a time\), [2\.2\.4\.5](2-2-4-5.md)
+- updating text stream files, [2\.2\.4\.4](2-2-4-4.md)
+- user entry procedure \(UEP\), [4\.1\.1\.3](4-1-1-3.md)
+  - and the call stack, [4\.1\.1\.3](4-1-1-3.md)
 
 ## W
 
-- writing binary stream files (character at a time) 1 2.2.4.5 <<
-- writing binary stream files (record at a time) 1 2.2.4.6
-- writing text stream files 1 2.2.4.4
+- writing binary stream files \(character at a time\), [2\.2\.4\.5](2-2-4-5.md)
+- writing binary stream files \(record at a time\), [2\.2\.4\.6](2-2-4-6.md)
+- writing text stream files, [2\.2\.4\.4](2-2-4-4.md)
 
 ## Z
 
-- zoned decimal data 1
-- conversion functions 2 3.1.7
-- zoned decimal data, using 1 3.1.7
+- zoned decimal data
+  - conversion functions, [3\.1\.7](3-1-7.md)
+- zoned decimal data, using, [3\.1\.7](3-1-7.md)
 
 ---
 

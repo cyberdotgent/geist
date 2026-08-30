@@ -2,11 +2,11 @@
 
 ---
 
-## APPENDIX1.1.1.9 Declarators
+### APPENDIX1\.1\.1\.9 Declarators
 
 <a id="HDRDLC"></a>
 
-There is no limit for the maximum number of declarators (pointer, array, function) that can modify an arithmetic, structure, or union type. The only constraint is your system resources.
+There is no limit for the maximum number of declarators \(pointer, array, function\) that can modify an arithmetic, structure, or union type\. The only constraint is your system resources\.
 
 ---
 

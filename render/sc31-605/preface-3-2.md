@@ -2,9 +2,9 @@
 
 ---
 
-### PREFACE.3.2 Usability Changes
+### PREFACE\.3\.2 Usability Changes
 
-Table [1 in topic 1.1 has](#TBLBID) been expanded to enhance usability.
+- [Table 1 in topic 1\.1](<#TBLBID>) has been expanded to enhance usability\.
 
 ---
 

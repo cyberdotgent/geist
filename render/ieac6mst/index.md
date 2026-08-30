@@ -6,808 +6,803 @@
 
 ## Numerics
 
-- 3800 print font for print or TOC data set 1 9.1.3
+- 3800 print font for print or TOC data set, [9\.1\.3](9-1-3.md)
 
 ## A
 
-- abend code 1
-- in STATUS FAILDATA report 2 3.1.5
-- access IPCS 1
-- in a batch job 2 8.0
-- access method services 1
-- data set directory 2 C.2.1
-- problem directory 2 C.1.1
-- REPRO command 2
-- data set directory 3 C.2.1
-- problem directory 3 C.1.1
-- active storage 1
-- storage map 2 5.4
-- address 1
-- add using a REXX function 2 7.8.1
-- ADDRESS IPCS instruction 1 7.7.1
-- address of data in storage 1 6.0
-- address space 1
-- specify on entry panel of browse option 2 4.5.1
-- administrative authority 1 C.1.3
-- ALCWAIT option 1 4.3.4.1
-- allocate 1
-- IPCS print output data set 2 9.1
-- IPCS table of contents output data set 2 9.1
-- ALLOCATE command 1
-- for a dump directory 2 5.1.4
-- for a print data set 2 9.1.1
-- for a table of contents data set 2 9.1.1
-- ALTLIB command 1
-- invoke from IPCS dialog 2 7.1.1
-- analyze dump 1
-- through IPCS dialog 2 4.3.4
-- analyze dumps 1
-- for system components 2 3.3.4
-- for system/component trace data 2 3.3.3
-- list of subcommands 2 3.3.1
-- ANALYZE subcommand 1 4.3.4
-- AOMDATA option 1 4.3.4.1
-- APPCDATA option 1 4.3.4.1
-- ASCHDATA option 1 4.3.4.1
-- ASMCHECK option 1 4.3.4.1
-- ASMDATA option 1 4.3.4.1
-- attention processing in IPCS 1
-- for REXX execs 2 7.7.6
-- AVMDATA option 1 4.3.4.1
+- abend code
+  - in STATUS FAILDATA report, [3\.1\.5](3-1-5.md)
+- access IPCS
+  - in a batch job, [8\.0](8-0.md)
+- access method services
+  - data set directory, [C\.2\.1](c-2-1.md)
+  - problem directory, [C\.1\.1](c-1-1.md)
+  - REPRO command
+    - data set directory, [C\.2\.1](c-2-1.md)
+    - problem directory, [C\.1\.1](c-1-1.md)
+- active storage
+  - storage map, [5\.4](5-4.md)
+- address
+  - add using a REXX function, [7\.8\.1](7-8-1.md)
+- ADDRESS IPCS instruction, [7\.7\.1](7-7-1.md)
+- address of data in storage, [6\.0](6-0.md)
+- address space
+  - specify on entry panel of browse option, [4\.5\.1](4-5-1.md)
+- administrative authority, [C\.1\.3](c-1-3.md)
+- ALCWAIT option, [4\.3\.4\.1](4-3-4-1.md)
+- allocate
+  - IPCS print output data set, [9\.1](9-1.md)
+  - IPCS table of contents output data set, [9\.1](9-1.md)
+- ALLOCATE command
+  - for a dump directory, [5\.1\.4](5-1-4.md)
+  - for a print data set, [9\.1\.1](9-1-1.md)
+  - for a table of contents data set, [9\.1\.1](9-1-1.md)
+- ALTLIB command
+  - invoke from IPCS dialog, [7\.1\.1](7-1-1.md)
+- analyze dump
+  - through IPCS dialog, [4\.3\.4](4-3-4.md)
+- analyze dumps
+  - for system components, [3\.3\.4](3-3-4.md)
+  - for system/component trace data, [3\.3\.3](3-3-3.md)
+  - list of subcommands, [3\.3\.1](3-3-1.md)
+- ANALYZE subcommand, [4\.3\.4](4-3-4.md)
+- AOMDATA option, [4\.3\.4\.1](4-3-4-1.md)
+- APPCDATA option, [4\.3\.4\.1](4-3-4-1.md)
+- ASCHDATA option, [4\.3\.4\.1](4-3-4-1.md)
+- ASMCHECK option, [4\.3\.4\.1](4-3-4-1.md)
+- ASMDATA option, [4\.3\.4\.1](4-3-4-1.md)
+- attention processing in IPCS
+  - for REXX execs, [7\.7\.6](7-7-6.md)
+- AVMDATA option, [4\.3\.4\.1](4-3-4-1.md)
 
 ## B
 
-- basic direct access method 1
-- See BDAM 2
-- basic partitioned access method 1
-- See BPAM 2
-- basic sequential access method 1
-- See BSAM 2
-- batch LSR subsystem 1
-- use with IPCS dump directory 2 5.1.4
-- batch mode processing 1 8.0
-- batch processing 1 1.2.2
-- submit jobs from IPCS dialog 2 4.3.5
-- BDAM (basic direct access method) 1 1.3
-- block size 1
-- required for IPCS processing 2 1.2.1
-- BLS18099D message 1 2.8.2
-- BLS18160D message 1 2.8.1
-- BLS18451I message 1
-- information from WHERE command 2 3.2.3
-- BLSCBSAA CLIST 1 7.4.1
-- BLSCBSAP CLIST 1 7.4.2
-- BLSCBSVA CLIST 1 7.4.1
-- BLSCBSVB CLIST 1 7.3.1
-- BLSCBSVP CLIST 1 7.4.2
-- BLSCBSYA CLIST 1 7.4.1
-- BLSCBSYB CLIST 1 7.3.1
-- BLSCBSYP CLIST 1 7.4.2
-- BLSCCOMP CLIST 1 7.6.2
-- BLSCDDIR CLIST 1
-- description 2 5.1.5
-- invoked by IPCS command 2 2.1
-- BLSCECT parmlib member 1 1.2.4
-- BLSCEDUM CLIST 1 7.6.1
-- BLSCEMAP CLIST 1 7.6.1
-- BLSCEPTR CLIST 1 7.3.2
-- invoking from the IPCS dialog 2 7.1
-- BLSCESYM CLIST 1 7.6.1
-- BLSCPCSA CLIST 1 7.6.3
-- BLSCPNUC CLIST 1 7.6.3
-- BLSCPRIV CLIST 1 7.6.3
-- BLSCPRNT CLIST 1 7.5
-- BLSCPSQA CLIST 1 7.6.3
-- BLSCRNC2 CLIST 1 7.6.2
-- BLSCRNCH CLIST 1 7.6.2
-- BLSCSCAN CLIST 1 4.3.5 7.3.1
-- CLIST invocation (option 4) 2 4.3.6
-- BLSCSETD CLIST 1 7.6.1
-- BLSGSCMD dialog program 1
-- used in IPCS CLISTs 2 7.9
-- BLSXWHER exec 1 7.6.2
-- BPAM (basic partitioned access method) 1 1.3
-- BSAM (basic sequential access method) 1 1.3
+- basic direct access method
+  - See BDAM
+- basic partitioned access method
+  - See BPAM
+- basic sequential access method
+  - See BSAM
+- batch LSR subsystem
+  - use with IPCS dump directory, [5\.1\.4](5-1-4.md)
+- batch mode processing, [8\.0](8-0.md)
+- batch processing, [1\.2\.2](1-2-2.md)
+  - submit jobs from IPCS dialog, [4\.3\.5](4-3-5.md)
+- BDAM \(basic direct access method\), [1\.3](1-3.md)
+- block size
+  - required for IPCS processing, [1\.2\.1](1-2-1.md)
+- BLS18099D message, [2\.8\.2](2-8-2.md)
+- BLS18160D message, [2\.8\.1](2-8-1.md)
+- BLS18451I message
+  - information from WHERE command, [3\.2\.3](3-2-3.md)
+- BLSCBSAA CLIST, [7\.4\.1](7-4-1.md)
+- BLSCBSAP CLIST, [7\.4\.2](7-4-2.md)
+- BLSCBSVA CLIST, [7\.4\.1](7-4-1.md)
+- BLSCBSVB CLIST, [7\.3\.1](7-3-1.md)
+- BLSCBSVP CLIST, [7\.4\.2](7-4-2.md)
+- BLSCBSYA CLIST, [7\.4\.1](7-4-1.md)
+- BLSCBSYB CLIST, [7\.3\.1](7-3-1.md)
+- BLSCBSYP CLIST, [7\.4\.2](7-4-2.md)
+- BLSCCOMP CLIST, [7\.6\.2](7-6-2.md)
+- BLSCDDIR CLIST
+  - description, [5\.1\.5](5-1-5.md)
+  - invoked by IPCS command, [2\.1](2-1.md)
+- BLSCECT parmlib member, [1\.2\.4](1-2-4.md)
+- BLSCEDUM CLIST, [7\.6\.1](7-6-1.md)
+- BLSCEMAP CLIST, [7\.6\.1](7-6-1.md)
+- BLSCEPTR CLIST, [7\.3\.2](7-3-2.md)
+  - invoking from the IPCS dialog, [7\.1](7-1.md)
+- BLSCESYM CLIST, [7\.6\.1](7-6-1.md)
+- BLSCPCSA CLIST, [7\.6\.3](7-6-3.md)
+- BLSCPNUC CLIST, [7\.6\.3](7-6-3.md)
+- BLSCPRIV CLIST, [7\.6\.3](7-6-3.md)
+- BLSCPRNT CLIST, [7\.5](7-5.md)
+- BLSCPSQA CLIST, [7\.6\.3](7-6-3.md)
+- BLSCRNC2 CLIST, [7\.6\.2](7-6-2.md)
+- BLSCRNCH CLIST, [7\.6\.2](7-6-2.md)
+- BLSCSCAN CLIST, [4\.3\.5](4-3-5.md), [7\.3\.1](7-3-1.md)
+  - CLIST invocation \(option 4\), [4\.3\.6](4-3-6.md)
+- BLSCSETD CLIST, [7\.6\.1](7-6-1.md)
+- BLSGSCMD dialog program
+  - used in IPCS CLISTs, [7\.9](7-9.md)
+- BLSXWHER exec, [7\.6\.2](7-6-2.md)
+- BPAM \(basic partitioned access method\), [1\.3](1-3.md)
+- BSAM \(basic sequential access method\), [1\.3](1-3.md)
 
 ## C
 
-- CHARS(DUMP) printer font 1 9.1.1 9.1.3
-- CLEAR option 1
-- of COPYDUMP subcommand 2 B.0
-- CLEAR option of COPYDUMP subcommand 1 8.3
-- CLIST (command list) 1
-- analyze dumps 2 7.3
-- controlling output 2 7.10
-- for accessing IPCS 2 2.6
-- invocation from IPCS dialog 2 4.3.6
-- invoke from an IPCS session 2 7.1
-- invoke using TSO subcommand 2 3.4.5
-- print detailed dump reports 2 7.4.2
-- print dump storage 2 7.5 7.6.3
-- print screening dump reports 2 7.4.1
-- process control blocks 2 7.6.2
-- requesting ISPF dialog services 2 7.9
-- retrieve data from a dump 2 7.6.1
-- run a save area chain 2 7.3.2
-- writing for IPCS 2 7.9
-- CLOSE subcommand 1 9.1.2
-- print output data set 2 9.1.2
-- COMCHECK option 1 4.3.4.1
-- command list 1
-- See CLIST 2
-- common storage 1
-- IPCS processing 2 1.2.1
-- compare data 1 3.4.1
-- COMPARE subcommand 1 3.4.1 7.6.2
-- component analysis 1
-- in IPCS dialog 2 4.3.4.1
-- IPCS dialog option 2
-- list of options 3 4.3.4.1
-- online help 2 4.6.3
-- component trace 1
-- IPCS data set processing 2 2.8.2
-- control block 1
-- validate 2 5.4.5
-- CONTROL NOMSG statement 1
-- used in IPCS CLISTs 2 7.10.3
-- control registers 1
-- format in a dump 2 3.1.9
-- copy 1
-- dump data set 2 4.3.7
-- dump directory data 2 4.3.7
-- dumps on tape in batch 2 8.3
-- GTF trace data set 2 4.3.7
-- COPYDDIR subcommand 1 4.3.7
-- example used in a REXX exec 2 7.7.5
-- COPYDUMP subcommand 1 4.3.7
-- example in batch 2 8.3
-- example of CLEAR option in batch 2 8.3
-- COPYTRC subcommand 1 4.3.7
-- example in batch 2 8.4
-- COUPLE option 1 4.3.4.1
-- CPUTRACE subcommand 1 4.3.4.2
-- CSECT 1
-- information from WHERE command 2 3.2.1
-- CTRACE option 1 4.3.4.1
-- CTRACE subcommand 1 4.3.4.2
-- current IPCS address 1
-- modified by WHERE command 2 3.2.2
+- CHARS\(DUMP\) printer font, [9\.1\.1](9-1-1.md), [9\.1\.3](9-1-3.md)
+- CLEAR option
+  - of COPYDUMP subcommand, [B\.0](b-0.md)
+- CLEAR option of COPYDUMP subcommand, [8\.3](8-3.md)
+- CLIST \(command list\)
+  - analyze dumps, [7\.3](7-3.md)
+  - controlling output, [7\.10](7-10.md)
+  - for accessing IPCS, [2\.6](2-6.md)
+  - invocation from IPCS dialog, [4\.3\.6](4-3-6.md)
+  - invoke from an IPCS session, [7\.1](7-1.md)
+  - invoke using TSO subcommand, [3\.4\.5](3-4-5.md)
+  - print detailed dump reports, [7\.4\.2](7-4-2.md)
+  - print dump storage, [7\.5](7-5.md), [7\.6\.3](7-6-3.md)
+  - print screening dump reports, [7\.4\.1](7-4-1.md)
+  - process control blocks, [7\.6\.2](7-6-2.md)
+  - requesting ISPF dialog services, [7\.9](7-9.md)
+  - retrieve data from a dump, [7\.6\.1](7-6-1.md)
+  - run a save area chain, [7\.3\.2](7-3-2.md)
+  - writing for IPCS, [7\.9](7-9.md)
+- CLOSE subcommand, [9\.1\.2](9-1-2.md)
+  - print output data set, [9\.1\.2](9-1-2.md)
+- COMCHECK option, [4\.3\.4\.1](4-3-4-1.md)
+- command list
+  - See CLIST
+- common storage
+  - IPCS processing, [1\.2\.1](1-2-1.md)
+- compare data, [3\.4\.1](3-4-1.md)
+- COMPARE subcommand, [3\.4\.1](3-4-1.md), [7\.6\.2](7-6-2.md)
+- component analysis
+  - in IPCS dialog, [4\.3\.4\.1](4-3-4-1.md)
+  - IPCS dialog option
+    - list of options, [4\.3\.4\.1](4-3-4-1.md)
+  - online help, [4\.6\.3](4-6-3.md)
+- component trace
+  - IPCS data set processing, [2\.8\.2](2-8-2.md)
+- control block
+  - validate, [5\.4\.5](5-4-5.md)
+- CONTROL NOMSG statement
+  - used in IPCS CLISTs, [7\.10\.3](7-10-3.md)
+- control registers
+  - format in a dump, [3\.1\.9](3-1-9.md)
+- copy
+  - dump data set, [4\.3\.7](4-3-7.md)
+  - dump directory data, [4\.3\.7](4-3-7.md)
+  - dumps on tape in batch, [8\.3](8-3.md)
+  - GTF trace data set, [4\.3\.7](4-3-7.md)
+- COPYDDIR subcommand, [4\.3\.7](4-3-7.md)
+  - example used in a REXX exec, [7\.7\.5](7-7-5.md)
+- COPYDUMP subcommand, [4\.3\.7](4-3-7.md)
+  - example in batch, [8\.3](8-3.md)
+  - example of CLEAR option in batch, [8\.3](8-3.md)
+- COPYTRC subcommand, [4\.3\.7](4-3-7.md)
+  - example in batch, [8\.4](8-4.md)
+- COUPLE option, [4\.3\.4\.1](4-3-4-1.md)
+- CPUTRACE subcommand, [4\.3\.4\.2](4-3-4-2.md)
+- CSECT
+  - information from WHERE command, [3\.2\.1](3-2-1.md)
+- CTRACE option, [4\.3\.4\.1](4-3-4-1.md)
+- CTRACE subcommand, [4\.3\.4\.2](4-3-4-2.md)
+- current IPCS address
+  - modified by WHERE command, [3\.2\.2](3-2-2.md)
 
 ## D
 
-- DAEDATA option 1 4.3.4.1
-- DASD (direct access storage device) 1
-- dump processing 2 1.3
-- performance in dump processing 2 1.3
-- data description operand 1
-- description 2 6.0
-- keyword used in syntax diagrams 2 6.1
-- resolve defaults 2 6.2
-- types of operands and keywords 2 6.0
-- data set 1
-- characteristics for IPCS dump processing 2 1.2.1
-- characteristics for IPCS trace processing 2 1.2.1 2.8.2
-- data set directory 2 C.2.1
-- management 2 1.3 C.2
-- associating data set with a problem 3 C.2.4
-- dissociating data set from a problem 3 C.2.4
-- listing data set attributes 3 C.2.5
-- modifying data set attributes 3 C.2.5
-- problem directory 2 C.1.1
-- scratching 2 C.2.2
-- types available for IPCS processing 2 1.3
-- data stack 1
-- adding IPCS subcommands 2 7.2
-- data-descr keyword 1 6.1
-- DB2DATA option 1 4.3.4.1
-- default 1
-- panel in IPCS dialog 2 4.3.2
-- printer font 2 9.1.3
-- PROFILE-defined values 2 9.2
-- SETDEF-defined values 2 2.7
-- DEFINE command 1
-- create an IPCS dump directory 2 5.1.2
-- delete authority 1 C.1.3
-- direct access storage device 1
-- See DASD 2
-- DIVDATA option 1 4.3.4.1
-- DLFDATA option 1 4.3.4.1
-- DLFTRACE option 1 4.3.4.1
-- DROPMAP subcommand 1
-- example 2 5.4.3
-- DROPSYM subcommand 1
-- example 2 5.3.7 5.3.8
-- dump 1
-- See also system dump 2
-- clear 2 B.0
-- copy 2 4.3.7 B.0
-- copy data from tape to DASD 2 4.3.5
-- manage 2 4.3.8
-- special purpose data set processing 2 1.2.1
-- validate data structures 2 5.3.5
-- dump analysis 1
-- check system components 2 3.3.4
-- checking system/component trace data 2 3.3.3
-- saved results of processing 2 1.2.3
-- subcommands 2 3.3.1
-- using CLISTs and REXX execs 2 7.3
-- utility functions 2 3.4
-- viewing dump data subcommands 2 3.3.2
-- dump data set 1
-- clearing 2
-- description 3 8.3
-- example 3 B.0
-- copying 2
-- example 3 B.0
-- dump directory 1
-- allocate 2 5.1.4
-- batch and interactive processing 2 5.2.1
-- batch LSR restriction 2 5.1.4
-- copy 2 4.3.7
-- create 2 5.1.2
-- initialize using IPCSDDIR 2 5.1.3
-- subcommands used for maintenance 2 5.2
-- dump display reporter panel 1 4.4.3
-- online help 2 4.6.3
-- dump initialization 1
-- description 2 2.8
-- messages issued 2 2.8.1
-- dump inventory panel 1
-- codes 2 4.3.8
-- dump title 1 3.1.3
+- DAEDATA option, [4\.3\.4\.1](4-3-4-1.md)
+- DASD \(direct access storage device\)
+  - dump processing, [1\.3](1-3.md)
+  - performance in dump processing, [1\.3](1-3.md)
+- data description operand
+  - description, [6\.0](6-0.md)
+  - keyword used in syntax diagrams, [6\.1](6-1.md)
+  - resolve defaults, [6\.2](6-2.md)
+  - types of operands and keywords, [6\.0](6-0.md)
+- data set
+  - characteristics for IPCS dump processing, [1\.2\.1](1-2-1.md)
+  - characteristics for IPCS trace processing, [1\.2\.1](1-2-1.md), [2\.8\.2](2-8-2.md)
+  - data set directory, [C\.2\.1](c-2-1.md)
+  - management, [1\.3](1-3.md), [C\.2](c-2.md)
+    - associating data set with a problem, [C\.2\.4](c-2-4.md)
+    - dissociating data set from a problem, [C\.2\.4](c-2-4.md)
+    - listing data set attributes, [C\.2\.5](c-2-5.md)
+    - modifying data set attributes, [C\.2\.5](c-2-5.md)
+  - problem directory, [C\.1\.1](c-1-1.md)
+  - scratching, [C\.2\.2](c-2-2.md)
+  - types available for IPCS processing, [1\.3](1-3.md)
+- data stack
+  - adding IPCS subcommands, [7\.2](7-2.md)
+- data\-descr keyword, [6\.1](6-1.md)
+- DB2DATA option, [4\.3\.4\.1](4-3-4-1.md)
+- default
+  - panel in IPCS dialog, [4\.3\.2](4-3-2.md)
+  - printer font, [9\.1\.3](9-1-3.md)
+  - PROFILE\-defined values, [9\.2](9-2.md)
+  - SETDEF\-defined values, [2\.7](2-7.md)
+- DEFINE command
+  - create an IPCS dump directory, [5\.1\.2](5-1-2.md)
+- delete authority, [C\.1\.3](c-1-3.md)
+- direct access storage device
+  - See DASD
+- DIVDATA option, [4\.3\.4\.1](4-3-4-1.md)
+- DLFDATA option, [4\.3\.4\.1](4-3-4-1.md)
+- DLFTRACE option, [4\.3\.4\.1](4-3-4-1.md)
+- DROPMAP subcommand
+  - example, [5\.4\.3](5-4-3.md)
+- DROPSYM subcommand
+  - example, [5\.3\.7](5-3-7.md), [5\.3\.8](5-3-8.md)
+- dump
+  - See also system dump
+  - clear, [B\.0](b-0.md)
+  - copy, [4\.3\.7](4-3-7.md), [B\.0](b-0.md)
+  - copy data from tape to DASD, [4\.3\.5](4-3-5.md)
+  - manage, [4\.3\.8](4-3-8.md)
+  - special purpose data set processing, [1\.2\.1](1-2-1.md)
+  - validate data structures, [5\.3\.5](5-3-5.md)
+- dump analysis
+  - check system components, [3\.3\.4](3-3-4.md)
+  - checking system/component trace data, [3\.3\.3](3-3-3.md)
+  - saved results of processing, [1\.2\.3](1-2-3.md)
+  - subcommands, [3\.3\.1](3-3-1.md)
+  - using CLISTs and REXX execs, [7\.3](7-3.md)
+  - utility functions, [3\.4](3-4.md)
+  - viewing dump data subcommands, [3\.3\.2](3-3-2.md)
+- dump data set
+  - clearing
+    - description, [8\.3](8-3.md)
+    - example, [B\.0](b-0.md)
+  - copying
+    - example, [B\.0](b-0.md)
+- dump directory
+  - allocate, [5\.1\.4](5-1-4.md)
+  - batch and interactive processing, [5\.2\.1](5-2-1.md)
+  - batch LSR restriction, [5\.1\.4](5-1-4.md)
+  - copy, [4\.3\.7](4-3-7.md)
+  - create, [5\.1\.2](5-1-2.md)
+  - initialize using IPCSDDIR, [5\.1\.3](5-1-3.md)
+  - subcommands used for maintenance, [5\.2](5-2.md)
+- dump display reporter panel, [4\.4\.3](4-4-3.md)
+  - online help, [4\.6\.3](4-6-3.md)
+- dump initialization
+  - description, [2\.8](2-8.md)
+  - messages issued, [2\.8\.1](2-8-1.md)
+- dump inventory panel
+  - codes, [4\.3\.8](4-3-8.md)
+- dump title, [3\.1\.3](3-1-3.md)
 
 ## E
 
-- end an IPCS session 1 3.4.2
-- END subcommand 1 3.4.2
-- entry panel 1 4.5.1
-- EQUATE subcommand 1 7.6.2
-- create a user-defined symbol 2 5.3.4
-- create storage map entries 2 5.4.1
-- example using data description operands 2 6.0
-- error identifier 1
-- in STATUS WORKSHEET report 2 3.1.3
-- in VERBEXIT LOGDATA report 2 3.1.7
-- EVALDEF subcommand 1 7.6.1
-- control output in CLISTs and REXX execs 2 7.10.3
-- EVALDUMP subcommand 1 7.6.1
-- EVALMAP subcommand 1 7.6.1
-- EVALSYM subcommand 1 7.6.1
-- EVALUATE subcommand 1
-- used in a REXX function 2 7.7.2
+- end an IPCS session, [3\.4\.2](3-4-2.md)
+- END subcommand, [3\.4\.2](3-4-2.md)
+- entry panel, [4\.5\.1](4-5-1.md)
+- EQUATE subcommand, [7\.6\.2](7-6-2.md)
+  - create a user\-defined symbol, [5\.3\.4](5-3-4.md)
+  - create storage map entries, [5\.4\.1](5-4-1.md)
+  - example using data description operands, [6\.0](6-0.md)
+- error identifier
+  - in STATUS WORKSHEET report, [3\.1\.3](3-1-3.md)
+  - in VERBEXIT LOGDATA report, [3\.1\.7](3-1-7.md)
+- EVALDEF subcommand, [7\.6\.1](7-6-1.md)
+  - control output in CLISTs and REXX execs, [7\.10\.3](7-10-3.md)
+- EVALDUMP subcommand, [7\.6\.1](7-6-1.md)
+- EVALMAP subcommand, [7\.6\.1](7-6-1.md)
+- EVALSYM subcommand, [7\.6\.1](7-6-1.md)
+- EVALUATE subcommand
+  - used in a REXX function, [7\.7\.2](7-7-2.md)
 
 ## F
 
-- failing instruction 1 3.1.5
-- fixed link pack area 1
-- See FLPA 2
-- FLAG keyword 1 7.10.1
-- FLPA (fixed link pack area) 1
-- WHERE command information 2 3.2.1
-- format integers 1 3.4.4
-- formatted dump report 1
-- online help 2 4.6.3
+- failing instruction, [3\.1\.5](3-1-5.md)
+- fixed link pack area
+  - See FLPA
+- FLAG keyword, [7\.10\.1](7-10-1.md)
+- FLPA \(fixed link pack area\)
+  - WHERE command information, [3\.2\.1](3-2-1.md)
+- format integers, [3\.4\.4](3-4-4.md)
+- formatted dump report
+  - online help, [4\.6\.3](4-6-3.md)
 
 ## G
 
-- general purpose processing 1 1.2.1
-- general purpose registers 1
-- format in a dump 2 3.1.9
-- GRSTRACE option 1 4.3.4.1
-- GTF trace 1
-- IPCS data set processing 2 2.8.2
-- GTFTRACE subcommand 1 4.3.4.2
-- example in batch 2 8.4
+- general purpose processing, [1\.2\.1](1-2-1.md)
+- general purpose registers
+  - format in a dump, [3\.1\.9](3-1-9.md)
+- GRSTRACE option, [4\.3\.4\.1](4-3-4-1.md)
+- GTF trace
+  - IPCS data set processing, [2\.8\.2](2-8-2.md)
+- GTFTRACE subcommand, [4\.3\.4\.2](4-3-4-2.md)
+  - example in batch, [8\.4](8-4.md)
 
 ## H
 
-- help 1
-- See online help 2
-- HELP subcommand 1 3.4.3
-- in the IPCS dialog 2 4.6.2
-- hexadecimal number 1
-- add using a REXX function 2 7.8.1
-- HI immediate command 1
-- used in IPCS 2 7.7.6
-- Hierarchical Storage Manager 1
-- See HSM 2
-- HSM (Hierarchical Storage Manager) 1
-- moving dump data sets 2 1.3
+- help
+  - See online help
+- HELP subcommand, [3\.4\.3](3-4-3.md)
+  - in the IPCS dialog, [4\.6\.2](4-6-2.md)
+- hexadecimal number
+  - add using a REXX function, [7\.8\.1](7-8-1.md)
+- HI immediate command
+  - used in IPCS, [7\.7\.6](7-7-6.md)
+- Hierarchical Storage Manager
+  - See HSM
+- HSM \(Hierarchical Storage Manager\)
+  - moving dump data sets, [1\.3](1-3.md)
 
 ## I
 
-- IEAVTSDT program 1 3.1.4
-- immediate command 1
-- used in IPCS 2 7.7.6
-- IMSDUMP option 1 4.3.4.1
-- indirect addressing 1
-- with symbols 2 6.3
-- initial dump analysis 1 7.3.1
-- INTEGER subcommand 1 3.4.4
-- interactive problem control system 1
-- See IPCS 2
-- Interactive System Productivity Facility 1
-- See ISPF 2
-- IOSCHECK option 1 4.3.4.1
-- IPCS (interactive problem control system) 1
-- accessing 2 2.0
-- CLIST 3 2.6
-- TSO/E logon procedure 3 2.5
-- analyzing dumps 2 4.3.4
-- batch mode 2 1.2.2
-- batch processing 2 4.3.5
-- browse dumps 2 4.3.3
-- CLISTs 2 1.4.1
-- component analysis 2 4.3.4.1
-- online help 3 4.6.3
-- copy data 2 4.3.7
-- default values 2 4.3.2
-- dialog commands 2 1.4.1
-- dump directory 2 5.0
-- dump initialization 2 2.8
-- formatted dump reports 2
-- online help 3 4.6.3
-- full-screen mode 2 1.2.2 4.0
-- host command environment 2 7.7.1
-- introduction 2 1.0
-- invoking ISPF 2 2.4.1
-- line mode 2 1.2.2
-- manage dump data sets 2 4.3.8
-- requesting dialog services 2 7.9
-- REXX execs 2 1.4.1
-- session modes 2 1.2.2
-- set default values 2 2.7 9.2
-- subcommands 2 1.4.1 4.3.6
-- online help 3 4.6.2
-- trace processing 2 4.3.4.2
-- TSO/E commands 2 1.4.1
-- types of sources 2 1.2.1
-- IPCS batch mode 1
-- running CLISTs 2 8.1
-- running subcommands 2 8.2
-- IPCS command 1
-- control session parameters 2 2.3
-- invoke from a CLIST 2 7.2
-- invoke from a REXX exec 2 7.2
-- PARM(nn) keyword 2 2.3
-- specifying parameters 2 2.3
-- IPCS dialog 1
-- accessing 2
-- quick method 3 2.1
-- using TSO/E commands 3 2.2
-- advantages over line mode 2 1.2.2
-- analysis (option 2) 2 4.3.4
-- browse (option 1) 2 4.3.3
-- entry panel 3 4.5.1
-- pointer panel 3 4.5.2
-- specify a dump source 3 4.5.1
-- component analysis (option 2.6 2 4.3.4.1
-- defaults (option 0) 2 4.3.2
-- description 2 4.0
-- dialog commands 2
-- online help 3 4.6.1
-- dump inventory (option 6) 2 4.3.8
-- invoke from IPCS line mode 2 2.4
-- invoke under ISPF 2 2.4 4.3
-- ISPF operations 2 4.7
-- ISPF requirement 2 2.4
-- modify PF key definition 2 4.8.2
-- modify primary command definition 2 4.8.1
-- online help 2 4.6
-- primary option menu 2 4.3
-- requirements 2 4.1
-- select an option 2 4.3.1
-- start a session 2 2.4
-- subcommand entry (option 4) 2 4.3.6
-- submit job for batch processing (option 3) 2 4.3.5
-- trace processing (option 2.7) 2 4.3.4.2
-- tutorial (option T) 2 4.3.9
-- utility (option 5) 2 4.3.7
-- IPCS host command environment 1 7.7.1
-- IPCS subcommands 1
-- online help 2 3.4.3
-- IPCSDDIR command 1 5.1.3
-- IPCSDDIR file 1 5.1.4
-- batch LSR restriction 2 5.1.4
-- IPCSPARM file 1 1.2.4
-- IPCSPR00 parmlib member 1 1.2.4
-- IPCSPRnn parmlib member 1 1.2.4 2.3
-- IPCSPRNT file 1 9.1.1
-- choosing a default size 2 2.3
-- IPCSTOC file 1 9.1.1
-- IRLM option 1 4.3.4.1
-- IRX0920I message 1 7.7.6
-- ISPEXEC subcommand 1 7.9
-- ISPF (Interactive System Productivity Facility) 1
-- dialog commands 2 4.7.2
-- function pool dialog variables 2 7.9
-- invoking IPCS dialog 2 4.3
-- invoking under IPCS 2 2.4.1
-- operations on the IPCS dialog 2 4.7
-- required for IPCS 2 4.1
-- required level for IPCS 2 2.4
-- ISPSTART command 1 2.4
+- IEAVTSDT program, [3\.1\.4](3-1-4.md)
+- immediate command
+  - used in IPCS, [7\.7\.6](7-7-6.md)
+- IMSDUMP option, [4\.3\.4\.1](4-3-4-1.md)
+- indirect addressing
+  - with symbols, [6\.3](6-3.md)
+- initial dump analysis, [7\.3\.1](7-3-1.md)
+- INTEGER subcommand, [3\.4\.4](3-4-4.md)
+- interactive problem control system
+  - See IPCS
+- Interactive System Productivity Facility
+  - See ISPF
+- IOSCHECK option, [4\.3\.4\.1](4-3-4-1.md)
+- IPCS \(interactive problem control system\)
+  - accessing, [2\.0](2-0.md)
+    - CLIST, [2\.6](2-6.md)
+    - TSO/E logon procedure, [2\.5](2-5.md)
+  - analyzing dumps, [4\.3\.4](4-3-4.md)
+  - batch mode, [1\.2\.2](1-2-2.md)
+  - batch processing, [4\.3\.5](4-3-5.md)
+  - browse dumps, [4\.3\.3](4-3-3.md)
+  - CLISTs, [1\.4\.1](1-4-1.md)
+  - component analysis, [4\.3\.4\.1](4-3-4-1.md)
+    - online help, [4\.6\.3](4-6-3.md)
+  - copy data, [4\.3\.7](4-3-7.md)
+  - default values, [4\.3\.2](4-3-2.md)
+  - dialog commands, [1\.4\.1](1-4-1.md)
+  - dump directory, [5\.0](5-0.md)
+  - dump initialization, [2\.8](2-8.md)
+  - formatted dump reports
+    - online help, [4\.6\.3](4-6-3.md)
+  - full\-screen mode, [1\.2\.2](1-2-2.md), [4\.0](4-0.md)
+  - host command environment, [7\.7\.1](7-7-1.md)
+  - introduction, [1\.0](1-0.md)
+  - invoking ISPF, [2\.4\.1](2-4-1.md)
+  - line mode, [1\.2\.2](1-2-2.md)
+  - manage dump data sets, [4\.3\.8](4-3-8.md)
+  - requesting dialog services, [7\.9](7-9.md)
+  - REXX execs, [1\.4\.1](1-4-1.md)
+  - session modes, [1\.2\.2](1-2-2.md)
+  - set default values, [2\.7](2-7.md), [9\.2](9-2.md)
+  - subcommands, [1\.4\.1](1-4-1.md), [4\.3\.6](4-3-6.md)
+    - online help, [4\.6\.2](4-6-2.md)
+  - trace processing, [4\.3\.4\.2](4-3-4-2.md)
+  - TSO/E commands, [1\.4\.1](1-4-1.md)
+  - types of sources, [1\.2\.1](1-2-1.md)
+- IPCS batch mode
+  - running CLISTs, [8\.1](8-1.md)
+  - running subcommands, [8\.2](8-2.md)
+- IPCS command
+  - control session parameters, [2\.3](2-3.md)
+  - invoke from a CLIST, [7\.2](7-2.md)
+  - invoke from a REXX exec, [7\.2](7-2.md)
+  - PARM\(nn\) keyword, [2\.3](2-3.md)
+  - specifying parameters, [2\.3](2-3.md)
+- IPCS dialog
+  - accessing
+    - quick method, [2\.1](2-1.md)
+    - using TSO/E commands, [2\.2](2-2.md)
+  - advantages over line mode, [1\.2\.2](1-2-2.md)
+  - analysis \(option 2\), [4\.3\.4](4-3-4.md)
+  - browse \(option 1\), [4\.3\.3](4-3-3.md)
+    - entry panel, [4\.5\.1](4-5-1.md)
+    - pointer panel, [4\.5\.2](4-5-2.md)
+    - specify a dump source, [4\.5\.1](4-5-1.md)
+  - component analysis \(option 2\.6, [4\.3\.4\.1](4-3-4-1.md)
+  - defaults \(option 0\), [4\.3\.2](4-3-2.md)
+  - description, [4\.0](4-0.md)
+  - dialog commands
+    - online help, [4\.6\.1](4-6-1.md)
+  - dump inventory \(option 6\), [4\.3\.8](4-3-8.md)
+  - invoke from IPCS line mode, [2\.4](2-4.md)
+  - invoke under ISPF, [2\.4](2-4.md), [4\.3](4-3.md)
+  - ISPF operations, [4\.7](4-7.md)
+  - ISPF requirement, [2\.4](2-4.md)
+  - modify PF key definition, [4\.8\.2](4-8-2.md)
+  - modify primary command definition, [4\.8\.1](4-8-1.md)
+  - online help, [4\.6](4-6.md)
+  - primary option menu, [4\.3](4-3.md)
+  - requirements, [4\.1](4-1.md)
+  - select an option, [4\.3\.1](4-3-1.md)
+  - start a session, [2\.4](2-4.md)
+  - subcommand entry \(option 4\), [4\.3\.6](4-3-6.md)
+  - submit job for batch processing \(option 3\), [4\.3\.5](4-3-5.md)
+  - trace processing \(option 2\.7\), [4\.3\.4\.2](4-3-4-2.md)
+  - tutorial \(option T\), [4\.3\.9](4-3-9.md)
+  - utility \(option 5\), [4\.3\.7](4-3-7.md)
+- IPCS host command environment, [7\.7\.1](7-7-1.md)
+- IPCS subcommands
+  - online help, [3\.4\.3](3-4-3.md)
+- IPCSDDIR command, [5\.1\.3](5-1-3.md)
+- IPCSDDIR file, [5\.1\.4](5-1-4.md)
+  - batch LSR restriction, [5\.1\.4](5-1-4.md)
+- IPCSPARM file, [1\.2\.4](1-2-4.md)
+- IPCSPR00 parmlib member, [1\.2\.4](1-2-4.md)
+- IPCSPRnn parmlib member, [1\.2\.4](1-2-4.md), [2\.3](2-3.md)
+- IPCSPRNT file, [9\.1\.1](9-1-1.md)
+  - choosing a default size, [2\.3](2-3.md)
+- IPCSTOC file, [9\.1\.1](9-1-1.md)
+- IRLM option, [4\.3\.4\.1](4-3-4-1.md)
+- IRX0920I message, [7\.7\.6](7-7-6.md)
+- ISPEXEC subcommand, [7\.9](7-9.md)
+- ISPF \(Interactive System Productivity Facility\)
+  - dialog commands, [4\.7\.2](4-7-2.md)
+  - function pool dialog variables, [7\.9](7-9.md)
+  - invoking IPCS dialog, [4\.3](4-3.md)
+  - invoking under IPCS, [2\.4\.1](2-4-1.md)
+  - operations on the IPCS dialog, [4\.7](4-7.md)
+  - required for IPCS, [4\.1](4-1.md)
+  - required level for IPCS, [2\.4](2-4.md)
+- ISPSTART command, [2\.4](2-4.md)
 
 ## J
 
-- JES2 option 1 4.3.4.1
-- JES3 option 1 4.3.4.1
+- JES2 option, [4\.3\.4\.1](4-3-4-1.md)
+- JES3 option, [4\.3\.4\.1](4-3-4-1.md)
 
 ## L
 
-- length of data in storage 1 6.0
-- linesize adjusted 1 9.2
-- link list table 1
-- See LLT 2
-- LIST subcommand 1
-- example using data description operands 2 6.0
-- example using symbols 2 5.3.1
-- LISTDUMP subcommand 1
-- restriction in trace processing 2 2.8.2
-- LISTEDT option 1 4.3.4.1
-- LISTMAP subcommand 1
-- example 2 5.4.4
-- LISTSYM subcommand 1
-- example 2 5.3.6
-- live storage 1
-- IPCS processing 2 1.2.1
-- LLATRACE option 1 4.3.4.1
-- LLT (link list table) 1
-- example retrieving from a dump 2 7.7.2
-- load module 1
-- information from WHERE command 2 3.2.1
-- LOGDATA option 1 4.3.4.1
-- logical data comparison 1 3.4.1
-- logon procedure 1
-- for accessing IPCS 2 2.5
-- LOGREC buffer 1
-- format in a dump 2 3.1.7
-- LPAMAP option 1 4.3.4.1
+- length of data in storage, [6\.0](6-0.md)
+- linesize adjusted, [9\.2](9-2.md)
+- link list table
+  - See LLT
+- LIST subcommand
+  - example using data description operands, [6\.0](6-0.md)
+  - example using symbols, [5\.3\.1](5-3-1.md)
+- LISTDUMP subcommand
+  - restriction in trace processing, [2\.8\.2](2-8-2.md)
+- LISTEDT option, [4\.3\.4\.1](4-3-4-1.md)
+- LISTMAP subcommand
+  - example, [5\.4\.4](5-4-4.md)
+- LISTSYM subcommand
+  - example, [5\.3\.6](5-3-6.md)
+- live storage
+  - IPCS processing, [1\.2\.1](1-2-1.md)
+- LLATRACE option, [4\.3\.4\.1](4-3-4-1.md)
+- LLT \(link list table\)
+  - example retrieving from a dump, [7\.7\.2](7-7-2.md)
+- load module
+  - information from WHERE command, [3\.2\.1](3-2-1.md)
+- LOGDATA option, [4\.3\.4\.1](4-3-4-1.md)
+- logical data comparison, [3\.4\.1](3-4-1.md)
+- logon procedure
+  - for accessing IPCS, [2\.5](2-5.md)
+- LOGREC buffer
+  - format in a dump, [3\.1\.7](3-1-7.md)
+- LPAMAP option, [4\.3\.4\.1](4-3-4-1.md)
 
 ## M
 
-- MACHINE parameter of DISPLAY keyword 1
-- summary dump data affect 2 2.8.1
-- main storage 1
-- IPCS processing 2 1.2.1
-- MERGE subcommand 1 4.3.4.2
-- message 1
-- issued during dump initialization 2 2.8.1
-- MLPA (modified link pack area) 1
-- WHERE command information 2 3.2.1
-- MMSDATA option 1 4.3.4.1
-- modified link pack area 1
-- See MLPA 2
-- MTRACE option 1 4.3.4.1
-- MTRACE verb exit 1 4.3.4.2
-- multiple error events 1 3.1.7
+- MACHINE parameter of DISPLAY keyword
+  - summary dump data affect, [2\.8\.1](2-8-1.md)
+- main storage
+  - IPCS processing, [1\.2\.1](1-2-1.md)
+- MERGE subcommand, [4\.3\.4\.2](4-3-4-2.md)
+- message
+  - issued during dump initialization, [2\.8\.1](2-8-1.md)
+- MLPA \(modified link pack area\)
+  - WHERE command information, [3\.2\.1](3-2-1.md)
+- MMSDATA option, [4\.3\.4\.1](4-3-4-1.md)
+- modified link pack area
+  - See MLPA
+- MTRACE option, [4\.3\.4\.1](4-3-4-1.md)
+- MTRACE verb exit, [4\.3\.4\.2](4-3-4-2.md)
+- multiple error events, [3\.1\.7](3-1-7.md)
 
 ## N
 
-- NOSUMMARY keyword 1 7.10.2
-- NOTE subcommand 1
-- used in a REXX function 2 7.7.4
-- NOTERMINAL keyword 1 7.10.3
-- NUCMAP option 1 4.3.4.1
-- NUMERIC DIGITS instruction 1
-- change default for dump addresses 2 7.8.1
+- NOSUMMARY keyword, [7\.10\.2](7-10-2.md)
+- NOTE subcommand
+  - used in a REXX function, [7\.7\.4](7-7-4.md)
+- NOTERMINAL keyword, [7\.10\.3](7-10-3.md)
+- NUCMAP option, [4\.3\.4\.1](4-3-4-1.md)
+- NUMERIC DIGITS instruction
+  - change default for dump addresses, [7\.8\.1](7-8-1.md)
 
 ## O
 
-- online help 1 3.4.3
-- choosing a component analysis option 2 4.6.3
-- description 2 4.6
-- for trace processing 2 4.3.4.2
-- IPCS dialog tutorial 2 4.3.9 4.6
-- IPCS subcommand summaries 2 4.6.2
-- reading formatted dump reports 2 4.6.3
-- OPEN subcommand 1
-- CHARS(DUMP) option 2 9.1.1
-- with CHARS(DUMP) option 2 9.1.3
-- output from IPCS 1
-- control in CLISTs and REXX execs 2 7.10
-- translate characters for display 2 7.8.5
-- using a REXX function 2 7.7.4
-- OUTTRAP function 1
-- used in IPCS REXX execs 2 7.10.3
+- online help, [3\.4\.3](3-4-3.md)
+  - choosing a component analysis option, [4\.6\.3](4-6-3.md)
+  - description, [4\.6](4-6.md)
+  - for trace processing, [4\.3\.4\.2](4-3-4-2.md)
+  - IPCS dialog tutorial, [4\.3\.9](4-3-9.md), [4\.6](4-6.md)
+  - IPCS subcommand summaries, [4\.6\.2](4-6-2.md)
+  - reading formatted dump reports, [4\.6\.3](4-6-3.md)
+- OPEN subcommand
+  - CHARS\(DUMP\) option, [9\.1\.1](9-1-1.md)
+  - with CHARS\(DUMP\) option, [9\.1\.3](9-1-3.md)
+- output from IPCS
+  - control in CLISTs and REXX execs, [7\.10](7-10.md)
+  - translate characters for display, [7\.8\.5](7-8-5.md)
+  - using a REXX function, [7\.7\.4](7-7-4.md)
+- OUTTRAP function
+  - used in IPCS REXX execs, [7\.10\.3](7-10-3.md)
 
 ## P
 
-- pageable link pack area 1
-- See PLPA 2
-- pagesize adjusted 1 9.2
-- panel 1
-- online help 2 4.6.1
-- parmlib member 1
-- BLSCECT member 2 1.2.4
-- IPCSPR00 member 2 1.2.4
-- partitioned data set 1
-- management 2 1.3
-- PF key (program function key) 1 4.7.3
-- modify for IPCS dialog 2 4.8.2
-- PLPA (pageable link pack area) 1
-- WHERE command information 2 3.2.1
-- pointer panel 1
-- of browse (option 1) 2 4.5.2
-- pointer stack 1
-- create symbols 2 5.3.8
-- delete and renumber symbols 2 5.3.8
-- display source data 2 4.5.2.1
-- edit pointer 2 4.5.2.1
-- position of data in storage 1 6.0
-- primary option menu 1
-- of IPCS dialog 2 4.3
-- print data set 1
-- allocate 2 9.1
-- attributes 2 9.1.1
-- close 2 9.1.2
-- control 3800 printer font for 2 9.1.1
-- controlling 3800 printer font for 2 9.1.3
-- PRINT keyword 1 7.10.3
-- printed page report 1
-- setting line and page size 2 9.2
-- private storage 1
-- IPCS processing 2 1.2.1
-- problem directory 1 C.1.1
-- problem management 1 C.1
-- adding problems to IPCS problem directory 2 C.1.3
-- deleting problems from IPCS problem directory 2 C.1.3
-- listing problems in IPCS problem directory 2 C.1.4
-- modifying problem attributes in IPCS problem directory 2 C.1.4
-- problem state program 1
-- unauthorized 2 1.2.1
-- PROFILE subcommand 1
-- set line and page size 2 9.2
-- program function key 1
-- See PF key 2
-- program status word 1
-- See PSW 2
-- PSW (program status word) 1
-- in STATUS FAILDATA report 2 3.1.5
+- pageable link pack area
+  - See PLPA
+- pagesize adjusted, [9\.2](9-2.md)
+- panel
+  - online help, [4\.6\.1](4-6-1.md)
+- parmlib member
+  - BLSCECT member, [1\.2\.4](1-2-4.md)
+  - IPCSPR00 member, [1\.2\.4](1-2-4.md)
+- partitioned data set
+  - management, [1\.3](1-3.md)
+- PF key \(program function key\), [4\.7\.3](4-7-3.md)
+  - modify for IPCS dialog, [4\.8\.2](4-8-2.md)
+- PLPA \(pageable link pack area\)
+  - WHERE command information, [3\.2\.1](3-2-1.md)
+- pointer panel
+  - of browse \(option 1\), [4\.5\.2](4-5-2.md)
+- pointer stack
+  - create symbols, [5\.3\.8](5-3-8.md)
+  - delete and renumber symbols, [5\.3\.8](5-3-8.md)
+  - display source data, [4\.5\.2\.1](4-5-2-1.md)
+  - edit pointer, [4\.5\.2\.1](4-5-2-1.md)
+- position of data in storage, [6\.0](6-0.md)
+- primary option menu
+  - of IPCS dialog, [4\.3](4-3.md)
+- print data set
+  - allocate, [9\.1](9-1.md)
+  - attributes, [9\.1\.1](9-1-1.md)
+  - close, [9\.1\.2](9-1-2.md)
+  - control 3800 printer font for, [9\.1\.1](9-1-1.md)
+  - controlling 3800 printer font for, [9\.1\.3](9-1-3.md)
+- PRINT keyword, [7\.10\.3](7-10-3.md)
+- printed page report
+  - setting line and page size, [9\.2](9-2.md)
+- private storage
+  - IPCS processing, [1\.2\.1](1-2-1.md)
+- problem directory, [C\.1\.1](c-1-1.md)
+- problem management, [C\.1](c-1.md)
+  - adding problems to IPCS problem directory, [C\.1\.3](c-1-3.md)
+  - deleting problems from IPCS problem directory, [C\.1\.3](c-1-3.md)
+  - listing problems in IPCS problem directory, [C\.1\.4](c-1-4.md)
+  - modifying problem attributes in IPCS problem directory, [C\.1\.4](c-1-4.md)
+- problem state program
+  - unauthorized, [1\.2\.1](1-2-1.md)
+- PROFILE subcommand
+  - set line and page size, [9\.2](9-2.md)
+- program function key
+  - See PF key
+- program status word
+  - See PSW
+- PSW \(program status word\)
+  - in STATUS FAILDATA report, [3\.1\.5](3-1-5.md)
 
 ## R
 
-- read-only nucleus 1
-- WHERE command information 2 3.2.1
-- read-write nucleus 1
-- WHERE command information 2 3.2.1
-- record format 1
-- required for IPCS processing 2 1.2.1
-- registers 1
-- format in a dump 2 3.1.9
-- RENUM subcommand 1
-- example 2 5.3.8
-- REXX debug aids 1
-- used in IPCS 2 7.7.6
-- REXX exec 1
-- add dump addresses 2 7.8.1
-- ADDRESS IPCS instruction 2 7.7.1
-- analyze dumps 2 7.3
-- checking IPCS subcommand return codes 2 7.7.3
-- controlling output 2 7.10
-- customize control block analysis 2 7.8.4
-- debug aids 2 7.7.6
-- displaying output in IPCS 2 7.7.4
-- dump analysis techniques 2 7.8
-- follow a pointer chain 2 7.8.2
-- format a control block 2 7.8.3
-- function to retrieve dump data 2 7.7.2
-- invocation from IPCS dialog 2 4.3.6
-- invoke from an IPCS session 2 7.1
-- invoke using TSO subcommand 2 3.4.5
-- performance consideration in IPCS 2 7.7.2
-- translate dump characters 2 7.8.5
-- writing for IPCS 2 7.7
-- RSMDATA option 1 4.3.4.1
-- RUNCHAIN subcommand 1 7.6.2
+- read\-only nucleus
+  - WHERE command information, [3\.2\.1](3-2-1.md)
+- read\-write nucleus
+  - WHERE command information, [3\.2\.1](3-2-1.md)
+- record format
+  - required for IPCS processing, [1\.2\.1](1-2-1.md)
+- registers
+  - format in a dump, [3\.1\.9](3-1-9.md)
+- RENUM subcommand
+  - example, [5\.3\.8](5-3-8.md)
+- REXX debug aids
+  - used in IPCS, [7\.7\.6](7-7-6.md)
+- REXX exec
+  - add dump addresses, [7\.8\.1](7-8-1.md)
+  - ADDRESS IPCS instruction, [7\.7\.1](7-7-1.md)
+  - analyze dumps, [7\.3](7-3.md)
+  - checking IPCS subcommand return codes, [7\.7\.3](7-7-3.md)
+  - controlling output, [7\.10](7-10.md)
+  - customize control block analysis, [7\.8\.4](7-8-4.md)
+  - debug aids, [7\.7\.6](7-7-6.md)
+  - displaying output in IPCS, [7\.7\.4](7-7-4.md)
+  - dump analysis techniques, [7\.8](7-8.md)
+  - follow a pointer chain, [7\.8\.2](7-8-2.md)
+  - format a control block, [7\.8\.3](7-8-3.md)
+  - function to retrieve dump data, [7\.7\.2](7-7-2.md)
+  - invocation from IPCS dialog, [4\.3\.6](4-3-6.md)
+  - invoke from an IPCS session, [7\.1](7-1.md)
+  - invoke using TSO subcommand, [3\.4\.5](3-4-5.md)
+  - performance consideration in IPCS, [7\.7\.2](7-7-2.md)
+  - translate dump characters, [7\.8\.5](7-8-5.md)
+  - writing for IPCS, [7\.7](7-7.md)
+- RSMDATA option, [4\.3\.4\.1](4-3-4-1.md)
+- RUNCHAIN subcommand, [7\.6\.2](7-6-2.md)
 
 ## S
 
-- SADMPMSG option 1 4.3.4.1
-- save area 1
-- format in a dump 2 7.3.2
-- SCAN subcommand 1
-- example 2 5.4.5
-- scheduled SVC dump 1 3.1.4
-- IPCS reports 2 3.1.10
-- scroll 1
-- in browse option of IPCS dialog 2 4.5.3.1
-- SDWA (system diagnostic work area) 1
-- formatted by IPCS 2 3.1.2
-- seed record 1 C.1.1 C.2.1
-- SELECT subcommand 1
-- example 2 5.4.6
-- selection code 1
-- from storage panel 2 4.5.3.2
-- sequential data set 1
-- IPCS processing 2 1.2.1
-- management 2 1.3
-- service request block 1
-- See
-
-2
-
-- serviceability level indicator processing 1
-- See SLIP 2
-- session parameter 1
-- BLSCECT parmlib member 2 1.2.4
-- IPCSPR00 parmlib member 2 1.2.4
-- SETDEF subcommand 1
-- control output in CLISTs and REXX execs 2 7.10.3
-- description 2 4.3.3
-- establish a default dump source 2 4.3.8
-- identify source data 2 2.7
-- set defaults in IPCS dialog 2 4.3.2
-- use in trace processing 2 2.8.2
-- SLIP (serviceability level indicator processing) 1
-- formatted by IPCS 2 3.1.2
-- SMSDATA option 1 4.3.4.1
-- source 1
-- list of types for IPCS processing 2 1.2.1
-- specify in browse (option 1) 2 4.5.1
-- space requirements 1
-- problem directory 2 C.1.1
-- special purpose processing 1 1.2.1
-- spin loop diagnosis 1
-- scenario for obtaining information 2 A.0
-- split-screen processing 1 4.7.1
-- concurrent stack update 2 4.7.1
-- SRB (service request block) 1
-- at time of error 2 3.1.5
-
-option 1 4.3.4.1
-
-- STACK subcommand 1
-- example 2 5.3.8
-- stand-alone dump 1
-- CLIST for initial analysis 2 7.3.1
-- copy from tape to DASD 2 1.3 4.3.5
-- STATUS subcommand 1 4.3.4
-- FAILDATA report 2 3.1.5
-- REGISTERS report 2 3.1.9
-- SYSTEM report 2 3.1.4
-- WORKSHEET report 2 3.1.3
-- storage 1
-- describe data using data description operands 2 6.0
-- storage key 1
-- summary dump data affect 2 2.8.1
-- storage map 1
-- associated subcommands 2 5.4.2
-- create entries 2 5.4.1
-- create entries for an address space 2 5.4.6
-- delete entries 2 5.4.3
-- description 2 5.4
-- entries created by IPCS 2 5.4.1
-- list entries 2 5.4.4
-- storage panel 1
-- in BROWSE option 2 4.5.3
-- primary commands 2 4.5.3.4
-- selecting words 2 4.5.3.2
-- STRUCTURE keyword 1
-- information from WHERE command 2 3.2.1
-- subcommand 1
-- analyzing a dump 2 3.3.1
-- check system components and key system areas 2 3.3.4
-- for viewing trace data 2 3.3.3
-- utility functions 2 3.4
-- view dump data 2 3.3.2
-- SUMDUMP option 1 4.3.4.1
-- summary dump data 1
-- include in IPCS processing 2 2.8.1
-- SUMMARY subcommand 1 4.3.4
-- TCBERROR report 2 3.1.6
-- SVC D 1
-- example in VERBEXIT TRACE report 2 3.1.8
-- SVC dump 1
-- analyze using IPCS 2 3.1
-- CLIST for initial analysis 2 7.3.1
-- symbol 1
-- naming conventions in IPCS 2 5.3.2
-- symbol table 1
-- create a user-defined entry 2 5.3.4
-- delete entries 2 5.3.7
-- description 2 5.3
-- entries created by IPCS 2 5.3.1
-- list entries 2 5.3.6
-- naming conventions for special symbols 2 5.3.2
-- pointer stack 2 5.3.8
-- subcommands used for maintenance 2 5.3.3
-- validate entries 2 5.3.5
-- SYMPTOMS option 1 4.3.4.1
-- SYMPTOMS verb exit 1 4.3.4
-- synchronous SVC dump 1 3.1.4
-- SYS1.DUMPnn 1
-- managing data sets 2 C.2.2
-- SYS1.SBLSCLI0 system library 1 7.0
-- SYSMDUMP dump 1
-- CLIST for initial analysis 2 7.3.1
-- SYSOUTTRAP command 1
-- used in IPCS CLISTs 2 7.9
-- system diagnostic work area 1
-- See SDWA 2
-- system dump 1
-- performance in IPCS data set processing 2 1.3
-- system dump data set processing 1
-- performance 2
-- DASD 3 1.3
-- tape 3 1.3
-- system mode 1
-- in STATUS FAILDATA report 2 3.1.5
-- system trace 1
-- format in a dump 2 3.1.8
+- SADMPMSG option, [4\.3\.4\.1](4-3-4-1.md)
+- save area
+  - format in a dump, [7\.3\.2](7-3-2.md)
+- SCAN subcommand
+  - example, [5\.4\.5](5-4-5.md)
+- scheduled SVC dump, [3\.1\.4](3-1-4.md)
+  - IPCS reports, [3\.1\.10](3-1-10.md)
+- scroll
+  - in browse option of IPCS dialog, [4\.5\.3\.1](4-5-3-1.md)
+- SDWA \(system diagnostic work area\)
+  - formatted by IPCS, [3\.1\.2](3-1-2.md)
+- seed record, [C\.1\.1](c-1-1.md), [C\.2\.1](c-2-1.md)
+- SELECT subcommand
+  - example, [5\.4\.6](5-4-6.md)
+- selection code
+  - from storage panel, [4\.5\.3\.2](4-5-3-2.md)
+- sequential data set
+  - IPCS processing, [1\.2\.1](1-2-1.md)
+  - management, [1\.3](1-3.md)
+- service request block
+  - See SRB
+- serviceability level indicator processing
+  - See SLIP
+- session parameter
+  - BLSCECT parmlib member, [1\.2\.4](1-2-4.md)
+  - IPCSPR00 parmlib member, [1\.2\.4](1-2-4.md)
+- SETDEF subcommand
+  - control output in CLISTs and REXX execs, [7\.10\.3](7-10-3.md)
+  - description, [4\.3\.3](4-3-3.md)
+  - establish a default dump source, [4\.3\.8](4-3-8.md)
+  - identify source data, [2\.7](2-7.md)
+  - set defaults in IPCS dialog, [4\.3\.2](4-3-2.md)
+  - use in trace processing, [2\.8\.2](2-8-2.md)
+- SLIP \(serviceability level indicator processing\)
+  - formatted by IPCS, [3\.1\.2](3-1-2.md)
+- SMSDATA option, [4\.3\.4\.1](4-3-4-1.md)
+- source
+  - list of types for IPCS processing, [1\.2\.1](1-2-1.md)
+  - specify in browse \(option 1\), [4\.5\.1](4-5-1.md)
+- space requirements
+  - problem directory, [C\.1\.1](c-1-1.md)
+- special purpose processing, [1\.2\.1](1-2-1.md)
+- spin loop diagnosis
+  - scenario for obtaining information, [A\.0](a-0.md)
+- split\-screen processing, [4\.7\.1](4-7-1.md)
+  - concurrent stack update, [4\.7\.1](4-7-1.md)
+- SRB \(service request block\)
+  - at time of error, [3\.1\.5](3-1-5.md)
+- SRMDATA option, [4\.3\.4\.1](4-3-4-1.md)
+- STACK subcommand
+  - example, [5\.3\.8](5-3-8.md)
+- stand\-alone dump
+  - CLIST for initial analysis, [7\.3\.1](7-3-1.md)
+  - copy from tape to DASD, [1\.3](1-3.md), [4\.3\.5](4-3-5.md)
+- STATUS subcommand, [4\.3\.4](4-3-4.md)
+  - FAILDATA report, [3\.1\.5](3-1-5.md)
+  - REGISTERS report, [3\.1\.9](3-1-9.md)
+  - SYSTEM report, [3\.1\.4](3-1-4.md)
+  - WORKSHEET report, [3\.1\.3](3-1-3.md)
+- storage
+  - describe data using data description operands, [6\.0](6-0.md)
+- storage key
+  - summary dump data affect, [2\.8\.1](2-8-1.md)
+- storage map
+  - associated subcommands, [5\.4\.2](5-4-2.md)
+  - create entries, [5\.4\.1](5-4-1.md)
+  - create entries for an address space, [5\.4\.6](5-4-6.md)
+  - delete entries, [5\.4\.3](5-4-3.md)
+  - description, [5\.4](5-4.md)
+  - entries created by IPCS, [5\.4\.1](5-4-1.md)
+  - list entries, [5\.4\.4](5-4-4.md)
+- storage panel
+  - in BROWSE option, [4\.5\.3](4-5-3.md)
+  - primary commands, [4\.5\.3\.4](4-5-3-4.md)
+  - selecting words, [4\.5\.3\.2](4-5-3-2.md)
+- STRUCTURE keyword
+  - information from WHERE command, [3\.2\.1](3-2-1.md)
+- subcommand
+  - analyzing a dump, [3\.3\.1](3-3-1.md)
+  - check system components and key system areas, [3\.3\.4](3-3-4.md)
+  - for viewing trace data, [3\.3\.3](3-3-3.md)
+  - utility functions, [3\.4](3-4.md)
+  - view dump data, [3\.3\.2](3-3-2.md)
+- SUMDUMP option, [4\.3\.4\.1](4-3-4-1.md)
+- summary dump data
+  - include in IPCS processing, [2\.8\.1](2-8-1.md)
+- SUMMARY subcommand, [4\.3\.4](4-3-4.md)
+  - TCBERROR report, [3\.1\.6](3-1-6.md)
+- SVC D
+  - example in VERBEXIT TRACE report, [3\.1\.8](3-1-8.md)
+- SVC dump
+  - analyze using IPCS, [3\.1](3-1.md)
+  - CLIST for initial analysis, [7\.3\.1](7-3-1.md)
+- symbol
+  - naming conventions in IPCS, [5\.3\.2](5-3-2.md)
+- symbol table
+  - create a user\-defined entry, [5\.3\.4](5-3-4.md)
+  - delete entries, [5\.3\.7](5-3-7.md)
+  - description, [5\.3](5-3.md)
+  - entries created by IPCS, [5\.3\.1](5-3-1.md)
+  - list entries, [5\.3\.6](5-3-6.md)
+  - naming conventions for special symbols, [5\.3\.2](5-3-2.md)
+  - pointer stack, [5\.3\.8](5-3-8.md)
+  - subcommands used for maintenance, [5\.3\.3](5-3-3.md)
+  - validate entries, [5\.3\.5](5-3-5.md)
+- SYMPTOMS option, [4\.3\.4\.1](4-3-4-1.md)
+- SYMPTOMS verb exit, [4\.3\.4](4-3-4.md)
+- synchronous SVC dump, [3\.1\.4](3-1-4.md)
+- SYS1\.DUMPnn
+  - managing data sets, [C\.2\.2](c-2-2.md)
+- SYS1\.SBLSCLI0 system library, [7\.0](7-0.md)
+- SYSMDUMP dump
+  - CLIST for initial analysis, [7\.3\.1](7-3-1.md)
+- SYSOUTTRAP command
+  - used in IPCS CLISTs, [7\.9](7-9.md)
+- system diagnostic work area
+  - See SDWA
+- system dump
+  - performance in IPCS data set processing, [1\.3](1-3.md)
+- system dump data set processing
+  - performance
+    - DASD, [1\.3](1-3.md)
+    - tape, [1\.3](1-3.md)
+- system mode
+  - in STATUS FAILDATA report, [3\.1\.5](3-1-5.md)
+- system trace
+  - format in a dump, [3\.1\.8](3-1-8.md)
 
 ## T
 
-- table of contents data set 1
-- allocate 2 9.1
-- attributes 2 9.1.1
-- control 3800 printer font for 2 9.1.1
-- controlling 3800 printer font for 2 9.1.3
-- tape 1
-- IPCS data set processing 2 1.3
-- performance in dump processing 2 1.3
-- task control block 1
-- See TCB 2
-- TCAMMAP option 1 4.3.4.1
-- TCB (task control block) 1
-- at time of error 2 3.1.6
-- follow a chain in dump 2 7.8.2
-- time of dump 1 3.1.4 3.1.5
-- Time Sharing Option Extensions 1
-- See TSO/E 2
-- trace 1
-- combine data sets in batch mode 2 8.4
-- copy 2 4.3.7
-- trace data set 1
-- improve performance during IPCS processing 2 2.8.2
-- trace data set processing 1 1.2.1 2.8.2
-- TRACE option 1 4.3.4.1
-- trace processing 1
-- in IPCS dialog 2 4.3.4.2
-- merging traces 2 4.3.4.2
-- TRACE verb exit 1 4.3.4.2
-- TSO subcommand 1 3.4.5
-- used with a CLIST 2 7.9
-- TSO/E (Time Sharing Option Extensions) 1
-- commands for IPCS 2 1.4.1
-- enter commands from an IPCS session 2 3.4.5
-- TSO/E authorized command 1
-- used in IPCS CLISTs 2 7.9
-- TSODATA option 1 4.3.4.1
-- tutorial 1 4.3.9 4.6
+- table of contents data set
+  - allocate, [9\.1](9-1.md)
+  - attributes, [9\.1\.1](9-1-1.md)
+  - control 3800 printer font for, [9\.1\.1](9-1-1.md)
+  - controlling 3800 printer font for, [9\.1\.3](9-1-3.md)
+- tape
+  - IPCS data set processing, [1\.3](1-3.md)
+  - performance in dump processing, [1\.3](1-3.md)
+- task control block
+  - See TCB
+- TCAMMAP option, [4\.3\.4\.1](4-3-4-1.md)
+- TCB \(task control block\)
+  - at time of error, [3\.1\.6](3-1-6.md)
+  - follow a chain in dump, [7\.8\.2](7-8-2.md)
+- time of dump, [3\.1\.4](3-1-4.md), [3\.1\.5](3-1-5.md)
+- Time Sharing Option Extensions
+  - See TSO/E
+- trace
+  - combine data sets in batch mode, [8\.4](8-4.md)
+  - copy, [4\.3\.7](4-3-7.md)
+- trace data set
+  - improve performance during IPCS processing, [2\.8\.2](2-8-2.md)
+- trace data set processing, [1\.2\.1](1-2-1.md), [2\.8\.2](2-8-2.md)
+- TRACE option, [4\.3\.4\.1](4-3-4-1.md)
+- trace processing
+  - in IPCS dialog, [4\.3\.4\.2](4-3-4-2.md)
+  - merging traces, [4\.3\.4\.2](4-3-4-2.md)
+- TRACE verb exit, [4\.3\.4\.2](4-3-4-2.md)
+- TSO subcommand, [3\.4\.5](3-4-5.md)
+  - used with a CLIST, [7\.9](7-9.md)
+- TSO/E \(Time Sharing Option Extensions\)
+  - commands for IPCS, [1\.4\.1](1-4-1.md)
+  - enter commands from an IPCS session, [3\.4\.5](3-4-5.md)
+- TSO/E authorized command
+  - used in IPCS CLISTs, [7\.9](7-9.md)
+- TSODATA option, [4\.3\.4\.1](4-3-4-1.md)
+- tutorial, [4\.3\.9](4-3-9.md), [4\.6](4-6.md)
 
 ## U
 
-- utility functions 1 3.4
+- utility functions, [3\.4](3-4.md)
 
 ## V
 
-- VERBEXIT MTRACE subcommand 1 4.3.4.2
-- VERBEXIT subcommand 1
-- LOGDATA report 2 3.1.7
-- TRACE report 2 3.1.8
-- VERBEXIT SYMPTOMS subcommand 1 4.3.4
-- VERBEXIT TRACE subcommand 1 4.3.4.2
-- virtual storage access method 1
-- See VSAM 2
-- VLFDATA option 1 4.3.4.1
-- VLFTRACE option 1 4.3.4.1
-- VSAM (virtual storage access method) 1 1.3
-- IPCS data set processing 2 1.2.1
-- VSMDATA option 1 4.3.4.1
-- VTAMMAP option 1 4.3.4.1
+- VERBEXIT MTRACE subcommand, [4\.3\.4\.2](4-3-4-2.md)
+- VERBEXIT subcommand
+  - LOGDATA report, [3\.1\.7](3-1-7.md)
+  - TRACE report, [3\.1\.8](3-1-8.md)
+- VERBEXIT SYMPTOMS subcommand, [4\.3\.4](4-3-4.md)
+- VERBEXIT TRACE subcommand, [4\.3\.4\.2](4-3-4-2.md)
+- virtual storage access method
+  - See VSAM
+- VLFDATA option, [4\.3\.4\.1](4-3-4-1.md)
+- VLFTRACE option, [4\.3\.4\.1](4-3-4-1.md)
+- VSAM \(virtual storage access method\), [1\.3](1-3.md)
+  - IPCS data set processing, [1\.2\.1](1-2-1.md)
+- VSMDATA option, [4\.3\.4\.1](4-3-4-1.md)
+- VTAMMAP option, [4\.3\.4\.1](4-3-4-1.md)
 
 ## W
 
-- WHERE command 1
-- description 2 3.2.1
-- WHERE subcommand 1 7.6.2
-- examples 2 3.2.4
+- WHERE command
+  - description, [3\.2\.1](3-2-1.md)
+- WHERE subcommand, [7\.6\.2](7-6-2.md)
+  - examples, [3\.2\.4](3-2-4.md)
 
 ## X
 
-- X symbol 1
-- modified by WHERE command 2 3.2.2
+- X symbol
+  - modified by WHERE command, [3\.2\.2](3-2-2.md)
 
 ---
 

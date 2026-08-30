@@ -6,15 +6,12 @@
 
 <a id="HDRNETBIB"></a>
 
-```text
-   The following manuals provide additional information about the definition
-   and operation of networks simulated by TPNS:
-```
+The following manuals provide additional information about the definition and operation of networks simulated by TPNS:
 
 Subtopics:
 
-- [BIBLIOGRAPHY.1 TPNS Library](bibliography-1.md)
-- [BIBLIOGRAPHY.2 Related Publications](bibliography-2.md)
+- [BIBLIOGRAPHY\.1 TPNS Library](bibliography-1.md)
+- [BIBLIOGRAPHY\.2 Related Publications](bibliography-2.md)
 
 ---
 

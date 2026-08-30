@@ -2,9 +2,9 @@
 
 ---
 
-## PREFACE.1 Who Should Use This Book
+## PREFACE\.1 Who Should Use This Book
 
-Anyone who uses TSO/E and Session Manager commands.
+Anyone who uses TSO/E and Session Manager commands\.
 
 ---
 

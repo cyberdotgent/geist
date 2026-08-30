@@ -95,7 +95,7 @@ Document number: `SH20-2488-5`
     - `5.1.1` [Logical Configuration](5-1-1.md)
     - `5.1.2` [Physical Configuration](5-1-2.md)
   - `5.2` [Configuring Your System](5-2.md)
-    - `5.2.1` [Step 1:  Determining the Test Objectives <>](5-2-1.md)
+    - `5.2.1` [Step 1:  Determining the Test Objectives](5-2-1.md)
     - `5.2.2` [Step 2:  Identifying What You Want to Simulate](5-2-2.md)
     - `5.2.3` [Step 3:  Determining the Logical Configuration](5-2-3.md)
     - `5.2.4` [Step 4:  Identifying the Physical Configuration](5-2-4.md)

@@ -2,13 +2,13 @@
 
 ---
 
-## FRONT_1.1 Programming Interface Information
+## FRONT\_1\.1 Programming Interface Information
 
 <a id="HDRCDPINT"></a>
 
-This book is intended to help you create C++ programs using the VisualAge ++ for C++ for AS/400 product. It primarily documents General-Use Programming Interface and Associated Guidance Information provided by the VisualAge for C++ for AS/400 product.
+This book is intended to help you create C\+\+ programs using the VisualAge for C\+\+ for AS/400 product\. It primarily documents General\-Use Programming Interface and Associated Guidance Information provided by the VisualAge for C\+\+ for AS/400 product\.
 
-General-Use programming interfaces allow the customer to write C++ programs that obtain the services of the VisualAge for C++ for AS/400 compiler, debugger, browser, editor, IBM Open Class Library, and IBM Access Class Library for OS/400.
+General\-Use programming interfaces allow the customer to write C\+\+ programs that obtain the services of the VisualAge for C\+\+ for AS/400 compiler, debugger, browser, editor, IBM Open Class Library, and IBM Access Class Library for OS/400\.
 
 ---
 

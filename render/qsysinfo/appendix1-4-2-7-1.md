@@ -2,11 +2,18 @@
 
 ---
 
-#### APPENDIX1.4.2.7.1 Feature 7030:  System/36 RPG Support
+#### APPENDIX1\.4\.2\.7\.1 Feature 7030: System/36 RPG Support
+
+There is no cost for the first set of this feature\.
 
 <a id="TBLTBLUNIQ38"></a>
 
-[Table: TBLTBLUNIQ38]
+```
+           Binder     Order No         Title
+   ___     60         SX21-9926        2" binder
+   ___     60         SC09-1162        System/36-Compatible RPG II User's
+                                       Guide and Reference
+```
 
 ---
 

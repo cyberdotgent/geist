@@ -2,11 +2,18 @@
 
 ---
 
-#### APPENDIX1.4.2.1.9 Feature 8008:  OS/400 Finance Communications Programming Support
+#### APPENDIX1\.4\.2\.1\.9 Feature 8008: OS/400 Finance Communications Programming Support
+
+Cost for this feature is $35 \(US\)\.
 
 <a id="TBLTBLUNIQ17"></a>
 
-[Table: TBLTBLUNIQ17]
+```
+           Binder     Order No         Title
+   ___     20         SX21-9924        1" binder
+   ___     20         SC41-8099        Finance Communications Programmer's
+                                       Guide
+```
 
 ---
 

@@ -4,12 +4,11 @@ Previous | [Index](README.md) | [Next](notices.md)
 
 # TITLE Title Page
 
-**Virtual Machine/**<br>
-**Enterprise Systems Architecture**<br>
-**CP Programming Services**<br>
-**Release 1**
+**Virtual Machine/**
 
-Document Number SC24-5520-00
+**Enterprise Systems Architecture CP Programming Services Release 1**
+
+Document Number SC24\-5520\-00
 
 ---
 

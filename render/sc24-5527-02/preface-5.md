@@ -2,9 +2,9 @@
 
 ---
 
-## PREFACE.5 Where to Find More Information
+## PREFACE\.5 Where to Find More Information
 
-See the bibliography at the back of this publication.
+See the bibliography at the back of this publication\.
 
 ---
 

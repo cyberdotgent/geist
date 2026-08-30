@@ -2,11 +2,18 @@
 
 ---
 
-### FRONT_1.1 Trademarks
+### FRONT\_1\.1 Trademarks
 
-The following terms, DENOTED BY AN ASTERISK (*), used in this publication, are trademarks of the IBM Corporation in the United States and/or other
+The following terms, **DENOTED BY AN ASTERISK \(\*\)**, used in this publication, are trademarks of the IBM Corporation in the United States and/or other countries:
 
-countries: BookMaster DATABASE 2 Hiperspace IBM MVS/ESA MVS/SP MVS/System Product MVS/XA
+- BookMaster
+- DATABASE 2
+- Hiperspace
+- IBM
+- MVS/ESA
+- MVS/SP
+- MVS/System Product
+- MVS/XA
 
 ---
 

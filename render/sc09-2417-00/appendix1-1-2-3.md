@@ -2,11 +2,11 @@
 
 ---
 
-## APPENDIX1.1.2.3 Member Access Control
+### APPENDIX1\.1\.2\.3 Member Access Control
 
 <a id="HDRMACTL"></a>
 
-Class members are allocated in the order declared; access specifiers have no effect on the order of allocation.
+Class members are allocated in the order declared; access specifiers have no effect on the order of allocation\.
 
 ---
 

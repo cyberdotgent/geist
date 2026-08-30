@@ -2,12 +2,18 @@
 
 ---
 
-### APPENDIX1.4.1.4 9404 System Unit
+### APPENDIX1\.4\.1\.4 9404 System Unit
 
 <a id="TBLTBLUNIQ7"></a>
 
-| ___ SX21-9924 1" binder | Cables |
-| --- | --- |
+```
+            Order No       Title
+   ___      SX21-9924      1" binder
+   ___      SA41-0004      9404 Attaching Workstation and Communications
+                           Cables
+   ___      SA41-9944      Twinaxial Workstation Controller Port Tester User's
+                           Guide
+```
 
 ---
 

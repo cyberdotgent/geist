@@ -2,9 +2,19 @@
 
 ---
 
-## PREFACE.3 Message Translation
+## PREFACE\.3 Message Translation
 
-MVS/DFP (*) [mess](#FTNFTNUNIQ4) ages Some complicated multiple-line messages See Planning: Operations and Assembler Programming Guide for information about using the MMS.
+Through the MVS message service \(MMS\), you can translate MVS system messages into other languages\. Messages that cannot be translated include the following:
+
+- Initialization messages
+- MVS/DFP [\(\*\)](<#FTNFTNUNIQ4>) messages
+- Some complicated multiple\-line messages
+
+See *Planning: Operations* and *Assembler Programming Guide* for information about using the MMS\.
+
+<a id="FTNFTNUNIQ4"></a>
+
+\(\*\) MVS/DFP is a registered trademark of the IBM Corporation\.
 
 ---
 

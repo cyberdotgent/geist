@@ -6,31 +6,21 @@
 
 <a id="HDRABOUT"></a>
 
-<pre>
-   This guide contains a very basic approach to learning about and using the
-   AS/400 system.  Using this guide, an AS/400 user can learn to perform the
-   following basic tasks:
+This guide contains a very basic approach to learning about and using the AS/400 system\. Using this guide, an AS/400 user can learn to perform the following basic tasks:
 
-   ° Sign on or off the AS/400 system from a display station.
-   ° Use the display station keyboard.
+- Sign on or off the AS/400 system from a display station\.
+- Use the display station keyboard\.
+- Change the assistance level of various AS/400 displays\.
+- Use displays\.
+- Use online help\.
+- Send and receive messages and work with message queues\.
+- Manage output\.
 
-   ° Change the assistance level of various AS/400 displays.
+This manual is similar to the Version 1 Release 3 Modification 0 manual, GC21\-8211\-0, but has been changed extensively\. Because of the changes and additions, this new version of the manual should be reviewed in its entirety\.
 
-   ° Use displays.
-   ° Use online help.
-   ° Send and receive messages and work with message queues.
+You may need to refer to other IBM manuals for more specific information about a particular topic\. The *Publications Guide*, GC41\-9678, provides information on all the manuals in the AS/400 library\.
 
-   ° Manage output.
-
-   This manual is similar to the Version 1 Release 3 Modification 0 manual,
-   GC21-8211-0, but has been changed extensively.  Because of the changes and
-   additions, this new version of the manual should be reviewed in its
-   entirety.
-
-   You may need to refer to other IBM manuals for more specific information
-   about a particular topic. The <I>Publications</I> <I>Guide</I>, GC41-9678, provides information on all the manuals in the AS/400 library.
-   For a list of related publications, see the <a href="bibliography.md">&quot;Bibliography&quot; in</a> <a href="bibliography.md">topic BIBLIOGRAPHY</a>.
-</pre>
+For a list of related publications, see the ["Bibliography" in](bibliography.md) [topic BIBLIOGRAPHY](bibliography.md)\.
 
 ---
 

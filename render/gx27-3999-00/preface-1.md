@@ -2,9 +2,9 @@
 
 ---
 
-## PREFACE.1 Who Should Read This Manual
+## PREFACE\.1 Who Should Read This Manual
 
-There are two intended users of this manual: those who install and test adapters for networks and those who perform network administration for networks containing Dual EtherStreamer MC 32 Adapters.
+There are two intended users of this manual: those who install and test adapters for networks and those who perform network administration for networks containing Dual EtherStreamer MC 32 Adapters\.
 
 ---
 

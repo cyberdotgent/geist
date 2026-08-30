@@ -6,21 +6,15 @@ Previous | [Index](README.md) | [Next](notices.md)
 
 **MVS/ESA**
 
-**Interactive Problem Control System (IPCS)**
+**Interactive Problem Control System \(IPCS\) User's Guide**
 
-User's Guide
+**MVS/ESA System Product: JES2 Version 4 JES3 Version 4**
 
-MVS/ESA System Product:
+Document Number GC28\-1631\-2
 
-JES2 Version 4
+Program Number 5695\-047 5695\-048
 
-JES3 Version 4
-
-Document Number GC28-1631-2
-
-Program Number 5695-047 5695-048
-
-File Number S370/S390-40
+File Number S370/S390\-40
 
 ---
 

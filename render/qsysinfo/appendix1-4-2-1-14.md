@@ -2,11 +2,17 @@
 
 ---
 
-#### APPENDIX1.4.2.1.14 Feature 8013:  OS/400 Machine Interface
+#### APPENDIX1\.4\.2\.1\.14 Feature 8013: OS/400 Machine Interface
+
+Cost for this feature is $250 \(US\)\.
 
 <a id="TBLTBLUNIQ22"></a>
 
-[Table: TBLTBLUNIQ22]
+```
+           Binder     Order No         Title
+   ___     32         SX21-9926        2" binder
+   ___     32         SC41-8226        MI Functional Reference
+```
 
 ---
 
