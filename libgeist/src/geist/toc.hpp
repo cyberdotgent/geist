@@ -1,6 +1,7 @@
 #pragma once
 
 #include "geist/export.hpp"
+#include "geist/link_target.hpp"
 #include "geist/render_diagnostic.hpp"
 #include "geist/trace.hpp"
 
@@ -39,6 +40,11 @@ struct TocEntry {
   // map from rendered output ranges back to the nodes, and thus to the BOO
   // file bytes, that produced them.
   GEIST_API std::string markdown(RenderTrace& trace) const;
+  // The ids cross references may use to reach this topic.  Answered from the
+  // typed Document IR when the topic renders through it, and from the legacy
+  // GML projection only when it does not -- so a book-wide link map no longer
+  // forces the legacy string renderer to run for every topic.
+  GEIST_API const std::vector<LinkTarget>& link_targets() const;
 
 private:
   void render() const;
@@ -52,6 +58,8 @@ private:
   // The topic's own display rows, verbatim: the last-resort content when no
   // route produced any. Loaded only when that happens.
   std::function<detail::TopicBestEffortIR()> best_effort_loader_;
+  mutable std::vector<LinkTarget> cached_link_targets_;
+  mutable bool link_targets_built_ = false;
   mutable std::string cached_markdown_;
   mutable RenderDiagnostic cached_diagnostic_;
   mutable bool rendered_ = false;

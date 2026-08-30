@@ -599,6 +599,14 @@ std::string format_document_ir(const DocumentIR& document) {
             format_inlines(out, node.content);
           } else if constexpr (std::is_same_v<T, AnchorBlockIR>) {
             out << " anchor=" << quoted(node.id);
+            // Printed only when it is not the default, so every document that
+            // predates anchor roles formats exactly as it did before.
+            if (node.role != AnchorRoleIR::cross_reference)
+              out << " role="
+                  << (node.role == AnchorRoleIR::figure
+                          ? "figure"
+                          : node.role == AnchorRoleIR::table ? "table"
+                                                             : "local");
           } else if constexpr (std::is_same_v<T, ListBlockIR>) {
             out << " list ordered=" << (node.ordered ? 1 : 0)
                 << " items=[";

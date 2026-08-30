@@ -483,7 +483,7 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
         return std::nullopt;
       }
       document.blocks.push_back(
-          {AnchorBlockIR{block.anchor_id},
+          {AnchorBlockIR{block.anchor_id, AnchorRoleIR::local},
            origin(block.slices, "prose CZ footnote anchor")});
       ParagraphBlockIR paragraph;
       if (!lower_inlines(block, paragraph.content, error)) return std::nullopt;

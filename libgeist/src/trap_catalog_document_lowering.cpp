@@ -184,6 +184,8 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
       {HeadingBlockIR{level, {{TextInlineIR{catalog.title}, heading_origin}}},
        heading_origin});
 
+  document.named_destinations = catalog.entry_named_destinations;
+
   for (const auto &anchor : catalog.anchors) {
     auto anchor_origin = origin("trap catalog source anchor");
     add_slice(anchor_origin, anchor.source);

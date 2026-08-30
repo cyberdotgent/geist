@@ -390,9 +390,17 @@ bool append_table_anchors(const CommentDeliveryBlockIR &source,
       source.object_id.compare(0, prefix.size(), prefix) != 0)
     return fail(error, "questionnaire table object id is not canonical");
   const auto id = source.object_id.substr(prefix.size());
-  for (const auto &anchor_id : {id, std::string("TBL") + id}) {
+  // Two spellings of one destination.  `TBL`+id is the canonical table
+  // anchor, so it is the one the link map resolves references against; the
+  // bare id is a second name for the same place and must not add a second
+  // entry, or a book with both spellings would resolve one of them twice.
+  const std::pair<std::string, AnchorRoleIR> spellings[] = {
+      {id, AnchorRoleIR::local},
+      {"TBL" + id, AnchorRoleIR::table},
+  };
+  for (const auto &spelling : spellings) {
     BlockIR anchor;
-    anchor.node = AnchorBlockIR{anchor_id};
+    anchor.node = AnchorBlockIR{spelling.first, spelling.second};
     anchor.origin = object_origin(source, "comment questionnaire anchor");
     document.blocks.push_back(std::move(anchor));
   }
