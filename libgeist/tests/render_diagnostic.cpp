@@ -118,25 +118,28 @@ void declared_table_topic() {
           "2.4.4 lost the declared table it does not degrade over");
 }
 
-// Fail-closed must never mean withholding content.  packet GLOSSARY is
-// declined by every typed family (a placeholder run is followed by visible
-// text), and exits as `best-effort` carrying its own display lines rather
-// than dropping them.
+// Fail-closed must never mean withholding content.  packet 4.5.1 is declined
+// by every typed family (a `cz flow` directive without text is not the last
+// directive of its record), and exits as `best-effort` carrying its own
+// display lines rather than dropping them.
+//
+// This used to be checked on packet GLOSSARY, which the glossary family now
+// claims (issue #69).
 void best_effort_topic() {
   const auto document = geist::BooDocument::open(book("packet.boo"));
-  const auto &entry = topic(document, "GLOSSARY");
+  const auto &entry = topic(document, "4.5.1");
   const auto &diagnostic = entry.render_diagnostic();
   require(diagnostic.severity == geist::RenderSeverity::best_effort,
-          "packet GLOSSARY should be best-effort, is " +
+          "packet 4.5.1 should be best-effort, is " +
               std::string(geist::to_string(diagnostic.severity)));
   require(diagnostic.route == "best-effort", "route should be best-effort");
   require(diagnostic.reason == "typed-lowering-declined",
           "reason code, is " + diagnostic.reason);
-  require(contains(diagnostic.detail, "placeholder run"),
+  require(contains(diagnostic.detail, "prose topic rejected"),
           "the declining route's own reason is kept, is: " +
               diagnostic.detail);
   const auto markdown = entry.markdown();
-  require(contains(markdown, "Constellation"),
+  require(contains(markdown, "IPIP"),
           "the verbatim route emits the topic's own words");
   require(contains(markdown, "```text"),
           "the verbatim route emits them as preformatted content");

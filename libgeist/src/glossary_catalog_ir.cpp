@@ -1,10 +1,12 @@
 #include "geist/detail/glossary_catalog_ir.hpp"
 
+#include "geist/detail/display_lines.hpp"
 #include "geist/detail/internal.hpp"
 
 #include <algorithm>
 #include <cctype>
 #include <map>
+#include <set>
 #include <sstream>
 #include <tuple>
 #include <utility>
@@ -84,10 +86,14 @@ bool begins_term(const std::string &text, const std::string &term) {
          text[term.size()] == '.';
 }
 
-bool alphabetic(const std::string &text) {
+// A marker slot spelling a word of the book: `used`, `for`, `40`, `MHz`.
+// Anything with an alphanumeric character in it is a word, not layout; the
+// purely punctuational and purely decorative slots are classified separately
+// above and below.
+bool lexical_word(const std::string &text) {
   return !text.empty() &&
-         std::all_of(text.begin(), text.end(), [](const unsigned char ch) {
-           return std::isalpha(ch) != 0;
+         std::any_of(text.begin(), text.end(), [](const unsigned char ch) {
+           return std::isalnum(ch) != 0;
          });
 }
 
@@ -102,7 +108,8 @@ GlossaryMarkerDispositionIR
 marker_disposition(const GlossaryDefinitionRowIR &row, bool first_prose_row) {
   if (!row.marker)
     return GlossaryMarkerDispositionIR::absent;
-  if (row.role != GlossaryDefinitionRowRoleIR::prose)
+  if (row.role != GlossaryDefinitionRowRoleIR::prose &&
+      row.role != GlossaryDefinitionRowRoleIR::term_echo_prefix)
     return GlossaryMarkerDispositionIR::layout_artifact;
   const auto &marker = *row.marker;
   if (first_prose_row)
@@ -119,7 +126,7 @@ marker_disposition(const GlossaryDefinitionRowIR &row, bool first_prose_row) {
     return GlossaryMarkerDispositionIR::layout_artifact;
   if (punctuation(marker.decoded_text))
     return GlossaryMarkerDispositionIR::prose_punctuation;
-  if (alphabetic(marker.decoded_text))
+  if (lexical_word(marker.decoded_text))
     return GlossaryMarkerDispositionIR::lexical_carry;
   return GlossaryMarkerDispositionIR::layout_artifact;
 }
@@ -130,9 +137,13 @@ compose_definition_prose(std::vector<GlossaryDefinitionRowIR> &rows) {
   auto first_prose_row = true;
   for (auto &row : rows) {
     row.marker_disposition = marker_disposition(row, first_prose_row);
-    if (row.role != GlossaryDefinitionRowRoleIR::prose)
+    const auto echo_prefix =
+        row.role == GlossaryDefinitionRowRoleIR::term_echo_prefix;
+    if (row.role != GlossaryDefinitionRowRoleIR::prose && !echo_prefix)
       continue;
-    if (row.continuation_prefix) {
+    // The echo of the term is consumed, exactly as it is when it occupies a
+    // whole row; what follows it on the same row is definition prose.
+    if (row.continuation_prefix && !echo_prefix) {
       if (!result.empty())
         result.push_back(' ');
       result += row.continuation_prefix->semantic_text;
@@ -159,16 +170,51 @@ compose_definition_prose(std::vector<GlossaryDefinitionRowIR> &rows) {
   return result;
 }
 
+// Where a definition echoes its own term. A definition whose text opens a
+// new logical record carries the echo in the first row's continuation prefix
+// instead of the row's own visible text; the caller needs to know which,
+// because the echo is consumed and the rest of the row is definition prose.
+enum class TermEchoSite {
+  row,
+  continuation_prefix,
+};
+
 std::optional<std::string>
 semantic_term(const std::string &raw,
-              const std::vector<GlossaryDefinitionRowIR> &rows) {
-  auto candidate = trim_ascii(raw);
-  const auto text = trim_ascii(rows.front().visible_text);
+              const std::vector<GlossaryDefinitionRowIR> &rows,
+              TermEchoSite *site) {
+  // The definition's term echo is laid out, not typed: several books pad it
+  // to a column stop, so `SRGLS Constellation Diagram` is echoed as
+  // `Constellation  Diagram.`. The boundary is the words, not their spacing,
+  // so both sides are compared with runs of space collapsed.
+  auto candidate = collapse_ascii_whitespace(trim_ascii(raw));
+  const auto text =
+      collapse_ascii_whitespace(trim_ascii(rows.front().visible_text));
+  const auto prefix =
+      rows.front().continuation_prefix
+          ? collapse_ascii_whitespace(
+                trim_ascii(rows.front().continuation_prefix->semantic_text))
+          : std::string{};
+  auto found = TermEchoSite::row;
   const auto matches = [&](const std::string &value) {
-    if (begins_term(text, value))
+    if (begins_term(text, value)) {
+      found = TermEchoSite::row;
       return true;
-    return lower(text) == lower(value) && rows.size() > 1 && rows[1].marker &&
-           rows[1].marker->decoded_text == ".";
+    }
+    // The echo may occupy a whole row of its own, with the delimiter that
+    // follows it carried in the next row's marker slot. Which word that slot
+    // spells is the next row's business; that the whole row is the term is
+    // already conclusive.
+    if (lower(text) == lower(value) && rows.size() > 1) {
+      found = TermEchoSite::row;
+      return true;
+    }
+    if (!prefix.empty() &&
+        (begins_term(prefix, value) || lower(prefix) == lower(value))) {
+      found = TermEchoSite::continuation_prefix;
+      return true;
+    }
+    return false;
   };
   while (!candidate.empty() && !matches(candidate)) {
     if (!std::isalnum(static_cast<unsigned char>(candidate.back())) &&
@@ -184,6 +230,8 @@ semantic_term(const std::string &raw,
   }
   if (candidate.empty())
     return std::nullopt;
+  if (site != nullptr)
+    *site = found;
   return candidate;
 }
 
@@ -590,7 +638,7 @@ std::optional<GlossaryCatalogCellIR> classify_terminal_delimiter(
 }
 
 std::optional<GlossaryContinuationPrefixIR>
-continuation_prefix(const DecodedLogicalRecordSource &record,
+continuation_prefix_body(const DecodedLogicalRecordSource &record,
                     const PhysicalRowIR &row, std::size_t row_index,
                     const OwnershipIR &ownership, std::string *error) {
   const auto reject =
@@ -639,10 +687,24 @@ continuation_prefix(const DecodedLogicalRecordSource &record,
   const auto visible_token =
       static_cast<std::size_t>(first_visible - record.tokens.begin());
 
+  // A token's leading spacing-control word is the control's, not the row's,
+  // wherever it stands -- the ledger records it as `control_operand` inside
+  // rows too, and `project_glossary_semantic_row_text` skips it by the same
+  // rule. It is therefore not evidence that these tokens belong to something
+  // else.
+  const auto spacing_control_word = [&](const auto &cell) {
+    if (cell.token_index >= record.tokens.size())
+      return false;
+    const auto &words = record.tokens[cell.token_index];
+    return cell.word_index == 0 && !words.empty() && words.front() < 4;
+  };
   const auto wholly_opaque = std::all_of(
       ownership.cells.begin(), ownership.cells.end(), [&](const auto &cell) {
         if (cell.logical_record != record.logical_record ||
             cell.token_index < begin || cell.token_index >= end)
+          return true;
+        if (cell.disposition == SourceDisposition::control_operand &&
+            cell.run == 0 && spacing_control_word(cell))
           return true;
         return cell.disposition == SourceDisposition::opaque && cell.run == 0;
       });
@@ -666,7 +728,10 @@ continuation_prefix(const DecodedLogicalRecordSource &record,
     const auto disposition = token < visible_token
                                  ? SourceDisposition::layout_padding
                                  : SourceDisposition::visible_content;
-    for (std::size_t word = 0; word < record.tokens[token].size(); ++word) {
+    const auto &prefix_words = record.tokens[token];
+    const auto first_word =
+        !prefix_words.empty() && prefix_words.front() < 4 ? std::size_t{1} : 0;
+    for (auto word = first_word; word < prefix_words.size(); ++word) {
       const auto owned =
           std::find_if(ownership.cells.begin(), ownership.cells.end(),
                        [&](const auto &cell) {
@@ -695,6 +760,130 @@ continuation_prefix(const DecodedLogicalRecordSource &record,
   if (error != nullptr)
     error->clear();
   return result;
+}
+
+// A run of source tokens inside a content segment that no display row owns.
+//
+// Two shapes, one cause: the row model builds rows from compact marker slots,
+// and where a slot is missing or was spent elsewhere the words fall outside
+// every row.
+//
+//   * A definition running past the end of its logical record continues in
+//     the next record's leading text segment. With no marker slot there, the
+//     layout opens no row -- SC31-711 record 458 `window larger.`, SC34-425
+//     record 3025 `data type of a software component.`
+//   * A row boundary whose row carries no display text is dropped along with
+//     the word its marker spells -- packet.boo record 366 loses `used` from
+//     `... a modulation mode often  used  for  ISM  band`.
+//
+// The words are the definition's, and the whole-topic ownership ledger proves
+// nobody else claims them, so the catalog recovers them as a physical row of
+// the entry whose source range they fall in.
+std::optional<GlossaryDefinitionRowIR>
+recovered_row(const DecodedLogicalRecordSource &record,
+              std::size_t segment_index, std::size_t begin, std::size_t end,
+              const OwnershipIR &ownership) {
+  if (begin >= end || end > record.tokens.size())
+    return std::nullopt;
+  for (auto token = begin; token < end; ++token)
+    if (token >= record.ir.tokens.size() ||
+        !record.ir.tokens[token].unmapped_word_indices.empty())
+      return std::nullopt;
+  const auto first_visible =
+      std::find_if(record.tokens.begin() + static_cast<std::ptrdiff_t>(begin),
+                   record.tokens.begin() + static_cast<std::ptrdiff_t>(end),
+                   [](const auto &token) { return !exact_spaces(token); });
+  if (first_visible == record.tokens.begin() + static_cast<std::ptrdiff_t>(end))
+    return std::nullopt;
+  const auto visible_token =
+      static_cast<std::size_t>(first_visible - record.tokens.begin());
+  // Recover words, never artwork: a run of box-drawing glyphs is fixed
+  // layout the catalog consumes on purpose (the letter divider's box), and
+  // reinstating it as prose would put the art back in the output.
+  const auto carries_a_word = std::any_of(
+      record.tokens.begin() + static_cast<std::ptrdiff_t>(begin),
+      record.tokens.begin() + static_cast<std::ptrdiff_t>(end),
+      [](const auto &token) {
+        return std::any_of(token.begin(), token.end(), [](const auto word) {
+          return word <= 0x7f &&
+                 std::isalnum(static_cast<unsigned char>(word)) != 0;
+        });
+      });
+  if (!carries_a_word)
+    return std::nullopt;
+
+  GlossaryDefinitionRowIR item;
+  PhysicalRowIR row;
+  row.logical_record = record.logical_record;
+  row.segment_index = segment_index;
+  row.token_begin = begin;
+  row.token_end = end;
+  row.native_origin = record.tokens[visible_token].size();
+  item.source = row_slice(record, row);
+  if (!has_source(item.source))
+    return std::nullopt;
+  for (auto token = begin; token < end; ++token) {
+    const auto disposition = token < visible_token
+                                 ? SourceDisposition::layout_padding
+                                 : SourceDisposition::visible_content;
+    const auto &words = record.tokens[token];
+    const auto first_word =
+        !words.empty() && words.front() < 4 ? std::size_t{1} : 0;
+    for (auto word = first_word; word < words.size(); ++word) {
+      const auto owned =
+          std::find_if(ownership.cells.begin(), ownership.cells.end(),
+                       [&](const auto &cell) {
+                         return cell.logical_record == record.logical_record &&
+                                cell.token_index == token &&
+                                cell.word_index == word;
+                       });
+      if (owned == ownership.cells.end() ||
+          owned->disposition != SourceDisposition::opaque || owned->run != 0 ||
+          owned->word != words[word])
+        return std::nullopt;
+      item.cells.push_back({record.logical_record, token, word, words[word],
+                            disposition, 0, 0});
+    }
+  }
+  const auto projected =
+      project_glossary_semantic_row_text(record, row, item.cells);
+  if (!projected)
+    return std::nullopt;
+  item.visible_text = *projected;
+  item.semantic_text = *projected;
+  item.break_before = PhysicalBreakKind::soft_wrap;
+  return item;
+}
+
+// The layout joins a record-leading text row onto the previous display run
+// only when no typed control stands between them; a glossary's `SRGLS` and
+// its `CFONT` always do, so the join is refused and the words standing in
+// front of the row's marker stay opaque. They are still that row's leading
+// text -- typically the definition's echo of its own term -- and the
+// whole-topic envelope can prove it, so the first row of a record-leading
+// text segment is offered the same refinement.
+//
+// The layout-proven case keeps its hard rejections: a row the layout itself
+// called a continuation and which then fails to conserve is a fault. The
+// inferred case declines quietly instead, because "these opaque words are
+// not this row's prefix" is an ordinary answer there, not a fault.
+std::optional<GlossaryContinuationPrefixIR>
+continuation_prefix(const DecodedLogicalRecordSource &record,
+                    const PhysicalRowIR &row, std::size_t row_index,
+                    const OwnershipIR &ownership, std::string *error) {
+  if (row.continues_previous_record)
+    return continuation_prefix_body(record, row, row_index, ownership, error);
+  if (error != nullptr)
+    error->clear();
+  if (row_index != 0 || row.segment_index != 0 || !row.marker)
+    return std::nullopt;
+  auto inferred = row;
+  inferred.continues_previous_record = true;
+  std::string ignored;
+  auto prefix =
+      continuation_prefix_body(record, inferred, row_index, ownership,
+                               &ignored);
+  return prefix;
 }
 
 std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
@@ -737,22 +926,24 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
       });
   if (first_glossary == ordered.end())
     return reject("glossary topic has no SRGLS boundary");
-  if (!is_glossary_control(*ordered.back().segment))
-    return reject("glossary topic has content after its terminal SRGLS");
-  if (!trim_ascii(range_text(*ordered.back().record,
-                             ordered.back().segment->payload_range))
-           .empty())
-    return reject("glossary terminal SRGLS contains a term");
+  // Some glossaries close the catalog with a bare `SRGLS` sentinel and some
+  // simply end after the last definition. Both are complete catalogs, so the
+  // sentinel is recognised where it exists and not required where it does
+  // not; `terminal_source` records which.
 
   bool saw_title = false;
   bool saw_glossary_heading = false;
   std::string heading_level;
   for (auto it = ordered.begin(); it != first_glossary; ++it) {
     const auto &segment = *it->segment;
+    // `cz` draws nothing: it opens and closes a formatting region. It is
+    // consumed here (its operands are the control's, not the topic's words)
+    // rather than being a reason to decline the whole family.
+    if (segment.kind == BookControlKind::layout_directive)
+      continue;
     if (segment.kind == BookControlKind::unknown ||
         segment.kind == BookControlKind::select ||
         segment.kind == BookControlKind::spacing ||
-        segment.kind == BookControlKind::layout_directive ||
         segment.kind == BookControlKind::menu_start ||
         segment.kind == BookControlKind::menu_item ||
         segment.kind == BookControlKind::menu_end)
@@ -819,6 +1010,127 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
       rows[{row.logical_record, row.segment_index}].push_back(std::move(item));
     }
   }
+  for (const auto &item : ordered) {
+    const auto &segment = *item.segment;
+    if (segment.kind != BookControlKind::font &&
+        segment.kind != BookControlKind::text)
+      continue;
+    if (segment.source_tokens.empty())
+      continue;
+    const SegmentKey key{item.record->logical_record, segment.segment_index};
+    auto &segment_rows = rows[key];
+    std::set<std::size_t> owned_tokens;
+    for (const auto &existing : segment_rows) {
+      for (const auto &cell : existing.cells)
+        if (cell.logical_record == item.record->logical_record)
+          owned_tokens.insert(cell.token_index);
+      if (existing.continuation_prefix)
+        for (const auto &cell : existing.continuation_prefix->cells)
+          if (cell.logical_record == item.record->logical_record)
+            owned_tokens.insert(cell.token_index);
+    }
+    auto begin = segment.source_tokens.front();
+    const auto end = segment.source_tokens.back() + 1;
+    // A record-leading segment's own leading spaces belong with it.
+    if (segment.segment_index == 0 &&
+        std::all_of(item.record->tokens.begin(),
+                    item.record->tokens.begin() +
+                        static_cast<std::ptrdiff_t>(begin),
+                    exact_spaces))
+      begin = 0;
+    std::vector<GlossaryDefinitionRowIR> recovered;
+    for (auto token = begin; token < end;) {
+      if (owned_tokens.count(token) != 0) {
+        ++token;
+        continue;
+      }
+      auto run_end = token;
+      while (run_end < end && owned_tokens.count(run_end) == 0)
+        ++run_end;
+      if (auto row = recovered_row(*item.record, segment.segment_index, token,
+                                   run_end, ownership))
+        recovered.push_back(std::move(*row));
+      token = run_end;
+    }
+    if (recovered.empty()) {
+      if (segment_rows.empty())
+        rows.erase(key);
+      continue;
+    }
+    segment_rows.insert(segment_rows.end(),
+                        std::make_move_iterator(recovered.begin()),
+                        std::make_move_iterator(recovered.end()));
+    std::stable_sort(segment_rows.begin(), segment_rows.end(),
+                     [](const auto &left, const auto &right) {
+                       return left.source.token_begin < right.source.token_begin;
+                     });
+  }
+
+  // Whole-topic conservation.
+  //
+  // The catalog is assembled out of display rows and their continuation
+  // prefixes; a source cell that spells a visible word and belongs to
+  // neither is a word this family would drop. SC34-425 record 3025 is the
+  // shape: `member.  The discrete element of an SCLM database, representing
+  // a single` ends one record and `data type of a software component.` opens
+  // the next as a text segment with no marker slot, so the row model makes
+  // no row for it at all. Fail closed and leave such a topic to a family
+  // that carries those words, rather than publishing a definition with a
+  // hole in it.
+  {
+    std::set<std::tuple<std::uint32_t, std::size_t, std::size_t>> claimed;
+    for (const auto &[key, items] : rows)
+      for (const auto &item : items) {
+        for (const auto &cell : item.cells)
+          claimed.insert(
+              {cell.logical_record, cell.token_index, cell.word_index});
+        if (item.continuation_prefix)
+          for (const auto &cell : item.continuation_prefix->cells)
+            claimed.insert({cell.logical_record, cell.token_index,
+                            cell.word_index});
+      }
+    // Only the font and text segments carry the topic's words; every other
+    // segment is a control whose payload the catalog consumes by name (the
+    // `SRGLS` term, a `cz` region's operands, a nested figure's identifier).
+    std::set<std::pair<std::uint32_t, std::size_t>> content_tokens;
+    for (const auto &item : ordered) {
+      if (item.segment->kind != BookControlKind::font &&
+          item.segment->kind != BookControlKind::text)
+        continue;
+      for (const auto token : item.segment->source_tokens)
+        content_tokens.insert({item.record->logical_record, token});
+    }
+    for (const auto &cell : ownership.cells) {
+      if (cell.run != 0 || cell.disposition != SourceDisposition::opaque)
+        continue;
+      if (content_tokens.count({cell.logical_record, cell.token_index}) == 0)
+        continue;
+      // Only letters and digits are checked. Punctuation, box-drawing art
+      // and the decoder's own separator glyph are consumed deliberately --
+      // the term delimiter after a definition's echo, the letter divider's
+      // box (whose letter becomes the section heading, issue #69) -- and a
+      // stray delimiter left at a row boundary is a formatting detail, not a
+      // lost word. A dropped alphanumeric run is the failure this guards.
+      if (cell.word > 0x7f ||
+          std::isalnum(static_cast<unsigned char>(cell.word)) == 0)
+        continue;
+      if (claimed.count({cell.logical_record, cell.token_index,
+                         cell.word_index}) != 0)
+        continue;
+      const auto owner = std::find_if(
+          records.begin(), records.end(), [&](const auto &candidate) {
+            return candidate.logical_record == cell.logical_record;
+          });
+      // A display line's length byte is structure whatever word the
+      // dictionary spells for it; the decoder decided that already.
+      if (owner != records.end() &&
+          is_display_line_length_token(*owner, cell.token_index))
+        continue;
+      return reject("glossary topic has display text no row owns at record " +
+                    std::to_string(cell.logical_record) + " token " +
+                    std::to_string(cell.token_index));
+    }
+  }
 
   GlossaryCatalogIR result;
   result.first_logical_record = records.front().logical_record;
@@ -878,6 +1190,12 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
       const auto structural_source =
           source_slice(*content.record, content.segment->segment_index,
                        content.segment->complete);
+      if (content.segment->kind == BookControlKind::layout_directive) {
+        // A formatting region opened around a definition. It draws nothing;
+        // its provenance is kept, its operands are not the topic's words.
+        structural_sources.push_back(structural_source);
+        continue;
+      }
       if (is_nested_start(opcode, "fig")) {
         ++figure_depth;
         embedded_controls.push_back(
@@ -920,7 +1238,9 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
       if (label.size() != 1 ||
           std::isupper(static_cast<unsigned char>(label.front())) == 0 ||
           !structural_sources.empty())
-        return reject("empty SRGLS is not a single-letter section marker");
+        return reject("empty SRGLS is not a single-letter section marker: '" +
+                      label + "' at record " +
+                      std::to_string(boundary.record->logical_record));
       result.sections.push_back(
           {std::move(label), marker_source, std::move(content_rows)});
       result.items.push_back({GlossaryCatalogItemKindIR::section,
@@ -929,7 +1249,8 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
     } else {
       if (content_rows.empty())
         return reject("glossary term has no definition rows");
-      const auto term = semantic_term(raw, content_rows);
+      auto echo_site = TermEchoSite::row;
+      const auto term = semantic_term(raw, content_rows, &echo_site);
       if (!term)
         return reject("SRGLS term '" + trim_ascii(raw) +
                       "' does not match definition lead '" +
@@ -937,7 +1258,7 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
       GlossaryEntryIR entry;
       entry.term = *term;
       entry.raw_term = raw;
-      const auto trimmed_raw = trim_ascii(raw);
+      const auto trimmed_raw = collapse_ascii_whitespace(trim_ascii(raw));
       if (trimmed_raw.size() > entry.term.size())
         entry.source_suffix = trimmed_raw.substr(entry.term.size());
       entry.term_source =
@@ -945,7 +1266,10 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
                        boundary.segment->payload_range);
       if (!has_source(entry.term_source))
         return reject("glossary term source provenance is incomplete");
-      content_rows.front().role = GlossaryDefinitionRowRoleIR::term_echo;
+      content_rows.front().role =
+          echo_site == TermEchoSite::continuation_prefix
+              ? GlossaryDefinitionRowRoleIR::term_echo_prefix
+              : GlossaryDefinitionRowRoleIR::term_echo;
       if (!embedded_rows.empty()) {
         for (auto &row : content_rows)
           if (std::any_of(embedded_rows.begin(), embedded_rows.end(),
@@ -978,8 +1302,9 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
 
   if (figure_depth != 0 || table_depth != 0)
     return reject("glossary embedded object envelope is unbalanced");
-  if (result.entries.empty() || result.sections.empty() ||
-      !has_source(result.terminal_source))
+  // Letter dividers are a presentation choice, not part of what makes a
+  // catalog: several books run their terms straight through without them.
+  if (result.entries.empty())
     return reject("glossary catalog semantic envelope is incomplete");
   if (error != nullptr)
     error->clear();

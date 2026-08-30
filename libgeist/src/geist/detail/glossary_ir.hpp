@@ -34,12 +34,35 @@ struct GlossaryParagraphIR {
   std::vector<GlossaryEmphasisIR> emphasis;
 };
 
+// What stands between a glossary topic's title and its first `SRGLS` term.
+//
+// Two shapes, and the flag says which one is asserted.  `citation_list` is the
+// fully articulated form: a lead sentence, a bulleted list of the standards
+// the glossary draws its definitions from, a second lead, and the definitions
+// of the cross-reference verbs ("Contrast with:", "Synonym for:", ...).  That
+// shape is only claimed when every one of those parts is proven.
+//
+// `paragraphs` is the general form: the introduction is conserved as the
+// prose paragraphs the source rows spell, in order, asserting nothing about
+// what any of them mean.  Most glossaries in the corpus have a short
+// introduction or none at all, and requiring the articulated shape of all of
+// them is what made this family decline 19 of 20 glossary topics -- the
+// recognizer had been fitted to the one book that has it.
+enum class GlossaryIntroductionShapeIR {
+  paragraphs,
+  citation_list,
+};
+
 struct GlossaryIntroductionIR {
+  GlossaryIntroductionShapeIR shape = GlossaryIntroductionShapeIR::paragraphs;
   std::string title;
   GlossaryParagraphIR lead;
+  // citation_list only.
   std::vector<GlossaryParagraphIR> sources;
   GlossaryParagraphIR cross_reference_lead;
   std::vector<GlossaryParagraphIR> cross_references;
+  // paragraphs only: the introduction body after the title, in source order.
+  std::vector<GlossaryParagraphIR> paragraphs;
 };
 
 std::optional<GlossaryIntroductionIR> extract_glossary_introduction_ir(

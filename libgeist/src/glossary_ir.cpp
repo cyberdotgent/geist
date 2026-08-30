@@ -1,8 +1,10 @@
 #include "geist/detail/glossary_ir.hpp"
 
+#include "geist/detail/display_lines.hpp"
 #include "geist/detail/internal.hpp"
 
 #include <algorithm>
+#include <functional>
 #include <cctype>
 #include <sstream>
 
@@ -204,13 +206,64 @@ bool paragraph_equal(const GlossaryParagraphIR& left,
          left.emphasis == right.emphasis;
 }
 
-} // namespace
+// The layout of everything before the first `SRGLS`, shared by both
+// introduction shapes so neither re-derives the boundary.
+struct IntroductionLayout {
+  const DisplayRunIR* title_run = nullptr;
+  std::vector<const DisplayRunIR*> body_runs;
+  std::function<bool(const PhysicalRowIR&)> before_first_term;
+  // The first `SRGLS` boundary: its logical record and the first source
+  // token of its segment.
+  std::uint32_t first_term_record = 0;
+  std::size_t first_term_token = 0;
+};
 
-std::optional<GlossaryIntroductionIR> extract_glossary_introduction_ir(
+// True when some source cell in front of the first `SRGLS` spells a visible
+// word that no display run owns. Such a cell is display text the row model
+// left behind (the words in front of a record-leading row's compact marker
+// slot are the usual case), so an introduction built from rows alone would
+// silently drop it. Fail closed: decline, and leave the topic to a family
+// that does carry those words.
+bool introduction_conserves_source(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const OwnershipIR& ownership, const IntroductionLayout& shape) {
+  if (shape.title_run == nullptr || shape.title_run->rows.empty()) return false;
+  const auto& title = shape.title_run->rows.front();
+  for (const auto& cell : ownership.cells) {
+    if (cell.run != 0 || cell.disposition != SourceDisposition::opaque)
+      continue;
+    // The topic header stands in front of the title row; its bytes are the
+    // container's, not the introduction's.
+    if (cell.logical_record < title.logical_record ||
+        (cell.logical_record == title.logical_record &&
+         cell.token_index < title.token_begin))
+      continue;
+    if (cell.logical_record > shape.first_term_record) continue;
+    if (cell.logical_record == shape.first_term_record &&
+        cell.token_index >= shape.first_term_token)
+      continue;
+    // 0x2666 is the decoder's own separator glyph, not a word of the book,
+    // and 0x2500-0x25ff is fixed-layout box art.
+    if (cell.word == ' ' || cell.word < 0x21 || cell.word == 0x2666 ||
+        (cell.word >= 0x2500 && cell.word <= 0x25ff))
+      continue;
+    // A display line's length byte is structure whatever word the dictionary
+    // spells for it; the decoder already decided that, and nothing here may
+    // decide it again.
+    const auto* owner = find_record(records, cell.logical_record);
+    if (owner != nullptr && is_display_line_length_token(*owner,
+                                                         cell.token_index))
+      continue;
+    return false;
+  }
+  return true;
+}
+
+std::optional<IntroductionLayout> introduction_layout(
     const std::vector<DecodedLogicalRecordSource>& records,
     const LayoutIR& layout, const OwnershipIR& ownership, std::string* error) {
   const auto fail =
-      [&](const std::string& message) -> std::optional<GlossaryIntroductionIR> {
+      [&](const std::string& message) -> std::optional<IntroductionLayout> {
     if (error != nullptr) *error = message;
     return std::nullopt;
   };
@@ -218,6 +271,7 @@ std::optional<GlossaryIntroductionIR> extract_glossary_introduction_ir(
     return fail("source ownership is unavailable or conflicted");
 
   std::optional<std::pair<std::uint32_t, std::size_t>> first_term;
+  std::size_t first_term_token = 0;
   bool glossary_heading = false;
   for (const auto& record : records) {
     for (const auto& segment : record.control_segments) {
@@ -227,40 +281,71 @@ std::optional<GlossaryIntroductionIR> extract_glossary_introduction_ir(
         glossary_heading = glossary_heading ||
                            ascii_equals_case_insensitive(level, "glossary");
       }
-      if (ascii_equals_case_insensitive(segment.opcode, "srgls") && !first_term)
+      if (ascii_equals_case_insensitive(segment.opcode, "srgls") &&
+          !first_term) {
         first_term = {record.logical_record, segment.complete.begin};
+        first_term_token = segment.source_tokens.empty()
+                               ? std::size_t{0}
+                               : segment.source_tokens.front();
+      }
     }
   }
   if (!glossary_heading || !first_term)
     return fail("source is not a glossary introduction");
 
-  const auto before_first_term = [&](const PhysicalRowIR& row) {
-    if (row.logical_record != first_term->first)
-      return row.logical_record < first_term->first;
+  IntroductionLayout result;
+  const auto boundary = *first_term;
+  result.first_term_record = boundary.first;
+  result.first_term_token = first_term_token;
+  result.before_first_term = [&records, boundary](const PhysicalRowIR& row) {
+    if (row.logical_record != boundary.first)
+      return row.logical_record < boundary.first;
     const auto* record = find_record(records, row.logical_record);
     if (record == nullptr ||
         row.segment_index >= record->control_segments.size())
       return false;
     return record->control_segments[row.segment_index].complete.begin <
-           first_term->second;
+           boundary.second;
   };
 
-  const DisplayRunIR* title_run = nullptr;
-  std::vector<const DisplayRunIR*> body_runs;
   for (const auto& run : layout.runs) {
-    if (run.rows.empty() || !before_first_term(run.rows.front())) continue;
+    if (run.rows.empty() || !result.before_first_term(run.rows.front()))
+      continue;
     if (run.control_kind == BookControlKind::title) {
-      if (title_run != nullptr) return fail("multiple glossary title runs");
-      title_run = &run;
+      if (result.title_run != nullptr)
+        return fail("multiple glossary title runs");
+      result.title_run = &run;
     } else if (run.control_kind == BookControlKind::font ||
                run.control_kind == BookControlKind::text) {
-      body_runs.push_back(&run);
+      result.body_runs.push_back(&run);
     }
   }
-  if (title_run == nullptr || title_run->rows.size() != 1 || body_runs.empty())
+  if (result.title_run == nullptr || result.title_run->rows.size() != 1)
+    return fail("glossary introduction has no single title row");
+  return result;
+}
+
+// The articulated shape: lead, bulleted standards citations, cross-reference
+// lead, cross-reference verb definitions. Every part must be present, so this
+// asserts the semantics of each paragraph it sorts.
+std::optional<GlossaryIntroductionIR> extract_citation_list_introduction_ir(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const LayoutIR& layout, const OwnershipIR& ownership, std::string* error) {
+  const auto fail =
+      [&](const std::string& message) -> std::optional<GlossaryIntroductionIR> {
+    if (error != nullptr) *error = message;
+    return std::nullopt;
+  };
+  const auto shape = introduction_layout(records, layout, ownership, error);
+  if (!shape) return std::nullopt;
+  const auto* title_run = shape->title_run;
+  const auto& body_runs = shape->body_runs;
+  const auto& before_first_term = shape->before_first_term;
+  if (body_runs.empty())
     return fail("glossary introduction layout is incomplete");
 
   GlossaryIntroductionIR result;
+  result.shape = GlossaryIntroductionShapeIR::citation_list;
   auto title_text = clean_terminal_boundary(
       records, title_run->rows.front(), title_run->rows.front().visible_text);
   const auto title_gap = wide_gap(title_text, 8);
@@ -319,9 +404,13 @@ std::optional<GlossaryIntroductionIR> extract_glossary_introduction_ir(
           .push_back(std::move(current));
   }
 
+  // Every part of the articulated shape must be present for it to be claimed;
+  // the paragraph shape carries the rest. (This used to require exactly five
+  // citations and six cross-reference definitions, which are the counts in
+  // SC31-711 and nowhere else -- a fitted constant, not evidence.)
   if (result.title.empty() || result.lead.text.empty() ||
-      result.sources.size() != 5 || result.cross_reference_lead.text.empty() ||
-      result.cross_references.size() != 6)
+      result.sources.empty() || result.cross_reference_lead.text.empty() ||
+      result.cross_references.empty())
     return fail("glossary introduction semantic sections are incomplete");
   for (auto& paragraph : result.cross_references) {
     while (paragraph.text.size() >= 2 &&
@@ -335,6 +424,89 @@ std::optional<GlossaryIntroductionIR> extract_glossary_introduction_ir(
   return result;
 }
 
+// The general shape: the title, then the introduction's prose paragraphs in
+// source order. Paragraph boundaries come from the same evidence the
+// articulated shape uses -- a row that returns to the body's left margin
+// after a sentence-final row -- but nothing is asserted about what any
+// paragraph means, so a glossary with a one-line introduction, or none at
+// all, is admitted rather than declined.
+std::optional<GlossaryIntroductionIR> extract_paragraph_introduction_ir(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const LayoutIR& layout, const OwnershipIR& ownership, std::string* error) {
+  const auto fail =
+      [&](const std::string& message) -> std::optional<GlossaryIntroductionIR> {
+    if (error != nullptr) *error = message;
+    return std::nullopt;
+  };
+  const auto shape = introduction_layout(records, layout, ownership, error);
+  if (!shape) return std::nullopt;
+  if (!introduction_conserves_source(records, ownership, *shape))
+    return fail("glossary introduction has display text no run owns");
+
+  GlossaryIntroductionIR result;
+  result.shape = GlossaryIntroductionShapeIR::paragraphs;
+  const auto& title_row = shape->title_run->rows.front();
+  auto title_text =
+      clean_terminal_boundary(records, title_row, title_row.visible_text);
+  // The title row carries the first introduction line after a wide field gap
+  // when there is one; without a gap the whole row is the title.
+  const auto title_gap = wide_gap(title_text, 8);
+  result.title = compact(title_text.substr(0, title_gap == std::string::npos
+                                                  ? title_text.size()
+                                                  : title_gap));
+  if (result.title.empty()) return fail("glossary topic has no title row");
+  if (title_gap != std::string::npos) {
+    auto lead_begin = title_gap;
+    while (lead_begin < title_text.size() && title_text[lead_begin] == ' ')
+      ++lead_begin;
+    GlossaryParagraphIR lead;
+    lead.text = compact(title_text.substr(lead_begin));
+    lead.source_rows.emplace_back(shape->title_run->id, 0);
+    if (!lead.text.empty()) result.paragraphs.push_back(std::move(lead));
+  }
+
+  for (const auto* run : shape->body_runs) {
+    GlossaryParagraphIR current;
+    std::string font_error;
+    const auto fonts = governing_font_spans(records, *run, &font_error);
+    if (!fonts && !font_error.empty())
+      return fail("glossary introduction font control rejected: " +
+                  font_error);
+    const auto first_row_emphasis =
+        fonts ? map_font_spans(*fonts, run->rows.front())
+              : std::vector<RowEmphasisIR>{};
+    for (std::size_t row_index = 0; row_index < run->rows.size(); ++row_index) {
+      const auto& row = run->rows[row_index];
+      if (!shape->before_first_term(row)) break;
+      const auto& row_emphasis =
+          row_index == 0 ? first_row_emphasis : std::vector<RowEmphasisIR>{};
+      if (!current.text.empty() && row.native_origin == 3 &&
+          ends_statement(current.text)) {
+        result.paragraphs.push_back(std::move(current));
+        current = {};
+      }
+      append_row(current, row, row_index, row.visible_text, 0, row_emphasis);
+    }
+    if (!current.text.empty()) result.paragraphs.push_back(std::move(current));
+  }
+  if (error != nullptr) error->clear();
+  return result;
+}
+
+} // namespace
+
+std::optional<GlossaryIntroductionIR> extract_glossary_introduction_ir(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const LayoutIR& layout, const OwnershipIR& ownership, std::string* error) {
+  // The articulated shape is the more specific recognizer, so it is offered
+  // first; the paragraph shape carries every introduction it declines.
+  std::string citation_error;
+  if (auto articulated = extract_citation_list_introduction_ir(
+          records, layout, ownership, &citation_error))
+    return articulated;
+  return extract_paragraph_introduction_ir(records, layout, ownership, error);
+}
+
 bool verify_glossary_introduction_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
     const LayoutIR& layout, const OwnershipIR& ownership,
@@ -346,6 +518,13 @@ bool verify_glossary_introduction_ir(
   const auto canonical =
       extract_glossary_introduction_ir(records, layout, ownership);
   if (!canonical) return fail("source does not admit a glossary introduction");
+  if (canonical->shape != introduction.shape ||
+      canonical->paragraphs.size() != introduction.paragraphs.size())
+    return fail("glossary introduction shape differs from canonical lowering");
+  for (std::size_t i = 0; i < introduction.paragraphs.size(); ++i)
+    if (!paragraph_equal(canonical->paragraphs[i], introduction.paragraphs[i]))
+      return fail("glossary introduction paragraph differs from canonical "
+                  "lowering");
   if (canonical->title != introduction.title ||
       !paragraph_equal(canonical->lead, introduction.lead) ||
       canonical->sources.size() != introduction.sources.size() ||

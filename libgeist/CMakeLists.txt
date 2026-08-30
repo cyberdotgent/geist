@@ -246,6 +246,7 @@ foreach(fixture_test
     generated_list_topic_ir_synthetic
     generated_toc_index_ir_synthetic
     generated_list_production
+    glossary_production
     selector_display_ir_synthetic
     render_diagnostic)
   geist_add_test(${fixture_test} FIXTURE)

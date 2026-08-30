@@ -38,7 +38,13 @@ enum class GlossaryMarkerDispositionIR {
 };
 
 enum class GlossaryDefinitionRowRoleIR {
+  // The whole row is the definition's echo of its own term.
   term_echo,
+  // The row's record-crossing continuation prefix is the term echo, and the
+  // row's own visible text is the first line of the definition. A definition
+  // whose CFONT control ends one logical record and whose text opens the
+  // next is stored this way, which is the common shape outside SC31-711.
+  term_echo_prefix,
   prose,
   embedded_table,
 };

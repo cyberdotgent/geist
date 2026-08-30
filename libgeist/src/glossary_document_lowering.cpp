@@ -196,11 +196,24 @@ bool verify_catalog_shape(const GlossaryCatalogIR &catalog,
   for (const auto &paragraph : introduction.cross_references)
     if (!verify_paragraph_emphasis(paragraph, error))
       return false;
+  for (const auto &paragraph : introduction.paragraphs)
+    if (!verify_paragraph_emphasis(paragraph, error))
+      return false;
+  // Exactly one of the two introduction shapes carries content, so a
+  // consumer cannot be handed both and have to guess which one is asserted.
+  const auto articulated =
+      introduction.shape == GlossaryIntroductionShapeIR::citation_list;
+  const auto has_articulated_body =
+      !introduction.lead.text.empty() || !introduction.sources.empty() ||
+      !introduction.cross_reference_lead.text.empty() ||
+      !introduction.cross_references.empty();
+  if (articulated ? !introduction.paragraphs.empty() : has_articulated_body)
+    return fail(error, "glossary introduction shape and body disagree");
   if (catalog.first_logical_record == 0 ||
       catalog.first_logical_record >= catalog.end_logical_record ||
-      catalog.heading_level != "GLOSSARY" ||
+      !ascii_equals_case_insensitive(catalog.heading_level, "glossary") ||
       catalog.introduction.title.empty() ||
-      catalog.introduction.lead.text.empty() || catalog.sections.empty() ||
+      (articulated && catalog.introduction.lead.text.empty()) ||
       catalog.entries.empty() ||
       catalog.items.size() != catalog.sections.size() + catalog.entries.size())
     return fail(error, "glossary catalog lowering envelope is incomplete");
@@ -239,9 +252,14 @@ bool verify_catalog_shape(const GlossaryCatalogIR &catalog,
 
   for (const auto &entry : catalog.entries) {
     if (entry.term.empty() || entry.definition.prose.empty() ||
-        entry.definition.rows.size() < 2 ||
-        entry.definition.rows.front().role !=
-            GlossaryDefinitionRowRoleIR::term_echo)
+        entry.definition.rows.empty() ||
+        (entry.definition.rows.front().role !=
+             GlossaryDefinitionRowRoleIR::term_echo &&
+         entry.definition.rows.front().role !=
+             GlossaryDefinitionRowRoleIR::term_echo_prefix) ||
+        (entry.definition.rows.front().role ==
+             GlossaryDefinitionRowRoleIR::term_echo &&
+         entry.definition.rows.size() < 2))
       return fail(error, "glossary definition semantics are incomplete");
     auto table_rows = std::size_t{0};
     std::string composed;
@@ -256,9 +274,11 @@ bool verify_catalog_shape(const GlossaryCatalogIR &catalog,
                GlossaryMarkerDispositionIR::term_delimiter) &&
           !row.marker)
         return fail(error, "semantic glossary marker has no source slot");
-      if (row.role != GlossaryDefinitionRowRoleIR::prose)
+      const auto echo_prefix =
+          row.role == GlossaryDefinitionRowRoleIR::term_echo_prefix;
+      if (row.role != GlossaryDefinitionRowRoleIR::prose && !echo_prefix)
         continue;
-      if (row.continuation_prefix) {
+      if (row.continuation_prefix && !echo_prefix) {
         if (row.continuation_prefix->semantic_text.empty() ||
             row.continuation_prefix->cells.empty() ||
             row.continuation_prefix->source.logical_record == 0)
@@ -357,6 +377,13 @@ BlockIR table_block(const GlossaryEmbeddedTableIR &source) {
   return {std::move(body), std::move(block_origin)};
 }
 
+// Defined below, after the entry point that shows how the two introduction
+// shapes share them.
+void lower_glossary_catalog_items(DocumentIR &document,
+                                  const GlossaryCatalogIR &catalog);
+std::optional<DocumentIR> finish_glossary_document(DocumentIR document,
+                                                   std::string *error);
+
 } // namespace
 
 std::optional<DocumentIR>
@@ -384,6 +411,15 @@ lower_glossary_catalog_to_document_ir(TopicIdentityIR topic,
   HeadingBlockIR heading{
       1, {text_inline(catalog.introduction.title, title_origin)}};
   document.blocks.push_back({std::move(heading), title_origin});
+
+  if (catalog.introduction.shape == GlossaryIntroductionShapeIR::paragraphs) {
+    for (const auto &paragraph : catalog.introduction.paragraphs)
+      document.blocks.push_back(
+          paragraph_block(paragraph, "glossary introduction paragraph"));
+    lower_glossary_catalog_items(document, catalog);
+    return finish_glossary_document(std::move(document), error);
+  }
+
   document.blocks.push_back(
       paragraph_block(catalog.introduction.lead, "glossary introduction lead"));
 
@@ -404,6 +440,16 @@ lower_glossary_catalog_to_document_ir(TopicIdentityIR topic,
     document.blocks.push_back(
         paragraph_block(reference, "glossary cross-reference definition"));
 
+  lower_glossary_catalog_items(document, catalog);
+  return finish_glossary_document(std::move(document), error);
+}
+
+namespace {
+
+// The catalog body: one `## <letter>` heading per section marker and, per
+// term, its anchor and its definition, emitted in source order.
+void lower_glossary_catalog_items(DocumentIR &document,
+                                  const GlossaryCatalogIR &catalog) {
   for (const auto &item : catalog.items) {
     if (item.kind == GlossaryCatalogItemKindIR::section) {
       const auto &section = catalog.sections[item.index];
@@ -427,7 +473,8 @@ lower_glossary_catalog_to_document_ir(TopicIdentityIR topic,
 
     auto definition_origin = origin("glossary definition prose");
     for (const auto &row : entry.definition.rows)
-      if (row.role == GlossaryDefinitionRowRoleIR::prose)
+      if (row.role == GlossaryDefinitionRowRoleIR::prose ||
+          row.role == GlossaryDefinitionRowRoleIR::term_echo_prefix)
         merge_origin(definition_origin,
                      row_origin(row, "glossary definition row"));
     auto entry_origin = origin("glossary term and definition");
@@ -443,7 +490,10 @@ lower_glossary_catalog_to_document_ir(TopicIdentityIR topic,
     if (entry.definition.embedded_table)
       document.blocks.push_back(table_block(*entry.definition.embedded_table));
   }
+}
 
+std::optional<DocumentIR> finish_glossary_document(DocumentIR document,
+                                                   std::string *error) {
   // Every container names at least the BOO bytes its own content names
   // before the document is verified.
   normalize_document_origin_slices(document);
@@ -456,6 +506,8 @@ lower_glossary_catalog_to_document_ir(TopicIdentityIR topic,
     error->clear();
   return document;
 }
+
+} // namespace
 
 bool verify_glossary_catalog_document_ir(const GlossaryCatalogIR &catalog,
                                          const DocumentIR &document,
