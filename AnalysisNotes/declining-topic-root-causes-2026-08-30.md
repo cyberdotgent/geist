@@ -304,3 +304,40 @@ around it become typed.
   restructuring them would be a regression.
 - Numbered steps written as body text stay paragraphs
   (`AnalysisNotes/numbered-paragraphs-are-correct-2026-08-30.md`).
+
+## Issues filed from this analysis
+
+| issue | cause | topics |
+| --- | --- | ---: |
+| #72 | verbatim topics carry no cross-references (1,258 hosted links) | 116 |
+| #73 | `cz OFF SYNTAX` unmodelled | 11 |
+| #74 | `cz OFF COVER/LINES/ARTWORK/TIPAGE/EHP0` unmodelled | 12 |
+| #75 | `cz FLOW` admission too strict (list-opener text; footnote with a block) | 7 |
+| #76 | `cz OFF LBLBOX` closure rule | 6 |
+| #77 | compiled menu item labels not bounded | 10 |
+| #78 | `SH20-918 INDEX` sentinel glyph — 569 links | 1 |
+| #79 | `SI` term beginning with a control-shaped word — 84 links | 5 |
+| #81 | whole-topic vs block-level fail-closed (blast radius) | — |
+
+## Recommendation on the existing issues
+
+- **#60 — close.** Its premise is false (all 64 declines are decoded box
+  drawing, not undecodable bytes) and hosted renders 60 of the 64 verbatim
+  too, so there is no structure to recover. The real loss is the 196
+  cross-references, now #72. The other 4 topics belong to #73.
+- **#63 — close or re-scope to an epic.** It is four independent causes:
+  #73, #74, #75, #76.
+- **#67 — re-scope.** Split out #77 (10 topics) and #78 and #79 (6 topics);
+  move the 16 `carries visible payload 'ST'` topics into #64. Its description
+  of the `SI` class is wrong — see #79.
+- **#64 — leave open, but enlarge from 23 to 39 topics.** The 14 `ACPZMST1`
+  `SRHDR<name> carries visible payload 'ST'` topics plus `ITPPIBOK E.0` and
+  `SC26-457 2.0`, currently in #67, are the same segmentation fault.
+- **#62 — leave alone.** 19 topics, a genuinely distinct IR-level cause;
+  hosted shows 40 links and 2 headings lost. Nothing here contradicts it.
+- **#61 — leave alone.** Confirmed coherent. `cz FLOW MSGL/PROBD/ORESP` in
+  `GX27-3999-00 B.0` is the `cz`-dialect spelling of the same
+  message-catalogue block, so `PROBD`/`ORESP` are not a separate family;
+  they occur in one declining topic. 155 hosted links lost.
+- **#65 — leave alone.** Confirmed by measurement: 83 of the 91 hosted
+  `<img>` in declining topics are its 6 topics.
