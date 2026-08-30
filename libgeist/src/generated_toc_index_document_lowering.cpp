@@ -110,8 +110,15 @@ std::optional<DocumentIR> canonical_document(
       for (const auto& term : group.terms) {
         ListItemIR item;
         item.depth = term.level - 1;
-        auto term_origin = origin(term.term_slices, "generated index term");
-        item.content.push_back({TextInlineIR{term.term}, term_origin});
+        // A term the book wrote with no text at all names no words, so the
+        // item carries none: its own source line is still its origin, and the
+        // entries below it stay its children.
+        auto term_origin = origin(
+            term.term_slices.empty() ? std::vector{term.source}
+                                     : term.term_slices,
+            "generated index term");
+        if (!term.term.empty())
+          item.content.push_back({TextInlineIR{term.term}, term_origin});
         for (const auto& target : term.targets) {
           auto target_origin =
               origin(target.slices, "generated index term target");
@@ -130,6 +137,9 @@ std::optional<DocumentIR> canonical_document(
                    target.range_end_topic_id},
                target_origin});
         }
+        // An entry the book wrote with no term text and no target of its own
+        // draws nothing, but it is still the parent of the entries below it.
+        item.empty_content = item.content.empty();
         item.origin = origin({term.source}, "generated index entry");
         list_slices.push_back(term.source);
         list.items.push_back(std::move(item));

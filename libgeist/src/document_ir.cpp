@@ -222,8 +222,13 @@ bool verify_block(const BlockIR& block, std::string* error) {
           std::uint32_t previous_depth = 0;
           bool first_item = true;
           for (const auto& item : node.items) {
+            // An item may carry no inlines only where it says the source wrote
+            // it empty; declaring that and then carrying content is a lowering
+            // bug, not a source shape.
+            if (item.empty_content && !item.content.empty())
+              return fail(error, "empty list item carries content");
             if (!verify_origin(item.origin, error) ||
-                !verify_inlines(item.content, false, error))
+                !verify_inlines(item.content, item.empty_content, error))
               return false;
             // A list may only descend one level at a time, and its first item
             // is its shallowest.
