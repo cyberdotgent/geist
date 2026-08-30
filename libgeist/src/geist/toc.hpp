@@ -38,9 +38,8 @@ struct TocEntry {
   // file bytes, that produced them.
   GEIST_API std::string markdown(RenderTrace& trace) const;
   // The ids cross references may use to reach this topic.  Answered from the
-  // typed Document IR when the topic renders through it, and from the legacy
-  // GML projection only when it does not -- so a book-wide link map no longer
-  // forces the legacy string renderer to run for every topic.
+  // typed Document IR when the topic renders through it, and from the anchors
+  // its own structural controls name when it is reproduced verbatim.
   GEIST_API const std::vector<LinkTarget>& link_targets() const;
 
 private:

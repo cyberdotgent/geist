@@ -40,7 +40,6 @@ struct BooLogicalRecordTrace {
   std::uint32_t logical_record = 0;
   std::string decoded_record;
   std::vector<std::string> segments;
-  std::vector<std::string> normalized_gml_records;
   std::vector<BooFontTrace> font_spans;
   std::vector<std::string> ir_control_segments;
   std::vector<std::string> ir_physical_rows;

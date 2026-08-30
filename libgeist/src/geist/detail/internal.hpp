@@ -215,42 +215,16 @@ std::string annotate_decoded_placeholders(const std::string& value);
 std::vector<ResourceEntry> build_resources(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory);
-std::vector<std::string> render_gml_records(
-    const std::vector<std::string>& decoded_records);
-// Renders a verified publication catalog for a caller that already built the
-// topic's layout and ownership ledger. A null ledger means the topic's
-// geometry did not verify, which declines the catalog.
-std::optional<std::vector<std::string>>
-render_verified_publication_catalog_gml(
-    const std::vector<DecodedLogicalRecordSource>& sources,
-    const LayoutIR& layout, const VerifiedOwnershipIR* ownership);
-bool project_verified_menu_gml(
-    std::vector<std::string>& rendered,
-    const std::vector<DecodedLogicalRecordSource>& sources,
-    const std::map<std::string, std::string>& topic_titles);
-std::vector<std::string> render_gml_records_with_source_layout(
-    const std::vector<std::string>& decoded_records,
-    const std::vector<DecodedLogicalRecordSource>& sources);
-// Same rendering with the topic geometry supplied by the caller.
-// `publication_already_declined` says the caller has already offered these
-// sources to the publication catalog and been refused, so the offer is not
-// repeated.
-std::vector<std::string> render_gml_records_with_source_layout(
-    const std::vector<std::string>& decoded_records,
-    const std::vector<DecodedLogicalRecordSource>& sources,
-    const LayoutIR& layout, const VerifiedOwnershipIR* ownership,
-    bool publication_already_declined);
 std::string strip_fixed_line_overflow_tokens(
     std::string value,
     bool allow_wide_short_boundary = false,
     bool allow_content_origin = false);
 std::map<std::string, std::string> extract_font_definitions(
     const std::vector<std::string>& decoded_records);
-std::vector<BooLogicalRecordTrace> trace_gml_records(
+std::vector<BooLogicalRecordTrace> trace_decoded_records(
     const std::vector<std::string>& decoded_records,
     std::uint32_t first_logical_record,
     const std::map<std::string, std::string>& font_definitions);
-std::string render_markdown_records(const std::vector<std::string>& records);
 bool looks_like_control_boundary(const std::string& decoded_record,
                                  const std::string& lower_record,
                                  std::size_t offset);

@@ -94,7 +94,7 @@ set(GEIST_SOURCES
   src/io.cpp
   src/layout_ir.cpp
   src/logical.cpp
-  src/markup.cpp
+  src/decoded_record_scan.cpp
   src/message_ir.cpp
   src/message_prose_rows.cpp
   src/message_section_blocks_ir.cpp
@@ -107,7 +107,7 @@ set(GEIST_SOURCES
   src/menu_document_lowering.cpp
   src/menu_ir.cpp
   src/menu_topic_ir.cpp
-  src/markdown.cpp
+  src/topic_render.cpp
   src/ownership_ir.cpp
   src/img/mmr.cpp
   src/img/mmr_tables.cpp

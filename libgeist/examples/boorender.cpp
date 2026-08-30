@@ -90,8 +90,8 @@ int main(int argc, char** argv) {
         geist::RenderTrace trace;
         const auto text = entry->markdown(trace);
         if (trace.spans.empty()) {
-          std::cerr << "boorender: topic is rendered by the legacy route and "
-                       "carries no typed provenance\n";
+          std::cerr << "boorender: topic is reproduced verbatim and carries "
+                       "no typed provenance\n";
           return 1;
         }
         print_trace(document, text, trace);

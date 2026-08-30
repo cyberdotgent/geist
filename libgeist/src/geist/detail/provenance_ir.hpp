@@ -53,7 +53,6 @@ enum class DocumentDerivationIR {
   decoded,
   semantic_lowering,
   synthesized,
-  legacy_adapter,
 };
 
 // Fidelity of the lowering that produced a node.  `degraded` marks a node

@@ -18,8 +18,7 @@ bool verify_origin(const DocumentNodeOriginIR& origin, std::string* error) {
   switch (origin.derivation) {
   case DocumentDerivationIR::decoded:
   case DocumentDerivationIR::semantic_lowering:
-  case DocumentDerivationIR::synthesized:
-  case DocumentDerivationIR::legacy_adapter: break;
+  case DocumentDerivationIR::synthesized: break;
   default: return fail(error, "node origin has invalid derivation");
   }
   // `decoded` is the default derivation, so a node that never named its
@@ -357,7 +356,6 @@ const char* derivation_name(DocumentDerivationIR value) {
   case DocumentDerivationIR::decoded: return "decoded";
   case DocumentDerivationIR::semantic_lowering: return "semantic";
   case DocumentDerivationIR::synthesized: return "synthesized";
-  case DocumentDerivationIR::legacy_adapter: return "legacy";
   }
   return "invalid";
 }
@@ -480,8 +478,7 @@ DocumentSourceSliceIR widened(DocumentSourceSliceIR slice) {
 
 void lift_into(DocumentNodeOriginIR& container,
                const std::vector<const DocumentNodeOriginIR*>& children) {
-  if (container.derivation == DocumentDerivationIR::synthesized ||
-      container.derivation == DocumentDerivationIR::legacy_adapter)
+  if (container.derivation == DocumentDerivationIR::synthesized)
     return;
   const auto had_slices = !container.slices.empty();
   for (const auto* child : children) {

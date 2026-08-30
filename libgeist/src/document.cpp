@@ -440,7 +440,7 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
                                         all_records.size());
   std::vector<std::string> records(all_records.begin() + begin,
                                    all_records.begin() + end);
-  auto traced = detail::trace_gml_records(
+  auto traced = detail::trace_decoded_records(
       records, topic->start_logical_record, font_definitions());
   const auto sources = detail::decode_logical_record_sources(
       *decode_context_, topic->start_logical_record,

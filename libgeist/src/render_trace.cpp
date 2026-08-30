@@ -20,7 +20,6 @@ const char* derivation_name(detail::DocumentDerivationIR value) noexcept {
   case detail::DocumentDerivationIR::decoded: return "decoded";
   case detail::DocumentDerivationIR::semantic_lowering: return "semantic";
   case detail::DocumentDerivationIR::synthesized: return "synthesized";
-  case detail::DocumentDerivationIR::legacy_adapter: return "legacy";
   }
   return "invalid";
 }

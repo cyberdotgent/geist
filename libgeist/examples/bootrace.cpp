@@ -79,8 +79,8 @@ int main(int argc, char** argv) {
       }
       const auto* span = trace.span_at(offset);
       if (span == nullptr) {
-        std::cerr << "bootrace: this topic renders through the legacy route "
-                     "and carries no typed provenance\n";
+        std::cerr << "bootrace: this topic is reproduced verbatim and "
+                     "carries no typed provenance\n";
         return 1;
       }
       std::cout << "offset\t" << offset << "\n";
@@ -247,14 +247,11 @@ int main(int argc, char** argv) {
 
     if (show_records) {
       std::cout << "# logical records\n";
-      std::cout << "logical_record\tannotated_decoded_control_stream\t"
-                   "normalized_gml_records\n";
+      std::cout << "logical_record\tannotated_decoded_control_stream\n";
       for (const auto& record : trace) {
         std::cout << record.logical_record << "\t"
                   << tsv_escape(geist::detail::annotate_decoded_placeholders(
                          record.decoded_record))
-                  << "\t"
-                  << tsv_escape(join_records(record.normalized_gml_records))
                   << "\n";
       }
     }
