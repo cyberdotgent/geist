@@ -31,10 +31,13 @@ count_occurrences(glossary "\n- **" list_item_count)
 string(FIND "${glossary}"
   "<a id=\"GLS data link connection identifier (DLCI)\"></a>"
   dlci_anchor)
-string(FIND "${glossary}" "| DLCI Values | Function |" table_header)
-string(FIND "${glossary}" "| 1\\-15 | reserved |" table_low)
+# The embedded fixed-layout object renders verbatim: hosted BookServer serves
+# it as fixed columns of plain text inside the topic's <pre> and emits no
+# <table> element on the page (DT 19941010174546).
+string(FIND "${glossary}" "DLCI Values  Function" table_header)
+string(FIND "${glossary}" "1-15         reserved" table_low)
 string(FIND "${glossary}"
-  "| 1023 | in\\-channel layer management |" table_high)
+  "1023         in-channel layer management" table_high)
 string(FIND "${glossary}"
   "<a id=\"GLS X.25 interface\"></a>" terminal_anchor)
 string(FIND "${glossary}"

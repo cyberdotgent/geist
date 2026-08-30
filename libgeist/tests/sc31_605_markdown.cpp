@@ -11,8 +11,12 @@ int main() {
   const auto alert_table = document.topic_markdown("2.1");
   const auto event_type_index = document.topic_markdown("1.2");
   for (const auto* expected : {
-           "| 06 | USER | User generated |",
-           "| 07 | SNA | Summary |",
+           // Verbatim: hosted (DT 19911015203151) serves the whole envelope
+           // inside `<pre width="80">` and emits no `<table>` element.
+           "   | 06          | USER         | User generated                 "
+           "           |",
+           "   | 07          | SNA          | Summary                        "
+           "           |",
        }) {
     if (event_type_index.find(expected) == std::string::npos) {
       std::cerr << "SC31-605 event-type boundary merged a row: " << expected
@@ -22,8 +26,9 @@ int main() {
   }
   for (const auto* expected : {
            // Typed route: the two-line header keeps its hosted line break
-           // (DT 19911015203151 shows `Action` / `Code` on two rows).
-           "| Action<br>Code | Event<br>Type | Event or Alert Text |",
+           // (DT 19911015203151 shows `Action` / `Code` on two rows), which
+           // in the verbatim rendering is simply two display lines.
+           "   | Action  | Event    |",
            "TRANSFER MICROCODE DUMP",
            "MACHINE CHECK:STORE CONTROLLER",
            "USER APPLICATION GENERATED",
@@ -34,13 +39,13 @@ int main() {
     }
   }
   for (const auto* expected : {
-           "| 05 | 1 | MACHINE CHECK:STORE CONTROLLER |",
-           "| 0F | 1 | DATA LOST:STORE CONTROLLER |",
-           "| 19 | 1 | TICKET READ FILE FULL:USER |",
-           "| 23 | 1 | INTERVENTION REQUIRED:PRINTER |",
-           "| 63 | 5 | USER APPLICATION GENERATED |",
-           "| 6F | 5 | USER APPLICATION GENERATED |",
-           "| 7B | 5 | USER APPLICATION GENERATED |",
+           "| 05      | 1        | MACHINE CHECK:STORE CONTROLLER",
+           "| 0F      | 1        | DATA LOST:STORE CONTROLLER",
+           "| 19      | 1        | TICKET READ FILE FULL:USER",
+           "| 23      | 1        | INTERVENTION REQUIRED:PRINTER",
+           "| 63      | 5        | USER APPLICATION GENERATED",
+           "| 6F      | 5        | USER APPLICATION GENERATED",
+           "| 7B      | 5        | USER APPLICATION GENERATED",
        }) {
     if (alert_table.find(expected) == std::string::npos) {
       std::cerr << "misaligned SC31-605 boundary row: " << expected << "\n";
@@ -53,9 +58,9 @@ int main() {
   const auto event_3725 = document.topic_markdown("3.8");
   const auto event_3647 = document.topic_markdown("3.3");
   for (const auto* expected : {
-           "| Event<br>Code | Qualifier 1 | Qualifier 2 | Qualifier 3 |",
-           "| 00504 | Panel message |  |  |",
-           "| 00505 | Panel message |  |  |",
+           "   | Event   |",
+           "   | 00504   | Panel message      |",
+           "   | 00505   | Panel message      |",
        }) {
     if (event_3650.find(expected) == std::string::npos) {
       std::cerr << "misaligned SC31-605 3650 event row: " << expected << "\n";
@@ -63,9 +68,12 @@ int main() {
     }
   }
   for (const auto* expected : {
-           "| 02136 | Node ID,device<br>type | Device address | Log record ID |",
-           "| 02142 | Node ID,device<br>type | Device address,<br>malfunction code | Log record ID |",
-           "| 0216B | Node ID,device<br>type | Device address,<br>malfunction code | Log record ID |",
+           "   | 02136   | Node ID,device     | Device address     | "
+           "Log record ID      |",
+           "   | 02142   | Node ID,device     | Device address,    | "
+           "Log record ID      |",
+           "   | 0216B   | Node ID,device     | Device address,    | "
+           "Log record ID      |",
        }) {
     if (event_series1.find(expected) == std::string::npos) {
       std::cerr << "misaligned SC31-605 Series/1 event row: " << expected
@@ -73,19 +81,17 @@ int main() {
       return 1;
     }
   }
-  if (event_3725.find("| 02D07 | Abend code |  |  |") ==
+  if (event_3725.find("   | 02D07   | Abend code         |") ==
           std::string::npos ||
-      event_3725.find("| 02D08 | Abend code |  |  |") ==
+      event_3725.find("   | 02D08   | Abend code         |") ==
           std::string::npos ||
-      event_3725.find("| 02D0B | Scanner position | Lower range of<br>line "
-                      "addresses | Upper range of<br>line addresses |") ==
-          std::string::npos) {
+      event_3725.find("   | 02D0B   | Scanner position   | Lower range of     "
+                      "| Upper range of     |") == std::string::npos) {
     std::cerr << "SC31-605 wrapped qualifier rows lost their columns\n";
     return 1;
   }
-  if (event_3647.find(
-          "| 01601 | Log record number | Device address | Status code |") ==
-      std::string::npos) {
+  if (event_3647.find("   | 01601   | Log record number  | Device address     "
+                      "| Status code        |") == std::string::npos) {
     std::cerr << "SC31-605 sparse event grid lost its semantic columns\n";
     return 1;
   }

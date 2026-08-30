@@ -306,9 +306,15 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
       if (blocks.empty()) return fail(&span_error, "table span lowered to nothing");
       const auto span_index =
           static_cast<std::size_t>(&span - prose.spans.data());
-      // A preformatted region has no cells for a CSELECT to attach to; the
-      // table block declines such an envelope, so there is nothing to link.
-      if (table.geometry != FixedTableGeometryIR::preformatted &&
+      // A verbatim region has no cells for a CSELECT to attach to: the table
+      // block declines an envelope that carries one, and every envelope the
+      // source did not declare a `:table` now renders as its display lines.
+      // So the cell links apply only to a lowered Markdown table.
+      const auto lowered_table =
+          std::any_of(blocks.begin(), blocks.end(), [](const auto& candidate) {
+            return std::holds_alternative<TableBlockIR>(candidate.node);
+          });
+      if (lowered_table &&
           !link_table_cells(prose, span_index, table, blocks, &span_error))
         return false;
       for (auto& block : blocks) document.blocks.push_back(std::move(block));
@@ -430,14 +436,12 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
       }
       auto preformatted_origin =
           origin(block.slices, "prose CZ example block");
-      if (!block.degradation_code.empty()) {
+      // A drawn box region reproduces its display rows exactly as hosted
+      // BookServer serves them inside `<pre>`, which makes it clean rather
+      // than degraded: the source holds character art, not a structure we
+      // failed to recover.
+      if (!block.verbatim_kind.empty())
         preformatted_origin.detail = "prose drawn box region: verbatim rows";
-        preformatted_origin.fidelity = DocumentFidelityIR::degraded;
-        preformatted_origin.degradation_code = block.degradation_code;
-        preformatted_origin.degradation_detail =
-            "drawn box region has no proven structure; display rows kept "
-            "verbatim";
-      }
       document.blocks.push_back({PreformattedBlockIR{block.preformatted_lines},
                                  std::move(preformatted_origin)});
       ++index;

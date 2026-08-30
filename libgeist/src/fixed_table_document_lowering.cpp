@@ -88,18 +88,21 @@ lower_fixed_table_block_to_document_ir(const FixedTableBlockIR &block) {
   anchor.origin.slices.push_back(block.object_source);
   result.push_back(std::move(anchor));
 
-  // A region whose column structure was not proven lowers to its display
-  // lines, which is what the hosted reader serves inside <pre>.
-  if (block.geometry == FixedTableGeometryIR::preformatted) {
+  // The region lowers to its display lines, which is what the hosted reader
+  // serves inside `<pre>`.  This is the faithful rendering, not a fallback:
+  // the BOO file stores character art, not a grid, and reproducing it line
+  // for line equals the reference renderer, so the block is clean even when
+  // a column model did prove (`geometry` is then `box` or `gap` and the
+  // recovered rows stay in the IR for consumers and provenance).  The one
+  // exception is an envelope the source itself declared a `:table` with
+  // `cz OFF TABLE`, which is the only region hosted serves as an HTML
+  // `<table>`.
+  const auto verbatim =
+      !block.source_declared_table && !block.preformatted_lines.empty();
+  if (verbatim || block.geometry == FixedTableGeometryIR::preformatted) {
     PreformattedBlockIR body;
     BlockIR body_block;
-    body_block.origin = origin_for("fixed table region: preformatted body");
-    // Degraded, not typed: the SRTBL region is admitted and every source word
-    // is kept, but no column structure is asserted for it.
-    body_block.origin.fidelity = DocumentFidelityIR::degraded;
-    body_block.origin.degradation_code = "fixed-table-verbatim";
-    body_block.origin.degradation_detail =
-        "SRTBL region column geometry was not proven; rows kept verbatim";
+    body_block.origin = origin_for("fixed table region: verbatim body");
     body_block.origin.slices.push_back(block.object_source);
     for (const auto &line : block.preformatted_lines) {
       body.lines.push_back(line.text);
@@ -130,6 +133,17 @@ lower_fixed_table_block_to_document_ir(const FixedTableBlockIR &block) {
   for (const auto &row : block.body)
     table.rows.push_back(lower_row(row));
   table_block.origin = origin_for("fixed table");
+  // Reached only when the source declared the region a `:table`, or when the
+  // record's display-line model did not parse so no verbatim text exists.
+  // The second case asserts columns the file does not carry, so it is named
+  // in the render diagnostic instead of passing silently.
+  if (!block.source_declared_table) {
+    table_block.origin.fidelity = DocumentFidelityIR::degraded;
+    table_block.origin.degradation_code = "fixed-table-columns-inferred";
+    table_block.origin.degradation_detail =
+        "SRTBL region has no parseable display lines; recovered columns are "
+        "rendered as a table although the source declares no :table";
+  }
   table_block.origin.slices.push_back(block.object_source);
   for (const auto &source : block.source_rows)
     add_row(table_block.origin, source);
@@ -141,11 +155,15 @@ lower_fixed_table_block_to_document_ir(const FixedTableBlockIR &block) {
 bool verify_fixed_table_document_ir(const FixedTableBlockIR &block,
                                     const std::vector<BlockIR> &lowered,
                                     std::string *error) {
-  if (block.geometry != FixedTableGeometryIR::preformatted && block.body.empty())
+  // The block renders verbatim unless the source declared a `:table`; a
+  // declared region with no proven columns still renders verbatim.
+  const auto verbatim =
+      block.geometry == FixedTableGeometryIR::preformatted ||
+      (!block.source_declared_table && !block.preformatted_lines.empty());
+  if (!verbatim && block.body.empty())
     return fail(error, "fixed table block has no body rows");
-  if (block.geometry == FixedTableGeometryIR::preformatted &&
-      block.preformatted_lines.empty())
-    return fail(error, "preformatted table region has no display lines");
+  if (verbatim && block.preformatted_lines.empty())
+    return fail(error, "verbatim table region has no display lines");
   const auto canonical = lower_fixed_table_block_to_document_ir(block);
   const auto wrap = [](const std::vector<BlockIR> &blocks) {
     DocumentIR document;
@@ -163,7 +181,7 @@ bool verify_fixed_table_document_ir(const FixedTableBlockIR &block,
   if (format_document_ir(expected) != format_document_ir(actual))
     return fail(error, "fixed table document nodes differ from canonical "
                        "lowering");
-  if (block.geometry == FixedTableGeometryIR::preformatted) {
+  if (verbatim) {
     const auto body = std::find_if(
         lowered.begin(), lowered.end(), [](const auto &candidate) {
           return std::holds_alternative<PreformattedBlockIR>(candidate.node);

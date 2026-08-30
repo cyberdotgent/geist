@@ -124,6 +124,7 @@ struct Candidate {
   std::uint32_t end_record = 0;
   std::size_t end_token = 0;
   std::string object_id;
+  bool declared_table = false;
   std::string failure;
 };
 
@@ -132,6 +133,51 @@ std::string object_id_of(const ControlSegmentIR &segment) {
   if (ascii_lower(opcode.substr(0, 5)) == "srtbl")
     return opcode.substr(5);
   return opcode;
+}
+
+// The segment's source tokens spelled as lower-case ASCII with blanks
+// removed, so `cz OFF TABLE` reads `czofftable`. Non-ASCII words become `?`
+// and never join two words into a keyword.
+std::string segment_keyword(const DecodedLogicalRecordSource &record,
+                            const ControlSegmentIR &segment) {
+  std::string text;
+  for (const auto token : segment.source_tokens) {
+    if (token >= record.tokens.size())
+      continue;
+    for (const auto word : record.tokens[token]) {
+      if (word < 4 || word == ' ' || word == 0xA0)
+        continue;
+      text.push_back(word > 0x7f
+                         ? '?'
+                         : ascii_lower_char(static_cast<char>(word)));
+    }
+  }
+  return text;
+}
+
+// True when a `cz OFF TABLE` layout directive opens this SRTBL envelope: the
+// nearest preceding control segment, skipping display text, spells it.
+// Evidence: SC09-2417-00 4.1.4.1 record 723 segment 15 is `cz OFF TABLE` and
+// segment 16 `SRTBLLNKSPEC`, closed by `SRETBL` / `cz OFF ETABLE 0 0`;
+// GG24-4302-00 10.2 record 713 opens `SRTBLDBCTL51` with no directive at all.
+bool declared_table_region(
+    const std::vector<DecodedLogicalRecordSource> &records,
+    std::size_t record_index, std::size_t segment_index) {
+  for (auto record = record_index + 1; record-- > 0;) {
+    const auto &scanned = records[record];
+    auto at = record == record_index ? segment_index
+                                     : scanned.control_segments.size();
+    while (at-- > 0) {
+      const auto &segment = scanned.control_segments[at];
+      if (segment.kind == BookControlKind::text || segment.display_text)
+        continue;
+      return segment.kind == BookControlKind::layout_directive &&
+             segment_keyword(scanned, segment).rfind("czofftable", 0) == 0;
+    }
+    if (record == 0)
+      break;
+  }
+  return false;
 }
 
 std::vector<Candidate>
@@ -149,6 +195,8 @@ find_candidates(const std::vector<DecodedLogicalRecordSource> &records) {
       candidate.start_record = &record;
       candidate.start = &segment;
       candidate.object_id = object_id_of(segment);
+      candidate.declared_table =
+          declared_table_region(records, index, segment_index);
       bool closed = false;
       for (std::size_t scan = index; scan < records.size() && !closed;
            ++scan) {
@@ -268,18 +316,29 @@ public:
     }
 
     collect_index_lines(start, end, block);
+    block.source_declared_table = candidate.declared_table;
 
     auto table = block;
     std::string table_reason;
-    if (extract_table_geometry(candidate, start, end, table, table_reason)) {
-      lines_.clear();
+    const auto table_proven =
+        extract_table_geometry(candidate, start, end, table, table_reason);
+    lines_.clear();
+    std::string preformatted_reason;
+    if (table_proven) {
+      // The column model owns every cell of the region, so the verbatim
+      // lines are recorded alongside it without claiming anything: the
+      // lowering renders the lines (the file holds character art, not a
+      // grid) while the recovered columns stay in the IR for consumers,
+      // provenance and the geometry tests.
+      auto lines_only = block;
+      if (admit_preformatted(candidate, start, end, lines_only,
+                             preformatted_reason))
+        table.preformatted_lines = std::move(lines_only.preformatted_lines);
       return table;
     }
-    lines_.clear();
     // No column structure was proven.  The envelope's display lines still
     // are, through the record's length-byte line model, so the region is
     // reproduced verbatim instead of failing the whole topic.
-    std::string preformatted_reason;
     if (admit_preformatted(candidate, start, end, block, preformatted_reason))
       return block;
     reason = table_reason + "; not preformatted: " + preformatted_reason;
@@ -2395,8 +2454,9 @@ bool verify_fixed_table_blocks_ir(
         return fail("preformatted table region has no visible line");
       continue;
     }
-    if (!block.preformatted_lines.empty())
-      return fail("fixed table carries preformatted lines");
+    // A column-proven region also records its display lines, so the lowering
+    // can reproduce the art verbatim; those lines claim no cell of their own,
+    // and are absent only when the record's line model did not parse.
     if (block.body.empty() || block.separator_columns.empty())
       return fail("fixed table has no body rows or columns");
     if (block.header_rows > block.body.size())

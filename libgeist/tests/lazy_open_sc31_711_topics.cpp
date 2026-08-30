@@ -53,9 +53,19 @@ int main() {
               "their first occurrence in this publication, are trademarks "
               "of other companies:") != std::string::npos,
           "visible CCP trademark paragraph was dropped");
+  // The box renders verbatim, line for line with hosted, which serves it
+  // inside `<pre width="80">` and emits no `<table>` element.
   for (const auto* pair : {
-           "| IBM | NetView |", "| AIX | SystemView |", "| PS/2 | OS/2 |",
-           "| RISC System/6000 | RS/6000 |", "| NETCENTER | RT |",
+           "   | IBM                                | NetView               "
+           "            |",
+           "   | AIX                                | SystemView            "
+           "            |",
+           "   | PS/2                               | OS/2                  "
+           "            |",
+           "   | RISC System/6000                   | RS/6000               "
+           "            |",
+           "   | NETCENTER                          | RT                    "
+           "            |",
        }) {
     require(trademarks.find(pair) != std::string::npos,
             "headerless trademark box lost a paired row");

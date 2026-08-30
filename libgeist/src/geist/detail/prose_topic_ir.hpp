@@ -142,12 +142,14 @@ struct ProseBlockIR {
   // blank rows kept); `inlines` then holds one text inline per non-blank
   // row for provenance.
   std::vector<std::string> preformatted_lines;
-  // Machine-readable degradation code when this block is a verbatim fallback
-  // rather than a source-declared structure.  A `cz OFF XMP` example block is
-  // preformatted because the source says so and leaves this empty; a drawn box
-  // region is preformatted because nothing inside it could be proven, and sets
-  // it, so the render diagnostic can report the topic as typed-degraded.
-  std::string degradation_code;
+  // Machine-readable name of the verbatim region kind when the block is
+  // preformatted for a reason other than a source `cz OFF XMP`/`SCREEN`
+  // declaration: a drawn box region sets `prose-drawn-box-verbatim`.  Both
+  // render the same way -- character art the compiler rasterized at build
+  // time, reproduced line for line as hosted BookServer serves it inside
+  // `<pre>` -- so this names the region for consumers and provenance and no
+  // longer degrades the topic's render severity.
+  std::string verbatim_kind;
   std::vector<ProseInlineIR> inlines;
   std::vector<DocumentSourceSliceIR> slices;
 };

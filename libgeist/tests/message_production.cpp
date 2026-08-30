@@ -222,23 +222,27 @@ int main() {
   // Verified structured blocks: MSG807 command table, MSG739 checklist,
   // MSG508 explicit preformatted fallback (the row-less `SNMP Trap` field
   // keeps its own source-ordered line instead of a fabricated table cell).
+  // Hosted BookServer serves MSG807's listing as plain preformatted lines
+  // inside the topic's `<pre width="80">` -- `<B>23006</B>          LAN ADP
+  // LIST SEG=&lt;segment number&gt;`, each wrapped continuation on its own
+  // line -- and emits no `<table>` element on the page (DT 19941010174546),
+  // so it renders as one fenced block with the same line structure.
   require_ordered(
       markdown,
       {"<a id=\"MSG 807\"></a>",
        "applications are described in the following list:\n\n"
-       "| Command type | Command |\n| --- | --- |\n"
-       "| 23006 | LAN ADP LIST SEG=\\<segment number\\> |\n"
-       "| 11011 | LAN ADP QUERY ADP=\\<adapter address\\> SEG=\\<segment "
-       "number\\> |\n",
-       "| 31096 | LAN CAU QUERY UNIT=\\<unit id\\> ATTR=WRAP |\n"
-       "| 31127 | LAN CAU QUERY UNIT=\\<unit id\\> MOD=\\<module number\\> |\n"
-       "| 31161 | LAN CAU QUERY UNIT=\\<unit id\\> MOD=\\<module number\\> "
-       "ATTR=LOBE |\n",
-       "| 103000 | LAN CAUQUAL LIST |\n\n**Action:** It is possible",
+       "```\nCommand type Command\n"
+       "23006 LAN ADP LIST SEG=<segment number>\n"
+       "11011 LAN ADP QUERY ADP=<adapter address> SEG=<segment\nnumber>\n",
+       "31096 LAN CAU QUERY UNIT=<unit id> ATTR=WRAP\n"
+       "31127 LAN CAU QUERY UNIT=<unit id> MOD=<module number>\n"
+       "31161 LAN CAU QUERY UNIT=<unit id> MOD=<module number>\n"
+       "ATTR=LOBE\n",
+       "103000 LAN CAUQUAL LIST\n```\n\n**Action:** It is possible",
        "<a id=\"MSG 808\"></a>"},
-      "MSG807 command table is not rendered as a Markdown table");
-  require(count(markdown, "\n| ") == 27,
-          "message Markdown table row inventory changed");
+      "MSG807 command listing is not rendered as one fenced block");
+  require(count(markdown, "\n| ") == 0,
+          "message Markdown must contain no table rows");
   require_ordered(
       markdown,
       {"<a id=\"MSG 739\"></a>",
@@ -264,7 +268,7 @@ int main() {
        "lnmfddimgr Restart lnmfddimgr by selecting a FDDI object\n"
        "and requesting a window.\n```\n\n<a id=\"MSG 509\"></a>"},
       "MSG508 fallback is not rendered as one fenced block");
-  require(count(markdown, "\n```\n") == 2,
+  require(count(markdown, "\n```\n") == 4,
           "message Markdown fenced block inventory changed");
   for (const auto *artifact : {"| action ", "| an ", "action 31096",
                                "an 31127", "an 31161"})

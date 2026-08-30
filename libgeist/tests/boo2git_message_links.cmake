@@ -42,8 +42,11 @@ string(FIND "${messages}"
 string(FIND "${messages}"
   "**Action:** Refer to the man page for usage\\."
   message_218_action)
+# MSG807's command listing renders verbatim: hosted serves it as plain
+# preformatted lines inside the topic's <pre width="80"> and emits no <table>
+# element on the page (DT 19941010174546).
 string(FIND "${messages}"
-  "| Command type | Command |\n| --- | --- |\n| 23006 | LAN ADP LIST SEG=\\<segment number\\> |"
+  "```\nCommand type Command\n23006 LAN ADP LIST SEG=<segment number>"
   message_807_table)
 string(FIND "${messages}"
   "- /usr/lpp/lnm/databases contains lnmlnmemgr\\.pdf\n- /usr/lib/nls/msg/"

@@ -480,6 +480,32 @@ void positive_fixtures() {
               "OFCUSEOV 1.18.2 preformatted block count");
   }
   {
+    // A captured OS/400 terminal screen, not a data grid: OFCUSEOV 1.11's
+    // `Work with Mail` frame carries an option list, a dashed `------From-------`
+    // spanning label over three narrower column headings, and the function-key
+    // footer, all inside one drawn frame.  Any column inference would shred it,
+    // so the frame is reproduced exactly as hosted BookServer serves it inside
+    // `<pre>` (DT 19900805103816).  OFCUSEOV carries no `cz` directives at all,
+    // so these screens are recognised by the drawn frame rather than by a
+    // `cz OFF SCREEN` marker.
+    Extracted kept;
+    const auto markdown = admit("OFCUSEOV.BOO", "1.11", &kept);
+    for (const auto* row : {
+             "|     |                                   Work with Mail       "
+             "                          |",
+             "|     |                    ------From-------                   "
+             "                 Date     |",
+             "|     |   Opt  Status      User ID  Address   Description      "
+             "                 Received |",
+             "|     |   __   NEW         SJONES   ROCH      Budget Meeting   "
+             "                 04/21/88 |",
+             "|     |   F3=Exit           F5=Refresh   F6=Outgoing mail "
+             "status                         |",
+         })
+      require(contains(markdown, row),
+              "OFCUSEOV 1.11 screen capture lost a frame row");
+  }
+  {
     // `LNK <BOOK> <> <> <SC30-3290> <> <TPNSGU>` selectors lower to external
     // cross references to the other book's contents, and the CFONT phrase
     // inside the selector phrase is the link's own label: hosted BookServer

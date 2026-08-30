@@ -186,30 +186,31 @@ int main() {
   // last item; that remainder is its own paragraph after the list.
   require(count_blocks(*document, paragraph_block) == expected_paragraphs + 1,
           "message DocumentIR lost a semantic section paragraph");
-  require(count_blocks(*document, table_block) == 1 &&
+  // MSG807's command listing renders verbatim, so the document carries no
+  // Markdown table at all: hosted BookServer serves the listing as plain
+  // preformatted lines inside the topic's `<pre width="80">` and emits no
+  // `<table>` element on the page (DT 19941010174546).
+  require(count_blocks(*document, table_block) == 0 &&
               count_blocks(*document, list_block) == 1 &&
-              count_blocks(*document, preformatted_block) == 1,
+              count_blocks(*document, preformatted_block) == 2,
           "message DocumentIR did not lower exactly the three verified blocks");
 
-  const auto *table = find_block_after(*document, "MSG 807", table_block);
-  require(table != nullptr, "MSG807 table does not follow its anchor");
+  const auto *table =
+      find_block_after(*document, "MSG 807", preformatted_block);
+  require(table != nullptr, "MSG807 listing does not follow its anchor");
   if (table != nullptr) {
-    const auto &node = std::get<geist::detail::TableBlockIR>(table->node);
-    require(node.header_rows == 1 && node.rows.size() == 26 &&
-                node.rows.front().cells.size() == 2 &&
-                inline_text(node.rows[0].cells[0].content) == "Command type" &&
-                inline_text(node.rows[0].cells[1].content) == "Command" &&
-                inline_text(node.rows[1].cells[0].content) == "23006" &&
-                inline_text(node.rows[25].cells[0].content) == "103000" &&
-                inline_text(node.rows[25].cells[1].content) ==
-                    "LAN CAUQUAL LIST",
-            "MSG807 table schema or cells changed");
-    for (const auto &row : node.rows)
-      for (const auto &cell : row.cells)
-        require(!cell.origin.rows.empty() && !cell.origin.slices.empty() &&
-                    cell.origin.derivation ==
-                        geist::detail::DocumentDerivationIR::semantic_lowering,
-                "MSG807 table cell lacks row/token provenance");
+    const auto &node =
+        std::get<geist::detail::PreformattedBlockIR>(table->node);
+    // Hosted prints one line per display row, each wrapped continuation on a
+    // line of its own: `<B>Command</B> <B>type</B>   <B>Command</B>`, then
+    // `<B>23006</B>          LAN ADP LIST SEG=&lt;segment number&gt;`, then
+    // `<B>11011</B>          LAN ADP QUERY ADP=&lt;adapter address&gt;
+    // SEG=&lt;segment` / `                       number&gt;`.
+    require(node.lines.size() > 26 && node.lines[0] == "Command type Command" &&
+                node.lines[1] ==
+                    "23006 LAN ADP LIST SEG=<segment number>" &&
+                node.lines.back() == "103000 LAN CAUQUAL LIST",
+            "MSG807 listing changed");
     // The block sits directly between its Meaning paragraph and the Action
     // paragraph; no prose is displaced around it.
     const auto index =
@@ -228,7 +229,7 @@ int main() {
                 std::get<geist::detail::EmphasisInlineIR>(
                     action->content[0].node)
                         .text == "Action:",
-            "MSG807 table is not enclosed by its Meaning and Action blocks");
+            "MSG807 listing is not enclosed by its Meaning and Action blocks");
   }
   const auto *list = find_block_after(*document, "MSG 739", list_block);
   require(list != nullptr, "MSG739 list does not follow its anchor");
@@ -322,11 +323,13 @@ int main() {
     require(markdown.find(artifact) == std::string::npos,
             "message Markdown retained a source layout artifact");
 
-  require(markdown.find("| Command type | Command |\n| --- | --- |\n"
-                        "| 23006 | LAN ADP LIST SEG=\\<segment number\\> |\n") !=
+  require(markdown.find("```\nCommand type Command\n"
+                        "23006 LAN ADP LIST SEG=<segment number>\n") !=
                   std::string::npos &&
-              markdown.find("| 31161 | LAN CAU QUERY UNIT=\\<unit id\\> "
-                            "MOD=\\<module number\\> ATTR=LOBE |") !=
+              // The restored `>` delimiter and the wrapped continuation are
+              // kept, on the two lines the source breaks them over.
+              markdown.find("31161 LAN CAU QUERY UNIT=<unit id> "
+                            "MOD=<module number>\nATTR=LOBE\n") !=
                   std::string::npos &&
               markdown.find("conditions are true:\n\n"
                             "- /usr/lpp/lnm/databases contains "
@@ -341,10 +344,17 @@ int main() {
                             "is running properly\nThen restart LNM for "
                             "AIX.\n") != std::string::npos,
           "message Markdown lost the typed table, list, or preformatted block");
-  for (const auto *artifact :
-       {"| action ", "| an ", "action 31096", "an 31127"})
+  // The marker spellings `action`/`an` that message semantics carried into
+  // three MSG807 rows are structural evidence, never printed text.
+  for (const auto *artifact : {"action 31096", "an 31127", "31096 action",
+                               "31127 an "})
     require(markdown.find(artifact) == std::string::npos,
-            "message Markdown table leaked a structural marker spelling");
+            "message Markdown listing leaked a structural marker spelling");
+  if (table != nullptr)
+    for (const auto &line :
+         std::get<geist::detail::PreformattedBlockIR>(table->node).lines)
+      require(line.rfind("action ", 0) != 0 && line.rfind("an ", 0) != 0,
+              "MSG807 listing line opens with a structural marker spelling");
 
   // Structured-block conservation: dropping, duplicating, or rewriting a
   // claimed cell must fail the lowering, not silently change the output.

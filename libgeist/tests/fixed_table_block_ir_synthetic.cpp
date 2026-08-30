@@ -173,6 +173,16 @@ const TableBlockIR *lowered_table(const std::vector<BlockIR> &blocks) {
   return nullptr;
 }
 
+// Every SRTBL envelope the source did not declare a `:table` with
+// `cz OFF TABLE` lowers to its display lines, exactly as the hosted
+// BookServer serves them inside `<pre>`.
+const PreformattedBlockIR *lowered_verbatim(const std::vector<BlockIR> &blocks) {
+  for (const auto &block : blocks)
+    if (const auto *body = std::get_if<PreformattedBlockIR>(&block.node))
+      return body;
+  return nullptr;
+}
+
 std::string inline_text(const InlineSequenceIR &content) {
   std::string text;
   for (const auto &in : content) {
@@ -221,17 +231,27 @@ void test_sc31_711_trademark_box() {
   require(block.rows.begin == 2 && block.rows.end == 8,
           "FRONT_1.1 row span");
 
+  // The recovered columns stay in the IR, but the Markdown is the drawn box
+  // itself: hosted serves exactly these eleven lines inside `<pre width="80">`
+  // (`   | IBM                                | NetView                           |`
+  // over `   |____...____|____...____|`) and emits no `<table>` element.
   const auto lowered = lower_fixed_table_block_to_document_ir(block);
-  const auto *table = lowered_table(lowered);
+  const auto *verbatim = lowered_verbatim(lowered);
   require(lowered.size() == 2 &&
               std::holds_alternative<AnchorBlockIR>(lowered.front().node) &&
-              table != nullptr && table->header_rows == 0 &&
-              table->rows.size() == 5,
-          "FRONT_1.1 lowers to an anchor and a headerless table");
-  if (table != nullptr && table->rows.size() == 5)
-    require(inline_text(table->rows[3].cells[0].content) ==
-                "RISC System/6000",
-            "FRONT_1.1 lowered cell text");
+              lowered_table(lowered) == nullptr && verbatim != nullptr &&
+              verbatim->lines.size() == 11,
+          "FRONT_1.1 lowers to an anchor and the drawn box verbatim");
+  if (verbatim != nullptr && verbatim->lines.size() == 11) {
+    require(verbatim->lines[0] ==
+                "    ____________________________________ "
+                "___________________________________",
+            "FRONT_1.1 verbatim top rule");
+    require(verbatim->lines[7] ==
+                "   | RISC System/6000                   | RS/6000            "
+                "               |",
+            "FRONT_1.1 verbatim RISC row");
+  }
 
   // Row-range API: the exact span admits, a disjoint span ignores, and a
   // partial span declines without admitting anything.
@@ -278,16 +298,17 @@ void test_sc31_711_trademark_box() {
           "altered source cell must be rejected");
   // Mutation rejection for the document lowering verifier.
   auto lowered_mutated = lowered;
-  auto *mutated_table = std::get_if<TableBlockIR>(&lowered_mutated.back().node);
-  if (mutated_table != nullptr) {
-    std::get<TextInlineIR>(mutated_table->rows[0].cells[1].content[0].node)
-        .text = "NetVieW";
+  auto *mutated_body =
+      std::get_if<PreformattedBlockIR>(&lowered_mutated.back().node);
+  if (mutated_body != nullptr) {
+    mutated_body->lines[1] = "   | IBN";
     require(!verify_fixed_table_document_ir(block, lowered_mutated, &error),
-            "mutated lowered text must be rejected");
+            "mutated lowered line must be rejected");
     lowered_mutated = lowered;
-    std::get_if<TableBlockIR>(&lowered_mutated.back().node)->header_rows = 1;
+    std::get_if<PreformattedBlockIR>(&lowered_mutated.back().node)
+        ->lines.pop_back();
     require(!verify_fixed_table_document_ir(block, lowered_mutated, &error),
-            "mutated lowered header count must be rejected");
+            "dropped lowered line must be rejected");
     lowered_mutated = lowered;
     lowered_mutated.erase(lowered_mutated.begin());
     require(!verify_fixed_table_document_ir(block, lowered_mutated, &error),
@@ -339,13 +360,21 @@ void test_sc31_711_trap_directory() {
               cell_text(block.body[4], 1) ==
                   "\"FDDI SNMP Proxy Agent Traps\" in topic 4.4",
           "4.0 last body row");
+  // Hosted serves the same envelope verbatim: `   | For information       |
+  // Read:                                          |` on its own line, then
+  // `   | about:                |` on the next -- the header's display line
+  // break is a real line, not a `<br>` inside a cell.
   const auto lowered = lower_fixed_table_block_to_document_ir(block);
-  const auto *table = lowered_table(lowered);
-  require(table != nullptr && table->header_rows == 1 &&
-              table->rows.size() == 5 &&
-              inline_text(table->rows[0].cells[0].content) ==
-                  "For information\nabout:",
-          "4.0 lowered header keeps the display line break");
+  const auto *verbatim = lowered_verbatim(lowered);
+  require(lowered_table(lowered) == nullptr && verbatim != nullptr &&
+              verbatim->lines.size() > 2 &&
+              verbatim->lines[1] ==
+                  "   | For information       | Read:                         "
+                  "                 |" &&
+              verbatim->lines[2] ==
+                  "   | about:                |                               "
+                  "                 |",
+          "4.0 lowers verbatim and keeps the header's two display lines");
 }
 
 void test_gg24_dbctl_overview() {
@@ -383,12 +412,16 @@ void test_gg24_dbctl_overview() {
               cell_text(block.body[30], 1) == "*" &&
               cell_text(block.body[30], 2).empty(),
           "10.2 last row");
+  // The caption is not lifted out of the art: hosted draws it inside the box,
+  // `   | Table 15. DBCTL 5.1 Overview ... |` between two rules, so the
+  // verbatim body carries it in place and the lowering emits anchor + body.
   const auto lowered = lower_fixed_table_block_to_document_ir(block);
-  require(lowered.size() == 3 &&
-              std::holds_alternative<ParagraphBlockIR>(lowered[1].node) &&
-              inline_text(std::get<ParagraphBlockIR>(lowered[1].node).content) ==
-                  "Table 15. DBCTL 5.1 Overview",
-          "10.2 caption lowers to a paragraph before the table");
+  const auto *verbatim = lowered_verbatim(lowered);
+  require(lowered.size() == 2 && verbatim != nullptr &&
+              lowered_table(lowered) == nullptr && verbatim->lines.size() > 1 &&
+              verbatim->lines[1].rfind("   | Table 15. DBCTL 5.1 Overview", 0) ==
+                  0,
+          "10.2 lowers verbatim with the caption drawn inside the box");
 }
 
 void test_sc31_605_block_005() {
@@ -485,9 +518,9 @@ void test_gap_qsysinfo_order_form() {
           "APPENDIX1.4.1.1 body row (`___` is a visible order-form cell, the "
           "`,` after `Guide` a hidden terminal slot)");
   const auto lowered = lower_fixed_table_block_to_document_ir(block);
-  const auto *table = lowered_table(lowered);
-  require(table != nullptr && table->header_rows == 1 && table->rows.size() == 2,
-          "APPENDIX1.4.1.1 lowers to a header and one row");
+  require(lowered_table(lowered) == nullptr &&
+              lowered_verbatim(lowered) != nullptr,
+          "APPENDIX1.4.1.1 lowers to its display lines, as hosted serves them");
 
   const auto appendix = extract("QSYSINFO.BOO", "APPENDIX1.4");
   require(appendix.blocks.blocks.size() == 1 && appendix.blocks.declined.empty(),
@@ -581,10 +614,12 @@ void test_gap_sc33_function_signature() {
               cell_text(defaults.body[2], 1) == "normal",
           "4.6 defaults table: `line type` one-byte word in line, `)` kept "
           "before a glyph marker");
+  // Gap-column envelopes render verbatim too: the caption line is one of the
+  // region's display lines and hosted prints it in place.
   const auto lowered = lower_fixed_table_block_to_document_ir(codes);
-  require(lowered.size() == 3 &&
-              std::holds_alternative<ParagraphBlockIR>(lowered[1].node),
-          "4.6 caption lowers to a paragraph before the table");
+  require(lowered.size() == 2 && lowered_table(lowered) == nullptr &&
+              lowered_verbatim(lowered) != nullptr,
+          "4.6 lowers to its display lines, caption line included");
 }
 
 void test_gap_sc24_command_tables() {

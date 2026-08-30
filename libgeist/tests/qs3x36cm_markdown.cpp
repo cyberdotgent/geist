@@ -99,22 +99,31 @@ int main() {
                    "page reference block");
 
   const auto table = topic_markdown(document, "2.1");
-  // 2.1 now renders through the typed prose route.  Hosted (DT
-  // 19910524075122) rules `#STRTUP1`'s two AS/400 commands off as two table
-  // rows -- `| #STRTUP1 | ADDAJE | ... |` then `| | WRKSBSD | ... |` -- which
-  // the typed table reproduces; the legacy route merged them into one cell
-  // and glued `list ofsubsystem` across the row break.
+  // 2.1 renders through the typed prose route and reproduces the drawn box
+  // verbatim, line for line with hosted (DT 19910524075122), which serves it
+  // inside `<pre width="80">` and emits no `<table>` element.  The legacy
+  // route merged `#STRTUP1`'s two AS/400 commands into one cell and glued
+  // `list ofsubsystem` across the row break; the typed route keeps every
+  // display line, rules included.
   require_contains(table,
-                   "| \\#STRTUP1 | ADDAJE | Adds an autostart job "
-                   "entry to an<br>existing subsystem description |",
+                   "   | #STRTUP1        | ADDAJE           | Adds an "
+                   "autostart job entry to an |\n"
+                   "   |                 |                  | existing "
+                   "subsystem description    |\n",
                    "first procedure table row");
   require_contains(table,
-                   "|  | WRKSBSD | Allows you to work with a list "
-                   "of<br>subsystem descriptions |",
+                   "   |                 | WRKSBSD          | Allows you to "
+                   "work with a list of |\n"
+                   "   |                 |                  | subsystem "
+                   "descriptions            |\n",
                    "second procedure table row");
   require_contains(table,
-                   "| ALERT | CHGMSGD | Changes an existing message<br>"
-                   "description stored in a specified<br>message file |",
+                   "   | ALERT           | CHGMSGD          | Changes an "
+                   "existing message       |\n"
+                   "   |                 |                  | description "
+                   "stored in a specified |\n"
+                   "   |                 |                  | message file  "
+                   "                    |\n",
                    "wrapped table description");
 
   const auto contents = topic_markdown(document, "CONTENTS");

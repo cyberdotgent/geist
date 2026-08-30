@@ -213,6 +213,15 @@ bool numeric_key(const std::string &value) {
          });
 }
 
+// SC31-711 5.0 message 807's `Command type` / `Command` listing. The two
+// fixed columns are recognised so the region is *proven*, but the block that
+// comes out of it is verbatim, not a table: hosted BookServer serves the
+// listing as plain preformatted lines inside its `<pre width="80">` --
+// `<B>23006</B>          LAN ADP LIST SEG=&lt;segment number&gt;` -- with each
+// wrapped continuation on a line of its own, and emits no `<table>` element
+// anywhere on the page (DT 19941010174546). Recovering the columns and
+// joining the continuations into one cell asserted a grid the reader never
+// shows and dropped the source's own line breaks.
 std::optional<MessageStructuredTableBlockIR>
 command_table(const std::vector<RowView> &rows) {
   auto header = rows.end();
@@ -271,6 +280,36 @@ command_table(const std::vector<RowView> &rows) {
     }
   }
   if (table.rows.size() != 25)
+    return std::nullopt;
+  // The region as the reader prints it: one line per physical display row
+  // from the header on, in source order.  These lines claim nothing; the
+  // recovered rows above already own every cell.  A row that opens a key
+  // takes the same projection its cells did, so a lexical marker spelling
+  // message semantics carried into it stays structural evidence; a
+  // continuation row keeps its projection whole, because there the same word
+  // can be genuine text (`SEG=<segment` / `number> ATTR=ATTACH`).
+  const auto append_line = [&](const RowView &row, const std::string &text) {
+    MessageStructuredPreformattedLineIR line;
+    line.text = compact(text);
+    line.source_row = row.source;
+    for (const auto *cell : row.cells)
+      line.source_cells.push_back(source_cell(*cell));
+    if (!line.text.empty() && !line.source_cells.empty())
+      table.lines.push_back(std::move(line));
+  };
+  append_line(*header, header_text->first + ' ' + header_text->second);
+  for (auto row = std::next(header); row != rows.end(); ++row) {
+    const auto split = wide_split(row->physical->visible_text, 2);
+    const auto first = first_content_column(*row);
+    if (split && first && numeric_key(split->left) &&
+        split->second_text == 15) {
+      const auto text = split_semantic_text(*row, split->left);
+      append_line(*row, text->first + ' ' + text->second);
+    } else {
+      append_line(*row, row->semantic->text);
+    }
+  }
+  if (table.lines.empty())
     return std::nullopt;
   return table;
 }

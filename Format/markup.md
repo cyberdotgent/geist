@@ -2013,6 +2013,47 @@ Byte-level evidence, `packet.boo` (hosted id `packet`, DT `20260614112503`):
   href="picture-1?mode=zoom"><img … alt="PICTURE 1"></a></a>` followed by the
   caption.
 
+#### `cz OFF TABLE` is the only mark of a genuine table
+
+The BOO file carries **no table structure of its own**.  An `SRTBL` control is
+an object id followed by pre-rasterized character art: `SRTBLDBCTL51`
+(`GG24-4302-00` `10.2`, record 713) opens a 120-character box-rule run, the
+caption `Table 15. DBCTL 5.1 Overview`, and further rule runs, with no column
+definitions and no cell boundaries anywhere in the envelope.  The
+BookMaster/SCRIPT compiler flattened `:table` and figure markup into a
+fixed-width grid at build time, so the file holds a *picture* of a table.  Many
+`SRTBL` envelopes are not data grids at all but captured terminal screens --
+`OFCUSEOV` `1.11`'s `Work with Mail` frame carries an option list, a spanning
+`------From-------` label over three narrower headings and a function-key
+footer inside one frame, and `OFCUSEOV` `1.1` puts a menu list and a calendar
+date grid side by side in one frame.
+
+The one place the source records that a region *was* a `:table` is the
+`cz OFF TABLE` directive, and the hosted BookServer's own rendering follows it
+exactly.  Measured over all 861 corpus topics for which Geist recovered column
+geometry (32 books, hosted pages fetched 2026-08-30 at the DT of the matching
+document number):
+
+| `cz OFF TABLE` present | hosted emits `<table>` | topics |
+| --- | --- | ---: |
+| yes | yes | 32 |
+| no | no | 826 |
+| yes | no (hosted still marks the region `<!-- table -->`, then falls back to `<pre>` on its own page width) | 3 |
+| no | yes | **0** |
+
+Hosted marks the region `<pre width="132"><!-- table -->` and then, when it can,
+emits an HTML `<table border cellpading="3">` whose cells carry the same
+rasterized text padded with `&nbsp;` and `<br>` (`SC09-2417-00` `4.1.4.1`,
+`TBLLNKSPEC`, DT `19961114175628`).  Without the directive it emits no
+`<table>` element anywhere on the page and reproduces the art verbatim inside
+`<pre>` -- `GG24-4302-00` `10.2`, `SC31-711` `FRONT_1.1`/`2.4.1`/`NOTICES`,
+`SC31-605` `2.1` all serve `<table>`=0, `<pre>`=1.  The three exceptions are
+`GX27-3999-00` `A.0` and `SC41-485` `1.2.4`/`1.3.4`.
+
+The directive is written by the later compilers only: every corpus book that
+carries it (`SC09-2417-00` 1996, `GX27-3999-00` 1995, `SC41-485` 1995,
+`packet`) postdates the books that do not.
+
 Two consequences follow from the object span owning the region:
 
 - The opener carries no display rows of its own; the closer carries the body
