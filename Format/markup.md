@@ -104,7 +104,7 @@ these diagnostics; use `boorender --raw` or `bootrace` when analyzing them.
 | `CFONT <triples...> [text]` | trailing text preserved as inline `:hpN.` spans when present; span-only records are applied to the following plain text segment | Repeated `<offset> <length> <font_code>` triples, sometimes followed by decoded visible text. Offsets are absolute display-column coordinates in the fixed display line. Apply them before source-style whitespace collapse, using the active `CZ FLOW` indent column for same-line text. Span-only continuation records use the following physical text line's paragraph column. Do not recover by scoring word boundaries. | Verified against `packet.boo` topic `1.3`: `CFONT 27 5 3 33 10 3` has no trailing text, but hosted BookServer applies it to the following `FM radio through its audio interface;` line and emphasizes `audio interface;`; later `CFONT 17 3 2 ... 64 13 2` emphasizes whole words `you cannot use your radio's VOX control for bidirectional`. |
 | `CSELECT <col> <len> <target> [text]` | `:pinline.<before> :hdref refid='<target>'.<selected>:ehdref. <after>` | Selectable link/cross-reference. The target may be a topic id, anchor id, or footnote id. `col` is an absolute zero-based display-cell column and `len` is the selected display-cell count; neither is relative to the end of the decoded fragment. | Verified against `GG24-4302-00.boo` topic `NOTICES` and `packet.boo` topic `1.1`. |
 | `CSELECT <col> <len> PIC<n> [text]` inside a figure | `:image resource='<n>'.` plus `:figcap.<caption>` | Selectable embedded picture placeholder. The `PIC<n>` selection is replaced by the rendered picture; surrounding figure caption text remains ordinary caption text. A leading generated `PICTURE <n>` label is reader metadata and is not part of the visible caption. Markdown keeps the BOO resource as `resource:<n>` so exporters can resolve it. | Verified against `packet.boo` topic `1.3`, where BookServer renders `PIC1` as `/bookmgr/pictures/packet.20260614112503.P1.GIF`, followed by caption `Figure 1. VHF/UHF LMR audio frequency range`. |
-| `CSELECT <col> <len> PIC<n> [text]` inside `SRTBL` | `:image resource='<n>'.` plus the visible table text | Some generated product-overview layouts use a table solely to place a picture beside prose. `PIC<n>` still denotes the BOO resource; `PICTURE <n>` and adjacent `SI` keys are non-visible metadata. Visible text can continue in the next logical record and after `SRETBL`, so neither boundary ends the paragraph. | Verified against `GG24-395.boo` logical records 528 (`PIC68`, topic `3.3.7`), 581--582 (`PIC81`, topic `3.3.11`), and 635 (`PIC91`, topic `3.3.15`), compared with BookServer DT `19941215160749`. |
+| `CSELECT <col> <len> PIC<n> [text]` inside `SRTBL` | `:image resource='<n>'.` plus the visible table text | Some generated product-overview layouts use a table solely to place a picture beside prose. `PIC<n>` still denotes the BOO resource; `PICTURE <n>` and adjacent `SI` keys are non-visible metadata. Visible text can continue in the next logical record and after `SRETBL`, so neither boundary ends the paragraph. The selector's `<col> <len>` are the columns the image replaces on the following display line; see "Selectors inside a table envelope". | Verified against `GG24-395.boo` logical records 528 (`PIC68`, topic `3.3.7`), 581--582 (`PIC81`, topic `3.3.11`), and 635 (`PIC91`, topic `3.3.15`), compared with BookServer DT `19941215160749`. |
 | `CSELECT <col> <len> LNK <kind> ... <target> ... [text]` | Inline image or external Markdown link | `LNK` alternatives describe presentation and transport. An `IMAGE` first alternative embeds the path; `OTHER`/`INTERNET` selects the display-cell span as a link. Observed targets include BOO-relative `/bookmgr/...`, `http://`, and `ftp://` paths. Empty `<>` alternatives and symbolic names are metadata, not visible prose. | Verified against `XWEBDEMO.boo` topics `1.0`, `1.4.1`--`1.4.4`: `/bookmgr/product.gif`, `/bookmgr/monetley.jpg`, `/bookmgr/*.avi|*.mpg|*.wav`, FTP, and HTTP targets; BookServer DT `19970423182524`. |
 | `CMENU` | `:ul type='menu'.` | Start of generated selectable menu/list. | hosted BookServer emits a `Subtopics:` heading and an HTML `<ul>` for PACKET topic `1.0`; raw output keeps it distinct from ordinary source `:ul.` lists. |
 | `CMITEM <id> <text>` | `:li refid='<id>'.<id> <text>` | Menu item target and visible label. | Verified against `packet.boo` topic `1.0`: hosted BookServer emits `<li>  <a href="1.1?..."> 1.1 Original Packet Radio</a>`, so the first token is both the href target and the leading words of the visible label. |
@@ -1217,7 +1217,30 @@ page:
 The picture form is the one that carries content the display words do not:
 the region's own bytes spell only the `PICTURE 29` placeholder, so an
 envelope that carries a `PIC<n>` selector cannot be reproduced as text
-without losing the image resource.
+alone without losing the image resource.  The selector's
+`<column> <length>` say exactly which columns the image replaces, and
+hosted BookServer removes those columns' words and puts the `<img>` there,
+leaving the rest of the line where it was:
+
+| Fixture, topic, region | Source display line | Hosted `<pre>` line |
+| --- | --- | --- |
+| `GG24-395.boo` `3.3.8` `TBLUNIQ14` (`cselect 3 11 PIC69`) | `    PICTURE 69     SystemView Host Management ...` | `   ` + `<a href="picture-69?mode=zoom"><img ... alt="PICTURE 69"></a>` + 16 spaces + `SystemView Host Management ...` |
+| `GX27-3999-00.boo` `1.3` `NOSENVI` (`cselect 5 10 PIC3`, four in one envelope) | `   \|  PICTURE 3        \|     Novell** NetWare** ...` | table cell `&nbsp;<a href="picture-3?mode=zoom"><img ... alt="PICTURE 3"></a>` padded to the cell width |
+
+Blanking the selector's columns therefore reproduces hosted's own `<pre>`
+line exactly, and the image is carried separately -- which is how a
+fixed-layout region keeps both its character art and its picture.  Note that
+the placeholder words are also hosted's `alt` text, and that a region may
+carry several picture selectors, one per line it decorates.
+
+Not a format fact, but needed when comparing against the hosted server: the
+BookServer's rendered `.GIF` set is incomplete for some books.
+`GG24-3950-01` has no `P67.GIF` or `P87.GIF` and `GX27-3999-00` has no
+`P9.GIF`..`P12.GIF` (HTTP 404), although the BOO resource catalog holds all
+of them -- 67, 68, 69, 82 and 91 are even the same stored bytes.  For those
+selectors hosted falls back to printing the `PICTURE <n>` placeholder words,
+so a hosted page that shows the placeholder is not evidence that the region
+carries no picture.
 
 ### Selector kind words as row-control slots
 

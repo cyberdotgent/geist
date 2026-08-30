@@ -1,5 +1,6 @@
 #include "geist/detail/prose_topic_document_lowering.hpp"
 
+#include "geist/detail/figure_block_ir.hpp"
 #include "geist/detail/figure_document_lowering.hpp"
 #include "geist/detail/fixed_table_document_lowering.hpp"
 
@@ -153,6 +154,31 @@ bool link_table_cells(const ProseTopicIR& prose, std::size_t span,
           return fail(error, "lowered table cell line is not text");
         const auto* link = line_link(prose, span, block, cell, lines[line]);
         if (link == nullptr) continue;
+        // A picture selector replaces the cell line that spells its
+        // `PICTURE n` placeholder with the image itself, which is what
+        // hosted BookServer serves there.
+        if (link->picture) {
+          ImageInlineIR image;
+          image.resource = "resource:" + link->target;
+          image.alt_text = figure_picture_placeholder(link->target);
+          if (text->text != image.alt_text)
+            return fail(error, "picture cell line does not spell '" +
+                                   image.alt_text + "'");
+          node.node = std::move(image);
+          node.origin.detail = "fixed table cell line (CSELECT picture)";
+          node.origin.slices.push_back(link->source);
+          std::sort(node.origin.slices.begin(), node.origin.slices.end(),
+                    [](const auto& left, const auto& right) {
+                      return std::make_tuple(left.logical_record,
+                                             left.segment_index,
+                                             left.token_begin, left.token_end) <
+                             std::make_tuple(right.logical_record,
+                                             right.segment_index,
+                                             right.token_begin,
+                                             right.token_end);
+                    });
+          continue;
+        }
         CrossReferenceInlineIR reference;
         reference.target = {link->target_kind, link->target};
         reference.label = text->text;
