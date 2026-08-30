@@ -1,3 +1,5 @@
+#include <cstdio>
+#include <cstdlib>
 #include "geist/detail/render_diagnostic_ir.hpp"
 
 #include "geist/detail/figure_block_ir.hpp"
@@ -255,6 +257,42 @@ std::set<std::size_t> control_tokens(const DecodedLogicalRecordSource& record) {
   return tokens;
 }
 
+// The `SI` word that opens a subject-index display line. An `SI` entry owns
+// exactly one display line and draws nothing on it, so the line carrying that
+// word is dropped whole.
+//
+// The decoder splits a segment at `SI` but classifies it as text with an
+// empty opcode, so there is no opcode to test; what identifies the entry is
+// the pair of facts that a segment *begins* here and that it begins with the
+// word `SI`. Requiring the segment boundary is what keeps ordinary prose that
+// merely starts a line with "SI " from being deleted.
+//
+// Only the `SI` word itself is marked, never the segment: a segment runs to
+// the next control, so an `SI` segment also spans the body text on the
+// display lines *after* it (SC31-711 record 22 holds `SI executables`
+// followed by a paragraph), and marking that span would delete book text.
+// See `Format/markup.md` s"Subject-index display lines": 29,239 such lines in
+// 31 books, and hosted BookServer serves none of them.
+std::set<std::size_t> index_entry_marker_tokens(
+    const DecodedLogicalRecordSource& record) {
+  std::set<std::size_t> tokens;
+  const auto ascii = token_words_to_ascii(record.assembled.words);
+  for (const auto& segment : record.control_segments) {
+    // A segment a later pass proved to be ordinary display text spells `SI`
+    // by coincidence and draws its words like any other text.
+    if (segment.display_text) continue;
+    const auto begin = segment.complete.begin;
+    if (begin + 2 > ascii.size()) continue;
+    if (ascii.compare(begin, 2, "SI") != 0) continue;
+    // `SI` is the whole word, not the head of a longer one.
+    if (begin + 2 < ascii.size() && ascii[begin + 2] != ' ') continue;
+    for (const auto token :
+         source_tokens_intersecting_output(record.assembled, begin, begin + 2))
+      tokens.insert(token);
+  }
+  return tokens;
+}
+
 } // namespace
 
 std::vector<std::string> best_effort_lines(
@@ -265,7 +303,20 @@ std::vector<std::string> best_effort_lines(
     const auto display = record_display_lines(record);
     if (!display) continue;
     const auto controls = control_tokens(record);
+    const auto index_markers = index_entry_marker_tokens(record);
     for (const auto& line : *display) {
+      // An `SI` entry owns its whole display line and draws nothing on it.
+      if (!index_markers.empty()) {
+        bool is_index_entry = false;
+        for (const auto& cell : display_line_cells(record, line)) {
+          if (cell.token != static_cast<std::size_t>(-1) &&
+              index_markers.count(cell.token) != 0) {
+            is_index_entry = true;
+            break;
+          }
+        }
+        if (is_index_entry) continue;
+      }
       std::string text;
       for (const auto& cell : display_line_cells(record, line)) {
         if (cell.token != static_cast<std::size_t>(-1) &&
