@@ -232,10 +232,12 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
   // than the reader's fully assembled logical-record numbering. Decode that
   // inexpensive stream once to preserve established topic boundaries; GML
   // parsing and rendering remain deferred until a topic is requested.
+  std::vector<std::vector<std::size_t>> header_token_offsets;
   context->decoded_records =
       decode_experimental_logical_records(bytes,
                                           document.directory_,
-                                          &context->record_payload_ranges);
+                                          &context->record_payload_ranges,
+                                          &header_token_offsets);
   const auto topics = build_topics(*context, false);
   const auto first_topic_record = topics.empty()
                                       ? context->decoded_records.size() + 1
@@ -244,8 +246,9 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
       context->decoded_records.begin(),
       context->decoded_records.begin() +
           static_cast<std::ptrdiff_t>(first_topic_record - 1));
+  header_token_offsets.resize(book_header_records.size());
   document.logical_controls_ =
-      extract_book_logical_controls(book_header_records);
+      extract_book_logical_controls(book_header_records, header_token_offsets);
   document.book_properties_ =
       build_book_properties(document.logical_controls_);
 

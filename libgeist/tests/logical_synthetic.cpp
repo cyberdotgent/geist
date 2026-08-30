@@ -355,7 +355,8 @@ void verify_adjacent_copyright_and_security_controls() {
         geist::detail::assemble_logical_record_with_sources(tokens);
     return geist::detail::build_book_properties(
         geist::detail::extract_logical_controls(
-            geist::detail::token_words_to_ascii(assembled.words)));
+            geist::detail::token_words_to_ascii(assembled.words),
+            geist::detail::assembled_token_output_offsets(assembled)));
   };
 
   const auto notice = geist::detail::token_words_to_ascii(copyright_notice);
@@ -371,12 +372,53 @@ void verify_adjacent_copyright_and_security_controls() {
           "a value written after ccopyright= was not attributed to CCOPYRIGHT");
 }
 
+// One header control ends where the next one's token begins, whatever the
+// separator between them renders as.  The books spell that separator three
+// ways -- a decoder placeholder (`cversion=1.2 ? csource=...`), a run of
+// spaces (`cbldvers=1.3.0  csource=...`, XWEBDEMO), or nothing at all -- and
+// none of the three is evidence in itself.  The token boundary underneath all
+// of them is, so all three must bound the value identically (issue #80).
+void verify_header_control_boundary_separator_spellings() {
+  const auto build_version = [](const std::vector<TokenWords>& separator) {
+    std::vector<TokenWords> tokens = {
+        {1, ','},
+        {'c', 'v', 'e', 'r', 's', 'i', 'o', 'n', '=', '1', '.', '2'},
+        {1, ','},
+        {'c', 'b', 'l', 'd', 'v', 'e', 'r', 's', '=', '1', '.', '3', '.', '0'},
+    };
+    tokens.insert(tokens.end(), separator.begin(), separator.end());
+    tokens.push_back({'c', 's', 'o', 'u', 'r', 'c', 'e', '=', 'S', 'Y', 'N',
+                      'T', 'H', 'B', 'K'});
+    tokens.push_back({1, ','});
+    tokens.push_back({'c', 'd', 'o', 'c', 'n', 'u', 'm', '=', 'S', 'Y', 'N',
+                      'T', 'H'});
+    const auto assembled =
+        geist::detail::assemble_logical_record_with_sources(tokens);
+    return geist::detail::build_book_properties(
+               geist::detail::extract_logical_controls(
+                   geist::detail::token_words_to_ascii(assembled.words),
+                   geist::detail::assembled_token_output_offsets(assembled)))
+        .build_version;
+  };
+
+  // A word the ASCII projection cannot represent, which is what renders as
+  // the `?` the old boundary table was spelled with.
+  const TokenWords placeholder = {0x2500};
+  require(build_version({placeholder}) == "1.3.0",
+          "a placeholder-separated csource= was absorbed into CBLDVERS");
+  require(build_version({{' ', ' '}}) == "1.3.0",
+          "a space-separated csource= was absorbed into CBLDVERS");
+  require(build_version({}) == "1.3.0",
+          "an unseparated csource= was absorbed into CBLDVERS");
+}
+
 } // namespace
 
 int main() {
   verify_token_ir_contract();
   verify_control_ir_contract();
   verify_adjacent_copyright_and_security_controls();
+  verify_header_control_boundary_separator_spellings();
   for (const auto &record :
        {std::string("  ST title, cfont 3 5 2     text  "),
         std::string("alpha???????????????????? cselect 3 5 target text"),

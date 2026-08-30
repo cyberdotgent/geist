@@ -248,12 +248,34 @@ std::map<std::uint16_t, TokenWords> decode_experimental_dictionary(
 TokenWords assemble_logical_record(const std::vector<TokenWords>& tokens);
 AssembledLogicalRecord assemble_logical_record_with_sources(
     const std::vector<TokenWords>& tokens);
+// Byte offsets into token_words_to_ascii(assembled.words) at which each source
+// token's own output begins. This is where one header control can end and the
+// next begin: the separator between two controls is a rendering artefact --
+// a decoder placeholder, a run of spaces, or nothing at all -- but the token
+// boundary underneath it is carried by the decode and is the same in every
+// book.
+std::vector<std::size_t> assembled_token_output_offsets(
+    const AssembledLogicalRecord& assembled);
+// `token_offsets` are the offsets above for `decoded_record`. A control's
+// value ends at the next token that itself begins a `c<name>=` key; with no
+// token evidence no boundary is claimed and the value runs to the end of the
+// record.
 std::vector<BooLogicalControl> extract_logical_controls(
-    const std::string& decoded_record);
+    const std::string& decoded_record,
+    const std::vector<std::size_t>& token_offsets);
+// True when a `c<name>=` control key begins exactly at `offset`.
+bool control_key_begins_at(const std::string& decoded_record,
+                           const std::string& lower_record,
+                           std::size_t offset);
+// `header_token_offsets`, when given, receives assembled_token_output_offsets
+// for the leading records that make up the book header -- up to and including
+// the record that carries `cdocnum=`, which is where the header's controls
+// stop being read (extract_book_logical_controls).
 std::vector<std::string> decode_experimental_logical_records(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory,
-    std::vector<LogicalRecordPayloadRange>* payload_ranges = nullptr);
+    std::vector<LogicalRecordPayloadRange>* payload_ranges = nullptr,
+    std::vector<std::vector<std::size_t>>* header_token_offsets = nullptr);
 // Decodes one logical record's payload from the file bytes. This is the token
 // decoder the whole pipeline is built on, exposed so a provenance slice can be
 // proven against the file by decoding its record again.
@@ -288,7 +310,8 @@ std::vector<std::uint32_t> parse_topic_record_starts(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory);
 std::vector<BooLogicalControl> extract_book_logical_controls(
-    const std::vector<std::string>& decoded_records);
+    const std::vector<std::string>& decoded_records,
+    const std::vector<std::vector<std::size_t>>& record_token_offsets);
 const TopicData* find_topic_data(const std::vector<TopicData>& topics,
                                  const std::string& topic_id);
 
