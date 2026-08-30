@@ -317,11 +317,66 @@ void verify_control_ir_contract() {
           "unknown generated-list control operands did not fail closed");
 }
 
+// A book header record carries `ccopyright=` and `csecurity=` as adjacent
+// controls, and the value that follows a key in the decoded record belongs to
+// that key and no other.  `XWEBDEMO.boo` is the one sample book that leaves
+// `ccopyright=` empty and puts its copyright notice after `csecurity=`; its
+// own token dictionary holds `csecurity=<a9>IBM` as a single word, which is
+// where the two are joined, so the attribution is the book's and not the
+// decoder's.  Both orders are pinned here so neither key can drift onto the
+// other's value.
+void verify_adjacent_copyright_and_security_controls() {
+  const TokenWords copyright_notice = {
+      0x00a9, 'I', 'B', 'M', ' ', 'C', 'o', 'r', 'p', '.', ' ',
+      '1',    '9', '9', '5'};
+
+  const auto header_controls = [&](const TokenWords &copyright_value,
+                                   const TokenWords &security_value) {
+    const auto keyed = [](const char *key, const TokenWords &value) {
+      TokenWords token(key, key + std::char_traits<char>::length(key));
+      token.insert(token.end(), value.begin(), value.end());
+      return token;
+    };
+    std::vector<TokenWords> tokens = {
+        {1, ','},
+        {'c', 't', 'i', 't', 'l', 'e', '=', 'D', 'e', 'm', 'o'},
+        {1, ','},
+        {'c', 's', 't', 'i', 't', 'l', 'e', '='},
+        {1, ','},
+        keyed("ccopyright=", copyright_value),
+        {' ', ' ', ' '},
+        keyed("csecurity=", security_value),
+        {1, ','},
+        {'c', 'r', 'e', 's', 'm', 'a', 't', '1', '='},
+        {1, ','},
+        {'c', 'd', 'o', 'c', 'n', 'u', 'm', '=', 'S', 'Y', 'N', 'T', 'H'},
+    };
+    const auto assembled =
+        geist::detail::assemble_logical_record_with_sources(tokens);
+    return geist::detail::build_book_properties(
+        geist::detail::extract_logical_controls(
+            geist::detail::token_words_to_ascii(assembled.words)));
+  };
+
+  const auto notice = geist::detail::token_words_to_ascii(copyright_notice);
+
+  const auto security_owned = header_controls({}, copyright_notice);
+  require(security_owned.copyright.empty() &&
+              security_owned.security == notice,
+          "a value written after csecurity= was not attributed to CSECURITY");
+
+  const auto copyright_owned = header_controls(copyright_notice, {});
+  require(copyright_owned.copyright == notice &&
+              copyright_owned.security.empty(),
+          "a value written after ccopyright= was not attributed to CCOPYRIGHT");
+}
+
 } // namespace
 
 int main() {
   verify_token_ir_contract();
   verify_control_ir_contract();
+  verify_adjacent_copyright_and_security_controls();
   for (const auto &record :
        {std::string("  ST title, cfont 3 5 2     text  "),
         std::string("alpha???????????????????? cselect 3 5 target text"),
