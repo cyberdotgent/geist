@@ -28,6 +28,7 @@ void usage() {
                "[--all|--records|--segments|--fonts|--ir|--tokens|--lines]\n"
                "       bootrace <book.boo> --coverage\n"
                "       bootrace <book.boo> --links\n"
+               "       bootrace <book.boo> --declines\n"
                "       bootrace <book.boo> <topic-id> --explain-offset <n>\n";
 }
 
@@ -176,6 +177,33 @@ int main(int argc, char** argv) {
       }
       std::cout << "# summary\tnamed=" << named << "\ttopics-naming="
                 << topics_naming << "\n";
+      return 0;
+    } catch (const std::exception& error) {
+      std::cerr << "bootrace: " << error.what() << "\n";
+      return 1;
+    }
+  }
+
+  // Why each typed family turned a topic down. `--coverage` reports only the
+  // decline that reached the reader, which names whichever check fired
+  // first rather than the family that was closest to claiming the topic.
+  // This reports every family's own reason for every topic, typed or not,
+  // which is what a family-admission investigation needs.
+  if (argc == 3 && std::string(argv[2]) == "--declines") {
+    try {
+      const auto document = geist::BooDocument::open(argv[1]);
+      const auto inventory = document.typed_route_inventory();
+      std::cout << "id\troute\tfamily\tdeclined\n";
+      for (const auto& topic : inventory.topics) {
+        for (const auto& declined : topic.declined)
+          std::cout << tsv_escape(topic.id) << "\t"
+                    << (topic.route == geist::detail::TypedRouteKind::typed
+                            ? "typed"
+                            : "legacy")
+                    << "\t"
+                    << tsv_escape(topic.family) << "\t"
+                    << tsv_escape(declined) << "\n";
+      }
       return 0;
     } catch (const std::exception& error) {
       std::cerr << "bootrace: " << error.what() << "\n";
