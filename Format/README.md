@@ -23,18 +23,24 @@ not here.
 Byte offsets in these notes are offsets **within a `.BOO` file** unless the text
 says otherwise.
 
+## The Corpus
+
+"The corpus" and fixture counts mean 35 books: the 34 `.BOO`/`.boo` files under
+`BOO/` plus `Official Readers/SoftCopy/HLCRUG21.boo`. Claims measured over only
+the 34 `BOO/` books say so.
+
 ## Index
 
 | Topic | File | Status |
 | --- | --- | --- |
-| Container header, directory page, and logical book header controls | [boo-header.md](boo-header.md) | Fixture verified for the page-0 locator, the version-2 directory fields, the picture-directory version bytes, and the decoded metadata control keys. Several fixed directory scalars have a confirmed position but no identified meaning. |
-| Logical header-control storage | [logical-controls.md](logical-controls.md) | Fixture and hosted verified for tokenized logical-record storage, record framing, token references, dictionary delta transforms, translation-table decoding, and decoded control keys. Logical-record spacing controls still need complete field-level documentation. |
-| Page organization | [pages.md](pages.md) | Fixture verified. |
+| Container header, directory page, and logical book header controls | [boo-header.md](boo-header.md) | Fixture verified for the page-0 locator, the version-2 directory fields, the directory page's region map, the two dictionary token counts, the token-index page table, the stemming table, the picture-directory version bytes, and the decoded metadata control keys. |
+| Logical header-control storage | [logical-controls.md](logical-controls.md) | Fixture and hosted verified for tokenized logical-record storage, record framing, token references, dictionary delta transforms, translation-table decoding, and decoded control keys. The inter-token spacing prefixes are documented in [encoding.md](encoding.md#logical-record-spacing-controls). |
+| Page organization | [pages.md](pages.md) | Fixture verified for the page roles, the four-byte structural page header, continuation pages, and the trailing token-index run. |
 | Topic and documentation page storage | [topics.md](topics.md) | Fixture verified for topic-start indexes, topic bounds, `SH` topic ids, `CTOPICN`, and TOC id-to-topic resolution. |
 | Table of contents | [table-of-contents.md](table-of-contents.md) | Fixture and hosted verified for topic-start indexes, topic header controls, `CTOCDEF`, and literal `CTOCE` entries in the `CONTENTS` topic. |
-| Decoded markup and controls | [markup.md](markup.md) | Fixture, hosted, and historical-source verified for GML-derived control names, topic headings, TOC controls, font/highlight spans, links, figures, picture references, and layout controls. Exact renderer styling remains partly open. |
-| Encoding and tokenization | [encoding.md](encoding.md) | Fixture and hosted verified for dictionary literal byte-to-token-word mapping, token-word translation tables, and the output decoding path. The full code-page matrix remains open. |
+| Decoded markup and controls | [markup.md](markup.md) | Fixture, hosted, and historical-source verified for GML-derived control names, topic headings, TOC controls, font/highlight spans, links, figures, picture references, and the complete `CZ` layout vocabulary. Hosted presentation is verified for 16 of the 35 font style codes; the rest remain open. |
+| Encoding and tokenization | [encoding.md](encoding.md) | Fixture and hosted verified for dictionary literal byte-to-token-word mapping, token-word translation tables, the four inter-token spacing prefixes, and the output decoding path. Only code page 500 is exercised by the corpus. |
 | Assets and media resources | [assets.md](assets.md) | Fixture verified for pre-directory embedded image resources, the three picture-directory versions and their descriptor groups, absolute payload offsets, and version 1.4 converted-object descriptions. Hosted output establishes the stored-versus-rendered boundary. |
 | Legacy GDF image payloads | [GDF.md](GDF.md) | Fixture verified for kind `G` framing and coordinate encoding; order names come from published IBM GDDM documentation read through the hosted BookServer. Orders that documentation does not name are marked unverified. |
-| Legacy MMR image payloads | [MMR.md](MMR.md) | Fixture verified for kind `I` dispatch, wrapper fields, and segment-chain framing; hosted GIFs used for pixel-level validation. |
+| Legacy MMR image payloads | [MMR.md](MMR.md) | Fixture verified for kind `I` dispatch, the structured-field chain that carries the image object, and the picture-data framing; hosted GIFs used for pixel-level validation. |
 | Version 1.4 web image payloads | [WebImages.md](WebImages.md) | Fixture verified for GIF objects in the two version-1.4 fixtures. Other MIME types are expressible but unverified. |

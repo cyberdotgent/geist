@@ -84,8 +84,6 @@ would split a spurious topic there.
 Two independent checks confirm the split is spurious: the record carries none
 of the nine envelope controls documented above, and `SH12-565.boo`'s directory
 `0x003e` is 296 while a scan-based enumeration of that book yields 297 topics.
-(As of this audit `libgeist` still makes exactly this split; see
-[README.md](README.md#where-the-code-disagrees-with-this-documentation).)
 
 Observed topic-start roots:
 
