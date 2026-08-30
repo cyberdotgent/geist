@@ -93,6 +93,11 @@ enum class ProseInlineKindIR {
   text,
   emphasis,
   cross_reference,
+  // A `PIC<n>` selector covering the `PICTURE n` placeholder columns of a
+  // prose display row: the image is placed inside the sentence, `target` is
+  // the resource catalog id and `text` is the placeholder the image
+  // replaces, which hosted BookServer also uses as its `alt` text.
+  image,
 };
 
 struct ProseInlineIR {

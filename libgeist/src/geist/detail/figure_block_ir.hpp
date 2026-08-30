@@ -255,6 +255,20 @@ bool verify_figure_blocks_ir(
     const std::set<std::string> &resource_ids, const FigureBlocksIR &blocks,
     std::string *error = nullptr);
 
+// The decline reason a bare (anchorless) picture selector carries when the
+// display row that holds its `PICTURE n` placeholder also carries sentence
+// prose: the image is placed *inside* a sentence, not in a captioned figure
+// region, so it is no figure at all.  SG24-2047-00 4.1.1 record 131
+// `cselect 20 11 PIC17` covers the eleven columns of
+// `       Click on the  PICTURE 17 button to start the setup process.` that
+// spell the placeholder, and hosted BookServer serves that row as
+// `Click on the <a href="picture-17?mode=zoom"><img ...></a> button to start
+// the setup process.` (DT 19971218054640) -- the image replaces exactly the
+// placeholder columns and the sentence around it stays.  The prose family
+// owns that shape and proves the columns itself, so this reason is the one
+// figure decline it is allowed to walk past.
+const std::string &figure_inline_picture_decline_reason();
+
 // A selector target that names a book picture resource: `PIC` followed by
 // decimal digits only (`PIC69`).  Shared with the fixed-layout region block,
 // which meets the same selector inside an SRTBL envelope.

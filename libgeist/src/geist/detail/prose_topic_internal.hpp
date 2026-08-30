@@ -133,6 +133,10 @@ struct Item {
   std::size_t length = 0;
   std::string target;
   CrossReferenceTargetKindIR target_kind = CrossReferenceTargetKindIR::anchor;
+  // A `PIC<n>` selector standing in prose: `target` is the resource catalog
+  // id and the columns it covers spell the `PICTURE n` placeholder the
+  // compiler wrote there, which the image replaces.
+  bool picture = false;
   std::string anchor_id;
   std::size_t span_index = 0;
   DocumentSourceSliceIR source;
@@ -299,6 +303,10 @@ struct Envelope {
 
 struct StreamBuild {
   const SpanPlan* plan = nullptr;  // input: table/figure regions to skip
+  // Input: the book's lower-cased resource catalog ids.  A `PIC<n>`
+  // selector standing in prose is admitted only when the picture it names
+  // is in the catalog; a null set admits none.
+  const std::set<std::string>* resource_ids = nullptr;
   std::vector<Item> items;
   std::vector<ProseAnchorIR> leading_anchors;
   std::vector<ProseAnchorIR> trailing_anchors;
@@ -329,6 +337,8 @@ struct Span {
   FontStyleIR style = FontStyleIR::unknown;
   std::string target;  // non-empty == cross-reference span
   CrossReferenceTargetKindIR target_kind = CrossReferenceTargetKindIR::anchor;
+  // A picture selector: the covered columns are an image, not a link.
+  bool picture = false;
 };
 
 struct Line {

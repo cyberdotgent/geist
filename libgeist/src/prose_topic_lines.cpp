@@ -764,7 +764,7 @@ struct LineBuilder {
         } else {
           line().links.push_back({item.column, item.column + item.length,
                                   FontStyleIR::unknown, item.target,
-                                  item.target_kind});
+                                  item.target_kind, item.picture});
         }
       }
       pending_controls.clear();

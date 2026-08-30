@@ -234,6 +234,18 @@ bool lower_inlines(const ProseBlockIR& block, std::size_t begin,
         lowered.origin = origin(node.slices, "prose CFONT highlight");
       }
       break;
+    case ProseInlineKindIR::image: {
+      if (node.target.empty())
+        return fail(error, "prose inline picture has no resource");
+      // Hosted BookServer replaces exactly the `PICTURE n` placeholder
+      // words with the `<img>` and keeps them as its `alt` text.
+      ImageInlineIR image;
+      image.resource = "resource:" + node.target;
+      image.alt_text = node.text;
+      lowered.node = std::move(image);
+      lowered.origin = origin(node.slices, "prose CSELECT picture");
+      break;
+    }
     case ProseInlineKindIR::cross_reference: {
       if (node.target.empty())
         return fail(error, "prose cross-reference has no target");

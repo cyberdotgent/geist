@@ -227,6 +227,7 @@ foreach(synthetic_test
     procedure_rows_synthetic
     fixed_display_synthetic
     implicit_grid
+    inline_picture_ir_synthetic
     glossary_catalog_ir_synthetic)
   geist_add_test(${synthetic_test})
 endforeach()

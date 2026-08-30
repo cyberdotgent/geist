@@ -1663,8 +1663,26 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
                                     item.column, item.length, item.target))
           return fail(error, "selector operands are not canonical");
         const auto lower_target = ascii_lower(item.target);
-        if (lower_target.rfind("pic", 0) == 0)
-          return fail(error, "selector targets a picture");
+        // A picture selector the figure family did not claim places the
+        // image inside the sentence: hosted BookServer replaces exactly the
+        // `PICTURE n` placeholder columns the selector names with the
+        // `<img>` and leaves the rest of the row (SG24-2047-00 4.1.1
+        // `Click on the <img ...> button to start the setup process.`, DT
+        // 19971218054640).  The picture must be in the resource catalog,
+        // and the display-line pass proves the covered columns spell the
+        // placeholder.
+        if (lower_target.rfind("pic", 0) == 0) {
+          if (!figure_picture_target(item.target))
+            return fail(error, "selector targets a picture");
+          const auto resource = figure_picture_resource(item.target);
+          if (build.resource_ids == nullptr ||
+              build.resource_ids->count(ascii_lower(resource)) == 0)
+            return fail(error, "inline picture resource " + resource +
+                                   " is not in the resource catalog");
+          item.picture = true;
+          item.target = resource;
+          item.target_kind = CrossReferenceTargetKindIR::resource;
+        }
         const auto operands = operand_tokens(record, segment);
         if (operands.empty()) return fail(error, "selector has no source token");
         // A `LNK` selector carries its destination in the leading `<...>`

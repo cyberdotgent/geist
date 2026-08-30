@@ -64,6 +64,7 @@ std::optional<ProseTopicIR> extract_prose_topic_ir(
     return std::nullopt;
   StreamBuild stream;
   stream.plan = &plan;
+  stream.resource_ids = resource_ids;
   if (!collect_stream(records, envelope, ledger, stream, error))
     return std::nullopt;
   // A plural CFONT header over repeated encoded row controls is a
@@ -440,6 +441,9 @@ std::string format_prose_topic_ir(const ProseTopicIR& topic) {
         break;
       case ProseInlineKindIR::cross_reference:
         out << "xref target=" << inline_node.target;
+        break;
+      case ProseInlineKindIR::image:
+        out << "image resource=" << inline_node.target;
         break;
       }
       out << " '" << inline_node.text << "'";

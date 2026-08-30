@@ -118,8 +118,16 @@ bool torn_across_a_gap(const Line& line, std::size_t begin, std::size_t end) {
   return false;
 }
 
+// One selector span's destination as the block builder needs it: the typed
+// cross-reference target, plus whether the selector is a picture (the
+// covered columns are the image, not a link label).
+struct LinkTarget {
+  CrossReferenceTargetIR target;
+  bool picture = false;
+};
+
 bool resolve_spans(const Line& line, std::vector<Attr>& attrs,
-                   std::vector<CrossReferenceTargetIR>& targets,
+                   std::vector<LinkTarget>& targets,
                    std::string* error) {
   attrs.assign(line.cells.size(), Attr{});
   const auto apply = [&](const Span& span, bool link) -> bool {
@@ -191,7 +199,8 @@ bool resolve_spans(const Line& line, std::vector<Attr>& attrs,
         attr.style = span.style;
       }
     }
-    if (link) targets.push_back({span.target_kind, span.target});
+    if (link)
+      targets.push_back({{span.target_kind, span.target}, span.picture});
     return true;
   };
   for (const auto& span : line.links)
@@ -209,11 +218,11 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
                  std::size_t end, ProseBlockIR& block, Ledger& ledger,
                  std::size_t block_index, std::string* error) {
   std::vector<BlockChar> chars;
-  std::vector<CrossReferenceTargetIR> targets;
+  std::vector<LinkTarget> targets;
   for (auto index = begin; index < end; ++index) {
     const auto& line = lines[index];
     std::vector<Attr> attrs;
-    std::vector<CrossReferenceTargetIR> line_targets;
+    std::vector<LinkTarget> line_targets;
     if (!resolve_spans(line, attrs, line_targets, error)) return false;
     const auto target_base = targets.size();
     targets.insert(targets.end(), line_targets.begin(), line_targets.end());
@@ -267,9 +276,11 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
     ProseInlineIR inline_node;
     const auto& attr = collapsed[run_begin].attr;
     if (attr.link != npos) {
-      inline_node.kind = ProseInlineKindIR::cross_reference;
-      inline_node.target = targets[attr.link].value;
-      inline_node.target_kind = targets[attr.link].kind;
+      inline_node.kind = targets[attr.link].picture
+                             ? ProseInlineKindIR::image
+                             : ProseInlineKindIR::cross_reference;
+      inline_node.target = targets[attr.link].target.value;
+      inline_node.target_kind = targets[attr.link].target.kind;
     } else if (attr.style != FontStyleIR::unknown) {
       inline_node.kind = ProseInlineKindIR::emphasis;
       inline_node.style = attr.style;
@@ -292,6 +303,16 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
         continue;
       }
       claims.push_back({ch.record, ch.token, ch.offset, end});
+    }
+    // The image replaces exactly the placeholder words the compiler wrote
+    // into the covered columns; anything else means the selector's columns
+    // are not the ones the model read, and the topic fails closed.
+    if (inline_node.kind == ProseInlineKindIR::image) {
+      const auto placeholder = figure_picture_placeholder(inline_node.target);
+      if (inline_node.text != placeholder)
+        return fail(error, "inline picture selector covers '" +
+                               inline_node.text + "', not '" + placeholder +
+                               "'");
     }
     std::vector<std::pair<std::size_t, std::size_t>> text_refs;
     for (const auto& claim : claims) {

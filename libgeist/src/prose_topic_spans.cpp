@@ -547,6 +547,11 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
       // their tokens.
       if (decline.reason == "figure region contains a table" && decline.end)
         continue;
+      // A bare picture selector whose `PICTURE n` placeholder sits inside a
+      // sentence is an inline image, not a figure: its tokens stay in the
+      // stream and the display-line pass proves the covered columns.
+      if (decline.reason == figure_inline_picture_decline_reason())
+        continue;
       return fail(error, (decline.anchor.empty()
                               ? std::string("figure region")
                               : "figure '" + decline.anchor + "'") +

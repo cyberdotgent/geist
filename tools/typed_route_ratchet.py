@@ -66,7 +66,7 @@ BASELINE = {
     "SC33-033.boo": 220,
     "SC34-425.boo": 244,
     "SC41-485.boo": 29,
-    "SG24-204.boo": 87,
+    "SG24-204.boo": 90,
     "SH12-565.boo": 284,
     "SH20-918.boo": 200,
     "XWEBDEMO.boo": 9,
@@ -74,7 +74,7 @@ BASELINE = {
     # published library at libgeist/tests/fixtures/.
     "packet.boo": 120,
 }
-BASELINE_TOTAL = 7143
+BASELINE_TOTAL = 7146
 
 SUMMARY = re.compile(r"^# summary\ttyped=(\d+)\tlegacy=(\d+)\ttotal=(\d+)")
 

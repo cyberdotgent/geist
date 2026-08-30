@@ -620,6 +620,119 @@ struct Extractor {
     return false;
   }
 
+  // A display line that is one control's opcode and operands and carries no
+  // display payload of its own (`cselect 56 12 PIC117`, `cfont 11 3 2 ...`).
+  // Such a line shows nothing, so the display line a control names is the
+  // first line after it that is not one of these.
+  bool control_display_line(const DecodedLogicalRecordSource &record,
+                            const DisplayLineIR &line) const {
+    const auto first = line.prefix_token + 1;
+    if (first >= line.token_end)
+      return false;
+    const auto segments = token_segments.find(record.logical_record);
+    if (segments == token_segments.end())
+      return false;
+    const auto owner = segments->second.find(first);
+    if (owner == segments->second.end())
+      return false;
+    const auto &segment = record.control_segments[owner->second];
+    if (segment.source_tokens.empty() ||
+        segment.source_tokens.front() != first ||
+        segment.kind == BookControlKind::text)
+      return false;
+    for (auto token = first; token < line.token_end; ++token) {
+      const auto at = token_output_byte(record, token);
+      if (at && segment.payload_range.end > segment.payload_range.begin &&
+          *at >= segment.payload_range.begin)
+        return false;
+    }
+    return true;
+  }
+
+  // The display line a bare picture selector places its image on: the first
+  // line after the selector's own control line that shows anything, which is
+  // the first line of the next logical record when the control closes its
+  // record (SG24-2047-00 5.1 record 190 line 56 `cselect 20 12 PIC113`,
+  // record 191 line 0 `       Click on the  PICTURE 113 button.`) and skips
+  // the `cfont` line between the selector and its text in the same topic
+  // (record 191 lines 37-39).
+  std::optional<std::pair<const DecodedLogicalRecordSource *, DisplayLineIR>>
+  placement_line(const SegmentView &view) const {
+    if (view.segment->source_tokens.empty())
+      return std::nullopt;
+    // The control's own opcode token names the control line; a selector
+    // segment runs on over the display payload, which is already the text
+    // the image is placed into.
+    const auto opcode = view.segment->source_tokens.front();
+    const auto parsed = record_display_lines(*view.record);
+    if (!parsed)
+      return std::nullopt;
+    for (std::size_t index = 0; index < parsed->size(); ++index) {
+      const auto &line = (*parsed)[index];
+      if (opcode < line.prefix_token || opcode >= line.token_end)
+        continue;
+      for (auto next = index + 1; next < parsed->size(); ++next)
+        if (!control_display_line(*view.record, (*parsed)[next]))
+          return std::make_pair(view.record, (*parsed)[next]);
+      if (view.record_index + 1 >= records.size())
+        return std::nullopt;
+      const auto &following = records[view.record_index + 1];
+      const auto next_lines = record_display_lines(following);
+      if (!next_lines)
+        return std::nullopt;
+      for (const auto &line : *next_lines)
+        if (!control_display_line(following, line))
+          return std::make_pair(&following, line);
+      return std::nullopt;
+    }
+    return std::nullopt;
+  }
+
+  // True when the placement line carries sentence prose beside the picture's
+  // placeholder words: the image is placed *inside* a sentence and the
+  // region is no figure at all.  The placeholder must sit at exactly the
+  // columns the selector names -- that is what proves the line-relative
+  // columns are the ones this text is indexed by -- and what is left of the
+  // line once those columns are blanked decides: nothing, or the region's
+  // own "Figure N. Title" caption, is a captioned block figure; anything
+  // else is prose the picture stands in.
+  bool inline_in_prose(const Region &region) const {
+    if (region.anchored || region.segments.size() != 1)
+      return false;
+    const auto &view = region.segments.front();
+    const auto found = selectors_by_segment.find(key(view));
+    if (found == selectors_by_segment.end() || found->second.size() != 1)
+      return false;
+    const auto *selector = found->second.front();
+    if (!selector->canonical_operands ||
+        !figure_picture_target(selector->target))
+      return false;
+    const auto placed = placement_line(view);
+    if (!placed)
+      return false;
+    // The selector's operands are display *columns*, so the line is read
+    // column by column; its UTF-8 projection would misplace them wherever a
+    // list glyph or a box rule takes more than one byte (SG24-2047-00 5.1
+    // record 191 line 18 opens `       °   Click on the  PICTURE 115 ...`).
+    const auto columns = display_line_cells(*placed->first, placed->second);
+    std::string text;
+    text.reserve(columns.size());
+    for (const auto &column : columns)
+      text.push_back(cell_char(column.word));
+    const auto placeholder = figure_picture_placeholder(
+        figure_picture_resource(selector->target));
+    const auto end = std::min(selector->column + selector->length, text.size());
+    if (selector->column >= end ||
+        trim_ascii(text.substr(selector->column, end - selector->column)) !=
+            placeholder)
+      return false;
+    auto rest = text;
+    rest.replace(selector->column, end - selector->column,
+                 std::string(end - selector->column, ' '));
+    if (!has_alnum(rest))
+      return false;
+    return !line_caption_text(rest).has_value();
+  }
 
   // Lines of one record intersecting [first_token, last_token], in order.
   struct LineView {
@@ -1752,6 +1865,11 @@ struct Extractor {
                 decline(region, "picture selector is table-owned"));
             continue;
           }
+          if (inline_in_prose(region)) {
+            result.declined.push_back(
+                decline(region, figure_inline_picture_decline_reason()));
+            continue;
+          }
           close(std::move(region));
         }
       }
@@ -1787,6 +1905,11 @@ const char *role_name(FigureCellRoleIR role) {
 }
 
 } // namespace
+
+const std::string &figure_inline_picture_decline_reason() {
+  static const std::string reason = "picture selector is inline in prose";
+  return reason;
+}
 
 bool figure_picture_target(const std::string &target) {
   if (target.size() <= 3 || !ascii_starts_with_case_insensitive(target, "pic"))
