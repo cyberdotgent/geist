@@ -1,6 +1,8 @@
 #pragma once
 
 #include "geist/detail/display_lines.hpp"
+
+#include "geist/detail/display_lines.hpp"
 #include "geist/detail/font_span_ir.hpp"
 #include "geist/detail/internal.hpp"
 #include "geist/detail/prose_topic_ir.hpp"
@@ -126,6 +128,28 @@ struct Item {
   LayoutDirective directive;
 };
 
+// The roles whose tokens the rendered document prints characters for.  A
+// structural role (marker, origin, fill, spacing, padding), a control role
+// (envelope, control, menu) and a span claim (table, figure) all name tokens
+// the reader does not print as their own words, and a control's operand run
+// legitimately crosses a display-line boundary, so those may fall on a
+// length byte.
+inline bool displayed_role(ProseTokenRoleIR role) {
+  switch (role) {
+  case ProseTokenRoleIR::title:
+  case ProseTokenRoleIR::bullet:
+  case ProseTokenRoleIR::ordinal:
+  case ProseTokenRoleIR::gap:
+  case ProseTokenRoleIR::text:
+  case ProseTokenRoleIR::index_keyword:
+  case ProseTokenRoleIR::index_term:
+  case ProseTokenRoleIR::index_structure:
+    return true;
+  default:
+    return false;
+  }
+}
+
 struct Ledger {
   const std::vector<DecodedLogicalRecordSource>* records = nullptr;
   std::vector<ProseTokenDispositionIR> entries;
@@ -151,6 +175,21 @@ struct Ledger {
       return fail(error, "token " + std::to_string(token) + " of record " +
                              std::to_string(entry.token.logical_record) +
                              " received two dispositions");
+    }
+    // A display line's length byte is structure, never a word.  Whatever
+    // the dictionary spells for that byte -- `cparent`, `cfont`, `SRCFILE`,
+    // `.`, `are`, `access` -- the reader never displays it, so no lowering
+    // may claim it as something the document prints.  The framing that
+    // decides this is the decoder's, stamped on the token at decode time
+    // (book_ir.hpp, `TokenFramingRole`); nothing local can tell the two
+    // roles apart, which is exactly why every consumer that re-derived the
+    // walk eventually got it wrong.
+    if (displayed_role(role) &&
+        is_display_line_length_token((*records)[record], token)) {
+      return fail(error, "token " + std::to_string(token) + " of record " +
+                             std::to_string(entry.token.logical_record) +
+                             " is a display-line length byte and cannot be "
+                             "claimed as displayed text");
     }
     entry.role = role;
     entry.span = span;

@@ -23,23 +23,68 @@ namespace geist::detail {
 // arbitrary one-byte dictionary word; its encoded value is the byte itself,
 // not a dictionary reference.  This is the structure the Layout IR sees as a
 // width-1 "marker slot" followed by the line's leading space token.
-struct DisplayLineIR {
-  std::size_t prefix_token = 0;  // the length byte
-  std::size_t token_end = 0;     // exclusive end of the line's tokens
-};
+//
+// `DisplayLineIR` itself lives in book_ir.hpp beside `LogicalRecordIR`,
+// which stores the framing.
 
-// Walks a token list as length-prefixed display lines, or declines when a
-// line does not end exactly on a token boundary (a length byte at or above
-// the token threshold is tokenised as two bytes and breaks the walk).  The
-// record decoder uses this to decide whether its plain left-to-right token
-// walk already agrees with the record's own line structure.
+// The single re-derivation entry point.  Walks a token list as
+// length-prefixed display lines, or declines when a line does not end
+// exactly on a token boundary (a length byte at or above the token
+// threshold is tokenised as two bytes and breaks the walk).  The record
+// decoder uses this to decide whether its plain left-to-right token walk
+// already agrees with the record's own line structure.  No consumer should
+// call this on a decoded record: read the stored framing instead.
 std::optional<std::vector<DisplayLineIR>> token_display_lines(
     const std::vector<LogicalTokenIR>& tokens, std::uint32_t payload_end);
 
-// Parses the record payload into display lines, or declines when a line does
-// not end exactly on a token boundary.
-std::optional<std::vector<DisplayLineIR>> record_display_lines(
+// Computes the record's display-line framing once and stores it on the IR,
+// stamping every token with its `TokenFramingRole`.  Called by the record
+// decoder (`decode_record_payload_ir`); a test that assembles a synthetic
+// record by hand calls it too, so there is exactly one implementation of the
+// walk in the library.
+void assign_display_line_framing(LogicalRecordIR& record);
+
+// The record's stored display lines, or `nullptr` when the payload does not
+// tile into whole display lines.  This is a read of decoder state, not a
+// re-parse.
+const std::vector<DisplayLineIR>* record_display_lines(
+    const LogicalRecordIR& record);
+const std::vector<DisplayLineIR>* record_display_lines(
     const DecodedLogicalRecordSource& record);
+
+// True when `token` is a display line's length byte -- structure, never
+// display text and never a control opcode, whatever word the dictionary
+// spells for it.  False for an unframed record: an undecided framing may not
+// be reported as a decided "not a length byte", so ask
+// `record_framing_is_decided` where the distinction matters.
+bool is_display_line_length_token(const LogicalRecordIR& record,
+                                  std::size_t token);
+bool is_display_line_length_token(const DecodedLogicalRecordSource& record,
+                                  std::size_t token);
+inline bool record_framing_is_decided(const LogicalRecordIR& record) {
+  return record.display_lines_parse;
+}
+
+// The display line `token` belongs to (its length byte included), or
+// `nullptr` when the record is unframed or `token` is out of range.
+const DisplayLineIR* display_line_of_token(const LogicalRecordIR& record,
+                                           std::size_t token);
+const DisplayLineIR* display_line_of_token(
+    const DecodedLogicalRecordSource& record, std::size_t token);
+
+// Checked display-text accessor.  Hands back the token's words only when the
+// token really is line content; a length byte yields `nullptr` instead of
+// its dictionary spelling, so a consumer asking for display text cannot be
+// handed structure by accident.  An unframed record hands the words back --
+// there is no decided framing to contradict.
+const TokenWords* display_text_words(const DecodedLogicalRecordSource& record,
+                                     std::size_t token);
+
+// Checks that the stored framing is internally consistent: the lines tile
+// the token list in order, every length byte is one byte wide and covers
+// exactly its line, and every token's `framing` role matches the lines.
+bool verify_display_line_framing(const LogicalRecordIR& record,
+                                 std::string* error = nullptr);
 
 // Hosted display text of a line's tokens: token words in order with the
 // decoder's inter-token spaces, spacing prefixes dropped, the inserted space

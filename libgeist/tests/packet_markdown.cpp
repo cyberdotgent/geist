@@ -63,12 +63,13 @@ int main() {
   const auto base_stack = topic_markdown(document, "3.2");
   // Typed `CZ OFF XMP` example block.  Hosted 3.2 (DT 20260614112503)
   // opens the block with `<samp>#</samp> <samp>name</samp> ...`; the typed
-  // renderer writes a plain fence.
+  // renderer writes a plain fence.  The region keeps its own left margin:
+  // hosted serves these rows at display column 5.
   require_contains(base_stack,
                    "```\n"
-                   "# name callsign speed paclen window description\n"
-                   "#----- -------- ----- ------ ------ -----------\n"
-                   "radio  WA4XYZ-1 1200  256    7      Real TNC\n"
+                   "     # name callsign speed paclen window description\n"
+                   "     #----- -------- ----- ------ ------ -----------\n"
+                   "     radio  WA4XYZ-1 1200  256    7      Real TNC\n"
                    "```",
                    "AX.25 axports example block");
   require_not_contains(base_stack,
@@ -98,11 +99,12 @@ int main() {
                        "[The *interface name*, the name that the Linux "
                        "kernel knows the network device by",
                        "whole list item wrapped by nested footnote target");
+  // Hosted serves this region at display column 5 too.
   require_contains(base_stack,
                    "```\n"
-                   "# ax25_name min_obs def_qual worst_qual verbose\n"
-                   "#---------- ------- -------- ---------- -------\n"
-                   "radio       5       192      100        0\n"
+                   "     # ax25_name min_obs def_qual worst_qual verbose\n"
+                   "     #---------- ------- -------- ---------- -------\n"
+                   "     radio       5       192      100        0\n"
                    "```",
                    "NET/ROM broadcast example block");
 

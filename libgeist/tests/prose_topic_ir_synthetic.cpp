@@ -386,7 +386,10 @@ void positive_fixtures() {
   {
     Extracted kept;
     const auto markdown = admit("QSYSNEWG.BOO", "1.0", &kept);
-    require(contains(markdown, "```\n ___ In a Hurry? ____"),
+    // The region keeps its own left margin: hosted (QSYSNEWG DT
+    // 19910524085706) opens the box at display column 4 with the rule
+    // `    ___ In a Hurry? ____...` and puts the frame at column 3.
+    require(contains(markdown, "```\n    ___ In a Hurry? ____"),
             "QSYSNEWG 1.0 box top rule");
     require(contains(markdown,
                      "| This chapter contains background information about "
@@ -896,8 +899,12 @@ void cz_fixtures() {
   {
     Extracted kept;
     const auto markdown = admit("packet.boo", "3.2", &kept);
-    require(contains(markdown,
-                     "```\n# name callsign speed paclen window description\n"),
+    // The `cz OFF XMP` region keeps its own left margin: hosted (packet DT
+    // 20260614112503) serves the listing at display column 5,
+    // `     # name callsign speed paclen window description`.
+    require(contains(
+                markdown,
+                "```\n     # name callsign speed paclen window description\n"),
             "3.2 example block lost its leading `#`");
     require(contains(markdown,
                      "To define an AX\\.25 port, edit `/etc/ax25/axports`, "
@@ -1027,8 +1034,11 @@ void cz_fixtures() {
   // (SC09-2417-00 4.2.2), both hosted-verified.
   {
     const auto markdown = admit("packet.boo", "2.4.1");
-    require(contains(markdown, "```\n2062:41FE:653A:9882:511:FFE9:8392:412D\n"
-                               "```\n\nNote that zeros are omitted"),
+    // Hosted (packet DT 20260614112503) serves the address at display
+    // column 5, `     2062:41FE:653A:9882:511:FFE9:8392:412D`.
+    require(contains(markdown,
+                     "```\n     2062:41FE:653A:9882:511:FFE9:8392:412D\n"
+                     "```\n\nNote that zeros are omitted"),
             "2.4.1 lost the text on cz OFF EXMP");
   }
   {
