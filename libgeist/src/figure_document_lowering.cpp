@@ -33,12 +33,6 @@ void add_cell_slices(DocumentNodeOriginIR &origin,
                              std::get<3>(slice), std::get<4>(slice)});
 }
 
-void add_rows(DocumentNodeOriginIR &origin,
-              const std::vector<DocumentSourceRowIR> &rows) {
-  for (const auto &row : rows)
-    origin.rows.push_back(row);
-}
-
 bool same_origin(const DocumentNodeOriginIR &left,
                  const DocumentNodeOriginIR &right) {
   if (left.derivation != right.derivation || left.detail != right.detail ||
@@ -96,6 +90,64 @@ void add_sorted_rows(DocumentNodeOriginIR &origin,
     origin.rows.push_back(row);
 }
 
+// The caption of a figure, split at its cross references.  A caption
+// without links is one emphasised run; a caption with links alternates
+// emphasised text and cross references, each carrying the slices of the
+// caption cells and, for a link, the `cselect` control's own operands.
+InlineSequenceIR caption_inlines(const FigureSourceBlockIR &figure,
+                                 bool emphasise) {
+  const auto &caption = *figure.caption;
+  const auto make_origin = [&](const char *detail) {
+    DocumentNodeOriginIR origin;
+    origin.derivation = DocumentDerivationIR::semantic_lowering;
+    origin.detail = detail;
+    add_cell_slices(origin, figure.cells, [](const auto &cell) {
+      return cell.role == FigureCellRoleIR::caption_content;
+    });
+    add_sorted_rows(origin, caption.rows);
+    return origin;
+  };
+  const auto text_inline = [&](const std::string &text) {
+    InlineIR node;
+    if (emphasise)
+      node.node = EmphasisInlineIR{text, EmphasisKindIR::emphasis};
+    else
+      node.node = TextInlineIR{text};
+    node.origin = make_origin("figure caption");
+    return node;
+  };
+  InlineSequenceIR content;
+  std::size_t cursor = 0;
+  for (const auto &span : caption.links) {
+    if (span.begin > cursor)
+      content.push_back(
+          text_inline(caption.text.substr(cursor, span.begin - cursor)));
+    InlineIR node;
+    CrossReferenceInlineIR reference;
+    reference.target = {span.link.external
+                            ? CrossReferenceTargetKindIR::external
+                            : CrossReferenceTargetKindIR::anchor,
+                        span.link.target};
+    reference.label = caption.text.substr(span.begin, span.end - span.begin);
+    node.node = std::move(reference);
+    node.origin = make_origin("figure caption (CSELECT reference)");
+    node.origin.slices.push_back(span.link.source);
+    std::sort(node.origin.slices.begin(), node.origin.slices.end(),
+              [](const auto &left, const auto &right) {
+                return std::make_tuple(left.logical_record, left.segment_index,
+                                       left.token_begin, left.token_end) <
+                       std::make_tuple(right.logical_record,
+                                       right.segment_index, right.token_begin,
+                                       right.token_end);
+              });
+    content.push_back(std::move(node));
+    cursor = span.end;
+  }
+  if (cursor < caption.text.size())
+    content.push_back(text_inline(caption.text.substr(cursor)));
+  return content;
+}
+
 // Anchor + preformatted body + emphasised caption paragraph for a drawn
 // figure.  The body lines are the hosted display lines; the caption keeps
 // the presentation of a picture figure's caption.
@@ -121,6 +173,35 @@ lower_preformatted_figure(const FigureSourceBlockIR &figure,
     return std::nullopt;
   }
   blocks.push_back(std::move(anchor));
+
+  // A bare `SRSPT<id>` inside the drawn body is a second anchor.  Hosted
+  // BookServer opens it on the display line that follows the control; a
+  // Markdown anchor can only stand in front of the whole verbatim block, so
+  // one that does not open the body's first line lands early.
+  for (const auto &spot : figure.spot_anchors) {
+    BlockIR node;
+    node.node = AnchorBlockIR{spot.id};
+    node.origin.derivation = DocumentDerivationIR::semantic_lowering;
+    node.origin.detail = "figure spot anchor";
+    add_cell_slices(node.origin, figure.cells, [&](const auto &cell) {
+      return cell.role == FigureCellRoleIR::control &&
+             cell.logical_record == spot.logical_record &&
+             cell.segment_index == spot.segment_index;
+    });
+    if (node.origin.slices.empty()) {
+      fail(error, "figure spot anchor has no source slice");
+      return std::nullopt;
+    }
+    if (!spot.at_body_start) {
+      node.origin.fidelity = DocumentFidelityIR::degraded;
+      node.origin.degradation_code = "figure-body-anchor-position";
+      node.origin.degradation_detail =
+          "anchor '" + spot.id +
+          "' opens a line inside the drawn body; a Markdown anchor can only "
+          "stand in front of the whole verbatim block";
+    }
+    blocks.push_back(std::move(node));
+  }
 
   PreformattedBlockIR body;
   std::vector<DocumentSourceRowIR> body_rows;
@@ -148,6 +229,31 @@ lower_preformatted_figure(const FigureSourceBlockIR &figure,
     return true;
   });
   add_sorted_rows(block.origin, std::move(body_rows));
+  if (!figure.body_links.empty()) {
+    // Hosted BookServer wraps the covered columns of a drawn body in an
+    // anchor (FA1PLMM0 5.0 `Figure 18 in topic 5.1.1`, SC09-138 8.5.4.5 the
+    // footnote marker `132`).  The body is character art reproduced column
+    // for column, so it carries no inline model and the link cannot be
+    // expressed inside it; naming it here keeps the loss visible instead of
+    // dropping it silently.
+    std::string detail = "drawn figure body carries cross references the "
+                         "verbatim block cannot express:";
+    for (const auto &link : figure.body_links)
+      detail += " '" + link.label + "' -> " + link.target + ";";
+    block.origin.fidelity = DocumentFidelityIR::degraded;
+    block.origin.degradation_code = "figure-body-cross-reference";
+    block.origin.degradation_detail = std::move(detail);
+    for (const auto &link : figure.body_links)
+      block.origin.slices.push_back(link.source);
+    std::sort(block.origin.slices.begin(), block.origin.slices.end(),
+              [](const auto &left, const auto &right) {
+                return std::make_tuple(left.logical_record, left.segment_index,
+                                       left.token_begin, left.token_end) <
+                       std::make_tuple(right.logical_record,
+                                       right.segment_index, right.token_begin,
+                                       right.token_end);
+              });
+  }
   blocks.push_back(std::move(block));
 
   if (figure.caption) {
@@ -155,22 +261,18 @@ lower_preformatted_figure(const FigureSourceBlockIR &figure,
       fail(error, "figure caption is incomplete");
       return std::nullopt;
     }
-    InlineIR caption;
-    caption.node = EmphasisInlineIR{figure.caption->text,
-                                    EmphasisKindIR::emphasis};
-    caption.origin.derivation = DocumentDerivationIR::semantic_lowering;
-    caption.origin.detail = "figure caption";
-    add_cell_slices(caption.origin, figure.cells, [](const auto &cell) {
-      return cell.role == FigureCellRoleIR::caption_content;
-    });
-    add_sorted_rows(caption.origin, figure.caption->rows);
-    if (caption.origin.slices.empty()) {
+    // A caption split around a cross reference cannot be emphasised run by
+    // run: a `*` closer that follows a space is not a delimiter, so the
+    // whole caption is plain text once it carries a link.  Hosted
+    // BookServer shows no emphasis on a caption either.
+    auto content = caption_inlines(figure, figure.caption->links.empty());
+    if (content.empty() || content.front().origin.slices.empty()) {
       fail(error, "figure caption has no source slice");
       return std::nullopt;
     }
     BlockIR paragraph;
     ParagraphBlockIR node;
-    node.content.push_back(std::move(caption));
+    node.content = std::move(content);
     paragraph.node = std::move(node);
     paragraph.origin.derivation = DocumentDerivationIR::semantic_lowering;
     paragraph.origin.detail = "figure caption";
@@ -230,47 +332,74 @@ lower_figure_block_to_document_blocks(const FigureSourceBlockIR &figure,
     blocks.push_back(std::move(anchor));
   }
 
-  FigureBlockIR node;
-  node.resource = figure.target_kind == FigureTargetKindIR::book_resource
-                      ? "resource:" + figure.target
-                      : figure.target;
-  if (figure.caption) {
-    if (figure.caption->text.empty()) {
-      fail(error, "figure caption is incomplete");
+  // One image block per picture selector, in source order; hosted stacks
+  // them and puts the caption under the last (SC26-457 3.2.1, B.1.3,
+  // SC34-425 2.1.2).
+  const auto owned_by = [](const FigureSourceCellIR &cell,
+                           const SelectorRefIR &selector) {
+    return cell.logical_record == selector.logical_record &&
+           cell.segment_index == selector.segment_index;
+  };
+  const auto count = figure.additional_pictures.size() + 1;
+  for (std::size_t index = 0; index < count; ++index) {
+    const auto book_resource =
+        index == 0 ? figure.target_kind == FigureTargetKindIR::book_resource
+                   : figure.additional_pictures[index - 1].target_kind ==
+                         FigureTargetKindIR::book_resource;
+    const auto &target =
+        index == 0 ? figure.target : figure.additional_pictures[index - 1].target;
+    FigureBlockIR node;
+    node.resource = book_resource ? "resource:" + target : target;
+    if (figure.caption && index + 1 == count) {
+      if (figure.caption->text.empty()) {
+        fail(error, "figure caption is incomplete");
+        return std::nullopt;
+      }
+      auto content = caption_inlines(figure, false);
+      if (content.empty() || content.front().origin.slices.empty()) {
+        fail(error, "figure caption has no source slice");
+        return std::nullopt;
+      }
+      node.caption = std::move(content);
+    }
+    BlockIR block;
+    block.node = std::move(node);
+    block.origin.derivation = DocumentDerivationIR::semantic_lowering;
+    block.origin.detail = book_resource ? "figure block: book resource"
+                                        : "figure block: external image";
+    if (index == 0) {
+      add_cell_slices(block.origin, figure.cells, [&](const auto &cell) {
+        if (figure.span.anchored && cell.role == FigureCellRoleIR::control &&
+            cell.logical_record == figure.span.begin.logical_record &&
+            cell.segment_index == figure.span.begin.segment_index)
+          return false;
+        for (const auto &extra : figure.additional_pictures)
+          if (owned_by(cell, extra.selector))
+            return false;
+        return true;
+      });
+      // A caption spread over several display lines is carried by several
+      // physical rows; the document's row ledger wants them in source order
+      // and once each.
+      auto rows = figure.suppressed_rows;
+      if (figure.caption && count == 1)
+        rows.insert(rows.end(), figure.caption->rows.begin(),
+                    figure.caption->rows.end());
+      add_sorted_rows(block.origin, std::move(rows));
+    } else {
+      const auto &selector = figure.additional_pictures[index - 1].selector;
+      add_cell_slices(block.origin, figure.cells, [&](const auto &cell) {
+        return owned_by(cell, selector);
+      });
+      if (figure.caption && index + 1 == count)
+        add_sorted_rows(block.origin, figure.caption->rows);
+    }
+    if (block.origin.slices.empty()) {
+      fail(error, "figure block has no source slice");
       return std::nullopt;
     }
-    InlineIR caption;
-    caption.node = TextInlineIR{figure.caption->text};
-    caption.origin.derivation = DocumentDerivationIR::semantic_lowering;
-    caption.origin.detail = "figure caption";
-    add_cell_slices(caption.origin, figure.cells, [](const auto &cell) {
-      return cell.role == FigureCellRoleIR::caption_content;
-    });
-    add_rows(caption.origin, figure.caption->rows);
-    if (caption.origin.slices.empty()) {
-      fail(error, "figure caption has no source slice");
-      return std::nullopt;
-    }
-    node.caption.push_back(std::move(caption));
+    blocks.push_back(std::move(block));
   }
-
-  BlockIR block;
-  block.node = std::move(node);
-  block.origin.derivation = DocumentDerivationIR::semantic_lowering;
-  block.origin.detail = figure.target_kind == FigureTargetKindIR::book_resource
-                            ? "figure block: book resource"
-                            : "figure block: external image";
-  add_cell_slices(block.origin, figure.cells, [&](const auto &cell) {
-    if (figure.span.anchored && cell.role == FigureCellRoleIR::control &&
-        cell.logical_record == figure.span.begin.logical_record &&
-        cell.segment_index == figure.span.begin.segment_index)
-      return false;
-    return true;
-  });
-  add_rows(block.origin, figure.suppressed_rows);
-  if (figure.caption)
-    add_rows(block.origin, figure.caption->rows);
-  blocks.push_back(std::move(block));
 
   if (error != nullptr)
     error->clear();

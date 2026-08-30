@@ -808,6 +808,77 @@ tables under one outer figure) and `GC28-183.boo` `COVER`.  A decoder that
 treats a second `SRFIG` as evidence that the first was unterminated loses the
 outer figure's anchor, its lead line and its caption.
 
+**A figure caption is a run of display lines, and its continuations are
+indented to the title column.** The caption line is `Figure <n>. <title>`;
+every line that continues it starts at exactly the column where `<title>`
+starts on the first line, and hosted BookServer joins them into one caption.
+`SH20-918.boo` topic `1.5` record 50 lines 21-24 are
+
+```
+   Figure 1. Processing Documents with GML.  The profile provides the mapping
+             between the tags you have used in your source document, which
+             identify elements of text, and APFs located in the host system
+             library, which provide formatting functions.
+```
+
+-- caption at column 3, title and every continuation at column 13 -- and
+hosted DT `19910520154851` prints exactly those four lines.  The same shape
+holds in `DREICMST.boo` `1.1.1.2.1` (records 61-62, eight lines),
+`ITPPIBOK.BOO` `5.2` (record 169 lines 26-27) and `SC09-2417-00.boo`
+`2.2.4.5` (record 236 lines 10-11, continuation `Length` at column 14
+because the number is `16.`).  A `CFONT`/`CSELECT` control line or an `SI`
+subject-index line may stand between a caption and its continuation
+(`SH20-918.boo` `2.5` record 103 lines 13-15, `PRG1SORT.boo` `1.1.4.3.2`);
+hosted joins across them.
+
+The Layout IR's physical rows do not delimit a caption.  A row opens at the
+marker word in front of the title -- the word `Figure` itself in
+`IEAC6MST.BOO` `1.2` record 50 token 130, the sentence `.` in `ITPPIBOK.BOO`
+`5.2` record 169 token 192 -- and ends at the length byte that opens the
+continuation line, so a caption read row by row is truncated at its head and
+looks like prose at its tail.
+
+**A `CSELECT` inside a figure region covers a span of the display line it
+precedes.** The operands are `<column> <length> <target>`, both zero-based
+display columns of the *next* line that carries text.  `SH20-918.boo` `2.1`
+record 59 line 20 is `cselect 41 8 FIGTITEM` and line 21 is
+
+```
+             paragraph unit are shown in Figure 4.  An implied paragraph is
+```
+
+whose columns 41..48 are `Figure 4`; hosted DT `19910520154851` serves
+`... are shown in <a href="...#FIGTITEM">Figure 4</a>.`  Line 23's
+`cselect 22 23 FIGTABLE` covers `Figure 8 in topic 2.2.6` the same way.  The
+covered span is taken literally, padding and box border included:
+`SC09-138.boo` `NOTICES` record 5 line 15 is `cselect 51 22 HDRNOTICES` and
+hosted wraps `&quot;Notices&quot; in         |` -- nine spaces and the box's
+right rule -- in the anchor.  A selector may sit inside the drawn body as
+well as inside the caption (`FA1PLMM0.boo` `5.0` record 272 line 29
+`cselect 5 24 FIGVMSUM` covers `Figure 18 in topic 5.1.1` inside the box;
+`SC09-138.boo` `8.5.4.5` record 1625 line 12 `cselect 26 3 FIGFREEC3` covers
+the footnote marker `132`).
+
+**A bare `SRSPT<id>` inside a figure region is a second anchor**, opened on
+the display line that follows it.  `SC34-425.boo` `2.5.3` record 1746 line 8
+is `SRSPTRCC11` and hosted DT `19921112160049` serves
+`<a name="FIGFIGUNIQ77"><a name="SPTRCC11">        COUNT    : 4 bytes</a></a>`.
+`FA1PLMM0.boo` `H.5` (`SPTIESWP`) opens one in the middle of a box and
+`SC24-5520-00.boo` `3.8.3.6` carries two (`SPTFCIR`, `SPTRFLUSH`).  A word
+of a drawn line that is merely *spelled* like a structural opcode is not one:
+`SH12-565.boo` `APPENDIX1.9.5.2.1` record 796 line 30 is the body text
+`     SRVPREF    (server prefix)`, whose first content token is the leading
+space run, not the opcode.  As with the `C`-controls, a genuine control
+stands at `prefix_token + 1`.
+
+**A figure region may carry several picture selectors under one caption.**
+`SC26-457.boo` `3.2.1` spells `cselect 3 9 PIC1` / `   PICTURE 1` and then
+`cselect 3 9 PIC2` / `   PICTURE 2` before the single caption
+`Figure 2. ALTER Parameters and the Entry Types to Which Each Applies`, and
+hosted DT `19911220230217` stacks both images under the `FIGVSAMATT` anchor.
+`SC26-457.boo` `B.1.3` (`PIC4` + `PIC5`) and `SC34-425.boo` `2.1.2` (`PIC21`
++ `PIC22`) are the same shape.
+
 Bold and emphasis should therefore be implemented through the `CFONT` plus
 `CFONTDEF` pipeline, not by searching for literal `<b>` markup. `HP1`, `HP2`,
 and `HP3` are GML-derived highlighted-phrase levels. The PACKET `PREFACE`

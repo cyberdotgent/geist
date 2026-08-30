@@ -27,6 +27,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <algorithm>
 #include <tuple>
 #include <variant>
 
@@ -613,13 +614,81 @@ int main() {
       }
   }
 
+  // Several picture selectors under one caption are one figure.  SC26-457
+  // 3.2.1 record 160/161 spells PIC1 then PIC2 with the single caption
+  // "Figure 2. ALTER Parameters ..."; hosted DT 19911220230217 stacks both
+  // images under the FIGVSAMATT anchor.  SC34-425 2.1.2 is PIC21 + PIC22.
+  for (const auto &[book, id, anchor, first, second] :
+       {std::tuple{"SC26-457.boo", "3.2.1", "FIGVSAMATT", "1", "2"},
+        std::tuple{"SC26-457.boo", "B.1.3", "FIGLDNO", "4", "5"},
+        std::tuple{"SC34-425.boo", "2.1.2", "FIGLIB01", "21", "22"}}) {
+    const auto topic = corpus.topic(book, id);
+    const auto *figure = find_figure(topic, anchor);
+    require(figure != nullptr && figure->target == first &&
+                figure->additional_pictures.size() == 1 &&
+                figure->additional_pictures[0].target == second &&
+                figure->placeholder_text == std::string("PICTURE ") + first &&
+                figure->additional_pictures[0].placeholder_text ==
+                    std::string("PICTURE ") + second &&
+                figure->caption.has_value(),
+            std::string(book) + " " + id +
+                ": the region's second picture was not admitted");
+  }
+
+  // A bare `SRSPT<id>` inside a drawn figure is a second anchor.  SC34-425
+  // 2.5.3 record 1746 line 8 is `SRSPTRCC11`, and hosted DT 19921112160049
+  // serves `<a name="FIGFIGUNIQ77"><a name="SPTRCC11">` on the figure's
+  // first body line; FA1PLMM0 H.5 record 969 line 15 is `SRSPTIESWP`,
+  // which hosted DT 19910927114801 opens in the middle of the box.
+  {
+    const auto topic = corpus.topic("SC34-425.boo", "2.5.3");
+    const auto *figure = find_figure(topic, "FIGFIGUNIQ77");
+    require(figure != nullptr && figure->spot_anchors.size() == 1 &&
+                figure->spot_anchors[0].id == "SPTRCC11" &&
+                figure->spot_anchors[0].at_body_start,
+            "SC34-425 2.5.3: the figure's spot anchor was not admitted");
+  }
+  {
+    const auto topic = corpus.topic("FA1PLMM0.boo", "H.5");
+    const auto *figure = find_figure(topic, "FIGFIGUNIQ41");
+    require(figure != nullptr && figure->spot_anchors.size() == 1 &&
+                figure->spot_anchors[0].id == "SPTIESWP" &&
+                !figure->spot_anchors[0].at_body_start,
+            "FA1PLMM0 H.5: the figure's spot anchor was not admitted");
+  }
+  // A word of a drawn line spelled like a structural opcode is body text,
+  // not a control: SH12-565 APPENDIX1.9.5.2.1 record 796 line 30 is
+  // "     SRVPREF    (server prefix)" and line 30's first content token is
+  // the leading space run, not the opcode.
+  for (const auto &[book, id, anchor, word] :
+       {std::tuple{"SH12-565.boo", "APPENDIX1.9.5.2.1", "FIGFIGUNIQ62",
+                   "     SRVPREF    (server prefix)"},
+        std::tuple{"SH12-565.boo", "APPENDIX1.9.5.3.1", "FIGFIGUNIQ69",
+                   "     SRVMODE  (server's running mode S (single), C "
+                   "(continuous),"}}) {
+    const auto topic = corpus.topic(book, id);
+    const auto *figure = find_figure(topic, anchor);
+    const auto found =
+        figure != nullptr &&
+        std::any_of(figure->lines.begin(), figure->lines.end(),
+                    [&](const auto &line) { return line.text == word; });
+    require(found, std::string(book) + " " + id +
+                       ": the body line spelled like a control was not "
+                       "reproduced");
+  }
+
   // Negative: a drawn figure wrapping an SRTBL is the table family's
   // (SC31-711 2.4.1 FIGTBLUNIQ2 / TBLTBLUNIQ2, IEAC6MST 1.4 FIGDSLIB).
-  for (const auto &[book, id] : {std::pair{"SC31-711.boo", "2.4.1"},
-                                 std::pair{"IEAC6MST.BOO", "1.4"}}) {
+  // IEAC6MST 1.4 also carries the picture figure FIGTSOAPPL, which is
+  // admitted; only the table-wrapping region must be declined.
+  for (const auto &[book, id, anchor] :
+       {std::tuple{"SC31-711.boo", "2.4.1", "FIGTBLUNIQ2"},
+        std::tuple{"IEAC6MST.BOO", "1.4", "FIGDSLIB"}}) {
     const auto topic = corpus.topic(book, id);
-    require(topic.figures.blocks.empty() &&
-                declined_with(topic, "contains a table"),
+    const auto admitted = std::any_of(
+        topic.figures.blocks.begin(), topic.figures.blocks.end(),
+        [&](const auto &block) { return block.anchor == anchor; });
+    require(!admitted && declined_with(topic, "contains a table"),
             std::string(book) + " " + id +
                 ": figure wrapping a table was not declined as a table");
   }
@@ -635,16 +704,19 @@ int main() {
                 !figure->lines.empty(),
             "SC28-1881-05 1.6: the drawn figure was not admitted");
   }
-  // Negative: prose after the caption.  PRG1SORT 1.1.4.3.2 FIGSELCDF carries
-  // the caption's wrapped second line behind three "SI" index lines, so the
-  // region ends with a line the block cannot prove is caption rather than
-  // body text and is declined instead of guessed at (hosted joins the two
-  // caption lines; the only such region in the corpus).
+  // A caption's wrapped second line stands behind three "SI" index lines in
+  // PRG1SORT 1.1.4.3.2 FIGSELCDF.  Hosted DT 19900829171904 joins the two
+  // caption lines, and the continuation is indented to the caption's title
+  // column, so the index lines are stepped over.
   {
     const auto topic = corpus.topic("PRG1SORT.boo", "1.1.4.3.2");
-    require(find_figure(topic, "FIGSELCDF") == nullptr &&
-                declined_with(topic, "text after its caption"),
-            "PRG1SORT 1.1.4.3.2: prose after the caption was admitted");
+    const auto *figure = find_figure(topic, "FIGSELCDF");
+    require(figure != nullptr && figure->caption &&
+                figure->caption->text ==
+                    "Figure 1-5. An Example of How Sort Builds an Output "
+                    "Record. The output record is padded on the right by "
+                    "blanks to make its length equal to the output file.",
+            "PRG1SORT 1.1.4.3.2: the wrapped caption was not stitched");
   }
   // A body line whose length byte is at or above the book's token threshold
   // used to be read as a two-byte token, so the record's display lines did
@@ -660,13 +732,46 @@ int main() {
                 !figure->lines.empty(),
             "PRG1SORT D.5.1: the drawn figure was not admitted");
   }
-  // Negative: a selector inside a drawn figure is a link the preformatted
-  // body cannot carry (SH20-918 2.1 FIGSTRUC).
+  // A `cselect` inside a drawn figure names a column and a length in the
+  // display line it precedes.  SH20-918 2.1 record 59 line 20
+  // `cselect 41 8 FIGTITEM` covers "Figure 4" at column 41 of line 21 and
+  // record 59 line 23 `cselect 22 23 FIGTABLE` covers
+  // "Figure 8 in topic 2.2.6"; hosted DT 19910520154851 serves both as
+  // anchors inside the caption of FIGBDE.
   {
     const auto topic = corpus.topic("SH20-918.boo", "2.1");
-    require(find_figure(topic, "FIGSTRUC") == nullptr &&
-                declined_with(topic, "contains a selector"),
-            "SH20-918 2.1: drawn figure with a selector was admitted");
+    const auto *figure = find_figure(topic, "FIGBDE");
+    require(figure != nullptr && figure->caption &&
+                figure->caption->links.size() == 2 &&
+                figure->caption->links[0].link.label == "Figure 4" &&
+                figure->caption->links[0].link.target == "FIGTITEM" &&
+                figure->caption->links[1].link.label ==
+                    "Figure 8 in topic 2.2.6" &&
+                figure->caption->links[1].link.target == "FIGTABLE" &&
+                figure->caption->text.substr(
+                    figure->caption->links[0].begin,
+                    figure->caption->links[0].end -
+                        figure->caption->links[0].begin) == "Figure 4",
+            "SH20-918 2.1: the caption's cross references were not modelled");
+    const auto *structure = find_figure(topic, "FIGSTRUC");
+    require(structure != nullptr && structure->caption &&
+                structure->caption->links.size() == 1 &&
+                structure->caption->links[0].link.target == "FIGBDE",
+            "SH20-918 2.1: FIGSTRUC's caption reference was not modelled");
+  }
+  // A `cselect` inside a drawn *body* is a link the verbatim block cannot
+  // express, so the lowering names it in the block's degradation instead of
+  // dropping it (FA1PLMM0 5.0 record 272 line 29 `cselect 5 24 FIGVMSUM`
+  // covers "Figure 18 in topic 5.1.1" of line 30; hosted DT 19910927114801
+  // serves it as an anchor inside the <pre>).
+  {
+    const auto topic = corpus.topic("FA1PLMM0.boo", "5.0");
+    const auto *figure = find_figure(topic, "FIGFIGUNIQ8");
+    require(figure != nullptr && figure->body_links.size() == 1 &&
+                figure->body_links[0].label == "Figure 18 in topic 5.1.1" &&
+                figure->body_links[0].target == "FIGVMSUM",
+            "FA1PLMM0 5.0: the drawn body's cross reference was not "
+            "recorded");
   }
   // A drawn figure whose body spans a record boundary keeps one line per
   // display line across the join (ACPZMST1 1.2.5 FIGCOMP: records 56-57;
