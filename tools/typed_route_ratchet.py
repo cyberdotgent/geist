@@ -72,7 +72,7 @@ BASELINE = {
     "XWEBDEMO.boo": 10,
     "packet.boo": 121,
 }
-BASELINE_TOTAL = 7157
+BASELINE_TOTAL = 7158
 
 SUMMARY = re.compile(r"^# summary\ttyped=(\d+)\tlegacy=(\d+)\ttotal=(\d+)")
 
