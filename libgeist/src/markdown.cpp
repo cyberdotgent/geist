@@ -2,6 +2,8 @@
 
 #include "geist/detail/document_lowering.hpp"
 #include "geist/detail/document_markdown_renderer.hpp"
+#include "geist/detail/render_diagnostic_ir.hpp"
+#include "geist/detail/topic_lowering_outcome.hpp"
 
 #include <algorithm>
 #include <array>
@@ -88,16 +90,115 @@ const std::vector<std::string>& TocEntry::gml_records() const {
   return cached_raw_records_.empty() ? raw_records : cached_raw_records_;
 }
 
+namespace {
+
+// The legacy string-pipeline render of one topic. Unchanged behaviour; it is
+// only separated out so the single render pass below can choose between it,
+// the typed route and the verbatim last resort.
+std::string render_legacy_topic_markdown(const TocEntry& entry);
+
+} // namespace
+
 std::string TocEntry::markdown() const {
+  render();
+  return cached_markdown_;
+}
+
+const RenderDiagnostic& TocEntry::render_diagnostic() const {
+  render();
+  return cached_diagnostic_;
+}
+
+// One pass produces both the Markdown and the diagnostic that explains it.
+// The routes are tried in descending fidelity and none of them is allowed to
+// yield nothing: a route that produces no content is demoted rather than
+// accepted, because declining to claim structure must never mean declining to
+// emit the topic's words.
+void TocEntry::render() const {
+  if (rendered_)
+    return;
+  rendered_ = true;
+
   if (!document_load_attempted_ && document_ir_loader_) {
-    cached_document_ir_ = document_ir_loader_();
+    cached_lowering_ = document_ir_loader_();
     document_load_attempted_ = true;
   }
-  if (cached_document_ir_) {
-    return detail::render_document_markdown(*cached_document_ir_);
+
+  detail::TopicIdentityIR identity;
+  identity.id = id;
+  identity.title = title;
+  identity.heading_level = heading_level;
+  identity.topic_number = topic_number;
+  identity.start_logical_record = start_logical_record;
+  identity.end_logical_record = end_logical_record;
+
+  const detail::DocumentIR* document = nullptr;
+  std::string rejection;
+  detail::TypedLoweringTraceIR trace;
+  if (cached_lowering_) {
+    document = cached_lowering_->document ? &*cached_lowering_->document
+                                          : nullptr;
+    rejection = cached_lowering_->rejection;
+    trace = cached_lowering_->trace;
   }
 
-  auto records = gml_records();
+  cached_diagnostic_ =
+      detail::classify_typed_lowering(identity, document, rejection, trace);
+  // A TocEntry a caller built by hand out of `raw_records` never met the
+  // typed pipeline, so "the typed dispatcher declined it" would be a false
+  // statement about a topic that has no book behind it. It still gets a
+  // diagnostic; it just does not get the marker, and its Markdown stays
+  // exactly what the compatibility renderer produces.
+  const auto lowering_attempted = static_cast<bool>(document_ir_loader_);
+  if (!lowering_attempted) {
+    cached_diagnostic_.reason = "no-typed-lowering-attempted";
+    cached_diagnostic_.detail.clear();
+  }
+  cached_markdown_ = document != nullptr
+                         ? detail::render_document_markdown(*document)
+                         : render_legacy_topic_markdown(*this);
+
+  const auto has_content = detail::markdown_has_content(cached_markdown_);
+  detail::TopicBestEffortIR verbatim;
+  if (!has_content && best_effort_loader_)
+    verbatim = best_effort_loader_();
+  detail::escalate_render_diagnostic(cached_diagnostic_, has_content,
+                                     !verbatim.lines.empty(),
+                                     verbatim.source_decoded);
+  if (cached_diagnostic_.severity == RenderSeverity::best_effort) {
+    if (!cached_markdown_.empty() && cached_markdown_.back() != '\n')
+      cached_markdown_ += "\n";
+    if (!cached_markdown_.empty())
+      cached_markdown_ += "\n";
+    cached_markdown_ += detail::render_best_effort_markdown(verbatim.lines);
+  } else if (cached_diagnostic_.severity == RenderSeverity::failed) {
+    if (!cached_markdown_.empty() && cached_markdown_.back() != '\n')
+      cached_markdown_ += "\n";
+    if (!cached_markdown_.empty())
+      cached_markdown_ += "\n";
+    cached_markdown_ += detail::render_failed_markdown(identity,
+                                                       cached_diagnostic_);
+  }
+
+  const auto marker = lowering_attempted
+                          ? render_diagnostic_comment(cached_diagnostic_)
+                          : std::string();
+  if (!marker.empty()) {
+    if (!cached_markdown_.empty() && cached_markdown_.back() != '\n')
+      cached_markdown_ += "\n";
+    cached_markdown_ = marker + "\n" +
+                       (cached_markdown_.empty() ? std::string()
+                                                 : "\n" + cached_markdown_);
+  }
+}
+
+namespace {
+
+std::string render_legacy_topic_markdown(const TocEntry& entry) {
+  const auto& id = entry.id;
+  const auto& title = entry.title;
+  const auto level = entry.level;
+  auto records = entry.gml_records();
   auto replaced_heading = false;
   auto heading_index = std::size_t{0};
   while (heading_index < records.size() &&
@@ -194,16 +295,18 @@ std::string TocEntry::markdown() const {
     }
   }
   detail::TopicIdentityIR identity;
-  identity.id = id;
-  identity.title = title;
-  identity.heading_level = heading_level;
-  identity.topic_number = topic_number;
-  identity.start_logical_record = start_logical_record;
-  identity.end_logical_record = end_logical_record;
+  identity.id = entry.id;
+  identity.title = entry.title;
+  identity.heading_level = entry.heading_level;
+  identity.topic_number = entry.topic_number;
+  identity.start_logical_record = entry.start_logical_record;
+  identity.end_logical_record = entry.end_logical_record;
   return detail::render_document_markdown(
       detail::lower_legacy_topic_to_document_ir(std::move(identity),
                                                 std::move(records)));
 }
+
+} // namespace
 
 std::string BooDocument::markdown() const {
   return detail::render_markdown_records(raw_gml_records());

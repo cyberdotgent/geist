@@ -56,12 +56,30 @@ enum class DocumentDerivationIR {
   legacy_adapter,
 };
 
+// Fidelity of the lowering that produced a node.  `degraded` marks a node
+// whose family admitted the topic but could not prove this block's structure,
+// so the block is emitted verbatim (preformatted) instead of as a typed
+// structure.  Fail-closed is a rule about *claiming structure*, never about
+// withholding content: a degraded node still carries every source word, it
+// simply asserts nothing about the shape around them.
+enum class DocumentFidelityIR {
+  typed,
+  degraded,
+};
+
 struct DocumentNodeOriginIR {
   DocumentDerivationIR derivation = DocumentDerivationIR::decoded;
   std::vector<DocumentSourceSliceIR> slices;
   std::vector<DocumentSourceRowIR> rows;
   // Stable reason or lowerer name, not rendered content.
   std::string detail;
+  DocumentFidelityIR fidelity = DocumentFidelityIR::typed;
+  // Machine-readable code naming the fallback this node took, set only when
+  // `fidelity` is `degraded`, e.g. "fixed-table-verbatim".
+  std::string degradation_code;
+  // Human-readable explanation of the fallback, e.g. the message family's
+  // own `fallback_reason`. May be empty when the code says everything.
+  std::string degradation_detail;
 };
 
 } // namespace geist::detail

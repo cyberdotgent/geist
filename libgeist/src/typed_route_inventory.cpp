@@ -2,6 +2,7 @@
 
 #include "geist/detail/book_topic_catalog_ir.hpp"
 #include "geist/detail/internal.hpp"
+#include "geist/detail/render_diagnostic_ir.hpp"
 #include "geist/detail/topic_document_lowering.hpp"
 #include "geist/detail/topic_identity.hpp"
 #include "geist/document.hpp"
@@ -223,15 +224,11 @@ std::string normalize_rejection_reason(std::string reason) {
   return output;
 }
 
+// The reason column is the render diagnostic's own detail: one field, one
+// spelling, shared by `bootrace --coverage`, the `boo2git` manifest and the
+// marker inside a topic's Markdown.
 std::string typed_route_reason(const TypedRouteTopicIR &topic) {
-  if (topic.route == TypedRouteKind::typed)
-    return {};
-  if (!topic.rejection.empty())
-    return topic.rejection;
-  std::string reason;
-  for (const auto &declined : topic.declined)
-    reason += (reason.empty() ? "" : " | ") + declined;
-  return reason.empty() ? "no typed family recognized the source" : reason;
+  return topic.diagnostic.detail;
 }
 
 } // namespace geist::detail
@@ -258,7 +255,10 @@ detail::TypedRouteInventoryIR BooDocument::typed_route_inventory() const {
     if (!topic_identity_has_body(identity)) {
       topic.rejection = "contents entry has no topic body";
       topic.route = TypedRouteKind::legacy;
+      topic.diagnostic = classify_typed_lowering(identity, nullptr,
+                                                 topic.rejection, {});
       ++inventory.legacy_count;
+      ++inventory.by_severity[to_string(topic.diagnostic.severity)];
       inventory.topics.push_back(std::move(topic));
       continue;
     }
@@ -274,14 +274,34 @@ detail::TypedRouteInventoryIR BooDocument::typed_route_inventory() const {
         identity, sources, topic_catalog_ir_.get(), &topic.rejection, &trace,
         &resource_ids);
     topic.family = trace.family;
-    topic.declined = std::move(trace.declined);
+    topic.declined = trace.declined;
     topic.route = document ? TypedRouteKind::typed : TypedRouteKind::legacy;
+    topic.diagnostic = classify_typed_lowering(
+        identity, document ? &*document : nullptr, topic.rejection, trace);
+
+    // The render escalation (best-effort / failed) can only be decided once
+    // the Markdown exists.  A typed document that already carries a content
+    // block cannot escalate, so the whole-topic render is asked for only when
+    // it might change the answer -- which today is the legacy topics and the
+    // handful of typed documents that lower to headings alone.
+    const auto has_content_block =
+        document &&
+        std::any_of(document->blocks.begin(), document->blocks.end(),
+                    [](const BlockIR &block) {
+                      return !std::holds_alternative<HeadingBlockIR>(
+                                 block.node) &&
+                             !std::holds_alternative<AnchorBlockIR>(block.node);
+                    });
+    if (!has_content_block)
+      topic.diagnostic = entry.render_diagnostic();
+
     if (document) {
       ++inventory.typed_count;
       ++inventory.typed_by_family[topic.family];
     } else {
       ++inventory.legacy_count;
     }
+    ++inventory.by_severity[to_string(topic.diagnostic.severity)];
     inventory.topics.push_back(std::move(topic));
   }
   return inventory;

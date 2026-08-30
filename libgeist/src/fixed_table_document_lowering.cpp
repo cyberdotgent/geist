@@ -94,6 +94,12 @@ lower_fixed_table_block_to_document_ir(const FixedTableBlockIR &block) {
     PreformattedBlockIR body;
     BlockIR body_block;
     body_block.origin = origin_for("fixed table region: preformatted body");
+    // Degraded, not typed: the SRTBL region is admitted and every source word
+    // is kept, but no column structure is asserted for it.
+    body_block.origin.fidelity = DocumentFidelityIR::degraded;
+    body_block.origin.degradation_code = "fixed-table-verbatim";
+    body_block.origin.degradation_detail =
+        "SRTBL region column geometry was not proven; rows kept verbatim";
     body_block.origin.slices.push_back(block.object_source);
     for (const auto &line : block.preformatted_lines) {
       body.lines.push_back(line.text);

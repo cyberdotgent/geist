@@ -428,9 +428,18 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
         fail(error, "prose preformatted block has no rows");
         return std::nullopt;
       }
-      document.blocks.push_back(
-          {PreformattedBlockIR{block.preformatted_lines},
-           origin(block.slices, "prose CZ example block")});
+      auto preformatted_origin =
+          origin(block.slices, "prose CZ example block");
+      if (!block.degradation_code.empty()) {
+        preformatted_origin.detail = "prose drawn box region: verbatim rows";
+        preformatted_origin.fidelity = DocumentFidelityIR::degraded;
+        preformatted_origin.degradation_code = block.degradation_code;
+        preformatted_origin.degradation_detail =
+            "drawn box region has no proven structure; display rows kept "
+            "verbatim";
+      }
+      document.blocks.push_back({PreformattedBlockIR{block.preformatted_lines},
+                                 std::move(preformatted_origin)});
       ++index;
       continue;
     }

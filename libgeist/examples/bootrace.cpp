@@ -1,4 +1,5 @@
 #include "geist/boo.hpp"
+#include "geist/detail/render_diagnostic_ir.hpp"
 #include "geist/detail/internal.hpp"
 #include "geist/detail/typed_route_inventory.hpp"
 
@@ -58,7 +59,12 @@ int main(int argc, char** argv) {
     try {
       const auto document = geist::BooDocument::open(argv[1]);
       const auto inventory = document.typed_route_inventory();
-      std::cout << "id\tlevel\troute\tfamily\treason\tclass\tsignature\n";
+      // `severity` and `degraded` are appended after the historical columns
+      // so existing consumers keep their column positions. `route`, `family`
+      // and `reason` are read out of the same RenderDiagnostic the exporter
+      // and the `boo2git` manifest use.
+      std::cout << "id\tlevel\troute\tfamily\treason\tclass\tsignature"
+                   "\tseverity\tdegraded\n";
       for (const auto& topic : inventory.topics) {
         std::cout << tsv_escape(topic.id) << "\t" << topic.level << "\t"
                   << (topic.route == geist::detail::TypedRouteKind::typed
@@ -72,11 +78,19 @@ int main(int argc, char** argv) {
                   << "\t"
                   << tsv_escape(geist::detail::topic_structure_signature(
                          topic.structure))
+                  << "\t" << geist::to_string(topic.diagnostic.severity)
+                  << "\t"
+                  << tsv_escape(geist::detail::format_render_degradations(
+                         topic.diagnostic))
                   << "\n";
       }
       std::cout << "# summary\ttyped=" << inventory.typed_count
                 << "\tlegacy=" << inventory.legacy_count
                 << "\ttotal=" << inventory.topics.size() << "\n";
+      std::cout << "# severity";
+      for (const auto& [severity, count] : inventory.by_severity)
+        std::cout << "\t" << severity << "=" << count;
+      std::cout << "\n";
       return 0;
     } catch (const std::exception& error) {
       std::cerr << "bootrace: " << error.what() << "\n";

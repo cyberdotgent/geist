@@ -117,6 +117,7 @@ set(GEIST_SOURCES
   src/page_runs.cpp
   src/img/png.cpp
   src/properties.cpp
+  src/render_diagnostic.cpp
   src/procedure_rows.cpp
   src/prose_topic_blocks.cpp
   src/prose_topic_boxes.cpp
@@ -627,6 +628,18 @@ target_compile_definitions(typed_route_inventory_test PRIVATE
   GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
 )
 add_test(NAME typed_route_inventory_test COMMAND typed_route_inventory_test)
+
+# Render provenance for issue #58: pins the severity of representative
+# fixture topics and proves the coverage metric and the export renderer
+# describe every topic of a whole book identically.
+add_executable(render_diagnostic_test
+  tests/render_diagnostic.cpp
+)
+target_link_libraries(render_diagnostic_test PRIVATE geist::geist_static)
+target_compile_definitions(render_diagnostic_test PRIVATE
+  GEIST_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+add_test(NAME render_diagnostic_test COMMAND render_diagnostic_test)
 
 add_executable(document_ir_synthetic_test
   tests/document_ir_synthetic.cpp

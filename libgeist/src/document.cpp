@@ -5,8 +5,10 @@
 #include "geist/detail/comment_delivery_ir.hpp"
 #include "geist/detail/selector_display_ir.hpp"
 #include "geist/detail/source_rows.hpp"
+#include "geist/detail/render_diagnostic_ir.hpp"
 #include "geist/detail/topic_document_lowering.hpp"
 #include "geist/detail/topic_identity.hpp"
+#include "geist/detail/topic_lowering_outcome.hpp"
 #include "geist/detail/trap_catalog_ir.hpp"
 
 #include <algorithm>
@@ -37,7 +39,8 @@ std::shared_ptr<const std::set<std::string>> lowercase_resource_ids(
 
 struct TopicLoaderBundle {
   std::function<std::vector<std::string>()> raw;
-  std::function<std::shared_ptr<const DocumentIR>()> document;
+  std::function<std::shared_ptr<const TopicLoweringOutcomeIR>()> document;
+  std::function<TopicBestEffortIR()> best_effort;
 };
 
 struct LazyTopicState {
@@ -104,14 +107,26 @@ TopicLoaderBundle make_topic_loaders(
     attach_topic_data(loaded, state->topic, state->topic_titles.get());
     return std::move(loaded.raw_records);
   };
-  loaders.document = [state]() -> std::shared_ptr<const DocumentIR> {
+  // The rejection string and the decline trace are kept, not discarded: they
+  // are what a legacy-routed topic tells the consumer about itself, and they
+  // are the same strings `bootrace --coverage` reports.
+  loaders.document = [state]() -> std::shared_ptr<const TopicLoweringOutcomeIR> {
     state->load_sources();
-    auto document = try_lower_topic_to_document_ir(
+    auto outcome = std::make_shared<TopicLoweringOutcomeIR>();
+    outcome->document = try_lower_topic_to_document_ir(
         state->identity, state->topic.fixed_layout_sources,
-        state->topic_catalog.get(), nullptr, nullptr,
+        state->topic_catalog.get(), &outcome->rejection, &outcome->trace,
         state->resource_ids.get());
-    if (!document) return {};
-    return std::make_shared<const DocumentIR>(std::move(*document));
+    return outcome;
+  };
+  // Last resort, loaded only when no route produced content.
+  loaders.best_effort = [state]() -> TopicBestEffortIR {
+    state->load_sources();
+    TopicBestEffortIR result;
+    result.source_decoded = !state->topic.fixed_layout_sources.empty();
+    result.lines = best_effort_lines(state->topic.fixed_layout_sources,
+                                     state->identity.title);
+    return result;
   };
   return loaders;
 }
@@ -299,6 +314,7 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
         topic_titles, resource_ids);
     entry.raw_record_loader_ = std::move(loaders.raw);
     entry.document_ir_loader_ = std::move(loaders.document);
+    entry.best_effort_loader_ = std::move(loaders.best_effort);
   }
   return document;
 }
@@ -388,6 +404,13 @@ const TocEntry* BooDocument::find_toc_entry(const std::string& topic_id)
   return &*found;
 }
 
+std::vector<RenderDiagnostic> BooDocument::render_diagnostics() const {
+  std::vector<RenderDiagnostic> diagnostics;
+  diagnostics.reserve(toc_.size());
+  for (const auto& entry : toc_) diagnostics.push_back(entry.render_diagnostic());
+  return diagnostics;
+}
+
 std::string BooDocument::topic_markdown(const std::string& topic_id) const {
   if (const auto* entry = find_toc_entry(topic_id)) {
     return entry->markdown();
@@ -424,6 +447,7 @@ std::string BooDocument::topic_markdown(const std::string& topic_id) const {
       lowercase_resource_ids(resources_));
   entry.raw_record_loader_ = std::move(loaders.raw);
   entry.document_ir_loader_ = std::move(loaders.document);
+  entry.best_effort_loader_ = std::move(loaders.best_effort);
   return entry.markdown();
 }
 

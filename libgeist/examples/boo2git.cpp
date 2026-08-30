@@ -35,6 +35,7 @@ void print_usage(std::ostream& output) {
          << "  README.md             generated table of contents\n"
          << "  <topic>.md            one Markdown file per TOC topic\n"
          << "  <resource>.png        rendered PNG resources in the same folder\n"
+         << "  render-diagnostics.tsv  per-topic render route, severity and reason\n"
          << "\n"
          << "Options:\n"
          << "  -f, --force           write into a non-empty destination without prompting\n"
@@ -544,6 +545,18 @@ std::string wrap_topic_navigation(std::string markdown,
 
 bool has_leading_markdown_heading(const std::string& markdown) {
   auto offset = std::size_t{};
+  // A topic that did not render cleanly opens with the one-line render
+  // diagnostic comment; it is a marker, not content, so it must not stop the
+  // heading from being found.
+  while (offset < markdown.size() && markdown.compare(offset, 4, "<!--") == 0) {
+    const auto comment_end = markdown.find("-->", offset + 4);
+    if (comment_end == std::string::npos)
+      return false;
+    offset = comment_end + 3;
+    while (offset < markdown.size() &&
+           (markdown[offset] == '\r' || markdown[offset] == '\n'))
+      ++offset;
+  }
   while (offset < markdown.size() && markdown.compare(offset, 7, "<a id=\"") == 0) {
     const auto anchor_end = markdown.find("</a>", offset + 7);
     if (anchor_end == std::string::npos)
@@ -576,6 +589,89 @@ std::string render_topic_markdown(
     markdown.push_back('\n');
   }
   return wrap_topic_navigation(std::move(markdown), previous, next);
+}
+
+std::string tsv_field(std::string value) {
+  std::string output;
+  output.reserve(value.size());
+  for (const auto ch : value) {
+    switch (ch) {
+    case '\t':
+      output += "\\t";
+      break;
+    case '\n':
+      output += "\\n";
+      break;
+    case '\r':
+      output += "\\r";
+      break;
+    case '\\':
+      output += "\\\\";
+      break;
+    default:
+      output.push_back(ch);
+    }
+  }
+  return output;
+}
+
+// The machine-readable triage channel.  It lives beside the Markdown instead
+// of inside it, so a book can be triaged as a whole without any topic file
+// changing: the 94.5% of topics that render cleanly stay byte-identical to a
+// pipeline with no diagnostics at all.  Topics that did *not* render cleanly
+// additionally carry the one-line HTML comment the library emits, so a single
+// file is self-describing too.
+std::string render_diagnostics_manifest(
+    const std::vector<TopicOutput>& topics,
+    const std::vector<geist::RenderDiagnostic>& diagnostics) {
+  std::string output =
+      "file\tid\tseverity\troute\tfamily\treason\trecords\tdegraded\tdetail\n";
+  std::map<std::string, std::size_t> counts;
+  for (std::size_t index = 0; index < topics.size(); ++index) {
+    const auto& diagnostic = diagnostics[index];
+    const auto* severity = geist::to_string(diagnostic.severity);
+    ++counts[severity];
+    std::string degraded;
+    std::string detail = diagnostic.detail;
+    for (const auto& degradation : diagnostic.degradations) {
+      if (!degraded.empty()) degraded += ",";
+      degraded += degradation.reason;
+      // A typed-degraded topic carries no whole-topic detail; the block's own
+      // reason is what makes the row triageable.
+      if (detail.empty()) detail = degradation.detail;
+    }
+    output += tsv_field(topics[index].file);
+    output += "\t" + tsv_field(topics[index].entry->id);
+    output += "\t";
+    output += severity;
+    output += "\t" + tsv_field(diagnostic.route);
+    output += "\t" + tsv_field(diagnostic.family);
+    output += "\t" + tsv_field(diagnostic.reason);
+    output += "\t" + std::to_string(diagnostic.source.start_logical_record) +
+              "-" + std::to_string(diagnostic.source.end_logical_record);
+    output += "\t" + tsv_field(degraded);
+    output += "\t" + tsv_field(detail);
+    output += "\n";
+  }
+  output += "# summary";
+  for (const auto& [severity, count] : counts) {
+    output += "\t" + severity + "=" + std::to_string(count);
+  }
+  output += "\ttotal=" + std::to_string(topics.size()) + "\n";
+
+  // Every degraded block in the book, grouped by reason code, so a consumer
+  // can see at a glance which fallbacks are costing fidelity.
+  std::map<std::string, std::size_t> blocks;
+  for (const auto& diagnostic : diagnostics)
+    for (const auto& degradation : diagnostic.degradations)
+      ++blocks[degradation.reason];
+  if (!blocks.empty()) {
+    output += "# degraded-blocks";
+    for (const auto& [reason, count] : blocks)
+      output += "\t" + reason + "=" + std::to_string(count);
+    output += "\n";
+  }
+  return output;
 }
 
 std::string render_index_markdown(
@@ -634,6 +730,8 @@ void render_book(const Options& options) {
   write_text(index_path, render_index_markdown(document, topic_files));
   std::cerr << "boo2git: wrote " << index_path.string() << "\n";
 
+  std::vector<geist::RenderDiagnostic> diagnostics;
+  diagnostics.reserve(topic_outputs.size());
   std::size_t topic_count = 0;
   for (std::size_t index = 0; index < topic_outputs.size(); ++index) {
     const auto& topic = topic_outputs[index];
@@ -648,11 +746,17 @@ void render_book(const Options& options) {
                                      png_files,
                                      previous,
                                      next));
+    diagnostics.push_back(topic.entry->render_diagnostic());
     ++topic_count;
     if (options.verbose) {
       std::cerr << "boo2git: wrote " << path.string() << "\n";
     }
   }
+
+  const auto manifest_path = options.output / "render-diagnostics.tsv";
+  write_text(manifest_path,
+             render_diagnostics_manifest(topic_outputs, diagnostics));
+  std::cerr << "boo2git: wrote " << manifest_path.string() << "\n";
 
   std::cerr << "boo2git: rendered " << topic_count << " topics and "
             << png_files.size() << " PNG resources to "

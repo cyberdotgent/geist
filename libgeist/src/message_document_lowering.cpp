@@ -665,6 +665,15 @@ lower_structured_section(const MessageTopicIR &message,
           for (const auto &line : node.lines)
             cell_origin({line.source_row}, line.source_cells,
                         "message preformatted line");
+          // The message family's own fallback flag, surfaced unchanged: when
+          // the section's provenance is incomplete the block is deliberately
+          // not eligible for semantic promotion, so the render diagnostic
+          // must report the topic as typed-degraded rather than typed.
+          if (!node.provenance_complete) {
+            block_origin.fidelity = DocumentFidelityIR::degraded;
+            block_origin.degradation_code = "message-preformatted-fallback";
+            block_origin.degradation_detail = node.fallback_reason;
+          }
           PreformattedBlockIR preformatted_block;
           preformatted_block.lines = lines;
           result.block = BlockIR{std::move(preformatted_block), block_origin};

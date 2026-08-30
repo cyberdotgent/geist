@@ -1,6 +1,7 @@
 #pragma once
 
 #include "geist/detail/layout_ir.hpp"
+#include "geist/render_diagnostic.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -70,6 +71,10 @@ struct TypedRouteTopicIR {
   std::string rejection;
   // "<family>: <reason>" for every recognizer that declined the topic.
   std::vector<std::string> declined;
+  // How well the topic renders, and why. `route`, `family` and the reason
+  // column are all read out of this one value, so the coverage metric and the
+  // export renderer cannot describe the same topic differently.
+  RenderDiagnostic diagnostic;
   TopicStructureIR structure;
 };
 
@@ -78,6 +83,9 @@ struct TypedRouteInventoryIR {
   std::size_t typed_count = 0;
   std::size_t legacy_count = 0;
   std::map<std::string, std::size_t> typed_by_family;
+  // Topic count per RenderSeverity name ("typed", "typed-degraded",
+  // "legacy-fallback", "best-effort", "failed").
+  std::map<std::string, std::size_t> by_severity;
 };
 
 // Replaces topic-specific numbers, hex offsets and quoted material so

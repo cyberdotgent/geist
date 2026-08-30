@@ -5,6 +5,7 @@
 #include "geist/metadata.hpp"
 #include "geist/page.hpp"
 #include "geist/properties.hpp"
+#include "geist/render_diagnostic.hpp"
 #include "geist/resource.hpp"
 #include "geist/toc.hpp"
 
@@ -71,6 +72,11 @@ public:
   GEIST_API const std::vector<std::string>& raw_gml_records() const;
   GEIST_API std::string markdown() const;
   GEIST_API std::string topic_markdown(const std::string& topic_id) const;
+  // Render provenance for every TOC topic, parallel to table_of_contents():
+  // how well each topic was rendered, by which route, and why. Renders every
+  // topic, caching the Markdown on the TOC entries as it goes. See
+  // geist/render_diagnostic.hpp.
+  GEIST_API std::vector<RenderDiagnostic> render_diagnostics() const;
   GEIST_API const std::vector<ResourceEntry>& resources() const noexcept;
   GEIST_API const TocEntry* find_toc_entry(const std::string& topic_id)
       const noexcept;

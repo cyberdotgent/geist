@@ -142,6 +142,12 @@ struct ProseBlockIR {
   // blank rows kept); `inlines` then holds one text inline per non-blank
   // row for provenance.
   std::vector<std::string> preformatted_lines;
+  // Machine-readable degradation code when this block is a verbatim fallback
+  // rather than a source-declared structure.  A `cz OFF XMP` example block is
+  // preformatted because the source says so and leaves this empty; a drawn box
+  // region is preformatted because nothing inside it could be proven, and sets
+  // it, so the render diagnostic can report the topic as typed-degraded.
+  std::string degradation_code;
   std::vector<ProseInlineIR> inlines;
   std::vector<DocumentSourceSliceIR> slices;
 };

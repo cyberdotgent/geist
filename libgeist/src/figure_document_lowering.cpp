@@ -132,6 +132,12 @@ lower_preformatted_figure(const FigureSourceBlockIR &figure,
   block.node = std::move(body);
   block.origin.derivation = DocumentDerivationIR::semantic_lowering;
   block.origin.detail = "figure block: preformatted body";
+  // Degraded, not typed: an ASCII/CFONT-drawn figure keeps its display rows
+  // verbatim because no semantic structure inside the drawing was proven.
+  block.origin.fidelity = DocumentFidelityIR::degraded;
+  block.origin.degradation_code = "figure-drawn-verbatim";
+  block.origin.degradation_detail =
+      "drawn figure body has no proven structure; display rows kept verbatim";
   add_cell_slices(block.origin, figure.cells, [&](const auto &cell) {
     if (cell.role == FigureCellRoleIR::caption_content ||
         cell.role == FigureCellRoleIR::caption_layout)

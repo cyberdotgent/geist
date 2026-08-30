@@ -48,9 +48,29 @@ int main() {
   require(entry != nullptr, "message catalog is not a TOC topic");
   const auto gml_before = entry->gml_records();
 
-  const auto markdown = document.topic_markdown("5.0");
+  const auto rendered = document.topic_markdown("5.0");
   const auto repeated = document.topic_markdown("5.0");
-  require(markdown == repeated, "repeated typed rendering changed");
+  require(rendered == repeated, "repeated typed rendering changed");
+
+  // 5.0 is typed but degraded: one message section could not prove its table
+  // structure and is kept verbatim, so the topic opens with the render
+  // diagnostic marker (issue #58, render_diagnostic.hpp). The marker is a
+  // comment, not content; the body assertions below run on the Markdown after
+  // it, and its presence and spelling are asserted here.
+  require(entry != nullptr &&
+              entry->render_diagnostic().severity ==
+                  geist::RenderSeverity::typed_degraded,
+          "5.0 should render typed-degraded");
+  const auto marker_end = rendered.find("-->\n\n");
+  require(rendered.rfind("<!-- geist-render: severity", 0) == 0 &&
+              marker_end != std::string::npos,
+          "5.0 does not open with the render diagnostic marker");
+  require(rendered.find("degraded=message-preformatted-fallback") <
+              rendered.find('\n'),
+          "the marker does not name the degraded block");
+  const auto markdown =
+      marker_end == std::string::npos ? rendered
+                                      : rendered.substr(marker_end + 5);
   require(entry->gml_records() == gml_before && !gml_before.empty(),
           "typed rendering changed public GML");
 
