@@ -37,7 +37,7 @@ from pathlib import Path
 # Committed floor, carried across from libgeist/tests/typed_route_inventory.cpp.
 # Typed topics per book; these may only ever rise.
 BASELINE = {
-    "ACPZMST1.boo": 186,
+    "ACPZMST1.boo": 200,
     "DREICMST.boo": 370,
     "FA1PLMM0.boo": 414,
     "GC23-046.boo": 99,
@@ -47,34 +47,34 @@ BASELINE = {
     "GX27-3999-00.boo": 29,
     "IBMMMSTR.boo": 52,
     "IEAC6MST.BOO": 201,
-    "ITPPIBOK.BOO": 254,
-    "N2AH1MST.BOO": 40,
-    "OFCUSEOV.BOO": 180,
+    "ITPPIBOK.BOO": 255,
+    "N2AH1MST.BOO": 41,
+    "OFCUSEOV.BOO": 192,
     "PRG1SORT.boo": 205,
     "QS3X36CM.BOO": 10,
-    "QSYSINFO.BOO": 404,
-    "QSYSNEWG.BOO": 153,
+    "QSYSINFO.BOO": 413,
+    "QSYSNEWG.BOO": 157,
     "SC09-138.boo": 522,
-    "SC09-2417-00.boo": 322,
+    "SC09-2417-00.boo": 324,
     "SC24-546.boo": 298,
     "SC24-5520-00.boo": 644,
-    "SC24-5527-02.boo": 297,
-    "SC26-457.boo": 353,
+    "SC24-5527-02.boo": 298,
+    "SC26-457.boo": 355,
     "SC28-1881-05.boo": 88,
     "SC31-605.boo": 109,
-    "SC31-711.boo": 76,
+    "SC31-711.boo": 78,
     "SC33-033.boo": 220,
     "SC34-425.boo": 244,
     "SC41-485.boo": 29,
     "SG24-204.boo": 87,
-    "SH12-565.boo": 281,
-    "SH20-918.boo": 196,
+    "SH12-565.boo": 284,
+    "SH20-918.boo": 200,
     "XWEBDEMO.boo": 9,
     # packet.boo is the one redistributable fixture; it now lives inside the
     # published library at libgeist/tests/fixtures/.
     "packet.boo": 120,
 }
-BASELINE_TOTAL = 7088
+BASELINE_TOTAL = 7143
 
 SUMMARY = re.compile(r"^# summary\ttyped=(\d+)\tlegacy=(\d+)\ttotal=(\d+)")
 

@@ -559,13 +559,16 @@ struct LineBuilder {
           continue;
         const auto view = view_token(records, record, token);
         auto role = ProseTokenRoleIR::text;
-        const auto line_prefix = std::any_of(
-            region.lines.begin(), region.lines.end(),
-            [&](const auto& box_line) {
-              return box_line.record == record &&
-                     box_line.line.prefix_token == token;
-            });
-        if (line_prefix || is_placeholder_run(view))
+        // Whether a token is a display line's length byte is the decoder's
+        // decision, carried on the token; asking the box region's own line
+        // list instead answers only for the lines the box drew.  A region
+        // spans whole records, so it also covers the length bytes of the
+        // lines *around* the box -- QSYSNEWG record 232 token 0 is the byte
+        // 51 that opens the `cfont 12 4 2 ...` line above the drawn frame,
+        // and its dictionary spelling is the ordinary word `any`.  Read as
+        // text it becomes a word the reader never displays; the framing says
+        // it is the row-control slot.
+        if (display_line_prefix_at(record, token) || is_placeholder_run(view))
           role = ProseTokenRoleIR::marker;
         else if (is_bare(view))
           role = ProseTokenRoleIR::spacing;

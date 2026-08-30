@@ -59,6 +59,17 @@ bool is_glyph(const TokenView& view);
 bool is_bullet_glyph(const TokenView& view);
 bool is_visible(const TokenView& view);
 bool is_padding(const TokenView& view);
+// True when the token the view names is a display line's length byte, as
+// decided once by the record decoder and carried on the token
+// (`TokenFramingRole::line_length`).  It is the row-control slot: structure,
+// never displayed text and never a control's payload, whatever word the
+// dictionary happens to spell for the byte.  The spelling is an ordinary
+// word often enough (`additional`, `access`, `csourcefn`, `.`) that nothing
+// local can tell the two apart, which is why this reads the carried framing
+// and never re-derives it.  False on an unframed record, where there is no
+// decided framing to appeal to.
+bool is_row_control_slot(const std::vector<DecodedLogicalRecordSource>& records,
+                         const TokenView& view);
 bool punctuation_glyph_token(const TokenView& view);
 bool is_separator(const TokenView& view);
 std::string word_text(std::uint16_t word);

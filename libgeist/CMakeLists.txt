@@ -217,6 +217,7 @@ endfunction()
 foreach(synthetic_test
     gdf_synthetic
     logical_synthetic
+    display_line_control_extent_synthetic
     source_rows_synthetic
     layout_ir_synthetic
     ownership_ir_synthetic

@@ -290,6 +290,54 @@ std::set<std::size_t> index_entry_marker_tokens(
   return tokens;
 }
 
+// A display line whose whole visible content is one `c.<xx>` body-control
+// opcode standing at the line origin, with at most one operand word after it.
+// Such a line is SCRIPT pagination or revision state -- `c.cp` keep-together,
+// `c.cc` conditional column -- and it draws nothing: hosted BookServer prints
+// no character of it (SC33-033 PREFACE.1 stores `c.cc 4` between a paragraph
+// and a fence and serves only those two, DT 19930422134757; DREICMST 1.5.6.3
+// stores a bare `c.cp`, DT 19911219125856).
+//
+// The decoder does not always keep the control boundary in front of these
+// words -- SG24-204 record 153 puts `c.cp` inside an `SREFIG` segment, so
+// `control_tokens` never sees it and the word reaches the page as prose (258
+// `c.cp` and 24 `c.cc` lines across the checked-in exports).  The framing is
+// what decides it instead: the opcode stands directly after the line's length
+// byte and owns the line.  This is the same reading the typed route already
+// uses (`body_control_line`, prose_topic_lines.cpp) and the same shape as the
+// `SI` suppression below -- a control that owns a whole display line and
+// draws nothing on it.
+bool body_control_display_line(const DecodedLogicalRecordSource& record,
+                               const DisplayLineIR& line) {
+  if (line.token_end <= line.prefix_token + 1) return false;
+  const auto* words = display_text_words(record, line.prefix_token + 1);
+  if (words == nullptr) return false;
+  std::string text;
+  for (const auto word : *words) {
+    if (word < 4) continue;
+    if (word > 0x7F) return false;
+    text.push_back(static_cast<char>(word));
+  }
+  text = trim_ascii(text);
+  if (text.size() < 4 || text.compare(0, 2, "c.") != 0) return false;
+  for (std::size_t at = 2; at < text.size(); ++at)
+    if (std::islower(static_cast<unsigned char>(text[at])) == 0) return false;
+  // At most one operand word after the opcode; anything more is a line the
+  // reader draws, and this pass may not delete drawn text.
+  std::size_t visible = 0;
+  for (auto token = line.prefix_token + 2; token < line.token_end; ++token) {
+    const auto* rest = display_text_words(record, token);
+    if (rest == nullptr) continue;
+    for (const auto word : *rest)
+      if (word >= 4 && word != ' ') {
+        ++visible;
+        break;
+      }
+    if (visible > 1) return false;
+  }
+  return true;
+}
+
 } // namespace
 
 std::vector<std::string> best_effort_lines(
@@ -314,6 +362,9 @@ std::vector<std::string> best_effort_lines(
         }
         if (is_index_entry) continue;
       }
+      // A body-control line draws nothing, whether or not the decoder kept
+      // the control boundary in front of its opcode.
+      if (body_control_display_line(record, line)) continue;
       std::string text;
       for (const auto& cell : display_line_cells(record, line)) {
         if (cell.token != static_cast<std::size_t>(-1) &&

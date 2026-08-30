@@ -506,9 +506,25 @@ void reclaim_split_separators(const std::string &text,
 std::vector<ControlSegmentIR>
 decode_control_segments(std::uint32_t logical_record,
                         const AssembledLogicalRecord &assembled,
-                        const std::vector<EncodedLogicalToken> &encoded_tokens) {
+                        const std::vector<EncodedLogicalToken> &encoded_tokens,
+                        const std::vector<DisplayLineIR> &display_lines) {
   const auto text = token_words_to_ascii(assembled.words);
   const auto geometry = display_geometry_bytes(assembled, text.size());
+  // Byte at which the display line covering `token` ends -- the first byte of
+  // the next line's length byte.  `text.size()` when the record carries no
+  // framing or the token is beyond the last line, which leaves the operand
+  // parser reading the whole segment exactly as it did before.
+  const auto display_line_end_byte = [&](const std::size_t token) {
+    for (const auto &line : display_lines) {
+      if (token < line.prefix_token || token >= line.token_end) continue;
+      if (line.token_end >= assembled.tokens.size()) break;
+      const auto &next = assembled.tokens[line.token_end];
+      return decoded_word_range_to_byte_range(
+                 assembled, {next.output_begin, next.output_begin})
+          .begin;
+    }
+    return text.size();
+  };
   const auto decoded = split_glued_body_controls(
       assembled, encoded_tokens, text,
       split_decoded_markup_segment_spans(text));
@@ -544,6 +560,25 @@ decode_control_segments(std::uint32_t logical_record,
       segment.operand_range = {begin, begin};
       segment.payload_range = {begin, source.output_end};
     } else {
+      // An opcode ends where its own display line ends.  The flattened string
+      // carries no mark at that boundary, so the next line's length byte is
+      // glued straight onto the opcode word and the glued spelling then
+      // classifies as ordinary text: SC31-711 record 14 display line 1 is
+      // exactly `SRHDRAIXHIGH` (token 17) and the `-` behind it is line 2's
+      // length byte (token 18), and the anchor arrives as `SRHDRAIXHIGH-`.
+      // The framing is what separates them.  A record with no decided framing
+      // clips nothing and keeps its previous reading.
+      {
+        const auto opcode_words = decoded_byte_range_to_word_range(
+            assembled, {words[0].begin, words[0].end});
+        const auto opcode_tokens = source_tokens_intersecting_output(
+            assembled, opcode_words.begin, opcode_words.end);
+        if (!opcode_tokens.empty()) {
+          const auto line_end = display_line_end_byte(opcode_tokens.front());
+          if (line_end > words[0].begin && line_end < words[0].end)
+            words[0].end = line_end;
+        }
+      }
       const auto opcode_end =
           opcode_end_without_separator(assembled, text, words[0]);
       segment.opcode = text.substr(words[0].begin, opcode_end - words[0].begin);
@@ -578,9 +613,26 @@ decode_control_segments(std::uint32_t logical_record,
                                       words[3].end - words[3].begin)) != "c";
           operand_words = segment.malformed ? 0 : 3;
         } else if (segment.kind == BookControlKind::layout_directive) {
+          // A `cz` directive's operands stand on the directive's own display
+          // line and stop at its end.  A segment runs to the next control, so
+          // the trailing word list also holds the body text of every later
+          // display line the segment spans; validating against that list
+          // leaves nearly every directive "malformed", which zeroes the
+          // operand range and prints `FLOW P 3 3` / `OFF COVER` as prose.
+          // XWEBDEMO record 5 display line 13 is exactly `cz FLOW P 3 3`
+          // (tokens 43-47) and line 14 opens with its own length byte, so the
+          // framing draws the boundary the flattened string lost.
+          const auto opcode_words = decoded_byte_range_to_word_range(
+              assembled, segment.opcode_range);
+          const auto opcode_tokens = source_tokens_intersecting_output(
+              assembled, opcode_words.begin, opcode_words.end);
+          const auto line_end =
+              opcode_tokens.empty() ? text.size()
+                                    : display_line_end_byte(opcode_tokens.front());
           std::vector<std::string> operands;
           operands.reserve(words.size() - 1);
           for (std::size_t word = 1; word < words.size(); ++word) {
+            if (words[word].end > line_end) break;
             operands.push_back(ascii_lower(text.substr(
                 words[word].begin, words[word].end - words[word].begin)));
           }
@@ -604,15 +656,23 @@ decode_control_segments(std::uint32_t logical_record,
                                  return std::isdigit(ch) != 0;
                                });
           };
+          // `BREAK` stays pinned to its single corpus value; the region
+          // modes take a tag and an optional `<left> <indent>` pair.  `FLOW`
+          // is admitted beside `OFF` because the prose model reads both
+          // (prose_topic_cz.cpp, "cz mode is not FLOW, OFF or BREAK") and
+          // only this grammar disagreed, which is what left every `cz FLOW`
+          // in the corpus malformed.
+          const auto &mode = operands.empty() ? segment.opcode : operands[0];
+          const auto region_mode = mode == "off" || mode == "flow";
           segment.malformed =
               !((operands.size() == 2 && operands[0] == "break" &&
                  operands[1] == "3") ||
-                (operands.size() == 2 && operands[0] == "off" &&
+                (operands.size() == 2 && region_mode &&
                  alphanumeric_tag(operands[1])) ||
-                (operands.size() == 4 && operands[0] == "off" &&
+                (operands.size() == 4 && region_mode &&
                  alphanumeric_tag(operands[1]) &&
                  decimal_operand(operands[2]) && decimal_operand(operands[3])));
-          operand_words = segment.malformed ? 0 : words.size() - 1;
+          operand_words = segment.malformed ? 0 : operands.size();
         } else if (operand_words > words.size() - 1) {
           segment.malformed = true;
           operand_words = words.size() - 1;
