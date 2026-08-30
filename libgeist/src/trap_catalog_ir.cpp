@@ -1086,6 +1086,15 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
                  segment.kind == BookControlKind::unknown ||
                  segment.kind == BookControlKind::select ||
                  segment.kind == BookControlKind::structural) {
+        // A structural `SR<id>` inside an entry names the topic a second
+        // time.  Its payload is entry text and keeps its disposition below;
+        // only the name is recorded, because the entry already carries the
+        // anchor its own `SRMSG` states.
+        if (!opcode_is_line_prefix &&
+            segment.kind == BookControlKind::structural &&
+            ascii_starts_with_case_insensitive(segment.opcode, "SR") &&
+            segment.opcode.size() > 2)
+          catalog.entry_named_destinations.push_back(segment.opcode.substr(2));
         TrapTextIR piece;
         piece.cell_begin = entry.cells.size();
         if (!walk_payload(*ref.record, segment, index, piece, entry.cells,
@@ -1264,6 +1273,7 @@ bool same_trap_catalog_ir(const TrapCatalogIR &left,
       left.title_row.display_run != right.title_row.display_run ||
       left.title_row.row_index != right.title_row.row_index ||
       left.anchors.size() != right.anchors.size() ||
+      left.entry_named_destinations != right.entry_named_destinations ||
       left.introduction_envelope != right.introduction_envelope ||
       left.introduction.size() != right.introduction.size() ||
       left.origin_column != right.origin_column ||
@@ -1368,6 +1378,7 @@ std::string format_trap_catalog_ir(const TrapCatalogIR &catalog) {
   for (std::size_t index = 0; index < catalog.label_vocabulary.size(); ++index)
     out << (index == 0 ? "" : "|") << catalog.label_vocabulary[index];
   out << "] anchors=" << catalog.anchors.size()
+      << " named=" << catalog.entry_named_destinations.size()
       << " introduction=" << catalog.introduction.size()
       << " entries=" << catalog.entries.size() << '\n';
   for (const auto &paragraph : catalog.introduction) {

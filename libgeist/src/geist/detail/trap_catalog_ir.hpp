@@ -146,6 +146,12 @@ struct TrapCatalogIR {
   DocumentSourceSliceIR title_source;
   DocumentSourceRowIR title_row;
   std::vector<TrapAnchorIR> anchors;
+  // A second name the source gives the whole topic from inside an entry:
+  // N2AH1MST record 385 spells `SRMSG AMD083I` and `SRSPTE083I` side by side,
+  // and the book's own change summary links to `SPTE083I`.  Hosted serves
+  // both names; the entry's own anchor is `MSG AMD083I`, so these are
+  // destinations for the topic rather than places inside it.
+  std::vector<std::string> entry_named_destinations;
   std::optional<MessageProseEnvelopeIR> introduction_envelope;
   std::vector<TrapIntroductionParagraphIR> introduction;
   std::size_t origin_column = 0;

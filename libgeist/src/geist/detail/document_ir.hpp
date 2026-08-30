@@ -83,8 +83,28 @@ struct ParagraphBlockIR {
   InlineSequenceIR content;
 };
 
+// What a named destination in the source is, which decides how a book-wide
+// link map resolves references to it.  The legacy GML projection stated this
+// by using a different tag for each -- `:anchor id=`, `:fig id=`, `:table
+// id=` -- and stated nothing at all for a footnote, whose `SRFTN` control
+// produces no record.  The typed IR lowers all four to an anchor block, so
+// the distinction has to travel with the node instead.
+enum class AnchorRoleIR {
+  // `SR<id>`: a destination other topics reference by that id.  Resolves to
+  // this topic's file, with no fragment.
+  cross_reference,
+  // `SRFIG<id>`: the anchor id is `FIG` + the id cross references name.
+  figure,
+  // `SRTBL<id>`: the anchor id is `TBL` + the object id.
+  table,
+  // Reachable only from inside the topic that emits it (`SRFTN<id>`), or a
+  // second spelling of a destination another anchor already names.
+  local,
+};
+
 struct AnchorBlockIR {
   std::string id;
+  AnchorRoleIR role = AnchorRoleIR::cross_reference;
 };
 
 struct ListItemIR {
@@ -240,6 +260,14 @@ struct TopicIdentityIR {
 struct DocumentIR {
   TopicIdentityIR topic;
   std::vector<BlockIR> blocks;
+  // Ids the source names this whole topic by, over and above the anchors the
+  // document places.  BookManager lets one topic carry several named
+  // destinations that all mean "this topic": N2AH1MST record 385 spells
+  // `SRMSG AMD083I` and `SRSPTE083I` side by side, and a cross reference may
+  // use either.  A reference to one of these resolves to the topic, so the
+  // document does not have to place it anywhere -- keeping them out of
+  // `blocks` is what stops them being rendered as anchors nobody links into.
+  std::vector<std::string> named_destinations;
 };
 
 // Lifts every child node's source slices into the container that holds it, so

@@ -1,8 +1,10 @@
 #include "geist/boo.hpp"
 #include "geist/detail/render_diagnostic_ir.hpp"
 #include "geist/detail/internal.hpp"
+#include "geist/detail/topic_link_targets.hpp"
 #include "geist/detail/typed_route_inventory.hpp"
 
+#include <algorithm>
 #include <exception>
 #include <iostream>
 #include <sstream>
@@ -15,6 +17,7 @@ void usage() {
   std::cerr << "usage: bootrace <book.boo> <topic-id> "
                "[--all|--records|--segments|--fonts|--ir|--tokens|--lines]\n"
                "       bootrace <book.boo> --coverage\n"
+               "       bootrace <book.boo> --links\n"
                "       bootrace <book.boo> <topic-id> --explain-offset <n>\n";
 }
 
@@ -116,6 +119,81 @@ int main(int argc, char** argv) {
         }
         std::cout << "\n";
       }
+      return 0;
+    } catch (const std::exception& error) {
+      std::cerr << "bootrace: " << error.what() << "\n";
+      return 1;
+    }
+  }
+
+  // What every topic names, and -- for a topic that renders typed -- whether
+  // the typed Document IR names the same things its legacy GML projection
+  // does.  A `typed-missing` row is a gap in the typed lowering: an id the
+  // book uses to reach the topic that the typed IR cannot state.
+  if (argc == 3 && std::string(argv[2]) == "--links") {
+    try {
+      const auto document = geist::BooDocument::open(argv[1]);
+      const auto kind_name = [](geist::LinkTargetKind kind) {
+        switch (kind) {
+        case geist::LinkTargetKind::figure:
+          return "figure";
+        case geist::LinkTargetKind::table:
+          return "table";
+        case geist::LinkTargetKind::anchor:
+          break;
+        }
+        return "anchor";
+      };
+      const auto key = [&](const geist::LinkTarget& target) {
+        return std::string(kind_name(target.kind)) + " " + target.id + " " +
+               target.resource;
+      };
+      std::cout << "topic\troute\tstatus\tkind\tid\tresource\n";
+      std::size_t typed_missing = 0;
+      std::size_t typed_extra = 0;
+      std::size_t topics_with_gap = 0;
+      for (const auto& entry : document.table_of_contents()) {
+        const auto typed = entry.render_diagnostic().route == "typed";
+        const auto& live = entry.link_targets();
+        const auto legacy =
+            typed ? geist::detail::gml_link_targets(entry.gml_records())
+                  : std::vector<geist::LinkTarget>{};
+        std::vector<std::string> live_keys;
+        for (const auto& target : live) live_keys.push_back(key(target));
+        std::vector<std::string> legacy_keys;
+        for (const auto& target : legacy) legacy_keys.push_back(key(target));
+        auto gap = false;
+        for (const auto& target : live) {
+          const auto status =
+              !typed ? "legacy"
+                     : std::find(legacy_keys.begin(), legacy_keys.end(),
+                                 key(target)) == legacy_keys.end()
+                           ? "typed-extra"
+                           : "typed";
+          if (std::string(status) == "typed-extra") {
+            ++typed_extra;
+            gap = true;
+          }
+          std::cout << tsv_escape(entry.id) << "\t"
+                    << (typed ? "typed" : "legacy") << "\t" << status << "\t"
+                    << kind_name(target.kind) << "\t" << tsv_escape(target.id)
+                    << "\t" << tsv_escape(target.resource) << "\n";
+        }
+        for (const auto& target : legacy) {
+          if (std::find(live_keys.begin(), live_keys.end(), key(target)) !=
+              live_keys.end())
+            continue;
+          ++typed_missing;
+          gap = true;
+          std::cout << tsv_escape(entry.id) << "\ttyped\ttyped-missing\t"
+                    << kind_name(target.kind) << "\t" << tsv_escape(target.id)
+                    << "\t" << tsv_escape(target.resource) << "\n";
+        }
+        if (gap) ++topics_with_gap;
+      }
+      std::cout << "# summary\ttyped-missing=" << typed_missing
+                << "\ttyped-extra=" << typed_extra
+                << "\ttopics-with-gap=" << topics_with_gap << "\n";
       return 0;
     } catch (const std::exception& error) {
       std::cerr << "bootrace: " << error.what() << "\n";

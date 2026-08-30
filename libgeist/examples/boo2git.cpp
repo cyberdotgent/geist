@@ -234,32 +234,6 @@ std::vector<TopicOutput> build_topic_outputs(
   return outputs;
 }
 
-std::string raw_attr(const std::string& record, const std::string& attr) {
-  const auto pattern = attr + "='";
-  const auto begin = record.find(pattern);
-  if (begin == std::string::npos) {
-    return {};
-  }
-  const auto value_begin = begin + pattern.size();
-  const auto value_end = record.find('\'', value_begin);
-  if (value_end == std::string::npos || value_end <= value_begin) {
-    return {};
-  }
-  return record.substr(value_begin, value_end - value_begin);
-}
-
-std::string picture_resource_id(const std::string& target) {
-  if (target.size() <= 3 || lowercase(target.substr(0, 3)) != "pic") {
-    return {};
-  }
-  for (std::size_t index = 3; index < target.size(); ++index) {
-    if (std::isdigit(static_cast<unsigned char>(target[index])) == 0) {
-      return {};
-    }
-  }
-  return target.substr(3);
-}
-
 // Every `<a id="...">` a topic's Markdown really emits, in order.
 std::vector<std::string> emitted_anchor_ids(const std::string& markdown) {
   const std::string opening = "<a id=\"";
@@ -277,10 +251,10 @@ std::vector<std::string> emitted_anchor_ids(const std::string& markdown) {
   return ids;
 }
 
-// The link map is built from the legacy GML projection, which spells a figure
-// or table object id without the prefix the source control carries: the
-// XWEBDEMO record 11 control is `SRFIGMONET1` and its GML is
-// `:fig id="MONET1"`, so a cross reference resolved to `1-4-1.md#MONET1`
+// A figure or table object id is spelled without the prefix its source
+// control carries: the XWEBDEMO record 11 control is `SRFIGMONET1`, so its
+// reference id is `MONET1` and a cross reference resolves to
+// `1-4-1.md#MONET1`
 // while both renderers write the anchor hosted BookServer writes,
 // `<a name="FIGMONET1">` (DT 19970423182524).  A destination whose anchor its
 // own file does not contain is repaired against the anchors that file really
@@ -331,6 +305,10 @@ void repair_anchor_destinations(
   }
 }
 
+// Each topic states what it names; the library decides whether that answer
+// comes from the topic's typed Document IR or, for the topics that still
+// render through it, from the legacy GML projection.  This loop only spells
+// the answers as Markdown destinations.
 std::map<std::string, std::string> build_markdown_link_map(
     const std::vector<geist::TocEntry>& toc,
     const std::map<std::string, std::string>& topic_files) {
@@ -340,53 +318,28 @@ std::map<std::string, std::string> build_markdown_link_map(
     if (file == topic_files.end()) {
       continue;
     }
-    std::string pending_figure_id;
-    for (const auto& record : entry.gml_records()) {
-      if (record.rfind(":anchor ", 0) == 0) {
-        const auto id = raw_attr(record, "id");
-        if (!id.empty()) {
-          links[lowercase(id)] = file->second;
-        }
+    for (const auto& target : entry.link_targets()) {
+      if (target.id.empty()) {
         continue;
       }
-
-      if (record.rfind(":fig ", 0) == 0) {
-        pending_figure_id = raw_attr(record, "id");
-        if (!pending_figure_id.empty()) {
-          const auto figure_uri = file->second + "#" + pending_figure_id;
-          links[lowercase(pending_figure_id)] = figure_uri;
-          links[lowercase("fig" + pending_figure_id)] = figure_uri;
-        }
-        continue;
+      switch (target.kind) {
+      case geist::LinkTargetKind::anchor:
+        links[lowercase(target.id)] = file->second;
+        break;
+      case geist::LinkTargetKind::figure: {
+        // A figure whose body is a stored object resolves to the object; one
+        // drawn in the topic resolves to its anchor inside the file.  Source
+        // spells a reference to it with and without the `FIG` prefix.
+        const auto uri = target.resource.empty()
+                             ? file->second + "#" + target.id
+                             : target.resource;
+        links[lowercase(target.id)] = uri;
+        links[lowercase("fig" + target.id)] = uri;
+        break;
       }
-
-      if (record.rfind(":table ", 0) == 0) {
-        const auto id = raw_attr(record, "id");
-        if (!id.empty()) {
-          links[lowercase(id)] = file->second + "#" + id;
-        }
-        continue;
-      }
-
-      if (record.rfind(":image ", 0) == 0) {
-        const auto resource = raw_attr(record, "resource");
-        if (!pending_figure_id.empty() && !resource.empty()) {
-          const auto uri = "resource:" + resource;
-          links[lowercase(pending_figure_id)] = uri;
-          links[lowercase("fig" + pending_figure_id)] = uri;
-          pending_figure_id.clear();
-        }
-        continue;
-      }
-
-      if (record.rfind(":hdref ", 0) == 0) {
-        const auto resource = picture_resource_id(raw_attr(record, "refid"));
-        if (!pending_figure_id.empty() && !resource.empty()) {
-          const auto uri = "resource:" + resource;
-          links[lowercase(pending_figure_id)] = uri;
-          links[lowercase("fig" + pending_figure_id)] = uri;
-          pending_figure_id.clear();
-        }
+      case geist::LinkTargetKind::table:
+        links[lowercase(target.id)] = file->second + "#" + target.id;
+        break;
       }
     }
   }

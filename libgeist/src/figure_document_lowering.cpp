@@ -108,7 +108,7 @@ lower_preformatted_figure(const FigureSourceBlockIR &figure,
   }
   std::vector<BlockIR> blocks;
   BlockIR anchor;
-  anchor.node = AnchorBlockIR{figure.anchor};
+  anchor.node = AnchorBlockIR{figure.anchor, AnchorRoleIR::figure};
   anchor.origin.derivation = DocumentDerivationIR::semantic_lowering;
   anchor.origin.detail = "figure anchor";
   add_cell_slices(anchor.origin, figure.cells, [&](const auto &cell) {
@@ -216,7 +216,7 @@ lower_figure_block_to_document_blocks(const FigureSourceBlockIR &figure,
 
   if (figure.span.anchored) {
     BlockIR anchor;
-    anchor.node = AnchorBlockIR{figure.anchor};
+    anchor.node = AnchorBlockIR{figure.anchor, AnchorRoleIR::figure};
     anchor.origin.derivation = DocumentDerivationIR::semantic_lowering;
     anchor.origin.detail = "figure anchor";
     add_cell_slices(anchor.origin, figure.cells, [&](const auto &cell) {
