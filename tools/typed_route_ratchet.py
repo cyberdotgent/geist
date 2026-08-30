@@ -67,12 +67,12 @@ BASELINE = {
     "SC34-425.boo": 244,
     "SC41-485.boo": 34,
     "SG24-204.boo": 91,
-    "SH12-565.boo": 284,
-    "SH20-918.boo": 200,
+    "SH12-565.boo": 288,
+    "SH20-918.boo": 201,
     "XWEBDEMO.boo": 11,
-    "packet.boo": 121,
+    "packet.boo": 122,
 }
-BASELINE_TOTAL = 7177
+BASELINE_TOTAL = 7183
 
 SUMMARY = re.compile(r"^# summary\ttyped=(\d+)\tlegacy=(\d+)\ttotal=(\d+)")
 

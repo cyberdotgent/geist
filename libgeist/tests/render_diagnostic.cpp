@@ -117,19 +117,25 @@ void declared_table_topic() {
           "2.4.4 lost the declared table it does not degrade over");
 }
 
-// Fail-closed must never mean withholding content.  packet 4.5.1 is declined
-// by every typed family (a `cz flow` directive without text is not the last
-// directive of its record), and exits as `best-effort` carrying its own
-// display lines rather than dropping them.
+// Fail-closed must never mean withholding content.  packet COVER is declined
+// by every typed family (`cz off cover carries display text`), and exits as
+// `best-effort` carrying its own display lines rather than dropping them.
 //
-// This used to be checked on packet GLOSSARY, which the glossary family now
-// claims (issue #69).
+// This assertion has moved twice as coverage grew: from packet GLOSSARY, which
+// the glossary family now claims (#69), to packet 4.5.1, which the `cz FLOW`
+// admission fix now claims (#75).  Each move is the fix working.  packet has
+// exactly two declining topics left, COVER and TITLE, both `cz` title-page
+// regions that #74 deliberately left declining because hosted does not serve
+// them verbatim either.  If #74 ever models them, this needs a new subject --
+// and if packet has none left, that is worth saying out loud rather than
+// deleting the check: it would mean the only distributable fixture can no
+// longer witness the verbatim route at all.
 void best_effort_topic() {
   const auto document = geist::BooDocument::open(book("packet.boo"));
-  const auto &entry = topic(document, "4.5.1");
+  const auto &entry = topic(document, "COVER");
   const auto &diagnostic = entry.render_diagnostic();
   require(diagnostic.severity == geist::RenderSeverity::best_effort,
-          "packet 4.5.1 should be best-effort, is " +
+          "packet COVER should be best-effort, is " +
               std::string(geist::to_string(diagnostic.severity)));
   require(diagnostic.route == "best-effort", "route should be best-effort");
   require(diagnostic.reason == "typed-lowering-declined",
@@ -138,7 +144,7 @@ void best_effort_topic() {
           "the declining route's own reason is kept, is: " +
               diagnostic.detail);
   const auto markdown = entry.markdown();
-  require(contains(markdown, "IPIP"),
+  require(contains(markdown, "Amateur Packet Radio"),
           "the verbatim route emits the topic's own words");
   require(contains(markdown, "```text"),
           "the verbatim route emits them as preformatted content");
