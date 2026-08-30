@@ -33,6 +33,11 @@
 // reproduced exactly as the hosted reader prints them
 // (SC24-5527-02 3.8.4.2 `TBLUNIQ99`/`TBLUNIQ100` at DT=19921218151459,
 // 3.8.4.6 `TBLUNIQ114`, SG24-204 BACK_1.2 `TBLUNIQ18`/`TBLUNIQ20`).
+// A region may also carry a `PIC<n>` picture selector, which hosted serves
+// as an `<img>` over the columns the selector names: GG24-395 3.3.8
+// `TBLUNIQ14` (one picture, DT=19941215160749) and GX27-3999-00 1.3
+// `NOSENVI` (four, DT=19950730184057) check that the columns are blanked out
+// of the reproduced art and the picture kept.
 
 #include "geist/boo.hpp"
 #include "geist/detail/document_ir.hpp"
@@ -846,6 +851,90 @@ void test_negatives() {
   }
 }
 
+// A `PIC<n>` selector inside a fixed-layout region.  Hosted BookServer
+// replaces exactly the selector's columns with the image and leaves the rest
+// of the display line in place, so the region keeps its art *and* its
+// picture: the columns are blanked in the reproduced text and the picture is
+// recorded.  Reproducing the placeholder words instead would spell
+// `PICTURE 69` where hosted shows the image.
+//   GG24-395 3.3.8 `TBLUNIQ14`  DT=19941215160749, one picture, prose beside
+//   GX27-3999-00 1.3 `NOSENVI`  DT=19950730184057, four icons, one per row
+void test_picture_regions() {
+  const auto overview = extract("GG24-395.boo", "3.3.8");
+  require(overview.blocks.blocks.size() == 1 &&
+              overview.blocks.declined.empty(),
+          "3.3.8 admits its picture-bearing envelope");
+  if (overview.blocks.blocks.size() != 1)
+    return;
+  const auto &region = overview.blocks.blocks.front();
+  require(region.object_id == "TBLUNIQ14" && !region.source_declared_table &&
+              region.pictures.size() == 1,
+          "3.3.8 records exactly one picture");
+  if (region.pictures.size() == 1) {
+    const auto &picture = region.pictures.front();
+    require(picture.resource == "69" && picture.placeholder == "PICTURE 69" &&
+                picture.line == 0 && picture.column == 3 &&
+                picture.length == 11,
+            "3.3.8 picture is PIC69 over columns [3,14) of the first line");
+    require(region.preformatted_lines.front().text ==
+                "                   SystemView Host Management Facilities/VM "
+                "(HMF/VM, 5684-157),",
+            "3.3.8 blanks the placeholder columns, as hosted's <pre> does");
+  }
+  const auto lowered = lower_fixed_table_block_to_document_ir(region);
+  const auto *figure =
+      lowered.size() == 3 ? std::get_if<FigureBlockIR>(&lowered[1].node)
+                          : nullptr;
+  require(lowered.size() == 3 && figure != nullptr &&
+              figure->resource == "resource:69" &&
+              lowered_verbatim(lowered) != nullptr,
+          "3.3.8 lowers to anchor + image + verbatim art");
+
+  const auto adapters = extract("GX27-3999-00.boo", "1.3");
+  require(adapters.blocks.blocks.size() == 1, "1.3 admits its envelope");
+  if (adapters.blocks.blocks.size() == 1) {
+    const auto &box = adapters.blocks.blocks.front();
+    std::vector<std::string> resources;
+    for (const auto &picture : box.pictures)
+      resources.push_back(picture.resource);
+    require(resources == std::vector<std::string>{"3", "4", "5", "6"},
+            "1.3 records one icon per table row, in line order");
+    for (const auto &picture : box.pictures)
+      require(picture.line < box.preformatted_lines.size() &&
+                  box.preformatted_lines[picture.line].text.find(
+                      "PICTURE") == std::string::npos,
+              "1.3 blanks every placeholder out of the reproduced art");
+  }
+
+  // Mutation rejection: an image may not be dropped, moved or left spelling
+  // its placeholder words.
+  std::string error;
+  auto mutated = overview.blocks;
+  mutated.blocks[0].pictures.clear();
+  require(!verify_fixed_table_blocks_ir(overview.sources, overview.layout,
+                                        overview.ownership, overview.range,
+                                        mutated, &error),
+          "dropped picture must be rejected");
+  mutated = overview.blocks;
+  mutated.blocks[0].pictures.front().resource = "70";
+  require(!verify_fixed_table_blocks_ir(overview.sources, overview.layout,
+                                        overview.ownership, overview.range,
+                                        mutated, &error),
+          "retargeted picture must be rejected");
+  mutated = overview.blocks;
+  mutated.blocks[0].preformatted_lines.front().text =
+      "    PICTURE 69     SystemView Host Management Facilities/VM "
+      "(HMF/VM, 5684-157),";
+  require(!verify_fixed_table_blocks_ir(overview.sources, overview.layout,
+                                        overview.ownership, overview.range,
+                                        mutated, &error),
+          "placeholder words left in the picture's columns must be rejected");
+  auto lowered_mutated = lowered;
+  lowered_mutated.erase(lowered_mutated.begin() + 1);
+  require(!verify_fixed_table_document_ir(region, lowered_mutated, &error),
+          "lowering that loses the image must be rejected");
+}
+
 } // namespace
 
 int main() {
@@ -862,6 +951,7 @@ int main() {
   test_gap_sc24_command_tables();
   test_gap_sc31_glossary();
   test_gap_negatives();
+  test_picture_regions();
   std::cout << "fixed_table_block_ir_synthetic: done\n";
   return 0;
 }

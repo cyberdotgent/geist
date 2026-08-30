@@ -102,6 +102,48 @@ struct FixedTablePreformattedLineIR {
   DocumentSourceSliceIR slice;
 };
 
+// A picture placed inside a fixed-layout region by a `cselect <c> <l>
+// PIC<n>` selector.
+//
+// The compiler wrote the words `PICTURE <n>` into the region's display bytes
+// where the picture belongs, and hosted BookServer replaces exactly the
+// selector's columns with the image: GG24-395 3.3.8 `TBLUNIQ14`
+// (DT 19941215160749) carries `cselect 3 11 PIC69` and the display line
+// `    PICTURE 69     SystemView Host Management Facilities/VM ...`, and is
+// served as
+//
+//   <a href="picture-69?mode=zoom"><img src=".../P69.GIF" alt="PICTURE 69">
+//   </a>                SystemView Host Management Facilities/VM ...
+//
+// inside the topic's `<pre width="80">`: three spaces, the image, then the
+// line's own text at column 19 -- the same 19 columns of leading whitespace
+// the source line has once its placeholder words are removed.  GX27-3999-00
+// 1.3 `NOSENVI` (DT 19950730184057) does the same four times inside one
+// envelope, one icon per table row.
+//
+// So the region keeps its art and its picture both: the columns
+// `[column, column + length)` of `line` are blanked in the reproduced text
+// (which is then exactly hosted's `<pre>` line) and the picture is recorded
+// here, to be rendered as an image beside the verbatim block.  Reproducing
+// the placeholder words instead would spell `PICTURE 69` where hosted shows
+// the image, which is how an earlier attempt lost the picture.
+struct FixedTablePictureIR {
+  // Resource catalog id, i.e. the digits of `PIC<n>` ("69").
+  std::string resource;
+  // The display words the region's bytes spell there ("PICTURE 69"), which
+  // are also hosted's `alt` text.  Blanked out of the line text.
+  std::string placeholder;
+  // Index into `preformatted_lines` of the line the picture sits on.
+  std::size_t line = 0;
+  // Line-relative columns the selector covers, i.e. the blanked span.
+  std::size_t column = 0;
+  std::size_t length = 0;
+  // The CSELECT opcode/operand extent.
+  std::uint32_t logical_record = 0;
+  std::size_t segment_index = 0;
+  DocumentSourceSliceIR source;
+};
+
 // A fixed table recovered from one SRTBL ... SRETBL envelope, either
 // box-drawn or rule-less (gap columns).
 //
@@ -194,8 +236,10 @@ struct FixedTablePreformattedLineIR {
 // display lines, when SRTBL closes a line and SRETBL opens one (so the
 // region is a whole number of lines), when every control lies on a line of
 // its own carrying none of its payload, and when a non-blank line remains.
-// A CSELECT inside the region declines: its link would have no cell to
-// attach to. Rule lines, marker slots and blank lines are kept exactly as
+// A CSELECT inside the region that names a picture is admitted and recorded
+// in `pictures` (see `FixedTablePictureIR`); any other CSELECT contributes
+// its columns as text, because a fenced block carries no link.
+// Rule lines, marker slots and blank lines are kept exactly as
 // the reader prints them; `body`, `caption` and `separator_columns` stay
 // empty and every positioned cell of the envelope's rows is claimed as
 // `structural_cells`.
@@ -232,6 +276,9 @@ struct FixedTableBlockIR {
   std::vector<FixedTableRowIR> body;
   // Preformatted geometry only: the region's display lines in source order.
   std::vector<FixedTablePreformattedLineIR> preformatted_lines;
+  // Pictures the region's CSELECT selectors place on those lines, in line
+  // order.  Their placeholder words are blanked out of the line text.
+  std::vector<FixedTablePictureIR> pictures;
   // Subject-index entries the envelope carries: a display line whose first
   // visible word is the `SI` keyword.  Hosted BookServer displays none of it
   // (SC09-138 4.1.4 DT=19910321130500 shows no `SI` byte at all although the

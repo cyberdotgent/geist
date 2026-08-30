@@ -1,6 +1,7 @@
 #include "geist/detail/prose_topic_internal.hpp"
 
 #include "geist/detail/display_lines.hpp"
+#include "geist/detail/figure_block_ir.hpp"
 #include "geist/detail/selector_ir.hpp"
 #include "geist/detail/selector_link_ir.hpp"
 
@@ -115,7 +116,8 @@ bool has_figure_region(const std::vector<DecodedLogicalRecordSource>& records) {
 }
 
 bool table_region(const std::vector<DecodedLogicalRecordSource>& records,
-                  const FixedTableBlockIR& block, Region& region,
+                  const FixedTableBlockIR& block,
+                  const std::set<std::string>* resource_ids, Region& region,
                   std::string* error) {
   const auto& source = block.object_source;
   const auto begin_record = record_index_of(records, source.logical_record);
@@ -201,17 +203,49 @@ bool table_region(const std::vector<DecodedLogicalRecordSource>& records,
               link.column, link.length, link.target))
         return fail(error, "table '" + block.object_id +
                                "' contains a selector that is not canonical");
-      // A `PIC<n>` selector in a table cell is a picture: hosted BookServer
-      // serves the cell as an `<img>` (GG24-395 3.3.8,
+      // A `PIC<n>` selector places a picture: hosted BookServer serves it as
+      // an `<img>` over the columns the selector names (GG24-395 3.3.8,
       // `<a href="picture-69?mode=zoom"><img ... alt="PICTURE 69">`, DT
-      // 19941215160749).  The table block has no picture cell, so the topic
-      // fails closed instead of degrading the image to a link.
+      // 19941215160749), replacing the `PICTURE n` placeholder words the
+      // compiler wrote there.  A region that renders verbatim carries it in
+      // the block's own `pictures`, which the lowering emits as an image
+      // beside the reproduced art, and the selector contributes nothing
+      // else here.  A region the source declared a `:table` lowers to a
+      // Markdown table, whose cells do carry an inline: the picture becomes
+      // an image over the cell line that spells its placeholder, the way a
+      // cell link replaces the line it covers.
       std::size_t alternatives = 0;
       {
         const auto target = ascii_lower(link.target);
-        if (target.rfind("pic", 0) == 0)
-          return fail(error, "table '" + block.object_id +
-                                 "' contains a picture selector");
+        if (figure_picture_target(target)) {
+          const auto verbatim = !block.source_declared_table &&
+                                !block.preformatted_lines.empty();
+          if (verbatim) {
+            const auto recorded = std::any_of(
+                block.pictures.begin(), block.pictures.end(),
+                [&](const auto& picture) {
+                  return picture.logical_record ==
+                             records[record].logical_record &&
+                         picture.segment_index == segment.segment_index;
+                });
+            if (!recorded)
+              return fail(error, "table '" + block.object_id +
+                                     "' contains a picture selector the "
+                                     "verbatim region did not record");
+            continue;
+          }
+          if (!block.source_declared_table)
+            return fail(error, "table '" + block.object_id +
+                                   "' contains a picture selector");
+          link.picture = true;
+          link.target = figure_picture_resource(target);
+          link.target_kind = CrossReferenceTargetKindIR::resource;
+          if (link.target.empty() || resource_ids == nullptr ||
+              resource_ids->count(link.target) == 0)
+            return fail(error, "table '" + block.object_id +
+                                   "' picture resource " + link.target +
+                                   " is not in the resource catalog");
+        }
         // A `LNK` selector in a cell is the same cross-book/external link
         // the prose inline carries: its destination is the leading `<...>`
         // alternative tokens of the payload, which are control metadata and
@@ -488,7 +522,8 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
       Region region;
       region.kind = ProseSpanKindIR::table;
       region.index = index;
-      if (!table_region(records, topic.tables.blocks[index], region, error))
+      if (!table_region(records, topic.tables.blocks[index], resource_ids,
+                        region, error))
         return false;
       regions.push_back(std::move(region));
     }
