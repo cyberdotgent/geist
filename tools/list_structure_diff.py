@@ -30,11 +30,11 @@ For every topic present in both trees the tool reports
     attributed to a route change
 
 One deliberate choice about the word gate: the digits of a list ordinal are
-kept in the word stream rather than stripped as syntax.  Every shape issue #51
-converts already carries the ordinal as visible text -- ``**1\\.**`` and
-``1\\.`` both tokenise to ``1`` -- so promoting either one to a real ``1. ``
-item cancels out and the gate stays at zero, which is what it must do for a
-pure restructuring.  Stripping the marker instead would report 133 topics as
+kept in the word stream rather than stripped as syntax.  A paragraph opening
+with a visible ordinal (``**1\\.**`` or ``1\\.``) tokenises the ordinal to
+``1``, so a change that promoted such a paragraph to a real ``1. `` item would
+cancel out and leave the gate at zero, which is what it must do for a pure
+restructuring.  Stripping the marker instead would report those topics as
 having lost a word.  The side effect is that turning a plain bullet into a
 numbered item does show up as a gained digit; that is a genuine structural
 change, and the unordered/ordered counters name it on the same line.
@@ -78,9 +78,13 @@ ANCHOR_RE = re.compile(r"""<a\s+id=["']([^"']*)["']""", re.IGNORECASE)
 UNORDERED_RE = re.compile(r"^\s*[-*+](?:\s+|$)")
 # A real ordered list item: the dot is *not* backslash-escaped.
 ORDERED_RE = re.compile(r"^\s*\d+[.)](?:\s+|$)")
-# The same ordinal with the dot escaped renders as plain prose, not a list.
+# A paragraph opening with a visible ordinal, escaped (``1\.``) or emphasised
+# (``**1\.**``).  These are NOT a defect: the compiler writes the numbering as
+# body text and hosted BookServer serves it the same way, as numbered
+# paragraphs rather than an ``<ol>`` (issue #51, closed as correct-as-rendered).
+# They are counted so that a future change which silently converts them into
+# list items is visible, not because they need converting.
 ESCAPED_ORDINAL_RE = re.compile(r"^\s*\d+\\\.(?:\s+|$)")
-# The bold-ordinal paragraph shape issue #51 is replacing.
 BOLD_ORDINAL_RE = re.compile(r"^\s*(?:[-*+]\s+)?\*\*\d+\\?\.\*\*")
 
 METRIC_KEYS = (
