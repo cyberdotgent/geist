@@ -115,9 +115,38 @@ struct FigureBlockSpanIR {
   bool anchored = false;
 };
 
+// A cross reference carried inside a caption or a drawn body.  A `cselect`
+// control inside a figure region names a column and a length in the display
+// line it precedes: SH20-918 2.1 record 59 line 20 `cselect 41 8 FIGTITEM`
+// covers "Figure 4" at column 41 of line 21, and hosted BookServer serves
+// that caption as `... are shown in <a href="...#FIGTITEM">Figure 4</a>.`
+// (DT 19910520154851).
+struct FigureLinkIR {
+  SelectorRefIR selector;
+  // Anchor id ("FIGTITEM") or, for a `LNK` selector, its destination.
+  std::string target;
+  bool external = false;
+  // The covered display columns of `line`.
+  std::uint32_t logical_record = 0;
+  std::size_t line_prefix_token = 0;
+  std::size_t column = 0;
+  std::size_t length = 0;
+  // The covered text, exactly as the display line spells it.
+  std::string label;
+  // The selector control's own operand slice.
+  DocumentSourceSliceIR source;
+};
+
 struct FigureCaptionIR {
   std::string text;
   std::vector<DocumentSourceRowIR> rows;
+  // Cross references covering [begin, end) bytes of `text`, in text order.
+  struct Span {
+    std::size_t begin = 0;
+    std::size_t end = 0;
+    FigureLinkIR link;
+  };
+  std::vector<Span> links;
 };
 
 // One display line of a preformatted figure body.  `prefix_token` is the
@@ -156,6 +185,10 @@ struct FigureSourceBlockIR {
   // hosted BookServer never displays them.
   std::vector<std::string> index_terms;
   std::vector<DocumentSourceRowIR> suppressed_rows;
+  // Cross references a drawn body carries.  The body is reproduced verbatim,
+  // so the link cannot be expressed inside it: the lowering names them in the
+  // block's degradation instead of dropping them silently.
+  std::vector<FigureLinkIR> body_links;
   // Every source cell inside the region, each exactly once.
   std::vector<FigureSourceCellIR> cells;
 };

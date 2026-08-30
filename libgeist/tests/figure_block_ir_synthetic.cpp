@@ -641,16 +641,19 @@ int main() {
                 !figure->lines.empty(),
             "SC28-1881-05 1.6: the drawn figure was not admitted");
   }
-  // Negative: prose after the caption.  PRG1SORT 1.1.4.3.2 FIGSELCDF carries
-  // the caption's wrapped second line behind three "SI" index lines, so the
-  // region ends with a line the block cannot prove is caption rather than
-  // body text and is declined instead of guessed at (hosted joins the two
-  // caption lines; the only such region in the corpus).
+  // A caption's wrapped second line stands behind three "SI" index lines in
+  // PRG1SORT 1.1.4.3.2 FIGSELCDF.  Hosted DT 19900829171904 joins the two
+  // caption lines, and the continuation is indented to the caption's title
+  // column, so the index lines are stepped over.
   {
     const auto topic = corpus.topic("PRG1SORT.boo", "1.1.4.3.2");
-    require(find_figure(topic, "FIGSELCDF") == nullptr &&
-                declined_with(topic, "text after its caption"),
-            "PRG1SORT 1.1.4.3.2: prose after the caption was admitted");
+    const auto *figure = find_figure(topic, "FIGSELCDF");
+    require(figure != nullptr && figure->caption &&
+                figure->caption->text ==
+                    "Figure 1-5. An Example of How Sort Builds an Output "
+                    "Record. The output record is padded on the right by "
+                    "blanks to make its length equal to the output file.",
+            "PRG1SORT 1.1.4.3.2: the wrapped caption was not stitched");
   }
   // A body line whose length byte is at or above the book's token threshold
   // used to be read as a two-byte token, so the record's display lines did
@@ -666,13 +669,46 @@ int main() {
                 !figure->lines.empty(),
             "PRG1SORT D.5.1: the drawn figure was not admitted");
   }
-  // Negative: a selector inside a drawn figure is a link the preformatted
-  // body cannot carry (SH20-918 2.1 FIGSTRUC).
+  // A `cselect` inside a drawn figure names a column and a length in the
+  // display line it precedes.  SH20-918 2.1 record 59 line 20
+  // `cselect 41 8 FIGTITEM` covers "Figure 4" at column 41 of line 21 and
+  // record 59 line 23 `cselect 22 23 FIGTABLE` covers
+  // "Figure 8 in topic 2.2.6"; hosted DT 19910520154851 serves both as
+  // anchors inside the caption of FIGBDE.
   {
     const auto topic = corpus.topic("SH20-918.boo", "2.1");
-    require(find_figure(topic, "FIGSTRUC") == nullptr &&
-                declined_with(topic, "contains a selector"),
-            "SH20-918 2.1: drawn figure with a selector was admitted");
+    const auto *figure = find_figure(topic, "FIGBDE");
+    require(figure != nullptr && figure->caption &&
+                figure->caption->links.size() == 2 &&
+                figure->caption->links[0].link.label == "Figure 4" &&
+                figure->caption->links[0].link.target == "FIGTITEM" &&
+                figure->caption->links[1].link.label ==
+                    "Figure 8 in topic 2.2.6" &&
+                figure->caption->links[1].link.target == "FIGTABLE" &&
+                figure->caption->text.substr(
+                    figure->caption->links[0].begin,
+                    figure->caption->links[0].end -
+                        figure->caption->links[0].begin) == "Figure 4",
+            "SH20-918 2.1: the caption's cross references were not modelled");
+    const auto *structure = find_figure(topic, "FIGSTRUC");
+    require(structure != nullptr && structure->caption &&
+                structure->caption->links.size() == 1 &&
+                structure->caption->links[0].link.target == "FIGBDE",
+            "SH20-918 2.1: FIGSTRUC's caption reference was not modelled");
+  }
+  // A `cselect` inside a drawn *body* is a link the verbatim block cannot
+  // express, so the lowering names it in the block's degradation instead of
+  // dropping it (FA1PLMM0 5.0 record 272 line 29 `cselect 5 24 FIGVMSUM`
+  // covers "Figure 18 in topic 5.1.1" of line 30; hosted DT 19910927114801
+  // serves it as an anchor inside the <pre>).
+  {
+    const auto topic = corpus.topic("FA1PLMM0.boo", "5.0");
+    const auto *figure = find_figure(topic, "FIGFIGUNIQ8");
+    require(figure != nullptr && figure->body_links.size() == 1 &&
+                figure->body_links[0].label == "Figure 18 in topic 5.1.1" &&
+                figure->body_links[0].target == "FIGVMSUM",
+            "FA1PLMM0 5.0: the drawn body's cross reference was not "
+            "recorded");
   }
   // A drawn figure whose body spans a record boundary keeps one line per
   // display line across the join (ACPZMST1 1.2.5 FIGCOMP: records 56-57;

@@ -886,6 +886,14 @@ struct Extractor {
       std::string text;
     };
     std::vector<Classified> classes(lines.size());
+    // `cselect <column> <length> <target>` inside a drawn figure names a
+    // span of the display line it precedes (SH20-918 2.1 record 59 line 20
+    // `cselect 41 8 FIGTITEM` covers "Figure 4" at column 41 of line 21;
+    // SC09-138 8.5.4.5 record 1625 line 12 `cselect 26 3 FIGFREEC3` covers
+    // the footnote marker "132" of line 14).  The control opens its own
+    // display line, so it is a control line here and the span it covers is
+    // resolved once the following lines are classified.
+    std::vector<std::pair<std::size_t, const SelectorIR *>> region_selectors;
     for (auto index = first_line + 1; index < last_line; ++index) {
       const auto &view = lines[index];
       const auto &record = *view.record;
@@ -903,8 +911,28 @@ struct Extractor {
         if (!segment.source_tokens.empty() &&
             segment.source_tokens.front() == first &&
             segment.kind != BookControlKind::text) {
-          if (segment.kind == BookControlKind::select)
-            return decline(region, "drawn figure contains a selector");
+          if (segment.kind == BookControlKind::select) {
+            const auto found = selectors_by_segment.find(
+                {record.logical_record, segment.segment_index});
+            if (found == selectors_by_segment.end() ||
+                found->second.size() != 1)
+              return decline(region, "drawn figure selector has no typed "
+                                     "selector");
+            const auto *selector = found->second.front();
+            if (!selector->canonical_operands)
+              return decline(region, "drawn figure selector operands are not "
+                                     "canonical");
+            const auto target = ascii_lower(selector->target);
+            if (target.rfind("pic", 0) == 0 || target == "lnk")
+              return decline(region, "drawn figure contains a " +
+                                         selector->target + " selector");
+            if (selector->length == 0)
+              return decline(region, "drawn figure selector covers no "
+                                     "columns");
+            region_selectors.emplace_back(index, selector);
+            result.kind = LineKind::control;
+            continue;
+          }
           if (segment.kind != BookControlKind::font &&
               segment.kind != BookControlKind::spacing &&
               segment.kind != BookControlKind::layout_directive)
@@ -942,6 +970,14 @@ struct Extractor {
           caption_at = index;
           caption_end = index + 1;
         }
+        continue;
+      }
+      if ((kind == LineKind::control || kind == LineKind::index) &&
+          caption_end == index) {
+        // A CFONT/CSELECT control or an `SI` subject-index entry may stand
+        // between a caption and its wrapped continuation (SH20-918 2.5
+        // record 103 lines 13-15, PRG1SORT 1.1.4.3.2 `FIGSELCDF`).
+        caption_end = index + 1;
         continue;
       }
       if (kind == LineKind::body && caption_end == index) {
@@ -1007,6 +1043,9 @@ struct Extractor {
       std::string text;
       FigureCaptionIR caption;
       for (auto index = caption_at; index < caption_end; ++index) {
+        if (classes[index].kind == LineKind::control ||
+            classes[index].kind == LineKind::index)
+          continue;
         auto part = trim_ascii(classes[index].text);
         if (index == caption_at)
           part = *line_caption_text(part);
@@ -1023,6 +1062,89 @@ struct Extractor {
       if (classes[index].kind == LineKind::index)
         block.index_terms.push_back(collapse_ascii_whitespace(
             trim_ascii(classes[index].text)));
+
+    // 4b. Bind each `cselect` to the display line it precedes.  Hosted
+    //     BookServer wraps exactly the covered columns in an anchor: the
+    //     span is the link's label, and where the covered line is part of
+    //     the caption the link belongs to the caption's inline model.
+    for (const auto &[at, selector] : region_selectors) {
+      std::size_t covered = lines.size();
+      for (auto index = at + 1; index < last_line; ++index)
+        if (classes[index].kind == LineKind::body ||
+            classes[index].kind == LineKind::caption) {
+          covered = index;
+          break;
+        }
+      if (covered >= lines.size())
+        return decline(region, "drawn figure selector covers no display line");
+      const auto columns =
+          display_line_columns(*lines[covered].record, lines[covered].line);
+      if (selector->column + selector->length > columns.size())
+        return decline(region, "drawn figure selector span is outside its "
+                               "display line");
+      FigureLinkIR link;
+      link.selector = {selector->logical_record, selector->segment_index,
+                       selector->selector_ordinal};
+      link.target = selector->target;
+      link.logical_record = lines[covered].record->logical_record;
+      link.line_prefix_token = lines[covered].line.prefix_token;
+      link.column = selector->column;
+      link.length = selector->length;
+      for (auto column = selector->column;
+           column < selector->column + selector->length; ++column)
+        link.label += figure_display_glyph(columns[column]);
+      link.label = trim_ascii(link.label);
+      if (link.label.empty())
+        return decline(region, "drawn figure selector covers no text");
+      {
+        const auto &record = *lines[at].record;
+        const auto &segment =
+            record.control_segments[selector->segment_index];
+        if (segment.source_tokens.empty())
+          return decline(region, "drawn figure selector has no source tokens");
+        const auto first_token = segment.source_tokens.front();
+        const auto last_token = lines[at].line.token_end;
+        link.source.logical_record = record.logical_record;
+        link.source.segment_index = selector->segment_index;
+        link.source.token_begin = first_token;
+        link.source.token_end = last_token;
+        if (first_token < record.ir.tokens.size() &&
+            last_token - 1 < record.ir.tokens.size()) {
+          link.source.byte_begin = record.ir.tokens[first_token].byte_range.begin;
+          link.source.byte_end = record.ir.tokens[last_token - 1].byte_range.end;
+        }
+      }
+      const auto in_caption = caption_at < lines.size() &&
+                              covered >= caption_at && covered < caption_end &&
+                              classes[covered].kind == LineKind::caption;
+      if (!in_caption) {
+        block.body_links.push_back(std::move(link));
+        continue;
+      }
+      // The caption's text collapses each line's runs of spaces, so the
+      // label is located in the caption by its own collapsed spelling.
+      const auto label = collapse_ascii_whitespace(link.label);
+      const auto begin = block.caption->text.find(label);
+      if (begin == std::string::npos ||
+          block.caption->text.find(label, begin + 1) != std::string::npos)
+        return decline(region, "drawn figure caption link '" + label +
+                                   "' is not uniquely placed");
+      FigureCaptionIR::Span span;
+      span.begin = begin;
+      span.end = begin + label.size();
+      span.link = std::move(link);
+      block.caption->links.push_back(std::move(span));
+    }
+    if (block.caption) {
+      auto &links = block.caption->links;
+      std::sort(links.begin(), links.end(),
+                [](const auto &left, const auto &right) {
+                  return left.begin < right.begin;
+                });
+      for (std::size_t index = 1; index < links.size(); ++index)
+        if (links[index].begin < links[index - 1].end)
+          return decline(region, "drawn figure caption links overlap");
+    }
 
     // 5. Claim every source cell of the region exactly once.
     std::map<std::pair<std::uint32_t, std::size_t>, LineKind> token_kind;
