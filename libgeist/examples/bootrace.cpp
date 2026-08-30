@@ -13,6 +13,16 @@
 
 namespace {
 
+std::string join_declines(const std::vector<std::string>& declines) {
+  std::string output;
+  for (const auto& decline : declines) {
+    if (!output.empty())
+      output += " | ";
+    output += decline;
+  }
+  return output;
+}
+
 void usage() {
   std::cerr << "usage: bootrace <book.boo> <topic-id> "
                "[--all|--records|--segments|--fonts|--ir|--tokens|--lines]\n"
@@ -181,8 +191,13 @@ int main(int argc, char** argv) {
       // so existing consumers keep their column positions. `route`, `family`
       // and `reason` are read out of the same RenderDiagnostic the exporter
       // and the `boo2git` manifest use.
+      // `declined` is the whole per-family decline trace, appended last. The
+      // `reason` column reports only the *last* family to speak (the prose
+      // rejection, usually), so a specific family's refusal -- the glossary
+      // catalog's, say -- was previously invisible on every topic another
+      // family went on to claim.
       std::cout << "id\tlevel\troute\tfamily\treason\tclass\tsignature"
-                   "\tseverity\tdegraded\n";
+                   "\tseverity\tdegraded\tdeclined\n";
       for (const auto& topic : inventory.topics) {
         std::cout << tsv_escape(topic.id) << "\t" << topic.level << "\t"
                   << (topic.route == geist::detail::TypedRouteKind::typed
@@ -200,6 +215,7 @@ int main(int argc, char** argv) {
                   << "\t"
                   << tsv_escape(geist::detail::format_render_degradations(
                          topic.diagnostic))
+                  << "\t" << tsv_escape(join_declines(topic.declined))
                   << "\n";
       }
       std::cout << "# summary\ttyped=" << inventory.typed_count
