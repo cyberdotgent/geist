@@ -601,20 +601,53 @@ struct CzBuilder {
         // line 24 is `SREFTN`, between `cz OFF XMP` (line 21) and
         // `cz OFF EXMP 6 6` (line 25).  A marker that displays nothing does
         // not break the region; anything that owns a display row does.
+        //
+        // A labelled box may also enclose an `SRFIG`/`SRTBL` envelope whose
+        // `cz OFF ETABLE` closer therefore falls inside the box.  That
+        // envelope is not a table: `cz OFF TABLE` is the only mark of one,
+        // and there is no opener here.  Hosted (SC41-4853-00 `1.2` DT
+        // 19951003131222) serves the whole box, drawn grid included, as one
+        // `<pre width="132"><!-- lblbox -->` and emits no `<table>` -- the
+        // envelope anchors become `<a name="TBLTBLUNIQ1">` on the box rows
+        // they open.  So an object delimiter inside a verbatim region is a
+        // row of that region, not a break in it.
         auto closer_index = index + 1;
-        while (closer_index < build.directives.size() &&
-               build.directives[closer_index].mode == "off" &&
-               build.directives[closer_index].tag == "fn" &&
-               ranges[closer_index].first == npos)
+        auto region_end = range.second;
+        while (closer_index < build.directives.size()) {
+          const auto& inner = build.directives[closer_index];
+          if (inner.mode != "off") break;
+          const auto inner_rows = ranges[closer_index];
+          if (inner.tag == "fn") {
+            // The footnote end marker displays nothing.
+            if (inner_rows.first != npos) break;
+          } else if (inner.tag == "table" || inner.tag == "etable" ||
+                     inner.tag == "fig" || inner.tag == "efig") {
+            if (inner_rows.first != npos) region_end = inner_rows.second;
+          } else {
+            break;
+          }
           ++closer_index;
-        if (closer_index >= build.directives.size() ||
-            build.directives[closer_index].mode != "off" ||
-            build.directives[closer_index].tag != closer_tag)
+        }
+        const auto closed =
+            closer_index < build.directives.size() &&
+            build.directives[closer_index].mode == "off" &&
+            build.directives[closer_index].tag == closer_tag;
+        // An unterminated region ends where the topic does.  SG24-204
+        // `NOTICES` opens `cz OFF LBLBOX`, draws the closed `Take Note!` box
+        // and stops: no directive follows it at all, and hosted (SG24-2047-00
+        // DT 19971218054640) serves exactly that one `<!-- lblbox -->` block
+        // as the whole body.  A region that merely runs into *other*
+        // directives is still a decline.
+        if (!closed && closer_index < build.directives.size())
           return fail(error, "cz OFF " + opener + " is not closed by cz OFF E" +
                                  opener);
         if (range.first == npos)
           return fail(error, "cz OFF " + opener + " block has no display rows");
-        if (!preformatted(range.first, range.second)) return false;
+        if (!preformatted(range.first, region_end)) return false;
+        if (!closed) {
+          index = closer_index;
+          return true;
+        }
         // The closing directive carries the body text that follows the
         // example block as ordinary paragraphs at its own left/indent
         // (packet 2.4.1 record 57 `cz OFF EXMP 2 2   Note that zeros are

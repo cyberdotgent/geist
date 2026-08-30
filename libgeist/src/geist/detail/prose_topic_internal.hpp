@@ -443,6 +443,21 @@ inline bool cz_verbatim_region_closer(const std::string& tag) {
          cz_verbatim_region_tag(tag.substr(1));
 }
 
+// One `cz OFF <verbatim>` .. `cz OFF E<verbatim>` region of a topic, as a
+// closed [begin, end] range of (record index, token) positions.  Computed
+// once per topic in prose_topic_spans.cpp; the span plan uses it to leave an
+// `SRFIG`/`SRTBL` envelope inside such a region alone, and the stream pass
+// uses it to admit that envelope's markers as the bare anchors hosted serves
+// them as.
+struct CzVerbatimRegion {
+  std::pair<std::size_t, std::size_t> begin{};
+  std::pair<std::size_t, std::size_t> end{};
+};
+std::vector<CzVerbatimRegion> cz_verbatim_regions(
+    const std::vector<DecodedLogicalRecordSource>& records);
+bool inside_cz_verbatim(const std::vector<CzVerbatimRegion>& regions,
+                        std::size_t record, std::size_t token);
+
 // CZ dialect (prose_topic_cz.cpp).  `collect_layout_directive` parses one
 // `cz` control segment, assigns its opcode/operand tokens and pushes the
 // layout item followed by the payload tokens; `build_cz_blocks` replaces the
