@@ -6,6 +6,7 @@
 #include <cctype>
 #include <iomanip>
 #include <sstream>
+#include <string_view>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -260,33 +261,20 @@ std::string render_inlines(const InlineSequenceIR &inlines,
   return result;
 }
 
-std::string render_alt_text(const InlineSequenceIR &inlines) {
-  std::string result;
-  for (const auto &in : inlines) {
-    std::visit(
-        [&](const auto &node) {
-          using T = std::decay_t<decltype(node)>;
-          if constexpr (std::is_same_v<T, TextInlineIR> ||
-                        std::is_same_v<T, EmphasisInlineIR>) {
-            result += escape_markdown_text(node.text);
-          } else if constexpr (std::is_same_v<T, CodeInlineIR>) {
-            result += escape_markdown_text(node.code);
-          } else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>) {
-            result += escape_markdown_text(
-                node.label.empty() ? node.target.value : node.label);
-          } else if constexpr (std::is_same_v<T, ImageInlineIR>) {
-            result += escape_markdown_text(
-                node.alt_text.empty() ? node.resource : node.alt_text);
-          } else if constexpr (std::is_same_v<T, HardBreakInlineIR>) {
-            result.push_back(' ');
-          } else if constexpr (std::is_same_v<T, OpaqueInlineIR>) {
-            result += escape_markdown_text(node.content.empty() ? node.kind
-                                                                : node.content);
-          }
-        },
-        in.node);
-  }
-  return result;
+
+// Hosted BookServer names a figure's image by the picture it shows, never by
+// the figure caption: GG24-395 3.3.8 serves the book resource as
+// `<img src=".../P69.GIF" alt="PICTURE 69">` (DT 19941215160749) and
+// XWEBDEMO 1.4.1 serves the external one as
+// `<img src="/bookmgr/monetcoq.jpg" alt="/bookmgr/monetcoq.jpg">`
+// (DT 19970423182524).  The caption is served separately, as the line under
+// the image, which is the paragraph this block renders after the image.
+std::string figure_alt_text(const std::string &resource) {
+  static constexpr std::string_view book_resource = "resource:";
+  if (resource.compare(0, book_resource.size(), book_resource) == 0)
+    return escape_markdown_text("PICTURE " +
+                                resource.substr(book_resource.size()));
+  return escape_markdown_text(resource);
 }
 
 std::string fenced_block(const std::vector<std::string> &lines) {
@@ -416,9 +404,8 @@ std::string render_block(const BlockNodeIR &block,
           }
           return result;
         } else if constexpr (std::is_same_v<T, FigureBlockIR>) {
-          const auto alt = render_alt_text(node.caption);
-          auto result =
-              "![" + alt + "](" + markdown_destination(node.resource) + ')';
+          auto result = "![" + figure_alt_text(node.resource) + "](" +
+                        markdown_destination(node.resource) + ')';
           if (!node.caption.empty())
             result += "\n\n*" +
                       render_inlines(node.caption, InlineContext::single_line,

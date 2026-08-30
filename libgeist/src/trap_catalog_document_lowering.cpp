@@ -221,7 +221,18 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
   for (const auto &entry : catalog.entries) {
     auto anchor_origin = origin("trap entry source anchor");
     add_slice(anchor_origin, entry.start_source);
-    document.blocks.push_back({AnchorBlockIR{"MSG " + entry.id}, anchor_origin});
+    // Hosted BookServer names the entry anchor after the whole SRMSG operand,
+    // not after its first word: SC31-711 4.3.2 `SRMSG 256
+    // (snmp_br_dot1dStpPortState)` is served as
+    // `<a name="MSG 256 (snmp_br_dot1dStpPortState)">` and 4.4 `SRMSG 1
+    // (fddiRPUNoResponse)` as `<a name="MSG 1 (fddiRPUNoResponse)">`
+    // (DT 19941010174546).  Where the operand is one word -- 4.1.1's `MSG 0`,
+    // 4.1.2's `MSG bridgeHistoryDataComplete` -- the two spellings coincide,
+    // which is why the defect only shows on the catalogs with a symbolic tail.
+    document.blocks.push_back(
+        {AnchorBlockIR{"MSG " + (entry.operand.empty() ? entry.id
+                                                       : entry.operand)},
+         anchor_origin});
 
     ListItemIR item;
     item.origin = origin("trap entry");
