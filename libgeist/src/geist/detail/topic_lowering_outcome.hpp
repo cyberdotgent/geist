@@ -32,6 +32,10 @@ struct TopicBestEffortIR {
   // so they are emitted and reported even though no structure is claimed
   // around them.
   std::vector<std::string> anchors;
+  // Footnote destinations a link in this same topic uses.  They are emitted
+  // in the file but never published book-wide: a footnote is reachable only
+  // from the page that prints it.
+  std::vector<std::string> footnote_anchors;
 };
 
 } // namespace geist::detail

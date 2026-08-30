@@ -142,6 +142,7 @@ set(GEIST_SOURCES
   src/topic_identity.cpp
   src/typed_route_inventory.cpp
   src/util.cpp
+  src/verbatim_cross_references.cpp
 )
 
 add_library(geist SHARED ${GEIST_SOURCES})

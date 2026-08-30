@@ -41,11 +41,40 @@ std::vector<std::string>
 best_effort_lines(const std::vector<DecodedLogicalRecordSource> &sources,
                   const std::string &title);
 
+// One emitted verbatim row, together with the source display line it came
+// from and the byte offset in `text` of every display column of that line.
+// A `cselect` names its cross reference as a column range on the row it
+// precedes, so a consumer that has to place a link needs the column-to-byte
+// map; re-deriving it from the flattened row would be a second, divergent
+// implementation of the same walk.  `column_offsets` holds one entry per
+// display column plus a final end offset, and it is built before the row's
+// trailing spaces are trimmed, so an offset may point past `text.size()`.
+struct BestEffortLineIR {
+  std::string text;
+  std::size_t record_index = 0;
+  std::size_t display_line_index = 0;
+  std::vector<std::size_t> column_offsets;
+};
+
+std::vector<BestEffortLineIR> best_effort_display_lines(
+    const std::vector<DecodedLogicalRecordSource> &sources,
+    const std::string &title);
+
 // The anchor ids the topic's structural controls name, in source order and
 // without duplicates.  The id is the control opcode without its `SR` prefix,
 // which is the same evidence the typed families read.
 std::vector<std::string>
 best_effort_anchors(const std::vector<DecodedLogicalRecordSource> &sources);
+
+// The footnote destinations the topic *prints*, in source order and without
+// duplicates.  `SRFTN<id>` is deliberately absent from `best_effort_anchors`
+// because a footnote is not a destination the book at large may reference --
+// but the topic that prints it does reference it, from the selector that
+// marks the footnote's marker in the text, so the anchor has to exist in the
+// file.  This is the same split the typed route makes: the renderer emits
+// `<a id="FTN...">` while `document_link_targets` publishes nothing for it.
+std::vector<std::string> best_effort_footnote_anchors(
+    const std::vector<DecodedLogicalRecordSource> &sources);
 
 // Stage 2: the render escalation.  Fail-closed is a rule about *claiming
 // structure*; it must never mean withholding content, so this is the guard
