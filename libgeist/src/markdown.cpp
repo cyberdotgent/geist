@@ -309,7 +309,29 @@ std::string render_legacy_topic_markdown(const TocEntry& entry) {
 } // namespace
 
 std::string BooDocument::markdown() const {
-  return detail::render_markdown_records(raw_gml_records());
+  // The whole book is the concatenation of its topics, each rendered by the
+  // same route `TocEntry::markdown()` uses. Rendering the book as one
+  // undifferentiated record stream, as this once did, discards the topic
+  // boundaries the typed pipeline needs and is lossier for every topic that
+  // the typed route handles.
+  std::string out;
+  for (const auto& entry : toc_) {
+    const auto topic = entry.markdown();
+    if (topic.empty()) {
+      continue;
+    }
+    if (!out.empty()) {
+      if (out.back() != '\n') {
+        out.push_back('\n');
+      }
+      out.push_back('\n');
+    }
+    out += topic;
+  }
+  if (!out.empty() && out.back() != '\n') {
+    out.push_back('\n');
+  }
+  return out;
 }
 
 namespace detail {
