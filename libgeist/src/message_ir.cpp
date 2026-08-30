@@ -972,6 +972,27 @@ bool has_fixed_row_context(const MessageOwnershipIndex &ownership,
          sentence_row(row_index - 1) && sentence_row(row_index + 1);
 }
 
+// Punctuation that closes the text preceding it rather than opening the text
+// that follows. Used both to classify a row marker and to join one back onto
+// the words it terminates without inserting a space.
+bool trailing_punctuation_marker(const std::string &text) {
+  if (text.size() != 1)
+    return false;
+  switch (text.front()) {
+  case '.':
+  case ',':
+  case ':':
+  case ';':
+  case '!':
+  case '?':
+  case ']':
+  case '}':
+    return true;
+  default:
+    return false;
+  }
+}
+
 MessageMarkerDispositionIR marker_disposition(const DisplayRunIR &run,
                                               const PhysicalRowIR &row,
                                               const MessageOwnershipIndex &ownership,
@@ -993,14 +1014,19 @@ MessageMarkerDispositionIR marker_disposition(const DisplayRunIR &run,
       single == '"' || single == '=' || single == '(' || single == ')' ||
       single == '[' || single == '{')
     return MessageMarkerDispositionIR::layout_artifact;
-  if (single == '.' || single == ',' || single == ':' || single == ';' ||
-      single == '!' || single == '?' || single == ']' || single == '}') {
+  if (trailing_punctuation_marker(marker.decoded_text)) {
     // TODO: Positioned ownership currently identifies the marker as a row
     // boundary but does not distinguish an isolated soft wrap from visible
     // punctuation. Preserve the observed decoder sentinel until that lower
     // layer supplies a typed boundary purpose.
     if (marker.encoded_value == 4)
       return MessageMarkerDispositionIR::layout_artifact;
+    // The marker closes whatever text precedes it. When this row carries an
+    // opaque continuation prefix, that preceding text is the prefix in this
+    // same row, not the previously emitted row, so the marker must travel
+    // with the row instead of being appended to the paragraph so far.
+    if (has_opaque_prefix)
+      return MessageMarkerDispositionIR::opaque_continuation_suffix;
     // A punctuation token at the first explicit marker slot belongs to the
     // fixed-row envelope. Later marker slots close the preceding semantic row.
     if (row_index == 0 &&
@@ -1052,7 +1078,11 @@ semantic_row(const std::vector<DecodedLogicalRecordSource> &records,
   if (row.marker &&
       result.marker_disposition ==
           MessageMarkerDispositionIR::opaque_continuation_suffix) {
-    visible = prefix + " " + row.marker->decoded_text +
+    const auto &marker_text = row.marker->decoded_text;
+    visible = prefix +
+              (trailing_punctuation_marker(marker_text) ? std::string{}
+                                                        : std::string{" "}) +
+              marker_text +
               (visible.empty() ? std::string{} : std::string{" "}) + visible;
   } else {
     if (!prefix.empty())
@@ -1094,8 +1124,14 @@ std::string typed_section_payload(const MessageSectionBoundaryIR &boundary,
   const std::string label = boundary.kind == MessageSectionKind::meaning
                                 ? "Meaning"
                                 : "Action";
+  // The label row is the row the typed boundary points at. When the boundary
+  // recovered its label from a record continuation the label word is carried
+  // by the boundary's own source slice and never reaches this row's visible
+  // text; the row is then body text in full. Returning the text unchanged
+  // keeps those words instead of discarding a row whose spelling did not
+  // happen to repeat the label.
   if (text.size() < label.size() || text.compare(0, label.size(), label) != 0)
-    return {};
+    return text;
   auto begin = label.size();
   if (begin < text.size() && text[begin] == ':')
     ++begin;
@@ -1440,6 +1476,8 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
         semantic.text = row.marker->decoded_text + semantic.text;
       }
       if (row.marker &&
+          semantic.marker_disposition !=
+              MessageMarkerDispositionIR::opaque_continuation_suffix &&
           closes_unmatched_delimiter(preceding_text,
                                      row.marker->decoded_text))
         semantic.marker_disposition =
