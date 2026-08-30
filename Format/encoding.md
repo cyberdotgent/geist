@@ -228,6 +228,31 @@ hosted line once the table above is applied (`ACPZMST1`, `DREICMST`,
 hosted output should apply this table before diffing, exactly as a comparison
 against a CP437 console would.
 
+## The Container Applies No Compression
+
+Body text is *tokenized*, not compressed, and the distinction matters when
+first looking at a content page. Every step of decoding -- compact record
+lengths, token references resolved through the directory token map, dictionary
+base records with their delta and update records, translation-table pages, and
+the inter-token spacing rules above -- is a table or index lookup. None of it
+is entropy decoding, and there is no page-level transform to undo before a page
+can be parsed.
+
+Scanning the start of all 8,113 physical pages and all 623 resource payloads
+across the repository fixtures finds no gzip, zip, bzip2 or `compress`
+container signature. The handful of two-byte zlib-header coincidences such a
+scan produces all fall inside legacy image payload areas whose framing is
+accounted for by [GDF.md](GDF.md) and [MMR.md](MMR.md).
+
+So the dense, `0x0000`-heavy runs inside content pages are packed BookManager
+token structures rather than a compressed byte stream. They look binary because
+a common word costs one or two bytes as a token reference.
+
+Embedded legacy image payloads are the exception, and only within themselves:
+kind `I` payloads carry CCITT fax coding ([MMR.md](MMR.md)). That compression
+belongs to the image, not to the container, which stores the payload bytes
+verbatim at an absolute file offset.
+
 ## Failure Mode To Avoid
 
 Do not decode dictionary literal bytes with the CP500 table and then treat the
