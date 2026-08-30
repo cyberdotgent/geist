@@ -748,8 +748,19 @@ struct LineBuilder {
     if (pending_space && view.prefix != 0 && view.prefix != 1)
       line().cells.push_back({npos, 0, " ", true});
     for (const auto word : view.body)
-      line().cells.push_back({view.record, view.token, word_text(word),
-                              word == ' '});
+      // Inside a verbatim region every column is content, and a token there
+      // may mix drawn box words with ordinary ones: SC09-2417-00 `3.1.1.2`
+      // record 348 token 129 is `U+250C U+2500 *`, the corner and rule that
+      // open the `_*LIBL/________` branch of a railroad diagram.  The
+      // one-byte ASCII projection spells a box word `?`, which is a fallback
+      // for text the reader has no character for -- but the display line
+      // has a character for it, and it is the character hosted serves
+      // (`&gt;&gt;__<kbd>STATEMENT</kbd>__`).  Draw it.
+      line().cells.push_back(
+          {view.record, view.token,
+           xmp_mode && box_word(word) ? figure_display_glyph(word)
+                                      : word_text(word),
+           word == ' '});
     ++line_visible_cells;
     last_visible = body_text(view);
     pending_space = view.prefix != 2;
