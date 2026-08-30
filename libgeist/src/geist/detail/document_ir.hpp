@@ -196,11 +196,11 @@ struct MenuBlockItemIR {
   DocumentNodeOriginIR origin;
 };
 
-// A reader-generated subtopic menu (BOO `CMENU` ... `CEMENU`).  BookServer
+// A reader-generated subtopic menu (BOO `CMENU` ... `CEMENU`).  The reader
 // synthesizes the `Subtopics:` lead line and prefixes every visible label with
-// its target topic id at render time (`bookmgr.exe` `sub_405FC`, see
-// Format/markup.md); neither exists in BOO source, so this block carries only
-// the typed items and each renderer expands that presentation itself.
+// its target topic id at render time; neither exists in BOO source, so this
+// block carries only the typed items and each renderer expands that
+// presentation itself.
 struct MenuBlockIR {
   std::vector<MenuBlockItemIR> items;
 };
