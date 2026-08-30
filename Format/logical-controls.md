@@ -797,7 +797,7 @@ The controls that follow are:
 | `CTITLE=` | 7 bytes | Full title metadata. |
 | `CSTITLE=` | 8 bytes | Short title metadata. |
 | `CCOPYRIGHT=` | 11 bytes | Copyright metadata. |
-| `CSECURITY=` | 10 bytes | Security metadata. See [security.md](security.md). |
+| `CSECURITY=` | 10 bytes | Security metadata. Empty in every fixture but `XWEBDEMO.boo`; it does not imply encryption. |
 | `CDATE=` | 6 bytes | Date metadata. |
 | `CAUTHOR=` | 8 bytes | Author metadata. Repeated `CAUTHOR=` controls are concatenated, separated by two spaces. |
 | `CDOCNUM=` | 8 bytes | Document number metadata. It is the last control in the metadata envelope in every fixture. |

@@ -161,7 +161,7 @@ record that decodes to a leading `L` (`0x004c` as a token word).
 | `CTITLE=` | 7 bytes | Full title metadata. |
 | `CSTITLE=` | 8 bytes | Short title metadata. |
 | `CCOPYRIGHT=` | 11 bytes | Copyright metadata. |
-| `CSECURITY=` | 10 bytes | Security metadata. See [security.md](security.md); it does not imply encryption. |
+| `CSECURITY=` | 10 bytes | Security metadata. Empty in every fixture but `XWEBDEMO.boo`; it does not imply encryption. |
 | `CDATE=` | 6 bytes | Date metadata. |
 | `CAUTHOR=` | 8 bytes | Author metadata. A book may carry several `CAUTHOR=` controls; `packet.boo` and `XWEBDEMO.boo` each carry one, and multi-author books concatenate them. |
 | `CDOCNUM=` | 8 bytes | Document number metadata. It is the last metadata control in the envelope in every fixture, so a decoder can stop there. |
