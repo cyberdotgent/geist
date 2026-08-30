@@ -247,7 +247,7 @@ void verify_synthetic_contract() {
           "generated list admitted an unknown CZ operand form");
 }
 
-#ifdef GEIST_REPO_ROOT
+#ifdef GEIST_FIXTURE_DIR
 void load_context(const std::filesystem::path& path,
                   geist::detail::LogicalDecodeContext* context_ptr) {
   auto& context = *context_ptr;
@@ -286,18 +286,7 @@ void verify_generated_control_evidence(
     std::string operand_text;
   };
   std::vector<ExpectedControl> expected;
-  if (filename == "XWEBDEMO.boo" && topic_id == "FIGURES") {
-    expected = {
-        {4, 9, geist::detail::BookControlKind::spacing, {143, 154},
-         {143, 147}, {147, 154}, "3p p c"},
-        {4, 10, geist::detail::BookControlKind::layout_directive, {157, 167},
-         {157, 159}, {159, 167}, "BREAK 3"},
-        {4, 11, geist::detail::BookControlKind::layout_directive, {169, 183},
-         {169, 171}, {171, 183}, "OFF FIGLIST"},
-        {4, 15, geist::detail::BookControlKind::layout_directive, {437, 456},
-         {437, 439}, {439, 456}, "OFF EFIGLIST 0 0"},
-    };
-  } else if (filename == "packet.boo" && topic_id == "FIGURES") {
+  if (filename == "packet.boo" && topic_id == "FIGURES") {
     expected = {
         {11, 9, geist::detail::BookControlKind::layout_directive, {148, 158},
          {148, 150}, {150, 158}, "BREAK 3"},
@@ -372,7 +361,7 @@ void require_fixed_prefixes(
 }
 
 void verify_corpus_inventory() {
-  const auto directory = std::filesystem::path(GEIST_REPO_ROOT) / "BOO";
+  const auto directory = std::filesystem::path(GEIST_FIXTURE_DIR);
   std::vector<std::string> admitted;
   std::vector<std::string> rejected_candidates;
   auto entries = std::size_t{0};
@@ -406,10 +395,6 @@ void verify_corpus_inventory() {
         if (topic.id == "FIGURES" || topic.id == "TABLES")
           rejected_candidates.push_back(file.path().filename().string() + ':' +
                                         topic.id);
-        if (file.path().filename() == "XWEBDEMO.boo" &&
-            topic.id == "FIGURES")
-          require(error.find("opcode=c.sp") != std::string::npos,
-                  "XWEB generated-list blocker changed: " + error);
         continue;
       }
       require(geist::detail::verify_generated_list_topic_ir(
@@ -418,85 +403,6 @@ void verify_corpus_inventory() {
                   file.path().filename().string() + ':' + topic.id + ' ' + error);
       for (const auto& entry : list->entries) require_entry_partition(entry);
       const auto filename = file.path().filename().string();
-      if (filename == "FA1PLMM0.boo" && topic.id == "FIGURES")
-        require_fixed_prefixes(*list, {{41, "39."}}, &audited_prefixes);
-      if (filename == "GC23-046.boo" && topic.id == "FIGURES")
-        require_fixed_prefixes(
-            *list,
-            {{17, "16."}, {18, "17."}, {19, "18."}, {20, "19."},
-             {21, "20."}, {22, "21."}, {23, "22."}, {26, "25."},
-             {32, "31."}},
-            &audited_prefixes);
-      if (filename == "GC23-046.boo" && topic.id == "TABLES") {
-        require_fixed_prefixes(
-            *list,
-            {{17, "17."}, {18, "18."}, {20, "19."}, {22, "20."},
-             {23, "21."}, {24, "22."}, {25, "23."}, {27, "24."},
-             {28, "25"}, {29, "26."}, {30, "27."}, {32, "28."}},
-            &audited_prefixes);
-        const auto exp_label = label_text(list->entries[18]);
-        const auto wto_label = label_text(list->entries[20]);
-        require(exp_label.rfind("(CIDSIEXP)", 0) == 0 &&
-                    wto_label.rfind("(CIDSIWTO)", 0) == 0,
-                "payload punctuation negative was treated as decoration: " +
-                    exp_label + " / " + wto_label);
-      }
-      if (filename == "GG24-395.boo" && topic.id == "FIGURES")
-        require_fixed_prefixes(
-            *list,
-            {{11, "11."}, {12, "12."}, {24, "24."}, {25, "25."},
-             {26, "26."}, {27, "27."}, {28, "28."}, {29, "29."},
-             {30, "30."}, {31, "31."}, {32, "32."}, {33, "33."},
-             {37, "37."}, {59, "59"}, {61, "60."}, {63, "61."},
-             {79, "77."}},
-            &audited_prefixes);
-      if (filename == "IEAC6MST.BOO" && topic.id == "FIGURES") {
-        require_fixed_prefixes(*list, {{81, "7-9."}}, &audited_prefixes);
-        require(label_text(list->entries[4]).rfind("2-2.  Sample CLIST", 0) ==
-                    0,
-                "one-cell ordinal was misclassified as layout decoration");
-        const auto& cross_record = list->entries[80];
-        require(cross_record.selector.logical_record + 1 ==
-                    cross_record.display.owner.logical_record &&
-                    std::all_of(
-                        cross_record.label_fragments.begin(),
-                        cross_record.label_fragments.end(),
-                        [&](const auto& fragment) {
-                          return std::all_of(
-                              fragment.source_slices.begin(),
-                              fragment.source_slices.end(),
-                              [&](const auto& slice) {
-                                return slice.logical_record ==
-                                       cross_record.display.owner.logical_record;
-                              });
-                        }),
-                "cross-record label provenance was assigned to its selector");
-      }
-      if (filename == "SC09-138.boo" && topic.id == "TABLES") {
-        require_fixed_prefixes(*list, {{19, "17."}, {27, "24."}},
-                               &audited_prefixes);
-        const std::vector<std::pair<std::size_t, std::string>> artifacts{
-            {8, "6.  CMOD options   3.2"},
-            {21, "Operations   5.5.2"},
-            {34, "Environments   8.5.9"},
-        };
-        for (const auto& item : artifacts) {
-          const auto& entry = list->entries[item.first - 1];
-          require(label_text(entry) == item.second &&
-                      std::find(entry.cell_dispositions.begin(),
-                                entry.cell_dispositions.end(),
-                                geist::detail::
-                                    GeneratedListCellDispositionIR::
-                                        decoder_artifact) !=
-                          entry.cell_dispositions.end(),
-                  "typed decoder artifact entered a generated-list label");
-          ++audited_artifacts;
-        }
-        require(label_text(list->entries[26]) ==
-                    "24.  Description of __dyn_t data structure elements   "
-                    "8.1.10.3",
-                "source extension suffix was not retained exactly");
-      }
       geist::detail::TopicIdentityIR identity;
       identity.id = topic.id;
       identity.title = topic.title;
@@ -543,30 +449,21 @@ void verify_corpus_inventory() {
     }
   }
   std::sort(admitted.begin(), admitted.end());
-  auto expected = std::vector<std::string>{
-      "DREICMST.boo:FIGURES:129",    "FA1PLMM0.boo:FIGURES:113",
-      "GC23-046.boo:FIGURES:32",     "GC23-046.boo:TABLES:32",
-      "GC28-183.boo:FIGURES:55",     "GG24-395.boo:FIGURES:81",
-      "GG24-395.boo:TABLES:16",      "GG24-4302-00.boo:FIGURES:51",
-      "GG24-4302-00.boo:TABLES:15",  "IEAC6MST.BOO:FIGURES:100",
-      "ITPPIBOK.BOO:FIGURES:20",     "ITPPIBOK.BOO:TABLES:1",
-      "SC09-138.boo:FIGURES:162",    "SC09-138.boo:TABLES:44",
-      "SC24-546.boo:FIGURES:9",      "SC24-546.boo:TABLES:4",
-      "SC24-5527-02.boo:FIGURES:11", "SC24-5527-02.boo:TABLES:71",
-      "SC26-457.boo:FIGURES:53",     "SC28-1881-05.boo:FIGURES:18",
-      "SC33-033.boo:FIGURES:7",      "SC33-033.boo:TABLES:4",
-      "SG24-204.boo:FIGURES:128",    "SH20-918.boo:FIGURES:12",
-      "SH20-918.boo:TABLES:9",       "XWEBDEMO.boo:FIGURES:3",
-      "packet.boo:FIGURES:9",        "packet.boo:TABLES:7"};
+  // Only packet.boo may be redistributed; the other 26 book/topic entries of
+  // this inventory, and the fixed-prefix, decoder-artifact and cross-record
+  // label audits that ran on them, went with those books (issue #59).
+  auto expected = std::vector<std::string>{"packet.boo:FIGURES:9",
+                                           "packet.boo:TABLES:7"};
   std::sort(expected.begin(), expected.end());
   std::sort(rejected_candidates.begin(), rejected_candidates.end());
   const auto expected_rejections = std::vector<std::string>{};
-  require(admitted == expected && entries == 1196,
+  require(admitted == expected && entries == 16,
           "whole-topic generated-list inventory changed");
   require(rejected_candidates == expected_rejections,
           "generated-list fail-closed candidate inventory changed");
-  require(audited_prefixes == 42 && audited_artifacts == 3,
-          "generated-list 45-row semantic audit inventory changed");
+  require(audited_prefixes == 0 && audited_artifacts == 0,
+          "the fixed-prefix and decoder-artifact audits went with the books "
+          "that cannot be published; nothing should be counted here");
 }
 #endif
 
@@ -574,7 +471,7 @@ void verify_corpus_inventory() {
 
 int main() {
   verify_synthetic_contract();
-#ifdef GEIST_REPO_ROOT
+#ifdef GEIST_FIXTURE_DIR
   verify_corpus_inventory();
 #endif
 }

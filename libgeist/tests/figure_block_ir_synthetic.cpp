@@ -231,86 +231,11 @@ void check_lowering(const geist::detail::FigureSourceBlockIR &figure,
   }
 }
 
-struct PreformattedExpected {
-  const char *book;
-  const char *topic;
-  const char *anchor;
-  std::size_t line_count;
-  const char *caption;
-  std::vector<std::pair<std::size_t, std::string>> lines;
-};
+
 
 // Anchor + preformatted body (+ emphasised caption paragraph), with
 // provenance, verified against the canonical lowering and the document
 // verifier; mutations are rejected.
-void check_preformatted_lowering(const geist::detail::FigureSourceBlockIR &figure,
-                                 const std::string &label) {
-  std::string error;
-  auto blocks =
-      geist::detail::lower_figure_block_to_document_blocks(figure, &error);
-  require(blocks.has_value(), label + ": lowering failed: " + error);
-  if (!blocks)
-    return;
-  require(geist::detail::verify_figure_document_blocks(figure, *blocks, &error),
-          label + ": lowered blocks failed verification: " + error);
-  const auto expected_blocks = figure.caption ? 3u : 2u;
-  require(blocks->size() == expected_blocks,
-          label + ": unexpected lowered block count");
-  if (blocks->size() != expected_blocks)
-    return;
-  const auto *anchor =
-      std::get_if<geist::detail::AnchorBlockIR>(&(*blocks)[0].node);
-  require(anchor != nullptr && anchor->id == figure.anchor,
-          label + ": lowered anchor lost its id");
-  const auto *body =
-      std::get_if<geist::detail::PreformattedBlockIR>(&(*blocks)[1].node);
-  require(body != nullptr && body->lines.size() == figure.lines.size(),
-          label + ": lowered body is not the preformatted block");
-  if (body != nullptr)
-    for (std::size_t index = 0; index < figure.lines.size(); ++index)
-      require(body->lines[index] == figure.lines[index].text,
-              label + ": lowered body line differs");
-  require(!(*blocks)[1].origin.slices.empty(),
-          label + ": lowered body carries no provenance");
-  if (figure.caption) {
-    const auto *paragraph =
-        std::get_if<geist::detail::ParagraphBlockIR>(&(*blocks)[2].node);
-    require(paragraph != nullptr && paragraph->content.size() == 1,
-            label + ": lowered caption is not a paragraph");
-    if (paragraph != nullptr && paragraph->content.size() == 1) {
-      const auto *emphasis = std::get_if<geist::detail::EmphasisInlineIR>(
-          &paragraph->content.front().node);
-      require(emphasis != nullptr && emphasis->text == figure.caption->text,
-              label + ": lowered caption text differs");
-    }
-  }
-  geist::detail::DocumentIR document;
-  document.topic.id = "figure";
-  document.topic.title = "figure";
-  document.blocks = *blocks;
-  require(geist::detail::verify_document_ir(document, &error),
-          label + ": document verification failed: " + error);
-
-  auto mutated = *blocks;
-  std::get<geist::detail::PreformattedBlockIR>(mutated[1].node).lines.back() +=
-      "x";
-  require(!geist::detail::verify_figure_document_blocks(figure, mutated),
-          label + ": mutated body line was accepted");
-  mutated = *blocks;
-  mutated[1].origin.slices.pop_back();
-  require(!geist::detail::verify_figure_document_blocks(figure, mutated),
-          label + ": mutated body origin was accepted");
-  if (figure.caption) {
-    mutated = *blocks;
-    std::get<geist::detail::EmphasisInlineIR>(
-        std::get<geist::detail::ParagraphBlockIR>(mutated[2].node)
-            .content.front()
-            .node)
-        .text += "!";
-    require(!geist::detail::verify_figure_document_blocks(figure, mutated),
-            label + ": mutated caption was accepted");
-  }
-}
 
 const geist::detail::FigureSourceBlockIR *
 find_figure(const Topic &topic, const std::string &anchor) {
@@ -320,49 +245,38 @@ find_figure(const Topic &topic, const std::string &anchor) {
   return nullptr;
 }
 
-bool declined_with(const Topic &topic, const std::string &fragment) {
-  for (const auto &declined : topic.figures.declined)
-    if (declined.reason.find(fragment) != std::string::npos)
-      return true;
-  return false;
-}
 
 } // namespace
 
 int main() {
-  Corpus corpus(std::filesystem::path(GEIST_REPO_ROOT) / "BOO");
+  Corpus corpus(std::filesystem::path(GEIST_FIXTURE_DIR));
   using geist::detail::FigureTargetKindIR;
 
-  // Hosted-verified figures.  DT values: GG24-4302-00 19950308184737,
-  // XWEBDEMO 19970423182524, SC24-5520-00 19911011135123,
-  // SH12-565 19941206115523, SC09-138 19910321130500.
+  // Hosted-verified figures (packet DT 20260614112503).  All nine of packet's
+  // figures draw a stored book resource; the external-image, drawn/ASCII,
+  // captionless, change-bar-caption, wrapped-caption, cross-record-body,
+  // caption-cross-reference, body-cross-reference and table-owned-picture
+  // fixtures went with the books that cannot be published (issue #59).
   const Expected expected[] = {
-      {"GG24-4302-00.boo", "5.1.8", "FIG4302RSX",
+      {"packet.boo", "1.3", "FIGFIGUNIQ5", FigureTargetKindIR::book_resource,
+       "1", "PICTURE 1", "Figure 1. VHF/UHF LMR audio frequency range"},
+      {"packet.boo", "2.1.3", "FIGFIGUNIQ7", FigureTargetKindIR::book_resource,
+       "2", "PICTURE 2", "Figure 2. AX.25 frame structure"},
+      // A figure whose placeholder row is suppressed in its own right.
+      {"packet.boo", "2.2.1", "FIGFIGUNIQ15",
+       FigureTargetKindIR::book_resource, "5", "PICTURE 5",
+       "Figure 5. Packet radio protocol layers"},
+      {"packet.boo", "2.4", "FIGFIGUNIQ16", FigureTargetKindIR::book_resource,
+       "6", "PICTURE 6", "Figure 6. IPv4 and IPv6 Packets"},
+      {"packet.boo", "3.3.2", "FIGFIGUNIQ30",
+       FigureTargetKindIR::book_resource, "7", "PICTURE 7",
+       "Figure 7. IP Routing Example"},
+      {"packet.boo", "3.3.3", "FIGFIGUNIQ32",
+       FigureTargetKindIR::book_resource, "8", "PICTURE 8",
+       "Figure 8. IP NAT Example"},
+      {"packet.boo", "7.1.3", "FIGFIGUNIQ80",
        FigureTargetKindIR::book_resource, "9", "PICTURE 9",
-       "Figure 20. RSR Components"},
-      {"GG24-4302-00.boo", "8.5.3", "FIG4302TC0",
-       FigureTargetKindIR::book_resource, "25", "PICTURE 25",
-       "Figure 42. TCP/IP Access"},
-      {"XWEBDEMO.boo", "1.4.1", "FIGMONET1",
-       FigureTargetKindIR::external_image, "/bookmgr/monetcoq.jpg", "",
-       "Figure 3. External JPEG format image presented in-line."},
-      // Caption row opens with a subject-index entry ("SI DCE, file system")
-      // that hosted output never shows.
-      {"GG24-395.boo", "2.4.4", "FIGFDCE107",
-       FigureTargetKindIR::book_resource, "19", "PICTURE 19",
-       "Figure 19. DCE File System"},
-      // Placeholder and caption share one physical row.
-      {"SC09-2417-00.boo", "1.2.2", "FIGCRTP",
-       FigureTargetKindIR::book_resource, "3", "PICTURE 3",
-       "Figure 3. Program Creation in ILE"},
-      {"FA1PLMM0.boo", "2.2.2.2", "FIGFDYN1",
-       FigureTargetKindIR::book_resource, "1", "PICTURE 1",
-       "Figure 6. VSE/ESA System with Static and Dynamic Partitions "
-       "(Environment 4, ESA Mode)"},
-      // Box filler decoded as the unmapped word 0xFFFF.
-      {"SG24-204.boo", "1.3.2", "FIGFIGUNIQ1",
-       FigureTargetKindIR::book_resource, "1", "PICTURE 1",
-       "Figure 1. Comparing ECI and EPI."},
+       "Figure 9. LoRa Frame Format"},
   };
   for (const auto &item : expected) {
     const std::string label = std::string(item.book) + " " + item.topic;
@@ -385,10 +299,9 @@ int main() {
             label + ": caption changed: '" +
                 (figure->caption ? figure->caption->text : "") + "'");
     // The "PICTURE n" placeholder is either its own suppressed row or shares
-    // the caption row (SC09-2417-00 1.2.2); either way its cells are claimed.
+    // the caption row; either way its cells are claimed.
     require(!figure->suppressed_rows.empty() ||
-                (figure->caption && !figure->caption->rows.empty()) ||
-                item.kind == FigureTargetKindIR::external_image,
+                (figure->caption && !figure->caption->rows.empty()),
             label + ": placeholder row was not claimed");
     check_conservation(topic, label);
     check_lowering(*figure, label);
@@ -417,9 +330,31 @@ int main() {
             label + ": figure with a re-rolled cell was accepted");
   }
 
+  // Two consecutive figures in one topic: each keeps its own anchor, target,
+  // placeholder and caption, and the region conserves every cell of both.
+  {
+    const auto topic = corpus.topic("packet.boo", "2.1.4");
+    require(topic.figures.blocks.size() == 2,
+            "packet 2.1.4: expected two admitted figures\n" +
+                geist::detail::format_figure_blocks_ir(topic.figures));
+    const auto *kiss = find_figure(topic, "FIGFIGUNIQ11");
+    const auto *hdlc = find_figure(topic, "FIGFIGUNIQ12");
+    require(kiss != nullptr && kiss->target == "3" && kiss->caption &&
+                kiss->caption->text == "Figure 3. KISS + AX.25 frame structure",
+            "packet 2.1.4: the first of two figures changed");
+    require(hdlc != nullptr && hdlc->target == "4" && hdlc->caption &&
+                hdlc->caption->text == "Figure 4. HDLC + AX.25 frame structure",
+            "packet 2.1.4: the second of two figures changed");
+    check_conservation(topic, "packet.boo 2.1.4");
+    if (kiss != nullptr)
+      check_lowering(*kiss, "packet.boo 2.1.4 FIGFIGUNIQ11");
+    if (hdlc != nullptr)
+      check_lowering(*hdlc, "packet.boo 2.1.4 FIGFIGUNIQ12");
+  }
+
   // Without a resource catalog a book-resource figure must be declined.
   {
-    const auto topic = corpus.topic("GG24-4302-00.boo", "5.1.8");
+    const auto topic = corpus.topic("packet.boo", "2.4");
     const auto figures = geist::detail::extract_figure_blocks_ir(
         topic.sources, topic.layout, topic.ownership, topic.selectors, {});
     require(figures.blocks.empty() && figures.declined.size() == 1 &&
@@ -428,366 +363,25 @@ int main() {
             "figure with an unknown resource was admitted");
   }
 
-  // Subject-index entries inside the region are conserved, not displayed.
+  // Every figure the book names in its generated FIGURES list is admitted by
+  // the family, and no other topic invents one.  This is the whole-book
+  // inventory the corpus sweep used to provide.
   {
-    const auto topic = corpus.topic("GG24-395.boo", "2.4.4");
-    const auto *figure = find_figure(topic, "FIGFDCE107");
-    require(figure != nullptr && figure->index_terms.size() == 1 &&
-                figure->index_terms.front() == "SI DCE, file system",
-            "GG24-395 2.4.4: subject-index entry was not conserved");
-  }
-
-  // Hosted QSYSNEWG 1.1 (DT 19910524085706): anchored picture, no caption.
-  {
-    const auto topic = corpus.topic("QSYSNEWG.BOO", "1.1");
-    const auto *figure = find_figure(topic, "FIGFIGUNIQ1");
-    require(topic.figures.blocks.size() == 1 && figure != nullptr &&
-                figure->target == "1" && figure->placeholder_text == "PICTURE 1" &&
-                !figure->caption,
-            "QSYSNEWG 1.1: captionless figure changed");
-    if (figure != nullptr)
-      check_lowering(*figure, "QSYSNEWG.BOO 1.1");
-  }
-
-  // Hosted SC24-5527-02 1.5 (DT 19921218151459): five consecutive figures
-  // whose captions carry a change bar ("| Figure  1-4. ...").
-  {
-    const auto topic = corpus.topic("SC24-5527-02.boo", "1.5");
-    require(topic.figures.blocks.size() == 5,
-            "SC24-5527-02 1.5: expected five admitted figures\n" +
-                geist::detail::format_figure_blocks_ir(topic.figures));
-    const auto *figure = find_figure(topic, "FIGDCRDISK");
-    require(figure != nullptr && figure->target == "4" && figure->caption &&
-                figure->caption->text ==
-                    "Figure 1-4. Disks Used When Servicing CMS and REXX/VM",
-            "SC24-5527-02 1.5: change-bar caption changed");
-    check_conservation(topic, "SC24-5527-02.boo 1.5");
-  }
-
-  // Negative: picture selectors inside GG24-395 3.3.x tables are
-  // table-owned, never standalone figures.
-  for (const auto *id : {"3.3.7", "3.3.11", "3.3.15"}) {
-    const auto topic = corpus.topic("GG24-395.boo", id);
-    require(topic.figures.blocks.empty(),
-            std::string("GG24-395 ") + id +
-                ": table-owned picture admitted as a figure");
-    require(declined_with(topic, "table-owned"),
-            std::string("GG24-395 ") + id +
-                ": table-owned picture was not reported");
-  }
-
-  // Preformatted (ASCII/CFONT-drawn) figures.  Every expected line below is
-  // the hosted <pre> line (DT values as in AnalysisNotes); the body line
-  // count is the hosted count between the frame and the caption.
-  const PreformattedExpected drawn[] = {
-      // CFONT-boxed prose; no caption; the top corners are blanks, the
-      // bottom corners bars, exactly as hosted draws them.
-      {"FA1PLMM0.boo", "PREFACE.3", "FIGFIGUNIQ1", 10, "",
-       {{0, "    " + std::string(72, '_') + " "},
-        {2, "   | The manual VSE/ESA Networking Support has planning "
-            "information for     |"},
-        {9, "   |" + std::string(72, '_') + "|"}}},
-      // Two-box diagram; arrows keep their glyphs (hosted shows the
-      // reader's substitution bytes there).
-      {"ACPZMST1.boo", "1.2.5", "FIGRSCOM2", 13,
-       "Figure 2. Communications between a User Program and a Resource "
-       "Manager",
-       {{0, "                ______________             ______________ "},
-        {2, "               | | User     | |           | | Resource | |"},
-        {3, "    Requester  | | Program  | \xE2\x86\x90___________\xE2\x86\x92 | "
-            "Manager  | |   Server"},
-        {9, "                   NetWare                    OS/2,"}}},
-      // Region spans logical records 56 and 57.
-      {"ACPZMST1.boo", "1.2.5", "FIGCOMP", 17,
-       "Figure 3. Communications between Programs on Different Systems",
-       {{2, "   |__________________________|       "
-            "|__________________________|"},
-        {5, "    __________________________          "
-            "_________________________ "}}},
-      // 132-column RMF report inside a 72-column box: the right border
-      // overwrites the report in the stream; the caption wraps onto a
-      // second line.  Region spans records 261-265.
-      {"GG24-4302-00.boo", "3.3.4", "FIGRMFWL01", 43,
-       "Figure 12. RMF Workload Activity Report for IMS System Address "
-       "Spaces: Control Region, DL/1 SAS, and DBRC",
-       {{2, "   |                                                W O R K L O "
-            "A D   A C T | V I T Y"},
-        {5, "   |       SP5.1.0                 RPT VERSION 5.1.0          "
-            "TIME 14.30.11 |"}}},
-      {"GG24-4302-00.boo", "3.3.4", "FIGRMFWL02", 53,
-       "Figure 13. RMF Workload Activity Report for IMS Dependent Regions",
-       {}},
-      {"SG24-204.boo", "3.1", "FIGVSEHW1", 19, "Figure 16. VSE IPL Procedure",
-       {}},
-      // Bullets inside a boxed list render as hosted's degree-sign byte.
-      {"SH20-918.boo", "FRONT_1.3", "FIGFIGUNIQ6", 37, "",
-       {{5, "   | \xC2\xB0   The GML starter set profile:  DSMPROF4      "
-            "                       |"}}},
-      // A dashed rule drawn from one-glyph tokens is body, not a frame.
-      {"SC34-425.boo", "1.3.4", "FIGDEVPROC", 47, "Figure 13. Development Cycle",
-       {{0, "                             _ _ _ _ _ _ _ _ _ _ _ _ _"},
-        {3, "                            |       |  MODIFY   |     |"}}},
-      // frame=rule figure: the rule lines hosted shows as empty are
-      // spacing, the listing is the body.
-      {"SC09-138.boo", "1.3.1", "FIGBIO1", 48, "Figure 1. Biorhythm Program",
-       {{0, "   /***************************************************************"},
-        {2, "    *  Description: Calculates biorhythm based on current         *"},
-        {5, ""}}},
-      {"SC09-138.boo", "1.3.1", "FIGBIO1SUB", 35,
-       "Figure 2. Function for Biorhythm Program", {}},
-      {"QSYSNEWG.BOO", "2.1", "FIGFIGUNIQ13", 28, "", {}},
-  };
-  for (const auto &item : drawn) {
-    const std::string label =
-        std::string(item.book) + " " + item.topic + " " + item.anchor;
-    const auto topic = corpus.topic(item.book, item.topic);
-    const auto *figure = find_figure(topic, item.anchor);
-    require(figure != nullptr,
-            label + ": drawn figure was not admitted\n" +
-                geist::detail::format_figure_blocks_ir(topic.figures));
-    if (figure == nullptr)
-      continue;
-    require(figure->body_kind == geist::detail::FigureBodyKindIR::preformatted &&
-                figure->target.empty() && figure->span.anchored,
-            label + ": drawn figure is not preformatted");
-    require(figure->lines.size() == item.line_count,
-            label + ": expected " + std::to_string(item.line_count) +
-                " body lines, got " + std::to_string(figure->lines.size()));
-    for (const auto &[index, text] : item.lines)
-      require(index < figure->lines.size() &&
-                  figure->lines[index].text == text,
-              label + ": body line " + std::to_string(index) + " is '" +
-                  (index < figure->lines.size() ? figure->lines[index].text
-                                                : std::string("<missing>")) +
-                  "'");
-    const std::string caption = figure->caption ? figure->caption->text : "";
-    require(caption == item.caption, label + ": caption is '" + caption + "'");
-    check_conservation(topic, label);
-    check_preformatted_lowering(*figure, label);
-
-    // Mutations must be rejected by the verifier.
-    const auto &book = corpus.book(item.book);
-    auto mutated = topic.figures;
-    std::string error;
-    for (auto &block : mutated.blocks)
-      if (block.anchor == item.anchor)
-        block.lines.front().text += "x";
-    require(!geist::detail::verify_figure_blocks_ir(
-                topic.sources, topic.layout, topic.ownership, topic.selectors,
-                book.resource_ids, mutated, &error),
-            label + ": mutated body line was accepted");
-    mutated = topic.figures;
-    for (auto &block : mutated.blocks)
-      if (block.anchor == item.anchor)
-        block.cells.pop_back();
-    require(!geist::detail::verify_figure_blocks_ir(
-                topic.sources, topic.layout, topic.ownership, topic.selectors,
-                book.resource_ids, mutated, &error),
-            label + ": drawn figure with a dropped cell was accepted");
-  }
-
-  // Every cell of a drawn figure region is claimed exactly once with a
-  // preformatted role: the length byte of each line, the SRFIG opcode, body
-  // words, and the SREFIG boundary.
-  {
-    const auto topic = corpus.topic("FA1PLMM0.boo", "PREFACE.3");
-    const auto *figure = find_figure(topic, "FIGFIGUNIQ1");
-    std::map<geist::detail::FigureCellRoleIR, std::size_t> roles;
-    if (figure != nullptr)
-      for (const auto &cell : figure->cells)
-        ++roles[cell.role];
-    using Role = geist::detail::FigureCellRoleIR;
-    require(figure != nullptr && roles[Role::line_prefix] >= 12 &&
-                roles[Role::control] > 0 && roles[Role::body_content] > 0 &&
-                roles[Role::body_layout] > 0 && roles[Role::boundary] > 0 &&
-                roles[Role::placeholder_suppressed] == 0,
-            "FA1PLMM0 PREFACE.3: drawn figure cell roles are incomplete");
-    // Each body line owns the tokens between its length byte and the next.
-    if (figure != nullptr)
-      for (std::size_t index = 1; index < figure->lines.size(); ++index) {
-        const auto &previous = figure->lines[index - 1];
-        const auto &line = figure->lines[index];
-        require(line.prefix_token + 1 < line.token_end &&
-                    (line.logical_record != previous.logical_record ||
-                     previous.token_end <= line.prefix_token),
-                "FA1PLMM0 PREFACE.3: body lines overlap");
-      }
-  }
-
-  // Several picture selectors under one caption are one figure.  SC26-457
-  // 3.2.1 record 160/161 spells PIC1 then PIC2 with the single caption
-  // "Figure 2. ALTER Parameters ..."; hosted DT 19911220230217 stacks both
-  // images under the FIGVSAMATT anchor.  SC34-425 2.1.2 is PIC21 + PIC22.
-  for (const auto &[book, id, anchor, first, second] :
-       {std::tuple{"SC26-457.boo", "3.2.1", "FIGVSAMATT", "1", "2"},
-        std::tuple{"SC26-457.boo", "B.1.3", "FIGLDNO", "4", "5"},
-        std::tuple{"SC34-425.boo", "2.1.2", "FIGLIB01", "21", "22"}}) {
-    const auto topic = corpus.topic(book, id);
-    const auto *figure = find_figure(topic, anchor);
-    require(figure != nullptr && figure->target == first &&
-                figure->additional_pictures.size() == 1 &&
-                figure->additional_pictures[0].target == second &&
-                figure->placeholder_text == std::string("PICTURE ") + first &&
-                figure->additional_pictures[0].placeholder_text ==
-                    std::string("PICTURE ") + second &&
-                figure->caption.has_value(),
-            std::string(book) + " " + id +
-                ": the region's second picture was not admitted");
-  }
-
-  // A bare `SRSPT<id>` inside a drawn figure is a second anchor.  SC34-425
-  // 2.5.3 record 1746 line 8 is `SRSPTRCC11`, and hosted DT 19921112160049
-  // serves `<a name="FIGFIGUNIQ77"><a name="SPTRCC11">` on the figure's
-  // first body line; FA1PLMM0 H.5 record 969 line 15 is `SRSPTIESWP`,
-  // which hosted DT 19910927114801 opens in the middle of the box.
-  {
-    const auto topic = corpus.topic("SC34-425.boo", "2.5.3");
-    const auto *figure = find_figure(topic, "FIGFIGUNIQ77");
-    require(figure != nullptr && figure->spot_anchors.size() == 1 &&
-                figure->spot_anchors[0].id == "SPTRCC11" &&
-                figure->spot_anchors[0].at_body_start,
-            "SC34-425 2.5.3: the figure's spot anchor was not admitted");
-  }
-  {
-    const auto topic = corpus.topic("FA1PLMM0.boo", "H.5");
-    const auto *figure = find_figure(topic, "FIGFIGUNIQ41");
-    require(figure != nullptr && figure->spot_anchors.size() == 1 &&
-                figure->spot_anchors[0].id == "SPTIESWP" &&
-                !figure->spot_anchors[0].at_body_start,
-            "FA1PLMM0 H.5: the figure's spot anchor was not admitted");
-  }
-  // A word of a drawn line spelled like a structural opcode is body text,
-  // not a control: SH12-565 APPENDIX1.9.5.2.1 record 796 line 30 is
-  // "     SRVPREF    (server prefix)" and line 30's first content token is
-  // the leading space run, not the opcode.
-  for (const auto &[book, id, anchor, word] :
-       {std::tuple{"SH12-565.boo", "APPENDIX1.9.5.2.1", "FIGFIGUNIQ62",
-                   "     SRVPREF    (server prefix)"},
-        std::tuple{"SH12-565.boo", "APPENDIX1.9.5.3.1", "FIGFIGUNIQ69",
-                   "     SRVMODE  (server's running mode S (single), C "
-                   "(continuous),"}}) {
-    const auto topic = corpus.topic(book, id);
-    const auto *figure = find_figure(topic, anchor);
-    const auto found =
-        figure != nullptr &&
-        std::any_of(figure->lines.begin(), figure->lines.end(),
-                    [&](const auto &line) { return line.text == word; });
-    require(found, std::string(book) + " " + id +
-                       ": the body line spelled like a control was not "
-                       "reproduced");
-  }
-
-  // Negative: a drawn figure wrapping an SRTBL is the table family's
-  // (SC31-711 2.4.1 FIGTBLUNIQ2 / TBLTBLUNIQ2, IEAC6MST 1.4 FIGDSLIB).
-  // IEAC6MST 1.4 also carries the picture figure FIGTSOAPPL, which is
-  // admitted; only the table-wrapping region must be declined.
-  for (const auto &[book, id, anchor] :
-       {std::tuple{"SC31-711.boo", "2.4.1", "FIGTBLUNIQ2"},
-        std::tuple{"IEAC6MST.BOO", "1.4", "FIGDSLIB"}}) {
-    const auto topic = corpus.topic(book, id);
-    const auto admitted = std::any_of(
-        topic.figures.blocks.begin(), topic.figures.blocks.end(),
-        [&](const auto &block) { return block.anchor == anchor; });
-    require(!admitted && declined_with(topic, "contains a table"),
-            std::string(book) + " " + id +
-                ": figure wrapping a table was not declined as a table");
-  }
-  // SC28-1881-05 1.6 FIGFIGUNIQ71 used to be declined as "contains a menu":
-  // its `cmitem` was a display line's length byte, not a control (record 477
-  // of FA1PLMM0 shows the same byte opening a 57-byte line).  The drawn
-  // syntax diagram is admitted now.
-  {
-    const auto topic = corpus.topic("SC28-1881-05.boo", "1.6");
-    const auto *figure = find_figure(topic, "FIGFIGUNIQ71");
-    require(figure != nullptr &&
-                figure->body_kind == geist::detail::FigureBodyKindIR::preformatted &&
-                !figure->lines.empty(),
-            "SC28-1881-05 1.6: the drawn figure was not admitted");
-  }
-  // A caption's wrapped second line stands behind three "SI" index lines in
-  // PRG1SORT 1.1.4.3.2 FIGSELCDF.  Hosted DT 19900829171904 joins the two
-  // caption lines, and the continuation is indented to the caption's title
-  // column, so the index lines are stepped over.
-  {
-    const auto topic = corpus.topic("PRG1SORT.boo", "1.1.4.3.2");
-    const auto *figure = find_figure(topic, "FIGSELCDF");
-    require(figure != nullptr && figure->caption &&
-                figure->caption->text ==
-                    "Figure 1-5. An Example of How Sort Builds an Output "
-                    "Record. The output record is padded on the right by "
-                    "blanks to make its length equal to the output file.",
-            "PRG1SORT 1.1.4.3.2: the wrapped caption was not stitched");
-  }
-  // A body line whose length byte is at or above the book's token threshold
-  // used to be read as a two-byte token, so the record's display lines did
-  // not add up and the region was declined (PRG1SORT D.5.1).  The record
-  // decoder now re-reads such a payload line by line, so the region is
-  // admitted: PRG1SORT record 47 byte 0xe5ae is length 0xdc, not the
-  // two-byte token 0xdc18 `classification`.
-  {
-    const auto topic = corpus.topic("PRG1SORT.boo", "D.5.1");
-    const auto *figure = find_figure(topic, "FIGFIGUNIQ136");
-    require(figure != nullptr &&
-                figure->body_kind == geist::detail::FigureBodyKindIR::preformatted &&
-                !figure->lines.empty(),
-            "PRG1SORT D.5.1: the drawn figure was not admitted");
-  }
-  // A `cselect` inside a drawn figure names a column and a length in the
-  // display line it precedes.  SH20-918 2.1 record 59 line 20
-  // `cselect 41 8 FIGTITEM` covers "Figure 4" at column 41 of line 21 and
-  // record 59 line 23 `cselect 22 23 FIGTABLE` covers
-  // "Figure 8 in topic 2.2.6"; hosted DT 19910520154851 serves both as
-  // anchors inside the caption of FIGBDE.
-  {
-    const auto topic = corpus.topic("SH20-918.boo", "2.1");
-    const auto *figure = find_figure(topic, "FIGBDE");
-    require(figure != nullptr && figure->caption &&
-                figure->caption->links.size() == 2 &&
-                figure->caption->links[0].link.label == "Figure 4" &&
-                figure->caption->links[0].link.target == "FIGTITEM" &&
-                figure->caption->links[1].link.label ==
-                    "Figure 8 in topic 2.2.6" &&
-                figure->caption->links[1].link.target == "FIGTABLE" &&
-                figure->caption->text.substr(
-                    figure->caption->links[0].begin,
-                    figure->caption->links[0].end -
-                        figure->caption->links[0].begin) == "Figure 4",
-            "SH20-918 2.1: the caption's cross references were not modelled");
-    const auto *structure = find_figure(topic, "FIGSTRUC");
-    require(structure != nullptr && structure->caption &&
-                structure->caption->links.size() == 1 &&
-                structure->caption->links[0].link.target == "FIGBDE",
-            "SH20-918 2.1: FIGSTRUC's caption reference was not modelled");
-  }
-  // A `cselect` inside a drawn *body* is a link the verbatim block cannot
-  // express, so the lowering names it in the block's degradation instead of
-  // dropping it (FA1PLMM0 5.0 record 272 line 29 `cselect 5 24 FIGVMSUM`
-  // covers "Figure 18 in topic 5.1.1" of line 30; hosted DT 19910927114801
-  // serves it as an anchor inside the <pre>).
-  {
-    const auto topic = corpus.topic("FA1PLMM0.boo", "5.0");
-    const auto *figure = find_figure(topic, "FIGFIGUNIQ8");
-    require(figure != nullptr && figure->body_links.size() == 1 &&
-                figure->body_links[0].label == "Figure 18 in topic 5.1.1" &&
-                figure->body_links[0].target == "FIGVMSUM",
-            "FA1PLMM0 5.0: the drawn body's cross reference was not "
-            "recorded");
-  }
-  // A drawn figure whose body spans a record boundary keeps one line per
-  // display line across the join (ACPZMST1 1.2.5 FIGCOMP: records 56-57;
-  // GG24-4302-00 3.3.4 FIGRMFWL01: records 261-265).
-  for (const auto &[book, id, anchor] :
-       {std::tuple{"ACPZMST1.boo", "1.2.5", "FIGCOMP"},
-        std::tuple{"GG24-4302-00.boo", "3.3.4", "FIGRMFWL01"}}) {
-    const auto topic = corpus.topic(book, id);
-    const auto *figure = find_figure(topic, anchor);
-    std::set<std::uint32_t> records;
-    if (figure != nullptr)
-      for (const auto &line : figure->lines)
-        records.insert(line.logical_record);
-    require(figure != nullptr && records.size() > 1,
-            std::string(book) + " " + id + " " + anchor +
-                ": body does not span a record boundary");
+    const auto &book = corpus.book("packet.boo");
+    std::size_t admitted = 0;
+    for (const auto &entry : book.document.table_of_contents()) {
+      if (entry.id == "FIGURES" || entry.id == "TABLES" ||
+          entry.id == "CONTENTS" || entry.id == "INDEX")
+        continue;
+      const auto topic = corpus.topic("packet.boo", entry.id);
+      admitted += topic.figures.blocks.size();
+      for (const auto &declined : topic.figures.declined)
+        require(false, "packet " + entry.id + ": a figure was declined: " +
+                           declined.reason);
+    }
+    require(admitted == 9,
+            "packet admitted " + std::to_string(admitted) +
+                " figures, not the nine its FIGURES list names");
   }
 
   std::cout << "figure block IR checks passed\n";

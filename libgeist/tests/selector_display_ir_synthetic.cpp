@@ -369,7 +369,7 @@ void verify_generated_list_contract() {
           "generated list merged two selectors into one display row");
 }
 
-#ifdef GEIST_REPO_ROOT
+#ifdef GEIST_FIXTURE_DIR
 void load_context(const std::filesystem::path &path,
                   geist::detail::LogicalDecodeContext *context_ptr) {
   auto &context = *context_ptr;
@@ -396,7 +396,7 @@ void load_context(const std::filesystem::path &path,
 }
 
 void inventory_generated_lists() {
-  const auto directory = std::filesystem::path(GEIST_REPO_ROOT) / "BOO";
+  const auto directory = std::filesystem::path(GEIST_FIXTURE_DIR);
   std::vector<std::string> admitted;
   auto admitted_selectors = std::size_t{0};
   for (const auto &entry : std::filesystem::directory_iterator(directory)) {
@@ -461,13 +461,14 @@ void inventory_generated_lists() {
             }
         return text;
       };
-      if (entry.path().filename() == "SC24-5527-02.boo" && topic.id == "TABLES")
-        require(selected("TBLXSESSTA") == "4-2.  VMSES/E Build Lists   4.1.2",
-                "cross-record generated label/punctuation was not restored "
-                "from exact source cells");
-      if (entry.path().filename() == "SC09-138.boo" && topic.id == "FIGURES")
-        require(selected("FIGTSORUN1") ==
-                    "30.  Running under TSO (Example 1)   4.3.2",
+      // Lexical punctuation and the multi-space column gap are restored from
+      // exact source cells, not re-invented.  The cross-record label pins that
+      // stood on SC24-5527-02 and SC09-138 went with those books (issue #59).
+      if (topic.id == "FIGURES")
+        require(selected("FIGFIGUNIQ80") == "9.  LoRa Frame Format   7.1.3",
+                "generated lexical punctuation fragments were not restored");
+      if (topic.id == "TABLES")
+        require(selected("TBLTBLUNIQ17") == "1.  IPv4 Address Classes   2.4.4",
                 "generated lexical punctuation fragments were not restored");
       admitted.push_back(entry.path().filename().string() + ':' + topic.id +
                          ':' + std::to_string(selectors->selectors.size()));
@@ -475,35 +476,30 @@ void inventory_generated_lists() {
     }
   }
   std::sort(admitted.begin(), admitted.end());
-  auto expected = std::vector<std::string>{
-      "DREICMST.boo:FIGURES:129",    "FA1PLMM0.boo:FIGURES:113",
-      "GC23-046.boo:FIGURES:32",     "GC23-046.boo:TABLES:32",
-      "GC28-183.boo:FIGURES:55",     "GG24-395.boo:FIGURES:81",
-      "GG24-395.boo:TABLES:16",      "GG24-4302-00.boo:FIGURES:51",
-      "GG24-4302-00.boo:TABLES:15",  "IEAC6MST.BOO:FIGURES:100",
-      "ITPPIBOK.BOO:FIGURES:20",     "ITPPIBOK.BOO:TABLES:1",
-      "SC09-138.boo:FIGURES:162",    "SC09-138.boo:TABLES:44",
-      "SC24-546.boo:FIGURES:9",      "SC24-546.boo:TABLES:4",
-      "SC24-5527-02.boo:FIGURES:11", "SC24-5527-02.boo:TABLES:71",
-      "SC26-457.boo:FIGURES:53",     "SC28-1881-05.boo:FIGURES:18",
-      "SC33-033.boo:FIGURES:7",      "SC33-033.boo:TABLES:4",
-      "SG24-204.boo:FIGURES:128",    "SH20-918.boo:FIGURES:12",
-      "SH20-918.boo:TABLES:9",       "XWEBDEMO.boo:FIGURES:3",
-      "packet.boo:FIGURES:9",        "packet.boo:TABLES:7",
-  };
+  // Only packet.boo may be redistributed; the other 26 book/topic entries of
+  // this cross-book inventory went with those books (issue #59).
+  auto expected = std::vector<std::string>{"packet.boo:FIGURES:9",
+                                           "packet.boo:TABLES:7"};
   std::sort(expected.begin(), expected.end());
-  require(admitted == expected && admitted_selectors == 1196,
+  require(admitted == expected && admitted_selectors == 16,
           "generated-list cross-book admission inventory changed");
 }
 
-void verify_sc31_native_continuation() {
-  const auto path =
-      std::filesystem::path(GEIST_REPO_ROOT) / "BOO" / "SC31-711.boo";
+// A `CSELECT` phrase the reader breaks over two display rows: the two rows
+// are soft (no hard boundary), the first carries the label's first half, and
+// the row is owned by the record it came from.  packet 6.2 references A.0
+// this way.  SC31-711 5.0's restored-native-marker cells went with that book
+// (issue #59); the synthetic marker-restoration fixtures above still cover
+// that path.
+void verify_native_continuation() {
+  const auto path = std::filesystem::path(GEIST_FIXTURE_DIR) / "packet.boo";
   const auto document = geist::BooDocument::open(path);
   const auto found =
       std::find_if(document.topics().begin(), document.topics().end(),
-                   [](const auto &topic) { return topic.id == "5.0"; });
-  require(found != document.topics().end(), "SC31 fixture has no 5.0 topic");
+                   [](const auto &topic) { return topic.id == "6.2"; });
+  require(found != document.topics().end(), "packet fixture has no 6.2 topic");
+  if (found == document.topics().end())
+    return;
 
   geist::detail::LogicalDecodeContext context;
   load_context(path, &context);
@@ -516,45 +512,57 @@ void verify_sc31_native_continuation() {
   const auto ownership =
       geist::detail::build_verified_ownership_ir(sources, layout, &error);
   require(ownership.has_value(),
-          "SC31 5.0 ownership is not verifiable: " + error);
+          "packet 6.2 ownership is not verifiable: " + error);
+  if (!ownership)
+    return;
   const auto display = selectors
                            ? geist::detail::extract_selector_display_ir(
                                  sources, *selectors, layout, *ownership,
                                  &error)
                            : std::nullopt;
-  std::string selected_text;
-  if (display && !display->rows.empty() && !display->rows[0].spans.empty()) {
-    const auto &span = display->rows[0].spans[0];
-    for (auto cell = span.cell_begin;
-         cell < span.cell_end && cell < display->rows[0].cells.size(); ++cell)
-      if (display->rows[0].cells[cell].word <= 0xff)
-        selected_text.push_back(
-            static_cast<char>(display->rows[0].cells[cell].word));
+  require(display.has_value(),
+          "packet 6.2 selector display was rejected: " + error);
+  if (!display)
+    return;
+  require(display->rows.size() == display->bindings.size(),
+          "packet 6.2 did not yield one display row per selector");
+
+  // Collect, in source order, the text of every span that targets HDRURLS.
+  // The reference is broken over two display rows, so there must be exactly
+  // two of them.  The text below is the display-column range the `CSELECT`
+  // operand addresses on each row, which is wider than the label the reader
+  // shows: the row model, not this layer, trims the leading run to `"Web`.
+  // Pinning the raw range is what catches an operand geometry change.
+  std::vector<std::string> halves;
+  for (const auto &row : display->rows) {
+    for (const auto &span : row.spans) {
+      if (span.target.raw_target != "HDRURLS")
+        continue;
+      std::string text;
+      for (auto cell = span.cell_begin;
+           cell < span.cell_end && cell < row.cells.size(); ++cell) {
+        require(row.cells[cell].source.has_value(),
+                "packet 6.2 span contains a synthesized source cell");
+        if (row.cells[cell].word <= 0xff)
+          text.push_back(static_cast<char>(row.cells[cell].word));
+      }
+      halves.push_back(text);
+      require(!row.hard_boundary,
+              "packet 6.2 continuation row was treated as a hard boundary");
+    }
   }
-  require(display && display->rows.size() == 2 &&
-              display->bindings.size() == 2 &&
-              display->rows[0].owner.logical_record == 173 &&
-              display->rows[0].owner.segment_index == 0 &&
-              display->rows[0].owner.token_begin == 0 &&
-              display->rows[0].owner.token_end == 20 &&
-              display->rows[0].spans[0].cell_begin == 56 &&
-              display->rows[0].spans[0].cell_end == 75 &&
-              selected_text == "Chapter 2, \"Problem" &&
-              std::none_of(display->rows.begin(), display->rows.end(),
-                           [](const auto &row) { return row.hard_boundary; }) &&
-              std::count_if(display->rows[0].cells.begin(),
-                            display->rows[0].cells.end(),
-                            [](const auto &cell) {
-                              return cell.origin ==
-                                     geist::detail::SelectorDisplayCellOrigin::
-                                         restored_native_marker;
-                            }) == 2,
-          "SC31 5.0 native selector continuation was not admitted exactly: " +
-              error + " selected='" + selected_text + "'");
-  require(display &&
-              geist::detail::verify_selector_display_ir(
-                  sources, *selectors, layout, *ownership, *display, &error),
-          "SC31 5.0 selector continuation failed verification: " + error);
+  require(halves.size() == 2,
+          "packet 6.2 yielded " + std::to_string(halves.size()) +
+              " HDRURLS spans, not the two rows the reader breaks it over");
+  if (halves.size() == 2) {
+    require(halves[0] == "of XRouter (please see \"",
+            "packet 6.2 first continuation row selected '" + halves[0] + "'");
+    require(halves[1] == "Radio Software\" in topic A.0 ",
+            "packet 6.2 second continuation row selected '" + halves[1] + "'");
+  }
+  require(geist::detail::verify_selector_display_ir(
+              sources, *selectors, layout, *ownership, *display, &error),
+          "packet 6.2 selector continuation failed verification: " + error);
 }
 #endif
 
@@ -570,8 +578,8 @@ int main() {
   verify_exact_nonrow_dispositions();
   verify_fail_closed_cases();
   verify_generated_list_contract();
-#ifdef GEIST_REPO_ROOT
+#ifdef GEIST_FIXTURE_DIR
   inventory_generated_lists();
-  verify_sc31_native_continuation();
+  verify_native_continuation();
 #endif
 }
