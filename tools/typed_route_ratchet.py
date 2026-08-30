@@ -70,11 +70,9 @@ BASELINE = {
     "SH12-565.boo": 284,
     "SH20-918.boo": 200,
     "XWEBDEMO.boo": 10,
-    # packet.boo is the one redistributable fixture; it now lives inside the
-    # published library at libgeist/tests/fixtures/.
     "packet.boo": 120,
 }
-BASELINE_TOTAL = 7146
+BASELINE_TOTAL = 7152
 
 SUMMARY = re.compile(r"^# summary\ttyped=(\d+)\tlegacy=(\d+)\ttotal=(\d+)")
 
