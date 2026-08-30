@@ -2122,6 +2122,26 @@ Hosted keeps the `CFONT` highlighting of words inside a box (`<B>In</B>`) and
 resolves a `CSELECT` inside one into an `<a href=...>`; a preformatted
 lowering carries neither, which is the only observed difference.
 
+#### The region's left margin is content
+
+Column L is a display column, not padding, and hosted prints the region at
+it: the box's rows keep the leading spaces the display lines give them and
+must not be shifted left to column 0.  The margin belongs to the region, so
+it varies inside one book and cannot be reinstated from a per-book constant.
+
+| Book / topic | DT | Column L |
+| --- | --- | ---: |
+| QSYSNEWG `1.0` | `19910524085706` | 4 (frame at 3) |
+| GC23-046 `7.5.3` | `19910711093248` | 1 |
+| GC23-046 `6.5` | `19910711093248` | 3 |
+| OFCUSEOV `4.2.2` | `19900805103816` | 7 |
+| QSYSNEWG `7.3` | `19910524085706` | 19 |
+
+Measured over all 856 drawn box regions the corpus emits, compared line for
+line against the hosted `<pre>` runs: shifted to column 0 not one region
+matches hosted; at their own columns 628 (73.4%) match exactly, and no region
+that already differed for another reason changed.
+
 ### Verbatim `CZ` regions
 
 The `CZ` dialect names three verbatim regions, each opened by `cz OFF <tag>`
@@ -2139,6 +2159,23 @@ geometry: the frame words occupy their own display columns and hosted prints
 their display glyphs.  Drawn box *regions* are a flattened-dialect shape and
 are not planned inside the `CZ` dialect, which names its verbatim blocks
 itself.
+
+A verbatim region's rows also keep their **left margin**, exactly as a drawn
+box region does: hosted serves the block at the display columns the rows
+occupy, and the margin is a property of the region, not of the book.
+SC09-2417-00 `3.1.3.5` (DT `19961114175628`) proves the per-region part on
+one page -- its `#pragma mapinc` example stands at column 5 and the three DDS
+listings under it at column 10.  Measured over all 486 `cz OFF XMP` blocks
+the corpus emits (SC09-2417-00 263, packet 223): shifted to column 0 not one
+block matches hosted line for line; at their own columns 454 (93.4%) match
+exactly.
+
+This is not the margin the flattened-dialect row model *infers* from a line
+with two leading space runs (above, "Title pages are the shape that proves
+it").  That inference is guarded to the flattened dialect precisely because
+the unguarded form re-indents SC09-2417-00 `4.1.9.4`'s COBOL listing by ten
+columns it does not have; the rows here are already at their read columns and
+are simply not shifted.
 
 ### `CZ` object regions: `TABLE`, `FIG`
 

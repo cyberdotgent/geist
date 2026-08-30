@@ -1,4 +1,5 @@
 #include "geist/detail/source_rows.hpp"
+#include "geist/detail/display_lines.hpp"
 #include "test_failures.hpp"
 
 #include <cstdlib>
@@ -41,6 +42,7 @@ void refresh_typed_source(geist::detail::DecodedLogicalRecordSource& record) {
     byte += encoded.width;
   }
   record.ir.payload_range = {0, byte};
+  geist::detail::assign_display_line_framing(record.ir);
   record.control_segments = geist::detail::decode_control_segments(
       record.logical_record, record.assembled);
 }

@@ -279,21 +279,22 @@ constexpr auto no_display_line_end = static_cast<std::size_t>(-1);
 
 struct TitleRowIR {
   std::size_t token_end = no_display_line_end;
-  std::set<std::size_t> line_prefix_tokens;
+  // The record the row belongs to, so the length-byte question is answered
+  // from the decoder's stored framing instead of a local copy of it.
+  const DecodedLogicalRecordSource *record = nullptr;
 };
 
 TitleRowIR title_row(const DecodedLogicalRecordSource &record,
                      const ControlSegmentIR &title_segment) {
   TitleRowIR result;
+  result.record = &record;
   const auto lines = record_display_lines(record);
   if (!lines || title_segment.source_tokens.empty())
     return result;
   const auto opcode = title_segment.source_tokens.front();
-  for (const auto &line : *lines) {
-    result.line_prefix_tokens.insert(line.prefix_token);
+  for (const auto &line : *lines)
     if (opcode > line.prefix_token && opcode < line.token_end)
       result.token_end = line.token_end;
-  }
   return result;
 }
 
@@ -432,8 +433,9 @@ bool split_title_and_introduction(
   introduction->erase(
       std::remove_if(introduction->begin(), introduction->end(),
                      [&](const auto &cell) {
-                       return row.line_prefix_tokens.count(cell.token_index) !=
-                              0;
+                       return row.record != nullptr &&
+                              is_display_line_length_token(*row.record,
+                                                           cell.token_index);
                      }),
       introduction->end());
   trim_cells(*introduction);

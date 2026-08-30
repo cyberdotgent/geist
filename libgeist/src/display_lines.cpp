@@ -28,9 +28,102 @@ std::optional<std::vector<DisplayLineIR>> token_display_lines(
   return lines;
 }
 
-std::optional<std::vector<DisplayLineIR>> record_display_lines(
+void assign_display_line_framing(LogicalRecordIR& record) {
+  record.display_lines.clear();
+  record.display_lines_parse = false;
+  for (auto& token : record.tokens)
+    token.framing = TokenFramingRole::unframed;
+  auto lines = token_display_lines(record.tokens, record.payload_range.end);
+  if (!lines) return;
+  record.display_lines = std::move(*lines);
+  record.display_lines_parse = true;
+  for (const auto& line : record.display_lines) {
+    record.tokens[line.prefix_token].framing = TokenFramingRole::line_length;
+    for (auto token = line.prefix_token + 1; token < line.token_end; ++token)
+      record.tokens[token].framing = TokenFramingRole::line_content;
+  }
+}
+
+const std::vector<DisplayLineIR>* record_display_lines(
+    const LogicalRecordIR& record) {
+  return record.display_lines_parse ? &record.display_lines : nullptr;
+}
+
+const std::vector<DisplayLineIR>* record_display_lines(
     const DecodedLogicalRecordSource& record) {
-  return token_display_lines(record.ir.tokens, record.ir.payload_range.end);
+  return record_display_lines(record.ir);
+}
+
+bool is_display_line_length_token(const LogicalRecordIR& record,
+                                  const std::size_t token) {
+  return token < record.tokens.size() &&
+         record.tokens[token].framing == TokenFramingRole::line_length;
+}
+
+bool is_display_line_length_token(const DecodedLogicalRecordSource& record,
+                                  const std::size_t token) {
+  return is_display_line_length_token(record.ir, token);
+}
+
+const DisplayLineIR* display_line_of_token(const LogicalRecordIR& record,
+                                           const std::size_t token) {
+  if (!record.display_lines_parse) return nullptr;
+  for (const auto& line : record.display_lines)
+    if (token >= line.prefix_token && token < line.token_end) return &line;
+  return nullptr;
+}
+
+const DisplayLineIR* display_line_of_token(
+    const DecodedLogicalRecordSource& record, const std::size_t token) {
+  return display_line_of_token(record.ir, token);
+}
+
+const TokenWords* display_text_words(const DecodedLogicalRecordSource& record,
+                                     const std::size_t token) {
+  if (token >= record.ir.tokens.size()) return nullptr;
+  if (record.ir.tokens[token].framing == TokenFramingRole::line_length)
+    return nullptr;
+  return &record.ir.tokens[token].decoded_words;
+}
+
+bool verify_display_line_framing(const LogicalRecordIR& record,
+                                 std::string* error) {
+  const auto fail = [&](const char* message) {
+    if (error != nullptr) *error = message;
+    return false;
+  };
+  if (!record.display_lines_parse) {
+    if (!record.display_lines.empty())
+      return fail("unframed logical record carries display lines");
+    for (const auto& token : record.tokens)
+      if (token.framing != TokenFramingRole::unframed)
+        return fail("unframed logical record stamps a token framing role");
+    return true;
+  }
+  std::size_t at = 0;
+  for (const auto& line : record.display_lines) {
+    if (line.prefix_token != at || line.token_end <= line.prefix_token ||
+        line.token_end > record.tokens.size())
+      return fail("display lines do not tile the record token list");
+    const auto& prefix = record.tokens[line.prefix_token];
+    if (prefix.encoded.width != 1)
+      return fail("display line length byte is not one byte wide");
+    const auto line_end = prefix.byte_range.end + prefix.encoded.value;
+    const auto boundary = line.token_end < record.tokens.size()
+                              ? record.tokens[line.token_end].byte_range.begin
+                              : record.payload_range.end;
+    if (boundary != line_end)
+      return fail("display line does not end on a token boundary");
+    if (prefix.framing != TokenFramingRole::line_length)
+      return fail("display line length byte is not stamped as one");
+    for (auto token = line.prefix_token + 1; token < line.token_end; ++token)
+      if (record.tokens[token].framing != TokenFramingRole::line_content)
+        return fail("display line content token is not stamped as one");
+    at = line.token_end;
+  }
+  if (at != record.tokens.size())
+    return fail("display lines do not cover the record token list");
+  return true;
 }
 
 namespace {
@@ -49,9 +142,15 @@ void walk_display_line(const DecodedLogicalRecordSource& record,
       if (started) pending_space = true;
       continue;
     }
-    if (source.token_index <= line.prefix_token) continue;
+    if (source.token_index < line.prefix_token) continue;
     if (source.token_index >= line.token_end) break;
-    const auto& words = record.tokens[source.token_index];
+    // The checked accessor is what keeps the length byte out: it refuses to
+    // hand back the words of a token the framing calls structure, so a
+    // caller asking this walk for display text cannot be given the byte's
+    // dictionary spelling.
+    const auto* words_ptr = display_text_words(record, source.token_index);
+    if (words_ptr == nullptr) continue;
+    const auto& words = *words_ptr;
     if (source.word_index >= words.size() ||
         (source.word_index == 0 && words[0] < 4))
       continue;
@@ -146,8 +245,7 @@ std::string token_word_text(const LogicalTokenIR& token) {
   return text.substr(begin, text.find_last_not_of(' ') + 1 - begin);
 }
 
-void demote_length_byte_controls(DecodedLogicalRecordSource& record,
-                                 const std::vector<DisplayLineIR>& lines) {
+void demote_length_byte_controls(DecodedLogicalRecordSource& record) {
   // A display line's length byte is a length and nothing else: whatever word
   // the dictionary happens to spell for that byte, the reader never displays
   // it and it never opens a control.  Where the byte's spelling is itself a
@@ -159,8 +257,6 @@ void demote_length_byte_controls(DecodedLogicalRecordSource& record,
   // (FA1PLMM0 record 471: every one of `ctopicn`, `cparent`, `csummary`,
   // `SRHDRPWRGEN`, `ST`, `SI`, `cfont` opens its line one token after that
   // line's length byte).
-  std::vector<bool> prefix(record.ir.tokens.size(), false);
-  for (const auto& line : lines) prefix[line.prefix_token] = true;
   for (auto& segment : record.control_segments) {
     if (segment.kind == BookControlKind::text || segment.opcode.empty())
       continue;
@@ -183,7 +279,7 @@ void demote_length_byte_controls(DecodedLogicalRecordSource& record,
     }
     if (segment.source_tokens.empty()) continue;
     const auto token = segment.source_tokens.front();
-    if (token >= prefix.size() || !prefix[token]) continue;
+    if (!is_display_line_length_token(record, token)) continue;
     // Only when the length byte is what spells the opcode.  A segment that
     // merely starts at the byte before its own opcode keeps its control.
     if (ascii_lower(token_word_text(record.ir.tokens[token])) !=
@@ -204,7 +300,7 @@ void demote_display_line_owned_controls(DecodedLogicalRecordSource& record) {
   if (record.control_segments.empty()) return;
   const auto lines = record_display_lines(record);
   if (!lines) return;
-  demote_length_byte_controls(record, *lines);
+  demote_length_byte_controls(record);
   for (std::size_t index = 0; index < record.control_segments.size(); ++index) {
     auto& segment = record.control_segments[index];
     if (segment.source_tokens.empty()) continue;

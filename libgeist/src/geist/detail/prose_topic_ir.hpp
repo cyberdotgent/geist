@@ -138,9 +138,10 @@ struct ProseBlockIR {
   // The first `term_inline_count` inlines form the term (definition entry)
   // or the label (note); the remaining inlines are the body.
   std::size_t term_inline_count = 0;
-  // Preformatted blocks: the display rows verbatim (common indent removed,
-  // blank rows kept); `inlines` then holds one text inline per non-blank
-  // row for provenance.
+  // Preformatted blocks: the display rows verbatim, at the display columns
+  // they occupy -- the region's own left margin is kept, as hosted
+  // BookServer keeps it inside `<pre>` -- with blank rows kept; `inlines`
+  // then holds one text inline per non-blank row for provenance.
   std::vector<std::string> preformatted_lines;
   // Machine-readable name of the verbatim region kind when the block is
   // preformatted for a reason other than a source `cz OFF XMP`/`SCREEN`
