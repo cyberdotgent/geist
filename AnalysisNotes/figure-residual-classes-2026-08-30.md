@@ -10,7 +10,10 @@ several picture selectors"); this note records the measurements.
 Typed-route coverage over the 34 BOO fixtures, `bootrace <book> --coverage`
 before (a separate build of `main`, measured both at `e50c60f`, where this
 branch started, and at `57b5909` after two other slices landed -- both give
-7,032) and after: **7,032 -> 7,066 of 7,362 (95.5% -> 96.0%)**.  34 topics moved to the typed route, **none moved off
+7,032) and after: **7,032 -> 7,066 of 7,362 (95.5% -> 96.0%)**.  Merged with
+`main` `8f3b31b`, which carries the picture-selector-in-a-fixed-layout-region
+slice's own 21 topics, the branch reaches 7,087 (96.3%) with neither side's
+topics lost.  34 topics moved to the typed route, **none moved off
 it**, and every book's count grew or stayed equal.
 
 | book | before | after |
@@ -164,9 +167,10 @@ per picture.  An external image alongside another picture is still declined.
 
 * Whole-corpus `boo2git --force` over all 34 books, baseline built from
   `main` in a separate build directory: **54 changed files**.  Measured
-  twice, against `e50c60f` and again against `57b5909` after merging the
-  display-line-framing and verbatim-left-margin slices; the change set is
-  file for file identical.  34 are the moved topics; the
+  three times -- against `e50c60f`, against `57b5909` (display-line framing
+  and verbatim left margin) and against `8f3b31b` (picture selectors in a
+  fixed-layout region) -- and the change set is file for file identical each
+  time.  34 are the moved topics; the
   other 20 are already-typed topics this slice corrects --
   * 17 cross references and three `figures.md` entries whose anchor id was
     truncated (`2-1.md#BDE` -> `2-1.md#FIGBDE`, `8-5-4-5.md#FREEC2` ->
@@ -186,8 +190,14 @@ per picture.  An external image alongside another picture is still declined.
   `main` `57b5909`).  Ratchet raised to 7,066.
 * `main` `57b5909` moved `record_display_lines` from returning an
   `optional<vector<DisplayLineIR>>` to a pointer into stored decoder state.
-  This slice's two calls read the same way through either signature, so the
+  This slice's two calls read the same way through either signature, so that
   merge needed no change in `figure_block_ir.cpp`.
+* `main` `8f3b31b` replaced `exact_picture_target(...)` /
+  `target.substr(3)` in the picture path with `figure_picture_target(...)` /
+  `figure_picture_resource(...)`.  Both sides changed the same statement, so
+  the merge conflicted once: resolved by keeping this slice's
+  several-pictures branch and calling their two helpers inside it.  Both
+  sides' topics survive (7,066 + 21 = 7,087).
 
 ## Left open
 

@@ -209,6 +209,12 @@ struct ProseTableLinkIR {
   // is served as `<a href="../../DOCNUM/SC23-2456/CCONTENTS">`.
   std::string target;
   CrossReferenceTargetKindIR target_kind = CrossReferenceTargetKindIR::anchor;
+  // A `PIC<n>` selector: `target` is the resource catalog id and the cell
+  // line it covers is an image, not a link.  Hosted BookServer serves the
+  // cell as `<a href="picture-16?mode=zoom"><img ... alt="PICTURE 16"></a>`
+  // (GX27-3999-00 3.2 `NOSENV2`, DT 19950730184057), replacing exactly the
+  // `PICTURE 16` placeholder words the compiler wrote into the cell.
+  bool picture = false;
   std::uint32_t logical_record = 0;
   std::vector<std::size_t> payload_tokens;  // ascending
   DocumentSourceSliceIR source;

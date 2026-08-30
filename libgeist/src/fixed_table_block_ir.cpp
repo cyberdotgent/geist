@@ -1,5 +1,6 @@
 #include "geist/detail/fixed_table_block_ir.hpp"
 
+#include "geist/detail/figure_block_ir.hpp"
 #include "geist/detail/font_span_ir.hpp"
 #include "geist/detail/display_lines.hpp"
 #include "geist/detail/selector_link_ir.hpp"
@@ -351,8 +352,10 @@ public:
       // provenance and the geometry tests.
       auto lines_only = block;
       if (admit_preformatted(candidate, start, end, lines_only,
-                             preformatted_reason))
+                             preformatted_reason)) {
         table.preformatted_lines = std::move(lines_only.preformatted_lines);
+        table.pictures = std::move(lines_only.pictures);
+      }
       return table;
     }
     // No column structure was proven.  The envelope's display lines still
@@ -515,21 +518,53 @@ public:
         .first->second;
   }
 
-  // True when the selector's operand target names a book picture resource.
+  // True when the selector's operand target names a book picture resource,
+  // filling in the columns it covers and the resource it addresses.  The
+  // operand is `<column> <length> <target>` (`3 11 PIC69`); the picture
+  // target spelling is the figure block's (`figure_picture_target`), so both
+  // families recognise exactly the same selectors.
   static bool picture_selector(const DecodedLogicalRecordSource &record,
-                               const ControlSegmentIR &segment) {
+                               const ControlSegmentIR &segment,
+                               FixedTablePictureIR *picture = nullptr) {
     const auto text = token_words_to_ascii(record.assembled.words);
-    const auto operand = ascii_lower(
-        text.substr(segment.operand_range.begin,
-                    segment.operand_range.end - segment.operand_range.begin));
-    const auto last = operand.find_last_not_of(' ');
-    if (last == std::string::npos)
+    if (segment.operand_range.end <= segment.operand_range.begin ||
+        segment.operand_range.begin >= text.size())
       return false;
-    const auto space = operand.find_last_of(' ', last);
-    const auto target =
-        operand.substr(space == std::string::npos ? 0 : space + 1,
-                       last - (space == std::string::npos ? 0 : space));
-    return target.rfind("pic", 0) == 0;
+    const auto operand =
+        text.substr(segment.operand_range.begin,
+                    std::min(segment.operand_range.end, text.size()) -
+                        segment.operand_range.begin);
+    std::istringstream input(operand);
+    std::string column;
+    std::string length;
+    std::string target;
+    std::string trailing;
+    if (!(input >> column >> length >> target))
+      return false;
+    if (!figure_picture_target(target))
+      return false;
+    if (picture == nullptr)
+      return true;
+    // Only a canonical operand can name the columns the image replaces.
+    if (input >> trailing)
+      return false;
+    const auto decimal = [](const std::string &word, std::size_t *value) {
+      if (word.empty() || word.size() > 9 ||
+          !std::all_of(word.begin(), word.end(), [](const auto ch) {
+            return std::isdigit(static_cast<unsigned char>(ch)) != 0;
+          }))
+        return false;
+      *value = static_cast<std::size_t>(std::stoul(word));
+      return true;
+    };
+    if (!decimal(column, &picture->column) ||
+        !decimal(length, &picture->length) || picture->length == 0)
+      return false;
+    picture->resource = figure_picture_resource(target);
+    picture->placeholder = figure_picture_placeholder(picture->resource);
+    picture->logical_record = record.logical_record;
+    picture->segment_index = segment.segment_index;
+    return true;
   }
 
   // Leading payload tokens of a `LNK` selector: the `<...>` alternatives
@@ -670,6 +705,7 @@ public:
     // control segment styles or spaces the lines around it and is never
     // displayed; anything else is reproduced.
     std::vector<std::pair<const PreLine *, std::string>> body;
+    std::vector<FixedTablePictureIR> pictures;
     for (auto index = first + 1; index < last; ++index) {
       const auto &view = lines[index];
       const auto &record = *view.record;
@@ -688,18 +724,6 @@ public:
         if (segment_begin < content_begin ||
             segment_begin >= view.line.token_end)
           continue;
-        // A `PIC<n>` selector places a picture on the line: hosted
-        // BookServer serves `<a href="picture-29?mode=zoom"><img ...
-        // alt="PICTURE 29"></a>` over the columns it names (GG24-395 3.2.2
-        // `TBLUNIQ6`, DT 19941215160749).  A preformatted region reproduces
-        // display text only, so admitting one would replace the image with
-        // its `PICTURE n` placeholder words; the envelope fails closed and
-        // the picture keeps its resource.
-        if (segment.kind == BookControlKind::select &&
-            picture_selector(record, segment)) {
-          reason = "preformatted region contains a picture selector";
-          return false;
-        }
         if (segment.kind != BookControlKind::font &&
             segment.kind != BookControlKind::select &&
             segment.kind != BookControlKind::spacing &&
@@ -712,6 +736,24 @@ public:
           reason = "preformatted line mixes control " + segment.opcode +
                    " with display text";
           return false;
+        }
+        // A `PIC<n>` selector places a picture on the display line that
+        // follows it: hosted BookServer serves the image over the columns
+        // the selector names and shows the rest of the line unchanged
+        // (`FixedTablePictureIR`).  The picture is recorded and its
+        // placeholder words are blanked below, so the region keeps both its
+        // art and its image.
+        if (segment.kind == BookControlKind::select) {
+          FixedTablePictureIR picture;
+          if (picture_selector(record, segment, &picture)) {
+            picture.line = body.size();
+            picture.source = display_line_slice(record, view.line.prefix_token,
+                                                view.line.token_end);
+            pictures.push_back(std::move(picture));
+          } else if (picture_selector(record, segment)) {
+            reason = "picture selector operand is not canonical";
+            return false;
+          }
         }
         control_line = true;
       }
@@ -731,16 +773,60 @@ public:
                         trim_trailing_spaces(
                             display_line_text(record, view.line)));
     }
-    while (!body.empty() && blank_text(body.front().second))
+    // Replace each picture's columns with blanks.  The span must spell the
+    // compiler's own placeholder words, which proves the selector's columns
+    // are the line-relative ones this text is indexed by; anything else
+    // fails closed rather than blanking display text.
+    std::sort(pictures.begin(), pictures.end(),
+              [](const auto &left, const auto &right) {
+                return std::make_pair(left.line, left.column) <
+                       std::make_pair(right.line, right.column);
+              });
+    for (const auto &picture : pictures) {
+      if (picture.line >= body.size()) {
+        reason = "picture selector has no display line";
+        return false;
+      }
+      auto &text = body[picture.line].second;
+      const auto end = std::min(picture.column + picture.length, text.size());
+      if (picture.column >= end ||
+          trim_ascii(text.substr(picture.column, end - picture.column)) !=
+              picture.placeholder) {
+        reason = "picture selector does not open its display line: '" + text +
+                 "' does not spell '" + picture.placeholder +
+                 "' at column " + std::to_string(picture.column);
+        return false;
+      }
+      text.replace(picture.column, end - picture.column,
+                   std::string(end - picture.column, ' '));
+      text = trim_trailing_spaces(std::move(text));
+    }
+    // Blank lines around the region are spacing, but a line that carries a
+    // picture is never dropped even when blanking emptied it.
+    const auto pictured = [&](std::size_t line) {
+      return std::any_of(pictures.begin(), pictures.end(),
+                         [&](const auto &picture) {
+                           return picture.line == line;
+                         });
+    };
+    std::size_t dropped = 0;
+    while (!body.empty() && blank_text(body.front().second) &&
+           !pictured(dropped)) {
       body.erase(body.begin());
-    while (!body.empty() && blank_text(body.back().second))
+      ++dropped;
+    }
+    while (!body.empty() && blank_text(body.back().second) &&
+           !pictured(dropped + body.size() - 1))
       body.pop_back();
+    for (auto &picture : pictures)
+      picture.line -= dropped;
     if (body.empty()) {
       reason = "preformatted region has no display lines";
       return false;
     }
 
     block.geometry = FixedTableGeometryIR::preformatted;
+    block.pictures = std::move(pictures);
     for (const auto &[view, text] : body) {
       FixedTablePreformattedLineIR line;
       line.logical_record = view->record->logical_record;
@@ -2461,6 +2547,30 @@ bool verify_fixed_table_blocks_ir(
     if (claimed != expected)
       return fail("fixed table does not claim every positioned cell of its "
                   "rows exactly once");
+    // A recorded picture addresses a line of the region, its columns are
+    // blank there (its placeholder words were replaced by the image), and no
+    // two pictures overlap.
+    std::size_t previous_line = 0;
+    std::size_t previous_end = 0;
+    for (std::size_t index = 0; index < block.pictures.size(); ++index) {
+      const auto &picture = block.pictures[index];
+      if (picture.resource.empty() ||
+          picture.placeholder != figure_picture_placeholder(picture.resource))
+        return fail("fixed table picture has no resource");
+      if (picture.line >= block.preformatted_lines.size())
+        return fail("fixed table picture addresses no display line");
+      if (index != 0 &&
+          (picture.line < previous_line ||
+           (picture.line == previous_line && picture.column < previous_end)))
+        return fail("fixed table pictures overlap or are out of order");
+      previous_line = picture.line;
+      previous_end = picture.column + picture.length;
+      const auto &text = block.preformatted_lines[picture.line].text;
+      const auto end = std::min(previous_end, text.size());
+      if (picture.column < end &&
+          text.find_first_not_of(' ', picture.column) < end)
+        return fail("fixed table picture columns are not blank");
+    }
     if (block.geometry == FixedTableGeometryIR::preformatted) {
       if (block.preformatted_lines.empty())
         return fail("preformatted table region has no display lines");
@@ -2526,6 +2636,12 @@ std::string format_fixed_table_blocks_ir(const FixedTableBlocksIR &blocks) {
         out << row.display_run << ':' << row.row_index << ',';
       out << " text='" << line.text << "'\n";
     }
+    for (const auto &picture : block.pictures)
+      out << " picture resource=" << picture.resource << " line="
+          << picture.line << " columns=[" << picture.column << ','
+          << picture.column + picture.length << ") source="
+          << picture.logical_record << ':' << picture.segment_index
+          << " alt='" << picture.placeholder << "'\n";
     for (const auto &line : block.index_lines)
       out << " index " << line.logical_record << ':' << line.prefix_token << ':'
           << line.token_end << " text='" << line.text << "'\n";

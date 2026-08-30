@@ -100,6 +100,22 @@ lower_fixed_table_block_to_document_ir(const FixedTableBlockIR &block) {
   const auto verbatim =
       !block.source_declared_table && !block.preformatted_lines.empty();
   if (verbatim || block.geometry == FixedTableGeometryIR::preformatted) {
+    // A picture the region places on one of those lines is served by hosted
+    // BookServer as an `<img>` over the selector's columns, inside the same
+    // `<pre>`.  A fenced block carries no inline, so the image is emitted as
+    // its own block, in line order, ahead of the art whose blanked columns
+    // are the slot it belongs in; the resource keeps hosted's own name for
+    // it ("PICTURE 69"), which the renderer derives from the destination.
+    for (const auto &picture : block.pictures) {
+      BlockIR image;
+      image.origin = origin_for("fixed table region: picture");
+      image.origin.slices.push_back(picture.source);
+      if (picture.line < block.preformatted_lines.size())
+        for (const auto &row : block.preformatted_lines[picture.line].rows)
+          add_row(image.origin, row);
+      image.node = FigureBlockIR{"resource:" + picture.resource, {}};
+      result.push_back(std::move(image));
+    }
     PreformattedBlockIR body;
     BlockIR body_block;
     body_block.origin = origin_for("fixed table region: verbatim body");
@@ -205,6 +221,18 @@ bool verify_fixed_table_document_ir(const FixedTableBlockIR &block,
     for (std::size_t index = 0; index < node.lines.size(); ++index)
       if (node.lines[index] != block.preformatted_lines[index].text)
         return fail(error, "preformatted table region text is not conserved");
+    // No picture may be lost: the region's images are the only place the
+    // blanked placeholder words survive.
+    std::size_t images = 0;
+    for (const auto &candidate : lowered)
+      if (const auto *figure = std::get_if<FigureBlockIR>(&candidate.node)) {
+        if (images >= block.pictures.size() ||
+            figure->resource != "resource:" + block.pictures[images].resource)
+          return fail(error, "fixed table picture is not conserved");
+        ++images;
+      }
+    if (images != block.pictures.size())
+      return fail(error, "fixed table region loses a picture");
     if (error != nullptr)
       error->clear();
     return true;

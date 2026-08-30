@@ -177,14 +177,6 @@ std::optional<OutputRangeIR> figure_end(const DecodedLogicalRecordSource &record
                        segment.complete.begin + end};
 }
 
-bool exact_picture_target(const std::string &target) {
-  if (target.size() <= 3 || !ascii_starts_with_case_insensitive(target, "pic"))
-    return false;
-  return std::all_of(target.begin() + 3, target.end(), [](const auto ch) {
-    return std::isdigit(static_cast<unsigned char>(ch)) != 0;
-  });
-}
-
 struct ExternalImage {
   std::string target;
   // Bytes of the display payload consumed by the alternative list.
@@ -396,7 +388,7 @@ Classified classify_cells(const std::vector<CellSlot> &cells,
       if (cursor > digits) {
         PlaceholderText placeholder;
         placeholder.number = text.substr(digits, cursor - digits);
-        placeholder.text = "PICTURE " + placeholder.number;
+        placeholder.text = figure_picture_placeholder(placeholder.number);
         // "PICTURE 1." keeps the sentence period (DREICMST PREFACE.3).
         if (cursor < text.size() && text[cursor] == '.')
           ++cursor;
@@ -611,7 +603,7 @@ struct Extractor {
   }
 
   bool picture_selector(const SelectorIR &selector) const {
-    return exact_picture_target(selector.target) ||
+    return figure_picture_target(selector.target) ||
            (ascii_equals_case_insensitive(selector.target, "lnk") &&
             external_image(selector.display_payload));
   }
@@ -1329,11 +1321,11 @@ struct Extractor {
           return decline(region, "selector operands are not canonical");
         if (selector->inside_table)
           return decline(region, "picture selector is table-owned");
-        if (exact_picture_target(selector->target)) {
+        if (figure_picture_target(selector->target)) {
           // Several picture selectors under one caption are one figure
           // (SC26-457 3.2.1 PIC1 + PIC2, B.1.3 PIC4 + PIC5, SC34-425 2.1.2
           // PIC21 + PIC22; hosted stacks the images under one caption).
-          const auto target = selector->target.substr(3);
+          const auto target = figure_picture_resource(selector->target);
           if (resource_ids.count(ascii_lower(target)) == 0)
             return decline(region, "picture resource " + target +
                                        " is not in the resource catalog");
@@ -1795,6 +1787,22 @@ const char *role_name(FigureCellRoleIR role) {
 }
 
 } // namespace
+
+bool figure_picture_target(const std::string &target) {
+  if (target.size() <= 3 || !ascii_starts_with_case_insensitive(target, "pic"))
+    return false;
+  return std::all_of(target.begin() + 3, target.end(), [](const auto ch) {
+    return std::isdigit(static_cast<unsigned char>(ch)) != 0;
+  });
+}
+
+std::string figure_picture_resource(const std::string &target) {
+  return figure_picture_target(target) ? target.substr(3) : std::string{};
+}
+
+std::string figure_picture_placeholder(const std::string &resource) {
+  return "PICTURE " + resource;
+}
 
 std::string figure_display_glyph(std::uint16_t word) {
   if (word >= 0x20 && word <= 0x7E)
