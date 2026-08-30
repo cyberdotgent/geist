@@ -325,7 +325,6 @@ std::string remove_decoded_line_markers(std::string value) {
 }
 
 void collapse_terminal_question_separator(std::string& value);
-void remove_space_before_terminal_question(std::string& value);
 
 std::string dot_text(std::string value) {
   value = remove_decoded_line_markers(std::move(value));
@@ -341,7 +340,6 @@ std::string dot_text(std::string value) {
     }
   }
   value = collapse_ascii_whitespace(std::move(value));
-  remove_space_before_terminal_question(value);
   if (value.empty()) {
     return {};
   }
@@ -475,24 +473,6 @@ void collapse_terminal_question_separator(std::string& value) {
   const auto before_run = static_cast<unsigned char>(value[value.size() - 3]);
   if (std::isalnum(before_run) != 0 || value[value.size() - 3] == ')') {
     value.pop_back();
-  }
-}
-
-void remove_space_before_terminal_question(std::string& value) {
-  if (value.size() < 3 || value.back() != '?') {
-    return;
-  }
-  auto cursor = value.size() - 1;
-  while (cursor > 0 &&
-         std::isspace(static_cast<unsigned char>(value[cursor - 1])) != 0) {
-    --cursor;
-  }
-  if (cursor + 1 == value.size() || cursor == 0) {
-    return;
-  }
-  const auto previous = static_cast<unsigned char>(value[cursor - 1]);
-  if (std::isalnum(previous) != 0 || value[cursor - 1] == ')') {
-    value.erase(cursor, value.size() - 1 - cursor);
   }
 }
 
@@ -782,10 +762,6 @@ std::string render_normalized_gml_control(const std::string& tag,
 
 std::string decoded_control_name(const std::string& segment) {
   auto value = trim_ascii(segment);
-  while (!value.empty() && (value.front() == '?' || value.front() == ',')) {
-    value.erase(value.begin());
-    value = trim_ascii(std::move(value));
-  }
 
   std::size_t end = 0;
   while (end < value.size()) {
@@ -842,25 +818,6 @@ std::string strip_visual_line_markers_from_inline_gml(std::string value) {
   std::string output;
   output.reserve(value.size());
   for (std::size_t cursor = 0; cursor < value.size();) {
-    if (value[cursor] == ':' && looks_like_gml_control_at(value, cursor)) {
-      const auto dot = value.find('.', cursor + 1);
-      if (dot != std::string::npos) {
-        output.append(value, cursor, dot + 1 - cursor);
-        cursor = dot + 1;
-        continue;
-      }
-    }
-    if (fixed_prose_row_marker_at(value, cursor)) {
-      ++cursor;
-      while (cursor < value.size() &&
-             std::isspace(static_cast<unsigned char>(value[cursor])) != 0) {
-        ++cursor;
-      }
-      if (!output.empty() && output.back() != ' ') {
-        output.push_back(' ');
-      }
-      continue;
-    }
     if (value[cursor] == '|' &&
         (cursor == 0 ||
          std::isspace(static_cast<unsigned char>(value[cursor - 1])) != 0) &&
@@ -1222,14 +1179,6 @@ std::optional<SelectControl> parse_select_control(std::string value) {
       if (alternatives.size() >= 6 && !alternatives[3].empty() &&
           !alternatives[5].empty()) {
         control.target = alternatives[3] + "/" + alternatives[5];
-      } else {
-        const auto last = std::find_if(
-            alternatives.rbegin(), alternatives.rend(), [](const auto& item) {
-              return !item.empty();
-            });
-        if (last != alternatives.rend()) {
-          control.target = *last;
-        }
       }
       control.display_fragment = fragment.substr(cursor);
     }
@@ -3114,7 +3063,6 @@ DisplayTextMap normalize_display_text_with_map(std::string value) {
       value[index] = ' ';
     }
   }
-  remove_space_before_terminal_question(value);
   if (value.empty()) {
     return {};
   }
@@ -3962,27 +3910,9 @@ std::string render_labeled_box_gml(GmlRenderState& state) {
     body = trim_ascii(body.substr(title.size()));
   }
   if (!title.empty()) {
-    const auto first_body_sentence = body.find(" For most ");
-    if (first_body_sentence != std::string::npos) {
-      body = trim_ascii(body.substr(first_body_sentence + 1));
-    } else if (const auto split_for_body = body.find("or most people");
-               split_for_body != std::string::npos) {
+    if (const auto split_for_body = body.find("or most people");
+        split_for_body != std::string::npos) {
       body = "F" + trim_ascii(body.substr(split_for_body));
-    }
-  }
-  if (!title.empty() && ascii_starts_with_case_insensitive(body, ":hp")) {
-    const auto for_body = body.find(" For ");
-    const auto if_body = body.find(" If ");
-    auto body_begin = std::string::npos;
-    if (for_body != std::string::npos) {
-      body_begin = for_body + 1;
-    }
-    if (if_body != std::string::npos &&
-        (body_begin == std::string::npos || if_body + 1 < body_begin)) {
-      body_begin = if_body + 1;
-    }
-    if (body_begin != std::string::npos) {
-      body = trim_ascii(body.substr(body_begin));
     }
   }
 
@@ -5604,19 +5534,6 @@ std::vector<std::string> render_gml_records(
 
 std::optional<std::vector<std::string>>
 render_verified_publication_catalog_gml(
-    const std::vector<DecodedLogicalRecordSource>& sources) {
-  const auto layout = extract_layout_ir(sources);
-  std::string semantic_error;
-  if (!verify_layout_ir(sources, layout, &semantic_error))
-    return std::nullopt;
-  const auto ownership =
-      build_verified_ownership_ir(sources, layout, &semantic_error);
-  return render_verified_publication_catalog_gml(
-      sources, layout, ownership ? &*ownership : nullptr);
-}
-
-std::optional<std::vector<std::string>>
-render_verified_publication_catalog_gml(
     const std::vector<DecodedLogicalRecordSource>& sources,
     const LayoutIR& layout, const VerifiedOwnershipIR* ownership) {
   if (ownership == nullptr) return std::nullopt;
@@ -5711,24 +5628,17 @@ std::vector<std::string> render_gml_records_with_source_layout(
             render_verified_publication_catalog_gml(sources, layout, ownership))
       return *publication;
   }
-  const auto source_cleaned_records =
-      clean_source_owned_toc_title_markers(decoded_records, sources);
-  const auto st_projected_records = project_source_owned_st_prose_rows(
-      source_cleaned_records, sources, layout, ownership);
   auto procedure_steps =
-      numbered_procedure_step_segments(st_projected_records, sources);
+      numbered_procedure_step_segments(decoded_records, sources);
+  // Retained: disabling this one changes 14 corpus topics (IEAC6MST 4.5.3,
+  // N2AH1MST CHANGES, OFCUSEOV 4.2.1, SC09-138 8.5.6.6/8.5.7.1/H.0,
+  // SC09-2417-00 3.1.2.2/3.3/4.1.2/4.1.3, SC24-546 3.3/3.14, SC26-457
+  // NOTICES, SC31-711 PREFACE.2).  The typed replacement is
+  // `SelectorCatalogIR` marker ownership in `selector_display_ir.cpp`.
   auto layout_records =
-      clean_source_owned_selector_display_markers(st_projected_records,
-                                                   sources);
+      clean_source_owned_selector_display_markers(decoded_records, sources);
   auto rendered =
       render_gml_records_impl(layout_records, &procedure_steps);
-  if (rendered.empty() && st_projected_records != source_cleaned_records) {
-    procedure_steps =
-        numbered_procedure_step_segments(source_cleaned_records, sources);
-    layout_records = clean_source_owned_selector_display_markers(
-        source_cleaned_records, sources);
-    rendered = render_gml_records_impl(layout_records, &procedure_steps);
-  }
   const auto box_replacement =
       [&]() -> std::optional<std::vector<std::string>> {
     std::vector<std::uint16_t> source_words;

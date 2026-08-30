@@ -260,6 +260,77 @@ std::string picture_resource_id(const std::string& target) {
   return target.substr(3);
 }
 
+// Every `<a id="...">` a topic's Markdown really emits, in order.
+std::vector<std::string> emitted_anchor_ids(const std::string& markdown) {
+  const std::string opening = "<a id=\"";
+  std::vector<std::string> ids;
+  std::size_t offset = 0;
+  while ((offset = markdown.find(opening, offset)) != std::string::npos) {
+    const auto begin = offset + opening.size();
+    const auto end = markdown.find('"', begin);
+    if (end == std::string::npos) {
+      break;
+    }
+    ids.push_back(markdown.substr(begin, end - begin));
+    offset = end + 1;
+  }
+  return ids;
+}
+
+// The link map is built from the legacy GML projection, which spells a figure
+// or table object id without the prefix the source control carries: the
+// XWEBDEMO record 11 control is `SRFIGMONET1` and its GML is
+// `:fig id="MONET1"`, so a cross reference resolved to `1-4-1.md#MONET1`
+// while both renderers write the anchor hosted BookServer writes,
+// `<a name="FIGMONET1">` (DT 19970423182524).  A destination whose anchor its
+// own file does not contain is repaired against the anchors that file really
+// emits, and only when exactly one of them ends with the destination's id.
+// A destination that already resolves is never touched.
+void repair_anchor_destinations(
+    const std::vector<geist::TocEntry>& toc,
+    const std::map<std::string, std::string>& topic_files,
+    std::map<std::string, std::string>& links) {
+  std::map<std::string, std::vector<std::string>> file_anchors;
+  for (const auto& entry : toc) {
+    const auto file = topic_files.find(lowercase(entry.id));
+    if (file == topic_files.end()) {
+      continue;
+    }
+    file_anchors[file->second] = emitted_anchor_ids(entry.markdown());
+  }
+  for (auto& link : links) {
+    const auto hash = link.second.find('#');
+    if (hash == std::string::npos) {
+      continue;
+    }
+    const auto file = link.second.substr(0, hash);
+    const auto anchor = lowercase(link.second.substr(hash + 1));
+    const auto anchors = file_anchors.find(file);
+    if (anchors == file_anchors.end() || anchor.empty()) {
+      continue;
+    }
+    const std::string* repair = nullptr;
+    auto matches = std::size_t{0};
+    for (const auto& id : anchors->second) {
+      const auto candidate = lowercase(id);
+      if (candidate == anchor) {
+        matches = 0;
+        break;
+      }
+      if (candidate.size() > anchor.size() &&
+          candidate.compare(candidate.size() - anchor.size(), anchor.size(),
+                            anchor) == 0) {
+        repair = &id;
+        ++matches;
+      }
+    }
+    if (matches != 1) {
+      continue;
+    }
+    link.second = file + "#" + *repair;
+  }
+}
+
 std::map<std::string, std::string> build_markdown_link_map(
     const std::vector<geist::TocEntry>& toc,
     const std::map<std::string, std::string>& topic_files) {
@@ -319,6 +390,7 @@ std::map<std::string, std::string> build_markdown_link_map(
       }
     }
   }
+  repair_anchor_destinations(toc, topic_files, links);
   return links;
 }
 
@@ -488,25 +560,47 @@ void rewrite_resource_links(std::string& markdown,
   }
 }
 
+// A `resource:<id>` destination is written either bare, by the legacy
+// renderer, or wrapped in angle brackets, by the Document IR renderer's
+// `markdown_destination`.  Both spellings name the same book resource, so
+// both are resolved to the extracted PNG; before this, every typed figure
+// block kept an unresolvable `](<resource:1>)` destination.
 void rewrite_resource_uris(std::string& markdown,
                            const std::map<std::string, std::string>& links) {
+  const std::string scheme = "resource:";
   std::size_t offset = 0;
-  while ((offset = markdown.find("(resource:", offset)) != std::string::npos) {
-    const auto target_begin = offset + 1;
-    const auto target_end = markdown.find(')', target_begin);
+  while ((offset = markdown.find(scheme, offset)) != std::string::npos) {
+    auto open = offset;
+    auto angled = false;
+    if (open >= 2 && markdown[open - 1] == '<' && markdown[open - 2] == '(') {
+      angled = true;
+      open -= 2;
+    } else if (open >= 1 && markdown[open - 1] == '(') {
+      open -= 1;
+    } else {
+      offset += scheme.size();
+      continue;
+    }
+    const auto target_end = markdown.find(angled ? '>' : ')', offset);
     if (target_end == std::string::npos) {
       break;
     }
-    const auto target =
-        markdown.substr(target_begin, target_end - target_begin);
-    const auto found = links.find(lowercase(target));
-    if (found == links.end()) {
-      offset = target_end + 1;
+    if (angled && (target_end + 1 >= markdown.size() ||
+                   markdown[target_end + 1] != ')')) {
+      offset += scheme.size();
       continue;
     }
+    const auto target = markdown.substr(offset, target_end - offset);
+    const auto found = links.find(lowercase(target));
+    if (found == links.end()) {
+      offset += scheme.size();
+      continue;
+    }
+    const auto destination_end =
+        target_end + 1 + static_cast<std::size_t>(angled);
     const auto replacement = "(" + markdown_escape_url(found->second) + ")";
-    markdown.replace(offset, (target_end + 1) - offset, replacement);
-    offset += replacement.size();
+    markdown.replace(open, destination_end - open, replacement);
+    offset = open + replacement.size();
   }
 }
 

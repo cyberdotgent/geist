@@ -131,49 +131,6 @@ int main() {
               markers[0].provenance.logical_record == 17 &&
               markers[1].following_text == "beta",
           "compatibility marker view did not reuse slicer provenance");
-
-  geist::detail::DecodedLogicalRecordSource toc_source;
-  toc_source.logical_record = 19;
-  append(toc_source, 0x17, 1, {'/'});
-  append(toc_source, 0x09, 1, {' ', ' ', ' '});
-  append(toc_source, 0x90, 2,
-         {'c','t','o','c','e',' ','1',' ','2',' ','A',' ','I','n','p','u','t',
-          '/','O','u','t','p','u','t',' '});
-  append(toc_source, 0x17, 1, {'/'});
-  append(toc_source, 0x91, 2,
-         {' ','c','t','o','c','e',' ','1',' ','2',' ','B',' ','N','e','x','t'});
-  toc_source.assembled =
-      geist::detail::assemble_logical_record_with_sources(toc_source.tokens);
-  const auto decoded = geist::detail::token_words_to_ascii(
-      toc_source.assembled.words);
-  const auto cleaned = geist::detail::clean_source_owned_toc_title_markers(
-      {decoded}, {toc_source});
-  require(cleaned.size() == 1 && cleaned[0] != decoded &&
-              cleaned[0].find("Input/Output") != std::string::npos,
-          "learned terminal CTOCE marker was not narrowly removed");
-
-  auto dictionary_boundary = toc_source;
-  dictionary_boundary.encoded_tokens[3].width = 2;
-  const auto retained = geist::detail::clean_source_owned_toc_title_markers(
-      {decoded}, {dictionary_boundary});
-  require(retained[0] == decoded,
-          "dictionary-owned title punctuation was removed");
-
-  auto semicolon_boundary = toc_source;
-  semicolon_boundary.tokens[3] = {';'};
-  semicolon_boundary.encoded_tokens[3] = {0x35, 1};
-  semicolon_boundary.assembled =
-      geist::detail::assemble_logical_record_with_sources(
-          semicolon_boundary.tokens);
-  const auto semicolon_decoded = geist::detail::token_words_to_ascii(
-      semicolon_boundary.assembled.words);
-  const auto semicolon_cleaned =
-      geist::detail::clean_source_owned_toc_title_markers(
-          {semicolon_decoded}, {semicolon_boundary});
-  require(semicolon_cleaned[0].find("Input/Output;") == std::string::npos &&
-              semicolon_cleaned[0].find("Input/Output") != std::string::npos,
-          "terminal fixed-row semicolon was retained in a TOC title");
-
   const auto st = st_record();
   const auto st_decoded = geist::detail::token_words_to_ascii(st.assembled.words);
   const std::vector<geist::detail::DecodedLogicalRecordSource> st_sources{st};
@@ -202,59 +159,4 @@ int main() {
               &st_error) &&
               !st_error.empty(),
           "mutated fixed prose passed canonical verification");
-  const auto st_projected = geist::detail::project_source_owned_st_prose_rows(
-      {st_decoded}, {st});
-  require(st_projected.size() == 1 && st_projected[0] != st_decoded &&
-              st_projected[0].size() == st_decoded.size() &&
-              geist::detail::collapse_ascii_whitespace(st_projected[0]).find(
-                  u8"ST Titlé c.cp 0: First row continued finished") !=
-                  std::string::npos &&
-              st_projected[0].find("agent") == std::string::npos,
-          "source-owned ST title/body and physical rows were not projected");
-
-  auto expect_st_unchanged = [&](auto altered, const char* message) {
-    refresh_typed_source(altered);
-    const auto value = geist::detail::token_words_to_ascii(altered.assembled.words);
-    require(geist::detail::project_source_owned_st_prose_rows({value}, {altered}) ==
-                std::vector<std::string>{value},
-            message);
-  };
-  auto two_byte_st_marker = st;
-  two_byte_st_marker.encoded_tokens[6].width = 2;
-  expect_st_unchanged(two_byte_st_marker,
-                      "two-byte ST marker activated projection");
-  auto two_byte_st_origin = st;
-  two_byte_st_origin.encoded_tokens[7].width = 2;
-  expect_st_unchanged(two_byte_st_origin,
-                      "two-byte ST origin activated projection");
-  auto combined_marker_padding = st;
-  combined_marker_padding.tokens[6] = {'<', ' ', ' ', ' '};
-  combined_marker_padding.tokens.erase(combined_marker_padding.tokens.begin() + 7);
-  combined_marker_padding.encoded_tokens.erase(
-      combined_marker_padding.encoded_tokens.begin() + 7);
-  expect_st_unchanged(combined_marker_padding,
-                      "combined marker/padding activated projection");
-  auto drifting_origin = st;
-  drifting_origin.tokens[7].push_back(' ');
-  expect_st_unchanged(drifting_origin,
-                      "drifting ST origin activated projection");
-  auto single_candidate = st;
-  single_candidate.encoded_tokens[9].width = 2;
-  expect_st_unchanged(single_candidate,
-                      "single ST row candidate activated projection");
-  auto semantic_control = st;
-  semantic_control.tokens.insert(semantic_control.tokens.begin() + 6,
-                                 {0x2666});
-  semantic_control.encoded_tokens.insert(
-      semantic_control.encoded_tokens.begin() + 6, {0x03, 1});
-  expect_st_unchanged(semantic_control,
-                      "semantic ST control frame activated projection");
-
-  auto second_st = st;
-  second_st.logical_record = 24;
-  refresh_typed_source(second_st);
-  require(geist::detail::project_source_owned_st_prose_rows(
-              {st_decoded, st_decoded}, {st, second_st}) ==
-              std::vector<std::string>({st_decoded, st_decoded}),
-          "multiple ST segments activated projection");
 }

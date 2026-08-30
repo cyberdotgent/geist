@@ -15,26 +15,20 @@ topic whose header begins with `SHcontents`, then parse the `CTOCE` controls in
 that topic. The same logical topic record also contains `CTOCDEF` controls that
 define the presentation styles used by `CTOCE` entries.
 
-## Reader-Code Evidence
+## Lookup Model
 
-The connected `ephwam.dll` IDB has these high-confidence names on the topic and
-logical-record path:
+Two paged 16-bit indexes in the directory page make the lookup possible without
+scanning:
 
-| IDA name | Address | Verified behavior |
-| --- | ---: | --- |
-| `BooSelectTopicByNumber` | `0x122202e` | Implements `Scm_Loctopic`; selects a topic number, initializes the logical cursor, and seeks to that topic's start record. |
-| `BooSeekTopicStartRecord` | `0x1221e53` | Loads the content page for a logical record number and walks compact-length records to set the current record payload bounds. |
-| `BooGetTopicStartRecordNumber` | `0x1222310` | Looks up a topic's start logical-record number from the directory `0x003c` topic-start table. |
-| `BooLookupPagedU16Index` | `0x1221c99` | Generic paged 16-bit index lookup used by the topic-start table and the content-page record index. |
-| `BooLocateLogicalRecordByNumber` | `0x1221c1b` | Maps a logical record number to a content page using the directory `0x0034` content-page index. |
-| `BooFindIndexOrdinalForRecordNumber` | `0x12221b7` | Binary-search helper over paged 16-bit indexes. |
-| `BooSaveLogicalCursorState` | `0x12224e7` | Copies the 22-byte logical cursor state from the book handle. |
-| `BooRestoreLogicalCursorState` | `0x12224d1` | Restores the 22-byte logical cursor state. |
+1. The content-page record index at directory offset `0x0034` maps a logical
+   record number to the content page that holds it, so a decoder can jump
+   straight to the right page and then walk compact-length records inside it.
+2. The topic-start index at directory offset `0x003c` maps a 1-based topic
+   number to its first logical record.
 
-`Scm_Qrytopic` returns the currently selected topic number from the cursor
-state. `Scm_Szqrytpc` returns the directory topic count. `Scm_Getln` reads the
-next decoded logical record for the selected topic through
-`BooReadNextLogicalRecord`.
+Both use the same table shape, documented in [topics.md](topics.md). Neither
+index stores a byte offset: they store logical record and page numbers, and the
+byte offset is computed arithmetically from the directory page base.
 
 ## Directory Indexes
 
@@ -43,17 +37,17 @@ The directory page contains two indexes that make topic lookup efficient:
 | Directory field | `QS3X36CM.BOO` | `OFCUSEOV.BOO` | Meaning |
 | ---: | ---: | ---: | --- |
 | `0x0034` word | `0x0e82` | `0x0ed2` | Offset in the directory page of the content-page logical-record index. |
-| `0x0036` word | `0x00f1` | `0x03f5` | Total logical-record count used by `Scm_Szbook` and topic bounds. |
+| `0x0036` word | `0x00f1` | `0x03f5` | Total logical-record count; also the source of the terminal topic bound. |
 | `0x0038` word | `0x0014` | `0x004d` | Content page count. |
 | `0x003a` word | `0x0007` | `0x000a` | First content logical page; convert to a physical page with the directory-page base described in [pages.md](pages.md). |
 | `0x003c` word | `0x0068` | `0x0068` | Offset in the directory page of the topic-start index. |
-| `0x003e` word | `0x000a` | `0x00c9` | Topic count returned by `Scm_Szqrytpc`; matches decoded `CTOPICS`. |
+| `0x003e` word | `0x000a` | `0x00c9` | Topic count; matches the decoded `CTOPICS` control. |
 
 ### Content-Page Record Index
 
 The index at directory offset `0x0034` starts with the content page count and is
 followed by start logical-record numbers for each content page plus a terminal
-total. It lets the reader map a logical record number to a physical content
+total. It lets a decoder map a logical record number to a physical content
 page before walking compact-length records within that page.
 
 Observed words:
@@ -93,8 +87,7 @@ topic range 779–782 (end-exclusive API bound 783).
 
 The index at directory offset `0x003c` maps topic numbers to start logical
 record numbers. In the bundled fixtures the table fits directly in the
-directory page. The reader uses `BooLookupPagedU16Index`, whose direct-table
-layout is:
+directory page. The direct-table layout is:
 
 ```c
 struct BooU16IndexDirect {
@@ -104,8 +97,8 @@ struct BooU16IndexDirect {
 };
 ```
 
-The same lookup routine can follow continuation pages when the requested
-ordinal is greater than the current table's `count_be`. Books with more than
+A lookup follows continuation pages when the requested ordinal is greater than
+the current table's `count_be`. Books with more than
 248 topics use it: the root's second word is then the 1-based logical page
 (relative to the directory page) of a continuation table with the same layout
 at page offset `0`. See the chained-table evidence in [topics.md](topics.md).
@@ -127,14 +120,18 @@ for TOC reconstruction are:
 
 | Control | Meaning |
 | --- | --- |
-| `SH<id>` | Topic identifier. BookServer uses this as the URL/topic anchor, preserving reader-normalized case such as `CONTENTS`, `PREFACE.5.1`, or `1.0`. |
+| `SH<id>` | Topic identifier. BookServer uses this as the URL/topic anchor. Hosted URLs show it upper-cased for word-shaped ids (`CONTENTS`, `PREFACE.5.1`) and unchanged for numeric ids (`1.0`). |
 | `CTOPICN` | Sequential 1-based topic number. |
-| `CPARENT` | Parent topic identifier, if any. |
-| `CFORWARDLEVEL` | Next topic at the same navigation level, if any. |
-| `CBACKLEVEL` | Previous topic at the same navigation level, if any. |
-| `CSUMMARY a b c` | Summary/count triplet. In the `CONTENTS` topic, the first and third numbers match the total topic count in the bundled fixtures. |
-| `CHDLEVEL` | Heading/type marker such as `:toc`, `:h1`, `:h2`, `:h3`, `:cover`, or `:preface`. |
+| `CPARENT` | Parent topic identifier. The control is always present; the operand is absent for a top-level topic. |
+| `CFORWARDLEVEL` | Next topic at the same navigation level. Control always present, operand may be absent. |
+| `CBACKLEVEL` | Previous topic at the same navigation level. Control always present, operand may be absent. |
+| `CSUMMARY a b c` | `a` and `c` are the topic's display-row count and are always equal; `b` is its direct-child count. In `CONTENTS` this makes `a` = `c` = the number of `CTOCE` entries (exact in all 34 fixtures). See [topics.md](topics.md#csummary-a-b-c). |
+| `CHDLEVEL` | Heading/type marker; complete observed value list in [topics.md](topics.md#chdlevel-observed-values). |
 | `ST` | Display title for the topic. |
+
+The full nine-line envelope, its fixed order, and the anchor controls that may
+be interleaved with it are documented in
+[topics.md](topics.md#the-envelope-is-a-fixed-nine-line-sequence).
 
 Examples:
 
@@ -147,13 +144,43 @@ Examples:
 ## `CONTENTS` Topic Payload
 
 The actual table-of-contents entries are stored as `CTOCE` controls inside the
-`CONTENTS` topic. The `CONTENTS` topic begins with `CTOCDEF` controls followed
-by one `CTOCE` per displayed TOC entry. Some books then include an end marker
+`CONTENTS` topic. Every record of the topic parses into length-prefixed display
+lines and every one of those lines holds exactly one control, so the display-line
+walk is the complete and verifiable segmentation of the topic; see
+[markup.md](markup.md#generated-contents-and-index-topics-as-display-line-control-records).
+The topic begins with its nine-line metadata envelope, then seven `CTOCDEF`
+lines, then one `CTOCE` line per displayed TOC entry.
+
+### There Is No Standalone `ETOC` Control
+
+Retired claim: earlier text here said "some books then include an end marker
 decoded by the current experimental text path as `ETOC`, sometimes preceded by
 layout/control text such as `CZ OFF`. An independent reader should stop TOC
-entry parsing at this marker.
+entry parsing at this marker." That was the flattened decoded string being read
+as if `CZ OFF ETOC` were two things.
 
-Observed `CTOCDEF` controls are identical in both bundled fixtures:
+Measured over the 34 `CONTENTS` topics: no book contains a standalone `ETOC`
+control. Five books close the topic with the `CZ` dialect's region closer
+`cz OFF ETOC 0 0` on a display line of its own — `GX27-3999-00.boo`,
+`SC09-2417-00.boo`, `SC41-485.boo`, `XWEBDEMO.boo` and `packet.boo`, which are
+exactly the books whose bodies use `CZ` directives at all. The other 29 books
+end the `CONTENTS` topic after their last `CTOCE` line with no terminator of any
+kind.
+
+The reliable end of the TOC entry stream is therefore the end of the `CONTENTS`
+topic's logical-record range, taken from the topic-start index. A reader must
+not look for a marker, and must not read past `start(CONTENTS + 1)`.
+
+For the same reason the earlier note that "`GG24-4302-00.boo` contains trailing
+non-TOC payload after the `ETOC` marker that includes a false
+`CTOCE 0 0 005E0000 ...`-looking sequence" is retired: `GG24-4302-00.boo` has no
+`ETOC` at all, its `CONTENTS` topic ends with the ordinary entry
+`ctoce 0 1 COMMENTS ITSO Technical Bulletin Evaluation`, and every one of its
+display lines opens with a documented control. The false entry was an artifact
+of reading beyond the topic bound in the flattened string.
+
+Observed `CTOCDEF` controls, identical in **all 34** fixtures (238 lines = 34
+books x 7 definitions, no variant anywhere):
 
 ```text
 CTOCDEF=0 1 0 2
@@ -171,17 +198,51 @@ The `CTOCE` syntax observed in the decoded `CONTENTS` topic is:
 CTOCE <nesting> <toc_style> <topic_id> <title>
 ```
 
-The first number is the nesting depth used by BookServer for indentation. The
-second number selects one of the `CTOCDEF` presentation styles. In the hosted
-BookServer output, entries using styles `1` and `2` are rendered as strong
-topic headings, while deeper style `3` entries such as `PREFACE.5.1` are
-rendered as indented non-strong links.
+Both numbers are derived from the target topic, and both derivations are exact
+over all 7,412 `CTOCE` entries of the 34 fixtures:
 
-Although `CTOCDEF=0 ...` exists as a style definition, verified displayed
-entries use nonzero style numbers. `GG24-4302-00.boo` contains trailing
-non-TOC payload after the `ETOC` marker that includes a false
-`CTOCE 0 0 005E0000 ...`-looking sequence; this must not be emitted as a TOC
-entry.
+* **`nesting` is the length of the target topic's `CPARENT` chain.** Exact in
+  7,412 of 7,412 entries, no exceptions. Observed values `0`..`4`. BookServer
+  indents two columns per level.
+* **`toc_style` is a function of the target topic's `CHDLEVEL`**, with no
+  exception anywhere in the corpus:
+
+  | Target `CHDLEVEL` | `toc_style` | Entries |
+  | --- | ---: | ---: |
+  | `:H0` | `0` | 50 |
+  | `:H1` and every front-matter form (`:COVER`, `:TOC`, `:VNOTICE`, `:NOTICES`, `:PREFACE`, `:INDEX`, `:GLOSSARY`, `:FIGLIST`, `:TLIST`, `:SOA`, `:TITLE`, `:BIBLIOG`, `:ABSTRACT`, `:ABBREV`) | `1` | 791 |
+  | `:H2` | `2` | 2,454 |
+  | `:H3` | `3` | 2,871 |
+  | `:H4` | `4` | 1,206 |
+  | `:H5` | `5` | 40 |
+
+  `CTOCDEF=6` is defined in every book but no entry uses style `6`, because no
+  topic in the corpus has `CHDLEVEL :H6`. Not every topic gets an entry: 697
+  `:H3` topics, 775 `:H4` topics and all 1,617 `:MSGNO` topics are omitted from
+  their book's TOC.
+
+Retired claim: earlier text here said "although `CTOCDEF=0 ...` exists as a
+style definition, verified displayed entries use nonzero style numbers." That
+is wrong. Fifty entries in eleven books use style `0`, and they are displayed.
+They are the book's "Part" divisions, and their target topics are exactly the 50
+`CHDLEVEL :H0` topics of the corpus. Byte-level evidence, `DREICMST.boo`
+`CONTENTS`: the display line `ctoce 0 0 1.0 Part 1.  Installing and Customizing
+SLR`; hosted BookServer at DT `19911219125856` serves it as
+
+```html
+<a name="1.0">1.0</a>           <a href="1.0?DT=19911219125856"><strong>Part 1.  Installing and Customizing SLR </strong></a>
+```
+
+with a blank line before and after, i.e. bold at nesting 0, the same
+presentation style `1` gets. `GC28-183.boo` (7 entries), `SC09-138.boo` (9),
+`SC24-5520-00.boo` (8), `SH12-565.boo` (6), `SC09-2417-00.boo` (5),
+`GG24-395.boo` (4), `SC34-425.boo` (3), `QSYSINFO.BOO` (3), `PRG1SORT.boo` (2)
+and `SC26-457.boo` (1) carry the rest.
+
+In hosted BookServer output, entries with styles `0`, `1` and `2` are rendered
+as strong topic headings, while deeper style `3` entries such as `PREFACE.5.1`
+are rendered as indented non-strong links. Style `5` occurs only in
+`packet.boo` (40 entries).
 
 Examples from `QS3X36CM.BOO` page 7 record 4:
 
@@ -212,15 +273,32 @@ To read a BOO table of contents without using IBM binaries:
 3. Use directory `0x003c` and `0x003e` to read the topic-start index.
 4. Decode logical records from the content stream with the token/dictionary
    pipeline in [logical-controls.md](logical-controls.md).
-5. Locate the topic header whose decoded record begins with `SHcontents`, or
-   use the topic-start index and topic headers to map topic numbers to IDs.
-6. Parse the `CTOCDEF` controls in the `CONTENTS` topic.
-7. Parse each `CTOCE` control as `(nesting, toc_style, topic_id, title)`.
-8. Normalize display case through the same token-word translation and display
+5. Locate the topic whose `CHDLEVEL` is `:TOC` (equivalently, whose id is
+   `CONTENTS`), using the topic-start index and topic headers to map topic
+   numbers to IDs.
+6. Split each of that topic's records into display lines
+   (`<length byte><that many bytes of tokens>`), as documented in
+   [logical-controls.md](logical-controls.md#display-lines-inside-a-record-payload).
+   Each line holds exactly one control.
+7. Skip the nine envelope lines, read the seven `CTOCDEF` lines, then parse each
+   `CTOCE` line as `(nesting, toc_style, topic_id, title...)`. The title runs to
+   the end of the display line, so its internal spacing survives verbatim.
+8. Stop at the end of the topic's logical-record range. Do not look for a
+   terminator control; 29 of 34 books have none.
+9. Normalize display case through the same token-word translation and display
    rules used for other decoded logical text.
 
 ## Open Questions
 
-- The complete semantics of all four `CTOCDEF` numeric fields.
+- The complete semantics of the `CTOCDEF` numeric fields. Which style a `CTOCE`
+  uses is now fully determined (see above), but the meaning of the individual
+  operands of a `CTOCDEF` definition is not. The trailing operand of styles
+  `2`..`6` (`0, 2, 4, 6, 8`) is not the rendered indent: hosted indents by two
+  columns per `CTOCE` nesting level, not per style. The definitions are byte-
+  identical in all 34 fixtures, so the corpus offers no differential evidence
+  and this cannot be resolved without a book that varies them.
 - Whether any BookManager variant stores an alternate generated TOC rather than
   literal `CTOCE` controls in the `CONTENTS` topic.
+- Why `:H3`, `:H4` and `:MSGNO` topics are sometimes omitted from the TOC. The
+  omission is not random (all 1,617 `:MSGNO` topics are omitted) but no stored
+  field seen so far records the decision.

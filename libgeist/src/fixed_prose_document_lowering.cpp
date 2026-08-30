@@ -131,6 +131,9 @@ std::optional<DocumentIR> lower_fixed_prose_topic_to_document_ir(
   document.blocks.push_back(
       {ParagraphBlockIR{{std::move(paragraph_text)}}, paragraph_origin});
 
+  // Every container names at least the BOO bytes its own content names
+  // before the document is verified.
+  normalize_document_origin_slices(document);
   std::string document_error;
   if (!verify_document_ir(document, &document_error)) {
     fail(error, "invalid fixed prose DocumentIR: " + document_error);

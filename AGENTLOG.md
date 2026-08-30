@@ -1004,3 +1004,31 @@
   over the whole corpus and every behaviour change was compared word-level
   against the hosted BookServer, with each difference class decided and
   recorded.
+- Drove issue 58 to its actual objective after measuring, for the first time,
+  how many topics the typed renderer serves: 71 of 7,362. Added a permanent
+  measurement (`BooDocument::typed_route_inventory`, `bootrace --coverage`,
+  and a `typed_route_inventory_test` ratchet whose per-book table may only
+  grow), then worked the largest structural classes in parallel worktrees:
+  the prose topic family, reusable fixed-table and figure blocks, their
+  composition into prose bodies, the `CZ` layout dialect, a generated
+  TOC/INDEX family, the message and trap catalogs, and topic-title
+  extraction. Coverage 71 -> 6,986 of 7,362 (94.5%), full CTest green
+  throughout, every behaviour change compared word- or character-level
+  against the hosted BookServer with each difference class decided.
+  Root causes found along the way, each documented in `Format/`: control
+  opcode/operand words were split on the ASCII projection, where box-drawing
+  code points read as `?`; a record payload is a sequence of length-prefixed
+  display lines, and that length byte is the row-control slot -- always and
+  only -- and may itself sit at or above the token threshold; a metadata
+  opcode appearing in a body is such a length byte; a topic's header title is
+  the visible text of its `ST` display line, not the flattened payload run;
+  and `LNK` selectors are cross-book links carrying six or seven alternative
+  tokens. Performance: the ownership ledger was rebuilt about twenty times per
+  topic and `std::tolower` cost 12% of the profile; N2AH1MST went from over an
+  hour to 9.8 s and the whole-corpus export from 399 s to 95 s, with the
+  ledger now reachable only through a `VerifiedOwnershipIR` handle whose
+  private constructor makes an unverified ledger unrepresentable.
+  Render quality is now explicit to the consumer: a severity ladder ending in
+  a best-effort tier that reproduces the record's own display lines, so a
+  topic can be read badly rather than not at all -- which recovered four
+  topics whose bodies had been silently dropped by both routes.

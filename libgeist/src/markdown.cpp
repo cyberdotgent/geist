@@ -622,23 +622,6 @@ std::string render_inline_markdown(std::string text,
         continue;
       }
     }
-    if (ascii_starts_with_case_insensitive(tag, "image ")) {
-      const auto close = text.find(":eimage.", dot + 1);
-      const auto resource = inline_gml_attr(text.substr(cursor + 1,
-                                                        dot - cursor - 1),
-                                            "resource");
-      if (close != std::string::npos && !resource.empty()) {
-        auto label = render_inline_markdown(
-            text.substr(dot + 1, close - (dot + 1)),
-            escape_emphasis_delimiters);
-        if (label.empty()) {
-          label = "Resource " + resource;
-        }
-        output += "![" + label + "](resource:" + resource + ")";
-        cursor = close + std::string(":eimage.").size();
-        continue;
-      }
-    }
     const auto closing = ascii_starts_with_case_insensitive(tag, "e");
     if (closing) {
       tag.erase(tag.begin());

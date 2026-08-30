@@ -106,8 +106,14 @@ lower_fixed_table_block_to_document_ir(const FixedTableBlockIR &block) {
     body_block.origin.slices.push_back(block.object_source);
     for (const auto &line : block.preformatted_lines) {
       body.lines.push_back(line.text);
-      for (const auto &row : line.rows)
+      auto line_origin = origin_for("fixed table preformatted line");
+      if (line.slice.byte_begin < line.slice.byte_end)
+        line_origin.slices.push_back(line.slice);
+      for (const auto &row : line.rows) {
         add_row(body_block.origin, row);
+        add_row(line_origin, row);
+      }
+      body.line_origins.push_back(std::move(line_origin));
     }
     body_block.node = std::move(body);
     result.push_back(std::move(body_block));
@@ -172,8 +178,13 @@ bool verify_fixed_table_document_ir(const FixedTableBlockIR &block,
     document.blocks = blocks;
     return document;
   };
-  const auto expected = wrap(canonical);
-  const auto actual = wrap(lowered);
+  auto expected = wrap(canonical);
+  auto actual = wrap(lowered);
+  // The prose document these blocks are placed in normalizes every container
+  // origin before verification; the standalone comparison has to do the same
+  // work so the two sides describe the same provenance.
+  normalize_document_origin_slices(expected);
+  normalize_document_origin_slices(actual);
   std::string verify_error;
   if (!verify_document_ir(expected, &verify_error))
     return fail(error, "fixed table lowering is not a valid document: " +

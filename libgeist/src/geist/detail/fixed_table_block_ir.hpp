@@ -96,6 +96,10 @@ struct FixedTablePreformattedLineIR {
   // The line as the hosted reader shows it, trailing blanks removed.
   std::string text;
   std::vector<DocumentSourceRowIR> rows;
+  // Record/segment/token/byte extent of the line's own tokens, so a rendered
+  // preformatted line traces to the BOO bytes it was decoded from rather than
+  // only to the enclosing SRTBL opcode.
+  DocumentSourceSliceIR slice;
 };
 
 // A fixed table recovered from one SRTBL ... SRETBL envelope, either

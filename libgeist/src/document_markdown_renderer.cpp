@@ -6,6 +6,7 @@
 #include <cctype>
 #include <iomanip>
 #include <sstream>
+#include <string_view>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -194,8 +195,16 @@ std::string normalize_code_span(std::string code, bool table_cell) {
   return code;
 }
 
-std::string code_span(const std::string &value, bool table_cell = false) {
-  const auto code = normalize_code_span(value, table_cell);
+// A code span split into the delimiters the renderer adds and the projected
+// source body between them, so a trace can attribute each half correctly.
+struct CodeSpanPartsIR {
+  std::string open;
+  std::string body;
+  std::string close;
+};
+
+CodeSpanPartsIR code_span_parts(const std::string &value, bool table_cell) {
+  auto code = normalize_code_span(value, table_cell);
   const auto delimiter = std::string(longest_backtick_run(code) + 1, '`');
   const auto all_spaces =
       !code.empty() &&
@@ -204,8 +213,8 @@ std::string code_span(const std::string &value, bool table_cell = false) {
       (!code.empty() && (code.front() == '`' || code.back() == '`')) ||
       (!all_spaces && code.size() >= 2 && code.front() == ' ' &&
        code.back() == ' ');
-  return delimiter + (needs_padding ? " " : "") + code +
-         (needs_padding ? " " : "") + delimiter;
+  const auto padding = needs_padding ? std::string(" ") : std::string();
+  return {delimiter + padding, std::move(code), padding + delimiter};
 }
 
 std::string emphasis_delimiter(EmphasisKindIR kind) {
@@ -220,232 +229,360 @@ std::string emphasis_delimiter(EmphasisKindIR kind) {
   return "*";
 }
 
-std::string render_inlines(const InlineSequenceIR &inlines,
-                           InlineContext context,
-                           const DocumentMarkdownRendererOptions &options) {
-  std::string result;
-  for (const auto &in : inlines) {
+// Collects the rendered Markdown and, only when a trace was requested, the
+// output-range to node-path map beside it.  Every rendered byte passes
+// through exactly one `emit`, so the recorded spans cover the output without
+// gaps or overlaps by construction.
+class RenderSink {
+public:
+  explicit RenderSink(DocumentRenderTraceIR *trace) noexcept : trace_(trace) {}
+
+  bool tracing() const noexcept { return trace_ != nullptr; }
+  const std::string &text() const noexcept { return text_; }
+  std::string release() { return std::move(text_); }
+
+  void syntax(const std::string &value, const char *reason,
+              const DocumentNodeOriginIR *origin = nullptr) {
+    emit(value, DocumentTraceRoleIR::syntax, reason, origin);
+  }
+  void generated(const std::string &value, const char *reason) {
+    emit(value, DocumentTraceRoleIR::generated, reason, nullptr);
+  }
+  void content(const std::string &value, const char *reason,
+               const DocumentNodeOriginIR *origin) {
+    emit(value, DocumentTraceRoleIR::content, reason, origin);
+  }
+
+  void push(const char *kind, std::size_t index) {
+    if (trace_ != nullptr)
+      path_.push_back({kind, index});
+  }
+  void pop() {
+    if (trace_ != nullptr)
+      path_.pop_back();
+  }
+
+private:
+  void emit(const std::string &value, DocumentTraceRoleIR role,
+            const char *reason, const DocumentNodeOriginIR *origin) {
+    if (value.empty())
+      return;
+    const auto begin = text_.size();
+    text_ += value;
+    if (trace_ == nullptr)
+      return;
+    DocumentTraceSpanIR span;
+    span.output_begin = begin;
+    span.output_end = text_.size();
+    span.role = role;
+    span.reason = reason;
+    span.path = path_;
+    if (origin != nullptr)
+      span.origin = *origin;
+    trace_->spans.push_back(std::move(span));
+  }
+
+  std::string text_;
+  std::vector<DocumentNodePathStepIR> path_;
+  DocumentRenderTraceIR *trace_ = nullptr;
+};
+
+// Pushes one structural step for the lifetime of the scope.
+class PathScope {
+public:
+  PathScope(RenderSink &sink, const char *kind, std::size_t index)
+      : sink_(sink) {
+    sink_.push(kind, index);
+  }
+  PathScope(const PathScope &) = delete;
+  PathScope &operator=(const PathScope &) = delete;
+  ~PathScope() { sink_.pop(); }
+
+private:
+  RenderSink &sink_;
+};
+
+void append_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
+                    InlineContext context,
+                    const DocumentMarkdownRendererOptions &options) {
+  for (std::size_t index = 0; index < inlines.size(); ++index) {
+    const PathScope step(sink, "inline", index);
+    const auto &in = inlines[index];
+    const auto *origin = &in.origin;
     std::visit(
         [&](const auto &node) {
           using T = std::decay_t<decltype(node)>;
           if constexpr (std::is_same_v<T, TextInlineIR>) {
-            result += escape_markdown_text(node.text);
+            sink.content(escape_markdown_text(node.text), "text", origin);
           } else if constexpr (std::is_same_v<T, EmphasisInlineIR>) {
             const auto delimiter = emphasis_delimiter(node.kind);
-            result += delimiter + escape_markdown_text(node.text) + delimiter;
+            sink.syntax(delimiter, "emphasis delimiter", origin);
+            sink.content(escape_markdown_text(node.text), "emphasis text",
+                         origin);
+            sink.syntax(delimiter, "emphasis delimiter", origin);
           } else if constexpr (std::is_same_v<T, CodeInlineIR>) {
-            result +=
-                code_span(node.code, context == InlineContext::table_cell);
+            const auto parts = code_span_parts(
+                node.code, context == InlineContext::table_cell);
+            sink.syntax(parts.open, "code delimiter", origin);
+            sink.content(parts.body, "code text", origin);
+            sink.syntax(parts.close, "code delimiter", origin);
           } else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>) {
             const auto label =
                 node.label.empty() ? node.target.value : node.label;
-            result += '[' + escape_markdown_text(label) + "](" +
-                      markdown_destination(
-                          cross_reference_destination(node.target, options)) +
-                      ')';
+            sink.syntax("[", "link syntax", origin);
+            sink.content(escape_markdown_text(label), "link label", origin);
+            sink.syntax("](", "link syntax", origin);
+            sink.syntax(markdown_destination(
+                            cross_reference_destination(node.target, options)),
+                        "link destination", origin);
+            sink.syntax(")", "link syntax", origin);
           } else if constexpr (std::is_same_v<T, ImageInlineIR>) {
-            result += "![" + escape_markdown_text(node.alt_text) + "](" +
-                      markdown_destination(node.resource) + ')';
+            sink.syntax("![", "image syntax", origin);
+            sink.content(escape_markdown_text(node.alt_text), "image alt text",
+                         origin);
+            sink.syntax("](", "image syntax", origin);
+            sink.syntax(markdown_destination(node.resource),
+                        "image destination", origin);
+            sink.syntax(")", "image syntax", origin);
           } else if constexpr (std::is_same_v<T, HardBreakInlineIR>) {
-            result += context == InlineContext::prose ? "  \n" : "<br>";
+            sink.syntax(context == InlineContext::prose ? "  \n" : "<br>",
+                        "hard break", origin);
           } else if constexpr (std::is_same_v<T, OpaqueInlineIR>) {
             const auto payload = node.content.empty()
                                      ? node.kind
                                      : node.kind + ": " + node.content;
-            result += code_span(payload, context == InlineContext::table_cell);
+            const auto parts = code_span_parts(
+                payload, context == InlineContext::table_cell);
+            sink.syntax(parts.open, "code delimiter", origin);
+            sink.content(parts.body, "opaque inline", origin);
+            sink.syntax(parts.close, "code delimiter", origin);
           }
         },
         in.node);
   }
-  return result;
 }
 
-std::string render_alt_text(const InlineSequenceIR &inlines) {
-  std::string result;
-  for (const auto &in : inlines) {
-    std::visit(
-        [&](const auto &node) {
-          using T = std::decay_t<decltype(node)>;
-          if constexpr (std::is_same_v<T, TextInlineIR> ||
-                        std::is_same_v<T, EmphasisInlineIR>) {
-            result += escape_markdown_text(node.text);
-          } else if constexpr (std::is_same_v<T, CodeInlineIR>) {
-            result += escape_markdown_text(node.code);
-          } else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>) {
-            result += escape_markdown_text(
-                node.label.empty() ? node.target.value : node.label);
-          } else if constexpr (std::is_same_v<T, ImageInlineIR>) {
-            result += escape_markdown_text(
-                node.alt_text.empty() ? node.resource : node.alt_text);
-          } else if constexpr (std::is_same_v<T, HardBreakInlineIR>) {
-            result.push_back(' ');
-          } else if constexpr (std::is_same_v<T, OpaqueInlineIR>) {
-            result += escape_markdown_text(node.content.empty() ? node.kind
-                                                                : node.content);
-          }
-        },
-        in.node);
-  }
-  return result;
+
+// Hosted BookServer names a figure's image by the picture it shows, never by
+// the figure caption: GG24-395 3.3.8 serves the book resource as
+// `<img src=".../P69.GIF" alt="PICTURE 69">` (DT 19941215160749) and
+// XWEBDEMO 1.4.1 serves the external one as
+// `<img src="/bookmgr/monetcoq.jpg" alt="/bookmgr/monetcoq.jpg">`
+// (DT 19970423182524).  The caption is served separately, as the line under
+// the image, which is the paragraph this block renders after the image.
+std::string figure_alt_text(const std::string &resource) {
+  static constexpr std::string_view book_resource = "resource:";
+  if (resource.compare(0, book_resource.size(), book_resource) == 0)
+    return escape_markdown_text("PICTURE " +
+                                resource.substr(book_resource.size()));
+  return escape_markdown_text(resource);
 }
 
-std::string fenced_block(const std::vector<std::string> &lines) {
+void append_fenced_block(RenderSink &sink,
+                         const std::vector<std::string> &lines,
+                         const DocumentNodeOriginIR *origin,
+                         const char *line_reason,
+                         const std::vector<DocumentNodeOriginIR> *line_origins =
+                             nullptr) {
   auto longest = std::size_t{0};
   for (const auto &line : lines)
     longest = std::max(longest, longest_backtick_run(line));
   const auto fence = std::string(std::max<std::size_t>(3, longest + 1), '`');
-  std::string result = fence + '\n';
+  sink.syntax(fence + '\n', "code fence", origin);
   for (std::size_t index = 0; index < lines.size(); ++index) {
-    result += lines[index];
-    result.push_back('\n');
+    const PathScope step(sink, "line", index);
+    const auto *line_origin =
+        line_origins != nullptr && index < line_origins->size()
+            ? &(*line_origins)[index]
+            : origin;
+    sink.content(lines[index], line_reason, line_origin);
+    sink.syntax("\n", "code fence line break", line_origin);
   }
-  result += fence;
-  return result;
+  sink.syntax(fence, "code fence", origin);
 }
 
-std::string table_row(const std::vector<std::string> &cells) {
-  std::string result = "|";
-  for (const auto &cell : cells)
-    result += " " + cell + " |";
-  return result;
-}
-
-std::string render_table(const TableBlockIR &table,
-                         const DocumentMarkdownRendererOptions &options) {
+void append_table(RenderSink &sink, const TableBlockIR &table,
+                  const DocumentNodeOriginIR *origin,
+                  const DocumentMarkdownRendererOptions &options) {
   const auto width = table.rows.front().cells.size();
-  std::vector<std::string> header(width);
-  auto body_begin = std::size_t{0};
-  if (table.header_rows != 0) {
-    // Pipe tables have one header row.  Preserve every declared header by
-    // combining same-column header cells with explicit line breaks.
-    for (std::size_t row = 0; row < table.header_rows; ++row)
-      for (std::size_t cell = 0; cell < width; ++cell) {
-        if (row != 0)
-          header[cell] += "<br>";
-        header[cell] += render_inlines(table.rows[row].cells[cell].content,
-                                       InlineContext::table_cell, options);
-      }
-    body_begin = table.header_rows;
+  // Pipe tables have one header row.  Preserve every declared header by
+  // combining same-column header cells with explicit line breaks.
+  sink.syntax("|", "table pipe", origin);
+  for (std::size_t cell = 0; cell < width; ++cell) {
+    sink.syntax(" ", "table cell padding", origin);
+    for (std::size_t row = 0; row < table.header_rows; ++row) {
+      const PathScope row_step(sink, "row", row);
+      const PathScope cell_step(sink, "cell", cell);
+      if (row != 0)
+        sink.syntax("<br>", "table header join",
+                    &table.rows[row].cells[cell].origin);
+      append_inlines(sink, table.rows[row].cells[cell].content,
+                     InlineContext::table_cell, options);
+    }
+    sink.syntax(" |", "table pipe", origin);
   }
   // A headerless IR table receives an empty synthetic Markdown header; all
-  // source rows remain body rows.  Empty cells are emitted as empty pipe cells.
-  std::string result = table_row(header) + '\n';
-  result += table_row(std::vector<std::string>(width, "---"));
-  for (auto row = body_begin; row < table.rows.size(); ++row) {
-    std::vector<std::string> cells;
-    cells.reserve(width);
-    for (const auto &cell : table.rows[row].cells)
-      cells.push_back(
-          render_inlines(cell.content, InlineContext::table_cell, options));
-    result += '\n' + table_row(cells);
+  // source rows remain body rows.  Empty cells are emitted as empty pipe
+  // cells.
+  sink.syntax("\n|", "table pipe", origin);
+  for (std::size_t cell = 0; cell < width; ++cell)
+    sink.syntax(" --- |", "table delimiter row", origin);
+  for (auto row = table.header_rows; row < table.rows.size(); ++row) {
+    const PathScope row_step(sink, "row", row);
+    sink.syntax("\n|", "table pipe", &table.rows[row].origin);
+    for (std::size_t cell = 0; cell < table.rows[row].cells.size(); ++cell) {
+      const PathScope cell_step(sink, "cell", cell);
+      sink.syntax(" ", "table cell padding",
+                  &table.rows[row].cells[cell].origin);
+      append_inlines(sink, table.rows[row].cells[cell].content,
+                     InlineContext::table_cell, options);
+      sink.syntax(" |", "table pipe", &table.rows[row].cells[cell].origin);
+    }
   }
-  return result;
 }
 
-std::string render_block(const BlockNodeIR &block,
-                         const DocumentMarkdownRendererOptions &options) {
-  return std::visit(
-      [&](const auto &node) -> std::string {
+void append_block(RenderSink &sink, const BlockIR &block,
+                  const DocumentMarkdownRendererOptions &options) {
+  const auto *block_origin = &block.origin;
+  std::visit(
+      [&](const auto &node) {
         using T = std::decay_t<decltype(node)>;
         if constexpr (std::is_same_v<T, HeadingBlockIR>) {
-          return std::string(node.level, '#') + " " +
-                 render_inlines(node.content, InlineContext::single_line,
-                                options);
+          sink.syntax(std::string(node.level, '#') + " ", "heading marker",
+                      block_origin);
+          append_inlines(sink, node.content, InlineContext::single_line,
+                         options);
         } else if constexpr (std::is_same_v<T, ParagraphBlockIR>) {
-          return render_inlines(node.content, InlineContext::prose, options);
+          append_inlines(sink, node.content, InlineContext::prose, options);
         } else if constexpr (std::is_same_v<T, AnchorBlockIR>) {
-          return "<a id=\"" + escape_html_attribute(node.id) + "\"></a>";
+          sink.syntax("<a id=\"" + escape_html_attribute(node.id) + "\"></a>",
+                      "anchor", block_origin);
         } else if constexpr (std::is_same_v<T, ListBlockIR>) {
-          std::string result;
           for (std::size_t index = 0; index < node.items.size(); ++index) {
+            const PathScope item_step(sink, "item", index);
+            const auto *item_origin = &node.items[index].origin;
             if (index != 0)
-              result.push_back('\n');
-            result.append(
-                static_cast<std::size_t>(node.items[index].depth) * 2, ' ');
-            if (node.ordered) {
-              result += std::to_string(
-                            node.items[index].source_ordinal.value_or(1)) +
-                        ". ";
-            } else {
-              result += "- ";
-            }
-            result += render_inlines(node.items[index].content,
-                                     InlineContext::single_line, options);
+              sink.syntax("\n", "list item break", item_origin);
+            sink.syntax(
+                std::string(
+                    static_cast<std::size_t>(node.items[index].depth) * 2, ' '),
+                "list indent", item_origin);
+            if (node.ordered)
+              sink.syntax(std::to_string(
+                              node.items[index].source_ordinal.value_or(1)) +
+                              ". ",
+                          "ordered list marker", item_origin);
+            else
+              sink.syntax("- ", "list bullet", item_origin);
+            append_inlines(sink, node.items[index].content,
+                           InlineContext::single_line, options);
           }
-          return result;
         } else if constexpr (std::is_same_v<T, DefinitionListBlockIR>) {
-          std::string result;
           for (std::size_t index = 0; index < node.entries.size(); ++index) {
+            const PathScope entry_step(sink, "entry", index);
+            const auto *entry_origin = &node.entries[index].origin;
             if (index != 0)
-              result.push_back('\n');
-            result += "- **" +
-                      render_inlines(node.entries[index].term,
-                                     InlineContext::single_line, options) +
-                      ":** " +
-                      render_inlines(node.entries[index].definition,
-                                     InlineContext::single_line, options);
+              sink.syntax("\n", "definition entry break", entry_origin);
+            sink.syntax("- **", "definition term syntax", entry_origin);
+            {
+              const PathScope field(sink, "term", 0);
+              append_inlines(sink, node.entries[index].term,
+                             InlineContext::single_line, options);
+            }
+            sink.syntax(":** ", "definition term syntax", entry_origin);
+            const PathScope field(sink, "definition", 0);
+            append_inlines(sink, node.entries[index].definition,
+                           InlineContext::single_line, options);
           }
-          return result;
         } else if constexpr (std::is_same_v<T, TableBlockIR>) {
-          return render_table(node, options);
+          append_table(sink, node, block_origin, options);
         } else if constexpr (std::is_same_v<T, PreformattedBlockIR>) {
-          return fenced_block(node.lines);
+          append_fenced_block(sink, node.lines, block_origin,
+                              "preformatted line", &node.line_origins);
         } else if constexpr (std::is_same_v<T, NoteBlockIR>) {
-          std::string result = "> ";
-          if (!node.label.empty())
-            result += "**" +
-                      render_inlines(node.label, InlineContext::single_line,
-                                     options) +
-                      ":** ";
-          result +=
-              render_inlines(node.content, InlineContext::single_line, options);
-          return result;
+          sink.syntax("> ", "note marker", block_origin);
+          if (!node.label.empty()) {
+            sink.syntax("**", "note label syntax", block_origin);
+            {
+              const PathScope field(sink, "label", 0);
+              append_inlines(sink, node.label, InlineContext::single_line,
+                             options);
+            }
+            sink.syntax(":** ", "note label syntax", block_origin);
+          }
+          const PathScope field(sink, "content", 0);
+          append_inlines(sink, node.content, InlineContext::single_line,
+                         options);
         } else if constexpr (std::is_same_v<T, PublicationListBlockIR>) {
-          std::string result;
           for (std::size_t entry = 0; entry < node.entries.size(); ++entry) {
+            const PathScope entry_step(sink, "entry", entry);
+            const auto *entry_origin = &node.entries[entry].origin;
             if (entry != 0)
-              result += "\n\n";
-            result += "- **" +
-                      render_inlines(node.entries[entry].title,
-                                     InlineContext::single_line, options) +
-                      "**";
-            for (const auto &paragraph : node.entries[entry].paragraphs)
-              result += "\n\n  " +
-                        render_inlines(paragraph, InlineContext::single_line,
-                                       options);
+              sink.syntax("\n\n", "publication entry break", entry_origin);
+            sink.syntax("- **", "publication title syntax", entry_origin);
+            {
+              const PathScope field(sink, "title", 0);
+              append_inlines(sink, node.entries[entry].title,
+                             InlineContext::single_line, options);
+            }
+            sink.syntax("**", "publication title syntax", entry_origin);
+            for (std::size_t paragraph = 0;
+                 paragraph < node.entries[entry].paragraphs.size();
+                 ++paragraph) {
+              const PathScope field(sink, "paragraph", paragraph);
+              sink.syntax("\n\n  ", "publication paragraph indent",
+                          entry_origin);
+              append_inlines(sink, node.entries[entry].paragraphs[paragraph],
+                             InlineContext::single_line, options);
+            }
           }
-          return result;
         } else if constexpr (std::is_same_v<T, FigureBlockIR>) {
-          const auto alt = render_alt_text(node.caption);
-          auto result =
-              "![" + alt + "](" + markdown_destination(node.resource) + ')';
-          if (!node.caption.empty())
-            result += "\n\n*" +
-                      render_inlines(node.caption, InlineContext::single_line,
-                                     options) +
-                      '*';
-          return result;
-        } else if constexpr (std::is_same_v<T, FootnoteBlockIR>) {
-          return "[^" + footnote_label(node.id) + "]: " +
-                 render_inlines(node.content, InlineContext::single_line,
-                                options);
-        } else if constexpr (std::is_same_v<T, IndexGroupBlockIR>) {
-          std::string result;
-          if (!node.heading.empty())
-            result = "**" +
-                     render_inlines(node.heading, InlineContext::single_line,
-                                    options) +
-                     "**\n\n";
-          for (std::size_t index = 0; index < node.entries.size(); ++index) {
-            if (index != 0)
-              result.push_back('\n');
-            result += "- [" +
-                      render_inlines(node.entries[index].term,
-                                     InlineContext::single_line, options) +
-                      "](" + markdown_destination(node.entries[index].target) +
-                      ')';
+          sink.syntax("![", "image syntax", block_origin);
+          // Hosted names the image by the picture it shows, not by the
+          // caption; the string is renderer-generated, so it is not content.
+          sink.generated(figure_alt_text(node.resource), "figure alt text");
+          sink.syntax("](", "image syntax", block_origin);
+          sink.syntax(markdown_destination(node.resource),
+                      "image destination", block_origin);
+          sink.syntax(")", "image syntax", block_origin);
+          if (!node.caption.empty()) {
+            sink.syntax("\n\n*", "figure caption syntax", block_origin);
+            const PathScope field(sink, "caption", 0);
+            append_inlines(sink, node.caption, InlineContext::single_line,
+                           options);
+            sink.syntax("*", "figure caption syntax", block_origin);
           }
-          return result;
+        } else if constexpr (std::is_same_v<T, FootnoteBlockIR>) {
+          sink.syntax("[^" + footnote_label(node.id) + "]: ",
+                      "footnote marker", block_origin);
+          append_inlines(sink, node.content, InlineContext::single_line,
+                         options);
+        } else if constexpr (std::is_same_v<T, IndexGroupBlockIR>) {
+          if (!node.heading.empty()) {
+            sink.syntax("**", "index heading syntax", block_origin);
+            {
+              const PathScope field(sink, "heading", 0);
+              append_inlines(sink, node.heading, InlineContext::single_line,
+                             options);
+            }
+            sink.syntax("**\n\n", "index heading syntax", block_origin);
+          }
+          for (std::size_t index = 0; index < node.entries.size(); ++index) {
+            const PathScope entry_step(sink, "entry", index);
+            const auto *entry_origin = &node.entries[index].origin;
+            if (index != 0)
+              sink.syntax("\n", "index entry break", entry_origin);
+            sink.syntax("- [", "index entry syntax", entry_origin);
+            {
+              const PathScope field(sink, "term", 0);
+              append_inlines(sink, node.entries[index].term,
+                             InlineContext::single_line, options);
+            }
+            sink.syntax("](", "index entry syntax", entry_origin);
+            sink.syntax(markdown_destination(node.entries[index].target),
+                        "index entry destination", entry_origin);
+            sink.syntax(")", "index entry syntax", entry_origin);
+          }
         } else if constexpr (std::is_same_v<T, MenuBlockIR>) {
           // BookServer presentation of a generated menu: the `Subtopics:`
           // lead line and the `<topic id> <label>` link text are reader
@@ -453,40 +590,115 @@ std::string render_block(const BlockNodeIR &block,
           // SH12-565 APPENDIX1.9.5, SC31-711 2.1), not source text.  The
           // unresolved destination is the same `#<id>` form the legacy
           // `:li refid` route produces so that boo2git rewrites both alike.
-          std::string result = "Subtopics:\n\n";
+          sink.generated("Subtopics:\n\n", "reader-generated menu lead line");
           for (std::size_t index = 0; index < node.items.size(); ++index) {
-            if (index != 0)
-              result.push_back('\n');
+            const PathScope item_step(sink, "item", index);
             const auto &item = node.items[index];
-            result += "- [" +
-                      escape_markdown_text(item.target.value + ' ' +
-                                           item.label) +
-                      "](" +
-                      markdown_destination(menu_destination(item.target,
-                                                            options)) +
-                      ')';
+            const auto *item_origin = &item.origin;
+            if (index != 0)
+              sink.syntax("\n", "menu item break", item_origin);
+            sink.syntax("- [", "menu item syntax", item_origin);
+            // The reader prefixes the visible label with the target topic id;
+            // the id is a source-proven CMITEM operand, the separating space
+            // is reader presentation.
+            sink.content(escape_markdown_text(item.target.value),
+                         "menu item target id", item_origin);
+            sink.generated(escape_markdown_text(" "),
+                           "reader-generated menu label separator");
+            sink.content(escape_markdown_text(item.label), "menu item label",
+                         item_origin);
+            sink.syntax("](", "menu item syntax", item_origin);
+            sink.syntax(
+                markdown_destination(menu_destination(item.target, options)),
+                "menu item destination", item_origin);
+            sink.syntax(")", "menu item syntax", item_origin);
           }
-          return result;
         } else if constexpr (std::is_same_v<T, OpaqueBlockIR>) {
-          return "**Opaque " + escape_markdown_text(node.kind) +
-                 " content:**\n\n" +
-                 fenced_block(std::vector<std::string>{node.content});
+          sink.syntax("**Opaque ", "opaque block syntax", block_origin);
+          sink.content(escape_markdown_text(node.kind), "opaque block kind",
+                       block_origin);
+          sink.syntax(" content:**\n\n", "opaque block syntax", block_origin);
+          append_fenced_block(sink, std::vector<std::string>{node.content},
+                              block_origin, "opaque block content");
         } else {
           throw std::logic_error(
               "legacy region reached the typed Markdown renderer");
         }
       },
-      block);
+      block.node);
 }
 
 } // namespace
 
+std::string
+format_document_node_path(const std::vector<DocumentNodePathStepIR> &path) {
+  std::string result;
+  for (const auto &step : path) {
+    if (!result.empty())
+      result.push_back('/');
+    result += step.kind;
+    result += '[' + std::to_string(step.index) + ']';
+  }
+  return result;
+}
+
+const DocumentTraceSpanIR *
+resolve_document_trace_offset(const DocumentRenderTraceIR &trace,
+                              std::size_t offset) {
+  const auto found = std::upper_bound(
+      trace.spans.begin(), trace.spans.end(), offset,
+      [](std::size_t value, const DocumentTraceSpanIR &span) {
+        return value < span.output_begin;
+      });
+  if (found == trace.spans.begin())
+    return nullptr;
+  const auto &span = *std::prev(found);
+  return offset < span.output_end ? &span : nullptr;
+}
+
+bool verify_document_render_trace(const DocumentRenderTraceIR &trace,
+                                  std::size_t output_size,
+                                  std::string *error) {
+  const auto fail = [&](const char *message) {
+    if (error != nullptr)
+      *error = message;
+    return false;
+  };
+  std::size_t cursor = 0;
+  for (const auto &span : trace.spans) {
+    if (span.output_begin != cursor)
+      return fail("render trace spans are not contiguous");
+    if (span.output_end <= span.output_begin)
+      return fail("render trace span is empty or reversed");
+    if (span.reason.empty())
+      return fail("render trace span has no reason");
+    if (span.role == DocumentTraceRoleIR::content) {
+      // Synthesized content is honest about having no source; every other
+      // content run must name the bytes it projects.
+      if (!span.origin)
+        return fail("content render trace span has no node origin");
+      if (span.origin->slices.empty() &&
+          span.origin->derivation != DocumentDerivationIR::synthesized)
+        return fail("content render trace span has no source slices");
+    }
+    cursor = span.output_end;
+  }
+  if (cursor != output_size)
+    return fail("render trace does not cover the rendered output");
+  if (error != nullptr)
+    error->clear();
+  return true;
+}
+
 std::string render_document_markdown(
     const DocumentIR &document,
-    const DocumentMarkdownRendererOptions &options) {
+    const DocumentMarkdownRendererOptions &options,
+    DocumentRenderTraceIR *trace) {
   std::string error;
   if (!verify_document_ir(document, &error))
     throw std::invalid_argument("invalid DocumentIR: " + error);
+  if (trace != nullptr)
+    trace->spans.clear();
 
   // The legacy adapter remains one indivisible whole-topic call because its
   // state machine carries state across normalized record boundaries.
@@ -497,18 +709,30 @@ std::string render_document_markdown(
         throw std::invalid_argument(
             "DocumentIR Markdown adapter requires one whole-topic legacy "
             "region");
-      return render_markdown_records(region->normalized_records);
+      auto rendered = render_markdown_records(region->normalized_records);
+      if (trace != nullptr && !rendered.empty()) {
+        DocumentTraceSpanIR span;
+        span.output_begin = 0;
+        span.output_end = rendered.size();
+        span.role = DocumentTraceRoleIR::syntax;
+        span.reason = "legacy whole-topic adapter";
+        span.path.push_back({"block", 0});
+        span.origin = document.blocks.front().origin;
+        trace->spans.push_back(std::move(span));
+      }
+      return rendered;
     }
   }
 
-  std::string result;
-  for (const auto &block : document.blocks) {
-    if (!result.empty())
-      result += "\n\n";
-    result += render_block(block.node, options);
+  RenderSink sink(trace);
+  for (std::size_t index = 0; index < document.blocks.size(); ++index) {
+    const PathScope block_step(sink, "block", index);
+    if (!sink.text().empty())
+      sink.syntax("\n\n", "block separator", &document.blocks[index].origin);
+    append_block(sink, document.blocks[index], options);
   }
-  result.push_back('\n');
-  return result;
+  sink.syntax("\n", "document terminator", nullptr);
+  return sink.release();
 }
 
 } // namespace geist::detail

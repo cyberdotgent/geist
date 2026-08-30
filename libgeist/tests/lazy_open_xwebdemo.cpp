@@ -75,9 +75,14 @@ int main() {
   // format image presented in-line` under the `<img>`; the legacy route also
   // leaked the selector's `<IMAGE` alternative into the paragraph.
   const auto web_external_pictures = web_demo.topic_markdown("1.4.1");
+  // Hosted serves the image as
+  // `<img src="/bookmgr/monetcoq.jpg" alt="/bookmgr/monetcoq.jpg">` with the
+  // caption on the line under it, so the alt text names the picture and the
+  // caption is its own paragraph.
   require(web_external_pictures.find(
-              "![Figure 3\\. External JPEG format image presented in\\-line\\.]"
-              "(</bookmgr/monetcoq.jpg>)") != std::string::npos,
+              "![/bookmgr/monetcoq\\.jpg](</bookmgr/monetcoq.jpg>)\n\n"
+              "*Figure 3\\. External JPEG format image presented in\\-line\\.*")
+              != std::string::npos,
           "inline external JPEG selector was malformed");
   require(web_external_pictures.find(
               "](</bookmgr/monetley.jpg>)") != std::string::npos,

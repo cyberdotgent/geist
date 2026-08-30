@@ -1,5 +1,7 @@
 #include "geist/detail/source_rows.hpp"
 
+#include <string>
+#include <cstdlib>
 #include <algorithm>
 #include <cctype>
 #include <set>
@@ -160,114 +162,6 @@ std::vector<SourceRowMarker> source_row_markers(
     }
   }
   return markers;
-}
-
-std::vector<std::string> clean_source_owned_toc_title_markers(
-    const std::vector<std::string>& decoded_records,
-    const std::vector<DecodedLogicalRecordSource>& sources) {
-  auto cleaned = decoded_records;
-  std::set<std::uint16_t> learned;
-  for (const auto& source : sources) {
-    const auto count = std::min(source.tokens.size(),
-                                source.encoded_tokens.size());
-    for (std::size_t token = 0; token < count; ++token) {
-      if (source.encoded_tokens[token].width == 1 &&
-          marker_glyph(source.tokens[token])) {
-        learned.insert(source.encoded_tokens[token].value);
-      }
-    }
-  }
-  for (std::size_t record = 0;
-       record < sources.size() && record < cleaned.size(); ++record) {
-    const auto& source = sources[record];
-    const auto count = std::min({source.tokens.size(),
-                                 source.encoded_tokens.size(),
-                                 source.assembled.tokens.size()});
-    std::vector<std::pair<std::size_t, std::size_t>> removals;
-    for (std::size_t token = 0; token < count; ++token) {
-      if (source.encoded_tokens[token].width != 1 ||
-          learned.count(source.encoded_tokens[token].value) == 0 ||
-          !marker_glyph(source.tokens[token])) {
-        continue;
-      }
-      const auto& span = source.assembled.tokens[token];
-      auto next = span.output_end;
-      while (next < source.assembled.words.size() &&
-             std::isspace(static_cast<unsigned char>(
-                 source.assembled.words[next])) != 0) {
-        ++next;
-      }
-      const auto tail = ascii_lower(token_words_to_ascii(TokenWords(
-          source.assembled.words.begin() + next,
-          source.assembled.words.end())));
-      if (tail.rfind("ctoce ", 0) != 0 && tail.rfind("ctocdef=", 0) != 0 &&
-          tail.rfind("etoc", 0) != 0) {
-        continue;
-      }
-      const auto prefix =
-          ascii_lower(cleaned[record].substr(0, span.output_begin));
-      if (prefix.rfind("ctoce ") == std::string::npos) {
-        continue;
-      }
-      removals.push_back({span.output_begin, span.output_end});
-    }
-    for (auto removal = removals.rbegin(); removal != removals.rend();
-         ++removal) {
-      cleaned[record].erase(removal->first, removal->second - removal->first);
-    }
-  }
-  return cleaned;
-}
-
-std::vector<std::string> project_source_owned_st_prose_rows(
-    const std::vector<std::string>& decoded_records,
-    const std::vector<DecodedLogicalRecordSource>& sources) {
-  if (decoded_records.size() != sources.size()) return decoded_records;
-  const auto layout = extract_layout_ir(sources);
-  // The ledger is built and verified once here; extract_fixed_prose_ir used to
-  // repeat both. A ledger that fails verification declines the projection
-  // exactly as the inner extraction did.
-  const auto ownership = build_verified_ownership_ir(sources, layout);
-  return project_source_owned_st_prose_rows(
-      decoded_records, sources, layout, ownership ? &*ownership : nullptr);
-}
-
-std::vector<std::string> project_source_owned_st_prose_rows(
-    const std::vector<std::string>& decoded_records,
-    const std::vector<DecodedLogicalRecordSource>& sources,
-    const LayoutIR& layout, const VerifiedOwnershipIR* ownership) {
-  if (decoded_records.size() != sources.size()) return decoded_records;
-  if (ownership == nullptr) return decoded_records;
-  const auto prose = extract_fixed_prose_ir(sources, layout, *ownership);
-  if (!prose) return decoded_records;
-  const auto source = std::find_if(
-      sources.begin(), sources.end(), [&](const auto& record) {
-        return record.logical_record == prose->logical_record;
-      });
-  if (source == sources.end()) return decoded_records;
-  const auto record = static_cast<std::size_t>(source - sources.begin());
-  if (token_words_to_ascii(source->assembled.words) != decoded_records[record])
-    return decoded_records;
-
-  auto projected = decoded_records;
-  std::vector<OutputRangeIR> edits;
-  edits.reserve(prose->rows.size() + 1);
-  for (const auto& row : prose->rows) edits.push_back(row.projected_range);
-  edits.push_back(prose->title_body_boundary);
-  std::sort(edits.begin(), edits.end(), [](const auto& left,
-                                           const auto& right) {
-    return left.begin > right.begin;
-  });
-  for (const auto& edit : edits) {
-    if (edit.begin > edit.end || edit.end > projected[record].size())
-      return decoded_records;
-    const auto length = edit.end - edit.begin;
-    auto replacement = std::string(length, ' ');
-    if (edit.begin == prose->title_body_boundary.begin)
-      replacement.replace(0, 9, " c.cp 0: ");
-    projected[record].replace(edit.begin, length, replacement);
-  }
-  return projected;
 }
 
 } // namespace geist::detail

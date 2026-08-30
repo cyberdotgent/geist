@@ -164,6 +164,8 @@ std::vector<CommentSourceFieldIR> source_fields(
                      : CommentSourceFieldIR::Disposition::semantic_content;
     result.push_back(CommentSourceFieldIR{begin, end, std::move(text),
                                           disposition, {}});
+    result.back().byte_begin = record->ir.tokens[begin].byte_range.begin;
+    result.back().byte_end = record->ir.tokens[end - 1].byte_range.end;
     begin = row.token_end;
     last_visible = row.token_end;
   };
@@ -666,6 +668,14 @@ std::optional<CommentDeliveryIR> extract_questionnaire_shape(
     block.object_segment_index = table->segment_index;
     block.object_token_begin = table->source_tokens.front();
     block.object_token_end = table->source_tokens.back() + 1;
+    if (const auto* record = source_record(records, table->logical_record);
+        record != nullptr &&
+        block.object_token_end <= record->ir.tokens.size()) {
+      block.object_byte_begin =
+          record->ir.tokens[block.object_token_begin].byte_range.begin;
+      block.object_byte_end =
+          record->ir.tokens[block.object_token_end - 1].byte_range.end;
+    }
   }
   result.blocks.push_back({CommentDeliveryBlockKind::response_area, {}, {}});
 

@@ -172,17 +172,19 @@ int main() {
   }
 
   const auto image_figure = split_header.topic_markdown("5.1.8");
-  // Typed route: the figure block keeps the caption as the image alt text
-  // and the picture selector's resource id, as hosted BookServer serves it
+  // Typed route: the figure block names the image after the picture and
+  // keeps the caption under it, as hosted BookServer serves it
   // (DT 19950308184737: `<img src=".../P9.GIF" alt="PICTURE 9">` under
   // `Figure 20. RSR Components`).
-  require(image_figure.find("![Figure 20\\. RSR Components](<resource:9>)") !=
+  require(image_figure.find("![PICTURE 9](<resource:9>)\n\n"
+                            "*Figure 20\\. RSR Components*") !=
               std::string::npos,
           "image-backed figure lost its resource");
   require(image_figure.find("```text") == std::string::npos,
           "image-backed figure retained its duplicate ASCII placeholder");
   const auto delayed_image = split_header.topic_markdown("8.5.3");
-  require(delayed_image.find("![Figure 42\\. TCP/IP Access](<resource:25>)") !=
+  require(delayed_image.find("![PICTURE 25](<resource:25>)\n\n"
+                             "*Figure 42\\. TCP/IP Access*") !=
               std::string::npos,
           "picture selector without inline display text lost its resource");
   require(delayed_image.find("```text") == std::string::npos,

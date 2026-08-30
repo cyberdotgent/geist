@@ -90,6 +90,10 @@ struct CommentSourceFieldIR {
   std::string text;
   Disposition disposition = Disposition::semantic_content;
   std::vector<CommentSourceFragmentIR> affixes;
+  // BOO payload bytes of `[token_begin, token_end)`, so a rendered field can
+  // be traced back to the file and not only to a token ordinal.
+  std::uint32_t byte_begin = 0;
+  std::uint32_t byte_end = 0;
 };
 
 // Output-neutral source line retained by the comments/back-matter semantic
@@ -124,6 +128,9 @@ struct CommentDeliveryBlockIR {
   std::size_t object_segment_index = 0;
   std::size_t object_token_begin = 0;
   std::size_t object_token_end = 0;
+  // BOO payload bytes of the object control's token run.
+  std::uint32_t object_byte_begin = 0;
+  std::uint32_t object_byte_end = 0;
 };
 
 struct CommentDeliveryIR {

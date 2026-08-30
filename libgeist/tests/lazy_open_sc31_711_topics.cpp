@@ -375,8 +375,11 @@ int main() {
               fddi_traps.find(fddi_intro,
                               fddi_intro_begin + fddi_intro.size()) ==
                   std::string::npos &&
-              fddi_traps.find("<a id=\"MSG 1\"></a>", fddi_intro_begin) !=
-                  std::string::npos,
+              // The anchor is the whole SRMSG operand, exactly as hosted
+              // serves it (`<a name="MSG 1 (fddiRPUNoResponse)">`,
+              // DT 19941010174546), not just its first word.
+              fddi_traps.find("<a id=\"MSG 1 (fddiRPUNoResponse)\"></a>",
+                              fddi_intro_begin) != std::string::npos,
           "FDDI catalog introduction lost single ownership or first entry");
   require(fddi_traps.find(
               "ringInoperative cleared in segment. All stations on the ring "
