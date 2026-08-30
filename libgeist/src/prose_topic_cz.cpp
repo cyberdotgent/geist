@@ -572,8 +572,16 @@ struct CzBuilder {
       // (SC09-2417-00 3.2.3, served as `SC09-241` DT 19961114175628, record
       // 549 lines 9-16 -- the `PURCHASE ORDER FORM` display; SC24-5527-02
       // draws the same shape).
-      if (directive.mode == "off" &&
-          (tag == "xmp" || tag == "screen" || tag == "lblbox")) {
+      //
+      // `SYNTAX` is the fourth and behaves the same way: the railroad syntax
+      // diagram between `cz OFF SYNTAX` and `cz OFF ESYNTAX` is one drawn
+      // display block.  SC09-2417-00 `4.1.2` (DT 19961114175628) serves both
+      // of its regions as `<pre width="80">` holding
+      // `   &gt;&gt;__<kbd>extern</kbd>__<var>&quot;string-literal&quot;</var>__ ...`
+      // -- the same `<pre>` element `XMP` gets two blocks further down the
+      // same page, at the region's own left margin of three columns, and the
+      // prose around it stays typed (`<dl>`, `<dt>`, `<a href>`).
+      if (directive.mode == "off" && cz_verbatim_region_tag(tag)) {
         std::string opener;
         for (const auto ch : tag)
           opener.push_back(

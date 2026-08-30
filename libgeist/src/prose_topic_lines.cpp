@@ -1074,12 +1074,9 @@ struct LineBuilder {
             !trim_footnote_terminator())
           return false;
         if (item.directive.mode == "off") {
-          if (item.directive.tag == "xmp" || item.directive.tag == "screen" ||
-              item.directive.tag == "lblbox")
+          if (cz_verbatim_region_tag(item.directive.tag))
             xmp_mode = true;
-          else if (item.directive.tag == "exmp" ||
-                   item.directive.tag == "escreen" ||
-                   item.directive.tag == "elblbox")
+          else if (cz_verbatim_region_closer(item.directive.tag))
             xmp_mode = false;
         }
         out.directives.push_back(item.directive);
