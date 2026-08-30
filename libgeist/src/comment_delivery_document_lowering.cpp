@@ -20,6 +20,8 @@ DocumentSourceSliceIR field_slice(const CommentSourceLineIR &line,
   slice.segment_index = line.segment_index;
   slice.token_begin = field.token_begin;
   slice.token_end = field.token_end;
+  slice.byte_begin = field.byte_begin;
+  slice.byte_end = field.byte_end;
   return slice;
 }
 
@@ -376,7 +378,8 @@ DocumentNodeOriginIR object_origin(const CommentDeliveryBlockIR &source,
   origin.detail = std::move(detail);
   origin.slices.push_back(DocumentSourceSliceIR{
       source.object_logical_record, source.object_segment_index,
-      source.object_token_begin, source.object_token_end, 0, 0});
+      source.object_token_begin, source.object_token_end,
+      source.object_byte_begin, source.object_byte_end});
   return origin;
 }
 
@@ -485,6 +488,9 @@ lower_comment_delivery_to_document_ir(TopicIdentityIR topic,
       return std::nullopt;
     append_preformatted(delivery.blocks[3], document);
   }
+  // Every container names at least the BOO bytes its own content names
+  // before the document is verified.
+  normalize_document_origin_slices(document);
   std::string document_error;
   if (!verify_document_ir(document, &document_error)) {
     fail(error, "lowered comment document is invalid: " + document_error);

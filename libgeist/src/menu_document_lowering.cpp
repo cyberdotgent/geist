@@ -184,6 +184,9 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR identity,
   canonicalize_slices(menu_origin);
   document.blocks.push_back({std::move(menu_block), std::move(menu_origin)});
 
+  // Every container names at least the BOO bytes its own content names
+  // before the document is verified.
+  normalize_document_origin_slices(document);
   std::string document_error;
   if (!verify_document_ir(document, &document_error)) {
     fail(error, "invalid menu DocumentIR: " + document_error);

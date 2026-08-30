@@ -2,7 +2,9 @@
 #include "geist/detail/document_ir.hpp"
 #include "geist/detail/internal.hpp"
 #include "geist/document.hpp"
+#include "geist/trace.hpp"
 
+#include <cstdint>
 #include <filesystem>
 #include <iostream>
 #include <string>
@@ -152,6 +154,99 @@ int main() {
                    std::string::npos,
                "typed questionnaire lost semantic punctuation"))
     return 1;
+
+  // ---------------------------------------------------------------------
+  // Render-trace provenance: a rendered word resolves to the node that
+  // produced it, and that node's slice names the BOO file bytes which decode
+  // back to the same word.  One pin per typed family, byte offsets included,
+  // so a lowering that stops naming its source is caught here.
+  struct TracePin {
+    const char *topic;
+    const char *word;         // rendered text to look for
+    const char *node_path;    // producing node
+    const char *reason;       // trace class of the run
+    std::uint32_t logical_record;
+    std::uint32_t byte_begin; // BOO file offset of the slice
+    std::uint32_t byte_end;
+    const char *source_text;  // what those bytes decode to
+  };
+  const TracePin pins[] = {
+      // prose heading
+      {"FRONT_1.1", "Trademarks", "block[0]/inline[1]", "text", 10, 43576,
+       43578, "Trademarks"},
+      // fixed table cell inside a prose topic
+      {"FRONT_1.1", "NetView", "block[5]/row[0]/cell[1]/inline[0]",
+       "text", 10, 43676, 43677, "NetView"},
+      // generated navigation heading
+      {"CONTENTS", "Table of Contents", "block[0]/inline[1]", "text", 6,
+       42060, 42068, " ST TableofContents"},
+      // trap catalog heading
+      {"4.1.1", "Generic Traps", "block[0]/inline[1]", "text", 99, 67228,
+       67234, " GenericTraps"},
+      // comment delivery title
+      {"BACK_2", "Communicating Your Comments to IBM", "block[0]/inline[1]",
+       "text", 541, 215672, 215680, "CommunicatingYourCommentstoIBM"},
+  };
+  for (const auto &pin : pins) {
+    const auto *entry = document.find_toc_entry(pin.topic);
+    if (!require(entry != nullptr,
+                 std::string("traced topic is absent: ") + pin.topic))
+      return 1;
+    geist::RenderTrace trace;
+    const auto rendered = entry->markdown(trace);
+    if (!require(!trace.spans.empty(),
+                 std::string("no render trace for ") + pin.topic))
+      return 1;
+    // The trace covers every rendered byte exactly once, in order.
+    std::size_t cursor = 0;
+    for (const auto &span : trace.spans) {
+      if (!require(span.output_begin == cursor && span.output_end > cursor,
+                   std::string("render trace is not contiguous in ") +
+                       pin.topic))
+        return 1;
+      cursor = span.output_end;
+    }
+    if (!require(cursor == rendered.size(),
+                 std::string("render trace does not cover ") + pin.topic))
+      return 1;
+
+    const auto at = rendered.find(pin.word);
+    if (!require(at != std::string::npos,
+                 std::string("traced word is absent from ") + pin.topic))
+      return 1;
+    const auto *span = trace.span_at(at);
+    if (!require(span != nullptr,
+                 std::string("traced word resolves to no span in ") +
+                     pin.topic) ||
+        !require(span->role == geist::RenderTraceRole::content,
+                 std::string("traced word is not content in ") + pin.topic) ||
+        !require(span->node_path == pin.node_path,
+                 std::string("traced word came from ") + span->node_path +
+                     " not " + pin.node_path + " in " + pin.topic) ||
+        !require(span->reason == pin.reason,
+                 std::string("traced word class is ") + span->reason + " in " +
+                     pin.topic) ||
+        !require(span->slices.size() == 1,
+                 std::string("traced word names ") +
+                     std::to_string(span->slices.size()) +
+                     " slices in " + pin.topic))
+      return 1;
+    const auto &slice = span->slices.front();
+    if (!require(slice.logical_record == pin.logical_record &&
+                     slice.byte_begin == pin.byte_begin &&
+                     slice.byte_end == pin.byte_end,
+                 std::string("traced word names lr") +
+                     std::to_string(slice.logical_record) + " bytes " +
+                     std::to_string(slice.byte_begin) + ":" +
+                     std::to_string(slice.byte_end) + " in " + pin.topic))
+      return 1;
+    // Read those bytes back out of the BOO file and decode them again.
+    if (!require(document.decode_trace_slice(slice) == pin.source_text,
+                 std::string("BOO bytes of the traced word decode to '") +
+                     document.decode_trace_slice(slice) + "' in " +
+                     pin.topic))
+      return 1;
+  }
 #endif
 
   return 0;

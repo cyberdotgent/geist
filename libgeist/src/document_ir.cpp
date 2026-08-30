@@ -22,6 +22,12 @@ bool verify_origin(const DocumentNodeOriginIR& origin, std::string* error) {
   case DocumentDerivationIR::legacy_adapter: break;
   default: return fail(error, "node origin has invalid derivation");
   }
+  // `decoded` is the default derivation, so a node that never named its
+  // source reaches verification claiming to be decoded from bytes it cannot
+  // point at.  A node that really has no source must say so through
+  // `synthesized` instead of leaving an unpopulated origin behind.
+  if (origin.derivation == DocumentDerivationIR::decoded && origin.slices.empty())
+    return fail(error, "decoded node origin names no source slice");
   auto previous_slice = std::tuple<std::uint32_t, std::size_t, std::size_t,
                                    std::size_t, std::uint32_t,
                                    std::uint32_t>{};
@@ -93,8 +99,103 @@ bool verify_inlines(const InlineSequenceIR& inlines, bool allow_empty,
   return true;
 }
 
+// True when one of `outer` covers `inner` whole: same logical record and
+// control segment, and a token range that contains the inner one.
+bool slice_covers(const std::vector<DocumentSourceSliceIR>& outer,
+                  const DocumentSourceSliceIR& inner) {
+  for (const auto& candidate : outer)
+    if (candidate.logical_record == inner.logical_record &&
+        candidate.segment_index == inner.segment_index &&
+        candidate.token_begin <= inner.token_begin &&
+        inner.token_end <= candidate.token_end)
+      return true;
+  return false;
+}
+
+void collect_inline_origins(const InlineSequenceIR& inlines,
+                            std::vector<const DocumentNodeOriginIR*>& out) {
+  for (const auto& in : inlines) out.push_back(&in.origin);
+}
+
+// Every origin below one block, so a block's own slices can be checked
+// against the source its children actually claim.
+void collect_child_origins(const BlockNodeIR& node,
+                           std::vector<const DocumentNodeOriginIR*>& out) {
+  std::visit(
+      [&](const auto& block) {
+        using T = std::decay_t<decltype(block)>;
+        if constexpr (std::is_same_v<T, HeadingBlockIR> ||
+                      std::is_same_v<T, ParagraphBlockIR> ||
+                      std::is_same_v<T, FootnoteBlockIR>) {
+          collect_inline_origins(block.content, out);
+        } else if constexpr (std::is_same_v<T, ListBlockIR>) {
+          for (const auto& item : block.items) {
+            out.push_back(&item.origin);
+            collect_inline_origins(item.content, out);
+          }
+        } else if constexpr (std::is_same_v<T, DefinitionListBlockIR>) {
+          for (const auto& entry : block.entries) {
+            out.push_back(&entry.origin);
+            collect_inline_origins(entry.term, out);
+            collect_inline_origins(entry.definition, out);
+          }
+        } else if constexpr (std::is_same_v<T, TableBlockIR>) {
+          for (const auto& row : block.rows) {
+            out.push_back(&row.origin);
+            for (const auto& cell : row.cells) {
+              out.push_back(&cell.origin);
+              collect_inline_origins(cell.content, out);
+            }
+          }
+        } else if constexpr (std::is_same_v<T, NoteBlockIR>) {
+          collect_inline_origins(block.label, out);
+          collect_inline_origins(block.content, out);
+        } else if constexpr (std::is_same_v<T, PublicationListBlockIR>) {
+          for (const auto& entry : block.entries) {
+            out.push_back(&entry.origin);
+            collect_inline_origins(entry.title, out);
+            for (const auto& paragraph : entry.paragraphs)
+              collect_inline_origins(paragraph, out);
+          }
+        } else if constexpr (std::is_same_v<T, FigureBlockIR>) {
+          collect_inline_origins(block.caption, out);
+        } else if constexpr (std::is_same_v<T, IndexGroupBlockIR>) {
+          collect_inline_origins(block.heading, out);
+          for (const auto& entry : block.entries) {
+            out.push_back(&entry.origin);
+            collect_inline_origins(entry.term, out);
+          }
+        } else if constexpr (std::is_same_v<T, MenuBlockIR>) {
+          for (const auto& item : block.items) out.push_back(&item.origin);
+        } else if constexpr (std::is_same_v<T, PreformattedBlockIR>) {
+          for (const auto& line : block.line_origins) out.push_back(&line);
+        }
+      },
+      node);
+}
+
+// A block that names its own source must name at least the source its
+// children name.  A child slice outside the block's slices would let a
+// rendered element trace to a block whose byte range does not contain it.
+bool verify_block_slices_cover_children(const BlockIR& block,
+                                        std::string* error) {
+  if (block.origin.slices.empty()) return true;
+  std::vector<const DocumentNodeOriginIR*> children;
+  collect_child_origins(block.node, children);
+  for (const auto* child : children) {
+    // A child that states it was synthesized has no source to be covered.
+    if (child->derivation == DocumentDerivationIR::synthesized) continue;
+    for (const auto& slice : child->slices)
+      if (!slice_covers(block.origin.slices, slice))
+        return fail(error,
+                    "block slices do not cover a child node's source slice");
+  }
+  return true;
+}
+
 bool verify_block(const BlockIR& block, std::string* error) {
   if (!verify_origin(block.origin, error)) return false;
+  if (!verify_block_slices_cover_children(block, error)) return false;
   return std::visit(
       [&](const auto& node) -> bool {
         using T = std::decay_t<decltype(node)>;
@@ -169,8 +270,15 @@ bool verify_block(const BlockIR& block, std::string* error) {
           }
           return true;
         } else if constexpr (std::is_same_v<T, PreformattedBlockIR>) {
-          return !node.lines.empty() ||
-                 fail(error, "preformatted block is empty");
+          if (node.lines.empty())
+            return fail(error, "preformatted block is empty");
+          if (!node.line_origins.empty() &&
+              node.line_origins.size() != node.lines.size())
+            return fail(error,
+                        "preformatted line origins do not match its lines");
+          for (const auto& line : node.line_origins)
+            if (!verify_origin(line, error)) return false;
+          return true;
         } else if constexpr (std::is_same_v<T, NoteBlockIR>) {
           return verify_inlines(node.label, true, error) &&
                  verify_inlines(node.content, false, error);
@@ -333,6 +441,112 @@ void format_entry_origin(std::ostringstream& out,
 
 } // namespace
 
+namespace {
+
+using SliceKey = std::tuple<std::uint32_t, std::size_t, std::size_t,
+                            std::size_t, std::uint32_t, std::uint32_t>;
+
+SliceKey slice_key(const DocumentSourceSliceIR& slice) {
+  return {slice.logical_record, slice.segment_index, slice.token_begin,
+          slice.token_end,      slice.byte_begin,    slice.byte_end};
+}
+
+// Orders a container's slices and drops exact duplicates.  Adjacent ranges
+// are deliberately not fused: a lowering that states one slice per source
+// token is naming real, separately owned tokens, and fusing them would hide
+// the gaps between them.
+void merge_slices(std::vector<DocumentSourceSliceIR>& slices) {
+  const auto full_key = [](const DocumentSourceSliceIR& slice) {
+    return std::tuple_cat(slice_key(slice),
+                          std::make_tuple(slice.character_begin,
+                                          slice.character_end));
+  };
+  std::sort(slices.begin(), slices.end(),
+            [&](const auto& left, const auto& right) {
+              return full_key(left) < full_key(right);
+            });
+  slices.erase(std::unique(slices.begin(), slices.end(),
+                           [&](const auto& left, const auto& right) {
+                             return full_key(left) == full_key(right);
+                           }),
+               slices.end());
+}
+
+// A slice lifted into a container covers whole tokens: the container owns the
+// token, the child owns the characters inside it.
+DocumentSourceSliceIR widened(DocumentSourceSliceIR slice) {
+  slice.character_begin = 0;
+  slice.character_end = 0;
+  return slice;
+}
+
+void lift_into(DocumentNodeOriginIR& container,
+               const std::vector<const DocumentNodeOriginIR*>& children) {
+  if (container.derivation == DocumentDerivationIR::synthesized ||
+      container.derivation == DocumentDerivationIR::legacy_adapter)
+    return;
+  const auto had_slices = !container.slices.empty();
+  for (const auto* child : children) {
+    if (child->derivation == DocumentDerivationIR::synthesized) continue;
+    for (const auto& slice : child->slices)
+      container.slices.push_back(widened(slice));
+  }
+  if (container.slices.empty()) return;
+  merge_slices(container.slices);
+  if (!had_slices && container.derivation == DocumentDerivationIR::decoded) {
+    container.derivation = DocumentDerivationIR::semantic_lowering;
+    if (container.detail.empty()) container.detail = "source of its content";
+  }
+}
+
+void lift_inlines(DocumentNodeOriginIR& container,
+                  const InlineSequenceIR& inlines) {
+  std::vector<const DocumentNodeOriginIR*> children;
+  collect_inline_origins(inlines, children);
+  lift_into(container, children);
+}
+
+void normalize_block(BlockIR& block) {
+  std::visit(
+      [&](auto& node) {
+        using T = std::decay_t<decltype(node)>;
+        if constexpr (std::is_same_v<T, ListBlockIR>) {
+          for (auto& item : node.items) lift_inlines(item.origin, item.content);
+        } else if constexpr (std::is_same_v<T, DefinitionListBlockIR>) {
+          for (auto& entry : node.entries) {
+            lift_inlines(entry.origin, entry.term);
+            lift_inlines(entry.origin, entry.definition);
+          }
+        } else if constexpr (std::is_same_v<T, TableBlockIR>) {
+          for (auto& row : node.rows) {
+            for (auto& cell : row.cells) lift_inlines(cell.origin, cell.content);
+            std::vector<const DocumentNodeOriginIR*> cells;
+            for (const auto& cell : row.cells) cells.push_back(&cell.origin);
+            lift_into(row.origin, cells);
+          }
+        } else if constexpr (std::is_same_v<T, PublicationListBlockIR>) {
+          for (auto& entry : node.entries) {
+            lift_inlines(entry.origin, entry.title);
+            for (const auto& paragraph : entry.paragraphs)
+              lift_inlines(entry.origin, paragraph);
+          }
+        } else if constexpr (std::is_same_v<T, IndexGroupBlockIR>) {
+          for (auto& entry : node.entries)
+            lift_inlines(entry.origin, entry.term);
+        }
+      },
+      block.node);
+  std::vector<const DocumentNodeOriginIR*> children;
+  collect_child_origins(block.node, children);
+  lift_into(block.origin, children);
+}
+
+} // namespace
+
+void normalize_document_origin_slices(DocumentIR& document) {
+  for (auto& block : document.blocks) normalize_block(block);
+}
+
 bool verify_document_ir(const DocumentIR& document, std::string* error) {
   const auto is_identity_free_legacy_adapter =
       document.topic.id.empty() && document.topic.title.empty() &&
@@ -432,6 +646,8 @@ std::string format_document_ir(const DocumentIR& document) {
             for (std::size_t line = 0; line < node.lines.size(); ++line) {
               if (line != 0) out << ' ';
               out << quoted(node.lines[line]);
+              if (line < node.line_origins.size())
+                format_entry_origin(out, node.line_origins[line]);
             }
             out << ']';
           } else if constexpr (std::is_same_v<T, NoteBlockIR>) {

@@ -134,6 +134,12 @@ struct TableBlockIR {
 
 struct PreformattedBlockIR {
   std::vector<std::string> lines;
+  // Optional per-line provenance.  Either empty, meaning the block's own
+  // origin is the finest source coordinate available, or exactly one origin
+  // per line.  A positioned display rectangle knows which record and tokens
+  // each of its lines came from, and a reader hunting a rendering fault needs
+  // that line, not the whole region.
+  std::vector<DocumentNodeOriginIR> line_origins;
 };
 
 struct NoteBlockIR {
@@ -235,6 +241,15 @@ struct DocumentIR {
   TopicIdentityIR topic;
   std::vector<BlockIR> blocks;
 };
+
+// Lifts every child node's source slices into the container that holds it, so
+// a block, list item, table row, or catalog entry names at least the BOO
+// bytes its own content names.  Slices are merged into the fewest ordered
+// contiguous ranges, and a sub-token slice widens to its whole token when it
+// is lifted.  A container that states it was `synthesized` is left alone: a
+// node with no source of its own must not acquire one.  Lowerings call this
+// before verification; it never changes rendered output.
+void normalize_document_origin_slices(DocumentIR& document);
 
 bool verify_document_ir(const DocumentIR& document,
                         std::string* error = nullptr);
