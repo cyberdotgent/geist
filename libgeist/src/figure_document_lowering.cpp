@@ -174,6 +174,35 @@ lower_preformatted_figure(const FigureSourceBlockIR &figure,
   }
   blocks.push_back(std::move(anchor));
 
+  // A bare `SRSPT<id>` inside the drawn body is a second anchor.  Hosted
+  // BookServer opens it on the display line that follows the control; a
+  // Markdown anchor can only stand in front of the whole verbatim block, so
+  // one that does not open the body's first line lands early.
+  for (const auto &spot : figure.spot_anchors) {
+    BlockIR node;
+    node.node = AnchorBlockIR{spot.id};
+    node.origin.derivation = DocumentDerivationIR::semantic_lowering;
+    node.origin.detail = "figure spot anchor";
+    add_cell_slices(node.origin, figure.cells, [&](const auto &cell) {
+      return cell.role == FigureCellRoleIR::control &&
+             cell.logical_record == spot.logical_record &&
+             cell.segment_index == spot.segment_index;
+    });
+    if (node.origin.slices.empty()) {
+      fail(error, "figure spot anchor has no source slice");
+      return std::nullopt;
+    }
+    if (!spot.at_body_start) {
+      node.origin.fidelity = DocumentFidelityIR::degraded;
+      node.origin.degradation_code = "figure-body-anchor-position";
+      node.origin.degradation_detail =
+          "anchor '" + spot.id +
+          "' opens a line inside the drawn body; a Markdown anchor can only "
+          "stand in front of the whole verbatim block";
+    }
+    blocks.push_back(std::move(node));
+  }
+
   PreformattedBlockIR body;
   std::vector<DocumentSourceRowIR> body_rows;
   for (const auto &line : figure.lines) {

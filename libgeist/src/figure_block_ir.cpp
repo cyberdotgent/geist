@@ -71,6 +71,7 @@ bool same_block(const FigureSourceBlockIR &left,
       left.target_kind != right.target_kind || left.target != right.target ||
       left.placeholder_text != right.placeholder_text ||
       left.additional_pictures.size() != right.additional_pictures.size() ||
+      left.spot_anchors.size() != right.spot_anchors.size() ||
       left.body_kind != right.body_kind ||
       left.lines.size() != right.lines.size() ||
       left.index_terms != right.index_terms ||
@@ -800,9 +801,8 @@ struct Extractor {
     //    ("cforwardlevel", "cselect" in the RMF report of GG24-4302-00
     //    record 262) as controls, so C-controls are judged by whether they
     //    open a display line (step 3).
-    for (std::size_t index = 0; index < region.segments.size(); ++index) {
-      const auto &segment = *region.segments[index].segment;
-      const auto interior = index != 0 && index + 1 != region.segments.size();
+    for (const auto &view : region.segments) {
+      const auto &segment = *view.segment;
       switch (segment.kind) {
       case BookControlKind::table_start:
       case BookControlKind::table_end:
@@ -814,9 +814,12 @@ struct Extractor {
       case BookControlKind::message_start:
         return decline(region, "figure region contains a message catalog");
       case BookControlKind::structural:
-        if (interior)
-          return decline(region, "figure region contains structural control " +
-                                     segment.opcode);
+        // Judged in step 3 by whether the opcode opens a display line: the
+        // control decoder reads a *word* of a drawn line as a structural
+        // control when it is spelled like one (SH12-565 APPENDIX1.9.5.2.1
+        // record 796 line 30 is the body text
+        // "     SRVPREF    (server prefix)", and APPENDIX1.9.5.3.1 record
+        // 814 line 7 is "     SRVMODE  (server's running mode ...").
         break;
       default:
         break;
@@ -903,6 +906,7 @@ struct Extractor {
     // display line, so it is a control line here and the span it covers is
     // resolved once the following lines are classified.
     std::vector<std::pair<std::size_t, const SelectorIR *>> region_selectors;
+    std::vector<std::size_t> spot_anchor_lines;
     for (auto index = first_line + 1; index < last_line; ++index) {
       const auto &view = lines[index];
       const auto &record = *view.record;
@@ -939,6 +943,27 @@ struct Extractor {
               return decline(region, "drawn figure selector covers no "
                                      "columns");
             region_selectors.emplace_back(index, selector);
+            result.kind = LineKind::control;
+            continue;
+          }
+          if (segment.kind == BookControlKind::structural) {
+            // A bare `SRSPT<id>` on its own display line is a second anchor
+            // hosted opens on the line that follows it.
+            if (ascii_lower(segment.opcode).rfind("srspt", 0) != 0)
+              return decline(region, "figure region contains structural "
+                                     "control " +
+                                         segment.opcode);
+            for (auto token = first; token < line.token_end; ++token)
+              if (std::find(segment.source_tokens.begin(),
+                            segment.source_tokens.end(),
+                            token) == segment.source_tokens.end())
+                return decline(region, "structural control " + segment.opcode +
+                                           " does not stand alone on its "
+                                           "line");
+            spot_anchor_lines.push_back(index);
+            block.spot_anchors.push_back({segment.opcode.substr(2),
+                                          record.logical_record,
+                                          segment.segment_index, false});
             result.kind = LineKind::control;
             continue;
           }
@@ -1071,6 +1096,13 @@ struct Extractor {
       if (classes[index].kind == LineKind::index)
         block.index_terms.push_back(collapse_ascii_whitespace(
             trim_ascii(classes[index].text)));
+
+    for (std::size_t index = 0; index < spot_anchor_lines.size(); ++index) {
+      auto next = spot_anchor_lines[index] + 1;
+      while (next < last_line && classes[next].kind == LineKind::control)
+        ++next;
+      block.spot_anchors[index].at_body_start = next == body_begin;
+    }
 
     // 4b. Bind each `cselect` to the display line it precedes.  Hosted
     //     BookServer wraps exactly the covered columns in an anchor: the
@@ -1391,7 +1423,7 @@ struct Extractor {
       if (classified.caption) {
         if (block.caption)
           return decline(region, "figure region has several captions");
-        block.caption = FigureCaptionIR{*classified.caption, {}};
+        block.caption = FigureCaptionIR{*classified.caption, {}, {}};
         if (row != nullptr)
           block.caption->rows.push_back(*row);
       }
@@ -1539,7 +1571,7 @@ struct Extractor {
     // head hand the caption its whole text and their own rows.
     if (!line_caption_rows.empty()) {
       if (!block.caption)
-        block.caption = FigureCaptionIR{line_caption->text, {}};
+        block.caption = FigureCaptionIR{line_caption->text, {}, {}};
       else
         block.caption->text = line_caption->text;
       for (const auto &row : line_caption_rows)

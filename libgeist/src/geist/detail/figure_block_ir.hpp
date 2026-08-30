@@ -174,6 +174,22 @@ struct FigurePreformattedLineIR {
   std::vector<DocumentSourceRowIR> rows;
 };
 
+// A bare `SRSPT<id>` control inside a drawn figure is a second anchor.
+// Hosted BookServer opens it on the display line that follows the control:
+// SC34-425 2.5.3 record 1746 line 8 `SRSPTRCC11` is served as
+// `<a name="FIGFIGUNIQ77"><a name="SPTRCC11">        COUNT    : 4 bytes`
+// (DT 19921112160049), and SC24-5520-00 3.8.3.6 carries two of them
+// (`SPTFCIR` on the figure's first body line and `SPTRFLUSH` in its
+// middle, DT 19911011135123).
+struct FigureSpotAnchorIR {
+  std::string id;
+  std::uint32_t logical_record = 0;
+  std::size_t segment_index = 0;
+  // The anchor opens the figure's first body line, so a Markdown anchor in
+  // front of the block lands exactly where hosted puts it.
+  bool at_body_start = false;
+};
+
 struct FigureSourceBlockIR {
   FigureBlockSpanIR span;
   // "FIG4302RSX": the SRFIG opcode without its SR prefix, which is the name
@@ -198,6 +214,8 @@ struct FigureSourceBlockIR {
   // hosted BookServer never displays them.
   std::vector<std::string> index_terms;
   std::vector<DocumentSourceRowIR> suppressed_rows;
+  // Bare `SRSPT<id>` anchors inside a drawn body, in source order.
+  std::vector<FigureSpotAnchorIR> spot_anchors;
   // Cross references a drawn body carries.  The body is reproduced verbatim,
   // so the link cannot be expressed inside it: the lowering names them in the
   // block's degradation instead of dropping them silently.

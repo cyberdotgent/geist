@@ -635,6 +635,48 @@ int main() {
                 ": the region's second picture was not admitted");
   }
 
+  // A bare `SRSPT<id>` inside a drawn figure is a second anchor.  SC34-425
+  // 2.5.3 record 1746 line 8 is `SRSPTRCC11`, and hosted DT 19921112160049
+  // serves `<a name="FIGFIGUNIQ77"><a name="SPTRCC11">` on the figure's
+  // first body line; FA1PLMM0 H.5 record 969 line 15 is `SRSPTIESWP`,
+  // which hosted DT 19910927114801 opens in the middle of the box.
+  {
+    const auto topic = corpus.topic("SC34-425.boo", "2.5.3");
+    const auto *figure = find_figure(topic, "FIGFIGUNIQ77");
+    require(figure != nullptr && figure->spot_anchors.size() == 1 &&
+                figure->spot_anchors[0].id == "SPTRCC11" &&
+                figure->spot_anchors[0].at_body_start,
+            "SC34-425 2.5.3: the figure's spot anchor was not admitted");
+  }
+  {
+    const auto topic = corpus.topic("FA1PLMM0.boo", "H.5");
+    const auto *figure = find_figure(topic, "FIGFIGUNIQ41");
+    require(figure != nullptr && figure->spot_anchors.size() == 1 &&
+                figure->spot_anchors[0].id == "SPTIESWP" &&
+                !figure->spot_anchors[0].at_body_start,
+            "FA1PLMM0 H.5: the figure's spot anchor was not admitted");
+  }
+  // A word of a drawn line spelled like a structural opcode is body text,
+  // not a control: SH12-565 APPENDIX1.9.5.2.1 record 796 line 30 is
+  // "     SRVPREF    (server prefix)" and line 30's first content token is
+  // the leading space run, not the opcode.
+  for (const auto &[book, id, anchor, word] :
+       {std::tuple{"SH12-565.boo", "APPENDIX1.9.5.2.1", "FIGFIGUNIQ62",
+                   "     SRVPREF    (server prefix)"},
+        std::tuple{"SH12-565.boo", "APPENDIX1.9.5.3.1", "FIGFIGUNIQ69",
+                   "     SRVMODE  (server's running mode S (single), C "
+                   "(continuous),"}}) {
+    const auto topic = corpus.topic(book, id);
+    const auto *figure = find_figure(topic, anchor);
+    const auto found =
+        figure != nullptr &&
+        std::any_of(figure->lines.begin(), figure->lines.end(),
+                    [&](const auto &line) { return line.text == word; });
+    require(found, std::string(book) + " " + id +
+                       ": the body line spelled like a control was not "
+                       "reproduced");
+  }
+
   // Negative: a drawn figure wrapping an SRTBL is the table family's
   // (SC31-711 2.4.1 FIGTBLUNIQ2 / TBLTBLUNIQ2, IEAC6MST 1.4 FIGDSLIB).
   // IEAC6MST 1.4 also carries the picture figure FIGTSOAPPL, which is
