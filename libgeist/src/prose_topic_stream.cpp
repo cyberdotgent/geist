@@ -73,6 +73,11 @@ bool is_padding(const TokenView& view) {
          is_bullet_glyph(view);
 }
 
+bool is_row_control_slot(const std::vector<DecodedLogicalRecordSource>& records,
+                         const TokenView& view) {
+  return is_display_line_length_token(records[view.record], view.token);
+}
+
 std::string word_text(std::uint16_t word) {
   if (word == unmapped_word) return "?";
   return token_words_to_ascii({word});
@@ -280,7 +285,10 @@ bool assign_segment_tokens(const std::vector<DecodedLogicalRecordSource>& record
         return false;
       continue;
     }
-    if (is_padding(view) ||
+    // The row-control slot that opens the next display line is structure,
+    // not this control's payload: the operand parser ran past the framing
+    // boundary and picked up the length byte's dictionary spelling.
+    if (is_padding(view) || is_row_control_slot(records, view) ||
         (std::binary_search(leading.begin(), leading.end(), token) &&
          is_separator(view))) {
       if (!ledger.assign(record_index, token, ProseTokenRoleIR::padding, error))
@@ -519,7 +527,17 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
           envelope.glued_title_tokens.push_back(token);
           continue;
         }
-        if (is_padding(view) || is_separator(view) ||
+        // `csourcefn RBAFUP21 additional` (QSYSINFO record 273 segment 7):
+        // `additional` is the length byte that opens the following `ST`
+        // display line, not a second source-file operand.  Only the carried
+        // framing separates the two -- the dictionary spelling is an
+        // ordinary word.  Checked after the glued title, not before it: the
+        // length bytes *inside* a glued title run (ACPZMST1 record 273,
+        // whose `csourcefn` segment swallows four whole display lines) are
+        // the title run's own framing, and diverting them out of it breaks
+        // the run the title is rebuilt from.
+        if (is_padding(view) || is_row_control_slot(records, view) ||
+            is_separator(view) ||
             (view.width == 1 && punctuation_glyph_token(view))) {
           if (!ledger.assign(record_index, token, ProseTokenRoleIR::padding,
                              error))
@@ -1138,7 +1156,12 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
             const auto glyph_slot = view.width == 1 &&
                                     view.value < row_control_byte_limit &&
                                     punctuation_glyph_token(view);
-            if (!is_padding(view) && !is_separator(view) && !glyph_slot)
+            // A length byte the anchor's operand run overshot into is the
+            // next row's control slot, not the anchor's payload.  Checked
+            // last: a byte that already reads as the row's marker glyph
+            // keeps the marker role the row geometry is built from.
+            if (!is_padding(view) && !is_separator(view) && !glyph_slot &&
+                !is_row_control_slot(records, view))
               return fail(error, "control " + segment.opcode +
                                      " carries visible payload '" +
                                      body_text(view) + "' in record " +
@@ -1361,7 +1384,10 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
             if (position + 1 >= segment.source_tokens.size()) break;
             const auto candidate = segment.source_tokens[position + 1];
             const auto view = view_token(records, record_index, candidate);
-            if (is_padding(view)) break;
+            // The next display line's length byte is not this control's
+            // operand, whatever the dictionary spells for the byte; the
+            // control simply carried none.
+            if (is_padding(view) || is_row_control_slot(records, view)) break;
             const auto text = body_text(view);
             if (!pagination_operand(text))
               return fail(error, first_text + " control carries visible payload '" +
@@ -1425,7 +1451,8 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
               continue;
             }
             const auto view = view_token(records, record_index, token);
-            if (!is_padding(view) && !is_separator(view) &&
+            if (!is_padding(view) && !is_row_control_slot(records, view) &&
+                !is_separator(view) &&
                 !(view.width == 1 && punctuation_glyph_token(view)))
               return fail(error, "SREFTN end marker carries visible payload '" +
                                      body_text(view) + "'");
@@ -1583,7 +1610,9 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         std::optional<std::size_t> opcode_token;
         for (const auto token : segment.source_tokens) {
           const auto view = view_token(records, record_index, token);
-          if (!is_visible(view)) continue;
+          // A length byte the segment overshot into spells a word but is the
+          // next row's control slot, so it is not an operand of `c.sp`.
+          if (!is_visible(view) || is_row_control_slot(records, view)) continue;
           if (!opcode_token) {
             opcode_token = token;
             continue;
