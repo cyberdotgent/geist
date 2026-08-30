@@ -358,6 +358,13 @@ struct CzBuilder {
     parts.push_back(std::move(term));
     if (rest_has_text) parts.push_back(std::move(rest));
     for (auto index = begin + 1; index < end; ++index) parts.push_back(lines[index]);
+    // A term whose definition is a block of its own has no inline definition
+    // at all -- SC09-2417-00 PREFACE.2.1 record 33 is `cz FLOW DT 3 13` +
+    // `   /L[+|-]` followed by `cz OFF LINES` .. `cz OFF ELINES 10 10`, and
+    // hosted (DT 19961114175628) serves `<dt>   <tt>/L[+|-]</tt>` with no
+    // `<dd>` and then the `<pre width="80">` holding `/L`, `/L+`, `/L-`.
+    // `DefinitionEntryIR` is a term plus an *inline* definition, so that
+    // shape has no typed spelling yet and still fails closed here.
     if (parts.size() < 2)
       return fail(error, "cz FLOW DT term '" + line_text(parts.front()) +
                              "' has no definition");
@@ -572,27 +579,81 @@ struct CzBuilder {
       // (SC09-2417-00 3.2.3, served as `SC09-241` DT 19961114175628, record
       // 549 lines 9-16 -- the `PURCHASE ORDER FORM` display; SC24-5527-02
       // draws the same shape).
-      if (directive.mode == "off" &&
-          (tag == "xmp" || tag == "screen" || tag == "lblbox")) {
+      //
+      // `SYNTAX` is the fourth and behaves the same way: the railroad syntax
+      // diagram between `cz OFF SYNTAX` and `cz OFF ESYNTAX` is one drawn
+      // display block.  SC09-2417-00 `4.1.2` (DT 19961114175628) serves both
+      // of its regions as `<pre width="80">` holding
+      // `   &gt;&gt;__<kbd>extern</kbd>__<var>&quot;string-literal&quot;</var>__ ...`
+      // -- the same `<pre>` element `XMP` gets two blocks further down the
+      // same page, at the region's own left margin of three columns, and the
+      // prose around it stays typed (`<dl>`, `<dt>`, `<a href>`).
+      if (directive.mode == "off" && cz_verbatim_region_tag(tag)) {
         std::string opener;
         for (const auto ch : tag)
           opener.push_back(
               static_cast<char>(std::toupper(static_cast<unsigned char>(ch))));
         const auto closer_tag = "e" + tag;
-        if (index + 1 >= build.directives.size() ||
-            build.directives[index + 1].mode != "off" ||
-            build.directives[index + 1].tag != closer_tag)
+        // The footnote end marker `SREFTN` lowers to a synthetic `cz OFF FN`
+        // directive that displays nothing (prose_topic_stream.cpp), so a
+        // footnote whose last block is a verbatim region carries that marker
+        // between the region's opener and its closer: packet 4.5.1 record 225
+        // line 24 is `SREFTN`, between `cz OFF XMP` (line 21) and
+        // `cz OFF EXMP 6 6` (line 25).  A marker that displays nothing does
+        // not break the region; anything that owns a display row does.
+        //
+        // A labelled box may also enclose an `SRFIG`/`SRTBL` envelope whose
+        // `cz OFF ETABLE` closer therefore falls inside the box.  That
+        // envelope is not a table: `cz OFF TABLE` is the only mark of one,
+        // and there is no opener here.  Hosted (SC41-4853-00 `1.2` DT
+        // 19951003131222) serves the whole box, drawn grid included, as one
+        // `<pre width="132"><!-- lblbox -->` and emits no `<table>` -- the
+        // envelope anchors become `<a name="TBLTBLUNIQ1">` on the box rows
+        // they open.  So an object delimiter inside a verbatim region is a
+        // row of that region, not a break in it.
+        auto closer_index = index + 1;
+        auto region_end = range.second;
+        while (closer_index < build.directives.size()) {
+          const auto& inner = build.directives[closer_index];
+          if (inner.mode != "off") break;
+          const auto inner_rows = ranges[closer_index];
+          if (inner.tag == "fn") {
+            // The footnote end marker displays nothing.
+            if (inner_rows.first != npos) break;
+          } else if (inner.tag == "table" || inner.tag == "etable" ||
+                     inner.tag == "fig" || inner.tag == "efig") {
+            if (inner_rows.first != npos) region_end = inner_rows.second;
+          } else {
+            break;
+          }
+          ++closer_index;
+        }
+        const auto closed =
+            closer_index < build.directives.size() &&
+            build.directives[closer_index].mode == "off" &&
+            build.directives[closer_index].tag == closer_tag;
+        // An unterminated region ends where the topic does.  SG24-204
+        // `NOTICES` opens `cz OFF LBLBOX`, draws the closed `Take Note!` box
+        // and stops: no directive follows it at all, and hosted (SG24-2047-00
+        // DT 19971218054640) serves exactly that one `<!-- lblbox -->` block
+        // as the whole body.  A region that merely runs into *other*
+        // directives is still a decline.
+        if (!closed && closer_index < build.directives.size())
           return fail(error, "cz OFF " + opener + " is not closed by cz OFF E" +
                                  opener);
         if (range.first == npos)
           return fail(error, "cz OFF " + opener + " block has no display rows");
-        if (!preformatted(range.first, range.second)) return false;
+        if (!preformatted(range.first, region_end)) return false;
+        if (!closed) {
+          index = closer_index;
+          return true;
+        }
         // The closing directive carries the body text that follows the
         // example block as ordinary paragraphs at its own left/indent
         // (packet 2.4.1 record 57 `cz OFF EXMP 2 2   Note that zeros are
         // omitted ...`, which hosted prints after the `</pre>`).
-        const auto closer = ranges[index + 1];
-        ++index;
+        const auto closer = ranges[closer_index];
+        index = closer_index;
         if (closer.first == npos) return true;
         return paragraphs(group_lines(lines, closer.first, closer.second), 0);
       }
@@ -630,7 +691,16 @@ struct CzBuilder {
         return true;
       }
       if (list_tag(tag)) {
-        if (!groups.empty()) return fail(error, name + " carries display text");
+        // A list opener may carry the list's lead-in rows, exactly as the
+        // list closer carries the body text that follows the list.  Hosted
+        // BookServer serves them ahead of the first item and inside the list
+        // element: SC09-2417-00 3.1.2.2 (DT 19961114175628) record 361
+        // `cz FLOW DL 3 3` + `cfont 3 6 2 13 3 2   Option    Tag` becomes
+        // `<dl>\n   <B>Option</B>    <B>Tag</B>` before the first `<dt>`, and
+        // PREFACE.2.1 record 32 opens its `DL` with `Syntax    Possible
+        // Choices` the same way.  Markdown has no in-list lead-in, so the
+        // rows become the paragraphs that precede the list.
+        if (!paragraphs(groups, 0)) return false;
         stack.push_back({tag, next_list_ordinal++, 0});
         return true;
       }
@@ -663,11 +733,30 @@ struct CzBuilder {
         if (groups.empty()) {
           // A trailing empty heading directive announces the next topic's
           // level; it carries no content.  Only the topic's footnotes may
-          // follow it (packet 1.1 record 17).
-          for (auto later = index + 1; later < build.directives.size(); ++later)
-            if (build.directives[later].tag != "fn")
-              return fail(error,
-                          name + " without text is not the last directive");
+          // follow it (packet 1.1 record 17) -- but a footnote body is a
+          // block stream of its own, so the directives that build one belong
+          // to the footnote and not to the topic after the heading.  packet
+          // 4.5.1 record 225 ends `cz FLOW H5 3 3` / `SRFTNFTNUNIQ50` /
+          // `cz FLOW FN 3 7` and then opens `cz OFF XMP` .. `cz OFF EXMP 6 6`
+          // inside that footnote; hosted (DT 20260614112503) serves six
+          // separate `<pre width="80">` blocks for the topic, the last of
+          // them under the footnote anchor.  What must not follow the
+          // announcement is body content of the topic itself.
+          bool in_footnote = false;
+          for (auto later = index + 1; later < build.directives.size();
+               ++later) {
+            const auto& tail = build.directives[later];
+            if (tail.tag == "fn") {
+              in_footnote = true;
+              continue;
+            }
+            if (in_footnote && tail.mode == "off" &&
+                (tail.tag == "fn" || cz_verbatim_region_tag(tail.tag) ||
+                 cz_verbatim_region_closer(tail.tag)))
+              continue;
+            return fail(error,
+                        name + " without text is not the last directive");
+          }
           return true;
         }
         ProseBlockIR block;

@@ -23,6 +23,69 @@
 // the same span; any other token rejects the topic.  A token claimed by two
 // blocks, or by a block and the envelope, rejects through the ledger.
 namespace geist::detail::prose_internal {
+
+// The `cz OFF <verbatim>` .. `cz OFF E<verbatim>` regions of the topic, as
+// closed [begin, end] segment-position ranges.  Inside such a region every
+// display row is served character for character, so an `SRFIG`/`SRTBL`
+// envelope that falls inside one is drawn box art and not an object: hosted
+// (SC41-4853-00 `1.2` DT 19951003131222) serves the whole labelled box,
+// grid rows included, as one `<pre width="132"><!-- lblbox -->` and emits no
+// `<table>` -- the envelope's anchors become `<a name="TBLTBLUNIQ1">` on the
+// box rows they open.  `cz OFF TABLE` is the only mark of a genuine table
+// and there is none here.
+//
+// The mode and tag are read from the directive's own operand tokens, which
+// the display-line framing already bounds to its own row.
+std::vector<CzVerbatimRegion> cz_verbatim_regions(
+    const std::vector<DecodedLogicalRecordSource>& records) {
+  std::vector<CzVerbatimRegion> regions;
+  bool open = false;
+  std::pair<std::size_t, std::size_t> begin{};
+  std::string open_tag;
+  for (std::size_t index = 0; index < records.size(); ++index) {
+    for (const auto& segment : records[index].control_segments) {
+      if (segment.kind != BookControlKind::layout_directive ||
+          segment.malformed || segment.source_tokens.empty())
+        continue;
+      std::vector<std::string> words;
+      for (const auto token : segment.source_tokens) {
+        const auto view = view_token(records, index, token);
+        if (!is_visible(view) || is_padding(view)) continue;
+        words.push_back(ascii_lower(body_text(view)));
+        if (words.size() == 3) break;
+      }
+      if (words.size() < 3 || words.front() != "cz" || words[1] != "off")
+        continue;
+      const auto& tag = words.back();
+      if (!open && cz_verbatim_region_tag(tag)) {
+        open = true;
+        open_tag = tag;
+        begin = {index, segment.source_tokens.front()};
+      } else if (open && tag == "e" + open_tag) {
+        open = false;
+        regions.push_back({begin, {index, segment.source_tokens.back()}});
+      }
+    }
+  }
+  // An unterminated region runs to the end of the topic (SG24-204 `NOTICES`).
+  if (open && !records.empty())
+    regions.push_back(
+        {begin, {records.size() - 1,
+                 records.back().ir.tokens.empty()
+                     ? std::size_t{0}
+                     : records.back().ir.tokens.size() - 1}});
+  return regions;
+}
+
+bool inside_cz_verbatim(const std::vector<CzVerbatimRegion>& regions,
+                        std::size_t record, std::size_t token) {
+  const std::pair<std::size_t, std::size_t> at{record, token};
+  return std::any_of(regions.begin(), regions.end(), [&](const auto& region) {
+    return !(at < region.begin) && !(region.end < at);
+  });
+}
+
+
 namespace {
 
 using Claim = std::pair<std::size_t, std::size_t>;  // record index, token
@@ -83,19 +146,27 @@ std::optional<std::size_t> record_index_of(
   return std::nullopt;
 }
 
-bool has_table_envelope(const std::vector<DecodedLogicalRecordSource>& records) {
-  for (const auto& record : records)
-    for (const auto& segment : record.control_segments)
-      if (segment.kind == BookControlKind::table_start ||
-          segment.kind == BookControlKind::table_end)
+bool has_table_envelope(const std::vector<DecodedLogicalRecordSource>& records,
+                        const std::vector<CzVerbatimRegion>& verbatim) {
+  for (std::size_t index = 0; index < records.size(); ++index)
+    for (const auto& segment : records[index].control_segments)
+      if ((segment.kind == BookControlKind::table_start ||
+           segment.kind == BookControlKind::table_end) &&
+          !segment.source_tokens.empty() &&
+          !inside_cz_verbatim(verbatim, index, segment.source_tokens.front()))
         return true;
   return false;
 }
 
-bool has_figure_region(const std::vector<DecodedLogicalRecordSource>& records) {
-  for (const auto& record : records) {
+bool has_figure_region(const std::vector<DecodedLogicalRecordSource>& records,
+                       const std::vector<CzVerbatimRegion>& verbatim) {
+  for (std::size_t index = 0; index < records.size(); ++index) {
+    const auto& record = records[index];
     const auto text = token_words_to_ascii(record.assembled.words);
     for (const auto& segment : record.control_segments) {
+      if (!segment.source_tokens.empty() &&
+          inside_cz_verbatim(verbatim, index, segment.source_tokens.front()))
+        continue;
       const auto opcode = ascii_lower(segment.opcode);
       if (segment.kind == BookControlKind::structural &&
           (opcode.rfind("srfig", 0) == 0 || opcode.rfind("srefig", 0) == 0))
@@ -509,7 +580,8 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
                 const std::set<std::string>* resource_ids, Ledger& ledger,
                 ProseTopicIR& topic, SpanPlan& plan, std::string* error) {
   std::vector<Region> regions;
-  if (has_table_envelope(records)) {
+  const auto verbatim = cz_verbatim_regions(records);
+  if (has_table_envelope(records, verbatim)) {
     topic.tables = extract_fixed_table_blocks_ir(
         records, layout, ownership, {0, count_layout_rows(layout)});
     for (const auto& decline : topic.tables.declined)
@@ -525,7 +597,7 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
       regions.push_back(std::move(region));
     }
   }
-  if (has_figure_region(records)) {
+  if (has_figure_region(records, verbatim)) {
     std::string selector_error;
     SelectorCatalogIR selectors;
     if (const auto catalog = extract_selector_catalog_ir(records, &selector_error))

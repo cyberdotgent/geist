@@ -80,23 +80,22 @@ void fully_typed_topic() {
 // carrying the exact typed rejection `bootrace --coverage` prints.
 void declined_topic() {
   const auto document = geist::BooDocument::open(book("packet.boo"));
-  const auto &entry = topic(document, "4.5.1");
+  const auto &entry = topic(document, "COVER");
   const auto &diagnostic = entry.render_diagnostic();
   require(diagnostic.severity == geist::RenderSeverity::best_effort,
-          "packet 4.5.1 should be best-effort, is " +
+          "packet COVER should be best-effort, is " +
               std::string(geist::to_string(diagnostic.severity)));
   require(diagnostic.route == "best-effort",
-          "4.5.1 route should be best-effort");
+          "COVER route should be best-effort");
   require(diagnostic.reason == "typed-lowering-declined",
-          "4.5.1 reason code, is " + diagnostic.reason);
+          "COVER reason code, is " + diagnostic.reason);
   require(diagnostic.detail ==
-              "prose topic rejected: cz flow h5 without text is not the last "
-              "directive",
-          "4.5.1 carries its real typed rejection, is: " + diagnostic.detail);
+              "prose topic rejected: cz off cover carries display text",
+          "COVER carries its real typed rejection, is: " + diagnostic.detail);
   const auto markdown = entry.markdown();
   require(contains(markdown, "<!-- geist-render: severity=best-effort"),
           "a declined topic's Markdown opens with the marker");
-  require(contains(markdown, "cz flow h5"),
+  require(contains(markdown, "cz off cover"),
           "the marker carries the rejection into the file");
 }
 

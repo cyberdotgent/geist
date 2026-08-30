@@ -686,6 +686,13 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
                     StreamBuild& build, std::string* error) {
   bool title_seen = false;
   bool menu_open = false;
+  // The verbatim `cz OFF` regions of the topic.  An `SRFIG`/`SRTBL` envelope
+  // marker inside one is not an object envelope -- the span plan leaves it
+  // alone (prose_topic_spans.cpp) -- so it reaches this pass as the bare
+  // anchor hosted serves it as: SC41-4853-00 `1.2` (DT 19951003131222) emits
+  // `<a name="FIGTBLUNIQ1">` and `<a name="TBLTBLUNIQ1">` on two rows of the
+  // labelled box, and no `<table>`.
+  const auto verbatim_regions = cz_verbatim_regions(records);
   // Which dialect the topic is written in: a body that carries any `CZ`
   // control names every block boundary explicitly, a body that carries none
   // reconstructs its blocks from row geometry (Format/markup.md, "CZ layout
@@ -1113,7 +1120,22 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         }
         break;
       }
+      // `SRTBL<id>` / `SRETBL` inside a verbatim `cz OFF` region are the
+      // labelled box's own anchors, not a table envelope: the span plan
+      // leaves them unclaimed there (prose_topic_spans.cpp), so they reach
+      // the bare-anchor path with every other `SR<id>` control.  Outside one
+      // they are envelope controls the span plan owns, and reaching this pass
+      // at all is a decline.
+      case BookControlKind::table_start:
+      case BookControlKind::table_end:
       case BookControlKind::structural: {
+        if ((segment.kind == BookControlKind::table_start ||
+             segment.kind == BookControlKind::table_end) &&
+            !(!segment.source_tokens.empty() &&
+              inside_cz_verbatim(verbatim_regions, record_index,
+                                 segment.source_tokens.front())))
+          return fail(error, "body control " + segment.opcode +
+                                 " is outside the prose model");
         if (!segment.malformed && title_seen && cz_dialect &&
             lower_opcode.rfind("srftn", 0) == 0 && lower_opcode.size() > 5) {
           // Footnote start of the CZ dialect: like every `SR<id>` anchor the
@@ -1209,8 +1231,12 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         }
         // A `SRFTN<id>` of the flattened dialect is an ordinary body
         // anchor whose payload is the footnote text (see `sreftn` above).
+        const auto in_verbatim =
+            !segment.source_tokens.empty() &&
+            inside_cz_verbatim(verbatim_regions, record_index,
+                               segment.source_tokens.front());
         if (segment.malformed || lower_opcode.rfind("sr", 0) != 0 ||
-            (reserved_structural(lower_opcode) &&
+            (reserved_structural(lower_opcode) && !in_verbatim &&
              !(!cz_dialect && lower_opcode.rfind("srftn", 0) == 0 &&
                lower_opcode.size() > 5)))
           return fail(error, "structural control " + segment.opcode +
