@@ -242,7 +242,12 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
   if (catalog.entries.empty() || catalog.title.empty() ||
       catalog.raw_topic_id.empty() || catalog.heading_level.size() != 2)
     return reject("trap catalog envelope is incomplete");
-  if ((!topic.id.empty() && topic.id != catalog.raw_topic_id) ||
+  // The topic-start opcode carries the id in the case the record stored it,
+  // which is not always the case the table of contents publishes; both name
+  // the same topic. The published spelling is the one every cross reference
+  // resolves against, so the catalog agrees with it rather than replacing it.
+  if ((!topic.id.empty() &&
+       !ascii_equals_case_insensitive(topic.id, catalog.raw_topic_id)) ||
       (topic.start_logical_record != 0 &&
        topic.start_logical_record != catalog.first_logical_record) ||
       (topic.end_logical_record != 0 &&
@@ -252,7 +257,7 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
       collapse_ascii_whitespace(topic.title) != catalog.title)
     return reject("topic title differs from the catalog title row: [" +
                   topic.title + "] vs [" + catalog.title + "]");
-  topic.id = catalog.raw_topic_id;
+  if (topic.id.empty()) topic.id = catalog.raw_topic_id;
   topic.title = catalog.title;
   topic.heading_level = catalog.heading_level;
   topic.start_logical_record = catalog.first_logical_record;

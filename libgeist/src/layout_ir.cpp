@@ -1,5 +1,6 @@
 #include "geist/detail/layout_ir.hpp"
 
+#include "geist/detail/display_lines.hpp"
 #include "geist/detail/internal.hpp"
 
 #include <algorithm>
@@ -394,6 +395,108 @@ LayoutIR extract_layout_ir(
           break;
         }
       }
+
+      // Row coverage from the record's own display-line framing.
+      //
+      // Every display line of a record payload opens on a length byte, and
+      // that byte is the row-control slot -- always and only. The marker
+      // heuristic above recognises the slot by the word the dictionary
+      // spells for it, so a length byte the dictionary happens to spell as
+      // blanks, or as an ordinary word standing where the payload's own
+      // opening text would stand, is invisible to it and the row that line
+      // draws is then built by nobody. Its words are drawn by the source and
+      // reachable by no row at all.
+      //
+      // The framing stored on the record names those slots exactly, so read
+      // it rather than guess again. Only a line whose first content token is
+      // the row's native display origin -- the leading blanks that place the
+      // row on the display -- is admitted: a line that opens on its own
+      // control word instead (an `SI` index term, a `cfont`, an `SRMSG`) is
+      // that control's line, not display text this segment draws in a row,
+      // and stays out. That distinction is per display line, not per
+      // segment, so an index term sharing a segment with an introduction
+      // sentence keeps the sentence and leaves the term behind.
+      //
+      // The rows built below tile the segment from its first row's opening
+      // token to its last source token, so the only span of a segment no row
+      // can reach is the run of display lines in front of that token. This
+      // pass fills exactly that span: it never subdivides, shortens or
+      // displaces a row the segment already had.
+      //
+      // Text and font are the two controls whose payload is running display
+      // text. A selector, menu item or table boundary states its own display
+      // geometry in its operand, and its rows are read against that
+      // statement rather than against the line framing.
+      const auto* lines = segment.kind == BookControlKind::text ||
+                                  segment.kind == BookControlKind::font
+                              ? record_display_lines(record)
+                              : nullptr;
+      if (lines != nullptr) {
+        const auto opened = boundaries.empty()
+                                ? segment.source_tokens.back() + 1
+                                : boundaries.front().marker;
+        const auto owned = [&](const std::size_t token) {
+          return std::binary_search(segment.source_tokens.begin(),
+                                    segment.source_tokens.end(), token);
+        };
+        bool admitted = false;
+        static const std::vector<DisplayLineIR> no_lines;
+        for (const auto& line : run.rows.empty() ? *lines : no_lines) {
+          const auto marker = line.prefix_token;
+          const auto origin = marker + 1;
+          if (marker >= opened || origin >= line.token_end ||
+              origin >= record.tokens.size() ||
+              marker >= record.encoded_tokens.size() ||
+              record.encoded_tokens[marker].width != 1 ||
+              !all_space_words(record.tokens[origin]) || !owned(marker) ||
+              !owned(origin))
+            continue;
+          const auto marker_byte =
+              marker < record.assembled.tokens.size()
+                  ? byte_offsets[record.assembled.tokens[marker].output_begin]
+                  : std::size_t{0};
+          if (marker_byte < segment.payload_range.begin) continue;
+          // A boundary the heuristic placed inside this line stands on a word
+          // the framing calls line content, so it is not a row-control slot
+          // and the row it opened began in the middle of a drawn line. The
+          // line's own length byte replaces it.
+          boundaries.erase(
+              std::remove_if(boundaries.begin(), boundaries.end(),
+                             [&](const auto& boundary) {
+                               return boundary.marker > marker &&
+                                      boundary.marker < line.token_end;
+                             }),
+              boundaries.end());
+          boundaries.push_back({marker, origin});
+          admitted = true;
+        }
+        // A boundary whose origin run is itself a length byte is the same
+        // pair read one token early: the slot it calls a marker is the last
+        // drawn word of the line before, and the row it opens therefore
+        // silently drops that word. Snap the pair onto the line the framing
+        // states.
+        for (auto& boundary : boundaries) {
+          const auto next = boundary.origin + 1;
+          if (!is_display_line_length_token(record, boundary.origin) ||
+              next >= record.tokens.size() || record.tokens[next].empty() ||
+              !owned(boundary.origin) || !owned(next))
+            continue;
+          boundary = {boundary.origin, next};
+          admitted = true;
+        }
+        if (admitted) {
+          std::sort(boundaries.begin(), boundaries.end(),
+                    [](const auto& left, const auto& right) {
+                      return left.marker < right.marker;
+                    });
+          boundaries.erase(std::unique(boundaries.begin(), boundaries.end(),
+                                       [](const auto& left, const auto& right) {
+                                         return left.marker == right.marker;
+                                       }),
+                           boundaries.end());
+        }
+      }
+
       for (std::size_t row_index = 0; row_index < boundaries.size();
            ++row_index) {
         const auto& boundary = boundaries[row_index];

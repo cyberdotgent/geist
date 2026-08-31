@@ -58,7 +58,7 @@ BASELINE = {
     "FA1PLMM0.boo": (413, 414),
     "GC23-046.boo": (99, 99),
     "GC28-183.boo": (146, 146),
-    "GG24-395.boo": (223, 223),
+    "GG24-395.boo": (224, 224),
     "GG24-4302-00.boo": (228, 228),
     "GX27-3999-00.boo": (34, 34),
     "IBMMMSTR.boo": (58, 58),
@@ -80,7 +80,7 @@ BASELINE = {
     "SC31-605.boo": (109, 109),
     "SC31-711.boo": (77, 78),
     "SC33-033.boo": (221, 221),
-    "SC34-425.boo": (245, 245),
+    "SC34-425.boo": (246, 246),
     "SC41-485.boo": (36, 36),
     "SG24-204.boo": (91, 91),
     "SH12-565.boo": (290, 290),
@@ -88,8 +88,8 @@ BASELINE = {
     "XWEBDEMO.boo": (12, 12),
     "packet.boo": (124, 124),
 }
-BASELINE_STRICT_TOTAL = 7225
-BASELINE_TOTAL = 7227
+BASELINE_STRICT_TOTAL = 7227
+BASELINE_TOTAL = 7229
 
 SUMMARY = re.compile(r"^# summary\ttyped=(\d+)\tlegacy=(\d+)\ttotal=(\d+)")
 SEVERITY = re.compile(r"^# severity\t")

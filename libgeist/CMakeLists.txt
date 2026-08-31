@@ -253,7 +253,8 @@ foreach(synthetic_test
     glossary_catalog_ir_synthetic
     message_catalog_ir_synthetic
     verbatim_cross_references_synthetic
-    trap_catalog_ir_synthetic)
+    trap_catalog_ir_synthetic
+    layout_row_coverage_synthetic)
   geist_add_test(${synthetic_test})
 endforeach()
 

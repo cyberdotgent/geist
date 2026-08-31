@@ -1,5 +1,6 @@
 #include "geist/detail/message_prose_rows.hpp"
 
+#include "geist/detail/display_lines.hpp"
 #include "geist/detail/font_span_ir.hpp"
 #include "geist/detail/internal.hpp"
 
@@ -461,9 +462,16 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
       const auto* row =
           owner == row_by_token.end() ? nullptr : owner->second.row;
       const auto& words = record.tokens[token];
+      // A row's marker slot that the record's own framing calls a display
+      // line's length byte is structure, whatever word the dictionary spells
+      // for it (`as`, `*`, `and`). The origin width and the glyph alphabet
+      // are the fallbacks for a record whose payload does not tile into
+      // display lines and whose framing therefore has no answer.
       const auto structural_marker =
           row != nullptr && row->marker && row->marker->token_index == token &&
-          (row->native_origin == 3 || layout_glyph_marker(*row->marker));
+          (row->native_origin == 3 || layout_glyph_marker(*row->marker) ||
+           (record_framing_is_decided(record.ir) &&
+            is_display_line_length_token(record, token)));
       // A lone delimiter attached by a spacing control as the very last
       // visible token before the catalog closes the flattened segment; it is
       // not prose (compare MessageMarkerDispositionIR::closing_delimiter_bridge).

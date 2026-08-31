@@ -1,5 +1,6 @@
 #include "geist/detail/publication_ir.hpp"
 
+#include "geist/detail/display_lines.hpp"
 #include "geist/detail/font_span_ir.hpp"
 #include "geist/detail/internal.hpp"
 
@@ -105,8 +106,15 @@ std::string compose_row(
           visible.compare(visible.size() - terminal_text.size(),
                           terminal_text.size(), terminal_text) == 0) {
         const auto prefix_size = visible.size() - terminal_text.size();
+        // Only a slot the record's own framing calls a display line's length
+        // byte is structure attached to the row's last word; a token the
+        // framing draws inside the line is that word's own text (`System/`
+        // and `6000`) and erasing it would drop a word the reader shows.
+        const auto structural_terminal =
+            !record_framing_is_decided(record->ir) ||
+            is_display_line_length_token(*record, token);
         const auto structurally_attached =
-            compact_attached && prefix_size != 0 &&
+            structural_terminal && compact_attached && prefix_size != 0 &&
             std::isspace(static_cast<unsigned char>(visible[prefix_size - 1])) ==
                 0 &&
             std::isalnum(static_cast<unsigned char>(visible[prefix_size - 1])) ==
