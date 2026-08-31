@@ -702,15 +702,40 @@ std::optional<std::vector<LogicalTokenIR>> decode_source_byte_range_tokens(
 
 const std::map<std::uint16_t, TokenWords>& source_dictionary_for(
     const LogicalDecodeContext& context) {
-  const std::lock_guard<std::mutex> lock(context.source_dictionary_mutex);
-  if (!context.source_dictionary) {
-    auto dictionary =
-        decode_experimental_dictionary(context.bytes, context.directory);
-    context.source_dictionary =
-        std::make_shared<const std::map<std::uint16_t, TokenWords>>(
-            std::move(dictionary));
+  // The dictionary is a pure function of the file bytes and the directory,
+  // both immutable once `open()` has returned, so it is computed into a fresh
+  // value and published atomically rather than locked: readers see either
+  // nothing or the finished map, and a concurrent second build is discarded.
+  // Not holding a lock here matters -- `decode_logical_record_sources` used to
+  // decode a whole topic under this mutex, which serialised every thread that
+  // touched a source decode.
+  return *publish_once(
+      context.source_dictionary,
+      [&context]() -> std::shared_ptr<const std::map<std::uint16_t, TokenWords>> {
+        return std::make_shared<const std::map<std::uint16_t, TokenWords>>(
+            decode_experimental_dictionary(context.bytes, context.directory));
+      });
+}
+
+std::shared_ptr<const LogicalRecordIR> memoized_source_record(
+    const LogicalDecodeContext& context,
+    const std::map<std::uint16_t, TokenWords>& token_strings,
+    std::uint32_t logical_record) {
+  if (logical_record == 0 ||
+      logical_record > context.record_payload_ranges.size()) {
+    return nullptr;
   }
-  return *context.source_dictionary;
+  const std::lock_guard<std::mutex> lock(context.source_record_memo_mutex);
+  if (context.source_record_memo_id != logical_record ||
+      !context.source_record_memo) {
+    const auto& range = context.record_payload_ranges[logical_record - 1];
+    context.source_record_memo =
+        std::make_shared<const LogicalRecordIR>(decode_record_payload_ir(
+            context.bytes, context.directory, token_strings, range.begin,
+            range.end, logical_record));
+    context.source_record_memo_id = logical_record;
+  }
+  return context.source_record_memo;
 }
 
 std::vector<std::string> decode_experimental_logical_records(
@@ -814,14 +839,10 @@ decode_logical_record_sources(const LogicalDecodeContext& context,
       end_logical_record > context.record_payload_ranges.size() + 1) {
     return records;
   }
-  const std::lock_guard<std::mutex> lock(context.source_dictionary_mutex);
-  if (!context.source_dictionary) {
-    auto dictionary = decode_experimental_dictionary(context.bytes,
-                                                      context.directory);
-    context.source_dictionary =
-        std::make_shared<const std::map<std::uint16_t, TokenWords>>(
-            std::move(dictionary));
-  }
+  // The dictionary is published once and then immutable, so the decode below
+  // holds no lock at all: several threads may decode different topics of one
+  // book at the same time.
+  const auto& dictionary = source_dictionary_for(context);
 
   records.reserve(end_logical_record - first_logical_record);
   for (auto logical_record = first_logical_record;
@@ -835,7 +856,7 @@ decode_logical_record_sources(const LogicalDecodeContext& context,
     decoded.logical_record = logical_record;
     decoded.ir = decode_record_payload_ir(context.bytes,
                                           context.directory,
-                                          *context.source_dictionary,
+                                          dictionary,
                                           range.begin,
                                           range.end,
                                           logical_record);

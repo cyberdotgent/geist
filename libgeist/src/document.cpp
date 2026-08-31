@@ -54,25 +54,30 @@ struct LazyTopicState {
   std::string title;
   std::uint32_t level = 0;
   std::uint32_t style = 0;
-  bool raw_loaded = false;
-  bool sources_loaded = false;
 
-  void load_raw() {
-    if (raw_loaded) return;
-    topic.raw_records.assign(
-        context->decoded_records.begin() + topic.start_logical_record - 1,
-        context->decoded_records.begin() + topic.end_logical_record - 1);
-    raw_loaded = true;
-  }
+  // The topic's records and their positioned source decode, loaded together
+  // so there is one slot rather than two flags to publish.
+  struct LoadedTopic {
+    std::vector<std::string> raw_records;
+    std::vector<DecodedLogicalRecordSource> fixed_layout_sources;
+  };
+  CacheSlot<LoadedTopic> loaded;
 
   // Every topic is offered the same positioned source decode once; typed
-  // lowering and the compatibility renderer share this single cache.
-  void load_sources() {
-    load_raw();
-    if (sources_loaded) return;
-    topic.fixed_layout_sources = decode_logical_record_sources(
-        *context, topic.start_logical_record, topic.end_logical_record);
-    sources_loaded = true;
+  // lowering and the compatibility renderer share this single cache. It is
+  // filled once and published atomically (geist/detail/atomic_cache.hpp), so
+  // two threads rendering the same topic at the same time each see a complete
+  // decode and one of the two is discarded.
+  const LoadedTopic& load_sources() {
+    return *publish_once(loaded, [this]() -> std::shared_ptr<const LoadedTopic> {
+      auto value = std::make_shared<LoadedTopic>();
+      value->raw_records.assign(
+          context->decoded_records.begin() + topic.start_logical_record - 1,
+          context->decoded_records.begin() + topic.end_logical_record - 1);
+      value->fixed_layout_sources = decode_logical_record_sources(
+          *context, topic.start_logical_record, topic.end_logical_record);
+      return value;
+    });
   }
 };
 
@@ -101,22 +106,22 @@ TopicLoaderBundle make_topic_loaders(
   // are what a declined topic tells the consumer about itself, and they
   // are the same strings `bootrace --coverage` reports.
   loaders.document = [state]() -> std::shared_ptr<const TopicLoweringOutcomeIR> {
-    state->load_sources();
+    const auto& loaded = state->load_sources();
     auto outcome = std::make_shared<TopicLoweringOutcomeIR>();
     outcome->document = try_lower_topic_to_document_ir(
-        state->identity, state->topic.fixed_layout_sources,
+        state->identity, loaded.fixed_layout_sources,
         state->topic_catalog.get(), &outcome->rejection, &outcome->trace,
         state->resource_ids.get());
     return outcome;
   };
   // Last resort, loaded only when no route produced content.
   loaders.best_effort = [state]() -> TopicBestEffortIR {
-    state->load_sources();
+    const auto& loaded = state->load_sources();
     TopicBestEffortIR result;
-    result.source_decoded = !state->topic.fixed_layout_sources.empty();
+    result.source_decoded = !loaded.fixed_layout_sources.empty();
     // The rows first, then the cross references the source proves on them:
     // a verbatim topic renders faithfully *and* resolves what it names.
-    const auto& sources = state->topic.fixed_layout_sources;
+    const auto& sources = loaded.fixed_layout_sources;
     result.anchors = best_effort_anchors(sources);
     auto linked = link_verbatim_cross_references(
         sources, best_effort_display_lines(sources, state->identity.title),
@@ -312,8 +317,8 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
         context, std::move(topic_data), make_topic_identity(entry), entry_id,
         entry_title, entry_level, entry_style, document.topic_catalog_ir_,
         topic_titles, resource_ids);
-    entry.document_ir_loader_ = std::move(loaders.document);
-    entry.best_effort_loader_ = std::move(loaders.best_effort);
+    entry.attach_loaders(std::move(loaders.document),
+                         std::move(loaders.best_effort));
   }
   return document;
 }
@@ -350,11 +355,15 @@ const std::vector<std::string>& BooDocument::decoded_logical_records()
 
 const std::map<std::string, std::string>& BooDocument::font_definitions()
     const {
-  if (!font_definitions_loaded_) {
-    font_definitions_ = extract_font_definitions(decoded_logical_records());
-    font_definitions_loaded_ = true;
-  }
-  return font_definitions_;
+  // Fill-once and published atomically (geist/detail/atomic_cache.hpp): the
+  // definitions are a pure function of the decoded records, which are built
+  // by `open()` and never written again.
+  return *publish_once(
+      font_definitions_,
+      [this]() -> std::shared_ptr<const std::map<std::string, std::string>> {
+        return std::make_shared<const std::map<std::string, std::string>>(
+            extract_font_definitions(decoded_logical_records()));
+      });
 }
 
 const std::vector<TocEntry>& BooDocument::table_of_contents() const noexcept {
@@ -425,8 +434,8 @@ std::string BooDocument::topic_markdown(const std::string& topic_id) const {
       decode_context_, topic, make_topic_identity(entry), topic.id,
       topic.title, 0, 0, topic_catalog_ir_, topic_titles,
       lowercase_resource_ids(resources_));
-  entry.document_ir_loader_ = std::move(loaders.document);
-  entry.best_effort_loader_ = std::move(loaders.best_effort);
+  entry.attach_loaders(std::move(loaders.document),
+                       std::move(loaders.best_effort));
   return entry.markdown();
 }
 
