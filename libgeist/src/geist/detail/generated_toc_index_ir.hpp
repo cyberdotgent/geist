@@ -5,7 +5,7 @@
 // (`CHDLEVEL :INDEX`, id `INDEX`).
 //
 // These topics carry no display rows at all.  Their whole body is a sequence
-// of BookManager *display lines* (Format/logical-controls.md, "Display Lines
+// of BookManager *display lines* (doc/boo-spec/logical-controls.adoc, "Display Lines
 // Inside A Record Payload"): a one-byte length prefix followed by exactly that
 // many payload bytes of tokens.  In a generated TOC/INDEX topic every such
 // line holds exactly one control, which makes the topic a pure control record

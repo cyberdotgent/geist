@@ -22,7 +22,7 @@ struct DecodedLogicalRecordSource;
 struct BookTopicCatalogIR;
 
 // Whole-topic typed model for ordinary prose topics of the flattened
-// fixed-row BookManager dialect (see Format/markup.md, "Flattened fixed
+// fixed-row BookManager dialect (see doc/boo-spec/markup.adoc, "Flattened fixed
 // prose"): a heading, optional `SR<id>` anchors, and a body that is a
 // sequence of spans in source order: prose spans (display lines that lower
 // to paragraphs and simple lists, with inline emphasis from CFONT spans,
@@ -66,7 +66,7 @@ struct ProseTokenRefIR {
 // exactly one inline (`character_begin == 0` and `character_end` the length of
 // the token's decoded word); a token whose display columns a CFONT/CSELECT
 // span splits is claimed by two or more inlines, each owning one byte range of
-// the decoded word, contiguous and in order (Format/markup.md, "Spans And The
+// the decoded word, contiguous and in order (doc/boo-spec/markup.adoc, "Spans And The
 // Display Row").
 struct ProseInlineClaimIR {
   std::size_t block = static_cast<std::size_t>(-1);
@@ -113,13 +113,13 @@ struct ProseInlineIR {
   std::string target;
   // Cross references only.  An internal `CSELECT <anchor>` is an anchor in
   // the same book; a `CSELECT ... LNK` selector addresses another book or an
-  // external URL (see Format/markup.md, "LNK selector alternatives").
+  // external URL (see doc/boo-spec/markup.adoc, "LNK selector alternatives").
   CrossReferenceTargetKindIR target_kind = CrossReferenceTargetKindIR::anchor;
   // Contiguous source token ranges, in source order.
   std::vector<DocumentSourceSliceIR> slices;
 };
 
-// The `CZ` dialect (Format/markup.md, "CZ layout directives") adds the
+// The `CZ` dialect (doc/boo-spec/markup.adoc, "CZ layout directives") adds the
 // explicit block kinds below; the flattened dialect only produces paragraphs
 // and list items.
 enum class ProseBlockKindIR {

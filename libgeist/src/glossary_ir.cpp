@@ -95,7 +95,7 @@ struct RowEmphasisIR {
 // The font control whose operand governs the first physical row of a run:
 // the run's own CFONT, or, for a record-leading text row, a span-only CFONT
 // (empty payload) terminating the immediately preceding logical record.
-// Format/markup.md documents that BookServer applies such span-only controls
+// doc/boo-spec/markup.adoc documents that BookServer applies such span-only controls
 // to the following physical text line.
 std::optional<FontControlSpansIR>
 governing_font_spans(const std::vector<DecodedLogicalRecordSource>& records,

@@ -145,7 +145,7 @@ int main() {
 
   // The directory topic-start index root holds at most 248 values and
   // continues in a table on the logical page named by its second word
-  // (Format/topics.md).  packet's 124 topics fit in the root, so this pins the
+  // (doc/boo-spec/topics.adoc).  packet's 124 topics fit in the root, so this pins the
   // un-paged shape; the paged continuation shape went with the larger books
   // (issue #59).
   const auto bytes = geist::detail::read_file(path);

@@ -1,8 +1,8 @@
 // Typed figure block extraction and lowering over real figures (issue #58).
 //
 // Positive cases are image-backed figures whose hosted BookServer rendering
-// was compared by hand (AnalysisNotes/typed-route-census-2026-08-28.md lists
-// the DT values): the anchor name, the picture resource or external path,
+// was compared by hand against the hosted edition of each book at its own
+// timestamp: the anchor name, the picture resource or external path,
 // the "PICTURE n" placeholder that the image replaces, and the caption.
 // ASCII/CFONT-drawn figures (no picture selector) are admitted as
 // preformatted figures whose body lines were compared line for line with

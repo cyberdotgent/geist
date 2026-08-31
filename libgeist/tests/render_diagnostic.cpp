@@ -179,8 +179,8 @@ void declared_table_topic() {
 // This is a synthetic pin on the *mechanism*, not on any family. It exists
 // because packet carries no `typed-degraded` topic (see the header note), so
 // the corpus-backed pin that used to stand on SC31-711 5.0 is gone, and
-// because AnalysisNotes/block-level-degradation-2026-08-31.md rests on three
-// claims about this layer that ought to be assertions rather than prose:
+// because the block-level degradation rule rests on three claims about this
+// layer that ought to be assertions rather than prose:
 //
 //   1. `verify_document_ir` accepts a document containing a degraded block
 //      without any relaxation -- fidelity is orthogonal to verification, so

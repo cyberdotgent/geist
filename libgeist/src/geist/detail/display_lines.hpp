@@ -16,7 +16,7 @@ namespace geist::detail {
 //
 //   <length byte> <that many bytes of token references>
 //
-// display lines (Format/logical-controls.md, "Display Lines Inside A Record
+// display lines (doc/boo-spec/logical-controls.adoc, "Display Lines Inside A Record
 // Payload": FA1PLMM0 records 37-38, GG24-4302-00 record 262, ACPZMST1
 // record 55, and every record of the swept figure topics).  The length byte
 // is below the book's token threshold, so a token reader resolves it as an

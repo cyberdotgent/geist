@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cctype>
 
-// The `CZ` dialect of the prose family (Format/markup.md, "CZ layout
+// The `CZ` dialect of the prose family (doc/boo-spec/markup.adoc, "CZ layout
 // directives"): SC09-2417-00, SC41-485, GX27-3999-00 and packet store every
 // block boundary as an explicit `cz <mode> <tag> <left> <indent>` control
 // whose payload rows use the flattened display-row grammar of
@@ -518,7 +518,7 @@ struct CzBuilder {
   // fields (`:library.`, `:topic.`, `:release.`, `:docnum.`, `:partnum.`,
   // `:filenum.`, `:date.`, `:author.`) and laid them out as display rows; the
   // reader re-flows those rows instead of reproducing their columns
-  // (Format/markup.md, "Cover And Title Page Rendering").  Three facts of the
+  // (doc/boo-spec/markup.adoc, "Cover And Title Page Rendering").  Three facts of the
   // hosted pages settle the projection, and each is a fact of the region, not
   // of any one book:
   //
@@ -673,8 +673,8 @@ struct CzBuilder {
     not_a_region,
   };
 
-  // The §2 invariant of AnalysisNotes/block-level-degradation-2026-08-31.md,
-  // applied to the one construct that satisfies it generically.
+  // The block-level degradation invariant, applied to the one construct that
+  // satisfies it generically.
   //
   // Conditions 1 (frame proven) and 3 (the boundary is a block boundary) are
   // properties of where this is called from: the topic's metadata envelope,

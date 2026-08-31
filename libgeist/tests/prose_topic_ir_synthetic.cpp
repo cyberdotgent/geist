@@ -518,7 +518,7 @@ void negative_fixtures() {
   }
 }
 
-// `CZ` dialect (Format/markup.md, "CZ layout directives").  Every fixture
+// `CZ` dialect (doc/boo-spec/markup.adoc, "CZ layout directives").  Every fixture
 // below was compared word for word against hosted BookServer: packet
 // (DT 20260614112503).  The SC41-485, SC09-2417-00 and GX27-3999-00 fixtures
 // that pinned `CZ FLOW DL`/`DT`, `CZ FLOW OL` and `cz OFF EOL` went with the
@@ -633,7 +633,7 @@ void cz_fixtures() {
               "4.5.1 example block count");
   }
 
-  // The generated title-page projection (Format/markup.md, "Cover And Title
+  // The generated title-page projection (doc/boo-spec/markup.adoc, "Cover And Title
   // Page Rendering").  `cz OFF TIPAGE` .. `cz OFF ETIPAGE` is not stored
   // prose and not a verbatim region: the compiler laid the source prolog's
   // fields out as display rows and hosted BookServer (DT 20260614112503)

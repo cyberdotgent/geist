@@ -709,7 +709,7 @@ bool is_valid_font_definition_code(const std::string& code) {
 // The display line a `CFONT` control's operands address, or nullptr.
 //
 // A `CFONT` operand triple names display **columns** of one display row
-// (Format/markup.md, "Spans And The Display Row").  The row is not the
+// (doc/boo-spec/markup.adoc, "Spans And The Display Row").  The row is not the
 // control's own display line: the control stands alone on its line and the
 // row it styles is the next one.  SC09-2417-00 record 29 line 12 is
 // `cfont 11 9 P 22 13 V` and line 13 is

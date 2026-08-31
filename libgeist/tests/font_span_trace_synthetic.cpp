@@ -2,7 +2,7 @@
 //
 // A CFONT operand triple is `<column> <length> <code>`, and the columns are
 // display columns of the row the control stands in front of
-// (Format/markup.md, "Spans And The Display Row").  The trace used to resolve
+// (doc/boo-spec/markup.adoc, "Spans And The Display Row").  The trace used to resolve
 // them against the flattened ASCII projection of the decoded record instead.
 // A projection byte is a display column only where every word of the record
 // renders exactly one byte wide, and a display line's length byte is the

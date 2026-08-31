@@ -121,7 +121,7 @@ struct SourceIndex {
   std::map<CellKey, const OwnedSourceCellIR *> cells;
   // Display-line length bytes, per record. A record payload is a run of
   // `<length byte><that many bytes of tokens>` display lines
-  // (Format/logical-controls.md, "Display Lines Inside A Record Payload");
+  // (doc/boo-spec/logical-controls.adoc, "Display Lines Inside A Record Payload");
   // the length byte draws nothing whatever dictionary word it resolves to.
   // N2AH1MST record 2284 token 0 is the one-byte value 31 that spells `are`
   // and opens the 31-byte line `   IDC0064I text UPDATED IN CARTRIDGE ...`,
@@ -302,7 +302,7 @@ bool all_space_token(const LogicalTokenIR &token) {
                      [](const auto word) { return word == ' '; });
 }
 
-// The source facts that classify a marker slot (Format/markup.md "Repeated
+// The source facts that classify a marker slot (doc/boo-spec/markup.adoc "Repeated
 // row-control signatures"): `?` placeholder runs, the decoder sentinel
 // (value 4), and single layout glyphs are layout; sentence punctuation
 // closes the preceding text, except that a punctuation slot opening a

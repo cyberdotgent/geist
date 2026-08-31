@@ -110,7 +110,7 @@ word_byte_offsets(const AssembledLogicalRecord& assembled) {
 
 // One `<column> <length>` display-geometry pair of a CFONT or CSELECT
 // operand. Both controls address display columns of exactly one display row
-// (Format/markup.md, "Spans And The Display Row").
+// (doc/boo-spec/markup.adoc, "Spans And The Display Row").
 struct DisplaySpan {
   std::size_t column = 0;
   std::size_t length = 0;
@@ -179,7 +179,7 @@ bool word_aligned(const std::string& text, std::size_t begin,
 
 // A row boundary whose marker glyph a span of the same control covers is not
 // a marker slot at all: the glyph is styled display text of the row that is
-// still open (Format/markup.md, "Spans And The Display Row" -- "A leading
+// still open (doc/boo-spec/markup.adoc, "Spans And The Display Row" -- "A leading
 // glyph is only a row marker when no pending span covers exactly its
 // columns", and "A span holds its row open").
 //

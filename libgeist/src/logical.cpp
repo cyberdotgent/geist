@@ -259,7 +259,7 @@ TokenWords resolve_experimental_token(
   return found->second;
 }
 
-// Reads a 16-bit paged index (Format/topics.md, Format/table-of-contents.md).
+// Reads a 16-bit paged index (doc/boo-spec/topics.adoc, doc/boo-spec/toc.adoc).
 // Each table is `count_be, next_be, value_be[count]`. When the root holds fewer
 // than the expected values, `next_be` is the 1-based logical page (relative to
 // the directory page) of a continuation table with the same layout at page
@@ -611,7 +611,7 @@ LogicalTokenIR decode_one_token(
 }
 
 // Re-decodes the payload as the length-prefixed display lines it is
-// (`Format/logical-controls.md`, "Display Lines Inside A Record Payload"):
+// (`doc/boo-spec/logical-controls.adoc`, "Display Lines Inside A Record Payload"):
 // one byte of line length, then exactly that many bytes of tokens.  The
 // plain left-to-right walk cannot express a length byte that is itself at or
 // above the token threshold -- it swallows the line's first content byte

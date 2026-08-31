@@ -74,7 +74,7 @@ bool wide_space_token(const DecodedLogicalRecordSource& record,
                      [](const auto word) { return word == ' '; });
 }
 
-// Format/markup.md "Repeated row-control signatures" signature B: a
+// doc/boo-spec/markup.adoc "Repeated row-control signatures" signature B: a
 // control-only spacing token that attaches the next token, where that next
 // token is a fixed-row marker slot at the exact three-space origin, a wide
 // padding run, or the record end. An attach control followed by ordinary

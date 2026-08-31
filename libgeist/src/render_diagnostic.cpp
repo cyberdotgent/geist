@@ -278,7 +278,7 @@ std::set<std::size_t> control_tokens(const DecodedLogicalRecordSource& record) {
 // the next control, so an `SI` segment also spans the body text on the
 // display lines *after* it (SC31-711 record 22 holds `SI executables`
 // followed by a paragraph), and marking that span would delete book text.
-// See `Format/markup.md` s"Subject-index display lines": 29,239 such lines in
+// See `doc/boo-spec/markup.adoc` s"Subject-index display lines": 29,239 such lines in
 // 31 books, and hosted BookServer serves none of them.
 std::set<std::size_t> index_entry_marker_tokens(
     const DecodedLogicalRecordSource& record) {

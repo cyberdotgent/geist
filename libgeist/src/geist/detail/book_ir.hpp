@@ -49,7 +49,7 @@ inline bool operator==(const EncodedLogicalToken& left,
 // Where one token stands in the record's display-line framing.
 //
 // A record payload is a sequence of `<length byte><that many bytes of
-// tokens>` display lines (Format/logical-controls.md, "Display Lines Inside
+// tokens>` display lines (doc/boo-spec/logical-controls.adoc, "Display Lines Inside
 // A Record Payload").  The length byte is a raw byte, but a byte below the
 // book's token threshold is resolved through the dictionary like any other
 // token, so a length byte routinely expands to a control-shaped word --

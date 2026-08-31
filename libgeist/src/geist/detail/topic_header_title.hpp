@@ -12,7 +12,7 @@ namespace geist::detail {
 // A topic header writes its title with the `ST` control, and the title is the
 // visible text of that control's *display line* -- not the `ST` payload run of
 // the flattened decoded record, which continues past the row break into the
-// topic's body (Format/logical-controls.md, "Display Lines Govern Reflowed
+// topic's body (doc/boo-spec/logical-controls.adoc, "Display Lines Govern Reflowed
 // Prose Too").  The row is what hosted BookServer serves as the heading:
 // QSYSINFO 2.1.21 (DT 19910524120827) heads the topic
 // `SC09-1159, Languages:  System/38-Compatible COBOL User's Guide and` and

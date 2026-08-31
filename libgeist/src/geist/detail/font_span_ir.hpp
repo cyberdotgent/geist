@@ -13,7 +13,7 @@ namespace geist::detail {
 struct DecodedLogicalRecordSource;
 
 // Compact CFONT style codes resolve through the book-level CFONTDEF table
-// documented in Format/markup.md ("Font And Highlight Controls"): `1`..`3`
+// documented in doc/boo-spec/markup.adoc ("Font And Highlight Controls"): `1`..`3`
 // are the GML highlight phrases HP1..HP3. Every other code is retained as an
 // opaque style so consumers can conserve the span without claiming a style.
 // The CFONTDEF code table is identical in all 33 corpus books (checked with

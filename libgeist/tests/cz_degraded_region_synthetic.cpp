@@ -2,9 +2,8 @@
 // (issue #81).
 //
 // The CZ dialect declined a whole topic at `CZ layout cz off <tag> is not
-// modelled`. Under the §2 invariant of
-// AnalysisNotes/block-level-degradation-2026-08-31.md that is more than the
-// evidence requires when the source itself closes the region:
+// modelled`. Under the block-level degradation invariant that is more than
+// the evidence requires when the source itself closes the region:
 //
 //   1. the topic's frame -- metadata envelope, segmentation, layout ledger,
 //      ownership -- is proven before the CZ block builder runs at all;

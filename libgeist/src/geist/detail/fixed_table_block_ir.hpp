@@ -208,7 +208,7 @@ struct FixedTablePictureIR {
 // boundaries. The compiler flattened `:table` markup into a fixed-width grid
 // at build time, so the file holds a picture of a table; and many of these
 // regions are not data grids at all but captured terminal screens (see
-// `cz OFF SCREEN` in `Format/markup.md`), where any column inference would
+// `cz OFF SCREEN` in `doc/boo-spec/markup.adoc`), where any column inference would
 // shred a widget such as OFCUSEOV 1.1's calendar into cells. An SRTBL
 // envelope is, whatever it draws, a run of display lines of its logical
 // records (`display_lines.hpp`: `<length byte><that many bytes of tokens>`),

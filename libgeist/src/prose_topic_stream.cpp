@@ -816,7 +816,7 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
   const auto verbatim_regions = cz_verbatim_regions(records);
   // Which dialect the topic is written in: a body that carries any `CZ`
   // control names every block boundary explicitly, a body that carries none
-  // reconstructs its blocks from row geometry (Format/markup.md, "CZ layout
+  // reconstructs its blocks from row geometry (doc/boo-spec/markup.adoc, "CZ layout
   // directives").  The two spell footnotes differently, so the dialect has
   // to be known before the first `SRFTN<id>` rather than discovered at it.
   const auto cz_dialect = std::any_of(
@@ -1758,7 +1758,7 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         if (!title_seen) return fail(error, "font control precedes the title");
         // A `cfont` opcode that is itself a display line's length byte opens
         // no control: the byte is a length and nothing else, whatever
-        // dictionary word it happens to spell (Format/logical-controls.md,
+        // dictionary word it happens to spell (doc/boo-spec/logical-controls.adoc,
         // "A Metadata Opcode In The Body Is A Display-Line Length Byte").
         // The signature is exact -- the segment starts on the length byte,
         // the byte's own word spells the opcode, and the operand carries no
@@ -1949,7 +1949,7 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
       default: {
         // Where a record's display lines parse, the length byte that opens a
         // line is that row's control slot -- always and only -- whatever
-        // dictionary word it happens to spell (Format/logical-controls.md,
+        // dictionary word it happens to spell (doc/boo-spec/logical-controls.adoc,
         // "Display Lines Govern Reflowed Prose Too").  The one-byte
         // dictionary tokens that spell the topic-metadata opcodes sit in the
         // same low value range as the length bytes, so the flattened

@@ -12,7 +12,7 @@ namespace geist::detail {
 
 struct DecodedLogicalRecordSource;
 
-// The `LNK` dialect of the CSELECT control (Format/markup.md, "LNK selector
+// The `LNK` dialect of the CSELECT control (doc/boo-spec/markup.adoc, "LNK selector
 // alternatives").  A selector whose operand target is the literal `LNK`
 // carries its real destination in the leading tokens of its payload, each a
 // single decoded token spelled `<...>`:

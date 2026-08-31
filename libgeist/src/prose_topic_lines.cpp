@@ -107,7 +107,7 @@ struct LineBuilder {
   }
 
   // The record decoder's stored display-line framing
-  // (Format/logical-controls.md, "Display Lines Inside A Record Payload").
+  // (doc/boo-spec/logical-controls.adoc, "Display Lines Inside A Record Payload").
   const std::vector<DisplayLineIR>* display_lines_of(std::size_t record) const {
     return record_display_lines(records[record]);
   }
@@ -123,7 +123,7 @@ struct LineBuilder {
   }
 
   // True when `view` is the length byte that opens a display line of its
-  // record (Format/logical-controls.md, "Display Lines Inside A Record
+  // record (doc/boo-spec/logical-controls.adoc, "Display Lines Inside A Record
   // Payload").  The byte's value is the line's byte count; the dictionary
   // word a token reader resolves it to is incidental, so a box-drawing or
   // geometric-shape spelling is not a drawn glyph.
@@ -163,7 +163,7 @@ struct LineBuilder {
   // A displayed word already stands in front of `view` on its own display
   // line, so `view` is inside a drawn row rather than in front of one.  This
   // is the same corroboration `demote_display_line_owned_controls` applies to
-  // a control-shaped word (Format/logical-controls.md, "A Control-Shaped Word
+  // a control-shaped word (doc/boo-spec/logical-controls.adoc, "A Control-Shaped Word
   // Inside A Row Is Display Text"), read here for box-drawing runs.
   bool display_word_precedes_in_line(const TokenView& view) {
     const auto* line = display_line_of(view.record, view.token);
@@ -464,7 +464,7 @@ struct LineBuilder {
   }
 
   // True when the record's payload parses into length-prefixed display lines
-  // and `token` is one line's length byte (Format/logical-controls.md,
+  // and `token` is one line's length byte (doc/boo-spec/logical-controls.adoc,
   // "Display Lines Inside A Record Payload").  That byte is a real row
   // boundary whatever the reflow heuristics say.
   bool display_line_prefix_at(std::size_t record, std::size_t token) {
@@ -610,7 +610,7 @@ struct LineBuilder {
   // three-column left margin it puts in front of every reflowed prose row
   // (` | ` for a revised row, `   ` otherwise), so the row's stored origin
   // run measures the indent *after* that margin and the columns a
-  // CFONT/CSELECT operand names include it (Format/markup.md, "Spans And
+  // CFONT/CSELECT operand names include it (doc/boo-spec/markup.adoc, "Spans And
   // The Display Row").
   static constexpr std::size_t change_bar_margin_cells = 3;
   static bool change_bar_slot(const TokenView& view) {
@@ -949,7 +949,7 @@ struct LineBuilder {
     const auto& view = items[index].token;
     if (view.width != 1 || !is_visible(view)) return false;
     // The row-control slot of a row is the length byte that opens its
-    // display line (Format/logical-controls.md).  Where the record's display
+    // display line (doc/boo-spec/logical-controls.adoc).  Where the record's display
     // lines parse, a token inside a line is never the slot, however much its
     // token geometry looks like one: FA1PLMM0 17.2.3.1 record 713 ends the
     // display line `   CEOS.  CEMS makes ... available to a` with the
@@ -985,7 +985,7 @@ struct LineBuilder {
     // `<H2> E.2   The File Block (FBLOCK)</H2>`.
     // Only a punctuation glyph is rescued this way: a one-byte token spelling
     // a whole dictionary *word* is the documented compact-marker collision
-    // (Format/markup.md) and closes the title wherever it stands -- FA1PLMM0
+    // (doc/boo-spec/markup.adoc) and closes the title wherever it stands -- FA1PLMM0
     // I.6.1 record 254 token 33 (`access`, encoded value 43), SC24-5520-00
     // 3.7.5.2 (`and`) and SH20-918 3.33.14 (`an`) all end their heading there.
     if (in_title && !alnum_word(view) && segment_end_between(index, space))
@@ -1006,7 +1006,7 @@ struct LineBuilder {
       const auto row_origin_word = line_open && line_visible_cells == 0;
       // A glued one-byte word in the row-control byte range is the slot
       // whatever precedes it: N2AH1MST PREFACE.4 `to:` + `access` (0x1c),
-      // `Reference.` + `an` (the compact-marker collision in Format/markup.md).
+      // `Reference.` + `an` (the compact-marker collision in doc/boo-spec/markup.adoc).
       // "Glued onto a preceding word" needs that word on the *open* row: a
       // one-byte token that opens a row after its own origin run is the
       // row's text, whatever the previous row ended with.  QS3X36CM EDITION
@@ -1295,7 +1295,7 @@ struct LineBuilder {
       const auto next = next_token(index);
       // Measured and reverted: guarding this fill/origin pair with "a span of
       // the open row reaches past the cells written so far"
-      // (Format/markup.md, "A span holds its row open") does hold the row
+      // (doc/boo-spec/markup.adoc, "A span holds its row open") does hold the row
       // open where the pair is the interior padding of one display line --
       // SC33-033 record 872 line 18 is
       // `     C*  ...(64 cells)...  *  02100000` under

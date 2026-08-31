@@ -105,7 +105,7 @@ enum class ItemKind {
 };
 
 // One `CZ <mode> <tag> [<left> <indent>]` directive of the CZ dialect
-// (Format/markup.md, "CZ layout directives").  `mode` and `tag` are lower
+// (doc/boo-spec/markup.adoc, "CZ layout directives").  `mode` and `tag` are lower
 // case; `anchor_id` carries the `SRFTN<id>` of a footnote (`flow fn`) and
 // `SREFTN` arrives as `off fn`.
 struct LayoutDirective {
@@ -390,7 +390,7 @@ struct LineBuild {
 // One drawn box region embedded in prose: a `U+250C ... U+2510` top rule,
 // one or more `U+2502 ... U+2502` side rows and a `U+2514 ... U+2518` bottom
 // rule, all at the same left/right columns, in consecutive display lines of
-// the topic (Format/markup.md, "Drawn box regions in prose").  Hosted
+// the topic (doc/boo-spec/markup.adoc, "Drawn box regions in prose").  Hosted
 // BookServer prints the region's display lines verbatim inside its <pre>.
 struct BoxLine {
   std::size_t record = 0;
@@ -446,7 +446,7 @@ inline bool cz_verbatim_region_closer(const std::string& tag) {
 // The `cz OFF` tags that open a *generated* title-page projection.  The book
 // compiler laid the source prolog's title-block and metadata fields out as
 // display rows and the reader re-flows them rather than serving the columns
-// it stored (Format/markup.md, "Cover And Title Page Rendering").  Shared by
+// it stored (doc/boo-spec/markup.adoc, "Cover And Title Page Rendering").  Shared by
 // the line builder (whose two-run margin rule the projection needs, so that a
 // `CFONT` operand lands on the column the row's own cells put its first word
 // in) and the CZ block builder (which lowers the region).
