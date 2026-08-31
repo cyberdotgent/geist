@@ -10,12 +10,6 @@
 namespace geist::detail {
 namespace {
 
-bool exact_spaces(const TokenWords& words) {
-  return !words.empty() &&
-         std::all_of(words.begin(), words.end(),
-                     [](const auto word) { return word == ' '; });
-}
-
 std::string visible_token(const TokenWords& words) {
   TokenWords visible;
   for (const auto word : words) {
@@ -267,7 +261,7 @@ LayoutIR extract_layout_ir(
             marker >= record.encoded_tokens.size() ||
             record.encoded_tokens[marker].width != 1 ||
             record.encoded_tokens[origin].width != 1 ||
-            !exact_spaces(record.tokens[origin]) ||
+            !all_space_words(record.tokens[origin]) ||
             visible_token(record.tokens[marker]).empty() ||
             marker_byte < segment.payload_range.begin ||
             origin_byte < segment.payload_range.begin)
@@ -280,7 +274,7 @@ LayoutIR extract_layout_ir(
       // source-proven boundary without admitting other out-of-segment words.
       for (const auto origin : segment.source_tokens) {
         if (origin == 0 || origin >= record.tokens.size() ||
-            !exact_spaces(record.tokens[origin]) ||
+            !all_space_words(record.tokens[origin]) ||
             std::any_of(boundaries.begin(), boundaries.end(),
                         [&](const auto& boundary) {
                           return boundary.origin == origin;
@@ -367,7 +361,7 @@ LayoutIR extract_layout_ir(
         for (const auto token : segment.source_tokens) {
           if (token >= record.tokens.size() ||
               token >= record.assembled.tokens.size() ||
-              !exact_spaces(record.tokens[token]))
+              !all_space_words(record.tokens[token]))
             continue;
           const auto begin = byte_offsets[record.assembled.tokens[token]
                                               .output_begin];

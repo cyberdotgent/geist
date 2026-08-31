@@ -262,6 +262,7 @@ foreach(fixture_test
     logical_source_index
     topic_link_targets
     topic_document_lowering
+    trace_source_reader
     figure_block_ir_synthetic
     fixed_table_block_ir_synthetic
     prose_topic_ir_synthetic

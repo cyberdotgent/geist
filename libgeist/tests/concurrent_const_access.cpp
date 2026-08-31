@@ -294,9 +294,13 @@ void contended_document() {
             "concurrent whole-book markdown() differs from the serial render");
   });
 
-  // The provenance path: a trace slice is decoded through the one mutable
-  // cache in the library that is a replacement rather than a publication, so
-  // it is the one place a lock still stands.
+  // The provenance path. The one-record memo it needs is a replacement cache,
+  // so it cannot be published once; it therefore lives in a caller-owned
+  // `TraceSourceReader` rather than on the shared decode context, and no lock
+  // is left anywhere on this path. What the threads still share is the
+  // document -- including the publish-once token dictionary each reader binds
+  // to at construction -- so this asserts both that a per-thread reader agrees
+  // with the serial answer and that building readers concurrently is safe.
   const auto &toc = document.table_of_contents();
   if (!toc.empty()) {
     geist::RenderTrace reference_trace;
@@ -307,15 +311,17 @@ void contended_document() {
         for (const auto &slice : span.slices)
           slices.push_back(slice);
       std::vector<std::string> expected;
+      geist::TraceSourceReader reference_reader(document);
       for (const auto &slice : slices)
-        expected.push_back(document.decode_trace_slice(slice));
+        expected.push_back(reference_reader.decode(slice));
       run_threads([&](int index) {
+        geist::TraceSourceReader reader(document);
         for (std::size_t step = 0; step < slices.size(); ++step) {
           const auto at = (step + static_cast<std::size_t>(index)) %
                           slices.size();
-          require(document.decode_trace_slice(slices[at]) == expected[at],
-                  "concurrent decode_trace_slice() differs from the serial "
-                  "answer: the provenance memo is not holding its lock");
+          require(reader.decode(slices[at]) == expected[at],
+                  "concurrent TraceSourceReader::decode() differs from the "
+                  "serial answer");
         }
       });
     }

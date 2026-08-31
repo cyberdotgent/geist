@@ -58,28 +58,6 @@ std::string table_reference_id(std::string object_id) {
   return object_id;
 }
 
-std::string raw_attr(const std::string& record, const std::string& attr) {
-  const auto pattern = attr + "='";
-  const auto begin = record.find(pattern);
-  if (begin == std::string::npos)
-    return {};
-  const auto value_begin = begin + pattern.size();
-  const auto value_end = record.find('\'', value_begin);
-  if (value_end == std::string::npos || value_end <= value_begin)
-    return {};
-  return record.substr(value_begin, value_end - value_begin);
-}
-
-// `:hdref refid='pic<n>'` names a stored object by ordinal.
-std::string picture_resource_id(const std::string& target) {
-  if (target.size() <= 3 || !ascii_starts_with_case_insensitive(target, "pic"))
-    return {};
-  for (std::size_t index = 3; index < target.size(); ++index)
-    if (std::isdigit(static_cast<unsigned char>(target[index])) == 0)
-      return {};
-  return target.substr(3);
-}
-
 } // namespace
 
 // The typed answer: every anchor block the topic's Document IR contains, in

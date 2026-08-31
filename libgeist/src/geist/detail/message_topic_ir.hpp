@@ -158,6 +158,5 @@ bool verify_message_topic_ir(
     const std::vector<DecodedLogicalRecordSource> &records,
     const LayoutIR &layout, const VerifiedOwnershipIR &ownership,
     const MessageTopicIR &topic, std::string *error = nullptr);
-std::string format_message_topic_ir(const MessageTopicIR &topic);
 
 } // namespace geist::detail

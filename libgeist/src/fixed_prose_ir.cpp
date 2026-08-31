@@ -9,16 +9,6 @@
 namespace geist::detail {
 namespace {
 
-bool all_spaces(const TokenWords& words) {
-  return !words.empty() &&
-         std::all_of(words.begin(), words.end(),
-                     [](const auto word) { return word == ' '; });
-}
-
-bool exact_spaces(const TokenWords& words, std::size_t count) {
-  return words.size() == count && all_spaces(words);
-}
-
 bool marker_field(const TokenWords& words) {
   return !words.empty() && words.size() <= 24 &&
          std::none_of(words.begin(), words.end(), [](const auto word) {
@@ -195,8 +185,8 @@ std::optional<FixedProseIR> extract_fixed_prose_ir(
         source->encoded_tokens[marker].width != 1 ||
         source->encoded_tokens[origin].width != 1 ||
         !marker_field(source->tokens[marker]) ||
-        !exact_spaces(source->tokens[origin], 3) ||
-        all_spaces(source->tokens[following]))
+        !space_run_of_width(source->tokens[origin], 3) ||
+        all_space_words(source->tokens[following]))
       continue;
     const auto projected = decoded_word_range_to_byte_range(
         source->assembled,
@@ -242,11 +232,11 @@ std::optional<FixedProseIR> extract_fixed_prose_ir(
     const auto token = owned[at];
     if (token >= first_marker || source->encoded_tokens[token].width != 1 ||
         source->tokens[token].size() < 10 ||
-        !all_spaces(source->tokens[token]))
+        !all_space_words(source->tokens[token]))
       continue;
     auto end_at = at + 1;
     while (end_at < owned.size() && owned[end_at] < first_marker &&
-           all_spaces(source->tokens[owned[end_at]]))
+           all_space_words(source->tokens[owned[end_at]]))
       ++end_at;
     body_gaps.push_back(decoded_word_range_to_byte_range(
         source->assembled,

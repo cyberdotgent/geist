@@ -717,27 +717,6 @@ const std::map<std::uint16_t, TokenWords>& source_dictionary_for(
       });
 }
 
-std::shared_ptr<const LogicalRecordIR> memoized_source_record(
-    const LogicalDecodeContext& context,
-    const std::map<std::uint16_t, TokenWords>& token_strings,
-    std::uint32_t logical_record) {
-  if (logical_record == 0 ||
-      logical_record > context.record_payload_ranges.size()) {
-    return nullptr;
-  }
-  const std::lock_guard<std::mutex> lock(context.source_record_memo_mutex);
-  if (context.source_record_memo_id != logical_record ||
-      !context.source_record_memo) {
-    const auto& range = context.record_payload_ranges[logical_record - 1];
-    context.source_record_memo =
-        std::make_shared<const LogicalRecordIR>(decode_record_payload_ir(
-            context.bytes, context.directory, token_strings, range.begin,
-            range.end, logical_record));
-    context.source_record_memo_id = logical_record;
-  }
-  return context.source_record_memo;
-}
-
 std::vector<std::string> decode_experimental_logical_records(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory,

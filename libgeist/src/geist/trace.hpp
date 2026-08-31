@@ -4,10 +4,13 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
 namespace geist {
+
+class BooDocument;
 
 // What one run of rendered Markdown is.  `content` is a projection of BOO
 // source text and names the bytes it came from; `syntax` is Markdown the
@@ -60,6 +63,36 @@ struct RenderTrace {
 
   // The span covering `offset`, or nullptr past the end of the output.
   GEIST_API const RenderTraceSpan* span_at(std::size_t offset) const noexcept;
+};
+
+// Reads back the BOO file bytes a trace slice names and returns the display
+// text they hold.  This re-decodes the file rather than restating what the
+// renderer believed, so it can prove or disprove a slice.
+//
+// Resolving a rendered span asks for many slices of one logical record in a
+// row, so a reader keeps that record decoded between calls.  That memo is the
+// reader's own -- it is the reason this is a handle and not a method on
+// `BooDocument`.  A reader is therefore **not** thread-safe and must not be
+// shared: give each thread its own.  Constructing one is cheap, and the
+// document it is made from stays immutable and may be shared freely; a reader
+// keeps the decoded source alive, so it may outlive the document it came from.
+class TraceSourceReader {
+public:
+  // Throws when the document carries no decoded source context.
+  GEIST_API explicit TraceSourceReader(const BooDocument& document);
+  GEIST_API ~TraceSourceReader();
+  GEIST_API TraceSourceReader(TraceSourceReader&&) noexcept;
+  GEIST_API TraceSourceReader& operator=(TraceSourceReader&&) noexcept;
+  TraceSourceReader(const TraceSourceReader&) = delete;
+  TraceSourceReader& operator=(const TraceSourceReader&) = delete;
+
+  // The display text `slice` names.  Throws when the named window does not
+  // tile into whole tokens.  Non-const: reading updates the reader's memo.
+  GEIST_API std::string decode(const RenderTraceSlice& slice);
+
+private:
+  struct State;
+  std::unique_ptr<State> state_;
 };
 
 } // namespace geist

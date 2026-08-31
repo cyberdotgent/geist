@@ -50,12 +50,6 @@ bool signature_b(const DecodedLogicalRecordSource& record,
          token + 1 < record.tokens.size() && !record.tokens[token + 1].empty();
 }
 
-bool exact_spaces(const TokenWords& words, std::size_t count) {
-  return words.size() == count &&
-         std::all_of(words.begin(), words.end(),
-                     [](std::uint16_t word) { return word == ' '; });
-}
-
 bool structural_marker_token(const TokenWords& words) {
   auto saw_marker = false;
   for (const auto word : words) {
@@ -196,7 +190,7 @@ std::optional<ImplicitGrid> extract_implicit_grid(
         // first fully evidenced row; this excludes the styled header and
         // earlier prose origins.
         for (auto token = first_token; token-- > 0;) {
-          if (exact_spaces(record.tokens[token], grid.key_origin) &&
+          if (space_run_of_width(record.tokens[token], grid.key_origin) &&
               token + 1 < record.tokens.size() &&
               !record.tokens[token + 1].empty()) {
             keyed_tokens[token] = true;
@@ -207,13 +201,13 @@ std::optional<ImplicitGrid> extract_implicit_grid(
     }
     for (std::size_t token = 0; token < record.tokens.size(); ++token) {
       const auto keyed = keyed_tokens[token];
-      if (keyed && exact_spaces(record.tokens[token], grid.key_origin)) {
+      if (keyed && space_run_of_width(record.tokens[token], grid.key_origin)) {
         boundaries.push_back(
             {token, token >= (signature_b(record, token) ? 3u : 2u)
                         ? token - (signature_b(record, token) ? 3u : 2u)
                         : token,
              false});
-      } else if (exact_spaces(record.tokens[token], grid.value_origin)) {
+      } else if (space_run_of_width(record.tokens[token], grid.value_origin)) {
         boundaries.push_back(
             {token, continuation_prefix(record, token), true});
       }
@@ -326,7 +320,7 @@ std::optional<ImplicitGrid> extract_terminal_styled_grid(
         record.assembled.tokens[token].output_begin < header + pattern.size() ||
         record.encoded_tokens[token].width != 1 ||
         record.encoded_tokens[previous].width != 1 ||
-        !exact_spaces(record.tokens[token], columns->first) ||
+        !space_run_of_width(record.tokens[token], columns->first) ||
         record.tokens[previous].empty() ||
         !std::all_of(record.tokens[previous].begin(),
                      record.tokens[previous].end(),

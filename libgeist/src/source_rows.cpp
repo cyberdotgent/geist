@@ -9,19 +9,6 @@
 namespace geist::detail {
 namespace {
 
-bool exact_spaces(const TokenWords& words, std::size_t count) {
-  return words.size() == count &&
-         std::all_of(words.begin(), words.end(),
-                     [](std::uint16_t word) { return word == ' '; });
-}
-
-bool marker_glyph(const TokenWords& words) {
-  return words.size() == 1 &&
-         std::string("$;()*!-':=<>/\"").find(
-             static_cast<char>(words.front())) !=
-             std::string::npos;
-}
-
 std::string visible_token(const TokenWords& words) {
   TokenWords visible;
   for (const auto word : words) {
@@ -106,9 +93,12 @@ std::vector<FixedSourceRow> slice_fixed_source_rows(
                                 record.encoded_tokens.size());
     for (std::size_t token = 1; token < count; ++token) {
       bool continuation = false;
+      // The width is the token's own, so this asks only that every word in it
+      // is a space -- an origin run of any width, the empty token included.
       if (!origin_kind(record.tokens[token].size(), content_origin,
                        continuation_origins, continuation) ||
-          !exact_spaces(record.tokens[token], record.tokens[token].size()) ||
+          !space_run_of_width(record.tokens[token],
+                              record.tokens[token].size()) ||
           record.encoded_tokens[token - 1].width != 1) {
         continue;
       }

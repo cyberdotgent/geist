@@ -113,6 +113,7 @@ int main(int argc, char** argv) {
       if (span->slices.empty())
         std::cout << "source\tnone: this run is renderer output, not BOO "
                      "source text\n";
+      geist::TraceSourceReader source_reader(document);
       for (const auto& slice : span->slices) {
         std::cout << "source\tlogical_record=" << slice.logical_record
                   << "\tsegment=" << slice.segment_index << "\ttokens="
@@ -124,7 +125,7 @@ int main(int argc, char** argv) {
                     << slice.character_end;
         std::cout << "\ttext=";
         try {
-          std::cout << tsv_escape(document.decode_trace_slice(slice));
+          std::cout << tsv_escape(source_reader.decode(slice));
         } catch (const std::exception& error) {
           std::cout << "<unreadable: " << error.what() << ">";
         }

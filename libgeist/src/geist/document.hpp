@@ -52,11 +52,15 @@ struct BooLogicalRecordTrace {
 // Thread safety: an opened document is immutable apart from caches that are
 // filled once and published atomically, so every `const` member below --
 // metadata and property access, TOC traversal, topic lookup, decoded logical
-// records, whole-book and per-topic rendering, resource reads and trace
-// decoding -- may be called concurrently from any number of threads on one
-// `BooDocument` with no external synchronisation, and references it returns
-// stay valid across those calls. See geist/toc.hpp for the same contract on
-// the TOC entries, and geist/detail/atomic_cache.hpp for how it is kept.
+// records, whole-book and per-topic rendering and resource reads -- may be
+// called concurrently from any number of threads on one `BooDocument` with no
+// external synchronisation, and references it returns stay valid across those
+// calls. See geist/toc.hpp for the same contract on the TOC entries, and
+// geist/detail/atomic_cache.hpp for how it is kept.
+//
+// Reading a trace slice back to its source bytes needs a per-caller memo, so
+// it is not a member here: construct a `geist::TraceSourceReader` per thread
+// (geist/trace.hpp).
 //
 // Non-`const` use is not covered: opening, assigning, copying or destroying a
 // document must not overlap with another thread's use of it.
@@ -71,8 +75,6 @@ public:
   GEIST_API const BooDirectory& directory() const noexcept;
   GEIST_API const BooBookProperties& book_properties() const noexcept;
   GEIST_API const std::vector<BooPageRun>& page_runs() const noexcept;
-  GEIST_API const std::vector<BooLogicalControl>& logical_controls()
-      const noexcept;
   GEIST_API const std::vector<std::string>& decoded_logical_records()
       const;
   GEIST_API const std::map<std::string, std::string>& font_definitions()
@@ -86,16 +88,6 @@ public:
   // topic, caching the Markdown on the TOC entries as it goes. See
   // geist/render_diagnostic.hpp.
   GEIST_API std::vector<RenderDiagnostic> render_diagnostics() const;
-  // The same rendered bytes as `topic_markdown`, with the output-range to
-  // source-byte map beside them.
-  GEIST_API std::string topic_markdown(const std::string& topic_id,
-                                       RenderTrace& trace) const;
-  // Re-decodes the BOO file bytes a trace slice names and returns the display
-  // text they hold.  This reads the file again rather than restating what the
-  // renderer believed, so it can prove or disprove a slice.  Throws when the
-  // named window does not tile into whole tokens.
-  GEIST_API std::string decode_trace_slice(const RenderTraceSlice& slice)
-      const;
   GEIST_API const std::vector<ResourceEntry>& resources() const noexcept;
   GEIST_API const TocEntry* find_toc_entry(const std::string& topic_id)
       const noexcept;
@@ -115,12 +107,15 @@ public:
       const std::string& resource_id) const;
 
 private:
+  // Reads `decode_context_` to build its own source reader; see
+  // geist/trace.hpp.
+  friend class TraceSourceReader;
+
   BooMetadata metadata_;
   BooPage0Header file_header_;
   BooDirectory directory_;
   BooBookProperties book_properties_;
   std::vector<BooPageRun> page_runs_;
-  std::vector<BooLogicalControl> logical_controls_;
   // Filled once and published atomically; see the thread-safety note above
   // and geist/detail/atomic_cache.hpp.
   mutable std::shared_ptr<const std::map<std::string, std::string>>

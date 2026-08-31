@@ -201,10 +201,11 @@ int main() {
                      std::to_string(slice.byte_end) + " in " + pin.topic))
       return 1;
     // Read those bytes back out of the BOO file and decode them again.
-    if (!require(document.decode_trace_slice(slice) == pin.source_text,
+    geist::TraceSourceReader source_reader(document);
+    const auto decoded = source_reader.decode(slice);
+    if (!require(decoded == pin.source_text,
                  std::string("BOO bytes of the traced word decode to '") +
-                     document.decode_trace_slice(slice) + "' in " +
-                     pin.topic))
+                     decoded + "' in " + pin.topic))
       return 1;
     // Every later slice of a multi-run label must name real bytes too.
     for (const auto &part : span->slices) {
