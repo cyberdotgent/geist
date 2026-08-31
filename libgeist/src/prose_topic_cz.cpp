@@ -638,6 +638,53 @@ struct CzBuilder {
     return paragraphs(group_lines(lines, closer.first, closer.second), 0);
   }
 
+  // `cz OFF ARTWORK` .. its closer.  Hosted BookServer opens a
+  // `<pre width="80">` at the opener and serves the region's display rows in
+  // it character for character, up to the flow directive that follows the
+  // closer; the closer itself draws nothing and its own rows stay inside the
+  // region (GX27-3999-00 `FRONT_1`, DT 19950730184057: `cz OFF EHP0 0 0`
+  // carries `   The adapter kit consists of:` and hosted prints it inside the
+  // `<pre>`, before the `</pre>` the following `cz FLOW UL` emits).
+  //
+  // The region draws only what it still owns.  A `PIC<n>` selector whose
+  // placeholder row shows nothing else is a block figure, claimed token for
+  // token by the span plan before this pass runs (prose_topic_spans.cpp), and
+  // hosted serves exactly that: GX27-3999-00 `2.4` replaces the row spelling
+  // `       PICTURE 7` with the `<img ... alt="PICTURE 7">` of picture 7.
+  // Such a row keeps no display cell here, so the region adds no verbatim row
+  // for it and the figure block places the image.
+  //
+  // What the region does own stays verbatim: SC41-4853-00 `COMMENTS`
+  // (DT 19951003131222) alternates regions that draw nothing at all -- hosted
+  // serves an empty `<pre width="80">` for each -- with regions holding one
+  // 74-column `U+2500` rule, the line a reader writes a comment on.
+  bool artwork(std::size_t& index, std::pair<std::size_t, std::size_t> range) {
+    const auto closer_index = index + 1;
+    if (closer_index >= build.directives.size() ||
+        build.directives[closer_index].mode != "off" ||
+        !cz_artwork_region_closer(build.directives[closer_index].tag))
+      return fail(error, "cz OFF ARTWORK is not closed by cz OFF EARTWORK");
+    const auto closer = ranges[closer_index];
+    index = closer_index;
+    auto begin = range.first;
+    auto end = range.second;
+    if (begin == npos) {
+      begin = closer.first;
+      end = closer.second;
+    } else if (closer.first != npos) {
+      if (closer.first != end)
+        return fail(error, "cz OFF ARTWORK region rows are not contiguous");
+      end = closer.second;
+    }
+    if (begin == npos) return true;
+    const auto drawn =
+        std::any_of(lines.begin() + static_cast<std::ptrdiff_t>(begin),
+                    lines.begin() + static_cast<std::ptrdiff_t>(end),
+                    [](const Line& line) { return has_text(line); });
+    // A region that draws nothing draws nothing: hosted's empty `<pre>`.
+    return !drawn || preformatted(begin, end);
+  }
+
   bool run() {
     const auto& directives = build.directives;
     // Line ranges per directive: lines follow their directive in order.
@@ -813,6 +860,9 @@ struct CzBuilder {
       // its rows are re-flowed, not reproduced (see `title_page`).
       if (directive.mode == "off" && cz_title_page_tag(tag))
         return title_page(index, range, name, tag);
+      // The artwork region, ahead of the generic `cz OFF <tag>` fallback.
+      if (directive.mode == "off" && cz_artwork_region_tag(tag))
+        return artwork(index, range);
       if (directive.mode == "off") {
         if (tag == "fn") {
           if (!groups.empty())

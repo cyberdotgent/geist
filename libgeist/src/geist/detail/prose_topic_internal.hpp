@@ -458,6 +458,30 @@ inline bool cz_title_page_closer(const std::string& tag) {
          cz_title_page_tag(tag.substr(1));
 }
 
+// `cz OFF ARTWORK`: the artwork region of the CZ dialect.  It is a display
+// region like the verbatim tags above -- hosted BookServer opens a
+// `<pre width="80">` at the directive and serves the rows in it character for
+// character -- but it is not one of them, for two reasons the corpus proves:
+// it can carry an inline picture selector whose `PICTURE <n>` placeholder
+// hosted replaces with an `<img>`, and the region an `SRFIG`/`SRTBL` envelope
+// may not be swallowed by (`cz_verbatim_regions`) is not this one.
+//
+// The closer is not spelled the same in both books that use the tag.  Over
+// the four CZ-dialect books (SC09-2417-00, SC41-485, GX27-3999-00, packet)
+// `cz OFF ARTWORK` occurs in exactly three topics: SC41-485 `COMMENTS` closes
+// its ten regions `cz OFF EARTWORK 0 0`, while GX27-3999-00 `FRONT_1` and
+// `2.4` close theirs `cz OFF EHP0 <left> <indent>` -- the compiler wrote the
+// end of the highlight phrase that wraps the artwork instead of the end of
+// the region.  `HP0` never opens anything anywhere in the corpus and `EHP0`
+// never appears except as an artwork closer, so both spellings close a region
+// and neither closes anything else.
+inline bool cz_artwork_region_tag(const std::string& tag) {
+  return tag == "artwork";
+}
+inline bool cz_artwork_region_closer(const std::string& tag) {
+  return tag == "eartwork" || tag == "ehp0";
+}
+
 // One `cz OFF <verbatim>` .. `cz OFF E<verbatim>` region of a topic, as a
 // closed [begin, end] range of (record index, token) positions.  Computed
 // once per topic in prose_topic_spans.cpp; the span plan uses it to leave an
