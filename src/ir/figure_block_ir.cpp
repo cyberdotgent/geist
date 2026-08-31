@@ -508,6 +508,12 @@ struct Region {
 };
 
 struct Extractor {
+  // How one interior line of a drawn figure reads. Declared here rather than
+  // inside the member function that classifies them because MSVC cannot
+  // resolve a function-local enum from the default member initializer of a
+  // function-local class, which is exactly how `Classified` uses it.
+  enum class LineKind { blank, control, index, caption, body, spacing };
+
   const std::vector<DecodedLogicalRecordSource> &records;
   const LayoutIR &layout;
   const OwnershipIR &ownership;
@@ -1000,7 +1006,6 @@ struct Extractor {
     }
 
     // 3. Classify the interior lines.
-    enum class LineKind { blank, control, index, caption, body, spacing };
     struct Classified {
       LineKind kind = LineKind::blank;
       std::string text;
