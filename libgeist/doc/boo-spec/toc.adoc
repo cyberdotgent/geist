@@ -228,6 +228,33 @@ The `CTOCE` syntax observed in the decoded `CONTENTS` topic is:
 CTOCE <nesting> <toc_style> <topic_id> <title>
 ----
 
+`title` runs to the end of the entry's own display line. It does not run to the
+next `CTOCE`: between one entry's last title token and the next entry's
+`CTOCE` sits the next display line's length byte, which is structure and not
+title text. A length byte is a raw byte below the book's token threshold, so a
+token reader resolves it through the dictionary and it acquires an arbitrary
+spelling — a run of blanks in most books, but also `;`, `%`, `:MSGNO`, `[`,
+`//`, `$`, `*`, `----------`, and even a control operand such as `<BOOK>`. A
+reader that ends the title at the next `CTOCE` appends that spelling to the
+title; hosted BookServer does not. Byte-level evidence, `IBMMMSTR.boo`
+`CONTENTS`, record 40 tokens 82–89: the display line whose length byte is `12`
+holds exactly `ctoce 0 1 PREFACE About This Book` (12 bytes of tokens), and
+token 89 — spelled `%` — is the next line's length byte covering its own 16
+bytes. Hosted BookServer at DT `19911004151140` serves that entry as
+
+[source,html]
+----
+<a name="PREFACE">PREFACE</a>       <a href="PREFACE?DT=19911004151140"><strong>About This Book </strong></a>
+----
+
+The same framing is what leaves a long title complete: `GC23-046.boo` `A.0`
+carries `Appendix A.  Install Logic for SMP/E Release 6 and the Feature for
+Online Books` on one `CTOCE` display line even though the target topic's `ST`
+display row stops at `Online`, and hosted BookServer reproduces exactly that
+split — the full title in the contents, the truncated row in the topic's own
+`<H1>`. A title's end is decided by the line, never by trimming a trailing
+token or by reconciling the two projections against each other.
+
 Both numbers are derived from the target topic, and both derivations are exact
 over all 7,412 `CTOCE` entries of the 34 fixtures:
 

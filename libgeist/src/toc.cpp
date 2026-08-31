@@ -47,10 +47,21 @@ std::size_t find_toc_end_marker(const std::string& lower_record,
   return end_marker;
 }
 
-std::vector<TocEntry> extract_toc_entries(const std::string& decoded_record) {
+std::vector<TocEntry> extract_toc_entries(
+    const std::string& decoded_record,
+    const std::vector<std::size_t>& display_line_starts) {
   std::vector<TocEntry> entries;
   const auto lower_record = ascii_lower(decoded_record);
   std::size_t search_offset = 0;
+  // The first display-line start at or after `offset`.  A `CTocE` entry is
+  // line content, so its title ends there: what follows is the next line's
+  // length byte, which is structure whatever the dictionary spells for it
+  // (toc_entry_framing.hpp).
+  const auto next_display_line_start = [&](std::size_t offset) {
+    const auto found = std::lower_bound(display_line_starts.begin(),
+                                        display_line_starts.end(), offset);
+    return found == display_line_starts.end() ? std::string::npos : *found;
+  };
 
   while (search_offset < decoded_record.size()) {
     const auto found = lower_record.find("ctoce ", search_offset);
@@ -75,6 +86,10 @@ std::vector<TocEntry> extract_toc_entries(const std::string& decoded_record) {
     }
     if (next_entry != std::string::npos) {
       value_end = std::min(value_end, next_entry);
+    }
+    const auto line_end = next_display_line_start(value_begin);
+    if (line_end != std::string::npos) {
+      value_end = std::min(value_end, line_end);
     }
     for (auto cursor = value_begin; cursor < value_end; ++cursor) {
       if (looks_like_toc_entry_boundary(lower_record, cursor)) {
@@ -168,10 +183,13 @@ void attach_topic_data(
 std::vector<TocEntry> build_table_of_contents(
     const std::vector<std::string>& decoded_records,
     const std::vector<TopicData>& topics,
-    bool attach_records) {
+    bool attach_records,
+    const std::vector<std::vector<std::size_t>>* record_display_line_starts) {
   std::vector<TocEntry> toc;
   bool in_contents_topic = false;
-  for (const auto& decoded : decoded_records) {
+  static const std::vector<std::size_t> no_display_lines;
+  for (std::size_t index = 0; index < decoded_records.size(); ++index) {
+    const auto& decoded = decoded_records[index];
     if (!in_contents_topic) {
       if (!is_contents_topic_record(decoded)) {
         continue;
@@ -181,7 +199,12 @@ std::vector<TocEntry> build_table_of_contents(
       break;
     }
 
-    auto entries = extract_toc_entries(decoded);
+    const auto& display_line_starts =
+        (record_display_line_starts != nullptr &&
+         index < record_display_line_starts->size())
+            ? (*record_display_line_starts)[index]
+            : no_display_lines;
+    auto entries = extract_toc_entries(decoded, display_line_starts);
     if (entries.empty()) {
       continue;
     }

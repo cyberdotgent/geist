@@ -136,6 +136,7 @@ set(GEIST_SOURCES
   src/source_segments.cpp
   src/strings.cpp
   src/toc.cpp
+  src/toc_entry_framing.cpp
   src/topic_document_lowering.cpp
   src/topic_link_targets.cpp
   src/topic_header_title.cpp
@@ -228,6 +229,7 @@ foreach(synthetic_test
     gdf_synthetic
     logical_synthetic
     display_line_control_extent_synthetic
+    toc_entry_framing_synthetic
     topic_envelope_ir_synthetic
     source_rows_synthetic
     layout_ir_synthetic

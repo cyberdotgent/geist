@@ -328,17 +328,29 @@ std::vector<BooLogicalControl> extract_book_logical_controls(
 const TopicData* find_topic_data(const std::vector<TopicData>& topics,
                                  const std::string& topic_id);
 
-std::vector<TocEntry> extract_toc_entries(const std::string& decoded_record);
+// `display_line_starts`, when non-empty, are the flattened-string offsets at
+// which the record's display lines begin (toc_entry_framing.hpp).  A `CTocE`
+// title is line content and ends where the next line's length byte starts, so
+// passing them stops a title from absorbing that byte's dictionary spelling.
+// An empty vector means the record has no decided framing: the title then
+// runs to the next entry, as it did before the framing was carried.
+std::vector<TocEntry> extract_toc_entries(
+    const std::string& decoded_record,
+    const std::vector<std::size_t>& display_line_starts = {});
 bool is_contents_topic_record(const std::string& decoded_record);
 bool is_topic_header_record(const std::string& decoded_record);
 void attach_topic_data(
     TocEntry& entry,
     const TopicData& topic,
     const std::map<std::string, std::string>* topic_titles = nullptr);
+// `record_display_line_starts`, when given, is parallel to `decoded_records`
+// and carries each record's display-line starts (toc_entry_framing.hpp).
 std::vector<TocEntry> build_table_of_contents(
     const std::vector<std::string>& decoded_records,
     const std::vector<TopicData>& topics,
-    bool attach_records = true);
+    bool attach_records = true,
+    const std::vector<std::vector<std::size_t>>* record_display_line_starts =
+        nullptr);
 // Topic identities, boundaries and header titles.  The title is read off the
 // `ST` display line of the topic's own metadata record, so this needs the
 // positioned decode context and not only the flattened record strings
