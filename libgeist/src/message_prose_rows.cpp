@@ -348,10 +348,14 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
           }
         continue;
       }
+      // A `SRETBL` that closes an embedded drawing may straddle the envelope
+      // start the same way a title segment does: the flattened splitter gives
+      // it the display lines that follow it, and those are prose again.
       if (segment.kind != BookControlKind::text &&
           segment.kind != BookControlKind::font &&
           segment.kind != BookControlKind::structural &&
-          !(straddles_start && segment.kind == BookControlKind::title))
+          !(straddles_start && (segment.kind == BookControlKind::title ||
+                                segment.kind == BookControlKind::table_end)))
         return reject("message prose envelope contains a non-prose control: " +
                       segment.opcode);
     }
@@ -419,9 +423,12 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
     if (inside == 0) continue;
     if (inside + leading_outside != run.rows.size())
       return reject("message prose display run straddles the envelope");
+    // As above: the display run a `SRETBL` opens carries the prose that
+    // follows the drawing it closed, not part of the drawing.
     if (run.control_kind != BookControlKind::text &&
         run.control_kind != BookControlKind::font &&
         run.control_kind != BookControlKind::title &&
+        run.control_kind != BookControlKind::table_end &&
         run.control_kind != BookControlKind::structural)
       return reject("message prose envelope contains a non-prose run");
     if (!first_run) first_run = run_index;

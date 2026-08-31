@@ -191,8 +191,21 @@ struct TrapCatalogIR {
   // both names; the entry's own anchor is `MSG AMD083I`, so these are
   // destinations for the topic rather than places inside it.
   std::vector<std::string> entry_named_destinations;
+  // The whole span between the title row and the first entry.
   std::optional<MessageProseEnvelopeIR> introduction_envelope;
+  // The prose pieces of that span, in source order. An `SRTBL` ... `SRETBL`
+  // envelope drawn in the introduction interrupts the prose, so the pieces
+  // either side of it are separate envelopes and the drawing is never
+  // offered to `extract_message_prose_paragraphs_ir`. Without such an
+  // envelope there is exactly one piece and it equals
+  // `introduction_envelope`.
+  std::vector<MessageProseEnvelopeIR> introduction_prose_envelopes;
   std::vector<TrapIntroductionParagraphIR> introduction;
+  // Envelopes the introduction draws, in source order. `after_field` counts
+  // the introduction paragraphs already closed when the envelope opened, so
+  // a consumer can place the region back where the topic drew it.
+  std::vector<TrapEmbeddedRegionIR> introduction_regions;
+  std::vector<TrapSourceCellIR> introduction_cells;
   std::size_t origin_column = 0;
   std::vector<std::string> label_vocabulary;
   std::vector<TrapEntryIR> entries;

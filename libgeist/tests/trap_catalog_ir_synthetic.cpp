@@ -17,6 +17,9 @@
 //   * an envelope whose opening control shares its display line with drawn
 //     text, which the family declines rather than guess where the drawing
 //     begins;
+//   * the same envelope drawn in the topic *introduction*, which the prose
+//     model must never be offered: the prose either side of it is a separate
+//     piece and no word crosses between them;
 //   * a display line the flattened splitter cut in two, whose tail LayoutIR
 //     leaves unrowed -- the mid-record shape `message_catalog_ir_synthetic.cpp`
 //     could not state. Here the framing makes it reproducible, and removing
@@ -295,6 +298,72 @@ int main() {
         require(text.find(word) != std::string::npos,
                 std::string("split display line lost the word '") + word +
                     "': [" + text + "]");
+    }
+  }
+
+  // Case 5 -- the same `SRTBL` ... `SRETBL` envelope drawn in the topic
+  // introduction rather than inside an entry (SC09-138 `F.1`/`H.0`,
+  // SC24-546 `A.0`, SC34-425 `2.4.32`/`2.4.33`). The introduction is
+  // modelled as prose paragraphs, so the drawing must not be offered to the
+  // prose model at all: the prose either side of the envelope is a separate
+  // piece, and the region keeps its own display lines.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({origin(), t("Intro", 140), t("before", 141)}));
+    append(tokens, line({t("SRTBLT3", 137)}));
+    append(tokens, line({origin(), t("Return", 131), t("Code", 132)}));
+    append(tokens, line({origin(), t("4", 133), t("Everything", 134)}));
+    append(tokens, line({t("SRETBL", 135)}));
+    append(tokens, line({origin(), t("Intro", 140), t("after", 143)}));
+    append(tokens, entry("605", 124));
+    const auto built = build({make_source(14, tokens)}, "Sample Messages");
+    require(built.ownership.has_value(),
+            "introduction-envelope ownership was rejected: " + built.error);
+    require(built.catalog.has_value(),
+            "introduction-envelope catalog declined: " + built.error);
+    if (built.catalog) {
+      const auto &catalog = *built.catalog;
+      require(catalog.introduction_regions.size() == 1,
+              "the introduction did not report its drawn envelope");
+      require(catalog.introduction_prose_envelopes.size() ==
+                  catalog.introduction_regions.size() + 1,
+              "the introduction pieces do not bracket its drawn envelopes");
+      std::string introduction;
+      for (const auto &paragraph : catalog.introduction) {
+        introduction.push_back(' ');
+        introduction += paragraph.text;
+      }
+      for (const char *word : {"before", "after"})
+        require(introduction.find(word) != std::string::npos,
+                std::string("the introduction lost the word '") + word +
+                    "': [" + introduction + "]");
+      for (const char *word : {"Return", "Code", "Everything"})
+        require(introduction.find(word) == std::string::npos,
+                std::string("envelope word '") + word +
+                    "' leaked into the introduction: [" + introduction + "]");
+      if (catalog.introduction_regions.size() == 1) {
+        const auto &region = catalog.introduction_regions.front();
+        require(region.identifier == "T3",
+                "introduction envelope identifier is wrong: [" +
+                    region.identifier + "]");
+        require(region.lines.size() == 2 &&
+                    region.lines.size() == region.line_sources.size(),
+                "introduction envelope drew " +
+                    std::to_string(region.lines.size()) +
+                    " lines with provenance for " +
+                    std::to_string(region.line_sources.size()));
+        std::string joined;
+        for (const auto &drawn : region.lines)
+          joined += drawn;
+        for (const char *word : {"Return", "Code", "Everything"})
+          require(joined.find(word) != std::string::npos,
+                  std::string("introduction envelope lost the word '") + word +
+                      "': [" + joined + "]");
+        require(region.after_field == 1,
+                "the introduction envelope was not placed after the paragraph "
+                "it interrupts: " +
+                    std::to_string(region.after_field));
+      }
     }
   }
 

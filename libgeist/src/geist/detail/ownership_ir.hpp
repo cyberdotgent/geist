@@ -19,6 +19,29 @@ enum class SourceDisposition {
   opaque,
 };
 
+// What the record's own display-line framing says about a source cell.
+//
+// A record payload tiles into `<length byte> <that many bytes>` display lines
+// (book_ir.hpp, `TokenFramingRole`). The length byte is below the book's token
+// threshold, so the dictionary spells an ordinary word for it -- `adapter`,
+// `agent`, `and`, `be` -- and nothing about the cell itself separates that
+// framing slot from the same word used as text. Only the walk from the record
+// start does, and the record decoder has already done it. Carrying its answer
+// here is what lets a consumer ask "does this cell occupy the display?"
+// instead of re-deriving "is this a length byte" from a spelling.
+enum class SourceFieldRole : std::uint8_t {
+  // The record's payload does not tile into whole display lines, so no cell
+  // of it has a decided field role. A consumer must not read this as either
+  // answer.
+  undecided,
+  // The cell is content of a display line: the record's own framing places it
+  // in the display.
+  positioned,
+  // The cell is a display line's length byte. It supplies the line's extent
+  // and is never display text, whatever word the dictionary spells for it.
+  supplemental,
+};
+
 struct OwnedSourceCellIR {
   std::uint32_t logical_record = 0;
   std::size_t token_index = 0;
@@ -27,6 +50,7 @@ struct OwnedSourceCellIR {
   SourceDisposition disposition = SourceDisposition::opaque;
   DisplayRunId run = 0;
   std::size_t row_index = 0;
+  SourceFieldRole field_role = SourceFieldRole::undecided;
 };
 
 enum class RowCellRole {
@@ -48,6 +72,12 @@ struct PositionedRowCellIR {
   std::uint16_t word = 0;
   RowCellRole role = RowCellRole::content;
   std::optional<std::size_t> display_column;
+  // The record's display-line framing for this cell. A boundary cell still
+  // carries no `display_column` -- the row's column table starts after the
+  // marker -- but its field role says whether the record's own framing draws
+  // the cell at all. `supplemental` is the line-length slot; `positioned` is
+  // display text that the row happens to open on.
+  SourceFieldRole field_role = SourceFieldRole::undecided;
 };
 
 enum class OwnershipConflictKind {
@@ -164,6 +194,9 @@ bool ownership_verified_for(
     const std::vector<DecodedLogicalRecordSource>& records,
     const LayoutIR& layout, std::string* error = nullptr);
 bool ownership_run_conflicted(const OwnershipIR& ownership, DisplayRunId run);
+// The field role the record's stored display-line framing gives one token.
+SourceFieldRole source_field_role(const DecodedLogicalRecordSource& record,
+                                  std::size_t token);
 std::string format_ownership_ir(const OwnershipIR& ownership);
 std::string format_owned_source_cell_ir(const OwnedSourceCellIR& cell);
 std::string format_positioned_row_cell_ir(const PositionedRowCellIR& cell);

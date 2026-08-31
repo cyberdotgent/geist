@@ -1,5 +1,6 @@
 #include "geist/detail/ownership_ir.hpp"
 
+#include "geist/detail/display_lines.hpp"
 #include "geist/detail/internal.hpp"
 
 #include <algorithm>
@@ -136,6 +137,15 @@ const char* disposition_name(SourceDisposition disposition) {
   return "invalid";
 }
 
+const char* field_role_name(SourceFieldRole role) {
+  switch (role) {
+  case SourceFieldRole::undecided: return "undecided";
+  case SourceFieldRole::positioned: return "positioned";
+  case SourceFieldRole::supplemental: return "supplemental";
+  }
+  return "invalid";
+}
+
 const char* role_name(RowCellRole role) {
   switch (role) {
   case RowCellRole::boundary: return "boundary";
@@ -250,7 +260,8 @@ OwnershipIR build_ownership_ir(
         if (word == 0 && record.tokens[token][word] < 4)
           disposition = SourceDisposition::control_operand;
         result.cells.push_back({record.logical_record, token, word,
-                                record.tokens[token][word], disposition, 0, 0});
+                                record.tokens[token][word], disposition, 0, 0,
+                                source_field_role(record, token)});
       }
     }
   }
@@ -429,6 +440,7 @@ OwnershipIR build_ownership_ir(
           positioned.word_index = cell.word_index;
           positioned.word = cell.word;
           positioned.role = row_role(entry.disposition);
+          positioned.field_role = cell.field_role;
           if (positioned.role != RowCellRole::boundary) {
             const auto found = columns.find(
                 cell.logical_record, cell.token_index, cell.word_index);
@@ -466,6 +478,22 @@ OwnershipIR build_ownership_ir(
                             positioned_run.end());
   }
   return result;
+}
+
+SourceFieldRole source_field_role(const DecodedLogicalRecordSource& record,
+                                  std::size_t token) {
+  if (!record_framing_is_decided(record.ir) ||
+      token >= record.ir.tokens.size())
+    return SourceFieldRole::undecided;
+  switch (record.ir.tokens[token].framing) {
+  case TokenFramingRole::line_length:
+    return SourceFieldRole::supplemental;
+  case TokenFramingRole::line_content:
+    return SourceFieldRole::positioned;
+  case TokenFramingRole::unframed:
+    break;
+  }
+  return SourceFieldRole::undecided;
 }
 
 bool ownership_run_conflicted(const OwnershipIR& ownership, DisplayRunId run) {
@@ -569,7 +597,8 @@ bool verify_ownership_ir_against(
         cell.token_index != expected_cell.token_index ||
         cell.word_index != expected_cell.word_index ||
         cell.word != expected_cell.word || cell.role != expected_cell.role ||
-        cell.display_column != expected_cell.display_column)
+        cell.display_column != expected_cell.display_column ||
+        cell.field_role != expected_cell.field_role)
       return fail("positioned row-cell ledger differs from source geometry");
     if ((cell.role == RowCellRole::boundary) ==
         cell.display_column.has_value())
@@ -579,6 +608,7 @@ bool verify_ownership_ir_against(
     if (owned == owned_cells.end() || owned->second->run != cell.run ||
         owned->second->row_index != cell.row_index ||
         owned->second->word != cell.word ||
+        owned->second->field_role != cell.field_role ||
         row_role(owned->second->disposition) != cell.role)
       return fail("positioned row cell does not match source ownership");
   }
@@ -678,7 +708,8 @@ std::string format_owned_source_cell_ir(const OwnedSourceCellIR& cell) {
   std::ostringstream out;
   out << "record=" << cell.logical_record << " token=" << cell.token_index
       << " word=" << cell.word_index << " value=" << cell.word
-      << " disposition=" << disposition_name(cell.disposition);
+      << " disposition=" << disposition_name(cell.disposition)
+      << " field=" << field_role_name(cell.field_role);
   if (cell.run != 0)
     out << " run=" << cell.run << " row=" << cell.row_index;
   return out.str();
@@ -689,7 +720,8 @@ std::string format_positioned_row_cell_ir(const PositionedRowCellIR& cell) {
   out << "run=" << cell.run << " row=" << cell.row_index
       << " record=" << cell.logical_record << " token=" << cell.token_index
       << " word=" << cell.word_index << " value=" << cell.word
-      << " role=" << role_name(cell.role) << " column=";
+      << " role=" << role_name(cell.role)
+      << " field=" << field_role_name(cell.field_role) << " column=";
   if (cell.display_column)
     out << *cell.display_column;
   else

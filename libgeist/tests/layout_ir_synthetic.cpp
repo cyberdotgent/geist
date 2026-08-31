@@ -137,7 +137,9 @@ int main() {
               "disposition=") != std::string::npos,
           "ownership IR has no stable diagnostic projection");
   require(geist::detail::format_ownership_ir(ownership).find(
-              "role=boundary column=none") != std::string::npos,
+              "role=boundary field=") != std::string::npos &&
+              geist::detail::format_ownership_ir(ownership).find(
+                  "column=none") != std::string::npos,
           "positioned row-cell IR has no stable diagnostic projection");
 
   auto duplicate = ownership;
