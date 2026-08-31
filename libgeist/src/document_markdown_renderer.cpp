@@ -441,9 +441,57 @@ void append_table(RenderSink &sink, const TableBlockIR &table,
   }
 }
 
+// The block-level honesty marker (issue #81).  A `PreformattedBlockIR` looks
+// the same however it got there: an ASCII-drawn figure body is verbatim *by
+// right* -- the compiler rasterized it and hosted BookServer reproduces it
+// line for line -- while an unmodelled region emitted verbatim is a claim the
+// pipeline could not make.  Without this the two are byte-identical in the
+// file, and one topic-level `degraded=` code cannot say which fence it means.
+//
+// Emitted only for `fidelity == degraded`, so every block the pipeline proved
+// renders exactly as it did before this existed.  It carries the block's own
+// origin, so `bootrace --explain-offset` on the marker resolves to the source
+// records, tokens and BOO byte extents of the region it marks.
+std::string comment_safe_code(const std::string &value) {
+  std::string output;
+  output.reserve(value.size());
+  for (const auto ch : value) {
+    // Anything that could close the comment early, break the line, or be read
+    // as a second field becomes '-'.  Degradation codes are stable machine
+    // identifiers, so this normally copies them unchanged.
+    const auto byte = static_cast<unsigned char>(ch);
+    if (byte < 0x20 || byte == 0x7f || ch == '-' || ch == '>' || ch == '<' ||
+        ch == ' ')
+      output.push_back('-');
+    else
+      output.push_back(ch);
+  }
+  // A run of replacements collapses so `--` can never appear.
+  std::string collapsed;
+  for (const auto ch : output) {
+    if (ch == '-' && !collapsed.empty() && collapsed.back() == '-')
+      continue;
+    collapsed.push_back(ch);
+  }
+  while (!collapsed.empty() && collapsed.front() == '-')
+    collapsed.erase(collapsed.begin());
+  while (!collapsed.empty() && collapsed.back() == '-')
+    collapsed.pop_back();
+  return collapsed.empty() ? std::string("unnamed") : collapsed;
+}
+
+void append_degradation_marker(RenderSink &sink, const BlockIR &block) {
+  if (block.origin.fidelity != DocumentFidelityIR::degraded)
+    return;
+  sink.syntax("<!-- geist-block: degraded=" +
+                  comment_safe_code(block.origin.degradation_code) + " -->\n",
+              "block degradation marker", &block.origin);
+}
+
 void append_block(RenderSink &sink, const BlockIR &block,
                   const DocumentMarkdownRendererOptions &options) {
   const auto *block_origin = &block.origin;
+  append_degradation_marker(sink, block);
   std::visit(
       [&](const auto &node) {
         using T = std::decay_t<decltype(node)>;

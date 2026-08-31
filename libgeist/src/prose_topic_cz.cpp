@@ -421,18 +421,32 @@ struct CzBuilder {
 
   // `cz OFF XMP` .. `cz OFF EXMP`: the display rows verbatim.  CFONT spans
   // inside (hosted `<samp>` per word) carry no structure the block keeps.
-  bool preformatted(std::size_t begin, std::size_t end) {
+  bool preformatted(std::size_t begin, std::size_t end,
+                    const std::string& degradation_code = {},
+                    const std::string& degradation_detail = {}) {
     ProseBlockIR block;
     block.kind = ProseBlockKindIR::preformatted;
+    block.degradation_code = degradation_code;
+    block.degradation_detail = degradation_detail;
     const auto index = topic.blocks.size();
     std::vector<std::string> rows;
+    // Row -> index into `block.inlines`, or `npos` for a blank row, which is
+    // a display-line break and owns no token.  A degraded block is the only
+    // statement its consumer gets about the region, so it carries per-row
+    // provenance and not just one range for the whole fence.
+    std::vector<std::size_t> row_inlines;
     std::vector<std::pair<std::size_t, std::size_t>> block_refs;
     for (auto line_index = begin; line_index < end; ++line_index) {
       const auto& line = lines[line_index];
-      for (std::size_t blank = 0; blank < line.breaks_before; ++blank)
+      for (std::size_t blank = 0; blank < line.breaks_before; ++blank) {
         rows.emplace_back();
+        row_inlines.push_back(npos);
+      }
       if (!has_text(line)) {
-        if (line.breaks_before == 0) rows.emplace_back();
+        if (line.breaks_before == 0) {
+          rows.emplace_back();
+          row_inlines.push_back(npos);
+        }
         continue;
       }
       auto text = line_text(line);
@@ -455,11 +469,18 @@ struct CzBuilder {
         return fail(error, "preformatted row '" + text + "' has no source");
       inline_node.slices = slices_for(records, refs);
       block_refs.insert(block_refs.end(), refs.begin(), refs.end());
+      row_inlines.push_back(block.inlines.size());
       block.inlines.push_back(std::move(inline_node));
       rows.push_back(std::move(text));
     }
-    while (!rows.empty() && rows.back().empty()) rows.pop_back();
-    while (!rows.empty() && rows.front().empty()) rows.erase(rows.begin());
+    while (!rows.empty() && rows.back().empty()) {
+      rows.pop_back();
+      row_inlines.pop_back();
+    }
+    while (!rows.empty() && rows.front().empty()) {
+      rows.erase(rows.begin());
+      row_inlines.erase(row_inlines.begin());
+    }
     if (block.inlines.empty())
       return fail(error, "cz OFF XMP block has no display rows");
     // The region's own left margin is content: hosted BookServer serves the
@@ -478,6 +499,7 @@ struct CzBuilder {
     // ten columns SC09-2417-00 `4.1.9.4`'s COBOL listing does not have; the
     // rows here are already at their read columns and are simply not shifted.
     block.preformatted_lines = std::move(rows);
+    block.preformatted_line_inlines = std::move(row_inlines);
     std::sort(block_refs.begin(), block_refs.end());
     block.slices = slices_for(records, block_refs);
     block.origin = lines[begin].origin;
@@ -636,6 +658,102 @@ struct CzBuilder {
     index = closer_index;
     if (closer.first == npos) return true;
     return paragraphs(group_lines(lines, closer.first, closer.second), 0);
+  }
+
+  // Issue #81.  What `degraded_region` decided about one unmodelled
+  // `cz OFF <tag>` directive.
+  enum class RegionOutcome {
+    // The region was emitted verbatim, marked degraded, and its closer's
+    // trailing text was emitted as paragraphs.  `index` advanced past both.
+    emitted,
+    // It is a degradable region and lowering it failed; `error` is set.
+    declined,
+    // Not a closed region at all.  The caller declines the topic with its
+    // own message, unchanged from before this path existed.
+    not_a_region,
+  };
+
+  // The §2 invariant of AnalysisNotes/block-level-degradation-2026-08-31.md,
+  // applied to the one construct that satisfies it generically.
+  //
+  // Conditions 1 (frame proven) and 3 (the boundary is a block boundary) are
+  // properties of where this is called from: the topic's metadata envelope,
+  // segmentation, layout ledger and ownership all verified before the CZ
+  // block builder ran, and a `cz OFF` directive is the CZ dialect's own block
+  // delimiter -- the rows before it belong to the previous directive and the
+  // rows after the closer belong to the closer, whatever this region holds.
+  //
+  // Condition 2 (boundary proven independently of the failing check) is what
+  // this function tests.  The check that failed is "this tag is not
+  // modelled"; the boundary is proven by a *different* fact, that the source
+  // wrote a matched `cz OFF E<tag>` and the frame recognised it as a layout
+  // directive.  A region that is never closed by its own `E<tag>` therefore
+  // has no proven boundary and is refused here, so the topic still falls
+  // whole -- that is the case the note counts as "no closed region", and it
+  // stays on the declining side.
+  //
+  // Condition 4 (total region conservation) comes from `preformatted`, which
+  // claims every text token of every display row between the delimiters, and
+  // from the region being exactly one directive's line range: no other block
+  // claims inside it and it claims nothing outside.
+  //
+  // Condition 5 (verbatim means verbatim) is the block kind: display rows in
+  // source order, no inline model, no links, no ordinal, no nesting.
+  //
+  // Condition 6 (marked, at the block) is the degradation code carried out
+  // through the lowering to `DocumentFidelityIR::degraded`.
+  RegionOutcome degraded_region(std::size_t& index,
+                                std::pair<std::size_t, std::size_t> range,
+                                const std::string& tag) {
+    std::string opener;
+    for (const auto ch : tag)
+      opener.push_back(
+          static_cast<char>(std::toupper(static_cast<unsigned char>(ch))));
+    const auto closer_tag = "e" + tag;
+    // The same region walk the modelled verbatim tags use: a footnote end
+    // marker that displays nothing, and an `SRFIG`/`SRTBL` envelope
+    // delimiter, are rows of the region rather than breaks in it.
+    auto closer_index = index + 1;
+    auto region_end = range.second;
+    while (closer_index < build.directives.size()) {
+      const auto& inner = build.directives[closer_index];
+      if (inner.mode != "off") break;
+      const auto inner_rows = ranges[closer_index];
+      if (inner.tag == "fn") {
+        if (inner_rows.first != npos) break;
+      } else if (inner.tag == "table" || inner.tag == "etable" ||
+                 inner.tag == "fig" || inner.tag == "efig") {
+        if (inner_rows.first != npos) region_end = inner_rows.second;
+      } else {
+        break;
+      }
+      ++closer_index;
+    }
+    // Invariant 2.  Unlike a modelled verbatim region, an *unterminated*
+    // region is not degradable: there the tag itself told the model where the
+    // rows end, and here nothing does.  No matched closer, no boundary, no
+    // degradation -- the topic declines whole with its original message.
+    if (closer_index >= build.directives.size() ||
+        build.directives[closer_index].mode != "off" ||
+        build.directives[closer_index].tag != closer_tag)
+      return RegionOutcome::not_a_region;
+    // Invariant 5.  A region that displays nothing has no rows to keep, so
+    // there is nothing to degrade into; it declines with its own message.
+    if (range.first == npos) return RegionOutcome::not_a_region;
+    if (!preformatted(range.first, region_end, "cz-off-region-unmodelled",
+                      "cz OFF " + opener + " is not modelled; the region is "
+                      "bounded by its own matched cz OFF E" + opener +
+                      " and is emitted verbatim"))
+      return RegionOutcome::declined;
+    // The closer carries the body text that follows the region as ordinary
+    // paragraphs, exactly as `cz OFF EXMP` does.  Those paragraphs are
+    // *typed*: only the region between the delimiters is degraded.
+    const auto closer = ranges[closer_index];
+    index = closer_index;
+    if (closer.first == npos) return RegionOutcome::emitted;
+    return paragraphs(group_lines(lines, closer.first, closer.second), 0)
+               ? RegionOutcome::emitted
+               : RegionOutcome::declined;
   }
 
   bool run() {
@@ -832,6 +950,22 @@ struct CzBuilder {
           // record 898 `cz OFF EOL 0 0   The best way to instantiate
           // templates ...`, which hosted prints after `</ol>`).
           return paragraphs(groups, 0);
+        }
+        // Issue #81, the generic unmodelled `cz OFF <tag>` fallback.  An
+        // unmodelled tag that opens a region the source itself closes with a
+        // matched `cz OFF E<tag>`, and whose rows are preformattable, has
+        // already proved everything a degraded block needs: the topic frame
+        // verified to get here, the boundary is a matched control pair the
+        // frame recognised independently of the check that failed (the tag
+        // not being modelled), that boundary is a block boundary because the
+        // delimiters -- not the region's content -- fix where the blocks
+        // before and after end, the block claims every cell between them,
+        // and it lowers to display rows and nothing else.  So emit them,
+        // marked degraded, instead of discarding the whole topic.
+        switch (degraded_region(index, range, tag)) {
+        case RegionOutcome::emitted: return true;
+        case RegionOutcome::declined: return false;
+        case RegionOutcome::not_a_region: break;
         }
         if (!groups.empty())
           return fail(error, name + " carries display text");

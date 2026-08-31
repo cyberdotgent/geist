@@ -191,10 +191,16 @@ void declared_table_topic() {
 //   3. Degradation is unreachable when the frame is unproven: a declined
 //      lowering is `best-effort` and carries no degradations at all.
 //
-// It also pins the honesty gap the note recommends closing: the Markdown
-// renderer is fidelity-blind, so an unproven verbatim region is today
-// byte-identical to a proven one and only the topic-level marker separates
-// them.
+//   4. The renderer is no longer fidelity-blind (issue #81).  A degraded
+//      block carries a `<!-- geist-block: degraded=... -->` marker on its own
+//      fence, because a proven verbatim region -- an ASCII-drawn figure body,
+//      a `cz OFF XMP` example -- renders as the same fence and one
+//      topic-level `degraded=` code cannot say which of them it means.  The
+//      marker is the *whole* difference from the same block proven, which is
+//      what keeps every typed output byte-identical to what it was before the
+//      marker existed.  The note recorded this as an open gap and wrote the
+//      assertion below to fail when it closed; it has closed, so the
+//      assertion now reads the other way and still pins what it pinned.
 void degraded_block_topic() {
   using namespace geist::detail;
 
@@ -335,16 +341,29 @@ void degraded_block_topic() {
   require(unframed.degradations.empty(),
           "an unproven frame names no degraded block");
 
-  // The honesty gap, pinned rather than fixed (see the note's recommendation
-  // 4): the Markdown renderer does not read `fidelity`, so the unproven
-  // region and a proven verbatim region of the same rows render identically.
-  // Only the topic-level marker separates them, which does not scale to a
-  // topic carrying several verbatim regions of mixed provenance.
-  require(render_document_markdown(degraded_document) ==
-              render_document_markdown(typed_document),
-          "today a degraded block renders exactly like a proven one; the "
-          "block-level marking this note recommends would break this "
-          "assertion, and that is the point of it");
+  // (4) The honesty gap is closed at the block.  A reader of the file can see
+  // *which* fence is unproven, not merely that the topic carries one
+  // somewhere -- and removing the marker line reproduces the undegraded
+  // render byte for byte, which is the assertion that keeps every proven
+  // block's output unchanged.
+  const auto degraded_markdown = render_document_markdown(degraded_document);
+  const auto typed_markdown = render_document_markdown(typed_document);
+  require(degraded_markdown != typed_markdown,
+          "an unproven verbatim region no longer renders like a proven one");
+  const std::string block_marker =
+      "<!-- geist-block: degraded=cz-off-region-unmodelled -->\n";
+  require(contains(degraded_markdown, block_marker + "```"),
+          "the marker names the code immediately before the region's fence: " +
+              degraded_markdown);
+  require(!contains(typed_markdown, "<!-- geist-block:"),
+          "a proven verbatim region carries no marker at all");
+  auto stripped = degraded_markdown;
+  const auto marker_at = stripped.find(block_marker);
+  if (marker_at != std::string::npos)
+    stripped.erase(marker_at, block_marker.size());
+  require(stripped == typed_markdown,
+          "the marker is the whole difference: removing it reproduces the "
+          "undegraded render byte for byte");
 }
 
 // The synthetic tail of the ladder: `failed` is reserved for a topic whose
