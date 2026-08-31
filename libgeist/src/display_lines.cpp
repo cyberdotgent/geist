@@ -128,9 +128,10 @@ bool verify_display_line_framing(const LogicalRecordIR& record,
 
 namespace {
 
-// Walks the assembled word sources of one display line, calling `visit(word)`
-// for every displayed word and `visit(' ')` for every inter-token space the
-// assembler inserted inside the line.
+// Walks the assembled word sources of one display line, calling
+// `visit(word, token, word_index)` for every displayed word and
+// `visit(' ', -1, 0)` for every inter-token space the assembler inserted
+// inside the line.
 template <typename Visit>
 void walk_display_line(const DecodedLogicalRecordSource& record,
                        const DisplayLineIR& line, Visit visit) {
@@ -155,11 +156,11 @@ void walk_display_line(const DecodedLogicalRecordSource& record,
         (source.word_index == 0 && words[0] < 4))
       continue;
     if (pending_space) {
-      visit(static_cast<std::uint16_t>(' '), no_token);
+      visit(static_cast<std::uint16_t>(' '), no_token, std::size_t{0});
       pending_space = false;
     }
     started = true;
-    visit(words[source.word_index], source.token_index);
+    visit(words[source.word_index], source.token_index, source.word_index);
   }
 }
 
@@ -169,7 +170,8 @@ std::string display_line_text(const DecodedLogicalRecordSource& record,
                               const DisplayLineIR& line) {
   std::string text;
   walk_display_line(record, line,
-                    [&](const std::uint16_t word, const std::size_t) {
+                    [&](const std::uint16_t word, const std::size_t,
+                        const std::size_t) {
                       text += figure_display_glyph(word);
                     });
   return text;
@@ -180,7 +182,8 @@ std::vector<std::size_t> display_line_column_offsets(
   std::vector<std::size_t> offsets;
   std::size_t size = 0;
   walk_display_line(record, line,
-                    [&](const std::uint16_t word, const std::size_t) {
+                    [&](const std::uint16_t word, const std::size_t,
+                        const std::size_t) {
                       offsets.push_back(size);
                       size += figure_display_glyph(word).size();
                     });
@@ -192,7 +195,8 @@ std::vector<std::uint16_t> display_line_columns(
     const DecodedLogicalRecordSource& record, const DisplayLineIR& line) {
   std::vector<std::uint16_t> columns;
   walk_display_line(record, line,
-                    [&](const std::uint16_t word, const std::size_t) {
+                    [&](const std::uint16_t word, const std::size_t,
+                        const std::size_t) {
                       columns.push_back(word);
                     });
   return columns;
@@ -202,8 +206,9 @@ std::vector<DisplayLineCellIR> display_line_cells(
     const DecodedLogicalRecordSource& record, const DisplayLineIR& line) {
   std::vector<DisplayLineCellIR> cells;
   walk_display_line(record, line,
-                    [&](const std::uint16_t word, const std::size_t token) {
-                      cells.push_back({word, token});
+                    [&](const std::uint16_t word, const std::size_t token,
+                        const std::size_t word_index) {
+                      cells.push_back({word, token, word_index});
                     });
   return cells;
 }

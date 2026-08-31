@@ -73,6 +73,7 @@ set(GEIST_SOURCES
   src/document.cpp
   src/document_ir.cpp
   src/document_markdown_renderer.cpp
+  src/drawn_word_conservation.cpp
   src/ebcdic.cpp
   src/fixed_display.cpp
   src/fixed_prose_document_lowering.cpp
@@ -270,6 +271,7 @@ foreach(fixture_test
     generated_list_production
     glossary_production
     selector_display_ir_synthetic
+    drawn_word_conservation_synthetic
     render_diagnostic)
   geist_add_test(${fixture_test} FIXTURE)
 endforeach()
