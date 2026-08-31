@@ -17,13 +17,6 @@ std::string range_text(const DecodedLogicalRecordSource& record,
   return text.substr(range.begin, range.end - range.begin);
 }
 
-bool all_spaces(const TokenWords& token) {
-  return !token.empty() &&
-         std::all_of(token.begin(), token.end(), [](const auto word) {
-           return word == ' ';
-         });
-}
-
 std::optional<SelectorMarkerIR> display_marker_slot(
     const DecodedLogicalRecordSource& record,
     const ControlSegmentIR& segment,
@@ -80,7 +73,7 @@ std::optional<SelectorMarkerIR> display_marker_slot(
       record.encoded_tokens[origin_token].width != 1 ||
       record.tokens[origin_token].size() < 2 ||
       record.tokens[origin_token].size() > 32 ||
-      !all_spaces(record.tokens[origin_token]) ||
+      !all_space_words(record.tokens[origin_token]) ||
       record.assembled.tokens[origin_token].output_begin != marker_span_end)
     return std::nullopt;
 

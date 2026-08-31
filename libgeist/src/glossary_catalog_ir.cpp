@@ -67,12 +67,6 @@ bool has_source(const DocumentSourceSliceIR &source) {
          source.byte_begin < source.byte_end;
 }
 
-bool exact_spaces(const TokenWords &words) {
-  return !words.empty() &&
-         std::all_of(words.begin(), words.end(),
-                     [](const auto word) { return word == ' '; });
-}
-
 std::string lower(std::string value) {
   std::transform(value.begin(), value.end(), value.begin(), ascii_lower_char);
   return value;
@@ -652,7 +646,7 @@ continuation_prefix_body(const DecodedLogicalRecordSource &record,
   if (row.segment_index == 0 &&
       std::all_of(record.tokens.begin(),
                   record.tokens.begin() + static_cast<std::ptrdiff_t>(begin),
-                  exact_spaces))
+                  all_space_words))
     begin = 0;
   const auto end = row.marker->token_index;
   if (begin >= end || end > record.tokens.size()) {
@@ -668,7 +662,7 @@ continuation_prefix_body(const DecodedLogicalRecordSource &record,
   const auto first_visible =
       std::find_if(record.tokens.begin() + static_cast<std::ptrdiff_t>(begin),
                    record.tokens.begin() + static_cast<std::ptrdiff_t>(end),
-                   [](const auto &token) { return !exact_spaces(token); });
+                   [](const auto &token) { return !all_space_words(token); });
   if (first_visible ==
       record.tokens.begin() + static_cast<std::ptrdiff_t>(end)) {
     if (error != nullptr)
@@ -783,7 +777,7 @@ recovered_row(const DecodedLogicalRecordSource &record,
   const auto first_visible =
       std::find_if(record.tokens.begin() + static_cast<std::ptrdiff_t>(begin),
                    record.tokens.begin() + static_cast<std::ptrdiff_t>(end),
-                   [](const auto &token) { return !exact_spaces(token); });
+                   [](const auto &token) { return !all_space_words(token); });
   if (first_visible == record.tokens.begin() + static_cast<std::ptrdiff_t>(end))
     return std::nullopt;
   const auto visible_token =
@@ -1027,7 +1021,7 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
         std::all_of(item.record->tokens.begin(),
                     item.record->tokens.begin() +
                         static_cast<std::ptrdiff_t>(begin),
-                    exact_spaces))
+                    all_space_words))
       begin = 0;
     std::vector<GlossaryDefinitionRowIR> recovered;
     for (auto token = begin; token < end;) {

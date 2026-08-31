@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -8,6 +9,27 @@
 namespace geist::detail {
 
 using TokenWords = std::vector<std::uint16_t>;
+
+// Two space-run predicates that several IR builders need. They used to be
+// re-derived per file, four times for the first and three for the second, and
+// -- because five of those copies were all called `exact_spaces` -- one name
+// stood for both. They disagree on the empty token, so keep the names apart:
+// an empty token holds no space at all, which makes it not `all_space_words`,
+// while it is trivially a space run of width zero.
+
+// A token made of nothing but spaces.
+inline bool all_space_words(const TokenWords& words) {
+  return !words.empty() &&
+         std::all_of(words.begin(), words.end(),
+                     [](const std::uint16_t word) { return word == ' '; });
+}
+
+// A space run of exactly `width` spaces.
+inline bool space_run_of_width(const TokenWords& words, std::size_t width) {
+  return words.size() == width &&
+         std::all_of(words.begin(), words.end(),
+                     [](const std::uint16_t word) { return word == ' '; });
+}
 
 struct SourceByteRange {
   std::uint32_t begin = 0;

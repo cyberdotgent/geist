@@ -26,6 +26,10 @@ std::string escape(const std::string& value) {
 // is, which node produced it, and which BOO file bytes that node names.
 void print_trace(const geist::BooDocument& document, const std::string& text,
                  const geist::RenderTrace& trace) {
+  // One reader for the whole trace: it memoises the record it last decoded,
+  // so walking a topic's slices in order costs one record decode per record
+  // rather than one per slice.
+  geist::TraceSourceReader source_reader(document);
   std::cout << "output\trole\treason\tnode\tderivation\tdetail\tsource\t"
                "rendered\tsource_text\n";
   for (const auto& span : trace.spans) {
@@ -42,7 +46,7 @@ void print_trace(const geist::BooDocument& document, const std::string& text,
         source += ":chars" + std::to_string(slice.character_begin) + '-' +
                   std::to_string(slice.character_end);
       try {
-        source_text += document.decode_trace_slice(slice);
+        source_text += source_reader.decode(slice);
       } catch (const std::exception& error) {
         source_text += "<unreadable: ";
         source_text += error.what();

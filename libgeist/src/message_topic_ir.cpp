@@ -1132,21 +1132,4 @@ bool verify_message_topic_ir(
   return true;
 }
 
-std::string format_message_topic_ir(const MessageTopicIR &topic) {
-  std::ostringstream out;
-  out << "message_topic records=[" << topic.first_logical_record << ','
-      << topic.end_logical_record << ") id=" << topic.metadata.raw_topic_id
-      << " heading=" << topic.metadata.heading_level << " title='"
-      << topic.title
-      << "' introduction_rows=" << topic.introduction_row_indices.size()
-      << " introduction_paragraphs=" << topic.introduction.paragraphs.size()
-      << " anchors=" << topic.anchors.size()
-      << " selectors=" << topic.selectors.size()
-      << " rows=" << topic.rows.size() << " segments=" << topic.segments.size()
-      << " terminal=" << topic.terminal_content_source.logical_record << ':'
-      << topic.terminal_content_source.segment_index << '\n'
-      << format_message_catalog_ir(topic.catalog);
-  return out.str();
-}
-
 } // namespace geist::detail

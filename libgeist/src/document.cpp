@@ -259,10 +259,11 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
       context->decoded_records.begin() +
           static_cast<std::ptrdiff_t>(first_topic_record - 1));
   header_token_offsets.resize(book_header_records.size());
-  document.logical_controls_ =
+  // The raw control stream is a build input only: the book's properties are
+  // what the document publishes, and nothing else reads the controls again.
+  const auto logical_controls =
       extract_book_logical_controls(book_header_records, header_token_offsets);
-  document.book_properties_ =
-      build_book_properties(document.logical_controls_);
+  document.book_properties_ = build_book_properties(logical_controls);
 
   for (const auto& topic : topics) {
     document.topics_.push_back({topic.id,
@@ -341,11 +342,6 @@ const BooBookProperties& BooDocument::book_properties() const noexcept {
 
 const std::vector<BooPageRun>& BooDocument::page_runs() const noexcept {
   return page_runs_;
-}
-
-const std::vector<BooLogicalControl>& BooDocument::logical_controls()
-    const noexcept {
-  return logical_controls_;
 }
 
 const std::vector<std::string>& BooDocument::decoded_logical_records()

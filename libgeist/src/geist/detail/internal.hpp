@@ -108,8 +108,9 @@ struct LogicalDecodeContext {
   std::vector<std::string> decoded_records;
   std::vector<LogicalRecordPayloadRange> record_payload_ranges;
   // Everything above is built by `BooDocument::open()` and never written
-  // again, so it is safe to read from any number of threads. The two caches
-  // below are the only mutable state a decode context has.
+  // again, so it is safe to read from any number of threads. The cache below
+  // is the only mutable state a decode context has, and it is filled once and
+  // never replaced.
   //
   // Source provenance is rare and substantially heavier than the compact
   // payload index. Rebuild the dictionary only on first provenance request,
@@ -117,18 +118,10 @@ struct LogicalDecodeContext {
   // function of `bytes` and `directory`, so it is filled once and published
   // atomically rather than locked; see geist/detail/atomic_cache.hpp.
   mutable CacheSlot<std::map<std::uint16_t, TokenWords>> source_dictionary;
-  // Last record decoded for a provenance query. Resolving a rendered span
-  // asks for many slices of one record in a row, so one memo turns a whole
-  // topic's proof from quadratic into linear.
-  //
-  // This one is a *replacement* cache -- the slot takes a different value per
-  // record -- so the publish-once rule does not apply and it keeps a mutex.
-  // Reach it only through `memoized_source_record`, which owns the lock: the
-  // guard used to live at the single call site, which was correct only for as
-  // long as there was exactly one caller.
-  mutable std::mutex source_record_memo_mutex;
-  mutable std::uint32_t source_record_memo_id = 0;
-  mutable std::shared_ptr<const LogicalRecordIR> source_record_memo;
+  // The one-record provenance memo a slice walk needs is *not* here: it is a
+  // replacement cache, so it cannot be published once, and it lives in the
+  // caller's own `geist::TraceSourceReader` instead of being shared and
+  // locked. See geist/trace.hpp.
 };
 
 struct TopicData {
@@ -319,13 +312,6 @@ std::optional<std::vector<LogicalTokenIR>> decode_source_byte_range_tokens(
 // and may be read concurrently.
 const std::map<std::uint16_t, TokenWords>& source_dictionary_for(
     const LogicalDecodeContext& context);
-// The decoded payload of one logical record, answered from the context's
-// one-record provenance memo. Owns the memo's lock, and returns a shared_ptr
-// so the record outlives a concurrent replacement of the memo.
-std::shared_ptr<const LogicalRecordIR> memoized_source_record(
-    const LogicalDecodeContext& context,
-    const std::map<std::uint16_t, TokenWords>& token_strings,
-    std::uint32_t logical_record);
 std::vector<DecodedLogicalRecordSource>
 decode_logical_record_sources(const LogicalDecodeContext& context,
                               std::uint32_t first_logical_record,
