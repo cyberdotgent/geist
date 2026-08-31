@@ -1,0 +1,63 @@
+//
+// Derived from Format/README.md.  The mechanical part of the
+// conversion is tools/md-to-adoc.py; the editorial pass that makes the
+// pages read as one book is the EDITS table in that script.
+//
+[[scope]]
+== Scope, Evidence, and Corpus
+
+This book is the specification of the IBM BookManager BOO file format. It is
+meant to be complete enough for an independent implementer to build a BOO
+reader from it alone. This chapter states the rules the rest of the book
+follows: what counts as evidence for a claim, which files the evidence is
+drawn from, and how far each chapter has been verified.
+
+[[scope_evidence_rules]]
+=== Evidence Rules
+
+Every claim in this book rests on one of two kinds of evidence, and says which:
+
+* *Fixture* -- a `.BOO` file in this repository, cited by filename plus the
+byte offset, record number, topic id, or decoded control that shows the claim.
+* *Hosted rendered output* -- what the hosted BookServer service serves for a
+named book, topic, and `DT` timestamp. This is observable behaviour of a
+running service and is used to confirm how a stored construct is meant to be
+presented.
+
+Where neither can settle a point, the text says so explicitly and marks the
+statement as an unverified hypothesis rather than stating it as fact. Those
+points are collected under the "Open Questions" heading of each chapter, and
+each one names the evidence that would settle it.
+
+Analysis workflow, tooling procedure, and rendering decisions are not part of
+the format and are not documented here.
+
+Byte offsets in this book are offsets *within a `.BOO` file* unless the text
+says otherwise.
+
+[[scope_the_corpus]]
+=== The Corpus
+
+"The corpus" and fixture counts mean 35 books: the 34 `.BOO`/`.boo` files under
+`BOO/` plus `Official Readers/SoftCopy/HLCRUG21.boo`. Claims measured over only
+the 34 `BOO/` books say so.
+
+[[scope_index]]
+=== Chapter Index and Verification Status
+
+[cols="<45,<44,<45",options="header"]
+|===
+|Subject |Chapter |Evidence status
+
+|Container header, directory page, and logical book header controls |<<container>> |Fixture verified for the page-0 locator, the version-2 directory fields, the directory page's region map, the two dictionary token counts, the token-index page table, the stemming table, the picture-directory version bytes, and the decoded metadata control keys.
+|Logical header-control storage |<<logical-controls>> |Fixture and hosted verified for tokenized logical-record storage, record framing, token references, dictionary delta transforms, translation-table decoding, and decoded control keys. The inter-token spacing prefixes are documented in <<encoding_logical_record_spacing_controls>>.
+|Page organization |<<pages>> |Fixture verified for the page roles, the four-byte structural page header, continuation pages, and the trailing token-index run.
+|Topic and documentation page storage |<<topics>> |Fixture verified for topic-start indexes, topic bounds, `SH` topic ids, `CTOPICN`, and TOC id-to-topic resolution.
+|Table of contents |<<toc>> |Fixture and hosted verified for topic-start indexes, topic header controls, `CTOCDEF`, and literal `CTOCE` entries in the `CONTENTS` topic.
+|Decoded markup and controls |<<markup>> |Fixture, hosted, and historical-source verified for GML-derived control names, topic headings, TOC controls, font/highlight spans, links, figures, picture references, and the complete `CZ` layout vocabulary. Hosted presentation is verified for 16 of the 35 font style codes; the rest remain open.
+|Encoding and tokenization |<<encoding>> |Fixture and hosted verified for dictionary literal byte-to-token-word mapping, token-word translation tables, the four inter-token spacing prefixes, and the output decoding path. Only code page 500 is exercised by the corpus.
+|Assets and media resources |<<assets>> |Fixture verified for pre-directory embedded image resources, the three picture-directory versions and their descriptor groups, absolute payload offsets, and version 1.4 converted-object descriptions. Hosted output establishes the stored-versus-rendered boundary.
+|Legacy GDF image payloads |<<gdf>> |Fixture verified for kind `G` framing and coordinate encoding; order names come from published IBM GDDM documentation read through the hosted BookServer. Orders that documentation does not name are marked unverified.
+|Legacy MMR image payloads |<<mmr>> |Fixture verified for kind `I` dispatch, the structured-field chain that carries the image object, and the picture-data framing; hosted GIFs used for pixel-level validation.
+|Version 1.4 web image payloads |<<web-images>> |Fixture verified for GIF objects in the two version-1.4 fixtures. Other MIME types are expressible but unverified.
+|===
