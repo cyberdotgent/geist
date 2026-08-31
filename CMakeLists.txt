@@ -33,6 +33,14 @@ project(libgeist
   LANGUAGES C CXX
 )
 
+# Every source in this tree is UTF-8 without a BOM. Without this MSVC decodes
+# them in the system ANSI code page, so a non-ASCII literal such as u8"Titlé"
+# compiles to the wrong bytes and only fails at run time. Set here rather than
+# per target so tests, examples and the GUI get it too.
+if(MSVC)
+  add_compile_options(/utf-8)
+endif()
+
 include(GNUInstallDirs)
 
 find_package(PNG REQUIRED)
