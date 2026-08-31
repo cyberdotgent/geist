@@ -24,10 +24,6 @@ struct LayoutRowRangeIR {
 };
 
 std::size_t count_layout_rows(const LayoutIR &layout);
-// The (run, row) identity of one flattened ordinal, or nullopt when the
-// ordinal is outside the layout.
-std::optional<DocumentSourceRowIR> layout_row_at(const LayoutIR &layout,
-                                                 std::size_t ordinal);
 
 // One display line of one table cell. `text` is the visible words of the
 // line inside the cell's column span with decoder spacing restored and the

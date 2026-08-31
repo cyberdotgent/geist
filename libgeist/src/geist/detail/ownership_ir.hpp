@@ -137,17 +137,6 @@ std::optional<VerifiedOwnershipIR> build_verified_ownership_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
     const LayoutIR& layout, std::string* error = nullptr);
 
-// Verifies a ledger that already exists and hands back the same handle on
-// success. This is the full verify_ownership_ir check, not a way around it:
-// the handle still means "this ledger passed verification against these
-// records and this layout". Production builds its ledger with
-// build_verified_ownership_ir; this entry point exists for callers that hold a
-// ledger they did not build themselves.
-std::optional<VerifiedOwnershipIR> verified_ownership_ir(
-    const std::vector<DecodedLogicalRecordSource>& records,
-    const LayoutIR& layout, OwnershipIR ownership,
-    std::string* error = nullptr);
-
 // A ledger that has passed verify_ownership_ir against the records and layout
 // it was built from. The constructor is private and the sole friend is
 // build_verified_ownership_ir, which returns nothing when verification fails;
@@ -172,9 +161,6 @@ class VerifiedOwnershipIR {
   friend std::optional<VerifiedOwnershipIR> build_verified_ownership_ir(
       const std::vector<DecodedLogicalRecordSource>& records,
       const LayoutIR& layout, std::string* error);
-  friend std::optional<VerifiedOwnershipIR> verified_ownership_ir(
-      const std::vector<DecodedLogicalRecordSource>& records,
-      const LayoutIR& layout, OwnershipIR ownership, std::string* error);
 
   const std::vector<DecodedLogicalRecordSource>* records_ = nullptr;
   const LayoutIR* layout_ = nullptr;

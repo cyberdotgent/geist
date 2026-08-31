@@ -165,7 +165,4 @@ bool verify_generated_toc_index_topic_ir(
     const BookTopicCatalogIR* catalog, const GeneratedTocIndexTopicIR& topic,
     std::string* error = nullptr);
 
-std::string format_generated_toc_index_topic_ir(
-    const GeneratedTocIndexTopicIR& topic);
-
 } // namespace geist::detail

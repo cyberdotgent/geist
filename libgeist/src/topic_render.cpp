@@ -21,10 +21,6 @@
 
 namespace geist {
 
-namespace {
-
-} // namespace
-
 const TocEntry::LoweredTopic& TocEntry::lowered() const {
   // Fill-once and published atomically (geist/detail/atomic_cache.hpp): the
   // lowering is a pure function of the topic's records, which never change
@@ -82,7 +78,7 @@ const TocEntry::RenderedTopic& TocEntry::render() const {
     // typed pipeline, so "the typed dispatcher declined it" would be a false
     // statement about a topic that has no book behind it. It still gets a
     // diagnostic; it just does not get the marker, and its Markdown stays
-    // exactly what the compatibility renderer produces.
+    // whatever the verbatim route below produces.
     const auto lowering_attempted = static_cast<bool>(document_ir_loader_);
     if (!lowering_attempted) {
       out->diagnostic.reason = "no-typed-lowering-attempted";
@@ -136,11 +132,6 @@ const TocEntry::RenderedTopic& TocEntry::render() const {
     return std::shared_ptr<const RenderedTopic>(std::move(out));
   });
 }
-
-namespace {
-
-
-} // namespace
 
 std::string BooDocument::markdown() const {
   // The whole book is the concatenation of its topics, each rendered by the

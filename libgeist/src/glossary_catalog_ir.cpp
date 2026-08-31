@@ -7,7 +7,6 @@
 #include <cctype>
 #include <map>
 #include <set>
-#include <sstream>
 #include <tuple>
 #include <utility>
 
@@ -246,14 +245,6 @@ bool is_nested_start(const std::string &opcode, const std::string &kind) {
 
 bool is_nested_end(const std::string &opcode, const std::string &kind) {
   return ascii_equals_case_insensitive(opcode, "sre" + kind);
-}
-
-std::string slice_projection(const DocumentSourceSliceIR &source) {
-  std::ostringstream out;
-  out << source.logical_record << ':' << source.segment_index << ':'
-      << source.token_begin << '-' << source.token_end << ':'
-      << source.byte_begin << '-' << source.byte_end;
-  return out.str();
 }
 
 bool same_slice(const DocumentSourceSliceIR &left,
@@ -1330,77 +1321,5 @@ bool verify_glossary_catalog_ir(
   return true;
 }
 
-std::string format_glossary_catalog_ir(const GlossaryCatalogIR &catalog) {
-  std::ostringstream out;
-  out << "glossary_catalog records=[" << catalog.first_logical_record << ','
-      << catalog.end_logical_record << ") heading=" << catalog.heading_level
-      << " sections=" << catalog.sections.size()
-      << " entries=" << catalog.entries.size()
-      << " items=" << catalog.items.size()
-      << " terminal=" << slice_projection(catalog.terminal_source)
-      << " segments=" << catalog.segments.size() << '\n';
-  out << format_glossary_introduction_ir(catalog.introduction);
-  for (const auto &section : catalog.sections) {
-    out << "section label='" << section.label
-        << "' source=" << slice_projection(section.marker_source) << " rows=";
-    for (const auto &row : section.label_rows)
-      out << slice_projection(row.source) << ',';
-    out << '\n';
-  }
-  for (const auto &entry : catalog.entries) {
-    out << "entry term='" << entry.term << "' raw='" << entry.raw_term
-        << "' suffix='" << entry.source_suffix
-        << "' source=" << slice_projection(entry.term_source)
-        << " rows=" << entry.definition.rows.size() << " prose='"
-        << entry.definition.prose << "' structural=";
-    for (const auto &source : entry.definition.structural_sources)
-      out << slice_projection(source) << ',';
-    out << '\n';
-    for (const auto &row : entry.definition.rows) {
-      out << " row source=" << slice_projection(row.source)
-          << " display_run=" << row.source_row.display_run
-          << " row=" << row.source_row.row_index
-          << " origin=" << row.native_origin
-          << " break=" << static_cast<int>(row.break_before) << " semantic='"
-          << row.semantic_text << "' marker='"
-          << (row.marker ? row.marker->decoded_text : "")
-          << " marker_disposition=" << static_cast<int>(row.marker_disposition)
-          << " terminal_delimiter="
-          << (row.terminal_delimiter
-                  ? std::to_string(row.terminal_delimiter->token_index)
-                  : "-")
-          << " role=" << static_cast<int>(row.role) << "' text='"
-          << row.visible_text << "' cells=";
-      for (const auto &cell : row.cells)
-        out << cell.logical_record << ':' << cell.token_index << ':'
-            << cell.word_index << ':' << cell.word << ':'
-            << static_cast<int>(cell.disposition) << ',';
-      out << '\n';
-    }
-    if (entry.definition.embedded_table) {
-      const auto &table = *entry.definition.embedded_table;
-      out << " embedded_table header_rows=" << table.header_rows
-          << " controls=" << table.controls.size()
-          << " physical_rows=" << table.physical_rows.size()
-          << " rows=" << table.rows.size() << '\n';
-      for (const auto &control : table.controls)
-        out << "  control kind=" << static_cast<int>(control.kind)
-            << " identifier='" << control.identifier
-            << "' source=" << slice_projection(control.source) << '\n';
-      for (const auto &table_row : table.rows) {
-        out << "  table_row";
-        for (const auto &cell : table_row.cells)
-          out << " cell='" << cell.text
-              << "' source_cells=" << cell.source_cells.size();
-        out << '\n';
-      }
-    }
-  }
-  for (const auto &segment : catalog.segments)
-    out << "segment kind=" << static_cast<int>(segment.kind)
-        << " opcode=" << segment.opcode << " malformed=" << segment.malformed
-        << " source=" << slice_projection(segment.source) << '\n';
-  return out.str();
-}
 
 } // namespace geist::detail

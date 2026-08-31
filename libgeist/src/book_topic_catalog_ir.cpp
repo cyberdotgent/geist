@@ -2,7 +2,6 @@
 
 #include "geist/detail/internal.hpp"
 
-#include <sstream>
 #include <utility>
 
 namespace geist::detail {
@@ -130,14 +129,5 @@ bool verify_book_topic_catalog_ir(const std::vector<TopicInfo> &topics,
   return true;
 }
 
-std::string format_book_topic_catalog_ir(const BookTopicCatalogIR &catalog) {
-  std::ostringstream out;
-  out << "book_topic_catalog topics=" << catalog.topics.size() << '\n';
-  for (const auto &entry : catalog.topics)
-    out << "topic id='" << entry.raw_topic_id << "' header="
-        << (entry.topic_header ? 1 : 0)
-        << " toc_entries=" << entry.toc_entries.size() << '\n';
-  return out.str();
-}
 
 } // namespace geist::detail

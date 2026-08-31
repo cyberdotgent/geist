@@ -57,18 +57,6 @@ struct DocumentRenderTraceIR {
   std::vector<DocumentTraceSpanIR> spans;
 };
 
-// The span covering `offset`, or nullptr when the offset is outside the
-// rendered output.
-const DocumentTraceSpanIR *
-resolve_document_trace_offset(const DocumentRenderTraceIR &trace,
-                              std::size_t offset);
-
-// Checks that the trace is ordered, non-overlapping, and exactly covers
-// `output_size` bytes, and that every `content` span carries source slices.
-bool verify_document_render_trace(const DocumentRenderTraceIR &trace,
-                                  std::size_t output_size,
-                                  std::string *error = nullptr);
-
 // Render a verified document as stable Markdown. Typed nodes are rendered
 // without consulting decoder or semantic-layer state. A sole whole-topic
 std::string escape_markdown_text(const std::string &value);

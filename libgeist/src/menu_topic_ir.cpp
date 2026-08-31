@@ -6,7 +6,6 @@
 #include <algorithm>
 #include <cctype>
 #include <set>
-#include <sstream>
 #include <tuple>
 #include <utility>
 
@@ -866,28 +865,5 @@ bool verify_menu_topic_ir(
   return true;
 }
 
-std::string format_menu_topic_ir(const MenuTopicIR &topic) {
-  std::ostringstream out;
-  out << "menu_topic heading_level=" << topic.heading_level << " title='"
-      << topic.title << "' items=" << topic.items.size()
-      << " introductions=" << topic.introductions.size()
-      << " segments=" << topic.segments.size();
-  if (topic.anchor)
-    out << " anchor='" << topic.anchor->id << "'";
-  out << '\n';
-  for (const auto &item : topic.items)
-    out << "item target_kind=" << static_cast<unsigned>(item.target.kind)
-        << " target='" << item.target.value << "' label='" << item.label
-        << "' source=" << item.source.logical_record << ':'
-        << item.source.segment_index
-        << " target_cells=" << item.target_cells.size()
-        << " label_cells=" << item.label_cells.size()
-        << " marker_cells=" << item.marker_cells.size() << '\n';
-  for (const auto &segment : topic.segments)
-    out << "segment=" << segment.source.logical_record << ':'
-        << segment.source.segment_index << " opcode='" << segment.opcode
-        << "'\n";
-  return out.str();
-}
 
 } // namespace geist::detail

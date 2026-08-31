@@ -57,28 +57,6 @@ std::optional<std::string> decode_source_slice_text(
                      slice.character_end - slice.character_begin);
 }
 
-std::optional<std::string> decode_source_slice_text_in_record(
-    const std::vector<std::uint8_t>& bytes,
-    const BooDirectory& directory,
-    const std::map<std::uint16_t, TokenWords>& token_strings,
-    std::size_t payload_begin,
-    std::size_t payload_end,
-    const DocumentSourceSliceIR& slice,
-    std::string* error) {
-  if (error != nullptr) error->clear();
-  if (slice.byte_begin > slice.byte_end) {
-    fail(error, "source slice has a reversed byte range");
-    return std::nullopt;
-  }
-  if (slice.byte_begin < payload_begin || slice.byte_end > payload_end) {
-    fail(error, "source slice lies outside its logical record payload");
-    return std::nullopt;
-  }
-  const auto record = decode_record_payload_ir(bytes, directory, token_strings,
-                                               payload_begin, payload_end,
-                                               slice.logical_record);
-  return project_source_slice_text(record, slice, error);
-}
 
 std::optional<std::string> project_source_slice_text(
     const LogicalRecordIR& record, const DocumentSourceSliceIR& slice,
@@ -128,12 +106,5 @@ std::optional<std::string> project_source_slice_text(
                      slice.character_end - slice.character_begin);
 }
 
-std::string collapse_source_text(const std::string& value) {
-  std::string result;
-  result.reserve(value.size());
-  for (const auto ch : value)
-    if (std::isspace(static_cast<unsigned char>(ch)) == 0) result.push_back(ch);
-  return result;
-}
 
 } // namespace geist::detail

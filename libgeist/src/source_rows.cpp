@@ -15,13 +15,6 @@ bool exact_spaces(const TokenWords& words, std::size_t count) {
                      [](std::uint16_t word) { return word == ' '; });
 }
 
-bool marker_glyph(const TokenWords& words) {
-  return words.size() == 1 &&
-         std::string("$;()*!-':=<>/\"").find(
-             static_cast<char>(words.front())) !=
-             std::string::npos;
-}
-
 std::string visible_token(const TokenWords& words) {
   TokenWords visible;
   for (const auto word : words) {

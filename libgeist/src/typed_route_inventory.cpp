@@ -185,44 +185,6 @@ std::string classify_topic_structure(const std::string &topic_id,
   return "mixed";
 }
 
-std::string normalize_rejection_reason(std::string reason) {
-  std::string output;
-  output.reserve(reason.size());
-  for (std::size_t index = 0; index < reason.size();) {
-    const auto ch = static_cast<unsigned char>(reason[index]);
-    if (ch == '0' && index + 1 < reason.size() &&
-        (reason[index + 1] == 'x' || reason[index + 1] == 'X')) {
-      index += 2;
-      while (index < reason.size() &&
-             std::isxdigit(static_cast<unsigned char>(reason[index])) != 0)
-        ++index;
-      output += "0x#";
-    } else if (std::isdigit(ch) != 0) {
-      // A dotted topic number such as 2.4.3.3 collapses to one '#'.
-      while (index < reason.size() &&
-             (std::isdigit(static_cast<unsigned char>(reason[index])) != 0 ||
-              (reason[index] == '.' && index + 1 < reason.size() &&
-               std::isdigit(static_cast<unsigned char>(reason[index + 1])) !=
-                   0)))
-        ++index;
-      output += '#';
-    } else if (ch == '\'' || ch == '"') {
-      const auto close = reason.find(static_cast<char>(ch), index + 1);
-      if (close == std::string::npos) {
-        output += reason.substr(index);
-        break;
-      }
-      output += static_cast<char>(ch);
-      output += '*';
-      output += static_cast<char>(ch);
-      index = close + 1;
-    } else {
-      output += static_cast<char>(ch);
-      ++index;
-    }
-  }
-  return output;
-}
 
 // The reason column is the render diagnostic's own detail: one field, one
 // spelling, shared by `bootrace --coverage`, the `boo2git` manifest and the

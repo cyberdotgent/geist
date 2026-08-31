@@ -61,6 +61,5 @@ bool verify_book_topic_catalog_ir(const std::vector<TopicInfo> &topics,
 const BookTopicCatalogEntryIR *
 find_book_topic_catalog_entry(const BookTopicCatalogIR &catalog,
                               const std::string &raw_topic_id);
-std::string format_book_topic_catalog_ir(const BookTopicCatalogIR &catalog);
 
 } // namespace geist::detail

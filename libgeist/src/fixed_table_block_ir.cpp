@@ -2421,15 +2421,6 @@ std::size_t count_layout_rows(const LayoutIR &layout) {
   return count;
 }
 
-std::optional<DocumentSourceRowIR> layout_row_at(const LayoutIR &layout,
-                                                 std::size_t ordinal) {
-  for (const auto &run : layout.runs) {
-    if (ordinal < run.rows.size())
-      return DocumentSourceRowIR{run.id, ordinal};
-    ordinal -= run.rows.size();
-  }
-  return std::nullopt;
-}
 
 FixedTableBlocksIR extract_fixed_table_blocks_ir(
     const std::vector<DecodedLogicalRecordSource> &records,
