@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // The Geist Hardcopy Reader main window, laid out after IBM's BookManager
 // SoftCopy Reader: a topic tree on the left, a divider, and a topic pane on
 // the right, with navigation buttons and font controls on the toolbar.

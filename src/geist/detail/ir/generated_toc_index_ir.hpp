@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 #pragma once
 
 // Typed model for the two reader-generated navigation topics: the book's

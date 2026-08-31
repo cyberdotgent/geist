@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 #include "geist/detail/lowering/drawn_word_conservation.hpp"
 
 #include "geist/detail/container/control_ir.hpp"

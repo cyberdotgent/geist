@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // Logical-record source decoding: the payload index, the source slice, the
 // layout and ownership IRs it feeds, and the directory's paged topic-start
 // index (issue #58).

@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 #pragma once
 
 // Fill-once caches that are published, never mutated (issue #49).

@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // Synthetic section-label SRMSG ("trap") catalogue fixtures.
 //
 // `libgeist` may read no BOO book except `packet.boo` (#59), and packet

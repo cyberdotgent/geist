@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // Render provenance (issue #58).
 //
 // Every rendered topic carries a typed diagnostic saying how well it was

@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // `bootrace --fonts` resolves a CFONT span on display columns (issue #82).
 //
 // A CFONT operand triple is `<column> <length> <code>`, and the columns are

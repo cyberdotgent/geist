@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 #include "geist/detail/lowering/document_ir.hpp"
 #include "geist/detail/render/document_markdown_renderer.hpp"
 

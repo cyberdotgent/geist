@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // The caller-owned handle that reads a trace slice back to its source bytes.
 //
 // The one-record memo a slice walk needs is a *replacement* cache, so it

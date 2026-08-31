@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // Fixed-table block IR: table envelopes recovered from the typed
 // Layout/Ownership IR of real topics, checked against the hosted BookServer
 // rendering (packet DT 20260614112503):

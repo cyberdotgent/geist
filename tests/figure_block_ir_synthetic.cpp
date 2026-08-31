@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // Typed figure block extraction and lowering over real figures (issue #58).
 //
 // Positive cases are image-backed figures whose hosted BookServer rendering

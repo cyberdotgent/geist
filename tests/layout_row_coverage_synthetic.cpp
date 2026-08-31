@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // Every drawn display line reaches a physical row, and no line-length byte
 // ever reaches one as text (issue #66).
 //

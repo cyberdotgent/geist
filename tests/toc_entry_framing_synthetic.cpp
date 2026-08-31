@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // A `CTocE` title ends at its own display line, never at the next entry
 // (issue #86).
 //

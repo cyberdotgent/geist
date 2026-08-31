@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // Concurrent `const` access to one opened document (issue #49).
 //
 // libgeist's public contract is that every `const` operation on an opened

@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // The native HTML renderer over a synthetic typed Document IR (issue #46).
 //
 // Three things are asserted here that the format depends on:

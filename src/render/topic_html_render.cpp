@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // The HTML render entry points: one topic, and the whole book as its topics.
 //
 // The sibling of `topic_render.cpp`, which does the same for Markdown.  Both

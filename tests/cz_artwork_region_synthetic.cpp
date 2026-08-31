@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // `cz OFF ARTWORK` is a display region of the CZ dialect (issue #74).
 //
 // Hosted BookServer opens a `<pre width="80">` at the directive and serves the

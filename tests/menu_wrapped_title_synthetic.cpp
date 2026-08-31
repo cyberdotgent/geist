@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // A compiled menu label may spell a title its topic's header row cannot
 // (issue #77).
 //

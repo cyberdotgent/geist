@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright 2026 Yvan Janssens
+# SPDX-License-Identifier: Apache-2.0
+
 """Format/*.md  ->  libgeist/doc/boo-spec/*.adoc
 
 Provenance for the AsciiDoc specification: it records exactly how the .adoc

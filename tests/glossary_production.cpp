@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 #include "geist/document.hpp"
 #include "geist/detail/ir/glossary_catalog_ir.hpp"
 #include "geist/detail/ir/glossary_ir.hpp"

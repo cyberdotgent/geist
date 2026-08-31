@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // A picture placed inside a sentence is not a figure (issue #65).
 //
 // `cselect <column> <length> PIC<n>` names the display columns of the line it

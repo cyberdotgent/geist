@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // Selector ownership across display rows (was tests/sc31_711_cross_references
 // .cpp, issue #59).
 //

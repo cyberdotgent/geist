@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 #include "geist/detail/lowering/trap_catalog_document_lowering.hpp"
 
 #include "geist/detail/core/internal.hpp"

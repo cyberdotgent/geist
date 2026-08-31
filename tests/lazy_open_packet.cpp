@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // Container, directory, TOC and lazy-topic integration over the one
 // redistributable fixture (issue #59).
 //

@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // A `cz OFF E<region>` closer that closes nothing is inert (issue #74).
 //
 // The book compiler can write the end of a verbatim region whose opener it

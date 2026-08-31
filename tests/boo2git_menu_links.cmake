@@ -1,3 +1,6 @@
+# Copyright 2026 Yvan Janssens
+# SPDX-License-Identifier: Apache-2.0
+
 if(NOT DEFINED BOO2GIT OR NOT DEFINED BOOK OR NOT DEFINED OUTPUT)
   message(FATAL_ERROR "BOO2GIT, BOOK, and OUTPUT are required")
 endif()

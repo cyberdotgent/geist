@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 #include "geist/detail/lowering/typed_route_inventory.hpp"
 
 #include "geist/detail/ir/book_topic_catalog_ir.hpp"

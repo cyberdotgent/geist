@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // Source-side word conservation (issue #85).
 //
 // Coverage says which route rendered a topic.  It does not say whether the

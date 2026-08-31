@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 #include "geist/detail/ir/generated_toc_index_ir.hpp"
 
 #include "geist/detail/layout/display_lines.hpp"

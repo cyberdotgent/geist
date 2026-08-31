@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // Cross references a verbatim topic carries (issue #72).
 //
 // `cselect <column> <length> <target>` opens its own display line and marks

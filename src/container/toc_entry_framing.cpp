@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 #include "geist/detail/container/toc_entry_framing.hpp"
 
 #include "geist/detail/ir/book_ir.hpp"

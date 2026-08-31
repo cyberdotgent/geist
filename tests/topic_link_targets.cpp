@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // What a topic names, read off the typed Document IR instead of the legacy
 // GML projection (issue #58).
 //

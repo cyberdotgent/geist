@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // Geist Hardcopy Reader -- a Qt6 desktop reader for IBM BookManager BOO
 // books, named in tribute to IBM's BookManager SoftCopy Reader.
 

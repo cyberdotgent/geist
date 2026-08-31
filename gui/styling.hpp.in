@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // Generated from doc/html-styling.css at configure time. The reader compiles
 // in the published stylesheet so its rendering and the stylesheet shipped
 // with the spec can never drift apart.

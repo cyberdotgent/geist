@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // The render entry points: one topic, and the whole book as its topics.
 // `TocEntry::render` is the single pass that produces a topic's Markdown and
 // its render diagnostic together, so the two can never disagree.

@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // A control's extent is decided on the carried display-line framing, never on
 // the flattened decoded string (issues #62, #64).
 //

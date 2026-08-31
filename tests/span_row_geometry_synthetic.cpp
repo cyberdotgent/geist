@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // A span's extent is measured against the row's own display cells (issue #67,
 // the span-geometry classes).
 //

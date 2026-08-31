@@ -1,6 +1,7 @@
 {
   "name": "libgeist",
   "version-string": "0.1.0",
+  "license": "Apache-2.0",
   "builtin-baseline": "44819aa2a6c10e56065e2b0330e7d6c89d1d2574",
   "dependencies": [
     "giflib",

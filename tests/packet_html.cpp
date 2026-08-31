@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // End-to-end HTML output over the one redistributable BOO fixture.
 //
 // The synthetic renderer test proves the markup for a document built by hand.

@@ -1,3 +1,6 @@
+# Copyright 2026 Yvan Janssens
+# SPDX-License-Identifier: Apache-2.0
+
 # The BOO format specification, as a PDF.
 #
 # Documentation tooling is optional: when it is missing this file configures

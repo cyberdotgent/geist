@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // Synthetic ownership-ledger fixtures for the source-cell disposition
 // conflicts found by the 2026-08-28 typed-route census (96 topics rejected
 // with "source cell received incompatible ownership dispositions").

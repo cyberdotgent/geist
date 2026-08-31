@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // The URL space the reader serves.
 //
 // Everything a book offers is addressed under one scheme and one host:

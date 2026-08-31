@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // A generated `:INDEX` topic's term fields, decided on the record's own
 // display-line framing and on the delimiter the book declares (issue #78).
 //

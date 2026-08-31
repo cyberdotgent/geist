@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 #include "reader_window.hpp"
 
 #include "book_url.hpp"
@@ -309,6 +312,8 @@ void ReaderWindow::show_about() {
          "<p>Version %1</p>"
          "<p>A reader for IBM BookManager <tt>BOO</tt> books, built on "
          "libgeist.</p>"
+         "<p>Licensed under the Apache License, Version 2.0. Bundled Qt, "
+         "libpng and giflib components are covered by their own licences.</p>"
          "<p>Named in tribute to the IBM BookManager SoftCopy Reader. This is "
          "not an IBM product and is not affiliated with IBM.</p>")
           .arg(QApplication::applicationVersion()));

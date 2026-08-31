@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // Scanning of the decoded logical record: splitting it into markup segments,
 // reading control values out of it, tracing its font spans, and annotating
 // its decoder placeholders. This is string-level work on the decoded record

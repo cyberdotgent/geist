@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 #pragma once
 
 // Shared failure accounting for the standalone test executables.

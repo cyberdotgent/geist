@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // The topic's metadata envelope and its title control, decided on the carried
 // display-line framing (issue #67, the envelope and topic-metadata classes).
 //

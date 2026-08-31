@@ -1,3 +1,6 @@
+# Copyright 2026 Yvan Janssens
+# SPDX-License-Identifier: Apache-2.0
+
 # Builds the Windows distribution of libgeist: the CLI tools, the shared
 # library and the Geist Hardcopy Reader, with the Qt runtime the reader needs
 # to actually start.
@@ -113,6 +116,11 @@ jobs:
             Where-Object { $_.Extension -in '.exe', '.dll' } |
             Copy-Item -Destination $dist -Force
 
+          # Apache-2.0 section 4 requires the licence to travel with the
+          # binaries. Third-party notices for the bundled Qt, Chromium,
+          # libpng and giflib are still outstanding.
+          Copy-Item -Path "LICENSE" -Destination $dist -Force
+
           # Build by-products that have no business in a distribution.
           Get-ChildItem -Path $dist -Recurse -File |
             Where-Object { $_.Extension -in '.lib', '.exp', '.ilk', '.pdb' } |
@@ -144,6 +152,9 @@ jobs:
 
           # The shared library: `add_library(geist SHARED)` yields geist.dll
           # on MSVC, but accept either spelling rather than break on a rename.
+          if (-not (Test-Path (Join-Path $dist 'LICENSE'))) {
+            $missing += 'LICENSE'
+          }
           if (-not (Test-Path (Join-Path $dist 'geist.dll')) -and
               -not (Test-Path (Join-Path $dist 'libgeist.dll'))) {
             $missing += 'geist.dll'

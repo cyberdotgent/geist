@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // An `SI` subject-index term is bounded by its own display line (issue #79).
 //
 // An `SI` entry occupies exactly one display line and draws nothing -- hosted

@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // Ordinary prose topic family (issue #58): typed extraction, conservation,
 // lowering and fail-closed classes over real fixtures.
 //

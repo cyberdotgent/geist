@@ -104,6 +104,30 @@ on Windows an `aqtinstall`/official Qt build pointed at with
 from-source Chromium build. Never download Qt from the CMake files; discover
 it, and print the install command when it is missing.
 
+## Licensing
+
+- The repository is licensed **Apache-2.0**; `LICENSE` carries the canonical
+  text. Every source file starts with the two-line header:
+
+  ```
+  // Copyright 2026 Yvan Janssens
+  // SPDX-License-Identifier: Apache-2.0
+  ```
+
+  New source files must carry it too. Use `#` comments for CMake, Python and
+  YAML, and keep a shebang on the first line.
+- Do not add a `NOTICE` file without a concrete reason. Apache-2.0 makes it
+  sticky: every downstream redistributor must carry it forward forever.
+  Copyright belongs in the per-file header and in `LICENSE`.
+- Apache-2.0 is compatible with GPLv3 and LGPLv3 but **not** with GPLv2-only.
+  Keep that in mind before taking on a dependency or courting a consumer that
+  is GPLv2-only.
+- The Windows distribution ships `LICENSE` beside the binaries, which is what
+  Apache-2.0 section 4 requires for our own code. It does **not** yet ship the
+  third-party notices for the Qt, Chromium, libpng and giflib binaries it
+  bundles; that is an open compliance gap, and Qt is conveyed under LGPLv3, so
+  it must stay dynamically linked and its corresponding source must be offered.
+
 ## Documentation Style
 
 - Keep documentation factual and evidence-driven, and distinguish verified

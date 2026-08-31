@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // What a topic names, and where the answer comes from.
 //
 // A book-wide link map has to know, for every topic, which ids cross

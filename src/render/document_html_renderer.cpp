@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // Native HTML rendering of the typed Document IR (issue #46).
 //
 // A sibling of the Markdown renderer, not a post-processor of it.  See

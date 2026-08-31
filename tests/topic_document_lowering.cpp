@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // Topic dispatch and render-trace provenance.
 //
 // The typed dispatcher must decline cleanly on a source-free topic, render

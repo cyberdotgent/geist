@@ -1,3 +1,6 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
 // Turns a book into the bytes the reader's URL space serves.
 //
 // BookSource is the whole of the reader's rendering policy: which link a
