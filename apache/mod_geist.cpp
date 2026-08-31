@@ -1,0 +1,718 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
+// mod_geist: browse IBM BookManager BOO books over HTTP.
+//
+// A book is addressed by its own path in the document root, so a book at
+// htdocs/packet.boo is served from /packet.boo, and everything it contains
+// hangs below that:
+//
+//   /packet.boo                 the book index
+//   /packet.boo/topic/<id>      one rendered topic
+//   /packet.boo/object/<id>     one stored image
+//   /packet.boo/download        the BOO file itself
+//   /packet.boo/asset/<name>    the module's own CSS, JS and icons
+//
+// libgeist renders a book but does not decide what a link means; this module
+// brings its own URL space, link map and page chrome, exactly as the Qt
+// reader brings its own. Nothing here is shared with it.
+
+#include "geist/boo.hpp"
+
+#include "assets.hpp"
+
+#include <httpd.h>
+#include <http_config.h>
+#include <http_core.h>
+#include <http_log.h>
+#include <http_protocol.h>
+#include <http_request.h>
+#include <apr_strings.h>
+
+#include <algorithm>
+#include <cctype>
+#include <cstring>
+#include <exception>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+extern "C" module AP_MODULE_DECLARE_DATA geist_module;
+
+// Gives the APLOG_* macros this module's log index.
+APLOG_USE_MODULE(geist);
+
+namespace {
+
+// ---------------------------------------------------------------------------
+// Configuration
+// ---------------------------------------------------------------------------
+
+enum class Tri { unset, off, on };
+enum class Theme { unset, automatic, light, dark };
+
+struct DirConfig {
+  Tri download = Tri::unset;
+  Theme theme = Theme::unset;
+};
+
+// A book, opened once per process and shared by every worker thread.
+// libgeist documents that after open() every const operation on a document
+// and its TOC entries is safe from any number of threads with no external
+// synchronisation, which is exactly what a threaded MPM needs.
+struct Book {
+  std::unique_ptr<geist::BooDocument> document;
+  apr_time_t mtime = 0;
+  apr_off_t size = 0;
+
+  // Where a cross reference spelled in this book actually lands. Built once,
+  // lazily, because harvesting it renders every topic.
+  struct Destination {
+    std::string topic;
+    std::string fragment;
+    std::string resource;
+  };
+  std::map<std::string, Destination> links;
+  bool links_built = false;
+  std::mutex links_mutex;
+};
+
+std::mutex& cache_mutex() {
+  static std::mutex mutex;
+  return mutex;
+}
+
+std::unordered_map<std::string, std::shared_ptr<Book>>& cache() {
+  static std::unordered_map<std::string, std::shared_ptr<Book>> books;
+  return books;
+}
+
+// ---------------------------------------------------------------------------
+// Small helpers
+// ---------------------------------------------------------------------------
+
+bool ends_with_boo(const char* path) {
+  if (path == nullptr) {
+    return false;
+  }
+  const std::string value(path);
+  if (value.size() < 4) {
+    return false;
+  }
+  std::string tail = value.substr(value.size() - 4);
+  std::transform(tail.begin(), tail.end(), tail.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+  return tail == ".boo";
+}
+
+// Percent-decoding for one path segment. httpd's own helpers differ across
+// releases, and a path segment is small enough to decode directly.
+std::string url_decode(const std::string& value) {
+  std::string out;
+  out.reserve(value.size());
+  const auto hex = [](char c) -> int {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+  };
+  for (std::size_t i = 0; i < value.size(); ++i) {
+    if (value[i] == '%' && i + 2 < value.size()) {
+      const int hi = hex(value[i + 1]);
+      const int lo = hex(value[i + 2]);
+      if (hi >= 0 && lo >= 0) {
+        out.push_back(static_cast<char>((hi << 4) | lo));
+        i += 2;
+        continue;
+      }
+    }
+    out.push_back(value[i]);
+  }
+  return out;
+}
+
+const char* esc(request_rec* r, const std::string& value) {
+  return ap_escape_html(r->pool, value.c_str());
+}
+
+// A path segment, safe to place in a URL.
+std::string seg(request_rec* r, const std::string& value) {
+  return ap_escape_path_segment(r->pool, value.c_str());
+}
+
+// The book's own URL: the request URI with any path info removed.
+std::string base_uri(request_rec* r) {
+  std::string uri(r->uri != nullptr ? r->uri : "");
+  const std::string info(r->path_info != nullptr ? r->path_info : "");
+  if (!info.empty() && uri.size() >= info.size() &&
+      uri.compare(uri.size() - info.size(), info.size(), info) == 0) {
+    uri.erase(uri.size() - info.size());
+  }
+  while (uri.size() > 1 && uri.back() == '/') {
+    uri.pop_back();
+  }
+  return uri;
+}
+
+DirConfig* config_for(request_rec* r) {
+  return static_cast<DirConfig*>(
+      ap_get_module_config(r->per_dir_config, &geist_module));
+}
+
+bool download_allowed(DirConfig* config) {
+  return config == nullptr || config->download != Tri::off;
+}
+
+const char* theme_attribute(DirConfig* config) {
+  if (config == nullptr) {
+    return "";
+  }
+  switch (config->theme) {
+  case Theme::light:
+    return " data-theme=\"light\"";
+  case Theme::dark:
+    return " data-theme=\"dark\"";
+  case Theme::automatic:
+  case Theme::unset:
+    break;
+  }
+  return ""; // auto: let the browser decide via prefers-color-scheme.
+}
+
+// ---------------------------------------------------------------------------
+// Book cache
+// ---------------------------------------------------------------------------
+
+std::shared_ptr<Book> open_book(request_rec* r) {
+  apr_finfo_t info;
+  if (apr_stat(&info, r->filename, APR_FINFO_MIN, r->pool) != APR_SUCCESS ||
+      info.filetype != APR_REG) {
+    return nullptr;
+  }
+
+  const std::string key(r->filename);
+  {
+    std::lock_guard<std::mutex> guard(cache_mutex());
+    const auto found = cache().find(key);
+    // A rebuilt book must not be served from a stale parse.
+    if (found != cache().end() && found->second->mtime == info.mtime &&
+        found->second->size == info.size) {
+      return found->second;
+    }
+  }
+
+  auto book = std::make_shared<Book>();
+  try {
+    book->document = std::make_unique<geist::BooDocument>(
+        geist::BooDocument::open(r->filename));
+  } catch (const std::exception& error) {
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "mod_geist: cannot open %s: %s",
+                  r->filename, error.what());
+    return nullptr;
+  }
+  book->mtime = info.mtime;
+  book->size = info.size;
+
+  std::lock_guard<std::mutex> guard(cache_mutex());
+  cache()[key] = book;
+  return book;
+}
+
+void ensure_links(Book& book) {
+  std::lock_guard<std::mutex> guard(book.links_mutex);
+  if (book.links_built) {
+    return;
+  }
+  book.links_built = true;
+  for (const auto& entry : book.document->table_of_contents()) {
+    for (const auto& target : entry.link_targets()) {
+      const Book::Destination destination{entry.id, target.fragment,
+                                          target.resource};
+      book.links.emplace(target.id, destination);
+      // A figure or table is spelled both bare and with its object prefix.
+      if (target.kind == geist::LinkTargetKind::figure) {
+        book.links.emplace("FIG" + target.id, destination);
+      } else if (target.kind == geist::LinkTargetKind::table) {
+        book.links.emplace("TBL" + target.id, destination);
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------------------------
+
+geist::HtmlRenderOptions render_options(request_rec* r, Book& book,
+                                        const std::string& base,
+                                        const std::string& current_topic) {
+  ensure_links(book);
+
+  geist::HtmlRenderOptions options;
+  options.resolve_topic =
+      [r, base](const std::string& id) -> std::optional<std::string> {
+    return base + "/topic/" + seg(r, id);
+  };
+  options.resolve_resource =
+      [r, base](const std::string& id) -> std::optional<std::string> {
+    return base + "/object/" + seg(r, id);
+  };
+  options.resolve_anchor =
+      [r, &book, base, current_topic](
+          const std::string& spelled) -> std::optional<std::string> {
+    const auto found = book.links.find(spelled);
+    if (found == book.links.end()) {
+      // A generated list -- contents, index, the figure and table lists --
+      // names a topic by the topic's own id, which is not a link target any
+      // topic reports. Without this every entry of those lists is dead.
+      if (book.document->find_toc_entry(spelled) != nullptr) {
+        return base + "/topic/" + seg(r, spelled);
+      }
+      return std::nullopt; // A genuinely local anchor; "#id" reaches it.
+    }
+    if (!found->second.resource.empty()) {
+      static const std::string marker = "resource:";
+      const auto& reference = found->second.resource;
+      const auto id = reference.compare(0, marker.size(), marker) == 0
+                          ? reference.substr(marker.size())
+                          : reference;
+      return base + "/object/" + seg(r, id);
+    }
+    if (found->second.topic == current_topic) {
+      return found->second.fragment.empty()
+                 ? std::nullopt
+                 : std::optional<std::string>("#" + found->second.fragment);
+    }
+    std::string url = base + "/topic/" + seg(r, found->second.topic);
+    if (!found->second.fragment.empty()) {
+      url += "#" + found->second.fragment;
+    }
+    return url;
+  };
+  return options;
+}
+
+void emit_head(request_rec* r, Book& book, const std::string& base,
+               const std::string& title, DirConfig* config) {
+  const auto& properties = book.document->book_properties();
+  const std::string book_title =
+      properties.title.empty() ? properties.short_title : properties.title;
+
+  ap_rprintf(r,
+             "<!doctype html>\n<html lang=\"en\"%s>\n<head>\n"
+             "<meta charset=\"utf-8\">\n"
+             "<meta name=\"viewport\" content=\"width=device-width, "
+             "initial-scale=1\">\n"
+             "<title>%s</title>\n"
+             "<link rel=\"stylesheet\" href=\"%s/asset/book.css\">\n"
+             "<link rel=\"stylesheet\" href=\"%s/asset/geist.css\">\n"
+             "<link rel=\"icon\" href=\"%s/asset/icons/index.svg\">\n"
+             "</head>\n<body>\n",
+             theme_attribute(config),
+             esc(r, title.empty() ? book_title : title + " - " + book_title),
+             base.c_str(), base.c_str(), base.c_str());
+}
+
+void emit_button(request_rec* r, const std::string& base, const char* icon,
+                 const std::string& href, const char* label, bool enabled) {
+  if (enabled) {
+    ap_rprintf(r,
+               "<a class=\"geist-btn\" href=\"%s\" title=\"%s\" "
+               "aria-label=\"%s\"><img src=\"%s/asset/icons/%s.svg\" alt=\"\">"
+               "</a>\n",
+               href.c_str(), label, label, base.c_str(), icon);
+  } else {
+    ap_rprintf(r,
+               "<span class=\"geist-btn\" aria-disabled=\"true\" title=\"%s\">"
+               "<img src=\"%s/asset/icons/%s.svg\" alt=\"%s\"></span>\n",
+               label, base.c_str(), icon, label);
+  }
+}
+
+// The toolbar, after BookServer's banner: index, contents, previous, next,
+// then the book's identity, then print, download and details.
+void emit_toolbar(request_rec* r, Book& book, const std::string& base,
+                  const std::string& current_topic, DirConfig* config) {
+  const auto& toc = book.document->table_of_contents();
+  const auto& properties = book.document->book_properties();
+
+  std::string previous;
+  std::string next;
+  if (!current_topic.empty()) {
+    for (std::size_t i = 0; i < toc.size(); ++i) {
+      if (toc[i].id != current_topic) {
+        continue;
+      }
+      if (i > 0) {
+        previous = base + "/topic/" + seg(r, toc[i - 1].id);
+      }
+      if (i + 1 < toc.size()) {
+        next = base + "/topic/" + seg(r, toc[i + 1].id);
+      }
+      break;
+    }
+  }
+
+  ap_rputs("<header class=\"geist-bar\">\n", r);
+  emit_button(r, base, "index", base, "Book index", true);
+  emit_button(r, base, "contents", base, "Contents", true);
+  emit_button(r, base, "prev", previous, "Previous topic", !previous.empty());
+  emit_button(r, base, "next", next, "Next topic", !next.empty());
+
+  const std::string title =
+      properties.title.empty() ? properties.short_title : properties.title;
+  ap_rprintf(r, "<span class=\"geist-title\">%s", esc(r, title));
+  if (!properties.document_number.empty()) {
+    ap_rprintf(r, "<span class=\"geist-doc\">%s</span>",
+               esc(r, properties.document_number));
+  }
+  ap_rputs("</span>\n", r);
+
+  emit_button(r, base, "print",
+              current_topic.empty() ? base
+                                    : base + "/topic/" + seg(r, current_topic),
+              "Print this topic", true);
+  if (download_allowed(config)) {
+    emit_button(r, base, "download", base + "/download", "Download the book",
+                true);
+  }
+  emit_button(r, base, "info", base, "Book details", true);
+  ap_rputs("</header>\n", r);
+}
+
+void emit_toc(request_rec* r, Book& book, const std::string& base,
+              const std::string& current_topic) {
+  ap_rputs("<nav class=\"geist-toc\" aria-label=\"Contents\">\n"
+           "<input id=\"geist-filter\" class=\"geist-filter\" type=\"search\" "
+           "placeholder=\"Filter topics\" aria-label=\"Filter topics\">\n"
+           "<ol id=\"geist-toc-list\">\n",
+           r);
+  for (const auto& entry : book.document->table_of_contents()) {
+    const bool current = entry.id == current_topic;
+    ap_rprintf(r,
+               "<li style=\"padding-left:%urem\"><a href=\"%s/topic/%s\"%s>"
+               "<span class=\"geist-toc-id\">%s</span>%s</a></li>\n",
+               static_cast<unsigned>(entry.level) / 2u, base.c_str(),
+               seg(r, entry.id).c_str(),
+               current ? " aria-current=\"page\"" : "", esc(r, entry.id),
+               esc(r, entry.title));
+  }
+  ap_rputs("</ol>\n</nav>\n", r);
+}
+
+void emit_tail(request_rec* r, const std::string& base) {
+  ap_rprintf(r, "<script src=\"%s/asset/geist.js\"></script>\n</body>\n</html>\n",
+             base.c_str());
+}
+
+// ---------------------------------------------------------------------------
+// Routes
+// ---------------------------------------------------------------------------
+
+int serve_index(request_rec* r, Book& book, const std::string& base,
+                DirConfig* config) {
+  ap_set_content_type(r, "text/html; charset=utf-8");
+  emit_head(r, book, base, std::string(), config);
+  emit_toolbar(r, book, base, std::string(), config);
+  ap_rputs("<div class=\"geist-shell\">\n", r);
+  emit_toc(r, book, base, std::string());
+  ap_rputs("<main class=\"geist-main\">\n<div class=\"geist-book\">\n", r);
+
+  const auto& properties = book.document->book_properties();
+  const auto& directory = book.document->directory();
+  const auto& metadata = book.document->metadata();
+
+  ap_rprintf(r, "<h1 class=\"geist-topic-head\">%s</h1>\n",
+             esc(r, properties.title.empty() ? properties.short_title
+                                             : properties.title));
+
+  // The identity block BookServer puts above a book's contents.
+  ap_rputs("<div class=\"geist-meta\"><table>\n", r);
+  const auto meta_row = [&](const char* name, const std::string& value) {
+    if (!value.empty()) {
+      ap_rprintf(r, "<tr><td>%s</td><td>%s</td></tr>\n", name, esc(r, value));
+    }
+  };
+  meta_row("Document Number", properties.document_number);
+  meta_row("Build Date", directory.date + " " + directory.time);
+  meta_row("Build Version", properties.build_version.empty()
+                                ? properties.version
+                                : properties.build_version);
+  meta_row("Language", properties.language);
+  meta_row("Topics", std::to_string(book.document->table_of_contents().size()));
+  meta_row("Stored objects", std::to_string(book.document->resources().size()));
+  meta_row("File size", std::to_string(metadata.file_size) + " bytes");
+  ap_rputs("</table></div>\n", r);
+
+  if (download_allowed(config)) {
+    ap_rprintf(r,
+               "<p><a href=\"%s/download\">Download this book</a></p>\n",
+               base.c_str());
+  }
+
+  // The book's own contents topic, when it has one, so the index reads as
+  // BookServer's does; otherwise the sidebar is the contents.
+  const auto* contents = book.document->find_toc_entry("CONTENTS");
+  if (contents != nullptr) {
+    const auto options = render_options(r, book, base, "CONTENTS");
+    const auto html = contents->html_fragment(options);
+    ap_rwrite(html.data(), static_cast<int>(html.size()), r);
+  }
+
+  ap_rputs("</div>\n</main>\n</div>\n", r);
+  emit_tail(r, base);
+  return OK;
+}
+
+int serve_topic(request_rec* r, Book& book, const std::string& base,
+                const std::string& topic_id, DirConfig* config) {
+  const auto* entry = book.document->find_toc_entry(topic_id);
+  if (entry == nullptr) {
+    return HTTP_NOT_FOUND;
+  }
+
+  const auto options = render_options(r, book, base, topic_id);
+  const auto html = entry->html_fragment(options);
+
+  ap_set_content_type(r, "text/html; charset=utf-8");
+  emit_head(r, book, base, entry->title, config);
+  emit_toolbar(r, book, base, topic_id, config);
+  ap_rputs("<div class=\"geist-shell\">\n", r);
+  emit_toc(r, book, base, topic_id);
+  ap_rputs("<main class=\"geist-main\">\n<div class=\"geist-book\">\n", r);
+  ap_rprintf(r,
+             "<h1 class=\"geist-topic-head\">"
+             "<span class=\"geist-topic-id\">%s</span>%s</h1>\n",
+             esc(r, entry->id), esc(r, entry->title));
+  ap_rwrite(html.data(), static_cast<int>(html.size()), r);
+  ap_rputs("</div>\n</main>\n</div>\n", r);
+  emit_tail(r, base);
+  return OK;
+}
+
+// A stored object. An IBM proprietary format is rendered to PNG; anything the
+// book stores with a real media type -- the v1.4 web formats -- is served
+// exactly as stored, under the type the file itself states.
+int serve_object(request_rec* r, Book& book, const std::string& object_id) {
+  const auto& resources = book.document->resources();
+  const auto found =
+      std::find_if(resources.begin(), resources.end(),
+                   [&](const geist::ResourceEntry& entry) {
+                     return entry.id == object_id;
+                   });
+  if (found == resources.end()) {
+    return HTTP_NOT_FOUND;
+  }
+
+  std::vector<std::uint8_t> bytes;
+  std::string content_type;
+  try {
+    if (found->stored_format.find('/') != std::string::npos) {
+      // Already a web format: pass it through untouched.
+      bytes = book.document->read_resource_data(object_id);
+      content_type = found->stored_format;
+    } else {
+      bytes = book.document->read_resource_png(object_id);
+      content_type = "image/png";
+    }
+  } catch (const std::exception& error) {
+    ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r,
+                  "mod_geist: object %s (%s) cannot be served: %s",
+                  object_id.c_str(), found->stored_format.c_str(),
+                  error.what());
+    return HTTP_NOT_FOUND;
+  }
+  if (bytes.empty()) {
+    return HTTP_NOT_FOUND;
+  }
+
+  ap_set_content_type(r, apr_pstrdup(r->pool, content_type.c_str()));
+  ap_set_content_length(r, static_cast<apr_off_t>(bytes.size()));
+  ap_rwrite(bytes.data(), static_cast<int>(bytes.size()), r);
+  return OK;
+}
+
+int serve_download(request_rec* r, DirConfig* config) {
+  if (!download_allowed(config)) {
+    return HTTP_FORBIDDEN;
+  }
+
+  apr_file_t* file = nullptr;
+  if (apr_file_open(&file, r->filename, APR_READ | APR_BINARY, APR_OS_DEFAULT,
+                    r->pool) != APR_SUCCESS) {
+    return HTTP_NOT_FOUND;
+  }
+  apr_finfo_t info;
+  if (apr_stat(&info, r->filename, APR_FINFO_MIN, r->pool) != APR_SUCCESS) {
+    apr_file_close(file);
+    return HTTP_NOT_FOUND;
+  }
+
+  const char* slash = std::strrchr(r->filename, '/');
+  const char* name = slash != nullptr ? slash + 1 : r->filename;
+
+  ap_set_content_type(r, "application/octet-stream");
+  ap_set_content_length(r, info.size);
+  apr_table_setn(r->headers_out, "Content-Disposition",
+                 apr_psprintf(r->pool, "attachment; filename=\"%s\"", name));
+
+  apr_size_t sent = 0;
+  ap_send_fd(file, r, 0, info.size, &sent);
+  apr_file_close(file);
+  return OK;
+}
+
+int serve_asset(request_rec* r, const std::string& name) {
+  for (std::size_t i = 0; i < geist_httpd::kEmbeddedAssetCount; ++i) {
+    const auto& asset = geist_httpd::kEmbeddedAssets[i];
+    if (name != asset.name) {
+      continue;
+    }
+    ap_set_content_type(r, asset.content_type);
+    ap_set_content_length(r, static_cast<apr_off_t>(asset.size));
+    // Compiled in, so it only ever changes when the module does.
+    apr_table_setn(r->headers_out, "Cache-Control", "public, max-age=86400");
+    ap_rwrite(asset.data, static_cast<int>(asset.size), r);
+    return OK;
+  }
+  return HTTP_NOT_FOUND;
+}
+
+// ---------------------------------------------------------------------------
+// Handler
+// ---------------------------------------------------------------------------
+
+int geist_handler(request_rec* r) {
+  if (!ends_with_boo(r->filename)) {
+    return DECLINED;
+  }
+  if (r->method_number != M_GET) {
+    return HTTP_METHOD_NOT_ALLOWED;
+  }
+
+  auto book = open_book(r);
+  if (book == nullptr) {
+    return DECLINED; // Not a book we can serve; let the core have it.
+  }
+
+  DirConfig* config = config_for(r);
+  const std::string base = base_uri(r);
+  std::string info(r->path_info != nullptr ? r->path_info : "");
+  while (!info.empty() && info.back() == '/') {
+    info.pop_back();
+  }
+
+  // Every entry point catches: an exception unwinding into httpd's C frames
+  // is undefined behaviour and would take the worker with it.
+  try {
+    if (info.empty()) {
+      return serve_index(r, *book, base, config);
+    }
+    const auto second = info.find('/', 1);
+    const std::string kind = info.substr(1, second - 1);
+    const std::string rest =
+        second == std::string::npos ? std::string() : info.substr(second + 1);
+
+    if (kind == "topic" && !rest.empty()) {
+      return serve_topic(r, *book, base, url_decode(rest), config);
+    }
+    if (kind == "object" && !rest.empty()) {
+      return serve_object(r, *book, url_decode(rest));
+    }
+    if (kind == "asset" && !rest.empty()) {
+      return serve_asset(r, rest);
+    }
+    if (kind == "download" && rest.empty()) {
+      return serve_download(r, config);
+    }
+    return HTTP_NOT_FOUND;
+  } catch (const std::exception& error) {
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "mod_geist: %s", error.what());
+    return HTTP_INTERNAL_SERVER_ERROR;
+  } catch (...) {
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "mod_geist: unknown error");
+    return HTTP_INTERNAL_SERVER_ERROR;
+  }
+}
+
+// Core refuses trailing path info for a plain file unless a handler claims
+// it, which would make /packet.boo/topic/1.0 a 404 before we ever ran.
+int geist_fixups(request_rec* r) {
+  if (ends_with_boo(r->filename)) {
+    r->used_path_info = AP_REQ_ACCEPT_PATH_INFO;
+  }
+  return DECLINED;
+}
+
+// ---------------------------------------------------------------------------
+// Module plumbing
+// ---------------------------------------------------------------------------
+
+void* create_dir_config(apr_pool_t* pool, char*) {
+  return apr_pcalloc(pool, sizeof(DirConfig));
+}
+
+void* merge_dir_config(apr_pool_t* pool, void* base_config, void* add_config) {
+  auto* base = static_cast<DirConfig*>(base_config);
+  auto* add = static_cast<DirConfig*>(add_config);
+  auto* merged = static_cast<DirConfig*>(apr_pcalloc(pool, sizeof(DirConfig)));
+  merged->download = add->download != Tri::unset ? add->download : base->download;
+  merged->theme = add->theme != Theme::unset ? add->theme : base->theme;
+  return merged;
+}
+
+const char* set_download(cmd_parms*, void* dir_config, const char* value) {
+  auto* config = static_cast<DirConfig*>(dir_config);
+  if (strcasecmp(value, "on") == 0) {
+    config->download = Tri::on;
+  } else if (strcasecmp(value, "off") == 0) {
+    config->download = Tri::off;
+  } else {
+    return "GeistDownload takes On or Off";
+  }
+  return nullptr;
+}
+
+const char* set_theme(cmd_parms*, void* dir_config, const char* value) {
+  auto* config = static_cast<DirConfig*>(dir_config);
+  if (strcasecmp(value, "auto") == 0) {
+    config->theme = Theme::automatic;
+  } else if (strcasecmp(value, "light") == 0) {
+    config->theme = Theme::light;
+  } else if (strcasecmp(value, "dark") == 0) {
+    config->theme = Theme::dark;
+  } else {
+    return "GeistTheme takes auto, light or dark";
+  }
+  return nullptr;
+}
+
+// OR_ALL so both directives work in .htaccess wherever AllowOverride permits,
+// and per-directory or per-file in the server config.
+const command_rec geist_directives[] = {
+    AP_INIT_TAKE1("GeistDownload", reinterpret_cast<cmd_func>(set_download),
+                  nullptr, OR_ALL,
+                  "Offer the BOO file for download: On (default) or Off"),
+    AP_INIT_TAKE1("GeistTheme", reinterpret_cast<cmd_func>(set_theme), nullptr,
+                  OR_ALL,
+                  "Colour theme: auto (default), light or dark"),
+    {nullptr, {nullptr}, nullptr, 0, RAW_ARGS, nullptr}};
+
+void register_hooks(apr_pool_t*) {
+  ap_hook_fixups(geist_fixups, nullptr, nullptr, APR_HOOK_MIDDLE);
+  ap_hook_handler(geist_handler, nullptr, nullptr, APR_HOOK_MIDDLE);
+}
+
+} // namespace
+
+extern "C" module AP_MODULE_DECLARE_DATA geist_module = {
+    STANDARD20_MODULE_STUFF,
+    create_dir_config,
+    merge_dir_config,
+    nullptr,
+    nullptr,
+    geist_directives,
+    register_hooks};

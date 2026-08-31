@@ -31,6 +31,12 @@ closing correctness gaps against real books.
   (`geist://book/topic/<id>`, `geist://book/object/<id>`) and answer it with
   bytes. That policy belongs to the reader and uses Qt types freely; it is not
   a shared component, and another consumer should not try to link it.
+- `apache/` — **mod_geist**, an optional Apache 2.4 module serving a book over
+  HTTP. Like the reader it brings its own URL space, link map and chrome, and
+  shares no code with `gui/`. It links libgeist statically and compiles its
+  CSS, JS and icons in via `apache/tools/bundle.py`, so one `.so` deploys with
+  nothing beside it; add new assets under `apache/assets/` and the bundler
+  picks them up. Built by default when `apxs` and the APR headers are present.
 - `examples/` — small command-line programs demonstrating library usage, not
   duplicate parsing implementations:
   - `booinfo` — book metadata.

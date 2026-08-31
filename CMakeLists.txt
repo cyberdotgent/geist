@@ -258,6 +258,50 @@ if(NOT GEIST_BUILD_GUI STREQUAL "OFF")
   endif()
 endif()
 
+# mod_geist, an optional Apache 2.4 module. AUTO builds it when apxs and the
+# APR headers are present and skips it otherwise; ON makes a missing httpd
+# toolchain a hard error; OFF never builds it. Like the GUI, httpd is never a
+# dependency of the library itself.
+set(GEIST_BUILD_APACHE "AUTO" CACHE STRING
+  "Build the Apache module: AUTO, ON or OFF"
+)
+set_property(CACHE GEIST_BUILD_APACHE PROPERTY STRINGS AUTO ON OFF)
+
+if(NOT GEIST_BUILD_APACHE STREQUAL "OFF" AND NOT WIN32)
+  find_program(GEIST_APXS NAMES apxs apxs2)
+  find_package(PkgConfig QUIET)
+  if(PkgConfig_FOUND)
+    pkg_check_modules(GEIST_APR QUIET apr-1 apr-util-1)
+  endif()
+
+  if(GEIST_APXS AND GEIST_APR_FOUND)
+    execute_process(COMMAND "${GEIST_APXS}" -q INCLUDEDIR
+      OUTPUT_VARIABLE GEIST_APACHE_INCLUDEDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND "${GEIST_APXS}" -q LIBEXECDIR
+      OUTPUT_VARIABLE GEIST_APACHE_LIBEXECDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+    set(GEIST_APACHE_INCLUDE_DIRS
+      "${GEIST_APACHE_INCLUDEDIR}" ${GEIST_APR_INCLUDE_DIRS}
+    )
+    set(GEIST_APACHE_LIBRARIES ${GEIST_APR_LIBRARIES})
+    # The module is a shared object, so everything linked into it must be
+    # position independent -- including the static library.
+    set_property(TARGET geist_static PROPERTY POSITION_INDEPENDENT_CODE ON)
+    add_subdirectory(apache)
+  elseif(GEIST_BUILD_APACHE STREQUAL "ON")
+    message(FATAL_ERROR
+      "Apache module requested but the httpd toolchain was not found "
+      "(apxs: ${GEIST_APXS}, APR: ${GEIST_APR_FOUND})."
+    )
+  else()
+    message(STATUS
+      "apxs or the APR headers not found - skipping mod_geist.\n"
+      "    Debian/Ubuntu: sudo apt install apache2-dev libapr1-dev libaprutil1-dev\n"
+      "    Fedora/RHEL:   sudo dnf install httpd-devel apr-devel apr-util-devel\n"
+      "    Use -DGEIST_BUILD_APACHE=ON to make this a hard error instead."
+    )
+  endif()
+endif()
+
 # The BOO format specification. Optional: it defines a documentation target
 # only when an AsciiDoc toolchain is installed, and is never part of `all`.
 add_subdirectory(doc/boo-spec)

@@ -1,0 +1,180 @@
+/* Copyright 2026 Yvan Janssens */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/* Chrome for mod_geist: the shell around a rendered topic. The topic itself
+   is styled by book.css, the stylesheet published with the specification. */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f6f7f9;
+  --bg-sunken: #eef0f3;
+  --fg: #1b1f24;
+  --fg-muted: #5b636d;
+  --border: #d8dce1;
+  --accent: #0b5fa5;
+  --accent-soft: #e7f0f9;
+  --shadow: 0 1px 2px rgba(16, 22, 26, .08);
+  --sidebar: 22rem;
+  --header: 3.25rem;
+}
+
+/* "auto": follow the browser unless the operator pinned a theme. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #16191d;
+    --bg-soft: #1d2126;
+    --bg-sunken: #23282e;
+    --fg: #e6e9ed;
+    --fg-muted: #9aa3ad;
+    --border: #333a42;
+    --accent: #6cb6ff;
+    --accent-soft: #1b2b3a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #16191d;
+  --bg-soft: #1d2126;
+  --bg-sunken: #23282e;
+  --fg: #e6e9ed;
+  --fg-muted: #9aa3ad;
+  --border: #333a42;
+  --accent: #6cb6ff;
+  --accent-soft: #1b2b3a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+a { color: var(--accent); }
+
+/* Toolbar ---------------------------------------------------------------- */
+
+.geist-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  height: var(--header);
+  padding: 0 .75rem;
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.geist-bar .geist-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: .5rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.geist-bar .geist-doc {
+  color: var(--fg-muted);
+  font-weight: 400;
+  font-size: .85em;
+  margin-left: .5rem;
+}
+
+.geist-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: .4rem;
+  color: var(--fg);
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+
+.geist-btn:hover { background: var(--accent-soft); border-color: var(--border); }
+.geist-btn[aria-disabled="true"] { opacity: .35; pointer-events: none; }
+.geist-btn img, .geist-btn svg { width: 1.15rem; height: 1.15rem; display: block; }
+
+/* Layout ----------------------------------------------------------------- */
+
+.geist-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar) minmax(0, 1fr);
+  height: calc(100vh - var(--header));
+}
+
+.geist-toc {
+  overflow: auto;
+  padding: .75rem;
+  background: var(--bg-soft);
+  border-right: 1px solid var(--border);
+}
+
+.geist-filter {
+  width: 100%;
+  padding: .45rem .6rem;
+  margin-bottom: .6rem;
+  border: 1px solid var(--border);
+  border-radius: .4rem;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: .9rem;
+}
+
+.geist-toc ol { list-style: none; margin: 0; padding: 0; }
+
+.geist-toc a {
+  display: block;
+  padding: .25rem .5rem;
+  border-radius: .35rem;
+  color: var(--fg);
+  text-decoration: none;
+  font-size: .9rem;
+}
+
+.geist-toc a:hover { background: var(--accent-soft); }
+.geist-toc a[aria-current="page"] { background: var(--accent-soft); font-weight: 600; }
+.geist-toc .geist-toc-id { color: var(--fg-muted); font-variant-numeric: tabular-nums; margin-right: .4rem; }
+.geist-toc li[hidden] { display: none; }
+
+.geist-main { overflow: auto; padding: 1.5rem 2rem 4rem; }
+.geist-main > .geist-book { max-width: 62rem; }
+
+.geist-topic-head {
+  margin: 0 0 1.25rem;
+  padding-bottom: .6rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.geist-topic-head .geist-topic-id {
+  color: var(--fg-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  margin-right: .6rem;
+}
+
+.geist-meta { color: var(--fg-muted); font-size: .9rem; }
+.geist-meta table { border-collapse: collapse; }
+.geist-meta td { padding: .15rem 1rem .15rem 0; vertical-align: top; }
+.geist-meta td:first-child { color: var(--fg); font-weight: 600; white-space: nowrap; }
+
+/* The topic body inherits the published stylesheet; only fit it to the pane. */
+.geist-book img { max-width: 100%; height: auto; }
+.geist-book pre { overflow-x: auto; }
+.geist-book table { display: block; overflow-x: auto; max-width: 100%; }
+
+@media (max-width: 60rem) {
+  .geist-shell { grid-template-columns: minmax(0, 1fr); }
+  .geist-toc { display: none; }
+  .geist-main { padding: 1rem; }
+}
