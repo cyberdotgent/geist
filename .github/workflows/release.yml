@@ -233,13 +233,17 @@ jobs:
 
       # Uploaded on every run, tag or not, so the package can be downloaded
       # and checked before a release is ever cut.
+      #
+      # The distribution directory is uploaded, not the zip: upload-artifact
+      # always zips what it is given, so handing it the zip yields a zip
+      # inside a zip. Giving it the directory makes GitHub's own wrapper the
+      # distribution. The zip itself is still built, for the release asset,
+      # where nothing wraps it.
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.version.outputs.name }}
-          path: |
-            ${{ steps.version.outputs.name }}.zip
-            ${{ steps.version.outputs.name }}.zip.sha256
+          path: dist/${{ steps.version.outputs.name }}
           if-no-files-found: error
           retention-days: 30
 
