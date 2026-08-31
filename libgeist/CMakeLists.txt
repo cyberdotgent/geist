@@ -234,6 +234,7 @@ foreach(synthetic_test
     cz_artwork_region_synthetic
     cz_degraded_region_synthetic
     cz_unopened_region_closer_synthetic
+    menu_wrapped_title_synthetic
     glossary_catalog_ir_synthetic
     message_catalog_ir_synthetic
     verbatim_cross_references_synthetic

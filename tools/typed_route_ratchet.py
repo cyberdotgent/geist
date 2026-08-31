@@ -55,12 +55,12 @@ from pathlib import Path
 BASELINE = {
     "ACPZMST1.boo": (200, 200),
     "DREICMST.boo": (370, 370),
-    "FA1PLMM0.boo": (411, 414),
+    "FA1PLMM0.boo": (413, 414),
     "GC23-046.boo": (99, 99),
     "GC28-183.boo": (145, 145),
     "GG24-395.boo": (223, 223),
     "GG24-4302-00.boo": (228, 228),
-    "GX27-3999-00.boo": (33, 33),
+    "GX27-3999-00.boo": (34, 34),
     "IBMMMSTR.boo": (52, 52),
     "IEAC6MST.BOO": (201, 201),
     "ITPPIBOK.BOO": (255, 255),
@@ -68,14 +68,14 @@ BASELINE = {
     "OFCUSEOV.BOO": (192, 192),
     "PRG1SORT.boo": (205, 205),
     "QS3X36CM.BOO": (10, 10),
-    "QSYSINFO.BOO": (413, 413),
+    "QSYSINFO.BOO": (414, 414),
     "QSYSNEWG.BOO": (157, 157),
-    "SC09-138.boo": (518, 522),
+    "SC09-138.boo": (522, 522),
     "SC09-2417-00.boo": (341, 341),
     "SC24-546.boo": (298, 298),
-    "SC24-5520-00.boo": (644, 645),
+    "SC24-5520-00.boo": (645, 645),
     "SC24-5527-02.boo": (300, 300),
-    "SC26-457.boo": (355, 356),
+    "SC26-457.boo": (356, 356),
     "SC28-1881-05.boo": (88, 88),
     "SC31-605.boo": (109, 109),
     "SC31-711.boo": (77, 78),
@@ -84,12 +84,12 @@ BASELINE = {
     "SC41-485.boo": (36, 36),
     "SG24-204.boo": (91, 91),
     "SH12-565.boo": (288, 288),
-    "SH20-918.boo": (200, 201),
+    "SH20-918.boo": (201, 201),
     "XWEBDEMO.boo": (12, 12),
     "packet.boo": (124, 124),
 }
-BASELINE_STRICT_TOTAL = 7185
-BASELINE_TOTAL = 7196
+BASELINE_STRICT_TOTAL = 7196
+BASELINE_TOTAL = 7198
 
 SUMMARY = re.compile(r"^# summary\ttyped=(\d+)\tlegacy=(\d+)\ttotal=(\d+)")
 SEVERITY = re.compile(r"^# severity\t")
