@@ -1,5 +1,5 @@
 file	id	severity	route	family	reason	records	degraded	detail
-title.md	TITLE	best-effort	best-effort		typed-lowering-declined	2-3		prose topic rejected: cz off tipage carries display text
+title.md	TITLE	typed	typed	prose	typed	2-3		
 contents.md	CONTENTS	typed	typed	generated navigation	typed	3-4		
 figures.md	FIGURES	typed	typed	generated list	typed	4-5		
 1-0.md	1.0	best-effort	best-effort		typed-lowering-declined	5-6		prose topic rejected: figure region declined: figure region contains prose row 'IBM BookManager BookServer is a specialized World Wide Web server that'
@@ -12,4 +12,4 @@ figures.md	FIGURES	typed	typed	generated list	typed	4-5
 1-4-3.md	1.4.3	typed	typed	prose	typed	13-14		
 1-4-4.md	1.4.4	typed	typed	prose	typed	14-15		
 2-0.md	2.0	typed	typed	prose	typed	15-16		
-# summary	best-effort=2	typed=11	total=13
+# summary	best-effort=1	typed=12	total=13

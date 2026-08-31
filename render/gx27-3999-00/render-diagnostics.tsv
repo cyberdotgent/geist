@@ -1,9 +1,9 @@
 file	id	severity	route	family	reason	records	degraded	detail
-cover.md	COVER	best-effort	best-effort		typed-lowering-declined	2-3		prose topic rejected: cz off cover carries display text
+cover.md	COVER	typed	typed	prose	typed	2-3		
 notices.md	NOTICES	best-effort	best-effort		typed-lowering-declined	3-4		prose topic rejected: cz off elblbox: CZ layout cz off elblbox is not modelled
 edition.md	EDITION	typed	typed	prose	typed	4-7		
 contents.md	CONTENTS	typed	typed	generated navigation	typed	7-9		
-front_1.md	FRONT_1	best-effort	best-effort		typed-lowering-declined	9-10		prose topic rejected: cz off artwork: CZ layout cz off artwork is not modelled
+front_1.md	FRONT_1	typed	typed	prose	typed	9-10		
 preface.md	PREFACE	typed	typed	prose	typed	10-11		
 preface-1.md	PREFACE.1	typed	typed	prose	typed	11-12		
 preface-2.md	PREFACE.2	typed	typed	prose	typed	12-13		
@@ -15,7 +15,7 @@ preface-2.md	PREFACE.2	typed	typed	prose	typed	12-13
 2-1.md	2.1	typed	typed	prose	typed	26-27		
 2-2.md	2.2	typed	typed	prose	typed	27-29		
 2-3.md	2.3	typed	typed	prose	typed	29-30		
-2-4.md	2.4	best-effort	best-effort		typed-lowering-declined	30-31		prose topic rejected: cz off artwork: CZ layout cz off artwork is not modelled
+2-4.md	2.4	typed	typed	prose	typed	30-31		
 2-5.md	2.5	best-effort	best-effort		typed-lowering-declined	31-41		prose topic rejected: table envelope 'TBLUNIQ2' declined: table line does not end with a matching border; not preformatted: preformatted region contains control SRSPTCHART
 2-6.md	2.6	typed	typed	prose	typed	41-44		
 2-7.md	2.7	typed	typed	prose	typed	69-70		
@@ -35,4 +35,4 @@ back_1-3.md	BACK_1.3	typed	typed	prose	typed	135-137
 back_1-4.md	BACK_1.4	typed	typed	prose	typed	140-142		
 index.md	INDEX	typed	typed	generated navigation	typed	142-146		
 comments.md	COMMENTS	typed	typed	prose	typed	146-149		
-# summary	best-effort=6	typed=30	total=36
+# summary	best-effort=3	typed=33	total=36

@@ -1,6 +1,6 @@
 file	id	severity	route	family	reason	records	degraded	detail
-cover.md	COVER	best-effort	best-effort		typed-lowering-declined	2-3		prose topic rejected: cz off cover carries display text
-title.md	TITLE	best-effort	best-effort		typed-lowering-declined	3-4		prose topic rejected: cz off tipage carries display text
+cover.md	COVER	typed	typed	prose	typed	2-3		
+title.md	TITLE	typed	typed	prose	typed	3-4		
 notices.md	NOTICES	typed	typed	prose	typed	4-5		
 edition.md	EDITION	typed	typed	prose	typed	5-6		
 preface.md	PREFACE	typed	typed	prose	typed	6-7		
@@ -123,4 +123,4 @@ tables.md	TABLES	typed	typed	generated list	typed	12-13
 a-0.md	A.0	typed	typed	prose	typed	364-366		
 glossary.md	GLOSSARY	typed	typed	glossary	typed	366-369		
 index.md	INDEX	typed	typed	generated navigation	typed	369-372		
-# summary	best-effort=2	typed=122	total=124
+# summary	typed=124	total=124

@@ -2,24 +2,23 @@
 
 ---
 
-<!-- geist-render: severity=best-effort route=best-effort reason=typed-lowering-declined records=9-10 detail="prose topic rejected: cz off artwork: CZ layout cz off artwork is not modelled" -->
-
 # FRONT\_1 Package Contents
 
+![PICTURE 1](1.png)
 
-<pre>
-   PICTURE 1
+```
    The adapter kit consists of:
-   °   The IBM* Dual EtherStreamer* MC 32 Adapter
-   °   The Dual EtherStreamer MC 32 Adapter Option diskette
-   °   The Safety Information manual
-   °   The IBM Program Licence Agreement sheet
-   °   This publication
-   If any item is missing or damaged, contact your place of purchase.
-   If you have a five-pack shipment, your kit contains five adapters, one
-   diskette, one safety information booklet, one IBM program Licence
-   Agreement, and this manual.
-</pre>
+```
+
+- The IBM\* Dual EtherStreamer\* MC 32 Adapter
+- The Dual EtherStreamer MC 32 Adapter Option diskette
+- The *Safety Information* manual
+- The IBM Program Licence Agreement sheet
+- This publication
+
+If any item is missing or damaged, contact your place of purchase\.
+
+If you have a five\-pack shipment, your kit contains five adapters, one diskette, one safety information booklet, one IBM program Licence Agreement, and this manual\.
 
 ---
 
