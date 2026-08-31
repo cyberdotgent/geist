@@ -72,23 +72,38 @@ jobs:
       - name: Check vcpkg is present
         shell: pwsh
         run: |
-          if (-not $env:VCPKG_ROOT) {
-            throw "VCPKG_ROOT is not set on this runner; libgeist needs vcpkg for libpng/giflib."
+          # GitHub-hosted Windows runners ship vcpkg but export it as
+          # VCPKG_INSTALLATION_ROOT; VCPKG_ROOT is not set. The root
+          # CMakeLists reads VCPKG_ROOT, so resolve one and export it for the
+          # steps that follow.
+          $root = $env:VCPKG_ROOT
+          if (-not $root) { $root = $env:VCPKG_INSTALLATION_ROOT }
+          if (-not $root -and (Test-Path 'C:/vcpkg')) { $root = 'C:/vcpkg' }
+          if (-not $root) {
+            throw "No vcpkg on this runner (checked VCPKG_ROOT, VCPKG_INSTALLATION_ROOT, C:/vcpkg); libgeist needs it for libpng/giflib."
           }
-          $toolchain = Join-Path $env:VCPKG_ROOT "scripts/buildsystems/vcpkg.cmake"
+
+          $toolchain = Join-Path $root "scripts/buildsystems/vcpkg.cmake"
           if (-not (Test-Path $toolchain)) {
             throw "No vcpkg toolchain at $toolchain"
           }
+
+          Write-Host "vcpkg root:      $root"
           Write-Host "vcpkg toolchain: $toolchain"
+          "VCPKG_ROOT=$root" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       # GEIST_BUILD_GUI=ON, never AUTO: AUTO would quietly skip the reader if
       # Qt were missing and ship a GUI-less zip that still looked successful.
       - name: Configure
         shell: pwsh
         run: |
+          # The toolchain is passed explicitly rather than left to the root
+          # CMakeLists' VCPKG_ROOT discovery, so a vcpkg problem fails here
+          # with a clear message instead of as a missing libpng/giflib later.
           cmake -S . -B build -A x64 `
             -DGEIST_BUILD_GUI=ON `
-            -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR"
+            -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR" `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
 
       # MSVC generators are multi-config, so the configuration is chosen here
       # and the binaries land in build/Release and build/gui/Release.
