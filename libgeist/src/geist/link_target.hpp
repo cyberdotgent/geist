@@ -31,6 +31,13 @@ struct LinkTarget {
   // URI of that object, which references to the figure resolve to instead of
   // to a place in the Markdown.
   std::string resource;
+  // The anchor id the topic's Markdown really emits for this destination,
+  // which is what a `#fragment` has to name.  It is not always `id`: a
+  // reference to an object spells the id without its object prefix
+  // (`MPROKEY`) while the anchor is written with it (`TBLMPROKEY`), so a
+  // destination built from `id` alone points at a fragment no file carries.
+  // Empty means the destination is the file itself, with no fragment.
+  std::string fragment;
 };
 
 } // namespace geist

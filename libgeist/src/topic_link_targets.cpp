@@ -123,6 +123,10 @@ std::vector<LinkTarget> document_link_targets(const DocumentIR& document) {
         // own book, so publishing it names exactly one destination.
       }
       LinkTarget target;
+      // Whatever the reference id turns out to be, the anchor the topic's
+      // Markdown emits is the anchor's own id, and that is what a fragment
+      // has to name.
+      target.fragment = anchor->id;
       switch (role) {
       case AnchorRoleIR::figure:
         target.kind = LinkTargetKind::figure;
