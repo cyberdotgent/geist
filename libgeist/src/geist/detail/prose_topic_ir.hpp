@@ -98,6 +98,12 @@ enum class ProseInlineKindIR {
   // the resource catalog id and `text` is the placeholder the image
   // replaces, which hosted BookServer also uses as its `alt` text.
   image,
+  // A display-row boundary the block keeps instead of reflowing across.
+  // Emitted only by the generated title-page projection (`CZ OFF COVER` /
+  // `CZ OFF TIPAGE`), whose rows hosted BookServer serves one per line
+  // inside one paragraph.  It carries no text and no source slice of its
+  // own: the boundary is the framing between two rows, not a token.
+  line_break,
 };
 
 struct ProseInlineIR {

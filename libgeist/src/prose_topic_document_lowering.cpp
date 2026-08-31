@@ -260,6 +260,13 @@ bool lower_inlines(const ProseBlockIR& block, std::size_t begin,
                      : "prose CSELECT reference");
       break;
     }
+    case ProseInlineKindIR::line_break:
+      // The title-page projection keeps its display-row boundaries inside
+      // one paragraph; hosted BookServer serves the rows one per line.
+      lowered.node = HardBreakInlineIR{};
+      lowered.origin = origin({}, "prose title-page row break");
+      content.push_back(std::move(lowered));
+      continue;
     }
     if (node.text.empty()) return fail(error, "prose inline has no text");
     content.push_back(std::move(lowered));

@@ -43,26 +43,67 @@ int main() {
   const auto document = geist::BooDocument::open(book);
 
   const auto title_page = topic_markdown(document, "TITLE");
-  // TITLE is declined by the prose family (`cz off tipage carries display
-  // text`), so the page is reproduced verbatim: the lines keep the source's
-  // own right alignment instead of being rebuilt as emphasised runs joined
-  // by `<br>`. The order and the words are what this fixture guards.
+  // `cz OFF TIPAGE` .. `cz OFF ETIPAGE` is the generated title-page
+  // projection, not stored prose: the compiler laid the source prolog's
+  // fields out as display rows and hosted BookServer re-flows them.  Hosted
+  // (DT 20260614112503) serves
+  //   `<B>Amateur</B> <B>Packet</B> <B>Radio</B>`
+  //   `<B>A</B> <B>Complete</B> <B>Tutorial</B>`
+  //   `<B>Evie</B> <B>Cooper</B>`
+  //   `<p>` `Document Number 9963-0413-56`
+  //   `<p>` `January 15, 2026`
+  //   `<p>` `Evie Cooper`
+  // -- the three title-block rows in one paragraph because the source stores
+  // no blank row between them, and one paragraph per metadata field because
+  // it stores a blank row before each.  The rows' own columns (57, 58, 66,
+  // 49, 61, 66) are layout origin and do not survive.
   require_contains(title_page,
-                   "Amateur Packet Radio\n"
-                   "                                                          "
-                   "A Complete Tutorial\n",
-                   "title page leading title block");
-  require_contains(title_page,
-                   "Document Number 9963-0413-56\n"
-                   "                                                             "
-                   "January 15, 2026\n",
-                   "title page metadata lines");
+                   "**Amateur Packet Radio**  \n"
+                   "**A Complete Tutorial**  \n"
+                   "**Evie Cooper**\n"
+                   "\n"
+                   "Document Number 9963\\-0413\\-56\n"
+                   "\n"
+                   "January 15, 2026\n"
+                   "\n"
+                   "Evie Cooper",
+                   "title page projection");
+  require_not_contains(title_page,
+                       "                              ",
+                       "title page served at its stored columns");
   require_not_contains(title_page,
                        "Evie Cooper D**ocumen**",
                        "title page torn Document Number emphasis");
   require_not_contains(title_page,
                        "**t Number 9963-0413-56",
                        "title page metadata folded into title block");
+
+  const auto cover = topic_markdown(document, "COVER");
+  // The same projection under `cz OFF COVER`, and the counter-example that
+  // proves the emphasis is read from the `CFONT` operands rather than from
+  // which field a row holds: hosted serves `<B>Amateur</B> <B>Packet</B>
+  // <B>Radio</B>` and `<B>A</B> <B>Complete</B> <B>Tutorial</B>` but plain
+  // `Evie Cooper`, because the cover carries no triple on that row -- while
+  // `TITLE` carries `cfont 66 4 2 71 6 2` on the same two words and bolds
+  // them.  Every field is its own paragraph here; the source stores a blank
+  // row before each.  The `U+2500` frame rows hosted draws as `<hr>` write no
+  // character.
+  require_contains(cover,
+                   "**Amateur Packet Radio**\n"
+                   "\n"
+                   "**A Complete Tutorial**\n"
+                   "\n"
+                   "Evie Cooper\n"
+                   "\n"
+                   "Document Number 9963\\-0413\\-56\n"
+                   "\n"
+                   "Part Number 0413\\-56\n"
+                   "\n"
+                   "File Number PACKET",
+                   "cover projection");
+  require_not_contains(cover, "____", "cover frame rule drawn as text");
+  require_not_contains(cover, "**Evie Cooper**",
+                       "cover author emphasised without a CFONT triple");
 
   const auto base_stack = topic_markdown(document, "3.2");
   // Typed `CZ OFF XMP` example block.  Hosted 3.2 (DT 20260614112503)

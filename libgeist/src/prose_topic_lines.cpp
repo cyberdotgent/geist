@@ -61,6 +61,12 @@ struct LineBuilder {
   // Inside `cz OFF XMP` .. `cz OFF EXMP`: the rows are verbatim example
   // text, not reflowed prose, so no visible token is a row-control slot.
   bool xmp_mode = false;
+  // Inside `cz OFF COVER`/`cz OFF TIPAGE` .. their closers: the generated
+  // title-page projection, whose rows the reader re-flows.  Its wide rows
+  // carry the two-run leading whitespace the change-bar margin rule reads,
+  // and their `CFONT` operands corroborate the column, so the rule applies
+  // there even though it is otherwise off in the CZ dialect.
+  bool title_page_mode = false;
   std::size_t current_directive = npos;
 
   Line& line() { return out.lines.back(); }
@@ -374,11 +380,18 @@ struct LineBuilder {
     //    very column.  A `CFONT`/`CSELECT` operand addresses the display
     //    columns of exactly one display row, so a triple starting on the
     //    line's first word is the operand agreeing with the line.
-    //  * The flattened dialect.  CZ rows carry their margins explicitly, and
-    //    reading them off the line instead re-indents the verbatim rows of a
-    //    `cz OFF XMP` listing (measured on SC09-2417-00 `4.1.9.4`, whose
-    //    COBOL sample is one such region: its whole listing moved 10 columns
-    //    left).
+    //  * The flattened dialect, **or** a CZ generated title-page projection.
+    //    CZ rows otherwise carry their margins explicitly, and reading them
+    //    off the line instead re-indents the verbatim rows of a `cz OFF XMP`
+    //    listing (measured on SC09-2417-00 `4.1.9.4`, whose COBOL sample is
+    //    one such region: its whole listing moved 10 columns left).  A
+    //    `cz OFF COVER`/`cz OFF TIPAGE` region is not stored prose at all: it
+    //    is the same generated title page the three flattened books below
+    //    store, laid out one wide row per line, and it carries the identical
+    //    two-run shape.  packet record 3 line 16 is the length byte (token
+    //    77), a 63-cell run (78), a 3-cell run (79) and `Evie` (80) under
+    //    `cfont 66 4 2 71 6 2`; without the rule the operand lands on a
+    //    14-cell row.
     //
     // Byte-level, three books, each a title page stored as one wide row.
     // SC24-546 record 3 display line 17 is the length byte (token 83), a
@@ -390,8 +403,8 @@ struct LineBuilder {
     // (58), a 2-cell run (59) and `Programming` (60) under `cfont 65 12 2`.
     // Hosted serves all three rows at those columns (DTs 19940323131240,
     // 19910329000100, 19911004151140).
-    if (bars != 1 &&
-        (cz_mode || runs < 2 || !pending_span_opens_at(text_column)))
+    if (bars != 1 && ((cz_mode && !title_page_mode) || runs < 2 ||
+                      !pending_span_opens_at(text_column)))
       return false;
     margin.origin_cells = margin.origin_item == npos
                               ? 0
@@ -1125,6 +1138,10 @@ struct LineBuilder {
             xmp_mode = true;
           else if (cz_verbatim_region_closer(item.directive.tag))
             xmp_mode = false;
+          else if (cz_title_page_tag(item.directive.tag))
+            title_page_mode = true;
+          else if (cz_title_page_closer(item.directive.tag))
+            title_page_mode = false;
         }
         out.directives.push_back(item.directive);
         current_directive = out.directives.size() - 1;

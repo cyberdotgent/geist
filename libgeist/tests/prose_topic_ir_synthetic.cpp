@@ -187,6 +187,15 @@ void reject(const std::string& file, const std::string& id,
           label + " reached the typed route through another family");
 }
 
+std::size_t count_inlines(const ProseTopicIR& prose, ProseInlineKindIR kind) {
+  std::size_t total = 0;
+  for (const auto& block : prose.blocks)
+    total += static_cast<std::size_t>(
+        std::count_if(block.inlines.begin(), block.inlines.end(),
+                      [&](const auto& node) { return node.kind == kind; }));
+  return total;
+}
+
 std::size_t count_blocks(const ProseTopicIR& prose, ProseBlockKindIR kind) {
   return static_cast<std::size_t>(std::count_if(
       prose.blocks.begin(), prose.blocks.end(),
@@ -323,7 +332,7 @@ void positive_fixtures() {
                 "packet " + info.id + " ledger has an unassigned token");
       ++admitted;
     }
-    require(admitted == 117,
+    require(admitted == 119,
             "packet prose family topic count changed: " +
                 std::to_string(admitted));
   }
@@ -469,8 +478,6 @@ void negative_fixtures() {
   // change here as well.  The table, screen-capture, implicit-grid and
   // unproven-margin classes went with the books that cannot be published
   // (issue #59).
-  reject("packet.boo", "COVER", "cz off cover carries display text");
-  reject("packet.boo", "TITLE", "cz off tipage carries display text");
   reject("packet.boo", "GLOSSARY",
          "placeholder run '?' is followed by visible text");
   // A trailing menu needs the book catalog to validate its targets.
@@ -600,10 +607,62 @@ void cz_fixtures() {
               "4.5.1 example block count");
   }
 
-  // Fail-closed CZ classes: one topic per unmodelled shape.  `COVER` and
-  // `TITLE` are the generated front-matter regions, which hosted does not
-  // serve verbatim (Format/markup.md, "Cover And Title Page Rendering").
-  reject("packet.boo", "COVER", "cz off cover carries display text");
+  // The generated title-page projection (Format/markup.md, "Cover And Title
+  // Page Rendering").  `cz OFF TIPAGE` .. `cz OFF ETIPAGE` is not stored
+  // prose and not a verbatim region: the compiler laid the source prolog's
+  // fields out as display rows and hosted BookServer (DT 20260614112503)
+  // re-flows them, flush left, with the `CFONT` triples as per-word emphasis
+  // and a paragraph break wherever the source stores a blank row.
+  {
+    Extracted kept;
+    const auto markdown = admit("packet.boo", "TITLE", &kept);
+    // Hosted serves the three title-block rows as three lines of one
+    // paragraph -- the source stores no blank row between them -- and each
+    // metadata field as its own paragraph.
+    require(contains(markdown,
+                     "**Amateur Packet Radio**  \n"
+                     "**A Complete Tutorial**  \n"
+                     "**Evie Cooper**\n"
+                     "\n"
+                     "Document Number 9963\\-0413\\-56\n"),
+            "TITLE projection");
+    // The rows stand at columns 57, 58, 66, 49, 61 and 66; the projection
+    // drops every one of them.
+    require(!contains(markdown, "          "),
+            "TITLE kept the rows' layout origin");
+    if (kept.prose) {
+      require(count_blocks(*kept.prose, ProseBlockKindIR::paragraph) == 4,
+              "TITLE paragraph count");
+      require(count_blocks(*kept.prose, ProseBlockKindIR::preformatted) == 0,
+              "TITLE was lowered verbatim");
+      require(count_inlines(*kept.prose, ProseInlineKindIR::line_break) == 2,
+              "TITLE row boundary count");
+    }
+  }
+  {
+    Extracted kept;
+    const auto markdown = admit("packet.boo", "COVER", &kept);
+    // The same projection under `cz OFF COVER`, with a blank row -- and so a
+    // paragraph -- before every field.  `Evie Cooper` carries no `CFONT`
+    // triple here and hosted serves it plain, while `TITLE` carries
+    // `cfont 66 4 2 71 6 2` on the same words and bolds them: the emphasis is
+    // read from the operands, never from which field the row holds.
+    require(contains(markdown,
+                     "**A Complete Tutorial**\n"
+                     "\n"
+                     "Evie Cooper\n"
+                     "\n"
+                     "Document Number 9963\\-0413\\-56\n"),
+            "COVER projection");
+    // The `U+2500` frame rows hosted draws as `<hr>` write no character.
+    require(!contains(markdown, "____"), "COVER frame rule drawn as text");
+    if (kept.prose) {
+      require(count_blocks(*kept.prose, ProseBlockKindIR::paragraph) == 6,
+              "COVER paragraph count");
+      require(count_inlines(*kept.prose, ProseInlineKindIR::line_break) == 0,
+              "COVER row boundary count");
+    }
+  }
 }
 
 } // namespace

@@ -486,6 +486,158 @@ struct CzBuilder {
     return true;
   }
 
+  // ---------------------------------------------------------------------
+  // The generated title-page projection
+  // ---------------------------------------------------------------------
+  //
+  // `cz OFF COVER` .. `cz OFF ECOVER` and `cz OFF TIPAGE` .. `cz OFF ETIPAGE`
+  // are not stored prose and not a verbatim region.  The book compiler
+  // generated the region from the source prolog's title-block and metadata
+  // fields (`:library.`, `:topic.`, `:release.`, `:docnum.`, `:partnum.`,
+  // `:filenum.`, `:date.`, `:author.`) and laid them out as display rows; the
+  // reader re-flows those rows instead of reproducing their columns
+  // (Format/markup.md, "Cover And Title Page Rendering").  Three facts of the
+  // hosted pages settle the projection, and each is a fact of the region, not
+  // of any one book:
+  //
+  //  * **The rows' left margin is layout origin, not content.**  packet
+  //    stores the same three generated fields at column 3 in `COVER` and at
+  //    columns 57/58/66 in `TITLE` -- one field per row, each row centred or
+  //    right-aligned by itself -- and hosted (DT 20260614112503) serves both
+  //    flush left.  The standing rule that a verbatim region keeps its margin
+  //    holds because hosted keeps *those* regions' columns; here it does not
+  //    keep them, and the same field appears at two different columns in one
+  //    book, so no column of the region is content.
+  //
+  //  * **A blank display row is the paragraph boundary.**  packet `COVER`
+  //    stores a blank row between every generated field and hosted serves
+  //    `<p>` between every one of them; packet `TITLE` stores the three
+  //    title-block rows with no blank row between them and hosted serves them
+  //    as three lines of one paragraph, with `<p>` only where the stored
+  //    blank rows are.  A `cz BREAK` inside the region is a row boundary and
+  //    not a paragraph one: SC41-4853-00 `COVER` (DT 19951003131222) breaks
+  //    between `System API Reference` and `OS/400 Configuration APIs` and
+  //    hosted serves `<br>` there, against `<p>` for its blank rows.
+  //
+  //  * **The `CFONT` spans are the emphasis, applied per word.**  Every
+  //    title-block row carries one triple per word (packet `TITLE`
+  //    `cfont 57 7 2 65 6 2 72 5 2`) and hosted serves
+  //    `<B>Amateur</B> <B>Packet</B> <B>Radio</B>`.  A row with no triple is
+  //    served unemphasised, which is what distinguishes a title row from a
+  //    metadata row: packet `COVER` carries no triple on `Evie Cooper` and
+  //    hosted serves it plain, while packet `TITLE` carries
+  //    `cfont 66 4 2 71 6 2` on the same words and hosted bolds them.  The
+  //    reader reads the operands, so the model does too; nothing is inferred
+  //    from which field the row holds.
+  //
+  // A `U+2500` rule row is the frame the reader draws as `<hr>` and prints no
+  // character of it (the same rule `prose_topic_lines.cpp` applies to the
+  // flattened dialect's cover frames).  It draws no word, so it separates the
+  // paragraphs around it and its cells take a structural ledger role.
+
+  // A display row whose every visible cell comes from a token drawn entirely
+  // from `U+2500` box-rule words.
+  bool rule_row(const Line& line) const {
+    bool rule = false;
+    for (const auto& cell : line.cells) {
+      if (cell.space || cell.record == npos) continue;
+      const auto view = view_token(records, cell.record, cell.token);
+      if (!std::all_of(view.body.begin(), view.body.end(),
+                       [](const auto word) { return word == 0x2500; }))
+        return false;
+      rule = true;
+    }
+    return rule;
+  }
+
+  // The rule draws no word, so its cells are structural like the row markers
+  // `display_rule_line` assigns in the flattened dialect.
+  void claim_rule_row(const Line& line) {
+    for (const auto& cell : line.cells) {
+      if (cell.record == npos) continue;
+      auto& entry = ledger.at(cell.record, cell.token);
+      if (entry.role == ProseTokenRoleIR::text)
+        entry.role = ProseTokenRoleIR::marker;
+    }
+  }
+
+  // One paragraph of the projection: the display rows [begin, end) with their
+  // row boundaries kept and their left margin dropped.
+  bool title_paragraph(std::size_t begin, std::size_t end) {
+    ProseBlockIR block;
+    block.kind = ProseBlockKindIR::paragraph;
+    block.origin = lines[begin].origin;
+    const auto block_index = topic.blocks.size();
+    std::size_t rows = 0;
+    for (auto line = begin; line < end; ++line) {
+      if (!has_text(lines[line])) continue;
+      if (rows != 0) {
+        ProseInlineIR boundary;
+        boundary.kind = ProseInlineKindIR::line_break;
+        block.inlines.push_back(std::move(boundary));
+      }
+      if (!build_block(records, lines, line, line + 1, block, ledger,
+                       block_index, error))
+        return false;
+      ++rows;
+    }
+    if (rows == 0) return true;
+    topic.blocks.push_back(std::move(block));
+    block_first_line.push_back(begin);
+    return true;
+  }
+
+  // The projection's rows [begin, end), split into paragraphs at the blank
+  // display rows `group_lines` already reads as boundaries.
+  bool title_rows(std::size_t begin, std::size_t end) {
+    for (const auto group : group_lines(lines, begin, end))
+      if (!title_paragraph(group.first, group.second)) return false;
+    return true;
+  }
+
+  bool title_page(std::size_t& index, std::pair<std::size_t, std::size_t> range,
+                  const std::string& name, const std::string& tag) {
+    const auto closer_tag = "e" + tag;
+    // The region runs to its own closer.  Only `cz BREAK` may stand inside
+    // it: any other directive would carry layout the projection does not
+    // model, and the region fails closed rather than swallowing it.
+    auto closer_index = index + 1;
+    auto begin = range.first;
+    auto end = range.second;
+    while (closer_index < build.directives.size() &&
+           build.directives[closer_index].mode == "break") {
+      const auto rows = ranges[closer_index];
+      if (rows.first != npos) {
+        if (begin == npos) begin = rows.first;
+        end = rows.second;
+      }
+      ++closer_index;
+    }
+    if (closer_index >= build.directives.size() ||
+        build.directives[closer_index].mode != "off" ||
+        build.directives[closer_index].tag != closer_tag)
+      return fail(error, name + " is not closed by cz off " + closer_tag);
+    if (begin == npos)
+      return fail(error, name + " region has no display rows");
+    const auto blocks_before = topic.blocks.size();
+    auto rows_begin = begin;
+    for (auto line = begin; line < end; ++line) {
+      if (!rule_row(lines[line])) continue;
+      if (!title_rows(rows_begin, line)) return false;
+      claim_rule_row(lines[line]);
+      rows_begin = line + 1;
+    }
+    if (!title_rows(rows_begin, end)) return false;
+    if (topic.blocks.size() == blocks_before)
+      return fail(error, name + " region draws no word");
+    // Like `cz OFF EXMP`, the closer carries whatever body text follows the
+    // region as ordinary paragraphs.
+    const auto closer = ranges[closer_index];
+    index = closer_index;
+    if (closer.first == npos) return true;
+    return paragraphs(group_lines(lines, closer.first, closer.second), 0);
+  }
+
   bool run() {
     const auto& directives = build.directives;
     // Line ranges per directive: lines follow their directive in order.
@@ -657,6 +809,10 @@ struct CzBuilder {
         if (closer.first == npos) return true;
         return paragraphs(group_lines(lines, closer.first, closer.second), 0);
       }
+      // The generated title-page projection, ahead of the unmodelled path:
+      // its rows are re-flowed, not reproduced (see `title_page`).
+      if (directive.mode == "off" && cz_title_page_tag(tag))
+        return title_page(index, range, name, tag);
       if (directive.mode == "off") {
         if (tag == "fn") {
           if (!groups.empty())

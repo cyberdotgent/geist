@@ -276,6 +276,13 @@ bool verify_prose_topic_ir(
     if (node.inlines.empty()) return fail(error, "prose block has no inlines");
     for (std::size_t index = 0; index < node.inlines.size(); ++index) {
       const auto& inline_node = node.inlines[index];
+      // A row boundary carries no word and no source token of its own; every
+      // other inline must carry both.
+      if (inline_node.kind == ProseInlineKindIR::line_break) {
+        if (!inline_node.text.empty() || !inline_node.slices.empty())
+          return fail(error, "row boundary carries text or source");
+        continue;
+      }
       if (inline_node.text.empty()) return fail(error, "inline text is empty");
       for (const auto& slice : inline_node.slices) {
         if (slice.token_begin >= slice.token_end)
@@ -445,6 +452,7 @@ std::string format_prose_topic_ir(const ProseTopicIR& topic) {
       case ProseInlineKindIR::image:
         out << "image resource=" << inline_node.target;
         break;
+      case ProseInlineKindIR::line_break: out << "line_break"; break;
       }
       out << " '" << inline_node.text << "'";
       format_slices(out, inline_node.slices);

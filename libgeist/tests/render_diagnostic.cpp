@@ -7,10 +7,12 @@
 // topic of a whole book identically -- they read the same RenderDiagnostic,
 // and this is the assertion that keeps it that way.
 //
-// packet carries `typed` and `best-effort` but no `typed-degraded` topic, so
-// the degraded-block pin that used to stand on SC31-711 5.0 (a message
-// catalog whose table candidate fell back to preformatted) is gone with the
-// books that cannot be published (issue #59).
+// packet now carries only `typed`: it has no `typed-degraded` topic, so the
+// degraded-block pin that used to stand on SC31-711 5.0 (a message catalog
+// whose table candidate fell back to preformatted) is gone with the books
+// that cannot be published (issue #59), and since #74 modelled its two `cz`
+// title-page regions it has no `best-effort` topic either.  Both of those
+// rungs are pinned synthetically below.
 
 #include "geist/detail/document_markdown_renderer.hpp"
 #include "geist/detail/render_diagnostic_ir.hpp"
@@ -76,27 +78,80 @@ void fully_typed_topic() {
           "the diagnostic names the topic's source record range");
 }
 
-// One of the topics the typed dispatcher declines reports `best-effort`
-// carrying the exact typed rejection `bootrace --coverage` prints.
-void declined_topic() {
+// Every topic of the one redistributable fixture is now claimed by a typed
+// family, so there is no corpus-backed subject for the `best-effort` route
+// left in it.
+//
+// This assertion has moved three times as coverage grew: from packet
+// GLOSSARY, which the glossary family claimed (#69), to packet 4.5.1, which
+// the `cz FLOW` admission claimed (#75), to packet COVER, which the generated
+// title-page projection now claims (#74).  Each move was the fix working.
+// packet's last two declining topics were COVER and TITLE, both `cz`
+// title-page regions; hosted BookServer does not serve them verbatim either,
+// and modelling them was the last thing standing between packet and a fully
+// typed book.
+//
+// Rather than delete the check, say the consequence out loud: the only
+// distributable fixture can no longer witness the verbatim route from a real
+// book at all.  What stands here instead is the fact itself -- so a
+// regression that starts declining a packet topic again is caught by name --
+// and a synthetic pin on the route's own classification and output, which is
+// what the corpus case was really guarding.  If a redistributable book with a
+// declining topic is ever added, restore the corpus-backed form.
+void no_declining_topic_left() {
   const auto document = geist::BooDocument::open(book("packet.boo"));
-  const auto &entry = topic(document, "COVER");
-  const auto &diagnostic = entry.render_diagnostic();
-  require(diagnostic.severity == geist::RenderSeverity::best_effort,
-          "packet COVER should be best-effort, is " +
-              std::string(geist::to_string(diagnostic.severity)));
-  require(diagnostic.route == "best-effort",
-          "COVER route should be best-effort");
-  require(diagnostic.reason == "typed-lowering-declined",
-          "COVER reason code, is " + diagnostic.reason);
-  require(diagnostic.detail ==
+  const auto diagnostics = document.render_diagnostics();
+  const auto &contents = document.table_of_contents();
+  require(diagnostics.size() == contents.size(),
+          "one diagnostic per TOC topic");
+  for (std::size_t index = 0;
+       index < diagnostics.size() && index < contents.size(); ++index) {
+    const auto &diagnostic = diagnostics[index];
+    const auto typed =
+        diagnostic.severity == geist::RenderSeverity::typed ||
+        diagnostic.severity == geist::RenderSeverity::typed_degraded;
+    require(typed, "packet " + contents[index].id +
+                       " is no longer typed, it is " +
+                       std::string(geist::to_string(diagnostic.severity)) +
+                       ": " + diagnostic.detail);
+  }
+
+  // The route the fixture can no longer reach, pinned synthetically: a
+  // declined lowering carries the typed family's own rejection unchanged, and
+  // the verbatim renderer emits the topic's words in a fenced block rather
+  // than withholding them.
+  geist::detail::TopicIdentityIR identity;
+  identity.id = "COVER";
+  identity.title = "Book Cover";
+  identity.start_logical_record = 2;
+  identity.end_logical_record = 3;
+  const auto declined = geist::detail::classify_typed_lowering(
+      identity, nullptr, "prose topic rejected: cz off cover carries display "
+                         "text",
+      {});
+  require(declined.severity == geist::RenderSeverity::best_effort,
+          "a declined lowering is best-effort, is " +
+              std::string(geist::to_string(declined.severity)));
+  require(declined.route == "best-effort", "route should be best-effort");
+  require(declined.reason == "typed-lowering-declined",
+          "reason code, is " + declined.reason);
+  require(declined.detail ==
               "prose topic rejected: cz off cover carries display text",
-          "COVER carries its real typed rejection, is: " + diagnostic.detail);
-  const auto markdown = entry.markdown();
-  require(contains(markdown, "<!-- geist-render: severity=best-effort"),
-          "a declined topic's Markdown opens with the marker");
-  require(contains(markdown, "cz off cover"),
-          "the marker carries the rejection into the file");
+          "the declining family's own reason is kept, is: " +
+              declined.detail);
+  const auto marker = geist::render_diagnostic_comment(declined);
+  require(contains(marker, "<!-- geist-render: severity=best-effort"),
+          "a declined topic's Markdown opens with the marker: " + marker);
+  require(contains(marker, "cz off cover"),
+          "the marker carries the rejection into the file: " + marker);
+  geist::detail::VerbatimRowIR row;
+  row.text = "   Amateur Packet Radio";
+  const auto verbatim =
+      geist::detail::render_best_effort_markdown(identity, {row}, {});
+  require(contains(verbatim, "Amateur Packet Radio"),
+          "the verbatim route emits the topic's own words");
+  require(contains(verbatim, "<pre>\n") && contains(verbatim, "</pre>\n"),
+          "the verbatim route emits them as preformatted content");
 }
 
 // A declared `cz OFF TABLE` grid lowers to a real table and does NOT degrade
@@ -115,39 +170,6 @@ void declared_table_topic() {
           "a clean topic carries no render-diagnostic comment");
   require(contains(markdown, "| Class | Range | Default Netmask |"),
           "2.4.4 lost the declared table it does not degrade over");
-}
-
-// Fail-closed must never mean withholding content.  packet COVER is declined
-// by every typed family (`cz off cover carries display text`), and exits as
-// `best-effort` carrying its own display lines rather than dropping them.
-//
-// This assertion has moved twice as coverage grew: from packet GLOSSARY, which
-// the glossary family now claims (#69), to packet 4.5.1, which the `cz FLOW`
-// admission fix now claims (#75).  Each move is the fix working.  packet has
-// exactly two declining topics left, COVER and TITLE, both `cz` title-page
-// regions that #74 deliberately left declining because hosted does not serve
-// them verbatim either.  If #74 ever models them, this needs a new subject --
-// and if packet has none left, that is worth saying out loud rather than
-// deleting the check: it would mean the only distributable fixture can no
-// longer witness the verbatim route at all.
-void best_effort_topic() {
-  const auto document = geist::BooDocument::open(book("packet.boo"));
-  const auto &entry = topic(document, "COVER");
-  const auto &diagnostic = entry.render_diagnostic();
-  require(diagnostic.severity == geist::RenderSeverity::best_effort,
-          "packet COVER should be best-effort, is " +
-              std::string(geist::to_string(diagnostic.severity)));
-  require(diagnostic.route == "best-effort", "route should be best-effort");
-  require(diagnostic.reason == "typed-lowering-declined",
-          "reason code, is " + diagnostic.reason);
-  require(contains(diagnostic.detail, "prose topic rejected"),
-          "the declining route's own reason is kept, is: " +
-              diagnostic.detail);
-  const auto markdown = entry.markdown();
-  require(contains(markdown, "Amateur Packet Radio"),
-          "the verbatim route emits the topic's own words");
-  require(contains(markdown, "<pre>\n") && contains(markdown, "</pre>\n"),
-          "the verbatim route emits them as preformatted content");
 }
 
 // Issue #81, the shape a block-scoped decline would take: a topic whose
@@ -428,9 +450,8 @@ void inventory_agrees_with_render(const std::string &name) {
 
 int main() {
   fully_typed_topic();
-  declined_topic();
+  no_declining_topic_left();
   declared_table_topic();
-  best_effort_topic();
   degraded_block_topic();
   escalation_ladder();
   inventory_agrees_with_render("packet.boo");

@@ -443,6 +443,21 @@ inline bool cz_verbatim_region_closer(const std::string& tag) {
          cz_verbatim_region_tag(tag.substr(1));
 }
 
+// The `cz OFF` tags that open a *generated* title-page projection.  The book
+// compiler laid the source prolog's title-block and metadata fields out as
+// display rows and the reader re-flows them rather than serving the columns
+// it stored (Format/markup.md, "Cover And Title Page Rendering").  Shared by
+// the line builder (whose two-run margin rule the projection needs, so that a
+// `CFONT` operand lands on the column the row's own cells put its first word
+// in) and the CZ block builder (which lowers the region).
+inline bool cz_title_page_tag(const std::string& tag) {
+  return tag == "cover" || tag == "tipage";
+}
+inline bool cz_title_page_closer(const std::string& tag) {
+  return tag.size() > 1 && tag.front() == 'e' &&
+         cz_title_page_tag(tag.substr(1));
+}
+
 // One `cz OFF <verbatim>` .. `cz OFF E<verbatim>` region of a topic, as a
 // closed [begin, end] range of (record index, token) positions.  Computed
 // once per topic in prose_topic_spans.cpp; the span plan uses it to leave an
