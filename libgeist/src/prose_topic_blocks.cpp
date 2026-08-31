@@ -167,6 +167,27 @@ bool resolve_spans(const Line& line, std::vector<Attr>& attrs,
                              std::to_string(span.end) +
                              ") both splits a word and crosses a blank column "
                              "on '" + line_text(line) + "'");
+    // The cells in front of a row's text are not the row's words: they are
+    // the origin run, the bullet glyph or slot, the revision change bar and
+    // (a CZ ordered item) the ordinal label -- structure the reader draws
+    // itself from the block it lowers the row into.  A *font* span that lies
+    // wholly inside them decorates that structure, and hosted BookServer has
+    // nowhere to put the decoration: it serves the row as a list item and
+    // prints the marker its own way.  SC09-138 `8.1.10.4` record 1359 stores
+    // `cfont 3 1 X 7 4 X 12 7 X` over `   °   char *dsname`, styling the
+    // `U+2666` at column 3 as well as the two words; `6.2.2.2` record 900
+    // stores `cfont 3 1 X 7 5 X` over `   °   EDCXV`.  The sibling rows of
+    // both lists carry the same two word spans and no bullet span at all
+    // (`cfont 7 4 X 12 7 X`), and hosted serves every item of the list
+    // identically, so the extra triple adds nothing the row displays.  Drop
+    // it and keep the row.
+    //
+    // Fail closed on anything wider.  A span that starts in the structure and
+    // reaches into the text means the row's columns and the operand's columns
+    // disagree, which is the defect this check exists to catch; and a
+    // *selector* span there is a cross reference, which is content, so it
+    // still fails the topic rather than being silently dropped.
+    if (!link && end <= line.text_begin) return true;
     if (begin < line.text_begin) return fail(error, "span covers the bullet");
     // A font span wholly inside one selector span decorates the link text:
     // hosted BookServer serves ACPZMST1 8.1 as

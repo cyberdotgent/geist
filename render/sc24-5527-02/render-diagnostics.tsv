@@ -265,7 +265,7 @@ front_1-3-2.md	FRONT_1.3.2	typed	typed	prose	typed	56-59
 6-5.md	6.5	typed	typed	prose	typed	619-620		
 6-5-1.md	6.5.1	typed	typed	prose	typed	620-623		
 6-5-2.md	6.5.2	typed	typed	prose	typed	623-627		
-6-6.md	6.6	best-effort	best-effort		typed-lowering-declined	627-631		prose topic rejected: font/selector span [73,75) exceeds the display line of 60 cells [73,75) on 'and SYSDESCT system inventory tables are created from the fn'
+6-6.md	6.6	typed	typed	prose	typed	627-631		
 7-0.md	7.0	typed	typed	prose	typed	631-632		
 7-1.md	7.1	typed	typed	prose	typed	632-636		
 7-2.md	7.2	typed	typed	prose	typed	636-637		
@@ -311,4 +311,4 @@ bibliography-1.md	BIBLIOGRAPHY.1	typed	typed	prose	typed	930-939
 bibliography-2.md	BIBLIOGRAPHY.2	typed	typed	prose	typed	939-943		
 index.md	INDEX	typed	typed	generated navigation	typed	943-976		
 comments.md	COMMENTS	best-effort	best-effort		typed-lowering-declined	976-979		prose topic rejected: token 33 of record 977 has no disposition
-# summary	best-effort=12	typed=300	total=312
+# summary	best-effort=11	typed=301	total=312

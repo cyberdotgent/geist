@@ -400,7 +400,42 @@ void demote_display_line_owned_controls(DecodedLogicalRecordSource& record) {
     bool visible_before = false;
     for (auto token = line->prefix_token + 1; token < first; ++token)
       if (visible_display_token(record.ir.tokens[token])) visible_before = true;
-    if (!visible_before) continue;
+    // A control's opcode is the first token of its own display line: the
+    // encoder writes the line's length byte and then the opcode, in every
+    // control the corpus stores.  A word that stands *after* the line's
+    // origin run is therefore display text at a column, whatever it is
+    // spelled like -- the same reading as the rule above, taken off the
+    // record's own framing instead of off a visible neighbour, because a row
+    // whose first word happens to be control-shaped has no visible neighbour
+    // to prove it with.
+    //
+    // Corpus-wide this withdraws exactly nineteen segments, in six books, and
+    // every one of them is a source-file, member or keyword name standing at
+    // the left margin of a code sample: SC34-425 `2.5.6` records 1759/1760/
+    // 1762 `SRC1`/`SRC2`/`SRC3` (the `SRC1   FLMTYPE EXTEND=SRC2` rows of
+    // `2.5.6`'s project definition), SH12-565 records 403/814 `SRVMODE` and
+    // 328/796 `SRVPREF`, PRG1SORT records 528/529 `SRCFILE`/`SRCMBR`,
+    // SC24-5527-02 records 572/605/606/613/627
+    // `SRVREQT`/`SRVAPPS`/`SRVBLDS`/`SRVRECS`, SC24-5520-00 records 102/103
+    // `SRCH` and SC24-546 record 962 `SRRCMIT`.  Hosted BookServer serves
+    // every one of them as display text and puts no anchor on any:
+    // `<samp>SRC1</samp>   <samp>FLMTYPE</samp>` (SC34-4254-03 DT
+    // 19921112160049 `2.5.6`), `SRVPREF is a common prefix ...` (SH12-5657-04
+    // DT 19941206115523 `4.7.2`) and `<samp>SRCH</samp> <samp>ID</samp>
+    // <samp>EQ,A+2,CC,5</samp>` (SC24-5520-00 DT 19911011135123 `1.1.13`).
+    // None of them is a control the reader knows either: the
+    // controls this corpus stores are `SRHDR`/`SRFIG`/`SRTBL`/`SRGLS`/
+    // `SRLIS`/`SRMSG`/`SRSPT`/`SRFTN` anchors and their closers, and each of
+    // those opens its own display line.  Losing them cost the row its origin
+    // run and its first word, which is why a `CFONT` operand then landed
+    // several columns past the cells the row had left.
+    //
+    // Only a segment that claims an opcode is withdrawn this way.  A text
+    // segment already carries no opcode, and rewriting its ranges here would
+    // move boundaries the splitter owns for no gain.
+    if (!visible_before &&
+        (segment.opcode.empty() || first == line->prefix_token + 1))
+      continue;
     // The boundary itself stays where the flattened string put it.  Giving
     // the demoted segment the whole gap back to the previous segment's end
     // was measured and reverted: it costs 60 topics, because that gap also
