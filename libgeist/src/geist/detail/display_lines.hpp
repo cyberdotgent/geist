@@ -132,10 +132,18 @@ std::string format_display_line_ir(const DecodedLogicalRecordSource& record,
 // another displayed word in front of it *on its own display line* stands
 // inside a row, so it is that row's display text and not a control.
 //
-// Marks such a segment `display_text` (and demotes a structural one to
-// `text`).  The segment boundary itself stays -- the flattened string really
-// did split there -- so a consumer must read the segment's payload as body
-// text in place.
+// Marks such a segment `display_text` (and demotes a structural or `ST` title
+// one to `text`).  The segment boundary itself stays -- the flattened string
+// really did split there -- so a consumer must read the segment's payload as
+// body text in place.
+//
+// The `ST` title control is held to the stricter form of the same rule: it
+// must stand at the first cell of its display line, one token after the
+// line's length byte, which every genuine control of a record does.  `ST` is
+// too short and too common as display text for "nothing visible in front of
+// it" to separate the two -- an indented definition term (`   ST`) and an
+// assembler STORE instruction both open no line but have only padding before
+// them.
 //
 // Evidence, over the 34 fixtures: of the 14,392 structural segments 9,138
 // open their display line, 4,987 open it and carry text after, 61 sit in a

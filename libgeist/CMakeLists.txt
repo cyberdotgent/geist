@@ -219,6 +219,7 @@ foreach(synthetic_test
     gdf_synthetic
     logical_synthetic
     display_line_control_extent_synthetic
+    topic_envelope_ir_synthetic
     source_rows_synthetic
     layout_ir_synthetic
     ownership_ir_synthetic
