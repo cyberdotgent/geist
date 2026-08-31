@@ -976,6 +976,26 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
 
   // Topic header: metadata, title, named anchors, index terms, and the
   // introduction prose.
+  //
+  // An `SRTBL<id>` ... `SRETBL` envelope can be drawn in the introduction as
+  // well as inside an entry (SC09-138 `F.1`/`H.0`, SC24-546 `A.0`,
+  // SC34-425 `2.4.32`/`2.4.33`). It is the same shape and is modelled the
+  // same way: the region keeps the display lines the record frames, and the
+  // prose either side of it is a separate envelope, so
+  // `extract_message_prose_paragraphs_ir` never sees the drawing.
+  struct HeaderRegion {
+    TrapEmbeddedRegionIR region;
+    std::uint32_t start_record = 0;
+    std::size_t start_token = 0;
+    // The `SRTBL` segment the prose before the region ends at, and the token
+    // the prose after it resumes from.
+    std::uint32_t open_record = 0;
+    std::size_t open_segment = 0;
+    std::uint32_t resume_record = 0;
+    std::size_t resume_token = 0;
+  };
+  std::vector<HeaderRegion> header_regions;
+  std::optional<HeaderRegion> open_header_region;
   std::optional<SegmentRef> title;
   for (std::size_t index_in_order = 0; index_in_order < starts.front();
        ++index_in_order) {
@@ -984,6 +1004,37 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
     if (segment_is_display_line_prefix(*ref.record, segment) ||
         nondrawing_control(index, *ref.record, segment))
       continue;
+    if (open_header_region) {
+      // Everything between the two controls is the region's own drawing.
+      if (segment_opcode_is_display_line_prefix(*ref.record, segment) ||
+          segment.kind != BookControlKind::table_end)
+        continue;
+      if (segment.source_tokens.empty())
+        return reject("trap header table envelope end has no source token: " +
+                      open_header_region->region.identifier);
+      auto opened = *std::move(open_header_region);
+      open_header_region.reset();
+      opened.region.end = {TrapEmbeddedControlKindIR::table_end,
+                           {},
+                           segment_slice(*ref.record, segment)};
+      if (!project_embedded_region(records, index, opened.start_record,
+                                   opened.start_token,
+                                   ref.record->logical_record,
+                                   segment.source_tokens.front(),
+                                   opened.region, catalog.introduction_cells,
+                                   error))
+        return std::nullopt;
+      // The closing control's own payload is introduction prose again -- the
+      // flattened splitter gives `SRETBL` the display lines that follow it --
+      // so the prose after the envelope resumes at that payload where there
+      // is one, and otherwise at the token after the control.
+      const auto resume_payload = payload_first_token(*ref.record, segment);
+      opened.resume_record = ref.record->logical_record;
+      opened.resume_token =
+          resume_payload ? *resume_payload : segment.source_tokens.back() + 1;
+      header_regions.push_back(std::move(opened));
+      continue;
+    }
     const auto operand_text = collapse(range_text(*ref.record, segment.operand_range));
     switch (segment.kind) {
     case BookControlKind::topic_start:
@@ -1017,6 +1068,29 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
         catalog.anchors.push_back(
             {segment.opcode.substr(2), segment_slice(*ref.record, segment)});
       break;
+    case BookControlKind::table_start: {
+      if (segment.source_tokens.empty() ||
+          segment_opcode_is_display_line_prefix(*ref.record, segment))
+        break;
+      HeaderRegion opened;
+      opened.start_record = ref.record->logical_record;
+      // As in an entry: the drawing starts at the opening control's own
+      // payload where it has one, otherwise at the token after the control.
+      const auto payload = payload_first_token(*ref.record, segment);
+      opened.start_token = payload ? *payload : segment.source_tokens.back() + 1;
+      opened.region.identifier = control_identifier(segment.opcode, "srtbl");
+      opened.region.start = {TrapEmbeddedControlKindIR::table_start,
+                             opened.region.identifier,
+                             segment_slice(*ref.record, segment)};
+      opened.open_record = ref.record->logical_record;
+      opened.open_segment = segment.segment_index;
+      open_header_region = std::move(opened);
+      break;
+    }
+    case BookControlKind::table_end:
+      return reject("trap catalog header closes a table envelope it did not "
+                    "open: " +
+                    segment.opcode);
     case BookControlKind::text:
     case BookControlKind::font:
     case BookControlKind::spacing:
@@ -1031,6 +1105,9 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
                     segment.opcode);
     }
   }
+  if (open_header_region)
+    return reject("trap catalog header table envelope is not closed: " +
+                  open_header_region->region.identifier);
   if (!title || catalog.raw_topic_id.empty() ||
       catalog.heading_level.size() != 2 ||
       (catalog.heading_level.front() != 'H' &&
@@ -1053,18 +1130,34 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
   if (!expected_title.empty() && title_row_text != expected_title) {
     // The heading and the first introduction sentence share one physical
     // row; the contents title decides where the heading ends. Accumulate
-    // the row's visible cells token by token until they spell the title.
+    // the title segment's visible cells token by token until they spell the
+    // title.
+    //
+    // The heading can also outrun its first row: SC09-138 `H.0` draws
+    // `Appendix H` and `C/370 Compiler Return Codes and Messages` as two
+    // rows of the same title segment, joined by the `.` LayoutIR reads as
+    // the second row's marker slot. So the walk runs to the end of the
+    // segment's last row, and a marker slot inside it counts as the glyph it
+    // draws -- hosted serves `Appendix H.  C/370 ...` as one heading.
+    auto title_walk_end = title_ref.row->token_end;
+    for (const auto &row : title_rows->second)
+      if (row.row->logical_record == title->record->logical_record &&
+          row.row->token_end > title_walk_end)
+        title_walk_end = row.row->token_end;
     std::string accumulated;
     bool pending_space = false;
     std::optional<std::size_t> split;
     for (auto token = title_ref.row->token_begin;
-         token < title_ref.row->token_end && !split; ++token) {
+         token < title_walk_end && token < title->record->ir.tokens.size() &&
+         !split;
+         ++token) {
       const auto &words = title->record->ir.tokens[token].decoded_words;
       for (std::size_t word = 0; word < words.size(); ++word) {
         const auto cell =
             index.cells.find({title->record->logical_record, token, word});
         if (cell != index.cells.end() &&
-            cell->second->disposition == SourceDisposition::visible_content &&
+            (cell->second->disposition == SourceDisposition::visible_content ||
+             cell->second->disposition == SourceDisposition::marker_slot) &&
             words[word] <= 0xff && words[word] >= 0x20 && words[word] != ' ') {
           if (pending_space && !accumulated.empty())
             accumulated.push_back(' ');
@@ -1492,6 +1585,43 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
   envelope.catalog_record = ordered[starts.front()].record->logical_record;
   envelope.catalog_segment = ordered[starts.front()].segment->segment_index;
   catalog.introduction_envelope = envelope;
+
+  // One prose envelope per piece of the introduction. An embedded envelope
+  // ends the piece before it at its own opening control and starts the piece
+  // after it at the token following its closing control, so the drawing is
+  // never offered to the prose model.
+  {
+    auto piece_record = envelope.begin_record;
+    auto piece_token = envelope.begin_token;
+    for (const auto &region : header_regions) {
+      MessageProseEnvelopeIR piece;
+      piece.begin_record = piece_record;
+      piece.begin_token = piece_token;
+      piece.catalog_record = region.open_record;
+      piece.catalog_segment = region.open_segment;
+      catalog.introduction_prose_envelopes.push_back(piece);
+      piece_record = region.resume_record;
+      piece_token = region.resume_token;
+    }
+    auto tail = envelope;
+    tail.begin_record = piece_record;
+    tail.begin_token = piece_token;
+    catalog.introduction_prose_envelopes.push_back(tail);
+  }
+
+  for (std::size_t piece = 0;
+       piece < catalog.introduction_prose_envelopes.size(); ++piece) {
+  const auto &envelope = catalog.introduction_prose_envelopes[piece];
+  const auto *piece_catalog_record = find_record(records, envelope.catalog_record);
+  if (piece_catalog_record == nullptr ||
+      envelope.catalog_segment >=
+          piece_catalog_record->control_segments.size() ||
+      piece_catalog_record->control_segments[envelope.catalog_segment]
+          .source_tokens.empty())
+    return reject("trap catalog introduction envelope coordinates are invalid");
+  const auto piece_end_token =
+      piece_catalog_record->control_segments[envelope.catalog_segment]
+          .source_tokens.front();
   bool visible_introduction = false;
   for (const auto &record : records) {
     if (record.logical_record < envelope.begin_record ||
@@ -1501,7 +1631,7 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
         record.logical_record == envelope.begin_record ? envelope.begin_token : 0;
     const auto end =
         record.logical_record == envelope.catalog_record
-            ? ordered[starts.front()].segment->source_tokens.front()
+            ? piece_end_token
             : record.ir.tokens.size();
     for (auto token = begin; token < end && token < record.ir.tokens.size();
          ++token)
@@ -1553,6 +1683,13 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
       catalog.introduction.push_back(std::move(item));
     }
   }
+  // The envelope this piece ends at is drawn where the prose stops.
+  if (piece < header_regions.size()) {
+    auto region = header_regions[piece].region;
+    region.after_field = catalog.introduction.size();
+    catalog.introduction_regions.push_back(std::move(region));
+  }
+  }
   if (error != nullptr)
     error->clear();
   return catalog;
@@ -1570,6 +1707,9 @@ bool same_trap_catalog_ir(const TrapCatalogIR &left,
       left.anchors.size() != right.anchors.size() ||
       left.entry_named_destinations != right.entry_named_destinations ||
       left.introduction_envelope != right.introduction_envelope ||
+      left.introduction_prose_envelopes != right.introduction_prose_envelopes ||
+      left.introduction_regions.size() != right.introduction_regions.size() ||
+      left.introduction_cells != right.introduction_cells ||
       left.introduction.size() != right.introduction.size() ||
       left.origin_column != right.origin_column ||
       left.label_vocabulary != right.label_vocabulary ||
@@ -1579,6 +1719,16 @@ bool same_trap_catalog_ir(const TrapCatalogIR &left,
     if (left.anchors[index].id != right.anchors[index].id ||
         !(left.anchors[index].source == right.anchors[index].source))
       return false;
+  for (std::size_t index = 0; index < left.introduction_regions.size();
+       ++index) {
+    const auto &a = left.introduction_regions[index];
+    const auto &b = right.introduction_regions[index];
+    if (a.identifier != b.identifier || a.lines != b.lines ||
+        a.line_sources != b.line_sources || a.after_field != b.after_field ||
+        a.cell_begin != b.cell_begin || a.cell_end != b.cell_end ||
+        !(a.start.source == b.start.source) || !(a.end.source == b.end.source))
+      return false;
+  }
   for (std::size_t index = 0; index < left.introduction.size(); ++index) {
     const auto &a = left.introduction[index];
     const auto &b = right.introduction[index];
@@ -1681,6 +1831,41 @@ bool verify_trap_catalog_ir(
         return fail(error, "trap field label is not source-proven: " + entry.id);
     }
   }
+  {
+    std::set<CellKey> seen;
+    for (const auto &cell : catalog.introduction_cells) {
+      if (!seen.insert({cell.logical_record, cell.token_index, cell.word_index})
+               .second)
+        return fail(error,
+                    "trap catalog introduction ledgers one source cell twice");
+      const auto *record = find_record(records, cell.logical_record);
+      if (record == nullptr || cell.token_index >= record->ir.tokens.size() ||
+          cell.word_index >=
+              record->ir.tokens[cell.token_index].decoded_words.size() ||
+          record->ir.tokens[cell.token_index].decoded_words[cell.word_index] !=
+              cell.word)
+        return fail(error, "trap catalog introduction ledger cell does not "
+                           "match its source");
+    }
+  }
+  for (const auto &region : catalog.introduction_regions) {
+    if (region.cell_begin > region.cell_end ||
+        region.cell_end > catalog.introduction_cells.size())
+      return fail(error,
+                  "trap introduction region cell range is invalid: " +
+                      region.identifier);
+    if (region.lines.empty() ||
+        region.lines.size() != region.line_sources.size())
+      return fail(error, "trap introduction region has no drawn line: " +
+                             region.identifier);
+    if (region.after_field > catalog.introduction.size())
+      return fail(error, "trap introduction region names a missing paragraph: " +
+                             region.identifier);
+  }
+  if (catalog.introduction_regions.size() + 1 !=
+      catalog.introduction_prose_envelopes.size())
+    return fail(error, "trap catalog introduction pieces do not bracket its "
+                       "drawn envelopes");
   const auto canonical = extract_trap_catalog_ir(records, layout, ownership,
                                                  catalog.title, error);
   if (!canonical)

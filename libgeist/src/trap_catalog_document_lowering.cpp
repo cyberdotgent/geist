@@ -219,7 +219,47 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
     document.blocks.push_back({AnchorBlockIR{anchor.id}, anchor_origin});
   }
 
-  for (const auto &paragraph : catalog.introduction) {
+  // An `SRTBL<id>` envelope the introduction draws sits between two of its
+  // paragraphs, and is served exactly as an entry's is: the region's own
+  // display lines with `<a name="TBL<id>">` on the first.
+  std::size_t next_introduction_region = 0;
+  const auto emit_introduction_regions = [&](std::size_t after_paragraph) {
+    while (next_introduction_region < catalog.introduction_regions.size() &&
+           catalog.introduction_regions[next_introduction_region].after_field ==
+               after_paragraph) {
+      const auto &region =
+          catalog.introduction_regions[next_introduction_region];
+      if (region.lines.size() != region.line_sources.size())
+        return false;
+      if (!region.identifier.empty()) {
+        auto region_anchor = origin("trap introduction table source anchor");
+        add_slice(region_anchor, region.start.source);
+        document.blocks.push_back(
+            {AnchorBlockIR{"TBL" + region.identifier}, region_anchor});
+      }
+      PreformattedBlockIR drawn;
+      drawn.lines = region.lines;
+      auto region_origin = origin("trap introduction table");
+      for (std::size_t line = 0; line < region.lines.size(); ++line) {
+        auto line_origin = origin("trap introduction table line");
+        add_slice(line_origin, region.line_sources[line]);
+        drawn.line_origins.push_back(canonical(std::move(line_origin)));
+        add_slice(region_origin, region.line_sources[line]);
+      }
+      add_slice(region_origin, region.start.source);
+      add_slice(region_origin, region.end.source);
+      region_origin = canonical(std::move(region_origin));
+      document.blocks.push_back({std::move(drawn), std::move(region_origin)});
+      ++next_introduction_region;
+    }
+    return true;
+  };
+  if (!emit_introduction_regions(0))
+    return reject("trap introduction region lines have no line provenance");
+
+  for (std::size_t paragraph_index = 0;
+       paragraph_index < catalog.introduction.size(); ++paragraph_index) {
+    const auto &paragraph = catalog.introduction[paragraph_index];
     auto paragraph_origin = origin("trap catalog introduction paragraph");
     for (const auto &slice : paragraph.source_slices)
       add_slice(paragraph_origin, slice);
@@ -247,7 +287,11 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
       return reject("introduction paragraph has no content");
     document.blocks.push_back(
         {ParagraphBlockIR{std::move(content)}, paragraph_origin});
+    if (!emit_introduction_regions(paragraph_index + 1))
+      return reject("trap introduction region lines have no line provenance");
   }
+  if (next_introduction_region != catalog.introduction_regions.size())
+    return reject("trap introduction region names a missing paragraph");
 
   for (const auto &entry : catalog.entries) {
     auto anchor_origin = origin("trap entry source anchor");
