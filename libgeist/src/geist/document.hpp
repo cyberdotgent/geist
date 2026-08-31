@@ -49,6 +49,17 @@ struct BooLogicalRecordTrace {
   std::vector<std::string> ir_display_lines;
 };
 
+// Thread safety: an opened document is immutable apart from caches that are
+// filled once and published atomically, so every `const` member below --
+// metadata and property access, TOC traversal, topic lookup, decoded logical
+// records, whole-book and per-topic rendering, resource reads and trace
+// decoding -- may be called concurrently from any number of threads on one
+// `BooDocument` with no external synchronisation, and references it returns
+// stay valid across those calls. See geist/toc.hpp for the same contract on
+// the TOC entries, and geist/detail/atomic_cache.hpp for how it is kept.
+//
+// Non-`const` use is not covered: opening, assigning, copying or destroying a
+// document must not overlap with another thread's use of it.
 class BooDocument {
 public:
   // Opens and validates a BOO file, builds its lightweight topic/TOC indexes,
@@ -110,8 +121,10 @@ private:
   BooBookProperties book_properties_;
   std::vector<BooPageRun> page_runs_;
   std::vector<BooLogicalControl> logical_controls_;
-  mutable std::map<std::string, std::string> font_definitions_;
-  mutable bool font_definitions_loaded_ = false;
+  // Filled once and published atomically; see the thread-safety note above
+  // and geist/detail/atomic_cache.hpp.
+  mutable std::shared_ptr<const std::map<std::string, std::string>>
+      font_definitions_;
   std::vector<TocEntry> toc_;
   std::vector<TopicInfo> topics_;
   std::map<std::string, std::string> topic_titles_;

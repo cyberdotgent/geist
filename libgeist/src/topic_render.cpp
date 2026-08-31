@@ -3,6 +3,7 @@
 // its render diagnostic together, so the two can never disagree.
 #include "geist/detail/internal.hpp"
 
+#include "geist/detail/atomic_cache.hpp"
 #include "geist/detail/document_markdown_renderer.hpp"
 #include "geist/detail/render_diagnostic_ir.hpp"
 #include "geist/detail/topic_lowering_outcome.hpp"
@@ -11,9 +12,11 @@
 #include <array>
 #include <cctype>
 #include <cstdlib>
+#include <memory>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace geist {
@@ -22,14 +25,24 @@ namespace {
 
 } // namespace
 
+const TocEntry::LoweredTopic& TocEntry::lowered() const {
+  // Fill-once and published atomically (geist/detail/atomic_cache.hpp): the
+  // lowering is a pure function of the topic's records, which never change
+  // after `open()`.
+  return *detail::publish_once(cache_->lowering, [this] {
+    auto lowered = std::make_shared<LoweredTopic>();
+    if (document_ir_loader_)
+      lowered->outcome = document_ir_loader_();
+    return std::shared_ptr<const LoweredTopic>(std::move(lowered));
+  });
+}
+
 std::string TocEntry::markdown() const {
-  render();
-  return cached_markdown_;
+  return render().markdown;
 }
 
 const RenderDiagnostic& TocEntry::render_diagnostic() const {
-  render();
-  return cached_diagnostic_;
+  return render().diagnostic;
 }
 
 // One pass produces both the Markdown and the diagnostic that explains it.
@@ -37,91 +50,91 @@ const RenderDiagnostic& TocEntry::render_diagnostic() const {
 // yield nothing: a route that produces no content is demoted rather than
 // accepted, because declining to claim structure must never mean declining to
 // emit the topic's words.
-void TocEntry::render() const {
-  if (rendered_)
-    return;
-  rendered_ = true;
+//
+// The pass writes into a private `RenderedTopic` and only then publishes it,
+// so a concurrent reader sees either no cache or a complete one, never a
+// half-assembled string.
+const TocEntry::RenderedTopic& TocEntry::render() const {
+  return *detail::publish_once(cache_->rendered, [this] {
+    auto out = std::make_shared<RenderedTopic>();
 
-  if (!document_load_attempted_ && document_ir_loader_) {
-    cached_lowering_ = document_ir_loader_();
-    document_load_attempted_ = true;
-  }
+    detail::TopicIdentityIR identity;
+    identity.id = id;
+    identity.title = title;
+    identity.heading_level = heading_level;
+    identity.topic_number = topic_number;
+    identity.start_logical_record = start_logical_record;
+    identity.end_logical_record = end_logical_record;
 
-  detail::TopicIdentityIR identity;
-  identity.id = id;
-  identity.title = title;
-  identity.heading_level = heading_level;
-  identity.topic_number = topic_number;
-  identity.start_logical_record = start_logical_record;
-  identity.end_logical_record = end_logical_record;
+    const auto& outcome = lowered().outcome;
+    const detail::DocumentIR* document = nullptr;
+    std::string rejection;
+    detail::TypedLoweringTraceIR trace;
+    if (outcome) {
+      document = outcome->document ? &*outcome->document : nullptr;
+      rejection = outcome->rejection;
+      trace = outcome->trace;
+    }
 
-  const detail::DocumentIR* document = nullptr;
-  std::string rejection;
-  detail::TypedLoweringTraceIR trace;
-  if (cached_lowering_) {
-    document = cached_lowering_->document ? &*cached_lowering_->document
-                                          : nullptr;
-    rejection = cached_lowering_->rejection;
-    trace = cached_lowering_->trace;
-  }
+    out->diagnostic =
+        detail::classify_typed_lowering(identity, document, rejection, trace);
+    // A TocEntry a caller built by hand out of `raw_records` never met the
+    // typed pipeline, so "the typed dispatcher declined it" would be a false
+    // statement about a topic that has no book behind it. It still gets a
+    // diagnostic; it just does not get the marker, and its Markdown stays
+    // exactly what the compatibility renderer produces.
+    const auto lowering_attempted = static_cast<bool>(document_ir_loader_);
+    if (!lowering_attempted) {
+      out->diagnostic.reason = "no-typed-lowering-attempted";
+      out->diagnostic.detail.clear();
+    }
+    // A topic the typed dispatcher declines produces nothing here; the
+    // verbatim route below is what renders it. There is no second renderer.
+    out->markdown = document != nullptr
+                        ? detail::render_document_markdown(*document)
+                        : std::string();
 
-  cached_diagnostic_ =
-      detail::classify_typed_lowering(identity, document, rejection, trace);
-  // A TocEntry a caller built by hand out of `raw_records` never met the
-  // typed pipeline, so "the typed dispatcher declined it" would be a false
-  // statement about a topic that has no book behind it. It still gets a
-  // diagnostic; it just does not get the marker, and its Markdown stays
-  // exactly what the compatibility renderer produces.
-  const auto lowering_attempted = static_cast<bool>(document_ir_loader_);
-  if (!lowering_attempted) {
-    cached_diagnostic_.reason = "no-typed-lowering-attempted";
-    cached_diagnostic_.detail.clear();
-  }
-  // A topic the typed dispatcher declines produces nothing here; the
-  // verbatim route below is what renders it. There is no second renderer.
-  cached_markdown_ = document != nullptr
-                         ? detail::render_document_markdown(*document)
-                         : std::string();
+    const auto has_content = detail::markdown_has_content(out->markdown);
+    detail::TopicBestEffortIR verbatim;
+    if (!has_content && best_effort_loader_)
+      verbatim = best_effort_loader_();
+    detail::escalate_render_diagnostic(out->diagnostic, has_content,
+                                       !verbatim.rows.empty(),
+                                       verbatim.source_decoded);
+    if (out->diagnostic.severity == RenderSeverity::best_effort) {
+      if (!out->markdown.empty() && out->markdown.back() != '\n')
+        out->markdown += "\n";
+      if (!out->markdown.empty())
+        out->markdown += "\n";
+      // The book-wide answer excludes the footnote destinations; the file the
+      // reader opens still has to carry them.
+      out->best_effort_anchors = verbatim.anchors;
+      auto emitted = verbatim.anchors;
+      emitted.insert(emitted.end(), verbatim.footnote_anchors.begin(),
+                     verbatim.footnote_anchors.end());
+      out->markdown +=
+          detail::render_best_effort_markdown(identity, verbatim.rows, emitted);
+    } else if (out->diagnostic.severity == RenderSeverity::failed) {
+      if (!out->markdown.empty() && out->markdown.back() != '\n')
+        out->markdown += "\n";
+      if (!out->markdown.empty())
+        out->markdown += "\n";
+      out->markdown += detail::render_failed_markdown(identity,
+                                                      out->diagnostic);
+    }
 
-  const auto has_content = detail::markdown_has_content(cached_markdown_);
-  detail::TopicBestEffortIR verbatim;
-  if (!has_content && best_effort_loader_)
-    verbatim = best_effort_loader_();
-  detail::escalate_render_diagnostic(cached_diagnostic_, has_content,
-                                     !verbatim.rows.empty(),
-                                     verbatim.source_decoded);
-  if (cached_diagnostic_.severity == RenderSeverity::best_effort) {
-    if (!cached_markdown_.empty() && cached_markdown_.back() != '\n')
-      cached_markdown_ += "\n";
-    if (!cached_markdown_.empty())
-      cached_markdown_ += "\n";
-    // The book-wide answer excludes the footnote destinations; the file the
-    // reader opens still has to carry them.
-    cached_best_effort_anchors_ = verbatim.anchors;
-    auto emitted = verbatim.anchors;
-    emitted.insert(emitted.end(), verbatim.footnote_anchors.begin(),
-                   verbatim.footnote_anchors.end());
-    cached_markdown_ +=
-        detail::render_best_effort_markdown(identity, verbatim.rows, emitted);
-  } else if (cached_diagnostic_.severity == RenderSeverity::failed) {
-    if (!cached_markdown_.empty() && cached_markdown_.back() != '\n')
-      cached_markdown_ += "\n";
-    if (!cached_markdown_.empty())
-      cached_markdown_ += "\n";
-    cached_markdown_ += detail::render_failed_markdown(identity,
-                                                       cached_diagnostic_);
-  }
-
-  const auto marker = lowering_attempted
-                          ? render_diagnostic_comment(cached_diagnostic_)
-                          : std::string();
-  if (!marker.empty()) {
-    if (!cached_markdown_.empty() && cached_markdown_.back() != '\n')
-      cached_markdown_ += "\n";
-    cached_markdown_ = marker + "\n" +
-                       (cached_markdown_.empty() ? std::string()
-                                                 : "\n" + cached_markdown_);
-  }
+    const auto marker = lowering_attempted
+                            ? render_diagnostic_comment(out->diagnostic)
+                            : std::string();
+    if (!marker.empty()) {
+      if (!out->markdown.empty() && out->markdown.back() != '\n')
+        out->markdown += "\n";
+      out->markdown = marker + "\n" +
+                      (out->markdown.empty() ? std::string()
+                                             : "\n" + out->markdown);
+    }
+    return std::shared_ptr<const RenderedTopic>(std::move(out));
+  });
 }
 
 namespace {

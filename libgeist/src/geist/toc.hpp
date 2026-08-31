@@ -9,6 +9,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace geist {
@@ -18,6 +19,19 @@ struct TopicLoweringOutcomeIR;
 struct TopicBestEffortIR;
 }
 
+// Thread safety: once `BooDocument::open()` has returned, every `const`
+// operation on a TOC entry -- and on the document that owns it -- may be
+// called concurrently from any number of threads without external
+// synchronisation. Rendering a topic is a pure function of state that is
+// immutable from `open()` onward, so the lazy caches below only ever publish
+// an already-finished value; see geist/detail/atomic_cache.hpp. Two threads
+// that race to render one topic produce the same bytes and one result is
+// discarded.
+//
+// A returned reference stays valid for the lifetime of the entry, including
+// across concurrent calls: a published cache value is never replaced.
+// Modifying an entry, or the document, is not concurrency-safe; that includes
+// copying a document while another thread reads it.
 struct TocEntry {
   std::string id;
   std::string title;
@@ -43,23 +57,51 @@ struct TocEntry {
   GEIST_API const std::vector<LinkTarget>& link_targets() const;
 
 private:
-  void render() const;
-  mutable std::shared_ptr<const detail::TopicLoweringOutcomeIR>
-      cached_lowering_;
-  mutable bool document_load_attempted_ = false;
+  // The typed lowering the loader produced, wrapped so that "the loader ran
+  // and declined" is a published value rather than an empty slot. `outcome`
+  // is null exactly when there was no loader or it produced nothing, which is
+  // what the old `document_load_attempted_` flag distinguished.
+  struct LoweredTopic {
+    std::shared_ptr<const detail::TopicLoweringOutcomeIR> outcome;
+  };
+  // One render pass produces the Markdown, the diagnostic that explains it,
+  // and the anchors a verbatim topic named, so the three can never disagree.
+  struct RenderedTopic {
+    std::string markdown;
+    RenderDiagnostic diagnostic;
+    // The anchor ids a verbatim-rendered topic named; empty for a typed
+    // topic, whose Document IR carries them instead.
+    std::vector<std::string> best_effort_anchors;
+  };
+  // Each slot is filled at most once and published atomically; see
+  // geist/detail/atomic_cache.hpp. The state is held behind a shared_ptr for
+  // two reasons: a TocEntry is stored by value in `std::vector<TocEntry>` and
+  // must stay copyable, which an atomic member is not; and copies of an entry
+  // then share one cache rather than each recomputing the same topic.
+  struct CacheState {
+    std::shared_ptr<const LoweredTopic> lowering;
+    std::shared_ptr<const RenderedTopic> rendered;
+    std::shared_ptr<const std::vector<LinkTarget>> link_targets;
+  };
+  const LoweredTopic& lowered() const;
+  const RenderedTopic& render() const;
+  // Attaching loaders defines what the caches would hold, so it starts a
+  // fresh cache: an entry copied before its loaders were attached must not
+  // inherit -- or share -- results computed without them.
+  void attach_loaders(
+      std::function<std::shared_ptr<const detail::TopicLoweringOutcomeIR>()>
+          document,
+      std::function<detail::TopicBestEffortIR()> best_effort) {
+    document_ir_loader_ = std::move(document);
+    best_effort_loader_ = std::move(best_effort);
+    cache_ = std::make_shared<CacheState>();
+  }
   std::function<std::shared_ptr<const detail::TopicLoweringOutcomeIR>()>
       document_ir_loader_;
   // The topic's own display rows, verbatim: the last-resort content when no
   // route produced any. Loaded only when that happens.
   std::function<detail::TopicBestEffortIR()> best_effort_loader_;
-  mutable std::vector<LinkTarget> cached_link_targets_;
-  mutable bool link_targets_built_ = false;
-  mutable std::string cached_markdown_;
-  // The anchor ids a verbatim-rendered topic named; empty for a typed topic,
-  // whose Document IR carries them instead.
-  mutable std::vector<std::string> cached_best_effort_anchors_;
-  mutable RenderDiagnostic cached_diagnostic_;
-  mutable bool rendered_ = false;
+  std::shared_ptr<CacheState> cache_ = std::make_shared<CacheState>();
   friend class BooDocument;
 };
 

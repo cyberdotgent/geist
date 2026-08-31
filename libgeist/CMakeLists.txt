@@ -205,11 +205,16 @@ enable_testing()
 # therefore configures, builds and tests with no parent directory present.
 set(GEIST_FIXTURE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
 
-# Registers a test executable. Pass FIXTURE to give it GEIST_FIXTURE_DIR.
+# Registers a test executable. Pass FIXTURE to give it GEIST_FIXTURE_DIR, and
+# THREADS for a test that starts threads of its own.
 function(geist_add_test name)
-  cmake_parse_arguments(GEIST_TEST "FIXTURE" "" "" ${ARGN})
+  cmake_parse_arguments(GEIST_TEST "FIXTURE;THREADS" "" "" ${ARGN})
   add_executable(${name}_test tests/${name}.cpp)
   target_link_libraries(${name}_test PRIVATE geist::geist_static)
+  if(GEIST_TEST_THREADS)
+    find_package(Threads REQUIRED)
+    target_link_libraries(${name}_test PRIVATE Threads::Threads)
+  endif()
   if(GEIST_TEST_FIXTURE)
     target_compile_definitions(${name}_test PRIVATE
       GEIST_FIXTURE_DIR="${GEIST_FIXTURE_DIR}"
@@ -268,6 +273,14 @@ foreach(fixture_test
     render_diagnostic)
   geist_add_test(${fixture_test} FIXTURE)
 endforeach()
+
+# Concurrent `const` access to one opened document, and the determinism the
+# lock-free cache publication rests on (issue #49). Build it with
+# `-fsanitize=thread` for the ThreadSanitizer pass:
+#   cmake -S libgeist -B build_tsan -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+#     -DCMAKE_CXX_FLAGS=-fsanitize=thread \
+#     -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=thread
+geist_add_test(concurrent_const_access FIXTURE THREADS)
 
 # `boo2git` exporter acceptance: link resolution and typed menu/generated-list
 # export, driven end to end through the example binary.

@@ -87,17 +87,14 @@ RenderTrace to_public_render_trace(const DocumentRenderTraceIR& trace) {
 
 std::string TocEntry::markdown(RenderTrace& trace) const {
   trace.spans.clear();
-  if (!document_load_attempted_ && document_ir_loader_) {
-    cached_lowering_ = document_ir_loader_();
-    document_load_attempted_ = true;
-  }
-  if (!cached_lowering_ || !cached_lowering_->document) {
+  const auto& outcome = lowered().outcome;
+  if (!outcome || !outcome->document) {
     // The legacy whole-topic route has no typed nodes to point at; the
     // caller is told so by an empty trace rather than by a fabricated one.
     return markdown();
   }
   detail::DocumentRenderTraceIR raw;
-  auto rendered = detail::render_document_markdown(*cached_lowering_->document, {},
+  auto rendered = detail::render_document_markdown(*outcome->document, {},
                                                    &raw);
   trace = detail::to_public_render_trace(raw);
   return rendered;
@@ -132,21 +129,18 @@ std::string BooDocument::decode_trace_slice(const RenderTraceSlice& slice)
   // off the token grid even though the slice's offsets are exact.
   const auto& ranges = decode_context_->record_payload_ranges;
   if (slice.logical_record != 0 && slice.logical_record <= ranges.size()) {
-    const std::lock_guard<std::mutex> lock(
-        decode_context_->source_dictionary_mutex);
-    if (decode_context_->source_record_memo_id != slice.logical_record ||
-        !decode_context_->source_record_memo) {
-      const auto& range = ranges[slice.logical_record - 1];
-      decode_context_->source_record_memo =
-          std::make_shared<const detail::LogicalRecordIR>(
-              detail::decode_record_payload_ir(
-                  decode_context_->bytes, decode_context_->directory,
-                  dictionary, range.begin, range.end, slice.logical_record));
-      decode_context_->source_record_memo_id = slice.logical_record;
+    // The memo is a replacement cache, so unlike every other cache in the
+    // library it is mutex-guarded rather than published once. It is guarded
+    // by its owner (`memoized_source_record`), which hands back a shared_ptr
+    // that keeps the record alive while this thread reads it even if another
+    // thread has since replaced the memo with a different one.
+    const auto record = detail::memoized_source_record(
+        *decode_context_, dictionary, slice.logical_record);
+    if (record) {
+      if (const auto text =
+              detail::project_source_slice_text(*record, internal, &error))
+        return *text;
     }
-    if (const auto text = detail::project_source_slice_text(
-            *decode_context_->source_record_memo, internal, &error))
-      return *text;
   }
   const auto text = detail::decode_source_slice_text(
       decode_context_->bytes, decode_context_->directory, dictionary, internal,
