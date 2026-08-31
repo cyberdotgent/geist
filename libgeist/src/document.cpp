@@ -7,6 +7,7 @@
 #include "geist/detail/source_rows.hpp"
 #include "geist/detail/render_diagnostic_ir.hpp"
 #include "geist/detail/topic_document_lowering.hpp"
+#include "geist/detail/toc_entry_framing.hpp"
 #include "geist/detail/topic_identity.hpp"
 #include "geist/detail/topic_lowering_outcome.hpp"
 #include "geist/detail/trap_catalog_ir.hpp"
@@ -274,15 +275,27 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
     document.topic_titles_.emplace(topic.id, topic.title);
   }
   std::vector<std::string> contents_records;
+  // The contents records' display-line framing decides where each `CTocE`
+  // title ends (toc_entry_framing.hpp), so the table of contents is read from
+  // the positioned decode and not from the flattened strings alone.
+  std::vector<std::vector<std::size_t>> contents_display_line_starts;
   for (const auto& topic : topics) {
     if (ascii_equals_case_insensitive(topic.id, "contents")) {
       contents_records.assign(
           context->decoded_records.begin() + topic.start_logical_record - 1,
           context->decoded_records.begin() + topic.end_logical_record - 1);
+      const auto sources = decode_logical_record_sources(
+          *context, topic.start_logical_record, topic.end_logical_record);
+      contents_display_line_starts.reserve(sources.size());
+      for (const auto& source : sources) {
+        contents_display_line_starts.push_back(
+            display_line_start_output_offsets(source));
+      }
       break;
     }
   }
-  document.toc_ = build_table_of_contents(contents_records, topics, false);
+  document.toc_ = build_table_of_contents(contents_records, topics, false,
+                                          &contents_display_line_starts);
   std::string catalog_error;
   auto topic_catalog = build_book_topic_catalog_ir(
       document.topics_, document.toc_, &catalog_error);
