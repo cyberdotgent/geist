@@ -92,26 +92,25 @@ BASELINE: dict[str, dict[str, int]] = {
     "SC09-2417-00.boo": {"1.3.3.4": 20, "3.1.6.1": 10},
     "SC24-546.boo": {"B.2": 15},
     "SC24-5527-02.boo": {"4.2.3": 1, "TABLES": 2},
-    "SC31-711.boo": {"5.0": 3, "BACK_1.9": 1},
-    "SC34-425.boo": {"2.4.25": 1, "2.4.31": 15},
+    "SC31-711.boo": {"BACK_1.9": 1},
     "SG24-204.boo": {"BACK_1.2": 4, "FIGURES": 1},
 }
-BASELINE_TOTAL = 89
-BASELINE_TOPICS = 19
+BASELINE_TOTAL = 70
+BASELINE_TOPICS = 16
 
 # Why each baseline topic drops words.  Grouped by cause, because the nineteen
-# topics are four defects, not nineteen.  All four are tracked by issue #88,
+# topics are four defects, not sixteen.  All four are tracked by issue #88,
 # which carries the full per-word enumeration.
 BASELINE_TICKETS = """\
-  Tracked by issue #88 -- four defects across nineteen topics:
+  Tracked by issue #88 -- four defects across sixteen topics:
     FIGURES in seven books and TABLES in SC24-5527-02 (16 words)
         A generated figure- or table-list entry whose caption wraps loses the
         continuation line's words.
     SC09-2417-00 1.3.3.4 (20 words)
         A whole figure caption block and the prose that names it leave the
         render.  The largest single drop in the corpus.
-    SC24-546 B.2, SC34-425 2.4.31 / 2.4.25, SC31-711 5.0 / BACK_1.9,
-    SC24-5527-02 4.2.3, SC09-138 8.5.7.1 / 8.5.4.5 (39 words)
+    SC24-546 B.2, SC31-711 BACK_1.9, SC24-5527-02 4.2.3,
+    SC09-138 8.5.7.1 / 8.5.4.5 (20 words)
         Individual display lines, or the tail of one, that do not reach the
         render.  Several are code samples whose row the model cuts short.
     SC09-2417-00 3.1.6.1, SG24-204 BACK_1.2 (14 words)
