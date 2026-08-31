@@ -10,12 +10,28 @@
 // the whole entry sits in one logical record and when it spans two, so the
 // second record's section run is a continuation.
 //
-// What is NOT yet covered: the exact record-continuation shape behind #66,
-// where LayoutIR opens the continued row at a compact marker slot and leaves
-// the words before it as an opaque prefix. Reproducing that needs a synthetic
-// record whose display-line framing makes the layout choose a mid-record row
-// start; until this fixture can state that, those two paths are covered only
-// by the whole-corpus differential and the hosted SC31-711 audit.
+// Case 3 adds a record whose payload really does tile into display lines, so
+// the record's stored `TokenFramingRole` is decided and the message family
+// reads it through `OwnershipIR`'s `SourceFieldRole`. Two of its length bytes
+// spell ordinary dictionary words; neither may reach the entry text. Both
+// rules were checked to be load-bearing by removing them and watching the
+// case fail: the mid-row length byte leaks "occurred", and the length byte
+// LayoutIR offers as a body row's marker slot leaks "segment".
+//
+// What is honestly NOT covered:
+//
+//  * the *positioned* half of the same decision -- a word the framing draws
+//    at the end of a display line that LayoutIR then offers as the next row's
+//    marker slot. Case 3 contains one ("adapter"), and the entry keeps it,
+//    but the compact-envelope fallback the framing replaces keeps it too, so
+//    removing the rule does not fail the case. Only the hosted SC31-711 5.0
+//    audit and the whole-corpus differential distinguish the two answers.
+//  * the record-continuation shape behind #66, where LayoutIR opens the
+//    continued row at a marker slot and leaves the words before it as an
+//    opaque prefix. Reproducing that needs a synthetic record whose framing
+//    makes the layout choose a mid-record row start; until this fixture can
+//    state that, those paths are covered by the corpus differential and the
+//    hosted audit only.
 #include "geist/detail/display_lines.hpp"
 #include "geist/detail/internal.hpp"
 #include "geist/detail/layout_ir.hpp"
@@ -193,6 +209,78 @@ int main() {
         require(text.find(word) != std::string::npos,
                 std::string("continuation label row lost the word '") + word +
                     "': [" + text + "]");
+    }
+  }
+
+  // Case 3 -- a record whose payload really does tile into display lines, so
+  // the record's own framing (`TokenFramingRole`) decides which width-1 slots
+  // are structure. A display line's length byte is below the book's token
+  // threshold, so the dictionary spells an ordinary word for it; here two of
+  // them spell "occurred" and "segment". Neither is display text. The words
+  // "adapter" and "address", which the same framing places at the end of a
+  // line and LayoutIR then offers as the next row's marker slot, are display
+  // text and must survive.
+  {
+    // A display line is `<length byte> <that many one-byte tokens>`, so each
+    // length token's encoded value is the number of tokens in its line.
+    const auto len = [&](std::uint16_t count, const std::string &spelling) {
+      return text_token(spelling, count);
+    };
+    const auto pad = [&] { return t(std::string(13, ' '), 15); };
+    std::vector<Token> tokens;
+    const auto push = [&](std::initializer_list<Token> more) {
+      for (const auto &token : more)
+        tokens.push_back(token);
+    };
+    push({len(2, " "), t("SRMSG", 200), t("603", 201)});
+    push({len(4, " "), t("cfont", 202), t("3", 203), t("3", 203), t("2", 204)});
+    push({len(4, " "), pad(), t("603", 201), t("Duplicate", 205),
+          t("adapter", 30)});
+    // "adapter" above ends its display line and this line's length byte is a
+    // padding run, so LayoutIR offers "adapter" as the next row's marker slot
+    // with a native origin of 13 -- squarely inside the compact envelope the
+    // framing replaces.
+    push({len(4, std::string(13, ' ')), t("cfont", 202), t("13", 206),
+          t("8", 207), t("2", 204)});
+    push({len(5, " "), pad(), t("Meaning", 150), t(":", 25), t("An", 33),
+          t("address", 31)});
+    // The next line's length byte spells "occurred", and the line does not
+    // open on a padding run, so no row boundary falls there: the length byte
+    // lands in the middle of the row that is already open.
+    push({len(3, "occurred"), t("was", 217), t("found", 211), t("here", 218)});
+    // The next line's length byte spells "segment" and the line does open on
+    // a padding run, so LayoutIR offers the length byte itself as that body
+    // row's marker slot.
+    push({len(3, "segment"), pad(), t("on", 92), t("startup", 219)});
+    push({len(4, " "), t("cfont", 202), t("13", 206), t("7", 212), t("2", 204)});
+    push({len(4, " "), pad(), t("Action", 151), t(":", 25), t("Ignore", 213)});
+
+    const auto source = make_source(30, tokens);
+    require(source.ir.display_lines_parse,
+            "case 3 fixture does not tile into display lines, so the framing "
+            "under test is never decided");
+    require(geist::detail::is_display_line_length_token(source, 24) &&
+                geist::detail::is_display_line_length_token(source, 28),
+            "case 3 fixture does not put a word-spelling length byte where the "
+            "rule is exercised");
+    const auto built = build({source});
+    require(built.ownership.has_value(),
+            "framed-record ownership was rejected: " + built.error);
+    require(built.catalog.has_value(),
+            "framed-record catalog declined: " + built.error);
+    if (built.catalog && built.catalog->entries.size() == 1) {
+      const auto text = entry_text(built.catalog->entries.front());
+      // Structure, never text -- whatever the dictionary spells for it.
+      for (const char *word : {"occurred", "segment"})
+        require(text.find(word) == std::string::npos,
+                std::string("a display line's length byte reached the entry "
+                            "text as '") +
+                    word + "': [" + text + "]");
+      // Line content the layout merely opened a row on.
+      for (const char *word : {"adapter", "address"})
+        require(text.find(word) != std::string::npos,
+                std::string("display text at a row marker slot was dropped: '") +
+                    word + "': [" + text + "]");
     }
   }
 

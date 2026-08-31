@@ -441,6 +441,11 @@ std::string owned_row_text(const MessageOwnershipIndex &ownership,
       if (cell->logical_record != row.logical_record ||
           cell->disposition != SourceDisposition::visible_content)
         continue;
+      // A row's token range can cross a display line boundary, so the line's
+      // own length byte lands inside it. The framing says it is structure;
+      // its dictionary spelling ("agent", "message", "an") is never text.
+      if (cell->field_role == SourceFieldRole::supplemental)
+        continue;
       visible_cells.emplace(std::make_pair(cell->token_index, cell->word_index),
                             cell);
       visible_tokens.insert(cell->token_index);
@@ -468,11 +473,14 @@ std::string owned_row_text(const MessageOwnershipIndex &ownership,
            std::count(row.visible_text.begin(), row.visible_text.end(), '<') <
                std::count(row.visible_text.begin(), row.visible_text.end(),
                           '>'));
-      // TODO: This non-row terminal field still lacks a positioned ownership
-      // role. Keep the observed compact alphabet until OwnershipIR represents
-      // supplemental field boundaries; delimiter balancing prevents dropping
-      // source punctuation in the meantime.
-      if (source.encoded.width == 1 && source.encoded.value >= 19 &&
+      // A cell the record's own framing places inside a display line is drawn
+      // text: never suppress it, whatever the dictionary spells. The length
+      // bytes are already gone from `visible_tokens`, so this envelope only
+      // ever applies to a record whose payload does not tile into display
+      // lines, where the framing has no answer; delimiter balancing prevents
+      // dropping source punctuation there.
+      if (source_field_role(*record, token) != SourceFieldRole::positioned &&
+          source.encoded.width == 1 && source.encoded.value >= 19 &&
           source.encoded.value <= 43 &&
           (alphabetic || terminal_punctuation)) {
         suppressed_token = token;
@@ -745,13 +753,19 @@ opaque_segment_fragments(const DecodedLogicalRecordSource &record,
   }
   if (terminal_layout_token < record.ir.tokens.size()) {
     const auto &token = record.ir.tokens[terminal_layout_token];
-    // TODO: Opaque, non-row fragments do not yet have positioned field roles.
-    // Keep the observed compact alphabet until OwnershipIR represents those
-    // boundaries; never use it to classify a positioned row marker.
-    if (token.encoded.width != 1 || token.encoded.value < 19 ||
-        token.encoded.value > 43)
+    // The record's display-line framing decides this: a supplemental slot is
+    // the line's length byte and is never text, a positioned one is drawn
+    // text the fragment must keep. Only an unframed record falls back to the
+    // observed compact alphabet, with delimiter balancing so that source
+    // punctuation is not dropped in the meantime.
+    const auto field_role = source_field_role(record, terminal_layout_token);
+    if (field_role == SourceFieldRole::positioned)
       terminal_layout_token = std::numeric_limits<std::size_t>::max();
-    else {
+    else if (field_role == SourceFieldRole::undecided &&
+             (token.encoded.width != 1 || token.encoded.value < 19 ||
+              token.encoded.value > 43))
+      terminal_layout_token = std::numeric_limits<std::size_t>::max();
+    else if (field_role == SourceFieldRole::undecided) {
       std::string preceding_text;
       for (std::size_t output = range.begin;
            output < range.end && output < record.assembled.sources.size();
@@ -773,8 +787,8 @@ opaque_segment_fragments(const DecodedLogicalRecordSource &record,
   }
   if (leading_layout_token < record.ir.tokens.size()) {
     const auto &token = record.ir.tokens[leading_layout_token];
-    // TODO: As above, this opaque prefix needs a positioned supplemental-field
-    // role before its compact envelope can be retired safely.
+    // As above: the framing decides, and only an unframed record falls back
+    // to the observed compact envelope plus the padding that follows it.
     auto followed_by_padding = false;
     for (const auto source_token : segment.source_tokens) {
       if (source_token <= leading_layout_token ||
@@ -783,10 +797,14 @@ opaque_segment_fragments(const DecodedLogicalRecordSource &record,
       followed_by_padding = structural_padding_token(record.ir.tokens[source_token]);
       break;
     }
-    if (token.encoded.width != 1 || token.encoded.value < 19 ||
-        token.encoded.value > 43 || !followed_by_padding)
+    const auto field_role = source_field_role(record, leading_layout_token);
+    if (field_role == SourceFieldRole::positioned)
       leading_layout_token = std::numeric_limits<std::size_t>::max();
-    else {
+    else if (field_role == SourceFieldRole::undecided &&
+             (token.encoded.width != 1 || token.encoded.value < 19 ||
+              token.encoded.value > 43 || !followed_by_padding))
+      leading_layout_token = std::numeric_limits<std::size_t>::max();
+    else if (field_role == SourceFieldRole::undecided) {
       std::string following_text;
       for (std::size_t output = range.begin;
            output < range.end && output < record.assembled.sources.size();
@@ -916,6 +934,29 @@ bool has_positioned_boundary(const MessageOwnershipIndex &ownership,
                      });
 }
 
+// The field role the record's own display-line framing gives this row's
+// marker slot. `supplemental` is the display line's length byte: structure,
+// never display text, whatever word the dictionary spells for it.
+// `positioned` is a word the framing draws inside a line, which the row
+// merely happens to open on. `undecided` means the record's payload does not
+// tile into display lines and the framing has no answer at all.
+SourceFieldRole marker_field_role(const MessageOwnershipIndex &ownership,
+                                  const MessageSourceRowIR &source,
+                                  const PhysicalRowIR &row) {
+  if (!row.marker)
+    return SourceFieldRole::undecided;
+  const auto positioned = ownership.positioned_rows.find(source);
+  if (positioned == ownership.positioned_rows.end())
+    return SourceFieldRole::undecided;
+  for (const auto *cell : positioned->second) {
+    if (cell->role == RowCellRole::boundary &&
+        cell->logical_record == row.logical_record &&
+        cell->token_index == row.marker->token_index)
+      return cell->field_role;
+  }
+  return SourceFieldRole::undecided;
+}
+
 bool compact_fixed_row_candidate(const MessageOwnershipIndex &ownership,
                                  const DisplayRunIR &run,
                                  std::size_t row_index) {
@@ -1015,11 +1056,14 @@ MessageMarkerDispositionIR marker_disposition(const DisplayRunIR &run,
       single == '[' || single == '{')
     return MessageMarkerDispositionIR::layout_artifact;
   if (trailing_punctuation_marker(marker.decoded_text)) {
-    // TODO: Positioned ownership currently identifies the marker as a row
-    // boundary but does not distinguish an isolated soft wrap from visible
-    // punctuation. Preserve the observed decoder sentinel until that lower
-    // layer supplies a typed boundary purpose.
-    if (marker.encoded_value == 4)
+    // A supplemental slot is the display line's length byte: the soft wrap
+    // itself, not punctuation the record draws. The record's framing decides
+    // that, not the encoded value; only an unframed record falls back to the
+    // observed decoder sentinel.
+    const auto field_role = marker_field_role(ownership, {run.id, row_index}, row);
+    if (field_role == SourceFieldRole::supplemental)
+      return MessageMarkerDispositionIR::layout_artifact;
+    if (field_role == SourceFieldRole::undecided && marker.encoded_value == 4)
       return MessageMarkerDispositionIR::layout_artifact;
     // The marker closes whatever text precedes it. When this row carries an
     // opaque continuation prefix, that preceding text is the prefix in this
@@ -1044,10 +1088,22 @@ MessageMarkerDispositionIR marker_disposition(const DisplayRunIR &run,
   if (lexical) {
     if (has_opaque_prefix)
       return MessageMarkerDispositionIR::opaque_continuation_suffix;
-    // Compact dictionary values 28..43 are the observed fixed-row marker
-    // alphabet only at the first explicit marker slot of a new run. The same
-    // spelling elsewhere is lexical; high dictionary values such as MSG023's
-    // "The" are lexical even after terminal punctuation.
+    // The record's own display-line framing decides this, never the marker's
+    // spelling: a supplemental slot is the line's length byte -- structure,
+    // whatever word the dictionary spells for it -- while a positioned slot
+    // is a word the framing draws inside a line and the row merely opens on.
+    switch (marker_field_role(ownership, {run.id, row_index}, row)) {
+    case SourceFieldRole::supplemental:
+      return MessageMarkerDispositionIR::layout_artifact;
+    case SourceFieldRole::positioned:
+      return MessageMarkerDispositionIR::lexical_prefix;
+    case SourceFieldRole::undecided:
+      break;
+    }
+    // The record's payload does not tile into display lines, so the framing
+    // has no answer. Keep the observed compact envelope for that case rather
+    // than guess: values 28..43 are the observed fixed-row marker alphabet
+    // only at the first explicit marker slot of a new run.
     if (has_fixed_row_context(ownership, run, row_index))
       return MessageMarkerDispositionIR::layout_artifact;
     return MessageMarkerDispositionIR::lexical_prefix;
@@ -1677,14 +1733,21 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
                               !structural_padding_token(
                                   record->ir.tokens[token]);
                      });
+        // A record-prefix field that is nothing but the next display line's
+        // length byte carries no text. The record's own framing says which
+        // that is; only an unframed record falls back to the observed compact
+        // envelope, and even then a single lexical word is preserved.
+        const auto prefix_field_role =
+            lexical_tokens.size() == 1
+                ? source_field_role(*record, lexical_tokens.front())
+                : SourceFieldRole::positioned;
         const auto terminal_marker_only =
             lexical_tokens.size() == 1 &&
-            record->ir.tokens[lexical_tokens.front()].encoded.width == 1 &&
-            record->ir.tokens[lexical_tokens.front()].encoded.value >= 19 &&
-            record->ir.tokens[lexical_tokens.front()].encoded.value <= 43;
-        // TODO: Record-prefix fields have no positioned ownership role yet.
-        // Preserve even a single lexical word and retain this observed compact
-        // envelope only until supplemental boundary fields enter OwnershipIR.
+            (prefix_field_role == SourceFieldRole::supplemental ||
+             (prefix_field_role == SourceFieldRole::undecided &&
+              record->ir.tokens[lexical_tokens.front()].encoded.width == 1 &&
+              record->ir.tokens[lexical_tokens.front()].encoded.value >= 19 &&
+              record->ir.tokens[lexical_tokens.front()].encoded.value <= 43));
         if (!terminal_marker_only)
           fragments.push_back({std::move(text), source, {}});
       } else {
