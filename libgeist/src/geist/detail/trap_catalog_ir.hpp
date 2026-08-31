@@ -67,6 +67,34 @@ inline bool operator==(const TrapSourceCellIR &left,
          left.disposition == right.disposition && left.role == right.role;
 }
 
+// A highlighted run the source draws *inside* a body, rather than as the
+// entry headline or a field label.
+//
+// SC09-138 F.1 record 2048 line 1 is the whole line
+// `   IBM C/370 Diagnosis Guide and Reference`, covered by
+// `cfont 3 3 C 7 5 C 13 9 C 23 5 C 29 3 C 33 9 C`: a citation run that opens
+// a continuation display line of the `Explanation:` field at the catalog's
+// own origin column. SC24-546 A.0 record 996 line 0 draws
+// `LISTFILE '* * *'` the same way in XPH. Neither is a label -- the run does
+// not end in `:` -- and neither is a headline, because the entry already has
+// one.
+//
+// `begin` and `end` are byte offsets into the owning `TrapTextIR::text`, in
+// source order and disjoint, and each range spells exactly the run's own
+// display words. The style is retained rather than presented: it is the
+// consumer that decides whether a code has a rendering.
+struct TrapBodyHighlightIR {
+  std::size_t begin = 0;
+  std::size_t end = 0;
+  FontStyleIR style = FontStyleIR::unknown;
+};
+
+inline bool operator==(const TrapBodyHighlightIR &left,
+                       const TrapBodyHighlightIR &right) {
+  return left.begin == right.begin && left.end == right.end &&
+         left.style == right.style;
+}
+
 // Projected text with exact provenance. `text` is whitespace-collapsed;
 // `display_text` keeps the reader's inter-word spacing so CFONT columns can
 // be mapped onto it.
@@ -82,6 +110,8 @@ struct TrapTextIR {
   // representing a multi-paragraph field needs an entry model whose fields
   // can hold blocks, which `ListItemIR` (inline content only) cannot.
   bool paragraph_break = false;
+  // Highlighted runs drawn inside this text, ordered and disjoint.
+  std::vector<TrapBodyHighlightIR> highlights;
   std::vector<DocumentSourceSliceIR> source_slices;
   std::vector<DocumentSourceRowIR> source_rows;
   std::size_t cell_begin = 0;

@@ -64,7 +64,7 @@ BASELINE = {
     "IBMMMSTR.boo": (52, 52),
     "IEAC6MST.BOO": (201, 201),
     "ITPPIBOK.BOO": (255, 255),
-    "N2AH1MST.BOO": (45, 45),
+    "N2AH1MST.BOO": (47, 47),
     "OFCUSEOV.BOO": (194, 194),
     "PRG1SORT.boo": (206, 206),
     "QS3X36CM.BOO": (10, 10),
@@ -88,8 +88,8 @@ BASELINE = {
     "XWEBDEMO.boo": (12, 12),
     "packet.boo": (124, 124),
 }
-BASELINE_STRICT_TOTAL = 7215
-BASELINE_TOTAL = 7217
+BASELINE_STRICT_TOTAL = 7217
+BASELINE_TOTAL = 7219
 
 SUMMARY = re.compile(r"^# summary\ttyped=(\d+)\tlegacy=(\d+)\ttotal=(\d+)")
 SEVERITY = re.compile(r"^# severity\t")

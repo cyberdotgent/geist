@@ -398,7 +398,20 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
                   TrapTextIR &out, std::vector<TrapSourceCellIR> &cells,
                   std::string *error, bool operand_tail = false,
                   std::size_t highlighted_columns = 0,
-                  bool whole_segment = false) {
+                  bool whole_segment = false,
+                  const std::vector<std::pair<std::size_t, std::size_t>>
+                      *highlight_ranges = nullptr) {
+  // True when one CFONT span of the segment covers `[from, to)` whole, in the
+  // payload's own display coordinates.
+  const auto highlight_covers = [&](const std::size_t from,
+                                    const std::size_t to) {
+    if (highlight_ranges == nullptr)
+      return false;
+    return std::any_of(highlight_ranges->begin(), highlight_ranges->end(),
+                       [&](const auto &range) {
+                         return from >= range.first && to <= range.second;
+                       });
+  };
   const auto range = decoded_byte_range_to_word_range(
       record.assembled, whole_segment ? segment.complete : segment.payload_range);
   std::vector<Piece> pieces;
@@ -510,8 +523,26 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
         cell.role = TrapCellRoleIR::text;
         emit_char(token, static_cast<char>(value), false);
       } else if (cell.role == TrapCellRoleIR::punctuation_marker) {
-        if (value <= 0xff)
+        // A punctuation slot that one CFONT span covers whole is display text
+        // the row draws at its own column, not a sentence stop LayoutIR glues
+        // to the word in front of it. N2AH1MST record 418 line 10 is
+        // ` | ASB029I ASCHPMxx :  LINE num {CLASSADD | CLASSDEL} STATEMENT
+        // IGNORED.  NO` under `cfont 3 7 2 11 6 2 17 2 V 20 1 2 ...`: the `:`
+        // has a span of its own at column 20 and the line draws a space at
+        // column 19, and hosted 2.0 (DT 19910329000100) serves
+        // `<B>ASCHPM</B><var>xx</var> <B>:</B>  <B>LINE</B>`. Only a span
+        // that covers the slot whole is evidence; the extent between two
+        // spans is not.
+        const auto at = running + (pending_space ? gap.size() : 0);
+        const auto width =
+            record.ir.tokens[token].decoded_words.size() - word;
+        if (value >= 0x20 && value <= 0xff && value != ' ' &&
+            highlight_covers(at, at + width)) {
+          cell.role = TrapCellRoleIR::text;
+          emit_char(token, static_cast<char>(value), false);
+        } else if (value <= 0xff) {
           emit_char(token, static_cast<char>(value), true);
+        }
       } else if (cell.role == TrapCellRoleIR::lexical_marker) {
         if (value <= 0xff && value >= 0x20)
           emit_char(token, static_cast<char>(value), false);
@@ -530,10 +561,26 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
       gap.push_back(' ');
     } else if (value > 0xff ||
                structural_padding_words(record.ir.tokens[token].decoded_words)) {
-      cell.role = TrapCellRoleIR::placeholder;
-      pending_space = true;
-      if (gap.empty())
-        gap.push_back(' ');
+      // A cell one CFONT span covers whole is display text, whatever its
+      // token looks like on its own. N2AH1MST record 2113 line 1 is
+      // `   ICP050D SHOULD jjobname WRITE TO LEVEL xxx IOCDS? REPLY 'YES',
+      // 'NO', OR` and its `cfont ... 46 6 2 ...` covers columns 46-51, the
+      // last of which is the `?`. Read alone that token is a placeholder run
+      // -- the shape the decoder also uses for an unmapped word -- but the
+      // span states it is drawn, and hosted 2.0 (DT 19910329000100) serves
+      // `<B>IOCDS?</B>`.
+      const auto at = running + (pending_space ? gap.size() : 0);
+      const auto width = record.ir.tokens[token].decoded_words.size() - word;
+      if (value >= 0x20 && value <= 0xff && value != ' ' &&
+          highlight_covers(at, at + width)) {
+        cell.role = TrapCellRoleIR::text;
+        emit_char(token, static_cast<char>(value), false);
+      } else {
+        cell.role = TrapCellRoleIR::placeholder;
+        pending_space = true;
+        if (gap.empty())
+          gap.push_back(' ');
+      }
     } else if (disposition == SourceDisposition::visible_content) {
       cell.role = TrapCellRoleIR::text;
       emit_char(token, static_cast<char>(value), false);
@@ -891,6 +938,77 @@ std::vector<FontSpanIR> map_leading_chain(const FontControlSpansIR &spans,
   return chain;
 }
 
+// Corroborates a mapped chain against the display line it is supposed to
+// cover.
+//
+// `map_leading_chain` maps a CFONT column onto projected text by assuming the
+// text begins at the chain's anchor column, which the record does not always
+// state. SC34-425 APPENDIX1.5.3 record 2540 line 9 is
+// ` | User Response:  Contact the project administrator ...`: a `|` at
+// column 1 opens the row and the `cfont 3 4 2 8 9 2` covers `User` at
+// column 3, but the projected text begins at the `|`, so the mapping slides
+// two columns left and spells `| Us`. A CFONT column is an index into its
+// display line's own cells, so the line settles it: the chain is admitted
+// only where every span spells exactly the cells its columns name.
+bool chain_matches_display_columns(const DecodedLogicalRecordSource &record,
+                                   const std::size_t token,
+                                   const std::vector<TrapStyledSpanIR> &spans) {
+  const auto *line = display_line_of_token(record, token);
+  if (line == nullptr)
+    return false;
+  const auto text = display_line_text(record, *line);
+  const auto offsets = display_line_column_offsets(record, *line);
+  if (offsets.empty())
+    return false;
+  const auto columns = offsets.size() - 1;
+  for (const auto &span : spans) {
+    auto end = span.span.column + span.span.length;
+    if (span.span.column >= columns)
+      return false;
+    if (end > columns)
+      end = columns;
+    if (offsets[end] < offsets[span.span.column] ||
+        offsets[end] > text.size())
+      return false;
+    if (text.compare(offsets[span.span.column],
+                     offsets[end] - offsets[span.span.column], span.text) != 0)
+      return false;
+  }
+  return !spans.empty();
+}
+
+// The byte ranges the chain's own spans occupy in `joined`, offset by `base`.
+// `map_leading_chain` builds `joined` by concatenating the span texts and
+// inserting a single space wherever the columns leave a gap, so the geometry
+// alone reproduces the offsets. Empty when it does not reproduce `joined`
+// exactly, so the caller fails closed rather than place a highlight over
+// characters it has not proved belong to the run.
+std::vector<TrapBodyHighlightIR>
+chain_highlight_ranges(const std::vector<TrapStyledSpanIR> &spans,
+                       const std::string &joined, const std::size_t base) {
+  std::vector<TrapBodyHighlightIR> ranges;
+  std::size_t at = 0;
+  std::size_t previous_end_column = 0;
+  for (std::size_t index = 0; index < spans.size(); ++index) {
+    const auto &span = spans[index];
+    if (index != 0 && span.span.column != previous_end_column) {
+      if (at >= joined.size() || joined[at] != ' ')
+        return {};
+      ++at;
+    }
+    if (span.text.empty() ||
+        joined.compare(at, span.text.size(), span.text) != 0)
+      return {};
+    ranges.push_back(
+        {base + at, base + at + span.text.size(), span.span.style});
+    at += span.text.size();
+    previous_end_column = span.span.column + span.text.size();
+  }
+  if (at != joined.size())
+    return {};
+  return ranges;
+}
+
 bool starts_with_word(const std::string &text, const std::string &prefix) {
   return !prefix.empty() && text.size() >= prefix.size() &&
          text.compare(0, prefix.size(), prefix) == 0 &&
@@ -913,6 +1031,7 @@ bool same_text(const TrapTextIR &left, const TrapTextIR &right) {
   };
   return left.text == right.text && left.display_text == right.display_text &&
          left.paragraph_break == right.paragraph_break &&
+         left.highlights == right.highlights &&
          left.source_slices == right.source_slices &&
          rows_equal(left.source_rows, right.source_rows) &&
          left.cell_begin == right.cell_begin && left.cell_end == right.cell_end;
@@ -1329,6 +1448,10 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
         line.font_source = segment_slice(*ref.record, segment);
         line.body.cell_begin = entry.cells.size();
         std::size_t highlighted_columns = 0;
+        // Each span's own columns, relative to the leftmost one, so a walk
+        // can ask whether a span covers a cell rather than only whether the
+        // cell lies somewhere in the highlighted extent.
+        std::vector<std::pair<std::size_t, std::size_t>> highlight_ranges;
         {
           std::size_t first_column = 0;
           bool have_first = false;
@@ -1338,12 +1461,18 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
               have_first = true;
             }
           for (const auto &span : spans->spans)
-            if (have_first && span.length != 0)
+            if (have_first && span.length != 0) {
               highlighted_columns = std::max(
                   highlighted_columns, span.column + span.length - first_column);
+              if (span.column >= first_column)
+                highlight_ranges.push_back(
+                    {span.column - first_column,
+                     span.column - first_column + span.length});
+            }
         }
         if (!walk_payload(*ref.record, segment, index, line.body, entry.cells,
-                          error, false, highlighted_columns))
+                          error, false, highlighted_columns, false,
+                          &highlight_ranges))
           return std::nullopt;
         // A font control whose payload is empty at the record end carries its
         // text in the next record's leading text segment.
@@ -1359,7 +1488,7 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           // control ends one record and its row opens the next.
           if (!walk_payload(*ordered[at].record, *ordered[at].segment, index,
                             line.body, entry.cells, error, false,
-                            highlighted_columns))
+                            highlighted_columns, false, &highlight_ranges))
             return std::nullopt;
         } else if (line.body.text.empty() && at + 1 < end &&
                    ordered[at + 1].record == ref.record &&
@@ -1375,7 +1504,7 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           ++at;
           if (!walk_payload(*ordered[at].record, *ordered[at].segment, index,
                             line.body, entry.cells, error, false,
-                            highlighted_columns, true))
+                            highlighted_columns, true, &highlight_ranges))
             return std::nullopt;
         }
         line.body.cell_end = entry.cells.size();
@@ -1442,14 +1571,65 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           field.line = std::move(line);
           entry.fields.push_back(std::move(field));
           current = &entry.fields.back().line;
-        } else if (!chain.empty()) {
-          return reject("trap entry highlighted run is neither headline nor "
-                        "label: " +
-                        entry.id + " [" + line.spans_text + "]");
         } else {
           if (current == nullptr)
             return reject("trap entry text precedes its headline: " + entry.id);
           auto &body = current->body;
+          std::vector<TrapBodyHighlightIR> highlights;
+          if (!chain.empty()) {
+            // The entry already has its headline and the run does not end in
+            // `:`, so this is neither: it is a highlighted run the source
+            // draws inside the field body, opening a continuation display
+            // line at the column the labels use. SC09-138 F.1 record 2048
+            // line 1 is the whole line
+            // `   IBM C/370 Diagnosis Guide and Reference` under
+            // `cfont 3 3 C ... 33 9 C`, and hosted BookServer
+            // (SC09-1384-00 F.1, DT 19940715102756) serves it inside the
+            // `Explanation:` paragraph, not as a row of its own. The run
+            // stays a run: its columns are recorded over the body text and
+            // no presentation is claimed here.
+            // A plain prefix, not a whole-word one: the CFONT columns state
+            // the run's own end, and a sentence stop the columns leave out
+            // stays outside it. SC09-138 F.1 record 2051 line 22 is
+            // `cfont 3 5 C 9 3 C 13 9 C` over line 23
+            // `   Guide and Reference.`, whose final `.` sits at column 22,
+            // one past the last highlighted column.
+            if (line.body.text.compare(0, line.spans_text.size(),
+                                       line.spans_text) != 0)
+              return reject("trap entry highlighted run is neither headline "
+                            "nor label: " +
+                            entry.id + " [" + line.spans_text + "]");
+            // The run's own display line decides whether the columns really
+            // spell it; a mapping that slid is not evidence of anything.
+            const auto *drawn = static_cast<const DecodedLogicalRecordSource *>(
+                nullptr);
+            std::size_t drawn_token = 0;
+            for (auto cell = line.body.cell_begin;
+                 cell < line.body.cell_end && drawn == nullptr; ++cell)
+              if (entry.cells[cell].role == TrapCellRoleIR::text ||
+                  entry.cells[cell].role == TrapCellRoleIR::lexical_marker ||
+                  entry.cells[cell].role ==
+                      TrapCellRoleIR::punctuation_marker) {
+                drawn = find_record(records, entry.cells[cell].logical_record);
+                drawn_token = entry.cells[cell].token_index;
+              }
+            if (drawn == nullptr ||
+                !chain_matches_display_columns(*drawn, drawn_token, line.spans))
+              return reject("trap entry highlighted run does not cover the "
+                            "columns it names: " +
+                            entry.id + " [" + line.spans_text + "]");
+            const auto base = body.text.empty() || line.body.text.empty()
+                                  ? body.text.size()
+                                  : body.text.size() + 1;
+            highlights =
+                chain_highlight_ranges(line.spans, line.spans_text, base);
+            if (highlights.empty())
+              return reject("trap entry highlighted run does not spell its "
+                            "own display words: " +
+                            entry.id + " [" + line.spans_text + "]");
+          }
+          body.highlights.insert(body.highlights.end(), highlights.begin(),
+                                 highlights.end());
           if (!body.text.empty() && !line.body.text.empty())
             body.text.push_back(' ');
           body.text += line.body.text;
@@ -1899,9 +2079,15 @@ std::string format_trap_catalog_ir(const TrapCatalogIR &catalog) {
         << entry.start_source.segment_index << " cells=" << entry.cells.size()
         << " suppressed_rows=" << entry.suppressed_rows.size()
         << " headline='" << entry.headline.body.text << "'";
-    for (const auto &field : entry.fields)
+    if (!entry.headline.body.highlights.empty())
+      out << " headline_highlights=" << entry.headline.body.highlights.size();
+    for (const auto &field : entry.fields) {
       out << " field='" << field.label_text << "' text='"
           << field.line.body.text << "'";
+      for (const auto &highlight : field.line.body.highlights)
+        out << " highlight=" << highlight.begin << ':' << highlight.end << ':'
+            << font_style_name(highlight.style);
+    }
     for (const auto &region : entry.embedded_regions)
       out << " table='" << region.identifier
           << "' after_field=" << region.after_field
