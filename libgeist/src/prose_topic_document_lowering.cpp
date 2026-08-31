@@ -491,8 +491,39 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
       // failed to recover.
       if (!block.verbatim_kind.empty())
         preformatted_origin.detail = "prose drawn box region: verbatim rows";
-      document.blocks.push_back({PreformattedBlockIR{block.preformatted_lines},
-                                 std::move(preformatted_origin)});
+      PreformattedBlockIR preformatted{block.preformatted_lines};
+      // Issue #81.  A block the family emitted verbatim because it could not
+      // prove the region's structure says so at the block, and carries the
+      // provenance a consumer needs to check it: the whole region's slices on
+      // the block, and one origin per row so `bootrace --explain-offset` on
+      // any byte of the fence names that row's own records, tokens and BOO
+      // byte extents rather than the region as a whole.
+      if (!block.degradation_code.empty()) {
+        preformatted_origin.detail = "prose CZ unmodelled region: verbatim rows";
+        preformatted_origin.fidelity = DocumentFidelityIR::degraded;
+        preformatted_origin.degradation_code = block.degradation_code;
+        preformatted_origin.degradation_detail = block.degradation_detail;
+        if (block.preformatted_line_inlines.size() ==
+            block.preformatted_lines.size()) {
+          for (const auto inline_index : block.preformatted_line_inlines) {
+            DocumentNodeOriginIR line_origin;
+            line_origin.derivation = DocumentDerivationIR::semantic_lowering;
+            line_origin.fidelity = DocumentFidelityIR::degraded;
+            line_origin.degradation_code = block.degradation_code;
+            if (inline_index < block.inlines.size()) {
+              line_origin.detail = "prose CZ unmodelled region: display row";
+              line_origin.slices = block.inlines[inline_index].slices;
+            } else {
+              // A blank row is a display-line break; it owns no token, so it
+              // names no source rather than borrowing the region's.
+              line_origin.detail = "prose CZ unmodelled region: blank row";
+            }
+            preformatted.line_origins.push_back(std::move(line_origin));
+          }
+        }
+      }
+      document.blocks.push_back(
+          {std::move(preformatted), std::move(preformatted_origin)});
       ++index;
       continue;
     }

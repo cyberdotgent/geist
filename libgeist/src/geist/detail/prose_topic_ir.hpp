@@ -162,6 +162,18 @@ struct ProseBlockIR {
   // `<pre>` -- so this names the region for consumers and provenance and no
   // longer degrades the topic's render severity.
   std::string verbatim_kind;
+  // Preformatted blocks: row -> index into `inlines`, or `npos` for a blank
+  // row, which is a display-line break owning no token.  Parallel to
+  // `preformatted_lines`.
+  std::vector<std::size_t> preformatted_line_inlines;
+  // Issue #81.  Set only when the block is emitted verbatim because its
+  // structure could not be proven, never when verbatim is what the source
+  // states: a `cz OFF XMP` example and a drawn box are preformatted *by
+  // right* and stay clean.  A non-empty code makes the lowered node
+  // `DocumentFidelityIR::degraded`, which is what moves the topic to
+  // `typed-degraded` and puts a marker on the fence in the rendered file.
+  std::string degradation_code;
+  std::string degradation_detail;
   std::vector<ProseInlineIR> inlines;
   std::vector<DocumentSourceSliceIR> slices;
 };

@@ -7,15 +7,30 @@ the library because only ``libgeist/`` is published and the ratchet needs the 34
 It is maintainer tooling now: it consumes libgeist through the ``bootrace``
 example binary and needs no library headers.
 
-For each book it runs ``bootrace <book> --coverage`` and reads the trailing
-``# summary`` line, whose ``typed=`` field is exactly the count that
-``BooDocument::typed_route_inventory()`` used to report.  Coverage may only ever
-rise: the per-book baseline and the corpus total below are the committed floor.
+For each book it runs ``bootrace <book> --coverage`` and reads two trailing
+lines: ``# summary``, whose ``typed=`` field is exactly the count that
+``BooDocument::typed_route_inventory()`` used to report, and ``# severity``,
+which splits that same count into strict ``typed`` and ``typed-degraded``.
+
+There are therefore **two** monotone floors per book, and both must hold:
+
+* ``strict`` -- topics every one of whose blocks proved its structure.  This
+  floor may never fall.
+* ``typed`` -- strict plus ``typed-degraded``: the typed-route total, the
+  number ``# summary typed=`` prints.  This floor may never fall either, and
+  it is the one that rises when a decline becomes a degraded topic.
+
+The split exists because block-level degradation is now policy (issue #81).
+Converting a proven topic into a degraded one keeps the second number and
+lowers the first; with only the ``# summary`` floor that erosion is silent,
+which is tolerable while degradation is rare and is not tolerable under a
+policy that prefers degraded output to a whole-topic decline.
 
 Updating the baseline: when a lowering slice raises coverage, run this script
-and copy the printed ``book<TAB>typed`` pairs into BASELINE (and the new total
-into BASELINE_TOTAL).  Lowering a number is a regression and needs an explicit
-explanation in the commit message.
+and copy the printed ``book<TAB>strict<TAB>typed`` triples into BASELINE (and
+the new totals into BASELINE_STRICT_TOTAL / BASELINE_TOTAL).  Lowering either
+number is a regression and needs an explicit explanation in the commit
+message.
 
 Runtime is about 11 minutes uncontended, most of it in N2AH1MST.BOO whose SRMSG
 recognizers are slow.  Use ``--jobs`` to spread the books over several cores.
@@ -35,46 +50,49 @@ import sys
 from pathlib import Path
 
 # Committed floor, carried across from libgeist/tests/typed_route_inventory.cpp.
-# Typed topics per book; these may only ever rise.
+# ``book: (strict, typed)`` -- strict typed topics, and the typed-route total
+# that also counts ``typed-degraded``.  Neither may ever fall.
 BASELINE = {
-    "ACPZMST1.boo": 200,
-    "DREICMST.boo": 370,
-    "FA1PLMM0.boo": 414,
-    "GC23-046.boo": 99,
-    "GC28-183.boo": 145,
-    "GG24-395.boo": 223,
-    "GG24-4302-00.boo": 228,
-    "GX27-3999-00.boo": 33,
-    "IBMMMSTR.boo": 52,
-    "IEAC6MST.BOO": 201,
-    "ITPPIBOK.BOO": 255,
-    "N2AH1MST.BOO": 45,
-    "OFCUSEOV.BOO": 192,
-    "PRG1SORT.boo": 205,
-    "QS3X36CM.BOO": 10,
-    "QSYSINFO.BOO": 413,
-    "QSYSNEWG.BOO": 157,
-    "SC09-138.boo": 522,
-    "SC09-2417-00.boo": 341,
-    "SC24-546.boo": 298,
-    "SC24-5520-00.boo": 645,
-    "SC24-5527-02.boo": 300,
-    "SC26-457.boo": 356,
-    "SC28-1881-05.boo": 88,
-    "SC31-605.boo": 109,
-    "SC31-711.boo": 78,
-    "SC33-033.boo": 221,
-    "SC34-425.boo": 244,
-    "SC41-485.boo": 35,
-    "SG24-204.boo": 91,
-    "SH12-565.boo": 288,
-    "SH20-918.boo": 201,
-    "XWEBDEMO.boo": 12,
-    "packet.boo": 124,
+    "ACPZMST1.boo": (200, 200),
+    "DREICMST.boo": (370, 370),
+    "FA1PLMM0.boo": (411, 414),
+    "GC23-046.boo": (99, 99),
+    "GC28-183.boo": (145, 145),
+    "GG24-395.boo": (223, 223),
+    "GG24-4302-00.boo": (228, 228),
+    "GX27-3999-00.boo": (33, 33),
+    "IBMMMSTR.boo": (52, 52),
+    "IEAC6MST.BOO": (201, 201),
+    "ITPPIBOK.BOO": (255, 255),
+    "N2AH1MST.BOO": (45, 45),
+    "OFCUSEOV.BOO": (192, 192),
+    "PRG1SORT.boo": (205, 205),
+    "QS3X36CM.BOO": (10, 10),
+    "QSYSINFO.BOO": (413, 413),
+    "QSYSNEWG.BOO": (157, 157),
+    "SC09-138.boo": (518, 522),
+    "SC09-2417-00.boo": (341, 341),
+    "SC24-546.boo": (298, 298),
+    "SC24-5520-00.boo": (644, 645),
+    "SC24-5527-02.boo": (300, 300),
+    "SC26-457.boo": (355, 356),
+    "SC28-1881-05.boo": (88, 88),
+    "SC31-605.boo": (109, 109),
+    "SC31-711.boo": (77, 78),
+    "SC33-033.boo": (221, 221),
+    "SC34-425.boo": (244, 244),
+    "SC41-485.boo": (36, 36),
+    "SG24-204.boo": (91, 91),
+    "SH12-565.boo": (288, 288),
+    "SH20-918.boo": (200, 201),
+    "XWEBDEMO.boo": (12, 12),
+    "packet.boo": (124, 124),
 }
+BASELINE_STRICT_TOTAL = 7185
 BASELINE_TOTAL = 7196
 
 SUMMARY = re.compile(r"^# summary\ttyped=(\d+)\tlegacy=(\d+)\ttotal=(\d+)")
+SEVERITY = re.compile(r"^# severity\t")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -116,8 +134,15 @@ def collect_books(directories: list[Path]) -> dict[str, Path]:
     return books
 
 
-def typed_count(bootrace: Path, path: Path) -> tuple[int, int, int]:
-    """Return (typed, legacy, total) for one book."""
+def typed_count(bootrace: Path, path: Path) -> tuple[int, int, int, int]:
+    """Return (strict, typed, legacy, total) for one book.
+
+    ``strict`` is the ``typed`` bucket of the ``# severity`` histogram, i.e.
+    the topics with no degraded block; ``typed`` is that plus
+    ``typed-degraded``, which is what ``# summary typed=`` reports.  Both are
+    read rather than derived so a disagreement between the two lines is an
+    error and not a silently preferred number.
+    """
     result = subprocess.run(
         [str(bootrace), str(path), "--coverage"],
         capture_output=True,
@@ -128,11 +153,31 @@ def typed_count(bootrace: Path, path: Path) -> tuple[int, int, int]:
             f"bootrace failed on {path.name} ({result.returncode}): "
             f"{result.stderr.strip()}"
         )
+    summary: tuple[int, int, int] | None = None
+    severity: dict[str, int] | None = None
     for line in result.stdout.splitlines():
         match = SUMMARY.match(line)
         if match:
-            return int(match.group(1)), int(match.group(2)), int(match.group(3))
-    raise RuntimeError(f"bootrace printed no coverage summary for {path.name}")
+            summary = (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+            continue
+        if SEVERITY.match(line):
+            severity = {}
+            for field in line.split("\t")[1:]:
+                name, _, count = field.partition("=")
+                severity[name] = int(count)
+    if summary is None:
+        raise RuntimeError(f"bootrace printed no coverage summary for {path.name}")
+    if severity is None:
+        raise RuntimeError(f"bootrace printed no severity histogram for {path.name}")
+    typed, legacy, total = summary
+    strict = severity.get("typed", 0)
+    degraded = severity.get("typed-degraded", 0)
+    if strict + degraded != typed:
+        raise RuntimeError(
+            f"{path.name}: severity split {strict}+{degraded} disagrees with "
+            f"the typed-route total {typed}"
+        )
+    return strict, typed, legacy, total
 
 
 def main() -> int:
@@ -169,8 +214,9 @@ def main() -> int:
 
     bootrace = find_bootrace(args.bootrace)
 
-    print("book\ttyped\tlegacy\ttotal\tbaseline")
+    print("book\tstrict\ttyped\tlegacy\ttotal\tbaseline")
     failures: list[str] = []
+    strict_total = 0
     typed_total = 0
     legacy_total = 0
 
@@ -181,23 +227,34 @@ def main() -> int:
         }
         for name, future in counted.items():
             try:
-                typed, legacy, total = future.result()
+                strict, typed, legacy, total = future.result()
             except RuntimeError as error:
                 failures.append(str(error))
                 continue
+            strict_total += strict
             typed_total += typed
             legacy_total += legacy
             expected = BASELINE.get(name)
             print(
-                f"{name}\t{typed}\t{legacy}\t{total}\t"
-                f"{'(none)' if expected is None else expected}"
+                f"{name}\t{strict}\t{typed}\t{legacy}\t{total}\t"
+                f"{'(none)' if expected is None else f'{expected[0]}/{expected[1]}'}"
             )
             if expected is None:
                 failures.append(f"{name} has no committed baseline; add it to BASELINE")
-            elif typed < expected:
-                failures.append(
-                    f"{name} typed coverage regressed: {typed} < baseline {expected}"
-                )
+            else:
+                # Two independent floors.  Degrading a proven topic keeps the
+                # second and lowers the first, and that is a regression.
+                if strict < expected[0]:
+                    failures.append(
+                        f"{name} strict typed coverage regressed: {strict} < "
+                        f"baseline {expected[0]} (a proven topic became "
+                        f"degraded or declined)"
+                    )
+                if typed < expected[1]:
+                    failures.append(
+                        f"{name} typed coverage regressed: {typed} < baseline "
+                        f"{expected[1]}"
+                    )
             if typed + legacy != total:
                 failures.append(f"{name} inventory counts do not sum to its topic count")
 
@@ -212,9 +269,17 @@ def main() -> int:
         )
     else:
         print(
-            f"# summary\ttyped={typed_total}\tlegacy={legacy_total}"
-            f"\ttotal={typed_total + legacy_total}\tbaseline={BASELINE_TOTAL}"
+            f"# summary\tstrict={strict_total}\ttyped={typed_total}"
+            f"\tdegraded={typed_total - strict_total}"
+            f"\tlegacy={legacy_total}"
+            f"\ttotal={typed_total + legacy_total}"
+            f"\tbaseline={BASELINE_STRICT_TOTAL}/{BASELINE_TOTAL}"
         )
+        if strict_total < BASELINE_STRICT_TOTAL:
+            failures.append(
+                f"corpus strict typed coverage regressed: {strict_total} < "
+                f"baseline {BASELINE_STRICT_TOTAL}"
+            )
         if typed_total < BASELINE_TOTAL:
             failures.append(
                 f"corpus typed coverage regressed: {typed_total} < "
