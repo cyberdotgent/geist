@@ -129,6 +129,22 @@ int main() {
 
   document.blocks.push_back(
       block(PreformattedBlockIR{{"source", "```", "tail without newline"}}));
+
+  // A preformatted block that carries a cross reference cannot be a fence: a
+  // fence renders the anchor as inert text, and hosted BookServer keeps the
+  // anchors of a drawn body inside the `<pre>` of the very same rows.  The
+  // row's own bytes are untouched -- only `&`, `<` and `>` are escaped, and
+  // nothing occupying a column is inserted -- so the drawn box rules stay in
+  // their columns and the marked span becomes the anchor's text.
+  PreformattedBlockIR linked;
+  linked.lines = {"   | see <Notices> & more    |", "   |___________________|"};
+  VerbatimLinkIR in_book;
+  in_book.begin = 9;   // the `<` of `<Notices>`
+  in_book.end = 18;    // past the `>`
+  in_book.kind = VerbatimLinkKindIR::in_book;
+  in_book.target = "HDRNOTICES";
+  linked.line_links = {{in_book}, {}};
+  document.blocks.push_back(block(std::move(linked)));
   document.blocks.push_back(
       block(NoteBlockIR{text("Caution"), text("Do *this* safely")}));
 
@@ -313,6 +329,14 @@ int main() {
                 "headerless table/empty cell policy failed") ||
       !contains(output, "````\nsource\n```\ntail without newline\n````",
                 "variable-length preformatted fence failed") ||
+      !contains(output,
+                "<pre>\n"
+                "   | see <a href=\"#HDRNOTICES\">&lt;Notices&gt;</a> "
+                "&amp; more    |\n"
+                "   |___________________|\n"
+                "</pre>",
+                "linked preformatted block did not render as a <pre> with "
+                "the anchor inside its row") ||
       !contains(output, "> **Caution:** Do \\*this\\* safely",
                 "note structure failed") ||
       !contains(output,

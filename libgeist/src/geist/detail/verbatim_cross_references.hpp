@@ -1,5 +1,6 @@
 #pragma once
 
+#include "geist/detail/document_ir.hpp"
 #include "geist/detail/internal.hpp"
 
 #include <cstddef>
@@ -58,49 +59,6 @@ struct BestEffortLineIR {
   std::size_t record_index = 0;
   std::size_t display_line_index = 0;
   std::vector<std::size_t> column_offsets;
-};
-
-enum class VerbatimLinkKindIR {
-  in_book,       // an `SR<id>` anchor somewhere in this book
-  book_contents, // another book's contents page
-  book_heading,  // a heading inside another book
-  external_url,  // a URL the reader opens
-};
-
-// One cross reference, as a half-open byte range of its row plus everything
-// the source says about where it points.  The range is the only thing the
-// row itself knows about; the destination is a question for the backend.
-struct VerbatimLinkIR {
-  std::size_t begin = 0;
-  std::size_t end = 0;
-  VerbatimLinkKindIR kind = VerbatimLinkKindIR::in_book;
-  // In-book: the anchor id the selector names.  Cross-book and external:
-  // alternative 6, the target's own identifier.
-  std::string target;
-  // The `LNK` alternative list verbatim, without its angle brackets, all six
-  // (or seven) fields in source order; empty for an in-book reference.  The
-  // node carries the whole list whatever Markdown does with it, so #46 can
-  // resolve a cross-book reference through a caller-supplied resolver
-  // instead of re-reading the source.
-  std::vector<std::string> alternatives;
-  // Alternative 4: the order number of the book referenced.
-  std::string document_number;
-  // Alternative 5: the `DocnumLevel` a live BookServer appends to the
-  // destination, which it uses to offer a revision picker.  It is not
-  // addressing inside the target book.
-  std::string document_level;
-  // Alternative 2: the heading anchor of a `<HDR>` reference, which the
-  // reader prefixes with `HDR`.
-  std::string heading_anchor;
-  // The absolute URL of an external reference; empty otherwise.  This is the
-  // only cross-book destination a single-book Markdown export can prove.
-  std::string url;
-};
-
-struct VerbatimRowIR {
-  std::string text;
-  // Disjoint, in column order.
-  std::vector<VerbatimLinkIR> links;
 };
 
 struct VerbatimCrossReferenceIR {

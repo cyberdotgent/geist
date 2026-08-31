@@ -1,5 +1,6 @@
 #include "geist/detail/document_markdown_renderer.hpp"
 
+#include "geist/detail/verbatim_cross_references.hpp"
 #include "geist/detail/internal.hpp"
 
 #include <algorithm>
@@ -401,6 +402,37 @@ void append_fenced_block(RenderSink &sink,
   sink.syntax(fence, "code fence", origin);
 }
 
+// The same rows as a raw HTML `<pre>` block, for a preformatted block that
+// carries cross references.
+//
+// A fence preserves every column but renders an anchor as inert text, and
+// hosted BookServer keeps the anchors of a drawn body *inside* the `<pre>` of
+// the very same rows -- so `<pre>` is the one form that holds both halves.
+// This is the spelling the verbatim route already uses
+// (`render_best_effort_markdown`), and it shares `render_verbatim_row` with
+// it so the escaping and the column arithmetic cannot diverge.
+//
+// A row's bytes are the row's bytes: only `&`, `<` and `>` are escaped, and
+// the anchor markup sits at the byte offsets the link names.  Nothing that
+// occupies a column is inserted, so the block draws exactly as its fence did.
+void append_preformatted_html_block(
+    RenderSink &sink, const PreformattedBlockIR &node,
+    const DocumentNodeOriginIR *origin) {
+  sink.syntax("<pre>\n", "preformatted block open", origin);
+  for (std::size_t index = 0; index < node.lines.size(); ++index) {
+    const PathScope step(sink, "line", index);
+    const auto *line_origin = index < node.line_origins.size()
+                                  ? &node.line_origins[index]
+                                  : origin;
+    VerbatimRowIR row;
+    row.text = node.lines[index];
+    if (index < node.line_links.size()) row.links = node.line_links[index];
+    sink.content(render_verbatim_row(row), "preformatted line", line_origin);
+    sink.syntax("\n", "preformatted line break", line_origin);
+  }
+  sink.syntax("</pre>", "preformatted block close", origin);
+}
+
 void append_table(RenderSink &sink, const TableBlockIR &table,
                   const DocumentNodeOriginIR *origin,
                   const DocumentMarkdownRendererOptions &options) {
@@ -545,8 +577,16 @@ void append_block(RenderSink &sink, const BlockIR &block,
         } else if constexpr (std::is_same_v<T, TableBlockIR>) {
           append_table(sink, node, block_origin, options);
         } else if constexpr (std::is_same_v<T, PreformattedBlockIR>) {
-          append_fenced_block(sink, node.lines, block_origin,
-                              "preformatted line", &node.line_origins);
+          // A block that carries a link cannot be a fence; every other
+          // preformatted block renders exactly as it always has.
+          if (std::any_of(node.line_links.begin(), node.line_links.end(),
+                          [](const std::vector<VerbatimLinkIR> &links) {
+                            return !links.empty();
+                          }))
+            append_preformatted_html_block(sink, node, block_origin);
+          else
+            append_fenced_block(sink, node.lines, block_origin,
+                                "preformatted line", &node.line_origins);
         } else if constexpr (std::is_same_v<T, NoteBlockIR>) {
           sink.syntax("> ", "note marker", block_origin);
           if (!node.label.empty()) {

@@ -987,6 +987,44 @@ struct CzBuilder {
             return fail(error, name + " carries display text");
           return true;
         }
+        // A verbatim-region closer that closes nothing.  The book compiler
+        // can write the end of a region whose opener it never wrote:
+        // GX27-3999-00 `NOTICES` draws its `Note` box inside an
+        // `SRFIG`/`cz OFF FIG` figure region and then closes *two* regions
+        // where it opened one -- `cz OFF ELBLBOX 0 0` (record 3 line 22)
+        // followed by `cz OFF EFIG 0 0` -- with no `cz OFF LBLBOX` anywhere
+        // in the topic.
+        //
+        // Hosted BookServer (DT 19950730184057) serves that body as a single
+        // `<pre width="132"><!-- figure -->` holding the six box rows,
+        // anchored `<a name="FIGFIGUNIQ1">` on the first.  The block is the
+        // *figure*'s, named for it, and the `ELBLBOX` contributes no block,
+        // no comment and no character.  A labelled box that really is opened
+        // is served as `<!-- lblbox -->`, so BookServer distinguishes the
+        // two: an unopened region closer is inert.
+        //
+        // Admitted on exactly that evidence and no more.  No `cz OFF <tag>`
+        // opened the region earlier in this topic -- an opener is consumed
+        // together with its closer by the verbatim-region branch above, so
+        // reaching here already implies it, but the directive stream is asked
+        // rather than the control flow trusted -- and the closer owns no
+        // display row of its own.  A closer that draws text marks a region
+        // boundary the model cannot place, and still fails closed.
+        if (cz_verbatim_region_closer(tag)) {
+          const auto opened = tag.substr(1);
+          const auto opener_before = std::any_of(
+              build.directives.begin(),
+              build.directives.begin() + static_cast<std::ptrdiff_t>(index),
+              [&opened](const LayoutDirective& earlier) {
+                return earlier.mode == "off" && earlier.tag == opened;
+              });
+          if (!opener_before) {
+            if (!groups.empty())
+              return fail(error, name + " closes no open " + opened +
+                                     " and carries display text");
+            return true;
+          }
+        }
         if (tag.size() > 1 && tag.front() == 'e' &&
             (list_tag(tag.substr(1)) || tag == "ent")) {
           const auto opened = tag.substr(1);

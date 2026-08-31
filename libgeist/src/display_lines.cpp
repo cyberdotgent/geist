@@ -175,6 +175,19 @@ std::string display_line_text(const DecodedLogicalRecordSource& record,
   return text;
 }
 
+std::vector<std::size_t> display_line_column_offsets(
+    const DecodedLogicalRecordSource& record, const DisplayLineIR& line) {
+  std::vector<std::size_t> offsets;
+  std::size_t size = 0;
+  walk_display_line(record, line,
+                    [&](const std::uint16_t word, const std::size_t) {
+                      offsets.push_back(size);
+                      size += figure_display_glyph(word).size();
+                    });
+  offsets.push_back(size);
+  return offsets;
+}
+
 std::vector<std::uint16_t> display_line_columns(
     const DecodedLogicalRecordSource& record, const DisplayLineIR& line) {
   std::vector<std::uint16_t> columns;

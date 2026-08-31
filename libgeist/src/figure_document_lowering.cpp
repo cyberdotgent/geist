@@ -209,6 +209,97 @@ lower_preformatted_figure(const FigureSourceBlockIR &figure,
     body.lines.push_back(line.text);
     body_rows.insert(body_rows.end(), line.rows.begin(), line.rows.end());
   }
+
+  // Place the drawn body's cross references on the rows they mark.
+  //
+  // Hosted BookServer wraps the marked columns of a figure body in an
+  // `<a href>` *inside* its `<pre>` -- GX27-3999-00 `NOTICES` (DT
+  // 19950730184057) serves `| the general information under <a
+  // href="BACK_1?DT=...#HDRNOTICES">&quot;Notices&quot; in topic BACK_1</a>.
+  // |` as one row of a `<pre width="132"><!-- figure -->`, the box rule still
+  // in its own column.  A fence cannot hold that anchor, which is why these
+  // references used to be named in the block's degradation and dropped; a
+  // block that carries one is now rendered as a `<pre>` instead.
+  //
+  // The column arithmetic is the verbatim route's, deliberately: a span may
+  // name more columns than the row drew and is clamped to the row's end,
+  // which is what hosted does, and a span that *starts* past the row names no
+  // text and is declined.  Overlapping spans cannot both be spelled as one
+  // anchor each, so the later one is dropped rather than guessed at.  Nothing
+  // that occupies a column is inserted, so the body draws exactly as before.
+  // One candidate per source link, so a link that cannot be placed -- and one
+  // dropped because it overlaps an earlier span -- is still named in the
+  // degradation rather than disappearing.
+  struct PlacedLink {
+    std::size_t line = 0;
+    VerbatimLinkIR link;
+    const FigureLinkIR *source = nullptr;
+  };
+  std::vector<PlacedLink> candidates;
+  std::vector<const FigureLinkIR *> unexpressed;
+  for (const auto &link : figure.body_links) {
+    std::size_t covered = figure.lines.size();
+    for (std::size_t index = 0; index < figure.lines.size(); ++index)
+      if (figure.lines[index].logical_record == link.logical_record &&
+          figure.lines[index].prefix_token == link.line_prefix_token) {
+        covered = index;
+        break;
+      }
+    if (covered == figure.lines.size() ||
+        figure.lines[covered].column_offsets.empty()) {
+      unexpressed.push_back(&link);
+      continue;
+    }
+    const auto &row = figure.lines[covered];
+    const auto columns = row.column_offsets.size() - 1;
+    if (link.column >= columns) {
+      unexpressed.push_back(&link);
+      continue;
+    }
+    const auto last = std::min(link.column + link.length, columns);
+    auto begin = std::min(row.column_offsets[link.column], row.text.size());
+    auto end = std::min(row.column_offsets[last], row.text.size());
+    while (begin < end && row.text[begin] == ' ')
+      ++begin;
+    while (end > begin && row.text[end - 1] == ' ')
+      --end;
+    if (begin >= end) {
+      unexpressed.push_back(&link);
+      continue;
+    }
+    VerbatimLinkIR placed;
+    placed.begin = begin;
+    placed.end = end;
+    placed.kind = link.external ? VerbatimLinkKindIR::external_url
+                                : VerbatimLinkKindIR::in_book;
+    placed.target = link.target;
+    if (link.external)
+      placed.url = link.target;
+    candidates.push_back({covered, std::move(placed), &link});
+  }
+  std::stable_sort(candidates.begin(), candidates.end(),
+                   [](const PlacedLink &left, const PlacedLink &right) {
+                     if (left.line != right.line)
+                       return left.line < right.line;
+                     if (left.link.begin != right.link.begin)
+                       return left.link.begin < right.link.begin;
+                     return left.link.end < right.link.end;
+                   });
+  std::vector<std::vector<VerbatimLinkIR>> line_links(figure.lines.size());
+  for (auto &candidate : candidates) {
+    auto &accepted = line_links[candidate.line];
+    if (!accepted.empty() && candidate.link.begin < accepted.back().end) {
+      unexpressed.push_back(candidate.source);
+      continue;
+    }
+    accepted.push_back(std::move(candidate.link));
+  }
+  if (std::any_of(line_links.begin(), line_links.end(),
+                  [](const std::vector<VerbatimLinkIR> &links) {
+                    return !links.empty();
+                  }))
+    body.line_links = std::move(line_links);
+
   BlockIR block;
   block.node = std::move(body);
   block.origin.derivation = DocumentDerivationIR::semantic_lowering;
@@ -229,22 +320,24 @@ lower_preformatted_figure(const FigureSourceBlockIR &figure,
     return true;
   });
   add_sorted_rows(block.origin, std::move(body_rows));
-  if (!figure.body_links.empty()) {
+  if (!unexpressed.empty()) {
     // Hosted BookServer wraps the covered columns of a drawn body in an
     // anchor (FA1PLMM0 5.0 `Figure 18 in topic 5.1.1`, SC09-138 8.5.4.5 the
-    // footnote marker `132`).  The body is character art reproduced column
-    // for column, so it carries no inline model and the link cannot be
-    // expressed inside it; naming it here keeps the loss visible instead of
-    // dropping it silently.
+    // footnote marker `132`), and the block above now spells those anchors
+    // inside its `<pre>` exactly where the source marks them.  What is left
+    // here is a reference the row geometry could not place: it names no body
+    // line of this figure, it starts past the end of the row it marks, it
+    // covers no visible text, or it overlaps a span already spelled.  Naming
+    // it keeps the loss visible instead of dropping it silently.
     std::string detail = "drawn figure body carries cross references the "
                          "verbatim block cannot express:";
-    for (const auto &link : figure.body_links)
-      detail += " '" + link.label + "' -> " + link.target + ";";
+    for (const auto *link : unexpressed)
+      detail += " '" + link->label + "' -> " + link->target + ";";
     block.origin.fidelity = DocumentFidelityIR::degraded;
     block.origin.degradation_code = "figure-body-cross-reference";
     block.origin.degradation_detail = std::move(detail);
-    for (const auto &link : figure.body_links)
-      block.origin.slices.push_back(link.source);
+    for (const auto *link : unexpressed)
+      block.origin.slices.push_back(link->source);
     std::sort(block.origin.slices.begin(), block.origin.slices.end(),
               [](const auto &left, const auto &right) {
                 return std::make_tuple(left.logical_record, left.segment_index,

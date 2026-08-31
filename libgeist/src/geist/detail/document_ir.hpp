@@ -2,6 +2,7 @@
 
 #include "geist/detail/provenance_ir.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -160,6 +161,57 @@ struct TableBlockIR {
   std::size_t header_rows = 0;
 };
 
+// A cross reference carried *inside* a preformatted row.
+//
+// Both routes that reproduce drawn rows character for character need
+// this: the verbatim route (a topic no family claimed) and the typed
+// figure body (character art the compiler rasterized).  Hosted
+// BookServer serves both as `<pre>` with the anchors *inside* the rows,
+// so the node is shared rather than duplicated per route.
+
+enum class VerbatimLinkKindIR {
+  in_book,       // an `SR<id>` anchor somewhere in this book
+  book_contents, // another book's contents page
+  book_heading,  // a heading inside another book
+  external_url,  // a URL the reader opens
+};
+
+// One cross reference, as a half-open byte range of its row plus everything
+// the source says about where it points.  The range is the only thing the
+// row itself knows about; the destination is a question for the backend.
+struct VerbatimLinkIR {
+  std::size_t begin = 0;
+  std::size_t end = 0;
+  VerbatimLinkKindIR kind = VerbatimLinkKindIR::in_book;
+  // In-book: the anchor id the selector names.  Cross-book and external:
+  // alternative 6, the target's own identifier.
+  std::string target;
+  // The `LNK` alternative list verbatim, without its angle brackets, all six
+  // (or seven) fields in source order; empty for an in-book reference.  The
+  // node carries the whole list whatever Markdown does with it, so #46 can
+  // resolve a cross-book reference through a caller-supplied resolver
+  // instead of re-reading the source.
+  std::vector<std::string> alternatives;
+  // Alternative 4: the order number of the book referenced.
+  std::string document_number;
+  // Alternative 5: the `DocnumLevel` a live BookServer appends to the
+  // destination, which it uses to offer a revision picker.  It is not
+  // addressing inside the target book.
+  std::string document_level;
+  // Alternative 2: the heading anchor of a `<HDR>` reference, which the
+  // reader prefixes with `HDR`.
+  std::string heading_anchor;
+  // The absolute URL of an external reference; empty otherwise.  This is the
+  // only cross-book destination a single-book Markdown export can prove.
+  std::string url;
+};
+
+struct VerbatimRowIR {
+  std::string text;
+  // Disjoint, in column order.
+  std::vector<VerbatimLinkIR> links;
+};
+
 struct PreformattedBlockIR {
   std::vector<std::string> lines;
   // Optional per-line provenance.  Either empty, meaning the block's own
@@ -168,6 +220,17 @@ struct PreformattedBlockIR {
   // each of its lines came from, and a reader hunting a rendering fault needs
   // that line, not the whole region.
   std::vector<DocumentNodeOriginIR> line_origins;
+  // Optional per-line cross references, as byte ranges of the matching entry
+  // of `lines`.  Either empty -- the block carries none, and a renderer emits
+  // it as a fence exactly as before -- or exactly one (possibly empty) entry
+  // per line.
+  //
+  // A drawn row can carry a link: hosted BookServer wraps the marked columns
+  // of a figure body in an `<a href>` *inside* its `<pre>`, leaving every
+  // other column where it was.  A fence cannot express that, so a block that
+  // has any link is rendered as a `<pre>` instead -- the same form the
+  // verbatim route uses -- and the rows keep their own bytes either way.
+  std::vector<std::vector<VerbatimLinkIR>> line_links;
 };
 
 struct NoteBlockIR {

@@ -101,6 +101,18 @@ std::string display_line_text(const DecodedLogicalRecordSource& record,
 std::vector<std::uint16_t> display_line_columns(
     const DecodedLogicalRecordSource& record, const DisplayLineIR& line);
 
+// The byte offset into `display_line_text(record, line)` of every display
+// column of that line, plus a final end offset -- so the result holds one
+// more entry than the line has columns.
+//
+// A consumer holding a *column* range (a `cselect` names its cross reference
+// that way) has to find the bytes that range covers, and a word that renders
+// to several bytes still occupies one column, so the map cannot be recovered
+// from the flattened row.  Built by the same walk as `display_line_text` so
+// the two cannot diverge.
+std::vector<std::size_t> display_line_column_offsets(
+    const DecodedLogicalRecordSource& record, const DisplayLineIR& line);
+
 // One entry per display column: the word and the record-local token it came
 // from.  `token` is `static_cast<std::size_t>(-1)` for a space the assembler
 // inserted between two tokens.

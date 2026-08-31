@@ -1176,6 +1176,8 @@ struct Extractor {
       out.token_end = view.line.token_end;
       out.text = classes[index].text;
       out.rows = rows_in(*view.record, view.line);
+      out.column_offsets =
+          display_line_column_offsets(*view.record, view.line);
       block.lines.push_back(std::move(out));
     }
     if (caption_at < lines.size()) {
