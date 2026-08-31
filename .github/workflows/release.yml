@@ -131,9 +131,21 @@ jobs:
           $dist = "dist/${{ steps.version.outputs.name }}"
           New-Item -ItemType Directory -Force -Path $dist | Out-Null
 
+          # The reader first: windeployqt has already assembled the Qt
+          # runtime, QtWebEngineProcess.exe and its resource trees there.
           Copy-Item -Path "build/gui/Release/*" -Destination $dist -Recurse -Force
-          Get-ChildItem -Path "build/Release" -File |
-            Where-Object { $_.Extension -in '.exe', '.dll' } |
+
+          # Name what ships. build/Release also holds every test executable
+          # and the benchmark, and a glob over *.exe sweeps all of them into
+          # the distribution.
+          $tools = @(
+            'booinfo.exe', 'bootoc.exe', 'boorsrc.exe',
+            'boorender.exe', 'bootrace.exe', 'boo2git.exe'
+          )
+          foreach ($tool in $tools) {
+            Copy-Item -Path "build/Release/$tool" -Destination $dist -Force
+          }
+          Get-ChildItem -Path "build/Release" -Filter "*.dll" -File |
             Copy-Item -Destination $dist -Force
 
           # Apache-2.0 section 4 requires the licence to travel with the
@@ -174,6 +186,16 @@ jobs:
           # on MSVC, but accept either spelling rather than break on a rename.
           if (-not (Test-Path (Join-Path $dist 'LICENSE'))) {
             $missing += 'LICENSE'
+          }
+
+          # Test binaries are not part of a distribution.
+          $strays = Get-ChildItem -Path $dist -Recurse -File |
+            Where-Object { $_.Name -like '*_test.exe' -or
+                           $_.Name -like '*benchmark*.exe' }
+          if ($strays) {
+            Write-Host "::error::Test binaries leaked into the distribution:"
+            $strays | ForEach-Object { Write-Host "  $($_.Name)" }
+            exit 1
           }
           if (-not (Test-Path (Join-Path $dist 'geist.dll')) -and
               -not (Test-Path (Join-Path $dist 'libgeist.dll'))) {
