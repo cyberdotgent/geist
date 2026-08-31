@@ -1,14 +1,19 @@
 # Copyright 2026 Yvan Janssens
 # SPDX-License-Identifier: Apache-2.0
 
-# Builds the Windows distribution of libgeist: the CLI tools, the shared
-# library and the Geist Hardcopy Reader, with the Qt runtime the reader needs
-# to actually start.
+# Release artefacts, built by two independent jobs:
 #
-# Pushing a tag publishes the zip to a GitHub Release, creating the release
+#   windows-dist  the Windows zip: the CLI tools, the shared library and the
+#                 Geist Hardcopy Reader, with the Qt runtime it needs to start
+#   linux-spec    the BOO format specification as a PDF
+#
+# Pushing a tag publishes both to one GitHub Release, creating the release
 # first if it does not exist. Running the workflow by hand builds and uploads
-# the same zip as a run artifact but publishes nothing, so the package can be
-# downloaded and checked before any tag is cut.
+# both as run artifacts but publishes nothing, so they can be downloaded and
+# checked before any tag is cut.
+#
+# The two jobs run concurrently and either may be first to the release, so
+# each treats "already created" as success rather than a collision.
 name: Release
 
 on:
@@ -236,10 +241,145 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             Write-Host "Creating release $tag"
             gh release create $tag --title $tag --generate-notes
-            if ($LASTEXITCODE -ne 0) { throw "Could not create release $tag" }
+            if ($LASTEXITCODE -ne 0) {
+              # The spec job may have created it between the check and the
+              # create. That is a race, not a failure: what matters is that
+              # the release exists now.
+              gh release view $tag 2>&1 | Out-Null
+              if ($LASTEXITCODE -ne 0) { throw "Could not create release $tag" }
+              Write-Host "Release $tag appeared concurrently; attaching to it"
+            }
           } else {
             Write-Host "Release $tag already exists; attaching to it"
           }
 
           gh release upload $tag "$name.zip" "$name.zip.sha256" --clobber
           if ($LASTEXITCODE -ne 0) { throw "Could not upload the distribution to $tag" }
+
+  linux-spec:
+    name: BOO specification PDF
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version="$GITHUB_REF_NAME"
+            publish=true
+          else
+            version="${GITHUB_SHA:0:7}"
+            publish=false
+          fi
+          {
+            echo "version=$version"
+            echo "publish=$publish"
+            echo "name=boo-spec-$version"
+          } >> "$GITHUB_OUTPUT"
+          echo "Version $version (publish a release: $publish)"
+
+      # dblatex depends on the TeX stack, so it drags texlive in by itself;
+      # asciidoc-dblatex is the pairing the specification is verified against.
+      # libpng and libgif are the library's own dependencies.
+      - name: Install the toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            asciidoc asciidoc-dblatex dblatex \
+            libpng-dev libgif-dev
+
+      # Neither Qt nor httpd is wanted here: this job exists for the library,
+      # the CLI tools and the specification. Both are pinned OFF rather than
+      # left at AUTO so the job cannot quietly change shape with the image.
+      - name: Configure
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DGEIST_BUILD_GUI=OFF \
+            -DGEIST_BUILD_APACHE=OFF 2>&1 | tee configure.log
+
+          # doc/boo-spec only defines its target when the toolchain is found,
+          # so a missing tool would otherwise surface as an obscure "no rule
+          # to make target" much later.
+          if ! grep -q "target 'boo-spec-pdf' available" configure.log; then
+            echo "::error::The AsciiDoc toolchain is missing; boo-spec-pdf was not configured."
+            grep "BOO format specification" configure.log || true
+            exit 1
+          fi
+
+      - name: Build the library and tools
+        run: cmake --build build --parallel
+
+      - name: Build the specification
+        run: cmake --build build --target boo-spec-pdf
+
+      # A PDF that did not build, or built empty, must fail here rather than
+      # be attached to a release.
+      - name: Verify the outputs
+        run: |
+          for tool in booinfo bootoc boorsrc boorender bootrace boo2git; do
+            if [ ! -x "build/$tool" ]; then
+              echo "::error::CLI tool $tool was not built"
+              exit 1
+            fi
+          done
+
+          pdf=build/doc/boo-spec/boo-spec.pdf
+          if [ ! -f "$pdf" ]; then
+            echo "::error::The specification PDF was not produced at $pdf"
+            exit 1
+          fi
+          if [ "$(head -c 4 "$pdf")" != "%PDF" ]; then
+            echo "::error::$pdf is not a PDF"
+            exit 1
+          fi
+          size=$(stat -c%s "$pdf")
+          if [ "$size" -lt 51200 ]; then
+            echo "::error::$pdf is only $size bytes; the build produced a stub"
+            exit 1
+          fi
+
+          name="${{ steps.version.outputs.name }}"
+          cp "$pdf" "$name.pdf"
+          sha256sum "$name.pdf" > "$name.pdf.sha256"
+          echo "$name.pdf: $((size / 1024)) KiB"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.version.outputs.name }}
+          path: |
+            ${{ steps.version.outputs.name }}.pdf
+            ${{ steps.version.outputs.name }}.pdf.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish release
+        if: steps.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ steps.version.outputs.version }}"
+          name="${{ steps.version.outputs.name }}"
+
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            echo "Creating release $tag"
+            if ! gh release create "$tag" --title "$tag" --generate-notes; then
+              # The Windows job may have created it between the check and the
+              # create. That is a race, not a failure.
+              if ! gh release view "$tag" >/dev/null 2>&1; then
+                echo "::error::Could not create release $tag"
+                exit 1
+              fi
+              echo "Release $tag appeared concurrently; attaching to it"
+            fi
+          else
+            echo "Release $tag already exists; attaching to it"
+          fi
+
+          gh release upload "$tag" "$name.pdf" "$name.pdf.sha256" --clobber
