@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <limits>
 #include <map>
 #include <set>
 #include <sstream>
@@ -139,6 +140,13 @@ struct SourceIndex {
   // 2.0 prints it. Such a line's printable cells are admitted as unrowed
   // text rather than treated as an ownership gap.
   std::set<TokenKey> unrowed_line_tokens;
+  // Tokens of a display line that *is* rowed, but which no row covers: the
+  // flattened splitter cut a segment boundary inside the line and LayoutIR
+  // ended the row there. N2AH1MST record 3152 line 2 is the single line
+  // `          characters (no SO or SI characters were located).`, and the
+  // splitter cut `SI ...` off as segment 1; hosted 2.0 (DT 19910329000100)
+  // serves the whole line. The tail is drawn text, not an ownership gap.
+  std::set<TokenKey> split_line_tokens;
   // Length bytes of empty display lines, per record and in token order. An
   // empty display line is the only paragraph break a record spells.
   std::map<std::uint32_t, std::vector<std::size_t>> empty_line_prefixes;
@@ -213,8 +221,13 @@ SourceIndex index_sources(const std::vector<DecodedLogicalRecordSource> &records
         for (auto token = line.prefix_token + 1; token < line.token_end; ++token)
           if (index.rows_by_token.count({record.logical_record, token}) != 0)
             rowed = true;
-        if (rowed)
+        if (rowed) {
+          for (auto token = line.prefix_token + 1; token < line.token_end;
+               ++token)
+            if (index.rows_by_token.count({record.logical_record, token}) == 0)
+              index.split_line_tokens.emplace(record.logical_record, token);
           continue;
+        }
         for (auto token = line.prefix_token + 1; token < line.token_end; ++token)
           index.unrowed_line_tokens.emplace(record.logical_record, token);
       }
@@ -334,6 +347,30 @@ TrapCellRoleIR marker_role(const DecodedLogicalRecordSource &record,
                    record.ir.tokens[after_origin].decoded_words.end(),
                    [](const auto word) { return word > 0xff; })))
     return textual;
+  // A word slot that opens its own display line is drawn: the row control
+  // and the row's first word are the same cell. N2AH1MST record 2585 line 24
+  // is `                    12    No prompting was allowed on a PROMPT
+  // request.` inside `IDC3900I`, whose slot carries the boundary signature,
+  // and hosted 2.0 (DT 19910329000100) serves `<p>` followed by
+  // `                    12    No prompting ...` -- the break *and* the
+  // number. Only a slot with drawn text in front of it on the same display
+  // line is a control alone.
+  if (lexical) {
+    const auto *line = display_line_of_token(record, marker.token_index);
+    if (line != nullptr) {
+      bool drawn_before = false;
+      for (auto token = line->prefix_token + 1; token < marker.token_index;
+           ++token) {
+        const auto *words = display_text_words(record, token);
+        if (words != nullptr &&
+            std::any_of(words->begin(), words->end(),
+                        [](const auto word) { return word > ' '; }))
+          drawn_before = true;
+      }
+      if (!drawn_before)
+        return textual;
+    }
+  }
   return TrapCellRoleIR::layout_marker;
 }
 
@@ -457,10 +494,19 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
       // xx` and its `cfont ... 47 1 2 ...` highlights the `-` at column 47,
       // which hosted serves as `<B>-</B>`. The display line's length byte is
       // the only true row-control slot, and this token is not one.
+      //
+      // The slot's width is not the evidence; the CFONT column is. N2AH1MST
+      // record 2445 line 45 is the whole line `cfont 10 6 3` and record 2446
+      // line 0 is `          number    The number of the record update.`:
+      // the slot word `number` carries the three-space origin signature of a
+      // row control, and the control before it highlights exactly its six
+      // columns. Hosted 2.0 (DT 19910329000100) serves
+      // `<B><I>number</B></I>    The number of the record update.`. The slot
+      // is admitted only when the highlight covers it whole.
       if (cell.role == TrapCellRoleIR::layout_marker &&
-          marker->second.row->marker->decoded_text.size() == 1 &&
           value >= 0x20 && value <= 0xff && value != ' ' &&
-          running + 1 <= highlighted_columns) {
+          running + (record.ir.tokens[token].decoded_words.size() - word) <=
+              highlighted_columns) {
         cell.role = TrapCellRoleIR::text;
         emit_char(token, static_cast<char>(value), false);
       } else if (cell.role == TrapCellRoleIR::punctuation_marker) {
@@ -509,7 +555,8 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
       // unowned printable cell anywhere else is not explained.
       if (covering != index.rows_by_token.end() ||
           (!operand_tail && segment.segment_index != 0 && !row_seen &&
-           index.unrowed_line_tokens.count({record.logical_record, token}) == 0))
+           index.unrowed_line_tokens.count({record.logical_record, token}) == 0 &&
+           index.split_line_tokens.count({record.logical_record, token}) == 0))
         return fail(error, "trap payload has an unowned cell outside a record "
                            "prefix or row gap at LR" +
                                std::to_string(record.logical_record) +
@@ -589,6 +636,187 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
   return true;
 }
 
+
+// The record-local token the segment's payload opens on, or nothing when the
+// payload is empty.
+std::optional<std::size_t>
+payload_first_token(const DecodedLogicalRecordSource &record,
+                    const ControlSegmentIR &segment) {
+  const auto range =
+      decoded_byte_range_to_word_range(record.assembled, segment.payload_range);
+  for (auto output = range.begin;
+       output < range.end && output < record.assembled.sources.size();
+       ++output) {
+    const auto &source = record.assembled.sources[output];
+    if (source.kind == LogicalWordSourceKind::inserted_space)
+      continue;
+    return source.token_index;
+  }
+  return std::nullopt;
+}
+
+std::string control_identifier(const std::string &opcode,
+                               const std::string &prefix) {
+  if (opcode.size() <= prefix.size() ||
+      !ascii_starts_with_case_insensitive(opcode, prefix))
+    return {};
+  return opcode.substr(prefix.size());
+}
+
+// The control segment a record-local token belongs to, or the record's own
+// segment count when no segment claims it.
+std::vector<std::size_t>
+segment_of_token(const DecodedLogicalRecordSource &record) {
+  std::vector<std::size_t> owner(record.ir.tokens.size(),
+                                 record.control_segments.size());
+  for (const auto &segment : record.control_segments)
+    for (const auto token : segment.source_tokens)
+      if (token < owner.size() &&
+          owner[token] == record.control_segments.size())
+        owner[token] = segment.segment_index;
+  return owner;
+}
+
+// Projects the display lines an embedded `SRTBL` ... `SRETBL` envelope draws.
+//
+// The bounds are given in the records' own token coordinates: `start_token`
+// is the first token of the opening control's payload (inclusive) and
+// `end_token` the first source token of the closing control (exclusive). A
+// display line is the region's when every one of its tokens lies between
+// them; a line that holds tokens on both sides of a bound is not decidable
+// here and the whole family declines rather than guess where the envelope's
+// drawing begins.
+bool project_embedded_region(const std::vector<DecodedLogicalRecordSource> &records,
+                             const SourceIndex &index,
+                             std::uint32_t start_record,
+                             std::size_t start_token,
+                             std::uint32_t end_record, std::size_t end_token,
+                             TrapEmbeddedRegionIR &region,
+                             std::vector<TrapSourceCellIR> &cells,
+                             std::string *error) {
+  const auto identity = region.identifier.empty() ? std::string{"SRTBL"}
+                                                  : region.identifier;
+  for (auto logical = start_record; logical <= end_record; ++logical) {
+    const auto *record = find_record(records, logical);
+    if (record == nullptr)
+      return fail(error, "trap table envelope names a missing record: " +
+                             identity);
+    const auto *lines = record_display_lines(*record);
+    if (lines == nullptr)
+      return fail(error,
+                  "trap table envelope record has no display-line framing: " +
+                      identity);
+    const auto owner = segment_of_token(*record);
+    for (const auto &line : *lines) {
+      const auto lower =
+          logical == start_record ? start_token : std::size_t{0};
+      const auto upper = logical == end_record
+                             ? end_token
+                             : std::numeric_limits<std::size_t>::max();
+      const auto in_region = [&](const std::size_t token) {
+        return (logical != start_record || token >= lower) &&
+               (logical != end_record || token < upper);
+      };
+      // The line's length byte is structure, never drawing, so the bounds
+      // are decided on the line's content tokens; a line that draws nothing
+      // is placed by its own length byte.
+      std::size_t inside = 0;
+      std::size_t outside = 0;
+      for (auto token = line.prefix_token + 1; token < line.token_end; ++token)
+        (in_region(token) ? inside : outside)++;
+      if (inside == 0 && outside == 0)
+        inside = in_region(line.prefix_token) ? 1 : 0;
+      if (inside == 0)
+        continue;
+      if (outside != 0)
+        return fail(error,
+                    "trap table envelope boundary falls inside a display "
+                    "line: " +
+                        identity);
+      // A display line whose printable cells are all control operands is the
+      // region's own markup -- the `CFONT` that highlights the row below it
+      // -- and draws nothing. Its cells are still ledgered; no line is.
+      bool printable = false;
+      bool drawn = false;
+      for (auto token = line.prefix_token + 1;
+           token < line.token_end && token < record->ir.tokens.size();
+           ++token) {
+        if (is_display_line_length_token(*record, token))
+          continue;
+        const auto &words = record->ir.tokens[token].decoded_words;
+        for (std::size_t word = 0; word < words.size(); ++word) {
+          if (words[word] <= ' ')
+            continue;
+          printable = true;
+          const auto owned = index.cells.find({logical, token, word});
+          if (owned == index.cells.end() ||
+              owned->second->disposition != SourceDisposition::control_operand)
+            drawn = true;
+        }
+      }
+      auto text = display_line_text(*record, line);
+      while (!text.empty() && text.back() == ' ')
+        text.pop_back();
+      const auto cell_begin = cells.size();
+      for (auto token = line.prefix_token;
+           token < line.token_end && token < record->ir.tokens.size();
+           ++token) {
+        if (!in_region(token))
+          continue;
+        const auto &words = record->ir.tokens[token].decoded_words;
+        for (std::size_t word = 0; word < words.size(); ++word) {
+          const auto owned = index.cells.find({logical, token, word});
+          TrapSourceCellIR cell;
+          cell.logical_record = logical;
+          cell.token_index = token;
+          cell.word_index = word;
+          cell.word = words[word];
+          cell.disposition = owned == index.cells.end()
+                                 ? SourceDisposition::opaque
+                                 : owned->second->disposition;
+          if (is_display_line_length_token(*record, token))
+            cell.role = TrapCellRoleIR::layout_marker;
+          else if (cell.disposition == SourceDisposition::control_operand)
+            cell.role = TrapCellRoleIR::control;
+          else if (cell.word == ' ' || cell.word < 0x20)
+            cell.role = TrapCellRoleIR::spacing;
+          else if (cell.word > 0xff)
+            cell.role = TrapCellRoleIR::placeholder;
+          else if (cell.disposition == SourceDisposition::visible_content)
+            cell.role = TrapCellRoleIR::text;
+          else if (cell.disposition == SourceDisposition::layout_origin ||
+                   cell.disposition == SourceDisposition::layout_padding)
+            cell.role = TrapCellRoleIR::spacing;
+          else if (cell.disposition == SourceDisposition::marker_slot)
+            cell.role = TrapCellRoleIR::layout_marker;
+          else
+            // The region is projected from the record's own display-line
+            // framing, so a cell LayoutIR left unpositioned is still drawn
+            // and still ledgered; it is not an ownership gap here.
+            cell.role = TrapCellRoleIR::unrowed_text;
+          cells.push_back(cell);
+        }
+      }
+      if (cells.size() == cell_begin || (printable && !drawn))
+        continue;
+      region.lines.push_back(std::move(text));
+      region.line_sources.push_back(
+          token_slice(*record, owner[line.prefix_token], line.prefix_token,
+                      line.token_end));
+    }
+  }
+  while (!region.lines.empty() && region.lines.front().empty()) {
+    region.lines.erase(region.lines.begin());
+    region.line_sources.erase(region.line_sources.begin());
+  }
+  while (!region.lines.empty() && region.lines.back().empty()) {
+    region.lines.pop_back();
+    region.line_sources.pop_back();
+  }
+  if (region.lines.empty())
+    return fail(error, "trap table envelope draws no display line: " + identity);
+  return true;
+}
 
 // Leading run of CFONT spans that opens the row, verified against the row's
 // own display text: the run starts at `origin_column`, and between two
@@ -913,6 +1141,18 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
     }
     bool have_headline = false;
     TrapLineIR *current = nullptr;
+    // The embedded `SRTBL` envelope currently open, with the record and the
+    // token its drawing starts at.
+    struct OpenRegion {
+      TrapEmbeddedRegionIR region;
+      std::uint32_t record = 0;
+      std::size_t token = 0;
+    };
+    std::optional<OpenRegion> open_region;
+    // Cell index the entry's text resumes at after an embedded region has
+    // claimed a run of the ledger, so the region does not read as a gap in
+    // the interrupted field's own cells.
+    std::size_t resume_cell = 0;
     for (auto at = begin + 1; at < end; ++at) {
       const auto &ref = ordered[at];
       const auto &segment = *ref.segment;
@@ -921,6 +1161,59 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
         continue;
       const auto opcode_is_line_prefix =
           segment_opcode_is_display_line_prefix(*ref.record, segment);
+      // `SRTBL<id>` opens a drawn table or figure envelope inside the entry
+      // and `SRETBL` closes it. Everything between the two is the region's
+      // own drawing, kept as the display lines the record frames rather than
+      // flowed into the field the envelope interrupts.
+      if (!opcode_is_line_prefix && !segment.source_tokens.empty() &&
+          segment.kind == BookControlKind::table_start) {
+        if (open_region)
+          return reject("trap entry nests a table envelope: " + entry.id);
+        if (current == nullptr)
+          return reject("trap entry table envelope precedes its headline: " +
+                        entry.id);
+        OpenRegion opened;
+        opened.record = ref.record->logical_record;
+        // The envelope's drawing starts at the opening control's own
+        // payload where it has one -- the flattened splitter keeps the
+        // region's first rows inside that segment -- and otherwise at the
+        // token after the control.
+        const auto payload = payload_first_token(*ref.record, segment);
+        opened.token = payload ? *payload : segment.source_tokens.back() + 1;
+        opened.region.identifier = control_identifier(segment.opcode, "srtbl");
+        opened.region.start = {TrapEmbeddedControlKindIR::table_start,
+                               opened.region.identifier,
+                               segment_slice(*ref.record, segment)};
+        opened.region.after_field = entry.fields.size();
+        opened.region.cell_begin = entry.cells.size();
+        open_region = std::move(opened);
+        continue;
+      }
+      if (open_region) {
+        if (opcode_is_line_prefix ||
+            segment.kind != BookControlKind::table_end)
+          continue;
+        if (segment.source_tokens.empty())
+          return reject("trap table envelope end has no source token: " +
+                        entry.id);
+        auto &region = open_region->region;
+        region.end = {TrapEmbeddedControlKindIR::table_end,
+                      {},
+                      segment_slice(*ref.record, segment)};
+        if (!project_embedded_region(records, index, open_region->record,
+                                     open_region->token,
+                                     ref.record->logical_record,
+                                     segment.source_tokens.front(), region,
+                                     entry.cells, error))
+          return std::nullopt;
+        region.cell_end = entry.cells.size();
+        resume_cell = region.cell_end;
+        entry.embedded_regions.push_back(std::move(region));
+        open_region.reset();
+        // The closing control's own payload is entry text again: N2AH1MST
+        // record 1574 segment 1 reads `SRETBL              Also in the
+        // message text:`. Fall through to the text branches below.
+      }
       if (!opcode_is_line_prefix &&
           segment.kind == BookControlKind::message_start &&
           segment.payload_range.begin == segment.payload_range.end &&
@@ -969,8 +1262,11 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
             (ordered[at + 1].segment->kind == BookControlKind::text ||
              ordered[at + 1].segment->kind == BookControlKind::unknown)) {
           ++at;
+          // The CFONT's own columns travel with its deferred payload: the
+          // control ends one record and its row opens the next.
           if (!walk_payload(*ordered[at].record, *ordered[at].segment, index,
-                            line.body, entry.cells, error))
+                            line.body, entry.cells, error, false,
+                            highlighted_columns))
             return std::nullopt;
         } else if (line.body.text.empty() && at + 1 < end &&
                    ordered[at + 1].record == ref.record &&
@@ -1079,6 +1375,7 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
                  segment.kind == BookControlKind::text ||
                  segment.kind == BookControlKind::unknown ||
                  segment.kind == BookControlKind::select ||
+                 segment.kind == BookControlKind::table_end ||
                  segment.kind == BookControlKind::structural) {
         // A structural `SR<id>` inside an entry names the topic a second
         // time.  Its payload is entry text and keeps its disposition below;
@@ -1108,9 +1405,11 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           continue;
         }
         auto &body = current->body;
-        if (body.cell_end != piece.cell_begin)
+        if (body.cell_end != piece.cell_begin &&
+            !(resume_cell != 0 && resume_cell == piece.cell_begin))
           return reject("trap entry continuation is not contiguous: " +
                         entry.id);
+        resume_cell = 0;
         if (piece.paragraph_break)
           body.paragraph_break = true;
         if (!body.source_slices.empty() && !piece.source_slices.empty() &&
@@ -1139,6 +1438,8 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
                       entry.id + " " + segment.opcode);
       }
     }
+    if (open_region)
+      return reject("trap entry table envelope is not closed: " + entry.id);
     if (!have_headline)
       return reject("trap entry has no highlighted headline: " + entry.id);
     if (!starts_with_word(entry.headline.body.text, entry.id))
@@ -1296,8 +1597,22 @@ bool same_trap_catalog_ir(const TrapCatalogIR &left,
     if (a.id != b.id || a.operand != b.operand ||
         !(a.start_source == b.start_source) ||
         !same_line(a.headline, b.headline) || a.fields.size() != b.fields.size() ||
-        a.cells != b.cells || a.suppressed_rows.size() != b.suppressed_rows.size())
+        a.cells != b.cells || a.suppressed_rows.size() != b.suppressed_rows.size() ||
+        a.embedded_regions.size() != b.embedded_regions.size())
       return false;
+    for (std::size_t region = 0; region < a.embedded_regions.size(); ++region) {
+      const auto &left_region = a.embedded_regions[region];
+      const auto &right_region = b.embedded_regions[region];
+      if (left_region.identifier != right_region.identifier ||
+          left_region.lines != right_region.lines ||
+          left_region.line_sources != right_region.line_sources ||
+          left_region.after_field != right_region.after_field ||
+          left_region.cell_begin != right_region.cell_begin ||
+          left_region.cell_end != right_region.cell_end ||
+          !(left_region.start.source == right_region.start.source) ||
+          !(left_region.end.source == right_region.end.source))
+        return false;
+    }
     for (std::size_t field = 0; field < a.fields.size(); ++field)
       if (a.fields[field].label_text != b.fields[field].label_text ||
           a.fields[field].in_vocabulary != b.fields[field].in_vocabulary ||
@@ -1344,6 +1659,19 @@ bool verify_trap_catalog_ir(
       return false;
     if (!starts_with_word(entry.headline.body.text, entry.id))
       return fail(error, "trap headline does not begin with its ID: " + entry.id);
+    for (const auto &region : entry.embedded_regions) {
+      if (region.cell_begin > region.cell_end ||
+          region.cell_end > entry.cells.size())
+        return fail(error, "trap embedded region cell range is invalid: " +
+                               entry.id);
+      if (region.lines.empty() ||
+          region.lines.size() != region.line_sources.size())
+        return fail(error, "trap embedded region has no drawn line: " +
+                               entry.id);
+      if (region.after_field > entry.fields.size())
+        return fail(error, "trap embedded region names a missing field: " +
+                               entry.id);
+    }
     for (const auto &field : entry.fields) {
       if (!check_line(field.line, "field"))
         return false;
@@ -1389,6 +1717,10 @@ std::string format_trap_catalog_ir(const TrapCatalogIR &catalog) {
     for (const auto &field : entry.fields)
       out << " field='" << field.label_text << "' text='"
           << field.line.body.text << "'";
+    for (const auto &region : entry.embedded_regions)
+      out << " table='" << region.identifier
+          << "' after_field=" << region.after_field
+          << " lines=" << region.lines.size();
     out << '\n';
   }
   return out.str();

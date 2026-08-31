@@ -48,7 +48,7 @@ BASELINE = {
     "IBMMMSTR.boo": 52,
     "IEAC6MST.BOO": 201,
     "ITPPIBOK.BOO": 255,
-    "N2AH1MST.BOO": 41,
+    "N2AH1MST.BOO": 45,
     "OFCUSEOV.BOO": 192,
     "PRG1SORT.boo": 205,
     "QS3X36CM.BOO": 10,
@@ -72,7 +72,7 @@ BASELINE = {
     "XWEBDEMO.boo": 11,
     "packet.boo": 122,
 }
-BASELINE_TOTAL = 7183
+BASELINE_TOTAL = 7187
 
 SUMMARY = re.compile(r"^# summary\ttyped=(\d+)\tlegacy=(\d+)\ttotal=(\d+)")
 
