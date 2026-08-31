@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <tuple>
+#include <variant>
 #include <utility>
 
 namespace geist::detail {
@@ -116,21 +117,47 @@ std::optional<EmphasisKindIR> emphasis_for(FontStyleIR style) {
   return std::nullopt;
 }
 
-// Highlighted span words as separate inlines separated by single spaces:
-// BookServer renders each CFONT span as its own bold run. The entry
-// headline is the term of the definition item and is always strong, which
-// also covers the headline CFONT code the decoder leaves glued to its
-// control boundary (`2,`).
+// Highlighted span words as separate inlines: BookServer renders each CFONT
+// span as its own run, separated by the gap its columns leave. Spans that
+// abut leave no gap and no separator. The entry headline is the term of the
+// definition item and is always strong, which also covers the headline CFONT
+// code the decoder leaves glued to its control boundary (`2,`).
 void append_spans(InlineSequenceIR &content,
                   const std::vector<TrapStyledSpanIR> &spans,
                   const DocumentNodeOriginIR &span_origin,
                   bool definition_term = false) {
   for (std::size_t index = 0; index < spans.size(); ++index) {
-    if (index != 0)
+    // Two spans that abut in the CFONT columns spell one word between them:
+    // N2AH1MST record 1729 line 8 is `   CSV028I JOBNAME=jjj STEPNAME=sss
+    // [ABENDcde-rc]` and hosted 2.0 (DT 19910329000100) serves
+    // `<B>[ABEND</B><var>cde</var><B>-</B><var>rc</var><B>]</B>` with no
+    // space anywhere. `map_leading_chain` already joins the run that way;
+    // the separator here follows the same column evidence.
+    const auto abuts =
+        index != 0 && spans[index].span.column ==
+                          spans[index - 1].span.column +
+                              spans[index - 1].span.length;
+    if (index != 0 && !abuts)
       content.push_back({TextInlineIR{" "}, synthesized("span separator")});
     auto kind = emphasis_for(spans[index].span.style);
     if (definition_term && !kind)
       kind = EmphasisKindIR::strong;
+    // Abutting spans that land on the same emphasis are one run: emitting
+    // two closes and reopens the markup inside a word.
+    if (abuts && !content.empty()) {
+      auto &previous = content.back().node;
+      if (kind) {
+        if (auto *emphasis = std::get_if<EmphasisInlineIR>(&previous);
+            emphasis != nullptr && emphasis->kind == *kind) {
+          emphasis->text += spans[index].text;
+          continue;
+        }
+      } else if (auto *text = std::get_if<TextInlineIR>(&previous);
+                 text != nullptr) {
+        text->text += spans[index].text;
+        continue;
+      }
+    }
     if (kind)
       content.push_back(
           {EmphasisInlineIR{spans[index].text, *kind}, span_origin});
@@ -275,6 +302,35 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
     list.items.push_back(std::move(item));
     auto list_origin = list.items.front().origin;
     document.blocks.push_back({std::move(list), std::move(list_origin)});
+
+    // An `SRTBL<id>` envelope the entry draws. Hosted BookServer serves the
+    // region's first display line carrying `<a name="TBL<id>">` and the rest
+    // of the lines exactly as the record draws them; the family claims the
+    // envelope and the drawing, and no grid.
+    for (const auto &region : entry.embedded_regions) {
+      if (region.lines.size() != region.line_sources.size())
+        return reject("trap embedded region lines have no line provenance: " +
+                      entry.id);
+      if (!region.identifier.empty()) {
+        auto region_anchor = origin("trap embedded table source anchor");
+        add_slice(region_anchor, region.start.source);
+        document.blocks.push_back(
+            {AnchorBlockIR{"TBL" + region.identifier}, region_anchor});
+      }
+      PreformattedBlockIR drawn;
+      drawn.lines = region.lines;
+      auto region_origin = origin("trap embedded table");
+      for (std::size_t line = 0; line < region.lines.size(); ++line) {
+        auto line_origin = origin("trap embedded table line");
+        add_slice(line_origin, region.line_sources[line]);
+        drawn.line_origins.push_back(canonical(std::move(line_origin)));
+        add_slice(region_origin, region.line_sources[line]);
+      }
+      add_slice(region_origin, region.start.source);
+      add_slice(region_origin, region.end.source);
+      region_origin = canonical(std::move(region_origin));
+      document.blocks.push_back({std::move(drawn), std::move(region_origin)});
+    }
   }
 
   // Every container names at least the BOO bytes its own content names

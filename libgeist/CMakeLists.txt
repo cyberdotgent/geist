@@ -233,7 +233,8 @@ foreach(synthetic_test
     prose_index_term_line_synthetic
     glossary_catalog_ir_synthetic
     message_catalog_ir_synthetic
-    verbatim_cross_references_synthetic)
+    verbatim_cross_references_synthetic
+    trap_catalog_ir_synthetic)
   geist_add_test(${synthetic_test})
 endforeach()
 

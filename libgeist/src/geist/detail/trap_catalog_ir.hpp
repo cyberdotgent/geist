@@ -113,12 +113,51 @@ struct TrapFieldIR {
   bool in_vocabulary = true;
 };
 
+// A `SRTBL<id>` ... `SRETBL` envelope drawn inside one entry.
+//
+// The family models the envelope, not a grid. Nothing in the source spells
+// column boundaries for these regions: the book draws them by placing words
+// at fixed display columns, and hosted BookServer serves them the same way,
+// as the entry's own display lines with an `<a name="TBL<id>">` anchor on
+// the first one (N2AH1MST 28.0 `IDC3009I`, DT 19910329000100, serves
+// `<a name="TBLTBLUNIQ35">   <B>Return</B>   <B>Reason</B> ...`). Claiming a
+// TableBlockIR here would be inventing cell boundaries; flowing the region
+// into the surrounding field would destroy the alignment that carries its
+// meaning. So the region keeps its display lines exactly as the record's own
+// framing draws them.
+enum class TrapEmbeddedControlKindIR {
+  table_start,
+  table_end,
+};
+
+struct TrapEmbeddedControlIR {
+  TrapEmbeddedControlKindIR kind = TrapEmbeddedControlKindIR::table_start;
+  std::string identifier;
+  DocumentSourceSliceIR source;
+};
+
+struct TrapEmbeddedRegionIR {
+  std::string identifier;
+  TrapEmbeddedControlIR start;
+  TrapEmbeddedControlIR end;
+  // One entry per drawn display line, in source order, with the line's own
+  // provenance beside it.
+  std::vector<std::string> lines;
+  std::vector<DocumentSourceSliceIR> line_sources;
+  // Fields already closed when the envelope opened, so a consumer can place
+  // the region back where the entry drew it.
+  std::size_t after_field = 0;
+  std::size_t cell_begin = 0;
+  std::size_t cell_end = 0;
+};
+
 struct TrapEntryIR {
   std::string id;
   std::string operand;
   DocumentSourceSliceIR start_source;
   TrapLineIR headline;
   std::vector<TrapFieldIR> fields;
+  std::vector<TrapEmbeddedRegionIR> embedded_regions;
   // Every payload cell of the entry's segments, in source order, each with
   // exactly one role.
   std::vector<TrapSourceCellIR> cells;
