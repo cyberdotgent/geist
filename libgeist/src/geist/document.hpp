@@ -22,6 +22,7 @@ namespace detail {
 struct BookTopicCatalogIR;
 struct LogicalDecodeContext;
 struct TypedRouteInventoryIR;
+struct DrawnWordConservationIR;
 }
 
 struct BooFontTrace {
@@ -97,6 +98,11 @@ public:
   // it (and which family) or the legacy string pipeline renders it. Lowering
   // only; no Markdown is rendered. See geist/detail/typed_route_inventory.hpp.
   GEIST_API detail::TypedRouteInventoryIR typed_route_inventory() const;
+  // Source-side conservation for every TOC topic: the words the topic's
+  // records draw, per their own display-line framing, against the words its
+  // Markdown emits. Renders every topic. See
+  // geist/detail/drawn_word_conservation.hpp.
+  GEIST_API detail::DrawnWordConservationIR drawn_word_conservation() const;
 
   // Returns an exact 4096-byte physical page payload.
   GEIST_API std::vector<std::uint8_t> read_page(std::uint32_t page_number)

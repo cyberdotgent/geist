@@ -113,12 +113,14 @@ std::vector<std::uint16_t> display_line_columns(
 std::vector<std::size_t> display_line_column_offsets(
     const DecodedLogicalRecordSource& record, const DisplayLineIR& line);
 
-// One entry per display column: the word and the record-local token it came
-// from.  `token` is `static_cast<std::size_t>(-1)` for a space the assembler
-// inserted between two tokens.
+// One entry per display column: the word, the record-local token it came from
+// and the word's ordinal inside that token.  `token` is
+// `static_cast<std::size_t>(-1)` for a space the assembler inserted between two
+// tokens, and `word_index` is then meaningless.
 struct DisplayLineCellIR {
   std::uint16_t word = 0;
   std::size_t token = static_cast<std::size_t>(-1);
+  std::size_t word_index = 0;
 };
 
 std::vector<DisplayLineCellIR> display_line_cells(

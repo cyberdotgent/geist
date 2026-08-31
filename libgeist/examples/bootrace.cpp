@@ -1,4 +1,5 @@
 #include "geist/boo.hpp"
+#include "geist/detail/drawn_word_conservation.hpp"
 #include "geist/detail/render_diagnostic_ir.hpp"
 #include "geist/detail/internal.hpp"
 #include "geist/detail/topic_link_targets.hpp"
@@ -29,6 +30,7 @@ void usage() {
                "       bootrace <book.boo> --coverage\n"
                "       bootrace <book.boo> --links\n"
                "       bootrace <book.boo> --declines\n"
+               "       bootrace <book.boo> --conservation\n"
                "       bootrace <book.boo> <topic-id> --explain-offset <n>\n";
 }
 
@@ -205,6 +207,52 @@ int main(int argc, char** argv) {
                     << tsv_escape(topic.family) << "\t"
                     << tsv_escape(declined) << "\n";
       }
+      return 0;
+    } catch (const std::exception& error) {
+      std::cerr << "bootrace: " << error.what() << "\n";
+      return 1;
+    }
+  }
+
+  // Does every word the source draws reach the render?  Coverage says which
+  // route rendered a topic; this says whether the output is complete.  The
+  // record's own display-line framing states what is drawn -- the length byte
+  // that opens each line is the row-control slot and never display text, so it
+  // is excluded whatever ordinary word the dictionary spells for it -- and the
+  // ownership ledger removes the cells a control's opcode or operand consumes.
+  // Everything left must survive into the Markdown.  A row per dropped word:
+  // enumerating them is the point, since a count alone repeats the failure
+  // this check exists to fix.
+  if (argc == 3 && std::string(argv[2]) == "--conservation") {
+    try {
+      const auto document = geist::BooDocument::open(argv[1]);
+      const auto report = document.drawn_word_conservation();
+      std::cout << "topic\troute\tword\tdrawn_opening\tdrawn_inline"
+                   "\temitted\tunaccounted\n";
+      for (const auto& topic : report.topics) {
+        for (const auto& deficit : topic.deficits)
+          std::cout << tsv_escape(topic.id) << "\t"
+                    << tsv_escape(topic.route) << "\t"
+                    << tsv_escape(deficit.word) << "\t"
+                    << deficit.drawn_opening << "\t" << deficit.drawn_inline
+                    << "\t" << deficit.emitted << "\t"
+                    << deficit.unaccounted << "\t"
+                    << tsv_escape(deficit.evidence) << "\n";
+      }
+      // Records whose payload does not tile into display lines have no decided
+      // framing, so nothing about them is checked.  The count is reported
+      // rather than folded into a clean result.
+      for (const auto& topic : report.topics) {
+        if (topic.unframed_records == 0) continue;
+        std::cout << "# unframed\t" << tsv_escape(topic.id) << "\t"
+                  << topic.unframed_records << "\t" << topic.records << "\n";
+      }
+      std::cout << "# summary\tchecked=" << report.topics_checked
+                << "\tdropping=" << report.topics_dropping
+                << "\tunaccounted=" << report.unaccounted_words
+                << "\tforgiven=" << report.forgiven_words
+                << "\tunframed-topics=" << report.topics_with_unframed_records
+                << "\n";
       return 0;
     } catch (const std::exception& error) {
       std::cerr << "bootrace: " << error.what() << "\n";
