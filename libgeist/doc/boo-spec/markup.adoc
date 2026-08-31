@@ -341,7 +341,7 @@ control-only token followed by ordinary text (`OS`+`/`+`2`, `Note`+`:`,
 that attaches a wide padding run after sentence punctuation (`actions.` +
 control-only `1` + 18 spaces + `When`, logical record 104 tokens 175--180) is
 the in-row form of the same blank line.  `libgeist` uses exactly this
-geometry (`message_prose_rows.cpp`) to restore the 4.1.3 introduction
+geometry to restore the 4.1.3 introduction
 paragraphs and to keep `?`-run and record-continuation soft wraps (topic
 `4.4` messages 1 and 2, topic `4.1.3` messages 329 and 444) inside their
 paragraph.
@@ -395,8 +395,8 @@ Checked against the hosted pages of N2AH1MST topics `4.0`, `18.0`, `22.0`,
 `23.0`, `26.0` and SC31-711 `4.1.3`, `4.4` (about 650 marker slots): every
 slot with the two-run shape whose phrase could be located is hosted text, and
 no single-run slot word appears in hosted text except numeric return-code
-labels inside fixed tables (pass:[<literal>12&#160;&#160;Unable to</literal>]), which `message_prose_rows.cpp`
-leaves untyped (fail closed).
+labels inside fixed tables (pass:[<literal>12&#160;&#160;Unable to</literal>]), which a
+reader should leave untyped (fail closed).
 
 List items inside a record continuation are not soft wraps even though the
 record geometry continues the display run.  `N2AH1MST.BOO` topic `22.0`
@@ -418,8 +418,7 @@ ordered label sequence repeated by every entry is the catalog vocabulary; a
 labelled line that only some entries carry (`3 5 2` `Note:` in topic `4.4`
 entry `805306372`) is entry-local.  A `CFONT` with an empty payload at a
 record end takes the next record's leading text segment as its payload (topic
-`4.4` logical records 153/154 `LNM for AIX Response:` and 154/155 `7 (fddiControlCartridgeError)`).  `libgeist` implements this as
-`trap_catalog_ir.cpp`.
+`4.4` logical records 153/154 `LNM for AIX Response:` and 154/155 `7 (fddiControlCartridgeError)`).
 
 The important implementation rule is that this is not a hardcoded packet title
 or hardcoded three-line page rule. `:vnotice.` changes the interpretation of
@@ -1977,7 +1976,7 @@ those markers while retaining the row boundary and must resolve a non-image
 figure target to the target topic's figure anchor (for example
 `1.4#FIGDSLIB` in BookServer, projected locally as `1-4.md#DSLIB`).
 
-The evidence was obtained with `bootrace.exe BOO/IEAC6MST.BOO FIGURES --segments` and BookServer topic URL
+The evidence was obtained by tracing the decoded segments of topic `FIGURES` and comparing them with the BookServer topic URL
 `/BOOKS/IEAC6MST/FIGURES?DT=19920124000100`. The decoder reports the figure
 targets and row fragments in logical records 16--24; BookServer emits the
 corresponding rows in `<pre width="80">` with one anchor per row.
