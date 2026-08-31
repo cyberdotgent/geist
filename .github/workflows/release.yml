@@ -312,8 +312,13 @@ jobs:
             exit 1
           fi
 
+      # An explicit job count, never a bare --parallel: with the Makefiles
+      # generator that becomes "make -j" with no number, which is unlimited.
+      # This tree is ~166 template-heavy translation units, so unlimited
+      # exhausts the runner's memory and the job dies with a SIGTERM and no
+      # error of its own.
       - name: Build the library and tools
-        run: cmake --build build --parallel
+        run: cmake --build build --parallel "$(nproc)"
 
       - name: Build the specification
         run: cmake --build build --target boo-spec-pdf
