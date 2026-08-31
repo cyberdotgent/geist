@@ -206,13 +206,15 @@ VerbatimCrossReferenceIR link_verbatim_cross_references(
     } else {
       if (!anchor_shaped(selector.target) || picture_object(selector.target))
         continue;
-      // A footnote lives only on the page that prints it.  One this topic
-      // does not print is not a destination this topic can prove.
-      if (ascii_starts_with_case_insensitive(selector.target, "ftn") &&
-          std::find(printed_footnote_anchors.begin(),
-                    printed_footnote_anchors.end(),
-                    selector.target) == printed_footnote_anchors.end())
-        continue;
+      // A footnote reference may leave the page that prints it.  SC31-6055-1
+      // `BIBLIOGRAPHY.1` (DT 19911015203151) carries seven
+      // `cselect <col> 4 FTNMERBIB` references and hosted BookServer serves
+      // every one of them as `BIBLIOGRAPHY?DT=...#FTNMERBIB` -- the footnote
+      // is printed by the *parent* topic, and the reference crosses to it.
+      // So the reference is admitted here whatever this topic prints, and
+      // where the destination really lives is the book-wide link map's
+      // question (`document_link_targets`), with the export unlinking a
+      // reference no file in the book answers for.
       link.kind = VerbatimLinkKindIR::in_book;
       link.target = selector.target;
     }
@@ -278,8 +280,15 @@ VerbatimCrossReferenceIR link_verbatim_cross_references(
     auto& accepted = result.rows[index].links;
     for (auto& link : links) {
       if (!accepted.empty() && link.begin < accepted.back().end) continue;
+      // The local destination is emitted only for a footnote *this* topic
+      // prints.  One printed by another topic already has its anchor there,
+      // and emitting a second here would invent a destination the source
+      // does not carry.
       if (link.kind == VerbatimLinkKindIR::in_book &&
           ascii_starts_with_case_insensitive(link.target, "ftn") &&
+          std::find(printed_footnote_anchors.begin(),
+                    printed_footnote_anchors.end(),
+                    link.target) != printed_footnote_anchors.end() &&
           std::find(result.footnote_anchors.begin(),
                     result.footnote_anchors.end(),
                     link.target) == result.footnote_anchors.end())
