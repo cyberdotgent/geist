@@ -13,7 +13,7 @@ not as an application with an established build system.
 - `BOO/` contains sample `.BOO` files for format analysis. These are binary
   fixtures and should be preserved exactly unless the user explicitly asks to
   replace or add samples.
-- `Format/` is the canonical place to document any and all findings about the
+- `libgeist/doc/boo-spec/` is the canonical place to document any and all findings about the
   IBM BookManager file format itself. Put format structures, field layouts,
   byte-level evidence, compression/indexing observations, and format hypotheses
   there.
@@ -93,13 +93,13 @@ not as an application with an established build system.
 - When documenting discoveries about the BOO format, include the evidence:
   sample filename, byte offsets, hex values, decoded interpretation, and any
   assumptions still unresolved.
-- Put BookManager file-format findings in `Format/`. Put supporting notes that
+- Put BookManager file-format findings in `libgeist/doc/boo-spec/`. Put supporting notes that
   are about tools, environment behavior, URL mapping, or reader operation in
   `AnalysisNotes/`.
 - When reverse-engineering a format with help from upstream IBM manuals or
   hosted BookManager books, also update `AnalysisNotes/` with the analysis
   workflow and the exact upstream book names, document numbers, topic IDs, and
-  URLs used. Keep the normative byte-level facts in `Format/`, but make the
+  URLs used. Keep the normative byte-level facts in `libgeist/doc/boo-spec/`, but make the
   source trail and tool procedure easy to repeat.
 - Commit and push after each change and after each distinct workload. Keep
   commits scoped to the files intentionally changed for that workload.
@@ -147,7 +147,12 @@ For current validation:
 ## Documentation Style
 
 - Keep documentation factual and evidence-driven.
-- Write `Format/` documentation to be complete enough for an independent
+- The spec in `libgeist/doc/boo-spec/` is published with the library. It must
+  describe the format, never the decoder: no source filenames, function names,
+  internal type names, or tool command lines. Container field offsets are part
+  of the format and belong there; offsets into proprietary reader binaries and
+  other reverse-engineering artefacts do not.
+- Write `libgeist/doc/boo-spec/` documentation to be complete enough for an independent
   implementer to build a BOO reader from scratch without reading `libgeist`
   source code or consulting the proprietary IBM reader binaries. Include field
   sizes, byte order, offsets, valid/observed values, parsing steps, cross-file
