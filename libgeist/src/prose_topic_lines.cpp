@@ -324,6 +324,18 @@ struct LineBuilder {
   // read as the fill/origin pair that opens the next row; see the guard at
   // the end of the function for its conditions and title-page evidence.
   bool change_bar_margin_line(std::size_t index, Margin& margin) {
+    // Not inside a verbatim region.  A revision margin is layout the reader
+    // draws in front of a reflowed row, and reading it collapses the bar and
+    // the whitespace around it into blank margin cells.  Inside a
+    // `cz OFF XMP`/`SCREEN`/`LBLBOX`/`SYNTAX`/`LINES` region there is no
+    // reflow and no margin: hosted BookServer serves the region's display
+    // lines inside its `<pre>` at the columns they are stored in, so a
+    // `U+2502` standing at the row's left is a drawn cell of that row --
+    // packet `1.3` (DT 20260614112503) stores its `Audio filtering and
+    // high-speed packet` box as display lines `   |` + text + `|`, and
+    // hosted prints the left rule of every one of them.  Collapsing it lost
+    // the rule and shifted the row's remaining columns into blanks.
+    if (xmp_mode) return false;
     const auto& view = items[index].token;
     const auto* lines = display_lines_of(view.record);
     if (lines == nullptr) return false;
@@ -604,6 +616,21 @@ struct LineBuilder {
   static bool change_bar_slot(const TokenView& view) {
     return view.width == 1 && view.body.size() == 1 &&
            (view.body[0] == 0x2502 || view.body[0] == '|');
+  }
+
+  // A run of box-drawing words inside a verbatim region: drawn display
+  // content of the region's row, never row geometry.  Hosted BookServer
+  // reproduces the region's display lines column for column inside its
+  // `<pre>`, so every stored box word of the region is a cell it prints --
+  // SC09-2417-00 `4.1.10` record 872 line 13 is
+  // `   |   The SQUARE of 10 is 100 ... |`, whose left rule stands one
+  // origin run and two spaces in front of the row's first word, exactly the
+  // shape a `cz FLOW LI` bullet slot has.  Reading it as that slot spends
+  // the rule's column on a marker and prints the decoder's `?` in its place.
+  bool drawn_region_cell(const TokenView& view) const {
+    return xmp_mode && is_placeholder_run(view) &&
+           std::all_of(view.body.begin(), view.body.end(),
+                       [](const auto word) { return box_word(word); });
   }
 
   void open_line(std::size_t origin_cells, const TokenView* origin,
@@ -1281,7 +1308,15 @@ struct LineBuilder {
       // lines and the legacy route keeps one row per paragraph.  It is also a
       // one-book rule.  Both reasons say leave the pair alone until the
       // fixed-layout regions render verbatim.
-      if (space_at(next)) {
+      // Inside a verbatim region a row already open was opened by its display
+      // line's length byte, and the framing says the row ends where the next
+      // length byte begins -- not at a pair of space runs inside the line.
+      // packet `1.3` record 26 display line 12 is `   ` + `U+2502` + a
+      // 63-cell run + an 8-cell run + `U+2502`: one 77-column box row that
+      // the fill/origin pair cut in two (`   |` then `        |`).  The pair
+      // still opens a row whose display line has not opened one yet, which is
+      // the leading two-run margin the rule was written for.
+      if (space_at(next) && !(xmp_mode && line_open)) {
         // Fill/origin pair: every run but the last is fill.
         auto cursor = index;
         auto last = next;
@@ -1321,8 +1356,13 @@ struct LineBuilder {
       // CZ dialect rows are justified to one width (packet 1.1: 77 cells
       // `PRNET,   and   SATNET   (a   satellite ...`); a run that keeps the
       // next word inside the widest row seen so far is an in-row gap.
+      // This is a row break the reflow *infers* where no length byte proves
+      // one, so it may not fire inside a verbatim region: there the display
+      // line is the row, and a wide run inside it is display spacing the
+      // region reproduces.
       const auto fits_row = [&]() { return run_fits_row(0, index); };
-      if (view.body.size() >= 3 && pending_space && line_visible_cells != 0 &&
+      if (!xmp_mode && view.body.size() >= 3 && pending_space &&
+          line_visible_cells != 0 &&
           !span_continues_row() &&
           index + 1 < items.size() && items[index + 1].kind == ItemKind::token &&
           visible_at(next_token(index)) &&
@@ -1356,9 +1396,12 @@ struct LineBuilder {
       // keeps CFONT/CSELECT columns aligned (`cselect 7 55` on LI 3 7).
       // The slot decodes as a placeholder word or as the literal decoder
       // separator `?` (SC09-2417-00 4.2 record 894); neither is text.
-      const auto slot = is_placeholder_run(view) ||
-                        (item.separator && (view.body.front() == '?' ||
-                                            is_bullet_glyph(view)));
+      // A drawn cell of a verbatim region is never that slot: see
+      // `drawn_region_cell`.
+      const auto slot = !drawn_region_cell(view) &&
+                        (is_placeholder_run(view) ||
+                         (item.separator && (view.body.front() == '?' ||
+                                             is_bullet_glyph(view))));
       if (slot && text_follows && run_length(next) <= 2) {
         line().bullet = true;
         if (!assign(view, ProseTokenRoleIR::bullet)) return false;
@@ -1460,12 +1503,11 @@ struct LineBuilder {
     // title line is written `ST` + slot + title (ACPZMST1 record 284 tokens
     // 26/28/29 `ST` `U+2502` `/`), where the box word is the documented title
     // marker slot and not a drawn cell.
-    if (is_placeholder_run(view) &&
-        (xmp_mode ||
-         (line_open && line_visible_cells != 0 &&
-          display_word_precedes_in_line(view))) &&
-        std::all_of(view.body.begin(), view.body.end(),
-                    [](const auto word) { return box_word(word); })) {
+    if (drawn_region_cell(view) ||
+        (is_placeholder_run(view) && line_open && line_visible_cells != 0 &&
+         display_word_precedes_in_line(view) &&
+         std::all_of(view.body.begin(), view.body.end(),
+                     [](const auto word) { return box_word(word); }))) {
       if (!ensure_line()) return false;
       if (pending_space && view.prefix != 0 && view.prefix != 1)
         line().cells.push_back({npos, 0, " ", true});

@@ -233,6 +233,7 @@ foreach(synthetic_test
     prose_index_term_line_synthetic
     cz_artwork_region_synthetic
     cz_degraded_region_synthetic
+    font_span_trace_synthetic
     glossary_catalog_ir_synthetic
     message_catalog_ir_synthetic
     verbatim_cross_references_synthetic

@@ -450,11 +450,11 @@ std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(
                                         all_records.size());
   std::vector<std::string> records(all_records.begin() + begin,
                                    all_records.begin() + end);
-  auto traced = detail::trace_decoded_records(
-      records, topic->start_logical_record, font_definitions());
   const auto sources = detail::decode_logical_record_sources(
       *decode_context_, topic->start_logical_record,
       topic->end_logical_record);
+  auto traced = detail::trace_decoded_records(
+      records, sources, topic->start_logical_record, font_definitions());
   const auto layout = detail::extract_layout_ir(sources);
   std::string ir_error;
   // One build, one verification for the whole trace: every consumer below

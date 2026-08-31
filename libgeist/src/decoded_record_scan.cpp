@@ -5,6 +5,8 @@
 #include "geist/detail/internal.hpp"
 #include "geist/detail/implicit_grid.hpp"
 #include "geist/detail/procedure_rows.hpp"
+#include "geist/detail/display_lines.hpp"
+#include "geist/detail/figure_block_ir.hpp"
 
 #include <algorithm>
 #include <array>
@@ -669,127 +671,6 @@ std::string font_code_to_highlight_tag(const std::string& code) {
   return {};
 }
 
-struct DisplayTextMap {
-  std::string text;
-  // CFONT coordinates are display-character columns.  The decoded stream is
-  // UTF-8, so these indices count code points while the values remain byte
-  // offsets into the UTF-8 output.  Keeping the two units distinct prevents a
-  // delimiter from being inserted between bytes of a multibyte character.
-  std::vector<std::size_t> source_to_output;
-};
-
-std::size_t utf8_character_size(const std::string& value,
-                                std::size_t offset) {
-  if (offset >= value.size()) {
-    return 0;
-  }
-  const auto first = static_cast<unsigned char>(value[offset]);
-  std::size_t length = 1;
-  if (first >= 0xC2 && first <= 0xDF) {
-    length = 2;
-  } else if (first >= 0xE0 && first <= 0xEF) {
-    length = 3;
-  } else if (first >= 0xF0 && first <= 0xF4) {
-    length = 4;
-  }
-  if (length == 1 || offset + length > value.size()) {
-    return 1;
-  }
-  // Invalid sequences are treated as one opaque source character.  This is
-  // only a defensive fallback for synthetic/legacy input; valid decoded BOO
-  // text takes the multibyte path above.
-  for (std::size_t index = 1; index < length; ++index) {
-    const auto continuation =
-        static_cast<unsigned char>(value[offset + index]);
-    if ((continuation & 0xC0) != 0x80) {
-      return 1;
-    }
-  }
-  return length;
-}
-
-bool utf8_character_is_ascii_space(const std::string& value,
-                                   std::size_t offset,
-                                   std::size_t length) {
-  return length == 1 &&
-         std::isspace(static_cast<unsigned char>(value[offset])) != 0;
-}
-
-DisplayTextMap normalize_display_text_with_map(std::string value) {
-  value = remove_decoded_line_markers(std::move(value));
-  // Decoder/layout padding surrounding a CFONT display row is not part of the
-  // control's coordinate space.  Normalize it away before mapping display
-  // characters, while retaining byte offsets only at UTF-8 boundaries.
-  value = trim_ascii(std::move(value));
-  collapse_terminal_question_separator(value);
-  for (std::size_t index = 0; index < value.size(); ++index) {
-    if (value[index] != '?') {
-      continue;
-    }
-    const auto terminal_literal = index + 1 == value.size();
-    if (!terminal_literal) {
-      value[index] = ' ';
-    }
-  }
-  if (value.empty()) {
-    return {};
-  }
-
-  DisplayTextMap mapped;
-  mapped.source_to_output.clear();
-  mapped.source_to_output.reserve(value.size() + 1);
-  bool pending_space = false;
-  for (std::size_t index = 0; index < value.size();) {
-    const auto length = utf8_character_size(value, index);
-    mapped.source_to_output.push_back(mapped.text.size());
-    if (utf8_character_is_ascii_space(value, index, length)) {
-      pending_space = !mapped.text.empty();
-      index += length;
-      continue;
-    }
-    if (pending_space) {
-      mapped.text.push_back(' ');
-      pending_space = false;
-    }
-    mapped.text.append(value, index, length);
-    index += length;
-  }
-  mapped.source_to_output.push_back(mapped.text.size());
-  return mapped;
-}
-
-std::optional<FontSpan> map_font_span_to_normalized_text(
-    const FontSpan& span,
-    const DisplayTextMap& mapped,
-    std::size_t base_column) {
-  if (span.length == 0 || mapped.text.empty()) {
-    return std::nullopt;
-  }
-  const auto source_offset =
-      span.offset >= base_column ? span.offset - base_column : 0;
-  if (source_offset >= mapped.source_to_output.size()) {
-    return std::nullopt;
-  }
-  const auto source_end = std::min(mapped.source_to_output.size() - 1,
-                                   source_offset + span.length);
-  auto output_offset = mapped.source_to_output[source_offset];
-  auto output_end = mapped.source_to_output[source_end];
-  while (output_offset < mapped.text.size() &&
-         std::isspace(static_cast<unsigned char>(mapped.text[output_offset])) !=
-             0) {
-    ++output_offset;
-  }
-  while (output_end > output_offset &&
-         std::isspace(static_cast<unsigned char>(mapped.text[output_end - 1])) !=
-             0) {
-    --output_end;
-  }
-  if (output_offset >= output_end) {
-    return std::nullopt;
-  }
-  return FontSpan{output_offset, output_end - output_offset, span.code};
-}
-
 std::string parse_fontdef_style(std::string value, std::string& code) {
   const auto equals = value.find('=');
   if (equals != std::string::npos) {
@@ -825,39 +706,103 @@ bool is_valid_font_definition_code(const std::string& code) {
          code.front() == '_';
 }
 
+// The display line a `CFONT` control's operands address, or nullptr.
+//
+// A `CFONT` operand triple names display **columns** of one display row
+// (Format/markup.md, "Spans And The Display Row").  The row is not the
+// control's own display line: the control stands alone on its line and the
+// row it styles is the next one.  SC09-2417-00 record 29 line 12 is
+// `cfont 11 9 P 22 13 V` and line 13 is
+// `       >>__STATEMENT__required_item ... ><`, whose columns 11..19 spell
+// `STATEMENT` and 22..34 `required_item` -- exactly the two triples, and
+// exactly what hosted (DT 19961114175628) serves as `<kbd>STATEMENT</kbd>`
+// and `<var>required_item</var>`.  The same record's line 4
+// `cfont 26 9 X` addresses line 5's ordinary prose
+// `       In these diagrams, STATEMENT represents ...`, whose column 26 is
+// again `STATEMENT`: the rule is the control's, not a region's.
+//
+// Resolving the operands against the flattened ASCII projection instead
+// reads byte offsets, and a projection byte is a display column only where
+// every word renders one byte wide.  It does not: a decoder placeholder run
+// and a box-drawing word each render to a different width than they occupy,
+// so the two units drift apart inside the row.  That drift is the whole of
+// issue #82, and ordinary prose is no more exempt from it than a drawn
+// diagram is.
+const DisplayLineIR* font_span_target_line(
+    const DecodedLogicalRecordSource& record,
+    const ControlSegmentIR& segment,
+    const std::set<std::size_t>& control_opcode_tokens) {
+  const auto* lines = record_display_lines(record);
+  if (lines == nullptr || segment.source_tokens.empty()) return nullptr;
+  const auto opcode_token = segment.source_tokens.front();
+  const auto* control_line = display_line_of_token(record, opcode_token);
+  if (control_line == nullptr) return nullptr;
+  // The control must open its display line: a `cfont`-shaped word standing
+  // inside a row is that row's display text and addresses nothing.
+  if (opcode_token != control_line->prefix_token + 1) return nullptr;
+  const auto index =
+      static_cast<std::size_t>(control_line - lines->data()) + 1;
+  if (index >= lines->size()) return nullptr;
+  const auto& target = (*lines)[index];
+  // Fail closed where the next display line opens a control of its own:
+  // that line is markup, its columns are not a styled row, and nothing in
+  // the record says which row the operands then mean.
+  if (control_opcode_tokens.count(target.prefix_token + 1) != 0) return nullptr;
+  return &target;
+}
+
+// The record-local tokens that open a control segment, so a control line can
+// be told from a display row without reading either one's spelling.
+std::set<std::size_t> control_opcode_tokens_of(
+    const DecodedLogicalRecordSource& record) {
+  std::set<std::size_t> tokens;
+  for (const auto& segment : record.control_segments) {
+    if (segment.display_text || segment.kind == BookControlKind::text) continue;
+    if (segment.source_tokens.empty()) continue;
+    tokens.insert(segment.source_tokens.front());
+  }
+  return tokens;
+}
+
 std::vector<BooFontTrace> trace_font_spans(
-    const std::string& segment,
-    std::uint32_t logical_record,
-    std::uint32_t segment_index,
+    const DecodedLogicalRecordSource& record,
+    const ControlSegmentIR& segment,
+    const std::set<std::size_t>& control_opcode_tokens,
     const std::map<std::string, std::string>& font_definitions) {
-  auto value = trim_ascii(rest_after_first_word(segment));
+  const auto* control_line =
+      segment.source_tokens.empty()
+          ? nullptr
+          : display_line_of_token(record, segment.source_tokens.front());
+  if (control_line == nullptr) return {};
+  // The operands are read off the control's own display line, in the hosted
+  // accumulation of its cells.  Nothing but whole triples may follow the
+  // opcode: a residue means the line is not a bare `CFONT` control, and the
+  // trace declines rather than guess which columns it named.
+  auto value = trim_ascii(rest_after_first_word(
+      trim_ascii(display_line_text(record, *control_line))));
   std::size_t cursor = 0;
-  auto spans = parse_font_spans(value, cursor);
-  auto text = cursor >= value.size() ? std::string{} : value.substr(cursor);
-  if (!spans.empty() && spans.front().offset <= 3) {
-    text = trim_ascii(std::move(text));
-  }
-  auto mapped = normalize_display_text_with_map(std::move(text));
-  if (mapped.text.empty() || spans.empty()) {
-    return {};
-  }
+  const auto spans = parse_font_spans(value, cursor);
+  while (cursor < value.size() &&
+         std::isspace(static_cast<unsigned char>(value[cursor])) != 0)
+    ++cursor;
+  if (spans.empty() || cursor != value.size()) return {};
+
+  const auto* target =
+      font_span_target_line(record, segment, control_opcode_tokens);
+  const auto cells = target == nullptr
+                         ? std::vector<DisplayLineCellIR>{}
+                         : display_line_cells(record, *target);
 
   std::vector<BooFontTrace> traced;
   for (std::size_t index = 0; index < spans.size(); ++index) {
-    const auto mapped_span =
-        map_font_span_to_normalized_text(spans[index], mapped, 3);
+    const auto& span = spans[index];
     BooFontTrace trace;
-    trace.logical_record = logical_record;
-    trace.segment_index = segment_index;
+    trace.logical_record = record.logical_record;
+    trace.segment_index = static_cast<std::uint32_t>(segment.segment_index);
     trace.span_index = static_cast<std::uint32_t>(index);
-    if (!mapped_span) {
-      trace.offset = static_cast<std::uint32_t>(spans[index].offset);
-      trace.length = static_cast<std::uint32_t>(spans[index].length);
-      trace.code = spans[index].code;
-      traced.push_back(std::move(trace));
-      continue;
-    }
-    const auto& span = *mapped_span;
+    // The operands are reported as the columns they are.  A span whose row
+    // the record does not carry keeps its operands and gains no text: the
+    // trace never invents a mapping it cannot prove.
     trace.offset = static_cast<std::uint32_t>(span.offset);
     trace.length = static_cast<std::uint32_t>(span.length);
     trace.code = span.code;
@@ -867,14 +812,13 @@ std::vector<BooFontTrace> trace_font_spans(
     } else {
       trace.style = font_code_to_highlight_tag(span.code);
     }
-
-    if (span.offset < mapped.text.size() && span.length > 0) {
-      const auto end = std::min(mapped.text.size(), span.offset + span.length);
-      trace.text = mapped.text.substr(span.offset, end - span.offset);
+    if (span.length > 0 && span.offset < cells.size()) {
+      const auto end = std::min(cells.size(), span.offset + span.length);
+      for (auto column = span.offset; column < end; ++column)
+        trace.text += figure_display_glyph(cells[column].word);
       const auto tag = font_code_to_highlight_tag(span.code);
-      if (!tag.empty()) {
+      if (!tag.empty())
         trace.projected_gml = ":" + tag + "." + trace.text + ":e" + tag + ".";
-      }
     }
     traced.push_back(std::move(trace));
   }
@@ -902,6 +846,7 @@ std::map<std::string, std::string> extract_font_definitions(
 
 std::vector<BooLogicalRecordTrace> trace_decoded_records(
     const std::vector<std::string>& decoded_records,
+    const std::vector<DecodedLogicalRecordSource>& sources,
     std::uint32_t first_logical_record,
     const std::map<std::string, std::string>& font_definitions) {
   std::vector<BooLogicalRecordTrace> traced_records;
@@ -914,20 +859,29 @@ std::vector<BooLogicalRecordTrace> trace_decoded_records(
     traced.decoded_record = decoded_records[record_index];
     traced.segments =
         split_decoded_markup_segments(decoded_records[record_index]);
-    for (std::size_t segment_index = 0; segment_index < traced.segments.size();
-         ++segment_index) {
-      const auto& segment = traced.segments[segment_index];
-      if (!ascii_starts_with_case_insensitive(trim_ascii(segment), "cfont"))
+    traced_records.push_back(std::move(traced));
+  }
+  // Font spans are decided on the record's typed source, never on the
+  // flattened string above: their operands are display columns and the
+  // string's offsets are bytes (issue #82).  A record the trace has no
+  // source for contributes no span rather than a guessed one.
+  for (const auto& source : sources) {
+    if (source.logical_record < first_logical_record) continue;
+    const auto index =
+        static_cast<std::size_t>(source.logical_record - first_logical_record);
+    if (index >= traced_records.size()) continue;
+    auto& traced = traced_records[index];
+    const auto opcode_tokens = control_opcode_tokens_of(source);
+    for (const auto& segment : source.control_segments) {
+      if (segment.display_text ||
+          segment.kind != BookControlKind::font)
         continue;
       auto font_spans =
-          trace_font_spans(segment, traced.logical_record,
-                           static_cast<std::uint32_t>(segment_index),
-                           font_definitions);
+          trace_font_spans(source, segment, opcode_tokens, font_definitions);
       traced.font_spans.insert(traced.font_spans.end(),
                                std::make_move_iterator(font_spans.begin()),
                                std::make_move_iterator(font_spans.end()));
     }
-    traced_records.push_back(std::move(traced));
   }
   return traced_records;
 }
