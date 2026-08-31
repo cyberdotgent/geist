@@ -93,6 +93,5 @@ bool verify_menu_topic_ir(
     const MenuTargetValidationIR &target_validation,
     const LayoutIR &layout, const VerifiedOwnershipIR &ownership,
     const MenuTopicIR &topic, std::string *error = nullptr);
-std::string format_menu_topic_ir(const MenuTopicIR &topic);
 
 } // namespace geist::detail

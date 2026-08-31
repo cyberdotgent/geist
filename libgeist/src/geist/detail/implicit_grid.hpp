@@ -29,20 +29,11 @@ struct ImplicitGrid {
   std::vector<std::vector<std::string>> semantic_rows;
 };
 
-bool is_implicit_grid_header_geometry(
-    const std::vector<ImplicitGridHeaderSpan>& header_spans);
-
 // Extract a source-owned two-column form that has no drawn box. Activation
 // requires both a plural CFONT header geometry and repeated encoded row
 // controls; visible spacing alone is deliberately insufficient.
 std::optional<ImplicitGrid> extract_implicit_grid(
     const std::vector<DecodedLogicalRecordSource>& records,
     const std::vector<ImplicitGridHeaderSpan>& header_spans);
-
-std::optional<ImplicitGrid> extract_terminal_styled_grid(
-    const DecodedLogicalRecordSource& record,
-    const DecodedMarkupSegmentSpan& segment,
-    const std::vector<ImplicitGridHeaderSpan>& header_spans,
-    const std::vector<std::string>& headings);
 
 } // namespace geist::detail

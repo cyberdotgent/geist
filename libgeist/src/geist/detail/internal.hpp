@@ -128,7 +128,8 @@ struct TopicData {
   std::uint32_t end_logical_record = 0;
   std::vector<std::string> raw_records;
   // Positioned source decode for the selected topic, populated lazily once
-  // per topic and shared by typed lowering and the compatibility renderer.
+  // per topic and shared by typed lowering and the verbatim best-effort
+  // route.
   std::vector<DecodedLogicalRecordSource> fixed_layout_sources;
 };
 

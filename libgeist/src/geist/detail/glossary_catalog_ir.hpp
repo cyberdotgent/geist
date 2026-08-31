@@ -188,6 +188,5 @@ bool verify_glossary_catalog_ir(
     const std::vector<DecodedLogicalRecordSource> &records,
     const LayoutIR &layout, const VerifiedOwnershipIR &ownership,
     const GlossaryCatalogIR &catalog, std::string *error = nullptr);
-std::string format_glossary_catalog_ir(const GlossaryCatalogIR &catalog);
 
 } // namespace geist::detail

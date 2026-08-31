@@ -140,10 +140,6 @@ std::optional<std::pair<std::size_t, std::size_t>> header_columns(
 
 } // namespace
 
-bool is_implicit_grid_header_geometry(
-    const std::vector<ImplicitGridHeaderSpan>& header_spans) {
-  return header_columns(header_spans).has_value();
-}
 
 std::optional<ImplicitGrid> extract_implicit_grid(
     const std::vector<DecodedLogicalRecordSource>& records,
@@ -282,88 +278,5 @@ std::optional<ImplicitGrid> extract_implicit_grid(
   return grid;
 }
 
-std::optional<ImplicitGrid> extract_terminal_styled_grid(
-    const DecodedLogicalRecordSource& record,
-    const DecodedMarkupSegmentSpan& segment,
-    const std::vector<ImplicitGridHeaderSpan>& header_spans,
-    const std::vector<std::string>& headings) {
-  const auto columns = header_columns(header_spans);
-  if (!columns || headings.size() != 2 || columns->first == 0 ||
-      columns->second <= columns->first || segment.output_end !=
-          record.assembled.words.size()) {
-    return std::nullopt;
-  }
-  auto pattern = headings[0];
-  const auto gap = columns->second - columns->first;
-  if (pattern.empty() || headings[1].empty() || pattern.size() > gap) {
-    return std::nullopt;
-  }
-  pattern.resize(gap, ' ');
-  pattern += headings[1];
-  const auto assembled = token_words_to_ascii(record.assembled.words);
-  auto header = assembled.find(pattern, segment.output_begin);
-  if (header == std::string::npos || header + pattern.size() >
-          segment.output_end || assembled.find(pattern, header + 1) !=
-          std::string::npos || header < columns->first) {
-    return std::nullopt;
-  }
-  const auto physical_header = header - columns->first;
-  if (!std::all_of(record.assembled.words.begin() + physical_header,
-                   record.assembled.words.begin() + header,
-                   [](const auto word) { return word == ' '; })) {
-    return std::nullopt;
-  }
-
-  const auto intersecting = source_tokens_intersecting_output(
-      record.assembled, segment.output_begin, segment.output_end);
-  std::vector<std::size_t> origins;
-  for (std::size_t index = 1; index < intersecting.size(); ++index) {
-    const auto token = intersecting[index];
-    const auto previous = intersecting[index - 1];
-    if (token >= record.tokens.size() || token >= record.encoded_tokens.size() ||
-        previous >= record.tokens.size() ||
-        previous >= record.encoded_tokens.size() ||
-        record.assembled.tokens[token].output_begin < header + pattern.size() ||
-        record.encoded_tokens[token].width != 1 ||
-        record.encoded_tokens[previous].width != 1 ||
-        !exact_spaces(record.tokens[token], columns->first) ||
-        record.tokens[previous].empty() ||
-        !std::all_of(record.tokens[previous].begin(),
-                     record.tokens[previous].end(),
-                     [](const auto word) { return word == ' '; }) ||
-        record.assembled.tokens[previous].output_end !=
-            record.assembled.tokens[token].output_begin) {
-      continue;
-    }
-    origins.push_back(record.assembled.tokens[token].output_begin);
-  }
-  if (origins.size() < 2) {
-    return std::nullopt;
-  }
-  ImplicitGrid grid;
-  grid.key_origin = columns->first;
-  grid.value_origin = columns->second;
-  for (std::size_t index = 0; index < origins.size(); ++index) {
-    const auto end = index + 1 < origins.size() ? origins[index + 1]
-                                                : segment.output_end;
-    const auto key_begin = origins[index] + columns->first;
-    const auto value_begin = origins[index] + columns->second;
-    if (value_begin >= end) {
-      return std::nullopt;
-    }
-    auto key = trim(token_words_to_ascii(TokenWords(
-        record.assembled.words.begin() + key_begin,
-        record.assembled.words.begin() + value_begin)));
-    auto value = trim(token_words_to_ascii(TokenWords(
-        record.assembled.words.begin() + value_begin,
-        record.assembled.words.begin() + end)));
-    if (key.empty() || value.empty()) {
-      return std::nullopt;
-    }
-    grid.semantic_rows.push_back({std::move(key), std::move(value)});
-  }
-  grid.owns_source_tail = true;
-  return grid;
-}
 
 } // namespace geist::detail

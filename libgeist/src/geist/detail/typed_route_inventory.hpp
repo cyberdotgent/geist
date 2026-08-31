@@ -14,9 +14,9 @@ namespace geist::detail {
 
 struct DecodedLogicalRecordSource;
 
-// Which whole-topic renderer a TOC topic reaches. `typed` means
+// Which whole-topic route a TOC topic reaches. `typed` means
 // try_lower_topic_to_document_ir produced a verified DocumentIR; `legacy`
-// means the compatibility string pipeline renders the topic.
+// means it declined and the verbatim best-effort route renders the topic.
 enum class TypedRouteKind {
   typed,
   legacy,
@@ -87,10 +87,6 @@ struct TypedRouteInventoryIR {
   // "legacy-fallback", "best-effort", "failed").
   std::map<std::string, std::size_t> by_severity;
 };
-
-// Replaces topic-specific numbers, hex offsets and quoted material so
-// rejection reasons can be grouped across topics.
-std::string normalize_rejection_reason(std::string reason);
 
 // The reason column of the per-topic report: empty for typed topics, the
 // rejection for a failed family, otherwise the declined recognizers joined by

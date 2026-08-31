@@ -67,6 +67,5 @@ bool verify_generated_list_topic_ir(
     const SelectorCatalogIR& selectors, const LayoutIR& layout,
     const VerifiedOwnershipIR& ownership, const GeneratedListTopicIR& topic,
     std::string* error = nullptr);
-std::string format_generated_list_topic_ir(const GeneratedListTopicIR& topic);
 
 } // namespace geist::detail

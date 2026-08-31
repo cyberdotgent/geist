@@ -690,53 +690,7 @@ format_document_node_path(const std::vector<DocumentNodePathStepIR> &path) {
   return result;
 }
 
-const DocumentTraceSpanIR *
-resolve_document_trace_offset(const DocumentRenderTraceIR &trace,
-                              std::size_t offset) {
-  const auto found = std::upper_bound(
-      trace.spans.begin(), trace.spans.end(), offset,
-      [](std::size_t value, const DocumentTraceSpanIR &span) {
-        return value < span.output_begin;
-      });
-  if (found == trace.spans.begin())
-    return nullptr;
-  const auto &span = *std::prev(found);
-  return offset < span.output_end ? &span : nullptr;
-}
 
-bool verify_document_render_trace(const DocumentRenderTraceIR &trace,
-                                  std::size_t output_size,
-                                  std::string *error) {
-  const auto fail = [&](const char *message) {
-    if (error != nullptr)
-      *error = message;
-    return false;
-  };
-  std::size_t cursor = 0;
-  for (const auto &span : trace.spans) {
-    if (span.output_begin != cursor)
-      return fail("render trace spans are not contiguous");
-    if (span.output_end <= span.output_begin)
-      return fail("render trace span is empty or reversed");
-    if (span.reason.empty())
-      return fail("render trace span has no reason");
-    if (span.role == DocumentTraceRoleIR::content) {
-      // Synthesized content is honest about having no source; every other
-      // content run must name the bytes it projects.
-      if (!span.origin)
-        return fail("content render trace span has no node origin");
-      if (span.origin->slices.empty() &&
-          span.origin->derivation != DocumentDerivationIR::synthesized)
-        return fail("content render trace span has no source slices");
-    }
-    cursor = span.output_end;
-  }
-  if (cursor != output_size)
-    return fail("render trace does not cover the rendered output");
-  if (error != nullptr)
-    error->clear();
-  return true;
-}
 
 std::string escape_markdown_text(const std::string &value) {
   return escape_markdown_text_impl(value);

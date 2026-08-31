@@ -6,7 +6,6 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
-#include <sstream>
 #include <tuple>
 #include <utility>
 
@@ -642,48 +641,5 @@ bool verify_generated_toc_index_topic_ir(
   return true;
 }
 
-std::string format_generated_toc_index_topic_ir(
-    const GeneratedTocIndexTopicIR& topic) {
-  std::ostringstream out;
-  out << "generated_navigation kind="
-      << (topic.kind == GeneratedTocIndexKindIR::contents ? "contents"
-                                                          : "index")
-      << " heading='" << topic.heading_level << "' title='" << topic.title
-      << "' lines=" << topic.lines.size()
-      << " definitions=" << topic.definitions.size()
-      << " entries=" << topic.entries.size()
-      << " groups=" << topic.groups.size()
-      << " delimiter=" << topic.delimiter << '\n';
-  for (const auto& anchor : topic.anchors)
-    out << "anchor id='" << anchor.first << "' source="
-        << anchor.second.logical_record << ':' << anchor.second.token_begin
-        << '\n';
-  for (const auto& definition : topic.definitions) {
-    out << "tocdef=" << definition.ordinal << " operands=";
-    for (const auto& operand : definition.operands) out << ' ' << operand;
-    out << '\n';
-  }
-  for (const auto& entry : topic.entries)
-    out << "tocentry depth=" << entry.depth << " style=" << entry.style
-        << " id='" << entry.topic_id << "' title='" << entry.title
-        << "' source=" << entry.source.logical_record << ':'
-        << entry.source.token_begin << '\n';
-  for (const auto& group : topic.groups) {
-    out << "group label='" << group.label << "' terms=" << group.terms.size()
-        << '\n';
-    for (const auto& term : group.terms) {
-      out << "term level=" << term.level << " text='" << term.term
-          << "' targets=";
-      for (const auto& target : term.targets) {
-        out << ' ' << target.topic_id;
-        if (!target.range_end_topic_id.empty())
-          out << "..." << target.range_end_topic_id;
-      }
-      out << " source=" << term.source.logical_record << ':'
-          << term.source.token_begin << '\n';
-    }
-  }
-  return out.str();
-}
 
 } // namespace geist::detail

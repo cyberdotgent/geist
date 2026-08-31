@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <sstream>
 #include <utility>
 
 namespace geist::detail {
@@ -209,16 +208,5 @@ bool verify_fixed_prose_topic_ir(
   return true;
 }
 
-std::string format_fixed_prose_topic_ir(const FixedProseTopicIR& topic) {
-  std::ostringstream out;
-  out << "fixed_prose_topic record=" << topic.logical_record << " bytes=["
-      << topic.payload_bytes.begin << ',' << topic.payload_bytes.end
-      << ") tokens=" << topic.token_count
-      << " heading_level=" << topic.heading_level;
-  if (topic.anchor) out << " anchor=" << topic.anchor->id;
-  out << " segments=" << topic.segments.size() << '\n'
-      << format_fixed_prose_ir(topic.prose);
-  return out.str();
-}
 
 } // namespace geist::detail

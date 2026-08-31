@@ -18,10 +18,6 @@
 
 namespace geist {
 
-namespace {
-
-} // namespace
-
 std::string TocEntry::markdown() const {
   render();
   return cached_markdown_;
@@ -71,7 +67,7 @@ void TocEntry::render() const {
   // typed pipeline, so "the typed dispatcher declined it" would be a false
   // statement about a topic that has no book behind it. It still gets a
   // diagnostic; it just does not get the marker, and its Markdown stays
-  // exactly what the compatibility renderer produces.
+  // whatever the verbatim route below produces.
   const auto lowering_attempted = static_cast<bool>(document_ir_loader_);
   if (!lowering_attempted) {
     cached_diagnostic_.reason = "no-typed-lowering-attempted";
@@ -123,11 +119,6 @@ void TocEntry::render() const {
                                                  : "\n" + cached_markdown_);
   }
 }
-
-namespace {
-
-
-} // namespace
 
 std::string BooDocument::markdown() const {
   // The whole book is the concatenation of its topics, each rendered by the

@@ -6,7 +6,6 @@
 #include <cctype>
 #include <map>
 #include <set>
-#include <sstream>
 #include <tuple>
 #include <utility>
 
@@ -654,36 +653,5 @@ bool verify_generated_list_topic_ir(
   return true;
 }
 
-std::string format_generated_list_topic_ir(const GeneratedListTopicIR& topic) {
-  std::ostringstream out;
-  out << "generated_list kind="
-      << (topic.kind == GeneratedListTopicKindIR::figures ? "figures" : "tables")
-      << " title='" << topic.title << "' entries=" << topic.entries.size()
-      << " segments=" << topic.segments.size() << '\n';
-  for (const auto& entry : topic.entries) {
-    const auto& row = entry.display;
-    TokenWords label_words;
-    for (const auto& fragment : entry.label_fragments)
-      for (const auto& cell : fragment.cells)
-        label_words.push_back(cell.word);
-    out << "entry row=" << row.id << " source=" << row.owner.logical_record
-        << ':' << row.owner.segment_index << " cells=" << row.cells.size()
-        << " target='" << entry.target.raw_target << "' fragments="
-        << entry.label_fragments.size() << " label='"
-        << token_words_to_ascii(label_words) << "'";
-    for (const auto& fragment : entry.label_fragments)
-      out << ' ' << (fragment.role ==
-                              GeneratedListLabelFragmentRoleIR::selected_payload
-                          ? "selected"
-                          : "extension")
-          << "=[" << fragment.cell_begin << ',' << fragment.cell_end << ')';
-    out << '\n';
-  }
-  for (const auto& segment : topic.segments)
-    out << "segment=" << segment.source.logical_record << ':'
-        << segment.source.segment_index << " opcode='" << segment.opcode
-        << "'\n";
-  return out.str();
-}
 
 } // namespace geist::detail

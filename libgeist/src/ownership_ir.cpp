@@ -639,13 +639,6 @@ std::optional<VerifiedOwnershipIR> build_verified_ownership_ir(
   return VerifiedOwnershipIR(records, layout, std::move(ownership));
 }
 
-std::optional<VerifiedOwnershipIR> verified_ownership_ir(
-    const std::vector<DecodedLogicalRecordSource>& records,
-    const LayoutIR& layout, OwnershipIR ownership, std::string* error) {
-  if (!verify_ownership_ir(records, layout, ownership, error))
-    return std::nullopt;
-  return VerifiedOwnershipIR(records, layout, std::move(ownership));
-}
 
 bool ownership_verified_for(
     const VerifiedOwnershipIR& ownership,

@@ -44,6 +44,5 @@ bool verify_fixed_prose_topic_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
     const LayoutIR& layout, const VerifiedOwnershipIR& ownership,
     const FixedProseTopicIR& topic, std::string* error = nullptr);
-std::string format_fixed_prose_topic_ir(const FixedProseTopicIR& topic);
 
 } // namespace geist::detail
