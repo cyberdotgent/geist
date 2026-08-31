@@ -172,6 +172,66 @@ std::string after_prefix(const std::string &text, const std::string &prefix) {
   return trim_ascii(text.substr(prefix.size()));
 }
 
+// The body text after `prefix`, split at the highlighted runs the entry drew
+// inside it. With no highlight this is the one text inline the family has
+// always emitted, character for character; with highlights it is the same
+// characters in order, with each run carried as its own inline so the style
+// the source states survives lowering. Fails closed when a recorded range
+// does not lie inside the text it names.
+bool append_body_after(InlineSequenceIR &content, const TrapTextIR &body,
+                       const std::string &prefix,
+                       const DocumentNodeOriginIR &body_origin) {
+  const auto rest = after_prefix(body.text, prefix);
+  if (rest.empty())
+    return true;
+  // `after_prefix` trims, and the projected text is already collapsed, so the
+  // remainder begins at the first non-space byte after the prefix.
+  const auto from = body.text.find_first_not_of(' ', prefix.size());
+  if (from == std::string::npos ||
+      body.text.compare(from, rest.size(), rest) != 0)
+    return false;
+  std::vector<std::pair<std::string, std::optional<EmphasisKindIR>>> pieces;
+  const auto push = [&](std::string text, std::optional<EmphasisKindIR> kind) {
+    if (text.empty())
+      return;
+    if (!pieces.empty() && pieces.back().second == kind) {
+      pieces.back().first += text;
+      return;
+    }
+    pieces.push_back({std::move(text), kind});
+  };
+  const auto limit = from + rest.size();
+  auto at = from;
+  for (const auto &highlight : body.highlights) {
+    if (highlight.begin >= highlight.end || highlight.end > body.text.size())
+      return false;
+    if (highlight.end <= at)
+      continue;
+    if (highlight.begin < at || highlight.end > limit)
+      return false;
+    push(body.text.substr(at, highlight.begin - at), std::nullopt);
+    push(body.text.substr(highlight.begin, highlight.end - highlight.begin),
+         emphasis_for(highlight.style));
+    at = highlight.end;
+  }
+  push(body.text.substr(at, limit - at), std::nullopt);
+  // The separator the family has always put between a label and its body. It
+  // stays outside the run when the body opens on one, so no highlight covers
+  // a space the source did not highlight.
+  if (!pieces.empty() && !pieces.front().second)
+    pieces.front().first.insert(pieces.front().first.begin(), ' ');
+  else if (!pieces.empty())
+    content.push_back({TextInlineIR{" "}, body_origin});
+  for (auto &piece : pieces) {
+    if (piece.second)
+      content.push_back(
+          {EmphasisInlineIR{piece.first, *piece.second}, body_origin});
+    else
+      content.push_back({TextInlineIR{piece.first}, body_origin});
+  }
+  return true;
+}
+
 std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
                                              const TrapCatalogIR &catalog,
                                              std::string *error) {
@@ -316,11 +376,10 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
       return reject("trap entry headline has no highlighted spans: " +
                     entry.id);
     append_spans(item.content, entry.headline.spans, headline_origin, true);
-    const auto headline_rest =
-        after_prefix(entry.headline.body.text, entry.headline.spans_text);
-    if (!headline_rest.empty())
-      item.content.push_back(
-          {TextInlineIR{" " + headline_rest}, headline_origin});
+    if (!append_body_after(item.content, entry.headline.body,
+                           entry.headline.spans_text, headline_origin))
+      return reject("trap entry headline highlight is outside its text: " +
+                    entry.id);
     item.origin.slices = headline_origin.slices;
     item.origin.rows = headline_origin.rows;
     for (std::size_t index = 0; index < entry.fields.size(); ++index) {
@@ -331,9 +390,10 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
                                   : "trap field separator")});
       auto field_origin = line_origin(field.line, "trap entry field");
       append_spans(item.content, field.line.spans, field_origin);
-      const auto body = after_prefix(field.line.body.text, field.label_text);
-      if (!body.empty())
-        item.content.push_back({TextInlineIR{" " + body}, field_origin});
+      if (!append_body_after(item.content, field.line.body, field.label_text,
+                             field_origin))
+        return reject("trap field highlight is outside its text: " + entry.id +
+                      " " + field.label_text);
       item.origin.slices.insert(item.origin.slices.end(),
                                 field_origin.slices.begin(),
                                 field_origin.slices.end());

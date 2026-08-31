@@ -23,7 +23,14 @@
 //   * a display line the flattened splitter cut in two, whose tail LayoutIR
 //     leaves unrowed -- the mid-record shape `message_catalog_ir_synthetic.cpp`
 //     could not state. Here the framing makes it reproducible, and removing
-//     the rule that admits it makes case 4 fail.
+//     the rule that admits it makes case 4 fail;
+//   * a highlighted run drawn inside a field body -- neither the entry
+//     headline nor a field label -- which the family keeps as a run over the
+//     body text;
+//   * the same run on a row that draws a glyph in front of the catalogue's
+//     own column, so the CFONT mapping slides: the display line disproves it
+//     and the family declines rather than record a run over characters the
+//     columns do not name.
 //
 // What is NOT covered, stated plainly rather than implied: the compact
 // marker slot that carries a whole word. Two rules turn on it -- a slot the
@@ -33,6 +40,11 @@
 // test written against them would pass with the rules removed and would be
 // worse than no test. Both stay covered by the whole-corpus differential and
 // by the hosted N2AH1MST audit (`IDC01718I`, `IDC3900I`, DT 19910329000100).
+// The same holds for the two rules that read a CFONT span onto a cell
+// LayoutIR classified as a punctuation slot or a placeholder run (N2AH1MST
+// `9.0` `ASB029I`, `24.0` `ICP050D`): neither role could be produced from a
+// synthetic record, so both stay covered by the differential and by those
+// two hosted pages.
 #include "geist/detail/display_lines.hpp"
 #include "geist/detail/internal.hpp"
 #include "geist/detail/layout_ir.hpp"
@@ -365,6 +377,80 @@ int main() {
                     std::to_string(region.after_field));
       }
     }
+  }
+
+  // Case 6 -- a highlighted run drawn inside a field body. It opens a
+  // continuation display line at the same column the labels use and does not
+  // end in `:`, so it is neither the entry headline nor a field label
+  // (SC09-138 `F.1` record 2048 line 1, SC24-546 `A.0` record 996 line 0).
+  // The family keeps the run as a run over the body text and loses no word.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("606", 125));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("6", 144), t("C", 145)}));
+    append(tokens, line({origin(), t("Sample", 146), t("book", 147)}));
+    const auto built = build({make_source(15, tokens)}, "Sample Messages");
+    require(built.ownership.has_value(),
+            "body-highlight ownership was rejected: " + built.error);
+    require(built.catalog.has_value(),
+            "body-highlight catalog declined: " + built.error);
+    if (built.catalog && built.catalog->entries.size() == 1) {
+      const auto &only = built.catalog->entries.front();
+      const auto text = entry_text(only);
+      for (const char *word : {"Sample", "book"})
+        require(text.find(word) != std::string::npos,
+                std::string("the body highlight lost the word '") + word +
+                    "': [" + text + "]");
+      require(only.fields.size() == 1,
+              "the highlighted run was taken for a field: " +
+                  std::to_string(only.fields.size()) + " fields");
+      if (only.fields.size() == 1) {
+        const auto &body = only.fields.front().line.body;
+        require(body.highlights.size() == 1,
+                "the field body recorded " +
+                    std::to_string(body.highlights.size()) +
+                    " highlighted runs, not 1");
+        if (body.highlights.size() == 1) {
+          const auto &highlight = body.highlights.front();
+          require(highlight.style == geist::detail::FontStyleIR::citation,
+                  "the body highlight lost the style its CFONT states");
+          require(highlight.begin < highlight.end &&
+                      highlight.end <= body.text.size(),
+                  "the body highlight is outside the text it names");
+          if (highlight.begin < highlight.end &&
+              highlight.end <= body.text.size()) {
+            const auto covered = body.text.substr(
+                highlight.begin, highlight.end - highlight.begin);
+            require(covered == "Sample",
+                    "the body highlight covers [" + covered +
+                        "], not the run its columns name");
+          }
+        }
+      }
+    }
+  }
+
+  // Case 7 -- the same shape, but the row draws a glyph in front of the
+  // catalogue's own column, so the projected text no longer starts where the
+  // CFONT counts from and the column mapping slides (SC34-425
+  // `APPENDIX1.5.3` record 2540, whose `|` change bar makes `User` map as
+  // `| Us`). A CFONT column is an index into its display line's cells, so
+  // the line disproves the mapping and the family declines.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("607", 126));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("6", 144), t("C", 145)}));
+    append(tokens, line({t(" | ", 148), t("Sample", 146), t("book", 147)}));
+    const auto built = build({make_source(16, tokens)}, "Sample Messages");
+    require(built.ownership.has_value(),
+            "slid-column ownership was rejected: " + built.error);
+    require(!built.catalog.has_value(),
+            "a highlighted run whose columns the line disproves was admitted");
+    require(built.error.find("does not cover the columns it names") !=
+                std::string::npos,
+            "slid-column run declined for the wrong reason: " + built.error);
   }
 
   std::cout << "trap catalog IR synthetic tests passed\n";
