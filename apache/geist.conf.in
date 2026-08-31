@@ -1,0 +1,19 @@
+# mod_geist: browse IBM BookManager BOO books over HTTP.
+#
+# A book is served from its own path, so a book at /var/www/html/packet.boo
+# is reached at /packet.boo, with /topic/<id>, /object/<id> and /download
+# below it.
+<IfModule geist_module>
+    # Hand .boo files to the module. It also recognises them by name, so this
+    # is here to make the binding explicit and overridable rather than
+    # because it is required.
+    AddHandler geist-book .boo
+
+    # Offer the BOO file itself for download.
+    # Override per directory or per file, including in .htaccess where
+    # AllowOverride permits it.
+    GeistDownload On
+
+    # auto follows the browser's colour scheme; light and dark pin it.
+    GeistTheme auto
+</IfModule>

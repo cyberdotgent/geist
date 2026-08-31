@@ -33,6 +33,8 @@ project(libgeist
   LANGUAGES C CXX
 )
 
+include(GNUInstallDirs)
+
 find_package(PNG REQUIRED)
 find_package(GIF REQUIRED)
 
@@ -182,7 +184,8 @@ foreach(target geist geist_static)
 
   target_include_directories(${target}
     PUBLIC
-      "${CMAKE_CURRENT_SOURCE_DIR}/src"
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+      $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
 
   if(MSVC)
@@ -258,6 +261,61 @@ if(NOT GEIST_BUILD_GUI STREQUAL "OFF")
   endif()
 endif()
 
+# Installation -------------------------------------------------------------
+#
+# Standard GNU locations: libraries in lib, headers in include/geist, the
+# command-line tools in bin. The Apache module is installed where httpd keeps
+# its modules, which is outside this prefix by nature; see apache/.
+
+install(TARGETS geist geist_static
+  EXPORT geistTargets
+  RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+  LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+  INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)
+
+# Only the public surface. The detail/ headers are implementation and are
+# never included by a public header.
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src/geist/"
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/geist"
+  FILES_MATCHING
+    PATTERN "*.hpp"
+    PATTERN "detail" EXCLUDE
+)
+
+install(TARGETS booinfo bootoc boorsrc boorender bootrace boo2git
+  RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+)
+
+install(FILES
+  "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE"
+  "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
+  DESTINATION "${CMAKE_INSTALL_DOCDIR}"
+)
+
+# So a consumer can find_package(geist) and link geist::geist.
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/geistConfigVersion.cmake"
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY SameMajorVersion
+)
+configure_package_config_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/geistConfig.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/geistConfig.cmake"
+  INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/geist"
+)
+install(EXPORT geistTargets
+  NAMESPACE geist::
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/geist"
+)
+install(FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/geistConfig.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/geistConfigVersion.cmake"
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/geist"
+)
+
 # mod_geist, an optional Apache 2.4 module. AUTO builds it when apxs and the
 # APR headers are present and skips it otherwise; ON makes a missing httpd
 # toolchain a hard error; OFF never builds it. Like the GUI, httpd is never a
@@ -278,7 +336,17 @@ if(NOT GEIST_BUILD_APACHE STREQUAL "OFF" AND NOT WIN32)
     execute_process(COMMAND "${GEIST_APXS}" -q INCLUDEDIR
       OUTPUT_VARIABLE GEIST_APACHE_INCLUDEDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
     execute_process(COMMAND "${GEIST_APXS}" -q LIBEXECDIR
-      OUTPUT_VARIABLE GEIST_APACHE_LIBEXECDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+      OUTPUT_VARIABLE GEIST_APXS_LIBEXECDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND "${GEIST_APXS}" -q SYSCONFDIR
+      OUTPUT_VARIABLE GEIST_APXS_SYSCONFDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+    # httpd owns these paths, so they sit outside CMAKE_INSTALL_PREFIX by
+    # nature -- exactly as apxs itself installs. Both honour DESTDIR, and
+    # either can be overridden for packaging.
+    set(GEIST_APACHE_LIBEXECDIR "${GEIST_APXS_LIBEXECDIR}" CACHE PATH
+      "Directory httpd loads modules from")
+    set(GEIST_APACHE_SYSCONFDIR "${GEIST_APXS_SYSCONFDIR}" CACHE PATH
+      "httpd configuration directory")
     set(GEIST_APACHE_INCLUDE_DIRS
       "${GEIST_APACHE_INCLUDEDIR}" ${GEIST_APR_INCLUDE_DIRS}
     )

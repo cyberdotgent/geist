@@ -1,0 +1,1 @@
+LoadModule geist_module @GEIST_APACHE_LIBEXECDIR@/mod_geist.so

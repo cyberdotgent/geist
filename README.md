@@ -29,6 +29,28 @@ cmake -S . -B build && cmake --build build
 ./build/boorsrc --png book.boo 1 figure.png
 ```
 
+### Installing
+
+```sh
+cmake -S . -B build && cmake --build build
+sudo cmake --install build          # or: sudo make install
+```
+
+Standard GNU locations under the prefix (`/usr/local` by default): the
+libraries in `lib`, the public headers in `include/geist`, the tools and the
+reader in `bin`, and a CMake package so a consumer can
+
+```cmake
+find_package(geist REQUIRED)
+target_link_libraries(app PRIVATE geist::geist)
+```
+
+The Apache module is the exception: httpd owns where modules and their
+configuration live, so it installs to httpd's own directories rather than the
+prefix, and it is enabled on install. `DESTDIR` is honoured throughout, and
+`-DGEIST_APACHE_ENABLE=OFF` installs the configuration without enabling it,
+which is what a distribution package usually wants.
+
 ## Geist Hardcopy Reader
 
 A Qt6 desktop reader, laid out after IBM's BookManager SoftCopy Reader: a
@@ -65,9 +87,11 @@ Needs `apache2-dev libapr1-dev libaprutil1-dev` (Debian/Ubuntu) or
 `httpd-devel apr-devel apr-util-devel` (Fedora/RHEL); it is built when those
 are present, and `-DGEIST_BUILD_APACHE=ON` makes their absence an error.
 
-```apache
-LoadModule geist_module /usr/lib/apache2/modules/mod_geist.so
-```
+Installing enables it: the module lands in httpd's module directory and a
+`geist.load`/`geist.conf` pair is installed and enabled (a symlink from
+`mods-enabled` on Debian and Ubuntu, a `conf.modules.d` drop-in elsewhere).
+Restart httpd and a book in the document root is browsable. The shipped
+configuration binds `.boo` files to the handler and carries the defaults:
 
 Two settings, valid in the server config, a `<Directory>` or `<Files>` block,
 and in `.htaccess` where `AllowOverride` permits it:

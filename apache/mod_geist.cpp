@@ -581,8 +581,15 @@ int serve_asset(request_rec* r, const std::string& name) {
 // Handler
 // ---------------------------------------------------------------------------
 
+// The handler name the shipped configuration binds to .boo files. An
+// explicit SetHandler/AddHandler wins; otherwise a .boo file is recognised by
+// its own name, so the module still works with no configuration at all.
+constexpr const char* kHandlerName = "geist-book";
+
 int geist_handler(request_rec* r) {
-  if (!ends_with_boo(r->filename)) {
+  const bool named =
+      r->handler != nullptr && std::strcmp(r->handler, kHandlerName) == 0;
+  if (!named && !ends_with_boo(r->filename)) {
     return DECLINED;
   }
   if (r->method_number != M_GET) {
@@ -637,7 +644,9 @@ int geist_handler(request_rec* r) {
 // Core refuses trailing path info for a plain file unless a handler claims
 // it, which would make /packet.boo/topic/1.0 a 404 before we ever ran.
 int geist_fixups(request_rec* r) {
-  if (ends_with_boo(r->filename)) {
+  const bool named =
+      r->handler != nullptr && std::strcmp(r->handler, kHandlerName) == 0;
+  if (named || ends_with_boo(r->filename)) {
     r->used_path_info = AP_REQ_ACCEPT_PATH_INFO;
   }
   return DECLINED;

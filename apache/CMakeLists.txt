@@ -73,3 +73,54 @@ if(APPLE)
 endif()
 
 install(TARGETS mod_geist LIBRARY DESTINATION "${GEIST_APACHE_LIBEXECDIR}")
+
+# Installation --------------------------------------------------------------
+#
+# The module goes where httpd loads modules from, and its configuration where
+# httpd reads configuration -- both outside CMAKE_INSTALL_PREFIX, because
+# httpd owns those locations. DESTDIR is honoured throughout, so packaging
+# still works.
+
+option(GEIST_APACHE_ENABLE
+  "Enable the module in httpd's configuration at install time" ON
+)
+
+configure_file(geist.load.in "${CMAKE_CURRENT_BINARY_DIR}/geist.load" @ONLY)
+configure_file(geist.conf.in "${CMAKE_CURRENT_BINARY_DIR}/geist.conf" @ONLY)
+
+install(TARGETS mod_geist LIBRARY DESTINATION "${GEIST_APACHE_LIBEXECDIR}")
+
+if(EXISTS "${GEIST_APACHE_SYSCONFDIR}/mods-available")
+  # Debian and Ubuntu: definitions live in mods-available and are enabled by
+  # a symlink from mods-enabled, which is what a2enmod writes.
+  install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/geist.load"
+    "${CMAKE_CURRENT_BINARY_DIR}/geist.conf"
+    DESTINATION "${GEIST_APACHE_SYSCONFDIR}/mods-available"
+  )
+
+  if(GEIST_APACHE_ENABLE)
+    install(CODE "
+      set(_enabled \"\$ENV{DESTDIR}${GEIST_APACHE_SYSCONFDIR}/mods-enabled\")
+      file(MAKE_DIRECTORY \"\${_enabled}\")
+      foreach(_file geist.load geist.conf)
+        file(CREATE_LINK
+          \"../mods-available/\${_file}\" \"\${_enabled}/\${_file}\"
+          SYMBOLIC
+        )
+        message(STATUS \"Enabled \${_enabled}/\${_file}\")
+      endforeach()
+      message(STATUS \"mod_geist enabled; restart httpd to load it\")
+    ")
+  endif()
+else()
+  # Red Hat and friends: a single drop-in that httpd includes on its own, so
+  # there is nothing to enable separately.
+  install(CODE "
+    file(READ \"${CMAKE_CURRENT_BINARY_DIR}/geist.load\" _load)
+    file(READ \"${CMAKE_CURRENT_BINARY_DIR}/geist.conf\" _conf)
+    file(WRITE \"\$ENV{DESTDIR}${GEIST_APACHE_SYSCONFDIR}/conf.modules.d/10-geist.conf\"
+      \"\${_load}\${_conf}\")
+    message(STATUS \"Installed 10-geist.conf; restart httpd to load it\")
+  ")
+endif()
