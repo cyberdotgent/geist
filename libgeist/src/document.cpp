@@ -10,6 +10,7 @@
 #include "geist/detail/topic_identity.hpp"
 #include "geist/detail/topic_lowering_outcome.hpp"
 #include "geist/detail/trap_catalog_ir.hpp"
+#include "geist/detail/verbatim_cross_references.hpp"
 
 #include <algorithm>
 #include <array>
@@ -113,9 +114,15 @@ TopicLoaderBundle make_topic_loaders(
     state->load_sources();
     TopicBestEffortIR result;
     result.source_decoded = !state->topic.fixed_layout_sources.empty();
-    result.lines = best_effort_lines(state->topic.fixed_layout_sources,
-                                     state->identity.title);
-    result.anchors = best_effort_anchors(state->topic.fixed_layout_sources);
+    // The rows first, then the cross references the source proves on them:
+    // a verbatim topic renders faithfully *and* resolves what it names.
+    const auto& sources = state->topic.fixed_layout_sources;
+    result.anchors = best_effort_anchors(sources);
+    auto linked = link_verbatim_cross_references(
+        sources, best_effort_display_lines(sources, state->identity.title),
+        best_effort_footnote_anchors(sources));
+    result.rows = std::move(linked.rows);
+    result.footnote_anchors = std::move(linked.footnote_anchors);
     return result;
   };
   return loaders;

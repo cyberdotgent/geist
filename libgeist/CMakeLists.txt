@@ -142,6 +142,7 @@ set(GEIST_SOURCES
   src/topic_identity.cpp
   src/typed_route_inventory.cpp
   src/util.cpp
+  src/verbatim_cross_references.cpp
 )
 
 add_library(geist SHARED ${GEIST_SOURCES})
@@ -231,7 +232,8 @@ foreach(synthetic_test
     generated_index_term_synthetic
     prose_index_term_line_synthetic
     glossary_catalog_ir_synthetic
-    message_catalog_ir_synthetic)
+    message_catalog_ir_synthetic
+    verbatim_cross_references_synthetic)
   geist_add_test(${synthetic_test})
 endforeach()
 

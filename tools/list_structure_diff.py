@@ -22,8 +22,9 @@ For every topic present in both trees the tool reports
     procedure that lost its list structure and is now plain prose
   * bold-ordinal paragraphs (``**1\\.** text``) before and after -- the other
     shape a numbered procedure degrades into
-  * fenced blocks before and after, so a topic cannot silently fall into or
-    out of verbatim rendering
+  * fenced blocks before and after, and ``<pre>`` blocks before and after, so
+    a topic cannot silently fall into or out of verbatim rendering -- nor
+    silently swap one verbatim form for the other
   * anchors (``<a id="...">``) gained / lost, so link targets are not dropped
   * the per-topic render severity and route on each side, when
     ``render-diagnostics.tsv`` is present, so a structural change can be
@@ -39,9 +40,21 @@ having lost a word.  The side effect is that turning a plain bullet into a
 numbered item does show up as a gained digit; that is a genuine structural
 change, and the unordered/ordered counters name it on the same line.
 
-Everything is counted with fenced blocks masked out for structure purposes:
+Everything is counted with verbatim blocks masked out for structure purposes:
 a ``- `` inside a code fence is verbatim text, not a bullet.  Words inside a
-fence *are* counted, because verbatim text is book content.
+verbatim block *are* counted, because verbatim text is book content.
+
+A verbatim block is a code fence or a raw HTML ``<pre>`` block.  The premise
+of the fence handling -- inside it, Markdown does not exist -- is unchanged
+and correct; ``<pre>`` is simply the other spelling of the same thing, and
+issue #72 moved the verbatim route onto it so that a topic's cross references
+can be anchors inside the rows rather than inert text.  What that costs the
+scan is that ``<pre>`` content is HTML, not raw bytes: the ``<a href>``/``</a>``
+markup around a reference is stripped (exactly as ``[...](...)`` is stripped
+outside a block), and ``&amp;``/``&lt;``/``&gt;`` are decoded back to the
+book's own characters before tokenising.  Nothing else is touched -- in
+particular a ``<`` the book itself drew is a word here, not a tag, which is
+why the general tag strip is *not* applied inside a ``<pre>``.
 
 Exit status is 1 when any topic gained or lost a word (the gate), 0 otherwise.
 Use --no-gate to always exit 0.
@@ -74,6 +87,22 @@ WORD_RE = re.compile(r"\w+")
 
 ANCHOR_RE = re.compile(r"""<a\s+id=["']([^"']*)["']""", re.IGNORECASE)
 
+# A raw HTML verbatim block.  It opens on a line whose first non-space text is
+# ``<pre`` and closes on the line carrying ``</pre>``; that is the CommonMark
+# rule for this block type, and it is what the renderer emits.
+PRE_OPEN_RE = re.compile(r"^\s{0,3}<pre[\s>]", re.IGNORECASE)
+PRE_CLOSE_RE = re.compile(r"</pre\s*>", re.IGNORECASE)
+# The link markup a verbatim row carries around a cross reference.  Only the
+# anchor tags are markup inside a ``<pre>``; every other ``<...>`` there is a
+# character the book drew.
+ANCHOR_TAG_RE = re.compile(r"</?a(?:\s[^<>]*)?>", re.IGNORECASE)
+ENTITY_RE = re.compile(r"&(amp|lt|gt|quot|#39);")
+ENTITY_TEXT = {"amp": "&", "lt": "<", "gt": ">", "quot": '"', "#39": "'"}
+
+
+def unescape_html(text: str) -> str:
+    return ENTITY_RE.sub(lambda match: ENTITY_TEXT[match.group(1)], text)
+
 # Structure markers, all anchored at the start of a (possibly indented) line.
 UNORDERED_RE = re.compile(r"^\s*[-*+](?:\s+|$)")
 # A real ordered list item: the dot is *not* backslash-escaped.
@@ -93,6 +122,7 @@ METRIC_KEYS = (
     "escaped_ordinal_paragraphs",
     "bold_ordinal_paragraphs",
     "fenced_blocks",
+    "pre_blocks",
 )
 
 
@@ -113,7 +143,26 @@ def scan_markdown(source: str) -> TopicScan:
     source = COMMENT_RE.sub(" ", source)
 
     fence: str | None = None
+    in_pre = False
     for line in source.splitlines():
+        if not in_pre and fence is None and PRE_OPEN_RE.match(line):
+            scan.counts["pre_blocks"] += 1
+            in_pre = True
+            # The opening tag is markup; anything after it on the same line
+            # is already verbatim content.
+            line = line[line.index(">") + 1:] if ">" in line else ""
+        if in_pre:
+            close = PRE_CLOSE_RE.search(line)
+            if close is not None:
+                line = line[:close.start()]
+                in_pre = False
+            # Verbatim content, HTML-spelled: the anchor markup around a
+            # cross reference is syntax, the entities are the book's own
+            # characters escaped, and everything else is a word.
+            text = unescape_html(ANCHOR_TAG_RE.sub("", line))
+            scan.words.update(WORD_RE.findall(text))
+            continue
+
         marker = FENCE_RE.match(line)
         if marker is not None:
             token = marker.group(1)[0] * 3

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "geist/detail/control_ir.hpp"
 #include "geist/detail/document_ir.hpp"
 
 #include <cstddef>
@@ -8,6 +9,8 @@
 #include <vector>
 
 namespace geist::detail {
+
+struct DecodedLogicalRecordSource;
 
 // The `LNK` dialect of the CSELECT control (Format/markup.md, "LNK selector
 // alternatives").  A selector whose operand target is the literal `LNK`
@@ -49,6 +52,14 @@ struct SelectorLinkIR {
   // Canonical destination: `DOCNUM/<docnum>/CCONTENTS`,
   // `DOCNUM/<docnum>/HDR<anchor>`, or the URL itself.
   std::string destination;
+  // Alternative 5, the `DocnumLevel` a live BookServer appends to a
+  // `DOCNUM/...` destination as a query (`?DocnumLevel=ANY`), which it uses
+  // to offer a revision picker: SC24-5527-02 1.0 references SC24-5444 as
+  // `<BOOK> <> <> <SC24-5444> <ANY> <HCPA3>` and hosted serves
+  // `../../DOCNUM/SC24-5444/CCONTENTS?DocnumLevel=ANY` (DT 19921218151459).
+  // It is not addressing inside the target book, and it is empty for the
+  // references that name no level (ITPPIBOK 1.3.3).
+  std::string document_level;
 };
 
 // Parses the alternative list of a `LNK` selector from the decoded text of
@@ -57,5 +68,20 @@ struct SelectorLinkIR {
 // forms.
 std::optional<SelectorLinkIR> parse_selector_link(
     const std::vector<std::string>& alternative_tokens, std::string* error);
+
+// The record-local tokens a `LNK` selector spends on its alternative list.
+//
+// The alternatives follow the control's operands as single tokens each
+// spelled `<...>`; they are control metadata and hosted BookServer prints no
+// character of them.  A route that walks display lines has to know which
+// tokens they are, or the tuple reaches the page as text -- and inside a
+// fixed-width region it does so as extra rows that shift the drawn art.
+//
+// Empty unless `segment` really is a `cselect` whose operand target is the
+// literal `LNK`.  When `alternatives` is given it receives the same tokens'
+// text, in source order, ready for `parse_selector_link`.
+std::vector<std::size_t> selector_link_alternative_tokens(
+    const DecodedLogicalRecordSource& record, const ControlSegmentIR& segment,
+    std::vector<std::string>* alternatives = nullptr);
 
 } // namespace geist::detail

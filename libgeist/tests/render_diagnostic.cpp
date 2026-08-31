@@ -146,7 +146,7 @@ void best_effort_topic() {
   const auto markdown = entry.markdown();
   require(contains(markdown, "Amateur Packet Radio"),
           "the verbatim route emits the topic's own words");
-  require(contains(markdown, "```text"),
+  require(contains(markdown, "<pre>\n") && contains(markdown, "</pre>\n"),
           "the verbatim route emits them as preformatted content");
 }
 

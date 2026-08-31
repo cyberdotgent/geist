@@ -3,6 +3,7 @@
 
 #include "geist/detail/figure_block_ir.hpp"
 #include "geist/detail/internal.hpp"
+#include "geist/detail/selector_link_ir.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -250,6 +251,15 @@ std::set<std::size_t> control_tokens(const DecodedLogicalRecordSource& record) {
     // parse keeps its text instead of losing the record with the envelope.
     add(segment.opcode_range);
     add(segment.operand_range);
+    // A `LNK` selector's alternative list is control metadata too, and it
+    // sits in the payload where the rule above would have kept it as display
+    // text.  Hosted BookServer prints no character of it; leaving it in
+    // spells the raw tuple `<BOOK> <> <> <SC24-5444> <ANY> <HCPA3>` onto the
+    // page -- and, because the list owns its own display line, as an extra
+    // row that pushes the drawn box art apart (SC24-5527-02 1.0).
+    for (const auto token :
+         selector_link_alternative_tokens(record, segment))
+      tokens.insert(token);
   }
   return tokens;
 }
@@ -340,16 +350,20 @@ bool body_control_display_line(const DecodedLogicalRecordSource& record,
 
 } // namespace
 
-std::vector<std::string> best_effort_lines(
+std::vector<BestEffortLineIR> best_effort_display_lines(
     const std::vector<DecodedLogicalRecordSource>& sources,
     const std::string& title) {
-  std::vector<std::string> lines;
-  for (const auto& record : sources) {
+  std::vector<BestEffortLineIR> lines;
+  for (std::size_t record_index = 0; record_index < sources.size();
+       ++record_index) {
+    const auto& record = sources[record_index];
     const auto display = record_display_lines(record);
     if (!display) continue;
     const auto controls = control_tokens(record);
     const auto index_markers = index_entry_marker_tokens(record);
-    for (const auto& line : *display) {
+    for (std::size_t line_index = 0; line_index < display->size();
+         ++line_index) {
+      const auto& line = (*display)[line_index];
       // An `SI` entry owns its whole display line and draws nothing on it.
       if (!index_markers.empty()) {
         bool is_index_entry = false;
@@ -365,8 +379,15 @@ std::vector<std::string> best_effort_lines(
       // A body-control line draws nothing, whether or not the decoder kept
       // the control boundary in front of its opcode.
       if (body_control_display_line(record, line)) continue;
-      std::string text;
+      BestEffortLineIR emitted;
+      emitted.record_index = record_index;
+      emitted.display_line_index = line_index;
+      auto& text = emitted.text;
       for (const auto& cell : display_line_cells(record, line)) {
+        // One byte offset per display column, so a consumer holding a column
+        // range -- a selector's covered span -- can find the bytes that
+        // column range names without re-deriving the row.
+        emitted.column_offsets.push_back(text.size());
         if (cell.token != static_cast<std::size_t>(-1) &&
             controls.count(cell.token) != 0) {
           // A control's own words draw nothing; keep the column so the row
@@ -376,6 +397,7 @@ std::vector<std::string> best_effort_lines(
         }
         text += figure_display_glyph(cell.word);
       }
+      emitted.column_offsets.push_back(text.size());
       while (!text.empty() && text.back() == ' ') text.pop_back();
       if (text.find_first_not_of(' ') == std::string::npos) continue;
       // The `ST` control's payload is the topic title, which the heading
@@ -387,11 +409,20 @@ std::vector<std::string> best_effort_lines(
       if (!title.empty() && lines.empty() && text.size() >= title.size() &&
           text.compare(text.size() - title.size(), title.size(), title) == 0)
         continue;
-      lines.push_back(std::move(text));
+      lines.push_back(std::move(emitted));
     }
   }
   // Trailing blank rows carry nothing; leading ones would only pad the block.
-  while (!lines.empty() && lines.back().empty()) lines.pop_back();
+  while (!lines.empty() && lines.back().text.empty()) lines.pop_back();
+  return lines;
+}
+
+std::vector<std::string> best_effort_lines(
+    const std::vector<DecodedLogicalRecordSource>& sources,
+    const std::string& title) {
+  std::vector<std::string> lines;
+  for (auto& line : best_effort_display_lines(sources, title))
+    lines.push_back(std::move(line.text));
   return lines;
 }
 
@@ -429,6 +460,24 @@ std::vector<std::string> best_effort_anchors(
       // the book can reference; the typed families resolve `SRFTN` to
       // nothing, and a verbatim topic must not publish one either.
       if (ascii_lower(id.substr(0, 3)) == "ftn") continue;
+      if (std::find(anchors.begin(), anchors.end(), id) == anchors.end())
+        anchors.push_back(std::move(id));
+    }
+  }
+  return anchors;
+}
+
+std::vector<std::string> best_effort_footnote_anchors(
+    const std::vector<DecodedLogicalRecordSource>& sources) {
+  std::vector<std::string> anchors;
+  for (const auto& record : sources) {
+    for (const auto& segment : record.control_segments) {
+      if (segment.display_text) continue;
+      if (segment.kind != BookControlKind::structural) continue;
+      const auto& opcode = segment.opcode;
+      if (opcode.size() <= 5) continue;
+      if (ascii_lower(opcode.substr(0, 5)) != "srftn") continue;
+      auto id = opcode.substr(2);
       if (std::find(anchors.begin(), anchors.end(), id) == anchors.end())
         anchors.push_back(std::move(id));
     }
@@ -482,7 +531,7 @@ void escalate_render_diagnostic(RenderDiagnostic& diagnostic,
 
 std::string render_best_effort_markdown(
     const TopicIdentityIR& topic,
-    const std::vector<std::string>& lines,
+    const std::vector<VerbatimRowIR>& rows,
     const std::vector<std::string>& anchors) {
   std::string markdown;
   // The topic names itself, exactly as every typed route does: the heading
@@ -515,12 +564,14 @@ std::string render_best_effort_markdown(
     markdown += "<a id=\"" + id + "\"></a>\n";
   if (!markdown.empty())
     markdown += "\n";
-  markdown += "```text\n";
-  for (const auto& line : lines) {
-    markdown += line;
+  // A raw HTML block, not a fence: the rows carry inline anchors and a fence
+  // would render them as text.  See the header note.
+  markdown += "<pre>\n";
+  for (const auto& row : rows) {
+    markdown += render_verbatim_row(row);
     markdown += "\n";
   }
-  markdown += "```\n";
+  markdown += "</pre>\n";
   return markdown;
 }
 

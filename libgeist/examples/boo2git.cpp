@@ -491,6 +491,55 @@ void rewrite_html_anchor_links(std::string& markdown,
   }
 }
 
+// A verbatim topic proves what its own source says: the `cselect` names an
+// anchor, and the row is marked for it.  Only the whole-book export knows
+// whether that anchor exists anywhere -- ten ids in four books are referenced
+// and never defined (SC34-425 `appendix1.5.3` points at a topic `2.1.6.3`
+// the book does not contain).  Inside a preformatted block a link resolving
+// to nothing is worse than none, because the row reads as text either way,
+// so the anchor markup comes back off and the row is left exactly as drawn.
+//
+// Runs after `rewrite_html_anchor_links`, so anything still spelled
+// `href="#<id>"` is an id no *other* file defines.  Two spellings survive
+// that deliberately: a destination of exactly `#`, which is the cross-book
+// reference hosted serves and a single-book export cannot address; and an id
+// this very file defines, which is a working same-page fragment.  The second
+// is how a footnote resolves -- `document_link_targets` publishes no `FTN`
+// destination book-wide, precisely because a footnote is reachable only from
+// the page that prints it, so the link map cannot know it and the file must
+// answer for it.
+void unlink_unresolved_html_anchors(
+    std::string& markdown, const std::vector<std::string>& local_anchors) {
+  std::size_t offset = 0;
+  while ((offset = markdown.find("<a href=\"#", offset)) != std::string::npos) {
+    const auto target_begin = offset + std::string("<a href=\"#").size();
+    const auto target_end = markdown.find('"', target_begin);
+    if (target_end == std::string::npos) {
+      break;
+    }
+    const auto target =
+        markdown.substr(target_begin, target_end - target_begin);
+    if (target.empty() ||
+        std::find_if(local_anchors.begin(), local_anchors.end(),
+                     [&](const std::string& id) {
+                       return equals_case_insensitive(id, target);
+                     }) != local_anchors.end()) {
+      offset = target_end;
+      continue;
+    }
+    const auto open_end = markdown.find('>', target_end);
+    if (open_end == std::string::npos) {
+      break;
+    }
+    const auto close = markdown.find("</a>", open_end);
+    if (close == std::string::npos) {
+      break;
+    }
+    markdown.erase(close, 4);
+    markdown.erase(offset, (open_end + 1) - offset);
+  }
+}
+
 void rewrite_resource_links(std::string& markdown,
                             const std::map<std::string, std::string>& links) {
   std::size_t offset = 0;
@@ -627,8 +676,10 @@ std::string render_topic_markdown(
   if (!has_leading_markdown_heading(markdown)) {
     markdown = "# " + entry.title + "\n\n" + markdown;
   }
+  const auto local_anchors = emitted_anchor_ids(markdown);
   rewrite_topic_links(markdown, markdown_links);
   rewrite_html_anchor_links(markdown, markdown_links);
+  unlink_unresolved_html_anchors(markdown, local_anchors);
   rewrite_resource_links(markdown, resource_links);
   rewrite_resource_uris(markdown, resource_links);
   rewrite_resource_placeholders(markdown, png_files);
