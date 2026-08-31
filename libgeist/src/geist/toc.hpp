@@ -1,6 +1,7 @@
 #pragma once
 
 #include "geist/export.hpp"
+#include "geist/html.hpp"
 #include "geist/link_target.hpp"
 #include "geist/render_diagnostic.hpp"
 #include "geist/trace.hpp"
@@ -43,6 +44,18 @@ struct TocEntry {
   std::uint32_t end_logical_record = 0;
 
   GEIST_API std::string markdown() const;
+  // This topic as an HTML fragment: semantic content only, with no page
+  // chrome, navigation or branding, for a consumer that owns the page around
+  // it. Rendered from the same typed Document IR as `markdown()`, never from
+  // the Markdown. See geist/html.hpp and libgeist/doc/html-styling.md.
+  GEIST_API std::string html_fragment(const HtmlRenderOptions& options = {})
+      const;
+  // The same fragment inside a minimal standalone HTML document. The
+  // fragment bytes are identical to `html_fragment()`; only the page around
+  // them is added.
+  GEIST_API std::string html_document(
+      const HtmlRenderOptions& options = {},
+      const HtmlDocumentOptions& document_options = {}) const;
   // How well this topic rendered, by which route, and why. Computed by the
   // same single pass that produces `markdown()`, so the two can never
   // disagree; both are cached after the first call.

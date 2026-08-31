@@ -2,6 +2,7 @@
 
 #include "geist/directory.hpp"
 #include "geist/export.hpp"
+#include "geist/html.hpp"
 #include "geist/metadata.hpp"
 #include "geist/page.hpp"
 #include "geist/properties.hpp"
@@ -84,6 +85,23 @@ public:
   GEIST_API const std::vector<TopicInfo>& topics() const noexcept;
   GEIST_API std::string markdown() const;
   GEIST_API std::string topic_markdown(const std::string& topic_id) const;
+  // Native HTML output (issue #46), rendered from the same typed Document IR
+  // as the Markdown above rather than converted from it. The fragment forms
+  // carry semantic content only and no page chrome; the document forms wrap
+  // exactly those bytes in a minimal standalone page. See geist/html.hpp for
+  // the resolver hooks and libgeist/doc/html-styling.md for the class, id and
+  // data-attribute scheme a consumer styles against.
+  GEIST_API std::string html_fragment(
+      const HtmlRenderOptions& options = {}) const;
+  GEIST_API std::string html_document(
+      const HtmlRenderOptions& options = {},
+      const HtmlDocumentOptions& document_options = {}) const;
+  GEIST_API std::string topic_html_fragment(
+      const std::string& topic_id,
+      const HtmlRenderOptions& options = {}) const;
+  GEIST_API std::string topic_html_document(
+      const std::string& topic_id, const HtmlRenderOptions& options = {},
+      const HtmlDocumentOptions& document_options = {}) const;
   // Render provenance for every TOC topic, parallel to table_of_contents():
   // how well each topic was rendered, by which route, and why. Renders every
   // topic, caching the Markdown on the TOC entries as it goes. See
@@ -116,6 +134,11 @@ private:
   // Reads `decode_context_` to build its own source reader; see
   // geist/trace.hpp.
   friend class TraceSourceReader;
+
+  // A topic the TOC does not list, built as a standalone entry with the same
+  // loaders a listed one gets, so every per-topic render entry point reaches
+  // the same topics. Throws `std::out_of_range` for an unknown id.
+  TocEntry synthesize_topic_entry(const std::string& topic_id) const;
 
   BooMetadata metadata_;
   BooPage0Header file_header_;

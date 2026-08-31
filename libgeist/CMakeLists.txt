@@ -72,6 +72,7 @@ set(GEIST_SOURCES
   src/display_lines.cpp
   src/document.cpp
   src/document_ir.cpp
+  src/document_html_renderer.cpp
   src/document_markdown_renderer.cpp
   src/drawn_word_conservation.cpp
   src/ebcdic.cpp
@@ -108,6 +109,7 @@ set(GEIST_SOURCES
   src/menu_document_lowering.cpp
   src/menu_ir.cpp
   src/menu_topic_ir.cpp
+  src/topic_html_render.cpp
   src/topic_render.cpp
   src/ownership_ir.cpp
   src/img/mmr.cpp
@@ -238,6 +240,7 @@ foreach(synthetic_test
     publication_document_lowering_synthetic
     document_ir_synthetic
     document_markdown_renderer_synthetic
+    document_html_renderer_synthetic
     procedure_rows_synthetic
     fixed_display_synthetic
     implicit_grid
@@ -258,9 +261,18 @@ foreach(synthetic_test
   geist_add_test(${synthetic_test})
 endforeach()
 
+# The HTML renderer's class scheme is documented, not just implemented: the
+# test checks the shipped example stylesheet against what the renderer emits,
+# in both directions, so a class cannot ship undocumented and the stylesheet
+# cannot name one that does not exist.
+target_compile_definitions(document_html_renderer_synthetic_test PRIVATE
+  GEIST_DOC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/doc"
+)
+
 # Tests that read the packet.boo fixture.
 foreach(fixture_test
     packet_markdown
+    packet_html
     packet_cross_references
     lazy_open_packet
     logical_source_index

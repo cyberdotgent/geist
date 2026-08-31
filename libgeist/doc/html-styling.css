@@ -1,0 +1,399 @@
+/*
+ * Example stylesheet for libgeist HTML output.
+ *
+ * It exists to be a working starting point for a consumer and to be a test
+ * that the documented class list is complete: a test asserts that this file
+ * and the renderer name exactly the same set of classes, in both directions.
+ *
+ * Nothing here is required. libgeist emits no presentation of its own; every
+ * rule below is a suggestion the consumer is expected to replace. See
+ * html-styling.md for what each class means.
+ *
+ * Selectors are kept flat and single-class on purpose, so that overriding one
+ * of them needs no specificity contest.
+ */
+
+/* ---- containers ------------------------------------------------------- */
+
+.geist-book {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 1rem;
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1.5;
+}
+
+.geist-topic {
+  margin-block: 2rem;
+}
+
+/* An empty destination marker: it must occupy no space and draw nothing. */
+.geist-topic-destination {
+  display: inline;
+}
+
+/* ---- blocks ----------------------------------------------------------- */
+
+.geist-heading {
+  font-family: Helvetica, Arial, sans-serif;
+  line-height: 1.2;
+  margin-block: 1.5em 0.5em;
+}
+
+.geist-paragraph {
+  margin-block: 0.75em;
+}
+
+/* Anchors are destinations, not visible content. */
+.geist-anchor {
+  display: inline;
+}
+
+.geist-anchor--cross-reference {
+  scroll-margin-top: 3rem;
+}
+
+.geist-anchor--figure {
+  scroll-margin-top: 3rem;
+}
+
+.geist-anchor--table {
+  scroll-margin-top: 3rem;
+}
+
+.geist-anchor--local {
+  scroll-margin-top: 3rem;
+}
+
+.geist-list {
+  margin-block: 0.75em;
+  padding-inline-start: 1.5em;
+}
+
+.geist-list-item {
+  margin-block: 0.25em;
+}
+
+.geist-list-item[data-geist-depth="1"] {
+  margin-inline-start: 1.5em;
+}
+
+.geist-list-item[data-geist-depth="2"] {
+  margin-inline-start: 3em;
+}
+
+.geist-list-item[data-geist-empty="true"] {
+  list-style: none;
+}
+
+.geist-definition-list {
+  margin-block: 0.75em;
+}
+
+.geist-definition-term {
+  font-weight: 700;
+  margin-block-start: 0.5em;
+}
+
+.geist-definition-description {
+  margin-inline-start: 1.5em;
+}
+
+.geist-table {
+  border-collapse: collapse;
+  margin-block: 1em;
+  width: 100%;
+}
+
+.geist-table-head {
+  background: #f0f0f0;
+}
+
+.geist-table-body {
+  vertical-align: top;
+}
+
+.geist-table-row {
+  border-block-end: 1px solid #ddd;
+}
+
+.geist-table-header-cell {
+  text-align: start;
+  padding: 0.25em 0.5em;
+  font-weight: 700;
+}
+
+.geist-table-cell {
+  padding: 0.25em 0.5em;
+}
+
+/*
+ * Drawn rows. Their columns are load-bearing: the source aligned them, and a
+ * proportional font or a changed tab stop destroys the drawing. Do not add
+ * padding that shifts the first column relative to the rest.
+ */
+.geist-preformatted {
+  font-family: "DejaVu Sans Mono", Consolas, monospace;
+  white-space: pre;
+  overflow-x: auto;
+  margin-block: 1em;
+  padding: 0.5em;
+  background: #fafafa;
+  border: 1px solid #e0e0e0;
+}
+
+.geist-note {
+  display: block;
+  margin-block: 1em;
+  padding: 0.5em 1em;
+  border-inline-start: 4px solid #888;
+  background: #f6f6f6;
+}
+
+.geist-note-label {
+  font-weight: 700;
+  margin-block: 0 0.25em;
+}
+
+.geist-note-content {
+  margin-block: 0;
+}
+
+.geist-publication-list {
+  margin-block: 1em;
+  padding-inline-start: 1.5em;
+}
+
+.geist-publication-entry {
+  margin-block: 0.75em;
+}
+
+.geist-publication-title {
+  font-weight: 700;
+  margin-block: 0;
+}
+
+.geist-publication-paragraph {
+  margin-block: 0.25em 0;
+}
+
+.geist-figure {
+  margin-block: 1.5em;
+  margin-inline: 0;
+  text-align: center;
+}
+
+.geist-figure-image {
+  max-width: 100%;
+  height: auto;
+}
+
+.geist-figure-caption {
+  font-style: italic;
+  margin-block-start: 0.5em;
+}
+
+.geist-footnote {
+  display: block;
+  font-size: 0.9em;
+  margin-block: 0.5em;
+}
+
+.geist-footnote-label {
+  font-weight: 700;
+  margin-inline-end: 0.5em;
+}
+
+.geist-footnote-content {
+  display: inline;
+}
+
+.geist-index-group {
+  margin-block: 1em;
+}
+
+.geist-index-heading {
+  font-weight: 700;
+  margin-block: 0.5em 0.25em;
+}
+
+.geist-index-entries {
+  margin-block: 0;
+  padding-inline-start: 1.5em;
+}
+
+.geist-index-entry {
+  margin-block: 0.1em;
+}
+
+.geist-menu {
+  display: block;
+  margin-block: 1em;
+}
+
+/* Reader-synthesised text: hide it here to show only the book's own words. */
+.geist-menu-lead {
+  font-weight: 700;
+  margin-block: 0 0.25em;
+}
+
+.geist-menu-items {
+  margin-block: 0;
+  padding-inline-start: 1.5em;
+}
+
+.geist-menu-item {
+  margin-block: 0.1em;
+}
+
+.geist-menu-item-target {
+  font-family: "DejaVu Sans Mono", Consolas, monospace;
+  color: #555;
+}
+
+.geist-menu-item-label {
+  font-style: normal;
+}
+
+/* Understood but unrepresentable source content, kept whole. */
+.geist-opaque {
+  font-family: "DejaVu Sans Mono", Consolas, monospace;
+  white-space: pre;
+  overflow-x: auto;
+  margin-block: 1em;
+  padding: 0.5em;
+  background: #fff8e0;
+  border: 1px dashed #c8a000;
+}
+
+/* ---- inline ----------------------------------------------------------- */
+
+.geist-emphasis {
+  font-style: italic;
+}
+
+.geist-strong {
+  font-weight: 700;
+}
+
+.geist-strong-emphasis {
+  font-weight: 700;
+  font-style: italic;
+}
+
+.geist-monospace {
+  font-family: "DejaVu Sans Mono", Consolas, monospace;
+  font-size: 0.95em;
+}
+
+.geist-image {
+  max-width: 100%;
+  height: auto;
+}
+
+.geist-opaque-inline {
+  font-family: "DejaVu Sans Mono", Consolas, monospace;
+  background: #fff8e0;
+}
+
+/* ---- links ------------------------------------------------------------ */
+
+.geist-link {
+  color: #0645ad;
+  text-decoration: underline;
+}
+
+.geist-link--topic {
+  text-decoration-style: solid;
+}
+
+.geist-link--anchor {
+  text-decoration-style: solid;
+}
+
+.geist-link--resource {
+  text-decoration-style: dotted;
+}
+
+.geist-link--external::after {
+  content: " \2197";
+  font-size: 0.8em;
+}
+
+.geist-link--in-book {
+  text-decoration-style: solid;
+}
+
+.geist-link--book-contents {
+  text-decoration-style: double;
+}
+
+.geist-link--book-heading {
+  text-decoration-style: double;
+}
+
+.geist-link--external-url::after {
+  content: " \2197";
+  font-size: 0.8em;
+}
+
+/*
+ * The renderer could not spell a destination, so the anchor leads nowhere.
+ * Presenting it as a live link would be a lie; the affordance is kept because
+ * the source really does mark this text as a reference.
+ */
+.geist-link--unresolved {
+  color: #666;
+  cursor: not-allowed;
+  text-decoration-style: dashed;
+}
+
+.geist-image--unresolved {
+  outline: 1px dashed #c00;
+}
+
+/* ---- fidelity --------------------------------------------------------- */
+
+/*
+ * Degraded output is always emitted; these rules only make it visible. A
+ * consumer that does not want the reader to see the distinction can drop
+ * them and still find every region programmatically.
+ */
+[data-geist-degraded="true"] {
+  border-inline-start: 3px solid #c8a000;
+}
+
+[data-geist-severity="typed-degraded"] {
+  --geist-fidelity: degraded;
+}
+
+[data-geist-severity="best-effort"] {
+  --geist-fidelity: best-effort;
+}
+
+[data-geist-severity="failed"] {
+  --geist-fidelity: failed;
+}
+
+.geist-diagnostic {
+  display: block;
+  margin-block: 1em;
+  padding: 0.5em 1em;
+  border: 1px solid #c00;
+  background: #fff0f0;
+}
+
+.geist-diagnostic-message {
+  font-weight: 700;
+  margin-block: 0 0.25em;
+}
+
+.geist-diagnostic-source {
+  margin-block: 0;
+  font-size: 0.9em;
+}
+
+.geist-diagnostic-reason {
+  margin-block: 0.25em 0;
+  font-size: 0.9em;
+}

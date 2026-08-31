@@ -413,7 +413,14 @@ std::string BooDocument::topic_markdown(const std::string& topic_id) const {
   if (const auto* entry = find_toc_entry(topic_id)) {
     return entry->markdown();
   }
+  return synthesize_topic_entry(topic_id).markdown();
+}
 
+// A topic the TOC does not list, built as a standalone entry with the same
+// loaders a listed one gets. Shared by every per-topic render entry point so
+// that a format cannot answer for a topic the others cannot reach.
+TocEntry BooDocument::synthesize_topic_entry(
+    const std::string& topic_id) const {
   const auto found = std::find_if(
       topics_.begin(), topics_.end(), [&](const TopicInfo& topic) {
         return topic.id == normalize_toc_id(topic_id) ||
@@ -445,7 +452,7 @@ std::string BooDocument::topic_markdown(const std::string& topic_id) const {
       lowercase_resource_ids(resources_));
   entry.attach_loaders(std::move(loaders.document),
                        std::move(loaders.best_effort));
-  return entry.markdown();
+  return entry;
 }
 
 std::vector<BooLogicalRecordTrace> BooDocument::trace_logical_records(

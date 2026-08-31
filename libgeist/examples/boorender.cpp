@@ -7,7 +7,14 @@
 namespace {
 
 void usage() {
-  std::cerr << "usage: boorender <book.boo> [topic-id] (--md|--trace)\n";
+  std::cerr << "usage: boorender <book.boo> [topic-id] "
+               "(--md|--html-fragment|--html|--trace)\n"
+               "  --md             Markdown\n"
+               "  --html-fragment  HTML content only, no page chrome\n"
+               "  --html           the same fragment in a minimal complete "
+               "HTML document\n"
+               "  --trace          rendered-output to source map (needs a "
+               "topic id)\n";
 }
 
 std::string escape(const std::string& value) {
@@ -76,7 +83,8 @@ int main(int argc, char** argv) {
     const auto has_topic_id = argc == 4;
     const std::string mode = argv[has_topic_id ? 3 : 2];
     const auto document = geist::BooDocument::open(argv[1]);
-    if (mode == "--md" || mode == "--trace") {
+    if (mode == "--md" || mode == "--trace" || mode == "--html" ||
+        mode == "--html-fragment") {
       const auto* entry =
           has_topic_id ? document.find_toc_entry(argv[2]) : nullptr;
       if (has_topic_id && entry == nullptr) {
@@ -86,6 +94,17 @@ int main(int argc, char** argv) {
       }
       if (mode == "--md") {
         std::cout << (has_topic_id ? entry->markdown() : document.markdown());
+      } else if (mode == "--html-fragment") {
+        // Semantic content only: the consumer owns the page around it.  No
+        // resolvers are configured here, so every destination is the
+        // renderer's own context-free one and an unresolvable cross-book
+        // reference carries `geist-link--unresolved`.
+        std::cout << (has_topic_id ? entry->html_fragment()
+                                   : document.html_fragment());
+      } else if (mode == "--html") {
+        // The same fragment bytes inside a minimal standalone document.
+        std::cout << (has_topic_id ? entry->html_document()
+                                   : document.html_document());
       } else {
         if (!has_topic_id) {
           std::cerr << "boorender: --trace needs a topic id\n";
