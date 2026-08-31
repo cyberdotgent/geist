@@ -378,6 +378,57 @@ std::string token_run_text(const std::vector<DecodedLogicalRecordSource>& record
   return text;
 }
 
+// A topic id is not always numeric.  `SHPREFACE.2`, `SHB.3` and
+// `SHAPPENDIX1.9.5` are real BookManager ids, and the segment classifier only
+// reads an `SH` word as the topic-start control when a digit follows the
+// `SH`, or when `promote_corroborated_topic_start` sees the `CTOPICN` control
+// follow it in the same record.  The metadata run continues across a record
+// break like any other run (see `parse_envelope`), and when the break falls
+// immediately after the topic-start control the corroboration lands one
+// record later, where that pass cannot see it: OFCUSEOV PREFACE.2 record 16
+// carries `SHPREFACE.2` and nothing else, and record 17 opens with
+// `ctopicn 7`; QSYSNEWG B.3 record 327 carries `shb.3` and record 328 opens
+// with `ctopicn 120`.  The evidence is the same one, so the envelope walk
+// accepts it across the break.
+//
+// Fail-closed: the segment must be the record's first, it must stand on the
+// record's first display line with the line's length byte in front of it and
+// nothing else visible anywhere in the segment, and its one token must spell
+// an `SH`-prefixed identifier.  The token's own dictionary words decide that,
+// not the flattened projection, and whether the byte in front of it is a
+// length byte is read from the decoder's carried framing.
+bool leading_topic_identifier_segment(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    std::size_t record_index, const ControlSegmentIR& segment) {
+  if (segment.kind != BookControlKind::text || segment.segment_index != 0)
+    return false;
+  const auto& record = records[record_index];
+  const auto* lines = record_display_lines(record);
+  if (lines == nullptr || lines->empty()) return false;
+  const auto& first_line = lines->front();
+  std::size_t identifier = record.ir.tokens.size();
+  for (const auto token : segment.source_tokens) {
+    const auto view = view_token(records, record_index, token);
+    if (is_row_control_slot(records, view) || is_padding(view) ||
+        !is_visible(view))
+      continue;
+    if (identifier < record.ir.tokens.size()) return false;
+    identifier = token;
+  }
+  if (identifier >= record.ir.tokens.size()) return false;
+  if (identifier != first_line.prefix_token + 1 ||
+      identifier >= first_line.token_end)
+    return false;
+  const auto spelling = ascii_lower(body_text(view_token(records, record_index,
+                                                         identifier)));
+  if (spelling.size() <= 2 || spelling.compare(0, 2, "sh") != 0) return false;
+  return std::all_of(spelling.begin(), spelling.end(),
+                     [](const unsigned char ch) {
+                       return std::isalnum(ch) != 0 || ch == '_' ||
+                              ch == '-' || ch == '.';
+                     });
+}
+
 // A bare `SR<id>` structural control (not one of the reserved block
 // openers/closers) standing among the topic metadata controls.
 bool envelope_anchor_segment(const ControlSegmentIR& segment) {
@@ -456,14 +507,34 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
   const auto current = [&]() -> const ControlSegmentIR& {
     return records[cursor.record].control_segments[cursor.segment];
   };
+  // A segment that is nothing but display-line length bytes.
+  const auto row_control_slot_segment = [&]() {
+    const auto& segment = current();
+    return segment.kind == BookControlKind::text &&
+           !segment.source_tokens.empty() &&
+           std::all_of(segment.source_tokens.begin(),
+                       segment.source_tokens.end(),
+                       [&](const std::size_t token) {
+                         return is_display_line_length_token(
+                             records[cursor.record], token);
+                       });
+  };
   {
     // The topic must still open with its metadata run: enough segments must
-    // follow the start control for the eight required controls and the title.
+    // follow the start control for the eight required controls.  The title is
+    // not counted here: `csourcefn` can carry the `ST` control glued into its
+    // own segment (the `st_seen` branch below), so a well-formed topic can
+    // spend its whole envelope -- title and body included -- in exactly
+    // `required.size()` segments.  SC26-457 FRONT_2.1.1, FRONT_2.1.2 and
+    // FRONT_3.2 are that shape: eight segments, the last of which is
+    // `csourcefn DE1V4SOC ... ST? <title> <body>`.  Whether the title is
+    // really there is decided by the walk, which reports the exact control it
+    // stopped on rather than this arity guess.
     std::size_t available = 0;
     for (const auto& record : records)
       available += record.control_segments.size();
     if (records.front().control_segments.empty() ||
-        available < required.size() + 1)
+        available < required.size())
       return fail(error, "first record lacks the topic metadata envelope");
   }
   Cursor heading_cursor;
@@ -509,13 +580,63 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
         return false;
       envelope.leading_anchors.push_back(std::move(anchor));
     }
+    // The envelope run continues across a record break, and the record it
+    // continues into opens with a display line like every other record: its
+    // first byte is that line's length byte.  The byte is row geometry and
+    // never display text, whatever word the dictionary spells for it, so the
+    // flattened splitter can open a segment on it in the middle of the
+    // metadata run.  SC09-138 8.5.6.6 breaks after `cparent 8.5.6` and
+    // record 1670 token 0 (encoded value 1, width 1) spells `.`, arriving as
+    // a segment of its own ahead of `cforwardlevel`; DREICMST 1.5.4.1 breaks
+    // after `cforwardlevel 1.5.4.2` and record 155 token 0 does the same
+    // ahead of `cbacklevel`.  Whether a token is a length byte is read from
+    // the decoder's stored framing, never re-derived here.
+    while (!at_end() && row_control_slot_segment()) {
+      const auto& slot = current();
+      const auto slot_record = cursor.record;
+      ++cursor.segment;
+      for (const auto token : slot.source_tokens)
+        if (!ledger.assign(slot_record, token, ProseTokenRoleIR::envelope,
+                           error))
+          return false;
+    }
     if (at_end())
       return fail(error, "topic metadata controls are incomplete");
     const auto& segment = current();
     const auto& record = records[cursor.record];
     const auto record_index = cursor.record;
-    if (segment.kind != required[index])
-      return fail(error, "topic metadata controls are incomplete or out of order");
+    if (segment.kind != required[index]) {
+      // The one admissible substitution: a record-leading non-numeric topic
+      // id whose `CTOPICN` corroboration sits in the next record.
+      const auto corroborated_topic_start = [&]() {
+        if (required[index] != BookControlKind::topic_start ||
+            !leading_topic_identifier_segment(records, record_index, segment))
+          return false;
+        Cursor probe = cursor;
+        ++probe.segment;
+        std::swap(probe, cursor);
+        while (!at_end() && row_control_slot_segment()) ++cursor.segment;
+        const auto next_is_topic_number =
+            !at_end() && current().kind == BookControlKind::topic_number;
+        std::swap(probe, cursor);
+        return next_is_topic_number;
+      }();
+      if (!corroborated_topic_start)
+        return fail(error,
+                    "topic metadata controls are incomplete or out of order");
+      // The id itself is envelope metadata, exactly as it is when the
+      // classifier promotes it: hosted heads the topic with its catalogue
+      // number and title and prints the id nowhere.
+      ++cursor.segment;
+      for (const auto token : segment.source_tokens) {
+        const auto view = view_token(records, record_index, token);
+        const auto role = is_padding(view) || is_row_control_slot(records, view)
+                              ? ProseTokenRoleIR::padding
+                              : ProseTokenRoleIR::envelope;
+        if (!ledger.assign(record_index, token, role, error)) return false;
+      }
+      continue;
+    }
     if (segment.kind == BookControlKind::heading_level)
       heading_cursor = cursor;
     ++cursor.segment;

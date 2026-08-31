@@ -383,6 +383,7 @@ void demote_display_line_owned_controls(DecodedLogicalRecordSource& record) {
     auto& segment = record.control_segments[index];
     if (segment.source_tokens.empty()) continue;
     if (segment.kind != BookControlKind::structural &&
+        segment.kind != BookControlKind::title &&
         segment.kind != BookControlKind::text)
       continue;
     std::size_t first = record.ir.tokens.size();
@@ -400,6 +401,21 @@ void demote_display_line_owned_controls(DecodedLogicalRecordSource& record) {
     bool visible_before = false;
     for (auto token = line->prefix_token + 1; token < first; ++token)
       if (visible_display_token(record.ir.tokens[token])) visible_before = true;
+    // The `ST` title is held to the stricter reading a control opcode gets
+    // everywhere else in a record: it must stand at the *first* cell of its
+    // display line, one token after that line's length byte.  Every genuine
+    // control does (FA1PLMM0 record 471 opens each of `ctopicn`, `cparent`,
+    // `csummary`, `SRHDRPWRGEN`, `ST`, `SI` and `cfont` exactly there), and
+    // `ST` is short enough and common enough as display text that the weaker
+    // "nothing visible in front of it" test does not separate the two:
+    // SH12-565 3.1.4.1 record 184 line 23 is the definition term `   ST` of a
+    // two-column list, styled by the `cfont 3 2 P` on the line above, and
+    // SC24-546 D.0 record 1141 lines 5, 9 and 11 are the assembler STORE
+    // instructions `              ST    R4,EVSIZE`.  Hosted serves both as
+    // display text (DT 19941206115523 and DT 19940323131240).
+    if (segment.kind == BookControlKind::title &&
+        first != line->prefix_token + 1)
+      visible_before = true;
     // A control's opcode is the first token of its own display line: the
     // encoder writes the line's length byte and then the opcode, in every
     // control the corpus stores.  A word that stands *after* the line's
