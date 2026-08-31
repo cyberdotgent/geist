@@ -248,7 +248,7 @@ front_1-3-2.md	FRONT_1.3.2	typed	typed	prose	typed	56-59
 6-2-1.md	6.2.1	typed	typed	prose	typed	585-587		
 6-2-2.md	6.2.2	typed	typed	prose	typed	587-589		
 6-2-3.md	6.2.3	typed	typed	prose	typed	589-591		
-6-3.md	6.3	best-effort	best-effort		typed-lowering-declined	591-593		prose topic rejected: content follows the trailing menu
+6-3.md	6.3	typed	typed	prose	typed	591-593		
 6-3-1.md	6.3.1	typed	typed	prose	typed	593-594		
 6-3-2.md	6.3.2	typed	typed	prose	typed	594-597		
 6-3-3.md	6.3.3	typed	typed	prose	typed	597-599		
@@ -257,7 +257,7 @@ front_1-3-2.md	FRONT_1.3.2	typed	typed	prose	typed	56-59
 6-3-6.md	6.3.6	typed	typed	prose	typed	603-605		
 6-3-7.md	6.3.7	typed	typed	prose	typed	605-607		
 6-3-8.md	6.3.8	typed	typed	prose	typed	607-609		
-6-4.md	6.4	best-effort	best-effort		typed-lowering-declined	609-611		prose topic rejected: content follows the trailing menu
+6-4.md	6.4	typed	typed	prose	typed	609-611		
 6-4-1.md	6.4.1	typed	typed	prose	typed	611-613		
 6-4-2.md	6.4.2	typed	typed	prose	typed	613-615		
 6-4-3.md	6.4.3	typed	typed	prose	typed	615-617		
@@ -305,10 +305,10 @@ g-2.md	G.2	typed	typed	prose	typed	769-771
 g-3.md	G.3	best-effort	best-effort		typed-lowering-declined	771-817		prose topic rejected: table envelope 'SRCCMS' declined: table line has no display position at 795:0 '?'; not preformatted: preformatted region contains control SRLISreceivx
 g-4.md	G.4	typed	typed	prose	typed	817-828		
 g-5.md	G.5	typed	typed	prose	typed	828-836		
-glossary.md	GLOSSARY	best-effort	best-effort		typed-lowering-declined	836-928		prose topic rejected: text segment begins with control-like word 'SRGLS' in record 844
+glossary.md	GLOSSARY	typed	typed	prose	typed	836-928		
 bibliography.md	BIBLIOGRAPHY	typed	typed	prose	typed	928-930		
 bibliography-1.md	BIBLIOGRAPHY.1	typed	typed	prose	typed	930-939		
 bibliography-2.md	BIBLIOGRAPHY.2	typed	typed	prose	typed	939-943		
 index.md	INDEX	typed	typed	generated navigation	typed	943-976		
 comments.md	COMMENTS	best-effort	best-effort		typed-lowering-declined	976-979		prose topic rejected: token 33 of record 977 has no disposition
-# summary	best-effort=15	typed=297	total=312
+# summary	best-effort=12	typed=300	total=312

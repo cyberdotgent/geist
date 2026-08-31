@@ -34,5 +34,5 @@ back_1-2.md	BACK_1.2	typed	typed	prose	typed	134-135
 back_1-3.md	BACK_1.3	typed	typed	prose	typed	135-137		
 back_1-4.md	BACK_1.4	typed	typed	prose	typed	140-142		
 index.md	INDEX	typed	typed	generated navigation	typed	142-146		
-comments.md	COMMENTS	best-effort	best-effort		typed-lowering-declined	146-149		prose topic rejected: cz off lines carries display text
-# summary	best-effort=7	typed=29	total=36
+comments.md	COMMENTS	typed	typed	prose	typed	146-149		
+# summary	best-effort=6	typed=30	total=36

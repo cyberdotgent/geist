@@ -10,7 +10,7 @@
 <a id="TBLTBLUNIQ549"></a>
 <a id="EFIG"></a>
 
-```text
+<pre>
    Virtual Machine/
    Enterprise Systems Architecture(TM)
    Service Guide
@@ -54,7 +54,7 @@
                             _______________________________________________
                             _______________________________________________
    Phone No.  . . . . . . . _______________________________________________
-```
+</pre>
 
 ---
 

@@ -69,7 +69,7 @@ preface.md	PREFACE	typed	typed	prose	typed	15-18
 6-2.md	6.2	typed	typed	prose	typed	163-176		
 6-2-1.md	6.2.1	typed	typed	prose	typed	176-187		
 6-3.md	6.3	typed	typed	prose	typed	187-190		
-6-3-1.md	6.3.1	best-effort	best-effort		typed-lowering-declined	190-197		prose topic rejected: token 6 of record 195 is a display-line length byte and cannot be claimed as displayed text
+6-3-1.md	6.3.1	typed	typed	prose	typed	190-197		
 6-4.md	6.4	typed	typed	prose	typed	197-198		
 7-0.md	7.0	typed	typed	prose	typed	198-200		
 7-1.md	7.1	typed	typed	prose	typed	200-201		
@@ -84,11 +84,11 @@ preface.md	PREFACE	typed	typed	prose	typed	15-18
 7-5-2.md	7.5.2	typed	typed	prose	typed	213-214		
 7-5-3.md	7.5.3	typed	typed	prose	typed	214-215		
 7-6.md	7.6	typed	typed	prose	typed	215-221		
-7-6-1.md	7.6.1	best-effort	best-effort		typed-lowering-declined	221-225		prose topic rejected: token 216 of record 222 is a display-line length byte and cannot be claimed as displayed text
-7-7.md	7.7	best-effort	best-effort		typed-lowering-declined	225-228		prose topic rejected: token 65 of record 226 is a display-line length byte and cannot be claimed as displayed text
+7-6-1.md	7.6.1	typed	typed	prose	typed	221-225		
+7-7.md	7.7	typed	typed	prose	typed	225-228		
 7-7-1.md	7.7.1	typed	typed	prose	typed	228-230		
 7-7-2.md	7.7.2	typed	typed	prose	typed	230-231		
-7-7-2-1.md	7.7.2.1	best-effort	best-effort		typed-lowering-declined	231-236		prose topic rejected: token 0 of record 232 is a display-line length byte and cannot be claimed as displayed text
+7-7-2-1.md	7.7.2.1	typed	typed	prose	typed	231-236		
 7-7-2-2.md	7.7.2.2	typed	typed	prose	typed	236-241		
 7-7-2-3.md	7.7.2.3	typed	typed	prose	typed	241-242		
 7-8.md	7.8	typed	typed	prose	typed	242-244		
@@ -158,4 +158,4 @@ f-3.md	F.3	typed	typed	prose	typed	407-418
 glossary.md	GLOSSARY	typed	typed	prose	typed	418-436		
 bibliography.md	BIBLIOGRAPHY	typed	typed	prose	typed	436-442		
 index.md	INDEX	typed	typed	generated navigation	typed	442-461		
-# summary	best-effort=6	typed=153	total=159
+# summary	best-effort=2	typed=157	total=159

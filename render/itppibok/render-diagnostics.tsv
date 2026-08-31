@@ -248,11 +248,11 @@ d-1-3-1.md	D.1.3.1	typed	typed	prose	typed	480-481
 d-1-3-2.md	D.1.3.2	typed	typed	prose	typed	481-482		
 d-1-3-3.md	D.1.3.3	typed	typed	prose	typed	482-483		
 d-1-3-4.md	D.1.3.4	best-effort	best-effort		typed-lowering-declined	483-484		prose topic rejected: ST title 'Response Time Utility' does not match the topic title 'Response Time Utility <BOOK>' [run 'Response Time Utility The TPNS Response Time Utility provides response time statistics and graphs for selected terminals or the entire simulated network after the simulation is finished.It provides you with a great deal of flexibility in defining the beginning and end of logical transactions, so that you can measure particular responses or track system response statistics over time.Refer to "Using the Response Time Utility" and to TPNS General Utilities for more information about the Response Time Utility.']
-e-0.md	E.0	best-effort	best-effort		typed-lowering-declined	484-488		prose topic rejected: control SRHDRLUT carries visible payload '<BOOK>' in record 484
+e-0.md	E.0	typed	typed	prose	typed	484-488		
 glossary.md	GLOSSARY	typed	typed	prose	typed	488-530		
 bibliography.md	BIBLIOGRAPHY	typed	typed	prose	typed	530-531		
 bibliography-1.md	BIBLIOGRAPHY.1	typed	typed	prose	typed	531-533		
 bibliography-2.md	BIBLIOGRAPHY.2	typed	typed	publication catalog	typed	533-536		
 index.md	INDEX	typed	typed	generated navigation	typed	536-557		
 comments.md	COMMENTS	typed	typed	prose	typed	557-559		
-# summary	best-effort=2	typed=254	total=256
+# summary	best-effort=1	typed=255	total=256

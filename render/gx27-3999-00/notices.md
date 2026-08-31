@@ -9,14 +9,14 @@
 <a id="FIGFIGUNIQ1"></a>
 <a id="EFIG"></a>
 
-```text
+<pre>
     ___ Note ___________________________________________________________
    |                                                                    |
    | Before using this information and the product it supports, read    |
-   | the general information under "Notices" in topic BACK_1.           |
+   | the general information under <a href="back_1.md">"Notices" in topic BACK_1</a>.           |
    |                                                                    |
    |____________________________________________________________________|
-```
+</pre>
 
 ---
 

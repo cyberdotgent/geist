@@ -25,7 +25,7 @@ changes.md	CHANGES	typed	typed	prose	typed	84-116
 1-2-2.md	1.2.2	typed	typed	prose	typed	125-128		
 1-2-3.md	1.2.3	typed	typed	prose	typed	128-134		
 1-2-4.md	1.2.4	best-effort	best-effort		typed-lowering-declined	134-150		prose topic rejected: ST title 'Messages Sent to Hard-Copy Log in JES3 System' does not match the topic title 'Messages Sent to Hard-Copy Log in JES3 System Access' [run 'Messages Sent to Hard-Copy Log in JES3 System Messages sent to the JESMSG hard-copy log in a JES3 system appear in the format: Messages sent to the MLOG/DLOG hard-copy log in a JES3 system appear as follows: Messages sent to the MLOG/DLOG hard-copy log appear in the format: dest JES3 destination class, which corresponds to the MVS routing code. console JES3 console name or MVS console identifier, as follows: blank For a message issued without a console identifier. nnnnnnnn The JES3 console name (JNAME) from the']
-1-2-5.md	1.2.5	best-effort	best-effort		typed-lowering-declined	150-151		prose topic rejected: control csourcefn carries visible payload 'a'
+1-2-5.md	1.2.5	typed	typed	prose	typed	150-151		
 2-0.md	2.0	typed	typed	trap catalog	typed	151-178		
 3-0.md	3.0	typed	typed	trap catalog	typed	178-281		
 4-0.md	4.0	typed	typed	trap catalog	typed	281-311		
@@ -42,15 +42,15 @@ changes.md	CHANGES	typed	typed	prose	typed	84-116
 15-0.md	15.0	best-effort	best-effort		typed-lowering-declined	757-848		prose topic rejected: body control SRMSG is outside the prose model
 16-0.md	16.0	best-effort	best-effort		typed-lowering-declined	848-1471		prose topic rejected: body control SRMSG is outside the prose model
 17-0.md	17.0	typed	typed	trap catalog	typed	1471-1555		
-18-0.md	18.0	best-effort	best-effort		typed-lowering-declined	1555-1662		prose topic rejected: body control SRMSG is outside the prose model
+18-0.md	18.0	typed	typed	trap catalog	typed	1555-1662		
 19-0.md	19.0	typed	typed	trap catalog	typed	1662-1688		
-20-0.md	20.0	best-effort	best-effort		typed-lowering-declined	1688-1814		prose topic rejected: body control SRMSG is outside the prose model
+20-0.md	20.0	typed	typed	trap catalog	typed	1688-1814		
 21-0.md	21.0	best-effort	best-effort		typed-lowering-declined	1814-1975		prose topic rejected: body control SRMSG is outside the prose model
 22-0.md	22.0	typed	typed	trap catalog	typed	1975-1990		
 23-0.md	23.0	best-effort	best-effort		typed-lowering-declined	1990-2112		prose topic rejected: body control SRMSG is outside the prose model
 24-0.md	24.0	best-effort	best-effort		typed-lowering-declined	2112-2117		prose topic rejected: body control SRMSG is outside the prose model
 25-0.md	25.0	typed	typed	trap catalog	typed	2117-2177		
-26-0.md	26.0	best-effort	best-effort		typed-lowering-declined	2177-2259		prose topic rejected: body control SRMSG is outside the prose model
+26-0.md	26.0	typed	typed	trap catalog	typed	2177-2259		
 27-0.md	27.0	typed	typed	trap catalog	typed	2259-2278		
-28-0.md	28.0	best-effort	best-effort		typed-lowering-declined	2278-3343		prose topic rejected: body control SRMSG is outside the prose model
-# summary	best-effort=14	typed=40	total=54
+28-0.md	28.0	typed	typed	trap catalog	typed	2278-3343		
+# summary	best-effort=9	typed=45	total=54

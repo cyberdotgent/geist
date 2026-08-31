@@ -10,7 +10,7 @@
 <a id="TBLTBLUNIQ1"></a>
 <a id="TBLTBLUNIQ2"></a>
 
-```text
+<pre>
    This publication will help executives and management understand the
    benefits of using IMS 5.1.  For technical professionals, it describes the
    advantages of the new features of IMS 5.1 and will assist them in
@@ -70,7 +70,7 @@
    UNIX is a registered trademark in the United States and other
    countries licensed exclusively through X/Open Company Limited.
    Other trademarks are trademarks of their respective companies.
-```
+</pre>
 
 ---
 

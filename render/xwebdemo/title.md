@@ -7,16 +7,14 @@ Previous | [Index](README.md) | [Next](contents.md)
 # TITLE Title Page
 
 
-```text
-   OFF TIPAGE
+<pre>
                                                    IBM BookManager BookServer
-   BREAK 3
                                                            Demonstration Book
                                                      Document Number XWEBDEMO
                                                                April 23, 1997
                                               http://booksrv2.raleigh.ibm.com
                                                   ©IBM Corporation 1995, 1997
-```
+</pre>
 
 ---
 

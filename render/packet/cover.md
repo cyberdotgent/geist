@@ -7,7 +7,7 @@ Previous | [Index](README.md) | [Next](title.md)
 # COVER Book Cover
 
 
-```text
+<pre>
    __________________________________________________________________________
    Amateur Packet Radio
    A Complete Tutorial
@@ -16,7 +16,7 @@ Previous | [Index](README.md) | [Next](title.md)
    Part Number 0413-56
    File Number PACKET
    __________________________________________________________________________
-```
+</pre>
 
 ---
 

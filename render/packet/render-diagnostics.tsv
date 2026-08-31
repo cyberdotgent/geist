@@ -64,7 +64,7 @@ tables.md	TABLES	typed	typed	generated list	typed	12-13
 4-4-2.md	4.4.2	typed	typed	prose	typed	211-217		
 4-4-3.md	4.4.3	typed	typed	prose	typed	217-220		
 4-5.md	4.5	typed	typed	prose	typed	220-221		
-4-5-1.md	4.5.1	best-effort	best-effort		typed-lowering-declined	221-226		prose topic rejected: cz flow h5 without text is not the last directive
+4-5-1.md	4.5.1	typed	typed	prose	typed	221-226		
 4-5-2.md	4.5.2	typed	typed	prose	typed	226-228		
 4-5-3.md	4.5.3	typed	typed	prose	typed	228-232		
 4-5-4.md	4.5.4	typed	typed	prose	typed	232-238		
@@ -121,6 +121,6 @@ tables.md	TABLES	typed	typed	generated list	typed	12-13
 8-3.md	8.3	typed	typed	prose	typed	362-363		
 8-4.md	8.4	typed	typed	prose	typed	363-364		
 a-0.md	A.0	typed	typed	prose	typed	364-366		
-glossary.md	GLOSSARY	best-effort	best-effort		typed-lowering-declined	366-369		prose topic rejected: placeholder run '?' is followed by visible text at record 366 token 55
+glossary.md	GLOSSARY	typed	typed	glossary	typed	366-369		
 index.md	INDEX	typed	typed	generated navigation	typed	369-372		
-# summary	best-effort=4	typed=120	total=124
+# summary	best-effort=2	typed=122	total=124

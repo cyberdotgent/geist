@@ -7,7 +7,7 @@ front_1.md	FRONT_1	typed	typed	prose	typed	9-10
 front_1-1.md	FRONT_1.1	typed	typed	prose	typed	10-11		
 preface.md	PREFACE	typed	typed	prose	typed	11-12		
 preface-1.md	PREFACE.1	typed	typed	prose	typed	12-13		
-preface-2.md	PREFACE.2	best-effort	best-effort		typed-lowering-declined	13-17		prose topic rejected: text segment begins with control-like word 'SRHDRAIXHIGH' in record 14
+preface-2.md	PREFACE.2	typed	typed	prose	typed	13-17		
 preface-3.md	PREFACE.3	typed	typed	prose	typed	17-18		
 1-0.md	1.0	typed	typed	prose	typed	18-19		
 1-1.md	1.1	best-effort	best-effort		typed-lowering-declined	19-21		prose topic rejected: body contains an implicit two-column grid
@@ -74,12 +74,12 @@ back_1-8.md	BACK_1.8	typed	typed	publication catalog	typed	529-530
 back_1-9.md	BACK_1.9	typed	typed	publication catalog	typed	530-531		
 back_1-10.md	BACK_1.10	typed	typed	publication catalog	typed	531-532		
 back_1-11.md	BACK_1.11	typed	typed	publication catalog	typed	532-533		
-back_1-12.md	BACK_1.12	best-effort	best-effort		typed-lowering-declined	533-535		prose topic rejected: content follows the trailing menu
+back_1-12.md	BACK_1.12	typed	typed	prose	typed	533-535		
 back_1-12-1.md	BACK_1.12.1	typed	typed	publication catalog	typed	535-536		
 back_1-12-2.md	BACK_1.12.2	typed	typed	publication catalog	typed	536-537		
 back_1-12-3.md	BACK_1.12.3	typed	typed	publication catalog	typed	537-538		
 index.md	INDEX	typed	typed	generated navigation	typed	538-541		
 back_2.md	BACK_2	typed	typed	comment delivery	typed	541-543		
 comments.md	COMMENTS	typed	typed	comment delivery	typed	543-547		
-# summary	best-effort=6	typed=75	typed-degraded=1	total=82
+# summary	best-effort=4	typed=77	typed-degraded=1	total=82
 # degraded-blocks	message-preformatted-fallback=1

@@ -12,7 +12,7 @@
 <a id="TBLTBLUNIQ20"></a>
 <a id="TBLTBLUNIQ21"></a>
 
-```text
+<pre>
        Customers may request ITSO deliverables (redbooks, BookManager BOOKs,
        and CD-ROMs) and information about redbooks, workshops, and
        residencies in the following ways:
@@ -66,7 +66,7 @@
        | publishing process allows.                                         |
        |                                                                    |
        |____________________________________________________________________|
-```
+</pre>
 
 ---
 

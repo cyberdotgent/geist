@@ -8,7 +8,7 @@
 
 <a id="HDRWHAT"></a>
 
-```text
+<pre>
 SHPREFACE.2
     What You Should Know
    Before using this manual you should be familiar with the introductory
@@ -48,7 +48,7 @@ SHPREFACE.2
  | task.  If a task in a chapter deals with a different function of
  | OfficeVision/400 than the remaining part of the chapter, instructions to
  | get to that function of OfficeVision/400 are provided.
-```
+</pre>
 
 ---
 

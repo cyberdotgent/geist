@@ -68,35 +68,35 @@
 
 [32\.  Example of a Conversion Table   3\.3\.5](3-3-5.md#FIGFIGUNIQ15)
 
-[33  Communications Manager \- Setup Window   4\.1\.1](4-1-1.md#FIGCMSVR1)
+[33  Communications Manager \- Setup Window   4\.1\.1](16.png)
 
-[34\.  Communications Manager \- Creating a New Configuration   4\.1\.1](4-1-1.md#FIGCMSVR2)
+[34\.  Communications Manager \- Creating a New Configuration   4\.1\.1](18.png)
 
-[35\.  Communications Manager \- APPC Definitions   4\.1\.1](4-1-1.md#FIGCMSVR4)
+[35\.  Communications Manager \- APPC Definitions   4\.1\.1](21.png)
 
-[36\.  Communications Manager \- APPC APIs over Token\-ring Definition   4\.1\.1](4-1-1.md#FIGCMSVR5)
+[36\.  Communications Manager \- APPC APIs over Token\-ring Definition   4\.1\.1](23.png)
 
-[37\.  Communications Manager \- Configuring Profile List   4\.1\.1](4-1-1.md#FIGCMSVR6)
+[37\.  Communications Manager \- Configuring Profile List   4\.1\.1](25.png)
 
-[38\.  Communications Manager \- Token Ring or Other LAN Types DLC   4\.1\.1](4-1-1.md#FIGCMSVR7)
+[38\.  Communications Manager \- Token Ring or Other LAN Types DLC   4\.1\.1](27.png)
 
-[39\.  Communications Manager \- Local Node Characteristics   4\.1\.1](4-1-1.md#FIGCMSVR8)
+[39\.  Communications Manager \- Local Node Characteristics   4\.1\.1](30.png)
 
-[40\.  Communications Manager \- Create Connection List   4\.1\.1](4-1-1.md#FIGCMSVR9)
+[40\.  Communications Manager \- Create Connection List   4\.1\.1](33.png)
 
-[41\.  Communications Manager \- Adapter Selection   4\.1\.1](4-1-1.md#FIGCMSVR10)
+[41\.  Communications Manager \- Adapter Selection   4\.1\.1](35.png)
 
-[42\.  Communications Manager \- Connection to a Network Node   4\.1\.1](4-1-1.md#FIGCMSVR11)
+[42\.  Communications Manager \- Connection to a Network Node   4\.1\.1](37.png)
 
-[43\.  Communications Manager \- SNA Features List   4\.1\.1](4-1-1.md#FIGCMSVR12)
+[43\.  Communications Manager \- SNA Features List   4\.1\.1](41.png)
 
-[44\.  Local LU Definition   4\.1\.1](4-1-1.md#FIGCMSVR13)
+[44\.  Local LU Definition   4\.1\.1](43.png)
 
-[45\.  Partner LU Definition   4\.1\.1](4-1-1.md#FIGCMSVR14)
+[45\.  Partner LU Definition   4\.1\.1](46.png)
 
-[46\.  Communications Manager \- Mode Definition   4\.1\.1](4-1-1.md#FIGCMSVR17)
+[46\.  Communications Manager \- Mode Definition   4\.1\.1](49.png)
 
-[47\.  Communications Manager \- Compression and Session   4\.1\.1](4-1-1.md#FIGCMSVR15)
+[47\.  Communications Manager \- Compression and Session   4\.1\.1](51.png)
 
 [48\.  Transaction Server \- Resource Definition Online   4\.1\.2](58.png)
 
@@ -112,43 +112,43 @@
 
 [54\.  Connection and Session Table \- Details   4\.1\.2](64.png)
 
-[55\.  Starting SNA Server Manager   4\.2\.1](4-2-1.md#FIGSNASRV1)
+[55\.  Starting SNA Server Manager   4\.2\.1](65.png)
 
-[56\.  Microsoft SNA Server Manager Window   4\.2\.1](4-2-1.md#FIGNTSVR1)
+[56\.  Microsoft SNA Server Manager Window   4\.2\.1](66.png)
 
-[57\.  Server Properties \- General   4\.2\.1](4-2-1.md#FIGNTSVR8)
+[57\.  Server Properties \- General   4\.2\.1](67.png)
 
-[58\.  Server Properties \- Server Configuration   4\.2\.1](4-2-1.md#FIGNTSVR9)
+[58\.  Server Properties \- Server Configuration   4\.2\.1](68.png)
 
-[59\.  Link Service   4\.2\.1](4-2-1.md#FIGSNASRV3)
+[59\.  Link Service   4\.2\.1](70.png)
 
-[60  Insert Link Service   4\.2\.1](4-2-1.md#FIGNTSVR2)
+[60  Insert Link Service   4\.2\.1](71.png)
 
-[61\.  DLC 802\.2 Link Service Properties   4\.2\.1](4-2-1.md#FIGNTSVR3)
+[61\.  DLC 802\.2 Link Service Properties   4\.2\.1](73.png)
 
-[62\.  Connection Properties \- General   4\.2\.1](4-2-1.md#FIGNTSVR4)
+[62\.  Connection Properties \- General   4\.2\.1](76.png)
 
-[63\.  Connection Properties \- Address   4\.2\.1](4-2-1.md#FIGNTSVR5)
+[63\.  Connection Properties \- Address   4\.2\.1](77.png)
 
-[64\.  Connection Properties \- System Identification   4\.2\.1](4-2-1.md#FIGSNAS6)
+[64\.  Connection Properties \- System Identification   4\.2\.1](78.png)
 
-[65\.  Connection Properties \- 802\.2 DLC   4\.2\.1](4-2-1.md#FIGNTSVR7)
+[65\.  Connection Properties \- 802\.2 DLC   4\.2\.1](79.png)
 
-[66\.  Local APPC LU Properties \- General   4\.2\.1](4-2-1.md#FIGSNAS10)
+[66\.  Local APPC LU Properties \- General   4\.2\.1](81.png)
 
-[67\.  Local APPC LU Properties \- Advanced   4\.2\.1](4-2-1.md#FIGNTSVR11)
+[67\.  Local APPC LU Properties \- Advanced   4\.2\.1](82.png)
 
-[68\.  Remote APPC LU Properties \- General   4\.2\.1](4-2-1.md#FIGNTSVR12)
+[68\.  Remote APPC LU Properties \- General   4\.2\.1](84.png)
 
-[69\.  Local Remote APPC LU Properties \- Options   4\.2\.1](4-2-1.md#FIGNTSVR13)
+[69\.  Local Remote APPC LU Properties \- Options   4\.2\.1](85.png)
 
-[70\.  APPC Mode Properties \- General   4\.2\.1](4-2-1.md#FIGNTSVR14)
+[70\.  APPC Mode Properties \- General   4\.2\.1](87.png)
 
-[71\.  APPC Mode Properties \- Limits   4\.2\.1](4-2-1.md#FIGNTSVR15)
+[71\.  APPC Mode Properties \- Limits   4\.2\.1](88.png)
 
-[72\.  APPC Mode Properties \- Characteristics   4\.2\.1](4-2-1.md#FIGNTSVR16)
+[72\.  APPC Mode Properties \- Characteristics   4\.2\.1](89.png)
 
-[73\.  SNA Server Start   4\.2\.1](4-2-1.md#FIGNTSVR17)
+[73\.  SNA Server Start   4\.2\.1](91.png)
 
 [74\.  Create a DCE for RPC\-only   4\.2\.2\.2](<#FIGTRASR01>)
 
@@ -186,19 +186,19 @@
 
 [91\.  Starting a Local CICS Terminal   4\.2\.2\.5](<#FIGCICSNT7>)
 
-[92\.  CICS Client for OS/2 \- Installation   5\.1](5-1.md#FIGCLNT32)
+[92\.  CICS Client for OS/2 \- Installation   5\.1](111.png)
 
-[93\.  CICS Client for OS/2 \- Instructions   5\.1](5-1.md#FIGCLNT34)
+[93\.  CICS Client for OS/2 \- Instructions   5\.1](112.png)
 
-[94\.  CICS Client for OS/2 \- Install   5\.1](5-1.md#FIGCLNT08)
+[94\.  CICS Client for OS/2 \- Install   5\.1](114.png)
 
-[95\.  CICS Client for OS/2 \- Installing Directories   5\.1](5-1.md#FIGCLNT10)
+[95\.  CICS Client for OS/2 \- Installing Directories   5\.1](116.png)
 
-[96\.  CICS Client for OS/2 \- Language Selection   5\.1](5-1.md#FIGCLNT21)
+[96\.  CICS Client for OS/2 \- Language Selection   5\.1](118.png)
 
-[97\.  CICS Client for OS/2 \- Question   5\.1](5-1.md#FIGCLNT23)
+[97\.  CICS Client for OS/2 \- Question   5\.1](120.png)
 
-[98  CICS Client for OS/2 \- Installation and Maintenance   5\.1](5-1.md#FIGCLNT25)
+[98  CICS Client for OS/2 \- Installation and Maintenance   5\.1](122.png)
 
 [99\.  CICS Client for OS/2 INI File: Client Section   5\.2\.1](5-2-1.md#FIGCLNT40)
 

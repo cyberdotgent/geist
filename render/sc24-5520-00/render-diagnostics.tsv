@@ -503,7 +503,7 @@ preface-4.md	PREFACE.4	typed	typed	prose	typed	40-41
 5-10-14-3.md	5.10.14.3	typed	typed	prose	typed	1546-1547		
 5-10-14-4.md	5.10.14.4	typed	typed	prose	typed	1547-1548		
 5-10-14-5.md	5.10.14.5	typed	typed	prose	typed	1548-1549		
-6-11.md	6.11	typed	typed	menu	typed	1550-1551		
+6-11.md	6.11	typed	typed	prose	typed	1550-1551		
 6-11-1.md	6.11.1	typed	typed	prose	typed	1551-1552		
 6-11-2.md	6.11.2	typed-degraded	typed	prose	degraded-block	1552-1555	figure-body-cross-reference	drawn figure body carries cross references the verbatim block cannot express: '"*ACCOUNT System Service" in topic 6.11.3' -> HDRACCT; '"*BLOCKIO System Service" in topic 6.11.4' -> HDRBLKIO; '"*IDENT System Service" in topic 6.11.5' -> HDRIDENSS; '"*LOGREC System Service" in topic 6.11.8' -> HDRLOGR; '"*MONITOR System Service" in topic 6.11.9' -> HDRMONTR; '"*MSG System Service" in topic 6.11.10' -> HDRMSG; '"*MSGALL System Service" in topic 6.11.11' -> HDRMSGA; '"*RPI System Service" in topic 6.11.12' -> HDRRACF; '"*SIGNAL System Service" in topic 6.11.13' -> HDRSIGN; '"*SPL System Service" in topic 6.11.14' -> HDRSPL; '"*SYMPTOM System Service" in topic 6.11.15' -> HDRSYM;
 6-11-3.md	6.11.3	typed	typed	prose	typed	1555-1561		
@@ -560,7 +560,7 @@ preface-4.md	PREFACE.4	typed	typed	prose	typed	40-41
 7-12-1-7.md	7.12.1.7	typed	typed	prose	typed	1794-1795		
 8-13.md	8.13	typed	typed	prose	typed	1796-1797		
 8-13-1.md	8.13.1	typed	typed	prose	typed	1797-1798		
-8-13-2.md	8.13.2	best-effort	best-effort		typed-lowering-declined	1798-1800		prose topic rejected: content follows the trailing menu
+8-13-2.md	8.13.2	typed	typed	prose	typed	1798-1800		
 8-13-2-1.md	8.13.2.1	typed	typed	prose	typed	1800-1801		
 8-13-2-2.md	8.13.2.2	typed	typed	prose	typed	1801-1802		
 8-13-2-3.md	8.13.2.3	typed	typed	prose	typed	1802-1803		
@@ -657,5 +657,5 @@ bibliography-1-3.md	BIBLIOGRAPHY.1.3	typed	typed	prose	typed	2180-2186
 bibliography-2.md	BIBLIOGRAPHY.2	typed	typed	prose	typed	2186-2189		
 index.md	INDEX	typed	typed	generated navigation	typed	2189-2249		
 comments.md	COMMENTS	typed	typed	prose	typed	2249-2251		
-# summary	best-effort=14	typed=643	typed-degraded=1	total=658
+# summary	best-effort=13	typed=644	typed-degraded=1	total=658
 # degraded-blocks	figure-body-cross-reference=1

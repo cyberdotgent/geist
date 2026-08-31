@@ -1,6 +1,6 @@
 file	id	severity	route	family	reason	records	degraded	detail
 cover.md	COVER	typed	typed	prose	typed	2-3		
-notices.md	NOTICES	best-effort	best-effort		typed-lowering-declined	3-4		prose topic rejected: cz OFF LBLBOX is not closed by cz OFF ELBLBOX
+notices.md	NOTICES	typed	typed	prose	typed	3-4		
 edition.md	EDITION	typed	typed	prose	typed	4-5		
 contents.md	CONTENTS	typed	typed	generated navigation	typed	5-9		
 figures.md	FIGURES	typed	typed	generated list	typed	9-17		
@@ -43,16 +43,16 @@ preface-2.md	PREFACE.2	typed	typed	prose	typed	19-20
 3-3-5.md	3.3.5	typed	typed	prose	typed	125-127		
 4-0.md	4.0	typed	typed	prose	typed	127-129		
 4-1.md	4.1	typed	typed	prose	typed	129-131		
-4-1-1.md	4.1.1	best-effort	best-effort		typed-lowering-declined	131-142		prose topic rejected: figure region declined: figure region contains prose row 'Click on'
+4-1-1.md	4.1.1	typed	typed	prose	typed	131-142		
 4-1-2.md	4.1.2	typed	typed	prose	typed	142-147		
 4-2.md	4.2	typed	typed	prose	typed	147-149		
-4-2-1.md	4.2.1	best-effort	best-effort		typed-lowering-declined	149-158		prose topic rejected: figure region declined: figure region contains prose row '&diam. Click on'
+4-2-1.md	4.2.1	typed	typed	prose	typed	149-158		
 4-2-2.md	4.2.2	typed	typed	prose	typed	158-160		
 4-3.md	4.3	typed	typed	prose	typed	178-180		
 4-3-1.md	4.3.1	typed	typed	prose	typed	180-181		
 4-3-2.md	4.3.2	typed	typed	prose	typed	184-185		
 5-0.md	5.0	typed	typed	prose	typed	185-190		
-5-1.md	5.1	best-effort	best-effort		typed-lowering-declined	190-193		prose topic rejected: figure region declined: figure region contains prose row 'Click on'
+5-1.md	5.1	typed	typed	prose	typed	190-193		
 5-2.md	5.2	typed	typed	prose	typed	193-194		
 5-2-1.md	5.2.1	typed	typed	prose	typed	194-202		
 5-2-2.md	5.2.2	typed	typed	prose	typed	202-208		
@@ -92,4 +92,4 @@ glossary.md	GLOSSARY	typed	typed	prose	typed	492-539
 abbreviations.md	ABBREVIATIONS	typed	typed	prose	typed	539-545		
 index.md	INDEX	typed	typed	generated navigation	typed	545-555		
 back_2.md	BACK_2	typed	typed	prose	typed	555-557		
-# summary	best-effort=6	typed=87	total=93
+# summary	best-effort=2	typed=91	total=93

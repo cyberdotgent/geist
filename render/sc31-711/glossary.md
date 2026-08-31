@@ -314,7 +314,7 @@ DLCI Values  Function
 
 <a id="GLS drag"></a>
 
-- **drag:** In CUA architecture, to use a pointing device to move an object; for example, clicking on a window border, and dragging it to make the
+- **drag:** In CUA architecture, to use a pointing device to move an object; for example, clicking on a window border, and dragging it to make the window larger\.
 
 <a id="GLS dynamic"></a>
 
@@ -360,7 +360,7 @@ DLCI Values  Function
 
 <a id="GLS event card"></a>
 
-- **event card:** In the AIX SystemView NetView/6000 program, a graphical representation, resembling a punched card, of the information contained in an event sent by an agent to a manager reflecting a change in the status
+- **event card:** In the AIX SystemView NetView/6000 program, a graphical representation, resembling a punched card, of the information contained in an event sent by an agent to a manager reflecting a change in the status of one of the agent's managed nodes\.
 
 <a id="GLS executable symbol"></a>
 
@@ -746,7 +746,7 @@ DLCI Values  Function
 
 <a id="GLS PC network"></a>
 
-- **PC network:** A low\-cost, broadband network that allows attached IBM
+- **PC network:** A low\-cost, broadband network that allows attached IBM personal computers to communicate and share resources\.
 
 <a id="GLS personal computer (PC)"></a>
 
@@ -918,7 +918,7 @@ DLCI Values  Function
 
 <a id="GLS scroll"></a>
 
-- **scroll:** To move a display image vertically or horizontally to view data
+- **scroll:** To move a display image vertically or horizontally to view data that cannot be observed within a single display screen\.
 
 <a id="GLS scroll bar"></a>
 
@@ -954,7 +954,7 @@ DLCI Values  Function
 
 <a id="GLS simple filter"></a>
 
-- **simple filter:** \(1\) An event filter expression that can be created by using the Simple Filter Editor dialog box\. A simple filter does not require manual coding of keywords and logical operators\. \(2\) See compound
+- **simple filter:** \(1\) An event filter expression that can be created by using the Simple Filter Editor dialog box\. A simple filter does not require manual coding of keywords and logical operators\. \(2\) See compound filter\.
 
 <a id="GLS Simple Network Management Protocol (SNMP)"></a>
 
@@ -1046,7 +1046,7 @@ DLCI Values  Function
 
 <a id="GLS System Management Interface Tool (SMIT)"></a>
 
-- **System Management Interface Tool \(SMIT\):** An interface tool that is, configuring, and diagnosing tasks\.
+- **System Management Interface Tool \(SMIT\):** An interface tool that is provided with the AIX Operating System for installing, maintaining, configuring, and diagnosing tasks\.
 
 <a id="GLS Systems Network Architecture (SNA)"></a>
 
@@ -1138,7 +1138,7 @@ DLCI Values  Function
 
 <a id="GLS unmanaged status"></a>
 
-- **unmanaged status:** \(1\) The status that indicates that an object is unmanaged\. The default icon symbol color displayed to indicate unmanaged status is Wheat\. The default connection symbol color displayed is Black\. " \(2\) See critical status, normal status, compound status, unknown status,
+- **unmanaged status:** \(1\) The status that indicates that an object is unmanaged\. The default icon symbol color displayed to indicate unmanaged status is Wheat\. The default connection symbol color displayed is Black\. " \(2\) See critical status, normal status, compound status, unknown status, and status\.
 
 <a id="GLS user"></a>
 
