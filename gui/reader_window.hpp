@@ -57,6 +57,8 @@ private slots:
   void choose_book();
   void close_book();
   void show_about();
+  // The "?" on the toolbar: what this BOO file actually is.
+  void show_book_information();
   void print_topic();
   void find_in_topic();
 
@@ -98,6 +100,7 @@ private:
   QAction* search_action_ = nullptr;
   QAction* print_action_ = nullptr;
   QAction* about_action_ = nullptr;
+  QAction* info_action_ = nullptr;
   QAction* copy_action_ = nullptr;
   QAction* select_all_action_ = nullptr;
 

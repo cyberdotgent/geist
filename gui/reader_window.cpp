@@ -7,6 +7,8 @@
 #include <QGuiApplication>
 #include <QComboBox>
 #include <QDesktopServices>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -15,6 +17,7 @@
 #include <QKeySequence>
 #include <QLabel>
 #include <QLineEdit>
+#include <QLocale>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
@@ -22,8 +25,10 @@
 #include <QPrinter>
 #include <QSplitter>
 #include <QStyle>
+#include <QTextBrowser>
 #include <QToolBar>
 #include <QTreeWidget>
+#include <QVBoxLayout>
 #include <QUrl>
 #include <QWebEngineHistory>
 #include <QWebEngineProfile>
@@ -169,9 +174,14 @@ void ReaderWindow::build_actions() {
   connect(print_action_, &QAction::triggered, this,
           &ReaderWindow::print_topic);
 
-  about_action_ = new QAction(icon(QStyle::SP_MessageBoxQuestion),
-                              tr("&About Geist Hardcopy Reader"), this);
+  about_action_ = new QAction(tr("&About Geist Hardcopy Reader"), this);
   connect(about_action_, &QAction::triggered, this, &ReaderWindow::show_about);
+
+  info_action_ = new QAction(icon(QStyle::SP_MessageBoxQuestion),
+                             tr("Book &Information"), this);
+  info_action_->setShortcut(QKeySequence(Qt::Key_F1));
+  connect(info_action_, &QAction::triggered, this,
+          &ReaderWindow::show_book_information);
 
   copy_action_ = view_->pageAction(QWebEnginePage::Copy);
   copy_action_->setText(tr("&Copy"));
@@ -197,7 +207,7 @@ void ReaderWindow::build_toolbar() {
   bar->addAction(search_action_);
   bar->addAction(print_action_);
   bar->addSeparator();
-  bar->addAction(about_action_);
+  bar->addAction(info_action_);
 
   // The original reader right-aligns the font controls; a stretching spacer
   // is how a QToolBar does that.
@@ -302,6 +312,97 @@ void ReaderWindow::show_about() {
          "<p>Named in tribute to the IBM BookManager SoftCopy Reader. This is "
          "not an IBM product and is not affiliated with IBM.</p>")
           .arg(QApplication::applicationVersion()));
+}
+
+void ReaderWindow::show_book_information() {
+  if (!document_.has_value()) {
+    return;
+  }
+  const auto& metadata = document_->metadata();
+  const auto& directory = document_->directory();
+  const auto& book = document_->book_properties();
+  const auto& header = document_->file_header();
+
+  QString rows;
+  const auto section = [&rows](const QString& name) {
+    rows += QStringLiteral("<tr><th colspan=\"2\" class=\"s\">%1</th></tr>")
+                .arg(name.toHtmlEscaped());
+  };
+  // Only states what the book states: a field the BOO does not carry is
+  // left out rather than shown empty.
+  const auto row = [&rows](const QString& name, const QString& value) {
+    const auto text = value.trimmed();
+    if (!text.isEmpty()) {
+      rows += QStringLiteral("<tr><td class=\"k\">%1</td><td>%2</td></tr>")
+                  .arg(name.toHtmlEscaped(), text.toHtmlEscaped());
+    }
+  };
+  const auto number = [&row](const QString& name, quint64 value) {
+    row(name, QLocale().toString(qulonglong(value)));
+  };
+  const auto text_of = [](const std::string& value) {
+    return QString::fromStdString(value);
+  };
+
+  section(tr("Book"));
+  row(tr("Title"), text_of(book.title));
+  row(tr("Short title"), text_of(book.short_title));
+  row(tr("Document number"), text_of(book.document_number));
+  QStringList authors;
+  for (const auto& author : book.authors) {
+    authors << text_of(author).trimmed();
+  }
+  row(tr("Authors"), authors.join(QStringLiteral(", ")));
+  row(tr("Language"), text_of(book.language));
+  row(tr("Version"), text_of(book.version));
+  row(tr("Build version"), text_of(book.build_version));
+  row(tr("Date"), text_of(book.date));
+  row(tr("Security"), text_of(book.security));
+  row(tr("Copyright"), text_of(book.copyright));
+
+  section(tr("Contents"));
+  number(tr("Topics"), document_->table_of_contents().size());
+  number(tr("Logical records"), directory.logical_record_count);
+  number(tr("Stored objects"), document_->resources().size());
+
+  section(tr("File"));
+  row(tr("Path"), QDir::toNativeSeparators(
+                      QString::fromStdString(metadata.path.string())));
+  row(tr("Size"), QLocale().formattedDataSize(
+                      static_cast<qint64>(metadata.file_size)));
+  number(tr("Page size"), metadata.page_size);
+  number(tr("Pages"), metadata.page_count);
+
+  section(tr("Build"));
+  row(tr("Built"), QStringLiteral("%1 %2").arg(text_of(directory.date),
+                                               text_of(directory.time))
+                       .trimmed());
+  row(tr("Directory version"), text_of(directory.version_text));
+  number(tr("Directory page"), directory.page_number);
+  number(tr("Content pages"), directory.content_page_count);
+  number(tr("Dictionary pages"), directory.dictionary_page_count);
+  row(tr("File copyright"), text_of(header.copyright_text));
+
+  QDialog dialog(this);
+  dialog.setWindowTitle(tr("Book Information"));
+  dialog.resize(620, 560);
+
+  auto* view = new QTextBrowser(&dialog);
+  view->setHtml(QStringLiteral(
+                    "<style>td,th{padding:3px 10px 3px 0;vertical-align:top;}"
+                    "th.s{padding-top:12px;text-align:left;}"
+                    "td.k{white-space:nowrap;font-weight:600;}</style>"
+                    "<table>%1</table>")
+                    .arg(rows));
+
+  auto* buttons = new QDialogButtonBox(QDialogButtonBox::Close, &dialog);
+  connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+  connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+
+  auto* layout = new QVBoxLayout(&dialog);
+  layout->addWidget(view);
+  layout->addWidget(buttons);
+  dialog.exec();
 }
 
 void ReaderWindow::print_topic() {
@@ -487,6 +588,7 @@ void ReaderWindow::update_navigation_state() {
   contents_action_->setEnabled(loaded && !topic_order_.isEmpty());
   search_action_->setEnabled(loaded);
   print_action_->setEnabled(loaded);
+  info_action_->setEnabled(loaded);
 }
 
 } // namespace geist_reader
