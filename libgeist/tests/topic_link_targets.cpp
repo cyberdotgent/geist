@@ -7,8 +7,8 @@
 // depend on, with the kinds those destinations depend on -- a cross-reference
 // anchor resolves to the topic's file, a figure and a table to a fragment, a
 // figure that draws a stored book resource also names that resource, and a
-// footnote to nothing at all, because `SRFTN` produces no book-wide
-// destination.
+// footnote to its own topic's file, because hosted BookServer resolves a
+// footnote reference that leaves the page it is printed on.
 //
 // The corpus-wide equivalences this used to assert over XWEBDEMO, ACPZMST1,
 // SC33-033 and N2AH1MST went with those books (issue #59); packet carries the
@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <map>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -138,28 +139,50 @@ int main() {
                   describe(topic->link_targets()));
   }
 
-  // Footnotes reach their anchor only from inside their own topic; `SRFTN`
-  // produces no `:anchor` record, so the link map must not gain a book-wide
-  // destination for one.  packet 1.1 prints FTNFTNUNIQ1 and FTNFTNUNIQ2.
+  // A footnote is a book-wide destination.  It used to be withheld from the
+  // map on the reading that a footnote is reachable only from the topic that
+  // prints it, and hosted BookServer disproves that: SC31-6055-1
+  // `BIBLIOGRAPHY.1` (DT 19911015203151) carries seven references to
+  // `FTNMERBIB` and hosted answers every one with
+  // `BIBLIOGRAPHY?DT=19911015203151#FTNMERBIB` -- the footnote printed by the
+  // *parent* topic.  So the id is published, and a reference that leaves its
+  // page resolves instead of dangling.  packet 1.1 prints FTNFTNUNIQ1 and
+  // FTNFTNUNIQ2.
   {
     const auto* topic = find_topic(document, "1.1");
     require(topic != nullptr, "packet 1.1 is missing");
     if (topic != nullptr) {
       for (const auto* id : {"FTNFTNUNIQ1", "FTNFTNUNIQ2"}) {
-        require(!names_any(topic->link_targets(), id),
-                std::string("packet 1.1 published footnote ") + id +
+        require(names(topic->link_targets(), geist::LinkTargetKind::anchor,
+                      id),
+                std::string("packet 1.1 does not publish footnote ") + id +
                     " as a book-wide destination: " +
                     describe(topic->link_targets()));
       }
     }
   }
-  // No topic anywhere in the book publishes a footnote anchor.
-  for (const auto& entry : document.table_of_contents()) {
-    for (const auto& target : entry.link_targets()) {
-      require(target.id.rfind("FTN", 0) != 0,
-              entry.id + " published footnote anchor " + target.id +
-                  " as a book-wide destination");
+  // Publishing them names exactly one destination each: no footnote id in
+  // the book is printed by two topics.  (Nor anywhere in the corpus -- that
+  // is what makes the id safe to publish at all.)
+  {
+    std::map<std::string, std::string> footnote_topic;
+    for (const auto& entry : document.table_of_contents()) {
+      for (const auto& target : entry.link_targets()) {
+        if (target.id.rfind("FTN", 0) != 0)
+          continue;
+        const auto found = footnote_topic.find(target.id);
+        if (found != footnote_topic.end()) {
+          require(false, "footnote anchor " + target.id +
+                             " is published by two topics, " + found->second +
+                             " and " + entry.id +
+                             "; the id no longer names one destination");
+          continue;
+        }
+        footnote_topic.emplace(target.id, entry.id);
+      }
     }
+    require(!footnote_topic.empty(),
+            "packet published no footnote destination at all");
   }
 
   // Whole book: the typed IR is the only answer, so there is no second

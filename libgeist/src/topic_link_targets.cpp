@@ -90,7 +90,16 @@ std::vector<LinkTarget> document_link_targets(const DocumentIR& document) {
   for (const auto& block : document.blocks) {
     if (const auto* anchor = std::get_if<AnchorBlockIR>(&block.node)) {
       pending_figure = std::string::npos;
-      if (anchor->id.empty() || anchor->role == AnchorRoleIR::local)
+      // A `local` role withholds the id from the book-wide map, except for a
+      // footnote.  The typed lowering marks `SRFTN<id>` local, but a footnote
+      // *is* reachable from another topic -- see the `FTNMERBIB` evidence
+      // below -- so its id is published and every other local anchor (a
+      // second spelling of a destination another anchor already names) still
+      // is not.
+      const auto footnote =
+          ascii_starts_with_case_insensitive(anchor->id, "ftn");
+      if (anchor->id.empty() ||
+          (anchor->role == AnchorRoleIR::local && !footnote))
         continue;
       // A role the lowering proved is authoritative.  Where it did not prove
       // one -- a figure or table region the family declined, whose control
@@ -104,12 +113,20 @@ std::vector<LinkTarget> document_link_targets(const DocumentIR& document) {
           role = AnchorRoleIR::figure;
         else if (ascii_starts_with_case_insensitive(anchor->id, "tbl"))
           role = AnchorRoleIR::table;
-        else if (ascii_starts_with_case_insensitive(anchor->id, "ftn"))
-          // `SRFTN<id>` produces no GML record at all: a footnote is reached
-          // only from the topic that prints it.
-          continue;
+        // `SRFTN<id>` is a destination like any other, and it is reachable
+        // from outside the topic that prints it: SC31-6055-1
+        // `BIBLIOGRAPHY.1` (DT 19911015203151) references `FTNMERBIB` seven
+        // times and hosted BookServer answers every one with
+        // `BIBLIOGRAPHY?DT=...#FTNMERBIB`, the parent topic's footnote.  So
+        // the id is published book-wide and the link map answers for it.
+        // No `FTN` id in the corpus is defined by more than one topic of its
+        // own book, so publishing it names exactly one destination.
       }
       LinkTarget target;
+      // Whatever the reference id turns out to be, the anchor the topic's
+      // Markdown emits is the anchor's own id, and that is what a fragment
+      // has to name.
+      target.fragment = anchor->id;
       switch (role) {
       case AnchorRoleIR::figure:
         target.kind = LinkTargetKind::figure;

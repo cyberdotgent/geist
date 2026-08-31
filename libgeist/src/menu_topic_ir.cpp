@@ -563,8 +563,45 @@ std::optional<MenuTargetValidationIR> validate_source_menu_targets(
     const auto normalized_canonical =
         collapse_ascii_whitespace(trim_ascii(canonical_title));
     auto label = collapse_ascii_whitespace(trim_ascii(source.text));
+    // A header title stops at the `ST` control's own display row, because
+    // that row is what the reader heads the topic with: hosted BookServer
+    // serves GC23-0469-01 `A.0` (DT 19920330095121) as `<H1>| A.0   Appendix
+    // A.  Install Logic for SMP/E Release 6 and the Feature for Online</H1>`
+    // and the word `Books` that finishes the title is not in it.  So a title
+    // long enough to wrap has a header title that is a *proper prefix* of the
+    // whole title, and the compiled menu spells the whole one -- QSYSINFO
+    // `2.1.21` is `SC09-1159, ... User's Guide and` in its header and
+    // `... User's Guide and Reference` in both its `CMITEM` label and the
+    // book's own TOC.
+    //
+    // The label is therefore also agreed when it equals the TOC title and the
+    // header title is a proper prefix of that.  This is an extra acceptance
+    // and never a new rejection, so no menu that validated before can stop
+    // validating; and it is not the "prefer the TOC" rule the comment above
+    // rejects, because a catalog *relabeling* changes the title's words and
+    // so is not an extension of the header title at all.
+    const auto begins_with = [](const std::string &whole,
+                                const std::string &head) {
+      return head.size() < whole.size() &&
+             ascii_equals_case_insensitive(whole.substr(0, head.size()), head);
+    };
+    auto agreed = ascii_equals_case_insensitive(label, normalized_canonical);
+    if (!agreed && has_header && has_toc) {
+      // The label is bracketed by the two independent projections: it begins
+      // with the whole header title, and the book's own TOC title begins with
+      // it.  QSYSINFO `2.1.21` header `SC09-1159, ... User's Guide and`,
+      // label and TOC `... User's Guide and Reference`; `2.1.45` header
+      // `SC09-1416, ... Report Layout Utility User's`, label
+      // `... User's Guide and Reference`, TOC the same with a trailing `*`
+      // marker slot the label does not carry.
+      const auto toc_title = collapse_ascii_whitespace(
+          trim_ascii(entry->toc_entries.back().title));
+      agreed = begins_with(label, normalized_canonical) &&
+               (ascii_equals_case_insensitive(label, toc_title) ||
+                begins_with(toc_title, label));
+    }
     std::optional<std::size_t> terminal_marker_token;
-    if (!ascii_equals_case_insensitive(label, normalized_canonical)) {
+    if (!agreed) {
       // The label may end in one compact display marker (`>`, `[`, `++`) or
       // in the record terminator `.` that stands immediately before CEMENU.
       // Only those two source-proven terminal tokens are candidates: the

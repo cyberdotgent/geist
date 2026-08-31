@@ -172,6 +172,11 @@ struct FigurePreformattedLineIR {
   std::size_t token_end = 0;
   std::string text;
   std::vector<DocumentSourceRowIR> rows;
+  // The byte offset in `text` of every display column of the line, plus a
+  // final end offset.  A `FigureLinkIR` names its covered span as a column
+  // range, and a box-drawing word renders to several bytes, so the lowering
+  // needs this map to place the link on the row without re-deriving the walk.
+  std::vector<std::size_t> column_offsets;
 };
 
 // A bare `SRSPT<id>` control inside a drawn figure is a second anchor.

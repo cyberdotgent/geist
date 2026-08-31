@@ -177,15 +177,26 @@ void a_picture_selector_is_declined() {
           "a picture selector was linked as a cross reference");
 }
 
-// A footnote is reachable only from the page that prints it.  One this topic
-// does not print is declined; one it prints is admitted and reported back, so
-// the renderer can emit the local anchor the link needs.
-void a_footnote_target_must_be_printed_here() {
+// A footnote reference may leave the page that prints it, so it is linked
+// either way -- but only the topic that really prints the footnote reports
+// the local anchor, because emitting a second one elsewhere would invent a
+// destination the source does not carry.
+//
+// Hosted BookServer settles this: SC31-6055-1 `BIBLIOGRAPHY.1` (DT
+// 19911015203151) carries seven `cselect <col> 4 FTNMERBIB` references and
+// answers every one with `BIBLIOGRAPHY?DT=19911015203151#FTNMERBIB`, the
+// footnote printed by the parent topic.  Where no topic of the book prints
+// the footnote at all, the export unlinks the reference -- that is the
+// fail-closed step, and it is the whole book's question, not this topic's.
+void a_footnote_target_may_live_on_another_page() {
   const std::vector<DecodedLogicalRecordSource> sources{
       marked_row("6 4 FTNUNIQ1")};
   const auto absent = linked(sources);
-  require(absent.rows.size() == 1 && absent.rows[0].links.empty(),
-          "a footnote this topic does not print was linked");
+  require(absent.rows.size() == 1 && absent.rows[0].links.size() == 1,
+          "a footnote printed by another topic was not linked");
+  require(absent.footnote_anchors.empty(),
+          "a topic that does not print the footnote reported a local anchor "
+          "for it");
 
   const auto present = linked(sources, {"FTNUNIQ1"});
   require(present.rows.size() == 1 && present.rows[0].links.size() == 1,
@@ -312,7 +323,7 @@ int main() {
   a_selector_marks_the_row_it_precedes();
   a_span_past_the_row_is_clamped_not_declined();
   a_picture_selector_is_declined();
-  a_footnote_target_must_be_printed_here();
+  a_footnote_target_may_live_on_another_page();
   a_topic_without_selectors_is_untouched();
   a_lnk_alternative_list_never_reaches_the_row();
   a_cross_book_reference_carries_every_field();

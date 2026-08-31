@@ -330,16 +330,37 @@ std::map<std::string, std::string> build_markdown_link_map(
         // A figure whose body is a stored object resolves to the object; one
         // drawn in the topic resolves to its anchor inside the file.  Source
         // spells a reference to it with and without the `FIG` prefix.
+        //
+        // The fragment is the anchor the file really emits, not the stripped
+        // reference id: FA1PLMM0 `5.1.1` writes `<a id="FIGVMSUM">` while a
+        // reference to it spells `VMSUM`, so a destination built from the id
+        // alone named a fragment no file carried.
         const auto uri = target.resource.empty()
-                             ? file->second + "#" + target.id
+                             ? file->second + "#" +
+                                   (target.fragment.empty() ? target.id
+                                                            : target.fragment)
                              : target.resource;
         links[lowercase(target.id)] = uri;
         links[lowercase("fig" + target.id)] = uri;
+        if (!target.fragment.empty())
+          links[lowercase(target.fragment)] = uri;
         break;
       }
-      case geist::LinkTargetKind::table:
-        links[lowercase(target.id)] = file->second + "#" + target.id;
+      case geist::LinkTargetKind::table: {
+        // Same for a table, and it is spelled both ways too: SC09-138
+        // `8.5.7.1` references `SRVS` where the anchor is `TBLSRVS`, and
+        // GX27-3999-00 `B.0` references `TBLMPROKEY` where `A.0` writes that
+        // same anchor.  Registering only the stripped id left the prefixed
+        // spelling unresolved and the export unlinked it.
+        const auto uri =
+            file->second + "#" +
+            (target.fragment.empty() ? target.id : target.fragment);
+        links[lowercase(target.id)] = uri;
+        links[lowercase("tbl" + target.id)] = uri;
+        if (!target.fragment.empty())
+          links[lowercase(target.fragment)] = uri;
         break;
+      }
       }
     }
   }
