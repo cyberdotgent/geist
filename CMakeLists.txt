@@ -64,89 +64,106 @@ geist_match_dependency_headers(PNG::PNG png.h)
 geist_match_dependency_headers(GIF::GIF gif_lib.h)
 
 set(GEIST_SOURCES
-  src/book_topic_catalog_ir.cpp
-  src/book_ir.cpp
-  src/comment_delivery_ir.cpp
-  src/comment_delivery_document_lowering.cpp
-  src/control_ir.cpp
-  src/display_lines.cpp
-  src/document.cpp
-  src/document_ir.cpp
-  src/document_html_renderer.cpp
-  src/document_markdown_renderer.cpp
-  src/drawn_word_conservation.cpp
-  src/ebcdic.cpp
-  src/fixed_display.cpp
-  src/fixed_prose_document_lowering.cpp
-  src/fixed_table_block_ir.cpp
-  src/fixed_table_document_lowering.cpp
-  src/fixed_prose_ir.cpp
-  src/fixed_prose_topic_ir.cpp
-  src/font_span_ir.cpp
-  src/generated_list_document_lowering.cpp
-  src/generated_list_topic_ir.cpp
-  src/generated_toc_index_document_lowering.cpp
-  src/generated_toc_index_ir.cpp
-  src/glossary_catalog_ir.cpp
-  src/glossary_document_lowering.cpp
-  src/glossary_ir.cpp
-  src/implicit_grid.cpp
+  # core/
+  src/core/ebcdic.cpp
+  src/core/io.cpp
+  src/core/properties.cpp
+  src/core/resources.cpp
+  src/core/strings.cpp
+  src/core/util.cpp
+
+  # container/
+  src/container/control_ir.cpp
+  src/container/decoded_record_scan.cpp
+  src/container/logical.cpp
+  src/container/page_runs.cpp
+  src/container/source_rows.cpp
+  src/container/source_segments.cpp
+  src/container/source_slice_text.cpp
+  src/container/toc.cpp
+  src/container/toc_entry_framing.cpp
+
+  # layout/
+  src/layout/display_lines.cpp
+  src/layout/fixed_display.cpp
+  src/layout/font_span_ir.cpp
+  src/layout/implicit_grid.cpp
+  src/layout/layout_ir.cpp
+  src/layout/ownership_ir.cpp
+
+  # img/
   src/img/gdf.cpp
   src/img/gdf_raster.cpp
-  src/io.cpp
-  src/layout_ir.cpp
-  src/logical.cpp
-  src/decoded_record_scan.cpp
-  src/message_ir.cpp
-  src/message_prose_rows.cpp
-  src/message_section_blocks_ir.cpp
-  src/figure_block_ir.cpp
-  src/figure_document_lowering.cpp
-  src/message_document_lowering.cpp
-  src/message_topic_ir.cpp
-  src/trap_catalog_ir.cpp
-  src/trap_catalog_document_lowering.cpp
-  src/menu_document_lowering.cpp
-  src/menu_ir.cpp
-  src/menu_topic_ir.cpp
-  src/topic_html_render.cpp
-  src/topic_render.cpp
-  src/ownership_ir.cpp
   src/img/mmr.cpp
   src/img/mmr_tables.cpp
-  src/page_runs.cpp
   src/img/png.cpp
-  src/properties.cpp
-  src/render_diagnostic.cpp
-  src/procedure_rows.cpp
-  src/prose_topic_blocks.cpp
-  src/prose_topic_boxes.cpp
-  src/prose_topic_cz.cpp
-  src/prose_topic_document_lowering.cpp
-  src/prose_topic_ir.cpp
-  src/prose_topic_lines.cpp
-  src/prose_topic_spans.cpp
-  src/prose_topic_stream.cpp
-  src/publication_document_lowering.cpp
-  src/publication_ir.cpp
-  src/render_trace.cpp
-  src/resources.cpp
-  src/selector_display_ir.cpp
-  src/selector_ir.cpp
-  src/selector_link_ir.cpp
-  src/source_rows.cpp
-  src/source_slice_text.cpp
-  src/source_segments.cpp
-  src/strings.cpp
-  src/toc.cpp
-  src/toc_entry_framing.cpp
-  src/topic_document_lowering.cpp
-  src/topic_link_targets.cpp
-  src/topic_header_title.cpp
-  src/topic_identity.cpp
-  src/typed_route_inventory.cpp
-  src/util.cpp
-  src/verbatim_cross_references.cpp
+
+  # ir/
+  src/ir/book_ir.cpp
+  src/ir/book_topic_catalog_ir.cpp
+  src/ir/comment_delivery_ir.cpp
+  src/ir/figure_block_ir.cpp
+  src/ir/fixed_prose_ir.cpp
+  src/ir/fixed_prose_topic_ir.cpp
+  src/ir/fixed_table_block_ir.cpp
+  src/ir/generated_list_topic_ir.cpp
+  src/ir/generated_toc_index_ir.cpp
+  src/ir/glossary_catalog_ir.cpp
+  src/ir/glossary_ir.cpp
+  src/ir/menu_ir.cpp
+  src/ir/menu_topic_ir.cpp
+  src/ir/message_ir.cpp
+  src/ir/message_prose_rows.cpp
+  src/ir/message_section_blocks_ir.cpp
+  src/ir/message_topic_ir.cpp
+  src/ir/procedure_rows.cpp
+  src/ir/publication_ir.cpp
+  src/ir/selector_display_ir.cpp
+  src/ir/selector_ir.cpp
+  src/ir/selector_link_ir.cpp
+  src/ir/topic_header_title.cpp
+  src/ir/trap_catalog_ir.cpp
+
+  # ir/prose/
+  src/ir/prose/prose_topic_blocks.cpp
+  src/ir/prose/prose_topic_boxes.cpp
+  src/ir/prose/prose_topic_cz.cpp
+  src/ir/prose/prose_topic_ir.cpp
+  src/ir/prose/prose_topic_lines.cpp
+  src/ir/prose/prose_topic_spans.cpp
+  src/ir/prose/prose_topic_stream.cpp
+
+  # lowering/
+  src/lowering/comment_delivery_document_lowering.cpp
+  src/lowering/document_ir.cpp
+  src/lowering/drawn_word_conservation.cpp
+  src/lowering/figure_document_lowering.cpp
+  src/lowering/fixed_prose_document_lowering.cpp
+  src/lowering/fixed_table_document_lowering.cpp
+  src/lowering/generated_list_document_lowering.cpp
+  src/lowering/generated_toc_index_document_lowering.cpp
+  src/lowering/glossary_document_lowering.cpp
+  src/lowering/menu_document_lowering.cpp
+  src/lowering/message_document_lowering.cpp
+  src/lowering/prose_topic_document_lowering.cpp
+  src/lowering/publication_document_lowering.cpp
+  src/lowering/topic_document_lowering.cpp
+  src/lowering/topic_identity.cpp
+  src/lowering/trap_catalog_document_lowering.cpp
+  src/lowering/typed_route_inventory.cpp
+  src/lowering/verbatim_cross_references.cpp
+
+  # render/
+  src/render/document_html_renderer.cpp
+  src/render/document_markdown_renderer.cpp
+  src/render/render_diagnostic.cpp
+  src/render/render_trace.cpp
+  src/render/topic_html_render.cpp
+  src/render/topic_render.cpp
+
+  # api/
+  src/api/document.cpp
+  src/api/topic_link_targets.cpp
 )
 
 add_library(geist SHARED ${GEIST_SOURCES})

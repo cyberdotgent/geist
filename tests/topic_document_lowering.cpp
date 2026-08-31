@@ -7,9 +7,9 @@
 // inside a prose topic.  The comment-delivery, publication, trap-catalog and
 // fixed-prose pins went with the books that cannot be published (issue #59).
 
-#include "geist/detail/topic_document_lowering.hpp"
-#include "geist/detail/document_ir.hpp"
-#include "geist/detail/internal.hpp"
+#include "geist/detail/lowering/topic_document_lowering.hpp"
+#include "geist/detail/lowering/document_ir.hpp"
+#include "geist/detail/core/internal.hpp"
 #include "geist/document.hpp"
 #include "geist/trace.hpp"
 

@@ -22,7 +22,7 @@
 // `tools/drawn_word_conservation.py`, since only `packet.boo` may be opened
 // here (issue #59).
 
-#include "geist/detail/drawn_word_conservation.hpp"
+#include "geist/detail/lowering/drawn_word_conservation.hpp"
 #include "geist/document.hpp"
 #include "test_failures.hpp"
 

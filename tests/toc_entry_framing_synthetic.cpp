@@ -17,9 +17,9 @@
 // Everything here is synthetic: the tests build `DecodedLogicalRecordSource`
 // values by hand and open no book.
 
-#include "geist/detail/display_lines.hpp"
-#include "geist/detail/internal.hpp"
-#include "geist/detail/toc_entry_framing.hpp"
+#include "geist/detail/layout/display_lines.hpp"
+#include "geist/detail/core/internal.hpp"
+#include "geist/detail/container/toc_entry_framing.hpp"
 #include "test_failures.hpp"
 
 #include <cstdint>

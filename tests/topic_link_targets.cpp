@@ -17,7 +17,7 @@
 // double-named entry (N2AH1MST 6.0).
 
 #include "geist/boo.hpp"
-#include "geist/detail/topic_link_targets.hpp"
+#include "geist/detail/api/topic_link_targets.hpp"
 #include "test_failures.hpp"
 
 #include <algorithm>

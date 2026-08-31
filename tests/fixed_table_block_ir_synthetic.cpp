@@ -14,12 +14,12 @@
 // gone with them (issue #59).
 
 #include "geist/boo.hpp"
-#include "geist/detail/document_ir.hpp"
-#include "geist/detail/fixed_table_block_ir.hpp"
-#include "geist/detail/fixed_table_document_lowering.hpp"
-#include "geist/detail/internal.hpp"
-#include "geist/detail/layout_ir.hpp"
-#include "geist/detail/ownership_ir.hpp"
+#include "geist/detail/lowering/document_ir.hpp"
+#include "geist/detail/ir/fixed_table_block_ir.hpp"
+#include "geist/detail/lowering/fixed_table_document_lowering.hpp"
+#include "geist/detail/core/internal.hpp"
+#include "geist/detail/layout/layout_ir.hpp"
+#include "geist/detail/layout/ownership_ir.hpp"
 #include "geist/document.hpp"
 #include "test_failures.hpp"
 

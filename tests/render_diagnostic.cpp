@@ -14,9 +14,9 @@
 // title-page regions it has no `best-effort` topic either.  Both of those
 // rungs are pinned synthetically below.
 
-#include "geist/detail/document_markdown_renderer.hpp"
-#include "geist/detail/render_diagnostic_ir.hpp"
-#include "geist/detail/typed_route_inventory.hpp"
+#include "geist/detail/render/document_markdown_renderer.hpp"
+#include "geist/detail/render/render_diagnostic_ir.hpp"
+#include "geist/detail/lowering/typed_route_inventory.hpp"
 #include "geist/document.hpp"
 #include "test_failures.hpp"
 

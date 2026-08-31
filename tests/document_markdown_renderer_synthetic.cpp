@@ -1,5 +1,5 @@
-#include "geist/detail/document_ir.hpp"
-#include "geist/detail/document_markdown_renderer.hpp"
+#include "geist/detail/lowering/document_ir.hpp"
+#include "geist/detail/render/document_markdown_renderer.hpp"
 
 #include <iostream>
 #include <string>

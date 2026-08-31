@@ -1,4 +1,4 @@
-#include "geist/detail/publication_document_lowering.hpp"
+#include "geist/detail/lowering/publication_document_lowering.hpp"
 
 #include <iostream>
 #include <string>

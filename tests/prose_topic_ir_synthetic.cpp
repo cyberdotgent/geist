@@ -10,12 +10,12 @@
 // the fixtures that pinned two-column definition rows, screen captures,
 // structured `SI` index fields, cross-book `LNK` selectors, `c.<xx>` body
 // controls and the empty-`ST` heading forms are gone with them (issue #59).
-#include "geist/detail/book_topic_catalog_ir.hpp"
-#include "geist/detail/document_markdown_renderer.hpp"
-#include "geist/detail/internal.hpp"
-#include "geist/detail/prose_topic_document_lowering.hpp"
-#include "geist/detail/prose_topic_ir.hpp"
-#include "geist/detail/topic_document_lowering.hpp"
+#include "geist/detail/ir/book_topic_catalog_ir.hpp"
+#include "geist/detail/render/document_markdown_renderer.hpp"
+#include "geist/detail/core/internal.hpp"
+#include "geist/detail/lowering/prose_topic_document_lowering.hpp"
+#include "geist/detail/ir/prose/prose_topic_ir.hpp"
+#include "geist/detail/lowering/topic_document_lowering.hpp"
 #include "test_failures.hpp"
 
 #include <algorithm>

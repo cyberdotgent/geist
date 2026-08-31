@@ -1,4 +1,4 @@
-#include "geist/detail/implicit_grid.hpp"
+#include "geist/detail/layout/implicit_grid.hpp"
 #include "test_failures.hpp"
 
 #include <algorithm>

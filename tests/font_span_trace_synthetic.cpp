@@ -16,8 +16,8 @@
 // a test dependency (issue #59), so the record here is built by hand with
 // `assemble_logical_record_with_sources`.
 
-#include "geist/detail/display_lines.hpp"
-#include "geist/detail/internal.hpp"
+#include "geist/detail/layout/display_lines.hpp"
+#include "geist/detail/core/internal.hpp"
 #include "test_failures.hpp"
 
 #include <cstdint>

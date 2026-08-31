@@ -1,4 +1,4 @@
-#include "geist/detail/internal.hpp"
+#include "geist/detail/core/internal.hpp"
 #include "test_failures.hpp"
 
 #include <algorithm>

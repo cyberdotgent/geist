@@ -1,9 +1,9 @@
 #include "geist/document.hpp"
-#include "geist/detail/glossary_catalog_ir.hpp"
-#include "geist/detail/glossary_ir.hpp"
-#include "geist/detail/internal.hpp"
-#include "geist/detail/layout_ir.hpp"
-#include "geist/detail/ownership_ir.hpp"
+#include "geist/detail/ir/glossary_catalog_ir.hpp"
+#include "geist/detail/ir/glossary_ir.hpp"
+#include "geist/detail/core/internal.hpp"
+#include "geist/detail/layout/layout_ir.hpp"
+#include "geist/detail/layout/ownership_ir.hpp"
 #include "test_failures.hpp"
 
 #include <filesystem>

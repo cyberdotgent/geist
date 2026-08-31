@@ -5,10 +5,10 @@
 // was compared during the slice that added the family; the hosted evidence is
 // named in the message of the assertion it supports.
 
-#include "geist/detail/document_markdown_renderer.hpp"
-#include "geist/detail/generated_toc_index_document_lowering.hpp"
-#include "geist/detail/generated_toc_index_ir.hpp"
-#include "geist/detail/internal.hpp"
+#include "geist/detail/render/document_markdown_renderer.hpp"
+#include "geist/detail/lowering/generated_toc_index_document_lowering.hpp"
+#include "geist/detail/ir/generated_toc_index_ir.hpp"
+#include "geist/detail/core/internal.hpp"
 #include "test_failures.hpp"
 
 #include <algorithm>

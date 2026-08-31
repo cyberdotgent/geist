@@ -20,9 +20,9 @@
 // Everything here is synthetic: the tests build `DecodedLogicalRecordSource`
 // values by hand and open no book.
 
-#include "geist/detail/display_lines.hpp"
-#include "geist/detail/internal.hpp"
-#include "geist/detail/layout_ir.hpp"
+#include "geist/detail/layout/display_lines.hpp"
+#include "geist/detail/core/internal.hpp"
+#include "geist/detail/layout/layout_ir.hpp"
 #include "test_failures.hpp"
 
 #include <cstdint>

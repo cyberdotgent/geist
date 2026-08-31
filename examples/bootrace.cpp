@@ -1,9 +1,9 @@
 #include "geist/boo.hpp"
-#include "geist/detail/drawn_word_conservation.hpp"
-#include "geist/detail/render_diagnostic_ir.hpp"
-#include "geist/detail/internal.hpp"
-#include "geist/detail/topic_link_targets.hpp"
-#include "geist/detail/typed_route_inventory.hpp"
+#include "geist/detail/lowering/drawn_word_conservation.hpp"
+#include "geist/detail/render/render_diagnostic_ir.hpp"
+#include "geist/detail/core/internal.hpp"
+#include "geist/detail/api/topic_link_targets.hpp"
+#include "geist/detail/lowering/typed_route_inventory.hpp"
 
 #include <algorithm>
 #include <exception>

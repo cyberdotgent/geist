@@ -1,4 +1,4 @@
-#include "geist/detail/procedure_rows.hpp"
+#include "geist/detail/ir/procedure_rows.hpp"
 #include "test_failures.hpp"
 
 #include <algorithm>

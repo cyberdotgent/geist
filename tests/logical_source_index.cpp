@@ -10,7 +10,7 @@
 // was never book-specific: every source slice of the whole book must decode,
 // verify its layout, build a verified ownership ledger, and stay cheap.
 
-#include "geist/detail/internal.hpp"
+#include "geist/detail/core/internal.hpp"
 #include "geist/document.hpp"
 #include "test_failures.hpp"
 

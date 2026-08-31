@@ -1,4 +1,4 @@
-#include "geist/detail/fixed_display.hpp"
+#include "geist/detail/layout/fixed_display.hpp"
 #include "test_failures.hpp"
 
 #include <algorithm>

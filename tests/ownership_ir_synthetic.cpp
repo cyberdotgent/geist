@@ -17,9 +17,9 @@
 // Both are fixed in decode_control_segments: display-geometry code points are
 // never opcode/operand material. The ledger additionally records any residual
 // disagreement as a typed conflict on the affected run only.
-#include "geist/detail/internal.hpp"
-#include "geist/detail/layout_ir.hpp"
-#include "geist/detail/ownership_ir.hpp"
+#include "geist/detail/core/internal.hpp"
+#include "geist/detail/layout/layout_ir.hpp"
+#include "geist/detail/layout/ownership_ir.hpp"
 #include "test_failures.hpp"
 
 #include <algorithm>

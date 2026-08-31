@@ -28,9 +28,9 @@
 // Everything here is synthetic: the catalogue and the raw menu are built by
 // hand and no book is opened (issue #59).
 
-#include "geist/detail/book_topic_catalog_ir.hpp"
-#include "geist/detail/menu_ir.hpp"
-#include "geist/detail/menu_topic_ir.hpp"
+#include "geist/detail/ir/book_topic_catalog_ir.hpp"
+#include "geist/detail/ir/menu_ir.hpp"
+#include "geist/detail/ir/menu_topic_ir.hpp"
 #include "test_failures.hpp"
 
 #include <iostream>

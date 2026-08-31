@@ -14,8 +14,8 @@
 //     the renderer emits is in the shipped example stylesheet, and the
 //     stylesheet names no class the renderer cannot emit.
 
-#include "geist/detail/document_html_renderer.hpp"
-#include "geist/detail/document_ir.hpp"
+#include "geist/detail/render/document_html_renderer.hpp"
+#include "geist/detail/lowering/document_ir.hpp"
 
 #include <fstream>
 #include <iostream>

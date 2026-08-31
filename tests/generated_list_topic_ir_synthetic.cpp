@@ -1,8 +1,8 @@
-#include "geist/detail/generated_list_document_lowering.hpp"
-#include "geist/detail/display_lines.hpp"
+#include "geist/detail/lowering/generated_list_document_lowering.hpp"
+#include "geist/detail/layout/display_lines.hpp"
 #include "test_failures.hpp"
-#include "geist/detail/generated_list_topic_ir.hpp"
-#include "geist/detail/internal.hpp"
+#include "geist/detail/ir/generated_list_topic_ir.hpp"
+#include "geist/detail/core/internal.hpp"
 
 #include <algorithm>
 #include <cctype>

@@ -1,6 +1,6 @@
-#include "geist/detail/glossary_catalog_ir.hpp"
+#include "geist/detail/ir/glossary_catalog_ir.hpp"
 #include "test_failures.hpp"
-#include "geist/detail/internal.hpp"
+#include "geist/detail/core/internal.hpp"
 
 #include <algorithm>
 #include <cstdlib>

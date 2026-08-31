@@ -45,11 +45,11 @@
 // `9.0` `ASB029I`, `24.0` `ICP050D`): neither role could be produced from a
 // synthetic record, so both stay covered by the differential and by those
 // two hosted pages.
-#include "geist/detail/display_lines.hpp"
-#include "geist/detail/internal.hpp"
-#include "geist/detail/layout_ir.hpp"
-#include "geist/detail/ownership_ir.hpp"
-#include "geist/detail/trap_catalog_ir.hpp"
+#include "geist/detail/layout/display_lines.hpp"
+#include "geist/detail/core/internal.hpp"
+#include "geist/detail/layout/layout_ir.hpp"
+#include "geist/detail/layout/ownership_ir.hpp"
+#include "geist/detail/ir/trap_catalog_ir.hpp"
 #include "test_failures.hpp"
 
 #include <iostream>

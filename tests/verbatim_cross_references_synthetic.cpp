@@ -14,8 +14,8 @@
 // Everything here is synthetic: the tests build `DecodedLogicalRecordSource`
 // values by hand and open no book (issue #59).
 
-#include "geist/detail/render_diagnostic_ir.hpp"
-#include "geist/detail/verbatim_cross_references.hpp"
+#include "geist/detail/render/render_diagnostic_ir.hpp"
+#include "geist/detail/lowering/verbatim_cross_references.hpp"
 #include "test_failures.hpp"
 
 #include <cstdint>

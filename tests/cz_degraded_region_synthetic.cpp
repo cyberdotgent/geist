@@ -31,14 +31,14 @@
 // reaches it at all. Pinning the mechanism on a hand-built record keeps the
 // invariant under test whatever the modelled tag list happens to be.
 
-#include "geist/detail/display_lines.hpp"
-#include "geist/detail/document_ir.hpp"
-#include "geist/detail/document_markdown_renderer.hpp"
-#include "geist/detail/internal.hpp"
-#include "geist/detail/ownership_ir.hpp"
-#include "geist/detail/prose_topic_document_lowering.hpp"
-#include "geist/detail/prose_topic_ir.hpp"
-#include "geist/detail/render_diagnostic_ir.hpp"
+#include "geist/detail/layout/display_lines.hpp"
+#include "geist/detail/lowering/document_ir.hpp"
+#include "geist/detail/render/document_markdown_renderer.hpp"
+#include "geist/detail/core/internal.hpp"
+#include "geist/detail/layout/ownership_ir.hpp"
+#include "geist/detail/lowering/prose_topic_document_lowering.hpp"
+#include "geist/detail/ir/prose/prose_topic_ir.hpp"
+#include "geist/detail/render/render_diagnostic_ir.hpp"
 #include "test_failures.hpp"
 
 #include <algorithm>

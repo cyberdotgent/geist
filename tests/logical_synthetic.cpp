@@ -1,5 +1,5 @@
-#include "geist/detail/internal.hpp"
-#include "geist/detail/display_lines.hpp"
+#include "geist/detail/core/internal.hpp"
+#include "geist/detail/layout/display_lines.hpp"
 #include "test_failures.hpp"
 
 #include <algorithm>

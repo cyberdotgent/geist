@@ -14,10 +14,10 @@
 // declined as a table, and a region carrying a menu is declined.
 
 #include "geist/boo.hpp"
-#include "geist/detail/figure_block_ir.hpp"
-#include "geist/detail/figure_document_lowering.hpp"
-#include "geist/detail/internal.hpp"
-#include "geist/detail/selector_ir.hpp"
+#include "geist/detail/ir/figure_block_ir.hpp"
+#include "geist/detail/lowering/figure_document_lowering.hpp"
+#include "geist/detail/core/internal.hpp"
+#include "geist/detail/ir/selector_ir.hpp"
 #include "test_failures.hpp"
 
 #include <filesystem>

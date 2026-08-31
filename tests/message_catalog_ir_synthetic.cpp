@@ -32,11 +32,11 @@
 //    makes the layout choose a mid-record row start; until this fixture can
 //    state that, those paths are covered by the corpus differential and the
 //    hosted audit only.
-#include "geist/detail/display_lines.hpp"
-#include "geist/detail/internal.hpp"
-#include "geist/detail/layout_ir.hpp"
-#include "geist/detail/message_ir.hpp"
-#include "geist/detail/ownership_ir.hpp"
+#include "geist/detail/layout/display_lines.hpp"
+#include "geist/detail/core/internal.hpp"
+#include "geist/detail/layout/layout_ir.hpp"
+#include "geist/detail/ir/message_ir.hpp"
+#include "geist/detail/layout/ownership_ir.hpp"
 #include "test_failures.hpp"
 
 #include <iostream>

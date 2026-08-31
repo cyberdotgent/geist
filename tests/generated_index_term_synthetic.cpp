@@ -22,11 +22,11 @@
 // Everything here is synthetic: the tests build `DecodedLogicalRecordSource`
 // values by hand and open no book.
 
-#include "geist/detail/display_lines.hpp"
-#include "geist/detail/document_ir.hpp"
-#include "geist/detail/generated_toc_index_document_lowering.hpp"
-#include "geist/detail/generated_toc_index_ir.hpp"
-#include "geist/detail/internal.hpp"
+#include "geist/detail/layout/display_lines.hpp"
+#include "geist/detail/lowering/document_ir.hpp"
+#include "geist/detail/lowering/generated_toc_index_document_lowering.hpp"
+#include "geist/detail/ir/generated_toc_index_ir.hpp"
+#include "geist/detail/core/internal.hpp"
 #include "test_failures.hpp"
 
 #include <cstdint>

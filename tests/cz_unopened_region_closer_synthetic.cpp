@@ -39,10 +39,10 @@
 // `libgeist` may depend on no book but `packet.boo` (issue #59) and
 // GX27-3999-00 is not it.
 
-#include "geist/detail/display_lines.hpp"
-#include "geist/detail/internal.hpp"
-#include "geist/detail/ownership_ir.hpp"
-#include "geist/detail/prose_topic_ir.hpp"
+#include "geist/detail/layout/display_lines.hpp"
+#include "geist/detail/core/internal.hpp"
+#include "geist/detail/layout/ownership_ir.hpp"
+#include "geist/detail/ir/prose/prose_topic_ir.hpp"
 #include "test_failures.hpp"
 
 #include <cstdint>
