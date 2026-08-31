@@ -643,8 +643,15 @@ void ReaderWindow::navigate_to(const QString& topic_id,
       -> std::optional<std::string> {
     const auto found = link_index_.constFind(QString::fromStdString(spelled));
     if (found == link_index_.constEnd()) {
-      // Not a cross-reference destination any topic claims: it is a local
-      // anchor such as a footnote, and `#<id>` already reaches it.
+      // A generated list -- the contents, the index, the table and figure
+      // lists -- names a topic by the topic's own id. That is not a link
+      // target any topic reports, so the index above cannot know it, and
+      // left alone every entry of those lists is a dead `#<id>`.
+      if (document_->find_toc_entry(spelled) != nullptr) {
+        return topic_url(QString::fromStdString(spelled)).toStdString();
+      }
+      // Genuinely local: an anchor such as a footnote, which `#<id>`
+      // already reaches inside the topic on screen.
       return std::nullopt;
     }
     if (!found->resource.isEmpty()) {
