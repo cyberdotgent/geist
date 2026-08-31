@@ -27,10 +27,10 @@ closing correctness gaps against real books.
   modelled on IBM's BookManager SoftCopy Reader. It is a pure consumer of the
   public API: no parsing or rendering logic lives here, and Qt appears in no
   other directory. Built by default when Qt6 is present (see Build And Test).
-  `gui/book_url.hpp` and `gui/book_source.*` define a book's URL space
+  `gui/book_url.hpp` and `gui/book_source.*` define the reader's own URL space
   (`geist://book/topic/<id>`, `geist://book/object/<id>`) and answer it with
-  bytes. Keep that pair free of widgets: it is the same "URL in, HTML out"
-  shape an HTTP front end would serve, and the reader exercises that path.
+  bytes. That policy belongs to the reader and uses Qt types freely; it is not
+  a shared component, and another consumer should not try to link it.
 - `examples/` — small command-line programs demonstrating library usage, not
   duplicate parsing implementations:
   - `booinfo` — book metadata.
@@ -103,6 +103,27 @@ on Windows an `aqtinstall`/official Qt build pointed at with
 `-DCMAKE_PREFIX_PATH`. vcpkg is not used for Qt: its `qtwebengine` port is a
 from-source Chromium build. Never download Qt from the CMake files; discover
 it, and print the install command when it is missing.
+
+## Consumers And Extension Points
+
+`libgeist` renders a book; it does not decide what a link means. Every such
+decision is a hook a consumer fills in, and `geist/html.hpp` already carries
+them: `resolve_topic`, `resolve_anchor`, `resolve_resource`,
+`resolve_external` and `resolve_cross_book`, plus `id_prefix`, and
+`stylesheets`/`inline_stylesheet` for the page around a fragment.
+`TocEntry::link_targets()` exists so a consumer can build its own book-wide
+link map, and `html_fragment()` is for a consumer that owns the page.
+
+- Each consumer brings its own batteries: its URL space, its link map, its
+  page chrome, its caching. The Qt reader does this in `gui/book_source.*`;
+  a future Apache module does it again in its own terms, against APR and the
+  request pool.
+- Do **not** lift a consumer's policy into `libgeist` to share it between
+  consumers. Their URL spaces, lifetimes and caching genuinely differ, and
+  the resulting duplication -- roughly a link index and a handful of
+  resolvers -- is smaller than the coupling it would replace.
+- If a consumer cannot express what it needs, the fix is a new attachment
+  point in `libgeist`, never consumer policy moved inside it.
 
 ## Licensing
 
