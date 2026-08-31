@@ -214,6 +214,47 @@ foreach(example booinfo bootoc boorsrc boorender bootrace boo2git)
   endif()
 endforeach()
 
+# The Geist Hardcopy Reader, an optional Qt6 GUI. AUTO (the default) builds it
+# when Qt6 Widgets, WebEngineWidgets and PrintSupport are all present and skips
+# it with an explanation otherwise; ON turns a missing Qt into a hard error,
+# which is what CI should use; OFF never builds it. Qt is never a dependency of
+# the library itself.
+set(GEIST_BUILD_GUI "AUTO" CACHE STRING
+  "Build the Geist Hardcopy Reader: AUTO, ON or OFF"
+)
+set_property(CACHE GEIST_BUILD_GUI PROPERTY STRINGS AUTO ON OFF)
+
+if(NOT GEIST_BUILD_GUI STREQUAL "OFF")
+  set(_geist_qt_components Widgets WebEngineWidgets PrintSupport)
+  if(GEIST_BUILD_GUI STREQUAL "ON")
+    find_package(Qt6 REQUIRED COMPONENTS ${_geist_qt_components})
+  else()
+    find_package(Qt6 QUIET COMPONENTS ${_geist_qt_components})
+  endif()
+
+  set(_geist_qt_ready TRUE)
+  foreach(_geist_qt_component ${_geist_qt_components})
+    if(NOT TARGET Qt6::${_geist_qt_component})
+      set(_geist_qt_ready FALSE)
+    endif()
+  endforeach()
+
+  if(_geist_qt_ready)
+    add_subdirectory(gui)
+  else()
+    message(STATUS
+      "Qt6 (Widgets, WebEngineWidgets, PrintSupport) not found - skipping the "
+      "Geist Hardcopy Reader.\n"
+      "    Linux:   sudo apt install qt6-base-dev qt6-webengine-dev\n"
+      "    macOS:   brew install qt\n"
+      "    Windows: pip install aqtinstall && aqt install-qt windows desktop "
+      "6.8.1 win64_msvc2022_64 -m qtwebengine qtwebchannel qtpositioning\n"
+      "             then re-run cmake with -DCMAKE_PREFIX_PATH=<qt>/6.8.1/msvc2022_64\n"
+      "    Use -DGEIST_BUILD_GUI=ON to make this a hard error instead."
+    )
+  endif()
+endif()
+
 # The BOO format specification. Optional: it defines a documentation target
 # only when an AsciiDoc toolchain is installed, and is never part of `all`.
 add_subdirectory(doc/boo-spec)

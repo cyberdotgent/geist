@@ -1,0 +1,12 @@
+// Generated from doc/html-styling.css at configure time. The reader compiles
+// in the published stylesheet so its rendering and the stylesheet shipped
+// with the spec can never drift apart.
+#pragma once
+
+namespace geist_reader {
+
+inline constexpr const char* kPublishedStylesheet = R"GEISTCSS(
+@GEIST_READER_CSS@
+)GEISTCSS";
+
+} // namespace geist_reader

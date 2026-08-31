@@ -23,6 +23,10 @@ closing correctness gaps against real books.
 - `src/geist/*.hpp` is the public API surface and `src/` is the public include
   directory, so those headers stay flat: `#include "geist/document.hpp"`.
   Private headers are `geist/detail/<group>/<name>.hpp`.
+- `gui/` — the **Geist Hardcopy Reader**, an optional Qt6 desktop reader
+  modelled on IBM's BookManager SoftCopy Reader. It is a pure consumer of the
+  public API: no parsing or rendering logic lives here, and Qt appears in no
+  other directory. Built by default when Qt6 is present (see Build And Test).
 - `examples/` — small command-line programs demonstrating library usage, not
   duplicate parsing implementations:
   - `booinfo` — book metadata.
@@ -80,6 +84,21 @@ Linux and macOS use OS-provided development packages discovered by CMake.
 
 The `doc/boo-spec/` target only exists when an AsciiDoc toolchain is installed
 and is never part of `all`.
+
+The GUI reader is controlled by `GEIST_BUILD_GUI`:
+
+- `AUTO` (default) builds it when Qt6 `Widgets`, `WebEngineWidgets` and
+  `PrintSupport` are all found, and skips it with an explanation otherwise.
+- `ON` turns a missing Qt into a configure error. **CI must use `ON`**, or a
+  broken Qt setup silently degrades to a green library-only build.
+- `OFF` never builds it.
+
+Qt is never a dependency of `libgeist` itself, and the user supplies it:
+`qt6-base-dev` + `qt6-webengine-dev` on Linux, `brew install qt` on macOS, and
+on Windows an `aqtinstall`/official Qt build pointed at with
+`-DCMAKE_PREFIX_PATH`. vcpkg is not used for Qt: its `qtwebengine` port is a
+from-source Chromium build. Never download Qt from the CMake files; discover
+it, and print the install command when it is missing.
 
 ## Documentation Style
 
