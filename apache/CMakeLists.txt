@@ -16,6 +16,15 @@ file(GLOB_RECURSE GEIST_ASSET_FILES CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/assets/*"
 )
 
+# Depending on the asset files alone catches an edit or an addition, but not
+# a removal: the deleted file just drops out of the dependency list and the
+# stale bundle looks up to date. Depend on a manifest of the list instead,
+# rewritten only when the set actually changes.
+set(GEIST_ASSET_MANIFEST "${CMAKE_CURRENT_BINARY_DIR}/asset-manifest.txt")
+string(REPLACE ";" "\n" GEIST_ASSET_MANIFEST_BODY "${GEIST_ASSET_FILES}")
+file(WRITE "${GEIST_ASSET_MANIFEST}.in" "${GEIST_ASSET_MANIFEST_BODY}\n")
+configure_file("${GEIST_ASSET_MANIFEST}.in" "${GEIST_ASSET_MANIFEST}" COPYONLY)
+
 # The published stylesheet is bundled as book.css so a topic served here is
 # styled exactly as the specification says it should be.
 add_custom_command(
@@ -30,6 +39,7 @@ add_custom_command(
           "${CMAKE_CURRENT_SOURCE_DIR}/tools/bundle.py"
           "${GEIST_ASSET_HEADER}" "${GEIST_ASSET_STAGE}"
   DEPENDS ${GEIST_ASSET_FILES}
+          "${GEIST_ASSET_MANIFEST}"
           "${CMAKE_CURRENT_SOURCE_DIR}/tools/bundle.py"
           "${CMAKE_SOURCE_DIR}/doc/html-styling.css"
   COMMENT "Embedding mod_geist assets"

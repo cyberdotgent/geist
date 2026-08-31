@@ -333,7 +333,7 @@ void emit_button(request_rec* r, const std::string& base, const char* icon,
 }
 
 // The toolbar, after BookServer's banner: index, contents, previous, next,
-// then the book's identity, then print, download and details.
+// then the book's identity, then download and details.
 void emit_toolbar(request_rec* r, Book& book, const std::string& base,
                   const std::string& current_topic, DirConfig* config) {
   const auto& toc = book.document->table_of_contents();
@@ -371,10 +371,6 @@ void emit_toolbar(request_rec* r, Book& book, const std::string& base,
   }
   ap_rputs("</span>\n", r);
 
-  emit_button(r, base, "print",
-              current_topic.empty() ? base
-                                    : base + "/topic/" + seg(r, current_topic),
-              "Print this topic", true);
   if (download_allowed(config)) {
     emit_button(r, base, "download", base + "/download", "Download the book",
                 true);
