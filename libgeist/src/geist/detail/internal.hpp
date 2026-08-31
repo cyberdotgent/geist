@@ -221,8 +221,13 @@ std::string strip_fixed_line_overflow_tokens(
     bool allow_content_origin = false);
 std::map<std::string, std::string> extract_font_definitions(
     const std::vector<std::string>& decoded_records);
+// `sources` are the typed sources of the same records, in any order: the
+// font-span trace reads its display columns off their carried display-line
+// framing, because a CFONT operand is a column and the flattened decoded
+// string above measures bytes (issue #82).
 std::vector<BooLogicalRecordTrace> trace_decoded_records(
     const std::vector<std::string>& decoded_records,
+    const std::vector<DecodedLogicalRecordSource>& sources,
     std::uint32_t first_logical_record,
     const std::map<std::string, std::string>& font_definitions);
 bool looks_like_control_boundary(const std::string& decoded_record,

@@ -232,14 +232,40 @@ void positive_fixtures() {
     require(contains(markdown,
                      "```\n    ___ So, what are all these layers? "),
             "2.2.1 box top rule");
+    // The row is the whole display line, left rule included: record 50 line
+    // 1 is `   | Network stacks are divvied up into "layers," and this
+    // notation is used |` and hosted (DT 20260614112503) prints both rules.
     require(contains(markdown,
-                     "     Network stacks are divvied up into \"layers,\" "
+                     "   | Network stacks are divvied up into \"layers,\" "
                      "and this notation is used |"),
             "2.2.1 box body row");
     require(contains(markdown, "|________"), "2.2.1 box bottom rule");
     if (kept.prose)
       require(count_blocks(*kept.prose, ProseBlockKindIR::preformatted) == 1,
               "2.2.1 preformatted block count");
+  }
+  // Issue #83: a display row of a verbatim region is one row, and its drawn
+  // rules are cells of it.  packet `1.3` carries a `cz OFF LBLBOX` region
+  // whose empty rows are stored as record 26 display line 12 --
+  // `   ` + `U+2502` + a 63-cell space run + an 8-cell run + `U+2502`, one
+  // 77-column line -- and whose text rows are stored as line 13 --
+  // `   ` + `U+2502` + the words + `U+2502`.  The reflow cut the empty row at
+  // the pair of space runs (`   |` then `        |`) and read the text row's
+  // left rule as a revision change bar, spending its column on blanks.
+  // Neither decision is the record's: the display-line framing says where the
+  // row starts and what it draws.
+  {
+    const auto markdown = admit("packet.boo", "1.3", nullptr);
+    require(contains(markdown,
+                     "   |                                            "
+                     "                            |"),
+            "1.3 empty box row is one whole row");
+    require(contains(markdown,
+                     "   | For most people using a Baofeng HT or mobile "
+                     "radio, the highest  speed |"),
+            "1.3 box body row keeps its leading rule");
+    require(!contains(markdown, "\n        |\n"),
+            "1.3 box row split into fragments");
   }
   // A trailing CMENU validated through the book topic catalog: the labels are
   // the catalog's titles and the destinations are topic ids.
