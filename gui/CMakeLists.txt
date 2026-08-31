@@ -13,6 +13,9 @@ configure_file(styling.hpp.in
 
 add_executable(geist-hardcopy
   main.cpp
+  book_source.cpp
+  book_source.hpp
+  book_url.hpp
   reader_window.cpp
   reader_window.hpp
 )

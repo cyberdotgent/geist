@@ -1,6 +1,6 @@
 #include "reader_window.hpp"
 
-#include "styling.hpp"
+#include "book_url.hpp"
 
 #include <QApplication>
 #include <QBuffer>
@@ -25,6 +25,7 @@
 #include <QToolBar>
 #include <QTreeWidget>
 #include <QUrl>
+#include <QWebEngineHistory>
 #include <QWebEngineProfile>
 #include <QWebEngineSettings>
 #include <QWebEngineUrlRequestJob>
@@ -41,171 +42,21 @@ namespace geist_reader {
 namespace {
 
 constexpr int kTopicIdRole = Qt::UserRole + 1;
-constexpr auto kTopicScheme = "geist";
-constexpr auto kResourceScheme = "geistres";
-// The topic pane's own origin. Serving images from the same scheme as the
-// page keeps them same-origin, so nothing is blocked as a cross-origin load.
-constexpr auto kTopicBaseUrl = "geistres://book/";
-
-// The renderer is told to spell intra-book topic links in this private
-// scheme, so TopicPage can turn a click into a tree selection.
-QString topic_url(const QString& topic_id, const QString& fragment = {}) {
-  QString url = QStringLiteral("%1://topic/%2")
-                    .arg(QLatin1String(kTopicScheme),
-                         QString::fromUtf8(
-                             QUrl::toPercentEncoding(topic_id)));
-  if (!fragment.isEmpty()) {
-    url += QLatin1Char('#');
-    url += QString::fromUtf8(QUrl::toPercentEncoding(fragment));
-  }
-  return url;
-}
-
-// `resource:69` -> `69`; anything else is passed through, matching the
-// renderer's own reading of a stored-object reference.
-std::string resource_object_id(const std::string& reference) {
-  static constexpr std::string_view marker = "resource:";
-  if (reference.size() > marker.size() &&
-      reference.compare(0, marker.size(), marker) == 0) {
-    return reference.substr(marker.size());
-  }
-  return reference;
-}
-
-// History entries carry the fragment alongside the topic.
-QString history_entry(const QString& topic, const QString& fragment) {
-  return fragment.isEmpty() ? topic
-                            : QStringLiteral("%1#%2").arg(topic, fragment);
-}
-
-std::pair<QString, QString> split_history_entry(const QString& entry) {
-  const auto hash = entry.indexOf(QLatin1Char('#'));
-  return hash < 0 ? std::make_pair(entry, QString())
-                  : std::make_pair(entry.left(hash), entry.mid(hash + 1));
-}
-
-// A JavaScript string literal for `value`.
-QString js_string(const QString& value) {
-  QString escaped = value;
-  escaped.replace(QLatin1Char('\\'), QLatin1String("\\\\"));
-  escaped.replace(QLatin1Char('\''), QLatin1String("\\'"));
-  return QStringLiteral("'%1'").arg(escaped);
-}
-
-// A stored object, addressed in the private resource scheme.
-QString resource_url(const std::string& object_id) {
-  return QStringLiteral("%1://book/%2")
-      .arg(QLatin1String(kResourceScheme),
-           QString::fromUtf8(QUrl::toPercentEncoding(
-               QString::fromStdString(object_id))));
-}
-
-// The object id from `geistres://book/<id>`.
-QString path_id(const QUrl& url) {
-  QString id = url.path();
-  if (id.startsWith(QLatin1Char('/'))) {
-    id.remove(0, 1);
-  }
-  return QUrl::fromPercentEncoding(id.toUtf8());
-}
-
-// The reader's own page chrome around a topic fragment. `html_fragment()` is
-// documented as semantic content for "a consumer that owns the page around
-// it"; this is that page. The header line reproduces the original reader's
-// "<topic id> <title>" banner above the topic body.
-QString wrap_topic(const QString& topic_id, const QString& title,
-                   const QString& fragment) {
-  return QStringLiteral(
-             "<!doctype html>\n<html lang=\"en\"><head>"
-             "<meta charset=\"utf-8\"><title>%1</title><style>%2\n%3</style>"
-             "</head><body class=\"geist-book\">"
-             "<div class=\"reader-topic-header\">"
-             "<span class=\"reader-topic-id\">%4</span> "
-             "<span class=\"reader-topic-title\">%1</span></div>%5"
-             "</body></html>")
-      .arg(title.toHtmlEscaped(),
-           QString::fromUtf8(kPublishedStylesheet),
-           QStringLiteral(
-               ".reader-topic-header{margin:0 0 1rem 0;padding:0 0 .35rem 0;}"
-               ".reader-topic-id{font-style:italic;margin-right:.5rem;}"
-               ".reader-topic-title{font-weight:700;}"),
-           topic_id.toHtmlEscaped(), fragment);
-}
 
 } // namespace
-
-void register_url_schemes() {
-  QWebEngineUrlScheme topics(kTopicScheme);
-  topics.setSyntax(QWebEngineUrlScheme::Syntax::Host);
-  topics.setFlags(QWebEngineUrlScheme::LocalAccessAllowed);
-  QWebEngineUrlScheme::registerScheme(topics);
-
-  QWebEngineUrlScheme resources(kResourceScheme);
-  resources.setSyntax(QWebEngineUrlScheme::Syntax::Host);
-  resources.setFlags(QWebEngineUrlScheme::SecureScheme |
-                     QWebEngineUrlScheme::LocalAccessAllowed |
-                     QWebEngineUrlScheme::CorsEnabled);
-  QWebEngineUrlScheme::registerScheme(resources);
-}
-
-ResourceSchemeHandler::ResourceSchemeHandler(QObject* parent)
-    : QWebEngineUrlSchemeHandler(parent) {}
-
-void ResourceSchemeHandler::set_document(const geist::BooDocument* document) {
-  document_ = document;
-  cache_.clear();
-}
-
-void ResourceSchemeHandler::requestStarted(QWebEngineUrlRequestJob* job) {
-  if (document_ == nullptr) {
-    job->fail(QWebEngineUrlRequestJob::UrlNotFound);
-    return;
-  }
-  const auto id = path_id(job->requestUrl());
-
-  auto cached = cache_.constFind(id);
-  if (cached == cache_.constEnd()) {
-    QByteArray png;
-    try {
-      const auto bytes = document_->read_resource_png(id.toStdString());
-      png = QByteArray(reinterpret_cast<const char*>(bytes.data()),
-                       static_cast<qsizetype>(bytes.size()));
-    } catch (const std::exception&) {
-      // A legacy format libgeist cannot decode. Record the failure so it is
-      // not retried, and let the pane show a broken image rather than
-      // inventing bytes.
-      png.clear();
-    }
-    cached = cache_.insert(id, png);
-  }
-
-  if (cached->isEmpty()) {
-    job->fail(QWebEngineUrlRequestJob::UrlNotFound);
-    return;
-  }
-
-  auto* buffer = new QBuffer(job);
-  buffer->setData(*cached);
-  buffer->open(QIODevice::ReadOnly);
-  job->reply(QByteArrayLiteral("image/png"), buffer);
-}
 
 TopicPage::TopicPage(QObject* parent) : QWebEnginePage(parent) {}
 
 bool TopicPage::acceptNavigationRequest(const QUrl& url, NavigationType,
                                         bool is_main_frame) {
-  if (url.scheme() == QLatin1String(kTopicScheme)) {
-    if (is_main_frame) {
-      emit topicRequested(path_id(url), url.fragment());
-    }
-    return false;
-  }
-  if (url.scheme() == QLatin1String("http") ||
-      url.scheme() == QLatin1String("https")) {
+  if (is_main_frame && (url.scheme() == QLatin1String("http") ||
+                        url.scheme() == QLatin1String("https"))) {
     QDesktopServices::openUrl(url);
     return false;
   }
-  // `data:` and `about:blank` are how setHtml() delivers a topic.
+  // Everything else is the book's own URL space, served by
+  // BookSchemeHandler. Letting it navigate normally is what gives the reader
+  // real back/forward history and real `#anchor` scrolling.
   return true;
 }
 
@@ -219,10 +70,9 @@ ReaderWindow::ReaderWindow() {
   auto* page = new TopicPage(view_);
   view_->setPage(page);
 
-  // Stored images are served over the private resource scheme.
-  resources_ = new ResourceSchemeHandler(this);
+  // The book's whole URL space is served from here.
   page->profile()->installUrlSchemeHandler(
-      QByteArray(kResourceScheme), resources_);
+      QByteArray(kBookScheme), new BookSchemeHandler(source_, this));
 
   auto* divider = new QSplitter(Qt::Horizontal, this);
   divider->addWidget(contents_);
@@ -247,24 +97,12 @@ ReaderWindow::ReaderWindow() {
               navigate_to(id);
             }
           });
-  connect(page, &TopicPage::topicRequested, this,
-          [this](const QString& id, const QString& fragment) {
-            navigate_to(id, fragment);
-          });
-
-  // A topic loads asynchronously, so a cross reference into the middle of one
-  // can only be scrolled to once the load has finished.
-  connect(view_, &QWebEngineView::loadFinished, this, [this](bool ok) {
-    if (!ok || pending_fragment_.isEmpty()) {
-      pending_fragment_.clear();
-      return;
-    }
-    view_->page()->runJavaScript(
-        QStringLiteral("var e=document.getElementById(%1);"
-                       "if(e){e.scrollIntoView(true);}")
-            .arg(js_string(pending_fragment_)));
-    pending_fragment_.clear();
-  });
+  // The engine owns navigation now, so the tree and the toolbar follow the
+  // pane rather than driving it.
+  connect(view_, &QWebEngineView::urlChanged, this,
+          [this](const QUrl& url) { sync_to_url(url); });
+  connect(view_, &QWebEngineView::loadFinished, this,
+          [this](bool) { update_navigation_state(); });
 
   resize(1200, 820);
   setWindowTitle(tr("Geist Hardcopy Reader"));
@@ -289,13 +127,13 @@ void ReaderWindow::build_actions() {
 
   back_action_ = new QAction(icon(QStyle::SP_ArrowBack), tr("&Back"), this);
   back_action_->setShortcut(QKeySequence::Back);
-  connect(back_action_, &QAction::triggered, this, &ReaderWindow::go_back);
+  connect(back_action_, &QAction::triggered, view_, &QWebEngineView::back);
 
   forward_action_ = new QAction(icon(QStyle::SP_ArrowForward), tr("&Forward"),
                                 this);
   forward_action_->setShortcut(QKeySequence::Forward);
-  connect(forward_action_, &QAction::triggered, this,
-          &ReaderWindow::go_forward);
+  connect(forward_action_, &QAction::triggered, view_,
+          &QWebEngineView::forward);
 
   previous_action_ = new QAction(icon(QStyle::SP_ArrowUp),
                                  tr("&Previous Topic"), this);
@@ -487,19 +325,12 @@ void ReaderWindow::find_in_topic() {
 }
 
 void ReaderWindow::clear_book() {
-  if (resources_ != nullptr) {
-    resources_->set_document(nullptr);
-  }
+  source_.set_document(nullptr);
   document_.reset();
-  link_index_.clear();
-  link_index_built_ = false;
-  pending_fragment_.clear();
   contents_->clear();
   root_item_ = nullptr;
   items_.clear();
   topic_order_.clear();
-  history_.clear();
-  history_index_ = -1;
   current_topic_.clear();
   book_path_.clear();
   book_title_.clear();
@@ -517,7 +348,7 @@ void ReaderWindow::open_book(const QString& path) {
     auto opened = geist::BooDocument::open(path.toStdString());
     clear_book();
     document_ = std::move(opened);
-    resources_->set_document(&document_.value());
+    source_.set_document(&document_.value());
   } catch (const std::exception& error) {
     close_book();
     QMessageBox::critical(
@@ -584,109 +415,24 @@ void ReaderWindow::populate_contents() {
   root_item_->setExpanded(true);
 }
 
-void ReaderWindow::ensure_link_index() {
-  if (link_index_built_ || !document_.has_value()) {
-    return;
-  }
-  link_index_built_ = true;
-
-  // Harvesting the targets renders every topic, so show the wait cursor.
-  QGuiApplication::setOverrideCursor(Qt::WaitCursor);
-  for (const auto& entry : document_->table_of_contents()) {
-    const auto topic = QString::fromStdString(entry.id);
-    for (const auto& target : entry.link_targets()) {
-      const LinkDestination destination{
-          topic, QString::fromStdString(target.fragment),
-          QString::fromStdString(target.resource)};
-      const auto id = QString::fromStdString(target.id);
-      link_index_.insert(id, destination);
-      // A figure or table is spelled both bare and with its object prefix.
-      if (target.kind == geist::LinkTargetKind::figure) {
-        link_index_.insert(QStringLiteral("FIG%1").arg(id), destination);
-      } else if (target.kind == geist::LinkTargetKind::table) {
-        link_index_.insert(QStringLiteral("TBL%1").arg(id), destination);
-      }
-    }
-  }
-  QGuiApplication::restoreOverrideCursor();
-}
-
 void ReaderWindow::navigate_to(const QString& topic_id,
-                               const QString& fragment, bool record) {
+                               const QString& fragment) {
   if (!document_.has_value() || topic_id.isEmpty()) {
     return;
   }
-  const auto* entry = document_->find_toc_entry(topic_id.toStdString());
-  if (entry == nullptr) {
+  view_->load(QUrl(topic_url(topic_id, fragment)));
+}
+
+// Follows the pane: whatever it is showing becomes the tree selection and
+// the anchor for Previous/Next Topic.
+void ReaderWindow::sync_to_url(const QUrl& url) {
+  const auto route = route_for(url);
+  if (route.kind != BookRoute::Kind::topic) {
+    update_navigation_state();
     return;
   }
-  ensure_link_index();
-
-  geist::HtmlRenderOptions render;
-  // Intra-book topic links come back through TopicPage instead of being
-  // followed; everything else keeps the renderer's own destination.
-  render.resolve_topic =
-      [](const std::string& id) -> std::optional<std::string> {
-    return topic_url(QString::fromStdString(id)).toStdString();
-  };
-  // Without this every picture renders as `geist-image--unresolved`: the
-  // renderer only emits a usable `src` when a consumer resolves the object.
-  render.resolve_resource =
-      [](const std::string& id) -> std::optional<std::string> {
-    return resource_url(id).toStdString();
-  };
-  // A named destination the renderer cannot place on its own. Left alone, it
-  // becomes `#<id>`, which only reaches a destination that happens to sit in
-  // the topic on screen; anything owned by another topic is a dead link.
-  render.resolve_anchor =
-      [this, topic_id](const std::string& spelled)
-      -> std::optional<std::string> {
-    const auto found = link_index_.constFind(QString::fromStdString(spelled));
-    if (found == link_index_.constEnd()) {
-      // A generated list -- the contents, the index, the table and figure
-      // lists -- names a topic by the topic's own id. That is not a link
-      // target any topic reports, so the index above cannot know it, and
-      // left alone every entry of those lists is a dead `#<id>`.
-      if (document_->find_toc_entry(spelled) != nullptr) {
-        return topic_url(QString::fromStdString(spelled)).toStdString();
-      }
-      // Genuinely local: an anchor such as a footnote, which `#<id>`
-      // already reaches inside the topic on screen.
-      return std::nullopt;
-    }
-    if (!found->resource.isEmpty()) {
-      // A figure whose body is a stored object resolves to the object.
-      return resource_url(resource_object_id(found->resource.toStdString()))
-          .toStdString();
-    }
-    if (found->topic == topic_id) {
-      // Same topic: a plain fragment, but the anchor the topic really emits
-      // is not always the id the reference spells.
-      return found->fragment.isEmpty()
-                 ? std::nullopt
-                 : std::optional<std::string>(
-                       QStringLiteral("#%1").arg(found->fragment)
-                           .toStdString());
-    }
-    return topic_url(found->topic, found->fragment).toStdString();
-  };
-
-  view_->setHtml(wrap_topic(topic_id,
-                            QString::fromStdString(entry->title).trimmed(),
-                            QString::fromStdString(
-                                entry->html_fragment(render))),
-                 QUrl(QLatin1String(kTopicBaseUrl)));
-  pending_fragment_ = fragment;
-
-  if (record) {
-    history_.resize(history_index_ + 1);
-    history_.append(history_entry(topic_id, fragment));
-    history_index_ = static_cast<int>(history_.size()) - 1;
-  }
-  current_topic_ = topic_id;
-
-  // Mirror the selection into the tree without re-entering navigation.
-  if (auto* item = items_.value(topic_id, nullptr)) {
+  current_topic_ = route.id;
+  if (auto* item = items_.value(route.id, nullptr)) {
     if (contents_->currentItem() != item) {
       navigating_ = true;
       contents_->setCurrentItem(item);
@@ -694,22 +440,6 @@ void ReaderWindow::navigate_to(const QString& topic_id,
     }
   }
   update_navigation_state();
-}
-
-void ReaderWindow::go_back() {
-  if (history_index_ > 0) {
-    --history_index_;
-    const auto entry = split_history_entry(history_.at(history_index_));
-    navigate_to(entry.first, entry.second, false);
-  }
-}
-
-void ReaderWindow::go_forward() {
-  if (history_index_ + 1 < history_.size()) {
-    ++history_index_;
-    const auto entry = split_history_entry(history_.at(history_index_));
-    navigate_to(entry.first, entry.second, false);
-  }
 }
 
 void ReaderWindow::go_relative(int delta) {
@@ -749,8 +479,9 @@ void ReaderWindow::update_navigation_state() {
   const auto at = loaded ? topic_order_.indexOf(current_topic_) : -1;
 
   close_action_->setEnabled(loaded);
-  back_action_->setEnabled(history_index_ > 0);
-  forward_action_->setEnabled(history_index_ + 1 < history_.size());
+  auto* history = view_->history();
+  back_action_->setEnabled(history->canGoBack());
+  forward_action_->setEnabled(history->canGoForward());
   previous_action_->setEnabled(at > 0);
   next_action_->setEnabled(at >= 0 && at + 1 < topic_order_.size());
   contents_action_->setEnabled(loaded && !topic_order_.isEmpty());

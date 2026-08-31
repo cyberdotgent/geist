@@ -27,6 +27,10 @@ closing correctness gaps against real books.
   modelled on IBM's BookManager SoftCopy Reader. It is a pure consumer of the
   public API: no parsing or rendering logic lives here, and Qt appears in no
   other directory. Built by default when Qt6 is present (see Build And Test).
+  `gui/book_url.hpp` and `gui/book_source.*` define a book's URL space
+  (`geist://book/topic/<id>`, `geist://book/object/<id>`) and answer it with
+  bytes. Keep that pair free of widgets: it is the same "URL in, HTML out"
+  shape an HTTP front end would serve, and the reader exercises that path.
 - `examples/` — small command-line programs demonstrating library usage, not
   duplicate parsing implementations:
   - `booinfo` — book metadata.
