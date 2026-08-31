@@ -193,6 +193,10 @@ foreach(example booinfo bootoc boorsrc boorender bootrace boo2git)
   endif()
 endforeach()
 
+# The BOO format specification. Optional: it defines a documentation target
+# only when an AsciiDoc toolchain is installed, and is never part of `all`.
+add_subdirectory(doc/boo-spec)
+
 enable_testing()
 
 # Only `packet.boo` may be redistributed, so it is the only BOO fixture in the

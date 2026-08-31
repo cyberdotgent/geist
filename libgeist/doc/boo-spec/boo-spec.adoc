@@ -1,0 +1,55 @@
+= The IBM BookManager BOO File Format
+:doctype: book
+:numbered:
+:toc:
+:toclevels: 3
+:sectanchors:
+:lang: en
+
+[preface]
+== About This Specification
+
+This book describes the on-disk format of IBM BookManager `.BOO` files: the
+container and its directory, how pages are organized, how logical records store
+tokenized text, how that text decodes, how topics and the table of contents are
+addressed, the markup vocabulary the decoded text carries, and the image
+payloads a book can embed.
+
+It is written to be complete enough for an independent implementer to build a
+BOO reader from it alone, with no other source of information about the format.
+
+Two rules govern every statement in it. First, each claim carries its evidence,
+and says which kind: a fixture file cited by name and by byte offset, record
+number, topic id or decoded control; or the observable output of the hosted
+BookServer service for a named book, topic and `DT` timestamp. Second, where
+neither can settle a point, the text says so and marks the statement as an
+open question rather than stating it as fact. Those rules, the corpus the
+fixtures come from, and the status of each chapter are set out in
+<<scope>>.
+
+The format is described only as it is stored and as it is observably presented.
+Nothing here describes the internals of any reader program.
+
+include::scope.adoc[]
+
+include::container.adoc[]
+
+include::pages.adoc[]
+
+include::logical-controls.adoc[]
+
+include::encoding.adoc[]
+
+include::topics.adoc[]
+
+include::toc.adoc[]
+
+include::markup.adoc[]
+
+include::assets.adoc[]
+
+include::gdf.adoc[]
+
+include::mmr.adoc[]
+
+include::web-images.adoc[]

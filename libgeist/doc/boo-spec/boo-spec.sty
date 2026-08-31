@@ -1,0 +1,40 @@
+%
+% dblatex style for the BOO format specification.
+%
+% Passed to dblatex as the document style (a2x --dblatex-opts="-s ...").
+% dblatex treats the last -s file as the document class package and forwards
+% its own options to it, so this must be a real LaTeX package that inherits
+% from dblatex's docbook style.
+%
+% Its whole job is the verbatim blocks.  This corpus is full of fixed-width
+% evidence -- box art, column rulers, decoded display rows, hosted HTML --
+% where a silently clipped or reflowed line is a loss of technical content.
+% At dblatex's default listing size a 121-column rule overflows the text block
+% and is truncated with no continuation marker.
+%
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{boo-spec}[2026/08/31 BOO format specification style]
+\DeclareOption*{\PassOptionsToPackage{\CurrentOption}{docbook}}
+\ProcessOptions\relax
+\RequirePackage{docbook}
+
+% Stored strings are quoted inline all through this book -- hashes, URLs,
+% decoded control sequences, hosted markup -- and typewriter text has no
+% hyphenation points, so a long one cannot be broken.  Left at LaTeX's
+% defaults TeX sets such a line past the right margin, where the overflow is
+% clipped and the reader loses bytes.  Prefer a loosely set line instead.
+\setlength{\emergencystretch}{4em}
+\sloppy
+
+% Straight quotes in verbatim: stored markup contains attribute values such as
+% <a name="1.0">, and a curly quote there would misstate the bytes.
+\RequirePackage{upquote}
+
+\lstset{%
+  basicstyle=\ttfamily\scriptsize,  % 125 columns fit the text block
+  breaklines=true,
+  breakatwhitespace=false,          % a rule of '-' has no space to break at
+  columns=fixed,                    % preserve column alignment
+  keepspaces=true,                  % preserve runs of spaces
+  upquote=true,
+}
