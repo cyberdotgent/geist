@@ -1,0 +1,219 @@
+# Builds the Windows distribution of libgeist: the CLI tools, the shared
+# library and the Geist Hardcopy Reader, with the Qt runtime the reader needs
+# to actually start.
+#
+# Pushing a tag publishes the zip to a GitHub Release, creating the release
+# first if it does not exist. Running the workflow by hand builds and uploads
+# the same zip as a run artifact but publishes nothing, so the package can be
+# downloaded and checked before any tag is cut.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+# Only the release job needs write access, and only on a tag.
+permissions:
+  contents: read
+
+env:
+  QT_VERSION: "6.8.1"
+  QT_ARCH: win64_msvc2022_64
+
+jobs:
+  windows-dist:
+    name: Windows x64 distribution
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      # A tag names the release; a manual run is identified by its commit so
+      # two hand-built zips are never confused for one another.
+      - name: Determine version
+        id: version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $version = $env:GITHUB_REF_NAME
+            $publish = 'true'
+          } else {
+            $version = $env:GITHUB_SHA.Substring(0, 7)
+            $publish = 'false'
+          }
+          "version=$version"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "publish=$publish"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "name=geist-$version-windows-x64" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Version $version (publish a release: $publish)"
+
+      # Qt is supplied here rather than by vcpkg: vcpkg's qtwebengine port is
+      # a from-source Chromium build measured in hours. qtwebengine does not
+      # pull qtwebchannel or qtpositioning in on its own, and omitting them
+      # surfaces late as a missing-target error at configure time.
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          arch: ${{ env.QT_ARCH }}
+          modules: qtwebengine qtwebchannel qtpositioning
+          cache: true
+
+      # The root CMakeLists discovers the vcpkg toolchain from VCPKG_ROOT.
+      # The runner image preinstalls it, but assert that rather than letting
+      # a changed image surface as a confusing libpng/giflib failure.
+      - name: Check vcpkg is present
+        shell: pwsh
+        run: |
+          if (-not $env:VCPKG_ROOT) {
+            throw "VCPKG_ROOT is not set on this runner; libgeist needs vcpkg for libpng/giflib."
+          }
+          $toolchain = Join-Path $env:VCPKG_ROOT "scripts/buildsystems/vcpkg.cmake"
+          if (-not (Test-Path $toolchain)) {
+            throw "No vcpkg toolchain at $toolchain"
+          }
+          Write-Host "vcpkg toolchain: $toolchain"
+
+      # GEIST_BUILD_GUI=ON, never AUTO: AUTO would quietly skip the reader if
+      # Qt were missing and ship a GUI-less zip that still looked successful.
+      - name: Configure
+        shell: pwsh
+        run: |
+          cmake -S . -B build -A x64 `
+            -DGEIST_BUILD_GUI=ON `
+            -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR"
+
+      # MSVC generators are multi-config, so the configuration is chosen here
+      # and the binaries land in build/Release and build/gui/Release.
+      - name: Build
+        shell: pwsh
+        run: cmake --build build --config Release --parallel
+
+      - name: Run tests
+        shell: pwsh
+        working-directory: build
+        run: ctest --build-config Release --output-on-failure --parallel 4
+
+      # The reader's directory is copied first because windeployqt has already
+      # assembled the Qt runtime, QtWebEngineProcess.exe and its resource and
+      # locale trees there. The CLI tools and the shared library join it, so
+      # the zip is one flat directory a user can run from anywhere.
+      - name: Assemble distribution
+        shell: pwsh
+        run: |
+          $dist = "dist/${{ steps.version.outputs.name }}"
+          New-Item -ItemType Directory -Force -Path $dist | Out-Null
+
+          Copy-Item -Path "build/gui/Release/*" -Destination $dist -Recurse -Force
+          Get-ChildItem -Path "build/Release" -File |
+            Where-Object { $_.Extension -in '.exe', '.dll' } |
+            Copy-Item -Destination $dist -Force
+
+          # Build by-products that have no business in a distribution.
+          Get-ChildItem -Path $dist -Recurse -File |
+            Where-Object { $_.Extension -in '.lib', '.exp', '.ilk', '.pdb' } |
+            Remove-Item -Force
+
+          Get-ChildItem -Path $dist -Recurse -File |
+            ForEach-Object { $_.FullName.Substring((Resolve-Path $dist).Path.Length + 1) } |
+            Sort-Object
+
+      # A package that is missing a piece must fail here, not in the hands of
+      # whoever downloads it.
+      - name: Verify distribution
+        shell: pwsh
+        run: |
+          $dist = "dist/${{ steps.version.outputs.name }}"
+          $missing = @()
+
+          # The CLI tools, the reader, and the WebEngine helper process the
+          # reader cannot render a topic without.
+          $required = @(
+            'booinfo.exe', 'bootoc.exe', 'boorsrc.exe',
+            'boorender.exe', 'bootrace.exe', 'boo2git.exe',
+            'geist-hardcopy.exe', 'QtWebEngineProcess.exe',
+            'Qt6WebEngineWidgets.dll', 'Qt6Widgets.dll'
+          )
+          foreach ($file in $required) {
+            if (-not (Test-Path (Join-Path $dist $file))) { $missing += $file }
+          }
+
+          # The shared library: `add_library(geist SHARED)` yields geist.dll
+          # on MSVC, but accept either spelling rather than break on a rename.
+          if (-not (Test-Path (Join-Path $dist 'geist.dll')) -and
+              -not (Test-Path (Join-Path $dist 'libgeist.dll'))) {
+            $missing += 'geist.dll'
+          }
+
+          if ($missing.Count -gt 0) {
+            throw "Distribution is missing: $($missing -join ', ')"
+          }
+
+          # The Apache module does not exist yet and must never be shipped
+          # here even once it does.
+          # Binaries only: a stray licence or notice file mentioning Apache
+          # is not an Apache module and must not fail the build.
+          $forbidden = Get-ChildItem -Path $dist -Recurse -File |
+            Where-Object { $_.Extension -in '.dll', '.so', '.exe' } |
+            Where-Object { $_.Name -like 'mod_*' -or $_.Name -like '*apache*' }
+          if ($forbidden) {
+            throw "Distribution contains an Apache module: $($forbidden.Name -join ', ')"
+          }
+
+          $size = (Get-ChildItem -Path $dist -Recurse -File |
+                   Measure-Object -Property Length -Sum).Sum
+          Write-Host "Distribution verified: $([math]::Round($size / 1MB, 1)) MB"
+
+      - name: Create zip
+        shell: pwsh
+        run: |
+          $name = "${{ steps.version.outputs.name }}"
+          Compress-Archive -Path "dist/$name" -DestinationPath "$name.zip" -Force
+          $zip = Get-Item "$name.zip"
+          Write-Host "$($zip.Name): $([math]::Round($zip.Length / 1MB, 1)) MB"
+          (Get-FileHash "$name.zip" -Algorithm SHA256).Hash |
+            Out-File -FilePath "$name.zip.sha256" -Encoding ascii
+
+      # Uploaded on every run, tag or not, so the package can be downloaded
+      # and checked before a release is ever cut.
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.version.outputs.name }}
+          path: |
+            ${{ steps.version.outputs.name }}.zip
+            ${{ steps.version.outputs.name }}.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      # Only a tag publishes. Creating the release is skipped when one already
+      # exists, and the upload clobbers, so re-running a tag build is safe.
+      - name: Publish release
+        if: steps.version.outputs.publish == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A missing release is an expected outcome here, not an error, so
+          # gh's exit code has to be inspectable rather than fatal.
+          $ErrorActionPreference = 'Continue'
+          $PSNativeCommandUseErrorActionPreference = $false
+
+          $tag = "${{ steps.version.outputs.version }}"
+          $name = "${{ steps.version.outputs.name }}"
+
+          gh release view $tag 2>&1 | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Creating release $tag"
+            gh release create $tag --title $tag --generate-notes
+            if ($LASTEXITCODE -ne 0) { throw "Could not create release $tag" }
+          } else {
+            Write-Host "Release $tag already exists; attaching to it"
+          }
+
+          gh release upload $tag "$name.zip" "$name.zip.sha256" --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Could not upload the distribution to $tag" }
