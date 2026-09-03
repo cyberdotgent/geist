@@ -29,28 +29,6 @@ cmake -S . -B build && cmake --build build
 ./build/boorsrc --png book.boo 1 figure.png
 ```
 
-### Installing
-
-```sh
-cmake -S . -B build && cmake --build build
-sudo cmake --install build          # or: sudo make install
-```
-
-Standard GNU locations under the prefix (`/usr/local` by default): the
-libraries in `lib`, the public headers in `include/geist`, the tools and the
-reader in `bin`, and a CMake package so a consumer can
-
-```cmake
-find_package(geist REQUIRED)
-target_link_libraries(app PRIVATE geist::geist)
-```
-
-The Apache module is the exception: httpd owns where modules and their
-configuration live, so it installs to httpd's own directories rather than the
-prefix, and it is enabled on install. `DESTDIR` is honoured throughout, and
-`-DGEIST_APACHE_ENABLE=OFF` installs the configuration without enabling it,
-which is what a distribution package usually wants.
-
 ## Geist Hardcopy Reader
 
 A Qt6 desktop reader, laid out after IBM's BookManager SoftCopy Reader: a
@@ -61,10 +39,8 @@ each. Built by default when Qt6 is present.
 ./build/gui/geist-hardcopy book.boo
 ```
 
-Needs Qt6 Widgets, WebEngineWidgets and PrintSupport
-(`apt install qt6-base-dev qt6-webengine-dev`, or `brew install qt`). Pass
-`-DGEIST_BUILD_GUI=ON` to make a missing Qt an error rather than a skip, and
-`-DGEIST_BUILD_GUI=OFF` to never build it.
+Needs Qt6 Widgets, WebEngineWidgets and PrintSupport; see
+[Building and installing](#building-and-installing).
 
 ## mod_geist
 
@@ -104,11 +80,8 @@ a web format are served byte for byte under the media type the book itself
 records. The module links libgeist statically and compiles in its own CSS,
 JavaScript and icons, so there is one `.so` to deploy and nothing beside it.
 
-Needs `apache2-dev libapr1-dev libaprutil1-dev` (Debian/Ubuntu) or
-`httpd-devel apr-devel apr-util-devel` (Fedora/RHEL); it is built when those
-are present, and `-DGEIST_BUILD_APACHE=ON` makes their absence an error.
-
-Installing enables it: the module lands in httpd's module directory and a
+Needs httpd's build toolchain; see
+[Building and installing](#building-and-installing). Installing enables it: the module lands in httpd's module directory and a
 `geist.load`/`geist.conf` pair is installed and enabled (a symlink from
 `mods-enabled` on Debian and Ubuntu, a `conf.modules.d` drop-in elsewhere).
 Restart httpd and a book in the document root is browsable. The shipped
@@ -138,6 +111,88 @@ and `MaxConnectionsPerChild` is what reclaims it. Install a book atomically --
 write it under a temporary name in the same directory and `mv` it into place
 -- because a book read while it is still being copied is a truncated file, and
 is listed as unreadable until the copy finishes.
+
+## Building and installing
+
+C++17 and CMake 3.16 or newer. Building and installing are one step apart:
+
+```sh
+cmake -S . -B build && cmake --build build
+sudo cmake --install build
+```
+
+### What each component needs
+
+The library and its command-line tools are always built. The Qt reader and the
+Apache module are `AUTO`: each is built when its dependencies are present and
+skipped with an explanation when they are not, so a missing Qt or httpd is
+never an error unless you ask for one.
+
+| Component | Needs | Debian/Ubuntu | Fedora/RHEL |
+|---|---|---|---|
+| **libgeist**, tools, tests | a C++17 compiler, CMake, libpng, giflib | `build-essential cmake libpng-dev libgif-dev` | `gcc-c++ cmake libpng-devel giflib-devel` |
+| **Geist Hardcopy Reader** (optional) | Qt6 Widgets, WebEngineWidgets, PrintSupport | `qt6-base-dev qt6-webengine-dev` | `qt6-qtbase-devel qt6-qtwebengine-devel` |
+| **mod_geist** (optional) | apxs, the APR headers, pkg-config, Python 3 | `apache2-dev libapr1-dev libaprutil1-dev pkgconf python3` | `httpd-devel apr-devel apr-util-devel pkgconf-pkg-config python3` |
+
+Python 3 is a build-time tool only: `apache/tools/bundle.py` compiles the
+module's CSS, JavaScript and icons into the `.so`. Nothing at run time needs
+it.
+
+Everything at once, on Debian and Ubuntu:
+
+```sh
+sudo apt install build-essential cmake libpng-dev libgif-dev \
+    qt6-base-dev qt6-webengine-dev \
+    apache2-dev libapr1-dev libaprutil1-dev pkgconf python3
+```
+
+Just the library and tools:
+
+```sh
+sudo apt install build-essential cmake libpng-dev libgif-dev
+```
+
+On macOS, `brew install cmake libpng giflib` and `brew install qt` for the
+reader; the Apache module is Linux-tested. On Windows the library and tools
+build with MSVC, and vcpkg supplies libpng and giflib -- set `VCPKG_ROOT` or
+pass `-DCMAKE_TOOLCHAIN_FILE=<vcpkg.cmake>`; there is no Apache module there.
+
+### Choosing what to build
+
+```sh
+cmake -S . -B build -DGEIST_BUILD_GUI=OFF -DGEIST_BUILD_APACHE=ON
+```
+
+`AUTO` (the default) builds a component if it can, `ON` makes a missing
+dependency a hard error -- which is what CI should use, so a silent skip
+cannot pass for a green build -- and `OFF` never builds it.
+
+Tests need nothing beyond the library's own dependencies:
+
+```sh
+ctest --test-dir build
+```
+
+### Where it goes
+
+Standard GNU locations under the prefix (`/usr/local` by default): the
+libraries in `lib`, the public headers in `include/geist`, the tools and the
+reader in `bin`, and a CMake package so a consumer can
+
+```cmake
+find_package(geist REQUIRED)
+target_link_libraries(app PRIVATE geist::geist)
+```
+
+The Apache module is the exception: httpd owns where modules and their
+configuration live, so it installs to httpd's own directories rather than the
+prefix, and it is enabled on install. `DESTDIR` is honoured throughout, and
+`-DGEIST_APACHE_ENABLE=OFF` installs the configuration without enabling it,
+which is what a distribution package usually wants.
+
+After installing a new module, **restart** httpd rather than reloading it: a
+graceful reload re-reads the configuration while the old module is still
+mapped, so a newly added directive is rejected and the server stops.
 
 ## Licence
 
