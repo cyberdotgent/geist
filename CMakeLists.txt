@@ -27,7 +27,7 @@ if(WIN32 AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
 endif()
 
 project(libgeist
-  VERSION 0.1.0
+  VERSION 0.2.0
   DESCRIPTION "Self-contained IBM BookManager BOO parser library"
   # CMake's built-in FindGIF module probes the giflib C headers.
   LANGUAGES C CXX
@@ -346,11 +346,18 @@ endif()
 # command-line tools in bin. The Apache module is installed where httpd keeps
 # its modules, which is outside this prefix by nature; see apache/.
 
-install(TARGETS geist geist_static
+# Only the shared library is installed, and only it is exported.
+#
+# geist_static exists for consumers inside this tree -- the tests, the
+# benchmark, bootrace and mod_geist reach it through the geist::geist_static
+# alias -- and for nobody outside it. Installing it put an 8.5 MB archive
+# into libgeist-dev, which was over 40% of every published package set, in
+# exchange for a target no packaged consumer links. Anyone who wants to link
+# libgeist statically builds this tree.
+install(TARGETS geist
   EXPORT geistTargets
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 

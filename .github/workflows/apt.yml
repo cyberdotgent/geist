@@ -3,9 +3,11 @@
 
 # Debian and Ubuntu packages, and the APT repository that serves them.
 #
-# Ubuntu 24.04 and 26.04, Debian 12 and 13, on amd64 and arm64. Ubuntu 22.04
-# is deliberately not built: its qt6-base-dev does not pull in the GL headers
-# Qt6GuiConfig requires, and the project targets current systems.
+# Ubuntu 24.04 and 26.04, Debian 12 and 13, on amd64. Ubuntu 22.04 is
+# deliberately not built: its qt6-base-dev does not pull in the GL headers
+# Qt6GuiConfig requires, and the project targets current systems. arm64 was
+# dropped to halve what the archive costs; the matrix takes it back by adding
+# a row.
 #
 # Every push to main builds the package set for each supported distribution
 # and publishes it to the `unstable` component. A tag publishes the same
@@ -56,7 +58,7 @@ jobs:
       fail-fast: false
       matrix:
         distro: [noble, resolute, bookworm, trixie]
-        arch: [amd64, arm64]
+        arch: [amd64]
         include:
           - distro: noble
             image: ubuntu:24.04
@@ -68,8 +70,6 @@ jobs:
             image: debian:13
           - arch: amd64
             runner: ubuntu-24.04
-          - arch: arm64
-            runner: ubuntu-24.04-arm
 
     steps:
       # The container images are bare: git, and the node the checkout action
@@ -270,19 +270,35 @@ jobs:
           COMPONENT: ${{ steps.target.outputs.component }}
         run: source/tools/apt-repo.sh pages incoming "$COMPONENT"
 
+      # Published as a single commit, force-pushed, discarding the branch's
+      # own history.
+      #
+      # The archive accumulates in the *tree* -- the checkout above brought
+      # the existing pool forward and only superseded builds were pruned from
+      # it -- but git keeps every blob ever committed, so pruning reclaimed
+      # nothing. Three pushes had already left 80 MB of history behind an
+      # 84 MB tree, growing ~27 MB per push with no ceiling, against a repo
+      # GitHub wants under 1 GB and a Pages deployment that has to fetch it.
+      #
+      # An artifact store has no use for its own history: every .deb here is
+      # reproducible from the commit its version names. So the tree is what
+      # is kept, and the repository now tracks the tree instead of the sum of
+      # everything it has ever held.
       - name: Publish
         run: |
           cd pages
+          rm -rf .git
+          git init -q
+          git symbolic-ref HEAD refs/heads/gh-pages
+          git config user.name "Geist CI"
+          git config user.email "yvanj@cyber.gent"
           git add -A
-          if git diff --cached --quiet; then
-            echo "The repository is unchanged."
-            exit 0
-          fi
           git commit -q -m "APT: ${{ steps.target.outputs.component }} ${GITHUB_SHA:0:7}"
-          # HEAD:refs/heads/gh-pages rather than a bare branch name, so the
-          # push does not depend on what the local branch happens to be called
-          # after a checkout that may or may not have found anything.
-          git push -q \
+          # --force because each run replaces the branch rather than adding to
+          # it. Safe here only because the publish job is serialised by the
+          # concurrency group above: two runs force-pushing would otherwise
+          # lose one of their package sets.
+          git push -q --force \
             "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" \
             HEAD:refs/heads/gh-pages
-          echo "Published to gh-pages."
+          echo "Published $(git ls-files | wc -l) files to gh-pages ($(du -sh --exclude=.git . | cut -f1))."

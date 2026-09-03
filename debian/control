@@ -42,9 +42,9 @@ Description: library for reading IBM BookManager BOO books - development files
  Markdown or HTML.
  .
  This package contains the headers and the CMake package configuration
- needed to build against libgeist, and the static library: geist_static is
- part of the exported CMake target set, so omitting it would leave
- find_package(geist) describing a target whose file is not installed.
+ needed to build against libgeist. There is no static library: linking
+ libgeist statically is a build-from-source arrangement, and shipping the
+ archive made this package larger than every other one combined.
 
 Package: geist-tools
 Section: utils

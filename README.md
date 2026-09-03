@@ -185,7 +185,7 @@ finishes.
 ## Installing from APT
 
 Debian and Ubuntu packages are published to a signed APT repository for
-Ubuntu 24.04 and 26.04 and Debian 12 and 13, on amd64 and arm64:
+Ubuntu 24.04 and 26.04 and Debian 12 and 13, on amd64:
 
 ```sh
 sudo install -d -m 0755 /etc/apt/keyrings
@@ -216,7 +216,14 @@ release it anticipates, so a machine on unstable upgrades onto stable when the
 release lands rather than being stranded above it.
 
 The packaged Apache module links the shared library rather than a static copy,
-so a libgeist fix reaches it through an ordinary upgrade.
+so a libgeist fix reaches it through an ordinary upgrade. `libgeist-dev`
+carries no static library: linking libgeist statically is a
+build-from-source arrangement.
+
+The repository is published as a single commit each time, replacing the
+branch rather than adding to it -- the archive accumulates in the tree, not
+in git history, so its size tracks what it currently holds. Only amd64 is
+built; arm64 users build from source, or say so and the matrix takes it back.
 
 ## Building and installing
 
