@@ -190,6 +190,12 @@ std::mutex& shelf_build_mutex() {
 // Small helpers
 // ---------------------------------------------------------------------------
 
+// Whether a name carries the .boo extension.
+//
+// Case-insensitive, because these books predate case-sensitive filesystems
+// and a corpus routinely carries both `GC28-1251-08.boo` and `ACPZMST1.BOO`.
+// The dot is part of the comparison, so an extension is what matches and a
+// name merely *ending* in those letters -- `otherfileboo` -- does not.
 bool ends_with_boo(const char* path) {
   if (path == nullptr) {
     return false;
