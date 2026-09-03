@@ -1,0 +1,6 @@
+geist (0.1.0) unstable; urgency=medium
+
+  * Initial Debian packaging: libgeist0, libgeist-dev, geist-tools,
+    geist-reader and libapache2-mod-geist.
+
+ -- Yvan Janssens <yvanj@cyber.gent>  Thu, 03 Sep 2026 12:00:00 +0000

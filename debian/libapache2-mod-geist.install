@@ -1,0 +1,3 @@
+usr/lib/apache2/modules/mod_geist.so
+etc/apache2/mods-available/geist.load
+etc/apache2/mods-available/geist.conf

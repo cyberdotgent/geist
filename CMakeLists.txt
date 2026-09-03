@@ -184,6 +184,16 @@ set(GEIST_SOURCES
 add_library(geist SHARED ${GEIST_SOURCES})
 add_library(geist::geist ALIAS geist)
 
+# A versioned SONAME, so the runtime library can be packaged: a distribution
+# names the package after the SONAME (libgeist0) and installs
+# libgeist.so.0.1.0 with a libgeist.so.0 symlink, leaving the bare
+# libgeist.so to the -dev package. Until the first tagged release the ABI
+# moves freely, so this is 0 and stays 0 until something is promised.
+set_target_properties(geist PROPERTIES
+  VERSION ${PROJECT_VERSION}
+  SOVERSION ${PROJECT_VERSION_MAJOR}
+)
+
 add_library(geist_static STATIC ${GEIST_SOURCES})
 add_library(geist::geist_static ALIAS geist_static)
 

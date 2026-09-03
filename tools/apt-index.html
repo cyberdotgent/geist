@@ -1,0 +1,85 @@
+<!doctype html>
+<!-- Copyright 2026 Yvan Janssens; SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Geist APT repository</title>
+<style>
+:root { --bg:#fff; --fg:#1b1f24; --muted:#5b636d; --border:#d8dce1;
+        --accent:#0b5fa5; --sunken:#eef0f3; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#16191d; --fg:#e6e9ed; --muted:#9aa3ad; --border:#333a42;
+          --accent:#6cb6ff; --sunken:#23282e; }
+}
+* { box-sizing: border-box; }
+body { margin:0 auto; max-width:52rem; padding:0 1.25rem 4rem;
+       background:var(--bg); color:var(--fg);
+       font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+h1 { margin:2rem 0 .25rem; font-size:1.6rem; }
+h2 { margin:2.25rem 0 .5rem; font-size:1.15rem; }
+p.lede { color:var(--muted); margin:.25rem 0 1.5rem; }
+a { color:var(--accent); }
+pre { background:var(--sunken); border:1px solid var(--border);
+      border-radius:.375rem; padding:.75rem 1rem; overflow-x:auto;
+      font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+table { width:100%; border-collapse:collapse; font-size:.9375rem; }
+th,td { text-align:left; padding:.4rem .6rem; border-bottom:1px solid var(--border); }
+th { font-size:.8125rem; text-transform:uppercase; letter-spacing:.04em;
+     color:var(--muted); }
+code { background:var(--sunken); padding:.1rem .3rem; border-radius:.2rem;
+       font:13px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+</style>
+</head>
+<body>
+<h1>Geist APT repository</h1>
+<p class="lede">Packages for reading IBM BookManager BOO books.</p>
+
+<h2>Add the repository</h2>
+<p>Replace <code>stable</code> with <code>unstable</code> to track every push
+to main instead of tagged releases.</p>
+<pre>sudo install -d -m 0755 /etc/apt/keyrings
+curl -fsSL https://cyberdotgent.github.io/geist/geist-archive-keyring.asc \
+  | sudo gpg --dearmor -o /etc/apt/keyrings/geist-archive-keyring.gpg
+
+echo "deb [signed-by=/etc/apt/keyrings/geist-archive-keyring.gpg] \
+https://cyberdotgent.github.io/geist $(. /etc/os-release && echo $VERSION_CODENAME) stable" \
+  | sudo tee /etc/apt/sources.list.d/geist.list
+
+sudo apt update</pre>
+
+<h2>Packages</h2>
+<table>
+<thead><tr><th>Package</th><th>Contains</th></tr></thead>
+<tbody>
+<tr><td><code>libgeist0</code></td><td>the shared library</td></tr>
+<tr><td><code>libgeist-dev</code></td><td>headers and the CMake package</td></tr>
+<tr><td><code>geist-tools</code></td><td><code>booinfo</code>, <code>bootoc</code>, <code>boorsrc</code>, <code>boorender</code>, <code>bootrace</code>, <code>boo2git</code></td></tr>
+<tr><td><code>geist-reader</code></td><td>the Qt desktop reader</td></tr>
+<tr><td><code>libapache2-mod-geist</code></td><td>the Apache module, enabled on install</td></tr>
+</tbody>
+</table>
+
+<h2>Distributions</h2>
+<table>
+<thead><tr><th>Codename</th><th>Distribution</th></tr></thead>
+<tbody>
+<tr><td><code>jammy</code></td><td>Ubuntu 22.04 LTS</td></tr>
+<tr><td><code>noble</code></td><td>Ubuntu 24.04 LTS</td></tr>
+<tr><td><code>resolute</code></td><td>Ubuntu 26.04 LTS</td></tr>
+<tr><td><code>bookworm</code></td><td>Debian 12</td></tr>
+<tr><td><code>trixie</code></td><td>Debian 13</td></tr>
+</tbody>
+</table>
+<p class="lede">amd64 and arm64 for each.</p>
+
+<h2>Tracks</h2>
+<p><strong>stable</strong> is built from git tags and is never pruned.
+<strong>unstable</strong> is built from every push to main; the five most
+recent builds of each package are kept. An unstable version sorts below the
+release it precedes, so a machine on unstable upgrades onto stable when the
+release lands.</p>
+
+<p class="lede"><a href="https://github.com/cyberdotgent/geist">Source on GitHub</a></p>
+</body>
+</html>

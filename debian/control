@@ -1,0 +1,83 @@
+Source: geist
+Section: text
+Priority: optional
+Maintainer: Yvan Janssens <yvanj@cyber.gent>
+Build-Depends:
+ debhelper-compat (= 13),
+ cmake (>= 3.16),
+ libpng-dev,
+ libgif-dev,
+ qt6-base-dev,
+ qt6-base-dev-tools,
+ qt6-webengine-dev,
+ apache2-dev,
+ libapr1-dev,
+ libaprutil1-dev,
+ pkgconf,
+ python3:any,
+Standards-Version: 4.6.2
+Homepage: https://github.com/cyberdotgent/geist
+Rules-Requires-Root: no
+
+Package: libgeist0
+Section: libs
+Architecture: any
+Multi-Arch: same
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: library for reading IBM BookManager BOO books
+ libgeist parses an IBM BookManager BOO container and renders its topics to
+ Markdown or HTML. It is self-contained: it decides nothing about
+ presentation, and a consumer supplies the link resolvers, the page chrome
+ and the URL space it wants.
+ .
+ This package contains the shared library.
+
+Package: libgeist-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends: libgeist0 (= ${binary:Version}), ${misc:Depends}
+Description: library for reading IBM BookManager BOO books - development files
+ libgeist parses an IBM BookManager BOO container and renders its topics to
+ Markdown or HTML.
+ .
+ This package contains the headers and the CMake package configuration
+ needed to build against libgeist, and the static library: geist_static is
+ part of the exported CMake target set, so omitting it would leave
+ find_package(geist) describing a target whose file is not installed.
+
+Package: geist-tools
+Section: utils
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: command-line tools for IBM BookManager BOO books
+ Tools for inspecting and converting BOO books:
+ .
+  * booinfo   - book metadata
+  * bootoc    - table of contents
+  * boorsrc   - list and extract stored images
+  * boorender - render a topic to Markdown or HTML
+  * bootrace  - trace rendered output back to the source bytes
+  * boo2git   - export a whole book to a folder tree
+
+Package: geist-reader
+Section: text
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: desktop reader for IBM BookManager BOO books
+ The Geist Hardcopy Reader, a Qt6 desktop reader laid out after IBM's
+ BookManager SoftCopy Reader: a topic tree, a divider and a topic pane, with
+ separate font-size controls for each.
+
+Package: libapache2-mod-geist
+Section: httpd
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, apache2
+Description: Apache module serving IBM BookManager BOO books
+ mod_geist serves a BOO book over HTTP. A book is addressed by its own path,
+ so a book in the document root is browsable without any registration or
+ conversion step, and its topics, stored images and the file itself hang
+ below that path.
+ .
+ With BooIndex enabled a directory of books lists itself, after BookManager
+ BookServer's bookshelf page.

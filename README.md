@@ -162,6 +162,42 @@ directory and `mv` it into place -- because a book read while it is still
 being copied is a truncated file, and is listed as unreadable until the copy
 finishes.
 
+## Installing from APT
+
+Debian and Ubuntu packages are published to a signed APT repository for
+Ubuntu 22.04, 24.04 and 26.04 and Debian 12 and 13, on amd64 and arm64:
+
+```sh
+sudo install -d -m 0755 /etc/apt/keyrings
+curl -fsSL https://cyberdotgent.github.io/geist/geist-archive-keyring.asc \
+  | sudo gpg --dearmor -o /etc/apt/keyrings/geist-archive-keyring.gpg
+
+echo "deb [signed-by=/etc/apt/keyrings/geist-archive-keyring.gpg]" \
+     "https://cyberdotgent.github.io/geist" \
+     "$(. /etc/os-release && echo $VERSION_CODENAME) stable" \
+  | sudo tee /etc/apt/sources.list.d/geist.list
+
+sudo apt update && sudo apt install geist-tools
+```
+
+| Package | Contains |
+|---|---|
+| `libgeist0` | the shared library |
+| `libgeist-dev` | headers and the CMake package |
+| `geist-tools` | `booinfo`, `bootoc`, `boorsrc`, `boorender`, `bootrace`, `boo2git` |
+| `geist-reader` | the Qt desktop reader |
+| `libapache2-mod-geist` | the Apache module, enabled on install |
+
+Two tracks share each codename. **stable** is built from git tags and is kept
+indefinitely; **unstable** is built from every push to `main`, keeping the
+five most recent builds of each package. Swap the word `stable` for
+`unstable` in the line above to follow it. An unstable version sorts below the
+release it anticipates, so a machine on unstable upgrades onto stable when the
+release lands rather than being stranded above it.
+
+The packaged Apache module links the shared library rather than a static copy,
+so a libgeist fix reaches it through an ordinary upgrade.
+
 ## Building and installing
 
 C++17 and CMake 3.16 or newer. Building and installing are one step apart:

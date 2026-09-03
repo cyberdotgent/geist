@@ -1,0 +1,16 @@
+#!/bin/sh
+set -e
+
+# Enabling the module is the package's job rather than the build's, so an
+# administrator who disables it keeps that across upgrades: a2enmod is only
+# run on a first install, never on an upgrade.
+if [ "$1" = configure ] && [ -z "$2" ]; then
+    if command -v a2enmod >/dev/null 2>&1; then
+        a2enmod geist >/dev/null || true
+        if command -v deb-systemd-invoke >/dev/null 2>&1; then
+            deb-systemd-invoke try-reload-or-restart apache2 >/dev/null || true
+        fi
+    fi
+fi
+
+#DEBHELPER#

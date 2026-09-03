@@ -1,0 +1,259 @@
+# Copyright 2026 Yvan Janssens
+# SPDX-License-Identifier: Apache-2.0
+
+# Debian and Ubuntu packages, and the APT repository that serves them.
+#
+# Every push to main builds the package set for each supported distribution
+# and publishes it to the `unstable` component. A tag publishes the same
+# packages to `stable`. The two components live side by side under one
+# codename, so a machine subscribes to whichever it wants:
+#
+#   deb [signed-by=...] https://cyberdotgent.github.io/geist noble stable
+#   deb [signed-by=...] https://cyberdotgent.github.io/geist noble unstable
+#
+# The repository itself is the gh-pages branch, which accumulates: each run
+# checks it out, adds its packages to the pool, regenerates the indices and
+# pushes. That is why the publish job is serialised -- two runs regenerating
+# the same branch would race -- and why it is one job rather than one per
+# distribution.
+name: APT packages
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One publisher at a time. Builds may overlap freely; the push to gh-pages
+# may not, and a queued run must not be cancelled or its packages are lost.
+concurrency:
+  group: apt-repository
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: ${{ matrix.distro }} ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.image }}
+
+    # One distribution failing must not deny the others a release; the
+    # publish job below tolerates a partial set.
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [jammy, noble, resolute, bookworm, trixie]
+        arch: [amd64, arm64]
+        include:
+          - distro: jammy
+            image: ubuntu:22.04
+          - distro: noble
+            image: ubuntu:24.04
+          - distro: resolute
+            image: ubuntu:26.04
+          - distro: bookworm
+            image: debian:12
+          - distro: trixie
+            image: debian:13
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      # The container images are bare: git, and the node the checkout action
+      # needs, are not in them.
+      - name: Prepare the container
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends \
+            ca-certificates git build-essential devscripts equivs \
+            dpkg-dev debhelper
+
+      - name: Check out
+        uses: actions/checkout@v4
+
+      # git refuses to read a repository owned by another user, which is what
+      # a checkout inside a container looks like.
+      - name: Trust the checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      # A tag is a release and keeps the plain upstream version. Anything else
+      # is an unstable build and takes a version that sorts *below* the
+      # release it precedes -- `~` sorts before the empty string -- so a
+      # machine tracking unstable upgrades cleanly onto stable when the
+      # release lands. The timestamp keeps successive unstable builds ordered.
+      - name: Determine version
+        id: version
+        run: |
+          upstream=$(sed -n 's/^ *VERSION \([0-9.]*\)$/\1/p' CMakeLists.txt | head -1)
+          [ -n "$upstream" ] || { echo "::error::No VERSION in CMakeLists.txt"; exit 1; }
+
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            base="${GITHUB_REF_NAME#v}"
+            component=stable
+          else
+            base="$upstream~git$(date -u +%Y%m%d%H%M%S).${GITHUB_SHA:0:7}"
+            component=unstable
+          fi
+          version="$base+${{ matrix.distro }}1"
+
+          {
+            echo "version=$version"
+            echo "component=$component"
+          } >> "$GITHUB_OUTPUT"
+          echo "Building $version for ${{ matrix.distro }} (${{ matrix.arch }}) into $component"
+
+      # The in-tree changelog records the packaging, not this build. Each
+      # build stamps its own version rather than committing one per push.
+      - name: Stamp the changelog
+        run: |
+          export DEBEMAIL="yvanj@cyber.gent"
+          export DEBFULLNAME="Geist CI"
+          dch --newversion "${{ steps.version.outputs.version }}" \
+              --distribution "${{ matrix.distro }}" --force-bad-version \
+              "Automated build of ${GITHUB_SHA:0:7}."
+
+      - name: Install build dependencies
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          mk-build-deps -i -r -t "apt-get -y -qq --no-install-recommends" \
+            debian/control
+
+      # -b: binary packages only. There is no source upload, and building the
+      # source package would only duplicate what git already holds.
+      - name: Build the packages
+        run: dpkg-buildpackage -us -uc -b -j"$(nproc)"
+
+      # A package set that is missing a member must fail here rather than
+      # leave a half-populated repository.
+      - name: Verify the package set
+        run: |
+          mkdir -p packages
+          mv ../*.deb packages/
+          missing=
+          for pkg in libgeist0 libgeist-dev geist-tools geist-reader \
+                     libapache2-mod-geist; do
+            ls packages/"${pkg}"_*.deb > /dev/null 2>&1 || missing="$missing $pkg"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::No package built for:$missing"
+            ls -la packages
+            exit 1
+          fi
+          for deb in packages/*.deb; do
+            echo "--- $deb"
+            dpkg-deb --info "$deb" | sed -n 's/^ Depends:/  Depends:/p'
+            dpkg-deb --contents "$deb" | awk '{print "   " $6}' | head -8
+          done
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: debs-${{ matrix.distro }}-${{ matrix.arch }}
+          path: packages/*.deb
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish the APT repository
+    needs: build
+    # A distribution that failed to build must not stop the rest reaching the
+    # repository, but a wholly failed matrix has nothing to publish.
+    if: always() && needs.build.result != 'cancelled'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out the repository branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: pages
+        continue-on-error: true
+
+      - name: Check out the source
+        uses: actions/checkout@v4
+        with:
+          path: source
+
+      - name: Install the archive tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends \
+            apt-utils gnupg dpkg-dev
+
+      - name: Collect the packages
+        uses: actions/download-artifact@v4
+        with:
+          path: incoming
+          pattern: debs-*
+          merge-multiple: false
+
+      - name: Determine the component
+        id: target
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            echo "component=stable" >> "$GITHUB_OUTPUT"
+          else
+            echo "component=unstable" >> "$GITHUB_OUTPUT"
+          fi
+
+      # gh-pages may not exist yet on a first run, and checking it out is
+      # allowed to fail above; start an empty branch in that case.
+      - name: Prepare the working tree
+        run: |
+          if [ ! -d pages/.git ]; then
+            rm -rf pages && mkdir pages && cd pages
+            git init -q -b gh-pages
+          fi
+          cd pages
+          git config user.name "Geist CI"
+          git config user.email "yvanj@cyber.gent"
+          # Pages would otherwise run the site through Jekyll, which drops
+          # every directory whose name begins with an underscore and can
+          # rewrite what it considers a page.
+          touch .nojekyll
+
+      - name: Import the signing key
+        env:
+          APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
+          APT_GPG_KEY_ID: ${{ secrets.APT_GPG_KEY_ID }}
+        run: |
+          if [ -z "$APT_GPG_PRIVATE_KEY" ] || [ -z "$APT_GPG_KEY_ID" ]; then
+            echo "::error::APT_GPG_PRIVATE_KEY and APT_GPG_KEY_ID must be set; an unsigned APT repository is refused by apt."
+            exit 1
+          fi
+          export GNUPGHOME="$RUNNER_TEMP/gnupg"
+          mkdir -p -m 700 "$GNUPGHOME"
+          printf '%s\n' "$APT_GPG_PRIVATE_KEY" | gpg --batch --import
+          echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
+          # The public half travels with the repository so a machine can
+          # install it without a keyserver.
+          gpg --export "$APT_GPG_KEY_ID" > pages/geist-archive-keyring.gpg
+          gpg --export --armor "$APT_GPG_KEY_ID" > pages/geist-archive-keyring.asc
+
+      - name: Install the landing page
+        run: cp source/tools/apt-index.html pages/index.html
+
+      - name: Build the repository
+        env:
+          APT_GPG_KEY_ID: ${{ secrets.APT_GPG_KEY_ID }}
+          COMPONENT: ${{ steps.target.outputs.component }}
+        run: source/tools/apt-repo.sh pages incoming "$COMPONENT"
+
+      - name: Publish
+        run: |
+          cd pages
+          git add -A
+          if git diff --cached --quiet; then
+            echo "The repository is unchanged."
+            exit 0
+          fi
+          git commit -q -m "APT: ${{ steps.target.outputs.component }} ${GITHUB_SHA:0:7}"
+          git push -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" gh-pages
+          echo "Published to gh-pages."

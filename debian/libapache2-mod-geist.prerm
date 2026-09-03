@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+# On removal only: an upgrade must leave the module enabled.
+if [ "$1" = remove ] || [ "$1" = deconfigure ]; then
+    if command -v a2dismod >/dev/null 2>&1; then
+        a2dismod geist >/dev/null || true
+    fi
+fi
+
+#DEBHELPER#

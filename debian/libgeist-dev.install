@@ -1,0 +1,4 @@
+usr/include/geist
+usr/lib/*/libgeist.so
+usr/lib/*/libgeist_static.a
+usr/lib/*/cmake/geist

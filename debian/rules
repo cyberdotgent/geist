@@ -1,0 +1,40 @@
+#!/usr/bin/make -f
+# Copyright 2026 Yvan Janssens
+# SPDX-License-Identifier: Apache-2.0
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+%:
+	dh $@
+
+# Both optional components are pinned ON rather than left at AUTO: AUTO would
+# silently drop the reader or the Apache module from the package set if a
+# build dependency went missing, and the build would still succeed.
+#
+# GEIST_APACHE_ENABLE=OFF because enabling a module is the package's job, not
+# the build's: the maintainer scripts call a2enmod, so the administrator can
+# disable it and have that survive an upgrade.
+override_dh_auto_configure:
+	dh_auto_configure -- \
+		-DGEIST_BUILD_GUI=ON \
+		-DGEIST_BUILD_APACHE=ON \
+		-DGEIST_APACHE_ENABLE=OFF \
+		-DGEIST_APACHE_SHARED_LIBGEIST=ON \
+		-DGEIST_APACHE_LIBEXECDIR=/usr/lib/apache2/modules \
+		-DGEIST_APACHE_SYSCONFDIR=/etc/apache2 \
+		-DGEIST_APACHE_CONFIG_LAYOUT=DEBIAN
+
+# The tree is template-heavy; an unbounded parallel build exhausts a runner.
+override_dh_auto_build:
+	dh_auto_build -- -j$(shell nproc)
+
+override_dh_auto_test:
+	dh_auto_test
+
+# CMake installs the licence and README under share/doc/libgeist. Debian
+# policy puts a package's documentation in share/doc/<binary package>, and
+# dh_installdocs and dh_installchangelogs already do that, so this copy is
+# dropped rather than shipped in a directory no package owns.
+override_dh_auto_install:
+	dh_auto_install
+	rm -rf debian/tmp/usr/share/doc

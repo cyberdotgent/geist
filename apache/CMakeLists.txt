@@ -59,7 +59,21 @@ target_include_directories(mod_geist PRIVATE
   "${CMAKE_CURRENT_BINARY_DIR}/generated"
   ${GEIST_APACHE_INCLUDE_DIRS}
 )
-target_link_libraries(mod_geist PRIVATE geist::geist_static)
+# Which libgeist the module links.
+#
+# By default the static one, so the shipped module is a single .so with
+# nothing beside it -- what a hand-installed module wants. A distribution
+# package wants the opposite: linking the shared library means one copy to
+# patch when libgeist is fixed, and the package manager records the
+# dependency. Debian packaging turns this on.
+option(GEIST_APACHE_SHARED_LIBGEIST
+  "Link mod_geist against the shared libgeist rather than the static one" OFF
+)
+if(GEIST_APACHE_SHARED_LIBGEIST)
+  target_link_libraries(mod_geist PRIVATE geist::geist)
+else()
+  target_link_libraries(mod_geist PRIVATE geist::geist_static)
+endif()
 
 if(GEIST_APACHE_LIBRARIES)
   target_link_libraries(mod_geist PRIVATE ${GEIST_APACHE_LIBRARIES})
@@ -90,7 +104,38 @@ configure_file(geist.conf.in "${CMAKE_CURRENT_BINARY_DIR}/geist.conf" @ONLY)
 
 install(TARGETS mod_geist LIBRARY DESTINATION "${GEIST_APACHE_LIBEXECDIR}")
 
-if(EXISTS "${GEIST_APACHE_SYSCONFDIR}/mods-available")
+# Which configuration layout httpd on this system uses.
+#
+# AUTO decides by looking for mods-available, which is right for a build that
+# installs onto the machine it ran on. A package build is not that: it runs in
+# a container that has apache2-dev but no httpd configuration, so AUTO would
+# read the absence of mods-available as "this is Red Hat" and file the module
+# where no Debian package expects it. Packaging says which layout it wants.
+set(GEIST_APACHE_CONFIG_LAYOUT "AUTO" CACHE STRING
+  "httpd configuration layout: AUTO, DEBIAN or REDHAT"
+)
+set_property(CACHE GEIST_APACHE_CONFIG_LAYOUT
+  PROPERTY STRINGS AUTO DEBIAN REDHAT
+)
+
+if(GEIST_APACHE_CONFIG_LAYOUT STREQUAL "DEBIAN")
+  set(_geist_apache_debian_layout TRUE)
+elseif(GEIST_APACHE_CONFIG_LAYOUT STREQUAL "REDHAT")
+  set(_geist_apache_debian_layout FALSE)
+elseif(GEIST_APACHE_CONFIG_LAYOUT STREQUAL "AUTO")
+  if(EXISTS "${GEIST_APACHE_SYSCONFDIR}/mods-available")
+    set(_geist_apache_debian_layout TRUE)
+  else()
+    set(_geist_apache_debian_layout FALSE)
+  endif()
+else()
+  message(FATAL_ERROR
+    "GEIST_APACHE_CONFIG_LAYOUT must be AUTO, DEBIAN or REDHAT, not "
+    "'${GEIST_APACHE_CONFIG_LAYOUT}'."
+  )
+endif()
+
+if(_geist_apache_debian_layout)
   # Debian and Ubuntu: definitions live in mods-available and are enabled by
   # a symlink from mods-enabled, which is what a2enmod writes.
   install(FILES
