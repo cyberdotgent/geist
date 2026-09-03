@@ -490,6 +490,7 @@ endfunction()
 foreach(synthetic_test
     gdf_synthetic
     logical_synthetic
+    book_control_value_boundary_synthetic
     display_line_control_extent_synthetic
     toc_entry_framing_synthetic
     topic_envelope_ir_synthetic
