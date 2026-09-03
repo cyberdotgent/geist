@@ -52,6 +52,20 @@ ContainerPrologue read_container_prologue(
   }
 
   const auto directory_page = result.file_header.directory_page_number;
+  // Page 0 is the file header, so it can never also be the directory page.
+  // A file that says it is has no usable header at all -- the field is zero
+  // because the bytes were never written. That is what an interrupted copy
+  // looks like: the file is its full length, and the pages that carry the
+  // structure are still empty. Saying so beats reporting the invariant this
+  // trips somewhere further in.
+  if (directory_page == 0) {
+    throw std::runtime_error(
+        "BOO file header is empty: it names page 0, the header itself, as "
+        "the directory page. The file is not a complete BOO container -- an "
+        "interrupted copy leaves it at full length with its structure "
+        "pages unwritten: " +
+        path.string());
+  }
   if (directory_page >= result.metadata.page_count) {
     throw std::runtime_error("BOO directory page is outside the file");
   }
