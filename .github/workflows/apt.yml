@@ -3,6 +3,10 @@
 
 # Debian and Ubuntu packages, and the APT repository that serves them.
 #
+# Ubuntu 24.04 and 26.04, Debian 12 and 13, on amd64 and arm64. Ubuntu 22.04
+# is deliberately not built: its qt6-base-dev does not pull in the GL headers
+# Qt6GuiConfig requires, and the project targets current systems.
+#
 # Every push to main builds the package set for each supported distribution
 # and publishes it to the `unstable` component. A tag publishes the same
 # packages to `stable`. The two components live side by side under one
@@ -51,11 +55,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distro: [jammy, noble, resolute, bookworm, trixie]
+        distro: [noble, resolute, bookworm, trixie]
         arch: [amd64, arm64]
         include:
-          - distro: jammy
-            image: ubuntu:22.04
           - distro: noble
             image: ubuntu:24.04
           - distro: resolute
@@ -141,6 +143,10 @@ jobs:
         run: |
           mkdir -p packages
           mv ../*.deb packages/
+          # debian/rules turns automatic dbgsym packages off; this is the
+          # backstop, because they are large enough to matter to a Pages site
+          # and Debian and Ubuntu do not even name them the same way.
+          rm -f packages/*-dbgsym_* packages/*.ddeb
           missing=
           for pkg in libgeist0 libgeist-dev geist-tools geist-reader \
                      libapache2-mod-geist; do
@@ -216,15 +222,22 @@ jobs:
 
       # gh-pages may not exist yet on a first run, and checking it out is
       # allowed to fail above; start an empty branch in that case.
+      # `actions/checkout` initialises pages/.git *before* it discovers the
+      # branch does not exist, so the presence of a .git directory says
+      # nothing about whether the checkout worked. What matters is whether
+      # HEAD names the branch we are going to push, so set that outright: it
+      # is a no-op when the checkout succeeded and creates the unborn branch
+      # when it did not.
       - name: Prepare the working tree
         run: |
           if [ ! -d pages/.git ]; then
-            rm -rf pages && mkdir pages && cd pages
-            git init -q -b gh-pages
+            rm -rf pages && mkdir pages && git -C pages init -q
           fi
           cd pages
+          git symbolic-ref HEAD refs/heads/gh-pages
           git config user.name "Geist CI"
           git config user.email "yvanj@cyber.gent"
+          echo "HEAD is $(git symbolic-ref HEAD)"
           # Pages would otherwise run the site through Jekyll, which drops
           # every directory whose name begins with an underscore and can
           # rewrite what it considers a page.
@@ -266,5 +279,10 @@ jobs:
             exit 0
           fi
           git commit -q -m "APT: ${{ steps.target.outputs.component }} ${GITHUB_SHA:0:7}"
-          git push -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" gh-pages
+          # HEAD:refs/heads/gh-pages rather than a bare branch name, so the
+          # push does not depend on what the local branch happens to be called
+          # after a checkout that may or may not have found anything.
+          git push -q \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" \
+            HEAD:refs/heads/gh-pages
           echo "Published to gh-pages."

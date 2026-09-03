@@ -165,7 +165,7 @@ finishes.
 ## Installing from APT
 
 Debian and Ubuntu packages are published to a signed APT repository for
-Ubuntu 22.04, 24.04 and 26.04 and Debian 12 and 13, on amd64 and arm64:
+Ubuntu 24.04 and 26.04 and Debian 12 and 13, on amd64 and arm64:
 
 ```sh
 sudo install -d -m 0755 /etc/apt/keyrings

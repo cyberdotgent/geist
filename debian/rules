@@ -31,6 +31,16 @@ override_dh_auto_build:
 override_dh_auto_test:
 	dh_auto_test
 
+# No automatic -dbgsym packages. debhelper splits debug symbols out by
+# default, which for this tree means a 28 MB companion for libgeist0 and
+# another for geist-tools -- and Debian names them .deb while Ubuntu names
+# them .ddeb, so the repository would carry them for two distributions and
+# not the other two. A GitHub Pages site is capped at 1 GB, and five retained
+# unstable builds across four distributions and two architectures do not fit
+# with debug symbols in them. Anyone who needs symbols can build the tree.
+override_dh_strip:
+	dh_strip --no-automatic-dbgsym
+
 # CMake installs the licence and README under share/doc/libgeist. Debian
 # policy puts a package's documentation in share/doc/<binary package>, and
 # dh_installdocs and dh_installchangelogs already do that, so this copy is
