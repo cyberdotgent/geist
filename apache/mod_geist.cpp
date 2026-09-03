@@ -271,6 +271,60 @@ std::string base_uri(request_rec* r) {
   return uri;
 }
 
+// A topic of this book by id, whether or not its contents page lists it.
+const geist::TopicInfo* find_topic(const Book& book, const std::string& id) {
+  for (const auto& topic : book.document->topics()) {
+    if (topic.id.size() == id.size() &&
+        strcasecmp(topic.id.c_str(), id.c_str()) == 0) {
+      return &topic;
+    }
+  }
+  return nullptr;
+}
+
+// How deeply a topic sits, from its own numbering.
+//
+// Not from the heading level it states: those are the author's numbering
+// scheme, not a depth, and books do not agree on one. A reference book runs
+// `:H1 :H2 :H3 :H4` while a tutorial runs `:H1 :H3 :H5` for the same three
+// levels of nesting, so reading the digit as a depth indents the second book
+// twice as far as it should.
+//
+// The id says it plainly and every book spells it the same way: `1.0` is a
+// chapter, `7.1` a section within one, `1.2.4.2` three deep. A trailing `.0`
+// marks the chapter itself rather than a level, and a named topic -- COVER,
+// PREFACE -- sits at the top.
+unsigned topic_depth(const std::string& id) {
+  std::size_t parts = 0;
+  bool numeric = false;
+  for (std::size_t begin = 0; begin <= id.size();) {
+    const auto dot = id.find('.', begin);
+    const auto end = dot == std::string::npos ? id.size() : dot;
+    const auto part = id.substr(begin, end - begin);
+    if (part.empty()) {
+      return 0;
+    }
+    for (const char c : part) {
+      if (std::isdigit(static_cast<unsigned char>(c)) == 0) {
+        return 0; // not a numbered topic
+      }
+    }
+    numeric = true;
+    // A trailing `.0` names the chapter, not a level inside it.
+    if (!(part == "0" && end == id.size() && parts > 0)) {
+      ++parts;
+    }
+    if (dot == std::string::npos) {
+      break;
+    }
+    begin = dot + 1;
+  }
+  if (!numeric || parts == 0) {
+    return 0;
+  }
+  return static_cast<unsigned>(parts - 1);
+}
+
 // The URL of the directory a book sits in, which is where its shelf is.
 // `/books/packet.boo` is shelved at `/books/`, and `/packet.boo` at `/`.
 std::string shelf_uri(const std::string& base) {
@@ -603,15 +657,19 @@ void emit_toc(request_rec* r, Book& book, const std::string& base,
            "placeholder=\"Filter topics\" aria-label=\"Filter topics\">\n"
            "<ol id=\"geist-toc-list\">\n",
            r);
-  for (const auto& entry : book.document->table_of_contents()) {
-    const bool current = entry.id == current_topic;
+  // Every topic the book holds, in book order, at the depth its own heading
+  // level states -- which is the tree the BookManager reader draws. Listing
+  // only what the contents page prints hides real content behind a URL
+  // nobody can discover.
+  for (const auto& topic : book.document->topics()) {
+    const bool current = topic.id == current_topic;
     ap_rprintf(r,
                "<li style=\"padding-left:%urem\"><a href=\"%s/topic/%s\"%s>"
                "<span class=\"geist-toc-id\">%s</span>%s</a></li>\n",
-               static_cast<unsigned>(entry.level) / 2u, base.c_str(),
-               seg(r, entry.id).c_str(),
-               current ? " aria-current=\"page\"" : "", esc(r, entry.id),
-               esc(r, entry.title));
+               topic_depth(topic.id), base.c_str(),
+               seg(r, topic.id).c_str(),
+               current ? " aria-current=\"page\"" : "", esc(r, topic.id),
+               esc(r, topic.title));
   }
   ap_rputs("</ol>\n</nav>\n", r);
 }
@@ -705,16 +763,29 @@ int serve_index(request_rec* r, Book& book, const std::string& base,
 
 int serve_topic(request_rec* r, Book& book, const std::string& base,
                 const std::string& topic_id, DirConfig* config) {
+  // A book's contents page need not list every topic it holds: one reference
+  // book lists 185 of its 1,128, leaving the rest -- real content, with
+  // titles, that libgeist renders perfectly well -- answering 404. What the
+  // book *has* is `topics()`; what its contents page chose to print is a
+  // narrower thing, and only the first should decide what can be served.
   const auto* entry = book.document->find_toc_entry(topic_id);
-  if (entry == nullptr) {
+  const auto* topic = find_topic(book, topic_id);
+  if (entry == nullptr && topic == nullptr) {
     return HTTP_NOT_FOUND;
   }
 
+  const std::string id = entry != nullptr ? entry->id : topic->id;
+  const std::string title = entry != nullptr ? entry->title : topic->title;
+
   const auto options = render_options(r, book, base, topic_id);
-  const auto html = entry->html_fragment(options);
+  // Both render the same topic from the same IR; the document form is the
+  // way in for a topic the contents page never listed.
+  const auto html = entry != nullptr
+                        ? entry->html_fragment(options)
+                        : book.document->topic_html_fragment(id, options);
 
   ap_set_content_type(r, "text/html; charset=utf-8");
-  emit_head(r, book, base, entry->title, config);
+  emit_head(r, book, base, title, config);
   emit_toolbar(r, book, base, topic_id, config);
   ap_rputs("<div class=\"geist-shell\">\n", r);
   emit_toc(r, book, base, topic_id);
@@ -722,7 +793,7 @@ int serve_topic(request_rec* r, Book& book, const std::string& base,
   ap_rprintf(r,
              "<h1 class=\"geist-topic-head\">"
              "<span class=\"geist-topic-id\">%s</span>%s</h1>\n",
-             esc(r, entry->id), esc(r, entry->title));
+             esc(r, id), esc(r, title));
   ap_rwrite(html.data(), static_cast<int>(html.size()), r);
   ap_rputs("</div>\n</main>\n</div>\n", r);
   emit_tail(r, base, config);

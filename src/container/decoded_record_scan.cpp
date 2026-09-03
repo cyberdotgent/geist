@@ -86,7 +86,15 @@ std::string extract_control_word_value(const std::string& record,
          record[cursor] != '\t') {
     ++cursor;
   }
-  return record.substr(begin, cursor - begin);
+  // The word often ends against the separator that follows it -- `:H3,` --
+  // and the separator is not part of the value.
+  auto end = cursor;
+  while (end > begin && std::ispunct(static_cast<unsigned char>(
+                            record[end - 1])) != 0 &&
+         record[end - 1] != ':') {
+    --end;
+  }
+  return record.substr(begin, end - begin);
 }
 
 std::string extract_control_value_until_boundary(const std::string& record,
