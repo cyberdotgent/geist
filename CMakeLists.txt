@@ -50,19 +50,43 @@ endif()
 # (v0.1-11-gce60cd44), falls back to a bare short hash in a repository with
 # no tags, and appends -dirty for uncommitted changes. It resolves at
 # configure time, so re-run cmake to refresh it.
-set(GEIST_GIT_REVISION "unknown")
-find_package(Git QUIET)
-if(Git_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
-  execute_process(
-    COMMAND "${GIT_EXECUTABLE}" describe --always --dirty --abbrev=8
-    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    OUTPUT_VARIABLE _geist_git_revision
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    ERROR_QUIET
-    RESULT_VARIABLE _geist_git_result
-  )
-  if(_geist_git_result EQUAL 0 AND _geist_git_revision)
-    set(GEIST_GIT_REVISION "${_geist_git_revision}")
+set(GEIST_GIT_REVISION "" CACHE STRING
+  "Build revision to report; derived from git when empty"
+)
+if(NOT GEIST_GIT_REVISION)
+  set(GEIST_GIT_REVISION "unknown")
+  find_package(Git QUIET)
+  if(NOT Git_FOUND)
+    message(STATUS "No git found; the build will report an unknown revision")
+  elseif(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
+    message(STATUS "Not a git checkout; the build will report an unknown "
+                   "revision")
+  else()
+    # `-c safe.directory` on the invocation rather than trusting the ambient
+    # configuration. A container build sees a work tree owned by another uid
+    # -- a CI runner's checkout mounted into a root container is exactly
+    # that -- and git then refuses with "detected dubious ownership" no
+    # matter what `--always` is asked to fall back to. Setting it here means
+    # the answer does not depend on whose gitconfig happens to be in scope.
+    execute_process(
+      COMMAND "${GIT_EXECUTABLE}"
+              -c "safe.directory=${CMAKE_CURRENT_SOURCE_DIR}"
+              describe --always --dirty --abbrev=8
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+      OUTPUT_VARIABLE _geist_git_revision
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      ERROR_VARIABLE _geist_git_error
+      ERROR_STRIP_TRAILING_WHITESPACE
+      RESULT_VARIABLE _geist_git_result
+    )
+    if(_geist_git_result EQUAL 0 AND _geist_git_revision)
+      set(GEIST_GIT_REVISION "${_geist_git_revision}")
+    else()
+      # Reported, not swallowed: a silent "unknown" is how a build that
+      # cannot identify itself reached a published package.
+      message(STATUS "git describe failed, reporting an unknown revision: "
+                     "${_geist_git_error}")
+    endif()
   endif()
 endif()
 message(STATUS "Build revision: ${GEIST_GIT_REVISION}")
