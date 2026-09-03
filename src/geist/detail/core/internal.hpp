@@ -198,6 +198,11 @@ std::string token_words_to_ascii(const TokenWords& words);
 std::size_t token_word_ascii_width(std::uint16_t word);
 
 std::string trim_right_spaces(std::string value);
+// Trims whitespace and control bytes from both ends.
+std::string trim_ascii_whitespace(std::string value);
+// As above, and also trims a leading or trailing `?`.  That is a guess about
+// framing that leaked into the value, and it is only right where the caller
+// has no token framing to read instead.
 std::string trim_ascii(std::string value);
 // The ASCII case fold these helpers mean. std::tolower would do the same work
 // through a locale lookup on every character; the library never installs a
@@ -292,30 +297,46 @@ AssembledLogicalRecord assemble_logical_record_with_sources(
 // book.
 std::vector<std::size_t> assembled_token_output_offsets(
     const AssembledLogicalRecord& assembled);
+// One header record's token boundaries: where each source token begins in the
+// record's ASCII projection, and the display-line role the record decoder gave
+// that token. The two vectors are indexed alike and are both indexed by the
+// record's source token ordinal.
+struct LogicalRecordTokenBoundaries {
+  std::vector<std::size_t> offsets;
+  // Empty when the record's payload does not tile into whole display lines,
+  // which is the only case in which a control boundary has no framing
+  // evidence to read.
+  std::vector<TokenFramingRole> framing;
+};
 // `token_offsets` are the offsets above for `decoded_record`. A control's
 // value ends at the next token that itself begins a `c<name>=` key; with no
 // token evidence no boundary is claimed and the value runs to the end of the
 // record.
+// `token_framing`, when it is as long as `token_offsets`, names each token's
+// display-line role, and the separator run in front of the next key is then
+// read off the framing rather than guessed from what the run renders as.
 std::vector<BooLogicalControl> extract_logical_controls(
     const std::string& decoded_record,
-    const std::vector<std::size_t>& token_offsets);
+    const std::vector<std::size_t>& token_offsets,
+    const std::vector<TokenFramingRole>& token_framing = {});
 // True when a `c<name>=` control key begins exactly at `offset`.
 bool control_key_begins_at(const std::string& decoded_record,
                            const std::string& lower_record,
                            std::size_t offset);
-// `header_token_offsets`, when given, receives assembled_token_output_offsets
-// for the leading records that make up the book header -- up to and including
-// the record that carries `cdocnum=`, which is where the header's controls
-// stop being read (extract_book_logical_controls).
+// `header_token_boundaries`, when given, receives the token offsets and the
+// display-line framing for the leading records that make up the book header --
+// up to and including the record that carries `cdocnum=`, which is where the
+// header's controls stop being read (extract_book_logical_controls).
 // `stop_after_book_header` returns as soon as the book header closes, so a
 // caller that only wants the book's own properties decodes the leading
-// records rather than the whole stream.  It needs `header_token_offsets`,
+// records rather than the whole stream.  It needs `header_token_boundaries`,
 // which is what tracks where the header ends.
 std::vector<std::string> decode_experimental_logical_records(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory,
     std::vector<LogicalRecordPayloadRange>* payload_ranges = nullptr,
-    std::vector<std::vector<std::size_t>>* header_token_offsets = nullptr,
+    std::vector<LogicalRecordTokenBoundaries>* header_token_boundaries =
+        nullptr,
     bool stop_after_book_header = false);
 // Decodes one logical record's payload from the file bytes. This is the token
 // decoder the whole pipeline is built on, exposed so a provenance slice can be
@@ -354,7 +375,7 @@ std::vector<std::uint32_t> parse_topic_record_starts(
     const BooDirectory& directory);
 std::vector<BooLogicalControl> extract_book_logical_controls(
     const std::vector<std::string>& decoded_records,
-    const std::vector<std::vector<std::size_t>>& record_token_offsets);
+    const std::vector<LogicalRecordTokenBoundaries>& record_token_boundaries);
 const TopicData* find_topic_data(const std::vector<TopicData>& topics,
                                  const std::string& topic_id);
 

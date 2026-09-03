@@ -179,12 +179,12 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
   // than the reader's fully assembled logical-record numbering. Decode that
   // inexpensive stream once to preserve established topic boundaries; GML
   // parsing and rendering remain deferred until a topic is requested.
-  std::vector<std::vector<std::size_t>> header_token_offsets;
+  std::vector<LogicalRecordTokenBoundaries> header_token_boundaries;
   context->decoded_records =
       decode_experimental_logical_records(bytes,
                                           document.directory_,
                                           &context->record_payload_ranges,
-                                          &header_token_offsets);
+                                          &header_token_boundaries);
   const auto topics = build_topics(*context, false);
   const auto first_topic_record = topics.empty()
                                       ? context->decoded_records.size() + 1
@@ -193,11 +193,11 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
       context->decoded_records.begin(),
       context->decoded_records.begin() +
           static_cast<std::ptrdiff_t>(first_topic_record - 1));
-  header_token_offsets.resize(book_header_records.size());
+  header_token_boundaries.resize(book_header_records.size());
   // The raw control stream is a build input only: the book's properties are
   // what the document publishes, and nothing else reads the controls again.
   const auto logical_controls =
-      extract_book_logical_controls(book_header_records, header_token_offsets);
+      extract_book_logical_controls(book_header_records, header_token_boundaries);
   document.book_properties_ = build_book_properties(logical_controls);
 
   for (const auto& topic : topics) {

@@ -25,24 +25,37 @@ std::string trim_right_spaces(std::string value) {
   return value;
 }
 
-std::string trim_ascii(std::string value) {
-  while (!value.empty() &&
-         (std::isspace(static_cast<unsigned char>(value.back())) != 0 ||
-          static_cast<unsigned char>(value.back()) < 0x20 ||
-          value.back() == '?')) {
+namespace {
+
+bool ascii_blank(char ch) {
+  const auto byte = static_cast<unsigned char>(ch);
+  return std::isspace(byte) != 0 || byte < 0x20;
+}
+
+std::string trim_ascii_where(std::string value, bool (*drop)(char)) {
+  while (!value.empty() && drop(value.back())) {
     value.pop_back();
   }
   std::size_t first = 0;
-  while (first < value.size() &&
-         (std::isspace(static_cast<unsigned char>(value[first])) != 0 ||
-          static_cast<unsigned char>(value[first]) < 0x20 ||
-          value[first] == '?')) {
+  while (first < value.size() && drop(value[first])) {
     ++first;
   }
   if (first != 0) {
     value.erase(0, first);
   }
   return value;
+}
+
+} // namespace
+
+std::string trim_ascii_whitespace(std::string value) {
+  return trim_ascii_where(std::move(value), ascii_blank);
+}
+
+std::string trim_ascii(std::string value) {
+  return trim_ascii_where(std::move(value), [](char ch) {
+    return ascii_blank(ch) || ch == '?';
+  });
 }
 
 std::string ascii_lower(std::string value) {

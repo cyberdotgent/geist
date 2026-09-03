@@ -459,6 +459,92 @@ void verify_blank_header_controls_stay_blank() {
           "the titles beside a run of blank controls were not read");
 }
 
+// A `?` inside a control's value and a `?` spelling the separator in front of
+// the next control's key project to the very same character, so the rendered
+// string cannot tell them apart -- and neither can asking whether the run is
+// written against the preceding word, because a separator comma is written
+// against its word exactly as a title's question mark is.  What does tell them
+// apart is the display-line framing: the separator is the *length byte* of the
+// next line, and the record decoder has already labelled it
+// `TokenFramingRole::line_length` (issue #93).
+void verify_question_mark_title_survives_line_length_separator() {
+  using geist::detail::TokenFramingRole;
+
+  // `separator` is the token index that stands for the next display line's
+  // length byte; every other token is that line's content.
+  const auto title = [](const std::vector<TokenWords>& tokens,
+                        std::size_t separator, bool frame) {
+    const auto assembled =
+        geist::detail::assemble_logical_record_with_sources(tokens);
+    const auto offsets =
+        geist::detail::assembled_token_output_offsets(assembled);
+    std::vector<TokenFramingRole> framing;
+    if (frame) {
+      framing.assign(offsets.size(), TokenFramingRole::line_content);
+      framing[separator] = TokenFramingRole::line_length;
+    }
+    return geist::detail::build_book_properties(
+               geist::detail::extract_logical_controls(
+                   geist::detail::token_words_to_ascii(assembled.words),
+                   offsets, framing))
+        .title;
+  };
+
+  // `dsnwnj10.boo`: the title's own last word ends in a question mark, and the
+  // separator that follows it renders as `(`.
+  const std::vector<TokenWords> content_question_mark = {
+      {'c', 't', 'i', 't', 'l', 'e', '=', 'W', 'h', 'a', 't', '\'', 's'},
+      {'N', 'e', 'w', '?'},
+      {'('},
+      {'c', 'd', 'o', 'c', 'n', 'u', 'm', '=', 'S', 'Y', 'N', 'T', 'H'},
+  };
+  require(title(content_question_mark, 2, true) == "What's New?",
+          "a title's own trailing question mark was read as a separator");
+
+  // `qbka8202.boo`: the separator is a whole token of undecodable words, and
+  // renders as the same question marks.
+  const std::vector<TokenWords> separator_question_marks = {
+      {'c', 't', 'i', 't', 'l', 'e', '=', 'C', 'o', 'n', 't', 'r', 'o', 'l'},
+      {'R', 'e', 'f', 'e', 'r', 'e', 'n', 'c', 'e'},
+      {0x250c, 0x2500, '*'},
+      {'c', 'd', 'o', 'c', 'n', 'u', 'm', '=', 'S', 'Y', 'N', 'T', 'H'},
+  };
+  require(title(separator_question_marks, 2, true) == "Control Reference",
+          "a placeholder separator was read as part of the title");
+
+  // `b1bw1a00.boo`: the separator is a comma, written hard against the last
+  // word of the value with no space between them.
+  const std::vector<TokenWords> separator_comma = {
+      {'c', 't', 'i', 't', 'l', 'e', '=', 'L', 'P', 'S'},
+      {'1', '.', '0'},
+      {1, ','},
+      {'c', 'd', 'o', 'c', 'n', 'u', 'm', '=', 'S', 'Y', 'N', 'T', 'H'},
+  };
+  require(title(separator_comma, 2, true) == "LPS 1.0",
+          "a separator comma was read as part of the title");
+
+  // A record whose payload does not tile into display lines carries no
+  // framing, and the older test -- does the run hold a letter or a digit --
+  // still has to bound the value.
+  require(title(separator_comma, 2, false) == "LPS 1.0",
+          "an unframed record lost its separator-comma boundary");
+  require(title(separator_question_marks, 2, false) == "Control Reference",
+          "an unframed record lost its placeholder boundary");
+
+  // Nothing says a length byte has to decode to punctuation.  `dsnwnj10.boo`
+  // spells one `:H4`, which holds a letter and a digit, so the older test
+  // reads it as text and hands `cversion=` the value `1.2 :H4`.  Only the
+  // framing can bound this one.
+  const std::vector<TokenWords> separator_spells_a_word = {
+      {'c', 't', 'i', 't', 'l', 'e', '=', 'W', 'h', 'a', 't', '\'', 's'},
+      {'N', 'e', 'w', '?'},
+      {':', 'H', '4'},
+      {'c', 'd', 'o', 'c', 'n', 'u', 'm', '=', 'S', 'Y', 'N', 'T', 'H'},
+  };
+  require(title(separator_spells_a_word, 2, true) == "What's New?",
+          "a separator that spells a word was read as part of the title");
+}
+
 } // namespace
 
 int main() {
@@ -467,6 +553,7 @@ int main() {
   verify_adjacent_copyright_and_security_controls();
   verify_header_control_boundary_separator_spellings();
   verify_blank_header_controls_stay_blank();
+  verify_question_mark_title_survives_line_length_separator();
   for (const auto &record :
        {std::string("  ST title, cfont 3 5 2     text  "),
         std::string("alpha???????????????????? cselect 3 5 target text"),
