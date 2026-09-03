@@ -15,6 +15,8 @@
 #include <string>
 #include <vector>
 
+#include "tool_version.hpp"
+
 namespace {
 
 struct Options {
@@ -888,6 +890,10 @@ void render_book(const Options& options) {
 } // namespace
 
 int main(int argc, char** argv) {
+  if (geist_tool::answered_version_request("boo2git", argc, argv)) {
+    return 0;
+  }
+
   try {
     const auto options = parse_options(argc, argv);
     render_book(options);

@@ -7,7 +7,13 @@
 #include <iostream>
 #include <vector>
 
+#include "tool_version.hpp"
+
 int main(int argc, char** argv) {
+  if (geist_tool::answered_version_request("booinfo", argc, argv)) {
+    return 0;
+  }
+
   if (argc != 2) {
     std::cerr << "usage: booinfo <book.boo>\n";
     return 2;

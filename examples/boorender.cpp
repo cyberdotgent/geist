@@ -7,6 +7,8 @@
 #include <iostream>
 #include <string>
 
+#include "tool_version.hpp"
+
 namespace {
 
 void usage() {
@@ -77,6 +79,10 @@ void print_trace(const geist::BooDocument& document, const std::string& text,
 } // namespace
 
 int main(int argc, char** argv) {
+  if (geist_tool::answered_version_request("boorender", argc, argv)) {
+    return 0;
+  }
+
   if (argc != 3 && argc != 4) {
     usage();
     return 2;

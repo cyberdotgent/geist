@@ -247,6 +247,25 @@ cmake -S . -B build && cmake --build build
 sudo cmake --install build
 ```
 
+A build with no `CMAKE_BUILD_TYPE` is an unoptimised build, and this tree is
+templated enough that the difference is large -- listing a 1.4 MB book's
+resources takes 0.29 s built `Release` and 1.9 s with no type. So `Release` is
+the default when none is given, and the configure step says so; pass
+`-DCMAKE_BUILD_TYPE=Debug` for a debug build.
+
+Every tool, and the reader, answer `--version` with their own version and the
+libgeist they are running against:
+
+```
+$ booinfo --version
+booinfo/0.2.1 (v0.2.1) libgeist/0.2.1 (v0.2.1)
+```
+
+The library's half is asked for at run time, so a tool running against a
+libgeist it was not built against reports both -- which is what tells you a
+package was not upgraded. mod_geist reports the same pair in its page footer,
+its `Server` header and its startup log.
+
 ### What each component needs
 
 The library and its command-line tools are always built. The Qt reader and the

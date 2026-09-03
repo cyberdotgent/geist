@@ -27,7 +27,7 @@ if(WIN32 AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
 endif()
 
 project(libgeist
-  VERSION 0.2.0
+  VERSION 0.2.1
   DESCRIPTION "Self-contained IBM BookManager BOO parser library"
   # CMake's built-in FindGIF module probes the giflib C headers.
   LANGUAGES C CXX
@@ -90,6 +90,22 @@ if(NOT GEIST_GIT_REVISION)
   endif()
 endif()
 message(STATUS "Build revision: ${GEIST_GIT_REVISION}")
+
+# An unconfigured build is an optimised one.
+#
+# CMake leaves CMAKE_BUILD_TYPE empty unless it is asked for one, and an empty
+# build type means no -O flag at all. For this tree that is not a small
+# difference: listing a 1.4 MB book's resources takes 0.29 s built Release and
+# 1.9 s built with no type, because the decoder is templated and leans on
+# inlining. Someone who runs `cmake -S . -B build` and finds the tools slow has
+# measured the compiler's default, not this code, so the default is Release and
+# it says so. `-DCMAKE_BUILD_TYPE=Debug` still gets a debug build.
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING
+    "Build type: Release, Debug, RelWithDebInfo or MinSizeRel" FORCE
+  )
+  message(STATUS "No build type given; building Release")
+endif()
 
 include(GNUInstallDirs)
 
@@ -289,6 +305,17 @@ foreach(example booinfo bootoc boorsrc boorender bootrace boo2git)
   else()
     target_link_libraries(${example} PRIVATE geist::geist)
   endif()
+
+  # What the tool answers `--version` with. The version is the project's, so
+  # every tool, the reader and the Apache module report the same one; the
+  # revision is the build's, so a tool that was not reinstalled says so.
+  target_compile_definitions(${example} PRIVATE
+    GEIST_TOOL_VERSION="${PROJECT_VERSION}"
+    GEIST_TOOL_REVISION="${GEIST_GIT_REVISION}"
+  )
+  target_include_directories(${example} PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/examples"
+  )
   if(WIN32 AND NOT example STREQUAL "bootrace")
     add_custom_command(TARGET ${example} POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -563,6 +590,23 @@ geist_add_test(concurrent_const_access FIXTURE THREADS)
 
 # `boo2git` exporter acceptance: link resolution and typed menu/generated-list
 # export, driven end to end through the example binary.
+# One release, one version: every tool and the reader must answer --version
+# with the project's version, and with the same libgeist version. The reader
+# is included when it was built.
+set(_geist_version_tools
+  $<TARGET_FILE:booinfo> $<TARGET_FILE:bootoc> $<TARGET_FILE:boorsrc>
+  $<TARGET_FILE:boorender> $<TARGET_FILE:bootrace> $<TARGET_FILE:boo2git>
+)
+if(TARGET geist-hardcopy)
+  list(APPEND _geist_version_tools $<TARGET_FILE:geist-hardcopy>)
+endif()
+add_test(NAME tool_versions_test
+  COMMAND ${CMAKE_COMMAND}
+    "-DGEIST_TOOLS=${_geist_version_tools}"
+    -DGEIST_EXPECTED_VERSION=${PROJECT_VERSION}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/tool_versions.cmake
+)
+
 add_test(NAME boo2git_menu_links_test
   COMMAND ${CMAKE_COMMAND}
     -DBOO2GIT=$<TARGET_FILE:boo2git>

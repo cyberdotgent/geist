@@ -15,6 +15,8 @@
 #include <string>
 #include <vector>
 
+#include "tool_version.hpp"
+
 namespace {
 
 std::string join_declines(const std::vector<std::string>& declines) {
@@ -70,6 +72,10 @@ std::string join_records(const std::vector<std::string>& records) {
 } // namespace
 
 int main(int argc, char** argv) {
+  if (geist_tool::answered_version_request("bootrace", argc, argv)) {
+    return 0;
+  }
+
   if (argc != 3 && argc != 4 && argc != 5) {
     usage();
     return 2;

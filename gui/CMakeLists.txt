@@ -33,6 +33,7 @@ set_target_properties(geist-hardcopy PROPERTIES
 target_compile_features(geist-hardcopy PRIVATE cxx_std_17)
 target_compile_definitions(geist-hardcopy PRIVATE
   GEIST_READER_VERSION="${PROJECT_VERSION}"
+  GEIST_READER_REVISION="${GEIST_GIT_REVISION}"
 )
 target_include_directories(geist-hardcopy PRIVATE
   "${CMAKE_CURRENT_BINARY_DIR}/generated"

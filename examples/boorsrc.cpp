@@ -11,6 +11,8 @@
 #include <string>
 #include <vector>
 
+#include "tool_version.hpp"
+
 namespace {
 
 void print_usage() {
@@ -173,6 +175,10 @@ void write_png_resource(const geist::BooDocument& document,
 } // namespace
 
 int main(int argc, char** argv) {
+  if (geist_tool::answered_version_request("boorsrc", argc, argv)) {
+    return 0;
+  }
+
   if (argc < 3) {
     print_usage();
     return 2;

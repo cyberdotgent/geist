@@ -8,6 +8,8 @@
 #include <iostream>
 #include <string>
 
+#include "tool_version.hpp"
+
 namespace {
 
 std::string trim_directory_version(std::string value) {
@@ -25,6 +27,10 @@ std::string trim_directory_version(std::string value) {
 } // namespace
 
 int main(int argc, char** argv) {
+  if (geist_tool::answered_version_request("bootoc", argc, argv)) {
+    return 0;
+  }
+
   if (argc != 2) {
     std::cerr << "usage: bootoc <book.boo>\n";
     return 2;
