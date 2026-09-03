@@ -176,6 +176,8 @@ set(GEIST_SOURCES
 
   # api/
   src/api/document.cpp
+  src/api/probe.cpp
+  src/container/prologue.cpp
   src/api/topic_link_targets.cpp
 )
 
@@ -469,7 +471,8 @@ foreach(fixture_test
     glossary_production
     selector_display_ir_synthetic
     drawn_word_conservation_synthetic
-    render_diagnostic)
+    render_diagnostic
+    probe_matches_open)
   geist_add_test(${fixture_test} FIXTURE)
 endforeach()
 

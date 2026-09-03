@@ -724,7 +724,8 @@ std::vector<std::string> decode_experimental_logical_records(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory,
     std::vector<LogicalRecordPayloadRange>* payload_ranges,
-    std::vector<std::vector<std::size_t>>* header_token_offsets) {
+    std::vector<std::vector<std::size_t>>* header_token_offsets,
+    bool stop_after_book_header) {
   std::vector<std::string> records;
   if (payload_ranges != nullptr) {
     payload_ranges->clear();
@@ -803,6 +804,12 @@ std::vector<std::string> decode_experimental_logical_records(
         payload_ranges->push_back(
             {static_cast<std::uint32_t>(length_offset),
              static_cast<std::uint32_t>(payload_end)});
+      }
+      // A caller after the book's own properties has everything it can learn
+      // once the header closes; the rest of the stream is topics.  Returning
+      // here leaves every out-parameter consistent with `records`.
+      if (stop_after_book_header && !header_open) {
+        return records;
       }
       record_offset = payload_end;
     }

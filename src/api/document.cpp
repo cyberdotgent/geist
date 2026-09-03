@@ -145,96 +145,13 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
   context->bytes = read_file(path);
   const auto& bytes = context->bytes;
 
-  if (bytes.size() < boo_page_size) {
-    throw std::runtime_error("BOO file is smaller than one 4096-byte page: " +
-                             path.string());
-  }
-  if (bytes.size() % boo_page_size != 0) {
-    throw std::runtime_error("BOO file size is not a multiple of 4096 bytes: " +
-                             path.string());
-  }
-
-  document.metadata_.path = path;
-  document.metadata_.file_size =
-      static_cast<std::uint64_t>(bytes.size());
-  document.metadata_.page_count =
-      static_cast<std::uint32_t>(bytes.size() / boo_page_size);
-
-  document.file_header_.directory_page_number = read_be16(bytes, 0);
-  document.file_header_.unknown_0002 = read_be16(bytes, 2);
-  document.file_header_.unknown_0004 = read_be32(bytes, 4);
-  document.file_header_.copyright_text =
-      trim_right_spaces(EbcdicCodec::cp037().decode_ascii(
-          bytes,
-          0x000C,
-          128,
-          "unexpected end of BOO file while reading text"));
-  if (bytes.size() >= 0x0106) {
-    document.file_header_.unknown_0102 =
-        std::array<std::uint8_t, 4>{bytes[0x0102],
-                                    bytes[0x0103],
-                                    bytes[0x0104],
-                                    bytes[0x0105]};
-  }
-
-  const auto directory_page = document.file_header_.directory_page_number;
-  if (directory_page >= document.metadata_.page_count) {
-    throw std::runtime_error("BOO directory page is outside the file");
-  }
-
-  const std::size_t directory_base =
-      static_cast<std::size_t>(directory_page) * boo_page_size;
-  document.directory_.page_number = directory_page;
-  document.directory_.version_text =
-      EbcdicCodec::cp037().decode_ascii(
-          bytes,
-          directory_base + 0x0010,
-          4,
-          "unexpected end of BOO file while reading text");
-  document.directory_.version_variant = bytes[directory_base + 0x0013];
-  document.directory_.token_threshold = bytes[directory_base + 0x0014];
-  document.directory_.last_page_number =
-      read_be16(bytes, directory_base + 0x0016);
-  document.directory_.token_map_offset =
-      read_be16(bytes, directory_base + 0x0022);
-  document.directory_.dictionary_start_page =
-      read_be16(bytes, directory_base + 0x0028);
-  document.directory_.dictionary_page_count =
-      read_be16(bytes, directory_base + 0x002E);
-  document.directory_.content_page_index_offset =
-      read_be16(bytes, directory_base + 0x0034);
-  document.directory_.logical_record_count =
-      read_be16(bytes, directory_base + 0x0036);
-  document.directory_.content_page_count =
-      read_be16(bytes, directory_base + 0x0038);
-  document.directory_.content_start_page =
-      read_be16(bytes, directory_base + 0x003A);
-  document.directory_.stream_table_offset =
-      read_be16(bytes, directory_base + 0x003C);
-  document.directory_.stream_table_count =
-      read_be16(bytes, directory_base + 0x003E);
-  document.directory_.secondary_table_offset =
-      read_be16(bytes, directory_base + 0x0040);
-  document.directory_.date =
-      EbcdicCodec::cp037().decode_ascii(
-          bytes,
-          directory_base + 0x0044,
-          8,
-          "unexpected end of BOO file while reading text");
-  document.directory_.time =
-      EbcdicCodec::cp037().decode_ascii(
-          bytes,
-          directory_base + 0x004E,
-          8,
-          "unexpected end of BOO file while reading text");
-
-  const auto last_physical_page =
-      physical_page_for_logical(document.directory_,
-                                document.directory_.last_page_number);
-  if (last_physical_page >= document.metadata_.page_count) {
-    throw std::runtime_error("BOO directory last-page field points outside the "
-                             "file");
-  }
+  // Header, directory and the size checks are read through the one shared
+  // prologue `probe_book` also enters by, so a listing and an opened document
+  // can never disagree about them.
+  auto prologue = read_container_prologue(bytes, path);
+  document.metadata_ = std::move(prologue.metadata);
+  document.file_header_ = std::move(prologue.file_header);
+  document.directory_ = std::move(prologue.directory);
 
   context->directory = document.directory_;
   context->content_page_record_starts =

@@ -166,6 +166,19 @@ private:
 };
 
 std::vector<std::uint8_t> read_file(const std::filesystem::path& path);
+
+// The container prologue: the size checks, the page-0 header and every field
+// of the physical directory page.  `BooDocument::open` and `probe_book` both
+// enter through here, so neither can drift from the other's idea of what the
+// header says.  Throws when the file is not a well-formed BOO container.
+struct ContainerPrologue {
+  BooMetadata metadata;
+  BooPage0Header file_header;
+  BooDirectory directory;
+};
+ContainerPrologue read_container_prologue(
+    const std::vector<std::uint8_t>& bytes,
+    const std::filesystem::path& path);
 std::uint16_t read_be16(const std::vector<std::uint8_t>& bytes,
                         std::size_t offset);
 std::uint32_t read_be24(const std::vector<std::uint8_t>& bytes,
@@ -285,11 +298,16 @@ bool control_key_begins_at(const std::string& decoded_record,
 // for the leading records that make up the book header -- up to and including
 // the record that carries `cdocnum=`, which is where the header's controls
 // stop being read (extract_book_logical_controls).
+// `stop_after_book_header` returns as soon as the book header closes, so a
+// caller that only wants the book's own properties decodes the leading
+// records rather than the whole stream.  It needs `header_token_offsets`,
+// which is what tracks where the header ends.
 std::vector<std::string> decode_experimental_logical_records(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory,
     std::vector<LogicalRecordPayloadRange>* payload_ranges = nullptr,
-    std::vector<std::vector<std::size_t>>* header_token_offsets = nullptr);
+    std::vector<std::vector<std::size_t>>* header_token_offsets = nullptr,
+    bool stop_after_book_header = false);
 // Decodes one logical record's payload from the file bytes. This is the token
 // decoder the whole pipeline is built on, exposed so a provenance slice can be
 // proven against the file by decoding its record again.

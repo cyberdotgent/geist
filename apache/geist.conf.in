@@ -16,4 +16,17 @@
 
     # auto follows the browser's colour scheme; light and dark pin it.
     GeistTheme auto
+
+    # Off by default: listing a directory of books publishes the name and
+    # title of every book in it, which is the operator's call to make. Turn it
+    # on for the directories that hold a shelf:
+    #
+    #   <Directory /var/www/html/books>
+    #       BooIndex On
+    #       BooIndexTitle "IBM SoftCopy Library"
+    #   </Directory>
+    #
+    # A real DirectoryIndex file still wins, and a directory with no books is
+    # left to mod_autoindex.
+    BooIndex Off
 </IfModule>
