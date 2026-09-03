@@ -53,27 +53,12 @@ its own path, so `htdocs/packet.boo` is served from `/packet.boo`:
 | `/packet.boo/topic/<id>` | one rendered topic |
 | `/packet.boo/object/<id>` | one stored image |
 | `/packet.boo/download` | the BOO file |
+| `/books/` | every book in a directory, with `BooIndex On` |
 
-With `BooIndex On`, a directory of books is browsable too, after BookServer's
-bookshelf page: `/books/` lists every `.boo` beside it by title, with its file
-name, document number, build stamp and size, and a filter box. A book opened
-from a shelf carries a button back to it. A book's identity stays its file
-path and never its document number, so a single book uploaded anywhere is
-servable without any directory being scanned.
-
-A shelf is named by the directory it lists. Put the name on the first line of
-a file called `.title` beside the books:
-
-```
-$ echo 'IBM SoftCopy Library' > /var/www/html/.title
-```
-
-Only the first line is read, leading and trailing whitespace is trimmed, and
-the text is escaped -- it is a name, not markup. A `.title` that is missing,
-empty or blank leaves the shelf headed `Book Index of /path`, after
-mod_autoindex's `Index of /path`. Editing `.title` rebuilds the page and
-changes its `ETag`, exactly as adding a book does. `BooIndexTitle` overrides
-both, for a name that belongs to the server rather than to the library.
+A book's identity is its file path and never its document number, so a single
+book uploaded anywhere is servable without any directory being scanned, and
+nothing has to be registered or indexed first. Renaming a book therefore
+changes its URL.
 
 IBM's proprietary image formats are rendered to PNG; objects a book stores in
 a web format are served byte for byte under the media type the book itself
@@ -81,14 +66,17 @@ records. The module links libgeist statically and compiles in its own CSS,
 JavaScript and icons, so there is one `.so` to deploy and nothing beside it.
 
 Needs httpd's build toolchain; see
-[Building and installing](#building-and-installing). Installing enables it: the module lands in httpd's module directory and a
-`geist.load`/`geist.conf` pair is installed and enabled (a symlink from
-`mods-enabled` on Debian and Ubuntu, a `conf.modules.d` drop-in elsewhere).
-Restart httpd and a book in the document root is browsable. The shipped
-configuration binds `.boo` files to the handler and carries the defaults:
+[Building and installing](#building-and-installing). Installing enables it:
+the module lands in httpd's module directory and a `geist.load`/`geist.conf`
+pair is installed and enabled (a symlink from `mods-enabled` on Debian and
+Ubuntu, a `conf.modules.d` drop-in elsewhere). Restart httpd and a book in the
+document root is browsable. The shipped configuration binds `.boo` files to
+the handler and carries the defaults.
 
-Four settings, valid in the server config, a `<Directory>` or `<Files>` block,
-and in `.htaccess` where `AllowOverride` permits it:
+### Settings
+
+Four, valid in the server config, a `<Directory>` or `<Files>` block, and in
+`.htaccess` where `AllowOverride` permits it:
 
 ```apache
 GeistDownload On     # offer the BOO file for download (default On)
@@ -97,20 +85,80 @@ BooIndex      Off    # list the books in a browsed directory (default Off)
 BooIndexTitle "..."  # pin the shelf's name; by default it comes from .title
 ```
 
-`BooIndex` is off by default because turning it on publishes the name and
-title of every book in the directory. It slots into the directory-index chain
-rather than replacing it, so precedence is what an operator already expects: a
-real `DirectoryIndex` file wins, then the book list, then `mod_autoindex`. A
-directory holding no books is declined and listed as usual. The page carries
-`X-Robots-Tag: noindex, nofollow`, since it puts every book one hop from a
-single URL and a crawl is expensive; drop that with `mod_headers` to have it
-indexed.
+### Book shelves
+
+`BooIndex On` makes a directory of books browsable, after BookServer's
+bookshelf page:
+
+```apache
+<Directory /var/www/html>
+    BooIndex On
+</Directory>
+```
+
+Browsing that directory then lists every book in it -- title, file name,
+document number, build stamp and size -- sorted by title, with a filter box
+that matches on any column, in the browser. A book opened from a shelf
+carries a button back to it in its toolbar, which appears only when the
+book's own directory actually has a shelf.
+
+What is listed is exactly the `.boo` files in that one directory. The
+extension is matched case-insensitively, because these books predate
+case-sensitive filesystems and a library routinely holds both `GC28-1251.boo`
+and `ACPZMST1.BOO`; the dot is part of the match, so a file merely ending in
+those letters is not a book. Subdirectories are not followed, and dotfiles and
+everything else in the directory are ignored. A file that is not a readable
+BOO container is still listed, marked unreadable, with the reason logged
+rather than shown -- it names a local path.
+
+It is off by default because turning it on publishes the name and title of
+every book in the directory, which only the operator can decide. It slots into
+the directory-index chain rather than replacing it, so precedence is what an
+operator already expects: a real `DirectoryIndex` file wins, then the book
+list, then `mod_autoindex`. A directory holding no books declines, so a shelf
+never hides what autoindex would have shown.
+
+The page carries `X-Robots-Tag: noindex, nofollow`, since it puts every book
+one hop from a single URL and a crawl is expensive -- serving any topic builds
+that book's whole cross-reference map. Drop the header with `mod_headers` to
+have it indexed.
+
+#### Naming a shelf
+
+A shelf is named by the directory it lists. Put the name on the first line of
+a file called `.title` beside the books:
+
+```sh
+echo 'IBM SoftCopy Library' > /var/www/html/.title
+```
+
+Only the first line is read, leading and trailing whitespace and a DOS
+carriage return are trimmed, the text is capped at 200 characters, and it is
+escaped wherever it lands -- it is a name, not markup. A `.title` that is
+missing, empty or blank leaves the shelf headed `Book Index of /path`, after
+mod_autoindex's `Index of /path`. `BooIndexTitle` overrides both, for a name
+that belongs to the server rather than to the library. Whichever wins also
+labels the back button on every book below it.
+
+#### Keeping up with the directory
+
+A shelf is rebuilt when the directory changes, and served from memory
+otherwise -- adding, removing, renaming, replacing or restoring a book, and
+editing `.title`, all move the page's `ETag`, so a conditional request gets a
+`304` until something actually changes. Change is detected from every file's
+name, mtime and size rather than from a count or a newest timestamp, because
+restoring a book with `cp -p` moves its mtime backwards and a rename moves no
+timestamp at all.
 
 Books are cached per httpd child, so memory grows with what has been browsed
-and `MaxConnectionsPerChild` is what reclaims it. Install a book atomically --
-write it under a temporary name in the same directory and `mv` it into place
--- because a book read while it is still being copied is a truncated file, and
-is listed as unreadable until the copy finishes.
+and `MaxConnectionsPerChild` is what reclaims it. The first request to a large
+shelf after a restart pays for reading every book's identity, and each child
+pays once.
+
+Install a book atomically -- write it under a temporary name in the same
+directory and `mv` it into place -- because a book read while it is still
+being copied is a truncated file, and is listed as unreadable until the copy
+finishes.
 
 ## Building and installing
 
