@@ -508,6 +508,24 @@ std::vector<BooLogicalControl> extract_logical_controls(
     const char* canonical;
     const char* lower;
   };
+  // A key absent from the header and a key present with nothing after it are
+  // different readings, and both come back as an empty property.  The five
+  // BMC Software books -- the only non-IBM publisher in the sample corpus --
+  // are the second case, not a gap in this table: their headers state
+  //
+  //   ... ctitle=BMC Software, Inc.: All BMC Code Message - Book 1
+  //   cstitle=BMC MSGS Bk1 - ccopyright=(C) Copyright BMC Corporation 2001,
+  //   csecurity=, cresmat1=, cresmat2=, cresmat3=, cdate=, cauthor=,
+  //   caline=, cdocnum=, cbasenum=, cdoclevel=, cfront=FRONT, ...
+  //
+  // (`bmcmst1.boo` record 1; `bmcmst2`, `bmcmst3`, `bmcetam` and `bmcoper`
+  // carry the identical run, differing only in `csource=` and `ctitle=`).
+  // The publisher writes the key and leaves the value blank, alongside blank
+  // `cdate=` and `cauthor=`, and states no number under any other spelling --
+  // `cbasenum=` and `cdoclevel=`, which IBM books use to restate the number,
+  // are blank in the same run, and no record of any of the five books holds a
+  // non-empty one.  So the empty document number is what those books say, and
+  // reading a further key would not recover one (issue #95).
   static const std::array<ControlKey, 11> keys = {{
       {"CLANGUAGE", "clanguage="},
       {"CVERSION", "cversion="},

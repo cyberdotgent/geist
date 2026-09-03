@@ -415,6 +415,50 @@ void verify_header_control_boundary_separator_spellings() {
           "an unseparated csource= was absorbed into CBLDVERS");
 }
 
+// A control stated with nothing after it reads as empty, and does not reach
+// forward for the next control's value.  The five BMC Software books are the
+// corpus's only witnesses to this shape: their headers spell `cdate=`,
+// `cauthor=`, `cdocnum=`, `cbasenum=` and `cdoclevel=` as a run of blank
+// values before `cfront=FRONT`, so an empty document number is the reading
+// those books ask for (issue #95).  The run is pinned here so no later
+// boundary rule can make the empty value pick up `FRONT`, and so the blank
+// keys do not fall back to being treated as absent.
+void verify_blank_header_controls_stay_blank() {
+  const std::vector<TokenWords> tokens = {
+      {1, ','},
+      {'c', 't', 'i', 't', 'l', 'e', '=', 'B', 'M', 'C', ' ', 'M', 's', 'g',
+       's'},
+      {1, ','},
+      {'c', 's', 't', 'i', 't', 'l', 'e', '=', 'B', 'M', 'C'},
+      {1, ','},
+      {'c', 'd', 'a', 't', 'e', '='},
+      {1, ','},
+      {'c', 'a', 'u', 't', 'h', 'o', 'r', '='},
+      {1, ','},
+      {'c', 'a', 'l', 'i', 'n', 'e', '='},
+      {1, ','},
+      {'c', 'd', 'o', 'c', 'n', 'u', 'm', '='},
+      {1, ','},
+      {'c', 'b', 'a', 's', 'e', 'n', 'u', 'm', '='},
+      {1, ','},
+      {'c', 'd', 'o', 'c', 'l', 'e', 'v', 'e', 'l', '='},
+      {1, ','},
+      {'c', 'f', 'r', 'o', 'n', 't', '=', 'F', 'R', 'O', 'N', 'T'},
+  };
+  const auto assembled =
+      geist::detail::assemble_logical_record_with_sources(tokens);
+  const auto properties = geist::detail::build_book_properties(
+      geist::detail::extract_logical_controls(
+          geist::detail::token_words_to_ascii(assembled.words),
+          geist::detail::assembled_token_output_offsets(assembled)));
+  require(properties.document_number.empty(),
+          "a blank cdocnum= did not read as an empty document number");
+  require(properties.date.empty() && properties.authors.empty(),
+          "a blank cdate=/cauthor= did not read as empty");
+  require(properties.title == "BMC Msgs" && properties.short_title == "BMC",
+          "the titles beside a run of blank controls were not read");
+}
+
 } // namespace
 
 int main() {
@@ -422,6 +466,7 @@ int main() {
   verify_control_ir_contract();
   verify_adjacent_copyright_and_security_controls();
   verify_header_control_boundary_separator_spellings();
+  verify_blank_header_controls_stay_blank();
   for (const auto &record :
        {std::string("  ST title, cfont 3 5 2     text  "),
         std::string("alpha???????????????????? cselect 3 5 target text"),
