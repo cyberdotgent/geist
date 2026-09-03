@@ -460,13 +460,24 @@ namespace {
 bool token_span_carries_a_word(const std::string& decoded_record,
                                std::size_t begin,
                                std::size_t end) {
+  // A word needs a letter or a digit. The separator between a control's
+  // value and the next control's key is spelled by tokens of its own, and
+  // what they render as varies from book to book: a comma, a run of spaces,
+  // a placeholder run, but also `(`, `-` or `|`. Naming the characters seen
+  // so far and treating the rest as text is how `ctitle=` in a book whose
+  // separator happened to be `(` came out as the title "(" -- a book with an
+  // empty title then showed a bracket everywhere its name belonged.
+  //
+  // None of the keys this reads -- language, version, title, copyright,
+  // date, document number and the rest -- has a value that is punctuation
+  // alone, so requiring one alphanumeric character costs nothing and stops
+  // guessing at the separator alphabet.
   for (auto cursor = begin; cursor < end && cursor < decoded_record.size();
        ++cursor) {
     const auto ch = static_cast<unsigned char>(decoded_record[cursor]);
-    if (ch == ' ' || ch == ',' || ch == '?') {
-      continue;
+    if (std::isalnum(ch) != 0) {
+      return true;
     }
-    return true;
   }
   return false;
 }
