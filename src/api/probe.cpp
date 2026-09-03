@@ -22,14 +22,14 @@ BooBookSummary probe_book(const std::filesystem::path& path) {
   // The book's controls live in the logical records that precede the first
   // topic, and the header closes at the record filing `cdocnum=`.  Decoding
   // stops there: everything after it is topic content this call does not read.
-  std::vector<std::vector<std::size_t>> header_token_offsets;
+  std::vector<LogicalRecordTokenBoundaries> header_token_boundaries;
   const auto header_records = decode_experimental_logical_records(
-      bytes, summary.directory, nullptr, &header_token_offsets,
+      bytes, summary.directory, nullptr, &header_token_boundaries,
       /*stop_after_book_header=*/true);
 
-  header_token_offsets.resize(header_records.size());
+  header_token_boundaries.resize(header_records.size());
   summary.properties = build_book_properties(
-      extract_book_logical_controls(header_records, header_token_offsets));
+      extract_book_logical_controls(header_records, header_token_boundaries));
   return summary;
 }
 

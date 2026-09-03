@@ -503,7 +503,47 @@ std::vector<std::size_t> assembled_token_output_offsets(
 
 std::vector<BooLogicalControl> extract_logical_controls(
     const std::string& decoded_record,
-    const std::vector<std::size_t>& token_offsets) {
+    const std::vector<std::size_t>& token_offsets,
+    const std::vector<TokenFramingRole>& token_framing) {
+  // The separator between one control's value and the next control's key is
+  // not written by the book at all: it is the *length byte* of the next
+  // display line, decoded as though it were a word.  That is why it renders
+  // differently in every book -- `(` here, a comma there, `??*`, a run of
+  // spaces, `:H4` -- and why no character class describes it.  The record
+  // decoder has already decided which tokens are length bytes
+  // (`TokenFramingRole::line_length`), so when that decision is available the
+  // separator run is read off it directly.
+  //
+  // This is the signal that distinguishes the two `?`s.  In `dsnwnj10.boo`
+  // the `?` closing `ctitle=... What's New?` is the last word of a
+  // `line_content` token, so it is content and stays; in `qbka8202.boo` the
+  // `??*` after `... Reference` is a whole `line_length` token, so it is
+  // framing and goes.  Both project to the same characters, so the rendered
+  // string cannot tell them apart -- and neither can a rule about whether the
+  // run is written against the preceding word, because a separator comma is
+  // written against its word exactly as that question mark is.
+  const auto framing_known = token_framing.size() == token_offsets.size();
+  // `trim_ascii` also eats a leading or trailing `?`, because before the
+  // framing was available a separator run could still be sitting inside the
+  // value and `?` was the likeliest thing it rendered as.  Once the framing
+  // has decided the boundary that guess is not only unnecessary but wrong: a
+  // `?` still inside the value is a word of the value.  Keep the old trim
+  // where there is no framing to read.
+  const auto trim_control_value = [&](std::string value) {
+    if (!framing_known) {
+      return trim_ascii(std::move(value));
+    }
+    return trim_ascii_whitespace(std::move(value));
+  };
+  const auto separator_token = [&](std::size_t index, std::size_t end) {
+    if (framing_known) {
+      return token_framing[index] == TokenFramingRole::line_length;
+    }
+    // No display-line framing: the record's payload does not tile into whole
+    // lines, so fall back to asking whether the run could be a value at all.
+    return !token_span_carries_a_word(decoded_record, token_offsets[index],
+                                      end);
+  };
   struct ControlKey {
     const char* canonical;
     const char* lower;
@@ -561,13 +601,12 @@ std::vector<BooLogicalControl> extract_logical_controls(
       }
       // The tokens between the value and the key spell the separator, and
       // belong to neither.  Whatever they render as -- a comma, a run of
-      // spaces, a placeholder -- they carry no word of the value, so the
+      // spaces, a placeholder -- they are the next line's framing, so the
       // value ends where that run begins.
       auto boundary = token_offsets[index];
       while (index > first_later_token &&
              token_offsets[index - 1] >= value_begin &&
-             !token_span_carries_a_word(decoded_record,
-                                        token_offsets[index - 1], boundary)) {
+             separator_token(index - 1, boundary)) {
         boundary = token_offsets[index - 1];
         --index;
       }
@@ -575,8 +614,8 @@ std::vector<BooLogicalControl> extract_logical_controls(
       break;
     }
 
-    auto value =
-        trim_ascii(decoded_record.substr(value_begin, value_end - value_begin));
+    auto value = trim_control_value(
+        decoded_record.substr(value_begin, value_end - value_begin));
     controls.push_back({key.canonical,
                         normalize_logical_control_value(key.canonical,
                                                         value)});
@@ -735,17 +774,17 @@ std::vector<std::string> decode_experimental_logical_records(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory,
     std::vector<LogicalRecordPayloadRange>* payload_ranges,
-    std::vector<std::vector<std::size_t>>* header_token_offsets,
+    std::vector<LogicalRecordTokenBoundaries>* header_token_boundaries,
     bool stop_after_book_header) {
   std::vector<std::string> records;
   if (payload_ranges != nullptr) {
     payload_ranges->clear();
   }
-  // Token offsets are only kept while the book header is still open; a whole
-  // book's worth would be several megabytes nothing reads.
-  bool header_open = header_token_offsets != nullptr;
+  // Token boundaries are only kept while the book header is still open; a
+  // whole book's worth would be several megabytes nothing reads.
+  bool header_open = header_token_boundaries != nullptr;
   if (header_open) {
-    header_token_offsets->clear();
+    header_token_boundaries->clear();
   }
   const auto token_strings = decode_experimental_dictionary(bytes, directory);
   if (token_strings.empty()) {
@@ -801,8 +840,18 @@ std::vector<std::string> decode_experimental_logical_records(
           assemble_logical_record_with_sources(record_tokens);
       records.push_back(token_words_to_ascii(assembled.words));
       if (header_open) {
-        header_token_offsets->push_back(
-            assembled_token_output_offsets(assembled));
+        LogicalRecordTokenBoundaries boundaries;
+        boundaries.offsets = assembled_token_output_offsets(assembled);
+        // The framing is only evidence when the whole payload tiled into
+        // display lines; a record that did not parse carries none, and the
+        // control reader falls back to its older test.
+        if (record_ir.display_lines_parse) {
+          boundaries.framing.reserve(record_ir.tokens.size());
+          for (const auto& token : record_ir.tokens) {
+            boundaries.framing.push_back(token.framing);
+          }
+        }
+        header_token_boundaries->push_back(std::move(boundaries));
         // The book header's controls are read up to and including the record
         // that files `cdocnum=`, and in no case past the first topic; nothing
         // after either point is a header control.
@@ -885,15 +934,16 @@ decode_logical_record_sources(const LogicalDecodeContext& context,
 
 std::vector<BooLogicalControl> extract_book_logical_controls(
     const std::vector<std::string>& decoded_records,
-    const std::vector<std::vector<std::size_t>>& record_token_offsets) {
-  static const std::vector<std::size_t> no_token_offsets;
+    const std::vector<LogicalRecordTokenBoundaries>& record_token_boundaries) {
+  static const LogicalRecordTokenBoundaries no_boundaries;
   std::vector<BooLogicalControl> controls;
   for (std::size_t index = 0; index < decoded_records.size(); ++index) {
     const auto& decoded = decoded_records[index];
-    auto record_controls = extract_logical_controls(
-        decoded, index < record_token_offsets.size()
-                     ? record_token_offsets[index]
-                     : no_token_offsets);
+    const auto& boundaries = index < record_token_boundaries.size()
+                                 ? record_token_boundaries[index]
+                                 : no_boundaries;
+    auto record_controls = extract_logical_controls(decoded, boundaries.offsets,
+                                                    boundaries.framing);
     const auto has_docnum =
         std::any_of(record_controls.begin(),
                     record_controls.end(),
