@@ -654,10 +654,29 @@ int serve_index(request_rec* r, Book& book, const std::string& base,
     }
   };
   meta_row("Document Number", properties.document_number);
-  meta_row("Build Date", directory.date + " " + directory.time);
+  // The fields BookManager's own Book Description panel shows. Each is
+  // printed only when the book states it, so a book that leaves one blank --
+  // as most do -- gains no empty row.
+  meta_row("Date Published", properties.date);
+  // "Date Built" rather than "Build Date", to sit unambiguously beside the
+  // published date now that both appear.
+  meta_row("Date Built", directory.date + " " + directory.time);
   meta_row("Build Version", properties.build_version.empty()
                                 ? properties.version
                                 : properties.build_version);
+  std::string authors;
+  for (const auto& author : properties.authors) {
+    if (author.empty()) {
+      continue;
+    }
+    if (!authors.empty()) {
+      authors += ", ";
+    }
+    authors += author;
+  }
+  meta_row("Authors", authors);
+  meta_row("Copyright", properties.copyright);
+  meta_row("Security", properties.security);
   meta_row("Language", properties.language);
   meta_row("Topics", std::to_string(book.document->table_of_contents().size()));
   meta_row("Stored objects", std::to_string(book.document->resources().size()));
