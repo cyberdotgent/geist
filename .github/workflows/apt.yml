@@ -39,6 +39,13 @@ jobs:
     runs-on: ${{ matrix.runner }}
     container: ${{ matrix.image }}
 
+    # A job running in a container gets `sh -e` unless it says otherwise, and
+    # these steps use bash: `${GITHUB_SHA:0:7}` is a bash substring and dash
+    # answers it with "Bad substitution".
+    defaults:
+      run:
+        shell: bash
+
     # One distribution failing must not deny the others a release; the
     # publish job below tolerates a partial set.
     strategy:
@@ -167,6 +174,10 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+    # The signing key is an *environment* secret, which is handed only to a
+    # job that names its environment: without this, secrets.APT_GPG_* resolve
+    # to the empty string and the archive cannot be signed.
+    environment: APT_GPG_PRIVATE_KEY
 
     steps:
       - name: Check out the repository branch
