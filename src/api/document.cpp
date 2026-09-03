@@ -137,6 +137,20 @@ TopicLoaderBundle make_topic_loaders(
   return loaders;
 }
 
+// `:H2` is one step in from `:H1`; anything else -- front matter, an
+// unlevelled topic -- sits at the top.
+std::uint32_t heading_level_depth(const std::string& heading_level) {
+  if (heading_level.size() < 3 || heading_level[0] != ':' ||
+      (heading_level[1] != 'H' && heading_level[1] != 'h')) {
+    return 0;
+  }
+  const char digit = heading_level[2];
+  if (digit < '1' || digit > '9') {
+    return 0;
+  }
+  return static_cast<std::uint32_t>(digit - '1');
+}
+
 } // namespace
 
 BooDocument BooDocument::open(const std::filesystem::path& path) {
@@ -217,6 +231,33 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
   }
   document.toc_ = build_table_of_contents(contents_records, topics, false,
                                           &contents_display_line_starts);
+  // A book with no CONTENTS topic has no contents page to read a table of
+  // contents from, and short books are published that way. Its topics still
+  // carry their own hierarchy -- `:H1`, `:H2` -- which is what the
+  // BookManager reader draws its tree from, so the topics are the table of
+  // contents when the book does not spell one out.
+  //
+  // Only as a fallback: where a book does have a contents page, that page is
+  // the book's own statement of its structure and outranks anything derived.
+  if (document.toc_.empty()) {
+    for (const auto& topic : topics) {
+      TocEntry entry;
+      entry.id = topic.id;
+      entry.title = topic.title;
+      entry.heading_level = topic.heading_level;
+      entry.topic_number = topic.topic_number;
+      entry.start_logical_record = topic.start_logical_record;
+      entry.end_logical_record = topic.end_logical_record;
+      // Contents entries carry a level in steps of two, and consumers indent
+      // by half of it, so `:H2` is one step in from `:H1`. Front matter has
+      // no heading level and sits at the top, where the reader puts it.
+      entry.level = heading_level_depth(topic.heading_level) * 2;
+      // Front matter's style, which is what an entry the contents page did
+      // not spell out most resembles.
+      entry.style = 1;
+      document.toc_.push_back(std::move(entry));
+    }
+  }
   std::string catalog_error;
   auto topic_catalog = build_book_topic_catalog_ir(
       document.topics_, document.toc_, &catalog_error);
