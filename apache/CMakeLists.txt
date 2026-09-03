@@ -55,6 +55,13 @@ set_target_properties(mod_geist PROPERTIES
 )
 
 target_compile_features(mod_geist PRIVATE cxx_std_17)
+# What the module reports at startup, so a loaded module can be identified
+# without guessing whether the last build was installed.
+target_compile_definitions(mod_geist PRIVATE
+  GEIST_MODULE_VERSION="${PROJECT_VERSION}"
+  GEIST_MODULE_REVISION="${GEIST_GIT_REVISION}"
+)
+
 target_include_directories(mod_geist PRIVATE
   "${CMAKE_CURRENT_BINARY_DIR}/generated"
   ${GEIST_APACHE_INCLUDE_DIRS}

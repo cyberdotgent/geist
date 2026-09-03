@@ -41,6 +41,32 @@ if(MSVC)
   add_compile_options(/utf-8)
 endif()
 
+# The build's provenance, for anything that reports its own version. A
+# development build must be distinguishable from a release: forgetting to
+# reinstall after a rebuild is easy, and a module that only says "0.1.0"
+# cannot tell you which 0.1.0 is loaded.
+#
+# `git describe --always --dirty` gives a tag-relative description
+# (v0.1-11-gce60cd44), falls back to a bare short hash in a repository with
+# no tags, and appends -dirty for uncommitted changes. It resolves at
+# configure time, so re-run cmake to refresh it.
+set(GEIST_GIT_REVISION "unknown")
+find_package(Git QUIET)
+if(Git_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
+  execute_process(
+    COMMAND "${GIT_EXECUTABLE}" describe --always --dirty --abbrev=8
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    OUTPUT_VARIABLE _geist_git_revision
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+    RESULT_VARIABLE _geist_git_result
+  )
+  if(_geist_git_result EQUAL 0 AND _geist_git_revision)
+    set(GEIST_GIT_REVISION "${_geist_git_revision}")
+  endif()
+endif()
+message(STATUS "Build revision: ${GEIST_GIT_REVISION}")
+
 include(GNUInstallDirs)
 
 find_package(PNG REQUIRED)

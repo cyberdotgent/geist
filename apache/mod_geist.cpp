@@ -1327,6 +1327,32 @@ int geist_dir_handler(request_rec* r) {
   }
 }
 
+// Says which build is loaded, once, at startup.
+//
+// A module that reports only its release version cannot tell you whether the
+// last build was actually installed -- forgetting that is easy, and the
+// symptom is an unknown-directive error that looks like a configuration
+// problem. The revision is `git describe`, so a development build is
+// distinguishable from a release and a dirty tree from a clean one.
+int geist_post_config(apr_pool_t*, apr_pool_t*, apr_pool_t*, server_rec* s) {
+  // httpd parses its configuration twice at startup, so this runs twice.
+  // Logging on the second pass only keeps one line in the log; the marker
+  // lives in the process pool, which outlives both passes.
+  void* seen = nullptr;
+  const char* key = "mod_geist_post_config";
+  apr_pool_userdata_get(&seen, key, s->process->pool);
+  if (seen == nullptr) {
+    apr_pool_userdata_set(reinterpret_cast<const void*>(1), key,
+                          apr_pool_cleanup_null, s->process->pool);
+    return OK;
+  }
+
+  ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, s,
+               "mod_geist/%s (%s) loaded", GEIST_MODULE_VERSION,
+               GEIST_MODULE_REVISION);
+  return OK;
+}
+
 // Core refuses trailing path info for a plain file unless a handler claims
 // it, which would make /packet.boo/topic/1.0 a 404 before we ever ran.
 int geist_fixups(request_rec* r) {
@@ -1423,6 +1449,7 @@ const command_rec geist_directives[] = {
     {nullptr, {nullptr}, nullptr, 0, RAW_ARGS, nullptr}};
 
 void register_hooks(apr_pool_t*) {
+  ap_hook_post_config(geist_post_config, nullptr, nullptr, APR_HOOK_MIDDLE);
   ap_hook_fixups(geist_fixups, nullptr, nullptr, APR_HOOK_MIDDLE);
   ap_hook_handler(geist_handler, nullptr, nullptr, APR_HOOK_MIDDLE);
   // Ordered explicitly rather than by LoadModule order: after mod_dir so a
