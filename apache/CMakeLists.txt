@@ -135,13 +135,60 @@ else()
   )
 endif()
 
+# Where httpd reads module drop-ins from, which is not derivable from
+# apxs -q SYSCONFDIR alone.
+#
+# On Debian SYSCONFDIR is /etc/apache2 and mods-available sits inside it. On
+# Red Hat SYSCONFDIR is /etc/httpd/conf, but httpd's ServerRoot is /etc/httpd
+# and its `Include conf.modules.d/*.conf` resolves against *that* -- so a
+# drop-in written to ${GEIST_APACHE_SYSCONFDIR}/conf.modules.d lands in
+# /etc/httpd/conf/conf.modules.d, a directory httpd never reads and which
+# does not otherwise exist. The module is then installed but never loaded,
+# and every Geist directive is reported as an unknown command.
+#
+# apxs -q PREFIX gives the ServerRoot on Red Hat and is empty on Debian, so
+# it is the discriminator; the basename check is the fallback for an httpd
+# whose apxs reports neither.
+if(_geist_apache_debian_layout)
+  set(_geist_apache_default_confdir
+    "${GEIST_APACHE_SYSCONFDIR}/mods-available"
+  )
+else()
+  execute_process(COMMAND "${GEIST_APXS}" -q PREFIX
+    OUTPUT_VARIABLE _geist_apxs_prefix OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+  )
+  if(_geist_apxs_prefix AND IS_DIRECTORY "${_geist_apxs_prefix}")
+    set(_geist_apache_serverroot "${_geist_apxs_prefix}")
+  else()
+    get_filename_component(_geist_sysconf_name
+      "${GEIST_APACHE_SYSCONFDIR}" NAME
+    )
+    if(_geist_sysconf_name STREQUAL "conf")
+      get_filename_component(_geist_apache_serverroot
+        "${GEIST_APACHE_SYSCONFDIR}" DIRECTORY
+      )
+    else()
+      set(_geist_apache_serverroot "${GEIST_APACHE_SYSCONFDIR}")
+    endif()
+  endif()
+  set(_geist_apache_default_confdir
+    "${_geist_apache_serverroot}/conf.modules.d"
+  )
+endif()
+
+set(GEIST_APACHE_MODULES_CONFDIR "${_geist_apache_default_confdir}" CACHE PATH
+  "Directory httpd reads module configuration drop-ins from"
+)
+message(STATUS "mod_geist configuration goes to ${GEIST_APACHE_MODULES_CONFDIR}")
+
 if(_geist_apache_debian_layout)
   # Debian and Ubuntu: definitions live in mods-available and are enabled by
   # a symlink from mods-enabled, which is what a2enmod writes.
   install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/geist.load"
     "${CMAKE_CURRENT_BINARY_DIR}/geist.conf"
-    DESTINATION "${GEIST_APACHE_SYSCONFDIR}/mods-available"
+    DESTINATION "${GEIST_APACHE_MODULES_CONFDIR}"
   )
 
   if(GEIST_APACHE_ENABLE)
@@ -164,8 +211,15 @@ else()
   install(CODE "
     file(READ \"${CMAKE_CURRENT_BINARY_DIR}/geist.load\" _load)
     file(READ \"${CMAKE_CURRENT_BINARY_DIR}/geist.conf\" _conf)
-    file(WRITE \"\$ENV{DESTDIR}${GEIST_APACHE_SYSCONFDIR}/conf.modules.d/10-geist.conf\"
-      \"\${_load}\${_conf}\")
-    message(STATUS \"Installed 10-geist.conf; restart httpd to load it\")
+    set(_dir \"\$ENV{DESTDIR}${GEIST_APACHE_MODULES_CONFDIR}\")
+    if(NOT IS_DIRECTORY \"\${_dir}\" AND \"\$ENV{DESTDIR}\" STREQUAL \"\")
+      message(WARNING
+        \"\${_dir} does not exist. httpd will not read the module \"
+        \"configuration from there, so mod_geist would install but never \"
+        \"load. Pass -DGEIST_APACHE_MODULES_CONFDIR=<dir> naming the \"
+        \"directory this httpd includes module drop-ins from.\")
+    endif()
+    file(WRITE \"\${_dir}/10-geist.conf\" \"\${_load}\${_conf}\")
+    message(STATUS \"Installed \${_dir}/10-geist.conf; restart httpd to load it\")
   ")
 endif()
