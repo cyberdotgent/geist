@@ -85,7 +85,27 @@ GeistDownload On     # offer the BOO file for download (default On)
 GeistTheme    auto   # auto (default), light or dark
 BooIndex      Off    # list the books in a browsed directory (default Off)
 BooIndexTitle "..."  # pin the shelf's name; by default it comes from .title
+HideVersion   Off    # Off (default) reports the version; On says nothing
 ```
+
+The module reports which version is running in three places: a footer on
+every page it renders, a `mod_geist/<version> libgeist/<version>` component
+in the `Server` header (as mod_php and mod_ssl do), and one line in the error
+log at startup, which also carries the `git describe` revision:
+
+```
+[geist:notice] mod_geist/0.1.0 (v0.1-12-gbcb1d189) loaded, libgeist/0.1.0 (v0.1-12-gbcb1d189)
+```
+
+The libgeist half is read at run time, not baked in, so it names the library
+actually loaded rather than the one the module was compiled against -- which
+is the distinction that matters once the two are packaged apart.
+
+`HideVersion On` removes the footer and adds nothing to the `Server` header.
+The header is assembled once at startup, so that half follows `HideVersion`
+as set at server scope; inside a `<Directory>` it still removes the footer.
+httpd's own `ServerTokens Prod` suppresses every component including this
+one, so an operator who wants nothing disclosed needs only that.
 
 ### Book shelves
 

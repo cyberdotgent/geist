@@ -203,6 +203,7 @@ set(GEIST_SOURCES
   # api/
   src/api/document.cpp
   src/api/probe.cpp
+  src/api/version.cpp
   src/container/prologue.cpp
   src/api/topic_link_targets.cpp
 )
@@ -227,6 +228,14 @@ set_target_properties(geist_static PROPERTIES OUTPUT_NAME geist_static)
 
 foreach(target geist geist_static)
   target_compile_features(${target} PUBLIC cxx_std_17)
+
+  # What library_version() and library_revision() report. PRIVATE: these are
+  # the library's own identity, not something a consumer's translation units
+  # should see or be rebuilt for.
+  target_compile_definitions(${target} PRIVATE
+    GEIST_LIBRARY_VERSION="${PROJECT_VERSION}"
+    GEIST_LIBRARY_REVISION="${GEIST_GIT_REVISION}"
+  )
 
   target_include_directories(${target}
     PUBLIC

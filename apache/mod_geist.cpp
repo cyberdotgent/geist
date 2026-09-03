@@ -36,6 +36,7 @@
 #include "assets.hpp"
 
 #include "geist/probe.hpp"
+#include "geist/version.hpp"
 
 #include <httpd.h>
 #include <http_config.h>
@@ -84,6 +85,8 @@ struct DirConfig {
   Tri index = Tri::unset;
   // The heading the shelf carries, after BookServer's BKCTITLE.
   const char* index_title = nullptr;
+  // Whether the module keeps quiet about which version it is.
+  Tri hide_version = Tri::unset;
 };
 
 // A book, opened once per process and shared by every worker thread.
@@ -339,6 +342,22 @@ DirConfig* config_for(request_rec* r) {
       ap_get_module_config(r->per_dir_config, &geist_module));
 }
 
+bool version_hidden(DirConfig* config) {
+  return config != nullptr && config->hide_version == Tri::on;
+}
+
+// `mod_geist/<version> libgeist/<version>`, after mod_ssl's habit of naming
+// the library it is a front end for. The libgeist half is read at run time
+// rather than baked in: with the two packaged apart, the module can be
+// loaded against a libgeist it was not built against, and the version worth
+// reporting is the one actually in the process.
+std::string version_string() {
+  std::string out = std::string("mod_geist/") + GEIST_MODULE_VERSION;
+  out += " libgeist/";
+  out += geist::library_version();
+  return out;
+}
+
 bool download_allowed(DirConfig* config) {
   return config == nullptr || config->download != Tri::off;
 }
@@ -590,7 +609,11 @@ void emit_toc(request_rec* r, Book& book, const std::string& base,
   ap_rputs("</ol>\n</nav>\n", r);
 }
 
-void emit_tail(request_rec* r, const std::string& base) {
+void emit_tail(request_rec* r, const std::string& base, DirConfig* config) {
+  if (!version_hidden(config)) {
+    ap_rprintf(r, "<footer class=\"geist-footer\">%s</footer>\n",
+               esc(r, version_string()));
+  }
   ap_rprintf(r, "<script src=\"%s/asset/geist.js\"></script>\n</body>\n</html>\n",
              base.c_str());
 }
@@ -650,7 +673,7 @@ int serve_index(request_rec* r, Book& book, const std::string& base,
   }
 
   ap_rputs("</div>\n</main>\n</div>\n", r);
-  emit_tail(r, base);
+  emit_tail(r, base, config);
   return OK;
 }
 
@@ -676,7 +699,7 @@ int serve_topic(request_rec* r, Book& book, const std::string& base,
              esc(r, entry->id), esc(r, entry->title));
   ap_rwrite(html.data(), static_cast<int>(html.size()), r);
   ap_rputs("</div>\n</main>\n</div>\n", r);
-  emit_tail(r, base);
+  emit_tail(r, base, config);
   return OK;
 }
 
@@ -825,6 +848,10 @@ a { color: var(--accent); }
   font-size: .875rem; color: var(--fg-muted); white-space: nowrap;
 }
 .geist-shelf-size { text-align: right; }
+.geist-shelf-footer {
+  display: block; padding: 1.25rem 0 0; color: var(--fg-muted);
+  font-size: .8125rem; text-align: right;
+}
 .geist-shelf-error {
   margin-left: .5rem; padding: .05rem .4rem; border-radius: .25rem;
   background: var(--bg-sunken); color: var(--fg-muted); font-size: .75rem;
@@ -1139,6 +1166,11 @@ std::string render_shelf(request_rec* r, const std::string& heading,
   }
 
   out += "</tbody>\n</table>\n";
+  if (!version_hidden(config)) {
+    out += "<footer class=\"geist-shelf-footer\">";
+    out += html_escape(version_string());
+    out += "</footer>\n";
+  }
   out += kShelfScript;
   out += "</body>\n</html>\n";
   return out;
@@ -1334,7 +1366,8 @@ int geist_dir_handler(request_rec* r) {
 // symptom is an unknown-directive error that looks like a configuration
 // problem. The revision is `git describe`, so a development build is
 // distinguishable from a release and a dirty tree from a clean one.
-int geist_post_config(apr_pool_t*, apr_pool_t*, apr_pool_t*, server_rec* s) {
+int geist_post_config(apr_pool_t* pool, apr_pool_t*, apr_pool_t*,
+                      server_rec* s) {
   // httpd parses its configuration twice at startup, so this runs twice.
   // Logging on the second pass only keeps one line in the log; the marker
   // lives in the process pool, which outlives both passes.
@@ -1348,8 +1381,26 @@ int geist_post_config(apr_pool_t*, apr_pool_t*, apr_pool_t*, server_rec* s) {
   }
 
   ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, s,
-               "mod_geist/%s (%s) loaded", GEIST_MODULE_VERSION,
-               GEIST_MODULE_REVISION);
+               "mod_geist/%s (%s) loaded, libgeist/%s (%s)",
+               GEIST_MODULE_VERSION, GEIST_MODULE_REVISION,
+               geist::library_version(), geist::library_revision());
+
+  // Announce the module in the Server header, as mod_php and mod_ssl do.
+  //
+  // This can only be decided once, here, because httpd assembles the version
+  // string at startup -- so it follows HideVersion as set at server scope,
+  // which is `s->lookup_defaults`: the per-directory configuration the
+  // server itself starts from. A HideVersion inside a <Directory> still
+  // removes the page footer, but cannot retract a header already built.
+  //
+  // ServerTokens Prod or Major suppresses every component anyway, httpd's
+  // own included, so an operator who wants nothing said needs only that.
+  auto* server_config =
+      static_cast<DirConfig*>(ap_get_module_config(s->lookup_defaults,
+                                                   &geist_module));
+  if (!version_hidden(server_config)) {
+    ap_add_version_component(pool, version_string().c_str());
+  }
   return OK;
 }
 
@@ -1381,6 +1432,8 @@ void* merge_dir_config(apr_pool_t* pool, void* base_config, void* add_config) {
   merged->index = add->index != Tri::unset ? add->index : base->index;
   merged->index_title =
       add->index_title != nullptr ? add->index_title : base->index_title;
+  merged->hide_version = add->hide_version != Tri::unset ? add->hide_version
+                                                         : base->hide_version;
   return merged;
 }
 
@@ -1422,6 +1475,19 @@ const char* set_index(cmd_parms*, void* dir_config, const char* value) {
   return nullptr;
 }
 
+const char* set_hide_version(cmd_parms*, void* dir_config,
+                             const char* value) {
+  auto* config = static_cast<DirConfig*>(dir_config);
+  if (strcasecmp(value, "on") == 0) {
+    config->hide_version = Tri::on;
+  } else if (strcasecmp(value, "off") == 0) {
+    config->hide_version = Tri::off;
+  } else {
+    return "HideVersion takes On or Off";
+  }
+  return nullptr;
+}
+
 const char* set_index_title(cmd_parms* parms, void* dir_config,
                             const char* value) {
   auto* config = static_cast<DirConfig*>(dir_config);
@@ -1443,6 +1509,12 @@ const command_rec geist_directives[] = {
     AP_INIT_TAKE1("BooIndexTitle",
                   reinterpret_cast<cmd_func>(set_index_title), nullptr, OR_ALL,
                   "Heading for the book list; defaults to the directory name"),
+    AP_INIT_TAKE1("HideVersion",
+                  reinterpret_cast<cmd_func>(set_hide_version), nullptr,
+                  OR_ALL,
+                  "On to say nothing about which version is running: no page "
+                  "footer, and nothing added to the Server header. Off (the "
+                  "default) reports mod_geist and libgeist"),
     AP_INIT_TAKE1("GeistTheme", reinterpret_cast<cmd_func>(set_theme), nullptr,
                   OR_ALL,
                   "Colour theme: auto (default), light or dark"),

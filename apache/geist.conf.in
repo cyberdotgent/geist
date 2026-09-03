@@ -17,6 +17,11 @@
     # auto follows the browser's colour scheme; light and dark pin it.
     GeistTheme auto
 
+    # The module reports its version in a page footer and in the Server
+    # header. On says nothing in either place; ServerTokens Prod suppresses
+    # every component including this one.
+    HideVersion Off
+
     # Off by default: listing a directory of books publishes the name and
     # title of every book in it, which is the operator's call to make. Turn it
     # on for the directories that hold a shelf:

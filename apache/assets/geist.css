@@ -178,3 +178,12 @@ a { color: var(--accent); }
   .geist-toc { display: none; }
   .geist-main { padding: 1rem; }
 }
+
+/* Version footer ---------------------------------------------------------- */
+
+.geist-footer {
+  padding: 1.5rem 1.25rem 2rem;
+  color: var(--fg-muted);
+  font-size: .8125rem;
+  text-align: right;
+}
