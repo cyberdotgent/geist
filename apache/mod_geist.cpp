@@ -259,6 +259,16 @@ std::string base_uri(request_rec* r) {
   return uri;
 }
 
+// The URL of the directory a book sits in, which is where its shelf is.
+// `/books/packet.boo` is shelved at `/books/`, and `/packet.boo` at `/`.
+std::string shelf_uri(const std::string& base) {
+  const auto slash = base.find_last_of('/');
+  if (slash == std::string::npos) {
+    return "/";
+  }
+  return base.substr(0, slash + 1);
+}
+
 DirConfig* config_for(request_rec* r) {
   return static_cast<DirConfig*>(
       ap_get_module_config(r->per_dir_config, &geist_module));
@@ -459,6 +469,17 @@ void emit_toolbar(request_rec* r, Book& book, const std::string& base,
   }
 
   ap_rputs("<header class=\"geist-bar\">\n", r);
+  // A book reached from a shelf needs the way back. The shelf is the
+  // directory the book sits in, and `BooIndex` is a per-directory setting, so
+  // a book's own merged configuration already says whether its directory
+  // lists itself -- no second lookup, and no link offered to a directory that
+  // would not answer with a shelf.
+  if (config != nullptr && config->index == Tri::on) {
+    emit_button(r, base, "shelf", shelf_uri(base),
+                config->index_title != nullptr ? config->index_title
+                                               : "Bookshelf",
+                true);
+  }
   emit_button(r, base, "index", base, "Book index", true);
   emit_button(r, base, "contents", base, "Contents", true);
   emit_button(r, base, "prev", previous, "Previous topic", !previous.empty());
