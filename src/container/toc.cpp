@@ -292,8 +292,11 @@ std::vector<TopicData> build_topics(const LogicalDecodeContext& context,
     }
 
     topic.id = extract_topic_header_id(header);
-    topic.heading_level =
-        extract_control_value_until_boundary(metadata, "chdlevel ");
+    // A heading level is one word. Reading it as a bounded value made it
+    // swallow the rest of the record in a book whose separator spelling the
+    // boundary list did not name, so a topic's heading level came back
+    // carrying that topic's prose.
+    topic.heading_level = extract_control_word_value(metadata, "chdlevel ");
     // The header title is the visible text of the `ST` display line
     // (topic_header_title.hpp).  The flattened `ST` payload run below is only
     // the fallback for a record whose display lines do not parse or that

@@ -258,6 +258,15 @@ bool looks_like_control_boundary(const std::string& decoded_record,
 bool looks_like_gml_control_at(const std::string& value, std::size_t offset);
 std::size_t skip_decoded_separators(const std::string& value);
 std::string extract_topic_header_id(const std::string& decoded_record);
+// A control whose value is a single word, read as that word and no more.
+//
+// The boundary scan below stops at an enumerated set of separator spellings,
+// which works only for the separators that have been seen. Where the value
+// cannot contain a space -- a heading level is `:H3`, `:TOC`, `:COVER` --
+// taking the first word needs no such list and cannot run on into the rest
+// of the record.
+std::string extract_control_word_value(const std::string& record,
+                                       const std::string& marker);
 std::string extract_control_value_until_boundary(const std::string& record,
                                                  const std::string& marker);
 std::uint32_t extract_uint_control_value(const std::string& record,

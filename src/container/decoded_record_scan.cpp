@@ -69,6 +69,26 @@ std::string extract_topic_header_id(const std::string& decoded_record) {
   return normalize_toc_id(record.substr(start + 2, cursor - (start + 2)));
 }
 
+std::string extract_control_word_value(const std::string& record,
+                                       const std::string& marker) {
+  const auto lower_record = ascii_lower(record);
+  const auto found = lower_record.find(ascii_lower(marker));
+  if (found == std::string::npos) {
+    return {};
+  }
+  auto cursor = found + marker.size();
+  while (cursor < record.size() &&
+         (record[cursor] == ' ' || record[cursor] == '\t')) {
+    ++cursor;
+  }
+  const auto begin = cursor;
+  while (cursor < record.size() && record[cursor] != ' ' &&
+         record[cursor] != '\t') {
+    ++cursor;
+  }
+  return record.substr(begin, cursor - begin);
+}
+
 std::string extract_control_value_until_boundary(const std::string& record,
                                                  const std::string& marker) {
   const auto lower_record = ascii_lower(record);
