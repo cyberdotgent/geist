@@ -36,5 +36,11 @@
     #
     # A real DirectoryIndex file still wins, and a directory with no books is
     # left to mod_autoindex.
+    #
+    # A large shelf costs about 2 ms per book on its first request, per child
+    # process. BooIndexPreload pays it once at startup instead, in the parent,
+    # so every child inherits the result. Server configuration only:
+    #
+    #   BooIndexPreload /var/www/html/books
     BooIndex Off
 </IfModule>

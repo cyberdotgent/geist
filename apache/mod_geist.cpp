@@ -73,6 +73,13 @@ namespace {
 // Configuration
 // ---------------------------------------------------------------------------
 
+// Directories whose book identities are read at startup rather than on the
+// first request. Server scope, because it happens once per process before
+// any request exists.
+struct ServerConfig {
+  apr_array_header_t* preload = nullptr; // of const char*
+};
+
 enum class Tri { unset, off, on };
 enum class Theme { unset, automatic, light, dark };
 
@@ -914,10 +921,10 @@ std::string html_escape(const std::string& value) {
 // followed: a shelf is the books in one directory, as BookServer's collection
 // is, and recursing would make the cost of listing unbounded in the depth of
 // someone else's tree.
-std::vector<ShelfFile> scan_shelf(request_rec* r, const char* directory) {
+std::vector<ShelfFile> scan_shelf(apr_pool_t* pool, const char* directory) {
   std::vector<ShelfFile> files;
   apr_dir_t* dir = nullptr;
-  if (apr_dir_open(&dir, directory, r->pool) != APR_SUCCESS) {
+  if (apr_dir_open(&dir, directory, pool) != APR_SUCCESS) {
     return files;
   }
   apr_finfo_t info;
@@ -934,7 +941,7 @@ std::vector<ShelfFile> scan_shelf(request_rec* r, const char* directory) {
     // `apr_dir_read` reports the type for the name it walked; a symlink to a
     // book still stats as a regular file, which is what we want.
     apr_finfo_t stat_info;
-    if (apr_stat(&stat_info, path.c_str(), APR_FINFO_MIN, r->pool) !=
+    if (apr_stat(&stat_info, path.c_str(), APR_FINFO_MIN, pool) !=
             APR_SUCCESS ||
         stat_info.filetype != APR_REG) {
       continue;
@@ -1000,7 +1007,7 @@ std::string shelf_signature(std::vector<ShelfFile> files,
 
 // The identity of every book in `files`, reading only the ones whose cached
 // identity no longer matches the file on disk.
-std::vector<ShelfEntry> shelf_entries(request_rec* r,
+std::vector<ShelfEntry> shelf_entries(server_rec* server,
                                       const std::vector<ShelfFile>& files) {
   std::vector<ShelfEntry> entries;
   entries.reserve(files.size());
@@ -1035,9 +1042,9 @@ std::vector<ShelfEntry> shelf_entries(request_rec* r,
       entry.readable = false;
       // The reason names the file's full path, which belongs in the log and
       // not in a page served to the world.
-      ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r,
-                    "mod_geist: cannot read %s for the shelf: %s",
-                    file.path.c_str(), error.what());
+      ap_log_error(APLOG_MARK, APLOG_INFO, 0, server,
+                   "mod_geist: cannot read %s for the shelf: %s",
+                   file.path.c_str(), error.what());
     }
     if (entry.title.empty()) {
       entry.title = file.name; // never show a nameless row
@@ -1050,6 +1057,42 @@ std::vector<ShelfEntry> shelf_entries(request_rec* r,
     entries.push_back(std::move(entry));
   }
   return entries;
+}
+
+// Reads every book's identity in `directory` now, so the first request does
+// not have to.
+//
+// Only the identities are preloaded, not the rendered page. The cost is
+// entirely in reading the books -- about 2 ms each, so a 17,000-book shelf
+// takes half a minute -- while rendering the page from cached identities is
+// milliseconds. The page also depends on per-directory configuration (its
+// theme, its name, whether it reports a version) that does not exist outside
+// a request, so building it here would mean guessing at settings the first
+// request would then contradict.
+void preload_shelf(server_rec* server, apr_pool_t* pool,
+                   const char* directory) {
+  const apr_time_t started = apr_time_now();
+  const auto files = scan_shelf(pool, directory);
+  if (files.empty()) {
+    ap_log_error(APLOG_MARK, APLOG_WARNING, 0, server,
+                 "mod_geist: BooIndexPreload %s holds no books", directory);
+    return;
+  }
+
+  const auto entries = shelf_entries(server, files);
+  std::size_t unreadable = 0;
+  for (const auto& entry : entries) {
+    if (!entry.readable) {
+      ++unreadable;
+    }
+  }
+
+  const apr_time_t spent = apr_time_now() - started;
+  ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, server,
+               "mod_geist: preloaded %" APR_SIZE_T_FMT " book(s) from %s in "
+               "%" APR_TIME_T_FMT " ms%s",
+               entries.size(), directory, apr_time_as_msec(spent),
+               unreadable > 0 ? " (some unreadable; see above)" : "");
 }
 
 // Drops cached identities for books that are no longer in `directory`.
@@ -1270,7 +1313,7 @@ int geist_dir_handler(request_rec* r) {
       directory.pop_back();
     }
 
-    const auto files = scan_shelf(r, directory.c_str());
+    const auto files = scan_shelf(r->pool, directory.c_str());
     if (files.empty()) {
       // Nothing to add, so add nothing: a directory with no books is left to
       // DirectoryIndex and mod_autoindex exactly as it was before the shelf
@@ -1319,7 +1362,7 @@ int geist_dir_handler(request_rec* r) {
             directory, r->uri != nullptr ? r->uri : "/", config);
 
         built->html =
-            render_shelf(r, heading, shelf_entries(r, files), config);
+            render_shelf(r, heading, shelf_entries(r->server, files), config);
         forget_missing(directory, files);
 
         std::lock_guard<std::mutex> guard(shelf_mutex());
@@ -1366,7 +1409,7 @@ int geist_dir_handler(request_rec* r) {
 // symptom is an unknown-directive error that looks like a configuration
 // problem. The revision is `git describe`, so a development build is
 // distinguishable from a release and a dirty tree from a clean one.
-int geist_post_config(apr_pool_t* pool, apr_pool_t*, apr_pool_t*,
+int geist_post_config(apr_pool_t* pool, apr_pool_t*, apr_pool_t* ptemp,
                       server_rec* s) {
   // httpd parses its configuration twice at startup, so this runs twice.
   // Logging on the second pass only keeps one line in the log; the marker
@@ -1401,6 +1444,38 @@ int geist_post_config(apr_pool_t* pool, apr_pool_t*, apr_pool_t*,
   if (!version_hidden(server_config)) {
     ap_add_version_component(pool, version_string().c_str());
   }
+
+  // Preloading happens here, in the parent, before any child is forked, so
+  // every child inherits the warm cache through fork rather than each paying
+  // for it on its own first request. A `curl` after startup would warm
+  // exactly one child.
+  //
+  // ptemp for the directory scan: it is the pool httpd discards once
+  // configuration is done, and the cache itself is C++ heap that does not
+  // live in a pool at all.
+  //
+  // Failure is logged, never fatal: a preload that cannot read a directory
+  // must not stop httpd from starting.
+  for (server_rec* server = s; server != nullptr; server = server->next) {
+    auto* config = static_cast<ServerConfig*>(
+        ap_get_module_config(server->module_config, &geist_module));
+    if (config == nullptr || config->preload == nullptr) {
+      continue;
+    }
+    for (int i = 0; i < config->preload->nelts; ++i) {
+      const char* directory = APR_ARRAY_IDX(config->preload, i, const char*);
+      try {
+        preload_shelf(server, ptemp, directory);
+      } catch (const std::exception& error) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, server,
+                     "mod_geist: preloading %s failed: %s", directory,
+                     error.what());
+      } catch (...) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, server,
+                     "mod_geist: preloading %s failed", directory);
+      }
+    }
+  }
   return OK;
 }
 
@@ -1418,6 +1493,25 @@ int geist_fixups(request_rec* r) {
 // ---------------------------------------------------------------------------
 // Module plumbing
 // ---------------------------------------------------------------------------
+
+void* create_server_config(apr_pool_t* pool, server_rec*) {
+  auto* config =
+      static_cast<ServerConfig*>(apr_pcalloc(pool, sizeof(ServerConfig)));
+  config->preload = apr_array_make(pool, 2, sizeof(const char*));
+  return config;
+}
+
+void* merge_server_config(apr_pool_t* pool, void* base_config,
+                          void* add_config) {
+  auto* base = static_cast<ServerConfig*>(base_config);
+  auto* add = static_cast<ServerConfig*>(add_config);
+  auto* merged =
+      static_cast<ServerConfig*>(apr_pcalloc(pool, sizeof(ServerConfig)));
+  // A vhost adds to what the main server asked for rather than replacing it:
+  // preloading is a process-wide warm-up, not a per-vhost setting.
+  merged->preload = apr_array_append(pool, base->preload, add->preload);
+  return merged;
+}
 
 void* create_dir_config(apr_pool_t* pool, char*) {
   return apr_pcalloc(pool, sizeof(DirConfig));
@@ -1475,6 +1569,19 @@ const char* set_index(cmd_parms*, void* dir_config, const char* value) {
   return nullptr;
 }
 
+const char* set_preload(cmd_parms* parms, void*, const char* value) {
+  const char* error = ap_check_cmd_context(parms, NOT_IN_DIR_CONTEXT);
+  if (error != nullptr) {
+    return error;
+  }
+  auto* config = static_cast<ServerConfig*>(
+      ap_get_module_config(parms->server->module_config, &geist_module));
+  // Relative to the ServerRoot, as httpd resolves every other path.
+  *reinterpret_cast<const char**>(apr_array_push(config->preload)) =
+      ap_server_root_relative(parms->pool, value);
+  return nullptr;
+}
+
 const char* set_hide_version(cmd_parms*, void* dir_config,
                              const char* value) {
   auto* config = static_cast<DirConfig*>(dir_config);
@@ -1509,6 +1616,11 @@ const command_rec geist_directives[] = {
     AP_INIT_TAKE1("BooIndexTitle",
                   reinterpret_cast<cmd_func>(set_index_title), nullptr, OR_ALL,
                   "Heading for the book list; defaults to the directory name"),
+    AP_INIT_TAKE1("BooIndexPreload",
+                  reinterpret_cast<cmd_func>(set_preload), nullptr, RSRC_CONF,
+                  "Read the book identities in this directory at startup, so "
+                  "the first request to its shelf does not have to. May be "
+                  "repeated. Server configuration only"),
     AP_INIT_TAKE1("HideVersion",
                   reinterpret_cast<cmd_func>(set_hide_version), nullptr,
                   OR_ALL,
@@ -1540,7 +1652,7 @@ extern "C" module AP_MODULE_DECLARE_DATA geist_module = {
     STANDARD20_MODULE_STUFF,
     create_dir_config,
     merge_dir_config,
-    nullptr,
-    nullptr,
+    create_server_config,
+    merge_server_config,
     geist_directives,
     register_hooks};

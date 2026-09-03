@@ -173,9 +173,22 @@ restoring a book with `cp -p` moves its mtime backwards and a rename moves no
 timestamp at all.
 
 Books are cached per httpd child, so memory grows with what has been browsed
-and `MaxConnectionsPerChild` is what reclaims it. The first request to a large
-shelf after a restart pays for reading every book's identity, and each child
-pays once.
+and `MaxConnectionsPerChild` is what reclaims it.
+
+The first request to a large shelf pays for reading every book's identity --
+about 2 ms each, so a 17,000-book collection takes half a minute -- and each
+child process pays that separately. `BooIndexPreload` moves it to startup:
+
+```apache
+BooIndexPreload /var/www/html/books
+```
+
+Server configuration only, and may be repeated. It runs in the parent before
+any child is forked, so every child inherits the result rather than warming
+itself; a request after startup would warm one child only. A directory it
+cannot read is logged and skipped, never fatal. Measured on a 400-book shelf:
+495 ms on the first request without it, 3 ms with it, against 465 ms added to
+startup once.
 
 Install a book atomically -- write it under a temporary name in the same
 directory and `mv` it into place -- because a book read while it is still
