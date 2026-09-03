@@ -30,6 +30,12 @@ DESCRIPTION="IBM BookManager BOO tools"
 # a UTC timestamp, so they sort lexically in build order and the newest are
 # the tail. Stable is never pruned: a release stays downloadable.
 KEEP_UNSTABLE=5
+# The architectures this repository serves. Anything else in the pool is a
+# leftover from when the build matrix covered more, and is removed: the
+# archive accumulates, so dropping an architecture from the matrix stops new
+# packages arriving but never takes the published ones away. Add an
+# architecture back here at the same time as adding its matrix row.
+ARCHITECTURES="amd64"
 
 case "$COMPONENT" in
   stable|unstable) ;;
@@ -70,6 +76,38 @@ if [ "$added" -eq 0 ] && [ ! -d "$ROOT/pool" ]; then
   echo "apt-repo.sh: nothing to publish and no existing repository" >&2
   exit 1
 fi
+
+# ---------------------------------------------------------------------------
+# Drop architectures this repository no longer serves
+# ---------------------------------------------------------------------------
+
+for pool in "$ROOT"/pool/*/*; do
+  [ -d "$pool" ] || continue
+  for deb in "$pool"/*.deb; do
+    [ -e "$deb" ] || continue
+    name=${deb##*/}
+    arch=${name%.deb}
+    arch=${arch##*_}
+    case " $ARCHITECTURES " in
+      *" $arch "*) ;;
+      *)
+        echo "  dropping $arch: ${pool##*/}/$name"
+        rm -f "$deb"
+        ;;
+    esac
+  done
+done
+
+# An index for an architecture that is gone must go with it, or the Release
+# file keeps advertising a component apt would then fail to fetch.
+for dist in "$ROOT"/dists/*/*/binary-*; do
+  [ -d "$dist" ] || continue
+  arch=${dist##*/binary-}
+  case " $ARCHITECTURES " in
+    *" $arch "*) ;;
+    *) rm -rf "$dist" ;;
+  esac
+done
 
 # ---------------------------------------------------------------------------
 # Prune superseded unstable builds
@@ -120,7 +158,7 @@ for codename in $codenames; do
     [ ${#all[@]} -gt 0 ] || continue
     components="$components $comp"
 
-    for arch in amd64 arm64; do
+    for arch in $ARCHITECTURES; do
       debs=("$pool"/*_"$arch".deb)
       [ ${#debs[@]} -gt 0 ] || continue
       case " $architectures " in *" $arch "*) ;; *) architectures="$architectures $arch";; esac
