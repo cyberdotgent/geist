@@ -23,8 +23,11 @@
     #
     #   <Directory /var/www/html/books>
     #       BooIndex On
-    #       BooIndexTitle "IBM SoftCopy Library"
     #   </Directory>
+    #
+    # The shelf is named by the first line of a `.title` file beside the
+    # books, and headed "Book Index of /path" when there is none; set
+    # BooIndexTitle to pin a name in the configuration instead.
     #
     # A real DirectoryIndex file still wins, and a directory with no books is
     # left to mod_autoindex.

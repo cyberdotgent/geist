@@ -80,9 +80,24 @@ its own path, so `htdocs/packet.boo` is served from `/packet.boo`:
 
 With `BooIndex On`, a directory of books is browsable too, after BookServer's
 bookshelf page: `/books/` lists every `.boo` beside it by title, with its file
-name, document number, build stamp and size, and a filter box. A book's
-identity stays its file path and never its document number, so a single book
-uploaded anywhere is servable without any directory being scanned.
+name, document number, build stamp and size, and a filter box. A book opened
+from a shelf carries a button back to it. A book's identity stays its file
+path and never its document number, so a single book uploaded anywhere is
+servable without any directory being scanned.
+
+A shelf is named by the directory it lists. Put the name on the first line of
+a file called `.title` beside the books:
+
+```
+$ echo 'IBM SoftCopy Library' > /var/www/html/.title
+```
+
+Only the first line is read, leading and trailing whitespace is trimmed, and
+the text is escaped -- it is a name, not markup. A `.title` that is missing,
+empty or blank leaves the shelf headed `Book Index of /path`, after
+mod_autoindex's `Index of /path`. Editing `.title` rebuilds the page and
+changes its `ETag`, exactly as adding a book does. `BooIndexTitle` overrides
+both, for a name that belongs to the server rather than to the library.
 
 IBM's proprietary image formats are rendered to PNG; objects a book stores in
 a web format are served byte for byte under the media type the book itself
@@ -106,7 +121,7 @@ and in `.htaccess` where `AllowOverride` permits it:
 GeistDownload On     # offer the BOO file for download (default On)
 GeistTheme    auto   # auto (default), light or dark
 BooIndex      Off    # list the books in a browsed directory (default Off)
-BooIndexTitle "IBM SoftCopy Library"   # heading; defaults to the directory name
+BooIndexTitle "..."  # pin the shelf's name; by default it comes from .title
 ```
 
 `BooIndex` is off by default because turning it on publishes the name and

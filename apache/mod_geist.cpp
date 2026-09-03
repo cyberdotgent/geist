@@ -52,9 +52,11 @@
 #include <cstdio>
 #include <cstring>
 #include <exception>
+#include <fstream>
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -269,6 +271,69 @@ std::string shelf_uri(const std::string& base) {
   return base.substr(0, slash + 1);
 }
 
+// The directory a requested book sits in.
+std::string book_directory(request_rec* r) {
+  const std::string path(r->filename != nullptr ? r->filename : "");
+  const auto slash = path.find_last_of('/');
+  return slash == std::string::npos ? std::string(".") : path.substr(0, slash);
+}
+
+// The first line of `<directory>/.title`, if it has one.
+//
+// A shelf's name belongs with the books rather than in httpd's configuration:
+// a library is moved, copied and served from more than one place, and its
+// name should travel with it. The file is read as one line of plain text --
+// no markup, no continuation -- and is escaped like any other content the
+// module did not generate.
+std::optional<std::string> shelf_title_file(const std::string& directory) {
+  std::ifstream input(directory + "/.title");
+  if (!input) {
+    return std::nullopt;
+  }
+  std::string line;
+  if (!std::getline(input, line)) {
+    return std::nullopt;
+  }
+  // A stray CR from a DOS-formatted file is not part of the name.
+  while (!line.empty() && (line.back() == '\r' || line.back() == ' ' ||
+                           line.back() == '\t')) {
+    line.pop_back();
+  }
+  std::size_t begin = 0;
+  while (begin < line.size() && (line[begin] == ' ' || line[begin] == '\t')) {
+    ++begin;
+  }
+  line.erase(0, begin);
+  if (line.empty()) {
+    return std::nullopt;
+  }
+  // A name, not a document: enough for a heading and no more.
+  if (line.size() > 200) {
+    line.resize(200);
+  }
+  return line;
+}
+
+// What to call this shelf, most specific first: the operator's directive, the
+// name the directory carries, then the URL it is served from -- the last of
+// which reads like mod_autoindex's "Index of /path", because that is what a
+// reader of an unnamed directory listing already expects.
+std::string shelf_heading(const std::string& directory, const std::string& uri,
+                          DirConfig* config) {
+  if (config != nullptr && config->index_title != nullptr) {
+    return config->index_title;
+  }
+  const auto named = shelf_title_file(directory);
+  if (named.has_value()) {
+    return *named;
+  }
+  std::string path(uri.empty() ? "/" : uri);
+  while (path.size() > 1 && path.back() == '/') {
+    path.pop_back();
+  }
+  return "Book Index of " + path;
+}
+
 DirConfig* config_for(request_rec* r) {
   return static_cast<DirConfig*>(
       ap_get_module_config(r->per_dir_config, &geist_module));
@@ -475,10 +540,13 @@ void emit_toolbar(request_rec* r, Book& book, const std::string& base,
   // lists itself -- no second lookup, and no link offered to a directory that
   // would not answer with a shelf.
   if (config != nullptr && config->index == Tri::on) {
-    emit_button(r, base, "shelf", shelf_uri(base),
-                config->index_title != nullptr ? config->index_title
-                                               : "Bookshelf",
-                true);
+    // Named the same thing the shelf names itself, so the way back reads the
+    // same from both ends. The label reaches an attribute, and part of it can
+    // come from a file, so it is escaped like any other such content.
+    const std::string directory = book_directory(r);
+    const std::string label =
+        shelf_heading(directory, shelf_uri(base), config);
+    emit_button(r, base, "shelf", shelf_uri(base), esc(r, label), true);
   }
   emit_button(r, base, "index", base, "Book index", true);
   emit_button(r, base, "contents", base, "Contents", true);
@@ -864,6 +932,7 @@ std::vector<ShelfFile> scan_shelf(request_rec* r, const char* directory) {
 // would make two children emit different ETags for identical bytes and set
 // any proxy in front of them thrashing.
 std::string shelf_signature(std::vector<ShelfFile> files,
+                            const apr_finfo_t* title_file,
                             apr_time_t* newest) {
   std::sort(files.begin(), files.end(),
             [](const ShelfFile& a, const ShelfFile& b) {
@@ -884,6 +953,12 @@ std::string shelf_signature(std::vector<ShelfFile> files,
     fold(file.name.data(), file.name.size());
     fold(&file.mtime, sizeof(file.mtime));
     fold(&file.size, sizeof(file.size));
+  }
+  // The shelf's name is part of the shelf: renaming it must rebuild the page
+  // and change the ETag, exactly as adding a book does.
+  if (title_file != nullptr) {
+    fold(&title_file->mtime, sizeof(title_file->mtime));
+    fold(&title_file->size, sizeof(title_file->size));
   }
   if (newest != nullptr) {
     *newest = latest;
@@ -1171,8 +1246,15 @@ int geist_dir_handler(request_rec* r) {
       // directory holds behind a page saying there is nothing in it.
       return DECLINED;
     }
+    apr_finfo_t title_info;
+    const bool has_title =
+        apr_stat(&title_info, (directory + "/.title").c_str(), APR_FINFO_MIN,
+                 r->pool) == APR_SUCCESS &&
+        title_info.filetype == APR_REG;
+
     apr_time_t newest = 0;
-    const auto signature = shelf_signature(files, &newest);
+    const auto signature =
+        shelf_signature(files, has_title ? &title_info : nullptr, &newest);
 
     std::shared_ptr<Shelf> shelf;
     {
@@ -1201,17 +1283,8 @@ int geist_dir_handler(request_rec* r) {
         built->signature = signature;
         built->newest = newest;
 
-        std::string heading;
-        if (config->index_title != nullptr) {
-          heading = config->index_title;
-        } else {
-          const auto slash = directory.find_last_of('/');
-          heading = slash == std::string::npos ? directory
-                                               : directory.substr(slash + 1);
-          if (heading.empty()) {
-            heading = "Bookshelf";
-          }
-        }
+        const auto heading = shelf_heading(
+            directory, r->uri != nullptr ? r->uri : "/", config);
 
         built->html =
             render_shelf(r, heading, shelf_entries(r, files), config);
