@@ -533,7 +533,30 @@ std::vector<BooLogicalControl> extract_logical_controls(
     if (!framing_known) {
       return trim_ascii(std::move(value));
     }
-    return trim_ascii_whitespace(std::move(value));
+    value = trim_ascii_whitespace(std::move(value));
+    // A record whose payload does not tile into display lines has no framing
+    // to read, and its separator can still be left sitting at the end of the
+    // value -- three books in the corpus end a title `Planning Guide  :` or
+    // `Architecture Reference     ?`. What marks those out is the space in
+    // front: a book writes its own punctuation against the word it belongs
+    // to, as in `What's New?`, and never clear of it. So a trailing run of
+    // punctuation standing on its own after whitespace is not the book's.
+    //
+    // This is safe only because the framing above has already taken the
+    // separator that *is* written against its word -- the comma after
+    // `LPS 1.0,`. Without that, this rule would have to keep such a comma
+    // and would be wrong instead.
+    auto end = value.size();
+    while (end > 0 && std::ispunct(static_cast<unsigned char>(
+                          value[end - 1])) != 0) {
+      --end;
+    }
+    if (end < value.size() && end > 0 &&
+        std::isspace(static_cast<unsigned char>(value[end - 1])) != 0) {
+      value.resize(end);
+      value = trim_ascii_whitespace(std::move(value));
+    }
+    return value;
   };
   const auto separator_token = [&](std::size_t index, std::size_t end) {
     if (framing_known) {
