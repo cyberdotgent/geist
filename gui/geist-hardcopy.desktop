@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Geist Hardcopy Reader
+GenericName=BookManager Book Reader
+Comment=Read IBM BookManager BOO books
+Exec=geist-hardcopy %f
+Icon=geist-hardcopy
+Terminal=false
+Categories=Office;Viewer;
+MimeType=application/x-bookmanager-boo;
+Keywords=BOO;BookManager;IBM;SoftCopy;documentation;

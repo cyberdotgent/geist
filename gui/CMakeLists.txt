@@ -80,3 +80,16 @@ install(TARGETS geist-hardcopy
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
   BUNDLE DESTINATION "${CMAKE_INSTALL_BINDIR}"
 )
+
+# The desktop entry and icon a Linux desktop needs to show the reader in a
+# menu, and that linuxdeploy reads to build the AppImage. Installed on every
+# platform that uses freedesktop conventions; Windows and macOS carry their
+# own metadata in the executable and the bundle.
+if(UNIX AND NOT APPLE)
+  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/geist-hardcopy.desktop"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/applications"
+  )
+  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/geist-hardcopy.svg"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps"
+  )
+endif()

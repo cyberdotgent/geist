@@ -1,18 +1,19 @@
 # Copyright 2026 Yvan Janssens
 # SPDX-License-Identifier: Apache-2.0
 
-# Release artefacts, built by two independent jobs:
+# Release artefacts, built by independent jobs:
 #
-#   windows-dist  the Windows zip: the CLI tools, the shared library and the
-#                 Geist Hardcopy Reader, with the Qt runtime it needs to start
-#   linux-spec    the BOO format specification as a PDF
+#   windows-dist    the Windows zip: the CLI tools, the shared library and the
+#                   Geist Hardcopy Reader, with the Qt runtime it needs to start
+#   linux-appimage  the reader as an AppImage, for amd64 and arm64
+#   linux-spec      the BOO format specification as a PDF
 #
-# Pushing a tag publishes both to one GitHub Release, creating the release
-# first if it does not exist. Running the workflow by hand builds and uploads
-# both as run artifacts but publishes nothing, so they can be downloaded and
-# checked before any tag is cut.
+# Pushing a tag publishes all of them to one GitHub Release, creating the
+# release first if it does not exist. Running the workflow by hand builds and
+# uploads them as run artifacts but publishes nothing, so they can be
+# downloaded and checked before any tag is cut.
 #
-# The two jobs run concurrently and either may be first to the release, so
+# The jobs run concurrently and any of them may be first to the release, so
 # each treats "already created" as success rather than a collision.
 name: Release
 
@@ -281,6 +282,234 @@ jobs:
 
           gh release upload $tag "$name.zip" "$name.zip.sha256" --clobber
           if ($LASTEXITCODE -ne 0) { throw "Could not upload the distribution to $tag" }
+
+  linux-appimage:
+    name: Linux ${{ matrix.arch }} AppImage
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: write
+
+    # Both architectures are built on GitHub-hosted runners, natively rather
+    # than under emulation: a QtWebEngine build in qemu takes hours. One
+    # architecture failing must not cancel the other, so its artefact can
+    # still be inspected.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+            appimage_arch: x86_64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            appimage_arch: aarch64
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version="$GITHUB_REF_NAME"
+            publish=true
+          else
+            version="${GITHUB_SHA:0:7}"
+            publish=false
+          fi
+          {
+            echo "version=$version"
+            echo "publish=$publish"
+            echo "name=geist-hardcopy-$version-linux-${{ matrix.arch }}"
+          } >> "$GITHUB_OUTPUT"
+          echo "Version $version (publish a release: $publish)"
+
+      # Qt comes from the distribution rather than from install-qt-action:
+      # Qt publishes no official Linux arm64 binaries, so aqtinstall cannot
+      # supply the arm64 half of this matrix and the two architectures would
+      # otherwise be built against different Qt releases.
+      #
+      # libxcb-cursor0 is not pulled in by qt6-base-dev but Qt 6's xcb
+      # platform plugin refuses to start without it, which would surface only
+      # in the smoke test below.
+      - name: Install the toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake \
+            libpng-dev libgif-dev \
+            qt6-base-dev qt6-base-dev-tools qt6-webengine-dev \
+            libxcb-cursor0 xvfb file
+
+      # GEIST_BUILD_GUI=ON, never AUTO: AUTO would quietly skip the reader if
+      # Qt were missing and produce an AppImage-less run that still looked
+      # successful. httpd is not wanted in a desktop artefact.
+      - name: Configure
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DGEIST_BUILD_GUI=ON \
+            -DGEIST_BUILD_APACHE=OFF
+
+      # An explicit job count, never a bare --parallel: with the Makefiles
+      # generator that becomes "make -j" with no number, and this tree
+      # exhausts the runner's memory when it is unlimited.
+      - name: Build
+        run: cmake --build build --parallel "$(nproc)"
+
+      - name: Run tests
+        run: ctest --test-dir build --output-on-failure --parallel 4
+
+      # One AppImage carries one application, so the AppDir holds the reader
+      # and the library it links, and not the CLI tools: they are unreachable
+      # from an AppImage's single entry point, and their presence makes
+      # linuxdeploy resolve dependencies for binaries nobody can run.
+      - name: Assemble the AppDir
+        run: |
+          mkdir -p AppDir/usr/bin AppDir/usr/lib
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps
+
+          cp build/gui/geist-hardcopy AppDir/usr/bin/
+          cp -a build/libgeist.so* AppDir/usr/lib/
+          cp gui/geist-hardcopy.desktop AppDir/usr/share/applications/
+          cp gui/geist-hardcopy.svg \
+            AppDir/usr/share/icons/hicolor/scalable/apps/
+
+          find AppDir -type f | sort
+
+      - name: Fetch linuxdeploy
+        env:
+          ARCH: ${{ matrix.appimage_arch }}
+        run: |
+          base=https://github.com/linuxdeploy
+          curl -fsSL -o linuxdeploy.AppImage \
+            "$base/linuxdeploy/releases/download/continuous/linuxdeploy-$ARCH.AppImage"
+          curl -fsSL -o linuxdeploy-plugin-qt.AppImage \
+            "$base/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-$ARCH.AppImage"
+          chmod +x linuxdeploy.AppImage linuxdeploy-plugin-qt.AppImage
+
+      # APPIMAGE_EXTRACT_AND_RUN, because a runner has no FUSE and an
+      # AppImage cannot mount itself without it. LD_LIBRARY_PATH so that
+      # linuxdeploy can resolve libgeist.so, which the reader links but which
+      # is not on the system path.
+      - name: Build the AppImage
+        env:
+          ARCH: ${{ matrix.appimage_arch }}
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+          QMAKE: /usr/bin/qmake6
+        run: |
+          export LD_LIBRARY_PATH="$PWD/AppDir/usr/lib:${LD_LIBRARY_PATH:-}"
+          ./linuxdeploy.AppImage \
+            --appdir AppDir \
+            --plugin qt \
+            --output appimage \
+            -d AppDir/usr/share/applications/geist-hardcopy.desktop \
+            -i AppDir/usr/share/icons/hicolor/scalable/apps/geist-hardcopy.svg
+
+          name="${{ steps.version.outputs.name }}"
+          built=$(ls -1 ./*.AppImage | grep -v linuxdeploy | head -1)
+          mv "$built" "$name.AppImage"
+          sha256sum "$name.AppImage" > "$name.AppImage.sha256"
+          ls -lh "$name.AppImage"
+
+      # An AppImage that is missing a piece of the Qt WebEngine runtime starts
+      # and then fails to render anything, which is exactly the failure a
+      # download must not carry.
+      - name: Verify the AppImage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          name="${{ steps.version.outputs.name }}"
+
+          if [ ! -x "$name.AppImage" ]; then
+            echo "::error::$name.AppImage was not produced"
+            exit 1
+          fi
+          size=$(stat -c%s "$name.AppImage")
+          if [ "$size" -lt 41943040 ]; then
+            echo "::error::$name.AppImage is only $((size / 1024 / 1024)) MB; the Qt runtime is missing"
+            exit 1
+          fi
+
+          rm -rf squashfs-root
+          "./$name.AppImage" --appimage-extract > /dev/null
+
+          missing=
+          for path in \
+            usr/bin/geist-hardcopy \
+            usr/lib/libgeist.so \
+            usr/libexec/QtWebEngineProcess \
+            usr/resources/qtwebengine_resources.pak \
+            usr/share/applications/geist-hardcopy.desktop
+          do
+            [ -e "squashfs-root/$path" ] || missing="$missing $path"
+          done
+          for lib in libQt6WebEngineWidgets libQt6Widgets libQt6PrintSupport; do
+            ls squashfs-root/usr/lib/"$lib".so* > /dev/null 2>&1 ||
+              missing="$missing $lib"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::AppImage is missing:$missing"
+            exit 1
+          fi
+
+          # It has to start, not merely contain the right files. The reader
+          # opens a window and waits, so a timeout is the success case and
+          # only a real failure exits non-zero before it.
+          #
+          # No arguments: the reader takes argv[1] as a book to open, so a
+          # flag such as --no-sandbox would be read as a filename. Chromium's
+          # sandbox needs privileges a container does not grant, so it is
+          # turned off through the environment instead.
+          set +e
+          QTWEBENGINE_DISABLE_SANDBOX=1 QT_QPA_PLATFORM=xcb \
+            xvfb-run -a timeout 40 "./$name.AppImage" > start.log 2>&1
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ] && [ "$status" -ne 124 ]; then
+            echo "::error::The reader exited $status instead of starting"
+            tail -40 start.log
+            exit 1
+          fi
+          echo "AppImage verified: $((size / 1024 / 1024)) MB, starts cleanly"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.version.outputs.name }}
+          path: |
+            ${{ steps.version.outputs.name }}.AppImage
+            ${{ steps.version.outputs.name }}.AppImage.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish release
+        if: steps.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ steps.version.outputs.version }}"
+          name="${{ steps.version.outputs.name }}"
+
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            echo "Creating release $tag"
+            if ! gh release create "$tag" --title "$tag" --generate-notes; then
+              # Another job may have created it between the check and the
+              # create. That is a race, not a failure.
+              if ! gh release view "$tag" >/dev/null 2>&1; then
+                echo "::error::Could not create release $tag"
+                exit 1
+              fi
+              echo "Release $tag appeared concurrently; attaching to it"
+            fi
+          else
+            echo "Release $tag already exists; attaching to it"
+          fi
+
+          gh release upload "$tag" \
+            "$name.AppImage" "$name.AppImage.sha256" --clobber
 
   linux-spec:
     name: BOO specification PDF

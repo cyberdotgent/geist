@@ -1,0 +1,8 @@
+<!-- Copyright 2026 Yvan Janssens; SPDX-License-Identifier: Apache-2.0 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="12" fill="#0b5fa5"/>
+  <g fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 16a4 4 0 0 1 4-4h30v40H18a4 4 0 0 1-4-4z"/>
+    <path d="M22 22h18M22 30h18M22 38h11"/>
+  </g>
+</svg>

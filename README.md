@@ -40,7 +40,9 @@ each. Built by default when Qt6 is present.
 ```
 
 Needs Qt6 Widgets, WebEngineWidgets and PrintSupport; see
-[Building and installing](#building-and-installing).
+[Building and installing](#building-and-installing). Tagged releases carry it
+prebuilt: a Windows zip, and Linux AppImages for amd64 and arm64 that bundle
+Qt and need nothing installed.
 
 ## mod_geist
 
