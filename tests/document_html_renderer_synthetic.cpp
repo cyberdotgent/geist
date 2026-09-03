@@ -278,6 +278,115 @@ DocumentIR build_document() {
   return document;
 }
 
+// A book is data, and the URLs inside one are not the renderer's to vouch
+// for.  With no resolver configured the renderer used to publish whatever a
+// book spelled straight into `href`, so a book carrying `javascript:` earned
+// a live link that runs in the origin serving it the moment it is clicked.
+// Such a destination is now kept and marked dead, exactly as an unspellable
+// one is, on every route that emits a book-supplied URL: an external
+// reference, and a topic id used verbatim as a relative link.
+void check_href_scheme_policy() {
+  const auto render_url = [](const std::string &url) {
+    DocumentIR document;
+    document.topic.id = "SCHEME";
+    document.topic.title = "Scheme policy";
+    InlineSequenceIR content;
+    content.push_back(in(CrossReferenceInlineIR{
+        {CrossReferenceTargetKindIR::external, url}, "link"}));
+    document.blocks.push_back(block(ParagraphBlockIR{content}));
+    return render_document_html_fragment(document);
+  };
+
+  // A scheme that only ever executes, in the spellings a book can carry it
+  // in.  Case is not part of a scheme, and a browser strips TAB, LF and CR
+  // out of a URL before parsing it, so neither disguise may resurrect one.
+  for (const auto *hostile : {"javascript:alert(1)",
+                              "JaVaScRiPt:alert(1)",
+                              "java\tscript:alert(1)",
+                              "java\nscript:alert(1)",
+                              "  javascript:alert(1)",
+                              "data:text/html,<script>alert(1)</script>",
+                              "vbscript:msgbox(1)",
+                              "file:///etc/passwd",
+                              // An unrecognised scheme is not admitted
+                              // either: the list says what navigates, and
+                              // anything outside it is unproven.
+                              "a:b/c"}) {
+    const auto output = render_url(hostile);
+    absent(output, "href=\"j", "a javascript: URL was published as a live href");
+    contains(output, "geist-link--unresolved",
+             std::string("a hostile scheme was not marked dead: ") + hostile);
+    contains(output, "href=\"#\"",
+             std::string("a hostile scheme kept its destination: ") + hostile);
+  }
+
+  // What a book legitimately spells still reaches the reader.  A reference
+  // with no scheme is relative and cannot execute, so it is published too.
+  for (const auto *safe : {"https://example.test/a", "http://example.test/a",
+                           "ftp://example.test/a", "mailto:someone@example.test",
+                           "example.test/a", "/books/one",
+                           "?query=1", "#fragment",
+                           // A colon inside a path is not a scheme
+                           // delimiter, so this is relative and navigable.
+                           "/path:with/colon"}) {
+    const auto output = render_url(safe);
+    absent(output, "geist-link--unresolved",
+           std::string("a navigable URL was marked dead: ") + safe);
+  }
+
+  // The consumer still has the first say.  A resolver's answer is used as
+  // given, so a consumer with its own reason to publish such a URL can.
+  DocumentIR document;
+  document.topic.id = "SCHEME";
+  document.topic.title = "Scheme policy";
+  InlineSequenceIR content;
+  content.push_back(in(CrossReferenceInlineIR{
+      {CrossReferenceTargetKindIR::external, "javascript:alert(1)"}, "link"}));
+  document.blocks.push_back(block(ParagraphBlockIR{content}));
+
+  geist::HtmlRenderOptions options;
+  options.resolve_external = [](const std::string &url)
+      -> std::optional<std::string> { return "/out?u=" + url; };
+  const auto resolved = render_document_html_fragment(document, options);
+  contains(resolved, "href=\"/out?u=javascript:alert(1)\"",
+           "the external resolver did not keep the first say over the scheme "
+           "policy");
+
+  // A topic id is emitted verbatim as a relative href when no resolver spells
+  // it, so the same rule has to hold there.  Real ids -- `3.9`, `CONTENTS` --
+  // name no scheme and are unaffected.
+  DocumentIR other;
+  other.topic.id = "SCHEME";
+  other.topic.title = "Scheme policy";
+  InlineSequenceIR more;
+  more.push_back(in(CrossReferenceInlineIR{
+      {CrossReferenceTargetKindIR::topic, "javascript:alert(1)"}, "topic"}));
+  other.blocks.push_back(block(ParagraphBlockIR{more}));
+  absent(render_document_html_fragment(other), "href=\"javascript:",
+         "a verbatim topic id published a script URL");
+
+  DocumentIR ordinary;
+  ordinary.topic.id = "SCHEME";
+  ordinary.topic.title = "Scheme policy";
+  InlineSequenceIR plain;
+  plain.push_back(in(CrossReferenceInlineIR{
+      {CrossReferenceTargetKindIR::topic, "3.9"}, "topic"}));
+  // The `resource:` spelling is the renderer's own and is left alone: no
+  // browser resolves it and nothing executes it, and a consumer with no
+  // `resolve_resource` still reads the object id out of the markup.
+  plain.push_back(in(CrossReferenceInlineIR{
+      {CrossReferenceTargetKindIR::resource, "resource:69"}, "object"}));
+  plain.push_back(in(ImageInlineIR{"resource:70", "alt"}));
+  ordinary.blocks.push_back(block(ParagraphBlockIR{plain}));
+
+  const auto kept = render_document_html_fragment(ordinary);
+  contains(kept, "href=\"3.9\"", "an ordinary topic id was not published");
+  contains(kept, "href=\"resource:69\"",
+           "the resource spelling was not published");
+  contains(kept, "src=\"resource:70\"",
+           "an image lost its resource spelling");
+}
+
 std::string read_file(const std::string &path) {
   std::ifstream stream(path, std::ios::binary);
   std::ostringstream buffer;
@@ -288,6 +397,8 @@ std::string read_file(const std::string &path) {
 } // namespace
 
 int main() {
+  check_href_scheme_policy();
+
   const auto document = build_document();
   std::string error;
   if (!require(verify_document_ir(document, &error), error))

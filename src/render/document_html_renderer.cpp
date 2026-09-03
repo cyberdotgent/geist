@@ -31,6 +31,44 @@ struct HrefIR {
 
 HrefIR dead_link() { return HrefIR{"#", true}; }
 
+// Whether a URL a book spells may be published as a live href.
+//
+// A book is data, and one comes from wherever its reader found it.  A
+// `javascript:` or `data:` URL spelled inside it would run in the origin of
+// whatever serves the book the moment a reader clicks the link, so the
+// renderer will not vouch for one: it keeps the affordance and marks it dead,
+// exactly as it does for a destination it cannot spell.  This is the
+// renderer declining to assert something it cannot know, not a presentation
+// decision -- a consumer that does want such a URL still gets the first say
+// through `resolve_external`, whose answer is used verbatim.
+//
+// The scheme is read the way a browser reads it.  ASCII whitespace and C0
+// controls are removed first because a browser strips TAB, LF and CR out of a
+// URL before parsing it, which is what makes `java&#9;script:` navigate for a
+// reader while reading as an unknown scheme to a naive prefix test.
+bool safe_href_scheme(const std::string &url) {
+  std::string cleaned;
+  cleaned.reserve(url.size());
+  for (const char raw_ch : url) {
+    const auto byte = static_cast<unsigned char>(raw_ch);
+    if (byte > 0x20 && byte != 0x7f)
+      cleaned.push_back(raw_ch);
+  }
+  const auto colon = cleaned.find(':');
+  // No scheme at all: a relative reference, which cannot name a scheme and
+  // so cannot execute.  A `/`, `?` or `#` ahead of the colon puts the colon
+  // inside a path, query or fragment rather than in a scheme delimiter.
+  if (colon == std::string::npos || cleaned.find_first_of("/?#") < colon)
+    return true;
+  std::string scheme = cleaned.substr(0, colon);
+  std::transform(scheme.begin(), scheme.end(), scheme.begin(),
+                 [](const unsigned char ch) {
+                   return static_cast<char>(std::tolower(ch));
+                 });
+  return scheme == "http" || scheme == "https" || scheme == "ftp" ||
+         scheme == "ftps" || scheme == "mailto";
+}
+
 std::string prefixed_id(const std::string &id,
                         const geist::HtmlRenderOptions &options) {
   return html_emitted_id(id, options);
@@ -58,7 +96,9 @@ HrefIR topic_href(const std::string &id,
     if (const auto resolved = options.resolve_topic(id))
       return resolved->empty() ? dead_link() : HrefIR{*resolved, false};
   }
-  return id.empty() ? dead_link() : HrefIR{id, false};
+  if (id.empty() || !safe_href_scheme(id))
+    return dead_link();
+  return HrefIR{id, false};
 }
 
 // `resource:69` names object 69 of this book; anything else is passed whole,
@@ -78,6 +118,10 @@ HrefIR resource_href(const std::string &resource,
             resource_object_id(resource)))
       return resolved->empty() ? dead_link() : HrefIR{*resolved, false};
   }
+  // Deliberately not scheme-checked. The value here is the book's own
+  // `resource:<id>` spelling, which no browser resolves and which nothing
+  // executes; blanking it would drop the object id a consumer without a
+  // `resolve_resource` still reads out of the emitted markup.
   return resource.empty() ? dead_link() : HrefIR{resource, false};
 }
 
@@ -87,7 +131,9 @@ HrefIR external_href(const std::string &url,
     if (const auto resolved = options.resolve_external(url))
       return resolved->empty() ? dead_link() : HrefIR{*resolved, false};
   }
-  return url.empty() ? dead_link() : HrefIR{url, false};
+  if (url.empty() || !safe_href_scheme(url))
+    return dead_link();
+  return HrefIR{url, false};
 }
 
 geist::HtmlLinkKind link_kind(CrossReferenceTargetKindIR kind) {

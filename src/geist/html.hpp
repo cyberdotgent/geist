@@ -110,6 +110,17 @@ struct HtmlRenderOptions {
       resolve_resource;
   // An absolute URL the source spells out.  Supplied so a consumer can
   // rewrite or proxy it; returning `std::nullopt` keeps the source URL.
+  //
+  // A kept source URL is published only when its scheme is one that
+  // navigates -- `http`, `https`, `ftp`, `ftps` or `mailto` -- or when it
+  // names no scheme at all and is therefore relative.  Anything else, a
+  // `javascript:` or `data:` URL above all, is kept as a dead link rather
+  // than published as one a click would follow: a book is data, and the
+  // renderer will not assert that a destination it found inside one is safe
+  // to hand a browser.  The same rule guards a topic id and a resource
+  // reference used verbatim.  This resolver is consulted first and its answer
+  // is used as given, so a consumer that has its own reason to publish such a
+  // URL can still do so.
   std::function<std::optional<std::string>(const std::string& url)>
       resolve_external;
   // Another book.  See `HtmlCrossBookReference`.
