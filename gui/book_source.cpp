@@ -69,7 +69,6 @@ void BookSource::ensure_link_index() {
   if (link_index_built_ || document_ == nullptr) {
     return;
   }
-  link_index_built_ = true;
 
   for (const auto& entry : document_->table_of_contents()) {
     const auto topic = QString::fromStdString(entry.id);
@@ -87,6 +86,9 @@ void BookSource::ensure_link_index() {
       }
     }
   }
+  // Raised once the index is complete, so a build that throws part way is
+  // retried rather than leaving a half-filled index marked finished.
+  link_index_built_ = true;
 }
 
 QByteArray BookSource::topic_html(const QString& topic_id) {

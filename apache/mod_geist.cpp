@@ -483,7 +483,12 @@ void ensure_links(Book& book) {
   if (book.links_built) {
     return;
   }
-  book.links_built = true;
+  // The flag is raised only once the map is complete. Raising it first lets a
+  // second thread return from here while this one is still emplacing, and
+  // every caller reads `book.links` unlocked once this returns -- a read of a
+  // std::map being written by another thread. Whoever loses the race must
+  // block on the mutex instead, so that the map every reader sees is finished
+  // and thereafter never mutated.
   for (const auto& entry : book.document->table_of_contents()) {
     for (const auto& target : entry.link_targets()) {
       const Book::Destination destination{entry.id, target.fragment,
@@ -497,6 +502,7 @@ void ensure_links(Book& book) {
       }
     }
   }
+  book.links_built = true;
 }
 
 // ---------------------------------------------------------------------------
