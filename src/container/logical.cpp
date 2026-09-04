@@ -445,6 +445,14 @@ AssembledLogicalRecord assemble_logical_record_with_sources(
     }
   }
 
+  assembled.word_offsets.resize(assembled.words.size() + 1);
+  assembled.word_offsets[0] = 0;
+  for (std::size_t index = 0; index < assembled.words.size(); ++index) {
+    assembled.word_offsets[index + 1] =
+        assembled.word_offsets[index] +
+        token_word_ascii_width(assembled.words[index]);
+  }
+
   return assembled;
 }
 
@@ -486,11 +494,7 @@ bool token_span_carries_a_word(const std::string& decoded_record,
 
 std::vector<std::size_t> assembled_token_output_offsets(
     const AssembledLogicalRecord& assembled) {
-  std::vector<std::size_t> word_offsets(assembled.words.size() + 1, 0);
-  for (std::size_t index = 0; index < assembled.words.size(); ++index) {
-    word_offsets[index + 1] =
-        word_offsets[index] + token_word_ascii_width(assembled.words[index]);
-  }
+  const auto& word_offsets = assembled.word_offsets;
   std::vector<std::size_t> offsets;
   offsets.reserve(assembled.tokens.size());
   for (const auto& token : assembled.tokens) {

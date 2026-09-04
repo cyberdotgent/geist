@@ -65,6 +65,12 @@ struct AssembledLogicalRecord {
   TokenWords words;
   std::vector<LogicalWordSource> sources;
   std::vector<LogicalTokenSpan> tokens;
+  // Prefix sum of `token_word_ascii_width` over `words`, with a leading 0, so
+  // `word_offsets[i]` is the decoded byte offset word `i` starts at and the
+  // last entry is the decoded length.  Built once when the record is
+  // assembled, so mapping between byte ranges and word ranges is a lookup
+  // rather than a walk that recomputes the running offset on every call.
+  std::vector<std::size_t> word_offsets;
 };
 
 struct DecodedMarkupSegmentSpan {

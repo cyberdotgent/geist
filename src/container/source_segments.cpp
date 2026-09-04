@@ -64,10 +64,20 @@ std::vector<std::size_t> source_tokens_intersecting_output(
     return result;
   }
   output_end = std::min(output_end, assembled.words.size());
-  for (const auto& token : assembled.tokens) {
-    if (output_spans_intersect(output_begin, output_end, token.output_begin,
-                               token.output_end)) {
-      result.push_back(token.token_index);
+  // Tokens are appended in output order, so their `output_begin` values are
+  // non-decreasing and the intersecting run is contiguous.  Seek to it rather
+  // than walking every token of the record.
+  const auto first = std::lower_bound(
+      assembled.tokens.begin(), assembled.tokens.end(), output_begin,
+      [](const LogicalTokenSpan& token, std::size_t begin) {
+        return token.output_end <= begin;
+      });
+  for (auto token = first; token != assembled.tokens.end(); ++token) {
+    if (token->output_begin >= output_end)
+      break;
+    if (output_spans_intersect(output_begin, output_end, token->output_begin,
+                               token->output_end)) {
+      result.push_back(token->token_index);
     }
   }
   return result;

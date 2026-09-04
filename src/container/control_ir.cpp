@@ -423,22 +423,25 @@ std::size_t fixed_operand_count(BookControlKind kind) {
   }
 }
 
+// `assembled.word_offsets` is the running byte offset of every word, so both
+// ends are a binary search rather than a walk from word zero.
 OutputRangeIR word_range_for_bytes(const AssembledLogicalRecord &assembled,
                                    std::size_t byte_begin,
                                    std::size_t byte_end) {
-  OutputRangeIR result{assembled.words.size(), assembled.words.size()};
-  std::size_t byte = 0;
-  for (std::size_t word = 0; word < assembled.words.size(); ++word) {
-    const auto width = token_word_ascii_width(assembled.words[word]);
-    if (result.begin == assembled.words.size() && byte + width > byte_begin) {
-      result.begin = word;
-    }
-    byte += width;
-    if (byte >= byte_end) {
-      result.end = word + 1;
-      break;
-    }
-  }
+  const auto count = assembled.words.size();
+  OutputRangeIR result{count, count};
+  const auto &offsets = assembled.word_offsets;
+  // `begin` is the first word whose end offset is past `byte_begin`, which is
+  // the first word the range touches.
+  const auto first =
+      std::upper_bound(offsets.begin() + 1, offsets.end(), byte_begin);
+  if (first != offsets.end())
+    result.begin = static_cast<std::size_t>(first - offsets.begin()) - 1;
+  // `end` is one past the first word whose end offset reaches `byte_end`.
+  const auto last =
+      std::lower_bound(offsets.begin() + 1, offsets.end(), byte_end);
+  if (last != offsets.end())
+    result.end = static_cast<std::size_t>(last - offsets.begin());
   if (byte_begin == byte_end)
     result.begin = result.end;
   return result;
@@ -457,17 +460,10 @@ decoded_word_range_to_byte_range(const AssembledLogicalRecord &assembled,
                                  const OutputRangeIR &words) {
   const auto bounded_begin = std::min(words.begin, assembled.words.size());
   const auto bounded_end = std::min(words.end, assembled.words.size());
-  std::size_t byte = 0;
+  // Both ends are a direct index into the running offsets.
   OutputRangeIR result;
-  for (std::size_t word = 0; word <= bounded_end; ++word) {
-    if (word == bounded_begin)
-      result.begin = byte;
-    if (word == bounded_end) {
-      result.end = byte;
-      break;
-    }
-    byte += token_word_ascii_width(assembled.words[word]);
-  }
+  result.begin = assembled.word_offsets[bounded_begin];
+  result.end = assembled.word_offsets[bounded_end];
   return result;
 }
 

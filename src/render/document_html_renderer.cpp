@@ -677,37 +677,47 @@ std::string escape_html_text(const std::string &value) {
 }
 
 std::string escape_html_attribute(const std::string &value) {
-  std::ostringstream output;
+  // Built into a string rather than an ostringstream, as `escape_html_text`
+  // beside it is: this runs on every attribute value the renderer emits, and
+  // a stream costs a locale-aware formatted write per character to produce
+  // the same bytes.
+  std::string output;
+  output.reserve(value.size());
   for (const auto raw_ch : value) {
     const auto ch = static_cast<unsigned char>(raw_ch);
     switch (raw_ch) {
     case '&':
-      output << "&amp;";
+      output += "&amp;";
       break;
     case '<':
-      output << "&lt;";
+      output += "&lt;";
       break;
     case '>':
-      output << "&gt;";
+      output += "&gt;";
       break;
     case '"':
-      output << "&quot;";
+      output += "&quot;";
       break;
     case '\'':
-      output << "&#39;";
+      output += "&#39;";
       break;
     default:
       // C0 controls and DEL cannot appear literally in an attribute value.
       // Bytes above 0x7F are UTF-8 continuation bytes of decoded book text
       // and are passed through as they are.
-      if (ch < 0x20 || ch == 0x7f)
-        output << "&#x" << std::uppercase << std::hex
-               << static_cast<unsigned int>(ch) << std::dec << ';';
-      else
-        output << raw_ch;
+      if (ch < 0x20 || ch == 0x7f) {
+        static constexpr char kHex[] = "0123456789ABCDEF";
+        output += "&#x";
+        if (ch >= 0x10)
+          output += kHex[ch >> 4];
+        output += kHex[ch & 0x0f];
+        output += ';';
+      } else {
+        output.push_back(raw_ch);
+      }
     }
   }
-  return output.str();
+  return output;
 }
 
 std::string html_block_class(const BlockNodeIR &node) {
