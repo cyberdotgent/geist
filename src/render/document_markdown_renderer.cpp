@@ -629,9 +629,15 @@ void append_block(RenderSink &sink, const BlockIR &block,
           }
         } else if constexpr (std::is_same_v<T, FigureBlockIR>) {
           sink.syntax("![", "image syntax", block_origin);
-          // Hosted names the image by the picture it shows, not by the
-          // caption; the string is renderer-generated, so it is not content.
-          sink.generated(figure_alt_text(node.resource), "figure alt text");
+          // The book's own description of the picture is content when it
+          // gave one (BookMaster `:artdesc`).  Otherwise hosted names the
+          // image by the picture it shows, not by the caption; that string
+          // is renderer-generated, so it is not content.
+          if (!node.description.empty())
+            sink.content(escape_markdown_text_impl(node.description),
+                         "figure description", block_origin);
+          else
+            sink.generated(figure_alt_text(node.resource), "figure alt text");
           sink.syntax("](", "image syntax", block_origin);
           sink.syntax(markdown_destination(node.resource),
                       "image destination", block_origin);

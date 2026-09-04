@@ -40,6 +40,14 @@ enum class BookControlKind {
   menu_item,
   menu_end,
   message_start,
+  // BUILD 1.3 artwork envelope: `csart` .. `ceart` wraps a picture selector,
+  // `csartdesc <n>` .. `ceartdesc` wraps `cartdesc <text>` lines describing
+  // picture <n> for a reader that cannot show it.
+  art_start,
+  art_end,
+  art_description_start,
+  art_description,
+  art_description_end,
   structural,
   unknown,
 };

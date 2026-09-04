@@ -40,9 +40,15 @@ std::string visible_slice(const DecodedLogicalRecordSource& record,
   return trim_ascii(std::move(text));
 }
 
+// An end control whose payload is the display text that follows it.  The
+// BUILD 1.3 artwork envelope's `ceartdesc` closes the picture description
+// and carries the figure's caption lines the way `SREFIG` carries the prose
+// after a figure (SG24-4815-01 1.1 record 26 segment 1).
 bool structural_end_control(const ControlSegmentIR& segment) {
   const auto opcode = ascii_lower(segment.opcode);
-  return segment.kind == BookControlKind::table_end || opcode == "srefig";
+  return segment.kind == BookControlKind::table_end ||
+         segment.kind == BookControlKind::art_description_end ||
+         opcode == "srefig";
 }
 
 bool layout_control(const ControlSegmentIR& segment) {

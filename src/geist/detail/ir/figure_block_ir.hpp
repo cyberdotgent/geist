@@ -84,6 +84,7 @@ enum class FigureCellRoleIR {
   caption_layout,        // marker/origin/padding cells of the caption rows
   caption_content,       // visible caption cells
   index_term,            // "SI term" subject-index entries (never displayed)
+  description,           // text of a `cartdesc` line: the picture's description
   line_prefix,           // length byte opening a display line
   body_content,          // visible word of a preformatted body line
   body_layout,           // space / box-drawing word of a body line
@@ -182,13 +183,20 @@ struct FigurePreformattedLineIR {
   std::vector<std::size_t> column_offsets;
 };
 
-// A bare `SRSPT<id>` control inside a drawn figure is a second anchor.
-// Hosted BookServer opens it on the display line that follows the control:
+// A bare structural anchor inside a figure region is a second anchor.
+//
+// Inside a drawn figure it is `SRSPT<id>`.  Hosted BookServer opens it on
+// the display line that follows the control:
 // SC34-425 2.5.3 record 1746 line 8 `SRSPTRCC11` is served as
 // `<a name="FIGFIGUNIQ77"><a name="SPTRCC11">        COUNT    : 4 bytes`
 // (DT 19921112160049), and SC24-5520-00 3.8.3.6 carries two of them
 // (`SPTFCIR` on the figure's first body line and `SPTRFLUSH` in its
 // middle, DT 19911011135123).
+//
+// Inside a picture figure it is `SRPIC<n>`, the anchor of picture <n>
+// itself, which the BUILD 1.3 artwork envelope writes between
+// `csartdesc <n>` and the description lines (SG24-4815-01 1.1 record 25
+// line 40).  It opens the picture, so it always stands at the body start.
 struct FigureSpotAnchorIR {
   std::string id;
   std::uint32_t logical_record = 0;
@@ -222,8 +230,15 @@ struct FigureSourceBlockIR {
   // hosted BookServer never displays them.
   std::vector<std::string> index_terms;
   std::vector<DocumentSourceRowIR> suppressed_rows;
-  // Bare `SRSPT<id>` anchors inside a drawn body, in source order.
+  // Bare `SRSPT<id>` anchors inside a drawn body, or the `SRPIC<n>` anchor
+  // of a picture, in source order.
   std::vector<FigureSpotAnchorIR> spot_anchors;
+  // Picture figures only: the `cartdesc` lines of the BUILD 1.3 artwork
+  // envelope, joined by single spaces.  BookMaster `:artdesc` is the text a
+  // reader that cannot show the picture shows instead, so a renderer
+  // carries it as the image's alternative text.  Empty when the envelope
+  // is absent or its description is empty (ez302400 3.3 record 211).
+  std::string description;
   // Cross references a drawn body carries.  The body is reproduced verbatim,
   // so the link cannot be expressed inside it: the lowering names them in the
   // block's degradation instead of dropping them silently.

@@ -532,7 +532,12 @@ void append_block(HtmlSink &sink, const BlockIR &block) {
                              ? "geist-figure-image geist-image--unresolved"
                              : "geist-figure-image");
           sink.attribute("src", href.href);
-          sink.attribute("alt", figure_alt_text(node.resource));
+          // The book's own description of the picture when it gave one
+          // (BookMaster `:artdesc`), else the picture's name as hosted
+          // BookServer spells it.
+          sink.attribute("alt", node.description.empty()
+                                    ? figure_alt_text(node.resource)
+                                    : node.description);
           sink.markup(">");
           if (!node.caption.empty()) {
             sink.markup("<figcaption class=\"geist-figure-caption\">");

@@ -254,6 +254,11 @@ struct PublicationListBlockIR {
 struct FigureBlockIR {
   std::string resource;
   InlineSequenceIR caption;
+  // The book's own description of the picture (BookMaster `:artdesc`,
+  // carried by the BUILD 1.3 `cartdesc` lines), for a reader that cannot
+  // show it.  Empty when the book gave none; a renderer then names the
+  // picture as hosted BookServer does.
+  std::string description;
 };
 
 struct FootnoteBlockIR {

@@ -73,6 +73,7 @@ bool same_block(const FigureSourceBlockIR &left,
       left.anchor != right.anchor || !same_ref(left.selector, right.selector) ||
       left.target_kind != right.target_kind || left.target != right.target ||
       left.placeholder_text != right.placeholder_text ||
+      left.description != right.description ||
       left.additional_pictures.size() != right.additional_pictures.size() ||
       left.spot_anchors.size() != right.spot_anchors.size() ||
       left.body_kind != right.body_kind ||
@@ -133,6 +134,21 @@ std::string opcode_lower(const ControlSegmentIR &segment) {
 bool figure_start(const ControlSegmentIR &segment) {
   return segment.kind == BookControlKind::structural &&
          opcode_lower(segment).rfind("srfig", 0) == 0;
+}
+
+// `SRPIC<n>`: the anchor of picture <n>, written by the BUILD 1.3 artwork
+// envelope right after `csartdesc <n>`.  Returns "PIC<n>" as hosted names
+// the anchor, or nothing for any other structural control.
+std::optional<std::string> picture_anchor(const ControlSegmentIR &segment) {
+  if (segment.kind != BookControlKind::structural)
+    return std::nullopt;
+  const auto lower = opcode_lower(segment);
+  if (lower.size() <= 5 || lower.rfind("srpic", 0) != 0 ||
+      !std::all_of(lower.begin() + 5, lower.end(), [](const unsigned char ch) {
+        return std::isdigit(ch) != 0;
+      }))
+    return std::nullopt;
+  return segment.opcode.substr(2);
 }
 
 std::string segment_text(const DecodedLogicalRecordSource &record,
@@ -1402,6 +1418,7 @@ struct Extractor {
 
     // 1. Structural content of the region.
     const SelectorIR *picture = nullptr;
+    std::string description_target;
     for (std::size_t index = 0; index < region.segments.size(); ++index) {
       const auto &view = region.segments[index];
       const auto &segment = *view.segment;
@@ -1431,10 +1448,45 @@ struct Extractor {
       case BookControlKind::unknown:
         return decline(region, "figure region contains an unknown control");
       case BookControlKind::structural:
-        if (interior)
-          return decline(region, "figure region contains structural control " +
-                                     segment.opcode);
+        if (interior) {
+          // The picture's own anchor (SG24-4815-01 1.1 `SRPIC1`) is the one
+          // structural control the envelope carries; it is bound to the
+          // picture once the selectors are known.
+          const auto anchor = picture_anchor(segment);
+          if (!anchor)
+            return decline(region, "figure region contains structural "
+                                   "control " +
+                                       segment.opcode);
+          block.spot_anchors.push_back({*anchor, segment.logical_record,
+                                        segment.segment_index, true});
+        }
         break;
+      case BookControlKind::art_start:
+      case BookControlKind::art_end:
+      case BookControlKind::art_description_end:
+        // Envelope boundaries: opcode cells only.
+        break;
+      case BookControlKind::art_description_start: {
+        // `csartdesc <n>` names the picture the description belongs to.
+        const auto operand = trim_ascii(
+            segment_text(*view.record, segment.operand_range));
+        if (operand.empty())
+          return decline(region, "art description names no picture");
+        description_target = "pic" + ascii_lower(operand);
+        break;
+      }
+      case BookControlKind::art_description: {
+        // One `cartdesc` line of the description; a bare `cartdesc` is a
+        // blank line (SG24-4815-01 1.1 record 25 line 41).
+        const auto text = collapse_ascii_whitespace(
+            trim_ascii(segment_text(*view.record, segment.payload_range)));
+        if (text.empty())
+          break;
+        if (!block.description.empty())
+          block.description += ' ';
+        block.description += text;
+        break;
+      }
       case BookControlKind::select: {
         const auto found = selectors_by_segment.find(key(view));
         if (found == selectors_by_segment.end() || found->second.size() != 1)
@@ -1489,6 +1541,22 @@ struct Extractor {
     }
     if (picture == nullptr)
       return decline(region, "figure region has no picture selector");
+
+    // The artwork envelope names its picture twice, by the anchor and by the
+    // description opener; both must be the region's picture.  A description
+    // of a picture after the first has no place to go and declines.
+    const auto main_picture = "pic" + ascii_lower(block.target);
+    for (const auto &spot : block.spot_anchors)
+      if (ascii_lower(spot.id) != main_picture)
+        return decline(region, "anchor " + spot.id +
+                                   " names a different picture than " +
+                                   block.target);
+    if (!description_target.empty() && description_target != main_picture)
+      return decline(region, "art description names a different picture "
+                             "than " +
+                                 block.target);
+    if (!block.description.empty() && description_target.empty())
+      return decline(region, "art description lines outside an envelope");
 
     // 2. Classify every physical row and every segment lead (the visible
     //    material of a segment before its first row) inside the region.
@@ -1766,8 +1834,13 @@ struct Extractor {
         }
         const auto allowed = !visible_word(cell.word);
         if (view != nullptr &&
-            (view->segment->kind == BookControlKind::layout_directive ||
-             view->segment->kind == BookControlKind::spacing)) {
+            view->segment->kind == BookControlKind::art_description) {
+          // The `cartdesc` line's text, carried as the block's description.
+          claimed.role = FigureCellRoleIR::description;
+        } else if (view != nullptr &&
+                   (view->segment->kind ==
+                        BookControlKind::layout_directive ||
+                    view->segment->kind == BookControlKind::spacing)) {
           claimed.role = FigureCellRoleIR::control;
         } else if (view != nullptr && key(*view) == picture_key &&
                    metadata_end != 0) {

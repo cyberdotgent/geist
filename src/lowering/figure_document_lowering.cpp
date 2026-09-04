@@ -151,6 +151,42 @@ InlineSequenceIR caption_inlines(const FigureSourceBlockIR &figure,
   return content;
 }
 
+// The region's second anchors, one block each, ahead of the body they open.
+//
+// In a drawn body a bare `SRSPT<id>` is one.  Hosted BookServer opens it on
+// the display line that follows the control; a Markdown anchor can only
+// stand in front of the whole verbatim block, so one that does not open the
+// body's first line lands early.  In a picture figure the `SRPIC<n>` anchor
+// of the picture itself is one, and it always opens the picture.
+bool append_spot_anchors(const FigureSourceBlockIR &figure,
+                         std::vector<BlockIR> &blocks, std::string *error) {
+  for (const auto &spot : figure.spot_anchors) {
+    BlockIR node;
+    node.node = AnchorBlockIR{spot.id};
+    node.origin.derivation = DocumentDerivationIR::semantic_lowering;
+    node.origin.detail = "figure spot anchor";
+    add_cell_slices(node.origin, figure.cells, [&](const auto &cell) {
+      return cell.role == FigureCellRoleIR::control &&
+             cell.logical_record == spot.logical_record &&
+             cell.segment_index == spot.segment_index;
+    });
+    if (node.origin.slices.empty()) {
+      fail(error, "figure spot anchor has no source slice");
+      return false;
+    }
+    if (!spot.at_body_start) {
+      node.origin.fidelity = DocumentFidelityIR::degraded;
+      node.origin.degradation_code = "figure-body-anchor-position";
+      node.origin.degradation_detail =
+          "anchor '" + spot.id +
+          "' opens a line inside the drawn body; a Markdown anchor can only "
+          "stand in front of the whole verbatim block";
+    }
+    blocks.push_back(std::move(node));
+  }
+  return true;
+}
+
 // Anchor + preformatted body + emphasised caption paragraph for a drawn
 // figure.  The body lines are the hosted display lines; the caption keeps
 // the presentation of a picture figure's caption.
@@ -177,34 +213,8 @@ lower_preformatted_figure(const FigureSourceBlockIR &figure,
   }
   blocks.push_back(std::move(anchor));
 
-  // A bare `SRSPT<id>` inside the drawn body is a second anchor.  Hosted
-  // BookServer opens it on the display line that follows the control; a
-  // Markdown anchor can only stand in front of the whole verbatim block, so
-  // one that does not open the body's first line lands early.
-  for (const auto &spot : figure.spot_anchors) {
-    BlockIR node;
-    node.node = AnchorBlockIR{spot.id};
-    node.origin.derivation = DocumentDerivationIR::semantic_lowering;
-    node.origin.detail = "figure spot anchor";
-    add_cell_slices(node.origin, figure.cells, [&](const auto &cell) {
-      return cell.role == FigureCellRoleIR::control &&
-             cell.logical_record == spot.logical_record &&
-             cell.segment_index == spot.segment_index;
-    });
-    if (node.origin.slices.empty()) {
-      fail(error, "figure spot anchor has no source slice");
-      return std::nullopt;
-    }
-    if (!spot.at_body_start) {
-      node.origin.fidelity = DocumentFidelityIR::degraded;
-      node.origin.degradation_code = "figure-body-anchor-position";
-      node.origin.degradation_detail =
-          "anchor '" + spot.id +
-          "' opens a line inside the drawn body; a Markdown anchor can only "
-          "stand in front of the whole verbatim block";
-    }
-    blocks.push_back(std::move(node));
-  }
+  if (!append_spot_anchors(figure, blocks, error))
+    return std::nullopt;
 
   PreformattedBlockIR body;
   std::vector<DocumentSourceRowIR> body_rows;
@@ -427,6 +437,8 @@ lower_figure_block_to_document_blocks(const FigureSourceBlockIR &figure,
     }
     blocks.push_back(std::move(anchor));
   }
+  if (!append_spot_anchors(figure, blocks, error))
+    return std::nullopt;
 
   // One image block per picture selector, in source order; hosted stacks
   // them and puts the caption under the last (SC26-457 3.2.1, B.1.3,
@@ -446,6 +458,10 @@ lower_figure_block_to_document_blocks(const FigureSourceBlockIR &figure,
         index == 0 ? figure.target : figure.additional_pictures[index - 1].target;
     FigureBlockIR node;
     node.resource = book_resource ? "resource:" + target : target;
+    // The envelope describes the region's first picture (the extractor
+    // declines a description of any other).
+    if (index == 0)
+      node.description = figure.description;
     if (figure.caption && index + 1 == count) {
       if (figure.caption->text.empty()) {
         fail(error, "figure caption is incomplete");
@@ -527,6 +543,8 @@ bool verify_figure_document_blocks(const FigureSourceBlockIR &figure,
       const auto &actual_node = std::get<FigureBlockIR>(actual.node);
       if (node->resource != actual_node.resource)
         return fail(error, "figure resource differs from canonical");
+      if (node->description != actual_node.description)
+        return fail(error, "figure description differs from canonical");
       if (!same_inlines(node->caption, actual_node.caption))
         return fail(error, "figure caption differs from canonical");
     } else if (const auto *node =

@@ -174,6 +174,16 @@ BookControlKind classify(std::string opcode) {
     return BookControlKind::menu_end;
   if (opcode == "srmsg")
     return BookControlKind::message_start;
+  if (opcode == "csart")
+    return BookControlKind::art_start;
+  if (opcode == "ceart")
+    return BookControlKind::art_end;
+  if (opcode == "csartdesc")
+    return BookControlKind::art_description_start;
+  if (opcode == "cartdesc")
+    return BookControlKind::art_description;
+  if (opcode == "ceartdesc")
+    return BookControlKind::art_description_end;
   // Remaining SR controls use an identifier-like opcode. Bare prose tokens
   // such as "SR," (from "SR, TP, and STP") must stay text. Known C controls
   // are classified explicitly above; treating every C-prefixed word as a
@@ -402,6 +412,7 @@ std::size_t fixed_operand_count(BookControlKind kind) {
   case BookControlKind::source_file:
   case BookControlKind::menu_item:
   case BookControlKind::message_start:
+  case BookControlKind::art_description_start:
     return 1;
   case BookControlKind::summary:
     return 3;

@@ -317,7 +317,12 @@ bool looks_like_gml_control_at(const std::string& value, std::size_t offset) {
     return false;
   }
 
-  static constexpr std::array<std::string_view, 50> prefixes = {
+  // `csart` .. `ceart` and `csartdesc` .. `ceartdesc` are the BUILD 1.3
+  // artwork envelope (SG24-4815-01 record 25): the picture selector sits
+  // between the first pair and the `cartdesc` description lines between the
+  // second.  Listed longest first so `csartdesc` is not read as `csart`.
+  static constexpr std::array<std::string_view, 55> prefixes = {
+      "csartdesc",   "ceartdesc",  "cartdesc",   "csart",      "ceart",
       "ctopicn",     "cparent",    "cforwardlevel",
       "cbacklevel",  "csummary",   "chdlevel",   "csourcefn",
       "st",          "c.sp",       "c.cp",       "ctocdef",    "ctoce",
@@ -350,6 +355,16 @@ bool looks_like_gml_control_at(const std::string& value, std::size_t offset) {
       return true;
     }
     if (prefix == "st" && next == '|') {
+      return true;
+    }
+    // The artwork closers take no operand, so whatever the decoder wrote
+    // next follows them directly: `ceart` the control-boundary byte of the
+    // `csartdesc` after it (SG24-4815-01 record 25 offset 1423), and
+    // `ceartdesc` the `?` run of the caption's frame rule (record 26 offset
+    // 17) or a `*` (ez30qn00 4.3 record 441).  Any byte that cannot
+    // continue the word ends it.
+    if ((prefix == "ceart" || prefix == "ceartdesc") &&
+        std::isalnum(static_cast<unsigned char>(next)) == 0) {
       return true;
     }
     if ((prefix == "srfig" || prefix == "srtbl" || prefix == "sr") &&

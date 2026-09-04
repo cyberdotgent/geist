@@ -1535,7 +1535,63 @@ references are linked through `CSELECT` targets such as `pic1` or `Pic1`.
 |`SRETBL` |`SRETBL` |Ends a table block.
 |`CSELECT ... fig...` |`CSELECT 3 8 fig4302hp1` |Selectable figure reference.
 |`CSELECT ... pic...` |`CSELECT 35 9 pic1` |Selectable picture/image placeholder.
+|`CSART` / `CEART` |`csart` .. `ceart` |BUILD 1.3 artwork envelope around a picture selector (BookMaster `:artwork`).
+|`CSARTDESC <n>` / `CEARTDESC` |`csartdesc 1` .. `ceartdesc` |BUILD 1.3 description of picture <n> (BookMaster `:artdesc` .. `:eartdesc`); `SRPIC<n>` opens it.
+|`CARTDESC <text>` |`cartdesc   This graphic shows ...` |One line of the description; bare `cartdesc` is a blank line.
+|`SRPIC<n>` |`SRPIC1` |Anchor of picture <n>, written inside its description envelope.
 |===
+
+==== The BUILD 1.3 artwork envelope
+
+Books compiled by BookManager BUILD 1.3 (`ez30ad01.boo` = SG24-4815-01,
+`CBLDVERS 1.3.0`, build date 11/08/96, and the other AS/400 redbooks of the
+same shelf: `ez302400`, `ez30qn00`, `ez30lb00`, `ez30lj00`) wrap every
+picture figure in five controls that earlier compilers never wrote.  Topic
+`1.1` of SG24-4815-01, logical record 25, decodes as
+
+----
+SRFIG0372WOR                       file offset 0x739f46: ", csart"
+csart                              token value 52253, two bytes at 0x739f48
+cselect 3 9 PIC1     PICTURE 1     0x739f4b .. 0x739f55
+ceart                              value 51551 at 0x739f56; a control-boundary byte follows
+csartdesc 1                        value 52254 at 0x739f5a, operand token 147 ("1")
+SRPIC1                             value 58896 at 0x739f5e
+cartdesc                           value 57 at 0x739f61 (a blank description line)
+cartdesc   This graphic shows all the current countries in the world and
+cartdesc   indicates by different shades of black through white the level of
+cartdesc   Internet access.  White indicates full Internet access, which makes
+----
+
+and record 26 continues with `cartdesc   up most of this world map.`,
+`ceartdesc`, the frame rule, the caption `Figure 1. Internet World Map.` and
+`SREFIG`.  The record's own display-line framing puts each control on a
+display line of its own (`csart` is line 34, `cselect 3 9 PIC1` line 35,
+`   PICTURE 1` line 36, `ceart` line 37, `csartdesc 1` line 39, `SRPIC1`
+line 40, the `cartdesc` lines 41..44), so every one of them stands at
+`prefix_token + 1` as a genuine control does.
+
+The pairs are BookMaster's `:artwork` and `:artdesc` .. `:eartdesc`: the
+picture selector sits between `csart` and `ceart`, and the `cartdesc` lines
+between `csartdesc <n>` and `ceartdesc` are the text a reader that cannot
+show picture <n> shows instead.  `SRPIC<n>` is the picture's own anchor
+(`PIC1` in hosted terms) and is always written right after `csartdesc <n>`.
+The closers take no operand, so whatever the decoder wrote next follows them
+directly: `ceart` is followed by the control-boundary byte of `csartdesc`,
+`ceartdesc` by the `?` run of the caption's frame rule (record 26 offset 17)
+or, in `ez30qn00` topic `4.3` record 441, by a `*`.  A description can be
+empty: `ez302400` topic `3.3` record 211 writes `csartdesc 1`, `SRPIC1`,
+`ceartdesc` and nothing between.
+
+None of the hosted BookServer editions on hand carries a BUILD 1.3 book, so
+there is no hosted rendering of the envelope to compare against.  The model
+therefore admits it on its own terms: one picture figure, whose `SRPIC<n>`
+anchor is a second anchor opening the picture, whose description is carried
+as the image's alternative text, and whose five boundary controls own their
+opcode cells and nothing else.  An envelope naming a picture the region does
+not draw (`csartdesc 2` around `PIC1`) declines.  Before the envelope was
+read, `SRPIC1` was an unexplained structural control inside the region, the
+figure declined, and 42 of the book's 186 topics went to the verbatim
+best-effort route with `csart` and `cartdesc` printed as text.
 
 `QS3X36CM.BOO` topic `2.2` (`SRTBLtbluniq2`) demonstrates a legacy
 cross-reference table where the decoded logical stream presents table text as
