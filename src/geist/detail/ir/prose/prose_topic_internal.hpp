@@ -179,8 +179,9 @@ struct Ledger {
       for (std::size_t token = 0; token < record.ir.tokens.size(); ++token) {
         index.emplace(std::make_pair(record.logical_record, token),
                       entries.size());
-        entries.push_back({{record.logical_record, token},
-                           ProseTokenRoleIR::unassigned, npos, npos});
+        ProseTokenDispositionIR entry;
+        entry.token = {record.logical_record, token};
+        entries.push_back(std::move(entry));
       }
   }
   ProseTokenDispositionIR& at(std::size_t record, std::size_t token) {

@@ -1979,6 +1979,7 @@ const char *role_name(FigureCellRoleIR role) {
   case FigureCellRoleIR::caption_layout: return "caption-layout";
   case FigureCellRoleIR::caption_content: return "caption-content";
   case FigureCellRoleIR::index_term: return "index-term";
+  case FigureCellRoleIR::description: return "description";
   case FigureCellRoleIR::line_prefix: return "line-prefix";
   case FigureCellRoleIR::body_content: return "body-content";
   case FigureCellRoleIR::body_layout: return "body-layout";
@@ -2113,6 +2114,10 @@ bool verify_figure_blocks_ir(
       case FigureCellRoleIR::boundary:
       case FigureCellRoleIR::placeholder_suppressed:
       case FigureCellRoleIR::index_term:
+      // A description cell is the text of a `cartdesc` line, which the
+      // ledger reads as that control's material; the canonical
+      // re-extraction below checks it lands on the block's description.
+      case FigureCellRoleIR::description:
         break;
       }
     }

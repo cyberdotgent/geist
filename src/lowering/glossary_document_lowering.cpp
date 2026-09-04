@@ -141,6 +141,8 @@ std::optional<EmphasisKindIR> emphasis_kind(FontStyleIR style) {
   case FontStyleIR::variable:
   case FontStyleIR::bold_phrase:
   case FontStyleIR::italic_phrase:
+  case FontStyleIR::warning:
+  case FontStyleIR::warning_text:
   case FontStyleIR::unknown:
     break;
   }

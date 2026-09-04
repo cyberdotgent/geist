@@ -145,7 +145,7 @@ std::vector<LinkTarget> document_link_targets(const DocumentIR& document) {
   // cross-reference role does.
   for (const auto& id : document.named_destinations)
     if (!id.empty())
-      targets.push_back({LinkTargetKind::anchor, id, {}});
+      targets.push_back({LinkTargetKind::anchor, id, {}, {}});
   return targets;
 }
 
@@ -177,7 +177,7 @@ const std::vector<LinkTarget>& TocEntry::link_targets() const {
         kind = LinkTargetKind::figure;
       else if (head == "tbl")
         kind = LinkTargetKind::table;
-      targets->push_back({kind, id, {}});
+      targets->push_back({kind, id, {}, {}});
     }
     return std::shared_ptr<const std::vector<LinkTarget>>(std::move(targets));
   });

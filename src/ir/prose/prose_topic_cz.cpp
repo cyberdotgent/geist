@@ -615,7 +615,7 @@ struct CzBuilder {
   // The projection's rows [begin, end), split into paragraphs at the blank
   // display rows `group_lines` already reads as boundaries.
   bool title_rows(std::size_t begin, std::size_t end) {
-    for (const auto group : group_lines(lines, begin, end))
+    for (const auto& group : group_lines(lines, begin, end))
       if (!title_paragraph(group.first, group.second)) return false;
     return true;
   }

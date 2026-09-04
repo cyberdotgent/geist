@@ -354,8 +354,7 @@ public:
       // grid) while the recovered columns stay in the IR for consumers,
       // provenance and the geometry tests.
       auto lines_only = block;
-      if (admit_preformatted(candidate, start, end, lines_only,
-                             preformatted_reason)) {
+      if (admit_preformatted(start, end, lines_only, preformatted_reason)) {
         table.preformatted_lines = std::move(lines_only.preformatted_lines);
         table.pictures = std::move(lines_only.pictures);
       }
@@ -364,7 +363,7 @@ public:
     // No column structure was proven.  The envelope's display lines still
     // are, through the record's length-byte line model, so the region is
     // reproduced verbatim instead of failing the whole topic.
-    if (admit_preformatted(candidate, start, end, block, preformatted_reason))
+    if (admit_preformatted(start, end, block, preformatted_reason))
       return block;
     reason = table_reason + "; not preformatted: " + preformatted_reason;
     return std::nullopt;
@@ -643,8 +642,7 @@ public:
     return true;
   }
 
-  bool admit_preformatted(const Candidate &candidate,
-                          const SourcePosition &start,
+  bool admit_preformatted(const SourcePosition &start,
                           const SourcePosition &end,
                           FixedTableBlockIR &block, std::string &reason) {
     const auto begin_record = record_index_.find(start.first);
