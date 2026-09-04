@@ -494,7 +494,7 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
       // failed to recover.
       if (!block.verbatim_kind.empty())
         preformatted_origin.detail = "prose drawn box region: verbatim rows";
-      PreformattedBlockIR preformatted{block.preformatted_lines};
+      PreformattedBlockIR preformatted{block.preformatted_lines, {}, {}};
       // Issue #81.  A block the family emitted verbatim because it could not
       // prove the region's structure says so at the block, and carries the
       // provenance a consumer needs to check it: the whole region's slices on

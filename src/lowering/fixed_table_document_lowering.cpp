@@ -116,7 +116,7 @@ lower_fixed_table_block_to_document_ir(const FixedTableBlockIR &block) {
       if (picture.line < block.preformatted_lines.size())
         for (const auto &row : block.preformatted_lines[picture.line].rows)
           add_row(image.origin, row);
-      image.node = FigureBlockIR{"resource:" + picture.resource, {}};
+      image.node = FigureBlockIR{"resource:" + picture.resource, {}, {}};
       result.push_back(std::move(image));
     }
     PreformattedBlockIR body;
