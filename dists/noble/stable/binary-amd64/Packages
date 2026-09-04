@@ -1,0 +1,246 @@
+Package: geist-reader
+Architecture: amd64
+Version: 0.2.1+noble1
+Priority: optional
+Section: text
+Source: geist
+Maintainer: Yvan Janssens <yvanj@cyber.gent>
+Installed-Size: 159
+Depends: libc6 (>= 2.34), libgcc-s1 (>= 3.3.1), libgeist0 (>= 0.2.1+noble1), libqt6core6t64 (>= 6.4.0), libqt6gui6t64 (>= 6.1.2), libqt6printsupport6t64 (>= 6.1.2), libqt6webenginecore6 (>= 6.2.2), libqt6webenginecore6-bin (>= 6.2.2), libqt6webenginewidgets6 (>= 6.2.2), libqt6widgets6t64 (>= 6.3.0), libstdc++6 (>= 9)
+Filename: pool/stable/noble/geist-reader_0.2.1+noble1_amd64.deb
+Size: 51810
+MD5sum: 64f5bd5da1430f879f36269f6668e0dd
+SHA1: 01b4e2d341641662d429584927d041331290a920
+SHA256: 246f11357f683ff6fdd5def53cf4b57c862dbbdeccee76382ad44cfb2bc15556
+SHA512: 91af6463ef120b76e5beea59f8ea85a6199e0169358f146a9a13d9ab3426bbf3288d0d56ec1526307411b767836006df12232f233c5e977ffc75b2fcd8eb1a4c
+Homepage: https://github.com/cyberdotgent/geist
+Description: desktop reader for IBM BookManager BOO books
+ The Geist Hardcopy Reader, a Qt6 desktop reader laid out after IBM's
+ BookManager SoftCopy Reader: a topic tree, a divider and a topic pane, with
+ separate font-size controls for each.
+
+Package: geist-reader
+Architecture: amd64
+Version: 0.2.2+noble1
+Priority: optional
+Section: text
+Source: geist
+Maintainer: Yvan Janssens <yvanj@cyber.gent>
+Installed-Size: 163
+Depends: libc6 (>= 2.34), libgcc-s1 (>= 3.3.1), libgeist0 (>= 0.2.2+noble1), libqt6core6t64 (>= 6.4.0), libqt6gui6t64 (>= 6.1.2), libqt6printsupport6t64 (>= 6.1.2), libqt6webenginecore6 (>= 6.2.2), libqt6webenginecore6-bin (>= 6.2.2), libqt6webenginewidgets6 (>= 6.2.2), libqt6widgets6t64 (>= 6.3.0), libstdc++6 (>= 13.1)
+Filename: pool/stable/noble/geist-reader_0.2.2+noble1_amd64.deb
+Size: 52486
+MD5sum: 4a1d1192b75276ad327859544edd341d
+SHA1: 3412b25a25c083f47293bb710bbedda8998806ac
+SHA256: 17576439162481b3b36c171bad7a6a48c87b0a57587415d685dfbb5f57056c47
+SHA512: 6c443c996e3799b74be144f592b98155e44f1f7a18f3604213fae51ecc6f9ae526b95cc1b4c49a7a5e7bdafe287680eee75c3ca20f5d70a17e0f88aca78a1781
+Homepage: https://github.com/cyberdotgent/geist
+Description: desktop reader for IBM BookManager BOO books
+ The Geist Hardcopy Reader, a Qt6 desktop reader laid out after IBM's
+ BookManager SoftCopy Reader: a topic tree, a divider and a topic pane, with
+ separate font-size controls for each.
+
+Package: geist-tools
+Architecture: amd64
+Version: 0.2.1+noble1
+Priority: optional
+Section: utils
+Source: geist
+Maintainer: Yvan Janssens <yvanj@cyber.gent>
+Installed-Size: 2568
+Depends: libc6 (>= 2.38), libgcc-s1 (>= 3.3.1), libgeist0 (>= 0.2.1+noble1), libgif7 (>= 5.1), libstdc++6 (>= 13.1)
+Filename: pool/stable/noble/geist-tools_0.2.1+noble1_amd64.deb
+Size: 1070410
+MD5sum: d432fded07d879f49daded967b8a5456
+SHA1: 8b733aa6b2ed891aae101375b00654f3555770f2
+SHA256: 161ef957245d4bcb94e020d274f79cc2055e96e545a1d5afe65bdf261fe76301
+SHA512: 9476b379dbf405934290eaa920c81ae8afd6d4b8d0c1215fd1d4b8cce0d65461a2684022ea4d1f3c4f15380dd3f8bb8c79122a54421c9a4690803f4d875bd381
+Homepage: https://github.com/cyberdotgent/geist
+Description: command-line tools for IBM BookManager BOO books
+ Tools for inspecting and converting BOO books:
+ .
+  * booinfo   - book metadata
+  * bootoc    - table of contents
+  * boorsrc   - list and extract stored images
+  * boorender - render a topic to Markdown or HTML
+  * bootrace  - trace rendered output back to the source bytes
+  * boo2git   - export a whole book to a folder tree
+
+Package: geist-tools
+Architecture: amd64
+Version: 0.2.2+noble1
+Priority: optional
+Section: utils
+Source: geist
+Maintainer: Yvan Janssens <yvanj@cyber.gent>
+Installed-Size: 2578
+Depends: libc6 (>= 2.38), libgcc-s1 (>= 3.3.1), libgeist0 (>= 0.2.2+noble1), libgif7 (>= 5.1), libstdc++6 (>= 13.1)
+Filename: pool/stable/noble/geist-tools_0.2.2+noble1_amd64.deb
+Size: 1076310
+MD5sum: f4eebe99ab7cb2331a9dec03776a1dcf
+SHA1: 02f8608d05cc62d6f0febd8717ed6b8b095648b7
+SHA256: 9b7d3fedb4e034a61b1c12b6491ed8307d53c16863eb11317eb8f1320e63606c
+SHA512: cb9e73a47b2b786eea9e13ed6eaede62f8227a15ef205aeb7579cd1bdcaeafae8f141c892bf6a9d348d05c2268dc9e0e023b020afd3190d082427106fe36680e
+Homepage: https://github.com/cyberdotgent/geist
+Description: command-line tools for IBM BookManager BOO books
+ Tools for inspecting and converting BOO books:
+ .
+  * booinfo   - book metadata
+  * bootoc    - table of contents
+  * boorsrc   - list and extract stored images
+  * boorender - render a topic to Markdown or HTML
+  * bootrace  - trace rendered output back to the source bytes
+  * boo2git   - export a whole book to a folder tree
+
+Package: libapache2-mod-geist
+Architecture: amd64
+Version: 0.2.1+noble1
+Priority: optional
+Section: httpd
+Source: geist
+Maintainer: Yvan Janssens <yvanj@cyber.gent>
+Installed-Size: 163
+Depends: libapr1t64 (>= 1.2.7), libc6 (>= 2.32), libgcc-s1 (>= 3.3.1), libgeist0 (>= 0.2.1+noble1), libstdc++6 (>= 11), apache2
+Filename: pool/stable/noble/libapache2-mod-geist_0.2.1+noble1_amd64.deb
+Size: 57868
+MD5sum: 941ef3f968fdfaafdc44fce426c19d90
+SHA1: a25978cc080461cb63e4875937c12f315327c85c
+SHA256: 232908c1b43def9328742213066267d92eced6b2d720706605abf0859d6c5da3
+SHA512: f23f6b72ed6894a04f48679c9b34eb62954d8a519393ed3e8b06fba769936e47b0c3bd61eb7830c59523331e50a4b62eaa982cee40a462a394224d7ec519c664
+Homepage: https://github.com/cyberdotgent/geist
+Description: Apache module serving IBM BookManager BOO books
+ mod_geist serves a BOO book over HTTP. A book is addressed by its own path,
+ so a book in the document root is browsable without any registration or
+ conversion step, and its topics, stored images and the file itself hang
+ below that path.
+ .
+ With BooIndex enabled a directory of books lists itself, after BookManager
+ BookServer's bookshelf page.
+
+Package: libapache2-mod-geist
+Architecture: amd64
+Version: 0.2.2+noble1
+Priority: optional
+Section: httpd
+Source: geist
+Maintainer: Yvan Janssens <yvanj@cyber.gent>
+Installed-Size: 163
+Depends: libapr1t64 (>= 1.2.7), libc6 (>= 2.32), libgcc-s1 (>= 3.3.1), libgeist0 (>= 0.2.2+noble1), libstdc++6 (>= 11), apache2
+Filename: pool/stable/noble/libapache2-mod-geist_0.2.2+noble1_amd64.deb
+Size: 57960
+MD5sum: 4ccd4c4afad3c68c0fd0a5a2d153d9cd
+SHA1: 9ec3f318bc44ffc5986fd114171ea7f17dacc093
+SHA256: ee9ebc16d23e4393507f746f9dcdf8137b9465445cf1b327975b38a483a4d5ee
+SHA512: 528af96a47e6999cba1645a7eac6504dca741a139a3050234f0bdf5f6077be40c793b00d8ea7d9da2e86ef3579fc81e9d5841801c185054983f8c40ea3d9951f
+Homepage: https://github.com/cyberdotgent/geist
+Description: Apache module serving IBM BookManager BOO books
+ mod_geist serves a BOO book over HTTP. A book is addressed by its own path,
+ so a book in the document root is browsable without any registration or
+ conversion step, and its topics, stored images and the file itself hang
+ below that path.
+ .
+ With BooIndex enabled a directory of books lists itself, after BookManager
+ BookServer's bookshelf page.
+
+Package: libgeist-dev
+Architecture: amd64
+Version: 0.2.1+noble1
+Multi-Arch: same
+Priority: optional
+Section: libdevel
+Source: geist
+Maintainer: Yvan Janssens <yvanj@cyber.gent>
+Installed-Size: 69
+Depends: libgeist0 (= 0.2.1+noble1)
+Filename: pool/stable/noble/libgeist-dev_0.2.1+noble1_amd64.deb
+Size: 15948
+MD5sum: d88beccb233a681966e7e8b9f8dd843d
+SHA1: 468e4b5af0383b3eb2d4e7772519d50fd71b06ae
+SHA256: 5cde7ae57d7851b7bca8a8d1aa0103f0693b0ae2bccb17ede702018fe1d257a0
+SHA512: ba79e48d84a6204ef5bf3618dda3c4c069da1c9a45cb379e55a0a2d12fc287415071703ad752bb5e3b77ebd70af1df7da24491b7d6f492ef5676edd65b9d8104
+Homepage: https://github.com/cyberdotgent/geist
+Description: library for reading IBM BookManager BOO books - development files
+ libgeist parses an IBM BookManager BOO container and renders its topics to
+ Markdown or HTML.
+ .
+ This package contains the headers and the CMake package configuration
+ needed to build against libgeist. There is no static library: linking
+ libgeist statically is a build-from-source arrangement, and shipping the
+ archive made this package larger than every other one combined.
+
+Package: libgeist-dev
+Architecture: amd64
+Version: 0.2.2+noble1
+Multi-Arch: same
+Priority: optional
+Section: libdevel
+Source: geist
+Maintainer: Yvan Janssens <yvanj@cyber.gent>
+Installed-Size: 69
+Depends: libgeist0 (= 0.2.2+noble1)
+Filename: pool/stable/noble/libgeist-dev_0.2.2+noble1_amd64.deb
+Size: 16198
+MD5sum: ce7ae90d9a8f33bdf8396c8b240c47ea
+SHA1: f3a90dc429176b465b003c04d533ca8eec7ed671
+SHA256: 1b83d0829e5314558c943da4c371a9e043f4753062762be46342f76fe0a40776
+SHA512: 191d812cfdf924dc9f0a438bbfa35db3bb1955001dd1a355f6ee397cca4b7cbb51f25582e5f91bd9bc71e1d0433cd2a03600b42a40bd9916ed55e9d8aab78efa
+Homepage: https://github.com/cyberdotgent/geist
+Description: library for reading IBM BookManager BOO books - development files
+ libgeist parses an IBM BookManager BOO container and renders its topics to
+ Markdown or HTML.
+ .
+ This package contains the headers and the CMake package configuration
+ needed to build against libgeist. There is no static library: linking
+ libgeist statically is a build-from-source arrangement, and shipping the
+ archive made this package larger than every other one combined.
+
+Package: libgeist0
+Architecture: amd64
+Version: 0.2.1+noble1
+Multi-Arch: same
+Priority: optional
+Section: libs
+Source: geist
+Maintainer: Yvan Janssens <yvanj@cyber.gent>
+Installed-Size: 2592
+Depends: libc6 (>= 2.38), libgcc-s1 (>= 3.3.1), libgif7 (>= 5.1), libpng16-16t64 (>= 1.6.2), libstdc++6 (>= 11)
+Filename: pool/stable/noble/libgeist0_0.2.1+noble1_amd64.deb
+Size: 1018156
+MD5sum: 221150f6a37a6a41ef371ce2384e7c4d
+SHA1: 5bb32239fea5031f9fb3e52ae2a409b16d436ce0
+SHA256: f0843df55bd81582319a15521219ca373f942519d4eac39120d60661b556339c
+SHA512: 4e90420639459d17145d2ac2cd2c9cc2a95affcd4b64854be8c5c117e0ca8d67938529a089097e94abeeb146f8ef0b516ea9c5e4d105111d086bc9f6871e578c
+Homepage: https://github.com/cyberdotgent/geist
+Description: library for reading IBM BookManager BOO books
+ libgeist parses an IBM BookManager BOO container and renders its topics to
+ Markdown or HTML. It is self-contained: it decides nothing about
+ presentation, and a consumer supplies the link resolvers, the page chrome
+ and the URL space it wants.
+ .
+ This package contains the shared library.
+
+Package: libgeist0
+Architecture: amd64
+Version: 0.2.2+noble1
+Multi-Arch: same
+Priority: optional
+Section: libs
+Source: geist
+Maintainer: Yvan Janssens <yvanj@cyber.gent>
+Installed-Size: 2604
+Depends: libc6 (>= 2.38), libgcc-s1 (>= 3.3.1), libgif7 (>= 5.1), libpng16-16t64 (>= 1.6.2), libstdc++6 (>= 11)
+Filename: pool/stable/noble/libgeist0_0.2.2+noble1_amd64.deb
+Size: 1020924
+MD5sum: 784cbbb3315ee36f1fc5114df054ff9b
+SHA1: 5c0f6ae9602a9628e20a66c85777c4bcc0a021af
+SHA256: 9da9528164e3c563a4d202b111715b92f4a9eceb3be265f394e8418f70b6cbb1
+SHA512: a13199c09c882a2ae214fad2a2423668a2581d497348bf5de696ac864072fb1f92177a64739262f86ae1d5f8118c92656ed28ddba83b41ed6cbacdf2e4fe7b6a
+Homepage: https://github.com/cyberdotgent/geist
+Description: library for reading IBM BookManager BOO books
+ libgeist parses an IBM BookManager BOO container and renders its topics to
+ Markdown or HTML. It is self-contained: it decides nothing about
+ presentation, and a consumer supplies the link resolvers, the page chrome
+ and the URL space it wants.
+ .
+ This package contains the shared library.
+
