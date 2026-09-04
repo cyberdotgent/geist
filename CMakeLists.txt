@@ -27,7 +27,7 @@ if(WIN32 AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
 endif()
 
 project(libgeist
-  VERSION 0.2.1
+  VERSION 0.2.2
   DESCRIPTION "Self-contained IBM BookManager BOO parser library"
   # CMake's built-in FindGIF module probes the giflib C headers.
   LANGUAGES C CXX

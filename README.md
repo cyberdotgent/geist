@@ -258,7 +258,7 @@ libgeist they are running against:
 
 ```
 $ booinfo --version
-booinfo/0.2.1 (v0.2.1) libgeist/0.2.1 (v0.2.1)
+booinfo/0.2.2 (v0.2.2) libgeist/0.2.2 (v0.2.2)
 ```
 
 The library's half is asked for at run time, so a tool running against a
