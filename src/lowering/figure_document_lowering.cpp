@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "geist/detail/lowering/figure_document_lowering.hpp"
+#include "geist/detail/core/internal.hpp"
 
 #include <algorithm>
 #include <set>
@@ -158,9 +159,27 @@ InlineSequenceIR caption_inlines(const FigureSourceBlockIR &figure,
 // stand in front of the whole verbatim block, so one that does not open the
 // body's first line lands early.  In a picture figure the `SRPIC<n>` anchor
 // of the picture itself is one, and it always opens the picture.
+// `picture` selects the anchors to append: the `SRPIC<n>` anchor of picture
+// <n> stands in front of that picture's own image block, so a figure of
+// several pictures (SC21-8295-03 `A.0`, pictures 6 and 7) anchors each where
+// hosted opens it.  Anchors naming no picture after the first go with the
+// first image.
+const FigurePictureIR *picture_anchored_by(const FigureSourceBlockIR &figure,
+                                           const FigureSpotAnchorIR &spot) {
+  const auto id = ascii_lower(spot.id);
+  for (const auto &extra : figure.additional_pictures)
+    if (extra.target_kind == FigureTargetKindIR::book_resource &&
+        id == "pic" + ascii_lower(extra.target))
+      return &extra;
+  return nullptr;
+}
+
 bool append_spot_anchors(const FigureSourceBlockIR &figure,
-                         std::vector<BlockIR> &blocks, std::string *error) {
+                         std::vector<BlockIR> &blocks, std::string *error,
+                         const FigurePictureIR *picture = nullptr) {
   for (const auto &spot : figure.spot_anchors) {
+    if (picture_anchored_by(figure, spot) != picture)
+      continue;
     BlockIR node;
     node.node = AnchorBlockIR{spot.id};
     node.origin.derivation = DocumentDerivationIR::semantic_lowering;
@@ -456,12 +475,16 @@ lower_figure_block_to_document_blocks(const FigureSourceBlockIR &figure,
                          FigureTargetKindIR::book_resource;
     const auto &target =
         index == 0 ? figure.target : figure.additional_pictures[index - 1].target;
+    if (index != 0 &&
+        !append_spot_anchors(figure, blocks, error,
+                             &figure.additional_pictures[index - 1]))
+      return std::nullopt;
     FigureBlockIR node;
     node.resource = book_resource ? "resource:" + target : target;
-    // The envelope describes the region's first picture (the extractor
-    // declines a description of any other).
-    if (index == 0)
-      node.description = figure.description;
+    // Each picture's own envelope describes it.
+    node.description = index == 0
+                           ? figure.description
+                           : figure.additional_pictures[index - 1].description;
     if (figure.caption && index + 1 == count) {
       if (figure.caption->text.empty()) {
         fail(error, "figure caption is incomplete");

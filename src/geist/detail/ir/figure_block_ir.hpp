@@ -110,9 +110,14 @@ struct FigureSegmentRefIR {
 
 // Source extent of one figure region.  `begin` is the SRFIG segment (or the
 // picture selector for an anchorless figure); `end` is the SREFIG segment
-// (or the selector again).  Only the SREFIG opcode belongs to the region: a
-// structural SREFIG may carry the following prose as payload rows, which are
-// deliberately left unclaimed for the composer's prose family.
+// (or the selector again), or the last BUILD 1.3 artwork envelope closer the
+// compiler wrote behind the SREFIG: an uncaptioned picture closes its figure
+// before its description (SC21-8295-03 `1.1` record 46: `cartdesc   REQTEXT`,
+// `SREFIG`, `ceartdesc`), and the closer of an envelope opened inside the
+// figure is the figure's.  Only the SREFIG opcode belongs to the region of
+// that marker segment: a structural SREFIG may carry the following prose as
+// payload rows, which are deliberately left unclaimed for the composer's
+// prose family.
 struct FigureBlockSpanIR {
   FigureSegmentRefIR begin;
   FigureSegmentRefIR end;
@@ -150,6 +155,11 @@ struct FigurePictureIR {
   FigureTargetKindIR target_kind = FigureTargetKindIR::book_resource;
   std::string target;
   std::string placeholder_text;
+  // The `cartdesc` lines of this picture's own BUILD 1.3 envelope (see
+  // `FigureSourceBlockIR::description`): a figure of several pictures wraps
+  // each in its own `csart` .. `ceartdesc` group (SC21-8295-03 `A.0` record
+  // 717, pictures 6 and 7 under one caption).
+  std::string description;
 };
 
 struct FigureCaptionIR {
@@ -233,11 +243,15 @@ struct FigureSourceBlockIR {
   // Bare `SRSPT<id>` anchors inside a drawn body, or the `SRPIC<n>` anchor
   // of a picture, in source order.
   std::vector<FigureSpotAnchorIR> spot_anchors;
-  // Picture figures only: the `cartdesc` lines of the BUILD 1.3 artwork
-  // envelope, joined by single spaces.  BookMaster `:artdesc` is the text a
-  // reader that cannot show the picture shows instead, so a renderer
-  // carries it as the image's alternative text.  Empty when the envelope
-  // is absent or its description is empty (ez302400 3.3 record 211).
+  // Picture figures only: the `cartdesc` lines of the first picture's
+  // BUILD 1.3 artwork envelope, joined by single spaces.  BookMaster
+  // `:artdesc` is the text a reader that cannot show the picture shows
+  // instead, so a renderer carries it as the image's alternative text.
+  // Empty when the envelope is absent or its description is empty
+  // (ez302400 3.3 record 211).  A `cselect` the description carries, escaped
+  // as `cvselect <col> <len> <target>` (DFHPA608 1.2.6 record 137), is a
+  // cross reference of the text, not text, and is left out.  The pictures
+  // after the first carry their own (`FigurePictureIR::description`).
   std::string description;
   // Cross references a drawn body carries.  The body is reproduced verbatim,
   // so the link cannot be expressed inside it: the lowering names them in the

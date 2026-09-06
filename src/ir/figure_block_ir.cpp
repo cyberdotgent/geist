@@ -88,7 +88,8 @@ bool same_block(const FigureSourceBlockIR &left,
     const auto &a = left.additional_pictures[index];
     const auto &b = right.additional_pictures[index];
     if (!same_ref(a.selector, b.selector) || a.target_kind != b.target_kind ||
-        a.target != b.target || a.placeholder_text != b.placeholder_text)
+        a.target != b.target || a.placeholder_text != b.placeholder_text ||
+        a.description != b.description)
       return false;
   }
   if (left.caption) {
@@ -158,6 +159,40 @@ std::string segment_text(const DecodedLogicalRecordSource &record,
     return {};
   return text.substr(range.begin,
                      std::min(range.end, text.size()) - range.begin);
+}
+
+// A `cselect` written inside a `cartdesc` line is escaped as `cvselect`, with
+// the selector's three operands: column, length and target (DFHPA608 1.2.6
+// record 137 line 27 `cvselect 13 8 FIGDSTAB`, the `Figure 7` reference of
+// the description line after it).  Whole-line, exactly three operands, or it
+// is not one.
+bool escaped_description_selector(const std::string &text) {
+  const std::string opcode = "cvselect ";
+  if (text.size() <= opcode.size() ||
+      ascii_lower(text.substr(0, opcode.size())) != opcode)
+    return false;
+  std::vector<std::string> operands;
+  std::string current;
+  for (const auto ch : text.substr(opcode.size())) {
+    if (ch == ' ') {
+      if (!current.empty())
+        operands.push_back(current);
+      current.clear();
+    } else {
+      current.push_back(ch);
+    }
+  }
+  if (!current.empty())
+    operands.push_back(current);
+  if (operands.size() != 3)
+    return false;
+  for (std::size_t index = 0; index < 2; ++index)
+    if (!std::all_of(operands[index].begin(), operands[index].end(),
+                     [](const unsigned char ch) {
+                       return std::isdigit(ch) != 0;
+                     }))
+      return false;
+  return true;
 }
 
 // SREFIG arrives either as a structural control (when the decoder isolated
@@ -521,6 +556,90 @@ struct Region {
   std::vector<SegmentView> segments; // begin .. end inclusive, source order
   bool anchored = false;
   std::string anchor;
+  // The tail of a BUILD 1.3 artwork envelope the compiler wrote *behind*
+  // the `SREFIG` marker.  A captioned picture closes its description ahead
+  // of the caption and the marker (SG24-4815-01 `1.1`: `ceartdesc`,
+  // `Figure 1. ...`, `SREFIG`); an uncaptioned one closes its figure first
+  // and the description afterwards, in three shapes:
+  //
+  //   SC21-8295-03 `1.1` record 46      csartdesc 1 / SRPIC1 / cartdesc REQTEXT
+  //   (SC31-8248-01 `2.15`, DFHP3A08)   / SREFIG / ceartdesc / cz OFF EFIG
+  //   DFHP7A00 `3.2.1` records 569-570  csartdesc 5 / SRPIC5 / cartdesc ...
+  //                                     / SREFIG / cartdesc / cartdesc
+  //                                     / ceartdesc / cz OFF EFIG
+  //   QB3AWG04 `APPENDIX1.2.1.1` r. 628 ceart / SREFIG / csartdesc 2 / SRPIC2
+  //                                     / ceartdesc / cz OFF EFIG
+  //
+  // `csartdesc <n>` describes the picture the region draws and `SRPIC<n>` is
+  // that picture's anchor, so the description is the figure's wherever the
+  // marker falls in it.  Read as prose it was a body control outside the
+  // prose model and the whole topic went to the verbatim route.
+  std::vector<SegmentView> trailing;
+  // Envelope state while the region is collected: `csart` .. `ceart` and
+  // `csartdesc` .. `ceartdesc`, and whether an artwork envelope and a
+  // description were seen at all.
+  int art_depth = 0;
+  int description_depth = 0;
+  bool art_seen = false;
+  bool description_seen = false;
+  // The marker was seen with the description still to come or still open:
+  // the region closes with the description, or at the next segment that is
+  // no part of it.
+  bool end_pending = false;
+
+  void envelope(BookControlKind kind) {
+    switch (kind) {
+    case BookControlKind::art_start:
+      ++art_depth;
+      art_seen = true;
+      break;
+    case BookControlKind::art_end:
+      art_depth = std::max(art_depth - 1, 0);
+      break;
+    case BookControlKind::art_description_start:
+      ++description_depth;
+      description_seen = true;
+      break;
+    case BookControlKind::art_description_end:
+      description_depth = std::max(description_depth - 1, 0);
+      break;
+    default: break;
+    }
+  }
+  bool envelope_open() const {
+    return art_depth > 0 || description_depth > 0;
+  }
+  // Whether the region is still owed part of its artwork envelope once the
+  // marker has passed.
+  bool envelope_pending() const {
+    return art_seen && (envelope_open() || !description_seen);
+  }
+  // Whether a segment behind the marker is the envelope's: the closer of an
+  // open part, the description's opener when none was written yet, or a
+  // line or picture anchor of an open description.
+  bool envelope_tail(const ControlSegmentIR &segment) const {
+    switch (segment.kind) {
+    case BookControlKind::art_end: return art_depth > 0;
+    case BookControlKind::art_description_start: return !description_seen;
+    case BookControlKind::art_description:
+    case BookControlKind::art_description_end:
+      return description_depth > 0;
+    case BookControlKind::structural:
+      return description_depth > 0 && picture_anchor(segment).has_value();
+    default: return false;
+    }
+  }
+  // The last segment the region owns: the marker, or the last trailing
+  // segment behind it.
+  const SegmentView &last() const {
+    return trailing.empty() ? segments.back() : trailing.back();
+  }
+  // Every segment the region owns, in source order.
+  std::vector<SegmentView> owned() const {
+    auto result = segments;
+    result.insert(result.end(), trailing.begin(), trailing.end());
+    return result;
+  }
 };
 
 struct Extractor {
@@ -621,7 +740,7 @@ struct Extractor {
     FigureBlockDeclineIR result;
     result.begin = ref(region.segments.front());
     if (terminated)
-      result.end = ref(region.segments.back());
+      result.end = ref(region.last());
     result.anchor = region.anchor;
     result.reason = std::move(reason);
     return result;
@@ -923,6 +1042,9 @@ struct Extractor {
     block.body_kind = FigureBodyKindIR::preformatted;
     if (!region.anchored)
       return decline(region, "figure region has no picture selector");
+    if (!region.trailing.empty())
+      return decline(region, "artwork envelope closes behind SREFIG of a "
+                             "drawn figure");
     const auto &begin = region.segments.front();
     const auto &end = region.segments.back();
 
@@ -1396,7 +1518,7 @@ struct Extractor {
     const auto &begin = region.segments.front();
     const auto &end = region.segments.back();
     block.span.begin = ref(begin);
-    block.span.end = ref(end);
+    block.span.end = ref(region.last());
     block.span.anchored = region.anchored;
     block.anchor = region.anchor;
 
@@ -1416,15 +1538,22 @@ struct Extractor {
     if (!has_picture(region))
       return admit_preformatted(region, block);
 
-    // 1. Structural content of the region.
+    // 1. Structural content of the region: its segments through the marker
+    //    and the envelope tail behind it (`Region::trailing`).
+    const auto owned = region.owned();
+    const auto marker_position = region.segments.size() - 1;
     const SelectorIR *picture = nullptr;
+    // The open `csartdesc <n>` envelope's picture, and every envelope's
+    // description text by picture: a figure of several pictures wraps each
+    // in its own envelope (SC21-8295-03 `A.0` record 717: `csart` .. `PIC6`
+    // .. `csartdesc 6` .. `ceartdesc`, then the same for 7, one caption).
     std::string description_target;
-    for (std::size_t index = 0; index < region.segments.size(); ++index) {
-      const auto &view = region.segments[index];
+    std::vector<std::pair<std::string, std::string>> descriptions;
+    for (std::size_t index = 0; index < owned.size(); ++index) {
+      const auto &view = owned[index];
       const auto &segment = *view.segment;
       const auto interior =
-          !region.anchored ||
-          (index != 0 && index + 1 != region.segments.size());
+          !region.anchored || (index != 0 && index != marker_position);
       switch (segment.kind) {
       case BookControlKind::table_start:
       case BookControlKind::table_end:
@@ -1473,6 +1602,11 @@ struct Extractor {
         if (operand.empty())
           return decline(region, "art description names no picture");
         description_target = "pic" + ascii_lower(operand);
+        for (const auto &[target, text] : descriptions)
+          if (target == description_target)
+            return decline(region, "picture " + operand +
+                                       " is described twice");
+        descriptions.emplace_back(description_target, std::string());
         break;
       }
       case BookControlKind::art_description: {
@@ -1482,9 +1616,18 @@ struct Extractor {
             trim_ascii(segment_text(*view.record, segment.payload_range)));
         if (text.empty())
           break;
-        if (!block.description.empty())
-          block.description += ' ';
-        block.description += text;
+        if (description_target.empty())
+          return decline(region, "art description lines outside an envelope");
+        // A cross reference the description carries is written as an
+        // escaped selector line, `cvselect <col> <len> <target>` (DFHPA608
+        // 1.2.6 record 137 line 27, over the `Figure 7` of the next line):
+        // the description's link, not its text.
+        if (escaped_description_selector(text))
+          break;
+        auto &description = descriptions.back().second;
+        if (!description.empty())
+          description += ' ';
+        description += text;
         break;
       }
       case BookControlKind::select: {
@@ -1511,7 +1654,7 @@ struct Extractor {
             block.additional_pictures.push_back(
                 {{selector->logical_record, selector->segment_index,
                   selector->selector_ordinal},
-                 FigureTargetKindIR::book_resource, target, {}});
+                 FigureTargetKindIR::book_resource, target, {}, {}});
             break;
           }
           picture = selector;
@@ -1543,20 +1686,36 @@ struct Extractor {
       return decline(region, "figure region has no picture selector");
 
     // The artwork envelope names its picture twice, by the anchor and by the
-    // description opener; both must be the region's picture.  A description
-    // of a picture after the first has no place to go and declines.
+    // description opener; both must be a picture the region draws, and the
+    // description is that picture's.
     const auto main_picture = "pic" + ascii_lower(block.target);
+    const auto draws = [&](const std::string &name) {
+      if (block.target_kind == FigureTargetKindIR::book_resource &&
+          name == main_picture)
+        return true;
+      for (const auto &extra : block.additional_pictures)
+        if (name == "pic" + ascii_lower(extra.target))
+          return true;
+      return false;
+    };
     for (const auto &spot : block.spot_anchors)
-      if (ascii_lower(spot.id) != main_picture)
+      if (!draws(ascii_lower(spot.id)))
         return decline(region, "anchor " + spot.id +
                                    " names a different picture than " +
                                    block.target);
-    if (!description_target.empty() && description_target != main_picture)
-      return decline(region, "art description names a different picture "
-                             "than " +
-                                 block.target);
-    if (!block.description.empty() && description_target.empty())
-      return decline(region, "art description lines outside an envelope");
+    for (const auto &[target, text] : descriptions) {
+      if (!draws(target))
+        return decline(region, "art description names a different picture "
+                               "than " +
+                                   block.target);
+      if (target == main_picture) {
+        block.description = text;
+        continue;
+      }
+      for (auto &extra : block.additional_pictures)
+        if (target == "pic" + ascii_lower(extra.target))
+          extra.description = text;
+    }
 
     // 2. Classify every physical row and every segment lead (the visible
     //    material of a segment before its first row) inside the region.
@@ -1620,13 +1779,13 @@ struct Extractor {
       return std::nullopt;
     };
 
-    for (std::size_t index = 0; index < region.segments.size(); ++index) {
-      const auto &view = region.segments[index];
+    for (std::size_t index = 0; index < owned.size(); ++index) {
+      const auto &view = owned[index];
       const auto &segment = *view.segment;
       const auto &record = *view.record;
       const auto segment_key = key(view);
       const auto boundary_segment =
-          region.anchored && (index == 0 || index + 1 == region.segments.size());
+          region.anchored && (index == 0 || index == marker_position);
       std::vector<const PhysicalRowIR *> rows;
       if (!boundary_segment) {
         const auto found = rows_by_segment.find(segment_key);
@@ -1777,15 +1936,27 @@ struct Extractor {
     } else {
       end_tokens = end.segment->source_tokens;
     }
-    const auto end_token = *std::max_element(end_tokens.begin(),
-                                             end_tokens.end());
+    // The region's cells run to its last segment: the marker, or the
+    // trailing envelope closer the compiler wrote behind it (`Region`).
+    const auto &last = region.last();
+    if (!region.trailing.empty() && last.segment->source_tokens.empty())
+      return decline(region, "artwork envelope closer behind SREFIG has no "
+                             "source tokens");
+    const auto end_token =
+        region.trailing.empty()
+            ? *std::max_element(end_tokens.begin(), end_tokens.end())
+            : *std::max_element(last.segment->source_tokens.begin(),
+                                last.segment->source_tokens.end());
     const std::set<std::size_t> boundary_tokens(end_tokens.begin(),
                                                 end_tokens.end());
     const auto begin_index = begin.record_index;
-    const auto end_index = end.record_index;
+    const auto marker_index = end.record_index;
+    const auto end_index = last.record_index;
 
     std::map<SegmentKey, const SegmentView *> region_segments;
     for (const auto &view : region.segments)
+      region_segments[key(view)] = &view;
+    for (const auto &view : region.trailing)
       region_segments[key(view)] = &view;
 
     for (const auto &cell : ownership.cells) {
@@ -1819,7 +1990,7 @@ struct Extractor {
                                "does not own");
       } else if (cell.disposition == SourceDisposition::control_operand) {
         claimed.role = FigureCellRoleIR::control;
-      } else if (region.anchored && index == end_index &&
+      } else if (region.anchored && index == marker_index &&
                  boundary_tokens.count(cell.token_index) != 0) {
         claimed.role = FigureCellRoleIR::boundary;
       } else {
@@ -1907,6 +2078,26 @@ struct Extractor {
           table_open = true;
         if (segment.kind == BookControlKind::table_end)
           table_open = false;
+        if (!open.empty() && open.back().end_pending) {
+          // The marker has passed with an artwork envelope still open.  A
+          // closer of that envelope is the region's (`Region::trailing`);
+          // anything else ends the region at what it has.
+          auto &inner = open.back();
+          if (inner.envelope_tail(segment)) {
+            for (auto &enclosing : open)
+              if (&enclosing != &inner)
+                enclosing.segments.push_back(view);
+            inner.trailing.push_back(view);
+            inner.envelope(segment.kind);
+            if (!inner.envelope_pending()) {
+              close(std::move(inner));
+              open.pop_back();
+            }
+            continue;
+          }
+          close(std::move(inner));
+          open.pop_back();
+        }
         if (figure_start(segment)) {
           for (auto &enclosing : open)
             enclosing.segments.push_back(view);
@@ -1923,11 +2114,17 @@ struct Extractor {
           continue;
         }
         if (!open.empty()) {
-          for (auto &enclosing : open)
+          for (auto &enclosing : open) {
             enclosing.segments.push_back(view);
+            enclosing.envelope(segment.kind);
+          }
           if (figure_end(record, segment)) {
-            close(std::move(open.back()));
-            open.pop_back();
+            if (open.back().envelope_pending())
+              open.back().end_pending = true;
+            else {
+              close(std::move(open.back()));
+              open.pop_back();
+            }
           }
           continue;
         }
@@ -1959,6 +2156,13 @@ struct Extractor {
     }
     while (!open.empty()) {
       const auto &region = open.back();
+      if (region.end_pending) {
+        // Terminated: the marker was seen, and the envelope's closer never
+        // came.  The region is what it collected.
+        close(std::move(open.back()));
+        open.pop_back();
+        continue;
+      }
       result.declined.push_back(decline(
           region,
           has_picture(region)

@@ -1537,7 +1537,7 @@ references are linked through `CSELECT` targets such as `pic1` or `Pic1`.
 |`CSELECT ... pic...` |`CSELECT 35 9 pic1` |Selectable picture/image placeholder.
 |`CSART` / `CEART` |`csart` .. `ceart` |BUILD 1.3 artwork envelope around a picture selector (BookMaster `:artwork`).
 |`CSARTDESC <n>` / `CEARTDESC` |`csartdesc 1` .. `ceartdesc` |BUILD 1.3 description of picture <n> (BookMaster `:artdesc` .. `:eartdesc`); `SRPIC<n>` opens it.
-|`CARTDESC <text>` |`cartdesc   This graphic shows ...` |One line of the description; bare `cartdesc` is a blank line.
+|`CARTDESC <text>` |`cartdesc   This graphic shows ...` |One line of the description; bare `cartdesc` is a blank line. A `cselect` inside the description is escaped as `cvselect <col> <len> <target>` on a line of its own.
 |`SRPIC<n>` |`SRPIC1` |Anchor of picture <n>, written inside its description envelope.
 |===
 
@@ -1582,13 +1582,35 @@ or, in `ez30qn00` topic `4.3` record 441, by a `*`.  A description can be
 empty: `ez302400` topic `3.3` record 211 writes `csartdesc 1`, `SRPIC1`,
 `ceartdesc` and nothing between.
 
+An uncaptioned picture closes its figure before its description, in three
+orders: `SC21-8295-03` (`qbkavl02.boo`) topic `1.1` record 46 writes
+`cartdesc   REQTEXT`, `SREFIG`, `ceartdesc`, `cz OFF EFIG 0 0`; `DFHP7A00`
+topic `3.2.1` records 569-570 continue the `cartdesc` lines behind `SREFIG`
+and close them with `ceartdesc`; `QB3AWG04` topic `APPENDIX1.2.1.1` record
+628 writes the whole `csartdesc 2`, `SRPIC2`, `ceartdesc` group behind
+`SREFIG`.  The `cz OFF EFIG` closer always follows the envelope's last
+control.  `REQTEXT` is BookMaster's stand-in for required text the source
+never gave; hosted keeps it as the image's `alt` (SC31-8248-01 `2.15`,
+DT 19980611104703: `alt="   REQTEXT"`).
+
+A figure of several pictures wraps each in its own envelope: `SC21-8295-03`
+topic `A.0` record 717 writes `csart`, `cselect 3 9 PIC6`, `ceart`,
+`csartdesc 6`, `SRPIC6`, `cartdesc   REQTEXT`, `ceartdesc`, then the same
+five for `PIC7`, then one caption and `SREFIG`.  A cross reference inside a
+description is written as an escaped selector line: `DFHPA608` topic `1.2.6`
+record 137 line 27 is `cartdesc <?> cvselect 13 8 FIGDSTAB`, over the
+`Figure 7` that opens the next `cartdesc` line at column 13.
+
 None of the hosted BookServer editions on hand carries a BUILD 1.3 book, so
 there is no hosted rendering of the envelope to compare against.  The model
 therefore admits it on its own terms: one picture figure, whose `SRPIC<n>`
 anchor is a second anchor opening the picture, whose description is carried
 as the image's alternative text, and whose five boundary controls own their
-opcode cells and nothing else.  An envelope naming a picture the region does
-not draw (`csartdesc 2` around `PIC1`) declines.  Before the envelope was
+opcode cells and nothing else.  The envelope's tail behind `SREFIG` is the
+figure's, and each picture of a several-picture figure carries its own
+description and anchor.  An envelope naming a picture the region does not
+draw (`csartdesc 2` around `PIC1`) declines; an escaped `cvselect` line
+contributes no description text.  Before the envelope was
 read, `SRPIC1` was an unexplained structural control inside the region, the
 figure declined, and 42 of the book's 186 topics went to the verbatim
 best-effort route with `csart` and `cartdesc` printed as text.
