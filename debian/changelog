@@ -1,3 +1,13 @@
+geist (0.3.1) unstable; urgency=medium
+
+  * Warm BooIndex shelves automatically without blocking Apache startup.
+  * Persist shelf metadata across workers and restarts in GeistCacheDir;
+    create the cache directory with worker ownership during installation.
+  * Render Part-level chapter menus and documented vertical spacing forms.
+  * Align the CMake and vcpkg release versions.
+
+ -- Yvan Janssens <yvanj@cyber.gent>  Sun, 04 Oct 2026 12:24:15 +0000
+
 geist (0.2.0) unstable; urgency=medium
 
   * libgeist-dev no longer ships the static library.
