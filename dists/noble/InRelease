@@ -1,0 +1,59 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+Architectures: amd64
+Codename: noble
+Components: stable unstable
+Date: Sun, 04 Oct 2026 13:08:33 +0000
+Description: IBM BookManager BOO tools
+Label: Geist
+Origin: Geist
+Suite: noble
+MD5Sum:
+ 0126b742e44ebeb229888c7e00d1e1f2             3360 Release
+ 45a2b06c00259c7f50d57840a8a56a23            22497 stable/binary-amd64/Packages
+ 364a7148083ad3dca7a930658b4c9c0e             5299 stable/binary-amd64/Packages.gz
+ 3e1443fd0058772cd6b863cc755d579e               80 stable/binary-amd64/Release
+ a22b97eeb75c171d639454cade67b428            30019 unstable/binary-amd64/Packages
+ 4f038a313f9b25cf7fd7123aa183e406             6363 unstable/binary-amd64/Packages.gz
+ 76f7a2cdd0b7053b93ac6ba9099f5189               82 unstable/binary-amd64/Release
+SHA1:
+ 4c3b8ff22ee40aeb0e04e610d840087fb4e70edc             3360 Release
+ bd1cf480ab57e506265bd95f982ef870be655437            22497 stable/binary-amd64/Packages
+ bbafcafe6e0bef876c809f44a3fbd930756a895c             5299 stable/binary-amd64/Packages.gz
+ b221f23f102142ef9a7a3c59462d564f55695616               80 stable/binary-amd64/Release
+ 7f018644a52e8ffe2c4f87d4e9ce65772f1eef7f            30019 unstable/binary-amd64/Packages
+ cfbf63e05aa1b16b3ca3c2666183f1b5160811d6             6363 unstable/binary-amd64/Packages.gz
+ 46679bd8b958d8d7bf5f5945167e63f8fb23d443               82 unstable/binary-amd64/Release
+SHA256:
+ 0c35a86b3fee3c210464605f779a4d78cac8f0cde2dd050b69871c94c69750f2             3360 Release
+ 039ea2431cdaa2153593fff88edc6b342d4e300fc4c9bf493b78c58c97e4e7fb            22497 stable/binary-amd64/Packages
+ 62c658fd7d49e5f2528939ffe29a8070b38c82aed4e301c2d0e2bd3f3f32ce45             5299 stable/binary-amd64/Packages.gz
+ 8566a80be1f71f5ec038e68fbde3b5ed4a9754f07628650e1bebfc9acc4775a8               80 stable/binary-amd64/Release
+ 6f69de14a5e7f2f02f10d1e46e8e8e934bc57132e2fdaa42265c457d013f443e            30019 unstable/binary-amd64/Packages
+ 61600b2e6f0285c8ec88b396571bbf008d9ebb4b6d65d14e4dee72a14ad0e787             6363 unstable/binary-amd64/Packages.gz
+ ad9d114e892d4164b2eebaa88e412cef8668e6cefa12a6f493b33a62707149a5               82 unstable/binary-amd64/Release
+SHA512:
+ ec3df1b2751984034b586cc2d02705de1c4fe595361f89c3de5fe8524b69a50ece91c06e8ebceed1b76c5c572b7c9647abb137c9eee9ee30b50024f93a4bd8c8             3360 Release
+ 4f84a8c3691edf6d99b52c364f26242f3f37f687c888e6b4cb313613653570cf6e8a94c55b2ad57e29207b3531ef31df6e87c47a2b1b0a5ec13ec5914e28086d            22497 stable/binary-amd64/Packages
+ cfa33f7e561b9c08509bb8607229c62e0baf89bb48c3dcec03a17d0a8f0df90029902dd80eb3ddc4ff2b8949b63dc7b66b26536b0eb25f065a73bedfda6721e7             5299 stable/binary-amd64/Packages.gz
+ 3708793603df3c5d0d31135252d144335e02c28bb4c1197e9c559d284018968cc61e14d042fb710fab51277489d5d1c0790e6401261fa8942a599e19b6d6ec0f               80 stable/binary-amd64/Release
+ 69bed98991a96864c4cb04d80032c8a7a3b6d6530f19bbff8cd2b0eb684cebd000a87fedaa5f1039077637b6a06752e6336ade2e05b9a35099729cf238086c7e            30019 unstable/binary-amd64/Packages
+ fa041be11be12b90d84a07219010cbd41e7745f8a3819fa03b99ec0f747113c46606739e5871699397d6ee570f8b4484721119900896f911dc1e2c1475918a96             6363 unstable/binary-amd64/Packages.gz
+ a54c46711346d31e3c522beb463b9306362c0bcccad582f5aef605f98ed27db4ce5a2747075619424e830db65077058e5d0d5ac808357ba1276888bb8fc0ab9b               82 unstable/binary-amd64/Release
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCgAdFiEEjX8mVTaD6yQEUrDUHwII5RHybPMFAmrCT9EACgkQHwII5RHy
+bPOYpQ//a9CKs15hd6O+Ls/bKpPvahETFEH3W3uAEi0uvkBHnq/80IhUs7nZM4Ie
+QLWynLjxJdVAwlJaYPa2snrKORU6xxELObiev+t+ASyV9p+t4xq6kPJem0pKKFYJ
+VSOvEm+/XQ4l9g+TvTM5dUVqUaKi5F4m1NzWa2iwMibl/Myouh9KOrOlXZaNidXL
+PramrsXWpqKeF+L932jO7RswD4BhYAtteV+nDSuhalAgFTubaqxxmIqpgjdiU9dL
+XctugjmOGZDBFrvhqXpZNnFWACQQa9ElzN3JKtlB5nYAdLMQ+wzVFolNpiTUg5d0
+QkFf4g1C7vTTc790lFG+D5Rl6gd3iMo4AQxFd846jlBlexMYBDc0rk2BQH4Bu3Yk
+JEtE45dzamFuR9xcQQ9dI0SWlr03Jy20nU4kKbMsm4k/fqlZJprGPeyZgJb86OGB
+FxVqdkOU70VEVzHix+FNOor3cVHYRyYdmF3JAJfQd1flJnq9mSfWlqxodYFj2EQo
+WOAQqbJvbOKILKgcXrby9mzmV1zGd43BosMS1RfjRrduvnJG6WLVKVHHXiOHjWIc
+cERFwMwrDRPAHF2rKWYlZuvnRV9P6dPxQC74DBLY67x+L+JOaO+20N93k5qTwgIf
+EPoDtJfuZEktOC8MVh6PVZS66Ab20Au5YMopcHZwwWt5CWL0GKM=
+=M22Y
+-----END PGP SIGNATURE-----

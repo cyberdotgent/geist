@@ -1,0 +1,59 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+Architectures: amd64
+Codename: bookworm
+Components: stable unstable
+Date: Sun, 04 Oct 2026 13:08:33 +0000
+Description: IBM BookManager BOO tools
+Label: Geist
+Origin: Geist
+Suite: bookworm
+MD5Sum:
+ faaeef5a8797ed24863df921f5455333             3366 Release
+ b4b2a72c3aee486bcb3ed1a2a267e424            22713 stable/binary-amd64/Packages
+ cec1b029bf4301ae9d284b0abb2ec78d             5289 stable/binary-amd64/Packages.gz
+ 867fb358e772e33da6b16983bd78aeff               83 stable/binary-amd64/Release
+ e891640a8478df3bd23f35b658b94cd1            30283 unstable/binary-amd64/Packages
+ 9031618e1c5c931d71a6c3e3a610869d             6361 unstable/binary-amd64/Packages.gz
+ ead682f6528ab1491f2a5ca7dd9a4857               85 unstable/binary-amd64/Release
+SHA1:
+ 2e0bd5c530b8959bd791e18f7725453d13e7c237             3366 Release
+ 3dfbe07340a1d9be88ad1e8babfa06a90c038b38            22713 stable/binary-amd64/Packages
+ 0b7effab10e8de120131db8b3508fd379cd95a8a             5289 stable/binary-amd64/Packages.gz
+ 72b969c5da0c2a35513e3e93fdde31baf1f60533               83 stable/binary-amd64/Release
+ 13bf0ef77d5576dfbfc5b1fcbe69df8e48df0652            30283 unstable/binary-amd64/Packages
+ b30edccc3b1682bb8c1b0624eb9402db399a3810             6361 unstable/binary-amd64/Packages.gz
+ c3d553dd129b302ea04d0d795072ad3f58bc3a53               85 unstable/binary-amd64/Release
+SHA256:
+ c420f63fdcb7c23e6d5f9d7dfe78406dfa8210ff37a9ba483d2d63a64ed0b3a9             3366 Release
+ 5d8c412b14df9e4f2dacb0e56a6bfdf317e2a48526e8ceb20681ab41c1c40d75            22713 stable/binary-amd64/Packages
+ 3848dd00fbae57e01b8481a881080e4677dd6d071c8af35ed38e6c35ac1d81c6             5289 stable/binary-amd64/Packages.gz
+ 4c86173ec2a7f91a68c6e67b3380d072203c5fd1d5cfa6bbfec92aa2c763b791               83 stable/binary-amd64/Release
+ f140a5923b01dab556ba2a1c1932bcca3d628d3be416fe00963263048d90bee8            30283 unstable/binary-amd64/Packages
+ fce7ab126bf40893d2079aea7f82158f16be459496d9955ce7dea726ead8593e             6361 unstable/binary-amd64/Packages.gz
+ 232a970a9f4dcde966c579ec3364a4c20c39da78f937ce39932f09b49b0e303c               85 unstable/binary-amd64/Release
+SHA512:
+ f31733361c4bb6ea06100a4721925126a77057942ddfee77edafe9bd5d5e66c95c9d243936eaeefbf0e38131a91ef9b542e43515f2d7cb5833feb870e77d3753             3366 Release
+ 0aec9f12c3ee86ec389097962f04a407e7fe207914005f0bae8cb66abed9cf8674f82ffe8aaa6a7bbcf1a5f59ddc0d6497518ecff8c147b809d9b57c4dd8f88c            22713 stable/binary-amd64/Packages
+ c62bc78380574a05d4181da52e9de1b546cee09e44d951cb4fd68204bd260ca975808ebb3baa16a4e0bbf78f3396ce824ff9648b8491aab953fd62ba19999e94             5289 stable/binary-amd64/Packages.gz
+ 636c0201e0c020f6ea17b580e70a56b4a8b670e9ccc86fb0d2c943ab1dba0da62a9421e2522f9123700ae359ed96772337621b13897e46310637eee74446de20               83 stable/binary-amd64/Release
+ 2784db407ab01a2c980aef6c17216bd9a108a43e6fa65827b2e4dd84e44ff90ce0fdb33c7f11756f81b809a302b3b59f51096617d443f129a7fc9557d3cb27c6            30283 unstable/binary-amd64/Packages
+ b9645f23e6f59d3ba2087e27f197ff67337fa0b5859b5a1445299c2e9f26a3e5379b94b3c43f327ff6e6107d490e1a90357117f21a8759bc138799072d1440c3             6361 unstable/binary-amd64/Packages.gz
+ 2f798b51f99ac6f893e04997dea8e8feb836748c005a391204764d018dcab90470e9a8875866a970d975713dd68ceac9f2130c80a88e9177037c754d31a1ca3a               85 unstable/binary-amd64/Release
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCgAdFiEEjX8mVTaD6yQEUrDUHwII5RHybPMFAmrCT9EACgkQHwII5RHy
+bPNSCg//fB3McRuUTBp46toVCl8t/vyCFrPPuf5a1FLgVzSnaaOw0cds85vrOtXr
+UYNlxHKBwRiXqQ7jGbJ28c2fuGFUQpppaVRVt+n3PLVxTeOws65rRVS7ejo+tr+L
+Eu3Cjh6v2rX7DA1cA2FtlVbNL82BA3VQ0fPMSurRgEBsOs7NZCxbN6VD0WSn/uW8
+b8MRBEl6gO1AwGhTaoZ55gP6jezGIMGi4fYhR808wAssREncGB0nkP95mZe04D5+
+x23/rb7gC7UeLzLKkkhpJN2xLOnO/plk6zs+rbFm2NOlW3iw1+vQn/WBOGLiUcD2
+N1EZjXyqLhuy17Gzkg0vWSuoZH7TqavZzYIzv5ChPpkufhQNGrlbWeiMV3MUT62g
+lkH0nNduchKajmfD1aPt3+Blk4hz0SusT88PbF31AhbX+TWjPFHkpUMw7iMydwiD
+lKCbRvIj2Yu4as+VSYUZX2+PDqJx/1vXzlBx7EL/XPrwihC2BPqCOJBgopQWROeG
+OSiB9ooOT7fG64FIpD6GjjG/8pFQABBVVgutRTcmnoeVb0KFCOGhxsfHAKUb+TVw
+I6hvSqR1CpMwPiWVpZDEdbhPxb/mnP6dnuIy+uqOXA9KtzYsBXG9qbFmTjoneXPb
+EK0nrZphL4pGdnIaTLWabqTw+JIkEekGitzasWD6yrWGQPYWI8s=
+=guoc
+-----END PGP SIGNATURE-----
