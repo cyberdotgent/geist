@@ -77,6 +77,7 @@ namespace {
 // first request. Server scope, because it happens once per process before
 // any request exists.
 struct ServerConfig {
+  const char* cache_dir = nullptr;
   apr_array_header_t* preload = nullptr; // of const char*
 };
 
@@ -1606,6 +1607,7 @@ void* merge_server_config(apr_pool_t* pool, void* base_config,
   // A vhost adds to what the main server asked for rather than replacing it:
   // preloading is a process-wide warm-up, not a per-vhost setting.
   merged->preload = apr_array_append(pool, base->preload, add->preload);
+  merged->cache_dir = add->cache_dir != nullptr ? add->cache_dir : base->cache_dir;
   return merged;
 }
 
@@ -1665,6 +1667,21 @@ const char* set_index(cmd_parms*, void* dir_config, const char* value) {
   return nullptr;
 }
 
+const char* set_cache_dir(cmd_parms* parms, void*, const char* value) {
+  const char* error = ap_check_cmd_context(parms, NOT_IN_DIR_CONTEXT);
+  if (error != nullptr) {
+    return error;
+  }
+  const char* directory = ap_server_root_relative(parms->pool, value);
+  if (value[0] == '\0' || directory == nullptr) {
+    return "GeistCacheDir requires a valid directory path";
+  }
+  auto* config = static_cast<ServerConfig*>(
+      ap_get_module_config(parms->server->module_config, &geist_module));
+  config->cache_dir = directory;
+  return nullptr;
+}
+
 const char* set_preload(cmd_parms* parms, void*, const char* value) {
   const char* error = ap_check_cmd_context(parms, NOT_IN_DIR_CONTEXT);
   if (error != nullptr) {
@@ -1698,9 +1715,13 @@ const char* set_index_title(cmd_parms* parms, void* dir_config,
   return nullptr;
 }
 
-// OR_ALL so every directive works in .htaccess wherever AllowOverride permits,
-// and per-directory or per-file in the server config.
+// OR_ALL settings also work in .htaccess wherever AllowOverride permits;
+// cache storage and startup preloading require server configuration.
 const command_rec geist_directives[] = {
+    AP_INIT_TAKE1("GeistCacheDir", reinterpret_cast<cmd_func>(set_cache_dir),
+                  nullptr, RSRC_CONF,
+                  "Persistent cache directory; relative to ServerRoot. "
+                  "Server configuration only"),
     AP_INIT_TAKE1("GeistDownload", reinterpret_cast<cmd_func>(set_download),
                   nullptr, OR_ALL,
                   "Offer the BOO file for download: On (default) or Off"),

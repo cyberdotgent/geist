@@ -1,5 +1,21 @@
 #!/bin/sh
+# Copyright 2026 Yvan Janssens
+# SPDX-License-Identifier: Apache-2.0
 set -e
+
+if [ "$1" = configure ]; then
+    APACHE_RUN_USER=www-data
+    APACHE_RUN_GROUP=www-data
+    if [ -r /etc/apache2/envvars ]; then
+        . /etc/apache2/envvars
+    fi
+    if [ -L /var/cache/mod_geist ]; then
+        echo "Refusing cache directory symlink /var/cache/mod_geist" >&2
+        exit 1
+    fi
+    install -d -m 0750 -o "$APACHE_RUN_USER" -g "$APACHE_RUN_GROUP" \
+        /var/cache/mod_geist
+fi
 
 # Enabling the module is the package's job rather than the build's, so an
 # administrator who disables it keeps that across upgrades: a2enmod is only

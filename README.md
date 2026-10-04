@@ -77,7 +77,7 @@ the handler and carries the defaults.
 
 ### Settings
 
-Four, valid in the server config, a `<Directory>` or `<Files>` block, and in
+These settings are valid in the server config, a `<Directory>` or `<Files>` block, and in
 `.htaccess` where `AllowOverride` permits it:
 
 ```apache
@@ -87,6 +87,12 @@ BooIndex      Off    # list the books in a browsed directory (default Off)
 BooIndexTitle "..."  # pin the shelf's name; by default it comes from .title
 HideVersion   Off    # Off (default) reports the version; On says nothing
 ```
+
+`GeistCacheDir /var/cache/mod_geist` reserves a persistent cache directory.
+It is valid in server and virtual host configuration; virtual hosts inherit
+it unless they override it. Relative paths resolve against `ServerRoot`.
+This preparation configures storage; cached index serialization is not yet
+implemented.
 
 The module reports which version is running in three places: a footer on
 every page it renders, a `mod_geist/<version> libgeist/<version>` component
@@ -334,6 +340,18 @@ configuration live, so it installs to httpd's own directories rather than the
 prefix, and it is enabled on install. `DESTDIR` is honoured throughout, and
 `-DGEIST_APACHE_ENABLE=OFF` installs the configuration without enabling it,
 which is what a distribution package usually wants.
+
+Installation creates `/var/cache/mod_geist` with mode `0750`, owned by the
+httpd worker user and group. Set `GEIST_APACHE_CACHEDIR`,
+`GEIST_APACHE_CACHE_USER` and `GEIST_APACHE_CACHE_GROUP` at CMake configuration
+time to override the directory and identity. The default identity is
+`www-data` for Debian configuration layouts and `apache` otherwise; other
+installations must supply their worker identity. Staged `DESTDIR` installs
+set permissions but leave ownership to packaging. Debian packages use the
+worker identity in `/etc/apache2/envvars` on installation and upgrade.
+If you override `GeistCacheDir` in httpd configuration, create that directory
+with equivalent permissions yourself. Cache contents may be removed when
+httpd is stopped.
 
 After installing a new module, **restart** httpd rather than reloading it: a
 graceful reload re-reads the configuration while the old module is still

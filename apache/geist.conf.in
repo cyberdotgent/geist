@@ -4,6 +4,10 @@
 # is reached at /packet.boo, with /topic/<id>, /object/<id> and /download
 # below it.
 <IfModule geist_module>
+    # Persistent cache storage, owned by the httpd worker user.
+    # Server configuration only; relative paths resolve against ServerRoot.
+    GeistCacheDir "@GEIST_APACHE_CACHEDIR@"
+
     # Hand .boo files to the module. It also recognises them by name, so this
     # is here to make the binding explicit and overridable rather than
     # because it is required.

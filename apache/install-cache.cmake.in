@@ -1,0 +1,24 @@
+# Copyright 2026 Yvan Janssens
+# SPDX-License-Identifier: Apache-2.0
+
+set(_cache "$ENV{DESTDIR}@GEIST_APACHE_CACHEDIR@")
+if(IS_SYMLINK "${_cache}")
+  message(FATAL_ERROR "Refusing to install cache permissions through symlink ${_cache}")
+endif()
+file(MAKE_DIRECTORY "${_cache}")
+execute_process(COMMAND chmod 0750 "${_cache}" RESULT_VARIABLE _mode_result)
+if(NOT _mode_result EQUAL 0)
+  message(FATAL_ERROR "Cannot set permissions on ${_cache}")
+endif()
+# Staged package files remain owned by the builder. The package's postinst
+# assigns the actual worker identity on the target machine.
+if("$ENV{DESTDIR}" STREQUAL "")
+  execute_process(COMMAND chown
+    "@GEIST_APACHE_CACHE_USER@:@GEIST_APACHE_CACHE_GROUP@" "${_cache}"
+    RESULT_VARIABLE _owner_result)
+  if(NOT _owner_result EQUAL 0)
+    message(FATAL_ERROR
+      "Cannot set ownership on ${_cache}; install as root and configure "
+      "GEIST_APACHE_CACHE_USER/GROUP to match httpd's worker identity")
+  endif()
+endif()

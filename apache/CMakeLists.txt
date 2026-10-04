@@ -107,7 +107,6 @@ option(GEIST_APACHE_ENABLE
 )
 
 configure_file(geist.load.in "${CMAKE_CURRENT_BINARY_DIR}/geist.load" @ONLY)
-configure_file(geist.conf.in "${CMAKE_CURRENT_BINARY_DIR}/geist.conf" @ONLY)
 
 install(TARGETS mod_geist LIBRARY DESTINATION "${GEIST_APACHE_LIBEXECDIR}")
 
@@ -141,6 +140,26 @@ else()
     "'${GEIST_APACHE_CONFIG_LAYOUT}'."
   )
 endif()
+
+# Persistent state belongs outside the runtime directory and install prefix.
+set(GEIST_APACHE_CACHEDIR "/var/cache/mod_geist" CACHE PATH
+  "Persistent mod_geist cache directory")
+if(NOT IS_ABSOLUTE "${GEIST_APACHE_CACHEDIR}")
+  message(FATAL_ERROR "GEIST_APACHE_CACHEDIR must be an absolute path")
+endif()
+if(_geist_apache_debian_layout)
+  set(_geist_cache_identity "www-data")
+else()
+  set(_geist_cache_identity "apache")
+endif()
+set(GEIST_APACHE_CACHE_USER "${_geist_cache_identity}" CACHE STRING
+  "httpd worker user owning the persistent cache")
+set(GEIST_APACHE_CACHE_GROUP "${_geist_cache_identity}" CACHE STRING
+  "httpd worker group owning the persistent cache")
+configure_file(geist.conf.in "${CMAKE_CURRENT_BINARY_DIR}/geist.conf" @ONLY)
+configure_file(install-cache.cmake.in
+  "${CMAKE_CURRENT_BINARY_DIR}/install-cache.cmake" @ONLY)
+install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/install-cache.cmake")
 
 # Where httpd reads module drop-ins from, which is not derivable from
 # apxs -q SYSCONFDIR alone.
