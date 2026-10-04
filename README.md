@@ -88,11 +88,11 @@ BooIndexTitle "..."  # pin the shelf's name; by default it comes from .title
 HideVersion   Off    # Off (default) reports the version; On says nothing
 ```
 
-`GeistCacheDir /var/cache/mod_geist` reserves a persistent cache directory.
+`GeistCacheDir /var/cache/mod_geist` selects the persistent shelf metadata cache.
 It is valid in server and virtual host configuration; virtual hosts inherit
 it unless they override it. Relative paths resolve against `ServerRoot`.
-This preparation configures storage; cached index serialization is not yet
-implemented.
+Cache files contain book identities, not rendered HTML or BOO contents. A missing
+or unusable cache falls back to probing books normally.
 
 The module reports which version is running in three places: a footer on
 every page it renders, a `mod_geist/<version> libgeist/<version>` component
@@ -174,27 +174,45 @@ A shelf is rebuilt when the directory changes, and served from memory
 otherwise -- adding, removing, renaming, replacing or restoring a book, and
 editing `.title`, all move the page's `ETag`, so a conditional request gets a
 `304` until something actually changes. Change is detected from every file's
-name, mtime and size rather than from a count or a newest timestamp, because
+name and file metadata rather than from a count or a newest timestamp, because
 restoring a book with `cp -p` moves its mtime backwards and a rename moves no
 timestamp at all.
 
 Books are cached per httpd child, so memory grows with what has been browsed
 and `MaxConnectionsPerChild` is what reclaims it.
 
-The first request to a large shelf pays for reading every book's identity --
-about 2 ms each, so a 17,000-book collection takes half a minute -- and each
-child process pays that separately. `BooIndexPreload` moves it to startup:
+With `BooIndex On`, shelves warm automatically in a background thread after
+Apache forks its children and drops privileges. Startup does not wait for the
+walk. The walk discovers directories under each virtual host's document root
+and filesystem `<Directory>` roots that enable `BooIndex`, including wildcard
+roots. Apache evaluates `<Directory>`, `<DirectoryMatch>` and permitted
+`.htaccess` settings for each directory. An inherited `BooIndex Off` suppresses
+book probing there; discovery continues because a descendant may enable it
+again. Directory symlinks are not followed. Regex roots outside the document
+root, URL-only settings such as `<Location>`, and request-dependent `<If>`
+settings are handled on requests.
 
-```apache
-BooIndexPreload /var/www/html/books
-```
+Virtual hosts sharing a cache directory share one walk: a shelf is warmed when
+any of them enables it. A nonblocking file lock elects one child per tree. A generation
+marker prevents later children repeating a completed startup walk; a restart
+or graceful reload walks again. The selected child writes one versioned metadata
+snapshot per shelf to `GeistCacheDir`. Other children and later server runs reuse
+those identities after checking the live filenames, sizes, modification and
+change times, and device/inode identifiers where available. Restarts therefore
+scan the tree but avoid reading unchanged books. Metadata checks assume ordinary
+filesystem changes; they are not cryptographic verification of BOO contents.
 
-Server configuration only, and may be repeated. It runs in the parent before
-any child is forked, so every child inherits the result rather than warming
-itself; a request after startup would warm one child only. A directory it
-cannot read is logged and skipped, never fatal. Measured on a 400-book shelf:
-495 ms on the first request without it, 3 ms with it, against 465 ms added to
-startup once.
+Snapshots use bounded, explicit binary fields and a corruption checksum. Unknown
+versions, decoder revisions, oversized or malformed snapshots cause a cache miss.
+Writes use private temporary files and atomic replacement; failed probes are not
+persisted. Cache files and locks must be writable only by Apache's trusted worker
+identity. Shutdown cancels the walk between books and joins the thread before
+its configuration is released. A first request during warming builds any missing
+identities normally, and shelves reached later refresh their cache on demand.
+HTML is still rendered under the request's own URL, theme and title settings.
+
+`BooIndexPreload` is retained for compatibility as an extra asynchronous walk
+root, respecting `BooIndex` settings. New configurations need only `BooIndex On`.
 
 Install a book atomically -- write it under a temporary name in the same
 directory and `mv` it into place -- because a book read while it is still

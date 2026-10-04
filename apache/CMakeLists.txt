@@ -46,7 +46,10 @@ add_custom_command(
   VERBATIM
 )
 
-add_library(mod_geist MODULE mod_geist.cpp "${GEIST_ASSET_HEADER}")
+find_package(Threads REQUIRED)
+add_library(mod_geist MODULE mod_geist.cpp index_warming.cpp shelf_index.cpp
+  shelf_snapshot.cpp cache_store.cpp "${GEIST_ASSET_HEADER}")
+target_link_libraries(mod_geist PRIVATE Threads::Threads)
 
 set_target_properties(mod_geist PROPERTIES
   PREFIX ""            # Apache loads mod_geist.so, not libmod_geist.so.
@@ -87,6 +90,24 @@ if(GEIST_APACHE_LIBRARIES)
 endif()
 
 target_compile_options(mod_geist PRIVATE -Wall -Wextra)
+
+enable_testing()
+add_executable(apache_shelf_cache_synthetic_test
+  "${CMAKE_SOURCE_DIR}/tests/apache_shelf_cache_synthetic.cpp"
+  shelf_snapshot.cpp cache_store.cpp)
+target_compile_features(apache_shelf_cache_synthetic_test PRIVATE cxx_std_17)
+target_include_directories(apache_shelf_cache_synthetic_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME apache_shelf_cache_synthetic_test COMMAND apache_shelf_cache_synthetic_test)
+
+find_program(GEIST_HTTPD NAMES apache2 httpd)
+if(GEIST_HTTPD AND EXISTS "${GEIST_APACHE_LIBEXECDIR}/mod_mpm_event.so")
+  add_test(NAME apache_index_warming_test COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_SOURCE_DIR}/tests/apache_index_warming.py"
+    --httpd "${GEIST_HTTPD}" --modules "${GEIST_APACHE_LIBEXECDIR}"
+    --module "$<TARGET_FILE:mod_geist>"
+    --fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/packet.boo")
+  set_tests_properties(apache_index_warming_test PROPERTIES TIMEOUT 90)
+endif()
 
 # httpd resolves the module's symbols against itself at load time.
 if(APPLE)

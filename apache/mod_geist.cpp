@@ -35,7 +35,9 @@
 
 #include "assets.hpp"
 
-#include "geist/probe.hpp"
+#include "config.hpp"
+#include "index_warming.hpp"
+#include "shelf_index.hpp"
 #include "geist/version.hpp"
 
 #include <httpd.h>
@@ -73,29 +75,7 @@ namespace {
 // Configuration
 // ---------------------------------------------------------------------------
 
-// Directories whose book identities are read at startup rather than on the
-// first request. Server scope, because it happens once per process before
-// any request exists.
-struct ServerConfig {
-  const char* cache_dir = nullptr;
-  apr_array_header_t* preload = nullptr; // of const char*
-};
-
-enum class Tri { unset, off, on };
-enum class Theme { unset, automatic, light, dark };
-
-struct DirConfig {
-  Tri download = Tri::unset;
-  Theme theme = Theme::unset;
-  // Whether a directory of books lists itself. Off unless asked: turning it
-  // on publishes the names and titles of every book in the directory, which
-  // is a disclosure decision only the operator can make.
-  Tri index = Tri::unset;
-  // The heading the shelf carries, after BookServer's BKCTITLE.
-  const char* index_title = nullptr;
-  // Whether the module keeps quiet about which version it is.
-  Tri hide_version = Tri::unset;
-};
+using namespace geist_apache;
 
 // A book, opened once per process and shared by every worker thread.
 // libgeist documents that after open() every const operation on a document
@@ -136,36 +116,15 @@ std::unordered_map<std::string, std::shared_ptr<Book>>& cache() {
 //
 // A book's *identity* -- what a listing shows -- costs about a millisecond to
 // read with `geist::probe_book` and a couple of hundred bytes to keep, so it
-// is cached per file, validated against that file's own mtime and size, and
-// never evicted: six thousand books is around a megabyte.  Only the file that
-// changed is re-probed.
+// is cached per file against its live file metadata. shelf_index.cpp also
+// persists those identities in per-directory snapshots shared across child
+// processes and restarts. Only files whose identity changed are re-probed.
 //
 // The rendered *shelf* is a derived aggregate over all of them -- sorted,
 // deduplicated, serialised -- and reasoning about repairing one in place is
 // exactly the fiddly work worth refusing.  It is thrown away whole whenever
 // the directory's signature changes and rebuilt from the cached identities,
 // which costs milliseconds because no book is re-read.
-
-// One book's identity, as the shelf shows it.
-struct ShelfEntry {
-  std::string filename; // the book's identity in this URL space
-  std::string title;
-  std::string document_number;
-  std::string built;    // the book's own build stamp, not the file's mtime
-  apr_off_t size = 0;
-  // A book that cannot be read still gets a row: the operator needs to see
-  // that it is there and broken, not silently lose it from the shelf.
-  // A book that cannot be read is still listed, but says only that much: the
-  // reason names a local path, so it goes to the log instead.
-  bool readable = true;
-};
-
-// A cached identity, with what proves it still current.
-struct ShelfMeta {
-  apr_time_t mtime = 0;
-  apr_off_t size = 0;
-  ShelfEntry entry;
-};
 
 // The rendered listing for one directory.
 struct Shelf {
@@ -177,12 +136,6 @@ struct Shelf {
 std::mutex& shelf_mutex() {
   static std::mutex mutex;
   return mutex;
-}
-
-// Keyed by the book's full path.
-std::map<std::string, ShelfMeta>& shelf_meta() {
-  static std::map<std::string, ShelfMeta> meta;
-  return meta;
 }
 
 // Keyed by the directory's full path.
@@ -987,14 +940,6 @@ constexpr const char* kShelfScript = R"JS(<script>
 )JS";
 
 
-// One directory entry that is a readable regular .boo file.
-struct ShelfFile {
-  std::string path;
-  std::string name;
-  apr_time_t mtime = 0;
-  apr_off_t size = 0;
-};
-
 // Escapes for HTML text and quoted attributes. The shelf is built into a
 // cached string rather than written straight out, so it escapes without a
 // request pool of its own.
@@ -1012,42 +957,6 @@ std::string html_escape(const std::string& value) {
     }
   }
   return out;
-}
-
-// Every .boo in `directory`, in no particular order. Subdirectories are not
-// followed: a shelf is the books in one directory, as BookServer's collection
-// is, and recursing would make the cost of listing unbounded in the depth of
-// someone else's tree.
-std::vector<ShelfFile> scan_shelf(apr_pool_t* pool, const char* directory) {
-  std::vector<ShelfFile> files;
-  apr_dir_t* dir = nullptr;
-  if (apr_dir_open(&dir, directory, pool) != APR_SUCCESS) {
-    return files;
-  }
-  apr_finfo_t info;
-  while (apr_dir_read(&info, APR_FINFO_NAME | APR_FINFO_MIN, dir) ==
-         APR_SUCCESS) {
-    if (info.name == nullptr || info.name[0] == '.') {
-      continue; // no dotfiles, and never "." or ".."
-    }
-    if (!ends_with_boo(info.name)) {
-      continue;
-    }
-    const std::string path =
-        std::string(directory) + "/" + std::string(info.name);
-    // `apr_dir_read` reports the type for the name it walked; a symlink to a
-    // book still stats as a regular file, which is what we want.
-    apr_finfo_t stat_info;
-    if (apr_stat(&stat_info, path.c_str(), APR_FINFO_MIN, pool) !=
-            APR_SUCCESS ||
-        stat_info.filetype != APR_REG) {
-      continue;
-    }
-    files.push_back({path, std::string(info.name), stat_info.mtime,
-                     stat_info.size});
-  }
-  apr_dir_close(dir);
-  return files;
 }
 
 // What the directory looks like right now, as one comparable string.
@@ -1084,6 +993,9 @@ std::string shelf_signature(std::vector<ShelfFile> files,
     fold(file.name.data(), file.name.size());
     fold(&file.mtime, sizeof(file.mtime));
     fold(&file.size, sizeof(file.size));
+    fold(&file.stamp.ctime, sizeof(file.stamp.ctime));
+    fold(&file.stamp.device, sizeof(file.stamp.device));
+    fold(&file.stamp.inode, sizeof(file.stamp.inode));
   }
   // The shelf's name is part of the shelf: renaming it must rebuild the page
   // and change the ETag, exactly as adding a book does.
@@ -1100,128 +1012,6 @@ std::string shelf_signature(std::vector<ShelfFile> files,
                                     files.size(),
                                     static_cast<unsigned long long>(digest));
   return std::string(hex, written > 0 ? static_cast<std::size_t>(written) : 0);
-}
-
-// The identity of every book in `files`, reading only the ones whose cached
-// identity no longer matches the file on disk.
-std::vector<ShelfEntry> shelf_entries(server_rec* server,
-                                      const std::vector<ShelfFile>& files) {
-  std::vector<ShelfEntry> entries;
-  entries.reserve(files.size());
-  for (const auto& file : files) {
-    {
-      std::lock_guard<std::mutex> guard(shelf_mutex());
-      const auto found = shelf_meta().find(file.path);
-      if (found != shelf_meta().end() && found->second.mtime == file.mtime &&
-          found->second.size == file.size) {
-        entries.push_back(found->second.entry);
-        continue;
-      }
-    }
-
-    ShelfEntry entry;
-    entry.filename = file.name;
-    entry.size = file.size;
-    try {
-      const auto summary = geist::probe_book(file.path);
-      entry.title = summary.properties.title.empty()
-                        ? summary.properties.short_title
-                        : summary.properties.title;
-      entry.document_number = summary.properties.document_number;
-      entry.built = summary.directory.date.empty()
-                        ? std::string()
-                        : summary.directory.date + " " + summary.directory.time;
-    } catch (const std::exception& error) {
-      // A book copied into place non-atomically is truncated for as long as
-      // the copy runs, and reads as a broken container. Show the row, log the
-      // reason, and let the next request past the finished copy fix it: the
-      // mtime and size will have moved, so the entry revalidates by itself.
-      entry.readable = false;
-      // The reason names the file's full path, which belongs in the log and
-      // not in a page served to the world.
-      ap_log_error(APLOG_MARK, APLOG_INFO, 0, server,
-                   "mod_geist: cannot read %s for the shelf: %s",
-                   file.path.c_str(), error.what());
-    }
-    if (entry.title.empty()) {
-      entry.title = file.name; // never show a nameless row
-    }
-
-    {
-      std::lock_guard<std::mutex> guard(shelf_mutex());
-      shelf_meta()[file.path] = ShelfMeta{file.mtime, file.size, entry};
-    }
-    entries.push_back(std::move(entry));
-  }
-  return entries;
-}
-
-// Reads every book's identity in `directory` now, so the first request does
-// not have to.
-//
-// Only the identities are preloaded, not the rendered page. The cost is
-// entirely in reading the books -- about 2 ms each, so a 17,000-book shelf
-// takes half a minute -- while rendering the page from cached identities is
-// milliseconds. The page also depends on per-directory configuration (its
-// theme, its name, whether it reports a version) that does not exist outside
-// a request, so building it here would mean guessing at settings the first
-// request would then contradict.
-void preload_shelf(server_rec* server, apr_pool_t* pool,
-                   const char* directory) {
-  const apr_time_t started = apr_time_now();
-  const auto files = scan_shelf(pool, directory);
-  if (files.empty()) {
-    ap_log_error(APLOG_MARK, APLOG_WARNING, 0, server,
-                 "mod_geist: BooIndexPreload %s holds no books", directory);
-    return;
-  }
-
-  const auto entries = shelf_entries(server, files);
-  std::size_t unreadable = 0;
-  for (const auto& entry : entries) {
-    if (!entry.readable) {
-      ++unreadable;
-    }
-  }
-
-  const apr_time_t spent = apr_time_now() - started;
-  ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, server,
-               "mod_geist: preloaded %" APR_SIZE_T_FMT " book(s) from %s in "
-               "%" APR_TIME_T_FMT " ms%s",
-               entries.size(), directory, apr_time_as_msec(spent),
-               unreadable > 0 ? " (some unreadable; see above)" : "");
-}
-
-// Drops cached identities for books that are no longer in `directory`.
-// Nothing stale is ever *served* -- a book request stats the file before it
-// consults the cache, and the shelf is built from the directory scan -- so a
-// deleted book only wastes memory. This is what stops that leaking.
-void forget_missing(const std::string& directory,
-                    const std::vector<ShelfFile>& files) {
-  std::vector<std::string> present;
-  present.reserve(files.size());
-  for (const auto& file : files) {
-    present.push_back(file.path);
-  }
-  std::sort(present.begin(), present.end());
-
-  const std::string prefix = directory + "/";
-  std::lock_guard<std::mutex> guard(shelf_mutex());
-  for (auto it = shelf_meta().lower_bound(prefix); it != shelf_meta().end();) {
-    if (it->first.compare(0, prefix.size(), prefix) != 0) {
-      break;
-    }
-    // Only this directory's own books: a path with another '/' below the
-    // prefix belongs to a subdirectory with its own shelf.
-    const bool nested =
-        it->first.find('/', prefix.size()) != std::string::npos;
-    if (!nested && !std::binary_search(present.begin(), present.end(),
-                                       it->first)) {
-      it = shelf_meta().erase(it);
-    } else {
-      ++it;
-    }
-  }
 }
 
 // The shelf page. Self-contained: the module's book stylesheet is served from
@@ -1459,7 +1249,9 @@ int geist_dir_handler(request_rec* r) {
             directory, r->uri != nullptr ? r->uri : "/", config);
 
         built->html =
-            render_shelf(r, heading, shelf_entries(r->server, files), config);
+            render_shelf(r, heading, shelf_entries(r->server, r->pool, directory,
+                static_cast<ServerConfig*>(ap_get_module_config(
+                    r->server->module_config, &geist_module))->cache_dir, files), config);
         forget_missing(directory, files);
 
         std::lock_guard<std::mutex> guard(shelf_mutex());
@@ -1506,7 +1298,7 @@ int geist_dir_handler(request_rec* r) {
 // symptom is an unknown-directive error that looks like a configuration
 // problem. The revision is `git describe`, so a development build is
 // distinguishable from a release and a dirty tree from a clean one.
-int geist_post_config(apr_pool_t* pool, apr_pool_t*, apr_pool_t* ptemp,
+int geist_post_config(apr_pool_t* pool, apr_pool_t*, apr_pool_t*,
                       server_rec* s) {
   // httpd parses its configuration twice at startup, so this runs twice.
   // Logging on the second pass only keeps one line in the log; the marker
@@ -1542,36 +1334,13 @@ int geist_post_config(apr_pool_t* pool, apr_pool_t*, apr_pool_t* ptemp,
     ap_add_version_component(pool, version_string().c_str());
   }
 
-  // Preloading happens here, in the parent, before any child is forked, so
-  // every child inherits the warm cache through fork rather than each paying
-  // for it on its own first request. A `curl` after startup would warm
-  // exactly one child.
-  //
-  // ptemp for the directory scan: it is the pool httpd discards once
-  // configuration is done, and the cache itself is C++ heap that does not
-  // live in a pool at all.
-  //
-  // Failure is logged, never fatal: a preload that cannot read a directory
-  // must not stop httpd from starting.
+  // Only assign a shared generation here. Filesystem discovery and probing
+  // run after fork in child_init, so neither delays server startup.
+  const auto generation = std::to_string(apr_time_now());
   for (server_rec* server = s; server != nullptr; server = server->next) {
     auto* config = static_cast<ServerConfig*>(
         ap_get_module_config(server->module_config, &geist_module));
-    if (config == nullptr || config->preload == nullptr) {
-      continue;
-    }
-    for (int i = 0; i < config->preload->nelts; ++i) {
-      const char* directory = APR_ARRAY_IDX(config->preload, i, const char*);
-      try {
-        preload_shelf(server, ptemp, directory);
-      } catch (const std::exception& error) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, server,
-                     "mod_geist: preloading %s failed: %s", directory,
-                     error.what());
-      } catch (...) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, server,
-                     "mod_geist: preloading %s failed", directory);
-      }
-    }
+    config->generation = apr_pstrdup(pool, generation.c_str());
   }
   return OK;
 }
@@ -1678,7 +1447,9 @@ const char* set_cache_dir(cmd_parms* parms, void*, const char* value) {
   }
   auto* config = static_cast<ServerConfig*>(
       ap_get_module_config(parms->server->module_config, &geist_module));
-  config->cache_dir = directory;
+  std::string path(directory);
+  while (path.size() > 1 && path.back() == '/') path.pop_back();
+  config->cache_dir = apr_pstrdup(parms->pool, path.c_str());
   return nullptr;
 }
 
@@ -1689,9 +1460,10 @@ const char* set_preload(cmd_parms* parms, void*, const char* value) {
   }
   auto* config = static_cast<ServerConfig*>(
       ap_get_module_config(parms->server->module_config, &geist_module));
-  // Relative to the ServerRoot, as httpd resolves every other path.
-  *reinterpret_cast<const char**>(apr_array_push(config->preload)) =
-      ap_server_root_relative(parms->pool, value);
+  const char* directory = ap_server_root_relative(parms->pool, value);
+  if (value[0] == '\0' || directory == nullptr)
+    return "BooIndexPreload requires a valid directory path";
+  *reinterpret_cast<const char**>(apr_array_push(config->preload)) = directory;
   return nullptr;
 }
 
@@ -1735,9 +1507,8 @@ const command_rec geist_directives[] = {
                   "Heading for the book list; defaults to the directory name"),
     AP_INIT_TAKE1("BooIndexPreload",
                   reinterpret_cast<cmd_func>(set_preload), nullptr, RSRC_CONF,
-                  "Read the book identities in this directory at startup, so "
-                  "the first request to its shelf does not have to. May be "
-                  "repeated. Server configuration only"),
+                  "Deprecated: add a background walk root; BooIndex On now "
+                  "warms directories automatically. Server configuration only"),
     AP_INIT_TAKE1("HideVersion",
                   reinterpret_cast<cmd_func>(set_hide_version), nullptr,
                   OR_ALL,
@@ -1751,6 +1522,7 @@ const command_rec geist_directives[] = {
 
 void register_hooks(apr_pool_t*) {
   ap_hook_post_config(geist_post_config, nullptr, nullptr, APR_HOOK_MIDDLE);
+  ap_hook_child_init(start_index_warming, nullptr, nullptr, APR_HOOK_LAST);
   ap_hook_fixups(geist_fixups, nullptr, nullptr, APR_HOOK_MIDDLE);
   ap_hook_handler(geist_handler, nullptr, nullptr, APR_HOOK_MIDDLE);
   // Ordered explicitly rather than by LoadModule order: after mod_dir so a
