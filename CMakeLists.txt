@@ -541,6 +541,7 @@ foreach(synthetic_test
     cz_unopened_region_closer_synthetic
     art_description_figure_synthetic
     menu_wrapped_title_synthetic
+    chapter_menu_spacing_synthetic
     glossary_catalog_ir_synthetic
     message_catalog_ir_synthetic
     verbatim_cross_references_synthetic

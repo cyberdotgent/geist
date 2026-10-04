@@ -2815,7 +2815,7 @@ which hosted wraps in the anchor element.
 
 ----
 c.cp [<count>[<unit>]] [<display text>]
-c.sp <count> c | <count>p p c
+c.sp <count> | <count> c | <count> p | <count>p p c | <count>mm p c
 ----
 
 `c.cp` is the keep-together (conditional page) control and `c.sp` is the
@@ -2879,6 +2879,17 @@ its unit.
 
 `GC28-183` record 91 `c.sp 1 c` and `SC33-033` record 177 `c.sp 1 c` are served
 as nothing but the paragraph break between the heading and the following anchor.
+
+`DFHCAP34.boo` (build date `03/19/99 12:49:47`), topic `1.0`, logical
+record 72, also uses `c.sp 1 p` between its `ST Getting started` heading
+and `CMENU`. At file offset `0x2351a`, bytes `b8 c0` expand to `c.sp`;
+`0x2351c` byte `9c` expands to `1`, and `0x2351d` bytes `d1 81` expand to
+`p`. These are spacing operands, not a displayed `1 p` line. The same
+record carries `CHDLEVEL :H0`: byte `39` at `0x2350b` is the opcode and
+bytes `b4 85` at `0x2350c` are its `:H0` operand. Its following menu names
+`1.1` (Preparing your application to run) and `1.2` (Language considerations).
+This verifies that the Part-level heading form can introduce a chapter menu
+with a vertical skip before its items.
 
 [[markup_crev_revision_code_definitions]]
 ==== `c.rev` revision-code definitions

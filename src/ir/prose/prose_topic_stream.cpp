@@ -336,8 +336,8 @@ bool pagination_operand(const std::string& text) {
                      });
 }
 
-// `c.sp` operands.  Corpus wide only two spellings occur: `<n> c` (the
-// common vertical skip) and `<n>p p c`.  Neither carries display text.
+// The five documented c.sp operand forms carry vertical spacing, never
+// display text: a bare count, <n> c, <n> p, <n>p p c and <n>mm p c.
 bool vertical_space_operands(const std::string& lower_text) {
   std::size_t digits = 0;
   while (digits < lower_text.size() &&
@@ -345,7 +345,8 @@ bool vertical_space_operands(const std::string& lower_text) {
     ++digits;
   if (digits == 0 || digits > 3) return false;
   const auto rest = lower_text.substr(digits);
-  return rest == " c" || rest == "p p c";
+  return rest.empty() || rest == " c" || rest == " p" ||
+         rest == "p p c" || rest == "mm p c";
 }
 
 // Front matter carries a named `CHDLEVEL` form instead of an `h1`-`h6`
@@ -785,6 +786,9 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
   if (!heading_level.empty() && heading_level.front() == ':')
     heading_level.erase(heading_level.begin());
   envelope.heading_form = heading_level;
+  // :H0 is the chapter/Part level. HTML has no level zero; render it at
+  // the top heading level while retaining the source form as evidence.
+  if (heading_level == "h0") heading_level = "h1";
   if (heading_level.size() != 2 || heading_level.front() != 'h' ||
       heading_level.back() < '1' || heading_level.back() > '6') {
     if (!front_matter_heading_form(heading_level))
@@ -1887,8 +1891,8 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         // (GC28-183 1.3.3 record 91 `c.sp 1 c`, DT 19930625102617;
         // SC33-033 4.6 record 177 `c.sp 1 c` between the heading and
         // `<a name="SPTCHAATT">`, DT 19930422134757; SC34-425 2.4.3 record
-        // 1465, DT 19921112160049).  Two operand spellings occur corpus
-        // wide: `<n> c` and `<n>p p c`; anything else fails closed.  The
+        // 1465, DT 19921112160049). The documented count/unit forms
+        // carry spacing only; anything else fails closed. The
         // trailing spacing tokens stay in the stream because they can carry
         // the paragraph break, the reading `c.cp` already uses.
         if (!title_seen) return fail(error, "c.sp control precedes the title");
