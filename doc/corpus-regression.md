@@ -75,3 +75,12 @@ contains seven uppercase `.BOO` filenames, so a lowercase-only sweep misses
 part of it. For example, the full initial snapshot has 59 placeholder-run
 declines; the 26 lowercase books alone have 50. Neither count establishes
 faithfulness or authorizes an exemption.
+
+The baseline was ratcheted at `d1b9bbf6` after the caption fix: the 20 lost
+word occurrences in `SC09-2417-00` topic `1.3.3.4` are no longer allowed.
+The remaining total is 50, with the same route counts and no new losses.
+Markdown and HTML comparisons covered all 10,379 indexed topics across the
+33 books, independently of the TOC-only diagnostic gate. The reviewed output
+changes were three complete source titles, the restored caption, and 96
+caption-ending dots proven to be structural line-length bytes rather than
+visible punctuation.

@@ -23479,22 +23479,6 @@
     "SC09-2417-00.boo": {
       "conservation": {
         "deficits": {
-          "1.3.3.4": {
-            "activation": 2,
-            "and": 1,
-            "between": 1,
-            "default": 1,
-            "figure": 1,
-            "group": 2,
-            "ile": 2,
-            "is": 1,
-            "named": 1,
-            "opm": 2,
-            "program": 2,
-            "scenario": 1,
-            "split": 1,
-            "the": 2
-          },
           "3.1.6.1": {
             "aaa": 1,
             "abc": 2,
@@ -23509,9 +23493,9 @@
         },
         "summary": {
           "checked": 345,
-          "dropping": 2,
+          "dropping": 1,
           "forgiven": 0,
-          "unaccounted": 30,
+          "unaccounted": 10,
           "unframed-topics": 0
         },
         "unframed": {}
@@ -44352,7 +44336,7 @@
       }
     }
   },
-  "revision": "4470c8c9",
+  "revision": "d1b9bbf6",
   "schema": 1,
   "scope": "bootrace TOC inventory; not all topics()"
 }
