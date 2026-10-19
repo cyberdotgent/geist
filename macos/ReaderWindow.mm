@@ -16,6 +16,38 @@
 - (instancetype)init { if ((self = [super init])) _children = [NSMutableArray array]; return self; }
 @end
 
+@interface GBEmptyBookView : NSView
+@property(nonatomic, weak) GBReaderWindow *reader;
+@end
+
+@implementation GBEmptyBookView
+- (instancetype)initWithFrame:(NSRect)frame {
+  if ((self = [super initWithFrame:frame]))
+    [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
+  return self;
+}
+- (NSArray<NSURL *> *)bookURLsFromDrag:(id<NSDraggingInfo>)drag {
+  NSArray<NSURL *> *urls = [drag.draggingPasteboard readObjectsForClasses:@[NSURL.class]
+      options:@{NSPasteboardURLReadingFileURLsOnlyKey:@YES}];
+  NSMutableArray<NSURL *> *books = [NSMutableArray array];
+  for (NSURL *url in urls)
+    if (url.isFileURL && [url.pathExtension caseInsensitiveCompare:@"boo"] == NSOrderedSame)
+      [books addObject:url];
+  return books;
+}
+- (NSDragOperation)draggingEntered:(id<NSDraggingInfo>)drag {
+  return [self bookURLsFromDrag:drag].count ? NSDragOperationCopy : NSDragOperationNone;
+}
+- (BOOL)performDragOperation:(id<NSDraggingInfo>)drag {
+  NSArray<NSURL *> *books = [self bookURLsFromDrag:drag];
+  if (!books.count) return NO;
+  [self.reader openBookAtURL:books.firstObject];
+  for (NSUInteger i = 1; i < books.count; ++i)
+    [(id<GBBookOpening>)NSApp.delegate openDocumentAtURL:books[i]];
+  return YES;
+}
+@end
+
 @interface GBReaderWindow () <NSOutlineViewDataSource, NSOutlineViewDelegate, WKNavigationDelegate, NSToolbarDelegate, NSSearchFieldDelegate, NSToolbarItemValidation>
 @end
 
@@ -24,6 +56,7 @@
   WKWebView *_web;
   NSOutlineView *_outline;
   NSSplitView *_split;
+  GBEmptyBookView *_emptyView;
   GBTopicNode *_root;
   GBTopicNode *_tocRoot;
   NSMutableDictionary<NSString *, GBTopicNode *> *_nodes;
@@ -96,6 +129,24 @@
     [_split.leadingAnchor constraintEqualToAnchor:content.leadingAnchor],
     [_split.trailingAnchor constraintEqualToAnchor:content.trailingAnchor],
     [_split.bottomAnchor constraintEqualToAnchor:content.bottomAnchor]]];
+  _emptyView = [[GBEmptyBookView alloc] initWithFrame:NSZeroRect];
+  _emptyView.reader = self;
+  _emptyView.translatesAutoresizingMaskIntoConstraints = NO;
+  _emptyView.wantsLayer = YES;
+  _emptyView.layer.backgroundColor = NSColor.windowBackgroundColor.CGColor;
+  [content addSubview:_emptyView];
+  NSTextField *hint = [NSTextField labelWithString:@"Drop a BOO book here, or choose File > Open Book…"];
+  hint.font = [NSFont systemFontOfSize:17];
+  hint.textColor = NSColor.secondaryLabelColor;
+  hint.translatesAutoresizingMaskIntoConstraints = NO;
+  [_emptyView addSubview:hint];
+  [NSLayoutConstraint activateConstraints:@[
+    [_emptyView.topAnchor constraintEqualToAnchor:content.topAnchor],
+    [_emptyView.leadingAnchor constraintEqualToAnchor:content.leadingAnchor],
+    [_emptyView.trailingAnchor constraintEqualToAnchor:content.trailingAnchor],
+    [_emptyView.bottomAnchor constraintEqualToAnchor:content.bottomAnchor],
+    [hint.centerXAnchor constraintEqualToAnchor:_emptyView.centerXAnchor],
+    [hint.centerYAnchor constraintEqualToAnchor:_emptyView.centerYAnchor]]];
   [self.window.contentView layoutSubtreeIfNeeded];
   [_split setPosition:300 ofDividerAtIndex:0];
   [self applyFonts:nil];
@@ -193,6 +244,7 @@
     return;
   }
   self.window.representedURL = url;
+  _emptyView.hidden = YES;
   self.window.title = _source.bookTitle.length ? _source.bookTitle : url.lastPathComponent;
   _root = [GBTopicNode new];
   _root.label = _source.bookTitle.length ? _source.bookTitle : @"Book";
@@ -238,6 +290,7 @@
   [_nodes removeAllObjects]; [_outline reloadData];
   self.window.title = @"Geist BOO Reader";
   self.window.representedURL = nil;
+  _emptyView.hidden = NO;
   [self updateControls];
 }
 

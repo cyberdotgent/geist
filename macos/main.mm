@@ -115,12 +115,14 @@
   [reader openBookAtURL:url];
   [reader.window makeKeyAndOrderFront:nil];
 }
-- (BOOL)application:(NSApplication *)sender openFile:(NSString *)filename {
+- (void)application:(NSApplication *)sender openURLs:(NSArray<NSURL *> *)urls {
   (void)sender;
-  NSURL *url = [NSURL fileURLWithPath:filename];
-  if (self.ready) [self openDocumentAtURL:url];
-  else if (![self.pendingURLs containsObject:url]) [self.pendingURLs addObject:url];
-  return YES;
+  for (NSURL *url in urls) {
+    if (!url.isFileURL || [url.pathExtension caseInsensitiveCompare:@"boo"] != NSOrderedSame)
+      continue;
+    if (self.ready) [self openDocumentAtURL:url];
+    else if (![self.pendingURLs containsObject:url]) [self.pendingURLs addObject:url];
+  }
 }
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender { (void)sender; return NO; }
 - (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)visible {
@@ -180,7 +182,8 @@ int main(int argc, const char *argv[]) {
     app.activationPolicy = NSApplicationActivationPolicyRegular;
     GBApplicationDelegate *delegate = [GBApplicationDelegate new];
     app.delegate = delegate;
-    if (argc > 1) [delegate.pendingURLs addObject:[NSURL fileURLWithPath:[NSString stringWithUTF8String:argv[1]]]];
+    for (int i = 1; i < argc; ++i)
+      [delegate.pendingURLs addObject:[NSURL fileURLWithPath:[NSString stringWithUTF8String:argv[i]]]];
     [app run];
   }
   return 0;
