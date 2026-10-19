@@ -179,6 +179,14 @@ struct ProseBlockIR {
   std::string degradation_detail;
   std::vector<ProseInlineIR> inlines;
   std::vector<DocumentSourceSliceIR> slices;
+  // Native styled examples keep exact display rows and the ordinary inline
+  // ledger. Exclusive inline ends partition `inlines` one row at a time;
+  // empty rows may repeat an end. Other preformatted projections leave this
+  // empty and retain their existing verbatim representation.
+  std::vector<std::size_t> preformatted_line_inline_ends;
+  // Exact native row extents, including line-length and padding tokens.
+  // Parallel to styled rows, including rows containing only whitespace.
+  std::vector<DocumentSourceSliceIR> preformatted_line_sources;
 };
 
 struct ProseAnchorIR {

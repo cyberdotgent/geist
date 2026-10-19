@@ -143,17 +143,7 @@ bool control_only_line(const DecodedLogicalRecordSource& record,
 // hosted DT 19920124000100 serves the same shape.
 bool index_line(const DecodedLogicalRecordSource& record,
                 const DisplayLineIR& line) {
-  for (auto token = line.prefix_token + 1;
-       token < line.token_end && token < record.tokens.size(); ++token) {
-    const auto& words = record.tokens[token];
-    if (words.empty()) continue;
-    if (std::all_of(words.begin(), words.end(), [](const auto word) {
-          return word < 4 || word == ' ' || word == 0xA0;
-        }))
-      continue;
-    return ascii_lower(token_words_to_ascii(words)) == "si";
-  }
-  return false;
+  return is_subject_index_display_line(record, line);
 }
 
 } // namespace

@@ -109,6 +109,9 @@ std::vector<std::string> clean_source_owned_selector_display_markers(
     const std::vector<std::string>& decoded_records,
     const std::vector<DecodedLogicalRecordSource>& sources);
 
+// Source-framing evidence for a lexical SH candidate, not topic metadata.
+enum class TopicHeaderFraming { undecided, native_origin, non_native };
+
 struct LogicalDecodeContext {
   std::vector<std::uint8_t> bytes;
   BooDirectory directory;
@@ -116,6 +119,10 @@ struct LogicalDecodeContext {
   std::vector<std::uint32_t> topic_record_starts;
   std::vector<std::string> decoded_records;
   std::vector<LogicalRecordPayloadRange> record_payload_ranges;
+  // Candidate-only evidence retained from the initial token walk. Missing
+  // entries in legacy contexts are proven on demand; undecided evidence keeps
+  // the existing lexical compatibility rule.
+  std::map<std::size_t, TopicHeaderFraming> topic_header_framing;
   // Everything above is built by `BooDocument::open()` and never written
   // again, so it is safe to read from any number of threads. The cache below
   // is the only mutable state a decode context has, and it is filled once and
@@ -343,7 +350,8 @@ std::vector<std::string> decode_experimental_logical_records(
     std::vector<LogicalRecordPayloadRange>* payload_ranges = nullptr,
     std::vector<LogicalRecordTokenBoundaries>* header_token_boundaries =
         nullptr,
-    bool stop_after_book_header = false);
+    bool stop_after_book_header = false,
+    std::map<std::size_t, TopicHeaderFraming>* topic_header_framing = nullptr);
 // Decodes one logical record's payload from the file bytes. This is the token
 // decoder the whole pipeline is built on, exposed so a provenance slice can be
 // proven against the file by decoding its record again.
@@ -402,12 +410,15 @@ void attach_topic_data(
     const std::map<std::string, std::string>* topic_titles = nullptr);
 // `record_display_line_starts`, when given, is parallel to `decoded_records`
 // and carries each record's display-line starts (toc_entry_framing.hpp).
+// `record_sources` supplies native opcode identity for the topic stop scan;
+// without decided framing the legacy lexical boundary rule is retained.
 std::vector<TocEntry> build_table_of_contents(
     const std::vector<std::string>& decoded_records,
     const std::vector<TopicData>& topics,
     bool attach_records = true,
     const std::vector<std::vector<std::size_t>>* record_display_line_starts =
-        nullptr);
+        nullptr,
+    const std::vector<DecodedLogicalRecordSource>* record_sources = nullptr);
 // Topic identities, boundaries and header titles.  The title is read off the
 // `ST` display line of the topic's own metadata record, so this needs the
 // positioned decode context and not only the flattened record strings

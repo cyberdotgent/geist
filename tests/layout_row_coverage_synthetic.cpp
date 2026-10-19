@@ -23,9 +23,10 @@
 // Everything here is synthetic: the tests build `DecodedLogicalRecordSource`
 // values by hand and open no book.
 
-#include "geist/detail/layout/display_lines.hpp"
 #include "geist/detail/core/internal.hpp"
+#include "geist/detail/layout/display_lines.hpp"
 #include "geist/detail/layout/layout_ir.hpp"
+#include "geist/detail/layout/ownership_ir.hpp"
 #include "test_failures.hpp"
 
 #include <cstdint>
@@ -64,11 +65,14 @@ void refresh(DecodedLogicalRecordSource &record) {
   std::uint32_t byte = 0;
   for (std::size_t token = 0; token < record.tokens.size(); ++token) {
     const auto encoded = record.encoded_tokens[token];
-    const auto spacing = !record.tokens[token].empty() &&
-                         record.tokens[token].front() < 4;
+    const auto spacing =
+        !record.tokens[token].empty() && record.tokens[token].front() < 4;
     record.ir.tokens.push_back(
-        {token, encoded, record.tokens[token],
-         {byte, static_cast<std::uint32_t>(byte + encoded.width)}, spacing,
+        {token,
+         encoded,
+         record.tokens[token],
+         {byte, static_cast<std::uint32_t>(byte + encoded.width)},
+         spacing,
          spacing ? record.tokens[token].front() : std::uint16_t{3}});
     byte += encoded.width;
   }
@@ -82,14 +86,16 @@ void refresh(DecodedLogicalRecordSource &record) {
 std::string row_texts(const geist::detail::LayoutIR &layout) {
   std::string all;
   for (const auto &run : layout.runs)
-    for (const auto &row : run.rows) all += row.visible_text + "\n";
+    for (const auto &row : run.rows)
+      all += row.visible_text + "\n";
   return all;
 }
 
 bool covers_token(const geist::detail::LayoutIR &layout, std::size_t token) {
   for (const auto &run : layout.runs)
     for (const auto &row : run.rows)
-      if (token >= row.token_begin && token < row.token_end) return true;
+      if (token >= row.token_begin && token < row.token_end)
+        return true;
   return false;
 }
 
@@ -117,8 +123,7 @@ void a_blank_spelled_length_byte_still_opens_its_row() {
   append(record, 0x58, 2, {'T', 'a', 'i', 'l'});
   refresh(record);
 
-  require(record.ir.display_lines_parse &&
-              record.ir.display_lines.size() == 3,
+  require(record.ir.display_lines_parse && record.ir.display_lines.size() == 3,
           "the synthetic record did not frame into three display lines");
   require(record.ir.tokens[4].framing == TokenFramingRole::line_length,
           "token 4 is the blank-spelled length byte and was not stamped as "
@@ -132,7 +137,8 @@ void a_blank_spelled_length_byte_still_opens_its_row() {
   const auto texts = row_texts(layout);
   require(texts.find("Drawn sentence") != std::string::npos,
           "the line whose length byte spells blanks reached no row; its rows "
-          "are:\n" + texts);
+          "are:\n" +
+              texts);
   require(texts.find("Tail") != std::string::npos,
           "the glyph-spelled line lost its row; its rows are:\n" + texts);
   // The index term shares the payload with the sentence and must stay out of
@@ -147,9 +153,14 @@ void a_blank_spelled_length_byte_still_opens_its_row() {
 // Two display lines where the first ends on a drawn word and the second's
 // length byte spells three blanks.  Read by spelling alone that pair looks
 // like `<marker><origin>` one token early, and the drawn word is lost.
-void a_drawn_word_before_a_blank_length_byte_stays_in_its_row() {
+void a_drawn_word_before_a_blank_length_byte_stays_in_its_row(bool title) {
   DecodedLogicalRecordSource record;
   record.logical_record = 32;
+  if (title) {
+    append(record, 2, 1, {0x2534});
+    append(record, 0x60, 1, {'S', 'T'});
+    append(record, 0x61, 1, {'B', 'o', 'o', 'k', 's'});
+  }
   // Line 0: `   Purpose`, so the line under test is not the record's first.
   append(record, 3, 1, {0x2534});
   append(record, 0x50, 1, {' ', ' ', ' '});
@@ -167,12 +178,14 @@ void a_drawn_word_before_a_blank_length_byte_stays_in_its_row() {
   refresh(record);
 
   require(record.ir.display_lines_parse &&
-              record.ir.display_lines.size() == 3,
+              record.ir.display_lines.size() == (title ? 4U : 3U),
           "the synthetic record did not frame into three display lines");
-  require(record.ir.tokens[7].framing == TokenFramingRole::line_length &&
-              record.ir.tokens[6].framing == TokenFramingRole::line_content,
-          "the framing did not place `the` inside line 1 and the blank byte "
-          "at the head of line 2");
+  const auto shift = title ? 3U : 0U;
+  require(
+      record.ir.tokens[7 + shift].framing == TokenFramingRole::line_length &&
+          record.ir.tokens[6 + shift].framing == TokenFramingRole::line_content,
+      "the framing did not place `the` inside line 1 and the blank byte "
+      "at the head of line 2");
 
   const auto layout = geist::detail::extract_layout_ir({record});
   std::string error;
@@ -182,19 +195,189 @@ void a_drawn_word_before_a_blank_length_byte_stays_in_its_row() {
   const auto texts = row_texts(layout);
   require(texts.find("by the") != std::string::npos,
           "the word `the` is drawn at the end of line 1 and left the rows "
-          "entirely; the rows are:\n" + texts);
+          "entirely; the rows are:\n" +
+              texts);
   require(texts.find("INDD") != std::string::npos,
           "line 2 lost its row; the rows are:\n" + texts);
   for (const auto &run : layout.runs)
     for (const auto &row : run.rows)
       require(row.visible_text.find("the INDD") == std::string::npos,
               "line 2's row swallowed the previous line's last word");
+  auto mutated = layout;
+  for (auto &run : mutated.runs)
+    for (auto &row : run.rows)
+      if (row.marker && row.marker->token_index == 3 + shift) {
+        row.token_begin = 6 + shift;
+        row.marker->token_index = row.token_begin;
+        row.marker->byte_range = record.ir.tokens[row.token_begin].byte_range;
+      }
+  if (title)
+    require(
+        !geist::detail::verify_layout_ir({record}, mutated, &error),
+        "a native payload word admitted as a title marker passed verification");
+}
+
+void legacy_compact_fragments_keep_their_model(bool title) {
+  DecodedLogicalRecordSource record;
+  record.logical_record = 33;
+  if (title) {
+    append(record, 2, 1, {'<'});
+    append(record, 0x60, 1, {'S', 'T'});
+    append(record, 0x61, 1, {'B', 'o', 'o', 'k', 's'});
+  }
+  append(record, 5, 1, {'<'});
+  append(record, 0x50, 1, {' ', ' ', ' '});
+  append(record, 0x51, 1, {'F', 'i', 'r', 's', 't'});
+  append(record, 0x52, 1, {'s', 'l', 'o', 't'});
+  append(record, 0x53, 1, {' ', ' ', ' ', ' ', ' ', ' ', ' '});
+  append(record, 0x54, 1, {'S', 'e', 'c', 'o', 'n', 'd'});
+  refresh(record);
+  const auto layout = geist::detail::extract_layout_ir({record});
+  std::string error;
+  require(
+      record.ir.display_lines_parse && layout.runs.size() == 1 &&
+          layout.runs.front().rows.size() == 2 &&
+          geist::detail::verify_layout_ir({record}, layout, &error),
+      "legacy compact physical fragments were conflated with native rows: " +
+          error + " runs=" + std::to_string(layout.runs.size()) + " rows=" +
+          std::to_string(
+              layout.runs.empty() ? 0 : layout.runs.front().rows.size()) +
+          " text=" + row_texts(layout));
+}
+
+void snapping_a_title_boundary_extends_its_existing_payload_row() {
+  DecodedLogicalRecordSource record;
+  record.logical_record = 33;
+  append(record, 4, 1, {' '});
+  append(record, 0x60, 1, {'S', 'T'});
+  append(record, 0x61, 1, {' ', ' '});
+  append(record, 0x62, 1, {'S', 'a', 'm', 'p', 'l', 'e'});
+  append(record, 0x63, 1, {'M', 'e', 's', 's', 'a', 'g', 'e', 's'});
+  append(record, 3, 1, {' '});
+  append(record, 0x64, 1, {' ', ' ', ' '});
+  append(record, 0x65, 1, {'I', 'n', 't', 'r', 'o'});
+  append(record, 0x66, 1, {'b', 'e', 'f', 'o', 'r', 'e'});
+  refresh(record);
+  const auto layout = geist::detail::extract_layout_ir({record});
+  std::string error;
+  require(record.ir.display_lines_parse &&
+              geist::detail::verify_layout_ir({record}, layout, &error),
+          "title prefix-snap fixture failed native verification: " + error);
+  require(layout.runs.size() == 1 && layout.runs.front().rows.size() == 2,
+          "title/intro must retain their two physical fragments");
+  if (layout.runs.empty() || layout.runs.front().rows.size() != 2)
+    return;
+  const auto &title = layout.runs.front().rows[0];
+  const auto &intro = layout.runs.front().rows[1];
+  require(title.visible_text == "Sample Messages" && title.token_end == 5 &&
+              !title.marker && intro.token_begin == 5 &&
+              intro.visible_text == "Intro before",
+          "snapping the intro prefix orphaned the title's terminal word: " +
+              row_texts(layout));
+  const auto ownership =
+      geist::detail::build_verified_ownership_ir({record}, layout, &error);
+  require(ownership.has_value(), "snapped title ownership failed: " + error);
+  if (ownership)
+    for (const auto &cell : ownership->ir().cells)
+      if (cell.token_index == 4)
+        require(
+            cell.disposition ==
+                geist::detail::SourceDisposition::visible_content,
+            "title's terminal word did not regain visible source ownership");
+}
+
+void only_an_unplaced_selector_crosses_the_record_boundary(bool consumed) {
+  DecodedLogicalRecordSource opening;
+  opening.logical_record = 40;
+  append(opening, 1, 1, {'<'});
+  append(opening, 0x60, 1,
+         {'c', 's', 'e', 'l', 'e', 'c', 't', ' ', '3', ' ', '5', ' ', 'T', 'A',
+          'R', 'G', 'E', 'T'});
+  if (consumed) {
+    append(opening, 2, 1, {'<'});
+    append(opening, 0x61, 1, {' ', ' ', ' '});
+    append(opening, 0x62, 1, {'F', 'i', 'r', 's', 't'});
+  }
+  refresh(opening);
+  DecodedLogicalRecordSource continuation;
+  continuation.logical_record = 41;
+  append(continuation, 5, 1, {'<'});
+  append(continuation, 0x50, 1, {' ', ' ', ' '});
+  append(continuation, 0x51, 1, {'F', 'i', 'r', 's', 't'});
+  append(continuation, 0x52, 1, {'s', 'l', 'o', 't'});
+  append(continuation, 0x53, 1, {' ', ' ', ' ', ' ', ' ', ' ', ' '});
+  append(continuation, 0x54, 1, {'S', 'e', 'c', 'o', 'n', 'd'});
+  refresh(continuation);
+  const auto layout = geist::detail::extract_layout_ir({opening, continuation});
+  std::size_t rows = 0;
+  for (const auto &run : layout.runs)
+    for (const auto &row : run.rows)
+      if (row.logical_record == 41)
+        ++rows;
+  std::string error;
+  require(rows == (consumed ? 2U : 1U) &&
+              geist::detail::verify_layout_ir({opening, continuation}, layout,
+                                              &error),
+          "a consumed selector changed unrelated next-record fragments: " +
+              error);
+}
+
+void selected_native_row_ends_before_unselected_compact_fragments() {
+  DecodedLogicalRecordSource record;
+  record.logical_record = 42;
+  append(record, 1, 1, {'<'});
+  append(record, 0x60, 1,
+         {'c', 's', 'e', 'l', 'e', 'c', 't', ' ', '3', ' ', '6', ' ', 'T', 'A',
+          'R', 'G', 'E', 'T'});
+  append(record, 2, 1, {'<'});
+  append(record, 0x61, 1, {' ', ' ', ' '});
+  append(record, 0x62, 1, {'C', 'h', 'o', 'i', 'c', 'e'});
+  // The following line is not selected. Its blank-spelled native length
+  // cannot extend the selected row; its inner compact boundary remains.
+  append(record, 5, 1, {' ', ' ', ' '});
+  append(record, 0x63, 1, {' ', ' ', ' '});
+  append(record, 0x64, 1, {'F', 'i', 'r', 's', 't'});
+  append(record, 0x65, 1, {'s', 'l', 'o', 't'});
+  append(record, 0x66, 1, {' ', ' ', ' ', ' ', ' ', ' ', ' '});
+  append(record, 0x67, 1, {'S', 'e', 'c', 'o', 'n', 'd'});
+  refresh(record);
+  const auto layout = geist::detail::extract_layout_ir({record});
+  std::string error;
+  require(record.ir.display_lines_parse && layout.runs.size() == 1 &&
+              layout.runs.front().rows.size() == 3 &&
+              geist::detail::verify_layout_ir({record}, layout, &error),
+          "selected native row consumed unselected compact text: " + error +
+              " rows=" + row_texts(layout));
+  if (layout.runs.empty() || layout.runs.front().rows.empty())
+    return;
+  const auto &selected = layout.runs.front().rows.front();
+  require(selected.token_begin == 2 && selected.token_end == 5 &&
+              selected.visible_text == "Choice",
+          "selected native row does not end at its proven display-line end");
+  if (layout.runs.front().rows.size() != 3)
+    return;
+  require(layout.runs.front().rows[1].visible_text == "First" &&
+              layout.runs.front().rows[2].visible_text == "Second",
+          "later unselected line lost its legacy compact fragments");
+  auto mutated = layout;
+  mutated.runs.front().rows.front().token_end = 8;
+  mutated.runs.front().rows.erase(mutated.runs.front().rows.begin() + 1);
+  require(
+      !geist::detail::verify_layout_ir({record}, mutated, &error),
+      "verifier accepted an authoritative native row spanning the next line");
 }
 
 } // namespace
 
 int main() {
   a_blank_spelled_length_byte_still_opens_its_row();
-  a_drawn_word_before_a_blank_length_byte_stays_in_its_row();
+  a_drawn_word_before_a_blank_length_byte_stays_in_its_row(false);
+  a_drawn_word_before_a_blank_length_byte_stays_in_its_row(true);
+  legacy_compact_fragments_keep_their_model(false);
+  legacy_compact_fragments_keep_their_model(true);
+  snapping_a_title_boundary_extends_its_existing_payload_row();
+  only_an_unplaced_selector_crosses_the_record_boundary(false);
+  only_an_unplaced_selector_crosses_the_record_boundary(true);
+  selected_native_row_ends_before_unselected_compact_fragments();
   return 0;
 }

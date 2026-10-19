@@ -4,6 +4,7 @@
 #include "geist/detail/ir/selector_display_ir.hpp"
 
 #include "geist/detail/core/internal.hpp"
+#include "geist/detail/layout/display_lines.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -337,9 +338,15 @@ std::optional<std::vector<SelectorDisplayCellIR>> generated_record_prefix_cells(
   return cells;
 }
 
-bool generated_structural_marker(const PhysicalRowIR &row) {
+bool generated_structural_marker(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const PhysicalRowIR &row) {
   if (!row.marker)
     return false;
+  const auto* record = find_record(records, row.logical_record);
+  if (record != nullptr &&
+      is_display_line_length_token(*record, row.marker->token_index))
+    return true;
   const auto &text = row.marker->decoded_text;
   return text == "|" ||
          (!text.empty() && std::all_of(text.begin(), text.end(),
@@ -546,7 +553,7 @@ std::optional<SelectorDisplayIR> extract_selector_display_ir(
                     std::make_move_iterator(prefix->end()));
     }
     if (in_generated_list && indexed.row->marker &&
-        !generated_structural_marker(*indexed.row)) {
+        !generated_structural_marker(records, *indexed.row)) {
       auto markers =
           restored_marker_cells(records, owned_cells, *indexed.row,
                                 indexed.physical_row_index, true, bind_error);
@@ -605,7 +612,7 @@ std::optional<SelectorDisplayIR> extract_selector_display_ir(
                                     next.physical_row_index, bind_error, true);
       if (!continuation)
         return false;
-      if (!in_generated_list || !generated_structural_marker(*next.row)) {
+      if (!in_generated_list || !generated_structural_marker(records, *next.row)) {
         auto markers = restored_marker_cells(records, owned_cells, *next.row,
                                              next.physical_row_index,
                                              in_generated_list, bind_error);
@@ -621,7 +628,11 @@ std::optional<SelectorDisplayIR> extract_selector_display_ir(
     }
 
     std::vector<SelectorDisplayCellIR> suppressed_prefix_cells;
-    if (in_generated_list) {
+    const auto* native_record = find_record(records, indexed.row->logical_record);
+    const auto native_geometry = indexed.row->marker && native_record != nullptr &&
+        is_display_line_length_token(*native_record,
+                                     indexed.row->marker->token_index);
+    if (in_generated_list && !native_geometry) {
       const auto first_visible =
           std::find_if(cells->begin(), cells->end(),
                        [](const auto &cell) { return presentable(cell.word); });

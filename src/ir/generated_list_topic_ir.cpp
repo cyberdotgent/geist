@@ -4,6 +4,7 @@
 #include "geist/detail/ir/generated_list_topic_ir.hpp"
 
 #include "geist/detail/core/internal.hpp"
+#include "geist/detail/layout/display_lines.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -122,9 +123,36 @@ std::optional<GeneratedListEntryIR> make_entry(
     return token.decoded_words.size() -
            static_cast<std::size_t>(token.has_spacing_control);
   };
+  const auto native_payload = [&](const SelectorDisplayCellIR& cell) {
+    if (!cell.source ||
+        cell.source->kind != SelectorSourceCellKind::token_word)
+      return false;
+    const auto* record = find_record(records, cell.source->logical_record);
+    return record != nullptr && record_display_lines(*record) != nullptr &&
+           cell.source->token_index < record->ir.tokens.size() &&
+           record->ir.tokens[cell.source->token_index].framing ==
+               TokenFramingRole::line_content;
+  };
 
   const auto& span = row.spans.front();
   auto first = std::size_t{0};
+  const auto* owner_record = find_record(records, row.owner.logical_record);
+  const auto native_geometry = owner_record != nullptr &&
+      is_display_line_length_token(*owner_record, row.owner.token_begin);
+  if (native_geometry) {
+    // A selected native row already carries its source columns. The margin
+    // before the entry may contain a revision bar, but never an ordinal or
+    // arbitrary text: do not move the first visible cell to the selection.
+    for (std::size_t index = 0; index < span.cell_begin; ++index)
+      if (row.cells[index].word != ' ' &&
+          !(row.cells[index].word == '|' && index == 1 &&
+            span.cell_begin > 2 && row.cells[0].word == ' ' &&
+            row.cells[2].word == ' ')) {
+        fail(error, "generated-list native selection excludes leading text");
+        return std::nullopt;
+      }
+    first = span.cell_begin;
+  }
   while (first < row.cells.size() && !label_anchor(row.cells[first])) ++first;
   const auto first_visible = std::find_if(
       row.cells.begin() + static_cast<std::ptrdiff_t>(first), row.cells.end(),
@@ -154,12 +182,13 @@ std::optional<GeneratedListEntryIR> make_entry(
           std::distance(row.cells.begin(), first_visible));
   }
 
-  // Some generated lists encode a native line marker as an isolated token
-  // between padding and the ordinal rather than as MarkerSlotIR.  Its exact
-  // one-cell token geometry plus a following content token proves the role;
-  // the decoded value is irrelevant.
+  // The legacy, undecided-framing representation can carry an isolated line
+  // marker between padding and the ordinal rather than as MarkerSlotIR.
+  // Never apply that compatibility convention to a source-proven native
+  // payload cell: a one-character ordinal is still display text.
   if (!repeated_target_continuation && first < row.cells.size() &&
-      payload_word_count(row.cells[first]) == 1) {
+      payload_word_count(row.cells[first]) == 1 &&
+      !native_payload(row.cells[first])) {
     auto next = first + 1;
     while (next < row.cells.size() && !label_anchor(row.cells[next])) ++next;
     const auto* candidate = owned_cell(row.cells[first]);

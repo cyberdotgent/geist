@@ -32,6 +32,16 @@ enum class DocumentTraceRoleIR {
   generated,
 };
 
+// How this exact emitted byte window contributes to the reader's text. Kept
+// private: the public provenance trace does not need serialization details.
+enum class MarkdownTextProjectionIR {
+  hidden,
+  boundary,
+  escaped_text,
+  literal,
+  html,
+};
+
 // One step of the path from the document root to the node that produced a
 // span. `kind` is a stable structural name, never rendered content.
 struct DocumentNodePathStepIR {
@@ -49,6 +59,7 @@ struct DocumentTraceSpanIR {
   std::size_t output_begin = 0;
   std::size_t output_end = 0;
   DocumentTraceRoleIR role = DocumentTraceRoleIR::syntax;
+  MarkdownTextProjectionIR text_projection = MarkdownTextProjectionIR::hidden;
   // Stable class of this run, e.g. "text", "heading marker", "table pipe".
   std::string reason;
   std::vector<DocumentNodePathStepIR> path;
@@ -64,9 +75,9 @@ struct DocumentRenderTraceIR {
 // without consulting decoder or semantic-layer state. A sole whole-topic
 std::string escape_markdown_text(const std::string &value);
 
-std::string render_document_markdown(
-    const DocumentIR &document,
-    const DocumentMarkdownRendererOptions &options = {},
-    DocumentRenderTraceIR *trace = nullptr);
+std::string
+render_document_markdown(const DocumentIR &document,
+                         const DocumentMarkdownRendererOptions &options = {},
+                         DocumentRenderTraceIR *trace = nullptr);
 
 } // namespace geist::detail

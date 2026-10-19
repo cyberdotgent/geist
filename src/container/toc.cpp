@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "geist/detail/core/internal.hpp"
+#include "geist/detail/container/topic_catalogue_framing.hpp"
 #include "geist/detail/ir/message_prose_rows.hpp"
 #include "geist/detail/ir/topic_header_title.hpp"
 
@@ -187,7 +188,8 @@ std::vector<TocEntry> build_table_of_contents(
     const std::vector<std::string>& decoded_records,
     const std::vector<TopicData>& topics,
     bool attach_records,
-    const std::vector<std::vector<std::size_t>>* record_display_line_starts) {
+    const std::vector<std::vector<std::size_t>>* record_display_line_starts,
+    const std::vector<DecodedLogicalRecordSource>* record_sources) {
   std::vector<TocEntry> toc;
   bool in_contents_topic = false;
   static const std::vector<std::size_t> no_display_lines;
@@ -198,7 +200,9 @@ std::vector<TocEntry> build_table_of_contents(
         continue;
       }
       in_contents_topic = true;
-    } else if (is_topic_header_record(decoded)) {
+    } else if (is_topic_header_record(decoded) &&
+               (record_sources == nullptr || index >= record_sources->size() ||
+                is_topic_header_record((*record_sources)[index]))) {
       break;
     }
 
@@ -235,7 +239,7 @@ std::vector<TopicData> build_topics(const LogicalDecodeContext& context,
 
   std::vector<std::size_t> header_indexes;
   for (std::size_t index = 0; index < decoded_records.size(); ++index) {
-    if (is_topic_header_record(decoded_records[index]) &&
+    if (is_topic_header_record(context, index) &&
         !extract_topic_header_id(decoded_records[index]).empty()) {
       header_indexes.push_back(index);
     }

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "geist/detail/lowering/drawn_word_conservation.hpp"
+#include "geist/detail/lowering/drawn_word_source.hpp"
 
 #include "geist/detail/container/control_ir.hpp"
 #include "geist/detail/layout/display_lines.hpp"
@@ -9,9 +10,14 @@
 #include "geist/detail/layout/layout_ir.hpp"
 #include "geist/detail/layout/ownership_ir.hpp"
 #include "geist/detail/lowering/topic_identity.hpp"
+#include "geist/detail/lowering/topic_lowering_outcome.hpp"
+#include "geist/detail/render/html_visible_text.hpp"
+#include "geist/detail/render/markdown_visible_text.hpp"
+#include "geist/detail/render/render_diagnostic_ir.hpp"
 
 #include <algorithm>
 #include <map>
+#include <stdexcept>
 #include <unordered_map>
 #include <utility>
 
@@ -93,11 +99,11 @@ using ControlCells = std::unordered_map<std::uint32_t, std::vector<CellKey>>;
 // An opcode that carries its first operand in the same token is matched on the
 // part before the `=`, which is how `ctocdef=0` is stored.
 //
-// The cost of the list is that a prose line opening with one of these words is
-// withdrawn too: SC24-546 `B.2` discusses DBCS shift-out/shift-in and opens
-// several lines with `SI`. Closing that gap needs the segment decoder to model
-// these controls, not this check to guess harder; until then the check is blind
-// to those lines and says so here rather than reporting them as clean.
+// This exclusion applies only to the first token after the native length
+// prefix. Indented prose such as SC24-546 B.2's literal `SI` lines is still
+// counted: its first token is indentation, not the keyword. A prose word at
+// the exact native control origin remains ambiguous without further source
+// evidence; do not extend the exclusion past indentation to guess its role.
 bool unmodelled_control_opcode(std::string opcode) {
   const auto operand = opcode.find('=');
   if (operand != std::string::npos) opcode.resize(operand);
@@ -109,14 +115,14 @@ bool unmodelled_control_opcode(std::string opcode) {
 }
 
 // A modelled control whose display line carries printed text after the opcode:
-// the title, the menu item's label and the message's own text all stand on the
-// opcode's line and all reach the render. Every other control's line is
-// operands, which do not.
+// the title and the menu item's label stand on the opcode's line and reach
+// the render. SRMSG is different: its number and optional symbolic name form
+// an anchor identity; the following native row draws the message headline.
+// Every other control's line is operands, which do not reach the render.
 bool control_line_carries_text(BookControlKind kind) {
   switch (kind) {
   case BookControlKind::title:
   case BookControlKind::menu_item:
-  case BookControlKind::message_start:
     return true;
   default:
     return false;
@@ -188,19 +194,9 @@ RecordControlFraming control_framing(
   return framing;
 }
 
-// The drawn text of one topic, with the provenance every byte needs for the
-// report to name the line a dropped word stood on rather than only count it.
-struct DrawnText {
-  std::string text;
-  // `true` where the byte came from the first token of its display line: the
-  // one position a control opcode can occupy.
-  std::vector<bool> opening;
-  // Index into `sources` of the display line each byte came from.
-  std::vector<std::size_t> line;
-  std::vector<std::string> sources;
-};
+} // namespace
 
-DrawnText topic_drawn_text(
+DrawnTextIR project_drawn_topic_text(
     const std::vector<DecodedLogicalRecordSource>& records,
     const OwnershipIR& ownership, std::size_t* unframed_records) {
   ControlCells control;
@@ -212,7 +208,7 @@ DrawnText topic_drawn_text(
   for (auto& entry : control) std::sort(entry.second.begin(), entry.second.end());
 
   static const std::vector<CellKey> none;
-  DrawnText drawn;
+  DrawnTextIR drawn;
   for (const auto& record : records) {
     const auto* lines = record_display_lines(record);
     if (lines == nullptr) {
@@ -254,6 +250,8 @@ DrawnText topic_drawn_text(
   return drawn;
 }
 
+namespace {
+
 struct DrawnCounts {
   std::size_t opening = 0;
   std::size_t inside = 0;
@@ -265,7 +263,7 @@ struct DrawnCounts {
 
 // Cuts the drawn text into the same alphanumeric runs `conservation_words`
 // produces, and files each run by the position of its first byte.
-std::map<std::string, DrawnCounts> count_drawn_words(const DrawnText& drawn,
+std::map<std::string, DrawnCounts> count_drawn_words(const DrawnTextIR& drawn,
                                                      std::size_t* total) {
   std::map<std::string, DrawnCounts> counts;
   std::string current;
@@ -330,12 +328,80 @@ detail::DrawnWordConservationIR BooDocument::drawn_word_conservation() const {
     const auto ownership = build_ownership_ir(records, layout);
 
     const auto drawn =
-        topic_drawn_text(records, ownership, &topic.unframed_records);
+        project_drawn_topic_text(records, ownership, &topic.unframed_records);
     const auto drawn_counts = count_drawn_words(drawn, &topic.drawn_words);
+    // Independently check both serializers. The Markdown serializer records
+    // exactly which emitted byte windows are labels, code, raw HTML, visible
+    // markers or structural syntax: no general Markdown parser is needed.
+    DocumentRenderTraceIR markdown_trace;
+    std::string markdown;
+    const auto& outcome = entry.lowered().outcome;
+    if (outcome && outcome->document)
+      markdown = render_document_markdown(*outcome->document, {}, &markdown_trace);
+    const auto append = [&](const std::string& bytes,
+                            const MarkdownTextProjectionIR projection) {
+      if (bytes.empty()) return;
+      DocumentTraceSpanIR span;
+      span.output_begin = markdown.size();
+      markdown += bytes;
+      span.output_end = markdown.size();
+      span.text_projection = projection;
+      markdown_trace.spans.push_back(std::move(span));
+    };
+    const auto append_separator = [&]() {
+      if (!markdown.empty() && markdown.back() != '\n')
+        append("\n", MarkdownTextProjectionIR::boundary);
+      if (!markdown.empty()) append("\n", MarkdownTextProjectionIR::boundary);
+    };
+    const auto& diagnostic = entry.render_diagnostic();
+    if (diagnostic.severity == RenderSeverity::best_effort) {
+      if (!entry.best_effort_loader_)
+        throw std::logic_error("best-effort Markdown has no source loader");
+      const auto verbatim = entry.best_effort_loader_();
+      auto anchors = verbatim.anchors;
+      anchors.insert(anchors.end(), verbatim.footnote_anchors.begin(),
+                     verbatim.footnote_anchors.end());
+      DocumentRenderTraceIR fallback_trace;
+      const auto fallback = render_best_effort_markdown(identity, verbatim.rows,
+                                                       anchors, &fallback_trace);
+      append_separator();
+      const auto offset = markdown.size();
+      markdown += fallback;
+      for (auto& span : fallback_trace.spans) {
+        span.output_begin += offset;
+        span.output_end += offset;
+        markdown_trace.spans.push_back(std::move(span));
+      }
+    } else if (diagnostic.severity == RenderSeverity::failed) {
+      append_separator();
+      // A diagnostic about missing content is not book text and cannot
+      // compensate for the content whose failure it reports.
+      append(render_failed_markdown(identity, diagnostic),
+             MarkdownTextProjectionIR::hidden);
+    }
+    // Re-rendering must not bypass truncation or mutation in the topic cache
+    // wrapper. Account only for the exact diagnostic prefix that render()
+    // emits, then require byte identity with the actual public Markdown.
+    const auto marker = entry.document_ir_loader_
+                            ? render_diagnostic_comment(diagnostic) : std::string();
+    const auto prefix = marker.empty() ? std::string() :
+        marker + "\n" + (markdown.empty() ? "" : "\n");
+    const auto actual = entry.markdown();
+    std::map<std::string, std::size_t> markdown_counts;
+    for (const auto& word : conservation_words(
+             verified_markdown_visible_text(actual, markdown, markdown_trace, prefix)))
+      ++markdown_counts[word];
+    std::map<std::string, std::size_t> html_counts;
+    for (const auto& word : conservation_words(
+             html_visible_text(entry.html_fragment())))
+      ++html_counts[word];
     std::map<std::string, std::size_t> emitted_counts;
-    for (auto& word : conservation_words(entry.markdown())) {
-      ++emitted_counts[word];
-      ++topic.emitted_words;
+    for (const auto& [word, count] : markdown_counts) {
+      // Never let a correct HTML label compensate for lost Markdown text, or
+      // a Markdown URL compensate for an absent HTML label.
+      const auto retained = std::min(count, html_counts[word]);
+      emitted_counts[word] = retained;
+      topic.emitted_words += retained;
     }
     for (const auto& [word, counts] : drawn_counts) {
       const auto found = emitted_counts.find(word);

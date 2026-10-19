@@ -504,7 +504,32 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
       // failed to recover.
       if (!block.verbatim_kind.empty())
         preformatted_origin.detail = "prose drawn box region: verbatim rows";
-      PreformattedBlockIR preformatted{block.preformatted_lines, {}, {}};
+      PreformattedBlockIR preformatted;
+      preformatted.lines = block.preformatted_lines;
+      if (!block.preformatted_line_inline_ends.empty()) {
+        preformatted_origin.detail = "prose native styled example rows";
+        std::size_t first = 0;
+        std::size_t row_index = 0;
+        for (const auto end : block.preformatted_line_inline_ends) {
+          if (end < first || end > block.inlines.size() ||
+              row_index >= block.preformatted_line_sources.size()) {
+            fail(error, "styled preformatted row has invalid inline extent");
+            return std::nullopt;
+          }
+          InlineSequenceIR row;
+          if (end > first && !lower_inlines(block, first, end, row, error))
+            return std::nullopt;
+          preformatted.styled_lines.push_back(std::move(row));
+          // Native framing/padding belongs to the row origin, not the inline
+          // text ledger. Child inlines retain precise character claims; the
+          // normalizer lifts their whole-token union into this full row.
+          preformatted.line_origins.push_back(
+              origin({block.preformatted_line_sources[row_index]},
+                     "prose native styled display row"));
+          first = end;
+          ++row_index;
+        }
+      }
       // Issue #81.  A block the family emitted verbatim because it could not
       // prove the region's structure says so at the block, and carries the
       // provenance a consumer needs to check it: the whole region's slices on

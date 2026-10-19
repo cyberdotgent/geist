@@ -532,10 +532,11 @@ void verify_native_continuation() {
 
   // Collect, in source order, the text of every span that targets HDRURLS.
   // The reference is broken over two display rows, so there must be exactly
-  // two of them.  The text below is the display-column range the `CSELECT`
-  // operand addresses on each row, which is wider than the label the reader
-  // shows: the row model, not this layer, trims the leading run to `"Web`.
-  // Pinning the raw range is what catches an operand geometry change.
+  // two of them. The first native display line is 77 columns wide; column
+  // 53 opens on the quote before Web, and the 24-column selection reaches
+  // Packet. Its length prefix happens to decode to 23 blanks, but contributes
+  // no columns. Pinning the raw range catches prefix leakage as well as an
+  // operand geometry change.
   std::vector<std::string> halves;
   for (const auto &row : display->rows) {
     for (const auto &span : row.spans) {
@@ -558,7 +559,7 @@ void verify_native_continuation() {
           "packet 6.2 yielded " + std::to_string(halves.size()) +
               " HDRURLS spans, not the two rows the reader breaks it over");
   if (halves.size() == 2) {
-    require(halves[0] == "of XRouter (please see \"",
+    require(halves[0] == "\"Web Locations of Packet",
             "packet 6.2 first continuation row selected '" + halves[0] + "'");
     require(halves[1] == "Radio Software\" in topic A.0 ",
             "packet 6.2 second continuation row selected '" + halves[1] + "'");

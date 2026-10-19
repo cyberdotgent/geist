@@ -75,6 +75,22 @@ const DisplayLineIR* display_line_of_token(const LogicalRecordIR& record,
 const DisplayLineIR* display_line_of_token(
     const DecodedLogicalRecordSource& record, std::size_t token);
 
+// A subject-index keyword is metadata only at the native line origin and at
+// a surviving control-segment boundary. Indented literal SI remains text.
+bool is_subject_index_display_line(const DecodedLogicalRecordSource& record,
+                                  const DisplayLineIR& line);
+
+// Segment kinds describe the flattened scanner's speculative interpretation.
+// Canonical native framing can prove its apparent opcode is only a line-length
+// byte. This does not change the kind: compatibility consumers still use those
+// segment boundaries to recover display payload. False when framing is unknown.
+bool is_display_line_length_opcode(const DecodedLogicalRecordSource& record,
+                                   const ControlSegmentIR& segment);
+// The apparent opcode stands after native indentation or other line content,
+// not at the instruction origin. Such a word cannot open an instruction.
+bool is_display_line_embedded_opcode(const DecodedLogicalRecordSource& record,
+                                     const ControlSegmentIR& segment);
+
 // Checked display-text accessor.  Hands back the token's words only when the
 // token really is line content; a length byte yields `nullptr` instead of
 // its dictionary spelling, so a consumer asking for display text cannot be
@@ -154,7 +170,7 @@ std::string format_display_line_ir(const DecodedLogicalRecordSource& record,
 // really did split there -- so a consumer must read the segment's payload as
 // body text in place.
 //
-// The `ST` title control is held to the stricter form of the same rule: it
+// The `ST` title and `SI` index keyword use the stricter form of the rule: each
 // must stand at the first cell of its display line, one token after the
 // line's length byte, which every genuine control of a record does.  `ST` is
 // too short and too common as display text for "nothing visible in front of

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "geist/detail/core/internal.hpp"
+#include "geist/detail/container/topic_catalogue_framing.hpp"
 #include "geist/detail/layout/display_lines.hpp"
 
 #include <algorithm>
@@ -823,8 +824,10 @@ std::vector<std::string> decode_experimental_logical_records(
     const BooDirectory& directory,
     std::vector<LogicalRecordPayloadRange>* payload_ranges,
     std::vector<LogicalRecordTokenBoundaries>* header_token_boundaries,
-    bool stop_after_book_header) {
+    bool stop_after_book_header,
+    std::map<std::size_t, TopicHeaderFraming>* topic_header_framing) {
   std::vector<std::string> records;
+  if (topic_header_framing != nullptr) topic_header_framing->clear();
   if (payload_ranges != nullptr) {
     payload_ranges->clear();
   }
@@ -875,7 +878,7 @@ std::vector<std::string> decode_experimental_logical_records(
       }
 
       const auto payload_end = length_offset + *record_length;
-      const auto record_ir = decode_record_payload_ir(
+      auto record_ir = decode_record_payload_ir(
           bytes, directory, token_strings, length_offset, payload_end,
           static_cast<std::uint32_t>(records.size() + 1));
       std::string ir_error;
@@ -884,9 +887,30 @@ std::vector<std::string> decode_experimental_logical_records(
       }
       const auto record_tokens = project_token_words(record_ir);
 
-      const auto assembled =
+      auto assembled =
           assemble_logical_record_with_sources(record_tokens);
       records.push_back(token_words_to_ascii(assembled.words));
+      // Preserve only lexical candidates' source-framing evidence while the
+      // canonical token walk and its source map are already available. This
+      // does not decode controls/layout or retain a book's heavy token IR.
+      std::optional<bool> native_topic_start;
+      if ((header_open || topic_header_framing != nullptr) &&
+          is_topic_header_record(records.back())) {
+        const auto decided = record_framing_is_decided(record_ir);
+        DecodedLogicalRecordSource candidate;
+        candidate.ir = std::move(record_ir);
+        candidate.assembled = std::move(assembled);
+        native_topic_start = is_topic_header_record(candidate);
+        if (topic_header_framing != nullptr)
+          topic_header_framing->emplace(
+              records.size() - 1,
+              !decided ? TopicHeaderFraming::undecided
+                       : (*native_topic_start ? TopicHeaderFraming::native_origin
+                                              : TopicHeaderFraming::non_native));
+        // Header token boundaries below still consume these canonical values.
+        record_ir = std::move(candidate.ir);
+        assembled = std::move(candidate.assembled);
+      }
       if (header_open) {
         LogicalRecordTokenBoundaries boundaries;
         boundaries.offsets = assembled_token_output_offsets(assembled);
@@ -904,7 +928,7 @@ std::vector<std::string> decode_experimental_logical_records(
         // that files `cdocnum=`, and in no case past the first topic; nothing
         // after either point is a header control.
         if (ascii_contains_case_insensitive(records.back(), "cdocnum=") ||
-            is_topic_header_record(records.back())) {
+            native_topic_start.value_or(false)) {
           header_open = false;
         }
       }

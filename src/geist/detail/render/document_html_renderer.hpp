@@ -6,7 +6,8 @@
 // The native HTML renderer: typed Document IR in, HTML out.
 //
 // It is a sibling of `document_markdown_renderer.hpp` over the same input and
-// shares nothing with it but the IR.  Markdown is never an intermediate here,
+// shares typed inline HTML serialization for Markdown's raw <pre> rows.
+// Markdown is never an intermediate here,
 // and no output of this file is produced by post-processing Markdown.
 //
 // Escaping is a property of the renderer, not of its callers.  Every byte of
@@ -21,6 +22,8 @@
 #include "geist/html.hpp"
 #include "geist/render_diagnostic.hpp"
 
+#include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -49,9 +52,21 @@ std::string html_block_class(const BlockNodeIR &node);
 // Every block class the renderer can emit, in `BlockNodeIR` order.
 std::vector<std::string> html_block_classes();
 
+using DocumentHtmlInlineResolver =
+    std::function<std::optional<std::string>(const CrossReferenceTargetIR &)>;
+
+// The same inline HTML used inside native HTML and styled preformatted
+// Markdown. The optional private resolver preserves the Markdown exporter's
+// existing destination hook without introducing consumer policy into IR.
+std::string
+render_document_html_inlines(const InlineSequenceIR &inlines,
+                             const geist::HtmlRenderOptions &options = {},
+                             const DocumentHtmlInlineResolver &resolve = {});
+
 // The blocks of a document, with no root element around them.
-std::string render_document_html_blocks(const DocumentIR &document,
-                                        const geist::HtmlRenderOptions &options);
+std::string
+render_document_html_blocks(const DocumentIR &document,
+                            const geist::HtmlRenderOptions &options);
 
 // True when any block of the document was emitted verbatim because its
 // structure could not be proven, which is what makes the topic

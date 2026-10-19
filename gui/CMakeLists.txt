@@ -9,6 +9,8 @@
 
 # The published stylesheet is compiled into the reader so its rendering and
 # the stylesheet shipped beside the spec can never drift apart.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/../doc/html-styling.css")
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../doc/html-styling.css" GEIST_READER_CSS)
 configure_file(styling.hpp.in
   "${CMAKE_CURRENT_BINARY_DIR}/generated/styling.hpp" @ONLY

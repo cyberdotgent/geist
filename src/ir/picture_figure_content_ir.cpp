@@ -30,10 +30,6 @@ std::vector<std::size_t> range_tokens(const DecodedLogicalRecordSource &r,
   const auto words = decoded_byte_range_to_word_range(r.assembled, bytes);
   return source_tokens_intersecting_output(r.assembled, words.begin, words.end);
 }
-std::string token_text(const TokenWords &words) {
-  const auto begin = !words.empty() && words.front() < 4 ? 1u : 0u;
-  return token_words_to_ascii(TokenWords(words.begin() + begin, words.end()));
-}
 bool blank(std::uint16_t word) { return word == ' ' || word == 0xa0; }
 bool outline(std::uint16_t word) {
   return blank(word) || word == '_' || word == '|' || word == 0x2666 ||
@@ -124,19 +120,7 @@ struct Reader {
   }
   bool index_at(const DecodedLogicalRecordSource &r,
                 const DisplayLineIR &line) const {
-    const auto first = line.prefix_token + 1;
-    if (first >= line.token_end || token_text(r.tokens[first]) != "SI")
-      return false;
-    for (const auto &s : r.control_segments) {
-      if (s.display_text)
-        continue;
-      const auto ts =
-          range_tokens(r, {s.complete.begin,
-                           std::min(s.complete.end, s.complete.begin + 2)});
-      if (!ts.empty() && ts.front() == first)
-        return true;
-    }
-    return false;
+    return is_subject_index_display_line(r, line);
   }
   std::vector<DocumentSourceRowIR> physical_rows(const Row &row) const {
     std::vector<DocumentSourceRowIR> result;

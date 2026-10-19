@@ -412,7 +412,7 @@ public:
         const auto keyword = first_visible_token(record, line);
         if (keyword == npos)
           continue;
-        if (ascii_lower(token_words_to_ascii(record.tokens[keyword])) != "si")
+        if (!is_subject_index_display_line(record, line))
           continue;
         bool positioned = false;
         for (auto token = keyword; token < line.token_end; ++token)

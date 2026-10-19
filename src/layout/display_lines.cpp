@@ -10,6 +10,56 @@
 
 namespace geist::detail {
 
+namespace {
+std::optional<std::size_t> opcode_token(
+    const DecodedLogicalRecordSource& record, const ControlSegmentIR& segment) {
+  if (record_display_lines(record) == nullptr) return std::nullopt;
+  if (segment.opcode_range.begin >= segment.opcode_range.end)
+    return std::nullopt;
+  const auto words = decoded_byte_range_to_word_range(record.assembled,
+                                                       segment.opcode_range);
+  if (words.begin >= words.end || words.begin >= record.assembled.sources.size())
+    return std::nullopt;
+  const auto& source = record.assembled.sources[words.begin];
+  if (source.kind != LogicalWordSourceKind::token_word)
+    return std::nullopt;
+  return source.token_index;
+}
+} // namespace
+
+bool is_display_line_length_opcode(const DecodedLogicalRecordSource& record,
+                                   const ControlSegmentIR& segment) {
+  const auto token = opcode_token(record, segment);
+  return token && is_display_line_length_token(record, *token);
+}
+
+bool is_display_line_embedded_opcode(const DecodedLogicalRecordSource& record,
+                                     const ControlSegmentIR& segment) {
+  const auto token = opcode_token(record, segment);
+  if (!token) return false;
+  const auto* line = display_line_of_token(record, *token);
+  return line != nullptr && *token > line->prefix_token + 1;
+}
+
+bool is_subject_index_display_line(const DecodedLogicalRecordSource& record,
+                                  const DisplayLineIR& line) {
+  const auto keyword = line.prefix_token + 1;
+  if (keyword >= line.token_end || keyword >= record.tokens.size() ||
+      ascii_lower(token_words_to_ascii(record.tokens[keyword])) != "si")
+    return false;
+  for (const auto& segment : record.control_segments) {
+    if (segment.display_text) continue;
+    const auto end =
+        std::min(segment.complete.end, segment.complete.begin + 2);
+    const auto range = decoded_byte_range_to_word_range(
+        record.assembled, {segment.complete.begin, end});
+    const auto tokens = source_tokens_intersecting_output(
+        record.assembled, range.begin, range.end);
+    if (!tokens.empty() && tokens.front() == keyword) return true;
+  }
+  return false;
+}
+
 std::optional<std::vector<DisplayLineIR>> token_display_lines(
     const std::vector<LogicalTokenIR>& tokens,
     const std::uint32_t payload_end) {
@@ -281,7 +331,7 @@ void demote_length_byte_controls(DecodedLogicalRecordSource& record) {
   for (auto& segment : record.control_segments) {
     if (segment.kind == BookControlKind::text || segment.opcode.empty())
       continue;
-    // Only the object-scope opcodes are demoted here.  The topic-metadata
+    // Object-scope and selector opcodes are demoted here. The topic-metadata
     // and font opcodes are length bytes just as often, but they are also
     // read by the message and trap families, which render a segment's
     // payload as text and would print the byte's spelling; the prose stream
@@ -294,13 +344,14 @@ void demote_length_byte_controls(DecodedLogicalRecordSource& record) {
     case BookControlKind::table_start:
     case BookControlKind::table_end:
     case BookControlKind::message_start:
+    case BookControlKind::select:
       break;
     default:
       continue;
     }
     if (segment.source_tokens.empty()) continue;
     const auto token = segment.source_tokens.front();
-    if (!is_display_line_length_token(record, token)) continue;
+    if (!is_display_line_length_opcode(record, segment)) continue;
     // Only when the length byte is what spells the opcode.  A segment that
     // merely starts at the byte before its own opcode keeps its control.
     if (ascii_lower(token_word_text(record.ir.tokens[token])) !=
@@ -403,6 +454,24 @@ void demote_display_line_owned_controls(DecodedLogicalRecordSource& record) {
   for (std::size_t index = 0; index < record.control_segments.size(); ++index) {
     auto& segment = record.control_segments[index];
     if (segment.source_tokens.empty()) continue;
+    // Publication identifiers such as SH26-7000 can resemble a topic-start
+    // instruction. Only an opcode at the native origin starts a topic; a
+    // source-proven indented identifier is display payload, even when the
+    // flattened segment also includes its preceding length byte.
+    if (segment.kind == BookControlKind::topic_start &&
+        is_display_line_embedded_opcode(record, segment)) {
+      segment.kind = BookControlKind::text;
+      segment.display_text = true;
+      segment.opcode.clear();
+      segment.opcode_range = {segment.complete.begin, segment.complete.begin};
+      segment.operand_range = segment.opcode_range;
+      segment.payload_range = segment.complete;
+      continue;
+    }
+    const bool index_keyword =
+        segment.kind == BookControlKind::text &&
+        ascii_lower(token_word_text(
+            record.ir.tokens[segment.source_tokens.front()])) == "si";
     if (segment.kind != BookControlKind::structural &&
         segment.kind != BookControlKind::title &&
         segment.kind != BookControlKind::text)
@@ -422,7 +491,7 @@ void demote_display_line_owned_controls(DecodedLogicalRecordSource& record) {
     bool visible_before = false;
     for (auto token = line->prefix_token + 1; token < first; ++token)
       if (visible_display_token(record.ir.tokens[token])) visible_before = true;
-    // The `ST` title is held to the stricter reading a control opcode gets
+    // The `ST` title and `SI` index keyword get the stricter reading an opcode gets
     // everywhere else in a record: it must stand at the *first* cell of its
     // display line, one token after that line's length byte.  Every genuine
     // control does (FA1PLMM0 record 471 opens each of `ctopicn`, `cparent`,
@@ -432,9 +501,11 @@ void demote_display_line_owned_controls(DecodedLogicalRecordSource& record) {
     // SH12-565 3.1.4.1 record 184 line 23 is the definition term `   ST` of a
     // two-column list, styled by the `cfont 3 2 P` on the line above, and
     // SC24-546 D.0 record 1141 lines 5, 9 and 11 are the assembler STORE
-    // instructions `              ST    R4,EVSIZE`.  Hosted serves both as
+    // instructions `              ST    R4,EVSIZE`. An indented `SI` is
+    // likewise a literal shift-in term (SC24-546 B.2 records 1038/1041),
+    // not subject-index metadata. Hosted serves the STORE examples as
     // display text (DT 19941206115523 and DT 19940323131240).
-    if (segment.kind == BookControlKind::title &&
+    if ((segment.kind == BookControlKind::title || index_keyword) &&
         first != line->prefix_token + 1)
       visible_before = true;
     // A control's opcode is the first token of its own display line: the

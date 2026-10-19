@@ -935,7 +935,7 @@ struct Extractor {
       result.text = display_line_text(record, line);
       if (blank_line(result.text))
         result.kind = LineKind::blank;
-      else if (ascii_starts_with_case_insensitive(trim_ascii(result.text), "si "))
+      else if (is_subject_index_display_line(record, line))
         result.kind = LineKind::index;
       else if (line_caption_text(result.text))
         result.kind = LineKind::caption;

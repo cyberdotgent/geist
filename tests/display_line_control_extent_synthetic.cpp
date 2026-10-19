@@ -18,8 +18,15 @@
 #include "geist/detail/container/control_ir.hpp"
 #include "geist/detail/layout/display_lines.hpp"
 #include "geist/detail/core/internal.hpp"
+#include "geist/detail/render/render_diagnostic_ir.hpp"
+#include "geist/detail/lowering/topic_document_lowering.hpp"
+#include "geist/detail/render/document_html_renderer.hpp"
+#include "geist/detail/ir/prose/prose_topic_ir.hpp"
+#include "geist/detail/layout/layout_ir.hpp"
+#include "geist/detail/layout/ownership_ir.hpp"
 #include "test_failures.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <iostream>
 #include <string>
@@ -207,6 +214,358 @@ void a_length_byte_is_never_display_text() {
           "the decoder's own framing failed its consistency check: " + error);
 }
 
+// SC09-2417-00 3.1.6.1 record 444 begins with a length byte spelling
+// CSELECT. It is not a selector and cannot consume the code sample as operands.
+void a_length_byte_cannot_select_the_following_code() {
+  for (const bool framed : {true, false}) {
+    DecodedLogicalRecordSource record;
+    record.logical_record = 444;
+    append(record, framed ? 4 : 99, 1,
+           {3, 'C', 'S', 'E', 'L', 'E', 'C', 'T'});
+    append(record, 0x80, 2, {' ', ' ', ' '});
+    const std::string code = "#pragma mapinc(\"c:/abc/aaa.h\",\"input\")";
+    append(record, 0x81, 2, TokenWords(code.begin(), code.end()));
+    append(record, 8, 1, {3, 'z', 'e', 'r', 'o'});
+    append(record, 0x82, 2, {'c', 's', 'e', 'l', 'e', 'c', 't'});
+    append(record, 0x83, 2, {'3'});
+    append(record, 0x84, 2, {'4'});
+    append(record, 0x85, 2, {'D', 'E', 'S', 'T'});
+    append(record, 4, 1, {3, 'z', 'e', 'r', 'o'});
+    append(record, 0x86, 2, {' ', ' ', ' '});
+    append(record, 0x87, 2, {'L', 'i', 'n', 'k'});
+    refresh(record);
+    if (!framed)
+      for (const auto& segment : record.control_segments)
+        require(!geist::detail::is_display_line_length_opcode(record, segment),
+                "undecided framing claimed a false opcode identity");
+    geist::detail::demote_display_line_owned_controls(record);
+    require(record.ir.display_lines_parse == framed,
+            "selector length-byte test framing differs from setup");
+    std::size_t selectors = 0;
+    for (const auto& segment : record.control_segments)
+      if (segment.kind == geist::detail::BookControlKind::select) ++selectors;
+    require(selectors == (framed ? 1 : 2),
+            "only proven length-byte selectors may be withdrawn");
+    if (!framed) continue;
+    const auto lines = geist::detail::best_effort_lines({record}, "");
+    require(lines.size() == 2 && lines[0] == "   " + code &&
+                lines[1] == "   Link",
+            "a spurious selector swallowed code, or a real selector leaked");
+  }
+}
+
+void indented_si_is_display_text() {
+  DecodedLogicalRecordSource record;
+  record.logical_record = 1038;
+  append(record, 6, 1, {3, 'z', 'e', 'r', 'o'});
+  append(record, 0x80, 2, {' ', ' ', ' '});
+  append(record, 0x81, 2, {'S', 'I'});
+  append(record, 0x82, 2, {'a', 'r', 'e', ' ', 'r', 'e', 'm', 'o', 'v', 'e', 'd', '.'});
+  append(record, 4, 1, {3, 'z', 'e', 'r', 'o'});
+  append(record, 0x81, 2, {'S', 'I'});
+  append(record, 0x83, 2, {'i', 'n', 'd', 'e', 'x'});
+  refresh(record);
+  geist::detail::demote_display_line_owned_controls(record);
+  require(record.ir.display_lines_parse, "SI regression requires native framing");
+  bool literal_si = false;
+  for (const auto& segment : record.control_segments)
+    if (segment.display_text &&
+        std::find(segment.source_tokens.begin(), segment.source_tokens.end(),
+                  std::size_t{2}) != segment.source_tokens.end())
+      literal_si = true;
+  require(literal_si, "native indentation must demote the false SI segment");
+  const auto* native = geist::detail::record_display_lines(record);
+  require(native && native->size() == 2 &&
+              !geist::detail::is_subject_index_display_line(record, (*native)[0]) &&
+              geist::detail::is_subject_index_display_line(record, (*native)[1]),
+          "SI identity must distinguish indentation from the native origin");
+  const auto lines = geist::detail::best_effort_lines({record}, "");
+  require(lines.size() == 1 && lines[0] == "   SI are removed.",
+          "indented SI prose was hidden, or genuine SI metadata leaked");
+}
+
+void a_metadata_length_byte_cannot_consume_the_first_word() {
+  DecodedLogicalRecordSource record;
+  record.logical_record = 151;
+  append(record, 4, 1, {3, 'c', 'b', 'a', 'c', 'k', 'l', 'e', 'v', 'e', 'l'});
+  append(record, 0x80, 2, {' ', ' ', ' '});
+  append(record, 0x81, 2, {'t', 'h', 'e'});
+  append(record, 4, 1, {3, 'z', 'e', 'r', 'o'});
+  append(record, 0x82, 2, {'c', 'b', 'a', 'c', 'k', 'l', 'e', 'v', 'e', 'l'});
+  append(record, 0x83, 2, {'1', '.', '0'});
+  refresh(record);
+  bool length_opcode = false;
+  bool real_opcode = false;
+  for (const auto& segment : record.control_segments) {
+    if (geist::detail::ascii_lower(segment.opcode) != "cbacklevel") continue;
+    if (geist::detail::is_display_line_length_opcode(record, segment))
+      length_opcode = true;
+    else
+      real_opcode = true;
+  }
+  require(length_opcode && real_opcode,
+          "shared opcode identity did not separate metadata from length");
+  geist::detail::demote_display_line_owned_controls(record);
+  require(record.ir.display_lines_parse, "metadata regression requires framing");
+  const auto lines = geist::detail::best_effort_lines({record}, "");
+  require(lines.size() == 1 && lines[0] == "   the",
+          "length-byte metadata consumed text or genuine metadata leaked");
+}
+
+void font_operand_grammar_cannot_override_native_opcode_identity() {
+  DecodedLogicalRecordSource record;
+  record.logical_record = 79;
+  append(record, 6, 1, {3, 'c', 'f', 'o', 'n', 't'});
+  append(record, 0x100, 2, {'3'});
+  append(record, 0x101, 2, {'4'});
+  append(record, 0x102, 2, {'E'});
+  append(record, 8, 1, {3, 'z', 'e', 'r', 'o'});
+  append(record, 0x103, 2, {'c', 'f', 'o', 'n', 't'});
+  append(record, 0x100, 2, {'3'});
+  append(record, 0x101, 2, {'4'});
+  append(record, 0x102, 2, {'E'});
+  refresh(record);
+  std::size_t lengths = 0;
+  std::size_t instructions = 0;
+  for (const auto& segment : record.control_segments) {
+    if (segment.kind != geist::detail::BookControlKind::font) continue;
+    require(!segment.malformed,
+            "false-font regression must have canonical-looking operands");
+    if (geist::detail::is_display_line_length_opcode(record, segment))
+      ++lengths;
+    else
+      ++instructions;
+  }
+  require(lengths == 1 && instructions == 1,
+          "operand grammar overrode native false/genuine CFONT identity");
+  record.ir.display_lines_parse = false;
+  for (const auto& segment : record.control_segments)
+    require(!geist::detail::is_display_line_length_opcode(record, segment),
+            "undecided framing claimed a font opcode identity");
+  for (auto& token : record.ir.tokens)
+    token.framing = geist::detail::TokenFramingRole::unframed;
+  for (const auto& segment : record.control_segments)
+    require(!geist::detail::is_display_line_length_opcode(record, segment),
+            "unframed font fixture claimed an opcode identity");
+}
+
+void an_indented_publication_number_is_not_a_topic_start() {
+  DecodedLogicalRecordSource record;
+  record.logical_record = 520;
+  append(record, 2, 1, {0x2534});
+  append(record, 0x100, 2, {'S', 'H', '1', '.', '1'});
+  refresh(record);
+  geist::detail::demote_display_line_owned_controls(record);
+  DecodedLogicalRecordSource continuation;
+  continuation.logical_record = 521;
+  append(continuation, 4, 1, {0x2534});
+  append(continuation, 0x101, 2, {' ', ' ', ' ', ' ', ' ', ' ', ' '});
+  append(continuation, 0x102, 2,
+         {'S', 'H', '2', '6', '-', '7', '0', '0', '0', '.'});
+  refresh(continuation);
+  geist::detail::demote_display_line_owned_controls(continuation);
+  std::size_t starts = 0;
+  bool literal = false;
+  for (const auto& segment : record.control_segments)
+    if (segment.kind == geist::detail::BookControlKind::topic_start) ++starts;
+  for (const auto& segment : continuation.control_segments) {
+    if (segment.kind == geist::detail::BookControlKind::topic_start) ++starts;
+    if (segment.display_text && slice(continuation, segment.payload_range).find(
+                                    "SH26-7000.") != std::string::npos)
+      literal = true;
+  }
+  require(
+      starts == 1 && literal,
+      "indented publication identifier became a topic instruction: starts=" +
+          std::to_string(starts) + " literal=" + std::to_string(literal));
+}
+
+void a_parenthetic_word_at_a_native_line_end_stays_text(bool styled = false,
+                                                      int linked = 0) {
+  DecodedLogicalRecordSource record;
+  record.logical_record = 20;
+  const auto words = [](const std::string &value) {
+    return TokenWords(value.begin(), value.end());
+  };
+  const auto line = [&](std::vector<TokenWords> content) {
+    std::uint16_t length = 0;
+    for (const auto &token : content)
+      length += token == words("a") ? 1 : 2;
+    append(record, length, 1,
+           content.empty() ? TokenWords{1} : TokenWords{0x2534});
+    for (auto &token : content) {
+      const bool compact = token == words("a");
+      append(record, compact ? 47 : 0x100, compact ? 1 : 2, std::move(token));
+    }
+  };
+  line({words("sh1.1")});
+  line({words("ctopicn"), words("10")});
+  line({words("cparent"), words("1.0")});
+  line({words("cforwardlevel")});
+  line({words("cbacklevel")});
+  line({words("csummary"), words("10"), words("0"), words("10")});
+  line({words("chdlevel"), words(":H2")});
+  line({words("csourcefn"), words("SAMPLE")});
+  line({words("ST"), words("Example")});
+  line({words("   "), words("Creates"), words("a"), words("string"), words("("),
+        TokenWords{1}, words("a")});
+  line({words("   "), words("note).")});
+  if (styled) {
+    line({});
+    line({words("cfont"), words("3"), words("4"), words("E"), words("7"),
+          words("3"), words("1"), words("14"), words("2"), words("2"),
+          words("18"), words("5"), words("E")});
+    line({words("   "), words("CALL(1)"), words("   "), words("->"), words(" "),
+          words("ONE()"), words("  ")});
+    line({words("cfont"), words("3"), words("7"), words("E"), words("14"),
+          words("2"), words("2"), words("18"), words("5"), words("E")});
+    line({words("   "), words("CALL(2)"), words("   "), words("->"), words(" "),
+          words("TWO()")});
+    // Differing native gaps and indentation still belong to the same example;
+    // they must not split it into independently laid-out tables or prose.
+    line({words("cfont"), words("3"), words("7"), words("E"), words("11"),
+          words("2"), words("2"), words("15"), words("7"), words("E")});
+    line({words("   "), words("CALL(3)"), words("->"), words(" "),
+          words("THREE()")});
+    line({});
+    line({words("cfont"), words("7"), words("7"), words("E"), words("25"),
+          words("6"), words("1")});
+    line({words("       "), words("ALPHA()"), words("          "),
+          words("LEFT()")});
+    line({words("cfont"), words("7"), words("6"), words("E"), words("25"),
+          words("7"), words("2")});
+    line({words("       "), words("BETA()"), words("           "),
+          words("RIGHT()")});
+    line({words("cfont"), words("7"), words("7"), words("E"), words("25"),
+          words("5"), words("C")});
+    line({words("       "), words("GAMMA()"), words("          "),
+          words("MID()")});
+    if (linked) {
+      line({words("cfont"), words("3"), words("4"), words("E"), words("8"),
+            words("12"), words(linked == 1 ? "E" : "1")});
+      line({words("cselect"), words("8"), words("12"), words("HDRLINK")});
+      line({words("   "), words("CODE"), words("many"), words("  "),
+            words("words")});
+    }
+    line({});
+    line({words("cfont"), words("7"), words("5"), words("E")});
+    line({words("   "), words("Use"), words("TOKEN"), words("when"),
+          words("needed.")});
+    line({words("cfont"), words("7"), words("5"), words("E")});
+    line({words("   "), words("and"), words("TOKEN"), words("elsewhere.")});
+  }
+  refresh(record);
+  geist::detail::demote_display_line_owned_controls(record);
+  std::string error;
+  const auto document = geist::detail::try_lower_topic_to_document_ir(
+      {"1.1", "Example", ":H2", 10, 20, 20}, {record}, nullptr, &error);
+  require(document.has_value(), "parenthetic native prose declined: " + error);
+  if (document) {
+    const auto html = geist::detail::render_document_html_fragment(*document);
+    require(html.find("(a note).") != std::string::npos,
+            "native parenthetic word was consumed as a row marker: " + html);
+    if (styled) {
+      const geist::detail::PreformattedBlockIR *example = nullptr;
+      std::size_t count = 0;
+      for (const auto &block : document->blocks)
+        if (const auto *value =
+                std::get_if<geist::detail::PreformattedBlockIR>(&block.node)) {
+          example = value;
+          ++count;
+        }
+      std::vector<std::string> expected{
+          "   CALL(1)    ->  ONE()   ",      "   CALL(2)    ->  TWO()",
+          "   CALL(3) ->  THREE()",          "",
+          "       ALPHA()           LEFT()", "       BETA()            RIGHT()",
+          "       GAMMA()           MID()"};
+      if (linked == 1)
+        expected.push_back("   CODE many   words");
+      require(count == 1 && example && example->lines == expected &&
+                  example->styled_lines.size() == expected.size(),
+              "native styled example spacing/rows were changed: " + html);
+      if (linked == 1)
+        require(html.find(">many   words</a>") != std::string::npos,
+                "native whitespace split one selector into separate anchors: " +
+                    html);
+      if (linked == 2)
+        require(example && example->lines == expected,
+                "unrepresentable emphasized link admitted to styled example");
+      if (example && example->line_origins.size() == expected.size())
+        require(!example->line_origins[3].slices.empty(),
+                "native blank example row has no framing provenance");
+      require(html.find("<table") == std::string::npos &&
+                  html.find("<em class=\"geist-emphasis\">LEFT()</em>") !=
+                      std::string::npos &&
+                  html.find("Use <code class=\"geist-monospace\">TOKEN</code> "
+                            "when needed. and") != std::string::npos,
+              "native styled example or ordinary wrapped code prose "
+              "misclassified: " +
+                  html);
+      const auto layout = geist::detail::extract_layout_ir({record});
+      const auto ownership =
+          geist::detail::build_verified_ownership_ir({record}, layout, &error);
+      if (ownership) {
+        auto prose = geist::detail::extract_prose_topic_ir(
+            {record}, layout, *ownership, "Example", nullptr, &error);
+        require(prose.has_value(),
+                "styled example mutation fixture declined: " + error);
+        if (prose) {
+          const auto canonical = *prose;
+          for (auto &block : prose->blocks)
+            if (!block.preformatted_line_inline_ends.empty()) {
+              --block.preformatted_line_inline_ends.front();
+              std::size_t first = 0;
+              for (std::size_t row = 0; row < block.preformatted_lines.size();
+                   ++row) {
+                std::string text;
+                for (; first < block.preformatted_line_inline_ends[row];
+                     ++first)
+                  text += block.inlines[first].text;
+                block.preformatted_lines[row] = std::move(text);
+              }
+              break;
+            }
+          require(!geist::detail::verify_prose_topic_ir(
+                      {record}, layout, *ownership, "Example", nullptr, *prose,
+                      &error),
+                  "a different but bounded source row partition passed "
+                  "verification");
+          *prose = canonical;
+          for (auto &block : prose->blocks)
+            if (!block.preformatted_line_inline_ends.empty()) {
+              for (auto &item : block.inlines)
+                if (item.text.find("CALL") != std::string::npos) {
+                  item.text.replace(item.text.find("CALL"), 4, "FAKE");
+                  break;
+                }
+              block.preformatted_lines.front().replace(
+                  block.preformatted_lines.front().find("CALL"), 4, "FAKE");
+              break;
+            }
+          require(!geist::detail::verify_prose_topic_ir(
+                      {record}, layout, *ownership, "Example", nullptr, *prose,
+                      &error),
+                  "matching literal/styled text corruption passed source "
+                  "verification");
+        }
+      }
+      auto unframed = record;
+      unframed.ir.display_lines_parse = false;
+      unframed.ir.display_lines.clear();
+      for (auto &token : unframed.ir.tokens)
+        token.framing = geist::detail::TokenFramingRole::unframed;
+      const auto undecided = geist::detail::try_lower_topic_to_document_ir(
+          {"1.1", "Example", ":H2", 10, 20, 20}, {unframed}, nullptr, &error);
+      if (undecided)
+        for (const auto &block : undecided->blocks)
+          if (const auto *value =
+                  std::get_if<geist::detail::PreformattedBlockIR>(&block.node))
+            require(value->styled_lines.empty(),
+                    "undecided native framing inferred a styled example");
+    }
+  }
+}
+
 // The opcode itself ends at the display line too.  The flattened string glues
 // the next line's length byte straight onto the opcode word -- SC31-711
 // record 14 line 1 is exactly `SRHDRAIXHIGH` and the `-` behind it is line 2's
@@ -373,6 +732,15 @@ int main() {
   cz_operands_stop_at_the_display_line();
   an_unframed_record_decides_nothing();
   a_length_byte_is_never_display_text();
+  a_length_byte_cannot_select_the_following_code();
+  indented_si_is_display_text();
+  a_metadata_length_byte_cannot_consume_the_first_word();
+  font_operand_grammar_cannot_override_native_opcode_identity();
+  an_indented_publication_number_is_not_a_topic_start();
+  a_parenthetic_word_at_a_native_line_end_stays_text();
+  a_parenthetic_word_at_a_native_line_end_stays_text(true);
+  a_parenthetic_word_at_a_native_line_end_stays_text(true, 1);
+  a_parenthetic_word_at_a_native_line_end_stays_text(true, 2);
   a_menu_label_stops_at_the_display_line();
   a_menu_label_reaches_the_end_of_its_display_line();
   an_unframed_menu_label_is_not_bounded();

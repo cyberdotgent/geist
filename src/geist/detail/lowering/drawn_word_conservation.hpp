@@ -9,8 +9,11 @@
 
 namespace geist::detail {
 
-// Source-side conservation: does a topic's rendered Markdown contain every
-// word the topic's source actually draws?
+// Source-side conservation: does a topic's rendered text contain every word
+// the topic's source actually draws? Both serializers are checked separately:
+// emitted HTML is text-projected and emitted Markdown is projected through its
+// serialization trace. Inline link labels join adjacent text, while attributes
+// and link destinations cannot conceal missing words in either format.
 //
 // Coverage answers which route rendered a topic, not whether the output is
 // complete.  A topic can render, count as fully typed, and still drop a word:
@@ -34,7 +37,7 @@ namespace geist::detail {
 //     the reader consumes rather than prints.
 //
 // Everything left over is text the reader puts on the screen, and must
-// therefore survive into the Markdown.
+// therefore survive into the rendered text.
 //
 // One distinction decides what this check can enforce.  A control's opcode is
 // the first token of its own display line -- the encoder writes the line's
@@ -59,6 +62,8 @@ struct DrawnWordDeficitIR {
   // Occurrences standing anywhere else on their display line.  A word here is
   // display text and nothing else.
   std::size_t drawn_inline = 0;
+  // Minimum retained count across Markdown and HTML; neither format can
+  // compensate for text lost by the other.
   std::size_t emitted = 0;
   // The shortfall left after every opening occurrence is forgiven as a
   // possible unclassified control opcode.  Non-zero means the render dropped
@@ -104,7 +109,8 @@ struct DrawnWordConservationIR {
 };
 
 // Cuts one UTF-8 (or ASCII-projected) string into the comparison unit: runs of
-// `[0-9a-z]` after an ASCII case fold, with every other byte a separator.  Both
+// `[0-9a-z]` after an ASCII case fold. Asterisks, backticks and backslashes
+// retain the existing source-side glue policy; other bytes separate. Both
 // sides of the comparison are cut the same way, so a dictionary word that
 // spans a fragment boundary (`adapt` + `er`) and the render's `adapter` agree.
 std::vector<std::string> conservation_words(const std::string& text);

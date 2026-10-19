@@ -13,6 +13,7 @@
 #include <vector>
 
 namespace geist::detail {
+struct DocumentRenderTraceIR;
 
 // Single source of truth for render provenance.
 //
@@ -100,7 +101,8 @@ void escalate_render_diagnostic(RenderDiagnostic &diagnostic,
 std::string render_best_effort_markdown(
     const TopicIdentityIR &topic,
     const std::vector<VerbatimRowIR> &rows,
-    const std::vector<std::string> &anchors);
+    const std::vector<std::string> &anchors,
+    DocumentRenderTraceIR* trace = nullptr);
 
 // Markdown for the `failed` route: a placeholder naming the topic, its source
 // record range and the reason, so an absent topic is debuggable rather than

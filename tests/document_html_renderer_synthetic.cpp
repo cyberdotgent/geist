@@ -619,6 +619,17 @@ int main() {
   const auto css = read_file(std::string(GEIST_DOC_DIR) + "/html-styling.css");
   if (!require(!css.empty(), "the example stylesheet could not be read"))
     return failures == 0 ? 0 : 1;
+  // Inline code in a literal row must use the same cell metrics as its
+  // unstyled padding; the prose-sized code rule would shift every column.
+  const auto literal_code = css.find(".geist-preformatted .geist-monospace");
+  const auto literal_code_end = css.find('}', literal_code);
+  const auto literal_code_rule =
+      literal_code == std::string::npos || literal_code_end == std::string::npos
+          ? std::string()
+          : css.substr(literal_code, literal_code_end - literal_code);
+  require(literal_code_rule.find("font-size: inherit") != std::string::npos &&
+              literal_code_rule.find("font-family: inherit") != std::string::npos,
+          "styled literal code does not preserve its row's font metrics");
   const auto styled = stylesheet_classes(css);
   for (const auto &value : classes)
     require(styled.count(value) != 0,

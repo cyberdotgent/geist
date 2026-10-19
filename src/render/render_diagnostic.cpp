@@ -3,6 +3,7 @@
 
 #include "geist/detail/render/document_markdown_renderer.hpp"
 #include "geist/detail/render/render_diagnostic_ir.hpp"
+#include "geist/detail/render/markdown_render_sink.hpp"
 
 #include "geist/detail/ir/figure_block_ir.hpp"
 #include "geist/detail/core/internal.hpp"
@@ -245,6 +246,12 @@ std::set<std::size_t> control_tokens(const DecodedLogicalRecordSource& record) {
   };
   for (const auto& segment : record.control_segments) {
     if (segment.display_text) continue;
+    // A dictionary spelling on a proven line-length byte opens no control,
+    // regardless of its apparent operand grammar. Keep metadata/font segment
+    // kinds intact for their typed consumers, but never suppress display text
+    // merely because such a byte resembles their opcode.
+    if (is_display_line_length_opcode(record, segment))
+      continue;
     // Opcode and operands only.  A control's payload is display text -- the
     // `ST` title, a `cselect` label, an `SR` anchor's body -- and dropping it
     // would be exactly the silent loss this route exists to prevent.  The
@@ -275,7 +282,9 @@ std::set<std::size_t> control_tokens(const DecodedLogicalRecordSource& record) {
 // empty opcode, so there is no opcode to test; what identifies the entry is
 // the pair of facts that a segment *begins* here and that it begins with the
 // word `SI`. Requiring the segment boundary is what keeps ordinary prose that
-// merely starts a line with "SI " from being deleted.
+// merely starts a line with "SI " from being deleted. Native-framed records
+// additionally require the keyword immediately after the line-length byte;
+// an indentation token before literal SI disproves an index instruction.
 //
 // Only the `SI` word itself is marked, never the segment: a segment runs to
 // the next control, so an `SI` segment also spans the body text on the
@@ -286,6 +295,12 @@ std::set<std::size_t> control_tokens(const DecodedLogicalRecordSource& record) {
 std::set<std::size_t> index_entry_marker_tokens(
     const DecodedLogicalRecordSource& record) {
   std::set<std::size_t> tokens;
+  if (const auto* lines = record_display_lines(record)) {
+    for (const auto& line : *lines)
+      if (is_subject_index_display_line(record, line))
+        tokens.insert(line.prefix_token + 1);
+    return tokens;
+  }
   const auto ascii = token_words_to_ascii(record.assembled.words);
   for (const auto& segment : record.control_segments) {
     // A segment a later pass proved to be ordinary display text spells `SI`
@@ -535,8 +550,10 @@ void escalate_render_diagnostic(RenderDiagnostic& diagnostic,
 std::string render_best_effort_markdown(
     const TopicIdentityIR& topic,
     const std::vector<VerbatimRowIR>& rows,
-    const std::vector<std::string>& anchors) {
-  std::string markdown;
+    const std::vector<std::string>& anchors,
+    DocumentRenderTraceIR* trace) {
+  if (trace != nullptr) trace->spans.clear();
+  MarkdownRenderSink sink(trace);
   // The topic names itself, exactly as every typed route does: the heading
   // level the source proved, then the public topic identity, then the title.
   // Without it a verbatim topic would arrive with no heading at all and the
@@ -555,27 +572,27 @@ std::string render_best_effort_markdown(
                              heading_level.back() <= '6'
                          ? static_cast<std::size_t>(heading_level.back() - '0')
                          : std::size_t{1};
-  markdown += std::string(level, 0x23) + " ";
+  sink.boundary(std::string(level, 0x23) + " ", "heading marker");
   if (!topic.id.empty())
-    markdown += escape_markdown_text(topic.id) + " ";
-  markdown += escape_markdown_text(topic.title);
-  markdown += "\n\n";
+    sink.content(escape_markdown_text(topic.id) + " ", "topic identity", nullptr);
+  sink.content(escape_markdown_text(topic.title), "topic title", nullptr);
+  sink.boundary("\n\n", "heading break");
   // The topic names these objects even though it claims no structure around
   // them; without them every cross reference elsewhere in the book that
   // points here would dangle.
   for (const auto& id : anchors)
-    markdown += "<a id=\"" + id + "\"></a>\n";
-  if (!markdown.empty())
-    markdown += "\n";
+    sink.syntax("<a id=\"" + id + "\"></a>\n", "anchor");
+  if (!sink.text().empty())
+    sink.boundary("\n", "anchor break");
   // A raw HTML block, not a fence: the rows carry inline anchors and a fence
   // would render them as text.  See the header note.
-  markdown += "<pre>\n";
+  sink.boundary("<pre>\n", "preformatted block open");
   for (const auto& row : rows) {
-    markdown += render_verbatim_row(row);
-    markdown += "\n";
+    sink.html(render_verbatim_row(row), "preformatted line", nullptr);
+    sink.boundary("\n", "preformatted line break");
   }
-  markdown += "</pre>\n";
-  return markdown;
+  sink.boundary("</pre>\n", "preformatted block close");
+  return sink.release();
 }
 
 std::string render_failed_markdown(const TopicIdentityIR& topic,

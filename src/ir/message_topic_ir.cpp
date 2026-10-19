@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "geist/detail/ir/message_topic_ir.hpp"
+#include "geist/detail/ir/message_introduction_ir.hpp"
 
 #include "geist/detail/core/internal.hpp"
 #include "geist/detail/ir/selector_display_ir.hpp"
@@ -187,302 +188,6 @@ bool same_introduction(const MessageIntroductionIR &left,
   return true;
 }
 
-std::string display_text(const std::vector<SelectorDisplayCellIR> &cells,
-                         std::size_t begin, std::size_t end) {
-  std::string result;
-  for (auto index = begin; index < end && index < cells.size(); ++index)
-    if (cells[index].word <= 0xff)
-      result.push_back(static_cast<char>(cells[index].word));
-  return collapse_ascii_whitespace(trim_ascii(std::move(result)));
-}
-
-bool closes_left(std::uint16_t word) {
-  return word == '.' || word == ',' || word == ':' || word == ';' ||
-         word == '!' || word == '?' || word == ')' || word == ']' ||
-         word == '}' || word == '/';
-}
-
-bool opens_right(std::uint16_t word) {
-  return word == '(' || word == '[' || word == '{' || word == '/' ||
-         word == '<';
-}
-
-std::string
-compose_source_cells(const std::vector<MessageIntroductionCellIR> &cells,
-                     const std::vector<std::size_t> &indices) {
-  struct TokenText {
-    std::size_t cell_begin = 0;
-    std::size_t cell_end = 0;
-    std::string text;
-  };
-  std::vector<TokenText> tokens;
-  for (const auto index : indices) {
-    if (index >= cells.size() || cells[index].word > 0xff)
-      continue;
-    const auto &cell = cells[index];
-    if (tokens.empty() ||
-        cells[tokens.back().cell_end].logical_record != cell.logical_record ||
-        cells[tokens.back().cell_end].token_index != cell.token_index) {
-      tokens.push_back({index, index, {}});
-    } else {
-      tokens.back().cell_end = index;
-    }
-    tokens.back().text.push_back(static_cast<char>(cell.word));
-  }
-
-  std::string result;
-  auto open_quote = false;
-  std::uint16_t previous_last = 0;
-  for (const auto &token : tokens) {
-    if (token.text.empty())
-      continue;
-    const auto first = static_cast<unsigned char>(token.text.front());
-    const auto quote = token.text == "\"";
-    const auto tight_left =
-        closes_left(first) || opens_right(previous_last) || open_quote;
-    if (!result.empty() && !tight_left)
-      result.push_back(' ');
-    result += token.text;
-    if (quote)
-      open_quote = !open_quote;
-    previous_last = static_cast<unsigned char>(token.text.back());
-  }
-  return result;
-}
-
-std::optional<MessageIntroductionIR> extract_message_introduction_ir(
-    const std::vector<DecodedLogicalRecordSource> &records,
-    const LayoutIR &layout, const VerifiedOwnershipIR &verified_ownership,
-    const SelectorCatalogIR &selectors, const MessageTopicIR &topic,
-    std::string *error) {
-  const auto reject =
-      [&](std::string message) -> std::optional<MessageIntroductionIR> {
-    fail(error, std::move(message));
-    return std::nullopt;
-  };
-  if (topic.introduction_row_indices.size() != 20)
-    return reject("message introduction row geometry is not canonical");
-
-  MessageIntroductionIR result;
-  std::map<CellKey, std::size_t> cell_by_source;
-  std::vector<std::vector<std::size_t>> row_cells;
-  row_cells.resize(topic.introduction_row_indices.size());
-  for (std::size_t local_row = 0;
-       local_row < topic.introduction_row_indices.size(); ++local_row) {
-    const auto global_row = topic.introduction_row_indices[local_row];
-    if (global_row >= topic.rows.size())
-      return reject("message introduction row index is outside its ledger");
-    const auto &row = topic.rows[global_row];
-    for (const auto &source : row.cells) {
-      MessageIntroductionCellIR cell;
-      cell.logical_record = source.logical_record;
-      cell.token_index = source.token_index;
-      cell.word_index = source.word_index;
-      cell.word = source.word;
-      cell.source_disposition = source.disposition;
-      cell.introduction_row = local_row;
-      if (source.disposition == SourceDisposition::visible_content)
-        cell.role = MessageIntroductionCellRoleIR::text;
-      const auto index = result.cells.size();
-      if (!cell_by_source
-               .emplace(CellKey{cell.logical_record, cell.token_index,
-                                cell.word_index},
-                        index)
-               .second)
-        return reject("message introduction duplicates a source cell");
-      result.cells.push_back(cell);
-      row_cells[local_row].push_back(index);
-    }
-
-    // A compact marker followed by a non-native origin is a lexical carry,
-    // not a layout marker. This classifies punctuation and word carry without
-    // matching either decoded spelling.
-    if (row.marker && row.native_origin != 3) {
-      for (const auto cell_index : row_cells[local_row])
-        if (result.cells[cell_index].token_index == row.marker->token_index)
-          result.cells[cell_index].role = MessageIntroductionCellRoleIR::text;
-    }
-  }
-
-  // Find the one paragraph boundary encoded inside a physical row: terminal
-  // punctuation followed by a wide, source-owned padding run and more text.
-  std::optional<std::pair<std::size_t, std::size_t>> inline_break;
-  for (std::size_t local_row = 0; local_row < row_cells.size(); ++local_row) {
-    const auto &indices = row_cells[local_row];
-    for (std::size_t at = 0; at < indices.size();) {
-      if (result.cells[indices[at]].source_disposition !=
-          SourceDisposition::layout_padding) {
-        ++at;
-        continue;
-      }
-      const auto begin = at;
-      while (at < indices.size() &&
-             result.cells[indices[at]].source_disposition ==
-                 SourceDisposition::layout_padding)
-        ++at;
-      const auto width = at - begin;
-      auto previous = begin;
-      while (previous != 0) {
-        --previous;
-        if (result.cells[indices[previous]].role ==
-            MessageIntroductionCellRoleIR::text)
-          break;
-      }
-      auto next = at;
-      while (next < indices.size() && result.cells[indices[next]].role !=
-                                          MessageIntroductionCellRoleIR::text)
-        ++next;
-      if (width >= 5 && previous < begin && next < indices.size() &&
-          result.cells[indices[previous]].word == '.') {
-        if (inline_break)
-          return reject(
-              "message introduction has multiple inline paragraph gaps");
-        inline_break = {local_row, indices[next]};
-        for (auto pad = begin; pad < at; ++pad)
-          result.cells[indices[pad]].role =
-              MessageIntroductionCellRoleIR::paragraph_break;
-      }
-    }
-  }
-  if (!inline_break)
-    return reject("message introduction lacks its inline paragraph gap");
-
-  std::vector<std::vector<std::size_t>> paragraph_cells(1);
-  const auto start_paragraph = [&]() { paragraph_cells.emplace_back(); };
-  for (std::size_t local_row = 0; local_row < row_cells.size(); ++local_row) {
-    const auto &row = topic.rows[topic.introduction_row_indices[local_row]];
-    const auto lexical_marker = row.marker && row.native_origin != 3;
-    const auto previous_text =
-        std::find_if(paragraph_cells.back().rbegin(),
-                     paragraph_cells.back().rend(), [&](const auto index) {
-                       return result.cells[index].role ==
-                              MessageIntroductionCellRoleIR::text;
-                     });
-    if (local_row != 0 && !lexical_marker && row.native_origin == 3 &&
-        previous_text != paragraph_cells.back().rend() &&
-        result.cells[*previous_text].word == '.')
-      start_paragraph();
-
-    for (const auto cell_index : row_cells[local_row]) {
-      if (cell_index == inline_break->second)
-        start_paragraph();
-      if (result.cells[cell_index].role == MessageIntroductionCellRoleIR::text)
-        paragraph_cells.back().push_back(cell_index);
-    }
-  }
-  if (paragraph_cells.size() != 5 ||
-      std::any_of(paragraph_cells.begin(), paragraph_cells.end(),
-                  [](const auto &cells) { return cells.empty(); }))
-    return reject("message introduction paragraph partition is not canonical");
-
-  std::string display_error;
-  const auto display = extract_selector_display_ir(
-      records, selectors, layout, verified_ownership, &display_error);
-  if (!display ||
-      !verify_selector_display_ir(records, selectors, layout,
-                                  verified_ownership, *display,
-                                  &display_error) ||
-      display->rows.size() != 2 || display->bindings.size() != 2 ||
-      display->rows[0].spans.size() != 1 || display->rows[1].spans.size() != 1)
-    return reject("message introduction selector display rejected: " +
-                  display_error);
-
-  struct LinkProjection {
-    std::string label;
-    CrossReferenceTargetIR target;
-    std::vector<std::size_t> cells;
-  };
-  std::vector<LinkProjection> links;
-  for (const auto &display_row : display->rows) {
-    const auto &span = display_row.spans.front();
-    LinkProjection link;
-    link.label =
-        display_text(display_row.cells, span.cell_begin, span.cell_end);
-    link.target = {CrossReferenceTargetKindIR::anchor, span.target.raw_target};
-    for (auto cell = span.cell_begin; cell < span.cell_end; ++cell) {
-      if (cell >= display_row.cells.size() || !display_row.cells[cell].source ||
-          display_row.cells[cell].source->kind !=
-              SelectorSourceCellKind::token_word)
-        continue;
-      const auto &source = *display_row.cells[cell].source;
-      const auto found = cell_by_source.find(
-          {source.logical_record, source.token_index, source.word_index});
-      if (found != cell_by_source.end()) {
-        result.cells[found->second].role =
-            MessageIntroductionCellRoleIR::selector;
-        if (link.cells.empty() || link.cells.back() != found->second)
-          link.cells.push_back(found->second);
-      }
-    }
-    if (link.label.empty() || link.cells.empty())
-      return reject("message introduction selector lacks source cells");
-    links.push_back(std::move(link));
-  }
-  for (std::size_t paragraph = 0; paragraph < 4; ++paragraph) {
-    MessageIntroductionAtomIR atom;
-    atom.cell_indices = paragraph_cells[paragraph];
-    atom.text = compose_source_cells(result.cells, atom.cell_indices);
-    if (atom.text.empty())
-      return reject("message introduction paragraph has no source text");
-    result.paragraphs.push_back({{std::move(atom)}});
-  }
-
-  const auto first_source = links[0].cells.front();
-  const auto first_end = links[0].cells.back();
-  const auto second_source = links[1].cells.front();
-  const auto second_end = links[1].cells.back();
-  if (!std::is_sorted(links[0].cells.begin(), links[0].cells.end()) ||
-      !std::is_sorted(links[1].cells.begin(), links[1].cells.end()) ||
-      first_source > first_end || second_source > second_end ||
-      first_end >= second_source)
-    return reject("message introduction selector source order is invalid");
-  MessageIntroductionParagraphIR last;
-  const auto add_text_atom = [&](std::size_t begin, std::size_t end,
-                                 bool leading_space, bool trailing_space) {
-    MessageIntroductionAtomIR atom;
-    for (const auto cell : paragraph_cells.back())
-      if (cell >= begin && cell < end &&
-          result.cells[cell].role == MessageIntroductionCellRoleIR::text)
-        atom.cell_indices.push_back(cell);
-    atom.text = compose_source_cells(result.cells, atom.cell_indices);
-    if (leading_space)
-      atom.text.insert(atom.text.begin(), ' ');
-    if (trailing_space)
-      atom.text.push_back(' ');
-    if (atom.text.empty())
-      return;
-    last.atoms.push_back(std::move(atom));
-  };
-  add_text_atom(0, first_source, false, true);
-  last.atoms.push_back({MessageIntroductionAtomKindIR::selector, links[0].label,
-                        links[0].target, links[0].cells});
-  add_text_atom(first_end + 1, second_source, true, false);
-  last.atoms.push_back({MessageIntroductionAtomKindIR::selector, links[1].label,
-                        links[1].target, links[1].cells});
-  add_text_atom(second_end + 1, result.cells.size(), true, false);
-  if (last.atoms.size() != 5)
-    return reject("message introduction inline sequence is not canonical");
-  result.paragraphs.push_back(std::move(last));
-
-  std::vector<std::size_t> claims(result.cells.size());
-  for (const auto &paragraph : result.paragraphs)
-    for (const auto &atom : paragraph.atoms)
-      for (const auto cell : atom.cell_indices) {
-        if (cell >= result.cells.size())
-          return reject("message introduction atom has an invalid source cell");
-        ++claims[cell];
-      }
-  for (std::size_t cell = 0; cell < result.cells.size(); ++cell) {
-    const auto semantic =
-        result.cells[cell].role == MessageIntroductionCellRoleIR::text ||
-        result.cells[cell].role == MessageIntroductionCellRoleIR::selector;
-    if ((semantic && claims[cell] != 1) || (!semantic && claims[cell] != 0))
-      return reject("message introduction source-cell claims are not exact");
-  }
-  if (error != nullptr)
-    error->clear();
-  return result;
-}
 
 bool same_topic_envelope(const MessageTopicIR &left,
                          const MessageTopicIR &right) {
@@ -715,15 +420,17 @@ std::optional<MessageTopicIR> extract_message_topic_ir_impl(
     result.catalog = std::move(*catalog);
   }
 
-  const auto selectors =
+  auto selectors =
       extract_selector_catalog_ir(records, &verification_error);
-  if (!selectors)
-    return reject("message selectors rejected: " + verification_error);
-  if (selectors->selectors.size() != 2)
-    return reject("message introduction selector count is not canonical");
+  if (!selectors) {
+    for (const auto& record : records)
+      for (const auto& segment : record.control_segments)
+        if (segment.kind == BookControlKind::select)
+          return reject("message selectors rejected: " + verification_error);
+    selectors = SelectorCatalogIR{};
+  }
   for (const auto &selector : selectors->selectors) {
-    if (!selector.canonical_operands || selector.inside_table ||
-        selector.target != "HDRPROBS")
+    if (!selector.canonical_operands || selector.inside_table)
       return reject("message introduction selector is not canonical");
     const auto *record = find_record(records, selector.logical_record);
     if (record == nullptr)
@@ -873,49 +580,9 @@ extract_message_topic_ir(const std::vector<DecodedLogicalRecordSource> &records,
 bool message_topic_candidate_is_consistent(const MessageTopicIR &topic) {
   const auto &introduction = topic.introduction;
   if (topic.first_logical_record >= topic.end_logical_record ||
-      introduction.cells.empty() || introduction.paragraphs.size() != 5)
+      introduction.cells.empty() || introduction.paragraphs.empty())
     return false;
   std::set<std::size_t> paragraph_break_cells;
-  for (std::size_t begin = 0; begin < introduction.cells.size();) {
-    if (introduction.cells[begin].source_disposition !=
-        SourceDisposition::layout_padding) {
-      ++begin;
-      continue;
-    }
-    auto end = begin + 1;
-    while (end < introduction.cells.size() &&
-           introduction.cells[end].introduction_row ==
-               introduction.cells[begin].introduction_row &&
-           introduction.cells[end].source_disposition ==
-               SourceDisposition::layout_padding)
-      ++end;
-    auto previous = begin;
-    while (previous != 0 &&
-           introduction.cells[previous - 1].introduction_row ==
-               introduction.cells[begin].introduction_row) {
-      --previous;
-      if (introduction.cells[previous].role ==
-          MessageIntroductionCellRoleIR::text)
-        break;
-    }
-    auto next = end;
-    while (next < introduction.cells.size() &&
-           introduction.cells[next].introduction_row ==
-               introduction.cells[begin].introduction_row &&
-           introduction.cells[next].role !=
-               MessageIntroductionCellRoleIR::text)
-      ++next;
-    if (end - begin >= 5 && previous < begin &&
-        introduction.cells[previous].word == '.' &&
-        next < introduction.cells.size() &&
-        introduction.cells[next].introduction_row ==
-            introduction.cells[begin].introduction_row)
-      for (auto cell = begin; cell < end; ++cell)
-        paragraph_break_cells.insert(cell);
-    begin = end;
-  }
-  if (paragraph_break_cells.empty())
-    return false;
   std::vector<std::size_t> claims(introduction.cells.size());
   std::size_t selector = 0;
   std::optional<std::size_t> previous_source;
@@ -923,12 +590,18 @@ bool message_topic_candidate_is_consistent(const MessageTopicIR &topic) {
     if (paragraph.atoms.empty())
       return false;
     for (const auto &atom : paragraph.atoms) {
-      if (atom.cell_indices.empty() ||
+      if (atom.text.empty() ||
           !std::is_sorted(atom.cell_indices.begin(), atom.cell_indices.end()))
         return false;
-      if (previous_source && atom.cell_indices.front() <= *previous_source)
-        return false;
-      previous_source = atom.cell_indices.back();
+      if (atom.cell_indices.empty()) {
+        if (atom.kind != MessageIntroductionAtomKindIR::text ||
+            !trim_ascii(atom.text).empty())
+          return false;
+      } else {
+        if (previous_source && atom.cell_indices.front() <= *previous_source)
+          return false;
+        previous_source = atom.cell_indices.back();
+      }
       for (const auto cell : atom.cell_indices) {
         if (cell >= introduction.cells.size())
           return false;
@@ -951,9 +624,7 @@ bool message_topic_candidate_is_consistent(const MessageTopicIR &topic) {
     const auto role = introduction.cells[cell].role;
     const auto semantic = role == MessageIntroductionCellRoleIR::text ||
                           role == MessageIntroductionCellRoleIR::selector;
-    if ((semantic && claims[cell] != 1) || (!semantic && claims[cell] != 0) ||
-        (role == MessageIntroductionCellRoleIR::paragraph_break) !=
-            (paragraph_break_cells.count(cell) != 0))
+    if ((semantic && claims[cell] != 1) || (!semantic && claims[cell] != 0))
       return false;
   }
   const auto coordinate = [](const auto &source) {

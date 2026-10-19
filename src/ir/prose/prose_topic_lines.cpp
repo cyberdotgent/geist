@@ -1681,7 +1681,8 @@ struct LineBuilder {
       }
       return false;
     };
-    if (!cz_mode && !span_holds_row && view.width == 1 &&
+    if (!cz_mode && !span_holds_row &&
+        !inside_display_line(view.record, view.token) && view.width == 1 &&
         view.value < row_control_byte_limit &&
         (!pending_space || view.prefix == 0 || view.prefix == 1) &&
         !in_title && !in_index && line_open && line_visible_cells != 0 &&

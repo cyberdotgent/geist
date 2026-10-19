@@ -121,6 +121,136 @@ Pipeline pipeline(std::vector<DecodedLogicalRecordSource> sources) {
   return result;
 }
 
+void framed_selection_keeps_its_payload(bool wrapped, bool ordinal,
+                                       bool deferred = false,
+                                       bool revision = false,
+                                       bool bad_prefix = false,
+                                       bool spacing_marker = false,
+                                       std::size_t revision_column = 1) {
+  auto source = make_source(10, {});
+  const auto line = [&](std::vector<TokenWords> tokens,
+                        TokenWords prefix = TokenWords{0x2500}) {
+    source.encoded_tokens.push_back(
+        {static_cast<std::uint16_t>(tokens.size()), 1});
+    source.tokens.push_back(std::move(prefix));
+    for (auto& token : tokens) {
+      source.encoded_tokens.push_back({0x80, 1});
+      source.tokens.push_back(std::move(token));
+    }
+  };
+  line({words("chdlevel :FIGLIST")});
+  line({words("ST Figures")});
+  if (wrapped) {
+    line({words("cselect 3 9 FIGONE")});
+    line({words("   "), words("13"), TokenWords{1, '.'}, words(" "),
+          words("Alpha")});
+  }
+  line({words(ordinal ? "cselect 3 25 FIGONE" :
+              revision ? "cselect " + std::to_string(revision_column + 3) +
+                             " 19 FIGONE" : "cselect 3 19 FIGONE")});
+  const auto payload_begin = source.tokens.size();
+  if (ordinal)
+    line({words("   "), words("4"), TokenWords{1, '-'},
+          TokenWords{1, '1', '3'}, words(" "), words("Libraries"),
+          words("  "), words("6.9.3.3")},
+         spacing_marker ? TokenWords{1} : words("                 "));
+  else if (revision) {
+    line({words(std::string(revision_column, ' ')), words(bad_prefix ? "X" : "|"), words(" "), words("Libraries"),
+          words("  "), words("6.9.3.3")});
+  } else
+    line({words("   "), words("Libraries"), words("  "),
+          words("6.9.3.3")});
+  std::vector<DecodedLogicalRecordSource> records;
+  if (deferred) {
+    auto continuation = make_source(11, {});
+    continuation.tokens.assign(source.tokens.begin() + payload_begin,
+                               source.tokens.end());
+    continuation.encoded_tokens.assign(
+        source.encoded_tokens.begin() + payload_begin,
+        source.encoded_tokens.end());
+    source.tokens.resize(payload_begin);
+    source.encoded_tokens.resize(payload_begin);
+    records.push_back(std::move(source));
+    records.push_back(std::move(continuation));
+  } else {
+    records.push_back(std::move(source));
+  }
+  for (auto& record : records) {
+    record.assembled =
+        geist::detail::assemble_logical_record_with_sources(record.tokens);
+    const auto begin = record.logical_record * 100;
+    auto byte = begin;
+    for (std::size_t token = 0; token < record.tokens.size(); ++token) {
+      const auto spacing = record.tokens[token].front() < 4;
+      record.ir.tokens.push_back(
+          {token, record.encoded_tokens[token], record.tokens[token],
+           {byte, byte + 1}, spacing,
+           spacing ? record.tokens[token].front() : std::uint16_t{3}});
+      ++byte;
+    }
+    record.ir.payload_range = {begin, byte};
+    geist::detail::assign_display_line_framing(record.ir);
+    record.control_segments = geist::detail::decode_control_segments(
+        record.logical_record, record.assembled, record.encoded_tokens,
+        record.ir.display_lines);
+    geist::detail::demote_display_line_owned_controls(record);
+    require(record.ir.display_lines_parse,
+            "generated-list source does not frame");
+  }
+  const auto value = pipeline(std::move(records));
+  std::string error;
+  if (!value.ownership) return;
+  const geist::detail::OwnershipIR& ownership = *value.ownership;
+  if (spacing_marker) {
+    auto mutated = ownership;
+    bool found = false;
+    for (auto& cell : mutated.cells)
+      if (cell.logical_record == 11 && cell.token_index == 0 &&
+          cell.word_index == 0) {
+        found = true;
+        require(cell.disposition ==
+                    geist::detail::SourceDisposition::marker_slot &&
+                    cell.field_role == geist::detail::SourceFieldRole::supplemental,
+                "native length byte was interpreted as dictionary spacing control");
+        cell.disposition = geist::detail::SourceDisposition::control_operand;
+      }
+    require(found && !geist::detail::verify_ownership_ir(
+                         value.sources, value.layout, mutated, &error),
+            "mutated native marker ownership passed verification");
+  }
+  for (const auto& record : value.sources)
+    for (std::size_t token = 0; token < record.tokens.size(); ++token)
+      if (record.tokens[token] == words("Libraries"))
+        for (const auto& cell : ownership.cells)
+          if (cell.logical_record == record.logical_record &&
+              cell.token_index == token)
+            require(cell.disposition ==
+                        geist::detail::SourceDisposition::visible_content,
+                    "native caption payload is not owned as visible text");
+  const auto list = geist::detail::extract_generated_list_topic_ir(
+      value.sources, value.selectors, value.layout, *value.ownership, &error);
+  if (bad_prefix || revision_column != 1) {
+    require(!list && error.find("excludes leading text") != std::string::npos,
+            "native generated-list selection silently dropped leading text");
+    return;
+  }
+  const auto count = wrapped ? 2U : 1U;
+  require(list && list->entries.size() == count,
+          "wrapped generated-list source declined: " + error);
+  if (!list || list->entries.size() != count) return;
+  const auto expected = ordinal ? "4-13  Libraries   6.9.3.3" :
+                                  "Libraries   6.9.3.3";
+  require(label_text(list->entries.back()) == expected,
+          "framed caption lost payload: " + label_text(list->entries.back()));
+  require_entry_partition(list->entries.back());
+  if (revision) {
+    const auto& row = list->entries.back().display;
+    require(row.spans.front().cell_begin == 4 && row.cells[1].word == '|' &&
+                row.cells[4].word == 'L',
+            "native revision margin shifted the selected caption columns");
+  }
+}
+
 void verify_synthetic_contract() {
   const auto value = pipeline({make_source(
       10, {words("chdlevel :FIGLIST"), words("ST Figures"),
@@ -473,6 +603,14 @@ void verify_corpus_inventory() {
 } // namespace
 
 int main() {
+  framed_selection_keeps_its_payload(true, false);
+  framed_selection_keeps_its_payload(false, false);
+  framed_selection_keeps_its_payload(false, true);
+  framed_selection_keeps_its_payload(false, true, true);
+  framed_selection_keeps_its_payload(false, false, false, true);
+  framed_selection_keeps_its_payload(false, false, false, true, true);
+  framed_selection_keeps_its_payload(false, true, true, false, false, true);
+  framed_selection_keeps_its_payload(false, false, false, true, false, false, 2);
   verify_synthetic_contract();
 #ifdef GEIST_FIXTURE_DIR
   verify_corpus_inventory();

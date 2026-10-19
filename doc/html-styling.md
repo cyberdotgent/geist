@@ -158,6 +158,12 @@ would be a claim the source never made.
 Semantic elements *and* the class are used, so a consumer can restyle without
 fighting user-agent defaults.
 
+Preformatted rows may contain these inline styles and links without losing
+their literal spaces or line boundaries. All inline font sizes and families
+must retain the preformatted row's fixed cell metrics; in particular, do not
+apply the smaller prose code size to `geist-monospace` inside
+`geist-preformatted`.
+
 There is deliberately no `geist-bold` or `geist-italic`. The book's font
 styles are resolved before any renderer sees them: bold-family styles become
 `strong`, italic-family styles become `emphasis`, and monospace families

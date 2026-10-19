@@ -75,7 +75,10 @@ bool verify_inlines(const InlineSequenceIR& inlines, bool allow_empty,
           if constexpr (std::is_same_v<T, TextInlineIR>) {
             return !node.text.empty();
           } else if constexpr (std::is_same_v<T, EmphasisInlineIR>) {
-            return !node.text.empty();
+            return !node.text.empty() &&
+                   (node.kind == EmphasisKindIR::emphasis ||
+                    node.kind == EmphasisKindIR::strong ||
+                    node.kind == EmphasisKindIR::strong_emphasis);
           } else if constexpr (std::is_same_v<T, CodeInlineIR>) {
             return !node.code.empty();
           } else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>) {
@@ -171,6 +174,8 @@ void collect_child_origins(const BlockNodeIR& node,
           for (const auto& item : block.items) out.push_back(&item.origin);
         } else if constexpr (std::is_same_v<T, PreformattedBlockIR>) {
           for (const auto& line : block.line_origins) out.push_back(&line);
+          for (const auto& line : block.styled_lines)
+            collect_inline_origins(line, out);
         }
       },
       node);
@@ -285,6 +290,39 @@ bool verify_block(const BlockIR& block, std::string* error) {
                         "preformatted line origins do not match its lines");
           for (const auto& line : node.line_origins)
             if (!verify_origin(line, error)) return false;
+          if (!node.styled_lines.empty()) {
+            if (node.styled_lines.size() != node.lines.size() ||
+                node.line_origins.size() != node.lines.size())
+              return fail(error, "styled preformatted rows lack matching lines/origins");
+            if (!node.line_links.empty())
+              return fail(error, "styled preformatted rows have competing link ownership");
+            for (std::size_t line = 0; line < node.lines.size(); ++line) {
+              if (!verify_inlines(node.styled_lines[line], true, error)) return false;
+              std::string flattened;
+              for (const auto& in : node.styled_lines[line]) {
+                const auto valid = std::visit([&](const auto& value) {
+                  using Inline = std::decay_t<decltype(value)>;
+                  if constexpr (std::is_same_v<Inline, TextInlineIR> ||
+                                std::is_same_v<Inline, EmphasisInlineIR>)
+                    flattened += value.text;
+                  else if constexpr (std::is_same_v<Inline, CodeInlineIR>)
+                    flattened += value.code;
+                  else if constexpr (std::is_same_v<Inline, CrossReferenceInlineIR>)
+                    flattened += value.label.empty() ? value.target.value : value.label;
+                  else return false;
+                  return true;
+                }, in.node);
+                if (!valid)
+                  return fail(error, "styled preformatted inline changes row geometry");
+                for (const auto& slice : in.origin.slices)
+                  if (!slice_covers(node.line_origins[line].slices, slice))
+                    return fail(error, "styled row origin does not cover inline source");
+              }
+              if (flattened != node.lines[line] ||
+                  flattened.find_first_of("\r\n") != std::string::npos)
+                return fail(error, "styled preformatted text differs from literal source row");
+            }
+          }
           return true;
         } else if constexpr (std::is_same_v<T, NoteBlockIR>) {
           return verify_inlines(node.label, true, error) &&
@@ -396,7 +434,10 @@ void format_origin(std::ostringstream& out,
     out << " source=(lr=" << slice.logical_record
         << " seg=" << slice.segment_index << " tok=" << slice.token_begin
         << ':' << slice.token_end << " bytes=" << slice.byte_begin << ':'
-        << slice.byte_end << ')';
+        << slice.byte_end;
+    if (slice.character_begin != 0 || slice.character_end != 0)
+      out << " chars=" << slice.character_begin << ':' << slice.character_end;
+    out << ')';
   }
   for (const auto& row : origin.rows)
     out << " row=" << row.display_run << ':' << row.row_index;
@@ -536,6 +577,10 @@ void normalize_block(BlockIR& block) {
         } else if constexpr (std::is_same_v<T, IndexGroupBlockIR>) {
           for (auto& entry : node.entries)
             lift_inlines(entry.origin, entry.term);
+        } else if constexpr (std::is_same_v<T, PreformattedBlockIR>) {
+          for (std::size_t line = 0; line < node.styled_lines.size() &&
+                                     line < node.line_origins.size(); ++line)
+            lift_inlines(node.line_origins[line], node.styled_lines[line]);
         }
       },
       block.node);
@@ -642,6 +687,10 @@ std::string format_document_ir(const DocumentIR& document) {
               out << quoted(node.lines[line]);
               if (line < node.line_origins.size())
                 format_entry_origin(out, node.line_origins[line]);
+              if (line < node.styled_lines.size()) {
+                out << " styled=";
+                format_inlines(out, node.styled_lines[line]);
+              }
             }
             out << ']';
           } else if constexpr (std::is_same_v<T, NoteBlockIR>) {

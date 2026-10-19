@@ -1045,6 +1045,106 @@ lines, 315 topics, `IBMMMSTR.boo` alone), `citerm`, `ctoce`, `cselect`, `cmenu`,
 `cemenu` and `c.cp` — gives *1,004 topics across 26 books*. A string-level
 control scanner mis-fires on all of them.
 
+Two selector-shaped examples demonstrate that the opcode's apparent operand
+syntax cannot override the framing. In `SC09-2417-00.boo`, record 444,
+token 0 at file offset `0x59217` is byte `42` (hex), the length 66, whose
+dictionary spelling is `cselect`. Its line contains a `#pragma mapinc(...)`
+source example, not selector operands. In `SG24-204.boo`, record 487,
+token 266 at `0x2E7FB4` is byte `3A` (hex), the length 58, also spelled
+`cselect`; the following line content includes an IBM fax number. Neither
+length byte opens a selector or owns any following word as an operand.
+
+The same collision occurs with metadata names. In `SC31-711.boo` record
+151, token 65 at `0x146F1` is length byte `2D` (hex), dictionary spelling
+`cbacklevel`; token 66 is indentation and token 67 (`0x146F3`) is the
+displayed word `the`. In `SC24-546.boo` record 632, token 37 at `0x41272`
+is length byte `3A` (hex), also spelled `cbacklevel`; the word `at` is
+token 39 at `[0x41274,0x41276)`. Neither word is a backward-topic operand.
+
+A one-byte alphabetic reference inside a proven display line is likewise
+text even when attached to punctuation immediately before the next line's
+origin. In `SC33-033.boo` record 318, tokens 80--82 at
+`[0x25E1C,0x25E1F)` are `(`, attachment byte `00` (hex), and the word
+`a` (reference `2F`, hex). Token 83 at `0x25E1F` is the next line's
+length byte `0F` (hex), whose dictionary spelling is seven spaces. The
+first line ends with `(a`; the next begins `note)`. The word `a` is not a
+row-control slot just because a space-spelled length byte follows it.
+
+Topic-start-shaped publication identifiers also remain text when indented.
+`GG24-395.boo` record 520, line 0, is the complete native line
+`       SH26-7000.`. Its `SH26` reference is token 2 at
+`[0x137701,0x137703)`, after the indentation token, not at the instruction
+origin. The initial `SH` plus digits therefore does not open a new topic.
+
+The identifier may occupy an entire continuation record. In
+`SH12-565.boo`, record 906 starts at `0x55190` with bytes
+`08 19 E2 B4 00 24 00 EF 78` (hex). Byte `08` is the eight-byte line
+length; reference `19` supplies eleven spaces. References `E2 B4`, `24`
+and `EF 78` supply `SH19`, `-` and `6639`; each intervening `00` attaches
+the following reference without a space. The complete display line is
+`           SH19-6639`, continuing the publication title at the end of
+record 905. The topic-start index lists records 902 and 907, but not 906:
+record 906 belongs to the `BIBLIOGRAPHY.2` topic beginning at 902, before
+the `INDEX` topic beginning at 907. This index corroborates the native
+origin distinction; the initial letters alone do not establish a heading.
+These observations concern records with complete length framing and do
+not establish an instruction origin for records whose framing is undecided.
+
+Styled rows can encode aligned examples without table delimiters. In
+`SC24-546.boo` record 1062 (`SPACE`), three distinct display lines begin
+with five-space origins and have separate preceding font instructions:
+
+[cols="<18,<13,<45",options="header"]
+|===
+|Line-length byte / offset |Length (hex) |Preceding font triples
+|Token 55 / `0x61C01` |`3F` |`5 14 E 20 9 E 37 2 2 41 8 E 50 7 E`
+|Token 129 / `0x61C4F` |`48` |`5 16 E 22 13 E 37 2 2 41 14 E`
+|Token 209 / `0x61CA6` |`46` |`5 14 E 20 16 E 37 2 2 41 13 E`
+|===
+
+Each line carries one invocation, a separately highlighted relation, and
+one result. Consecutive example-font spans on different lines do not join
+the preceding result to the next invocation. The row boundary remains
+significant even when the font code is unchanged.
+There are no `SRTBL` / `SRETBL` delimiters around these lines. The font
+triples address display cells; they neither create table cells nor replace
+the native row boundaries, origin spaces or internal spacing.
+
+The actual gap tokens also matter. The first line has reference `17` (hex)
+at `0x61C25`, expanding to seven spaces before the relation; the second
+has reference `11` at `0x61C7B`, expanding to one space. The third has no
+space-run token between `)` at `0x61CD4` and the relation at `0x61CD5`:
+only the ordinary inter-token space separates them. Identical font starts
+alone therefore do not establish identical source-owned column gaps.
+
+The same native origin separates a subject-index keyword from the literal
+abbreviation `SI` (shift in). A metadata `SI` begins immediately after its
+line's length byte, without an intervening indentation token.
+`SC24-546.boo` record 1038 has a length byte `13` (hex) at `0x60098`
+(token 114), a seven-space indentation token at `0x60099` (token 115),
+and literal `SI` at `0x6009A` (token 116). Record 1041 likewise starts with
+length byte `06` at `0x604D1`, indentation at `0x604D2`, and `SI` at
+`0x604D3`. The lines beginning `SI are considered` and `SI are removed`
+are displayed prose; their indentation is source content, not optional
+padding before an index instruction.
+
+This distinction also applies to selected captions and to introductory lines
+following `ST`. In `GC23-046.boo`'s `FIGURES`, record 10, the line prefix
+at file offset `0x7B46` is byte `14` (hex). `Libraries` is the payload token
+at `0x7B55`, byte `92` (hex), followed by a two-cell gap; that gap does not
+make the preceding word another row marker. In `SC31-711.boo` topic
+`BACK_1.9`, record 530, an introductory line ends with `AIX`, byte `8A`
+at `0x33D87`. The next byte `09` at `0x33D88` is the following line's
+length prefix, followed by its three-space origin token, also byte `09`.
+The prefix's dictionary spelling as blanks does not turn the preceding
+`AIX` into structure.
+
+A native line's length byte is framing, not a displayed dictionary token.
+It contributes no display columns even when dictionary resolution produces
+a spacing-control word (`0001`, `0002`, or `0003`) or printable characters.
+Its encoded length and the following source tokens determine the line;
+dictionary spelling cannot change its role.
+
 The rule is not about metadata opcodes: a length byte resolves to whatever
 one-byte dictionary word its value indexes, and the flattened splitter cuts a
 segment wherever that word looks like a control or a word boundary. The same

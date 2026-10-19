@@ -839,12 +839,6 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
                                     BookControlKind::layout_directive;
                            });
       });
-  // The decoder's stored display-line framing proves where every row-control
-  // length byte stands.
-  const auto length_byte_at = [&](const std::size_t record_index,
-                                  const std::size_t token) {
-    return is_display_line_length_token(records[record_index], token);
-  };
   // `SRFTN<id>` of the CZ dialect names the footnote the next `cz FLOW FN`
   // directive opens (packet 1.1 record 17).
   std::string pending_footnote_id;
@@ -1791,13 +1785,7 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         // (value 59) is the length byte of the calendar box's first row.
         // The byte re-enters the token stream so the display-row pass gives
         // it the row-control slot it gives every other length byte.
-        if (!segment.source_tokens.empty() &&
-            length_byte_at(record_index, segment.source_tokens.front()) &&
-            ascii_equals_case_insensitive(
-                body_text(view_token(records, record_index,
-                                     segment.source_tokens.front())),
-                segment.opcode) &&
-            segment.malformed) {
+        if (is_display_line_length_opcode(record, segment)) {
           for (const auto token : segment.source_tokens) {
             Item item;
             item.kind = ItemKind::token;
@@ -1978,8 +1966,7 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         // with the row breaks those bytes carry.  The byte re-enters the
         // token stream so the display-row pass gives it the same row-control
         // slot it gives every other length byte.
-        if (title_seen && !segment.source_tokens.empty() &&
-            length_byte_at(record_index, segment.source_tokens.front())) {
+        if (title_seen && is_display_line_length_opcode(record, segment)) {
           for (const auto token : segment.source_tokens) {
             Item item;
             item.kind = ItemKind::token;

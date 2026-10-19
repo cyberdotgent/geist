@@ -234,6 +234,12 @@ struct PreformattedBlockIR {
   // has any link is rendered as a `<pre>` instead -- the same form the
   // verbatim route uses -- and the rows keep their own bytes either way.
   std::vector<std::vector<VerbatimLinkIR>> line_links;
+  // Optional styled, source-positioned rows. When present, every inline row
+  // flattens byte-for-byte to the matching entry in `lines`, including its
+  // spaces, and has a matching line origin. Links live in these inlines,
+  // never simultaneously in `line_links`. No inline may create another row
+  // or replace a source character with an image/opaque rendering.
+  std::vector<InlineSequenceIR> styled_lines;
 };
 
 struct NoteBlockIR {

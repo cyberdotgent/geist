@@ -277,6 +277,27 @@ bool verify_prose_topic_ir(
   for (std::size_t block = 0; block < topic.blocks.size(); ++block) {
     const auto& node = topic.blocks[block];
     if (node.inlines.empty()) return fail(error, "prose block has no inlines");
+    if (!node.preformatted_line_inline_ends.empty()) {
+      if (node.kind != ProseBlockKindIR::preformatted ||
+          node.preformatted_line_inline_ends.size() != node.preformatted_lines.size() ||
+          node.preformatted_line_sources.size() != node.preformatted_lines.size())
+        return fail(error, "styled preformatted row count is inconsistent");
+      std::size_t cursor = 0;
+      for (std::size_t row = 0; row < node.preformatted_lines.size(); ++row) {
+        const auto end = node.preformatted_line_inline_ends[row];
+        if (end < cursor || end > node.inlines.size())
+          return fail(error, "styled preformatted row has invalid inline extent");
+        std::string text;
+        for (auto item = cursor; item < end; ++item) text += node.inlines[item].text;
+        if (text != node.preformatted_lines[row])
+          return fail(error, "styled preformatted inlines disagree with native row");
+        cursor = end;
+      }
+      if (cursor != node.inlines.size())
+        return fail(error, "styled preformatted rows leave inline content unowned");
+    } else if (!node.preformatted_line_sources.empty()) {
+      return fail(error, "native row sources have no styled row partition");
+    }
     for (std::size_t index = 0; index < node.inlines.size(); ++index) {
       const auto& inline_node = node.inlines[index];
       // A row boundary carries no word and no source token of its own; every
@@ -438,10 +459,21 @@ std::string format_prose_topic_ir(const ProseTopicIR& topic) {
     if (!block.anchor_id.empty()) out << " anchor=" << block.anchor_id;
     if (block.term_inline_count != 0)
       out << " term_inlines=" << block.term_inline_count;
+    if (!block.verbatim_kind.empty()) out << " verbatim_kind=" << block.verbatim_kind;
     format_slices(out, block.slices);
     out << '\n';
     for (const auto& row : block.preformatted_lines)
       out << "  row '" << row << "'\n";
+    if (!block.preformatted_line_inline_ends.empty()) {
+      out << "  styled_row_ends";
+      for (const auto end : block.preformatted_line_inline_ends) out << ' ' << end;
+      out << '\n';
+      for (const auto& source : block.preformatted_line_sources) {
+        out << "  native_row_source";
+        format_slices(out, {source});
+        out << '\n';
+      }
+    }
     for (const auto& inline_node : block.inlines) {
       out << "  ";
       switch (inline_node.kind) {

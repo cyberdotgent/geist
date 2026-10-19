@@ -184,7 +184,8 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
       decode_experimental_logical_records(bytes,
                                           document.directory_,
                                           &context->record_payload_ranges,
-                                          &header_token_boundaries);
+                                          &header_token_boundaries, false,
+                                          &context->topic_header_framing);
   const auto topics = build_topics(*context, false);
   const auto first_topic_record = topics.empty()
                                       ? context->decoded_records.size() + 1
@@ -214,15 +215,16 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
   // title ends (toc_entry_framing.hpp), so the table of contents is read from
   // the positioned decode and not from the flattened strings alone.
   std::vector<std::vector<std::size_t>> contents_display_line_starts;
+  std::vector<DecodedLogicalRecordSource> contents_sources;
   for (const auto& topic : topics) {
     if (ascii_equals_case_insensitive(topic.id, "contents")) {
       contents_records.assign(
           context->decoded_records.begin() + topic.start_logical_record - 1,
           context->decoded_records.begin() + topic.end_logical_record - 1);
-      const auto sources = decode_logical_record_sources(
+      contents_sources = decode_logical_record_sources(
           *context, topic.start_logical_record, topic.end_logical_record);
-      contents_display_line_starts.reserve(sources.size());
-      for (const auto& source : sources) {
+      contents_display_line_starts.reserve(contents_sources.size());
+      for (const auto& source : contents_sources) {
         contents_display_line_starts.push_back(
             display_line_start_output_offsets(source));
       }
@@ -230,7 +232,8 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
     }
   }
   document.toc_ = build_table_of_contents(contents_records, topics, false,
-                                          &contents_display_line_starts);
+                                          &contents_display_line_starts,
+                                          &contents_sources);
   // A book with no CONTENTS topic has no contents page to read a table of
   // contents from, and short books are published that way. Its topics still
   // carry their own hierarchy -- `:H1`, `:H2` -- which is what the

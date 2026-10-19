@@ -289,6 +289,12 @@
   font-size: 0.95em;
 }
 
+/* Styled literal rows share one grid, including their unstyled spaces. */
+.geist-preformatted .geist-monospace {
+  font-family: inherit;
+  font-size: inherit;
+}
+
 .geist-image {
   max-width: 100%;
   height: auto;

@@ -161,6 +161,7 @@ set(GEIST_SOURCES
   src/container/source_slice_text.cpp
   src/container/toc.cpp
   src/container/toc_entry_framing.cpp
+  src/container/topic_catalogue_framing.cpp
 
   # layout/
   src/layout/display_lines.cpp
@@ -197,6 +198,7 @@ set(GEIST_SOURCES
   src/ir/message_prose_rows.cpp
   src/ir/message_section_blocks_ir.cpp
   src/ir/message_topic_ir.cpp
+  src/ir/message_introduction_ir.cpp
   src/ir/procedure_rows.cpp
   src/ir/publication_ir.cpp
   src/ir/selector_display_ir.cpp
@@ -207,6 +209,7 @@ set(GEIST_SOURCES
 
   # ir/prose/
   src/ir/prose/prose_topic_blocks.cpp
+  src/ir/prose/prose_topic_preformatted.cpp
   src/ir/prose/prose_topic_boxes.cpp
   src/ir/prose/prose_topic_cz.cpp
   src/ir/prose/prose_topic_ir.cpp
@@ -238,6 +241,8 @@ set(GEIST_SOURCES
   # render/
   src/render/document_html_renderer.cpp
   src/render/document_markdown_renderer.cpp
+  src/render/html_visible_text.cpp
+  src/render/markdown_visible_text.cpp
   src/render/render_diagnostic.cpp
   src/render/render_trace.cpp
   src/render/topic_html_render.cpp
@@ -524,6 +529,7 @@ foreach(synthetic_test
     book_control_value_boundary_synthetic
     display_line_control_extent_synthetic
     topic_title_display_line_synthetic
+    topic_catalogue_framing_synthetic
     attached_prose_glyph_synthetic
     toc_entry_framing_synthetic
     topic_envelope_ir_synthetic
@@ -551,6 +557,7 @@ foreach(synthetic_test
     chapter_menu_spacing_synthetic
     glossary_catalog_ir_synthetic
     message_catalog_ir_synthetic
+    message_introduction_ir_synthetic
     verbatim_cross_references_synthetic
     trap_catalog_ir_synthetic
     layout_row_coverage_synthetic)

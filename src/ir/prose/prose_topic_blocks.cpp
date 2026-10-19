@@ -241,7 +241,8 @@ bool resolve_spans(const Line& line, std::vector<Attr>& attrs,
 bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
                  const std::vector<Line>& lines, std::size_t begin,
                  std::size_t end, ProseBlockIR& block, Ledger& ledger,
-                 std::size_t block_index, std::string* error) {
+                 std::size_t block_index, std::string* error,
+                 bool preserve_whitespace) {
   std::vector<BlockChar> chars;
   std::vector<LinkTarget> targets;
   for (auto index = begin; index < end; ++index) {
@@ -276,6 +277,10 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
   std::vector<BlockChar> collapsed;
   for (std::size_t index = 0; index < chars.size(); ++index) {
     const auto& ch = chars[index];
+    if (preserve_whitespace) {
+      collapsed.push_back(ch);
+      continue;
+    }
     if (ch.space) {
       if (collapsed.empty() || collapsed.back().space) continue;
       collapsed.push_back(ch);
@@ -284,12 +289,23 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
     }
     collapsed.push_back(ch);
   }
-  while (!collapsed.empty() && collapsed.back().space) collapsed.pop_back();
+  if (!preserve_whitespace)
+    while (!collapsed.empty() && collapsed.back().space) collapsed.pop_back();
   if (collapsed.empty()) return fail(error, "block has no visible text");
-  for (std::size_t index = 1; index + 1 < collapsed.size(); ++index) {
-    if (collapsed[index].space &&
-        collapsed[index - 1].attr == collapsed[index + 1].attr)
-      collapsed[index].attr = collapsed[index - 1].attr;
+  // Attribute a complete gap to matching endpoints, including native runs
+  // that retain several cells. This changes no text or source claims and
+  // keeps one selector a single semantic link across its internal spaces.
+  for (std::size_t index = 0; index < collapsed.size();) {
+    if (!collapsed[index].space) {
+      ++index;
+      continue;
+    }
+    const auto begin = index;
+    while (index < collapsed.size() && collapsed[index].space) ++index;
+    if (begin != 0 && index < collapsed.size() &&
+        collapsed[begin - 1].attr == collapsed[index].attr)
+      for (auto cell = begin; cell < index; ++cell)
+        collapsed[cell].attr = collapsed[index].attr;
   }
   std::vector<std::pair<std::size_t, std::size_t>> block_refs;
   std::size_t run_begin = 0;
@@ -473,6 +489,19 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
       continue;
     }
     carried_breaks = 0;
+    const auto next_span = span_lines.upper_bound(index);
+    const auto example_limit = next_span == span_lines.end()
+                                  ? lines.size() : *next_span;
+    const auto example_end = styled_example_range_end(
+        records, lines, index, example_limit, ledger);
+    if (example_end > index) {
+      ranges.emplace_back(index, example_end);
+      is_item.push_back(false);
+      is_box.push_back(false);
+      origins.push_back(first.origin);
+      index = example_end;
+      continue;
+    }
     auto end = index + 1;
     while (end < lines.size()) {
       const auto& next = lines[end];
@@ -482,6 +511,8 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
       if (next.cells.size() <= next.text_begin) break;
       if (first.bullet && next.origin <= first.origin) break;
       if (!first.bullet && next.origin < first.origin) break;
+      if (styled_example_range_end(records, lines, end, example_limit, ledger) > end)
+        break;
       ++end;
     }
     ranges.emplace_back(index, end);
@@ -509,6 +540,16 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
       else if (origins[block_index] != origins[block_index - 1])
         return fail(error, "nested or misaligned list items");
       block.list_ordinal = list_ordinal;
+    }
+    if (!is_item[block_index]) {
+      bool example = false;
+      if (!build_styled_example_block(records, lines, ranges[block_index].first,
+                                     ranges[block_index].second, block, ledger,
+                                     block_index, example, error)) return false;
+      if (example) {
+        topic.blocks.push_back(std::move(block));
+        continue;
+      }
     }
     if (!build_block(records, lines, ranges[block_index].first,
                      ranges[block_index].second, block, ledger, block_index,

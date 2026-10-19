@@ -39,6 +39,19 @@ gate does not establish reference-reader equivalence, visual layout fidelity,
 or absence of duplicates/reordering. Those require targeted comparisons and
 regression tests. In particular, a placeholder-run decline earns no exemption.
 
+Emitted-word conservation checks Markdown and HTML independently. Markdown
+text is recovered from the serializer's complete byte-range trace, not by
+guessing Markdown syntax; that trace must match the actual cached output.
+HTML text projection preserves inline adjacency and block boundaries and
+accounts for ordered-list markers and image replacement text. Link
+destinations, unrelated attributes and diagnostic comments cannot supply
+missing book words. The reported emitted count is the minimum across the two
+formats, so success in one cannot hide a loss in the other. This remains an
+occurrence-count check, not a proof of correct word order or geometry; exact
+rendered-output comparisons are still required.
+The text projections accept only the serializers' supported syntax and fail
+on unsupported or malformed markup rather than guessing its visible text.
+
 ## Reviewing a baseline change
 
 Checking never writes the baseline. An explicit capture creates a *new* file,

@@ -10,6 +10,7 @@
 #include <cctype>
 #include <cstddef>
 #include <sstream>
+#include <utility>
 
 namespace geist::detail {
 namespace {
@@ -60,6 +61,55 @@ bool layout_control(const ControlSegmentIR& segment) {
          kind == BookControlKind::menu_item ||
          kind == BookControlKind::message_start ||
          structural_end_control(segment);
+}
+
+bool authoritative_native_rows(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const DecodedLogicalRecordSource& record, const ControlSegmentIR& segment) {
+  if (segment.source_tokens.empty()) return false;
+  if (segment.kind == BookControlKind::select)
+    return true;
+  if (segment.kind != BookControlKind::text || segment.segment_index != 0)
+    return false;
+  // A selector whose payload crosses a record boundary still addresses the
+  // next record's first native display line. This is source adjacency, not
+  // a generated-list/topic classification.
+  const auto previous = std::find_if(
+      records.begin(), records.end(), [&](const auto& candidate) {
+        return candidate.logical_record + 1 == record.logical_record;
+      });
+  return previous != records.end() && !previous->control_segments.empty() &&
+         previous->control_segments.back().kind == BookControlKind::select &&
+         previous->control_segments.back().payload_range.begin ==
+             previous->control_segments.back().payload_range.end;
+}
+
+bool authoritative_native_line(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const DecodedLogicalRecordSource& record, const ControlSegmentIR& segment,
+    const DisplayLineIR& line) {
+  if (!authoritative_native_rows(records, record, segment)) return false;
+  const auto* lines = record_display_lines(record);
+  if (lines == nullptr) return false;
+  // A selector addresses its next drawn line, not every later line in the
+  // compatibility payload. A continued selector uses the same source proof
+  // at the beginning of the adjacent record.
+  for (const auto& candidate : *lines) {
+    auto content = candidate.prefix_token + 1;
+    if (content >= candidate.token_end ||
+        !all_space_words(record.tokens[content]))
+      continue;
+    while (content < candidate.token_end &&
+           all_space_words(record.tokens[content]))
+      ++content;
+    if (content == candidate.token_end ||
+        candidate.token_end > segment.source_tokens.back() + 1 ||
+        !std::binary_search(segment.source_tokens.begin(),
+                            segment.source_tokens.end(), content))
+      continue;
+    return candidate.prefix_token == line.prefix_token;
+  }
+  return false;
 }
 
 const ControlSegmentIR* source_segment(
@@ -255,6 +305,7 @@ LayoutIR extract_layout_ir(
         std::size_t origin;
       };
       std::vector<Boundary> boundaries;
+      std::vector<std::pair<std::size_t, std::size_t>> native_row_ends;
       for (std::size_t at = 1; at < segment.source_tokens.size(); ++at) {
         const auto marker = segment.source_tokens[at - 1];
         const auto origin = segment.source_tokens[at];
@@ -426,17 +477,15 @@ LayoutIR extract_layout_ir(
       // segment, so an index term sharing a segment with an introduction
       // sentence keeps the sentence and leaves the term behind.
       //
-      // The rows built below tile the segment from its first row's opening
-      // token to its last source token, so the only span of a segment no row
-      // can reach is the run of display lines in front of that token. This
-      // pass fills exactly that span: it never subdivides, shortens or
-      // displaces a row the segment already had.
-      //
-      // Text and font are the two controls whose payload is running display
-      // text. A selector, menu item or table boundary states its own display
-      // geometry in its operand, and its rows are read against that
-      // statement rather than against the line framing.
-      const auto* lines = segment.kind == BookControlKind::text ||
+      // Framing also disproves heuristic boundaries *inside* a drawn line:
+      // punctuation, a caption word followed by padding, and a one-cell
+      // ordinal prefix are all payload on a source-proven selected line.
+      // Selection columns describe that text; they do not create line slots.
+      // Title introductions retain their compact physical fragments, but
+      // receive the exact prefix/origin reversal repair below as well.
+      const auto* lines = authoritative_native_rows(records, record, segment) ||
+                                  segment.kind == BookControlKind::title ||
+                                  segment.kind == BookControlKind::text ||
                                   segment.kind == BookControlKind::font
                               ? record_display_lines(record)
                               : nullptr;
@@ -449,22 +498,68 @@ LayoutIR extract_layout_ir(
                                     segment.source_tokens.end(), token);
         };
         bool admitted = false;
-        static const std::vector<DisplayLineIR> no_lines;
-        for (const auto& line : run.rows.empty() ? *lines : no_lines) {
+        for (const auto& line : *lines) {
           const auto marker = line.prefix_token;
           const auto origin = marker + 1;
-          if (marker >= opened || origin >= line.token_end ||
+          const auto authoritative =
+              authoritative_native_line(records, record, segment, line);
+          // Other fixed-layout consumers still use compact physical fragments
+          // rather than whole native rows. Preserve that compatibility model:
+          // its framing pass only fills uncovered leading display lines.
+          if (!authoritative && (!run.rows.empty() || marker >= opened))
+            continue;
+          if (origin >= line.token_end ||
               origin >= record.tokens.size() ||
               marker >= record.encoded_tokens.size() ||
               record.encoded_tokens[marker].width != 1 ||
-              !all_space_words(record.tokens[origin]) || !owned(marker) ||
-              !owned(origin))
+              !all_space_words(record.tokens[origin]))
             continue;
-          const auto marker_byte =
-              marker < record.assembled.tokens.size()
-                  ? byte_offsets[record.assembled.tokens[marker].output_begin]
-                  : std::size_t{0};
-          if (marker_byte < segment.payload_range.begin) continue;
+          if (authoritative) {
+            // Compatibility text ranges trim leading blanks. Source-owned
+            // content within the complete native line proves its prefix and
+            // origin even if both were outside that trimmed range.
+            auto content = origin;
+            while (content < line.token_end &&
+                   all_space_words(record.tokens[content]))
+              ++content;
+            if (content == line.token_end || !owned(content) ||
+                line.token_end > segment.source_tokens.back() + 1)
+              continue;
+            const auto content_byte =
+                content < record.assembled.tokens.size()
+                    ? byte_offsets[record.assembled.tokens[content].output_begin]
+                    : std::size_t{0};
+            if (content_byte < segment.payload_range.begin) continue;
+          } else {
+            // Retain the established leading-coverage admission exactly for
+            // consumers of compact fragments, including ownership of both
+            // original slots and the payload byte boundary.
+            const auto marker_byte =
+                marker < record.assembled.tokens.size()
+                    ? byte_offsets[record.assembled.tokens[marker].output_begin]
+                    : std::size_t{0};
+            if (!owned(marker) || !owned(origin) ||
+                marker_byte < segment.payload_range.begin)
+              continue;
+          }
+          // A blank-spelled length byte can also have opened a speculative
+          // markerless control-payload row above. The native row replaces
+          // that claim; keep only any preceding same-line control payload.
+          for (auto& row : run.rows)
+            if (row.token_begin < marker && row.token_end > marker) {
+              row.token_end = marker;
+              row.visible_text = visible_slice(record, row.token_begin,
+                                               row.token_end,
+                                               row.native_origin);
+            }
+          run.rows.erase(
+              std::remove_if(run.rows.begin(), run.rows.end(),
+                             [&](const auto& row) {
+                               return row.visible_text.empty() ||
+                                      (row.token_begin >= marker &&
+                                       row.token_begin < line.token_end);
+                             }),
+              run.rows.end());
           // A boundary the heuristic placed inside this line stands on a word
           // the framing calls line content, so it is not a row-control slot
           // and the row it opened began in the middle of a drawn line. The
@@ -477,6 +572,28 @@ LayoutIR extract_layout_ir(
                              }),
               boundaries.end());
           boundaries.push_back({marker, origin});
+          if (authoritative) {
+            native_row_ends.emplace_back(marker, line.token_end);
+            // Close the selected line exactly where its native framing ends.
+            // Recover only the *start* of the next drawn line if its blank
+            // length spelling hid that boundary. Keep that line's existing
+            // inner compact fragments: it is not selected by this control.
+            for (const auto& following : *lines) {
+              if (following.prefix_token < line.token_end) continue;
+              auto content = following.prefix_token + 1;
+              if (content >= following.token_end) continue;
+              const auto following_origin = content;
+              if (!all_space_words(record.tokens[content])) break;
+              while (content < following.token_end &&
+                     all_space_words(record.tokens[content])) ++content;
+              if (content == following.token_end) continue;
+              if (owned(content) &&
+                  following.token_end <= segment.source_tokens.back() + 1)
+                boundaries.push_back({following.prefix_token,
+                                      following_origin});
+              break;
+            }
+          }
           admitted = true;
         }
         // A boundary whose origin run is itself a length byte is the same
@@ -490,6 +607,17 @@ LayoutIR extract_layout_ir(
               next >= record.tokens.size() || record.tokens[next].empty() ||
               !owned(boundary.origin) || !owned(next))
             continue;
+          // A markerless control-payload row may already have been closed at
+          // the speculative marker. Moving that boundary must return the
+          // displaced terminal word to its preceding row as well; otherwise
+          // neither row owns it even though the marker itself is corrected.
+          for (auto& row : run.rows)
+            if (row.token_end == boundary.marker) {
+              row.token_end = boundary.origin;
+              row.visible_text = visible_slice(record, row.token_begin,
+                                               row.token_end,
+                                               row.native_origin);
+            }
           boundary = {boundary.origin, next};
           admitted = true;
         }
@@ -509,9 +637,12 @@ LayoutIR extract_layout_ir(
       for (std::size_t row_index = 0; row_index < boundaries.size();
            ++row_index) {
         const auto& boundary = boundaries[row_index];
-        const auto end = row_index + 1 < boundaries.size()
+        auto end = row_index + 1 < boundaries.size()
                              ? boundaries[row_index + 1].marker
                              : segment.source_tokens.back() + 1;
+        for (const auto& native_end : native_row_ends)
+          if (native_end.first == boundary.marker)
+            end = std::min(end, native_end.second);
         if (end <= boundary.origin || end > record.tokens.size()) continue;
         PhysicalRowIR row;
         row.run = run.id;
@@ -600,6 +731,26 @@ bool verify_layout_ir(const std::vector<DecodedLogicalRecordSource>& records,
              row.marker->byte_range.end !=
                  source->ir.tokens[row.token_begin].byte_range.end))))
         return fail("physical row marker provenance is invalid");
+      const auto* segment = source_segment(records, row);
+      if (row.marker && segment != nullptr &&
+          segment->kind == BookControlKind::title &&
+          is_display_line_length_token(*source, row.marker->token_index + 1))
+        return fail("title row marker is the word before a native line prefix");
+      if (row.marker && segment != nullptr) {
+        if (const auto* lines = record_display_lines(*source))
+          for (const auto& line : *lines) {
+            if (row.marker->token_index == line.prefix_token &&
+                authoritative_native_line(records, *source, *segment, line) &&
+                row.token_end != line.token_end)
+              return fail("selected native row does not end at its display-line end");
+            if (row.marker->token_index > line.prefix_token &&
+                row.marker->token_index < line.token_end &&
+                authoritative_native_line(records, *source, *segment, line) &&
+                line.prefix_token + 1 < line.token_end &&
+                all_space_words(source->tokens[line.prefix_token + 1]))
+              return fail("physical row marker is inside a native display line");
+          }
+      }
       if (row.native_origin == 0)
         return fail("physical row has no native display origin");
       if (row.start == PhysicalRowStartKind::control_payload && row.marker)

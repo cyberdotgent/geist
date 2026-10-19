@@ -243,8 +243,9 @@ std::string figure_alt_text(const std::string &resource) {
 
 class HtmlSink {
 public:
-  explicit HtmlSink(const geist::HtmlRenderOptions &options)
-      : options_(options) {}
+  explicit HtmlSink(const geist::HtmlRenderOptions &options,
+                    const DocumentHtmlInlineResolver* resolve = nullptr)
+      : options_(options), resolve_(resolve) {}
 
   const geist::HtmlRenderOptions &options() const noexcept { return options_; }
   std::string release() { return std::move(out_); }
@@ -261,10 +262,17 @@ public:
     out_ += '"';
   }
   void newline() { out_ += '\n'; }
+  HrefIR inline_reference(const CrossReferenceTargetIR& target) const {
+    if (resolve_ != nullptr && *resolve_)
+      if (const auto resolved = (*resolve_)(target))
+        return resolved->empty() ? dead_link() : HrefIR{*resolved, false};
+    return cross_reference_href(target, options_);
+  }
 
 private:
   std::string out_;
   const geist::HtmlRenderOptions &options_;
+  const DocumentHtmlInlineResolver* resolve_;
 };
 
 void append_anchor(HtmlSink &sink, const HrefIR &href,
@@ -308,8 +316,7 @@ void append_inline(HtmlSink &sink, const InlineIR &node) {
           sink.text(value.code);
           sink.markup("</code>");
         } else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>) {
-          const auto href =
-              cross_reference_href(value.target, sink.options());
+          const auto href = sink.inline_reference(value.target);
           append_anchor(sink, href, link_kind(value.target.kind),
                         value.label.empty() ? value.target.value
                                             : value.label);
@@ -397,6 +404,14 @@ void append_preformatted(HtmlSink &sink, const PreformattedBlockIR &node,
   for (std::size_t index = 0; index < node.lines.size(); ++index) {
     if (index != 0)
       sink.newline();
+    if (!node.styled_lines.empty()) {
+      // HTML strips a literal LF immediately after <pre>. An empty first
+      // source row must nevertheless occupy its own displayed row.
+      if (index == 0 && node.lines.front().empty())
+        sink.markup("<span></span>");
+      append_inlines(sink, node.styled_lines[index]);
+      continue;
+    }
     VerbatimRowIR row;
     row.text = node.lines[index];
     if (index < node.line_links.size())
@@ -774,6 +789,14 @@ bool document_has_degraded_block(const DocumentIR &document) {
     if (block.origin.fidelity == DocumentFidelityIR::degraded)
       return true;
   return false;
+}
+
+std::string render_document_html_inlines(
+    const InlineSequenceIR& inlines, const geist::HtmlRenderOptions& options,
+    const DocumentHtmlInlineResolver& resolve) {
+  HtmlSink sink(options, &resolve);
+  append_inlines(sink, inlines);
+  return sink.release();
 }
 
 std::string

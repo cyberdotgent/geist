@@ -429,7 +429,20 @@ std::string line_text(const Line& line);
 bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
                  const std::vector<Line>& lines, std::size_t begin,
                  std::size_t end, ProseBlockIR& block, Ledger& ledger,
-                 std::size_t block_index, std::string* error);
+                 std::size_t block_index, std::string* error,
+                 bool preserve_whitespace = false);
+// Native example rows keep their source spacing and styles rather than
+// reflowing as prose. Admission requires complete native rows whose visible
+// cells are font-covered and include an example-font span. A nonmatch is inert.
+bool build_styled_example_block(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const std::vector<Line>& lines, std::size_t begin, std::size_t end,
+    ProseBlockIR& block, Ledger& ledger, std::size_t block_index,
+    bool& matched, std::string* error);
+std::size_t styled_example_range_end(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const std::vector<Line>& lines, std::size_t begin, std::size_t limit,
+    Ledger& ledger);
 bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
                   const LineBuild& lines_build, Ledger& ledger,
                   ProseTopicIR& topic, std::string* error);

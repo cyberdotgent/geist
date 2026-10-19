@@ -260,7 +260,8 @@ OwnershipIR build_ownership_ir(
     for (std::size_t token = 0; token < record.tokens.size(); ++token) {
       for (std::size_t word = 0; word < record.tokens[token].size(); ++word) {
         auto disposition = SourceDisposition::opaque;
-        if (word == 0 && record.tokens[token][word] < 4)
+        if (word == 0 && record.tokens[token][word] < 4 &&
+            !is_display_line_length_token(record, token))
           disposition = SourceDisposition::control_operand;
         result.cells.push_back({record.logical_record, token, word,
                                 record.tokens[token][word], disposition, 0, 0,
@@ -397,7 +398,10 @@ OwnershipIR build_ownership_ir(
       for (std::size_t token = row.token_begin;
            token < row.token_end && token < source->tokens.size(); ++token) {
         for (std::size_t word = 0; word < source->tokens[token].size(); ++word) {
-          if (word == 0 && source->tokens[token][word] < 4) continue;
+          if (word == 0 && source->tokens[token][word] < 4 &&
+              !(token == marker_token &&
+                is_display_line_length_token(*source, token)))
+            continue;
           auto disposition = SourceDisposition::visible_content;
           if (token == marker_token)
             disposition = SourceDisposition::marker_slot;
