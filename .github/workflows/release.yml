@@ -41,8 +41,7 @@ jobs:
   windows-dist:
     name: Windows x64 distribution
     # Keep the compiler aligned with the supplied Qt MSVC 2022 binaries.
-    # windows-latest moved to VS 2026, whose compiler crashes on a valid
-    # generated-list synthetic fixture (C1001 in convert.h).
+    # windows-latest moved to VS 2026; select the supported compiler explicitly.
     runs-on: windows-2022
     permissions:
       contents: write
@@ -151,7 +150,12 @@ jobs:
           # The toolchain is passed explicitly rather than left to the root
           # CMakeLists' VCPKG_ROOT discovery, so a vcpkg problem fails here
           # with a clear message instead of as a missing libpng/giflib later.
+          # In C++17 MSVC defaults to its legacy lambda processor, which
+          # crashes on the generated-list fixture's vector default argument
+          # (C1001 in convert.h, on both VS 2022 and VS 2026). Select the
+          # standards-conforming processor without changing release sources.
           cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_CXX_FLAGS="/Zc:lambda" `
             -DGEIST_BUILD_GUI=ON `
             -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR" `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
