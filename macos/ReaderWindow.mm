@@ -110,13 +110,13 @@
 }
 - (NSArray<NSToolbarItemIdentifier> *)toolbarAllowedItemIdentifiers:(NSToolbar *)toolbar {
   (void)toolbar;
-  return @[@"Sidebar", @"Open Book", @"Back", @"Forward", @"Previous Topic",
+  return @[@"Sidebar", @"Back", @"Forward", @"Previous Topic",
     @"Next Topic", @"Table of Contents", @"Search", @"Print Topic",
     @"Book Information", NSToolbarFlexibleSpaceItemIdentifier, NSToolbarSpaceItemIdentifier];
 }
 - (NSArray<NSToolbarItemIdentifier> *)toolbarDefaultItemIdentifiers:(NSToolbar *)toolbar {
   (void)toolbar;
-  return @[@"Sidebar", @"Open Book", NSToolbarSpaceItemIdentifier,
+  return @[@"Sidebar", NSToolbarSpaceItemIdentifier,
     @"Back", @"Forward", @"Previous Topic", @"Next Topic",
     @"Table of Contents", NSToolbarFlexibleSpaceItemIdentifier,
     @"Search", @"Book Information", @"Print Topic"];
@@ -134,13 +134,12 @@
     [_search.widthAnchor constraintEqualToConstant:170].active = YES;
     item.label = @"Search"; item.paletteLabel = @"Search Book";
   } else {
-    NSDictionary *symbols = @{@"Sidebar":@"sidebar.left", @"Open Book":@"folder",
+    NSDictionary *symbols = @{@"Sidebar":@"sidebar.left",
       @"Back":@"chevron.left", @"Forward":@"chevron.right",
       @"Previous Topic":@"arrow.up", @"Next Topic":@"arrow.down",
       @"Table of Contents":@"list.bullet", @"Print Topic":@"printer",
       @"Book Information":@"info.circle"};
     NSDictionary *actions = @{@"Sidebar":NSStringFromSelector(@selector(toggleSidebar:)),
-      @"Open Book":NSStringFromSelector(@selector(chooseBook:)),
       @"Back":NSStringFromSelector(@selector(goBack:)),
       @"Forward":NSStringFromSelector(@selector(goForward:)),
       @"Previous Topic":NSStringFromSelector(@selector(previousTopic:)),
