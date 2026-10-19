@@ -1011,8 +1011,70 @@ struct Extractor {
       title_column = at;
       break;
     }
-    if (caption_at == lines.size())
-      return std::nullopt;
+    if (caption_at == lines.size()) {
+      // GA19-5486-13 2.1: one unnumbered title between a standalone
+      // PICTURE n placeholder and SREFIG, possibly in the next record.
+      // Admit only this complete grammar; arbitrary residual figure text
+      // is not evidence of a caption. Blank display lines carry no text.
+      // Require a standalone end marker too: prose in its payload has not
+      // been proven to retain its position in this unnumbered shape.
+      std::vector<std::size_t> nonempty;
+      for (auto index = first_line; index <= last_line; ++index)
+        if (!trim_ascii(
+                 display_line_text(*lines[index].record, lines[index].line))
+                 .empty())
+          nonempty.push_back(index);
+      if (nonempty.size() != 6 ||
+          ascii_lower(trim_ascii(display_line_text(
+              *lines[last_line].record, lines[last_line].line))) != "srefig" ||
+          ascii_lower(collapse_ascii_whitespace(display_line_text(
+              *lines[nonempty[1]].record, lines[nonempty[1]].line))) !=
+              "cz off fig")
+        return std::nullopt;
+      const SelectorIR *picture = nullptr;
+      for (const auto &view : region.segments) {
+        const auto found = selectors_by_segment.find(key(view));
+        if (found == selectors_by_segment.end())
+          continue;
+        for (const auto *selector : found->second) {
+          if (picture || !figure_picture_target(selector->target))
+            return std::nullopt;
+          picture = selector;
+        }
+      }
+      if (!picture)
+        return std::nullopt;
+      const auto &selector_line = lines[nonempty[2]];
+      const auto &selector_segment =
+          records[record_index.at(picture->logical_record)]
+              .control_segments[picture->segment_index];
+      if (selector_line.record->logical_record != picture->logical_record ||
+          selector_segment.source_tokens.empty() ||
+          selector_segment.source_tokens.front() !=
+              selector_line.line.prefix_token + 1 ||
+          !control_display_line(*selector_line.record, selector_line.line) ||
+          trim_ascii(display_line_text(*lines[nonempty[3]].record,
+                                       lines[nonempty[3]].line)) !=
+              figure_picture_placeholder(
+                  figure_picture_resource(picture->target)))
+        return std::nullopt;
+      caption_at = nonempty[4];
+      head = trim_ascii(
+          display_line_text(*lines[caption_at].record, lines[caption_at].line));
+      if (!has_alnum(head) ||
+          control_display_line(*lines[caption_at].record,
+                               lines[caption_at].line) ||
+          ascii_starts_with_case_insensitive(head, "figure ") ||
+          ascii_starts_with_case_insensitive(head, "picture ") ||
+          ascii_starts_with_case_insensitive(head, "si "))
+        return std::nullopt;
+      // A single terminal line, never a wrapped unnumbered caption.
+      result.text = head;
+      for (auto token = lines[caption_at].line.prefix_token;
+           token < lines[caption_at].line.token_end; ++token)
+        result.tokens.insert({lines[caption_at].record->logical_record, token});
+      return result;
+    }
 
     std::size_t caption_end = caption_at + 1;
     std::string text = head;
@@ -1722,6 +1784,7 @@ struct Extractor {
     std::map<CellKey, FigureCellRoleIR> cell_roles;
     const PhysicalRowIR *caption_row = nullptr;
     const auto line_caption = region_caption(region);
+    bool line_caption_seen = false;
     std::vector<DocumentSourceRowIR> line_caption_rows;
     const auto picture_key = SegmentKey{picture->logical_record,
                                         picture->segment_index};
@@ -1849,7 +1912,9 @@ struct Extractor {
         while (!lead.empty() && !lead.back())
           lead.pop_back();
         if (!lead.empty()) {
-          const auto classified = classify_cells(lead);
+          const auto classified =
+              classify_cells(lead, line_caption ? &*line_caption : nullptr);
+          line_caption_seen = line_caption_seen || classified.caption_lines;
           if (classified.prose)
             return decline(region, "figure region contains prose segment '" +
                                        classified.prose_text + "'");
@@ -1879,10 +1944,11 @@ struct Extractor {
                                         ? std::uint16_t{' '}
                                         : cell->word});
           }
-        auto classified = classify_cells(
-            cells, line_caption ? &*line_caption : nullptr);
+        auto classified =
+            classify_cells(cells, line_caption ? &*line_caption : nullptr);
         if (classified.caption_lines)
           line_caption_rows.push_back(row_key);
+        line_caption_seen = line_caption_seen || classified.caption_lines;
         if (classified.prose && caption_row != nullptr &&
             row->run == caption_row->run &&
             (row->start == PhysicalRowStartKind::placeholder_wrap ||
@@ -1909,9 +1975,8 @@ struct Extractor {
       }
     }
 
-    // Rows that carry the caption's display lines but not its "Figure N."
-    // head hand the caption its whole text and their own rows.
-    if (!line_caption_rows.empty()) {
+    // Both segment leads and rows can carry the caption's display lines.
+    if (line_caption_seen) {
       if (!block.caption)
         block.caption = FigureCaptionIR{line_caption->text, {}, {}};
       else

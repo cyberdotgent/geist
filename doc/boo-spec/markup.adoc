@@ -858,7 +858,26 @@ tables under one outer figure) and `GC28-183.boo` `COVER`.  A decoder that
 treats a second `SRFIG` as evidence that the first was unterminated loses the
 outer figure's anchor, its lead line and its caption.
 
-*A figure caption is a run of display lines, and its continuations are
+*An image figure can have an unnumbered caption.* In `GA19-5486-13.boo`
+(build date `10/12/95 16:12:06`), topic `2.1` has this sequence:
+`SRFIGFIGUNIQ2`, `cz OFF FIG`, `cselect 3 9 PIC1`, the standalone display
+line `   PICTURE 1`, the standalone display line
+`   AS/400 Layered Architecture`, and `SREFIG`. The title has no generated
+`Figure <n>.` prefix. The picture placeholder ends logical record 42;
+blank lines intervene before the title starts record 43. A logical-record
+boundary therefore does not terminate the figure or its caption.
+
+The title line starts at BOO byte `0xA34A3` with length byte `0A`, followed
+by tokens `14 75 00 22 00 BC D5 58 C8 9F` at `0xA34A4`--`0xA34AD`:
+three spaces, `AS`, attach, `/`, attach, `400`, `Layered`, `Architecture`.
+The next line starts at `0xA34AE` with length byte `02`; its token
+`E0 CA` at `0xA34AF` spells `SREFIG`. The following `c.cp`,
+`cz OFF EFIG 0 0`, and `cz FLOW P 3 3` precede the next body paragraph.
+This observation establishes a single unnumbered title between a picture
+placeholder and its figure end; it does not establish how to distinguish
+arbitrary prose or multiple unnumbered title lines within a figure.
+
+*A numbered figure caption is a run of display lines, and its continuations are
 indented to the title column.* The caption line is `Figure <n>. <title>`;
 every line that continues it starts at exactly the column where `<title>`
 starts on the first line, and hosted BookServer joins them into one caption.

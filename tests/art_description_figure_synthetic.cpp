@@ -60,6 +60,9 @@
 #include "geist/detail/layout/ownership_ir.hpp"
 #include "geist/detail/ir/prose/prose_topic_ir.hpp"
 #include "geist/detail/lowering/figure_document_lowering.hpp"
+#include "geist/detail/lowering/prose_topic_document_lowering.hpp"
+#include "geist/detail/render/document_html_renderer.hpp"
+#include "geist/detail/render/document_markdown_renderer.hpp"
 #include "test_failures.hpp"
 
 #include <cstdint>
@@ -149,11 +152,13 @@ struct Extracted {
   std::string error;
 };
 
-Extracted run(DecodedLogicalRecordSource record, const std::string &title) {
+Extracted run(std::vector<DecodedLogicalRecordSource> records,
+              const std::string &title) {
   Extracted result;
-  require(record.ir.display_lines_parse,
-          "the synthetic topic's display lines did not parse");
-  result.records.push_back(std::move(record));
+  for (const auto &record : records)
+    require(record.ir.display_lines_parse,
+            "the synthetic topic's display lines did not parse");
+  result.records = std::move(records);
   const auto layout = geist::detail::extract_layout_ir(result.records);
   std::string ownership_error;
   const auto ownership = geist::detail::build_verified_ownership_ir(
@@ -176,6 +181,12 @@ Extracted run(DecodedLogicalRecordSource record, const std::string &title) {
             "the extracted topic failed its own verifier: " + verify_error);
   }
   return result;
+}
+
+Extracted run(DecodedLogicalRecordSource record, const std::string &title) {
+  std::vector<DecodedLogicalRecordSource> records;
+  records.push_back(std::move(record));
+  return run(std::move(records), title);
 }
 
 enum class Description { described, empty };
@@ -515,9 +526,121 @@ void an_escaped_selector_line_is_not_description_text() {
   check_lowering(*figure, "Figure 7 shows sharing.", label);
 }
 
-}  // namespace
+// GA19-5486-13 2.1: the unnumbered title starts the next record.
+void an_unnumbered_caption_is_bounded_by_the_picture_and_end_marker() {
+  for (const bool split : {false, true}) {
+    // Extra prose, absent resource, absent end, table, another picture,
+    // prose sharing the end-marker line, and an unsupported numbered
+    // caption must all fail closed.
+    for (int mutation = 0; mutation != 8; ++mutation) {
+      RecordBuilder first;
+      first.heading("1.1", "Architecture");
+      first.line(
+          {words("cz"), words("FLOW"), words("P"), words("3"), words("3")});
+      first.line({words("   "), words("Opening paragraph.")});
+      first.line({words("SRFIGFIGUNIQ1")});
+      first.line({words("cz"), words("OFF"), words("FIG")});
+      first.line({words("cselect"), words("3"), words("9"),
+                  words(mutation == 2 ? "PIC3" : "PIC1")});
+      first.line(
+          {words("   "), words("PICTURE"), words(mutation == 2 ? "3" : "1")});
+      first.line({});
+      first.line({});
+      std::vector<DecodedLogicalRecordSource> records;
+      RecordBuilder second;
+      if (split)
+        records.push_back(first.build(42));
+      auto &tail = split ? second : first;
+      if (mutation == 1)
+        tail.line({words("   "), words("Unexpected prose")});
+      if (mutation == 4)
+        tail.line({words("SRTBLTABLE")});
+      if (mutation == 5) {
+        tail.line({words("cselect"), words("3"), words("9"), words("PIC2")});
+        tail.line({words("   "), words("PICTURE"), words("2")});
+      }
+      tail.line({words("   "), words(mutation == 7 ? "Figure 2: A numbered caption"
+                                                : "AS/400 Layered Architecture")});
+      if (mutation == 6)
+        tail.line(
+            {words("SREFIG"), words("   "), words("Immediate paragraph.")});
+      else if (mutation != 3)
+        tail.line({words("SREFIG")});
+      tail.line(
+          {words("cz"), words("OFF"), words("EFIG"), words("0"), words("0")});
+      tail.line(
+          {words("cz"), words("FLOW"), words("P"), words("3"), words("3")});
+      tail.line({words("   "), words("Following paragraph.")});
+      records.push_back(tail.build(split ? 43 : 42));
+      auto extracted = run(std::move(records), "Architecture");
+      if (mutation != 0) {
+        require(!extracted.topic,
+                "ambiguous or invalid picture figure was admitted: " +
+                    std::to_string(mutation));
+        continue;
+      }
+      require(extracted.topic.has_value(),
+              "unnumbered caption rejected: " + extracted.error);
+      if (!extracted.topic)
+        continue;
+      require(extracted.topic->figures.blocks.size() == 1,
+              "expected exactly one picture");
+      if (extracted.topic->figures.blocks.size() != 1)
+        continue;
+      const auto *figure = &extracted.topic->figures.blocks.front();
+      require(figure->target == "1" && figure->caption &&
+                  figure->caption->text == "AS/400 Layered Architecture",
+              "picture target or caption changed");
+      std::string following;
+      for (const auto &block : extracted.topic->blocks)
+        for (const auto &in : block.inlines)
+          following += in.text;
+      require(following == "Opening paragraph.Following paragraph.",
+              "following paragraph changed: " + following);
+      std::string error;
+      const auto lowered =
+          geist::detail::lower_figure_block_to_document_blocks(*figure, &error);
+      require(lowered && geist::detail::verify_figure_document_blocks(
+                             *figure, *lowered, &error),
+              "unnumbered caption lowering failed: " + error);
+      const auto document = geist::detail::lower_prose_topic_to_document_ir(
+          {"1.1", "Architecture"}, *extracted.topic, &error);
+      require(document.has_value(), "whole-topic lowering failed: " + error);
+      if (!document)
+        continue;
+      require(geist::detail::verify_prose_topic_document_ir(*extracted.topic,
+                                                            *document, &error),
+              "whole-topic verification failed: " + error);
+      const auto html =
+          geist::detail::render_document_html_blocks(*document, {});
+      const auto markdown = geist::detail::render_document_markdown(*document);
+      for (const auto &output : {html, markdown}) {
+        const auto opening = output.find("Opening paragraph");
+        const auto image = output.find("resource:1");
+        const auto caption = output.find("AS/400 Layered Architecture");
+        const auto paragraph = output.find("Following paragraph");
+        require(
+            opening != std::string::npos && image != std::string::npos &&
+                caption != std::string::npos && paragraph != std::string::npos &&
+                opening < image && image < caption && caption < paragraph &&
+                output.find("Opening paragraph", opening + 1) == std::string::npos &&
+                output.find("AS/400 Layered Architecture", caption + 1) ==
+                    std::string::npos &&
+                output.find("Following paragraph", paragraph + 1) ==
+                    std::string::npos,
+            "caption and paragraph must render exactly once in source order: " +
+                output);
+        require(output.find("resource:1") != std::string::npos,
+                "picture did not render");
+      }
+    }
+  }
+}
+
+} // namespace
 
 int main() {
+  an_unnumbered_caption_is_bounded_by_the_picture_and_end_marker();
   each_picture_of_a_figure_keeps_its_own_envelope();
   an_escaped_selector_line_is_not_description_text();
   a_described_picture_is_one_figure_with_its_description();
