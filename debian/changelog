@@ -1,3 +1,24 @@
+geist (0.3.2) unstable; urgency=medium
+
+  * Fix Windows caption handling and deploy Qt runtime dependencies before
+    running tests, including binaries outside the reader's directory.
+  * Add revision-aware HTTP validators and conditional responses to mod_geist;
+    navigate the complete topic inventory in source order.
+  * Preserve native topic titles, picture captions, source-ordered figures
+    and source-attached inline glyphs across logical records.
+  * Fix source framing, row ownership and generated-list labels; preserve
+    native example rows, whitespace, font spans and links without inferring
+    tables from aligned text.
+  * Preserve publication emphasis and prevent indented publication numbers
+    from creating false topic boundaries.
+  * Verify emitted Markdown and HTML text independently and add an
+    identity-pinned corpus regression gate with zero remaining word-loss
+    allowances across 7,238 TOC topics in 33 private books.
+  * Document reader-derived BOO variants, raw directory fields and observed
+    malformed table text without rejecting unsupported variants outright.
+
+ -- Yvan Janssens <yvanj@cyber.gent>  Mon, 19 Oct 2026 13:25:40 +0000
+
 geist (0.3.1) unstable; urgency=medium
 
   * Warm BooIndex shelves automatically without blocking Apache startup.
