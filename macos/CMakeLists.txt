@@ -5,6 +5,7 @@ add_executable(geist-boo-reader MACOSX_BUNDLE
   main.mm
   BookSource.h BookSource.mm
   ReaderWindow.h ReaderWindow.mm
+  BookInformationWindow.h BookInformationWindow.mm
   PreferencesWindow.h PreferencesWindow.mm
   Info.plist.in
 )

@@ -3,6 +3,7 @@
 
 #import "ReaderWindow.h"
 #import "BookSource.h"
+#import "BookInformationWindow.h"
 
 #import <WebKit/WebKit.h>
 
@@ -57,6 +58,7 @@
   NSOutlineView *_outline;
   NSSplitView *_split;
   GBEmptyBookView *_emptyView;
+  GBBookInformationWindow *_informationWindow;
   GBTopicNode *_root;
   GBTopicNode *_tocRoot;
   NSMutableDictionary<NSString *, GBTopicNode *> *_nodes;
@@ -427,10 +429,9 @@
 - (IBAction)showBookInformation:(id)sender {
   (void)sender;
   if (!_source.hasBook) return;
-  NSAlert *alert = [NSAlert new];
-  alert.messageText = @"Book Information";
-  alert.informativeText = _source.information;
-  [alert beginSheetModalForWindow:self.window completionHandler:nil];
+  _informationWindow = [[GBBookInformationWindow alloc]
+      initWithInformation:_source.bookInformation];
+  [_informationWindow showForWindow:self.window];
 }
 - (IBAction)applyFonts:(id)sender {
   (void)sender;

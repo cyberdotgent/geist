@@ -62,7 +62,7 @@ struct Destination { std::string topic, fragment, resource; };
   NSMutableDictionary<NSString *, NSData *> *_objects;
   NSString *_bookTitle;
   NSArray<NSDictionary<NSString *, id> *> *_contents;
-  NSString *_information;
+  NSDictionary<NSString *, id> *_bookInformation;
   NSString *_stylesheet;
 }
 
@@ -71,7 +71,7 @@ struct Destination { std::string topic, fragment, resource; };
     _objects = [NSMutableDictionary dictionary];
     _contents = @[];
     _bookTitle = @"";
-    _information = @"";
+    _bookInformation = @{};
     NSString *path = [NSBundle.mainBundle pathForResource:@"html-styling" ofType:@"css"];
     _stylesheet = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil] ?: @"";
   }
@@ -81,7 +81,7 @@ struct Destination { std::string topic, fragment, resource; };
 - (BOOL)hasBook { return _document != nullptr; }
 - (NSString *)bookTitle { return _bookTitle; }
 - (NSArray<NSDictionary<NSString *, id> *> *)contents { return _contents; }
-- (NSString *)information { return _information; }
+- (NSDictionary<NSString *, id> *)bookInformation { return _bookInformation; }
 
 - (void)closeBook {
   @synchronized(self) {
@@ -91,7 +91,7 @@ struct Destination { std::string topic, fragment, resource; };
   }
   _contents = @[];
   _bookTitle = @"";
-  _information = @"";
+  _bookInformation = @{};
 }
 
 - (BOOL)openURL:(NSURL *)url error:(NSError **)error {
@@ -119,26 +119,28 @@ struct Destination { std::string topic, fragment, resource; };
       }
     }
     const auto &metadata = _document->metadata();
-    NSMutableArray *info = [NSMutableArray array];
-    auto append = [&](NSString *label, const std::string &value) {
-      if (!value.empty()) [info addObject:[NSString stringWithFormat:@"%@: %@", label, stringOf(value)]];
+    NSMutableDictionary<NSString *, id> *info = [NSMutableDictionary dictionary];
+    auto append = [&](NSString *key, const std::string &value) {
+      NSString *text = [stringOf(value) stringByTrimmingCharactersInSet:
+          NSCharacterSet.whitespaceAndNewlineCharacterSet];
+      if (text.length) info[key] = text;
     };
-    append(@"Title", book.title); append(@"Short title", book.short_title);
-    append(@"Document number", book.document_number);
-    append(@"Language", book.language); append(@"Version", book.version);
-    append(@"Build version", book.build_version); append(@"Date", book.date);
-    append(@"Security", book.security); append(@"Copyright", book.copyright);
+    append(@"title", book.title); append(@"shortTitle", book.short_title);
+    append(@"documentNumber", book.document_number);
+    append(@"language", book.language); append(@"version", book.version);
+    append(@"buildVersion", book.build_version); append(@"date", book.date);
+    append(@"security", book.security); append(@"copyright", book.copyright);
     if (!book.authors.empty()) {
       NSMutableArray *authors = [NSMutableArray array];
       for (const auto &author : book.authors) [authors addObject:stringOf(author)];
-      [info addObject:[@"Authors: " stringByAppendingString:[authors componentsJoinedByString:@", "]]];
+      info[@"authors"] = [authors componentsJoinedByString:@", "];
     }
-    [info addObject:[NSString stringWithFormat:@"Topics: %lu", (unsigned long)_contents.count]];
-    [info addObject:[NSString stringWithFormat:@"Stored objects: %lu", (unsigned long)_document->resources().size()]];
-    [info addObject:[NSString stringWithFormat:@"Path: %@", url.path]];
-    [info addObject:[NSString stringWithFormat:@"Size: %llu bytes", (unsigned long long)metadata.file_size]];
-    [info addObject:[NSString stringWithFormat:@"Pages: %u", metadata.page_count]];
-    _information = [info componentsJoinedByString:@"\n"];
+    info[@"topicCount"] = @(_contents.count);
+    info[@"resourceCount"] = @(_document->resources().size());
+    info[@"fileURL"] = url;
+    info[@"fileSize"] = @(metadata.file_size);
+    info[@"pageCount"] = @(metadata.page_count);
+    _bookInformation = [info copy];
     return YES;
   } catch (const std::exception &exception) {
     [self closeBook];
