@@ -32,6 +32,112 @@ bool has_gif_signature(const std::vector<std::uint8_t>& bytes) {
           std::string(bytes.begin(), bytes.begin() + 6) == "GIF89a");
 }
 
+std::uint16_t read_le16(const std::vector<std::uint8_t>& bytes,
+                        std::size_t offset) {
+  return static_cast<std::uint16_t>(bytes[offset]) |
+         static_cast<std::uint16_t>(bytes[offset + 1] << 8);
+}
+
+std::uint32_t read_be32_unchecked(const std::vector<std::uint8_t>& bytes,
+                                  std::size_t offset) {
+  return (static_cast<std::uint32_t>(bytes[offset]) << 24) |
+         (static_cast<std::uint32_t>(bytes[offset + 1]) << 16) |
+         (static_cast<std::uint32_t>(bytes[offset + 2]) << 8) |
+         static_cast<std::uint32_t>(bytes[offset + 3]);
+}
+
+void skip_gif_sub_blocks(const std::vector<std::uint8_t>& bytes,
+                         std::size_t& offset) {
+  for (;;) {
+    if (offset >= bytes.size()) {
+      throw std::runtime_error("GIF asset ends inside a data block");
+    }
+    const auto size = static_cast<std::size_t>(bytes[offset++]);
+    if (size == 0) return;
+    if (size > bytes.size() - offset) {
+      throw std::runtime_error("GIF asset has a truncated data block");
+    }
+    offset += size;
+  }
+}
+
+void validate_gif_budget(const std::vector<std::uint8_t>& bytes) {
+  if (bytes.size() < 13) {
+    throw std::runtime_error("GIF asset is too small for its header");
+  }
+  const auto width = read_le16(bytes, 6);
+  const auto height = read_le16(bytes, 8);
+  if (!decoded_image_dimensions_are_safe(width, height)) {
+    throw std::runtime_error("GIF asset exceeds the decoded pixel limit");
+  }
+
+  std::size_t offset = 13;
+  if ((bytes[10] & 0x80u) != 0) {
+    const auto table_bytes =
+        std::size_t{3} << (static_cast<unsigned>(bytes[10] & 0x07u) + 1);
+    if (table_bytes > bytes.size() - offset) {
+      throw std::runtime_error("GIF asset has a truncated global color table");
+    }
+    offset += table_bytes;
+  }
+
+  std::uint64_t frame_pixels = 0;
+  while (offset < bytes.size()) {
+    const auto marker = bytes[offset++];
+    if (marker == 0x3b) return;
+    if (marker == 0x21) {
+      if (offset >= bytes.size()) {
+        throw std::runtime_error("GIF asset ends inside an extension");
+      }
+      ++offset;
+      skip_gif_sub_blocks(bytes, offset);
+      continue;
+    }
+    if (marker != 0x2c || bytes.size() - offset < 9) {
+      throw std::runtime_error("GIF asset has an invalid image record");
+    }
+    const auto frame_width = read_le16(bytes, offset + 4);
+    const auto frame_height = read_le16(bytes, offset + 6);
+    if (!decoded_image_dimensions_are_safe(frame_width, frame_height)) {
+      throw std::runtime_error("GIF frame exceeds the decoded pixel limit");
+    }
+    const auto pixels = static_cast<std::uint64_t>(frame_width) * frame_height;
+    if (pixels > max_decoded_image_pixels - frame_pixels) {
+      throw std::runtime_error("GIF frames exceed the decoded pixel limit");
+    }
+    frame_pixels += pixels;
+    const auto packed = bytes[offset + 8];
+    offset += 9;
+    if ((packed & 0x80u) != 0) {
+      const auto table_bytes =
+          std::size_t{3} << (static_cast<unsigned>(packed & 0x07u) + 1);
+      if (table_bytes > bytes.size() - offset) {
+        throw std::runtime_error("GIF asset has a truncated local color table");
+      }
+      offset += table_bytes;
+    }
+    if (offset >= bytes.size()) {
+      throw std::runtime_error("GIF asset lacks LZW image data");
+    }
+    ++offset;
+    skip_gif_sub_blocks(bytes, offset);
+  }
+  throw std::runtime_error("GIF asset lacks a trailer");
+}
+
+void validate_png_budget(const std::vector<std::uint8_t>& bytes) {
+  if (bytes.size() < 24 || read_be32_unchecked(bytes, 8) != 13 ||
+      bytes[12] != 'I' || bytes[13] != 'H' || bytes[14] != 'D' ||
+      bytes[15] != 'R') {
+    throw std::runtime_error("PNG asset lacks a valid IHDR chunk");
+  }
+  const auto width = read_be32_unchecked(bytes, 16);
+  const auto height = read_be32_unchecked(bytes, 20);
+  if (!decoded_image_dimensions_are_safe(width, height)) {
+    throw std::runtime_error("PNG asset exceeds the decoded pixel limit");
+  }
+}
+
 std::string png_error_message(const png_image& image,
                               const std::string& fallback) {
   if (image.message[0] != '\0') {
@@ -64,6 +170,7 @@ int transparent_color_index(const SavedImage& image) {
 }
 
 RgbaImage decode_gif_to_rgba(const std::vector<std::uint8_t>& bytes) {
+  validate_gif_budget(bytes);
   GifMemoryInput input{bytes.data(), bytes.size(), 0};
   int error = 0;
   GifFileType* gif = DGifOpen(&input, read_gif_memory, &error);
@@ -173,6 +280,9 @@ std::vector<std::uint8_t> encode_rgba_png(const RgbaImage& rgba_image) {
 std::vector<std::uint8_t> render_resource_png(
     const ResourceEntry& resource,
     const std::vector<std::uint8_t>& stored_bytes) {
+  if (stored_bytes.size() > max_encoded_image_bytes) {
+    throw std::runtime_error("image asset exceeds the encoded byte limit");
+  }
   const auto stored_format = ascii_lower(resource.stored_format);
   if (stored_format == "image/gif" || has_gif_signature(stored_bytes)) {
     return encode_rgba_png(decode_gif_to_rgba(stored_bytes));
@@ -191,6 +301,8 @@ std::vector<std::uint8_t> render_resource_png(
         "asset cannot be rendered to PNG yet: legacy BookManager MET, JPEG, "
         "TIFF, and CGM payload decoding is not implemented");
   }
+
+  validate_png_budget(stored_bytes);
 
   png_image image{};
   image.version = PNG_IMAGE_VERSION;

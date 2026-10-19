@@ -707,6 +707,9 @@ std::vector<std::uint8_t> BooDocument::read_resource_png(
   if (found == resources_.end()) {
     throw std::out_of_range("BOO resource id was not found: " + resource_id);
   }
+  if (found->size > max_encoded_image_bytes) {
+    throw std::runtime_error("BOO image resource exceeds the encoded byte limit");
+  }
 
   return render_resource_png(*found, read_resource_data(found->id));
 }

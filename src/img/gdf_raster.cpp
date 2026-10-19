@@ -330,7 +330,7 @@ RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes) {
   image.rgba.assign(static_cast<std::size_t>(image.width) * image.height * 4,
                     255);
 
-  constexpr std::size_t max_raster_work = 32u * 1024u * 1024u;
+  constexpr std::size_t max_raster_work = 64u * 1024u * 1024u;
   const auto canvas_pixels =
       static_cast<std::size_t>(image.width) * image.height;
   std::size_t raster_work = 0;
@@ -366,7 +366,8 @@ RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes) {
   };
 
   for (const auto& polygon : picture.polygons) {
-    charge(polygon.points.size() + 1, canvas_pixels);
+    charge(1, canvas_pixels);
+    charge(polygon.points.size(), image.height + image.width + image.height);
     fill_polygon(image, polygon, map_x, map_y);
   }
 
@@ -375,7 +376,8 @@ RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes) {
     for (const auto& contour : area.contours) {
       points += contour.size();
     }
-    charge(points, canvas_pixels);
+    charge(1, canvas_pixels);
+    charge(points, image.height + image.width + image.height);
     fill_area(image, area, map_x, map_y);
   }
 

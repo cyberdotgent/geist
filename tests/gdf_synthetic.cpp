@@ -275,6 +275,54 @@ std::vector<std::uint8_t> synthetic_large_cell_gdf() {
   return gdf;
 }
 
+std::vector<std::uint8_t> oversized_gif_header() {
+  std::vector<std::uint8_t> gif{'G', 'I', 'F', '8', '9', 'a'};
+  gif.push_back(0xff);
+  gif.push_back(0xff);
+  gif.push_back(0xff);
+  gif.push_back(0xff);
+  gif.insert(gif.end(), {0, 0, 0});
+  return gif;
+}
+
+std::vector<std::uint8_t> one_pixel_gif() {
+  return {'G',  'I',  'F',  '8',  '9',  'a',  0x01, 0x00, 0x01, 0x00,
+          0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0x2c,
+          0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x02,
+          0x02, 0x44, 0x01, 0x00, 0x3b};
+}
+
+std::vector<std::uint8_t> oversized_png_header() {
+  std::vector<std::uint8_t> png{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a};
+  be32(png, 13);
+  png.insert(png.end(), {'I', 'H', 'D', 'R'});
+  be32(png, 8192);
+  be32(png, 8192);
+  return png;
+}
+
+std::vector<std::uint8_t> oversized_mmr_header() {
+  std::vector<std::uint8_t> mmr(0x50, 0);
+  mmr[0x42] = 0x20;
+  mmr[0x44] = 0x20;
+  return mmr;
+}
+
+void require_image_limit_rejection(const geist::ResourceEntry& resource,
+                                   const std::vector<std::uint8_t>& bytes,
+                                   const char* label) {
+  try {
+    (void)geist::detail::render_resource_png(resource, bytes);
+  } catch (const std::runtime_error& error) {
+    if (std::string(error.what()).find("pixel limit") != std::string::npos ||
+        std::string(error.what()).find("unsupported dimensions") !=
+            std::string::npos) {
+      return;
+    }
+  }
+  throw std::runtime_error(std::string(label) + " image limit was not enforced");
+}
+
 void require_pixel(const geist::detail::RgbaImage& image,
                    std::uint32_t x,
                    std::uint32_t y,
@@ -398,6 +446,21 @@ int main(int argc, char** argv) {
         static_cast<std::size_t>(large_cell.width) * large_cell.height * 4) {
       throw std::runtime_error("large GDF cell produced an invalid raster");
     }
+
+    geist::ResourceEntry resource;
+    resource.stored_format = "image/gif";
+    const auto converted_gif =
+        geist::detail::render_resource_png(resource, one_pixel_gif());
+    if (converted_gif.size() < 8 || converted_gif[0] != 0x89 ||
+        converted_gif[1] != 'P' || converted_gif[2] != 'N' ||
+        converted_gif[3] != 'G') {
+      throw std::runtime_error("valid GIF did not convert to PNG");
+    }
+    require_image_limit_rejection(resource, oversized_gif_header(), "GIF");
+    resource.stored_format = "image/png";
+    require_image_limit_rejection(resource, oversized_png_header(), "PNG");
+    resource.stored_format = "legacy-mmr";
+    require_image_limit_rejection(resource, oversized_mmr_header(), "MMR");
 
     if (argc > 1) {
       write_bmp(argv[1], image);

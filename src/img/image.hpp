@@ -5,11 +5,22 @@
 
 #include "geist/resource.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
 
 namespace geist::detail {
+
+constexpr std::size_t max_encoded_image_bytes = 64u * 1024u * 1024u;
+constexpr std::uint64_t max_decoded_image_pixels = 16u * 1024u * 1024u;
+
+inline bool decoded_image_dimensions_are_safe(std::uint32_t width,
+                                              std::uint32_t height) {
+  return width != 0 && height != 0 &&
+         static_cast<std::uint64_t>(width) * height <=
+             max_decoded_image_pixels;
+}
 
 struct RgbaImage {
   std::uint32_t width = 0;

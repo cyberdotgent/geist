@@ -499,7 +499,8 @@ RgbaImage decode_mmr_to_rgba(const std::vector<std::uint8_t>& bytes) {
 
   const auto width = read_be16_unchecked(bytes, 0x42);
   const auto height = read_be16_unchecked(bytes, 0x44);
-  if (width == 0 || height == 0 || width > 8192 || height > 8192) {
+  if (width > 8192 || height > 8192 ||
+      !decoded_image_dimensions_are_safe(width, height)) {
     throw std::runtime_error("MMR asset has unsupported dimensions");
   }
   const auto compressed = read_segments(bytes);
