@@ -123,3 +123,31 @@ default-font entries and undecided-framing compatibility remain supported.
 These changes were reviewed as rendered output, not accepted by severity
 counts alone. Synthetic tests cover the failure cases and mutations of the
 row, ownership, font, link and serializer evidence.
+
+The message-introduction repair at `7a78ca93` recovers four strict routes:
+`SC24-546` `A.0`, and `SC34-425` `2.4.8`, `2.4.19`, `2.4.24`.
+Complete native rows before a later compatibility font run retain their own
+source claims; hidden index terms and native line-length bytes are not prose.
+Blank native rows separate paragraphs, including across record boundaries.
+The reviewed inventory is 7,110 strict typed, two typed-degraded and 126
+best-effort topics, with all 7,238 TOC topics checked and no word-loss or
+unframed-record allowances.
+
+HTML and Markdown comparisons cover all 10,378 indexed topics in the 33
+maintained books. Fourteen topics change: the four recovered topics and ten
+already-typed `SC34-425` topics gain native paragraph boundaries and complete
+metadata anchor names. The only removed word occurrences are the hidden
+`c.sp 1 c` operands in the three recovered `SC34-425` topics; no drawn words,
+hyperlinks or resource references disappear. Three partial `LEN` anchors
+become the complete source-backed metadata names; no hyperlink in that book
+targets the partial name. The `SPTREF92` destination
+in `SC24-546` remains available, and unsupported font geometry still declines.
+The promoted catalogue's non-ASCII text is UTF-8, with font columns mapped
+independently of encoded byte lengths. Synthetic regressions cover these
+cases and reject missing records, unproven framing and altered provenance.
+
+The same repair leaves all output in the four additional books unchanged
+relative to the preceding source-backed-heading fix (`34fb9720`), including
+the ordered figures, mapped glyphs and earlier table repairs in
+`GA19-5486-13`. These extra books add 1,190 indexed topics to the rendered
+comparison; their coverage is not folded into the maintained 33-book floor.

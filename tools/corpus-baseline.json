@@ -27104,9 +27104,9 @@
         },
         "A.0": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort"
+          "family": "trap catalog",
+          "route": "typed",
+          "severity": "typed"
         },
         "B.0": {
           "degraded": "",
@@ -39754,9 +39754,9 @@
         },
         "2.4.19": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort"
+          "family": "trap catalog",
+          "route": "typed",
+          "severity": "typed"
         },
         "2.4.2": {
           "degraded": "",
@@ -39790,9 +39790,9 @@
         },
         "2.4.24": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort"
+          "family": "trap catalog",
+          "route": "typed",
+          "severity": "typed"
         },
         "2.4.25": {
           "degraded": "",
@@ -39880,9 +39880,9 @@
         },
         "2.4.8": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort"
+          "family": "trap catalog",
+          "route": "typed",
+          "severity": "typed"
         },
         "2.4.9": {
           "degraded": "",
@@ -44254,7 +44254,7 @@
       }
     }
   },
-  "revision": "674710fa4e2f2d96bf76f324b61bc513ef9e8b5f",
+  "revision": "7a78ca93",
   "schema": 1,
   "scope": "bootrace TOC inventory; not all topics()"
 }
