@@ -38,7 +38,10 @@ project(libgeist
 # compiles to the wrong bytes and only fails at run time. Set here rather than
 # per target so tests, examples and the GUI get it too.
 if(MSVC)
-  add_compile_options(/utf-8)
+  # C++17 otherwise uses MSVC's legacy lambda processor, which crashes on
+  # vector-valued lambda default arguments in the generated-list fixture.
+  # Use the conforming processor for local builds as well as release CI.
+  add_compile_options(/utf-8 /Zc:lambda)
 endif()
 
 # The build's provenance, for anything that reports its own version. A
