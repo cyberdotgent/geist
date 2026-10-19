@@ -23,6 +23,9 @@ closing correctness gaps against real books.
 - `src/geist/*.hpp` is the public API surface and `src/` is the public include
   directory, so those headers stay flat: `#include "geist/document.hpp"`.
   Private headers are `geist/detail/<group>/<name>.hpp`.
+- `macos/` — the native AppKit **Geist BOO Reader**. It is a separate consumer
+  of the public API, builds only on macOS, and must remain eligible for Mac
+  App Store submission.
 - `gui/` — the **Geist Hardcopy Reader**, an optional Qt6 desktop reader
   modelled on IBM's BookManager SoftCopy Reader. It is a pure consumer of the
   public API: no parsing or rendering logic lives here, and Qt appears in no
@@ -109,6 +112,29 @@ on Windows an `aqtinstall`/official Qt build pointed at with
 `-DCMAKE_PREFIX_PATH`. vcpkg is not used for Qt: its `qtwebengine` port is a
 from-source Chromium build. Never download Qt from the CMake files; discover
 it, and print the install command when it is missing.
+
+## Native macOS App Store Readiness
+
+- Keep the native reader compliant with the current
+  [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/),
+  especially the Mac App Store requirements in section 2.4.5 and privacy
+  requirements in section 5.1.1. Recheck Apple's guidance before a submission;
+  these rules can change.
+- Keep the app sandboxed for distribution, use public APIs and user-granted
+  file access, and bundle all runtime libraries and resources within the signed
+  app. Do not add a separate updater, installer, privileged helper, or
+  downloaded executable code.
+- Provide an easily accessible privacy policy link inside the app and a
+  matching URL in App Store Connect. Keep the policy and App Store privacy
+  answers accurate for the app's actual data handling.
+- Verify the release build with distribution signing, a matching provisioning
+  profile, App Sandbox entitlements, and the required App Store package. Test
+  opening BOO files through the open panel, Finder, and drag and drop,
+  including multiple documents, in that signed sandboxed build. An ad hoc
+  development build does not establish submission readiness.
+- Give App Review a redistributable BOO sample or another way to exercise the
+  reader, with clear review notes. Do not bundle or use third-party books or
+  artwork in store assets without distribution rights.
 
 ## Consumers And Extension Points
 
