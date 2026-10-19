@@ -39,7 +39,9 @@ struct MessageProseBoundaryTokenIR {
 struct MessageProseParagraphIR {
   std::string text;
   std::vector<DocumentSourceRowIR> source_rows;
-  // Contiguous token spans (one per logical record) projected into `text`.
+  // Contiguous projected pieces, split at native framing and hidden controls.
+  // An unrowed native continuation retains these byte-backed claims without
+  // inventing a compatibility layout row or borrowing a later font run.
   std::vector<DocumentSourceSliceIR> source_slices;
   std::vector<MessageProseBoundaryTokenIR> opening_boundary;
   bool opened_by_run_start = false;

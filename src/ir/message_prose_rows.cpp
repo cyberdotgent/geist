@@ -333,11 +333,12 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
     pending_boundary.clear();
   };
 
+  const RecordSpan* previous_span = nullptr;
   for (const auto& span : spans) {
     const auto& record = *span.record;
-    // Continuation prefix admission: unowned printable cells before the
-    // record's first envelope row are admitted only while the paragraph of
-    // the previous record is still open and that row continues its run.
+    // Compatibility continuation evidence: the first envelope row may
+    // continue the preceding paragraph's run. Native framing below can
+    // independently prove a prefix before a different run.
     std::optional<std::size_t> first_row_token;
     for (auto token = span.begin; token < span.end; ++token) {
       const auto found = rows_by_start.find({record.logical_record, token});
@@ -389,6 +390,64 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
                record.assembled, words.begin, words.end))
         control_tokens.insert(token);
     }
+    if (const auto* lines = record_display_lines(record))
+      for (const auto& line : *lines)
+        if (is_subject_index_display_line(record, line))
+          for (auto token = line.prefix_token + 1; token < line.token_end; ++token)
+            control_tokens.insert(token);
+
+    // A record may start with native prose before its first compatibility
+    // layout row. That later row's font run says nothing about the prefix.
+    // Admit only whole, indented, source-positioned rows in consecutive
+    // framed records, either continuing an open paragraph or following a
+    // proven blank-row boundary. This is additional source evidence, never
+    // blanket forgiveness for opaque cells.
+    std::set<std::size_t> native_prefix_tokens;
+    const auto* native_lines = record_display_lines(record);
+    const auto* preceding_lines = previous_span == nullptr ? nullptr :
+        record_display_lines(*previous_span->record);
+    const auto after_blank = preceding_lines != nullptr &&
+        !preceding_lines->empty() &&
+        collapse(display_line_text(*previous_span->record,
+                                   preceding_lines->back())).empty();
+    if ((open || after_blank) && previous_span != nullptr && native_lines != nullptr &&
+        preceding_lines != nullptr && !preceding_lines->empty() &&
+        previous_span->record->logical_record + 1 == record.logical_record &&
+        previous_span->end == previous_span->record->tokens.size()) {
+      const auto prefix_end = first_row_token.value_or(span.end);
+      for (const auto& line : *native_lines) {
+        if (line.prefix_token < span.begin || line.token_end > prefix_end)
+          break;
+        if (is_subject_index_display_line(record, line)) continue;
+        const auto text = display_line_text(record, line);
+        if (collapse(text).empty()) continue;
+        if (text.front() != ' ') break;
+        bool proven = true;
+        for (const auto& conflict : ownership.run_conflicts)
+          if (conflict.logical_record == record.logical_record &&
+              conflict.token_index >= line.prefix_token &&
+              conflict.token_index < line.token_end)
+            proven = false;
+        for (auto token = line.prefix_token + 1; token < line.token_end; ++token) {
+          if (control_tokens.count(token) != 0) { proven = false; break; }
+          for (std::size_t word = 0; word < record.tokens[token].size(); ++word) {
+            const auto cell = cells.find({record.logical_record, token, word});
+            if (cell == cells.end() ||
+                cell->second->field_role != SourceFieldRole::positioned ||
+                (cell->second->disposition != SourceDisposition::opaque &&
+                 !(word == 0 && record.tokens[token][word] < 4 &&
+                   cell->second->disposition == SourceDisposition::control_operand)) ||
+                record.tokens[token][word] > 0xff) {
+              proven = false;
+              break;
+            }
+          }
+        }
+        if (!proven) break;
+        for (auto token = line.prefix_token + 1; token < line.token_end; ++token)
+          native_prefix_tokens.insert(token);
+      }
+    }
     std::size_t current_segment = 0;
     bool segment_row_seen = false;
     for (auto token = span.begin; token < span.end; ++token) {
@@ -402,12 +461,14 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
         }
       if (row_by_token.count({record.logical_record, token}) != 0)
         segment_row_seen = true;
-      if (control_tokens.count(token) != 0) {
+      if (control_tokens.count(token) != 0 &&
+          !is_display_line_length_token(record, token)) {
         const auto row_start =
             rows_by_start.find({record.logical_record, token});
         if (row_start != rows_by_start.end())
           return reject("message prose control token starts a physical row");
-        piece.push_back(' ');
+        flush_piece(token, current_segment);
+        piece_begin_token = token + 1;
         continue;
       }
       const MarkerOriginLookup marker_origin =
@@ -460,6 +521,16 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
           begin_paragraph(false);
         }
         current.source_rows.push_back({run_id, ref.row_index});
+      }
+      if (is_display_line_length_token(record, token)) {
+        // Process its physical-row boundary above, but never emit the native
+        // length byte's dictionary spelling, including for an unrowed prefix.
+        flush_piece(token, current_segment);
+        piece_begin_token = token + 1;
+        const auto* line = display_line_of_token(record, token);
+        if (line != nullptr && collapse(display_line_text(record, *line)).empty())
+          finish();
+        continue;
       }
       const auto owner = row_by_token.find({record.logical_record, token});
       const auto* row =
@@ -540,8 +611,9 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
           continue;
         }
         if (disposition == SourceDisposition::opaque && value != ' ') {
-          const auto admitted = record_continues_run && open &&
-                                token < *first_row_token;
+          const auto admitted =
+              (record_continues_run && open && token < *first_row_token) ||
+              native_prefix_tokens.count(token) != 0;
           // Unowned printable cells of a mid-record segment before its first
           // physical row (or of a rowless segment) are control text that the
           // decoder left unsegmented (index terms), not prose. Unowned cells
@@ -578,6 +650,7 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
       }
     }
     flush_piece(span.end, current_segment);
+    previous_span = &span;
   }
   finish();
   if (result.paragraphs.empty())

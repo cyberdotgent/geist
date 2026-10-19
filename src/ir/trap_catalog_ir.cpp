@@ -385,6 +385,7 @@ struct Piece {
   // space cell) so CFONT columns can be mapped onto the display text.
   std::string display_gap;
   std::size_t cell_begin = 0;
+  std::size_t columns = 0;
 };
 
 // Projects one decoded segment payload into text, ledgering every payload
@@ -438,7 +439,7 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
   // Display width of the pieces emitted so far, in the same accumulation the
   // final `display` string uses, so a CFONT column can be tested mid-walk.
   std::size_t running = 0;
-  const auto emit_char = [&](std::size_t token, char ch, bool glue) {
+  const auto emit_char = [&](std::size_t token, std::uint16_t word, bool glue) {
     if (pieces.empty() || pieces.back().token != token) {
       Piece piece;
       piece.token = token;
@@ -451,7 +452,8 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
     }
     pending_space = false;
     gap.clear();
-    pieces.back().text.push_back(ch);
+    pieces.back().text += token_words_to_ascii({word});
+    ++pieces.back().columns;
     ++running;
   };
   for (std::size_t output = range.begin;
@@ -524,7 +526,7 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
           running + (record.ir.tokens[token].decoded_words.size() - word) <=
               highlighted_columns) {
         cell.role = TrapCellRoleIR::text;
-        emit_char(token, static_cast<char>(value), false);
+        emit_char(token, value, false);
       } else if (cell.role == TrapCellRoleIR::punctuation_marker) {
         // A punctuation slot that one CFONT span covers whole is display text
         // the row draws at its own column, not a sentence stop LayoutIR glues
@@ -542,13 +544,13 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
         if (value >= 0x20 && value <= 0xff && value != ' ' &&
             highlight_covers(at, at + width)) {
           cell.role = TrapCellRoleIR::text;
-          emit_char(token, static_cast<char>(value), false);
+          emit_char(token, value, false);
         } else if (value <= 0xff) {
-          emit_char(token, static_cast<char>(value), true);
+          emit_char(token, value, true);
         }
       } else if (cell.role == TrapCellRoleIR::lexical_marker) {
         if (value <= 0xff && value >= 0x20)
-          emit_char(token, static_cast<char>(value), false);
+          emit_char(token, value, false);
       } else {
         pending_space = true;
         if (gap.empty())
@@ -577,7 +579,7 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
       if (value >= 0x20 && value <= 0xff && value != ' ' &&
           highlight_covers(at, at + width)) {
         cell.role = TrapCellRoleIR::text;
-        emit_char(token, static_cast<char>(value), false);
+        emit_char(token, value, false);
       } else {
         cell.role = TrapCellRoleIR::placeholder;
         pending_space = true;
@@ -586,7 +588,7 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
       }
     } else if (disposition == SourceDisposition::visible_content) {
       cell.role = TrapCellRoleIR::text;
-      emit_char(token, static_cast<char>(value), false);
+      emit_char(token, value, false);
     } else if (disposition == SourceDisposition::layout_origin ||
                disposition == SourceDisposition::layout_padding) {
       cell.role = TrapCellRoleIR::spacing;
@@ -612,7 +614,7 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
                                std::to_string(record.logical_record) +
                                " token " + std::to_string(token));
       cell.role = TrapCellRoleIR::unrowed_text;
-      emit_char(token, static_cast<char>(value), false);
+      emit_char(token, value, false);
     }
     cells.push_back(cell);
   }
@@ -627,12 +629,12 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
   // column can be compared against them.
   std::vector<std::size_t> piece_end;
   {
-    std::string preview;
+    std::size_t columns = 0;
     for (const auto &piece : pieces) {
-      if (!preview.empty() && !piece.glue)
-        preview += piece.display_gap;
-      preview += piece.text;
-      piece_end.push_back(preview.size());
+      if (columns != 0 && !piece.glue)
+        columns += piece.display_gap.size();
+      columns += piece.columns;
+      piece_end.push_back(columns);
     }
   }
   for (std::size_t index = 0; index < pieces.size(); ++index) {
@@ -868,6 +870,25 @@ bool project_embedded_region(const std::vector<DecodedLogicalRecordSource> &reco
   return true;
 }
 
+// The ordinary payload projector emits Unicode words through U+00FF as
+// UTF-8. Map those encoded byte offsets back to their single display columns;
+// malformed or unsupported text cannot corroborate a font span.
+std::optional<std::vector<std::size_t>> projected_column_offsets(
+    const std::string& text) {
+  std::vector<std::size_t> offsets{0};
+  for (std::size_t at = 0; at < text.size();) {
+    const auto byte = static_cast<unsigned char>(text[at]);
+    if (byte < 0x80) ++at;
+    else if ((byte == 0xc2 || byte == 0xc3) && at + 1 < text.size() &&
+             (static_cast<unsigned char>(text[at + 1]) & 0xc0) == 0x80)
+      at += 2;
+    else
+      return std::nullopt;
+    offsets.push_back(at);
+  }
+  return offsets;
+}
+
 // Leading run of CFONT spans that opens the row, verified against the row's
 // own display text: the run starts at `origin_column`, and between two
 // consecutive spans the display text holds nothing but spaces. Nothing about
@@ -888,6 +909,9 @@ std::vector<FontSpanIR> map_leading_chain(const FontControlSpansIR &spans,
                                           std::string &joined) {
   out.clear();
   joined.clear();
+  const auto offsets = projected_column_offsets(display);
+  if (!offsets) return {};
+  const auto columns = offsets->size() - 1;
   auto sorted = spans.spans;
   std::stable_sort(sorted.begin(), sorted.end(),
                    [](const auto &left, const auto &right) {
@@ -900,7 +924,7 @@ std::vector<FontSpanIR> map_leading_chain(const FontControlSpansIR &spans,
       break;
     const auto offset = span.column - origin_column;
     auto end = offset + span.length;
-    if (offset >= display.size())
+    if (offset >= columns)
       break;
     // The span may reach past the segment's own payload: where the flattened
     // splitter fired on a `{0x0001, ','}` boundary token the separator glyph
@@ -911,20 +935,22 @@ std::vector<FontSpanIR> map_leading_chain(const FontControlSpansIR &spans,
     // clipped to what the payload retained rather than disproved; the lost
     // separator is the residual recorded in `demote_display_line_owned_
     // controls`, which legacy loses too.
-    if (end > display.size())
-      end = display.size();
+    if (end > columns)
+      end = columns;
     if (chain.empty()) {
       if (offset != 0)
         break;
     } else {
       if (offset < previous_end)
         break;
-      const auto gap = display.substr(previous_end, offset - previous_end);
+      const auto gap = display.substr((*offsets)[previous_end],
+                                     (*offsets)[offset] - (*offsets)[previous_end]);
       if (!std::all_of(gap.begin(), gap.end(),
                        [](const char ch) { return ch == ' '; }))
         break;
     }
-    const auto text = display.substr(offset, end - offset);
+    const auto text = display.substr((*offsets)[offset],
+                                     (*offsets)[end] - (*offsets)[offset]);
     if (text.empty() || text.front() == ' ' || text.back() == ' ')
       break;
     if (!joined.empty() && offset != previous_end)
@@ -1005,7 +1031,9 @@ chain_highlight_ranges(const std::vector<TrapStyledSpanIR> &spans,
     ranges.push_back(
         {base + at, base + at + span.text.size(), span.span.style});
     at += span.text.size();
-    previous_end_column = span.span.column + span.text.size();
+    const auto offsets = projected_column_offsets(span.text);
+    if (!offsets) return {};
+    previous_end_column = span.span.column + offsets->size() - 1;
   }
   if (at != joined.size())
     return {};
@@ -1185,11 +1213,35 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
     case BookControlKind::message_start:
       catalog.anchors.push_back({"MSG", segment_slice(*ref.record, segment)});
       break;
-    case BookControlKind::structural:
-      if (ascii_starts_with_case_insensitive(segment.opcode, "SRHDR"))
-        catalog.anchors.push_back(
-            {segment.opcode.substr(2), segment_slice(*ref.record, segment)});
+    case BookControlKind::structural: {
+      const auto lower = ascii_lower(segment.opcode);
+      bool reserved = false;
+      for (const auto* prefix : {"srfig", "srefig", "srtbl", "sretbl",
+                                 "srftn", "sreftn", "srmsg", "srlist",
+                                 "srelist", "srlblbox", "srelblbox"})
+        reserved = reserved || lower.rfind(prefix, 0) == 0;
+      if (lower.rfind("sr", 0) == 0 && lower.size() > 2 && !reserved &&
+          !segment.malformed &&
+          !is_display_line_length_opcode(*ref.record, segment) &&
+          !is_display_line_embedded_opcode(*ref.record, segment)) {
+        auto id = segment.opcode.substr(2);
+        if (!title) {
+          // Metadata extends an SR anchor's identity; body payload remains
+          // text. Native bounds exclude the next line's dictionary prefix.
+          auto name = collapse(range_text(*ref.record, segment.complete));
+          const auto words = decoded_byte_range_to_word_range(
+              ref.record->assembled, segment.opcode_range);
+          const auto tokens = source_tokens_intersecting_output(
+              ref.record->assembled, words.begin, words.end);
+          if (!tokens.empty())
+            if (const auto* line = display_line_of_token(*ref.record, tokens.front()))
+              name = collapse(display_line_text(*ref.record, *line));
+          if (ascii_starts_with_case_insensitive(name, "SR")) id = name.substr(2);
+        }
+        catalog.anchors.push_back({std::move(id), segment_slice(*ref.record, segment)});
+      }
       break;
+    }
     case BookControlKind::table_start: {
       if (segment.source_tokens.empty() ||
           segment_opcode_is_display_line_prefix(*ref.record, segment))
@@ -1284,7 +1336,7 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           if (pending_space && !accumulated.empty())
             accumulated.push_back(' ');
           pending_space = false;
-          accumulated.push_back(static_cast<char>(words[word]));
+          accumulated += token_words_to_ascii({words[word]});
         } else {
           pending_space = true;
         }

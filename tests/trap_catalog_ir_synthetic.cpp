@@ -53,6 +53,9 @@
 #include "geist/detail/layout/layout_ir.hpp"
 #include "geist/detail/layout/ownership_ir.hpp"
 #include "geist/detail/ir/trap_catalog_ir.hpp"
+#include "geist/detail/lowering/trap_catalog_document_lowering.hpp"
+#include "geist/detail/render/document_html_renderer.hpp"
+#include "geist/detail/render/document_markdown_renderer.hpp"
 #include "test_failures.hpp"
 
 #include <iostream>
@@ -456,6 +459,218 @@ int main() {
             "slid-column run declined for the wrong reason: " + built.error);
   }
 
+  // SC24-546 A.0: a framed continuation precedes the next record's
+  // first LayoutIR row, which belongs to a different display run.
+  {
+    auto first = header("Sample", "Messages");
+    append(first, line({t("SI", 150), t("hidden", 151), t("index", 152)}));
+    append(first, line({origin(), t("Opening", 153), t("sentence", 154)}));
+    std::vector<Token> second;
+    append(second, line({origin(), t("continues", 155), t("across", 156),
+                         t("records.", 157)}));
+    append(second, line({t("SI", 150), t("secret", 158), t("operand", 159)}));
+    append(second, line({t("cfont", 111), t("3", 112), t("4", 160), t("2", 113)}));
+    append(second, line({origin(), t("Next", 161), t("paragraph.", 162)}));
+    append(second, entry("608", 163));
+    const auto sources = std::vector<DecodedLogicalRecordSource>{
+        make_source(20, first), make_source(21, second)};
+    const auto built = build(sources, "Sample Messages");
+    require(built.catalog.has_value(), "framed record-prefix catalog declined: " + built.error);
+    if (built.catalog) {
+      std::string introduction;
+      for (const auto &paragraph : built.catalog->introduction)
+        introduction += paragraph.text + "|";
+      require(introduction == "Opening sentence continues across records.|Next paragraph.|",
+              "record-prefix introduction changed: " + introduction);
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(), "record-prefix lowering declined: " + error);
+      if (document)
+        for (const auto &output : {geist::detail::render_document_html_blocks(*document, {}),
+                                   geist::detail::render_document_markdown(*document)}) {
+          const auto opening = output.find("Opening sentence continues across records");
+          const auto next = output.find("Next");
+          require(opening != std::string::npos && next != std::string::npos && opening < next &&
+                      output.find("Opening sentence", opening + 1) == std::string::npos &&
+                      output.find("hidden") == std::string::npos &&
+                      output.find("secret") == std::string::npos &&
+                      output.find("MSG 608") != std::string::npos,
+                  "record-prefix rendering changed: " + output);
+        }
+      if (document) {
+        require(geist::detail::render_document_html_blocks(*document, {}).find(
+                    "<strong class=\"geist-strong\">Next</strong> paragraph.") !=
+                    std::string::npos &&
+                    geist::detail::render_document_markdown(*document).find(
+                        "**Next** paragraph\\.") != std::string::npos,
+                "record-prefix recovery lost the following font span");
+      }
+      auto changed = *built.catalog;
+      bool found_prefix_source = false;
+      for (auto& slice : changed.introduction.front().source_slices)
+        if (slice.logical_record == 21) {
+          found_prefix_source = true;
+          require(slice.token_begin >= 1 && slice.token_end <= 5 &&
+                      slice.byte_begin == 21000 + slice.token_begin &&
+                      slice.byte_end == 21000 + slice.token_end,
+                  "continuation provenance includes framing or hidden controls");
+          ++slice.byte_begin;
+          break;
+        }
+      std::string verify_error;
+      require(found_prefix_source &&
+                  !geist::detail::verify_trap_catalog_ir(
+                      built.sources, built.layout, *built.ownership, changed,
+                      &verify_error),
+              "continuation byte-provenance mutation passed verification");
+    }
+
+    require(!build({make_source(20, first), make_source(22, second)},
+                   "Sample Messages").catalog,
+            "missing record was accepted as a paragraph continuation");
+    auto undecided = sources;
+    undecided[1].ir.display_lines_parse = false;
+    for (auto& token : undecided[1].ir.tokens)
+      token.framing = geist::detail::TokenFramingRole::unframed;
+    require(!build(std::move(undecided), "Sample Messages").catalog,
+            "undecided cross-run prefix was guessed as continuation text");
+
+    auto closed = first;
+    append(closed, line({}));
+    const auto after_closed = build(
+        {make_source(20, closed), make_source(21, second)}, "Sample Messages");
+    require(after_closed.catalog && after_closed.catalog->introduction.size() == 3 &&
+                after_closed.catalog->introduction[0].text == "Opening sentence" &&
+                after_closed.catalog->introduction[1].text == "continues across records.",
+            "native trailing blank row did not separate paragraphs");
+    auto leading_blank = line({});
+    append(leading_blank, second);
+    const auto after_leading_blank = build(
+        {make_source(20, first), make_source(21, leading_blank)}, "Sample Messages");
+    require(after_leading_blank.catalog &&
+                after_leading_blank.catalog->introduction.size() == 3 &&
+                after_leading_blank.catalog->introduction[0].text == "Opening sentence" &&
+                after_leading_blank.catalog->introduction[1].text == "continues across records.",
+            "native leading blank row did not separate paragraphs");
+
+    auto spelled_prefix = second;
+    spelled_prefix.front().words = words("framing");
+    const auto spelled = build(
+        {make_source(20, first), make_source(21, spelled_prefix)},
+        "Sample Messages");
+    require(spelled.catalog && spelled.catalog->introduction.front().text ==
+                "Opening sentence continues across records.",
+            "native length byte's dictionary word entered the continuation");
+
+    auto extra_line = line({origin(), t("and", 164), t("further", 165)});
+    append(extra_line, second);
+    const auto multiple = build(
+        {make_source(20, first), make_source(21, extra_line)},
+        "Sample Messages");
+    require(multiple.catalog && multiple.catalog->introduction.front().text ==
+                "Opening sentence and further continues across records.",
+            "multiple native prefix rows were not recovered in source order");
+
+    auto split_prefix = line({origin(), t("additional", 164), t("text.", 165)});
+    append(split_prefix, line({}));
+    append(split_prefix, second);
+    const auto split = build(
+        {make_source(20, first), make_source(21, split_prefix)},
+        "Sample Messages");
+    require(split.catalog && split.catalog->introduction.size() == 3 &&
+                split.catalog->introduction[0].text == "Opening sentence additional text." &&
+                split.catalog->introduction[1].text == "continues across records.",
+            "blank row within a native prefix did not separate paragraphs");
+
+    auto attached_prefix = line({origin(), t("has", 164), t("ended", 165),
+                                 {TokenWords{1}, 1}, t(".", 166)});
+    append(attached_prefix, second);
+    const auto attached = build(
+        {make_source(20, first), make_source(21, attached_prefix)},
+        "Sample Messages");
+    require(attached.catalog && attached.catalog->introduction.front().text ==
+                "Opening sentence has ended. continues across records.",
+            "native prefix spacing control was rejected or printed");
+
+    const auto rowless = line({origin(), t("through", 164), t("another", 165),
+                              t("record", 166)});
+    const auto three_records = build(
+        {make_source(20, first), make_source(21, rowless), make_source(22, second)},
+        "Sample Messages");
+    require(three_records.catalog && three_records.catalog->introduction.front().text ==
+                "Opening sentence through another record continues across records.",
+            "rowless intervening native record lost its text");
+  }
+
+  // A blank row ends the paragraph, not the compatibility display run.
+  // The old run's CFONT must not be reapplied to later unstyled text.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({t("cfont", 111), t("3", 112), t("4", 160), t("2", 113)}));
+    append(tokens, line({origin(), t("Next", 161), t("paragraph.", 162)}));
+    append(tokens, line({}));
+    append(tokens, line({origin(), t("Following", 164), t("text.", 165)}));
+    append(tokens, entry("610", 170));
+    const auto built = build({make_source(30, tokens)}, "Sample Messages");
+    require(built.catalog && built.catalog->introduction.size() == 2,
+            "native blank row within a font run did not split the paragraphs");
+    if (built.catalog) {
+      require(built.catalog->introduction[0].leading_spans.size() == 1 &&
+                  built.catalog->introduction[1].leading_spans.empty(),
+              "native paragraph boundary reapplied an earlier font span");
+    }
+  }
+
+  // Introduction destinations survive promotion out of the fallback route.
+  // Metadata operands extend the name; body-anchor payloads do not.
+  {
+    auto tokens = header("Sample", "Messages");
+    const auto metadata_anchor = line({t("SRLEN", 176), t("Example", 177)});
+    tokens.insert(tokens.begin() + 5, metadata_anchor.begin(), metadata_anchor.end());
+    append(tokens, line({origin(), t("Opening", 153), t("sentence", 154)}));
+    append(tokens, line({t("SRSPTSECTION", 178)}));
+    append(tokens, entry("611", 179));
+    const auto built = build({make_source(30, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(), "anchor fixture declined: " + built.error);
+    if (built.catalog) {
+      bool metadata = false, body = false;
+      for (const auto& anchor : built.catalog->anchors) {
+        metadata = metadata || anchor.id == "LEN Example";
+        body = body || anchor.id == "SPTSECTION";
+      }
+      require(metadata && body, "typed trap catalogue lost source destinations");
+    }
+  }
+
+  // Word values are Unicode, not single-byte characters. UTF-8 byte lengths
+  // must not shift the source columns or the highlighted byte ranges.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("609", 170));
+    append(tokens, line({t("cfont", 111), t("3", 112), t("1", 171),
+                         t("2", 113), t("5", 172), t("1", 171), t("1", 171)}));
+    append(tokens, line({origin(), {TokenWords{0x00a2}, 173},
+                         {TokenWords{0x00e9}, 174}, t("tail", 175)}));
+    const auto built = build({make_source(30, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(), "Unicode trap payload declined: " + built.error);
+    if (built.catalog) {
+      const auto& field = built.catalog->entries.front().fields.front().line.body;
+      require(field.text == u8"Description: first field ¢ é tail",
+              "trap payload is not UTF-8: " + field.text);
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(), "Unicode trap lowering declined: " + error);
+      if (document) {
+        const auto html = geist::detail::render_document_html_blocks(*document, {});
+        const auto markdown = geist::detail::render_document_markdown(*document);
+        require(html.find(u8"<strong class=\"geist-strong\">¢</strong> <em class=\"geist-emphasis\">é</em> tail") != std::string::npos &&
+                    markdown.find(u8"**¢** *é* tail") != std::string::npos,
+                "UTF-8 bytes shifted trap font spans: " + html);
+      }
+    }
+  }
   std::cout << "trap catalog IR synthetic tests passed\n";
   return 0;
 }

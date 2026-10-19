@@ -2387,6 +2387,23 @@ is a universal marker vocabulary.
 [[markup_flattened_prose_display_rows]]
 === Flattened prose display rows
 
+Paragraphs may continue across logical records before a later font instruction.
+In `SC24-546` topic `A.0`, record 966's final display line begins at
+`0x5A7AE` with length byte `1B` (hex) and ends with `3 and 5 (if`.
+Record 967 begins at `0x5A7CC` with length byte `19` (hex); its first
+display line has a three-space origin and continues `the initial requirements
+for storage could not be met) and 26 (if on exit`. This is ordinary drawn
+text, not an operand of the later font instruction. That instruction begins
+at record 967 token 239, whose length byte `25` (hex) is at `0x5A90A`,
+and styles the later `HELP MSG DMSnnnE` example. A later font instruction
+does not establish the meaning or paragraph membership of earlier rows.
+
+The same record has an empty display line at token 108, file offset
+`0x5A85D`, encoded as length byte `00`. Such native blank rows establish
+paragraph separation; merely crossing the record boundary does not. Preserve
+the drawing and spacing of complete native text rows independently of any
+surrounding subject-index or font instructions.
+
 Ordinary prose topics of the 1.x books (SC31-711, QSYSINFO, SC24-5520-00,
 FA1PLMM0, SC09-138, ...) store each formatted display line as tokens whose
 spacing runs and one-byte slots encode the row geometry. BookServer renders

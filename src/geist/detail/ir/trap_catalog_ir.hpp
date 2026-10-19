@@ -98,7 +98,7 @@ inline bool operator==(const TrapBodyHighlightIR &left,
          left.style == right.style;
 }
 
-// Projected text with exact provenance. `text` is whitespace-collapsed;
+// Projected UTF-8 text with exact provenance. `text` is whitespace-collapsed;
 // `display_text` keeps the reader's inter-word spacing so CFONT columns can
 // be mapped onto it.
 struct TrapTextIR {
