@@ -1560,6 +1560,29 @@ references are linked through `CSELECT` targets such as `pic1` or `Pic1`.
 |`SRPIC<n>` |`SRPIC1` |Anchor of picture <n>, written inside its description envelope.
 |===
 
+==== Captions before picture selectors
+
+A numbered caption may precede its picture selector inside the figure
+boundaries. In `SC09-2417-00`, topic `1.3.3.4`, logical record 134,
+`SRFIGSCEN6` occupies bytes `0x4188B..0x4188C`, followed by `cz OFF FIG`
+at `0x4188E..0x41891`. The next display-line length byte is `0x1B` at
+`0x41892`; its payload begins at column 3 with `Figure 7. OPM-ILE Program
+Scenario. The program is split between the OPM`. The continuation length
+byte is `0x11` at `0x418AE`; its payload begins at column 13 with
+`default activation group and a named ILE activation group.` and ends at
+`0x418BF`. Column 13 is the first caption line's title column, after
+`Figure 7.` and its separating space. These two lines form one caption;
+the figure layout directive does not make their visible text an operand.
+The `cselect 13 9 PIC7` line starts at `0x418C2`, after the caption and a
+blank display line, and selects the following `PICTURE 7` placeholder.
+
+Caption punctuation must come from the caption line's payload, not the
+dictionary spelling of the following line's length byte. In `QSYSNEWG`,
+topic `2.6.1`, logical record 58, the caption line ends with `Keyboard`
+without a period. At file offset `0x73ED0`, byte `0x01` is the following
+`SREFIG` line's length byte; its dictionary spelling is an attachment
+control followed by `.`. That spelling contributes no caption punctuation.
+
 ==== The BUILD 1.3 artwork envelope
 
 Books compiled by BookManager BUILD 1.3 (`ez30ad01.boo` = SG24-4815-01,

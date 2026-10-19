@@ -1784,7 +1784,6 @@ struct Extractor {
     std::map<CellKey, FigureCellRoleIR> cell_roles;
     const PhysicalRowIR *caption_row = nullptr;
     const auto line_caption = region_caption(region);
-    bool line_caption_seen = false;
     std::vector<DocumentSourceRowIR> line_caption_rows;
     const auto picture_key = SegmentKey{picture->logical_record,
                                         picture->segment_index};
@@ -1860,7 +1859,8 @@ struct Extractor {
       if (!boundary_segment &&
           (segment.kind == BookControlKind::text ||
            segment.kind == BookControlKind::select ||
-           segment.kind == BookControlKind::font)) {
+           segment.kind == BookControlKind::font ||
+           segment.kind == BookControlKind::layout_directive)) {
         const auto &offsets = byte_offsets.at(record.logical_record);
         auto lead_begin = segment.kind == BookControlKind::text
                               ? segment.complete.begin
@@ -1914,7 +1914,6 @@ struct Extractor {
         if (!lead.empty()) {
           const auto classified =
               classify_cells(lead, line_caption ? &*line_caption : nullptr);
-          line_caption_seen = line_caption_seen || classified.caption_lines;
           if (classified.prose)
             return decline(region, "figure region contains prose segment '" +
                                        classified.prose_text + "'");
@@ -1948,7 +1947,6 @@ struct Extractor {
             classify_cells(cells, line_caption ? &*line_caption : nullptr);
         if (classified.caption_lines)
           line_caption_rows.push_back(row_key);
-        line_caption_seen = line_caption_seen || classified.caption_lines;
         if (classified.prose && caption_row != nullptr &&
             row->run == caption_row->run &&
             (row->start == PhysicalRowStartKind::placeholder_wrap ||
@@ -1976,7 +1974,10 @@ struct Extractor {
     }
 
     // Both segment leads and rows can carry the caption's display lines.
-    if (line_caption_seen) {
+    // A caption may live entirely in cz OFF FIG's payload before the
+    // picture selector, with no physical row. Use its proven display-line
+    // text rather than the possibly truncated text projected into rows.
+    if (line_caption) {
       if (!block.caption)
         block.caption = FigureCaptionIR{line_caption->text, {}, {}};
       else
@@ -2048,7 +2049,16 @@ struct Extractor {
 
       const auto classified = cell_roles.find(
           {cell.logical_record, cell.token_index, cell.word_index});
-      if (classified != cell_roles.end()) {
+      const CellKey cell_key{cell.logical_record, cell.token_index,
+                             cell.word_index};
+      if (classified == cell_roles.end() && line_caption &&
+          cell.disposition != SourceDisposition::control_operand &&
+          cell.disposition != SourceDisposition::marker_slot &&
+          visible_word(cell.word) &&
+          !line_caption->is_structure(cell_key) &&
+          line_caption->owns(cell_key)) {
+        claimed.role = FigureCellRoleIR::caption_content;
+      } else if (classified != cell_roles.end()) {
         claimed.role = classified->second;
       } else if (cell.run != 0) {
         return decline(region, "figure region claims a cell of a row it "

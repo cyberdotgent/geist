@@ -66,6 +66,7 @@
 #include "test_failures.hpp"
 
 #include <cstdint>
+#include <cctype>
 #include <iostream>
 #include <optional>
 #include <set>
@@ -96,10 +97,11 @@ struct RecordBuilder {
 
   // One display line: a length byte covering `content`, whose tokens are two
   // bytes each.  The length byte's dictionary spelling is the row sentinel.
-  void line(std::vector<TokenWords> content) {
+  void line(std::vector<TokenWords> content,
+            TokenWords length_spelling = TokenWords{0x25BA}) {
     record.encoded_tokens.push_back(
         {static_cast<std::uint16_t>(2 * content.size()), 1});
-    record.tokens.push_back(TokenWords{0x25BA});
+    record.tokens.push_back(std::move(length_spelling));
     for (auto &token : content) {
       record.encoded_tokens.push_back({next_encoded++, 2});
       record.tokens.push_back(std::move(token));
@@ -637,9 +639,126 @@ void an_unnumbered_caption_is_bounded_by_the_picture_and_end_marker() {
   }
 }
 
+// SC09-2417-00 1.3.3.4: a wrapped caption belongs to cz OFF FIG's
+// payload before the picture selector, not to a LayoutIR caption row.
+void a_caption_before_the_picture_keeps_its_wrapped_text() {
+  for (int mutation = 0; mutation != 4; ++mutation) {
+    RecordBuilder builder;
+    builder.heading("1.1", "Scenario");
+    builder.line({words("SRFIGSCEN6")});
+    builder.line({words("cz"), words("OFF"), words("FIG")});
+    builder.line({words("   "), words("Figure"), words("7."),
+                  words("OPM-ILE Program Scenario.  The program is split "
+                        "between the OPM")});
+    builder.line(
+        {words("             "),
+         words("default activation group and a named ILE activation group.")});
+    builder.line({});
+    if (mutation == 1)
+      builder.line(
+          {words("   "), words("Unrelated prose must not disappear.")});
+    if (mutation == 2)
+      builder.line({words("   "), words("Figure 8. A second caption")});
+    builder.line({words("cselect"), words("13"), words("9"), words("PIC1")});
+    builder.line({words("             "), words("PICTURE"), words("1")});
+    if (mutation != 3)
+      builder.line({words("SREFIG")});
+    builder.line(
+        {words("cz"), words("OFF"), words("EFIG"), words("0"), words("0")});
+    builder.line(
+        {words("cz"), words("FLOW"), words("P"), words("3"), words("3")});
+    builder.line({words("   "), words("Following paragraph.")});
+    auto extracted = run(builder.build(134), "Scenario");
+    if (mutation != 0) {
+      require(!extracted.topic,
+              "invalid preselector caption shape was admitted: " +
+                  std::to_string(mutation));
+      continue;
+    }
+    require(extracted.topic.has_value(),
+            "caption-before-picture declined: " + extracted.error);
+    if (!extracted.topic)
+      return;
+    require(extracted.topic->figures.blocks.size() == 1,
+            "caption-before-picture must have one figure");
+    if (extracted.topic->figures.blocks.size() != 1)
+      return;
+    const auto *figure = &extracted.topic->figures.blocks.front();
+    const std::string caption =
+        "Figure 7. OPM-ILE Program Scenario. The program is split between the "
+        "OPM default activation group and a named ILE activation group.";
+    require(figure->caption && figure->caption->text == caption,
+            "wrapped caption before the picture was lost");
+    std::size_t caption_letters = 0;
+    for (const auto &cell : figure->cells)
+      if (cell.role == geist::detail::FigureCellRoleIR::caption_content)
+        ++caption_letters;
+    std::size_t expected_letters = 0;
+    for (const unsigned char ch : caption)
+      if (std::isalnum(ch)) ++expected_letters;
+    require(caption_letters == expected_letters,
+            "caption text must be owned as caption content");
+    std::string error;
+    const auto document = geist::detail::lower_prose_topic_to_document_ir(
+        {"1.1", "Scenario"}, *extracted.topic, &error);
+    require(document.has_value(),
+            "caption-before-picture lowering failed: " + error);
+    if (!document)
+      return;
+    for (const auto &output :
+         {geist::detail::render_document_html_blocks(*document, {}),
+          geist::detail::render_document_markdown(*document)}) {
+      const std::string continuation =
+          "The program is split between the OPM default activation group and a "
+          "named ILE activation group";
+      const auto at = output.find(continuation);
+      const auto image = output.find("resource:1");
+      const auto following = output.find("Following paragraph");
+      require(
+          at != std::string::npos &&
+              output.find(continuation, at + 1) == std::string::npos &&
+              image != std::string::npos && image < at &&
+              output.find("resource:1", image + 1) == std::string::npos &&
+              following != std::string::npos && following > at &&
+              output.find("Following paragraph", following + 1) ==
+                  std::string::npos,
+          "caption-before-picture must render once before following prose: " +
+              output);
+    }
+  }
+}
+
+// A length byte may spell punctuation in the dictionary; only a period in
+// the caption line's payload is caption content (QSYSNEWG E.1).
+void a_caption_does_not_take_the_next_lines_length_byte() {
+  for (const bool stored_period : {false, true}) {
+    RecordBuilder builder;
+    builder.heading("1.1", "Keyboard");
+    builder.line({words("SRFIGKEY")});
+    builder.line({words("cz"), words("OFF"), words("FIG")});
+    builder.line({words("cselect"), words("3"), words("9"), words("PIC1")});
+    builder.line({words("   "), words("PICTURE"), words("1")});
+    builder.line({words("   "), words("Figure"), words("1."),
+                  words(stored_period ? "Keyboard." : "Keyboard")});
+    builder.line({words("SREFIG")}, TokenWords{1, '.'});
+    auto extracted = run(builder.build(58), "Keyboard");
+    require(extracted.topic.has_value(),
+            "punctuation-prefix figure declined: " + extracted.error);
+    if (!extracted.topic || extracted.topic->figures.blocks.size() != 1)
+      continue;
+    const auto &figure = extracted.topic->figures.blocks.front();
+    require(figure.caption &&
+                figure.caption->text == (stored_period ? "Figure 1. Keyboard."
+                                                       : "Figure 1. Keyboard"),
+            "caption punctuation must come only from its display payload");
+  }
+}
+
 } // namespace
 
 int main() {
+  a_caption_does_not_take_the_next_lines_length_byte();
+  a_caption_before_the_picture_keeps_its_wrapped_text();
   an_unnumbered_caption_is_bounded_by_the_picture_and_end_marker();
   each_picture_of_a_figure_keeps_its_own_envelope();
   an_escaped_selector_line_is_not_description_text();
