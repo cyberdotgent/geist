@@ -297,9 +297,15 @@ void ReaderWindow::build_menus() {
 }
 
 void ReaderWindow::choose_book() {
+  QFileDialog::Options options;
+#ifdef Q_OS_MACOS
+  // Qt's native macOS picker can return immediately without showing a sheet.
+  // Use the widget dialog so both the menu and toolbar Open actions work.
+  options |= QFileDialog::DontUseNativeDialog;
+#endif
   const auto path = QFileDialog::getOpenFileName(
       this, tr("Open Book"), QString(),
-      tr("BookManager books (*.boo *.BOO);;All files (*)"));
+      tr("BookManager books (*.boo *.BOO);;All files (*)"), nullptr, options);
   if (!path.isEmpty()) {
     open_book(path);
   }
