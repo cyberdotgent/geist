@@ -520,6 +520,7 @@ foreach(synthetic_test
     logical_synthetic
     book_control_value_boundary_synthetic
     display_line_control_extent_synthetic
+    topic_title_display_line_synthetic
     toc_entry_framing_synthetic
     topic_envelope_ir_synthetic
     source_rows_synthetic

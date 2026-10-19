@@ -1156,6 +1156,15 @@ Display Text"): SC24-5527-02 record 605 line 8 is
 pass:[<literal>ST&#160;&#160;Create an APPLY List from Two SRVAPPS Tables</literal>], one row, and `SRVAPPS`
 is the table's name.
 
+SC24-5527-02 `6.4.4` (DT `19921218151459`), record 617 line 8,
+provides the same distinction for `SRVBLDS`. At file offset `0x448B6`,
+the length byte `0F` covers the 15 bytes `[0x448B7,0x448C6)`:
+`A7 18 EA 80 7F E8 22 A8 D0 6C DB A1 8E DE 8C`. These decode to
+`ST`, a space, and `Update the SRVBLDS Table After Manual Build Processing`.
+The `SRVBLDS` token `E8 22` at `0x448BC` is inside that line, following
+`Update the`; it introduces no anchor and does not end the title. The next
+byte, `00` at `0x448C6`, opens an empty display line.
+
 An `ST` line with no payload is an empty title; the heading is then the topic
 number alone (see the empty-`ST` rule above).
 

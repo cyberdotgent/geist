@@ -25,6 +25,8 @@ struct LineBuilder {
   std::string* error;
 
   bool in_title = false;
+  std::size_t title_record = npos;
+  std::size_t title_line_end = npos;
   // True from the first word of the `ST` payload until the accumulated run is
   // long enough to decide any catalog title against it; the title itself stops
   // earlier, at the first display-row break.
@@ -747,6 +749,22 @@ struct LineBuilder {
     return true;
   }
 
+  // A demoted control-shaped word can split the ST payload inside its own
+  // display line (SC24-5527-02 6.4.4: `Update the SRVBLDS Table ...`).
+  // Only ordinary tokens still inside that proven line continue the title;
+  // an actual control or an undecided line boundary keeps the old stop.
+  bool title_line_open_after(std::size_t index) const {
+    if (!in_title || title_record == npos || title_line_end == npos)
+      return false;
+    for (auto next = index + 1; next < items.size(); ++next) {
+      if (items[next].kind == ItemKind::segment_end) continue;
+      if (items[next].kind != ItemKind::token) return false;
+      const auto& view = items[next].token;
+      return view.record == title_record && view.token < title_line_end;
+    }
+    return false;
+  }
+
   // True when the item after `index` is another token of the display line the
   // open `SI` keyword started.
   //
@@ -1152,7 +1170,7 @@ struct LineBuilder {
         // the topic's heading is then its number alone (see
         // `prose_topic_stream.cpp`, the empty-title case).
         if (item.empty_title) title_done = true;
-        if (!finish_title()) return false;
+        if (!title_line_open_after(index) && !finish_title()) return false;
         // A segment boundary that stands inside the `SI` keyword's own
         // display line is not one the record encoder wrote, so it does not
         // end the index term (see `index_line_open_after`).
@@ -1260,6 +1278,14 @@ struct LineBuilder {
     }
     if (item.title_start) {
       in_title = true;
+      title_record = view.record;
+      title_line_end = npos;
+      if (const auto* lines = display_lines_of(view.record))
+        for (const auto& row : *lines)
+          if (view.token > row.prefix_token && view.token < row.token_end) {
+            title_line_end = row.token_end;
+            break;
+          }
       in_title_segment = true;
       title_marker_seen = false;
       out.title.clear();
