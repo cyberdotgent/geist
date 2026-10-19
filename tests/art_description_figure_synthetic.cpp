@@ -330,7 +330,7 @@ the_figure(const Extracted &extracted, const std::string &label,
   else
     require(!figure.caption,
             label + ": an uncaptioned figure grew a caption: '" +
-                figure.caption->text + "'");
+                (figure.caption ? figure.caption->text : "") + "'");
   require(!figure.spot_anchors.empty() &&
               figure.spot_anchors.front().id == "PIC1" &&
               figure.spot_anchors.front().at_body_start,

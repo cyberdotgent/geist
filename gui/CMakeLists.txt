@@ -65,15 +65,27 @@ if(WIN32)
       COMMENT "Deploying Qt runtime beside geist-hardcopy"
     )
   else()
-    message(WARNING
-      "windeployqt not found; geist-hardcopy will not run from the build tree "
-      "without Qt's bin directory on PATH."
+    message(FATAL_ERROR
+      "windeployqt not found; install Qt's deployment tools so the reader's "
+      "runtime can be deployed before testing and packaging."
     )
   endif()
   add_custom_command(TARGET geist-hardcopy POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
       $<TARGET_RUNTIME_DLLS:geist-hardcopy> $<TARGET_FILE_DIR:geist-hardcopy>
     COMMAND_EXPAND_LISTS
+  )
+  # FindPNG/FindGIF can expose UNKNOWN imported targets, which are omitted
+  # from TARGET_RUNTIME_DLLS. Inspect the executable's actual imports after
+  # Qt deployment; vcpkg has deployed libgeist's dependencies beside it.
+  add_custom_command(TARGET geist-hardcopy POST_BUILD
+    COMMAND ${CMAKE_COMMAND}
+      "-DGEIST_EXECUTABLE=$<TARGET_FILE:geist-hardcopy>"
+      "-DGEIST_LIBRARY_DIR=$<TARGET_FILE_DIR:geist>"
+      "-DGEIST_QT_BIN=${_geist_qt_bin}"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/deploy_windows_runtime.cmake"
+    COMMENT "Deploying remaining reader runtime DLLs"
+    VERBATIM
   )
 endif()
 
