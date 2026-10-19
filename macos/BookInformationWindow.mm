@@ -134,17 +134,11 @@
 
   NSButton *done = [NSButton buttonWithTitle:@"Done" target:self action:@selector(dismiss:)];
   done.keyEquivalent = @"\r";
-  NSButton *reveal = [NSButton buttonWithTitle:@"Show in Finder" target:self
-      action:@selector(showInFinder:)];
   done.translatesAutoresizingMaskIntoConstraints = NO;
-  reveal.translatesAutoresizingMaskIntoConstraints = NO;
   [panel.contentView addSubview:done];
-  [panel.contentView addSubview:reveal];
   [NSLayoutConstraint activateConstraints:@[
     [done.trailingAnchor constraintEqualToAnchor:panel.contentView.trailingAnchor constant:-24],
-    [done.bottomAnchor constraintEqualToAnchor:panel.contentView.bottomAnchor constant:-20],
-    [reveal.leadingAnchor constraintEqualToAnchor:panel.contentView.leadingAnchor constant:24],
-    [reveal.centerYAnchor constraintEqualToAnchor:done.centerYAnchor]]];
+    [done.bottomAnchor constraintEqualToAnchor:panel.contentView.bottomAnchor constant:-20]]];
   return self;
 }
 
@@ -155,10 +149,6 @@
   (void)sender;
   [NSApp endSheet:self.window];
   [self.window orderOut:nil];
-}
-- (IBAction)showInFinder:(id)sender {
-  (void)sender;
-  [NSWorkspace.sharedWorkspace activateFileViewerSelectingURLs:@[_fileURL]];
 }
 - (BOOL)windowShouldClose:(NSWindow *)sender {
   (void)sender;
