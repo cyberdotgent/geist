@@ -1,3 +1,19 @@
+geist (0.3.3) unstable; urgency=high
+
+  * Reject truncated GDF full-arc records and bound GDF raster work, cell
+    arrays, coordinates, text and geometry from malformed BOO resources.
+  * Limit encoded image bytes, decoded pixels and cumulative GIF frames before
+    allocating or invoking the GIF, PNG and MMR decoders.
+  * Evaluate object HEAD and conditional requests before image conversion;
+    chunk Apache response writes and contain all C++ exceptions at the module
+    boundary.
+  * Preserve source-framed message introductions across record boundaries and
+    validate prose headings against source evidence instead of TOC labels.
+  * Pin Windows release recovery to the tagged source and the supported MSVC
+    2022 toolchain; enable the conforming lambda processor for all MSVC builds.
+
+ -- Yvan Janssens <yvanj@cyber.gent>  Mon, 19 Oct 2026 14:15:42 +0000
+
 geist (0.3.2) unstable; urgency=medium
 
   * Fix Windows caption handling and deploy Qt runtime dependencies before
