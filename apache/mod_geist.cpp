@@ -564,21 +564,24 @@ void emit_button(request_rec* r, const std::string& base, const char* icon,
 // then the book's identity, then download and details.
 void emit_toolbar(request_rec* r, Book& book, const std::string& base,
                   const std::string& current_topic, DirConfig* config) {
-  const auto& toc = book.document->table_of_contents();
+  // Printed contents may omit real topics (for example, notes on a table).
+  // Use the same complete source order as the sidebar, including when the
+  // current topic itself is absent from the printed contents.
+  const auto& topics = book.document->topics();
   const auto& properties = book.document->book_properties();
 
   std::string previous;
   std::string next;
   if (!current_topic.empty()) {
-    for (std::size_t i = 0; i < toc.size(); ++i) {
-      if (toc[i].id != current_topic) {
+    for (std::size_t i = 0; i < topics.size(); ++i) {
+      if (topics[i].id != current_topic) {
         continue;
       }
       if (i > 0) {
-        previous = base + "/topic/" + seg(r, toc[i - 1].id);
+        previous = base + "/topic/" + seg(r, topics[i - 1].id);
       }
-      if (i + 1 < toc.size()) {
-        next = base + "/topic/" + seg(r, toc[i + 1].id);
+      if (i + 1 < topics.size()) {
+        next = base + "/topic/" + seg(r, topics[i + 1].id);
       }
       break;
     }
@@ -765,9 +768,9 @@ int serve_topic(request_rec* r, Book& book, const std::string& base,
 
   ap_set_content_type(r, "text/html; charset=utf-8");
   emit_head(r, book, base, title, config);
-  emit_toolbar(r, book, base, topic_id, config);
+  emit_toolbar(r, book, base, id, config);
   ap_rputs("<div class=\"geist-shell\">\n", r);
-  emit_toc(r, book, base, topic_id);
+  emit_toc(r, book, base, id);
   ap_rputs("<main class=\"geist-main\">\n<div class=\"geist-book\">\n", r);
   ap_rprintf(r,
              "<h1 class=\"geist-topic-head\">"

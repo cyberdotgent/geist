@@ -92,6 +92,34 @@ def wait_for(predicate, message, process, timeout=20):
     raise AssertionError(message)
 
 
+def check_navigation(base, book):
+    """Every sidebar topic participates in source-order toolbar navigation."""
+    status, _, body = fetch(base, book)
+    assert status == 200
+    sidebar = body.decode().split('<ol id="geist-toc-list">', 1)[1].split('</ol>', 1)[0]
+    topics = re.findall(r'<a href="([^"]+)"', sidebar)
+    assert topics and len(topics) == len(set(topics)), topics
+    for index, topic in enumerate(topics):
+        status, _, body = fetch(base, topic)
+        assert status == 200, (topic, status)
+        toolbar = body.decode().split('<header class="geist-bar">', 1)[1].split('</header>', 1)[0]
+        if topic.lower() != topic:
+            alias_status, _, alias_body = fetch(base, topic.lower())
+            alias_toolbar = alias_body.decode().split('<header class="geist-bar">', 1)[1].split('</header>', 1)[0]
+            assert alias_status == 200 and alias_toolbar == toolbar, topic
+        for label, neighbor in [('Previous topic', index - 1), ('Next topic', index + 1)]:
+            link = re.search(r'<a class="geist-btn" href="([^"]+)" title="' + label + '"', toolbar)
+            if 0 <= neighbor < len(topics):
+                assert link and link[1] == topics[neighbor], (topic, label, topics[neighbor], toolbar)
+            else:
+                assert not link and 'aria-disabled="true" title="' + label + '"' in toolbar, (topic, label)
+    status, _, body = fetch(base, book)
+    toolbar = body.decode().split('<header class="geist-bar">', 1)[1].split('</header>', 1)[0]
+    assert status == 200
+    for label in ['Previous topic', 'Next topic']:
+        assert 'aria-disabled="true" title="' + label + '"' in toolbar
+
+
 def snapshots(cache):
     result = {}
     for path in cache.glob("*.cache"):
@@ -109,6 +137,7 @@ def main():
     parser.add_argument("--modules", required=True)
     parser.add_argument("--module", required=True)
     parser.add_argument("--fixture", required=True)
+    parser.add_argument("--navigation-book", help="Optional local book with topics omitted from its printed contents")
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="geist-apache-test-") as name:
         root = Path(name)
@@ -130,6 +159,8 @@ def main():
         for directory in directories:
             directory.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(args.fixture, directory / "packet.boo")
+        if args.navigation_book:
+            shutil.copyfile(args.navigation_book, www / "navigation.boo")
         (www / "off" / "ht" / ".htaccess").write_text("BooIndex On\n")
         (www / "loop").symlink_to(www, target_is_directory=True)
         (www / "sub" / "loop").symlink_to(www, target_is_directory=True)
@@ -204,7 +235,7 @@ GeistCacheDir "{cache}"
 ''')
         excluded = {www / "off", www / "regex-off", www / "conditional"}
         expected = {str(path) for path in directories if path not in excluded}
-        book_count = len(expected)
+        book_count = len(expected) + bool(args.navigation_book)
         console = root / "console.log"
         process = None
 
@@ -242,6 +273,9 @@ GeistCacheDir "{cache}"
                     etag = response.headers["ETag"]
                 base = f"http://127.0.0.1:{port}"
                 tags = check_http_cache(base)
+                check_navigation(base, "/packet.boo")
+                if args.navigation_book:
+                    check_navigation(base, "/navigation.boo")
                 assert "private" in fetch(base, "/packet.boo/topic/1.3",
                     {"Authorization": "Bearer test"})[1]["Cache-Control"]
                 title = www / ".title"
@@ -294,8 +328,8 @@ GeistCacheDir "{cache}"
                     assert response.headers["ETag"] != etag
                 assert fetch(base, "/packet.boo/topic/1.3")[1]["ETag"] != tags["/packet.boo/topic/1.3"]
                 stop()
-                # A corrupt disk snapshot causes one probe, with the other
-                # shelves still using their cached metadata.
+                # A corrupt disk snapshot reprobes that shelf's books, with
+                # the other shelves still using their cached metadata.
                 path = snapshots(cache)[str(www)]
                 path.write_bytes(path.read_bytes()[:20])
                 previous_log = len(text())
@@ -303,8 +337,9 @@ GeistCacheDir "{cache}"
                 wait_for(lambda: text()[previous_log:].count("mod_geist: warmed") == 3,
                          "corrupt cache recovery did not finish", process)
                 recovery = text()[previous_log:]
-                assert sum(map(int, re.findall(r"(\d+) probe\(s\)", recovery))) == 1, recovery
-                assert sum(map(int, re.findall(r"(\d+) disk hit\(s\)", recovery))) == book_count - 1, recovery
+                recovered_books = 1 + bool(args.navigation_book)
+                assert sum(map(int, re.findall(r"(\d+) probe\(s\)", recovery))) == recovered_books, recovery
+                assert sum(map(int, re.findall(r"(\d+) disk hit\(s\)", recovery))) == book_count - recovered_books, recovery
                 tags = {path: fetch(base, path)[1]["ETag"]
                         for path in ["/packet.boo/topic/1.3", "/packet.boo", "/"]}
                 stop()
@@ -321,7 +356,7 @@ GeistCacheDir "{cache}"
                     status, headers, body = fetch(base, path)
                     assert status == 200 and b'data-theme="dark"' in body
                     assert headers["ETag"] != tags[path]
-                print("HTTP validators, asset fingerprints, config/file invalidation, automatic walk, exclusions, election, restart/reload reuse, corruption recovery and cache fallback passed")
+                print("Topic navigation, HTTP validators, asset fingerprints, config/file invalidation, automatic walk, exclusions, election, restart/reload reuse, corruption recovery and cache fallback passed")
             except Exception:
                 print(text())
                 print(console.read_text(errors="replace"))
