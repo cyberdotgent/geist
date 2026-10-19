@@ -378,11 +378,15 @@ void handle_arc(ParserState& state,
   points.insert(points.end(), read.begin(), read.end());
   if (full_arc) {
     const Point center = points.empty() ? state.current : points.front();
-    const double radius = std::max(1.0, length > point_size(state)
-                                           ? std::abs(read_coord(bytes,
-                                                                 offset + point_size(state),
-                                                                 state))
-                                           : state.marker_size * 4.0);
+    const auto radius_offset = point_size(state);
+    if (length > radius_offset &&
+        length - radius_offset < state.coordinate_size) {
+      throw std::runtime_error("GDF full-arc radius is truncated");
+    }
+    const double radius = std::max(
+        1.0, length >= radius_offset + state.coordinate_size
+                 ? std::abs(read_coord(bytes, offset + radius_offset, state))
+                 : state.marker_size * 4.0);
     add_polyline(state, arc_points(center, radius, radius, 0.0, kPi * 2.0));
   } else if (points.size() >= 3) {
     const Point center{(points.front().x + points.back().x) / 2.0,
@@ -438,7 +442,6 @@ void handle_image_begin(ParserState& state,
                                   width,
                                   height,
                                   {}};
-  state.pending_image.bits.reserve(static_cast<std::size_t>(width) * height);
   state.has_pending_image = true;
 }
 

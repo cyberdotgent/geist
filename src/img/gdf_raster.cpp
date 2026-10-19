@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdint>
 #include <map>
+#include <stdexcept>
 #include <vector>
 
 namespace geist::detail {
@@ -329,23 +330,57 @@ RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes) {
   image.rgba.assign(static_cast<std::size_t>(image.width) * image.height * 4,
                     255);
 
+  constexpr std::size_t max_raster_work = 32u * 1024u * 1024u;
+  const auto canvas_pixels =
+      static_cast<std::size_t>(image.width) * image.height;
+  std::size_t raster_work = 0;
+  const auto charge = [&](std::size_t count, std::size_t cost) {
+    if (count != 0 &&
+        (cost > max_raster_work ||
+         count > (max_raster_work - raster_work) / cost)) {
+      throw std::runtime_error("GDF asset exceeds the raster work limit");
+    }
+    raster_work += count * cost;
+  };
+
+  const auto mapped_coordinate = [](double value, double origin, double scale,
+                                    int extent, bool invert) {
+    const auto mapped = (value - origin) * scale;
+    if (!std::isfinite(mapped)) {
+      throw std::runtime_error(
+          "GDF asset maps a coordinate outside the raster");
+    }
+    const auto limited = std::clamp(mapped, -1.0,
+                                    static_cast<double>(extent));
+    const auto coordinate = static_cast<int>(std::lround(limited));
+    return invert ? extent - 1 - coordinate : coordinate;
+  };
+
   auto map_x = [&](double x) {
-    return static_cast<int>(std::lround((x - picture.min_x) * scale_x));
+    return mapped_coordinate(x, picture.min_x, scale_x,
+                             static_cast<int>(image.width), false);
   };
   auto map_y = [&](double y) {
-    return static_cast<int>(image.height) - 1 -
-           static_cast<int>(std::lround((y - picture.min_y) * scale_y));
+    return mapped_coordinate(y, picture.min_y, scale_y,
+                             static_cast<int>(image.height), true);
   };
 
   for (const auto& polygon : picture.polygons) {
+    charge(polygon.points.size() + 1, canvas_pixels);
     fill_polygon(image, polygon, map_x, map_y);
   }
 
   for (const auto& area : picture.areas) {
+    std::size_t points = 1;
+    for (const auto& contour : area.contours) {
+      points += contour.size();
+    }
+    charge(points, canvas_pixels);
     fill_area(image, area, map_x, map_y);
   }
 
   for (const auto& cell : picture.images) {
+    charge(1, canvas_pixels);
     const int x0 = map_x(cell.lower_left.x);
     const int y0 = map_y(cell.upper_right.y);
     const int x1 = map_x(cell.upper_right.x);
@@ -366,6 +401,7 @@ RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes) {
   }
 
   for (const auto& line : picture.lines) {
+    charge(line.points.size(), image.width + image.height);
     for (std::size_t i = 1; i < line.points.size(); ++i) {
       draw_line(image,
                 map_x(line.points[i - 1].x),
@@ -377,6 +413,7 @@ RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes) {
   }
 
   for (const auto& marker : picture.markers) {
+    charge(1, image.width + image.height);
     const int x = map_x(marker.point.x);
     const int y = map_y(marker.point.y);
     const int size = std::max(
@@ -394,13 +431,20 @@ RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes) {
   for (const auto& text : picture.texts) {
     const int x0 = map_x(text.point.x);
     const int y0 = map_y(text.point.y);
-    const int pixel_size =
-        std::max(1, static_cast<int>(std::lround(text.height * scale_y / 8.0)));
+    const auto scaled_size = text.height * scale_y / 8.0;
+    if (!std::isfinite(scaled_size)) {
+      throw std::runtime_error("GDF asset has an invalid text size");
+    }
+    const int pixel_size = std::clamp(
+        static_cast<int>(std::lround(std::min(scaled_size, 64.0))), 1, 64);
+    charge(text.text.size(), static_cast<std::size_t>(pixel_size) *
+                                 pixel_size * 70);
     int x = x0;
     for (std::size_t i = 0; i < text.text.size(); ++i) {
       const char ch = text.text[i];
       draw_glyph(image, x, y0, pixel_size, ch, text);
-      x += glyph_advance(ch, text, pixel_size);
+      x = std::clamp(x + glyph_advance(ch, text, pixel_size), -1,
+                     static_cast<int>(image.width));
     }
   }
 

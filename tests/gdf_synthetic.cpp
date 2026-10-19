@@ -26,7 +26,6 @@ void be32(std::vector<std::uint8_t>& out, std::uint32_t value) {
   out.push_back(static_cast<std::uint8_t>((value >> 8) & 0xff));
   out.push_back(static_cast<std::uint8_t>(value & 0xff));
 }
-
 void point(std::vector<std::uint8_t>& out, int x, int y) {
   be16(out, x);
   be16(out, y);
@@ -243,6 +242,39 @@ std::vector<std::uint8_t> synthetic_packet_frame_gdf() {
   return gdf;
 }
 
+std::vector<std::uint8_t> synthetic_truncated_full_arc_gdf() {
+  std::vector<std::uint8_t> gdf;
+  gdf.push_back(0x01);
+  gdf.push_back(0x0a);
+  be16(gdf, 2);
+  be16(gdf, 0);
+  be16(gdf, 100);
+  be16(gdf, 0);
+  be16(gdf, 100);
+  auto payload = payload_point(50, 50);
+  payload.push_back(0xff);
+  normal(gdf, 0x87, payload);
+  return gdf;
+}
+
+std::vector<std::uint8_t> synthetic_large_cell_gdf() {
+  std::vector<std::uint8_t> gdf;
+  gdf.push_back(0x01);
+  gdf.push_back(0x0a);
+  be16(gdf, 2);
+  be16(gdf, 0);
+  be16(gdf, 100);
+  be16(gdf, 0);
+  be16(gdf, 100);
+  std::vector<std::uint8_t> dimensions;
+  be16(dimensions, 32767);
+  be16(dimensions, 32767);
+  normal(gdf, 0x91, dimensions);
+  normal(gdf, 0x92, {1});
+  normal(gdf, 0x93, {});
+  return gdf;
+}
+
 void require_pixel(const geist::detail::RgbaImage& image,
                    std::uint32_t x,
                    std::uint32_t y,
@@ -346,6 +378,26 @@ int main(int argc, char** argv) {
     require_pixel(packet_frame, 750, 220, 0, 0, 255, "blue fill");
     require_pixel(packet_frame, 50, 405, 0, 0, 0, "black fill");
     require_pixel(packet_frame, 750, 550, 224, 128, 0, "orange fill");
+
+    bool rejected_truncated_arc = false;
+    try {
+      (void)geist::detail::decode_gdf_to_rgba(
+          synthetic_truncated_full_arc_gdf());
+    } catch (const std::runtime_error& error) {
+      rejected_truncated_arc =
+          std::string(error.what()).find("radius is truncated") !=
+          std::string::npos;
+    }
+    if (!rejected_truncated_arc) {
+      throw std::runtime_error("truncated full-arc radius was accepted");
+    }
+
+    const auto large_cell = geist::detail::decode_gdf_to_rgba(
+        synthetic_large_cell_gdf());
+    if (large_cell.rgba.size() !=
+        static_cast<std::size_t>(large_cell.width) * large_cell.height * 4) {
+      throw std::runtime_error("large GDF cell produced an invalid raster");
+    }
 
     if (argc > 1) {
       write_bmp(argv[1], image);
