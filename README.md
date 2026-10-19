@@ -44,6 +44,21 @@ Needs Qt6 Widgets, WebEngineWidgets and PrintSupport; see
 prebuilt: a Windows zip, and Linux AppImages for amd64 and arm64 that bundle
 Qt and need nothing installed.
 
+## Geist BOO Reader for macOS
+
+A native AppKit reader built with Objective-C++ and the public `libgeist` API.
+It uses the same published topic styling as the Qt reader, with a macOS
+toolbar, contents sidebar, book-wide search, one window per book, and font
+settings in the app menu. It builds by default on macOS without Qt:
+
+```sh
+open "build/macos/Geist BOO Reader.app"
+```
+
+The bundle identifier is `gent.cyber.geist-viewer`. See
+[macOS build and distribution notes](macos/README.md) for signing, sandboxing,
+and universal builds.
+
 ## mod_geist
 
 An Apache 2.4 module that serves a BOO book over HTTP. A book is addressed by
@@ -314,6 +329,7 @@ The library and its command-line tools are always built. The Qt reader and the
 Apache module are `AUTO`: each is built when its dependencies are present and
 skipped with an explanation when they are not, so a missing Qt or httpd is
 never an error unless you ask for one.
+The native macOS reader is also `AUTO` and is built on macOS only.
 
 | Component | Needs | Debian/Ubuntu | Fedora/RHEL |
 |---|---|---|---|
@@ -339,8 +355,9 @@ Just the library and tools:
 sudo apt install build-essential cmake libpng-dev libgif-dev
 ```
 
-On macOS, `brew install cmake libpng giflib` and `brew install qt` for the
-reader; the Apache module is Linux-tested. On Windows the library and tools
+On macOS, `brew install cmake libpng giflib` builds the native reader;
+`brew install qt` also builds the Qt reader. The Apache module is Linux-tested.
+On Windows the library and tools
 build with MSVC, and vcpkg supplies libpng and giflib -- set `VCPKG_ROOT` or
 pass `-DCMAKE_TOOLCHAIN_FILE=<vcpkg.cmake>`; there is no Apache module there.
 

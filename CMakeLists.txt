@@ -378,6 +378,18 @@ if(NOT GEIST_BUILD_GUI STREQUAL "OFF")
   endif()
 endif()
 
+# A native AppKit reader, independent of Qt and only available on macOS.
+set(GEIST_BUILD_MAC_READER "AUTO" CACHE STRING
+  "Build the native Geist BOO Reader on macOS: AUTO, ON or OFF"
+)
+set_property(CACHE GEIST_BUILD_MAC_READER PROPERTY STRINGS AUTO ON OFF)
+if(APPLE AND NOT GEIST_BUILD_MAC_READER STREQUAL "OFF")
+  enable_language(OBJCXX)
+  add_subdirectory(macos)
+elseif(NOT APPLE AND GEIST_BUILD_MAC_READER STREQUAL "ON")
+  message(FATAL_ERROR "The native Geist BOO Reader requires macOS")
+endif()
+
 # Installation -------------------------------------------------------------
 #
 # Standard GNU locations: libraries in lib, headers in include/geist, the
