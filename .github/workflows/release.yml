@@ -9,9 +9,9 @@
 #   linux-spec      the BOO format specification as a PDF
 #
 # Pushing a tag publishes all of them to one GitHub Release, creating the
-# release first if it does not exist. Running the workflow by hand builds and
-# uploads them as run artifacts but publishes nothing, so they can be
-# downloaded and checked before any tag is cut.
+# release first if it does not exist. A normal manual run builds run artifacts
+# without publishing. The explicit Windows recovery input instead rebuilds an
+# existing immutable tag and attaches only its missing Windows assets.
 #
 # The jobs run concurrently and any of them may be first to the release, so
 # each treats "already created" as success rather than a collision.
@@ -22,6 +22,12 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      windows_release_tag:
+        description: "Recover the missing Windows assets for an existing release tag (empty: preflight only)"
+        required: false
+        default: ""
+        type: string
 
 # Only the release job needs write access, and only on a tag.
 permissions:
@@ -34,21 +40,60 @@ env:
 jobs:
   windows-dist:
     name: Windows x64 distribution
-    runs-on: windows-latest
+    # Keep the compiler aligned with the supplied Qt MSVC 2022 binaries.
+    # windows-latest moved to VS 2026, whose compiler crashes on a valid
+    # generated-list synthetic fixture (C1001 in convert.h).
+    runs-on: windows-2022
     permissions:
       contents: write
 
     steps:
       - name: Check out
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.windows_release_tag && format('refs/tags/{0}', inputs.windows_release_tag) || github.ref }}
+
+      # Recovery builds use the immutable release source, not the workflow
+      # revision. Never create a release or replace an existing asset here.
+      - name: Verify recovery target
+        if: inputs.windows_release_tag != ''
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.windows_release_tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:RELEASE_TAG
+          if ($tag -notmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') {
+            throw "Invalid release tag: $tag"
+          }
+          $expected = git rev-parse --verify "refs/tags/$tag^{commit}"
+          if ($LASTEXITCODE -ne 0) { throw "Missing release tag: $tag" }
+          $actual = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $actual -ne $expected) {
+            throw "Checkout does not match release tag $tag"
+          }
+          gh release view $tag
+          if ($LASTEXITCODE -ne 0) { throw "Release $tag must already exist" }
+          $assets = @(gh release view $tag --json assets --jq '.assets[].name')
+          if ($LASTEXITCODE -ne 0) { throw "Cannot inspect release assets" }
+          $name = "geist-$tag-windows-x64"
+          if ($assets -contains "$name.zip" -or $assets -contains "$name.zip.sha256") {
+            throw "Windows release assets already exist; recovery never replaces them"
+          }
+          Write-Host "Recovering $tag from immutable commit $actual"
 
       # A tag names the release; a manual run is identified by its commit so
       # two hand-built zips are never confused for one another.
       - name: Determine version
         id: version
         shell: pwsh
+        env:
+          RECOVERY_TAG: ${{ inputs.windows_release_tag }}
         run: |
-          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+          if ($env:RECOVERY_TAG) {
+            $version = $env:RECOVERY_TAG
+            $publish = 'true'
+          } elseif ($env:GITHUB_REF_TYPE -eq 'tag') {
             $version = $env:GITHUB_REF_NAME
             $publish = 'true'
           } else {
@@ -106,7 +151,7 @@ jobs:
           # The toolchain is passed explicitly rather than left to the root
           # CMakeLists' VCPKG_ROOT discovery, so a vcpkg problem fails here
           # with a clear message instead of as a missing libpng/giflib later.
-          cmake -S . -B build -A x64 `
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
             -DGEIST_BUILD_GUI=ON `
             -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR" `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
@@ -248,13 +293,14 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      # Only a tag publishes. Creating the release is skipped when one already
-      # exists, and the upload clobbers, so re-running a tag build is safe.
+      # A tag or explicit recovery publishes. Existing assets are never
+      # overwritten: recovery must only fill the missing Windows assets.
       - name: Publish release
         if: steps.version.outputs.publish == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          RECOVERY_TAG: ${{ inputs.windows_release_tag }}
         run: |
           # A missing release is an expected outcome here, not an error, so
           # gh's exit code has to be inspectable rather than fatal.
@@ -266,6 +312,7 @@ jobs:
 
           gh release view $tag 2>&1 | Out-Null
           if ($LASTEXITCODE -ne 0) {
+            if ($env:RECOVERY_TAG) { throw "Recovery release $tag no longer exists" }
             Write-Host "Creating release $tag"
             gh release create $tag --title $tag --generate-notes
             if ($LASTEXITCODE -ne 0) {
@@ -280,10 +327,11 @@ jobs:
             Write-Host "Release $tag already exists; attaching to it"
           }
 
-          gh release upload $tag "$name.zip" "$name.zip.sha256" --clobber
+          gh release upload $tag "$name.zip" "$name.zip.sha256"
           if ($LASTEXITCODE -ne 0) { throw "Could not upload the distribution to $tag" }
 
   linux-appimage:
+    if: inputs.windows_release_tag == ''
     name: Linux ${{ matrix.arch }} AppImage
     runs-on: ${{ matrix.runner }}
     permissions:
@@ -512,6 +560,7 @@ jobs:
             "$name.AppImage" "$name.AppImage.sha256" --clobber
 
   linux-spec:
+    if: inputs.windows_release_tag == ''
     name: BOO specification PDF
     runs-on: ubuntu-latest
     permissions:
