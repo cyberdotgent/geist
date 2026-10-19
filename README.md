@@ -360,6 +360,11 @@ Tests need nothing beyond the library's own dependencies:
 ctest --test-dir build
 ```
 
+When Python 3 is available, CTest also checks the external-corpus regression
+gate. Privately held books are not required by CTest or redistributed; see
+[Corpus regression checks](doc/corpus-regression.md) for identity-pinned
+coverage and text-conservation comparisons.
+
 ### Where it goes
 
 Standard GNU locations under the prefix (`/usr/local` by default): the

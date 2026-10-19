@@ -237,7 +237,7 @@ int main(int argc, char** argv) {
       const auto document = geist::BooDocument::open(argv[1]);
       const auto report = document.drawn_word_conservation();
       std::cout << "topic\troute\tword\tdrawn_opening\tdrawn_inline"
-                   "\temitted\tunaccounted\n";
+                   "\temitted\tunaccounted\tevidence\n";
       for (const auto& topic : report.topics) {
         for (const auto& deficit : topic.deficits)
           std::cout << tsv_escape(topic.id) << "\t"

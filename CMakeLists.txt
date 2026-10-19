@@ -591,6 +591,17 @@ endforeach()
 #     -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=thread
 geist_add_test(concurrent_const_access FIXTURE THREADS)
 
+# The external-corpus gate has fixture-free parser/comparison tests. Python
+# remains optional for library-only builds; the gate uses its standard library.
+find_package(Python3 QUIET COMPONENTS Interpreter)
+if(Python3_Interpreter_FOUND)
+  add_test(NAME corpus_gate_synthetic_test
+    COMMAND "${Python3_EXECUTABLE}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/corpus_gate_synthetic.py")
+else()
+  message(STATUS "Python3 not found; skipping corpus gate synthetic tests")
+endif()
+
 # `boo2git` exporter acceptance: link resolution and typed menu/generated-list
 # export, driven end to end through the example binary.
 # One release, one version: every tool and the reader must answer --version
