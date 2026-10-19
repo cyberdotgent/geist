@@ -97,3 +97,29 @@ Markdown and HTML comparisons covered all 10,379 indexed topics across the
 changes were three complete source titles, the restored caption, and 96
 caption-ending dots proven to be structural line-length bytes rather than
 visible punctuation.
+
+The source-framing repairs at `674710fa` remove the remaining 50 allowed
+occurrences. Independent checks of both serialized formats also exposed and
+recovered seven previously masked word losses; they did not create new
+allowances. Message-header metadata is no longer counted as drawn body text.
+The reviewed snapshot has 7,106 strict typed topics, two typed-degraded and
+130 best-effort, with all 7,238 TOC topics checked and no unframed records.
+The three strict-route recoveries are `SC09-2417-00` `3.1.6.1`,
+`SC33-033` `4.40`, and `SG24-204` `BACK_1.2`.
+
+Review covered Markdown and HTML for 37 books and 11,568 indexed topics,
+including four books outside the maintained gate. The indexed inventory lost
+one false topic: an indented `SH19-6639` continuation now remains in
+`SH12-565` `BIBLIOGRAPHY.2`. Native examples retain complete literal rows,
+origins, spaces, blank lines, styles and link destinations; no table structure
+is inferred from aligned font starts. Source-ordered picture figures and
+source-attached glyphs retain their previous output in `GA19-5486-13`.
+
+Twenty-four TOC publication topics change lowering family at the same strict
+severity; two further indexed publication topics are outside the TOC gate.
+Their publication titles now retain source-backed inline emphasis. The
+text-only publication family declines native font spans it cannot represent;
+default-font entries and undecided-framing compatibility remain supported.
+These changes were reviewed as rendered output, not accepted by severity
+counts alone. Synthetic tests cover the failure cases and mutations of the
+row, ownership, font, link and serializer evidence.

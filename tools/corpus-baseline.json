@@ -3484,16 +3484,12 @@
     },
     "FA1PLMM0.boo": {
       "conservation": {
-        "deficits": {
-          "FIGURES": {
-            "cics": 2
-          }
-        },
+        "deficits": {},
         "summary": {
           "checked": 420,
-          "dropping": 1,
+          "dropping": 0,
           "forgiven": 0,
-          "unaccounted": 2,
+          "unaccounted": 0,
           "unframed-topics": 0
         },
         "unframed": {}
@@ -6033,16 +6029,12 @@
     },
     "GC23-046.boo": {
       "conservation": {
-        "deficits": {
-          "FIGURES": {
-            "libraries": 1
-          }
-        },
+        "deficits": {},
         "summary": {
           "checked": 99,
-          "dropping": 1,
+          "dropping": 0,
           "forgiven": 27,
-          "unaccounted": 1,
+          "unaccounted": 0,
           "unframed-topics": 0
         },
         "unframed": {}
@@ -6656,18 +6648,12 @@
     },
     "GC28-183.boo": {
       "conservation": {
-        "deficits": {
-          "FIGURES": {
-            "8": 1,
-            "set": 1,
-            "sets": 4
-          }
-        },
+        "deficits": {},
         "summary": {
           "checked": 146,
-          "dropping": 1,
+          "dropping": 0,
           "forgiven": 0,
-          "unaccounted": 6,
+          "unaccounted": 0,
           "unframed-topics": 0
         },
         "unframed": {}
@@ -7563,16 +7549,12 @@
     },
     "GG24-395.boo": {
       "conservation": {
-        "deficits": {
-          "FIGURES": {
-            "network": 1
-          }
-        },
+        "deficits": {},
         "summary": {
           "checked": 226,
-          "dropping": 1,
+          "dropping": 0,
           "forgiven": 52,
-          "unaccounted": 1,
+          "unaccounted": 0,
           "unframed-topics": 0
         },
         "unframed": {}
@@ -8274,7 +8256,7 @@
         },
         "3.3.10.6": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
@@ -8394,7 +8376,7 @@
         },
         "3.3.14.4": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
@@ -8502,7 +8484,7 @@
         },
         "3.3.18.4": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
@@ -8718,7 +8700,7 @@
         },
         "3.3.9.4": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
@@ -10973,17 +10955,12 @@
     },
     "IEAC6MST.BOO": {
       "conservation": {
-        "deficits": {
-          "FIGURES": {
-            "4": 1,
-            "b": 1
-          }
-        },
+        "deficits": {},
         "summary": {
           "checked": 207,
-          "dropping": 1,
+          "dropping": 0,
           "forgiven": 65,
-          "unaccounted": 2,
+          "unaccounted": 0,
           "unframed-topics": 0
         },
         "unframed": {}
@@ -12245,16 +12222,12 @@
     },
     "ITPPIBOK.BOO": {
       "conservation": {
-        "deficits": {
-          "FIGURES": {
-            "network": 1
-          }
-        },
+        "deficits": {},
         "summary": {
           "checked": 256,
-          "dropping": 1,
+          "dropping": 0,
           "forgiven": 0,
-          "unaccounted": 1,
+          "unaccounted": 0,
           "unframed-topics": 0
         },
         "unframed": {}
@@ -13580,7 +13553,7 @@
         },
         "BIBLIOGRAPHY.2": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
@@ -19183,7 +19156,7 @@
         },
         "APPENDIX1.5.2.2": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
@@ -20230,19 +20203,12 @@
     },
     "SC09-138.boo": {
       "conservation": {
-        "deficits": {
-          "8.5.4.5": {
-            "at132": 1
-          },
-          "8.5.7.1": {
-            "that144": 2
-          }
-        },
+        "deficits": {},
         "summary": {
           "checked": 536,
-          "dropping": 2,
+          "dropping": 0,
           "forgiven": 4,
-          "unaccounted": 3,
+          "unaccounted": 0,
           "unframed-topics": 0
         },
         "unframed": {}
@@ -23152,7 +23118,7 @@
         },
         "BIBLIOGRAPHY.1": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
@@ -23478,24 +23444,12 @@
     },
     "SC09-2417-00.boo": {
       "conservation": {
-        "deficits": {
-          "3.1.6.1": {
-            "aaa": 1,
-            "abc": 2,
-            "c": 1,
-            "h": 1,
-            "input": 1,
-            "libl": 1,
-            "mapinc": 1,
-            "pragma": 1,
-            "rec1": 1
-          }
-        },
+        "deficits": {},
         "summary": {
           "checked": 345,
-          "dropping": 1,
+          "dropping": 0,
           "forgiven": 0,
-          "unaccounted": 10,
+          "unaccounted": 0,
           "unframed-topics": 0
         },
         "unframed": {}
@@ -24359,9 +24313,9 @@
         },
         "3.1.6.1": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort"
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed"
         },
         "3.1.7": {
           "degraded": "",
@@ -25585,27 +25539,12 @@
     },
     "SC24-546.boo": {
       "conservation": {
-        "deficits": {
-          "B.2": {
-            "and": 1,
-            "are": 3,
-            "be": 1,
-            "considered": 1,
-            "counted": 1,
-            "every": 1,
-            "for": 1,
-            "not": 1,
-            "removed": 1,
-            "si": 2,
-            "to": 1,
-            "transparent": 1
-          }
-        },
+        "deficits": {},
         "summary": {
           "checked": 321,
-          "dropping": 1,
+          "dropping": 0,
           "forgiven": 1,
-          "unaccounted": 15,
+          "unaccounted": 0,
           "unframed-topics": 0
         },
         "unframed": {}
@@ -31524,19 +31463,12 @@
     },
     "SC24-5527-02.boo": {
       "conservation": {
-        "deficits": {
-          "4.2.3": {
-            "intable": 1
-          },
-          "TABLES": {
-            "4": 2
-          }
-        },
+        "deficits": {},
         "summary": {
           "checked": 312,
-          "dropping": 2,
+          "dropping": 0,
           "forgiven": 39,
-          "unaccounted": 3,
+          "unaccounted": 0,
           "unframed-topics": 0
         },
         "unframed": {}
@@ -36747,7 +36679,7 @@
         },
         "BIBLIOGRAPHY.5": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
@@ -36771,7 +36703,7 @@
         },
         "BIBLIOGRAPHY.9": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
@@ -36875,16 +36807,12 @@
     },
     "SC31-711.boo": {
       "conservation": {
-        "deficits": {
-          "BACK_1.9": {
-            "aix": 1
-          }
-        },
+        "deficits": {},
         "summary": {
           "checked": 82,
-          "dropping": 1,
+          "dropping": 0,
           "forgiven": 0,
-          "unaccounted": 1,
+          "unaccounted": 0,
           "unframed-topics": 0
         },
         "unframed": {}
@@ -37220,19 +37148,19 @@
         },
         "BACK_1.1": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
         "BACK_1.10": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
         "BACK_1.11": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
@@ -37244,67 +37172,67 @@
         },
         "BACK_1.12.1": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
         "BACK_1.12.2": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
         "BACK_1.12.3": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
         "BACK_1.2": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
         "BACK_1.3": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
         "BACK_1.4": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
         "BACK_1.5": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
         "BACK_1.6": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
         "BACK_1.7": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
         "BACK_1.8": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
         "BACK_1.9": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
@@ -38109,9 +38037,9 @@
         },
         "4.40": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort"
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed"
         },
         "4.41": {
           "degraded": "",
@@ -40645,22 +40573,12 @@
     },
     "SG24-204.boo": {
       "conservation": {
-        "deficits": {
-          "BACK_1.2": {
-            "4fax": 1,
-            "800": 1,
-            "ibm": 1,
-            "united": 1
-          },
-          "FIGURES": {
-            "security": 1
-          }
-        },
+        "deficits": {},
         "summary": {
           "checked": 93,
-          "dropping": 2,
+          "dropping": 0,
           "forgiven": 0,
-          "unaccounted": 5,
+          "unaccounted": 0,
           "unframed-topics": 0
         },
         "unframed": {}
@@ -41122,9 +41040,9 @@
         },
         "BACK_1.2": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort"
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed"
         },
         "BACK_1.3": {
           "degraded": "",
@@ -41176,7 +41094,7 @@
         },
         "D.3": {
           "degraded": "",
-          "family": "publication catalog",
+          "family": "prose",
           "route": "typed",
           "severity": "typed"
         },
@@ -44336,7 +44254,7 @@
       }
     }
   },
-  "revision": "d1b9bbf6",
+  "revision": "674710fa4e2f2d96bf76f324b61bc513ef9e8b5f",
   "schema": 1,
   "scope": "bootrace TOC inventory; not all topics()"
 }
