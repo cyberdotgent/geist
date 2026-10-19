@@ -103,3 +103,9 @@ execute_process(COMMAND codesign ${_sign_args} "${GEIST_APP}"
 if(NOT _signed EQUAL 0)
   message(FATAL_ERROR "Could not sign ${GEIST_APP}")
 endif()
+# Finder may have cached the bundle before CMake copied the generated icon.
+# Mark the completed bundle as changed so Launch Services reads its final icon.
+execute_process(COMMAND touch "${GEIST_APP}" RESULT_VARIABLE _touched)
+if(NOT _touched EQUAL 0)
+  message(FATAL_ERROR "Could not refresh ${GEIST_APP} after packaging")
+endif()
