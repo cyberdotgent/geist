@@ -3000,6 +3000,17 @@ announces the heading level of the next topic; it carries no display rows, and
 only the topic's footnotes may follow it (`packet` `1.1`, record 17,
 `cz FLOW H3 3 3` before `SRFTNFTNUNIQ1`).
 
+A generated `CMENU` can occur before the closing directive of its enclosing
+list. In `GA19-5486-13.boo` topic `4.0`, logical record 125 ends its notes
+with `CMENU` / seven `CMITEM` entries / `CEMENU`, followed by
+`cz OFF EDL 0 0` and the empty `cz FLOW H3 3 3` announcement. At file offset
+`0xAA644`, bytes `49 92 CF 4D AB AB` encode the list closer; at `0xAA64A`,
+byte `05` is the length of the following five-byte announcement,
+`49 83 85 B9 B9`. Although the dictionary expansion of `05` is U+25BA
+followed by `#`, neither character is text: a display-line length byte is
+framing irrespective of its dictionary expansion. The closing directive and
+the empty announcement therefore add no content after the menu.
+
 [[markup_structures_bookserver_derives_from_the_directives]]
 ==== Structures BookServer derives from the directives
 

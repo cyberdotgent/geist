@@ -1196,6 +1196,8 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           // The compiled menu sits inside the last open CZ list; its closer
           // and the next-level announcement follow it (SC09-2417-00 2.1
           // `cz OFF EUL 0 0`, `cz FLOW H2 3 3`).  They carry no text.
+          // Their payload can include the next row's length token, whose
+          // dictionary spelling need not be blank (GA19-5486-13 4.0: '#').
           const auto before = build.items.size();
           if (!collect_layout_directive(records, record_index, segment,
                                         pending_footnote_id, ledger,
@@ -1204,6 +1206,7 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           for (auto index = before; index < build.items.size(); ++index)
             if (build.items[index].kind == ItemKind::token &&
                 is_visible(build.items[index].token) &&
+                !is_row_control_slot(records, build.items[index].token) &&
                 !is_placeholder_run(build.items[index].token))
               return fail(error, "content follows the trailing menu");
           continue;

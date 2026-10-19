@@ -79,7 +79,8 @@ BookTopicCatalogIR catalog() {
   return *build_book_topic_catalog_ir(topics, {});
 }
 void chapter_menu(const std::vector<std::string>& skip, bool admitted,
-                  const std::string& level = ":H0") {
+                  const std::string& level = ":H0",
+                  bool spelled_length = false, bool trailing_text = false) {
   RecordBuilder builder;
   builder.line({words("sh1.0")});
   builder.line({words("ctopicn"), words("22")});
@@ -93,12 +94,24 @@ void chapter_menu(const std::vector<std::string>& skip, bool admitted,
   std::vector<TokenWords> control{words("c.sp")};
   for (const auto& operand : skip) control.push_back(words(operand));
   builder.line(std::move(control));
+  if (spelled_length) {
+    builder.line({words("cz"), words("FLOW"), words("DL"), words("3"), words("3")});
+    builder.line({words("cz"), words("FLOW"), words("DT"), words("3"), words("5")});
+    builder.line({words("   "), words("1"), words("A note")});
+  }
   builder.line({words("cmenu")});
   builder.line({words("cmitem"), words("1.1"), words("Preparing"),
                 words("your"), words("application"), words("to"), words("run")});
   builder.line({words("cmitem"), words("1.2"), words("Language"), words("considerations")});
   builder.line({words("cemenu")});
+  if (spelled_length)
+    builder.line({words("cz"), words("OFF"), words("EDL"), words("0"), words("0")});
+  // A length byte is framing even when its dictionary expansion also
+  // contains a printable character (GA19-5486-13 record 125: 05 -> U+25BA '#').
   builder.line({words("cz"), words("BREAK"), words("3")});
+  if (spelled_length)
+    builder.record.tokens[builder.record.tokens.size() - 4] = {0x25BA, '#'};
+  if (trailing_text) builder.line({words("Visible"), words("body")});
   const auto book = catalog();
   TopicIdentityIR identity; identity.id = "1.0"; identity.title = "Getting started";
   identity.heading_level = level;
@@ -109,6 +122,12 @@ void chapter_menu(const std::vector<std::string>& skip, bool admitted,
   geist::HtmlRenderOptions options;
   options.resolve_topic = [](const std::string& id) { return "/book/topic/" + id; };
   const auto html = render_document_html_fragment(*document, options);
+  if (spelled_length) {
+    require(html.find("A note") != std::string::npos,
+            "note preceding the menu was lost: " + html);
+    require(html.find('#') == std::string::npos,
+            "dictionary spelling of a length byte leaked into HTML: " + html);
+  }
   require(html.find("<h1 class=\"geist-heading\">1.0 Getting started</h1>") != std::string::npos,
           "chapter heading was not rendered as H1: " + html);
   require(html.find("href=\"/book/topic/1.1\"") != std::string::npos &&
@@ -128,4 +147,6 @@ int main() {
       chapter_menu(skip, true, level);
   chapter_menu({"1", "p", "visible"}, false);
   chapter_menu({"p"}, false);
+  chapter_menu({"1"}, true, ":H1", true);
+  chapter_menu({"1"}, false, ":H1", true, true);
 }
