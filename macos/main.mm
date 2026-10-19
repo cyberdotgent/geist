@@ -53,6 +53,7 @@
   [self add:@"Close Book" action:@selector(closeBook:) key:nil to:file];
   [file addItem:NSMenuItem.separatorItem];
   [self add:@"Print Topic…" action:@selector(printTopic:) key:@"p" to:file];
+  [self add:@"Print Book…" action:@selector(printBook:) key:nil to:file];
 
   NSMenu *edit = [self menu:@"Edit" main:main];
   [edit addItem:[[NSMenuItem alloc] initWithTitle:@"Copy" action:@selector(copy:) keyEquivalent:@"c"]];
@@ -139,6 +140,7 @@
 - (IBAction)closeWindow:(id)sender { (void)sender; [NSApp.keyWindow performClose:nil]; }
 - (IBAction)closeBook:(id)sender { (void)sender; [[self frontReader] closeBook:nil]; }
 - (IBAction)printTopic:(id)sender { (void)sender; [[self frontReader] printTopic:nil]; }
+- (IBAction)printBook:(id)sender { (void)sender; [[self frontReader] printBook:nil]; }
 - (IBAction)toggleSidebar:(id)sender { (void)sender; [[self frontReader] toggleSidebar:nil]; }
 - (IBAction)largerTopicText:(id)sender { (void)sender; [[self frontReader] largerTopicText:nil]; }
 - (IBAction)smallerTopicText:(id)sender { (void)sender; [[self frontReader] smallerTopicText:nil]; }

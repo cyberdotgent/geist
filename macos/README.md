@@ -22,6 +22,12 @@ Each open book has its own window, contents tree, URL handler, and WebKit
 history. The app menu's Settings window controls the font family and contents
 and topic sizes for all windows. The toolbar search scans all topics in the
 current book; clearing it restores the contents tree.
+File > Print Book renders every topic as paginated pages, puts the cover and
+title pages first, replaces the BOO contents topic with a table of contents
+showing the printed page numbers, and numbers every page after the cover and
+title. Wide fixed-layout topics use landscape pages to preserve their columns.
+The book is prepared before the system print dialog opens; large books may
+take time.
 
 ## Universal build
 

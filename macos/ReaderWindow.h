@@ -16,6 +16,7 @@
 - (IBAction)showContents:(id)sender;
 - (IBAction)findInTopic:(id)sender;
 - (IBAction)printTopic:(id)sender;
+- (IBAction)printBook:(id)sender;
 - (IBAction)showBookInformation:(id)sender;
 - (IBAction)largerTopicText:(id)sender;
 - (IBAction)smallerTopicText:(id)sender;

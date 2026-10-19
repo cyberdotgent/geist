@@ -4,7 +4,9 @@
 #import "ReaderWindow.h"
 #import "BookSource.h"
 #import "BookInformationWindow.h"
+#import "BookPrintJob.h"
 
+#import <PDFKit/PDFKit.h>
 #import <WebKit/WebKit.h>
 
 @interface GBTopicNode : NSObject
@@ -59,6 +61,8 @@
   NSSplitView *_split;
   GBEmptyBookView *_emptyView;
   GBBookInformationWindow *_informationWindow;
+  GBBookPrintJob *_bookPrintJob;
+  NSAlert *_printProgress;
   GBTopicNode *_root;
   GBTopicNode *_tocRoot;
   NSMutableDictionary<NSString *, GBTopicNode *> *_nodes;
@@ -425,6 +429,61 @@
   if (!_source.hasBook) return;
   NSPrintOperation *operation = [_web printOperationWithPrintInfo:NSPrintInfo.sharedPrintInfo];
   [operation runOperationModalForWindow:self.window delegate:nil didRunSelector:NULL contextInfo:NULL];
+}
+- (IBAction)printBook:(id)sender {
+  (void)sender;
+  if (!_source.hasBook || _bookPrintJob) return;
+  GBBookSource *printSource = [GBBookSource new];
+  printSource.printMode = YES;
+  NSError *error = nil;
+  if (![printSource openURL:self.window.representedURL error:&error]) {
+    [[NSAlert alertWithError:error] beginSheetModalForWindow:self.window completionHandler:nil];
+    return;
+  }
+  _bookPrintJob = [[GBBookPrintJob alloc] initWithSource:printSource
+      printInfo:NSPrintInfo.sharedPrintInfo];
+  _printProgress = [NSAlert new];
+  _printProgress.messageText = @"Preparing Book for Printing";
+  _printProgress.informativeText = @"Rendering the book and calculating page numbers…";
+  [_printProgress addButtonWithTitle:@"Cancel"];
+  NSProgressIndicator *spinner = [[NSProgressIndicator alloc]
+      initWithFrame:NSMakeRect(0, 0, 240, 20)];
+  spinner.style = NSProgressIndicatorStyleSpinning;
+  spinner.controlSize = NSControlSizeSmall;
+  [spinner startAnimation:nil];
+  _printProgress.accessoryView = spinner;
+  [_printProgress beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse response) {
+    (void)response;
+    [self->_bookPrintJob cancel];
+    self->_bookPrintJob = nil;
+    self->_printProgress = nil;
+  }];
+  [_bookPrintJob startWithCompletion:^(PDFDocument *document, NSError *printError) {
+    self->_bookPrintJob = nil;
+    if (self->_printProgress.window.sheetParent)
+      [self.window endSheet:self->_printProgress.window];
+    self->_printProgress = nil;
+    if (printError) {
+      dispatch_async(dispatch_get_main_queue(), ^{
+        [[NSAlert alertWithError:printError] beginSheetModalForWindow:self.window completionHandler:nil];
+      });
+      return;
+    }
+    if (!document) return;
+    dispatch_async(dispatch_get_main_queue(), ^{
+      NSPrintOperation *operation = [document printOperationForPrintInfo:NSPrintInfo.sharedPrintInfo
+          scalingMode:kPDFPrintPageScaleToFit autoRotate:YES];
+      if (!operation) {
+        NSAlert *alert = [NSAlert new];
+        alert.messageText = @"Cannot Print Book";
+        alert.informativeText = @"The prepared document could not be sent to the printer.";
+        [alert beginSheetModalForWindow:self.window completionHandler:nil];
+        return;
+      }
+      [operation runOperationModalForWindow:self.window delegate:nil didRunSelector:NULL
+          contextInfo:NULL];
+    });
+  }];
 }
 - (IBAction)showBookInformation:(id)sender {
   (void)sender;

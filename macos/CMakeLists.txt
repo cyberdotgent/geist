@@ -4,6 +4,7 @@
 add_executable(geist-boo-reader MACOSX_BUNDLE
   main.mm
   BookSource.h BookSource.mm
+  BookPrintJob.h BookPrintJob.mm
   ReaderWindow.h ReaderWindow.mm
   BookInformationWindow.h BookInformationWindow.mm
   PreferencesWindow.h PreferencesWindow.mm
@@ -37,7 +38,7 @@ target_compile_definitions(geist-boo-reader PRIVATE
   GEIST_READER_VERSION="${PROJECT_VERSION}"
   GEIST_READER_REVISION="${GEIST_GIT_REVISION}")
 target_link_libraries(geist-boo-reader PRIVATE geist::geist_static
-  "-framework AppKit" "-framework WebKit")
+  "-framework AppKit" "-framework WebKit" "-framework PDFKit")
 
 set_source_files_properties("${PROJECT_SOURCE_DIR}/doc/html-styling.css"
   "${PROJECT_SOURCE_DIR}/LICENSE" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)

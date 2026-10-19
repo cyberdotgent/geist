@@ -5,6 +5,7 @@
 #import <WebKit/WebKit.h>
 
 @interface GBBookSource : NSObject <WKURLSchemeHandler>
+@property(nonatomic) BOOL printMode;
 @property(nonatomic, readonly) BOOL hasBook;
 @property(nonatomic, readonly, copy) NSString *bookTitle;
 @property(nonatomic, readonly, copy) NSArray<NSDictionary<NSString *, id> *> *contents;

@@ -209,14 +209,23 @@ struct Destination { std::string topic, fragment, resource; };
   };
   NSString *title = escaped([stringOf(entry->title) stringByTrimmingCharactersInSet:
       NSCharacterSet.whitespaceAndNewlineCharacterSet]);
+  NSString *header = self.printMode ? @"" : [NSString stringWithFormat:
+      @"<div class='reader-topic-header'><span class='reader-topic-id'>%@</span> "
+       "<span class='reader-topic-title'>%@</span></div>", escaped(topicID), title];
+  NSString *printStyle = @"";
+  if (self.printMode) {
+    printStyle = @"a{color:inherit;text-decoration:none;}";
+    if ([topicID caseInsensitiveCompare:@"COVER"] == NSOrderedSame ||
+        [topicID caseInsensitiveCompare:@"TITLE"] == NSOrderedSame)
+      printStyle = [printStyle stringByAppendingString:
+          @".geist-topic>.geist-heading:first-child{display:none;}"];
+  }
   NSString *html = [NSString stringWithFormat:
       @"<!doctype html><html lang='en'><head><meta charset='utf-8'><title>%@</title>"
        "<style>%@\n.reader-topic-header{margin:0 0 1rem 0;padding:0 0 .35rem 0;}"
        ".reader-topic-id{font-style:italic;margin-right:.5rem;}"
-       ".reader-topic-title{font-weight:700;}</style></head>"
-       "<body class='geist-book'><div class='reader-topic-header'>"
-       "<span class='reader-topic-id'>%@</span> <span class='reader-topic-title'>%@</span>"
-       "</div>%@</body></html>", title, _stylesheet, escaped(topicID), title,
+       ".reader-topic-title{font-weight:700;}%@</style></head>"
+       "<body class='geist-book'>%@%@</body></html>", title, _stylesheet, printStyle, header,
       stringOf(entry->html_fragment(render))];
   return [html dataUsingEncoding:NSUTF8StringEncoding];
 }
