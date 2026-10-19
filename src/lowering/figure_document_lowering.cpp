@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "geist/detail/lowering/figure_document_lowering.hpp"
+#include "geist/detail/lowering/ordered_figure_document_lowering.hpp"
 #include "geist/detail/core/internal.hpp"
 
 #include <algorithm>
@@ -70,6 +71,14 @@ bool same_inlines(const InlineSequenceIR &left, const InlineSequenceIR &right) {
     } else if (left_emphasis != nullptr && right_emphasis != nullptr) {
       if (left_emphasis->text != right_emphasis->text ||
           left_emphasis->kind != right_emphasis->kind)
+        return false;
+    } else if (const auto* code = std::get_if<CodeInlineIR>(&left[index].node)) {
+      if (code->code != std::get<CodeInlineIR>(right[index].node).code)
+        return false;
+    } else if (const auto* link = std::get_if<CrossReferenceInlineIR>(&left[index].node)) {
+      const auto& other = std::get<CrossReferenceInlineIR>(right[index].node);
+      if (link->label != other.label || link->target.kind != other.target.kind ||
+          link->target.value != other.target.value)
         return false;
     } else {
       return false;
@@ -418,6 +427,8 @@ lower_preformatted_figure(const FigureSourceBlockIR &figure,
 std::optional<std::vector<BlockIR>>
 lower_figure_block_to_document_blocks(const FigureSourceBlockIR &figure,
                                       std::string *error) {
+  if (!figure.content.empty())
+    return lower_ordered_figure_document_blocks(figure, error);
   if (figure.body_kind == FigureBodyKindIR::preformatted) {
     if (!figure.target.empty() || figure.cells.empty() ||
         figure.span.anchored == figure.anchor.empty()) {

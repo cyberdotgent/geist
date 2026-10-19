@@ -182,6 +182,8 @@ set(GEIST_SOURCES
   src/ir/book_topic_catalog_ir.cpp
   src/ir/comment_delivery_ir.cpp
   src/ir/figure_block_ir.cpp
+  src/ir/picture_figure_content_ir.cpp
+  src/ir/picture_placement_ir.cpp
   src/ir/fixed_prose_ir.cpp
   src/ir/fixed_prose_topic_ir.cpp
   src/ir/fixed_table_block_ir.cpp
@@ -217,6 +219,7 @@ set(GEIST_SOURCES
   src/lowering/document_ir.cpp
   src/lowering/drawn_word_conservation.cpp
   src/lowering/figure_document_lowering.cpp
+  src/lowering/ordered_figure_document_lowering.cpp
   src/lowering/fixed_prose_document_lowering.cpp
   src/lowering/fixed_table_document_lowering.cpp
   src/lowering/generated_list_document_lowering.cpp
@@ -542,6 +545,7 @@ foreach(synthetic_test
     font_span_trace_synthetic
     cz_unopened_region_closer_synthetic
     art_description_figure_synthetic
+    ordered_picture_figure_synthetic
     menu_wrapped_title_synthetic
     chapter_menu_spacing_synthetic
     glossary_catalog_ir_synthetic

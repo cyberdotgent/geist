@@ -11,6 +11,10 @@
 
 namespace geist::detail {
 
+// Shared CFONT/link lowering for source-owned text in prose and figures.
+std::optional<InlineSequenceIR> lower_prose_inline_content(
+    const std::vector<ProseInlineIR>& inlines, std::string* error = nullptr);
+
 std::optional<DocumentIR> lower_prose_topic_to_document_ir(
     TopicIdentityIR topic, const ProseTopicIR& prose,
     std::string* error = nullptr);

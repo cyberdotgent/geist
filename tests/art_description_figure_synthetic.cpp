@@ -531,9 +531,8 @@ void an_escaped_selector_line_is_not_description_text() {
 // GA19-5486-13 2.1: the unnumbered title starts the next record.
 void an_unnumbered_caption_is_bounded_by_the_picture_and_end_marker() {
   for (const bool split : {false, true}) {
-    // Extra prose, absent resource, absent end, table, another picture,
-    // prose sharing the end-marker line, and an unsupported numbered
-    // caption must all fail closed.
+    // Missing resources, missing boundaries and table ownership still fail
+    // closed. Other bounded text and pictures must be retained in source order.
     for (int mutation = 0; mutation != 8; ++mutation) {
       RecordBuilder first;
       first.heading("1.1", "Architecture");
@@ -575,7 +574,7 @@ void an_unnumbered_caption_is_bounded_by_the_picture_and_end_marker() {
       tail.line({words("   "), words("Following paragraph.")});
       records.push_back(tail.build(split ? 43 : 42));
       auto extracted = run(std::move(records), "Architecture");
-      if (mutation != 0) {
+      if (mutation == 2 || mutation == 3 || mutation == 4) {
         require(!extracted.topic,
                 "ambiguous or invalid picture figure was admitted: " +
                     std::to_string(mutation));
@@ -585,6 +584,27 @@ void an_unnumbered_caption_is_bounded_by_the_picture_and_end_marker() {
               "unnumbered caption rejected: " + extracted.error);
       if (!extracted.topic)
         continue;
+      if (mutation != 0) {
+        std::string error;
+        const auto document = geist::detail::lower_prose_topic_to_document_ir(
+            {"1.1", "Architecture"}, *extracted.topic, &error);
+        require(document.has_value(), "ordered variant lowering failed: " + error);
+        if (!document) continue;
+        for (const auto &output : {
+                 geist::detail::render_document_html_blocks(*document, {}),
+                 geist::detail::render_document_markdown(*document)}) {
+          const auto image = output.find("resource:1");
+          const auto caption = output.find(mutation == 7 ? "A numbered caption" : "AS/400 Layered Architecture");
+          const auto following = output.find("Following paragraph");
+          require(image < caption && caption < following && following != std::string::npos,
+                  "bounded figure changed source order: " + output);
+          const auto extra = output.find(mutation == 1 ? "Unexpected prose" : mutation == 5 ? "resource:2" : mutation == 6 ? "Immediate paragraph" : "A numbered caption");
+          require(extra != std::string::npos &&
+                      (mutation == 6 ? caption < extra && extra < following : image < extra && extra <= caption),
+                  "bounded figure lost/reordered additional content: " + output);
+        }
+        continue;
+      }
       require(extracted.topic->figures.blocks.size() == 1,
               "expected exactly one picture");
       if (extracted.topic->figures.blocks.size() != 1)
@@ -669,7 +689,7 @@ void a_caption_before_the_picture_keeps_its_wrapped_text() {
         {words("cz"), words("FLOW"), words("P"), words("3"), words("3")});
     builder.line({words("   "), words("Following paragraph.")});
     auto extracted = run(builder.build(134), "Scenario");
-    if (mutation != 0) {
+    if (mutation == 3) {
       require(!extracted.topic,
               "invalid preselector caption shape was admitted: " +
                   std::to_string(mutation));
@@ -687,7 +707,7 @@ void a_caption_before_the_picture_keeps_its_wrapped_text() {
     const std::string caption =
         "Figure 7. OPM-ILE Program Scenario. The program is split between the "
         "OPM default activation group and a named ILE activation group.";
-    require(figure->caption && figure->caption->text == caption,
+    require(mutation == 2 || (figure->caption && figure->caption->text == caption),
             "wrapped caption before the picture was lost");
     std::size_t caption_letters = 0;
     for (const auto &cell : figure->cells)
@@ -696,7 +716,7 @@ void a_caption_before_the_picture_keeps_its_wrapped_text() {
     std::size_t expected_letters = 0;
     for (const unsigned char ch : caption)
       if (std::isalnum(ch)) ++expected_letters;
-    require(caption_letters == expected_letters,
+    require(mutation == 2 || caption_letters == expected_letters,
             "caption text must be owned as caption content");
     std::string error;
     const auto document = geist::detail::lower_prose_topic_to_document_ir(
@@ -717,13 +737,18 @@ void a_caption_before_the_picture_keeps_its_wrapped_text() {
       require(
           at != std::string::npos &&
               output.find(continuation, at + 1) == std::string::npos &&
-              image != std::string::npos && image < at &&
+              image != std::string::npos && at < image &&
               output.find("resource:1", image + 1) == std::string::npos &&
               following != std::string::npos && following > at &&
               output.find("Following paragraph", following + 1) ==
                   std::string::npos,
           "caption-before-picture must render once before following prose: " +
               output);
+      if (mutation == 1 || mutation == 2) {
+        const auto extra = output.find(mutation == 1 ? "Unrelated prose must not disappear" : "A second caption");
+        require(extra != std::string::npos && at < extra && extra < image,
+                "preselector content was lost or reordered: " + output);
+      }
     }
   }
 }

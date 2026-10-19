@@ -1237,6 +1237,9 @@ struct LineBuilder {
         line_open = false;
         pending_space = false;
         skip_until = npos;
+        // A span is a hard block boundary even when its closing marker and
+        // the following prose share a native display line / CZ directive.
+        trailing_bare = std::max<std::size_t>(trailing_bare, 1);
         break;
       case ItemKind::token:
         if (!token(index)) return false;

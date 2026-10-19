@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "geist/detail/ir/figure_block_ir.hpp"
+#include "geist/detail/ir/picture_figure_content_ir.hpp"
+#include "geist/detail/ir/picture_placement_ir.hpp"
 
 #include "geist/detail/layout/display_lines.hpp"
 
@@ -81,7 +83,8 @@ bool same_block(const FigureSourceBlockIR &left,
       left.index_terms != right.index_terms ||
       left.caption.has_value() != right.caption.has_value() ||
       left.suppressed_rows.size() != right.suppressed_rows.size() ||
-      left.cells.size() != right.cells.size())
+      left.cells.size() != right.cells.size() ||
+      !same_figure_content_ir(left.content, right.content))
     return false;
   for (std::size_t index = 0; index < left.additional_pictures.size();
        ++index) {
@@ -289,24 +292,6 @@ std::optional<std::string> caption_text(const std::string &visible) {
 }
 
 
-// Words that can only be box outline, decoder placeholder, spacing or
-// separator material.  Anything else is visible text that a figure block
-// must not silently suppress.
-bool visible_word(std::uint16_t word) {
-  // Control/spacing words, the U+2666 decoder placeholder, and the box
-  // drawing / block element range (U+2500-U+25FF, GG24-4302-00 5.1.8 token
-  // 59 is U+2502) are outline material.
-  // 0xFFFF is the decoder's unmapped-word replacement (SG24-204 1.3.2
-  // record 34 token 283), which hosted output renders as box filler.
-  if (word < 0x20 || word == 0xA0 || word == 0x2666 || word == 0xFFFF ||
-      (word >= 0x2500 && word <= 0x25FF))
-    return false;
-  if (word >= 0x7F)
-    return true;
-  return std::isalnum(static_cast<int>(word)) != 0;
-}
-
-
 std::vector<std::size_t> word_byte_offsets(
     const AssembledLogicalRecord &assembled) {
   std::vector<std::size_t> offsets(assembled.words.size() + 1);
@@ -333,49 +318,6 @@ std::vector<std::size_t> tokens_in_bytes(
   return result;
 }
 
-struct CellRef {
-  CellKey key;
-  std::uint16_t word = 0;
-};
-
-struct PlaceholderText {
-  std::string text;   // "PICTURE 9"
-  std::string number; // "9"
-};
-
-// Result of classifying one ordered run of source cells (a physical row's
-// cells in display order, or a segment lead in token order).  `roles` is
-// parallel to the input cells.
-struct Classified {
-  std::vector<FigureCellRoleIR> roles;
-  std::optional<PlaceholderText> placeholder;
-  std::optional<std::string> caption;
-  std::vector<std::string> index_terms;
-  // The row's tail was absorbed into the region's display-line caption.
-  bool caption_lines = false;
-  bool prose = false;
-  std::string prose_text;
-};
-
-// The caption of one figure region read off its display lines.
-struct RegionCaption {
-  std::string text;
-  // Record-local tokens of the caption's display lines.
-  std::set<std::pair<std::uint32_t, std::size_t>> tokens;
-  // Length bytes of every display line of the region: structure, never
-  // display text, and never a caption terminator.
-  std::set<std::pair<std::uint32_t, std::size_t>> structure;
-
-  bool owns(const CellKey &key) const {
-    const std::pair<std::uint32_t, std::size_t> at{std::get<0>(key),
-                                                   std::get<1>(key)};
-    return tokens.count(at) != 0 || structure.count(at) != 0;
-  }
-
-  bool is_structure(const CellKey &key) const {
-    return structure.count({std::get<0>(key), std::get<1>(key)}) != 0;
-  }
-};
 
 // One character per cell so classification positions map back to cells.
 char cell_char(std::uint16_t word) {
@@ -386,9 +328,6 @@ char cell_char(std::uint16_t word) {
   return '?';
 }
 
-bool skip_char(char ch) {
-  return ch == ' ' || ch == '?' || ch == '|' || ch == '_' || ch == '\t';
-}
 
 bool has_alnum(const std::string &text) {
   return std::any_of(text.begin(), text.end(), [](const auto ch) {
@@ -396,121 +335,6 @@ bool has_alnum(const std::string &text) {
   });
 }
 
-// The material of a figure region is, in any order and any mix per row or
-// lead: box outline, "PICTURE n" placeholders, "SI term" subject-index
-// entries (invisible in hosted output), and one "Figure N. Title" caption.
-// Anything else is prose and the region is declined.
-// A slot without a cell is a decoder-inserted space: it advances the text
-// but owns no source cell.
-using CellSlot = std::optional<CellRef>;
-
-Classified classify_cells(const std::vector<CellSlot> &cells,
-                          const RegionCaption *caption = nullptr) {
-  Classified result;
-  result.roles.assign(cells.size(), FigureCellRoleIR::placeholder_suppressed);
-  std::string text;
-  text.reserve(cells.size());
-  for (const auto &cell : cells)
-    text.push_back(cell ? cell_char(cell->word) : ' ');
-  const auto lower = ascii_lower(text);
-
-  std::size_t pos = 0;
-  while (pos < text.size()) {
-    if (skip_char(text[pos])) {
-      ++pos;
-      continue;
-    }
-    if (lower.compare(pos, 3, "si ") == 0) {
-      auto end = text.find('?', pos);
-      if (end == std::string::npos)
-        end = text.size();
-      result.index_terms.push_back(
-          collapse_ascii_whitespace(trim_ascii(text.substr(pos, end - pos))));
-      for (auto at = pos; at < end; ++at)
-        result.roles[at] = FigureCellRoleIR::index_term;
-      pos = end;
-      continue;
-    }
-    if (lower.compare(pos, 8, "picture ") == 0) {
-      auto cursor = pos + 8;
-      while (cursor < text.size() && text[cursor] == ' ')
-        ++cursor;
-      const auto digits = cursor;
-      while (cursor < text.size() &&
-             std::isdigit(static_cast<unsigned char>(text[cursor])) != 0)
-        ++cursor;
-      if (cursor > digits) {
-        PlaceholderText placeholder;
-        placeholder.number = text.substr(digits, cursor - digits);
-        placeholder.text = figure_picture_placeholder(placeholder.number);
-        // "PICTURE 1." keeps the sentence period (DREICMST PREFACE.3).
-        if (cursor < text.size() && text[cursor] == '.')
-          ++cursor;
-        if (cursor == text.size() || skip_char(text[cursor])) {
-          if (result.placeholder) {
-            result.prose = true;
-            result.prose_text = trim_ascii(text.substr(pos));
-            return result;
-          }
-          result.placeholder = std::move(placeholder);
-          pos = cursor;
-          continue;
-        }
-      }
-    }
-    if (const auto caption = caption_text(text.substr(pos))) {
-      auto end = text.find_first_of("?|", pos);
-      if (end == std::string::npos)
-        end = text.size();
-      const auto title = collapse_ascii_whitespace(
-          trim_ascii(text.substr(pos, end - pos)));
-      if (result.caption) {
-        result.prose = true;
-        result.prose_text = title;
-        return result;
-      }
-      result.caption = title;
-      for (auto at = pos; at < end; ++at)
-        result.roles[at] = cells[at] && visible_word(cells[at]->word)
-                               ? FigureCellRoleIR::caption_content
-                               : FigureCellRoleIR::caption_layout;
-      pos = end;
-      continue;
-    }
-    if (has_alnum(text.substr(pos))) {
-      // The rest of this row is the region's caption when every remaining
-      // cell sits on one of the caption's own display lines.  The Layout IR
-      // frames a caption row at the marker word before the title and ends it
-      // at the length byte that opens the continuation line, so the tail of
-      // a caption reaches this point looking like prose.
-      if (caption != nullptr) {
-        bool owned = true;
-        for (auto at = pos; at < cells.size(); ++at)
-          if (cells[at] && !caption->owns(cells[at]->key)) {
-            owned = false;
-            break;
-          }
-        if (owned) {
-          for (auto at = pos; at < cells.size(); ++at)
-            if (cells[at])
-              result.roles[at] =
-                  visible_word(cells[at]->word) &&
-                          !caption->is_structure(cells[at]->key)
-                      ? FigureCellRoleIR::caption_content
-                      : FigureCellRoleIR::caption_layout;
-          result.caption_lines = true;
-          break;
-        }
-      }
-      result.prose = true;
-      result.prose_text =
-          collapse_ascii_whitespace(trim_ascii(text.substr(pos)));
-      return result;
-    }
-    break;
-  }
-  return result;
-}
 
 bool body_visible(std::uint16_t word) {
   return word > 0x20 && word != 0xA0 && !(word >= 0x2500 && word <= 0x25FF);
@@ -848,8 +672,7 @@ struct Extractor {
     if (found == selectors_by_segment.end() || found->second.size() != 1)
       return false;
     const auto *selector = found->second.front();
-    if (!selector->canonical_operands ||
-        !figure_picture_target(selector->target))
+    if (!selector->canonical_operands || !picture_selector(*selector))
       return false;
     const auto placed = placement_line(view);
     if (!placed)
@@ -863,16 +686,17 @@ struct Extractor {
     text.reserve(columns.size());
     for (const auto &column : columns)
       text.push_back(cell_char(column.word));
-    const auto placeholder = figure_picture_placeholder(
-        figure_picture_resource(selector->target));
-    const auto end = std::min(selector->column + selector->length, text.size());
-    if (selector->column >= end ||
-        trim_ascii(text.substr(selector->column, end - selector->column)) !=
-            placeholder)
-      return false;
+    std::optional<PicturePlacementSpanIR> placement;
+    if (figure_picture_target(selector->target))
+      placement = picture_placement_span(columns, selector->column,
+          selector->length, figure_picture_resource(selector->target));
+    else if (selector->column < columns.size() && selector->length != 0)
+      placement = PicturePlacementSpanIR{selector->column,
+          selector->column + std::min(selector->length, columns.size() - selector->column), {}};
+    if (!placement) return false;
     auto rest = text;
-    rest.replace(selector->column, end - selector->column,
-                 std::string(end - selector->column, ' '));
+    rest.replace(placement->begin, placement->end - placement->begin,
+                 std::string(placement->end - placement->begin, ' '));
     if (!has_alnum(rest))
       return false;
     return !line_caption_text(rest).has_value();
@@ -911,193 +735,6 @@ struct Extractor {
     return std::nullopt;
   }
 
-  // The caption of an anchored figure region as its own display lines carry
-  // it.
-  //
-  // A caption is one "Figure N. Title" display line plus the lines that
-  // continue it, and hosted BookServer indents every continuation line to
-  // the column at which the title starts on the first line:
-  //
-  //   SH20-918 1.5 record 50 lines 21-24   caption at column 3, title and
-  //     continuations at column 13 (hosted DT 19910520154851 prints the four
-  //     lines under one another);
-  //   DREICMST 1.1.1.2.1 records 61-62 (lines 39-43 and 0-3), same columns,
-  //     hosted DT 19911219125856;
-  //   ITPPIBOK 5.2 record 169 lines 26-27, same columns, hosted DT
-  //     19910628074854;
-  //   SC09-2417-00 2.2.4.5 record 236 lines 10-11, caption at column 3 and
-  //     the continuation "Length" at column 14, hosted DT 19961114175628.
-  //
-  // The Layout IR does not delimit a caption.  It opens a row at the marker
-  // word in front of the title -- "Figure" itself in IEAC6MST 1.2 record 50
-  // token 130, the sentence "." in ITPPIBOK 5.2 record 169 token 192 -- and
-  // ends a row at the length byte that opens the continuation line, so a
-  // row-by-row reading of the region sees the caption's tail as prose and
-  // the caption's head as truncated.  Reading the caption off the display
-  // lines keeps it whole; the rows that carry it are then caption rows.
-  std::optional<RegionCaption> region_caption(const Region &region) const {
-    if (!region.anchored)
-      return std::nullopt;
-    const auto &begin = region.segments.front();
-    const auto &end = region.segments.back();
-    if (begin.segment->source_tokens.empty())
-      return std::nullopt;
-    std::vector<LineView> lines;
-    for (auto index = begin.record_index; index <= end.record_index; ++index) {
-      const auto &record = records[index];
-      const auto parsed = record_display_lines(record);
-      if (!parsed)
-        return std::nullopt;
-      for (const auto &line : *parsed)
-        lines.push_back({&record, line});
-    }
-    const auto srfig_token = begin.segment->source_tokens.front();
-    const auto &end_record = *end.record;
-    const auto marker = figure_end(end_record, *end.segment);
-    if (!marker)
-      return std::nullopt;
-    const auto end_tokens = tokens_in_bytes(
-        end_record, byte_offsets.at(end_record.logical_record), *marker);
-    if (end_tokens.empty())
-      return std::nullopt;
-    const auto marker_first =
-        *std::min_element(end_tokens.begin(), end_tokens.end());
-    std::size_t first_line = lines.size();
-    std::size_t last_line = lines.size();
-    for (std::size_t index = 0; index < lines.size(); ++index) {
-      const auto &view = lines[index];
-      if (view.record == begin.record && view.line.prefix_token < srfig_token &&
-          srfig_token < view.line.token_end)
-        first_line = index;
-      if (view.record == &end_record &&
-          view.line.prefix_token < marker_first &&
-          marker_first < view.line.token_end)
-        last_line = index;
-    }
-    if (first_line >= lines.size() || last_line >= lines.size() ||
-        last_line <= first_line)
-      return std::nullopt;
-
-    RegionCaption result;
-    for (auto index = first_line; index <= last_line; ++index)
-      result.structure.insert({lines[index].record->logical_record,
-                               lines[index].line.prefix_token});
-
-    std::size_t caption_at = lines.size();
-    std::string head;
-    std::size_t title_column = 0;
-    for (auto index = first_line + 1; index < last_line; ++index) {
-      const auto text =
-          display_line_text(*lines[index].record, lines[index].line);
-      const auto caption = line_caption_text(text);
-      if (!caption)
-        continue;
-      // The title column: past the leading spaces and change bar, past
-      // "Figure", past the number, past the spaces before the title.
-      std::size_t at = 0;
-      while (at < text.size() && (text[at] == ' ' || text[at] == '|'))
-        ++at;
-      at += 6; // "Figure"
-      while (at < text.size() && text[at] == ' ')
-        ++at;
-      while (at < text.size() && text[at] != ' ')
-        ++at;
-      while (at < text.size() && text[at] == ' ')
-        ++at;
-      if (at >= text.size())
-        return std::nullopt;
-      caption_at = index;
-      head = *caption;
-      title_column = at;
-      break;
-    }
-    if (caption_at == lines.size()) {
-      // GA19-5486-13 2.1: one unnumbered title between a standalone
-      // PICTURE n placeholder and SREFIG, possibly in the next record.
-      // Admit only this complete grammar; arbitrary residual figure text
-      // is not evidence of a caption. Blank display lines carry no text.
-      // Require a standalone end marker too: prose in its payload has not
-      // been proven to retain its position in this unnumbered shape.
-      std::vector<std::size_t> nonempty;
-      for (auto index = first_line; index <= last_line; ++index)
-        if (!trim_ascii(
-                 display_line_text(*lines[index].record, lines[index].line))
-                 .empty())
-          nonempty.push_back(index);
-      if (nonempty.size() != 6 ||
-          ascii_lower(trim_ascii(display_line_text(
-              *lines[last_line].record, lines[last_line].line))) != "srefig" ||
-          ascii_lower(collapse_ascii_whitespace(display_line_text(
-              *lines[nonempty[1]].record, lines[nonempty[1]].line))) !=
-              "cz off fig")
-        return std::nullopt;
-      const SelectorIR *picture = nullptr;
-      for (const auto &view : region.segments) {
-        const auto found = selectors_by_segment.find(key(view));
-        if (found == selectors_by_segment.end())
-          continue;
-        for (const auto *selector : found->second) {
-          if (picture || !figure_picture_target(selector->target))
-            return std::nullopt;
-          picture = selector;
-        }
-      }
-      if (!picture)
-        return std::nullopt;
-      const auto &selector_line = lines[nonempty[2]];
-      const auto &selector_segment =
-          records[record_index.at(picture->logical_record)]
-              .control_segments[picture->segment_index];
-      if (selector_line.record->logical_record != picture->logical_record ||
-          selector_segment.source_tokens.empty() ||
-          selector_segment.source_tokens.front() !=
-              selector_line.line.prefix_token + 1 ||
-          !control_display_line(*selector_line.record, selector_line.line) ||
-          trim_ascii(display_line_text(*lines[nonempty[3]].record,
-                                       lines[nonempty[3]].line)) !=
-              figure_picture_placeholder(
-                  figure_picture_resource(picture->target)))
-        return std::nullopt;
-      caption_at = nonempty[4];
-      head = trim_ascii(
-          display_line_text(*lines[caption_at].record, lines[caption_at].line));
-      if (!has_alnum(head) ||
-          control_display_line(*lines[caption_at].record,
-                               lines[caption_at].line) ||
-          ascii_starts_with_case_insensitive(head, "figure ") ||
-          ascii_starts_with_case_insensitive(head, "picture ") ||
-          ascii_starts_with_case_insensitive(head, "si "))
-        return std::nullopt;
-      // A single terminal line, never a wrapped unnumbered caption.
-      result.text = head;
-      for (auto token = lines[caption_at].line.prefix_token;
-           token < lines[caption_at].line.token_end; ++token)
-        result.tokens.insert({lines[caption_at].record->logical_record, token});
-      return result;
-    }
-
-    std::size_t caption_end = caption_at + 1;
-    std::string text = head;
-    for (auto index = caption_at + 1; index < last_line; ++index) {
-      const auto next =
-          display_line_text(*lines[index].record, lines[index].line);
-      std::size_t start = 0;
-      while (start < next.size() && next[start] == ' ')
-        ++start;
-      if (start >= next.size() || start != title_column)
-        break;
-      text += " " + trim_ascii(next);
-      caption_end = index + 1;
-    }
-    result.text = collapse_ascii_whitespace(text);
-    if (result.text.empty())
-      return std::nullopt;
-    for (auto index = caption_at; index < caption_end; ++index)
-      for (auto token = lines[index].line.prefix_token;
-           token < lines[index].line.token_end; ++token)
-        result.tokens.insert({lines[index].record->logical_record, token});
-    return result;
-  }
 
   std::optional<FigureBlockDeclineIR>
   admit_preformatted(const Region &region, FigureSourceBlockIR &block) const {
@@ -1724,17 +1361,14 @@ struct Extractor {
           block.target = target;
         } else if (ascii_equals_case_insensitive(selector->target, "lnk")) {
           const auto external = external_image(selector->display_payload);
-          if (!external)
-            return decline(region, "LNK selector in figure is not an image");
+          if (!external) break; // A source-positioned link in figure text.
           if (picture != nullptr)
             return decline(region, "figure region contains several pictures");
           picture = selector;
           block.target_kind = FigureTargetKindIR::external_image;
           block.target = external->target;
         } else {
-          return decline(region, "figure region contains a non-picture "
-                                 "selector " +
-                                     selector->target);
+          break; // Non-picture selectors belong to positioned text runs.
         }
         block.selector = {selector->logical_record, selector->segment_index,
                           selector->selector_ordinal};
@@ -1779,350 +1413,78 @@ struct Extractor {
           extra.description = text;
     }
 
-    // 2. Classify every physical row and every segment lead (the visible
-    //    material of a segment before its first row) inside the region.
-    std::map<CellKey, FigureCellRoleIR> cell_roles;
-    const PhysicalRowIR *caption_row = nullptr;
-    const auto line_caption = region_caption(region);
-    std::vector<DocumentSourceRowIR> line_caption_rows;
-    const auto picture_key = SegmentKey{picture->logical_record,
-                                        picture->segment_index};
-    std::size_t metadata_end = 0;
-    if (block.target_kind == FigureTargetKindIR::external_image)
-      metadata_end = picture->payload_range.begin +
-                     external_image(picture->display_payload)->metadata_bytes;
-
-    struct PlaceholderSlot {
-      const std::string *target = nullptr;
-      FigureTargetKindIR kind = FigureTargetKindIR::book_resource;
-      std::string *placeholder = nullptr;
-    };
-    std::vector<PlaceholderSlot> placeholder_slots;
-    placeholder_slots.push_back(
-        {&block.target, block.target_kind, &block.placeholder_text});
-    for (auto &extra : block.additional_pictures)
-      placeholder_slots.push_back(
-          {&extra.target, extra.target_kind, &extra.placeholder_text});
-    std::size_t placeholders_seen = 0;
-
-    const auto apply = [&](const Classified &classified,
-                           const std::vector<CellSlot> &cells,
-                           const DocumentSourceRowIR *row)
-        -> std::optional<FigureBlockDeclineIR> {
-      if (classified.placeholder) {
-        // One placeholder per picture, in source order.
-        if (placeholders_seen >= placeholder_slots.size())
-          return decline(region, "figure region has several placeholders");
-        auto &slot = placeholder_slots[placeholders_seen];
-        if (slot.kind == FigureTargetKindIR::book_resource &&
-            ascii_lower(classified.placeholder->number) !=
-                ascii_lower(*slot.target))
-          return decline(region, "placeholder PICTURE " +
-                                     classified.placeholder->number +
-                                     " names a different picture than " +
-                                     *slot.target);
-        *slot.placeholder = classified.placeholder->text;
-        ++placeholders_seen;
+    // A picture region's visible order belongs to its native display cells,
+    // not the prose LayoutIR rows or a prescribed caption spelling.
+    {
+      PictureFigureSourceIR source;
+      for (const auto& view : owned) source.segments.push_back(ref(view));
+      source.marker = ref(end);
+      if (begin.segment->source_tokens.empty() || region.last().segment->source_tokens.empty())
+        return decline(region, "picture region has no source bounds");
+      const auto first_token = begin.segment->source_tokens.front();
+      auto final_token = *std::max_element(region.last().segment->source_tokens.begin(),
+                                          region.last().segment->source_tokens.end());
+      if (region.anchored && region.trailing.empty()) {
+        const auto marker = figure_end(*end.record, *end.segment);
+        const auto tokens = marker ? tokens_in_bytes(*end.record,
+            byte_offsets.at(end.record->logical_record), *marker) : std::vector<std::size_t>{};
+        if (tokens.empty()) return decline(region, "SREFIG has no source tokens");
+        final_token = *std::max_element(tokens.begin(), tokens.end());
+      } else if (!region.trailing.empty()) {
+        // A description closer owns its own line, never the prose that a
+        // flattened segment might carry beyond it.
+        const auto& last = region.last();
+        const auto* line = display_line_of_token(*last.record, last.segment->source_tokens.front());
+        if (!line) return decline(region, "artwork tail has undecided framing");
+        final_token = line->token_end - 1;
       }
-      if (classified.caption) {
-        if (block.caption)
-          return decline(region, "figure region has several captions");
-        block.caption = FigureCaptionIR{*classified.caption, {}, {}};
-        if (row != nullptr)
-          block.caption->rows.push_back(*row);
+      bool framed = true;
+      auto final_record = region.last().record_index;
+      if (!region.anchored) {
+        const auto placement = placement_line(begin);
+        if (!placement) return decline(region, "picture has no native placement row");
+        final_record = record_index.at(placement->first->logical_record);
+        final_token = placement->second.token_end - 1;
+        // Without SRFIG/SREFIG only an explicitly numbered adjacent caption
+        // proves additional figure content. Arbitrary following prose never
+        // enlarges an anchorless picture's ownership.
+        const auto* lines = record_display_lines(*placement->first);
+        if (lines) {
+          auto next = std::find_if(lines->begin(), lines->end(), [&](const auto& l) {
+            return l.prefix_token >= placement->second.token_end;
+          });
+          if (next != lines->end() &&
+              line_caption_text(display_line_text(*placement->first, *next)) &&
+              owning_segment(placement->first->logical_record, next->token_end - 1) ==
+                  owning_segment(placement->first->logical_record, final_token))
+            final_token = next->token_end - 1;
+        }
+        block.span.end = {placement->first->logical_record,
+            owning_segment(placement->first->logical_record, final_token)};
+        source.segments.clear();
+        // Later prose in a flattened selector segment is not a caption.
+        for (auto i = begin.record_index; i <= final_record; ++i)
+          for (const auto& s : records[i].control_segments)
+            if ((i != begin.record_index || s.segment_index >= begin.segment->segment_index) &&
+                (i != final_record || s.segment_index <= block.span.end.segment_index))
+              source.segments.push_back({records[i].logical_record, s.segment_index});
       }
-      for (const auto &term : classified.index_terms)
-        block.index_terms.push_back(term);
-      for (std::size_t index = 0; index < cells.size(); ++index)
-        if (cells[index])
-          cell_roles[cells[index]->key] = classified.roles[index];
-      if (row != nullptr && !classified.caption)
-        block.suppressed_rows.push_back(*row);
-      return std::nullopt;
-    };
-
-    for (std::size_t index = 0; index < owned.size(); ++index) {
-      const auto &view = owned[index];
-      const auto &segment = *view.segment;
-      const auto &record = *view.record;
-      const auto segment_key = key(view);
-      const auto boundary_segment =
-          region.anchored && (index == 0 || index == marker_position);
-      std::vector<const PhysicalRowIR *> rows;
-      if (!boundary_segment) {
-        const auto found = rows_by_segment.find(segment_key);
-        if (found != rows_by_segment.end())
-          rows = found->second;
+      for (auto i = begin.record_index; i <= final_record; ++i) {
+        framed = framed && record_display_lines(records[i]) != nullptr;
+        source.tokens[records[i].logical_record] = {
+            i == begin.record_index ? first_token : 0,
+            i == final_record ? final_token : records[i].tokens.size() - 1};
       }
-
-      // Segment lead.
-      if (!boundary_segment &&
-          (segment.kind == BookControlKind::text ||
-           segment.kind == BookControlKind::select ||
-           segment.kind == BookControlKind::font ||
-           segment.kind == BookControlKind::layout_directive)) {
-        const auto &offsets = byte_offsets.at(record.logical_record);
-        auto lead_begin = segment.kind == BookControlKind::text
-                              ? segment.complete.begin
-                              : segment.payload_range.begin;
-        if (segment_key == picture_key && metadata_end > lead_begin)
-          lead_begin = metadata_end;
-        const auto lead_end_token =
-            rows.empty() ? std::numeric_limits<std::size_t>::max()
-                         : rows.front()->token_begin;
-        std::set<std::size_t> lead_tokens;
-        for (const auto token : segment.source_tokens) {
-          if (token >= lead_end_token || token >= record.tokens.size())
-            continue;
-          const auto span = std::find_if(
-              record.assembled.tokens.begin(), record.assembled.tokens.end(),
-              [&](const auto &candidate) {
-                return candidate.token_index == token;
-              });
-          if (span == record.assembled.tokens.end() ||
-              offsets[span->output_begin] < lead_begin)
-            continue;
-          lead_tokens.insert(token);
-        }
-        // Walk the assembled output so decoder-inserted spaces between lead
-        // tokens keep the words apart.
-        std::vector<CellSlot> lead;
-        bool inside = false;
-        for (const auto &source : record.assembled.sources) {
-          if (source.kind == LogicalWordSourceKind::inserted_space) {
-            if (inside)
-              lead.push_back(std::nullopt);
-            continue;
-          }
-          if (lead_tokens.count(source.token_index) == 0) {
-            if (inside && !lead.empty() && lead.back())
-              lead.push_back(std::nullopt);
-            inside = false;
-            continue;
-          }
-          inside = true;
-          const auto &words = record.tokens[source.token_index];
-          if (source.word_index >= words.size() ||
-              (source.word_index == 0 && words[0] < 4))
-            continue;
-          lead.push_back(CellRef{{record.logical_record, source.token_index,
-                                  source.word_index},
-                                 words[source.word_index]});
-        }
-        while (!lead.empty() && !lead.back())
-          lead.pop_back();
-        if (!lead.empty()) {
-          const auto classified =
-              classify_cells(lead, line_caption ? &*line_caption : nullptr);
-          if (classified.prose)
-            return decline(region, "figure region contains prose segment '" +
-                                       classified.prose_text + "'");
-          if (auto declined = apply(classified, lead, nullptr))
-            return declined;
-        }
-      }
-
-      // Physical rows.
-      for (const auto *row : rows) {
-        const auto row_key = row_ref(*row);
-        const RowKey rk{row_key.display_run, row_key.row_index};
-        std::vector<CellSlot> cells;
-        const auto owned = row_cells.find(rk);
-        std::optional<std::size_t> previous_column;
-        if (owned != row_cells.end())
-          for (const auto *cell : owned->second) {
-            if (cell->display_column && previous_column &&
-                *cell->display_column > *previous_column + 1)
-              cells.push_back(std::nullopt);
-            if (cell->display_column)
-              previous_column = cell->display_column;
-            // A marker-slot (boundary) cell is row geometry, not text.
-            cells.push_back(CellRef{{cell->logical_record, cell->token_index,
-                                     cell->word_index},
-                                    cell->role == RowCellRole::boundary
-                                        ? std::uint16_t{' '}
-                                        : cell->word});
-          }
-        auto classified =
-            classify_cells(cells, line_caption ? &*line_caption : nullptr);
-        if (classified.caption_lines)
-          line_caption_rows.push_back(row_key);
-        if (classified.prose && caption_row != nullptr &&
-            row->run == caption_row->run &&
-            (row->start == PhysicalRowStartKind::placeholder_wrap ||
-             row->start == PhysicalRowStartKind::record_continuation)) {
-          // Soft-wrapped continuation of the caption title.
-          block.caption->text += " " + classified.prose_text;
-          block.caption->rows.push_back(row_key);
-          for (const auto &cell : cells)
-            if (cell)
-              cell_roles[cell->key] = visible_word(cell->word)
-                                          ? FigureCellRoleIR::caption_content
-                                          : FigureCellRoleIR::caption_layout;
-          continue;
-        }
-        if (classified.prose)
-          return decline(region, "figure region contains prose row '" +
-                                     classified.prose_text + "'");
-        if (auto declined = apply(classified, cells,
-                                  classified.caption_lines ? nullptr
-                                                           : &row_key))
-          return declined;
-        if (classified.caption)
-          caption_row = row;
+      if (framed) {
+        std::string error;
+        if (!extract_picture_figure_content_ir(records, layout, ownership,
+                                               selectors, source, block, &error))
+          return decline(region, error);
+        return std::nullopt;
       }
     }
 
-    // Both segment leads and rows can carry the caption's display lines.
-    // A caption may live entirely in cz OFF FIG's payload before the
-    // picture selector, with no physical row. Use its proven display-line
-    // text rather than the possibly truncated text projected into rows.
-    if (line_caption) {
-      if (!block.caption)
-        block.caption = FigureCaptionIR{line_caption->text, {}, {}};
-      else
-        block.caption->text = line_caption->text;
-      for (const auto &row : line_caption_rows)
-        block.caption->rows.push_back(row);
-    }
-
-    // 3. Claim every source cell inside the region exactly once.
-    const auto &end_record = *end.record;
-    const auto begin_token = begin.segment->source_tokens.empty()
-                                 ? std::size_t{0}
-                                 : begin.segment->source_tokens.front();
-    std::vector<std::size_t> end_tokens;
-    if (region.anchored) {
-      const auto &offsets = byte_offsets.at(end_record.logical_record);
-      const auto marker = figure_end(end_record, *end.segment);
-      if (marker)
-        end_tokens = tokens_in_bytes(end_record, offsets, *marker);
-      if (end_tokens.empty())
-        return decline(region, "SREFIG has no source tokens");
-    } else {
-      end_tokens = end.segment->source_tokens;
-    }
-    // The region's cells run to its last segment: the marker, or the
-    // trailing envelope closer the compiler wrote behind it (`Region`).
-    const auto &last = region.last();
-    if (!region.trailing.empty() && last.segment->source_tokens.empty())
-      return decline(region, "artwork envelope closer behind SREFIG has no "
-                             "source tokens");
-    const auto end_token =
-        region.trailing.empty()
-            ? *std::max_element(end_tokens.begin(), end_tokens.end())
-            : *std::max_element(last.segment->source_tokens.begin(),
-                                last.segment->source_tokens.end());
-    const std::set<std::size_t> boundary_tokens(end_tokens.begin(),
-                                                end_tokens.end());
-    const auto begin_index = begin.record_index;
-    const auto marker_index = end.record_index;
-    const auto end_index = last.record_index;
-
-    std::map<SegmentKey, const SegmentView *> region_segments;
-    for (const auto &view : region.segments)
-      region_segments[key(view)] = &view;
-    for (const auto &view : region.trailing)
-      region_segments[key(view)] = &view;
-
-    for (const auto &cell : ownership.cells) {
-      const auto found = record_index.find(cell.logical_record);
-      if (found == record_index.end())
-        continue;
-      const auto index = found->second;
-      if (index < begin_index || index > end_index)
-        continue;
-      if (index == begin_index && cell.token_index < begin_token)
-        continue;
-      if (index == end_index && cell.token_index > end_token)
-        continue;
-      const auto &record = records[index];
-      FigureSourceCellIR claimed;
-      claimed.logical_record = cell.logical_record;
-      claimed.segment_index =
-          owning_segment(cell.logical_record, cell.token_index);
-      claimed.token_index = cell.token_index;
-      claimed.word_index = cell.word_index;
-      claimed.word = cell.word;
-      if (cell.token_index < record.ir.tokens.size())
-        claimed.token_bytes = record.ir.tokens[cell.token_index].byte_range;
-
-      const auto classified = cell_roles.find(
-          {cell.logical_record, cell.token_index, cell.word_index});
-      const CellKey cell_key{cell.logical_record, cell.token_index,
-                             cell.word_index};
-      if (classified == cell_roles.end() && line_caption &&
-          cell.disposition != SourceDisposition::control_operand &&
-          cell.disposition != SourceDisposition::marker_slot &&
-          visible_word(cell.word) &&
-          !line_caption->is_structure(cell_key) &&
-          line_caption->owns(cell_key)) {
-        claimed.role = FigureCellRoleIR::caption_content;
-      } else if (classified != cell_roles.end()) {
-        claimed.role = classified->second;
-      } else if (cell.run != 0) {
-        return decline(region, "figure region claims a cell of a row it "
-                               "does not own");
-      } else if (cell.disposition == SourceDisposition::control_operand) {
-        claimed.role = FigureCellRoleIR::control;
-      } else if (region.anchored && index == marker_index &&
-                 boundary_tokens.count(cell.token_index) != 0) {
-        claimed.role = FigureCellRoleIR::boundary;
-      } else {
-        const auto &segments = token_segments.at(cell.logical_record);
-        const auto owner = segments.find(cell.token_index);
-        const SegmentView *view = nullptr;
-        if (owner != segments.end()) {
-          const auto region_owner = region_segments.find(
-              {cell.logical_record, owner->second});
-          if (region_owner != region_segments.end())
-            view = region_owner->second;
-        }
-        const auto allowed = !visible_word(cell.word);
-        if (view != nullptr &&
-            view->segment->kind == BookControlKind::art_description) {
-          // The `cartdesc` line's text, carried as the block's description.
-          claimed.role = FigureCellRoleIR::description;
-        } else if (view != nullptr &&
-                   (view->segment->kind ==
-                        BookControlKind::layout_directive ||
-                    view->segment->kind == BookControlKind::spacing)) {
-          claimed.role = FigureCellRoleIR::control;
-        } else if (view != nullptr && key(*view) == picture_key &&
-                   metadata_end != 0) {
-          const auto &offsets = byte_offsets.at(cell.logical_record);
-          const auto &spans = record.assembled.tokens;
-          const auto span = std::find_if(
-              spans.begin(), spans.end(), [&](const auto &candidate) {
-                return candidate.token_index == cell.token_index;
-              });
-          const auto begin_byte = span == spans.end()
-                                      ? std::size_t{0}
-                                      : offsets[span->output_begin];
-          if (begin_byte < metadata_end)
-            claimed.role = FigureCellRoleIR::control;
-          else if (allowed)
-            claimed.role = FigureCellRoleIR::placeholder_suppressed;
-          else
-            return decline(region, "picture selector carries visible text "
-                                   "outside any row");
-        } else if (allowed) {
-          claimed.role = FigureCellRoleIR::placeholder_suppressed;
-        } else {
-          std::ostringstream where;
-          where << cell.logical_record << ':' << cell.token_index << " '"
-                << token_words_to_ascii(record.tokens[cell.token_index])
-                << "' word=0x" << std::hex << cell.word;
-          return decline(region, "figure box contains visible text outside "
-                                 "any row at " +
-                                     where.str());
-        }
-      }
-      block.cells.push_back(std::move(claimed));
-    }
-    if (block.cells.empty())
-      return decline(region, "figure region owns no source cells");
-    return std::nullopt;
+    return decline(region, "picture region has undecided display framing");
   }
 
   FigureBlocksIR run() const {
@@ -2263,6 +1625,8 @@ const char *role_name(FigureCellRoleIR role) {
   case FigureCellRoleIR::body_content: return "body-content";
   case FigureCellRoleIR::body_layout: return "body-layout";
   case FigureCellRoleIR::spacing: return "spacing";
+  case FigureCellRoleIR::text_content: return "text";
+  case FigureCellRoleIR::text_layout: return "text-layout";
   }
   return "invalid";
 }
@@ -2365,6 +1729,8 @@ bool verify_figure_blocks_ir(
       const auto &owner = *owned->second;
       switch (cell.role) {
       case FigureCellRoleIR::caption_content:
+        if (!block.content.empty() && owner.field_role == SourceFieldRole::positioned)
+          break;
         // Row-owned visible content, or segment-owned (row-less) text; the
         // content/layout split is by word, not by row disposition.  Inside a
         // drawn figure the Layout IR may have read a visible one-byte word
@@ -2382,10 +1748,18 @@ bool verify_figure_blocks_ir(
         // The ledger's control-operand reading of words inside drawn
         // lines is the same misread as above, so no disposition is
         // rejected; the canonical re-extraction below is the check.
-        if (!preformatted)
+        if (!preformatted && block.content.empty())
           return fail("picture figure carries preformatted cell roles");
         break;
+      case FigureCellRoleIR::text_content:
+      case FigureCellRoleIR::text_layout:
+        if (preformatted || block.content.empty() ||
+            owner.field_role != SourceFieldRole::positioned)
+          return fail("ordered picture text has no positioned source");
+        break;
       case FigureCellRoleIR::caption_layout:
+        if (!block.content.empty() && owner.field_role == SourceFieldRole::positioned)
+          break;
         if (owner.disposition == SourceDisposition::control_operand)
           return fail("caption layout cell is control material");
         break;

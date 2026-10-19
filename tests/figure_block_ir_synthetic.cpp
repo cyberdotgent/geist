@@ -324,6 +324,21 @@ int main() {
                 topic.sources, topic.layout, topic.ownership, topic.selectors,
                 book.resource_ids, mutated, &error),
             label + ": figure with a dropped cell was accepted");
+    if (figure->content.size() > 1) {
+      mutated = topic.figures;
+      std::swap(mutated.blocks.front().content.front(),
+                mutated.blocks.front().content.back());
+      require(!geist::detail::verify_figure_blocks_ir(
+                  topic.sources, topic.layout, topic.ownership, topic.selectors,
+                  book.resource_ids, mutated, &error),
+              label + ": reordered picture content was accepted");
+      mutated = topic.figures;
+      mutated.blocks.front().content.pop_back();
+      require(!geist::detail::verify_figure_blocks_ir(
+                  topic.sources, topic.layout, topic.ownership, topic.selectors,
+                  book.resource_ids, mutated, &error),
+              label + ": dropped picture content was accepted");
+    }
     mutated = topic.figures;
     mutated.blocks.front().cells.front().role =
         geist::detail::FigureCellRoleIR::caption_content;

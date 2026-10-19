@@ -313,6 +313,16 @@ std::optional<std::uint64_t> item_ordinal(const ProseBlockIR& block,
 
 } // namespace
 
+std::optional<InlineSequenceIR> lower_prose_inline_content(
+    const std::vector<ProseInlineIR>& inlines, std::string* error) {
+  ProseBlockIR block;
+  block.inlines = inlines;
+  InlineSequenceIR result;
+  if (!lower_inlines(block, 0, inlines.size(), result, error))
+    return std::nullopt;
+  return result;
+}
+
 std::optional<DocumentIR> lower_prose_topic_to_document_ir(
     TopicIdentityIR identity, const ProseTopicIR& prose, std::string* error) {
   if (prose.heading_level.size() != 2 || prose.heading_level.front() != 'h' ||

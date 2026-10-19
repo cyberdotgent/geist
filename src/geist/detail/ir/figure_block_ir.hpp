@@ -7,6 +7,7 @@
 #include "geist/detail/container/provenance_ir.hpp"
 #include "geist/detail/ir/selector_display_ir.hpp"
 #include "geist/detail/ir/selector_ir.hpp"
+#include "geist/detail/layout/font_span_ir.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -62,8 +63,13 @@ namespace geist::detail {
 // hosted shows as empty lines: SC09-138 1.3.1, GC23-046 6.2) are spacing,
 // and CFONT/spacing controls between lines are control cells.
 //
-// Everything else (tables inside figures, picture selectors owned by a
-// table, several pictures in one region, selectors or prose after the
+// Picture regions retain an ordered sequence of images and styled text,
+// including labels before images, multiple images and number-only or colon
+// captions. Native display-line framing, not caption vocabulary, bounds the
+// content. A caption annotation never authorizes discarding other text.
+//
+// Unrepresentable content (tables inside figures, picture selectors owned by a
+// table, selectors or prose after the
 // caption inside a drawn figure, misaligned line prefixes, unterminated
 // regions) is declined with a reason and left to other families.
 
@@ -89,6 +95,8 @@ enum class FigureCellRoleIR {
   body_content,          // visible word of a preformatted body line
   body_layout,           // space / box-drawing word of a body line
   spacing,               // blank or frame-rule lines around the body
+  text_content,          // positioned text of an ordered picture region
+  text_layout,           // its origin, spaces and spacing prefixes
 };
 
 struct FigureSourceCellIR {
@@ -216,6 +224,27 @@ struct FigureSpotAnchorIR {
   bool at_body_start = false;
 };
 
+// Picture-region content in display order. Text need not be a caption to
+// survive. Runs retain native CFONT and selector provenance; picture ordinals
+// address the main picture (0) and additional_pictures (1, ...).
+struct FigureTextRunIR {
+  std::string text;
+  FontStyleIR style = FontStyleIR::unknown; // unknown here means unstyled
+  std::optional<FigureLinkIR> link;
+  std::vector<DocumentSourceSliceIR> slices;
+};
+
+struct FigureContentPartIR {
+  bool picture = false;
+  std::size_t picture_index = 0;
+  bool caption = false;
+  std::vector<FigureTextRunIR> runs;
+  std::vector<DocumentSourceRowIR> rows;
+  // Native origin and caption continuation column, not UTF-8 byte offsets.
+  std::size_t column = 0;
+  std::size_t continuation_column = 0;
+};
+
 struct FigureSourceBlockIR {
   FigureBlockSpanIR span;
   // "FIG4302RSX": the SRFIG opcode without its SR prefix, which is the name
@@ -259,6 +288,11 @@ struct FigureSourceBlockIR {
   std::vector<FigureLinkIR> body_links;
   // Every source cell inside the region, each exactly once.
   std::vector<FigureSourceCellIR> cells;
+  // Non-empty for source-framed picture regions. The older fields above
+  // retain resource/description metadata and the last caption for clients
+  // inspecting the private IR; lowering follows this sequence, not a rule
+  // that puts every caption after every picture.
+  std::vector<FigureContentPartIR> content;
 };
 
 struct FigureBlockDeclineIR {

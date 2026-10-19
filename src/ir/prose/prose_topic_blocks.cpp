@@ -6,6 +6,7 @@
 #include "geist/detail/ir/book_topic_catalog_ir.hpp"
 #include "geist/detail/ir/menu_ir.hpp"
 #include "geist/detail/ir/menu_topic_ir.hpp"
+#include "geist/detail/ir/picture_placement_ir.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -333,7 +334,7 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
     // are not the ones the model read, and the topic fails closed.
     if (inline_node.kind == ProseInlineKindIR::image) {
       const auto placeholder = figure_picture_placeholder(inline_node.target);
-      if (inline_node.text != placeholder)
+      if (!picture_placeholder_matches(inline_node.text, inline_node.target))
         return fail(error, "inline picture selector covers '" +
                                inline_node.text + "', not '" + placeholder +
                                "'");
