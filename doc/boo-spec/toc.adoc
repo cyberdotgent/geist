@@ -159,6 +159,23 @@ for TOC reconstruction are:
 The full nine-line envelope, its fixed order, and the anchor controls that may
 be interleaved with it are documented in <<topics_the_envelope_is_a_fixed_nine_line_sequence>>.
 
+The `ST` title and the `CTOCE` label are independent source projections of
+the same topic identifier. A contents label need not reproduce the heading's
+character sequence. Preserve the contents label for navigation and read the
+topic's heading from its own `ST` display line; a discrepancy alone does not
+invalidate the topic body.
+
+For example, `GA19-5486-13` topic `21.1` has the contents reference at logical
+record 17, token 93, file bytes `0x000A12D8`--`0x000A12D9`: token key `0xED7C`.
+Its dictionary entry is the uppercase variant of key `0xED7B`; the final
+literal byte at `0x0009EFDF` is `08`, whose display interpretation is not
+established. The contents projection therefore retains an unmapped word after
+`5763-RG1`. The topic's own heading at logical record 769 instead supplies
+token key `0xC6E3` at bytes `0x000DEDD1`--`0x000DEDD2`, which resolves to
+the ordinary semicolon `U+003B`. Topics `21.2` and `21.3` have the same
+contents-versus-heading discrepancy. This is not evidence that dictionary
+byte `08` generally means a semicolon; that interpretation remains unresolved.
+
 Examples:
 
 [cols="<14,<45,<45",options="header"]

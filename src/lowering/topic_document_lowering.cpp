@@ -3,6 +3,8 @@
 
 #include "geist/detail/lowering/topic_document_lowering.hpp"
 
+#include "geist/detail/container/topic_catalogue_framing.hpp"
+#include "geist/detail/ir/book_topic_catalog_ir.hpp"
 #include "geist/detail/lowering/comment_delivery_document_lowering.hpp"
 #include "geist/detail/ir/comment_delivery_ir.hpp"
 #include "geist/detail/lowering/fixed_prose_document_lowering.hpp"
@@ -134,6 +136,44 @@ bool message_source_candidate(
   return message_starts > 1;
 }
 
+// A contents label is presentation evidence, not the topic's ST heading.
+// Select header corroboration only for the exact source range and identity
+// represented by this catalogue entry. Otherwise retain the caller's title
+// and the ordinary fail-closed source comparison.
+const std::string &prose_header_title(
+    const TopicIdentityIR &topic,
+    const std::vector<DecodedLogicalRecordSource> &sources,
+    const BookTopicCatalogIR *catalog) {
+  if (catalog == nullptr || sources.empty()) return topic.title;
+  const auto *entry = find_book_topic_catalog_entry(*catalog, topic.id);
+  if (entry == nullptr || !entry->topic_header) return topic.title;
+  const auto &header = *entry->topic_header;
+  if (header.start_logical_record != topic.start_logical_record ||
+      header.end_logical_record != topic.end_logical_record ||
+      header.topic_number != topic.topic_number ||
+      header.heading_level != topic.heading_level ||
+      sources.front().logical_record != header.start_logical_record ||
+      sources.back().logical_record + 1 != header.end_logical_record)
+    return topic.title;
+  for (std::size_t index = 1; index < sources.size(); ++index)
+    if (sources[index].logical_record != sources[index - 1].logical_record + 1)
+      return topic.title;
+  if (!is_topic_header_record(sources.front()) ||
+      !ascii_equals_case_insensitive(
+          extract_topic_header_id(
+              token_words_to_ascii(sources.front().assembled.words)),
+          topic.id))
+    return topic.title;
+  // Do not let an unrelated caller-supplied title be laundered through a
+  // valid header. The public identity must be one of this topic's retained
+  // projections; the header and TOC strings themselves need not be equal.
+  if (topic.title != header.title &&
+      std::none_of(entry->toc_entries.begin(), entry->toc_entries.end(),
+                   [&](const auto &toc) { return toc.title == topic.title; }))
+    return topic.title;
+  return header.title;
+}
+
 } // namespace
 
 std::optional<DocumentIR> try_lower_topic_to_document_ir(
@@ -250,7 +290,9 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
   if (family_count == 0) {
     // Ordinary prose is offered last: only a topic every specific family
     // declined can be admitted here, so the family count stays at one.
-    auto prose = extract_prose_topic_ir(sources, layout, ownership, topic.title,
+    const auto &header_title =
+        prose_header_title(topic, sources, book_topic_catalog);
+    auto prose = extract_prose_topic_ir(sources, layout, ownership, header_title,
                                         book_topic_catalog, &error,
                                         resource_ids);
     if (!prose) {
@@ -261,7 +303,7 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
     }
     if (trace != nullptr)
       trace->family = "prose";
-    if (!verify_prose_topic_ir(sources, layout, ownership, topic.title,
+    if (!verify_prose_topic_ir(sources, layout, ownership, header_title,
                                book_topic_catalog, *prose, &error,
                                resource_ids)) {
       reject(typed_rejection, "prose semantics rejected: " + error);

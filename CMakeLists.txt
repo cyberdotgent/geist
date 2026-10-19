@@ -531,6 +531,7 @@ foreach(synthetic_test
     topic_title_display_line_synthetic
     topic_catalogue_framing_synthetic
     attached_prose_glyph_synthetic
+    prose_header_evidence_synthetic
     toc_entry_framing_synthetic
     topic_envelope_ir_synthetic
     source_rows_synthetic
