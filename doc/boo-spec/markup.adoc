@@ -2596,6 +2596,32 @@ The directive is written by the later compilers only: every corpus book that
 carries it (`SC09-2417-00` 1996, `GX27-3999-00` 1995, `SC41-485` 1995,
 `packet`) postdates the books that do not.
 
+Some rasterized table text is already malformed in the stored token stream.
+In `GA19-5486-13` topic `3.10`, logical record 95, the `RELATIVE SYSTEM`
+row contains four repetitions of `&dagg` + U+2502 + `r`, followed by a
+period.  The first repetition starts at file offset `0x000A7E36`:
+
+[cols="<22,<22,<56",options="header"]
+|===
+|File offset |Encoded bytes |Decoded interpretation
+|`0x000A7E36` |`C6 D9` |`&`
+|`0x000A7E38` |`00` |No-space token
+|`0x000A7E39` |`CD 6A` |`dagg`
+|`0x000A7E3B` |`00` |No-space token
+|`0x000A7E3C` |`70` |U+2502, vertical box rule
+|`0x000A7E3D` |`00` |No-space token
+|`0x000A7E3E` |`DC 07` |`r`
+|`0x000A7E40` |`00` |No-space token
+|===
+
+The four repetitions occupy `[0x000A7E36,0x000A7E61)`; byte `01` at
+`0x000A7E61` supplies the terminal period.  Neither an `e` nor a semicolon
+is present, so this is not a stored `&dagger;` entity.  In an HTML
+representation the literal ampersand requires escaping as `&amp;`; escaping
+does not cause the malformed spelling.  The intended text cannot be
+established from these bytes alone.  Preserve the stored characters rather
+than interpreting incomplete entity-like text as markup or guessing a repair.
+
 Two consequences follow from the object span owning the region:
 
 * The opener carries no display rows of its own; the closer carries the body
