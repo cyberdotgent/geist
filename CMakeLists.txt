@@ -524,6 +524,7 @@ foreach(synthetic_test
     book_control_value_boundary_synthetic
     display_line_control_extent_synthetic
     topic_title_display_line_synthetic
+    attached_prose_glyph_synthetic
     toc_entry_framing_synthetic
     topic_envelope_ir_synthetic
     source_rows_synthetic

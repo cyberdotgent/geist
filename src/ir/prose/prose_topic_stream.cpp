@@ -83,6 +83,10 @@ bool is_row_control_slot(const std::vector<DecodedLogicalRecordSource>& records,
 
 std::string word_text(std::uint16_t word) {
   if (word == unmapped_word) return "?";
+  // Keep text and provenance byte offsets in the same display encoding.
+  // U+2666 occupies one source/display column, but its hosted projection is
+  // U+00B0 (two UTF-8 bytes), including when attached inside a prose word.
+  if (word == bullet_glyph_word) return figure_display_glyph(word);
   return token_words_to_ascii({word});
 }
 

@@ -178,6 +178,35 @@ struct LineBuilder {
     return false;
   }
 
+  // A mapped diamond can be literal text, not just a list marker.  Require
+  // the native row to prove attachment on both sides; the flattened token
+  // stream alone cannot distinguish a row boundary or an omitted blank.
+  // GA19-5486-13 23.1/23.3 spell SNA + attach + U+2666 + attach + ps.
+  // Unknown words and drawn/placeholder runs retain their fail-closed path.
+  bool attached_inline_glyph(const TokenView& view) {
+    if (!is_bullet_glyph(view) || !line_open || line_visible_cells == 0 ||
+        line().cells.empty() || line().cells.back().space ||
+        (pending_space && view.prefix != 0 && view.prefix != 1))
+      return false;
+    const auto* native_line = display_line_of(view.record, view.token);
+    if (native_line == nullptr || view.token == native_line->prefix_token)
+      return false;
+    const auto cells = display_line_cells(records[view.record], *native_line);
+    const auto visible_neighbor = [](std::uint16_t word) {
+      return word > ' ' && word != 0x7f && word != unmapped_word &&
+             word != bullet_glyph_word && !box_word(word);
+    };
+    for (std::size_t column = 1; column + 1 < cells.size(); ++column) {
+      if (cells[column].token != view.token ||
+          cells[column].word != bullet_glyph_word)
+        continue;
+      return column == line().cells.size() &&
+             visible_neighbor(cells[column - 1].word) &&
+             visible_neighbor(cells[column + 1].word);
+    }
+    return false;
+  }
+
   // A display line whose whole visible content is one `c.<xx>` body-control
   // opcode standing at the line origin, with at most one operand word after
   // it, is a body control line and draws nothing.  It reaches the line
@@ -1822,6 +1851,8 @@ struct LineBuilder {
       line().text_begin = line().cells.size();
       return true;
     }
+    if (attached_inline_glyph(view))
+      return append_visible(view, ProseTokenRoleIR::text);
     if (is_glyph(view) || is_placeholder_run(view))
       return fail(error, "placeholder glyph '" + body_text(view) +
                              "' inside prose text at " + where(view));

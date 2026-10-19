@@ -249,6 +249,20 @@ Two of the five bytes are what a CP437 console would draw for the character
 (`0x1b` left arrow, `0x19` down arrow); the other three are not, so the table
 is recorded as observed rather than derived.
 
+The token word `0x2666` is not inherently a list-item delimiter. It also occurs
+attached inside ordinary text. In `GA19-5486-13` (build `10/12/95 16:12:06`),
+topic `23.1`, logical record 988, physical offsets `0xf073f` through `0xf0741`
+contain the three one-byte dictionary references `00 03 00`. They resolve to
+spacing prefix `1`, token word `0x2666`, and spacing prefix `1`, respectively.
+The preceding reference at `0xf073d` spells `SNA`; the following reference at
+`0xf0742` spells `ps`. Both pending spaces are suppressed, yielding the six
+display columns `SNA°ps`, not three separated words or a list item. Topic
+`23.3`, logical record 991, repeats `00 03 00` at `0xf0bd6` through `0xf0bd8`,
+between the same two words. Here `03` is a dictionary-reference value, not the
+dictionary literal byte `04` listed above. The native display-line boundary and
+the spacing prefixes distinguish this attached character from a bullet at the
+start of a list row; the glyph's shape alone does not determine its role.
+
 The mapping is not stored in the book. Reading a table page at
 `directory_page_number + (word >> 11)` — the page the table-selection formula
 above names — lands on dictionary data in `ACPZMST1`, `SC09-138`, `PRG1SORT`
