@@ -500,6 +500,14 @@ add_subdirectory(doc/boo-spec)
 
 enable_testing()
 
+if(APPLE AND TARGET geist-hardcopy)
+  add_test(NAME macos_reader_bundle_test
+    COMMAND ${CMAKE_COMMAND}
+      "-DGEIST_BUNDLE=$<TARGET_BUNDLE_DIR:geist-hardcopy>"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/gui/verify_macos_bundle.cmake"
+  )
+endif()
+
 # Only `packet.boo` may be redistributed, so it is the only BOO fixture in the
 # tree and it lives inside the published library (issue #59). Tests that need a
 # real container resolve it through GEIST_FIXTURE_DIR; a published `libgeist/`

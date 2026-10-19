@@ -91,6 +91,35 @@ if(WIN32)
   )
 endif()
 
+# Bundle the Qt frameworks, WebEngine helper, plugins, libgeist and its
+# libpng/giflib dependencies in the build-tree app before it is installed.
+if(APPLE)
+  get_target_property(_geist_qt_moc Qt6::moc IMPORTED_LOCATION)
+  get_filename_component(_geist_qt_bin "${_geist_qt_moc}" DIRECTORY)
+  find_program(GEIST_MACDEPLOYQT macdeployqt HINTS "${_geist_qt_bin}")
+  if(NOT GEIST_MACDEPLOYQT)
+    message(FATAL_ERROR
+      "macdeployqt not found; install Qt's deployment tools so the reader's "
+      "runtime can be deployed before testing and packaging."
+    )
+  endif()
+  add_custom_command(TARGET geist-hardcopy POST_BUILD
+    COMMAND "${GEIST_MACDEPLOYQT}" "$<TARGET_BUNDLE_DIR:geist-hardcopy>"
+      "-libpath=$<TARGET_FILE_DIR:geist>" -no-strip -always-overwrite
+    COMMAND ${CMAKE_COMMAND}
+      "-DGEIST_BUNDLE=$<TARGET_BUNDLE_DIR:geist-hardcopy>"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/fix_macos_framework_links.cmake"
+    # The WebEngine helper is an executable inside a framework. macdeployqt
+    # does not rewrite all of its framework references when scanning only the
+    # main executable, so deploy it as an additional executable too.
+    COMMAND "${GEIST_MACDEPLOYQT}" "$<TARGET_BUNDLE_DIR:geist-hardcopy>"
+      "-libpath=$<TARGET_FILE_DIR:geist>" -no-strip
+      "-executable=$<TARGET_BUNDLE_DIR:geist-hardcopy>/Contents/Frameworks/QtWebEngineCore.framework/Versions/A/Helpers/QtWebEngineProcess.app/Contents/MacOS/QtWebEngineProcess"
+    COMMENT "Deploying macOS reader runtime into geist-hardcopy.app"
+    VERBATIM
+  )
+endif()
+
 install(TARGETS geist-hardcopy
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
   BUNDLE DESTINATION "${CMAKE_INSTALL_BINDIR}"
