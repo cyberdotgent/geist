@@ -59,6 +59,16 @@ int main() {
           "probed directory page differs from open()");
   require(summary.directory.version_text == document.directory().version_text,
           "probed version text differs from open()");
+  require(summary.directory.extended_token_prefix ==
+              document.directory().extended_token_prefix,
+          "probed extended-token prefix differs from open()");
+  require(summary.directory.dictionary_text_parameter ==
+              document.directory().dictionary_text_parameter,
+          "probed dictionary text parameter differs from open()");
+  require(summary.directory.extended_token_prefix == 0xf0,
+          "fixture extended-token prefix was not read");
+  require(summary.directory.dictionary_text_parameter == 500,
+          "fixture dictionary text parameter was not read");
 
   // The fixture states these, so a probe returning empty strings that happen
   // to match an equally broken open() cannot pass the checks above.

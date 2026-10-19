@@ -42,6 +42,12 @@ int main(int argc, char** argv) {
     std::cout << "Token threshold: 0x" << std::hex
               << static_cast<unsigned>(directory.token_threshold) << std::dec
               << "\n";
+    std::cout << "Extended-token prefix: 0x" << std::hex
+              << static_cast<unsigned>(directory.extended_token_prefix)
+              << std::dec << "\n";
+    std::cout << "Dictionary text parameter: "
+              << directory.dictionary_text_parameter
+              << "\n";
 
     std::cout << "Book properties:\n";
     std::cout << "  Language: " << book.language << "\n";

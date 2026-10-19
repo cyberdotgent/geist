@@ -516,6 +516,7 @@ endfunction()
 # Purely synthetic tests: they build their own records and touch no BOO file.
 foreach(synthetic_test
     gdf_synthetic
+    container_prologue_synthetic
     logical_synthetic
     book_control_value_boundary_synthetic
     display_line_control_extent_synthetic

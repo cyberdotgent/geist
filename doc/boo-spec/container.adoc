@@ -155,7 +155,7 @@ marked as such, with the range observed across all 35 fixtures.
 
 |`0x0010` |4 |EBCDIC `" 1.2"` |EBCDIC `" 1.2"` |Directory format/version text.
 |`0x0014` |1 |`0xdc` |`0xd5` |Token threshold, as a byte. Identical to the word at `0x0024` in all 35 fixtures; either spelling may be read.
-|`0x0015` |1 |`0xf0` |`0xf0` |EBCDIC `0`. Constant in all 35 fixtures.
+|`0x0015` |1 |`0xf0` |`0xf0` |Extended-token prefix, according to reader-derived evidence for directory version 1.3; see <<container_version_variants_other_than_2>>. Constant in all 35 version-1.2 fixtures. Its numerical equality to EBCDIC `0` does not establish a text field.
 |`0x0016` |2 |`0x001e` / 30 |`0x0062` / 98 |Highest valid 1-based logical page number. For books whose directory is at physical page 1 this equals `file_page_count - 1`; shifted-directory fixtures show it is relative to the directory page.
 |`0x001a` |2 |`0x089c` |`0x089c` |In-page offset of the token-index page table. Constant `0x089c` because the directory-page region layout is fixed; the table it names is per-book. See <<container_the_token_index_page_table,The Token-Index Page Table>>.
 |`0x0022` |2 |`0x0c8c` |`0x0c8c` |In-page offset of the two-byte token map used for one-byte token IDs. The map holds `threshold` entries.
@@ -174,7 +174,7 @@ marked as such, with the range observed across all 35 fixtures.
 |`0x0040` |2 |`0x025c` / 604 |`0x025c` / 604 |In-page offset of the stemming table. See <<container_the_stemming_table,The Stemming Table>>.
 |`0x0042` |2 |`0x0000` |`0x0000` |Zero in all 35 fixtures. The stemming table carries its own count in its header rather than here, unlike the `0x003c`/`0x003e` pair.
 |`0x0044` |8 |EBCDIC `05/24/91` |EBCDIC `08/05/90` |Directory timestamp date, `MM/DD/YY`. The EBCDIC slash bytes always sit at offsets `0x0046` and `0x0049`, which makes the field self-checking.
-|`0x004c` |2 |`0x01f4` / 500 |`0x01f4` / 500 |Dictionary literal code page. `500` selects CP500, the table that maps compact dictionary literal bytes into 16-bit token words; see <<logical-controls_delta_operation_byte>>. Constant `500` in all 35 fixtures.
+|`0x004c` |2 |`0x01f4` / 500 |`0x01f4` / 500 |Dictionary text parameter, stored big-endian. In the observed version-1.2 books, `500` selects CP500, the table that maps compact dictionary literal bytes into 16-bit token words; see <<logical-controls_delta_operation_byte>>. Its use depends on directory version; see <<container_version_variants_other_than_2>>.
 |`0x004e` |8 |EBCDIC `07:51:22` |EBCDIC `10:38:16` |Directory timestamp time, `HH:MM:SS`.
 |`0x0056` |2 |`0x0000` |`0x0000` |Purpose unresolved. Zero in all 35 fixtures.
 |`0x0058` |2 |`0x0000` |`0x0000` |Purpose unresolved. Zero in all 35 fixtures.
@@ -346,13 +346,36 @@ of the 190-page file.
 All 35 fixtures carry EBCDIC `" 1.2"` at directory offset
 `0x0010`, so only directory variant 2 is exercised here.
 
-*Unverified hypothesis.* The trailing digit is an EBCDIC decimal digit, so
-other directory variants presumably exist and presumably extend the fixed-field
-region beyond offset `0x0060`, which is unused in variant-2 fixtures. No
-fixture in this repository and no hosted book observed so far uses another
-variant, so no other layout is documented here. An independent reader should
-reject a directory whose version byte is not EBCDIC `f2` rather than guess a
-layout.
+*Reader-derived evidence, not verified against files.* An independent
+reverse-engineering report of IBM Softcopy Reader,
+https://github.com/cyberdotgent/geist/issues/97[reported by IncredulousMonk],
+identifies explicit checks for these four directory version strings. Each
+starts with bytes `40 F1 4B` (EBCDIC `" 1."`); the fourth byte selects the
+following interpretation of the dictionary text parameter:
+
+[cols="12,12,76",options="header"]
+|===
+|Version |Fourth byte |Dictionary text selection reported from the reader
+|`1.0` |`F0` |Use text selector `0x015f` (351), independently of directory word `0x004c`; use format selector 1.
+|`1.1` |`F1` |Read directory word `0x004c`; substitute `0x015f` (351) when it is zero; use format selector 1.
+|`1.2` |`F2` |Read directory word `0x004c` without that substitution; use format selector 2. The observed files store `0x01f4` (500).
+|`1.3` |`F3` |Use text selector 1 and format selector 3, independently of directory word `0x004c`.
+|===
+
+The same report identifies byte `0x0015` as the prefix for an extended
+dictionary range used by version 1.3. With its reported value `F0`, the
+extended range starts at `0xF000`; conventional two-byte dictionary keys end
+at `0xEFFF`. The version-1.2 fixtures independently keep their dictionary
+keys below `0xF000`, but do not exercise the extended form. The report does
+not establish the complete extended-reference byte grammar, dictionary
+layout, or the interpretation of selector 351 or selector 1. In particular,
+Unicode text in version 1.3 is a hypothesis, not an established fact.
+
+Preserve the stored version, prefix and text parameter independently of
+their interpretation. Recognition of a version string does not establish
+support for its dictionary format. No complete layout or working decoding
+procedure is verified here for versions 1.0, 1.1 or 1.3; there is also no
+evidence that they necessarily extend the fixed fields beyond `0x0060`.
 
 [[container_logical_book_header_controls]]
 === Logical Book Header Controls
@@ -407,7 +430,7 @@ struct BooDirectoryPageV2 {
   uint8_t zero_000b[5];
   uint8_t version_text[4];            // EBCDIC " 1.2" in all 35 fixtures.
   uint8_t token_threshold;            // 0x0014; same value as scalar_0024_be.
-  uint8_t ebcdic_zero_digit;          // 0x0015, always 0xf0.
+  uint8_t extended_token_prefix;      // 0x0015; 0xf0 in observed files.
   uint16_t last_page_number_be;       // Last 1-based logical page number.
   uint8_t unknown_0018[2];            // 0x0000 in all 35 fixtures.
   uint16_t token_index_table_offset_be;  // 0x001a; always 0x089c.
@@ -429,7 +452,7 @@ struct BooDirectoryPageV2 {
   uint16_t stemming_table_offset_be;  // 0x0040; 0x025c in all 35 fixtures.
   uint8_t unknown_0042[2];            // 0x0000 in all 35 fixtures.
   uint8_t ebcdic_date[8];             // MM/DD/YY.
-  uint16_t dictionary_literal_codepage_be;  // 0x004c; 500 in all 35 fixtures.
+  uint16_t dictionary_text_parameter_be;  // 0x004c; 500 in all 35 fixtures.
   uint8_t ebcdic_time[8];             // HH:MM:SS.
   uint16_t scalar_0056_be;            // Zero in all 35 fixtures.
   uint16_t scalar_0058_be;            // Zero in all 35 fixtures.
@@ -488,9 +511,10 @@ two books differing in one known respect, would settle it.
 cannot say whether they are reserved or simply unused here. A book whose
 build differs — a different code page, a multi-volume shelf member — would
 show which of them are live.
-* No repository fixture uses a directory version other than `" 1.2"`, so other
-variants remain undocumented. An implementer should reject any other version
-byte rather than guess a layout.
+* No repository fixture uses a directory version other than `" 1.2"`.
+The reader-derived distinctions in <<container_version_variants_other_than_2>>
+need real files to establish their dictionary layouts, extended references
+and text encodings.
 * What the token-index pages hold per entry. Their framing, ordering and page
 table are documented in <<pages_the_trailing_0x0001_run_is_the_token_index>>;
 the per-token occurrence payload is not decoded. Nothing in topic rendering

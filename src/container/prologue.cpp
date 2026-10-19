@@ -81,6 +81,9 @@ ContainerPrologue read_container_prologue(
           "unexpected end of BOO file while reading text");
   result.directory.version_variant = bytes[directory_base + 0x0013];
   result.directory.token_threshold = bytes[directory_base + 0x0014];
+  result.directory.extended_token_prefix = bytes[directory_base + 0x0015];
+  result.directory.dictionary_text_parameter =
+      read_be16(bytes, directory_base + 0x004C);
   result.directory.last_page_number =
       read_be16(bytes, directory_base + 0x0016);
   result.directory.token_map_offset =

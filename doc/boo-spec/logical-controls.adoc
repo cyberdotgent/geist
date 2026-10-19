@@ -160,9 +160,16 @@ For the version-2 fixtures:
 fixtures), it is a one-byte token ID.
 . If the byte is at or above the threshold, read one following byte; the two
 bytes form a big-endian extended token reference.
-. A three-byte extended token reference form exists for directory version
-pass:[<literal>&#160;1.3</literal>] when the extended-token range is active. No repository fixture uses
-it, so it is recorded here as an unverified variant.
+
+*Unverified extension.* A three-byte extended-reference form has been
+reported for directory version pass:[<literal>&#160;1.3</literal>]. The
+independent reader-derived evidence in
+<<container_version_variants_other_than_2>> associates directory byte
+`0x0015` with the extended dictionary range: value `F0` reserves keys from
+`0xF000`, above the conventional two-byte dictionary range. No repository
+fixture exercises this extension, and its complete byte framing and key
+calculation are not established here. The two-byte procedure above is
+verified for version 1.2, not a complete version-1.3 decoding procedure.
 
 Token references stay individually addressable after this step: a decoder must
 keep each token's identity, assembled start column, and visible length, because
@@ -764,7 +771,7 @@ Literal words are read in one of two forms:
 |Dictionary text mode |Literal storage
 
 |16-bit dictionary text mode |Literal words are big-endian 16-bit values.
-|Single-byte dictionary text mode (all repository fixtures) |Literal bytes index the dictionary literal code-page table, producing 16-bit token words. For the repository fixtures that table is CP500, selected by directory word `0x004c` (`0x01f4`, decimal 500).
+|Single-byte dictionary text mode (all repository fixtures) |Literal bytes index the dictionary literal code-page table, producing 16-bit token words. For the repository version-1.2 fixtures that table is CP500, selected by directory word `0x004c` (`0x01f4`, decimal 500). The parameter's interpretation in other versions is reader-derived; see <<container_version_variants_other_than_2>>.
 |===
 
 The code-page table used for dictionary literals is not an output character

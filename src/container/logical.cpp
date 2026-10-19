@@ -51,6 +51,9 @@ std::uint32_t physical_page_for_logical(const BooDirectory& directory,
 TokenWords decode_dictionary_words(const std::vector<std::uint8_t>& bytes,
                                    std::size_t offset,
                                    std::size_t count) {
+  // The fixture-backed literal path is CP500. The raw directory text
+  // parameter is retained by the prologue, but alternate dictionary modes
+  // need real-book validation before they can select a different decoder.
   TokenWords output;
   output.reserve(count);
   for (std::size_t i = 0; i < count; ++i) {

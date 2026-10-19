@@ -28,6 +28,12 @@ struct BooDirectory {
   std::uint16_t secondary_table_offset = 0;
   std::string date;
   std::string time;
+  // Raw directory fields, preserved independently of their interpretation.
+  // The prefix's extended-reference role is reader-derived for version 1.3.
+  std::uint8_t extended_token_prefix = 0; // 0x0015; observed F0.
+  // Big-endian word at 0x004c; code page 500 in observed version-1.2 books.
+  // Preserve zero and other values, without applying version-specific defaults.
+  std::uint16_t dictionary_text_parameter = 0;
 };
 
 } // namespace geist
