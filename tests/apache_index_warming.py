@@ -159,6 +159,15 @@ def main():
         for directory in directories:
             directory.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(args.fixture, directory / "packet.boo")
+        # Keep a book whose first GDF object has an invalid extent outside the
+        # shelves. HEAD and a matching conditional request must answer from
+        # metadata without trying to decode that malformed object.
+        malformed = www / "off" / "packet.boo"
+        malformed_bytes = bytearray(malformed.read_bytes())
+        gdf_offset = 224714
+        assert malformed_bytes[gdf_offset:gdf_offset + 4] == bytes.fromhex("01120004")
+        malformed_bytes[gdf_offset + 4:gdf_offset + 20] = bytes(16)
+        malformed.write_bytes(malformed_bytes)
         if args.navigation_book:
             shutil.copyfile(args.navigation_book, www / "navigation.boo")
         (www / "off" / "ht" / ".htaccess").write_text("BooIndex On\n")
@@ -273,6 +282,14 @@ GeistCacheDir "{cache}"
                     etag = response.headers["ETag"]
                 base = f"http://127.0.0.1:{port}"
                 tags = check_http_cache(base)
+                malformed_object = "/off/packet.boo/object/1"
+                status, headers, body = fetch(base, malformed_object, method="HEAD")
+                assert status == 200 and not body
+                malformed_tag = headers["ETag"]
+                status, _, body = fetch(
+                    base, malformed_object, {"If-None-Match": malformed_tag})
+                assert status == 304 and not body
+                assert fetch(base, malformed_object)[0] == 404
                 check_navigation(base, "/packet.boo")
                 if args.navigation_book:
                     check_navigation(base, "/navigation.boo")

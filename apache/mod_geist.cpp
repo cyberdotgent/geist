@@ -661,6 +661,21 @@ void emit_tail(request_rec* r, const std::string& base, DirConfig* config) {
 // Routes
 // ---------------------------------------------------------------------------
 
+bool write_response(request_rec* r, const void* data, std::size_t size) {
+  constexpr std::size_t max_chunk = 1024u * 1024u;
+  auto* next = static_cast<const unsigned char*>(data);
+  while (size != 0) {
+    const auto chunk = std::min(size, max_chunk);
+    const int written = ap_rwrite(next, static_cast<int>(chunk), r);
+    if (written <= 0 || static_cast<std::size_t>(written) > chunk) {
+      return false;
+    }
+    next += written;
+    size -= static_cast<std::size_t>(written);
+  }
+  return true;
+}
+
 int serve_index(request_rec* r, Book& book, const std::string& base,
                 DirConfig* config) {
   ap_set_content_type(r, "text/html; charset=utf-8");
@@ -730,7 +745,9 @@ int serve_index(request_rec* r, Book& book, const std::string& base,
   if (contents != nullptr) {
     const auto options = render_options(r, book, base, "CONTENTS");
     const auto html = contents->html_fragment(options);
-    ap_rwrite(html.data(), static_cast<int>(html.size()), r);
+    if (!write_response(r, html.data(), html.size())) {
+      return HTTP_INTERNAL_SERVER_ERROR;
+    }
   }
 
   ap_rputs("</div>\n</main>\n</div>\n", r);
@@ -776,7 +793,9 @@ int serve_topic(request_rec* r, Book& book, const std::string& base,
              "<h1 class=\"geist-topic-head\">"
              "<span class=\"geist-topic-id\">%s</span>%s</h1>\n",
              esc(r, id), esc(r, title));
-  ap_rwrite(html.data(), static_cast<int>(html.size()), r);
+  if (!write_response(r, html.data(), html.size())) {
+    return HTTP_INTERNAL_SERVER_ERROR;
+  }
   ap_rputs("</div>\n</main>\n</div>\n", r);
   emit_tail(r, base, config);
   return OK;
@@ -796,16 +815,25 @@ int serve_object(request_rec* r, Book& book, const std::string& object_id) {
     return HTTP_NOT_FOUND;
   }
 
+  const bool stored_web_format =
+      found->stored_format.find('/') != std::string::npos;
+  const std::string content_type =
+      stored_web_format ? found->stored_format : "image/png";
+  ap_set_content_type(r, apr_pstrdup(r->pool, content_type.c_str()));
+  if (stored_web_format) {
+    ap_set_content_length(r, static_cast<apr_off_t>(found->size));
+  }
+  const int conditional = http_cache_conditions(r,
+      http_cache_key({http_renderer_identity(r, config_for(r)), book.identity}));
+  if (conditional != OK || r->header_only) return conditional;
+
   std::vector<std::uint8_t> bytes;
-  std::string content_type;
   try {
-    if (found->stored_format.find('/') != std::string::npos) {
+    if (stored_web_format) {
       // Already a web format: pass it through untouched.
       bytes = book.document->read_resource_data(object_id);
-      content_type = found->stored_format;
     } else {
       bytes = book.document->read_resource_png(object_id);
-      content_type = "image/png";
     }
   } catch (const std::exception& error) {
     ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r,
@@ -818,13 +846,10 @@ int serve_object(request_rec* r, Book& book, const std::string& object_id) {
     return HTTP_NOT_FOUND;
   }
 
-  ap_set_content_type(r, apr_pstrdup(r->pool, content_type.c_str()));
   ap_set_content_length(r, static_cast<apr_off_t>(bytes.size()));
-  const int conditional = http_cache_conditions(r,
-      http_cache_key({http_renderer_identity(r, config_for(r)), book.identity}));
-  if (conditional != OK || r->header_only) return conditional;
-  ap_rwrite(bytes.data(), static_cast<int>(bytes.size()), r);
-  return OK;
+  return write_response(r, bytes.data(), bytes.size())
+             ? OK
+             : HTTP_INTERNAL_SERVER_ERROR;
 }
 
 int serve_download(request_rec* r, DirConfig* config) {
@@ -881,8 +906,9 @@ int serve_asset(request_rec* r, const std::string& name) {
     const int conditional = http_cache_conditions(r,
         http_cache_key({asset.name, asset.content_type, asset.fingerprint}));
     if (conditional != OK || r->header_only) return conditional;
-    ap_rwrite(asset.data, static_cast<int>(asset.size), r);
-    return OK;
+    return write_response(r, asset.data, asset.size)
+               ? OK
+               : HTTP_INTERNAL_SERVER_ERROR;
   }
   return HTTP_NOT_FOUND;
 }
@@ -1149,30 +1175,30 @@ std::string render_shelf(request_rec* r, const std::string& heading,
 constexpr const char* kHandlerName = "geist-book";
 
 int geist_handler(request_rec* r) {
-  const bool named =
-      r->handler != nullptr && std::strcmp(r->handler, kHandlerName) == 0;
-  if (!named && !ends_with_boo(r->filename)) {
-    return DECLINED;
-  }
-  if (r->method_number != M_GET) {
-    return HTTP_METHOD_NOT_ALLOWED;
-  }
-
-  auto book = open_book(r);
-  if (book == nullptr) {
-    return DECLINED; // Not a book we can serve; let the core have it.
-  }
-
-  DirConfig* config = config_for(r);
-  const std::string base = base_uri(r);
-  std::string info(r->path_info != nullptr ? r->path_info : "");
-  while (!info.empty() && info.back() == '/') {
-    info.pop_back();
-  }
-
-  // Every entry point catches: an exception unwinding into httpd's C frames
-  // is undefined behaviour and would take the worker with it.
+  // Every C++ operation is covered: an exception unwinding into httpd's C
+  // frames is undefined behaviour and would take the worker with it.
   try {
+    const bool named =
+        r->handler != nullptr && std::strcmp(r->handler, kHandlerName) == 0;
+    if (!named && !ends_with_boo(r->filename)) {
+      return DECLINED;
+    }
+    if (r->method_number != M_GET) {
+      return HTTP_METHOD_NOT_ALLOWED;
+    }
+
+    auto book = open_book(r);
+    if (book == nullptr) {
+      return DECLINED; // Not a book we can serve; let the core have it.
+    }
+
+    DirConfig* config = config_for(r);
+    const std::string base = base_uri(r);
+    std::string info(r->path_info != nullptr ? r->path_info : "");
+    while (!info.empty() && info.back() == '/') {
+      info.pop_back();
+    }
+
     if (info.empty()) {
       return serve_index(r, *book, base, config);
     }
@@ -1304,8 +1330,12 @@ int geist_dir_handler(request_rec* r) {
       return conditional;
     }
     ap_set_content_length(r, static_cast<apr_off_t>(shelf->html.size()));
-    ap_rwrite(shelf->html.data(), static_cast<int>(shelf->html.size()), r);
-    return OK;
+    if (r->header_only) {
+      return OK;
+    }
+    return write_response(r, shelf->html.data(), shelf->html.size())
+               ? OK
+               : HTTP_INTERNAL_SERVER_ERROR;
   } catch (const std::exception& error) {
     ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "mod_geist: shelf: %s",
                   error.what());
