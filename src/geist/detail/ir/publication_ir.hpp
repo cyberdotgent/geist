@@ -41,7 +41,11 @@ struct PublicationCatalogIR {
 // run on the next record's leading text segment (a deferred entry origin).
 // The introduction is optional: a single-row title run yields title plus
 // entries, and introduction provenance exists exactly when the text does.
-// Font operand spelling and segment/run counts are not admission evidence.
+// Particular font operands and segment/run counts do not establish the
+// publication semantics of an entry.
+// The text-only paragraphs cannot represent native inline font spans: proven
+// CFONT instructions are admitted only with regular H0 spans. Richer styling
+// is left to a family that conserves its precise inline geometry.
 // Ambiguous or partially owned candidates fail closed and return no catalog.
 std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
     const std::vector<DecodedLogicalRecordSource>& records,

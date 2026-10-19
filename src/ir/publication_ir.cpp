@@ -261,6 +261,24 @@ void append_paragraph_text(PublicationParagraphIR& paragraph,
   paragraph.text += text;
 }
 
+bool native_font_instruction(const DecodedLogicalRecordSource& record,
+                             const ControlSegmentIR& segment) {
+  if (!record_framing_is_decided(record.ir) ||
+      is_display_line_length_opcode(record, segment) ||
+      is_display_line_embedded_opcode(record, segment))
+    return false;
+  const auto words =
+      decoded_byte_range_to_word_range(record.assembled, segment.opcode_range);
+  const auto tokens = source_tokens_intersecting_output(
+      record.assembled, words.begin, words.end);
+  if (tokens.empty()) return false;
+  const auto* line = display_line_of_token(record, tokens.front());
+  return line != nullptr && tokens.front() == line->prefix_token + 1 &&
+         std::all_of(tokens.begin(), tokens.end(), [&](const auto token) {
+           return token > line->prefix_token && token < line->token_end;
+         });
+}
+
 } // namespace
 
 std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
@@ -315,6 +333,16 @@ std::optional<PublicationCatalogIR> extract_publication_catalog_ir(
         // inline phrase rather than a block entry and fails the envelope.
         const auto spans = decode_font_control_spans(record, segment);
         if (!spans || spans->spans.empty()) return std::nullopt;
+        // This family represents paragraph text and entry geometry, not
+        // inline font spans. A genuine native instruction with any non-H0
+        // span therefore needs a richer family; accepting it here would
+        // silently erase both known presentation and unknown font semantics.
+        // Undecided legacy entry descriptors retain their compatibility rule;
+        // a length-byte spelling is not proof of an actual font instruction.
+        if (native_font_instruction(record, segment) &&
+            std::any_of(spans->spans.begin(), spans->spans.end(),
+                        [](const auto& span) { return span.code != "0"; }))
+          return std::nullopt;
         if (!entry_margin_column) {
           entry_margin_column = spans->spans.front().column;
         } else if (*entry_margin_column != spans->spans.front().column) {

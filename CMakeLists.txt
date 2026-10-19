@@ -537,6 +537,7 @@ foreach(synthetic_test
     layout_ir_synthetic
     ownership_ir_synthetic
     publication_document_lowering_synthetic
+    publication_font_conservation_synthetic
     document_ir_synthetic
     document_markdown_renderer_synthetic
     document_html_renderer_synthetic
