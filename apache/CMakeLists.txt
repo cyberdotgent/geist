@@ -47,8 +47,8 @@ add_custom_command(
 )
 
 find_package(Threads REQUIRED)
-add_library(mod_geist MODULE mod_geist.cpp index_warming.cpp shelf_index.cpp
-  shelf_snapshot.cpp cache_store.cpp "${GEIST_ASSET_HEADER}")
+add_library(mod_geist MODULE mod_geist.cpp http_cache.cpp index_warming.cpp
+  shelf_index.cpp shelf_snapshot.cpp cache_store.cpp "${GEIST_ASSET_HEADER}")
 target_link_libraries(mod_geist PRIVATE Threads::Threads)
 
 set_target_properties(mod_geist PROPERTIES

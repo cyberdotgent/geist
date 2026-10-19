@@ -36,6 +36,7 @@
 #include "assets.hpp"
 
 #include "config.hpp"
+#include "http_cache.hpp"
 #include "index_warming.hpp"
 #include "shelf_index.hpp"
 #include "geist/version.hpp"
@@ -83,8 +84,7 @@ using namespace geist_apache;
 // synchronisation, which is exactly what a threaded MPM needs.
 struct Book {
   std::unique_ptr<geist::BooDocument> document;
-  apr_time_t mtime = 0;
-  apr_off_t size = 0;
+  std::string identity;
 
   // Where a cross reference spelled in this book actually lands. Built once,
   // lazily, because harvesting it renders every topic.
@@ -130,7 +130,6 @@ std::unordered_map<std::string, std::shared_ptr<Book>>& cache() {
 struct Shelf {
   std::string signature; // what the directory looked like when this was built
   std::string html;
-  apr_time_t newest = 0; // newest book mtime, for Last-Modified
 };
 
 std::mutex& shelf_mutex() {
@@ -398,19 +397,22 @@ const char* theme_attribute(DirConfig* config) {
 // ---------------------------------------------------------------------------
 
 std::shared_ptr<Book> open_book(request_rec* r) {
-  apr_finfo_t info;
-  if (apr_stat(&info, r->filename, APR_FINFO_MIN, r->pool) != APR_SUCCESS ||
+  apr_finfo_t info{};
+  const auto status = apr_stat(&info, r->filename,
+      APR_FINFO_MIN | APR_FINFO_CTIME | APR_FINFO_IDENT, r->pool);
+  if ((status != APR_SUCCESS && status != APR_INCOMPLETE) ||
+      (info.valid & APR_FINFO_MIN) != APR_FINFO_MIN ||
       info.filetype != APR_REG) {
     return nullptr;
   }
 
   const std::string key(r->filename);
+  const auto identity = http_file_identity(info);
   {
     std::lock_guard<std::mutex> guard(cache_mutex());
     const auto found = cache().find(key);
     // A rebuilt book must not be served from a stale parse.
-    if (found != cache().end() && found->second->mtime == info.mtime &&
-        found->second->size == info.size) {
+    if (found != cache().end() && found->second->identity == identity) {
       return found->second;
     }
   }
@@ -424,8 +426,7 @@ std::shared_ptr<Book> open_book(request_rec* r) {
                   r->filename, error.what());
     return nullptr;
   }
-  book->mtime = info.mtime;
-  book->size = info.size;
+  book->identity = identity;
 
   std::lock_guard<std::mutex> guard(cache_mutex());
   cache()[key] = book;
@@ -512,6 +513,13 @@ geist::HtmlRenderOptions render_options(request_rec* r, Book& book,
   return options;
 }
 
+std::string asset_url(const std::string& base, const std::string& name) {
+  for (const auto& asset : geist_httpd::kEmbeddedAssets)
+    if (name == asset.name)
+      return base + "/asset/" + name + "?v=" + asset.fingerprint;
+  return base + "/asset/" + name;
+}
+
 void emit_head(request_rec* r, Book& book, const std::string& base,
                const std::string& title, DirConfig* config) {
   const auto& properties = book.document->book_properties();
@@ -524,28 +532,31 @@ void emit_head(request_rec* r, Book& book, const std::string& base,
              "<meta name=\"viewport\" content=\"width=device-width, "
              "initial-scale=1\">\n"
              "<title>%s</title>\n"
-             "<link rel=\"stylesheet\" href=\"%s/asset/book.css\">\n"
-             "<link rel=\"stylesheet\" href=\"%s/asset/geist.css\">\n"
-             "<link rel=\"icon\" href=\"%s/asset/icons/index.svg\">\n"
+             "<link rel=\"stylesheet\" href=\"%s\">\n"
+             "<link rel=\"stylesheet\" href=\"%s\">\n"
+             "<link rel=\"icon\" href=\"%s\">\n"
              "</head>\n<body>\n",
              theme_attribute(config),
              esc(r, title.empty() ? book_title : title + " - " + book_title),
-             base.c_str(), base.c_str(), base.c_str());
+             asset_url(base, "book.css").c_str(),
+             asset_url(base, "geist.css").c_str(),
+             asset_url(base, "icons/index.svg").c_str());
 }
 
 void emit_button(request_rec* r, const std::string& base, const char* icon,
                  const std::string& href, const char* label, bool enabled) {
+  const auto image = asset_url(base, std::string("icons/") + icon + ".svg");
   if (enabled) {
     ap_rprintf(r,
                "<a class=\"geist-btn\" href=\"%s\" title=\"%s\" "
-               "aria-label=\"%s\"><img src=\"%s/asset/icons/%s.svg\" alt=\"\">"
+               "aria-label=\"%s\"><img src=\"%s\" alt=\"\">"
                "</a>\n",
-               href.c_str(), label, label, base.c_str(), icon);
+               href.c_str(), label, label, image.c_str());
   } else {
     ap_rprintf(r,
                "<span class=\"geist-btn\" aria-disabled=\"true\" title=\"%s\">"
-               "<img src=\"%s/asset/icons/%s.svg\" alt=\"%s\"></span>\n",
-               label, base.c_str(), icon, label);
+               "<img src=\"%s\" alt=\"%s\"></span>\n",
+               label, image.c_str(), label);
   }
 }
 
@@ -639,8 +650,8 @@ void emit_tail(request_rec* r, const std::string& base, DirConfig* config) {
     ap_rprintf(r, "<footer class=\"geist-footer\">%s</footer>\n",
                esc(r, version_string()));
   }
-  ap_rprintf(r, "<script src=\"%s/asset/geist.js\"></script>\n</body>\n</html>\n",
-             base.c_str());
+  ap_rprintf(r, "<script src=\"%s\"></script>\n</body>\n</html>\n",
+             asset_url(base, "geist.js").c_str());
 }
 
 // ---------------------------------------------------------------------------
@@ -650,6 +661,9 @@ void emit_tail(request_rec* r, const std::string& base, DirConfig* config) {
 int serve_index(request_rec* r, Book& book, const std::string& base,
                 DirConfig* config) {
   ap_set_content_type(r, "text/html; charset=utf-8");
+  const int conditional = http_cache_conditions(r,
+      http_cache_key({http_renderer_identity(r, config), book.identity}));
+  if (conditional != OK || r->header_only) return conditional;
   emit_head(r, book, base, std::string(), config);
   emit_toolbar(r, book, base, std::string(), config);
   ap_rputs("<div class=\"geist-shell\">\n", r);
@@ -734,6 +748,11 @@ int serve_topic(request_rec* r, Book& book, const std::string& base,
     return HTTP_NOT_FOUND;
   }
 
+  ap_set_content_type(r, "text/html; charset=utf-8");
+  const int conditional = http_cache_conditions(r,
+      http_cache_key({http_renderer_identity(r, config), book.identity}));
+  if (conditional != OK || r->header_only) return conditional;
+
   const std::string id = entry != nullptr ? entry->id : topic->id;
   const std::string title = entry != nullptr ? entry->title : topic->title;
 
@@ -798,6 +817,9 @@ int serve_object(request_rec* r, Book& book, const std::string& object_id) {
 
   ap_set_content_type(r, apr_pstrdup(r->pool, content_type.c_str()));
   ap_set_content_length(r, static_cast<apr_off_t>(bytes.size()));
+  const int conditional = http_cache_conditions(r,
+      http_cache_key({http_renderer_identity(r, config_for(r)), book.identity}));
+  if (conditional != OK || r->header_only) return conditional;
   ap_rwrite(bytes.data(), static_cast<int>(bytes.size()), r);
   return OK;
 }
@@ -812,8 +834,11 @@ int serve_download(request_rec* r, DirConfig* config) {
                     r->pool) != APR_SUCCESS) {
     return HTTP_NOT_FOUND;
   }
-  apr_finfo_t info;
-  if (apr_stat(&info, r->filename, APR_FINFO_MIN, r->pool) != APR_SUCCESS) {
+  apr_finfo_t info{};
+  const auto status = apr_file_info_get(&info,
+      APR_FINFO_MIN | APR_FINFO_CTIME | APR_FINFO_IDENT, file);
+  if ((status != APR_SUCCESS && status != APR_INCOMPLETE) ||
+      (info.valid & APR_FINFO_MIN) != APR_FINFO_MIN) {
     apr_file_close(file);
     return HTTP_NOT_FOUND;
   }
@@ -825,6 +850,16 @@ int serve_download(request_rec* r, DirConfig* config) {
   ap_set_content_length(r, info.size);
   apr_table_setn(r->headers_out, "Content-Disposition",
                  apr_psprintf(r->pool, "attachment; filename=\"%s\"", name));
+
+  ap_update_mtime(r, info.mtime);
+  ap_set_last_modified(r);
+  const int conditional = http_cache_conditions(r,
+      http_cache_key({"boo-download", http_file_identity(info)}),
+      book_cache_policy, true);
+  if (conditional != OK || r->header_only) {
+    apr_file_close(file);
+    return conditional;
+  }
 
   apr_size_t sent = 0;
   ap_send_fd(file, r, 0, info.size, &sent);
@@ -840,8 +875,9 @@ int serve_asset(request_rec* r, const std::string& name) {
     }
     ap_set_content_type(r, asset.content_type);
     ap_set_content_length(r, static_cast<apr_off_t>(asset.size));
-    // Compiled in, so it only ever changes when the module does.
-    apr_table_setn(r->headers_out, "Cache-Control", "public, max-age=86400");
+    const int conditional = http_cache_conditions(r,
+        http_cache_key({asset.name, asset.content_type, asset.fingerprint}));
+    if (conditional != OK || r->header_only) return conditional;
     ap_rwrite(asset.data, static_cast<int>(asset.size), r);
     return OK;
   }
@@ -972,8 +1008,7 @@ std::string html_escape(const std::string& value) {
 // would make two children emit different ETags for identical bytes and set
 // any proxy in front of them thrashing.
 std::string shelf_signature(std::vector<ShelfFile> files,
-                            const apr_finfo_t* title_file,
-                            apr_time_t* newest) {
+                            const apr_finfo_t* title_file) {
   std::sort(files.begin(), files.end(),
             [](const ShelfFile& a, const ShelfFile& b) {
               return a.name < b.name;
@@ -987,9 +1022,7 @@ std::string shelf_signature(std::vector<ShelfFile> files,
     }
   };
 
-  apr_time_t latest = 0;
   for (const auto& file : files) {
-    latest = std::max(latest, file.mtime);
     fold(file.name.data(), file.name.size());
     fold(&file.mtime, sizeof(file.mtime));
     fold(&file.size, sizeof(file.size));
@@ -1002,9 +1035,6 @@ std::string shelf_signature(std::vector<ShelfFile> files,
   if (title_file != nullptr) {
     fold(&title_file->mtime, sizeof(title_file->mtime));
     fold(&title_file->size, sizeof(title_file->size));
-  }
-  if (newest != nullptr) {
-    *newest = latest;
   }
 
   char hex[32];
@@ -1214,9 +1244,11 @@ int geist_dir_handler(request_rec* r) {
                  r->pool) == APR_SUCCESS &&
         title_info.filetype == APR_REG;
 
-    apr_time_t newest = 0;
-    const auto signature =
-        shelf_signature(files, has_title ? &title_info : nullptr, &newest);
+    const auto heading = shelf_heading(
+        directory, r->uri != nullptr ? r->uri : "/", config);
+    const auto signature = http_cache_key({
+        shelf_signature(files, has_title ? &title_info : nullptr),
+        http_renderer_identity(r, config), heading});
 
     std::shared_ptr<Shelf> shelf;
     {
@@ -1243,10 +1275,6 @@ int geist_dir_handler(request_rec* r) {
       if (shelf == nullptr) {
         auto built = std::make_shared<Shelf>();
         built->signature = signature;
-        built->newest = newest;
-
-        const auto heading = shelf_heading(
-            directory, r->uri != nullptr ? r->uri : "/", config);
 
         built->html =
             render_shelf(r, heading, shelf_entries(r->server, r->pool, directory,
@@ -1267,14 +1295,8 @@ int geist_dir_handler(request_rec* r) {
     // operator who does want the shelf indexed can drop this header with
     // mod_headers.
     apr_table_setn(r->headers_out, "X-Robots-Tag", "noindex, nofollow");
-    // Derived from what is on disk, so every child process agrees.
-    apr_table_setn(r->headers_out, "ETag",
-                   apr_psprintf(r->pool, "\"%s\"", shelf->signature.c_str()));
-    if (shelf->newest > 0) {
-      ap_update_mtime(r, shelf->newest);
-      ap_set_last_modified(r);
-    }
-    const int conditional = ap_meets_conditions(r);
+    const int conditional = http_cache_conditions(r, shelf->signature,
+                                                  shelf_cache_policy);
     if (conditional != OK) {
       return conditional;
     }

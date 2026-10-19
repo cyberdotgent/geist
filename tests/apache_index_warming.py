@@ -2,9 +2,10 @@
 # Copyright 2026 Yvan Janssens
 # SPDX-License-Identifier: Apache-2.0
 
-"""Exercise the real MPM, background walk and persistent snapshots in /tmp."""
+"""Exercise HTTP caching, the real MPM and persistent snapshots in /tmp."""
 
 import argparse
+import hashlib
 import os
 from pathlib import Path
 import re
@@ -16,6 +17,67 @@ import subprocess
 import tempfile
 import time
 import urllib.request
+import urllib.error
+import urllib.parse
+
+
+def fetch(base, path, headers=None, method="GET"):
+    request = urllib.request.Request(base + path, headers=headers or {}, method=method)
+    try:
+        response = urllib.request.urlopen(request, timeout=15)
+    except urllib.error.HTTPError as response:
+        return response.code, response.headers, response.read()
+    with response:
+        return response.status, response.headers, response.read()
+
+
+def check_http_cache(base):
+    tags = {}
+    for path in ["/packet.boo", "/packet.boo/topic/1.3",
+                 "/packet.boo/object/1", "/packet.boo/download",
+                 "/packet.boo/asset/book.css", "/"]:
+        status, headers, body = fetch(base, path)
+        assert status == 200 and body, (path, status)
+        tag = headers.get("ETag")
+        assert tag and tag.startswith('W/"'), (path, headers)
+        assert "public" in headers["Cache-Control"]
+        assert "s-maxage=" in headers["Cache-Control"]
+        assert "no-cache" not in headers["Cache-Control"]
+        tags[path] = tag
+        status, conditional, body = fetch(base, path, {"If-None-Match": tag})
+        assert status == 304 and not body, (path, status)
+        assert conditional["ETag"] == tag
+        assert conditional["Cache-Control"] == headers["Cache-Control"]
+        assert fetch(base, path, {"If-None-Match": tag[2:]})[0] == 304
+        assert fetch(base, path, {"If-None-Match": tag}, method="HEAD")[0] == 304
+        assert fetch(base, path, {"If-None-Match": '"stale"'})[0] == 200
+        assert fetch(base, path, {"If-None-Match": '"stale", ' + tag})[0] == 304
+        assert fetch(base, path, {"If-None-Match": "*"})[0] == 304
+        failure, failed_headers, _ = fetch(base, path, {"If-Match": '"stale"'})
+        assert failure == 412 and "Cache-Control" not in failed_headers
+        head_status, head_headers, head_body = fetch(base, path, method="HEAD")
+        assert head_status == 200 and not head_body and head_headers["ETag"] == tag
+        if not path.endswith("/download"):
+            assert "Last-Modified" not in headers
+            assert fetch(base, path, {"If-Modified-Since": "Wed, 01 Jan 2031 00:00:00 GMT"})[0] == 200
+        else:
+            assert fetch(base, path, {"If-Modified-Since": headers["Last-Modified"]})[0] == 304
+        # A stale ETag must win over an apparently unchanged timestamp.
+        assert fetch(base, path, {"If-None-Match": '"stale"',
+                                 "If-Modified-Since": "Wed, 01 Jan 2031 00:00:00 GMT"})[0] == 200
+    assert len(set(tags.values())) == len(tags), tags
+    for path in ["/packet.boo/topic/absent", "/packet.boo/object/absent",
+                 "/packet.boo/asset/absent"]:
+        status, headers, _ = fetch(base, path, {"If-None-Match": "*"})
+        assert status == 404 and "ETag" not in headers, (path, status, headers)
+    status, _, html = fetch(base, "/packet.boo/topic/1.3")
+    assets = re.findall(r'(?:href|src)="([^"]+/asset/[^\"]+)"', html.decode())
+    assert assets and all("?v=" in url for url in assets), assets
+    for asset in assets:
+        status, _, content = fetch(base, asset)
+        fingerprint = urllib.parse.parse_qs(urllib.parse.urlsplit(asset).query)["v"][0]
+        assert status == 200 and hashlib.sha256(content).hexdigest() == fingerprint
+    return tags
 
 
 def wait_for(predicate, message, process, timeout=20):
@@ -178,6 +240,29 @@ GeistCacheDir "{cache}"
                     html = response.read().decode()
                     assert "packet.boo" in html and "Book Index" in html
                     etag = response.headers["ETag"]
+                base = f"http://127.0.0.1:{port}"
+                tags = check_http_cache(base)
+                assert "private" in fetch(base, "/packet.boo/topic/1.3",
+                    {"Authorization": "Bearer test"})[1]["Cache-Control"]
+                title = www / ".title"
+                title.write_text("Shelf A\n")
+                title_stamp = title.stat()
+                first_title_tag = fetch(base, "/")[1]["ETag"]
+                title.write_text("Shelf B\n")
+                os.utime(title, ns=(title_stamp.st_atime_ns, title_stamp.st_mtime_ns))
+                status, title_headers, title_body = fetch(base, "/")
+                assert status == 200 and b"Shelf B" in title_body
+                assert title_headers["ETag"] != first_title_tag
+                title.unlink()
+                overrides = www / ".htaccess"
+                overrides.write_text("GeistTheme dark\n")
+                for path in ["/packet.boo/topic/1.3", "/"]:
+                    status, changed_headers, changed_body = fetch(base, path)
+                    assert status == 200 and b'data-theme="dark"' in changed_body
+                    assert changed_headers["ETag"] != tags[path]
+                overrides.unlink()
+                for path in ["/packet.boo/topic/1.3", "/"]:
+                    assert fetch(base, path)[1]["ETag"] == tags[path]
                 stop()
                 previous_log = len(text())
                 process = start()
@@ -189,6 +274,7 @@ GeistCacheDir "{cache}"
                 assert before == {directory: path.stat().st_mtime_ns for directory, path in snapshots(cache).items()}
                 with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=10) as response:
                     assert response.headers["ETag"] == etag
+                assert fetch(base, "/packet.boo/topic/1.3")[1]["ETag"] == tags["/packet.boo/topic/1.3"]
                 previous_log = len(text())
                 process.send_signal(signal.SIGUSR1)
                 wait_for(lambda: text()[previous_log:].count("mod_geist: warmed") == 3,
@@ -206,6 +292,7 @@ GeistCacheDir "{cache}"
                 replacement.replace(original)
                 with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=10) as response:
                     assert response.headers["ETag"] != etag
+                assert fetch(base, "/packet.boo/topic/1.3")[1]["ETag"] != tags["/packet.boo/topic/1.3"]
                 stop()
                 # A corrupt disk snapshot causes one probe, with the other
                 # shelves still using their cached metadata.
@@ -218,16 +305,23 @@ GeistCacheDir "{cache}"
                 recovery = text()[previous_log:]
                 assert sum(map(int, re.findall(r"(\d+) probe\(s\)", recovery))) == 1, recovery
                 assert sum(map(int, re.findall(r"(\d+) disk hit\(s\)", recovery))) == book_count - 1, recovery
+                tags = {path: fetch(base, path)[1]["ETag"]
+                        for path in ["/packet.boo/topic/1.3", "/packet.boo", "/"]}
                 stop()
                 config.write_text(config.read_text().replace(
                     f'GeistCacheDir "{cache}"', f'GeistCacheDir "{root / "missing-cache"}"'))
+                config.write_text(config.read_text() + '\nGeistTheme dark\n')
                 previous_log = len(text())
                 process = start()
                 wait_for(lambda: "background warming skipped" in text()[previous_log:],
                          "unavailable cache did not degrade gracefully", process)
                 with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=10) as response:
                     assert response.status == 200 and b"packet.boo" in response.read()
-                print("automatic walk, exclusions, .htaccess, election, restart/reload reuse, corruption recovery and cache fallback passed")
+                for path in ["/packet.boo/topic/1.3", "/packet.boo", "/"]:
+                    status, headers, body = fetch(base, path)
+                    assert status == 200 and b'data-theme="dark"' in body
+                    assert headers["ETag"] != tags[path]
+                print("HTTP validators, asset fingerprints, config/file invalidation, automatic walk, exclusions, election, restart/reload reuse, corruption recovery and cache fallback passed")
             except Exception:
                 print(text())
                 print(console.read_text(errors="replace"))

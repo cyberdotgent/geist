@@ -67,6 +67,24 @@ a web format are served byte for byte under the media type the book itself
 records. The module links libgeist statically and compiles in its own CSS,
 JavaScript and icons, so there is one `.so` to deploy and nothing beside it.
 
+HTTP responses carry weak ETags for conditional GET and HEAD requests. Rendered
+book pages and objects include both the module and libgeist build revisions,
+the BOO file's modification time, size and available file identity, the route,
+and rendering settings. Shelf validators also include the directory's books and
+effective title. Embedded assets use content fingerprints, included in generated
+CSS, JavaScript and icon URLs. Raw downloads use the file identity and expose
+its `Last-Modified` date; derived responses omit that date because renderer or
+configuration changes can alter them without changing the book file.
+
+Book responses and assets are fresh for five minutes in browsers and one week
+in shared caches (`public, max-age=300, s-maxage=604800`). Shelves use one minute
+and five minutes respectively. Authenticated requests receive a private cache
+policy. After freshness expires, a matching ETag receives `304 Not Modified`.
+An update does not evict still-fresh responses: deployment may require a proxy
+purge for immediate visibility, and browser responses can remain fresh for five
+minutes. The persistent metadata cache described below is separate from HTTP
+caching.
+
 Needs httpd's build toolchain; see
 [Building and installing](#building-and-installing). Installing enables it:
 the module lands in httpd's module directory and a `geist.load`/`geist.conf`

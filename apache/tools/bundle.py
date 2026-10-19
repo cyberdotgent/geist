@@ -9,7 +9,9 @@ Apache and nothing else has to be deployed, versioned or made readable.
 
 Usage: bundle.py <output header> <asset dir>
 """
-import sys, pathlib
+import hashlib
+import pathlib
+import sys
 
 TYPES = {
     '.css': 'text/css; charset=utf-8',
@@ -42,6 +44,7 @@ def main(out_path: str, asset_dir: str) -> int:
         '  const char* content_type;',
         '  const unsigned char* data;',
         '  std::size_t size;',
+        '  const char* fingerprint;',
         '};',
         '',
     ]
@@ -54,15 +57,20 @@ def main(out_path: str, asset_dir: str) -> int:
         body = ','.join(str(b) for b in blob)
         lines.append(f'// {name} ({len(blob)} bytes)')
         lines.append(f'inline constexpr unsigned char kAsset{index}[] = {{{body}}};')
-        entries.append((name, ctype, f'kAsset{index}', len(blob)))
+        fingerprint = hashlib.sha256(blob).hexdigest()
+        entries.append((name, ctype, f'kAsset{index}', len(blob), fingerprint))
     lines.append('')
 
     lines.append('inline constexpr EmbeddedAsset kEmbeddedAssets[] = {')
-    for name, ctype, symbol, size in entries:
-        lines.append(f'    {{"{name}", "{ctype}", {symbol}, {size}}},')
+    for name, ctype, symbol, size, fingerprint in entries:
+        lines.append(f'    {{"{name}", "{ctype}", {symbol}, {size}, "{fingerprint}"}},')
     lines.append('};')
     lines.append('')
     lines.append(f'inline constexpr std::size_t kEmbeddedAssetCount = {len(entries)};')
+    manifest = [(name, ctype, fingerprint)
+                for name, ctype, _, _, fingerprint in entries]
+    revision = hashlib.sha256(repr(manifest).encode('utf-8')).hexdigest()
+    lines.append(f'inline constexpr const char* kAssetRevision = "{revision}";')
     lines.append('')
     lines.append('} // namespace geist_httpd')
     lines.append('')
@@ -70,7 +78,7 @@ def main(out_path: str, asset_dir: str) -> int:
     out = pathlib.Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text('\n'.join(lines))
-    total = sum(size for _, _, _, size in entries)
+    total = sum(size for _, _, _, size, _ in entries)
     print(f'bundle.py: embedded {len(entries)} assets, {total} bytes -> {out}')
     return 0
 
