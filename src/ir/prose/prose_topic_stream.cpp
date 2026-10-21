@@ -82,12 +82,13 @@ bool is_row_control_slot(const std::vector<DecodedLogicalRecordSource>& records,
 }
 
 std::string word_text(std::uint16_t word) {
-  if (word == unmapped_word) return "?";
-  // Keep text and provenance byte offsets in the same display encoding.
-  // U+2666 occupies one source/display column, but its hosted projection is
-  // U+00B0 (two UTF-8 bytes), including when attached inside a prose word.
-  if (word == bullet_glyph_word) return figure_display_glyph(word);
-  return token_words_to_ascii({word});
+  // This is the one displayed-text projection used for ordinary prose cells,
+  // native rows and the byte offsets in source claims. A glyph still occupies
+  // one layout column, but its rendered spelling can occupy several UTF-8
+  // bytes (U+2192 is three, U+2666 projects to the two-byte degree sign).
+  // Keeping body_text() on this same projection lets the verifier measure a
+  // partial token claim in the encoding that its inline actually carries.
+  return figure_display_glyph(word);
 }
 
 std::string body_text(const TokenView& view) {

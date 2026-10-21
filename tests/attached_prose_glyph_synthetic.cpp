@@ -217,7 +217,7 @@ void native_drawing_region() {
   b.line({w("cfont"), w("4"), w("5"), w("P")});
   b.line({w("cselect"), w("4"), w("5"), w("TARGET")});
   b.line({{2, '0'}, w("  "), {2, 0x2502},
-          {1, 'L', 'A', 'B', 'E', 'L'}, {0x2502},
+          {1, 'L', 'A', 0x2192, 'E', 'L'}, {0x2502},
           w("tail")});
   b.line({w("   "), {0x251c, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500,
                       0x2500, 0x2524}});
@@ -233,6 +233,7 @@ void native_drawing_region() {
   const auto html = render_document_html_fragment(*doc);
   check(html.find("<pre") != std::string::npos &&
             html.find("0  |") != std::string::npos &&
+            html.find("LA→EL") != std::string::npos &&
             html.find("| tail") != std::string::npos &&
             html.find("\n\n   |") != std::string::npos,
         "native drawing rows were not composed exactly: " + html);
@@ -240,6 +241,13 @@ void native_drawing_region() {
         "native drawing font was lost: " + html);
   check(html.find("href=\"#TARGET\"") != std::string::npos,
         "native drawing selector was lost: " + html);
+  const auto markdown = render_document_markdown(*doc);
+  check(markdown.find("<pre") != std::string::npos &&
+            markdown.find("LA→EL") != std::string::npos &&
+            markdown.find("href=\"#TARGET\"") != std::string::npos &&
+            markdown.find("geist-monospace") != std::string::npos &&
+            markdown.find("\n\n   |") != std::string::npos,
+        "native drawing UTF-8 glyph changed in Markdown: " + markdown);
 }
 void unclosed_native_drawing() {
   Builder b(false);
