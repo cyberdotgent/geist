@@ -18,7 +18,7 @@ def verify(app):
     if not binaries:
         raise ValueError("No Mach-O executable in bundle")
     for path in binaries:
-        subprocess.run(["lipo", "-verify_arch", "arm64", "x86_64", str(path)], check=True)
+        subprocess.run(["lipo", str(path), "-verify_arch", "arm64", "x86_64"], check=True)
         for arch in ("arm64", "x86_64"):
             commands = subprocess.check_output(["otool", "-arch", arch, "-l", str(path)], text=True)
             minimums = re.findall(r"\bminos\s+(\d+(?:\.\d+)*)", commands)

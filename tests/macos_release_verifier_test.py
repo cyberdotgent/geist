@@ -34,7 +34,9 @@ class VerifyRelease(unittest.TestCase):
                 if missing_slice:
                     run.side_effect = subprocess.CalledProcessError(1, "lipo")
                 verifier.verify(app)
-                self.assertEqual(run.call_args.args[0][1:4],
+                # -verify_arch consumes the remaining arguments as architecture
+                # names, so lipo requires its input file before that option.
+                self.assertEqual(run.call_args.args[0][2:],
                                  ["-verify_arch", "arm64", "x86_64"])
 
     def test_ventura(self):

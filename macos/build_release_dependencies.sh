@@ -34,5 +34,5 @@ cmp "$scratch/png-arm64/pnglibconf.h" "$scratch/png-x86_64/pnglibconf.h"
 cp "$scratch/libpng-1.6.59/png.h" "$scratch/libpng-1.6.59/pngconf.h" "$scratch/png-arm64/pnglibconf.h" "$scratch/gif-arm64/gif_lib.h" "$prefix/include/"
 cp "$scratch/libpng-1.6.59/LICENSE" "$prefix/licenses/libpng.txt"
 cp "$scratch/gif-arm64/COPYING" "$prefix/licenses/giflib.txt"
-lipo -verify_arch arm64 x86_64 "$prefix/lib/libpng16.a"
-lipo -verify_arch arm64 x86_64 "$prefix/lib/libgif.a"
+lipo "$prefix/lib/libpng16.a" -verify_arch arm64 x86_64
+lipo "$prefix/lib/libgif.a" -verify_arch arm64 x86_64
