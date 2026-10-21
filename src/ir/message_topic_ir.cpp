@@ -674,6 +674,19 @@ bool message_catalog_candidate_is_consistent(
   const auto check_paragraph = [&](const MessageParagraphIR &paragraph) {
     std::string semantic_text;
     for (const auto &row : paragraph.semantic_rows) {
+      // A record-prefix row has no physical row; the catalog verifier has
+      // already re-derived it from the record's framing.
+      if (message_record_prefix_row(catalog, row.source_row) != nullptr &&
+          row.marker_disposition == MessageMarkerDispositionIR::absent &&
+          !row.terminal_layout_token && row.leading_source_slices.empty() &&
+          row.trailing_source_slices.empty()) {
+        if (!row.text.empty()) {
+          if (!semantic_text.empty())
+            semantic_text.push_back(' ');
+          semantic_text += row.text;
+        }
+        continue;
+      }
       const auto *physical = physical_row(row.source_row);
       if (physical == nullptr)
         return false;

@@ -9,6 +9,7 @@
 #include <cctype>
 #include <iterator>
 #include <map>
+#include <memory>
 #include <set>
 #include <sstream>
 #include <tuple>
@@ -25,7 +26,58 @@ struct RowView {
   const PhysicalRowIR *physical = nullptr;
   const MessageSemanticRowIR *semantic = nullptr;
   std::vector<const PositionedRowCellIR *> cells;
+  // A record-prefix row has no layout row or ownership cells; the view owns
+  // the equivalents built from the catalog's verified prefix row.
+  std::shared_ptr<const PhysicalRowIR> owned_physical;
+  std::shared_ptr<const std::vector<PositionedRowCellIR>> owned_cells;
 };
+
+// The positioned cells a record-prefix row contributes, in the form
+// ownership gives a physical row's drawn cells.
+std::vector<PositionedRowCellIR>
+record_prefix_cells(const MessageRecordPrefixRowIR &prefix,
+                    const MessageSourceRowIR &source) {
+  std::vector<PositionedRowCellIR> cells;
+  for (const auto &cell : prefix.cells) {
+    PositionedRowCellIR positioned;
+    positioned.run = source.first;
+    positioned.row_index = source.second;
+    positioned.logical_record = prefix.logical_record;
+    positioned.token_index = cell.token_index;
+    positioned.word_index = cell.word_index;
+    positioned.word = cell.word;
+    positioned.role = RowCellRole::content;
+    positioned.display_column = cell.display_column;
+    positioned.field_role = SourceFieldRole::positioned;
+    cells.push_back(positioned);
+  }
+  return cells;
+}
+
+RowView record_prefix_view(const MessageRecordPrefixRowIR &prefix,
+                           const MessageSourceRowIR &source,
+                           const MessageSemanticRowIR &semantic) {
+  auto physical = std::make_shared<PhysicalRowIR>();
+  physical->run = source.first;
+  physical->logical_record = prefix.logical_record;
+  physical->segment_index = prefix.segment_index;
+  physical->token_begin = prefix.prefix_token;
+  physical->token_end = prefix.content.token_end;
+  physical->native_origin = prefix.origin_column;
+  physical->start = PhysicalRowStartKind::control_payload;
+  physical->visible_text = prefix.visible_text;
+  auto cells = std::make_shared<const std::vector<PositionedRowCellIR>>(
+      record_prefix_cells(prefix, source));
+  RowView view;
+  view.source = source;
+  view.physical = physical.get();
+  view.semantic = &semantic;
+  for (const auto &cell : *cells)
+    view.cells.push_back(&cell);
+  view.owned_physical = std::move(physical);
+  view.owned_cells = std::move(cells);
+  return view;
+}
 
 MessageStructuredSourceCellIR source_cell(const PositionedRowCellIR &cell) {
   return {cell.logical_record, cell.token_index, cell.word_index,
@@ -93,6 +145,7 @@ std::optional<std::size_t> first_content_column(const RowView &row) {
 
 std::vector<RowView> section_rows(const LayoutIR &layout,
                                   const OwnershipIR &ownership,
+                                  const MessageCatalogIR &catalog,
                                   const MessageSectionIR &section) {
   std::map<MessageSourceRowIR, const PhysicalRowIR *> physical;
   for (const auto &run : layout.runs)
@@ -108,6 +161,12 @@ std::vector<RowView> section_rows(const LayoutIR &layout,
     for (const auto &semantic : paragraph.semantic_rows) {
       if (!seen.insert(semantic.source_row).second)
         continue;
+      if (const auto *prefix =
+              message_record_prefix_row(catalog, semantic.source_row)) {
+        result.push_back(
+            record_prefix_view(*prefix, semantic.source_row, semantic));
+        continue;
+      }
       const auto found = physical.find(semantic.source_row);
       const auto owned = cells.find(semantic.source_row);
       if (found == physical.end() || owned == cells.end())
@@ -411,6 +470,90 @@ hanging_list(const std::vector<RowView> &rows) {
   return list;
 }
 
+// SC31-711 5.0 message 508's `Application` / `Action` listing.  Like the
+// `Command type` listing above, the two fixed columns prove the region and
+// the block renders the display rows as hosted prints them, one per line
+// inside the topic's `<pre width="80">`, with no `<table>` (DT
+// 19941010174546).  Every row after the header either opens an application
+// key at the header's first column -- its action at the header's second
+// column -- or continues the previous action at that second column.  The
+// `SNMP Trap` key row is record 231's record-prefix row.
+std::optional<MessageStructuredTableBlockIR>
+application_table(const std::vector<RowView> &rows) {
+  auto header = rows.end();
+  WideSplit header_split;
+  for (auto row = rows.begin(); row != rows.end(); ++row) {
+    const auto split = wide_split(row->physical->visible_text, 2);
+    if (split && ascii_equals_case_insensitive(split->left, "Application") &&
+        ascii_equals_case_insensitive(split->right, "Action")) {
+      header = row;
+      header_split = *split;
+      break;
+    }
+  }
+  if (header == rows.end())
+    return std::nullopt;
+  const auto header_first = first_content_column(*header);
+  if (!header_first)
+    return std::nullopt;
+  const auto header_second = *header_first + header_split.second_text;
+  const auto header_text = split_semantic_text(*header, header_split.left);
+  if (!header_text || header_text->second != header_split.right)
+    return std::nullopt;
+
+  MessageStructuredTableBlockIR table;
+  assign_row_cells(*header, header_second, table.header, false);
+  table.header.cells[0].column = 0;
+  table.header.cells[1].column = header_split.second_text;
+  table.header.cells[0].text = header_text->first;
+  table.header.cells[1].text = header_text->second;
+  const auto append_line = [&](const RowView &row, const std::string &text) {
+    MessageStructuredPreformattedLineIR line;
+    line.text = compact(text);
+    line.source_row = row.source;
+    for (const auto *cell : row.cells)
+      line.source_cells.push_back(source_cell(*cell));
+    if (!line.text.empty() && !line.source_cells.empty())
+      table.lines.push_back(std::move(line));
+  };
+  append_line(*header, header_text->first + ' ' + header_text->second);
+
+  // Rows are classified by the column the display draws them at -- the
+  // row's native origin -- because the cell columns of a font-payload row
+  // and of a marker-started row count from different starts.
+  for (auto row = std::next(header); row != rows.end(); ++row) {
+    const auto first = first_content_column(*row);
+    if (!first)
+      return std::nullopt;
+    const auto split = wide_split(row->physical->visible_text, 2);
+    const auto key_row =
+        row->physical->native_origin == header->physical->native_origin &&
+        split && split->second_text == header_split.second_text;
+    if (!key_row) {
+      if (table.rows.empty() ||
+          row->physical->native_origin == header->physical->native_origin)
+        return std::nullopt;
+      append_continuation(*row, table.rows.back());
+      append_line(*row, row->semantic->text);
+      continue;
+    }
+    const auto text = split_semantic_text(*row, split->left);
+    if (!text || text->second.empty())
+      return std::nullopt;
+    MessageStructuredTableRowIR item;
+    assign_row_cells(*row, *first + split->second_text, item, false);
+    item.cells[0].column = 0;
+    item.cells[1].column = split->second_text;
+    item.cells[0].text = text->first;
+    item.cells[1].text = text->second;
+    table.rows.push_back(std::move(item));
+    append_line(*row, text->first + ' ' + text->second);
+  }
+  if (table.rows.empty())
+    return std::nullopt;
+  return table;
+}
+
 std::optional<MessageStructuredPreformattedBlockIR>
 application_table_fallback(const std::vector<RowView> &rows,
                            const MessageSectionIR &section) {
@@ -547,10 +690,13 @@ extract_message_section_blocks_ir(const LayoutIR &layout,
     for (std::size_t section_index = 0; section_index < entry.sections.size();
          ++section_index) {
       const auto &section = entry.sections[section_index];
-      const auto rows = section_rows(layout, ownership, section);
+      const auto rows = section_rows(layout, ownership, catalog, section);
       if (rows.empty())
         continue;
       if (auto table = command_table(rows)) {
+        result.blocks.push_back(
+            {entry_index, section_index, std::move(*table)});
+      } else if (auto table = application_table(rows)) {
         result.blocks.push_back(
             {entry_index, section_index, std::move(*table)});
       } else if (auto list = hanging_list(rows)) {
@@ -584,6 +730,18 @@ bool verify_message_section_blocks_ir(const LayoutIR &layout,
   std::map<CellKey, const PositionedRowCellIR *> owned;
   for (const auto &cell : ownership.row_cells)
     owned[key(cell)] = &cell;
+  // A record-prefix row's cells are proven by the verified catalog, not by
+  // layout ownership; no physical row owns any of them.
+  std::vector<PositionedRowCellIR> prefix_cells;
+  for (std::size_t index = 0; index < catalog.record_prefix_rows.size();
+       ++index) {
+    const auto cells = record_prefix_cells(
+        catalog.record_prefix_rows[index], {message_record_prefix_run, index});
+    prefix_cells.insert(prefix_cells.end(), cells.begin(), cells.end());
+  }
+  for (const auto &cell : prefix_cells)
+    if (!owned.emplace(key(cell), &cell).second)
+      return fail("record-prefix cell is also owned by a physical row");
   std::set<CellKey> globally_claimed;
   for (const auto &block : blocks.blocks) {
     if (block.entry_index >= catalog.entries.size() ||

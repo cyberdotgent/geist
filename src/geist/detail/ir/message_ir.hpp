@@ -140,10 +140,80 @@ struct MessageEntryIR {
   std::vector<MessageSourceRowIR> suppressed_source_rows;
 };
 
+// A record's first display line that the compatibility layout leaves without
+// a physical row.  Its length byte and its origin run both spell blanks, so
+// the record's leading text segment opens on the line's first drawn word and
+// no marker/origin pair is left inside the segment to start a row.  The
+// record's own display-line framing still proves the row: SC31-711 record 231
+// line 0 is the length byte 0x12 (token 0, eighteen blanks), the 13-blank
+// origin run (token 1) and `SNMP Trap    Verify that AIX NetView/6000 is
+// running properly.` (tokens [2,17)); hosted BookServer prints it as its own
+// row at column 13 (5.0, DT 19941010174546).
+//
+// A paragraph built from one carries a single semantic row whose source row
+// is `{message_record_prefix_run, index}`: `index` addresses
+// `MessageCatalogIR::record_prefix_rows`.  Layout run IDs start at 1, so run
+// 0 never names a physical row.
+inline constexpr DisplayRunId message_record_prefix_run = 0;
+
+// One drawn cell of a record-prefix row, positioned exactly as ownership
+// positions a physical row's cells: columns count decoded words from the
+// origin run's first word.
+struct MessageRecordPrefixCellIR {
+  std::size_t token_index = 0;
+  std::size_t word_index = 0;
+  std::uint16_t word = 0;
+  std::size_t display_column = 0;
+};
+
+inline bool operator==(const MessageRecordPrefixCellIR &left,
+                       const MessageRecordPrefixCellIR &right) {
+  return left.token_index == right.token_index &&
+         left.word_index == right.word_index && left.word == right.word &&
+         left.display_column == right.display_column;
+}
+
+struct MessageRecordPrefixRowIR {
+  std::uint32_t logical_record = 0;
+  std::size_t segment_index = 0;
+  // The line's length byte: the record's first token.
+  std::size_t prefix_token = 0;
+  EncodedLogicalToken prefix_encoded;
+  SourceByteRange prefix_bytes;
+  // The blank origin run that places the row on the display.
+  std::size_t origin_token = 0;
+  std::size_t origin_column = 0;
+  // The drawn tokens, from the first word to the line's framing end.
+  DocumentSourceSliceIR content;
+  std::vector<MessageRecordPrefixCellIR> cells;
+  // The row as drawn from its origin column, interior spacing kept.
+  std::string visible_text;
+};
+
+inline bool operator==(const MessageRecordPrefixRowIR &left,
+                       const MessageRecordPrefixRowIR &right) {
+  return left.logical_record == right.logical_record &&
+         left.segment_index == right.segment_index &&
+         left.prefix_token == right.prefix_token &&
+         left.prefix_encoded == right.prefix_encoded &&
+         left.prefix_bytes.begin == right.prefix_bytes.begin &&
+         left.prefix_bytes.end == right.prefix_bytes.end &&
+         left.origin_token == right.origin_token &&
+         left.origin_column == right.origin_column &&
+         left.content == right.content && left.cells == right.cells &&
+         left.visible_text == right.visible_text;
+}
+
 struct MessageCatalogIR {
   std::vector<MessageSectionBoundaryIR> boundaries;
   std::vector<MessageEntryIR> entries;
+  std::vector<MessageRecordPrefixRowIR> record_prefix_rows;
 };
+
+// The record-prefix row a semantic row addresses, or null for a physical row.
+const MessageRecordPrefixRowIR *
+message_record_prefix_row(const MessageCatalogIR &catalog,
+                          const MessageSourceRowIR &source);
 
 std::optional<MessageCatalogIR> extract_message_catalog_ir(
     const std::vector<DecodedLogicalRecordSource> &records,

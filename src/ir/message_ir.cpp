@@ -4,6 +4,7 @@
 #include "geist/detail/ir/message_ir.hpp"
 
 #include "geist/detail/core/internal.hpp"
+#include "geist/detail/layout/display_lines.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -900,6 +901,105 @@ opaque_segment_fragments(const DecodedLogicalRecordSource &record,
   return result;
 }
 
+// The record's first display line as a record-prefix row, when the
+// compatibility layout left it without one (see MessageRecordPrefixRowIR).
+// Every condition is the record's own framing: the line opens the record,
+// its length byte and its origin run both spell blanks, the leading text
+// segment opens exactly on the line's first drawn word and reaches the
+// line's end, and no physical row owns any cell of the line.
+std::optional<MessageRecordPrefixRowIR>
+record_prefix_row(const DecodedLogicalRecordSource &record,
+                  const MessageOwnershipIndex &ownership,
+                  const ControlSegmentIR &segment) {
+  if (segment.kind != BookControlKind::text || segment.segment_index != 0 ||
+      segment.source_tokens.empty())
+    return std::nullopt;
+  const auto *lines = record_display_lines(record);
+  if (lines == nullptr || lines->empty())
+    return std::nullopt;
+  const auto &line = lines->front();
+  const auto prefix = line.prefix_token;
+  const auto origin = prefix + 1;
+  if (prefix != 0 || origin >= line.token_end ||
+      line.token_end > record.tokens.size() ||
+      line.token_end > record.ir.tokens.size() ||
+      record.ir.tokens[prefix].encoded.width != 1 ||
+      !all_space_words(record.tokens[prefix]) ||
+      !all_space_words(record.tokens[origin]))
+    return std::nullopt;
+  auto content = origin;
+  while (content < line.token_end && all_space_words(record.tokens[content]))
+    ++content;
+  if (content == line.token_end || content != segment.source_tokens.front() ||
+      line.token_end > segment.source_tokens.back() + 1)
+    return std::nullopt;
+  for (auto token = prefix; token < line.token_end; ++token)
+    for (std::size_t word = 0; word < record.tokens[token].size(); ++word) {
+      const auto found =
+          ownership.cells.find({record.logical_record, token, word});
+      if (found == ownership.cells.end() || found->second->run != 0)
+        return std::nullopt;
+    }
+
+  MessageRecordPrefixRowIR row;
+  row.logical_record = record.logical_record;
+  row.segment_index = segment.segment_index;
+  row.prefix_token = prefix;
+  row.prefix_encoded = record.ir.tokens[prefix].encoded;
+  row.prefix_bytes = record.ir.tokens[prefix].byte_range;
+  row.origin_token = origin;
+  row.origin_column = record.tokens[origin].size();
+  row.content = {record.logical_record,
+                 segment.segment_index,
+                 content,
+                 line.token_end,
+                 record.ir.tokens[content].byte_range.begin,
+                 record.ir.tokens[line.token_end - 1].byte_range.end};
+  // Columns count every decoded word from the origin run's first word, the
+  // rule ownership applies to a physical row; a control word advances the
+  // column but is not a drawn cell.
+  bool started = false;
+  std::size_t column = 0;
+  for (const auto &source : record.assembled.sources) {
+    if (!started) {
+      started = source.kind == LogicalWordSourceKind::token_word &&
+                source.token_index == origin && source.word_index == 0;
+      if (!started)
+        continue;
+    }
+    if (source.kind == LogicalWordSourceKind::token_word &&
+        source.token_index >= line.token_end)
+      break;
+    if (source.kind == LogicalWordSourceKind::token_word &&
+        source.token_index >= content &&
+        !structural_padding_token(record.ir.tokens[source.token_index])) {
+      const auto word =
+          record.tokens[source.token_index][source.word_index];
+      const auto duplicate = std::any_of(
+          row.cells.begin(), row.cells.end(), [&](const auto &cell) {
+            return cell.token_index == source.token_index &&
+                   cell.word_index == source.word_index;
+          });
+      if (!(source.word_index == 0 && word < 4) && !duplicate)
+        row.cells.push_back(
+            {source.token_index, source.word_index, word, column});
+    }
+    ++column;
+  }
+  if (row.cells.empty())
+    return std::nullopt;
+  std::vector<TokenWords> drawn(
+      record.tokens.begin() + static_cast<std::ptrdiff_t>(origin),
+      record.tokens.begin() + static_cast<std::ptrdiff_t>(line.token_end));
+  auto text = token_words_to_ascii(assemble_logical_record(drawn));
+  if (text.size() >= row.origin_column)
+    text.erase(0, row.origin_column);
+  row.visible_text = trim_ascii(std::move(text));
+  if (row.visible_text.empty())
+    return std::nullopt;
+  return row;
+}
+
 std::string complete_segment_text(const DecodedLogicalRecordSource &record,
                                   const ControlSegmentIR &segment,
                                   DocumentSourceSliceIR *source_slice) {
@@ -1756,6 +1856,73 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
       } else {
         fragments =
             opaque_segment_fragments(*record, ownership_index, segment);
+        // A record-prefix row claims its own line before any fragment is
+        // recovered: the fragments inside it are covered by its slice and
+        // skipped below, so the line stays one row in source order.
+        // A line a physical row already claims as its opaque continuation
+        // prefix (or any other slice) is that row's, not a row of its own.
+        const auto claimed_elsewhere = [&](const DocumentSourceSliceIR &line) {
+          const auto overlaps = [&](const DocumentSourceSliceIR &slice) {
+            return slice.logical_record == line.logical_record &&
+                   slice.segment_index == line.segment_index &&
+                   slice.token_begin < line.token_end &&
+                   line.token_begin < slice.token_end;
+          };
+          const auto in_paragraph = [&](const MessageParagraphIR &paragraph) {
+            if (std::any_of(paragraph.source_slices.begin(),
+                            paragraph.source_slices.end(), overlaps))
+              return true;
+            for (const auto &row : paragraph.semantic_rows)
+              if (std::any_of(row.leading_source_slices.begin(),
+                              row.leading_source_slices.end(), overlaps) ||
+                  std::any_of(row.trailing_source_slices.begin(),
+                              row.trailing_source_slices.end(), overlaps))
+                return true;
+            return false;
+          };
+          if (in_paragraph(entry.headline) ||
+              std::any_of(entry.headline_continuations.begin(),
+                          entry.headline_continuations.end(), in_paragraph))
+            return true;
+          for (const auto &section : entry.sections) {
+            if (std::any_of(section.label_source_slices.begin(),
+                            section.label_source_slices.end(), overlaps) ||
+                std::any_of(section.paragraphs.begin(),
+                            section.paragraphs.end(), in_paragraph))
+              return true;
+            if (section.boundary_index &&
+                std::any_of(catalog.boundaries[*section.boundary_index]
+                                .payload_source_slices.begin(),
+                            catalog.boundaries[*section.boundary_index]
+                                .payload_source_slices.end(),
+                            overlaps))
+              return true;
+          }
+          return false;
+        };
+        auto prefix_row = record_prefix_row(*record, ownership_index, segment);
+        if (prefix_row && claimed_elsewhere(prefix_row->content))
+          prefix_row.reset();
+        if (prefix_row) {
+          MessageSemanticRowIR semantic;
+          semantic.source_row = {message_record_prefix_run,
+                                 catalog.record_prefix_rows.size()};
+          semantic.text =
+              collapse_ascii_whitespace(trim_ascii(prefix_row->visible_text));
+          MessageParagraphIR paragraph;
+          paragraph.text = semantic.text;
+          paragraph.source_rows.push_back(semantic.source_row);
+          paragraph.source_segments.push_back(coordinate);
+          paragraph.source_slices.push_back(prefix_row->content);
+          paragraph.semantic_rows.push_back(std::move(semantic));
+          catalog.record_prefix_rows.push_back(std::move(*prefix_row));
+          if (coordinate < meaning_coordinate)
+            entry.headline_continuations.push_back(std::move(paragraph));
+          else if (coordinate < action_coordinate)
+            entry.sections[0].paragraphs.push_back(std::move(paragraph));
+          else
+            entry.sections[1].paragraphs.push_back(std::move(paragraph));
+        }
       }
       const auto indexed_rows = rows_by_segment.find(coordinate);
       static const std::vector<SegmentRow> no_rows;
@@ -2040,6 +2207,15 @@ std::optional<MessageCatalogIR> extract_message_catalog_ir(
   return catalog;
 }
 
+const MessageRecordPrefixRowIR *
+message_record_prefix_row(const MessageCatalogIR &catalog,
+                          const MessageSourceRowIR &source) {
+  if (source.first != message_record_prefix_run ||
+      source.second >= catalog.record_prefix_rows.size())
+    return nullptr;
+  return &catalog.record_prefix_rows[source.second];
+}
+
 bool verify_message_catalog_ir(
     const std::vector<DecodedLogicalRecordSource> &records,
     const LayoutIR &layout, const OwnershipIR &ownership,
@@ -2068,7 +2244,8 @@ bool same_message_catalog_ir(const MessageCatalogIR &left,
            a.payload_source_slices == b.payload_source_slices &&
            a.payload_source_rows == b.payload_source_rows;
   };
-  return left.boundaries.size() == right.boundaries.size() &&
+  return left.record_prefix_rows == right.record_prefix_rows &&
+         left.boundaries.size() == right.boundaries.size() &&
          std::equal(left.boundaries.begin(), left.boundaries.end(),
                     right.boundaries.begin(), boundary_equal) &&
          left.entries.size() == right.entries.size() &&
@@ -2092,6 +2269,20 @@ std::string format_message_catalog_ir(const MessageCatalogIR &catalog) {
         << boundary.label_source.byte_begin << ','
         << boundary.label_source.byte_end << ") payload_slices="
         << boundary.payload_source_slices.size() << '\n';
+  }
+  for (std::size_t index = 0; index < catalog.record_prefix_rows.size();
+       ++index) {
+    const auto &row = catalog.record_prefix_rows[index];
+    out << "record_prefix_row index=" << index << " record="
+        << row.logical_record << ':' << row.segment_index
+        << " prefix=" << row.prefix_token << " value="
+        << row.prefix_encoded.value << " bytes=[" << row.prefix_bytes.begin
+        << ',' << row.prefix_bytes.end << ") origin=" << row.origin_token
+        << " column=" << row.origin_column << " tokens=["
+        << row.content.token_begin << ',' << row.content.token_end
+        << ") content_bytes=[" << row.content.byte_begin << ','
+        << row.content.byte_end << ") cells=" << row.cells.size() << " text='"
+        << row.visible_text << "'\n";
   }
   for (const auto &entry : catalog.entries) {
     out << "message id='" << entry.id << "' source=" << entry.logical_record

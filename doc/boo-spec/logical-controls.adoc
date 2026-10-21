@@ -316,6 +316,42 @@ byte and the origin is simply the line's leading space token.  The
 prose-reflow interpretation of those slots in <<markup>> is
 unchanged; this section records the byte-level fact behind them.
 
+[[logical-controls_a_record_may_open_on_a_blank_spelled_row]]
+===== A Record May Open On A Row Whose Length Byte Spells Blanks
+
+A record's first display line is a row like any other, and its length byte is
+the record's first payload byte. When the dictionary spells both that length
+byte and the line's origin run as blanks, the decoded record text begins with
+nothing but spaces, and a reader that trims leading blanks from the record's
+first text run no longer sees where the row starts. The framing still proves
+it.
+
+`SC31-711.boo` topic `5.0`, message `508`, records 230 and 231:
+
+[cols="<20,<14,<12,<54",options="header"]
+|===
+|Location |File offset |Value |Meaning
+
+|record 230, last line |— |— |`cfont 13 4 2 18 4 2`, ending the record with no text of its own
+|record 231 token 0 |`0x1af54` |`0x12` |line 0 length: 18 bytes; the dictionary spells it as 18 blanks
+|record 231 token 1 |`0x1af55` |`0x0f` |origin run: 13 blanks, so the row is drawn at column 13
+|record 231 tokens 2-16 |`0x1af56`-`0x1af66` |— |`SNMP Trap    Verify that AIX NetView/6000 is running properly.`
+|record 231 token 17 |`0x1af67` |`0x09` |line 1 length; the dictionary spells it as 3 blanks
+|===
+
+The decoded text of record 231 opens on 18 + 13 = 31 blanks before `SNMP`.
+The font control at the end of record 230 addresses this line: its spans at
+columns 13 and 18, each 4 cells long, are `SNMP` and `Trap`. Hosted
+BookServer (DT `19941010174546`) prints the line as one row of the message's
+`Application` / `Action` listing,
+pass:[<literal>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&lt;B&gt;SNMP&lt;/B&gt; &lt;B&gt;Trap&lt;/B&gt;&#160;&#160;&#160;&#160;Verify that AIX NetView/6000 is running properly.</literal>],
+and line 1, `Then restart LNM for AIX.` at column 26, as the next row.
+
+A reader must therefore take the record's first row from the framing: the
+record's first byte is the length byte, the following blank token is the
+origin, and the row ends exactly where the length byte says. Only the bytes
+after it belong to the next row.
+
 [[logical-controls_display_lines_govern_reflowed_prose_too]]
 ===== Display Lines Govern Reflowed Prose Too
 

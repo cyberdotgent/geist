@@ -21,6 +21,12 @@
 // case fail: the mid-row length byte leaks "occurred", and the length byte
 // LayoutIR offers as a body row's marker slot leaks "segment".
 //
+// Case 4 is the record-prefix row of SC31-711 5.0 message 508: a record whose
+// first display line opens on a blank-spelled length byte and a blank origin,
+// so the layout leaves it without a row. It must become one row of the
+// Application/Action listing, and mutating any of its byte, token, column or
+// text provenance must fail verification.
+//
 // What is honestly NOT covered:
 //
 //  * the *positioned* half of the same decision -- a word the framing draws
@@ -39,12 +45,14 @@
 #include "geist/detail/core/internal.hpp"
 #include "geist/detail/layout/layout_ir.hpp"
 #include "geist/detail/ir/message_ir.hpp"
+#include "geist/detail/ir/message_section_blocks_ir.hpp"
 #include "geist/detail/layout/ownership_ir.hpp"
 #include "test_failures.hpp"
 
 #include <iostream>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace {
@@ -74,7 +82,8 @@ Token text_token(const std::string &value, std::uint16_t encoded) {
 }
 
 DecodedLogicalRecordSource make_source(std::uint32_t logical_record,
-                                       const std::vector<Token> &tokens) {
+                                       const std::vector<Token> &tokens,
+                                       bool split_on_framing = false) {
   DecodedLogicalRecordSource source;
   source.logical_record = logical_record;
   source.ir.logical_record = logical_record;
@@ -98,8 +107,17 @@ DecodedLogicalRecordSource make_source(std::uint32_t logical_record,
   geist::detail::assign_display_line_framing(source.ir);
   source.assembled =
       geist::detail::assemble_logical_record_with_sources(source.tokens);
-  source.control_segments = geist::detail::decode_control_segments(
-      source.logical_record, source.assembled);
+  // The record reader's own split sees the framing; the earlier cases keep
+  // the compatibility split they were written against.
+  source.control_segments =
+      split_on_framing
+          ? geist::detail::decode_control_segments(
+                source.logical_record, source.assembled,
+                source.encoded_tokens, source.ir.display_lines)
+          : geist::detail::decode_control_segments(source.logical_record,
+                                                   source.assembled);
+  if (split_on_framing)
+    geist::detail::demote_display_line_owned_controls(source);
   return source;
 }
 
@@ -285,6 +303,186 @@ int main() {
                 std::string("display text at a row marker slot was dropped: '") +
                     word + "': [" + text + "]");
     }
+  }
+
+
+  // Case 4 -- a record-prefix row (SC31-711 5.0 message 508, records
+  // 230/231).  The second record's first display line opens on a length byte
+  // that spells blanks, then a blank origin run, so the leading text
+  // segment's range starts on the line's first drawn word and the layout
+  // finds no marker/origin pair for it.  The record's framing still proves
+  // the row; it must become one row of the Application/Action listing, in
+  // source order before the next row, with exact provenance.
+  {
+    // Drawn words are two-byte dictionary tokens, as `Trap` (60234) is in
+    // record 231: a one-byte word followed by a blank run would read as a
+    // row-control slot.  Each line's length byte counts its bytes.
+    std::uint16_t next_word = 0x6000;
+    const auto w = [&](const std::string &value) {
+      return Token{words(value), next_word++, 2};
+    };
+    const auto pad = [&](std::size_t width) {
+      return t(std::string(width, ' '), static_cast<std::uint16_t>(width + 2));
+    };
+    const auto line = [&](std::vector<Token> &into,
+                          const std::string &length_spelling,
+                          std::initializer_list<Token> content) {
+      std::uint16_t bytes = 0;
+      for (const auto &token : content)
+        bytes = static_cast<std::uint16_t>(bytes + token.encoded_width);
+      into.push_back(text_token(length_spelling, bytes));
+      for (const auto &token : content)
+        into.push_back(token);
+    };
+    std::vector<Token> first;
+    line(first, " ", {t("SRMSG", 200), t("508", 201)});
+    line(first, " ", {t("cfont", 202), t("3", 203), t("3", 203), t("2", 204)});
+    line(first, " ", {pad(13), t("508", 201), w("Socket"), w("failed")});
+    line(first, " ", {t("cfont", 202), t("13", 206), t("8", 207), t("2", 204)});
+    line(first, " ", {pad(13), t("Meaning", 150), t(":", 25), w("A"),
+                      w("failure.")});
+    line(first, " ", {t("cfont", 202), t("13", 206), t("7", 212), t("2", 204)});
+    line(first, " ", {pad(13), t("Action", 151), t(":", 25)});
+    // As in records 230/231, each key row follows its own `cfont` line and
+    // opens on a length byte the dictionary spells as thirteen blanks.
+    line(first, " ", {t("cfont", 202), t("13", 206), t("11", 239),
+                      t("2", 204)});
+    line(first, std::string(13, ' '),
+         {pad(13), w("Application"), pad(1), w("Action")});
+    line(first, " ", {t("cfont", 202), t("13", 206), t("2", 204),
+                      t("2", 204)});
+    line(first, std::string(13, ' '),
+         {pad(13), w("CP"), pad(10), w("Consult"), w("the"), w("log.")});
+    line(first, "   ", {pad(26), w("Then"), w("restart"), w("LNM.")});
+    line(first, " ", {t("cfont", 202), t("13", 206), t("4", 228), t("2", 204),
+                      t("18", 229), t("4", 228), t("2", 204)});
+
+    std::vector<Token> second;
+    // Line 0: the length byte spells eighteen blanks, the origin thirteen.
+    line(second, std::string(18, ' '),
+         {pad(13), w("SNMP"), w("Trap"), pad(3), w("Verify"), w("that"),
+          w("AIX"), w("runs.")});
+    // Line 1: its own row, whose length byte also spells blanks.
+    line(second, "   ", {pad(26), w("Then"), w("restart"), w("it.")});
+    line(second, " ", {t("cfont", 202), t("13", 206), t("10", 235),
+                       t("2", 204)});
+    line(second, std::string(13, ' '),
+         {pad(13), w("lnmfddimgr"), pad(2), w("Restart"),
+                       w("the"), w("manager.")});
+
+    auto built = build({make_source(40, first, true),
+                        make_source(41, second, true)});
+    require(built.ownership.has_value(),
+            "record-prefix ownership was rejected: " + built.error);
+    require(built.catalog.has_value(),
+            "record-prefix catalog declined: " + built.error);
+    if (built.catalog && built.catalog->entries.size() == 1) {
+      const auto &catalog = *built.catalog;
+      require(catalog.record_prefix_rows.size() == 1,
+              "expected exactly one record-prefix row, found " +
+                  std::to_string(catalog.record_prefix_rows.size()));
+      if (catalog.record_prefix_rows.size() == 1) {
+        const auto &row = catalog.record_prefix_rows.front();
+        require(row.logical_record == 41 && row.segment_index == 0 &&
+                    row.prefix_token == 0 && row.origin_token == 1 &&
+                    row.origin_column == 13 && row.content.token_begin == 2 &&
+                    row.content.token_end == 9 &&
+                    row.prefix_bytes.begin == 41000 &&
+                    row.content.byte_begin == 41002 &&
+                    row.content.byte_end == 41015,
+                "record-prefix row framing or provenance is wrong: tokens [" +
+                    std::to_string(row.content.token_begin) + "," +
+                    std::to_string(row.content.token_end) + ") column " +
+                    std::to_string(row.origin_column));
+        require(row.visible_text.find("SNMP Trap") == 0 &&
+                    row.visible_text.find("runs.") != std::string::npos &&
+                    row.visible_text.find("Then") == std::string::npos,
+                "record-prefix row text is wrong: [" + row.visible_text + "]");
+        require(!row.cells.empty() && row.cells.front().token_index == 2 &&
+                    row.cells.front().display_column == 13,
+                "record-prefix row's first cell is not SNMP at column 13");
+      }
+      // Both rows of the second record survive, distinct and in order.
+      const auto &action = catalog.entries.front().sections[1];
+      std::vector<std::string> texts;
+      for (const auto &paragraph : action.paragraphs)
+        texts.push_back(paragraph.text);
+      const auto at = [&](const std::string &needle) {
+        for (std::size_t index = 0; index < texts.size(); ++index)
+          if (texts[index].find(needle) != std::string::npos)
+            return index;
+        return texts.size();
+      };
+      require(at("SNMP Trap Verify that AIX runs.") < at("Then restart it.") &&
+                  at("Then restart it.") < at("lnmfddimgr") &&
+                  at("lnmfddimgr") < texts.size(),
+              "record-prefix row is missing, merged or out of order");
+      for (const auto &paragraph : action.paragraphs)
+        require(paragraph.text.find("SNMP") == std::string::npos ||
+                    paragraph.text.find("Then") == std::string::npos,
+                "record-prefix row merged with the row after it: [" +
+                    paragraph.text + "]");
+
+      // The listing is proven: a table whose SNMP Trap row is the prefix row.
+      const auto blocks = geist::detail::extract_message_section_blocks_ir(
+          built.layout, *built.ownership, catalog);
+      const geist::detail::MessageStructuredTableBlockIR *table = nullptr;
+      for (const auto &block : blocks.blocks)
+        if (const auto *candidate =
+                std::get_if<geist::detail::MessageStructuredTableBlockIR>(
+                    &block.node))
+          table = candidate;
+      require(table != nullptr,
+              "the Application/Action listing was not recovered as a table");
+      if (table != nullptr) {
+        bool snmp = false;
+        for (const auto &item : table->rows)
+          if (item.cells.size() == 2 && item.cells[0].text == "SNMP Trap" &&
+              item.cells[1].text == "Verify that AIX runs. Then restart it.")
+            snmp = true;
+        require(snmp, "the SNMP Trap row lost its key, action or continuation");
+        std::string error;
+        require(geist::detail::verify_message_section_blocks_ir(
+                    built.layout, *built.ownership, catalog, blocks, &error),
+                "section blocks failed their verifier: " + error);
+      }
+
+      // Every piece of prefix-row provenance is load-bearing.
+      std::string error;
+      require(geist::detail::verify_message_catalog_ir(
+                  built.sources, built.layout, *built.ownership, catalog,
+                  &error),
+              "record-prefix catalog failed its verifier: " + error);
+      const auto mutated = [&](auto mutate, const char *what) {
+        auto changed = catalog;
+        mutate(changed.record_prefix_rows.front());
+        require(!geist::detail::verify_message_catalog_ir(
+                    built.sources, built.layout, *built.ownership, changed,
+                    &error),
+                std::string("mutated record-prefix ") + what +
+                    " passed verification");
+      };
+      if (!catalog.record_prefix_rows.empty()) {
+        mutated([](auto &row) { ++row.prefix_bytes.begin; }, "prefix byte");
+        mutated([](auto &row) { ++row.content.byte_end; }, "content byte");
+        mutated([](auto &row) { --row.content.token_end; }, "token range");
+        mutated([](auto &row) { ++row.origin_token; }, "origin token");
+        mutated([](auto &row) { ++row.origin_column; }, "origin column");
+        mutated([](auto &row) { ++row.cells.front().display_column; },
+                "cell column");
+        mutated([](auto &row) { row.visible_text += "x"; }, "text");
+      }
+    }
+
+    // A non-blank origin is not a record-prefix row: the row's placement is
+    // no longer proven, and nothing may be invented for it.
+    auto unproven = second;
+    unproven[1].words = words("    x        ");
+    const auto declined = build({make_source(40, first, true),
+                                 make_source(41, unproven, true)});
+    if (declined.catalog)
+      require(declined.catalog->record_prefix_rows.empty(),
+              "a record-prefix row was admitted without a blank origin run");
   }
 
   std::cout << "message catalog IR synthetic tests passed\n";
