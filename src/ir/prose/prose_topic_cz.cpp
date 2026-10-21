@@ -1126,6 +1126,7 @@ struct CzBuilder {
         // they open.  So an object delimiter inside a verbatim region is a
         // row of that region, not a break in it.
         auto closer_index = index + 1;
+        auto region_begin = range.first;
         auto region_end = range.second;
         while (closer_index < build.directives.size()) {
           const auto& inner = build.directives[closer_index];
@@ -1137,6 +1138,31 @@ struct CzBuilder {
           } else if (inner.tag == "table" || inner.tag == "etable" ||
                      inner.tag == "fig" || inner.tag == "efig") {
             if (inner_rows.first != npos) region_end = inner_rows.second;
+          } else if (cz_verbatim_region_tag(inner.tag)) {
+            // GX27-3999-00 2.6.1 and 2.6.2 explicitly nest XMP inside
+            // LINES; 2.6.1 also nests LINES inside XMP.  The inner
+            // delimiters are structural inside the outer fixed-line region:
+            // both pairs declare verbatim display rows, and neither
+            // delimiter draws text of its own.
+            // Admit only an immediately balanced pair so a missing inner
+            // closer can never make the outer region swallow a later
+            // directive.
+            const auto nested_closer = closer_index + 1;
+            if (nested_closer >= build.directives.size() ||
+                build.directives[nested_closer].mode != "off" ||
+                build.directives[nested_closer].tag != "e" + inner.tag)
+              break;
+            if (inner_rows.first != npos) {
+              if (region_begin == npos) region_begin = inner_rows.first;
+              region_end = inner_rows.second;
+            }
+            const auto nested_closer_rows = ranges[nested_closer];
+            if (nested_closer_rows.first != npos) {
+              if (region_begin == npos)
+                region_begin = nested_closer_rows.first;
+              region_end = nested_closer_rows.second;
+            }
+            closer_index = nested_closer;
           } else {
             break;
           }
@@ -1155,9 +1181,9 @@ struct CzBuilder {
         if (!closed && closer_index < build.directives.size())
           return fail(error, "cz OFF " + opener + " is not closed by cz OFF E" +
                                  opener);
-        if (range.first == npos)
+        if (region_begin == npos)
           return fail(error, "cz OFF " + opener + " block has no display rows");
-        if (!preformatted(range.first, region_end)) return false;
+        if (!preformatted(region_begin, region_end)) return false;
         if (!closed) {
           index = closer_index;
           return true;

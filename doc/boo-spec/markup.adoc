@@ -2899,6 +2899,15 @@ topic `EDITION`, logical record 4, segment 14 stores five rows beginning
 `GX27-3999-00.boo` topic `COMMENTS` record 148 segment 6 use the same region
 for a reader's-comment form whose rows are `Name . . . . ______`.
 
+Verbatim regions can be nested in either order.  In `GX27-3999-00.boo` topic
+`2.6.1`, logical record 45 stores `LINES` at bytes `0xe097`--`0xe099`, `XMP`
+at `0xe09c`--`0xe09e`, `EXMP` at `0xe0cd`--`0xe0cf`, and `ELINES` at
+`0xe0d4`--`0xe0d6`.  Logical record 51 stores the inverse order: `XMP` at
+`0xe9be`--`0xe9c0`, `LINES` at `0xe9c3`--`0xe9c5`, `ELINES` at
+`0xea5d`--`0xea5f`, and `EXMP` at `0xea64`--`0xea66`.  Thus each inner pair
+is balanced before the outer closer; its delimiters are structural and do not
+interrupt or reorder the enclosing fixed-column rows.
+
 *`cz OFF ARTWORK`* opens a fixed-column region holding a picture reference,
 and its picture is a `CSELECT` whose target is `PIC<n>`.
 `GX27-3999-00.boo` topic `FRONT_1`, record 9: segment 10 is `cz OFF ARTWORK`,

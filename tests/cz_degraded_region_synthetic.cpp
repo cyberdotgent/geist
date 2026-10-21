@@ -788,6 +788,58 @@ void an_empty_dd_before_lines_keeps_a_compound_definition() {
           "the DD term does not own its LINES block");
 }
 
+// GX27-3999-00 2.6.1 and 2.6.2 put an XMP example inside an outer LINES
+// region, and 2.6.1 also uses the inverse nesting.  Both delimiter pairs are
+// explicit source structure; the inner pair does not close or interrupt the
+// outer fixed-line block.
+void balanced_nested_verbatim_delimiters_stay_inside_the_outer_region() {
+  RecordBuilder builder;
+  metadata(builder);
+  builder.line({words("cz"), words("OFF"), words("LINES")});
+  builder.line({words("cz"), words("OFF"), words("XMP")});
+  builder.line({words("      "), words("DEVICE=C:\\SECOND.SYS")});
+  builder.line({words("cz"), words("OFF"), words("EXMP"), words("4"),
+                words("4")});
+  builder.line({words("cz"), words("OFF"), words("ELINES"), words("4"),
+                words("4")});
+  builder.line({words("cz"), words("OFF"), words("XMP")});
+  builder.line({words("cz"), words("OFF"), words("LINES")});
+  builder.line({words("      "), words("LOAD"), words("SECOND.NLM")});
+  builder.line({words("cz"), words("OFF"), words("ELINES"), words("4"),
+                words("4")});
+  builder.line({words("cz"), words("OFF"), words("EXMP"), words("4"),
+                words("4")});
+  builder.line({words("cz"), words("FLOW"), words("P"), words("3"),
+                words("3")});
+  builder.line({words("   "), words("Continue"), words("afterwards.")});
+
+  const auto extracted = extract_record(std::move(builder), 30);
+  require(extracted.prose.has_value(),
+          "nested verbatim pairs made an outer region appear unclosed: " +
+              extracted.error);
+  if (!extracted.prose) return;
+  std::vector<const geist::detail::ProseBlockIR *> regions;
+  for (const auto &block : extracted.prose->blocks)
+    if (block.kind == geist::detail::ProseBlockKindIR::preformatted)
+      regions.push_back(&block);
+  require(regions.size() == 2 &&
+              regions[0]->preformatted_lines.size() == 1 &&
+              contains(regions[0]->preformatted_lines.front(),
+                       "DEVICE=C:\\SECOND.SYS") &&
+              regions[1]->preformatted_lines.size() == 1 &&
+              contains(regions[1]->preformatted_lines.front(),
+                       "LOAD SECOND.NLM"),
+          "outer regions did not retain both nested display rows exactly once");
+  const auto document = lower_document(extracted);
+  if (!document) return;
+  const auto markdown = geist::detail::render_document_markdown(*document);
+  require(contains(markdown, "DEVICE=C:\\SECOND.SYS") &&
+              contains(markdown, "LOAD SECOND.NLM") &&
+              contains(markdown, "Continue afterwards"),
+          "nested verbatim delimiters lost or reordered rendered content: " +
+              markdown);
+}
+
 // FLOW LP is a list-part boundary, not a list item.  DFHP7A00 2.3.4.1 uses
 // it twice inside one DL, before the `Definition:` and `Operations:` section
 // paragraphs that divide two runs of DT entries.
@@ -944,6 +996,7 @@ int main() {
   a_list_item_continuation_keeps_recursive_source_ownership();
   an_empty_dt_before_lines_keeps_a_compound_definition();
   an_empty_dd_before_lines_keeps_a_compound_definition();
+  balanced_nested_verbatim_delimiters_stay_inside_the_outer_region();
   a_list_part_paragraph_fails_as_mixed_list_content();
   a_closed_unmodelled_region_degrades_its_block();
   an_unclosed_unmodelled_region_declines_the_topic();
