@@ -138,11 +138,26 @@ struct FigureBlockSpanIR {
 // covers "Figure 4" at column 41 of line 21, and hosted BookServer serves
 // that caption as `... are shown in <a href="...#FIGTITEM">Figure 4</a>.`
 // (DT 19910520154851).
+enum class FigureLinkKindIR {
+  in_book,
+  book_contents,
+  book_heading,
+  external_url,
+};
+
 struct FigureLinkIR {
   SelectorRefIR selector;
-  // Anchor id ("FIGTITEM") or, for a `LNK` selector, its destination.
+  // Anchor id ("FIGTITEM") for an ordinary selector.  For `LNK`, this is
+  // alternative 6: the target's own identifier.  The rest of the tuple is
+  // retained below rather than collapsed into a renderer-specific URL.
   std::string target;
   bool external = false;
+  FigureLinkKindIR kind = FigureLinkKindIR::in_book;
+  std::vector<std::string> alternatives;
+  std::string document_number;
+  std::string document_level;
+  std::string heading_anchor;
+  std::string url;
   // The covered display columns of `line`.
   std::uint32_t logical_record = 0;
   std::size_t line_prefix_token = 0;
@@ -219,9 +234,10 @@ struct FigureSpotAnchorIR {
   std::string id;
   std::uint32_t logical_record = 0;
   std::size_t segment_index = 0;
-  // The anchor opens the figure's first body line, so a Markdown anchor in
-  // front of the block lands exactly where hosted puts it.
-  bool at_body_start = false;
+  // Drawn figure only: the zero-based preformatted body line the anchor
+  // opens.  Picture anchors name an image rather than a character-art row,
+  // so they carry no body-line coordinate.
+  std::optional<std::size_t> body_line;
 };
 
 // Picture-region content in display order. Text need not be a caption to
@@ -257,6 +273,9 @@ struct FigureSourceBlockIR {
   FigureTargetKindIR target_kind = FigureTargetKindIR::book_resource;
   // Resource id ("9") or the external path ("/bookmgr/monetcoq.jpg").
   std::string target;
+  // An external-image LNK selector's six (or seven) alternatives, verbatim
+  // and without angle brackets. Empty for a book resource.
+  std::vector<std::string> target_alternatives;
   // Preformatted figures only: the body lines in display order (interior
   // blank lines included, surrounding spacing excluded).
   std::vector<FigurePreformattedLineIR> lines;

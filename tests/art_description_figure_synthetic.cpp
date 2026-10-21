@@ -346,7 +346,7 @@ the_figure(const Extracted &extracted, const std::string &label,
                 (figure.caption ? figure.caption->text : "") + "'");
   require(!figure.spot_anchors.empty() &&
               figure.spot_anchors.front().id == "PIC1" &&
-              figure.spot_anchors.front().at_body_start,
+              !figure.spot_anchors.front().body_line,
           label + ": the SRPIC1 anchor was not admitted as the picture's "
                   "anchor");
   // The envelope's opcodes are controls; nothing of it is displayed.

@@ -248,10 +248,131 @@ find_figure(const Topic &topic, const std::string &anchor) {
   return nullptr;
 }
 
+// A drawn figure can carry a second anchor after rows have already been
+// emitted, and its CSELECT can carry the six-field LNK tuple.  The source IR
+// keeps the exact row coordinate even though today's block-only DocumentIR
+// must report that placement as degraded; the lowered verbatim link retains
+// every alternative for the consumer resolver.
+void test_positioned_spot_anchor_and_lnk() {
+  using namespace geist::detail;
+  FigureSourceBlockIR figure;
+  figure.span = {{7, 0}, {7, 3}, true};
+  figure.anchor = "FIGDRAWN";
+  figure.body_kind = FigureBodyKindIR::preformatted;
+
+  FigurePreformattedLineIR before;
+  before.logical_record = 7;
+  before.prefix_token = 1;
+  before.token_end = 3;
+  before.text = "before";
+  before.rows.push_back({1, 0});
+  for (std::size_t offset = 0; offset <= before.text.size(); ++offset)
+    before.column_offsets.push_back(offset);
+  figure.lines.push_back(before);
+
+  FigurePreformattedLineIR after;
+  after.logical_record = 7;
+  after.prefix_token = 4;
+  after.token_end = 6;
+  after.text = "open BOOK";
+  after.rows.push_back({1, 1});
+  for (std::size_t offset = 0; offset <= after.text.size(); ++offset)
+    after.column_offsets.push_back(offset);
+  figure.lines.push_back(after);
+
+  figure.spot_anchors.push_back({"SPTMIDDLE", 7, 1, 1});
+
+  FigureLinkIR link;
+  link.selector = {7, 2, 0};
+  link.target = "TARGETID";
+  link.kind = FigureLinkKindIR::book_heading;
+  link.alternatives = {"HDR", "HEADING", "", "SC00-0000", "ANY",
+                       "TARGETID"};
+  link.document_number = "SC00-0000";
+  link.document_level = "ANY";
+  link.heading_anchor = "HEADING";
+  link.logical_record = 7;
+  link.line_prefix_token = 4;
+  link.column = 5;
+  link.length = 4;
+  link.label = "BOOK";
+  link.source = {7, 2, 6, 7, 16, 18};
+  figure.body_links.push_back(link);
+
+  const auto cell = [](std::size_t segment, std::size_t token,
+                       FigureCellRoleIR role) {
+    FigureSourceCellIR result;
+    result.logical_record = 7;
+    result.segment_index = segment;
+    result.token_index = token;
+    result.word = 'x';
+    result.token_bytes = {static_cast<std::uint32_t>(token * 2),
+                          static_cast<std::uint32_t>(token * 2 + 2)};
+    result.role = role;
+    return result;
+  };
+  figure.cells = {
+      cell(0, 0, FigureCellRoleIR::control),
+      cell(0, 1, FigureCellRoleIR::line_prefix),
+      cell(0, 2, FigureCellRoleIR::body_content),
+      cell(1, 3, FigureCellRoleIR::control),
+      cell(2, 4, FigureCellRoleIR::line_prefix),
+      cell(2, 5, FigureCellRoleIR::body_content),
+      cell(2, 6, FigureCellRoleIR::control),
+  };
+
+  std::string error;
+  const auto blocks = lower_figure_block_to_document_blocks(figure, &error);
+  require(blocks.has_value(), "positioned figure lowering failed: " + error);
+  if (!blocks)
+    return;
+  require(blocks->size() == 3,
+          "positioned figure did not lower to two anchors and one body");
+  const auto *spot = std::get_if<AnchorBlockIR>(&(*blocks)[1].node);
+  require(spot && spot->id == "SPTMIDDLE",
+          "positioned figure lost its second anchor");
+  require((*blocks)[1].origin.degradation_code ==
+              "figure-body-anchor-position" &&
+              (*blocks)[1].origin.degradation_detail.find("line 1") !=
+                  std::string::npos,
+          "positioned figure did not retain the exact degraded line");
+  require((*blocks)[1].origin.slices.size() == 1 &&
+              (*blocks)[1].origin.slices.front().token_begin == 3 &&
+              (*blocks)[1].origin.slices.front().token_end == 4,
+          "positioned figure anchor did not claim its control token exactly");
+  const auto *body = std::get_if<PreformattedBlockIR>(&(*blocks)[2].node);
+  require(body && body->line_links.size() == 2 &&
+              body->line_links[1].size() == 1,
+          "positioned figure lost its drawn-body LNK selector");
+  if (body && body->line_links.size() == 2 &&
+      body->line_links[1].size() == 1) {
+    const auto &lowered = body->line_links[1].front();
+    require(lowered.kind == VerbatimLinkKindIR::book_heading &&
+                lowered.target == "TARGETID" &&
+                lowered.alternatives == link.alternatives &&
+                lowered.document_number == "SC00-0000" &&
+                lowered.document_level == "ANY" &&
+                lowered.heading_anchor == "HEADING",
+            "positioned figure collapsed the LNK alternative tuple");
+  }
+  for (const auto &slice : (*blocks)[2].origin.slices)
+    require(slice.token_begin != 3,
+            "spot-anchor token was also claimed by the figure body");
+  require(verify_figure_document_blocks(figure, *blocks, &error),
+          "positioned figure lowering verification failed: " + error);
+
+  auto mutated = *blocks;
+  auto &mutated_body = std::get<PreformattedBlockIR>(mutated[2].node);
+  mutated_body.line_links[1][0].alternatives[3] = "SC99-9999";
+  require(!verify_figure_document_blocks(figure, mutated),
+          "mutated LNK alternative was accepted");
+}
+
 
 } // namespace
 
 int main() {
+  test_positioned_spot_anchor_and_lnk();
   Corpus corpus(std::filesystem::path(GEIST_FIXTURE_DIR));
   using geist::detail::FigureTargetKindIR;
 

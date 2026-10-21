@@ -4,6 +4,7 @@
 #include "geist/detail/ir/figure_block_ir.hpp"
 #include "geist/detail/ir/picture_figure_content_ir.hpp"
 #include "geist/detail/ir/picture_placement_ir.hpp"
+#include "geist/detail/ir/selector_link_ir.hpp"
 
 #include "geist/detail/layout/display_lines.hpp"
 
@@ -67,6 +68,20 @@ bool same_cell(const FigureSourceCellIR &left,
          left.role == right.role;
 }
 
+bool same_link(const FigureLinkIR &left, const FigureLinkIR &right) {
+  return same_ref(left.selector, right.selector) &&
+         left.target == right.target && left.external == right.external &&
+         left.kind == right.kind &&
+         left.alternatives == right.alternatives &&
+         left.document_number == right.document_number &&
+         left.document_level == right.document_level &&
+         left.heading_anchor == right.heading_anchor && left.url == right.url &&
+         left.logical_record == right.logical_record &&
+         left.line_prefix_token == right.line_prefix_token &&
+         left.column == right.column && left.length == right.length &&
+         left.label == right.label && left.source == right.source;
+}
+
 bool same_block(const FigureSourceBlockIR &left,
                 const FigureSourceBlockIR &right) {
   if (!same_ref(left.span.begin, right.span.begin) ||
@@ -74,10 +89,12 @@ bool same_block(const FigureSourceBlockIR &left,
       left.span.anchored != right.span.anchored ||
       left.anchor != right.anchor || !same_ref(left.selector, right.selector) ||
       left.target_kind != right.target_kind || left.target != right.target ||
+      left.target_alternatives != right.target_alternatives ||
       left.placeholder_text != right.placeholder_text ||
       left.description != right.description ||
       left.additional_pictures.size() != right.additional_pictures.size() ||
       left.spot_anchors.size() != right.spot_anchors.size() ||
+      left.body_links.size() != right.body_links.size() ||
       left.body_kind != right.body_kind ||
       left.lines.size() != right.lines.size() ||
       left.index_terms != right.index_terms ||
@@ -95,13 +112,31 @@ bool same_block(const FigureSourceBlockIR &left,
         a.description != b.description)
       return false;
   }
+  for (std::size_t index = 0; index < left.spot_anchors.size(); ++index) {
+    const auto &a = left.spot_anchors[index];
+    const auto &b = right.spot_anchors[index];
+    if (a.id != b.id || a.logical_record != b.logical_record ||
+        a.segment_index != b.segment_index || a.body_line != b.body_line)
+      return false;
+  }
+  for (std::size_t index = 0; index < left.body_links.size(); ++index)
+    if (!same_link(left.body_links[index], right.body_links[index]))
+      return false;
   if (left.caption) {
     if (left.caption->text != right.caption->text ||
-        left.caption->rows.size() != right.caption->rows.size())
+        left.caption->rows.size() != right.caption->rows.size() ||
+        left.caption->links.size() != right.caption->links.size())
       return false;
     for (std::size_t index = 0; index < left.caption->rows.size(); ++index)
       if (!same_row(left.caption->rows[index], right.caption->rows[index]))
         return false;
+    for (std::size_t index = 0; index < left.caption->links.size(); ++index) {
+      const auto &a = left.caption->links[index];
+      const auto &b = right.caption->links[index];
+      if (a.begin != b.begin || a.end != b.end ||
+          !same_link(a.link, b.link))
+        return false;
+    }
   }
   for (std::size_t index = 0; index < left.suppressed_rows.size(); ++index)
     if (!same_row(left.suppressed_rows[index], right.suppressed_rows[index]))
@@ -111,7 +146,8 @@ bool same_block(const FigureSourceBlockIR &left,
     const auto &b = right.lines[index];
     if (a.logical_record != b.logical_record ||
         a.prefix_token != b.prefix_token || a.token_end != b.token_end ||
-        a.text != b.text || a.rows.size() != b.rows.size())
+        a.text != b.text || a.rows.size() != b.rows.size() ||
+        a.column_offsets != b.column_offsets)
       return false;
     for (std::size_t row = 0; row < a.rows.size(); ++row)
       if (!same_row(a.rows[row], b.rows[row]))
@@ -236,6 +272,7 @@ std::optional<OutputRangeIR> figure_end(const DecodedLogicalRecordSource &record
 
 struct ExternalImage {
   std::string target;
+  std::vector<std::string> alternatives;
   // Bytes of the display payload consumed by the alternative list.
   std::size_t metadata_bytes = 0;
 };
@@ -269,7 +306,7 @@ std::optional<ExternalImage> external_image(const std::string &payload) {
       });
   if (source == alternatives.end())
     return std::nullopt;
-  return ExternalImage{*source, cursor};
+  return ExternalImage{*source, std::move(alternatives), cursor};
 }
 
 // "Figure 20. RSR Components" / "Figure 12-3." / "Figure A-1. Title".
@@ -886,7 +923,7 @@ struct Extractor {
               return decline(region, "drawn figure selector operands are not "
                                      "canonical");
             const auto target = ascii_lower(selector->target);
-            if (target.rfind("pic", 0) == 0 || target == "lnk")
+            if (target.rfind("pic", 0) == 0)
               return decline(region, "drawn figure contains a " +
                                          selector->target + " selector");
             if (selector->length == 0)
@@ -913,7 +950,8 @@ struct Extractor {
             spot_anchor_lines.push_back(index);
             block.spot_anchors.push_back({segment.opcode.substr(2),
                                           record.logical_record,
-                                          segment.segment_index, false});
+                                          segment.segment_index,
+                                          std::nullopt});
             result.kind = LineKind::control;
             continue;
           }
@@ -1053,7 +1091,16 @@ struct Extractor {
       auto next = spot_anchor_lines[index] + 1;
       while (next < last_line && classes[next].kind == LineKind::control)
         ++next;
-      block.spot_anchors[index].at_body_start = next == body_begin;
+      if (next < body_begin || next >= body_end ||
+          (classes[next].kind != LineKind::body &&
+           classes[next].kind != LineKind::blank))
+        continue;
+      std::size_t body_line = 0;
+      for (auto line = body_begin; line < next; ++line)
+        if (classes[line].kind == LineKind::body ||
+            classes[line].kind == LineKind::blank)
+          ++body_line;
+      block.spot_anchors[index].body_line = body_line;
     }
 
     // 4b. Bind each `cselect` to the display line it precedes.  Hosted
@@ -1078,7 +1125,41 @@ struct Extractor {
       FigureLinkIR link;
       link.selector = {selector->logical_record, selector->segment_index,
                        selector->selector_ordinal};
-      link.target = selector->target;
+      if (ascii_equals_case_insensitive(selector->target, "lnk")) {
+        std::vector<std::string> alternatives;
+        const auto &record = *lines[at].record;
+        selector_link_alternative_tokens(
+            record, record.control_segments[selector->segment_index],
+            &alternatives);
+        std::string link_error;
+        const auto parsed = parse_selector_link(alternatives, &link_error);
+        if (!parsed)
+          return decline(region, "drawn figure LNK selector: " + link_error);
+        if (parsed->kind == SelectorLinkKindIR::external_image)
+          return decline(region, "drawn figure text selector names an image");
+        link.alternatives = parsed->alternatives;
+        link.document_number = parsed->alternatives[3];
+        link.document_level = parsed->document_level;
+        link.heading_anchor = parsed->alternatives[1];
+        link.target = parsed->alternatives[5];
+        switch (parsed->kind) {
+        case SelectorLinkKindIR::book_contents:
+          link.kind = FigureLinkKindIR::book_contents;
+          break;
+        case SelectorLinkKindIR::book_heading:
+          link.kind = FigureLinkKindIR::book_heading;
+          break;
+        case SelectorLinkKindIR::external_link:
+          link.kind = FigureLinkKindIR::external_url;
+          link.external = true;
+          link.url = parsed->destination;
+          break;
+        case SelectorLinkKindIR::external_image:
+          break;
+        }
+      } else {
+        link.target = selector->target;
+      }
       link.logical_record = lines[covered].record->logical_record;
       link.line_prefix_token = lines[covered].line.prefix_token;
       link.column = selector->column;
@@ -1110,6 +1191,8 @@ struct Extractor {
       const auto in_caption = caption_at < lines.size() &&
                               covered >= caption_at && covered < caption_end &&
                               classes[covered].kind == LineKind::caption;
+      if (in_caption && !link.alternatives.empty())
+        return decline(region, "drawn figure caption carries a LNK selector");
       if (!in_caption) {
         block.body_links.push_back(std::move(link));
         continue;
@@ -1286,7 +1369,7 @@ struct Extractor {
                                    "control " +
                                        segment.opcode);
           block.spot_anchors.push_back({*anchor, segment.logical_record,
-                                        segment.segment_index, true});
+                                        segment.segment_index, std::nullopt});
         }
         break;
       case BookControlKind::art_start:
@@ -1367,6 +1450,7 @@ struct Extractor {
           picture = selector;
           block.target_kind = FigureTargetKindIR::external_image;
           block.target = external->target;
+          block.target_alternatives = external->alternatives;
         } else {
           break; // Non-picture selectors belong to positioned text runs.
         }
@@ -1818,6 +1902,19 @@ std::string format_figure_blocks_ir(const FigureBlocksIR &blocks) {
       out << " placeholder='" << block.placeholder_text << "'";
     if (block.caption)
       out << " caption='" << block.caption->text << "'";
+    for (const auto &spot : block.spot_anchors) {
+      out << " spot='" << spot.id << "'@" << spot.logical_record << ':'
+          << spot.segment_index;
+      if (spot.body_line)
+        out << ":line=" << *spot.body_line;
+    }
+    for (const auto &link : block.body_links) {
+      out << " body-link='" << link.label << "'->'" << link.target << "'";
+      if (!link.alternatives.empty())
+        out << " alternatives=" << link.alternatives.size();
+    }
+    if (!block.target_alternatives.empty())
+      out << " target-alternatives=" << block.target_alternatives.size();
     for (const auto &term : block.index_terms)
       out << " index='" << term << "'";
     out << " suppressed-rows=" << block.suppressed_rows.size()

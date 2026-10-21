@@ -89,6 +89,30 @@ bool same_inlines(const InlineSequenceIR &left, const InlineSequenceIR &right) {
   return true;
 }
 
+bool same_verbatim_link(const VerbatimLinkIR &left,
+                        const VerbatimLinkIR &right) {
+  return left.begin == right.begin && left.end == right.end &&
+         left.kind == right.kind && left.target == right.target &&
+         left.alternatives == right.alternatives &&
+         left.document_number == right.document_number &&
+         left.document_level == right.document_level &&
+         left.heading_anchor == right.heading_anchor && left.url == right.url;
+}
+
+bool same_line_links(const std::vector<std::vector<VerbatimLinkIR>> &left,
+                     const std::vector<std::vector<VerbatimLinkIR>> &right) {
+  if (left.size() != right.size())
+    return false;
+  for (std::size_t line = 0; line < left.size(); ++line) {
+    if (left[line].size() != right[line].size())
+      return false;
+    for (std::size_t link = 0; link < left[line].size(); ++link)
+      if (!same_verbatim_link(left[line][link], right[line][link]))
+        return false;
+  }
+  return true;
+}
+
 void add_sorted_rows(DocumentNodeOriginIR &origin,
                      std::vector<DocumentSourceRowIR> rows) {
   std::sort(rows.begin(), rows.end(), [](const auto &a, const auto &b) {
@@ -166,9 +190,9 @@ InlineSequenceIR caption_inlines(const FigureSourceBlockIR &figure,
 // The region's second anchors, one block each, ahead of the body they open.
 //
 // In a drawn body a bare `SRSPT<id>` is one.  Hosted BookServer opens it on
-// the display line that follows the control; a Markdown anchor can only
-// stand in front of the whole verbatim block, so one that does not open the
-// body's first line lands early.  In a picture figure the `SRPIC<n>` anchor
+// the display line that follows the control.  DocumentIR currently has only
+// block anchors, so a source coordinate inside one preformatted block remains
+// an explicit fidelity loss.  In a picture figure the `SRPIC<n>` anchor
 // of the picture itself is one, and it always opens the picture.
 // `picture` selects the anchors to append: the `SRPIC<n>` anchor of picture
 // <n> stands in front of that picture's own image block, so a figure of
@@ -204,13 +228,20 @@ bool append_spot_anchors(const FigureSourceBlockIR &figure,
       fail(error, "figure spot anchor has no source slice");
       return false;
     }
-    if (!spot.at_body_start) {
+    if (spot.body_line && *spot.body_line != 0) {
       node.origin.fidelity = DocumentFidelityIR::degraded;
       node.origin.degradation_code = "figure-body-anchor-position";
       node.origin.degradation_detail =
           "anchor '" + spot.id +
-          "' opens a line inside the drawn body; a Markdown anchor can only "
-          "stand in front of the whole verbatim block";
+          "' opens drawn-body line " + std::to_string(*spot.body_line) +
+          "; DocumentIR can place anchors only between blocks";
+    } else if (!spot.body_line &&
+               figure.body_kind == FigureBodyKindIR::preformatted) {
+      node.origin.fidelity = DocumentFidelityIR::degraded;
+      node.origin.degradation_code = "figure-body-anchor-position";
+      node.origin.degradation_detail =
+          "anchor '" + spot.id +
+          "' has no proven preformatted body-line coordinate";
     }
     blocks.push_back(std::move(node));
   }
@@ -313,11 +344,26 @@ lower_preformatted_figure(const FigureSourceBlockIR &figure,
     VerbatimLinkIR placed;
     placed.begin = begin;
     placed.end = end;
-    placed.kind = link.external ? VerbatimLinkKindIR::external_url
-                                : VerbatimLinkKindIR::in_book;
+    switch (link.kind) {
+    case FigureLinkKindIR::in_book:
+      placed.kind = VerbatimLinkKindIR::in_book;
+      break;
+    case FigureLinkKindIR::book_contents:
+      placed.kind = VerbatimLinkKindIR::book_contents;
+      break;
+    case FigureLinkKindIR::book_heading:
+      placed.kind = VerbatimLinkKindIR::book_heading;
+      break;
+    case FigureLinkKindIR::external_url:
+      placed.kind = VerbatimLinkKindIR::external_url;
+      break;
+    }
     placed.target = link.target;
-    if (link.external)
-      placed.url = link.target;
+    placed.alternatives = link.alternatives;
+    placed.document_number = link.document_number;
+    placed.document_level = link.document_level;
+    placed.heading_anchor = link.heading_anchor;
+    placed.url = link.url;
     candidates.push_back({covered, std::move(placed), &link});
   }
   std::stable_sort(candidates.begin(), candidates.end(),
@@ -359,6 +405,13 @@ lower_preformatted_figure(const FigureSourceBlockIR &figure,
     if (cell.role == FigureCellRoleIR::control &&
         cell.logical_record == figure.span.begin.logical_record &&
         cell.segment_index == figure.span.begin.segment_index)
+      return false;
+    if (cell.role == FigureCellRoleIR::control &&
+        std::any_of(figure.spot_anchors.begin(), figure.spot_anchors.end(),
+                    [&](const auto &spot) {
+                      return cell.logical_record == spot.logical_record &&
+                             cell.segment_index == spot.segment_index;
+                    }))
       return false;
     return true;
   });
@@ -585,7 +638,10 @@ bool verify_figure_document_blocks(const FigureSourceBlockIR &figure,
         return fail(error, "figure caption differs from canonical");
     } else if (const auto *node =
                    std::get_if<PreformattedBlockIR>(&expected.node)) {
-      if (node->lines != std::get<PreformattedBlockIR>(actual.node).lines)
+      const auto &actual_node =
+          std::get<PreformattedBlockIR>(actual.node);
+      if (node->lines != actual_node.lines ||
+          !same_line_links(node->line_links, actual_node.line_links))
         return fail(error, "figure body lines differ from canonical");
     } else if (const auto *node =
                    std::get_if<ParagraphBlockIR>(&expected.node)) {
