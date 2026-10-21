@@ -350,9 +350,55 @@ bool paragraph_inlines(const TrapFlowParagraphIR &paragraph,
   return !content.empty();
 }
 
+// The anchor a drawn envelope's first line carries: the opening opcode
+// without `SR` (`SRTBLT1` -> `TBLT1`, `SRFIGFIGUNIQ20` -> `FIGFIGUNIQ20`).
+std::string region_anchor_id(const TrapEmbeddedRegionIR &region) {
+  return (region.start.kind == TrapEmbeddedControlKindIR::figure_start
+              ? "FIG"
+              : "TBL") +
+         region.identifier;
+}
+
 bool lower_flow_blocks(const std::vector<TrapFlowBlockIR> &source,
                        BlockSequenceIR &destination, std::string *error) {
   for (const auto &block : source) {
+    if (const auto *anchor = std::get_if<TrapFlowAnchorIR>(&block.value)) {
+      auto anchor_origin = origin("trap positioned source anchor");
+      add_slice(anchor_origin, anchor->source);
+      destination.push_back(
+          {AnchorBlockIR{anchor->id}, canonical(std::move(anchor_origin))});
+      continue;
+    }
+    if (const auto *footnote = std::get_if<TrapFlowFootnoteIR>(&block.value)) {
+      // The footnote's paragraphs are one footnote block; the closer is
+      // provenance only.
+      auto footnote_origin = origin("trap footnote envelope");
+      add_slice(footnote_origin, footnote->start);
+      add_slice(footnote_origin, footnote->end);
+      FootnoteBlockIR lowered{footnote->id, {}};
+      for (const auto &inner : footnote->blocks) {
+        const auto *paragraph = std::get_if<TrapFlowParagraphIR>(&inner.value);
+        if (paragraph == nullptr)
+          return fail(error, "trap footnote holds a non-paragraph block");
+        auto inner_origin = paragraph_origin(*paragraph, "trap footnote text");
+        if (!lowered.content.empty())
+          lowered.content.push_back(
+              {TextInlineIR{" "}, synthesized("trap footnote paragraph join")});
+        if (!paragraph_inlines(*paragraph, inner_origin, lowered.content))
+          return fail(error, "trap footnote ranges overlap");
+        footnote_origin.slices.insert(footnote_origin.slices.end(),
+                                      inner_origin.slices.begin(),
+                                      inner_origin.slices.end());
+        footnote_origin.rows.insert(footnote_origin.rows.end(),
+                                    inner_origin.rows.begin(),
+                                    inner_origin.rows.end());
+      }
+      if (lowered.content.empty())
+        return fail(error, "trap footnote has no content");
+      destination.push_back(
+          {std::move(lowered), canonical(std::move(footnote_origin))});
+      continue;
+    }
     if (std::holds_alternative<TrapFlowParagraphIR>(block.value)) {
       const auto &paragraph = std::get<TrapFlowParagraphIR>(block.value);
       auto paragraph_source =
@@ -395,7 +441,7 @@ bool lower_flow_blocks(const std::vector<TrapFlowBlockIR> &source,
         auto anchor_source = origin("trap embedded table source anchor");
         add_slice(anchor_source, region.start.source);
         destination.push_back(
-            {AnchorBlockIR{"TBL" + region.identifier},
+            {AnchorBlockIR{region_anchor_id(region)},
              canonical(std::move(anchor_source))});
       }
       PreformattedBlockIR drawn;
@@ -613,17 +659,19 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
                     entry.id);
     item.origin.slices = headline_origin.slices;
     item.origin.rows = headline_origin.rows;
+    // The headline and every field are separate paragraphs. Hosted
+    // BookServer serves each on its own row with `<p>` between them --
+    // SC31-711 4.1.1 `<B>0</B>`, `<p>`, `<B>Description:</B>  coldStart`
+    // (DT 19941010174546) -- and the source spells no separator character,
+    // so none is synthesized.
     if (!uses_compound_flow) {
-      item.content = std::move(headline_content);
-      for (std::size_t index = 0; index < entry.fields.size(); ++index) {
-        const auto &field = entry.fields[index];
-        item.content.push_back(
-            {TextInlineIR{index == 0 ? " — " : " "},
-             synthesized(index == 0 ? "trap entry definition separator"
-                                    : "trap field separator")});
+      item.blocks.push_back(
+          {ParagraphBlockIR{std::move(headline_content)}, headline_origin});
+      for (const auto &field : entry.fields) {
         auto field_origin = line_origin(field.line, "trap entry field");
-        append_spans(item.content, field.line.spans, field_origin);
-        if (!append_body_after(item.content, field.line.body, field.label_text,
+        InlineSequenceIR content;
+        append_spans(content, field.line.spans, field_origin);
+        if (!append_body_after(content, field.line.body, field.label_text,
                                field_origin))
           return reject("trap field highlight is outside its text: " +
                         entry.id + " " + field.label_text);
@@ -633,6 +681,8 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
         item.origin.rows.insert(item.origin.rows.end(),
                                 field_origin.rows.begin(),
                                 field_origin.rows.end());
+        item.blocks.push_back(
+            {ParagraphBlockIR{std::move(content)}, std::move(field_origin)});
       }
     } else {
       if (!lower_flow_blocks(entry.headline.body.flow.blocks, item.blocks,
@@ -640,8 +690,7 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
           !style_flow_prefix(entry.headline, entry.headline.spans_text, true,
                              item.blocks, error))
         return std::nullopt;
-      for (std::size_t index = 0; index < entry.fields.size(); ++index) {
-        const auto &field = entry.fields[index];
+      for (const auto &field : entry.fields) {
         BlockSequenceIR field_blocks;
         if (!lower_flow_blocks(field.line.body.flow.blocks, field_blocks,
                                error))
@@ -654,28 +703,6 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
         if (!style_flow_prefix(field.line, field.label_text, false,
                                field_blocks, error))
           return std::nullopt;
-        const auto separator = index == 0 ? " — " : " ";
-        if (auto *paragraph =
-                std::get_if<ParagraphBlockIR>(&field_blocks.front().node);
-            paragraph != nullptr &&
-            std::holds_alternative<ParagraphBlockIR>(item.blocks.back().node)) {
-          auto &previous =
-              std::get<ParagraphBlockIR>(item.blocks.back().node).content;
-          previous.push_back(
-              {TextInlineIR{separator},
-               synthesized(index == 0 ? "trap entry definition separator"
-                                      : "trap field separator")});
-          previous.insert(previous.end(), paragraph->content.begin(),
-                          paragraph->content.end());
-          auto &previous_origin = item.blocks.back().origin;
-          previous_origin.slices.insert(previous_origin.slices.end(),
-                                        field_blocks.front().origin.slices.begin(),
-                                        field_blocks.front().origin.slices.end());
-          previous_origin.rows.insert(previous_origin.rows.end(),
-                                      field_blocks.front().origin.rows.begin(),
-                                      field_blocks.front().origin.rows.end());
-          field_blocks.erase(field_blocks.begin());
-        }
         item.blocks.insert(item.blocks.end(),
                            std::make_move_iterator(field_blocks.begin()),
                            std::make_move_iterator(field_blocks.end()));
@@ -709,7 +736,7 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
         auto region_anchor = origin("trap embedded table source anchor");
         add_slice(region_anchor, region.start.source);
         document.blocks.push_back(
-            {AnchorBlockIR{"TBL" + region.identifier}, region_anchor});
+            {AnchorBlockIR{region_anchor_id(region)}, region_anchor});
       }
       PreformattedBlockIR drawn;
       drawn.lines = region.lines;

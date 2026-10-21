@@ -426,6 +426,45 @@ the label `value:` (the row marker is at byte `0x43D5D`); segment 3 starts the
 separate `Explanation:` field.  The empty `value:` row therefore remains a
 field with an empty body rather than becoming part of either adjacent field.
 
+The headline and each field are separate paragraphs.  Hosted BookServer
+serves `SC31-711` topic `4.1.1` (DT `19941010174546`) as `<B>0</B>`, `<p>`,
+`<B>Description:</B>  coldStart`, `<p>`, and so on; no character stands
+between the headline and the first label in the source or on the served page.
+
+An entry can carry figure and footnote envelopes, and both stand where the
+source draws them.  In `N2AH1MST` topic `10.0` (hosted DT `19910329000100`):
+
+[cols="<14,<18,<34,<34",options="header"]
+|===
+|Record, line |Bytes |Content |Served as
+
+|533, 15 |`02`, then `E4 87` at `0x3EDE8` (value 58503) |`SRFIGFIGUNIQ20` on a line of its own, inside entry `ATB101I` |`<a name="FIGFIGUNIQ20">` on the first drawn row that follows
+|533, 16 - 534, 4 |— |alternating `cfont` lines and six drawn rows |the six rows verbatim, one per line, highlighted as their `cfont` lines state
+|534, 5 |`02`, then `E4 7B` at `0x3EEEF` (value 58491) |`SREFIG` |nothing; it ends the figure, and the `Explanation:` field follows
+|599, 12 |`02`, then `E4 8F` at `0x44496` (value 58511) |`SRFTNFTNUNIQ19`, between the native list rows `TPALIAS` and `TPDELETE` of entry `ATB215I` |`<a name="FTNFTNUNIQ19"><hr><h5>` at that point of the entry
+|599, 13 |— |` \|  (*) VTAM is a trademark of the IBM Corporation.` |the footnote text
+|599, 14 |`02`, then `E4 7D` at `0x444AF` (value 58493) |`SREFTN` |`</h5></a>`; no anchor of its own
+|===
+
+The figure and footnote ids are the opening opcode without `SR`; the closers
+`SREFIG` and `SREFTN` are end markers and name no destination.  Two more
+footnote envelopes follow on lines 16-19 and 21-23 of record 599, served in
+the same place in source order.
+
+A bare `SRMSG` inside an entry -- the opcode alone on its display line, with no
+operand and no payload -- is likewise a destination where it stands:
+`N2AH1MST` topic `2.0` serves `<a name="MSG">` at the end of its last entry,
+immediately before the footnote `FTNFTNUNIQ16` that follows it in the source.
+
+Consecutive selector lines inside an entry queue onto the first drawn row after
+them.  Record 563 lines 11 and 12 are `cselect 22 4 FTNFTNUNIQ22` and
+`cselect 31 4 FTNFTNUNIQ23` (each a line of its own: length byte `06`, the
+two-byte `cselect` word `BD C7` at `0x41606` and `0x4160D`), and line 13 draws
+` |        architecture (*) (SAA (*)) common programming interface (CPI)`.
+The first selector has no payload of its own.  Hosted serves
+`architecture<a href="#FTNFTNUNIQ22"> (*)</a> (SAA<a href="#FTNFTNUNIQ23"> (*)</a>)`:
+both selectors mark cells of line 13, and neither replaces the other.
+
 The important implementation rule is that this is not a hardcoded packet title
 or hardcoded three-line page rule. `:vnotice.` changes the interpretation of
 the following controls: the first body `CFONT` is the visual notice heading,

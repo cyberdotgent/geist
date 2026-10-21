@@ -33,7 +33,15 @@
 //   * the same run on a row that draws a glyph in front of the catalogue's
 //     own column, so the CFONT mapping slides: the display line disproves it
 //     and the family declines rather than record a run over characters the
-//     columns do not name.
+//     columns do not name;
+//   * the headline and each field lowered as separate paragraphs, with no
+//     synthesized separator;
+//   * `SRFIG`/`SREFIG` and `SRFTN`/`SREFTN` envelopes placed where the entry
+//     draws them, with closers that name nothing, and a stray closer that
+//     declines;
+//   * selectors queued on consecutive control lines, each keeping its own
+//     claim on the shared row;
+//   * a bare `SRMSG` that stays where the entry names it.
 //
 // What is NOT covered, stated plainly rather than implied: the compact
 // marker slot that carries a whole word. Two rules turn on it -- a slot the
@@ -58,9 +66,12 @@
 #include "geist/detail/render/document_markdown_renderer.hpp"
 #include "test_failures.hpp"
 
+#include <algorithm>
 #include <iostream>
 #include <optional>
 #include <string>
+#include <utility>
+#include <variant>
 #include <vector>
 
 namespace {
@@ -1259,6 +1270,238 @@ int main() {
                     "Second item</li></ul>") !=
                     std::string::npos,
                 "HTML flattened recursive trap list content: " + html);
+      }
+    }
+  }
+  // The headline and every field are separate paragraphs. Hosted BookServer
+  // serves `<B>0</B>`, `<p>`, `<B>Description:</B>  coldStart`, `<p>`, ...
+  // (SC31-711 4.1.1, DT 19941010174546); no separator character exists in
+  // the source or in the served page.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("629", 234));
+    const auto built = build({make_source(58, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "field paragraph catalogue declined: " + built.error);
+    if (built.catalog) {
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(), "field paragraph lowering declined: " + error);
+      if (document) {
+        const auto markdown =
+            geist::detail::render_document_markdown(*document);
+        const auto html =
+            geist::detail::render_document_html_blocks(*document, {});
+        require(markdown.find(u8"—") == std::string::npos &&
+                    html.find(u8"—") == std::string::npos,
+                "trap lowering synthesized a separator: " + markdown);
+        require(html.find("<p class=\"geist-paragraph\"><strong "
+                          "class=\"geist-strong\">Description:</strong> first "
+                          "field</p>") != std::string::npos,
+                "trap field did not open its own paragraph: " + html);
+      }
+    }
+  }
+
+  // `SRFIG<id>` ... `SREFIG` inside an entry is a drawn figure envelope.
+  // Hosted BookServer serves N2AH1MST 10.0 `ATB101I` (DT 19910329000100) as
+  // the figure's own display lines with `<a name="FIGFIGUNIQ20">` on the
+  // first, in place; the closer names nothing.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("630", 235));
+    append(tokens, line({t("SRFIGFIGUNIQ5", 236)}));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("5", 237), t("2", 113)}));
+    append(tokens, line({origin(), t("Drawn", 238), t("figure", 239)}));
+    append(tokens, line({origin(), t("second", 240), t("row", 211)}));
+    append(tokens, line({t("SREFIG", 241)}));
+    append(tokens, line({origin(), t("after", 141), t("figure.", 242)}));
+    const auto built = build({make_source(59, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "figure envelope catalogue declined: " + built.error);
+    if (built.catalog) {
+      require(built.catalog->entry_named_destinations.empty(),
+              "figure envelope controls were hoisted to topic destinations");
+      const auto &blocks = built.catalog->entries.front()
+                               .fields.front()
+                               .line.body.flow.blocks;
+      const auto region = std::find_if(
+          blocks.begin(), blocks.end(), [](const auto &block) {
+            return std::holds_alternative<geist::detail::TrapEmbeddedRegionIR>(
+                block.value);
+          });
+      require(region != blocks.end(),
+              "figure envelope was not kept as a positioned region");
+      if (region != blocks.end()) {
+        const auto &drawn =
+            std::get<geist::detail::TrapEmbeddedRegionIR>(region->value);
+        require(drawn.start.kind ==
+                        geist::detail::TrapEmbeddedControlKindIR::figure_start &&
+                    drawn.end.kind ==
+                        geist::detail::TrapEmbeddedControlKindIR::figure_end &&
+                    drawn.lines.size() == 2 &&
+                    drawn.start.source.token_begin != drawn.end.source.token_begin,
+                "figure region lost its kind, lines or source bounds");
+      }
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(), "figure envelope lowering declined: " + error);
+      if (document) {
+        require(document->named_destinations.empty(),
+                "figure envelope ids became topic destinations");
+        const auto html =
+            geist::detail::render_document_html_blocks(*document, {});
+        const auto markdown =
+            geist::detail::render_document_markdown(*document);
+        const auto anchor = html.find("id=\"FIGFIGUNIQ5\"");
+        require(anchor != std::string::npos &&
+                    html.find("id=\"FIGFIGUNIQ5\"", anchor + 1) ==
+                        std::string::npos &&
+                    html.find("EFIG") == std::string::npos,
+                "figure anchor is missing, duplicated, or its closer named one: " +
+                    html);
+        const auto field = markdown.find("first field");
+        const auto figure = markdown.find("Drawn figure");
+        const auto after = markdown.find("after figure.");
+        require(field != std::string::npos && figure > field && after > figure,
+                "figure envelope was not drawn in place: " + markdown);
+      }
+    }
+  }
+
+  // `SRFTN<id>` ... `SREFTN` is a footnote placed where the source puts it:
+  // hosted N2AH1MST 10.0 serves `<a name="FTNFTNUNIQ19"><hr><h5> ... </h5></a>`
+  // between two native list rows of `ATB215I`, and `SREFTN` names nothing.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("631", 243));
+    append(tokens, line({t("SRFTNFTNUNIQ7", 244)}));
+    append(tokens, line({origin(), t("VTAM", 245), t("is", 246), t("a", 247),
+                         t("trademark.", 248)}));
+    append(tokens, line({t("SREFTN", 249)}));
+    append(tokens, line({origin(), t("Resumed", 250), t("text.", 251)}));
+    const auto built = build({make_source(60, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "footnote envelope catalogue declined: " + built.error);
+    if (built.catalog) {
+      require(built.catalog->entry_named_destinations.empty(),
+              "footnote envelope controls were hoisted to topic destinations");
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(),
+              "footnote envelope lowering declined: " + error);
+      if (document) {
+        require(document->named_destinations.empty(),
+                "footnote envelope ids became topic destinations");
+        const auto html =
+            geist::detail::render_document_html_blocks(*document, {});
+        const auto markdown =
+            geist::detail::render_document_markdown(*document);
+        const auto anchor = html.find("id=\"FTNFTNUNIQ7\"");
+        require(anchor != std::string::npos &&
+                    html.find("id=\"FTNFTNUNIQ7\"", anchor + 1) ==
+                        std::string::npos &&
+                    html.find("EFTN") == std::string::npos,
+                "footnote anchor is missing, duplicated, or its closer named "
+                "one: " + html);
+        const auto field = markdown.find("first field");
+        const auto note = markdown.find("VTAM is a trademark");
+        const auto resumed = markdown.find("Resumed text.");
+        require(field != std::string::npos && note > field && resumed > note,
+                "footnote was not placed where the source draws it: " +
+                    markdown);
+      }
+    }
+    // A closer with no open envelope is not a footnote the family can place.
+    auto stray = header("Sample", "Messages");
+    append(stray, entry("632", 252));
+    append(stray, line({t("SREFTN", 249)}));
+    require(!build({make_source(61, stray)}, "Sample Messages").catalog,
+            "a footnote closer with no open footnote was admitted");
+  }
+
+  // Two `cselect` controls queued on consecutive control lines both select
+  // the first drawn line after them: N2AH1MST record 563 lines 11-13 store
+  // `cselect 22 4 FTNFTNUNIQ22`, `cselect 31 4 FTNFTNUNIQ23`, then
+  // `architecture (*) (SAA (*))`; hosted links both marks.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("633", 253));
+    append(tokens, line({t("cselect", 191), t("7", 254), t("3", 112),
+                         t("FTNA", 255)}));
+    append(tokens, line({t("cselect", 191), t("17", 256), t("3", 112),
+                         t("FTNB", 257)}));
+    append(tokens, line({origin(), t("Two", 258), t("(*)", 259),
+                         t("marks", 260), t("(*)", 259)}));
+    const auto built = build({make_source(62, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "queued selector catalogue declined: " + built.error);
+    if (built.catalog) {
+      const auto &links =
+          built.catalog->entries.front().fields.front().line.body.links;
+      require(links.size() == 2 &&
+                  (links.size() != 2 ||
+                   (links[0].target == "FTNA" && links[1].target == "FTNB" &&
+                    links[0].end <= links[1].begin &&
+                    links[0].source.token_begin !=
+                        links[1].source.token_begin)),
+              "queued selectors did not both keep distinct source claims");
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(),
+              "queued selector lowering declined: " + error);
+      if (document) {
+        const auto html =
+            geist::detail::render_document_html_blocks(*document, {});
+        require(html.find("href=\"#FTNA\">(*)</a>") != std::string::npos &&
+                    html.find("href=\"#FTNB\">(*)</a>") != std::string::npos,
+                "a queued selector link was lost: " + html);
+      }
+      auto moved = *built.catalog;
+      auto &moved_links =
+          moved.entries.front().fields.front().line.body.links;
+      if (moved_links.size() == 2) {
+        std::swap(moved_links[0].target, moved_links[1].target);
+        require(!geist::detail::verify_trap_catalog_ir(
+                    built.sources, built.layout, *built.ownership, moved,
+                    &error),
+                "swapped queued selector targets were accepted");
+      }
+    }
+  }
+
+  // A bare `SRMSG` inside an entry is a destination where it stands, not a
+  // topic-level one: hosted N2AH1MST 2.0 serves `<a name="MSG">` immediately
+  // before the footnote it precedes.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("634", 261));
+    append(tokens, line({t("SRMSG", 110)}));
+    append(tokens, line({t("SRFTNFTNUNIQ8", 263)}));
+    append(tokens, line({origin(), t("Later", 262), t("text.", 251)}));
+    append(tokens, line({t("SREFTN", 249)}));
+    const auto built = build({make_source(63, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "positional SRMSG catalogue declined: " + built.error);
+    if (built.catalog) {
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(),
+              "positional SRMSG lowering declined: " + error);
+      if (document) {
+        const auto markdown =
+            geist::detail::render_document_markdown(*document);
+        const auto field = markdown.find("first field");
+        const auto anchor = markdown.find("<a id=\"MSG\"></a>");
+        const auto later = markdown.find("Later text.");
+        require(field != std::string::npos && anchor > field && later > anchor,
+                "bare SRMSG was hoisted out of its entry: " + markdown);
       }
     }
   }

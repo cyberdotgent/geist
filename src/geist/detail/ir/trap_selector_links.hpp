@@ -18,6 +18,11 @@ using TrapGlyphOffsets = std::map<std::pair<std::size_t, std::size_t>, std::size
 struct TrapSelectorSource {
   std::string target;
   std::vector<DisplayLineCellIR> cells;
+  // The length byte of the native row the selector marks.
+  std::size_t row_prefix_token = 0;
+  // Set when further selector control lines stand between this selector and
+  // its row: the selectors queue onto the first row drawn after them.
+  bool queued = false;
 };
 
 std::optional<TrapSelectorSource> read_trap_selector_source(

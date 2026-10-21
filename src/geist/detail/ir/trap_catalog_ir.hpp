@@ -107,7 +107,8 @@ struct TrapTextLinkIR {
   DocumentSourceSliceIR source;
 };
 
-// A `SRTBL<id>` ... `SRETBL` envelope drawn inside one entry.
+// A `SRTBL<id>` ... `SRETBL` or `SRFIG<id>` ... `SREFIG` envelope drawn
+// inside one entry.
 //
 // The family models the envelope, not a grid. Nothing in the source spells
 // column boundaries for these regions: the book draws them by placing words
@@ -119,9 +120,17 @@ struct TrapTextLinkIR {
 // into the surrounding field would destroy the alignment that carries its
 // meaning. So the region keeps its display lines exactly as the record's own
 // framing draws them.
+//
+// A figure envelope is drawn the same way: hosted N2AH1MST 10.0 `ATB101I`
+// (DT 19910329000100) serves the rows between `SRFIGFIGUNIQ20` and `SREFIG`
+// as the entry's own display lines with `<a name="FIGFIGUNIQ20">` on the
+// first. The region's anchor is the opening opcode without `SR`: `TBL` or
+// `FIG` followed by `identifier`.
 enum class TrapEmbeddedControlKindIR {
   table_start,
   table_end,
+  figure_start,
+  figure_end,
 };
 
 struct TrapEmbeddedControlIR {
@@ -197,11 +206,35 @@ struct TrapFlowListIR {
   std::vector<TrapFlowListItemIR> items;
 };
 
-// Recursive source flow. The extractor currently emits paragraphs and exact
-// embedded regions; the list alternative reserves the same ownership model
-// for native marker rows without flattening them into paragraph text.
+// A destination the source names where it stands inside an entry. A bare
+// `SRMSG` (no operand, no payload) is one: hosted N2AH1MST 2.0 (DT
+// 19910329000100) serves `<a name="MSG">` immediately before the footnote
+// that follows it, not at the top of the topic.
+struct TrapFlowAnchorIR {
+  std::string id;
+  DocumentSourceSliceIR source;
+};
+
+// An `SRFTN<id>` ... `SREFTN` footnote envelope, placed where the source
+// draws it. `id` is the opening opcode without `SR` (the served anchor);
+// `start` and `end` are the two controls' own slices. The closer is an end
+// marker and names nothing. `blocks` are the footnote's own paragraphs.
+struct TrapFlowFootnoteIR {
+  std::string id;
+  DocumentSourceSliceIR start;
+  DocumentSourceSliceIR end;
+  std::vector<TrapFlowBlockIR> blocks;
+  std::size_t cell_begin = 0;
+  std::size_t cell_end = 0;
+};
+
+// Recursive source flow: paragraphs, native lists, exact embedded regions
+// (`SRTBL`/`SRFIG` envelopes), footnote envelopes and positioned anchors, in
+// source order.
 struct TrapFlowBlockIR {
-  std::variant<TrapFlowParagraphIR, TrapFlowListIR, TrapEmbeddedRegionIR> value;
+  std::variant<TrapFlowParagraphIR, TrapFlowListIR, TrapEmbeddedRegionIR,
+               TrapFlowAnchorIR, TrapFlowFootnoteIR>
+      value;
 };
 
 struct TrapFlowSequenceIR {

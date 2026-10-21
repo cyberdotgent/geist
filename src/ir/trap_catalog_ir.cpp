@@ -450,6 +450,13 @@ struct NativeListMarker {
 
 using CellPositions = std::map<CellKey, std::size_t>;
 
+// A payload-less selector whose control line is followed by further selector
+// lines, waiting for the selector whose payload draws their shared row.
+struct QueuedSelector {
+  TrapSelectorSource selector;
+  DocumentSourceSliceIR source;
+};
+
 std::size_t append_unique_cell(std::vector<TrapSourceCellIR> &cells,
                                CellPositions &positions,
                                const TrapSourceCellIR &cell) {
@@ -583,6 +590,8 @@ bool add_highlights(TrapFlowSequenceIR &flow,
         } else if (std::holds_alternative<TrapFlowListIR>(block.value)) {
           for (auto &item : std::get<TrapFlowListIR>(block.value).items)
             self(self, item.blocks);
+        } else if (std::holds_alternative<TrapFlowFootnoteIR>(block.value)) {
+          self(self, std::get<TrapFlowFootnoteIR>(block.value).blocks);
         }
       }
     };
@@ -605,6 +614,11 @@ TrapFlowParagraphIR *first_paragraph(TrapFlowSequenceIR &flow) {
           if (auto *paragraph = self(self, item.blocks);
               paragraph != nullptr)
             return paragraph;
+      if (std::holds_alternative<TrapFlowFootnoteIR>(block.value))
+        if (auto *paragraph =
+                self(self, std::get<TrapFlowFootnoteIR>(block.value).blocks);
+            paragraph != nullptr)
+          return paragraph;
     }
     return nullptr;
   };
@@ -628,7 +642,8 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
                   std::size_t highlighted_columns = 0,
                   bool whole_segment = false,
                   const std::vector<std::pair<std::size_t, std::size_t>>
-                      *highlight_ranges = nullptr) {
+                      *highlight_ranges = nullptr,
+                  const std::vector<QueuedSelector> *queued = nullptr) {
   // True when one CFONT span of the segment covers `[from, to)` whole, in the
   // payload's own display coordinates.
   const auto highlight_covers = [&](const std::size_t from,
@@ -642,14 +657,28 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
   };
   const auto range = decoded_byte_range_to_word_range(
       record.assembled, whole_segment ? segment.complete : segment.payload_range);
-  std::optional<TrapSelectorSource> selector_source;
+  // Every selector this payload's row carries, in source order: the queued
+  // selectors whose control lines preceded this one, then its own.
+  std::vector<QueuedSelector> selectors;
   std::set<std::pair<std::size_t, std::size_t>> selected_glyphs;
   if (!whole_segment && segment.kind == BookControlKind::select) {
-    selector_source = read_trap_selector_source(record, segment, error);
-    if (!selector_source) return false;
-    for (const auto& cell : selector_source->cells)
-      if (cell.word != ' ')
-        selected_glyphs.emplace(cell.token, cell.word_index);
+    auto own = read_trap_selector_source(record, segment, error);
+    if (!own) return false;
+    if (queued != nullptr)
+      for (const auto &waiting : *queued) {
+        if (waiting.source.logical_record != record.logical_record ||
+            waiting.selector.row_prefix_token != own->row_prefix_token)
+          return fail(error, "trap queued selector does not share its row");
+        selectors.push_back(waiting);
+      }
+    selectors.push_back({std::move(*own), segment_slice(record, segment)});
+    for (const auto &selector : selectors)
+      for (const auto &cell : selector.selector.cells)
+        if (cell.word != ' ' &&
+            !selected_glyphs.emplace(cell.token, cell.word_index).second)
+          return fail(error, "trap selectors on one row overlap");
+  } else if (queued != nullptr && !queued->empty()) {
+    return fail(error, "trap queued selector has no selector row");
   }
   std::vector<Piece> pieces;
   std::vector<NativeListMarker> list_markers;
@@ -984,16 +1013,18 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
     display += piece.text;
   }
   text = collapse(std::move(text));
-  std::optional<TrapTextLinkIR> local_link;
-  if (selector_source) {
-    local_link = project_trap_selector_link(*selector_source, text, glyph_offsets,
-                                            segment_slice(record, segment), error);
+  std::vector<TrapTextLinkIR> local_links;
+  for (const auto &selector : selectors) {
+    auto local_link = project_trap_selector_link(selector.selector, text,
+                                                 glyph_offsets, selector.source,
+                                                 error);
     if (!local_link) return false;
     auto link = *local_link;
     const auto base = out.text.size() + (out.text.empty() ? 0 : 1);
     link.begin += base;
     link.end += base;
     out.links.push_back(std::move(link));
+    local_links.push_back(std::move(*local_link));
   }
   if (!out.text.empty() && !text.empty())
     out.text.push_back(' ');
@@ -1193,7 +1224,7 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
   finish_paragraph();
   while (!lists.empty())
     close_list();
-  if (local_link) {
+  for (const auto &local_link : local_links) {
     bool placed = false;
     std::size_t base = 0;
     const auto place = [&](const auto &self,
@@ -1204,8 +1235,8 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
         if (std::holds_alternative<TrapFlowParagraphIR>(block.value)) {
           auto &candidate = std::get<TrapFlowParagraphIR>(block.value);
           const auto limit = base + candidate.text.size();
-          if (local_link->begin >= base && local_link->end <= limit) {
-            auto link = *local_link;
+          if (local_link.begin >= base && local_link.end <= limit) {
+            auto link = local_link;
             link.begin -= base;
             link.end -= base;
             candidate.links.push_back(std::move(link));
@@ -1216,6 +1247,8 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
         } else if (std::holds_alternative<TrapFlowListIR>(block.value)) {
           for (auto &item : std::get<TrapFlowListIR>(block.value).items)
             self(self, item.blocks);
+        } else if (std::holds_alternative<TrapFlowFootnoteIR>(block.value)) {
+          self(self, std::get<TrapFlowFootnoteIR>(block.value).blocks);
         }
       }
     };
@@ -1644,6 +1677,23 @@ bool same_block(const TrapFlowBlockIR &left, const TrapFlowBlockIR &right) {
   if (std::holds_alternative<TrapEmbeddedRegionIR>(left.value))
     return same_region(std::get<TrapEmbeddedRegionIR>(left.value),
                        std::get<TrapEmbeddedRegionIR>(right.value));
+  if (std::holds_alternative<TrapFlowAnchorIR>(left.value)) {
+    const auto &a = std::get<TrapFlowAnchorIR>(left.value);
+    const auto &b = std::get<TrapFlowAnchorIR>(right.value);
+    return a.id == b.id && a.source == b.source;
+  }
+  if (std::holds_alternative<TrapFlowFootnoteIR>(left.value)) {
+    const auto &a = std::get<TrapFlowFootnoteIR>(left.value);
+    const auto &b = std::get<TrapFlowFootnoteIR>(right.value);
+    if (a.id != b.id || !(a.start == b.start) || !(a.end == b.end) ||
+        a.cell_begin != b.cell_begin || a.cell_end != b.cell_end ||
+        a.blocks.size() != b.blocks.size())
+      return false;
+    for (std::size_t block = 0; block < a.blocks.size(); ++block)
+      if (!same_block(a.blocks[block], b.blocks[block]))
+        return false;
+    return true;
+  }
   const auto &a = std::get<TrapFlowListIR>(left.value);
   const auto &b = std::get<TrapFlowListIR>(right.value);
   if (a.ordered != b.ordered || a.items.size() != b.items.size())
@@ -1749,6 +1799,29 @@ bool validate_flow(const TrapFlowSequenceIR &flow,
             region.cell_end > cells.size())
           return fail(error, "trap flow embedded region overlaps source cells: " +
                                  identity);
+      } else if (std::holds_alternative<TrapFlowAnchorIR>(block.value)) {
+        const auto &anchor = std::get<TrapFlowAnchorIR>(block.value);
+        if (anchor.id.empty() || anchor.source.token_begin >= anchor.source.token_end)
+          return fail(error, "trap flow anchor has no source control: " +
+                                 identity);
+      } else if (std::holds_alternative<TrapFlowFootnoteIR>(block.value)) {
+        const auto &footnote = std::get<TrapFlowFootnoteIR>(block.value);
+        if (footnote.id.empty() ||
+            footnote.start.token_begin >= footnote.start.token_end ||
+            footnote.end.token_begin >= footnote.end.token_end ||
+            std::make_pair(footnote.end.logical_record, footnote.end.token_begin) <=
+                std::make_pair(footnote.start.logical_record,
+                               footnote.start.token_begin) ||
+            footnote.cell_begin > footnote.cell_end ||
+            footnote.cell_end > cells.size() || footnote.blocks.empty())
+          return fail(error, "trap flow footnote envelope is not source-proven: " +
+                                 identity);
+        for (const auto &inner : footnote.blocks)
+          if (!std::holds_alternative<TrapFlowParagraphIR>(inner.value))
+            return fail(error, "trap flow footnote holds a non-paragraph: " +
+                                   identity);
+        if (!self(self, footnote.blocks, flat))
+          return false;
       } else {
         const auto &list = std::get<TrapFlowListIR>(block.value);
         if (list.items.empty())
@@ -2195,6 +2268,17 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
       std::size_t token = 0;
     };
     std::optional<OpenRegion> open_region;
+    // The `SRFTN<id>` footnote envelope currently open: the line whose flow
+    // holds it and the block's index in that flow.
+    TrapLineIR *footnote_line = nullptr;
+    std::size_t footnote_block = 0;
+    const auto open_footnote = [&]() -> TrapFlowFootnoteIR & {
+      return std::get<TrapFlowFootnoteIR>(
+          footnote_line->body.flow.blocks[footnote_block].value);
+    };
+    // Payload-less selectors queued on consecutive control lines, waiting
+    // for the selector whose payload draws the row they all mark.
+    std::vector<QueuedSelector> queued_selectors;
     // Cell index the entry's text resumes at after an embedded region has
     // claimed a run of the ledger, so the region does not read as a gap in
     // the interrupted field's own cells.
@@ -2262,11 +2346,37 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
       };
       if (segment_is_display_line_prefix(*ref.record, segment) ||
           nondrawing_control(index, *ref.record, segment)) {
+        if (!segment_is_display_line_prefix(*ref.record, segment) &&
+            segment.kind == BookControlKind::select && current != nullptr &&
+            !open_region) {
+          std::string selector_error;
+          auto selector =
+              read_trap_selector_source(*ref.record, segment, &selector_error);
+          if (selector && selector->queued)
+            queued_selectors.push_back(
+                {std::move(*selector), segment_slice(*ref.record, segment)});
+        }
         ledger_empty_lines();
         continue;
       }
+      if (!queued_selectors.empty() &&
+          segment.kind != BookControlKind::select)
+        return reject("trap queued selector has no drawn row: " + entry.id);
       const auto opcode_is_line_prefix =
           segment_opcode_is_display_line_prefix(*ref.record, segment);
+      const auto lower_opcode = ascii_lower(segment.opcode);
+      const auto structural_control =
+          !opcode_is_line_prefix && !segment.source_tokens.empty() &&
+          segment.kind == BookControlKind::structural && !segment.malformed;
+      const auto figure_start = structural_control &&
+                                lower_opcode.rfind("srfig", 0) == 0 &&
+                                lower_opcode.size() > 5;
+      const auto figure_end = structural_control && lower_opcode == "srefig";
+      const auto footnote_start = structural_control &&
+                                  lower_opcode.rfind("srftn", 0) == 0 &&
+                                  lower_opcode.size() > 5;
+      const auto footnote_end = structural_control && lower_opcode == "sreftn";
+      const auto region_was_open = open_region.has_value();
       if (current != nullptr && !segment.source_tokens.empty() &&
           !current->body.source_slices.empty() &&
           current->body.source_slices.back().logical_record ==
@@ -2321,12 +2431,16 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
       // and `SRETBL` closes it. Everything between the two is the region's
       // own drawing, kept as the display lines the record frames rather than
       // flowed into the field the envelope interrupts.
-      if (!opcode_is_line_prefix && !segment.source_tokens.empty() &&
-          segment.kind == BookControlKind::table_start) {
+      if ((!opcode_is_line_prefix && !segment.source_tokens.empty() &&
+           segment.kind == BookControlKind::table_start) ||
+          figure_start) {
         if (open_region)
           return reject("trap entry nests a table envelope: " + entry.id);
         if (current == nullptr)
           return reject("trap entry table envelope precedes its headline: " +
+                        entry.id);
+        if (footnote_line != nullptr)
+          return reject("trap entry draws an envelope inside a footnote: " +
                         entry.id);
         OpenRegion opened;
         opened.record = ref.record->logical_record;
@@ -2336,8 +2450,11 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
         // token after the control.
         const auto payload = payload_first_token(*ref.record, segment);
         opened.token = payload ? *payload : segment.source_tokens.back() + 1;
-        opened.region.identifier = control_identifier(segment.opcode, "srtbl");
-        opened.region.start = {TrapEmbeddedControlKindIR::table_start,
+        opened.region.identifier =
+            control_identifier(segment.opcode, figure_start ? "srfig" : "srtbl");
+        opened.region.start = {figure_start
+                                   ? TrapEmbeddedControlKindIR::figure_start
+                                   : TrapEmbeddedControlKindIR::table_start,
                                opened.region.identifier,
                                segment_slice(*ref.record, segment)};
         opened.region.after_field = entry.fields.size();
@@ -2346,14 +2463,22 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
         continue;
       }
       if (open_region) {
-        if (opcode_is_line_prefix ||
-            segment.kind != BookControlKind::table_end)
+        const auto figure =
+            open_region->region.start.kind ==
+            TrapEmbeddedControlKindIR::figure_start;
+        const auto table_end = !opcode_is_line_prefix &&
+                               segment.kind == BookControlKind::table_end;
+        if (figure ? table_end : figure_end)
+          return reject("trap entry closes an envelope it did not open: " +
+                        entry.id + " " + segment.opcode);
+        if (figure ? !figure_end : !table_end)
           continue;
         if (segment.source_tokens.empty())
           return reject("trap table envelope end has no source token: " +
                         entry.id);
         auto &region = open_region->region;
-        region.end = {TrapEmbeddedControlKindIR::table_end,
+        region.end = {figure ? TrapEmbeddedControlKindIR::figure_end
+                             : TrapEmbeddedControlKindIR::table_end,
                       {},
                       segment_slice(*ref.record, segment)};
         if (!project_embedded_region(records, index, open_region->record,
@@ -2378,9 +2503,50 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
         // An `SRMSG` with neither operand nor payload is a bare anchor:
         // N2AH1MST record 177 line 38 is the whole one-byte line `SRMSG`,
         // and hosted 2.0 (DT 19910329000100) serves it as `<a name="MSG">`
-        // immediately before the footnote anchor. It draws nothing.
-        catalog.anchors.push_back({"MSG", segment_slice(*ref.record, segment)});
+        // immediately before the footnote anchor. It draws nothing, and it
+        // stands where the source puts it.
+        if (current == nullptr) {
+          catalog.anchors.push_back(
+              {"MSG", segment_slice(*ref.record, segment)});
+        } else {
+          if (footnote_line != nullptr)
+            return reject("trap entry names a destination inside a footnote: " +
+                          entry.id);
+          current->body.flow.blocks.push_back(
+              {TrapFlowAnchorIR{"MSG", segment_slice(*ref.record, segment)}});
+        }
         continue;
+      }
+      if (figure_end && !region_was_open)
+        return reject("trap entry closes a figure it did not open: " +
+                      entry.id);
+      // `SRFTN<id>` ... `SREFTN` is a footnote drawn where it stands: hosted
+      // N2AH1MST 10.0 (DT 19910329000100) serves `<a name="FTNFTNUNIQ19">
+      // <hr><h5> ... </h5></a>` between two native list rows of `ATB215I`.
+      // The opener's payload is the footnote's own text; the closer names
+      // nothing and its payload is entry text again.
+      if (footnote_start) {
+        if (current == nullptr || footnote_line != nullptr)
+          return reject("trap entry footnote envelope is misplaced: " +
+                        entry.id + " " + segment.opcode);
+        TrapFlowFootnoteIR footnote;
+        footnote.id = segment.opcode.substr(2);
+        footnote.start = segment_slice(*ref.record, segment);
+        footnote.cell_begin = entry.cells.size();
+        footnote.cell_end = footnote.cell_begin;
+        current->body.flow.blocks.push_back({std::move(footnote)});
+        footnote_line = current;
+        footnote_block = current->body.flow.blocks.size() - 1;
+      } else if (footnote_end) {
+        if (footnote_line == nullptr || footnote_line != current)
+          return reject("trap entry closes a footnote it did not open: " +
+                        entry.id);
+        auto &footnote = open_footnote();
+        if (footnote.blocks.empty())
+          return reject("trap entry footnote has no text: " + entry.id);
+        footnote.end = segment_slice(*ref.record, segment);
+        footnote.cell_end = entry.cells.size();
+        footnote_line = nullptr;
       }
       if (!opcode_is_line_prefix && segment.kind == BookControlKind::font) {
         std::string font_error;
@@ -2635,17 +2801,24 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
         // time.  Its payload is entry text and keeps its disposition below;
         // only the name is recorded, because the entry already carries the
         // anchor its own `SRMSG` states.
+        // Figure and footnote envelope controls are placed above; their
+        // closers are end markers and name nothing.
         if (!opcode_is_line_prefix &&
             segment.kind == BookControlKind::structural &&
             ascii_starts_with_case_insensitive(segment.opcode, "SR") &&
-            segment.opcode.size() > 2)
+            segment.opcode.size() > 2 && !figure_start && !figure_end &&
+            !footnote_start && !footnote_end)
           catalog.entry_named_destinations.push_back(segment.opcode.substr(2));
         TrapTextIR piece;
         piece.cell_begin = entry.cells.size();
         if (!walk_payload(*ref.record, segment, index, piece, entry.cells,
                           entry_cell_positions, error, false, 0,
-                          opcode_is_line_prefix))
+                          opcode_is_line_prefix, nullptr,
+                          segment.kind == BookControlKind::select
+                              ? &queued_selectors
+                              : nullptr))
           return std::nullopt;
+        queued_selectors.clear();
         piece.cell_end = entry.cells.size();
         if (!pending_boundaries.empty()) {
           auto *paragraph = first_paragraph(piece.flow);
@@ -2685,7 +2858,17 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           link.end += link_base;
           body.links.push_back(std::move(link));
         }
-        append_flow(body.flow, std::move(piece.flow));
+        if (footnote_line != nullptr) {
+          if (footnote_line != current)
+            return reject("trap entry footnote crosses a field: " + entry.id);
+          auto &footnote = open_footnote();
+          TrapFlowSequenceIR inner{std::move(footnote.blocks)};
+          append_flow(inner, std::move(piece.flow));
+          footnote.blocks = std::move(inner.blocks);
+          footnote.cell_end = piece.cell_end;
+        } else {
+          append_flow(body.flow, std::move(piece.flow));
+        }
         if (!body.text.empty() && !piece.text.empty())
           body.text.push_back(' ');
         body.text += piece.text;
@@ -2706,6 +2889,10 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
     }
     if (open_region)
       return reject("trap entry table envelope is not closed: " + entry.id);
+    if (footnote_line != nullptr)
+      return reject("trap entry footnote envelope is not closed: " + entry.id);
+    if (!queued_selectors.empty())
+      return reject("trap queued selector has no drawn row: " + entry.id);
     if (!have_headline)
       return reject("trap entry has no highlighted headline: " + entry.id);
     if (!starts_with_word(entry.headline.body.text, entry.id))

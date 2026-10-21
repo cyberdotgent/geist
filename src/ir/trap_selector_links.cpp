@@ -45,14 +45,40 @@ std::optional<TrapSelectorSource> read_trap_selector_source(
       display_line_of_token(record, control_tokens.back()) != control ||
       control + 1 == lines->data() + lines->size())
     return reject("trap selector has no native target row");
-  const auto& row = *(control + 1);
+  // Consecutive selector lines queue onto the first row drawn after them:
+  // N2AH1MST record 563 lines 11 and 12 are `cselect 22 4 FTNFTNUNIQ22` and
+  // `cselect 31 4 FTNFTNUNIQ23`, and hosted 10.0 (DT 19910329000100) links
+  // both `(*)` marks of line 13. A line is skipped only when a selector
+  // control of this record opens it and ends on it.
+  const auto selector_line = [&](const DisplayLineIR& line) {
+    return std::any_of(selectors->selectors.begin(), selectors->selectors.end(),
+        [&](const auto& candidate) {
+          if (candidate.segment_index >= record.control_segments.size())
+            return false;
+          const auto& other = record.control_segments[candidate.segment_index];
+          const auto words = decoded_byte_range_to_word_range(record.assembled,
+              {other.opcode_range.begin, other.operand_range.end});
+          const auto tokens = source_tokens_intersecting_output(
+              record.assembled, words.begin, words.end);
+          return !tokens.empty() && tokens.front() == line.prefix_token + 1 &&
+                 display_line_of_token(record, tokens.back()) == &line &&
+                 tokens.back() + 1 == line.token_end;
+        });
+  };
+  auto target = control + 1;
+  const auto* lines_end = lines->data() + lines->size();
+  while (target != lines_end && selector_line(*target)) ++target;
+  if (target == lines_end)
+    return reject("trap selector queue has no native target row");
+  const auto& row = *target;
   const auto columns = display_line_cells(record, row);
   if (selector->column >= columns.size() ||
       selector->length > columns.size() - selector->column)
     return reject("trap selector exceeds its native target row");
   return TrapSelectorSource{selector->target,
       {columns.begin() + selector->column,
-       columns.begin() + selector->column + selector->length}};
+       columns.begin() + selector->column + selector->length},
+      row.prefix_token, target != control + 1};
 }
 
 std::optional<TrapTextLinkIR> project_trap_selector_link(
