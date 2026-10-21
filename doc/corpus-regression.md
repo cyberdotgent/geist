@@ -188,3 +188,13 @@ operands in `2.4.9`; no drawn words or existing hyperlinks disappear.
 Its partial `LEN` metadata anchor becomes the complete source-backed name,
 as with the preceding four promotions, and no existing book hyperlink
 targets that partial name. The four additional books remain byte-identical.
+
+The all-indexed-topic baseline at `f341e3b0` replaces the earlier TOC-only
+ratchet. It records all 10,378 topic-index entries in the 33 maintained books:
+10,216 are strict typed, two are typed-degraded, and 160 are best-effort. All
+10,378 topics have matching coverage and conservation source identities and
+none has an unframed record. Markdown and HTML are checked independently; each
+currently retains one explicit loss allowance, the word `version` in
+`IBMMMSTR` topic `1.5.332`. The independently reviewed GX27 alpha-list repair
+retains the source `a.` and `b.` markers in both formats and therefore carries
+no allowance in this baseline.
