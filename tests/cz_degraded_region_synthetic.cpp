@@ -185,6 +185,118 @@ geist::detail::TopicIdentityIR identity() {
   return topic;
 }
 
+// H6 is a real CZ flow heading, not body prose.  DFHP7A00 2.3.4.5.2 stores
+// `cz FLOW H6 3 3` before each command-family subheading; the source heading
+// level, rather than its displayed words, is the structural evidence.
+void an_h6_directive_builds_a_level_six_heading() {
+  RecordBuilder builder;
+  builder.line({words("sh1.1")});
+  builder.line({words("ctopicn"), words("7")});
+  builder.line({words("cparent"), words("1.0")});
+  builder.line({words("cforwardlevel"), words("1.2")});
+  builder.line({words("cbacklevel"), words("1.0")});
+  builder.line({words("csummary"), words("3"), words("0"), words("3")});
+  builder.line({words("chdlevel"), words(":H2")});
+  builder.line({words("csourcefn"), words("DVGR1A05")});
+  builder.line({words("ST"), words("Widget"), words("Notes")});
+  builder.line({words("cz"), words("FLOW"), words("H6"), words("3"),
+                words("3")});
+  builder.line({words("   "), words("Connection"), words("properties")});
+
+  Extracted extracted;
+  extracted.sources.push_back(builder.build(22));
+  extracted.layout = geist::detail::extract_layout_ir(extracted.sources);
+  extracted.ownership = geist::detail::build_verified_ownership_ir(
+      extracted.sources, extracted.layout, &extracted.error);
+  require(extracted.ownership.has_value(),
+          "the H6 fixture's frame is not verifiable: " + extracted.error);
+  if (!extracted.ownership) return;
+  extracted.prose = geist::detail::extract_prose_topic_ir(
+      extracted.sources, extracted.layout, *extracted.ownership, topic_title,
+      nullptr, &extracted.error);
+  require(extracted.prose.has_value(),
+          "cz FLOW H6 was declined: " + extracted.error);
+  if (!extracted.prose) return;
+  const auto heading = std::find_if(
+      extracted.prose->blocks.begin(), extracted.prose->blocks.end(),
+      [](const auto &block) {
+        return block.kind == geist::detail::ProseBlockKindIR::heading;
+      });
+  require(heading != extracted.prose->blocks.end() &&
+              heading->heading_level == 6,
+          "cz FLOW H6 did not retain heading level 6");
+
+  std::string error;
+  const auto document = geist::detail::lower_prose_topic_to_document_ir(
+      identity(), *extracted.prose, &error);
+  require(document.has_value(), "lowering the H6 fixture failed: " + error);
+  if (!document) return;
+  const auto markdown = geist::detail::render_document_markdown(*document);
+  require(contains(markdown, "###### Connection properties"),
+          "the H6 heading did not survive DocumentIR rendering: " + markdown);
+}
+
+// A definition body may have its own DD directive instead of sharing the DT
+// display row.  DFHP7A00 1.2.4 stores every function name in `cz FLOW DT 3 6`
+// and its explanation in the following `cz FLOW DD 6 6`.
+void a_separate_dd_completes_its_definition_term() {
+  RecordBuilder builder;
+  builder.line({words("sh1.1")});
+  builder.line({words("ctopicn"), words("7")});
+  builder.line({words("cparent"), words("1.0")});
+  builder.line({words("cforwardlevel"), words("1.2")});
+  builder.line({words("cbacklevel"), words("1.0")});
+  builder.line({words("csummary"), words("5"), words("0"), words("5")});
+  builder.line({words("chdlevel"), words(":H2")});
+  builder.line({words("csourcefn"), words("DVGR1A05")});
+  builder.line({words("ST"), words("Widget"), words("Notes")});
+  builder.line({words("cz"), words("FLOW"), words("DL"), words("3"),
+                words("3")});
+  builder.line({words("cz"), words("FLOW"), words("DT"), words("3"),
+                words("6")});
+  builder.line({words("   "), words("Monitor:")});
+  builder.line({words("cz"), words("FLOW"), words("DD"), words("6"),
+                words("6")});
+  builder.line({words("      "), words("Handles"), words("unexpected"),
+                words("events.")});
+  builder.line({words("cz"), words("OFF"), words("EDL"), words("0"),
+                words("0")});
+
+  Extracted extracted;
+  extracted.sources.push_back(builder.build(23));
+  extracted.layout = geist::detail::extract_layout_ir(extracted.sources);
+  extracted.ownership = geist::detail::build_verified_ownership_ir(
+      extracted.sources, extracted.layout, &extracted.error);
+  require(extracted.ownership.has_value(),
+          "the DD fixture's frame is not verifiable: " + extracted.error);
+  if (!extracted.ownership) return;
+  extracted.prose = geist::detail::extract_prose_topic_ir(
+      extracted.sources, extracted.layout, *extracted.ownership, topic_title,
+      nullptr, &extracted.error);
+  require(extracted.prose.has_value(),
+          "a separate cz FLOW DD was declined: " + extracted.error);
+  if (!extracted.prose) return;
+  const auto entry = std::find_if(
+      extracted.prose->blocks.begin(), extracted.prose->blocks.end(),
+      [](const auto &block) {
+        return block.kind == geist::detail::ProseBlockKindIR::definition_entry;
+      });
+  require(entry != extracted.prose->blocks.end() &&
+              entry->term_inline_count != 0 &&
+              entry->term_inline_count < entry->inlines.size(),
+          "the separate DT/DD pair is not one definition entry");
+
+  std::string error;
+  const auto document = geist::detail::lower_prose_topic_to_document_ir(
+      identity(), *extracted.prose, &error);
+  require(document.has_value(), "lowering the DD fixture failed: " + error);
+  if (!document) return;
+  const auto markdown = geist::detail::render_document_markdown(*document);
+  require(contains(markdown, "**Monitor:**") &&
+              contains(markdown, "Handles unexpected events\\."),
+          "the DT/DD definition did not survive rendering: " + markdown);
+}
+
 // The closed region: emitted verbatim, marked degraded, everything around it
 // typed.
 void a_closed_unmodelled_region_degrades_its_block() {
@@ -305,6 +417,8 @@ void an_unclosed_unmodelled_region_declines_the_topic() {
 } // namespace
 
 int main() {
+  an_h6_directive_builds_a_level_six_heading();
+  a_separate_dd_completes_its_definition_term();
   a_closed_unmodelled_region_degrades_its_block();
   an_unclosed_unmodelled_region_declines_the_topic();
   geist_test::exit_with_failures();

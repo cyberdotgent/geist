@@ -138,7 +138,7 @@ bool list_tag(const std::string& tag) {
 
 bool heading_tag(const std::string& tag) {
   return tag.size() == 2 && tag.front() == 'h' && tag.back() >= '2' &&
-         tag.back() <= '5';
+         tag.back() <= '6';
 }
 
 bool has_text(const Line& line) { return line.cells.size() > line.text_begin; }
@@ -241,6 +241,13 @@ struct Frame {
   std::string tag;
   std::size_t list_ordinal = 0;
   std::size_t items = 0;
+  // A `CZ FLOW DT` whose term is followed by a separate `CZ FLOW DD`.
+  // The block is created by DT so both directives can claim one definition
+  // entry without inferring their relationship from displayed text.
+  std::size_t pending_definition = npos;
+  // The separately introduced body remains the active DD until the next DT
+  // or EDL. Nested blocks in that interval require compound block content.
+  bool separate_definition_body = false;
 };
 
 struct CzBuilder {
@@ -329,14 +336,35 @@ struct CzBuilder {
   }
 
   bool definition(const LayoutDirective& directive,
-                  const std::vector<std::pair<std::size_t, std::size_t>>& groups) {
+                  const std::vector<std::pair<std::size_t, std::size_t>>& groups,
+                  bool separate_body) {
     if (stack.empty() || stack.back().tag != "dl")
       return fail(error, "cz FLOW DT outside an open definition list");
     if (groups.empty()) return fail(error, "cz FLOW DT has no text");
     auto& frame = stack.back();
+    if (frame.pending_definition != npos)
+      return fail(error, "cz FLOW DT follows a term with no cz FLOW DD body");
+    frame.separate_definition_body = false;
     ++frame.items;
     const auto [begin, end] = groups.front();
     auto& row = lines[begin];
+    if (separate_body) {
+      if (groups.size() != 1)
+        return fail(error, "cz FLOW DT before DD has multiple term groups");
+      ProseBlockIR block;
+      block.kind = ProseBlockKindIR::definition_entry;
+      block.list_ordinal = frame.list_ordinal;
+      block.origin = row.origin;
+      const auto index = topic.blocks.size();
+      if (!build_block(records, lines, begin, end, block, ledger, index,
+                       error))
+        return false;
+      block.term_inline_count = block.inlines.size();
+      topic.blocks.push_back(std::move(block));
+      block_first_line.push_back(begin);
+      frame.pending_definition = index;
+      return true;
+    }
     // The term occupies the columns from the left margin to the indent; a
     // word straddling the indent column belongs to the term (SC41-485 1.2.2
     // `Generic object name` at DT 7 16 keeps `object` in the term).
@@ -366,11 +394,9 @@ struct CzBuilder {
     // `   /L[+|-]` followed by `cz OFF LINES` .. `cz OFF ELINES 10 10`, and
     // hosted (DT 19961114175628) serves `<dt>   <tt>/L[+|-]</tt>` with no
     // `<dd>` and then the `<pre width="80">` holding `/L`, `/L+`, `/L-`.
-    // `DefinitionEntryIR` is a term plus an *inline* definition, so that
-    // shape has no typed spelling yet and still fails closed here.
-    if (parts.size() < 2)
-      return fail(error, "cz FLOW DT term '" + line_text(parts.front()) +
-                             "' has no definition");
+    // `DefinitionEntryIR` is a term plus an *inline* definition. A following
+    // DD can supply that inline body; a following region still needs compound
+    // definition content and is rejected when that directive is reached.
     ProseBlockIR block;
     block.kind = ProseBlockKindIR::definition_entry;
     block.list_ordinal = frame.list_ordinal;
@@ -379,11 +405,49 @@ struct CzBuilder {
     if (!build_block(records, parts, 0, 1, block, ledger, index, error))
       return false;
     block.term_inline_count = block.inlines.size();
+    const auto body_has_text =
+        std::any_of(parts.begin() + 1, parts.end(), has_text);
+    if (!body_has_text) {
+      topic.blocks.push_back(std::move(block));
+      block_first_line.push_back(begin);
+      frame.pending_definition = index;
+      return true;
+    }
     if (!build_block(records, parts, 1, parts.size(), block, ledger, index, error))
       return false;
     topic.blocks.push_back(std::move(block));
     block_first_line.push_back(begin);
     return paragraphs(groups, 1);
+  }
+
+  bool definition_body(
+      const std::vector<std::pair<std::size_t, std::size_t>>& groups) {
+    if (stack.empty() || stack.back().tag != "dl")
+      return fail(error, "cz FLOW DD outside an open definition list");
+    auto& frame = stack.back();
+    if (frame.pending_definition == npos) {
+      const auto body = groups.empty() ? std::string{} :
+                                         line_text(lines[groups.front().first]);
+      return fail(error, "cz FLOW DD has no preceding term before '" + body +
+                             "'");
+    }
+    if (groups.empty()) return fail(error, "cz FLOW DD has no text");
+    // More than one source paragraph needs compound definition content in
+    // DocumentIR.  Keep failing closed until that shared representation can
+    // preserve the boundary instead of flattening it into one inline run.
+    if (groups.size() != 1)
+      return fail(error, "cz FLOW DD has multiple paragraph groups");
+    const auto block_index = frame.pending_definition;
+    if (block_index >= topic.blocks.size())
+      return fail(error, "internal: cz FLOW DD addresses no definition term");
+    auto& block = topic.blocks[block_index];
+    if (!build_block(records, lines, groups.front().first,
+                     groups.front().second, block, ledger, block_index,
+                     error))
+      return false;
+    frame.pending_definition = npos;
+    frame.separate_definition_body = true;
+    return true;
   }
 
   bool note(const std::vector<std::pair<std::size_t, std::size_t>>& groups) {
@@ -1033,6 +1097,8 @@ struct CzBuilder {
           const auto opened = tag.substr(1);
           if (stack.empty() || stack.back().tag != opened)
             return fail(error, name + " closes no open " + opened);
+          if (stack.back().pending_definition != npos)
+            return fail(error, "cz definition term has no cz FLOW DD body");
           if (list_tag(opened) && stack.back().items == 0)
             return fail(error, "cz list " + opened + " has no items");
           stack.pop_back();
@@ -1065,6 +1131,11 @@ struct CzBuilder {
       if (directive.mode != "flow")
         return fail(error, "CZ layout " + name + " is not modelled");
       if (tag == "p" || tag == "pc" || tag == "gd" || tag == "pt") {
+        if (!stack.empty() && stack.back().tag == "dl" &&
+            stack.back().separate_definition_body)
+          return fail(error, name +
+                                 " continues a DD body that needs compound "
+                                 "block content");
         if (tag == "pt" && (stack.empty() || stack.back().tag != "parml"))
           return fail(error, "cz FLOW PT outside an open parameter list");
         if (tag == "pt") ++stack.back().items;
@@ -1072,6 +1143,11 @@ struct CzBuilder {
         return true;
       }
       if (list_tag(tag)) {
+        if (!stack.empty() && stack.back().tag == "dl" &&
+            stack.back().separate_definition_body)
+          return fail(error, name +
+                                 " nests inside a DD body that needs compound "
+                                 "block content");
         // A list opener may carry the list's lead-in rows, exactly as the
         // list closer carries the body text that follows the list.  Hosted
         // BookServer serves them ahead of the first item and inside the list
@@ -1090,9 +1166,14 @@ struct CzBuilder {
         return true;
       }
       if (tag == "dt") {
-        if (!definition(directive, groups)) return false;
+        const auto separate_body =
+            index + 1 < build.directives.size() &&
+            build.directives[index + 1].mode == "flow" &&
+            build.directives[index + 1].tag == "dd";
+        if (!definition(directive, groups, separate_body)) return false;
         return true;
       }
+      if (tag == "dd") return definition_body(groups);
       if (tag == "nt" || tag == "note") {
         if (tag == "nt") stack.push_back({tag, next_list_ordinal++, 1});
         if (!note(groups)) return false;
