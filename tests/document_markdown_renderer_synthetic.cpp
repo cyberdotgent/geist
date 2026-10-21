@@ -409,6 +409,12 @@ int main() {
       block(ParagraphBlockIR{text("Definition second.")}));
   DefinitionListBlockIR compound_definitions;
   compound_definitions.entries.push_back(std::move(compound_definition));
+  DefinitionEntryIR empty_definition;
+  empty_definition.empty_term = true;
+  empty_definition.origin = origin();
+  empty_definition.definition_blocks.push_back(
+      block(ParagraphBlockIR{text("Untitled definition.")}));
+  compound_definitions.entries.push_back(std::move(empty_definition));
   compound.blocks.push_back(block(std::move(compound_definitions)));
 
   ListBlockIR cell_list;
@@ -436,10 +442,18 @@ int main() {
                 "    - Nested child\\.",
                 "compound list item lost paragraph/list structure") ||
       !contains(compound_output,
-                "- **Meaning:**\n\n"
-                "    Definition first\\.\n\n"
-                "    Definition second\\.",
+                "<dl class=\"geist-definition-list\">"
+                "<dt class=\"geist-definition-term\">Meaning:</dt>"
+                "<dd class=\"geist-definition-description\">"
+                "<p class=\"geist-paragraph\">Definition first.</p>"
+                "<p class=\"geist-paragraph\">Definition second.</p></dd>"
+                "<dt class=\"geist-definition-term\"></dt>"
+                "<dd class=\"geist-definition-description\">"
+                "<p class=\"geist-paragraph\">Untitled definition.</p>"
+                "</dd></dl>",
                 "compound definition lost paragraph structure") ||
+      !require(compound_output.find("**:**") == std::string::npos,
+               "empty definition term fabricated Markdown punctuation") ||
       !contains(compound_output, "<table",
                 "compound table did not use its block-capable HTML form") ||
       !contains(compound_output, "Cell paragraph.",

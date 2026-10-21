@@ -615,6 +615,18 @@ void append_block(RenderSink &sink, const BlockIR &block,
                                      true);
           }
         } else if constexpr (std::is_same_v<T, DefinitionListBlockIR>) {
+          const auto compound = std::any_of(
+              node.entries.begin(), node.entries.end(), [](const auto& entry) {
+                return entry.empty_term || !entry.definition_blocks.empty();
+              });
+          if (compound) {
+            sink.html(render_document_html_blocks(
+                          BlockSequenceIR{block},
+                          html_options_for_markdown(options),
+                          options.resolve_cross_reference),
+                      "compound definition list HTML", block_origin);
+            return;
+          }
           for (std::size_t index = 0; index < node.entries.size(); ++index) {
             const PathScope entry_step(sink, "entry", index);
             const auto *entry_origin = &node.entries[index].origin;
