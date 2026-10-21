@@ -119,23 +119,38 @@ lower_fixed_table_block_to_document_ir(const FixedTableBlockIR &block) {
       image.node = FigureBlockIR{"resource:" + picture.resource, {}, {}};
       result.push_back(std::move(image));
     }
-    PreformattedBlockIR body;
-    BlockIR body_block;
-    body_block.origin = origin_for("fixed table region: verbatim body");
-    body_block.origin.slices.push_back(block.object_source);
-    for (const auto &line : block.preformatted_lines) {
-      body.lines.push_back(line.text);
-      auto line_origin = origin_for("fixed table preformatted line");
-      if (line.slice.byte_begin < line.slice.byte_end)
-        line_origin.slices.push_back(line.slice);
-      for (const auto &row : line.rows) {
-        add_row(body_block.origin, row);
-        add_row(line_origin, row);
+    const auto append_body = [&](std::size_t begin, std::size_t end) {
+      if (begin == end)
+        return;
+      PreformattedBlockIR body;
+      BlockIR body_block;
+      body_block.origin = origin_for("fixed table region: verbatim body");
+      for (auto index = begin; index < end; ++index) {
+        const auto &line = block.preformatted_lines[index];
+        body.lines.push_back(line.text);
+        auto line_origin = origin_for("fixed table preformatted line");
+        if (line.slice.byte_begin < line.slice.byte_end)
+          line_origin.slices.push_back(line.slice);
+        for (const auto &row : line.rows) {
+          add_row(body_block.origin, row);
+          add_row(line_origin, row);
+        }
+        body.line_origins.push_back(std::move(line_origin));
       }
-      body.line_origins.push_back(std::move(line_origin));
+      body_block.node = std::move(body);
+      result.push_back(std::move(body_block));
+    };
+    std::size_t line = 0;
+    for (const auto &spot : block.spot_anchors) {
+      append_body(line, spot.line);
+      BlockIR anchor_block;
+      anchor_block.node = AnchorBlockIR{spot.id};
+      anchor_block.origin = origin_for("fixed table region: spot anchor");
+      anchor_block.origin.slices.push_back(spot.source);
+      result.push_back(std::move(anchor_block));
+      line = spot.line;
     }
-    body_block.node = std::move(body);
-    result.push_back(std::move(body_block));
+    append_body(line, block.preformatted_lines.size());
     return result;
   }
 
@@ -212,17 +227,16 @@ bool verify_fixed_table_document_ir(const FixedTableBlockIR &block,
     return fail(error, "fixed table document nodes differ from canonical "
                        "lowering");
   if (verbatim) {
-    const auto body = std::find_if(
-        lowered.begin(), lowered.end(), [](const auto &candidate) {
-          return std::holds_alternative<PreformattedBlockIR>(candidate.node);
-        });
-    if (body == lowered.end())
+    std::vector<std::string> lines;
+    for (const auto &candidate : lowered)
+      if (const auto *body = std::get_if<PreformattedBlockIR>(&candidate.node))
+        lines.insert(lines.end(), body->lines.begin(), body->lines.end());
+    if (lines.empty())
       return fail(error, "preformatted table region has no body block");
-    const auto &node = std::get<PreformattedBlockIR>(body->node);
-    if (node.lines.size() != block.preformatted_lines.size())
+    if (lines.size() != block.preformatted_lines.size())
       return fail(error, "preformatted table region lines are not conserved");
-    for (std::size_t index = 0; index < node.lines.size(); ++index)
-      if (node.lines[index] != block.preformatted_lines[index].text)
+    for (std::size_t index = 0; index < lines.size(); ++index)
+      if (lines[index] != block.preformatted_lines[index].text)
         return fail(error, "preformatted table region text is not conserved");
     // No picture may be lost: the region's images are the only place the
     // blanked placeholder words survive.

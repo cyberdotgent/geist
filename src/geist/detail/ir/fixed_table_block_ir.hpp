@@ -143,6 +143,15 @@ struct FixedTablePictureIR {
   DocumentSourceSliceIR source;
 };
 
+// A bare `SRSPT<id>` destination inside a preformatted SRTBL region. It
+// occupies a control-only display line and opens the following visible line;
+// `line` is that line's index in `preformatted_lines`.
+struct FixedTableSpotAnchorIR {
+  std::string id;
+  std::size_t line = 0;
+  DocumentSourceSliceIR source;
+};
+
 // A fixed table recovered from one SRTBL ... SRETBL envelope, either
 // box-drawn or rule-less (gap columns).
 //
@@ -278,6 +287,8 @@ struct FixedTableBlockIR {
   // Pictures the region's CSELECT selectors place on those lines, in line
   // order.  Their placeholder words are blanked out of the line text.
   std::vector<FixedTablePictureIR> pictures;
+  // Positional destinations carried by control-only SRSPT lines.
+  std::vector<FixedTableSpotAnchorIR> spot_anchors;
   // Subject-index entries the envelope carries: a display line whose first
   // visible word is the `SI` keyword.  Hosted BookServer displays none of it
   // (SC09-138 4.1.4 DT=19910321130500 shows no `SI` byte at all although the

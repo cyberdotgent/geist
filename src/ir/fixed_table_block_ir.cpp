@@ -53,6 +53,27 @@ DocumentSourceSliceIR display_line_slice(
   return slice;
 }
 
+DocumentSourceSliceIR control_slice(
+    const DecodedLogicalRecordSource &record,
+    const ControlSegmentIR &segment) {
+  DocumentSourceSliceIR slice;
+  slice.logical_record = record.logical_record;
+  slice.segment_index = segment.segment_index;
+  const auto words = decoded_byte_range_to_word_range(record.assembled,
+                                                       segment.opcode_range);
+  const auto tokens = source_tokens_intersecting_output(
+      record.assembled, words.begin, words.end);
+  if (tokens.empty())
+    return slice;
+  slice.token_begin = tokens.front();
+  slice.token_end = tokens.back() + 1;
+  if (slice.token_end <= record.ir.tokens.size()) {
+    slice.byte_begin = record.ir.tokens[slice.token_begin].byte_range.begin;
+    slice.byte_end = record.ir.tokens[slice.token_end - 1].byte_range.end;
+  }
+  return slice;
+}
+
 bool left_border(std::uint16_t word) {
   return word == 0x250c || word == 0x251c || word == 0x2514;
 }
@@ -357,6 +378,7 @@ public:
       if (admit_preformatted(start, end, lines_only, preformatted_reason)) {
         table.preformatted_lines = std::move(lines_only.preformatted_lines);
         table.pictures = std::move(lines_only.pictures);
+        table.spot_anchors = std::move(lines_only.spot_anchors);
       }
       return table;
     }
@@ -707,6 +729,7 @@ public:
     // displayed; anything else is reproduced.
     std::vector<std::pair<const PreLine *, std::string>> body;
     std::vector<FixedTablePictureIR> pictures;
+    std::vector<FixedTableSpotAnchorIR> spot_anchors;
     for (auto index = first + 1; index < last; ++index) {
       const auto &view = lines[index];
       const auto &record = *view.record;
@@ -725,10 +748,13 @@ public:
         if (segment_begin < content_begin ||
             segment_begin >= view.line.token_end)
           continue;
+        const auto opcode = ascii_lower(segment.opcode);
+        const auto spot = segment.kind == BookControlKind::structural &&
+                          opcode.size() > 5 && opcode.rfind("srspt", 0) == 0;
         if (segment.kind != BookControlKind::font &&
             segment.kind != BookControlKind::select &&
             segment.kind != BookControlKind::spacing &&
-            segment.kind != BookControlKind::layout_directive) {
+            segment.kind != BookControlKind::layout_directive && !spot) {
           reason = "preformatted region contains control " + segment.opcode;
           return false;
         }
@@ -755,6 +781,13 @@ public:
             reason = "picture selector operand is not canonical";
             return false;
           }
+        }
+        if (spot) {
+          FixedTableSpotAnchorIR anchor;
+          anchor.id = segment.opcode.substr(2);
+          anchor.line = body.size();
+          anchor.source = control_slice(record, segment);
+          spot_anchors.push_back(std::move(anchor));
         }
         control_line = true;
       }
@@ -821,6 +854,8 @@ public:
       body.pop_back();
     for (auto &picture : pictures)
       picture.line -= dropped;
+    for (auto &anchor : spot_anchors)
+      anchor.line = anchor.line < dropped ? 0 : anchor.line - dropped;
     if (body.empty()) {
       reason = "preformatted region has no display lines";
       return false;
@@ -828,6 +863,7 @@ public:
 
     block.geometry = FixedTableGeometryIR::preformatted;
     block.pictures = std::move(pictures);
+    block.spot_anchors = std::move(spot_anchors);
     for (const auto &[view, text] : body) {
       FixedTablePreformattedLineIR line;
       line.logical_record = view->record->logical_record;
@@ -2563,6 +2599,19 @@ bool verify_fixed_table_blocks_ir(
           text.find_first_not_of(' ', picture.column) < end)
         return fail("fixed table picture columns are not blank");
     }
+    std::size_t previous_anchor_line = 0;
+    for (std::size_t index = 0; index < block.spot_anchors.size(); ++index) {
+      const auto &anchor = block.spot_anchors[index];
+      if (anchor.id.size() <= 3 ||
+          ascii_lower(anchor.id).rfind("spt", 0) != 0)
+        return fail("fixed table spot anchor has an invalid id");
+      if (anchor.line > block.preformatted_lines.size() ||
+          (index != 0 && anchor.line < previous_anchor_line))
+        return fail("fixed table spot anchors are out of order");
+      if (anchor.source.token_begin >= anchor.source.token_end)
+        return fail("fixed table spot anchor has no source");
+      previous_anchor_line = anchor.line;
+    }
     if (block.geometry == FixedTableGeometryIR::preformatted) {
       if (block.preformatted_lines.empty())
         return fail("preformatted table region has no display lines");
@@ -2634,6 +2683,12 @@ std::string format_fixed_table_blocks_ir(const FixedTableBlocksIR &blocks) {
           << picture.column + picture.length << ") source="
           << picture.logical_record << ':' << picture.segment_index
           << " alt='" << picture.placeholder << "'\n";
+    for (const auto &anchor : block.spot_anchors)
+      out << " spot_anchor id='" << anchor.id << "' line=" << anchor.line
+          << " source=" << anchor.source.logical_record << ':'
+          << anchor.source.segment_index << ':' << anchor.source.token_begin
+          << ':' << anchor.source.token_end << ':' << anchor.source.byte_begin
+          << ':' << anchor.source.byte_end << '\n';
     for (const auto &line : block.index_lines)
       out << " index " << line.logical_record << ':' << line.prefix_token << ':'
           << line.token_end << " text='" << line.text << "'\n";

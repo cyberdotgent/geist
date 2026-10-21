@@ -243,6 +243,22 @@ bool table_region(const std::vector<DecodedLogicalRecordSource>& records,
                           : segments.size();
     for (auto index = first; index < last && index < segments.size(); ++index) {
       const auto& segment = segments[index];
+      if (segment.kind == BookControlKind::structural) {
+        const auto spot = std::find_if(
+            block.spot_anchors.begin(), block.spot_anchors.end(),
+            [&](const auto& anchor) {
+              return anchor.source.logical_record ==
+                         records[record].logical_record &&
+                     anchor.source.segment_index == segment.segment_index &&
+                     anchor.id == segment.opcode.substr(2);
+            });
+        if (spot != block.spot_anchors.end()) {
+          for (auto token = spot->source.token_begin;
+               token < spot->source.token_end; ++token)
+            region.claims.emplace_back(record, token);
+          continue;
+        }
+      }
       if (segment.kind != BookControlKind::font &&
           segment.kind != BookControlKind::select)
         continue;

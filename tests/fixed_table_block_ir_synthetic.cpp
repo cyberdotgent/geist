@@ -23,6 +23,7 @@
 #include "geist/detail/core/internal.hpp"
 #include "geist/detail/layout/layout_ir.hpp"
 #include "geist/detail/layout/ownership_ir.hpp"
+#include "geist/detail/layout/display_lines.hpp"
 #include "geist/document.hpp"
 #include "test_failures.hpp"
 
@@ -37,6 +38,50 @@
 namespace {
 
 using namespace geist::detail;
+
+TokenWords words(const std::string &text) {
+  return TokenWords(text.begin(), text.end());
+}
+
+struct RecordBuilder {
+  DecodedLogicalRecordSource record;
+  std::uint16_t next_encoded = 0x100;
+
+  void line(std::vector<TokenWords> content) {
+    record.encoded_tokens.push_back(
+        {static_cast<std::uint16_t>(content.size() * 2), 1});
+    record.tokens.push_back({0x25ba});
+    for (auto &token : content) {
+      record.encoded_tokens.push_back({next_encoded++, 2});
+      record.tokens.push_back(std::move(token));
+    }
+  }
+
+  DecodedLogicalRecordSource finish(std::uint32_t logical_record) {
+    record.logical_record = logical_record;
+    record.assembled = assemble_logical_record_with_sources(record.tokens);
+    record.ir.logical_record = logical_record;
+    std::uint32_t byte = 1;
+    for (std::size_t token = 0; token < record.tokens.size(); ++token) {
+      const auto encoded = record.encoded_tokens[token];
+      const auto spacing = !record.tokens[token].empty() &&
+                           record.tokens[token].front() < 4;
+      record.ir.tokens.push_back(
+          {token, encoded, record.tokens[token],
+           {byte, static_cast<std::uint32_t>(byte + encoded.width)}, spacing,
+           spacing ? record.tokens[token].front() : std::uint16_t{3}, {},
+           TokenFramingRole::unframed});
+      byte += encoded.width;
+    }
+    record.ir.payload_range = {1, byte};
+    assign_display_line_framing(record.ir);
+    record.control_segments = decode_control_segments(
+        logical_record, record.assembled, record.encoded_tokens,
+        record.ir.display_lines);
+    demote_display_line_owned_controls(record);
+    return std::move(record);
+  }
+};
 
 void require(bool condition, const std::string &message) {
   if (!condition) {
@@ -416,6 +461,108 @@ void test_negatives() {
           "ordinary prose was seen as a table envelope");
 }
 
+// A spot destination inside a character-art table is structure, not a reason
+// to reject the table's faithful preformatted representation.  The control
+// opens the following row, so lowering must keep it between the two verbatim
+// blocks instead of moving it ahead of the drawing.
+void test_spot_anchor_inside_preformatted_table() {
+  RecordBuilder builder;
+  builder.line({words("cz"), words("OFF"), words("TABLE")});
+  builder.line({words("SRTBLDRAWING")});
+  builder.line({words("   first art row")});
+  builder.line({words("SRSPTCHART")});
+  builder.line({words("   second art row")});
+  builder.line({words("SRETBL")});
+  builder.line({words("cz"), words("OFF"), words("ETABLE")});
+  std::vector<DecodedLogicalRecordSource> sources;
+  sources.push_back(builder.finish(17));
+  LayoutIR layout;
+  DisplayRunIR run;
+  run.id = 1;
+  run.control_kind = BookControlKind::text;
+  for (const auto line_index : {std::size_t{2}, std::size_t{4}}) {
+    const auto &line = sources.front().ir.display_lines[line_index];
+    PhysicalRowIR row;
+    row.run = run.id;
+    row.logical_record = 17;
+    row.token_begin = line.prefix_token + 1;
+    row.token_end = line.token_end;
+    row.start = PhysicalRowStartKind::control_payload;
+    row.visible_text = token_words_to_ascii(
+        sources.front().tokens[row.token_begin]);
+    run.rows.push_back(std::move(row));
+  }
+  layout.runs.push_back(std::move(run));
+  const auto ownership = build_ownership_ir(sources, layout);
+  const auto blocks = extract_fixed_table_blocks_ir(
+      sources, layout, ownership, {0, count_layout_rows(layout)});
+  require(blocks.declined.empty() && blocks.blocks.size() == 1,
+          "SRSPT character-art table was declined" +
+              (blocks.declined.empty()
+                   ? std::string{}
+                   : ": " + blocks.declined.front().reason));
+  if (blocks.blocks.size() != 1)
+    return;
+  const auto &block = blocks.blocks.front();
+  require(block.geometry == FixedTableGeometryIR::preformatted,
+          "single-column character art was asserted to be a semantic table");
+  require(block.preformatted_lines.size() == 2 &&
+              block.preformatted_lines[0].text == "   first art row" &&
+              block.preformatted_lines[1].text == "   second art row",
+          "character-art rows changed");
+  require(block.spot_anchors.size() == 1 &&
+              block.spot_anchors.front().id == "SPTCHART" &&
+              block.spot_anchors.front().line == 1 &&
+              block.spot_anchors.front().source.token_end ==
+                  block.spot_anchors.front().source.token_begin + 1,
+          "SRSPT identity or row position changed");
+  std::string error;
+  require(verify_fixed_table_blocks_ir(
+              sources, layout, ownership, {0, count_layout_rows(layout)},
+              blocks, &error),
+          "SRSPT character-art table did not verify: " + error);
+  auto mutated_blocks = blocks;
+  mutated_blocks.blocks.front().spot_anchors.front().id = "SPTWRONG";
+  require(!verify_fixed_table_blocks_ir(
+              sources, layout, ownership, {0, count_layout_rows(layout)},
+              mutated_blocks, &error),
+          "mutated SRSPT identity passed block verification");
+  mutated_blocks = blocks;
+  ++mutated_blocks.blocks.front().spot_anchors.front().source.token_begin;
+  require(!verify_fixed_table_blocks_ir(
+              sources, layout, ownership, {0, count_layout_rows(layout)},
+              mutated_blocks, &error),
+          "mutated SRSPT source token passed block verification");
+
+  const auto lowered = lower_fixed_table_block_to_document_ir(block);
+  require(lowered.size() == 4,
+          "positional SRSPT lowering did not split the drawing");
+  if (lowered.size() == 4) {
+    const auto *before = std::get_if<PreformattedBlockIR>(&lowered[1].node);
+    const auto *anchor = std::get_if<AnchorBlockIR>(&lowered[2].node);
+    const auto *after = std::get_if<PreformattedBlockIR>(&lowered[3].node);
+    require(before != nullptr && before->lines ==
+                                     std::vector<std::string>{"   first art row"},
+            "rows before SRSPT moved or changed");
+    require(anchor != nullptr && anchor->id == "SPTCHART" &&
+                anchor->role == AnchorRoleIR::cross_reference,
+            "SRSPT lowered with the wrong identity or role");
+    require(after != nullptr && after->lines ==
+                                   std::vector<std::string>{"   second art row"},
+            "rows after SRSPT moved or changed");
+  }
+  require(verify_fixed_table_document_ir(block, lowered, &error),
+          "SRSPT character-art lowering did not verify: " + error);
+  auto mutated_lowering = lowered;
+  if (mutated_lowering.size() == 4) {
+    auto *anchor = std::get_if<AnchorBlockIR>(&mutated_lowering[2].node);
+    if (anchor != nullptr)
+      anchor->role = AnchorRoleIR::local;
+  }
+  require(!verify_fixed_table_document_ir(block, mutated_lowering, &error),
+          "mutated SRSPT anchor role passed lowering verification");
+}
+
 } // namespace
 
 int main() {
@@ -424,6 +571,7 @@ int main() {
   test_long_declared_table();
   test_book_inventory();
   test_negatives();
+  test_spot_anchor_inside_preformatted_table();
   geist_test::exit_with_failures();
   std::cout << "fixed table block IR checks passed\n";
   return 0;
