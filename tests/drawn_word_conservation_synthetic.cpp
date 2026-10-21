@@ -130,6 +130,8 @@ void check_html_projection() {
   require(cut("<p>plain</p><ul><li value=\"43\">bullet</li></ul>") ==
               "plain,bullet",
           "non-marker attributes never supply numbers");
+  require(cut("<p>before</p><hr><p>after</p>") == "before,after",
+          "a rendered thematic break is structural and supplies no words");
 }
 
 void check_projection_rejects_unsupported_html() {
@@ -277,8 +279,8 @@ void check_markdown_projection() {
   DocumentIR fallback_document;
   fallback_document.topic.id = "FALLBACK";
   fallback_document.topic.title = "title [literal]";
-  fallback_document.blocks.push_back(block(HeadingBlockIR{
-      1, {in(TextInlineIR{"FALLBACK title [literal]"})}}));
+  fallback_document.blocks.push_back(
+      block(HeadingBlockIR{1, {in(TextInlineIR{"FALLBACK title [literal]"})}}));
   fallback_document.blocks.push_back(
       block(AnchorBlockIR{"missingword", AnchorRoleIR::cross_reference}));
   VerbatimRowIR row;
@@ -289,8 +291,8 @@ void check_markdown_projection() {
   fallback_rows.line_links = {row.links};
   fallback_document.blocks.push_back(block(std::move(fallback_rows)));
   DocumentRenderTraceIR fallback_trace;
-  const auto fallback = render_document_markdown(
-      fallback_document, {}, &fallback_trace);
+  const auto fallback =
+      render_document_markdown(fallback_document, {}, &fallback_trace);
   require(join(conservation_words(
               markdown_visible_text(fallback, fallback_trace))) ==
               "fallback,title,literal,at132,literal,5",
@@ -392,7 +394,8 @@ void check_styled_preformatted_rows() {
           "HTML styled rows changed exact text or row boundaries");
   DocumentRenderTraceIR trace;
   const auto markdown = render_document_markdown(document, {}, &trace);
-  require(markdown.find("<pre class=\"geist-preformatted\">\n") != std::string::npos &&
+  require(markdown.find("<pre class=\"geist-preformatted\">\n") !=
+                  std::string::npos &&
               markdown.find("<strong class=\"geist-strong\">") !=
                   std::string::npos &&
               markdown.find("href=\"#target\"") != std::string::npos,
@@ -526,8 +529,7 @@ void check_packet_conserves_every_drawn_word() {
                       indexed.start_logical_record &&
                   found->source_end_logical_record ==
                       indexed.end_logical_record,
-              "packet.boo conservation lost source identity for " +
-                  indexed.id);
+              "packet.boo conservation lost source identity for " + indexed.id);
     }
   }
   require(report.topics_with_unframed_records == 0,

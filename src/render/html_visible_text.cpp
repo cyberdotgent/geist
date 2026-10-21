@@ -30,11 +30,11 @@ bool boundary(const std::string_view tag) {
 
 bool supported_tag(const std::string_view tag) {
   static constexpr std::string_view tags[] = {
-      "a",  "aside", "br",         "code",   "dd",     "div",   "dl",
-      "dt", "em",    "figcaption", "figure", "h1",     "h2",    "h3",
-      "h4", "h5",    "h6",         "img",    "li",     "nav",   "ol",
-      "p",  "pre",   "section",    "span",   "strong", "table", "tbody",
-      "td", "th",    "thead",      "tr",     "ul"};
+      "a",     "aside", "br",         "code",    "dd",   "div",    "dl",
+      "dt",    "em",    "figcaption", "figure",  "h1",   "h2",     "h3",
+      "h4",    "h5",    "h6",         "hr",      "img",  "li",     "nav",
+      "ol",    "p",     "pre",        "section", "span", "strong", "table",
+      "tbody", "td",    "th",         "thead",   "tr",   "ul"};
   return std::find(std::begin(tags), std::end(tags), tag) != std::end(tags);
 }
 
@@ -242,7 +242,7 @@ std::string html_visible_text(const std::string &html) {
       const auto attributes =
           parse_attributes(tag, std::string_view(html.data() + attributes_begin,
                                                  cursor - attributes_begin));
-      const bool empty = tag == "img" || tag == "br";
+      const bool empty = tag == "img" || tag == "br" || tag == "hr";
       if (closing) {
         if (!attributes.empty() || empty || elements.empty() ||
             elements.back() != tag)
@@ -279,9 +279,9 @@ std::string html_visible_text(const std::string &html) {
             list.next = *parsed;
         }
         if (list.marker == 'a' || list.marker == 'A')
-          out += std::string(
-                     1, static_cast<char>(list.marker + list.next - 1)) +
-                 ". ";
+          out +=
+              std::string(1, static_cast<char>(list.marker + list.next - 1)) +
+              ". ";
         else
           out += std::to_string(list.next) + ". ";
         if (list.next < std::numeric_limits<std::uint64_t>::max())
