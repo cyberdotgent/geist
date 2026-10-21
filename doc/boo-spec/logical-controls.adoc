@@ -1347,6 +1347,56 @@ overall are
 A reader must walk the display lines of the topic in source order, across
 record boundaries, and end the envelope at the `ST` line.
 
+[[logical-controls_a_list_item_closer_is_not_an_anchor]]
+==== A List-Item Closer Is Not An Anchor
+
+A body `SR<id>` control names a destination whose id is the opcode without
+`SR`. `SRELIS<owner>` is the exception: it closes the list item that
+`SRLIS<owner>` opened, and is no destination at all.
+
+`SC24-5520-00` topic `1.1.27` opens the item once and closes it five times:
+
+[cols="<10,<10,<40",options="header"]
+|===
+|Record |Line |Content
+
+|218 |24 |`SRLISvmcparm` (opener)
+|225 |4 |`SRELISvmcparm`
+|228 |8 |`SRELISvmcparm`
+|233 |18 |`SRELISvmcparm`; the following rows are item `5.`
+|238 |10 |`SRELISvmcparm`; the following rows are item `7.`
+|239 |3 |`SRLISrcs` (opener)
+|242 |8 |`SRELISvmcparm`
+|===
+
+Every closer row has the length byte `02` and holds one two-byte dictionary
+word: record 225 token 48 at file offset `0x41c7b`, record 238 token 93 at
+`0x42f73`, both encoded value 56358. The closer of record 242 follows the
+opener of a different list (`SRLISrcs`), so closers are not strictly nested.
+
+Hosted BookServer (DT `19911011135123`) serves `<a name="LISvmcparm">` and
+`<a name="LISrcs">` and no `ELIS*` anchor anywhere in the topic. A reader that
+treats the closer as one more `SR<id>` anchor writes the destination
+`ELISvmcparm` five times.
+
+The marker does not have to follow its opener. `GX27-3999-00` topic `2.2`
+record 27 stores `SRELISamy` on display line 30 and `SRLISamy` on line 33, both
+on rows of their own; hosted BookServer (DT `19950730184057`) serves
+`<a name="LISamy">`, `LISbrown` and `LISblack` and again no `ELIS*` anchor.
+
+The closer claims its own row. Its owner is the remainder of the opcode after
+`SRELIS`; every closer observed names an owner that an `SRLIS<owner>` control of
+the same topic also names, before or after it, and closers of one owner may
+repeat. Any display text that the flattened control segment carries after it
+-- the rows of items `5.` and `7.` above -- is ordinary body text, not part of
+the control. The opener keeps its anchor with the exact spelling stored:
+selectors in the same topic target it as `LISVMCPARM`
+(`cselect 75 1 LISVMCPARM`, record 218 line 6), and the selector spelling is
+likewise kept as stored.
+
+No closer in this evidence names an owner its topic does not open; what such a
+closer would mean is unresolved.
+
 [[logical-controls_implementation_notes]]
 === Implementation Notes
 

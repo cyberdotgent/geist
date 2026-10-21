@@ -1,0 +1,255 @@
+// Copyright 2026 Yvan Janssens
+// SPDX-License-Identifier: Apache-2.0
+
+// `SRELIS<owner>` closes the list item `SRLIS<owner>` opened; it is no anchor.
+//
+// SC24-5520-00 `1.1.27` (DT 19911011135123) opens one list-item anchor and
+// closes it five times:
+//
+//   218 line 24  SRLISvmcparm
+//   225 line 4   SRELISvmcparm          <- `02` length byte, one two-byte word
+//   233 line 18  SRELISvmcparm          <- the next item's text follows it
+//   ...
+//
+// Hosted BookServer serves `<a name="LISvmcparm">` once and no `ELISvmcparm`
+// anchor anywhere, so a closer emitting one wrote the same destination id
+// five times.  The closer claims its own token as a control, contributes no
+// anchor and no text, and any payload the flattened segment carries after it
+// is ordinary prose.  The closer may stand before its opener.  A closer
+// whose owner the topic never names is not proven to be one and fails
+// closed.
+//
+// Everything here is synthetic: the test builds whole topic records by hand.
+
+#include "geist/detail/layout/display_lines.hpp"
+#include "geist/detail/core/internal.hpp"
+#include "geist/detail/layout/ownership_ir.hpp"
+#include "geist/detail/ir/prose/prose_topic_ir.hpp"
+#include "test_failures.hpp"
+
+#include <cstdint>
+#include <iostream>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
+
+namespace {
+
+using geist::detail::DecodedLogicalRecordSource;
+using geist::detail::ProseBlockKindIR;
+using geist::detail::TokenWords;
+
+void require(bool condition, const std::string &message) {
+  if (!condition) {
+    std::cerr << "list_closer_anchor_synthetic: " << message << '\n';
+    geist_test::record_failure();
+  }
+}
+
+TokenWords words(const std::string &text) {
+  return TokenWords(text.begin(), text.end());
+}
+
+struct RecordBuilder {
+  DecodedLogicalRecordSource record;
+  std::uint16_t next_encoded = 0x40;
+
+  // One display line: a length byte covering `content`, whose tokens are two
+  // bytes each.  The length byte's dictionary spelling is the row sentinel.
+  void line(std::vector<TokenWords> content) {
+    record.encoded_tokens.push_back(
+        {static_cast<std::uint16_t>(2 * content.size()), 1});
+    record.tokens.push_back(TokenWords{0x25BA});
+    for (auto &token : content) {
+      record.encoded_tokens.push_back({next_encoded++, 2});
+      record.tokens.push_back(std::move(token));
+    }
+  }
+
+  // The eight metadata controls and the `ST` title every prose topic opens
+  // with.
+  void heading(const std::string &id, const std::string &title_word) {
+    line({words("sh" + id)});
+    line({words("ctopicn"), words("7")});
+    line({words("cparent"), words("1.0")});
+    line({words("cforwardlevel"), words("1.2")});
+    line({words("cbacklevel"), words("1.0")});
+    line({words("csummary"), words("9"), words("0"), words("9")});
+    line({words("chdlevel"), words(":H2")});
+    line({words("csourcefn"), words("ALY0FRO")});
+    line({words("ST"), words(title_word)});
+  }
+
+  DecodedLogicalRecordSource build(std::uint32_t logical_record) {
+    record.logical_record = logical_record;
+    record.assembled =
+        geist::detail::assemble_logical_record_with_sources(record.tokens);
+    record.ir.logical_record = logical_record;
+    std::uint32_t byte = 1;
+    for (std::size_t token = 0; token < record.tokens.size(); ++token) {
+      const auto encoded = record.encoded_tokens[token];
+      const auto spacing =
+          !record.tokens[token].empty() && record.tokens[token].front() < 4;
+      record.ir.tokens.push_back(
+          {token, encoded, record.tokens[token],
+           {byte, static_cast<std::uint32_t>(byte + encoded.width)}, spacing,
+           spacing ? record.tokens[token].front() : std::uint16_t{3}});
+      byte += encoded.width;
+    }
+    record.ir.payload_range = {1, byte};
+    geist::detail::assign_display_line_framing(record.ir);
+    record.control_segments = geist::detail::decode_control_segments(
+        record.logical_record, record.assembled, record.encoded_tokens,
+        record.ir.display_lines);
+    geist::detail::demote_display_line_owned_controls(record);
+    return std::move(record);
+  }
+};
+
+struct Extracted {
+  std::vector<DecodedLogicalRecordSource> records;
+  std::optional<geist::detail::ProseTopicIR> topic;
+  std::string error;
+};
+
+Extracted run(DecodedLogicalRecordSource record, const std::string &title) {
+  Extracted result;
+  require(record.ir.display_lines_parse,
+          "the synthetic topic's display lines did not parse");
+  result.records.push_back(std::move(record));
+  const auto layout = geist::detail::extract_layout_ir(result.records);
+  std::string ownership_error;
+  const auto ownership = geist::detail::build_verified_ownership_ir(
+      result.records, layout, &ownership_error);
+  require(ownership.has_value(),
+          "the synthetic topic's ownership is not verifiable: " +
+              ownership_error);
+  if (!ownership) return result;
+  result.topic = geist::detail::extract_prose_topic_ir(
+      result.records, layout, *ownership, title, nullptr, &result.error);
+  if (result.topic) {
+    std::string verify_error;
+    require(geist::detail::verify_prose_topic_ir(
+                result.records, layout, *ownership, title, nullptr,
+                *result.topic, &verify_error),
+            "the extracted topic failed its own verifier: " + verify_error);
+  }
+  return result;
+}
+
+DecodedLogicalRecordSource list_topic(const std::string &opener,
+                                      const std::string &closer,
+                                      bool closer_payload) {
+  RecordBuilder builder;
+  builder.heading("1.1.27", "Diagnose");
+  builder.line({words("   "), words("Some"), words("introduction.")});
+  builder.line({words(opener)});
+  builder.line({words("   "), words("2."), words("The"), words("first"),
+                words("item.")});
+  if (closer_payload)
+    builder.line({words(closer), words("   "), words("5."), words("Closing"),
+                  words("payload.")});
+  else
+    builder.line({words(closer)});
+  builder.line({words("   "), words("3."), words("The"), words("second"),
+                words("item.")});
+  builder.line({words(closer)});
+  return builder.build(218);
+}
+
+std::size_t anchors_named(const geist::detail::ProseTopicIR &topic,
+                          const std::string &id) {
+  std::size_t count = 0;
+  for (const auto &anchor : topic.anchors)
+    if (anchor.id == id) ++count;
+  return count;
+}
+
+std::string topic_text(const geist::detail::ProseTopicIR &topic) {
+  std::string text;
+  for (const auto &block : topic.blocks)
+    for (const auto &item : block.inlines) text += item.text + " ";
+  return text;
+}
+
+void closers_emit_no_anchor(bool closer_payload) {
+  const auto label =
+      std::string(closer_payload ? "payload" : "bare") + " closer: ";
+  auto extracted =
+      run(list_topic("SRLISvmcparm", "SRELISvmcparm", closer_payload),
+          "Diagnose");
+  require(extracted.topic.has_value(),
+          label + "a topic closing its SRLIS list was rejected: " +
+              extracted.error);
+  if (!extracted.topic) return;
+  const auto &topic = *extracted.topic;
+  require(anchors_named(topic, "LISvmcparm") == 1,
+          label + "the SRLIS opener lost its anchor or its exact spelling");
+  require(anchors_named(topic, "ELISvmcparm") == 0,
+          label + "an SRELIS closer became an anchor");
+  require(topic.anchors.size() == 1,
+          label + "the topic has " + std::to_string(topic.anchors.size()) +
+              " anchors, not the opener alone");
+  const auto text = topic_text(topic);
+  require(text.find("ELIS") == std::string::npos,
+          label + "the closer leaked into the text: '" + text + "'");
+  require(text.find("second") != std::string::npos,
+          label + "the item after the closer was lost: '" + text + "'");
+  if (closer_payload)
+    require(text.find("Closing") != std::string::npos &&
+                text.find("payload.") != std::string::npos,
+            label + "the closer's payload did not stay prose: '" + text + "'");
+  // The closer's own word is claimed as a control, never as text.
+  std::size_t closer_controls = 0;
+  for (const auto &disposition : topic.ledger) {
+    const auto &record = extracted.records.front();
+    if (disposition.token.logical_record != record.logical_record) continue;
+    const auto &word = record.tokens[disposition.token.token_index];
+    if (std::string(word.begin(), word.end()) != "SRELISvmcparm") continue;
+    require(disposition.role == geist::detail::ProseTokenRoleIR::control,
+            label + "the closer token was not claimed as a control");
+    ++closer_controls;
+  }
+  require(closer_controls == 2,
+          label + "expected two claimed closer tokens, found " +
+              std::to_string(closer_controls));
+}
+
+// The owner must match: closing a list the topic never opened is not proven.
+// GX27-3999-00 2.2 (DT 19950730184057) stores `SRELISamy` three rows before
+// `SRLISamy`; hosted serves `LISamy` alone, so the marker still names the item.
+void a_closer_before_its_opener_is_no_anchor() {
+  RecordBuilder builder;
+  builder.heading("2.2", "Diagnose");
+  builder.line({words("   "), words("Begin"), words("with"), words("step.")});
+  builder.line({words("SRELISamy")});
+  builder.line({words("SRLISamy")});
+  builder.line({words("   "), words("1."), words("If"), words("your"),
+                words("computer.")});
+  auto extracted = run(builder.build(27), "Diagnose");
+  require(extracted.topic.has_value(),
+          "a closer standing before its opener was rejected: " +
+              extracted.error);
+  if (!extracted.topic) return;
+  require(anchors_named(*extracted.topic, "LISamy") == 1 &&
+              extracted.topic->anchors.size() == 1,
+          "a closer before its opener emitted an anchor or lost the opener");
+}
+
+void an_unmatched_closer_declines() {
+  auto extracted =
+      run(list_topic("SRLISvmcparm", "SRELISother", false), "Diagnose");
+  require(!extracted.topic.has_value(),
+          "an SRELIS closer whose owner opened no list was admitted");
+}
+
+}  // namespace
+
+int main() {
+  closers_emit_no_anchor(false);
+  closers_emit_no_anchor(true);
+  a_closer_before_its_opener_is_no_anchor();
+  an_unmatched_closer_declines();
+  return 0;
+}

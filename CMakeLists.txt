@@ -591,6 +591,7 @@ foreach(synthetic_test
     cz_degraded_region_synthetic
     font_span_trace_synthetic
     cz_unopened_region_closer_synthetic
+    list_closer_anchor_synthetic
     art_description_figure_synthetic
     ordered_picture_figure_synthetic
     menu_wrapped_title_synthetic

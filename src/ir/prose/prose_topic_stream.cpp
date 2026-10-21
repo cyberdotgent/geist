@@ -10,6 +10,7 @@
 #include <cctype>
 #include <map>
 #include <optional>
+#include <set>
 #include <sstream>
 
 namespace geist::detail::prose_internal {
@@ -982,6 +983,16 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
   // `SRFTN<id>` of the CZ dialect names the footnote the next `cz FLOW FN`
   // directive opens (packet 1.1 record 17).
   std::string pending_footnote_id;
+  // Lower-cased owners of the topic's `SRLIS<owner>` list-item anchors; an
+  // `SRELIS<owner>` naming one of them is no anchor (see below).
+  std::set<std::string> list_owners;
+  for (const auto& source : records)
+    for (const auto& segment : source.control_segments) {
+      const auto lower = ascii_lower(segment.opcode);
+      if (!segment.malformed && lower.rfind("srlis", 0) == 0 &&
+          lower.size() > 5)
+        list_owners.insert(lower.substr(5));
+    }
   // Set once a `cz` directive has been collected: unclaimed one-cell
   // decoder separators then reach the display-row pass, which decides
   // between bullet slot, split-off text and padding.
@@ -1553,6 +1564,21 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         const auto id = segment.opcode.substr(2);
         if (!valid_anchor_id(id))
           return fail(error, "anchor id '" + id + "' is invalid");
+        // `SRELIS<owner>` is the end marker of the list item `SRLIS<owner>`
+        // names, not a destination.  SC24-5520-00 1.1.27 opens `SRLISvmcparm`
+        // once (record 218 line 24) and closes it five times (records 225,
+        // 228, 233, 238, 242); hosted BookServer (DT 19911011135123) serves
+        // `<a name="LISvmcparm">` and `LISrcs` and no `ELIS*` anchor at all.
+        // The marker may also stand before its opener: GX27-3999-00 2.2
+        // record 27 has `SRELISamy` on line 30 and `SRLISamy` on line 33,
+        // and hosted (DT 19950730184057) serves only `LISamy`.  A closer
+        // whose owner the topic never names is not proven to be one and
+        // still declines.
+        const auto list_closer =
+            lower_opcode.rfind("srelis", 0) == 0 && lower_opcode.size() > 6;
+        if (list_closer && !list_owners.count(lower_opcode.substr(6)))
+          return fail(error, "list closer " + segment.opcode +
+                                 " names no SRLIS item of the topic");
         // A body anchor can carry the first display line of the text it
         // names.  Hosted BookServer wraps that text in the anchor element
         // and keeps it as body content -- unlike the metadata-envelope
@@ -1585,6 +1611,12 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         if (visible_payload && title_seen) {
           if (anchor_operands.empty())
             return fail(error, "anchor control has no source token");
+          // A closer's payload is the next item's text and nothing else.
+          if (list_closer) {
+            if (!push_payload(ProseTokenRoleIR::control, false, false, false))
+              return false;
+            break;
+          }
           Item item;
           item.kind = ItemKind::anchor;
           item.anchor_id = id;
@@ -1630,6 +1662,7 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         const auto operands = operand_tokens(record, segment);
         if (operands.empty())
           return fail(error, "anchor control has no source token");
+        if (list_closer) break;
         ProseAnchorIR anchor;
         anchor.id = id;
         anchor.source = token_slice(record, operands.front(),
