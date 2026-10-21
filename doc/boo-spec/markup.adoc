@@ -795,6 +795,17 @@ than visible prose; the `ST`, `SI` and styled message rows independently carry
 the visible title, index identity and message fields.  `:MSGNO` is therefore a
 topic heading form, not a displayed body token.
 
+An individually indexed message can also carry a second, bare `SRMSG` after
+its visible message fields.  This is a local `MSG` destination rather than a
+new message envelope, and it does not consume the following prose row.
+`IBMMMSTR.boo` topic `3.7.14`, logical record 1631, stores the control as the
+native row `01 68`: length byte `01`, then the sole content byte `68`, which
+decodes as `SRMSG`.  The next bytes, `19 06`, are the length and three-cell
+origin of the following explanatory row.  The 74-cell
+`U+2500` row immediately before the control remains a horizontal rule.  Thus
+native row framing, rather than the flattened control segment's apparent
+operands, determines the extent of the bare destination.
+
 Span-only `CFONT` records apply to the next physical text segment. PACKET
 topic `1.3` stores `CFONT 27 5 3 33 10 3` at the end of one logical record and
 the next record starts with pass:[<literal>FM&#160;&#160;radio&#160;&#160;through&#160;&#160;its audio interface; ...</literal>].

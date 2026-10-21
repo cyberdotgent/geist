@@ -505,6 +505,12 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
         ++cursor;
         continue;
       }
+      case ProseBlockKindIR::thematic_break:
+        destination.push_back(
+            {ThematicBreakBlockIR{},
+             origin(block.slices, "prose native thematic break")});
+        ++cursor;
+        continue;
       case ProseBlockKindIR::heading: {
         HeadingBlockIR heading;
         heading.level = static_cast<std::uint32_t>(block.heading_level);

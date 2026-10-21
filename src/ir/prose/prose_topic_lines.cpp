@@ -255,10 +255,8 @@ struct LineBuilder {
   // as `<hr>` and prints no character of it (ACPZMST1 COVER DT
   // 19920319123146 and DREICMST COVER DT 19911219125856 both draw the cover
   // frame as two such lines and both hosted pages carry `<hr>` in their
-  // place).  The row draws no word, so the line builder emits no row and the
-  // tokens stay structural.  Residual: the Document IR has no thematic-break
-  // node, so the rule is dropped rather than lowered; the legacy renderer
-  // drops it too, so no word and no rule is lost against it.
+  // place). The cells stay structural, while one source-positioned line
+  // marker preserves the semantic rule for block construction.
   bool display_rule_line(std::size_t index) {
     const auto& view = items[index].token;
     const auto* line = display_line_of(view.record, view.token);
@@ -275,6 +273,14 @@ struct LineBuilder {
     }
     if (!rule) return false;
     if (!finish_title() || !finish_index()) return false;
+    // The length byte normally opened an empty line when the row had an
+    // origin run. A zero-origin rule has no such line yet, so open one here;
+    // either way this keeps a pending anchor attached to the rule it precedes.
+    if (!line_open || out.lines.empty()) open_line(0, nullptr);
+    this->line().thematic_break = true;
+    this->line().thematic_record = view.record;
+    this->line().thematic_token_begin = line->prefix_token;
+    this->line().thematic_token_end = line->token_end;
     std::size_t last = index;
     for (auto cursor = index; cursor < items.size(); ++cursor) {
       if (items[cursor].kind == ItemKind::segment_end) continue;

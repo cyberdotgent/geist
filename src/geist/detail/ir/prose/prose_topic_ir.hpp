@@ -150,6 +150,7 @@ struct ProseInlineIR {
 // and list items.
 enum class ProseBlockKindIR {
   paragraph,
+  thematic_break,   // a source-native row made wholly of U+2500 rule cells
   list_item,
   definition_entry,  // `CZ FLOW DT`: term inlines, then definition inlines
   heading,           // `CZ FLOW H2`..`H5` with visible text

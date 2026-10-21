@@ -365,6 +365,13 @@ struct Line {
   // the source display line, verbatim, and the row joins the preformatted
   // block of its region instead of reflowing.
   bool box = false;
+  // A native display row whose only visible cells are U+2500. It is a
+  // semantic separator, not a text row; the exact framing below supplies
+  // the source provenance of the eventual thematic-break block.
+  bool thematic_break = false;
+  std::size_t thematic_record = npos;
+  std::size_t thematic_token_begin = 0;
+  std::size_t thematic_token_end = 0;
   // Exact native framing of a drawn-box row.  Empty rows own no display
   // cells, so their source extent cannot be reconstructed from `cells`.
   std::size_t box_record = npos;

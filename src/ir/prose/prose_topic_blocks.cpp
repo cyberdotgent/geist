@@ -468,6 +468,7 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
   std::vector<std::pair<std::size_t, std::size_t>> ranges;  // [begin,end)
   std::vector<bool> is_item;
   std::vector<bool> is_box;
+  std::vector<bool> is_thematic_break;
   std::vector<std::size_t> origins;
   // A table/figure span between two lines ends the block before it.
   std::set<std::size_t> span_lines;
@@ -480,6 +481,16 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
   std::size_t carried_breaks = 0;
   while (index < lines.size()) {
     const auto& first = lines[index];
+    if (first.thematic_break) {
+      ranges.emplace_back(index, index + 1);
+      is_item.push_back(false);
+      is_box.push_back(false);
+      is_thematic_break.push_back(true);
+      origins.push_back(first.origin);
+      ++index;
+      carried_breaks = 0;
+      continue;
+    }
     // A drawn box region: its rows are verbatim display lines and form one
     // preformatted block.
     if (first.box) {
@@ -488,6 +499,7 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
       ranges.emplace_back(index, end);
       is_item.push_back(false);
       is_box.push_back(true);
+      is_thematic_break.push_back(false);
       origins.push_back(first.origin);
       index = end;
       carried_breaks = 0;
@@ -512,6 +524,7 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
       ranges.emplace_back(index, example_end);
       is_item.push_back(false);
       is_box.push_back(false);
+      is_thematic_break.push_back(false);
       origins.push_back(first.origin);
       index = example_end;
       continue;
@@ -532,6 +545,7 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
     ranges.emplace_back(index, end);
     is_item.push_back(first.bullet);
     is_box.push_back(false);
+    is_thematic_break.push_back(false);
     origins.push_back(first.origin);
     index = end;
   }
@@ -539,6 +553,19 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
   for (std::size_t block_index = 0; block_index < ranges.size(); ++block_index) {
     ProseBlockIR block;
     block.origin = origins[block_index];
+    if (is_thematic_break[block_index]) {
+      const auto& source_line = lines[ranges[block_index].first];
+      if (source_line.thematic_record >= records.size() ||
+          source_line.thematic_token_begin >=
+              source_line.thematic_token_end)
+        return fail(error, "thematic break has no native row provenance");
+      block.kind = ProseBlockKindIR::thematic_break;
+      block.slices.push_back(token_slice(
+          records[source_line.thematic_record],
+          source_line.thematic_token_begin, source_line.thematic_token_end));
+      topic.blocks.push_back(std::move(block));
+      continue;
+    }
     if (is_box[block_index]) {
       if (!build_box_block(records, lines, ranges[block_index].first,
                            ranges[block_index].second, block, ledger,

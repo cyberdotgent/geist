@@ -1380,6 +1380,46 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         }
         break;
       }
+      case BookControlKind::message_start: {
+        if (!title_seen)
+          return fail(error, "body SRMSG precedes the title");
+        // Some message topics place a second, bare SRMSG between a native
+        // separator row and their explanatory paragraph. The flattened
+        // segment appears to carry that paragraph as operands, but native
+        // framing proves the SRMSG row contains the opcode alone: IBMMMSTR
+        // 3.7.14 record 1631 stores `01 68`, followed by the next row's
+        // length/origin bytes `19 06`. Only that one-byte row is the anchor;
+        // every token after it re-enters the ordinary body stream.
+        const auto opcode_words = decoded_byte_range_to_word_range(
+            record.assembled,
+            {segment.opcode_range.begin, segment.opcode_range.end});
+        const auto opcode_tokens = source_tokens_intersecting_output(
+            record.assembled, opcode_words.begin, opcode_words.end);
+        if (opcode_tokens.empty())
+          return fail(error, "body SRMSG has no opcode provenance");
+        const auto* native = display_line_of_token(record,
+                                                   opcode_tokens.front());
+        if (native == nullptr)
+          return fail(error, "body SRMSG has no native row framing");
+        for (auto token = native->prefix_token + 1;
+             token < native->token_end; ++token) {
+          if (std::binary_search(opcode_tokens.begin(), opcode_tokens.end(),
+                                 token))
+            continue;
+          const auto view = view_token(records, record_index, token);
+          if (is_visible(view) && !is_padding(view))
+            return fail(error, "body SRMSG native row carries operands");
+        }
+        Item anchor;
+        anchor.kind = ItemKind::anchor;
+        anchor.anchor_id = "MSG";
+        anchor.source = token_slice(record, opcode_tokens.front(),
+                                    opcode_tokens.back() + 1);
+        build.items.push_back(std::move(anchor));
+        if (!push_payload(ProseTokenRoleIR::control, false, false, false))
+          return false;
+        break;
+      }
       // `SRTBL<id>` / `SRETBL` inside a verbatim `cz OFF` region are the
       // labelled box's own anchors, not a table envelope: the span plan
       // leaves them unclaimed there (prose_topic_spans.cpp), so they reach

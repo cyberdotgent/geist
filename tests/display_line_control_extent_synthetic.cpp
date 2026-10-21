@@ -393,6 +393,69 @@ void a_fully_disposed_empty_topic_is_typed() {
           "the heading-only topic failed typed verification: " + error);
 }
 
+// A bare SRMSG in the body is a local message destination, not the opening
+// of a message-field envelope. IBMMMSTR 3.7.14 record 1631 stores it as
+// `01 68`: a one-byte native row whose sole byte is SRMSG. The preceding
+// 74-cell U+2500 row is a semantic separator and the following row remains
+// prose; admitting the anchor must preserve both neighbors.
+void a_bare_message_anchor_preserves_its_native_separator() {
+  DecodedLogicalRecordSource record;
+  record.logical_record = 1631;
+  const auto control_line = [&](TokenWords opcode,
+                                std::vector<TokenWords> operands = {}) {
+    std::size_t length = 2;
+    for (const auto &operand : operands) length += 2;
+    append(record, static_cast<std::uint16_t>(length), 1, {3, 0x2534});
+    append(record, 0x8000, 2, std::move(opcode));
+    for (auto &operand : operands)
+      append(record, 0x8001, 2, std::move(operand));
+  };
+  control_line({'s', 'h', '3', '.', '7', '.', '1', '4'});
+  control_line({'c', 't', 'o', 'p', 'i', 'c', 'n'}, {{'1'}});
+  control_line({'c', 'p', 'a', 'r', 'e', 'n', 't'});
+  control_line({'c', 'f', 'o', 'r', 'w', 'a', 'r', 'd', 'l', 'e', 'v', 'e', 'l'});
+  control_line({'c', 'b', 'a', 'c', 'k', 'l', 'e', 'v', 'e', 'l'});
+  control_line({'c', 's', 'u', 'm', 'm', 'a', 'r', 'y'},
+               {{'0'}, {'0'}, {'0'}});
+  control_line({'c', 'h', 'd', 'l', 'e', 'v', 'e', 'l'},
+               {{':', 'H', '3'}});
+  control_line({'c', 's', 'o', 'u', 'r', 'c', 'e', 'f', 'n'},
+               {{'I', 'B', 'M', 'M', 'M', 'S', 'T', 'R'}});
+  control_line({'S', 'T'}, {{'M', 'e', 's', 's', 'a', 'g', 'e', 's'}});
+
+  append(record, 4, 1, {3, 0x2534});
+  append(record, 0x8100, 2, {' ', ' ', ' '});
+  append(record, 0x8101, 2, TokenWords(74, 0x2500));
+  append(record, 1, 1, {3, 'a', 'r', 'e'});
+  append(record, 0x68, 1, {'S', 'R', 'M', 'S', 'G'});
+  append(record, 4, 1, {3, 0x2534});
+  append(record, 0x8102, 2, {' ', ' ', ' '});
+  append(record, 0x8103, 2, {'F', 'o', 'l', 'l', 'o', 'w', 'i', 'n', 'g', '.'});
+  refresh(record);
+  geist::detail::demote_display_line_owned_controls(record);
+
+  const std::vector<DecodedLogicalRecordSource> records{record};
+  const auto layout = geist::detail::extract_layout_ir(records);
+  std::string error;
+  const auto ownership =
+      geist::detail::build_verified_ownership_ir(records, layout, &error);
+  require(ownership.has_value(), "message-anchor ownership failed: " + error);
+  if (!ownership) return;
+  const auto prose = geist::detail::extract_prose_topic_ir(
+      records, layout, *ownership, "Messages", nullptr, &error, nullptr);
+  require(prose.has_value(), "bare body SRMSG was rejected: " + error);
+  if (!prose) return;
+  require(prose->blocks.size() == 2 &&
+              prose->blocks[0].kind ==
+                  geist::detail::ProseBlockKindIR::thematic_break &&
+              prose->blocks[1].kind ==
+                  geist::detail::ProseBlockKindIR::paragraph,
+          "separator or following paragraph was not preserved as a block");
+  require(prose->anchors.size() == 1 && prose->anchors[0].id == "MSG" &&
+              prose->anchors[0].position == 1,
+          "bare SRMSG did not remain between separator and paragraph");
+}
+
 void a_metadata_length_byte_cannot_consume_the_first_word() {
   DecodedLogicalRecordSource record;
   record.logical_record = 151;
@@ -847,6 +910,7 @@ int main() {
   vertical_space_operands_do_not_leak();
   revision_definitions_have_an_explicit_disposition();
   a_fully_disposed_empty_topic_is_typed();
+  a_bare_message_anchor_preserves_its_native_separator();
   a_metadata_length_byte_cannot_consume_the_first_word();
   font_operand_grammar_cannot_override_native_opcode_identity();
   an_indented_publication_number_is_not_a_topic_start();

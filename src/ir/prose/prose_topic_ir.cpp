@@ -307,6 +307,23 @@ bool verify_prose_topic_ir(
   for (std::size_t block = 0; block < topic.blocks.size(); ++block) {
     const auto& node = topic.blocks[block];
     if (node.inlines.empty()) {
+      if (node.kind == ProseBlockKindIR::thematic_break) {
+        if (node.slices.empty())
+          return fail(error, "thematic break has no native row provenance");
+        for (const auto& slice : node.slices)
+          for (auto token = slice.token_begin; token < slice.token_end;
+               ++token) {
+            const auto found = by_token.find({slice.logical_record, token});
+            if (found == by_token.end() ||
+                (found->second->role != ProseTokenRoleIR::marker &&
+                 found->second->role != ProseTokenRoleIR::origin &&
+                 found->second->role != ProseTokenRoleIR::fill &&
+                 found->second->role != ProseTokenRoleIR::spacing))
+              return fail(error,
+                          "thematic break provenance is not native row structure");
+          }
+        continue;
+      }
       if (node.kind != ProseBlockKindIR::definition_entry ||
           node.body_blocks.empty())
         return fail(error, "prose block has no inlines");
@@ -484,6 +501,7 @@ const char* prose_token_role_name(ProseTokenRoleIR role) {
 const char* prose_block_kind_name(ProseBlockKindIR kind) {
   switch (kind) {
   case ProseBlockKindIR::paragraph: return "paragraph";
+  case ProseBlockKindIR::thematic_break: return "thematic_break";
   case ProseBlockKindIR::list_item: return "list_item";
   case ProseBlockKindIR::definition_entry: return "definition_entry";
   case ProseBlockKindIR::heading: return "heading";
