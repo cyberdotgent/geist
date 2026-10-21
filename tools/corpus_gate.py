@@ -183,6 +183,25 @@ def identity(path):
     return {"size": path.stat().st_size, "sha256": digest.hexdigest()}
 
 
+def select_books(corpus, explicit):
+    if corpus is not None:
+        books = [path for path in corpus.iterdir()
+                 if path.is_file() and path.suffix.lower() == ".boo"]
+    else:
+        books = explicit
+        for path in books:
+            if not path.is_file() or path.suffix.lower() != ".boo":
+                raise ValueError("explicit book is not a BOO file: " + str(path))
+    selected = {}
+    for path in books:
+        if path.name in selected:
+            raise ValueError("duplicate corpus filename: " + path.name)
+        selected[path.name] = path
+    if not selected:
+        raise ValueError("corpus contains no BOO files")
+    return selected
+
+
 def run_tool(executable, book, *args):
     result = subprocess.run([str(executable), str(book), *args],
                             capture_output=True, text=True, encoding="utf-8",
@@ -291,7 +310,11 @@ def compare_book(name, baseline, current):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--corpus", required=True, type=Path)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--corpus", type=Path,
+                        help="flat directory containing exactly the baseline books")
+    source.add_argument("--book", action="append", type=Path, dest="books",
+                        help="explicit BOO path; repeat for a separately pinned set")
     parser.add_argument("--bootrace", default=Path("build/bootrace"), type=Path)
     parser.add_argument("--booinfo", default=Path("build/booinfo"), type=Path)
     parser.add_argument("--baseline", default=Path(__file__).with_name("corpus-baseline.json"), type=Path)
@@ -302,10 +325,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.jobs < 1 or (args.capture is not None and not args.revision):
         parser.error("positive --jobs required; --capture requires --revision")
-    books = {path.name: path for path in args.corpus.iterdir()
-             if path.is_file() and path.suffix.lower() == ".boo"}
-    if not books:
-        raise ValueError("corpus contains no BOO files")
+    books = select_books(args.corpus, args.books)
     baseline = None
     if args.capture:
         if args.capture.exists():

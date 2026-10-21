@@ -8,6 +8,7 @@ import copy
 import contextlib
 import importlib.util
 import io
+import json
 from pathlib import Path
 import sys
 import tempfile
@@ -186,7 +187,6 @@ class CorpusGateTest(unittest.TestCase):
         self.assertTrue(improvements)
 
     def test_identity_rejected_before_tools_run(self):
-        import json
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             book = root / "synthetic.BOO"
@@ -232,6 +232,48 @@ class CorpusGateTest(unittest.TestCase):
                 (root / "unexpected.boo").write_bytes(b"other")
                 with self.assertRaisesRegex(ValueError, "book set mismatch"):
                     GATE.main(common + ["--baseline", str(baseline)])
+
+    def test_explicit_books_support_separate_pinned_corpus(self):
+        def reports(_executable, _book, *args):
+            if args == ("--coverage",):
+                return COVERAGE
+            if args == ("--conservation",):
+                return CONSERVATION
+            return "Timestamp: 19930422134757\nDocument number: synthetic\nTitle: Test\nVersion: 1.2\n"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first = root / "first.boo"
+            second = root / "second.BOO"
+            first.write_bytes(b"one")
+            second.write_bytes(b"two")
+            capture = root / "supplemental.json"
+            with patch.object(GATE, "run_tool", side_effect=reports), \
+                    contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(GATE.main([
+                    "--book", str(first), "--book", str(second),
+                    "--capture", str(capture), "--revision", "synthetic",
+                    "--jobs", "1"]), 0)
+            snapshot = json.loads(capture.read_text())
+            self.assertEqual(set(snapshot["books"]), {first.name, second.name})
+
+    def test_explicit_books_reject_invalid_and_duplicate_names(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            invalid = root / "not-a-book.txt"
+            invalid.write_bytes(b"one")
+            with self.assertRaisesRegex(ValueError, "not a BOO file"):
+                GATE.select_books(None, [invalid])
+            first_dir = root / "first"
+            second_dir = root / "second"
+            first_dir.mkdir()
+            second_dir.mkdir()
+            first = first_dir / "same.boo"
+            second = second_dir / "same.boo"
+            first.write_bytes(b"one")
+            second.write_bytes(b"two")
+            with self.assertRaisesRegex(ValueError, "duplicate corpus filename"):
+                GATE.select_books(None, [first, second])
 
 
 if __name__ == "__main__":

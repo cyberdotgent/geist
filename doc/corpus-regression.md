@@ -22,6 +22,24 @@ plus its document number, title, timestamp and reported version. A file identity
 mismatch fails before decoding, even when the replacement has the same name or
 document number. No book is downloaded automatically.
 
+For a separately pinned set whose private files do not share a directory, pass
+each path explicitly and select that set's baseline:
+
+```
+python3 tools/corpus_gate.py \
+  --book /private/GA19-5486-13.boo \
+  --book /private/geist-design-ez30ad01.boo \
+  --book /private/geist-design-SC21-8295-03.boo \
+  --book /private/geist-design-dfhp7a00.boo \
+  --baseline /path/to/reviewed-supplemental-baseline.json --jobs 4
+```
+
+`--book` is repeatable and mutually exclusive with `--corpus`. The baseline
+still identifies books by case-sensitive filename, so duplicate filenames are
+rejected even when they come from different directories. Explicit inputs must
+be regular `.boo` or `.BOO` files. This mode changes only how private files are
+located; identity, edition, topic and conservation checks are identical.
+
 The gate rejects a missing or unexpected catalog topic, a change to its source
 identity, any per-topic severity
 regression (including strict typed to typed-degraded), a reduction in conservation
