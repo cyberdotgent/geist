@@ -68,9 +68,59 @@ def wait_for_http(base, process, timeout=15):
 
 def assert_not_found(base, prefix):
     for suffix in ["/.geist/api/v1", "/.geist/openapi.json",
-                   "/.geist/api/v1/books", "/.geist/mcp"]:
+                   "/.geist/api/v1/books", "/.geist/mcp",
+                   "/.geist/mcp/setup"]:
         status, _, _ = fetch(base, prefix + suffix)
         assert status == 404, (prefix + suffix, status)
+
+
+def check_shelf_links(base):
+    status, headers, body = fetch(base, "/enabled/")
+    assert status == 200 and headers.get_content_type() == "text/html", (
+        status, headers)
+    page = body.decode("utf-8")
+    assert '<a href=".geist/openapi.json">API</a>' in page, page
+    assert '<a href=".geist/mcp/setup">MCP</a>' in page, page
+
+    status, _, body = fetch(base, "/enabled/packet.boo")
+    assert status == 200
+    page = body.decode("utf-8")
+    assert '<a href="/enabled/.geist/openapi.json">API</a>' in page, page
+    assert '<a href="/enabled/.geist/mcp/setup">MCP</a>' in page, page
+
+    status, _, body = fetch(base, "/api-only/")
+    assert status == 200
+    page = body.decode("utf-8")
+    assert '<a href=".geist/openapi.json">API</a>' in page, page
+    assert '>MCP</a>' not in page, page
+
+    status, _, body = fetch(base, "/mcp-only/")
+    assert status == 200
+    page = body.decode("utf-8")
+    assert '>API</a>' not in page, page
+    assert '<a href=".geist/mcp/setup">MCP</a>' in page, page
+
+
+def check_mcp_setup(base):
+    path = "/enabled/.geist/mcp/setup"
+    status, headers, body = fetch(base, path)
+    assert status == 200 and headers.get_content_type() == "text/html", (
+        status, headers)
+    page = body.decode("utf-8")
+    endpoint = base + "/enabled/.geist/mcp"
+    quoted_endpoint = "&#39;" + endpoint + "&#39;"
+    assert f"codex mcp add geist --url {quoted_endpoint}" in page, page
+    assert (f"claude mcp add --transport http geist {quoted_endpoint}"
+            in page), page
+    assert f"<p><code>{endpoint}</code></p>" in page, page
+
+    status, headers, body = fetch(base, path, method="HEAD")
+    assert status == 200 and not body, (status, body)
+    assert int(headers["Content-Length"]) > 0, headers
+
+    status, headers, _ = fetch(base, path, method="POST")
+    assert status == 405 and headers.get("Allow") == "GET, HEAD", (
+        status, headers)
 
 
 def check_rest(base):
@@ -377,6 +427,10 @@ DocumentRoot "{www}"
                 status, headers, _ = fetch(base, "/mcp-only/.geist/mcp")
                 assert status == 405 and headers.get("Allow") == "POST", (
                     status, headers)
+                status, _, _ = fetch(base, "/api-only/.geist/mcp/setup")
+                assert status == 404, status
+                check_shelf_links(base)
+                check_mcp_setup(base)
                 check_rest(base)
                 check_mcp(base)
                 print("BooIndex-gated REST/OpenAPI and MCP endpoint checks passed")

@@ -142,9 +142,11 @@ The libgeist half is read at run time, not baked in, so it names the library
 actually loaded rather than the one the module was compiled against -- which
 is the distinction that matters once the two are packaged apart.
 
-`HideVersion On` removes the footer and adds nothing to the `Server` header.
-The header is assembled once at startup, so that half follows `HideVersion`
-as set at server scope; inside a `<Directory>` it still removes the footer.
+`HideVersion On` removes version identification from the footer and adds
+nothing to the `Server` header. If a machine interface is enabled, its footer
+link remains. The header is assembled once at startup, so that half follows
+`HideVersion` as set at server scope; inside a `<Directory>` it still removes
+the version identification from the footer.
 httpd's own `ServerTokens Prod` suppresses every component including this
 one, so an operator who wants nothing disclosed needs only that.
 
@@ -231,7 +233,9 @@ mint session ids. Its read-only tools are `list_books`, `get_book`,
 content is also available through `geist://shelf` resource templates. Requests
 with no `Origin` are accepted; a supplied origin must match the request origin.
 Use Apache `Require`, TLS and the normal virtual-host controls for access rather
-than a separate Geist token.
+than a separate Geist token. The shelf footer links to `/.geist/mcp/setup`, a
+short setup page for Codex and Claude Code. The API footer link opens the
+OpenAPI document directly.
 
 #### Naming a shelf
 

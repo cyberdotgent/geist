@@ -708,9 +708,24 @@ void emit_toc(request_rec* r, Book& book, const std::string& base,
 }
 
 void emit_tail(request_rec* r, const std::string& base, DirConfig* config) {
-  if (!version_hidden(config)) {
-    ap_rprintf(r, "<footer class=\"geist-footer\">%s</footer>\n",
-               esc(r, version_string()));
+  const bool show_api = config != nullptr && config->api == Tri::on;
+  const bool show_mcp = config != nullptr && config->mcp == Tri::on;
+  if (show_api || show_mcp || !version_hidden(config)) {
+    const std::string shelf = shelf_uri(base);
+    ap_rputs("<footer class=\"geist-footer\">", r);
+    if (show_api) {
+      ap_rprintf(r, "<a href=\"%s.geist/openapi.json\">API</a>",
+                 shelf.c_str());
+    }
+    if (show_mcp) {
+      ap_rprintf(r, "%s<a href=\"%s.geist/mcp/setup\">MCP</a>",
+                 show_api ? " &middot; " : "", shelf.c_str());
+    }
+    if (!version_hidden(config)) {
+      ap_rprintf(r, "%s%s", show_api || show_mcp ? " &middot; " : "",
+                 esc(r, version_string()));
+    }
+    ap_rputs("</footer>\n", r);
   }
   ap_rprintf(r, "<script src=\"%s\"></script>\n</body>\n</html>\n",
              asset_url(base, "geist.js").c_str());
@@ -1214,9 +1229,21 @@ std::string render_shelf(request_rec* r, const std::string& heading,
   }
 
   out += "</tbody>\n</table>\n";
-  if (!version_hidden(config)) {
+  const bool show_api = config != nullptr && config->api == Tri::on;
+  const bool show_mcp = config != nullptr && config->mcp == Tri::on;
+  if (show_api || show_mcp || !version_hidden(config)) {
     out += "<footer class=\"geist-shelf-footer\">";
-    out += html_escape(version_string());
+    if (show_api) {
+      out += "<a href=\".geist/openapi.json\">API</a>";
+    }
+    if (show_mcp) {
+      if (show_api) out += " &middot; ";
+      out += "<a href=\".geist/mcp/setup\">MCP</a>";
+    }
+    if (!version_hidden(config)) {
+      if (show_api || show_mcp) out += " &middot; ";
+      out += html_escape(version_string());
+    }
     out += "</footer>\n";
   }
   out += kShelfScript;
@@ -1258,7 +1285,48 @@ bool machine_path(const std::string& path) {
   return path == "/.geist/openapi.json" ||
          path == "/.geist/api/v1" ||
          path.rfind("/.geist/api/v1/", 0) == 0 ||
-         path == "/.geist/mcp";
+         path == "/.geist/mcp" ||
+         path == "/.geist/mcp/setup";
+}
+
+std::string shell_quote(const std::string& value) {
+  std::string out("'");
+  for (const char c : value) {
+    if (c == '\'') {
+      out += "'\\''";
+    } else {
+      out.push_back(c);
+    }
+  }
+  out += '\'';
+  return out;
+}
+
+std::string mcp_setup_page(request_rec* r) {
+  std::string endpoint_path(r->uri != nullptr ? r->uri : "");
+  constexpr std::string_view suffix = "/setup";
+  if (endpoint_path.size() >= suffix.size()) {
+    endpoint_path.resize(endpoint_path.size() - suffix.size());
+  }
+  const char* absolute = ap_construct_url(r->pool, endpoint_path.c_str(), r);
+  const std::string endpoint = absolute != nullptr ? absolute : endpoint_path;
+  const std::string quoted = shell_quote(endpoint);
+
+  std::string out;
+  out += "<!doctype html>\n<html lang=\"en\"><head>"
+         "<meta charset=\"utf-8\">"
+         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+         "<title>MCP setup</title></head><body><main>\n"
+         "<h1>MCP</h1>\n<p><code>";
+  out += html_escape(endpoint);
+  out += "</code></p>\n<h2>Codex</h2>\n"
+         "<pre><code>codex mcp add geist --url ";
+  out += html_escape(quoted);
+  out += "</code></pre>\n<h2>Claude Code</h2>\n"
+         "<pre><code>claude mcp add --transport http geist ";
+  out += html_escape(quoted);
+  out += "</code></pre>\n</main></body></html>\n";
+  return out;
 }
 
 int write_machine_response(
@@ -1357,7 +1425,8 @@ int geist_machine_handler(request_rec* r) {
     return DECLINED;
   }
 
-  const bool is_mcp = target->path == "/.geist/mcp";
+  const bool is_mcp = target->path == "/.geist/mcp" ||
+                      target->path == "/.geist/mcp/setup";
   const bool is_api = !is_mcp;
   if ((is_mcp && config->mcp != Tri::on) ||
       (is_api && config->api != Tri::on)) {
@@ -1365,6 +1434,16 @@ int geist_machine_handler(request_rec* r) {
   }
 
   try {
+    if (target->path == "/.geist/mcp/setup") {
+      if (r->method_number != M_GET) {
+        return write_machine_response(
+            r, HTTP_METHOD_NOT_ALLOWED, "text/html; charset=utf-8", "",
+            {{"Allow", "GET, HEAD"}});
+      }
+      return write_machine_response(r, OK, "text/html; charset=utf-8",
+                                    mcp_setup_page(r));
+    }
+
     if (target->path == "/.geist/openapi.json") {
       if (r->method_number != M_GET) {
         return write_machine_response(

@@ -56,6 +56,8 @@ std::string http_renderer_identity(request_rec *r, const DirConfig *config) {
        std::to_string(static_cast<int>(config ? config->download : Tri::unset)),
        std::to_string(
            static_cast<int>(config ? config->hide_version : Tri::unset)),
+       std::to_string(static_cast<int>(config ? config->api : Tri::unset)),
+       std::to_string(static_cast<int>(config ? config->mcp : Tri::unset)),
        config && config->index_title ? config->index_title : ""});
 }
 
