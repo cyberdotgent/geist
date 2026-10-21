@@ -56,6 +56,11 @@ struct CrossReferenceInlineIR {
 
   CrossReferenceTargetIR target;
   std::string label;
+  // Non-visible source evidence that establishes the destination (for
+  // example, the CSELECT control naming it).  This is deliberately separate
+  // from InlineIR::origin: that origin belongs to the displayed label and is
+  // what render traces expose for label bytes.
+  std::optional<DocumentNodeOriginIR> target_origin;
   // Presentation proven for this label's exact source run. Selectors and
   // CFONT instructions make independent, overlapping claims; retaining the
   // destination must not flatten the font claim. Adjacent runs may name the

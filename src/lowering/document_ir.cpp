@@ -69,6 +69,11 @@ bool verify_inlines(const InlineSequenceIR& inlines, bool allow_empty,
     return fail(error, "required inline sequence is empty");
   for (const auto& in : inlines) {
     if (!verify_origin(in.origin, error)) return false;
+    if (const auto* reference =
+            std::get_if<CrossReferenceInlineIR>(&in.node);
+        reference != nullptr && reference->target_origin &&
+        !verify_origin(*reference->target_origin, error))
+      return false;
     const auto valid = std::visit(
         [&](const auto& node) {
           using T = std::decay_t<decltype(node)>;
@@ -125,7 +130,13 @@ bool slice_covers(const std::vector<DocumentSourceSliceIR>& outer,
 
 void collect_inline_origins(const InlineSequenceIR& inlines,
                             std::vector<const DocumentNodeOriginIR*>& out) {
-  for (const auto& in : inlines) out.push_back(&in.origin);
+  for (const auto& in : inlines) {
+    out.push_back(&in.origin);
+    if (const auto* reference =
+            std::get_if<CrossReferenceInlineIR>(&in.node);
+        reference != nullptr && reference->target_origin)
+      out.push_back(&*reference->target_origin);
+  }
 }
 
 void collect_block_origins(const BlockSequenceIR& blocks,
@@ -573,6 +584,11 @@ void format_inlines(std::ostringstream& out, const InlineSequenceIR& inlines) {
               out << ":code";
             else if (node.label_emphasis)
               out << ':' << emphasis_kind_name(*node.label_emphasis);
+            if (node.target_origin) {
+              out << " target_origin={";
+              format_origin(out, *node.target_origin);
+              out << '}';
+            }
           }
           else if constexpr (std::is_same_v<T, ImageInlineIR>)
             out << "image=" << quoted(node.resource) << ':'

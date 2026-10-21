@@ -4,6 +4,7 @@
 #include "geist/detail/lowering/document_ir.hpp"
 #include "geist/detail/render/document_markdown_renderer.hpp"
 
+#include <algorithm>
 #include <iostream>
 #include <string>
 #include <utility>
@@ -80,6 +81,16 @@ int main() {
       {CrossReferenceTargetKindIR::external,
        "https://example.test/chapter one?q=a&b"},
       "a [link]"}));
+  // The displayed label and the selector control naming its destination are
+  // distinct source claims. Only the former belongs in the rendered-word
+  // trace; the latter remains attached to the typed reference itself.
+  rich.back().origin.slices.push_back({10, 1, 2, 3, 100, 104});
+  auto &sourced_reference =
+      std::get<CrossReferenceInlineIR>(rich.back().node);
+  sourced_reference.target_origin = origin();
+  sourced_reference.target_origin->detail = "synthetic selector target";
+  sourced_reference.target_origin->slices.push_back(
+      {10, 0, 0, 1, 80, 90});
   rich.push_back(in(TextInlineIR{"; "}));
   rich.push_back(in(CrossReferenceInlineIR{
       {CrossReferenceTargetKindIR::topic, "Chapter One"}, "topic"}));
@@ -205,6 +216,10 @@ int main() {
   if (!contains(formatted,
                 "xref=external:\"https://example.test/chapter one?q=a&b\"",
                 "formatter omitted external target kind") ||
+      !contains(formatted,
+                "target_origin={ origin=semantic:\"synthetic selector "
+                "target\" source=(lr=10 seg=0 tok=0:1 bytes=80:90)}",
+                "formatter omitted cross-reference target provenance") ||
       !contains(formatted, "xref=topic:\"Chapter One\"",
                 "formatter omitted topic target kind") ||
       !contains(formatted, "xref=anchor:\"section one\"",
@@ -230,6 +245,18 @@ int main() {
   if (!require(!verify_document_ir(anchor_menu, &error) &&
                    error == "menu item is incomplete",
                "verifier admitted a non-topic menu item target"))
+    return 1;
+  auto invalid_target_origin = document;
+  auto &invalid_reference = std::get<CrossReferenceInlineIR>(
+      std::get<ParagraphBlockIR>(invalid_target_origin.blocks[1].node)
+          .content[6]
+          .node);
+  invalid_reference.target_origin->derivation = DocumentDerivationIR::decoded;
+  invalid_reference.target_origin->slices.clear();
+  error.clear();
+  if (!require(!verify_document_ir(invalid_target_origin, &error) &&
+                   error == "decoded node origin names no source slice",
+               "verifier admitted source-free target provenance"))
     return 1;
   if (!contains(formatted,
                 "menu items=[target=\"2.1.1\" label=\"Displaying [Status]\"",
@@ -258,7 +285,18 @@ int main() {
       return "assets/manual.pdf";
     return std::nullopt;
   };
-  const auto output = render_document_markdown(document, options);
+  DocumentRenderTraceIR render_trace;
+  const auto output = render_document_markdown(document, options, &render_trace);
+  const auto label_trace = std::find_if(
+      render_trace.spans.begin(), render_trace.spans.end(),
+      [](const auto &span) { return span.reason == "link label"; });
+  if (!require(label_trace != render_trace.spans.end() &&
+                   label_trace->origin.has_value() &&
+                   label_trace->origin->slices.size() == 1 &&
+                   label_trace->origin->slices.front().byte_begin == 100 &&
+                   label_trace->origin->slices.front().byte_end == 104,
+               "rendered link-label trace included selector-control bytes"))
+    return 1;
   if (!require(output == render_document_markdown(document, options),
                "rendering the same typed IR was not deterministic") ||
       !require(!output.empty() && output.back() == '\n',

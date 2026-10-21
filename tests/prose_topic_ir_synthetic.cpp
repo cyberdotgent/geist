@@ -556,6 +556,55 @@ void alphabetic_ordered_list() {
           "HTML replaced alphabetic source ordinals: " + html);
 }
 
+void selector_target_provenance_is_not_label_provenance() {
+  ProseTopicIR prose;
+  prose.heading_level = "h2";
+  prose.title = "Reference";
+  prose.title_source = {1, 0, 0, 1, 10, 19};
+
+  const DocumentSourceSliceIR selector_source{2, 0, 0, 4, 20, 36};
+  const DocumentSourceSliceIR label_source{2, 1, 4, 5, 40, 44};
+  ProseInlineIR link;
+  link.kind = ProseInlineKindIR::cross_reference;
+  link.text = "Next";
+  link.target = "HDRNEXT";
+  link.target_kind = CrossReferenceTargetKindIR::anchor;
+  link.targets.push_back(
+      {CrossReferenceTargetKindIR::anchor, "HDRNEXT", {}, selector_source});
+  link.slices.push_back(label_source);
+  ProseBlockIR paragraph;
+  paragraph.inlines.push_back(std::move(link));
+  paragraph.slices = {selector_source, label_source};
+  prose.blocks.push_back(std::move(paragraph));
+
+  TopicIdentityIR topic;
+  topic.id = "REFERENCE";
+  topic.title = prose.title;
+  topic.start_logical_record = 1;
+  topic.end_logical_record = 2;
+  std::string error;
+  const auto document = lower_prose_topic_to_document_ir(topic, prose, &error);
+  require(document.has_value(),
+          "synthetic selector lowering failed: " + error);
+  if (!document) return;
+  const auto &content =
+      std::get<ParagraphBlockIR>(document->blocks[1].node).content;
+  require(content.size() == 1,
+          "synthetic selector did not lower to one visible inline");
+  if (content.size() != 1) return;
+  const auto *reference =
+      std::get_if<CrossReferenceInlineIR>(&content.front().node);
+  require(reference != nullptr && reference->target_origin.has_value(),
+          "lowered selector discarded target provenance");
+  require(content.front().origin.slices ==
+              std::vector<DocumentSourceSliceIR>{label_source},
+          "lowered selector polluted visible label provenance");
+  if (reference && reference->target_origin)
+    require(reference->target_origin->slices ==
+                std::vector<DocumentSourceSliceIR>{selector_source},
+            "lowered selector target names the wrong control bytes");
+}
+
 // `CZ` dialect (doc/boo-spec/markup.adoc, "CZ layout directives").  Every fixture
 // below was compared word for word against hosted BookServer: packet
 // (DT 20260614112503).  The SC41-485, SC09-2417-00 and GX27-3999-00 fixtures
@@ -737,6 +786,7 @@ int main() {
   front_matter_fixtures();
   negative_fixtures();
   alphabetic_ordered_list();
+  selector_target_provenance_is_not_label_provenance();
   cz_fixtures();
   geist_test::exit_with_failures();
   std::cout << "prose_topic_ir_synthetic: ok\n";

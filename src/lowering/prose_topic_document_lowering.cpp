@@ -186,21 +186,13 @@ bool link_table_cells(const ProseTopicIR& prose, std::size_t span,
         CrossReferenceInlineIR reference;
         reference.target = {link->target_kind, link->target};
         reference.label = text->text;
+        reference.target_origin =
+            origin({link->source}, "fixed table CSELECT target");
         node.node = std::move(reference);
         node.origin.detail =
             link->target_kind == CrossReferenceTargetKindIR::external
                 ? "fixed table cell line (CSELECT LNK reference)"
                 : "fixed table cell line (CSELECT reference)";
-        node.origin.slices.push_back(link->source);
-        std::sort(node.origin.slices.begin(), node.origin.slices.end(),
-                  [](const auto& left, const auto& right) {
-                    return std::make_tuple(left.logical_record,
-                                           left.segment_index, left.token_begin,
-                                           left.token_end) <
-                           std::make_tuple(right.logical_record,
-                                           right.segment_index,
-                                           right.token_begin, right.token_end);
-                  });
       }
     }
   }
@@ -275,20 +267,8 @@ bool lower_inlines(const ProseBlockIR& block, std::size_t begin,
                      ? "prose CSELECT LNK reference"
                      : "prose CSELECT reference");
       if (!node.targets.empty())
-        lowered.origin.slices.push_back(node.targets.front().source);
-      std::sort(lowered.origin.slices.begin(), lowered.origin.slices.end(),
-                [](const auto& left, const auto& right) {
-                  return std::make_tuple(left.logical_record,
-                                         left.segment_index,
-                                         left.token_begin, left.token_end) <
-                         std::make_tuple(right.logical_record,
-                                         right.segment_index,
-                                         right.token_begin, right.token_end);
-                });
-      lowered.origin.slices.erase(
-          std::unique(lowered.origin.slices.begin(),
-                      lowered.origin.slices.end()),
-          lowered.origin.slices.end());
+        std::get<CrossReferenceInlineIR>(lowered.node).target_origin =
+            origin({node.targets.front().source}, "prose CSELECT target");
       break;
     }
     case ProseInlineKindIR::line_break:
