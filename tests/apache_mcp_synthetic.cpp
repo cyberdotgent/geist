@@ -240,14 +240,26 @@ void test_modern(const geist_apache::service::Catalog &catalog) {
 }
 
 void test_legacy(const geist_apache::service::Catalog &catalog) {
+  Request malformed_initialize;
+  malformed_initialize.method = "POST";
+  malformed_initialize.content_type = "application/json";
+  malformed_initialize.accept = "application/json, text/event-stream";
+  malformed_initialize.body =
+      R"({"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{}}})";
+  auto response = geist_apache::mcp::handle(malformed_initialize, catalog);
+  auto value = json(response);
+  require(response.status == 400 && path(value, {"error", "code"}) &&
+              path(value, {"error", "code"})->number_text() == "-32602",
+          "legacy initialize validates client implementation identity");
+
   Request initialize;
   initialize.method = "POST";
   initialize.content_type = "application/json";
   initialize.accept = "application/json, text/event-stream";
   initialize.body =
       R"({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"test","version":"1"}}})";
-  auto response = geist_apache::mcp::handle(initialize, catalog);
-  auto value = json(response);
+  response = geist_apache::mcp::handle(initialize, catalog);
+  value = json(response);
   require(response.status == 200 &&
               path(value, {"result", "protocolVersion"}) &&
               !path(value, {"result", "resultType"}),

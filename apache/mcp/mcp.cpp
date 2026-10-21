@@ -892,6 +892,10 @@ Response handle(const Request &request, const service::Catalog &catalog) {
         client_capabilities == params.end() ||
         !client_capabilities->second.is_object())
       return error_response(400, id, -32602, "Invalid params", legacy_version);
+    const auto &client_info = client->second.as_object();
+    if (!required_string(client_info, "name") ||
+        !required_string(client_info, "version"))
+      return error_response(400, id, -32602, "Invalid params", legacy_version);
     Object result = object(
         {{"protocolVersion", std::string(legacy_version)},
          {"capabilities", capabilities()},
