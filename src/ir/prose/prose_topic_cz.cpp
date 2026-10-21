@@ -265,6 +265,7 @@ struct CzBuilder {
   std::vector<std::size_t> block_first_line;
   std::vector<Frame> stack;
   std::size_t next_list_ordinal = 0;
+  bool saw_inferred_parameter_list = false;
   // Display-line range [first, second) of every directive (npos: none).
   std::vector<std::pair<std::size_t, std::size_t>> ranges;
 
@@ -1218,16 +1219,19 @@ struct CzBuilder {
         return fail(error, "CZ layout " + name + " is not modelled");
       if (tag == "pt") {
         if ((stack.empty() || stack.back().tag != "parml") &&
-            implicit_parameter_list(index))
+            implicit_parameter_list(index)) {
+          saw_inferred_parameter_list = true;
           stack.push_back(
               {"parml", next_list_ordinal++, 0, npos, false, true});
+        }
         return parameter_term(groups);
       }
       if (tag == "p" || tag == "pc" || tag == "gd") {
         if (!stack.empty() &&
             (stack.back().tag == "dl" ||
              (stack.back().tag == "parml" &&
-              stack.back().inferred_parameter_list)) &&
+              (stack.back().inferred_parameter_list ||
+               saw_inferred_parameter_list))) &&
             stack.back().separate_definition_body) {
           const auto body = stack.back().tag == "dl" ? "DD body"
                                                        : "parameter body";
@@ -1241,7 +1245,8 @@ struct CzBuilder {
         if (!stack.empty() &&
             (stack.back().tag == "dl" ||
              (stack.back().tag == "parml" &&
-              stack.back().inferred_parameter_list)) &&
+              (stack.back().inferred_parameter_list ||
+               saw_inferred_parameter_list))) &&
             stack.back().separate_definition_body) {
           const auto body = stack.back().tag == "dl" ? "DD body"
                                                        : "parameter body";
