@@ -671,6 +671,159 @@ int main() {
       }
     }
   }
+  // A terminal font instruction styles the first native row of the next
+  // consecutive record, even when compatibility layout has no row for it.
+  {
+    auto first = header("Sample", "Messages");
+    append(first, line({origin(), t("Introduction.", 180)}));
+    append(first, line({}));
+    append(first, line({t("cfont", 111), t("3", 112), t("6", 181),
+                        t("K", 182), t("10", 183), t("5", 184), t("K", 182)}));
+    auto second = line({origin(), t("Return", 185), t("Codes", 186)});
+    append(second, line({}));
+    append(second, line({origin(), t("Unstyled", 187), t("afterwards.", 188)}));
+    auto offset_entry = entry("612", 189);
+    // The catalogue's entry origin is independent of the introduction's.
+    offset_entry[5].words = words("8");
+    offset_entry[13].words = words("8");
+    offset_entry[9].words = words("        ");
+    offset_entry[17].words = words("        ");
+    append(second, offset_entry);
+    auto sources = std::vector<DecodedLogicalRecordSource>{
+        make_source(40, first), make_source(41, second)};
+    const auto built = build(sources, "Sample Messages");
+    require(built.catalog.has_value(), "deferred introduction font declined: " + built.error);
+    if (built.catalog) {
+      require(built.catalog->introduction.size() == 3 &&
+                  built.catalog->introduction[1].text == "Return Codes" &&
+                  built.catalog->introduction[1].leading_spans.size() == 2 &&
+                  built.catalog->introduction[2].leading_spans.empty(),
+              "deferred font lost its row or leaked across a blank row");
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(), "deferred font lowering declined: " + error);
+      if (document) {
+        const auto html = geist::detail::render_document_html_blocks(*document, {});
+        require(html.find(">Return</strong> <strong class=\"geist-strong\">Codes</strong>") !=
+                    std::string::npos && html.find("Unstyled afterwards.") != std::string::npos,
+                "deferred font rendering changed: " + html);
+      }
+      auto changed = *built.catalog;
+      auto& paragraph = changed.introduction[1];
+      require(paragraph.source_slices.size() >= 2 &&
+                  paragraph.source_slices.back().logical_record == 40,
+              "deferred font instruction has no provenance");
+      if (!paragraph.source_slices.empty()) ++paragraph.source_slices.back().byte_begin;
+      require(!geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership, changed, &error),
+              "mutated deferred font provenance was accepted");
+    }
+    require(!build({make_source(40, first), make_source(42, second)},
+                   "Sample Messages").catalog,
+            "deferred font crossed a missing record");
+    auto bad_font = first;
+    bad_font[bad_font.size() - 2].words = words("50");
+    require(!build({make_source(40, bad_font), make_source(41, second)},
+                   "Sample Messages").catalog,
+            "deferred font exceeded its target row");
+    auto unknown_font = first;
+    unknown_font.back().words = words("Z");
+    require(!build({make_source(40, unknown_font), make_source(41, second)},
+                   "Sample Messages").catalog,
+            "deferred font silently dropped an unsupported style");
+    auto changed_origin = second;
+    changed_origin[1].words = words(" | ");
+    require(!build({make_source(40, first), make_source(41, changed_origin)},
+                   "Sample Messages").catalog,
+            "deferred font slid over a leading change bar");
+    auto blank_target = line({});
+    append(blank_target, second);
+    require(!build({make_source(40, first), make_source(41, blank_target)},
+                   "Sample Messages").catalog,
+            "deferred font was silently moved past its empty target row");
+  }
+  // Selector coordinates bind the second identical phrase to source glyphs,
+  // not the first textual occurrence in the flattened field.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("613", 190));
+    append(tokens, line({t("cselect", 191), t("19", 192), t("6", 181),
+                         t("HDRTARGET", 193)}));
+    append(tokens, line({origin(), t("See", 194), t("Target", 195),
+                         t("then", 196), t("Target", 195)}));
+    const auto built = build({make_source(50, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(), "selector catalogue declined: " + built.error);
+    if (built.catalog) {
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(), "selector lowering declined: " + error);
+      if (document) {
+        const auto html = geist::detail::render_document_html_blocks(*document, {});
+        require(html.find("See Target then <a") != std::string::npos &&
+                    html.find("href=\"#HDRTARGET\">Target</a>") != std::string::npos,
+                "typed trap selector was lost or attached to the wrong occurrence: " + html);
+        const auto markdown = geist::detail::render_document_markdown(*document);
+        require(markdown.find("See Target then [Target](<#HDRTARGET>)") != std::string::npos,
+                "Markdown lost the source-bound selector: " + markdown);
+      }
+      auto changed = *built.catalog;
+      auto& links = changed.entries.front().fields.front().line.body.links;
+      require(links.size() == 1, "selector has no typed source claim");
+      if (!links.empty()) ++links.front().begin;
+      require(!geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership, changed, &error),
+              "mutated selector projection was accepted");
+      auto overlapping = *built.catalog;
+      auto& body = overlapping.entries.front().fields.front().line.body;
+      if (!body.links.empty()) {
+        body.highlights.push_back({body.links.front().begin, body.links.front().end,
+                                    geist::detail::FontStyleIR::highlight_2});
+        require(!geist::detail::lower_trap_catalog_to_document_ir(
+                    {"12", "Sample Messages"}, overlapping, &error),
+                "unrepresentable overlapping link and emphasis was flattened");
+      }
+    }
+    auto overlong = tokens;
+    for (auto& token : overlong)
+      if (token.encoded_value == 181) token.words = words("999");
+    require(!build({make_source(50, overlong)}, "Sample Messages").catalog,
+            "selector exceeding its native row was accepted");
+    auto unicode = tokens;
+    for (auto& token : unicode)
+      if (token.encoded_value == 195) token.words = TokenWords{'T', 'a', 'r', 'g', 0xe9, 't'};
+    const auto nonascii = build({make_source(50, unicode)}, "Sample Messages");
+    require(nonascii.catalog.has_value(), "Unicode selector declined: " + nonascii.error);
+    if (nonascii.catalog) {
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *nonascii.catalog, &error);
+      require(document && geist::detail::render_document_html_blocks(*document, {}).find(
+                  u8"href=\"#HDRTARGET\">Targét</a>") != std::string::npos,
+              "Unicode bytes shifted selector coordinates");
+    }
+  }
+  // A selector proves that its closing quote is drawn, even at a row end.
+  // Compatibility terminal-marker suppression must not erase part of a link.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("614", 197));
+    append(tokens, line({t("cselect", 191), t("3", 112), t("8", 198),
+                         t("HDRQUOTE", 199)}));
+    append(tokens, line({origin(), t("\"", 43), {TokenWords{1}, 1},
+                         t("Target", 195), {TokenWords{1}, 1}, t("\"", 43)}));
+    const auto built = build({make_source(51, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(), "quoted selector declined: " + built.error);
+    if (built.catalog) {
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document && geist::detail::render_document_html_blocks(*document, {}).find(
+                  "href=\"#HDRQUOTE\">\"Target\"</a>") != std::string::npos,
+              "selector's terminal quote was dropped");
+    }
+  }
   std::cout << "trap catalog IR synthetic tests passed\n";
   return 0;
 }

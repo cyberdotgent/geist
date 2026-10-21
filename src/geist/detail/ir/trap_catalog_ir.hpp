@@ -98,6 +98,19 @@ inline bool operator==(const TrapBodyHighlightIR &left,
          left.style == right.style;
 }
 
+// Source-bound selector range in projected UTF-8 byte coordinates.
+struct TrapTextLinkIR {
+  std::size_t begin = 0;
+  std::size_t end = 0;
+  std::string target;
+  DocumentSourceSliceIR source;
+};
+
+inline bool operator==(const TrapTextLinkIR& a, const TrapTextLinkIR& b) {
+  return a.begin == b.begin && a.end == b.end && a.target == b.target &&
+         a.source == b.source;
+}
+
 // Projected UTF-8 text with exact provenance. `text` is whitespace-collapsed;
 // `display_text` keeps the reader's inter-word spacing so CFONT columns can
 // be mapped onto it.
@@ -115,6 +128,7 @@ struct TrapTextIR {
   bool paragraph_break = false;
   // Highlighted runs drawn inside this text, ordered and disjoint.
   std::vector<TrapBodyHighlightIR> highlights;
+  std::vector<TrapTextLinkIR> links;
   std::vector<DocumentSourceSliceIR> source_slices;
   std::vector<DocumentSourceRowIR> source_rows;
   std::size_t cell_begin = 0;

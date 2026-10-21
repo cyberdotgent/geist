@@ -43,6 +43,10 @@ struct MessageProseParagraphIR {
   // An unrowed native continuation retains these byte-backed claims without
   // inventing a compatibility layout row or borrowing a later font run.
   std::vector<DocumentSourceSliceIR> source_slices;
+  // A complete terminal CFONT in the preceding framed record can open the
+  // first native row here. Its consumer must corroborate every font span
+  // against that row before admitting the paragraph.
+  std::optional<DocumentSourceSliceIR> leading_font_source;
   std::vector<MessageProseBoundaryTokenIR> opening_boundary;
   bool opened_by_run_start = false;
 };

@@ -399,8 +399,9 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
     // A record may start with native prose before its first compatibility
     // layout row. That later row's font run says nothing about the prefix.
     // Admit only whole, indented, source-positioned rows in consecutive
-    // framed records, either continuing an open paragraph or following a
-    // proven blank-row boundary. This is additional source evidence, never
+    // framed records, continuing an open paragraph, following a proven blank
+    // row, or opening the target of a terminal font instruction. This is
+    // additional source evidence, never
     // blanket forgiveness for opaque cells.
     std::set<std::size_t> native_prefix_tokens;
     const auto* native_lines = record_display_lines(record);
@@ -410,7 +411,25 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
         !preceding_lines->empty() &&
         collapse(display_line_text(*previous_span->record,
                                    preceding_lines->back())).empty();
-    if ((open || after_blank) && previous_span != nullptr && native_lines != nullptr &&
+    std::optional<DocumentSourceSliceIR> deferred_font;
+    if (previous_span != nullptr && preceding_lines != nullptr &&
+        !preceding_lines->empty()) {
+      const auto& prior = *previous_span->record;
+      const auto& last = preceding_lines->back();
+      for (const auto& segment : prior.control_segments)
+        if (segment.kind == BookControlKind::font &&
+            !segment.source_tokens.empty() &&
+            segment.source_tokens.front() == last.prefix_token + 1 &&
+            segment.source_tokens.back() < last.token_end &&
+            last.prefix_token >= previous_span->begin &&
+            last.token_end == prior.tokens.size()) {
+          const auto font = decode_font_control_spans(prior, segment);
+          if (font && !font->spans.empty())
+            deferred_font = token_slice(prior, segment.segment_index,
+                                       last.prefix_token + 1, last.token_end);
+        }
+    }
+    if ((open || after_blank || deferred_font) && previous_span != nullptr && native_lines != nullptr &&
         preceding_lines != nullptr && !preceding_lines->empty() &&
         previous_span->record->logical_record + 1 == record.logical_record &&
         previous_span->end == previous_span->record->tokens.size()) {
@@ -448,6 +467,10 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
           native_prefix_tokens.insert(token);
       }
     }
+    if (deferred_font && !native_prefix_tokens.empty() &&
+        (native_lines == nullptr || native_lines->empty() ||
+         native_prefix_tokens.count(native_lines->front().prefix_token + 1) == 0))
+      return reject("deferred message prose font has no first native target row");
     std::size_t current_segment = 0;
     bool segment_row_seen = false;
     for (auto token = span.begin; token < span.end; ++token) {
@@ -528,6 +551,12 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
         flush_piece(token, current_segment);
         piece_begin_token = token + 1;
         const auto* line = display_line_of_token(record, token);
+        if (deferred_font && native_lines != nullptr && !native_lines->empty() &&
+            token == native_lines->front().prefix_token &&
+            native_prefix_tokens.count(token + 1) != 0) {
+          begin_paragraph(true);
+          current.leading_font_source = deferred_font;
+        }
         if (line != nullptr && collapse(display_line_text(record, *line)).empty())
           finish();
         continue;

@@ -82,6 +82,8 @@ DocumentNodeOriginIR text_origin(const TrapTextIR &text, std::string detail) {
   auto result = origin(std::move(detail));
   for (const auto &slice : text.source_slices)
     add_slice(result, slice);
+  for (const auto& link : text.links)
+    add_slice(result, link.source);
   add_rows(result, text.source_rows);
   return canonical(std::move(result));
 }
@@ -97,6 +99,7 @@ std::optional<EmphasisKindIR> emphasis_for(FontStyleIR style) {
   case FontStyleIR::highlight_1:
     return EmphasisKindIR::emphasis;
   case FontStyleIR::highlight_2:
+  case FontStyleIR::bold_phrase:
     return EmphasisKindIR::strong;
   case FontStyleIR::highlight_3:
     return EmphasisKindIR::strong_emphasis;
@@ -110,7 +113,6 @@ std::optional<EmphasisKindIR> emphasis_for(FontStyleIR style) {
   case FontStyleIR::keyword:
   case FontStyleIR::keyword_define:
   case FontStyleIR::variable:
-  case FontStyleIR::bold_phrase:
   case FontStyleIR::italic_phrase:
   case FontStyleIR::warning:
   case FontStyleIR::warning_text:
@@ -193,6 +195,47 @@ bool append_body_after(InlineSequenceIR &content, const TrapTextIR &body,
   if (from == std::string::npos ||
       body.text.compare(from, rest.size(), rest) != 0)
     return false;
+  if (!body.links.empty()) {
+    // Links and emphasis share the body's UTF-8 byte coordinates. This IR
+    // cannot nest emphasis inside a link, so reject overlaps rather than
+    // silently discard either source claim.
+    struct Range {
+      std::size_t begin, end;
+      std::optional<EmphasisKindIR> emphasis;
+      const TrapTextLinkIR* link = nullptr;
+    };
+    std::vector<Range> ranges;
+    for (const auto& span : body.highlights) {
+      if (span.end <= from) continue;
+      ranges.push_back({span.begin, span.end, emphasis_for(span.style), nullptr});
+    }
+    for (const auto& link : body.links)
+      ranges.push_back({link.begin, link.end, std::nullopt, &link});
+    std::sort(ranges.begin(), ranges.end(), [](const auto& a, const auto& b) {
+      return std::make_pair(a.begin, a.end) < std::make_pair(b.begin, b.end);
+    });
+    content.push_back({TextInlineIR{" "}, body_origin});
+    auto cursor = from;
+    for (const auto& range : ranges) {
+      if (range.begin < cursor || range.begin >= range.end || range.end > body.text.size())
+        return false;
+      if (range.begin > cursor)
+        content.push_back({TextInlineIR{body.text.substr(cursor, range.begin - cursor)}, body_origin});
+      auto label = body.text.substr(range.begin, range.end - range.begin);
+      if (range.link != nullptr) {
+        if (range.link->target.empty()) return false;
+        content.push_back({CrossReferenceInlineIR{
+            {CrossReferenceTargetKindIR::anchor, range.link->target}, std::move(label)}, body_origin});
+      } else if (range.emphasis)
+        content.push_back({EmphasisInlineIR{std::move(label), *range.emphasis}, body_origin});
+      else
+        content.push_back({TextInlineIR{std::move(label)}, body_origin});
+      cursor = range.end;
+    }
+    if (cursor < body.text.size())
+      content.push_back({TextInlineIR{body.text.substr(cursor)}, body_origin});
+    return true;
+  }
   std::vector<std::pair<std::string, std::optional<EmphasisKindIR>>> pieces;
   const auto push = [&](std::string text, std::optional<EmphasisKindIR> kind) {
     if (text.empty())

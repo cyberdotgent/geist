@@ -5,6 +5,7 @@
 
 #include "geist/detail/layout/display_lines.hpp"
 #include "geist/detail/core/internal.hpp"
+#include "geist/detail/ir/trap_selector_links.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -386,6 +387,7 @@ struct Piece {
   std::string display_gap;
   std::size_t cell_begin = 0;
   std::size_t columns = 0;
+  std::vector<std::size_t> words;
 };
 
 // Projects one decoded segment payload into text, ledgering every payload
@@ -418,6 +420,15 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
   };
   const auto range = decoded_byte_range_to_word_range(
       record.assembled, whole_segment ? segment.complete : segment.payload_range);
+  std::optional<TrapSelectorSource> selector_source;
+  std::set<std::pair<std::size_t, std::size_t>> selected_glyphs;
+  if (!whole_segment && segment.kind == BookControlKind::select) {
+    selector_source = read_trap_selector_source(record, segment, error);
+    if (!selector_source) return false;
+    for (const auto& cell : selector_source->cells)
+      if (cell.word != ' ')
+        selected_glyphs.emplace(cell.token, cell.word_index);
+  }
   std::vector<Piece> pieces;
   std::string display;
   std::string gap;
@@ -439,7 +450,8 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
   // Display width of the pieces emitted so far, in the same accumulation the
   // final `display` string uses, so a CFONT column can be tested mid-walk.
   std::size_t running = 0;
-  const auto emit_char = [&](std::size_t token, std::uint16_t word, bool glue) {
+  const auto emit_char = [&](std::size_t token, std::size_t ordinal,
+                             std::uint16_t word, bool glue) {
     if (pieces.empty() || pieces.back().token != token) {
       Piece piece;
       piece.token = token;
@@ -453,6 +465,7 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
     pending_space = false;
     gap.clear();
     pieces.back().text += token_words_to_ascii({word});
+    pieces.back().words.push_back(ordinal);
     ++pieces.back().columns;
     ++running;
   };
@@ -503,6 +516,12 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
       pending_space = true;
       if (gap.empty())
         gap.push_back(' ');
+    } else if (selected_glyphs.count({token, word}) != 0 &&
+               value >= 0x20 && value <= 0xff && value != ' ') {
+      // Native selector columns prove these glyphs are drawn, including a
+      // quote that compatibility geometry mistakes for a closing marker.
+      cell.role = TrapCellRoleIR::text;
+      emit_char(token, word, value, false);
     } else if (marker != index.marker_rows.end()) {
       add_row(marker->second);
       cell.role = marker_role(record, *marker->second.row, pieces.empty());
@@ -526,7 +545,7 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
           running + (record.ir.tokens[token].decoded_words.size() - word) <=
               highlighted_columns) {
         cell.role = TrapCellRoleIR::text;
-        emit_char(token, value, false);
+        emit_char(token, word, value, false);
       } else if (cell.role == TrapCellRoleIR::punctuation_marker) {
         // A punctuation slot that one CFONT span covers whole is display text
         // the row draws at its own column, not a sentence stop LayoutIR glues
@@ -544,13 +563,13 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
         if (value >= 0x20 && value <= 0xff && value != ' ' &&
             highlight_covers(at, at + width)) {
           cell.role = TrapCellRoleIR::text;
-          emit_char(token, value, false);
+          emit_char(token, word, value, false);
         } else if (value <= 0xff) {
-          emit_char(token, value, true);
+          emit_char(token, word, value, true);
         }
       } else if (cell.role == TrapCellRoleIR::lexical_marker) {
         if (value <= 0xff && value >= 0x20)
-          emit_char(token, value, false);
+          emit_char(token, word, value, false);
       } else {
         pending_space = true;
         if (gap.empty())
@@ -579,7 +598,7 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
       if (value >= 0x20 && value <= 0xff && value != ' ' &&
           highlight_covers(at, at + width)) {
         cell.role = TrapCellRoleIR::text;
-        emit_char(token, value, false);
+        emit_char(token, word, value, false);
       } else {
         cell.role = TrapCellRoleIR::placeholder;
         pending_space = true;
@@ -588,7 +607,7 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
       }
     } else if (disposition == SourceDisposition::visible_content) {
       cell.role = TrapCellRoleIR::text;
-      emit_char(token, value, false);
+      emit_char(token, word, value, false);
     } else if (disposition == SourceDisposition::layout_origin ||
                disposition == SourceDisposition::layout_padding) {
       cell.role = TrapCellRoleIR::spacing;
@@ -614,7 +633,7 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
                                std::to_string(record.logical_record) +
                                " token " + std::to_string(token));
       cell.role = TrapCellRoleIR::unrowed_text;
-      emit_char(token, value, false);
+      emit_char(token, word, value, false);
     }
     cells.push_back(cell);
   }
@@ -648,7 +667,9 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
          record.ir.tokens[next].decoded_words.size() >= 2);
     const auto inside_highlight =
         out.display_text.empty() && piece_end[index] <= highlighted_columns;
-    if (!inside_highlight && token.encoded.width == 1 &&
+    const auto inside_selector = std::any_of(piece.words.begin(), piece.words.end(),
+        [&](auto word) { return selected_glyphs.count({piece.token, word}) != 0; });
+    if (!inside_highlight && !inside_selector && token.encoded.width == 1 &&
         piece.text.size() == 1 &&
         layout_glyph(piece.text.front()) && followed_by_padding &&
         !closes_open_delimiter(preceding, piece.text.front())) {
@@ -664,16 +685,33 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
   }
   pieces = std::move(kept);
   std::string text;
+  std::map<std::pair<std::size_t, std::size_t>, std::size_t> glyph_offsets;
+  bool pending_gap = false;
   display.clear();
   for (const auto &piece : pieces) {
-    if (!text.empty() && !piece.glue)
-      text.push_back(' ');
-    text += piece.text;
+    if (!text.empty() && !piece.glue) pending_gap = true;
+    for (const auto ordinal : piece.words) {
+      const auto value = record.tokens[piece.token][ordinal];
+      if (value == ' ') { pending_gap = true; continue; }
+      if (pending_gap && !text.empty()) text.push_back(' ');
+      pending_gap = false;
+      glyph_offsets[{piece.token, ordinal}] = text.size();
+      text += token_words_to_ascii({value});
+    }
     if (!display.empty() && !piece.glue)
       display += piece.display_gap;
     display += piece.text;
   }
   text = collapse(std::move(text));
+  if (selector_source) {
+    auto link = project_trap_selector_link(*selector_source, text, glyph_offsets,
+                                           segment_slice(record, segment), error);
+    if (!link) return false;
+    const auto base = out.text.size() + (out.text.empty() ? 0 : 1);
+    link->begin += base;
+    link->end += base;
+    out.links.push_back(std::move(*link));
+  }
   if (!out.text.empty() && !text.empty())
     out.text.push_back(' ');
   out.text += text;
@@ -1063,6 +1101,7 @@ bool same_text(const TrapTextIR &left, const TrapTextIR &right) {
   return left.text == right.text && left.display_text == right.display_text &&
          left.paragraph_break == right.paragraph_break &&
          left.highlights == right.highlights &&
+         left.links == right.links &&
          left.source_slices == right.source_slices &&
          rows_equal(left.source_rows, right.source_rows) &&
          left.cell_begin == right.cell_begin && left.cell_end == right.cell_end;
@@ -1748,6 +1787,13 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
                                body.source_slices.back().token_end - 1,
                                piece.source_slices.front().token_begin))
           body.paragraph_break = true;
+        const auto link_base = body.text.size() +
+            (!body.text.empty() && !piece.text.empty() ? 1 : 0);
+        for (auto link : piece.links) {
+          link.begin += link_base;
+          link.end += link_base;
+          body.links.push_back(std::move(link));
+        }
         if (!body.text.empty() && !piece.text.empty())
           body.text.push_back(' ');
         body.text += piece.text;
@@ -1890,7 +1936,45 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
       item.text = paragraph.text;
       item.source_slices = paragraph.source_slices;
       item.source_rows = paragraph.source_rows;
-      if (!paragraph.source_rows.empty()) {
+      // Deferred font provenance is explicit, not borrowed from a later row.
+      if (paragraph.leading_font_source) {
+        const auto& source = *paragraph.leading_font_source;
+        const auto* record = find_record(records, source.logical_record);
+        if (record == nullptr || source.segment_index >= record->control_segments.size() ||
+            paragraph.source_slices.empty())
+          return reject("deferred introduction font has no source");
+        const auto font = decode_font_control_spans(
+            *record, record->control_segments[source.segment_index]);
+        const auto& row_source = paragraph.source_slices.front();
+        const auto* row_record = find_record(records, row_source.logical_record);
+        const auto* line = row_record == nullptr ? nullptr :
+            display_line_of_token(*row_record, row_source.token_begin);
+        if (!font || font->spans.empty() || line == nullptr)
+          return reject("deferred introduction font has no native target row");
+        const auto offsets = display_line_column_offsets(*row_record, *line);
+        // Bound before mapping, including before any column+length sum.
+        // Only styles this lowering preserves may promote an opaque row.
+        for (const auto& span : font->spans)
+          if ((span.style != FontStyleIR::highlight_1 &&
+               span.style != FontStyleIR::highlight_2 &&
+               span.style != FontStyleIR::highlight_3 &&
+               span.style != FontStyleIR::bold_phrase) || offsets.empty() ||
+              span.column >= offsets.size() - 1 ||
+              span.length > offsets.size() - 1 - span.column)
+            return reject("deferred introduction font has unsupported geometry or style");
+        std::string joined;
+        std::vector<TrapStyledSpanIR> mapped;
+        // Entry headlines and introduction headings can have different
+        // origins. The target row, not the catalogue's entry origin, proves
+        // this font's coordinates.
+        const auto chain = map_leading_chain(*font, font->spans.front().column,
+                                              item.text, mapped, joined);
+        if (chain.size() != font->spans.size() ||
+            !chain_matches_display_columns(*row_record, row_source.token_begin, mapped))
+          return reject("deferred introduction font does not match its source columns");
+        item.leading_spans = std::move(mapped);
+        item.source_slices.push_back(source);
+      } else if (!paragraph.source_rows.empty()) {
         const auto &first = paragraph.source_rows.front();
         const auto run = std::find_if(
             layout.runs.begin(), layout.runs.end(), [&](const auto &candidate) {

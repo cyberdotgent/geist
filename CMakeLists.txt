@@ -215,6 +215,7 @@ set(GEIST_SOURCES
   src/ir/selector_link_ir.cpp
   src/ir/topic_header_title.cpp
   src/ir/trap_catalog_ir.cpp
+  src/ir/trap_selector_links.cpp
 
   # ir/prose/
   src/ir/prose/prose_topic_blocks.cpp

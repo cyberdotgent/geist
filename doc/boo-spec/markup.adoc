@@ -2404,6 +2404,29 @@ paragraph separation; merely crossing the record boundary does not. Preserve
 the drawing and spacing of complete native text rows independently of any
 surrounding subject-index or font instructions.
 
+A complete font instruction may instead end a logical record with its
+target text at the beginning of the next record. In `SC34-425` topic
+`2.4.9`, record 1483 ends with a line at `0x15BD83`: length byte `09`
+followed by `CFONT 3 6 K 10 5 K` (tokens 329--335, nine encoded bytes).
+Record 1484 begins at `0x15BD8F`: length byte `05`, three-space origin
+token `11` (hex), dictionary key `D446` for `Return`, and key `B3D2` for
+`Codes`. The target line's own cells place `Return` at column 3 and
+`Codes` at column 10, exactly matching the preceding instruction's spans.
+Code `K` selects the inline heading style `H4`; it does not open a new topic.
+The following empty row begins at `0x15BD95` with length byte `00`.
+Entry-headline origins need not equal these introduction coordinates: the
+same topic's first message headline begins at column 8. Verify font columns
+against the target line itself, not an origin inferred from later entries.
+
+The same topic contains a source-positioned cross-reference in a message
+field. Record 1487 at `0x15C0BE` stores length byte `06`, then the six
+reference bytes `40 95 ED 0D C6 60`, decoding to `CSELECT 21 40 HDRTELDB`.
+The next line begins at `0x15C0C5` with length byte `1F`; its columns
+`[21,61)` draw `Chapter 17, "Ada/370 Setup" in topic 2.8`. These coordinates
+identify that occurrence of the link label within the source line, even
+when the same words appear elsewhere in the message. Reflowing a field
+does not remove the reference or change its anchor identifier.
+
 Ordinary prose topics of the 1.x books (SC31-711, QSYSINFO, SC24-5520-00,
 FA1PLMM0, SC09-138, ...) store each formatted display line as tokens whose
 spacing runs and one-byte slots encode the row geometry. BookServer renders
