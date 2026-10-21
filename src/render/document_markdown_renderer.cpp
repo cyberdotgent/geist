@@ -493,6 +493,68 @@ bool inline_sequence_ends_with_colon(const InlineSequenceIR &content) {
 }
 
 void append_block(RenderSink &sink, const BlockIR &block,
+                  const DocumentMarkdownRendererOptions &options);
+
+void replay_indented(RenderSink &sink, const std::string &rendered,
+                     const DocumentRenderTraceIR &trace) {
+  for (const auto &span : trace.spans) {
+    auto cursor = span.output_begin;
+    while (cursor < span.output_end) {
+      const auto newline = rendered.find('\n', cursor);
+      const auto end = newline == std::string::npos || newline >= span.output_end
+                           ? span.output_end
+                           : newline + 1;
+      sink.replay(rendered.substr(cursor, end - cursor), span.role,
+                  span.text_projection, span.reason.c_str(),
+                  span.origin ? &*span.origin : nullptr);
+      cursor = end;
+      if (newline != std::string::npos && cursor < rendered.size())
+        sink.boundary("    ", "compound block indentation",
+                      span.origin ? &*span.origin : nullptr);
+    }
+  }
+}
+
+void append_compound_blocks(
+    RenderSink &sink, const BlockSequenceIR &blocks,
+    const DocumentMarkdownRendererOptions &options,
+    bool first_block_follows_marker) {
+  for (std::size_t index = 0; index < blocks.size(); ++index) {
+    const auto &child = blocks[index];
+    if (index != 0 || !first_block_follows_marker) {
+      sink.boundary("\n\n", "compound block separator", &child.origin);
+      sink.boundary("    ", "compound block indentation", &child.origin);
+    }
+    DocumentRenderTraceIR child_trace;
+    RenderSink child_sink(&child_trace);
+    append_block(child_sink, child, options);
+    const auto rendered = child_sink.release();
+    const PathScope child_step(sink, "block", index);
+    replay_indented(sink, rendered, child_trace);
+  }
+}
+
+geist::HtmlRenderOptions html_options_for_markdown(
+    const DocumentMarkdownRendererOptions &options) {
+  geist::HtmlRenderOptions html;
+  if (!options.resolve_cross_reference) return html;
+  const auto resolver = options.resolve_cross_reference;
+  html.resolve_topic = [resolver](const std::string &value) {
+    return resolver({CrossReferenceTargetKindIR::topic, value});
+  };
+  html.resolve_anchor = [resolver](const std::string &value) {
+    return resolver({CrossReferenceTargetKindIR::anchor, value});
+  };
+  html.resolve_resource = [resolver](const std::string &value) {
+    return resolver({CrossReferenceTargetKindIR::resource, value});
+  };
+  html.resolve_external = [resolver](const std::string &value) {
+    return resolver({CrossReferenceTargetKindIR::external, value});
+  };
+  return html;
+}
+
+void append_block(RenderSink &sink, const BlockIR &block,
                   const DocumentMarkdownRendererOptions &options) {
   const auto *block_origin = &block.origin;
   append_degradation_marker(sink, block);
@@ -537,8 +599,12 @@ void append_block(RenderSink &sink, const BlockIR &block,
               }
             else
               sink.boundary("- ", "list bullet", item_origin);
-            append_inlines(sink, node.items[index].content,
-                           InlineContext::single_line, options);
+            if (node.items[index].blocks.empty())
+              append_inlines(sink, node.items[index].content,
+                             InlineContext::single_line, options);
+            else
+              append_compound_blocks(sink, node.items[index].blocks, options,
+                                     true);
           }
         } else if constexpr (std::is_same_v<T, DefinitionListBlockIR>) {
           for (std::size_t index = 0; index < node.entries.size(); ++index) {
@@ -552,17 +618,38 @@ void append_block(RenderSink &sink, const BlockIR &block,
               append_inlines(sink, node.entries[index].term,
                              InlineContext::single_line, options);
             }
+            const auto compound_definition =
+                !node.entries[index].definition_blocks.empty();
             sink.boundary(inline_sequence_ends_with_colon(
                               node.entries[index].term)
-                              ? "** "
-                              : ":** ",
+                              ? (compound_definition ? "**" : "** ")
+                              : (compound_definition ? ":**" : ":** "),
                           "definition term syntax", entry_origin);
             const PathScope field(sink, "definition", 0);
-            append_inlines(sink, node.entries[index].definition,
-                           InlineContext::single_line, options);
+            if (node.entries[index].definition_blocks.empty())
+              append_inlines(sink, node.entries[index].definition,
+                             InlineContext::single_line, options);
+            else
+              append_compound_blocks(
+                  sink, node.entries[index].definition_blocks, options, false);
           }
         } else if constexpr (std::is_same_v<T, TableBlockIR>) {
-          append_table(sink, node, block_origin, options);
+          const auto compound = std::any_of(
+              node.rows.begin(), node.rows.end(), [](const auto &row) {
+                return std::any_of(row.cells.begin(), row.cells.end(),
+                                   [](const auto &cell) {
+                                     return !cell.blocks.empty();
+                                   });
+              });
+          if (compound) {
+            sink.html(render_document_html_blocks(
+                          BlockSequenceIR{block},
+                          html_options_for_markdown(options),
+                          options.resolve_cross_reference),
+                      "compound table HTML", block_origin);
+          } else {
+            append_table(sink, node, block_origin, options);
+          }
         } else if constexpr (std::is_same_v<T, PreformattedBlockIR>) {
           // A block that carries a link cannot be a fence; every other
           // preformatted block renders exactly as it always has.

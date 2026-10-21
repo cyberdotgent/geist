@@ -448,6 +448,12 @@ void append_preformatted(HtmlSink &sink, const PreformattedBlockIR &node,
   close_block(sink, "pre");
 }
 
+void append_block(HtmlSink &sink, const BlockIR &block);
+
+void append_blocks(HtmlSink &sink, const BlockSequenceIR &blocks) {
+  for (const auto &block : blocks) append_block(sink, block);
+}
+
 void append_table(HtmlSink &sink, const TableBlockIR &node,
                   const DocumentNodeOriginIR &origin) {
   open_block(sink, "table", "geist-table", origin);
@@ -459,7 +465,10 @@ void append_table(HtmlSink &sink, const TableBlockIR &node,
       sink.markup("<tr class=\"geist-table-row\">");
       for (const auto &cell : node.rows[index].cells) {
         sink.markup("<th class=\"geist-table-header-cell\" scope=\"col\">");
-        append_inlines(sink, cell.content);
+        if (cell.blocks.empty())
+          append_inlines(sink, cell.content);
+        else
+          append_blocks(sink, cell.blocks);
         sink.markup("</th>");
       }
       sink.markup("</tr>");
@@ -472,7 +481,10 @@ void append_table(HtmlSink &sink, const TableBlockIR &node,
       sink.markup("<tr class=\"geist-table-row\">");
       for (const auto &cell : node.rows[index].cells) {
         sink.markup("<td class=\"geist-table-cell\">");
-        append_inlines(sink, cell.content);
+        if (cell.blocks.empty())
+          append_inlines(sink, cell.content);
+        else
+          append_blocks(sink, cell.blocks);
         sink.markup("</td>");
       }
       sink.markup("</tr>");
@@ -531,7 +543,10 @@ void append_block(HtmlSink &sink, const BlockIR &block) {
             if (item.empty_content)
               sink.attribute("data-geist-empty", "true");
             sink.markup(">");
-            append_inlines(sink, item.content);
+            if (item.blocks.empty())
+              append_inlines(sink, item.content);
+            else
+              append_blocks(sink, item.blocks);
             sink.markup("</li>");
           }
           close_block(sink, tag);
@@ -541,7 +556,10 @@ void append_block(HtmlSink &sink, const BlockIR &block) {
             sink.markup("<dt class=\"geist-definition-term\">");
             append_inlines(sink, entry.term);
             sink.markup("</dt><dd class=\"geist-definition-description\">");
-            append_inlines(sink, entry.definition);
+            if (entry.definition_blocks.empty())
+              append_inlines(sink, entry.definition);
+            else
+              append_blocks(sink, entry.definition_blocks);
             sink.markup("</dd>");
           }
           close_block(sink, "dl");
@@ -822,10 +840,32 @@ std::vector<std::string> html_block_classes() {
 }
 
 bool document_has_degraded_block(const DocumentIR &document) {
-  for (const auto &block : document.blocks)
-    if (block.origin.fidelity == DocumentFidelityIR::degraded)
-      return true;
-  return false;
+  const auto has_degraded = [&](const auto &self,
+                                const BlockSequenceIR &blocks) -> bool {
+    for (const auto &block : blocks) {
+      if (block.origin.fidelity == DocumentFidelityIR::degraded) return true;
+      const auto nested = std::visit(
+          [&](const auto &node) {
+            using T = std::decay_t<decltype(node)>;
+            if constexpr (std::is_same_v<T, ListBlockIR>) {
+              for (const auto &item : node.items)
+                if (self(self, item.blocks)) return true;
+            } else if constexpr (std::is_same_v<T, DefinitionListBlockIR>) {
+              for (const auto &entry : node.entries)
+                if (self(self, entry.definition_blocks)) return true;
+            } else if constexpr (std::is_same_v<T, TableBlockIR>) {
+              for (const auto &row : node.rows)
+                for (const auto &cell : row.cells)
+                  if (self(self, cell.blocks)) return true;
+            }
+            return false;
+          },
+          block.node);
+      if (nested) return true;
+    }
+    return false;
+  };
+  return has_degraded(has_degraded, document.blocks);
 }
 
 std::string render_document_html_inlines(
@@ -839,11 +879,17 @@ std::string render_document_html_inlines(
 std::string
 render_document_html_blocks(const DocumentIR &document,
                             const geist::HtmlRenderOptions &options) {
-  HtmlSink sink(options);
-  for (std::size_t index = 0; index < document.blocks.size(); ++index) {
+  return render_document_html_blocks(document.blocks, options);
+}
+
+std::string render_document_html_blocks(
+    const BlockSequenceIR &blocks, const geist::HtmlRenderOptions &options,
+    const DocumentHtmlInlineResolver &resolve) {
+  HtmlSink sink(options, &resolve);
+  for (std::size_t index = 0; index < blocks.size(); ++index) {
     if (index != 0)
       sink.newline();
-    append_block(sink, document.blocks[index]);
+    append_block(sink, blocks[index]);
   }
   return sink.release();
 }

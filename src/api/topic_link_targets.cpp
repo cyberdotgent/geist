@@ -69,9 +69,11 @@ std::string table_reference_id(std::string object_id) {
 // same adjacency the legacy `:fig` / `:image` record pair states.
 std::vector<LinkTarget> document_link_targets(const DocumentIR& document) {
   std::vector<LinkTarget> targets;
-  // An index, not a pointer: pushing the next target may reallocate.
-  auto pending_figure = std::string::npos;
-  for (const auto& block : document.blocks) {
+  const auto visit_blocks = [&](const auto& self,
+                                const BlockSequenceIR& blocks) -> void {
+    // An index, not a pointer: pushing the next target may reallocate.
+    auto pending_figure = std::string::npos;
+    for (const auto& block : blocks) {
     if (const auto* anchor = std::get_if<AnchorBlockIR>(&block.node)) {
       pending_figure = std::string::npos;
       // A `local` role withholds the id from the book-wide map, except for a
@@ -139,7 +141,24 @@ std::vector<LinkTarget> document_link_targets(const DocumentIR& document) {
       pending_figure = std::string::npos;
       continue;
     }
-  }
+    std::visit(
+        [&](const auto& node) {
+          using T = std::decay_t<decltype(node)>;
+          if constexpr (std::is_same_v<T, ListBlockIR>) {
+            for (const auto& item : node.items) self(self, item.blocks);
+          } else if constexpr (std::is_same_v<T, DefinitionListBlockIR>) {
+            for (const auto& entry : node.entries)
+              self(self, entry.definition_blocks);
+          } else if constexpr (std::is_same_v<T, TableBlockIR>) {
+            for (const auto& row : node.rows)
+              for (const auto& cell : row.cells) self(self, cell.blocks);
+          }
+        },
+        block.node);
+    pending_figure = std::string::npos;
+    }
+  };
+  visit_blocks(visit_blocks, document.blocks);
   // Names the source gives the whole topic that the document does not place
   // as an anchor.  They resolve to the file, exactly as a placed anchor of
   // cross-reference role does.

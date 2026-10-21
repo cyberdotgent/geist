@@ -68,6 +68,14 @@ std::string
 render_document_html_blocks(const DocumentIR &document,
                             const geist::HtmlRenderOptions &options);
 
+// A block sequence without a topic wrapper. Used when another serializer
+// needs HTML for a construct its target syntax cannot faithfully nest (for
+// example a multi-block Markdown table cell). It is still the same recursive
+// DocumentIR renderer and accepts the caller's destination policy.
+std::string render_document_html_blocks(
+    const BlockSequenceIR &blocks, const geist::HtmlRenderOptions &options,
+    const DocumentHtmlInlineResolver &resolve = {});
+
 // True when any block of the document was emitted verbatim because its
 // structure could not be proven, which is what makes the topic
 // `typed-degraded` rather than `typed`.

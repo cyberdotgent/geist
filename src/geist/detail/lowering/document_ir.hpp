@@ -122,6 +122,9 @@ struct AnchorBlockIR {
   AnchorRoleIR role = AnchorRoleIR::cross_reference;
 };
 
+struct BlockIR;
+using BlockSequenceIR = std::vector<BlockIR>;
+
 struct ListItemIR {
   InlineSequenceIR content;
   DocumentNodeOriginIR origin;
@@ -144,6 +147,10 @@ struct ListItemIR {
   // below it are its children, so it can be neither dropped -- that would
   // reparent them -- nor given text the line does not carry.
   bool empty_content = false;
+  // Most list items are one inline run.  When the source carries paragraph
+  // boundaries or nested block structure, `blocks` owns that structure and
+  // `content` is empty.  The verifier enforces the exclusive representation.
+  BlockSequenceIR blocks = {};
 };
 
 enum class OrderedListMarkerIR {
@@ -165,6 +172,9 @@ struct DefinitionEntryIR {
   InlineSequenceIR term;
   InlineSequenceIR definition;
   DocumentNodeOriginIR origin;
+  // A definition may contain a sequence of paragraphs, lists, tables, and
+  // other non-heading blocks.  This is exclusive with `definition`.
+  BlockSequenceIR definition_blocks = {};
 };
 
 struct DefinitionListBlockIR {
@@ -174,6 +184,9 @@ struct DefinitionListBlockIR {
 struct TableCellIR {
   InlineSequenceIR content;
   DocumentNodeOriginIR origin;
+  // A cell with compound source content uses blocks instead of `content`.
+  // Both may be empty for a genuinely empty cell.
+  BlockSequenceIR blocks = {};
 };
 
 struct TableRowIR {

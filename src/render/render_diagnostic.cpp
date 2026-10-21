@@ -184,16 +184,34 @@ RenderDiagnostic classify_typed_lowering(const TopicIdentityIR& topic,
 
   diagnostic.route = "typed";
   diagnostic.family = trace.family;
-  for (const auto& block : document->blocks) {
-    if (block.origin.fidelity != DocumentFidelityIR::degraded)
-      continue;
-    RenderDegradation degradation;
-    degradation.block = block.origin.detail;
-    degradation.reason = block.origin.degradation_code;
-    degradation.detail = block.origin.degradation_detail;
-    degradation.source = block_coordinates(topic, block.origin);
-    diagnostic.degradations.push_back(std::move(degradation));
-  }
+  const auto collect = [&](const auto& self,
+                           const BlockSequenceIR& blocks) -> void {
+    for (const auto& block : blocks) {
+      if (block.origin.fidelity == DocumentFidelityIR::degraded) {
+        RenderDegradation degradation;
+        degradation.block = block.origin.detail;
+        degradation.reason = block.origin.degradation_code;
+        degradation.detail = block.origin.degradation_detail;
+        degradation.source = block_coordinates(topic, block.origin);
+        diagnostic.degradations.push_back(std::move(degradation));
+      }
+      std::visit(
+          [&](const auto& node) {
+            using T = std::decay_t<decltype(node)>;
+            if constexpr (std::is_same_v<T, ListBlockIR>) {
+              for (const auto& item : node.items) self(self, item.blocks);
+            } else if constexpr (std::is_same_v<T, DefinitionListBlockIR>) {
+              for (const auto& entry : node.entries)
+                self(self, entry.definition_blocks);
+            } else if constexpr (std::is_same_v<T, TableBlockIR>) {
+              for (const auto& row : node.rows)
+                for (const auto& cell : row.cells) self(self, cell.blocks);
+            }
+          },
+          block.node);
+    }
+  };
+  collect(collect, document->blocks);
   if (diagnostic.degradations.empty()) {
     diagnostic.severity = RenderSeverity::typed;
     diagnostic.reason = "typed";

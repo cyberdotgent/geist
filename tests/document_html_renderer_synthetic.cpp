@@ -514,6 +514,79 @@ int main() {
            "data-geist-empty=\"true\">",
            "a source-declared empty list item was not marked");
 
+  // Compound content remains block content inside its semantic container;
+  // the HTML renderer must not flatten paragraph boundaries or hoist a
+  // nested list out of the item, definition, or table cell that owns it.
+  DocumentIR compound;
+  compound.topic.id = "COMPOUND";
+  compound.topic.title = "Compound content";
+
+  ListBlockIR nested;
+  ListItemIR nested_item;
+  nested_item.content = text("Nested child.");
+  nested_item.origin = origin();
+  nested.items.push_back(std::move(nested_item));
+  ListItemIR compound_item;
+  compound_item.origin = origin();
+  compound_item.blocks.push_back(
+      block(ParagraphBlockIR{text("First paragraph.")}));
+  compound_item.blocks.push_back(
+      block(ParagraphBlockIR{text("Second paragraph.")}));
+  compound_item.blocks.push_back(block(std::move(nested)));
+  ListBlockIR compound_list;
+  compound_list.items.push_back(std::move(compound_item));
+  compound.blocks.push_back(block(std::move(compound_list)));
+
+  DefinitionEntryIR compound_definition;
+  compound_definition.term = text("Meaning:");
+  compound_definition.origin = origin();
+  compound_definition.definition_blocks.push_back(
+      block(ParagraphBlockIR{text("Definition first.")}));
+  compound_definition.definition_blocks.push_back(
+      block(ParagraphBlockIR{text("Definition second.")}));
+  DefinitionListBlockIR compound_definitions;
+  compound_definitions.entries.push_back(std::move(compound_definition));
+  compound.blocks.push_back(block(std::move(compound_definitions)));
+
+  ListBlockIR cell_list;
+  ListItemIR cell_item;
+  cell_item.content = text("Cell list item.");
+  cell_item.origin = origin();
+  cell_list.items.push_back(std::move(cell_item));
+  TableCellIR compound_cell;
+  compound_cell.origin = origin();
+  compound_cell.blocks.push_back(
+      block(ParagraphBlockIR{text("Cell paragraph.")}));
+  compound_cell.blocks.push_back(block(std::move(cell_list)));
+  TableBlockIR compound_table;
+  compound_table.rows = {row({std::move(compound_cell)})};
+  compound.blocks.push_back(block(std::move(compound_table)));
+
+  error.clear();
+  if (!require(verify_document_ir(compound, &error),
+               "compound DocumentIR was rejected: " + error))
+    return 1;
+  const auto compound_fragment = render_document_html_fragment(compound);
+  contains(compound_fragment,
+           "<li class=\"geist-list-item\">"
+           "<p class=\"geist-paragraph\">First paragraph.</p>"
+           "<p class=\"geist-paragraph\">Second paragraph.</p>"
+           "<ul class=\"geist-list\"><li class=\"geist-list-item\">"
+           "Nested child.</li></ul></li>",
+           "compound list item lost paragraph/list structure");
+  contains(compound_fragment,
+           "<dt class=\"geist-definition-term\">Meaning:</dt>"
+           "<dd class=\"geist-definition-description\">"
+           "<p class=\"geist-paragraph\">Definition first.</p>"
+           "<p class=\"geist-paragraph\">Definition second.</p></dd>",
+           "compound definition lost paragraph structure");
+  contains(compound_fragment,
+           "<td class=\"geist-table-cell\">"
+           "<p class=\"geist-paragraph\">Cell paragraph.</p>"
+           "<ul class=\"geist-list\"><li class=\"geist-list-item\">"
+           "Cell list item.</li></ul></td>",
+           "compound table cell lost paragraph/list structure");
+
   // Determinism.
   require(fragment == render_document_html_fragment(document),
           "rendering the same typed IR twice was not deterministic");

@@ -54,6 +54,14 @@ public:
     emit(value, DocumentTraceRoleIR::content, MarkdownTextProjectionIR::html,
          reason, origin);
   }
+  // Replay an already-rendered child span while a compound container adds
+  // indentation around it. This retains the child's exact trace role and
+  // visible-text projection instead of collapsing the subtree to one span.
+  void replay(const std::string &value, DocumentTraceRoleIR role,
+              MarkdownTextProjectionIR projection, const char *reason,
+              const DocumentNodeOriginIR *origin) {
+    emit(value, role, projection, reason, origin);
+  }
   void push(const char *kind, std::size_t index) {
     if (trace_ != nullptr)
       path_.push_back({kind, index});

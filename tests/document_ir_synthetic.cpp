@@ -213,6 +213,79 @@ int main() {
                "normalizing did not lift the child's source slice"))
     return 1;
 
+  // Compound content is exclusive with the legacy one-line inline form. A
+  // lowering that fills both has not made a decision about the source's
+  // paragraph structure, so the IR must reject it instead of choosing one at
+  // render time.
+  auto mixed_list_item = typed;
+  ListBlockIR mixed_list;
+  ListItemIR mixed_item;
+  mixed_item.content = {text("inline form")};
+  mixed_item.blocks.push_back(paragraph("block form"));
+  mixed_item.origin = lowered();
+  mixed_list.items.push_back(std::move(mixed_item));
+  mixed_list_item.blocks.push_back(
+      BlockIR{std::move(mixed_list), lowered()});
+  error.clear();
+  if (!require(!verify_document_ir(mixed_list_item, &error) &&
+                   error == "list item has both inline and block content",
+               "verifier admitted competing list-item representations"))
+    return 1;
+
+  auto mixed_definition = typed;
+  DefinitionEntryIR mixed_entry;
+  mixed_entry.term = {text("Term")};
+  mixed_entry.definition = {text("inline form")};
+  mixed_entry.definition_blocks.push_back(paragraph("block form"));
+  mixed_entry.origin = lowered();
+  DefinitionListBlockIR mixed_definitions;
+  mixed_definitions.entries.push_back(std::move(mixed_entry));
+  mixed_definition.blocks.push_back(
+      BlockIR{std::move(mixed_definitions), lowered()});
+  error.clear();
+  if (!require(
+          !verify_document_ir(mixed_definition, &error) &&
+              error == "definition has both inline and block content",
+          "verifier admitted competing definition representations"))
+    return 1;
+
+  auto mixed_cell = typed;
+  TableCellIR competing_cell;
+  competing_cell.content = {text("inline form")};
+  competing_cell.blocks.push_back(paragraph("block form"));
+  competing_cell.origin = lowered();
+  TableRowIR competing_row;
+  competing_row.cells.push_back(std::move(competing_cell));
+  competing_row.origin = lowered();
+  TableBlockIR competing_table;
+  competing_table.rows.push_back(std::move(competing_row));
+  mixed_cell.blocks.push_back(BlockIR{std::move(competing_table), lowered()});
+  error.clear();
+  if (!require(!verify_document_ir(mixed_cell, &error) &&
+                   error == "table cell has both inline and block content",
+               "verifier admitted competing table-cell representations"))
+    return 1;
+
+  // A heading states document hierarchy. Nesting one inside an item would
+  // silently make a list's local layout change the topic outline.
+  auto nested_heading = typed;
+  HeadingBlockIR child_heading;
+  child_heading.level = 2;
+  child_heading.content = {text("Not a document heading")};
+  ListItemIR heading_item;
+  heading_item.blocks.push_back(
+      BlockIR{std::move(child_heading), lowered()});
+  heading_item.origin = lowered();
+  ListBlockIR heading_list;
+  heading_list.items.push_back(std::move(heading_item));
+  nested_heading.blocks.push_back(
+      BlockIR{std::move(heading_list), lowered()});
+  error.clear();
+  if (!require(!verify_document_ir(nested_heading, &error) &&
+                   error == "nested heading is not allowed",
+               "verifier admitted a heading inside compound content"))
+    return 1;
+
 
   auto empty_identity = typed;
   empty_identity.topic.id.clear();

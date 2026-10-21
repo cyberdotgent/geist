@@ -128,6 +128,11 @@ void collect_inline_origins(const InlineSequenceIR& inlines,
   for (const auto& in : inlines) out.push_back(&in.origin);
 }
 
+void collect_block_origins(const BlockSequenceIR& blocks,
+                           std::vector<const DocumentNodeOriginIR*>& out) {
+  for (const auto& block : blocks) out.push_back(&block.origin);
+}
+
 // Every origin below one block, so a block's own slices can be checked
 // against the source its children actually claim.
 void collect_child_origins(const BlockNodeIR& node,
@@ -143,12 +148,14 @@ void collect_child_origins(const BlockNodeIR& node,
           for (const auto& item : block.items) {
             out.push_back(&item.origin);
             collect_inline_origins(item.content, out);
+            collect_block_origins(item.blocks, out);
           }
         } else if constexpr (std::is_same_v<T, DefinitionListBlockIR>) {
           for (const auto& entry : block.entries) {
             out.push_back(&entry.origin);
             collect_inline_origins(entry.term, out);
             collect_inline_origins(entry.definition, out);
+            collect_block_origins(entry.definition_blocks, out);
           }
         } else if constexpr (std::is_same_v<T, TableBlockIR>) {
           for (const auto& row : block.rows) {
@@ -156,6 +163,7 @@ void collect_child_origins(const BlockNodeIR& node,
             for (const auto& cell : row.cells) {
               out.push_back(&cell.origin);
               collect_inline_origins(cell.content, out);
+              collect_block_origins(cell.blocks, out);
             }
           }
         } else if constexpr (std::is_same_v<T, NoteBlockIR>) {
@@ -206,13 +214,14 @@ bool verify_block_slices_cover_children(const BlockIR& block,
   return true;
 }
 
-bool verify_block(const BlockIR& block, std::string* error) {
+bool verify_block(const BlockIR& block, bool nested, std::string* error) {
   if (!verify_origin(block.origin, error)) return false;
   if (!verify_block_slices_cover_children(block, error)) return false;
   return std::visit(
       [&](const auto& node) -> bool {
         using T = std::decay_t<decltype(node)>;
         if constexpr (std::is_same_v<T, HeadingBlockIR>) {
+          if (nested) return fail(error, "nested heading is not allowed");
           if (node.level == 0 || node.level > 6)
             return fail(error, "heading level is outside 1..6");
           return verify_inlines(node.content, false, error);
@@ -241,11 +250,19 @@ bool verify_block(const BlockIR& block, std::string* error) {
             // An item may carry no inlines only where it says the source wrote
             // it empty; declaring that and then carrying content is a lowering
             // bug, not a source shape.
-            if (item.empty_content && !item.content.empty())
+            if (!item.content.empty() && !item.blocks.empty())
+              return fail(error, "list item has both inline and block content");
+            if (item.empty_content &&
+                (!item.content.empty() || !item.blocks.empty()))
               return fail(error, "empty list item carries content");
-            if (!verify_origin(item.origin, error) ||
-                !verify_inlines(item.content, item.empty_content, error))
-              return false;
+            if (!verify_origin(item.origin, error)) return false;
+            if (item.blocks.empty()) {
+              if (!verify_inlines(item.content, item.empty_content, error))
+                return false;
+            } else {
+              for (const auto& child : item.blocks)
+                if (!verify_block(child, true, error)) return false;
+            }
             // A list may only descend one level at a time, and its first item
             // is its shallowest.
             if (first_item ? item.depth != 0 : item.depth > previous_depth + 1)
@@ -270,10 +287,20 @@ bool verify_block(const BlockIR& block, std::string* error) {
           if (node.entries.empty())
             return fail(error, "definition list is empty");
           for (const auto& entry : node.entries) {
+            if (!entry.definition.empty() &&
+                !entry.definition_blocks.empty())
+              return fail(
+                  error,
+                  "definition has both inline and block content");
             if (!verify_origin(entry.origin, error) ||
-                !verify_inlines(entry.term, false, error) ||
-                !verify_inlines(entry.definition, false, error))
+                !verify_inlines(entry.term, false, error))
               return false;
+            if (entry.definition_blocks.empty()) {
+              if (!verify_inlines(entry.definition, false, error)) return false;
+            } else {
+              for (const auto& child : entry.definition_blocks)
+                if (!verify_block(child, true, error)) return false;
+            }
           }
           return true;
         } else if constexpr (std::is_same_v<T, TableBlockIR>) {
@@ -286,9 +313,16 @@ bool verify_block(const BlockIR& block, std::string* error) {
             if (!verify_origin(row.origin, error) || row.cells.size() != width)
               return fail(error, "table row geometry is inconsistent");
             for (const auto& cell : row.cells) {
-              if (!verify_origin(cell.origin, error) ||
-                  !verify_inlines(cell.content, true, error))
-                return false;
+              if (!cell.content.empty() && !cell.blocks.empty())
+                return fail(error,
+                            "table cell has both inline and block content");
+              if (!verify_origin(cell.origin, error)) return false;
+              if (cell.blocks.empty()) {
+                if (!verify_inlines(cell.content, true, error)) return false;
+              } else {
+                for (const auto& child : cell.blocks)
+                  if (!verify_block(child, true, error)) return false;
+              }
             }
           }
           return true;
@@ -299,8 +333,44 @@ bool verify_block(const BlockIR& block, std::string* error) {
               node.line_origins.size() != node.lines.size())
             return fail(error,
                         "preformatted line origins do not match its lines");
+          if (!node.line_links.empty() &&
+              node.line_links.size() != node.lines.size())
+            return fail(error,
+                        "preformatted line links do not match its lines");
           for (const auto& line : node.line_origins)
             if (!verify_origin(line, error)) return false;
+          for (std::size_t line = 0; line < node.line_links.size(); ++line) {
+            std::size_t previous_end = 0;
+            for (const auto& link : node.line_links[line]) {
+              if (link.begin >= link.end || link.end > node.lines[line].size())
+                return fail(error,
+                            "preformatted link range is outside its line");
+              if (link.begin < previous_end)
+                return fail(error,
+                            "preformatted link ranges overlap or are unordered");
+              previous_end = link.end;
+              switch (link.kind) {
+              case VerbatimLinkKindIR::in_book:
+                if (link.target.empty())
+                  return fail(error, "in-book preformatted link has no target");
+                break;
+              case VerbatimLinkKindIR::book_contents:
+                if (link.document_number.empty() || link.target.empty())
+                  return fail(error,
+                              "cross-book contents link is incomplete");
+                break;
+              case VerbatimLinkKindIR::book_heading:
+                if (link.document_number.empty() || link.target.empty() ||
+                    link.heading_anchor.empty())
+                  return fail(error, "cross-book heading link is incomplete");
+                break;
+              case VerbatimLinkKindIR::external_url:
+                if (link.url.empty())
+                  return fail(error, "external preformatted link has no URL");
+                break;
+              }
+            }
+          }
           if (!node.styled_lines.empty()) {
             if (node.styled_lines.size() != node.lines.size() ||
                 node.line_origins.size() != node.lines.size())
@@ -571,15 +641,31 @@ void normalize_block(BlockIR& block) {
       [&](auto& node) {
         using T = std::decay_t<decltype(node)>;
         if constexpr (std::is_same_v<T, ListBlockIR>) {
-          for (auto& item : node.items) lift_inlines(item.origin, item.content);
+          for (auto& item : node.items) {
+            for (auto& child : item.blocks) normalize_block(child);
+            lift_inlines(item.origin, item.content);
+            std::vector<const DocumentNodeOriginIR*> children;
+            collect_block_origins(item.blocks, children);
+            lift_into(item.origin, children);
+          }
         } else if constexpr (std::is_same_v<T, DefinitionListBlockIR>) {
           for (auto& entry : node.entries) {
+            for (auto& child : entry.definition_blocks) normalize_block(child);
             lift_inlines(entry.origin, entry.term);
             lift_inlines(entry.origin, entry.definition);
+            std::vector<const DocumentNodeOriginIR*> children;
+            collect_block_origins(entry.definition_blocks, children);
+            lift_into(entry.origin, children);
           }
         } else if constexpr (std::is_same_v<T, TableBlockIR>) {
           for (auto& row : node.rows) {
-            for (auto& cell : row.cells) lift_inlines(cell.origin, cell.content);
+            for (auto& cell : row.cells) {
+              for (auto& child : cell.blocks) normalize_block(child);
+              lift_inlines(cell.origin, cell.content);
+              std::vector<const DocumentNodeOriginIR*> children;
+              collect_block_origins(cell.blocks, children);
+              lift_into(cell.origin, children);
+            }
             std::vector<const DocumentNodeOriginIR*> cells;
             for (const auto& cell : row.cells) cells.push_back(&cell.origin);
             lift_into(row.origin, cells);
@@ -622,13 +708,24 @@ bool verify_document_ir(const DocumentIR& document, std::string* error) {
     return fail(error, "topic logical-record range is reversed");
   if (document.blocks.empty()) return fail(error, "document has no blocks");
   for (const auto& block : document.blocks)
-    if (!verify_block(block, error))
+    if (!verify_block(block, false, error))
       return false;
   return true;
 }
 
 std::string format_document_ir(const DocumentIR& document) {
   std::ostringstream out;
+  const auto format_blocks = [&](const BlockSequenceIR& blocks) {
+    out << '[';
+    for (std::size_t index = 0; index < blocks.size(); ++index) {
+      if (index != 0) out << ' ';
+      DocumentIR nested;
+      nested.topic.id = "<nested>";
+      nested.blocks.push_back(blocks[index]);
+      out << quoted(format_document_ir(nested));
+    }
+    out << ']';
+  };
   out << "document id=" << quoted(document.topic.id)
       << " title=" << quoted(document.topic.title)
       << " heading_level=" << quoted(document.topic.heading_level)
@@ -673,6 +770,10 @@ std::string format_document_ir(const DocumentIR& document) {
               if (node.items[item].source_ordinal)
                 out << "ordinal=" << *node.items[item].source_ordinal << ' ';
               format_inlines(out, node.items[item].content);
+              if (!node.items[item].blocks.empty()) {
+                out << " blocks=";
+                format_blocks(node.items[item].blocks);
+              }
               format_entry_origin(out, node.items[item].origin);
             }
             out << ']';
@@ -684,6 +785,10 @@ std::string format_document_ir(const DocumentIR& document) {
               format_inlines(out, node.entries[entry].term);
               out << " definition=";
               format_inlines(out, node.entries[entry].definition);
+              if (!node.entries[entry].definition_blocks.empty()) {
+                out << " blocks=";
+                format_blocks(node.entries[entry].definition_blocks);
+              }
               format_entry_origin(out, node.entries[entry].origin);
             }
             out << ']';
@@ -697,6 +802,10 @@ std::string format_document_ir(const DocumentIR& document) {
                 if (cell != 0) out << ' ';
                 out << "cell=";
                 format_inlines(out, node.rows[row].cells[cell].content);
+                if (!node.rows[row].cells[cell].blocks.empty()) {
+                  out << " blocks=";
+                  format_blocks(node.rows[row].cells[cell].blocks);
+                }
                 format_entry_origin(out,
                                     node.rows[row].cells[cell].origin);
               }
