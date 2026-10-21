@@ -11,8 +11,8 @@ namespace geist {
 // What a topic names, so that a book-wide link map can resolve a cross
 // reference to it.  This is the book's own naming, independent of how the
 // topic renders: a consumer asks the topic what it names and gets the same
-// answer whether the Markdown came from the typed Document IR or from the
-// legacy string renderer.
+// answer whether the selected DocumentIR is structured or source-row
+// best-effort.
 enum class LinkTargetKind {
   // `SR<id>`: a place inside the topic.  A reference to it resolves to the
   // topic's file; the reader lands at the top, which is what BookServer

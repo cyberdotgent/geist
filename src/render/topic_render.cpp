@@ -75,8 +75,7 @@ const TocEntry::RenderedTopic& TocEntry::render() const {
     // A TocEntry a caller built by hand out of `raw_records` never met the
     // typed pipeline, so "the typed dispatcher declined it" would be a false
     // statement about a topic that has no book behind it. It still gets a
-    // diagnostic; it just does not get the marker, and its Markdown stays
-    // whatever the verbatim route below produces.
+    // diagnostic; it just does not get the marker.
     const auto lowering_attempted = static_cast<bool>(document_ir_loader_);
     if (!lowering_attempted) {
       out->diagnostic.reason = "no-typed-lowering-attempted";

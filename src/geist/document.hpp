@@ -117,7 +117,8 @@ public:
       const std::string& topic_id) const;
   // Reports, in stable source-catalog order, whether typed Document IR
   // lowering claims every indexed topic (and any TOC-only topic) or the
-  // legacy string pipeline renders it. Lowering only; no Markdown is rendered.
+  // source-row Document IR represents it at best effort. Lowering only; no
+  // Markdown is rendered.
   // See geist/detail/typed_route_inventory.hpp.
   GEIST_API detail::TypedRouteInventoryIR typed_route_inventory() const;
   // Source-side conservation for every indexed topic and any TOC-only topic:
