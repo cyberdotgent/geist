@@ -734,6 +734,20 @@ void an_empty_dt_before_lines_keeps_a_compound_definition() {
   }
   require(found_empty_term,
           "the explicit empty term did not lower with its LINES body");
+  auto undisposed = *document;
+  for (auto &candidate : undisposed.blocks) {
+    auto *definitions =
+        std::get_if<geist::detail::DefinitionListBlockIR>(&candidate.node);
+    if (definitions == nullptr) continue;
+    for (auto &lowered : definitions->entries)
+      if (lowered.empty_term) lowered.empty_term = false;
+  }
+  std::string document_error;
+  require(!geist::detail::verify_document_ir(undisposed, &document_error) &&
+              contains(document_error,
+                       "empty-term disposition disagrees"),
+          "DocumentIR admitted an unexplained empty definition term: " +
+              document_error);
 }
 
 // GA19 19.22 puts each printer family in DT, opens an empty DD, then supplies
