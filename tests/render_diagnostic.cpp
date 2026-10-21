@@ -120,9 +120,7 @@ void no_declining_topic_left() {
   }
 
   // The route the fixture can no longer reach, pinned synthetically: a
-  // declined lowering carries the typed family's own rejection unchanged, and
-  // the verbatim renderer emits the topic's words in a fenced block rather
-  // than withholding them.
+  // declined lowering carries the typed family's own rejection unchanged.
   geist::detail::TopicIdentityIR identity;
   identity.id = "COVER";
   identity.title = "Book Cover";
@@ -147,14 +145,6 @@ void no_declining_topic_left() {
           "a declined topic's Markdown opens with the marker: " + marker);
   require(contains(marker, "cz off cover"),
           "the marker carries the rejection into the file: " + marker);
-  geist::detail::VerbatimRowIR row;
-  row.text = "   Amateur Packet Radio";
-  const auto verbatim =
-      geist::detail::render_best_effort_markdown(identity, {row}, {});
-  require(contains(verbatim, "Amateur Packet Radio"),
-          "the verbatim route emits the topic's own words");
-  require(contains(verbatim, "<pre>\n") && contains(verbatim, "</pre>\n"),
-          "the verbatim route emits them as preformatted content");
 }
 
 // A declared `cz OFF TABLE` grid lowers to a real table and does NOT degrade

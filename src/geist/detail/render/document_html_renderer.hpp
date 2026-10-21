@@ -103,15 +103,6 @@ std::string
 render_document_html_fragment(const DocumentIR &document,
                               const geist::HtmlRenderOptions &options = {});
 
-// Drawn rows as the inside of a `<pre class="geist-preformatted">`: each
-// row's own bytes, escaped, with an `<a>` opened and closed at the byte
-// offsets each selector names.  Nothing that occupies a column is inserted,
-// so the rendered row is the drawn row, column for column.  Shared by the
-// preformatted block of a typed document and by the verbatim topic route, so
-// the two cannot diverge.
-std::string render_verbatim_rows_html(const std::vector<VerbatimRowIR> &rows,
-                                      const geist::HtmlRenderOptions &options);
-
 // A minimal complete document around an already-rendered fragment.  The
 // fragment bytes are copied unchanged, which is what makes the two forms
 // answer the same question.

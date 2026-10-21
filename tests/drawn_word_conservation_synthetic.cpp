@@ -31,6 +31,7 @@
 #include "geist/detail/lowering/drawn_word_conservation.hpp"
 #include "geist/detail/lowering/drawn_word_source.hpp"
 #include "geist/detail/render/document_html_renderer.hpp"
+#include "geist/detail/render/document_markdown_renderer.hpp"
 #include "geist/detail/render/html_visible_text.hpp"
 #include "geist/detail/render/markdown_visible_text.hpp"
 #include "geist/detail/render/render_diagnostic_ir.hpp"
@@ -273,19 +274,27 @@ void check_markdown_projection() {
             "literal code must not be interpreted as Markdown or HTML markup");
   }
 
-  TopicIdentityIR topic;
-  topic.id = "FALLBACK";
-  topic.title = "title [literal]";
+  DocumentIR fallback_document;
+  fallback_document.topic.id = "FALLBACK";
+  fallback_document.topic.title = "title [literal]";
+  fallback_document.blocks.push_back(block(HeadingBlockIR{
+      1, {in(TextInlineIR{"FALLBACK title [literal]"})}}));
+  fallback_document.blocks.push_back(
+      block(AnchorBlockIR{"missingword", AnchorRoleIR::cross_reference}));
   VerbatimRowIR row;
   row.text = "at132 literal[5]";
   row.links = {link};
+  PreformattedBlockIR fallback_rows;
+  fallback_rows.lines = {row.text};
+  fallback_rows.line_links = {row.links};
+  fallback_document.blocks.push_back(block(std::move(fallback_rows)));
   DocumentRenderTraceIR fallback_trace;
-  const auto fallback = render_best_effort_markdown(
-      topic, {row}, {"missingword"}, &fallback_trace);
+  const auto fallback = render_document_markdown(
+      fallback_document, {}, &fallback_trace);
   require(join(conservation_words(
               markdown_visible_text(fallback, fallback_trace))) ==
               "fallback,title,literal,at132,literal,5",
-          "fallback serializer projects actual preformatted text and ignores "
+          "source-row DocumentIR projects actual preformatted text and ignores "
           "anchors");
 }
 

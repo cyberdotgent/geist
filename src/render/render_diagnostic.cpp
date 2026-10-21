@@ -1,11 +1,9 @@
 // Copyright 2026 Yvan Janssens
 // SPDX-License-Identifier: Apache-2.0
 
-#include "geist/detail/render/document_markdown_renderer.hpp"
 #include "geist/detail/render/render_diagnostic_ir.hpp"
 #include "geist/detail/lowering/source_rows_document_lowering.hpp"
 #include "geist/detail/lowering/topic_lowering_outcome.hpp"
-#include "geist/detail/render/markdown_render_sink.hpp"
 
 #include "geist/detail/ir/figure_block_ir.hpp"
 #include "geist/detail/core/internal.hpp"
@@ -244,40 +242,16 @@ RenderDiagnostic classify_topic_lowering(
     escalate_render_diagnostic(diagnostic, false,
                                outcome->source_rows_have_body,
                                outcome->source_decoded);
+    // The family describes the structured attempt, not the representation
+    // ultimately selected.  A source-row document remains a family-less
+    // best-effort result even when a typed heading-only attempt preceded it.
+    diagnostic.family.clear();
+    diagnostic.degradations.clear();
   } else {
     escalate_render_diagnostic(diagnostic, false, false,
                                outcome->source_decoded);
   }
   return diagnostic;
-}
-
-bool markdown_has_content(const std::string& markdown) {
-  std::size_t cursor = 0;
-  while (cursor <= markdown.size()) {
-    auto end = markdown.find('\n', cursor);
-    if (end == std::string::npos)
-      end = markdown.size();
-    auto line = markdown.substr(cursor, end - cursor);
-    cursor = end + 1;
-    while (!line.empty() &&
-           std::isspace(static_cast<unsigned char>(line.back())) != 0)
-      line.pop_back();
-    std::size_t begin = 0;
-    while (begin < line.size() &&
-           std::isspace(static_cast<unsigned char>(line[begin])) != 0)
-      ++begin;
-    line.erase(0, begin);
-    if (line.empty())
-      continue;
-    // A heading is the topic's own title and an anchor is navigation; neither
-    // is book content, so neither rescues a topic from the empty case.
-    if (line.front() == '#')
-      continue;
-    if (line.compare(0, 7, "<a id=\"") == 0)
-      continue;
-    return true;
-  }
-  return false;
 }
 
 namespace {
@@ -594,54 +568,6 @@ void escalate_render_diagnostic(RenderDiagnostic& diagnostic,
                 diagnostic.detail + ")";
   diagnostic.route = "none";
   diagnostic.reason = "no-recoverable-source";
-}
-
-std::string render_best_effort_markdown(
-    const TopicIdentityIR& topic,
-    const std::vector<VerbatimRowIR>& rows,
-    const std::vector<std::string>& anchors,
-    DocumentRenderTraceIR* trace) {
-  if (trace != nullptr) trace->spans.clear();
-  MarkdownRenderSink sink(trace);
-  // The topic names itself, exactly as every typed route does: the heading
-  // level the source proved, then the public topic identity, then the title.
-  // Without it a verbatim topic would arrive with no heading at all and the
-  // reader would lose its place in the book.
-  // The level is spelled either as the source writes it (`:H3`) or as the
-  // typed families normalise it (`h3`); both name the same level.
-  // Only the first word is the level: on a topic whose metadata run does not
-  // parse, the recorded value is the whole flattened remainder of the record
-  // (SC31-711 4.3.5), and the level is still its first token.
-  auto heading_level = ascii_lower(topic.heading_level);
-  heading_level = heading_level.substr(0, heading_level.find_first_of(" \t"));
-  if (!heading_level.empty() && heading_level.front() == ':')
-    heading_level.erase(0, 1);
-  const auto level = heading_level.size() == 2 && heading_level.front() == 'h' &&
-                             heading_level.back() >= '1' &&
-                             heading_level.back() <= '6'
-                         ? static_cast<std::size_t>(heading_level.back() - '0')
-                         : std::size_t{1};
-  sink.boundary(std::string(level, 0x23) + " ", "heading marker");
-  if (!topic.id.empty())
-    sink.content(escape_markdown_text(topic.id) + " ", "topic identity", nullptr);
-  sink.content(escape_markdown_text(topic.title), "topic title", nullptr);
-  sink.boundary("\n\n", "heading break");
-  // The topic names these objects even though it claims no structure around
-  // them; without them every cross reference elsewhere in the book that
-  // points here would dangle.
-  for (const auto& id : anchors)
-    sink.syntax("<a id=\"" + id + "\"></a>\n", "anchor");
-  if (!sink.text().empty())
-    sink.boundary("\n", "anchor break");
-  // A raw HTML block, not a fence: the rows carry inline anchors and a fence
-  // would render them as text.  See the header note.
-  sink.boundary("<pre>\n", "preformatted block open");
-  for (const auto& row : rows) {
-    sink.html(render_verbatim_row(row), "preformatted line", nullptr);
-    sink.boundary("\n", "preformatted line break");
-  }
-  sink.boundary("</pre>\n", "preformatted block close");
-  return sink.release();
 }
 
 std::string render_failed_markdown(const TopicIdentityIR& topic,

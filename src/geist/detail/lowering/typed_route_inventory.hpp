@@ -17,9 +17,10 @@ namespace geist::detail {
 
 struct DecodedLogicalRecordSource;
 
-// Which whole-topic route a TOC topic reaches. `typed` means
-// try_lower_topic_to_document_ir produced a verified DocumentIR; `legacy`
-// means it declined and the verbatim best-effort route renders the topic.
+// Which whole-topic representation the renderer selected. `typed` means a
+// structured DocumentIR; `legacy` means source-row DocumentIR or no recoverable
+// document.  A family may have proved a heading-only structured attempt before
+// source rows were selected, so recognizer success alone does not decide this.
 enum class TypedRouteKind {
   typed,
   legacy,

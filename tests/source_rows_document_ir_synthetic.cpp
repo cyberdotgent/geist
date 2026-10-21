@@ -142,6 +142,23 @@ int main() {
               diagnostic.reason == "typed-lowering-declined",
           "a source-row DocumentIR was incorrectly relabelled typed");
 
+  // A typed family may prove the envelope and heading yet produce no body,
+  // after which the source rows become the selected representation.  The
+  // attempted family remains in the lowering trace, but it must not leak into
+  // the public best-effort route.
+  auto selected_after_typed = declined;
+  selected_after_typed.typed_claimed = true;
+  selected_after_typed.trace.family = "synthetic structured family";
+  selected_after_typed.rejection.clear();
+  const auto selected_diagnostic = geist::detail::classify_topic_lowering(
+      identity, &selected_after_typed);
+  require(selected_diagnostic.severity == geist::RenderSeverity::best_effort &&
+              selected_diagnostic.route == "best-effort" &&
+              selected_diagnostic.reason == "no-structured-content" &&
+              selected_diagnostic.family.empty() &&
+              selected_diagnostic.degradations.empty(),
+          "the declined structured body leaked its family into source rows");
+
   DecodedLogicalRecordSource unlinked_record;
   unlinked_record.logical_record = 18;
   line(unlinked_record, {"Unlinked", "source", "row"});

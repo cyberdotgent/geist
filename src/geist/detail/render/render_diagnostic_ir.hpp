@@ -13,7 +13,6 @@
 #include <vector>
 
 namespace geist::detail {
-struct DocumentRenderTraceIR;
 struct TopicLoweringOutcomeIR;
 
 // Single source of truth for render provenance.
@@ -36,10 +35,6 @@ RenderDiagnostic classify_typed_lowering(const TopicIdentityIR &topic,
 // heading-only document remains a genuine empty typed topic.
 RenderDiagnostic classify_topic_lowering(
     const TopicIdentityIR &topic, const TopicLoweringOutcomeIR *outcome);
-
-// True when the rendered Markdown carries something a reader would call
-// content: a line that is neither blank, nor a heading, nor an anchor.
-bool markdown_has_content(const std::string &markdown);
 
 // The topic's own decoded display lines, verbatim, with control opcodes and
 // operands removed and the topic-envelope metadata controls dropped whole
@@ -87,29 +82,9 @@ std::vector<std::string> best_effort_footnote_anchors(
 // decodes cleanly and simply has no body is correctly rendered as its heading
 // alone, and is reported with the `empty-topic-body` reason instead.
 void escalate_render_diagnostic(RenderDiagnostic &diagnostic,
-                                bool markdown_has_content,
+                                bool has_content,
                                 bool best_effort_available,
                                 bool source_decoded);
-
-// Markdown for the `best_effort` route: the verbatim rows in a raw HTML
-// `<pre>` block, appended to whatever the higher route managed to produce.
-//
-// Raw HTML rather than a fence because the rows carry links.  A fence
-// preserves every column but renders Markdown link syntax as inert text, and
-// hosted BookServer keeps its anchors inside the `<pre>` of the very same
-// rows -- so `<pre>` is the one form that holds both halves, and it is the
-// form the HTML backend (#46) wants anyway.  Markdown passes a raw HTML
-// block through untouched, and a `<pre>` block runs to its closing tag, so
-// blank rows inside it stay inside it.
-//
-// A row's bytes are the row's bytes: only `&`, `<` and `>` are escaped, as
-// HTML requires, and the anchor markup is placed at the column offsets the
-// selector named.  Nothing is inserted that occupies a column.
-std::string render_best_effort_markdown(
-    const TopicIdentityIR &topic,
-    const std::vector<VerbatimRowIR> &rows,
-    const std::vector<std::string> &anchors,
-    DocumentRenderTraceIR* trace = nullptr);
 
 // Markdown for the `failed` route: a placeholder naming the topic, its source
 // record range and the reason, so an absent topic is debuggable rather than

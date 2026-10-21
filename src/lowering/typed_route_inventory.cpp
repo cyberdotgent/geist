@@ -6,8 +6,8 @@
 #include "geist/detail/ir/book_topic_catalog_ir.hpp"
 #include "geist/detail/core/internal.hpp"
 #include "geist/detail/render/render_diagnostic_ir.hpp"
-#include "geist/detail/lowering/topic_document_lowering.hpp"
 #include "geist/detail/lowering/topic_identity.hpp"
+#include "geist/detail/lowering/topic_lowering_outcome.hpp"
 #include "geist/document.hpp"
 
 #include <algorithm>
@@ -245,8 +245,12 @@ detail::TypedRouteInventoryIR BooDocument::typed_route_inventory() const {
     if (!topic_identity_has_body(identity)) {
       topic.rejection = "contents entry has no topic body";
       topic.route = TypedRouteKind::legacy;
-      topic.diagnostic = classify_typed_lowering(identity, nullptr,
-                                                 topic.rejection, {});
+      topic.diagnostic = classify_topic_lowering(identity, nullptr);
+      // This is the same policy TocEntry::render() applies to an entry for
+      // which no topic-body loader exists.  Keep the inventory and public
+      // rendering identical without invoking either serializer here.
+      topic.diagnostic.reason = "no-typed-lowering-attempted";
+      topic.diagnostic.detail.clear();
       ++inventory.legacy_count;
       ++inventory.by_severity[to_string(topic.diagnostic.severity)];
       inventory.topics.push_back(std::move(topic));
@@ -259,33 +263,21 @@ detail::TypedRouteInventoryIR BooDocument::typed_route_inventory() const {
     topic.structure = extract_topic_structure_ir(
         sources, extract_layout_ir(sources), resource_ids);
 
-    TypedLoweringTraceIR trace;
-    const auto document = try_lower_topic_to_document_ir(
-        identity, sources, topic_catalog_ir_.get(), &topic.rejection, &trace,
-        &resource_ids);
-    topic.family = trace.family;
-    topic.declined = trace.declined;
-    topic.route = document ? TypedRouteKind::typed : TypedRouteKind::legacy;
-    topic.diagnostic = classify_typed_lowering(
-        identity, document ? &*document : nullptr, topic.rejection, trace);
+    const auto &outcome = entry->lowered().outcome;
+    if (outcome) {
+      topic.family = outcome->trace.family;
+      topic.rejection = outcome->rejection;
+      topic.declined = outcome->trace.declined;
+    }
+    topic.route = outcome &&
+                          outcome->representation ==
+                              TopicRepresentationKindIR::structured
+                      ? TypedRouteKind::typed
+                      : TypedRouteKind::legacy;
+    topic.diagnostic =
+        classify_topic_lowering(identity, outcome ? outcome.get() : nullptr);
 
-    // The render escalation (best-effort / failed) can only be decided once
-    // the Markdown exists.  A typed document that already carries a content
-    // block cannot escalate, so the whole-topic render is asked for only when
-    // it might change the answer -- which today is the legacy topics and the
-    // handful of typed documents that lower to headings alone.
-    const auto has_content_block =
-        document &&
-        std::any_of(document->blocks.begin(), document->blocks.end(),
-                    [](const BlockIR &block) {
-                      return !std::holds_alternative<HeadingBlockIR>(
-                                 block.node) &&
-                             !std::holds_alternative<AnchorBlockIR>(block.node);
-                    });
-    if (!has_content_block)
-      topic.diagnostic = entry->render_diagnostic();
-
-    if (document) {
+    if (topic.route == TypedRouteKind::typed) {
       ++inventory.typed_count;
       ++inventory.typed_by_family[topic.family];
     } else {

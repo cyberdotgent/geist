@@ -953,19 +953,6 @@ render_document_html_fragment(const DocumentIR &document,
                                 render_document_html_blocks(document, options));
 }
 
-std::string render_verbatim_rows_html(const std::vector<VerbatimRowIR> &rows,
-                                      const geist::HtmlRenderOptions &options) {
-  HtmlSink sink(options);
-  sink.markup("<pre class=\"geist-preformatted\">");
-  for (std::size_t index = 0; index < rows.size(); ++index) {
-    if (index != 0)
-      sink.newline();
-    append_verbatim_row(sink, rows[index]);
-  }
-  sink.markup("</pre>");
-  return sink.release();
-}
-
 std::string render_html_document(const std::string &fragment,
                                  const geist::HtmlDocumentOptions &options) {
   std::string out = "<!doctype html>\n<html";

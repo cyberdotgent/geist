@@ -345,14 +345,13 @@ void append_fenced_block(RenderSink &sink,
 }
 
 // The same rows as a raw HTML `<pre>` block, for a preformatted block that
-// carries cross references.
+// carries cross references or is the selected source-row representation.
 //
 // A fence preserves every column but renders an anchor as inert text, and
 // hosted BookServer keeps the anchors of a drawn body *inside* the `<pre>` of
 // the very same rows -- so `<pre>` is the one form that holds both halves.
-// This is the spelling the verbatim route already uses
-// (`render_best_effort_markdown`), and it shares `render_verbatim_row` with
-// it so the escaping and the column arithmetic cannot diverge.
+// `render_verbatim_row` keeps the escaping and column arithmetic shared with
+// every other preformatted DocumentIR block.
 //
 // A row's bytes are the row's bytes: only `&`, `<` and `>` are escaped, and
 // the anchor markup sits at the byte offsets the link names.  Nothing that
