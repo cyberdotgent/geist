@@ -471,6 +471,75 @@ void repeated_numeric_words_after_a_font_instruction_stay_display_text() {
               body_text(*prose) + "'");
 }
 
+// Exact CFONT coverage distinguishes a drawn leading glyph inside the native
+// display line from the line's preceding physical control slot.
+void a_styled_leading_bar_is_display_text() {
+  RecordBuilder builder;
+  metadata(builder, "1.9", {"Styled", "Bar"});
+  builder.line({words("cfont"), words("3"), words("1"), words("2")});
+  builder.line({words("   "), words("|"), words("        "), words("An"),
+                words("OR"), words("sign")});
+  const auto record = builder.build(39);
+
+  std::string error;
+  const auto prose = extract(record, "Styled Bar", error);
+  require(prose.has_value(),
+          "a CFONT-covered leading bar was rejected: " + error);
+  if (!prose) return;
+  bool styled_bar = false;
+  for (const auto &block : prose->blocks)
+    for (const auto &inline_node : block.inlines)
+      if (inline_node.text.find('|') != std::string::npos &&
+          inline_node.style == geist::detail::FontStyleIR::highlight_2)
+        styled_bar = true;
+  require(styled_bar, "the leading bar was retained without its CFONT claim");
+  require(body_text(*prose).find("| An OR sign") != std::string::npos,
+          "the leading bar lost the following source text: '" +
+              body_text(*prose) + "'");
+}
+
+// A width-2 unmapped dictionary token projects as `?`.  Exact CFONT coverage
+// at the native row end proves that cell is displayed rather than a decoder
+// placeholder.
+void styled_terminal_punctuation_is_display_text() {
+  RecordBuilder builder;
+  metadata(builder, "1.10", {"Styled", "Punctuation"});
+  builder.line({words("cfont"), words("3"), words("8"), words("E"),
+                words("11"), words("1"), words("E")});
+  builder.line(
+      {words("   "), words("Question"), TokenWords{1, 0xFFFF}});
+  const auto record = builder.build(40);
+
+  std::string error;
+  const auto prose = extract(record, "Styled Punctuation", error);
+  require(prose.has_value(),
+          "CFONT-covered terminal punctuation was rejected: " + error);
+  if (!prose) return;
+  require(body_text(*prose).find("Question?") != std::string::npos,
+          "the terminal punctuation cell was suppressed: '" +
+              body_text(*prose) + "'");
+}
+
+// Punctuation at the end of a native display row stays in that row when its
+// bound span distinguishes it from an inferred marker slot.
+void a_styled_terminal_marker_finishes_the_open_row() {
+  RecordBuilder builder;
+  metadata(builder, "1.11", {"Styled", "Terminal", "Marker"});
+  builder.line({words("cfont"), words("3"), words("5"), words("E"),
+                words("9"), words("1"), words("E")});
+  builder.line({words("   "), words("LTORG"), words(",")});
+  const auto record = builder.build(41);
+
+  std::string error;
+  const auto prose = extract(record, "Styled Terminal Marker", error);
+  require(prose.has_value(),
+          "a CFONT-covered terminal marker was rejected: " + error);
+  if (!prose) return;
+  require(body_text(*prose).find("LTORG ,") != std::string::npos,
+          "the terminal marker was suppressed: '" + body_text(*prose) +
+              "'");
+}
+
 } // namespace
 
 int main() {
@@ -482,5 +551,8 @@ int main() {
   a_font_span_inside_a_selector_preserves_both_semantics();
   styled_selector_columns_map_to_utf8_source_offsets();
   repeated_numeric_words_after_a_font_instruction_stay_display_text();
+  a_styled_leading_bar_is_display_text();
+  styled_terminal_punctuation_is_display_text();
+  a_styled_terminal_marker_finishes_the_open_row();
   return 0;
 }

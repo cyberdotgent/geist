@@ -29,14 +29,19 @@ struct Builder {
   void line(std::vector<TokenWords> tokens) {
     std::size_t bytes = 0;
     for (const auto &words : tokens)
-      bytes += words == TokenWords{0x2666} ? glyph_width : 2;
+      bytes += words == TokenWords{0x2666}
+                   ? glyph_width
+                   : (words == TokenWords{1} || words == TokenWords{2}) ? 1
+                                                                         : 2;
     record.encoded_tokens.push_back({static_cast<std::uint16_t>(bytes), 1});
     record.tokens.push_back({0x25ba});
     for (auto &words : tokens) {
-      record.encoded_tokens.push_back(words == TokenWords{0x2666} &&
-                                              glyph_width == 1
-                                          ? EncodedLogicalToken{3, 1}
-                                          : EncodedLogicalToken{encoded++, 2});
+      record.encoded_tokens.push_back(
+          words == TokenWords{0x2666} && glyph_width == 1
+              ? EncodedLogicalToken{3, 1}
+              : (words == TokenWords{1} || words == TokenWords{2})
+                    ? EncodedLogicalToken{0, 1}
+                    : EncodedLogicalToken{encoded++, 2});
       record.tokens.push_back(std::move(words));
     }
   }

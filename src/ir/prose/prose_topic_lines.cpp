@@ -673,6 +673,7 @@ struct LineBuilder {
   // opens the row, blank source cells establish its origin, and a later
   // ordinary word proves this is not a box-only rule line.  SC24-546 1.3.1
   // record 45 line 8 stores exactly
+  // SC24-546 1.3.1 record 45 line 8 stores exactly
   // `<length> <22 blanks> U+2514 U+2500 optional_item U+2500 U+2518`.
   bool leading_native_box_cell(const TokenView& view) {
     if (!is_placeholder_run(view) ||
@@ -988,13 +989,15 @@ struct LineBuilder {
     return out.lines.back().cells.size() + extra;
   }
 
-  // True when the open row already carries a CFONT span over the column the
-  // token would occupy.
+  // True when the open row already carries a CFONT span over every display
+  // cell the token would occupy.
   bool covered_by_font_span(const TokenView& view) const {
     const auto column = next_column(view);
     if (column == npos) return false;
     for (const auto& span : out.lines.back().fonts)
-      if (column >= span.begin && column < span.end) return true;
+      if (column >= span.begin &&
+          column + view.body.size() <= span.end)
+        return true;
     return false;
   }
 
@@ -1044,7 +1047,7 @@ struct LineBuilder {
     // slot: SC09-2417-00 4.5.2.2 `void payroll::calc (employee *pe) {`
     // covers the trailing `{`, while the `;` that ends the next row is
     // covered by no span and stays the slot.
-    if (xmp_mode && covered_by_font_span(view)) return false;
+    if (covered_by_font_span(view)) return false;
     // CZ dialect: a compact one-byte token is a whole dictionary word
     // (`and`, `a`, `protocol`) displayed wherever it stands, and the rows are
     // justified, so a space run behind it is an in-row gap or a plain row
@@ -1617,6 +1620,16 @@ struct LineBuilder {
         index + 1 < items.size() && items[index + 1].kind == ItemKind::token &&
         is_visible(items[index + 1].token) &&
         !is_placeholder_run(items[index + 1].token);
+    // An unmapped dictionary word is normally a decoder placeholder.  When
+    // the native row and a bound CFONT span both claim all of its cells, the
+    // source instead proves a literal displayed glyph: IEAC6MST 4.8.2 styles
+    // the width-2 `?` at column 70, and GG24-4302-00 4.3.3.2 defers the same
+    // shape to the next native row at column 86.  Keep fail-closed behavior
+    // for unstyled or only partially overlapped placeholders.
+    if (view.body.size() == 1 && view.body.front() == unmapped_word &&
+        covered_by_font_span(view) &&
+        display_line_of(view.record, view.token) != nullptr)
+      return append_visible(view, ProseTokenRoleIR::text);
     if (is_placeholder_run(view) && !line_start_marker &&
         !marker_at(index, origin_index)) {
       // A placeholder run that does not open a row is layout padding: either
