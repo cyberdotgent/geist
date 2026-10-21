@@ -176,6 +176,22 @@ std::vector<Token> header(const std::string &title_word_a,
   return tokens;
 }
 
+// One observed source-title form stores the title opcode, an attach-control
+// word, and a native `|` marker as three consecutive tokens of the same
+// display line. The flattened control splitter consequently reports `ST|`,
+// but the marker is framing rather than part of the opcode.
+std::vector<Token> marker_title_header(const std::string &title_word_a,
+                                       const std::string &title_word_b) {
+  std::vector<Token> tokens;
+  append(tokens, line({t("SH12", 100)}));
+  append(tokens, line({t("ctopicn", 101), t("12.", 102)}));
+  append(tokens, line({t("chdlevel", 103), t(":H2", 104)}));
+  append(tokens,
+         line({t("ST", 105), {TokenWords{1}, 0}, t("|", 108),
+               t(title_word_a, 106), t(title_word_b, 107)}));
+  return tokens;
+}
+
 // One entry: `SRMSG <id>`, a fully highlighted headline row, and one
 // `Description:` field row.
 std::vector<Token> entry(const std::string &id, std::uint16_t id_word) {
@@ -227,6 +243,58 @@ int main() {
                 "trap entry text is wrong: [" + text + "]");
       }
     }
+  }
+
+  // SC34-425 stores some source titles as `ST`, attach byte `0x01`, marker
+  // `|`, then title text on one native display line. The source title can
+  // also differ from the contents spelling only in ASCII case. Both forms
+  // retain the source row and its spelling; the marker is not title text.
+  {
+    auto tokens = marker_title_header("Sample", "messages");
+    append(tokens, entry("620", 231));
+    const auto built = build({make_source(61, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "marker-attached source title declined: " + built.error);
+    if (built.catalog) {
+      require(built.catalog->title == "Sample messages",
+              "marker-attached title did not retain source spelling: [" +
+                  built.catalog->title + "]");
+      require(built.catalog->title.find('|') == std::string::npos,
+              "native title marker leaked into title text");
+      require(built.catalog->title_source.logical_record == 61 &&
+                  built.catalog->title_source.token_begin == 12 &&
+                  built.catalog->title_source.token_end == 14 &&
+                  built.catalog->title_source.byte_begin == 61012 &&
+                  built.catalog->title_source.byte_end == 61014,
+              "marker-attached title did not retain its exact visible source "
+              "slice");
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(),
+              "marker-attached title lowering declined: " + error);
+      if (document) {
+        const auto markdown =
+            geist::detail::render_document_markdown(*document);
+        const auto html =
+            geist::detail::render_document_html_blocks(*document, {});
+        require(markdown.find("Sample messages") != std::string::npos &&
+                    html.find("Sample messages") != std::string::npos,
+                "marker-attached source title did not reach both renderers");
+      }
+    }
+
+    // A literal dictionary word `ST|` has no attach-control/source-token
+    // framing and is not the title control described above.
+    auto unframed = header("Sample", "Messages");
+    unframed.resize(8);
+    append(unframed,
+           line({t("ST|", 109), t("Sample", 106), t("Messages", 107)}));
+    append(unframed, entry("620", 231));
+    const auto rejected =
+        build({make_source(63, unframed)}, "Sample Messages");
+    require(!rejected.catalog.has_value(),
+            "an unframed literal ST| word was admitted as a title control");
   }
 
   // A field label can intentionally carry an empty value. Its CFONT run and

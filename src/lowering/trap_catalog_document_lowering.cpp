@@ -472,7 +472,8 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
        topic.end_logical_record != catalog.end_logical_record))
     return reject("topic and trap catalog envelopes differ");
   if (!topic.title.empty() &&
-      collapse_ascii_whitespace(topic.title) != catalog.title)
+      !ascii_equals_case_insensitive(collapse_ascii_whitespace(topic.title),
+                                     catalog.title))
     return reject("topic title differs from the catalog title row: [" +
                   topic.title + "] vs [" + catalog.title + "]");
   if (topic.id.empty()) topic.id = catalog.raw_topic_id;

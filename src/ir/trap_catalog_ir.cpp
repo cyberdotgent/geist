@@ -46,6 +46,14 @@ std::string range_text(const DecodedLogicalRecordSource &record,
   return text.substr(range.begin, range.end - range.begin);
 }
 
+std::string token_range_text(const DecodedLogicalRecordSource &record,
+                             std::size_t begin, std::size_t end) {
+  if (begin >= end || end > record.tokens.size()) return {};
+  const std::vector<TokenWords> tokens(record.tokens.begin() + begin,
+                                       record.tokens.begin() + end);
+  return token_words_to_ascii(assemble_logical_record(tokens));
+}
+
 std::string collapse(std::string value) {
   return collapse_ascii_whitespace(trim_ascii(std::move(value)));
 }
@@ -86,6 +94,29 @@ bool structural_padding_words(const TokenWords &words) {
          std::all_of(words.begin(), words.end(), [](const auto word) {
            return word == ' ' || word == '?' || word == 0x2666 || word < 0x20;
          });
+}
+
+bool marker_attached_title_control(const DecodedLogicalRecordSource &record,
+                                   const ControlSegmentIR &segment) {
+  if ((segment.kind != BookControlKind::text &&
+       segment.kind != BookControlKind::structural) ||
+      segment.display_text || segment.malformed ||
+      segment.source_tokens.empty())
+    return false;
+  if (segment.kind == BookControlKind::structural &&
+      ascii_lower(segment.opcode) != "st|")
+    return false;
+  const auto token = segment.source_tokens.front();
+  if (token + 2 >= record.ir.tokens.size() ||
+      record.ir.tokens[token].decoded_words != TokenWords{'S', 'T'} ||
+      record.ir.tokens[token + 1].decoded_words != TokenWords{1} ||
+      record.ir.tokens[token + 2].decoded_words != TokenWords{'|'})
+    return false;
+  const auto *line = display_line_of_token(record, token);
+  return line != nullptr && token == line->prefix_token + 1 &&
+         token + 2 < line->token_end &&
+         display_line_of_token(record, token + 1) == line &&
+         display_line_of_token(record, token + 2) == line;
 }
 
 bool native_list_bullet(const DecodedLogicalRecordSource &record,
@@ -1891,6 +1922,12 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
       header_regions.push_back(std::move(opened));
       continue;
     }
+    if (marker_attached_title_control(*ref.record, segment)) {
+      if (title)
+        return reject("trap catalog has multiple title segments");
+      title = ref;
+      continue;
+    }
     const auto operand_text = collapse(range_text(*ref.record, segment.operand_range));
     switch (segment.kind) {
     case BookControlKind::topic_start:
@@ -1994,20 +2031,52 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
        catalog.heading_level.front() != 'h') ||
       catalog.heading_level.back() < '1' || catalog.heading_level.back() > '6')
     return reject("trap catalog metadata/title envelope is incomplete");
-  const auto title_rows = index.rows_by_segment.find(
-      {title->record->logical_record, title->segment->segment_index});
-  if (title_rows == index.rows_by_segment.end() ||
-      title_rows->second.empty() || title_rows->second.front().row_index != 0)
-    return reject("trap catalog title has no leading physical row");
-  const auto &title_ref = title_rows->second.front();
-  if (title_ref.row->marker)
-    return reject("trap catalog title row carries a marker slot");
-  const auto title_row_text = collapse(title_ref.row->visible_text);
+  const auto attached_title =
+      marker_attached_title_control(*title->record, *title->segment);
+  const RowRef *title_ref = nullptr;
+  const std::vector<RowRef> *title_row_refs = nullptr;
+  std::size_t title_begin_token = 0;
+  std::size_t title_end_token = 0;
+  std::string title_row_text;
+  if (attached_title) {
+    const auto control_token = title->segment->source_tokens.front();
+    const auto *line = display_line_of_token(*title->record, control_token);
+    if (line == nullptr || control_token + 3 >= line->token_end)
+      return reject("trap catalog attached title row is empty");
+    title_begin_token = control_token + 3;
+    title_end_token = line->token_end;
+    title_row_text = collapse(token_range_text(
+        *title->record, title_begin_token, title_end_token));
+  } else {
+    const auto title_rows = index.rows_by_segment.find(
+        {title->record->logical_record, title->segment->segment_index});
+    if (title_rows == index.rows_by_segment.end() ||
+        title_rows->second.empty() ||
+        title_rows->second.front().row_index != 0)
+      return reject("trap catalog title has no leading physical row");
+    title_ref = &title_rows->second.front();
+    title_row_refs = &title_rows->second;
+    if (title_ref->row->marker)
+      return reject("trap catalog title row carries a marker slot");
+    title_begin_token = title_ref->row->token_begin;
+    title_end_token = title_ref->row->token_end;
+    title_row_text = collapse(title_ref->row->visible_text);
+  }
   if (title_row_text.empty())
     return reject("trap catalog title row is empty");
-  auto title_end_token = title_ref.row->token_end;
   const auto expected_title = collapse(toc_title);
-  if (!expected_title.empty() && title_row_text != expected_title) {
+  if (!expected_title.empty() && title_row_text != expected_title &&
+      ascii_lower(title_row_text) == ascii_lower(expected_title)) {
+    // The source title row is authoritative for spelling and case. The topic
+    // catalogue independently corroborates its extent, so a case-only
+    // difference does not make the native row ambiguous.
+    catalog.title = title_row_text;
+  } else if (attached_title && !expected_title.empty() &&
+             title_row_text != expected_title) {
+    return reject("trap catalog attached title row differs from the contents "
+                  "title: [" +
+                  title_row_text + "] vs [" + expected_title + "]");
+  } else if (!expected_title.empty() && title_row_text != expected_title) {
     // The heading and the first introduction sentence share one physical
     // row; the contents title decides where the heading ends. Accumulate
     // the title segment's visible cells token by token until they spell the
@@ -2019,15 +2088,15 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
     // the second row's marker slot. So the walk runs to the end of the
     // segment's last row, and a marker slot inside it counts as the glyph it
     // draws -- hosted serves `Appendix H.  C/370 ...` as one heading.
-    auto title_walk_end = title_ref.row->token_end;
-    for (const auto &row : title_rows->second)
+    auto title_walk_end = title_ref->row->token_end;
+    for (const auto &row : *title_row_refs)
       if (row.row->logical_record == title->record->logical_record &&
           row.row->token_end > title_walk_end)
         title_walk_end = row.row->token_end;
     std::string accumulated;
     bool pending_space = false;
     std::optional<std::size_t> split;
-    for (auto token = title_ref.row->token_begin;
+    for (auto token = title_ref->row->token_begin;
          token < title_walk_end && token < title->record->ir.tokens.size() &&
          !split;
          ++token) {
@@ -2069,8 +2138,9 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
   }
   catalog.title_source =
       token_slice(*title->record, title->segment->segment_index,
-                  title_ref.row->token_begin, title_end_token);
-  catalog.title_row = {title_ref.run->id, title_ref.row_index};
+                  title_begin_token, title_end_token);
+  if (title_ref != nullptr)
+    catalog.title_row = {title_ref->run->id, title_ref->row_index};
 
   // Entries.
   std::optional<std::size_t> origin_column;

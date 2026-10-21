@@ -528,6 +528,22 @@ ACPZMST1 5.4 and 5.5 store `ST` + spacing + a placeholder slot + `/` +
 `etc` + `/` + `inittab`; the `/` is the first character of the title
 (`/etc/inittab File Definitions`), not a second slot.
 
+The marker can be attached to the control rather than separated by spacing.
+In `SC34-425.boo` topic `2.4.14.1`, logical record 1530 stores raw bytes
+`81 00 70 c3 fb` at `0x15f7b9`: dictionary token `81` resolves to `ST`, `00`
+resolves to the one-word attach control `0x0001`, `70` resolves to `|`, and
+`c3 fb` resolves to the first title word `Functions`.  Topic `2.4.21` repeats
+the form at `0x165202` as `81 00 70 be f2` (`ST`, attach, `|`, `FLMTCCPS`).
+All three tokens preceding the title occupy the same native display line; the
+attached `|` is the line marker, not part of an `ST|` opcode or of the
+displayed title.
+
+The contents title corroborates the title-row extent but does not replace its
+spelling.  `SC34-425.boo` topic `2.4.12.4` stores `Using FLMLPGEN as a TEXT
+Parser` while the contents entry capitalizes `As`; topics `2.4.21`, `2.4.32`,
+and `2.4.33` similarly differ only in ASCII letter case.  The source display
+row supplies the rendered title in each case.
+
 The topic title the book catalog carries is a *string* projection of the same
 control (it reads the flattened decoded record and stops at the first decoder
 boundary), so it neither equals the display row nor is wrong: both are
