@@ -91,6 +91,10 @@ int main() {
     const auto* topic = find_topic(document, "2.4");
     require(topic != nullptr, "packet 2.4 is missing");
     if (topic != nullptr) {
+      const auto handle = document.topic_entry("2.4");
+      require(describe(handle.link_targets()) ==
+                  describe(topic->link_targets()),
+              "public topic handle link targets differ from the TOC handle");
       const auto& targets = topic->link_targets();
       require(topic->render_diagnostic().route == "typed",
               "packet 2.4 no longer renders typed; this check needs a typed "

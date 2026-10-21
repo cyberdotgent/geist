@@ -86,6 +86,13 @@ public:
       const;
   GEIST_API const std::vector<TocEntry>& table_of_contents() const noexcept;
   GEIST_API const std::vector<TopicInfo>& topics() const noexcept;
+  // A lazy rendering handle for any topic in `topics()`, including one the
+  // table of contents does not list. Enumerate `topics()` for stable source
+  // identity: its vector position is the topic-index and the TopicInfo holds
+  // the source record bounds. The returned value owns its caches; references
+  // returned by `render_diagnostic()` and `link_targets()` remain valid for
+  // the lifetime of this handle. Throws std::out_of_range for an unknown id.
+  GEIST_API TocEntry topic_entry(const std::string& topic_id) const;
   GEIST_API std::string markdown() const;
   GEIST_API std::string topic_markdown(const std::string& topic_id) const;
   // Native HTML output (issue #46), rendered from the same typed Document IR
@@ -108,7 +115,8 @@ public:
   // Render provenance for every TOC topic, parallel to table_of_contents():
   // how well each topic was rendered, by which route, and why. Renders every
   // topic, caching the Markdown on the TOC entries as it goes. See
-  // geist/render_diagnostic.hpp.
+  // geist/render_diagnostic.hpp. For an indexed topic outside the TOC, use
+  // topic_entry(id).render_diagnostic().
   GEIST_API std::vector<RenderDiagnostic> render_diagnostics() const;
   GEIST_API const std::vector<ResourceEntry>& resources() const noexcept;
   GEIST_API const TocEntry* find_toc_entry(const std::string& topic_id)

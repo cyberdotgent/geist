@@ -128,18 +128,13 @@ std::string BooDocument::html_document(
 
 std::string BooDocument::topic_html_fragment(
     const std::string& topic_id, const HtmlRenderOptions& options) const {
-  if (const auto* entry = find_toc_entry(topic_id))
-    return entry->html_fragment(options);
-  return synthesize_topic_entry(topic_id).html_fragment(options);
+  return topic_entry(topic_id).html_fragment(options);
 }
 
 std::string BooDocument::topic_html_document(
     const std::string& topic_id, const HtmlRenderOptions& options,
     const HtmlDocumentOptions& document_options) const {
-  if (const auto* entry = find_toc_entry(topic_id))
-    return entry->html_document(options, document_options);
-  return synthesize_topic_entry(topic_id).html_document(options,
-                                                        document_options);
+  return topic_entry(topic_id).html_document(options, document_options);
 }
 
 } // namespace geist

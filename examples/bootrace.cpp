@@ -172,24 +172,34 @@ int main(int argc, char** argv) {
         return std::string(kind_name(target.kind)) + " " + target.id + " " +
                target.resource;
       };
-      // What each topic names, read off its Document IR. A topic that
-      // renders verbatim names nothing and is reported with no rows.
+      // What each indexed topic names, read off its Document IR. The comment
+      // row preserves stable source identity even when a topic names nothing.
       std::cout << "topic\troute\tkind\tid\tresource\n";
       std::size_t named = 0;
       std::size_t topics_naming = 0;
-      for (const auto& entry : document.table_of_contents()) {
+      for (std::size_t source_index = 0;
+           source_index < document.topics().size(); ++source_index) {
+        const auto& source = document.topics()[source_index];
+        const auto entry = document.topic_entry(source.id);
+        const auto& diagnostic = entry.render_diagnostic();
+        std::cout << "# topic\t" << tsv_escape(source.id)
+                  << "\ttopic-index\t" << source_index << "\t"
+                  << source.start_logical_record << "\t"
+                  << source.end_logical_record << "\t"
+                  << tsv_escape(diagnostic.route) << "\n";
         const auto& live = entry.link_targets();
         if (!live.empty()) ++topics_naming;
         for (const auto& target : live) {
           ++named;
           std::cout << tsv_escape(entry.id) << "\t"
-                    << tsv_escape(entry.render_diagnostic().route) << "\t"
+                    << tsv_escape(diagnostic.route) << "\t"
                     << kind_name(target.kind) << "\t" << tsv_escape(target.id)
                     << "\t" << tsv_escape(target.resource) << "\n";
         }
       }
       std::cout << "# summary\tnamed=" << named << "\ttopics-naming="
-                << topics_naming << "\n";
+                << topics_naming << "\ttopics=" << document.topics().size()
+                << "\n";
       return 0;
     } catch (const std::exception& error) {
       std::cerr << "bootrace: " << error.what() << "\n";

@@ -350,6 +350,13 @@ const std::vector<TopicInfo>& BooDocument::topics() const noexcept {
   return topics_;
 }
 
+TocEntry BooDocument::topic_entry(const std::string& topic_id) const {
+  if (const auto* entry = find_toc_entry(topic_id)) {
+    return *entry;
+  }
+  return synthesize_topic_entry(topic_id);
+}
+
 const std::vector<ResourceEntry>& BooDocument::resources() const noexcept {
   return resources_;
 }
@@ -377,10 +384,7 @@ std::vector<RenderDiagnostic> BooDocument::render_diagnostics() const {
 }
 
 std::string BooDocument::topic_markdown(const std::string& topic_id) const {
-  if (const auto* entry = find_toc_entry(topic_id)) {
-    return entry->markdown();
-  }
-  return synthesize_topic_entry(topic_id).markdown();
+  return topic_entry(topic_id).markdown();
 }
 
 // A topic the TOC does not list, built as a standalone entry with the same

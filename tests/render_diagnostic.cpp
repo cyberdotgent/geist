@@ -25,6 +25,7 @@
 
 #include <filesystem>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 
 namespace {
@@ -482,6 +483,51 @@ void inventory_agrees_with_render(const std::string &name) {
           name + ": the severity histogram covers every topic");
 }
 
+void public_topic_handle_attachments() {
+  const auto document = geist::BooDocument::open(book("packet.boo"));
+  for (const auto &indexed : document.topics()) {
+    const auto indexed_handle = document.topic_entry(indexed.id);
+    require(indexed_handle.id == indexed.id &&
+                indexed_handle.start_logical_record ==
+                    indexed.start_logical_record &&
+                indexed_handle.end_logical_record == indexed.end_logical_record,
+            "public topic handle lost indexed source identity for " +
+                indexed.id);
+  }
+
+  const auto handle = document.topic_entry("2.4");
+  const auto *toc = document.find_toc_entry("2.4");
+  require(toc != nullptr, "packet 2.4 is absent from the TOC");
+  if (toc != nullptr) {
+    const auto &from_handle = handle.render_diagnostic();
+    const auto &from_toc = toc->render_diagnostic();
+    require(handle.id == toc->id && handle.title == toc->title,
+            "public topic handle lost topic identity");
+    require(from_handle.severity == from_toc.severity &&
+                from_handle.route == from_toc.route &&
+                from_handle.family == from_toc.family &&
+                from_handle.reason == from_toc.reason,
+            "public topic handle diagnostic differs from the TOC handle");
+  }
+
+  const auto markdown = handle.markdown();
+  const auto html = handle.html_fragment();
+  require(markdown == document.topic_markdown("2.4"),
+          "public topic handle Markdown differs from the document API");
+  require(html == document.topic_html_fragment("2.4"),
+          "public topic handle HTML differs from the document API");
+  require(!markdown.empty() && !html.empty(),
+          "public topic handle did not independently render both formats");
+
+  bool rejected_unknown = false;
+  try {
+    (void)document.topic_entry("NO-SUCH-TOPIC");
+  } catch (const std::out_of_range &) {
+    rejected_unknown = true;
+  }
+  require(rejected_unknown, "public topic handle accepted an unknown id");
+}
+
 } // namespace
 
 int main() {
@@ -491,6 +537,7 @@ int main() {
   degraded_block_topic();
   escalation_ladder();
   inventory_agrees_with_render("packet.boo");
+  public_topic_handle_attachments();
   std::cout << "render diagnostic assertions complete\n";
   return 0;
 }
