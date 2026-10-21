@@ -262,6 +262,52 @@ void an_individual_message_has_a_typed_envelope() {
               verification_error);
 }
 
+// IBMMMSTR 1.5.420 splits its metadata immediately after CSUMMARY.  The next
+// record starts with the native length byte of the SRMSG display line; its
+// dictionary spelling is a 63-cell box run, so the flattened control splitter
+// leaves that one proven geometry token in a text segment before SRMSG.
+void a_message_envelope_resumes_after_a_record_length_byte() {
+  DecodedLogicalRecordSource first;
+  first.logical_record = 528;
+  line(first, "slot", {"sh1.5.420"});
+  line(first, "slot", {"ctopicn", "446"});
+  line(first, "slot", {"cparent", "1.5"});
+  line(first, "slot", {"cforwardlevel", "1.5.421"});
+  line(first, "slot", {"cbacklevel", "1.5.419"});
+  line(first, "slot", {"csummary", "9", "0", "9"});
+  refresh(first, 0);
+
+  DecodedLogicalRecordSource second;
+  second.logical_record = 529;
+  line_words(second, TokenWords(63, 0x2500),
+             {words("SRMSG"), words("IEL0438I"), words("E")});
+  line(second, "slot", {"chdlevel", ":MSGNO"});
+  line(second, "slot", {"csourcefn", "P22MCTMD"});
+  line(second, "slot", {"ST", "IEL0438I", "E"});
+  line(second, "slot", {"Message", "body."});
+  refresh(second, 4096);
+
+  const std::vector<DecodedLogicalRecordSource> records{
+      std::move(first), std::move(second)};
+  require(records[1].control_segments.front().kind == BookControlKind::text,
+          "the record-leading length byte must retain its synthetic text "
+          "segment before the SRMSG control");
+  const auto layout = geist::detail::extract_layout_ir(records);
+  std::string error;
+  const auto ownership =
+      geist::detail::build_verified_ownership_ir(records, layout, &error);
+  require(ownership.has_value(), "split message envelope ownership: " + error);
+  if (!ownership) return;
+  const auto topic = geist::detail::extract_prose_topic_ir(
+      records, layout, *ownership, "IEL0438I E", nullptr, &error);
+  require(topic.has_value(),
+          "the length byte before a resumed SRMSG is row geometry: " + error);
+  if (!topic) return;
+  require(topic->anchors.size() == 1 &&
+              topic->anchors.front().id == "MSG IEL0438I E",
+          "the resumed message envelope lost its complete identity");
+}
+
 // SC26-457 FRONT_2.1.1, FRONT_2.1.2 and FRONT_3.2: the `ST` title control is
 // glued into the `csourcefn` segment, so the whole topic spends exactly the
 // eight metadata segments.  An arity precondition that also counted the title
@@ -403,6 +449,7 @@ int main() {
   an_unframed_st_is_not_demoted();
   a_glued_title_is_not_a_short_envelope();
   an_individual_message_has_a_typed_envelope();
+  a_message_envelope_resumes_after_a_record_length_byte();
   a_length_byte_between_records_is_not_a_metadata_control();
   a_corroborated_topic_start_crosses_the_record_break();
   an_uncorroborated_topic_start_stays_prose();

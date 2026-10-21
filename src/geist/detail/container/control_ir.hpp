@@ -33,6 +33,7 @@ enum class BookControlKind {
   font,
   select,
   spacing,
+  revision_definition,
   layout_directive,
   table_start,
   table_end,

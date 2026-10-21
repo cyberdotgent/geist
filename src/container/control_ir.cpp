@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <optional>
 #include <sstream>
 
 namespace geist::detail {
@@ -159,6 +160,8 @@ BookControlKind classify(std::string opcode) {
     return BookControlKind::select;
   if (opcode == "c.sp")
     return BookControlKind::spacing;
+  if (opcode == "c.rev")
+    return BookControlKind::revision_definition;
   if (opcode == "cz")
     return BookControlKind::layout_directive;
   if (opcode.rfind("srtbl", 0) == 0)
@@ -414,6 +417,8 @@ std::size_t fixed_operand_count(BookControlKind kind) {
   case BookControlKind::message_start:
   case BookControlKind::art_description_start:
     return 1;
+  case BookControlKind::revision_definition:
+    return 2;
   case BookControlKind::summary:
     return 3;
   case BookControlKind::select:
@@ -601,6 +606,7 @@ decode_control_segments(std::uint32_t logical_record,
         segment.payload_range = {source.output_begin, source.output_end};
       } else {
         auto operand_words = fixed_operand_count(segment.kind);
+        std::optional<std::size_t> explicit_operand_end;
         if (segment.kind == BookControlKind::font) {
           operand_words = 0;
           for (std::size_t word = 1; word + 2 < words.size(); word += 3) {
@@ -612,16 +618,103 @@ decode_control_segments(std::uint32_t logical_record,
             operand_words += 3;
           }
           segment.malformed = operand_words == 0;
-        } else if (segment.kind == BookControlKind::spacing) {
+        } else if (segment.kind == BookControlKind::revision_definition) {
+          const auto opcode_words = decoded_byte_range_to_word_range(
+              assembled, segment.opcode_range);
+          const auto opcode_tokens = source_tokens_intersecting_output(
+              assembled, opcode_words.begin, opcode_words.end);
+          std::vector<std::string> operands;
+          std::size_t last_operand_token = assembled.tokens.size();
+          const auto line = opcode_tokens.empty()
+                                ? display_lines.end()
+                                : std::find_if(
+                                      display_lines.begin(), display_lines.end(),
+                                      [&](const DisplayLineIR &candidate) {
+                                        return opcode_tokens.front() >=
+                                                   candidate.prefix_token &&
+                                               opcode_tokens.front() <
+                                                   candidate.token_end;
+                                      });
+          if (line != display_lines.end()) {
+            for (auto token = opcode_tokens.front() + 1;
+                 token < line->token_end && token < assembled.tokens.size();
+                 ++token) {
+              auto value = trim_ascii(token_words_to_ascii(
+                  token_body_words(assembled, assembled.tokens[token])));
+              if (value.empty()) continue;
+              operands.push_back(std::move(value));
+              last_operand_token = token;
+            }
+          }
+          const auto identifier = [](const std::string &value) {
+            return !value.empty() &&
+                   std::all_of(value.begin(), value.end(),
+                               [](const unsigned char ch) {
+                                 return std::isalnum(ch) != 0 || ch == '_' ||
+                                        ch == '-';
+                               });
+          };
           segment.malformed =
-              words.size() != 4 ||
-              ascii_lower(text.substr(words[1].begin,
-                                      words[1].end - words[1].begin)) != "3p" ||
-              ascii_lower(text.substr(words[2].begin,
-                                      words[2].end - words[2].begin)) != "p" ||
-              ascii_lower(text.substr(words[3].begin,
-                                      words[3].end - words[3].begin)) != "c";
-          operand_words = segment.malformed ? 0 : 3;
+              operands.size() != 2 || !identifier(operands[0]) ||
+              operands[1].size() != 1 ||
+              static_cast<unsigned char>(operands[1][0]) < 0x20 ||
+              static_cast<unsigned char>(operands[1][0]) >= 0x7f;
+          operand_words = segment.malformed ? 0 : 2;
+          if (!segment.malformed) {
+            explicit_operand_end =
+                decoded_word_range_to_byte_range(
+                    assembled,
+                    {assembled.tokens[last_operand_token].output_end,
+                     assembled.tokens[last_operand_token].output_end})
+                    .begin;
+          }
+        } else if (segment.kind == BookControlKind::spacing) {
+          // SCRIPT vertical spacing has five observed operand forms:
+          // `<n>`, `<n> c`, `<n> p`, `<n>p p c`, and `<n>mm p c`.
+          // Bound the words to the opcode's native display line before
+          // validating them; a control segment can continue across later
+          // display rows when no new control opens between them.
+          const auto opcode_words = decoded_byte_range_to_word_range(
+              assembled, segment.opcode_range);
+          const auto opcode_tokens = source_tokens_intersecting_output(
+              assembled, opcode_words.begin, opcode_words.end);
+          const auto line_end =
+              opcode_tokens.empty() ? text.size()
+                                    : display_line_end_byte(opcode_tokens.front());
+          std::vector<std::string> operands;
+          for (std::size_t word = 1; word < words.size(); ++word) {
+            if (words[word].end > line_end) break;
+            operands.push_back(ascii_lower(text.substr(
+                words[word].begin, words[word].end - words[word].begin)));
+          }
+          const auto counted = [](const std::string &value,
+                                  const std::string &suffix) {
+            if (value.size() <= suffix.size() ||
+                value.size() - suffix.size() > 3 ||
+                value.compare(value.size() - suffix.size(), suffix.size(),
+                              suffix) != 0)
+              return false;
+            return std::all_of(
+                value.begin(), value.end() -
+                                         static_cast<std::ptrdiff_t>(suffix.size()),
+                [](const unsigned char ch) { return std::isdigit(ch) != 0; });
+          };
+          const auto decimal = [](const std::string &value) {
+            return !value.empty() && value.size() <= 3 &&
+                   std::all_of(value.begin(), value.end(),
+                               [](const unsigned char ch) {
+                                 return std::isdigit(ch) != 0;
+                               });
+          };
+          segment.malformed =
+              !((operands.size() == 1 && decimal(operands[0])) ||
+                (operands.size() == 2 && decimal(operands[0]) &&
+                 (operands[1] == "c" || operands[1] == "p")) ||
+                (operands.size() == 3 &&
+                 (counted(operands[0], "p") ||
+                  counted(operands[0], "mm")) &&
+                 operands[1] == "p" && operands[2] == "c"));
+          operand_words = segment.malformed ? 0 : operands.size();
         } else if (segment.kind == BookControlKind::layout_directive) {
           // A `cz` directive's operands stand on the directive's own display
           // line and stop at its end.  A segment runs to the next control, so
@@ -687,8 +780,11 @@ decode_control_segments(std::uint32_t logical_record,
           segment.malformed = true;
           operand_words = words.size() - 1;
         }
-        const auto operand_end = operand_words == 0 ? segment.opcode_range.end
-                                                    : words[operand_words].end;
+        const auto operand_end =
+            explicit_operand_end
+                ? *explicit_operand_end
+                : (operand_words == 0 ? segment.opcode_range.end
+                                      : words[operand_words].end);
         segment.operand_range = {segment.opcode_range.end, operand_end};
         segment.payload_range = {operand_end, source.output_end};
       }

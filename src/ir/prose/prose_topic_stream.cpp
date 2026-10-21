@@ -627,6 +627,24 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
   for (std::size_t index = 0; index < required.size(); ++index) {
     if (at_end())
       return fail(error, "topic metadata controls are incomplete");
+    // A record can break immediately before the optional SRMSG envelope
+    // control.  The continued record then opens with SRMSG's native
+    // display-line length byte, which the flattened splitter may leave in a
+    // text segment of its own.  Consume carried row geometry before deciding
+    // whether the next semantic control is SRMSG.  IBMMMSTR 1.5.420 records
+    // 528/529 are the corpus witness: record 529 token 0 is value 0x04 at
+    // [0x2e005,0x2e006), framed as the length of `SRMSG IEL0438I E`.
+    while (!at_end() && row_control_slot_segment()) {
+      const auto& slot = current();
+      const auto slot_record = cursor.record;
+      ++cursor.segment;
+      for (const auto token : slot.source_tokens)
+        if (!ledger.assign(slot_record, token, ProseTokenRoleIR::envelope,
+                           error))
+          return false;
+    }
+    if (at_end())
+      return fail(error, "topic metadata controls are incomplete");
     // A message-section heading topic carries one bare `SRMSG` inside its
     // metadata (SC31-711 record 127, SC09-138 record 2066).  Individually
     // indexed message topics use the same envelope position with an operand
@@ -674,6 +692,31 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
                                  anchor_segment, anchor, error))
         return false;
       envelope.leading_anchors.push_back(std::move(anchor));
+    }
+    // Revision-code definitions are envelope metadata, wherever they occur
+    // between the fixed controls. SC09-138 FRONT record 2 carries eleven
+    // `c.rev <id> <bar>` lines between CSUMMARY and CHDLEVEL. Each occupies
+    // its own native display line and draws no body text.
+    while (!at_end()) {
+      if (row_control_slot_segment()) {
+        const auto &slot = current();
+        const auto slot_record = cursor.record;
+        ++cursor.segment;
+        for (const auto token : slot.source_tokens)
+          if (!ledger.assign(slot_record, token,
+                             ProseTokenRoleIR::envelope, error))
+            return false;
+        continue;
+      }
+      if (current().kind != BookControlKind::revision_definition) break;
+      const auto &revision = current();
+      const auto revision_record = cursor.record;
+      ++cursor.segment;
+      if (revision.malformed)
+        return fail(error, "revision definition is malformed");
+      if (!assign_segment_tokens(records, ledger, revision_record, revision,
+                                 ProseTokenRoleIR::envelope, false, error))
+        return false;
     }
     // The envelope run continues across a record break, and the record it
     // continues into opens with a display line like every other record: its
@@ -2017,6 +2060,17 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           item.separator = true;
           build.items.push_back(std::move(item));
         }
+        break;
+      }
+      case BookControlKind::revision_definition: {
+        // A SCRIPT revision declaration changes how later marked rows draw
+        // their margin; the declaration itself is metadata. IBMMMSTR
+        // PREFACE.6 record 19 carries `c.rev PREF |` after its ST title.
+        if (segment.malformed)
+          return fail(error, "revision definition is malformed");
+        if (!assign_segment_tokens(records, ledger, record_index, segment,
+                                   ProseTokenRoleIR::control, false, error))
+          return false;
         break;
       }
       case BookControlKind::menu_start: {

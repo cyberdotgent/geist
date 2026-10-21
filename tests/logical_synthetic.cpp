@@ -297,7 +297,7 @@ void verify_control_ir_contract() {
 
   const auto malformed_spacing =
       geist::detail::assemble_logical_record_with_sources(
-          {{{2, 'c', '.', 's', 'p', ' ', '4', 'p', ' ', 'p', ' ', 'c'}}});
+          {{{2, 'c', '.', 's', 'p', ' ', '4', 'q', ' ', 'p', ' ', 'c'}}});
   const auto malformed_directive =
       geist::detail::assemble_logical_record_with_sources(
           {{{2, 'c', 'z', ' ', 'B', 'R', 'E', 'A', 'K', ' ', '4'}}});

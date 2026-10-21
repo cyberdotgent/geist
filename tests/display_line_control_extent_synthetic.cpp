@@ -284,6 +284,115 @@ void indented_si_is_display_text() {
           "indented SI prose was hidden, or genuine SI metadata leaked");
 }
 
+// GC28-183's generated Part Contents topics have no body text. Their last
+// metadata row is exactly `c.sp 1 p` (topic 1.1, logical record 65, tokens
+// 31..33, source bytes [0xef4b,0xef50)); the count and point unit are operands,
+// not the visible row `1 p`.
+void vertical_space_operands_do_not_leak() {
+  DecodedLogicalRecordSource record;
+  record.logical_record = 65;
+  append(record, 6, 1, {3, 0x2500});
+  append(record, 0x80, 2, {'c', '.', 's', 'p'});
+  append(record, 0x81, 2, {'1'});
+  append(record, 0x82, 2, {'p'});
+  refresh(record);
+
+  const auto spacing = std::find_if(
+      record.control_segments.begin(), record.control_segments.end(),
+      [](const auto &segment) {
+        return segment.kind == geist::detail::BookControlKind::spacing;
+      });
+  require(spacing != record.control_segments.end() && !spacing->malformed,
+          "the documented `c.sp 1 p` form was not decoded as spacing");
+  require(spacing != record.control_segments.end() &&
+              geist::detail::trim_ascii(slice(record, spacing->operand_range)) ==
+                  "1 p",
+          "the `c.sp 1 p` operands did not retain their exact source range");
+  require(geist::detail::best_effort_lines({record}, "").empty(),
+          "the invisible `c.sp 1 p` row leaked an operand as body text");
+}
+
+// A revision definition is metadata with exactly two operands. SC09-138
+// FRONT record 2 carries eleven lines such as `c.rev REL2 |`; IBMMMSTR
+// PREFACE.6 record 19 carries `c.rev PREF |`. None is visible body text.
+void revision_definitions_have_an_explicit_disposition() {
+  DecodedLogicalRecordSource record;
+  record.logical_record = 2;
+  append(record, 6, 1, {3, 0x2500});
+  append(record, 0x80, 2, {'c', '.', 'r', 'e', 'v'});
+  append(record, 0x81, 2, {'R', 'E', 'L', '2'});
+  append(record, 0x82, 2, {'|'});
+  refresh(record);
+
+  const auto revision = std::find_if(
+      record.control_segments.begin(), record.control_segments.end(),
+      [](const auto &segment) {
+        return segment.kind ==
+               geist::detail::BookControlKind::revision_definition;
+      });
+  require(revision != record.control_segments.end() && !revision->malformed,
+          "c.rev was not decoded as a revision definition");
+  require(revision != record.control_segments.end() &&
+              geist::detail::trim_ascii(slice(record, revision->operand_range)) ==
+                  "REL2 |",
+          "the c.rev operands did not retain their exact source range");
+  require(geist::detail::best_effort_lines({record}, "").empty(),
+          "an invisible c.rev definition leaked into source-row output");
+}
+
+// A topic whose complete body consists of a valid spacing instruction is a
+// genuine heading-only topic. Every source token still needs a typed ledger
+// disposition; the absence of a prose block is not itself a rejection.
+void a_fully_disposed_empty_topic_is_typed() {
+  DecodedLogicalRecordSource record;
+  record.logical_record = 65;
+  const auto control_line = [&](TokenWords opcode,
+                                std::vector<TokenWords> operands = {}) {
+    std::size_t length = 2;
+    for (const auto &operand : operands) length += 2;
+    append(record, static_cast<std::uint16_t>(length), 1, {3, 0x2500});
+    append(record, 0x8000, 2, std::move(opcode));
+    for (auto &operand : operands)
+      append(record, 0x8001, 2, std::move(operand));
+  };
+  control_line({'s', 'h', '1', '.', '1'});
+  control_line({'c', 't', 'o', 'p', 'i', 'c', 'n'}, {{'1'}});
+  control_line({'c', 'p', 'a', 'r', 'e', 'n', 't'});
+  control_line({'c', 'f', 'o', 'r', 'w', 'a', 'r', 'd', 'l', 'e', 'v', 'e', 'l'});
+  control_line({'c', 'b', 'a', 'c', 'k', 'l', 'e', 'v', 'e', 'l'});
+  control_line({'c', 's', 'u', 'm', 'm', 'a', 'r', 'y'},
+               {{'0'}, {'0'}, {'0'}});
+  control_line({'c', 'h', 'd', 'l', 'e', 'v', 'e', 'l'},
+               {{':', 'H', '3'}});
+  control_line({'c', 's', 'o', 'u', 'r', 'c', 'e', 'f', 'n'},
+               {{'T', 'E', 'S', 'T'}});
+  control_line({'S', 'T'}, {{'E', 'm', 'p', 't', 'y'}});
+  control_line({'c', '.', 's', 'p'}, {{'1'}, {'p'}});
+  refresh(record);
+  geist::detail::demote_display_line_owned_controls(record);
+
+  const std::vector<DecodedLogicalRecordSource> records{record};
+  const auto layout = geist::detail::extract_layout_ir(records);
+  std::string error;
+  const auto ownership =
+      geist::detail::build_verified_ownership_ir(records, layout, &error);
+  require(ownership.has_value(),
+          "empty-topic ownership failed: " + error);
+  if (!ownership) return;
+  const auto prose = geist::detail::extract_prose_topic_ir(
+      records, layout, *ownership, "Empty", nullptr, &error, nullptr);
+  require(prose.has_value(),
+          "a fully disposed heading-only topic was rejected: " + error);
+  if (!prose) return;
+  require(prose->blocks.empty() && prose->menu_items.empty() &&
+              prose->spans.empty(),
+          "the heading-only topic invented a body block");
+  require(geist::detail::verify_prose_topic_ir(
+              records, layout, *ownership, "Empty", nullptr, *prose, &error,
+              nullptr),
+          "the heading-only topic failed typed verification: " + error);
+}
+
 void a_metadata_length_byte_cannot_consume_the_first_word() {
   DecodedLogicalRecordSource record;
   record.logical_record = 151;
@@ -735,6 +844,9 @@ int main() {
   a_length_byte_is_never_display_text();
   a_length_byte_cannot_select_the_following_code();
   indented_si_is_display_text();
+  vertical_space_operands_do_not_leak();
+  revision_definitions_have_an_explicit_disposition();
+  a_fully_disposed_empty_topic_is_typed();
   a_metadata_length_byte_cannot_consume_the_first_word();
   font_operand_grammar_cannot_override_native_opcode_identity();
   an_indented_publication_number_is_not_a_topic_start();

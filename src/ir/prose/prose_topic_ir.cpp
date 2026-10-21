@@ -162,8 +162,11 @@ std::optional<ProseTopicIR> extract_prose_topic_ir(
                     " belongs to no block");
   }
   topic.ledger = std::move(ledger.entries);
-  if (topic.blocks.empty() && topic.menu_items.empty() && topic.spans.empty())
-    return reject("topic body has no prose blocks");
+  // A completely disposed source can legitimately have no body blocks. The
+  // heading still carries the topic identity, while the ledger proves that
+  // no visible token was silently lost (GC28-183 Part Contents topics and
+  // IBMMMSTR PREFACE.6.5). Rejecting here forced those headings through the
+  // source-row route and could turn invisible control operands into content.
   if (error != nullptr) error->clear();
   return topic;
 }
