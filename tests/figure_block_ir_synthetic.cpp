@@ -19,6 +19,8 @@
 #include "geist/boo.hpp"
 #include "geist/detail/ir/figure_block_ir.hpp"
 #include "geist/detail/lowering/figure_document_lowering.hpp"
+#include "geist/detail/render/document_html_renderer.hpp"
+#include "geist/detail/render/document_markdown_renderer.hpp"
 #include "geist/detail/core/internal.hpp"
 #include "geist/detail/ir/selector_ir.hpp"
 #include "test_failures.hpp"
@@ -250,9 +252,9 @@ find_figure(const Topic &topic, const std::string &anchor) {
 
 // A drawn figure can carry a second anchor after rows have already been
 // emitted, and its CSELECT can carry the six-field LNK tuple.  The source IR
-// keeps the exact row coordinate even though today's block-only DocumentIR
-// must report that placement as degraded; the lowered verbatim link retains
-// every alternative for the consumer resolver.
+// keeps the exact row coordinate. DocumentIR places the destination before
+// that row inside the same preformatted body; the lowered verbatim link
+// retains every alternative for the consumer resolver.
 void test_positioned_spot_anchor_and_lnk() {
   using namespace geist::detail;
   FigureSourceBlockIR figure;
@@ -326,24 +328,19 @@ void test_positioned_spot_anchor_and_lnk() {
   require(blocks.has_value(), "positioned figure lowering failed: " + error);
   if (!blocks)
     return;
-  require(blocks->size() == 3,
-          "positioned figure did not lower to two anchors and one body");
-  const auto *spot = std::get_if<AnchorBlockIR>(&(*blocks)[1].node);
-  require(spot && spot->id == "SPTMIDDLE",
-          "positioned figure lost its second anchor");
-  require((*blocks)[1].origin.degradation_code ==
-              "figure-body-anchor-position" &&
-              (*blocks)[1].origin.degradation_detail.find("line 1") !=
-                  std::string::npos,
-          "positioned figure did not retain the exact degraded line");
-  require((*blocks)[1].origin.slices.size() == 1 &&
-              (*blocks)[1].origin.slices.front().token_begin == 3 &&
-              (*blocks)[1].origin.slices.front().token_end == 4,
-          "positioned figure anchor did not claim its control token exactly");
-  const auto *body = std::get_if<PreformattedBlockIR>(&(*blocks)[2].node);
+  require(blocks->size() == 2,
+          "positioned figure did not lower to one anchor and one body");
+  const auto *body = std::get_if<PreformattedBlockIR>(&(*blocks)[1].node);
   require(body && body->line_links.size() == 2 &&
               body->line_links[1].size() == 1,
           "positioned figure lost its drawn-body LNK selector");
+  require(body && body->line_anchors.size() == 1 &&
+              body->line_anchors.front().line == 1 &&
+              body->line_anchors.front().anchor.id == "SPTMIDDLE" &&
+              body->line_anchors.front().origin.slices.size() == 1 &&
+              body->line_anchors.front().origin.slices.front().token_begin == 3 &&
+              body->line_anchors.front().origin.slices.front().token_end == 4,
+          "positioned figure anchor did not retain its line/source coordinate");
   if (body && body->line_links.size() == 2 &&
       body->line_links[1].size() == 1) {
     const auto &lowered = body->line_links[1].front();
@@ -355,17 +352,38 @@ void test_positioned_spot_anchor_and_lnk() {
                 lowered.heading_anchor == "HEADING",
             "positioned figure collapsed the LNK alternative tuple");
   }
-  for (const auto &slice : (*blocks)[2].origin.slices)
-    require(slice.token_begin != 3,
-            "spot-anchor token was also claimed by the figure body");
+  require((*blocks)[1].origin.fidelity == DocumentFidelityIR::typed,
+          "represented figure body anchor remained degraded");
+  const auto html = render_document_html_blocks(*blocks, {});
+  const auto markdown = render_document_markdown(
+      DocumentIR{{"TEST", "Positioned anchor"}, *blocks});
+  const auto html_before = html.find("before\n");
+  const auto html_anchor = html.find("id=\"SPTMIDDLE\"");
+  const auto html_after = html.find("open <a");
+  require(html.find("<pre") != std::string::npos &&
+              html_before < html_anchor && html_anchor < html_after &&
+              html.find("<pre", html.find("<pre") + 1) == std::string::npos,
+          "HTML moved the positioned anchor outside its single body: " + html);
+  const auto md_before = markdown.find("before\n");
+  const auto md_anchor = markdown.find("<a id=\"SPTMIDDLE\"></a>");
+  const auto md_after = markdown.find("open <a");
+  require(md_before < md_anchor && md_anchor < md_after &&
+              markdown.find("<pre", markdown.find("<pre") + 1) ==
+                  std::string::npos,
+          "Markdown moved the positioned anchor outside its single body: " +
+              markdown);
   require(verify_figure_document_blocks(figure, *blocks, &error),
           "positioned figure lowering verification failed: " + error);
 
   auto mutated = *blocks;
-  auto &mutated_body = std::get<PreformattedBlockIR>(mutated[2].node);
+  auto &mutated_body = std::get<PreformattedBlockIR>(mutated[1].node);
   mutated_body.line_links[1][0].alternatives[3] = "SC99-9999";
   require(!verify_figure_document_blocks(figure, mutated),
           "mutated LNK alternative was accepted");
+  mutated = *blocks;
+  ++std::get<PreformattedBlockIR>(mutated[1].node).line_anchors[0].line;
+  require(!verify_figure_document_blocks(figure, mutated),
+          "mutated positioned anchor line was accepted");
 }
 
 

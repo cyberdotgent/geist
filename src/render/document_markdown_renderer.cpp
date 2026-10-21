@@ -364,11 +364,20 @@ void append_preformatted_html_block(
   sink.boundary(node.styled_lines.empty() ? "<pre>\n" :
                     "<pre class=\"geist-preformatted\">\n",
                 "preformatted block open", origin);
+  std::size_t next_anchor = 0;
   for (std::size_t index = 0; index < node.lines.size(); ++index) {
     const PathScope step(sink, "line", index);
     const auto *line_origin = index < node.line_origins.size()
                                   ? &node.line_origins[index]
                                   : origin;
+    while (next_anchor < node.line_anchors.size() &&
+           node.line_anchors[next_anchor].line == index) {
+      const auto &placed = node.line_anchors[next_anchor];
+      sink.syntax("<a id=\"" + escape_html_attribute(placed.anchor.id) +
+                      "\"></a>",
+                  "preformatted anchor", &placed.origin);
+      ++next_anchor;
+    }
     if (!node.styled_lines.empty()) {
       sink.html(render_document_html_inlines(node.styled_lines[index], {},
                                               options.resolve_cross_reference),
@@ -657,7 +666,8 @@ void append_block(RenderSink &sink, const BlockIR &block,
           // source rows selected for verbatim HTML serialization. It may be
           // present with no accepted links; that still preserves the exact
           // source-row route instead of silently changing it to a fence.
-          if (!node.styled_lines.empty() || !node.line_links.empty())
+          if (!node.styled_lines.empty() || !node.line_links.empty() ||
+              !node.line_anchors.empty())
             append_preformatted_html_block(sink, node, block_origin, options);
           else
             append_fenced_block(sink, node.lines, block_origin,

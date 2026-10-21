@@ -152,6 +152,31 @@ std::vector<LinkTarget> document_link_targets(const DocumentIR& document) {
           } else if constexpr (std::is_same_v<T, TableBlockIR>) {
             for (const auto& row : node.rows)
               for (const auto& cell : row.cells) self(self, cell.blocks);
+          } else if constexpr (std::is_same_v<T, PreformattedBlockIR>) {
+            for (const auto& placed : node.line_anchors) {
+              if (placed.anchor.id.empty() ||
+                  placed.anchor.role == AnchorRoleIR::local)
+                continue;
+              LinkTarget target;
+              target.fragment = placed.anchor.id;
+              switch (placed.anchor.role) {
+              case AnchorRoleIR::figure:
+                target.kind = LinkTargetKind::figure;
+                target.id = strip_object_prefix(placed.anchor.id, "fig");
+                break;
+              case AnchorRoleIR::table:
+                target.kind = LinkTargetKind::table;
+                target.id = table_reference_id(
+                    strip_object_prefix(placed.anchor.id, "tbl"));
+                break;
+              case AnchorRoleIR::cross_reference:
+              case AnchorRoleIR::local:
+                target.kind = LinkTargetKind::anchor;
+                target.id = placed.anchor.id;
+                break;
+              }
+              targets.push_back(std::move(target));
+            }
           }
         },
         block.node);

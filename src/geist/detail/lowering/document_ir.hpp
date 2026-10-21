@@ -250,6 +250,16 @@ struct VerbatimRowIR {
   std::vector<VerbatimLinkIR> links;
 };
 
+// A zero-width named destination that the source opens immediately before a
+// particular preformatted row. Keeping it on the row ledger preserves one
+// continuous drawing; splitting the body into blocks would add boundaries
+// the source does not contain.
+struct PreformattedAnchorIR {
+  std::size_t line = 0;
+  AnchorBlockIR anchor;
+  DocumentNodeOriginIR origin;
+};
+
 struct PreformattedBlockIR {
   std::vector<std::string> lines;
   // Optional per-line provenance.  Either empty, meaning the block's own
@@ -269,6 +279,10 @@ struct PreformattedBlockIR {
   // has any link is rendered as a `<pre>` instead -- the same form the
   // verbatim route uses -- and the rows keep their own bytes either way.
   std::vector<std::vector<VerbatimLinkIR>> line_links;
+  // Sorted by line. Multiple distinct anchors may open the same line in
+  // source order. Each is emitted immediately before that row inside the
+  // same `<pre>` element.
+  std::vector<PreformattedAnchorIR> line_anchors;
   // Optional styled, source-positioned rows. When present, every inline row
   // flattens byte-for-byte to the matching entry in `lines`, including its
   // spaces, and has a matching line origin. Links live in these inlines,

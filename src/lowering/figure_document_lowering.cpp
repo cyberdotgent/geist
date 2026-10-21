@@ -113,6 +113,18 @@ bool same_line_links(const std::vector<std::vector<VerbatimLinkIR>> &left,
   return true;
 }
 
+bool same_line_anchors(const std::vector<PreformattedAnchorIR> &left,
+                       const std::vector<PreformattedAnchorIR> &right) {
+  if (left.size() != right.size()) return false;
+  for (std::size_t index = 0; index < left.size(); ++index)
+    if (left[index].line != right[index].line ||
+        left[index].anchor.id != right[index].anchor.id ||
+        left[index].anchor.role != right[index].anchor.role ||
+        !same_origin(left[index].origin, right[index].origin))
+      return false;
+  return true;
+}
+
 void add_sorted_rows(DocumentNodeOriginIR &origin,
                      std::vector<DocumentSourceRowIR> rows) {
   std::sort(rows.begin(), rows.end(), [](const auto &a, const auto &b) {
@@ -211,9 +223,12 @@ const FigurePictureIR *picture_anchored_by(const FigureSourceBlockIR &figure,
 
 bool append_spot_anchors(const FigureSourceBlockIR &figure,
                          std::vector<BlockIR> &blocks, std::string *error,
-                         const FigurePictureIR *picture = nullptr) {
+                         const FigurePictureIR *picture = nullptr,
+                         bool unpositioned_only = false) {
   for (const auto &spot : figure.spot_anchors) {
     if (picture_anchored_by(figure, spot) != picture)
+      continue;
+    if (unpositioned_only && spot.body_line)
       continue;
     BlockIR node;
     node.node = AnchorBlockIR{spot.id};
@@ -274,7 +289,7 @@ lower_preformatted_figure(const FigureSourceBlockIR &figure,
   }
   blocks.push_back(std::move(anchor));
 
-  if (!append_spot_anchors(figure, blocks, error))
+  if (!append_spot_anchors(figure, blocks, error, nullptr, true))
     return std::nullopt;
 
   PreformattedBlockIR body;
@@ -283,6 +298,33 @@ lower_preformatted_figure(const FigureSourceBlockIR &figure,
     body.lines.push_back(line.text);
     body_rows.insert(body_rows.end(), line.rows.begin(), line.rows.end());
   }
+  for (const auto &spot : figure.spot_anchors) {
+    if (picture_anchored_by(figure, spot) != nullptr || !spot.body_line)
+      continue;
+    if (*spot.body_line >= body.lines.size()) {
+      fail(error, "figure spot anchor line is outside its body");
+      return std::nullopt;
+    }
+    PreformattedAnchorIR placed;
+    placed.line = *spot.body_line;
+    placed.anchor = AnchorBlockIR{spot.id};
+    placed.origin.derivation = DocumentDerivationIR::semantic_lowering;
+    placed.origin.detail = "figure spot anchor";
+    add_cell_slices(placed.origin, figure.cells, [&](const auto &cell) {
+      return cell.role == FigureCellRoleIR::control &&
+             cell.logical_record == spot.logical_record &&
+             cell.segment_index == spot.segment_index;
+    });
+    if (placed.origin.slices.empty()) {
+      fail(error, "figure spot anchor has no source slice");
+      return std::nullopt;
+    }
+    body.line_anchors.push_back(std::move(placed));
+  }
+  std::stable_sort(body.line_anchors.begin(), body.line_anchors.end(),
+                   [](const auto &left, const auto &right) {
+                     return left.line < right.line;
+                   });
 
   // Place the drawn body's cross references on the rows they mark.
   //
@@ -416,6 +458,18 @@ lower_preformatted_figure(const FigureSourceBlockIR &figure,
     return true;
   });
   add_sorted_rows(block.origin, std::move(body_rows));
+  for (const auto &placed :
+       std::get<PreformattedBlockIR>(block.node).line_anchors)
+    block.origin.slices.insert(block.origin.slices.end(),
+                               placed.origin.slices.begin(),
+                               placed.origin.slices.end());
+  std::sort(block.origin.slices.begin(), block.origin.slices.end(),
+            [](const auto &left, const auto &right) {
+              return std::make_tuple(left.logical_record, left.segment_index,
+                                     left.token_begin, left.token_end) <
+                     std::make_tuple(right.logical_record, right.segment_index,
+                                     right.token_begin, right.token_end);
+            });
   if (!unexpressed.empty()) {
     // Hosted BookServer wraps the covered columns of a drawn body in an
     // anchor (FA1PLMM0 5.0 `Figure 18 in topic 5.1.1`, SC09-138 8.5.4.5 the
@@ -641,7 +695,9 @@ bool verify_figure_document_blocks(const FigureSourceBlockIR &figure,
       const auto &actual_node =
           std::get<PreformattedBlockIR>(actual.node);
       if (node->lines != actual_node.lines ||
-          !same_line_links(node->line_links, actual_node.line_links))
+          !same_line_links(node->line_links, actual_node.line_links) ||
+          !same_line_anchors(node->line_anchors,
+                             actual_node.line_anchors))
         return fail(error, "figure body lines differ from canonical");
     } else if (const auto *node =
                    std::get_if<ParagraphBlockIR>(&expected.node)) {

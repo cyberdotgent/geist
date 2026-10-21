@@ -188,6 +188,8 @@ void collect_child_origins(const BlockNodeIR& node,
           for (const auto& item : block.items) out.push_back(&item.origin);
         } else if constexpr (std::is_same_v<T, PreformattedBlockIR>) {
           for (const auto& line : block.line_origins) out.push_back(&line);
+          for (const auto& anchor : block.line_anchors)
+            out.push_back(&anchor.origin);
           for (const auto& line : block.styled_lines)
             collect_inline_origins(line, out);
         }
@@ -370,6 +372,21 @@ bool verify_block(const BlockIR& block, bool nested, std::string* error) {
                 break;
               }
             }
+          }
+          std::size_t previous_line = 0;
+          bool first_anchor = true;
+          for (const auto& anchor : node.line_anchors) {
+            if (anchor.line >= node.lines.size())
+              return fail(error,
+                          "preformatted anchor line is outside its block");
+            if (!first_anchor && anchor.line < previous_line)
+              return fail(error,
+                          "preformatted anchors are not ordered by line");
+            if (anchor.anchor.id.empty())
+              return fail(error, "preformatted anchor has no id");
+            if (!verify_origin(anchor.origin, error)) return false;
+            previous_line = anchor.line;
+            first_anchor = false;
           }
           if (!node.styled_lines.empty()) {
             if (node.styled_lines.size() != node.lines.size() ||
@@ -824,6 +841,11 @@ std::string format_document_ir(const DocumentIR& document) {
                 out << " styled=";
                 format_inlines(out, node.styled_lines[line]);
               }
+              for (const auto& anchor : node.line_anchors)
+                if (anchor.line == line) {
+                  out << " anchor='" << anchor.anchor.id << "'";
+                  format_entry_origin(out, anchor.origin);
+                }
             }
             out << ']';
           } else if constexpr (std::is_same_v<T, NoteBlockIR>) {

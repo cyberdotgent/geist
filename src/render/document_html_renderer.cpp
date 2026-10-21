@@ -428,9 +428,21 @@ void append_preformatted(HtmlSink &sink, const PreformattedBlockIR &node,
                          const DocumentNodeOriginIR &origin,
                          const std::string &block_class) {
   open_block(sink, "pre", block_class, origin);
+  std::size_t next_anchor = 0;
   for (std::size_t index = 0; index < node.lines.size(); ++index) {
     if (index != 0)
       sink.newline();
+    while (next_anchor < node.line_anchors.size() &&
+           node.line_anchors[next_anchor].line == index) {
+      const auto &placed = node.line_anchors[next_anchor];
+      sink.markup("<span");
+      sink.attribute("class", std::string("geist-anchor geist-anchor--") +
+                                  anchor_role_name(placed.anchor.role));
+      sink.attribute("id", prefixed_id(placed.anchor.id, sink.options()));
+      append_degradation_attributes(sink, placed.origin);
+      sink.markup("></span>");
+      ++next_anchor;
+    }
     if (!node.styled_lines.empty()) {
       // HTML strips a literal LF immediately after <pre>. An empty first
       // source row must nevertheless occupy its own displayed row.
