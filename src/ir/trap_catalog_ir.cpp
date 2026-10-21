@@ -88,6 +88,34 @@ bool structural_padding_words(const TokenWords &words) {
          });
 }
 
+bool native_list_bullet(const DecodedLogicalRecordSource &record,
+                        std::size_t token) {
+  const auto spaces = [](const LogicalTokenIR &candidate) {
+    return !candidate.decoded_words.empty() &&
+           std::all_of(candidate.decoded_words.begin(),
+                       candidate.decoded_words.end(),
+                       [](const auto word) { return word == ' '; });
+  };
+  if (token >= record.ir.tokens.size() ||
+      record.ir.tokens[token].decoded_words != TokenWords{0x2666})
+    return false;
+  const auto *line = display_line_of_token(record, token);
+  if (line == nullptr || token <= line->prefix_token + 1 ||
+      token + 2 >= line->token_end ||
+      !spaces(record.ir.tokens[token - 1]) ||
+      record.ir.tokens[token + 1].decoded_words != TokenWords{' ', ' '})
+    return false;
+  for (auto before = line->prefix_token + 1; before < token; ++before)
+    if (!spaces(record.ir.tokens[before]))
+      return false;
+  for (auto after = token + 2; after < line->token_end; ++after)
+    if (std::any_of(record.ir.tokens[after].decoded_words.begin(),
+                    record.ir.tokens[after].decoded_words.end(),
+                    [](const auto word) { return word > ' '; }))
+      return true;
+  return false;
+}
+
 bool layout_glyph(char ch) {
   return std::string("-<>/\"=()[{").find(ch) != std::string::npos;
 }
@@ -289,17 +317,6 @@ bool nondrawing_control(const SourceIndex &index,
   return true;
 }
 
-bool empty_line_between(const SourceIndex &index, std::uint32_t record,
-                        std::size_t from_token, std::size_t to_token) {
-  const auto found = index.empty_line_prefixes.find(record);
-  if (found == index.empty_line_prefixes.end())
-    return false;
-  for (const auto prefix : found->second)
-    if (prefix > from_token && prefix < to_token)
-      return true;
-  return false;
-}
-
 bool all_space_token(const LogicalTokenIR &token) {
   return !token.decoded_words.empty() &&
          std::all_of(token.decoded_words.begin(), token.decoded_words.end(),
@@ -380,6 +397,7 @@ TrapCellRoleIR marker_role(const DecodedLogicalRecordSource &record,
 
 struct Piece {
   std::size_t token = 0;
+  std::size_t column = 0;
   std::string text;
   bool glue = false;
   // Reader spacing before this piece (one space per inserted or padding
@@ -388,7 +406,179 @@ struct Piece {
   std::size_t cell_begin = 0;
   std::size_t columns = 0;
   std::vector<std::size_t> words;
+  std::vector<std::size_t> cells;
 };
+
+struct NativeListMarker {
+  std::size_t token = 0;
+  std::size_t column = 0;
+  std::size_t cell_begin = 0;
+  std::size_t cell_end = 0;
+  DocumentSourceSliceIR source;
+};
+
+using CellPositions = std::map<CellKey, std::size_t>;
+
+std::size_t append_unique_cell(std::vector<TrapSourceCellIR> &cells,
+                               CellPositions &positions,
+                               const TrapSourceCellIR &cell) {
+  const auto key = CellKey{cell.logical_record, cell.token_index,
+                           cell.word_index};
+  const auto inserted = positions.emplace(key, cells.size());
+  if (inserted.second) {
+    cells.push_back(cell);
+    return cells.size() - 1;
+  }
+  auto &existing = cells[inserted.first->second];
+  if (existing.role == TrapCellRoleIR::layout_marker &&
+      cell.role != TrapCellRoleIR::layout_marker)
+    existing.role = cell.role;
+  return inserted.first->second;
+}
+
+std::vector<std::size_t> empty_lines_between(const SourceIndex &index,
+                                             std::uint32_t record,
+                                             std::size_t from_token,
+                                             std::size_t to_token) {
+  std::vector<std::size_t> result;
+  const auto found = index.empty_line_prefixes.find(record);
+  if (found == index.empty_line_prefixes.end())
+    return result;
+  for (const auto prefix : found->second)
+    if (prefix > from_token && prefix < to_token)
+      result.push_back(prefix);
+  return result;
+}
+
+bool same_row(const DocumentSourceRowIR &left,
+              const DocumentSourceRowIR &right) {
+  return left.display_run == right.display_run &&
+         left.row_index == right.row_index;
+}
+
+void add_unique_row(std::vector<DocumentSourceRowIR> &rows,
+                    const DocumentSourceRowIR &row) {
+  if (std::none_of(rows.begin(), rows.end(),
+                   [&](const auto &candidate) {
+                     return same_row(candidate, row);
+                   }))
+    rows.push_back(row);
+}
+
+bool append_paragraph(TrapFlowParagraphIR &out,
+                      TrapFlowParagraphIR piece) {
+  if (piece.text.empty())
+    return true;
+  const auto text_base = out.text.size() + (out.text.empty() ? 0 : 1);
+  if (!out.text.empty()) {
+    out.text.push_back(' ');
+    TrapTextProjectionIR separator;
+    separator.begin = text_base - 1;
+    separator.end = text_base;
+    // Segment concatenation inserts this separator. Do not assign the
+    // intervening controls to it merely because their ledger cells happen to
+    // lie between the adjacent text segments.
+    separator.cell_begin = piece.cell_begin;
+    separator.cell_end = piece.cell_begin;
+    separator.kind = TrapTextProjectionKindIR::decoded_separator;
+    out.projection.push_back(separator);
+  }
+  for (auto projection : piece.projection) {
+    projection.begin += text_base;
+    projection.end += text_base;
+    out.projection.push_back(std::move(projection));
+  }
+  for (auto highlight : piece.highlights) {
+    highlight.begin += text_base;
+    highlight.end += text_base;
+    out.highlights.push_back(std::move(highlight));
+  }
+  for (auto link : piece.links) {
+    link.begin += text_base;
+    link.end += text_base;
+    out.links.push_back(std::move(link));
+  }
+  out.text += piece.text;
+  if (!out.display_text.empty() && !piece.display_text.empty())
+    out.display_text.push_back(' ');
+  out.display_text += piece.display_text;
+  out.source_slices.insert(out.source_slices.end(),
+                           piece.source_slices.begin(),
+                           piece.source_slices.end());
+  for (const auto &row : piece.source_rows)
+    add_unique_row(out.source_rows, row);
+  if (out.cell_begin == out.cell_end)
+    out.cell_begin = piece.cell_begin;
+  out.cell_end = piece.cell_end;
+  return true;
+}
+
+void append_flow(TrapFlowSequenceIR &out, TrapFlowSequenceIR piece) {
+  for (auto &block : piece.blocks) {
+    if (!out.blocks.empty() &&
+        std::holds_alternative<TrapFlowParagraphIR>(out.blocks.back().value) &&
+        std::holds_alternative<TrapFlowParagraphIR>(block.value) &&
+        std::get<TrapFlowParagraphIR>(block.value).break_before.empty()) {
+      append_paragraph(std::get<TrapFlowParagraphIR>(out.blocks.back().value),
+                       std::move(std::get<TrapFlowParagraphIR>(block.value)));
+      continue;
+    }
+    out.blocks.push_back(std::move(block));
+  }
+}
+
+bool add_highlights(TrapFlowSequenceIR &flow,
+                    const std::vector<TrapBodyHighlightIR> &ranges) {
+  for (const auto &range : ranges) {
+    bool placed = false;
+    std::size_t base = 0;
+    const auto place = [&](const auto &self,
+                           std::vector<TrapFlowBlockIR> &blocks) -> void {
+      for (auto &block : blocks) {
+        if (placed)
+          return;
+        if (std::holds_alternative<TrapFlowParagraphIR>(block.value)) {
+          auto &paragraph = std::get<TrapFlowParagraphIR>(block.value);
+          const auto limit = base + paragraph.text.size();
+          if (range.begin >= base && range.end <= limit) {
+            auto local = range;
+            local.begin -= base;
+            local.end -= base;
+            paragraph.highlights.push_back(std::move(local));
+            placed = true;
+            return;
+          }
+          base = limit + 1;
+        } else if (std::holds_alternative<TrapFlowListIR>(block.value)) {
+          for (auto &item : std::get<TrapFlowListIR>(block.value).items)
+            self(self, item.blocks);
+        }
+      }
+    };
+    place(place, flow.blocks);
+    if (!placed)
+      return false;
+  }
+  return true;
+}
+
+TrapFlowParagraphIR *first_paragraph(TrapFlowSequenceIR &flow) {
+  const auto find = [&](const auto &self,
+                        std::vector<TrapFlowBlockIR> &blocks)
+      -> TrapFlowParagraphIR * {
+    for (auto &block : blocks) {
+      if (std::holds_alternative<TrapFlowParagraphIR>(block.value))
+        return &std::get<TrapFlowParagraphIR>(block.value);
+      if (std::holds_alternative<TrapFlowListIR>(block.value))
+        for (auto &item : std::get<TrapFlowListIR>(block.value).items)
+          if (auto *paragraph = self(self, item.blocks);
+              paragraph != nullptr)
+            return paragraph;
+    }
+    return nullptr;
+  };
+  return find(find, flow.blocks);
+}
 
 // Projects one decoded segment payload into text, ledgering every payload
 // cell with exactly one role.
@@ -402,6 +592,7 @@ struct Piece {
 bool walk_payload(const DecodedLogicalRecordSource &record,
                   const ControlSegmentIR &segment, const SourceIndex &index,
                   TrapTextIR &out, std::vector<TrapSourceCellIR> &cells,
+                  CellPositions &cell_positions,
                   std::string *error, bool operand_tail = false,
                   std::size_t highlighted_columns = 0,
                   bool whole_segment = false,
@@ -430,6 +621,7 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
         selected_glyphs.emplace(cell.token, cell.word_index);
   }
   std::vector<Piece> pieces;
+  std::vector<NativeListMarker> list_markers;
   std::string display;
   std::string gap;
   bool pending_space = false;
@@ -455,6 +647,12 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
     if (pieces.empty() || pieces.back().token != token) {
       Piece piece;
       piece.token = token;
+      if (const auto *line = display_line_of_token(record, token);
+          line != nullptr) {
+        for (auto before = line->prefix_token + 1; before < token; ++before)
+          piece.column += record.ir.tokens[before].decoded_words.size();
+        piece.column += ordinal;
+      }
       piece.glue = glue || (!pending_space && !pieces.empty());
       piece.display_gap = piece.glue ? std::string{} : gap;
       piece.cell_begin = cells.size();
@@ -466,6 +664,7 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
     gap.clear();
     pieces.back().text += token_words_to_ascii({word});
     pieces.back().words.push_back(ordinal);
+    pieces.back().cells.push_back(cells.size());
     ++pieces.back().columns;
     ++running;
   };
@@ -484,11 +683,36 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
         word >= record.ir.tokens[token].decoded_words.size())
       return fail(error, "trap payload word has no token provenance");
     const auto value = record.ir.tokens[token].decoded_words[word];
+    const auto is_list_marker = word == 0 && native_list_bullet(record, token);
     if (!first_token)
       first_token = token;
-    if (!pieces.empty() && last_token &&
-        empty_line_between(index, record.logical_record, *last_token, token))
-      out.paragraph_break = true;
+    if (last_token && *last_token != token) {
+      const auto boundaries = empty_lines_between(
+          index, record.logical_record, *last_token, token);
+      if (!boundaries.empty())
+        out.paragraph_break = true;
+      for (const auto prefix : boundaries) {
+        const auto already = std::find_if(
+            cells.begin(), cells.end(), [&](const auto &cell) {
+              return cell.logical_record == record.logical_record &&
+                     cell.token_index == prefix;
+            });
+        if (already != cells.end())
+          continue;
+        for (std::size_t boundary_word = 0;
+             boundary_word <
+             record.ir.tokens[prefix].decoded_words.size(); ++boundary_word) {
+          const auto owned = index.cells.find(
+              {record.logical_record, prefix, boundary_word});
+          cells.push_back(
+              {record.logical_record, prefix, boundary_word,
+               record.ir.tokens[prefix].decoded_words[boundary_word],
+               owned == index.cells.end() ? SourceDisposition::opaque
+                                          : owned->second->disposition,
+               TrapCellRoleIR::layout_marker});
+        }
+      }
+    }
     last_token = token;
     const auto covering = index.rows_by_token.find({record.logical_record, token});
     if (covering != index.rows_by_token.end()) {
@@ -507,7 +731,21 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
     cell.word = value;
     cell.disposition = disposition;
     const auto marker = index.marker_rows.find({record.logical_record, token});
-    if (is_display_line_length_token(record, token) ||
+    if (is_list_marker) {
+      const auto *line = display_line_of_token(record, token);
+      if (line == nullptr)
+        return fail(error, "trap native list marker has no display row");
+      std::size_t column = 0;
+      for (auto before = line->prefix_token + 1; before < token; ++before)
+        column += record.ir.tokens[before].decoded_words.size();
+      cell.role = TrapCellRoleIR::layout_marker;
+      list_markers.push_back(
+          {token, column, cells.size(), cells.size() + 1,
+           token_slice(record, segment.segment_index, token, token + 1)});
+      pending_space = true;
+      if (gap.empty())
+        gap.push_back(' ');
+    } else if (is_display_line_length_token(record, token) ||
         index.body_control_tokens.count({record.logical_record, token}) != 0) {
       // The display line's length byte is the row-control slot, always and
       // only; whatever word it resolves to it draws nothing. Nor does a
@@ -635,7 +873,19 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
       cell.role = TrapCellRoleIR::unrowed_text;
       emit_char(token, word, value, false);
     }
-    cells.push_back(cell);
+    const auto prospective_index = cells.size();
+    const auto cell_index = append_unique_cell(cells, cell_positions, cell);
+    if (cell_index != prospective_index) {
+      for (auto &piece : pieces)
+        for (auto &piece_cell : piece.cells)
+          if (piece_cell == prospective_index)
+            piece_cell = cell_index;
+      for (auto &marker : list_markers)
+        if (marker.cell_begin == prospective_index) {
+          marker.cell_begin = cell_index;
+          marker.cell_end = cell_index + 1;
+        }
+    }
   }
   // A single layout glyph that closes the segment, or that a padding run of
   // two or more spaces follows, is the marker slot of a display line whose
@@ -703,14 +953,16 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
     display += piece.text;
   }
   text = collapse(std::move(text));
+  std::optional<TrapTextLinkIR> local_link;
   if (selector_source) {
-    auto link = project_trap_selector_link(*selector_source, text, glyph_offsets,
-                                           segment_slice(record, segment), error);
-    if (!link) return false;
+    local_link = project_trap_selector_link(*selector_source, text, glyph_offsets,
+                                            segment_slice(record, segment), error);
+    if (!local_link) return false;
+    auto link = *local_link;
     const auto base = out.text.size() + (out.text.empty() ? 0 : 1);
-    link->begin += base;
-    link->end += base;
-    out.links.push_back(std::move(*link));
+    link.begin += base;
+    link.end += base;
+    out.links.push_back(std::move(link));
   }
   if (!out.text.empty() && !text.empty())
     out.text.push_back(' ');
@@ -723,6 +975,224 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
     out.source_slices.push_back(token_slice(record, segment.segment_index,
                                             *first_token, *last_token + 1));
   out.source_rows.insert(out.source_rows.end(), rows.begin(), rows.end());
+
+  // Build the canonical paragraph-local projection from the same kept source
+  // pieces. This is intentionally done before any later segment is appended:
+  // byte coordinates, source cells and blank-row controls therefore stay
+  // local to the paragraph they actually name.
+  TrapFlowSequenceIR flow;
+  TrapFlowParagraphIR paragraph;
+  struct ListFrame {
+    std::size_t column = 0;
+    TrapFlowListIR list;
+    TrapFlowListItemIR item;
+    bool has_item = false;
+  };
+  std::vector<ListFrame> lists;
+  std::optional<std::size_t> paragraph_first_token;
+  std::optional<std::size_t> paragraph_last_token;
+  std::optional<std::size_t> previous_event_token;
+  const auto destination = [&]() -> std::vector<TrapFlowBlockIR> & {
+    return lists.empty() ? flow.blocks : lists.back().item.blocks;
+  };
+  const auto finish_paragraph = [&]() {
+    if (!paragraph_first_token || !paragraph_last_token)
+      return;
+    paragraph.display_text = trim_ascii(std::move(paragraph.display_text));
+    paragraph.cell_end = paragraph.projection.back().cell_end;
+    paragraph.source_slices.push_back(token_slice(
+        record, segment.segment_index, *paragraph_first_token,
+        *paragraph_last_token + 1));
+    destination().push_back({std::move(paragraph)});
+    paragraph = TrapFlowParagraphIR{};
+    paragraph_first_token.reset();
+    paragraph_last_token.reset();
+  };
+  const auto finish_item = [&]() {
+    finish_paragraph();
+    if (!lists.empty() && lists.back().has_item) {
+      lists.back().list.items.push_back(std::move(lists.back().item));
+      lists.back().item = TrapFlowListItemIR{};
+      lists.back().has_item = false;
+    }
+  };
+  const auto close_list = [&]() {
+    finish_item();
+    auto list = std::move(lists.back().list);
+    lists.pop_back();
+    auto block = TrapFlowBlockIR{std::move(list)};
+    if (lists.empty())
+      flow.blocks.push_back(std::move(block));
+    else
+      lists.back().item.blocks.push_back(std::move(block));
+  };
+  std::vector<TrapParagraphBoundaryIR> pending_boundaries;
+  const auto collect_boundaries = [&](const std::size_t from,
+                                      const std::size_t to) {
+    for (const auto prefix :
+         empty_lines_between(index, record.logical_record, from, to)) {
+        std::size_t cell_begin = cells.size(), cell_end = cells.size();
+        for (std::size_t cell = 0; cell < cells.size(); ++cell)
+          if (cells[cell].logical_record == record.logical_record &&
+              cells[cell].token_index == prefix) {
+            cell_begin = std::min(cell_begin, cell);
+            cell_end = std::max(cell_end == cells.size() ? cell + 1 : cell_end,
+                                cell + 1);
+          }
+        if (cell_begin == cells.size())
+          return false;
+        pending_boundaries.push_back(
+            {token_slice(record, segment.segment_index, prefix, prefix + 1),
+             cell_begin, cell_end});
+    }
+    return true;
+  };
+  const auto begin_item = [&](const NativeListMarker &marker) {
+    lists.back().item = TrapFlowListItemIR{};
+    lists.back().item.marker_source = marker.source;
+    lists.back().item.marker_cell_begin = marker.cell_begin;
+    lists.back().item.marker_cell_end = marker.cell_end;
+    lists.back().has_item = true;
+  };
+  const auto accept_marker = [&](const NativeListMarker &marker) {
+    finish_paragraph();
+    if (lists.empty()) {
+      ListFrame frame;
+      frame.column = marker.column;
+      lists.push_back(std::move(frame));
+      begin_item(marker);
+      return true;
+    }
+    if (marker.column > lists.back().column) {
+      if (!lists.back().has_item)
+        return false;
+      ListFrame frame;
+      frame.column = marker.column;
+      lists.push_back(std::move(frame));
+      begin_item(marker);
+      return true;
+    }
+    while (!lists.empty() && marker.column < lists.back().column)
+      close_list();
+    if (lists.empty() || marker.column != lists.back().column)
+      return false;
+    finish_item();
+    begin_item(marker);
+    return true;
+  };
+  const auto accept_piece = [&](const Piece &piece) {
+    if (!paragraph_first_token)
+      paragraph_first_token = piece.token;
+    paragraph_last_token = piece.token;
+    if (paragraph.text.empty()) {
+      if (piece.cells.empty())
+        return false;
+      paragraph.cell_begin = piece.cells.front();
+      paragraph.break_before = std::move(pending_boundaries);
+      pending_boundaries.clear();
+    }
+    if (!paragraph.text.empty() && !piece.glue) {
+      const auto begin = paragraph.text.size();
+      paragraph.text.push_back(' ');
+      const auto next_cell = piece.cells.empty() ? paragraph.cell_end
+                                                 : piece.cells.front();
+      const auto previous_cell = paragraph.projection.empty()
+                                     ? paragraph.cell_begin
+                                     : paragraph.projection.back().cell_end;
+      paragraph.projection.push_back(
+          {begin, begin + 1, previous_cell, next_cell,
+           previous_cell == next_cell
+               ? TrapTextProjectionKindIR::decoded_separator
+               : TrapTextProjectionKindIR::source_spacing});
+    }
+    if (!paragraph.display_text.empty() && !piece.glue)
+      paragraph.display_text += piece.display_gap;
+    paragraph.display_text += piece.text;
+    for (std::size_t word_index = 0; word_index < piece.words.size(); ++word_index) {
+      const auto ordinal = piece.words[word_index];
+      const auto value = record.tokens[piece.token][ordinal];
+      if (value == ' ')
+        continue;
+      const auto glyph = token_words_to_ascii({value});
+      const auto begin = paragraph.text.size();
+      paragraph.text += glyph;
+      const auto cell = piece.cells[word_index];
+      paragraph.projection.push_back(
+          {begin, begin + glyph.size(), cell, cell + 1,
+           TrapTextProjectionKindIR::source_glyph});
+    }
+    const auto covering = index.rows_by_token.find({record.logical_record,
+                                                     piece.token});
+    if (covering != index.rows_by_token.end())
+      add_unique_row(paragraph.source_rows,
+                     {covering->second.run->id, covering->second.row_index});
+    return true;
+  };
+  std::size_t piece_index = 0, marker_index = 0;
+  while (piece_index < pieces.size() || marker_index < list_markers.size()) {
+    const auto marker_next = marker_index < list_markers.size() &&
+        (piece_index == pieces.size() ||
+         list_markers[marker_index].token < pieces[piece_index].token);
+    const auto token = marker_next ? list_markers[marker_index].token
+                                   : pieces[piece_index].token;
+    if (previous_event_token) {
+      const auto prior_boundary_count = pending_boundaries.size();
+      if (!collect_boundaries(*previous_event_token, token))
+        return fail(error, "trap paragraph boundary has no ledger cell");
+      if (pending_boundaries.size() != prior_boundary_count) {
+        finish_paragraph();
+        if (!marker_next)
+          // A blank row does not itself end a list item. Native indentation
+          // does: a following paragraph deeper than the marker remains in
+          // the current item, while a row at or left of the marker returns to
+          // the containing flow.
+          while (!lists.empty() &&
+                 pieces[piece_index].column <= lists.back().column)
+            close_list();
+      }
+    }
+    if (marker_next) {
+      if (!accept_marker(list_markers[marker_index++]))
+        return fail(error, "trap native list indentation is inconsistent");
+    } else if (!accept_piece(pieces[piece_index++])) {
+      return fail(error, "trap paragraph has no source text cell");
+    }
+    previous_event_token = token;
+  }
+  finish_paragraph();
+  while (!lists.empty())
+    close_list();
+  if (local_link) {
+    bool placed = false;
+    std::size_t base = 0;
+    const auto place = [&](const auto &self,
+                           std::vector<TrapFlowBlockIR> &blocks) -> void {
+      for (auto &block : blocks) {
+        if (placed)
+          return;
+        if (std::holds_alternative<TrapFlowParagraphIR>(block.value)) {
+          auto &candidate = std::get<TrapFlowParagraphIR>(block.value);
+          const auto limit = base + candidate.text.size();
+          if (local_link->begin >= base && local_link->end <= limit) {
+            auto link = *local_link;
+            link.begin -= base;
+            link.end -= base;
+            candidate.links.push_back(std::move(link));
+            placed = true;
+            return;
+          }
+          base = limit + 1;
+        } else if (std::holds_alternative<TrapFlowListIR>(block.value)) {
+          for (auto &item : std::get<TrapFlowListIR>(block.value).items)
+            self(self, item.blocks);
+        }
+      }
+    };
+    place(place, flow.blocks);
+    if (!placed)
+      return fail(error, "trap selector crosses a paragraph boundary");
+  }
+  append_flow(out.flow, std::move(flow));
   return true;
 }
 
@@ -783,6 +1253,7 @@ bool project_embedded_region(const std::vector<DecodedLogicalRecordSource> &reco
                              std::uint32_t end_record, std::size_t end_token,
                              TrapEmbeddedRegionIR &region,
                              std::vector<TrapSourceCellIR> &cells,
+                             CellPositions &cell_positions,
                              std::string *error) {
   const auto identity = region.identifier.empty() ? std::string{"SRTBL"}
                                                   : region.identifier;
@@ -847,7 +1318,7 @@ bool project_embedded_region(const std::vector<DecodedLogicalRecordSource> &reco
       auto text = display_line_text(*record, line);
       while (!text.empty() && text.back() == ' ')
         text.pop_back();
-      const auto cell_begin = cells.size();
+      bool ledgered = false;
       for (auto token = line.prefix_token;
            token < line.token_end && token < record->ir.tokens.size();
            ++token) {
@@ -855,6 +1326,7 @@ bool project_embedded_region(const std::vector<DecodedLogicalRecordSource> &reco
           continue;
         const auto &words = record->ir.tokens[token].decoded_words;
         for (std::size_t word = 0; word < words.size(); ++word) {
+          ledgered = true;
           const auto owned = index.cells.find({logical, token, word});
           TrapSourceCellIR cell;
           cell.logical_record = logical;
@@ -884,10 +1356,10 @@ bool project_embedded_region(const std::vector<DecodedLogicalRecordSource> &reco
             // framing, so a cell LayoutIR left unpositioned is still drawn
             // and still ledgered; it is not an ownership gap here.
             cell.role = TrapCellRoleIR::unrowed_text;
-          cells.push_back(cell);
+          append_unique_cell(cells, cell_positions, cell);
         }
       }
-      if (cells.size() == cell_begin || (printable && !drawn))
+      if (!ledgered || (printable && !drawn))
         continue;
       region.lines.push_back(std::move(text));
       region.line_sources.push_back(
@@ -1084,6 +1556,198 @@ bool starts_with_word(const std::string &text, const std::string &prefix) {
          (text.size() == prefix.size() || text[prefix.size()] == ' ');
 }
 
+bool same_region(const TrapEmbeddedRegionIR &left,
+                 const TrapEmbeddedRegionIR &right) {
+  return left.identifier == right.identifier &&
+         left.start.kind == right.start.kind &&
+         left.start.identifier == right.start.identifier &&
+         left.start.source == right.start.source &&
+         left.end.kind == right.end.kind &&
+         left.end.identifier == right.end.identifier &&
+         left.end.source == right.end.source && left.lines == right.lines &&
+         left.line_sources == right.line_sources &&
+         left.after_field == right.after_field &&
+         left.cell_begin == right.cell_begin && left.cell_end == right.cell_end;
+}
+
+bool same_flow(const TrapFlowSequenceIR &left, const TrapFlowSequenceIR &right);
+
+bool same_paragraph(const TrapFlowParagraphIR &left,
+                    const TrapFlowParagraphIR &right) {
+  const auto rows_equal = [](const auto &a, const auto &b) {
+    return a.size() == b.size() &&
+           std::equal(a.begin(), a.end(), b.begin(), same_row);
+  };
+  if (left.text != right.text || left.display_text != right.display_text ||
+      left.highlights != right.highlights || left.links != right.links ||
+      left.source_slices != right.source_slices ||
+      !rows_equal(left.source_rows, right.source_rows) ||
+      left.cell_begin != right.cell_begin || left.cell_end != right.cell_end ||
+      left.projection.size() != right.projection.size() ||
+      left.break_before.size() != right.break_before.size())
+    return false;
+  for (std::size_t index = 0; index < left.projection.size(); ++index) {
+    const auto &a = left.projection[index];
+    const auto &b = right.projection[index];
+    if (a.begin != b.begin || a.end != b.end ||
+        a.cell_begin != b.cell_begin || a.cell_end != b.cell_end ||
+        a.kind != b.kind)
+      return false;
+  }
+  for (std::size_t index = 0; index < left.break_before.size(); ++index) {
+    const auto &a = left.break_before[index];
+    const auto &b = right.break_before[index];
+    if (!(a.source == b.source) || a.cell_begin != b.cell_begin ||
+        a.cell_end != b.cell_end)
+      return false;
+  }
+  return true;
+}
+
+bool same_block(const TrapFlowBlockIR &left, const TrapFlowBlockIR &right) {
+  if (left.value.index() != right.value.index())
+    return false;
+  if (std::holds_alternative<TrapFlowParagraphIR>(left.value))
+    return same_paragraph(std::get<TrapFlowParagraphIR>(left.value),
+                          std::get<TrapFlowParagraphIR>(right.value));
+  if (std::holds_alternative<TrapEmbeddedRegionIR>(left.value))
+    return same_region(std::get<TrapEmbeddedRegionIR>(left.value),
+                       std::get<TrapEmbeddedRegionIR>(right.value));
+  const auto &a = std::get<TrapFlowListIR>(left.value);
+  const auto &b = std::get<TrapFlowListIR>(right.value);
+  if (a.ordered != b.ordered || a.items.size() != b.items.size())
+    return false;
+  for (std::size_t item = 0; item < a.items.size(); ++item) {
+    if (!(a.items[item].marker_source == b.items[item].marker_source) ||
+        a.items[item].marker_cell_begin != b.items[item].marker_cell_begin ||
+        a.items[item].marker_cell_end != b.items[item].marker_cell_end ||
+        a.items[item].blocks.size() != b.items[item].blocks.size())
+      return false;
+    for (std::size_t block = 0; block < a.items[item].blocks.size(); ++block)
+      if (!same_block(a.items[item].blocks[block],
+                      b.items[item].blocks[block]))
+        return false;
+  }
+  return true;
+}
+
+bool same_flow(const TrapFlowSequenceIR &left, const TrapFlowSequenceIR &right) {
+  if (left.blocks.size() != right.blocks.size())
+    return false;
+  for (std::size_t index = 0; index < left.blocks.size(); ++index)
+    if (!same_block(left.blocks[index], right.blocks[index]))
+      return false;
+  return true;
+}
+
+bool validate_flow(const TrapFlowSequenceIR &flow,
+                   const std::vector<TrapSourceCellIR> &cells,
+                   const std::string &identity, std::string *error,
+                   std::string *flat_text = nullptr) {
+  std::set<std::size_t> claimed_cells;
+  const auto claim = [&](const std::size_t begin, const std::size_t end) {
+    for (auto cell = begin; cell < end; ++cell)
+      if (!claimed_cells.insert(cell).second)
+        return false;
+    return true;
+  };
+  const auto validate_blocks = [&](const auto &self,
+                                   const std::vector<TrapFlowBlockIR> &blocks,
+                                   std::string &flat) -> bool {
+    for (const auto &block : blocks) {
+      if (std::holds_alternative<TrapFlowParagraphIR>(block.value)) {
+        const auto &paragraph = std::get<TrapFlowParagraphIR>(block.value);
+        if (paragraph.text.empty() || paragraph.source_slices.empty() ||
+            paragraph.cell_begin > paragraph.cell_end ||
+            paragraph.cell_end > cells.size())
+          return fail(error, "trap flow paragraph has invalid provenance: " +
+                                 identity);
+        for (const auto &boundary : paragraph.break_before) {
+          if (boundary.cell_begin >= boundary.cell_end ||
+              boundary.cell_end > cells.size())
+            return fail(error,
+                        "trap flow paragraph boundary range is invalid: " +
+                            identity);
+          if (cells[boundary.cell_begin].logical_record !=
+                  boundary.source.logical_record ||
+              cells[boundary.cell_begin].token_index !=
+                  boundary.source.token_begin)
+            return fail(error,
+                        "trap flow paragraph boundary source differs: " +
+                            identity);
+          if (!claim(boundary.cell_begin, boundary.cell_end))
+            return fail(error,
+                        "trap flow paragraph boundary cells overlap: " +
+                            identity);
+        }
+        std::size_t at = 0;
+        for (const auto &projection : paragraph.projection) {
+          if (projection.begin != at || projection.begin >= projection.end ||
+              projection.end > paragraph.text.size() ||
+              projection.cell_begin > projection.cell_end ||
+              projection.cell_begin < paragraph.cell_begin ||
+              projection.cell_end > paragraph.cell_end ||
+              (projection.kind != TrapTextProjectionKindIR::decoded_separator &&
+               projection.cell_begin == projection.cell_end) ||
+              (projection.kind != TrapTextProjectionKindIR::decoded_separator &&
+               !claim(projection.cell_begin, projection.cell_end)))
+            return fail(error,
+                        "trap flow paragraph projection is not exact: " +
+                            identity);
+          at = projection.end;
+        }
+        if (at != paragraph.text.size())
+          return fail(error, "trap flow paragraph has unprojected text: " +
+                                 identity);
+        for (const auto &highlight : paragraph.highlights)
+          if (highlight.begin >= highlight.end ||
+              highlight.end > paragraph.text.size())
+            return fail(error, "trap flow highlight is outside its paragraph: " +
+                                   identity);
+        for (const auto &link : paragraph.links)
+          if (link.begin >= link.end || link.end > paragraph.text.size() ||
+              link.target.empty())
+            return fail(error, "trap flow link is outside its paragraph: " +
+                                   identity);
+        if (!flat.empty())
+          flat.push_back(' ');
+        flat += paragraph.text;
+      } else if (std::holds_alternative<TrapEmbeddedRegionIR>(block.value)) {
+        const auto &region = std::get<TrapEmbeddedRegionIR>(block.value);
+        if (region.cell_begin > region.cell_end ||
+            region.cell_end > cells.size())
+          return fail(error, "trap flow embedded region overlaps source cells: " +
+                                 identity);
+      } else {
+        const auto &list = std::get<TrapFlowListIR>(block.value);
+        if (list.items.empty())
+          return fail(error, "trap flow list has no items: " + identity);
+        for (const auto &item : list.items) {
+          if (item.marker_cell_begin >= item.marker_cell_end ||
+              item.marker_cell_end > cells.size() ||
+              cells[item.marker_cell_begin].logical_record !=
+                  item.marker_source.logical_record ||
+              cells[item.marker_cell_begin].token_index !=
+                  item.marker_source.token_begin ||
+              !claim(item.marker_cell_begin, item.marker_cell_end))
+            return fail(error,
+                        "trap flow list marker is not source-proven: " +
+                            identity);
+          if (item.blocks.empty() || !self(self, item.blocks, flat))
+            return false;
+        }
+      }
+    }
+    return true;
+  };
+  std::string flat;
+  if (!validate_blocks(validate_blocks, flow.blocks, flat))
+    return false;
+  if (flat_text != nullptr)
+    *flat_text = std::move(flat);
+  return true;
+}
+
 struct SegmentRef {
   const DecodedLogicalRecordSource *record = nullptr;
   const ControlSegmentIR *segment = nullptr;
@@ -1104,7 +1768,8 @@ bool same_text(const TrapTextIR &left, const TrapTextIR &right) {
          left.links == right.links &&
          left.source_slices == right.source_slices &&
          rows_equal(left.source_rows, right.source_rows) &&
-         left.cell_begin == right.cell_begin && left.cell_end == right.cell_end;
+         left.cell_begin == right.cell_begin && left.cell_end == right.cell_end &&
+         same_flow(left.flow, right.flow);
 }
 
 bool same_spans(const std::vector<TrapStyledSpanIR> &left,
@@ -1160,6 +1825,7 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
 
   const auto index = index_sources(records, layout, ownership);
   TrapCatalogIR catalog;
+  CellPositions introduction_cell_positions;
   catalog.first_logical_record = records.front().logical_record;
   catalog.end_logical_record = records.back().logical_record + 1;
 
@@ -1211,6 +1877,7 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
                                    ref.record->logical_record,
                                    segment.source_tokens.front(),
                                    opened.region, catalog.introduction_cells,
+                                   introduction_cell_positions,
                                    error))
         return std::nullopt;
       // The closing control's own payload is introduction prose again -- the
@@ -1423,6 +2090,7 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
                                                       : ordered.size();
     const auto &start = ordered[begin];
     TrapEntryIR entry;
+    CellPositions entry_cell_positions;
     entry.operand =
         collapse(range_text(*start.record, start.segment->operand_range));
     entry.id = first_word(entry.operand);
@@ -1433,12 +2101,14 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
       // are suppressed from the entry text; the tail completes the operand.
       TrapTextIR separator;
       std::vector<TrapSourceCellIR> separator_cells;
+      CellPositions separator_cell_positions;
       if (!walk_payload(*start.record, *start.segment, index, separator,
-                        separator_cells, error, true))
+                        separator_cells, separator_cell_positions, error,
+                        true))
         return std::nullopt;
       for (auto &cell : separator_cells) {
         cell.role = TrapCellRoleIR::suppressed;
-        entry.cells.push_back(cell);
+        append_unique_cell(entry.cells, entry_cell_positions, cell);
       }
       const auto tail = collapse(separator.text);
       if (!tail.empty())
@@ -1459,14 +2129,124 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
     // claimed a run of the ledger, so the region does not read as a gap in
     // the interrupted field's own cells.
     std::size_t resume_cell = 0;
+    std::vector<TrapParagraphBoundaryIR> pending_boundaries;
+    const auto queue_boundary = [&](TrapParagraphBoundaryIR boundary) {
+      if (std::none_of(pending_boundaries.begin(), pending_boundaries.end(),
+                       [&](const auto &existing) {
+                         return existing.source == boundary.source &&
+                                existing.cell_begin == boundary.cell_begin &&
+                                existing.cell_end == boundary.cell_end;
+                       }))
+        pending_boundaries.push_back(std::move(boundary));
+    };
     for (auto at = begin + 1; at < end; ++at) {
       const auto &ref = ordered[at];
       const auto &segment = *ref.segment;
+      const auto ledger_empty_lines = [&] {
+        const auto empty = index.empty_line_prefixes.find(
+            ref.record->logical_record);
+        if (empty != index.empty_line_prefixes.end())
+          for (const auto token : segment.source_tokens)
+            if (std::find(empty->second.begin(), empty->second.end(), token) !=
+                empty->second.end()) {
+              const auto already = std::find_if(
+                  entry.cells.begin(), entry.cells.end(), [&](const auto &cell) {
+                    return cell.logical_record == ref.record->logical_record &&
+                           cell.token_index == token;
+                  });
+              std::size_t cell_begin = 0, cell_end = 0;
+              if (already != entry.cells.end()) {
+                cell_begin =
+                    static_cast<std::size_t>(already - entry.cells.begin());
+                cell_end = cell_begin;
+                while (cell_end < entry.cells.size() &&
+                       entry.cells[cell_end].logical_record ==
+                           ref.record->logical_record &&
+                       entry.cells[cell_end].token_index == token)
+                  ++cell_end;
+              } else {
+                cell_begin = entry.cells.size();
+                for (std::size_t word = 0;
+                     word < ref.record->ir.tokens[token].decoded_words.size();
+                     ++word) {
+                  const auto owned = index.cells.find(
+                      {ref.record->logical_record, token, word});
+                  append_unique_cell(
+                      entry.cells, entry_cell_positions,
+                      {ref.record->logical_record, token, word,
+                       ref.record->ir.tokens[token].decoded_words[word],
+                       owned == index.cells.end()
+                           ? SourceDisposition::opaque
+                           : owned->second->disposition,
+                       TrapCellRoleIR::layout_marker});
+                }
+                cell_end = entry.cells.size();
+              }
+              queue_boundary(
+                  {token_slice(*ref.record, segment.segment_index, token,
+                               token + 1),
+                   cell_begin, cell_end});
+              if (current != nullptr)
+                current->body.cell_end = entry.cells.size();
+            }
+      };
       if (segment_is_display_line_prefix(*ref.record, segment) ||
-          nondrawing_control(index, *ref.record, segment))
+          nondrawing_control(index, *ref.record, segment)) {
+        ledger_empty_lines();
         continue;
+      }
       const auto opcode_is_line_prefix =
           segment_opcode_is_display_line_prefix(*ref.record, segment);
+      if (current != nullptr && !segment.source_tokens.empty() &&
+          !current->body.source_slices.empty() &&
+          current->body.source_slices.back().logical_record ==
+              ref.record->logical_record) {
+        const auto prefixes = empty_lines_between(
+            index, ref.record->logical_record,
+            current->body.source_slices.back().token_end - 1,
+            segment.source_tokens.front());
+        const auto owners = segment_of_token(*ref.record);
+        for (const auto prefix : prefixes) {
+          const auto already = std::find_if(
+              entry.cells.begin(), entry.cells.end(), [&](const auto &cell) {
+                return cell.logical_record == ref.record->logical_record &&
+                       cell.token_index == prefix;
+              });
+          std::size_t cell_begin = 0, cell_end = 0;
+          if (already != entry.cells.end()) {
+            cell_begin = static_cast<std::size_t>(already - entry.cells.begin());
+            cell_end = cell_begin;
+            while (cell_end < entry.cells.size() &&
+                   entry.cells[cell_end].logical_record ==
+                       ref.record->logical_record &&
+                   entry.cells[cell_end].token_index == prefix)
+              ++cell_end;
+          } else {
+            cell_begin = entry.cells.size();
+            for (std::size_t word = 0;
+                 word < ref.record->ir.tokens[prefix].decoded_words.size();
+                 ++word) {
+              const auto owned = index.cells.find(
+                  {ref.record->logical_record, prefix, word});
+              append_unique_cell(
+                  entry.cells, entry_cell_positions,
+                  {ref.record->logical_record, prefix, word,
+                   ref.record->ir.tokens[prefix].decoded_words[word],
+                   owned == index.cells.end() ? SourceDisposition::opaque
+                                              : owned->second->disposition,
+                   TrapCellRoleIR::layout_marker});
+            }
+            cell_end = entry.cells.size();
+          }
+          if (cell_begin == cell_end)
+            return reject("trap paragraph boundary has no source cell: " +
+                          entry.id);
+          queue_boundary(
+              {token_slice(*ref.record, owners[prefix], prefix, prefix + 1),
+               cell_begin, cell_end});
+          current->body.cell_end = entry.cells.size();
+        }
+      }
       // `SRTBL<id>` opens a drawn table or figure envelope inside the entry
       // and `SRETBL` closes it. Everything between the two is the region's
       // own drawing, kept as the display lines the record frames rather than
@@ -1510,10 +2290,11 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
                                      open_region->token,
                                      ref.record->logical_record,
                                      segment.source_tokens.front(), region,
-                                     entry.cells, error))
+                                     entry.cells, entry_cell_positions, error))
           return std::nullopt;
         region.cell_end = entry.cells.size();
         resume_cell = region.cell_end;
+        current->body.flow.blocks.push_back({region});
         entry.embedded_regions.push_back(std::move(region));
         open_region.reset();
         // The closing control's own payload is entry text again: N2AH1MST
@@ -1565,7 +2346,8 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
             }
         }
         if (!walk_payload(*ref.record, segment, index, line.body, entry.cells,
-                          error, false, highlighted_columns, false,
+                          entry_cell_positions, error, false,
+                          highlighted_columns, false,
                           &highlight_ranges))
           return std::nullopt;
         // A font control whose payload is empty at the record end carries its
@@ -1581,7 +2363,8 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           // The CFONT's own columns travel with its deferred payload: the
           // control ends one record and its row opens the next.
           if (!walk_payload(*ordered[at].record, *ordered[at].segment, index,
-                            line.body, entry.cells, error, false,
+                            line.body, entry.cells, entry_cell_positions, error,
+                            false,
                             highlighted_columns, false, &highlight_ranges))
             return std::nullopt;
         } else if (line.body.text.empty() && at + 1 < end &&
@@ -1597,11 +2380,23 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           // 96-120 are the headline text.
           ++at;
           if (!walk_payload(*ordered[at].record, *ordered[at].segment, index,
-                            line.body, entry.cells, error, false,
+                            line.body, entry.cells, entry_cell_positions, error,
+                            false,
                             highlighted_columns, true, &highlight_ranges))
             return std::nullopt;
         }
         line.body.cell_end = entry.cells.size();
+        if (!pending_boundaries.empty()) {
+          auto *paragraph = first_paragraph(line.body.flow);
+          if (paragraph != nullptr) {
+            paragraph->break_before.insert(paragraph->break_before.begin(),
+                                           pending_boundaries.begin(),
+                                           pending_boundaries.end());
+            paragraph->cell_begin = pending_boundaries.back().cell_end;
+            line.body.paragraph_break = true;
+            pending_boundaries.clear();
+          }
+        }
         const auto front_column = spans->spans.empty()
                                       ? std::size_t{0}
                                       : spans->spans.front().column;
@@ -1722,8 +2517,30 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
                             "own display words: " +
                             entry.id + " [" + line.spans_text + "]");
           }
+          if (!highlights.empty()) {
+            auto local = highlights;
+            const auto base = body.text.empty() || line.body.text.empty()
+                                  ? body.text.size()
+                                  : body.text.size() + 1;
+            for (auto &highlight : local) {
+              highlight.begin -= base;
+              highlight.end -= base;
+            }
+            if (!add_highlights(line.body.flow, local))
+              return reject("trap entry highlighted run crosses a paragraph: " +
+                            entry.id);
+          }
           body.highlights.insert(body.highlights.end(), highlights.begin(),
                                  highlights.end());
+          for (auto link : line.body.links) {
+            const auto base = body.text.empty() || line.body.text.empty()
+                                  ? body.text.size()
+                                  : body.text.size() + 1;
+            link.begin += base;
+            link.end += base;
+            body.links.push_back(std::move(link));
+          }
+          append_flow(body.flow, std::move(line.body.flow));
           if (!body.text.empty() && !line.body.text.empty())
             body.text.push_back(' ');
           body.text += line.body.text;
@@ -1756,9 +2573,21 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
         TrapTextIR piece;
         piece.cell_begin = entry.cells.size();
         if (!walk_payload(*ref.record, segment, index, piece, entry.cells,
-                          error, false, 0, opcode_is_line_prefix))
+                          entry_cell_positions, error, false, 0,
+                          opcode_is_line_prefix))
           return std::nullopt;
         piece.cell_end = entry.cells.size();
+        if (!pending_boundaries.empty()) {
+          auto *paragraph = first_paragraph(piece.flow);
+          if (paragraph != nullptr) {
+            paragraph->break_before.insert(paragraph->break_before.begin(),
+                                           pending_boundaries.begin(),
+                                           pending_boundaries.end());
+            paragraph->cell_begin = pending_boundaries.back().cell_end;
+            piece.paragraph_break = true;
+            pending_boundaries.clear();
+          }
+        }
         if (current == nullptr) {
           // A placeholder-only record prefix (separator plus `?` run) before
           // the headline carries no text; its cells stay suppressed.
@@ -1779,14 +2608,6 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
         resume_cell = 0;
         if (piece.paragraph_break)
           body.paragraph_break = true;
-        if (!body.source_slices.empty() && !piece.source_slices.empty() &&
-            body.source_slices.back().logical_record ==
-                piece.source_slices.front().logical_record &&
-            empty_line_between(index,
-                               body.source_slices.back().logical_record,
-                               body.source_slices.back().token_end - 1,
-                               piece.source_slices.front().token_begin))
-          body.paragraph_break = true;
         const auto link_base = body.text.size() +
             (!body.text.empty() && !piece.text.empty() ? 1 : 0);
         for (auto link : piece.links) {
@@ -1794,6 +2615,7 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           link.end += link_base;
           body.links.push_back(std::move(link));
         }
+        append_flow(body.flow, std::move(piece.flow));
         if (!body.text.empty() && !piece.text.empty())
           body.text.push_back(' ');
         body.text += piece.text;
@@ -2107,7 +2929,10 @@ bool verify_trap_catalog_ir(
       if (!seen.insert({cell.logical_record, cell.token_index, cell.word_index})
                .second)
         return fail(error, "trap entry ledgers one source cell twice: " +
-                               entry.id);
+                               entry.id + " LR" +
+                               std::to_string(cell.logical_record) +
+                               " token " + std::to_string(cell.token_index) +
+                               " word " + std::to_string(cell.word_index));
       const auto *record = find_record(records, cell.logical_record);
       if (record == nullptr || cell.token_index >= record->ir.tokens.size() ||
           cell.word_index >=
@@ -2122,6 +2947,12 @@ bool verify_trap_catalog_ir(
           line.body.cell_end > entry.cells.size())
         return fail(error, std::string("trap ") + what +
                                " cell range is invalid: " + entry.id);
+      std::string flat;
+      if (!validate_flow(line.body.flow, entry.cells, entry.id, error, &flat))
+        return false;
+      if (flat != line.body.text)
+        return fail(error, std::string("trap ") + what +
+                               " flow differs from flat text: " + entry.id);
       return true;
     };
     if (!check_line(entry.headline, "headline"))

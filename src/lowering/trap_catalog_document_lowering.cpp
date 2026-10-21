@@ -6,6 +6,7 @@
 #include "geist/detail/core/internal.hpp"
 
 #include <algorithm>
+#include <iterator>
 #include <tuple>
 #include <variant>
 #include <utility>
@@ -278,6 +279,176 @@ bool append_body_after(InlineSequenceIR &content, const TrapTextIR &body,
   return true;
 }
 
+DocumentNodeOriginIR paragraph_origin(const TrapFlowParagraphIR &paragraph,
+                                      std::string detail) {
+  auto result = origin(std::move(detail));
+  for (const auto &slice : paragraph.source_slices)
+    add_slice(result, slice);
+  for (const auto &boundary : paragraph.break_before)
+    add_slice(result, boundary.source);
+  for (const auto &link : paragraph.links)
+    add_slice(result, link.source);
+  add_rows(result, paragraph.source_rows);
+  return canonical(std::move(result));
+}
+
+bool paragraph_inlines(const TrapFlowParagraphIR &paragraph,
+                       const DocumentNodeOriginIR &paragraph_origin,
+                       InlineSequenceIR &content, std::size_t from = 0) {
+  struct Range {
+    std::size_t begin = 0;
+    std::size_t end = 0;
+    std::optional<EmphasisKindIR> emphasis;
+    const TrapTextLinkIR *link = nullptr;
+  };
+  std::vector<Range> ranges;
+  for (const auto &highlight : paragraph.highlights)
+    ranges.push_back({highlight.begin, highlight.end,
+                      emphasis_for(highlight.style), nullptr});
+  for (const auto &link : paragraph.links)
+    ranges.push_back({link.begin, link.end, std::nullopt, &link});
+  std::sort(ranges.begin(), ranges.end(), [](const auto &left,
+                                             const auto &right) {
+    return std::make_pair(left.begin, left.end) <
+           std::make_pair(right.begin, right.end);
+  });
+  if (from > paragraph.text.size())
+    return false;
+  std::size_t at = from;
+  for (const auto &range : ranges) {
+    if (range.end <= from)
+      continue;
+    if (range.begin < at || range.begin >= range.end ||
+        range.end > paragraph.text.size())
+      return false;
+    if (range.begin > at)
+      content.push_back(
+          {TextInlineIR{paragraph.text.substr(at, range.begin - at)},
+           paragraph_origin});
+    auto text = paragraph.text.substr(range.begin, range.end - range.begin);
+    if (range.link != nullptr) {
+      if (range.link->target.empty())
+        return false;
+      content.push_back(
+          {CrossReferenceInlineIR{{CrossReferenceTargetKindIR::anchor,
+                                   range.link->target},
+                                  std::move(text)},
+           paragraph_origin});
+    } else if (range.emphasis) {
+      content.push_back(
+          {EmphasisInlineIR{std::move(text), *range.emphasis},
+           paragraph_origin});
+    } else {
+      content.push_back({TextInlineIR{std::move(text)}, paragraph_origin});
+    }
+    at = range.end;
+  }
+  if (at < paragraph.text.size())
+    content.push_back(
+        {TextInlineIR{paragraph.text.substr(at)}, paragraph_origin});
+  return !content.empty();
+}
+
+bool lower_flow_blocks(const std::vector<TrapFlowBlockIR> &source,
+                       BlockSequenceIR &destination, std::string *error) {
+  for (const auto &block : source) {
+    if (std::holds_alternative<TrapFlowParagraphIR>(block.value)) {
+      const auto &paragraph = std::get<TrapFlowParagraphIR>(block.value);
+      auto paragraph_source =
+          paragraph_origin(paragraph, "trap flow paragraph");
+      InlineSequenceIR content;
+      if (!paragraph_inlines(paragraph, paragraph_source, content))
+        return fail(error, "trap flow paragraph ranges overlap");
+      destination.push_back(
+          {ParagraphBlockIR{std::move(content)}, std::move(paragraph_source)});
+    } else if (std::holds_alternative<TrapFlowListIR>(block.value)) {
+      const auto &source_list = std::get<TrapFlowListIR>(block.value);
+      ListBlockIR list;
+      list.ordered = source_list.ordered;
+      for (const auto &source_item : source_list.items) {
+        ListItemIR item;
+        item.origin = origin("trap native list item marker");
+        add_slice(item.origin, source_item.marker_source);
+        item.origin = canonical(std::move(item.origin));
+        if (!lower_flow_blocks(source_item.blocks, item.blocks, error))
+          return false;
+        if (item.blocks.empty())
+          return fail(error, "trap native list item has no content");
+        if (item.blocks.size() == 1 &&
+            std::holds_alternative<ParagraphBlockIR>(item.blocks.front().node)) {
+          item.content = std::move(
+              std::get<ParagraphBlockIR>(item.blocks.front().node).content);
+          item.blocks.clear();
+        }
+        list.items.push_back(std::move(item));
+      }
+      if (list.items.empty())
+        return fail(error, "trap native list has no items");
+      auto list_origin = list.items.front().origin;
+      destination.push_back({std::move(list), std::move(list_origin)});
+    } else {
+      const auto &region = std::get<TrapEmbeddedRegionIR>(block.value);
+      if (region.lines.size() != region.line_sources.size())
+        return fail(error, "trap flow region lines have no provenance");
+      if (!region.identifier.empty()) {
+        auto anchor_source = origin("trap embedded table source anchor");
+        add_slice(anchor_source, region.start.source);
+        destination.push_back(
+            {AnchorBlockIR{"TBL" + region.identifier},
+             canonical(std::move(anchor_source))});
+      }
+      PreformattedBlockIR drawn;
+      drawn.lines = region.lines;
+      auto region_origin = origin("trap embedded table");
+      for (std::size_t line = 0; line < region.lines.size(); ++line) {
+        auto line_origin = origin("trap embedded table line");
+        add_slice(line_origin, region.line_sources[line]);
+        drawn.line_origins.push_back(canonical(std::move(line_origin)));
+        add_slice(region_origin, region.line_sources[line]);
+      }
+      add_slice(region_origin, region.start.source);
+      add_slice(region_origin, region.end.source);
+      destination.push_back(
+          {std::move(drawn), canonical(std::move(region_origin))});
+    }
+  }
+  return true;
+}
+
+bool style_flow_prefix(const TrapLineIR &line, const std::string &prefix,
+                       bool definition_term, BlockSequenceIR &blocks,
+                       std::string *error) {
+  if (blocks.empty() || line.body.flow.blocks.empty() ||
+      !std::holds_alternative<ParagraphBlockIR>(blocks.front().node) ||
+      !std::holds_alternative<TrapFlowParagraphIR>(
+          line.body.flow.blocks.front().value))
+    return fail(error, "trap styled line does not open with a paragraph");
+  const auto &source_paragraph = std::get<TrapFlowParagraphIR>(
+      line.body.flow.blocks.front().value);
+  if (source_paragraph.text.compare(0, prefix.size(), prefix) != 0)
+    return fail(error, "trap styled prefix is not a paragraph prefix");
+
+  auto source = line_origin(line, "trap styled flow prefix");
+  InlineSequenceIR content;
+  append_spans(content, line.spans, source, definition_term);
+  const auto from =
+      source_paragraph.text.find_first_not_of(' ', prefix.size());
+  if (from != std::string::npos) {
+    content.push_back({TextInlineIR{" "}, source});
+    if (!paragraph_inlines(source_paragraph, source, content, from))
+      return fail(error, "trap styled flow ranges overlap");
+  }
+  std::get<ParagraphBlockIR>(blocks.front().node).content = std::move(content);
+  return true;
+}
+
+bool compound_flow(const TrapFlowSequenceIR &flow) {
+  return flow.blocks.size() != 1 ||
+         (flow.blocks.size() == 1 &&
+          !std::holds_alternative<TrapFlowParagraphIR>(
+              flow.blocks.front().value));
+}
+
 std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
                                              const TrapCatalogIR &catalog,
                                              std::string *error) {
@@ -420,36 +591,101 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
                                                        : entry.operand)},
          anchor_origin});
 
+    const auto uses_compound_flow =
+        compound_flow(entry.headline.body.flow) ||
+        std::any_of(entry.fields.begin(), entry.fields.end(),
+                    [](const auto &field) {
+                      return compound_flow(field.line.body.flow);
+                    });
     ListItemIR item;
     item.origin = origin("trap entry");
     auto headline_origin = line_origin(entry.headline, "trap entry headline");
     if (entry.headline.spans.empty())
       return reject("trap entry headline has no highlighted spans: " +
                     entry.id);
-    append_spans(item.content, entry.headline.spans, headline_origin, true);
-    if (!append_body_after(item.content, entry.headline.body,
+    InlineSequenceIR headline_content;
+    append_spans(headline_content, entry.headline.spans, headline_origin, true);
+    if (!append_body_after(headline_content, entry.headline.body,
                            entry.headline.spans_text, headline_origin))
       return reject("trap entry headline highlight is outside its text: " +
                     entry.id);
     item.origin.slices = headline_origin.slices;
     item.origin.rows = headline_origin.rows;
-    for (std::size_t index = 0; index < entry.fields.size(); ++index) {
-      const auto &field = entry.fields[index];
-      item.content.push_back(
-          {TextInlineIR{index == 0 ? " — " : " "},
-           synthesized(index == 0 ? "trap entry definition separator"
-                                  : "trap field separator")});
-      auto field_origin = line_origin(field.line, "trap entry field");
-      append_spans(item.content, field.line.spans, field_origin);
-      if (!append_body_after(item.content, field.line.body, field.label_text,
-                             field_origin))
-        return reject("trap field highlight is outside its text: " + entry.id +
-                      " " + field.label_text);
-      item.origin.slices.insert(item.origin.slices.end(),
-                                field_origin.slices.begin(),
-                                field_origin.slices.end());
-      item.origin.rows.insert(item.origin.rows.end(), field_origin.rows.begin(),
-                              field_origin.rows.end());
+    if (!uses_compound_flow) {
+      item.content = std::move(headline_content);
+      for (std::size_t index = 0; index < entry.fields.size(); ++index) {
+        const auto &field = entry.fields[index];
+        item.content.push_back(
+            {TextInlineIR{index == 0 ? " — " : " "},
+             synthesized(index == 0 ? "trap entry definition separator"
+                                    : "trap field separator")});
+        auto field_origin = line_origin(field.line, "trap entry field");
+        append_spans(item.content, field.line.spans, field_origin);
+        if (!append_body_after(item.content, field.line.body, field.label_text,
+                               field_origin))
+          return reject("trap field highlight is outside its text: " +
+                        entry.id + " " + field.label_text);
+        item.origin.slices.insert(item.origin.slices.end(),
+                                  field_origin.slices.begin(),
+                                  field_origin.slices.end());
+        item.origin.rows.insert(item.origin.rows.end(),
+                                field_origin.rows.begin(),
+                                field_origin.rows.end());
+      }
+    } else {
+      if (!lower_flow_blocks(entry.headline.body.flow.blocks, item.blocks,
+                             error) ||
+          !style_flow_prefix(entry.headline, entry.headline.spans_text, true,
+                             item.blocks, error))
+        return std::nullopt;
+      for (std::size_t index = 0; index < entry.fields.size(); ++index) {
+        const auto &field = entry.fields[index];
+        BlockSequenceIR field_blocks;
+        if (!lower_flow_blocks(field.line.body.flow.blocks, field_blocks,
+                               error))
+          return std::nullopt;
+        if (field_blocks.empty())
+          return reject("trap field flow has no blocks: " + entry.id + " " +
+                        field.label_text);
+        // The field label's CFONT spans live on TrapLineIR, while recursive
+        // flow owns the body. Reapply them to the first source paragraph.
+        if (!style_flow_prefix(field.line, field.label_text, false,
+                               field_blocks, error))
+          return std::nullopt;
+        const auto separator = index == 0 ? " — " : " ";
+        if (auto *paragraph =
+                std::get_if<ParagraphBlockIR>(&field_blocks.front().node);
+            paragraph != nullptr &&
+            std::holds_alternative<ParagraphBlockIR>(item.blocks.back().node)) {
+          auto &previous =
+              std::get<ParagraphBlockIR>(item.blocks.back().node).content;
+          previous.push_back(
+              {TextInlineIR{separator},
+               synthesized(index == 0 ? "trap entry definition separator"
+                                      : "trap field separator")});
+          previous.insert(previous.end(), paragraph->content.begin(),
+                          paragraph->content.end());
+          auto &previous_origin = item.blocks.back().origin;
+          previous_origin.slices.insert(previous_origin.slices.end(),
+                                        field_blocks.front().origin.slices.begin(),
+                                        field_blocks.front().origin.slices.end());
+          previous_origin.rows.insert(previous_origin.rows.end(),
+                                      field_blocks.front().origin.rows.begin(),
+                                      field_blocks.front().origin.rows.end());
+          field_blocks.erase(field_blocks.begin());
+        }
+        item.blocks.insert(item.blocks.end(),
+                           std::make_move_iterator(field_blocks.begin()),
+                           std::make_move_iterator(field_blocks.end()));
+        const auto field_origin =
+            line_origin(field.line, "trap entry compound field");
+        item.origin.slices.insert(item.origin.slices.end(),
+                                  field_origin.slices.begin(),
+                                  field_origin.slices.end());
+        item.origin.rows.insert(item.origin.rows.end(),
+                                field_origin.rows.begin(),
+                                field_origin.rows.end());
+      }
     }
     item.origin = canonical(std::move(item.origin));
     ListBlockIR list;
@@ -462,7 +698,8 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
     // region's first display line carrying `<a name="TBL<id>">` and the rest
     // of the lines exactly as the record draws them; the family claims the
     // envelope and the drawing, and no grid.
-    for (const auto &region : entry.embedded_regions) {
+    if (!uses_compound_flow)
+      for (const auto &region : entry.embedded_regions) {
       if (region.lines.size() != region.line_sources.size())
         return reject("trap embedded region lines have no line provenance: " +
                       entry.id);
@@ -485,7 +722,7 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
       add_slice(region_origin, region.end.source);
       region_origin = canonical(std::move(region_origin));
       document.blocks.push_back({std::move(drawn), std::move(region_origin)});
-    }
+      }
   }
 
   // Every container names at least the BOO bytes its own content names

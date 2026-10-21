@@ -658,6 +658,24 @@ int main() {
       const auto& field = built.catalog->entries.front().fields.front().line.body;
       require(field.text == u8"Description: first field ¢ é tail",
               "trap payload is not UTF-8: " + field.text);
+      if (!field.flow.blocks.empty()) {
+        const auto &paragraph =
+            std::get<geist::detail::TrapFlowParagraphIR>(
+                field.flow.blocks.front().value);
+        bool cent = false, acute = false;
+        for (const auto &projection : paragraph.projection) {
+          const auto glyph = paragraph.text.substr(
+              projection.begin, projection.end - projection.begin);
+          if (glyph == u8"¢")
+            cent = projection.end - projection.begin == 2 &&
+                   projection.cell_end - projection.cell_begin == 1;
+          if (glyph == u8"é")
+            acute = projection.end - projection.begin == 2 &&
+                    projection.cell_end - projection.cell_begin == 1;
+        }
+        require(cent && acute && paragraph.highlights.size() == 2,
+                "paragraph-local UTF-8 projection or highlights shifted");
+      }
       std::string error;
       const auto document = geist::detail::lower_trap_catalog_to_document_ir(
           {"12", "Sample Messages"}, *built.catalog, &error);
@@ -822,6 +840,320 @@ int main() {
       require(document && geist::detail::render_document_html_blocks(*document, {}).find(
                   "href=\"#HDRQUOTE\">\"Target\"</a>") != std::string::npos,
               "selector's terminal quote was dropped");
+    }
+  }
+
+  // Native blank rows are source objects, not a boolean annotation. Preserve
+  // every row, and give each paragraph its own cells and UTF-8 projection.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("615", 200));
+    append(tokens, line({}));
+    append(tokens, line({}));
+    append(tokens, line({origin(), t("Second", 201), t("paragraph.", 202)}));
+    const auto built = build({make_source(52, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "source-flow paragraphs declined: " + built.error);
+    if (built.catalog) {
+      const auto &body =
+          built.catalog->entries.front().fields.front().line.body;
+      require(body.flow.blocks.size() == 2,
+              "two source paragraphs were flattened");
+      if (body.flow.blocks.size() == 2) {
+        const auto &first = std::get<geist::detail::TrapFlowParagraphIR>(
+            body.flow.blocks[0].value);
+        const auto &second = std::get<geist::detail::TrapFlowParagraphIR>(
+            body.flow.blocks[1].value);
+        require(second.break_before.size() == 2,
+                "repeated native blank rows were coalesced");
+        require(first.cell_end <= second.break_before[0].cell_begin &&
+                    second.break_before[0].cell_end <=
+                        second.break_before[1].cell_begin &&
+                    second.break_before[1].cell_end <= second.cell_begin,
+                "paragraph cells and boundary cells overlap or reorder");
+        const auto exact_projection = [](const auto &paragraph) {
+          std::size_t at = 0;
+          for (const auto &span : paragraph.projection) {
+            if (span.begin != at || span.begin >= span.end ||
+                span.end > paragraph.text.size())
+              return false;
+            at = span.end;
+          }
+          return at == paragraph.text.size();
+        };
+        require(exact_projection(first) && exact_projection(second),
+                "paragraph projection does not cover its UTF-8 text exactly");
+        require(first.cell_end <= second.cell_begin &&
+                    first.source_slices != second.source_slices,
+                "paragraphs duplicate broad source provenance");
+        auto changed = *built.catalog;
+        auto &boundary = std::get<geist::detail::TrapFlowParagraphIR>(
+            changed.entries.front().fields.front().line.body.flow.blocks[1]
+                .value)
+                             .break_before.front();
+        ++boundary.source.byte_begin;
+        std::string error;
+        require(!geist::detail::verify_trap_catalog_ir(
+                    built.sources, built.layout, *built.ownership, changed,
+                    &error),
+                "mutated paragraph-boundary provenance was accepted");
+        changed = *built.catalog;
+        auto &projection = std::get<geist::detail::TrapFlowParagraphIR>(
+                               changed.entries.front()
+                                   .fields.front()
+                                   .line.body.flow.blocks.front()
+                                   .value)
+                               .projection.front();
+        ++projection.cell_end;
+        error.clear();
+        require(!geist::detail::verify_trap_catalog_ir(
+                    built.sources, built.layout, *built.ownership, changed,
+                    &error),
+                "mutated paragraph text projection was accepted");
+      }
+    }
+  }
+
+  // Paragraph boundaries survive both append paths: a highlighted CFONT
+  // continuation and a selector continuation retain local claims.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("616", 203));
+    append(tokens, line({}));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("6", 181), t("C", 145)}));
+    append(tokens, line({origin(), t("Styled", 204), t("text", 205)}));
+    append(tokens, line({}));
+    append(tokens, line({t("cselect", 191), t("3", 112), t("6", 181),
+                         t("HDRLOCAL", 206)}));
+    append(tokens, line({origin(), t("Linked", 207), t("text", 205)}));
+    const auto built = build({make_source(53, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "claimed continuation flow declined: " + built.error);
+    if (built.catalog) {
+      const auto &flow = built.catalog->entries.front()
+                             .fields.front()
+                             .line.body.flow.blocks;
+      require(flow.size() == 3,
+              "highlight/select paragraph continuations were flattened");
+      if (flow.size() == 3) {
+        const auto &styled =
+            std::get<geist::detail::TrapFlowParagraphIR>(flow[1].value);
+        const auto &linked =
+            std::get<geist::detail::TrapFlowParagraphIR>(flow[2].value);
+        require(styled.break_before.size() == 1 &&
+                    styled.highlights.size() == 1 &&
+                    styled.text.substr(styled.highlights[0].begin,
+                                       styled.highlights[0].end -
+                                           styled.highlights[0].begin) ==
+                        "Styled",
+                "highlighted continuation lost its boundary or local range");
+        require(linked.break_before.size() == 1 && linked.links.size() == 1 &&
+                    linked.text.substr(linked.links[0].begin,
+                                       linked.links[0].end -
+                                           linked.links[0].begin) == "Linked",
+                "selector continuation lost its boundary or local range");
+      }
+    }
+  }
+
+  // A drawn envelope can interrupt and resume the same field. Its canonical
+  // source position is inside that field's flow, not merely after field N.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("617", 208));
+    append(tokens, line({t("SRTBLT4", 209)}));
+    append(tokens, line({origin(), t("Drawn", 210), t("row", 211)}));
+    append(tokens, line({t("SRETBL", 135), origin(), t("resumed", 212),
+                         t("text", 205)}));
+    const auto built = build({make_source(54, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "interrupted field flow declined: " + built.error);
+    if (built.catalog) {
+      const auto &blocks = built.catalog->entries.front()
+                               .fields.front()
+                               .line.body.flow.blocks;
+      require(blocks.size() == 3 &&
+                  std::holds_alternative<geist::detail::TrapFlowParagraphIR>(
+                      blocks[0].value) &&
+                  std::holds_alternative<geist::detail::TrapEmbeddedRegionIR>(
+                      blocks[1].value) &&
+                  std::holds_alternative<geist::detail::TrapFlowParagraphIR>(
+                      blocks[2].value),
+              "embedded region was moved outside its interrupted field");
+      if (blocks.size() == 3) {
+        const auto &resumed =
+            std::get<geist::detail::TrapFlowParagraphIR>(blocks[2].value);
+        require(resumed.text == "resumed text" &&
+                    std::get<geist::detail::TrapEmbeddedRegionIR>(
+                        blocks[1].value)
+                            .cell_end <= resumed.cell_begin,
+                "field did not resume after the embedded region");
+      }
+    }
+  }
+
+  // A drawn envelope can interrupt the headline itself. Once compound flow
+  // is selected, lowering must keep the region inside the list item rather
+  // than rendering only the headline's flat compatibility projection.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({t("SRMSG", 110), t("619", 220)}));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("3", 112), t("2", 113)}));
+    append(tokens, line({origin(), t("619", 220)}));
+    append(tokens, line({t("SRTBLT5", 221)}));
+    append(tokens, line({origin(), t("Headline", 222), t("drawing", 223)}));
+    append(tokens, line({t("SRETBL", 135)}));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("12", 114), t("2", 113)}));
+    append(tokens, line({origin(), t("Description:", 115), t("body", 224)}));
+    const auto built = build({make_source(56, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "compound headline extraction declined: " + built.error);
+    if (built.catalog) {
+      const auto &headline = built.catalog->entries.front().headline.body.flow;
+      require(headline.blocks.size() == 2 &&
+                  std::holds_alternative<geist::detail::TrapEmbeddedRegionIR>(
+                      headline.blocks.back().value),
+              "headline drawing was not retained in source flow");
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(),
+              "compound headline lowering declined: " + error);
+      if (document) {
+        const auto markdown =
+            geist::detail::render_document_markdown(*document);
+        const auto headline_at = markdown.find("**619**");
+        const auto drawing_at = markdown.find("Headline drawing");
+        const auto field_at = markdown.find("**Description:** body");
+        require(headline_at != std::string::npos && drawing_at > headline_at &&
+                    field_at > drawing_at,
+                "compound headline flow was flattened or reordered: " +
+                    markdown);
+      }
+    }
+  }
+
+  // A blank row inside a native list starts a second paragraph in the same
+  // item when the following row remains indented past the marker column.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("620", 225));
+    append(tokens, line({origin(), {TokenWords{0x2666}, 214}, t("  ", 20),
+                         t("First", 215), t("item", 216)}));
+    append(tokens, line({}));
+    append(tokens,
+           line({t("      ", 226), t("Continuation", 227), t("paragraph", 228)}));
+    append(tokens, line({origin(), {TokenWords{0x2666}, 214}, t("  ", 20),
+                         t("Second", 219), t("item", 216)}));
+    const auto built = build({make_source(57, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "list continuation extraction declined: " + built.error);
+    if (built.catalog) {
+      const auto &blocks = built.catalog->entries.front()
+                               .fields.front()
+                               .line.body.flow.blocks;
+      require(blocks.size() == 2 &&
+                  std::holds_alternative<geist::detail::TrapFlowListIR>(
+                      blocks.back().value),
+              "blank row moved a list continuation outside its list");
+      if (blocks.size() == 2 &&
+          std::holds_alternative<geist::detail::TrapFlowListIR>(
+              blocks.back().value)) {
+        const auto &list =
+            std::get<geist::detail::TrapFlowListIR>(blocks.back().value);
+        require(list.items.size() == 2 &&
+                    list.items.front().blocks.size() == 2,
+                "list continuation did not remain a second item paragraph");
+      }
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(),
+              "list continuation lowering declined: " + error);
+      if (document) {
+        const auto markdown =
+            geist::detail::render_document_markdown(*document);
+        const auto html =
+            geist::detail::render_document_html_blocks(*document, {});
+        const auto first = markdown.find("First item");
+        const auto continuation = markdown.find("Continuation paragraph");
+        const auto second = markdown.find("Second item");
+        require(first != std::string::npos && continuation > first &&
+                    second > continuation,
+                "Markdown reordered the list continuation: " + markdown);
+        require(html.find(
+                    "<p class=\"geist-paragraph\">First item</p>"
+                    "<p class=\"geist-paragraph\">Continuation paragraph"
+                    "</p></li><li class=\"geist-list-item\">Second item") !=
+                    std::string::npos,
+                "HTML moved the continuation outside its item: " + html);
+      }
+    }
+  }
+
+  // Native list ownership comes from the row's exact origin + U+2666 +
+  // two-cell-gap shape. Differing source columns form a recursive list, and
+  // both full renderers must consume that same compound DocumentIR.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("618", 213));
+    append(tokens, line({origin(), {TokenWords{0x2666}, 214}, t("  ", 20),
+                         t("First", 215), t("item", 216)}));
+    append(tokens,
+           line({t("          ", 217), {TokenWords{0x2666}, 214},
+                 t("  ", 20), t("Nested", 218), t("item", 216)}));
+    append(tokens, line({origin(), {TokenWords{0x2666}, 214}, t("  ", 20),
+                         t("Second", 219), t("item", 216)}));
+    const auto built = build({make_source(55, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "native list extraction declined: " + built.error);
+    if (built.catalog) {
+      const auto &flow = built.catalog->entries.front()
+                             .fields.front()
+                             .line.body.flow.blocks;
+      require(flow.size() == 2 &&
+                  std::holds_alternative<geist::detail::TrapFlowListIR>(
+                      flow.back().value),
+              "native list was flattened into a trap paragraph");
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(),
+              "native list DocumentIR lowering declined: " + error);
+      if (document) {
+        const auto markdown =
+            geist::detail::render_document_markdown(*document);
+        const auto html =
+            geist::detail::render_document_html_blocks(*document, {});
+        const auto first = markdown.find("First item");
+        const auto nested = markdown.find("Nested item");
+        const auto second = markdown.find("Second item");
+        require(first != std::string::npos && nested > first &&
+                    second > nested &&
+                    markdown.find("**Description:** first field") !=
+                        std::string::npos &&
+                    markdown.find("\n            -     Nested item") !=
+                        std::string::npos &&
+                    markdown.find("\n    - Second item") !=
+                        std::string::npos,
+                "Markdown flattened recursive trap list content: " +
+                    markdown);
+        require(html.find(
+                    "<strong class=\"geist-strong\">Description:</strong> "
+                    "first field") != std::string::npos &&
+                    html.find(
+                    "<ul class=\"geist-list\"><li class=\"geist-list-item\">"
+                    "<p class=\"geist-paragraph\">First item</p>"
+                    "<ul class=\"geist-list\"><li class=\"geist-list-item\">"
+                    "Nested item</li></ul>"
+                    "</li><li class=\"geist-list-item\">"
+                    "Second item</li></ul>") !=
+                    std::string::npos,
+                "HTML flattened recursive trap list content: " + html);
+      }
     }
   }
   std::cout << "trap catalog IR synthetic tests passed\n";

@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace geist::detail {
@@ -106,60 +107,6 @@ struct TrapTextLinkIR {
   DocumentSourceSliceIR source;
 };
 
-inline bool operator==(const TrapTextLinkIR& a, const TrapTextLinkIR& b) {
-  return a.begin == b.begin && a.end == b.end && a.target == b.target &&
-         a.source == b.source;
-}
-
-// Projected UTF-8 text with exact provenance. `text` is whitespace-collapsed;
-// `display_text` keeps the reader's inter-word spacing so CFONT columns can
-// be mapped onto it.
-struct TrapTextIR {
-  std::string text;
-  std::string display_text;
-  // Set when an empty display line -- the only paragraph break a record
-  // spells -- falls inside this projected text. `TrapLineIR` carries one
-  // paragraph, so such a body runs its paragraphs together. That has been
-  // the family's behaviour since SC31-711: rejecting it was measured and
-  // costs SC31-711 4.1.2, 4.2.2 and 4.3.4, which are typed on `main`.
-  // Recorded here, and compared canonically, rather than enforced;
-  // representing a multi-paragraph field needs an entry model whose fields
-  // can hold blocks, which `ListItemIR` (inline content only) cannot.
-  bool paragraph_break = false;
-  // Highlighted runs drawn inside this text, ordered and disjoint.
-  std::vector<TrapBodyHighlightIR> highlights;
-  std::vector<TrapTextLinkIR> links;
-  std::vector<DocumentSourceSliceIR> source_slices;
-  std::vector<DocumentSourceRowIR> source_rows;
-  std::size_t cell_begin = 0;
-  std::size_t cell_end = 0;
-};
-
-struct TrapStyledSpanIR {
-  std::string text;
-  FontSpanIR span;
-};
-
-// One headline or field line: the CFONT control that carries its spans and
-// the projected text of its payload (including a deferred payload carried by
-// the next record's leading text segment).
-struct TrapLineIR {
-  DocumentSourceSliceIR font_source;
-  std::vector<TrapStyledSpanIR> spans;
-  std::string spans_text;
-  TrapTextIR body;
-};
-
-// The whole field line: `line.spans` spell the label, `line.body.text` starts
-// with `label_text` and continues with the field text.
-// A labelled line outside the catalog vocabulary (a `Note:` paragraph inside
-// one entry) keeps its highlight but is not a field of the envelope.
-struct TrapFieldIR {
-  TrapLineIR line;
-  std::string label_text;
-  bool in_vocabulary = true;
-};
-
 // A `SRTBL<id>` ... `SRETBL` envelope drawn inside one entry.
 //
 // The family models the envelope, not a grid. Nothing in the source spells
@@ -196,6 +143,127 @@ struct TrapEmbeddedRegionIR {
   std::size_t after_field = 0;
   std::size_t cell_begin = 0;
   std::size_t cell_end = 0;
+};
+
+// One source-backed span of projected UTF-8. Together these spans cover a
+// paragraph's `text` exactly. A glyph normally names one ledger cell; a
+// collapsed separator space names the source cells between adjacent glyphs.
+enum class TrapTextProjectionKindIR {
+  source_glyph,
+  source_spacing,
+  decoded_separator,
+};
+
+struct TrapTextProjectionIR {
+  std::size_t begin = 0;
+  std::size_t end = 0;
+  std::size_t cell_begin = 0;
+  std::size_t cell_end = 0;
+  TrapTextProjectionKindIR kind = TrapTextProjectionKindIR::source_glyph;
+};
+
+struct TrapParagraphBoundaryIR {
+  DocumentSourceSliceIR source;
+  std::size_t cell_begin = 0;
+  std::size_t cell_end = 0;
+};
+
+struct TrapFlowParagraphIR {
+  std::string text;
+  std::string display_text;
+  std::vector<TrapBodyHighlightIR> highlights;
+  std::vector<TrapTextLinkIR> links;
+  std::vector<DocumentSourceSliceIR> source_slices;
+  std::vector<DocumentSourceRowIR> source_rows;
+  std::vector<TrapTextProjectionIR> projection;
+  // Every native blank row before this paragraph, in source order. Keeping
+  // the vector (rather than a boolean) preserves repeated paragraph controls.
+  std::vector<TrapParagraphBoundaryIR> break_before;
+  std::size_t cell_begin = 0;
+  std::size_t cell_end = 0;
+};
+
+struct TrapFlowBlockIR;
+
+struct TrapFlowListItemIR {
+  DocumentSourceSliceIR marker_source;
+  std::size_t marker_cell_begin = 0;
+  std::size_t marker_cell_end = 0;
+  std::vector<TrapFlowBlockIR> blocks;
+};
+
+struct TrapFlowListIR {
+  bool ordered = false;
+  std::vector<TrapFlowListItemIR> items;
+};
+
+// Recursive source flow. The extractor currently emits paragraphs and exact
+// embedded regions; the list alternative reserves the same ownership model
+// for native marker rows without flattening them into paragraph text.
+struct TrapFlowBlockIR {
+  std::variant<TrapFlowParagraphIR, TrapFlowListIR, TrapEmbeddedRegionIR> value;
+};
+
+struct TrapFlowSequenceIR {
+  std::vector<TrapFlowBlockIR> blocks;
+};
+
+inline bool operator==(const TrapTextLinkIR& a, const TrapTextLinkIR& b) {
+  return a.begin == b.begin && a.end == b.end && a.target == b.target &&
+         a.source == b.source;
+}
+
+// Projected UTF-8 text with exact provenance. `text` is whitespace-collapsed;
+// `display_text` keeps the reader's inter-word spacing so CFONT columns can
+// be mapped onto it.
+struct TrapTextIR {
+  std::string text;
+  std::string display_text;
+  // Set when an empty display line -- the only paragraph break a record
+  // spells -- falls inside this projected text. `TrapLineIR` carries one
+  // paragraph, so such a body runs its paragraphs together. That has been
+  // the family's behaviour since SC31-711: rejecting it was measured and
+  // costs SC31-711 4.1.2, 4.2.2 and 4.3.4, which are typed on `main`.
+  // Recorded here, and compared canonically, rather than enforced;
+  // representing a multi-paragraph field needs an entry model whose fields
+  // can hold blocks, which `ListItemIR` (inline content only) cannot.
+  bool paragraph_break = false;
+  // Highlighted runs drawn inside this text, ordered and disjoint.
+  std::vector<TrapBodyHighlightIR> highlights;
+  std::vector<TrapTextLinkIR> links;
+  std::vector<DocumentSourceSliceIR> source_slices;
+  std::vector<DocumentSourceRowIR> source_rows;
+  std::size_t cell_begin = 0;
+  std::size_t cell_end = 0;
+  // Canonical source structure. `text` and the flat ranges above remain the
+  // compatibility projection consumed by the existing DocumentIR lowering;
+  // extraction and verification preserve structure here first.
+  TrapFlowSequenceIR flow;
+};
+
+struct TrapStyledSpanIR {
+  std::string text;
+  FontSpanIR span;
+};
+
+// One headline or field line: the CFONT control that carries its spans and
+// the projected text of its payload (including a deferred payload carried by
+// the next record's leading text segment).
+struct TrapLineIR {
+  DocumentSourceSliceIR font_source;
+  std::vector<TrapStyledSpanIR> spans;
+  std::string spans_text;
+  TrapTextIR body;
+};
+
+// The whole field line: `line.spans` spell the label, `line.body.text` starts
+// with `label_text` and continues with the field text.
+// A labelled line outside the catalog vocabulary (a `Note:` paragraph inside
+// one entry) keeps its highlight but is not a field of the envelope.
+struct TrapFieldIR {
+  TrapLineIR line;
+  std::string label_text;
+  bool in_vocabulary = true;
 };
 
 struct TrapEntryIR {
