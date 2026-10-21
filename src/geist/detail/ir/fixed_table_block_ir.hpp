@@ -315,8 +315,11 @@ struct FixedTableBlocksIR {
 };
 
 // Extracts every SRTBL envelope whose physical rows lie inside `range`.
-// Envelopes that cross the range boundary, own no rows, or fail the geometry
-// are reported in `declined` with the reason; nothing is partially admitted.
+// A closed undeclared envelope with no compatibility row can still be
+// admitted from its native display-line framing when `range` covers the full
+// layout; its empty `rows`/`source_rows` record that no row was fabricated.
+// Envelopes that cross a partial range, or otherwise fail their source
+// geometry, are reported in `declined`; nothing is partially admitted.
 FixedTableBlocksIR extract_fixed_table_blocks_ir(
     const std::vector<DecodedLogicalRecordSource> &records,
     const LayoutIR &layout, const OwnershipIR &ownership,

@@ -306,6 +306,23 @@ public:
                                candidate.start->source_tokens.front()};
     const SourcePosition end{candidate.end_record, candidate.end_token};
 
+    FixedTableBlockIR block;
+    block.object_id = candidate.object_id;
+    block.object_source.logical_record =
+        candidate.start_record->logical_record;
+    block.object_source.segment_index = candidate.start->segment_index;
+    block.object_source.token_begin = candidate.start->source_tokens.front();
+    block.object_source.token_end = candidate.start->source_tokens.back() + 1;
+    const auto &ir_tokens = candidate.start_record->ir.tokens;
+    if (block.object_source.token_end <= ir_tokens.size()) {
+      block.object_source.byte_begin =
+          ir_tokens[block.object_source.token_begin].byte_range.begin;
+      block.object_source.byte_end =
+          ir_tokens[block.object_source.token_end - 1].byte_range.end;
+    }
+    collect_index_lines(start, end, block);
+    block.source_declared_table = candidate.declared_table;
+
     // Physical rows owned by the envelope.
     std::size_t first = npos;
     std::size_t last = npos;
@@ -328,7 +345,28 @@ public:
       last = ordinal;
     }
     if (first == npos) {
-      reason = "table envelope owns no physical rows";
+      // LayoutIR is a compatibility projection of prose runs, not the
+      // source's display-line inventory.  A command line whose SRTBL opens
+      // at the end of one logical record can live wholly in the following
+      // record and therefore have no projected row (SC24-5527-02 4.2.3
+      // TBLUNIQ298 and 4.3.7 TBLUNIQ322).  The native length-byte framing
+      // still proves a complete line-for-line region.  It has no coordinate
+      // with which to answer a partial row-range query, so admit it only for
+      // the full layout range and only as undeclared preformatted content;
+      // a source-declared semantic table still requires recovered rows.
+      if (range.begin != 0 || range.end != flat_.size()) {
+        reason = "native-only table envelope requires the full row range";
+        return std::nullopt;
+      }
+      if (candidate.declared_table) {
+        reason = "declared table envelope owns no physical rows";
+        return std::nullopt;
+      }
+      std::string preformatted_reason;
+      if (admit_preformatted(start, end, block, preformatted_reason))
+        return block;
+      reason = "table envelope owns no physical rows; not preformatted: " +
+               preformatted_reason;
       return std::nullopt;
     }
     if (last < range.begin || first >= range.end) {
@@ -340,28 +378,10 @@ public:
       return std::nullopt;
     }
 
-    FixedTableBlockIR block;
     block.rows = {first, last + 1};
     for (auto ordinal = first; ordinal <= last; ++ordinal)
       block.source_rows.push_back(
           {flat_[ordinal].run, flat_[ordinal].row_index});
-    block.object_id = candidate.object_id;
-    block.object_source.logical_record =
-        candidate.start_record->logical_record;
-    block.object_source.segment_index = candidate.start->segment_index;
-    block.object_source.token_begin = candidate.start->source_tokens.front();
-    block.object_source.token_end = candidate.start->source_tokens.back() + 1;
-    const auto &ir_tokens = candidate.start_record->ir.tokens;
-    if (block.object_source.token_end <= ir_tokens.size()) {
-      block.object_source.byte_begin =
-          ir_tokens[block.object_source.token_begin].byte_range.begin;
-      block.object_source.byte_end =
-          ir_tokens[block.object_source.token_end - 1].byte_range.end;
-    }
-
-    collect_index_lines(start, end, block);
-    block.source_declared_table = candidate.declared_table;
-
     auto table = block;
     std::string table_reason;
     const auto table_proven =
@@ -2520,8 +2540,13 @@ bool verify_fixed_table_blocks_ir(
   const auto flat = flatten(layout);
   std::set<CellKey> globally_claimed;
   for (const auto &block : blocks.blocks) {
-    if (block.rows.begin >= block.rows.end || block.rows.end > flat.size() ||
-        block.rows.begin < range.begin || block.rows.end > range.end)
+    const auto native_only = block.rows.begin == block.rows.end &&
+                             block.geometry ==
+                                 FixedTableGeometryIR::preformatted &&
+                             block.source_rows.empty();
+    if ((!native_only && block.rows.begin >= block.rows.end) ||
+        block.rows.end > flat.size() || block.rows.begin < range.begin ||
+        block.rows.end > range.end)
       return fail("fixed table row span is outside the layout or range");
     if (block.source_rows.size() != block.rows.end - block.rows.begin)
       return fail("fixed table source rows do not match its row span");

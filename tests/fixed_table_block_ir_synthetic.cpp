@@ -563,6 +563,59 @@ void test_spot_anchor_inside_preformatted_table() {
           "mutated SRSPT anchor role passed lowering verification");
 }
 
+// A one-line SRTBL command can cross a logical-record boundary without
+// producing any compatibility LayoutIR row: the opening/control line is in
+// the first record and the native display row plus SRETBL are in the next.
+// The source display-line framing still proves the complete verbatim region.
+void test_native_row_without_layout_projection() {
+  RecordBuilder first;
+  first.line({words("SRTBLCOMMAND")});
+  first.line({words("cfont"), words("3"), words("6"), words("2")});
+  RecordBuilder second;
+  second.line({words("   vmfbld ppf esa rexx")});
+  second.line({words("SRETBL")});
+
+  std::vector<DecodedLogicalRecordSource> sources;
+  sources.push_back(first.finish(41));
+  sources.push_back(second.finish(42));
+  LayoutIR layout;
+  const auto ownership = build_ownership_ir(sources, layout);
+  const LayoutRowRangeIR range{0, 0};
+  const auto blocks =
+      extract_fixed_table_blocks_ir(sources, layout, ownership, range);
+  require(blocks.declined.empty() && blocks.blocks.size() == 1,
+          "native-only SRTBL row was declined" +
+              (blocks.declined.empty()
+                   ? std::string{}
+                   : ": " + blocks.declined.front().reason));
+  if (blocks.blocks.size() != 1)
+    return;
+  const auto &block = blocks.blocks.front();
+  require(block.geometry == FixedTableGeometryIR::preformatted &&
+              block.rows.begin == block.rows.end &&
+              block.source_rows.empty() &&
+              block.preformatted_lines.size() == 1 &&
+              block.preformatted_lines.front().text ==
+                  "   vmfbld ppf esa rexx" &&
+              block.preformatted_lines.front().rows.empty(),
+          "native-only SRTBL row lost its text or invented a layout row");
+  std::string error;
+  require(verify_fixed_table_blocks_ir(sources, layout, ownership, range,
+                                       blocks, &error),
+          "native-only SRTBL block did not verify: " + error);
+  const auto lowered = lower_fixed_table_block_to_document_ir(block);
+  const auto *verbatim = lowered_verbatim(lowered);
+  require(verbatim != nullptr &&
+              verbatim->lines ==
+                  std::vector<std::string>{"   vmfbld ppf esa rexx"} &&
+              verbatim->line_origins.size() == 1 &&
+              verbatim->line_origins.front().rows.empty() &&
+              verbatim->line_origins.front().slices.size() == 1,
+          "native-only SRTBL lowering lost source-only provenance");
+  require(verify_fixed_table_document_ir(block, lowered, &error),
+          "native-only SRTBL lowering did not verify: " + error);
+}
+
 } // namespace
 
 int main() {
@@ -572,6 +625,7 @@ int main() {
   test_book_inventory();
   test_negatives();
   test_spot_anchor_inside_preformatted_table();
+  test_native_row_without_layout_projection();
   geist_test::exit_with_failures();
   std::cout << "fixed table block IR checks passed\n";
   return 0;
