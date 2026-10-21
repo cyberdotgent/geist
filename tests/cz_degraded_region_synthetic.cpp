@@ -185,6 +185,49 @@ geist::detail::TopicIdentityIR identity() {
   return topic;
 }
 
+void metadata(RecordBuilder &builder) {
+  builder.line({words("sh1.1")});
+  builder.line({words("ctopicn"), words("7")});
+  builder.line({words("cparent"), words("1.0")});
+  builder.line({words("cforwardlevel"), words("1.2")});
+  builder.line({words("cbacklevel"), words("1.0")});
+  builder.line({words("csummary"), words("8"), words("0"), words("8")});
+  builder.line({words("chdlevel"), words(":H2")});
+  builder.line({words("csourcefn"), words("DVGR1A05")});
+  builder.line({words("ST"), words("Widget"), words("Notes")});
+}
+
+void inferred_parameter_prelude(RecordBuilder &builder) {
+  builder.line({words("cz"), words("OFF"), words("SYNTAX")});
+  builder.line({words("   "), words(">>WIDGET<<")});
+  builder.line({words("cz"), words("OFF"), words("ESYNTAX"), words("0"),
+                words("0")});
+  builder.line({words("cz"), words("FLOW"), words("PT"), words("3"),
+                words("7")});
+  builder.line({words("   "), words("ALl")});
+  builder.line({words("cz"), words("BREAK"), words("7")});
+  builder.line({words("       "), words("is"), words("the"),
+                words("default.")});
+  builder.line({words("cz"), words("OFF"), words("EPARML"), words("0"),
+                words("0")});
+}
+
+Extracted extract_record(RecordBuilder builder, std::uint32_t record) {
+  Extracted extracted;
+  extracted.sources.push_back(builder.build(record));
+  extracted.layout = geist::detail::extract_layout_ir(extracted.sources);
+  extracted.ownership = geist::detail::build_verified_ownership_ir(
+      extracted.sources, extracted.layout, &extracted.error);
+  require(extracted.ownership.has_value(),
+          "the compound CZ fixture's frame is not verifiable: " +
+              extracted.error);
+  if (!extracted.ownership) return extracted;
+  extracted.prose = geist::detail::extract_prose_topic_ir(
+      extracted.sources, extracted.layout, *extracted.ownership, topic_title,
+      nullptr, &extracted.error);
+  return extracted;
+}
+
 // H6 is a real CZ flow heading, not body prose.  DFHP7A00 2.3.4.5.2 stores
 // `cz FLOW H6 3 3` before each command-family subheading; the source heading
 // level, rather than its displayed words, is the structural evidence.
@@ -368,6 +411,156 @@ void syntax_followed_by_pt_builds_an_implicit_parameter_list() {
               markdown);
 }
 
+// Parameter descriptions in DFHP7A00 2.5.3--2.5.5 and 2.5.7 contain
+// source-declared lists after the PT/BREAK paragraph.  Until the prose source
+// IR can attach child blocks to the definition entry, the parser must name
+// that missing structure and decline instead of flattening the nested list.
+void a_nested_list_in_a_parameter_body_fails_as_compound_content() {
+  RecordBuilder builder;
+  metadata(builder);
+  inferred_parameter_prelude(builder);
+  builder.line({words("cz"), words("FLOW"), words("PARML"), words("3"),
+                words("3")});
+  builder.line({words("cz"), words("FLOW"), words("PT"), words("3"),
+                words("7")});
+  builder.line({words("   "), words("State(value)")});
+  builder.line({words("cz"), words("BREAK"), words("7")});
+  builder.line({words("       "), words("The"), words("values"),
+                words("are:")});
+  builder.line({words("cz"), words("FLOW"), words("DL"), words("7"),
+                words("7")});
+  builder.line({words("cz"), words("FLOW"), words("DT"), words("7"),
+                words("20")});
+  builder.line({words("       "), words("OPEN"), words("Available")});
+  builder.line({words("cz"), words("OFF"), words("EDL"), words("0"),
+                words("0")});
+  builder.line({words("cz"), words("OFF"), words("EPARML"), words("0"),
+                words("0")});
+
+  const auto extracted = extract_record(std::move(builder), 25);
+  require(!extracted.prose.has_value(),
+          "a nested parameter-body list was flattened into top-level blocks");
+  require(contains(extracted.error,
+                   "nests inside a parameter body that needs compound block "
+                   "content"),
+          "the nested parameter-body decline is not structural: " +
+              extracted.error);
+}
+
+// DFHP7A00 2.5.3 continues a parameter description with FLOW PC after a
+// nested value list.  PC remains part of the same definition body; emitting a
+// top-level paragraph would lose that ownership.
+void a_parameter_paragraph_continuation_fails_as_compound_content() {
+  RecordBuilder builder;
+  metadata(builder);
+  inferred_parameter_prelude(builder);
+  builder.line({words("cz"), words("FLOW"), words("PARML"), words("3"),
+                words("3")});
+  builder.line({words("cz"), words("FLOW"), words("PT"), words("3"),
+                words("7")});
+  builder.line({words("   "), words("State(value)")});
+  builder.line({words("cz"), words("BREAK"), words("7")});
+  builder.line({words("       "), words("The"), words("state.")});
+  builder.line({words("cz"), words("FLOW"), words("PC"), words("7"),
+                words("7")});
+  builder.line({words("       "), words("Pending"), words("states"),
+                words("continue.")});
+  builder.line({words("cz"), words("OFF"), words("EPARML"), words("0"),
+                words("0")});
+
+  const auto extracted = extract_record(std::move(builder), 26);
+  require(!extracted.prose.has_value(),
+          "a parameter-body PC was flattened into a top-level paragraph");
+  require(contains(extracted.error,
+                   "continues a parameter body that needs compound block "
+                   "content"),
+          "the parameter PC decline is not structural: " + extracted.error);
+}
+
+// GA19 FRONT_3 uses a deliberately empty DT as the owner of a following
+// LINES address block.  The empty term and nested preformatted body are both
+// source facts; neither may be fabricated as ordinary inline text.
+void an_empty_dt_before_lines_fails_as_a_compound_definition() {
+  RecordBuilder builder;
+  metadata(builder);
+  builder.line({words("cz"), words("FLOW"), words("DL"), words("3"),
+                words("3")});
+  builder.line({words("cz"), words("FLOW"), words("DT"), words("3"),
+                words("25")});
+  builder.line({words("cz"), words("OFF"), words("LINES")});
+  builder.line({words("                         "), words("Nigel"),
+                words("Adams")});
+  builder.line({words("cz"), words("OFF"), words("ELINES"), words("22"),
+                words("22")});
+  builder.line({words("cz"), words("OFF"), words("EDL"), words("0"),
+                words("0")});
+
+  const auto extracted = extract_record(std::move(builder), 27);
+  require(!extracted.prose.has_value(),
+          "an empty DT plus LINES body lost its definition ownership");
+  require(contains(extracted.error,
+                   "empty term owns a LINES body that needs compound block "
+                   "content"),
+          "the empty DT/LINES decline is not structural: " + extracted.error);
+}
+
+// GA19 19.22 puts each printer family in DT, opens an empty DD, then supplies
+// the printer names as a LINES region.  The region is a block body of that
+// entry, not a sibling preformatted block.
+void an_empty_dd_before_lines_fails_as_a_compound_definition() {
+  RecordBuilder builder;
+  metadata(builder);
+  builder.line({words("cz"), words("FLOW"), words("DL"), words("3"),
+                words("3")});
+  builder.line({words("cz"), words("FLOW"), words("DT"), words("3"),
+                words("4")});
+  builder.line({words("   "), words("9-pin")});
+  builder.line({words("cz"), words("FLOW"), words("DD"), words("4"),
+                words("4")});
+  builder.line({words("cz"), words("OFF"), words("LINES")});
+  builder.line({words("    "), words("IBM"), words("2380"),
+                words("Series"), words("II")});
+  builder.line({words("cz"), words("OFF"), words("ELINES"), words("1"),
+                words("1")});
+  builder.line({words("cz"), words("OFF"), words("EDL"), words("0"),
+                words("0")});
+
+  const auto extracted = extract_record(std::move(builder), 28);
+  require(!extracted.prose.has_value(),
+          "an empty DD plus LINES body lost its definition ownership");
+  require(contains(extracted.error,
+                   "DD owns a LINES body that needs compound block content"),
+          "the empty DD/LINES decline is not structural: " + extracted.error);
+}
+
+// FLOW LP is a list-part boundary, not a list item.  DFHP7A00 2.3.4.1 uses
+// it twice inside one DL, before the `Definition:` and `Operations:` section
+// paragraphs that divide two runs of DT entries.
+void a_list_part_paragraph_fails_as_mixed_list_content() {
+  RecordBuilder builder;
+  metadata(builder);
+  builder.line({words("cz"), words("FLOW"), words("DL"), words("3"),
+                words("3")});
+  builder.line({words("cz"), words("FLOW"), words("LP"), words("3"),
+                words("3")});
+  builder.line({words("cz"), words("FLOW"), words("P"), words("3"),
+                words("3")});
+  builder.line({words("   "), words("Definition:")});
+  builder.line({words("cz"), words("FLOW"), words("DT"), words("3"),
+                words("20")});
+  builder.line({words("   "), words("INSTALL"), words("Define"),
+                words("resources")});
+  builder.line({words("cz"), words("OFF"), words("EDL"), words("0"),
+                words("0")});
+
+  const auto extracted = extract_record(std::move(builder), 29);
+  require(!extracted.prose.has_value(),
+          "a FLOW LP section was flattened outside its definition list");
+  require(contains(extracted.error,
+                   "needs mixed list block content"),
+          "the FLOW LP decline is not structural: " + extracted.error);
+}
+
 // The closed region: emitted verbatim, marked degraded, everything around it
 // typed.
 void a_closed_unmodelled_region_degrades_its_block() {
@@ -491,6 +684,11 @@ int main() {
   an_h6_directive_builds_a_level_six_heading();
   a_separate_dd_completes_its_definition_term();
   syntax_followed_by_pt_builds_an_implicit_parameter_list();
+  a_nested_list_in_a_parameter_body_fails_as_compound_content();
+  a_parameter_paragraph_continuation_fails_as_compound_content();
+  an_empty_dt_before_lines_fails_as_a_compound_definition();
+  an_empty_dd_before_lines_fails_as_a_compound_definition();
+  a_list_part_paragraph_fails_as_mixed_list_content();
   a_closed_unmodelled_region_degrades_its_block();
   an_unclosed_unmodelled_region_declines_the_topic();
   geist_test::exit_with_failures();

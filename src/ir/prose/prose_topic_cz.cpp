@@ -452,7 +452,7 @@ struct CzBuilder {
                      error))
       return false;
     frame.pending_definition = npos;
-    frame.separate_definition_body = frame.inferred_parameter_list;
+    frame.separate_definition_body = true;
     return true;
   }
 
@@ -1270,7 +1270,19 @@ struct CzBuilder {
         if (!list_item(directive, groups)) return false;
         return true;
       }
+      if (tag == "lp") {
+        if (stack.empty())
+          return fail(error, "cz FLOW LP outside an open list");
+        return fail(error, name + " inside a " + stack.back().tag +
+                               " needs mixed list block content");
+      }
       if (tag == "dt") {
+        if (groups.empty() && index + 1 < build.directives.size() &&
+            build.directives[index + 1].mode == "off" &&
+            build.directives[index + 1].tag == "lines")
+          return fail(error,
+                      "cz FLOW DT empty term owns a LINES body that needs "
+                      "compound block content");
         const auto separate_body =
             index + 1 < build.directives.size() &&
             build.directives[index + 1].mode == "flow" &&
@@ -1278,7 +1290,15 @@ struct CzBuilder {
         if (!definition(directive, groups, separate_body)) return false;
         return true;
       }
-      if (tag == "dd") return definition_body(groups);
+      if (tag == "dd") {
+        if (groups.empty() && index + 1 < build.directives.size() &&
+            build.directives[index + 1].mode == "off" &&
+            build.directives[index + 1].tag == "lines")
+          return fail(error,
+                      "cz FLOW DD owns a LINES body that needs compound block "
+                      "content");
+        return definition_body(groups);
+      }
       if (tag == "nt" || tag == "note") {
         if (tag == "nt") stack.push_back({tag, next_list_ordinal++, 1});
         if (!note(groups)) return false;
