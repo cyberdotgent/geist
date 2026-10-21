@@ -235,6 +235,17 @@ Extracted extract_record(RecordBuilder builder, std::uint32_t record) {
   return extracted;
 }
 
+std::optional<geist::detail::DocumentIR> lower_document(
+    const Extracted &extracted) {
+  if (!extracted.prose) return std::nullopt;
+  std::string error;
+  auto document = geist::detail::lower_prose_topic_to_document_ir(
+      identity(), *extracted.prose, &error);
+  require(document.has_value(),
+          "the compound CZ tree did not lower: " + error);
+  return document;
+}
+
 // H6 is a real CZ flow heading, not body prose.  DFHP7A00 2.3.4.5.2 stores
 // `cz FLOW H6 3 3` before each command-family subheading; the source heading
 // level, rather than its displayed words, is the structural evidence.
@@ -489,6 +500,25 @@ void a_nested_list_in_a_parameter_body_keeps_source_ownership() {
                 contains(error, "body children are not in source order"),
             "the verifier admitted reordered compound children: " + error);
   }
+  const auto document = lower_document(extracted);
+  if (!document) return;
+  bool found_compound = false;
+  for (const auto &candidate : document->blocks) {
+    const auto *definitions =
+        std::get_if<geist::detail::DefinitionListBlockIR>(&candidate.node);
+    if (definitions == nullptr) continue;
+    for (const auto &entry : definitions->entries) {
+      if (entry.definition_blocks.size() < 2 ||
+          !std::holds_alternative<geist::detail::ParagraphBlockIR>(
+              entry.definition_blocks.front().node))
+        continue;
+      found_compound = std::holds_alternative<
+          geist::detail::DefinitionListBlockIR>(
+          entry.definition_blocks[1].node);
+    }
+  }
+  require(found_compound,
+          "the nested definition list was not lowered after its body paragraph");
 }
 
 // DFHP7A00 2.5.3 continues a parameter description with FLOW PC after a
@@ -613,6 +643,27 @@ void a_list_item_continuation_keeps_recursive_source_ownership() {
               item->body_blocks.size() == 1 &&
               item->body_blocks.front() == continuation_index,
           "the parameter/list-item ownership chain was flattened");
+  const auto document = lower_document(extracted);
+  if (!document) return;
+  bool found_compound_item = false;
+  for (const auto &candidate : document->blocks) {
+    const auto *definitions =
+        std::get_if<geist::detail::DefinitionListBlockIR>(&candidate.node);
+    if (definitions == nullptr) continue;
+    for (const auto &entry : definitions->entries) {
+      for (const auto &body : entry.definition_blocks) {
+        const auto *list =
+            std::get_if<geist::detail::ListBlockIR>(&body.node);
+        if (list == nullptr || list->items.size() != 2) continue;
+        found_compound_item = list->items.front().content.empty() &&
+                              list->items.front().blocks.size() == 2 &&
+                              !list->items.back().content.empty() &&
+                              list->items.back().blocks.empty();
+      }
+    }
+  }
+  require(found_compound_item,
+          "the list-item continuation did not lower inside its item");
 }
 
 // GA19 FRONT_3 uses a deliberately empty DT as the owner of a following
@@ -665,6 +716,24 @@ void an_empty_dt_before_lines_keeps_a_compound_definition() {
               contains(error,
                        "empty definition entry has no control provenance"),
           "the verifier admitted an unproven empty term: " + error);
+  const auto document = lower_document(extracted);
+  if (!document) return;
+  bool found_empty_term = false;
+  for (const auto &candidate : document->blocks) {
+    const auto *definitions =
+        std::get_if<geist::detail::DefinitionListBlockIR>(&candidate.node);
+    if (definitions == nullptr) continue;
+    for (const auto &lowered : definitions->entries)
+      found_empty_term =
+          found_empty_term ||
+          (lowered.empty_term && lowered.term.empty() &&
+           lowered.definition.empty() &&
+           lowered.definition_blocks.size() == 1 &&
+           std::holds_alternative<geist::detail::PreformattedBlockIR>(
+               lowered.definition_blocks.front().node));
+  }
+  require(found_empty_term,
+          "the explicit empty term did not lower with its LINES body");
 }
 
 // GA19 19.22 puts each printer family in DT, opens an empty DD, then supplies
