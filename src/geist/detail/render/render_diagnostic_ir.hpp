@@ -14,6 +14,7 @@
 
 namespace geist::detail {
 struct DocumentRenderTraceIR;
+struct TopicLoweringOutcomeIR;
 
 // Single source of truth for render provenance.
 //
@@ -29,6 +30,12 @@ RenderDiagnostic classify_typed_lowering(const TopicIdentityIR &topic,
                                          const DocumentIR *document,
                                          const std::string &typed_rejection,
                                          const TypedLoweringTraceIR &trace);
+
+// Classifies the selected representation without using either serializer as
+// an oracle. A source-row DocumentIR remains best-effort; a structured
+// heading-only document remains a genuine empty typed topic.
+RenderDiagnostic classify_topic_lowering(
+    const TopicIdentityIR &topic, const TopicLoweringOutcomeIR *outcome);
 
 // True when the rendered Markdown carries something a reader would call
 // content: a line that is neither blank, nor a heading, nor an anchor.

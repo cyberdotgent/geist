@@ -152,7 +152,7 @@ std::vector<LinkTarget> document_link_targets(const DocumentIR& document) {
 } // namespace detail
 
 const std::vector<LinkTarget>& TocEntry::link_targets() const {
-  const auto& rendered = render();
+  (void)render();
   // Fill-once and published atomically (geist/detail/atomic_cache.hpp). The
   // returned reference is into a value that is never replaced, so it stays
   // valid however many threads ask for it.
@@ -161,24 +161,8 @@ const std::vector<LinkTarget>& TocEntry::link_targets() const {
     const auto& outcome = lowered().outcome;
     const detail::DocumentIR* document =
         outcome && outcome->document ? &*outcome->document : nullptr;
-    if (document != nullptr) {
+    if (document != nullptr)
       *targets = detail::document_link_targets(*document);
-      return std::shared_ptr<const std::vector<LinkTarget>>(
-          std::move(targets));
-    }
-    // A topic that renders verbatim still names the objects its structural
-    // controls name, and cross references elsewhere point at them. The kind
-    // follows the id's own prefix, which is the evidence the typed families
-    // read too.
-    for (const auto& id : rendered.best_effort_anchors) {
-      auto kind = LinkTargetKind::anchor;
-      const auto head = detail::ascii_lower(id.substr(0, 3));
-      if (head == "fig")
-        kind = LinkTargetKind::figure;
-      else if (head == "tbl")
-        kind = LinkTargetKind::table;
-      targets->push_back({kind, id, {}, {}});
-    }
     return std::shared_ptr<const std::vector<LinkTarget>>(std::move(targets));
   });
 }

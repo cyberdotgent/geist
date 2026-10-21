@@ -66,6 +66,13 @@ struct TypedRouteTopicIR {
   std::string id;
   std::string title;
   std::uint32_t level = 0;
+  // Stable source identity in the book-wide topic catalog. Indexed topics
+  // retain their TopicInfo position and record bounds; a TOC-only entry uses
+  // its TOC position and bounds instead.
+  std::string source_kind;
+  std::size_t source_index = 0;
+  std::uint32_t source_start_logical_record = 0;
+  std::uint32_t source_end_logical_record = 0;
   TypedRouteKind route = TypedRouteKind::legacy;
   // Typed family that claimed the topic (set for typed topics and for
   // verification rejections).

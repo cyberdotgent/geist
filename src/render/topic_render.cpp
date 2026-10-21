@@ -67,16 +67,11 @@ const TocEntry::RenderedTopic& TocEntry::render() const {
 
     const auto& outcome = lowered().outcome;
     const detail::DocumentIR* document = nullptr;
-    std::string rejection;
-    detail::TypedLoweringTraceIR trace;
-    if (outcome) {
+    if (outcome)
       document = outcome->document ? &*outcome->document : nullptr;
-      rejection = outcome->rejection;
-      trace = outcome->trace;
-    }
 
-    out->diagnostic =
-        detail::classify_typed_lowering(identity, document, rejection, trace);
+    out->diagnostic = detail::classify_topic_lowering(
+        identity, outcome ? outcome.get() : nullptr);
     // A TocEntry a caller built by hand out of `raw_records` never met the
     // typed pipeline, so "the typed dispatcher declined it" would be a false
     // statement about a topic that has no book behind it. It still gets a
@@ -87,33 +82,10 @@ const TocEntry::RenderedTopic& TocEntry::render() const {
       out->diagnostic.reason = "no-typed-lowering-attempted";
       out->diagnostic.detail.clear();
     }
-    // A topic the typed dispatcher declines produces nothing here; the
-    // verbatim route below is what renders it. There is no second renderer.
     out->markdown = document != nullptr
                         ? detail::render_document_markdown(*document)
                         : std::string();
-
-    const auto has_content = detail::markdown_has_content(out->markdown);
-    detail::TopicBestEffortIR verbatim;
-    if (!has_content && best_effort_loader_)
-      verbatim = best_effort_loader_();
-    detail::escalate_render_diagnostic(out->diagnostic, has_content,
-                                       !verbatim.rows.empty(),
-                                       verbatim.source_decoded);
-    if (out->diagnostic.severity == RenderSeverity::best_effort) {
-      if (!out->markdown.empty() && out->markdown.back() != '\n')
-        out->markdown += "\n";
-      if (!out->markdown.empty())
-        out->markdown += "\n";
-      // The book-wide answer excludes the footnote destinations; the file the
-      // reader opens still has to carry them.
-      out->best_effort_anchors = verbatim.anchors;
-      auto emitted = verbatim.anchors;
-      emitted.insert(emitted.end(), verbatim.footnote_anchors.begin(),
-                     verbatim.footnote_anchors.end());
-      out->markdown +=
-          detail::render_best_effort_markdown(identity, verbatim.rows, emitted);
-    } else if (out->diagnostic.severity == RenderSeverity::failed) {
+    if (out->diagnostic.severity == RenderSeverity::failed) {
       if (!out->markdown.empty() && out->markdown.back() != '\n')
         out->markdown += "\n";
       if (!out->markdown.empty())

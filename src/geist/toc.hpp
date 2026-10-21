@@ -20,7 +20,6 @@ namespace geist {
 
 namespace detail {
 struct TopicLoweringOutcomeIR;
-struct TopicBestEffortIR;
 }
 
 // Thread safety: once `BooDocument::open()` has returned, every `const`
@@ -80,14 +79,11 @@ private:
   struct LoweredTopic {
     std::shared_ptr<const detail::TopicLoweringOutcomeIR> outcome;
   };
-  // One render pass produces the Markdown, the diagnostic that explains it,
-  // and the anchors a verbatim topic named, so the three can never disagree.
+  // One render pass produces the Markdown and the diagnostic that explains
+  // it, so the two can never disagree.
   struct RenderedTopic {
     std::string markdown;
     RenderDiagnostic diagnostic;
-    // The anchor ids a verbatim-rendered topic named; empty for a typed
-    // topic, whose Document IR carries them instead.
-    std::vector<std::string> best_effort_anchors;
   };
   // Each slot is filled at most once and published atomically; see
   // geist/detail/atomic_cache.hpp. The state is held behind a shared_ptr for
@@ -106,17 +102,12 @@ private:
   // inherit -- or share -- results computed without them.
   void attach_loaders(
       std::function<std::shared_ptr<const detail::TopicLoweringOutcomeIR>()>
-          document,
-      std::function<detail::TopicBestEffortIR()> best_effort) {
+          document) {
     document_ir_loader_ = std::move(document);
-    best_effort_loader_ = std::move(best_effort);
     cache_ = std::make_shared<CacheState>();
   }
   std::function<std::shared_ptr<const detail::TopicLoweringOutcomeIR>()>
       document_ir_loader_;
-  // The topic's own display rows, verbatim: the last-resort content when no
-  // route produced any. Loaded only when that happens.
-  std::function<detail::TopicBestEffortIR()> best_effort_loader_;
   std::shared_ptr<CacheState> cache_ = std::make_shared<CacheState>();
   friend class BooDocument;
 };

@@ -242,6 +242,7 @@ set(GEIST_SOURCES
   src/lowering/message_document_lowering.cpp
   src/lowering/prose_topic_document_lowering.cpp
   src/lowering/publication_document_lowering.cpp
+  src/lowering/source_rows_document_lowering.cpp
   src/lowering/topic_document_lowering.cpp
   src/lowering/topic_identity.cpp
   src/lowering/trap_catalog_document_lowering.cpp
@@ -591,6 +592,7 @@ foreach(synthetic_test
     message_catalog_ir_synthetic
     message_introduction_ir_synthetic
     verbatim_cross_references_synthetic
+    source_rows_document_ir_synthetic
     trap_catalog_ir_synthetic
     layout_row_coverage_synthetic)
   geist_add_test(${synthetic_test})

@@ -115,13 +115,14 @@ public:
       const noexcept;
   GEIST_API std::vector<BooLogicalRecordTrace> trace_logical_records(
       const std::string& topic_id) const;
-  // Reports, for every TOC topic, whether typed Document IR lowering claims
-  // it (and which family) or the legacy string pipeline renders it. Lowering
-  // only; no Markdown is rendered. See geist/detail/typed_route_inventory.hpp.
+  // Reports, in stable source-catalog order, whether typed Document IR
+  // lowering claims every indexed topic (and any TOC-only topic) or the
+  // legacy string pipeline renders it. Lowering only; no Markdown is rendered.
+  // See geist/detail/typed_route_inventory.hpp.
   GEIST_API detail::TypedRouteInventoryIR typed_route_inventory() const;
-  // Source-side conservation for every TOC topic: the words the topic's
-  // records draw, per their own display-line framing, against the words its
-  // Markdown emits. Renders every topic. See
+  // Source-side conservation for every indexed topic and any TOC-only topic:
+  // the words the topic's records draw, per their own display-line framing,
+  // against independently projected Markdown and HTML. Renders every topic. See
   // geist/detail/drawn_word_conservation.hpp.
   GEIST_API detail::DrawnWordConservationIR drawn_word_conservation() const;
 

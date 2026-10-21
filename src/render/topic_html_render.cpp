@@ -19,58 +19,11 @@
 #include "geist/detail/lowering/topic_lowering_outcome.hpp"
 #include "geist/html.hpp"
 
-#include <algorithm>
-#include <cctype>
 #include <string>
 #include <vector>
 
 namespace geist {
 namespace {
-
-// The heading level the source proved for a topic, spelled either as the
-// source writes it (`:H3`) or as the typed families normalise it (`h3`).
-// Only the first word is the level: on a topic whose metadata run does not
-// parse, the recorded value is the whole flattened remainder of the record.
-// This mirrors `render_best_effort_markdown` deliberately -- the two routes
-// must give one topic the same heading level.
-std::size_t heading_level_of(const std::string& heading_level) {
-  auto level = detail::ascii_lower(heading_level);
-  level = level.substr(0, level.find_first_of(" \t"));
-  if (!level.empty() && level.front() == ':')
-    level.erase(0, 1);
-  if (level.size() == 2 && level.front() == 'h' && level.back() >= '1' &&
-      level.back() <= '6')
-    return static_cast<std::size_t>(level.back() - '0');
-  return 1;
-}
-
-// The topic's own heading, as every route emits it: the level the source
-// proved, then the public topic identity, then the title.  Without it a
-// verbatim topic would arrive with no heading at all.
-std::string topic_heading_html(const detail::TopicIdentityIR& topic) {
-  const auto level = std::to_string(heading_level_of(topic.heading_level));
-  std::string out = "<h" + level + " class=\"geist-heading\">";
-  if (!topic.id.empty())
-    out += detail::escape_html_text(topic.id) + " ";
-  out += detail::escape_html_text(topic.title);
-  out += "</h" + level + ">";
-  return out;
-}
-
-// A topic reproduced verbatim still *names* the objects other topics
-// reference, so their ids are emitted even though no structure is claimed
-// around them.  Without them every cross reference elsewhere in the book that
-// points here would dangle.
-std::string verbatim_anchors_html(const std::vector<std::string>& anchors,
-                                  const HtmlRenderOptions& options) {
-  std::string out;
-  for (const auto& id : anchors) {
-    out += "<span class=\"geist-anchor geist-anchor--cross-reference\" id=\"";
-    out += detail::escape_html_attribute(detail::html_emitted_id(id, options));
-    out += "\"></span>\n";
-  }
-  return out;
-}
 
 // The `failed` route: a placeholder naming the topic, its source record range
 // and the reason.  Deliberately visible and deliberately labelled as a Geist
@@ -128,17 +81,7 @@ std::string TocEntry::html_fragment(const HtmlRenderOptions& options) const {
   if (document != nullptr)
     inner = detail::render_document_html_blocks(*document, options);
 
-  if (diagnostic.severity == RenderSeverity::best_effort) {
-    const auto verbatim = best_effort_loader_ ? best_effort_loader_()
-                                              : detail::TopicBestEffortIR{};
-    append_section(inner, topic_heading_html(identity));
-    auto emitted = verbatim.anchors;
-    emitted.insert(emitted.end(), verbatim.footnote_anchors.begin(),
-                   verbatim.footnote_anchors.end());
-    append_section(inner, verbatim_anchors_html(emitted, options));
-    append_section(inner,
-                   detail::render_verbatim_rows_html(verbatim.rows, options));
-  } else if (diagnostic.severity == RenderSeverity::failed) {
+  if (diagnostic.severity == RenderSeverity::failed) {
     append_section(inner, failed_topic_html(identity, diagnostic));
   }
 

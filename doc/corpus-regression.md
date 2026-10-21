@@ -1,9 +1,14 @@
 # Corpus regression gate
 
 `tools/corpus_gate.py` compares the current `bootrace --coverage` and
-`--conservation` reports with an explicit, edition-pinned baseline. It uses only
-the Python standard library. Private books must be supplied separately; none
-are distributed by this tooling. `packet.boo` retains its normal CTest coverage.
+`--conservation` reports with an explicit, edition-pinned baseline. Both
+reports cover the stable book topic catalog: every entry in the lightweight
+topic index, followed by any TOC-only entries. Each row retains its source
+catalog kind and index and its logical-record bounds, so an id that moves to
+different source evidence is a regression rather than the same observation.
+The gate uses only the Python standard library. Private books must be supplied
+separately; none are distributed by this tooling. `packet.boo` retains its
+normal CTest coverage.
 
 ```
 python3 tools/corpus_gate.py --corpus /path/to/private/books --jobs 4
@@ -17,7 +22,8 @@ plus its document number, title, timestamp and reported version. A file identity
 mismatch fails before decoding, even when the replacement has the same name or
 document number. No book is downloaded automatically.
 
-The gate rejects a missing or unexpected coverage topic, any per-topic severity
+The gate rejects a missing or unexpected catalog topic, a change to its source
+identity, any per-topic severity
 regression (including strict typed to typed-degraded), a reduction in conservation
 checked-topic count, an increase in any topic's unframed-record count, or an
 increase in any individual topic/word's unaccounted count. Recovering a word in
@@ -29,24 +35,25 @@ requires explicit review rather than silently passing. Exact rendered output
 diffs remain a separate verification step; a passing gate does not imply
 byte-identical output.
 
-These checks inherit the scope and limitations of the current diagnostics:
-coverage and conservation iterate the TOC inventory, not every item returned by
-`topics()`. Conservation skips records without proven display-line framing and
-forgives some opening-word shortfalls that could be control opcodes. The gate
-tracks unframed growth but does not prove such records faithful. Checked-topic
-counts are aggregate because the report has no per-topic checked flag. The
-gate does not establish reference-reader equivalence, visual layout fidelity,
-or absence of duplicates/reordering. Those require targeted comparisons and
-regression tests. In particular, a placeholder-run decline earns no exemption.
+Conservation emits an identity row even for a clean or genuinely empty topic;
+the gate requires its topic set and source identities to equal coverage exactly.
+It skips records without proven display-line framing and forgives some
+opening-word shortfalls that could be control opcodes. The gate tracks unframed
+growth but does not prove such records faithful. It does not establish
+reference-reader equivalence, visual layout fidelity, or absence of
+duplicates/reordering. Those require targeted comparisons and regression
+tests. In particular, a placeholder-run decline earns no exemption.
 
-Emitted-word conservation checks Markdown and HTML independently. Markdown
+Emitted-word conservation checks Markdown and HTML independently. Each format
+has its own per-topic/per-word loss ratchet and summary. Markdown
 text is recovered from the serializer's complete byte-range trace, not by
 guessing Markdown syntax; that trace must match the actual cached output.
 HTML text projection preserves inline adjacency and block boundaries and
 accounts for ordered-list markers and image replacement text. Link
 destinations, unrelated attributes and diagnostic comments cannot supply
-missing book words. The reported emitted count is the minimum across the two
-formats, so success in one cannot hide a loss in the other. This remains an
+missing book words. The compatibility emitted count is the minimum across the
+two formats, while the independent counts state which serializer lost text.
+This remains an
 occurrence-count check, not a proof of correct word order or geometry; exact
 rendered-output comparisons are still required.
 The text projections accept only the serializers' supported syntax and fail

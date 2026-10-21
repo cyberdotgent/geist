@@ -207,16 +207,41 @@ detail::TypedRouteInventoryIR BooDocument::typed_route_inventory() const {
   for (const auto &resource : resources_)
     resource_ids.insert(ascii_lower(resource.id));
 
-  for (const auto &entry : toc_) {
+  for (const auto &catalog_entry : topic_catalog_ir_->topics) {
+    TocEntry synthesized;
+    const TocEntry *entry = nullptr;
+    if (!catalog_entry.toc_entries.empty()) {
+      entry = &toc_.at(catalog_entry.toc_entries.front().toc_index);
+    } else if (catalog_entry.topic_header) {
+      synthesized = synthesize_topic_entry(catalog_entry.raw_topic_id);
+      entry = &synthesized;
+    } else {
+      continue;
+    }
+
     TypedRouteTopicIR topic;
-    topic.id = entry.id;
-    topic.title = entry.title;
-    topic.level = entry.level;
+    topic.id = catalog_entry.raw_topic_id;
+    topic.title = entry->title;
+    topic.level = entry->level;
+    if (catalog_entry.topic_header) {
+      topic.source_kind = "topic-index";
+      topic.source_index = catalog_entry.topic_header->topic_info_index;
+      topic.source_start_logical_record =
+          catalog_entry.topic_header->start_logical_record;
+      topic.source_end_logical_record =
+          catalog_entry.topic_header->end_logical_record;
+    } else {
+      const auto &toc_source = catalog_entry.toc_entries.front();
+      topic.source_kind = "toc-only";
+      topic.source_index = toc_source.toc_index;
+      topic.source_start_logical_record = toc_source.start_logical_record;
+      topic.source_end_logical_record = toc_source.end_logical_record;
+    }
 
     // The metric measures the route the export renderer takes, so it builds
     // the identity through the same shared path the renderer uses and skips
     // exactly the contents entries the renderer has no topic body for.
-    const auto identity = make_topic_identity(entry);
+    const auto identity = make_topic_identity(*entry);
     if (!topic_identity_has_body(identity)) {
       topic.rejection = "contents entry has no topic body";
       topic.route = TypedRouteKind::legacy;
@@ -258,7 +283,7 @@ detail::TypedRouteInventoryIR BooDocument::typed_route_inventory() const {
                              !std::holds_alternative<AnchorBlockIR>(block.node);
                     });
     if (!has_content_block)
-      topic.diagnostic = entry.render_diagnostic();
+      topic.diagnostic = entry->render_diagnostic();
 
     if (document) {
       ++inventory.typed_count;

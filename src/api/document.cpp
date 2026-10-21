@@ -13,6 +13,7 @@
 #include "geist/detail/container/toc_entry_framing.hpp"
 #include "geist/detail/lowering/topic_identity.hpp"
 #include "geist/detail/lowering/topic_lowering_outcome.hpp"
+#include "geist/detail/lowering/source_rows_document_lowering.hpp"
 #include "geist/detail/ir/trap_catalog_ir.hpp"
 #include "geist/detail/lowering/verbatim_cross_references.hpp"
 
@@ -44,7 +45,6 @@ std::shared_ptr<const std::set<std::string>> lowercase_resource_ids(
 
 struct TopicLoaderBundle {
   std::function<std::shared_ptr<const TopicLoweringOutcomeIR>()> document;
-  std::function<TopicBestEffortIR()> best_effort;
 };
 
 struct LazyTopicState {
@@ -112,27 +112,31 @@ TopicLoaderBundle make_topic_loaders(
   loaders.document = [state]() -> std::shared_ptr<const TopicLoweringOutcomeIR> {
     const auto& loaded = state->load_sources();
     auto outcome = std::make_shared<TopicLoweringOutcomeIR>();
-    outcome->document = try_lower_topic_to_document_ir(
+    auto typed = try_lower_topic_to_document_ir(
         state->identity, loaded.fixed_layout_sources,
         state->topic_catalog.get(), &outcome->rejection, &outcome->trace,
         state->resource_ids.get());
+    outcome->typed_claimed = typed.has_value();
+    outcome->source_decoded = !loaded.fixed_layout_sources.empty();
+    if (typed && document_ir_has_body(*typed)) {
+      outcome->document = std::move(typed);
+      outcome->representation = TopicRepresentationKindIR::structured;
+      return outcome;
+    }
+    auto source_rows = lower_source_rows_to_document_ir(
+        state->identity, loaded.fixed_layout_sources);
+    outcome->source_decoded = source_rows.source_decoded;
+    outcome->source_rows_have_body = source_rows.has_body;
+    if (!typed || source_rows.has_body) {
+      outcome->document = std::move(source_rows.document);
+      outcome->representation = outcome->document
+                                    ? TopicRepresentationKindIR::source_rows
+                                    : TopicRepresentationKindIR::none;
+    } else {
+      outcome->document = std::move(typed);
+      outcome->representation = TopicRepresentationKindIR::structured;
+    }
     return outcome;
-  };
-  // Last resort, loaded only when no route produced content.
-  loaders.best_effort = [state]() -> TopicBestEffortIR {
-    const auto& loaded = state->load_sources();
-    TopicBestEffortIR result;
-    result.source_decoded = !loaded.fixed_layout_sources.empty();
-    // The rows first, then the cross references the source proves on them:
-    // a verbatim topic renders faithfully *and* resolves what it names.
-    const auto& sources = loaded.fixed_layout_sources;
-    result.anchors = best_effort_anchors(sources);
-    auto linked = link_verbatim_cross_references(
-        sources, best_effort_display_lines(sources, state->identity.title),
-        best_effort_footnote_anchors(sources));
-    result.rows = std::move(linked.rows);
-    result.footnote_anchors = std::move(linked.footnote_anchors);
-    return result;
   };
   return loaders;
 }
@@ -295,8 +299,7 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
         context, std::move(topic_data), make_topic_identity(entry), entry_id,
         entry_title, entry_level, entry_style, document.topic_catalog_ir_,
         topic_titles, resource_ids);
-    entry.attach_loaders(std::move(loaders.document),
-                         std::move(loaders.best_effort));
+    entry.attach_loaders(std::move(loaders.document));
   }
   return document;
 }
@@ -414,8 +417,7 @@ TocEntry BooDocument::synthesize_topic_entry(
       decode_context_, topic, make_topic_identity(entry), topic.id,
       topic.title, 0, 0, topic_catalog_ir_, topic_titles,
       lowercase_resource_ids(resources_));
-  entry.attach_loaders(std::move(loaders.document),
-                       std::move(loaders.best_effort));
+  entry.attach_loaders(std::move(loaders.document));
   return entry;
 }
 

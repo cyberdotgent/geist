@@ -237,7 +237,15 @@ int main(int argc, char** argv) {
       const auto document = geist::BooDocument::open(argv[1]);
       const auto report = document.drawn_word_conservation();
       std::cout << "topic\troute\tword\tdrawn_opening\tdrawn_inline"
-                   "\temitted\tunaccounted\tevidence\n";
+                   "\temitted\tunaccounted\tevidence\temitted_markdown"
+                   "\tunaccounted_markdown\temitted_html\tunaccounted_html\n";
+      for (const auto& topic : report.topics)
+        std::cout << "# topic\t" << tsv_escape(topic.id) << "\t"
+                  << tsv_escape(topic.source_kind) << "\t"
+                  << topic.source_index << "\t"
+                  << topic.source_start_logical_record << "\t"
+                  << topic.source_end_logical_record << "\t"
+                  << tsv_escape(topic.route) << "\n";
       for (const auto& topic : report.topics) {
         for (const auto& deficit : topic.deficits)
           std::cout << tsv_escape(topic.id) << "\t"
@@ -246,7 +254,11 @@ int main(int argc, char** argv) {
                     << deficit.drawn_opening << "\t" << deficit.drawn_inline
                     << "\t" << deficit.emitted << "\t"
                     << deficit.unaccounted << "\t"
-                    << tsv_escape(deficit.evidence) << "\n";
+                    << tsv_escape(deficit.evidence) << "\t"
+                    << deficit.emitted_markdown << "\t"
+                    << deficit.unaccounted_markdown << "\t"
+                    << deficit.emitted_html << "\t"
+                    << deficit.unaccounted_html << "\n";
       }
       // Records whose payload does not tile into display lines have no decided
       // framing, so nothing about them is checked.  The count is reported
@@ -261,6 +273,12 @@ int main(int argc, char** argv) {
                 << "\tunaccounted=" << report.unaccounted_words
                 << "\tforgiven=" << report.forgiven_words
                 << "\tunframed-topics=" << report.topics_with_unframed_records
+                << "\tmarkdown-dropping="
+                << report.topics_dropping_markdown
+                << "\tmarkdown-unaccounted="
+                << report.unaccounted_markdown_words
+                << "\thtml-dropping=" << report.topics_dropping_html
+                << "\thtml-unaccounted=" << report.unaccounted_html_words
                 << "\n";
       return 0;
     } catch (const std::exception& error) {
@@ -283,7 +301,8 @@ int main(int argc, char** argv) {
       // catalog's, say -- was previously invisible on every topic another
       // family went on to claim.
       std::cout << "id\tlevel\troute\tfamily\treason\tclass\tsignature"
-                   "\tseverity\tdegraded\tdeclined\n";
+                   "\tseverity\tdegraded\tdeclined\tsource_kind"
+                   "\tsource_index\tsource_start\tsource_end\n";
       for (const auto& topic : inventory.topics) {
         std::cout << tsv_escape(topic.id) << "\t" << topic.level << "\t"
                   << (topic.route == geist::detail::TypedRouteKind::typed
@@ -302,6 +321,9 @@ int main(int argc, char** argv) {
                   << tsv_escape(geist::detail::format_render_degradations(
                          topic.diagnostic))
                   << "\t" << tsv_escape(join_declines(topic.declined))
+                  << "\t" << topic.source_kind << "\t" << topic.source_index
+                  << "\t" << topic.source_start_logical_record << "\t"
+                  << topic.source_end_logical_record
                   << "\n";
       }
       std::cout << "# summary\ttyped=" << inventory.typed_count

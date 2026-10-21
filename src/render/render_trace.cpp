@@ -91,17 +91,26 @@ RenderTrace to_public_render_trace(const DocumentRenderTraceIR& trace) {
 
 std::string TocEntry::markdown(RenderTrace& trace) const {
   trace.spans.clear();
+  const auto& public_markdown = render().markdown;
   const auto& outcome = lowered().outcome;
   if (!outcome || !outcome->document) {
-    // The legacy whole-topic route has no typed nodes to point at; the
-    // caller is told so by an empty trace rather than by a fabricated one.
-    return markdown();
+    return public_markdown;
   }
   detail::DocumentRenderTraceIR raw;
-  auto rendered = detail::render_document_markdown(*outcome->document, {},
-                                                   &raw);
+  const auto document_markdown = detail::render_document_markdown(
+      *outcome->document, {}, &raw);
+  // The public render prepends its diagnostic marker. Keep that exact byte
+  // sequence and shift the DocumentIR spans to where the document begins.
+  const auto offset = public_markdown.find(document_markdown);
+  if (offset == std::string::npos)
+    throw std::logic_error(
+        "public Markdown differs from selected DocumentIR rendering");
+  for (auto& span : raw.spans) {
+    span.output_begin += offset;
+    span.output_end += offset;
+  }
   trace = detail::to_public_render_trace(raw);
-  return rendered;
+  return public_markdown;
 }
 
 namespace {

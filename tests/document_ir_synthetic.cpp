@@ -141,6 +141,13 @@ int main() {
                "a document must always name the topic it renders"))
     return 1;
 
+  auto empty_source_title = typed;
+  empty_source_title.topic.title.clear();
+  error.clear();
+  if (!require(verify_document_ir(empty_source_title, &error),
+               "source-backed empty title was rejected: " + error))
+    return 1;
+
   auto invalid_table = typed;
   auto& invalid_rows =
       std::get<TableBlockIR>(invalid_table.blocks[2].node).rows;

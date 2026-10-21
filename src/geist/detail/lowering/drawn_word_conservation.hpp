@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -65,10 +66,14 @@ struct DrawnWordDeficitIR {
   // Minimum retained count across Markdown and HTML; neither format can
   // compensate for text lost by the other.
   std::size_t emitted = 0;
+  std::size_t emitted_markdown = 0;
+  std::size_t emitted_html = 0;
   // The shortfall left after every opening occurrence is forgiven as a
   // possible unclassified control opcode.  Non-zero means the render dropped
   // display text.
   std::size_t unaccounted = 0;
+  std::size_t unaccounted_markdown = 0;
+  std::size_t unaccounted_html = 0;
   // Up to three of the display lines the word stands inside, joined by " | ",
   // with a count of the rest. A report that names the line can be acted on; a
   // report that only counts repeats the failure this check exists to fix.
@@ -77,6 +82,11 @@ struct DrawnWordDeficitIR {
 
 struct DrawnWordTopicIR {
   std::string id;
+  // Stable identity in the source catalog, parallel to TypedRouteTopicIR.
+  std::string source_kind;
+  std::size_t source_index = 0;
+  std::uint32_t source_start_logical_record = 0;
+  std::uint32_t source_end_logical_record = 0;
   // The render diagnostic's route ("typed", "legacy", ...), so a report can
   // say whether a drop hides behind full typed coverage.
   std::string route;
@@ -94,6 +104,8 @@ struct DrawnWordTopicIR {
   std::vector<DrawnWordDeficitIR> deficits;
   // Sum of `unaccounted` over `deficits`: display text this topic drops.
   std::size_t unaccounted = 0;
+  std::size_t unaccounted_markdown = 0;
+  std::size_t unaccounted_html = 0;
   // Sum of the shortfall forgiven because it stood where a control opcode
   // stands.
   std::size_t forgiven = 0;
@@ -103,8 +115,12 @@ struct DrawnWordConservationIR {
   std::vector<DrawnWordTopicIR> topics;
   std::size_t topics_checked = 0;
   std::size_t topics_dropping = 0;
+  std::size_t topics_dropping_markdown = 0;
+  std::size_t topics_dropping_html = 0;
   std::size_t topics_with_unframed_records = 0;
   std::size_t unaccounted_words = 0;
+  std::size_t unaccounted_markdown_words = 0;
+  std::size_t unaccounted_html_words = 0;
   std::size_t forgiven_words = 0;
 };
 

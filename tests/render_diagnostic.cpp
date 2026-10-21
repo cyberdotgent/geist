@@ -427,17 +427,39 @@ void inventory_agrees_with_render(const std::string &name) {
   const auto document = geist::BooDocument::open(book(name));
   const auto inventory = document.typed_route_inventory();
   const auto diagnostics = document.render_diagnostics();
-  require(diagnostics.size() == inventory.topics.size(),
-          name + ": one diagnostic per TOC topic");
-  if (diagnostics.size() != inventory.topics.size())
-    return;
+  for (const auto &indexed : document.topics()) {
+    const auto measured = std::find_if(
+        inventory.topics.begin(), inventory.topics.end(),
+        [&](const auto &candidate) { return candidate.id == indexed.id; });
+    require(measured != inventory.topics.end(),
+            name + ": indexed topic is absent from inventory: " + indexed.id);
+    if (measured != inventory.topics.end()) {
+      require(measured->source_kind == "topic-index",
+              name + ": indexed topic has unstable source kind: " +
+                  indexed.id);
+      require(measured->source_start_logical_record ==
+                      indexed.start_logical_record &&
+                  measured->source_end_logical_record ==
+                      indexed.end_logical_record,
+              name + ": indexed topic lost source record identity: " +
+                  indexed.id);
+    }
+  }
 
   std::size_t typed_route = 0;
   for (std::size_t index = 0; index < diagnostics.size(); ++index) {
-    const auto &measured = inventory.topics[index];
+    const auto measured_at = std::find_if(
+        inventory.topics.begin(), inventory.topics.end(),
+        [&](const auto &candidate) {
+          return candidate.id == document.table_of_contents()[index].id;
+        });
+    require(measured_at != inventory.topics.end(),
+            name + ": TOC topic is absent from inventory: " +
+                document.table_of_contents()[index].id);
+    if (measured_at == inventory.topics.end())
+      continue;
+    const auto &measured = *measured_at;
     const auto &rendered = diagnostics[index];
-    require(measured.id == document.table_of_contents()[index].id,
-            name + ": inventory is parallel to the table of contents");
     require(measured.diagnostic.severity == rendered.severity,
             name + " " + measured.id + ": severity disagrees (" +
                 geist::to_string(measured.diagnostic.severity) + " vs " +
@@ -455,9 +477,11 @@ void inventory_agrees_with_render(const std::string &name) {
                 (measured.route == geist::detail::TypedRouteKind::typed),
             name + " " + measured.id +
                 ": typed severity and typed route disagree");
-    if (typed_severity)
-      ++typed_route;
   }
+  for (const auto &measured : inventory.topics)
+    if (measured.diagnostic.severity == geist::RenderSeverity::typed ||
+        measured.diagnostic.severity == geist::RenderSeverity::typed_degraded)
+      ++typed_route;
   require(typed_route == inventory.typed_count,
           name + ": typed severities equal the typed route count");
 

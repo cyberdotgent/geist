@@ -3,6 +3,8 @@
 
 #include "geist/detail/render/document_markdown_renderer.hpp"
 #include "geist/detail/render/render_diagnostic_ir.hpp"
+#include "geist/detail/lowering/source_rows_document_lowering.hpp"
+#include "geist/detail/lowering/topic_lowering_outcome.hpp"
 #include "geist/detail/render/markdown_render_sink.hpp"
 
 #include "geist/detail/ir/figure_block_ir.hpp"
@@ -199,6 +201,35 @@ RenderDiagnostic classify_typed_lowering(const TopicIdentityIR& topic,
   }
   diagnostic.severity = RenderSeverity::typed_degraded;
   diagnostic.reason = "degraded-block";
+  return diagnostic;
+}
+
+RenderDiagnostic classify_topic_lowering(
+    const TopicIdentityIR& topic, const TopicLoweringOutcomeIR* outcome) {
+  if (outcome == nullptr) {
+    auto diagnostic = classify_typed_lowering(topic, nullptr, {}, {});
+    escalate_render_diagnostic(diagnostic, false, false, false);
+    return diagnostic;
+  }
+  const auto* typed_document = outcome->typed_claimed && outcome->document
+                                   ? &*outcome->document
+                                   : nullptr;
+  auto diagnostic = classify_typed_lowering(
+      topic, typed_document, outcome->rejection, outcome->trace);
+  if (outcome->representation == TopicRepresentationKindIR::structured) {
+    const auto body = outcome->document &&
+                      document_ir_has_body(*outcome->document);
+    escalate_render_diagnostic(diagnostic, body, false,
+                               outcome->source_decoded);
+  } else if (outcome->representation ==
+             TopicRepresentationKindIR::source_rows) {
+    escalate_render_diagnostic(diagnostic, false,
+                               outcome->source_rows_have_body,
+                               outcome->source_decoded);
+  } else {
+    escalate_render_diagnostic(diagnostic, false, false,
+                               outcome->source_decoded);
+  }
   return diagnostic;
 }
 

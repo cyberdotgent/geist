@@ -37,6 +37,7 @@
 #include "geist/document.hpp"
 #include "test_failures.hpp"
 
+#include <algorithm>
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
@@ -503,6 +504,23 @@ void check_packet_conserves_every_drawn_word() {
   const auto report = document.drawn_word_conservation();
 
   require(report.topics_checked > 0, "packet.boo offered no topic to check");
+  for (const auto &indexed : document.topics()) {
+    const auto found = std::find_if(
+        report.topics.begin(), report.topics.end(),
+        [&](const auto &candidate) { return candidate.id == indexed.id; });
+    require(found != report.topics.end(),
+            "packet.boo indexed topic is absent from conservation: " +
+                indexed.id);
+    if (found != report.topics.end()) {
+      require(found->source_kind == "topic-index" &&
+                  found->source_start_logical_record ==
+                      indexed.start_logical_record &&
+                  found->source_end_logical_record ==
+                      indexed.end_logical_record,
+              "packet.boo conservation lost source identity for " +
+                  indexed.id);
+    }
+  }
   require(report.topics_with_unframed_records == 0,
           "packet.boo holds a topic whose records do not tile into display "
           "lines, so its drawn text is undecided");
@@ -520,6 +538,10 @@ void check_packet_conserves_every_drawn_word() {
   }
   require(report.unaccounted_words == 0,
           "packet.boo drops display text its source draws");
+  require(report.unaccounted_markdown_words == 0,
+          "packet.boo drops a drawn word from Markdown");
+  require(report.unaccounted_html_words == 0,
+          "packet.boo drops a drawn word from HTML");
 }
 
 } // namespace

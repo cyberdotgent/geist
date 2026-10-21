@@ -28,7 +28,8 @@ def summary_fields(line):
 def parse_coverage(output):
     lines = output.splitlines()
     expected = ["id", "level", "route", "family", "reason", "class",
-                "signature", "severity", "degraded", "declined"]
+                "signature", "severity", "degraded", "declined",
+                "source_kind", "source_index", "source_start", "source_end"]
     if not lines or lines[0].split("\t") != expected:
         raise ValueError("unexpected coverage header")
     topics = {}
@@ -56,11 +57,24 @@ def parse_coverage(output):
             if route not in ("typed", "legacy") or (
                     (route == "typed") != rank.startswith("typed")):
                 raise ValueError("inconsistent route/severity: " + topic)
+            if (row["source_kind"] not in ("topic-index", "toc-only") or
+                    not all(row[key].isdecimal() for key in
+                            ("source_index", "source_start", "source_end")) or
+                    int(row["source_end"]) < int(row["source_start"])):
+                raise ValueError("invalid coverage source identity: " + topic)
             topics[topic] = {key: row[key] for key in
-                             ("route", "severity", "family", "degraded")}
+                             ("route", "severity", "family", "degraded",
+                              "source_kind", "source_index", "source_start",
+                              "source_end")}
     counts = {"typed": 0, "legacy": 0, "total": len(topics)}
     ranks = {}
+    sources = set()
     for topic in topics.values():
+        source = tuple(topic[key] for key in
+                       ("source_kind", "source_index", "source_start", "source_end"))
+        if source in sources:
+            raise ValueError("duplicate coverage source identity")
+        sources.add(source)
         counts[topic["route"]] += 1
         rank = topic["severity"]
         ranks[rank] = ranks.get(rank, 0) + 1
@@ -72,12 +86,14 @@ def parse_coverage(output):
 def parse_conservation(output):
     lines = output.splitlines()
     header = ["topic", "route", "word", "drawn_opening", "drawn_inline",
-              "emitted", "unaccounted"]
-    # Older bootrace versions omitted the evidence label, but emitted it.
-    if not lines or lines[0].split("\t") not in (header, header + ["evidence"]):
+              "emitted", "unaccounted", "evidence", "emitted_markdown",
+              "unaccounted_markdown", "emitted_html", "unaccounted_html"]
+    if not lines or lines[0].split("\t") != header:
         raise ValueError("unexpected conservation header")
     deficits = {}
+    format_deficits = {"markdown": {}, "html": {}}
     unframed = {}
+    topics = {}
     summary = None
     seen = set()
     forgiven = 0
@@ -94,8 +110,20 @@ def parse_conservation(output):
             if count <= 0 or records < count:
                 raise ValueError("invalid unframed counts")
             unframed[fields[1]] = {"unframed": count, "records": records}
+        elif fields[0] == "# topic":
+            if (len(fields) != 7 or not fields[1] or fields[1] in topics or
+                    fields[2] not in ("topic-index", "toc-only") or
+                    not all(value.isdecimal() for value in fields[3:6]) or
+                    int(fields[5]) < int(fields[4]) or
+                    fields[6] not in ("typed", "legacy", "best-effort", "none")):
+                raise ValueError("invalid conservation topic identity")
+            topics[fields[1]] = {
+                "source_kind": fields[2], "source_index": fields[3],
+                "source_start": fields[4], "source_end": fields[5],
+                "route": fields[6]}
         else:
-            if len(fields) != 8 or fields[1] not in ("typed", "legacy", "best-effort", "none"):
+            if len(fields) != len(header) or fields[1] not in (
+                    "typed", "legacy", "best-effort", "none"):
                 raise ValueError("invalid conservation row")
             topic, _, word = fields[:3]
             counts = list(map(int, fields[3:7]))
@@ -109,15 +137,42 @@ def parse_conservation(output):
             seen.add((topic, word))
             if counts[3]:
                 deficits.setdefault(topic, {})[word] = counts[3]
-    required = {"checked", "dropping", "unaccounted", "forgiven", "unframed-topics"}
+            for name, emitted_at, unaccounted_at in (
+                    ("markdown", 8, 9), ("html", 10, 11)):
+                emitted_format = int(fields[emitted_at])
+                unaccounted_format = int(fields[unaccounted_at])
+                if (emitted_format < 0 or unaccounted_format !=
+                        max(0, inside - emitted_format)):
+                    raise ValueError("inconsistent " + name +
+                                     " conservation counts")
+                if unaccounted_format:
+                    format_deficits[name].setdefault(topic, {})[word] = \
+                        unaccounted_format
+    required = {"checked", "dropping", "unaccounted", "forgiven",
+                "unframed-topics", "markdown-dropping",
+                "markdown-unaccounted", "html-dropping",
+                "html-unaccounted"}
     if summary is None or set(summary) != required:
         raise ValueError("missing/invalid conservation summary")
-    if (summary["dropping"] != len(deficits) or
+    sources = {(topic["source_kind"], topic["source_index"],
+                topic["source_start"], topic["source_end"])
+               for topic in topics.values()}
+    if len(sources) != len(topics):
+        raise ValueError("duplicate conservation source identity")
+    if (summary["checked"] != len(topics) or
+            summary["dropping"] != len(deficits) or
             summary["unaccounted"] != sum(sum(words.values()) for words in deficits.values()) or
             summary["unframed-topics"] != len(unframed) or
+            summary["markdown-dropping"] != len(format_deficits["markdown"]) or
+            summary["markdown-unaccounted"] != sum(
+                sum(words.values()) for words in format_deficits["markdown"].values()) or
+            summary["html-dropping"] != len(format_deficits["html"]) or
+            summary["html-unaccounted"] != sum(
+                sum(words.values()) for words in format_deficits["html"].values()) or
             summary["forgiven"] != forgiven):
         raise ValueError("conservation summary does not match rows")
-    return {"summary": summary, "deficits": deficits, "unframed": unframed}
+    return {"summary": summary, "topics": topics, "deficits": deficits,
+            "format_deficits": format_deficits, "unframed": unframed}
 
 
 def identity(path):
@@ -155,8 +210,13 @@ def measure(book, bootrace, booinfo, raw_dir=None):
             (raw_dir / (book.name + "." + suffix + ".tsv")).write_text(output, encoding="utf-8")
     topics = parse_coverage(coverage)
     conserved = parse_conservation(conservation)
-    if conserved["summary"]["checked"] > len(topics):
-        raise ValueError(book.name + ": checked-topic count exceeds coverage inventory")
+    if set(conserved["topics"]) != set(topics):
+        raise ValueError(book.name + ": conservation topic set differs from coverage")
+    for topic, source in conserved["topics"].items():
+        for key in ("source_kind", "source_index", "source_start", "source_end"):
+            if source[key] != topics[topic][key]:
+                raise ValueError(book.name +
+                                 ": conservation source identity differs for " + topic)
     if (conserved["deficits"].keys() | conserved["unframed"].keys()) - topics.keys():
         raise ValueError(book.name + ": conservation names an unknown coverage topic")
     return {"identity": before, "edition": edition, "topics": topics,
@@ -176,6 +236,11 @@ def compare_book(name, baseline, current):
     for topic in sorted(new.keys() - old.keys()):
         fail(topic + ": unexpected coverage topic; review scope change")
     for topic in sorted(old.keys() & new.keys()):
+        old_source = {key: old[topic][key] for key in
+                      ("source_kind", "source_index", "source_start", "source_end")}
+        new_source = {key: new[topic][key] for key in old_source}
+        if old_source != new_source:
+            fail(topic + ": source identity changed")
         before, after = old[topic]["severity"], new[topic]["severity"]
         if SEVERITIES[after] < SEVERITIES[before]:
             fail(topic + ": severity regressed " + before + " -> " + after)
@@ -204,6 +269,23 @@ def compare_book(name, baseline, current):
             after = new["deficits"].get(topic, {}).get(word, 0)
             if after < count:
                 improvements.append(f"{name}: {topic}: unaccounted word {word!r} decreased {count} -> {after}")
+    for format_name in ("markdown", "html"):
+        label = format_name.capitalize()
+        old_format = old["format_deficits"][format_name]
+        new_format = new["format_deficits"][format_name]
+        for topic, words in new_format.items():
+            for word, count in words.items():
+                previous = old_format.get(topic, {}).get(word, 0)
+                if count > previous:
+                    fail(f"{topic}: {label} unaccounted word {word!r} "
+                         f"increased {previous} -> {count}")
+        for topic, words in old_format.items():
+            for word, count in words.items():
+                after = new_format.get(topic, {}).get(word, 0)
+                if after < count:
+                    improvements.append(
+                        f"{name}: {topic}: {label} unaccounted word {word!r} "
+                        f"decreased {count} -> {after}")
     return failures, improvements
 
 
@@ -230,7 +312,7 @@ def main(argv=None):
             raise ValueError("capture output already exists; refusing overwrite")
     else:
         baseline = json.loads(args.baseline.read_text(encoding="utf-8"))
-        if baseline.get("schema") != 1 or not baseline.get("books"):
+        if baseline.get("schema") != 2 or not baseline.get("books"):
             raise ValueError("unsupported/empty baseline")
         if set(books) != set(baseline["books"]):
             raise ValueError("corpus book set mismatch; missing=" +
@@ -251,8 +333,8 @@ def main(argv=None):
             name = pending[future]
             measured[name] = future.result()
             print("Measured " + name, file=sys.stderr, flush=True)
-    snapshot = {"schema": 1, "revision": args.revision,
-                "scope": "bootrace TOC inventory; not all topics()",
+    snapshot = {"schema": 2, "revision": args.revision,
+                "scope": "stable book topic catalog: all indexed topics plus TOC-only entries",
                 "books": measured}
     if args.capture:
         with args.capture.open("x", encoding="utf-8") as output:

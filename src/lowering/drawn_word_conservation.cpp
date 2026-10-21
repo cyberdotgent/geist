@@ -5,6 +5,7 @@
 #include "geist/detail/lowering/drawn_word_source.hpp"
 
 #include "geist/detail/container/control_ir.hpp"
+#include "geist/detail/ir/book_topic_catalog_ir.hpp"
 #include "geist/detail/layout/display_lines.hpp"
 #include "geist/detail/core/internal.hpp"
 #include "geist/detail/layout/layout_ir.hpp"
@@ -305,13 +306,39 @@ detail::DrawnWordConservationIR BooDocument::drawn_word_conservation() const {
   using namespace detail;
   DrawnWordConservationIR report;
 
-  for (const auto& entry : toc_) {
-    DrawnWordTopicIR topic;
-    topic.id = entry.id;
-    topic.route = entry.render_diagnostic().route;
+  for (const auto& catalog_entry : topic_catalog_ir_->topics) {
+    TocEntry synthesized;
+    const TocEntry* entry = nullptr;
+    if (!catalog_entry.toc_entries.empty()) {
+      entry = &toc_.at(catalog_entry.toc_entries.front().toc_index);
+    } else if (catalog_entry.topic_header) {
+      synthesized = synthesize_topic_entry(catalog_entry.raw_topic_id);
+      entry = &synthesized;
+    } else {
+      continue;
+    }
 
-    const auto identity = make_topic_identity(entry);
+    DrawnWordTopicIR topic;
+    topic.id = catalog_entry.raw_topic_id;
+    topic.route = entry->render_diagnostic().route;
+    if (catalog_entry.topic_header) {
+      topic.source_kind = "topic-index";
+      topic.source_index = catalog_entry.topic_header->topic_info_index;
+      topic.source_start_logical_record =
+          catalog_entry.topic_header->start_logical_record;
+      topic.source_end_logical_record =
+          catalog_entry.topic_header->end_logical_record;
+    } else {
+      const auto& toc_source = catalog_entry.toc_entries.front();
+      topic.source_kind = "toc-only";
+      topic.source_index = toc_source.toc_index;
+      topic.source_start_logical_record = toc_source.start_logical_record;
+      topic.source_end_logical_record = toc_source.end_logical_record;
+    }
+
+    const auto identity = make_topic_identity(*entry);
     if (!topic_identity_has_body(identity)) {
+      ++report.topics_checked;
       report.topics.push_back(std::move(topic));
       continue;
     }
@@ -335,7 +362,7 @@ detail::DrawnWordConservationIR BooDocument::drawn_word_conservation() const {
     // markers or structural syntax: no general Markdown parser is needed.
     DocumentRenderTraceIR markdown_trace;
     std::string markdown;
-    const auto& outcome = entry.lowered().outcome;
+    const auto& outcome = entry->lowered().outcome;
     if (outcome && outcome->document)
       markdown = render_document_markdown(*outcome->document, {}, &markdown_trace);
     const auto append = [&](const std::string& bytes,
@@ -353,26 +380,8 @@ detail::DrawnWordConservationIR BooDocument::drawn_word_conservation() const {
         append("\n", MarkdownTextProjectionIR::boundary);
       if (!markdown.empty()) append("\n", MarkdownTextProjectionIR::boundary);
     };
-    const auto& diagnostic = entry.render_diagnostic();
-    if (diagnostic.severity == RenderSeverity::best_effort) {
-      if (!entry.best_effort_loader_)
-        throw std::logic_error("best-effort Markdown has no source loader");
-      const auto verbatim = entry.best_effort_loader_();
-      auto anchors = verbatim.anchors;
-      anchors.insert(anchors.end(), verbatim.footnote_anchors.begin(),
-                     verbatim.footnote_anchors.end());
-      DocumentRenderTraceIR fallback_trace;
-      const auto fallback = render_best_effort_markdown(identity, verbatim.rows,
-                                                       anchors, &fallback_trace);
-      append_separator();
-      const auto offset = markdown.size();
-      markdown += fallback;
-      for (auto& span : fallback_trace.spans) {
-        span.output_begin += offset;
-        span.output_end += offset;
-        markdown_trace.spans.push_back(std::move(span));
-      }
-    } else if (diagnostic.severity == RenderSeverity::failed) {
+    const auto& diagnostic = entry->render_diagnostic();
+    if (diagnostic.severity == RenderSeverity::failed) {
       append_separator();
       // A diagnostic about missing content is not book text and cannot
       // compensate for the content whose failure it reports.
@@ -382,18 +391,18 @@ detail::DrawnWordConservationIR BooDocument::drawn_word_conservation() const {
     // Re-rendering must not bypass truncation or mutation in the topic cache
     // wrapper. Account only for the exact diagnostic prefix that render()
     // emits, then require byte identity with the actual public Markdown.
-    const auto marker = entry.document_ir_loader_
+    const auto marker = entry->document_ir_loader_
                             ? render_diagnostic_comment(diagnostic) : std::string();
     const auto prefix = marker.empty() ? std::string() :
         marker + "\n" + (markdown.empty() ? "" : "\n");
-    const auto actual = entry.markdown();
+    const auto actual = entry->markdown();
     std::map<std::string, std::size_t> markdown_counts;
     for (const auto& word : conservation_words(
              verified_markdown_visible_text(actual, markdown, markdown_trace, prefix)))
       ++markdown_counts[word];
     std::map<std::string, std::size_t> html_counts;
     for (const auto& word : conservation_words(
-             html_visible_text(entry.html_fragment())))
+             html_visible_text(entry->html_fragment())))
       ++html_counts[word];
     std::map<std::string, std::size_t> emitted_counts;
     for (const auto& [word, count] : markdown_counts) {
@@ -409,6 +418,17 @@ detail::DrawnWordConservationIR BooDocument::drawn_word_conservation() const {
       const auto drawn_total = counts.opening + counts.inside;
       if (emitted >= drawn_total) continue;
       const auto shortfall = drawn_total - emitted;
+      const auto markdown_found = markdown_counts.find(word);
+      const auto emitted_markdown = markdown_found == markdown_counts.end()
+                                        ? 0
+                                        : markdown_found->second;
+      const auto html_found = html_counts.find(word);
+      const auto emitted_html =
+          html_found == html_counts.end() ? 0 : html_found->second;
+      const auto markdown_shortfall =
+          drawn_total > emitted_markdown ? drawn_total - emitted_markdown : 0;
+      const auto html_shortfall =
+          drawn_total > emitted_html ? drawn_total - emitted_html : 0;
       // Forgive the opening occurrences first: those are the ones that could
       // be a control opcode the segment decoder does not classify. What is
       // left stood inside a display line, where no control opcode ever does.
@@ -424,16 +444,31 @@ detail::DrawnWordConservationIR BooDocument::drawn_word_conservation() const {
       if (counts.lines.size() > 3)
         evidence += " | +" + std::to_string(counts.lines.size() - 3) +
                     " more lines";
-      topic.deficits.push_back({word, counts.opening, counts.inside, emitted,
-                                shortfall - forgiven, evidence});
+      const auto unaccounted_markdown =
+          markdown_shortfall > counts.opening
+              ? markdown_shortfall - counts.opening
+              : 0;
+      const auto unaccounted_html =
+          html_shortfall > counts.opening ? html_shortfall - counts.opening
+                                          : 0;
+      topic.deficits.push_back(
+          {word, counts.opening, counts.inside, emitted, emitted_markdown,
+           emitted_html, shortfall - forgiven, unaccounted_markdown,
+           unaccounted_html, evidence});
       topic.forgiven += forgiven;
       topic.unaccounted += shortfall - forgiven;
+      topic.unaccounted_markdown += unaccounted_markdown;
+      topic.unaccounted_html += unaccounted_html;
     }
 
     ++report.topics_checked;
     if (topic.unframed_records != 0) ++report.topics_with_unframed_records;
     if (topic.unaccounted != 0) ++report.topics_dropping;
+    if (topic.unaccounted_markdown != 0) ++report.topics_dropping_markdown;
+    if (topic.unaccounted_html != 0) ++report.topics_dropping_html;
     report.unaccounted_words += topic.unaccounted;
+    report.unaccounted_markdown_words += topic.unaccounted_markdown;
+    report.unaccounted_html_words += topic.unaccounted_html;
     report.forgiven_words += topic.forgiven;
     report.topics.push_back(std::move(topic));
   }

@@ -96,27 +96,27 @@ int main(int argc, char** argv) {
         mode == "--html-fragment") {
       const auto* entry =
           has_topic_id ? document.find_toc_entry(argv[2]) : nullptr;
-      if (has_topic_id && entry == nullptr) {
-        std::cerr << "boorender: BOO topic id was not found: " << argv[2]
-                  << "\n";
-        return 1;
-      }
       if (mode == "--md") {
-        std::cout << (has_topic_id ? entry->markdown() : document.markdown());
+        std::cout << (has_topic_id ? document.topic_markdown(argv[2])
+                                   : document.markdown());
       } else if (mode == "--html-fragment") {
         // Semantic content only: the consumer owns the page around it.  No
         // resolvers are configured here, so every destination is the
         // renderer's own context-free one and an unresolvable cross-book
         // reference carries `geist-link--unresolved`.
-        std::cout << (has_topic_id ? entry->html_fragment()
+        std::cout << (has_topic_id ? document.topic_html_fragment(argv[2])
                                    : document.html_fragment());
       } else if (mode == "--html") {
         // The same fragment bytes inside a minimal standalone document.
-        std::cout << (has_topic_id ? entry->html_document()
+        std::cout << (has_topic_id ? document.topic_html_document(argv[2])
                                    : document.html_document());
       } else {
         if (!has_topic_id) {
           std::cerr << "boorender: --trace needs a topic id\n";
+          return 2;
+        }
+        if (entry == nullptr) {
+          std::cerr << "boorender: --trace is currently limited to TOC topics\n";
           return 2;
         }
         geist::RenderTrace trace;
