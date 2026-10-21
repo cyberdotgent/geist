@@ -1,3 +1,21 @@
+geist (0.3.4) unstable; urgency=medium
+
+  * Add the experimental universal native macOS reader, including multi-window
+    file opening, drag and drop, book information and paginated printing.
+  * Route every indexed topic and both HTML and Markdown renderers through the
+    shared DocumentIR, with stable identities and independent conservation
+    diagnostics.
+  * Preserve compound lists, definitions and message catalogues, source-framed
+    native artwork, revision controls, deferred fonts, anchors and thematic
+    rules without opaque typed fallbacks.
+  * Bind glyph and font coordinates to source UTF-8 spans and preserve complete
+    ordered cross-reference claims, alternatives, styles and provenance through
+    consumer resolver hooks.
+  * Extend the corpus regression baseline to every indexed topic and document
+    verified BOO message, native-row and control framing.
+
+ -- Yvan Janssens <yvanj@cyber.gent>  Wed, 21 Oct 2026 17:01:23 +0000
+
 geist (0.3.3) unstable; urgency=high
 
   * Reject truncated GDF full-arc records and bound GDF raster work, cell
