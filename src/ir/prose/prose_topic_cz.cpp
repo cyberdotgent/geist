@@ -241,13 +241,18 @@ struct Frame {
   std::string tag;
   std::size_t list_ordinal = 0;
   std::size_t items = 0;
-  // A `CZ FLOW DT` whose term is followed by a separate `CZ FLOW DD`.
-  // The block is created by DT so both directives can claim one definition
-  // entry without inferring their relationship from displayed text.
+  // A term awaiting its separately controlled body: DT waits for DD, while
+  // PT waits for BREAK.  The block is created by the term directive so both
+  // controls can claim one definition entry without inferring their
+  // relationship from displayed text.
   std::size_t pending_definition = npos;
-  // The separately introduced body remains the active DD until the next DT
-  // or EDL. Nested blocks in that interval require compound block content.
+  // The separately introduced body remains active until the next term or
+  // list closer. Nested blocks in that interval require compound content.
   bool separate_definition_body = false;
+  // An inferred PARML is admitted only when its full controlled body is
+  // simple. Explicit PARML historically permits further FLOW blocks; those
+  // remain independently owned until ProseTopicIR itself becomes recursive.
+  bool inferred_parameter_list = false;
 };
 
 struct CzBuilder {
@@ -446,8 +451,82 @@ struct CzBuilder {
                      error))
       return false;
     frame.pending_definition = npos;
+    frame.separate_definition_body = frame.inferred_parameter_list;
+    return true;
+  }
+
+  bool parameter_term(
+      const std::vector<std::pair<std::size_t, std::size_t>>& groups) {
+    if (stack.empty() || stack.back().tag != "parml")
+      return fail(error, "cz FLOW PT outside an open parameter list");
+    auto& frame = stack.back();
+    if (frame.pending_definition != npos)
+      return fail(error, "cz FLOW PT follows a term with no cz BREAK body");
+    if (groups.empty()) return fail(error, "cz FLOW PT has no text");
+    // A term split over source paragraphs needs compound definition content;
+    // flattening the groups here would erase a source-declared boundary.
+    if (groups.size() != 1)
+      return fail(error, "cz FLOW PT has multiple paragraph groups");
+    frame.separate_definition_body = false;
+    ++frame.items;
+    const auto [begin, end] = groups.front();
+    ProseBlockIR block;
+    block.kind = ProseBlockKindIR::definition_entry;
+    block.list_ordinal = frame.list_ordinal;
+    block.origin = lines[begin].origin;
+    const auto block_index = topic.blocks.size();
+    if (!build_block(records, lines, begin, end, block, ledger, block_index,
+                     error))
+      return false;
+    block.term_inline_count = block.inlines.size();
+    topic.blocks.push_back(std::move(block));
+    block_first_line.push_back(begin);
+    frame.pending_definition = block_index;
+    return true;
+  }
+
+  bool parameter_body(
+      const std::vector<std::pair<std::size_t, std::size_t>>& groups) {
+    if (stack.empty() || stack.back().tag != "parml" ||
+        stack.back().pending_definition == npos)
+      return fail(error, "cz BREAK is not the body of a cz FLOW PT term");
+    if (groups.empty()) return fail(error, "cz BREAK after PT has no text");
+    // As with DD, more than one paragraph requires a compound definition
+    // body rather than one flattened inline run.
+    if (groups.size() != 1)
+      return fail(error, "cz BREAK after PT has multiple paragraph groups");
+    auto& frame = stack.back();
+    const auto block_index = frame.pending_definition;
+    if (block_index >= topic.blocks.size())
+      return fail(error, "internal: cz BREAK addresses no parameter term");
+    auto& block = topic.blocks[block_index];
+    if (!build_block(records, lines, groups.front().first,
+                     groups.front().second, block, ledger, block_index,
+                     error))
+      return false;
+    frame.pending_definition = npos;
     frame.separate_definition_body = true;
     return true;
+  }
+
+  bool implicit_parameter_list(std::size_t index) const {
+    if (index == 0) return false;
+    const auto& previous = build.directives[index - 1];
+    if (previous.mode != "off" || previous.tag != "esyntax") return false;
+    // This dialect omits PARML after a syntax diagram, but retains a complete
+    // PT/BREAK sequence and an explicit EPARML boundary.  Prove that framing
+    // from the controls themselves before treating the first PT as an opener.
+    for (auto cursor = index; cursor < build.directives.size(); ++cursor) {
+      const auto& candidate = build.directives[cursor];
+      if (candidate.mode == "off" && candidate.tag == "eparml") return true;
+      if (candidate.mode == "break") continue;
+      if (candidate.mode == "flow" &&
+          (candidate.tag == "pt" || candidate.tag == "p" ||
+           candidate.tag == "pc" || candidate.tag == "gd"))
+        continue;
+      return false;
+    }
+    return false;
   }
 
   bool note(const std::vector<std::pair<std::size_t, std::size_t>>& groups) {
@@ -899,6 +978,11 @@ struct CzBuilder {
       const auto name = "cz " + directive.mode + " " + directive.tag;
       const auto& tag = directive.tag;
       if (directive.mode == "break") {
+        if (!stack.empty() && stack.back().tag == "parml" &&
+            stack.back().pending_definition != npos) {
+          if (!parameter_body(groups)) return false;
+          continue;
+        }
         if (!paragraphs(groups, 0)) return false;
         continue;
       }
@@ -1098,7 +1182,9 @@ struct CzBuilder {
           if (stack.empty() || stack.back().tag != opened)
             return fail(error, name + " closes no open " + opened);
           if (stack.back().pending_definition != npos)
-            return fail(error, "cz definition term has no cz FLOW DD body");
+            return fail(error, opened == "parml"
+                                   ? "cz parameter term has no cz BREAK body"
+                                   : "cz definition term has no cz FLOW DD body");
           if (list_tag(opened) && stack.back().items == 0)
             return fail(error, "cz list " + opened + " has no items");
           stack.pop_back();
@@ -1130,24 +1216,38 @@ struct CzBuilder {
       }
       if (directive.mode != "flow")
         return fail(error, "CZ layout " + name + " is not modelled");
-      if (tag == "p" || tag == "pc" || tag == "gd" || tag == "pt") {
-        if (!stack.empty() && stack.back().tag == "dl" &&
-            stack.back().separate_definition_body)
-          return fail(error, name +
-                                 " continues a DD body that needs compound "
-                                 "block content");
-        if (tag == "pt" && (stack.empty() || stack.back().tag != "parml"))
-          return fail(error, "cz FLOW PT outside an open parameter list");
-        if (tag == "pt") ++stack.back().items;
+      if (tag == "pt") {
+        if ((stack.empty() || stack.back().tag != "parml") &&
+            implicit_parameter_list(index))
+          stack.push_back(
+              {"parml", next_list_ordinal++, 0, npos, false, true});
+        return parameter_term(groups);
+      }
+      if (tag == "p" || tag == "pc" || tag == "gd") {
+        if (!stack.empty() &&
+            (stack.back().tag == "dl" ||
+             (stack.back().tag == "parml" &&
+              stack.back().inferred_parameter_list)) &&
+            stack.back().separate_definition_body) {
+          const auto body = stack.back().tag == "dl" ? "DD body"
+                                                       : "parameter body";
+          return fail(error, name + " continues a " + body +
+                                 " that needs compound block content");
+        }
         if (!paragraphs(groups, 0)) return false;
         return true;
       }
       if (list_tag(tag)) {
-        if (!stack.empty() && stack.back().tag == "dl" &&
-            stack.back().separate_definition_body)
-          return fail(error, name +
-                                 " nests inside a DD body that needs compound "
-                                 "block content");
+        if (!stack.empty() &&
+            (stack.back().tag == "dl" ||
+             (stack.back().tag == "parml" &&
+              stack.back().inferred_parameter_list)) &&
+            stack.back().separate_definition_body) {
+          const auto body = stack.back().tag == "dl" ? "DD body"
+                                                       : "parameter body";
+          return fail(error, name + " nests inside a " + body +
+                                 " that needs compound block content");
+        }
         // A list opener may carry the list's lead-in rows, exactly as the
         // list closer carries the body text that follows the list.  Hosted
         // BookServer serves them ahead of the first item and inside the list

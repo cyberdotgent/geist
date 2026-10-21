@@ -297,6 +297,77 @@ void a_separate_dd_completes_its_definition_term() {
           "the DT/DD definition did not survive rendering: " + markdown);
 }
 
+// A parameter list immediately following a syntax diagram can omit its
+// `FLOW PARML` opener.  The source still declares every entry with PT, its
+// body with the following BREAK, and the list boundary with EPARML.  This is
+// the form used by DFHP7A00 2.5.3--2.5.7 for syntax operands.
+void syntax_followed_by_pt_builds_an_implicit_parameter_list() {
+  RecordBuilder builder;
+  builder.line({words("sh1.1")});
+  builder.line({words("ctopicn"), words("7")});
+  builder.line({words("cparent"), words("1.0")});
+  builder.line({words("cforwardlevel"), words("1.2")});
+  builder.line({words("cbacklevel"), words("1.0")});
+  builder.line({words("csummary"), words("8"), words("0"), words("8")});
+  builder.line({words("chdlevel"), words(":H2")});
+  builder.line({words("csourcefn"), words("DVGR1A05")});
+  builder.line({words("ST"), words("Widget"), words("Notes")});
+  builder.line({words("cz"), words("OFF"), words("SYNTAX")});
+  builder.line({words("   "), words(">>WIDGET<<")});
+  builder.line({words("cz"), words("OFF"), words("ESYNTAX"), words("0"),
+                words("0")});
+  builder.line({words("cz"), words("FLOW"), words("PT"), words("3"),
+                words("7")});
+  builder.line({words("   "), words("ALl")});
+  builder.line({words("cz"), words("BREAK"), words("7")});
+  builder.line({words("       "), words("is"), words("the"),
+                words("default.")});
+  builder.line({words("cz"), words("FLOW"), words("PT"), words("3"),
+                words("7")});
+  builder.line({words("   "), words("Node(value)")});
+  builder.line({words("cz"), words("BREAK"), words("7")});
+  builder.line({words("       "), words("selects"), words("a"),
+                words("node.")});
+  builder.line({words("cz"), words("OFF"), words("EPARML"), words("0"),
+                words("0")});
+
+  Extracted extracted;
+  extracted.sources.push_back(builder.build(24));
+  extracted.layout = geist::detail::extract_layout_ir(extracted.sources);
+  extracted.ownership = geist::detail::build_verified_ownership_ir(
+      extracted.sources, extracted.layout, &extracted.error);
+  require(extracted.ownership.has_value(),
+          "the PT fixture's frame is not verifiable: " + extracted.error);
+  if (!extracted.ownership) return;
+  extracted.prose = geist::detail::extract_prose_topic_ir(
+      extracted.sources, extracted.layout, *extracted.ownership, topic_title,
+      nullptr, &extracted.error);
+  require(extracted.prose.has_value(),
+          "the implicit PT parameter list was declined: " + extracted.error);
+  if (!extracted.prose) return;
+  std::vector<const geist::detail::ProseBlockIR *> entries;
+  for (const auto &block : extracted.prose->blocks)
+    if (block.kind == geist::detail::ProseBlockKindIR::definition_entry)
+      entries.push_back(&block);
+  require(entries.size() == 2 &&
+              entries[0]->list_ordinal == entries[1]->list_ordinal &&
+              entries[0]->term_inline_count != 0 &&
+              entries[0]->term_inline_count < entries[0]->inlines.size(),
+          "PT/BREAK did not retain two entries of one parameter list");
+
+  std::string error;
+  const auto document = geist::detail::lower_prose_topic_to_document_ir(
+      identity(), *extracted.prose, &error);
+  require(document.has_value(), "lowering the PT fixture failed: " + error);
+  if (!document) return;
+  const auto markdown = geist::detail::render_document_markdown(*document);
+  require(contains(markdown, "**ALl:** is the default\\.") &&
+              contains(markdown,
+                       "**Node\\(value\\):** selects a node\\."),
+          "the PT/BREAK parameter list did not survive rendering: " +
+              markdown);
+}
+
 // The closed region: emitted verbatim, marked degraded, everything around it
 // typed.
 void a_closed_unmodelled_region_degrades_its_block() {
@@ -419,6 +490,7 @@ void an_unclosed_unmodelled_region_declines_the_topic() {
 int main() {
   an_h6_directive_builds_a_level_six_heading();
   a_separate_dd_completes_its_definition_term();
+  syntax_followed_by_pt_builds_an_implicit_parameter_list();
   a_closed_unmodelled_region_degrades_its_block();
   an_unclosed_unmodelled_region_declines_the_topic();
   geist_test::exit_with_failures();
