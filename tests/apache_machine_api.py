@@ -129,6 +129,10 @@ def check_rest(base):
 
     status, _, service = decode_json(fetch(base, "/enabled/.geist/api/v1"))
     assert status == 200 and isinstance(service, dict), service
+    assert service.get("mcp") == "../mcp", service
+    assert urllib.parse.urljoin(
+        base + "/enabled/.geist/api/v1", service["mcp"],
+    ) == base + "/enabled/.geist/mcp"
 
     status, _, schema = decode_json(fetch(base, "/enabled/.geist/openapi.json"))
     assert status == 200, (status, schema)

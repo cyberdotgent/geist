@@ -540,6 +540,13 @@ function(geist_add_test name)
   cmake_parse_arguments(GEIST_TEST "FIXTURE;THREADS" "" "" ${ARGN})
   add_executable(${name}_test tests/${name}.cpp)
   target_link_libraries(${name}_test PRIVATE geist::geist_static)
+  # These executables use assertions as their test checks. Release normally
+  # defines NDEBUG, which would turn a passing CTest run into a no-op.
+  if(MSVC)
+    target_compile_options(${name}_test PRIVATE /UNDEBUG)
+  else()
+    target_compile_options(${name}_test PRIVATE -UNDEBUG)
+  endif()
   if(GEIST_TEST_THREADS)
     find_package(Threads REQUIRED)
     target_link_libraries(${name}_test PRIVATE Threads::Threads)

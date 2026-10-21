@@ -142,6 +142,22 @@ target_compile_definitions(apache_mcp_synthetic_test PRIVATE
 target_link_libraries(apache_mcp_synthetic_test PRIVATE geist::geist_static)
 add_test(NAME apache_mcp_synthetic_test COMMAND apache_mcp_synthetic_test)
 
+# The C++ test programs use assertions as checks. Keep them active in the
+# repository's default Release build as well as in distribution builds.
+foreach(test_target
+    apache_shelf_cache_synthetic_test
+    apache_json_synthetic_test
+    apache_openapi_synthetic_test
+    apache_catalog_service_test
+    apache_rest_synthetic_test
+    apache_mcp_synthetic_test)
+  if(MSVC)
+    target_compile_options(${test_target} PRIVATE /UNDEBUG)
+  else()
+    target_compile_options(${test_target} PRIVATE -UNDEBUG)
+  endif()
+endforeach()
+
 find_program(GEIST_HTTPD NAMES apache2 httpd)
 if(GEIST_HTTPD AND EXISTS "${GEIST_APACHE_LIBEXECDIR}/mod_mpm_event.so")
   add_test(NAME apache_index_warming_test COMMAND "${Python3_EXECUTABLE}"

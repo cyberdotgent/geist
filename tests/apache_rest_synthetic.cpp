@@ -48,7 +48,7 @@ int main() {
   assert(result.status == 200);
   assert(result.content_type == "application/json; charset=utf-8");
   assert(header(result, "X-Content-Type-Options") == "nosniff");
-  assert(parse_json(result.body).find("mcp")->as_string() == "/.geist/mcp");
+  assert(parse_json(result.body).find("mcp")->as_string() == "../mcp");
 
   result = geist_apache::rest::route(
       Request{"GET", "/.geist/api/v1/books", ""}, catalog);
