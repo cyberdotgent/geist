@@ -45,7 +45,20 @@ bool styled_example(const std::vector<DecodedLogicalRecordSource> &records,
       std::any_of(line.links.begin(), line.links.end(),
                   [](const auto &link) { return link.picture; }))
     return false;
+  const auto drawn_box_cell = [&](const Cell &cell) {
+    if (cell.record == npos || cell.record >= records.size() ||
+        cell.token >= records[cell.record].tokens.size())
+      return false;
+    const auto view = view_token(records, cell.record, cell.token);
+    return !view.body.empty() &&
+           std::all_of(view.body.begin(), view.body.end(), box_word);
+  };
   bool example = false;
+  auto first_text = line.text_begin;
+  while (first_text < line.cells.size() && line.cells[first_text].space)
+    ++first_text;
+  const auto artwork =
+      first_text < line.cells.size() && drawn_box_cell(line.cells[first_text]);
   std::vector<bool> covered(line.cells.size(), false);
   for (const auto &span : line.fonts) {
     if (span.style == FontStyleIR::unknown || span.begin >= span.end ||
@@ -71,10 +84,16 @@ bool styled_example(const std::vector<DecodedLogicalRecordSource> &records,
     for (auto cell = first; cell < last; ++cell)
       covered[cell] = true;
   }
-  if (!example)
+  if (!example && !artwork)
     return false;
+  // Syntax-diagram rows commonly begin with a box run and style only some or
+  // none of their labels. The native framing makes the complete row
+  // authoritative, so keep all of its cells rather than reflowing away their
+  // source columns. An ordinary styled example retains the narrower rule:
+  // only drawn box cells may lie outside its example spans.
   for (auto cell = line.text_begin; cell < line.cells.size(); ++cell)
-    if (!line.cells[cell].space && !covered[cell])
+    if (!artwork && !line.cells[cell].space && !covered[cell] &&
+        !drawn_box_cell(line.cells[cell]))
       return false;
   return true;
 }

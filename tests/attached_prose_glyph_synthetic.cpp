@@ -40,7 +40,7 @@ struct Builder {
       record.tokens.push_back(std::move(words));
     }
   }
-  Builder() {
+  explicit Builder(bool cz = true) {
     line({w("sh1.1")});
     line({w("ctopicn"), w("10")});
     line({w("cparent"), w("1.0")});
@@ -50,7 +50,8 @@ struct Builder {
     line({w("chdlevel"), w(":H2")});
     line({w("csourcefn"), w("SAMPLE")});
     line({w("ST"), w("Example")});
-    line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+    if (cz)
+      line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
   }
   DecodedLogicalRecordSource finish() {
     record.logical_record = 20;
@@ -168,6 +169,39 @@ void mixed_word() {
               std::string::npos,
           "mixed-token mapped glyph lost");
 }
+void leading_native_box_glyphs() {
+  Builder b(false);
+  // The record's display-line framing proves that the box words follow the
+  // row's length byte and origin.  They are therefore the first drawn cells
+  // of this native row, not a speculative marker for another row.
+  b.line({w("cfont"), w("5"), w("6"), w("P")});
+  b.line({w("   "), {0x2514, 0x2500},
+          {1, 'o', 'p', 't', 'i', 'o', 'n'}, {1, 0x2500, 0x2518}});
+  std::string error;
+  auto doc = lower(b, error);
+  check(doc.has_value(), "leading native box glyphs rejected: " + error);
+  if (doc) {
+    const auto html = render_document_html_fragment(*doc);
+    check(html.find("<pre") != std::string::npos &&
+              html.find(">   |_<code") != std::string::npos &&
+              html.find(">option</code>_|</pre>") != std::string::npos,
+          "leading native box glyphs were not drawn: " + html);
+  }
+
+  Builder plain(false);
+  plain.line({w("   "), {0x2514, 0x2500},
+              {1, 'o', 'p', 't', 'i', 'o', 'n'},
+              {1, 0x2500, 0x2518}});
+  error.clear();
+  doc = lower(plain, error);
+  check(doc.has_value(), "unstyled native box row rejected: " + error);
+  if (doc) {
+    const auto html = render_document_html_fragment(*doc);
+    check(html.find("<pre") != std::string::npos &&
+              html.find(">   |_option_|</pre>") != std::string::npos,
+          "unstyled native box row was reflowed: " + html);
+  }
+}
 void bullet() {
   Builder b;
   b.line({w("cz"), w("BREAK"), w("3")});
@@ -195,6 +229,7 @@ int main() {
   single_column_span(true);
   suppress_following_spaces();
   mixed_word();
+  leading_native_box_glyphs();
   bullet();
   rejected({w("   "), w("SNA"), {1}, {0xffff}, {1}, w("ps")});
   rejected({w("   "), w("SNA"), {0x2666}, w("ps")});

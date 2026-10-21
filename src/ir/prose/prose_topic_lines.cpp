@@ -667,6 +667,36 @@ struct LineBuilder {
                        [](const auto word) { return box_word(word); });
   }
 
+  // Box words can be the first drawn cells of an ordinary native display
+  // row.  The flattened stream alone cannot distinguish that shape from a
+  // placeholder slot, but the record's own line framing can: the length byte
+  // opens the row, blank source cells establish its origin, and a later
+  // ordinary word proves this is not a box-only rule line.  SC24-546 1.3.1
+  // record 45 line 8 stores exactly
+  // `<length> <22 blanks> U+2514 U+2500 optional_item U+2500 U+2518`.
+  bool leading_native_box_cell(const TokenView& view) {
+    if (!is_placeholder_run(view) ||
+        !std::all_of(view.body.begin(), view.body.end(),
+                    [](const auto word) { return box_word(word); }))
+      return false;
+    const auto* native = display_line_of(view.record, view.token);
+    if (native == nullptr || view.token <= native->prefix_token + 1)
+      return false;
+    bool has_origin = false;
+    for (auto token = native->prefix_token + 1; token < view.token; ++token) {
+      const auto before = view_token(records, view.record, token);
+      if (is_bare(before)) continue;
+      if (!is_space_run(before)) return false;
+      has_origin = true;
+    }
+    if (!has_origin) return false;
+    for (auto token = view.token + 1; token < native->token_end; ++token) {
+      const auto after = view_token(records, view.record, token);
+      if (is_visible(after) && !is_placeholder_run(after)) return true;
+    }
+    return false;
+  }
+
   void open_line(std::size_t origin_cells, const TokenView* origin,
                  std::size_t margin_cells = 0) {
     Line fresh;
@@ -1564,7 +1594,7 @@ struct LineBuilder {
     // title line is written `ST` + slot + title (ACPZMST1 record 284 tokens
     // 26/28/29 `ST` `U+2502` `/`), where the box word is the documented title
     // marker slot and not a drawn cell.
-    if (drawn_region_cell(view) ||
+    if (drawn_region_cell(view) || leading_native_box_cell(view) ||
         (is_placeholder_run(view) && line_open && line_visible_cells != 0 &&
          display_word_precedes_in_line(view) &&
          std::all_of(view.body.begin(), view.body.end(),
