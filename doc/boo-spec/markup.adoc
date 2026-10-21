@@ -779,6 +779,22 @@ the wrapper must not turn intervening `SRMSG` and `CFONT` controls into literal
 preformatted text.  Verified examples are `SC31-711.boo` topics `4.1.1`,
 `4.2.1`, `4.2.2`, `4.3.2`, `4.3.4`, and `4.4`.
 
+The same control also occurs inside the metadata envelope of an individually
+indexed message topic.  In `IBMMMSTR.boo`, 1,617 topic source ranges carry an
+`SRMSG` line between `CSUMMARY` and `CHDLEVEL :MSGNO`; the following
+`CSOURCEFN` and `ST` retain their ordinary envelope meanings.  For example,
+logical record 1257 begins topic `3.6.1` with `SRMSG IBM002I`, while logical
+record 1066 begins topic `1.6.1` at BOO bytes
+`0x4E775`--`0x4E782`: `04 28 75 71 75 04 68 CD CE 51 02 24 12`.  Native row
+framing divides that sequence into `CSUMMARY 11 0 11`,
+`SRMSG IEL2233I E`, and `CHDLEVEL :MSGNO`; their token-provenance ranges are
+respectively `0x4E776`--`0x4E77A`, `0x4E77B`--`0x4E77F`, and
+`0x4E780`--`0x4E782`.  The complete text after `SRMSG`, including the optional
+symbolic tail, forms the `MSG ` anchor identity.  It remains metadata rather
+than visible prose; the `ST`, `SI` and styled message rows independently carry
+the visible title, index identity and message fields.  `:MSGNO` is therefore a
+topic heading form, not a displayed body token.
+
 Span-only `CFONT` records apply to the next physical text segment. PACKET
 topic `1.3` stores `CFONT 27 5 3 33 10 3` at the end of one logical record and
 the next record starts with pass:[<literal>FM&#160;&#160;radio&#160;&#160;through&#160;&#160;its audio interface; ...</literal>].
@@ -1065,6 +1081,14 @@ is not prose text, but it occupies its display column and so does the space
 behind it; dropping them shifts every span of the row by two. Hosted
 ACPZMST1 `1.2.3.1` serves pass:[<literal>&#160;| A local resource ...</literal>] with `local` at column
 5 (`cfont 5 5 3`), and GG24-395 `PREFACE.3` serves pass:[<literal>&#160;| Part 1, "Introduction"</literal>] with `Part` at column 3.
+* *The instruction line bounds its operands.* A control opcode and its operand
+triples belong to their native display line; identical numeric words on the
+next line are display cells, not additional operand fields. FA1PLMM0 `3.2.3`
+record 187 line 16 stores `cfont 7 1 2 9 1 2 11 1 2 13 1 2` in bytes
+`0x2a837` through `0x2a844`. Line 17 begins at byte `0x2a844`, has a
+seven-cell origin at `0x2a845`, and stores the distinct visible words
+`3 7 2 2 and provide ...` from `0x2a846`; the four digits occupy the four
+columns named by the preceding instruction.
 
 A leading glyph is only a row marker when no pending span covers exactly its
 columns. When a span covers the glyph itself, the glyph is styled display
@@ -1422,6 +1446,16 @@ alone without losing the image resource.  The selector's
 `<column> <length>` say exactly which columns the image replaces, and
 hosted BookServer removes those columns' words and puts the `<img>` there,
 leaving the rest of the line where it was:
+
+A table envelope can also carry a control-only `SRSPT<id>` line.  It is a
+positional destination, not table text: it opens the following display line
+just as `SRSPT` does in a figure.  In `GX27-3999-00.boo` topic `2.5`, the
+prose selector `cselect 52 3 SPTCHART` occupies BOO bytes `0xD524`--`0xD52A`.
+The target `SRSPTCHART` is the sole content token of a later display line at
+bytes `0xD706`--`0xD708`, immediately after `SRTBLTBLUNIQ2` and immediately
+before the first ruled row of the parameter-record drawing.  The destination
+therefore belongs at that row; it is neither a cell nor grounds for converting
+the character drawing into a semantic table.
 
 [cols="<45,<45,<45",options="header"]
 |===
@@ -2530,6 +2564,20 @@ margin) before column L on any row, and `cfont` control lines allowed between
 the rows.  All rows share L and R; a candidate with no matching bottom rule
 is not a region.
 
+A standalone native display row can nevertheless begin with box-drawing
+cells without belonging to a closed region.  SC24-546 topic `1.3.1`, logical
+record 45 display line 16, occupies BOO bytes
+`0x140B4`--`0x140C4` (payload offsets `0x00AE`--`0x00BE`):
+`0F C6CE 08 00 DAA5 00 C7C0 00 D741 00 C667`.  `0F` declares the following
+15 encoded bytes, `C6CE` decodes to the 22-column origin, `08` to
+`U+2514 U+2500`, each `00` attaches its neighbours, and `C667` to
+`U+2500 U+2518`; the complete 39-column row is
+`                      |_optional_item_|`.  The preceding display line is
+`cfont 24 13 V`, styling the 13 columns of `optional_item` while leaving both
+box-drawing pairs visible.  The explicit empty native row follows at line 17.
+Thus native line framing and column ownership, rather than the existence of a
+closed box envelope, decide whether these leading glyphs are drawn.
+
 [cols="<40,<45,<45",options="header"]
 |===
 |File / record |Region |Hosted
@@ -3142,16 +3190,37 @@ the empty announcement therefore add no content after the menu.
 |`FLOW UL` … repeated `FLOW LI` … `OFF EUL` |`<ul><li>` per item |`packet` `3.2`: pass:[<literal>&lt;li&gt;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;The &lt;I&gt;port&lt;/I&gt; &lt;I&gt;name&lt;/I&gt;, a textual name ...</literal>]
 |`FLOW OL`/`FLOW NOTEL` … `FLOW LI` … |`<ol><li>`; the item's leading `1.`/`a.` is the stored ordinal label |`GX27-3999-00` `2.1`, `2.8`
 |`FLOW DL` … repeated `FLOW DT` … `OFF EDL` l|<dl><dt>term<dd>definition |`SC41-485` `1.1` pass:[<literal>&lt;dt&gt;&#160;&#160;&#160;&lt;B&gt;</literal><literal>List&lt;/B&gt;</literal><literal>&lt;dd&gt;&lt;B&gt;Configuration&lt;/</literal><literal>B&gt; &lt;B&gt;Descriptions&lt;/</literal><literal>B&gt; (QDCLCFGD)</literal><literal>&#160;...</literal>], `1.2.5` pass:[<literal>&lt;dt&gt;&#160;&#160;&#160;CPF24B4 E&lt;dd&gt;Severe error ...</literal>]
+|`FLOW DL` … `FLOW DT` term … `FLOW DD` body … `OFF EDL` l|<dl><dt>term<dd>definition |`DFHP7A00` `1.2.4`, logical record 68: `cz FLOW DT 3 6`, the `Access programs:` row, `cz FLOW DD 6 6`, then `Communicate with the back-end applications`; the same pair repeats for the remaining entries
 |`FLOW NT` / `FLOW NOTE` |label run (`Note:`) then the note body |`SC09-2417-00` `4.5.2.2`
 |`OFF XMP` … `OFF EXMP` |`<pre width="80">` with one `<samp>` per word |`packet` `3.2`, `SC09-2417-00` `4.5.2.2`
 |`SRFTN<id>` … `FLOW FN` … `SREFTN` |`<a name="<id>"><h5>` footnote block, targeted by `CSELECT <col> <len> <id>` |`packet` `1.1` `SRFTNFTNUNIQ1` / `cselect 16 4 FTNFTNUNIQ1`, `3.2` `SRFTNFTNUNIQ21`..`24`
-|`FLOW H2`..`H5` with rows |in-topic heading of that level |`SC09-2417-00` `2.2`
+|`FLOW H2`..`H6` with rows |in-topic heading of that level |`SC09-2417-00` `2.2`; `DFHP7A00` `2.3.4.5.2` uses `FLOW H6` for the command-family subheadings
 |===
 
 The `DT` row stores the term in the columns from `left` up to `indent` and the
 definition in the remainder of the same row; a word that straddles the
 `indent` column belongs to the term. `SC41-485` `1.2.2` `cz FLOW DT 7 16`
 keeps `Generic object name` whole.
+
+A `DT` row can instead contain only the term.  An immediately following
+`FLOW DD` supplies that entry's definition rows; its own `left` and `indent`
+operands govern those rows.  This is a structural association declared by the
+two controls, not an inference from their displayed indentation.  Definition
+bodies may in turn contain other flow blocks, so preserving those cases
+requires a block sequence inside the definition rather than concatenating the
+rows into one inline phrase.  In DFHP7A00 `1.2.4`, logical record 68, the first
+pair is `05 52 97 93 C4 C9` at BOO bytes `0x33C26`--`0x33C2C`
+(`cz FLOW DT 3 6`), the framed term row at `0x33C34`--`0x33C3B`, and
+`06 52 97 D4 67 C9 C9` at `0x33C3B`--`0x33C42`
+(`cz FLOW DD 6 6`).  A hidden `SI access program` line follows, then the body
+row begins at `0x33C47`; adjacency is therefore defined over controls and
+native rows while allowing hidden metadata between the DD and its body.
+
+The H6 form has the same four operands as H2--H5.  DFHP7A00 topic `2.3.4.5.2`,
+logical record 174, stores `06 52 97 DA 34 C4 C4` at BOO bytes
+`0x3B43D`--`0x3B444`: the six-byte line payload decodes to
+`cz FLOW H6 3 3`.  The identical sequence recurs at
+`0x3B5C6`--`0x3B5CD`.
 
 [[markup_row_details_specific_to_the_dialect]]
 ==== Row details specific to the dialect
