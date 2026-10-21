@@ -49,9 +49,8 @@ Response raw_response(int status, std::string body = {}) {
   return result;
 }
 
-Response json_response(int status, JsonValue value, std::string_view version) {
+Response json_response(int status, JsonValue value, std::string_view) {
   auto result = raw_response(status, machine::write_json(value));
-  result.protocol_version = std::string(version);
   return result;
 }
 
@@ -138,6 +137,51 @@ bool json_content_type(std::string_view value) {
     if (std::tolower(static_cast<unsigned char>(type[index])) != json[index])
       return false;
   }
+  if (end != std::string_view::npos) {
+    auto parameters = value.substr(end + 1);
+    while (!parameters.empty()) {
+      const auto next = parameters.find(';');
+      auto parameter = parameters.substr(0, next);
+      while (!parameter.empty() &&
+             std::isspace(static_cast<unsigned char>(parameter.front())))
+        parameter.remove_prefix(1);
+      while (!parameter.empty() &&
+             std::isspace(static_cast<unsigned char>(parameter.back())))
+        parameter.remove_suffix(1);
+      constexpr std::string_view prefix = "charset=";
+      if (parameter.size() >= prefix.size()) {
+        bool charset = true;
+        for (std::size_t index = 0; index < prefix.size(); ++index) {
+          charset = charset &&
+                    std::tolower(static_cast<unsigned char>(parameter[index])) ==
+                        prefix[index];
+        }
+        if (charset) {
+          auto value = parameter.substr(prefix.size());
+          if (value.size() >= 2 && value.front() == '"' && value.back() == '"')
+            value = value.substr(1, value.size() - 2);
+          std::string lowered(value);
+          for (char &character : lowered)
+            character = static_cast<char>(
+                std::tolower(static_cast<unsigned char>(character)));
+          if (lowered != "utf-8" && lowered != "utf8") return false;
+        }
+      }
+      if (next == std::string_view::npos) break;
+      parameters.remove_prefix(next + 1);
+    }
+  }
+  return true;
+}
+
+bool identity_encoding(std::string_view value) {
+  if (value.empty()) return true;
+  constexpr std::string_view identity = "identity";
+  if (value.size() != identity.size()) return false;
+  for (std::size_t index = 0; index < value.size(); ++index) {
+    if (std::tolower(static_cast<unsigned char>(value[index])) !=
+        identity[index]) return false;
+  }
   return true;
 }
 
@@ -179,8 +223,17 @@ std::optional<std::string> base64_decode(std::string_view input) {
 std::optional<std::string> decoded_header_name(const std::string &value) {
   constexpr std::string_view prefix = "=?base64?";
   constexpr std::string_view suffix = "?=";
-  if (value.rfind(prefix, 0) != 0)
+  if (value.rfind(prefix, 0) != 0) {
+    if (value.empty() ||
+        std::isspace(static_cast<unsigned char>(value.front())) ||
+        std::isspace(static_cast<unsigned char>(value.back())))
+      return std::nullopt;
+    for (const unsigned char byte : value) {
+      if (byte < 0x20 || byte > 0x7e)
+        return std::nullopt;
+    }
     return value;
+  }
   if (value.size() < prefix.size() + suffix.size() ||
       value.substr(value.size() - suffix.size()) != suffix)
     return std::nullopt;
@@ -303,12 +356,38 @@ JsonValue topic_summary(const service::TopicSummary &value) {
        {"tocStyle", static_cast<std::uint64_t>(value.toc_style)}});
 }
 
+JsonValue source_coordinates(const service::SourceCoordinates &source) {
+  return object({
+      {"startLogicalRecord",
+       static_cast<std::uint64_t>(source.start_logical_record)},
+      {"endLogicalRecord",
+       static_cast<std::uint64_t>(source.end_logical_record)},
+      {"logicalRecord", static_cast<std::uint64_t>(source.logical_record)},
+      {"segmentIndex", static_cast<std::uint64_t>(source.segment_index)},
+      {"tokenBegin", static_cast<std::uint64_t>(source.token_begin)},
+      {"tokenEnd", static_cast<std::uint64_t>(source.token_end)},
+      {"byteBegin", static_cast<std::uint64_t>(source.byte_begin)},
+      {"byteEnd", static_cast<std::uint64_t>(source.byte_end)},
+  });
+}
+
 JsonValue diagnostic(const service::Diagnostic &value) {
+  Array degradations;
+  for (const auto &degradation : value.degradations) {
+    degradations.emplace_back(object({
+        {"block", degradation.block},
+        {"reason", degradation.reason},
+        {"detail", degradation.detail},
+        {"source", source_coordinates(degradation.source)},
+    }));
+  }
   return object({{"severity", value.severity},
                  {"route", value.route},
                  {"family", value.family},
                  {"reason", value.reason},
                  {"detail", value.detail},
+                 {"source", source_coordinates(value.source)},
+                 {"degradations", std::move(degradations)},
                  {"degradationCount",
                   static_cast<std::uint64_t>(value.degradation_count)}});
 }
@@ -420,33 +499,65 @@ const JsonValue *required_string(const Object &value, std::string_view key) {
   return &found->second;
 }
 
+class InvalidToolParams : public std::runtime_error {
+public:
+  using std::runtime_error::runtime_error;
+};
+
+bool exact_arguments(const Object &arguments,
+                     std::initializer_list<std::string_view> allowed) {
+  for (const auto &argument : arguments) {
+    bool found = false;
+    for (const auto name : allowed)
+      found = found || argument.first == name;
+    if (!found)
+      return false;
+  }
+  return true;
+}
+
+bool optional_string(const Object &arguments, std::string_view name) {
+  const auto found = arguments.find(name);
+  return found == arguments.end() || found->second.is_string();
+}
+
 JsonValue call_tool(const Object &params, const service::Catalog &catalog,
                     bool modern) {
   const auto *name_value = required_string(params, "name");
   if (!name_value)
-    return tool_failure("Missing tool name.", modern);
+    throw InvalidToolParams("Missing tool name.");
   const auto arguments_at = params.find("arguments");
   const Object empty;
   if (arguments_at != params.end() && !arguments_at->second.is_object())
-    return tool_failure("Tool arguments must be an object.", modern);
+    throw InvalidToolParams("Tool arguments must be an object.");
   const auto &args =
       arguments_at == params.end() ? empty : arguments_at->second.as_object();
   const auto &name = name_value->as_string();
   if (name == "list_books") {
+    if (!args.empty())
+      throw InvalidToolParams("list_books takes no arguments.");
     Array books;
     for (const auto &book : catalog.books())
       books.push_back(book_summary(book));
     return tool_result(object({{"books", std::move(books)}}), modern);
   }
+  if (name != "get_book" && name != "list_topics" && name != "get_topic" &&
+      name != "list_resources" && name != "get_resource")
+    throw InvalidToolParams("Unknown tool name.");
   const auto *book = required_string(args, "book");
   if (!book)
-    return tool_failure("Missing string argument: book.", modern);
+    throw InvalidToolParams("Missing string argument: book.");
   if (name == "get_book") {
+    if (!exact_arguments(args, {"book"}))
+      throw InvalidToolParams("Invalid get_book arguments.");
     const auto value = catalog.book(book->as_string());
     return value ? tool_result(object({{"book", book_detail(*value)}}), modern)
                  : tool_failure("Book not found.", modern);
   }
   if (name == "list_topics") {
+    if (!exact_arguments(args, {"book", "query"}) ||
+        !optional_string(args, "query"))
+      throw InvalidToolParams("Invalid list_topics arguments.");
     auto values = catalog.topics(book->as_string());
     if (!values)
       return tool_failure("Book not found.", modern);
@@ -463,15 +574,18 @@ JsonValue call_tool(const Object &params, const service::Catalog &catalog,
     return tool_result(object({{"topics", std::move(topics)}}), modern);
   }
   if (name == "get_topic") {
+    if (!exact_arguments(args, {"book", "topic", "format"}) ||
+        !optional_string(args, "format"))
+      throw InvalidToolParams("Invalid get_topic arguments.");
     const auto *topic = required_string(args, "topic");
     if (!topic)
-      return tool_failure("Missing string argument: topic.", modern);
+      throw InvalidToolParams("Missing string argument: topic.");
     auto format = service::TopicFormat::markdown;
     if (const auto *requested = required_string(args, "format")) {
       if (requested->as_string() == "html")
         format = service::TopicFormat::html;
       else if (requested->as_string() != "markdown")
-        return tool_failure("Format must be markdown or html.", modern);
+        throw InvalidToolParams("Format must be markdown or html.");
     }
     const auto value =
         catalog.topic_content(book->as_string(), topic->as_string(), format);
@@ -488,6 +602,8 @@ JsonValue call_tool(const Object &params, const service::Catalog &catalog,
         modern);
   }
   if (name == "list_resources") {
+    if (!exact_arguments(args, {"book"}))
+      throw InvalidToolParams("Invalid list_resources arguments.");
     const auto values = catalog.resources(book->as_string());
     if (!values)
       return tool_failure("Book not found.", modern);
@@ -497,15 +613,18 @@ JsonValue call_tool(const Object &params, const service::Catalog &catalog,
     return tool_result(object({{"resources", std::move(resources)}}), modern);
   }
   if (name == "get_resource") {
+    if (!exact_arguments(args, {"book", "resource", "representation"}) ||
+        !optional_string(args, "representation"))
+      throw InvalidToolParams("Invalid get_resource arguments.");
     const auto *resource = required_string(args, "resource");
     if (!resource)
-      return tool_failure("Missing string argument: resource.", modern);
+      throw InvalidToolParams("Missing string argument: resource.");
     auto representation = service::ResourceRepresentation::stored;
     if (const auto *requested = required_string(args, "representation")) {
       if (requested->as_string() == "web")
         representation = service::ResourceRepresentation::web;
       else if (requested->as_string() != "stored")
-        return tool_failure("Representation must be stored or web.", modern);
+        throw InvalidToolParams("Representation must be stored or web.");
     }
     std::optional<service::ResourceContent> value;
     try {
@@ -529,7 +648,7 @@ JsonValue call_tool(const Object &params, const service::Catalog &catalog,
         }),
         modern);
   }
-  return tool_failure("Unknown tool.", modern);
+  throw InvalidToolParams("Unknown tool name.");
 }
 
 JsonValue resource_descriptor(std::string uri, std::string name,
@@ -689,34 +808,47 @@ void stamp_modern(Object &result, bool cacheable) {
   }
 }
 
-bool valid_modern_meta(const Object &params, std::string_view version) {
+bool modern_version_matches(const Object &params, std::string_view version) {
   const auto meta_at = params.find("_meta");
   if (meta_at == params.end() || !meta_at->second.is_object())
     return false;
   const auto &meta = meta_at->second.as_object();
   const auto *declared =
       required_string(meta, "io.modelcontextprotocol/protocolVersion");
+  return declared && declared->as_string() == version;
+}
+
+bool valid_modern_meta(const Object &params) {
+  const auto &meta = params.find("_meta")->second.as_object();
   const auto client = meta.find("io.modelcontextprotocol/clientInfo");
   const auto capabilities_at =
       meta.find("io.modelcontextprotocol/clientCapabilities");
-  return declared && declared->as_string() == version && client != meta.end() &&
-         client->second.is_object() && capabilities_at != meta.end() &&
-         capabilities_at->second.is_object();
+  if (capabilities_at == meta.end() || !capabilities_at->second.is_object())
+    return false;
+  if (client == meta.end())
+    return true;
+  if (!client->second.is_object())
+    return false;
+  const auto &implementation = client->second.as_object();
+  return required_string(implementation, "name") != nullptr &&
+         required_string(implementation, "version") != nullptr;
 }
 
 } // namespace
 
 Response handle(const Request &request, const service::Catalog &catalog) {
+  if (!request.origin_valid)
+    return raw_response(403);
   if (request.method != "POST") {
     auto result = raw_response(405);
     result.allow = "POST";
     return result;
   }
-  if (!request.origin_valid)
-    return raw_response(403);
   if (request.body.size() > max_request_bytes)
     return raw_response(413);
   if (!json_content_type(request.content_type))
+    return raw_response(415);
+  if (!identity_encoding(request.content_encoding))
     return raw_response(415);
   if (!token(request.accept, "application/json") ||
       !token(request.accept, "text/event-stream"))
@@ -735,8 +867,12 @@ Response handle(const Request &request, const service::Catalog &catalog) {
   const auto *method_value = required_string(message, "method");
   const auto id_at = message.find("id");
   const JsonValue id = id_at == message.end() ? JsonValue() : id_at->second;
-  if (!jsonrpc || jsonrpc->as_string() != "2.0" || !method_value)
-    return error_response(400, id, -32600, "Invalid Request");
+  const bool valid_id =
+      id_at == message.end() || id.is_string() || id.is_number();
+  if (!jsonrpc || jsonrpc->as_string() != "2.0" || !method_value ||
+      !valid_id)
+    return error_response(400, valid_id ? id : JsonValue(), -32600,
+                          "Invalid Request");
   const auto &method = method_value->as_string();
   const auto params_at = message.find("params");
   const Object empty;
@@ -745,7 +881,9 @@ Response handle(const Request &request, const service::Catalog &catalog) {
   const auto &params =
       params_at == message.end() ? empty : params_at->second.as_object();
 
-  const bool initialize = method == "initialize" && !request.protocol_version;
+  const bool initialize =
+      method == "initialize" &&
+      (!request.protocol_version || *request.protocol_version == legacy_version);
   if (initialize) {
     const auto *requested = required_string(params, "protocolVersion");
     const auto client = params.find("clientInfo");
@@ -766,11 +904,8 @@ Response handle(const Request &request, const service::Catalog &catalog) {
   }
 
   if (!request.protocol_version) {
-    return error_response(
-        400, id, -32022, "Unsupported protocol version", modern_version,
-        object({{"requested", JsonValue()},
-                {"supported", Array{std::string(modern_version),
-                                    std::string(legacy_version)}}}));
+    return error_response(400, id, -32020,
+                          "Missing MCP-Protocol-Version header");
   }
   const auto &version = *request.protocol_version;
   const auto meta_at = params.find("_meta");
@@ -792,8 +927,10 @@ Response handle(const Request &request, const service::Catalog &catalog) {
   if (modern) {
     if (!request.mcp_method || *request.mcp_method != method)
       return error_response(400, id, -32020, "MCP header mismatch");
-    if (!valid_modern_meta(params, version))
+    if (!modern_version_matches(params, version))
       return error_response(400, id, -32020, "MCP metadata mismatch");
+    if (!valid_modern_meta(params))
+      return error_response(400, id, -32602, "Invalid params", version);
     if (method == "tools/call" || method == "resources/read") {
       const auto principal =
           required_string(params, method == "tools/call" ? "name" : "uri");
@@ -807,11 +944,8 @@ Response handle(const Request &request, const service::Catalog &catalog) {
     }
   }
 
-  if (legacy && method == "notifications/initialized" &&
-      id_at == message.end()) {
-    auto response = raw_response(202);
-    response.protocol_version = std::string(legacy_version);
-    return response;
+  if (id_at == message.end()) {
+    return raw_response(202);
   }
 
   std::optional<JsonValue> result;
@@ -828,7 +962,11 @@ Response handle(const Request &request, const service::Catalog &catalog) {
     result = object({{"tools", tools()}});
     cacheable = true;
   } else if (method == "tools/call") {
-    result = call_tool(params, catalog, modern);
+    try {
+      result = call_tool(params, catalog, modern);
+    } catch (const InvalidToolParams &error) {
+      return error_response(400, id, -32602, error.what(), version);
+    }
   } else if (method == "resources/list") {
     result = list_resources(catalog, modern);
   } else if (method == "resources/templates/list") {

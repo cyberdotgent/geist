@@ -133,6 +133,12 @@ void test_one_handle_drives_content_and_diagnostic(
                 markdown->topic.diagnostic.family == diagnostic.family &&
                 markdown->topic.diagnostic.reason == diagnostic.reason &&
                 markdown->topic.diagnostic.detail == diagnostic.detail &&
+                markdown->topic.diagnostic.source.start_logical_record ==
+                    diagnostic.source.start_logical_record &&
+                markdown->topic.diagnostic.source.end_logical_record ==
+                    diagnostic.source.end_logical_record &&
+                markdown->topic.diagnostic.degradations.size() ==
+                    diagnostic.degradations.size() &&
                 markdown->topic.diagnostic.degradation_count ==
                     diagnostic.degradations.size(),
             "content exposes the handle's fidelity diagnostic unchanged");

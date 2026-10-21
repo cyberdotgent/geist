@@ -12,6 +12,20 @@
 namespace geist_apache::service {
 namespace {
 
+SourceCoordinates coordinates_from(
+    const geist::RenderSourceCoordinates &source) {
+  SourceCoordinates result;
+  result.start_logical_record = source.start_logical_record;
+  result.end_logical_record = source.end_logical_record;
+  result.logical_record = source.logical_record;
+  result.segment_index = source.segment_index;
+  result.token_begin = source.token_begin;
+  result.token_end = source.token_end;
+  result.byte_begin = source.byte_begin;
+  result.byte_end = source.byte_end;
+  return result;
+}
+
 std::string ascii_lower(std::string value) {
   std::transform(value.begin(), value.end(), value.begin(), [](char value) {
     return static_cast<char>(std::tolower(static_cast<unsigned char>(value)));
@@ -26,6 +40,13 @@ Diagnostic diagnostic_from(const geist::RenderDiagnostic &source) {
   result.family = source.family;
   result.reason = source.reason;
   result.detail = source.detail;
+  result.source = coordinates_from(source.source);
+  result.degradations.reserve(source.degradations.size());
+  for (const auto &degradation : source.degradations) {
+    result.degradations.push_back(
+        {degradation.block, degradation.reason, degradation.detail,
+         coordinates_from(degradation.source)});
+  }
   result.degradation_count = source.degradations.size();
   return result;
 }
@@ -317,7 +338,9 @@ Catalog::resource_content(const std::string &book_id,
   result.resource = resource_from(*item);
   result.representation = representation;
   if (representation == ResourceRepresentation::stored) {
-    result.media_type = stored_media_type(item->stored_format);
+    // Exact bytes are a download representation, not an instruction to a
+    // browser to execute a book-supplied active media type on this origin.
+    result.media_type = "application/octet-stream";
     result.bytes = document->read_resource_data(item->id);
     return result;
   }
@@ -335,9 +358,8 @@ Catalog::resource_content(const std::string &book_id,
   }
   // This is intentionally distinct from a missing resource. Transports can
   // map an unsupported conversion to their protocol's representation error.
-  throw std::runtime_error("resource format has no supported web "
-                           "representation: " +
-                           item->stored_format);
+  throw UnsupportedRepresentation("resource format has no supported web "
+                                  "representation: " + item->stored_format);
 }
 
 } // namespace geist_apache::service

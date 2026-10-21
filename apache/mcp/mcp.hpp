@@ -16,6 +16,7 @@ namespace geist_apache::mcp {
 struct Request {
   std::string method;
   std::string content_type;
+  std::string content_encoding;
   std::string accept;
   std::optional<std::string> origin;
   bool origin_valid = true;
@@ -30,7 +31,6 @@ struct Response {
   std::string content_type;
   std::string body;
   std::string allow;
-  std::string protocol_version;
 };
 
 inline constexpr std::size_t max_request_bytes = 1024 * 1024;

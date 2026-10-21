@@ -172,13 +172,37 @@ JsonValue topic_summary(const service::TopicSummary& topic) {
       {"tocStyle", static_cast<std::uint64_t>(topic.toc_style)}};
 }
 
+JsonValue source_coordinates(const service::SourceCoordinates& source) {
+  return JsonValue::Object{
+      {"startLogicalRecord",
+       static_cast<std::uint64_t>(source.start_logical_record)},
+      {"endLogicalRecord",
+       static_cast<std::uint64_t>(source.end_logical_record)},
+      {"logicalRecord", static_cast<std::uint64_t>(source.logical_record)},
+      {"segmentIndex", static_cast<std::uint64_t>(source.segment_index)},
+      {"tokenBegin", static_cast<std::uint64_t>(source.token_begin)},
+      {"tokenEnd", static_cast<std::uint64_t>(source.token_end)},
+      {"byteBegin", static_cast<std::uint64_t>(source.byte_begin)},
+      {"byteEnd", static_cast<std::uint64_t>(source.byte_end)}};
+}
+
 JsonValue diagnostic(const service::Diagnostic& diagnostic) {
+  JsonValue::Array degradations;
+  for (const auto& degradation : diagnostic.degradations) {
+    degradations.emplace_back(JsonValue::Object{
+        {"block", degradation.block},
+        {"reason", degradation.reason},
+        {"detail", degradation.detail},
+        {"source", source_coordinates(degradation.source)}});
+  }
   return JsonValue::Object{
       {"severity", diagnostic.severity},
       {"route", diagnostic.route},
       {"family", diagnostic.family},
       {"reason", diagnostic.reason},
       {"detail", diagnostic.detail},
+      {"source", source_coordinates(diagnostic.source)},
+      {"degradations", std::move(degradations)},
       {"degradationCount",
        static_cast<std::uint64_t>(diagnostic.degradation_count)}};
 }
@@ -319,8 +343,8 @@ Response dispatch(const Match& match, const Query& query,
           {"service", "mod_geist"},
           {"apiVersion", "v1"},
           {"readOnly", true},
-          {"openapi", "/.geist/openapi.json"},
-          {"mcp", mcp_enabled ? JsonValue("/.geist/mcp")
+          {"openapi", "../openapi.json"},
+          {"mcp", mcp_enabled ? JsonValue("../mcp")
                               : JsonValue(nullptr)}});
     case Endpoint::books: {
       JsonValue::Array books;

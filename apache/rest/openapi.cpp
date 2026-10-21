@@ -26,7 +26,7 @@ constexpr std::string_view document = R"OPENAPI({
     {"name": "Resources"}
   ],
   "paths": {
-    "/.geist/api/v1": {
+    "/api/v1": {
       "get": {
         "tags": ["Service"],
         "summary": "Describe this shelf service",
@@ -49,7 +49,7 @@ constexpr std::string_view document = R"OPENAPI({
         }
       }
     },
-    "/.geist/api/v1/books": {
+    "/api/v1/books": {
       "get": {
         "tags": ["Books"],
         "summary": "List the BOO books in this shelf",
@@ -72,7 +72,7 @@ constexpr std::string_view document = R"OPENAPI({
         }
       }
     },
-    "/.geist/api/v1/books/{bookId}": {
+    "/api/v1/books/{bookId}": {
       "parameters": [{"$ref": "#/components/parameters/BookId"}],
       "get": {
         "tags": ["Books"],
@@ -98,7 +98,7 @@ constexpr std::string_view document = R"OPENAPI({
         }
       }
     },
-    "/.geist/api/v1/books/{bookId}/toc": {
+    "/api/v1/books/{bookId}/toc": {
       "parameters": [{"$ref": "#/components/parameters/BookId"}],
       "get": {
         "tags": ["Books"],
@@ -124,7 +124,7 @@ constexpr std::string_view document = R"OPENAPI({
         }
       }
     },
-    "/.geist/api/v1/books/{bookId}/topics": {
+    "/api/v1/books/{bookId}/topics": {
       "parameters": [{"$ref": "#/components/parameters/BookId"}],
       "get": {
         "tags": ["Topics"],
@@ -151,7 +151,7 @@ constexpr std::string_view document = R"OPENAPI({
         }
       }
     },
-    "/.geist/api/v1/books/{bookId}/topics/{topicId}": {
+    "/api/v1/books/{bookId}/topics/{topicId}": {
       "parameters": [
         {"$ref": "#/components/parameters/BookId"},
         {"$ref": "#/components/parameters/TopicId"}
@@ -180,7 +180,7 @@ constexpr std::string_view document = R"OPENAPI({
         }
       }
     },
-    "/.geist/api/v1/books/{bookId}/topics/{topicId}/content": {
+    "/api/v1/books/{bookId}/topics/{topicId}/content": {
       "parameters": [
         {"$ref": "#/components/parameters/BookId"},
         {"$ref": "#/components/parameters/TopicId"},
@@ -218,7 +218,7 @@ constexpr std::string_view document = R"OPENAPI({
         }
       }
     },
-    "/.geist/api/v1/books/{bookId}/resources": {
+    "/api/v1/books/{bookId}/resources": {
       "parameters": [{"$ref": "#/components/parameters/BookId"}],
       "get": {
         "tags": ["Resources"],
@@ -244,7 +244,7 @@ constexpr std::string_view document = R"OPENAPI({
         }
       }
     },
-    "/.geist/api/v1/books/{bookId}/resources/{resourceId}": {
+    "/api/v1/books/{bookId}/resources/{resourceId}": {
       "parameters": [
         {"$ref": "#/components/parameters/BookId"},
         {"$ref": "#/components/parameters/ResourceId"}
@@ -273,7 +273,7 @@ constexpr std::string_view document = R"OPENAPI({
         }
       }
     },
-    "/.geist/api/v1/books/{bookId}/resources/{resourceId}/content": {
+    "/api/v1/books/{bookId}/resources/{resourceId}/content": {
       "parameters": [
         {"$ref": "#/components/parameters/BookId"},
         {"$ref": "#/components/parameters/ResourceId"},
@@ -288,15 +288,17 @@ constexpr std::string_view document = R"OPENAPI({
           "200": {
             "description": "Stored or explicitly converted resource bytes",
             "content": {
-              "application/octet-stream": {"schema": {"type": "string", "contentEncoding": "binary"}},
-              "image/png": {"schema": {"type": "string", "contentEncoding": "binary"}},
-              "image/gif": {"schema": {"type": "string", "contentEncoding": "binary"}}
+              "application/octet-stream": {"schema": {"type": "string", "format": "binary"}},
+              "image/png": {"schema": {"type": "string", "format": "binary"}},
+              "image/gif": {"schema": {"type": "string", "format": "binary"}},
+              "image/jpeg": {"schema": {"type": "string", "format": "binary"}},
+              "image/webp": {"schema": {"type": "string", "format": "binary"}},
+              "image/svg+xml": {"schema": {"type": "string", "format": "binary"}}
             }
           },
           "400": {"$ref": "#/components/responses/BadRequest"},
           "404": {"$ref": "#/components/responses/NotFound"},
           "406": {"$ref": "#/components/responses/NotAcceptable"},
-          "415": {"$ref": "#/components/responses/UnsupportedMediaType"},
           "500": {"$ref": "#/components/responses/InternalError"}
         }
       },
@@ -309,7 +311,6 @@ constexpr std::string_view document = R"OPENAPI({
           "400": {"$ref": "#/components/responses/BadRequest"},
           "404": {"$ref": "#/components/responses/NotFound"},
           "406": {"$ref": "#/components/responses/NotAcceptable"},
-          "415": {"$ref": "#/components/responses/UnsupportedMediaType"},
           "500": {"$ref": "#/components/responses/InternalError"}
         }
       }
@@ -364,10 +365,6 @@ constexpr std::string_view document = R"OPENAPI({
       },
       "NotAcceptable": {
         "description": "The requested representation is not acceptable",
-        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}}}
-      },
-      "UnsupportedMediaType": {
-        "description": "No explicit web conversion exists for this resource",
         "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}}}
       },
       "InternalError": {
@@ -441,16 +438,44 @@ constexpr std::string_view document = R"OPENAPI({
           "entries": {"type": "array", "items": {"$ref": "#/components/schemas/TopicSummary"}}
         }
       },
+      "SourceCoordinates": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["startLogicalRecord", "endLogicalRecord", "logicalRecord", "segmentIndex", "tokenBegin", "tokenEnd", "byteBegin", "byteEnd"],
+        "properties": {
+          "startLogicalRecord": {"type": "integer", "minimum": 0},
+          "endLogicalRecord": {"type": "integer", "minimum": 0},
+          "logicalRecord": {"type": "integer", "minimum": 0},
+          "segmentIndex": {"type": "integer", "minimum": 0},
+          "tokenBegin": {"type": "integer", "minimum": 0},
+          "tokenEnd": {"type": "integer", "minimum": 0},
+          "byteBegin": {"type": "integer", "minimum": 0},
+          "byteEnd": {"type": "integer", "minimum": 0}
+        }
+      },
+      "Degradation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["block", "reason", "detail", "source"],
+        "properties": {
+          "block": {"type": "string"},
+          "reason": {"type": "string"},
+          "detail": {"type": "string"},
+          "source": {"$ref": "#/components/schemas/SourceCoordinates"}
+        }
+      },
       "Diagnostic": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["severity", "route", "family", "reason", "detail", "degradationCount"],
+        "required": ["severity", "route", "family", "reason", "detail", "source", "degradations", "degradationCount"],
         "properties": {
           "severity": {"type": "string"},
           "route": {"type": "string", "description": "DocumentIR lowering route used for this topic"},
           "family": {"type": "string"},
           "reason": {"type": "string"},
           "detail": {"type": "string"},
+          "source": {"$ref": "#/components/schemas/SourceCoordinates"},
+          "degradations": {"type": "array", "items": {"$ref": "#/components/schemas/Degradation"}},
           "degradationCount": {"type": "integer", "minimum": 0}
         }
       },

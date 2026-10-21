@@ -83,6 +83,16 @@ void test_transport(const geist_apache::service::Catalog &catalog) {
   request.accept = "application/json";
   response = geist_apache::mcp::handle(request, catalog);
   require(response.status == 406, "modern clients advertise JSON and SSE");
+
+  request = modern("tools/list", "{}");
+  request.content_encoding = "gzip";
+  response = geist_apache::mcp::handle(request, catalog);
+  require(response.status == 415, "encoded request bodies are rejected");
+
+  request = modern("tools/list", "{}");
+  request.content_type = "application/json; charset=iso-8859-1";
+  response = geist_apache::mcp::handle(request, catalog);
+  require(response.status == 415, "non-UTF-8 JSON bodies are rejected");
 }
 
 void test_modern(const geist_apache::service::Catalog &catalog) {
@@ -91,7 +101,7 @@ void test_modern(const geist_apache::service::Catalog &catalog) {
                                 "\"server/discover\",\"params\":{" +
                                     meta() + "}}");
   auto response = geist_apache::mcp::handle(request, catalog);
-  require(response.status == 200 && response.protocol_version == "2026-07-28",
+  require(response.status == 200,
           "modern discovery succeeds without a session");
   auto value = json(response);
   require(path(value, {"result", "resultType"}) != nullptr &&
@@ -119,6 +129,47 @@ void test_modern(const geist_apache::service::Catalog &catalog) {
     }
   }
 
+  request = modern(
+      "tools/list",
+      R"({"jsonrpc":"2.0","id":20,"method":"tools/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}})");
+  response = geist_apache::mcp::handle(request, catalog);
+  require(response.status == 200,
+          "modern clientInfo is optional when capabilities are supplied");
+
+  request = modern(
+      "tools/list",
+      R"({"jsonrpc":"2.0","id":22,"method":"tools/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":42,"version":"1"},"io.modelcontextprotocol/clientCapabilities":{}}}})");
+  response = geist_apache::mcp::handle(request, catalog);
+  value = json(response);
+  require(response.status == 400 && path(value, {"error", "code"}) &&
+              path(value, {"error", "code"})->number_text() == "-32602",
+          "malformed optional clientInfo is an invalid-params error");
+
+  request = modern(
+      "tools/call",
+      "{\"jsonrpc\":\"2.0\",\"id\":21,\"method\":\"tools/call\","
+      "\"params\":{\"name\":\"list_books\",\"arguments\":{\"extra\":true}," +
+          meta() + "}}",
+      "list_books");
+  response = geist_apache::mcp::handle(request, catalog);
+  value = json(response);
+  require(response.status == 400 && path(value, {"error", "code"}) &&
+              path(value, {"error", "code"})->number_text() == "-32602",
+          "invalid tool arguments return JSON-RPC invalid params");
+
+  request = modern(
+      "tools/call",
+      "{\"jsonrpc\":\"2.0\",\"id\":23,\"method\":\"tools/call\","
+      "\"params\":{\"name\":\"get_book\",\"arguments\":{\"book\":"
+      "\"absent.boo\"}," +
+          meta() + "}}",
+      "get_book");
+  response = geist_apache::mcp::handle(request, catalog);
+  value = json(response);
+  require(response.status == 200 && path(value, {"result", "isError"}) &&
+              path(value, {"result", "isError"})->as_bool(),
+          "valid tool calls report domain failures as tool results");
+
   request =
       modern("tools/call",
              "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/"
@@ -130,6 +181,13 @@ void test_modern(const geist_apache::service::Catalog &catalog) {
   require(response.status == 200 &&
               path(value, {"result", "structuredContent", "books"}) != nullptr,
           "list_books routes through the shared catalog");
+
+  request.mcp_name = "list_books\xc3\xa9";
+  response = geist_apache::mcp::handle(request, catalog);
+  value = json(response);
+  require(response.status == 400 && path(value, {"error", "code"}) &&
+              path(value, {"error", "code"})->number_text() == "-32020",
+          "unsafe plain Mcp-Name values require Base64 wrapping");
 
   request.mcp_name = "get_book";
   response = geist_apache::mcp::handle(request, catalog);
@@ -190,7 +248,7 @@ void test_legacy(const geist_apache::service::Catalog &catalog) {
       R"({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"test","version":"1"}}})";
   auto response = geist_apache::mcp::handle(initialize, catalog);
   auto value = json(response);
-  require(response.status == 200 && response.protocol_version == "2025-11-25" &&
+  require(response.status == 200 &&
               path(value, {"result", "protocolVersion"}) &&
               !path(value, {"result", "resultType"}),
           "legacy initialize negotiates without a request version header");
@@ -205,6 +263,31 @@ void test_legacy(const geist_apache::service::Catalog &catalog) {
   response = geist_apache::mcp::handle(initialized, catalog);
   require(response.status == 202 && response.body.empty(),
           "legacy initialized notification has an empty 202 response");
+
+  initialized.body =
+      R"({"jsonrpc":"2.0","method":"tools/list","params":{}})";
+  response = geist_apache::mcp::handle(initialized, catalog);
+  require(response.status == 202 && response.body.empty(),
+          "every accepted legacy notification has an empty 202 response");
+
+  Request invalid_id = initialized;
+  invalid_id.body =
+      R"({"jsonrpc":"2.0","id":{},"method":"tools/list","params":{}})";
+  response = geist_apache::mcp::handle(invalid_id, catalog);
+  auto invalid = json(response);
+  require(response.status == 400 && path(invalid, {"error", "code"}) &&
+              path(invalid, {"error", "code"})->number_text() == "-32600" &&
+              path(invalid, {"id"}) && path(invalid, {"id"})->is_null(),
+          "JSON-RPC ids reject object values");
+
+  invalid_id.body =
+      R"({"jsonrpc":"2.0","id":null,"method":"tools/list","params":{}})";
+  response = geist_apache::mcp::handle(invalid_id, catalog);
+  invalid = json(response);
+  require(response.status == 400 && path(invalid, {"error", "code"}) &&
+              path(invalid, {"error", "code"})->number_text() == "-32600" &&
+              path(invalid, {"id"}) && path(invalid, {"id"})->is_null(),
+          "MCP request ids reject null values");
 
   Request list;
   list.method = "POST";

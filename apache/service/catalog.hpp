@@ -9,6 +9,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -49,12 +50,32 @@ struct TopicSummary {
   std::uint32_t toc_style = 0;
 };
 
+struct SourceCoordinates {
+  std::uint32_t start_logical_record = 0;
+  std::uint32_t end_logical_record = 0;
+  std::uint32_t logical_record = 0;
+  std::size_t segment_index = 0;
+  std::size_t token_begin = 0;
+  std::size_t token_end = 0;
+  std::uint32_t byte_begin = 0;
+  std::uint32_t byte_end = 0;
+};
+
+struct Degradation {
+  std::string block;
+  std::string reason;
+  std::string detail;
+  SourceCoordinates source;
+};
+
 struct Diagnostic {
   std::string severity;
   std::string route;
   std::string family;
   std::string reason;
   std::string detail;
+  SourceCoordinates source;
+  std::vector<Degradation> degradations;
   std::size_t degradation_count = 0;
 };
 
@@ -82,6 +103,11 @@ struct ResourceSummary {
 };
 
 enum class ResourceRepresentation { stored, web };
+
+class UnsupportedRepresentation : public std::runtime_error {
+public:
+  using std::runtime_error::runtime_error;
+};
 
 struct ResourceContent {
   ResourceSummary resource;

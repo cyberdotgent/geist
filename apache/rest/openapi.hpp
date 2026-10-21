@@ -8,7 +8,7 @@
 namespace geist_apache::rest {
 
 inline constexpr std::string_view openapi_media_type =
-    "application/vnd.oai.openapi+json;version=3.1";
+    "application/json; charset=utf-8";
 
 // The machine-readable contract served from each enabled shelf. The relative
 // server URL deliberately leaves the shelf mount point under Apache's control.

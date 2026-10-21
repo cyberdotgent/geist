@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "rest/openapi.hpp"
+#include "machine/json.hpp"
 
 #include <cctype>
 #include <iostream>
 #include <stdexcept>
 #include <string_view>
+#include <utility>
 
 namespace {
 
@@ -201,19 +203,35 @@ int main() {
     contains(document, "\"openapi\": \"3.1.2\"", "wrong OpenAPI version");
     contains(document, "\"url\": \".\"", "server is not shelf-relative");
 
-    constexpr std::string_view paths[] = {
-        "/.geist/api/v1",
-        "/.geist/api/v1/books",
-        "/.geist/api/v1/books/{bookId}",
-        "/.geist/api/v1/books/{bookId}/toc",
-        "/.geist/api/v1/books/{bookId}/topics",
-        "/.geist/api/v1/books/{bookId}/topics/{topicId}",
-        "/.geist/api/v1/books/{bookId}/topics/{topicId}/content",
-        "/.geist/api/v1/books/{bookId}/resources",
-        "/.geist/api/v1/books/{bookId}/resources/{resourceId}",
-        "/.geist/api/v1/books/{bookId}/resources/{resourceId}/content"};
-    for (const auto path : paths)
-      contains(document, path, "REST path missing from OpenAPI document");
+    constexpr std::pair<std::string_view, std::string_view> expected_paths[] = {
+        {"/api/v1", "getService"},
+        {"/api/v1/books", "listBooks"},
+        {"/api/v1/books/{bookId}", "getBook"},
+        {"/api/v1/books/{bookId}/toc", "getTableOfContents"},
+        {"/api/v1/books/{bookId}/topics", "listTopics"},
+        {"/api/v1/books/{bookId}/topics/{topicId}", "getTopic"},
+        {"/api/v1/books/{bookId}/topics/{topicId}/content",
+         "getTopicContent"},
+        {"/api/v1/books/{bookId}/resources", "listResources"},
+        {"/api/v1/books/{bookId}/resources/{resourceId}", "getResource"},
+        {"/api/v1/books/{bookId}/resources/{resourceId}/content",
+         "getResourceContent"}};
+    const auto parsed = geist_apache::machine::parse_json(document);
+    const auto *paths_value = parsed.find("paths");
+    require(paths_value != nullptr && paths_value->is_object(),
+            "OpenAPI paths is not an object");
+    const auto &paths = paths_value->as_object();
+    require(paths.size() == std::size(expected_paths),
+            "OpenAPI document does not contain exactly ten unique paths");
+    for (const auto &[path, operation_id] : expected_paths) {
+      const auto path_at = paths.find(path);
+      require(path_at != paths.end(), "REST path missing from OpenAPI document");
+      const auto *get = path_at->second.find("get");
+      const auto *actual_id = get != nullptr ? get->find("operationId") : nullptr;
+      require(actual_id != nullptr && actual_id->is_string() &&
+                  actual_id->as_string() == operation_id,
+              "REST path is bound to the wrong OpenAPI operation");
+    }
 
     require(occurrences(document, "\"get\": {") == 10,
             "not every REST path has one GET operation");
@@ -228,6 +246,11 @@ int main() {
              "stored resource semantics are not documented");
     contains(document, "explicit supported web conversion",
              "web conversion semantics are not documented");
+    contains(document, "\"format\": \"binary\"",
+             "raw resource response bodies are not described as binary");
+    require(document.find("\"contentEncoding\": \"binary\"") ==
+                std::string_view::npos,
+            "raw resource bodies must not claim a text content encoding");
     contains(document, "\"application/problem+json\"",
              "problem responses are not documented");
     contains(document, "\"degradationCount\"",
@@ -239,7 +262,7 @@ int main() {
              "Filesystem paths and document numbers are not book identifiers",
              "book identity rules are not documented");
     require(geist_apache::rest::openapi_media_type ==
-                "application/vnd.oai.openapi+json;version=3.1",
+                "application/json; charset=utf-8",
             "wrong OpenAPI media type");
   } catch (const std::exception &error) {
     std::cerr << error.what() << '\n';
