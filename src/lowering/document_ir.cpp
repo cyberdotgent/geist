@@ -87,7 +87,13 @@ bool verify_inlines(const InlineSequenceIR& inlines, bool allow_empty,
             case CrossReferenceTargetKindIR::anchor:
             case CrossReferenceTargetKindIR::resource:
             case CrossReferenceTargetKindIR::external:
-              return !node.target.value.empty();
+              return !node.target.value.empty() &&
+                     !(node.label_emphasis && node.label_code) &&
+                     (!node.label_emphasis ||
+                      *node.label_emphasis == EmphasisKindIR::emphasis ||
+                      *node.label_emphasis == EmphasisKindIR::strong ||
+                      *node.label_emphasis ==
+                          EmphasisKindIR::strong_emphasis);
             }
             return false;
           } else if constexpr (std::is_same_v<T, ImageInlineIR>) {
@@ -216,6 +222,8 @@ bool verify_block(const BlockIR& block, std::string* error) {
           return !node.id.empty() || fail(error, "anchor id is empty");
         } else if constexpr (std::is_same_v<T, ListBlockIR>) {
           if (node.items.empty()) return fail(error, "list is empty");
+          if (!node.ordered && node.marker != OrderedListMarkerIR::decimal)
+            return fail(error, "unordered list has an ordered marker style");
           const auto explicit_ordinals = static_cast<std::size_t>(
               std::count_if(node.items.begin(), node.items.end(),
                             [](const auto& item) {
@@ -252,6 +260,9 @@ bool verify_block(const BlockIR& block, std::string* error) {
                     error,
                     "ordered list source ordinals are not strictly increasing");
               previous_ordinal = *item.source_ordinal;
+              if (node.marker != OrderedListMarkerIR::decimal &&
+                  *item.source_ordinal > 26)
+                return fail(error, "alphabetic list ordinal exceeds Z");
             }
           }
           return true;
@@ -458,10 +469,15 @@ void format_inlines(std::ostringstream& out, const InlineSequenceIR& inlines) {
             out << emphasis_kind_name(node.kind) << '=' << quoted(node.text);
           else if constexpr (std::is_same_v<T, CodeInlineIR>)
             out << "code=" << quoted(node.code);
-          else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>)
+          else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>) {
             out << "xref="
                 << cross_reference_target_kind_name(node.target.kind) << ':'
                 << quoted(node.target.value) << ':' << quoted(node.label);
+            if (node.label_code)
+              out << ":code";
+            else if (node.label_emphasis)
+              out << ':' << emphasis_kind_name(*node.label_emphasis);
+          }
           else if constexpr (std::is_same_v<T, ImageInlineIR>)
             out << "image=" << quoted(node.resource) << ':'
                 << quoted(node.alt_text);
@@ -596,7 +612,10 @@ void normalize_document_origin_slices(DocumentIR& document) {
 }
 
 bool verify_document_ir(const DocumentIR& document, std::string* error) {
-  if (document.topic.id.empty() || document.topic.title.empty())
+  // The source may explicitly publish an empty title (SC09-138 FRONT). The
+  // stable topic id still supplies complete identity; fabricating a title is
+  // less faithful than retaining the empty field.
+  if (document.topic.id.empty())
     return fail(error, "document topic identity is incomplete");
   if (document.topic.end_logical_record != 0 &&
       document.topic.start_logical_record > document.topic.end_logical_record)
@@ -639,8 +658,13 @@ std::string format_document_ir(const DocumentIR& document) {
                           : node.role == AnchorRoleIR::table ? "table"
                                                              : "local");
           } else if constexpr (std::is_same_v<T, ListBlockIR>) {
-            out << " list ordered=" << (node.ordered ? 1 : 0)
-                << " items=[";
+            out << " list ordered=" << (node.ordered ? 1 : 0);
+            if (node.marker != OrderedListMarkerIR::decimal)
+              out << " marker="
+                  << (node.marker == OrderedListMarkerIR::lower_alpha
+                          ? "lower-alpha"
+                          : "upper-alpha");
+            out << " items=[";
             for (std::size_t item = 0; item < node.items.size(); ++item) {
               if (item != 0) out << ' ';
               out << "item=";

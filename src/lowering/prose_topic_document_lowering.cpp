@@ -255,6 +255,10 @@ bool lower_inlines(const ProseBlockIR& block, std::size_t begin,
       CrossReferenceInlineIR reference;
       reference.target = {node.target_kind, node.target};
       reference.label = node.text;
+      if (code_style(node.style))
+        reference.label_code = true;
+      else if (node.style != FontStyleIR::unknown)
+        reference.label_emphasis = emphasis_kind(node.style);
       lowered.node = std::move(reference);
       lowered.origin =
           origin(node.slices,
@@ -293,8 +297,19 @@ std::vector<DocumentSourceSliceIR> inline_slices(const ProseBlockIR& block,
   return slices;
 }
 
+OrderedListMarkerIR item_marker(const ProseBlockIR& block) {
+  const auto& label = block.ordinal;
+  if (label.size() == 2 && label.back() == '.' && label.front() >= 'a' &&
+      label.front() <= 'z')
+    return OrderedListMarkerIR::lower_alpha;
+  if (label.size() == 2 && label.back() == '.' && label.front() >= 'A' &&
+      label.front() <= 'Z')
+    return OrderedListMarkerIR::upper_alpha;
+  return OrderedListMarkerIR::decimal;
+}
+
 // The explicit ordinal label of a CZ ordered-list row, or the item's position
-// in its list when the row has no numeric label.
+// in its list when the row has no label.
 std::optional<std::uint64_t> item_ordinal(const ProseBlockIR& block,
                                           std::uint64_t position) {
   if (!block.ordered) return std::nullopt;
@@ -308,6 +323,11 @@ std::optional<std::uint64_t> item_ordinal(const ProseBlockIR& block,
       value = value * 10 + static_cast<std::uint64_t>(*it - '0');
     if (value != 0) return value;
   }
+  if (label.size() == 2 && label.back() == '.' &&
+      std::isalpha(static_cast<unsigned char>(label.front())) != 0)
+    return static_cast<std::uint64_t>(
+               std::tolower(static_cast<unsigned char>(label.front())) - 'a') +
+           1;
   return position;
 }
 
@@ -611,6 +631,7 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
     }
     ListBlockIR list;
     list.ordered = block.ordered;
+    list.marker = item_marker(block);
     std::vector<DocumentSourceSliceIR> list_slices;
     const auto ordinal = block.list_ordinal;
     while (index < prose.blocks.size() &&
@@ -619,6 +640,10 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
       const auto& item = prose.blocks[index];
       if (item.ordered != list.ordered) {
         fail(error, "prose list mixes ordered and unordered items");
+        return std::nullopt;
+      }
+      if (item_marker(item) != list.marker) {
+        fail(error, "prose ordered list mixes marker alphabets");
         return std::nullopt;
       }
       ListItemIR lowered;

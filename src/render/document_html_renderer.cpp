@@ -317,9 +317,36 @@ void append_inline(HtmlSink &sink, const InlineIR &node) {
           sink.markup("</code>");
         } else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>) {
           const auto href = sink.inline_reference(value.target);
-          append_anchor(sink, href, link_kind(value.target.kind),
-                        value.label.empty() ? value.target.value
-                                            : value.label);
+          const auto label =
+              value.label.empty() ? value.target.value : value.label;
+          if (!value.label_emphasis && !value.label_code) {
+            append_anchor(sink, href, link_kind(value.target.kind), label);
+          } else {
+            sink.markup("<a");
+            sink.attribute("class", link_class(link_kind(value.target.kind),
+                                                href.unresolved));
+            sink.attribute("href", href.href);
+            sink.markup(">");
+            if (value.label_code) {
+              sink.markup("<code class=\"geist-monospace\">");
+              sink.text(label);
+              sink.markup("</code>");
+            } else if (*value.label_emphasis == EmphasisKindIR::strong) {
+              sink.markup("<strong class=\"geist-strong\">");
+              sink.text(label);
+              sink.markup("</strong>");
+            } else if (*value.label_emphasis ==
+                       EmphasisKindIR::strong_emphasis) {
+              sink.markup("<strong class=\"geist-strong-emphasis\"><em>");
+              sink.text(label);
+              sink.markup("</em></strong>");
+            } else {
+              sink.markup("<em class=\"geist-emphasis\">");
+              sink.text(label);
+              sink.markup("</em>");
+            }
+            sink.markup("</a>");
+          }
         } else if constexpr (std::is_same_v<T, ImageInlineIR>) {
           const auto href = resource_href(value.resource, sink.options());
           sink.markup("<img");
@@ -484,7 +511,17 @@ void append_block(HtmlSink &sink, const BlockIR &block) {
           sink.markup("></span>");
         } else if constexpr (std::is_same_v<T, ListBlockIR>) {
           const auto *tag = node.ordered ? "ol" : "ul";
-          open_block(sink, tag, block_class, origin);
+          if (node.ordered && node.marker != OrderedListMarkerIR::decimal) {
+            sink.markup("<ol");
+            sink.attribute("class", block_class);
+            sink.attribute("type", node.marker == OrderedListMarkerIR::lower_alpha
+                                       ? "a"
+                                       : "A");
+            append_degradation_attributes(sink, origin);
+            sink.markup(">");
+          } else {
+            open_block(sink, tag, block_class, origin);
+          }
           for (const auto &item : node.items) {
             sink.markup("<li class=\"geist-list-item\"");
             if (item.depth != 0)

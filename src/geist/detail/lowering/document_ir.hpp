@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -48,8 +49,19 @@ struct CrossReferenceTargetIR {
 };
 
 struct CrossReferenceInlineIR {
+  CrossReferenceInlineIR() = default;
+  CrossReferenceInlineIR(CrossReferenceTargetIR target_value,
+                         std::string label_value)
+      : target(std::move(target_value)), label(std::move(label_value)) {}
+
   CrossReferenceTargetIR target;
   std::string label;
+  // Presentation proven for this label's exact source run. Selectors and
+  // CFONT instructions make independent, overlapping claims; retaining the
+  // destination must not flatten the font claim. Adjacent runs may name the
+  // same target when only part of one selector label is styled.
+  std::optional<EmphasisKindIR> label_emphasis;
+  bool label_code = false;
 };
 
 struct ImageInlineIR {
@@ -134,9 +146,19 @@ struct ListItemIR {
   bool empty_content = false;
 };
 
+enum class OrderedListMarkerIR {
+  decimal,
+  lower_alpha,
+  upper_alpha,
+};
+
 struct ListBlockIR {
   bool ordered = false;
   std::vector<ListItemIR> items;
+  // The source label alphabet is semantic content. CZ ordered lists can use
+  // `a.`/`b.` as well as `1.`/`2.`; keeping only the numeric position loses
+  // the visible label in both serializers.
+  OrderedListMarkerIR marker = OrderedListMarkerIR::decimal;
 };
 
 struct DefinitionEntryIR {

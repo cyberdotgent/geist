@@ -484,7 +484,8 @@ void a_parenthetic_word_at_a_native_line_end_stays_text(bool styled = false,
                   example->styled_lines.size() == expected.size(),
               "native styled example spacing/rows were changed: " + html);
       if (linked == 1)
-        require(html.find(">many   words</a>") != std::string::npos,
+        require(html.find("href=\"#HDRLINK\"><code class=\"geist-monospace\">many   words</code></a>") !=
+                    std::string::npos,
                 "native whitespace split one selector into separate anchors: " +
                     html);
       if (linked == 2)

@@ -71,9 +71,13 @@ struct RecordBuilder {
   // One display line: a length byte covering `content`, whose tokens are two
   // bytes each.  The length byte's dictionary spelling is the row sentinel.
   void line(std::vector<TokenWords> content) {
+    line_with_prefix(TokenWords{0x25BA}, std::move(content));
+  }
+
+  void line_with_prefix(TokenWords prefix, std::vector<TokenWords> content) {
     record.encoded_tokens.push_back(
         {static_cast<std::uint16_t>(2 * content.size()), 1});
-    record.tokens.push_back(TokenWords{0x25BA});
+    record.tokens.push_back(std::move(prefix));
     for (auto &token : content) {
       record.encoded_tokens.push_back({next_encoded++, 2});
       record.tokens.push_back(std::move(token));
@@ -335,6 +339,138 @@ void a_span_reaching_from_the_bullet_into_the_text_still_fails() {
           "the topic was rejected for the wrong reason: " + error);
 }
 
+// Each font instruction has the coordinate origin of its own following
+// display row.  Consecutive instructions must not leave the first row open
+// and apply both sets of triples to the second row.
+void consecutive_font_instructions_bind_to_distinct_native_rows() {
+  RecordBuilder builder;
+  metadata(builder, "1.5", {"Commands"});
+  builder.line({words("cfont"), words("9"), words("5"), words("2"),
+                words("25"), words("4"), words("2")});
+  builder.line({words("         "), words("SUPVR"), words("           "),
+                words("FOPT")});
+  builder.line({words("cfont"), words("9"), words("4"), words("E"),
+                words("25"), words("5"), words("E")});
+  builder.line({words("         "), words("MODE"), words("            "),
+                words("IODEV")});
+  const auto record = builder.build(35);
+
+  std::string error;
+  const auto prose = extract(record, "Commands", error);
+  require(prose.has_value(),
+          "consecutive row-local font instructions were combined: " + error);
+  if (!prose) return;
+  const auto body = body_text(*prose);
+  require(body.find("SUPVR") != std::string::npos &&
+              body.find("FOPT") != std::string::npos &&
+              body.find("MODE") != std::string::npos &&
+              body.find("IODEV") != std::string::npos,
+          "a consecutively styled row lost text: '" + body + "'");
+  for (const auto &block : prose->blocks)
+    for (const auto &inline_node : block.inlines) {
+      if (inline_node.text.find("SUPVR") != std::string::npos ||
+          inline_node.text.find("FOPT") != std::string::npos)
+        require(inline_node.style == geist::detail::FontStyleIR::highlight_2,
+                "the first row received the following row's font");
+      if (inline_node.text.find("MODE") != std::string::npos ||
+          inline_node.text.find("IODEV") != std::string::npos)
+        require(inline_node.style ==
+                    geist::detail::FontStyleIR::example_phrase,
+                "the second row retained the preceding row's font");
+    }
+}
+
+// A selector owns the destination while CFONT independently owns the label's
+// presentation.  The two controls make compatible claims over the same
+// source cells; retaining the link must not erase the font semantics.
+void a_font_span_inside_a_selector_preserves_both_semantics() {
+  RecordBuilder builder;
+  metadata(builder, "1.6", {"Reference"});
+  builder.line({words("cselect"), words("3"), words("5"), words("HDRNEXT")});
+  builder.line({words("cfont"), words("3"), words("5"), words("2")});
+  builder.line({words("   "), words("Next")});
+  const auto record = builder.build(36);
+
+  std::string error;
+  const auto prose = extract(record, "Reference", error);
+  require(prose.has_value(),
+          "a styled selector label was rejected: " + error);
+  if (!prose) return;
+  const auto found = std::find_if(
+      prose->blocks.front().inlines.begin(), prose->blocks.front().inlines.end(),
+      [](const auto &inline_node) {
+        return inline_node.kind ==
+                   geist::detail::ProseInlineKindIR::cross_reference &&
+               inline_node.text == "Next";
+      });
+  require(found != prose->blocks.front().inlines.end(),
+          "the styled selector did not produce its link label");
+  if (found != prose->blocks.front().inlines.end())
+    require(found->style == geist::detail::FontStyleIR::highlight_2,
+            "the selector kept its destination but discarded the label's "
+            "CFONT style");
+}
+
+// Columns count display cells, while partial-token provenance counts bytes in
+// the UTF-8 projection.  Styling the final non-ASCII cell of a linked word
+// must therefore split at byte 3 and retain the two-byte encoded character.
+void styled_selector_columns_map_to_utf8_source_offsets() {
+  RecordBuilder builder;
+  metadata(builder, "1.7", {"UTF-8", "Reference"});
+  builder.line({words("cselect"), words("3"), words("4"), words("HDRCAFE")});
+  builder.line({words("cfont"), words("6"), words("1"), words("2")});
+  builder.line({words("   "), TokenWords{'C', 'a', 'f', 0x00e9}});
+  const auto record = builder.build(37);
+
+  std::string error;
+  const auto prose = extract(record, "UTF-8 Reference", error);
+  require(prose.has_value(),
+          "UTF-8 styled selector geometry was rejected: " + error);
+  if (!prose) return;
+  const auto found = std::find_if(
+      prose->blocks.front().inlines.begin(), prose->blocks.front().inlines.end(),
+      [](const auto &inline_node) {
+        return inline_node.kind ==
+                   geist::detail::ProseInlineKindIR::cross_reference &&
+               inline_node.style == geist::detail::FontStyleIR::highlight_2;
+      });
+  require(found != prose->blocks.front().inlines.end(),
+          "the linked UTF-8 cell lost its font style");
+  if (found == prose->blocks.front().inlines.end()) return;
+  require(found->text == "\xC3\xA9",
+          "the one-cell span did not select the complete UTF-8 character");
+  require(found->slices.size() == 1 &&
+              found->slices.front().character_begin == 3 &&
+              found->slices.front().character_end == 5,
+          "display-cell geometry was confused with UTF-8 byte offsets");
+}
+
+// Numeric display words can repeat the preceding CFONT operand byte for byte.
+// Native line framing, not decoded-text equality, bounds operand ownership.
+void repeated_numeric_words_after_a_font_instruction_stay_display_text() {
+  RecordBuilder builder;
+  metadata(builder, "1.8", {"Numeric", "Row"});
+  builder.line({words("cfont"), words("7"), words("1"), words("2"),
+                words("9"), words("1"), words("2"), words("11"),
+                words("1"), words("2"), words("13"), words("1"),
+                words("2")});
+  builder.line_with_prefix(
+      words("  "), {words("       "), words("3"), words("7"), words("2"),
+                     words("2"), words("and"), words("provide"),
+                     words("data")});
+  const auto record = builder.build(38);
+
+  std::string error;
+  const auto prose = extract(record, "Numeric Row", error);
+  require(prose.has_value(),
+          "row words duplicating CFONT operands were rejected: " + error);
+  if (!prose) return;
+  require(body_text(*prose).find("3 7 2 2 and provide data") !=
+              std::string::npos,
+          "numeric display words were reassigned to the preceding operand: '" +
+              body_text(*prose) + "'");
+}
+
 } // namespace
 
 int main() {
@@ -342,5 +478,9 @@ int main() {
   a_control_opening_its_display_line_stays_a_control();
   a_font_span_on_the_bullet_is_dropped_and_the_row_kept();
   a_span_reaching_from_the_bullet_into_the_text_still_fails();
+  consecutive_font_instructions_bind_to_distinct_native_rows();
+  a_font_span_inside_a_selector_preserves_both_semantics();
+  styled_selector_columns_map_to_utf8_source_offsets();
+  repeated_numeric_words_after_a_font_instruction_stay_display_text();
   return 0;
 }

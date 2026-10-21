@@ -198,6 +198,70 @@ std::string envelope_error(std::vector<DecodedLogicalRecordSource> records,
   return error;
 }
 
+// IBMMMSTR stores each individual product message as its own indexed topic.
+// Its metadata run differs from ordinary prose in two related, source-proven
+// ways: `SRMSG <message-id> [symbolic-name]` stands between CSUMMARY and
+// CHDLEVEL, and CHDLEVEL is `:MSGNO`.  The SRMSG operand is the stable message
+// anchor, while the following ST and CFONT/text rows remain ordinary typed
+// heading/body content.
+void an_individual_message_has_a_typed_envelope() {
+  DecodedLogicalRecordSource record;
+  record.logical_record = 1257;
+  line(record, "slot", {"sh3.6.1"});
+  line(record, "slot", {"ctopicn", "982"});
+  line(record, "slot", {"cparent", "3.6"});
+  line(record, "slot", {"cforwardlevel", "3.6.2"});
+  line(record, "slot", {"cbacklevel"});
+  line(record, "slot", {"csummary", "30", "0", "30"});
+  line(record, "slot", {"SRMSG", "IBM002I", "symbolicName"});
+  line(record, "slot", {"chdlevel", ":MSGNO"});
+  line(record, "slot", {"csourcefn", "P22MRTMA"});
+  line(record, "slot", {"ST", "IBM002I"});
+  line(record, "slot", {"SI", "IBM002I", "symbolicName"});
+  line(record, "slot", {"cfont", "3", "12", "2"});
+  line(record, "slot", {"   ", "Explanation:", "Details."});
+  refresh(record, 0);
+
+  const std::vector<DecodedLogicalRecordSource> records{std::move(record)};
+  const auto layout = geist::detail::extract_layout_ir(records);
+  std::string error;
+  const auto ownership =
+      geist::detail::build_verified_ownership_ir(records, layout, &error);
+  require(ownership.has_value(), "message envelope ownership: " + error);
+  if (!ownership) return;
+  const auto topic = geist::detail::extract_prose_topic_ir(
+      records, layout, *ownership, "IBM002I", nullptr, &error);
+  require(topic.has_value(),
+          "an indexed message topic must admit its typed envelope: " + error);
+  if (!topic) return;
+  require(topic->heading_form == "msgno" && topic->heading_level == "h1",
+          "the :MSGNO source form must survive while rendering as a heading");
+  require(topic->anchors.size() == 1 &&
+              topic->anchors.front().id == "MSG IBM002I symbolicName",
+          "the complete SRMSG identity must become the message anchor, got '" +
+              (topic->anchors.empty() ? std::string{"<none>"}
+                                      : topic->anchors.front().id) +
+              "'");
+  require(topic->anchors.front().position == 0,
+          "the message anchor must precede the message heading/body");
+  require(topic->index_terms.size() == 1 &&
+              topic->index_terms.front().term == "IBM002I symbolicName",
+          "the SI message identity must remain typed hidden metadata");
+  require(topic->blocks.size() == 1 &&
+              topic->blocks.front().inlines.size() == 2 &&
+              topic->blocks.front().inlines.front().text == "Explanation:" &&
+              topic->blocks.front().inlines.front().kind ==
+                  geist::detail::ProseInlineKindIR::emphasis,
+          "the message field label and its styling must remain typed");
+  std::string verification_error;
+  const auto verified = geist::detail::verify_prose_topic_ir(
+      records, layout, *ownership, "IBM002I", nullptr, *topic,
+      &verification_error);
+  require(verified,
+          "the message envelope must pass exact provenance verification: " +
+              verification_error);
+}
+
 // SC26-457 FRONT_2.1.1, FRONT_2.1.2 and FRONT_3.2: the `ST` title control is
 // glued into the `csourcefn` segment, so the whole topic spends exactly the
 // eight metadata segments.  An arity precondition that also counted the title
@@ -338,6 +402,7 @@ int main() {
   a_title_that_opens_its_line_stays_a_title();
   an_unframed_st_is_not_demoted();
   a_glued_title_is_not_a_short_envelope();
+  an_individual_message_has_a_typed_envelope();
   a_length_byte_between_records_is_not_a_metadata_control();
   a_corroborated_topic_start_crosses_the_record_break();
   an_uncorroborated_topic_start_stays_prose();

@@ -145,7 +145,7 @@ struct ProseBlockIR {
   // explicit source number text (`1.`) when the row carries one.
   bool ordered = false;
   std::string ordinal;
-  // Heading level (2..5) of a heading block.
+  // Heading level (2..6) of a heading block.
   std::size_t heading_level = 0;
   // Footnote anchor id of a footnote block.
   std::string anchor_id;

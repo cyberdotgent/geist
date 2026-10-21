@@ -14,6 +14,7 @@
 // structured `SI` index fields, cross-book `LNK` selectors, `c.<xx>` body
 // controls and the empty-`ST` heading forms are gone with them (issue #59).
 #include "geist/detail/ir/book_topic_catalog_ir.hpp"
+#include "geist/detail/render/document_html_renderer.hpp"
 #include "geist/detail/render/document_markdown_renderer.hpp"
 #include "geist/detail/core/internal.hpp"
 #include "geist/detail/lowering/prose_topic_document_lowering.hpp"
@@ -521,6 +522,40 @@ void negative_fixtures() {
   }
 }
 
+void alphabetic_ordered_list() {
+  ProseTopicIR prose;
+  prose.heading_level = "h2";
+  prose.title = "Alphabetic list";
+  prose.title_source = {1, 0, 0, 1, 1, 2};
+  for (const auto &entry :
+       std::vector<std::pair<std::string, std::string>>{{"a.", "First"},
+                                                        {"b.", "Second"}}) {
+    ProseBlockIR item;
+    item.kind = ProseBlockKindIR::list_item;
+    item.list_ordinal = 1;
+    item.ordered = true;
+    item.ordinal = entry.first;
+    item.inlines.push_back({ProseInlineKindIR::text, entry.second});
+    prose.blocks.push_back(std::move(item));
+  }
+  TopicIdentityIR identity;
+  identity.id = "ALPHA";
+  identity.title = prose.title;
+  std::string error;
+  const auto document =
+      lower_prose_topic_to_document_ir(identity, prose, &error);
+  require(document.has_value(), "alphabetic ordered list rejected: " + error);
+  if (!document) return;
+  const auto markdown = render_document_markdown(*document);
+  const auto html = render_document_html_blocks(*document, {});
+  require(contains(markdown, "a. First\nb. Second"),
+          "Markdown replaced alphabetic source ordinals: " + markdown);
+  require(contains(html, "<ol class=\"geist-list\" type=\"a\">") &&
+              contains(html, "<li class=\"geist-list-item\" value=\"1\">") &&
+              contains(html, "<li class=\"geist-list-item\" value=\"2\">"),
+          "HTML replaced alphabetic source ordinals: " + html);
+}
+
 // `CZ` dialect (doc/boo-spec/markup.adoc, "CZ layout directives").  Every fixture
 // below was compared word for word against hosted BookServer: packet
 // (DT 20260614112503).  The SC41-485, SC09-2417-00 and GX27-3999-00 fixtures
@@ -701,6 +736,7 @@ int main() {
   mutation_fixtures();
   front_matter_fixtures();
   negative_fixtures();
+  alphabetic_ordered_list();
   cz_fixtures();
   geist_test::exit_with_failures();
   std::cout << "prose_topic_ir_synthetic: ok\n";

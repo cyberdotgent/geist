@@ -4,7 +4,9 @@
 #include "geist/detail/layout/font_span_ir.hpp"
 
 #include "geist/detail/core/internal.hpp"
+#include "geist/detail/layout/display_lines.hpp"
 
+#include <algorithm>
 #include <cctype>
 
 namespace geist::detail {
@@ -110,10 +112,32 @@ decode_font_control_spans(const DecodedLogicalRecordSource& record,
     return std::nullopt;
   }
   const auto text = token_words_to_ascii(record.assembled.words);
-  const auto& range = segment.operand_range;
+  auto range = segment.operand_range;
   if (range.begin > range.end || range.end > text.size()) {
     fail(error, "font operand range is outside the decoded record");
     return std::nullopt;
+  }
+  // The flattened control splitter can extend a numeric CFONT operand into
+  // identical numeric words at the start of the following native display
+  // line when that line's length byte decodes as blanks.  Native framing is
+  // authoritative: the opcode and every operand triple occupy their own
+  // line.  Clamp both parsing and provenance to that line before interpreting
+  // triples.  FA1PLMM0 3.2.3 record 187 otherwise reads the following visible
+  // `3 7 2` as a fifth span after `... 11 1 2 13 1 2`.
+  const auto opcode_words = decoded_byte_range_to_word_range(
+      record.assembled,
+      {segment.opcode_range.begin, segment.opcode_range.end});
+  const auto opcode_tokens = source_tokens_intersecting_output(
+      record.assembled, opcode_words.begin, opcode_words.end);
+  if (!opcode_tokens.empty()) {
+    if (const auto* line = display_line_of_token(record, opcode_tokens.front())) {
+      const auto line_end_word =
+          line->token_end < record.assembled.tokens.size()
+              ? record.assembled.tokens[line->token_end].output_begin
+              : record.assembled.words.size();
+      const auto line_end_byte = record.assembled.word_offsets[line_end_word];
+      range.end = std::min(range.end, line_end_byte);
+    }
   }
   std::vector<std::string> words;
   for (std::size_t cursor = range.begin; cursor < range.end;) {

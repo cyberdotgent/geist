@@ -52,6 +52,8 @@ bool supported_attribute(const std::string_view tag,
     return tag == "th";
   if (name == "value")
     return tag == "li";
+  if (name == "type")
+    return tag == "ol";
   static constexpr std::string_view attributes[] = {
       "data-geist-degradation", "data-geist-degraded",
       "data-geist-depth",       "data-geist-empty",
@@ -197,6 +199,7 @@ std::string html_visible_text(const std::string &html) {
   struct List {
     bool ordered;
     std::uint64_t next = 1;
+    char marker = '1';
   };
   std::vector<List> lists;
   std::vector<std::string> elements;
@@ -257,8 +260,15 @@ std::string html_visible_text(const std::string &html) {
         if (closing) {
           if (!lists.empty())
             lists.pop_back();
-        } else
-          lists.push_back({tag == "ol", 1});
+        } else {
+          const auto type = attributes.find("type");
+          if (type != attributes.end() && type->second != "a" &&
+              type->second != "A")
+            throw std::logic_error("unsupported emitted ordered-list type");
+          lists.push_back(
+              {tag == "ol", 1,
+               type != attributes.end() ? type->second.front() : '1'});
+        }
       } else if (!closing && tag == "li" && !lists.empty() &&
                  lists.back().ordered) {
         auto &list = lists.back();
@@ -268,7 +278,12 @@ std::string html_visible_text(const std::string &html) {
           if (parsed)
             list.next = *parsed;
         }
-        out += std::to_string(list.next) + ". ";
+        if (list.marker == 'a' || list.marker == 'A')
+          out += std::string(
+                     1, static_cast<char>(list.marker + list.next - 1)) +
+                 ". ";
+        else
+          out += std::to_string(list.next) + ". ";
         if (list.next < std::numeric_limits<std::uint64_t>::max())
           ++list.next;
       }

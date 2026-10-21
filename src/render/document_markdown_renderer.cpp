@@ -258,7 +258,22 @@ void append_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
             const auto label =
                 node.label.empty() ? node.target.value : node.label;
             sink.syntax("[", "link syntax", origin);
-            sink.content(escape_markdown_text_impl(label), "link label", origin);
+            if (node.label_code) {
+              const auto parts = code_span_parts(
+                  label, context == InlineContext::table_cell);
+              sink.syntax(parts.open, "code delimiter", origin);
+              sink.literal(parts.body, "link label code text", origin);
+              sink.syntax(parts.close, "code delimiter", origin);
+            } else if (node.label_emphasis) {
+              const auto delimiter = emphasis_delimiter(*node.label_emphasis);
+              sink.syntax(delimiter, "emphasis delimiter", origin);
+              sink.content(escape_markdown_text_impl(label),
+                           "styled link label", origin);
+              sink.syntax(delimiter, "emphasis delimiter", origin);
+            } else {
+              sink.content(escape_markdown_text_impl(label), "link label",
+                           origin);
+            }
             sink.syntax("](", "link syntax", origin);
             sink.syntax(markdown_destination(
                             cross_reference_destination(node.target, options)),
@@ -458,6 +473,25 @@ void append_degradation_marker(RenderSink &sink, const BlockIR &block) {
               "block degradation marker", &block.origin);
 }
 
+bool inline_sequence_ends_with_colon(const InlineSequenceIR &content) {
+  if (content.empty()) return false;
+  return std::visit(
+      [](const auto &node) {
+        using T = std::decay_t<decltype(node)>;
+        if constexpr (std::is_same_v<T, TextInlineIR> ||
+                      std::is_same_v<T, EmphasisInlineIR>)
+          return !node.text.empty() && node.text.back() == ':';
+        else if constexpr (std::is_same_v<T, CodeInlineIR>)
+          return !node.code.empty() && node.code.back() == ':';
+        else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>) {
+          const auto &label = node.label.empty() ? node.target.value : node.label;
+          return !label.empty() && label.back() == ':';
+        } else
+          return false;
+      },
+      content.back().node);
+}
+
 void append_block(RenderSink &sink, const BlockIR &block,
                   const DocumentMarkdownRendererOptions &options) {
   const auto *block_origin = &block.origin;
@@ -486,10 +520,21 @@ void append_block(RenderSink &sink, const BlockIR &block,
                     static_cast<std::size_t>(node.items[index].depth) * 2, ' '),
                 "list indent", item_origin);
             if (node.ordered)
-              sink.marker(std::to_string(
-                              node.items[index].source_ordinal.value_or(1)) +
-                              ". ",
-                          "ordered list marker", item_origin);
+              if (node.marker == OrderedListMarkerIR::decimal) {
+                sink.marker(std::to_string(
+                                node.items[index].source_ordinal.value_or(1)) +
+                                ". ",
+                            "ordered list marker", item_origin);
+              } else {
+                const auto ordinal =
+                    node.items[index].source_ordinal.value_or(1);
+                const auto base = node.marker == OrderedListMarkerIR::lower_alpha
+                                      ? 'a'
+                                      : 'A';
+                sink.marker(std::string(1, static_cast<char>(base + ordinal - 1)) +
+                                ". ",
+                            "ordered list marker", item_origin);
+              }
             else
               sink.boundary("- ", "list bullet", item_origin);
             append_inlines(sink, node.items[index].content,
@@ -507,7 +552,11 @@ void append_block(RenderSink &sink, const BlockIR &block,
               append_inlines(sink, node.entries[index].term,
                              InlineContext::single_line, options);
             }
-            sink.boundary(":** ", "definition term syntax", entry_origin);
+            sink.boundary(inline_sequence_ends_with_colon(
+                              node.entries[index].term)
+                              ? "** "
+                              : ":** ",
+                          "definition term syntax", entry_origin);
             const PathScope field(sink, "definition", 0);
             append_inlines(sink, node.entries[index].definition,
                            InlineContext::single_line, options);
@@ -517,11 +566,11 @@ void append_block(RenderSink &sink, const BlockIR &block,
         } else if constexpr (std::is_same_v<T, PreformattedBlockIR>) {
           // A block that carries a link cannot be a fence; every other
           // preformatted block renders exactly as it always has.
-          if (!node.styled_lines.empty() ||
-              std::any_of(node.line_links.begin(), node.line_links.end(),
-                          [](const std::vector<VerbatimLinkIR> &links) {
-                            return !links.empty();
-                          }))
+          // Presence of the optional per-row link ledger means these are
+          // source rows selected for verbatim HTML serialization. It may be
+          // present with no accepted links; that still preserves the exact
+          // source-row route instead of silently changing it to a fence.
+          if (!node.styled_lines.empty() || !node.line_links.empty())
             append_preformatted_html_block(sink, node, block_origin, options);
           else
             append_fenced_block(sink, node.lines, block_origin,

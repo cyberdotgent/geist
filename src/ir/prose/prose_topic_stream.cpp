@@ -211,8 +211,31 @@ std::vector<std::size_t> operand_tokens(
       decoded_byte_range_to_word_range(record.assembled,
                                        {segment.opcode_range.begin,
                                         segment.operand_range.end});
-  return source_tokens_intersecting_output(record.assembled, words.begin,
-                                           words.end);
+  auto tokens = source_tokens_intersecting_output(record.assembled, words.begin,
+                                                  words.end);
+  // A control instruction and its operands occupy their own native display
+  // line.  The flattened decoded byte range can end on the next line's blank
+  // length/origin spellings; if that line opens with numeric words identical
+  // to operand words, mapping the flattened range alone aliases those drawn
+  // tokens into the instruction.  FA1PLMM0 3.2.3 record 187 carries
+  // `cfont 7 1 2 9 1 2 11 1 2 13 1 2` on line 16 and the distinct row
+  // `       3 7 2 2 and provide ...` on line 17.  Only line 16 owns the
+  // operand, while line 17's four digits sit at the stated display columns.
+  const auto opcode_words = decoded_byte_range_to_word_range(
+      record.assembled,
+      {segment.opcode_range.begin, segment.opcode_range.end});
+  const auto opcode_tokens = source_tokens_intersecting_output(
+      record.assembled, opcode_words.begin, opcode_words.end);
+  if (!opcode_tokens.empty()) {
+    if (const auto* line = display_line_of_token(record, opcode_tokens.front()))
+      tokens.erase(std::remove_if(tokens.begin(), tokens.end(),
+                                  [&](const auto token) {
+                                    return token <= line->prefix_token ||
+                                           token >= line->token_end;
+                                  }),
+                   tokens.end());
+  }
+  return tokens;
 }
 
 // Decoder separators (`,` / `?`) can precede a control word inside its own
@@ -482,6 +505,61 @@ bool claim_envelope_anchor(const std::vector<DecodedLogicalRecordSource>& record
   return true;
 }
 
+// An individually indexed message topic uses `SRMSG <message-id>
+// [symbolic-name]` as metadata between CSUMMARY and CHDLEVEL.  Like the
+// ordinary SR envelope anchor above, the complete control line is the served
+// anchor identity: hosted message catalogs retain a symbolic tail in names
+// such as `MSG 256 (snmp_br_dot1dStpPortState)`.  Claiming the whole segment
+// also retains the message metadata's exact source extent; none of it is body
+// prose.
+bool claim_envelope_message_anchor(
+    const std::vector<DecodedLogicalRecordSource>& records, Ledger& ledger,
+    std::size_t record_index, const ControlSegmentIR& segment,
+    ProseAnchorIR& anchor, std::string* error) {
+  const auto& record = records[record_index];
+  auto identity = trim_ascii(operand_text(record, segment.complete));
+  // The flattened segment can own the length byte that opens the following
+  // CHDLEVEL row.  Its dictionary spelling is not part of the message
+  // identity; remove only tokens whose carried framing proves that role.
+  auto source_end = segment.source_tokens.size();
+  while (source_end != 0) {
+    const auto token = segment.source_tokens[source_end - 1];
+    const auto view = view_token(records, record_index, token);
+    if (!is_row_control_slot(records, view)) break;
+    const auto suffix = body_text(view);
+    if (!suffix.empty() && identity.size() >= suffix.size() &&
+        identity.compare(identity.size() - suffix.size(), suffix.size(),
+                         suffix) == 0)
+      identity = trim_ascii(identity.substr(0, identity.size() - suffix.size()));
+    --source_end;
+  }
+  if (identity.size() < 5 || ascii_lower(identity).rfind("srmsg", 0) != 0)
+    return fail(error, "message envelope identity '" + identity +
+                           "' is not an SRMSG control");
+  identity = trim_ascii(identity.substr(5));
+  if (identity.empty() ||
+      !std::all_of(identity.begin(), identity.end(),
+                   [](const unsigned char ch) {
+                     return ch >= 0x20 && ch < 0x7F;
+                   }))
+    return fail(error, "message envelope identity '" + identity +
+                           "' is invalid");
+  if (source_end == 0)
+    return fail(error, "message envelope control has no source token");
+  for (const auto token : segment.source_tokens) {
+    const auto view = view_token(records, record_index, token);
+    if (!ledger.assign(record_index, token,
+                       is_padding(view) ? ProseTokenRoleIR::padding
+                                        : ProseTokenRoleIR::envelope,
+                       error))
+      return false;
+  }
+  anchor.id = "MSG " + identity;
+  anchor.source = token_slice(record, segment.source_tokens.front(),
+                              segment.source_tokens[source_end - 1] + 1);
+  return true;
+}
+
 bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
                     Ledger& ledger, Envelope& envelope, std::string* error) {
   const std::vector<BookControlKind> required = {
@@ -550,20 +628,29 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
     if (at_end())
       return fail(error, "topic metadata controls are incomplete");
     // A message-section heading topic carries one bare `SRMSG` inside its
-    // metadata (SC31-711 record 127, SC09-138 record 2066); the control has
-    // no operand and no payload.
+    // metadata (SC31-711 record 127, SC09-138 record 2066).  Individually
+    // indexed message topics use the same envelope position with an operand
+    // (`IBMMMSTR` record 1257: `SRMSG IBM002I`) and CHDLEVEL :MSGNO.  The
+    // operand is a source anchor and metadata, never body prose.
     if (current().kind == BookControlKind::message_start) {
       const auto& message = current();
       const auto message_record = cursor.record;
       ++cursor.segment;
       if (at_end())
         return fail(error, "topic metadata controls are incomplete");
-      if (message.payload_range.begin != message.payload_range.end ||
-          message.operand_range.begin != message.operand_range.end)
-        return fail(error, "SRMSG inside the envelope carries operands");
-      if (!assign_segment_tokens(records, ledger, message_record, message,
-                                 ProseTokenRoleIR::envelope, false, error))
-        return false;
+      if (message.operand_range.begin == message.operand_range.end) {
+        if (message.payload_range.begin != message.payload_range.end)
+          return fail(error, "bare SRMSG inside the envelope carries payload");
+        if (!assign_segment_tokens(records, ledger, message_record, message,
+                                   ProseTokenRoleIR::envelope, false, error))
+          return false;
+      } else {
+        ProseAnchorIR anchor;
+        if (!claim_envelope_message_anchor(records, ledger, message_record,
+                                           message, anchor, error))
+          return false;
+        envelope.leading_anchors.push_back(std::move(anchor));
+      }
     }
     // Envelope anchor variant: a bare `SR<id>` structural control can sit
     // between the metadata controls.  Hosted BookServer serves it as a plain
@@ -793,6 +880,7 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
   // :H0 is the chapter/Part level. HTML has no level zero; render it at
   // the top heading level while retaining the source form as evidence.
   if (heading_level == "h0") heading_level = "h1";
+  if (heading_level == "msgno") heading_level = "h1";
   if (heading_level.size() != 2 || heading_level.front() != 'h' ||
       heading_level.back() < '1' || heading_level.back() > '6') {
     if (!front_matter_heading_form(heading_level))

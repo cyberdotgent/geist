@@ -78,7 +78,9 @@ bool same_inlines(const InlineSequenceIR &left, const InlineSequenceIR &right) {
     } else if (const auto* link = std::get_if<CrossReferenceInlineIR>(&left[index].node)) {
       const auto& other = std::get<CrossReferenceInlineIR>(right[index].node);
       if (link->label != other.label || link->target.kind != other.target.kind ||
-          link->target.value != other.target.value)
+          link->target.value != other.target.value ||
+          link->label_emphasis != other.label_emphasis ||
+          link->label_code != other.label_code)
         return false;
     } else {
       return false;

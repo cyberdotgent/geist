@@ -195,10 +195,11 @@ bool resolve_spans(const Line& line, std::vector<Attr>& attrs,
     if (begin < line.text_begin) return fail(error, "span covers the bullet");
     // A font span wholly inside one selector span decorates the link text:
     // hosted BookServer serves ACPZMST1 8.1 as
-    // `<a href="8.2..."><B>&quot;Check_On_Event</B> ... <B>8.2</B></a>`.  The
-    // link is the semantic node and the typed cross reference carries the
-    // words; the decoration is dropped rather than nested.  A font span that
-    // only partly meets a selector span still fails the topic closed.
+    // `<a href="8.2..."><B>&quot;Check_On_Event</B> ... <B>8.2</B></a>`.  Link
+    // destination and font are independent attributes of the same display
+    // cells, so retain both in the prose inline.  A font over a picture
+    // placement still has no label to decorate and keeps the prior
+    // disposition; a font that only partly meets a selector fails closed.
     if (!link) {
       auto inside = npos;
       bool all_inside = true;
@@ -209,7 +210,7 @@ bool resolve_spans(const Line& line, std::vector<Attr>& attrs,
         else if (inside == npos) inside = attached_link;
         else if (inside != attached_link) all_inside = false;
       }
-      if (all_inside && inside != npos) return true;
+      if (all_inside && inside != npos && targets[inside].picture) return true;
     }
     for (auto cell = begin; cell < end; ++cell) {
       if (line.cells[cell].space) continue;
@@ -232,9 +233,6 @@ bool resolve_spans(const Line& line, std::vector<Attr>& attrs,
     if (!apply(span, true)) return false;
   for (const auto& span : line.fonts)
     if (!apply(span, false)) return false;
-  for (const auto& attr : attrs)
-    if (attr.link != npos && attr.style != FontStyleIR::unknown)
-      return fail(error, "font span inside a selector span");
   return true;
 }
 
@@ -316,6 +314,7 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
       ++run_end;
     ProseInlineIR inline_node;
     const auto& attr = collapsed[run_begin].attr;
+    inline_node.style = attr.style;
     if (attr.link != npos) {
       inline_node.kind = targets[attr.link].picture
                              ? ProseInlineKindIR::image
@@ -324,7 +323,6 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
       inline_node.target_kind = targets[attr.link].target.kind;
     } else if (attr.style != FontStyleIR::unknown) {
       inline_node.kind = ProseInlineKindIR::emphasis;
-      inline_node.style = attr.style;
     }
     // The inline's cells, merged into one claim per token: contiguous byte
     // ranges of the token's decoded word, in source order.

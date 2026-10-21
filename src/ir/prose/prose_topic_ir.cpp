@@ -483,6 +483,8 @@ std::string format_prose_topic_ir(const ProseTopicIR& topic) {
         break;
       case ProseInlineKindIR::cross_reference:
         out << "xref target=" << inline_node.target;
+        if (inline_node.style != FontStyleIR::unknown)
+          out << " style=" << font_style_name(inline_node.style);
         break;
       case ProseInlineKindIR::image:
         out << "image resource=" << inline_node.target;
