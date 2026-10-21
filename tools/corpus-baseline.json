@@ -39886,9 +39886,9 @@
         },
         "2.4.9": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort"
+          "family": "trap catalog",
+          "route": "typed",
+          "severity": "typed"
         },
         "2.5": {
           "degraded": "",
@@ -44254,7 +44254,7 @@
       }
     }
   },
-  "revision": "7a78ca93",
+  "revision": "704fcc6dc0fb8cb2c82795f3322dd84bf3183bf6",
   "schema": 1,
   "scope": "bootrace TOC inventory; not all topics()"
 }

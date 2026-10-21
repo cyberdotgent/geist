@@ -151,3 +151,33 @@ relative to the preceding source-backed-heading fix (`34fb9720`), including
 the ordered figures, mapped glyphs and earlier table repairs in
 `GA19-5486-13`. These extra books add 1,190 indexed topics to the rendered
 comparison; their coverage is not folded into the maintained 33-book floor.
+
+The deferred-font and selector repair at `704fcc6d` recovers `SC34-425`
+`2.4.9`, raising the floor to 7,111 strict typed, two typed-degraded and
+125 best-effort topics. All 7,238 TOC topics remain checked, with zero
+unaccounted words or unframed records. The font instruction at the end of
+one record and its first native target row in the next retain separate
+source claims. Every admitted font span is checked against that row's own
+columns, independently of the message-entry origin. Missing records,
+unproven first target rows, unsupported styles and invalid geometry decline.
+
+Promotion initially exposed a lost cross-reference, so the repair also
+models canonical, source-positioned anchor selectors inside message fields.
+Each selector binds native source cells to projected UTF-8 byte offsets,
+not to the first matching substring. Its control must occupy its own line;
+all selected glyphs must survive projection. Unsupported targets, out-of-row
+ranges and unrepresentable link/highlight overlaps decline rather than
+silently discarding evidence. Synthetic cases cover repeated labels,
+non-ASCII words, altered provenance and row-ending quotation marks.
+
+The HTML and Markdown differential again covers 37 books / 11,568 indexed
+topics. Exactly six topics change: `SC34-425` `2.4.9` becomes typed while
+retaining its existing `HDRTELDB` link; `SC34-425` `2.4.17`, `2.4.31` and
+`N2AH1MST` `2.0`, `3.0`, `18.0` gain seven source-proven links between them.
+Their destinations are present in the rendered books. `2.4.31` also regains
+the closing quote of a selector label that compatibility projection had
+suppressed. The sole removed word occurrences are leaked `c.sp 1 c`
+operands in `2.4.9`; no drawn words or existing hyperlinks disappear.
+Its partial `LEN` metadata anchor becomes the complete source-backed name,
+as with the preceding four promotions, and no existing book hyperlink
+targets that partial name. The four additional books remain byte-identical.
