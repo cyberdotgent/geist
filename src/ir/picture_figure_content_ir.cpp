@@ -70,6 +70,19 @@ struct Attr {
   FontStyleIR style = FontStyleIR::unknown;
   const SelectorIR *link = nullptr;
 };
+
+DocumentSourceSliceIR selector_target_slice(
+    const DecodedLogicalRecordSource& record, const ControlSegmentIR& segment,
+    const std::vector<std::size_t>& alternatives) {
+  const auto operands = source_tokens_intersecting_output(
+      record.assembled, segment.operand_range.begin, segment.operand_range.end);
+  const auto begin = operands.front();
+  const auto end = alternatives.empty() ? operands.back() + 1
+                                        : alternatives.back() + 1;
+  return {record.logical_record, segment.segment_index, begin, end,
+          record.ir.tokens[begin].byte_range.begin,
+          record.ir.tokens[end - 1].byte_range.end};
+}
 struct Reader {
   const std::vector<DecodedLogicalRecordSource> &records;
   const LayoutIR &layout;
@@ -340,17 +353,41 @@ struct Reader {
           link.selector = {attr.link->logical_record, attr.link->segment_index,
                            attr.link->selector_ordinal};
           link.target = attr.link->target;
+          const auto &r = *by_record.at(attr.link->logical_record);
+          const auto& segment =
+              r.control_segments.at(attr.link->segment_index);
+          link.source = selector_target_slice(r, segment, {});
           if (ascii_lower(link.target) == "lnk") {
             std::vector<std::string> alternatives;
-            const auto &r = *by_record.at(attr.link->logical_record);
-            selector_link_alternative_tokens(
-                r, r.control_segments.at(attr.link->segment_index),
-                &alternatives);
+            const auto alternative_tokens =
+                selector_link_alternative_tokens(r, segment, &alternatives);
             const auto parsed = parse_selector_link(alternatives, error);
             if (!parsed || parsed->kind == SelectorLinkKindIR::external_image)
               return fail(error, "unsupported link inside picture text");
-            link.target = parsed->destination;
-            link.external = parsed->kind == SelectorLinkKindIR::external_link;
+            link.target = parsed->alternatives[5];
+            link.alternatives = parsed->alternatives;
+            link.document_level = parsed->document_level;
+            switch (parsed->kind) {
+            case SelectorLinkKindIR::book_contents:
+              link.kind = FigureLinkKindIR::book_contents;
+              link.document_number = parsed->alternatives[3];
+              break;
+            case SelectorLinkKindIR::book_heading:
+              link.kind = FigureLinkKindIR::book_heading;
+              link.document_number = parsed->alternatives[3];
+              link.heading_anchor = parsed->alternatives[1];
+              break;
+            case SelectorLinkKindIR::external_link:
+              link.kind = FigureLinkKindIR::external_url;
+              link.external = true;
+              link.document_level.clear();
+              link.url = parsed->alternatives[3];
+              break;
+            case SelectorLinkKindIR::external_image:
+              return fail(error, "unsupported link inside picture text");
+            }
+            link.source =
+                selector_target_slice(r, segment, alternative_tokens);
           }
           run.link = std::move(link);
         }
@@ -673,6 +710,13 @@ bool same_figure_content_ir(const std::vector<FigureContentPartIR> &a,
       if (l.link &&
           (l.link->target != r.link->target ||
            l.link->external != r.link->external ||
+           l.link->kind != r.link->kind ||
+           l.link->alternatives != r.link->alternatives ||
+           l.link->document_number != r.link->document_number ||
+           l.link->document_level != r.link->document_level ||
+           l.link->heading_anchor != r.link->heading_anchor ||
+           l.link->url != r.link->url ||
+           !(l.link->source == r.link->source) ||
            l.link->selector.logical_record != r.link->selector.logical_record ||
            l.link->selector.segment_index != r.link->selector.segment_index ||
            l.link->selector.ordinal != r.link->selector.ordinal))

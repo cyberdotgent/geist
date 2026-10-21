@@ -571,6 +571,11 @@ void selector_target_provenance_is_not_label_provenance() {
   link.target_kind = CrossReferenceTargetKindIR::anchor;
   link.targets.push_back(
       {CrossReferenceTargetKindIR::anchor, "HDRNEXT", {}, selector_source});
+  link.targets.push_back(
+      {CrossReferenceTargetKindIR::book_heading,
+       "REMOTE",
+       {"HDR", "INSTALL", "", "SC00-0000", "ANY", "REMOTE"},
+       selector_source});
   link.slices.push_back(label_source);
   ProseBlockIR paragraph;
   paragraph.inlines.push_back(std::move(link));
@@ -594,15 +599,85 @@ void selector_target_provenance_is_not_label_provenance() {
   if (content.size() != 1) return;
   const auto *reference =
       std::get_if<CrossReferenceInlineIR>(&content.front().node);
-  require(reference != nullptr && reference->target_origin.has_value(),
-          "lowered selector discarded target provenance");
+  require(reference != nullptr && reference->targets.size() == 2 &&
+              reference->targets.front().control_origin.has_value(),
+          "lowered selector discarded overlapping target claims");
   require(content.front().origin.slices ==
               std::vector<DocumentSourceSliceIR>{label_source},
           "lowered selector polluted visible label provenance");
-  if (reference && reference->target_origin)
-    require(reference->target_origin->slices ==
+  if (reference && !reference->targets.empty() &&
+      reference->targets.front().control_origin)
+    require(reference->targets.front().control_origin->slices ==
                 std::vector<DocumentSourceSliceIR>{selector_source},
             "lowered selector target names the wrong control bytes");
+  if (reference && reference->targets.size() == 2) {
+    const auto& remote = reference->targets[1].target;
+    require(remote.kind == CrossReferenceTargetKindIR::book_heading &&
+                remote.value == "REMOTE" &&
+                remote.document_number == "SC00-0000" &&
+                remote.document_level == "ANY" &&
+                remote.heading_anchor == "INSTALL" &&
+                remote.alternatives.size() == 6,
+            "LNK claim lost its ordered tuple fields during lowering");
+  }
+}
+
+void table_picture_overlap_fails_closed() {
+  ProseTopicIR prose;
+  prose.heading_level = "h2";
+  prose.title = "Table";
+  prose.title_source = {1, 0, 0, 1, 1, 2};
+  FixedTableBlockIR table;
+  table.source_declared_table = true;
+  table.geometry = FixedTableGeometryIR::gap;
+  table.object_id = "ONE";
+  table.object_source = {2, 0, 0, 1, 3, 4};
+  table.left_column = 0;
+  table.width = 20;
+  FixedTableCellLineIR line;
+  line.text = "PICTURE 1";
+  line.slice = {2, 1, 10, 11, 20, 22};
+  PositionedRowCellIR cell;
+  cell.logical_record = 2;
+  cell.token_index = 10;
+  cell.word = 'P';
+  line.source_cells.push_back(cell);
+  FixedTableCellIR table_cell;
+  table_cell.lines.push_back(std::move(line));
+  FixedTableRowIR row;
+  row.cells.push_back(std::move(table_cell));
+  row.line_count = 1;
+  table.body.push_back(std::move(row));
+  prose.tables.blocks.push_back(std::move(table));
+  prose.spans.push_back({ProseSpanKindIR::table, 0, 0, 0});
+
+  ProseTableLinkIR picture;
+  picture.span = 0;
+  picture.column = 1;
+  picture.length = 10;
+  picture.target = "1";
+  picture.target_kind = CrossReferenceTargetKindIR::resource;
+  picture.picture = true;
+  picture.logical_record = 2;
+  picture.payload_tokens = {10};
+  picture.source = {2, 2, 2, 3, 30, 32};
+  prose.table_links.push_back(picture);
+  auto reference = picture;
+  reference.picture = false;
+  reference.target = "HDROTHER";
+  reference.target_kind = CrossReferenceTargetKindIR::anchor;
+  reference.source = {2, 3, 3, 4, 33, 35};
+  prose.table_links.push_back(reference);
+
+  TopicIdentityIR topic;
+  topic.id = "TABLE";
+  topic.title = prose.title;
+  std::string error;
+  require(!lower_prose_topic_to_document_ir(topic, prose, &error) &&
+              error.find("picture selector overlaps another selector") !=
+                  std::string::npos,
+          "table picture overlap was reinterpreted as a cross-reference: " +
+              error);
 }
 
 // `CZ` dialect (doc/boo-spec/markup.adoc, "CZ layout directives").  Every fixture
@@ -787,6 +862,7 @@ int main() {
   negative_fixtures();
   alphabetic_ordered_list();
   selector_target_provenance_is_not_label_provenance();
+  table_picture_overlap_fails_closed();
   cz_fixtures();
   geist_test::exit_with_failures();
   std::cout << "prose_topic_ir_synthetic: ok\n";

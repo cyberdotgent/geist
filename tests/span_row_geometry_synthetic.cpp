@@ -500,8 +500,12 @@ void overlapping_selectors_preserve_every_target_once() {
           "the nested label run does not retain both editions and its "
           "footnote target");
   if (outer.targets.size() == 2) {
-    require(outer.targets[0].value == "DOCNUM/SC31-6105/CCONTENTS" &&
-                outer.targets[1].value == "DOCNUM/SC31-6006/CCONTENTS",
+    require(outer.targets[0].kind ==
+                geist::detail::CrossReferenceTargetKindIR::book_contents &&
+                outer.targets[0].value == "CNMYQ00" &&
+                outer.targets[1].kind ==
+                    geist::detail::CrossReferenceTargetKindIR::book_contents &&
+                outer.targets[1].value == "CNMYY00",
             "distinct edition destinations were reordered or collapsed");
     require(outer.targets[0].alternatives ==
                 std::vector<std::string>({"BOOK", "", "", "SC31-6105",

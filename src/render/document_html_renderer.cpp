@@ -146,24 +146,86 @@ geist::HtmlLinkKind link_kind(CrossReferenceTargetKindIR kind) {
     return geist::HtmlLinkKind::resource;
   case CrossReferenceTargetKindIR::external:
     return geist::HtmlLinkKind::external;
+  case CrossReferenceTargetKindIR::book_contents:
+    return geist::HtmlLinkKind::book_contents;
+  case CrossReferenceTargetKindIR::book_heading:
+    return geist::HtmlLinkKind::book_heading;
   }
   throw std::logic_error("invalid cross-reference target kind");
 }
 
-HrefIR cross_reference_href(const CrossReferenceTargetIR &target,
-                            const geist::HtmlRenderOptions &options) {
+std::optional<HrefIR> resolve_cross_reference_href(
+    const CrossReferenceTargetIR &target,
+    const geist::HtmlRenderOptions &options) {
   switch (target.kind) {
   case CrossReferenceTargetKindIR::topic:
-    return topic_href(target.value, options);
+    if (options.resolve_topic)
+      if (const auto value = options.resolve_topic(target.value))
+        return value->empty() ? dead_link() : HrefIR{*value, false};
+    return std::nullopt;
   case CrossReferenceTargetKindIR::anchor:
-    return anchor_href(target.value, options);
+    if (options.resolve_anchor)
+      if (const auto value = options.resolve_anchor(target.value))
+        return value->empty() ? dead_link() : HrefIR{*value, false};
+    return std::nullopt;
   case CrossReferenceTargetKindIR::resource:
-    return resource_href(target.value, options);
-  case CrossReferenceTargetKindIR::external:
-    return external_href(target.value, options);
+    if (options.resolve_resource)
+      if (const auto value = options.resolve_resource(
+              resource_object_id(target.value)))
+        return value->empty() ? dead_link() : HrefIR{*value, false};
+    return std::nullopt;
+  case CrossReferenceTargetKindIR::external: {
+    const auto& url = target.url.empty() ? target.value : target.url;
+    if (options.resolve_external)
+      if (const auto value = options.resolve_external(url))
+        return value->empty() ? dead_link() : HrefIR{*value, false};
+    return std::nullopt;
+  }
+  case CrossReferenceTargetKindIR::book_contents:
+  case CrossReferenceTargetKindIR::book_heading:
+    if (options.resolve_cross_book) {
+      geist::HtmlCrossBookReference reference;
+      reference.document_number = target.document_number;
+      reference.document_level = target.document_level;
+      reference.heading_anchor = target.heading_anchor;
+      reference.target = target.value;
+      reference.alternatives = target.alternatives;
+      if (const auto value = options.resolve_cross_book(reference))
+        return value->empty() ? dead_link() : HrefIR{*value, false};
+    }
+    return std::nullopt;
   }
   throw std::logic_error("invalid cross-reference target kind");
 }
+
+HrefIR cross_reference_fallback(const CrossReferenceTargetIR& target,
+                                const geist::HtmlRenderOptions& options) {
+  switch (target.kind) {
+  case CrossReferenceTargetKindIR::topic:
+    return target.value.empty() || !safe_href_scheme(target.value)
+               ? dead_link() : HrefIR{target.value, false};
+  case CrossReferenceTargetKindIR::anchor:
+    return target.value.empty()
+               ? dead_link()
+               : HrefIR{"#" + prefixed_id(target.value, options), false};
+  case CrossReferenceTargetKindIR::resource:
+    return target.value.empty() ? dead_link() : HrefIR{target.value, false};
+  case CrossReferenceTargetKindIR::external: {
+    const auto& url = target.url.empty() ? target.value : target.url;
+    return url.empty() || !safe_href_scheme(url) ? dead_link()
+                                                  : HrefIR{url, false};
+  }
+  case CrossReferenceTargetKindIR::book_contents:
+  case CrossReferenceTargetKindIR::book_heading:
+    return dead_link();
+  }
+  throw std::logic_error("invalid cross-reference target kind");
+}
+
+struct ResolvedInlineReference {
+  HrefIR href;
+  CrossReferenceTargetKindIR kind = CrossReferenceTargetKindIR::topic;
+};
 
 geist::HtmlLinkKind verbatim_link_kind(VerbatimLinkKindIR kind) {
   switch (kind) {
@@ -262,11 +324,26 @@ public:
     out_ += '"';
   }
   void newline() { out_ += '\n'; }
-  HrefIR inline_reference(const CrossReferenceTargetIR& target) const {
+  ResolvedInlineReference inline_reference(
+      const std::vector<CrossReferenceTargetClaimIR>& claims) const {
+    // Resolution precedence is intentional and stable: Markdown's private
+    // output resolver gets first refusal, then the public per-kind HTML hooks
+    // see every claim in source order, and only after all return null does the
+    // first claim receive a context-free safe fallback. Cross-book claims
+    // have no such fallback and therefore remain dead without a resolver.
     if (resolve_ != nullptr && *resolve_)
-      if (const auto resolved = (*resolve_)(target))
-        return resolved->empty() ? dead_link() : HrefIR{*resolved, false};
-    return cross_reference_href(target, options_);
+      for (const auto& claim : claims)
+        if (const auto resolved = (*resolve_)(claim.target))
+          return {resolved->empty() ? dead_link()
+                                    : HrefIR{*resolved, false},
+                  claim.target.kind};
+    for (const auto& claim : claims) {
+      if (const auto resolved =
+              resolve_cross_reference_href(claim.target, options_))
+        return {*resolved, claim.target.kind};
+    }
+    const auto& first = claims.front().target;
+    return {cross_reference_fallback(first, options_), first.kind};
   }
 
 private:
@@ -316,14 +393,16 @@ void append_inline(HtmlSink &sink, const InlineIR &node) {
           sink.text(value.code);
           sink.markup("</code>");
         } else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>) {
-          const auto href = sink.inline_reference(value.target);
+          const auto resolved = sink.inline_reference(value.targets);
+          const auto& href = resolved.href;
           const auto label =
-              value.label.empty() ? value.target.value : value.label;
+              value.label.empty() ? value.targets.front().target.value
+                                  : value.label;
           if (!value.label_emphasis && !value.label_code) {
-            append_anchor(sink, href, link_kind(value.target.kind), label);
+            append_anchor(sink, href, link_kind(resolved.kind), label);
           } else {
             sink.markup("<a");
-            sink.attribute("class", link_class(link_kind(value.target.kind),
+            sink.attribute("class", link_class(link_kind(resolved.kind),
                                                 href.unresolved));
             sink.attribute("href", href.href);
             sink.markup(">");
@@ -682,9 +761,9 @@ void append_block(HtmlSink &sink, const BlockIR &block) {
           for (const auto &item : node.items) {
             sink.markup("<li class=\"geist-menu-item\">");
             const auto href =
-                item.target.kind == CrossReferenceTargetKindIR::topic
-                    ? topic_href(item.target.value, sink.options())
-                    : cross_reference_href(item.target, sink.options());
+                resolve_cross_reference_href(item.target, sink.options())
+                    .value_or(cross_reference_fallback(item.target,
+                                                       sink.options()));
             sink.markup("<a");
             sink.attribute("class",
                            link_class(link_kind(item.target.kind),

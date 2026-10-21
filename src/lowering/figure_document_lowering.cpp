@@ -41,6 +41,9 @@ void add_cell_slices(DocumentNodeOriginIR &origin,
 bool same_origin(const DocumentNodeOriginIR &left,
                  const DocumentNodeOriginIR &right) {
   if (left.derivation != right.derivation || left.detail != right.detail ||
+      left.fidelity != right.fidelity ||
+      left.degradation_code != right.degradation_code ||
+      left.degradation_detail != right.degradation_detail ||
       left.slices.size() != right.slices.size() ||
       left.rows.size() != right.rows.size())
     return false;
@@ -77,11 +80,28 @@ bool same_inlines(const InlineSequenceIR &left, const InlineSequenceIR &right) {
         return false;
     } else if (const auto* link = std::get_if<CrossReferenceInlineIR>(&left[index].node)) {
       const auto& other = std::get<CrossReferenceInlineIR>(right[index].node);
-      if (link->label != other.label || link->target.kind != other.target.kind ||
-          link->target.value != other.target.value ||
+      if (link->label != other.label ||
+          link->targets.size() != other.targets.size() ||
           link->label_emphasis != other.label_emphasis ||
           link->label_code != other.label_code)
         return false;
+      for (std::size_t claim = 0; claim < link->targets.size(); ++claim) {
+        if (link->targets[claim].control_origin.has_value() !=
+            other.targets[claim].control_origin.has_value())
+          return false;
+        if (link->targets[claim].control_origin &&
+            !same_origin(*link->targets[claim].control_origin,
+                         *other.targets[claim].control_origin))
+          return false;
+        const auto& a = link->targets[claim].target;
+        const auto& b = other.targets[claim].target;
+        if (a.kind != b.kind || a.value != b.value ||
+            a.alternatives != b.alternatives ||
+            a.document_number != b.document_number ||
+            a.document_level != b.document_level ||
+            a.heading_anchor != b.heading_anchor || a.url != b.url)
+          return false;
+      }
     } else {
       return false;
     }
@@ -97,6 +117,31 @@ bool same_verbatim_link(const VerbatimLinkIR &left,
          left.document_number == right.document_number &&
          left.document_level == right.document_level &&
          left.heading_anchor == right.heading_anchor && left.url == right.url;
+}
+
+CrossReferenceTargetIR cross_reference_target(const FigureLinkIR& link) {
+  CrossReferenceTargetIR target;
+  switch (link.kind) {
+  case FigureLinkKindIR::in_book:
+    target.kind = CrossReferenceTargetKindIR::anchor;
+    break;
+  case FigureLinkKindIR::book_contents:
+    target.kind = CrossReferenceTargetKindIR::book_contents;
+    break;
+  case FigureLinkKindIR::book_heading:
+    target.kind = CrossReferenceTargetKindIR::book_heading;
+    break;
+  case FigureLinkKindIR::external_url:
+    target.kind = CrossReferenceTargetKindIR::external;
+    break;
+  }
+  target.value = link.target;
+  target.alternatives = link.alternatives;
+  target.document_number = link.document_number;
+  target.document_level = link.document_level;
+  target.heading_anchor = link.heading_anchor;
+  target.url = link.url;
+  return target;
 }
 
 bool same_line_links(const std::vector<std::vector<VerbatimLinkIR>> &left,
@@ -143,8 +188,9 @@ void add_sorted_rows(DocumentNodeOriginIR &origin,
 
 // The caption of a figure, split at its cross references.  A caption
 // without links is one emphasised run; a caption with links alternates
-// emphasised text and cross references, each carrying the slices of the
-// caption cells and, for a link, the `cselect` control's own operands.
+// emphasised text and cross references.  Their visible origins carry the
+// caption cells; each link claim separately carries the `cselect` control's
+// own operands.
 InlineSequenceIR caption_inlines(const FigureSourceBlockIR &figure,
                                  bool emphasise) {
   const auto &caption = *figure.caption;
@@ -175,22 +221,15 @@ InlineSequenceIR caption_inlines(const FigureSourceBlockIR &figure,
           text_inline(caption.text.substr(cursor, span.begin - cursor)));
     InlineIR node;
     CrossReferenceInlineIR reference;
-    reference.target = {span.link.external
-                            ? CrossReferenceTargetKindIR::external
-                            : CrossReferenceTargetKindIR::anchor,
-                        span.link.target};
+    DocumentNodeOriginIR control_origin;
+    control_origin.derivation = DocumentDerivationIR::semantic_lowering;
+    control_origin.detail = "figure caption CSELECT target";
+    control_origin.slices.push_back(span.link.source);
+    reference.targets.push_back(
+        {cross_reference_target(span.link), std::move(control_origin)});
     reference.label = caption.text.substr(span.begin, span.end - span.begin);
     node.node = std::move(reference);
     node.origin = make_origin("figure caption (CSELECT reference)");
-    node.origin.slices.push_back(span.link.source);
-    std::sort(node.origin.slices.begin(), node.origin.slices.end(),
-              [](const auto &left, const auto &right) {
-                return std::make_tuple(left.logical_record, left.segment_index,
-                                       left.token_begin, left.token_end) <
-                       std::make_tuple(right.logical_record,
-                                       right.segment_index, right.token_begin,
-                                       right.token_end);
-              });
     content.push_back(std::move(node));
     cursor = span.end;
   }

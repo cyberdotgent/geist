@@ -5,6 +5,7 @@
 #include "geist/detail/ir/picture_placement_ir.hpp"
 #include "geist/detail/layout/display_lines.hpp"
 #include "geist/detail/lowering/topic_document_lowering.hpp"
+#include "geist/detail/lowering/figure_document_lowering.hpp"
 #include "geist/detail/render/document_html_renderer.hpp"
 #include "geist/detail/render/document_markdown_renderer.hpp"
 #include "test_failures.hpp"
@@ -80,6 +81,25 @@ lower(std::vector<DecodedLogicalRecordSource> records) {
       &resources);
   check(doc.has_value(), "ordered picture declined: " + error);
   return doc;
+}
+
+std::optional<DocumentIR>
+lower(std::vector<DecodedLogicalRecordSource> records,
+      FigureSourceBlockIR* source_figure) {
+  std::string error;
+  const std::set<std::string> resources{"1", "2"};
+  const auto layout = extract_layout_ir(records);
+  const auto ownership = build_ownership_ir(records, layout);
+  const auto selectors = extract_selector_catalog_ir(records, &error);
+  check(selectors.has_value(), "selector extraction failed: " + error);
+  if (!selectors) return std::nullopt;
+  const auto figures = extract_figure_blocks_ir(
+      records, layout, ownership, *selectors, resources);
+  check(figures.blocks.size() == 1,
+        "synthetic ordered figure was not uniquely extracted");
+  if (figures.blocks.size() != 1) return std::nullopt;
+  *source_figure = figures.blocks.front();
+  return lower(std::move(records));
 }
 void ordered(const std::string &output,
              const std::vector<std::string> &expected) {
@@ -178,6 +198,66 @@ void label_before_image_and_colon_caption() {
           "description formatting leaked into visible figure text");
   }
 }
+void cross_book_label_retains_lnk_contract() {
+  Builder b;
+  b.heading();
+  b.line({w("SRFIGEXAMPLE")});
+  b.line({w("cz"), w("OFF"), w("FIG")});
+  b.line({w("cselect"), w("3"), w("6"), w("LNK"), w("<BOOK>"), w("<>"),
+          w("<>"), w("<SC00-0000>"), w("<ANY>"), w("<TARGET>")});
+  b.line({w("   "), w("Manual")});
+  b.line({w("cselect"), w("3"), w("9"), w("PIC1")});
+  b.line({w("   "), w("PICTURE"), w("1")});
+  b.line({w("SREFIG")});
+  FigureSourceBlockIR source;
+  auto d = lower({b.finish(20)}, &source);
+  if (!d) return;
+  const auto html = render_document_html_fragment(*d);
+  check(html.find("geist-link--book-contents geist-link--unresolved") !=
+            std::string::npos &&
+            html.find(">Manual</a>") != std::string::npos,
+        "picture text LNK lost its typed unresolved cross-book target: " +
+            html);
+  check(render_document_markdown(*d).find("[Manual](<#>)") !=
+            std::string::npos,
+        "picture text LNK gained an invented Markdown destination");
+
+  std::string error;
+  const auto canonical = lower_figure_block_to_document_blocks(source, &error);
+  check(canonical.has_value(), "ordered figure re-lowering failed: " + error);
+  if (!canonical) return;
+  const auto find_reference = [](std::vector<BlockIR>& blocks)
+      -> InlineIR* {
+    for (auto& block : blocks) {
+      if (auto* paragraph = std::get_if<ParagraphBlockIR>(&block.node))
+        for (auto& in : paragraph->content)
+          if (std::holds_alternative<CrossReferenceInlineIR>(in.node))
+            return &in;
+      if (auto* figure = std::get_if<FigureBlockIR>(&block.node))
+        for (auto& in : figure->caption)
+          if (std::holds_alternative<CrossReferenceInlineIR>(in.node))
+            return &in;
+    }
+    return nullptr;
+  };
+  auto mutated = *canonical;
+  auto* reference = find_reference(mutated);
+  check(reference != nullptr,
+        "ordered figure did not lower its LNK label to a reference");
+  if (reference == nullptr) return;
+  reference->origin.detail += " mutated";
+  check(!verify_figure_document_blocks(source, mutated),
+        "figure verifier ignored mutated inline label provenance");
+  mutated = *canonical;
+  reference = find_reference(mutated);
+  auto& claim =
+      std::get<CrossReferenceInlineIR>(reference->node).targets.front();
+  check(claim.control_origin.has_value(),
+        "ordered figure LNK lost control provenance");
+  if (claim.control_origin) claim.control_origin->detail += " mutated";
+  check(!verify_figure_document_blocks(source, mutated),
+        "figure verifier ignored mutated selector provenance");
+}
 void placement_uses_columns_and_never_borrows_neighbouring_text() {
   std::vector<DisplayLineCellIR> cells;
   for (const auto word : TokenWords{0x2666, ' ', ' ', 'P', 'I', 'C', 'T', 'U',
@@ -201,6 +281,7 @@ int main() {
   label_and_number_only_caption();
   caption_before_image_and_cross_record();
   label_before_image_and_colon_caption();
+  cross_book_label_retains_lnk_contract();
   placement_uses_columns_and_never_borrows_neighbouring_text();
   return 0;
 }

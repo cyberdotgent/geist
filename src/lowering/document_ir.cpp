@@ -4,6 +4,7 @@
 #include "geist/detail/lowering/document_ir.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <iomanip>
 #include <sstream>
 #include <tuple>
@@ -63,17 +64,72 @@ bool verify_origin(const DocumentNodeOriginIR& origin, std::string* error) {
   return true;
 }
 
+std::string ascii_lower(std::string value) {
+  std::transform(value.begin(), value.end(), value.begin(),
+                 [](unsigned char ch) {
+                   return static_cast<char>(std::tolower(ch));
+                 });
+  return value;
+}
+
+bool valid_cross_reference_target(const CrossReferenceTargetIR& target) {
+  const auto no_derived_fields = [&] {
+    return target.document_number.empty() && target.document_level.empty() &&
+           target.heading_anchor.empty() && target.url.empty();
+  };
+  if (target.value.empty()) return false;
+  if (target.alternatives.empty()) {
+    switch (target.kind) {
+    case CrossReferenceTargetKindIR::topic:
+    case CrossReferenceTargetKindIR::anchor:
+    case CrossReferenceTargetKindIR::resource:
+    case CrossReferenceTargetKindIR::external:
+      return no_derived_fields();
+    case CrossReferenceTargetKindIR::book_contents:
+    case CrossReferenceTargetKindIR::book_heading:
+      return false;
+    }
+    return false;
+  }
+  if (target.alternatives.size() != 6 && target.alternatives.size() != 7)
+    return false;
+  const auto& tuple = target.alternatives;
+  if (target.value != tuple[5]) return false;
+  const auto kind = ascii_lower(tuple[0]);
+  switch (target.kind) {
+  case CrossReferenceTargetKindIR::book_contents:
+    return kind == "book" && !tuple[3].empty() &&
+           target.document_number == tuple[3] &&
+           target.document_level == tuple[4] &&
+           target.heading_anchor.empty() && target.url.empty();
+  case CrossReferenceTargetKindIR::book_heading:
+    return kind == "hdr" && !tuple[1].empty() && !tuple[3].empty() &&
+           target.document_number == tuple[3] &&
+           target.document_level == tuple[4] &&
+           target.heading_anchor == tuple[1] && target.url.empty();
+  case CrossReferenceTargetKindIR::external:
+    return (kind == "other" || kind == "internet") && !tuple[3].empty() &&
+           target.document_number.empty() && target.document_level.empty() &&
+           target.heading_anchor.empty() && target.url == tuple[3];
+  case CrossReferenceTargetKindIR::topic:
+  case CrossReferenceTargetKindIR::anchor:
+  case CrossReferenceTargetKindIR::resource:
+    return false;
+  }
+  return false;
+}
+
 bool verify_inlines(const InlineSequenceIR& inlines, bool allow_empty,
                     std::string* error) {
   if (!allow_empty && inlines.empty())
     return fail(error, "required inline sequence is empty");
   for (const auto& in : inlines) {
     if (!verify_origin(in.origin, error)) return false;
-    if (const auto* reference =
-            std::get_if<CrossReferenceInlineIR>(&in.node);
-        reference != nullptr && reference->target_origin &&
-        !verify_origin(*reference->target_origin, error))
-      return false;
+    if (const auto* reference = std::get_if<CrossReferenceInlineIR>(&in.node))
+      for (const auto& claim : reference->targets)
+        if (claim.control_origin &&
+            !verify_origin(*claim.control_origin, error))
+          return false;
     const auto valid = std::visit(
         [&](const auto& node) {
           using T = std::decay_t<decltype(node)>;
@@ -87,20 +143,17 @@ bool verify_inlines(const InlineSequenceIR& inlines, bool allow_empty,
           } else if constexpr (std::is_same_v<T, CodeInlineIR>) {
             return !node.code.empty();
           } else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>) {
-            switch (node.target.kind) {
-            case CrossReferenceTargetKindIR::topic:
-            case CrossReferenceTargetKindIR::anchor:
-            case CrossReferenceTargetKindIR::resource:
-            case CrossReferenceTargetKindIR::external:
-              return !node.target.value.empty() &&
-                     !(node.label_emphasis && node.label_code) &&
-                     (!node.label_emphasis ||
-                      *node.label_emphasis == EmphasisKindIR::emphasis ||
-                      *node.label_emphasis == EmphasisKindIR::strong ||
-                      *node.label_emphasis ==
-                          EmphasisKindIR::strong_emphasis);
-            }
-            return false;
+            if (node.targets.empty() ||
+                (node.label_emphasis && node.label_code) ||
+                (node.label_emphasis &&
+                 *node.label_emphasis != EmphasisKindIR::emphasis &&
+                 *node.label_emphasis != EmphasisKindIR::strong &&
+                 *node.label_emphasis != EmphasisKindIR::strong_emphasis))
+              return false;
+            return std::all_of(node.targets.begin(), node.targets.end(),
+                               [](const auto& claim) {
+              return valid_cross_reference_target(claim.target);
+            });
           } else if constexpr (std::is_same_v<T, ImageInlineIR>) {
             return !node.resource.empty();
           } else if constexpr (std::is_same_v<T, OpaqueInlineIR>) {
@@ -132,10 +185,9 @@ void collect_inline_origins(const InlineSequenceIR& inlines,
                             std::vector<const DocumentNodeOriginIR*>& out) {
   for (const auto& in : inlines) {
     out.push_back(&in.origin);
-    if (const auto* reference =
-            std::get_if<CrossReferenceInlineIR>(&in.node);
-        reference != nullptr && reference->target_origin)
-      out.push_back(&*reference->target_origin);
+    if (const auto* reference = std::get_if<CrossReferenceInlineIR>(&in.node))
+      for (const auto& claim : reference->targets)
+        if (claim.control_origin) out.push_back(&*claim.control_origin);
   }
 }
 
@@ -426,7 +478,9 @@ bool verify_block(const BlockIR& block, bool nested, std::string* error) {
                   else if constexpr (std::is_same_v<Inline, CodeInlineIR>)
                     flattened += value.code;
                   else if constexpr (std::is_same_v<Inline, CrossReferenceInlineIR>)
-                    flattened += value.label.empty() ? value.target.value : value.label;
+                    flattened += value.label.empty()
+                                     ? value.targets.front().target.value
+                                     : value.label;
                   else return false;
                   return true;
                 }, in.node);
@@ -531,6 +585,8 @@ const char* cross_reference_target_kind_name(
   case CrossReferenceTargetKindIR::anchor: return "anchor";
   case CrossReferenceTargetKindIR::resource: return "resource";
   case CrossReferenceTargetKindIR::external: return "external";
+  case CrossReferenceTargetKindIR::book_contents: return "book_contents";
+  case CrossReferenceTargetKindIR::book_heading: return "book_heading";
   }
   return "invalid";
 }
@@ -577,16 +633,35 @@ void format_inlines(std::ostringstream& out, const InlineSequenceIR& inlines) {
           else if constexpr (std::is_same_v<T, CodeInlineIR>)
             out << "code=" << quoted(node.code);
           else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>) {
-            out << "xref="
-                << cross_reference_target_kind_name(node.target.kind) << ':'
-                << quoted(node.target.value) << ':' << quoted(node.label);
+            out << "xref=" << quoted(node.label);
             if (node.label_code)
               out << ":code";
             else if (node.label_emphasis)
               out << ':' << emphasis_kind_name(*node.label_emphasis);
-            if (node.target_origin) {
-              out << " target_origin={";
-              format_origin(out, *node.target_origin);
+            for (const auto& claim : node.targets) {
+              out << " claim={kind="
+                  << cross_reference_target_kind_name(claim.target.kind)
+                  << " value=" << quoted(claim.target.value);
+              if (!claim.target.alternatives.empty()) {
+                out << " alternatives=[";
+                for (const auto& alternative : claim.target.alternatives)
+                  out << quoted(alternative);
+                out << ']';
+              }
+              if (!claim.target.document_number.empty())
+                out << " document_number="
+                    << quoted(claim.target.document_number);
+              if (!claim.target.document_level.empty())
+                out << " document_level=" << quoted(claim.target.document_level);
+              if (!claim.target.heading_anchor.empty())
+                out << " heading_anchor=" << quoted(claim.target.heading_anchor);
+              if (!claim.target.url.empty())
+                out << " url=" << quoted(claim.target.url);
+              if (claim.control_origin) {
+                out << " control_origin={";
+                format_origin(out, *claim.control_origin);
+                out << '}';
+              }
               out << '}';
             }
           }

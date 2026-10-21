@@ -106,11 +106,23 @@ lower_ordered_figure_document_blocks(const FigureSourceBlockIR &figure,
       if (run.link) {
         node.kind = ProseInlineKindIR::cross_reference;
         node.target = run.link->target;
-        node.target_kind =
-            run.link->external ? CrossReferenceTargetKindIR::external
-            : ascii_starts_with_case_insensitive(node.target, "DOCNUM/")
-                ? CrossReferenceTargetKindIR::topic
-                : CrossReferenceTargetKindIR::anchor;
+        switch (run.link->kind) {
+        case FigureLinkKindIR::in_book:
+          node.target_kind = CrossReferenceTargetKindIR::anchor;
+          break;
+        case FigureLinkKindIR::book_contents:
+          node.target_kind = CrossReferenceTargetKindIR::book_contents;
+          break;
+        case FigureLinkKindIR::book_heading:
+          node.target_kind = CrossReferenceTargetKindIR::book_heading;
+          break;
+        case FigureLinkKindIR::external_url:
+          node.target_kind = CrossReferenceTargetKindIR::external;
+          break;
+        }
+        node.targets.push_back({node.target_kind, node.target,
+                                run.link->alternatives,
+                                run.link->source});
       }
       origin.slices.insert(origin.slices.end(), run.slices.begin(),
                            run.slices.end());

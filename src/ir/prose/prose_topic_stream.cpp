@@ -2044,8 +2044,21 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
             return fail(error,
                         "inline external image selector outside a figure");
           alternative_tokens = alternative_source_tokens.size();
-          item.target = link->destination;
-          item.target_kind = CrossReferenceTargetKindIR::external;
+          item.target = link->alternatives[5];
+          switch (link->kind) {
+          case SelectorLinkKindIR::book_contents:
+            item.target_kind = CrossReferenceTargetKindIR::book_contents;
+            break;
+          case SelectorLinkKindIR::book_heading:
+            item.target_kind = CrossReferenceTargetKindIR::book_heading;
+            break;
+          case SelectorLinkKindIR::external_link:
+            item.target_kind = CrossReferenceTargetKindIR::external;
+            break;
+          case SelectorLinkKindIR::external_image:
+            return fail(error,
+                        "inline external image selector outside a figure");
+          }
           item.target_alternatives = link->alternatives;
         }
         item.source = token_slice(record, operands.front(), operands.back() + 1);

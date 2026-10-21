@@ -268,13 +268,14 @@ struct ProseTableLinkIR {
   std::size_t span = 0;
   std::size_t column = 0;
   std::size_t length = 0;
-  // Canonical destination and its kind.  An in-book `CSELECT <anchor>` is an
-  // anchor; a `LNK` selector in a cell carries the same alternative list as
-  // an inline one (selector_link_ir.hpp) and resolves to an external
-  // destination -- GG24-395 3.3.6 `TBLUNIQ12` cell `IBM AIX Version 3.2 ...`
-  // is served as `<a href="../../DOCNUM/SC23-2456/CCONTENTS">`.
+  // Source identity and kind. An in-book `CSELECT <anchor>` is an anchor; a
+  // `LNK` selector retains alternative 6 here plus the complete tuple below.
+  // Resolution is consumer policy -- GG24-395 3.3.6 `TBLUNIQ12` cell
+  // `IBM AIX Version 3.2 ...` was served by hosted BookServer as a link to a
+  // different book, but a single-book renderer cannot invent that URL.
   std::string target;
   CrossReferenceTargetKindIR target_kind = CrossReferenceTargetKindIR::anchor;
+  std::vector<std::string> target_alternatives;
   // A `PIC<n>` selector: `target` is the resource catalog id and the cell
   // line it covers is an image, not a link.  Hosted BookServer serves the
   // cell as `<a href="picture-16?mode=zoom"><img ... alt="PICTURE 16"></a>`

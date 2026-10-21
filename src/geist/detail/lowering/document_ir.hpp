@@ -41,26 +41,45 @@ enum class CrossReferenceTargetKindIR {
   anchor,
   resource,
   external,
+  book_contents,
+  book_heading,
 };
 
 struct CrossReferenceTargetIR {
+  CrossReferenceTargetIR() = default;
+  CrossReferenceTargetIR(CrossReferenceTargetKindIR kind_value,
+                         std::string value_value)
+      : kind(kind_value), value(std::move(value_value)) {}
+
   CrossReferenceTargetKindIR kind = CrossReferenceTargetKindIR::topic;
   std::string value;
+  // The complete LNK tuple, without angle brackets. Empty for ordinary
+  // in-book selectors.
+  std::vector<std::string> alternatives;
+  std::string document_number;
+  std::string document_level;
+  std::string heading_anchor;
+  std::string url;
+};
+
+struct CrossReferenceTargetClaimIR {
+  CrossReferenceTargetIR target;
+  // The control bytes that assert this destination. This is separate from
+  // InlineIR::origin, which owns the one visible label shared by all claims.
+  std::optional<DocumentNodeOriginIR> control_origin;
 };
 
 struct CrossReferenceInlineIR {
   CrossReferenceInlineIR() = default;
   CrossReferenceInlineIR(CrossReferenceTargetIR target_value,
                          std::string label_value)
-      : target(std::move(target_value)), label(std::move(label_value)) {}
+      : targets({{std::move(target_value), std::nullopt}}),
+        label(std::move(label_value)) {}
 
-  CrossReferenceTargetIR target;
+  // Ordered selector claims over this one displayed run. Several controls
+  // may intentionally cover the same cells; none is deduplicated.
+  std::vector<CrossReferenceTargetClaimIR> targets;
   std::string label;
-  // Non-visible source evidence that establishes the destination (for
-  // example, the CSELECT control naming it).  This is deliberately separate
-  // from InlineIR::origin: that origin belongs to the displayed label and is
-  // what render traces expose for label bytes.
-  std::optional<DocumentNodeOriginIR> target_origin;
   // Presentation proven for this label's exact source run. Selectors and
   // CFONT instructions make independent, overlapping claims; retaining the
   // destination must not flatten the font claim. Adjacent runs may name the

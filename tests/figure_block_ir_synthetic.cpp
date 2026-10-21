@@ -386,11 +386,94 @@ void test_positioned_spot_anchor_and_lnk() {
           "mutated positioned anchor line was accepted");
 }
 
+// Caption text and its selector are separate source claims.  In SH20-918
+// 2.1/2.5 the CSELECT operands sort before the caption content they annotate;
+// lowering must not fold those control bytes into the visible label origin.
+void test_caption_selector_provenance() {
+  using namespace geist::detail;
+  FigureSourceBlockIR figure;
+  figure.span = {{19, 1}, {19, 1}, false};
+  figure.body_kind = FigureBodyKindIR::picture;
+  figure.target = "7";
+  figure.placeholder_text = "PICTURE 7";
+
+  const auto cell = [](std::size_t segment, std::size_t token,
+                       FigureCellRoleIR role) {
+    FigureSourceCellIR result;
+    result.logical_record = 19;
+    result.segment_index = segment;
+    result.token_index = token;
+    result.word = 'x';
+    result.token_bytes = {static_cast<std::uint32_t>(token * 2),
+                          static_cast<std::uint32_t>(token * 2 + 2)};
+    result.role = role;
+    return result;
+  };
+  figure.cells = {
+      cell(1, 2, FigureCellRoleIR::control),
+      cell(2, 8, FigureCellRoleIR::caption_content),
+  };
+
+  FigureCaptionIR caption;
+  caption.text = "See Figure 4";
+  caption.rows.push_back({3, 0});
+  FigureCaptionIR::Span span;
+  span.begin = 4;
+  span.end = caption.text.size();
+  span.link.selector = {19, 1, 0};
+  span.link.target = "FIGTITEM";
+  span.link.column = 4;
+  span.link.length = 8;
+  span.link.label = "Figure 4";
+  span.link.source = {19, 1, 2, 3, 4, 6};
+  caption.links.push_back(span);
+  figure.caption = caption;
+
+  std::string error;
+  const auto blocks = lower_figure_block_to_document_blocks(figure, &error);
+  require(blocks.has_value(), "caption selector lowering failed: " + error);
+  if (!blocks)
+    return;
+  const auto *body = std::get_if<FigureBlockIR>(&blocks->back().node);
+  require(body != nullptr && body->caption.size() == 2,
+          "caption selector did not split the visible caption");
+  if (body == nullptr || body->caption.size() != 2)
+    return;
+  const auto *reference =
+      std::get_if<CrossReferenceInlineIR>(&body->caption[1].node);
+  require(reference != nullptr && reference->targets.size() == 1,
+          "caption selector did not lower to one cross-reference claim");
+  if (reference == nullptr || reference->targets.size() != 1)
+    return;
+  const auto &claim = reference->targets.front();
+  require(claim.control_origin.has_value() &&
+              claim.control_origin->slices ==
+                  std::vector<DocumentSourceSliceIR>{span.link.source} &&
+              claim.control_origin->rows.empty(),
+          "caption claim provenance includes visible caption content");
+  require(body->caption[1].origin.slices.size() == 1 &&
+              !(body->caption[1].origin.slices.front() == span.link.source) &&
+              body->caption[1].origin.slices.front().token_begin == 8,
+          "caption label provenance includes selector operands");
+  require(verify_document_ir(
+              DocumentIR{{"TEST", "caption selector"}, *blocks}, &error),
+          "caption selector produced invalid DocumentIR: " + error);
+  const auto html = render_document_html_blocks(*blocks, {});
+  const auto markdown = render_document_markdown(
+      DocumentIR{{"TEST", "caption selector"}, *blocks});
+  require(html.find("href=\"#FIGTITEM\">Figure 4</a>") !=
+              std::string::npos,
+          "HTML lost the figure-caption cross-reference: " + html);
+  require(markdown.find("[Figure 4](<#FIGTITEM>)") != std::string::npos,
+          "Markdown lost the figure-caption cross-reference: " + markdown);
+}
+
 
 } // namespace
 
 int main() {
   test_positioned_spot_anchor_and_lnk();
+  test_caption_selector_provenance();
   Corpus corpus(std::filesystem::path(GEIST_FIXTURE_DIR));
   using geist::detail::FigureTargetKindIR;
 

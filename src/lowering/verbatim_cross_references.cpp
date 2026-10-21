@@ -188,16 +188,18 @@ VerbatimCrossReferenceIR link_verbatim_cross_references(
       if (!parsed) continue;
       if (parsed->kind == SelectorLinkKindIR::external_image) continue;
       link.alternatives = parsed->alternatives;
-      link.document_number = parsed->alternatives[3];
-      link.document_level = parsed->document_level;
-      link.heading_anchor = parsed->alternatives[1];
       link.target = parsed->alternatives[5];
       switch (parsed->kind) {
       case SelectorLinkKindIR::book_contents:
         link.kind = VerbatimLinkKindIR::book_contents;
+        link.document_number = parsed->alternatives[3];
+        link.document_level = parsed->document_level;
         break;
       case SelectorLinkKindIR::book_heading:
         link.kind = VerbatimLinkKindIR::book_heading;
+        link.document_number = parsed->alternatives[3];
+        link.document_level = parsed->document_level;
+        link.heading_anchor = parsed->alternatives[1];
         break;
       case SelectorLinkKindIR::external_link:
         link.kind = VerbatimLinkKindIR::external_url;

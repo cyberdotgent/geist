@@ -106,18 +106,37 @@ std::string markdown_destination(const std::string &value) {
   return result.str();
 }
 
-std::string cross_reference_destination(
-    const CrossReferenceTargetIR &target,
+struct CrossReferenceDestinationIR {
+  std::string value;
+  const DocumentNodeOriginIR* origin = nullptr;
+};
+
+CrossReferenceDestinationIR cross_reference_destination(
+    const std::vector<CrossReferenceTargetClaimIR> &claims,
     const DocumentMarkdownRendererOptions &options) {
-  if (options.resolve_cross_reference) {
-    if (const auto resolved = options.resolve_cross_reference(target))
-      return *resolved;
-  }
+  // Try every source claim in order. A configured resolver's first non-null
+  // answer wins; otherwise only the first claim receives the context-free
+  // fallback below. In particular a later ordinary URL cannot silently
+  // replace an unresolved first cross-book claim.
+  if (options.resolve_cross_reference)
+    for (const auto& claim : claims)
+      if (const auto resolved = options.resolve_cross_reference(claim.target))
+        return {resolved->empty() ? "#" : *resolved,
+                claim.control_origin ? &*claim.control_origin : nullptr};
+  const auto& first = claims.front();
+  const auto& target = first.target;
+  const auto* provenance =
+      first.control_origin ? &*first.control_origin : nullptr;
   switch (target.kind) {
   case CrossReferenceTargetKindIR::topic:
   case CrossReferenceTargetKindIR::resource:
-  case CrossReferenceTargetKindIR::external: return target.value;
-  case CrossReferenceTargetKindIR::anchor: return '#' + target.value;
+    return {target.value, provenance};
+  case CrossReferenceTargetKindIR::external:
+    return {target.url.empty() ? target.value : target.url, provenance};
+  case CrossReferenceTargetKindIR::anchor:
+    return {'#' + target.value, provenance};
+  case CrossReferenceTargetKindIR::book_contents:
+  case CrossReferenceTargetKindIR::book_heading: return {"#", provenance};
   }
   throw std::logic_error("invalid cross-reference target kind");
 }
@@ -256,7 +275,8 @@ void append_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
             sink.syntax(parts.close, "code delimiter", origin);
           } else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>) {
             const auto label =
-                node.label.empty() ? node.target.value : node.label;
+              node.label.empty() ? node.targets.front().target.value
+                                 : node.label;
             sink.syntax("[", "link syntax", origin);
             if (node.label_code) {
               const auto parts = code_span_parts(
@@ -275,9 +295,11 @@ void append_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
                            origin);
             }
             sink.syntax("](", "link syntax", origin);
-            sink.syntax(markdown_destination(
-                            cross_reference_destination(node.target, options)),
-                        "link destination", origin);
+            const auto destination =
+                cross_reference_destination(node.targets, options);
+            sink.syntax(markdown_destination(destination.value),
+                        "link destination",
+                        destination.origin ? destination.origin : origin);
             sink.syntax(")", "link syntax", origin);
           } else if constexpr (std::is_same_v<T, ImageInlineIR>) {
             sink.syntax("![", "image syntax", origin);
@@ -492,7 +514,9 @@ bool inline_sequence_ends_with_colon(const InlineSequenceIR &content) {
         else if constexpr (std::is_same_v<T, CodeInlineIR>)
           return !node.code.empty() && node.code.back() == ':';
         else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>) {
-          const auto &label = node.label.empty() ? node.target.value : node.label;
+          const auto &label = node.label.empty()
+                                  ? node.targets.front().target.value
+                                  : node.label;
           return !label.empty() && label.back() == ':';
         } else
           return false;

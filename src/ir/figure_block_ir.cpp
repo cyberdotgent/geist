@@ -1138,16 +1138,18 @@ struct Extractor {
         if (parsed->kind == SelectorLinkKindIR::external_image)
           return decline(region, "drawn figure text selector names an image");
         link.alternatives = parsed->alternatives;
-        link.document_number = parsed->alternatives[3];
-        link.document_level = parsed->document_level;
-        link.heading_anchor = parsed->alternatives[1];
         link.target = parsed->alternatives[5];
         switch (parsed->kind) {
         case SelectorLinkKindIR::book_contents:
           link.kind = FigureLinkKindIR::book_contents;
+          link.document_number = parsed->alternatives[3];
+          link.document_level = parsed->document_level;
           break;
         case SelectorLinkKindIR::book_heading:
           link.kind = FigureLinkKindIR::book_heading;
+          link.document_number = parsed->alternatives[3];
+          link.document_level = parsed->document_level;
+          link.heading_anchor = parsed->alternatives[1];
           break;
         case SelectorLinkKindIR::external_link:
           link.kind = FigureLinkKindIR::external_url;

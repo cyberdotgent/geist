@@ -389,6 +389,69 @@ void check_href_scheme_policy() {
            "an image lost its resource spelling");
 }
 
+void check_multiple_target_claims() {
+  CrossReferenceTargetIR book{CrossReferenceTargetKindIR::book_heading,
+                              "TARGETBOOK"};
+  book.alternatives = {"HDR", "INSTALL", "", "SC00-0000", "ANY",
+                       "TARGETBOOK"};
+  book.document_number = "SC00-0000";
+  book.document_level = "ANY";
+  book.heading_anchor = "INSTALL";
+  CrossReferenceTargetIR external{CrossReferenceTargetKindIR::external,
+                                  "WEBTARGET"};
+  external.alternatives = {"OTHER", "INTERNET", "",
+                           "https://example.test/manual", "", "WEBTARGET"};
+  external.url = "https://example.test/manual";
+
+  CrossReferenceInlineIR reference;
+  reference.targets = {{book, std::nullopt}, {external, std::nullopt}};
+  reference.label = "one label";
+  reference.label_emphasis = EmphasisKindIR::strong;
+  DocumentIR document;
+  document.topic.id = "CLAIMS";
+  document.topic.title = "Claims";
+  document.blocks.push_back(
+      block(ParagraphBlockIR{{in(std::move(reference))}}));
+
+  geist::HtmlRenderOptions options;
+  options.resolve_cross_book = [](const geist::HtmlCrossBookReference&)
+      -> std::optional<std::string> { return std::nullopt; };
+  options.resolve_external = [](const std::string& url)
+      -> std::optional<std::string> {
+    return url == "https://example.test/manual"
+               ? std::optional<std::string>{"/resolved-second"}
+               : std::nullopt;
+  };
+  const auto resolved = render_document_html_fragment(document, options);
+  contains(resolved, "href=\"/resolved-second\"",
+           "later selector claim was not tried after an unresolved claim");
+  contains(resolved, "<strong class=\"geist-strong\">one label</strong>",
+           "multi-claim link lost its label style");
+  require(resolved.find("one label") == resolved.rfind("one label"),
+          "multi-claim link repeated its visible label");
+
+  options.resolve_cross_book = [](const geist::HtmlCrossBookReference&)
+      -> std::optional<std::string> { return "/public-first-claim"; };
+  const auto& content =
+      std::get<ParagraphBlockIR>(document.blocks.front().node).content;
+  const auto privately_resolved = render_document_html_inlines(
+      content, options,
+      [](const CrossReferenceTargetIR& target)
+          -> std::optional<std::string> {
+        if (target.kind == CrossReferenceTargetKindIR::external)
+          return "/private-second-claim";
+        return std::nullopt;
+      });
+  contains(privately_resolved, "href=\"/private-second-claim\"",
+           "public per-kind hook ran before the private explicit resolver");
+
+  const auto unresolved = render_document_html_fragment(document);
+  contains(unresolved, "geist-link--unresolved",
+           "cross-book first claim was not dead without a resolver");
+  contains(unresolved, "href=\"#\"",
+           "cross-book first claim gained a context-free destination");
+}
+
 std::string read_file(const std::string &path) {
   std::ifstream stream(path, std::ios::binary);
   std::ostringstream buffer;
@@ -400,6 +463,7 @@ std::string read_file(const std::string &path) {
 
 int main() {
   check_href_scheme_policy();
+  check_multiple_target_claims();
 
   const auto document = build_document();
   std::string error;

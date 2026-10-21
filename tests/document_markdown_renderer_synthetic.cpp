@@ -87,9 +87,10 @@ int main() {
   rich.back().origin.slices.push_back({10, 1, 2, 3, 100, 104});
   auto &sourced_reference =
       std::get<CrossReferenceInlineIR>(rich.back().node);
-  sourced_reference.target_origin = origin();
-  sourced_reference.target_origin->detail = "synthetic selector target";
-  sourced_reference.target_origin->slices.push_back(
+  sourced_reference.targets.front().control_origin = origin();
+  sourced_reference.targets.front().control_origin->detail =
+      "synthetic selector target";
+  sourced_reference.targets.front().control_origin->slices.push_back(
       {10, 0, 0, 1, 80, 90});
   rich.push_back(in(TextInlineIR{"; "}));
   rich.push_back(in(CrossReferenceInlineIR{
@@ -205,7 +206,8 @@ int main() {
   auto invalid_target = document;
   auto &invalid_inlines =
       std::get<ParagraphBlockIR>(invalid_target.blocks[1].node).content;
-  std::get<CrossReferenceInlineIR>(invalid_inlines[6].node).target.kind =
+  std::get<CrossReferenceInlineIR>(invalid_inlines[6].node)
+      .targets.front().target.kind =
       static_cast<CrossReferenceTargetKindIR>(99);
   error.clear();
   if (!require(!verify_document_ir(invalid_target, &error) &&
@@ -214,17 +216,17 @@ int main() {
     return 1;
   const auto formatted = format_document_ir(document);
   if (!contains(formatted,
-                "xref=external:\"https://example.test/chapter one?q=a&b\"",
+                "xref=\"a [link]\" claim={kind=external value=\"https://example.test/chapter one?q=a&b\"",
                 "formatter omitted external target kind") ||
       !contains(formatted,
-                "target_origin={ origin=semantic:\"synthetic selector "
+                "control_origin={ origin=semantic:\"synthetic selector "
                 "target\" source=(lr=10 seg=0 tok=0:1 bytes=80:90)}",
                 "formatter omitted cross-reference target provenance") ||
-      !contains(formatted, "xref=topic:\"Chapter One\"",
+      !contains(formatted, "claim={kind=topic value=\"Chapter One\"",
                 "formatter omitted topic target kind") ||
-      !contains(formatted, "xref=anchor:\"section one\"",
+      !contains(formatted, "claim={kind=anchor value=\"section one\"",
                 "formatter omitted anchor target kind") ||
-      !contains(formatted, "xref=resource:\"manuals/a b.pdf\"",
+      !contains(formatted, "claim={kind=resource value=\"manuals/a b.pdf\"",
                 "formatter omitted resource target kind") ||
       !contains(formatted, "item=ordinal=9 [text=\"nine\"",
                 "formatter omitted an explicit list source ordinal") ||
@@ -251,12 +253,110 @@ int main() {
       std::get<ParagraphBlockIR>(invalid_target_origin.blocks[1].node)
           .content[6]
           .node);
-  invalid_reference.target_origin->derivation = DocumentDerivationIR::decoded;
-  invalid_reference.target_origin->slices.clear();
+  invalid_reference.targets.front().control_origin->derivation =
+      DocumentDerivationIR::decoded;
+  invalid_reference.targets.front().control_origin->slices.clear();
   error.clear();
   if (!require(!verify_document_ir(invalid_target_origin, &error) &&
                    error == "decoded node origin names no source slice",
                "verifier admitted source-free target provenance"))
+    return 1;
+  auto no_claims = document;
+  std::get<CrossReferenceInlineIR>(
+      std::get<ParagraphBlockIR>(no_claims.blocks[1].node).content[6].node)
+      .targets.clear();
+  error.clear();
+  if (!require(!verify_document_ir(no_claims, &error) &&
+                   error == "inline node is not canonical",
+               "verifier admitted a reference with no target claims"))
+    return 1;
+  auto incomplete_book_claim = document;
+  auto& incomplete = std::get<CrossReferenceInlineIR>(
+      std::get<ParagraphBlockIR>(incomplete_book_claim.blocks[1].node)
+          .content[6]
+          .node)
+                         .targets.front()
+                         .target;
+  incomplete.kind = CrossReferenceTargetKindIR::book_heading;
+  incomplete.alternatives = {"HDR", "", "", "", "", "TARGET"};
+  incomplete.value = "TARGET";
+  error.clear();
+  if (!require(!verify_document_ir(incomplete_book_claim, &error) &&
+                   error == "inline node is not canonical",
+               "verifier admitted an incomplete cross-book claim"))
+    return 1;
+  CrossReferenceTargetIR canonical_heading{
+      CrossReferenceTargetKindIR::book_heading, "TARGET"};
+  canonical_heading.alternatives = {"HDR", "INSTALL", "unused", "SC00-0000",
+                                    "ANY", "TARGET"};
+  canonical_heading.document_number = "SC00-0000";
+  canonical_heading.document_level = "ANY";
+  canonical_heading.heading_anchor = "INSTALL";
+  const auto rejects_heading_mutation = [&](auto mutate,
+                                             const std::string& message) {
+    auto candidate = document;
+    auto& target = std::get<CrossReferenceInlineIR>(
+        std::get<ParagraphBlockIR>(candidate.blocks[1].node).content[6].node)
+                       .targets.front()
+                       .target;
+    target = canonical_heading;
+    mutate(target);
+    std::string mutation_error;
+    return require(!verify_document_ir(candidate, &mutation_error) &&
+                       mutation_error == "inline node is not canonical",
+                   message);
+  };
+  if (!rejects_heading_mutation(
+          [](auto& target) {
+            target.kind = CrossReferenceTargetKindIR::book_contents;
+          },
+          "verifier admitted a tuple whose kind token disagrees") ||
+      !rejects_heading_mutation(
+          [](auto& target) { target.alternatives.resize(5); },
+          "verifier admitted a short LNK tuple") ||
+      !rejects_heading_mutation(
+          [](auto& target) { target.alternatives.push_back("x");
+                             target.alternatives.push_back("y"); },
+          "verifier admitted a long LNK tuple") ||
+      !rejects_heading_mutation(
+          [](auto& target) { target.alternatives[0] = "BOOK"; },
+          "verifier ignored the LNK kind slot") ||
+      !rejects_heading_mutation(
+          [](auto& target) { target.alternatives[1] = "OTHER"; },
+          "verifier ignored the LNK heading slot") ||
+      !rejects_heading_mutation(
+          [](auto& target) { target.alternatives[3] = "SC00-9999"; },
+          "verifier ignored the LNK document slot") ||
+      !rejects_heading_mutation(
+          [](auto& target) { target.alternatives[4] = "OLD"; },
+          "verifier ignored the LNK level slot") ||
+      !rejects_heading_mutation(
+          [](auto& target) { target.alternatives[5] = "OTHER"; },
+          "verifier ignored the LNK identity slot") ||
+      !rejects_heading_mutation(
+          [](auto& target) { target.document_number = "SC00-9999"; },
+          "verifier ignored derived document number") ||
+      !rejects_heading_mutation(
+          [](auto& target) { target.document_level = "OLD"; },
+          "verifier ignored derived document level") ||
+      !rejects_heading_mutation(
+          [](auto& target) { target.heading_anchor = "OTHER"; },
+          "verifier ignored derived heading anchor") ||
+      !rejects_heading_mutation(
+          [](auto& target) { target.url = "https://unexpected.test"; },
+          "verifier admitted an irrelevant URL field"))
+    return 1;
+  auto ordinary_with_lnk_metadata = document;
+  std::get<CrossReferenceInlineIR>(
+      std::get<ParagraphBlockIR>(ordinary_with_lnk_metadata.blocks[1].node)
+          .content[6]
+          .node)
+      .targets.front()
+      .target.document_number = "SC00-0000";
+  error.clear();
+  if (!require(!verify_document_ir(ordinary_with_lnk_metadata, &error) &&
+                   error == "inline node is not canonical",
+               "verifier admitted LNK metadata on an ordinary target"))
     return 1;
   if (!contains(formatted,
                 "menu items=[target=\"2.1.1\" label=\"Displaying [Status]\"",
@@ -287,6 +387,58 @@ int main() {
   };
   DocumentRenderTraceIR render_trace;
   const auto output = render_document_markdown(document, options, &render_trace);
+
+  CrossReferenceTargetIR unresolved_book{
+      CrossReferenceTargetKindIR::book_contents, "BOOKTARGET"};
+  unresolved_book.alternatives = {"BOOK", "", "", "SC00-0000", "ANY",
+                                  "BOOKTARGET"};
+  unresolved_book.document_number = "SC00-0000";
+  unresolved_book.document_level = "ANY";
+  CrossReferenceInlineIR claimed;
+  claimed.targets = {{unresolved_book, std::nullopt},
+                     {{CrossReferenceTargetKindIR::external,
+                       "https://example.test/second"},
+                      std::nullopt}};
+  claimed.targets[0].control_origin = origin();
+  claimed.targets[0].control_origin->slices.push_back(
+      {20, 0, 0, 1, 200, 210});
+  claimed.targets[1].control_origin = origin();
+  claimed.targets[1].control_origin->slices.push_back(
+      {20, 1, 1, 2, 300, 310});
+  claimed.label = "one label";
+  claimed.label_code = true;
+  DocumentIR claim_document;
+  claim_document.topic.id = "CLAIMS";
+  claim_document.topic.title = "Claims";
+  claim_document.blocks.push_back(
+      block(ParagraphBlockIR{{in(std::move(claimed))}}));
+  DocumentMarkdownRendererOptions claim_options;
+  claim_options.resolve_cross_reference = [](const auto& target)
+      -> std::optional<std::string> {
+    if (target.kind == CrossReferenceTargetKindIR::external)
+      return "resolved-second.md";
+    return std::nullopt;
+  };
+  DocumentRenderTraceIR claims_trace;
+  const auto claims_output =
+      render_document_markdown(claim_document, claim_options, &claims_trace);
+  const auto destination_trace = std::find_if(
+      claims_trace.spans.begin(), claims_trace.spans.end(),
+      [](const auto& span) { return span.reason == "link destination"; });
+  if (!contains(claims_output, "[`one label`](<resolved-second.md>)",
+                "multi-claim resolver order or styled label failed") ||
+      !require(claims_output.find("one label") ==
+                   claims_output.rfind("one label"),
+               "multi-claim Markdown repeated its visible label") ||
+      !contains(render_document_markdown(claim_document),
+                "[`one label`](<#>)",
+                "unresolved cross-book claim gained a fallback") ||
+      !require(destination_trace != claims_trace.spans.end() &&
+                   destination_trace->origin &&
+                   destination_trace->origin->slices.size() == 1 &&
+                   destination_trace->origin->slices.front().byte_begin == 300,
+               "resolved destination trace did not use the selected claim"))
+    return 1;
   const auto label_trace = std::find_if(
       render_trace.spans.begin(), render_trace.spans.end(),
       [](const auto &span) { return span.reason == "link label"; });

@@ -276,14 +276,9 @@ bool table_region(const std::vector<DecodedLogicalRecordSource>& records,
       // columns as text and its opcode/operand tokens stay region
       // structure.  Nothing is dropped that the hosted page displays.
       if (block.geometry == FixedTableGeometryIR::preformatted) {
-        for (const auto token : segment.source_tokens) {
-          if (std::binary_search(operands.begin(), operands.end(), token))
-            continue;
-          const auto text = body_text(view_token(records, record, token));
-          if (text.size() < 2 || text.front() != '<' || text.back() != '>')
-            break;
+        for (const auto token : selector_link_alternative_tokens(
+                 records[record], segment))
           region.claims.emplace_back(record, token);
-        }
         continue;
       }
       ProseTableLinkIR link;
@@ -304,7 +299,7 @@ bool table_region(const std::vector<DecodedLogicalRecordSource>& records,
       // Markdown table, whose cells do carry an inline: the picture becomes
       // an image over the cell line that spells its placeholder, the way a
       // cell link replaces the line it covers.
-      std::size_t alternatives = 0;
+      std::vector<std::size_t> alternative_tokens;
       {
         const auto target = ascii_lower(link.target);
         if (figure_picture_target(target)) {
@@ -342,15 +337,8 @@ bool table_region(const std::vector<DecodedLogicalRecordSource>& records,
         // never display text.
         if (target == "lnk") {
           std::vector<std::string> tokens;
-          for (const auto token : segment.source_tokens) {
-            if (std::binary_search(operands.begin(), operands.end(), token))
-              continue;
-            const auto text =
-                body_text(view_token(records, record, token));
-            if (text.size() < 2 || text.front() != '<' || text.back() != '>')
-              break;
-            tokens.push_back(text);
-          }
+          alternative_tokens = selector_link_alternative_tokens(
+              records[record], segment, &tokens);
           std::string link_error;
           const auto parsed = parse_selector_link(tokens, &link_error);
           if (!parsed)
@@ -359,27 +347,41 @@ bool table_region(const std::vector<DecodedLogicalRecordSource>& records,
           if (parsed->kind == SelectorLinkKindIR::external_image)
             return fail(error, "table '" + block.object_id +
                                    "' cell carries an external image");
-          alternatives = tokens.size();
-          link.target = parsed->destination;
-          link.target_kind = CrossReferenceTargetKindIR::external;
+          link.target = parsed->alternatives[5];
+          switch (parsed->kind) {
+          case SelectorLinkKindIR::book_contents:
+            link.target_kind = CrossReferenceTargetKindIR::book_contents;
+            break;
+          case SelectorLinkKindIR::book_heading:
+            link.target_kind = CrossReferenceTargetKindIR::book_heading;
+            break;
+          case SelectorLinkKindIR::external_link:
+            link.target_kind = CrossReferenceTargetKindIR::external;
+            break;
+          case SelectorLinkKindIR::external_image:
+            return fail(error, "table '" + block.object_id +
+                                   "' cell carries an external image");
+          }
+          link.target_alternatives = parsed->alternatives;
         }
       }
       link.logical_record = records[record].logical_record;
       {
-        std::size_t skipped = 0;
         for (const auto token : segment.source_tokens) {
           if (std::binary_search(operands.begin(), operands.end(), token))
             continue;
-          if (skipped < alternatives) {
-            ++skipped;
+          if (std::find(alternative_tokens.begin(), alternative_tokens.end(),
+                        token) != alternative_tokens.end()) {
             region.claims.emplace_back(record, token);
             continue;
           }
           link.payload_tokens.push_back(token);
         }
       }
-      link.source = token_slice(records[record], operands.front(),
-                                operands.back() + 1);
+      link.source = token_slice(
+          records[record], operands.front(),
+          alternative_tokens.empty() ? operands.back() + 1
+                                     : alternative_tokens.back() + 1);
       region.links.push_back(std::move(link));
     }
   }

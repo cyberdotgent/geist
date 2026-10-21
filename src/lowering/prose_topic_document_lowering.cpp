@@ -62,6 +62,27 @@ EmphasisKindIR emphasis_kind(FontStyleIR style) {
   return EmphasisKindIR::emphasis;
 }
 
+CrossReferenceTargetIR prose_target(
+    CrossReferenceTargetKindIR kind, const std::string& value,
+    const std::vector<std::string>& alternatives) {
+  CrossReferenceTargetIR target{kind, value};
+  target.alternatives = alternatives;
+  if (alternatives.size() >= 6) {
+    target.value = alternatives[5];
+    if (kind == CrossReferenceTargetKindIR::book_contents) {
+      target.document_number = alternatives[3];
+      target.document_level = alternatives[4];
+    } else if (kind == CrossReferenceTargetKindIR::book_heading) {
+      target.document_number = alternatives[3];
+      target.document_level = alternatives[4];
+      target.heading_anchor = alternatives[1];
+    } else if (kind == CrossReferenceTargetKindIR::external) {
+      target.url = alternatives[3];
+    }
+  }
+  return target;
+}
+
 bool code_style(FontStyleIR style) {
   // HP9 is the underscored HP4, the monospace example phrase.
   return style == FontStyleIR::example_phrase ||
@@ -94,17 +115,17 @@ bool label_is_wholly_highlighted(const ProseBlockIR& block, std::size_t begin,
 // nullptr.  Positioned display columns are not used: the Layout IR can
 // split a table line into several physical rows, each with its own column
 // base (SC31-711 4.0 row 1).
-const ProseTableLinkIR* line_link(const ProseTopicIR& prose, std::size_t span,
-                                  const FixedTableBlockIR& block,
-                                  std::size_t cell_index,
-                                  const FixedTableCellLineIR& line) {
+std::vector<const ProseTableLinkIR*> line_links(
+    const ProseTopicIR& prose, std::size_t span,
+    const FixedTableBlockIR& block, std::size_t cell_index,
+    const FixedTableCellLineIR& line) {
   const auto cell_begin = (cell_index == 0
                                ? block.left_column
                                : block.separator_columns[cell_index - 1]) + 1;
   const auto cell_end = cell_index < block.separator_columns.size()
                             ? block.separator_columns[cell_index]
                             : block.left_column + block.width;
-  const ProseTableLinkIR* result = nullptr;
+  std::vector<const ProseTableLinkIR*> result;
   for (const auto& link : prose.table_links) {
     if (link.span != span) continue;
     if (link.column >= cell_end || link.column + link.length <= cell_begin)
@@ -120,8 +141,7 @@ const ProseTableLinkIR* line_link(const ProseTopicIR& prose, std::size_t span,
     for (const auto& cell : line.unpositioned_cells)
       covers = covers && owned(cell.logical_record, cell.token_index);
     if (!covers) continue;
-    if (result != nullptr) return nullptr;  // two selectors: ambiguous
-    result = &link;
+    result.push_back(&link);
   }
   return result;
 }
@@ -156,12 +176,22 @@ bool link_table_cells(const ProseTopicIR& prose, std::size_t span,
         const auto* text = std::get_if<TextInlineIR>(&node.node);
         if (text == nullptr)
           return fail(error, "lowered table cell line is not text");
-        const auto* link = line_link(prose, span, block, cell, lines[line]);
-        if (link == nullptr) continue;
+        const auto links = line_links(prose, span, block, cell, lines[line]);
+        if (links.empty()) continue;
+        const auto picture_links = std::count_if(
+            links.begin(), links.end(), [](const auto* link) {
+              return link->picture;
+            });
+        if (picture_links != 0 &&
+            (picture_links != 1 || links.size() != 1))
+          return fail(error,
+                      "fixed table picture selector overlaps another "
+                      "selector");
         // A picture selector replaces the cell line that spells its
         // `PICTURE n` placeholder with the image itself, which is what
         // hosted BookServer serves there.
-        if (link->picture) {
+        if (links.size() == 1 && links.front()->picture) {
+          const auto* link = links.front();
           ImageInlineIR image;
           image.resource = "resource:" + link->target;
           image.alt_text = figure_picture_placeholder(link->target);
@@ -184,13 +214,15 @@ bool link_table_cells(const ProseTopicIR& prose, std::size_t span,
           continue;
         }
         CrossReferenceInlineIR reference;
-        reference.target = {link->target_kind, link->target};
+        for (const auto* link : links)
+          reference.targets.push_back(
+              {prose_target(link->target_kind, link->target,
+                            link->target_alternatives),
+               origin({link->source}, "fixed table CSELECT target")});
         reference.label = text->text;
-        reference.target_origin =
-            origin({link->source}, "fixed table CSELECT target");
         node.node = std::move(reference);
         node.origin.detail =
-            link->target_kind == CrossReferenceTargetKindIR::external
+            links.front()->target_kind == CrossReferenceTargetKindIR::external
                 ? "fixed table cell line (CSELECT LNK reference)"
                 : "fixed table cell line (CSELECT reference)";
       }
@@ -243,19 +275,14 @@ bool lower_inlines(const ProseBlockIR& block, std::size_t begin,
       break;
     }
     case ProseInlineKindIR::cross_reference: {
-      if (node.targets.size() > 1 ||
-          std::any_of(node.targets.begin(), node.targets.end(),
-                      [](const auto& target) {
-                        return !target.alternatives.empty();
-                      }))
-        return fail(error,
-                    "prose cross-reference has target alternatives that "
-                    "DocumentIR cannot yet represent");
-      if (node.target.empty())
+      if (node.targets.empty())
         return fail(error, "prose cross-reference has no target");
       CrossReferenceInlineIR reference;
-      reference.target = {node.target_kind, node.target};
       reference.label = node.text;
+      for (const auto& target : node.targets)
+        reference.targets.push_back(
+            {prose_target(target.kind, target.value, target.alternatives),
+             origin({target.source}, "prose CSELECT target")});
       if (code_style(node.style))
         reference.label_code = true;
       else if (node.style != FontStyleIR::unknown)
@@ -266,9 +293,6 @@ bool lower_inlines(const ProseBlockIR& block, std::size_t begin,
                  node.target_kind == CrossReferenceTargetKindIR::external
                      ? "prose CSELECT LNK reference"
                      : "prose CSELECT reference");
-      if (!node.targets.empty())
-        std::get<CrossReferenceInlineIR>(lowered.node).target_origin =
-            origin({node.targets.front().source}, "prose CSELECT target");
       break;
     }
     case ProseInlineKindIR::line_break:

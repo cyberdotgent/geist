@@ -288,12 +288,30 @@ void an_external_reference_resolves_to_its_url() {
   require(result.rows.size() == 1 && result.rows[0].links.size() == 1,
           "the external reference was not linked");
   if (result.rows.empty() || result.rows[0].links.size() != 1) return;
-  require(result.rows[0].links[0].kind == VerbatimLinkKindIR::external_url &&
-              result.rows[0].links[0].url == "http://www.ibm.com/",
+  const auto &link = result.rows[0].links[0];
+  require(link.kind == VerbatimLinkKindIR::external_url &&
+              link.url == "http://www.ibm.com/" &&
+              link.document_number.empty() && link.document_level.empty() &&
+              link.heading_anchor.empty(),
           "the external reference lost its URL");
   require(geist::detail::render_verbatim_row(result.rows[0]) ==
               "Alpha <a href=\"http://www.ibm.com/\">Beta</a> Gamma",
           "the external reference was not spelled as its own URL");
+}
+
+void a_split_lnk_alternative_is_one_field() {
+  const auto result = linked({lnk_row(
+      {"<OTHER>", "<INTERNET>", "<>", "<https://example.test/very/",
+       "long>", "<>", "<WEBTARGET>"})});
+  require(result.rows.size() == 1 && result.rows[0].links.size() == 1,
+          "split LNK alternative was not parsed as one field");
+  if (result.rows.empty() || result.rows[0].links.empty()) return;
+  const auto& link = result.rows[0].links.front();
+  require(link.alternatives.size() == 6 &&
+              link.url == "https://example.test/very/long" &&
+              link.target == "WEBTARGET" && link.document_number.empty() &&
+              link.document_level.empty() && link.heading_anchor.empty(),
+          "split LNK alternative lost its tuple identity");
 }
 
 // A `LNK` list that does not parse names nothing this route can prove, so the
@@ -331,6 +349,7 @@ int main() {
   a_lnk_alternative_list_never_reaches_the_row();
   a_cross_book_reference_carries_every_field();
   an_external_reference_resolves_to_its_url();
+  a_split_lnk_alternative_is_one_field();
   an_unparsable_lnk_list_is_declined();
   a_row_is_escaped_but_not_rewritten();
   return 0;

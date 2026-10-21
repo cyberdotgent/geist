@@ -320,9 +320,10 @@ void verify_synthetic_contract() {
                   &inline_node.node))
         link = candidate;
   require(document && link && link->label == "ABCD" &&
-              link->target.kind ==
+              link->targets.size() == 1 &&
+              link->targets.front().target.kind ==
                   geist::detail::CrossReferenceTargetKindIR::anchor &&
-              link->target.value == "FIGONE" &&
+              link->targets.front().target.value == "FIGONE" &&
               geist::detail::verify_generated_list_topic_document_ir(
                   *list, *document, &error),
           "generated list did not lower to a typed raw anchor: " + error +
