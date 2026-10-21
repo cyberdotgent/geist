@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <exception>
 #include <iostream>
+#include <iterator>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -355,8 +356,15 @@ int main(int argc, char** argv) {
 
   try {
     const auto document = geist::BooDocument::open(argv[1]);
-    const auto* entry = document.find_toc_entry(argv[2]);
-    if (entry == nullptr) {
+    const auto normalized_topic_id = geist::detail::normalize_toc_id(argv[2]);
+    const auto topic = std::find_if(
+        document.topics().begin(), document.topics().end(),
+        [&](const auto& candidate) {
+          return candidate.id == normalized_topic_id ||
+                 geist::detail::ascii_equals_case_insensitive(candidate.id,
+                                                               argv[2]);
+        });
+    if (topic == document.topics().end()) {
       std::cerr << "bootrace: BOO topic id was not found: " << argv[2]
                 << "\n";
       return 1;
@@ -364,10 +372,15 @@ int main(int argc, char** argv) {
 
     const auto trace = document.trace_logical_records(argv[2]);
 
-    std::cout << "# topic\t" << tsv_escape(entry->id) << "\t"
-              << tsv_escape(entry->title) << "\n";
-    std::cout << "# logical_record_range\t" << entry->start_logical_record
-              << "\t" << entry->end_logical_record << "\n";
+    const auto source_index = static_cast<std::size_t>(
+        std::distance(document.topics().begin(), topic));
+    std::cout << "# topic\t" << tsv_escape(topic->id) << "\t"
+              << tsv_escape(topic->title) << "\n";
+    std::cout << "# source\ttopic-index\t" << source_index << "\t"
+              << topic->start_logical_record << "\t"
+              << topic->end_logical_record << "\n";
+    std::cout << "# logical_record_range\t" << topic->start_logical_record
+              << "\t" << topic->end_logical_record << "\n";
 
     if (show_records) {
       std::cout << "# logical records\n";
