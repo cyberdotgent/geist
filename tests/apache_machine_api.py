@@ -141,9 +141,10 @@ def check_mcp(base):
     # mirrors the JSON-RPC method and _meta carries client/protocol metadata.
     modern_params = {
         "_meta": {
-            "protocolVersion": MCP_VERSION,
-            "clientInfo": {"name": "mod_geist-test", "version": "1"},
-            "clientCapabilities": {},
+            "io.modelcontextprotocol/protocolVersion": MCP_VERSION,
+            "io.modelcontextprotocol/clientInfo": {
+                "name": "mod_geist-test", "version": "1"},
+            "io.modelcontextprotocol/clientCapabilities": {},
         },
     }
     tools = rpc_request("tools/list", 3, modern_params)
@@ -179,16 +180,17 @@ def check_mcp(base):
         assert status == 400, (headers, status, error)
         assert error.get("error", {}).get("code") == -32020, error
 
-    status, _, error = decode_json(fetch(base, path, {
+    status, _, body = fetch(base, path, {
         "Accept": "application/json",
         "Content-Type": "application/json",
         **modern_headers,
-    }, "POST", json.dumps(tools).encode()))
-    assert status == 400, (status, error)
-    assert error.get("error", {}).get("code") == -32020, error
+    }, "POST", json.dumps(tools).encode())
+    assert status == 406 and not body, (status, body)
 
     incomplete = rpc_request("tools/list", 5, {
-        "_meta": {"protocolVersion": MCP_VERSION},
+        "_meta": {
+            "io.modelcontextprotocol/protocolVersion": MCP_VERSION,
+        },
     })
     status, _, error = decode_json(json_post(base, path, incomplete, modern_headers))
     assert status == 400, (status, error)
