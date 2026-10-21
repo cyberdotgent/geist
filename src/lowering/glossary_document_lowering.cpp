@@ -143,6 +143,7 @@ std::optional<EmphasisKindIR> emphasis_kind(FontStyleIR style) {
   case FontStyleIR::italic_phrase:
   case FontStyleIR::warning:
   case FontStyleIR::warning_text:
+  case FontStyleIR::apl_symbol:
   case FontStyleIR::unknown:
     break;
   }

@@ -57,6 +57,7 @@ EmphasisKindIR emphasis_kind(FontStyleIR style) {
   // that carry them, so both take the default emphasis.
   case FontStyleIR::warning:
   case FontStyleIR::warning_text:
+  case FontStyleIR::apl_symbol:
   case FontStyleIR::unknown: break;
   }
   return EmphasisKindIR::emphasis;
@@ -88,7 +89,8 @@ bool code_style(FontStyleIR style) {
   return style == FontStyleIR::example_phrase ||
          style == FontStyleIR::keyword ||
          style == FontStyleIR::keyword_define ||
-         style == FontStyleIR::highlight_9;
+         style == FontStyleIR::highlight_9 ||
+         style == FontStyleIR::apl_symbol;
 }
 
 // The label of a definition entry or a note is rendered emphasised by the

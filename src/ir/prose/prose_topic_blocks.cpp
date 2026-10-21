@@ -36,6 +36,9 @@ struct BlockChar {
   bool space = false;
   // Byte offset of this display cell inside its token's decoded word.
   std::uint32_t offset = 0;
+  // Byte width in the source projection.  A font-selected code page can
+  // produce a UTF-8 glyph whose encoded width differs from that projection.
+  std::uint32_t source_width = 0;
 };
 
 // One inline's byte range inside a token's decoded word, in source order.
@@ -100,6 +103,17 @@ bool boundary_between(const Line& line, std::size_t left, std::size_t right) {
 std::string line_text(const Line& line) {
   std::string text;
   for (const auto& cell : line.cells) text += cell.text;
+  return text;
+}
+
+// `A` in CFONTDEF is APL, whose cells use IBM code page 293 rather than the
+// book's ordinary CP037 interpretation.  The corpus currently supplies only
+// byte 0x8A in such spans: CP037 projected that byte as U+00AB, while CP293
+// defines it as U+2191.  Keep this deliberately closed over the witnessed
+// byte; accepting A as ordinary emphasis would preserve the wrong glyph.
+std::string font_cell_text(FontStyleIR style, const std::string& text) {
+  if (style == FontStyleIR::apl_symbol && text == "\xC2\xAB")
+    return "\xE2\x86\x91";
   return text;
 }
 
@@ -260,7 +274,7 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
     if (!resolve_spans(line, attrs, line_targets, error)) return false;
     const auto target_base = targets.size();
     targets.insert(targets.end(), line_targets.begin(), line_targets.end());
-    if (index != begin) chars.push_back({" ", {}, npos, 0, true, 0});
+    if (index != begin) chars.push_back({" ", {}, npos, 0, true, 0, 0});
     // Byte offset of every cell inside its own token's decoded word: cells of
     // one token are emitted in word order, so the running total over the row
     // is that offset.
@@ -276,8 +290,10 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
       if (cell < line.text_begin) continue;
       auto attr = attrs[cell];
       for (auto& link : attr.links) link += target_base;
-      chars.push_back({source.text, attr, source.record, source.token,
-                       source.space, offset});
+      chars.push_back({font_cell_text(attr.style, source.text), attr,
+                       source.record, source.token,
+                       source.space, offset,
+                       static_cast<std::uint32_t>(source.text.size())});
     }
   }
   // Collapse whitespace; a space takes the attributes of its neighbours when
@@ -346,7 +362,7 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
       if (ch.record == npos) continue;
       if (ledger.at(ch.record, ch.token).role != ProseTokenRoleIR::text)
         continue;  // space-run/origin cells keep their layout role
-      const auto end = ch.offset + static_cast<std::uint32_t>(ch.text.size());
+      const auto end = ch.offset + ch.source_width;
       if (!claims.empty() && claims.back().record == ch.record &&
           claims.back().token == ch.token) {
         if (claims.back().end != ch.offset)

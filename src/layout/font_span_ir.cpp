@@ -36,6 +36,7 @@ FontStyleIR style_for_code(const std::string& code) {
   if (code == "7") return FontStyleIR::highlight_7;
   if (code == "8") return FontStyleIR::highlight_8;
   if (code == "9") return FontStyleIR::highlight_9;
+  if (code == "A" || code == "a") return FontStyleIR::apl_symbol;
   if (code.size() != 1) return FontStyleIR::unknown;
   switch (ascii_lower_char(code[0])) {
   case 'c': return FontStyleIR::citation;
@@ -79,6 +80,8 @@ const char* font_style_name(FontStyleIR style) {
     return "hp8";
   case FontStyleIR::highlight_9:
     return "hp9";
+  case FontStyleIR::apl_symbol:
+    return "apl";
   case FontStyleIR::keyword_define:
     return "pkdef";
   case FontStyleIR::citation:

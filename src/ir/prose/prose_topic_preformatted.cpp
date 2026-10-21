@@ -80,7 +80,12 @@ bool styled_example(const std::vector<DecodedLogicalRecordSource> &records,
         for (auto cell = first; cell < last; ++cell)
           if (!line.cells[cell].space && cell >= link.begin && cell < link.end)
             return false;
-    example = example || span.style == FontStyleIR::example_phrase;
+    // APL cells are code-page-selected program/display symbols.  In the
+    // witnessed PL/I message examples they form the positioned diagnostic
+    // arrow row between two XMP rows; retaining that native row is semantic,
+    // because reflowing it moves the arrow away from the offending column.
+    example = example || span.style == FontStyleIR::example_phrase ||
+              span.style == FontStyleIR::apl_symbol;
     for (auto cell = first; cell < last; ++cell)
       covered[cell] = true;
   }
@@ -212,10 +217,14 @@ bool build_styled_example_block(
     }
     auto line = lines[row];
     line.text_begin = 0;
+    const auto inline_begin = block.inlines.size();
     if (!build_block(records, {line}, 0, 1, block, ledger, block_index, error,
                      true))
       return false;
-    append_row(native, line_text(line));
+    std::string display_text;
+    for (auto item = inline_begin; item < block.inlines.size(); ++item)
+      display_text += block.inlines[item].text;
+    append_row(native, std::move(display_text));
     previous = native;
   }
   std::set<std::pair<std::size_t, std::size_t>> refs;

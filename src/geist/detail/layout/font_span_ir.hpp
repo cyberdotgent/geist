@@ -17,8 +17,9 @@ struct DecodedLogicalRecordSource;
 
 // Compact CFONT style codes resolve through the book-level CFONTDEF table
 // documented in doc/boo-spec/markup.adoc ("Font And Highlight Controls"): `1`..`3`
-// are the GML highlight phrases HP1..HP3. Every other code is retained as an
-// opaque style so consumers can conserve the span without claiming a style.
+// are the GML highlight phrases HP1..HP3. `A` selects the APL code page for
+// its covered cells; unverified codes remain opaque so consumers conserve the
+// span without claiming a presentation.
 // The CFONTDEF code table is identical in all 33 corpus books (checked with
 // `bootrace --fonts` over every fixture): `1`..`3` HP1..HP3, `4` HP4, `C`
 // CIT, `X` XPH, `E` XMP, `P` PK, `V` PV, `R` RK, `H`..`M` H1..H6.  Hosted
@@ -36,8 +37,11 @@ struct DecodedLogicalRecordSource;
 // `<B><U>L</B></U>` (SG24-204 5.2.1 `cfont 33 1 7`, which styles the `L` of
 // `LU` alone); `9` -> `<TT><U>/</TT></U>` (OFCUSEOV 5.2 `cfont 25 1 9`).
 // `Q` (PKDEF) is <dfn> (PRG1SORT 2.1.4 `<dfn>*CURLIB</dfn>`; SC26-457
-// 3.4.1.2 `<dfn>LIST</dfn>`).  Every other code is retained as an opaque
-// style so consumers can conserve the span without claiming a presentation.
+// 3.4.1.2 `<dfn>LIST</dfn>`). `A` (APL) selects code page 293 rather than
+// decorating the ordinary CP037 projection: IBMMMSTR record 203's source byte
+// 0x8A is U+00AB in CP037 but U+2191 in CP293, and the printed IEL0136I
+// example shows the latter upwards arrow. Every other unverified code stays
+// opaque so consumers conserve the span without claiming a presentation.
 //
 // `W` (WARNING) and `G` (WARNINGTEXT) are the two halves of one GML warning
 // block: `W` styles its `Warning:` lead and `G` every word of its body, and
@@ -87,6 +91,7 @@ enum class FontStyleIR {
   highlight_7,     // 7 (HP7): underscored bold phrase (<B><U>)
   highlight_8,     // 8 (HP8): underscored bold italic phrase
   highlight_9,     // 9 (HP9): underscored monospace phrase (<TT><U>)
+  apl_symbol,      // A: APL code-page text (CP293, not CP037 decoration)
   citation,        // C: italic citation
   example_phrase,  // X, E, 4: monospace example text
   keyword,         // P: monospace parameter keyword (<kbd>)

@@ -631,6 +631,52 @@ void a_styled_terminal_marker_finishes_the_open_row() {
               "'");
 }
 
+// CFONT code A names the book's APL font/code page.  It changes the graphic
+// character represented by a stored byte rather than merely decorating the
+// CP037 projection: byte 0x8A is U+00AB there, but U+2191 in IBM code page
+// 293.  An otherwise identical unstyled row pins that the remapping is
+// span-local, and the following XMP row pins the pointer's native geometry.
+void an_apl_font_span_decodes_its_own_character_cells() {
+  const auto stored_arrow = geist::detail::EbcdicCodec::cp037().decode_word(0x8A);
+  require(stored_arrow == 0x00AB,
+          "the fixture's stored 0x8A byte no longer has the CP037 projection "
+          "this regression exercises");
+  RecordBuilder builder;
+  metadata(builder, "1.12", {"APL", "Arrow"});
+  builder.line({words("   "), TokenWords{stored_arrow}});
+  builder.line({words("cfont"), words("3"), words("1"), words("A")});
+  // RecordBuilder starts at the production decoder's TokenWords boundary, so
+  // derive both cells from the actual CP037 source byte instead of spelling
+  // the projected Unicode scalar directly.
+  builder.line({words("   "), TokenWords{stored_arrow}});
+  builder.line({words("cfont"), words("3"), words("1"), words("E")});
+  builder.line({words("   "), words("T")});
+  const auto record = builder.build(42);
+
+  std::string error;
+  const auto prose = extract(record, "APL Arrow", error);
+  require(prose.has_value(),
+          "an APL-code-page font span was rejected: " + error);
+  if (!prose) return;
+  require(verify(record, "APL Arrow", *prose, error),
+          "the APL span's source-byte claims are not conserved: " + error);
+
+  const auto body = body_text(*prose);
+  require(body.find("\xE2\x86\x91") != std::string::npos,
+          "the APL byte was not decoded as an upwards arrow: '" + body +
+              "'");
+  require(body.find("\xC2\xAB") != std::string::npos,
+          "the same CP037 character outside the APL span was remapped: '" +
+              body + "'");
+  bool positioned = false;
+  for (const auto &block : prose->blocks)
+    if (block.kind == geist::detail::ProseBlockKindIR::preformatted)
+      for (const auto &line : block.preformatted_lines)
+        if (line == "   \xE2\x86\x91") positioned = true;
+  require(positioned,
+          "the APL diagnostic arrow lost its native display column");
+}
+
 } // namespace
 
 int main() {
@@ -646,5 +692,6 @@ int main() {
   a_styled_leading_bar_is_display_text();
   styled_terminal_punctuation_is_display_text();
   a_styled_terminal_marker_finishes_the_open_row();
+  an_apl_font_span_decodes_its_own_character_cells();
   return 0;
 }
