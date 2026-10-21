@@ -118,6 +118,8 @@ GeistDownload On     # offer the BOO file for download (default On)
 GeistTheme    auto   # auto (default), light or dark
 BooIndex      Off    # list the books in a browsed directory (default Off)
 BooIndexTitle "..."  # pin the shelf's name; by default it comes from .title
+GeistAPI      Off    # expose the shelf's read-only REST API (default Off)
+GeistMCP      Off    # expose the shelf's read-only MCP endpoint (default Off)
 HideVersion   Off    # Off (default) reports the version; On says nothing
 ```
 
@@ -183,6 +185,53 @@ The page carries `X-Robots-Tag: noindex, nofollow`, since it puts every book
 one hop from a single URL and a crawl is expensive -- serving any topic builds
 that book's whole cross-reference map. Drop the header with `mod_headers` to
 have it indexed.
+
+#### Machine interfaces
+
+The REST/OpenAPI and MCP interfaces are independent, optional views of a
+book shelf. They are both off by default and are effective only where the
+inherited `BooIndex` setting is also `On`:
+
+```apache
+<Directory /var/www/html/books>
+    BooIndex On
+    GeistAPI On
+    GeistMCP On
+
+    # Authentication and authorization remain ordinary Apache policy.
+    AuthType Basic
+    AuthName "BOO library"
+    Require valid-user
+</Directory>
+```
+
+Neither directive enables the other or `BooIndex`. A descendant
+`BooIndex Off` disables both there, even if their own settings remain inherited.
+Disabled routes answer as ordinary missing paths, so they do not disclose that
+a machine interface is installed. When either interface is enabled, `.geist`
+is reserved below that shelf.
+
+`GeistAPI On` exposes a conventional, read-only JSON API below
+`/.geist/api/v1` and its OpenAPI 3.1.2 description at
+`/.geist/openapi.json`. It lists the immediate shelf, book metadata, the table
+of contents, every indexed topic, rendering diagnostics, and stored resources.
+Topic content is returned as native Markdown or HTML rendered from the same
+DocumentIR. Resource content distinguishes `stored`, which is byte-for-byte
+the BOO payload, from the explicit `web` representation, which passes through
+stored web media and converts supported legacy images to PNG. Book ids are
+exact shelf-relative filenames; local filesystem paths and document numbers
+are never accepted as identities. The API permits `GET` and `HEAD` and does
+not enable cross-origin browser access by default.
+
+`GeistMCP On` exposes Streamable HTTP at `/.geist/mcp`. It implements the
+current stateless MCP 2026-07-28 request model and the sessionless 2025-11-25
+initialization model for existing clients; it does not offer GET/SSE streams or
+mint session ids. Its read-only tools are `list_books`, `get_book`,
+`list_topics`, `get_topic`, `list_resources`, and `get_resource`. The same
+content is also available through `geist://shelf` resource templates. Requests
+with no `Origin` are accepted; a supplied origin must match the request origin.
+Use Apache `Require`, TLS and the normal virtual-host controls for access rather
+than a separate Geist token.
 
 #### Naming a shelf
 

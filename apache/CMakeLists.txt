@@ -48,7 +48,10 @@ add_custom_command(
 
 find_package(Threads REQUIRED)
 add_library(mod_geist MODULE mod_geist.cpp http_cache.cpp index_warming.cpp
-  shelf_index.cpp shelf_snapshot.cpp cache_store.cpp "${GEIST_ASSET_HEADER}")
+  shelf_index.cpp shelf_snapshot.cpp cache_store.cpp
+  machine/json.cpp service/catalog.cpp rest/openapi.cpp rest/rest.cpp
+  mcp/mcp.cpp
+  "${GEIST_ASSET_HEADER}")
 target_link_libraries(mod_geist PRIVATE Threads::Threads)
 
 set_target_properties(mod_geist PROPERTIES
@@ -99,6 +102,46 @@ target_compile_features(apache_shelf_cache_synthetic_test PRIVATE cxx_std_17)
 target_include_directories(apache_shelf_cache_synthetic_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 add_test(NAME apache_shelf_cache_synthetic_test COMMAND apache_shelf_cache_synthetic_test)
 
+add_executable(apache_json_synthetic_test
+  "${CMAKE_SOURCE_DIR}/tests/apache_json_synthetic.cpp" machine/json.cpp)
+target_compile_features(apache_json_synthetic_test PRIVATE cxx_std_17)
+target_include_directories(apache_json_synthetic_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME apache_json_synthetic_test COMMAND apache_json_synthetic_test)
+
+add_executable(apache_openapi_synthetic_test
+  "${CMAKE_SOURCE_DIR}/tests/apache_openapi_synthetic.cpp"
+  rest/openapi.cpp machine/json.cpp)
+target_compile_features(apache_openapi_synthetic_test PRIVATE cxx_std_17)
+target_include_directories(apache_openapi_synthetic_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME apache_openapi_synthetic_test COMMAND apache_openapi_synthetic_test)
+
+add_executable(apache_catalog_service_test
+  "${CMAKE_SOURCE_DIR}/tests/apache_catalog_service.cpp" service/catalog.cpp)
+target_compile_features(apache_catalog_service_test PRIVATE cxx_std_17)
+target_include_directories(apache_catalog_service_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_compile_definitions(apache_catalog_service_test PRIVATE
+  GEIST_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures")
+target_link_libraries(apache_catalog_service_test PRIVATE geist::geist_static)
+add_test(NAME apache_catalog_service_test COMMAND apache_catalog_service_test)
+
+add_executable(apache_rest_synthetic_test
+  "${CMAKE_SOURCE_DIR}/tests/apache_rest_synthetic.cpp"
+  rest/rest.cpp machine/json.cpp service/catalog.cpp)
+target_compile_features(apache_rest_synthetic_test PRIVATE cxx_std_17)
+target_include_directories(apache_rest_synthetic_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(apache_rest_synthetic_test PRIVATE geist::geist_static)
+add_test(NAME apache_rest_synthetic_test COMMAND apache_rest_synthetic_test)
+
+add_executable(apache_mcp_synthetic_test
+  "${CMAKE_SOURCE_DIR}/tests/apache_mcp_synthetic.cpp"
+  mcp/mcp.cpp machine/json.cpp service/catalog.cpp)
+target_compile_features(apache_mcp_synthetic_test PRIVATE cxx_std_17)
+target_include_directories(apache_mcp_synthetic_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_compile_definitions(apache_mcp_synthetic_test PRIVATE
+  GEIST_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures")
+target_link_libraries(apache_mcp_synthetic_test PRIVATE geist::geist_static)
+add_test(NAME apache_mcp_synthetic_test COMMAND apache_mcp_synthetic_test)
+
 find_program(GEIST_HTTPD NAMES apache2 httpd)
 if(GEIST_HTTPD AND EXISTS "${GEIST_APACHE_LIBEXECDIR}/mod_mpm_event.so")
   add_test(NAME apache_index_warming_test COMMAND "${Python3_EXECUTABLE}"
@@ -107,6 +150,12 @@ if(GEIST_HTTPD AND EXISTS "${GEIST_APACHE_LIBEXECDIR}/mod_mpm_event.so")
     --module "$<TARGET_FILE:mod_geist>"
     --fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/packet.boo")
   set_tests_properties(apache_index_warming_test PROPERTIES TIMEOUT 90)
+  add_test(NAME apache_machine_api_test COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_SOURCE_DIR}/tests/apache_machine_api.py"
+    --httpd "${GEIST_HTTPD}" --modules "${GEIST_APACHE_LIBEXECDIR}"
+    --module "$<TARGET_FILE:mod_geist>"
+    --fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/packet.boo")
+  set_tests_properties(apache_machine_api_test PROPERTIES TIMEOUT 90)
 endif()
 
 # httpd resolves the module's symbols against itself at load time.

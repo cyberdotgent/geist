@@ -22,6 +22,10 @@ struct DirConfig {
   // Listing names and titles is an operator's disclosure decision. Unset
   // inherits, and the effective default is Off.
   Tri index = Tri::unset;
+  // Machine-readable shelf interfaces are separate disclosure decisions.
+  // Both also require the effective BooIndex setting to be On.
+  Tri api = Tri::unset;
+  Tri mcp = Tri::unset;
   const char* index_title = nullptr;
   Tri hide_version = Tri::unset;
 };

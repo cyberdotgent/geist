@@ -15,6 +15,7 @@ import subprocess
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 
@@ -80,17 +81,52 @@ def check_rest(base):
     assert status == 200 and isinstance(service, dict), service
 
     status, _, schema = decode_json(fetch(base, "/enabled/.geist/openapi.json"))
-    assert status == 200
+    assert status == 200, (status, schema)
     assert schema.get("openapi") == "3.1.2", schema
     paths = schema.get("paths", {})
-    assert "/.geist/api/v1" in paths, paths
-    assert "/.geist/api/v1/books" in paths, paths
+    assert "/api/v1" in paths, paths
+    assert "/api/v1/books" in paths, paths
+    assert urllib.parse.urljoin(
+        base + "/enabled/.geist/openapi.json",
+        schema["servers"][0]["url"] + "/api/v1",
+    ) == base + "/enabled/.geist/api/v1"
 
     status, _, books = decode_json(fetch(base, "/enabled/.geist/api/v1/books"))
     assert status == 200
     entries = books.get("books") if isinstance(books, dict) else books
     assert isinstance(entries, list), books
     assert any(entry.get("id") == "packet.boo" for entry in entries), entries
+    assert not any(entry.get("id") == "escape.boo" for entry in entries), entries
+
+    root = "/enabled/.geist/api/v1/books/packet.boo"
+    status, _, book = decode_json(fetch(base, root))
+    assert status == 200 and book.get("topicCount", 0) > 0, book
+
+    status, _, topic_list = decode_json(fetch(base, root + "/topics"))
+    topics = topic_list.get("topics", [])
+    assert status == 200 and topics, topic_list
+    topic_id = urllib.parse.quote(topics[0]["id"], safe="")
+    topic_root = root + "/topics/" + topic_id
+    status, _, topic = decode_json(fetch(base, topic_root))
+    assert status == 200 and isinstance(topic.get("diagnostic"), dict), topic
+    diagnostic = topic["diagnostic"]
+    assert isinstance(diagnostic.get("source"), dict), diagnostic
+    assert isinstance(diagnostic.get("degradations"), list), diagnostic
+
+    status, headers, markdown = fetch(
+        base, topic_root + "/content?format=markdown")
+    assert status == 200 and headers.get_content_type() == "text/markdown"
+    assert markdown
+    status, head_headers, head_body = fetch(
+        base, topic_root + "/content?format=markdown", method="HEAD")
+    assert status == 200 and not head_body
+    assert int(head_headers["Content-Length"]) == len(markdown)
+
+    status, headers, html = fetch(base, topic_root + "/content?format=html")
+    assert status == 200 and headers.get_content_type() == "text/html" and html
+
+    status, _, resources = decode_json(fetch(base, root + "/resources"))
+    assert status == 200 and isinstance(resources.get("resources"), list)
 
 
 def rpc_request(method, request_id, params=None):
@@ -156,6 +192,21 @@ def check_mcp(base):
     assert status == 200, response
     assert response.get("jsonrpc") == "2.0" and response.get("id") == 3, response
 
+    call = rpc_request("tools/call", 31, {
+        "name": "list_books",
+        "arguments": {},
+        **modern_params,
+    })
+    status, _, response = decode_json(json_post(base, path, call, {
+        "MCP-Protocol-Version": MCP_VERSION,
+        "Mcp-Method": "tools/call",
+        "Mcp-Name": "list_books",
+    }))
+    assert status == 200, response
+    structured = response.get("result", {}).get("structuredContent", {})
+    assert any(book.get("id") == "packet.boo"
+               for book in structured.get("books", [])), structured
+
     status, _, response = decode_json(json_post(base, path, tools, {
         **modern_headers,
         "Origin": base,
@@ -194,7 +245,7 @@ def check_mcp(base):
     })
     status, _, error = decode_json(json_post(base, path, incomplete, modern_headers))
     assert status == 400, (status, error)
-    assert error.get("error", {}).get("code") == -32020, error
+    assert error.get("error", {}).get("code") == -32602, error
 
     unknown = rpc_request("geist/absent", 4, modern_params)
     status, _, error = decode_json(json_post(base, path, unknown, {
@@ -235,6 +286,9 @@ def main():
         for directory in directories:
             directory.mkdir(parents=True)
             shutil.copyfile(args.fixture, directory / "packet.boo")
+        outside = root / "outside.boo"
+        shutil.copyfile(args.fixture, outside)
+        os.symlink(outside, www / "enabled" / "escape.boo")
 
         if os.geteuid() == 0:
             import pwd
@@ -285,9 +339,11 @@ DocumentRoot "{www}"
     BooIndex On
 </Directory>
 <Directory "{www / 'api-only'}">
+    BooIndex On
     GeistAPI On
 </Directory>
 <Directory "{www / 'mcp-only'}">
+    BooIndex On
     GeistMCP On
 </Directory>
 <Directory "{www / 'enabled'}">
@@ -309,9 +365,18 @@ DocumentRoot "{www}"
                 wait_for_http(base, process)
 
                 assert_not_found(base, "/default")
-                assert_not_found(base, "/api-only")
-                assert_not_found(base, "/mcp-only")
                 assert_not_found(base, "/enabled/disabled-child")
+
+                status, _, _ = fetch(base, "/api-only/.geist/api/v1")
+                assert status == 200, status
+                status, _, _ = fetch(base, "/api-only/.geist/mcp")
+                assert status == 404, status
+
+                status, _, _ = fetch(base, "/mcp-only/.geist/api/v1")
+                assert status == 404, status
+                status, headers, _ = fetch(base, "/mcp-only/.geist/mcp")
+                assert status == 405 and headers.get("Allow") == "POST", (
+                    status, headers)
                 check_rest(base)
                 check_mcp(base)
                 print("BooIndex-gated REST/OpenAPI and MCP endpoint checks passed")

@@ -38,6 +38,10 @@
 #include "config.hpp"
 #include "http_cache.hpp"
 #include "index_warming.hpp"
+#include "mcp/mcp.hpp"
+#include "rest/openapi.hpp"
+#include "rest/rest.hpp"
+#include "service/catalog.hpp"
 #include "shelf_index.hpp"
 #include "geist/version.hpp"
 
@@ -50,6 +54,7 @@
 #include <apr_file_info.h>
 #include <apr_strings.h>
 #include <apr_time.h>
+#include <apr_uri.h>
 
 #include <algorithm>
 #include <cctype>
@@ -61,7 +66,9 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <stdexcept>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -396,9 +403,9 @@ const char* theme_attribute(DirConfig* config) {
 // Book cache
 // ---------------------------------------------------------------------------
 
-std::shared_ptr<Book> open_book(request_rec* r) {
+std::shared_ptr<Book> open_book_path(request_rec* r, const std::string& path) {
   apr_finfo_t info{};
-  const auto status = apr_stat(&info, r->filename,
+  const auto status = apr_stat(&info, path.c_str(),
       APR_FINFO_MIN | APR_FINFO_CTIME | APR_FINFO_IDENT, r->pool);
   if ((status != APR_SUCCESS && status != APR_INCOMPLETE) ||
       (info.valid & APR_FINFO_MIN) != APR_FINFO_MIN ||
@@ -406,7 +413,7 @@ std::shared_ptr<Book> open_book(request_rec* r) {
     return nullptr;
   }
 
-  const std::string key(r->filename);
+  const std::string key(path);
   const auto identity = http_file_identity(info);
   {
     std::lock_guard<std::mutex> guard(cache_mutex());
@@ -420,10 +427,10 @@ std::shared_ptr<Book> open_book(request_rec* r) {
   auto book = std::make_shared<Book>();
   try {
     book->document = std::make_unique<geist::BooDocument>(
-        geist::BooDocument::open(r->filename));
+        geist::BooDocument::open(path));
   } catch (const std::exception& error) {
     ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "mod_geist: cannot open %s: %s",
-                  r->filename, error.what());
+                  path.c_str(), error.what());
     return nullptr;
   }
   book->identity = identity;
@@ -431,6 +438,58 @@ std::shared_ptr<Book> open_book(request_rec* r) {
   std::lock_guard<std::mutex> guard(cache_mutex());
   cache()[key] = book;
   return book;
+}
+
+std::shared_ptr<Book> open_book(request_rec* r) {
+  return open_book_path(r, r->filename != nullptr ? r->filename : "");
+}
+
+service::Catalog shelf_catalog(request_rec* r, const std::string& directory) {
+  const auto files = scan_shelf(r->pool, directory.c_str());
+  auto* server_config = static_cast<ServerConfig*>(ap_get_module_config(
+      r->server->module_config, &geist_module));
+  const auto entries = shelf_entries(
+      r->server, r->pool, directory,
+      server_config != nullptr ? server_config->cache_dir : nullptr, files);
+
+  std::map<std::string, std::string> paths;
+  for (const auto& file : files) {
+    // A machine book id must remain confined to the immediate shelf. The
+    // human shelf historically follows symlinks, but APIs must never turn a
+    // disclosed name into a path outside the configured authorization root.
+    apr_finfo_t link_info{};
+    const auto status = apr_stat(&link_info, file.path.c_str(),
+                                 APR_FINFO_TYPE | APR_FINFO_LINK, r->pool);
+    if (status == APR_SUCCESS && link_info.filetype == APR_REG) {
+      paths.emplace(file.name, file.path);
+    }
+  }
+
+  std::vector<service::BookSource> sources;
+  sources.reserve(entries.size());
+  for (const auto& entry : entries) {
+    const auto path = paths.find(entry.filename);
+    if (path == paths.end()) {
+      continue;
+    }
+    service::BookSummary summary;
+    summary.id = entry.filename;
+    summary.title = entry.title;
+    summary.document_number = entry.document_number;
+    summary.built = entry.built;
+    summary.size = entry.size > 0 ? static_cast<std::uint64_t>(entry.size) : 0;
+    summary.readable = entry.readable;
+    const std::string book_path = path->second;
+    sources.push_back({std::move(summary), [r, book_path]() {
+      auto book = open_book_path(r, book_path);
+      if (book == nullptr) {
+        return std::shared_ptr<const geist::BooDocument>();
+      }
+      return std::shared_ptr<const geist::BooDocument>(book,
+                                                       book->document.get());
+    }});
+  }
+  return service::Catalog(std::move(sources));
 }
 
 void ensure_links(Book& book) {
@@ -1169,6 +1228,210 @@ std::string render_shelf(request_rec* r, const std::string& heading,
 // Handler
 // ---------------------------------------------------------------------------
 
+struct MachineRoute {
+  std::string directory;
+  std::string path;
+};
+
+std::optional<MachineRoute> machine_route(request_rec* r) {
+  if (r->filename == nullptr || r->uri == nullptr) {
+    return std::nullopt;
+  }
+  const std::string filename(r->filename);
+  const std::string uri(r->uri);
+  const auto file_marker = filename.rfind("/.geist");
+  const auto uri_marker = uri.rfind("/.geist");
+  if (file_marker == std::string::npos || uri_marker == std::string::npos ||
+      (file_marker + 7 != filename.size() &&
+       filename[file_marker + 7] != '/') ||
+      (uri_marker + 7 != uri.size() && uri[uri_marker + 7] != '/')) {
+    return std::nullopt;
+  }
+  if (file_marker == 0) {
+    return std::nullopt;
+  }
+  return MachineRoute{filename.substr(0, file_marker),
+                      uri.substr(uri_marker)};
+}
+
+bool machine_path(const std::string& path) {
+  return path == "/.geist/openapi.json" ||
+         path == "/.geist/api/v1" ||
+         path.rfind("/.geist/api/v1/", 0) == 0 ||
+         path == "/.geist/mcp";
+}
+
+int write_machine_response(
+    request_rec* r, int status, const std::string& content_type,
+    const std::string& body,
+    const std::vector<std::pair<std::string, std::string>>& headers = {}) {
+  r->status = status == OK ? HTTP_OK : status;
+  if (!content_type.empty()) {
+    ap_set_content_type(r, apr_pstrdup(r->pool, content_type.c_str()));
+  }
+  bool has_content_length = false;
+  for (const auto& header : headers) {
+    apr_table_set(r->headers_out, header.first.c_str(), header.second.c_str());
+    if (strcasecmp(header.first.c_str(), "Content-Length") == 0) {
+      has_content_length = true;
+    }
+  }
+  apr_table_setn(r->headers_out, "X-Content-Type-Options", "nosniff");
+  apr_table_setn(r->headers_out, "Cache-Control", "private, no-store");
+  if (!has_content_length) {
+    ap_set_content_length(r, static_cast<apr_off_t>(body.size()));
+  }
+  if (!r->header_only && !body.empty() &&
+      !write_response(r, body.data(), body.size())) {
+    return HTTP_INTERNAL_SERVER_ERROR;
+  }
+  return OK;
+}
+
+bool same_origin(request_rec* r, const std::string& origin) {
+  if (origin.empty() || origin == "null" || origin.find(',') != std::string::npos) {
+    return false;
+  }
+  apr_uri_t parsed{};
+  if (apr_uri_parse(r->pool, origin.c_str(), &parsed) != APR_SUCCESS ||
+      parsed.scheme == nullptr || parsed.hostname == nullptr ||
+      parsed.user != nullptr || parsed.password != nullptr ||
+      parsed.path != nullptr || parsed.query != nullptr ||
+      parsed.fragment != nullptr) {
+    return false;
+  }
+  const char* request_scheme = ap_http_scheme(r);
+  const char* request_host = ap_get_server_name(r);
+  if (request_scheme == nullptr || request_host == nullptr ||
+      strcasecmp(parsed.scheme, request_scheme) != 0 ||
+      strcasecmp(parsed.hostname, request_host) != 0) {
+    return false;
+  }
+  const auto default_port = [](const char* scheme) -> apr_port_t {
+    if (scheme != nullptr && strcasecmp(scheme, "https") == 0) return 443;
+    if (scheme != nullptr && strcasecmp(scheme, "http") == 0) return 80;
+    return 0;
+  };
+  const apr_port_t origin_port =
+      parsed.port != 0 ? parsed.port : default_port(parsed.scheme);
+  return origin_port == ap_get_server_port(r);
+}
+
+std::string read_request_body(request_rec* r) {
+  if (ap_setup_client_block(r, REQUEST_CHUNKED_DECHUNK) != OK) {
+    throw std::runtime_error("cannot read request body");
+  }
+  std::string body;
+  if (!ap_should_client_block(r)) {
+    return body;
+  }
+  if (r->remaining > static_cast<apr_off_t>(mcp::max_request_bytes)) {
+    r->connection->keepalive = AP_CONN_CLOSE;
+    return std::string(mcp::max_request_bytes + 1, ' ');
+  }
+  char buffer[16384];
+  while (true) {
+    const long count = ap_get_client_block(r, buffer, sizeof(buffer));
+    if (count < 0) {
+      throw std::runtime_error("cannot read request body");
+    }
+    if (count == 0) {
+      break;
+    }
+    body.append(buffer, static_cast<std::size_t>(count));
+    if (body.size() > mcp::max_request_bytes) {
+      r->connection->keepalive = AP_CONN_CLOSE;
+      break;
+    }
+  }
+  return body;
+}
+
+int geist_machine_handler(request_rec* r) {
+  const auto target = machine_route(r);
+  if (!target || !machine_path(target->path)) {
+    return DECLINED;
+  }
+  DirConfig* config = config_for(r);
+  if (config == nullptr || config->index != Tri::on) {
+    return DECLINED;
+  }
+
+  const bool is_mcp = target->path == "/.geist/mcp";
+  const bool is_api = !is_mcp;
+  if ((is_mcp && config->mcp != Tri::on) ||
+      (is_api && config->api != Tri::on)) {
+    return DECLINED;
+  }
+
+  try {
+    if (target->path == "/.geist/openapi.json") {
+      if (r->method_number != M_GET) {
+        return write_machine_response(
+            r, HTTP_METHOD_NOT_ALLOWED, "application/problem+json", "",
+            {{"Allow", "GET, HEAD"}});
+      }
+      const auto document = rest::openapi_document();
+      return write_machine_response(
+          r, OK, std::string(rest::openapi_media_type),
+          std::string(document.data(), document.size()));
+    }
+
+    if (is_api) {
+      auto catalog = shelf_catalog(r, target->directory);
+      const rest::Request request{
+          r->method != nullptr ? r->method : "", target->path,
+          r->args != nullptr ? r->args : ""};
+      const auto response = rest::route(request, catalog,
+                                        config->mcp == Tri::on);
+      return write_machine_response(r, response.status, response.content_type,
+                                    response.body, response.headers);
+    }
+
+    const char* origin_header = apr_table_get(r->headers_in, "Origin");
+    const std::optional<std::string> origin =
+        origin_header != nullptr
+            ? std::optional<std::string>(origin_header)
+            : std::nullopt;
+    mcp::Request request;
+    request.method = r->method != nullptr ? r->method : "";
+    const char* content_type = apr_table_get(r->headers_in, "Content-Type");
+    const char* accept = apr_table_get(r->headers_in, "Accept");
+    const char* protocol =
+        apr_table_get(r->headers_in, "MCP-Protocol-Version");
+    const char* method = apr_table_get(r->headers_in, "Mcp-Method");
+    const char* name = apr_table_get(r->headers_in, "Mcp-Name");
+    request.content_type = content_type != nullptr ? content_type : "";
+    request.accept = accept != nullptr ? accept : "";
+    request.origin = origin;
+    request.origin_valid = !origin || same_origin(r, *origin);
+    if (!request.origin_valid) {
+      return write_machine_response(r, HTTP_FORBIDDEN, "", "");
+    }
+    const char* content_encoding =
+        apr_table_get(r->headers_in, "Content-Encoding");
+    request.content_encoding =
+        content_encoding != nullptr ? content_encoding : "";
+    if (protocol != nullptr) request.protocol_version = protocol;
+    if (method != nullptr) request.mcp_method = method;
+    if (name != nullptr) request.mcp_name = name;
+    if (r->method_number == M_POST) {
+      request.body = read_request_body(r);
+    }
+    auto catalog = shelf_catalog(r, target->directory);
+    const auto response = mcp::handle(request, catalog);
+    std::vector<std::pair<std::string, std::string>> headers;
+    if (!response.allow.empty()) headers.emplace_back("Allow", response.allow);
+    return write_machine_response(r, response.status, response.content_type,
+                                  response.body, headers);
+  } catch (const std::exception& error) {
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                  "mod_geist: machine request failed: %s", error.what());
+    return write_machine_response(r, HTTP_INTERNAL_SERVER_ERROR,
+                                  "application/problem+json", "");
+  }
+}
+
 // The handler name the shipped configuration binds to .boo files. An
 // explicit SetHandler/AddHandler wins; otherwise a .boo file is recognised by
 // its own name, so the module still works with no configuration at all.
@@ -1446,6 +1709,8 @@ void* merge_dir_config(apr_pool_t* pool, void* base_config, void* add_config) {
   merged->download = add->download != Tri::unset ? add->download : base->download;
   merged->theme = add->theme != Theme::unset ? add->theme : base->theme;
   merged->index = add->index != Tri::unset ? add->index : base->index;
+  merged->api = add->api != Tri::unset ? add->api : base->api;
+  merged->mcp = add->mcp != Tri::unset ? add->mcp : base->mcp;
   merged->index_title =
       add->index_title != nullptr ? add->index_title : base->index_title;
   merged->hide_version = add->hide_version != Tri::unset ? add->hide_version
@@ -1487,6 +1752,30 @@ const char* set_index(cmd_parms*, void* dir_config, const char* value) {
     config->index = Tri::off;
   } else {
     return "BooIndex takes On or Off";
+  }
+  return nullptr;
+}
+
+const char* set_api(cmd_parms*, void* dir_config, const char* value) {
+  auto* config = static_cast<DirConfig*>(dir_config);
+  if (strcasecmp(value, "on") == 0) {
+    config->api = Tri::on;
+  } else if (strcasecmp(value, "off") == 0) {
+    config->api = Tri::off;
+  } else {
+    return "GeistAPI takes On or Off";
+  }
+  return nullptr;
+}
+
+const char* set_mcp(cmd_parms*, void* dir_config, const char* value) {
+  auto* config = static_cast<DirConfig*>(dir_config);
+  if (strcasecmp(value, "on") == 0) {
+    config->mcp = Tri::on;
+  } else if (strcasecmp(value, "off") == 0) {
+    config->mcp = Tri::off;
+  } else {
+    return "GeistMCP takes On or Off";
   }
   return nullptr;
 }
@@ -1557,6 +1846,14 @@ const command_rec geist_directives[] = {
                   "On to list the .boo books in a browsed directory; Off "
                   "(the default) to leave the directory to DirectoryIndex and "
                   "mod_autoindex"),
+    AP_INIT_TAKE1("GeistAPI", reinterpret_cast<cmd_func>(set_api), nullptr,
+                  OR_ALL,
+                  "On to expose the read-only REST API and OpenAPI document "
+                  "for a shelf with BooIndex On; Off by default"),
+    AP_INIT_TAKE1("GeistMCP", reinterpret_cast<cmd_func>(set_mcp), nullptr,
+                  OR_ALL,
+                  "On to expose the read-only MCP endpoint for a shelf with "
+                  "BooIndex On; Off by default"),
     AP_INIT_TAKE1("BooIndexTitle",
                   reinterpret_cast<cmd_func>(set_index_title), nullptr, OR_ALL,
                   "Heading for the book list; defaults to the directory name"),
@@ -1579,6 +1876,7 @@ void register_hooks(apr_pool_t*) {
   ap_hook_post_config(geist_post_config, nullptr, nullptr, APR_HOOK_MIDDLE);
   ap_hook_child_init(start_index_warming, nullptr, nullptr, APR_HOOK_LAST);
   ap_hook_fixups(geist_fixups, nullptr, nullptr, APR_HOOK_MIDDLE);
+  ap_hook_handler(geist_machine_handler, nullptr, nullptr, APR_HOOK_FIRST);
   ap_hook_handler(geist_handler, nullptr, nullptr, APR_HOOK_MIDDLE);
   // Ordered explicitly rather than by LoadModule order: after mod_dir so a
   // real DirectoryIndex file still wins, and before mod_autoindex so that
