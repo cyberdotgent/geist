@@ -579,6 +579,8 @@ void append_block(RenderSink &sink, const BlockIR &block,
         } else if constexpr (std::is_same_v<T, AnchorBlockIR>) {
           sink.syntax("<a id=\"" + escape_html_attribute(node.id) + "\"></a>",
                       "anchor", block_origin);
+        } else if constexpr (std::is_same_v<T, ThematicBreakBlockIR>) {
+          sink.marker("---", "thematic break", block_origin);
         } else if constexpr (std::is_same_v<T, ListBlockIR>) {
           for (std::size_t index = 0; index < node.items.size(); ++index) {
             const PathScope item_step(sink, "item", index);

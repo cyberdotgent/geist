@@ -231,6 +231,8 @@ bool verify_block(const BlockIR& block, bool nested, std::string* error) {
           return verify_inlines(node.content, false, error);
         } else if constexpr (std::is_same_v<T, AnchorBlockIR>) {
           return !node.id.empty() || fail(error, "anchor id is empty");
+        } else if constexpr (std::is_same_v<T, ThematicBreakBlockIR>) {
+          return true;
         } else if constexpr (std::is_same_v<T, ListBlockIR>) {
           if (node.items.empty()) return fail(error, "list is empty");
           if (!node.ordered && node.marker != OrderedListMarkerIR::decimal)
@@ -778,6 +780,8 @@ std::string format_document_ir(const DocumentIR& document) {
                           ? "figure"
                           : node.role == AnchorRoleIR::table ? "table"
                                                              : "local");
+          } else if constexpr (std::is_same_v<T, ThematicBreakBlockIR>) {
+            out << " thematic_break";
           } else if constexpr (std::is_same_v<T, ListBlockIR>) {
             out << " list ordered=" << (node.ordered ? 1 : 0);
             if (node.marker != OrderedListMarkerIR::decimal)

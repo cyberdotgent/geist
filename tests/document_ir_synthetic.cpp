@@ -61,6 +61,14 @@ int main() {
   typed.blocks.push_back(std::move(heading_block));
   typed.blocks.push_back(paragraph("Body"));
 
+  BlockIR thematic_break;
+  thematic_break.node = ThematicBreakBlockIR{};
+  thematic_break.origin.derivation = DocumentDerivationIR::decoded;
+  thematic_break.origin.slices.push_back(
+      DocumentSourceSliceIR{102, 0, 8, 9, 20, 94});
+  thematic_break.origin.rows.push_back(DocumentSourceRowIR{10, 0});
+  typed.blocks.push_back(std::move(thematic_break));
+
   TableBlockIR table;
   table.header_rows = 1;
   TableRowIR header;
@@ -97,7 +105,12 @@ int main() {
                    std::string::npos,
                "formatter omitted source slice") ||
       !require(typed_format.find("row=9:3") != std::string::npos,
-               "formatter omitted row evidence"))
+               "formatter omitted row evidence") ||
+      !require(typed_format.find("block 2 thematic_break") !=
+                   std::string::npos,
+               "formatter omitted semantic thematic break") ||
+      !require(typed_format.find("row=10:0") != std::string::npos,
+               "thematic break omitted its native-row origin"))
     return 1;
 
   auto invalid_heading = typed;
@@ -110,7 +123,7 @@ int main() {
 
   const auto typed_markdown = render_document_markdown(typed);
   if (!require(typed_markdown ==
-                   "# Typed introduction\n\nBody\n\n| Name | Value |\n"
+                   "# Typed introduction\n\nBody\n\n---\n\n| Name | Value |\n"
                    "| --- | --- |\n| Mode | Safe |\n",
                "typed document did not render stable Markdown"))
     return 1;
@@ -150,7 +163,7 @@ int main() {
 
   auto invalid_table = typed;
   auto& invalid_rows =
-      std::get<TableBlockIR>(invalid_table.blocks[2].node).rows;
+      std::get<TableBlockIR>(invalid_table.blocks[3].node).rows;
   invalid_rows[1].cells.pop_back();
   error.clear();
   if (!require(!verify_document_ir(invalid_table, &error) &&

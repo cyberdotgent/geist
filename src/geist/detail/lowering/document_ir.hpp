@@ -122,6 +122,11 @@ struct AnchorBlockIR {
   AnchorRoleIR role = AnchorRoleIR::cross_reference;
 };
 
+// A source-native horizontal separator. Its cells are structural rather than
+// text: keeping it as a block lets renderers express the rule without
+// fabricating a preformatted row or losing the row's source coordinates.
+struct ThematicBreakBlockIR {};
+
 struct BlockIR;
 using BlockSequenceIR = std::vector<BlockIR>;
 
@@ -363,11 +368,11 @@ struct OpaqueBlockIR {
 };
 
 using BlockNodeIR =
-    std::variant<HeadingBlockIR, ParagraphBlockIR, AnchorBlockIR, ListBlockIR,
-                 DefinitionListBlockIR, TableBlockIR, PreformattedBlockIR,
-                 NoteBlockIR, PublicationListBlockIR, FigureBlockIR,
-                 FootnoteBlockIR, IndexGroupBlockIR, MenuBlockIR,
-                 OpaqueBlockIR>;
+    std::variant<HeadingBlockIR, ParagraphBlockIR, AnchorBlockIR,
+                 ThematicBreakBlockIR, ListBlockIR, DefinitionListBlockIR,
+                 TableBlockIR, PreformattedBlockIR, NoteBlockIR,
+                 PublicationListBlockIR, FigureBlockIR, FootnoteBlockIR,
+                 IndexGroupBlockIR, MenuBlockIR, OpaqueBlockIR>;
 
 struct BlockIR {
   BlockNodeIR node;

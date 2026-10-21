@@ -533,6 +533,11 @@ void append_block(HtmlSink &sink, const BlockIR &block) {
           sink.attribute("id", prefixed_id(node.id, sink.options()));
           append_degradation_attributes(sink, origin);
           sink.markup("></span>");
+        } else if constexpr (std::is_same_v<T, ThematicBreakBlockIR>) {
+          sink.markup("<hr");
+          sink.attribute("class", block_class);
+          append_degradation_attributes(sink, origin);
+          sink.markup(">");
         } else if constexpr (std::is_same_v<T, ListBlockIR>) {
           const auto *tag = node.ordered ? "ol" : "ul";
           if (node.ordered && node.marker != OrderedListMarkerIR::decimal) {
@@ -812,6 +817,8 @@ std::string html_block_class(const BlockNodeIR &node) {
           return "geist-paragraph";
         else if constexpr (std::is_same_v<T, AnchorBlockIR>)
           return "geist-anchor";
+        else if constexpr (std::is_same_v<T, ThematicBreakBlockIR>)
+          return "geist-thematic-break";
         else if constexpr (std::is_same_v<T, ListBlockIR>)
           return "geist-list";
         else if constexpr (std::is_same_v<T, DefinitionListBlockIR>)

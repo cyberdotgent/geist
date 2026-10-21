@@ -94,6 +94,7 @@ itself, so a new block type cannot ship without a class.
 | `HeadingBlockIR` | `geist-heading` | `<h1>`…`<h6>` |
 | `ParagraphBlockIR` | `geist-paragraph` | `<p>` |
 | `AnchorBlockIR` | `geist-anchor` | `<span>` |
+| `ThematicBreakBlockIR` | `geist-thematic-break` | `<hr>` |
 | `ListBlockIR` | `geist-list` | `<ul>` / `<ol>` |
 | `DefinitionListBlockIR` | `geist-definition-list` | `<dl>` |
 | `TableBlockIR` | `geist-table` | `<table>` |

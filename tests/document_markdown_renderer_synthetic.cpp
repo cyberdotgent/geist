@@ -130,6 +130,8 @@ int main() {
   headerless.rows = {row({cell(text("body")), cell()})};
   document.blocks.push_back(block(std::move(headerless)));
 
+  document.blocks.push_back(block(ThematicBreakBlockIR{}));
+
   document.blocks.push_back(
       block(PreformattedBlockIR{{"source", "```", "tail without newline"}}));
 
@@ -330,6 +332,8 @@ int main() {
                 "multi-header table aggregation or cell escaping failed") ||
       !contains(output, "|  |  |\n| --- | --- |\n| body |  |",
                 "headerless table/empty cell policy failed") ||
+      !contains(output, "| body |  |\n\n---\n\n````",
+                "semantic thematic break was not rendered between blocks") ||
       !contains(output, "````\nsource\n```\ntail without newline\n````",
                 "variable-length preformatted fence failed") ||
       !contains(output,

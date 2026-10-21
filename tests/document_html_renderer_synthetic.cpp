@@ -201,6 +201,8 @@ DocumentIR build_document() {
   headerless.rows = {row({cell(text("only <body>")), cell()})};
   document.blocks.push_back(block(std::move(headerless)));
 
+  document.blocks.push_back(block(ThematicBreakBlockIR{}));
+
   document.blocks.push_back(block(
       PreformattedBlockIR{{"drawn & <row>", "  +---------+", "tail"}}));
 
@@ -496,6 +498,8 @@ int main() {
            "<tr class=\"geist-table-row\"><td class=\"geist-table-cell\">"
            "only &lt;body&gt;",
            "a headerless table did not render as body rows alone");
+  contains(fragment, "<hr class=\"geist-thematic-break\">",
+           "semantic thematic break was not rendered as an HTML rule");
 
   // Degraded output is emitted, and it is machine-findable.
   contains(fragment,

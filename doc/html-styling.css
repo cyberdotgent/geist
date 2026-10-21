@@ -68,6 +68,12 @@
   scroll-margin-top: 3rem;
 }
 
+.geist-thematic-break {
+  margin-block: 1em;
+  border: 0;
+  border-block-start: 1px solid #888;
+}
+
 .geist-list {
   margin-block: 0.75em;
   padding-inline-start: 1.5em;
