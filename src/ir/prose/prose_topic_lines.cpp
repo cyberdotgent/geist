@@ -385,6 +385,7 @@ struct LineBuilder {
     if (line == nullptr) return false;
     std::size_t bars = 0;
     std::size_t runs = 0;
+    std::size_t bar_token = npos;
     std::size_t text_token = npos;
     for (auto cursor = next_token(index); cursor != npos && is_token(cursor);
          cursor = next_token(cursor)) {
@@ -398,6 +399,7 @@ struct LineBuilder {
       }
       if (change_bar_slot(cell)) {
         if (++bars > 1) return false;
+        bar_token = cell.token;
         margin.origin_item = npos;
         margin.last_item = cursor;
         continue;
@@ -410,13 +412,25 @@ struct LineBuilder {
     }
     if (margin.last_item == npos || text_token == npos) return false;
     const auto cells = display_line_cells(records[view.record], *line);
+    std::size_t bar_column = npos;
     std::size_t text_column = npos;
-    for (std::size_t column = 0; column < cells.size(); ++column)
+    for (std::size_t column = 0; column < cells.size(); ++column) {
+      if (cells[column].token == bar_token) bar_column = column;
       if (cells[column].token == text_token) {
         text_column = column;
         break;
       }
+    }
     if (text_column == npos || text_column == 0) return false;
+    // A width-one bar in the leading columns is normally a revision margin,
+    // but an exact pending CFONT claim proves that this cell belongs to the
+    // source row instead.  SC26-457 record 56 stores its bar at column 3
+    // under `cfont 3 1 2`; IBMMMSTR record 937 likewise styles the bars at
+    // columns 24 and 47.  Keep those positioned, styled glyphs as display
+    // text while leaving unclaimed revision bars in the margin.
+    if (bars == 1 && bar_column != npos &&
+        pending_font_span_covers(bar_column, 1))
+      return false;
     // Without a change bar the line's leading whitespace is a proven margin
     // only under three conditions together, because the row model already has
     // a rule for the ordinary shape and that rule must not move.
@@ -863,13 +877,22 @@ struct LineBuilder {
     return false;
   }
 
-  bool pending_span_covers(std::size_t column, std::size_t cells) const {
+  bool pending_font_span_covers(std::size_t column, std::size_t cells) const {
     for (const auto control : pending_controls) {
       const auto& item = items[control];
-      if (item.kind == ItemKind::font) {
-        for (const auto& span : item.spans)
-          if (span.column == column && span.length == cells) return true;
-      } else if (item.column == column && item.length == cells) {
+      if (item.kind != ItemKind::font) continue;
+      for (const auto& span : item.spans)
+        if (span.column == column && span.length == cells) return true;
+    }
+    return false;
+  }
+
+  bool pending_span_covers(std::size_t column, std::size_t cells) const {
+    if (pending_font_span_covers(column, cells)) return true;
+    for (const auto control : pending_controls) {
+      const auto& item = items[control];
+      if (item.kind != ItemKind::font && item.column == column &&
+          item.length == cells) {
         return true;
       }
     }

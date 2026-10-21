@@ -570,6 +570,17 @@ void a_styled_leading_bar_is_display_text() {
   builder.line({words("cfont"), words("3"), words("1"), words("2")});
   builder.line({words("   "), words("|"), words("        "), words("An"),
                 words("OR"), words("sign")});
+  // The production ambiguity exists only for the compact one-byte bar: that
+  // is also the encoding used by revision-margin bars.  RecordBuilder uses
+  // width-two dictionary tokens for ordinary line content, so pin this cell
+  // to the source width carried by SC26-457 1.2 and IBMMMSTR 1.5.733.
+  const auto bar = std::find(builder.record.tokens.begin(),
+                             builder.record.tokens.end(), words("|"));
+  require(bar != builder.record.tokens.end(), "the bar token is absent");
+  if (bar != builder.record.tokens.end())
+    builder.record.encoded_tokens[static_cast<std::size_t>(
+        std::distance(builder.record.tokens.begin(), bar))]
+        .width = 1;
   const auto record = builder.build(39);
 
   std::string error;
