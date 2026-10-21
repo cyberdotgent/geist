@@ -38,6 +38,12 @@ env:
   QT_ARCH: win64_msvc2022_64
 
 jobs:
+  macos-dist:
+    if: inputs.windows_release_tag == ''
+    uses: ./.github/workflows/macos-dmg.yml
+    permissions:
+      contents: write
+
   windows-dist:
     name: Windows x64 distribution
     # Keep the compiler aligned with the supplied Qt MSVC 2022 binaries.

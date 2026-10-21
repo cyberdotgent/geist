@@ -3,6 +3,12 @@
 
 cmake_minimum_required(VERSION 3.16)
 
+# Set before project() so compiler availability checks and all dependencies
+# built in this tree agree with the native reader's minimum OS.
+if(CMAKE_HOST_APPLE AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING "Minimum macOS version")
+endif()
+
 if(WIN32 AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
   if(DEFINED ENV{VCPKG_ROOT})
     set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
@@ -633,6 +639,9 @@ geist_add_test(concurrent_const_access FIXTURE THREADS)
 # remains optional for library-only builds; the gate uses its standard library.
 find_package(Python3 QUIET COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
+  add_test(NAME macos_release_verifier_test
+    COMMAND "${Python3_EXECUTABLE}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/macos_release_verifier_test.py")
   add_test(NAME corpus_gate_synthetic_test
     COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/tests/corpus_gate_synthetic.py")

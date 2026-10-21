@@ -1,0 +1,14 @@
+
+### Experimental macOS download
+
+The macOS DMG contains the native Geist BOO Reader for Apple Silicon and
+Intel Macs (universal arm64/x86_64), targeting macOS 13 Ventura or later.
+Ventura runtime compatibility still needs user testing; CI runs on newer macOS.
+
+This 0.x test build is **not Developer ID signed or notarized**. It uses only
+an ad-hoc code signature, so macOS Gatekeeper may block it. After verifying
+the download's SHA-256 checksum, copy the app to Applications and try opening
+it. If blocked, use System Settings > Privacy & Security > Open Anyway only
+if you trust this release. Do not disable Gatekeeper globally. Managed Macs
+may prohibit this override. A checksum detects download corruption; it is
+not a substitute for Apple developer signing or notarization.

@@ -38,6 +38,29 @@ step fails if either copied library lacks a requested architecture. A normal
 single-architecture Homebrew installation does not supply the opposite slice.
 Check every binary with `lipo -archs` before distribution.
 
+## Experimental release DMG
+
+The release workflow builds the native reader on `macos-15`, with both
+architectures and a macOS 13.0 Ventura deployment target. It builds the
+existing libpng and giflib dependencies as checksum-pinned universal static
+libraries, includes their licences, and uses system zlib. No Homebrew runtime
+is required. `macos/build_release_dependencies.sh` prepares this dependency
+prefix outside the checkout. The normal CMake build does not download it.
+
+The independent **macOS universal DMG** Actions workflow can be dispatched
+for preflight artifacts without creating a release. Tag-triggered releases
+attach the experimental DMG and SHA-256 checksum and append the warning in
+`macos/RELEASE-NOTES.txt` to the release notes. Existing tags are not moved.
+These 0.x builds are ad-hoc signed, not Developer ID signed or notarized;
+Gatekeeper may block them. The DMG includes instructions for the per-app
+Privacy & Security override, without disabling Gatekeeper globally.
+
+CI verifies both Mach-O slices, deployment minimums, system-only imports,
+the bundle signature and DMG integrity. It runs the test suite natively and
+Intel CLI smoke tests under Rosetta. This does not prove Ventura runtime
+compatibility: users must test opening, navigation, search and printing on
+Ventura before that compatibility is considered verified.
+
 ## Mac App Store preparation
 
 Register the explicit App ID `gent.cyber.geist-viewer` in the Apple Developer
