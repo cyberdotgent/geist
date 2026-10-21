@@ -229,6 +229,44 @@ int main() {
     }
   }
 
+  // A field label can intentionally carry an empty value. Its CFONT run and
+  // source row still establish a real field; absence of following text must
+  // not erase the label or turn the catalogue opaque.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({t("SRMSG", 110), t("621", 232)}));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("3", 112), t("2", 113)}));
+    append(tokens, line({origin(), t("621", 232)}));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("6", 181), t("2", 113)}));
+    append(tokens, line({origin(), t("Value:", 233)}));
+    const auto built = build({make_source(62, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "empty message field declined: " + built.error);
+    if (built.catalog) {
+      require(built.catalog->entries.front().fields.size() == 1 &&
+                  built.catalog->entries.front().fields.front().label_text ==
+                      "Value:",
+              "empty message field lost its typed label");
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(),
+              "empty message field lowering declined: " + error);
+      if (document) {
+        const auto markdown =
+            geist::detail::render_document_markdown(*document);
+        const auto html =
+            geist::detail::render_document_html_blocks(*document, {});
+        require(markdown.find("Value:") != std::string::npos,
+                "empty message field label was not rendered in Markdown");
+        require(html.find("Value:") != std::string::npos,
+                "empty message field label was not rendered in HTML");
+      }
+    }
+  }
+
   // Case 2 -- an `SRTBL` ... `SRETBL` envelope inside the entry. Its two
   // drawn lines belong to the region; none of their words joins the field.
   {

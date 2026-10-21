@@ -2643,10 +2643,6 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
                     entry.id + " [" + entry.headline.body.text + "]");
     if (entry.fields.empty())
       return reject("trap entry has no labelled field: " + entry.id);
-    for (const auto &field : entry.fields)
-      if (field.line.body.text.size() == field.label_text.size())
-        return reject("trap field has no text after its label: " + entry.id +
-                      " " + field.label_text);
     catalog.entries.push_back(std::move(entry));
   }
   catalog.origin_column = origin_column.value_or(0);

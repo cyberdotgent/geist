@@ -420,6 +420,12 @@ entry `805306372`) is entry-local.  A `CFONT` with an empty payload at a
 record end takes the next record's leading text segment as its payload (topic
 `4.4` logical records 153/154 `LNM for AIX Response:` and 154/155 `7 (fddiControlCartridgeError)`).
 
+A label does not require a non-empty value.  In `N2AH1MST` topic `10.0`,
+logical record 593 segment 2 is `cfont 10 6 2` and its complete native row is
+the label `value:` (the row marker is at byte `0x43D5D`); segment 3 starts the
+separate `Explanation:` field.  The empty `value:` row therefore remains a
+field with an empty body rather than becoming part of either adjacent field.
+
 The important implementation rule is that this is not a hardcoded packet title
 or hardcoded three-line page rule. `:vnotice.` changes the interpretation of
 the following controls: the first body `CFONT` is the visual notice heading,
