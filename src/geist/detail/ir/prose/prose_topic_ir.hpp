@@ -109,6 +109,21 @@ enum class ProseInlineKindIR {
   line_break,
 };
 
+// One selector claim on a visible prose label. Most labels carry one target.
+// Some bibliography rows carry several distinct LNK selectors over exactly
+// the same cells (one target per platform edition), and footnote selectors
+// may cover a proper subset of that label. The source model retains every
+// claim and its own control provenance without repeating the displayed text.
+struct ProseCrossReferenceTargetIR {
+  CrossReferenceTargetKindIR kind = CrossReferenceTargetKindIR::anchor;
+  std::string value;
+  // LNK alternative tuple, verbatim except for its angle brackets. Empty for
+  // an ordinary in-book selector.
+  std::vector<std::string> alternatives;
+  // Selector operand and, for LNK, alternative-token provenance.
+  DocumentSourceSliceIR source;
+};
+
 struct ProseInlineIR {
   ProseInlineKindIR kind = ProseInlineKindIR::text;
   std::string text;
@@ -118,6 +133,14 @@ struct ProseInlineIR {
   // the same book; a `CSELECT ... LNK` selector addresses another book or an
   // external URL (see doc/boo-spec/markup.adoc, "LNK selector alternatives").
   CrossReferenceTargetKindIR target_kind = CrossReferenceTargetKindIR::anchor;
+  // Every selector claim covering this one visible label run, in source
+  // order.  Most labels carry one target.  Some bibliography rows carry
+  // several distinct LNK selectors over exactly the same cells (one target
+  // per platform edition), and footnote selectors may cover a proper subset
+  // of that label.  The source model retains all claims without repeating
+  // the displayed text; `target`/`target_kind` above mirror the first entry
+  // for compatibility with consumers that have not learned alternatives.
+  std::vector<ProseCrossReferenceTargetIR> targets;
   // Contiguous source token ranges, in source order.
   std::vector<DocumentSourceSliceIR> slices;
 };
@@ -152,6 +175,14 @@ struct ProseBlockIR {
   // The first `term_inline_count` inlines form the term (definition entry)
   // or the label (note); the remaining inlines are the body.
   std::size_t term_inline_count = 0;
+  // Blocks retain one global source-order index so token-ledger claims,
+  // anchors and admitted spans never need a second coordinate system.  A
+  // compound definition/list-item body links those global blocks into a
+  // tree: `parent_block` names its owner and `body_blocks` names the owner's
+  // direct children in source order.  Both sides are recorded so verification
+  // can reject orphaned, duplicated or reordered ownership.
+  std::size_t parent_block = static_cast<std::size_t>(-1);
+  std::vector<std::size_t> body_blocks;
   // Preformatted blocks: the display rows verbatim, at the display columns
   // they occupy -- the region's own left margin is kept, as hosted
   // BookServer keeps it inside `<pre>` -- with blank rows kept; `inlines`

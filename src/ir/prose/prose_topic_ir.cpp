@@ -277,9 +277,54 @@ bool verify_prose_topic_ir(
   std::map<std::pair<std::uint32_t, std::size_t>,
            std::vector<ProseInlineClaimIR>>
       covered;
+  std::vector<std::size_t> child_owners(topic.blocks.size(), npos);
   for (std::size_t block = 0; block < topic.blocks.size(); ++block) {
     const auto& node = topic.blocks[block];
-    if (node.inlines.empty()) return fail(error, "prose block has no inlines");
+    if (node.parent_block != npos) {
+      if (node.parent_block >= block)
+        return fail(error, "prose child does not follow its parent block");
+      const auto owner_kind = topic.blocks[node.parent_block].kind;
+      if (owner_kind != ProseBlockKindIR::definition_entry &&
+          owner_kind != ProseBlockKindIR::list_item)
+        return fail(error, "prose child has a non-compound parent block");
+    }
+    std::size_t previous = npos;
+    for (const auto child : node.body_blocks) {
+      if (child <= block || child >= topic.blocks.size())
+        return fail(error, "prose body child is outside its source order");
+      if (previous != npos && child <= previous)
+        return fail(error, "prose body children are not in source order");
+      if (child_owners[child] != npos)
+        return fail(error, "prose body child has more than one owner");
+      child_owners[child] = block;
+      previous = child;
+    }
+  }
+  for (std::size_t block = 0; block < topic.blocks.size(); ++block) {
+    if (topic.blocks[block].parent_block != child_owners[block])
+      return fail(error, "prose parent and body-child ownership disagree");
+  }
+  for (std::size_t block = 0; block < topic.blocks.size(); ++block) {
+    const auto& node = topic.blocks[block];
+    if (node.inlines.empty()) {
+      if (node.kind != ProseBlockKindIR::definition_entry ||
+          node.body_blocks.empty())
+        return fail(error, "prose block has no inlines");
+      if (node.slices.empty())
+        return fail(error,
+                    "empty definition entry has no control provenance");
+      for (const auto& slice : node.slices) {
+        if (slice.token_begin >= slice.token_end)
+          return fail(error, "empty definition control slice is empty");
+        for (auto token = slice.token_begin; token < slice.token_end; ++token) {
+          const auto found = by_token.find({slice.logical_record, token});
+          if (found == by_token.end() ||
+              found->second->role != ProseTokenRoleIR::control)
+            return fail(error,
+                        "empty definition provenance is not control metadata");
+        }
+      }
+    }
     if (!node.preformatted_line_inline_ends.empty()) {
       if (node.kind != ProseBlockKindIR::preformatted ||
           node.preformatted_line_inline_ends.size() != node.preformatted_lines.size() ||
@@ -306,11 +351,44 @@ bool verify_prose_topic_ir(
       // A row boundary carries no word and no source token of its own; every
       // other inline must carry both.
       if (inline_node.kind == ProseInlineKindIR::line_break) {
-        if (!inline_node.text.empty() || !inline_node.slices.empty())
+        if (!inline_node.text.empty() || !inline_node.slices.empty() ||
+            !inline_node.target.empty() || !inline_node.targets.empty())
           return fail(error, "row boundary carries text or source");
         continue;
       }
       if (inline_node.text.empty()) return fail(error, "inline text is empty");
+      const auto targeted = inline_node.kind ==
+                                ProseInlineKindIR::cross_reference ||
+                            inline_node.kind == ProseInlineKindIR::image;
+      if (targeted != !inline_node.targets.empty())
+        return fail(error, "inline target kind and selector claims disagree");
+      if (!targeted && !inline_node.target.empty())
+        return fail(error, "plain inline carries a selector target");
+      if (targeted) {
+        const auto& first = inline_node.targets.front();
+        if (inline_node.target != first.value ||
+            inline_node.target_kind != first.kind)
+          return fail(error, "inline compatibility target is not its first "
+                             "selector claim");
+        if (inline_node.kind == ProseInlineKindIR::image &&
+            (inline_node.targets.size() != 1 ||
+             !first.alternatives.empty()))
+          return fail(error, "image inline carries link alternatives");
+        for (const auto& target : inline_node.targets) {
+          if (target.value.empty() ||
+              target.source.token_begin >= target.source.token_end)
+            return fail(error, "selector claim has no target or provenance");
+          for (auto token = target.source.token_begin;
+               token < target.source.token_end; ++token) {
+            const auto found = by_token.find(
+                {target.source.logical_record, token});
+            if (found == by_token.end() ||
+                found->second->role != ProseTokenRoleIR::control)
+              return fail(error,
+                          "selector claim provenance is not control metadata");
+          }
+        }
+      }
       for (const auto& slice : inline_node.slices) {
         if (slice.token_begin >= slice.token_end)
           return fail(error, "inline slice is empty");
@@ -462,6 +540,11 @@ std::string format_prose_topic_ir(const ProseTopicIR& topic) {
     if (!block.anchor_id.empty()) out << " anchor=" << block.anchor_id;
     if (block.term_inline_count != 0)
       out << " term_inlines=" << block.term_inline_count;
+    if (block.parent_block != npos) out << " parent=" << block.parent_block;
+    if (!block.body_blocks.empty()) {
+      out << " body_blocks=";
+      for (const auto child : block.body_blocks) out << child << ',';
+    }
     if (!block.verbatim_kind.empty()) out << " verbatim_kind=" << block.verbatim_kind;
     format_slices(out, block.slices);
     out << '\n';
@@ -497,6 +580,19 @@ std::string format_prose_topic_ir(const ProseTopicIR& topic) {
       out << " '" << inline_node.text << "'";
       format_slices(out, inline_node.slices);
       out << '\n';
+      for (const auto& target : inline_node.targets) {
+        out << "    selector_target kind="
+            << static_cast<int>(target.kind) << " value='" << target.value
+            << "' alternatives=[";
+        for (std::size_t alternative = 0;
+             alternative < target.alternatives.size(); ++alternative) {
+          if (alternative != 0) out << ' ';
+          out << '<' << target.alternatives[alternative] << '>';
+        }
+        out << ']';
+        format_slices(out, {target.source});
+        out << '\n';
+      }
     }
   }
   for (const auto& term : topic.index_terms) {

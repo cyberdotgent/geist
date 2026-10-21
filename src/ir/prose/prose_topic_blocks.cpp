@@ -21,9 +21,9 @@ namespace geist::detail::prose_internal {
 
 struct Attr {
   FontStyleIR style = FontStyleIR::unknown;
-  std::size_t link = npos;
+  std::vector<std::size_t> links;
   bool operator==(const Attr& other) const {
-    return style == other.style && link == other.link;
+    return style == other.style && links == other.links;
   }
   bool operator!=(const Attr& other) const { return !(*this == other); }
 };
@@ -126,7 +126,7 @@ bool torn_across_a_gap(const Line& line, std::size_t begin, std::size_t end) {
 // cross-reference target, plus whether the selector is a picture (the
 // covered columns are the image, not a link label).
 struct LinkTarget {
-  CrossReferenceTargetIR target;
+  ProseCrossReferenceTargetIR target;
   bool picture = false;
 };
 
@@ -201,32 +201,41 @@ bool resolve_spans(const Line& line, std::vector<Attr>& attrs,
     // placement still has no label to decorate and keeps the prior
     // disposition; a font that only partly meets a selector fails closed.
     if (!link) {
-      auto inside = npos;
+      std::vector<std::size_t> inside;
       bool all_inside = true;
       for (auto cell = begin; cell < end && all_inside; ++cell) {
         if (line.cells[cell].space) continue;
-        const auto attached_link = attrs[cell].link;
-        if (attached_link == npos) all_inside = false;
-        else if (inside == npos) inside = attached_link;
-        else if (inside != attached_link) all_inside = false;
+        const auto& attached_links = attrs[cell].links;
+        if (attached_links.empty()) all_inside = false;
+        else if (inside.empty()) inside = attached_links;
+        else if (inside != attached_links) all_inside = false;
       }
-      if (all_inside && inside != npos && targets[inside].picture) return true;
+      if (all_inside && inside.size() == 1 && targets[inside.front()].picture)
+        return true;
     }
+    const auto target_index = targets.size();
+    if (link)
+      targets.push_back({{span.target_kind, span.target,
+                          span.target_alternatives, span.target_source},
+                         span.picture});
     for (auto cell = begin; cell < end; ++cell) {
       if (line.cells[cell].space) continue;
       auto& attr = attrs[cell];
       if (link) {
-        if (attr.link != npos)
-          return fail(error, "overlapping selector spans");
-        attr.link = targets.size();
+        if (span.picture && !attr.links.empty())
+          return fail(error, "picture selector overlaps another selector");
+        if (std::any_of(attr.links.begin(), attr.links.end(),
+                        [&](const auto existing) {
+                          return targets[existing].picture;
+                        }))
+          return fail(error, "selector overlaps a picture selector");
+        attr.links.push_back(target_index);
       } else {
         if (attr.style != FontStyleIR::unknown)
           return fail(error, "overlapping font spans");
         attr.style = span.style;
       }
     }
-    if (link)
-      targets.push_back({{span.target_kind, span.target}, span.picture});
     return true;
   };
   for (const auto& span : line.links)
@@ -265,7 +274,7 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
       }
       if (cell < line.text_begin) continue;
       auto attr = attrs[cell];
-      if (attr.link != npos) attr.link += target_base;
+      for (auto& link : attr.links) link += target_base;
       chars.push_back({source.text, attr, source.record, source.token,
                        source.space, offset});
     }
@@ -315,12 +324,15 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
     ProseInlineIR inline_node;
     const auto& attr = collapsed[run_begin].attr;
     inline_node.style = attr.style;
-    if (attr.link != npos) {
-      inline_node.kind = targets[attr.link].picture
-                             ? ProseInlineKindIR::image
-                             : ProseInlineKindIR::cross_reference;
-      inline_node.target = targets[attr.link].target.value;
-      inline_node.target_kind = targets[attr.link].target.kind;
+    if (!attr.links.empty()) {
+      const auto picture = attr.links.size() == 1 &&
+                           targets[attr.links.front()].picture;
+      inline_node.kind = picture ? ProseInlineKindIR::image
+                                 : ProseInlineKindIR::cross_reference;
+      for (const auto link : attr.links)
+        inline_node.targets.push_back(targets[link].target);
+      inline_node.target = inline_node.targets.front().value;
+      inline_node.target_kind = inline_node.targets.front().kind;
     } else if (attr.style != FontStyleIR::unknown) {
       inline_node.kind = ProseInlineKindIR::emphasis;
     }
@@ -389,9 +401,10 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
 }
 
 // A drawn box region: its rows are the hosted display lines verbatim
-// (prose_topic_boxes.cpp).  One inline per row carries the row's source
-// provenance, exactly as the `cz OFF XMP` block does; rows drawn only from
-// box outline and spacing carry no inline.
+// (prose_topic_boxes.cpp). Native CFONT/CSELECT coordinates still apply to
+// those rows, so the ordinary inline builder partitions each non-blank row
+// without changing its cells. The exact row extent is carried separately:
+// a genuine empty display row has no cell from which to reconstruct it.
 bool build_box_block(const std::vector<DecodedLogicalRecordSource>& records,
                      const std::vector<Line>& lines, std::size_t begin,
                      std::size_t end, ProseBlockIR& block, Ledger& ledger,
@@ -402,27 +415,30 @@ bool build_box_block(const std::vector<DecodedLogicalRecordSource>& records,
   std::vector<std::pair<std::size_t, std::size_t>> block_refs;
   for (auto index = begin; index < end; ++index) {
     const auto& line = lines[index];
+    if (line.box_record == npos || line.box_record >= records.size() ||
+        line.box_token_begin >= line.box_token_end)
+      return fail(error, "drawn box row has no native source extent");
     auto text = line_text(line);
-    while (!text.empty() && text.back() == ' ') text.pop_back();
     std::vector<std::pair<std::size_t, std::size_t>> refs;
     for (const auto& cell : line.cells) {
       if (cell.record == npos) continue;
       auto& entry = ledger.at(cell.record, cell.token);
       if (entry.role != ProseTokenRoleIR::text) continue;
-      if (!claim_token_whole(records, ledger, cell.record, cell.token,
-                             block_index, block.inlines.size(), error))
-        return false;
       refs.emplace_back(cell.record, cell.token);
     }
     std::sort(refs.begin(), refs.end());
     refs.erase(std::unique(refs.begin(), refs.end()), refs.end());
     if (!refs.empty()) {
-      ProseInlineIR inline_node;
-      inline_node.text = text;
-      inline_node.slices = slices_for(records, refs);
-      block.inlines.push_back(std::move(inline_node));
+      auto native = line;
+      native.text_begin = 0;
+      if (!build_block(records, {native}, 0, 1, block, ledger, block_index,
+                       error, true))
+        return false;
       block_refs.insert(block_refs.end(), refs.begin(), refs.end());
     }
+    block.preformatted_line_inline_ends.push_back(block.inlines.size());
+    block.preformatted_line_sources.push_back(token_slice(
+        records[line.box_record], line.box_token_begin, line.box_token_end));
     rows.push_back(std::move(text));
   }
   if (block.inlines.empty())

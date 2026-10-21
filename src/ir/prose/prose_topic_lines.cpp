@@ -532,10 +532,54 @@ struct LineBuilder {
     return nullptr;
   }
 
+  // A hidden row instruction inside a native drawing addresses the first
+  // displayed row after the instruction.  Compare its carried logical-record
+  // and token extent to the region's stored display-line framing; no decoded
+  // spelling or topic-specific coordinate adjustment is involved.
+  std::size_t box_row_after(const BoxRegion& region,
+                            const DocumentSourceSliceIR& source) const {
+    for (std::size_t row = 0; row < region.lines.size(); ++row) {
+      const auto& line = region.lines[row];
+      const auto logical = records[line.record].logical_record;
+      if (logical > source.logical_record ||
+          (logical == source.logical_record &&
+           line.line.prefix_token >= source.token_end))
+        return row;
+    }
+    return npos;
+  }
+
+  bool apply_box_control(const Item& item, Line& row) {
+    if (item.kind == ItemKind::font) {
+      for (const auto& span : item.spans) {
+        Span applied;
+        applied.begin = span.column;
+        applied.end = span.column + span.length;
+        applied.style = span.style;
+        row.fonts.push_back(std::move(applied));
+      }
+      return true;
+    }
+    if (item.kind != ItemKind::select)
+      return fail(error, "non-span instruction attached to a drawn box row");
+    Span applied;
+    applied.begin = item.column;
+    applied.end = item.column + item.length;
+    applied.target = item.target;
+    applied.target_kind = item.target_kind;
+    applied.target_alternatives = item.target_alternatives;
+    applied.target_source = item.target_source;
+    applied.picture = item.picture;
+    row.links.push_back(std::move(applied));
+    return true;
+  }
+
   // Emits one preformatted row per display line of the region and gives every
   // source token of the region its ledger role.
   bool emit_box(const BoxRegion& region) {
     if (!finish_title() || !finish_index()) return false;
+    const auto first_row = out.lines.size();
+    const auto controls_before = pending_controls;
     pending_controls.clear();
     line_open = false;
     pending_space = false;
@@ -545,6 +589,9 @@ struct LineBuilder {
       const auto& record = records[box_line.record];
       Line row;
       row.box = true;
+      row.box_record = box_line.record;
+      row.box_token_begin = box_line.line.prefix_token;
+      row.box_token_end = box_line.line.token_end;
       row.origin = 0;
       row.breaks_before = first ? trailing_bare : 0;
       row.directive = current_directive;
@@ -562,6 +609,30 @@ struct LineBuilder {
       }
       row.text_begin = 0;
       out.lines.push_back(std::move(row));
+    }
+    // Controls already pending when the top rule arrives address its first
+    // displayed row. Controls stored between region rows address the first
+    // later native row, exactly as their display framing orders them.
+    for (const auto control : controls_before)
+      if (!apply_box_control(items[control], out.lines[first_row]))
+        return false;
+    for (const auto& item : items) {
+      if (item.kind == ItemKind::anchor &&
+          item.source.token_end > item.source.token_begin &&
+          box_at_logical(item.source.logical_record,
+                         item.source.token_begin) == &region)
+        return fail(error,
+                    "anchor inside a drawn box needs a native row position");
+      if ((item.kind != ItemKind::font && item.kind != ItemKind::select) ||
+          item.source.token_end <= item.source.token_begin ||
+          box_at_logical(item.source.logical_record,
+                         item.source.token_begin) != &region)
+        continue;
+      const auto row = box_row_after(region, item.source);
+      if (row == npos)
+        return fail(error,
+                    "font/selector inside a drawn box has no later row");
+      if (!apply_box_control(item, out.lines[first_row + row])) return false;
     }
     trailing_bare = 0;
     // A subject-index line inside the region draws nothing (hosted carries no
@@ -627,7 +698,7 @@ struct LineBuilder {
         // and its dictionary spelling is the ordinary word `any`.  Read as
         // text it becomes a word the reader never displays; the framing says
         // it is the row-control slot.
-        if (display_line_prefix_at(record, token) || is_placeholder_run(view))
+        if (display_line_prefix_at(record, token))
           role = ProseTokenRoleIR::marker;
         else if (is_bare(view))
           role = ProseTokenRoleIR::spacing;
@@ -922,13 +993,23 @@ struct LineBuilder {
       for (const auto control : pending_controls) {
         const auto& item = items[control];
         if (item.kind == ItemKind::font) {
-          for (const auto& span : item.spans)
-            line().fonts.push_back(
-                {span.column, span.column + span.length, span.style, {}});
+          for (const auto& source : item.spans) {
+            Span font;
+            font.begin = source.column;
+            font.end = source.column + source.length;
+            font.style = source.style;
+            line().fonts.push_back(std::move(font));
+          }
         } else {
-          line().links.push_back({item.column, item.column + item.length,
-                                  FontStyleIR::unknown, item.target,
-                                  item.target_kind, item.picture});
+          Span link;
+          link.begin = item.column;
+          link.end = item.column + item.length;
+          link.target = item.target;
+          link.target_kind = item.target_kind;
+          link.target_alternatives = item.target_alternatives;
+          link.target_source = item.target_source;
+          link.picture = item.picture;
+          line().links.push_back(std::move(link));
         }
       }
       pending_controls.clear();

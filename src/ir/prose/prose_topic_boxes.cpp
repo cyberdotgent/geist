@@ -88,6 +88,31 @@ BoxLineKind classify(const std::vector<std::uint16_t>& columns, std::size_t& lef
   return BoxLineKind::none;
 }
 
+// Once a strict top rule has established the region's rails, body rows are
+// classified at those coordinates rather than by trimming their own visible
+// extent.  Native drawings legitimately annotate outside the rails:
+// FA1PLMM0 9.3 continues a rounding explanation after its right rail, while
+// SC24-5520 1.1.27 puts byte offsets before its left rail.  Those cells are
+// part of the framed display row; they do not move the drawing's boundary.
+BoxLineKind classify_at(const std::vector<std::uint16_t>& columns,
+                        std::size_t left, std::size_t right) {
+  if (left >= right || right >= columns.size()) return BoxLineKind::none;
+  const auto rail = [](std::uint16_t word, std::uint16_t tee) {
+    return word == box_rail || word == tee;
+  };
+  if (rail(columns[left], box_rail_left_tee) &&
+      rail(columns[right], box_rail_right_tee))
+    return BoxLineKind::side;
+  if (columns[left] != box_bottom_left ||
+      columns[right] != box_bottom_right)
+    return BoxLineKind::none;
+  for (auto column = left + 1; column < right; ++column)
+    if (columns[column] != ' ' && columns[column] != box_rule &&
+        !box_word(columns[column]))
+      return BoxLineKind::none;
+  return BoxLineKind::bottom;
+}
+
 struct Candidate {
   std::size_t record = 0;
   DisplayLineIR line;
@@ -96,6 +121,7 @@ struct Candidate {
   std::size_t right = 0;
   bool control_only = false;
   bool index = false;
+  bool blank = false;
   std::string text;
   std::vector<std::uint16_t> columns;
 };
@@ -166,6 +192,7 @@ std::vector<BoxRegion> plan_boxes(
       candidate.index = index_line(record, line);
       candidate.control_only =
           control_only_line(record, line) || candidate.index;
+      candidate.blank = candidate.columns.empty();
       candidates.push_back(std::move(candidate));
     }
   }
@@ -178,16 +205,13 @@ std::vector<BoxRegion> plan_boxes(
     std::size_t end = npos;
     for (auto cursor = index + 1; cursor < candidates.size(); ++cursor) {
       const auto& candidate = candidates[cursor];
-      if (candidate.kind == BoxLineKind::none) {
-        if (candidate.control_only) continue;
-        break;
-      }
-      if (candidate.left != left || candidate.right != right) break;
-      if (candidate.kind == BoxLineKind::side) {
+      if (candidate.control_only || candidate.blank) continue;
+      const auto kind = classify_at(candidate.columns, left, right);
+      if (kind == BoxLineKind::side) {
         ++sides;
         continue;
       }
-      if (candidate.kind == BoxLineKind::bottom) {
+      if (kind == BoxLineKind::bottom) {
         end = cursor;
         break;
       }

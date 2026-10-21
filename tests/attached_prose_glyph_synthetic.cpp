@@ -207,6 +207,50 @@ void leading_native_box_glyphs() {
           "unstyled native box row was reflowed: " + html);
   }
 }
+void native_drawing_region() {
+  Builder b(false);
+  // The top rule fixes the rails at columns 3 and 10. Body annotations may
+  // extend outside those rails, and the stored empty display row belongs to
+  // the drawing because aligned sides and a bottom rule close around it.
+  b.line({w("   "), {0x250c, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500,
+                      0x2500, 0x2510}});
+  b.line({w("cfont"), w("4"), w("5"), w("P")});
+  b.line({w("cselect"), w("4"), w("5"), w("TARGET")});
+  b.line({{2, '0'}, w("  "), {2, 0x2502},
+          {1, 'L', 'A', 'B', 'E', 'L'}, {0x2502},
+          w("tail")});
+  b.line({w("   "), {0x251c, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500,
+                      0x2500, 0x2524}});
+  b.line({});
+  b.line({w("   "), {2, 0x2502}, w("      "), {2, 0x2502}});
+  b.line({w("   "), {0x2514, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500,
+                      0x2500, 0x2518}});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "native drawing region rejected: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  check(html.find("<pre") != std::string::npos &&
+            html.find("0  |") != std::string::npos &&
+            html.find("| tail") != std::string::npos &&
+            html.find("\n\n   |") != std::string::npos,
+        "native drawing rows were not composed exactly: " + html);
+  check(html.find("<code class=\"geist-monospace\">") != std::string::npos,
+        "native drawing font was lost: " + html);
+  check(html.find("href=\"#TARGET\"") != std::string::npos,
+        "native drawing selector was lost: " + html);
+}
+void unclosed_native_drawing() {
+  Builder b(false);
+  b.line({w("   "), {0x250c, 0x2500, 0x2500, 0x2500, 0x2510}});
+  b.line({w("   "), {2, 0x2502}, w("   "), {2, 0x2502}});
+  b.line({});
+  b.line({w("ordinary prose")});
+  std::string error;
+  check(!lower(b, error),
+        "an unclosed drawing absorbed its blank row and following prose");
+}
 void bullet() {
   Builder b;
   b.line({w("cz"), w("BREAK"), w("3")});
@@ -235,6 +279,8 @@ int main() {
   suppress_following_spaces();
   mixed_word();
   leading_native_box_glyphs();
+  native_drawing_region();
+  unclosed_native_drawing();
   bullet();
   rejected({w("   "), w("SNA"), {1}, {0xffff}, {1}, w("ps")});
   rejected({w("   "), w("SNA"), {0x2666}, w("ps")});

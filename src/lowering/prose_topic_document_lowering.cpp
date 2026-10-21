@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <functional>
 #include <map>
 #include <tuple>
 #include <utility>
@@ -250,6 +251,14 @@ bool lower_inlines(const ProseBlockIR& block, std::size_t begin,
       break;
     }
     case ProseInlineKindIR::cross_reference: {
+      if (node.targets.size() > 1 ||
+          std::any_of(node.targets.begin(), node.targets.end(),
+                      [](const auto& target) {
+                        return !target.alternatives.empty();
+                      }))
+        return fail(error,
+                    "prose cross-reference has target alternatives that "
+                    "DocumentIR cannot yet represent");
       if (node.target.empty())
         return fail(error, "prose cross-reference has no target");
       CrossReferenceInlineIR reference;
@@ -265,6 +274,21 @@ bool lower_inlines(const ProseBlockIR& block, std::size_t begin,
                  node.target_kind == CrossReferenceTargetKindIR::external
                      ? "prose CSELECT LNK reference"
                      : "prose CSELECT reference");
+      if (!node.targets.empty())
+        lowered.origin.slices.push_back(node.targets.front().source);
+      std::sort(lowered.origin.slices.begin(), lowered.origin.slices.end(),
+                [](const auto& left, const auto& right) {
+                  return std::make_tuple(left.logical_record,
+                                         left.segment_index,
+                                         left.token_begin, left.token_end) <
+                         std::make_tuple(right.logical_record,
+                                         right.segment_index,
+                                         right.token_begin, right.token_end);
+                });
+      lowered.origin.slices.erase(
+          std::unique(lowered.origin.slices.begin(),
+                      lowered.origin.slices.end()),
+          lowered.origin.slices.end());
       break;
     }
     case ProseInlineKindIR::line_break:
@@ -379,7 +403,8 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
   // family only places them.
   std::size_t emitted_spans = 0;
   std::string span_error;
-  const auto emit_span = [&](const ProseSpanIR& span) -> bool {
+  const auto emit_span = [&](const ProseSpanIR& span,
+                             BlockSequenceIR& destination) -> bool {
     if (span.kind == ProseSpanKindIR::table) {
       if (span.index >= prose.tables.blocks.size())
         return fail(&span_error, "table span addresses no table block");
@@ -399,14 +424,14 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
       if (lowered_table &&
           !link_table_cells(prose, span_index, table, blocks, &span_error))
         return false;
-      for (auto& block : blocks) document.blocks.push_back(std::move(block));
+      for (auto& block : blocks) destination.push_back(std::move(block));
     } else {
       if (span.index >= prose.figures.blocks.size())
         return fail(&span_error, "figure span addresses no figure block");
       auto blocks = lower_figure_block_to_document_blocks(
           prose.figures.blocks[span.index], &span_error);
       if (!blocks) return false;
-      for (auto& block : *blocks) document.blocks.push_back(std::move(block));
+      for (auto& block : *blocks) destination.push_back(std::move(block));
     }
     ++emitted_spans;
     return true;
@@ -414,12 +439,13 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
   // Anchors and spans placed at one position keep their source order: a span
   // follows the first `anchors_before` anchors of that position.
   const auto emit_anchors = [&](std::size_t position,
+                                BlockSequenceIR& destination,
                                 bool after_menu = false) -> bool {
     std::size_t ordinal = 0;
     const auto flush_spans = [&]() -> bool {
       for (const auto& span : prose.spans)
         if (span.position == position && span.anchors_before == ordinal &&
-            !emit_span(span))
+            !emit_span(span, destination))
           return false;
       return true;
     };
@@ -427,7 +453,7 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
     for (const auto& anchor : prose.anchors) {
       if (anchor.position != position || anchor.after_menu != after_menu)
         continue;
-      document.blocks.push_back(
+      destination.push_back(
           {AnchorBlockIR{anchor.id},
            origin({anchor.source}, "prose source anchor")});
       if (after_menu) continue;
@@ -458,209 +484,236 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
   // inside a list item); each run of items becomes one list block and the
   // ordinal keeps counting across the runs.
   std::map<std::size_t, std::uint64_t> list_positions;
-  std::size_t index = 0;
-  while (index < prose.blocks.size()) {
-    if (!emit_anchors(index)) {
-      fail(error, "prose span rejected: " + span_error);
-      return std::nullopt;
-    }
-    const auto& block = prose.blocks[index];
-    switch (block.kind) {
-    case ProseBlockKindIR::paragraph: {
-      ParagraphBlockIR paragraph;
-      if (!lower_inlines(block, paragraph.content, error)) return std::nullopt;
-      document.blocks.push_back(
-          {std::move(paragraph), origin(block.slices, "prose paragraph")});
-      ++index;
-      continue;
-    }
-    case ProseBlockKindIR::heading: {
-      HeadingBlockIR heading;
-      heading.level = static_cast<std::uint32_t>(block.heading_level);
-      if (heading.level < 2 || heading.level > 6) {
-        fail(error, "prose heading block level is outside 2..6");
-        return std::nullopt;
+  std::function<bool(const std::vector<std::size_t>&, BlockSequenceIR&)>
+      lower_sequence;
+  lower_sequence = [&](const std::vector<std::size_t>& indices,
+                       BlockSequenceIR& destination) -> bool {
+    std::size_t cursor = 0;
+    while (cursor < indices.size()) {
+      const auto block_index = indices[cursor];
+      if (block_index >= prose.blocks.size())
+        return fail(error, "compound prose child addresses no block");
+      if (!emit_anchors(block_index, destination))
+        return fail(error, "prose span rejected: " + span_error);
+      const auto& block = prose.blocks[block_index];
+      switch (block.kind) {
+      case ProseBlockKindIR::paragraph: {
+        ParagraphBlockIR paragraph;
+        if (!lower_inlines(block, paragraph.content, error)) return false;
+        destination.push_back(
+            {std::move(paragraph), origin(block.slices, "prose paragraph")});
+        ++cursor;
+        continue;
       }
-      if (!lower_inlines(block, heading.content, error)) return std::nullopt;
-      document.blocks.push_back(
-          {std::move(heading), origin(block.slices, "prose CZ heading")});
-      ++index;
-      continue;
-    }
-    case ProseBlockKindIR::note: {
-      // The label is the source word before the colon (`Note:`); the
-      // renderer supplies the emphasis and the colon.
-      NoteBlockIR note;
-      std::string label;
-      for (std::size_t inline_index = 0; inline_index < block.term_inline_count;
-           ++inline_index)
-        label += block.inlines[inline_index].text;
-      while (!label.empty() && (label.back() == ':' || label.back() == ' '))
-        label.pop_back();
-      if (label.empty()) {
-        fail(error, "prose note block has no label");
-        return std::nullopt;
+      case ProseBlockKindIR::heading: {
+        HeadingBlockIR heading;
+        heading.level = static_cast<std::uint32_t>(block.heading_level);
+        if (heading.level < 2 || heading.level > 6)
+          return fail(error, "prose heading block level is outside 2..6");
+        if (!lower_inlines(block, heading.content, error)) return false;
+        destination.push_back(
+            {std::move(heading), origin(block.slices, "prose CZ heading")});
+        ++cursor;
+        continue;
       }
-      note.label.push_back(
-          {TextInlineIR{label},
-           origin(inline_slices(block, 0, block.term_inline_count),
-                  "prose CZ note label")});
-      if (!lower_inlines(block, note.content, error)) return std::nullopt;
-      document.blocks.push_back(
-          {std::move(note), origin(block.slices, "prose CZ note")});
-      ++index;
-      continue;
-    }
-    case ProseBlockKindIR::preformatted: {
-      if (block.preformatted_lines.empty()) {
-        fail(error, "prose preformatted block has no rows");
-        return std::nullopt;
+      case ProseBlockKindIR::note: {
+        NoteBlockIR note;
+        std::string label;
+        for (std::size_t inline_index = 0;
+             inline_index < block.term_inline_count; ++inline_index)
+          label += block.inlines[inline_index].text;
+        while (!label.empty() && (label.back() == ':' || label.back() == ' '))
+          label.pop_back();
+        if (label.empty()) return fail(error, "prose note block has no label");
+        note.label.push_back(
+            {TextInlineIR{label},
+             origin(inline_slices(block, 0, block.term_inline_count),
+                    "prose CZ note label")});
+        if (!lower_inlines(block, note.content, error)) return false;
+        destination.push_back(
+            {std::move(note), origin(block.slices, "prose CZ note")});
+        ++cursor;
+        continue;
       }
-      auto preformatted_origin =
-          origin(block.slices, "prose CZ example block");
-      // A drawn box region reproduces its display rows exactly as hosted
-      // BookServer serves them inside `<pre>`, which makes it clean rather
-      // than degraded: the source holds character art, not a structure we
-      // failed to recover.
-      if (!block.verbatim_kind.empty())
-        preformatted_origin.detail = "prose drawn box region: verbatim rows";
-      PreformattedBlockIR preformatted;
-      preformatted.lines = block.preformatted_lines;
-      if (!block.preformatted_line_inline_ends.empty()) {
-        preformatted_origin.detail = "prose native styled example rows";
-        std::size_t first = 0;
-        std::size_t row_index = 0;
-        for (const auto end : block.preformatted_line_inline_ends) {
-          if (end < first || end > block.inlines.size() ||
-              row_index >= block.preformatted_line_sources.size()) {
-            fail(error, "styled preformatted row has invalid inline extent");
-            return std::nullopt;
+      case ProseBlockKindIR::preformatted: {
+        if (block.preformatted_lines.empty())
+          return fail(error, "prose preformatted block has no rows");
+        auto preformatted_origin =
+            origin(block.slices, "prose CZ example block");
+        if (!block.verbatim_kind.empty())
+          preformatted_origin.detail = "prose drawn box region: verbatim rows";
+        PreformattedBlockIR preformatted;
+        preformatted.lines = block.preformatted_lines;
+        if (!block.preformatted_line_inline_ends.empty()) {
+          preformatted_origin.detail = "prose native styled example rows";
+          std::size_t first = 0;
+          std::size_t row_index = 0;
+          for (const auto end : block.preformatted_line_inline_ends) {
+            if (end < first || end > block.inlines.size() ||
+                row_index >= block.preformatted_line_sources.size())
+              return fail(error,
+                          "styled preformatted row has invalid inline extent");
+            InlineSequenceIR row;
+            if (end > first && !lower_inlines(block, first, end, row, error))
+              return false;
+            preformatted.styled_lines.push_back(std::move(row));
+            preformatted.line_origins.push_back(
+                origin({block.preformatted_line_sources[row_index]},
+                       "prose native styled display row"));
+            first = end;
+            ++row_index;
           }
-          InlineSequenceIR row;
-          if (end > first && !lower_inlines(block, first, end, row, error))
-            return std::nullopt;
-          preformatted.styled_lines.push_back(std::move(row));
-          // Native framing/padding belongs to the row origin, not the inline
-          // text ledger. Child inlines retain precise character claims; the
-          // normalizer lifts their whole-token union into this full row.
-          preformatted.line_origins.push_back(
-              origin({block.preformatted_line_sources[row_index]},
-                     "prose native styled display row"));
-          first = end;
-          ++row_index;
         }
-      }
-      // Issue #81.  A block the family emitted verbatim because it could not
-      // prove the region's structure says so at the block, and carries the
-      // provenance a consumer needs to check it: the whole region's slices on
-      // the block, and one origin per row so `bootrace --explain-offset` on
-      // any byte of the fence names that row's own records, tokens and BOO
-      // byte extents rather than the region as a whole.
-      if (!block.degradation_code.empty()) {
-        preformatted_origin.detail = "prose CZ unmodelled region: verbatim rows";
-        preformatted_origin.fidelity = DocumentFidelityIR::degraded;
-        preformatted_origin.degradation_code = block.degradation_code;
-        preformatted_origin.degradation_detail = block.degradation_detail;
-        if (block.preformatted_line_inlines.size() ==
-            block.preformatted_lines.size()) {
-          for (const auto inline_index : block.preformatted_line_inlines) {
-            DocumentNodeOriginIR line_origin;
-            line_origin.derivation = DocumentDerivationIR::semantic_lowering;
-            line_origin.fidelity = DocumentFidelityIR::degraded;
-            line_origin.degradation_code = block.degradation_code;
-            if (inline_index < block.inlines.size()) {
-              line_origin.detail = "prose CZ unmodelled region: display row";
-              line_origin.slices = block.inlines[inline_index].slices;
-            } else {
-              // A blank row is a display-line break; it owns no token, so it
-              // names no source rather than borrowing the region's.
-              line_origin.detail = "prose CZ unmodelled region: blank row";
+        if (!block.degradation_code.empty()) {
+          preformatted_origin.detail =
+              "prose CZ unmodelled region: verbatim rows";
+          preformatted_origin.fidelity = DocumentFidelityIR::degraded;
+          preformatted_origin.degradation_code = block.degradation_code;
+          preformatted_origin.degradation_detail = block.degradation_detail;
+          if (block.preformatted_line_inlines.size() ==
+              block.preformatted_lines.size()) {
+            for (const auto inline_index : block.preformatted_line_inlines) {
+              DocumentNodeOriginIR line_origin;
+              line_origin.derivation = DocumentDerivationIR::semantic_lowering;
+              line_origin.fidelity = DocumentFidelityIR::degraded;
+              line_origin.degradation_code = block.degradation_code;
+              if (inline_index < block.inlines.size()) {
+                line_origin.detail =
+                    "prose CZ unmodelled region: display row";
+                line_origin.slices = block.inlines[inline_index].slices;
+              } else {
+                line_origin.detail = "prose CZ unmodelled region: blank row";
+              }
+              preformatted.line_origins.push_back(std::move(line_origin));
             }
-            preformatted.line_origins.push_back(std::move(line_origin));
           }
         }
+        destination.push_back(
+            {std::move(preformatted), std::move(preformatted_origin)});
+        ++cursor;
+        continue;
       }
-      document.blocks.push_back(
-          {std::move(preformatted), std::move(preformatted_origin)});
-      ++index;
-      continue;
-    }
-    case ProseBlockKindIR::footnote: {
-      if (block.anchor_id.empty()) {
-        fail(error, "prose footnote block has no anchor");
-        return std::nullopt;
+      case ProseBlockKindIR::footnote: {
+        if (block.anchor_id.empty())
+          return fail(error, "prose footnote block has no anchor");
+        destination.push_back(
+            {AnchorBlockIR{block.anchor_id, AnchorRoleIR::local},
+             origin(block.slices, "prose CZ footnote anchor")});
+        ParagraphBlockIR paragraph;
+        if (!lower_inlines(block, paragraph.content, error)) return false;
+        destination.push_back(
+            {std::move(paragraph), origin(block.slices, "prose CZ footnote")});
+        ++cursor;
+        continue;
       }
-      document.blocks.push_back(
-          {AnchorBlockIR{block.anchor_id, AnchorRoleIR::local},
-           origin(block.slices, "prose CZ footnote anchor")});
-      ParagraphBlockIR paragraph;
-      if (!lower_inlines(block, paragraph.content, error)) return std::nullopt;
-      document.blocks.push_back(
-          {std::move(paragraph), origin(block.slices, "prose CZ footnote")});
-      ++index;
-      continue;
-    }
-    case ProseBlockKindIR::definition_entry: {
-      DefinitionListBlockIR list;
+      case ProseBlockKindIR::definition_entry: {
+        DefinitionListBlockIR list;
+        std::vector<DocumentSourceSliceIR> list_slices;
+        const auto ordinal = block.list_ordinal;
+        while (cursor < indices.size()) {
+          const auto entry_index = indices[cursor];
+          const auto& entry = prose.blocks[entry_index];
+          if (entry.kind != ProseBlockKindIR::definition_entry ||
+              entry.list_ordinal != ordinal)
+            break;
+          DefinitionEntryIR lowered;
+          if (entry.term_inline_count == 0) {
+            if (!entry.inlines.empty())
+              return fail(error,
+                          "empty prose definition term carries inline text");
+            lowered.empty_term = true;
+          } else if (!lower_inlines(
+                         entry, 0, entry.term_inline_count, lowered.term, error,
+                         label_is_wholly_highlighted(
+                             entry, 0, entry.term_inline_count))) {
+            return false;
+          }
+          const auto has_inline_body =
+              entry.term_inline_count < entry.inlines.size();
+          if (entry.body_blocks.empty()) {
+            if (!has_inline_body ||
+                !lower_inlines(entry, lowered.definition, error))
+              return fail(error, "prose definition has no body");
+          } else {
+            if (has_inline_body) {
+              ParagraphBlockIR paragraph;
+              if (!lower_inlines(entry, paragraph.content, error)) return false;
+              lowered.definition_blocks.push_back(
+                  {std::move(paragraph),
+                   origin(inline_slices(entry, entry.term_inline_count,
+                                        entry.inlines.size()),
+                          "prose CZ definition paragraph")});
+            }
+            if (!lower_sequence(entry.body_blocks,
+                                lowered.definition_blocks))
+              return false;
+          }
+          lowered.origin = origin(entry.slices, "prose CZ definition entry");
+          list_slices.insert(list_slices.end(), entry.slices.begin(),
+                             entry.slices.end());
+          list.entries.push_back(std::move(lowered));
+          ++cursor;
+          if (cursor < indices.size() &&
+              (anchor_at(indices[cursor]) || span_at(indices[cursor])))
+            break;
+        }
+        destination.push_back(
+            {std::move(list),
+             origin(std::move(list_slices), "prose CZ definition list")});
+        continue;
+      }
+      case ProseBlockKindIR::list_item: break;
+      }
+      ListBlockIR list;
+      list.ordered = block.ordered;
+      list.marker = item_marker(block);
       std::vector<DocumentSourceSliceIR> list_slices;
       const auto ordinal = block.list_ordinal;
-      while (index < prose.blocks.size() &&
-             prose.blocks[index].kind == ProseBlockKindIR::definition_entry &&
-             prose.blocks[index].list_ordinal == ordinal) {
-        const auto& entry = prose.blocks[index];
-        DefinitionEntryIR lowered;
-        if (!lower_inlines(entry, 0, entry.term_inline_count, lowered.term,
-                           error,
-                           label_is_wholly_highlighted(
-                               entry, 0, entry.term_inline_count)) ||
-            !lower_inlines(entry, lowered.definition, error))
-          return std::nullopt;
-        lowered.origin = origin(entry.slices, "prose CZ definition entry");
-        list_slices.insert(list_slices.end(), entry.slices.begin(),
-                           entry.slices.end());
-        list.entries.push_back(std::move(lowered));
-        ++index;
-        if (anchor_at(index) || span_at(index)) break;
+      while (cursor < indices.size()) {
+        const auto item_index = indices[cursor];
+        const auto& item = prose.blocks[item_index];
+        if (item.kind != ProseBlockKindIR::list_item ||
+            item.list_ordinal != ordinal)
+          break;
+        if (item.ordered != list.ordered)
+          return fail(error, "prose list mixes ordered and unordered items");
+        if (item_marker(item) != list.marker)
+          return fail(error,
+                      "prose ordered list mixes marker alphabets");
+        ListItemIR lowered;
+        if (item.body_blocks.empty()) {
+          if (!lower_inlines(item, lowered.content, error)) return false;
+        } else {
+          ParagraphBlockIR paragraph;
+          if (!lower_inlines(item, paragraph.content, error)) return false;
+          lowered.blocks.push_back(
+              {std::move(paragraph),
+               origin(item.slices, "prose list item paragraph")});
+          if (!lower_sequence(item.body_blocks, lowered.blocks)) return false;
+        }
+        lowered.origin = origin(item.slices, "prose list item");
+        lowered.source_ordinal =
+            item_ordinal(item, ++list_positions[ordinal]);
+        list_slices.insert(list_slices.end(), item.slices.begin(),
+                           item.slices.end());
+        list.items.push_back(std::move(lowered));
+        ++cursor;
+        if (cursor < indices.size() &&
+            (anchor_at(indices[cursor]) || span_at(indices[cursor])))
+          break;
       }
-      document.blocks.push_back(
-          {std::move(list),
-           origin(std::move(list_slices), "prose CZ definition list")});
-      continue;
+      destination.push_back(
+          {std::move(list), origin(std::move(list_slices), "prose list")});
     }
-    case ProseBlockKindIR::list_item: break;
-    }
-    ListBlockIR list;
-    list.ordered = block.ordered;
-    list.marker = item_marker(block);
-    std::vector<DocumentSourceSliceIR> list_slices;
-    const auto ordinal = block.list_ordinal;
-    while (index < prose.blocks.size() &&
-           prose.blocks[index].kind == ProseBlockKindIR::list_item &&
-           prose.blocks[index].list_ordinal == ordinal) {
-      const auto& item = prose.blocks[index];
-      if (item.ordered != list.ordered) {
-        fail(error, "prose list mixes ordered and unordered items");
-        return std::nullopt;
-      }
-      if (item_marker(item) != list.marker) {
-        fail(error, "prose ordered list mixes marker alphabets");
-        return std::nullopt;
-      }
-      ListItemIR lowered;
-      if (!lower_inlines(item, lowered.content, error)) return std::nullopt;
-      lowered.origin = origin(item.slices, "prose list item");
-      lowered.source_ordinal = item_ordinal(item, ++list_positions[ordinal]);
-      list_slices.insert(list_slices.end(), item.slices.begin(),
-                         item.slices.end());
-      list.items.push_back(std::move(lowered));
-      ++index;
-      // An anchor inside a list splits it.
-      if (anchor_at(index) || span_at(index)) break;
-    }
-    document.blocks.push_back(
-        {std::move(list), origin(std::move(list_slices), "prose list")});
-  }
-  if (!emit_anchors(prose.blocks.size())) {
+    return true;
+  };
+
+  std::vector<std::size_t> roots;
+  for (std::size_t index = 0; index < prose.blocks.size(); ++index)
+    if (prose.blocks[index].parent_block == static_cast<std::size_t>(-1))
+      roots.push_back(index);
+  if (!lower_sequence(roots, document.blocks)) return std::nullopt;
+  if (!emit_anchors(prose.blocks.size(), document.blocks)) {
     fail(error, "prose span rejected: " + span_error);
     return std::nullopt;
   }
@@ -686,7 +739,7 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
     document.blocks.push_back(
         {std::move(menu), origin(std::move(menu_slices), "prose trailing menu")});
   }
-  emit_anchors(prose.blocks.size(), true);
+  emit_anchors(prose.blocks.size(), document.blocks, true);
 
   // Every container names at least the BOO bytes its own content names
   // before the document is verified.

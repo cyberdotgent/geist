@@ -136,6 +136,8 @@ struct Item {
   std::size_t length = 0;
   std::string target;
   CrossReferenceTargetKindIR target_kind = CrossReferenceTargetKindIR::anchor;
+  std::vector<std::string> target_alternatives;
+  DocumentSourceSliceIR target_source;
   // A `PIC<n>` selector standing in prose: `target` is the resource catalog
   // id and the columns it covers spell the `PICTURE n` placeholder the
   // compiler wrote there, which the image replaces.
@@ -341,6 +343,8 @@ struct Span {
   FontStyleIR style = FontStyleIR::unknown;
   std::string target;  // non-empty == cross-reference span
   CrossReferenceTargetKindIR target_kind = CrossReferenceTargetKindIR::anchor;
+  std::vector<std::string> target_alternatives;
+  DocumentSourceSliceIR target_source;
   // A picture selector: the covered columns are an image, not a link.
   bool picture = false;
 };
@@ -361,6 +365,11 @@ struct Line {
   // the source display line, verbatim, and the row joins the preformatted
   // block of its region instead of reflowing.
   bool box = false;
+  // Exact native framing of a drawn-box row.  Empty rows own no display
+  // cells, so their source extent cannot be reconstructed from `cells`.
+  std::size_t box_record = npos;
+  std::size_t box_token_begin = 0;
+  std::size_t box_token_end = 0;
   std::vector<Cell> cells;
   std::vector<Span> fonts;
   std::vector<Span> links;
@@ -392,10 +401,11 @@ struct LineBuild {
 };
 
 // One drawn box region embedded in prose: a `U+250C ... U+2510` top rule,
-// one or more `U+2502 ... U+2502` side rows and a `U+2514 ... U+2518` bottom
-// rule, all at the same left/right columns, in consecutive display lines of
-// the topic (doc/boo-spec/markup.adoc, "Drawn box regions in prose").  Hosted
-// BookServer prints the region's display lines verbatim inside its <pre>.
+// one or more rows carrying rails at those fixed columns and a
+// `U+2514 ... U+2518` bottom rule. Rows may carry annotations outside the
+// rails, and genuine empty display rows remain part of the region when a
+// later aligned bottom closes it. Hosted BookServer prints the complete
+// native display lines verbatim inside its <pre>.
 struct BoxLine {
   std::size_t record = 0;
   DisplayLineIR line;

@@ -1982,32 +1982,32 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         if (operands.empty()) return fail(error, "selector has no source token");
         // A `LNK` selector carries its destination in the leading `<...>`
         // payload tokens; they are control metadata, never display text.
-        std::size_t alternatives = 0;
+        std::size_t alternative_tokens = 0;
+        std::vector<std::size_t> alternative_source_tokens;
         if (lower_target == "lnk") {
           std::vector<std::string> tokens;
-          for (const auto token : segment.source_tokens) {
-            if (std::binary_search(operands.begin(), operands.end(), token))
-              continue;
-            const auto text = body_text(view_token(records, record_index,
-                                                   token));
-            if (text.size() < 2 || text.front() != '<' || text.back() != '>')
-              break;
-            tokens.push_back(text);
-          }
+          alternative_source_tokens =
+              selector_link_alternative_tokens(record, segment, &tokens);
           std::string link_error;
           const auto link = parse_selector_link(tokens, &link_error);
           if (!link) return fail(error, "selector rejected: " + link_error);
           if (link->kind == SelectorLinkKindIR::external_image)
             return fail(error,
                         "inline external image selector outside a figure");
-          alternatives = tokens.size();
+          alternative_tokens = alternative_source_tokens.size();
           item.target = link->destination;
           item.target_kind = CrossReferenceTargetKindIR::external;
+          item.target_alternatives = link->alternatives;
         }
         item.source = token_slice(record, operands.front(), operands.back() + 1);
+        item.target_source =
+            alternative_source_tokens.empty()
+                ? item.source
+                : token_slice(record, operands.front(),
+                              alternative_source_tokens.back() + 1);
         build.items.push_back(std::move(item));
         if (!push_payload(ProseTokenRoleIR::control, false, false, false,
-                          alternatives))
+                          alternative_tokens))
           return false;
         break;
       }

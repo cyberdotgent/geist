@@ -142,6 +142,17 @@ std::optional<geist::detail::ProseTopicIR> extract(
                                                title, nullptr, &error);
 }
 
+bool verify(const DecodedLogicalRecordSource &record, const std::string &title,
+            const geist::detail::ProseTopicIR &topic, std::string &error) {
+  const std::vector<DecodedLogicalRecordSource> sources{record};
+  const auto layout = geist::detail::extract_layout_ir(sources);
+  const auto ownership =
+      geist::detail::build_verified_ownership_ir(sources, layout, &error);
+  return ownership && geist::detail::verify_prose_topic_ir(
+                          sources, layout, *ownership, title, nullptr, topic,
+                          &error);
+}
+
 std::string body_text(const geist::detail::ProseTopicIR &topic) {
   std::string text;
   for (const auto &block : topic.blocks)
@@ -445,6 +456,82 @@ void styled_selector_columns_map_to_utf8_source_offsets() {
           "display-cell geometry was confused with UTF-8 byte offsets");
 }
 
+// Some bibliography labels are claimed by one LNK selector per edition,
+// with a footnote selector nested over only part of the same cells.  These
+// are alternatives for one displayed label, not repeated text and not a
+// reason to discard all but one destination.  This also exercises the split
+// between cell coordinates and UTF-8 byte provenance at the nested edge.
+void overlapping_selectors_preserve_every_target_once() {
+  RecordBuilder builder;
+  metadata(builder, "1.7.1", {"Alternative", "References"});
+  builder.line({words("cselect"), words("3"), words("4"), words("LNK"),
+                words("<BOOK>"), words("<>"), words("<>"),
+                words("<SC31-6105>"), words("<>"), words("<CNMYQ00>")});
+  builder.line({words("cselect"), words("3"), words("4"), words("LNK"),
+                words("<BOOK>"), words("<>"), words("<>"),
+                words("<SC31-6006>"), words("<>"), words("<CNMYY00>")});
+  builder.line(
+      {words("cselect"), words("6"), words("1"), words("FTNMERBIB")});
+  builder.line({words("cfont"), words("6"), words("1"), words("2")});
+  builder.line({words("   "), TokenWords{'C', 'a', 'f', 0x00e9}});
+  const auto record = builder.build(42);
+
+  std::string error;
+  const auto prose = extract(record, "Alternative References", error);
+  require(prose.has_value(),
+          "overlapping selector claims were rejected: " + error);
+  if (!prose) return;
+  require(verify(record, "Alternative References", *prose, error),
+          "the extracted multi-target source IR did not verify: " + error);
+  require(body_text(*prose) == "Caf\xC3\xA9",
+          "overlapping selectors duplicated or lost their visible label: '" +
+              body_text(*prose) + "'");
+
+  const auto &inlines = prose->blocks.front().inlines;
+  require(inlines.size() == 2,
+          "the nested selector/font boundaries did not produce two label "
+          "runs");
+  if (inlines.size() != 2) return;
+  const auto &outer = inlines[0];
+  const auto &nested = inlines[1];
+  require(outer.text == "Caf" && outer.targets.size() == 2,
+          "the outer label run does not retain its two edition targets");
+  require(nested.text == "\xC3\xA9" && nested.targets.size() == 3,
+          "the nested label run does not retain both editions and its "
+          "footnote target");
+  if (outer.targets.size() == 2) {
+    require(outer.targets[0].value == "DOCNUM/SC31-6105/CCONTENTS" &&
+                outer.targets[1].value == "DOCNUM/SC31-6006/CCONTENTS",
+            "distinct edition destinations were reordered or collapsed");
+    require(outer.targets[0].alternatives ==
+                std::vector<std::string>({"BOOK", "", "", "SC31-6105",
+                                          "", "CNMYQ00"}) &&
+                outer.targets[1].alternatives ==
+                    std::vector<std::string>({"BOOK", "", "",
+                                              "SC31-6006", "", "CNMYY00"}),
+            "an LNK alternative tuple was not retained verbatim");
+    require(outer.targets[0].source.token_begin <
+                outer.targets[0].source.token_end &&
+                outer.targets[1].source.token_begin <
+                    outer.targets[1].source.token_end &&
+                outer.targets[0].source.token_begin !=
+                    outer.targets[1].source.token_begin,
+            "distinct selector controls lost their individual provenance");
+  }
+  if (nested.targets.size() == 3) {
+    require(nested.targets[2].value == "FTNMERBIB" &&
+                nested.targets[2].alternatives.empty(),
+            "the nested in-book selector was not retained after the LNK "
+            "alternatives");
+    require(nested.style == geist::detail::FontStyleIR::highlight_2,
+            "the nested run lost its independent font claim");
+    require(nested.slices.size() == 1 &&
+                nested.slices.front().character_begin == 3 &&
+                nested.slices.front().character_end == 5,
+            "the nested UTF-8 cell does not own its exact byte range");
+  }
+}
+
 // Numeric display words can repeat the preceding CFONT operand byte for byte.
 // Native line framing, not decoded-text equality, bounds operand ownership.
 void repeated_numeric_words_after_a_font_instruction_stay_display_text() {
@@ -550,6 +637,7 @@ int main() {
   consecutive_font_instructions_bind_to_distinct_native_rows();
   a_font_span_inside_a_selector_preserves_both_semantics();
   styled_selector_columns_map_to_utf8_source_offsets();
+  overlapping_selectors_preserve_every_target_once();
   repeated_numeric_words_after_a_font_instruction_stay_display_text();
   a_styled_leading_bar_is_display_text();
   styled_terminal_punctuation_is_display_text();

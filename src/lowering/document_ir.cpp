@@ -289,13 +289,20 @@ bool verify_block(const BlockIR& block, bool nested, std::string* error) {
           if (node.entries.empty())
             return fail(error, "definition list is empty");
           for (const auto& entry : node.entries) {
+            if (entry.empty_term != entry.term.empty())
+              return fail(error,
+                          "definition empty-term disposition disagrees with "
+                          "its content");
+            if (entry.empty_term && entry.definition_blocks.empty())
+              return fail(error,
+                          "empty definition term has no compound body");
             if (!entry.definition.empty() &&
                 !entry.definition_blocks.empty())
               return fail(
                   error,
                   "definition has both inline and block content");
             if (!verify_origin(entry.origin, error) ||
-                !verify_inlines(entry.term, false, error))
+                !verify_inlines(entry.term, entry.empty_term, error))
               return false;
             if (entry.definition_blocks.empty()) {
               if (!verify_inlines(entry.definition, false, error)) return false;
@@ -800,6 +807,7 @@ std::string format_document_ir(const DocumentIR& document) {
               if (entry != 0) out << ' ';
               out << "term=";
               format_inlines(out, node.entries[entry].term);
+              if (node.entries[entry].empty_term) out << " empty_term=1";
               out << " definition=";
               format_inlines(out, node.entries[entry].definition);
               if (!node.entries[entry].definition_blocks.empty()) {

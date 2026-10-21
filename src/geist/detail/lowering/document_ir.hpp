@@ -175,6 +175,10 @@ struct DefinitionEntryIR {
   // A definition may contain a sequence of paragraphs, lists, tables, and
   // other non-heading blocks.  This is exclusive with `definition`.
   BlockSequenceIR definition_blocks = {};
+  // The source explicitly supplied an empty definition term.  This is not
+  // inferred from an accidentally empty inline sequence; the lowering must
+  // opt in from source-framed evidence such as an empty CZ DT control.
+  bool empty_term = false;
 };
 
 struct DefinitionListBlockIR {

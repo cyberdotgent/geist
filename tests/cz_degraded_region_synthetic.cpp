@@ -225,6 +225,13 @@ Extracted extract_record(RecordBuilder builder, std::uint32_t record) {
   extracted.prose = geist::detail::extract_prose_topic_ir(
       extracted.sources, extracted.layout, *extracted.ownership, topic_title,
       nullptr, &extracted.error);
+  if (extracted.prose) {
+    std::string verify_error;
+    require(geist::detail::verify_prose_topic_ir(
+                extracted.sources, extracted.layout, *extracted.ownership,
+                topic_title, nullptr, *extracted.prose, &verify_error),
+            "the compound CZ source tree did not verify: " + verify_error);
+  }
   return extracted;
 }
 
@@ -412,10 +419,10 @@ void syntax_followed_by_pt_builds_an_implicit_parameter_list() {
 }
 
 // Parameter descriptions in DFHP7A00 2.5.3--2.5.5 and 2.5.7 contain
-// source-declared lists after the PT/BREAK paragraph.  Until the prose source
-// IR can attach child blocks to the definition entry, the parser must name
-// that missing structure and decline instead of flattening the nested list.
-void a_nested_list_in_a_parameter_body_fails_as_compound_content() {
+// source-declared lists after the PT/BREAK paragraph.  The child list keeps
+// global block identities for the token ledger while the parameter entry
+// explicitly owns it as body content.
+void a_nested_list_in_a_parameter_body_keeps_source_ownership() {
   RecordBuilder builder;
   metadata(builder);
   inferred_parameter_prelude(builder);
@@ -431,26 +438,63 @@ void a_nested_list_in_a_parameter_body_fails_as_compound_content() {
                 words("7")});
   builder.line({words("cz"), words("FLOW"), words("DT"), words("7"),
                 words("20")});
-  builder.line({words("       "), words("OPEN"), words("Available")});
+  builder.line({words("       "), words("OPEN"), words("         "),
+                words("Available")});
+  builder.line({words("cz"), words("FLOW"), words("DT"), words("7"),
+                words("20")});
+  builder.line({words("       "), words("CLOSED"), words("       "),
+                words("Unavailable")});
   builder.line({words("cz"), words("OFF"), words("EDL"), words("0"),
                 words("0")});
   builder.line({words("cz"), words("OFF"), words("EPARML"), words("0"),
                 words("0")});
 
   const auto extracted = extract_record(std::move(builder), 25);
-  require(!extracted.prose.has_value(),
-          "a nested parameter-body list was flattened into top-level blocks");
-  require(contains(extracted.error,
-                   "nests inside a parameter body that needs compound block "
-                   "content"),
-          "the nested parameter-body decline is not structural: " +
-              extracted.error);
+  require(extracted.prose.has_value(),
+          "a nested parameter-body list was declined: " + extracted.error);
+  if (!extracted.prose) return;
+  const auto owner = std::find_if(
+      extracted.prose->blocks.begin(), extracted.prose->blocks.end(),
+      [](const auto &block) {
+        return block.kind == geist::detail::ProseBlockKindIR::definition_entry &&
+               std::any_of(block.inlines.begin(), block.inlines.end(),
+                           [](const auto &item) {
+                             return contains(item.text, "State(value)");
+                           });
+      });
+  require(owner != extracted.prose->blocks.end() &&
+              owner->body_blocks.size() == 2,
+          "the parameter entry does not own both nested list entries");
+  if (owner == extracted.prose->blocks.end() || owner->body_blocks.empty())
+    return;
+  const auto owner_index = static_cast<std::size_t>(
+      std::distance(extracted.prose->blocks.begin(), owner));
+  for (const auto child : owner->body_blocks)
+    require(child < extracted.prose->blocks.size() &&
+                extracted.prose->blocks[child].parent_block == owner_index &&
+                extracted.prose->blocks[child].kind ==
+                    geist::detail::ProseBlockKindIR::definition_entry,
+            "a nested definition entry lost its parameter-body parent");
+  require(owner->body_blocks.size() != 2 ||
+              owner->body_blocks[0] < owner->body_blocks[1],
+          "nested parameter blocks lost source order");
+  if (owner->body_blocks.size() == 2) {
+    auto reordered = *extracted.prose;
+    auto &children = reordered.blocks[owner_index].body_blocks;
+    std::swap(children[0], children[1]);
+    std::string error;
+    require(!geist::detail::verify_prose_topic_ir(
+                extracted.sources, extracted.layout, *extracted.ownership,
+                topic_title, nullptr, reordered, &error) &&
+                contains(error, "body children are not in source order"),
+            "the verifier admitted reordered compound children: " + error);
+  }
 }
 
 // DFHP7A00 2.5.3 continues a parameter description with FLOW PC after a
 // nested value list.  PC remains part of the same definition body; emitting a
 // top-level paragraph would lose that ownership.
-void a_parameter_paragraph_continuation_fails_as_compound_content() {
+void a_parameter_paragraph_continuation_keeps_source_ownership() {
   RecordBuilder builder;
   metadata(builder);
   inferred_parameter_prelude(builder);
@@ -469,18 +513,112 @@ void a_parameter_paragraph_continuation_fails_as_compound_content() {
                 words("0")});
 
   const auto extracted = extract_record(std::move(builder), 26);
-  require(!extracted.prose.has_value(),
-          "a parameter-body PC was flattened into a top-level paragraph");
-  require(contains(extracted.error,
-                   "continues a parameter body that needs compound block "
-                   "content"),
-          "the parameter PC decline is not structural: " + extracted.error);
+  require(extracted.prose.has_value(),
+          "a parameter-body PC was declined: " + extracted.error);
+  if (!extracted.prose) return;
+  const auto child = std::find_if(
+      extracted.prose->blocks.begin(), extracted.prose->blocks.end(),
+      [](const auto &block) {
+        return block.kind == geist::detail::ProseBlockKindIR::paragraph &&
+               std::any_of(block.inlines.begin(), block.inlines.end(),
+                           [](const auto &item) {
+                             return contains(item.text, "Pending");
+                           });
+      });
+  require(child != extracted.prose->blocks.end() &&
+              child->parent_block != static_cast<std::size_t>(-1) &&
+              extracted.prose->blocks[child->parent_block].kind ==
+                  geist::detail::ProseBlockKindIR::definition_entry,
+          "the parameter PC is not owned by its definition entry");
+}
+
+// A paragraph while an LI remains open belongs to that item, even when the
+// whole list is itself the block body of a parameter.  Both ownership edges
+// must survive without replacing the topic-wide source-order block indices.
+void a_list_item_continuation_keeps_recursive_source_ownership() {
+  RecordBuilder builder;
+  metadata(builder);
+  builder.line({words("cz"), words("FLOW"), words("PARML"), words("3"),
+                words("7")});
+  builder.line({words("cz"), words("FLOW"), words("PT"), words("3"),
+                words("7")});
+  builder.line({words("   "), words("Mode")});
+  builder.line({words("cz"), words("BREAK"), words("7")});
+  builder.line({words("       "), words("selects"), words("one"),
+                words("of:")});
+  builder.line({words("cz"), words("FLOW"), words("UL"), words("7"),
+                words("7")});
+  builder.line({words("cz"), words("FLOW"), words("LI"), words("7"),
+                words("7")});
+  builder.line({words("       "), words("OPEN")});
+  builder.line({words("cz"), words("FLOW"), words("P"), words("11"),
+                words("11")});
+  builder.line({words("           "), words("Allows"), words("work.")});
+  builder.line({words("cz"), words("FLOW"), words("LI"), words("7"),
+                words("7")});
+  builder.line({words("       "), words("CLOSED")});
+  builder.line({words("cz"), words("OFF"), words("EUL"), words("0"),
+                words("0")});
+  builder.line({words("cz"), words("OFF"), words("EPARML"), words("0"),
+                words("0")});
+
+  const auto extracted = extract_record(std::move(builder), 29);
+  require(extracted.prose.has_value(),
+          "a list-item continuation was declined: " + extracted.error);
+  if (!extracted.prose) return;
+  const auto item = std::find_if(
+      extracted.prose->blocks.begin(), extracted.prose->blocks.end(),
+      [](const auto &block) {
+        return block.kind == geist::detail::ProseBlockKindIR::list_item &&
+               std::any_of(block.inlines.begin(), block.inlines.end(),
+                           [](const auto &inline_node) {
+                             return contains(inline_node.text, "OPEN");
+                           });
+      });
+  const auto sibling = std::find_if(
+      extracted.prose->blocks.begin(), extracted.prose->blocks.end(),
+      [](const auto &block) {
+        return block.kind == geist::detail::ProseBlockKindIR::list_item &&
+               std::any_of(block.inlines.begin(), block.inlines.end(),
+                           [](const auto &inline_node) {
+                             return contains(inline_node.text, "CLOSED");
+                           });
+      });
+  const auto continuation = std::find_if(
+      extracted.prose->blocks.begin(), extracted.prose->blocks.end(),
+      [](const auto &block) {
+        return block.kind == geist::detail::ProseBlockKindIR::paragraph &&
+               std::any_of(block.inlines.begin(), block.inlines.end(),
+                           [](const auto &inline_node) {
+                             return contains(inline_node.text, "Allows");
+                           });
+      });
+  require(item != extracted.prose->blocks.end() &&
+              sibling != extracted.prose->blocks.end() &&
+              continuation != extracted.prose->blocks.end(),
+          "the list items or first item's continuation are missing");
+  if (item == extracted.prose->blocks.end() ||
+      sibling == extracted.prose->blocks.end() ||
+      continuation == extracted.prose->blocks.end())
+    return;
+  const auto item_index = static_cast<std::size_t>(
+      std::distance(extracted.prose->blocks.begin(), item));
+  const auto continuation_index = static_cast<std::size_t>(
+      std::distance(extracted.prose->blocks.begin(), continuation));
+  require(item->parent_block != static_cast<std::size_t>(-1) &&
+              extracted.prose->blocks[item->parent_block].kind ==
+                  geist::detail::ProseBlockKindIR::definition_entry &&
+              sibling->parent_block == item->parent_block &&
+              continuation->parent_block == item_index &&
+              item->body_blocks.size() == 1 &&
+              item->body_blocks.front() == continuation_index,
+          "the parameter/list-item ownership chain was flattened");
 }
 
 // GA19 FRONT_3 uses a deliberately empty DT as the owner of a following
 // LINES address block.  The empty term and nested preformatted body are both
 // source facts; neither may be fabricated as ordinary inline text.
-void an_empty_dt_before_lines_fails_as_a_compound_definition() {
+void an_empty_dt_before_lines_keeps_a_compound_definition() {
   RecordBuilder builder;
   metadata(builder);
   builder.line({words("cz"), words("FLOW"), words("DL"), words("3"),
@@ -496,18 +634,43 @@ void an_empty_dt_before_lines_fails_as_a_compound_definition() {
                 words("0")});
 
   const auto extracted = extract_record(std::move(builder), 27);
-  require(!extracted.prose.has_value(),
-          "an empty DT plus LINES body lost its definition ownership");
-  require(contains(extracted.error,
-                   "empty term owns a LINES body that needs compound block "
-                   "content"),
-          "the empty DT/LINES decline is not structural: " + extracted.error);
+  require(extracted.prose.has_value(),
+          "an empty DT plus LINES body was declined: " + extracted.error);
+  if (!extracted.prose) return;
+  const auto entry = std::find_if(
+      extracted.prose->blocks.begin(), extracted.prose->blocks.end(),
+      [](const auto &block) {
+        return block.kind == geist::detail::ProseBlockKindIR::definition_entry;
+      });
+  require(entry != extracted.prose->blocks.end() && entry->inlines.empty() &&
+              entry->body_blocks.size() == 1 &&
+              extracted.prose->blocks[entry->body_blocks.front()].kind ==
+                  geist::detail::ProseBlockKindIR::preformatted,
+          "the empty term does not own its LINES block");
+  if (entry == extracted.prose->blocks.end()) return;
+  std::vector<std::size_t> cz_segments;
+  for (const auto &segment : extracted.sources.front().control_segments)
+    if (segment.opcode == "cz") cz_segments.push_back(segment.segment_index);
+  require(entry->slices.size() == 1 && cz_segments.size() >= 2 &&
+              entry->slices.front().segment_index == cz_segments[1],
+          "the empty term does not retain its DT control provenance");
+  auto unproven = *extracted.prose;
+  const auto entry_index = static_cast<std::size_t>(
+      std::distance(extracted.prose->blocks.begin(), entry));
+  unproven.blocks[entry_index].slices.clear();
+  std::string error;
+  require(!geist::detail::verify_prose_topic_ir(
+              extracted.sources, extracted.layout, *extracted.ownership,
+              topic_title, nullptr, unproven, &error) &&
+              contains(error,
+                       "empty definition entry has no control provenance"),
+          "the verifier admitted an unproven empty term: " + error);
 }
 
 // GA19 19.22 puts each printer family in DT, opens an empty DD, then supplies
 // the printer names as a LINES region.  The region is a block body of that
 // entry, not a sibling preformatted block.
-void an_empty_dd_before_lines_fails_as_a_compound_definition() {
+void an_empty_dd_before_lines_keeps_a_compound_definition() {
   RecordBuilder builder;
   metadata(builder);
   builder.line({words("cz"), words("FLOW"), words("DL"), words("3"),
@@ -526,11 +689,20 @@ void an_empty_dd_before_lines_fails_as_a_compound_definition() {
                 words("0")});
 
   const auto extracted = extract_record(std::move(builder), 28);
-  require(!extracted.prose.has_value(),
-          "an empty DD plus LINES body lost its definition ownership");
-  require(contains(extracted.error,
-                   "DD owns a LINES body that needs compound block content"),
-          "the empty DD/LINES decline is not structural: " + extracted.error);
+  require(extracted.prose.has_value(),
+          "an empty DD plus LINES body was declined: " + extracted.error);
+  if (!extracted.prose) return;
+  const auto entry = std::find_if(
+      extracted.prose->blocks.begin(), extracted.prose->blocks.end(),
+      [](const auto &block) {
+        return block.kind == geist::detail::ProseBlockKindIR::definition_entry;
+      });
+  require(entry != extracted.prose->blocks.end() && !entry->inlines.empty() &&
+              entry->term_inline_count == entry->inlines.size() &&
+              entry->body_blocks.size() == 1 &&
+              extracted.prose->blocks[entry->body_blocks.front()].kind ==
+                  geist::detail::ProseBlockKindIR::preformatted,
+          "the DD term does not own its LINES block");
 }
 
 // FLOW LP is a list-part boundary, not a list item.  DFHP7A00 2.3.4.1 uses
@@ -684,10 +856,11 @@ int main() {
   an_h6_directive_builds_a_level_six_heading();
   a_separate_dd_completes_its_definition_term();
   syntax_followed_by_pt_builds_an_implicit_parameter_list();
-  a_nested_list_in_a_parameter_body_fails_as_compound_content();
-  a_parameter_paragraph_continuation_fails_as_compound_content();
-  an_empty_dt_before_lines_fails_as_a_compound_definition();
-  an_empty_dd_before_lines_fails_as_a_compound_definition();
+  a_nested_list_in_a_parameter_body_keeps_source_ownership();
+  a_parameter_paragraph_continuation_keeps_source_ownership();
+  a_list_item_continuation_keeps_recursive_source_ownership();
+  an_empty_dt_before_lines_keeps_a_compound_definition();
+  an_empty_dd_before_lines_keeps_a_compound_definition();
   a_list_part_paragraph_fails_as_mixed_list_content();
   a_closed_unmodelled_region_degrades_its_block();
   an_unclosed_unmodelled_region_declines_the_topic();

@@ -246,13 +246,9 @@ struct Frame {
   // controls can claim one definition entry without inferring their
   // relationship from displayed text.
   std::size_t pending_definition = npos;
-  // The separately introduced body remains active until the next term or
-  // list closer. Nested blocks in that interval require compound content.
-  bool separate_definition_body = false;
-  // An inferred PARML is admitted only when its full controlled body is
-  // simple. Explicit PARML historically permits further FLOW blocks; those
-  // remain independently owned until ProseTopicIR itself becomes recursive.
-  bool inferred_parameter_list = false;
+  // Global block index of the term whose compound body is active. Child
+  // blocks remain in the topic-wide source order and link back to this owner.
+  std::size_t body_owner = npos;
 };
 
 struct CzBuilder {
@@ -265,7 +261,6 @@ struct CzBuilder {
   std::vector<std::size_t> block_first_line;
   std::vector<Frame> stack;
   std::size_t next_list_ordinal = 0;
-  bool saw_inferred_parameter_list = false;
   // Display-line range [first, second) of every directive (npos: none).
   std::vector<std::pair<std::size_t, std::size_t>> ranges;
 
@@ -275,13 +270,29 @@ struct CzBuilder {
       : records(sources), build(lines_build), ledger(owner), topic(out),
         error(message), lines(lines_build.lines) {}
 
+  std::size_t active_body_owner() const {
+    for (auto frame = stack.rbegin(); frame != stack.rend(); ++frame)
+      if (frame->body_owner != npos) return frame->body_owner;
+    return npos;
+  }
+
+  void append(ProseBlockIR block, std::size_t first_line) {
+    const auto index = topic.blocks.size();
+    const auto parent = active_body_owner();
+    if (parent != npos) {
+      block.parent_block = parent;
+      topic.blocks[parent].body_blocks.push_back(index);
+    }
+    topic.blocks.push_back(std::move(block));
+    block_first_line.push_back(first_line);
+  }
+
   bool emit(ProseBlockIR block, std::size_t begin, std::size_t end) {
     const auto index = topic.blocks.size();
     if (!build_block(records, lines, begin, end, block, ledger, index, error))
       return false;
     if (begin < lines.size()) block.origin = lines[begin].origin;
-    topic.blocks.push_back(std::move(block));
-    block_first_line.push_back(begin);
+    append(std::move(block), begin);
     return true;
   }
 
@@ -328,6 +339,11 @@ struct CzBuilder {
       return fail(error, "cz FLOW LI outside an open list");
     if (groups.empty()) return fail(error, "cz FLOW LI has no text");
     auto& frame = stack.back();
+    // The previous LI's body ends at this sibling LI. Clear it before
+    // appending the new item so the new item keeps the enclosing owner (for
+    // example, a parameter definition) rather than becoming its sibling's
+    // child.
+    frame.body_owner = npos;
     ProseBlockIR block;
     block.kind = ProseBlockKindIR::list_item;
     block.list_ordinal = frame.list_ordinal;
@@ -337,8 +353,11 @@ struct CzBuilder {
     if (block.ordered && !take_ordinal(first, block.ordinal)) return false;
     if (!has_text(first)) return fail(error, "cz FLOW LI has no text");
     (void)directive;
-    return emit(std::move(block), groups.front().first, groups.front().second) &&
-           paragraphs(groups, 1);
+    const auto block_index = topic.blocks.size();
+    if (!emit(std::move(block), groups.front().first, groups.front().second))
+      return false;
+    frame.body_owner = block_index;
+    return paragraphs(groups, 1);
   }
 
   bool definition(const LayoutDirective& directive,
@@ -350,7 +369,7 @@ struct CzBuilder {
     auto& frame = stack.back();
     if (frame.pending_definition != npos)
       return fail(error, "cz FLOW DT follows a term with no cz FLOW DD body");
-    frame.separate_definition_body = false;
+    frame.body_owner = npos;
     ++frame.items;
     const auto [begin, end] = groups.front();
     auto& row = lines[begin];
@@ -366,8 +385,7 @@ struct CzBuilder {
                        error))
         return false;
       block.term_inline_count = block.inlines.size();
-      topic.blocks.push_back(std::move(block));
-      block_first_line.push_back(begin);
+      append(std::move(block), begin);
       frame.pending_definition = index;
       return true;
     }
@@ -400,9 +418,9 @@ struct CzBuilder {
     // `   /L[+|-]` followed by `cz OFF LINES` .. `cz OFF ELINES 10 10`, and
     // hosted (DT 19961114175628) serves `<dt>   <tt>/L[+|-]</tt>` with no
     // `<dd>` and then the `<pre width="80">` holding `/L`, `/L+`, `/L-`.
-    // `DefinitionEntryIR` is a term plus an *inline* definition. A following
-    // DD can supply that inline body; a following region still needs compound
-    // definition content and is rejected when that directive is reached.
+    // A following DD can supply an inline body. A following region instead
+    // becomes a child block of this entry, retaining both global ledger
+    // identity and compound definition ownership.
     ProseBlockIR block;
     block.kind = ProseBlockKindIR::definition_entry;
     block.list_ordinal = frame.list_ordinal;
@@ -414,15 +432,13 @@ struct CzBuilder {
     const auto body_has_text =
         std::any_of(parts.begin() + 1, parts.end(), has_text);
     if (!body_has_text) {
-      topic.blocks.push_back(std::move(block));
-      block_first_line.push_back(begin);
+      append(std::move(block), begin);
       frame.pending_definition = index;
       return true;
     }
     if (!build_block(records, parts, 1, parts.size(), block, ledger, index, error))
       return false;
-    topic.blocks.push_back(std::move(block));
-    block_first_line.push_back(begin);
+    append(std::move(block), begin);
     return paragraphs(groups, 1);
   }
 
@@ -438,11 +454,6 @@ struct CzBuilder {
                              "'");
     }
     if (groups.empty()) return fail(error, "cz FLOW DD has no text");
-    // More than one source paragraph needs compound definition content in
-    // DocumentIR.  Keep failing closed until that shared representation can
-    // preserve the boundary instead of flattening it into one inline run.
-    if (groups.size() != 1)
-      return fail(error, "cz FLOW DD has multiple paragraph groups");
     const auto block_index = frame.pending_definition;
     if (block_index >= topic.blocks.size())
       return fail(error, "internal: cz FLOW DD addresses no definition term");
@@ -452,7 +463,42 @@ struct CzBuilder {
                      error))
       return false;
     frame.pending_definition = npos;
-    frame.separate_definition_body = true;
+    frame.body_owner = block_index;
+    return paragraphs(groups, 1);
+  }
+
+  bool empty_definition_with_block_body(const LayoutDirective& directive,
+                                        std::size_t first_body_line) {
+    if (stack.empty() || stack.back().tag != "dl")
+      return fail(error, "cz FLOW DT outside an open definition list");
+    auto& frame = stack.back();
+    if (frame.pending_definition != npos)
+      return fail(error, "cz FLOW DT follows a term with no cz FLOW DD body");
+    frame.body_owner = npos;
+    ++frame.items;
+    ProseBlockIR block;
+    block.kind = ProseBlockKindIR::definition_entry;
+    block.list_ordinal = frame.list_ordinal;
+    // The term deliberately has no visible inline. Its DT control is the
+    // stable source identity of the empty semantic node; the following LINES
+    // region has its own source slices on its child block.
+    block.slices.push_back(directive.source);
+    if (first_body_line < lines.size())
+      block.origin = lines[first_body_line].origin;
+    const auto block_index = topic.blocks.size();
+    append(std::move(block), first_body_line);
+    frame.body_owner = block_index;
+    return true;
+  }
+
+  bool empty_definition_body_before_block() {
+    if (stack.empty() || stack.back().tag != "dl")
+      return fail(error, "cz FLOW DD outside an open definition list");
+    auto& frame = stack.back();
+    if (frame.pending_definition == npos)
+      return fail(error, "cz FLOW DD has no preceding term");
+    frame.body_owner = frame.pending_definition;
+    frame.pending_definition = npos;
     return true;
   }
 
@@ -468,7 +514,7 @@ struct CzBuilder {
     // flattening the groups here would erase a source-declared boundary.
     if (groups.size() != 1)
       return fail(error, "cz FLOW PT has multiple paragraph groups");
-    frame.separate_definition_body = false;
+    frame.body_owner = npos;
     ++frame.items;
     const auto [begin, end] = groups.front();
     ProseBlockIR block;
@@ -480,8 +526,7 @@ struct CzBuilder {
                      error))
       return false;
     block.term_inline_count = block.inlines.size();
-    topic.blocks.push_back(std::move(block));
-    block_first_line.push_back(begin);
+    append(std::move(block), begin);
     frame.pending_definition = block_index;
     return true;
   }
@@ -492,10 +537,6 @@ struct CzBuilder {
         stack.back().pending_definition == npos)
       return fail(error, "cz BREAK is not the body of a cz FLOW PT term");
     if (groups.empty()) return fail(error, "cz BREAK after PT has no text");
-    // As with DD, more than one paragraph requires a compound definition
-    // body rather than one flattened inline run.
-    if (groups.size() != 1)
-      return fail(error, "cz BREAK after PT has multiple paragraph groups");
     auto& frame = stack.back();
     const auto block_index = frame.pending_definition;
     if (block_index >= topic.blocks.size())
@@ -506,8 +547,8 @@ struct CzBuilder {
                      error))
       return false;
     frame.pending_definition = npos;
-    frame.separate_definition_body = true;
-    return true;
+    frame.body_owner = block_index;
+    return paragraphs(groups, 1);
   }
 
   bool implicit_parameter_list(std::size_t index) const {
@@ -561,8 +602,7 @@ struct CzBuilder {
     block.term_inline_count = block.inlines.size();
     if (!build_block(records, parts, 1, parts.size(), block, ledger, index, error))
       return false;
-    topic.blocks.push_back(std::move(block));
-    block_first_line.push_back(begin);
+    append(std::move(block), begin);
     return paragraphs(groups, 1);
   }
 
@@ -650,8 +690,7 @@ struct CzBuilder {
     std::sort(block_refs.begin(), block_refs.end());
     block.slices = slices_for(records, block_refs);
     block.origin = lines[begin].origin;
-    topic.blocks.push_back(std::move(block));
-    block_first_line.push_back(begin);
+    append(std::move(block), begin);
     return true;
   }
 
@@ -751,8 +790,7 @@ struct CzBuilder {
       ++rows;
     }
     if (rows == 0) return true;
-    topic.blocks.push_back(std::move(block));
-    block_first_line.push_back(begin);
+    append(std::move(block), begin);
     return true;
   }
 
@@ -1058,6 +1096,13 @@ struct CzBuilder {
       // same page, at the region's own left margin of three columns, and the
       // prose around it stays typed (`<dl>`, `<dt>`, `<a href>`).
       if (directive.mode == "off" && cz_verbatim_region_tag(tag)) {
+        // A term may hand its body directly to a source-declared block
+        // region without an intervening DD.  The pending term is the owner of
+        // that region, not an inline definition missing its text.
+        if (tag == "lines" && !stack.empty() && stack.back().tag == "dl" &&
+            stack.back().pending_definition != npos &&
+            !empty_definition_body_before_block())
+          return false;
         std::string opener;
         for (const auto ch : tag)
           opener.push_back(
@@ -1220,39 +1265,15 @@ struct CzBuilder {
       if (tag == "pt") {
         if ((stack.empty() || stack.back().tag != "parml") &&
             implicit_parameter_list(index)) {
-          saw_inferred_parameter_list = true;
-          stack.push_back(
-              {"parml", next_list_ordinal++, 0, npos, false, true});
+          stack.push_back({"parml", next_list_ordinal++, 0});
         }
         return parameter_term(groups);
       }
       if (tag == "p" || tag == "pc" || tag == "gd") {
-        if (!stack.empty() &&
-            (stack.back().tag == "dl" ||
-             (stack.back().tag == "parml" &&
-              (stack.back().inferred_parameter_list ||
-               saw_inferred_parameter_list))) &&
-            stack.back().separate_definition_body) {
-          const auto body = stack.back().tag == "dl" ? "DD body"
-                                                       : "parameter body";
-          return fail(error, name + " continues a " + body +
-                                 " that needs compound block content");
-        }
         if (!paragraphs(groups, 0)) return false;
         return true;
       }
       if (list_tag(tag)) {
-        if (!stack.empty() &&
-            (stack.back().tag == "dl" ||
-             (stack.back().tag == "parml" &&
-              (stack.back().inferred_parameter_list ||
-               saw_inferred_parameter_list))) &&
-            stack.back().separate_definition_body) {
-          const auto body = stack.back().tag == "dl" ? "DD body"
-                                                       : "parameter body";
-          return fail(error, name + " nests inside a " + body +
-                                 " that needs compound block content");
-        }
         // A list opener may carry the list's lead-in rows, exactly as the
         // list closer carries the body text that follows the list.  Hosted
         // BookServer serves them ahead of the first item and inside the list
@@ -1279,10 +1300,13 @@ struct CzBuilder {
       if (tag == "dt") {
         if (groups.empty() && index + 1 < build.directives.size() &&
             build.directives[index + 1].mode == "off" &&
-            build.directives[index + 1].tag == "lines")
-          return fail(error,
-                      "cz FLOW DT empty term owns a LINES body that needs "
-                      "compound block content");
+            build.directives[index + 1].tag == "lines") {
+          const auto first_body_line = ranges[index + 1].first;
+          if (first_body_line == npos)
+            return fail(error, "cz OFF LINES body has no display rows");
+          return empty_definition_with_block_body(directive,
+                                                  first_body_line);
+        }
         const auto separate_body =
             index + 1 < build.directives.size() &&
             build.directives[index + 1].mode == "flow" &&
@@ -1294,9 +1318,7 @@ struct CzBuilder {
         if (groups.empty() && index + 1 < build.directives.size() &&
             build.directives[index + 1].mode == "off" &&
             build.directives[index + 1].tag == "lines")
-          return fail(error,
-                      "cz FLOW DD owns a LINES body that needs compound block "
-                      "content");
+          return empty_definition_body_before_block();
         return definition_body(groups);
       }
       if (tag == "nt" || tag == "note") {
