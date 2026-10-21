@@ -93,6 +93,14 @@ std::string word_text(std::uint16_t word) {
 
 std::string body_text(const TokenView& view) {
   std::string text;
+  for (const auto word : view.body)
+    text += word == bullet_glyph_word ? figure_display_glyph(word)
+                                      : token_words_to_ascii({word});
+  return text;
+}
+
+std::string display_body_text(const TokenView& view) {
+  std::string text;
   for (const auto word : view.body) text += word_text(word);
   return text;
 }

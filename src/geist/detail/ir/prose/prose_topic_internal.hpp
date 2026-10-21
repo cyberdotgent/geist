@@ -77,6 +77,7 @@ bool punctuation_glyph_token(const TokenView& view);
 bool is_separator(const TokenView& view);
 std::string word_text(std::uint16_t word);
 std::string body_text(const TokenView& view);
+std::string display_body_text(const TokenView& view);
 
 std::size_t segment_of(const DecodedLogicalRecordSource& record,
                        std::size_t token);

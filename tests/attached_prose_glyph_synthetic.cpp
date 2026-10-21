@@ -216,6 +216,9 @@ void native_drawing_region() {
                       0x2500, 0x2510}});
   b.line({w("cfont"), w("4"), w("5"), w("P")});
   b.line({w("cselect"), w("4"), w("5"), w("TARGET")});
+  // One source token supplies five display cells. The arrow is one selector
+  // column but three rendered UTF-8 bytes, so its inline claim must use the
+  // displayed spelling rather than the decoder's one-byte `?` fallback.
   b.line({{2, '0'}, w("  "), {2, 0x2502},
           {1, 'L', 'A', 0x2192, 'E', 'L'}, {0x2502},
           w("tail")});

@@ -270,7 +270,7 @@ bool verify_prose_topic_ir(
     const auto found = record_index.find(logical_record);
     if (found == record_index.end()) return 0;
     return static_cast<std::uint32_t>(
-        prose_internal::body_text(
+        prose_internal::display_body_text(
             prose_internal::view_token(records, found->second, token))
             .size());
   };

@@ -66,7 +66,8 @@ std::vector<DocumentSourceSliceIR> slices_for_claims(
   };
   for (const auto& claim : claims) {
     const auto length = static_cast<std::uint32_t>(
-        body_text(view_token(records, claim.record, claim.token)).size());
+        display_body_text(view_token(records, claim.record, claim.token))
+            .size());
     if (claim.begin == 0 && claim.end == length) {
       whole.emplace_back(claim.record, claim.token);
       continue;
