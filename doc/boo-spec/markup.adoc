@@ -518,6 +518,19 @@ the label `value:` (the row marker is at byte `0x43D5D`); segment 3 starts the
 separate `Explanation:` field.  The empty `value:` row therefore remains a
 field with an empty body rather than becoming part of either adjacent field.
 
+Every span of an entry's `cfont` keeps its own style, in the headline as
+in a field.  The headline is wholly highlighted, but not wholly bold.
+`N2AH1MST` topic `2.0` record 151 line 9 is the `cfont` at token 39
+(`25` at `0x1E704`) whose spans `3 7 2 ... 39 6 2 46 3 V 50 3 2 ...` style
+`   ADY001I THE DAE PARAMETER RECORD IN MEMBER mem HAS A SYNTAX ERROR ...`;
+the span `46 3 V` is tokens 61--63 (`46` = `EE 6F` at `0x1E71B`, `3` =
+`9A` at `0x1E71D`, `V` = `83` at `0x1E71E`) and covers `mem` (token 91,
+`D7 88` at `0x1E747`).  Hosted (DT `19910329000100`) serves
+`<B>MEMBER</B> <var>mem</var> <B>HAS</B>`: a `V` span is a variable inside
+the headline, not part of its bold.  The same holds in a field:
+`28.0` serves `use the <B>DELETE</B> <B>'</B><var>sys1.vvols.vxxxxxx</var><B>'</B>`
+and `the variable <var>sfierror</var> in message IEC331I`.
+
 The headline and each field are separate paragraphs.  Hosted BookServer
 serves `SC31-711` topic `4.1.1` (DT `19941010174546`) as `<B>0</B>`, `<p>`,
 `<B>Description:</B>  coldStart`, `<p>`, and so on; no character stands

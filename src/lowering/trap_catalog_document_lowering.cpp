@@ -4,6 +4,7 @@
 #include "geist/detail/lowering/trap_catalog_document_lowering.hpp"
 
 #include "geist/detail/core/internal.hpp"
+#include "geist/detail/lowering/font_style_inlines.hpp"
 
 #include <algorithm>
 #include <iterator>
@@ -99,6 +100,12 @@ std::optional<EmphasisKindIR> emphasis_for(FontStyleIR style) {
   switch (style) {
   case FontStyleIR::highlight_1:
     return EmphasisKindIR::emphasis;
+  // A `V` (PV) span is a programming variable, hosted `<var>`: N2AH1MST 2.0
+  // (DT 19910329000100) serves `<B>MEMBER</B> <var>mem</var>` inside a
+  // headline and `<var>prm</var><B>:</B>  <var>text</var>` on its next row.
+  // It takes the variable convention every other family lowers it to.
+  case FontStyleIR::variable:
+    return font_style_emphasis_kind(style);
   case FontStyleIR::highlight_2:
   case FontStyleIR::bold_phrase:
     return EmphasisKindIR::strong;
@@ -113,7 +120,6 @@ std::optional<EmphasisKindIR> emphasis_for(FontStyleIR style) {
   case FontStyleIR::example_phrase:
   case FontStyleIR::keyword:
   case FontStyleIR::keyword_define:
-  case FontStyleIR::variable:
   case FontStyleIR::italic_phrase:
   case FontStyleIR::warning:
   case FontStyleIR::warning_text:
@@ -127,8 +133,9 @@ std::optional<EmphasisKindIR> emphasis_for(FontStyleIR style) {
 // Highlighted span words as separate inlines: BookServer renders each CFONT
 // span as its own run, separated by the gap its columns leave. Spans that
 // abut leave no gap and no separator. The entry headline is the term of the
-// definition item and is always strong, which also covers the headline CFONT
-// code the decoder leaves glued to its control boundary (`2,`).
+// definition item: a span whose style has no rendering of its own is strong,
+// which also covers the headline CFONT code the decoder leaves glued to its
+// control boundary (`2,`). A styled span keeps its own style there.
 void append_spans(InlineSequenceIR &content,
                   const std::vector<TrapStyledSpanIR> &spans,
                   const DocumentNodeOriginIR &span_origin,

@@ -3574,6 +3574,54 @@ int main() {
             "a length byte spelled `,` was drawn: " + plain.error);
   }
 
+  // A `V` (PV, programming variable) span keeps its style in the headline
+  // and in a field body. N2AH1MST 2.0 record 151 line 9 is
+  // `cfont 3 7 2 ... 46 3 V ...` over `   ADY001I ... MEMBER mem HAS ...`,
+  // and hosted (DT 19910329000100) serves `<B>MEMBER</B> <var>mem</var>`:
+  // the variable is not bold although it stands inside the headline.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({t("SRMSG", 110), t("727", 600)}));
+    append(tokens, line({t("cfont", 111), t("3", 112), t("3", 112),
+                         t("2", 113), t("7", 601), t("3", 112),
+                         t("V", 602)}));
+    append(tokens, line({origin(), t("727", 600), t("mem", 603)}));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("12", 114), t("2", 113)}));
+    append(tokens, line({origin(), t("Description:", 115), t("first", 117),
+                         t("field", 118)}));
+    append(tokens, line({t("cfont", 111), t("3", 112), t("3", 112),
+                         t("V", 602)}));
+    append(tokens, line({origin(), t("dsn", 604), t("named.", 605)}));
+    const auto built = build({make_source(137, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "a catalogue with variable spans declined: " + built.error);
+    if (built.catalog) {
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(),
+              "variable span lowering declined: " + error);
+      if (document) {
+        const auto html =
+            geist::detail::render_document_html_blocks(*document, {});
+        const auto markdown =
+            geist::detail::render_document_markdown(*document);
+        require(html.find("<strong class=\"geist-strong\">727</strong> "
+                          "<em class=\"geist-emphasis\">mem</em>") !=
+                        std::string::npos &&
+                    markdown.find("**727** *mem*") != std::string::npos,
+                "a headline variable was not rendered as a variable: " +
+                    html);
+        require(html.find("<em class=\"geist-emphasis\">dsn</em> named.") !=
+                        std::string::npos &&
+                    markdown.find("*dsn* named\\.") != std::string::npos,
+                "a field-body variable was not rendered as a variable: " +
+                    html);
+      }
+    }
+  }
+
   std::cout << "trap catalog IR synthetic tests passed\n";
   return 0;
 }
