@@ -235,6 +235,41 @@ bool table_region(const std::vector<DecodedLogicalRecordSource>& records,
       break;
     }
   }
+  if (!closed && block.closed_by_topic_end) {
+    // No SRETBL follows: the table pass proved the envelope runs to the end
+    // of the topic, so the region ends at the topic's last token.
+    region.extent.end_record = records.size() - 1;
+    region.extent.end_segment = records.back().control_segments.size();
+    region.extent.end_token = records.back().ir.tokens.size() - 1;
+    closed = !records.back().ir.tokens.empty();
+    // The SRETBL it lacks stands doubled directly before its opener; hosted
+    // prints nothing for it, so the region starts there and owns it.
+    auto record = *begin_record;
+    auto segment_index = source.segment_index;
+    while (segment_index == 0 && record > 0)
+      segment_index = records[--record].control_segments.size();
+    if (segment_index == 0)
+      return fail(error, "table '" + block.object_id +
+                             "' has no doubled SRETBL before it");
+    const auto& stray = records[record].control_segments[--segment_index];
+    if (stray.kind != BookControlKind::table_end || stray.source_tokens.empty())
+      return fail(error, "table '" + block.object_id +
+                             "' has no doubled SRETBL before it");
+    // Spacing or punctuation glued after the stray closer is its own
+    // payload; anything visible there is no part of this envelope.
+    auto opcode = operand_tokens(records[record], stray);
+    if (opcode.empty()) opcode = stray.source_tokens;
+    for (const auto token : stray.source_tokens) {
+      if (!std::binary_search(opcode.begin(), opcode.end(), token) &&
+          !region_structure(view_token(records, record, token)))
+        return fail(error, "table '" + block.object_id +
+                               "' follows an SRETBL that carries text");
+      region.claims.emplace_back(record, token);
+    }
+    region.extent.begin_record = record;
+    region.extent.begin_segment = segment_index;
+    region.extent.begin_token = stray.source_tokens.front();
+  }
   if (!closed)
     return fail(error, "table '" + block.object_id + "' is not closed");
   // CFONT/CSELECT controls inside the envelope style or link table cells;

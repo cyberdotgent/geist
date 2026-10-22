@@ -169,6 +169,7 @@ struct Candidate {
   std::size_t end_token = 0;
   std::string object_id;
   bool declared_table = false;
+  bool open_end = false;
   std::string failure;
 };
 
@@ -224,6 +225,31 @@ bool declared_table_region(
   return false;
 }
 
+// True when an SRTBL envelope that no SRETBL closes runs to the end of the
+// topic: the two control segments directly before its opener are both
+// SRETBL, so the closer it lacks stands doubled behind the previous
+// envelope, and the topic holds no later opener (the caller has already
+// scanned to the end).  Hosted BookServer then prints the opener as the
+// anchor of the next row and every row to the end of the topic verbatim:
+// GG24-4302-00 FRONT_1 record 23 (`SRETBL`, `SRETBL`, `SRTBLTBLUNIQ2`,
+// DT 19950308184737) and SC24-5527-02 3.8.4.1 record 208 segments 12-14
+// (DT 19921218151459).  Any other unclosed envelope still declines.
+bool runs_to_topic_end(const std::vector<DecodedLogicalRecordSource> &records,
+                       std::size_t record_index, std::size_t segment_index) {
+  std::size_t closers = 0;
+  for (auto record = record_index + 1; record-- > 0 && closers < 2;) {
+    const auto &scanned = records[record];
+    auto at = record == record_index ? segment_index
+                                     : scanned.control_segments.size();
+    while (at-- > 0 && closers < 2) {
+      if (scanned.control_segments[at].kind != BookControlKind::table_end)
+        return false;
+      ++closers;
+    }
+  }
+  return closers == 2;
+}
+
 std::vector<Candidate>
 find_candidates(const std::vector<DecodedLogicalRecordSource> &records) {
   std::vector<Candidate> result;
@@ -264,8 +290,16 @@ find_candidates(const std::vector<DecodedLogicalRecordSource> &records) {
           }
         }
       }
-      if (!closed)
-        candidate.failure = "table envelope is not closed by SRETBL";
+      if (!closed) {
+        if (runs_to_topic_end(records, index, segment_index)) {
+          const auto &last = records.back();
+          candidate.end_record = last.logical_record;
+          candidate.end_token = last.tokens.size();
+          candidate.open_end = true;
+        } else {
+          candidate.failure = "table envelope is not closed by SRETBL";
+        }
+      }
       result.push_back(std::move(candidate));
     }
   }
@@ -322,6 +356,7 @@ public:
     }
     collect_index_lines(start, end, block);
     block.source_declared_table = candidate.declared_table;
+    block.closed_by_topic_end = candidate.open_end;
 
     // Physical rows owned by the envelope.
     std::size_t first = npos;
@@ -714,6 +749,10 @@ public:
     // not a whole number of lines.
     std::size_t first = lines.size();
     std::size_t last = lines.size();
+    // An envelope that runs to the end of the topic (`runs_to_topic_end`)
+    // has no SRETBL line: its region is every line after the opener's.
+    const auto open_end = end.first == records_.back().logical_record &&
+                          end.second >= records_.back().tokens.size();
     for (std::size_t index = 0; index < lines.size(); ++index) {
       const auto &view = lines[index];
       if (view.record->logical_record == start.first &&
@@ -725,7 +764,8 @@ public:
           end.second < view.line.token_end)
         last = index;
     }
-    if (first == lines.size() || last == lines.size() || last < first) {
+    if (first == lines.size() || (last == lines.size() && !open_end) ||
+        last < first) {
       reason = "envelope controls are not on display lines";
       return false;
     }
@@ -736,8 +776,9 @@ public:
       reason = "SRTBL does not close its display line";
       return false;
     }
-    for (auto token = lines[last].line.prefix_token + 1; token < end.second;
-         ++token)
+    for (auto token = open_end ? end.second
+                               : lines[last].line.prefix_token + 1;
+         token < end.second; ++token)
       for (const auto word : lines[last].record->tokens[token])
         if (word >= 4 && word != ' ' && word != ',' && word != 0xA0) {
           reason = "SRETBL does not open its display line";
@@ -2733,6 +2774,7 @@ std::string format_fixed_table_blocks_ir(const FixedTableBlocksIR &blocks) {
         << ',' << block.rows.end << ") source=" << block.object_source.logical_record
         << ':' << block.object_source.segment_index << ':'
         << block.object_source.token_begin << ':' << block.object_source.token_end
+        << (block.closed_by_topic_end ? " closed_by=topic_end" : "")
         << " left=" << block.left_column << " width=" << block.width
         << " separators=";
     for (const auto column : block.separator_columns)

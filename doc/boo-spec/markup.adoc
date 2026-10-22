@@ -2595,6 +2595,46 @@ Client Server/2, IMS CS/2, IMS/ESA, MQSeries, MVS/ESA, OS/2, RACF, and RMF.
 Duplicate `SRETBL` terminators after the table is closed are empty boundaries
 and must not produce a second `:etable.`.
 
+[[markup_srtbl_closed_by_topic_end]]
+=== An SRTBL envelope closed by the end of the topic
+
+The last `SRTBL<id>` envelope of a topic can lack its `SRETBL`.  In both
+observed cases the closer it lacks stands doubled behind the previous
+envelope, so the two control segments directly before the opener are both
+`SRETBL`.  Offsets are absolute file offsets; a line's first byte is its
+length.
+
+[cols="<22,<38,<40",options="header"]
+|===
+|Book, record, line |Bytes |Reading
+
+|GG24-4302-00 23, 15 |`02` at `0x40C6E`, then `E5 42` |`SRETBL`, closing `SRTBLTBLUNIQ1`; prose lines 16-25 follow in its segment
+|GG24-4302-00 23, 26 |`02` at `0x40CDB`, then `E5 42` |`SRETBL` again, a line of its own
+|GG24-4302-00 23, 27-29 |`00` at `0x40CDE`, `0x40CDF`, `0x40CE0` |three empty display lines
+|GG24-4302-00 23, 30 |`02` at `0x40CE1`, then `E6 36` |`SRTBLTBLUNIQ2`, a line of its own
+|GG24-4302-00 23, 31 |`10` at `0x40CE4` |`   Other trademarks are trademarks of their respective companies.`, the topic's last line
+|SC24-5527-02 208, 17 |`01` at `0x278D8`, then `A5` |`SRETBL`, closing `SRTBLTBLUNIQ96`
+|SC24-5527-02 208, 18 |`01` at `0x278DA`, then `A5` |`SRETBL` again
+|SC24-5527-02 208, 19-22 |`00` at `0x278DC`..`0x278DF` |four empty display lines
+|SC24-5527-02 208, 23 |`02` at `0x278E0`, then `E7 B8` |`SRTBLTBLUNIQ97`, a line of its own
+|SC24-5527-02 208, 24-31 |-- |`cfont` lines and a closed `Note` box, the topic's last rows
+|===
+
+No later control closes either envelope; the topic ends (`FRONT_1` with
+record 23, `3.8.4.1` with record 208).  Hosted BookServer (DT
+`19950308184737` and `19921218151459`) prints nothing for either `SRETBL`,
+an empty paragraph for each empty display line, and then wraps the first
+row after the opener in `<a name="TBLTBLUNIQ2">` (`TBLTBLUNIQ97`) and
+prints every row to the end of the topic verbatim, the `Note` box row for
+row.  It emits no `<table>`.
+
+So an envelope with no `SRETBL` runs to the end of the topic, and its rows
+are read like those of any undeclared envelope.  The reading applies only
+to the proven shape: no later `SRTBL` opens in the topic, and the two
+control segments directly before the opener are both `SRETBL`, the second
+carrying nothing but spacing and empty display lines.  Any other unclosed
+envelope is not proven to end anywhere.
+
 [[markup_ieac6mst_fixed_width_notice_emphasis]]
 === IEAC6MST fixed-width notice emphasis
 

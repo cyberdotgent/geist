@@ -278,6 +278,10 @@ struct FixedTableBlockIR {
   // region `<!-- table -->` and then falls back to `<pre>` on its own page
   // width).  No corpus topic serves an HTML table without the directive.
   bool source_declared_table = false;
+  // No SRETBL closes the envelope: it runs to the end of the topic, which
+  // is admitted only behind a doubled SRETBL (GG24-4302-00 FRONT_1,
+  // SC24-5527-02 3.8.4.1).  Its region then ends at the topic's last token.
+  bool closed_by_topic_end = false;
   LayoutRowRangeIR rows;
   std::vector<DocumentSourceRowIR> source_rows;
   // SRTBL operand, e.g. `TBLUNIQ1`, and the control's source position.
