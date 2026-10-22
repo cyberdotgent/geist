@@ -623,7 +623,15 @@ decode_control_segments(std::uint32_t logical_record,
               assembled, segment.opcode_range);
           const auto opcode_tokens = source_tokens_intersecting_output(
               assembled, opcode_words.begin, opcode_words.end);
-          std::vector<std::string> operands;
+          // Each operand is one token of the opcode's own display line, read
+          // from its stored words.  The bar is a single word, and two of its
+          // observed spellings project to `?`, which a `?`-trimming reading
+          // erases: SC09-138 FRONT record 2 line 16 `c.rev DUNNO ?` stores
+          // the ASCII `?` (token 60), and PRG1SORT PREFACE.5 record 17 line 9
+          // (token 35, encoded value 130) and SC24-5520-00 6.11.8 record
+          // 1599 lines 5-12 store U+2502, the glyph the row margin draws as
+          // a change bar.  Hosted BookServer prints none of these lines.
+          std::vector<TokenWords> operands;
           std::size_t last_operand_token = assembled.tokens.size();
           const auto line = opcode_tokens.empty()
                                 ? display_lines.end()
@@ -639,26 +647,37 @@ decode_control_segments(std::uint32_t logical_record,
             for (auto token = opcode_tokens.front() + 1;
                  token < line->token_end && token < assembled.tokens.size();
                  ++token) {
-              auto value = trim_ascii(token_words_to_ascii(
-                  token_body_words(assembled, assembled.tokens[token])));
+              auto value = token_body_words(assembled, assembled.tokens[token]);
+              const auto space = [](const std::uint16_t word) {
+                return word == ' ';
+              };
+              value.erase(std::find_if_not(value.rbegin(), value.rend(), space)
+                              .base(),
+                          value.end());
+              value.erase(value.begin(),
+                          std::find_if_not(value.begin(), value.end(), space));
               if (value.empty()) continue;
               operands.push_back(std::move(value));
               last_operand_token = token;
             }
           }
-          const auto identifier = [](const std::string &value) {
+          const auto identifier = [](const TokenWords &value) {
             return !value.empty() &&
                    std::all_of(value.begin(), value.end(),
-                               [](const unsigned char ch) {
-                                 return std::isalnum(ch) != 0 || ch == '_' ||
-                                        ch == '-';
+                               [](const std::uint16_t word) {
+                                 return word < 0x80 &&
+                                        (std::isalnum(word) != 0 ||
+                                         word == '_' || word == '-');
                                });
           };
-          segment.malformed =
-              operands.size() != 2 || !identifier(operands[0]) ||
-              operands[1].size() != 1 ||
-              static_cast<unsigned char>(operands[1][0]) < 0x20 ||
-              static_cast<unsigned char>(operands[1][0]) >= 0x7f;
+          // The bar: one printable ASCII character, or the U+2502 change bar.
+          const auto bar = [](const TokenWords &value) {
+            return value.size() == 1 &&
+                   ((value.front() > 0x20 && value.front() < 0x7f) ||
+                    value.front() == 0x2502);
+          };
+          segment.malformed = operands.size() != 2 ||
+                              !identifier(operands[0]) || !bar(operands[1]);
           operand_words = segment.malformed ? 0 : 2;
           if (!segment.malformed) {
             explicit_operand_end =

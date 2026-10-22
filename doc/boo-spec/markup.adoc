@@ -3609,6 +3609,34 @@ row: `c.rev REL2 |`, `c.rev REL3 |`, `c.rev ADC |`, `c.rev GE G`, `c.rev HN H`,
 `PREFACE.6` record 19 is `c.rev PREF |`. The `|` bar character is the same
 change bar the row-margin rules describe under "The three-column left margin".
 
+Each operand is one token on the opcode's own display line, and the bar is a
+single dictionary word. Read it from the token's words, not from a text
+projection that folds unmapped glyphs to `?` and trims `?`: two of the stored
+bar spellings would vanish there.
+
+[cols="<22,<30,<48",options="header"]
+|===
+|Location |Line |Bar token
+
+|`SC09-138` `FRONT`, record 2 |16, `c.rev DUNNO ?` |token 60 at `0x661c8`, encoded value 45440, word `0x003F` (ASCII `?`)
+|`PRG1SORT` `PREFACE.5`, record 17 |9, `c.rev REL3` + bar |token 35 at `0xc203`, encoded value 130, word U+2502
+|`SC24-5520-00` `6.11.8`, record 1599 |5-12, `c.rev DOC`, `SPE`, `H1CNINS`, `H2CNINS`, `C0CN01`, `C1CN01`, `C0CN02`, `C1CN02` + bar; 13, `c.rev SEVCOD #` |tokens 82, 86, ..., 110, encoded value 130, word U+2502; token 114, word `#`
+|===
+
+U+2502 is the box-drawing vertical, the glyph the row margin also draws as a
+change bar; the native line classification marks that cell as a box cell. A
+bar is therefore one word that is either a printable ASCII character
+(`0x21`-`0x7E`) or U+2502. What a declaration of any other shape would mean is
+unresolved.
+
+The `PRG1SORT` and `SC24-5520-00` declarations stand after the `ST` title: in
+`PREFACE.5` on the line directly after it, and in `6.11.8` as the last eight
+lines of the topic. Hosted BookServer prints none of these declarations
+(`SC09-138` DT `19910321130500` serves `FRONT` with an empty body, `PRG1SORT`
+DT `19900829171904` serves `PREFACE.5` with its title, paragraph and menu only,
+`SC24-5520-00` DT `19911011135123` ends `6.11.8` with the paragraph before
+record 1599 line 5).
+
 Nothing else is known about `c.rev`: no hosted page has been checked for which
 revision code a marked row carries, and no per-row revision marker has been
 located in the token stream. Treat the control as identified but its effect as

@@ -592,6 +592,7 @@ foreach(synthetic_test
     font_span_trace_synthetic
     cz_unopened_region_closer_synthetic
     list_closer_anchor_synthetic
+    revision_bar_operand_synthetic
     art_description_figure_synthetic
     ordered_picture_figure_synthetic
     menu_wrapped_title_synthetic
