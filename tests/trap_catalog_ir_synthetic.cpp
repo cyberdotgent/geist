@@ -2739,6 +2739,68 @@ int main() {
             "an entry opening on a field label was admitted");
   }
 
+  // A field label is the leading run up to its `:` when the CFONT goes on
+  // to style the value after the label's two-blank gap: N2AH1MST record
+  // 1464 line 16 is `cfont 10 12 2 24 7 V 39 11 V` over line 17
+  // `          Explanation:  ctcname module module-name ...`, and hosted 16.0
+  // serves `<B>Explanation:</B>  <var>ctcname</var>` as the field of
+  // `CBR9915I`.
+  {
+    const auto action_row = [] {
+      std::vector<Token> tokens;
+      append(tokens, line({t("cfont", 111), t("3", 112), t("7", 454),
+                           t("2", 113)}));
+      append(tokens, line({origin(), t("Action:", 455), t("none.", 470)}));
+      return tokens;
+    };
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("667", 471));
+    append(tokens, action_row());
+    append(tokens, line({t("SRMSG", 110), t("668", 472)}));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("3", 112), t("2", 113)}));
+    append(tokens, line({origin(), t("668", 472)}));
+    append(tokens, line({t("cfont", 111), t("3", 112), t("12", 114),
+                         t("2", 113), t("17", 473), t("4", 474),
+                         t("V", 475)}));
+    append(tokens, line({origin(), t("Description:", 115), t(" ", 20),
+                         t("name", 476), t("stops.", 477)}));
+    append(tokens, action_row());
+    const auto built = build({make_source(104, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "a label whose value opens on a styled run declined: " +
+                built.error);
+    if (built.catalog && built.catalog->entries.size() == 2) {
+      const auto &second_entry = built.catalog->entries.back();
+      require(second_entry.fields.size() == 2 &&
+                  second_entry.fields.front().label_text == "Description:",
+              "the label before a styled value was not read as a label");
+    }
+
+    // Mutation: a single blank after the colon joins the styled word to
+    // the run. That is not a label followed by its value, so no
+    // Description: field is read from it.
+    auto joined = header("Sample", "Messages");
+    append(joined, entry("669", 478));
+    append(joined, action_row());
+    append(joined, line({t("SRMSG", 110), t("670", 479)}));
+    append(joined,
+           line({t("cfont", 111), t("3", 112), t("3", 112), t("2", 113)}));
+    append(joined, line({origin(), t("670", 479)}));
+    append(joined, line({t("cfont", 111), t("3", 112), t("12", 114),
+                         t("2", 113), t("16", 480), t("4", 474),
+                         t("V", 475)}));
+    append(joined, line({origin(), t("Description:", 115), t("name", 476),
+                         t("stops.", 477)}));
+    append(joined, action_row());
+    const auto rejected = build({make_source(105, joined)}, "Sample Messages");
+    require(!rejected.catalog.has_value() ||
+                (rejected.catalog->entries.size() == 2 &&
+                 rejected.catalog->entries.back().fields.size() == 1),
+            "a label run joined to its styled value by one blank was read "
+            "as a label");
+  }
+
   std::cout << "trap catalog IR synthetic tests passed\n";
   return 0;
 }

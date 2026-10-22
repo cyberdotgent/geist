@@ -424,7 +424,16 @@ yet known.  Hosted (DT `19910329000100`) serves line 13 and its
 continuation line `{string|NONE SPECIFIED}` as the headline of `CBP100I`.
 In N2AH1MST labels stand at column `10`, right of the headline origin, and
 that column also separates a colon-ending headline from a label in later
-entries.  The
+entries.  A label stands two blanks before its value, and the same `cfont`
+can go on to style that value.  The label then ends at the span whose text
+ends with `:` and is followed by a gap of two or more columns; spans one
+blank apart (`System` `Action:`) are words of one label.  `N2AH1MST` record
+1464 line 16 is `cfont 10 12 2 24 7 V 39 11 V`, and line 17 draws
+`          Explanation:  ctcname module module-name stops processing when a`
+with `Explanation:` in cells 10--21 and `ctcname` in cells 24--30.  Hosted
+`16.0` (DT `19910329000100`) serves
+`<B>Explanation:</B>  <var>ctcname</var> module <var>module-name</var>` as the
+`Explanation:` field of entry `CBR9915I`.  The
 ordered label sequence repeated by every entry is the catalog vocabulary; a
 labelled line that only some entries carry (`3 5 2` `Note:` in topic `4.4`
 entry `805306372`) is entry-local.  A field can restate the label of the

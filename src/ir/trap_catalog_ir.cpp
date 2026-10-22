@@ -3197,6 +3197,38 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           auto candidate =
               map_leading_chain(*spans, anchor, line.body.display_text,
                                 candidate_spans, candidate_text);
+          // The label ends at its `:` when the CFONT goes on to style the
+          // value: the label stands two blanks before its value, so a span
+          // that ends in `:` and is followed by a gap of two or more columns
+          // closes the label. N2AH1MST record 1464 line 16 is
+          // `cfont 10 12 2 24 7 V 39 11 V` over
+          // `          Explanation:  ctcname module module-name ...`, and
+          // hosted 16.0 (DT 19910329000100) serves
+          // `<B>Explanation:</B>  <var>ctcname</var>` as the field of
+          // `CBR9915I`. A one-blank gap joins the words of one label
+          // (`System Action:`), so it never closes one.
+          if (!candidate.empty() && !candidate_text.empty() &&
+              candidate_text.back() != ':') {
+            for (std::size_t at = 0; at + 1 < candidate.size(); ++at) {
+              const auto &here = candidate_spans[at];
+              const auto next_column = candidate[at + 1].column;
+              const auto here_end = candidate[at].column + candidate[at].length;
+              if (here.text.empty() || here.text.back() != ':' ||
+                  next_column < here_end + 2)
+                continue;
+              candidate.resize(at + 1);
+              candidate_spans.resize(at + 1);
+              candidate_text.clear();
+              for (std::size_t kept = 0; kept < candidate.size(); ++kept) {
+                if (kept != 0 &&
+                    candidate[kept].column !=
+                        candidate[kept - 1].column + candidate[kept - 1].length)
+                  candidate_text.push_back(' ');
+                candidate_text += candidate_spans[kept].text;
+              }
+              break;
+            }
+          }
           if (!candidate.empty() && !candidate_text.empty() &&
               candidate_text.back() == ':') {
             chain = std::move(candidate);
