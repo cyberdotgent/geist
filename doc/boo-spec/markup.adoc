@@ -1883,12 +1883,26 @@ selector's column/length address the next display row, which the following
 |`<HDR>` |`SC41-485.boo` `1.2.3` |`<HDR> <FMTRTVI> <> <SC41-4801> <> <4801>` l|../../DOCNUM/SC41-4801/HDRFMTRTVI?ScrollTOP=HDRFMTRTVI#HDRFMTRTVI
 |`<OTHER>` |`XWEBDEMO.boo` `1.4.4` |`<OTHER> <INTERNET> <> <http://www.ibm.com/> <> <IBMHOME>` |`http://www.ibm.com/`
 |`<IMAGE>` |`XWEBDEMO.boo` `1.4.1` |`<IMAGE> <INTERNET> <> </bookmgr/monetcoq.jpg> <> <MONET1>` l|<img src="/bookmgr/monetcoq.jpg">
+|`<IMAGE>` |`XWEBDEMO.boo` `1.0` |`<IMAGE> <INTERNET> </bookmgr/product.gif> <http://booksrv2.raleigh.ibm.com/cgi-bin/bookmgr/bookmgr.cmd/library> <> <ICON>` l|<a href="http://booksrv2.raleigh.ibm.com/cgi-bin/bookmgr/bookmgr.cmd/library"><img src="/bookmgr/product.gif" ...>IBM BookManager BookServer</a>
 |===
 
 So alternative 1 is the kind, alternative 2 the target heading name of a
 `<HDR>` link (BookServer prefixes `HDR` to it), alternative 4 the document
 number of a `<BOOK>`/`<HDR>` link or the URL of an `<OTHER>`/`<IMAGE>` one,
-and alternative 6 the target's own identifier.  Hosted DTs used: ITPPIBOK
+and alternative 6 the target's own identifier.
+
+An `<IMAGE>` link can carry two URLs.  `XWEBDEMO.boo` `1.0` logical record
+5 display line 14 is `cselect 3 26 LNK` with the alternatives above,
+stored from `0x1033F` (`0B` `<IMAGE>`, `0C` `<INTERNET>`, `DC 14` the
+image URL, `DC 1C`, `00`, `DC 94` the link URL in two attached tokens, `09`
+`<>`, `DC 23` `<ICON>`).  The next byte, `0D` at `0x1034B`, is the length
+byte of line 15 and spells `<OTHER>`; it is no seventh alternative.  Line
+15 is `   IBM BookManager BookServer is a specialized World Wide Web server
+that`, and columns 3-28 are the 26 the selector names.  Hosted serves the
+image of alternative 3 at the start of those columns and links the image
+and the covered words to alternative 4, inside one `<a href>`, with the
+image URL as its `alt` text.  When alternative 3 is empty
+(`1.4.1`) alternative 4 is the image itself, shown as a figure.  Hosted DTs used: ITPPIBOK
 `19910628074854`, GG24-395 `19941215160749`, SC41-485 `19951003131222`,
 XWEBDEMO `19970423182524`.
 
