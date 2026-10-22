@@ -423,33 +423,31 @@ bool lower_flow_blocks(const std::vector<TrapFlowBlockIR> &source,
       continue;
     }
     if (const auto *footnote = std::get_if<TrapFlowFootnoteIR>(&block.value)) {
-      // The footnote's paragraphs are one footnote block; the closer is
+      // A footnote is a local destination followed by its own paragraphs,
+      // as the prose family lowers `CZ FLOW FN`. The reader prints no label
+      // for the id: hosted N2AH1MST 10.0 (DT 19910329000100) serves
+      // `<a name="FTNFTNUNIQ19"><hr><h5> |  (*) VTAM is a trademark ...`,
+      // whose `(*)` is the footnote's own source text. The closer is
       // provenance only.
-      auto footnote_origin = origin("trap footnote envelope");
-      add_slice(footnote_origin, footnote->start);
-      add_slice(footnote_origin, footnote->end);
-      FootnoteBlockIR lowered{footnote->id, {}};
+      auto anchor_origin = origin("trap footnote envelope");
+      add_slice(anchor_origin, footnote->start);
+      add_slice(anchor_origin, footnote->end);
+      destination.push_back({AnchorBlockIR{footnote->id, AnchorRoleIR::local},
+                             canonical(std::move(anchor_origin))});
+      if (footnote->blocks.empty())
+        return fail(error, "trap footnote has no content");
       for (const auto &inner : footnote->blocks) {
         const auto *paragraph = std::get_if<TrapFlowParagraphIR>(&inner.value);
         if (paragraph == nullptr)
           return fail(error, "trap footnote holds a non-paragraph block");
         auto inner_origin = paragraph_origin(*paragraph, "trap footnote text");
-        if (!lowered.content.empty())
-          lowered.content.push_back(
-              {TextInlineIR{" "}, synthesized("trap footnote paragraph join")});
+        ParagraphBlockIR lowered;
         if (!paragraph_inlines(*paragraph, inner_origin, lowered.content))
           return fail(error, "trap footnote ranges overlap");
-        footnote_origin.slices.insert(footnote_origin.slices.end(),
-                                      inner_origin.slices.begin(),
-                                      inner_origin.slices.end());
-        footnote_origin.rows.insert(footnote_origin.rows.end(),
-                                    inner_origin.rows.begin(),
-                                    inner_origin.rows.end());
+        if (lowered.content.empty())
+          return fail(error, "trap footnote has no content");
+        destination.push_back({std::move(lowered), std::move(inner_origin)});
       }
-      if (lowered.content.empty())
-        return fail(error, "trap footnote has no content");
-      destination.push_back(
-          {std::move(lowered), canonical(std::move(footnote_origin))});
       continue;
     }
     if (std::holds_alternative<TrapFlowParagraphIR>(block.value)) {

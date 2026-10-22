@@ -1409,6 +1409,15 @@ int main() {
                     html.find("EFTN") == std::string::npos,
                 "footnote anchor is missing, duplicated, or its closer named "
                 "one: " + html);
+        // The id names the destination; the reader prints no label for it.
+        // Hosted serves `<a name="FTNFTNUNIQ19"><hr><h5> |  (*) VTAM ...`:
+        // the footnote's own `(*)` is its only mark.
+        require(html.find(">FTNFTNUNIQ7<") == std::string::npos &&
+                    markdown.find("[^") == std::string::npos &&
+                    markdown.find("<a id=\"FTNFTNUNIQ7\"></a>") !=
+                        std::string::npos,
+                "footnote printed its id or left Markdown links no anchor: " +
+                    markdown);
         const auto field = markdown.find("first field");
         const auto note = markdown.find("VTAM is a trademark");
         const auto resumed = markdown.find("Resumed text.");
