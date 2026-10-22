@@ -416,7 +416,14 @@ first such chain of an entry that does not end with `:` and covers the whole
 line is the entry headline (`3 1 2 5 19 2` = `1 (fddiRPUNoResponse)`).  The
 ordered label sequence repeated by every entry is the catalog vocabulary; a
 labelled line that only some entries carry (`3 5 2` `Note:` in topic `4.4`
-entry `805306372`) is entry-local.  A `CFONT` with an empty payload at a
+entry `805306372`) is entry-local.  A field can restate the label of the
+field directly before it, and both are fields; the entry still carries
+that label once in its sequence.  `N2AH1MST` entry `AVM035I` draws
+`System Action:` under `cfont 10 6 2 17 7 2 ...` on record 669 line 29 and
+again on line 41, with no other label between.  Hosted `11.0`
+(DT `19910329000100`) serves two `<B>System</B> <B>Action:</B>` paragraphs.
+No label is observed to return after a different field.
+A `CFONT` with an empty payload at a
 record end takes the next record's leading text segment as its payload (topic
 `4.4` logical records 153/154 `LNM for AIX Response:` and 154/155 `7 (fddiControlCartridgeError)`).
 The next record's first display line is that payload even when its length

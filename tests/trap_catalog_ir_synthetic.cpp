@@ -2599,14 +2599,14 @@ int main() {
   // the entry headline.
   {
     auto first = header("Sample", "Messages");
-    append(first, entry("655", 397));
-    append(first, line({t("SRMSG", 110), t("656", 398)}));
+    append(first, entry("655", 450));
+    append(first, line({t("SRMSG", 110), t("656", 451)}));
     append(first,
            line({t("cfont", 111), t("3", 112), t("3", 112), t("2", 113)}));
     std::vector<Token> second;
     second.push_back({words("cfont"), 2});
     second.push_back(origin());
-    second.push_back(t("656", 398));
+    second.push_back(t("656", 451));
     append(second,
            line({t("cfont", 111), t("3", 112), t("12", 114), t("2", 113)}));
     append(second, line({origin(), t("Description:", 115), t("first", 117),
@@ -2633,12 +2633,12 @@ int main() {
   // text before the entry's headline and still declines.
   {
     auto first = header("Sample", "Messages");
-    append(first, entry("657", 399));
-    append(first, line({t("SRMSG", 110), t("658", 400)}));
+    append(first, entry("657", 452));
+    append(first, line({t("SRMSG", 110), t("658", 453)}));
     std::vector<Token> second;
     second.push_back({words("cfont"), 2});
     second.push_back(origin());
-    second.push_back(t("658", 400));
+    second.push_back(t("658", 453));
     append(second,
            line({t("cfont", 111), t("3", 112), t("12", 114), t("2", 113)}));
     append(second, line({origin(), t("Description:", 115), t("first", 117),
@@ -2647,6 +2647,53 @@ int main() {
                              "Sample Messages");
     require(!built.catalog.has_value(),
             "an unstyled record-opening row was admitted as a headline");
+  }
+
+  // A field that restates the label of the field directly before it is a
+  // second field under that label (N2AH1MST AVM035I, record 669 lines 29
+  // and 41, both `System Action:`; hosted 11.0 serves both as labels). The
+  // entry still repeats the catalogue's vocabulary.
+  {
+    const auto action_row = [](const std::string &word, std::uint16_t value) {
+      std::vector<Token> tokens;
+      append(tokens, line({t("cfont", 111), t("3", 112), t("7", 454),
+                           t("2", 113)}));
+      append(tokens, line({origin(), t("Action:", 455), t(word, value)}));
+      return tokens;
+    };
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("659", 456));
+    append(tokens, action_row("one.", 457));
+    append(tokens, entry("660", 458));
+    append(tokens, action_row("two.", 459));
+    append(tokens, action_row("three.", 460));
+    const auto built = build({make_source(100, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "a field restating the label before it declined: " + built.error);
+    if (built.catalog && built.catalog->entries.size() == 2) {
+      const auto &second_entry = built.catalog->entries.back();
+      require(second_entry.fields.size() == 3 &&
+                  second_entry.fields[1].label_text == "Action:" &&
+                  second_entry.fields[2].label_text == "Action:" &&
+                  second_entry.fields[2].in_vocabulary,
+              "the restated label was not kept as its own field");
+    }
+
+    // Mutation: the label returns after another field in between. That is
+    // not a restatement, and the entry no longer repeats the vocabulary.
+    auto returning = header("Sample", "Messages");
+    append(returning, entry("661", 461));
+    append(returning, action_row("one.", 457));
+    append(returning, entry("662", 462));
+    append(returning, action_row("two.", 459));
+    append(returning,
+           line({t("cfont", 111), t("3", 112), t("12", 114), t("2", 113)}));
+    append(returning, line({origin(), t("Description:", 115), t("again", 463)}));
+    append(returning, action_row("three.", 460));
+    const auto rejected =
+        build({make_source(101, returning)}, "Sample Messages");
+    require(!rejected.catalog.has_value(),
+            "a label returning after another field was admitted");
   }
 
   std::cout << "trap catalog IR synthetic tests passed\n";

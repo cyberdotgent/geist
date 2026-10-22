@@ -3500,12 +3500,18 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
     return reject("trap catalog has no label repeated by every entry");
   for (auto &entry : catalog.entries) {
     std::vector<std::string> labels;
-    for (auto &field : entry.fields) {
+    for (std::size_t at = 0; at < entry.fields.size(); ++at) {
+      auto &field = entry.fields[at];
       field.in_vocabulary =
           std::find(catalog.label_vocabulary.begin(),
                     catalog.label_vocabulary.end(),
                     field.label_text) != catalog.label_vocabulary.end();
-      if (field.in_vocabulary)
+      // A field may restate the label of the field directly before it:
+      // N2AH1MST AVM035I draws `System Action:` twice in a row (record 669
+      // lines 29 and 41), and hosted 11.0 (DT 19910329000100) serves both
+      // as labelled fields. The vocabulary still counts the label once.
+      if (field.in_vocabulary &&
+          (at == 0 || entry.fields[at - 1].label_text != field.label_text))
         labels.push_back(field.label_text);
     }
     if (labels != catalog.label_vocabulary)
