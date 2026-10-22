@@ -124,7 +124,7 @@ bool generated_navigation_source_candidate(
   return false;
 }
 
-bool message_source_candidate(
+std::size_t message_start_count(
     const std::vector<DecodedLogicalRecordSource> &sources) {
   auto message_starts = std::size_t{};
   for (const auto &record : sources)
@@ -133,7 +133,23 @@ bool message_source_candidate(
                       record.control_segments.end(), [](const auto &segment) {
                         return segment.kind == BookControlKind::message_start;
                       }));
-  return message_starts > 1;
+  return message_starts;
+}
+
+bool message_source_candidate(
+    const std::vector<DecodedLogicalRecordSource> &sources) {
+  return message_start_count(sources) > 1;
+}
+
+// A single SRMSG can still be a one-entry section-label catalogue: SC34-425
+// 2.4.29 holds the one return code `64` of its translator (record 1633 lines
+// 47-48, `SRMSG 64` and `cfont 8 2 2`), with the same labels as its
+// siblings, and hosted DT 19921112160049 serves it as they are served. Only the trap
+// family is offered such a topic; the Meaning/Action catalogue keeps its
+// two-SRMSG guard.
+bool single_message_source_candidate(
+    const std::vector<DecodedLogicalRecordSource> &sources) {
+  return message_start_count(sources) == 1;
 }
 
 // A contents label is presentation evidence, not the topic's ST heading.
@@ -244,6 +260,10 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
                                              topic.title, declined_sink);
       note_declined("trap catalog", trap_catalog.has_value());
     }
+  } else if (single_message_source_candidate(sources)) {
+    trap_catalog = extract_trap_catalog_ir(sources, layout, ownership,
+                                           topic.title, declined_sink);
+    note_declined("trap catalog", trap_catalog.has_value());
   }
   std::optional<GeneratedListTopicIR> generated_list;
   std::optional<SelectorCatalogIR> generated_selectors;

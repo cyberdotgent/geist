@@ -64,7 +64,8 @@
 //     row's cells;
 //   * a closing glyph drawn mid-line, kept although LayoutIR took it for
 //     a row-control slot, and a segment-closing glyph that closes a
-//     bracket an earlier segment of the field opened.
+//     bracket an earlier segment of the field opened;
+//   * a single-SRMSG topic routed to this family alone.
 //
 // What is NOT covered, stated plainly rather than implied: the compact
 // marker slot that carries a whole word. Two rules turn on it -- a slot the
@@ -85,6 +86,7 @@
 #include "geist/detail/layout/ownership_ir.hpp"
 #include "geist/detail/ir/trap_catalog_ir.hpp"
 #include "geist/detail/lowering/trap_catalog_document_lowering.hpp"
+#include "geist/detail/lowering/topic_document_lowering.hpp"
 #include "geist/detail/render/document_html_renderer.hpp"
 #include "geist/detail/render/document_markdown_renderer.hpp"
 #include "test_failures.hpp"
@@ -3447,6 +3449,32 @@ int main() {
               "a bracket closed across segments lost its glyph: [" + text +
                   "]");
     }
+  }
+
+  // A topic with a single SRMSG is offered to the section-label family
+  // alone. SC34-425 2.4.29 holds the one message `64` of its translator,
+  // under the same headline and label shapes as its siblings, and hosted
+  // (DT 19921112160049) serves it as they are served. The Meaning/Action
+  // catalogue is still offered only topics with two or more SRMSG.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("726", 568));
+    std::vector<DecodedLogicalRecordSource> sources{make_source(136, tokens)};
+    std::string error;
+    geist::detail::TypedLoweringTraceIR trace;
+    const auto document = geist::detail::try_lower_topic_to_document_ir(
+        {"12", "Sample Messages", ":H2", 12, 136, 137}, sources, nullptr,
+        &error, &trace);
+    require(document.has_value(),
+            "a single-SRMSG section-label catalogue was not typed: " + error);
+    require(trace.family.find("trap") != std::string::npos,
+            "a single-SRMSG catalogue was typed by another family: " +
+                trace.family);
+    require(std::none_of(trace.declined.begin(), trace.declined.end(),
+                         [](const auto &reason) {
+                           return reason.rfind("message catalog", 0) == 0;
+                         }),
+            "a single-SRMSG topic was offered to the Meaning/Action family");
   }
 
   std::cout << "trap catalog IR synthetic tests passed\n";

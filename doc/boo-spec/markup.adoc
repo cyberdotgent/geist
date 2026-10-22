@@ -468,6 +468,15 @@ as the entry's headline under that `cfont`.  A record that opens on such a
 row with no `cfont` waiting at the end of the record before it is drawn text
 ahead of the headline, and no entry is read from it.
 
+A catalogue can hold a single entry.  `SC34-425` topic `2.4.29`
+(`FLMTMJI Interface to JOVIAL Compiler`) has one `SRMSG`, `SRMSG 64`, after
+its introduction.  Its headline is `cfont 8 2 2` over `   ____ 64 ____...`,
+and its fields are `Explanation:`, `User Response:` and `Project
+Administrator Response:`, as in the sibling topics that list several return
+codes.  Hosted (DT `19921112160049`) serves it as it serves those siblings,
+`<a name="MSG 64">` and the bolded labels.  The number of entries does not
+decide whether a topic is a section-label catalogue.
+
 Two messages can share one set of fields.  The first entry is then its
 headline alone, and the next `SRMSG` stands on the display line directly
 after that headline, with no rule row of its own.  `SC09-138` topic `G.0`,
