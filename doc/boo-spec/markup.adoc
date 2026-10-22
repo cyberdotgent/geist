@@ -547,7 +547,14 @@ the second line of the `ADY001I` headline.  Line 13 (`cfont` at token 118,
 The row's cells decide: each span names the cells of its word, begins and
 ends on a drawn glyph and meets a blank, the row's edge or the next span.
 `16.0` serves `<var>parms</var><B>.</B>` and `<B><I>libname</B></I>` on
-such rows the same way.
+such rows the same way.  The run so read opens on the row's first drawn
+glyph: a span that starts further right does not open it, even when its
+glyphs repeat the row's first characters.  `16.0` record 928 line 0 is
+`cfont 36 1 V 61 4 V` over line 1,
+`                        orientation o associated with volume vol1 in the`,
+whose first glyph is `orientation` in cells 24--34 and whose cell 36 is the
+standalone `o`; hosted serves `orientation <var>o</var>`, and cell 24 is
+not styled although it is also `o`.
 
 The headline and each field are separate paragraphs.  Hosted BookServer
 serves `SC31-711` topic `4.1.1` (DT `19941010174546`) as `<B>0</B>`, `<p>`,

@@ -3821,6 +3821,41 @@ int main() {
     }
   }
 
+  // A deep continuation row whose `cfont` opens on a word after the row's
+  // first drawn cell is not read from that cell. N2AH1MST 16.0 record 928
+  // line 0 is `cfont 36 1 V 61 4 V` over line 1,
+  // `                        orientation o associated with volume vol1 ...`,
+  // where cell 36 is the standalone `o` and cells 24--34 `orientation`;
+  // hosted (DT 19910329000100) serves `orientation <var>o</var>`. Reading
+  // the run from the first drawn cell put it on the `o` of `orientation`,
+  // which the cell check let through because both spell `o`.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("731", 650));
+    append(tokens, line({t("cfont", 111), t("22", 651), t("1", 171),
+                         t("V", 602)}));
+    append(tokens, line({t("          ", 614), t("orientation", 652),
+                         t("o", 653), t("more.", 654)}));
+    const auto built = build({make_source(143, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "a deep row opening on an unstyled word declined: " + built.error);
+    if (built.catalog) {
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(),
+              "a deep row opening on an unstyled word did not lower: " + error);
+      if (document) {
+        const auto html =
+            geist::detail::render_document_html_blocks(*document, {});
+        require(html.find(">o</em>rientation") == std::string::npos &&
+                    html.find("orientation o more.") != std::string::npos,
+                "a run was placed on a word its columns do not name: " +
+                    html);
+      }
+    }
+  }
+
   std::cout << "trap catalog IR synthetic tests passed\n";
   return 0;
 }

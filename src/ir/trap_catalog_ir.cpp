@@ -3660,11 +3660,6 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           // before. A run ending in `:` is left alone: at a column no label
           // has used, nothing says whether it is a label.
           if (chain.empty() && !spans->spans.empty()) {
-            std::vector<TrapStyledSpanIR> drawn_spans;
-            std::string drawn_text;
-            auto drawn = map_leading_chain(*spans, front_column,
-                                           line.body.display_text,
-                                           drawn_spans, drawn_text);
             const DecodedLogicalRecordSource *drawn_record = nullptr;
             std::size_t drawn_token = 0;
             for (auto cell = line.body.cell_begin;
@@ -3678,6 +3673,25 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
                     find_record(records, entry.cells[cell].logical_record);
                 drawn_token = entry.cells[cell].token_index;
               }
+            // The run is read from the column of the row's first drawn
+            // glyph, where the projected text begins, so a span opens the
+            // chain only if it starts on that very cell. N2AH1MST 16.0
+            // record 928 line 0 is `cfont 36 1 V ...` over a row whose first
+            // glyph, `orientation`, stands at cell 24 and whose cell 36 is
+            // the standalone `o`; hosted serves `orientation <var>o</var>`,
+            // and mapping from the span's own column put it on the `o` of
+            // `orientation`, which spells the same glyph.
+            const auto first_drawn =
+                drawn_record == nullptr
+                    ? std::optional<std::size_t>{}
+                    : drawn_column(*drawn_record, drawn_token);
+            std::vector<TrapStyledSpanIR> drawn_spans;
+            std::string drawn_text;
+            std::vector<FontSpanIR> drawn;
+            if (first_drawn)
+              drawn = map_leading_chain(*spans, *first_drawn,
+                                        line.body.display_text, drawn_spans,
+                                        drawn_text);
             auto proven = !drawn.empty() && !drawn_text.empty() &&
                           drawn_text.back() != ':' &&
                           line.body.text.compare(0, drawn_text.size(),
