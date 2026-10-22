@@ -466,9 +466,10 @@ struct BoxRegion {
   bool grid = false;
 };
 
-// Every closed box region and every open native drawing of the topic, in
-// source order.  An open drawing has no rails to prove: its `begin_token` is
-// its first row's length byte and `end_token` its last row's last token.
+// Every closed box region, every open native drawing and every inline syntax
+// diagram of the topic, in source order.  An open drawing or a diagram has
+// no rails to prove: its `begin_token` is its first row's length byte and
+// `end_token` its last row's last token.
 // Declines silently (returns no region) when a record's display lines do not
 // parse.
 std::vector<BoxRegion> plan_boxes(

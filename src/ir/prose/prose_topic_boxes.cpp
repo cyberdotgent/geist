@@ -386,6 +386,128 @@ std::optional<BoxRegion> open_drawing(
   return region;
 }
 
+// The box words whose stroke leaves the cell downward, into the same column
+// of the next drawn row, and those whose stroke enters it from above.
+bool connects_down(std::uint16_t word) {
+  switch (word) {
+  case 0x2502: case 0x250C: case 0x2510: case 0x251C: case 0x2524:
+  case 0x252C: case 0x253C:
+    return true;
+  default:
+    return false;
+  }
+}
+bool connects_up(std::uint16_t word) {
+  switch (word) {
+  case 0x2502: case 0x2514: case 0x2518: case 0x251C: case 0x2524:
+  case 0x2534: case 0x253C:
+    return true;
+  default:
+    return false;
+  }
+}
+
+std::vector<std::size_t> stroke_columns(const std::vector<std::uint16_t>& columns,
+                                        bool down) {
+  std::vector<std::size_t> found;
+  for (std::size_t column = 0; column < columns.size(); ++column)
+    if (down ? connects_down(columns[column]) : connects_up(columns[column]))
+      found.push_back(column);
+  return found;
+}
+
+// Every cell of a drawn row needs a known hosted spelling (see
+// `open_drawing`).
+bool proven_glyphs(const std::vector<std::uint16_t>& columns) {
+  return std::none_of(columns.begin(), columns.end(), [](const auto word) {
+    return word == unmapped_word ||
+           (word != '?' && figure_display_glyph(word) == "?");
+  });
+}
+
+// An inline syntax diagram: a text row that carries a railroad's main path,
+// with the stack of optional or alternative items hanging below it.  No row
+// of it is drawn from box words alone, so neither the closed-box geometry
+// nor `open_drawing` proves it, and the row model reflowed the main path into
+// a paragraph while the stack row (which opens with box words) became a
+// separate `<pre>`.  The proof is the strokes themselves: the main path
+// carries a `U+252C` junction (hosted prints a blank) in every column where
+// a branch leaves it, and the row below starts that branch with a `U+2514`,
+// `U+251C` or `U+2502` in exactly that column.  SC24-546 3.14 record 238:
+//
+//   * line 23, `>>__PARSE VALUE LINEIN() WITH__ ___..___ __;__><`, stores
+//     `U+252C` as tokens 267 and 271 (byte `0E`), columns 38 and 54;
+//   * line 24 is `cfont 40 13 V`, which draws nothing;
+//   * line 25, `|_template_list_|`, stores `U+2514 U+2500` (token 287) at
+//     columns 38-39 and `U+2500 U+2518` (token 295) at columns 53-54.
+//
+// Hosted BookServer (DT 19940323131240) prints both rows verbatim, one under
+// the other, with the main path's words in `<kbd>` and the item in `<var>`.
+// SC09-138 1.1.2 and SC28-1881-05 1.2 draw the same shape (`U+2192` arrows
+// for the terminators, stacks two rows deep joined by `U+251C`/`U+2524`).
+//
+// The run is the main row and every row below it that the strokes reach:
+// each next row (only `cfont`/`cselect`/`SI` lines between) must enter from
+// above in exactly the columns the row before leaves downward, and the run
+// ends at the first row that leaves nothing downward.  The main row itself
+// receives no stroke from above.  Anything else -- a blank or other control
+// line where a stroke is still open, a stroke that lands on no junction, an
+// unproven glyph -- is no diagram.
+std::optional<BoxRegion> syntax_diagram(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const std::vector<Candidate>& candidates,
+    const std::vector<bool>& claimed, std::size_t main, std::size_t& last) {
+  const auto& head = candidates[main];
+  if (claimed[main] || head.blank || head.control_only ||
+      !display_row(records[head.record], head.line) ||
+      !proven_glyphs(head.columns) || !stroke_columns(head.columns, false).empty())
+    return std::nullopt;
+  if (std::none_of(head.columns.begin(), head.columns.end(),
+                   [](const auto word) { return word == 0x252C; }))
+    return std::nullopt;
+  // A text row: the main path carries words, not only strokes (a row of box
+  // words alone is `open_drawing`'s to prove or decline).
+  bool joint = false;
+  if (box_only_row(head.columns, joint)) return std::nullopt;
+  auto open = stroke_columns(head.columns, true);
+  std::vector<std::size_t> rows{main};
+  auto cursor = main;
+  while (!open.empty()) {
+    ++cursor;
+    while (cursor < candidates.size() && !claimed[cursor] &&
+           hidden_drawing_line(records[candidates[cursor].record],
+                               candidates[cursor]))
+      ++cursor;
+    if (cursor >= candidates.size() || claimed[cursor]) return std::nullopt;
+    const auto& row = candidates[cursor];
+    if (row.blank || row.control_only ||
+        !display_row(records[row.record], row.line) ||
+        !proven_glyphs(row.columns) || stroke_columns(row.columns, false) != open)
+      return std::nullopt;
+    rows.push_back(cursor);
+    open = stroke_columns(row.columns, true);
+  }
+  if (rows.size() < 2) return std::nullopt;
+  BoxRegion region;
+  for (auto at = main; at <= rows.back(); ++at) {
+    const auto& candidate = candidates[at];
+    if (candidate.index) {
+      region.index_lines.push_back({candidate.record, candidate.line,
+                                    candidate.text, candidate.columns});
+      continue;
+    }
+    if (candidate.control_only) continue;
+    region.lines.push_back(
+        {candidate.record, candidate.line, candidate.text, candidate.columns});
+  }
+  region.begin_record = head.record;
+  region.begin_token = head.line.prefix_token;
+  region.end_record = candidates[rows.back()].record;
+  region.end_token = candidates[rows.back()].line.token_end - 1;
+  last = rows.back();
+  return region;
+}
+
 } // namespace
 
 std::vector<BoxRegion> plan_boxes(
@@ -488,8 +610,27 @@ std::vector<BoxRegion> plan_boxes(
     while (last + 1 < candidates.size() && !claimed[last + 1] &&
            !delimiter(candidates[last + 1]))
       ++last;
-    if (auto drawing = open_drawing(records, candidates, first, last))
+    if (auto drawing = open_drawing(records, candidates, first, last)) {
       regions.push_back(std::move(*drawing));
+      first = last + 1;
+      continue;
+    }
+    // A run with a row of box words alone is `open_drawing`'s: when that
+    // reading declined the run, no narrower reading of it is proven either.
+    bool box_only = false;
+    for (auto cursor = first; cursor <= last && !box_only; ++cursor) {
+      bool joint = false;
+      box_only = box_only_row(candidates[cursor].columns, joint) && joint;
+    }
+    for (auto main = first; main <= last && !box_only; ++main) {
+      std::size_t end = main;
+      auto diagram = syntax_diagram(records, candidates, claimed, main, end);
+      if (!diagram) continue;
+      std::fill(claimed.begin() + static_cast<std::ptrdiff_t>(main),
+                claimed.begin() + static_cast<std::ptrdiff_t>(end) + 1, true);
+      regions.push_back(std::move(*diagram));
+      main = end;
+    }
     first = last + 1;
   }
   std::sort(regions.begin(), regions.end(),

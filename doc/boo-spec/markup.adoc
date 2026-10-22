@@ -3945,6 +3945,70 @@ closer that prints nothing.  A closer is read this way only when an
 `SRLIS<owner>` of the topic names the same owner, ignoring case, as in
 prose.  Either control must have a drawn row of the envelope after it.
 
+[[markup_inline_syntax_diagrams]]
+==== Inline syntax diagrams
+
+A railroad syntax diagram drawn into prose need not have any row made of box
+words alone.  Its main path is a row of text -- keywords, variables and
+terminators (`>>`, `><`, or the arrows `U+2192`/`U+2190`) -- joined by
+`U+2500` rule runs, and the optional or alternative items hang below it.
+Each branch leaves the main path through a `U+252C` junction and enters the
+item row below through a `U+2514`, `U+251C` or `U+2502` in the same column;
+an item row that continues the stack downward ends in `U+251C`/`U+2524`
+junctions and the last one in `U+2514`/`U+2518` corners.  Hosted BookServer
+prints `U+252C` as a blank and `U+2514`, `U+2518`, `U+251C`, `U+2524` as
+`|`, so the junction columns look like gaps in the main path's rule.
+
+SC24-546 `3.14` (logical record 238; offsets are absolute file offsets,
+two-byte token values big-endian):
+
+[cols="<10,<46,<38",options="header"]
+|===
+|Line |Bytes |Reading
+
+|22 |-- |`cfont 11 5 P 17 5 P 23 6 P 32 4 P`
+|23 |`23` at `0x22D91`; ... `0E` at `0x22DA7` and `0x22DAC` |the main path `>>__PARSE VALUE LINEIN() WITH__ ... __;__><`; each `0E` is `U+252C`, at columns 38 and 54
+|24 |`04` at `0x22DB5` |`cfont 40 13 V`
+|25 |`0F` at `0x22DBA`; `08` (`U+2514 U+2500`) at `0x22DBD`, ... `C6 67` (`U+2500 U+2518`) at `0x22DC8` |`|_template_list_|`, the corners at columns 38 and 54
+|===
+
+The row after line 25 is prose, with no empty display line between.  Hosted
+(DT `19940323131240`) prints lines 23 and 25 one under the other, column for
+column, with `PARSE`, `VALUE`, `LINEIN` and `WITH` in `<kbd>` and
+`template_list` in `<var>`: the `cfont` lines style the row after them and
+print nothing.  SC09-138 `1.1.2` draws the same shape across a record
+boundary.  Logical record 70 line 46 (`1B` at `0x6B9B1`) is
+`→→___statement_____ ___ ... ___→←`, with `U+252C` stored as `B0 A4` at
+`0x6B9BF` and `0x6B9C5` (columns 26 and 42).  Line 47 is a `cfont` line, and
+record 71 line 0 (`0F` at `0x6B9D7`) begins with `B0 4B` (`U+2514 U+2500`)
+at column 26 and ends with `B0 61` (`U+2500 U+2518`) at column 42.  Hosted
+(DT `19910321130500`) prints both rows verbatim, and likewise its two-row
+stacks, the upper item row of which ends in `U+251C`/`U+2524` junctions.
+SC28-1881-05 `1.2` (DT `19930326130533`) repeats the same examples.
+
+The rows that belong to the diagram follow from the strokes alone:
+
+* The main path is a display row of text, not of box words alone.  It holds
+  at least one `U+252C`, and no stroke enters it from above (`U+2502`,
+  `U+2514`, `U+2518`, `U+251C`, `U+2524`, `U+2534`, `U+253C`).
+* Each next display row, with only `cfont`, `cselect` and `SI` lines
+  between, enters from above in exactly the columns where the row before
+  leaves downward (`U+2502`, `U+250C`, `U+2510`, `U+251C`, `U+2524`,
+  `U+252C`, `U+253C`), and in no other column.
+* The diagram ends at the first row that leaves nothing downward.
+
+A diagram continued on a second main path is a second diagram.  SC24-546
+`6.2.7` (logical record 707) ends the first main path with `>` and opens the
+second with `>`.  Line 7 between them is an empty display line, and hosted
+prints it as an empty row between the two drawings.
+
+A main path whose strokes meet nothing -- an empty display line or another
+control line below it, an item row shifted by one column, a stack that
+leaves a stroke open -- is not proven to be a diagram.  A main path drawn
+without a stack (`→→___statement___required_item___→←`) has no junction and
+is not covered by this reading.  A run of display lines that holds a row of
+box words alone is an open drawing (<<markup_open_drawings_in_prose>>) instead.
+
 [[markup_verbatim_cz_regions]]
 ==== Verbatim `CZ` regions
 

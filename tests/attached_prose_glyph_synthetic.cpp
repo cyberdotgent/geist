@@ -1425,6 +1425,143 @@ void labelled_rule_rows() {
           "styled labelled rule was not drawn: " + html);
   }
 }
+// An inline railroad syntax diagram (SC24-546 3.14 record 238 lines 22-25):
+// a text row carrying the main path, whose `U+252C` junctions (hosted prints
+// blanks) stand exactly above the `U+2514`/`U+2518` ends of the optional
+// item's row below it, with `cfont` lines between.  No row is drawn from box
+// words alone.  How the rows below the main path are spelled is the test's
+// variable.
+enum class Stack { aligned, shifted, gap, two_deep, open_end, change_bar };
+void diagram(Builder &b, Stack stack) {
+  b.line({});
+  b.line({w("Code it as:")});
+  b.line({});
+  b.line({w("cfont"), w("7"), w("5"), w("P")});
+  // `>>__PARSE__` `U+252C` 6 x `U+2500` `U+252C` `__><`: columns 3..24,
+  // junctions at 14 and 21.
+  b.line({w("   "), w(">>"), {1}, {0x2500, 0x2500}, {1}, w("PARSE"), {1},
+          {0x2500, 0x2500}, {1}, {0x252C}, {1},
+          {0x2500, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500}, {1}, {0x252C},
+          {1}, {0x2500, 0x2500}, {1}, w("><")});
+  if (stack == Stack::gap) b.line({});
+  b.line({w("cfont"), w("16"), w("4"), w("V")});
+  const auto indent = stack == Stack::shifted ? w("               ")
+                                              : w("              ");
+  switch (stack) {
+  case Stack::aligned:
+  case Stack::shifted:
+  case Stack::gap:
+    b.line({indent, {0x2514, 0x2500}, {1, 'i', 't', 'e', 'm'},
+            {1, 0x2500, 0x2518}});
+    break;
+  case Stack::two_deep:
+    b.line({indent, {0x251C, 0x2500}, {1, 'i', 't', 'e', 'm'},
+            {1, 0x2500, 0x2524}});
+    b.line({indent, {0x2514, 0x2500}, {1, 'n', 'e', 'x', 't'},
+            {1, 0x2500, 0x2518}});
+    break;
+  case Stack::open_end:
+    // The stack leaves strokes open downward, but a blank row follows.
+    b.line({indent, {0x251C, 0x2500}, {1, 'i', 't', 'e', 'm'},
+            {1, 0x2500, 0x2524}});
+    b.line({});
+    break;
+  case Stack::change_bar:
+    // A revised prose row: an ASCII change bar in the margin, no stroke.
+    b.line({w("|"), w("             "), w("revised prose row")});
+    break;
+  }
+  b.line({w("Then continue.")});
+}
+void inline_syntax_diagram() {
+  for (const auto stack : {Stack::aligned, Stack::two_deep}) {
+    Builder b(false);
+    diagram(b, stack);
+    std::string error;
+    const auto doc = lower(b, error);
+    check(doc.has_value(), "inline syntax diagram rejected: " + error);
+    if (!doc) continue;
+    const auto html = render_document_html_fragment(*doc);
+    const std::string main =
+        "   &gt;&gt;__<code class=\"geist-monospace\">PARSE</code>__ ______ "
+        "__&gt;&lt;\n";
+    const std::string item =
+        "              |_<em class=\"geist-emphasis\">item</em>_|";
+    const std::string expected =
+        stack == Stack::aligned ? main + item
+                                : main + item + "\n              |_next_|";
+    check(pre_body(html) == expected,
+          "inline syntax diagram was not drawn as one verbatim block: " + html);
+    check(html.find("Code it as:") < html.find("<pre") &&
+              html.find("Then continue.") > html.find("</pre>"),
+          "prose around the syntax diagram moved into it: " + html);
+    const auto markdown = render_document_markdown(*doc);
+    check(markdown.find("\\>\\>") == std::string::npos &&
+              markdown.find("   &gt;&gt;__") != std::string::npos,
+          "inline syntax diagram main path reflowed in Markdown: " + markdown);
+  }
+}
+// Two diagrams separated by an empty display line (SC24-546 6.2.7 record
+// 707 line 7) stay two blocks: the empty row between them is not lost.
+void consecutive_syntax_diagrams() {
+  Builder b(false);
+  b.line({});
+  b.line({w("Numbers:")});
+  b.line({});
+  for (int part = 0; part < 2; ++part) {
+    if (part == 1) b.blank();
+    b.line({w("   "), w(part == 0 ? ">>" : ">"), {1}, {0x2500, 0x2500}, {1},
+            {0x252C}, {1}, {0x2500, 0x2500, 0x2500}, {1}, {0x252C}, {1},
+            {0x2500, 0x2500}, {1}, w(part == 0 ? ">" : "><")});
+    // Junctions at columns 7/11 (`>>`) or 6/10 (`>`), corners below them.
+    b.line({w(part == 0 ? "       " : "      "), {0x2514}, {1, 'a', 'b', 'c'},
+            {1, 0x2518}});
+  }
+  b.line({w("Then continue.")});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "consecutive syntax diagrams rejected: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto second = html.find("<pre", html.find("<pre") + 1);
+  check(second != std::string::npos &&
+            pre_body(html) == "   &gt;&gt;__ ___ __&gt;\n       |abc|" &&
+            pre_body(html.substr(second)) ==
+                "   &gt;__ ___ __&gt;&lt;\n      |abc|",
+        "consecutive syntax diagrams lost the empty row between them: " +
+            html);
+}
+// Strokes that do not meet prove nothing: the main path stays the row
+// model's, whatever it makes of it, and is never drawn together with the
+// row below.
+void inline_syntax_diagram_is_narrow() {
+  for (const auto stack : {Stack::shifted, Stack::gap, Stack::open_end,
+                           Stack::change_bar}) {
+    Builder b(false);
+    diagram(b, stack);
+    std::string error;
+    const auto doc = lower(b, error);
+    if (!doc) continue;
+    const auto html = render_document_html_fragment(*doc);
+    const auto pre = pre_body(html);
+    check(pre.find("&gt;&gt;__") == std::string::npos,
+          "a main path whose strokes meet nothing was drawn: " + html);
+  }
+  // An underscore run in prose is no main path: no junction.
+  Builder b(false);
+  b.line({});
+  b.line({w("Fill"), w("in"), w("the"), {0x2500, 0x2500, 0x2500},
+          w("field.")});
+  b.line({w("              "), {0x2514, 0x2500}, {1, 'i', 't', 'e', 'm'},
+          {1, 0x2500, 0x2518}});
+  std::string error;
+  const auto doc = lower(b, error);
+  if (doc) {
+    const auto html = render_document_html_fragment(*doc);
+    check(pre_body(html).find("Fill") == std::string::npos,
+          "prose with a rule run was drawn as a diagram: " + html);
+  }
+}
 void bullet() {
   Builder b;
   b.line({w("cz"), w("BREAK"), w("3")});
@@ -1488,6 +1625,9 @@ int main() {
   prose_box_inside_frame();
   consecutive_boxes_stay_apart();
   labelled_rule_rows();
+  inline_syntax_diagram();
+  inline_syntax_diagram_is_narrow();
+  consecutive_syntax_diagrams();
   bullet();
   rejected({w("   "), w("SNA"), {1}, {0xffff}, {1}, w("ps")});
   rejected({w("   "), w("SNA"), {0x2666}, w("ps")});
