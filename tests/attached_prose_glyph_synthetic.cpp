@@ -928,6 +928,57 @@ void frame_rows_around_prose_decline() {
   check(!doc && error.find("frame rows around prose") != std::string::npos,
         "frame rows around prose were not declined: " + error);
 }
+// A picture-less `SRFIG<id>` form that draws a closed `Note` box between two
+// of its paragraphs, well above the table it encloses: SC24-5527-02
+// COMMENTS records 976-978 (`SRFIGFIGUNIQ548`, the box on record 977 line 4
+// .. record 978 line 0, `SRTBLTBLUNIQ549`).  Hosted BookServer (DT
+// 19921218151459) prints the paragraphs, the box between them and the table
+// in source order, styles the `cfont` lines' words in bold, and prints no
+// `cfont`.  The box is the form's own, not the frame's drawing.
+void prose_box_inside_frame() {
+  Builder b(false);
+  const auto rail = [&](const std::string &text) {
+    b.line({w("   "), {0x2502}, w(text), {0x2502}});
+  };
+  b.line({});
+  b.line({w("SRFIGFR2")});
+  b.line({w("cfont"), w("3"), w("5"), w("2")});
+  b.line({w("   "), w("First words of the form.")});
+  b.line({});
+  b.line({w("   "), repeat({0x250c}, 0x2500, 20, 0x2510)});
+  b.line({w("   "), {0x2502}, w(std::string(19, ' ')), {0x2502}});
+  rail("Do not use this.   ");
+  b.line({w("   "), repeat({0x2514}, 0x2500, 20, 0x2518)});
+  b.line({});
+  b.line({w("   "), w("Words after the box.")});
+  b.line({});
+  b.line({w("SRTBLTBLUNIQ10")});
+  b.line({w("   "), w("Format"), w("     "), w("Address")});
+  b.line({w("   "), w("INTERNET"), w("   "), w("pub@host")});
+  b.line({w("SRETBL")});
+  b.line({w("   "), w("Last words.")});
+  b.line({w("SREFIG")});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "prose box inside a frame declined: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto first = html.find("First");
+  const auto box = html.find("Do not use this.");
+  const auto after = html.find("Words after the box.");
+  const auto table = html.find("id=\"TBLTBLUNIQ10\"");
+  const auto last = html.find("Last words.");
+  check(html.find("id=\"FIGFR2\"") < first && first < box && box < after &&
+            after < table && table < last && last != std::string::npos &&
+            html.find("|____________________|") != std::string::npos,
+        "prose box inside a frame is not drawn between its paragraphs: " +
+            html);
+  check(html.find("cfont") == std::string::npos &&
+            html.find("<strong class=\"geist-strong\">First</strong>") !=
+                std::string::npos,
+        "a frame's cfont line printed or did not style its row: " + html);
+}
 // A bare `SR<id>` anchor alone on its line directly above the top rule of a
 // closed box: SC24-546 4.3.21 record 375 line 12 is `SRSPTFDATE`, lines
 // 13-20 the closed syntax-diagram box, and the anchor's flattened segment
@@ -1159,6 +1210,7 @@ int main() {
   styled_table_row(false, true);
   styled_table_row(false, false);
   styled_table_row(true, true);
+  prose_box_inside_frame();
   bullet();
   rejected({w("   "), w("SNA"), {1}, {0xffff}, {1}, w("ps")});
   rejected({w("   "), w("SNA"), {0x2666}, w("ps")});

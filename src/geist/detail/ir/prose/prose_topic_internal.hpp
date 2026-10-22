@@ -252,6 +252,11 @@ struct SpanRegion {
 // (`ProseSpanIR::frame_before`/`frame_after`), any other spacing inside it
 // is padding, and every other visible token belongs to a table span or to a
 // prose line the stream lowers.
+// A closed box of a frame's prose: its top rule's length byte and its
+// bottom rule's last token, as (record index, token) pairs.
+using FrameProseBox = std::pair<std::pair<std::size_t, std::size_t>,
+                                std::pair<std::size_t, std::size_t>>;
+
 struct FrameRegion {
   std::size_t begin_record = 0;
   std::size_t begin_segment = 0;
@@ -259,6 +264,15 @@ struct FrameRegion {
   std::size_t end_segment = 0;
   std::string anchor_id;
   DocumentSourceSliceIR source;
+  // Closed boxes inside the frame that hold no table row: the stream draws
+  // them as in prose (SC24-5527-02 COMMENTS `Note` box).
+  std::vector<FrameProseBox> prose_boxes;
+  bool in_prose_box(std::size_t record, std::size_t token) const {
+    const std::pair<std::size_t, std::size_t> at{record, token};
+    for (const auto& box : prose_boxes)
+      if (box.first <= at && at <= box.second) return true;
+    return false;
+  }
 };
 
 struct SpanPlan {

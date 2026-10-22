@@ -530,6 +530,39 @@ bool figure_region(const std::vector<DecodedLogicalRecordSource>& records,
   return true;
 }
 
+// The closed boxes standing wholly inside a picture-less frame that hold no
+// row of a table span: boxes of the frame's prose, not the frame's own
+// drawing.  SC24-5527-02 COMMENTS draws its `Note` box (record 977 line 4
+// .. record 978 line 0) between two paragraphs of the `SRFIGFIGUNIQ548`
+// form, well above its `SRTBLTBLUNIQ549` table, and hosted (DT
+// 19921218151459) prints it as the box it is, between those paragraphs.  A
+// closed box around the table -- the ITPPIBOK 4.3.5.4 `SRFIGSCHED` frame,
+// whose rails run beside the table's own rows -- holds table rows and is no
+// prose box.  Runs after the table spans claimed their tokens.
+std::vector<FrameProseBox> frame_prose_boxes(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const Claim& begin, const Claim& end, Ledger& ledger) {
+  std::vector<FrameProseBox> result;
+  for (const auto& box : plan_boxes(records)) {
+    if (!box.closed) continue;
+    const Claim first{box.begin_record, box.begin_token};
+    const Claim last{box.end_record, box.end_token};
+    if (first <= begin || end <= last) continue;
+    bool table = false;
+    for (auto record = box.begin_record; record <= box.end_record && !table;
+         ++record) {
+      const auto from = record == box.begin_record ? box.begin_token : 0;
+      const auto to = record == box.end_record
+                          ? box.end_token
+                          : records[record].ir.tokens.size() - 1;
+      for (auto token = from; token <= to && !table; ++token)
+        table = ledger.at(record, token).role == ProseTokenRoleIR::table;
+    }
+    if (!table) result.emplace_back(first, last);
+  }
+  return result;
+}
+
 // The display rows a picture-less frame draws around its table.
 //
 // ITPPIBOK 4.3.5.4 records 158-160 open `SRFIGSCHED` on record 158 line 19
@@ -550,13 +583,16 @@ bool figure_region(const std::vector<DecodedLogicalRecordSource>& records,
 // row or after its last one, and no line of prose stands between a frame row
 // and the table (the stream would place it on the wrong side of the rows).
 // A blank display line between two drawn rows of one side is an empty row.
-// Anything else fails closed: SC24-5527-02 COMMENTS draws a closed `Note` box
-// between paragraphs of its `SRFIGFIGUNIQ548` form (record 977 line 4 ..
-// record 978 line 0), with prose between the box and the `SRTBLTBLUNIQ549`
-// table, and is no frame around that table.  A frame that draws no box word
-// -- every other frame of the corpus -- is left exactly as it was.
+// Anything else fails closed.  A row of a closed box inside the frame is no
+// frame row: SC24-5527-02 COMMENTS draws a closed `Note` box between
+// paragraphs of its `SRFIGFIGUNIQ548` form (record 977 line 4 .. record 978
+// line 0), with prose between the box and the `SRTBLTBLUNIQ549` table; the
+// box is the form's own and the stream draws it.  A frame that draws no
+// other box word -- every other frame of the corpus -- is left exactly as
+// it was.
 bool claim_frame_rows(const std::vector<DecodedLogicalRecordSource>& records,
                       const Claim& begin, const Claim& end,
+                      const std::vector<FrameProseBox>& prose_boxes,
                       const std::string& label, Ledger& ledger,
                       ProseTopicIR& topic, std::string* error) {
   enum class Kind { blank, control, text, drawn, table };
@@ -569,6 +605,16 @@ bool claim_frame_rows(const std::vector<DecodedLogicalRecordSource>& records,
   constexpr auto none = static_cast<std::size_t>(-1);
   std::size_t span = none;
   bool several = false;
+  // A closed box of the frame's prose (`frame_prose_boxes`) is no frame
+  // row; the stream draws it.
+  const auto in_closed_box = [&](std::size_t record, const DisplayLineIR& line) {
+    return std::any_of(prose_boxes.begin(), prose_boxes.end(),
+                       [&](const FrameProseBox& box) {
+                         return Claim{record, line.prefix_token} >= box.first &&
+                                Claim{record, line.token_end - 1} <=
+                                    box.second;
+                       });
+  };
   for (auto record = begin.first; record <= end.first; ++record) {
     const auto* display = record_display_lines(records[record]);
     if (display == nullptr) continue;
@@ -612,6 +658,10 @@ bool claim_frame_rows(const std::vector<DecodedLogicalRecordSource>& records,
             segment.source_tokens.front() >= first &&
             segment.source_tokens.front() <= last)
           control = true;
+      if (entry.kind != Kind::table && drawn && in_closed_box(record, line)) {
+        drawn = false;
+        visible = true;
+      }
       if (entry.kind != Kind::table) {
         if (control && drawn)
           return fail(error, label + " draws a frame row on a control line");
@@ -753,9 +803,11 @@ bool plan_frame(const std::vector<DecodedLogicalRecordSource>& records,
   bool table_inside = false;
   const auto first_token = begin_segment.source_tokens.front();
   const auto last_token = end_tokens.back();
+  frame.prose_boxes = frame_prose_boxes(records, {*begin_record, first_token},
+                                        {*end_record, last_token}, ledger);
   if (!claim_frame_rows(records, {*begin_record, first_token},
-                        {*end_record, last_token}, label, ledger, topic,
-                        error))
+                        {*end_record, last_token}, frame.prose_boxes, label,
+                        ledger, topic, error))
     return false;
   for (auto record = frame.begin_record; record <= frame.end_record; ++record) {
     const auto first = record == frame.begin_record ? first_token : std::size_t{0};
@@ -798,6 +850,20 @@ bool plan_frame(const std::vector<DecodedLogicalRecordSource>& records,
         continue;
       }
       if (entry.role != ProseTokenRoleIR::unassigned) continue;
+      // A box of the frame's prose is the stream's to draw, rails and
+      // rules included (`frame_prose_boxes`); its rows are never padding.
+      if (frame.in_prose_box(record, token)) continue;
+      // A `cfont` control between the frame's lines is the stream's to
+      // lower, payload and spacing included (prose_topic_stream.cpp).
+      {
+        const auto at = segment_of(records[record], token);
+        if (at < records[record].control_segments.size() &&
+            records[record].control_segments[at].kind ==
+                BookControlKind::font &&
+            !(record == frame.begin_record && at == frame.begin_segment) &&
+            !(record == frame.end_record && at == frame.end_segment))
+          continue;
+      }
       const auto view = view_token(records, record, token);
       if (!region_structure(view) && !length_byte(token)) {
         if (!line_owned_by_table(token)) continue;

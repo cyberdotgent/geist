@@ -1234,6 +1234,19 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
             build.plan->region_of_segment(record_index, segment_index);
         const auto* frame =
             build.plan->frame_of_segment(record_index, segment_index);
+        // A `cfont` control between the frame's own lines styles the prose
+        // the stream lowers there, exactly as outside a frame; its opcode
+        // and operands are never body text.  SC24-5527-02 COMMENTS styles
+        // the form's paragraphs and its `Note` box this way inside
+        // `SRFIGFIGUNIQ548` (hosted DT 19921218151459 prints the words in
+        // `<B>` and no `cfont`).
+        if (region == nullptr && frame != nullptr &&
+            segment.kind == BookControlKind::font &&
+            !(frame->begin_record == record_index &&
+              frame->begin_segment == segment_index) &&
+            !(frame->end_record == record_index &&
+              frame->end_segment == segment_index))
+          frame = nullptr;
         if (region != nullptr || frame != nullptr) {
           if (!title_seen)
             return fail(error, "table/figure region precedes the ST title");
@@ -1287,9 +1300,15 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
               build.items.push_back(std::move(item));
               continue;
             }
+            // A box of the frame's prose draws its own rows
+            // (`FrameRegion::prose_boxes`), never padding: SC24-5527-02
+            // COMMENTS record 978 opens with the bottom rule of the form's
+            // `Note` box.
+            const auto box_row = region == nullptr && frame != nullptr &&
+                                 frame->in_prose_box(record_index, token);
             // Spacing and the punctuation the decoder glues to the end
             // marker (`SREFIG.`, GG24-4302-00 5.1.8) precede any payload.
-            if (first_payload &&
+            if (first_payload && !box_row &&
                 (is_padding(view) || is_separator(view) ||
                  (punctuation_glyph_token(view) &&
                   std::all_of(view.body.begin(), view.body.end(),

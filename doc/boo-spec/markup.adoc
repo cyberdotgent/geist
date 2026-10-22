@@ -1369,10 +1369,16 @@ serves both rows (DTs `19911220191142` and `19930625182638`) as
 The two witnesses are two books serving one shared sentence, not two
 independent uses of the code.
 
-`_` (`UNDERSCORE`) has no verified presentation.  The sweep finds it only in
-SC24-5527-02 `COMMENTS`, a book the hosted catalog does not serve.  The
-87-book sample finds it in four more books (SG24-3910-01, SC31-6009-04,
-SC31-8234-00 and GC31-8189-01), none yet compared with hosted.
+`_` (`UNDERSCORE`) has one verified row.  The sweep finds it only in
+SC24-5527-02 `COMMENTS`.  There record 978 segment 4 is `cfont 3 5 2 9 3 2
+13 4 2 18 1 2 20 6 2 29 3 _ 32 3 2 37 3 _ 41 2 2` over the row
+`   Would you like a reply?` and two blank three-column slots before `YES`
+and `NO`.  Hosted BookServer (DT `19921218151459`) serves the row as
+pass:[<literal>&lt;B&gt;reply?&lt;/B&gt;&#160;&#160;&#160;&lt;u&gt;___&lt;/u&gt;&lt;B&gt;YES&lt;/B&gt;&#160;&#160;&lt;u&gt;___&lt;/u&gt;&#160;&lt;B&gt;NO&lt;/B&gt;</literal>]:
+each `_` span prints three underscores, inside `<u>`, over columns the row
+leaves blank -- a fill-in slot, not a style of words.  The 87-book sample
+finds `_` in four more books (SG24-3910-01, SC31-6009-04, SC31-8234-00 and
+GC31-8189-01), none yet compared with hosted.
 
 `HP5`..`HP9` form a family: each is the underscored form of the code five
 below it, so `5` underscores `H0` (plain), `6` `HP1`, `7` `HP2`, `8` `HP3` and
@@ -2496,8 +2502,8 @@ likely to follow the same shape, and a book on the hosted shelf that uses
 `:caution.` or `:danger.` would settle them. No corpus fixture does.
 ** *`T` `TP`, `U` `MD`, `Y` `MDQUAL`, `_` `UNDERSCORE`* have at most one
 witness each in the corpus and no second book to generalise from. `_`
-occurs there only in SC24-5527-02 `COMMENTS`, which the hosted catalog does
-not serve; a sample of the hosted shelf finds it in SG24-3910-01 (36
+occurs there only in SC24-5527-02 `COMMENTS`, where hosted prints
+underscores over blank columns (see above); a sample of the hosted shelf finds it in SG24-3910-01 (36
 topics), SC31-6009-04, SC31-8234-00 and GC31-8189-01, not yet compared with
 hosted. `Z` `PVDEF` is verified only on one sentence that two books share
 (SC26-457 and SC26-4905-00 `1.3`).
@@ -3433,12 +3439,34 @@ rows between the `SRETBL` line and the caption as one verbatim region, and
 places the table anchor on the envelope's first row.  The region is
 recognised only when the frame encloses exactly one table, every frame row
 stands before the envelope's first row or after its last, and no display
-line of prose stands between a frame row and the envelope.  SC24-5527-02
-`COMMENTS` is the counterexample: its `SRFIGFIGUNIQ548` form draws a closed
-`Note` box (record 977 line 4 to record 978 line 0) between paragraphs, well
-above the `SRTBLTBLUNIQ549` address table, and that box is no frame around
-the table.  Every other picture-less frame around a table in the corpus
-draws no box word outside its envelope.
+line of prose stands between a frame row and the envelope.
+
+A closed box that stands wholly inside the frame and holds no row of the
+table is no frame row: it is a box of the frame's prose.  SC24-5527-02
+`COMMENTS` (records 976-978) is the witness.  Its `SRFIGFIGUNIQ548` form
+(the opcode word `E2 DE` at `0x61F43`) draws a closed `Note` box
+between two of its paragraphs, well above the `SRTBLTBLUNIQ549` address
+table:
+
+[cols="<14,<46,<40",options="header"]
+|===
+|Record, line |Bytes |Reading
+
+|977, 3 |`04` at `0x62024`; `cfont 8 4 2` |styles `Note` in the next row
+|977, 4 |`08` at `0x62029`; `1A` (3 spaces), `06` (`U+250C`), `00`, `0A` (3 x `U+2500`), `9B` (`Note`), `13` (`U+2500` run), `00`, `05` (`U+2510`) |the box's top rule, titled
+|977, 5-9 |-- |rails at columns 3 and 76, three rows of text between them
+|978, 0 |`08` at `0x6207D`; `1A`, `07` (`U+2514`), `00`, `13`, `00`, `0C`, `00`, `08` (`U+2518`) |the bottom rule, the record's first line
+|===
+
+Hosted BookServer (DT `19921218151459`) prints the box row for row between
+the paragraphs it stands between, with `<B>Note</B>` in its top rule, and
+prints the other `cfont` lines of the form only as the bold words they
+style.  So the frame's prose, its boxes and its `cfont` lines read exactly
+as they would outside the frame, and only the frame's anchor and the table
+are the frame's.  A closed box around the table -- the ITPPIBOK `4.3.5.4`
+frame above, whose rails run beside the table's own rows -- holds table rows
+and stays the frame's drawing.  Every other picture-less frame around a
+table in the corpus draws no box word outside its envelope.
 
 The end marker of a table or figure span is followed the same way.  GG24-395
 `3.3.15` record 635 closes its `SRTBLTBLUNIQ21` span with `SRETBL` alone on
