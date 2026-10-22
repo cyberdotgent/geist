@@ -7,6 +7,7 @@
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import signal
@@ -69,7 +70,7 @@ def wait_for_http(base, process, timeout=15):
 def assert_not_found(base, prefix):
     for suffix in ["/.geist/api/v1", "/.geist/openapi.json",
                    "/.geist/api/v1/books", "/.geist/mcp",
-                   "/.geist/mcp/setup"]:
+                   "/.geist/mcp/setup", "/.geist/mcp/setup.js"]:
         status, _, _ = fetch(base, prefix + suffix)
         assert status == 404, (prefix + suffix, status)
 
@@ -108,11 +109,36 @@ def check_mcp_setup(base):
         status, headers)
     page = body.decode("utf-8")
     endpoint = base + "/enabled/.geist/mcp"
-    quoted_endpoint = "&#39;" + endpoint + "&#39;"
-    assert f"codex mcp add geist --url {quoted_endpoint}" in page, page
-    assert (f"claude mcp add --transport http geist {quoted_endpoint}"
+    # The server's absolute URL stays as the no-JavaScript fallback, and each
+    # occurrence carries the bare path for mcp-setup.js to respell on the
+    # browser's own origin (a TLS-terminating proxy hides https from Apache).
+    marker = 'data-geist-endpoint="/enabled/.geist/mcp"'
+    shell = (f'<span {marker} data-geist-quote="shell">'
+             f'&#39;{endpoint}&#39;</span>')
+    assert f"codex mcp add geist --url {shell}</code>" in page, page
+    assert (f"claude mcp add --transport http geist {shell}</code>"
             in page), page
-    assert f"<p><code>{endpoint}</code></p>" in page, page
+    assert (f'<p><code><a {marker} data-geist-attrs="href" '
+            f'href="{endpoint}">{endpoint}</a></code></p>') in page, page
+    assert (f'"url": <span {marker} data-geist-quote="json">'
+            f'&quot;{endpoint}&quot;</span>') in page, page
+    assert page.count(marker) == 4, page
+    assert "<script>" not in page, page
+
+    scripts = re.findall(r'<script src="([^"]+)"></script>', page)
+    assert len(scripts) == 1, page
+    assert scripts[0].startswith("/enabled/.geist/mcp/setup.js?v="), scripts
+    status, headers, body = fetch(base, scripts[0].replace("&amp;", "&"))
+    assert status == 200, status
+    assert headers.get_content_type() == "application/javascript", headers
+    script = body.decode("utf-8")
+    assert "data-geist-endpoint" in script and "location.origin" in script
+    status, _, _ = fetch(base, "/api-only/.geist/mcp/setup.js")
+    assert status == 404, status
+    status, headers, _ = fetch(base, "/enabled/.geist/mcp/setup.js",
+                               method="POST")
+    assert status == 405 and headers.get("Allow") == "GET, HEAD", (
+        status, headers)
 
     status, headers, body = fetch(base, path, method="HEAD")
     assert status == 200 and not body, (status, body)

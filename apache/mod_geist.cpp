@@ -38,6 +38,7 @@
 #include "config.hpp"
 #include "http_cache.hpp"
 #include "index_warming.hpp"
+#include "machine/json.hpp"
 #include "mcp/mcp.hpp"
 #include "rest/openapi.hpp"
 #include "rest/rest.hpp"
@@ -1286,7 +1287,8 @@ bool machine_path(const std::string& path) {
          path == "/.geist/api/v1" ||
          path.rfind("/.geist/api/v1/", 0) == 0 ||
          path == "/.geist/mcp" ||
-         path == "/.geist/mcp/setup";
+         path == "/.geist/mcp/setup" ||
+         path == "/.geist/mcp/setup.js";
 }
 
 std::string shell_quote(const std::string& value) {
@@ -1302,30 +1304,67 @@ std::string shell_quote(const std::string& value) {
   return out;
 }
 
+// The MCP setup page names the endpoint as an absolute URL, which the server
+// can only build from what Apache sees. Behind a TLS-terminating proxy that is
+// plain http and perhaps an internal host, so every URL here also carries the
+// path alone, in data-geist-endpoint, and mcp-setup.js respells it on the
+// origin the browser loaded the page from. The server's URL stays as the
+// no-JavaScript fallback. data-geist-quote says how the surrounding snippet
+// spells it: as a shell word or a JSON string.
 std::string mcp_setup_page(request_rec* r) {
   std::string endpoint_path(r->uri != nullptr ? r->uri : "");
   constexpr std::string_view suffix = "/setup";
   if (endpoint_path.size() >= suffix.size()) {
     endpoint_path.resize(endpoint_path.size() - suffix.size());
   }
-  const char* absolute = ap_construct_url(r->pool, endpoint_path.c_str(), r);
-  const std::string endpoint = absolute != nullptr ? absolute : endpoint_path;
-  const std::string quoted = shell_quote(endpoint);
+  // r->uri is decoded; a URL handed to a client is not.
+  const char* escaped_path = ap_os_escape_path(r->pool, endpoint_path.c_str(), 1);
+  const std::string path = escaped_path != nullptr ? escaped_path : endpoint_path;
+  const char* absolute = ap_construct_url(r->pool, path.c_str(), r);
+  const std::string endpoint = absolute != nullptr ? absolute : path;
+
+  std::string script = path + "/setup.js";
+  for (const auto& asset : geist_httpd::kEmbeddedAssets) {
+    if (std::string_view(asset.name) == "mcp-setup.js") {
+      script += std::string("?v=") + asset.fingerprint;
+    }
+  }
+
+  const std::string marker = "data-geist-endpoint=\"" + html_escape(path) + "\"";
+  const auto url = [&](const char* quote, const std::string& text) {
+    std::string out = "<span " + marker;
+    if (quote != nullptr) {
+      out += std::string(" data-geist-quote=\"") + quote + "\"";
+    }
+    out += ">" + html_escape(text) + "</span>";
+    return out;
+  };
+  const std::string shell_url = url("shell", shell_quote(endpoint));
 
   std::string out;
   out += "<!doctype html>\n<html lang=\"en\"><head>"
          "<meta charset=\"utf-8\">"
          "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
          "<title>MCP setup</title></head><body><main>\n"
-         "<h1>MCP</h1>\n<p><code>";
+         "<h1>MCP</h1>\n<p><code><a ";
+  out += marker;
+  out += " data-geist-attrs=\"href\" href=\"";
   out += html_escape(endpoint);
-  out += "</code></p>\n<h2>Codex</h2>\n"
+  out += "\">";
+  out += html_escape(endpoint);
+  out += "</a></code></p>\n<h2>Codex</h2>\n"
          "<pre><code>codex mcp add geist --url ";
-  out += html_escape(quoted);
+  out += shell_url;
   out += "</code></pre>\n<h2>Claude Code</h2>\n"
          "<pre><code>claude mcp add --transport http geist ";
-  out += html_escape(quoted);
-  out += "</code></pre>\n</main></body></html>\n";
+  out += shell_url;
+  out += "</code></pre>\n<h2>Project configuration (.mcp.json)</h2>\n"
+         "<pre><code>{\n  \"mcpServers\": {\n    \"geist\": {\n"
+         "      \"type\": \"http\",\n      \"url\": ";
+  out += url("json", machine::write_json(machine::JsonValue(endpoint)));
+  out += "\n    }\n  }\n}</code></pre>\n</main>\n<script src=\"";
+  out += html_escape(script);
+  out += "\"></script>\n</body></html>\n";
   return out;
 }
 
@@ -1426,7 +1465,8 @@ int geist_machine_handler(request_rec* r) {
   }
 
   const bool is_mcp = target->path == "/.geist/mcp" ||
-                      target->path == "/.geist/mcp/setup";
+                      target->path == "/.geist/mcp/setup" ||
+                      target->path == "/.geist/mcp/setup.js";
   const bool is_api = !is_mcp;
   if ((is_mcp && config->mcp != Tri::on) ||
       (is_api && config->api != Tri::on)) {
@@ -1434,6 +1474,15 @@ int geist_machine_handler(request_rec* r) {
   }
 
   try {
+    if (target->path == "/.geist/mcp/setup.js") {
+      if (r->method_number != M_GET) {
+        return write_machine_response(
+            r, HTTP_METHOD_NOT_ALLOWED, "application/javascript; charset=utf-8",
+            "", {{"Allow", "GET, HEAD"}});
+      }
+      return serve_asset(r, "mcp-setup.js");
+    }
+
     if (target->path == "/.geist/mcp/setup") {
       if (r->method_number != M_GET) {
         return write_machine_response(
