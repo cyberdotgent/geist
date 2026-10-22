@@ -309,6 +309,21 @@ struct TrapFieldIR {
   bool in_vocabulary = true;
 };
 
+// An `SI <term>` subject-index display line standing inside an entry. It is
+// index metadata and draws nothing: SC34-425 2.4.11.1 record 1509 line 25 is
+// `SI translators, FLMLPGEN` after entry 599's last field, and hosted
+// BookServer (DT 19921112160049) serves nothing for it. `term` is the line's
+// words after the keyword; `source` is the whole line.
+struct TrapIndexTermIR {
+  std::string term;
+  DocumentSourceSliceIR source;
+};
+
+inline bool operator==(const TrapIndexTermIR &left,
+                       const TrapIndexTermIR &right) {
+  return left.term == right.term && left.source == right.source;
+}
+
 struct TrapEntryIR {
   std::string id;
   std::string operand;
@@ -316,6 +331,7 @@ struct TrapEntryIR {
   TrapLineIR headline;
   std::vector<TrapFieldIR> fields;
   std::vector<TrapEmbeddedRegionIR> embedded_regions;
+  std::vector<TrapIndexTermIR> index_terms;
   // Every payload cell of the entry's segments, in source order, each with
   // exactly one role.
   std::vector<TrapSourceCellIR> cells;
@@ -327,6 +343,16 @@ struct TrapAnchorIR {
   DocumentSourceSliceIR source;
 };
 
+// One introduction paragraph, with the native list structure its own first
+// display line states. A paragraph whose first row opens with a list bullet
+// (`is_display_line_list_bullet`) opens an item: `list_marker` is the
+// bullet's token and `marker_column` its drawn cell. A later paragraph whose
+// first glyph stands deeper than the open list's bullets is a further block
+// of the item (`list_continuation`); one at or left of them ends the list.
+// SC34-425 2.4.10.1 records 1489-1490 draw `   °   When an uncommented ...`
+// followed by `       If the member name is enclosed ...`, and hosted
+// BookServer (DT 19921112160049) serves the second paragraph under the
+// first bullet, at the bullet's text column.
 struct TrapIntroductionParagraphIR {
   std::string text;
   // Byte offsets in `text` of the separator spaces that are line breaks
@@ -336,6 +362,14 @@ struct TrapIntroductionParagraphIR {
   std::vector<TrapStyledSpanIR> leading_spans;
   std::vector<DocumentSourceSliceIR> source_slices;
   std::vector<DocumentSourceRowIR> source_rows;
+  // Selector ranges over `text`, ordered and disjoint (`cselect` rows of the
+  // introduction, resolved as an entry's are).
+  std::vector<TrapTextLinkIR> links;
+  std::optional<DocumentSourceSliceIR> list_marker;
+  std::size_t marker_column = 0;
+  // Drawn column of the paragraph's first glyph, where its rows prove one.
+  std::optional<std::size_t> first_column;
+  bool list_continuation = false;
 };
 
 struct TrapCatalogIR {

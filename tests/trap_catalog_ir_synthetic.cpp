@@ -41,7 +41,16 @@
 //     declines;
 //   * selectors queued on consecutive control lines, each keeping its own
 //     claim on the shared row;
-//   * a bare `SRMSG` that stays where the entry names it.
+//   * a bare `SRMSG` that stays where the entry names it;
+//   * introduction bullets read as a native list, including a record that
+//     opens on an unrowed bullet row, a deeper paragraph that continues the
+//     item, and run-together bullets that decline;
+//   * introduction `cselect` rows placed as links on the cells they mark --
+//     queued, behind a destination line, and across a record boundary --
+//     and a selector past its row that declines;
+//   * an `SRFIG` envelope drawn in the introduction, and a stray closer;
+//   * an `SI` subject-index line inside an entry kept as a silent index
+//     term, and one whose segment runs on into drawn text, which declines.
 //
 // What is NOT covered, stated plainly rather than implied: the compact
 // marker slot that carries a whole word. Two rules turn on it -- a slot the
@@ -2146,19 +2155,439 @@ int main() {
     }
   }
 
-  // A subject-index line inside an entry is index metadata the entry walk
-  // cannot withhold; the family declines rather than print it (SC34-425
-  // 2.4.11.1 record 1509 line 25).
+  // Bullets in the introduction are a native list (SC34-425 2.4.10.1 records
+  // 1489-1490, 2.4.13 records 1523-1524, 2.4.16.1 records 1573-1574). A
+  // record may open on a bullet row that LayoutIR leaves unrowed, after the
+  // blank line that ends the previous record; its wrapped line belongs to
+  // the same item, a deeper paragraph continues the item, and a paragraph
+  // back at the origin ends the list.
+  const Token intro_bullet{TokenWords{0x2666}, 214};
+  const auto intro_list_sources = [&](std::uint32_t first_record,
+                                      std::vector<Token> extra_second) {
+    auto first = header("Sample", "Messages");
+    append(first, line({origin(), t("Rules", 350), t("follow:", 351)}));
+    append(first, line({}));
+    append(first, line({origin(), intro_bullet, t("  ", 20), t("Alpha", 352),
+                        t("item.", 353)}));
+    append(first, line({}));
+    std::vector<Token> second;
+    append(second, line({origin(), intro_bullet, t("  ", 20), t("Beta", 354),
+                         t("starts", 355)}));
+    append(second, line({t("       ", 307), t("and", 356), t("wraps.", 357)}));
+    append(second, extra_second);
+    append(second, line({}));
+    append(second, line({t("       ", 307), t("Indented", 358),
+                         t("continuation.", 359)}));
+    append(second, line({}));
+    append(second, line({origin(), t("Plain", 360), t("closing.", 361)}));
+    append(second, line({}));
+    append(second, entry("650", 362));
+    return std::vector<DecodedLogicalRecordSource>{
+        make_source(first_record, first),
+        make_source(first_record + 1, second)};
+  };
+  {
+    const auto built = build(intro_list_sources(80, {}), "Sample Messages");
+    require(built.catalog.has_value(),
+            "an introduction bullet list declined: " + built.error);
+    if (built.catalog) {
+      std::string shape;
+      for (const auto &paragraph : built.catalog->introduction)
+        shape += std::string("[") +
+                 (paragraph.list_marker ? "*" : "") +
+                 (paragraph.list_continuation ? "+" : "") + paragraph.text +
+                 "]";
+      require(shape == "[Rules follow:][*Alpha item.][*Beta starts and "
+                       "wraps.][+Indented continuation.][Plain closing.]",
+              "the introduction list has the wrong shape: " + shape);
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "the introduction list failed verification: " + error);
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(),
+              "the introduction list did not lower: " + error);
+      if (document) {
+        const auto markdown =
+            geist::detail::render_document_markdown(*document);
+        require(markdown.find("- Alpha item\\.\n- Beta starts and wraps\\.\n\n"
+                              "    Indented continuation\\.\n\nPlain "
+                              "closing\\.") != std::string::npos,
+                "the introduction list rendered wrongly:\n" + markdown);
+        const auto html =
+            geist::detail::render_document_html_blocks(*document, {});
+        require(html.find("<li class=\"geist-list-item\">Alpha item.</li>") !=
+                    std::string::npos,
+                "the introduction list has no HTML list item:\n" + html);
+      }
+    }
+  }
+
+  // Row line breaks survive a compact-list split: the first item's two
+  // example rows keep their break, at an offset moved into the item's own
+  // text, and the boundary to the next bullet row is the list's, not a
+  // break.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({origin(), t("Rules", 350), t("follow:", 351)}));
+    append(tokens, line({}));
+    append(tokens, line({origin(), intro_bullet, t("  ", 20),
+                         t("Alpha:", 403)}));
+    append(tokens, line({t("cfont", 111), t("7", 306), t("15", 404),
+                         t("E", 342)}));
+    append(tokens, line({t("       ", 307), t("HELP", 405), t("one", 406),
+                         t("more", 407)}));
+    append(tokens, line({t("cfont", 111), t("7", 306), t("7", 341),
+                         t("E", 342)}));
+    append(tokens, line({t("       ", 307), t("and", 408), t("two", 409)}));
+    append(tokens, line({origin(), intro_bullet, t("  ", 20), t("Gamma", 363),
+                         t("item.", 410)}));
+    append(tokens, line({}));
+    append(tokens, entry("657", 411));
+    const auto built = build({make_source(85, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "a compact list with row breaks declined: " + built.error);
+    if (built.catalog) {
+      std::string shape;
+      for (const auto &paragraph : built.catalog->introduction)
+        shape += std::string(paragraph.list_marker ? "*" : "");
+      const auto joined = broken_text(*built.catalog);
+      require(shape == "**" &&
+                  joined.find("HELP one more|and two]") != std::string::npos &&
+                  joined.find("[Gamma item.]") != std::string::npos,
+              "a compact list item lost or moved its row line break: " +
+                  shape + " " + joined);
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "the compact list with row breaks failed verification: " +
+                  error);
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(),
+              "the compact list with row breaks did not lower: " + error);
+      if (document) {
+        const auto html =
+            geist::detail::render_document_html_blocks(*document, {});
+        require(html.find("more<br") != std::string::npos,
+                "the list item's row break did not reach HTML: " + html);
+      }
+    }
+  }
+
+  // A compact list: a second bullet row with no empty line before it is the
+  // next item of the same list, though the prose reads both rows as one
+  // paragraph (SC34-425 2.4.21 record 1601 lines 31-35, four bullet rows
+  // that hosted serves as four bullets in one `<p>`). The deeper paragraph
+  // after the empty line continues the last item.
+  {
+    const auto built = build(
+        intro_list_sources(82, line({origin(), intro_bullet, t("  ", 20),
+                                     t("Gamma", 363)})),
+        "Sample Messages");
+    require(built.catalog.has_value(),
+            "a compact introduction list declined: " + built.error);
+    if (built.catalog) {
+      std::string shape;
+      for (const auto &paragraph : built.catalog->introduction)
+        shape += std::string("[") +
+                 (paragraph.list_marker ? "*" : "") +
+                 (paragraph.list_continuation ? "+" : "") + paragraph.text +
+                 "]";
+      require(shape == "[Rules follow:][*Alpha item.][*Beta starts and "
+                       "wraps.][*Gamma][+Indented continuation.][Plain "
+                       "closing.]",
+              "the compact introduction list has the wrong shape: " + shape);
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "the compact introduction list failed verification: " + error);
+    }
+  }
+
+  // Mutation: a bullet row straight after the paragraph's own text, with no
+  // empty line, is not the opening row of an item; the introduction
+  // declines rather than guess where the list starts.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({origin(), t("Rules", 350), t("follow:", 351)}));
+    append(tokens, line({origin(), intro_bullet, t("  ", 20), t("Alpha", 352),
+                         t("item.", 353)}));
+    append(tokens, line({}));
+    append(tokens, entry("656", 402));
+    const auto built = build({make_source(84, tokens)}, "Sample Messages");
+    require(!built.catalog.has_value(),
+            "a bullet inside an introduction paragraph was admitted");
+    require(built.error.find("list bullet") != std::string::npos,
+            "the misplaced bullet declined for the wrong reason: " +
+                built.error);
+  }
+
+  // `cselect` rows of the introduction are links on the row they mark, as in
+  // an entry (SC34-425 2.4.32 record 1641 lines 30-34: two queued selectors,
+  // the row `See Table 18 ... Figure 88 shows a sample`, the destination
+  // line `SRSPTTPRE` and the row `input list.`). The destination line draws
+  // nothing and its payload row is prose.
+  const auto intro_selector_tokens = [&](const std::string &second_column) {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({t("cselect", 191), t("7", 254), t("3", 112),
+                         t("TBLA", 370)}));
+    append(tokens, line({t("cselect", 191), t(second_column, 371),
+                         t("3", 112), t("FIGB", 372)}));
+    append(tokens, line({origin(), t("See", 373), t("Tab", 374),
+                         t("for", 375), t("Fig", 376), t("shows", 377)}));
+    append(tokens, line({t("SRSPTX", 378)}));
+    append(tokens, line({origin(), t("sample", 379), t("list.", 380)}));
+    append(tokens, line({}));
+    append(tokens, line({origin(), t("Closing", 397), t("words.", 398)}));
+    append(tokens, line({}));
+    append(tokens, entry("651", 381));
+    return tokens;
+  };
+  {
+    const auto built =
+        build({make_source(90, intro_selector_tokens("15"))}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "an introduction selector declined: " + built.error);
+    if (built.catalog && !built.catalog->introduction.empty()) {
+      const auto &paragraph = built.catalog->introduction.front();
+      require(paragraph.text == "See Tab for Fig shows sample list.",
+              "the selected introduction paragraph is wrong: [" +
+                  paragraph.text + "]");
+      require(paragraph.links.size() == 2 &&
+                  paragraph.text.substr(paragraph.links[0].begin,
+                                        paragraph.links[0].end -
+                                            paragraph.links[0].begin) ==
+                      "Tab" &&
+                  paragraph.links[0].target == "TBLA" &&
+                  paragraph.text.substr(paragraph.links[1].begin,
+                                        paragraph.links[1].end -
+                                            paragraph.links[1].begin) ==
+                      "Fig" &&
+                  paragraph.links[1].target == "FIGB",
+              "the introduction selectors did not mark their own cells");
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "the introduction selectors failed verification: " + error);
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(),
+              "the introduction selectors did not lower: " + error);
+      if (document) {
+        const auto html =
+            geist::detail::render_document_html_blocks(*document, {});
+        require(html.find("href=\"#TBLA\">Tab</a>") != std::string::npos &&
+                    html.find("href=\"#FIGB\">Fig</a>") != std::string::npos,
+                "an introduction selector link was lost: " + html);
+        const auto markdown =
+            geist::detail::render_document_markdown(*document);
+        require(markdown.find("[Tab](<#TBLA>)") != std::string::npos,
+                "an introduction selector link was lost:\n" + markdown);
+      }
+    }
+  }
+
+  // Mutation: a selector whose columns run past its row's cells declines;
+  // it is never placed on whatever text happens to be nearby.
+  {
+    const auto built =
+        build({make_source(91, intro_selector_tokens("40"))}, "Sample Messages");
+    require(!built.catalog.has_value(),
+            "an introduction selector past its row was admitted");
+    require(built.error.find("selector") != std::string::npos,
+            "the misplaced introduction selector declined for the wrong "
+            "reason: " +
+                built.error);
+  }
+
+  // A destination line between a selector and its row draws nothing, so the
+  // selector still marks the row (SC34-425 2.4.33 record 1647 lines 6-8:
+  // `cselect 33 11 FIGADAOUT`, `SRSPTTPST`, `   the format of the ADAOUT
+  // file.  Figure 89 shows ...`).
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({origin(), t("Lead", 382), t("text.", 390)}));
+    append(tokens, line({}));
+    append(tokens, line({t("cselect", 191), t("7", 254), t("3", 112),
+                         t("FIGE", 399)}));
+    append(tokens, line({t("SRSPTY", 400)}));
+    append(tokens, line({origin(), t("See", 373), t("Fig", 376),
+                         t("here.", 388)}));
+    append(tokens, line({}));
+    append(tokens, line({origin(), t("Closing", 397), t("words.", 398)}));
+    append(tokens, line({}));
+    append(tokens, entry("655", 401));
+    const auto built = build({make_source(96, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "a selector behind a destination line declined: " + built.error);
+    if (built.catalog && built.catalog->introduction.size() > 1) {
+      const auto &paragraph = built.catalog->introduction[1];
+      require(paragraph.links.size() == 1 &&
+                  paragraph.links[0].target == "FIGE" &&
+                  paragraph.text.substr(paragraph.links[0].begin,
+                                        paragraph.links[0].end -
+                                            paragraph.links[0].begin) ==
+                      "Fig",
+              "a selector behind a destination line missed its row: [" +
+                  paragraph.text + "]");
+    }
+  }
+
+  // A selector that closes its record marks the next record's first row
+  // (SC34-425 2.4.33 record 1648 line 29 `cselect 13 9 FIGADAOUT`, record
+  // 1649 line 0 `   Notice in Figure 89 that ...`).
+  {
+    auto first = header("Sample", "Messages");
+    append(first, line({origin(), t("Lead", 382), t("text", 383)}));
+    append(first, line({t("cselect", 191), t("13", 384), t("3", 112),
+                        t("FIGC", 385)}));
+    std::vector<Token> second;
+    append(second, line({origin(), t("Notice", 386), t("in", 387),
+                         t("Fig", 376), t("here.", 388)}));
+    append(second, line({}));
+    append(second, entry("652", 389));
+    const auto built = build({make_source(92, first), make_source(93, second)},
+                             "Sample Messages");
+    require(built.catalog.has_value(),
+            "a record-closing introduction selector declined: " + built.error);
+    if (built.catalog && !built.catalog->introduction.empty()) {
+      const auto &paragraph = built.catalog->introduction.back();
+      require(paragraph.links.size() == 1 &&
+                  paragraph.links[0].target == "FIGC" &&
+                  paragraph.text.substr(paragraph.links[0].begin,
+                                        paragraph.links[0].end -
+                                            paragraph.links[0].begin) ==
+                      "Fig",
+              "a record-closing selector did not mark the next record's "
+              "row: [" +
+                  paragraph.text + "]");
+    }
+  }
+
+  // `SRFIG<id>` ... `SREFIG` in the introduction is a drawn region, as in an
+  // entry (SC34-425 2.4.14.1 record 1535 `SRFIGRSRVWD`, 2.4.32 `FIGADAIN`):
+  // its rows and caption are drawn lines, never introduction prose.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({origin(), t("Lead", 382), t("text.", 390)}));
+    append(tokens, line({}));
+    append(tokens, line({t("SRFIGFIGD", 391)}));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("5", 237), t("2", 113)}));
+    append(tokens, line({origin(), t("Drawn", 238), t("figure", 239)}));
+    append(tokens, line({origin(), t("Caption", 392), t("one.", 393)}));
+    append(tokens, line({t("SREFIG", 241)}));
+    append(tokens, line({origin(), t("After", 394), t("figure.", 242)}));
+    append(tokens, line({}));
+    append(tokens, entry("653", 395));
+    const auto built = build({make_source(94, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "an introduction figure declined: " + built.error);
+    if (built.catalog) {
+      std::string paragraphs;
+      for (const auto &paragraph : built.catalog->introduction)
+        paragraphs += "[" + paragraph.text + "]";
+      require(paragraphs == "[Lead text.][After figure.]",
+              "the introduction figure leaked into its prose: " + paragraphs);
+      require(built.catalog->introduction_regions.size() == 1 &&
+                  built.catalog->introduction_regions.front().start.kind ==
+                      geist::detail::TrapEmbeddedControlKindIR::figure_start &&
+                  built.catalog->introduction_regions.front().lines.size() ==
+                      2,
+              "the introduction figure was not kept as a drawn region");
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "the introduction figure failed verification: " + error);
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(),
+              "the introduction figure did not lower: " + error);
+      if (document) {
+        const auto markdown =
+            geist::detail::render_document_markdown(*document);
+        require(markdown.find("<a id=\"FIGFIGD\"></a>") != std::string::npos,
+                "the introduction figure lost its anchor:\n" + markdown);
+      }
+    }
+  }
+
+  // Mutation: a figure closer with no figure open in the introduction.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({origin(), t("Lead", 382), t("text.", 390)}));
+    append(tokens, line({t("SREFIG", 241)}));
+    append(tokens, line({origin(), t("After", 394), t("figure.", 242)}));
+    append(tokens, line({}));
+    append(tokens, entry("654", 396));
+    const auto built = build({make_source(95, tokens)}, "Sample Messages");
+    require(!built.catalog.has_value(),
+            "a stray introduction figure closer was admitted");
+  }
+
+  // A subject-index line inside an entry is index metadata (SC34-425
+  // 2.4.11.1 record 1509 line 25, `SI translators, FLMLPGEN`, which hosted
+  // serves as nothing). The entry keeps the term and prints none of it.
   {
     auto tokens = header("Sample", "Messages");
     append(tokens, entry("644", 312));
     append(tokens, line({t("SI", 313), t("translators,", 314),
                          t("SAMPLE", 315)}));
+    append(tokens, entry("647", 316));
     const auto built = build({make_source(75, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "an entry carrying a subject index line declined: " + built.error);
+    if (built.catalog && built.catalog->entries.size() == 2) {
+      const auto &first = built.catalog->entries.front();
+      require(first.index_terms.size() == 1 &&
+                  first.index_terms.front().term == "translators, SAMPLE",
+              "the subject index term was not kept on its entry: [" +
+                  (first.index_terms.empty() ? std::string() : first.index_terms.front().term) + "]");
+      require(entry_text(first) == "644 Description: first field",
+              "the subject index line ran into its entry: [" +
+                  entry_text(first) + "]");
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "the indexed entry failed verification: " + error);
+      geist::detail::TopicIdentityIR topic;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          topic, *built.catalog, &error);
+      require(document.has_value(),
+              "the indexed entry did not lower: " + error);
+      if (document) {
+        const auto markdown =
+            geist::detail::render_document_markdown(*document);
+        require(markdown.find("translators") == std::string::npos &&
+                    markdown.find("SAMPLE") == std::string::npos,
+                "the subject index term was printed:\n" + markdown);
+      }
+    }
+  }
+
+  // Mutation: a subject-index segment the flattened splitter extended over
+  // a drawn row after the SI line. That row has no slot, so the entry
+  // declines rather than drop or misplace it.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("648", 317));
+    append(tokens, line({t("SI", 313), t("translators,", 314),
+                         t("SAMPLE", 315)}));
+    append(tokens, line({origin(), t("Trailing", 318), t("words.", 319)}));
+    const auto built = build({make_source(79, tokens)}, "Sample Messages");
     require(!built.catalog.has_value(),
-            "an entry carrying a subject index line was admitted");
+            "a subject index segment carrying drawn text was admitted");
     require(built.error.find("subject index") != std::string::npos,
-            "the subject index line declined for the wrong reason: " +
+            "the extended subject index line declined for the wrong "
+            "reason: " +
                 built.error);
   }
 

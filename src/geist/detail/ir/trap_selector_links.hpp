@@ -23,11 +23,18 @@ struct TrapSelectorSource {
   // Set when further selector control lines stand between this selector and
   // its row: the selectors queue onto the first row drawn after them.
   bool queued = false;
+  // The logical record that draws the marked row: the selector's own, or
+  // the next one where the selector closes its record.
+  std::uint32_t target_record = 0;
 };
 
+// `next_record`, when given, is the logical record after `record`: a
+// selector on the last display line of its record then marks the first
+// drawn line of the next record. Without it such a selector declines.
 std::optional<TrapSelectorSource> read_trap_selector_source(
     const DecodedLogicalRecordSource& record, const ControlSegmentIR& segment,
-    std::string* error);
+    std::string* error,
+    const DecodedLogicalRecordSource* next_record = nullptr);
 
 std::optional<TrapTextLinkIR> project_trap_selector_link(
     const TrapSelectorSource& selector,

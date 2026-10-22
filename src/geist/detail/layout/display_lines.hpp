@@ -155,6 +155,14 @@ std::vector<DisplayLineCellIR> display_line_cells(
 bool is_display_line_margin_revision_bar(
     const DecodedLogicalRecordSource& record, std::size_t token);
 
+// True when `token` is a native list bullet on its display line: the single
+// word `U+2666` after a blank run (or a blank token behind a margin revision
+// bar), followed by a two-blank token and at least one drawn cell. The
+// bullet is the row's list marker, never display text. False for an
+// unframed record.
+bool is_display_line_list_bullet(const DecodedLogicalRecordSource& record,
+                                 std::size_t token);
+
 // One trace line per display line: index, the length byte's token and encoded
 // value, the line's token range, the hosted display text, and a per-column
 // class string (`.` space, `B` box drawing `U+2500`-`U+25FF`, `?` the

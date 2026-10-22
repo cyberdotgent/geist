@@ -36,8 +36,23 @@ struct MessageProseBoundaryTokenIR {
   SourceByteRange bytes;
 };
 
+// The source cell a projected glyph came from, and the byte offset in the
+// paragraph's `text` of the glyph's first byte.
+struct MessageProseGlyphIR {
+  std::uint32_t logical_record = 0;
+  std::size_t token_index = 0;
+  std::size_t word_index = 0;
+  std::size_t offset = 0;
+};
+
 struct MessageProseParagraphIR {
   std::string text;
+  // Every glyph of `text` with its source cell, in text order. Recorded as
+  // the text is projected, never recovered by searching it; cleared, with
+  // `glyphs_complete` false, where a piece's projection could not be
+  // replayed byte for byte.
+  std::vector<MessageProseGlyphIR> glyphs;
+  bool glyphs_complete = true;
   std::vector<DocumentSourceRowIR> source_rows;
   // Contiguous projected pieces, split at native framing and hidden controls.
   // An unrowed native continuation retains these byte-backed claims without

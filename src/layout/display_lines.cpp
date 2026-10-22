@@ -284,6 +284,51 @@ bool is_display_line_margin_revision_bar(
                      [](const auto& cell) { return cell.word > ' '; });
 }
 
+bool is_display_line_list_bullet(const DecodedLogicalRecordSource& record,
+                                 const std::size_t token) {
+  const auto spaces = [](const LogicalTokenIR &candidate) {
+    return !candidate.decoded_words.empty() &&
+           std::all_of(candidate.decoded_words.begin(),
+                       candidate.decoded_words.end(),
+                       [](const auto word) { return word == ' '; });
+  };
+  if (token >= record.ir.tokens.size() ||
+      record.ir.tokens[token].decoded_words != TokenWords{0x2666})
+    return false;
+  const auto *line = display_line_of_token(record, token);
+  // The blank in front of the bullet may be the one the assembler inserts
+  // after a margin revision bar: SC34-425 2.4.15.1 record 1565 line 33 is
+  // ` ` + `|` + `U+2666` + a two-blank run + `Mismatched quotes ...`, the
+  // bullet at column 3 (`.x.x...`).
+  if (line == nullptr || token <= line->prefix_token + 1 ||
+      token + 2 >= line->token_end ||
+      (!spaces(record.ir.tokens[token - 1]) &&
+       !is_display_line_margin_revision_bar(record, token - 1)) ||
+      record.ir.tokens[token + 1].decoded_words != TokenWords{' ', ' '})
+    return false;
+  // The leading run is blank, except for a revision bar in its margin: a
+  // one-cell blank, then a width-one `U+2502` or `|`. N2AH1MST record 599
+  // lines 9-10 and 24-34 are ` ` + `U+2502` + 17 blanks + `U+2666` + two
+  // blanks + the keyword, and hosted 10.0 (DT 19910329000100) serves them
+  // as ` |                  °   TPADD`, the same bullet rows as the
+  // unrevised lists around them.
+  auto first = line->prefix_token + 1;
+  if (first + 1 < token &&
+      record.ir.tokens[first].decoded_words == TokenWords{' '} &&
+      (record.ir.tokens[first + 1].decoded_words == TokenWords{0x2502} ||
+       record.ir.tokens[first + 1].decoded_words == TokenWords{'|'}))
+    first += 2;
+  for (auto before = first; before < token; ++before)
+    if (!spaces(record.ir.tokens[before]))
+      return false;
+  for (auto after = token + 2; after < line->token_end; ++after)
+    if (std::any_of(record.ir.tokens[after].decoded_words.begin(),
+                    record.ir.tokens[after].decoded_words.end(),
+                    [](const auto word) { return word > ' '; }))
+      return true;
+  return false;
+}
+
 std::string format_display_line_ir(const DecodedLogicalRecordSource& record,
                                    const DisplayLineIR& line,
                                    const std::size_t index) {

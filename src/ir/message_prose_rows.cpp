@@ -245,6 +245,77 @@ bool row_boundary_is_line_break(const ProseRowGeometry& before,
   return before.end_column + 1 + after.first_word <= widest;
 }
 
+// The source cell of one word of a projected piece; `token` is npos for a
+// separator the projector inserted.
+struct PieceSource {
+  std::size_t token = static_cast<std::size_t>(-1);
+  std::size_t word = 0;
+};
+
+struct PieceGlyph {
+  std::size_t token = 0;
+  std::size_t word = 0;
+  std::size_t offset = 0;
+};
+
+// Replays `collapse(token_words_to_ascii(piece))` byte for byte, carrying
+// each word's source cell, and hands back the offset of every glyph that
+// survives. Declines when the replay does not reproduce `expected`.
+std::optional<std::vector<PieceGlyph>> project_piece_glyphs(
+    const TokenWords& piece, const std::vector<PieceSource>& sources,
+    const std::string& expected) {
+  if (sources.size() != piece.size()) return std::nullopt;
+  const auto blank = [](const char ch) {
+    const auto byte = static_cast<unsigned char>(ch);
+    return std::isspace(byte) != 0 || byte < 0x20;
+  };
+  const auto trimmed = [&](const char ch) { return blank(ch) || ch == '?'; };
+  std::string raw;
+  std::vector<std::size_t> owner;
+  constexpr auto none = static_cast<std::size_t>(-1);
+  for (std::size_t index = 0; index < piece.size(); ++index) {
+    const auto bytes = token_words_to_ascii({piece[index]});
+    for (const auto byte : bytes) {
+      raw.push_back(byte);
+      owner.push_back(sources[index].token == none ? none : index);
+    }
+  }
+  const auto trim = [&](std::string& text, std::vector<std::size_t>& owners) {
+    std::size_t begin = 0;
+    auto end = text.size();
+    while (end > begin && trimmed(text[end - 1])) --end;
+    while (begin < end && trimmed(text[begin])) ++begin;
+    text = text.substr(begin, end - begin);
+    owners = std::vector<std::size_t>(owners.begin() + begin,
+                                      owners.begin() + end);
+  };
+  trim(raw, owner);
+  std::string out;
+  std::vector<std::size_t> out_owner;
+  bool in_space = false;
+  for (std::size_t at = 0; at < raw.size(); ++at) {
+    if (blank(raw[at])) {
+      in_space = true;
+      continue;
+    }
+    if (in_space && !out.empty()) {
+      out.push_back(' ');
+      out_owner.push_back(none);
+    }
+    out.push_back(raw[at]);
+    out_owner.push_back(owner[at]);
+    in_space = false;
+  }
+  trim(out, out_owner);
+  if (out != expected) return std::nullopt;
+  std::vector<PieceGlyph> glyphs;
+  for (std::size_t at = 0; at < out.size(); ++at)
+    if (out_owner[at] != none && (at == 0 || out_owner[at - 1] != out_owner[at]))
+      glyphs.push_back({sources[out_owner[at]].token,
+                        sources[out_owner[at]].word, at});
+  return glyphs;
+}
+
 } // namespace
 
 std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
@@ -318,8 +389,13 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
       // A `SRETBL` that closes an embedded drawing may straddle the envelope
       // start the same way a title segment does: the flattened splitter gives
       // it the display lines that follow it, and those are prose again.
+      // A `cselect` marks a hotspot of the display line after it; its
+      // opcode and operands are control text and the flattened splitter
+      // gives it the following rows as payload, which are prose. The
+      // caller places the hotspot on those rows.
       if (segment.kind != BookControlKind::text &&
           segment.kind != BookControlKind::font &&
+          segment.kind != BookControlKind::select &&
           segment.kind != BookControlKind::structural &&
           !(straddles_start && (segment.kind == BookControlKind::title ||
                                 segment.kind == BookControlKind::table_end)))
@@ -394,6 +470,7 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
     // follows the drawing it closed, not part of the drawing.
     if (run.control_kind != BookControlKind::text &&
         run.control_kind != BookControlKind::font &&
+        run.control_kind != BookControlKind::select &&
         run.control_kind != BookControlKind::title &&
         run.control_kind != BookControlKind::table_end &&
         run.control_kind != BookControlKind::structural)
@@ -448,6 +525,9 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
                 candidate.before, candidate.after, widest);
         for (const auto& [offset, line_break] : decided)
           if (line_break) current.line_breaks.push_back(offset);
+      } else {
+        current.glyphs.clear();
+        current.glyphs_complete = false;
       }
       current.text = collapsed;
       result.paragraphs.push_back(std::move(current));
@@ -489,14 +569,30 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
 
     std::size_t piece_begin_token = span.begin;
     TokenWords piece;
+    std::vector<PieceSource> piece_sources;
+    const auto push_space = [&] {
+      piece.push_back(' ');
+      piece_sources.push_back({});
+    };
     const auto flush_piece = [&](std::size_t token_end,
                                  std::size_t segment_index) {
       const auto text = collapse(token_words_to_ascii(piece));
+      const auto glyphs = project_piece_glyphs(piece, piece_sources, text);
       piece.clear();
+      piece_sources.clear();
       if (!text.empty()) {
         if (!open) begin_paragraph(false);
         if (!current.text.empty()) current.text.push_back(' ');
+        const auto base = current.text.size();
         current.text += text;
+        if (!glyphs) {
+          current.glyphs.clear();
+          current.glyphs_complete = false;
+        } else if (current.glyphs_complete) {
+          for (const auto& glyph : *glyphs)
+            current.glyphs.push_back({record.logical_record, glyph.token,
+                                      glyph.word, base + glyph.offset});
+        }
         current.source_slices.push_back(
             token_slice(record, segment_index, piece_begin_token, token_end));
       }
@@ -583,6 +679,12 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
             proven = false;
         for (auto token = line.prefix_token + 1; token < line.token_end; ++token) {
           if (control_tokens.count(token) != 0) { proven = false; break; }
+          // A native list bullet is the row's marker, decided from the
+          // line's own cells; it draws no prose and the caller reads the
+          // list from the framing (SC34-425 2.4.10.1 record 1490 line 0 is
+          // the length byte, a three-blank run, `U+2666` (`03` at
+          // `0x15C3EC`), a two-blank run and `When searching ...`).
+          if (is_display_line_list_bullet(record, token)) continue;
           for (std::size_t word = 0; word < record.tokens[token].size(); ++word) {
             const auto cell = cells.find({record.logical_record, token, word});
             if (cell == cells.end() ||
@@ -657,6 +759,14 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
           // mid-line (`cfont 25 3 C` inside a sentence, a CFONT without
           // spans, a record-continuation text run) wraps the open paragraph.
           const auto& run = layout.runs[ref.run_index];
+          // Native prefix text still pending in front of this row opened
+          // the paragraph the row continues: no empty display line stands
+          // between them. SC34-425 2.4.10.1 record 1490 line 0
+          // (`   °   When searching ... no more`) is unrowed and line 1
+          // (`       tokens on that line, ...`) opens LayoutIR's first row;
+          // hosted DT 19921112160049 serves both lines in one `<p>`.
+          if (!open && !collapse(token_words_to_ascii(piece)).empty())
+            flush_piece(token, current_segment);
           bool starts_line = !open;
           if (!starts_line && run.control_kind == BookControlKind::font) {
             const auto* row_record = find_record(records, ref.row->logical_record);
@@ -881,7 +991,7 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
         // a separator of their own.
         if (value < 0x20) continue;
         if (margin_bar) {
-          piece.push_back(' ');
+          push_space();
           continue;
         }
         const auto cell = cells.find({record.logical_record, token, word});
@@ -893,13 +1003,53 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
         if (disposition == SourceDisposition::control_operand ||
             structural_marker || closing_delimiter || segment_terminal_glyph ||
             value > 0xff || boundary_glyph_word(word)) {
-          piece.push_back(' ');
+          push_space();
           continue;
         }
         if (disposition == SourceDisposition::opaque && value != ' ') {
+          // Decided framing states which display line a cell is drawn on. A
+          // destination line -- a structural `SR<id>` control alone on its
+          // display line -- draws nothing, and the indented row after it is
+          // drawn text of the destination's payload, never control text:
+          // SC34-425 2.4.32 record 1641 line 33 is `SRSPTTPRE` alone and
+          // line 34 is `   input list.`, which LayoutIR leaves unrowed and
+          // hosted DT 19921112160049 serves as
+          // `<a name="SPTTPRE">   input list.</a>`. Other controls keep
+          // their payload's unrowed cells as control text: a SCRIPT line
+          // such as `c.cp` (SC34-425 2.4.24 record 1614 line 25) rides in a
+          // CFONT payload and hosted serves nothing for it.
+          const auto payload_row = [&] {
+            if (!record_framing_is_decided(record.ir)) return false;
+            const auto* line = display_line_of_token(record, token);
+            const auto owner_segment = std::find_if(
+                record.control_segments.begin(), record.control_segments.end(),
+                [&](const auto& candidate) {
+                  return candidate.segment_index == current_segment;
+                });
+            if (line == nullptr ||
+                owner_segment == record.control_segments.end() ||
+                owner_segment->source_tokens.empty() ||
+                owner_segment->kind != BookControlKind::structural ||
+                owner_segment->malformed || owner_segment->display_text ||
+                owner_segment->opcode.size() <= 2 ||
+                !ascii_starts_with_case_insensitive(owner_segment->opcode,
+                                                    "SR"))
+              return false;
+            const auto* control_line = display_line_of_token(
+                record, owner_segment->source_tokens.front());
+            if (control_line == nullptr ||
+                line->prefix_token <= control_line->prefix_token ||
+                owner_segment->source_tokens.front() !=
+                    control_line->prefix_token + 1 ||
+                collapse(display_line_text(record, *control_line)) !=
+                    owner_segment->opcode)
+              return false;
+            const auto text = display_line_text(record, *line);
+            return !text.empty() && text.front() == ' ';
+          }();
           const auto admitted =
               (record_continues_run && open && token < *first_row_token) ||
-              native_prefix_tokens.count(token) != 0;
+              native_prefix_tokens.count(token) != 0 || payload_row;
           // Unowned printable cells of a mid-record segment before its first
           // physical row (or of a rowless segment) are control text that the
           // decoder left unsegmented (index terms), not prose. Unowned cells
@@ -909,7 +1059,7 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
               row_by_token.count({record.logical_record, token}) == 0;
           if (!admitted && current_segment != 0 && rowless &&
               !segment_row_seen) {
-            piece.push_back(' ');
+            push_space();
             continue;
           }
           const auto row_gap = rowless && segment_row_seen;
@@ -921,6 +1071,7 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
                           std::to_string(value));
         }
         piece.push_back(value);
+        piece_sources.push_back({token, word});
       }
       // Inter-token spacing is decoder evidence: the assembler records an
       // inserted space at the end of a token's output span.
@@ -932,7 +1083,7 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
             output.output_end <= assembled.sources.size() &&
             assembled.sources[output.output_end - 1].kind ==
                 LogicalWordSourceKind::inserted_space;
-        if (trailing_space) piece.push_back(' ');
+        if (trailing_space) push_space();
       }
     }
     flush_piece(span.end, current_segment);

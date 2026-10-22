@@ -610,7 +610,7 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
         auto region_anchor = origin("trap introduction table source anchor");
         add_slice(region_anchor, region.start.source);
         document.blocks.push_back(
-            {AnchorBlockIR{"TBL" + region.identifier}, region_anchor});
+            {AnchorBlockIR{region_anchor_id(region)}, region_anchor});
       }
       auto region_origin = origin("trap introduction table");
       PreformattedBlockIR drawn =
@@ -626,12 +626,25 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
   if (!emit_introduction_regions(0))
     return reject("trap introduction region lines have no line provenance");
 
+  // The introduction's native lists: a paragraph with a list marker opens an
+  // item, `list_continuation` paragraphs are further blocks of it, and any
+  // other paragraph or drawn region ends the list.
+  std::optional<ListBlockIR> open_list;
+  DocumentNodeOriginIR open_list_origin;
+  const auto close_list = [&] {
+    if (!open_list)
+      return;
+    document.blocks.push_back({std::move(*open_list), open_list_origin});
+    open_list.reset();
+  };
   for (std::size_t paragraph_index = 0;
        paragraph_index < catalog.introduction.size(); ++paragraph_index) {
     const auto &paragraph = catalog.introduction[paragraph_index];
     auto paragraph_origin = origin("trap catalog introduction paragraph");
     for (const auto &slice : paragraph.source_slices)
       add_slice(paragraph_origin, slice);
+    for (const auto &link : paragraph.links)
+      add_slice(paragraph_origin, link.source);
     add_rows(paragraph_origin, paragraph.source_rows);
     paragraph_origin = canonical(std::move(paragraph_origin));
     InlineSequenceIR content;
@@ -658,6 +671,12 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
             {TextInlineIR{paragraph.text.substr(from)}, paragraph_origin});
       return true;
     };
+    std::size_t rest_from = 0;
+    // Selector ranges and row line breaks are not placed together: no
+    // introduction paragraph is observed to carry both.
+    if (!paragraph.links.empty() && !paragraph.line_breaks.empty())
+      return reject("introduction selector shares its paragraph with a row "
+                    "line break");
     if (!paragraph.leading_spans.empty()) {
       std::string joined;
       for (const auto &span : paragraph.leading_spans) {
@@ -669,6 +688,7 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
         return reject("introduction highlight does not prefix its paragraph");
       append_spans(content, paragraph.leading_spans, paragraph_origin);
       rest = after_prefix(paragraph.text, joined);
+      rest_from = paragraph.text.find_first_not_of(' ', joined.size());
       if (!rest.empty())
         rest.insert(rest.begin(), ' ');
       if (!paragraph.line_breaks.empty()) {
@@ -686,15 +706,66 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
         return reject("introduction line break is out of order");
       rest.clear();
     }
-    if (!rest.empty())
+    if (!paragraph.links.empty()) {
+      // Each selector range is its own cross reference; a range that
+      // reaches into the highlighted prefix or overlaps another is not
+      // placed.
+      TrapFlowParagraphIR linked;
+      linked.text = paragraph.text;
+      linked.links = paragraph.links;
+      if (rest.empty() || rest_from == std::string::npos)
+        return reject("introduction selector has no text to mark");
+      if (!content.empty())
+        content.push_back({TextInlineIR{" "}, paragraph_origin});
+      if (!paragraph_inlines(linked, paragraph_origin, content, rest_from))
+        return reject("introduction selector ranges do not fit their "
+                      "paragraph");
+    } else if (!rest.empty()) {
       content.push_back({TextInlineIR{rest}, paragraph_origin});
+    }
     if (content.empty())
       return reject("introduction paragraph has no content");
-    document.blocks.push_back(
-        {ParagraphBlockIR{std::move(content)}, paragraph_origin});
+    if (paragraph.list_continuation) {
+      if (!open_list || open_list->items.empty())
+        return reject("introduction list continuation has no open item");
+      auto &item = open_list->items.back();
+      if (item.blocks.empty()) {
+        item.blocks.push_back(
+            {ParagraphBlockIR{std::move(item.content)}, item.origin});
+        item.content.clear();
+      }
+      item.blocks.push_back(
+          {ParagraphBlockIR{std::move(content)}, paragraph_origin});
+    } else if (paragraph.list_marker) {
+      ListItemIR item;
+      item.origin = origin("trap introduction list item");
+      add_slice(item.origin, *paragraph.list_marker);
+      for (const auto &slice : paragraph.source_slices)
+        add_slice(item.origin, slice);
+      for (const auto &link : paragraph.links)
+        add_slice(item.origin, link.source);
+      add_rows(item.origin, paragraph.source_rows);
+      item.origin = canonical(std::move(item.origin));
+      item.content = std::move(content);
+      if (!open_list) {
+        open_list = ListBlockIR{};
+        open_list_origin = item.origin;
+      }
+      open_list->items.push_back(std::move(item));
+    } else {
+      close_list();
+      document.blocks.push_back(
+          {ParagraphBlockIR{std::move(content)}, paragraph_origin});
+    }
+    // A region drawn after this paragraph ends any open list first.
+    if (next_introduction_region < catalog.introduction_regions.size() &&
+        catalog.introduction_regions[next_introduction_region].after_field ==
+            paragraph_index + 1)
+      close_list();
     if (!emit_introduction_regions(paragraph_index + 1))
       return reject("trap introduction region lines have no line provenance");
   }
+  close_list();
   if (next_introduction_region != catalog.introduction_regions.size())
     return reject("trap introduction region names a missing paragraph");
 

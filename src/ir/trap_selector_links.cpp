@@ -14,7 +14,7 @@ namespace geist::detail {
 
 std::optional<TrapSelectorSource> read_trap_selector_source(
     const DecodedLogicalRecordSource& record, const ControlSegmentIR& segment,
-    std::string* error) {
+    std::string* error, const DecodedLogicalRecordSource* next_record) {
   const auto reject = [&](std::string reason) -> std::optional<TrapSelectorSource> {
     if (error != nullptr) *error = std::move(reason);
     return std::nullopt;
@@ -42,8 +42,7 @@ std::optional<TrapSelectorSource> read_trap_selector_source(
       record.assembled, control_words.begin, control_words.end);
   if (lines == nullptr || control == nullptr || control_tokens.empty() ||
       opcode_tokens.front() != control->prefix_token + 1 ||
-      display_line_of_token(record, control_tokens.back()) != control ||
-      control + 1 == lines->data() + lines->size())
+      display_line_of_token(record, control_tokens.back()) != control)
     return reject("trap selector has no native target row");
   // Consecutive selector lines queue onto the first row drawn after them:
   // N2AH1MST record 563 lines 11 and 12 are `cselect 22 4 FTNFTNUNIQ22` and
@@ -65,20 +64,65 @@ std::optional<TrapSelectorSource> read_trap_selector_source(
                  tokens.back() + 1 == line.token_end;
         });
   };
+  // A line that only names a destination draws nothing either: SC34-425
+  // 2.4.33 record 1647 lines 6-8 are `cselect 33 11 FIGADAOUT`,
+  // `SRSPTTPST` and `   the format of the ADAOUT file.  Figure 89 shows a
+  // sample ADAOUT file.`, and hosted DT 19921112160049 links `  Figure 89`
+  // on line 8. The name is a structural `SR<id>` control alone on its line.
+  const auto destination_line = [&](const DisplayLineIR& line) {
+    return std::any_of(record.control_segments.begin(),
+                       record.control_segments.end(), [&](const auto& other) {
+      if (other.kind != BookControlKind::structural || other.malformed ||
+          other.display_text || other.opcode.size() <= 2 ||
+          !ascii_starts_with_case_insensitive(other.opcode, "SR"))
+        return false;
+      const auto words = decoded_byte_range_to_word_range(record.assembled,
+          {other.opcode_range.begin, other.operand_range.end});
+      const auto tokens = source_tokens_intersecting_output(
+          record.assembled, words.begin, words.end);
+      return !tokens.empty() && tokens.front() == line.prefix_token + 1 &&
+             tokens.back() + 1 == line.token_end &&
+             collapse_ascii_whitespace(trim_ascii(display_line_text(record, line))) ==
+                 other.opcode;
+    });
+  };
   auto target = control + 1;
   const auto* lines_end = lines->data() + lines->size();
-  while (target != lines_end && selector_line(*target)) ++target;
-  if (target == lines_end)
-    return reject("trap selector queue has no native target row");
-  const auto& row = *target;
-  const auto columns = display_line_cells(record, row);
+  bool skipped = false;
+  bool queued = false;
+  while (target != lines_end &&
+         (selector_line(*target) || destination_line(*target))) {
+    queued = queued || selector_line(*target);
+    ++target;
+    skipped = true;
+  }
+  // A selector that closes its record marks the next record's first line:
+  // SC34-425 2.4.33 record 1648 ends on line 29 `cselect 13 9 FIGADAOUT`
+  // and record 1649 line 0 is `   Notice in Figure 89 that ...`, served
+  // with `Figure 89` linked.
+  const auto* target_record = &record;
+  const DisplayLineIR* row = nullptr;
+  if (target != lines_end) {
+    row = &*target;
+  } else if (!skipped && next_record != nullptr &&
+             next_record->logical_record == record.logical_record + 1) {
+    const auto* next_lines = record_display_lines(*next_record);
+    if (next_lines != nullptr && !next_lines->empty()) {
+      target_record = next_record;
+      row = &next_lines->front();
+    }
+  }
+  if (row == nullptr)
+    return reject(skipped ? "trap selector queue has no native target row"
+                          : "trap selector has no native target row");
+  const auto columns = display_line_cells(*target_record, *row);
   if (selector->column >= columns.size() ||
       selector->length > columns.size() - selector->column)
     return reject("trap selector exceeds its native target row");
   return TrapSelectorSource{selector->target,
       {columns.begin() + selector->column,
        columns.begin() + selector->column + selector->length},
-      row.prefix_token, target != control + 1};
+      row->prefix_token, queued, target_record->logical_record};
 }
 
 std::optional<TrapTextLinkIR> project_trap_selector_link(

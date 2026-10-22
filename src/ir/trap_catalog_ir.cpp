@@ -153,47 +153,7 @@ bool margin_revision_bar(const DecodedLogicalRecordSource &record,
 
 bool native_list_bullet(const DecodedLogicalRecordSource &record,
                         std::size_t token) {
-  const auto spaces = [](const LogicalTokenIR &candidate) {
-    return !candidate.decoded_words.empty() &&
-           std::all_of(candidate.decoded_words.begin(),
-                       candidate.decoded_words.end(),
-                       [](const auto word) { return word == ' '; });
-  };
-  if (token >= record.ir.tokens.size() ||
-      record.ir.tokens[token].decoded_words != TokenWords{0x2666})
-    return false;
-  const auto *line = display_line_of_token(record, token);
-  // The blank in front of the bullet may be the one the assembler inserts
-  // after a margin revision bar: SC34-425 2.4.15.1 record 1565 line 33 is
-  // ` ` + `|` + `U+2666` + a two-blank run + `Mismatched quotes ...`, the
-  // bullet at column 3 (`.x.x...`).
-  if (line == nullptr || token <= line->prefix_token + 1 ||
-      token + 2 >= line->token_end ||
-      (!spaces(record.ir.tokens[token - 1]) &&
-       !margin_revision_bar(record, token - 1)) ||
-      record.ir.tokens[token + 1].decoded_words != TokenWords{' ', ' '})
-    return false;
-  // The leading run is blank, except for a revision bar in its margin: a
-  // one-cell blank, then a width-one `U+2502` or `|`. N2AH1MST record 599
-  // lines 9-10 and 24-34 are ` ` + `U+2502` + 17 blanks + `U+2666` + two
-  // blanks + the keyword, and hosted 10.0 (DT 19910329000100) serves them
-  // as ` |                  °   TPADD`, the same bullet rows as the
-  // unrevised lists around them.
-  auto first = line->prefix_token + 1;
-  if (first + 1 < token &&
-      record.ir.tokens[first].decoded_words == TokenWords{' '} &&
-      (record.ir.tokens[first + 1].decoded_words == TokenWords{0x2502} ||
-       record.ir.tokens[first + 1].decoded_words == TokenWords{'|'}))
-    first += 2;
-  for (auto before = first; before < token; ++before)
-    if (!spaces(record.ir.tokens[before]))
-      return false;
-  for (auto after = token + 2; after < line->token_end; ++after)
-    if (std::any_of(record.ir.tokens[after].decoded_words.begin(),
-                    record.ir.tokens[after].decoded_words.end(),
-                    [](const auto word) { return word > ' '; }))
-      return true;
-  return false;
+  return is_display_line_list_bullet(record, token);
 }
 
 bool layout_glyph(char ch) {
@@ -2163,6 +2123,221 @@ bool same_line(const TrapLineIR &left, const TrapLineIR &right) {
          left.spans_text == right.spans_text && same_text(left.body, right.body);
 }
 
+// Reads the native list shape of one introduction paragraph from its own
+// rows and splits it into list items where its rows draw bullets.
+//
+// The paragraph's first glyph gives its drawn column. Where that glyph's
+// display line opens with a list bullet, the paragraph opens an item. A
+// compact list draws further bullet rows with no empty line between them,
+// so the prose reads them as one paragraph: SC34-425 2.4.21 record 1601
+// lines 31-35 are four ` | °   ...` rows, and hosted DT 19921112160049
+// serves four bullets between one pair of `<p>` marks. Each further bullet
+// starts an item at the first glyph it is drawn in front of, placed through
+// the paragraph's exact glyph provenance. Bullets of one paragraph stand in
+// one column. A bullet after the paragraph's own first text, a bullet with
+// no glyph after it on its line, or a split the provenance cannot place
+// declines. `pieces` receives the items in order and `bases` each item's
+// byte offset in the paragraph's text.
+bool split_introduction_list_items(
+    const std::vector<DecodedLogicalRecordSource> &records,
+    const LayoutIR &layout, const MessageProseParagraphIR &paragraph,
+    TrapIntroductionParagraphIR item,
+    std::vector<TrapIntroductionParagraphIR> &pieces,
+    std::vector<std::size_t> &bases, std::string *error) {
+  struct Cell {
+    const DecodedLogicalRecordSource *record = nullptr;
+    std::size_t token = 0;
+  };
+  struct Bullet {
+    Cell bullet;
+    Cell glyph;
+  };
+  std::optional<Cell> first_glyph;
+  std::vector<Bullet> bullets;
+  for (const auto &slice : paragraph.source_slices) {
+    const auto *record = find_record(records, slice.logical_record);
+    if (record == nullptr)
+      continue;
+    for (auto token = slice.token_begin;
+         token < slice.token_end && token < record->ir.tokens.size();
+         ++token) {
+      if (is_display_line_list_bullet(*record, token)) {
+        if (!bullets.empty() && bullets.back().glyph.record == nullptr)
+          return fail(error, "trap introduction list bullet has no drawn text");
+        if (bullets.empty() && first_glyph)
+          return fail(error, "trap introduction paragraph draws a list bullet "
+                             "inside its text at LR" +
+                                 std::to_string(record->logical_record) +
+                                 " token " + std::to_string(token));
+        bullets.push_back({{record, token}, {}});
+        continue;
+      }
+      if (is_display_line_length_token(*record, token) ||
+          is_display_line_margin_revision_bar(*record, token))
+        continue;
+      const auto &words = record->ir.tokens[token].decoded_words;
+      if (!std::any_of(words.begin(), words.end(), [](const auto word) {
+            return word > ' ' && word <= 0xff;
+          }))
+        continue;
+      if (!first_glyph)
+        first_glyph = Cell{record, token};
+      if (!bullets.empty() && bullets.back().glyph.record == nullptr)
+        bullets.back().glyph = {record, token};
+    }
+  }
+  if (!bullets.empty() && bullets.back().glyph.record == nullptr)
+    return fail(error, "trap introduction list bullet has no drawn text");
+  const auto no_shape = [&] {
+    if (!bullets.empty())
+      return fail(error, "trap introduction list bullet does not open its "
+                         "paragraph's first row");
+    pieces.push_back(std::move(item));
+    bases.push_back(0);
+    return true;
+  };
+  if (!first_glyph)
+    return no_shape();
+  // The paragraph's text must open with that glyph's own word, or the rows
+  // are not the ones the text came from.
+  const auto glyph = collapse(
+      token_words_to_ascii(first_glyph->record->tokens[first_glyph->token]));
+  const auto column = drawn_column(*first_glyph->record, first_glyph->token);
+  if (glyph.empty() || !column ||
+      item.text.compare(0, glyph.size(), glyph) != 0)
+    return no_shape();
+  item.first_column = *column;
+  if (bullets.empty()) {
+    pieces.push_back(std::move(item));
+    bases.push_back(0);
+    return true;
+  }
+  // Every bullet stands in front of its glyph on the glyph's own line, in
+  // the first bullet's column.
+  std::optional<std::size_t> marker_column;
+  for (const auto &bullet : bullets) {
+    const auto bullet_column =
+        drawn_column(*bullet.bullet.record, bullet.bullet.token);
+    const auto glyph_column =
+        drawn_column(*bullet.glyph.record, bullet.glyph.token);
+    if (bullet.bullet.record != bullet.glyph.record || !bullet_column ||
+        !glyph_column ||
+        display_line_of_token(*bullet.bullet.record, bullet.bullet.token) !=
+            display_line_of_token(*bullet.glyph.record, bullet.glyph.token) ||
+        *bullet_column >= *glyph_column ||
+        (marker_column && *marker_column != *bullet_column))
+      return fail(error, "trap introduction list bullet does not open its "
+                         "paragraph's first row");
+    marker_column = *bullet_column;
+  }
+  if (bullets.front().glyph.record != first_glyph->record ||
+      bullets.front().glyph.token != first_glyph->token)
+    return fail(error, "trap introduction list bullet does not open its "
+                       "paragraph's first row");
+  // Each further bullet's item begins at its glyph's first projected byte.
+  std::vector<std::size_t> begins{0};
+  for (std::size_t at = 1; at < bullets.size(); ++at) {
+    if (!paragraph.glyphs_complete)
+      return fail(error, "trap introduction compact list has no exact glyph "
+                         "provenance");
+    const auto &cell = bullets[at].glyph;
+    std::optional<std::size_t> offset;
+    for (const auto &projected : paragraph.glyphs)
+      if (projected.logical_record == cell.record->logical_record &&
+          projected.token_index == cell.token &&
+          (!offset || projected.offset < *offset))
+        offset = projected.offset;
+    if (!offset || *offset <= begins.back() || *offset >= item.text.size() ||
+        item.text[*offset - 1] != ' ')
+      return fail(error, "trap introduction compact list item cannot be "
+                         "placed in its paragraph");
+    begins.push_back(*offset);
+  }
+  // Leading highlighted spans belong to the first item's own text.
+  if (!item.leading_spans.empty() && begins.size() > 1) {
+    std::size_t joined = 0;
+    for (const auto &span : item.leading_spans)
+      joined += span.text.size() + (joined == 0 ? 0 : 1);
+    if (joined + 1 > begins[1])
+      return fail(error, "trap introduction highlight crosses a list item");
+  }
+  // Token order of the bullets, to share the paragraph's slices and rows
+  // among the items.
+  const auto position = [](std::uint32_t record, std::size_t token) {
+    return std::make_pair(record, token);
+  };
+  const auto item_of = [&](std::uint32_t record, std::size_t token) {
+    std::size_t owner = 0;
+    for (std::size_t at = 1; at < bullets.size(); ++at)
+      if (position(record, token) >=
+          position(bullets[at].bullet.record->logical_record,
+                   bullets[at].bullet.token))
+        owner = at;
+    return owner;
+  };
+  for (std::size_t at = 0; at < bullets.size(); ++at) {
+    TrapIntroductionParagraphIR piece;
+    const auto begin = begins[at];
+    const auto end =
+        at + 1 < begins.size() ? begins[at + 1] - 1 : item.text.size();
+    piece.text = item.text.substr(begin, end - begin);
+    // Row line breaks inside this item move with its text. The separator
+    // that ends an item is the bullet row's own boundary, which the list
+    // states; a break recorded there is not kept twice.
+    for (const auto offset : item.line_breaks)
+      if (offset > begin && offset < end)
+        piece.line_breaks.push_back(offset - begin);
+    if (at == 0)
+      piece.leading_spans = item.leading_spans;
+    piece.list_marker = token_slice(
+        *bullets[at].bullet.record,
+        segment_of_token(*bullets[at].bullet.record)[bullets[at].bullet.token],
+        bullets[at].bullet.token, bullets[at].bullet.token + 1);
+    piece.marker_column = *marker_column;
+    piece.first_column =
+        drawn_column(*bullets[at].glyph.record, bullets[at].glyph.token);
+    pieces.push_back(std::move(piece));
+    bases.push_back(begin);
+  }
+  if (bullets.size() == 1) {
+    pieces.front().source_slices = item.source_slices;
+    pieces.front().source_rows = item.source_rows;
+    return true;
+  }
+  // The paragraph's prose slices, cut at the bullets; slices the paragraph
+  // gained beyond them (a deferred font) stay with the first item.
+  for (std::size_t index = 0; index < item.source_slices.size(); ++index) {
+    const auto &slice = item.source_slices[index];
+    const auto *record = find_record(records, slice.logical_record);
+    if (index >= paragraph.source_slices.size() || record == nullptr ||
+        slice.token_begin >= slice.token_end) {
+      pieces.front().source_slices.push_back(slice);
+      continue;
+    }
+    auto from = slice.token_begin;
+    while (from < slice.token_end) {
+      const auto owner = item_of(slice.logical_record, from);
+      auto to = from + 1;
+      while (to < slice.token_end && item_of(slice.logical_record, to) == owner)
+        ++to;
+      pieces[owner].source_slices.push_back(
+          token_slice(*record, slice.segment_index, from, to));
+      from = to;
+    }
+  }
+  for (const auto &row : item.source_rows) {
+    std::size_t owner = 0;
+    const auto run = std::find_if(
+        layout.runs.begin(), layout.runs.end(),
+        [&](const auto &candidate) { return candidate.id == row.display_run; });
+    if (run != layout.runs.end() && row.row_index < run->rows.size())
+      owner = item_of(run->rows[row.row_index].logical_record,
+                      run->rows[row.row_index].token_begin);
+    pieces[owner].source_rows.push_back(row);
+  }
+  return true;
+}
+
 } // namespace
 
 std::optional<TrapCatalogIR>
@@ -2231,17 +2406,39 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
     if (segment_is_display_line_prefix(*ref.record, segment) ||
         nondrawing_control(index, *ref.record, segment))
       continue;
+    // `SRFIG<id>` ... `SREFIG` is drawn in the introduction the same way an
+    // entry draws it: SC34-425 2.4.32 record 1641 line 36 onwards opens
+    // `SRFIGADAIN`, and hosted DT 19921112160049 serves the boxed rows and
+    // the `Figure 88. ADAIN Example` caption as drawn lines under
+    // `<a name="FIGADAIN">`.
+    const auto header_structural =
+        !segment_opcode_is_display_line_prefix(*ref.record, segment) &&
+        !segment.source_tokens.empty() &&
+        segment.kind == BookControlKind::structural && !segment.malformed;
+    const auto header_lower = ascii_lower(segment.opcode);
+    const auto header_figure_start = header_structural &&
+                                     header_lower.rfind("srfig", 0) == 0 &&
+                                     header_lower.size() > 5;
+    const auto header_figure_end = header_structural && header_lower == "srefig";
     if (open_header_region) {
       // Everything between the two controls is the region's own drawing.
-      if (segment_opcode_is_display_line_prefix(*ref.record, segment) ||
-          segment.kind != BookControlKind::table_end)
+      const auto figure = open_header_region->region.start.kind ==
+                          TrapEmbeddedControlKindIR::figure_start;
+      const auto table_end =
+          !segment_opcode_is_display_line_prefix(*ref.record, segment) &&
+          segment.kind == BookControlKind::table_end;
+      if (figure ? table_end : header_figure_end)
+        return reject("trap header closes an envelope it did not open: " +
+                      segment.opcode);
+      if (figure ? !header_figure_end : !table_end)
         continue;
       if (segment.source_tokens.empty())
         return reject("trap header table envelope end has no source token: " +
                       open_header_region->region.identifier);
       auto opened = *std::move(open_header_region);
       open_header_region.reset();
-      opened.region.end = {TrapEmbeddedControlKindIR::table_end,
+      opened.region.end = {figure ? TrapEmbeddedControlKindIR::figure_end
+                                  : TrapEmbeddedControlKindIR::table_end,
                            {},
                            segment_slice(*ref.record, segment)};
       if (!project_embedded_region(records, index, opened.start_record,
@@ -2267,6 +2464,23 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
       if (title)
         return reject("trap catalog has multiple title segments");
       title = ref;
+      continue;
+    }
+    if (header_figure_end)
+      return reject("trap catalog header closes a figure envelope it did not "
+                    "open");
+    if (header_figure_start) {
+      HeaderRegion opened;
+      opened.start_record = ref.record->logical_record;
+      const auto payload = payload_first_token(*ref.record, segment);
+      opened.start_token = payload ? *payload : segment.source_tokens.back() + 1;
+      opened.region.identifier = control_identifier(segment.opcode, "srfig");
+      opened.region.start = {TrapEmbeddedControlKindIR::figure_start,
+                             opened.region.identifier,
+                             segment_slice(*ref.record, segment)};
+      opened.open_record = ref.record->logical_record;
+      opened.open_segment = segment.segment_index;
+      open_header_region = std::move(opened);
       continue;
     }
     const auto operand_text = collapse(range_text(*ref.record, segment.operand_range));
@@ -2634,18 +2848,56 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           segment_opcode_is_display_line_prefix(*ref.record, segment);
       const auto lower_opcode = ascii_lower(segment.opcode);
       // A subject-index line (`SI <term>`) is index metadata, not entry
-      // text, and the entry walk has no slot that withholds it, so it would
-      // run into the field it follows. SC34-425 2.4.11.1 record 1509 line 25
-      // is `SI translators, FLMLPGEN` after the last field of entry 599.
-      // Decline rather than print it.
+      // text: SC34-425 2.4.11.1 record 1509 line 25 is
+      // `SI translators, FLMLPGEN` after the last field of entry 599, and
+      // hosted BookServer (DT 19921112160049) serves nothing for it. The
+      // entry keeps it as an index term and ledgers its cells as control,
+      // so it never runs into the field it follows. The flattened splitter
+      // may hand the segment the display lines after it; that text has no
+      // slot here, so a segment that outruns its SI line declines.
       if (!opcode_is_line_prefix && !segment.source_tokens.empty()) {
         const auto *si_line =
             display_line_of_token(*ref.record, segment.source_tokens.front());
         if (si_line != nullptr &&
             si_line->prefix_token + 1 == segment.source_tokens.front() &&
-            is_subject_index_display_line(*ref.record, *si_line))
-          return reject("trap entry carries a subject index line: " +
-                        entry.id);
+            is_subject_index_display_line(*ref.record, *si_line)) {
+          if (segment.source_tokens.back() >= si_line->token_end)
+            return reject("trap entry subject index line carries text after "
+                          "it: " +
+                          entry.id);
+          const auto keyword = si_line->prefix_token + 1;
+          // The drawn line, keyword dropped: the record assembler's own
+          // sentence casing would rewrite the term's first word.
+          auto term = collapse(display_line_text(*ref.record, *si_line));
+          const auto keyword_text =
+              token_words_to_ascii(ref.record->tokens[keyword]);
+          term = term.compare(0, keyword_text.size(), keyword_text) == 0
+                     ? collapse(term.substr(keyword_text.size()))
+                     : std::string{};
+          if (term.empty())
+            return reject("trap entry subject index line names no term: " +
+                          entry.id);
+          for (auto token = keyword; token < si_line->token_end; ++token) {
+            const auto &line_words = ref.record->ir.tokens[token].decoded_words;
+            for (std::size_t word = 0; word < line_words.size(); ++word) {
+              const auto owned =
+                  index.cells.find({ref.record->logical_record, token, word});
+              append_unique_cell(
+                  entry.cells, entry_cell_positions,
+                  {ref.record->logical_record, token, word, line_words[word],
+                   owned == index.cells.end() ? SourceDisposition::opaque
+                                              : owned->second->disposition,
+                   TrapCellRoleIR::control});
+            }
+          }
+          // The text after the line resumes past the term's ledger run, as
+          // it does after an embedded region.
+          resume_cell = entry.cells.size();
+          entry.index_terms.push_back(
+              {term, token_slice(*ref.record, segment.segment_index, keyword,
+                                 si_line->token_end)});
+          continue;
+        }
       }
       const auto structural_control =
           !opcode_is_line_prefix && !segment.source_tokens.empty() &&
@@ -3282,6 +3534,10 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
 
   for (std::size_t piece = 0;
        piece < catalog.introduction_prose_envelopes.size(); ++piece) {
+  // Each introduction item of this piece: the prose paragraph it came from
+  // and its byte offset in that paragraph's text.
+  std::vector<std::pair<std::size_t, std::size_t>> item_sources;
+  const auto first_item = catalog.introduction.size();
   const auto &envelope = catalog.introduction_prose_envelopes[piece];
   const auto *piece_catalog_record = find_record(records, envelope.catalog_record);
   if (piece_catalog_record == nullptr ||
@@ -3390,7 +3646,119 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           }
         }
       }
-      catalog.introduction.push_back(std::move(item));
+      std::vector<TrapIntroductionParagraphIR> pieces;
+      std::vector<std::size_t> bases;
+      std::string list_error;
+      if (!split_introduction_list_items(records, layout, paragraph,
+                                         std::move(item), pieces, bases,
+                                         &list_error))
+        return reject(list_error);
+      for (std::size_t at = 0; at < pieces.size(); ++at) {
+        catalog.introduction.push_back(std::move(pieces[at]));
+        item_sources.push_back(
+            {static_cast<std::size_t>(&paragraph - prose->paragraphs.data()),
+             bases[at]});
+      }
+    }
+  }
+  // `cselect` hotspots of this piece. Each marks cells of the display line
+  // after it (queued selectors share one), exactly as in an entry; the
+  // range is placed through the source cells the prose projected, never by
+  // searching the text. SC34-425 2.4.32 record 1641 lines 30-32 are
+  // `cselect 3 8 TBLADINFMT`, `cselect 50 11 FIGADAIN` and
+  // `   Table 18 for a description of the ADAIN format.  Figure 88 shows a
+  // sample`; hosted DT 19921112160049 links `Table 18` to `#TBLADINFMT`.
+  // A hotspot that marks no projected prose declines.
+  {
+    for (const auto &record : records) {
+      if (record.logical_record < envelope.begin_record ||
+          record.logical_record > envelope.catalog_record)
+        continue;
+      const auto begin = record.logical_record == envelope.begin_record
+                             ? envelope.begin_token
+                             : std::size_t{0};
+      const auto end = record.logical_record == envelope.catalog_record
+                           ? piece_end_token
+                           : record.ir.tokens.size();
+      for (const auto &segment : record.control_segments) {
+        if (segment.kind != BookControlKind::select ||
+            segment.source_tokens.empty() ||
+            segment.source_tokens.front() < begin ||
+            segment.source_tokens.front() >= end)
+          continue;
+        std::string selector_error;
+        const auto selector = read_trap_selector_source(
+            record, segment, &selector_error,
+            find_record(records, record.logical_record + 1));
+        if (!selector)
+          return reject("trap introduction selector rejected: " +
+                        selector_error);
+        const auto first_cell = std::find_if(
+            selector->cells.begin(), selector->cells.end(),
+            [](const auto &cell) {
+              return cell.word != ' ' &&
+                     cell.token != static_cast<std::size_t>(-1);
+            });
+        std::optional<std::size_t> owner;
+        for (std::size_t at = 0;
+             prose && first_cell != selector->cells.end() &&
+             at < prose->paragraphs.size() && !owner;
+             ++at) {
+          const auto &glyphs = prose->paragraphs[at].glyphs;
+          if (std::any_of(glyphs.begin(), glyphs.end(), [&](const auto &g) {
+                return g.logical_record == selector->target_record &&
+                       g.token_index == first_cell->token &&
+                       g.word_index == first_cell->word_index;
+              }))
+            owner = at;
+        }
+        if (!owner)
+          return reject("trap introduction selector marks no projected "
+                        "prose: " +
+                        selector->target);
+        const auto &source_paragraph = prose->paragraphs[*owner];
+        if (!source_paragraph.glyphs_complete)
+          return reject("trap introduction selector paragraph has no exact "
+                        "glyph provenance: " +
+                        selector->target);
+        TrapGlyphOffsets offsets;
+        for (const auto &glyph : source_paragraph.glyphs)
+          if (glyph.logical_record == selector->target_record)
+            offsets[{glyph.token_index, glyph.word_index}] = glyph.offset;
+        auto link = project_trap_selector_link(
+            *selector, source_paragraph.text, offsets,
+            segment_slice(record, segment), &selector_error);
+        if (!link)
+          return reject("trap introduction selector rejected: " +
+                        selector_error);
+        // The item of that paragraph the range falls in; a range that
+        // crosses two list items is not placed.
+        std::optional<std::size_t> item;
+        for (std::size_t at = 0; at < item_sources.size(); ++at) {
+          const auto &[source, base] = item_sources[at];
+          const auto &text = catalog.introduction[first_item + at].text;
+          if (source == *owner && link->begin >= base &&
+              link->end <= base + text.size())
+            item = first_item + at;
+        }
+        if (!item)
+          return reject("trap introduction selector crosses list items: " +
+                        selector->target);
+        const auto base = item_sources[*item - first_item].second;
+        link->begin -= base;
+        link->end -= base;
+        catalog.introduction[*item].links.push_back(*link);
+      }
+    }
+    for (auto at = first_item; at < catalog.introduction.size(); ++at) {
+      auto &links = catalog.introduction[at].links;
+      std::sort(links.begin(), links.end(),
+                [](const auto &left, const auto &right) {
+                  return left.begin < right.begin;
+                });
+      for (std::size_t link = 1; link < links.size(); ++link)
+        if (links[link].begin < links[link - 1].end)
+          return reject("trap introduction selectors overlap");
     }
   }
   // The envelope this piece ends at is drawn where the prose stops.
@@ -3399,6 +3767,38 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
     region.after_field = catalog.introduction.size();
     catalog.introduction_regions.push_back(std::move(region));
   }
+  }
+  // Native lists of the introduction. Bullets of one list stand in one
+  // column; a paragraph deeper than that column continues the open item,
+  // and one at or left of it ends the list. An introduction region ends a
+  // list too: the drawing is not a block of an item. A bullet at another
+  // column while a list is open would be a nested list, which this model
+  // does not state, so it declines.
+  {
+    std::optional<std::size_t> list_column;
+    std::size_t next_region = 0;
+    for (std::size_t at = 0; at < catalog.introduction.size(); ++at) {
+      while (next_region < catalog.introduction_regions.size() &&
+             catalog.introduction_regions[next_region].after_field <= at) {
+        list_column.reset();
+        ++next_region;
+      }
+      auto &paragraph = catalog.introduction[at];
+      if (paragraph.list_marker) {
+        if (list_column && *list_column != paragraph.marker_column)
+          return reject("trap introduction list bullets stand in different "
+                        "columns");
+        list_column = paragraph.marker_column;
+      } else if (list_column) {
+        if (!paragraph.first_column)
+          return reject("trap introduction paragraph after a list item has "
+                        "no drawn column");
+        if (*paragraph.first_column > *list_column)
+          paragraph.list_continuation = true;
+        else
+          list_column.reset();
+      }
+    }
   }
   if (error != nullptr)
     error->clear();
@@ -3441,7 +3841,11 @@ bool same_trap_catalog_ir(const TrapCatalogIR &left,
     if (a.text != b.text || !same_spans(a.leading_spans, b.leading_spans) ||
         a.line_breaks != b.line_breaks ||
         a.source_slices != b.source_slices ||
-        a.source_rows.size() != b.source_rows.size())
+        a.source_rows.size() != b.source_rows.size() || a.links != b.links ||
+        !(a.list_marker == b.list_marker) ||
+        a.marker_column != b.marker_column ||
+        a.first_column != b.first_column ||
+        a.list_continuation != b.list_continuation)
       return false;
     for (std::size_t row = 0; row < a.source_rows.size(); ++row)
       if (a.source_rows[row].display_run != b.source_rows[row].display_run ||
@@ -3455,7 +3859,8 @@ bool same_trap_catalog_ir(const TrapCatalogIR &left,
         !(a.start_source == b.start_source) ||
         !same_line(a.headline, b.headline) || a.fields.size() != b.fields.size() ||
         a.cells != b.cells || a.suppressed_rows.size() != b.suppressed_rows.size() ||
-        a.embedded_regions.size() != b.embedded_regions.size())
+        a.embedded_regions.size() != b.embedded_regions.size() ||
+        a.index_terms != b.index_terms)
       return false;
     for (std::size_t region = 0; region < a.embedded_regions.size(); ++region) {
       if (!same_region(a.embedded_regions[region], b.embedded_regions[region]))

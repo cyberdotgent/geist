@@ -589,8 +589,88 @@ More facts about the introduction:
   line 26, ` |     invoked:` (`invoked`, attach `00`, `:` = `27` at
   `0x1673C0`), and hosted serves `invoked:`.
 * An `SI` subject-index line can stand inside an entry.  `2.4.11.1` record
-  1509 line 25 is `SI translators, FLMLPGEN`, after the last field of entry
-  `599`.  Hosted shows nothing for it.
+  1509 line 25 is the length byte `06` (`0x15DE1C`), `SI` (`7F` at
+  `0x15DE1D`), `translators` (`E3 0B`), attach `02` + `,` and `FLMLPGEN`
+  (`BE 44` at `0x15DE21`), after the last field of entry `599`.  Hosted
+  shows nothing for it.  It is an index term of the entry: it draws
+  nothing, and the field before it does not continue into it.  The line is
+  the whole control; drawn text after it on further display lines would be
+  entry text again, and no observed entry has any.
+
+[[markup_trap_introduction_lists]]
+The introduction draws native lists the same way an entry does.  A
+paragraph whose first display line opens with a bullet (a blank run, the
+single word `U+2666`, a two-cell blank run, then text) is a list item; the
+bullet's cell is the list's column.  A record can open on such a row.
+`2.4.10.1` record 1490 line 0 starts at `0x15C3EA` with `19` (length 25),
+`11` (a three-cell blank run), `03` (`U+2666`, cell 3), `10` (a two-cell
+blank run) and `E6 95` (`When`, cell 7); record 1489 ended on an empty
+line.  Line 1 (`       tokens on that line, ...`, text at cell 7) has no
+empty line before it and continues the item.  Hosted
+(DT `19921112160049`) serves both lines after one `°` inside one `<p>`.
+
+A later paragraph whose first glyph stands right of the open list's
+bullets is a further paragraph of the same item; one at or left of the
+bullet column ends the list.  Record 1489 line 29 is `14` (length 20) at
+`0x15C38A`, `15` (a seven-cell blank run) and `If` (`79` at `0x15C38C`,
+cell 7), after an empty line that follows the bullet item
+`When an uncommented, non-continuation line has COPY ...`.  Hosted serves
+`If the member name is enclosed ...` in its own `<p>`, indented to the
+item's text column.  Line 32 opens the next bullet at cell 3.  Bullets of
+one list stand in one column.  In every introduction examined, each bullet
+row follows an empty line; a nested introduction list (a bullet right of
+an open list's column) is not observed.
+
+[[markup_trap_introduction_selectors]]
+A `cselect` line in the introduction marks cells of the display line after
+it, exactly as inside an entry.  `2.4.32` record 1641 lines 30--32:
+
+[cols="<10,<20,<70",options="header"]
+|===
+|Line |Bytes |Content
+
+|30 |`05` at `0x168478`, `40` |`cselect 3 8 TBLADINFMT`
+|31 |`06` at `0x16847E`, `40` |`cselect 50 11 FIGADAIN`
+|32 |`19` at `0x168485` |`   Table 18 for a description of the ADAIN format.  Figure 88 shows a sample`
+|===
+
+Both selectors queue onto line 32.  Hosted serves
+`<a href="...#TBLADINFMT">Table 18</a>` on cells 3--10 and
+`<a href="...#FIGADAIN">  Figure 88</a>` on cells 50--60.
+
+A line that only names a destination draws nothing, so a selector skips
+it too.  `2.4.33` record 1647 line 6 is `cselect 33 11 FIGADAOUT` (`05` at
+`0x168D2D`).  Line 7 is the length byte `02` at `0x168D33` and
+`SRSPTTPST` (`DF 4F`), alone on its line.  Line 8 is
+`   the format of the ADAOUT file.  Figure 89 shows a sample ADAOUT file.`
+Hosted links `  Figure 89`, cells 33--43 of line 8.
+
+A selector on the last line of its record marks the first line of the
+next record.  `2.4.33` record 1648 ends with line 29, `cselect 13 9
+FIGADAOUT` (`05` at `0x168FF2`).  Record 1649 line 0 begins at `0x169005`:
+`16` (length 22), `11` (three blanks), `Notice` (`CD CE`), `in` (`4B`),
+`Figure` (`BC DD`) and `89` (`EF 51`).  Hosted serves
+`Notice in <a href="...#FIGADAOUT">Figure 89</a> that ...`; cells 13--21
+are `Figure 89`.  A selector can name a destination in another topic.
+`2.4.33` record 1650 line 0 is `cselect 3 25 FIGADAIN`, and hosted links
+`Figure 88 in topic 2.4.32` to `2.4.32#FIGADAIN`.
+
+The row after a destination line is drawn text.  `2.4.32` record 1641
+line 33 is `02` + `SRSPTTPRE` (`DF 4D` at `0x1684A0`).  Line 34 is `05`
+at `0x1684A2`, then `11` (three blanks), `input` (`C8 0B`), `list` (`50`)
+and attach `01` + `.`.  Hosted serves
+`<a name="SPTTPRE">   input list.</a>`, the end of the sentence that line 32
+began.
+
+[[markup_trap_introduction_figures]]
+An `SRFIG<id>` ... `SREFIG` envelope in the introduction is drawn like one
+inside an entry.  `2.4.32` record 1642 line 12 is `02` + `SRFIGADAIN`
+(`DA 9D` at `0x16855F`).  Line 30 is `02` + `SREFIG` (`DA 8B` at
+`0x16863F`).  Between them are the box rows of the sample and line 29,
+`   Figure 88. ADAIN Example`.  Hosted serves those rows verbatim under
+`<a name="FIGADAIN">`, caption included, and resumes the prose after
+`SREFIG`.  `2.4.14.1`'s `SRFIGRSRVWD` envelope runs from record 1535
+line 27 to record 1548 line 7 and is served the same way.
 
 A list item's column is the bullet's cell on the drawn row, not the sum of
 the stored words in front of it, because the row also draws blanks that no
