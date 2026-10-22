@@ -1627,7 +1627,35 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         // The payload of a box's own opener or closer is the box rows after
         // it, which draw only box words and spacing; they are the box's to
         // claim, never the control's padding.
-        if ((visible_payload || in_box) && title_seen) {
+        //
+        // Inside a `cz OFF` verbatim region the same holds for any anchor
+        // whose payload draws box words: every display row of the region is
+        // served character for character (`cz_verbatim_regions`,
+        // prose_topic_spans.cpp), so a rail row the flattened segment ran on
+        // into is a row of the region, not the control's padding.  SC41-485
+        // 1.2 record 8 line 29 is `SRFIGTBLUNIQ1` alone, and its segment's
+        // payload is line 30, the labelled box's blank rail row
+        // `   |` .. `|`; record 9 lines 9 and 11 are the rail rows after
+        // `SRETBL` and `SREFIG`.  Read as padding, the three rows vanished
+        // from the region while the topic stayed typed.
+        const auto drawn_verbatim_payload =
+            in_verbatim &&
+            std::any_of(segment.source_tokens.begin(),
+                        segment.source_tokens.end(), [&](const auto token) {
+                          if (std::binary_search(anchor_operands.begin(),
+                                                 anchor_operands.end(), token))
+                            return false;
+                          const auto view =
+                              view_token(records, record_index, token);
+                          return !is_row_control_slot(records, view) &&
+                                 std::any_of(view.body.begin(),
+                                             view.body.end(),
+                                             [](const auto word) {
+                                               return box_word(word);
+                                             });
+                        });
+        if ((visible_payload || in_box || drawn_verbatim_payload) &&
+            title_seen) {
           if (anchor_operands.empty())
             return fail(error, "anchor control has no source token");
           // A closer's payload is the next item's text and nothing else.

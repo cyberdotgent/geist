@@ -451,6 +451,26 @@ std::vector<BoxRegion> plan_boxes(
   return regions;
 }
 
+std::vector<BoxLine> drawn_box_rows(
+    const std::vector<DecodedLogicalRecordSource>& records) {
+  std::vector<BoxLine> rows;
+  for (std::size_t index = 0; index < records.size(); ++index) {
+    const auto& record = records[index];
+    const auto* lines = record_display_lines(record);
+    if (lines == nullptr) continue;
+    for (const auto& line : *lines) {
+      auto columns = display_line_columns(record, line);
+      bool joint = false;
+      if (!box_only_row(columns, joint) || !joint ||
+          !display_row(record, line))
+        continue;
+      rows.push_back(
+          {index, line, display_line_text(record, line), std::move(columns)});
+    }
+  }
+  return rows;
+}
+
 // An `SRTBL<id>` ... `SRETBL` envelope drawn wholly inside a closed box is
 // the box's own markup, not a table.  SC24-5527-02 7.4.5 records 675-676
 // draw the `Obtaining File Type Abbreviations` note box: top rule record 675

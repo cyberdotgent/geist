@@ -2105,7 +2105,47 @@ bool build_lines(const std::vector<DecodedLogicalRecordSource>& records,
     }
     if (!owned) builder.boxes.push_back(std::move(region));
   }
-  return builder.run();
+  if (!builder.run()) return false;
+  // A typed topic never loses drawn content.  A row drawn from box words
+  // alone is printed by hosted BookServer column for column, and the row
+  // model has no reading that prints nothing for it: it is neither a marker
+  // slot in front of a row's text nor the rule-only `<hr>` line.  Two
+  // readings nevertheless claim such rows as structure that prints nothing:
+  //
+  //   * the placeholder-run branch of the line builder takes a box-word run
+  //     that does not open a row of text -- one standing at the end of the
+  //     topic, before a control boundary, or in front of a space run -- as
+  //     a row-control `marker` slot.  A box-only row that no closed box or
+  //     open drawing claims (its run is glued to a structural control line,
+  //     so `plan_boxes` proves nothing) is spelled entirely of such runs;
+  //   * a picture-less figure frame (`plan_frame`) claims every box word
+  //     between `SRFIG` and `SREFIG` that its table does not own as
+  //     `padding`, which drops the frame's own top rule, rails and bottom
+  //     rule around the table (ITPPIBOK 4.3.5.4 record 158 line 20 opens
+  //     the `SRFIGSCHED` frame; hosted DT 19910628074854 prints all of its
+  //     rows in the topic's `<pre>`, while the typed reading kept only the
+  //     rails beside the grid).
+  //
+  // Every box word of such a row must therefore have been drawn: claimed as
+  // text (a planned region, a drawn cell of a row) or by the table or figure
+  // span that lowers it.  Anything else declines the topic, naming the row.
+  for (const auto& row : drawn_box_rows(records)) {
+    for (auto token = row.line.prefix_token + 1; token < row.line.token_end;
+         ++token) {
+      const auto view = view_token(records, row.record, token);
+      if (!std::any_of(view.body.begin(), view.body.end(),
+                       [](const auto word) { return box_word(word); }))
+        continue;
+      const auto role = ledger.at(row.record, token).role;
+      if (role == ProseTokenRoleIR::text || role == ProseTokenRoleIR::table ||
+          role == ProseTokenRoleIR::figure)
+        continue;
+      return fail(error, "unclaimed drawn row '" + row.text + "' at " +
+                             builder.where(view) + " is not drawn (" +
+                             prose_token_role_name(role) + ")");
+    }
+  }
+  return true;
 }
 
 } // namespace geist::detail::prose_internal

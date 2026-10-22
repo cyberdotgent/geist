@@ -9,6 +9,7 @@
 #include "geist/detail/render/document_markdown_renderer.hpp"
 #include "test_failures.hpp"
 
+#include <algorithm>
 #include <iostream>
 #include <string>
 #include <utility>
@@ -534,6 +535,103 @@ void list_closer_ends_open_drawing() {
             html.find("Next") != std::string::npos,
         "list closer did not end the open drawing cleanly: " + html);
 }
+// A typed topic never loses drawn content.  Each shape below draws box-only
+// rows that neither a closed box nor an open drawing claims: the run holds a
+// structural control line (an envelope opener, a closer with no list owner)
+// that no drawing can hold.  The lowering either draws every box cell or
+// declines; it must not succeed with the drawn rows missing.
+std::size_t drawn_cells(const std::string &text) {
+  std::size_t cells = 0;
+  for (const auto ch : text)
+    if (ch == '|' || ch == '_') ++cells;
+  return cells;
+}
+void unclaimed_rows_never_vanish(Builder &b, std::size_t drawn,
+                                 const std::string &shape,
+                                 const std::string &reason = "drawn row") {
+  std::string error;
+  const auto doc = lower(b, error);
+  if (!doc) {
+    check(error.find(reason) != std::string::npos,
+          shape + ": declined for an unexpected reason: " + error);
+    return;
+  }
+  const auto html = render_document_html_fragment(*doc);
+  check(drawn_cells(html) >= drawn,
+        shape + ": typed topic dropped drawn box rows: " + html);
+  const auto markdown = render_document_markdown(*doc);
+  check(drawn_cells(markdown) >= drawn,
+        shape + ": typed Markdown dropped drawn box rows: " + markdown);
+}
+// The field-template bottom rule is the topic's last display line, and the
+// run above it is glued to a list opener: nothing follows the rule.
+void unclaimed_box_rows_at_topic_end() {
+  Builder b(false);
+  b.line({});
+  b.line({w("SRLISab")});
+  b.line({w("   "), w("FIELDS:"), {1, 0x2502}, {1, 'N', 'A', 'M', 'E'},
+          w(" "), {0x2502}});
+  b.line({w("          "), {0x2514}, {1}, {0x2500, 0x2500, 0x2500, 0x2500},
+          {1, 0x2518}});
+  unclaimed_rows_never_vanish(b, 2 + 6, "topic end");
+}
+// An open drawing (top rule and rails, no bottom) glued directly to a
+// structural closer that is no list-item delimiter, with prose after it.
+void unclaimed_box_rows_before_closer() {
+  Builder b(false);
+  b.line({});
+  b.line({w("   "), w("Step")});
+  b.line({});
+  b.line({w("   "), {0x250c, 0x2500, 0x2500, 0x2500, 0x2510}});
+  b.line({w("   "), {2, 0x2502}, w("   "), {2, 0x2502}});
+  b.line({w("SRELIS")});
+  b.line({});
+  b.line({w("   "), w("Next")});
+  unclaimed_rows_never_vanish(b, 3 + 2, "glued closer");
+}
+// The same run opened by a structural opener rather than closed by one.  The
+// top rule here stands directly in front of the next row's text, which the
+// placeholder-run rule already declines.
+void unclaimed_box_rows_after_opener() {
+  Builder b(false);
+  b.line({});
+  b.line({w("   "), w("Step")});
+  b.line({});
+  b.line({w("SRNOTEab")});
+  b.line({w("   "), {0x250c, 0x2500, 0x2500, 0x2500, 0x2510}});
+  b.line({w("   "), {2, 0x2502}, w("   "), {2, 0x2502}});
+  b.line({});
+  b.line({w("   "), w("Next")});
+  unclaimed_rows_never_vanish(b, 3 + 2, "glued opener", "placeholder run");
+}
+// Inside a `cz OFF` verbatim region every display row is served as stored
+// (SC41-485 1.2, DT 19951003131222: the labelled box, its anchors on the box
+// rows).  An `SR<id>` anchor alone on its line whose flattened segment runs
+// on into the next rail row must leave that row to the region: SC41-485 1.2
+// record 8 lines 29/30 (`SRFIGTBLUNIQ1`, then `   |` .. `|`).
+void verbatim_anchor_keeps_rail_row() {
+  Builder b;
+  b.line({w("cz"), w("OFF"), w("LBLBOX")});
+  b.line({w("   "), {0x250c, 0x2500, 0x2500, 0x2500, 0x2510}});
+  b.line({w("   "), {2, 0x2502}, {1, 'A', 'B', 'C'}, {2, 0x2502}});
+  b.line({w("SRFIGX1")});
+  b.line({w("   "), {0x2502}, w("   "), {0x2502}});
+  b.line({w("   "), {0x2514, 0x2500, 0x2500, 0x2500, 0x2518}});
+  b.line({w("cz"), w("OFF"), w("ELBLBOX")});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "verbatim region with an anchor rejected: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto pre = pre_body(html);
+  // Top rule, the `ABC` row, the rail row after the anchor, bottom rule.
+  check(std::count(pre.begin(), pre.end(), '\n') == 3 &&
+            pre.find("|ABC") != std::string::npos &&
+            pre.find("\n   |    |\n") != std::string::npos &&
+            pre.find("|___|") != std::string::npos,
+        "verbatim region lost the rail row after its anchor: " + html);
+}
 void bullet() {
   Builder b;
   b.line({w("cz"), w("BREAK"), w("3")});
@@ -573,6 +671,10 @@ int main() {
   envelope_inside_closed_box();
   envelope_box_markup_is_narrow();
   list_closer_ends_open_drawing();
+  unclaimed_box_rows_at_topic_end();
+  unclaimed_box_rows_before_closer();
+  unclaimed_box_rows_after_opener();
+  verbatim_anchor_keeps_rail_row();
   bullet();
   rejected({w("   "), w("SNA"), {1}, {0xffff}, {1}, w("ps")});
   rejected({w("   "), w("SNA"), {0x2666}, w("ps")});

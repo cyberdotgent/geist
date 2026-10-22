@@ -444,6 +444,14 @@ struct BoxRegion {
 std::vector<BoxRegion> plan_boxes(
     const std::vector<DecodedLogicalRecordSource>& records);
 
+// Every display row drawn from box words alone, with a corner, rail or
+// junction among them (a row of nothing but `U+2500` is the reader's
+// horizontal rule instead).  No prose reading spells such a row, so the line
+// builder must draw every one of them -- inside a planned region, or as
+// drawn cells of a row -- or decline the topic; see `build_lines`.
+std::vector<BoxLine> drawn_box_rows(
+    const std::vector<DecodedLogicalRecordSource>& records);
+
 // The `SRTBL<id>` / `SRETBL` controls that stand inside a closed drawn box
 // as the box's own markup, as (record index, first source token) pairs.  See
 // prose_topic_boxes.cpp for the shape and its evidence.

@@ -3088,6 +3088,19 @@ record 8 segments 22-25 are `cz OFF LBLBOX`, a `CFONT` header row,
 `SRETBL`, `SREFIG`, `cz OFF ETABLE 2 2`, `cz OFF ELBLBOX 0 0` -- with no
 `cz OFF TABLE` anywhere.  A reader must therefore treat the directive as
 corroborating evidence and take the region extent from the `SR` span.
+* Inside the labelled box those `SR` controls each stand alone on a display
+line, and the box's rail rows that follow them are display rows of the box,
+not part of the control.  Record 8 token 235 (bytes `0x7802`-`0x7803`) is
+`SRFIGTBLUNIQ1`; byte `0x7804` is the next display line's length byte (6),
+and that line's five tokens are a three-cell space run, `U+2502` (value
+140), two space runs and `U+2502` again -- the blank rail row
+`   |` .. `|`.  Read as a flattened character stream the control's text runs
+on into that row, because nothing in it is a word; the display-line framing
+is what ends the control at its own line.  Record 9 lines 9 and 11 are the
+same rail row after `SRETBL` and after `SREFIG`.  Hosted BookServer (DT
+`19951003131222`) prints every one of these rows inside the `lblbox` block:
+five blank rail rows around `Required Parameter Group:` above the grid and
+four below it, and `1.3` to `1.6` of the same book draw the same shape.
 
 Corpus census of the directive pairs, recounted by display line over all 34
 fixtures. *Six* books carry any `CZ` control, not five: `SG24-204.boo` has a
