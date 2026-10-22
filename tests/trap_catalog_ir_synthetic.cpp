@@ -1856,35 +1856,59 @@ int main() {
     }
   }
 
-  // The introduction's revised rows lose their bar too, and an indented
-  // CFONT row that opens its line is a paragraph of its own (SC34-425
-  // 2.4.12.4 `LANG=A`/`LANG=T`), not a wrap of the paragraph above it.
+  // The introduction's revised rows lose their bar too.
   {
     auto tokens = header("Sample", "Messages");
     append(tokens, revised({t("Revised", 304), t("introduction.", 305)}));
     append(tokens, line({}));
-    append(tokens, line({t("cfont", 111), t("7", 306), t("4", 293),
-                         t("2", 113)}));
-    append(tokens, line({t("       ", 307), t("ALFA", 308), t("first", 117)}));
-    append(tokens, line({t("cfont", 111), t("7", 306), t("4", 293),
-                         t("2", 113)}));
-    append(tokens, line({t("       ", 307), t("BETA", 309), t("second", 310)}));
+    append(tokens, line({origin(), t("Plain", 308), t("row.", 117)}));
     append(tokens, entry("643", 311));
     const auto built = build({make_source(74, tokens)}, "Sample Messages");
     require(built.catalog.has_value(),
             "a revised introduction declined: " + built.error);
     if (built.catalog) {
-      std::vector<std::string> paragraphs;
-      for (const auto &paragraph : built.catalog->introduction)
-        paragraphs.push_back(paragraph.text);
       std::string joined;
-      for (const auto &paragraph : paragraphs)
-        joined += "[" + paragraph + "]";
-      require(paragraphs.size() == 3 &&
-                  paragraphs[0] == "Revised introduction." &&
-                  paragraphs[1] == "ALFA first" &&
-                  paragraphs[2] == "BETA second",
+      for (const auto &paragraph : built.catalog->introduction)
+        joined += "[" + paragraph.text + "]";
+      require(joined == "[Revised introduction.][Plain row.]",
               "the revised introduction projected " + joined);
+    }
+  }
+
+  // An indented CFONT row at the indent of the row above it continues that
+  // row's paragraph: nothing in the source states a paragraph break. This
+  // is SC24-546 A.0, where record 967 lines 19-20 are `cfont 5 4 E ...`
+  // over `     HELP MSG DMSnnnE  (where nnn is the CMS error number` and
+  // record 968 lines 0-1 are `cfont 5 3 E ...` over
+  // `     and error type is either 'E' or'T')`; hosted DT 19940323131240
+  // serves both lines inside one `<p>`. SC34-425 2.4.12.4's consecutive
+  // `cfont 7 6 2` `LANG=` rows are one hosted `<p>` the same way.
+  {
+    auto first = header("Sample", "Messages");
+    append(first, line({origin(), t("Use", 350), t("this:", 351)}));
+    append(first, line({}));
+    append(first, line({t("cfont", 111), t("5", 340), t("4", 293),
+                        t("E", 342)}));
+    append(first, line({t("     ", 352), t("HELP", 353), t("(where", 354),
+                        t("number", 355)}));
+    std::vector<Token> second;
+    append(second, line({t("cfont", 111), t("5", 340), t("3", 112),
+                         t("E", 342)}));
+    append(second, line({t("     ", 352), t("and", 356), t("type)", 357)}));
+    append(second, line({}));
+    append(second, entry("647", 358));
+    const auto built = build({make_source(79, first), make_source(80, second)},
+                             "Sample Messages");
+    require(built.catalog.has_value(),
+            "the continued example introduction declined: " + built.error);
+    if (built.catalog) {
+      std::string joined;
+      for (const auto &paragraph : built.catalog->introduction)
+        joined += "[" + paragraph.text + "]";
+      require(joined.find("[HELP (where number and type)]") !=
+                  std::string::npos,
+              "a same-indent CFONT continuation row split its paragraph: " +
+                  joined);
     }
   }
 

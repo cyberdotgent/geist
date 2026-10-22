@@ -492,25 +492,6 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
         (native_lines == nullptr || native_lines->empty() ||
          native_prefix_tokens.count(native_lines->front().prefix_token + 1) == 0))
       return reject("deferred message prose font has no first native target row");
-    // True when the font's first span opens the row `token` draws: the span
-    // column is the row's first drawn cell, a revision bar in the row's
-    // margin not counting as one.
-    const auto font_opens_row = [&](const FontControlSpansIR& font,
-                                    const std::size_t token) {
-      if (font.spans.empty()) return false;
-      const auto* line = display_line_of_token(record, token);
-      if (line == nullptr) return false;
-      const auto cells = display_line_cells(record, *line);
-      for (std::size_t column = 0; column < cells.size(); ++column) {
-        if (cells[column].word <= ' ' ||
-            (column == 1 &&
-             cells[column].token != static_cast<std::size_t>(-1) &&
-             is_display_line_margin_revision_bar(record, cells[column].token)))
-          continue;
-        return column == font.spans.front().column;
-      }
-      return false;
-    };
     std::size_t current_segment = 0;
     bool segment_row_seen = false;
     for (auto token = span.begin; token < span.end; ++token) {
@@ -556,27 +537,6 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
       if (row_start != rows_by_start.end()) {
         const auto& ref = row_start->second;
         const auto run_id = layout.runs[ref.run_index].id;
-        // The row a CFONT deferred from the previous record styles, which
-        // the layout may keep in the run that record opened or in a
-        // continuation text run. SC34-425 2.4.15.1 record 1561 line 34 is
-        // `cfont 27 6 E 42 6 E 57 7 E` and record 1562 line 0 its row
-        // ` |                         CANCEL         GOBACK         REWRITE`.
-        const auto deferred_font_opens_row = [&] {
-          if (!open || !deferred_font || native_lines == nullptr ||
-              native_lines->empty() ||
-              display_line_of_token(record, token) != &native_lines->front())
-            return false;
-          const auto* font_record =
-              find_record(records, deferred_font->logical_record);
-          if (font_record == nullptr ||
-              deferred_font->segment_index >=
-                  font_record->control_segments.size())
-            return false;
-          const auto spans = decode_font_control_spans(
-              *font_record,
-              font_record->control_segments[deferred_font->segment_index]);
-          return spans && font_opens_row(*spans, token);
-        }();
         if (!current_run || *current_run != run_id) {
           // A new display run opens a paragraph when it is the first run or
           // a CFONT run whose first span starts the display line at the
@@ -584,7 +544,7 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
           // mid-line (`cfont 25 3 C` inside a sentence, a CFONT without
           // spans, a record-continuation text run) wraps the open paragraph.
           const auto& run = layout.runs[ref.run_index];
-          bool starts_line = !open || deferred_font_opens_row;
+          bool starts_line = !open;
           if (!starts_line && run.control_kind == BookControlKind::font) {
             const auto* row_record = find_record(records, ref.row->logical_record);
             if (row_record != nullptr &&
@@ -594,18 +554,6 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
                   row_record->control_segments[ref.row->segment_index]);
               starts_line = spans && !spans->spans.empty() &&
                             spans->spans.front().column == 3;
-              // A CFONT whose first span opens its row at an indent other
-              // than the origin starts a line of its own just the same: the
-              // span begins at the row's first drawn cell (a margin bar is
-              // not one), so it is not a run inside a wrapped sentence.
-              // SC34-425 2.4.12.4 record 1517 lines 5-16 are consecutive
-              // `cfont 7 6 2` rows (`       LANG=A         Assembler only`,
-              // `       LANG=T ...`), and 2.4.31 record 1638 lines 4-7 are the
-              // two `cfont 20 ... E` example rows `OPTIONS=(...) C` and
-              // `B(7,7),M(DELAY,TRACE,ID))`. Read into the open paragraph,
-              // the rows ran together.
-              if (!starts_line && spans)
-                starts_line = font_opens_row(*spans, token);
             }
           }
           if (starts_line) {
@@ -615,9 +563,6 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
           current_run = run_id;
         } else if (!open) {
           begin_paragraph(false);
-        } else if (deferred_font_opens_row) {
-          flush_piece(token, current_segment);
-          begin_paragraph(true);
         }
         current.source_rows.push_back({run_id, ref.row_index});
       }

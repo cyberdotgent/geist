@@ -527,19 +527,21 @@ blank, `|`, `U+2666`, a two-cell blank run and `Mismatched quotes ...`, with
 the bullet in cell 3.  Hosted serves ` | °   Mismatched quotes ...`, a list
 item like the unrevised one above it.
 
-Three more facts about the introduction come from the same topics.
+Three more facts about the introduction:
 
-* A `cfont` row whose first span begins at the row's first drawn cell starts
-  a line at any indent, not only at the three-cell origin.  `2.4.12.4`
-  record 1517 lines 5--16 are six `cfont 7 6 2` rows
-  (`       LANG=A         Assembler only`, `       LANG=T ...`), and
-  `2.4.31` record 1638 lines 4--7 are the two example rows
-  `OPTIONS=(@@FLMUID/DEV(3800N8),...,CO,      C` (`cfont 20 50 E 76 1 E`)
-  and `B(7,7),M(DELAY,TRACE,ID))` (`cfont 20 25 E`).  Hosted prints each on
-  a line of its own.  A `cfont` at the end of one record styles the first
-  row of the next: `2.4.15.1` record 1561 line 34 `cfont 27 6 E 42 6 E 57
-  7 E` styles record 1562 line 0, `CANCEL`, `GOBACK`, `REWRITE`, the next
-  row of a three-column word table.
+* A `cfont` row whose first span begins at the row's first drawn cell, at an
+  indent other than the three-cell origin, does not by itself start a
+  paragraph.  Consecutive rows at one indent, each under its own `cfont`, are
+  lines of one paragraph unless an empty display line separates them.
+  `2.4.12.4` record 1517 lines 5--16 are six `cfont 7 6 2` rows
+  (`       LANG=A         Assembler only`, `       LANG=T ...`).  Hosted
+  serves all six as consecutive lines between one pair of `<p>` marks.
+  `SC24-546` `A.0` (DT `19940323131240`) is the same shape across a record
+  boundary.  Record 967 lines 19--20 are `cfont 5 4 E ...` over
+  `     HELP MSG DMSnnnE  (where nnn is the CMS error number`, and record 968
+  lines 0--1 are `cfont 5 3 E ...` over
+  `     and error type is either 'E' or'T')`.  The second row finishes the
+  first row's sentence, and hosted serves both inside one `<p>`.
 * A one-word glyph that ends a display line is drawn text when it closes a
   bracket its sentence opened, whatever the next line's length byte spells.
   `2.4.15.1` record 1557 line 17 ends `line`, attach `00`, `)` (`22` at
