@@ -175,6 +175,18 @@ lower_fixed_table_block_to_document_ir(const FixedTableBlockIR &block) {
         if (styled)
           body.styled_lines.push_back(styled_row(line, line_origin));
         body.line_origins.push_back(std::move(line_origin));
+        // An `SRLIS<owner>` inside the region names this row, inside the
+        // same `<pre>` (`FixedTableBlockIR::list_anchors`).
+        for (const auto &list : block.list_anchors) {
+          if (list.line != index)
+            continue;
+          PreformattedAnchorIR anchor;
+          anchor.line = index - begin;
+          anchor.anchor = AnchorBlockIR{list.id};
+          anchor.origin = origin_for("fixed table region: list anchor");
+          anchor.origin.slices.push_back(list.source);
+          body.line_anchors.push_back(std::move(anchor));
+        }
       }
       body_block.node = std::move(body);
       result.push_back(std::move(body_block));

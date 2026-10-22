@@ -130,12 +130,63 @@ void unclosed_envelope(bool doubled, bool stray_text, bool expect_typed) {
             std::string::npos,
         "Markdown lost the open envelope's rows: " + markdown);
 }
+// IEAC6MST 7.9 record 512 line 10 (`SRLISone`) and SC24-5527-02 G.3 record
+// 815 (`SRLISreceivx`): a list item opened and closed on lines of their own
+// inside a drawn SRTBL envelope that renders verbatim.  Hosted BookServer
+// (DT 19920124000100, 19921218151459) wraps the row after the opener in
+// `<a name="LISone">` inside the same `<pre>` and prints nothing for the
+// `SRELIS` closer.  `owner` is the closer's owner; one the topic never opens
+// is not proven to be a closer and declines.
+void list_item_in_verbatim_envelope(const std::string &owner,
+                                    bool expect_typed) {
+  Builder b;
+  b.line({});
+  b.line({w("   "), w("Text before.")});
+  b.line({w("SRTBLCLISTS")});
+  b.line({w("   | first row  |")});
+  b.line({w("SRLISone")});
+  b.line({w("   | second row |")});
+  b.line({w("SRELIS" + owner)});
+  b.line({w("   | third row  |")});
+  b.line({w("SRETBL")});
+  std::string error;
+  const auto doc = lower(b, error);
+  if (!expect_typed) {
+    check(!doc, "a closer of a list item the topic never opens was typed");
+    return;
+  }
+  check(doc.has_value(), "list item inside a verbatim envelope declined: " +
+                             error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto pre = html.find("<pre");
+  const auto first = html.find("first row", pre);
+  const auto anchor = html.find("id=\"LISone\"", pre);
+  const auto second = html.find("second row", pre);
+  const auto third = html.find("third row", pre);
+  const auto close = html.find("</pre>", pre);
+  check(pre != std::string::npos && first < anchor && anchor < second &&
+            second < third && third < close &&
+            html.find("<pre", pre + 1) == std::string::npos,
+        "list anchor is not on the row after SRLIS inside one region: " +
+            html);
+  check(html.find("ELIS") == std::string::npos &&
+            html.find("SRLIS") == std::string::npos,
+        "a list control printed: " + html);
+  const auto markdown = render_document_markdown(*doc);
+  check(markdown.find("id=\"LISone\"") != std::string::npos &&
+            markdown.find("third row") != std::string::npos,
+        "Markdown lost the list anchor or a row: " + markdown);
+}
 } // namespace
 
 int main() {
   unclosed_envelope(true, false, true);
   unclosed_envelope(false, false, false);
   unclosed_envelope(true, true, false);
+  list_item_in_verbatim_envelope("one", true);
+  list_item_in_verbatim_envelope("two", false);
   geist_test::exit_with_failures();
   std::cout << "prose envelope close checks passed\n";
   return 0;

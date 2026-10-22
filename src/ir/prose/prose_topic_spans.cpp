@@ -301,6 +301,20 @@ bool table_region(const std::vector<DecodedLogicalRecordSource>& records,
             region.claims.emplace_back(record, token);
           continue;
         }
+        // `SRLIS<owner>` / `SRELIS<owner>` lines the verbatim region read
+        // as a row anchor and a closer that prints nothing.
+        bool listed = false;
+        for (const auto* list : {&block.list_anchors, &block.list_closers})
+          for (const auto& anchor : *list)
+            if (anchor.source.logical_record == records[record].logical_record &&
+                anchor.source.segment_index == segment.segment_index &&
+                anchor.id == segment.opcode.substr(2)) {
+              for (auto token = anchor.source.token_begin;
+                   token < anchor.source.token_end; ++token)
+                region.claims.emplace_back(record, token);
+              listed = true;
+            }
+        if (listed) continue;
       }
       if (segment.kind != BookControlKind::font &&
           segment.kind != BookControlKind::select)

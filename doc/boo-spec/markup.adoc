@@ -3440,6 +3440,38 @@ a `-` list at column 7 under a `°` item at column 3, and continuation
 paragraphs at the item's text column -- is open: a reader that has no second
 list level cannot print these topics faithfully.
 
+[[markup_list_item_inside_table_envelope]]
+==== A list item inside a drawn table envelope
+
+An `SRLIS<owner>` list item can be opened and closed inside an undeclared
+`SRTBL<id>` ... `SRETBL` envelope whose rows are drawn character art.  Each
+control stands on a display line of its own between two drawn rows.
+Offsets are absolute file offsets.
+
+[cols="<24,<36,<40",options="header"]
+|===
+|Book, record, line |Bytes |Reading
+
+|IEAC6MST 512, 22 |`02` at `0x905E7`, then `E6 1D` |`SRLISone`, between two rows `   \|  \|  \|` of the drawn grid
+|IEAC6MST 513, 8 |`02` at `0x906B3`, then `E4 5F` |`SRELISone`, between two such rows
+|IEAC6MST 513, 13 |-- |`cselect 53 1 LISONE`, a link to the item from the next row's `1`
+|SC24-5527-02 815, 15 |`02` at `0x532B6`, then `E4 40` |`SRLISreceivx`, inside the table's `Note` rows
+|SC24-5527-02 816, 3 |`02` at `0x5332F`, then `E2 CC` |`SRELISreceivx`
+|===
+
+Hosted BookServer (IEAC6MST `7.9`, DT `19920124000100`; SC24-5527-02
+`G.3`, DT `19921218151459`) prints both envelopes verbatim in the topic's
+`<pre>`, with no `<table>`.  The opener's line prints nothing and the next
+drawn row is wrapped in `<a name="LISone">` (`LISreceivx`) inside the same
+`<pre>`.  The closer's line prints nothing and names nothing.  The
+`cselect` row prints its `1` as `<a href="...#LISONE">1</a>`.
+
+So inside a drawn envelope `SRLIS<owner>` on a line of its own is the
+anchor of the row after it, and `SRELIS<owner>` on a line of its own is a
+closer that prints nothing.  A closer is read this way only when an
+`SRLIS<owner>` of the topic names the same owner, ignoring case, as in
+prose.  Either control must have a drawn row of the envelope after it.
+
 [[markup_verbatim_cz_regions]]
 ==== Verbatim `CZ` regions
 

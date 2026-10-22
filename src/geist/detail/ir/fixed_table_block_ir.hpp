@@ -301,6 +301,16 @@ struct FixedTableBlockIR {
   std::vector<FixedTablePictureIR> pictures;
   // Positional destinations carried by control-only SRSPT lines.
   std::vector<FixedTableSpotAnchorIR> spot_anchors;
+  // `SRLIS<owner>` list-item anchors on control-only lines inside a
+  // preformatted region.  Hosted BookServer serves `<a name="LIS<owner>">`
+  // around the next row of the same `<pre>` (IEAC6MST 7.9 `SRLISone`, DT
+  // 19920124000100; SC24-5527-02 G.3 `SRLISreceivx`, DT 19921218151459), so
+  // they lower as line anchors and never split the region.
+  std::vector<FixedTableSpotAnchorIR> list_anchors;
+  // `SRELIS<owner>` closers on control-only lines inside a preformatted
+  // region, each naming an `SRLIS<owner>` of the topic.  Hosted prints
+  // nothing for them; `id` is `ELIS<owner>` and `line` the next row.
+  std::vector<FixedTableSpotAnchorIR> list_closers;
   // Subject-index entries the envelope carries: a display line whose first
   // visible word is the `SI` keyword.  Hosted BookServer displays none of it
   // (SC09-138 4.1.4 DT=19910321130500 shows no `SI` byte at all although the

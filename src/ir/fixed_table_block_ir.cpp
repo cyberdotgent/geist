@@ -434,6 +434,8 @@ public:
         table.preformatted_lines = std::move(lines_only.preformatted_lines);
         table.pictures = std::move(lines_only.pictures);
         table.spot_anchors = std::move(lines_only.spot_anchors);
+        table.list_anchors = std::move(lines_only.list_anchors);
+        table.list_closers = std::move(lines_only.list_closers);
       }
       return table;
     }
@@ -719,6 +721,17 @@ public:
     return true;
   }
 
+  // True when some `SRLIS<owner>` control of the topic names `owner`
+  // (lower case).  The prose stream reads a closer the same way.
+  bool names_list_item(const std::string &owner) const {
+    for (const auto &record : records_)
+      for (const auto &segment : record.control_segments)
+        if (segment.kind == BookControlKind::structural &&
+            ascii_lower(segment.opcode) == "srlis" + owner)
+          return true;
+    return false;
+  }
+
   bool admit_preformatted(const SourcePosition &start,
                           const SourcePosition &end,
                           FixedTableBlockIR &block, std::string &reason) {
@@ -797,6 +810,8 @@ public:
     // The font control of the markup line just walked, waiting for the
     // display line directly below it; any other line in between drops it.
     std::optional<FontControlSpansIR> pending_font;
+    std::vector<FixedTableSpotAnchorIR> list_anchors;
+    std::vector<FixedTableSpotAnchorIR> list_closers;
     for (auto index = first + 1; index < last; ++index) {
       const auto &view = lines[index];
       const auto &record = *view.record;
@@ -819,10 +834,24 @@ public:
         const auto opcode = ascii_lower(segment.opcode);
         const auto spot = segment.kind == BookControlKind::structural &&
                           opcode.size() > 5 && opcode.rfind("srspt", 0) == 0;
+        // `SRLIS<owner>` / `SRELIS<owner>` on a line of their own: a list
+        // item drawn inside the region (`list_anchors`, `list_closers`).
+        const auto list_item = segment.kind == BookControlKind::structural &&
+                               opcode.size() > 5 &&
+                               opcode.rfind("srlis", 0) == 0;
+        const auto list_closer = segment.kind == BookControlKind::structural &&
+                                 opcode.size() > 6 &&
+                                 opcode.rfind("srelis", 0) == 0;
+        if (list_closer && !names_list_item(opcode.substr(6))) {
+          reason = "preformatted region closes list item " + segment.opcode +
+                   " that the topic never opens";
+          return false;
+        }
         if (segment.kind != BookControlKind::font &&
             segment.kind != BookControlKind::select &&
             segment.kind != BookControlKind::spacing &&
-            segment.kind != BookControlKind::layout_directive && !spot) {
+            segment.kind != BookControlKind::layout_directive && !spot &&
+            !list_item && !list_closer) {
           reason = "preformatted region contains control " + segment.opcode;
           return false;
         }
@@ -856,6 +885,13 @@ public:
           anchor.line = body.size();
           anchor.source = control_slice(record, segment);
           spot_anchors.push_back(std::move(anchor));
+        }
+        if (list_item || list_closer) {
+          FixedTableSpotAnchorIR anchor;
+          anchor.id = segment.opcode.substr(2);
+          anchor.line = body.size();
+          anchor.source = control_slice(record, segment);
+          (list_item ? list_anchors : list_closers).push_back(std::move(anchor));
         }
         // A `CFONT` alone on its line styles the display line directly
         // below it, in that line's own display columns (doc/boo-spec/
@@ -959,10 +995,23 @@ public:
       reason = "preformatted region has no display lines";
       return false;
     }
+    // A list anchor names the row after it; one with no row of the region
+    // after it names nothing hosted is proven to print.
+    for (auto *anchors : {&list_anchors, &list_closers})
+      for (auto &anchor : *anchors) {
+        if (anchor.line < dropped || anchor.line - dropped >= body.size()) {
+          reason = "list control " + anchor.id +
+                   " has no row of the region after it";
+          return false;
+        }
+        anchor.line -= dropped;
+      }
 
     block.geometry = FixedTableGeometryIR::preformatted;
     block.pictures = std::move(pictures);
     block.spot_anchors = std::move(spot_anchors);
+    block.list_anchors = std::move(list_anchors);
+    block.list_closers = std::move(list_closers);
     for (std::size_t index = 0; index < body.size(); ++index) {
       const auto &[view, text] = body[index];
       FixedTablePreformattedLineIR line;
@@ -2729,6 +2778,24 @@ bool verify_fixed_table_blocks_ir(
         return fail("fixed table spot anchor has no source");
       previous_anchor_line = anchor.line;
     }
+    for (const auto *anchors : {&block.list_anchors, &block.list_closers}) {
+      const auto prefix = anchors == &block.list_anchors ? "lis" : "elis";
+      std::size_t previous_line = 0;
+      for (const auto &anchor : *anchors) {
+        if (anchor.id.size() <= std::string(prefix).size() ||
+            ascii_lower(anchor.id).rfind(prefix, 0) != 0)
+          return fail("fixed table list control has an invalid id");
+        if (block.geometry != FixedTableGeometryIR::preformatted &&
+            block.preformatted_lines.empty())
+          return fail("fixed table list control outside a verbatim region");
+        if (anchor.line >= block.preformatted_lines.size() ||
+            anchor.line < previous_line)
+          return fail("fixed table list controls are out of order");
+        if (anchor.source.token_begin >= anchor.source.token_end)
+          return fail("fixed table list control has no source");
+        previous_line = anchor.line;
+      }
+    }
     if (block.geometry == FixedTableGeometryIR::preformatted) {
       if (block.preformatted_lines.empty())
         return fail("preformatted table region has no display lines");
@@ -2807,6 +2874,12 @@ std::string format_fixed_table_blocks_ir(const FixedTableBlocksIR &blocks) {
           << anchor.source.segment_index << ':' << anchor.source.token_begin
           << ':' << anchor.source.token_end << ':' << anchor.source.byte_begin
           << ':' << anchor.source.byte_end << '\n';
+    for (const auto *anchors : {&block.list_anchors, &block.list_closers})
+      for (const auto &anchor : *anchors)
+        out << " list_control id='" << anchor.id << "' line=" << anchor.line
+            << " source=" << anchor.source.logical_record << ':'
+            << anchor.source.segment_index << ':' << anchor.source.token_begin
+            << ':' << anchor.source.token_end << '\n';
     for (const auto &line : block.index_lines)
       out << " index " << line.logical_record << ':' << line.prefix_token << ':'
           << line.token_end << " text='" << line.text << "'\n";
