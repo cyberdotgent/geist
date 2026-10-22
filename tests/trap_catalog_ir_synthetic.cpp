@@ -1375,7 +1375,7 @@ int main() {
 
   // `SRFTN<id>` ... `SREFTN` is a footnote placed where the source puts it:
   // hosted N2AH1MST 10.0 serves `<a name="FTNFTNUNIQ19"><hr><h5> ... </h5></a>`
-  // between two native list rows of `ATB215I`, and `SREFTN` names nothing.
+  // between two native list rows of `ATB348I`, and `SREFTN` names nothing.
   {
     auto tokens = header("Sample", "Messages");
     append(tokens, entry("631", 243));
@@ -1583,6 +1583,143 @@ int main() {
                     std::string::npos,
                 "styled figure rows did not render in place: " + html);
       }
+    }
+  }
+
+  // A bullet row behind a revision bar is still a native list row. N2AH1MST
+  // record 599 line 9 is ` ` + `U+2502` + 17 blanks + `U+2666` + two blanks
+  // + `TPADD`; hosted 10.0 (DT 19910329000100) serves ` |   °   TPADD`. A
+  // second glyph in the leading run is not a revision margin.
+  {
+    const Token blank{words(" "), 254};
+    const Token rule{TokenWords{0x2502}, 253};
+    const Token bullet{TokenWords{0x2666}, 214};
+    const auto revised = [&](const Token &mark, const Token &word) {
+      return line({blank, mark, t("                 ", 264), bullet,
+                   t("  ", 20), word});
+    };
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("633", 263));
+    // An unrevised sibling: a twenty-blank run puts its bullet in the same
+    // drawn column as the revised rows, whose bar is followed by a blank the
+    // row draws between the bar and the seventeen-blank run.
+    append(tokens, line({t("                    ", 269), bullet, t("  ", 20),
+                         t("TPLIST", 270)}));
+    append(tokens, revised(rule, t("TPADD", 265)));
+    append(tokens, revised(rule, t("TPALIAS", 266)));
+    const auto built = build({make_source(62, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "revised list extraction declined: " + built.error);
+    if (built.catalog) {
+      const auto &blocks = built.catalog->entries.front()
+                               .fields.front()
+                               .line.body.flow.blocks;
+      require(!blocks.empty() &&
+                  std::holds_alternative<geist::detail::TrapFlowListIR>(
+                      blocks.back().value) &&
+                  std::get<geist::detail::TrapFlowListIR>(blocks.back().value)
+                          .items.size() == 3,
+              "bullet rows behind a revision bar were flattened or nested");
+    }
+    auto boxed = header("Sample", "Messages");
+    append(boxed, entry("634", 267));
+    append(boxed, revised(t("x", 268), t("TPADD", 265)));
+    append(boxed, revised(t("x", 268), t("TPALIAS", 266)));
+    const auto other = build({make_source(63, boxed)}, "Sample Messages");
+    if (other.catalog)
+      for (const auto &block :
+           other.catalog->entries.front().fields.front().line.body.flow.blocks)
+        require(!std::holds_alternative<geist::detail::TrapFlowListIR>(
+                    block.value),
+                "a drawn glyph in the leading run was read as a revision bar");
+  }
+
+  // A list item continued in the next record stays in its item. N2AH1MST
+  // record 492 line 27 opens `Create a new parmlib member ...` behind a
+  // bullet, and record 493 line 0 continues it at column 14; hosted 10.0
+  // (DT 19910329000100) serves both rows in one bullet. A row back at the
+  // entry's margin after the list is the entry's own paragraph again.
+  {
+    const Token bullet{TokenWords{0x2666}, 214};
+    auto first = header("Sample", "Messages");
+    append(first, entry("635", 271));
+    append(first, line({origin(), bullet, t("  ", 20), t("Create", 272),
+                        t("member", 273)}));
+    std::vector<Token> second;
+    append(second, line({t("      ", 226), t("Then", 274), t("ask", 275)}));
+    append(second, line({}));
+    append(second, line({origin(), t("Back", 276), t("out.", 277)}));
+    const auto built = build({make_source(64, first), make_source(65, second)},
+                             "Sample Messages");
+    require(built.catalog.has_value(),
+            "cross-record list item declined: " + built.error);
+    if (built.catalog) {
+      const auto &blocks = built.catalog->entries.front()
+                               .fields.front()
+                               .line.body.flow.blocks;
+      const geist::detail::TrapFlowListIR *list = nullptr;
+      for (const auto &block : blocks)
+        if (const auto *candidate =
+                std::get_if<geist::detail::TrapFlowListIR>(&block.value))
+          list = candidate;
+      require(list != nullptr && list->items.size() == 1 &&
+                  list->items.front().blocks.size() == 1 &&
+                  std::holds_alternative<geist::detail::TrapFlowParagraphIR>(
+                      list->items.front().blocks.front().value) &&
+                  std::get<geist::detail::TrapFlowParagraphIR>(
+                      list->items.front().blocks.front().value)
+                          .text == "Create member Then ask",
+              "list item continued in the next record left its item");
+      require(!blocks.empty() &&
+                  std::holds_alternative<geist::detail::TrapFlowParagraphIR>(
+                      blocks.back().value) &&
+                  std::get<geist::detail::TrapFlowParagraphIR>(
+                      blocks.back().value)
+                          .text == "Back out.",
+              "paragraph at the entry margin was pulled into the list");
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "cross-record list item failed verification: " + error);
+    }
+  }
+
+  // A record that opens on a bullet row opens a new item. N2AH1MST record
+  // 1484 begins with a ten-blank run, `U+2666`, two blanks and `Not the
+  // first record in the member`, the second item of the list whose first
+  // item `Missing` closes record 1483. The bullet lies in no segment payload.
+  {
+    const Token bullet{TokenWords{0x2666}, 214};
+    auto first = header("Sample", "Messages");
+    append(first, entry("636", 278));
+    append(first, line({origin(), bullet, t("  ", 20), t("Missing", 279)}));
+    std::vector<Token> second;
+    append(second, line({origin(), bullet, t("  ", 20), t("Not", 280),
+                         t("first", 281)}));
+    append(second, line({}));
+    append(second, line({origin(), t("Back", 276), t("out.", 277)}));
+    const auto built = build({make_source(66, first), make_source(67, second)},
+                             "Sample Messages");
+    require(built.catalog.has_value(),
+            "record-leading bullet declined: " + built.error);
+    if (built.catalog) {
+      const auto &blocks = built.catalog->entries.front()
+                               .fields.front()
+                               .line.body.flow.blocks;
+      const geist::detail::TrapFlowListIR *list = nullptr;
+      for (const auto &block : blocks)
+        if (const auto *candidate =
+                std::get_if<geist::detail::TrapFlowListIR>(&block.value))
+          list = candidate;
+      require(list != nullptr && list->items.size() == 2 &&
+                  list->items.back().marker_source.logical_record == 67,
+              "a record opening on a bullet row did not open a new item");
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "record-leading bullet failed verification: " + error);
     }
   }
   std::cout << "trap catalog IR synthetic tests passed\n";

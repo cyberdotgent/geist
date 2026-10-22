@@ -119,6 +119,24 @@ bool marker_attached_title_control(const DecodedLogicalRecordSource &record,
          display_line_of_token(record, token + 2) == line;
 }
 
+// The column `token` opens on its drawn row: its first cell's index among
+// the row's display cells, which include blanks no token spells. N2AH1MST
+// record 2297 line 19 stores ` ` + `U+2502` + a seven-blank run before its
+// bullet, and the row draws a blank between the bar and the run, so the
+// bullet stands at column 10 like the unrevised bullet of line 15 (a
+// ten-blank run) above it.
+std::optional<std::size_t> drawn_column(const DecodedLogicalRecordSource &record,
+                                        std::size_t token) {
+  const auto *line = display_line_of_token(record, token);
+  if (line == nullptr)
+    return std::nullopt;
+  const auto cells = display_line_cells(record, *line);
+  for (std::size_t at = 0; at < cells.size(); ++at)
+    if (cells[at].token == token)
+      return at;
+  return std::nullopt;
+}
+
 bool native_list_bullet(const DecodedLogicalRecordSource &record,
                         std::size_t token) {
   const auto spaces = [](const LogicalTokenIR &candidate) {
@@ -136,7 +154,19 @@ bool native_list_bullet(const DecodedLogicalRecordSource &record,
       !spaces(record.ir.tokens[token - 1]) ||
       record.ir.tokens[token + 1].decoded_words != TokenWords{' ', ' '})
     return false;
-  for (auto before = line->prefix_token + 1; before < token; ++before)
+  // The leading run is blank, except for a revision bar in its margin: a
+  // one-cell blank, then a width-one `U+2502` or `|`. N2AH1MST record 599
+  // lines 9-10 and 24-34 are ` ` + `U+2502` + 17 blanks + `U+2666` + two
+  // blanks + the keyword, and hosted 10.0 (DT 19910329000100) serves them
+  // as ` |                  °   TPADD`, the same bullet rows as the
+  // unrevised lists around them.
+  auto first = line->prefix_token + 1;
+  if (first + 1 < token &&
+      record.ir.tokens[first].decoded_words == TokenWords{' '} &&
+      (record.ir.tokens[first + 1].decoded_words == TokenWords{0x2502} ||
+       record.ir.tokens[first + 1].decoded_words == TokenWords{'|'}))
+    first += 2;
+  for (auto before = first; before < token; ++before)
     if (!spaces(record.ir.tokens[before]))
       return false;
   for (auto after = token + 2; after < line->token_end; ++after)
@@ -551,18 +581,56 @@ bool append_paragraph(TrapFlowParagraphIR &out,
   return true;
 }
 
-void append_flow(TrapFlowSequenceIR &out, TrapFlowSequenceIR piece) {
-  for (auto &block : piece.blocks) {
-    if (!out.blocks.empty() &&
-        std::holds_alternative<TrapFlowParagraphIR>(out.blocks.back().value) &&
-        std::holds_alternative<TrapFlowParagraphIR>(block.value) &&
-        std::get<TrapFlowParagraphIR>(block.value).break_before.empty()) {
-      append_paragraph(std::get<TrapFlowParagraphIR>(out.blocks.back().value),
-                       std::move(std::get<TrapFlowParagraphIR>(block.value)));
-      continue;
+// Appends one block a later control segment opened. A record boundary
+// splits the segments but not the source's flow, so the block continues
+// whatever the flow left open: a paragraph without a blank row before it
+// runs on in the last paragraph, and a paragraph or list drawn deeper than
+// an open native list's markers belongs to that list's last item, exactly
+// as it would inside one segment. A list at the open list's own marker
+// column continues its items. N2AH1MST record 492 line 27 opens the bullet
+// `Create a new parmlib member ...`, and record 493 line 0 continues it at
+// column 14 with `Then ask the operator ...`; hosted 10.0 (DT
+// 19910329000100) serves both rows in one bullet.
+void append_flow_block(std::vector<TrapFlowBlockIR> &out,
+                       TrapFlowBlockIR block) {
+  if (!out.empty() &&
+      std::holds_alternative<TrapFlowListIR>(out.back().value)) {
+    auto &list = std::get<TrapFlowListIR>(out.back().value);
+    if (!list.items.empty()) {
+      if (const auto *paragraph =
+              std::get_if<TrapFlowParagraphIR>(&block.value);
+          paragraph != nullptr &&
+          paragraph->first_column > list.marker_column) {
+        append_flow_block(list.items.back().blocks, std::move(block));
+        return;
+      }
+      if (auto *more = std::get_if<TrapFlowListIR>(&block.value);
+          more != nullptr && more->ordered == list.ordered &&
+          more->marker_column >= list.marker_column) {
+        if (more->marker_column > list.marker_column) {
+          append_flow_block(list.items.back().blocks, std::move(block));
+          return;
+        }
+        for (auto &item : more->items)
+          list.items.push_back(std::move(item));
+        return;
+      }
     }
-    out.blocks.push_back(std::move(block));
   }
+  if (!out.empty() &&
+      std::holds_alternative<TrapFlowParagraphIR>(out.back().value) &&
+      std::holds_alternative<TrapFlowParagraphIR>(block.value) &&
+      std::get<TrapFlowParagraphIR>(block.value).break_before.empty()) {
+    append_paragraph(std::get<TrapFlowParagraphIR>(out.back().value),
+                     std::move(std::get<TrapFlowParagraphIR>(block.value)));
+    return;
+  }
+  out.push_back(std::move(block));
+}
+
+void append_flow(TrapFlowSequenceIR &out, TrapFlowSequenceIR piece) {
+  for (auto &block : piece.blocks)
+    append_flow_block(out.blocks, std::move(block));
 }
 
 bool add_highlights(TrapFlowSequenceIR &flow,
@@ -707,8 +775,10 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
     if (pieces.empty() || pieces.back().token != token) {
       Piece piece;
       piece.token = token;
-      if (const auto *line = display_line_of_token(record, token);
-          line != nullptr) {
+      if (const auto column = drawn_column(record, token))
+        piece.column = *column + ordinal;
+      else if (const auto *line = display_line_of_token(record, token);
+               line != nullptr) {
         for (auto before = line->prefix_token + 1; before < token; ++before)
           piece.column += record.ir.tokens[before].decoded_words.size();
         piece.column += ordinal;
@@ -728,6 +798,52 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
     ++pieces.back().columns;
     ++running;
   };
+  // A record can open inside a native list row. Its first text segment then
+  // begins at the row's first word, and the blank run and bullet in front of
+  // it lie in no segment payload. N2AH1MST record 1484 opens with a
+  // ten-blank run, `U+2666` and a two-blank run before `Not the first record
+  // in the member`, the second bullet of the list whose first item
+  // `Missing` closes record 1483. The bullet is that row's marker all the
+  // same.
+  if (!whole_segment && segment.kind == BookControlKind::text &&
+      segment.segment_index == 0) {
+    std::optional<std::size_t> first;
+    for (auto output = range.begin;
+         output < range.end && output < record.assembled.sources.size();
+         ++output)
+      if (record.assembled.sources[output].kind !=
+          LogicalWordSourceKind::inserted_space) {
+        first = record.assembled.sources[output].token_index;
+        break;
+      }
+    const auto *line =
+        first ? display_line_of_token(record, *first) : nullptr;
+    for (auto token = line != nullptr ? line->prefix_token + 1 : 0;
+         line != nullptr && token < *first; ++token) {
+      if (!native_list_bullet(record, token))
+        continue;
+      const auto column = drawn_column(record, token);
+      if (!column)
+        return fail(error, "trap native list marker is not drawn on its row");
+      const auto owned = index.cells.find({record.logical_record, token, 0});
+      TrapSourceCellIR cell;
+      cell.logical_record = record.logical_record;
+      cell.token_index = token;
+      cell.word_index = 0;
+      cell.word = record.ir.tokens[token].decoded_words.front();
+      cell.disposition = owned == index.cells.end()
+                             ? SourceDisposition::opaque
+                             : owned->second->disposition;
+      cell.role = TrapCellRoleIR::layout_marker;
+      const auto at = append_unique_cell(cells, cell_positions, cell);
+      list_markers.push_back(
+          {token, *column, at, at + 1,
+           token_slice(record, segment.segment_index, token, token + 1)});
+      pending_space = true;
+      if (gap.empty())
+        gap.push_back(' ');
+    }
+  }
   for (std::size_t output = range.begin;
        output < range.end && output < record.assembled.sources.size();
        ++output) {
@@ -795,12 +911,12 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
       const auto *line = display_line_of_token(record, token);
       if (line == nullptr)
         return fail(error, "trap native list marker has no display row");
-      std::size_t column = 0;
-      for (auto before = line->prefix_token + 1; before < token; ++before)
-        column += record.ir.tokens[before].decoded_words.size();
+      const auto column = drawn_column(record, token);
+      if (!column)
+        return fail(error, "trap native list marker is not drawn on its row");
       cell.role = TrapCellRoleIR::layout_marker;
       list_markers.push_back(
-          {token, column, cells.size(), cells.size() + 1,
+          {token, *column, cells.size(), cells.size() + 1,
            token_slice(record, segment.segment_index, token, token + 1)});
       pending_space = true;
       if (gap.empty())
@@ -1121,6 +1237,7 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
     if (lists.empty()) {
       ListFrame frame;
       frame.column = marker.column;
+      frame.list.marker_column = marker.column;
       lists.push_back(std::move(frame));
       begin_item(marker);
       return true;
@@ -1130,6 +1247,7 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
         return false;
       ListFrame frame;
       frame.column = marker.column;
+      frame.list.marker_column = marker.column;
       lists.push_back(std::move(frame));
       begin_item(marker);
       return true;
@@ -1149,6 +1267,7 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
     if (paragraph.text.empty()) {
       if (piece.cells.empty())
         return false;
+      paragraph.first_column = piece.column;
       paragraph.cell_begin = piece.cells.front();
       paragraph.break_before = std::move(pending_boundaries);
       pending_boundaries.clear();
@@ -1794,7 +1913,8 @@ bool same_paragraph(const TrapFlowParagraphIR &left,
       !rows_equal(left.source_rows, right.source_rows) ||
       left.cell_begin != right.cell_begin || left.cell_end != right.cell_end ||
       left.projection.size() != right.projection.size() ||
-      left.break_before.size() != right.break_before.size())
+      left.break_before.size() != right.break_before.size() ||
+      left.first_column != right.first_column)
     return false;
   for (std::size_t index = 0; index < left.projection.size(); ++index) {
     const auto &a = left.projection[index];
@@ -1842,7 +1962,8 @@ bool same_block(const TrapFlowBlockIR &left, const TrapFlowBlockIR &right) {
   }
   const auto &a = std::get<TrapFlowListIR>(left.value);
   const auto &b = std::get<TrapFlowListIR>(right.value);
-  if (a.ordered != b.ordered || a.items.size() != b.items.size())
+  if (a.ordered != b.ordered || a.marker_column != b.marker_column ||
+      a.items.size() != b.items.size())
     return false;
   for (std::size_t item = 0; item < a.items.size(); ++item) {
     if (!(a.items[item].marker_source == b.items[item].marker_source) ||
@@ -2668,7 +2789,7 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
                       entry.id);
       // `SRFTN<id>` ... `SREFTN` is a footnote drawn where it stands: hosted
       // N2AH1MST 10.0 (DT 19910329000100) serves `<a name="FTNFTNUNIQ19">
-      // <hr><h5> ... </h5></a>` between two native list rows of `ATB215I`.
+      // <hr><h5> ... </h5></a>` between two native list rows of `ATB348I`.
       // The opener's payload is the footnote's own text; the closer names
       // nothing and its payload is entry text again.
       if (footnote_start) {

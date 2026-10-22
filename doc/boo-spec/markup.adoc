@@ -441,7 +441,7 @@ source draws them.  In `N2AH1MST` topic `10.0` (hosted DT `19910329000100`):
 |533, 15 |`02`, then `E4 87` at `0x3EDE8` (value 58503) |`SRFIGFIGUNIQ20` on a line of its own, inside entry `ATB101I` |`<a name="FIGFIGUNIQ20">` on the first drawn row that follows
 |533, 16 - 534, 4 |— |alternating `cfont` lines and six drawn rows |the six rows verbatim, one per line, highlighted as their `cfont` lines state
 |534, 5 |`02`, then `E4 7B` at `0x3EEEF` (value 58491) |`SREFIG` |nothing; it ends the figure, and the `Explanation:` field follows
-|599, 12 |`02`, then `E4 8F` at `0x44496` (value 58511) |`SRFTNFTNUNIQ19`, between the native list rows `TPALIAS` and `TPDELETE` of entry `ATB215I` |`<a name="FTNFTNUNIQ19"><hr><h5>` at that point of the entry
+|599, 12 |`02`, then `E4 8F` at `0x44496` (value 58511) |`SRFTNFTNUNIQ19`, between the native list rows `TPALIAS` and `TPDELETE` of entry `ATB348I` |`<a name="FTNFTNUNIQ19"><hr><h5>` at that point of the entry
 |599, 13 |— |` \|  (*) VTAM is a trademark of the IBM Corporation.` |the footnote text
 |599, 14 |`02`, then `E4 7D` at `0x444AF` (value 58493) |`SREFTN` |`</h5></a>`; no anchor of its own
 |===
@@ -467,6 +467,35 @@ before them, inside one drawn region.  A rule that belongs to a drawing does
 not have this shape.  `SC24-546` topic `A.0` draws its table rules at cell 3,
 and the `packet` fixture topic `1.3` draws a left rule at cell 3 with a
 matching right rule.
+
+A bullet row keeps its bullet behind the revision bar.  Record 599 line 9
+stores the length byte, a one-cell blank (`06` at `0x44485`), `U+2502`
+(`61` at `0x44486`), a 17-cell blank run (`11` at `0x44487`), the bullet
+`U+2666` (`03` at `0x44488`), a two-cell blank run (`07`) and `TPADD`
+(`E8 42` at `0x4448A`).  Hosted serves ` |                  °   TPADD`, the
+same bullet row as an unrevised list, so `TPADD` and `TPALIAS` are list
+items.  So are the eleven rows after the three footnotes, `TPDELETE` through
+`DBMODIFY` on lines 24--34.
+
+A list item's column is the bullet's cell on the drawn row, not the sum of
+the stored words in front of it, because the row also draws blanks that no
+token spells.  In `N2AH1MST` topic `28.0`, record 2297 line 15 is a
+ten-blank run followed by the bullet.  Line 19 is ` `, `U+2502`, then a
+seven-blank run (`0C` at `0xD3BFE`) before the bullet.  The row draws one
+blank between the bar and the run, so both bullets stand at column 10 and
+belong to one list.
+
+A record boundary does not end a list.  Record 492 line 27 of topic `10.0`
+opens the bullet `Create a new parmlib member with only the corrected`.
+Record 493 line 0 continues it at column 14, deeper than the bullet, with
+`Then ask the operator to enter a SET APPC command to process`.  Hosted
+serves both rows in one item.  A record can also open on a bullet row.
+Topic `17.0` record 1484 begins with a ten-blank run (`0D` at `0x8DEE7`),
+`U+2666` (`03` at `0x8DEE8`) and a two-blank run before
+`Not the first record in the member`.  This is the second item of the list
+whose first item, `Missing`, closes record 1483 line 35.  No segment payload
+covers the record's leading blank run and bullet, but the bullet is that
+row's marker all the same.
 
 The figure and footnote ids are the opening opcode without `SR`; the closers
 `SREFIG` and `SREFTN` are end markers and name no destination.  Two more

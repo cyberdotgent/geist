@@ -194,6 +194,10 @@ struct TrapFlowParagraphIR {
   std::vector<TrapParagraphBoundaryIR> break_before;
   std::size_t cell_begin = 0;
   std::size_t cell_end = 0;
+  // Drawn column of the paragraph's first cell on its row, so a paragraph a
+  // later control segment opens can be placed against an open native list.
+  // Zero where no row places it.
+  std::size_t first_column = 0;
 };
 
 struct TrapFlowBlockIR;
@@ -207,6 +211,8 @@ struct TrapFlowListItemIR {
 
 struct TrapFlowListIR {
   bool ordered = false;
+  // Drawn column of the items' markers.
+  std::size_t marker_column = 0;
   std::vector<TrapFlowListItemIR> items;
 };
 
