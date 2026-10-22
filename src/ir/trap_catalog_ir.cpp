@@ -783,11 +783,26 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
     const auto *first_line =
         first_payload_token ? display_line_of_token(record, *first_payload_token)
                             : nullptr;
+    // Or selectors before a `cfont` line mark the row directly after that
+    // font control's own line, in the same record.
+    const auto *font_line =
+        segment.kind == BookControlKind::font && !segment.source_tokens.empty()
+            ? display_line_of_token(record, segment.source_tokens.front())
+            : nullptr;
     for (const auto &waiting : *queued) {
-      if (segment.segment_index != 0 ||
-          waiting.selector.target_record != record.logical_record ||
-          first_line == nullptr ||
-          waiting.selector.row_prefix_token != first_line->prefix_token)
+      const auto carried = segment.segment_index == 0 &&
+                           waiting.source.logical_record + 1 ==
+                               record.logical_record &&
+                           first_line != nullptr &&
+                           waiting.selector.row_prefix_token ==
+                               first_line->prefix_token;
+      const auto styled = font_line != nullptr &&
+                          waiting.source.logical_record ==
+                              record.logical_record &&
+                          waiting.selector.row_prefix_token ==
+                              font_line->token_end;
+      if ((!carried && !styled) ||
+          waiting.selector.target_record != record.logical_record)
         return fail(error, "trap queued selector has no selector row");
       selectors.push_back(waiting);
     }
@@ -2905,6 +2920,10 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           auto selector = read_trap_selector_source(
               *ref.record, segment, &selector_error,
               find_record(records, ref.record->logical_record + 1));
+          // A selector whose row cannot be found is not dropped.
+          if (!selector)
+            return reject("trap entry selector rejected: " + entry.id + ": " +
+                          selector_error);
           // A selector that closes its record marks the next record's first
           // row, as in the introduction: N2AH1MST record 1886 ends with line
           // 41 `cselect 46 4 FTNFTNUNIQ32`, record 1887 line 0 draws
@@ -2932,7 +2951,8 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
                                    ref.record->logical_record;
                       });
       if (!queued_selectors.empty() &&
-          segment.kind != BookControlKind::select && !carried_selectors)
+          segment.kind != BookControlKind::select &&
+          segment.kind != BookControlKind::font && !carried_selectors)
         return reject("trap queued selector has no drawn row: " + entry.id);
       const auto opcode_is_line_prefix =
           segment_opcode_is_display_line_prefix(*ref.record, segment);
@@ -3228,11 +3248,15 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
                      span.column - first_column + span.length});
             }
         }
+        // Selectors waiting before the font line mark the row it styles.
         if (!walk_payload(*ref.record, segment, index, line.body, entry.cells,
                           entry_cell_positions, error, false,
-                          highlighted_columns, false,
-                          &highlight_ranges, nullptr, &*spans))
+                          highlighted_columns, false, &highlight_ranges,
+                          queued_selectors.empty() ? nullptr
+                                                   : &queued_selectors,
+                          &*spans))
           return std::nullopt;
+        queued_selectors.clear();
         // A font control whose payload is empty at the record end carries its
         // text in the next record's leading text segment. That segment can
         // open on the row's own length byte when the byte happens to spell

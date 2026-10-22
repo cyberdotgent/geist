@@ -86,13 +86,34 @@ std::optional<TrapSelectorSource> read_trap_selector_source(
                  other.opcode;
     });
   };
+  // A `cfont` line draws nothing either; it styles the row after it, and
+  // the selector marks that row: N2AH1MST record 685 lines 34-36 are
+  // `cselect 53 4 FTNFTNUNIQ24`, `cfont 11 7 2` and
+  // `           Source:  Hardware configuration definition (*) (HCD)`, and
+  // hosted 14.0 (DT 19910329000100) links ` (*)`, cells 53-56 of line 36.
+  // The selector then waits for the font control's row like a queued one.
+  const auto font_line = [&](const DisplayLineIR& line) {
+    return std::any_of(record.control_segments.begin(),
+                       record.control_segments.end(), [&](const auto& other) {
+      if (other.kind != BookControlKind::font || other.malformed ||
+          other.display_text)
+        return false;
+      const auto words = decoded_byte_range_to_word_range(record.assembled,
+          {other.opcode_range.begin, other.operand_range.end});
+      const auto tokens = source_tokens_intersecting_output(
+          record.assembled, words.begin, words.end);
+      return !tokens.empty() && tokens.front() == line.prefix_token + 1 &&
+             tokens.back() + 1 == line.token_end;
+    });
+  };
   auto target = control + 1;
   const auto* lines_end = lines->data() + lines->size();
   bool skipped = false;
   bool queued = false;
   while (target != lines_end &&
-         (selector_line(*target) || destination_line(*target))) {
-    queued = queued || selector_line(*target);
+         (selector_line(*target) || destination_line(*target) ||
+          font_line(*target))) {
+    queued = queued || selector_line(*target) || font_line(*target);
     ++target;
     skipped = true;
   }

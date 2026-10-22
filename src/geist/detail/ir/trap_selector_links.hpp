@@ -20,8 +20,9 @@ struct TrapSelectorSource {
   std::vector<DisplayLineCellIR> cells;
   // The length byte of the native row the selector marks.
   std::size_t row_prefix_token = 0;
-  // Set when further selector control lines stand between this selector and
-  // its row: the selectors queue onto the first row drawn after them.
+  // Set when further selector or `cfont` control lines stand between this
+  // selector and its row: the selector waits for the first row drawn after
+  // them.
   bool queued = false;
   // The logical record that draws the marked row: the selector's own, or
   // the next one where the selector closes its record.

@@ -54,7 +54,9 @@
 //     a segment that ends on the next line's length byte is not drawn text;
 //   * an `SRMSG` whose only operand is the next line's length byte, read as
 //     a bare anchor, and a styled row after a bare `SRMSG`, which declines
-//     while a plain row stays entry text.
+//     while a plain row stays entry text;
+//   * a selector before a `cfont` line, which marks the row that `cfont`
+//     styles, and one with no such row, which declines.
 //
 // What is NOT covered, stated plainly rather than implied: the compact
 // marker slot that carries a whole word. Two rules turn on it -- a slot the
@@ -3124,6 +3126,54 @@ int main() {
                 std::string::npos,
             "rows after a bare SRMSG declined for the wrong reason: " +
                 built.error);
+  }
+
+  // A selector line followed by a `cfont` line marks the row that `cfont`
+  // styles: the font line draws nothing. N2AH1MST record 685 lines 34-36 are
+  // `cselect 53 4 FTNFTNUNIQ24`, `cfont 11 7 2` and
+  // `           Source:  Hardware configuration definition (*) (HCD)`, and
+  // hosted 14.0 (DT 19910329000100) links ` (*)`, cells 53-56 of line 36.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("715", 537));
+    append(tokens, line({t("cselect", 191), t("9", 538), t("5", 506),
+                         t("TGT", 539)}));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("5", 506), t("C", 540)}));
+    append(tokens, line({origin(), t("Later", 262), t("text.", 251)}));
+    const auto built = build({make_source(127, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "a selector before a font line declined: " + built.error);
+    if (built.catalog && built.catalog->entries.size() == 1 &&
+        built.catalog->entries.front().fields.size() == 1) {
+      const auto &body =
+          built.catalog->entries.front().fields.front().line.body;
+      require(body.links.size() == 1 && body.links.front().target == "TGT" &&
+                  body.text.substr(body.links.front().begin,
+                                   body.links.front().end -
+                                       body.links.front().begin) == "text.",
+              "a selector before a font line lost its link: [" + body.text +
+                  "]");
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "the selector before a font line failed verification: " + error);
+    } else if (built.catalog) {
+      require(false, "the selector catalogue has the wrong shape");
+    }
+
+    // Mutation: the font line styles no row of its own -- the next line is
+    // another control -- so the selector has no row to mark and declines.
+    auto stranded = header("Sample", "Messages");
+    append(stranded, entry("716", 541));
+    append(stranded, line({t("cselect", 191), t("9", 538), t("5", 506),
+                           t("TGT", 539)}));
+    append(stranded,
+           line({t("cfont", 111), t("3", 112), t("5", 506), t("C", 540)}));
+    append(stranded, entry("717", 542));
+    require(!build({make_source(128, stranded)}, "Sample Messages").catalog,
+            "a selector before a font line with no row was admitted");
   }
 
   std::cout << "trap catalog IR synthetic tests passed\n";

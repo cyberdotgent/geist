@@ -824,6 +824,19 @@ The first selector has no payload of its own.  Hosted serves
 `architecture<a href="#FTNFTNUNIQ22"> (*)</a> (SAA<a href="#FTNFTNUNIQ23"> (*)</a>)`:
 both selectors mark cells of line 13, and neither replaces the other.
 
+A `cfont` line between a selector and its row draws nothing either.  The
+selector marks the row after the `cfont` line, the row that `cfont` styles.
+`N2AH1MST` record 685 lines 34--36 are `cselect 53 4 FTNFTNUNIQ24`,
+`cfont 11 7 2` and
+`           Source:  Hardware configuration definition (*) (HCD)`.  Cells
+53--56 of line 36 are ` (*)`, and hosted `14.0` (DT `19910329000100`) serves
+`definition<a href="...#FTNFTNUNIQ24"> (*)</a> (HCD)`.  Record 1670 lines
+3--5 of topic `19.0` (`cselect 73 4 FTNFTNUNIQ30`, `cfont 10 12 2`,
+`          Explanation:  The JCL for a DDNAME asked to create a hiperspace
+(*)`) are the same shape, and hosted links that `(*)` too.  The
+selector's columns index the styled row; read against the `cfont` line
+itself, `cselect 53 4` would fall past that 12-cell line's end.
+
 A selector on the last line of its record marks the first line of the next
 record inside an entry too, as it does in the introduction.  `N2AH1MST`
 record 1886 ends with line 41, `cselect 46 4 FTNFTNUNIQ32`, inside entry
