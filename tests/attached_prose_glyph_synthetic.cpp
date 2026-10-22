@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -1153,6 +1154,93 @@ void unterminated_figure_opener_above_closed_box() {
   check(drawn_cells(markdown) >= drawn_cells(pre),
         "figure-anchored box Markdown dropped drawn rows: " + markdown);
 }
+// Two closed boxes drawn one after the other are two regions.  When empty
+// display lines or a picture figure stand between them, hosted BookServer
+// prints those rows between the boxes (QSYSNEWG 3.1.2.3, DT 19910524085706:
+// the `F1=Help` box, three empty lines, `SRFIGFIGUNIQ43` with its picture,
+// four empty lines, the `F3=Exit` box; IEAC6MST NOTICES, DT 19920124000100:
+// the `Note!` box, one empty line, the `Production of This Book` box).  The
+// boxes must not run together into one block, and the picture must stay
+// between them rather than move behind the last box.
+void closed_box(Builder &b, const std::string &label) {
+  b.line({w("   "), repeat({0x250c}, 0x2500, 12, 0x2510)});
+  b.line({w("   "), {0x2502}, w(" " + label + std::string(11 - 1 - label.size(), ' ')),
+          {0x2502}});
+  b.line({w("   "), repeat({0x2514}, 0x2500, 12, 0x2518)});
+}
+std::size_t occurrences(const std::string &text, const std::string &needle) {
+  std::size_t count = 0;
+  for (auto at = text.find(needle); at != std::string::npos;
+       at = text.find(needle, at + 1))
+    ++count;
+  return count;
+}
+void consecutive_boxes_stay_apart() {
+  {
+    Builder b(false);
+    b.line({});
+    closed_box(b, "ONE");
+    // IEAC6MST NOTICES record 4 line 17: the length byte `00`.
+    b.blank();
+    closed_box(b, "TWO");
+    b.line({});
+    b.line({w("   "), w("After.")});
+    std::string error;
+    const auto doc = lower(b, error);
+    check(doc.has_value(), "boxes split by an empty line declined: " + error);
+    if (doc) {
+      const auto html = render_document_html_fragment(*doc);
+      check(occurrences(html, "<pre") == 2 &&
+                html.find("ONE") < html.find("</pre>") &&
+                html.find("TWO") > html.find("</pre>"),
+            "boxes split by an empty line ran into one block: " + html);
+    }
+  }
+  {
+    Builder b(false);
+    b.line({});
+    closed_box(b, "ONE");
+    closed_box(b, "TWO");
+    std::string error;
+    const auto doc = lower(b, error);
+    check(doc.has_value(), "adjacent boxes declined: " + error);
+    if (doc) {
+      const auto html = render_document_html_fragment(*doc);
+      check(occurrences(html, "<pre") == 1,
+            "boxes with no row between them were split: " + html);
+    }
+  }
+  {
+    Builder b(false);
+    b.line({});
+    closed_box(b, "ONE");
+    b.line({});
+    b.line({w("SRFIGFIGX1")});
+    b.line({w("cselect"), w("3"), w("9"), w("PIC1")});
+    b.line({w("   "), w("PICTURE"), w("1")});
+    b.line({w("SREFIG")});
+    b.line({});
+    // As in the book, a `cfont` line styles the next box's label; it also
+    // ends the `SREFIG` segment before the box.
+    b.line({w("cfont"), w("7"), w("3"), w("P")});
+    closed_box(b, "TWO");
+    b.line({});
+    b.line({w("   "), w("After.")});
+    const std::set<std::string> resources{"1"};
+    std::string error;
+    const auto doc = try_lower_topic_to_document_ir(
+        {"1.1", "Example", ":H2", 10, 20, 21}, {b.finish()}, nullptr, &error,
+        nullptr, &resources);
+    check(doc.has_value(), "picture between boxes declined: " + error);
+    if (doc) {
+      const auto html = render_document_html_fragment(*doc);
+      const auto picture = html.find("<img");
+      check(occurrences(html, "<pre") == 2 && picture != std::string::npos &&
+                html.find("ONE") < picture && html.find("TWO") > picture,
+            "picture between boxes moved behind them: " + html);
+    }
+  }
+}
 void bullet() {
   Builder b;
   b.line({w("cz"), w("BREAK"), w("3")});
@@ -1211,6 +1299,7 @@ int main() {
   styled_table_row(false, false);
   styled_table_row(true, true);
   prose_box_inside_frame();
+  consecutive_boxes_stay_apart();
   bullet();
   rejected({w("   "), w("SNA"), {1}, {0xffff}, {1}, w("ps")});
   rejected({w("   "), w("SNA"), {0x2666}, w("ps")});

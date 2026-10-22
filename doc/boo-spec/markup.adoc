@@ -3378,6 +3378,37 @@ line 6.  Line 7 is the closer: the length byte `02` and the opcode word
 prints the panel's 14 rows verbatim, nothing for the closer, and step 6 after
 it.
 
+[[markup_consecutive_drawn_boxes]]
+==== Consecutive drawn boxes
+
+Each closed box or open drawing is a region of its own.  When one region
+follows another, what stands between them is printed between them:
+
+* An empty display line (the length byte `00`) is one blank row of the
+  `<pre>`.
+* A picture figure (`SRFIG<id>`, a picture selector line, the placeholder
+  row and `SREFIG`) prints its picture at that position.
+
+Regions drawn directly under one another, with no display line between the
+bottom row of the first and the top row of the second, print as adjacent
+rows.  A `cfont`, `cselect` or `SI` line between two regions prints no row.
+
+[cols="<30,<44,<30",options="header"]
+|===
+|File / record |Between the boxes |Hosted
+
+|`IEAC6MST.BOO` `NOTICES` record 4 |line 16 is the `Note!` box's bottom rule, ending with `U+2518` at `0x6B3A4`.  Line 17 is the empty line `00` at `0x6B3A5`.  Line 18 is a `cfont` line.  Line 19 is the top rule of the `Production of This Book` box (length byte `0F` at `0x6B3B4`). |DT `19920124000100`: the two boxes with one blank row between them
+|`QSYSNEWG.BOO` `3.1.2.3` record 93 |line 34 is the `F1=Help` box's bottom rule, ending with `U+2518` at `0x765E9`.  Lines 35--37 are `00 00 00` at `0x765EA`--`0x765EC`.  Lines 38--41 are `SRFIGFIGUNIQ43` (`02`, then `EB 5B` at `0x765EE`), `cselect 19 10 PIC43`, `PICTURE 43` and `SREFIG` (at `0x765FC`).  Lines 42--45 are four more `00` lines.  Then come an `SI` line, a `cfont` line and the `F3=Exit` box's top rule (length byte `0E` at `0x7660F`). |DT `19910524085706`: three blank rows, `<a name="FIGFIGUNIQ43">` around the picture's `<img>`, four blank rows, then the `F3=Exit` box
+|===
+
+The same topic repeats the shape for pictures 44 to 47 and the boxes after
+them.  Read as one block, the boxes run together and the five pictures fall
+behind the last box.  IEAC6MST `NOTICES`, N2AH1MST `NOTICES`, SC24-5527-02
+`4.2.5` and `4.3.9`, SC33-033 `D.0` and QSYSNEWG `3.1.2.3` draw boxes
+separated by empty lines this way.  Read one region at a time, every
+drawing in these six topics matches a run of hosted `<pre>` rows exactly:
+81 drawings in all, 65 of them in SC33-033 `D.0`.
+
 [[markup_box_enclosed_envelopes]]
 ==== An envelope drawn inside a closed box
 

@@ -387,6 +387,10 @@ struct Line {
   // the source display line, verbatim, and the row joins the preformatted
   // block of its region instead of reflowing.
   bool box = false;
+  // The row is the first row of its region.  A region's first row with an
+  // empty display line or a table/figure span in front of it starts a new
+  // preformatted block (prose_topic_blocks.cpp, `build_blocks`).
+  bool box_first = false;
   // The row belongs to an implicit CFONT grid region rather than a drawn
   // box; it is printed the same way (see `implicit_grid_region`).
   bool grid = false;

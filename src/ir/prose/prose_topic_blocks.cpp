@@ -595,10 +595,20 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
       continue;
     }
     // A drawn box region: its rows are verbatim display lines and form one
-    // preformatted block.
+    // preformatted block.  Regions drawn directly under one another share
+    // the block, but a region that empty display lines or a table/figure
+    // span separate from the one above starts its own: hosted BookServer
+    // prints those rows between the boxes.  QSYSNEWG 3.1.2.3 (DT
+    // 19910524085706) draws the `F1=Help` box, three empty lines, the
+    // `SRFIGFIGUNIQ43` picture, four empty lines and the `F3=Exit` box (record
+    // 93 lines 34-48); run together, the picture moved behind the last box.
     if (first.box) {
       auto end = index + 1;
-      while (end < lines.size() && lines[end].box) ++end;
+      while (end < lines.size() && lines[end].box &&
+             !(lines[end].box_first &&
+               (lines[end].breaks_before != 0 ||
+                span_lines.count(end) != 0)))
+        ++end;
       ranges.emplace_back(index, end);
       is_item.push_back(false);
       is_box.push_back(true);

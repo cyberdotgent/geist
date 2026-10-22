@@ -649,6 +649,7 @@ struct LineBuilder {
       const auto& record = records[box_line.record];
       Line row;
       row.box = true;
+      row.box_first = first;
       row.grid = region.grid;
       row.box_record = box_line.record;
       row.box_token_begin = box_line.line.prefix_token;
