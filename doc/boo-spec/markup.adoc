@@ -433,7 +433,15 @@ blank apart (`System` `Action:`) are words of one label.  `N2AH1MST` record
 with `Explanation:` in cells 10--21 and `ctcname` in cells 24--30.  Hosted
 `16.0` (DT `19910329000100`) serves
 `<B>Explanation:</B>  <var>ctcname</var> module <var>module-name</var>` as the
-`Explanation:` field of entry `CBR9915I`.  The
+`Explanation:` field of entry `CBR9915I`.  Such a label is drawn in one
+style (`2` here) and its value opens in another (`V`).  Two shapes with
+the same geometry are not labels.  A headline continuation row such as
+`2.0`'s `          prm:  text` mixes styles before its colon (`V`, `2`,
+then `V`), and hosted serves `<var>prm</var><B>:</B>  <var>text</var>`
+inside the headline.  A cited title such as `26.0`'s
+`Catalog Administration:  Access Method Services Reference` (a row that
+opens on `Catalog`, all `cite`) keeps one style
+across its colon, and hosted serves it inside its paragraph.  The
 ordered label sequence repeated by every entry is the catalog vocabulary; a
 labelled line that only some entries carry (`3 5 2` `Note:` in topic `4.4`
 entry `805306372`) is entry-local.  A field can restate the label of the

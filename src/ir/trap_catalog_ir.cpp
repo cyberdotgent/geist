@@ -3225,9 +3225,21 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
               const auto &here = candidate_spans[at];
               const auto next_column = candidate[at + 1].column;
               const auto here_end = candidate[at].column + candidate[at].length;
-              if (here.text.empty() || here.text.back() != ':' ||
-                  next_column < here_end + 2)
+              // The label is drawn in one style and its value opens in
+              // another. A headline continuation row such as N2AH1MST 2.0's
+              // `prm:  text` (`V`, `2`, `V`) or a cited title such as 26.0's
+              // `Catalog Administration:  Access ...` (all `C`) is not a
+              // label, and hosted serves neither as one.
+              const auto one_style = std::all_of(
+                  candidate.begin(), candidate.begin() + at + 1,
+                  [&](const auto &span) {
+                    return span.code == candidate.front().code;
+                  });
+              if (here.text.empty() || here.text.back() != ':')
                 continue;
+              if (next_column < here_end + 2 || !one_style ||
+                  candidate[at + 1].code == candidate.front().code)
+                break;
               candidate.resize(at + 1);
               candidate_spans.resize(at + 1);
               candidate_text.clear();

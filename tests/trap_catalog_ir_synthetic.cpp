@@ -2799,6 +2799,43 @@ int main() {
                  rejected.catalog->entries.back().fields.size() == 1),
             "a label run joined to its styled value by one blank was read "
             "as a label");
+
+    // Mutations: a run whose colon and value share one style (a cited
+    // title, N2AH1MST 26.0 `Catalog Administration:  Access ...`), and
+    // a run that mixes styles before its colon (a headline continuation,
+    // 2.0 `prm:  text` under `V`, `2`, `V`), are not labels.
+    const auto styled_row = [&](std::uint32_t record, const std::string &id,
+                                std::uint16_t id_word,
+                                const std::vector<Token> &font) {
+      auto tokens = header("Sample", "Messages");
+      append(tokens, entry("679", 496));
+      append(tokens, action_row());
+      append(tokens, line({t("SRMSG", 110), t(id, id_word)}));
+      append(tokens,
+             line({t("cfont", 111), t("3", 112), t("3", 112), t("2", 113)}));
+      append(tokens, line({origin(), t(id, id_word)}));
+      append(tokens, line(font));
+      append(tokens, line({origin(), t("Description:", 115), t(" ", 20),
+                           t("name", 476), t("stops.", 477)}));
+      append(tokens, action_row());
+      return build({make_source(record, tokens)}, "Sample Messages");
+    };
+    const auto cited = styled_row(
+        110, "680", 497,
+        {t("cfont", 111), t("3", 112), t("12", 114), t("C", 145), t("17", 473),
+         t("4", 474), t("C", 145)});
+    require(!cited.catalog.has_value() ||
+                (cited.catalog->entries.size() == 2 &&
+                 cited.catalog->entries.back().fields.size() == 1),
+            "a one-style run with a colon was read as a label");
+    const auto mixed = styled_row(
+        111, "681", 498,
+        {t("cfont", 111), t("3", 112), t("11", 499), t("V", 475), t("14", 500),
+         t("1", 501), t("2", 113), t("17", 473), t("4", 474), t("V", 475)});
+    require(!mixed.catalog.has_value() ||
+                (mixed.catalog->entries.size() == 2 &&
+                 mixed.catalog->entries.back().fields.size() == 1),
+            "a mixed-style run with a colon was read as a label");
   }
 
   // Footnote envelopes can stand between an entry's `SRMSG` and its
