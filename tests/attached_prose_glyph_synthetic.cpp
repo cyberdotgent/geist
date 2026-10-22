@@ -1241,6 +1241,111 @@ void consecutive_boxes_stay_apart() {
     }
   }
 }
+// A labelled rule standing alone between empty display lines: the
+// `End of ...` and `Change for ...` delimiters BookMaster draws around
+// marked passages.  SC33-033 4.132 record 813 line 23 is `   ` +
+// `U+2514` + attach + `---------------` + `End of General-Use Programming
+// Interface` + `---------------` + attach + `U+2518`, with empty lines above
+// and below and no `cfont` line; hosted (DT 19930422134757) prints
+// `   |--------------- End of General-Use Programming Interface
+// ---------------|` in its `<pre>`.  GC23-046 CHANGES.1 record 29 line 10
+// is the opening delimiter behind a change bar: ` |  ` + `U+250C` + rule
+// text + `U+2510`, served as ` |  ----- Change for Root Cause SPE -----`
+// (DT 19910711093248).  Read as prose, the leading corner was taken for a
+// marker slot and dropped, or the whole row was reflowed into a paragraph.
+// `run_on` puts a picture figure and two empty lines above the rule and lets
+// the `SREFIG` segment run on through the rule's corner and the attach after
+// it.  FA1PLMM0 15.4 record 647 does this (`SREFIG` on line 3, empty lines
+// 4-6, the rule on line 7), and so does the `SRETBL` segment above SC33-033
+// 4.132 record 813 line 23 (tokens 254-260; the rule text starts a segment of
+// its own at token 261).  The span owns the closer's run-on tokens, so the
+// rule's first tokens are no item of the prose stream; the rule is drawn all
+// the same.
+std::string labelled_rule(bool top, bool change_bar, bool styled = false,
+                          bool run_on = false) {
+  Builder b(false);
+  b.line({});
+  b.line({w("   "), w("Before.")});
+  b.line({});
+  if (run_on) {
+    b.line({w("SRFIGFIGX1")});
+    b.line({w("cselect"), w("3"), w("9"), w("PIC1")});
+    b.line({w("   "), w("PICTURE"), w("1")});
+    b.line({w("SREFIG")});
+    b.line({});
+    b.line({});
+  }
+  if (styled)
+    b.line({w("cfont"), w("8"), w("3"), w("P")});
+  std::vector<TokenWords> row;
+  if (change_bar)
+    row = {w(" "), w("|"), w("  ")};
+  else
+    row = {w("   ")};
+  row.push_back({static_cast<std::uint16_t>(top ? 0x250c : 0x2514)});
+  row.push_back({1});
+  row.push_back(w("---"));
+  row.push_back(w("End"));
+  row.push_back(w("of"));
+  row.push_back(w("X"));
+  row.push_back(w("---"));
+  row.push_back({1, static_cast<std::uint16_t>(top ? 0x2510 : 0x2518)});
+  b.line(row);
+  b.line({});
+  b.line({w("   "), w("After.")});
+  auto record = b.finish();
+  if (run_on) {
+    std::size_t corner = 0;
+    while (corner < record.tokens.size() &&
+           record.tokens[corner] != TokenWords{0x2514} &&
+           record.tokens[corner] != TokenWords{0x250c})
+      ++corner;
+    for (auto &segment : record.control_segments) {
+      if (segment.opcode != "SREFIG" || segment.source_tokens.empty())
+        continue;
+      for (auto token = segment.source_tokens.back() + 1; token <= corner + 1;
+           ++token)
+        segment.source_tokens.push_back(token);
+    }
+  }
+  const std::set<std::string> resources{"1"};
+  std::string error;
+  const auto doc = try_lower_topic_to_document_ir(
+      {"1.1", "Example", ":H2", 10, 20, 21}, {std::move(record)}, nullptr,
+      &error, nullptr, &resources);
+  if (!doc)
+    return "declined: " + error;
+  return render_document_html_fragment(*doc);
+}
+void labelled_rule_rows() {
+  {
+    const auto html = labelled_rule(false, false);
+    check(pre_body(html) == "   |--- End of X ---|" &&
+              html.find("Before.") < html.find("<pre") &&
+              html.find("After.") > html.find("</pre>"),
+          "standalone bottom labelled rule was not drawn: " + html);
+  }
+  {
+    const auto html = labelled_rule(true, true);
+    // The change bar stays in the margin and both top corners print blank.
+    check(pre_body(html) == " |    --- End of X --- " &&
+              html.find("After.") > html.find("</pre>"),
+          "top labelled rule behind a change bar was not drawn: " + html);
+  }
+  {
+    const auto html = labelled_rule(false, false, false, true);
+    check(pre_body(html) == "   |--- End of X ---|" &&
+              html.find("<img") < html.find("<pre"),
+          "labelled rule under a run-on figure closer was not drawn: " +
+              html);
+  }
+  {
+    const auto html = labelled_rule(false, false, true);
+    check(pre_body(html).find("   |") == 0 &&
+              pre_body(html).find("X ---|") != std::string::npos,
+          "styled labelled rule was not drawn: " + html);
+  }
+}
 void bullet() {
   Builder b;
   b.line({w("cz"), w("BREAK"), w("3")});
@@ -1300,6 +1405,7 @@ int main() {
   styled_table_row(true, true);
   prose_box_inside_frame();
   consecutive_boxes_stay_apart();
+  labelled_rule_rows();
   bullet();
   rejected({w("   "), w("SNA"), {1}, {0xffff}, {1}, w("ps")});
   rejected({w("   "), w("SNA"), {0x2666}, w("ps")});

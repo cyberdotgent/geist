@@ -61,6 +61,7 @@ struct LineBuilder {
   // Drawn box regions of the topic (prose_topic_boxes.cpp), admitted only
   // where no table/figure span already owns their tokens.
   std::vector<BoxRegion> boxes;
+  std::set<const BoxRegion*> emitted_boxes;
   // CZ dialect: the stream carries layout items; every display line belongs
   // to the most recent directive.
   bool cz_mode = false;
@@ -1409,13 +1410,19 @@ struct LineBuilder {
     for (std::size_t index = 0; index < items.size(); ++index) {
       const auto& item = items[index];
       // Every item inside a drawn box region belongs to its preformatted
-      // block: the region is emitted once, at its first token, and the
-      // CFONT controls inside it style nothing the block keeps.
+      // block: the region is emitted once, at the first of its tokens that
+      // reaches the line build, and the CFONT controls inside it style
+      // nothing the block keeps.  That token is usually the top row's length
+      // byte, but a closer's flattened segment can run on into the region's
+      // first row: the `SRETBL` segment above SC33-033 4.132 record 813 line
+      // 23 runs on into that line, and the table span takes the row's length
+      // byte, origin, `U+2514` and attach (tokens 257-260) with it, so the
+      // row's first item is token 261.  Waiting for the length byte, the
+      // region was never emitted and its tokens were left without a role.
       if (item.kind == ItemKind::token) {
         const auto* region = box_at(item.token.record, item.token.token);
         if (region != nullptr) {
-          if (region->begin_record == item.token.record &&
-              region->begin_token == item.token.token && !emit_box(*region))
+          if (emitted_boxes.insert(region).second && !emit_box(*region))
             return false;
           continue;
         }

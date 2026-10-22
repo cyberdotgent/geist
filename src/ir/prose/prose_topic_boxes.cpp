@@ -249,6 +249,48 @@ bool box_only_row(const std::vector<std::uint16_t>& columns, bool& joint) {
   return drawn;
 }
 
+// A labelled rule: one display row drawn as a corner, rule text, and the
+// matching corner -- `U+250C` .. `U+2510` or `U+2514` .. `U+2518` -- with an
+// optional change bar in front of it and no other box word than the rule
+// `U+2500` between the corners.  BookMaster draws the `General-Use
+// Programming Interface` / `End of ...` and `Change for ...` delimiters
+// around a marked passage this way, each alone between empty display
+// lines:
+//
+//   * SC33-033 4.132 record 813 line 23: `   ` + `U+2514` + attach +
+//     `---------------` + `End of General-Use Programming Interface` +
+//     `---------------` + attach + `U+2518` (DT 19930422134757);
+//   * GC23-046 CHANGES.1 record 29 line 10: change bar, `U+250C`, rule text
+//     `Change for Root Cause SPE`, `U+2510` (DT 19910711093248), and record
+//     31 line 3, the matching `End of Change` row behind the same bar.
+//
+// Hosted BookServer prints each row column for column in its `<pre>`; the
+// row is a drawing of its own, not a sentence of the paragraph around it.
+bool labelled_rule_row(const std::vector<std::uint16_t>& columns) {
+  std::size_t start = 0;
+  while (start < columns.size() && columns[start] == ' ') ++start;
+  if (start < columns.size() && columns[start] == '|') {
+    ++start;
+    while (start < columns.size() && columns[start] == ' ') ++start;
+  }
+  std::size_t end = columns.size();
+  while (end > start && columns[end - 1] == ' ') --end;
+  if (end <= start + 2) return false;
+  const auto left = columns[start];
+  const auto right = columns[end - 1];
+  if (!((left == box_top_left && right == box_top_right) ||
+        (left == box_bottom_left && right == box_bottom_right)))
+    return false;
+  bool text = false;
+  for (auto column = start + 1; column + 1 < end; ++column) {
+    const auto word = columns[column];
+    if (word == box_rule || word == ' ') continue;
+    if (box_word(word)) return false;
+    text = true;
+  }
+  return text;
+}
+
 // An open native drawing: a run of display rows between two blank display
 // lines that draws with box words but closes no box.  The closed region
 // above proves rails at fixed columns; this shape has none to prove, and the
@@ -295,6 +337,7 @@ std::optional<BoxRegion> open_drawing(
     --last;
   if (first > last) return std::nullopt;
   bool drawn = false;
+  std::size_t rows = 0;
   for (auto cursor = first; cursor <= last; ++cursor) {
     const auto& candidate = candidates[cursor];
     const auto& record = records[candidate.record];
@@ -310,12 +353,19 @@ std::optional<BoxRegion> open_drawing(
                              (word != '?' && figure_display_glyph(word) == "?");
                     }))
       return std::nullopt;
+    ++rows;
     bool joint = false;
     if (box_only_row(candidate.columns, joint)) {
       if (!joint) return std::nullopt;
       drawn = true;
     }
   }
+  // A run that is one labelled rule and nothing else is drawn as well.
+  if (!drawn && rows == 1)
+    for (auto cursor = first; cursor <= last; ++cursor)
+      if (!hidden_drawing_line(records[candidates[cursor].record],
+                               candidates[cursor]))
+        drawn = labelled_rule_row(candidates[cursor].columns);
   if (!drawn) return std::nullopt;
   BoxRegion region;
   for (auto cursor = first; cursor <= last; ++cursor) {

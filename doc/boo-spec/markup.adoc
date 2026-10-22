@@ -3409,6 +3409,45 @@ separated by empty lines this way.  Read one region at a time, every
 drawing in these six topics matches a run of hosted `<pre>` rows exactly:
 81 drawings in all, 65 of them in SC33-033 `D.0`.
 
+[[markup_labelled_rules]]
+==== Labelled rules
+
+BookMaster marks the start and end of a passage with a rule that carries its
+label: `General-Use Programming Interface` and `End of General-Use
+Programming Interface`, or `Change for ...` and `End of Change for ...`.
+Each is one display row:
+
+* the opening corner `U+250C` or `U+2514`,
+* rule text (dash words and the label, with `U+2500` allowed), and
+* the matching closing corner, `U+2510` or `U+2518`.
+
+A change bar may stand in front of the row.  No other box word is in the row,
+and empty display lines stand above and below it.  Hosted BookServer prints the
+row column for column in its `<pre>`.  The top corners print blank and the
+bottom corners print `|`.  The row is a drawing of its own.  It is not a
+sentence of the paragraph around it, and its corner is not a marker slot.
+
+[cols="<30,<44,<30",options="header"]
+|===
+|File / record |Bytes |Hosted
+
+|`SC33-033.boo` `4.132` record 813 line 23 |`0x4D624`--`0x4D63D`: `19` (25 bytes follow), `0B` a 3-cell space run, `CB 08` `U+2514`, `00`, `CB A0` 15 dashes, the label words, `CB A0`, `00`, `CB 0A` `U+2518`.  Empty lines 21--22 are above it. |DT `19930422134757`: `   \|--------------- End of General-Use Programming Interface ---------------\|`
+|`GC23-046.boo` `CHANGES.1` record 29 line 10 |`0x9071`--`0x9084`: `13` (19 bytes follow), a 1-cell space run, `7B` the change bar `\|`, `06` `U+250C`, `00`, `DC B9` 22 dashes, `Change for Root Cause SPE`, `DC BA` 23 dashes, `00`, `05` `U+2510` |DT `19910711093248`: ` \|  ---------------------- Change for Root Cause SPE -----------------------`
+|===
+
+GC23-046 `CHANGES.1` record 31 line 3 is the closing `End of Change for Root
+Cause SPE` row behind the same change bar.  FA1PLMM0 `15.4` record 647 line
+7 (`End of Product-Sensitive Programming Interface`, DT `19910927114801`) and
+SC24-5527-02 `7.4.5` record 674 line 2 (`For Modules, TXTLIBs and LOADLIBs`,
+DT `19921218151459`) draw the same shape, and each is printed verbatim.
+
+The rule's tokens do not always start a control segment of their own.  In
+SC33-033 `4.132`, the `SRETBL` on record 813 line 20 decodes as a flattened
+segment that runs on into line 23.  That segment covers the row's length
+byte, its origin run, the `U+2514` and the attach after it; the label words
+start the next segment at token 261.  The row is still drawn whole.  FA1PLMM0
+`15.4` repeats the shape after `SREFIG` (record 647 line 3).
+
 [[markup_box_enclosed_envelopes]]
 ==== An envelope drawn inside a closed box
 
