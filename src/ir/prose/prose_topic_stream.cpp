@@ -1290,6 +1290,10 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
             build.items.push_back(std::move(item));
           }
           bool first_payload = true;
+          // Set once a display line's length byte has entered the stream:
+          // every token after it is that row's content, its origin run
+          // included, never spacing glued to the end marker.
+          bool row_opened = false;
           for (const auto token : segment.source_tokens) {
             if (ledger.at(record_index, token).role !=
                 ProseTokenRoleIR::unassigned)
@@ -1311,15 +1315,22 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
             // is the same shape after the `Figure 94.` caption (hosted DT
             // 19911219125856 again serves `<p>`), and there the length byte
             // of line 22, token 267, spells `U+251C`, a decoder placeholder
-            // the old padding rule swallowed.  The end marker of a
-            // table or figure span needs neither: the span itself is a hard
-            // block boundary, and its rows are the span's.
-            if (first_payload && region == nullptr &&
+            // the old padding rule swallowed.  A table or figure span's end
+            // marker is followed the same way: GG24-395 3.3.15 record 635
+            // closes `SRTBLTBLUNIQ21` with `SRETBL` alone on line 28, line
+            // 29 is empty and line 30 opens ` | °   Need to reduce ...`
+            // (length byte `14` at 0x13FED7); QSYSNEWG A.4 record 320 has
+            // the same shape after `SREFIG`.  Hosted (DTs 19941215160749,
+            // 19910524085706) prints the first item at its siblings'
+            // columns, bullet and all; dropping the length byte and the
+            // origin run behind it lost the bullet and declined the list.
+            if (first_payload &&
                 is_display_line_length_token(records[record_index], token)) {
               Item item;
               item.kind = ItemKind::token;
               item.token = view;
               build.items.push_back(std::move(item));
+              row_opened = true;
               continue;
             }
             // A box of the frame's prose draws its own rows
@@ -1330,7 +1341,7 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
                                  frame->in_prose_box(record_index, token);
             // Spacing and the punctuation the decoder glues to the end
             // marker (`SREFIG.`, GG24-4302-00 5.1.8) precede any payload.
-            if (first_payload && !box_row &&
+            if (first_payload && !box_row && !row_opened &&
                 (is_padding(view) || is_separator(view) ||
                  (punctuation_glyph_token(view) &&
                   std::all_of(view.body.begin(), view.body.end(),

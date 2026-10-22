@@ -3891,7 +3891,11 @@ QSYSNEWG `A.4` record 320 has the same shape after `SREFIG` (token 73 at
 `0x868A3`): three empty lines (`00` at `0x868A4`--`0x868A6`), then line 21
 ` | °   A command name consists of ...` at `0x868A7`.  Although the flattened
 string places these lines in the end marker's extent, they are ordinary body
-rows, and the first item stands at the same origin as its siblings.
+rows, and the first item stands at the same origin as its siblings.  Each
+such line's length byte opens its row, and everything after it on the line
+-- the origin run in front of the `°` included -- is that row's content:
+only the blanks and the `.`/`,`/`;` the flattened string glues to the end
+marker itself, before any length byte, are spacing.
 
 `A.4` also carries a second list level that hosted (DT `19910524085706`)
 prints inside its parent item: record 320 line 35 is

@@ -863,6 +863,39 @@ void frame_rows_around_table(bool blank_inside_frame,
   check(drawn_cells(markdown) >= drawn_cells(pre),
         "framed table Markdown dropped frame rows: " + markdown);
 }
+// The end marker of a table span is followed the same way.  GG24-395 3.3.15
+// record 635 closes `SRTBLTBLUNIQ21` with `SRETBL` alone on line 28, line 29
+// is empty and line 30 opens the list ` | °   Need to reduce the cost ...`
+// with a length byte the dictionary spells as five spaces; hosted DT
+// 19941215160749 serves `<p>` and then all three items at the same columns.
+// Dropping that length byte as spacing glued the first item to the column-0
+// row of the end marker, and the topic declined as a misaligned list.
+void list_after_table_end_marker(TokenWords first_length = {0x25ba}) {
+  Builder b(false);
+  b.line({w("   "), w("Text before.")});
+  b.blank();
+  b.line({w("SRTBLTBLUNIQ9")});
+  b.line({w("   "), repeat(repeat({0x250c}, 0x2500, 8, 0x252c), 0x2500, 7,
+                           0x2510)});
+  b.line({w("   "), {0x2502}, w(" "), w("A"), w("      "), {0x2502}, w(" "),
+          w("B"), w("     "), {0x2502}});
+  b.line({w("   "), repeat(repeat({0x2514}, 0x2500, 8, 0x2534), 0x2500, 7,
+                           0x2518)});
+  b.line({w("SRETBL")});
+  b.blank();
+  b.line({w("   "), {0x2666}, w("  "), w("Need"), w("to"), w("reduce")},
+         std::move(first_length));
+  b.line({w("   "), {0x2666}, w("  "), w("Require"), w("improved")});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "list after a table end marker declined: " + error);
+  if (!doc)
+    return;
+  const auto markdown = render_document_markdown(*doc);
+  check(markdown.find("- Need to reduce\n- Require improved") !=
+            std::string::npos,
+        "the items after SRETBL are not one list: " + markdown);
+}
 // A line of prose between the frame's rows and its table would be printed
 // by the stream on the wrong side of the rows; that shape is not proven and
 // the topic declines rather than reorder or drop anything.
@@ -1444,6 +1477,8 @@ int main() {
   frame_rows_around_table(true);
   frame_rows_around_table(false, {0x251c});
   frame_rows_around_prose_decline();
+  list_after_table_end_marker();
+  list_after_table_end_marker(w("     "));
   unclaimed_arrow_declines_by_name();
   index_line_keeps_paragraph_break();
   index_line_extra_blank_keeps_paragraph();
