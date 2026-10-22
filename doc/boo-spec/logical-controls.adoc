@@ -1055,6 +1055,25 @@ SC31-711 `1.4` (record 24 segment 13) shows the second shape, where the same
 byte carries display text after it in one segment:
 pass:[<literal>cforwardlevel&#160;&#160;&#160;&#160;/usr/lpp/lnm/reports/lnmlnmemon/dir_name directory, where dir_name is the …</literal>], which hosted prints in full.
 
+A decoder separator directly before the byte does not change this. A body
+control is normally recognised by the boundary the record encoder writes in
+front of it -- a box or unmapped glyph run, or the compact separator token --
+but the right rail of a drawn box row is such a glyph, and the next line's
+length byte follows it immediately:
+
+[cols=">8,>8,>8,>13,<10,<45",options="header"]
+|===
+|Book, topic |Record |Token |Encoded value |Spells |Context
+
+|`GG24-395` `3.3.1.3` |352 |51 |60 |`citerm` |length byte of the 60-byte line 5; token 50 is the U+2502 rail closing line 4
+|`OFCUSEOV` `1.29.4` |329 |228 |70 |`ctoce` |length byte of the 70-byte line 23; token 227 is the U+2502 rail closing line 22
+|===
+
+Hosted BookServer serves both boxes row for row (`GG24-395` DT
+`19941215160749`: the `$SERVER$ NAMES` XEDIT screen; `OFCUSEOV` DT
+`19900805103816`: the Group Calendar display) and prints neither word. The
+byte is the row's control slot, and the line it opens is display text.
+
 Corrected count. An earlier sample gave "fifty-eight topics across sixteen
 books". The 2026-08-30 audit resolved every one of the 894,877 length bytes of
 the corpus against the book's own dictionary and counted the display lines that

@@ -2049,9 +2049,24 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         // DT 19900829171904 prints it), and SC24-546 14.0 record 961 spells
         // the routine names `SRRCMIT or SRRBACK.` inside a sentence.  Such a
         // segment is the previous row's prose, continued.
+        //
+        // A boundary does not make a display line's length byte a control
+        // either.  The byte is row geometry whatever word the dictionary
+        // spells for it (doc/boo-spec/logical-controls.adoc, "A Metadata
+        // Opcode In The Body Is A Display-Line Length Byte"), and the line it
+        // opens is display text, exactly as when a record opens on one.
+        // GG24-395 3.3.1.3
+        // record 352 token 51 (encoded value 60) opens the 60-byte line 5
+        // and spells `citerm`; OFCUSEOV 1.29.4 record 329 token 228 (value
+        // 70) opens the 70-byte line 23 and spells `ctoce`.  Each follows the
+        // box rail U+2502 that closes the row before it, a decoder
+        // separator.  Hosted BookServer prints both box rows and neither
+        // word.  A length byte spelled `si` keeps its existing reading.
+        const auto length_byte_lead = is_row_control_slot(records, first_view);
         const auto continuation =
             first_text != "si" &&
-            ((record_index != 0 && segment_index == 0) || !boundary_before());
+            ((record_index != 0 && segment_index == 0) || !boundary_before() ||
+             length_byte_lead);
         if (!continuation && first_text != "si")
           return fail(error, "text segment begins with control-like word '" +
                                  body_text(first_view) + "' in record " +

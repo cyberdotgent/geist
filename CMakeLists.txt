@@ -593,6 +593,7 @@ foreach(synthetic_test
     cz_unopened_region_closer_synthetic
     list_closer_anchor_synthetic
     revision_bar_operand_synthetic
+    length_byte_control_word_synthetic
     art_description_figure_synthetic
     ordered_picture_figure_synthetic
     menu_wrapped_title_synthetic
