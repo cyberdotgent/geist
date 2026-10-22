@@ -1252,7 +1252,7 @@ int main() {
                     second > nested &&
                     markdown.find("**Description:** first field") !=
                         std::string::npos &&
-                    markdown.find("\n            -     Nested item") !=
+                    markdown.find("\n    - First item\n\n        - Nested item") !=
                         std::string::npos &&
                     markdown.find("\n    - Second item") !=
                         std::string::npos,

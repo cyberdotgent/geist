@@ -590,6 +590,8 @@ int main() {
   compound_item.blocks.push_back(
       block(ParagraphBlockIR{text("Second paragraph.")}));
   compound_item.blocks.push_back(block(std::move(nested)));
+  compound_item.blocks.push_back(
+      block(PreformattedBlockIR{{" |   row one", "   row two"}}));
   ListBlockIR compound_list;
   compound_list.items.push_back(std::move(compound_item));
   compound.blocks.push_back(block(std::move(compound_list)));
@@ -635,6 +637,12 @@ int main() {
                 "    Second paragraph\\.\n\n"
                 "    - Nested child\\.",
                 "compound list item lost paragraph/list structure") ||
+      !contains(compound_output,
+                "\n\n    ```\n     |   row one\n       row two\n    ```",
+                "compound preformatted rows were not indented verbatim") ||
+      !require(compound_output.find(" \n") == std::string::npos &&
+                   compound_output.find("\n    \n") == std::string::npos,
+               "compound block replay appended trailing whitespace") ||
       !contains(compound_output,
                 "<dl class=\"geist-definition-list\">"
                 "<dt class=\"geist-definition-term\">Meaning:</dt>"

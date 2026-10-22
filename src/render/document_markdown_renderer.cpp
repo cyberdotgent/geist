@@ -533,14 +533,16 @@ void replay_indented(RenderSink &sink, const std::string &rendered,
     auto cursor = span.output_begin;
     while (cursor < span.output_end) {
       const auto newline = rendered.find('\n', cursor);
-      const auto end = newline == std::string::npos || newline >= span.output_end
-                           ? span.output_end
-                           : newline + 1;
+      // Only a line break inside this span opens an indented line; one in a
+      // later span is that span's to indent. A blank line stays empty.
+      const bool line_break =
+          newline != std::string::npos && newline < span.output_end;
+      const auto end = line_break ? newline + 1 : span.output_end;
       sink.replay(rendered.substr(cursor, end - cursor), span.role,
                   span.text_projection, span.reason.c_str(),
                   span.origin ? &*span.origin : nullptr);
       cursor = end;
-      if (newline != std::string::npos && cursor < rendered.size())
+      if (line_break && cursor < rendered.size() && rendered[cursor] != '\n')
         sink.boundary("    ", "compound block indentation",
                       span.origin ? &*span.origin : nullptr);
     }
