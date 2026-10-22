@@ -988,13 +988,36 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
   // Lower-cased owners of the topic's `SRLIS<owner>` list-item anchors; an
   // `SRELIS<owner>` naming one of them is no anchor (see below).
   std::set<std::string> list_owners;
+  // Lower-cased owners the topic's `SRELIS<owner>` closers name.
+  std::set<std::string> closed_list_owners;
   for (const auto& source : records)
     for (const auto& segment : source.control_segments) {
       const auto lower = ascii_lower(segment.opcode);
       if (!segment.malformed && lower.rfind("srlis", 0) == 0 &&
           lower.size() > 5)
         list_owners.insert(lower.substr(5));
+      if (!segment.malformed && lower.rfind("srelis", 0) == 0 &&
+          lower.size() > 6)
+        closed_list_owners.insert(lower.substr(6));
     }
+  // An owner may begin with `t`, which spells the opener `SRLIST<rest>` and
+  // the closer `SRELIST<rest>`, the reserved `SRLIST`/`SRELIST` prefixes.  No
+  // `SRLIST` control of its own has been observed; an opener and a closer
+  // of the same topic naming the same owner are what prove the pair to be a
+  // list item.  FA1PLMM0 D.0 record 817 (`SRLIStemppar`, `SRELIStemppar`),
+  // SC24-5520-00 1.1.7 records 61/62 (`SRLIStimzon`, `SRELIStimzon`) and
+  // OFCUSEOV 3.1.1 record 516 (`SRLIStres`, `SRELIStres`): hosted
+  // BookServer serves `<a name="LIStemppar">` (DT 19910927114801),
+  // `LIStimzon` (DT 19911011135123) and `LIStres` (DT 19900805103816), each
+  // wrapping the item's first row, and no `ELIS*` anchor.  Either half
+  // without the other keeps the reserved reading and declines.
+  const auto paired_list_item = [&](const std::string& lower) {
+    if (lower.rfind("srelis", 0) == 0)
+      return lower.size() > 6 && list_owners.count(lower.substr(6)) != 0;
+    if (lower.rfind("srlis", 0) == 0)
+      return lower.size() > 5 && closed_list_owners.count(lower.substr(5)) != 0;
+    return false;
+  };
   // Set once a `cz` directive has been collected: unclaimed one-cell
   // decoder separators then reach the display-row pass, which decides
   // between bullet slot, split-off text and padding.
@@ -1598,7 +1621,8 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         if (segment.malformed || lower_opcode.rfind("sr", 0) != 0 ||
             (reserved_structural(lower_opcode) && !in_verbatim && !in_box &&
              !(!cz_dialect && lower_opcode.rfind("srftn", 0) == 0 &&
-               lower_opcode.size() > 5)))
+               lower_opcode.size() > 5) &&
+             !paired_list_item(lower_opcode)))
           return fail(error, "structural control " + segment.opcode +
                                  " is not a bare anchor");
         const auto id = segment.opcode.substr(2);

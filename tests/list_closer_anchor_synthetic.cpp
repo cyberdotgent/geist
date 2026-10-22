@@ -244,9 +244,65 @@ void an_unmatched_closer_declines() {
           "an SRELIS closer whose owner opened no list was admitted");
 }
 
+// An owner may begin with `t`, so the opener spells `SRLIST<rest>` and the
+// closer `SRELIST<rest>`.  Those prefixes are reserved structural opcodes,
+// but no `SRLIST`/`SRELIST` control has ever been observed; the pair of an
+// opener and a closer naming the same owner is what proves the list item.
+// FA1PLMM0 D.0 record 817 (`SRLIStemppar` line .. `SRELIStemppar`),
+// SC24-5520-00 1.1.7 records 61/62 (`SRLIStimzon` .. `SRELIStimzon`) and
+// OFCUSEOV 3.1.1 record 516 (`SRLIStres` .. `SRELIStres`); hosted BookServer
+// serves `<a name="LIStemppar">` (DT 19910927114801), `LIStimzon`
+// (DT 19911011135123) and `LIStres` (DT 19900805103816), each wrapping the
+// item's first row, and no `ELIS*` anchor.
+void an_owner_spelled_with_t_is_a_list_item(bool closer_payload) {
+  const auto label =
+      std::string(closer_payload ? "payload" : "bare") + " t-owner closer: ";
+  auto extracted =
+      run(list_topic("SRLIStimzon", "SRELIStimzon", closer_payload),
+          "Diagnose");
+  require(extracted.topic.has_value(),
+          label + "a topic opening SRLIStimzon was rejected: " +
+              extracted.error);
+  if (!extracted.topic) return;
+  const auto &topic = *extracted.topic;
+  require(anchors_named(topic, "LIStimzon") == 1 && topic.anchors.size() == 1,
+          label + "the SRLIStimzon opener is not the topic's one anchor");
+  const auto text = topic_text(topic);
+  require(text.find("LIS") == std::string::npos,
+          label + "a list control leaked into the text: '" + text + "'");
+  require(text.find("second") != std::string::npos,
+          label + "the item after the closer was lost: '" + text + "'");
+}
+
+// Without its partner the reserved spelling is not proven to be a list item:
+// an `SRLIST<rest>` no `SRELIST<rest>` closes, and an `SRELIST<rest>` no
+// `SRLIST<rest>` opens, still decline.
+void an_unpaired_t_owner_declines() {
+  {
+    RecordBuilder builder;
+    builder.heading("3.1.1", "Diagnose");
+    builder.line({words("   "), words("Begin"), words("with"), words("step.")});
+    builder.line({words("SRLIStres")});
+    builder.line({words("   "), words("3."), words("On"), words("the"),
+                  words("menu.")});
+    auto extracted = run(builder.build(516), "Diagnose");
+    require(!extracted.topic.has_value(),
+            "an SRLIST<rest> opener with no closer was admitted");
+  }
+  {
+    auto extracted =
+        run(list_topic("SRLISvmcparm", "SRELIStres", false), "Diagnose");
+    require(!extracted.topic.has_value(),
+            "an SRELIST<rest> closer with no opener was admitted");
+  }
+}
+
 }  // namespace
 
 int main() {
+  an_owner_spelled_with_t_is_a_list_item(false);
+  an_owner_spelled_with_t_is_a_list_item(true);
+  an_unpaired_t_owner_declines();
   closers_emit_no_anchor(false);
   closers_emit_no_anchor(true);
   a_closer_before_its_opener_is_no_anchor();

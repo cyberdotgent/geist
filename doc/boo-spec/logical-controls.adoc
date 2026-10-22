@@ -1452,6 +1452,27 @@ likewise kept as stored.
 No closer in this evidence names an owner its topic does not open; what such a
 closer would mean is unresolved.
 
+An owner may begin with `t`. The opener then reads `SRLIST<rest>` and the
+closer `SRELIST<rest>`, so a reader that sets `SRLIST` and `SRELIST` aside as
+structural prefixes of their own misreads them; no `SRLIST` or `SRELIST`
+control outside such a pair has been observed. Three topics carry one:
+
+[cols="<26,<22,<52",options="header"]
+|===
+|Book, topic |Records |Controls
+
+|`FA1PLMM0` `D.0` |817 |`SRLIStemppar` (segment 3), `SRELIStemppar` (segment 4)
+|`SC24-5520-00` `1.1.7` |61, 62 |`SRLIStimzon` (record 61 segment 5), `SRELIStimzon` (record 62 segment 1)
+|`OFCUSEOV` `3.1.1` |516 |`SRLIStres` (segment 18), `SRELIStres` (segment 20)
+|===
+
+Hosted BookServer serves `<a name="LIStemppar">` (DT `19910927114801`),
+`<a name="LIStimzon">` (DT `19911011135123`) and `<a name="LIStres">` (DT
+`19900805103816`), each wrapping the first row of its item exactly as the
+other `LIS*` anchors of the same topics do, and no `ELIS*` anchor. The opener
+and the closer naming the same owner within the topic identify the pair; a
+lone `SRLIST<rest>` or `SRELIST<rest>` is not covered by this evidence.
+
 [[logical-controls_implementation_notes]]
 === Implementation Notes
 
