@@ -3360,6 +3360,7 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
     for (const auto &paragraph : prose->paragraphs) {
       TrapIntroductionParagraphIR item;
       item.text = paragraph.text;
+      item.line_breaks = paragraph.line_breaks;
       item.source_slices = paragraph.source_slices;
       item.source_rows = paragraph.source_rows;
       // Deferred font provenance is explicit, not borrowed from a later row.
@@ -3474,6 +3475,7 @@ bool same_trap_catalog_ir(const TrapCatalogIR &left,
     const auto &a = left.introduction[index];
     const auto &b = right.introduction[index];
     if (a.text != b.text || !same_spans(a.leading_spans, b.leading_spans) ||
+        a.line_breaks != b.line_breaks ||
         a.source_slices != b.source_slices ||
         a.source_rows.size() != b.source_rows.size())
       return false;
@@ -3613,6 +3615,16 @@ bool verify_trap_catalog_ir(
       catalog.introduction_prose_envelopes.size())
     return fail(error, "trap catalog introduction pieces do not bracket its "
                        "drawn envelopes");
+  for (const auto &paragraph : catalog.introduction) {
+    std::size_t previous = 0;
+    for (const auto offset : paragraph.line_breaks)
+      if (offset <= previous || offset + 1 >= paragraph.text.size() ||
+          paragraph.text[offset] != ' ')
+        return fail(error, "trap introduction line break does not name a "
+                           "separator of its paragraph");
+      else
+        previous = offset;
+  }
   const auto canonical = extract_trap_catalog_ir(records, layout, ownership,
                                                  catalog.title, error);
   if (!canonical)
@@ -3637,8 +3649,13 @@ std::string format_trap_catalog_ir(const TrapCatalogIR &catalog) {
       << " entries=" << catalog.entries.size() << '\n';
   for (const auto &paragraph : catalog.introduction) {
     out << "introduction spans=" << paragraph.leading_spans.size()
-        << " rows=" << paragraph.source_rows.size() << " text='"
-        << paragraph.text << "'\n";
+        << " rows=" << paragraph.source_rows.size();
+    if (!paragraph.line_breaks.empty()) {
+      out << " breaks=";
+      for (std::size_t index = 0; index < paragraph.line_breaks.size(); ++index)
+        out << (index == 0 ? "" : ",") << paragraph.line_breaks[index];
+    }
+    out << " text='" << paragraph.text << "'\n";
   }
   for (const auto &entry : catalog.entries) {
     out << "entry id='" << entry.id << "' operand='" << entry.operand

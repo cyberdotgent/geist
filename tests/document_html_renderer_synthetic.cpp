@@ -790,6 +790,23 @@ int main() {
     require(styled.count(value) != 0,
             "a block class is missing from the example stylesheet: " + value);
 
+  // Row line breaks inside one paragraph render as `<br>` between the
+  // lines, inside the one `<p>`.
+  {
+    DocumentIR broken;
+    broken.topic.id = "BREAKS";
+    InlineSequenceIR lines;
+    lines.push_back(in(TextInlineIR{"HELP MSG (where number"}));
+    lines.push_back(in(HardBreakInlineIR{}));
+    lines.push_back(in(TextInlineIR{"and type)"}));
+    broken.blocks.push_back(block(ParagraphBlockIR{std::move(lines)}));
+    const auto html = render_document_html_fragment(broken);
+    contains(html,
+             "<p class=\"geist-paragraph\">HELP MSG (where number<br>and "
+             "type)</p>",
+             "a paragraph hard break did not render as one <br> in its <p>");
+  }
+
   if (failures != 0) {
     std::cerr << failures << " assertion(s) failed\n";
     return 1;

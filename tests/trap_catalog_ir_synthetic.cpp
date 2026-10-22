@@ -1909,6 +1909,174 @@ int main() {
                   std::string::npos,
               "a same-indent CFONT continuation row split its paragraph: " +
                   joined);
+      // Neither row is wholly example text (each span styles one word), and
+      // the first row is the paragraph's widest, so the formatter had no
+      // room left on it: the boundary is an ordinary reflow join.
+      for (const auto &paragraph : built.catalog->introduction)
+        require(paragraph.line_breaks.empty(),
+                "a filled row gained a line break: " + paragraph.text);
+    }
+  }
+
+  // Helpers for the row line-break cases below: the text of each
+  // introduction paragraph with `|` at every recorded line break.
+  const auto broken_text = [](const geist::detail::TrapCatalogIR &catalog) {
+    std::string joined;
+    for (const auto &paragraph : catalog.introduction) {
+      auto text = paragraph.text;
+      for (auto at = paragraph.line_breaks.rbegin();
+           at != paragraph.line_breaks.rend(); ++at)
+        if (*at < text.size())
+          text[*at] = '|';
+      joined += "[" + text + "]";
+    }
+    return joined;
+  };
+  const auto lowered = [](const geist::detail::TrapCatalogIR &catalog,
+                          std::string &markdown, std::string &html) {
+    std::string error;
+    const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+        {"12", "Sample Messages"}, catalog, &error);
+    require(document.has_value(), "line-break lowering declined: " + error);
+    if (!document)
+      return;
+    std::size_t breaks = 0;
+    for (const auto &block : document->blocks)
+      if (const auto *paragraph =
+              std::get_if<geist::detail::ParagraphBlockIR>(&block.node))
+        for (const auto &inline_node : paragraph->content)
+          if (std::holds_alternative<geist::detail::HardBreakInlineIR>(
+                  inline_node.node)) {
+            ++breaks;
+            require(inline_node.origin.detail ==
+                        "trap catalog introduction row line break" &&
+                        !inline_node.origin.slices.empty(),
+                    "a row line break has no source provenance");
+          }
+    require(breaks != 0, "no hard break reached the DocumentIR");
+    markdown = geist::detail::render_document_markdown(*document);
+    html = geist::detail::render_document_html_blocks(*document, {});
+  };
+
+  // Two example rows, the second in the next record, each wholly under its
+  // own `E` CFONT span at the row's first drawn cell: example text is never
+  // filled, so the boundary is a line break inside the one paragraph. This
+  // is SC24-546 A.0 record 967 line 20 `     HELP MSG DMSnnnE  (where nnn
+  // is the CMS error number` over record 968 line 1 `     and error type is
+  // either 'E' or'T')`; hosted DT 19940323131240 serves the two as separate
+  // lines of one `<p>`.
+  {
+    auto first = header("Sample", "Messages");
+    append(first, line({origin(), t("Use", 350), t("this:", 351)}));
+    append(first, line({}));
+    append(first, line({t("cfont", 111), t("5", 340), t("18", 400),
+                        t("E", 342)}));
+    append(first, line({t("     ", 352), t("HELP", 353), t("(where", 354),
+                        t("number", 355)}));
+    std::vector<Token> second;
+    append(second, line({t("cfont", 111), t("5", 340), t("9", 401),
+                         t("E", 342)}));
+    append(second, line({t("     ", 352), t("and", 356), t("type)", 357)}));
+    append(second, line({}));
+    append(second, entry("647", 358));
+    const auto built = build({make_source(79, first), make_source(80, second)},
+                             "Sample Messages");
+    require(built.catalog.has_value(),
+            "the example-row introduction declined: " + built.error);
+    if (built.catalog) {
+      const auto joined = broken_text(*built.catalog);
+      require(joined.find("[HELP (where number|and type)]") !=
+                  std::string::npos,
+              "two example rows did not keep their line break: " + joined);
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, nullptr),
+              "the example-row introduction did not verify");
+      std::string markdown, html;
+      lowered(*built.catalog, markdown, html);
+      require(markdown.find("HELP \\(where number  \nand type\\)") !=
+                  std::string::npos,
+              "the example rows did not render a Markdown hard break: " +
+                  markdown);
+      require(html.find("HELP (where number<br>and type)") !=
+                  std::string::npos,
+              "the example rows did not render <br>: " + html);
+    }
+  }
+
+  // Indented rows each opened by their own CFONT, not example text, where
+  // the earlier row left room for the next row's first word before the
+  // paragraph's widest row: the source ended those rows on purpose. This is
+  // SC34-425 2.4.12.4 record 1517, `cfont 7 6 2` over `       LANG=A
+  // Assembler only`, `       LANG=T ...`, `       LANG=R REXX or similar
+  // languages ...`; hosted DT 19921112160049 serves each on its own line of
+  // one `<p>`.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({origin(), t("Values", 402), t("are:", 403)}));
+    append(tokens, line({}));
+    append(tokens, line({t("cfont", 111), t("7", 404), t("6", 405),
+                         t("2", 113)}));
+    append(tokens, line({t("       ", 406), t("LANG=A", 407),
+                         t("Assembler", 408), t("only", 409)}));
+    append(tokens, line({t("cfont", 111), t("7", 404), t("6", 405),
+                         t("2", 113)}));
+    append(tokens, line({t("       ", 406), t("LANG=T", 410), t("TEXT", 411)}));
+    append(tokens, line({t("cfont", 111), t("7", 404), t("6", 405),
+                         t("2", 113)}));
+    append(tokens, line({t("       ", 406), t("LANG=R", 412), t("REXX", 413),
+                         t("or", 414), t("similar", 415),
+                         t("languages", 416), t("which", 417),
+                         t("use", 418), t("comment", 419),
+                         t("delimiters", 420)}));
+    append(tokens, line({}));
+    append(tokens, entry("648", 421));
+    const auto built = build({make_source(81, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "the keyword-row introduction declined: " + built.error);
+    if (built.catalog) {
+      const auto joined = broken_text(*built.catalog);
+      require(joined.find("[LANG=A Assembler only|LANG=T TEXT|LANG=R REXX or "
+                          "similar languages which use comment "
+                          "delimiters]") != std::string::npos,
+              "keyword rows with room left did not break: " + joined);
+      std::string markdown, html;
+      lowered(*built.catalog, markdown, html);
+      require(html.find("LANG=A Assembler only<br>LANG=T TEXT<br>LANG=R") !=
+                  std::string::npos,
+              "the keyword rows did not render <br>: " + html);
+    }
+  }
+
+  // Rows that must still join. A row opened by its CFONT after a row that
+  // filled the paragraph's width is a wrapped sentence whose next word the
+  // source styles (SC34-425 2.4.31 `see the DCF` / `SCRIPT/VS
+  // documentation`), and rows with no CFONT are ordinary reflowed prose
+  // whatever their length.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({origin(), t("Intro.", 430)}));
+    append(tokens, line({}));
+    append(tokens, line({t("     ", 352), t("The", 431), t("parser", 432),
+                         t("reads", 433), t("every", 434), t("row", 435),
+                         t("of", 436), t("the", 437)}));
+    append(tokens, line({t("cfont", 111), t("5", 340), t("6", 405),
+                         t("2", 113)}));
+    append(tokens, line({t("     ", 352), t("MEMBER", 438), t("and", 356),
+                         t("stops.", 439)}));
+    append(tokens, line({}));
+    append(tokens, line({t("     ", 352), t("Short", 440), t("row.", 441)}));
+    append(tokens, line({t("     ", 352), t("Next", 442), t("row.", 441)}));
+    append(tokens, line({}));
+    append(tokens, entry("650", 443));
+    const auto built = build({make_source(84, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "the reflowed introduction declined: " + built.error);
+    if (built.catalog) {
+      const auto joined = broken_text(*built.catalog);
+      require(joined.find("[The parser reads every row of the MEMBER and "
+                          "stops.][Short row. Next row.]") != std::string::npos,
+              "reflowed prose rows gained a line break: " + joined);
     }
   }
 

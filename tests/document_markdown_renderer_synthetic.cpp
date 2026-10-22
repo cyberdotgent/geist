@@ -3,6 +3,7 @@
 
 #include "geist/detail/lowering/document_ir.hpp"
 #include "geist/detail/render/document_markdown_renderer.hpp"
+#include "geist/detail/render/markdown_visible_text.hpp"
 
 #include <algorithm>
 #include <iostream>
@@ -667,6 +668,33 @@ int main() {
       !contains(compound_output, "</table>",
                 "compound table HTML form was not closed"))
     return 1;
+
+  // A hard break inside a paragraph is a CommonMark hard line break (two
+  // trailing spaces), and the line after it never becomes a setext heading
+  // underline: `=` is not otherwise escaped, so a line that starts with it
+  // is guarded. Plain rows after a break are emitted unchanged.
+  {
+    DocumentIR broken;
+    broken.topic.id = "BREAKS";
+    InlineSequenceIR lines;
+    lines.push_back(in(TextInlineIR{"HELP MSG (where number"}));
+    lines.push_back(in(HardBreakInlineIR{}));
+    lines.push_back(in(TextInlineIR{"and type)"}));
+    lines.push_back(in(HardBreakInlineIR{}));
+    lines.push_back(in(TextInlineIR{"==="}));
+    broken.blocks.push_back(block(ParagraphBlockIR{std::move(lines)}));
+    DocumentRenderTraceIR break_trace;
+    const auto output = render_document_markdown(broken, {}, &break_trace);
+    if (!contains(output, "HELP MSG \\(where number  \nand type\\)  \n\\===",
+                  "hard breaks did not render as guarded Markdown line "
+                  "breaks: " + output) ||
+        !require(markdown_visible_text(output, break_trace)
+                         .find("HELP MSG (where number\nand type)\n===") !=
+                     std::string::npos,
+                 "hard break visible text drifted: " +
+                     markdown_visible_text(output, break_trace)))
+      return 1;
+  }
 
   std::cout << "document Markdown renderer synthetic checks passed\n";
   return 0;

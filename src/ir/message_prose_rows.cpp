@@ -166,6 +166,85 @@ std::string collapse(std::string value) {
   return collapse_ascii_whitespace(trim_ascii(std::move(value)));
 }
 
+// The geometry of one drawn display row, in display columns: its first and
+// past-the-last drawn cell, the width of the word its first drawn cell
+// starts, whether the CFONT that styles the row opens it (the font's first
+// span begins at that first drawn cell), and whether it is an example row
+// (every drawn cell under an example or variable span, at least one of them
+// example). Cells of control tokens and a margin revision bar are not drawn.
+struct ProseRowGeometry {
+  std::size_t first_column = 0;
+  std::size_t end_column = 0;
+  std::size_t first_word = 0;
+  bool opened_by_font = false;
+  bool example = false;
+};
+
+std::optional<ProseRowGeometry> prose_row_geometry(
+    const DecodedLogicalRecordSource& record, const DisplayLineIR& line,
+    const std::set<std::size_t>& control_tokens,
+    const std::optional<FontControlSpansIR>& font) {
+  const auto cells = display_line_cells(record, line);
+  std::vector<bool> drawn(cells.size(), false);
+  bool any = false;
+  for (std::size_t column = 0; column < cells.size(); ++column) {
+    const auto& cell = cells[column];
+    if (cell.word <= ' ') continue;
+    if (cell.token != static_cast<std::size_t>(-1) &&
+        (control_tokens.count(cell.token) != 0 ||
+         (column == 1 &&
+          is_display_line_margin_revision_bar(record, cell.token))))
+      continue;
+    drawn[column] = true;
+    any = true;
+  }
+  if (!any) return std::nullopt;
+  ProseRowGeometry geometry;
+  geometry.first_column = static_cast<std::size_t>(
+      std::find(drawn.begin(), drawn.end(), true) - drawn.begin());
+  for (auto column = geometry.first_column; column < drawn.size(); ++column)
+    if (drawn[column]) geometry.end_column = column + 1;
+  for (auto column = geometry.first_column;
+       column < drawn.size() && drawn[column]; ++column)
+    ++geometry.first_word;
+  if (!font || font->spans.empty()) return geometry;
+  geometry.opened_by_font = font->spans.front().column == geometry.first_column;
+  bool example_span = false;
+  bool covered = true;
+  for (std::size_t column = 0; column < drawn.size(); ++column) {
+    if (!drawn[column]) continue;
+    const auto span = std::find_if(
+        font->spans.begin(), font->spans.end(),
+        [&](const FontSpanIR& candidate) {
+          return candidate.column <= column &&
+                 column - candidate.column < candidate.length;
+        });
+    if (span == font->spans.end() ||
+        (span->style != FontStyleIR::example_phrase &&
+         span->style != FontStyleIR::variable)) {
+      covered = false;
+      break;
+    }
+    example_span = example_span || span->style == FontStyleIR::example_phrase;
+  }
+  geometry.example = covered && example_span;
+  return geometry;
+}
+
+// A boundary between two drawn rows of one paragraph is a line break, not a
+// reflow join, when the CFONT of the later row opens it and either both rows
+// are example rows (example text is never filled), or the earlier row ends
+// with room for the later row's first word before `widest`, the end of the
+// paragraph's widest row: a filling formatter would have set that word on
+// the earlier row, so the source ended the row on purpose.
+bool row_boundary_is_line_break(const ProseRowGeometry& before,
+                                const ProseRowGeometry& after,
+                                std::size_t widest) {
+  if (!after.opened_by_font) return false;
+  if (before.example && after.example) return true;
+  return before.end_column + 1 + after.first_word <= widest;
+}
+
 } // namespace
 
 std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
@@ -338,16 +417,50 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
   bool open = false;
   std::optional<DisplayRunId> current_run;
   std::vector<MessageProseBoundaryTokenIR> pending_boundary;
+  // The drawn display rows of the open paragraph, in order, and the row
+  // boundaries inside it that may be line breaks (see
+  // `MessageProseParagraphIR::line_breaks`). The paragraph's widest row is
+  // only known once it closes, so the breaks are decided in `finish`.
+  std::vector<ProseRowGeometry> paragraph_rows;
+  struct BreakCandidate {
+    std::size_t offset = 0;
+    ProseRowGeometry before;
+    ProseRowGeometry after;
+  };
+  std::vector<BreakCandidate> break_candidates;
   const auto finish = [&]() {
     if (open && !collapse(current.text).empty()) {
-      current.text = collapse(current.text);
+      // Pieces are collapsed and joined by one space, so collapsing the
+      // whole text changes nothing; if it ever did, the recorded offsets
+      // would no longer name separators and no break is kept.
+      const auto collapsed = collapse(current.text);
+      if (collapsed == current.text) {
+        std::size_t widest = 0;
+        for (const auto& row : paragraph_rows)
+          widest = std::max(widest, row.end_column);
+        // A row that contributed no text leaves its candidate at the same
+        // offset as the next row's; the later row is the one that follows.
+        std::map<std::size_t, bool> decided;
+        for (const auto& candidate : break_candidates)
+          if (candidate.offset > 0 && candidate.offset < current.text.size() &&
+              current.text[candidate.offset] == ' ')
+            decided[candidate.offset] = row_boundary_is_line_break(
+                candidate.before, candidate.after, widest);
+        for (const auto& [offset, line_break] : decided)
+          if (line_break) current.line_breaks.push_back(offset);
+      }
+      current.text = collapsed;
       result.paragraphs.push_back(std::move(current));
     }
+    break_candidates.clear();
     current = {};
     open = false;
   };
   const auto begin_paragraph = [&](bool run_start) {
     finish();
+    // A paragraph opens on the row last seen; earlier rows are not its own.
+    if (paragraph_rows.size() > 1)
+      paragraph_rows.erase(paragraph_rows.begin(), paragraph_rows.end() - 1);
     open = true;
     current.opened_by_run_start = run_start;
     current.opening_boundary = std::move(pending_boundary);
@@ -578,8 +691,49 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
           begin_paragraph(true);
           current.leading_font_source = deferred_font;
         }
-        if (line != nullptr && collapse(display_line_text(record, *line)).empty())
+        if (line != nullptr && collapse(display_line_text(record, *line)).empty()) {
           finish();
+          paragraph_rows.clear();
+        } else if (line != nullptr && native_lines != nullptr &&
+                   !native_lines->empty() && line >= &native_lines->front() &&
+                   line <= &native_lines->back()) {
+          const auto line_index =
+              static_cast<std::size_t>(line - &native_lines->front());
+          // The CFONT that styles this row: the control alone on the row
+          // above it, or the one the previous record ended on.
+          std::optional<FontControlSpansIR> font;
+          if (line_index > 0) {
+            const auto& above = (*native_lines)[line_index - 1];
+            bool control_row = above.prefix_token + 1 < above.token_end;
+            for (auto token = above.prefix_token + 1;
+                 control_row && token < above.token_end; ++token)
+              control_row = control_tokens.count(token) != 0;
+            for (const auto& segment : record.control_segments)
+              if (control_row && segment.kind == BookControlKind::font &&
+                  !segment.source_tokens.empty() &&
+                  segment.source_tokens.front() == above.prefix_token + 1)
+                font = decode_font_control_spans(record, segment);
+          } else if (deferred_font) {
+            if (const auto* font_record =
+                    find_record(records, deferred_font->logical_record);
+                font_record != nullptr &&
+                deferred_font->segment_index <
+                    font_record->control_segments.size())
+              font = decode_font_control_spans(
+                  *font_record,
+                  font_record->control_segments[deferred_font->segment_index]);
+          }
+          if (const auto geometry =
+                  prose_row_geometry(record, *line, control_tokens, font)) {
+            if (open && !current.text.empty() && !paragraph_rows.empty()) {
+              break_candidates.push_back(
+                  {current.text.size(), paragraph_rows.back(), *geometry});
+              paragraph_rows.push_back(*geometry);
+            } else {
+              paragraph_rows.assign(1, *geometry);
+            }
+          }
+        }
         continue;
       }
       const auto owner = row_by_token.find({record.logical_record, token});

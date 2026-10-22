@@ -49,6 +49,14 @@ struct MessageProseParagraphIR {
   std::optional<DocumentSourceSliceIR> leading_font_source;
   std::vector<MessageProseBoundaryTokenIR> opening_boundary;
   bool opened_by_run_start = false;
+  // Display-row boundaries inside this paragraph that are line breaks rather
+  // than reflow joins: the byte offset in `text` of the single separator
+  // space that stands for the boundary, strictly ascending. A boundary is a
+  // break when the row after it is opened by a CFONT span at its first drawn
+  // cell and either both rows are example rows (every drawn cell under an
+  // example or variable span) or the row before it left room for the opening
+  // word, measured against the paragraph's widest row.
+  std::vector<std::size_t> line_breaks;
 };
 
 // Prose between the topic title segment and the first numeric SRMSG segment,

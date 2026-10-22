@@ -636,6 +636,28 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
     paragraph_origin = canonical(std::move(paragraph_origin));
     InlineSequenceIR content;
     std::string rest = paragraph.text;
+    // The text after `from`, with each recorded row line break as a hard
+    // break in place of its separator space. Rows the source ended on
+    // purpose stay lines of the one paragraph; hosted BookServer serves them
+    // one per line inside a single `<p>`.
+    auto break_origin = paragraph_origin;
+    break_origin.detail = "trap catalog introduction row line break";
+    const auto append_broken = [&](std::size_t from) {
+      for (const auto offset : paragraph.line_breaks) {
+        if (offset < from)
+          return false;
+        if (offset > from)
+          content.push_back(
+              {TextInlineIR{paragraph.text.substr(from, offset - from)},
+               paragraph_origin});
+        content.push_back({HardBreakInlineIR{}, break_origin});
+        from = offset + 1;
+      }
+      if (from < paragraph.text.size())
+        content.push_back(
+            {TextInlineIR{paragraph.text.substr(from)}, paragraph_origin});
+      return true;
+    };
     if (!paragraph.leading_spans.empty()) {
       std::string joined;
       for (const auto &span : paragraph.leading_spans) {
@@ -649,6 +671,20 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
       rest = after_prefix(paragraph.text, joined);
       if (!rest.empty())
         rest.insert(rest.begin(), ' ');
+      if (!paragraph.line_breaks.empty()) {
+        // The highlighted lead is the first row's; a break inside it, or a
+        // remainder that does not follow it at a separator, is not a
+        // paragraph this lowering can place breaks in.
+        if (paragraph.text.size() <= joined.size() ||
+            paragraph.text[joined.size()] != ' ' ||
+            !append_broken(joined.size()))
+          return reject("introduction line break falls inside its highlight");
+        rest.clear();
+      }
+    } else if (!paragraph.line_breaks.empty()) {
+      if (!append_broken(0))
+        return reject("introduction line break is out of order");
+      rest.clear();
     }
     if (!rest.empty())
       content.push_back({TextInlineIR{rest}, paragraph_origin});

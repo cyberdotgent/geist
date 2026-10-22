@@ -329,6 +329,10 @@ struct TrapAnchorIR {
 
 struct TrapIntroductionParagraphIR {
   std::string text;
+  // Byte offsets in `text` of the separator spaces that are line breaks
+  // between two display rows of this paragraph, strictly ascending
+  // (`MessageProseParagraphIR::line_breaks`).
+  std::vector<std::size_t> line_breaks;
   std::vector<TrapStyledSpanIR> leading_spans;
   std::vector<DocumentSourceSliceIR> source_slices;
   std::vector<DocumentSourceRowIR> source_rows;

@@ -260,6 +260,14 @@ void append_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
         [&](const auto &node) {
           using T = std::decay_t<decltype(node)>;
           if constexpr (std::is_same_v<T, TextInlineIR>) {
+            // A hard break starts a new Markdown line, and a line of `=`
+            // under paragraph text is a setext heading underline. `=` is not
+            // otherwise escaped, so guard the one place it could start a line.
+            if (context == InlineContext::prose && index > 0 &&
+                std::holds_alternative<HardBreakInlineIR>(
+                    inlines[index - 1].node) &&
+                !node.text.empty() && node.text.front() == '=')
+              sink.syntax("\\", "line start escape", origin);
             sink.content(escape_markdown_text_impl(node.text), "text", origin);
           } else if constexpr (std::is_same_v<T, EmphasisInlineIR>) {
             const auto delimiter = emphasis_delimiter(node.kind);
