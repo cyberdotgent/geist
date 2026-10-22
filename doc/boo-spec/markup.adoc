@@ -1886,6 +1886,52 @@ payload.  Hosted (DT 19950308184737) serves the row as pass:[<literal>&#160;&#16
 control payload; dropping the glyph moves the row's text from column 7 to
 column 2 and displaces every operand column of that `cfont`.
 
+[[markup_a_second_list_level]]
+==== A second list level draws an ASCII glyph
+
+A list nested in a list item is drawn with the same geometry one level down
+and an ASCII glyph in place of `U+2666`: the glyph stands at the parent
+item's text column, three blank cells follow it, and the sub-item's text
+starts four columns after the glyph.  The glyph is a one-byte content cell of
+its display line -- `-` in most books, `>` in SG24-204 -- and the gap is the
+same two-cell blank run (value `13`) a `U+2666` bullet is followed by, plus
+the assembler's space.  Hosted BookServer prints the glyph in its column.
+
+[cols="<22,<38,<40",options="header"]
+|===
+|Book / topic / record |Stored (tokens) |Hosted
+
+|ACPZMST1 `1.2` record 32
+|116 seven-cell run (`18` at `0xA3BC`), 117 `-` (`24` at `0xA3BD`), 118 two-cell run (`13`), `Resource manager`
+l|   °   Communications partners
+       -   Resource manager
+       -   User program
+
+|SG24-204 `1.1` record 21
+|seven-cell run, 105 `>`, two-cell run, `OS/2`
+l|   °   IBM Transaction Server platforms, including:
+
+       >   OS/2
+       >   AIX
+
+|DREICMST `1.7.2.1` record 262
+|eleven-cell run, 131 `-`, two-cell run, `Possible errors ...`
+l|       1.  Was the table listed after ...
+
+           -   Possible errors in the table definition ...
+|===
+
+The sub-list may follow its parent's row directly (ACPZMST1) or after an
+empty display line (QSYSNEWG `1.9`, SG24-204 `1.1`); either way the glyph
+column equals the parent's text column (`U+2666` at column 3, text and `-` at
+column 7).  Where the rows above are a paragraph rather than a list item
+(DREICMST `1.7.2.1`, under the `1.` row's continuation), the glyph rows are a
+list of their own at that column.  The ASCII glyph is told apart from the
+revision margin by its column: a change bar or revision mark is the only cell
+in front of its row's origin run (column 1, after a one-cell blank), while a
+list glyph stands after an origin run of at least two cells.  No glyph other
+than `-` and `>` occurs in this geometry in the corpus.
+
 [[markup_a_span_holds_its_row_open]]
 ==== A span holds its row open
 
@@ -3834,10 +3880,11 @@ a row-control slot, even though its value lies below `0x30`: only a line's
 length byte is that slot.  The paragraphs at column 7 between the bullets
 (`Some parameters are required ...`, `Either method can be used ...`)
 continue the item above them.  QSYSNEWG `1.9` (record 37 lines 14-17,
-21-23, 36-39 and 45-47) draws the same `-` sub-items.  This nesting --
-a `-` list at column 7 under a `°` item at column 3, and continuation
-paragraphs at the item's text column -- is open: a reader that has no second
-list level cannot print these topics faithfully.
+21-23, 36-39 and 45-47) draws the same `-` sub-items.  The `-` rows are the
+second list level described in <<markup_a_second_list_level>>.  The
+continuation paragraphs at the item's text column are not settled: nothing
+on their rows but the column ties them to the item above, and the same
+column also carries ordinary indented paragraphs.
 
 [[markup_list_item_inside_table_envelope]]
 ==== A list item inside a drawn table envelope

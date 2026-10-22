@@ -591,6 +591,7 @@ foreach(synthetic_test
     generated_index_term_synthetic
     prose_index_term_line_synthetic
     span_row_geometry_synthetic
+    prose_row_glyph_synthetic
     cz_artwork_region_synthetic
     cz_degraded_region_synthetic
     cz_list_labels_synthetic

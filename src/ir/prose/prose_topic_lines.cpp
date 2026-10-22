@@ -347,6 +347,38 @@ struct LineBuilder {
            !is_placeholder_run(items[next].token);
   }
 
+  // A free-standing one-cell ASCII glyph that opens a row at its origin
+  // column, followed by exactly the gap a `U+2666` bullet keeps (one spacing
+  // cell and a two-cell run, so the text starts four columns after the
+  // glyph) and then the row's text, is that row's list bullet.  The glyph
+  // stands at the row's origin, never in the one-column revision margin a
+  // change bar uses: the bar is the only cell in front of its row's origin
+  // run, so a glyph with at least two cells in front of it is a content
+  // cell.  Only the flattened dialect draws bullets this way; CZ rows carry
+  // their bullet slots explicitly.
+  bool row_glyph_bullet(std::size_t index) const {
+    const auto& view = items[index].token;
+    if (cz_mode || xmp_mode || in_title || in_index || !line_open ||
+        out.lines.empty() || line_visible_cells != 0)
+      return false;
+    if (view.width != 1 || view.body.size() != 1 || !punctuation_glyph(view) ||
+        is_placeholder_run(view) || view.prefix == 0 || view.prefix == 1 ||
+        view.prefix == 2)
+      return false;
+    const auto column = out.lines.back().cells.size();
+    if (column < 2 || pending_span_opens_at(column)) return false;
+    if (index + 1 >= items.size() || items[index + 1].kind != ItemKind::token)
+      return false;
+    const auto& gap = items[index + 1].token;
+    if (!is_space_run(gap) || gap.body.size() != 2 || gap.prefix == 0 ||
+        gap.prefix == 1)
+      return false;
+    const auto text = next_token(index + 1);
+    return text != npos && text == index + 2 && visible_at(text) &&
+           !is_placeholder_run(items[text].token) &&
+           !opens_display_line(items[text].token);
+  }
+
   // Consumes a display line's length byte as the row-control slot of the row
   // it opens: it ends the row before it and, when a single space run follows
   // in front of the row's text, that run is the new row's origin.
@@ -2042,6 +2074,30 @@ struct LineBuilder {
       return row_control_length_byte(index);
     if (!line_open) open_line(0, nullptr);
     trailing_bare = 0;
+    if (row_glyph_bullet(index)) {
+      // A one-cell glyph at the row's origin, three blank cells and then the
+      // row's text: the shape of a `U+2666` list item, drawn with the glyph
+      // the compiler uses one list level down.  ACPZMST1 1.2 record 32 token
+      // 117 is `-` (value 36) after a seven-cell origin run (token 116) and
+      // before a two-cell gap run (token 118) and `Resource manager`; hosted
+      // (DT 19920319123146) prints `       -   Resource manager` below
+      // `   °   Communications partners`.  SG24-204 1.1 record 21 token 105
+      // draws `>` the same way (hosted `       >   OS/2`).
+      line().bullet = true;
+      if (!assign(view, ProseTokenRoleIR::bullet)) return false;
+      line().cells.push_back({view.record, view.token, body_text(view),
+                              false});
+      ++line_visible_cells;
+      const auto next = next_token(index);
+      line().cells.push_back({npos, 0, " ", true});
+      pending_space = false;
+      const auto& gap = items[next].token;
+      append_space_cells(gap, true);
+      if (!assign(gap, ProseTokenRoleIR::gap)) return false;
+      skip_until = next;
+      line().text_begin = line().cells.size();
+      return true;
+    }
     if (line_visible_cells == 0 && view.width == 1 &&
         (punctuation_glyph(view) || is_placeholder_run(view)) &&
         // CZ rows carry their markers as explicit slots (bullet, change bar,

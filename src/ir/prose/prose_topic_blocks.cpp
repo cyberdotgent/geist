@@ -682,6 +682,21 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
     index = end;
   }
   std::size_t list_ordinal = 0;
+  // The list items still open at the current block, outermost first.  An item
+  // whose row stands at the text column of the open item above it is the
+  // first item of a list one level down, owned by that item: ACPZMST1 1.2
+  // record 32 sets `   °   Communications partners` (text at column 7) and
+  // then `       -   Resource manager` (bullet at column 7), and hosted
+  // (DT 19920319123146) prints the `-` rows inside the item.  An item at an
+  // open item's origin is that item's sibling, closing every deeper level.
+  // Any other origin is a level the rows do not prove, and fails closed.
+  struct OpenItem {
+    std::size_t block = 0;
+    std::size_t origin = 0;
+    std::size_t text_column = 0;
+    std::size_t ordinal = 0;
+  };
+  std::vector<OpenItem> open_items;
   for (std::size_t block_index = 0; block_index < ranges.size(); ++block_index) {
     ProseBlockIR block;
     block.origin = origins[block_index];
@@ -706,13 +721,41 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
       topic.blocks.push_back(std::move(block));
       continue;
     }
+    if (!is_item[block_index]) open_items.clear();
     if (is_item[block_index]) {
       block.kind = ProseBlockKindIR::list_item;
-      if (block_index == 0 || !is_item[block_index - 1])
-        ++list_ordinal;
-      else if (origins[block_index] != origins[block_index - 1])
-        return fail(error, "nested or misaligned list items");
-      block.list_ordinal = list_ordinal;
+      const auto origin = origins[block_index];
+      const auto self = topic.blocks.size();
+      while (!open_items.empty() && open_items.back().origin > origin)
+        open_items.pop_back();
+      OpenItem opened{self, origin, lines[ranges[block_index].first].text_begin,
+                      0};
+      if (block_index == 0 || !is_item[block_index - 1] ||
+          open_items.empty()) {
+        opened.ordinal = ++list_ordinal;
+        open_items.assign(1, opened);
+      } else if (!open_items.empty() && open_items.back().origin == origin) {
+        opened.ordinal = open_items.back().ordinal;
+        open_items.back() = opened;
+        if (open_items.size() > 1)
+          block.parent_block = open_items[open_items.size() - 2].block;
+      } else if (!open_items.empty() &&
+                 open_items.back().text_column == origin &&
+                 open_items.back().origin < origin) {
+        opened.ordinal = ++list_ordinal;
+        block.parent_block = open_items.back().block;
+        open_items.push_back(opened);
+      } else {
+        return fail(error,
+                    "nested or misaligned list items (origin " +
+                        std::to_string(origin) + " after an item at " +
+                        std::to_string(open_items.back().origin) +
+                        " with text at " +
+                        std::to_string(open_items.back().text_column) + ")");
+      }
+      if (block.parent_block != npos)
+        topic.blocks[block.parent_block].body_blocks.push_back(self);
+      block.list_ordinal = opened.ordinal;
     }
     if (!is_item[block_index]) {
       bool example = false;
