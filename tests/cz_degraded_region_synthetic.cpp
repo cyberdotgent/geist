@@ -1171,10 +1171,20 @@ void a_list_at_the_indent_continues_an_inline_definition() {
           "the continued definition did not survive rendering: " + markdown);
 }
 
-// FLOW LP is a list-part boundary, not a list item.  DFHP7A00 2.3.4.1 uses
-// it twice inside one DL, before the `Definition:` and `Operations:` section
-// paragraphs that divide two runs of DT entries.
-void a_list_part_paragraph_fails_as_mixed_list_content() {
+// `cz FLOW LP` inside a DL is a list part: a paragraph at the list's own
+// margin that belongs to no entry, between runs of entries of one list.
+// Hosted BookServer serves it as `<br>` and the text inside the one `<dl>`,
+// and the `<dt>` entries after it continue that list:
+//  * SC33-1692-02 2.3.4.1 (DT 19990303174038) stores `cz FLOW LP 3 3`, then
+//    `cz FLOW P 3 3` carrying `   Definition:` -- the DFHP7A00 2.3.4.1
+//    shape -- and serves `<dl>\n<br>   Definition:\n<dt>   <B>EXEC</B> ...`;
+//  * SC33-1692-01 2.3.4.1 (DT 19970821113553) and SC33-1119-00 4.5.1.1
+//    (DT 19960129110036) carry the row on the LP itself, the latter after a
+//    DT/DD entry: `<br>   The remaining options specify the attributes of
+//    the 4-tuple.` and then three more `<dt>` entries in the same `<dl>`.
+// HTML has no paragraph inside a `<dl>`, so the part lowers to a paragraph
+// between two runs of the list, exactly like the opener's lead-in rows.
+void a_list_part_paragraph_divides_its_definition_list() {
   RecordBuilder builder;
   metadata(builder);
   builder.line({words("cz"), words("FLOW"), words("DL"), words("3"),
@@ -1186,17 +1196,146 @@ void a_list_part_paragraph_fails_as_mixed_list_content() {
   builder.line({words("   "), words("Definition:")});
   builder.line({words("cz"), words("FLOW"), words("DT"), words("3"),
                 words("20")});
-  builder.line({words("   "), words("INSTALL"), words("Define"),
-                words("resources")});
+  builder.line({words("   "), words("INSTALL"), words("          "),
+                words("Define"), words("resources")});
+  builder.line({words("cz"), words("FLOW"), words("DT"), words("3"),
+                words("13")});
+  builder.line({words("   "), words("Protocol")});
+  builder.line({words("cz"), words("FLOW"), words("DD"), words("13"),
+                words("13")});
+  builder.line({words("             "), words("Specifies"), words("the"),
+                words("protocol.")});
+  builder.line({words("cz"), words("FLOW"), words("LP"), words("3"),
+                words("3")});
+  builder.line({words("   "), words("Operations:")});
+  builder.line({words("cz"), words("FLOW"), words("DT"), words("3"),
+                words("20")});
+  builder.line({words("   "), words("SET"), words("              "),
+                words("Control"), words("resources.")});
   builder.line({words("cz"), words("OFF"), words("EDL"), words("0"),
                 words("0")});
 
   const auto extracted = extract_record(std::move(builder), 29);
-  require(!extracted.prose.has_value(),
-          "a FLOW LP section was flattened outside its definition list");
-  require(contains(extracted.error,
-                   "needs mixed list block content"),
-          "the FLOW LP decline is not structural: " + extracted.error);
+  require(extracted.prose.has_value(),
+          "a FLOW LP list part was declined: " + extracted.error);
+  if (!extracted.prose) return;
+  using Kind = geist::detail::ProseBlockKindIR;
+  const auto &blocks = extracted.prose->blocks;
+  const auto none = static_cast<std::size_t>(-1);
+  std::vector<std::size_t> body;
+  for (std::size_t index = 0; index < blocks.size(); ++index)
+    if (blocks[index].parent_block == none &&
+        blocks[index].kind != Kind::heading)
+      body.push_back(index);
+  const std::vector<Kind> expected = {Kind::paragraph, Kind::definition_entry,
+                                      Kind::definition_entry, Kind::paragraph,
+                                      Kind::definition_entry};
+  require(body.size() == expected.size(),
+          "the list parts and entries are not five top-level blocks");
+  if (body.size() != expected.size()) return;
+  for (std::size_t index = 0; index < body.size(); ++index)
+    require(blocks[body[index]].kind == expected[index],
+            "top-level block " + std::to_string(index) +
+                " has the wrong kind");
+  require(contains(block_text(blocks[body[0]]), "Definition:") &&
+              contains(block_text(blocks[body[3]]), "Operations:"),
+          "the list-part paragraphs lost their text");
+  const auto ordinal = blocks[body[1]].list_ordinal;
+  require(blocks[body[2]].list_ordinal == ordinal &&
+              blocks[body[4]].list_ordinal == ordinal,
+          "the entries after a list part left their definition list");
+  const auto *protocol = find_entry(*extracted.prose, "Protocol");
+  require(protocol != nullptr && protocol->body_blocks.empty(),
+          "the list part joined the DD body before it");
+  const auto document = lower_document(extracted);
+  if (!document) return;
+  std::vector<std::size_t> shape;
+  for (const auto &candidate : document->blocks) {
+    if (std::holds_alternative<geist::detail::ParagraphBlockIR>(
+            candidate.node))
+      shape.push_back(0);
+    else if (const auto *list =
+                 std::get_if<geist::detail::DefinitionListBlockIR>(
+                     &candidate.node))
+      shape.push_back(list->entries.size());
+  }
+  require(shape == std::vector<std::size_t>{0, 2, 0, 1},
+          "the list did not lower as part, two entries, part, one entry");
+  const auto markdown = geist::detail::render_document_markdown(*document);
+  require(contains(markdown, "Definition:") &&
+              contains(markdown, "Operations:") &&
+              contains(markdown, "Specifies the protocol") &&
+              contains(markdown, "Control resources"),
+          "the divided definition list did not survive rendering: " +
+              markdown);
+}
+
+// Every LP shape without that evidence keeps declining.
+void list_part_declines(const std::vector<std::vector<std::string>> &rows,
+                        const std::string &expected,
+                        const std::string &what) {
+  RecordBuilder builder;
+  metadata(builder);
+  for (const auto &row : rows) {
+    std::vector<TokenWords> line;
+    for (const auto &word : row) line.push_back(words(word));
+    builder.line(std::move(line));
+  }
+  const auto extracted = extract_record(std::move(builder), 30);
+  require(!extracted.prose.has_value() && contains(extracted.error, expected),
+          what + " was admitted or declined for the wrong reason: " +
+              extracted.error);
+}
+
+void unproven_list_parts_still_decline() {
+  const std::vector<std::string> edl = {"cz", "OFF", "EDL", "0", "0"};
+  const std::vector<std::string> entry_dt = {"cz", "FLOW", "DT", "3", "20"};
+  const std::vector<std::string> entry_row = {"   ", "SET",
+                                              "              ", "Control"};
+  // A list part of any other list has no hosted reference.
+  list_part_declines({{"cz", "FLOW", "UL", "3", "3"},
+                      {"cz", "FLOW", "LP", "3", "3"},
+                      {"   ", "Operations:"},
+                      {"cz", "OFF", "EUL", "0", "0"}},
+                     "cz flow lp inside a ul needs mixed list block content",
+                     "an LP inside a UL");
+  // No text of its own, and no paragraph at its margin to supply one.
+  list_part_declines({{"cz", "FLOW", "DL", "3", "3"},
+                      {"cz", "FLOW", "LP", "3", "3"},
+                      entry_dt,
+                      entry_row,
+                      edl},
+                     "cz FLOW LP has no list-part text",
+                     "an LP with no rows before a DT");
+  list_part_declines({{"cz", "FLOW", "DL", "3", "3"},
+                      {"cz", "FLOW", "LP", "3", "3"},
+                      {"cz", "FLOW", "P", "20", "20"},
+                      {"                    ", "Operations:"},
+                      entry_dt,
+                      entry_row,
+                      edl},
+                     "cz FLOW LP has no list-part text",
+                     "an LP before a paragraph at another column");
+  // A part away from the list's own margin.
+  list_part_declines({{"cz", "FLOW", "DL", "3", "3"},
+                      {"cz", "FLOW", "LP", "20", "20"},
+                      {"                    ", "Operations:"},
+                      entry_dt,
+                      entry_row,
+                      edl},
+                     "cz FLOW LP is not at its definition list's margin",
+                     "an LP off the list margin");
+  // A term still waiting for its definition.
+  list_part_declines({{"cz", "FLOW", "DL", "3", "3"},
+                      {"cz", "FLOW", "DT", "3", "13"},
+                      {"   ", "Protocol"},
+                      {"cz", "FLOW", "LP", "3", "3"},
+                      {"   ", "Operations:"},
+                      entry_dt,
+                      entry_row,
+                      edl},
+                     "cz FLOW LP follows a term with no definition",
+                     "an LP after a term-only DT");
 }
 
 // The closed region: emitted verbatim, marked degraded, everything around it
@@ -1334,7 +1473,8 @@ int main() {
   a_list_at_the_indent_continues_an_inline_definition();
   an_empty_dt_owns_the_paragraph_or_screen_that_follows();
   balanced_nested_verbatim_delimiters_stay_inside_the_outer_region();
-  a_list_part_paragraph_fails_as_mixed_list_content();
+  a_list_part_paragraph_divides_its_definition_list();
+  unproven_list_parts_still_decline();
   a_closed_unmodelled_region_degrades_its_block();
   an_unclosed_unmodelled_region_declines_the_topic();
   geist_test::exit_with_failures();

@@ -3682,11 +3682,72 @@ the hosted BookServer, so these three placements are read from the controls
 alone; hosted serves every block after a `<dd>` inside that definition in
 any case, because its markup never closes the `<dd>`.
 
-Unresolved: `cz FLOW LP` inside a `DL` (`DFHP7A00` `2.3.4.1`, logical record
-149: `cz FLOW DL 3 3`, `cz FLOW LP 3 3`, `cz FLOW P 3 3` with the row
-`Definition:`, four `DT` entries, then `LP`/`P` `Operations:` and two more)
-is a list part that belongs to the list but to none of its entries; it has
-no hosted reference.
+===== List parts
+
+`cz FLOW LP left indent` inside an open `DL` is a *list part*: a paragraph at
+the list's own margin that belongs to the list but to none of its entries.
+It ends the definition of the entry before it, and the `DT` entries after it
+continue the same list.  Its text is either the directive's own rows, or --
+when the `LP` line is followed directly by another layout directive -- the
+rows of the `cz FLOW P` that follows it at the same `left`.  Hosted
+BookServer serves both forms identically: `<br>` and the text, inside the one
+`<dl>`, with no `<dt>` or `<dd>` of its own.
+
+[cols="2,2,3,4",options="header"]
+|===
+| Book (hosted DT) | Topic, record | Bytes | Served markup
+| `SC33-1692-01` (19970821113553)
+| `2.3.4.1`, 175
+| `06 4C 94 D4 6D C3 C3` at `0x7AB45` (`cz FLOW DL 3 3`), `06 4C 94 DB DB C3 C3`
+at `0x7AB4C` (`cz FLOW LP 3 3`), row `05 16 D2 53 00 27` (`   Definition:`);
+second `LP` at `0x7ABF5`, row `05 16 DD CD 00 27` (`   Operations:`)
+| `<dl>` `<br>   Definition:` four `<dt>` entries, then `<br>   Operations:`
+and two more `<dt>` entries, one `</dl>`
+| `SC33-1692-02` (19990303174038)
+| `2.3.4.1`, 170
+| `06 52 99 D6 22 C5 C5` at `0x245DF` (`cz FLOW DL 3 3`), `06 52 99 DC 35 C5 C5`
+at `0x245E6` (`cz FLOW LP 3 3`), `05 52 99 A4 C5 C5` at `0x245ED`
+(`cz FLOW P 3 3`), row `05 1B D4 51 00 2F` (`   Definition:`); second `LP`
+at `0x2468F`, `P` at `0x24696`, row `05 1B DE 01 00 2F` (`   Operations:`)
+| identical to `SC33-1692-01`
+| `SC33-1119-00` (19960129110036)
+| `4.5.1.1`, 193
+| `06 36 77 DA 30 B2 B2` at `0x23455` (record 192, `cz FLOW DL 3 3`);
+`06 36 77 DE C5 B2 B2` at `0x235BB` (`cz FLOW LP 3 3`), then the row with
+length byte `13` beginning `09 91 E2 30` (`   The remaining options specify
+the attributes of the 4-tuple.`)
+| four `DT`/`DD` entries, `<br>   The remaining options ...`, three more
+`<dt>` entries, one `</dl>`
+| `SC33-1683-01` (19990708111648)
+| `1.1.3.10`, 263--264
+| `06 3F 73 AE AF 91 91` at `0x28870E` (`cz FLOW DL 3 3`); after the second
+entry's nested `UL` closes, `06 3F 73 BD 9D 91 91` at `0x2887CA`
+(`cz FLOW LP 3 3`), row `08 0A 6A 7B C9 15 4A 00 22` (` \| The sequence
+is:`), then `04 3F 77 BC DF` (`cz OFF LINES`); repeated in record 264
+| `<br><br> \| The sequence is:`, the `LINES` block as `<pre width="80">`,
+then the next `<dt>` in the same `<dl>`
+|===
+
+The `LP` takes the list's `left` (3 in every witness) and its own
+indentation in the served text matches the terms, not the definitions.  The
+`P 3 3` form is the one `DFHP7A00` `2.3.4.1` uses (logical record 149:
+`06 52 97 D6 49 C4 C4` at `0x3973E` is `cz FLOW DL 3 3`, `06 52 97 DC 5E C4 C4`
+at `0x39745` is `cz FLOW LP 3 3`, `05 52 97 A2 C4 C4` at `0x3974C` is
+`cz FLOW P 3 3`, and `05 1B D4 81 00 2E` at `0x39752` is the row
+`   Definition:`; the second part is the same triple at `0x397F1`).  It is
+the later edition of the `SC33-1692` text and is not on the hosted
+BookServer itself.
+
+A list part breaks no rule of the HTML `<dl>` only because BookServer emits
+it as bare text; a paragraph is not a permitted child of `<dl>`, so a reader
+that keeps valid markup serves the part as a paragraph between two runs of
+the same list, as it does the list opener's lead-in rows.
+
+Not interpreted: an `LP` inside `UL`, `OL` or `PARML` (all observed, e.g.
+`SC33-1683-01` `5.3.1.1`, `GC33-1163-01` `3.0`, `SC41-5454-00` `7.1.4`); an
+`LP` in a `DL` away from the list's `left`; an `LP` after a term still
+waiting for its definition; and an `LP` with no rows that is not followed by
+a `cz FLOW P` at its `left`.
 
 The H6 form has the same four operands as H2--H5.  DFHP7A00 topic `2.3.4.5.2`,
 logical record 174, stores `06 52 97 DA 34 C4 C4` at BOO bytes

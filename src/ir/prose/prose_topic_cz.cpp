@@ -256,6 +256,8 @@ struct Frame {
   // Global block index of the term whose compound body is active. Child
   // blocks remain in the topic-wide source order and link back to this owner.
   std::size_t body_owner = npos;
+  // The opener's `left` operand: the list's own margin (npos: unknown).
+  std::size_t left = npos;
 };
 
 struct CzBuilder {
@@ -587,6 +589,54 @@ struct CzBuilder {
     frame.pending_definition = npos;
     frame.body_owner = block_index;
     return paragraphs(groups, 1);
+  }
+
+  // `cz FLOW LP` inside a DL: a list part, the paragraph at the list's own
+  // margin that belongs to no entry and divides two runs of its entries.
+  // Hosted BookServer serves it as `<br>` and the text inside the one `<dl>`,
+  // and the `<dt>` entries after it continue that list:
+  //  * SC33-1119-00 4.5.1.1 (DT 19960129110036) record 193 stores
+  //    `cz FLOW LP 3 3` and the row `   The remaining options specify the
+  //    attributes of the 4-tuple.` after the DT/DD entry `Protocol`, served
+  //    as `<br>   The remaining options ...` and three more `<dt>` entries;
+  //  * SC33-1692-01 2.3.4.1 (DT 19970821113553) record 175 stores the rows
+  //    `   Definition:` and `   Operations:` on its two LPs, served as
+  //    `<dl>\n<br>   Definition:\n<dt>` .. `<br>   Operations:\n<dt>`;
+  //  * SC33-1692-02 2.3.4.1 (DT 19990303174038) record 170 stores each LP
+  //    without rows and the row on the `cz FLOW P 3 3` that follows it at
+  //    the same margin -- the DFHP7A00 2.3.4.1 shape -- and is served
+  //    exactly like SC33-1692-01.
+  // The part ends the body of the entry before it.  HTML has no paragraph
+  // inside a `<dl>`, so the part lowers as a paragraph between two runs of
+  // the list, like the list opener's lead-in rows.  A part anywhere but at
+  // the list margin, after a term still waiting for its definition, or with
+  // no text of its own and no paragraph at its margin, has no reference.
+  bool list_part(std::size_t index, const LayoutDirective& directive,
+                 const std::vector<std::pair<std::size_t, std::size_t>>& groups) {
+    auto& frame = stack.back();
+    if (frame.pending_definition != npos)
+      return fail(error, "cz FLOW LP follows a term with no definition");
+    if (frame.left == npos || directive.left != frame.left)
+      return fail(error, "cz FLOW LP is not at its definition list's margin");
+    if (groups.empty()) {
+      const auto next = index + 1;
+      const auto text_follows =
+          next < build.directives.size() &&
+          build.directives[next].mode == "flow" &&
+          build.directives[next].tag == "p" &&
+          build.directives[next].left == directive.left &&
+          ranges[next].first != npos &&
+          std::any_of(lines.begin() +
+                          static_cast<std::ptrdiff_t>(ranges[next].first),
+                      lines.begin() +
+                          static_cast<std::ptrdiff_t>(ranges[next].second),
+                      [](const Line& line) { return has_text(line); });
+      if (!text_follows) return fail(error, "cz FLOW LP has no list-part text");
+    }
+    frame.body_owner = npos;
+    frame.inline_entry = npos;
+    frame.inline_indent = npos;
+    return paragraphs(groups, 0);
   }
 
   bool implicit_parameter_list(std::size_t index) const {
@@ -1381,6 +1431,7 @@ struct CzBuilder {
           return false;
         if (!paragraphs(groups, 0)) return false;
         stack.push_back({tag, next_list_ordinal++, 0});
+        stack.back().left = directive.left;
         return true;
       }
       if (tag == "li") {
@@ -1390,8 +1441,10 @@ struct CzBuilder {
       if (tag == "lp") {
         if (stack.empty())
           return fail(error, "cz FLOW LP outside an open list");
-        return fail(error, name + " inside a " + stack.back().tag +
-                               " needs mixed list block content");
+        if (stack.back().tag != "dl")
+          return fail(error, name + " inside a " + stack.back().tag +
+                                 " needs mixed list block content");
+        return list_part(index, directive, groups);
       }
       if (tag == "dt") {
         // A DT with no display rows at all is an empty term whose body is
