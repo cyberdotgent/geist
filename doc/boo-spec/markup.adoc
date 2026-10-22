@@ -634,6 +634,24 @@ where `cselect` lines split the field's rows between controls.
 HDRJLIB` and `cselect 9 10 HDRJLIB` between the rows.  Hosted serves
 `data sets)`.
 
+A comma that ends a drawn row in front of a control line is that row's
+text.  The comma is stored as an attach-control token (`02`: the attach
+control `01` and `,`) inside the row's own display line, and the next line
+opens with a control such as `cfont`.  `APPENDIX1.5.3` record 2827 line 11
+is `   The codes for the PASCAL run-time error bbb are described in Chapter
+20,`; its last token (147, `02` at `0x1C6B1F`) is that comma, and line 12
+(length byte `14` at `0x1C6B20`) is `cfont 32 2 C 35 6 C ...`.  Hosted
+(DT `19921112160049`) serves `Chapter 20,`.  A reader that splits the
+record's words at `, <control>` loses this comma between two controls; the
+display line framing puts it on line 11.  The same byte as a display line's
+length is not drawn: `SC09-138` `F.1` record 2061 token 60 is `02`, the
+length of line 5, whose dictionary word is `,`, and hosted F.1
+(DT `19910321130500`) shows no comma after `incorrect format.`.  `N2AH1MST`
+(DT `19910329000100`) has 32 such row-end commas in topics `3.0`, `6.0`,
+`9.0`, `10.0`, `11.0`, `14.0`, `16.0`, `17.0`, `18.0`, `20.0`, `21.0` and
+`28.0`, among them `Ucde,` and `symbol,` in `20.0` and `Planning,` in
+`28.0`; hosted serves every one.
+
 A run inside a field is checked against its own row's cells the same way.
 That holds when its `cfont` closes one record and the row opens the next.
 `APPENDIX1.5.3` record 2547 ends with line 33, `cfont 3 8 1 21 8 1`, in the

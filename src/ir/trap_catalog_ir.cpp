@@ -778,8 +778,43 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
                          return from >= range.first && to <= range.second;
                        });
   };
-  const auto range = decoded_byte_range_to_word_range(
+  auto range = decoded_byte_range_to_word_range(
       record.assembled, whole_segment ? segment.complete : segment.payload_range);
+  // The flattened splitter cuts its segments at `, <control>`, so an
+  // attach-control comma that ends a drawn row in front of a control line
+  // falls between two segments. The record's framing says it is drawn on
+  // the row the payload ends on, and it is that row's text: SC34-425
+  // APPENDIX1.5.3 record 2827 line 11 ends `Chapter 20` + token 147 (`02`
+  // at 0x1C6B1F, the attach control and `,`) before line 12's
+  // `cfont 32 2 C ...`, and hosted (DT 19921112160049) serves `Chapter 20,`.
+  // A token outside the payload's last display line, a length byte (SC09-138
+  // F.1 record 2061 token 60 is line 5's length, spelled `,`) or a token of
+  // another segment ends the extension.
+  if (!segment.source_tokens.empty() && record_framing_is_decided(record.ir)) {
+    const auto payload_tokens =
+        source_tokens_intersecting_output(record.assembled, range.begin, range.end);
+    const auto last = segment.source_tokens.back();
+    const auto *line = !payload_tokens.empty() && payload_tokens.back() == last
+                           ? display_line_of_token(record, last)
+                           : nullptr;
+    for (auto token = last + 1; line != nullptr && token < line->token_end;
+         ++token) {
+      if (is_display_line_length_token(record, token) ||
+          std::any_of(record.control_segments.begin(),
+                      record.control_segments.end(), [&](const auto &other) {
+                        return std::find(other.source_tokens.begin(),
+                                         other.source_tokens.end(),
+                                         token) != other.source_tokens.end();
+                      }))
+        break;
+      const auto span = std::find_if(
+          record.assembled.tokens.begin(), record.assembled.tokens.end(),
+          [&](const auto &candidate) { return candidate.token_index == token; });
+      if (span == record.assembled.tokens.end())
+        break;
+      range.end = std::max(range.end, span->output_end);
+    }
+  }
   // Every selector this payload's row carries, in source order: the queued
   // selectors whose control lines preceded this one, then its own.
   std::vector<QueuedSelector> selectors;

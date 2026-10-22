@@ -65,7 +65,9 @@
 //   * a closing glyph drawn mid-line, kept although LayoutIR took it for
 //     a row-control slot, and a segment-closing glyph that closes a
 //     bracket an earlier segment of the field opened;
-//   * a single-SRMSG topic routed to this family alone.
+//   * a single-SRMSG topic routed to this family alone;
+//   * a row-end attach comma that the splitter leaves between two segments,
+//     and the same word as a length byte, which draws nothing.
 //
 // What is NOT covered, stated plainly rather than implied: the compact
 // marker slot that carries a whole word. Two rules turn on it -- a slot the
@@ -3475,6 +3477,65 @@ int main() {
                            return reason.rfind("message catalog", 0) == 0;
                          }),
             "a single-SRMSG topic was offered to the Meaning/Action family");
+  }
+
+  // An attach-control comma that ends a drawn row in front of a `cfont`
+  // line is the row's own text. The flattened splitter cuts its segments at
+  // `, cfont`, so the comma falls between two segments. SC34-425
+  // APPENDIX1.5.3 record 2827 line 11 is `   The codes for the PASCAL
+  // run-time error bbb are described in Chapter 20,`, whose last token (147,
+  // `02` at 0x1C6B1F) is the attach control and `,`, and line 12 is
+  // `cfont 32 2 C ...`. Hosted (DT 19921112160049) serves `Chapter 20,`.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({t("SRMSG", 110), t("727", 569)}));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("3", 112), t("2", 113)}));
+    append(tokens, line({origin(), t("727", 569)}));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("12", 114), t("2", 113)}));
+    append(tokens, line({origin(), t("Description:", 115), t("first", 117),
+                         t("field", 118), {TokenWords{1, ','}, 2}}));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("5", 506), t("C", 540)}));
+    append(tokens, line({origin(), t("Later", 262), t("text.", 251)}));
+    const auto built = build({make_source(137, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "a row-end comma before a font line declined: " + built.error);
+    if (built.catalog && built.catalog->entries.size() == 1) {
+      const auto text = entry_text(built.catalog->entries.front());
+      require(text == "727 Description: first field, Later text.",
+              "a row-end comma before a font line was lost: [" + text + "]");
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "the row-end comma entry failed verification: " + error);
+    }
+
+    // Mutation: the same comma as the next line's length byte is the
+    // flattened boundary itself and draws nothing (SC09-138 F.1 record 2061
+    // token 60, `02`, the length of line 5, spelled `,`).
+    auto boundary = header("Sample", "Messages");
+    append(boundary, line({t("SRMSG", 110), t("728", 570)}));
+    append(boundary,
+           line({t("cfont", 111), t("3", 112), t("3", 112), t("2", 113)}));
+    append(boundary, line({origin(), t("728", 570)}));
+    append(boundary,
+           line({t("cfont", 111), t("3", 112), t("12", 114), t("2", 113)}));
+    append(boundary, line({origin(), t("Description:", 115), t("first", 117),
+                           t("field", 118)}));
+    const std::vector<Token> font = {t("cfont", 111), t("3", 112),
+                                     t("5", 506), t("C", 540)};
+    boundary.push_back({TokenWords{1, ','},
+                        static_cast<std::uint16_t>(font.size())});
+    append(boundary, font);
+    append(boundary, line({origin(), t("Later", 262), t("text.", 251)}));
+    const auto plain = build({make_source(138, boundary)}, "Sample Messages");
+    require(plain.catalog.has_value() &&
+                entry_text(plain.catalog->entries.front()) ==
+                    "728 Description: first field Later text.",
+            "a length byte spelled `,` was drawn: " + plain.error);
   }
 
   std::cout << "trap catalog IR synthetic tests passed\n";
