@@ -785,6 +785,15 @@ The first selector has no payload of its own.  Hosted serves
 `architecture<a href="#FTNFTNUNIQ22"> (*)</a> (SAA<a href="#FTNFTNUNIQ23"> (*)</a>)`:
 both selectors mark cells of line 13, and neither replaces the other.
 
+A selector on the last line of its record marks the first line of the next
+record inside an entry too, as it does in the introduction.  `N2AH1MST`
+record 1886 ends with line 41, `cselect 46 4 FTNFTNUNIQ32`, inside entry
+`ERB265I` of topic `21.0`.  Record 1887 line 0 is
+`          01F0   Function not supported by VM. (*) partition is not`,
+whose cells 46--49 are ` (*)`.  Hosted (DT `19910329000100`) serves
+`VM.<a href="...#FTNFTNUNIQ32"> (*)</a> partition`.  The record's leading
+length byte here is `17` (23) at `0xB09CD`, which happens to spell `/`.
+
 The important implementation rule is that this is not a hardcoded packet title
 or hardcoded three-line page rule. `:vnotice.` changes the interpretation of
 the following controls: the first body `CFONT` is the visual notice heading,

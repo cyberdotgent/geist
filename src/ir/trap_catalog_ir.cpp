@@ -736,7 +736,31 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
             !selected_glyphs.emplace(cell.token, cell.word_index).second)
           return fail(error, "trap selectors on one row overlap");
   } else if (queued != nullptr && !queued->empty()) {
-    return fail(error, "trap queued selector has no selector row");
+    // Selectors that closed the record before mark this record's first row,
+    // and this payload must open on that row.
+    const auto first_payload_token = [&]() -> std::optional<std::size_t> {
+      const auto tokens = source_tokens_intersecting_output(
+          record.assembled, range.begin, range.end);
+      if (tokens.empty())
+        return std::nullopt;
+      return tokens.front();
+    }();
+    const auto *first_line =
+        first_payload_token ? display_line_of_token(record, *first_payload_token)
+                            : nullptr;
+    for (const auto &waiting : *queued) {
+      if (segment.segment_index != 0 ||
+          waiting.selector.target_record != record.logical_record ||
+          first_line == nullptr ||
+          waiting.selector.row_prefix_token != first_line->prefix_token)
+        return fail(error, "trap queued selector has no selector row");
+      selectors.push_back(waiting);
+    }
+    for (const auto &selector : selectors)
+      for (const auto &cell : selector.selector.cells)
+        if (cell.word != ' ' &&
+            !selected_glyphs.emplace(cell.token, cell.word_index).second)
+          return fail(error, "trap selectors on one row overlap");
   }
   std::vector<Piece> pieces;
   std::vector<NativeListMarker> list_markers;
@@ -2832,17 +2856,37 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
             segment.kind == BookControlKind::select && current != nullptr &&
             !open_region) {
           std::string selector_error;
-          auto selector =
-              read_trap_selector_source(*ref.record, segment, &selector_error);
-          if (selector && selector->queued)
+          auto selector = read_trap_selector_source(
+              *ref.record, segment, &selector_error,
+              find_record(records, ref.record->logical_record + 1));
+          // A selector that closes its record marks the next record's first
+          // row, as in the introduction: N2AH1MST record 1886 ends with line
+          // 41 `cselect 46 4 FTNFTNUNIQ32`, record 1887 line 0 draws
+          // `01F0   Function not supported by VM. (*) partition is not`, and
+          // hosted 21.0 (DT 19910329000100) links that `(*)`.
+          if (selector && (selector->queued || selector->target_record !=
+                                                   ref.record->logical_record))
             queued_selectors.push_back(
                 {std::move(*selector), segment_slice(*ref.record, segment)});
         }
         ledger_empty_lines();
         continue;
       }
+      // Selectors queued from the record before mark this record's first
+      // row, which its leading text segment draws.
+      const auto carried_selectors =
+          !queued_selectors.empty() && segment.segment_index == 0 &&
+          (segment.kind == BookControlKind::text ||
+           segment.kind == BookControlKind::unknown) &&
+          std::all_of(queued_selectors.begin(), queued_selectors.end(),
+                      [&](const auto &waiting) {
+                        return waiting.selector.target_record ==
+                                   ref.record->logical_record &&
+                               waiting.source.logical_record + 1 ==
+                                   ref.record->logical_record;
+                      });
       if (!queued_selectors.empty() &&
-          segment.kind != BookControlKind::select)
+          segment.kind != BookControlKind::select && !carried_selectors)
         return reject("trap queued selector has no drawn row: " + entry.id);
       const auto opcode_is_line_prefix =
           segment_opcode_is_display_line_prefix(*ref.record, segment);
@@ -3456,7 +3500,8 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
         if (!walk_payload(*ref.record, segment, index, piece, entry.cells,
                           entry_cell_positions, error, false, 0,
                           opcode_is_line_prefix, nullptr,
-                          segment.kind == BookControlKind::select
+                          segment.kind == BookControlKind::select ||
+                                  carried_selectors
                               ? &queued_selectors
                               : nullptr))
           return std::nullopt;

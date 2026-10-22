@@ -2921,6 +2921,58 @@ int main() {
             "a footnote spanning an entry's headline was admitted");
   }
 
+  // A selector that closes its record inside an entry marks the next
+  // record's first row, as in the introduction: N2AH1MST record 1886 ends
+  // with line 41 `cselect 46 4 FTNFTNUNIQ32`, and record 1887 line 0 is
+  // `          01F0   Function not supported by VM. (*) partition is not`;
+  // hosted 21.0 links that `(*)` to `#FTNFTNUNIQ32`.
+  {
+    auto first = header("Sample", "Messages");
+    append(first, entry("677", 492));
+    append(first, line({t("cselect", 191), t("3", 112), t("3", 112),
+                        t("FTNX", 493)}));
+    std::vector<Token> second;
+    append(second, line({origin(), t("(*)", 484), t("rest.", 494)}));
+    append(second, line({}));
+    append(second, entry("678", 495));
+    const auto built = build({make_source(108, first), make_source(109, second)},
+                             "Sample Messages");
+    require(built.catalog.has_value(),
+            "a record-closing selector inside an entry declined: " +
+                built.error);
+    if (built.catalog && built.catalog->entries.size() == 2) {
+      const auto &body = built.catalog->entries.front().fields.front().line.body;
+      require(body.links.size() == 1 && body.links.front().target == "FTNX" &&
+                  body.text.substr(body.links.front().begin,
+                                   body.links.front().end -
+                                       body.links.front().begin) == "(*)",
+              "a record-closing selector inside an entry lost its link: [" +
+                  body.text + "]");
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "the record-closing entry selector failed verification: " +
+                  error);
+    }
+
+    // Mutation: the next record opens on a control rather than on the row
+    // the selector marks. The selector has no row to place, so the
+    // catalogue declines rather than drop the link.
+    std::vector<Token> controlled;
+    append(controlled,
+           line({t("cfont", 111), t("3", 112), t("12", 114), t("2", 113)}));
+    append(controlled, line({origin(), t("Description:", 115), t("(*)", 484),
+                             t("rest.", 494)}));
+    append(controlled, line({}));
+    append(controlled, entry("682", 502));
+    const auto declined = build(
+        {make_source(112, first), make_source(113, controlled)},
+        "Sample Messages");
+    require(!declined.catalog.has_value(),
+            "a record-closing selector with no row to mark was admitted");
+  }
+
   std::cout << "trap catalog IR synthetic tests passed\n";
   return 0;
 }
