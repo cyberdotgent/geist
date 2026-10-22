@@ -967,6 +967,7 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
   // labelled box, and no `<table>`.
   const auto verbatim_regions = cz_verbatim_regions(records);
   const auto box_markup = box_markup_envelopes(records);
+  const auto box_leaders = box_leading_anchors(records);
   // Which dialect the topic is written in: a body that carries any `CZ`
   // control names every block boundary explicitly, a body that carries none
   // reconstructs its blocks from row geometry (doc/boo-spec/markup.adoc, "CZ layout
@@ -1654,7 +1655,17 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
                                                return box_word(word);
                                              });
                         });
-        if ((visible_payload || in_box || drawn_verbatim_payload) &&
+        // A bare anchor alone on the line above a closed box names the box
+        // (`box_leading_anchors`, prose_topic_boxes.cpp): the payload its
+        // flattened segment ran on into is the box's first rows, and the
+        // anchor wraps the top rule, as hosted SC24-546 4.3.21 (DT
+        // 19940323131240) serves `<a name="SPTFDATE">`.
+        const auto box_leader =
+            !segment.source_tokens.empty() && !list_item_closer &&
+            box_leaders.count({record_index, segment.source_tokens.front()}) !=
+                0;
+        if ((visible_payload || in_box || drawn_verbatim_payload ||
+             box_leader) &&
             title_seen) {
           if (anchor_operands.empty())
             return fail(error, "anchor control has no source token");

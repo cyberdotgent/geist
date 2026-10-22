@@ -2937,6 +2937,46 @@ a frame.  ITPPIBOK `4.3.5.4` record 158 line 23 opens `SRTBLTBLUNIQ34`
 `| TASK | START | ...` grid, with `|_____|_____|` rules between them, and
 that grid is a table.
 
+[[markup_anchor_above_closed_box]]
+==== An anchor directly above a closed box
+
+A bare `SR<id>` anchor on a line of its own directly above the top rule of a
+closed box names the box.  SC24-546 `4.3.21` (logical record 375) draws the
+`DATE` syntax diagram this way.  Offsets are absolute file offsets.
+
+[cols="<10,<44,<40",options="header"]
+|===
+|Line |Bytes |Reading
+
+|12 |`02` at `0x2D72E`, then `E5 FC` at `0x2D72F` |`SRSPTFDATE`, a line of its own
+|13 |`08` at `0x2D731`; `13`, `06` (`U+250C`), `00`, `0D` (63 x `U+2500`), `00`, `0C` (9 x `U+2500`), `00`, `05` (`U+2510`) |the box's top rule, columns 3-76
+|14 |`05` at `0x2D73A`; `13`, `7A` (`U+2502`), `20`, `18`, `7A` |rails at columns 3 and 76, blank between
+|15 |`04` at `0x2D740`, then `cfont 9 4 P` |the next control
+|16--19 |-- |the diagram rows between the rails, with `cfont` lines between them
+|20 |-- |the bottom rule, `U+2514` .. `U+2518`
+|===
+
+The decoded control string does not stop at the end of the anchor's line:
+the segment that `SRSPTFDATE` opens runs on through lines 13 and 14, up to
+the `cfont` of line 15, so its payload is the box's top rule and first rail
+row.  Those are drawn rows, not part of the anchor.  Hosted BookServer (DT
+`19940323131240`) serves `<a name="SPTFDATE">` wrapped around the top rule
+and prints all eight box rows verbatim inside the topic's `<pre>`, with no
+row for the anchor line.  Topics `3.14` (`SPTREF35`), `4.3.26` (`SPTDIGF`),
+`4.3.32` (`SPTFORMF`), `4.3.34` (`SPTFUZZF`) and `4.3.62` (`SPTREF56`) of the same book
+draw the same shape, each matching hosted row for row.
+
+The reading applies only to the proven shape:
+
+* The box is closed: a top and a bottom rule at the same rails.
+* The anchor's line holds the one structural control and nothing else, and
+  it ends exactly where the top rule's line begins.  No empty line or other
+  line stands between them.
+* Every payload token of the anchor's segment lies within the box's rows.
+
+An anchor separated from the box by an empty line, or standing above an
+open drawing, is not proven to name it.
+
 [[markup_frame_rows_around_table]]
 ==== Frame rows around a table
 

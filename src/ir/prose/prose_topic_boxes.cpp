@@ -560,4 +560,59 @@ std::set<std::pair<std::size_t, std::size_t>> box_enclosed_envelopes(
   return enclosed;
 }
 
+// A bare `SR<id>` anchor alone on the display line directly above a closed
+// box names the box.  SC24-546 4.3.21 record 375 line 12 is `SRSPTFDATE`
+// (`SR` and the id only), line 13 the top rule of the `DATE` syntax-diagram
+// box and line 20 its bottom rule.  The anchor's flattened segment runs on
+// past its own line into the box's first two rows (lines 13 and 14, up to
+// the `cfont` line 15 that opens the next segment).  Hosted BookServer (DT
+// 19940323131240) serves `<a name="SPTFDATE">` wrapped around the top rule
+// and prints all eight box rows verbatim; 3.14 (`SPTREF35`), 4.3.26
+// (`SPTDIGF`), 4.3.32 (`SPTFORMF`), 4.3.34 (`SPTFUZZF`) and 4.3.62 (`SPTREF56`) draw the
+// same shape.  Read as the anchor's padding, those rows vanished.
+//
+// Only the proven shape qualifies: the box is closed, the anchor's line is a
+// control line of its own made of one structural control, it ends exactly
+// where the top rule begins (no blank or other line between), and every
+// payload token of the control lies within the box's rows.
+std::set<std::pair<std::size_t, std::size_t>> box_leading_anchors(
+    const std::vector<DecodedLogicalRecordSource>& records) {
+  std::set<std::pair<std::size_t, std::size_t>> anchors;
+  for (const auto& region : plan_boxes(records)) {
+    if (!region.closed) continue;
+    const auto& record = records[region.begin_record];
+    const auto* lines = record_display_lines(record);
+    if (lines == nullptr) continue;
+    const auto above =
+        std::find_if(lines->begin(), lines->end(), [&](const auto& line) {
+          return line.token_end == region.begin_token;
+        });
+    if (above == lines->end() || !control_only_line(record, *above)) continue;
+    const auto segment_index = segment_of(record, above->prefix_token + 1);
+    if (segment_index >= record.control_segments.size()) continue;
+    const auto& segment = record.control_segments[segment_index];
+    const auto opcode = ascii_lower(segment.opcode);
+    if (segment.kind != BookControlKind::structural || segment.malformed ||
+        opcode.rfind("sr", 0) != 0 || opcode.size() <= 2 ||
+        segment.source_tokens.empty())
+      continue;
+    bool proven = true;
+    for (auto token = above->prefix_token + 1; token < above->token_end;
+         ++token)
+      if (segment_of(record, token) != segment_index) proven = false;
+    const auto operands = operand_tokens(record, segment);
+    for (const auto token : segment.source_tokens) {
+      if (std::binary_search(operands.begin(), operands.end(), token))
+        continue;
+      if (token < region.begin_token ||
+          (region.end_record == region.begin_record &&
+           token > region.end_token))
+        proven = false;
+    }
+    if (proven)
+      anchors.insert({region.begin_record, segment.source_tokens.front()});
+  }
+  return anchors;
+}
+
 } // namespace geist::detail::prose_internal

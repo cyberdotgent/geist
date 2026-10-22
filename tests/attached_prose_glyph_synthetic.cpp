@@ -546,11 +546,13 @@ std::size_t drawn_cells(const std::string &text) {
     if (ch == '|' || ch == '_') ++cells;
   return cells;
 }
-void unclaimed_rows_never_vanish(Builder &b, std::size_t drawn,
-                                 const std::string &shape,
+void unclaimed_rows_never_vanish(DecodedLogicalRecordSource record,
+                                 std::size_t drawn, const std::string &shape,
                                  const std::string &reason = "drawn row") {
   std::string error;
-  const auto doc = lower(b, error);
+  const auto doc = try_lower_topic_to_document_ir(
+      {"1.1", "Example", ":H2", 10, 20, 21}, {std::move(record)}, nullptr,
+      &error);
   if (!doc) {
     check(error.find(reason) != std::string::npos,
           shape + ": declined for an unexpected reason: " + error);
@@ -562,6 +564,11 @@ void unclaimed_rows_never_vanish(Builder &b, std::size_t drawn,
   const auto markdown = render_document_markdown(*doc);
   check(drawn_cells(markdown) >= drawn,
         shape + ": typed Markdown dropped drawn box rows: " + markdown);
+}
+void unclaimed_rows_never_vanish(Builder &b, std::size_t drawn,
+                                 const std::string &shape,
+                                 const std::string &reason = "drawn row") {
+  unclaimed_rows_never_vanish(b.finish(), drawn, shape, reason);
 }
 // The field-template bottom rule is the topic's last display line, and the
 // run above it is glued to a list opener: nothing follows the rule.
@@ -740,6 +747,129 @@ void frame_rows_around_prose_decline() {
   check(!doc && error.find("frame rows around prose") != std::string::npos,
         "frame rows around prose were not declined: " + error);
 }
+// A bare `SR<id>` anchor alone on its line directly above the top rule of a
+// closed box: SC24-546 4.3.21 record 375 line 12 is `SRSPTFDATE`, lines
+// 13-20 the closed syntax-diagram box, and the anchor's flattened segment
+// runs on into lines 13-14.  Hosted BookServer (DT 19940323131240) wraps the
+// top rule in `<a name="SPTFDATE">` and prints every box row verbatim.
+// `gap` puts an empty display line between the anchor and the box; `open`
+// leaves the box without its bottom rule.  Neither shape is proven.
+void anchored_box(Builder &b, const std::string &opener, bool gap = false,
+                  bool open = false) {
+  b.line({});
+  b.line({w("   "), w("Before.")});
+  b.line({});
+  b.line({w(opener)});
+  if (gap)
+    b.line({});
+  b.line({w("   "), repeat({0x250c}, 0x2500, 12, 0x2510)});
+  b.line({w("   "), {0x2502}, w(std::string(11, ' ')), {0x2502}});
+  b.line({w("cfont"), w("8"), w("3"), w("P")});
+  b.line({w("   "), {0x2502}, w(">>_CMD__><"), {0x2502}});
+  if (!open)
+    b.line({w("   "), repeat({0x2514}, 0x2500, 12, 0x2518)});
+  b.line({});
+  b.line({w("   "), w("After.")});
+}
+// The real record's flattened `SRSPTFDATE` segment (record 375 segment 11)
+// runs on past its own line through the top rule and the blank rail row, up
+// to the `cfont` line that opens the next segment; its payload is box words
+// alone.  The synthetic splitter ends the segment at its line, so the run-on
+// is restored here: every token from the opener up to the `cfont` line joins
+// the opener's segment.
+DecodedLogicalRecordSource run_on_anchor(Builder &b,
+                                         const std::string &opener) {
+  auto record = b.finish();
+  for (auto &segment : record.control_segments) {
+    if (segment.opcode != opener || segment.source_tokens.empty())
+      continue;
+    for (auto token = segment.source_tokens.back() + 1;
+         token < record.tokens.size(); ++token) {
+      if (record.tokens[token] == w("cfont"))
+        break;
+      segment.source_tokens.push_back(token);
+    }
+    // The cfont line's length byte stays with the cfont line.
+    segment.source_tokens.pop_back();
+  }
+  return record;
+}
+std::optional<DocumentIR> lower_record(DecodedLogicalRecordSource record,
+                                       std::string &error) {
+  return try_lower_topic_to_document_ir({"1.1", "Example", ":H2", 10, 20, 21},
+                                        {std::move(record)}, nullptr, &error);
+}
+void anchor_above_closed_box() {
+  Builder b(false);
+  anchored_box(b, "SRSPTX1");
+  std::string error;
+  const auto doc = lower_record(run_on_anchor(b, "SRSPTX1"), error);
+  check(doc.has_value(), "anchor above a closed box declined: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto pre = pre_body(html);
+  // The anchor wraps the region's first row, which the lowering places in
+  // front of the block (as it does a figure frame's top rule).
+  const auto anchor = html.find("id=\"SPTX1\"");
+  check(std::count(pre.begin(), pre.end(), '\n') == 3 &&
+            anchor != std::string::npos && anchor > html.find("Before.") &&
+            anchor < html.find("<pre") &&
+            pre.find("CMD") != std::string::npos &&
+            pre.find("|____________|") != std::string::npos,
+        "anchored box is not drawn with its anchor on the top rule: " + html);
+  check(html.find("SRSPT") == std::string::npos &&
+            html.find("Before.") < html.find("<pre") &&
+            html.find("After.") > html.find("</pre>"),
+        "anchored box printed its control or misplaced its prose: " + html);
+  const auto markdown = render_document_markdown(*doc);
+  check(drawn_cells(markdown) >= drawn_cells(pre),
+        "anchored box Markdown dropped drawn rows: " + markdown);
+}
+// The shapes the rule does not prove keep their former handling.
+void anchor_above_box_is_narrow() {
+  {
+    Builder b(false);
+    anchored_box(b, "SRSPTX1", true);
+    unclaimed_rows_never_vanish(run_on_anchor(b, "SRSPTX1"), 12 + 2 + 5 + 14,
+                                "anchor, gap, box");
+  }
+  {
+    Builder b(false);
+    anchored_box(b, "SRSPTX1", false, true);
+    unclaimed_rows_never_vanish(run_on_anchor(b, "SRSPTX1"), 12 + 2 + 5,
+                                "anchor above an open box");
+  }
+  {
+    Builder b(false);
+    anchored_box(b, "SRSPTX1");
+    check(prose_internal::box_leading_anchors({run_on_anchor(b, "SRSPTX1")})
+                  .size() == 1,
+          "an anchor above a closed box was not read as its leader");
+  }
+  {
+    Builder b(false);
+    anchored_box(b, "SRSPTX1", true);
+    check(prose_internal::box_leading_anchors({run_on_anchor(b, "SRSPTX1")})
+              .empty(),
+          "an anchor a blank line above a box was read as its leader");
+  }
+  {
+    Builder b(false);
+    anchored_box(b, "SRSPTX1", false, true);
+    check(prose_internal::box_leading_anchors({run_on_anchor(b, "SRSPTX1")})
+              .empty(),
+          "an anchor above an open drawing was read as its leader");
+  }
+  {
+    // A reserved envelope opener is never a bare anchor.
+    Builder b(false);
+    anchored_box(b, "SRFIGX1");
+    std::string error;
+    check(!lower_record(run_on_anchor(b, "SRFIGX1"), error),
+          "a reserved envelope opener above a box was read as a bare anchor");
+  }
+}
 void bullet() {
   Builder b;
   b.line({w("cz"), w("BREAK"), w("3")});
@@ -783,6 +913,8 @@ int main() {
   unclaimed_box_rows_before_closer();
   unclaimed_box_rows_after_opener();
   verbatim_anchor_keeps_rail_row();
+  anchor_above_closed_box();
+  anchor_above_box_is_narrow();
   frame_rows_around_table(false);
   frame_rows_around_table(true);
   frame_rows_around_prose_decline();

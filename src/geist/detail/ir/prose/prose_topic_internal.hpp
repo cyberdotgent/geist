@@ -461,6 +461,13 @@ std::vector<BoxLine> drawn_box_rows(
 std::set<std::pair<std::size_t, std::size_t>> box_enclosed_envelopes(
     const std::vector<DecodedLogicalRecordSource>& records);
 
+// The bare `SR<id>` anchor controls that stand alone on the display line
+// directly above a closed box's top rule and whose flattened payload is
+// rows of that box, as (record index, first source token) pairs.  See
+// prose_topic_boxes.cpp for the shape and its evidence.
+std::set<std::pair<std::size_t, std::size_t>> box_leading_anchors(
+    const std::vector<DecodedLogicalRecordSource>& records);
+
 bool build_lines(const std::vector<DecodedLogicalRecordSource>& records,
                  const std::vector<Item>& items, Ledger& ledger,
                  LineBuild& out, std::string* error);
