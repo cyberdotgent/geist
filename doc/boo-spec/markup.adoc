@@ -413,7 +413,18 @@ list: in every entry the leading operand triples that start at the catalog
 origin column (`3`) and follow one another with single-space gaps (`3 3 2 7 3 2 11 3 2 15 9 2` = `LNM` `for` `AIX` `Response:`, `3 12 2` = `Description:`,
 `3 7 2` = `Action:`) spell one label when the covered text ends with `:`; the
 first such chain of an entry that does not end with `:` and covers the whole
-line is the entry headline (`3 1 2 5 19 2` = `1 (fddiRPUNoResponse)`).  The
+line is the entry headline (`3 1 2 5 19 2` = `1 (fddiRPUNoResponse)`).  A
+chain that begins with the entry's own message id is the headline even when
+it ends with `:`.  `N2AH1MST` topic `15.0` opens its first entry, record 757,
+with line 10 `SRMSG CBP100I`, line 12
+`cfont 3 7 2 11 8 2 20 10 2 31 8 2 41 7 2 49 5 2 55 9 2 65 7 2` and line 13
+`   CBP100I VALIDATE PROCESSING ASSUMED.  INVALID INPUT PARAMETER STRING:`.
+No label has appeared yet, so the label column (`10` in this book) is not
+yet known.  Hosted (DT `19910329000100`) serves line 13 and its
+continuation line `{string|NONE SPECIFIED}` as the headline of `CBP100I`.
+In N2AH1MST labels stand at column `10`, right of the headline origin, and
+that column also separates a colon-ending headline from a label in later
+entries.  The
 ordered label sequence repeated by every entry is the catalog vocabulary; a
 labelled line that only some entries carry (`3 5 2` `Note:` in topic `4.4`
 entry `805306372`) is entry-local.  A field can restate the label of the

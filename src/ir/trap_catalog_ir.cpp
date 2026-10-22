@@ -3253,7 +3253,14 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           // Y OR N text is:`). Where the catalog's label column is known and
           // differs from the headline origin the column decides; only where
           // the two coincide is the trailing colon still evidence of a label.
+          // A run that opens with the entry's own id is the headline whatever
+          // it ends with: N2AH1MST record 757 line 13 is the catalogue's
+          // first headline, `CBP100I VALIDATE PROCESSING ASSUMED.  INVALID
+          // INPUT PARAMETER STRING:`, before any label has fixed the label
+          // column, and hosted 15.0 (DT 19910329000100) serves it as the
+          // headline of `CBP100I`.
           if (!line.spans_text.empty() && line.spans_text.back() == ':' &&
+              !starts_with_word(line.spans_text, entry.id) &&
               (!origin_column || !label_column ||
                *label_column == *origin_column))
             return reject("trap entry starts with a field label: " + entry.id);

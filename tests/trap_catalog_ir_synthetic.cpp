@@ -2696,6 +2696,49 @@ int main() {
             "a label returning after another field was admitted");
   }
 
+  // A headline that ends in `:` is still the headline when it opens with
+  // the entry's own id, even before any label has fixed the catalogue's
+  // label column: N2AH1MST record 757 line 13 is the first entry's
+  // `   CBP100I VALIDATE PROCESSING ASSUMED.  INVALID INPUT PARAMETER STRING:`
+  // under `cfont 3 7 2 ... 65 7 2`, and hosted 15.0 serves it as the
+  // headline of `CBP100I`.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({t("SRMSG", 110), t("663", 464)}));
+    append(tokens, line({t("cfont", 111), t("3", 112), t("3", 112),
+                         t("2", 113), t("7", 454), t("7", 454), t("2", 113)}));
+    append(tokens, line({origin(), t("663", 464), t("STRING:", 466)}));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("12", 114), t("2", 113)}));
+    append(tokens, line({origin(), t("Description:", 115), t("first", 117),
+                         t("field", 118)}));
+    append(tokens, entry("664", 467));
+    const auto built = build({make_source(102, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "a colon-ending headline that opens with its id declined: " +
+                built.error);
+    if (built.catalog && built.catalog->entries.size() == 2)
+      require(built.catalog->entries.front().headline.body.text ==
+                      "663 STRING:" &&
+                  built.catalog->entries.front().fields.size() == 1,
+              "the colon-ending headline was misread: [" +
+                  built.catalog->entries.front().headline.body.text + "]");
+
+    // Mutation: the entry's first row is a label that does not open with
+    // the id. That is a field before any headline, and it still declines.
+    auto labelled = header("Sample", "Messages");
+    append(labelled, line({t("SRMSG", 110), t("665", 468)}));
+    append(labelled,
+           line({t("cfont", 111), t("3", 112), t("12", 114), t("2", 113)}));
+    append(labelled, line({origin(), t("Description:", 115), t("first", 117),
+                           t("field", 118)}));
+    append(labelled, entry("666", 469));
+    const auto rejected =
+        build({make_source(103, labelled)}, "Sample Messages");
+    require(!rejected.catalog.has_value(),
+            "an entry opening on a field label was admitted");
+  }
+
   std::cout << "trap catalog IR synthetic tests passed\n";
   return 0;
 }
