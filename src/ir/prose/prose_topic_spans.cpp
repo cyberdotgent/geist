@@ -149,14 +149,22 @@ std::optional<std::size_t> record_index_of(
   return std::nullopt;
 }
 
-bool has_table_envelope(const std::vector<DecodedLogicalRecordSource>& records,
-                        const std::vector<CzVerbatimRegion>& verbatim) {
+// An envelope inside a closed drawn box is the box's own markup
+// (`box_enclosed_envelopes`, prose_topic_boxes.cpp) and no table either.
+// Only a topic whose every envelope is verbatim or box markup skips the
+// table pass; a topic with one genuine envelope runs it over all of them,
+// and the box then belongs to the table as before.
+bool has_table_envelope(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const std::vector<CzVerbatimRegion>& verbatim,
+    const std::set<std::pair<std::size_t, std::size_t>>& box_markup) {
   for (std::size_t index = 0; index < records.size(); ++index)
     for (const auto& segment : records[index].control_segments)
       if ((segment.kind == BookControlKind::table_start ||
            segment.kind == BookControlKind::table_end) &&
           !segment.source_tokens.empty() &&
-          !inside_cz_verbatim(verbatim, index, segment.source_tokens.front()))
+          !inside_cz_verbatim(verbatim, index, segment.source_tokens.front()) &&
+          !box_markup.count({index, segment.source_tokens.front()}))
         return true;
   return false;
 }
@@ -596,19 +604,62 @@ bool inside_table(const std::vector<Region>& regions,
 
 } // namespace
 
+std::set<std::pair<std::size_t, std::size_t>> box_markup_envelopes(
+    const std::vector<DecodedLogicalRecordSource>& records) {
+  auto enclosed = box_enclosed_envelopes(records);
+  if (enclosed.empty()) return {};
+  // The table pass reports a declined envelope by its id alone, so an
+  // enclosed opener is set aside by id only when no other opener of the
+  // topic spells the same id.
+  std::map<std::string, std::size_t> openers;
+  for (std::size_t index = 0; index < records.size(); ++index)
+    for (const auto& segment : records[index].control_segments)
+      if (segment.kind == BookControlKind::table_start)
+        ++openers[ascii_lower(segment.opcode)];
+  for (const auto& [record, token] : enclosed)
+    for (const auto& segment : records[record].control_segments)
+      if (segment.kind == BookControlKind::table_start &&
+          !segment.source_tokens.empty() &&
+          segment.source_tokens.front() == token &&
+          openers[ascii_lower(segment.opcode)] != 1)
+        return {};
+  return enclosed;
+}
+
 bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
                 const LayoutIR& layout, const OwnershipIR& ownership,
                 const std::set<std::string>* resource_ids, Ledger& ledger,
                 ProseTopicIR& topic, SpanPlan& plan, std::string* error) {
   std::vector<Region> regions;
   const auto verbatim = cz_verbatim_regions(records);
-  if (has_table_envelope(records, verbatim)) {
+  const auto box_markup = box_markup_envelopes(records);
+  if (has_table_envelope(records, verbatim, box_markup)) {
     topic.tables = extract_fixed_table_blocks_ir(
         records, layout, ownership, {0, count_layout_rows(layout)});
-    for (const auto& decline : topic.tables.declined)
+    // An envelope drawn inside a closed box is the box's own markup
+    // (`box_markup_envelopes`): whatever the table pass made of it, it is
+    // no table of the topic, and the box keeps its rows.  The extraction
+    // stays whole, so its verifier still compares it exactly; the box's
+    // blocks simply plan no span.
+    std::set<std::string> box_ids;
+    for (const auto& [record, token] : box_markup)
+      for (const auto& segment : records[record].control_segments)
+        if (segment.kind == BookControlKind::table_start &&
+            !segment.source_tokens.empty() &&
+            segment.source_tokens.front() == token)
+          box_ids.insert(segment.opcode.substr(5));
+    const auto boxed = [&](const FixedTableBlockIR& block) {
+      const auto record = record_index_of(records, block.object_source.logical_record);
+      return record &&
+             box_markup.count({*record, block.object_source.token_begin}) != 0;
+    };
+    for (const auto& decline : topic.tables.declined) {
+      if (box_ids.count(decline.object_id)) continue;
       return fail(error, "table envelope '" + decline.object_id +
                              "' declined: " + decline.reason);
+    }
     for (std::size_t index = 0; index < topic.tables.blocks.size(); ++index) {
+      if (boxed(topic.tables.blocks[index])) continue;
       Region region;
       region.kind = ProseSpanKindIR::table;
       region.index = index;

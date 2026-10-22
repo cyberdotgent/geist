@@ -442,6 +442,9 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
     ++emitted_spans;
     return true;
   };
+  // An anchor that opens a row inside a drawn box's block is lowered with
+  // that block; every other anchor precedes the block at its position.
+  constexpr auto npos_row = static_cast<std::size_t>(-1);
   // Anchors and spans placed at one position keep their source order: a span
   // follows the first `anchors_before` anchors of that position.
   const auto emit_anchors = [&](std::size_t position,
@@ -457,7 +460,8 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
     };
     if (!after_menu && !flush_spans()) return false;
     for (const auto& anchor : prose.anchors) {
-      if (anchor.position != position || anchor.after_menu != after_menu)
+      if (anchor.position != position || anchor.after_menu != after_menu ||
+          anchor.row != npos_row)
         continue;
       destination.push_back(
           {AnchorBlockIR{anchor.id},
@@ -472,7 +476,8 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
   const auto anchor_at = [&](std::size_t position) {
     return std::any_of(prose.anchors.begin(), prose.anchors.end(),
                        [&](const auto& anchor) {
-                         return anchor.position == position;
+                         return anchor.position == position &&
+                                anchor.row == npos_row;
                        });
   };
   // A table or figure span placed between two items of one list splits the
@@ -556,6 +561,15 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
           preformatted_origin.detail = "prose drawn box region: verbatim rows";
         PreformattedBlockIR preformatted;
         preformatted.lines = block.preformatted_lines;
+        for (const auto& anchor : prose.anchors) {
+          if (anchor.position != block_index || anchor.row == npos_row)
+            continue;
+          if (anchor.row >= preformatted.lines.size())
+            return fail(error, "prose box anchor names no row of its block");
+          preformatted.line_anchors.push_back(
+              {anchor.row, AnchorBlockIR{anchor.id},
+               origin({anchor.source}, "prose drawn box envelope anchor")});
+        }
         if (!block.preformatted_line_inline_ends.empty()) {
           preformatted_origin.detail = "prose native styled example rows";
           std::size_t first = 0;

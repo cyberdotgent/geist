@@ -399,21 +399,44 @@ std::vector<BoxRegion> plan_boxes(
     region.begin_token = candidates[index].line.prefix_token;
     region.end_record = candidates[end].record;
     region.end_token = candidates[end].line.token_end - 1;
+    region.closed = true;
     regions.push_back(std::move(region));
     std::fill(claimed.begin() + static_cast<std::ptrdiff_t>(index),
               claimed.begin() + static_cast<std::ptrdiff_t>(end) + 1, true);
     index = end;
   }
-  // Open drawings: blank-delimited runs of display lines that no closed
-  // region claimed.
+  // Open drawings: runs of display lines that no closed region claimed,
+  // delimited by blank lines and by list-item closers.  An `SRELIS<owner>`
+  // line ends the list item the drawing belongs to, so the drawing cannot
+  // run past it: OFCUSEOV 1.8 record 119 line 7 is `SRELISse` directly
+  // under the last rail row of the open `Daily Calendar` panel that record
+  // 118 line 24 opens, and hosted BookServer (DT 19900805103816) prints the
+  // panel verbatim, nothing for the closer, and step 6 after it.  No other
+  // control delimits a run; any other control line inside one still makes
+  // the run no drawing.
+  const auto delimiter = [&](const Candidate& candidate) {
+    if (candidate.blank) return true;
+    if (!candidate.control_only || candidate.index) return false;
+    const auto& record = records[candidate.record];
+    for (auto token = candidate.line.prefix_token + 1;
+         token < candidate.line.token_end; ++token) {
+      const auto segment = segment_of(record, token);
+      if (segment >= record.control_segments.size()) return false;
+      const auto opcode = ascii_lower(record.control_segments[segment].opcode);
+      if (record.control_segments[segment].kind != BookControlKind::structural ||
+          opcode.rfind("srelis", 0) != 0 || opcode.size() <= 6)
+        return false;
+    }
+    return true;
+  };
   for (std::size_t first = 0; first < candidates.size();) {
-    if (claimed[first] || candidates[first].blank) {
+    if (claimed[first] || delimiter(candidates[first])) {
       ++first;
       continue;
     }
     auto last = first;
     while (last + 1 < candidates.size() && !claimed[last + 1] &&
-           !candidates[last + 1].blank)
+           !delimiter(candidates[last + 1]))
       ++last;
     if (auto drawing = open_drawing(records, candidates, first, last))
       regions.push_back(std::move(*drawing));
@@ -426,6 +449,95 @@ std::vector<BoxRegion> plan_boxes(
                          : a.begin_token < b.begin_token;
             });
   return regions;
+}
+
+// An `SRTBL<id>` ... `SRETBL` envelope drawn wholly inside a closed box is
+// the box's own markup, not a table.  SC24-5527-02 7.4.5 records 675-676
+// draw the `Obtaining File Type Abbreviations` note box: top rule record 675
+// line 33, bottom rule record 676 line 23, and between them the side rows,
+// two `SI` lines, `cfont` lines, `SRTBLTBLUNIQ492` alone on line 6 and
+// `SRETBL` alone on line 20.  Hosted BookServer (DT 19921218151459) prints
+// the box verbatim and emits no `<table>`: the opener becomes
+// `<a name="TBLTBLUNIQ492">` around the first box row after it, and the
+// closer prints nothing.  Topics 3.8.4.6, 3.10.4.4, 3.14.1 and 7.4.1 of the
+// same book draw the same shape (`TBLTBLUNIQ114`, `TBLTBLUNIQ115`, ...).  The
+// same reading already holds for an envelope inside a `cz OFF` verbatim
+// region (prose_topic_spans.cpp).
+//
+// Only the proven shape qualifies: the box is closed (top and bottom rules
+// at the same rails), every opener and closer inside it is a control line of
+// its own, they alternate opener, closer, starting with an opener and ending
+// with a closer, and every row an envelope spans draws nothing but the box's
+// own two rails and text between them.  An envelope that draws structure of
+// its own -- an inner rail, rule or junction -- is a genuine table inside a
+// frame: ITPPIBOK 4.3.5.4 record 158 opens `SRTBLTBLUNIQ34` inside the
+// `SRFIGSCHED` frame, and its rows are the `| TASK | START | ...` grid
+// (`|_____|_____|` rules between them), which the table pass types.  An open
+// drawing has no rails that bound it, so an envelope beside one stays a
+// table envelope.
+std::set<std::pair<std::size_t, std::size_t>> box_enclosed_envelopes(
+    const std::vector<DecodedLogicalRecordSource>& records) {
+  std::set<std::pair<std::size_t, std::size_t>> enclosed;
+  for (const auto& region : plan_boxes(records)) {
+    if (!region.closed) continue;
+    std::vector<std::pair<std::size_t, std::size_t>> controls;
+    std::vector<bool> opens;
+    bool proven = true;
+    for (auto record = region.begin_record;
+         record <= region.end_record && proven; ++record) {
+      const auto& source = records[record];
+      for (const auto& segment : source.control_segments) {
+        if ((segment.kind != BookControlKind::table_start &&
+             segment.kind != BookControlKind::table_end) ||
+            segment.source_tokens.empty())
+          continue;
+        const auto token = segment.source_tokens.front();
+        if ((record == region.begin_record && token < region.begin_token) ||
+            (record == region.end_record && token > region.end_token))
+          continue;
+        const auto* line = display_line_of_token(source, token);
+        if (line == nullptr || !control_only_line(source, *line)) {
+          proven = false;
+          break;
+        }
+        controls.push_back({record, token});
+        opens.push_back(segment.kind == BookControlKind::table_start);
+      }
+    }
+    if (!proven || controls.empty() || opens.size() % 2 != 0) continue;
+    for (std::size_t index = 0; index < opens.size(); ++index)
+      if (opens[index] != (index % 2 == 0)) proven = false;
+    if (!proven || region.lines.empty()) continue;
+    std::size_t left = 0;
+    std::size_t right = 0;
+    if (classify(region.lines.front().columns, left, right) != BoxLineKind::top)
+      continue;
+    const auto before = [](const std::pair<std::size_t, std::size_t>& a,
+                           const std::pair<std::size_t, std::size_t>& b) {
+      return a < b;
+    };
+    for (std::size_t pair = 0; pair + 1 < controls.size() && proven;
+         pair += 2) {
+      for (const auto& line : region.lines) {
+        const std::pair<std::size_t, std::size_t> at{line.record,
+                                                     line.line.prefix_token};
+        if (!before(controls[pair], at) || !before(at, controls[pair + 1]) ||
+            line.columns.empty())
+          continue;
+        if (classify_at(line.columns, left, right) != BoxLineKind::side) {
+          proven = false;
+          break;
+        }
+        for (auto column = left + 1; column < right; ++column)
+          if (line.columns[column] >= box_drawing_first &&
+              line.columns[column] <= box_drawing_last)
+            proven = false;
+      }
+    }
+    if (!proven) continue;
+    enclosed.insert(controls.begin(), controls.end());
+  }
+  return enclosed;
 }
 
 } // namespace geist::detail::prose_internal

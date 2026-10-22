@@ -569,6 +569,19 @@ struct LineBuilder {
     return npos;
   }
 
+  // An anchor item made from an `SRTBL<id>` opener: the control segment of
+  // its first source token is a table start.
+  bool box_envelope_anchor(const Item& item) const {
+    for (const auto& record : records) {
+      if (record.logical_record != item.source.logical_record) continue;
+      const auto segment = segment_of(record, item.source.token_begin);
+      return segment < record.control_segments.size() &&
+             record.control_segments[segment].kind ==
+                 BookControlKind::table_start;
+    }
+    return false;
+  }
+
   bool apply_box_control(const Item& item, Line& row) {
     if (item.kind == ItemKind::font) {
       for (const auto& span : item.spans) {
@@ -640,9 +653,30 @@ struct LineBuilder {
       if (item.kind == ItemKind::anchor &&
           item.source.token_end > item.source.token_begin &&
           box_at_logical(item.source.logical_record,
-                         item.source.token_begin) == &region)
-        return fail(error,
-                    "anchor inside a drawn box needs a native row position");
+                         item.source.token_begin) == &region) {
+        // The one anchor a drawn box carries is the opener of an envelope
+        // drawn inside it (`box_markup_envelopes`), and its native position
+        // is the first box row after the control: hosted SC24-5527-02 7.4.5
+        // (DT 19921218151459) wraps exactly that row in
+        // `<a name="TBLTBLUNIQ492">`.  Any other anchor still has no proven
+        // row.
+        if (!box_envelope_anchor(item))
+          return fail(error,
+                      "anchor inside a drawn box needs a native row position");
+        const auto row = box_row_after(region, item.source);
+        if (row == npos)
+          return fail(error, "anchor inside a drawn box has no later row");
+        auto& line = out.lines[first_row + row];
+        if (line.anchor_before)
+          return fail(error, "drawn box row carries two anchors");
+        ProseAnchorIR anchor;
+        anchor.id = item.anchor_id;
+        anchor.source = item.source;
+        out.body_anchors.push_back(std::move(anchor));
+        line.anchor_before = true;
+        line.anchor_index = out.body_anchors.size() - 1;
+        continue;
+      }
       if ((item.kind != ItemKind::font && item.kind != ItemKind::select) ||
           item.source.token_end <= item.source.token_begin ||
           box_at_logical(item.source.logical_record,
@@ -1330,10 +1364,12 @@ struct LineBuilder {
           continue;
         }
       } else if ((item.kind == ItemKind::font ||
-                  item.kind == ItemKind::select) &&
+                  item.kind == ItemKind::select ||
+                  item.kind == ItemKind::anchor) &&
                  item.source.token_end > item.source.token_begin &&
                  box_at_logical(item.source.logical_record,
                                 item.source.token_begin) != nullptr) {
+        // The box placed it on its row (`emit_box`).
         continue;
       }
       switch (item.kind) {

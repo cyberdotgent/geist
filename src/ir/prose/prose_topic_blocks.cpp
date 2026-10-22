@@ -622,10 +622,28 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
        ++anchor) {
     auto placed = lines_build.body_anchors[anchor];
     placed.position = ranges.size();
+    bool found = false;
     for (std::size_t block_index = 0; block_index < ranges.size(); ++block_index) {
       const auto& first = lines[ranges[block_index].first];
       if (first.anchor_before && first.anchor_index == anchor) {
         placed.position = block_index;
+        found = true;
+        break;
+      }
+    }
+    // A drawn box carries its envelope anchors on the rows they open
+    // (`emit_box`); every other block opens at its anchored line.
+    for (std::size_t block_index = 0; !found && block_index < ranges.size();
+         ++block_index) {
+      for (auto line = ranges[block_index].first + 1;
+           line < ranges[block_index].second; ++line) {
+        if (!lines[line].anchor_before || lines[line].anchor_index != anchor)
+          continue;
+        if (!is_box[block_index])
+          return fail(error, "anchor stands inside a block that is no box");
+        placed.position = block_index;
+        placed.row = line - ranges[block_index].first;
+        found = true;
         break;
       }
     }

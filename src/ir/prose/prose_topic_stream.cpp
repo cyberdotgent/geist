@@ -966,6 +966,7 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
   // `<a name="FIGTBLUNIQ1">` and `<a name="TBLTBLUNIQ1">` on two rows of the
   // labelled box, and no `<table>`.
   const auto verbatim_regions = cz_verbatim_regions(records);
+  const auto box_markup = box_markup_envelopes(records);
   // Which dialect the topic is written in: a body that carries any `CZ`
   // control names every block boundary explicitly, a body that carries none
   // reconstructs its blocks from row geometry (doc/boo-spec/markup.adoc, "CZ layout
@@ -1449,13 +1450,23 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
       case BookControlKind::table_start:
       case BookControlKind::table_end:
       case BookControlKind::structural: {
+        // The same holds for an envelope drawn wholly inside a closed box
+        // (`box_enclosed_envelopes`, prose_topic_boxes.cpp): the opener is
+        // the anchor of the box row after it, and the closer is markup that
+        // names nothing -- hosted SC24-5527-02 7.4.5 (DT 19921218151459)
+        // serves `<a name="TBLTBLUNIQ492">` and no `ETBL` anchor.
+        const auto in_box =
+            !segment.source_tokens.empty() &&
+            box_markup.count({record_index, segment.source_tokens.front()}) != 0;
         if ((segment.kind == BookControlKind::table_start ||
              segment.kind == BookControlKind::table_end) &&
+            !in_box &&
             !(!segment.source_tokens.empty() &&
               inside_cz_verbatim(verbatim_regions, record_index,
                                  segment.source_tokens.front())))
           return fail(error, "body control " + segment.opcode +
                                  " is outside the prose model");
+
         if (!segment.malformed && title_seen && cz_dialect &&
             lower_opcode.rfind("srftn", 0) == 0 && lower_opcode.size() > 5) {
           // Footnote start of the CZ dialect: like every `SR<id>` anchor the
@@ -1556,7 +1567,7 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
             inside_cz_verbatim(verbatim_regions, record_index,
                                segment.source_tokens.front());
         if (segment.malformed || lower_opcode.rfind("sr", 0) != 0 ||
-            (reserved_structural(lower_opcode) && !in_verbatim &&
+            (reserved_structural(lower_opcode) && !in_verbatim && !in_box &&
              !(!cz_dialect && lower_opcode.rfind("srftn", 0) == 0 &&
                lower_opcode.size() > 5)))
           return fail(error, "structural control " + segment.opcode +
@@ -1574,11 +1585,16 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         // and hosted (DT 19950730184057) serves only `LISamy`.  A closer
         // whose owner the topic never names is not proven to be one and
         // still declines.
-        const auto list_closer =
+        const auto list_item_closer =
             lower_opcode.rfind("srelis", 0) == 0 && lower_opcode.size() > 6;
-        if (list_closer && !list_owners.count(lower_opcode.substr(6)))
+        if (list_item_closer && !list_owners.count(lower_opcode.substr(6)))
           return fail(error, "list closer " + segment.opcode +
                                  " names no SRLIS item of the topic");
+        // A box's own `SRETBL` names nothing either; its payload is the
+        // box rows after it.
+        const auto list_closer =
+            list_item_closer ||
+            (in_box && segment.kind == BookControlKind::table_end);
         // A body anchor can carry the first display line of the text it
         // names.  Hosted BookServer wraps that text in the anchor element
         // and keeps it as body content -- unlike the metadata-envelope
@@ -1608,7 +1624,10 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
                                       punctuation_glyph_token(view);
               return !is_padding(view) && !is_separator(view) && !glyph_slot;
             });
-        if (visible_payload && title_seen) {
+        // The payload of a box's own opener or closer is the box rows after
+        // it, which draw only box words and spacing; they are the box's to
+        // claim, never the control's padding.
+        if ((visible_payload || in_box) && title_seen) {
           if (anchor_operands.empty())
             return fail(error, "anchor control has no source token");
           // A closer's payload is the next item's text and nothing else.

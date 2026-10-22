@@ -542,6 +542,7 @@ std::string format_prose_topic_ir(const ProseTopicIR& topic) {
   for (const auto& anchor : topic.anchors) {
     out << "anchor id=" << anchor.id << " position=" << anchor.position
         << (anchor.after_menu ? " after_menu" : "");
+    if (anchor.row != static_cast<std::size_t>(-1)) out << " row=" << anchor.row;
     format_slices(out, {anchor.source});
     out << '\n';
   }

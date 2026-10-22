@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "geist/detail/core/internal.hpp"
+#include "geist/detail/ir/prose/prose_topic_internal.hpp"
 #include "geist/detail/layout/display_lines.hpp"
 #include "geist/detail/lowering/topic_document_lowering.hpp"
 #include "geist/detail/render/document_html_renderer.hpp"
@@ -425,6 +426,114 @@ void lnk_selector_inside_closed_box() {
             pre.find("|______|") != std::string::npos,
         "LNK selector did not link the next box row: " + html);
 }
+// The rows of a closed note box, with an `SRTBL<id>` ... `SRETBL` envelope
+// standing on lines of its own between them (SC24-5527-02 7.4.5 records
+// 675-676, `TBLTBLUNIQ492`).  `inner` draws a box rail inside the envelope's
+// rows, the ITPPIBOK 4.3.5.4 shape of a genuine table inside a frame.
+void boxed_envelope(Builder &b, bool inner, const std::string &opener) {
+  const TokenWords top{0x250c, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500,
+                       0x2510};
+  const TokenWords bottom{0x2514, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500,
+                          0x2500, 0x2518};
+  b.line({});
+  b.line({w("   "), top});
+  b.line({w("   "), {2, 0x2502}, {1, 'N', 'O', 'T', 'E'}, w(" "),
+          {0x2502}});
+  b.line({w(opener)});
+  b.line({w("   "), {2, 0x2502}, w("      "), {2, 0x2502}});
+  if (inner)
+    b.line({w("   "), {2, 0x2502}, w("  "), {2, 0x2502}, w("   "),
+            {2, 0x2502}});
+  else
+    b.line({w("   "), {2, 0x2502}, {1, 'C', 'M', 'D'}, w("  "), {0x2502}});
+  b.line({w("SRETBL")});
+  b.line({w("   "), {2, 0x2502}, w("      "), {2, 0x2502}});
+  b.line({w("   "), bottom});
+}
+// Hosted SC24-5527-02 7.4.5 (DT 19921218151459) prints the note box verbatim
+// with no `<table>`: the opener is `<a name="TBLTBLUNIQ492">` on the first box
+// row after it, and the closer prints nothing.
+void envelope_inside_closed_box() {
+  Builder b(false);
+  boxed_envelope(b, false, "SRTBLTBLUNIQ7");
+  b.line({});
+  b.line({w("ordinary prose")});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "envelope inside a closed box rejected: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto pre = pre_body(html);
+  const auto anchor = pre.find("id=\"TBLTBLUNIQ7\"");
+  const auto note = pre.find("NOTE");
+  const auto cmd = pre.find("CMD");
+  check(html.find("<table") == std::string::npos &&
+            html.find("ETBL") == std::string::npos &&
+            pre.find("SRTBL") == std::string::npos,
+        "box envelope became a table, a control row or an ETBL anchor: " +
+            html);
+  check(anchor != std::string::npos && note < anchor && anchor < cmd &&
+            pre.find("|______|") != std::string::npos,
+        "box envelope anchor is not on the row after its opener: " + html);
+}
+// Each shape the rule does not prove keeps the envelope with the table pass.
+void envelope_box_markup_is_narrow() {
+  const auto markup = [](bool inner, const std::string &opener,
+                         bool second_opener) {
+    Builder b(false);
+    boxed_envelope(b, inner, opener);
+    if (second_opener) {
+      b.line({});
+      b.line({w(opener)});
+      b.line({w("   "), w("x")});
+      b.line({w("SRETBL")});
+    }
+    return prose_internal::box_markup_envelopes({b.finish()});
+  };
+  check(markup(false, "SRTBLTBLUNIQ7", false).size() == 2,
+        "a box's own envelope was not read as box markup");
+  check(markup(true, "SRTBLTBLUNIQ7", false).empty(),
+        "an envelope that draws an inner rail was read as box markup");
+  check(markup(false, "SRTBLTBLUNIQ7", true).empty(),
+        "an envelope id the topic repeats was read as box markup");
+  // An envelope beside an open drawing has no rails that bound it.
+  Builder open(false);
+  open.line({});
+  open.line({w("   "), {0x250c, 0x2500, 0x2500, 0x2500, 0x2510}});
+  open.line({w("SRTBLTBLUNIQ8")});
+  open.line({w("   "), {2, 0x2502}, w("   "), {2, 0x2502}});
+  open.line({w("SRETBL")});
+  check(prose_internal::box_markup_envelopes({open.finish()}).empty(),
+        "an envelope inside an open drawing was read as box markup");
+}
+// An `SRELIS<owner>` closer directly under an open drawing ends the run
+// (OFCUSEOV 1.8 record 119 line 7 `SRELISse` under the open `Daily Calendar`
+// panel, DT 19900805103816): the panel is drawn and the closer prints
+// nothing.
+void list_closer_ends_open_drawing() {
+  Builder b(false);
+  b.line({});
+  b.line({w("SRLISab")});
+  b.line({w("   "), w("Step")});
+  b.line({});
+  b.line({w("   "), {0x250c, 0x2500, 0x2500, 0x2500, 0x2510}});
+  b.line({w("   "), {2, 0x2502}, w("   "), {2, 0x2502}});
+  b.line({w("SRELISab")});
+  b.line({});
+  b.line({w("   "), w("Next")});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "open drawing ended by a list closer rejected: " +
+                             error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  check(pre_body(html) == "    ___ \n   |   |" &&
+            html.find("ELIS") == std::string::npos &&
+            html.find("Next") != std::string::npos,
+        "list closer did not end the open drawing cleanly: " + html);
+}
 void bullet() {
   Builder b;
   b.line({w("cz"), w("BREAK"), w("3")});
@@ -461,6 +570,9 @@ int main() {
   indented_rule_line_stays_rule();
   unproven_box_glyph_declines();
   lnk_selector_inside_closed_box();
+  envelope_inside_closed_box();
+  envelope_box_markup_is_narrow();
+  list_closer_ends_open_drawing();
   bullet();
   rejected({w("   "), w("SNA"), {1}, {0xffff}, {1}, w("ps")});
   rejected({w("   "), w("SNA"), {0x2666}, w("ps")});

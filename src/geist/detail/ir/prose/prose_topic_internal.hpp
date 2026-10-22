@@ -431,6 +431,9 @@ struct BoxRegion {
   std::size_t begin_token = 0;  // the top rule's length byte
   std::size_t end_record = 0;
   std::size_t end_token = 0;  // last token of the bottom rule, inclusive
+  // True for a box whose top and bottom rules are both proven; false for an
+  // open drawing.
+  bool closed = false;
 };
 
 // Every closed box region and every open native drawing of the topic, in
@@ -439,6 +442,12 @@ struct BoxRegion {
 // Declines silently (returns no region) when a record's display lines do not
 // parse.
 std::vector<BoxRegion> plan_boxes(
+    const std::vector<DecodedLogicalRecordSource>& records);
+
+// The `SRTBL<id>` / `SRETBL` controls that stand inside a closed drawn box
+// as the box's own markup, as (record index, first source token) pairs.  See
+// prose_topic_boxes.cpp for the shape and its evidence.
+std::set<std::pair<std::size_t, std::size_t>> box_enclosed_envelopes(
     const std::vector<DecodedLogicalRecordSource>& records);
 
 bool build_lines(const std::vector<DecodedLogicalRecordSource>& records,
@@ -534,6 +543,13 @@ std::vector<CzVerbatimRegion> cz_verbatim_regions(
     const std::vector<DecodedLogicalRecordSource>& records);
 bool inside_cz_verbatim(const std::vector<CzVerbatimRegion>& regions,
                         std::size_t record, std::size_t token);
+
+// The box-enclosed envelopes (`box_enclosed_envelopes`) the prose model
+// reads as box markup: all of them when every envelope of the topic is
+// verbatim or box markup, none otherwise (the table pass then owns every
+// envelope, as it always has).
+std::set<std::pair<std::size_t, std::size_t>> box_markup_envelopes(
+    const std::vector<DecodedLogicalRecordSource>& records);
 
 // CZ dialect (prose_topic_cz.cpp).  `collect_layout_directive` parses one
 // `cz` control segment, assigns its opcode/operand tokens and pushes the

@@ -226,6 +226,10 @@ struct ProseAnchorIR {
   DocumentSourceSliceIR source;
   // The anchor precedes blocks[position] (== blocks.size() at the end).
   std::size_t position = 0;
+  // Set when the anchor opens a row inside blocks[position], a drawn box's
+  // preformatted block, rather than preceding the block: the index of that
+  // row among the block's preformatted lines.
+  std::size_t row = static_cast<std::size_t>(-1);
   // Placed after the trailing menu rather than before it.
   bool after_menu = false;
 };

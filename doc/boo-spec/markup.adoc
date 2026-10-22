@@ -2802,11 +2802,59 @@ bottom row is record 623 display line 20 at `0x4074F`--`0x40762`:
 `13 1B 07 00 C670 00 C6B5 00 C670 00 C6B5 00 C67A 00 09`, a 12-cell origin,
 `U+2514`, `U+2500` runs separated by `U+2534` junctions, and `U+2518`.
 
-A run is no drawing when it holds any other control line (an `SRTBL`
-envelope nested inside a drawn box, SC24-5527-02 `3.14.1` record 353 line 3,
-is a different structure) or a box word whose hosted glyph is not established
-(FA1PLMM0 `C.0` record 781 line 16 underlines its column heads with
-`U+255A` runs).
+A run is no drawing when it holds any other control line or a box word whose
+hosted glyph is not established (FA1PLMM0 `C.0` record 781 line 16
+underlines its column heads with `U+255A` runs).  One control does end a
+run: a list-item closer `SRELIS<owner>` on a line of its own.  It ends the
+list item the drawing belongs to, so the drawing cannot continue past it.
+OFCUSEOV `1.8` record 118 line 24 opens the `Daily Calendar` panel, which
+has a top rule and rails and no bottom rule.  Its last rail row is record 119
+line 6.  Line 7 is the closer: the length byte `02` and the opcode word
+`E9 E7` at `0x12A06`, spelling `SRELISse`.  Hosted (DT `19900805103816`)
+prints the panel's 14 rows verbatim, nothing for the closer, and step 6 after
+it.
+
+[[markup_box_enclosed_envelopes]]
+==== An envelope drawn inside a closed box
+
+An `SRTBL<id>` ... `SRETBL` envelope can stand wholly inside a closed drawn
+box as the box's own markup.  It is then no table.  SC24-5527-02 `7.4.5`
+records 675--676 draw a `Note` box titled `Obtaining File Type
+Abbreviations`.  Its top rule is record 675 line 33 and its bottom rule is
+record 676 line 23.  Between them are side rows, two `SI` lines, `cfont`
+lines, two empty display lines and the envelope:
+
+[cols="<16,<40,<44",options="header"]
+|===
+|Record, line |Bytes |Content
+
+|676, 6 |`02`, then `E7 14` at `0x48C06` |`SRTBLTBLUNIQ492`, a line of its own
+|676, 7--19 |-- |box side rows: `U+2502` at columns 7 and 76, text between them
+|676, 20 |`01`, then `A5` at `0x48C86` |`SRETBL`, a line of its own
+|===
+
+Hosted (DT `19921218151459`) prints the whole box verbatim and emits no
+`<table>`.  The opener becomes `<a name="TBLTBLUNIQ492">` wrapped around the
+first box row after it, and the closer prints nothing.  An empty display
+line inside the box is served as `<p>`, which is a blank row of the `<pre>`.
+Topics `3.8.4.6`, `3.10.4.4`, `3.14.1` and `7.4.1` of the same book draw
+the same shape, each matching hosted row for row.
+
+The reading applies only to the proven shape:
+
+* The box is closed: a top and a bottom rule at the same rails.
+* Each opener and closer is a control line of its own.
+* Openers and closers alternate, starting with an opener and ending with a
+  closer.
+* No other opener in the topic spells the same id.
+* Every row an envelope spans is a side row that draws nothing but the box's
+  own two rails and text between them.  Empty display lines are allowed.
+
+An envelope whose rows draw structure of their own is a genuine table inside
+a frame.  ITPPIBOK `4.3.5.4` record 158 line 23 opens `SRTBLTBLUNIQ34`
+(`E8 EC` at `0x3F8DE`) inside the `SRFIGSCHED` frame.  Its rows are the
+`| TASK | START | ...` grid, with `|_____|_____|` rules between them, and
+that grid is a table.
 
 [[markup_verbatim_cz_regions]]
 ==== Verbatim `CZ` regions
