@@ -514,6 +514,106 @@ bool lower_flow_blocks(const std::vector<TrapFlowBlockIR> &source,
   return true;
 }
 
+// An introduction paragraph whose rows carry `CFONT` runs. The introduction
+// is prose, so each run lowers as the prose family lowers the same style
+// (`font_style_is_code`, `font_style_emphasis_kind`); a style with no known
+// presentation stays text. Row line breaks and selector ranges are placed
+// with the runs; a run a selector also claims stays the selector's label,
+// unstyled, and a break inside a run, or a range outside the text, fails.
+bool styled_introduction_inlines(const TrapIntroductionParagraphIR &paragraph,
+                                 const DocumentNodeOriginIR &paragraph_origin,
+                                 const DocumentNodeOriginIR &break_origin,
+                                 InlineSequenceIR &content,
+                                 std::string *error) {
+  std::size_t cursor = 0;
+  if (!paragraph.leading_spans.empty()) {
+    std::string joined;
+    for (const auto &span : paragraph.leading_spans) {
+      if (!joined.empty())
+        joined.push_back(' ');
+      joined += span.text;
+    }
+    if (paragraph.text.compare(0, joined.size(), joined) != 0)
+      return fail(error, "introduction highlight does not prefix its paragraph");
+    append_spans(content, paragraph.leading_spans, paragraph_origin);
+    cursor = joined.size();
+  }
+  for (const auto offset : paragraph.line_breaks)
+    if (offset < cursor)
+      return fail(error, "introduction line break falls inside its highlight");
+  struct Range {
+    std::size_t begin = 0;
+    std::size_t end = 0;
+    FontStyleIR style = FontStyleIR::unknown;
+    const TrapTextLinkIR *link = nullptr;
+  };
+  std::vector<Range> ranges;
+  for (const auto &link : paragraph.links)
+    ranges.push_back({link.begin, link.end, FontStyleIR::unknown, &link});
+  for (const auto &highlight : paragraph.highlights)
+    if (std::none_of(paragraph.links.begin(), paragraph.links.end(),
+                     [&](const auto &link) {
+                       return highlight.begin < link.end &&
+                              link.begin < highlight.end;
+                     }))
+      ranges.push_back({highlight.begin, highlight.end, highlight.style});
+  std::sort(ranges.begin(), ranges.end(),
+            [](const auto &left, const auto &right) {
+              return left.begin < right.begin;
+            });
+  const auto text = [&](std::size_t from, std::size_t to) {
+    if (to <= from)
+      return;
+    auto piece = paragraph.text.substr(from, to - from);
+    if (!content.empty() &&
+        std::holds_alternative<TextInlineIR>(content.back().node))
+      std::get<TextInlineIR>(content.back().node).text += piece;
+    else
+      content.push_back({TextInlineIR{std::move(piece)}, paragraph_origin});
+  };
+  const auto plain = [&](std::size_t from, std::size_t to) {
+    for (const auto offset : paragraph.line_breaks) {
+      if (offset < from || offset >= to)
+        continue;
+      text(from, offset);
+      content.push_back({HardBreakInlineIR{}, break_origin});
+      from = offset + 1;
+    }
+    text(from, to);
+  };
+  for (const auto &range : ranges) {
+    if (range.begin < cursor || range.begin >= range.end ||
+        range.end > paragraph.text.size())
+      return fail(error, "introduction runs do not fit their paragraph");
+    for (const auto offset : paragraph.line_breaks)
+      if (offset >= range.begin && offset < range.end)
+        return fail(error, "introduction line break falls inside a run");
+    plain(cursor, range.begin);
+    auto label = paragraph.text.substr(range.begin, range.end - range.begin);
+    if (range.link != nullptr) {
+      if (range.link->target.empty())
+        return fail(error, "introduction selector has no target");
+      content.push_back({CrossReferenceInlineIR{
+                             {CrossReferenceTargetKindIR::anchor,
+                              range.link->target},
+                             std::move(label)},
+                         paragraph_origin});
+    } else if (font_style_is_code(range.style)) {
+      content.push_back({CodeInlineIR{std::move(label)}, paragraph_origin});
+    } else if (range.style != FontStyleIR::unknown) {
+      content.push_back(
+          {EmphasisInlineIR{std::move(label),
+                            font_style_emphasis_kind(range.style)},
+           paragraph_origin});
+    } else {
+      text(range.begin, range.end);
+    }
+    cursor = range.end;
+  }
+  plain(cursor, paragraph.text.size());
+  return true;
+}
+
 bool style_flow_prefix(const TrapLineIR &line, const std::string &prefix,
                        bool definition_term, BlockSequenceIR &blocks,
                        std::string *error) {
@@ -684,7 +784,13 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
     if (!paragraph.links.empty() && !paragraph.line_breaks.empty())
       return reject("introduction selector shares its paragraph with a row "
                     "line break");
-    if (!paragraph.leading_spans.empty()) {
+    if (!paragraph.highlights.empty()) {
+      std::string styled_error;
+      if (!styled_introduction_inlines(paragraph, paragraph_origin,
+                                       break_origin, content, &styled_error))
+        return reject(styled_error);
+      rest.clear();
+    } else if (!paragraph.leading_spans.empty()) {
       std::string joined;
       for (const auto &span : paragraph.leading_spans) {
         if (!joined.empty())
@@ -713,7 +819,7 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
         return reject("introduction line break is out of order");
       rest.clear();
     }
-    if (!paragraph.links.empty()) {
+    if (!paragraph.links.empty() && paragraph.highlights.empty()) {
       // Each selector range is its own cross reference; a range that
       // reaches into the highlighted prefix or overlaps another is not
       // placed.

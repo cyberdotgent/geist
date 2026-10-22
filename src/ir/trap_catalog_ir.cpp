@@ -2291,6 +2291,128 @@ bool same_line(const TrapLineIR &left, const TrapLineIR &right) {
 // no glyph after it on its line, or a split the provenance cannot place
 // declines. `pieces` receives the items in order and `bases` each item's
 // byte offset in the paragraph's text.
+// The `CFONT` runs drawn inside one introduction prose paragraph, as byte
+// ranges over its text. A row the source styles is a row of a font display
+// run: the `CFONT` segment is the row's own control, and its columns are
+// indices into the row's display cells. Each span is placed through the
+// cells it covers and the glyph the prose projected from each of them, never
+// by searching the text. SC34-425 2.4.10.1 record 1490 styles `not` with
+// `cfont 70 3 1` in the middle of `... A separator period is not`, and
+// record 1494 draws `cfont 3 8 P` over `@@FLMLIS`; hosted (DT
+// 19921112160049) serves `<I>not</I>` and `<kbd>@@FLMLIS</kbd>`. A row whose
+// spans the cells do not all prove (`display_row_font_highlights`), or whose
+// span covers a cell the paragraph did not project, stays unstyled; so does
+// a paragraph without exact glyph provenance.
+std::vector<TrapBodyHighlightIR> introduction_row_highlights(
+    const std::vector<DecodedLogicalRecordSource> &records,
+    const LayoutIR &layout, const MessageProseParagraphIR &paragraph) {
+  std::vector<TrapBodyHighlightIR> result;
+  if (!paragraph.glyphs_complete)
+    return result;
+  std::map<CellKey, std::size_t> glyphs;
+  for (const auto &glyph : paragraph.glyphs)
+    glyphs[{glyph.logical_record, glyph.token_index, glyph.word_index}] =
+        glyph.offset;
+  for (const auto &source_row : paragraph.source_rows) {
+    const auto run = std::find_if(
+        layout.runs.begin(), layout.runs.end(), [&](const auto &candidate) {
+          return candidate.id == source_row.display_run;
+        });
+    if (run == layout.runs.end() ||
+        run->control_kind != BookControlKind::font ||
+        source_row.row_index >= run->rows.size())
+      continue;
+    const auto &row = run->rows[source_row.row_index];
+    const auto *record = find_record(records, row.logical_record);
+    if (record == nullptr ||
+        row.segment_index >= record->control_segments.size())
+      continue;
+    const auto font = decode_font_control_spans(
+        *record, record->control_segments[row.segment_index]);
+    if (!font)
+      continue;
+    const DisplayLineIR *line = nullptr;
+    for (auto token = row.token_begin; token < row.token_end && !line; ++token)
+      line = display_line_of_token(*record, token);
+    // The spans name the row directly below the `cfont` line. The segment's
+    // payload runs on over later rows of the same display run, which the
+    // `cfont` does not style (SC31-711 4.1.3 record 104 line 28, hosted
+    // plain).
+    const auto &segment = record->control_segments[row.segment_index];
+    const auto *font_line =
+        segment.source_tokens.empty()
+            ? nullptr
+            : display_line_of_token(*record, segment.source_tokens.front());
+    if (line == nullptr || font_line == nullptr || line != font_line + 1)
+      continue;
+    const auto cells = display_line_cells(*record, *line);
+    const auto offsets = display_line_column_offsets(*record, *line);
+    const auto text = display_line_text(*record, *line);
+    if (display_row_font_highlights(cells, offsets, *font).empty())
+      continue;
+    std::vector<FontSpanIR> spans;
+    for (const auto &span : font->spans)
+      if (span.length != 0)
+        spans.push_back(span);
+    std::sort(spans.begin(), spans.end(),
+              [](const auto &left, const auto &right) {
+                return left.column < right.column;
+              });
+    std::vector<TrapBodyHighlightIR> mapped;
+    bool proven = true;
+    for (const auto &span : spans) {
+      std::optional<std::size_t> begin;
+      std::size_t end = 0;
+      std::string drawn;
+      for (auto column = span.column;
+           proven && column < span.column + span.length; ++column) {
+        const auto &cell = cells[column];
+        if (cell.word <= ' ')
+          continue;
+        const auto glyph =
+            text.substr(offsets[column], offsets[column + 1] - offsets[column]);
+        const auto found =
+            glyphs.find({record->logical_record, cell.token, cell.word_index});
+        if (cell.token < row.token_begin || cell.token >= row.token_end ||
+            found == glyphs.end() || glyph.empty() ||
+            paragraph.text.compare(found->second, glyph.size(), glyph) != 0 ||
+            (begin && found->second < end)) {
+          proven = false;
+          break;
+        }
+        if (!begin)
+          begin = found->second;
+        end = found->second + glyph.size();
+        drawn += glyph;
+      }
+      if (!proven || !begin) {
+        proven = false;
+        break;
+      }
+      // Between the run's own glyphs the text holds only separator spaces.
+      std::string spelled;
+      for (const auto ch : paragraph.text.substr(*begin, end - *begin))
+        if (ch != ' ')
+          spelled.push_back(ch);
+      if (spelled != drawn) {
+        proven = false;
+        break;
+      }
+      mapped.push_back({*begin, end, span.style});
+    }
+    if (proven)
+      result.insert(result.end(), mapped.begin(), mapped.end());
+  }
+  std::sort(result.begin(), result.end(),
+            [](const auto &left, const auto &right) {
+              return left.begin < right.begin;
+            });
+  for (std::size_t at = 1; at < result.size(); ++at)
+    if (result[at].begin < result[at - 1].end)
+      return {};
+  return result;
+}
+
 bool split_introduction_list_items(
     const std::vector<DecodedLogicalRecordSource> &records,
     const LayoutIR &layout, const MessageProseParagraphIR &paragraph,
@@ -4152,6 +4274,29 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
       }
     }
   }
+  // `CFONT` runs inside the piece's prose rows, each moved to the item whose
+  // text holds it. The first row's leading run is the item's
+  // `leading_spans`; a run inside it, or one that crosses two list items,
+  // is not placed again.
+  if (prose) {
+    for (std::size_t source = 0; source < prose->paragraphs.size(); ++source)
+      for (const auto &range : introduction_row_highlights(
+               records, layout, prose->paragraphs[source]))
+        for (std::size_t at = 0; at < item_sources.size(); ++at) {
+          const auto &[owner, base] = item_sources[at];
+          auto &item = catalog.introduction[first_item + at];
+          if (owner != source || range.begin < base ||
+              range.end > base + item.text.size())
+            continue;
+          std::size_t lead = 0;
+          for (const auto &span : item.leading_spans)
+            lead += span.text.size() + (lead == 0 ? 0 : 1);
+          if (range.begin - base >= lead)
+            item.highlights.push_back(
+                {range.begin - base, range.end - base, range.style});
+          break;
+        }
+  }
   // `cselect` hotspots of this piece. Each marks cells of the display line
   // after it (queued selectors share one), exactly as in an entry; the
   // range is placed through the source cells the prose projected, never by
@@ -4330,7 +4475,7 @@ bool same_trap_catalog_ir(const TrapCatalogIR &left,
     const auto &a = left.introduction[index];
     const auto &b = right.introduction[index];
     if (a.text != b.text || !same_spans(a.leading_spans, b.leading_spans) ||
-        a.line_breaks != b.line_breaks ||
+        a.highlights != b.highlights || a.line_breaks != b.line_breaks ||
         a.source_slices != b.source_slices ||
         a.source_rows.size() != b.source_rows.size() || a.links != b.links ||
         !(a.list_marker == b.list_marker) ||
@@ -4523,6 +4668,8 @@ std::string format_trap_catalog_ir(const TrapCatalogIR &catalog) {
   for (const auto &paragraph : catalog.introduction) {
     out << "introduction spans=" << paragraph.leading_spans.size()
         << " rows=" << paragraph.source_rows.size();
+    if (!paragraph.highlights.empty())
+      out << " highlights=" << paragraph.highlights.size();
     if (!paragraph.line_breaks.empty()) {
       out << " breaks=";
       for (std::size_t index = 0; index < paragraph.line_breaks.size(); ++index)

@@ -790,6 +790,32 @@ More facts about the introduction:
   the words rather than the display lines sees a rule drawn after the term;
   the display lines show none, and hosted F.1 (DT `19910321130500`) draws
   nothing between the entry's last field and the next row.
+* Every `cfont` line of the introduction styles the row directly below it,
+  wherever on that row its spans fall, and each span keeps the style its
+  code names (the code table above).  The spans are not limited to a run
+  that opens the row at the catalogue's origin column.  `2.4.10.1` record
+  1490 line 13 is the `cfont` at token 154 (`39` at `0x15C4BA`), then `70`
+  (`EE AC`), `3` (`9E`) and `1` (`88`): one `HP1` span over cells 70--72 of
+  line 14, ` | character string with no separator periods.  A
+  separator period is not`, where `not` is token 173 (`56` at
+  `0x15C4D5`).  Hosted (DT `19921112160049`) serves `<I>not</I>` in the
+  middle of that paragraph.  Record 1494 line 32 is the `cfont` at token
+  180 (`39` at `0x15CADE`), `3` (`9E`), `8` (`AA`), `P` (`7B` at
+  `0x15CAE1`), over line 33, ` | @@FLMLIS` (`|` = `70` at `0x15CAE4`, `@@` =
+  `28`, attach `00`, `FLMLIS` = `BE 3C` at `0x15CAE7`) in cells 3--10,
+  left of the catalogue's origin column 8.  Hosted serves
+  `<kbd>@@FLMLIS</kbd>`.  The same topic's `E` rows are served as `<samp>`
+  word by word and its `2` rows (`Total Lines`) as `<B>`.  A span is read
+  only through the cells it names: it begins and ends on a drawn glyph that
+  meets a blank, the row's edge or the next span, exactly as in a drawn
+  region above.  Only the row directly below the `cfont` line is styled;
+  the rows after it that carry no `cfont` of their own are plain even
+  where the same columns would fit a word.  `SC31-711` topic `4.1.3`
+  (DT `19941010174546`) record 104 line 28 is
+  `   state until the condition causing the critical state is resolved.`
+  with no `cfont` line above it, and the record's one `cfont 3 5 2` (which
+  styles `Note:`) would cover `state` in cells 3--7; hosted serves `state`
+  plain.
 
 [[markup_trap_introduction_lists]]
 The introduction draws native lists the same way an entry does.  A

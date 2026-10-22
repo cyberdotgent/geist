@@ -2022,12 +2022,15 @@ int main() {
               "the example-row introduction did not verify");
       std::string markdown, html;
       lowered(*built.catalog, markdown, html);
-      require(markdown.find("HELP \\(where number  \nand type\\)") !=
+      // Each row keeps its `E` span: hosted serves example text as
+      // `<samp>`, which lowers as code.
+      require(markdown.find("`HELP (where number`  \n`and type)`") !=
                   std::string::npos,
               "the example rows did not render a Markdown hard break: " +
                   markdown);
-      require(html.find("HELP (where number<br>and type)") !=
-                  std::string::npos,
+      require(html.find("<code class=\"geist-monospace\">HELP (where "
+                        "number</code><br><code class=\"geist-monospace\">"
+                        "and type)</code>") != std::string::npos,
               "the example rows did not render <br>: " + html);
     }
   }
@@ -2070,7 +2073,10 @@ int main() {
               "keyword rows with room left did not break: " + joined);
       std::string markdown, html;
       lowered(*built.catalog, markdown, html);
-      require(html.find("LANG=A Assembler only<br>LANG=T TEXT<br>LANG=R") !=
+      require(html.find("<strong class=\"geist-strong\">LANG=A</strong> "
+                        "Assembler only<br><strong class=\"geist-strong\">"
+                        "LANG=T</strong> TEXT<br><strong "
+                        "class=\"geist-strong\">LANG=R</strong>") !=
                   std::string::npos,
               "the keyword rows did not render <br>: " + html);
     }
@@ -3704,6 +3710,114 @@ int main() {
                   html.find(">THIS<") == std::string::npos &&
                   html.find(">HIS") == std::string::npos,
               "a run its row's cells disprove was styled: " + html);
+    }
+  }
+
+  // `CFONT` runs inside introduction prose rows keep their styles, wherever
+  // the row places them. SC34-425 2.4.10.1 record 1490 is `cfont 70 3 1`
+  // over `... A separator period is not`, and record 1494 `cfont 3 8 P`
+  // over `   @@FLMLIS` (left of the catalogue's origin column 8); hosted
+  // (DT 19921112160049) serves `<I>not</I>` and `<kbd>@@FLMLIS</kbd>`.
+  {
+    const auto introduced = [&](std::uint32_t record,
+                                const std::vector<Token> &first_font) {
+      auto tokens = header("Sample", "Messages");
+      append(tokens, line({}));
+      append(tokens, line(first_font));
+      append(tokens, line({origin(), t("It", 632), t("is", 633),
+                           t("not", 634), t("plain.", 635)}));
+      append(tokens, line({}));
+      append(tokens, line({t("cfont", 111), t("5", 506), t("6", 181),
+                           t("P", 636)}));
+      append(tokens, line({t("     ", 637), t("@@PARM", 638),
+                           t("value.", 639)}));
+      append(tokens, line({}));
+      append(tokens, entry("729", 640));
+      return build({make_source(record, tokens)}, "Sample Messages");
+    };
+    const auto built = introduced(
+        140, {t("cfont", 111), t("9", 641), t("3", 112), t("1", 171)});
+    require(built.catalog.has_value(),
+            "a styled introduction declined: " + built.error);
+    if (built.catalog) {
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "styled introduction runs failed verification: " + error);
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(),
+              "styled introduction lowering declined: " + error);
+      if (document) {
+        const auto html =
+            geist::detail::render_document_html_blocks(*document, {});
+        const auto markdown =
+            geist::detail::render_document_markdown(*document);
+        require(html.find("It is <em class=\"geist-emphasis\">not</em> "
+                          "plain.") != std::string::npos &&
+                    markdown.find("It is *not* plain\\.") != std::string::npos,
+                "a mid-row introduction run lost its style: " + html);
+        require(html.find("<code class=\"geist-monospace\">@@PARM</code> "
+                          "value.") != std::string::npos &&
+                    markdown.find("`@@PARM` value\\.") != std::string::npos,
+                "an introduction keyword run lost its style: " + html);
+      }
+    }
+
+    // Mutation: the run names the cell after its word's first glyph. The
+    // row's cells disprove it, so the row stays plain and the catalogue is
+    // still read.
+    const auto shifted = introduced(
+        141, {t("cfont", 111), t("10", 642), t("3", 112), t("1", 171)});
+    require(shifted.catalog.has_value(),
+            "an introduction run its cells disprove declined: " +
+                shifted.error);
+    if (shifted.catalog) {
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *shifted.catalog, &error);
+      require(document.has_value(),
+              "a disproved introduction run did not lower: " + error);
+      if (document) {
+        const auto html =
+            geist::detail::render_document_html_blocks(*document, {});
+        require(html.find("It is not plain.") != std::string::npos,
+                "a run its row's cells disprove was styled: " + html);
+      }
+    }
+
+    // A `cfont` styles only the row directly below it. Its payload runs on
+    // over the next rows of the paragraph, but those rows are not styled:
+    // SC31-711 4.1.3 record 104 draws `   state until the condition ...`
+    // under no `cfont` of its own, and hosted (DT 19941010174546) serves
+    // `state` plain although cells 3--7 would fit the record's
+    // `cfont 3 5 2`.
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({}));
+    append(tokens, line({t("cfont", 111), t("3", 112), t("2", 643),
+                         t("1", 171)}));
+    append(tokens, line({origin(), t("Go", 644), t("on", 645)}));
+    append(tokens, line({origin(), t("ab", 646), t("cd.", 647)}));
+    append(tokens, line({}));
+    append(tokens, entry("730", 648));
+    const auto carried = build({make_source(142, tokens)}, "Sample Messages");
+    require(carried.catalog.has_value(),
+            "a styled introduction row with a continuation declined: " +
+                carried.error);
+    if (carried.catalog) {
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *carried.catalog, &error);
+      require(document.has_value(),
+              "a styled introduction continuation did not lower: " + error);
+      if (document) {
+        const auto html =
+            geist::detail::render_document_html_blocks(*document, {});
+        require(html.find("<em class=\"geist-emphasis\">Go</em> on ab cd.") !=
+                    std::string::npos,
+                "a cfont styled a row other than the one below it: " + html);
+      }
     }
   }
 

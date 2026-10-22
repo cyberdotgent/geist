@@ -366,6 +366,11 @@ struct TrapIntroductionParagraphIR {
   // (`MessageProseParagraphIR::line_breaks`).
   std::vector<std::size_t> line_breaks;
   std::vector<TrapStyledSpanIR> leading_spans;
+  // `CFONT` runs drawn inside the paragraph's rows, as byte ranges over
+  // `text`, ordered and disjoint, and never inside the `leading_spans`
+  // prefix. Each is placed through the source cells the prose projected,
+  // never by searching the text.
+  std::vector<TrapBodyHighlightIR> highlights;
   std::vector<DocumentSourceSliceIR> source_slices;
   std::vector<DocumentSourceRowIR> source_rows;
   // Selector ranges over `text`, ordered and disjoint (`cselect` rows of the
