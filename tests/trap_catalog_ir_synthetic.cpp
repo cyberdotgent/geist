@@ -2801,6 +2801,89 @@ int main() {
             "as a label");
   }
 
+  // Footnote envelopes can stand between an entry's `SRMSG` and its
+  // headline: N2AH1MST record 1936 lines 10-19 are `SRMSG ERB415I`, the
+  // rule, `SRFTNFTNUNIQ31` / `(*) PR/SM is a trademark ...` / `SREFTN` and
+  // `SRFTNFTNUNIQ32` / `(*) VM is a trademark ...` / `SREFTN`, then the
+  // headline's cfont on line 20. Hosted 21.0 serves `<a name="MSG
+  // ERB415I">`, both footnotes, then the headline.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("673", 481));
+    append(tokens, line({t("SRMSG", 110), t("674", 482)}));
+    append(tokens, line({}));
+    append(tokens, line({t("SRFTNFTNUNIQ31", 483)}));
+    append(tokens, line({t("    ", 20), t("(*)", 484), t("PR/SM", 485),
+                         t("note.", 486)}));
+    append(tokens, line({t("SREFTN", 249)}));
+    append(tokens, line({}));
+    append(tokens, line({t("SRFTNFTNUNIQ32", 487)}));
+    append(tokens, line({t("    ", 20), t("(*)", 484), t("VM", 488),
+                         t("note.", 486)}));
+    append(tokens, line({t("SREFTN", 249)}));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("3", 112), t("2", 113)}));
+    append(tokens, line({origin(), t("674", 482)}));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("12", 114), t("2", 113)}));
+    append(tokens, line({origin(), t("Description:", 115), t("first", 117),
+                         t("field", 118)}));
+    const auto built = build({make_source(106, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "footnotes before an entry's headline declined: " + built.error);
+    if (built.catalog && built.catalog->entries.size() == 2) {
+      const auto &second_entry = built.catalog->entries.back();
+      require(entry_text(second_entry) == "674 Description: first field",
+              "footnotes before the headline ran into the entry: [" +
+                  entry_text(second_entry) + "]");
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "footnotes before the headline failed verification: " + error);
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(),
+              "footnotes before the headline did not lower: " + error);
+      if (document) {
+        const auto markdown =
+            geist::detail::render_document_markdown(*document);
+        const auto anchor = markdown.find("<a id=\"MSG 674\"></a>");
+        const auto first = markdown.find("<a id=\"FTNFTNUNIQ31\"></a>");
+        const auto first_text = markdown.find("PR/SM note");
+        const auto second = markdown.find("<a id=\"FTNFTNUNIQ32\"></a>");
+        const auto second_text = markdown.find(" VM note");
+        const auto headline = markdown.find("**674**");
+        require(anchor != std::string::npos && first > anchor &&
+                    first_text > first && second > first_text &&
+                    second_text > second && headline > second_text &&
+                    markdown.find("EFTN") == std::string::npos,
+                "footnotes before the headline were not placed where the "
+                "source draws them:\n" + markdown);
+      }
+    }
+
+    // Mutation: a footnote opened before the headline that the headline's
+    // own rows interrupt is not closed where it stands, and declines.
+    auto unclosed = header("Sample", "Messages");
+    append(unclosed, entry("675", 489));
+    append(unclosed, line({t("SRMSG", 110), t("676", 490)}));
+    append(unclosed, line({}));
+    append(unclosed, line({t("SRFTNFTNUNIQ33", 491)}));
+    append(unclosed, line({t("    ", 20), t("(*)", 484), t("VM", 488),
+                           t("note.", 486)}));
+    append(unclosed,
+           line({t("cfont", 111), t("3", 112), t("3", 112), t("2", 113)}));
+    append(unclosed, line({origin(), t("676", 490)}));
+    append(unclosed, line({t("SREFTN", 249)}));
+    append(unclosed,
+           line({t("cfont", 111), t("3", 112), t("12", 114), t("2", 113)}));
+    append(unclosed, line({origin(), t("Description:", 115), t("first", 117),
+                           t("field", 118)}));
+    require(!build({make_source(107, unclosed)}, "Sample Messages").catalog,
+            "a footnote spanning an entry's headline was admitted");
+  }
+
   std::cout << "trap catalog IR synthetic tests passed\n";
   return 0;
 }

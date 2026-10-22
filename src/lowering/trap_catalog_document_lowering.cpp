@@ -784,6 +784,13 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
         {AnchorBlockIR{"MSG " + (entry.operand.empty() ? entry.id
                                                        : entry.operand)},
          anchor_origin});
+    // Footnotes the entry draws before its headline stand between the
+    // entry's anchor and its first row, where hosted N2AH1MST 21.0
+    // (DT 19910329000100) serves `FTNFTNUNIQ31` and `FTNFTNUNIQ32` for
+    // `ERB415I`.
+    if (!lower_flow_blocks(entry.leading.body.flow.blocks, document.blocks,
+                           error))
+      return std::nullopt;
 
     const auto uses_compound_flow =
         compound_flow(entry.headline.body.flow) ||

@@ -328,6 +328,12 @@ struct TrapEntryIR {
   std::string id;
   std::string operand;
   DocumentSourceSliceIR start_source;
+  // Footnote envelopes the entry draws between its `SRMSG` and its headline,
+  // in source order; `leading.body.flow` holds nothing else. N2AH1MST record
+  // 1936 lines 13-19 draw `FTNFTNUNIQ31` and `FTNFTNUNIQ32` there, and
+  // hosted 21.0 (DT 19910329000100) serves them after `<a name="MSG
+  // ERB415I">` and before the headline.
+  TrapLineIR leading;
   TrapLineIR headline;
   std::vector<TrapFieldIR> fields;
   std::vector<TrapEmbeddedRegionIR> embedded_regions;

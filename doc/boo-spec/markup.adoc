@@ -730,6 +730,34 @@ whose first item, `Missing`, closes record 1483 line 35.  No segment payload
 covers the record's leading blank run and bullet, but the bullet is that
 row's marker all the same.
 
+A footnote envelope can also stand between an entry's `SRMSG` and its
+headline.  `N2AH1MST` topic `21.0` (hosted DT `19910329000100`), record
+1936:
+
+[cols="<12,<26,<62",options="header"]
+|===
+|Line |Bytes |Content
+
+|10 |— |`SRMSG ERB415I`
+|11 |— |the entry's rule row
+|13 |`02` at `0xB4F2D`, then `E4 9D` |`SRFTNFTNUNIQ31`
+|14 |— |`    (*) PR/SM is a trademark of the IBM Corporation.`
+|15 |`02` at `0xB4F49`, then `E4 7D` |`SREFTN`
+|17 |`02` at `0xB4F4D`, then `E4 9F` |`SRFTNFTNUNIQ32`
+|18 |— |`    (*) VM is a trademark of the IBM Corporation.`
+|19 |`02` at `0xB4F64`, then `E4 7D` |`SREFTN`
+|20--21 |— |the headline `cfont` and `   ERB415I sid:  [MEASUREMENT|DELAY] VALUES ...`
+|===
+
+Hosted serves `<a name="MSG ERB415I"><hr></a>`, then
+`<a name="FTNFTNUNIQ31"><hr><h5> ... </h5></a>` and
+`<a name="FTNFTNUNIQ32"><h5> ... </h5></a>`, then the headline.  The
+footnotes stand after the entry's anchor and before its first row, as the
+source orders them.  Only footnote envelopes are observed there; no drawn
+text stands between an entry's `SRMSG` and its headline.  The `(*)` marks
+that select these footnotes are in an earlier entry (record 1886 lines
+38--41, `cselect 26 4 FTNFTNUNIQ31` and `cselect 46 4 FTNFTNUNIQ32`).
+
 The figure and footnote ids are the opening opcode without `SR`; the closers
 `SREFIG` and `SREFTN` are end markers and name no destination.  Two more
 footnote envelopes follow on lines 16-19 and 21-23 of record 599, served in

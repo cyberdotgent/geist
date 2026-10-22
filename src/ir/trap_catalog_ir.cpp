@@ -3060,6 +3060,18 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
       // The opener's payload is the footnote's own text; the closer names
       // nothing and its payload is entry text again.
       if (footnote_start) {
+        // Before the headline the footnote stands between the entry's
+        // `SRMSG` and its first row: N2AH1MST record 1936 lines 13-19, served
+        // by hosted 21.0 (DT 19910329000100) after `<a name="MSG ERB415I">`.
+        // It opens on the entry's leading line, which holds footnotes only;
+        // its closer hands the entry back to the headline.
+        if (current == nullptr && !have_headline && footnote_line == nullptr) {
+          current = &entry.leading;
+          current->body.cell_begin = current->body.flow.blocks.empty()
+                                         ? entry.cells.size()
+                                         : current->body.cell_begin;
+          current->body.cell_end = entry.cells.size();
+        }
         if (current == nullptr || footnote_line != nullptr)
           return reject("trap entry footnote envelope is misplaced: " +
                         entry.id + " " + segment.opcode);
@@ -3448,6 +3460,18 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
             piece.paragraph_break = true;
             pending_boundaries.clear();
           }
+        }
+        if (current == &entry.leading && footnote_line == nullptr) {
+          // The closer of a footnote that stands before the headline. Its
+          // payload would be drawn text ahead of the headline, which no
+          // entry is observed to carry; only another footnote or the
+          // headline itself may follow.
+          if (!piece.text.empty())
+            return reject("trap entry text precedes its headline: " +
+                          entry.id);
+          current->body.cell_end = piece.cell_end;
+          current = nullptr;
+          continue;
         }
         if (current == nullptr) {
           // A placeholder-only record prefix (separator plus `?` run) before
@@ -3914,6 +3938,7 @@ bool same_trap_catalog_ir(const TrapCatalogIR &left,
     const auto &b = right.entries[index];
     if (a.id != b.id || a.operand != b.operand ||
         !(a.start_source == b.start_source) ||
+        !same_line(a.leading, b.leading) ||
         !same_line(a.headline, b.headline) || a.fields.size() != b.fields.size() ||
         a.cells != b.cells || a.suppressed_rows.size() != b.suppressed_rows.size() ||
         a.embedded_regions.size() != b.embedded_regions.size() ||
@@ -3974,6 +3999,18 @@ bool verify_trap_catalog_ir(
                                " flow differs from flat text: " + entry.id);
       return true;
     };
+    if (!entry.leading.body.flow.blocks.empty()) {
+      if (!check_line(entry.leading, "leading footnote"))
+        return false;
+      if (!std::all_of(entry.leading.body.flow.blocks.begin(),
+                       entry.leading.body.flow.blocks.end(),
+                       [](const auto &block) {
+                         return std::holds_alternative<TrapFlowFootnoteIR>(
+                             block.value);
+                       }))
+        return fail(error, "trap entry draws more than footnotes before its "
+                           "headline: " + entry.id);
+    }
     if (!check_line(entry.headline, "headline"))
       return false;
     if (!starts_with_word(entry.headline.body.text, entry.id))
