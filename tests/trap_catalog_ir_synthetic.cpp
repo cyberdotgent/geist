@@ -50,8 +50,8 @@
 //     and a selector past its row that declines;
 //   * an `SRFIG` envelope drawn in the introduction, and a stray closer;
 //   * an `SI` subject-index line inside an entry kept as a silent index
-//     term, and one whose segment runs on into drawn text, which declines;
-//     a segment that ends on the next line's length byte is not drawn text;
+//     term, including one whose segment runs on into drawn rows, which
+//     are entry text again; the next line's length byte is not drawn text;
 //   * an `SRMSG` whose only operand is the next line's length byte, read as
 //     a bare anchor, and a styled row after a bare `SRMSG`, which declines
 //     while a plain row stays entry text;
@@ -2591,22 +2591,53 @@ int main() {
     }
   }
 
-  // Mutation: a subject-index segment the flattened splitter extended over
-  // a drawn row after the SI line. That row has no slot, so the entry
-  // declines rather than drop or misplace it.
+  // A subject-index segment the flattened splitter extended over the drawn
+  // rows after the SI line: the term is an index term and the rows are
+  // entry text again, where the source draws them. SC34-425 APPENDIX1.5.3
+  // record 2845 lines 9-12 are an empty line, `SI SHR mode`, `SI modes, SHR`
+  // and a U+2666 bullet row `Free the data set so that it can be allocated
+  // in SHR mode.`;
+  // the splitter's segment 3 runs from the second SI line into that bullet,
+  // and hosted (DT 19921112160049) serves the bullet as the second item of
+  // FLM80020's `User Response:` list, with nothing for either SI line.
   {
     auto tokens = header("Sample", "Messages");
     append(tokens, entry("648", 317));
+    append(tokens, line({}));
     append(tokens, line({t("SI", 313), t("translators,", 314),
                          t("SAMPLE", 315)}));
     append(tokens, line({origin(), t("Trailing", 318), t("words.", 319)}));
     const auto built = build({make_source(79, tokens)}, "Sample Messages");
-    require(!built.catalog.has_value(),
-            "a subject index segment carrying drawn text was admitted");
-    require(built.error.find("subject index") != std::string::npos,
-            "the extended subject index line declined for the wrong "
-            "reason: " +
+    require(built.catalog.has_value(),
+            "a subject index segment carrying drawn text declined: " +
                 built.error);
+    if (built.catalog && built.catalog->entries.size() == 1) {
+      const auto &only = built.catalog->entries.front();
+      require(only.index_terms.size() == 1 &&
+                  only.index_terms.front().term == "translators, SAMPLE",
+              "the run-on subject index term was not kept");
+      require(entry_text(only) ==
+                  "648 Description: first field Trailing words.",
+              "the rows after a subject index line were not entry text: [" +
+                  entry_text(only) + "]");
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "the run-on subject index entry failed verification: " + error);
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(),
+              "the run-on subject index entry did not lower: " + error);
+      if (document) {
+        const auto markdown =
+            geist::detail::render_document_markdown(*document);
+        require(markdown.find("translators") == std::string::npos &&
+                    markdown.find("first field") < markdown.find("Trailing"),
+                "the run-on subject index entry rendered wrongly:\n" +
+                    markdown);
+      }
+    }
   }
 
   // A subject-index segment can end on the next line's length byte when
@@ -2647,8 +2678,8 @@ int main() {
                   error);
     }
 
-    // Mutation: drawn text after that length byte is still text the SI
-    // line has no slot for.
+    // Drawn text after that length byte is entry text again, and the
+    // spelled rule run is still not drawn.
     auto drawn = header("Sample", "Messages");
     append(drawn, entry("694", 512));
     append(drawn, line({t("SI", 313), t("translators,", 314),
@@ -2658,9 +2689,14 @@ int main() {
     drawn.push_back({TokenWords(26, 0x2500),
                      static_cast<std::uint16_t>(row.size())});
     append(drawn, row);
-    require(!build({make_source(117, drawn)}, "Sample Messages").catalog,
-            "drawn text after a subject index line's length byte was "
-            "admitted");
+    const auto ruled = build({make_source(117, drawn)}, "Sample Messages");
+    require(ruled.catalog.has_value() &&
+                ruled.catalog->entries.size() == 1 &&
+                entry_text(ruled.catalog->entries.front()) ==
+                    "694 Description: first field Trailing words.",
+            "drawn text after a subject index line's length byte was not "
+            "entry text: " +
+                ruled.error);
   }
 
   // A headline CFONT that closes its record styles the next record's first

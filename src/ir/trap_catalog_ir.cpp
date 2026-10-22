@@ -2929,6 +2929,10 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
     // bold rows, one per line, between two groups of entries. The entry
     // body has no form for that heading, so it declines.
     bool after_bare_anchor = false;
+    // The drawn rows a subject-index segment runs on into, walked as the
+    // next pass of the loop over the same segment (see the SI branch).
+    std::optional<ControlSegmentIR> subject_index_rest;
+    bool walk_subject_index_rest = false;
     std::vector<TrapParagraphBoundaryIR> pending_boundaries;
     const auto queue_boundary = [&](TrapParagraphBoundaryIR boundary) {
       if (std::none_of(pending_boundaries.begin(), pending_boundaries.end(),
@@ -2941,7 +2945,10 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
     };
     for (auto at = begin + 1; at < end; ++at) {
       const auto &ref = ordered[at];
-      const auto &segment = *ref.segment;
+      const auto walking_subject_index_rest = walk_subject_index_rest;
+      walk_subject_index_rest = false;
+      const auto &segment =
+          walking_subject_index_rest ? *subject_index_rest : *ref.segment;
       const auto ledger_empty_lines = [&] {
         const auto empty = index.empty_line_prefixes.find(
             ref.record->logical_record);
@@ -3042,8 +3049,9 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
       // hosted BookServer (DT 19921112160049) serves nothing for it. The
       // entry keeps it as an index term and ledgers its cells as control,
       // so it never runs into the field it follows. The flattened splitter
-      // may hand the segment the display lines after it; that text has no
-      // slot here, so a segment that outruns its SI line declines.
+      // may hand the segment the display lines after it; those rows are
+      // entry text again, walked from the next line's length byte as a
+      // second pass over the segment.
       if (!opcode_is_line_prefix && !segment.source_tokens.empty()) {
         const auto *si_line =
             display_line_of_token(*ref.record, segment.source_tokens.front());
@@ -3054,15 +3062,53 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           // structure whatever its dictionary word: SC09-138 F.1 record 2061
           // token 216 (`0B` at 0x109283, line 18's length 11) spells a
           // U+2500 rule run, and line 18 opens the next `SI`.
-          if (std::any_of(segment.source_tokens.begin(),
-                          segment.source_tokens.end(), [&](const auto token) {
-                            return token >= si_line->token_end &&
-                                   !is_display_line_length_token(*ref.record,
-                                                                 token);
-                          }))
-            return reject("trap entry subject index line carries text after "
-                          "it: " +
-                          entry.id);
+          const auto runs_on = std::any_of(
+              segment.source_tokens.begin(), segment.source_tokens.end(),
+              [&](const auto token) {
+                return token >= si_line->token_end &&
+                       !is_display_line_length_token(*ref.record, token);
+              });
+          // A segment that runs on draws rows after the SI line, and they are
+          // entry text where the source puts them: SC34-425 APPENDIX1.5.3
+          // record 2845 segment 3 is `SI modes, SHR` (line 11) and the bullet
+          // row `   °   Free the data set so that it can be allocated in SHR
+          // mode.` (line 12), which hosted (DT 19921112160049) serves as the
+          // second item of FLM80020's `User Response:` list. The rest starts
+          // at the next line's length byte and keeps the segment's index.
+          if (runs_on) {
+            const auto rest_token = si_line->token_end;
+            const auto span = std::find_if(
+                ref.record->assembled.tokens.begin(),
+                ref.record->assembled.tokens.end(),
+                [&](const auto &token) { return token.token_index == rest_token; });
+            if (span == ref.record->assembled.tokens.end() ||
+                !is_display_line_length_token(*ref.record, rest_token))
+              return reject("trap entry subject index line carries text after "
+                            "it: " +
+                            entry.id);
+            const auto rest_byte = decoded_word_range_to_byte_range(
+                                       ref.record->assembled,
+                                       {span->output_begin, span->output_begin})
+                                       .begin;
+            ControlSegmentIR rest = segment;
+            rest.kind = BookControlKind::text;
+            rest.opcode.clear();
+            rest.complete.begin = rest_byte;
+            rest.opcode_range = {rest_byte, rest_byte};
+            rest.operand_range = {rest_byte, rest_byte};
+            rest.payload_range = {rest_byte, segment.complete.end};
+            rest.source_tokens.erase(
+                std::remove_if(rest.source_tokens.begin(),
+                               rest.source_tokens.end(),
+                               [&](const auto token) { return token < rest_token; }),
+                rest.source_tokens.end());
+            if (rest.source_tokens.empty() ||
+                rest.source_tokens.front() != rest_token)
+              return reject("trap entry subject index line carries text after "
+                            "it: " +
+                            entry.id);
+            subject_index_rest = std::move(rest);
+          }
           const auto keyword = si_line->prefix_token + 1;
           // The drawn line, keyword dropped: the record assembler's own
           // sentence casing would rewrite the term's first word.
@@ -3094,6 +3140,10 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           entry.index_terms.push_back(
               {term, token_slice(*ref.record, segment.segment_index, keyword,
                                  si_line->token_end)});
+          if (runs_on) {
+            walk_subject_index_rest = true;
+            --at;
+          }
           continue;
         }
       }

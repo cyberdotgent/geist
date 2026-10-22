@@ -744,8 +744,13 @@ More facts about the introduction:
   (`BE 44` at `0x15DE21`), after the last field of entry `599`.  Hosted
   shows nothing for it.  It is an index term of the entry: it draws
   nothing, and the field before it does not continue into it.  The line is
-  the whole control; drawn text after it on further display lines would be
-  entry text again, and no observed entry has any.  The next line's length
+  the whole control; drawn rows after it are entry text again, where the
+  source draws them.  `APPENDIX1.5.3` record 2845 lines 9--12 are an empty
+  line, `SI SHR mode`, `SI modes, SHR` and the bullet row
+  `   °   Free the data set so that it can be allocated in SHR mode.`, inside
+  entry `FLM80020`'s `User Response:`.  Hosted serves nothing for either
+  `SI` line and the bullet as the second item of that field's list, after
+  `°   Allocate the required data set ...` on lines 7--8.  The next line's length
   byte is not such text, whatever its dictionary word.  `SC09-138` topic
   `F.1` record 2061 line 17 is `SI run-time, error messages, in a systems
   programming environment` (tokens 201--215); the next byte, `0B` at
