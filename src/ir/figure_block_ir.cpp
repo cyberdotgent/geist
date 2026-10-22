@@ -1761,6 +1761,12 @@ std::string figure_display_glyph(std::uint16_t word) {
   case 0x2191: return "\xE2\x86\x91";
   case 0x2192: return "\xE2\x86\x92";
   case 0x2193: return "\xE2\x86\x93";
+  // Hosted BookServer serves this word as the display byte 0xC8 (`È`):
+  // FA1PLMM0 C.0 record 781 line 16 underlines column heads with runs of it
+  // (DT 19910927114801) and SG24-2047-00 6.2.2 draws table rules with it
+  // (DT 19971218054640).  Like the arrows, the word's own character is
+  // emitted, one column per cell (doc/boo-spec/encoding.adoc).
+  case 0x255A: return "\xE2\x95\x9A";
   default: break;
   }
   return token_words_to_ascii({word});

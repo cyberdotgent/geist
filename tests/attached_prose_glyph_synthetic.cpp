@@ -413,19 +413,50 @@ void indented_rule_line_stays_rule() {
             html.find("____") == std::string::npos,
         "indented rule line was drawn instead of ruled: " + html);
 }
-// A box word whose hosted glyph is unproven (`U+255A`, FA1PLMM0 C.0 record
-// 781 line 16) would print the decoder's `?` inside the drawing.
+// A box word whose hosted glyph is not established (`U+255D`) would print
+// the decoder's `?` inside the drawing.
 void unproven_box_glyph_declines() {
   Builder b(false);
   b.line({});
   b.line({w("   "), {0x250c, 0x2500, 0x2510}});
-  b.line({w("   "), {0x255a, 0x255a, 0x255a}});
+  b.line({w("   "), {0x255d, 0x255d, 0x255d}});
   b.line({});
   b.line({w("ordinary prose")});
   std::string error;
   const auto doc = lower(b, error);
   check(!doc, "a drawing with an unproven box glyph was admitted: " +
                   (doc ? render_document_html_fragment(*doc) : error));
+}
+// FA1PLMM0 C.0 record 781 lines 13-28: column heads underlined with runs of
+// the word `U+255A`, inside an open drawing between two blank lines.  Hosted
+// BookServer (DT 19910927114801) prints one display byte 0xC8 per cell, as
+// SG24-2047-00 6.2.2 (DT 19971218054640) does for the same word in its
+// table rules; like the arrows, the word's own character is emitted.
+void u255a_run_draws_hosted_glyph() {
+  Builder b(false);
+  b.line({});
+  b.line({w("   "), w("Available macros are:")});
+  b.line({});
+  b.line({w("         "), w("SUPVR"), w("     "), w("FOPT")});
+  b.line({w("         "), {0x255a, 0x255a, 0x255a, 0x255a, 0x255a},
+          w("     "), {0x255a, 0x255a, 0x255a, 0x255a}});
+  b.line({w("          "), w("ID"), w("        "), w("DASDSHR")});
+  b.line({});
+  b.line({w("ordinary prose")});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "a U+255A underline row declined: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto pre = pre_body(html);
+  check(pre.find("\xE2\x95\x9A\xE2\x95\x9A\xE2\x95\x9A\xE2\x95\x9A"
+                 "\xE2\x95\x9A") !=
+                std::string::npos &&
+            pre.find("SUPVR") != std::string::npos &&
+            pre.find("DASDSHR") != std::string::npos &&
+            pre.find('?') == std::string::npos,
+        "a U+255A underline row is not drawn: " + html);
 }
 // A cross-book `LNK` selector line inside a closed box draws nothing: its
 // `<...>` alternatives are the selector's destination (SC24-5527-02 1.0
@@ -1106,6 +1137,7 @@ int main() {
   indented_box_bottom_row();
   indented_rule_line_stays_rule();
   unproven_box_glyph_declines();
+  u255a_run_draws_hosted_glyph();
   lnk_selector_inside_closed_box();
   envelope_inside_closed_box();
   envelope_box_markup_is_narrow();

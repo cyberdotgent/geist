@@ -238,6 +238,7 @@ not of the book: it is the same in every fixture that draws with these words.
 |`0x2192` |`0x2a` |`U+2192` right arrow |`0xff` (`ÿ` in ISO-8859-1)
 |`0x2193` |`0x15` |`U+2193` down arrow |`0x19`
 |`0x2666` |`0x04` |`U+2666` diamond bullet |`0xb0` (`°`)
+|`0x255a` |`0x33` |`U+255A` box corner |`0xc8` (`È` in ISO-8859-1)
 |===
 
 Evidence (`ACPZMST1` `1.2.5`, DT 19920319123146): the `FIGRSCOM2` box row is
@@ -245,7 +246,19 @@ served as pass:[<literal>&#160;&#160;&#160;&#160;Requester&#160;&#160;| | Progra
 pass:[<literal>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;\x19&#160;&#160;&#160;|</literal>]; the `To summarize` bullets are served as pass:[<literal>&#160;&#160;&#160;\xb0&#160;&#160;&#160;A user program …</literal>]. The same five bytes appear in `SC09-138` `1.3.1`,
 `SC34-425` `1.3.4`, `PRG1SORT` `1.1.2` and `DREICMST` `1.1.1.1`.
 
-Two of the five bytes are what a CP437 console would draw for the character
+The `0x255a` row has two witnesses, and neither uses the word as a
+corner.  `FA1PLMM0` `C.0` (DT 19910927114801) underlines three column
+heads with runs of it: logical record 781 display line 16 is the length
+byte `09` at `0x54782`, then `15` (9 spaces), `BD 81` (11 x `U+255A`),
+`10` (4 spaces), `BD 80` (10 x `U+255A`), `11` (5 spaces) and `BD 81`,
+and hosted serves
+the row as pass:[<literal>&lt;samp&gt;</literal>]-wrapped runs of 11, 10 and
+11 bytes `0xc8`.  `SG24-2047-00` `6.2.2` (DT 19971218054640) draws the
+horizontal rules of its `FIGSECB01` table with it, one `È` per cell.  The
+byte is `╚` in CP437 and CP850, but the row is an underline and a rule, so
+the character the word was meant to draw is not established.
+
+Two of the five arrow and bullet bytes are what a CP437 console would draw for the character
 (`0x1b` left arrow, `0x19` down arrow); the other three are not, so the table
 is recorded as observed rather than derived.
 
