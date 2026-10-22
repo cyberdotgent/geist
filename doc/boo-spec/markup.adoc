@@ -671,6 +671,17 @@ More facts about the introduction:
   before the catalogue's first `SRMSG`.  `2.4.27` record 1627 ends with
   line 26, ` |     invoked:` (`invoked`, attach `00`, `:` = `27` at
   `0x1673C0`), and hosted serves `invoked:`.
+* A row's length byte can spell a control word, and the row is still
+  introduction text.  `SC31-711` topic `4.3.5` record 151 line 13 opens at
+  `0x146F1` with `2D` (45), the row's length, whose dictionary word is
+  `cbacklevel`.  Then come `09` (a three-cell blank run) and `the`.  The row
+  is `   the 1.3.6.1.4.1.2.6.21.6.1 enterprise ID, which is associated with
+  LNM for`, and lines 14 and 15 continue the sentence.  A reader that
+  splits controls on dictionary words sees a `cbacklevel` control with
+  operand `the`.  Hosted 4.3.5 (DT `19941010174546`) serves all three rows
+  in the introduction's one paragraph, `the` included.  This is the same
+  length-byte shape as an entry headline row whose length byte spells
+  `cfont` (`N2AH1MST` record 658, above).
 * An `SI` subject-index line can stand inside an entry.  `2.4.11.1` record
   1509 line 25 is the length byte `06` (`0x15DE1C`), `SI` (`7F` at
   `0x15DE1D`), `translators` (`E3 0B`), attach `02` + `,` and `FLMLPGEN`

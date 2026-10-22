@@ -393,7 +393,15 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
       // opcode and operands are control text and the flattened splitter
       // gives it the following rows as payload, which are prose. The
       // caller places the hotspot on those rows.
-      if (segment.kind != BookControlKind::text &&
+      // A segment the splitter cut at a display line's length byte, because
+      // the byte's dictionary word spells a control, is that row's text:
+      // SC31-711 4.3.5 record 151 line 13 opens at 0x146F1 with `2D` (45),
+      // spelled `cbacklevel`, and hosted 4.3.5 (DT 19941010174546) serves
+      // `   the 1.3.6.1.4.1.2.6.21.6.1 enterprise ID, ...` in the paragraph.
+      const auto opcode_is_line_length =
+          is_display_line_length_token(record, first);
+      if (!opcode_is_line_length &&
+          segment.kind != BookControlKind::text &&
           segment.kind != BookControlKind::font &&
           segment.kind != BookControlKind::select &&
           segment.kind != BookControlKind::structural &&
@@ -610,8 +618,13 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
           control_tokens.insert(token);
         continue;
       }
+      // A segment opened by a row's length byte has no opcode or operand of
+      // its own; its whole span is that row (see the envelope check above).
       if (segment.kind == BookControlKind::text ||
-          segment.payload_range.begin <= segment.complete.begin)
+          segment.payload_range.begin <= segment.complete.begin ||
+          (!segment.source_tokens.empty() &&
+           is_display_line_length_token(record,
+                                        segment.source_tokens.front())))
         continue;
       const auto words = decoded_byte_range_to_word_range(
           record.assembled,
@@ -985,6 +998,31 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
         }
         return true;
       }();
+      // A segment the splitter opened at a row's length byte (its word
+      // spells a control) is that row and the indented rows after it,
+      // which LayoutIR leaves unrowed: SC31-711 4.3.5 record 151 lines
+      // 13-15, from `2D` (45, spelled `cbacklevel`) at 0x146F1, are
+      // `   the 1.3.6.1.4.1.2.6.21.6.1 enterprise ID, ...` through
+      // `   to AIX NetView/6000.`, and hosted 4.3.5 (DT 19941010174546)
+      // serves them in the introduction paragraph.
+      const auto length_opened_row = [&] {
+        if (!record_framing_is_decided(record.ir)) return false;
+        const auto* line = display_line_of_token(record, token);
+        const auto owner_segment = std::find_if(
+            record.control_segments.begin(), record.control_segments.end(),
+            [&](const auto& candidate) {
+              return candidate.segment_index == current_segment;
+            });
+        if (line == nullptr ||
+            owner_segment == record.control_segments.end() ||
+            owner_segment->source_tokens.empty() ||
+            !is_display_line_length_token(
+                record, owner_segment->source_tokens.front()) ||
+            line->prefix_token < owner_segment->source_tokens.front())
+          return false;
+        const auto text = display_line_text(record, *line);
+        return !text.empty() && text.front() == ' ';
+      }();
       for (std::size_t word = 0; word < words.size(); ++word) {
         const auto value = words[word];
         // Spacing controls attach tokens; they never contribute a glyph or
@@ -1000,7 +1038,10 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
                                      : cell->second->disposition;
         // Decoder placeholder words (control boundaries, `?` runs) sit
         // above the code page and never carry prose.
-        if (disposition == SourceDisposition::control_operand ||
+        // The splitter's operand of a length-opened segment is the row's
+        // first drawn word (`the` after `cbacklevel` above).
+        if ((disposition == SourceDisposition::control_operand &&
+             !length_opened_row) ||
             structural_marker || closing_delimiter || segment_terminal_glyph ||
             value > 0xff || boundary_glyph_word(word)) {
           push_space();
@@ -1049,7 +1090,8 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
           }();
           const auto admitted =
               (record_continues_run && open && token < *first_row_token) ||
-              native_prefix_tokens.count(token) != 0 || payload_row;
+              native_prefix_tokens.count(token) != 0 || payload_row ||
+              length_opened_row;
           // Unowned printable cells of a mid-record segment before its first
           // physical row (or of a rowless segment) are control text that the
           // decoder left unsegmented (index terms), not prose. Unowned cells

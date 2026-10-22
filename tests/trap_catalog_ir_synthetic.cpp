@@ -58,7 +58,8 @@
 //   * a selector before a `cfont` line, which marks the row that `cfont`
 //     styles, and one with no such row, which declines;
 //   * a headline-only entry that shares the next entry's fields, and the
-//     separated, ruled and closing shapes that decline.
+//     separated, ruled and closing shapes that decline;
+//   * an introduction row whose length byte spells a control word.
 //
 // What is NOT covered, stated plainly rather than implied: the compact
 // marker slot that carries a whole word. Two rules turn on it -- a slot the
@@ -3311,6 +3312,36 @@ int main() {
     append(last, headline_only("708", 528));
     require(!build({make_source(124, last)}, "Sample Messages").catalog,
             "a headline-only last entry was admitted");
+  }
+
+  // An introduction row whose length byte spells a control word is prose.
+  // SC31-711 4.3.5 record 151 line 13 opens at 0x146F1 with `2D` (45), the
+  // row's length, whose dictionary word is `cbacklevel`; the row is
+  // `   the 1.3.6.1.4.1.2.6.21.6.1 enterprise ID, which is associated with
+  // LNM for`. Hosted 4.3.5 (DT 19941010174546) serves it inside the
+  // introduction paragraph.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({}));
+    append(tokens, line({origin(), t("Intro", 543), t("words", 544)}));
+    const std::vector<Token> row = {origin(), t("more", 545), t("text", 547)};
+    tokens.push_back({words("cbacklevel"), static_cast<std::uint16_t>(row.size())});
+    append(tokens, row);
+    append(tokens, line({}));
+    append(tokens, entry("718", 546));
+    const auto built = build({make_source(129, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "an introduction row whose length byte spells a control "
+            "declined: " +
+                built.error);
+    if (built.catalog) {
+      std::string introduction;
+      for (const auto &paragraph : built.catalog->introduction)
+        introduction += paragraph.text + "|";
+      require(introduction == "Intro words more text|",
+              "the spelled length byte reached the introduction: [" +
+                  introduction + "]");
+    }
   }
 
   std::cout << "trap catalog IR synthetic tests passed\n";
