@@ -470,6 +470,35 @@ TrapCellRoleIR marker_role(const DecodedLogicalRecordSource &record,
   return TrapCellRoleIR::layout_marker;
 }
 
+// A one-word layout glyph that the record's own framing draws between drawn
+// cells of one display line. It is a cell of that line, never the slot of a
+// row break, because a row break stands only at a display line's length
+// byte. Requires decided framing; an unframed record keeps the slot reading.
+bool glyph_drawn_mid_line(const DecodedLogicalRecordSource &record,
+                          std::size_t token, std::uint16_t value) {
+  if (!record_framing_is_decided(record.ir) || value < 0x20 || value > 0x7f ||
+      !layout_glyph(static_cast<char>(value)) ||
+      record.ir.tokens[token].decoded_words.size() != 1 ||
+      is_display_line_length_token(record, token))
+    return false;
+  const auto *line = display_line_of_token(record, token);
+  if (line == nullptr)
+    return false;
+  const auto drawn = [&](std::size_t other) {
+    const auto *words = display_text_words(record, other);
+    return words != nullptr &&
+           std::any_of(words->begin(), words->end(), [](const auto word) {
+             return word > ' ' && word <= 0xff;
+           });
+  };
+  bool before = false, after = false;
+  for (auto other = line->prefix_token + 1; other < token; ++other)
+    before = before || drawn(other);
+  for (auto other = token + 1; other < line->token_end; ++other)
+    after = after || drawn(other);
+  return before && after;
+}
+
 struct Piece {
   std::size_t token = 0;
   std::size_t column = 0;
@@ -1006,6 +1035,17 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
                value >= 0x20 && value <= 0xff && value != ' ') {
       // Native selector columns prove these glyphs are drawn, including a
       // quote that compatibility geometry mistakes for a closing marker.
+      cell.role = TrapCellRoleIR::text;
+      emit_char(token, word, value, false);
+    } else if (marker != index.marker_rows.end() &&
+               glyph_drawn_mid_line(record, token, value)) {
+      // A layout glyph with drawn cells after it on its own display line is
+      // a cell of that line, whatever row break LayoutIR guessed there.
+      // SC34-425 APPENDIX1.5.3 record 2941 line 34 is `   non-editable
+      // etc.)  which is incompatible ...` (`)` = `22` at 0x1D0551, then a
+      // one-cell blank and `which`); hosted (DT 19921112160049) serves
+      // `etc.)  which`.
+      add_row(marker->second);
       cell.role = TrapCellRoleIR::text;
       emit_char(token, word, value, false);
     } else if (marker != index.marker_rows.end()) {

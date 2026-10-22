@@ -61,7 +61,9 @@
 //     separated, ruled and closing shapes that decline;
 //   * an introduction row whose length byte spells a control word;
 //   * a field run styling the next record's first row, checked on that
-//     row's cells.
+//     row's cells;
+//   * a closing glyph drawn mid-line, kept although LayoutIR took it for
+//     a row-control slot.
 //
 // What is NOT covered, stated plainly rather than implied: the compact
 // marker slot that carries a whole word. Two rules turn on it -- a slot the
@@ -3395,6 +3397,28 @@ int main() {
                    "Sample Messages")
                  .catalog,
             "a run whose columns miss its row's word was admitted");
+  }
+
+  // A layout glyph with drawn cells after it on its own display line is a
+  // cell of that line, not a row-control slot, whatever LayoutIR guessed.
+  // SC34-425 APPENDIX1.5.3 record 2941 line 34 is `   non-editable etc.)
+  // which is incompatible ...`: `)` (`22` at 0x1D0551) then a one-cell
+  // blank and `which`. Hosted (DT 19921112160049) serves `etc.)  which`.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("723", 557));
+    append(tokens, line({origin(), t("(a,", 558), t("b", 559),
+                         {TokenWords{1}, 0}, t(")", 560),
+                         t(" ", 561), t("which", 562), t("is", 551),
+                         t("more", 545), t("text", 547), t("here.", 563)}));
+    const auto built = build({make_source(134, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "a mid-line closing glyph catalogue declined: " + built.error);
+    if (built.catalog && built.catalog->entries.size() == 1) {
+      const auto text = entry_text(built.catalog->entries.front());
+      require(text.find("b) which") != std::string::npos,
+              "a mid-line closing glyph was dropped: [" + text + "]");
+    }
   }
 
   std::cout << "trap catalog IR synthetic tests passed\n";

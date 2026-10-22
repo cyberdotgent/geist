@@ -604,6 +604,18 @@ reads `| Us` for the first span, and a reader that drops the bar and then
 counts from the first word kept reads a misaligned span the same way; only
 the cells give the right run.
 
+A one-word layout glyph inside an entry is drawn when its own display line
+draws cells both before and after it.  A row break stands only at a display
+line's length byte, so such a glyph cannot be the slot of one, whatever a
+geometry heuristic suggests.  `APPENDIX1.5.3` record 2941 line 34 is
+`   non-editable etc.)  which is incompatible with the status specified in
+the`, with `)` (`22` at `0x1D0551`) then a one-cell blank and `which`.
+Hosted serves `etc.)  which`.  The same holds for closing parentheses in
+`N2AH1MST` topics `20.0`, `25.0`, `26.0` and `28.0` (`(a)  The relative key
+positions are not equal.`, DT `19910329000100`), `SC24-546` `A.0` (`a period
+(.)  in a name`) and `SC34-425` `2.4.19` (`PROJECT.GROUP.TYPE.CUQUAL.)  The
+maximum length`).
+
 A run inside a field is checked against its own row's cells the same way.
 That holds when its `cfont` closes one record and the row opens the next.
 `APPENDIX1.5.3` record 2547 ends with line 33, `cfont 3 8 1 21 8 1`, in the
