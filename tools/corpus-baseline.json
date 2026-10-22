@@ -12193,7 +12193,7 @@
             "source_start": "453"
           },
           "9.3.1": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "462",
             "source_index": "212",
             "source_kind": "topic-index",
@@ -16153,9 +16153,9 @@
         },
         "9.3.1": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "462",
           "source_index": "212",
           "source_kind": "topic-index",
@@ -66166,7 +66166,7 @@
         "summary": {
           "checked": 207,
           "dropping": 0,
-          "forgiven": 65,
+          "forgiven": 66,
           "html-dropping": 0,
           "html-unaccounted": 0,
           "markdown-dropping": 0,
@@ -66302,7 +66302,7 @@
             "source_start": "76"
           },
           "2.1": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "84",
             "source_index": "29",
             "source_kind": "topic-index",
@@ -66449,7 +66449,7 @@
             "source_start": "132"
           },
           "3.1.5": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "146",
             "source_index": "48",
             "source_kind": "topic-index",
@@ -67107,14 +67107,14 @@
             "source_start": "423"
           },
           "7.1": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "429",
             "source_index": "144",
             "source_kind": "topic-index",
             "source_start": "425"
           },
           "7.1.1": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "431",
             "source_index": "145",
             "source_kind": "topic-index",
@@ -67820,9 +67820,9 @@
         },
         "2.1": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "84",
           "source_index": "29",
           "source_kind": "topic-index",
@@ -68030,9 +68030,9 @@
         },
         "3.1.5": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "146",
           "source_index": "48",
           "source_kind": "topic-index",
@@ -68970,9 +68970,9 @@
         },
         "7.1": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "429",
           "source_index": "144",
           "source_kind": "topic-index",
@@ -68980,9 +68980,9 @@
         },
         "7.1.1": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "431",
           "source_index": "145",
           "source_kind": "topic-index",
@@ -75077,7 +75077,7 @@
             "source_start": "42"
           },
           "1.1": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "64",
             "source_index": "18",
             "source_kind": "topic-index",
@@ -75126,7 +75126,7 @@
             "source_start": "186"
           },
           "1.12": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "205",
             "source_index": "33",
             "source_kind": "topic-index",
@@ -75189,7 +75189,7 @@
             "source_start": "261"
           },
           "1.18.3": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "271",
             "source_index": "42",
             "source_kind": "topic-index",
@@ -75203,7 +75203,7 @@
             "source_start": "271"
           },
           "1.2": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "73",
             "source_index": "19",
             "source_kind": "topic-index",
@@ -75364,7 +75364,7 @@
             "source_start": "106"
           },
           "1.8": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "131",
             "source_index": "25",
             "source_kind": "topic-index",
@@ -76502,9 +76502,9 @@
         },
         "1.1": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "64",
           "source_index": "18",
           "source_kind": "topic-index",
@@ -76572,9 +76572,9 @@
         },
         "1.12": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "205",
           "source_index": "33",
           "source_kind": "topic-index",
@@ -76662,9 +76662,9 @@
         },
         "1.18.3": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "271",
           "source_index": "42",
           "source_kind": "topic-index",
@@ -76682,9 +76682,9 @@
         },
         "1.2": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "73",
           "source_index": "19",
           "source_kind": "topic-index",
@@ -76912,9 +76912,9 @@
         },
         "1.8": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "131",
           "source_index": "25",
           "source_kind": "topic-index",
@@ -92198,7 +92198,7 @@
             "source_start": "69"
           },
           "1.1.2": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "75",
             "source_index": "16",
             "source_kind": "topic-index",
@@ -93864,7 +93864,7 @@
             "source_start": "920"
           },
           "6.2.8.1": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "933",
             "source_index": "253",
             "source_kind": "topic-index",
@@ -94543,7 +94543,7 @@
             "source_start": "1293"
           },
           "8.1.6.2": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "1303",
             "source_index": "338",
             "source_kind": "topic-index",
@@ -94557,7 +94557,7 @@
             "source_start": "1303"
           },
           "8.1.6.4": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "1307",
             "source_index": "340",
             "source_kind": "topic-index",
@@ -96044,9 +96044,9 @@
         },
         "1.1.2": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "75",
           "source_index": "16",
           "source_kind": "topic-index",
@@ -98424,9 +98424,9 @@
         },
         "6.2.8.1": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "933",
           "source_index": "253",
           "source_kind": "topic-index",
@@ -99394,9 +99394,9 @@
         },
         "8.1.6.2": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "1303",
           "source_index": "338",
           "source_kind": "topic-index",
@@ -99414,9 +99414,9 @@
         },
         "8.1.6.4": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "1307",
           "source_index": "340",
           "source_kind": "topic-index",
@@ -108858,7 +108858,7 @@
             "source_start": "617"
           },
           "5.3": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "634",
             "source_index": "205",
             "source_kind": "topic-index",
@@ -109012,7 +109012,7 @@
             "source_start": "690"
           },
           "6.2.4.3": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "692",
             "source_index": "225",
             "source_kind": "topic-index",
@@ -112110,9 +112110,9 @@
         },
         "5.3": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "634",
           "source_index": "205",
           "source_kind": "topic-index",
@@ -112330,9 +112330,9 @@
         },
         "6.2.4.3": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "692",
           "source_index": "225",
           "source_kind": "topic-index",
@@ -114115,7 +114115,7 @@
             "source_start": "51"
           },
           "1.1.30": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "276",
             "source_index": "40",
             "source_kind": "topic-index",
@@ -114164,14 +114164,14 @@
             "source_start": "366"
           },
           "1.1.37": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "388",
             "source_index": "47",
             "source_kind": "topic-index",
             "source_start": "369"
           },
           "1.1.38": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "401",
             "source_index": "48",
             "source_kind": "topic-index",
@@ -118867,9 +118867,9 @@
         },
         "1.1.30": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "276",
           "source_index": "40",
           "source_kind": "topic-index",
@@ -118937,9 +118937,9 @@
         },
         "1.1.37": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "388",
           "source_index": "47",
           "source_kind": "topic-index",
@@ -118947,9 +118947,9 @@
         },
         "1.1.38": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "401",
           "source_index": "48",
           "source_kind": "topic-index",
@@ -125297,7 +125297,7 @@
         },
         "topics": {
           "1.0": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "62",
             "source_index": "24",
             "source_kind": "topic-index",
@@ -125577,7 +125577,7 @@
             "source_start": "281"
           },
           "3.10.4.4": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "289",
             "source_index": "117",
             "source_kind": "topic-index",
@@ -125836,7 +125836,7 @@
             "source_start": "349"
           },
           "3.14.1": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "357",
             "source_index": "154",
             "source_kind": "topic-index",
@@ -126151,7 +126151,7 @@
             "source_start": "219"
           },
           "3.8.4.6": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "230",
             "source_index": "92",
             "source_kind": "topic-index",
@@ -127033,7 +127033,7 @@
             "source_start": "642"
           },
           "7.4.1": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "649",
             "source_index": "272",
             "source_kind": "topic-index",
@@ -127110,7 +127110,7 @@
             "source_start": "672"
           },
           "7.4.5": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "677",
             "source_index": "283",
             "source_kind": "topic-index",
@@ -127496,9 +127496,9 @@
       "topics": {
         "1.0": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "62",
           "source_index": "24",
           "source_kind": "topic-index",
@@ -127896,9 +127896,9 @@
         },
         "3.10.4.4": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "289",
           "source_index": "117",
           "source_kind": "topic-index",
@@ -128266,9 +128266,9 @@
         },
         "3.14.1": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "357",
           "source_index": "154",
           "source_kind": "topic-index",
@@ -128716,9 +128716,9 @@
         },
         "3.8.4.6": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "230",
           "source_index": "92",
           "source_kind": "topic-index",
@@ -129976,9 +129976,9 @@
         },
         "7.4.1": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "649",
           "source_index": "272",
           "source_kind": "topic-index",
@@ -130086,9 +130086,9 @@
         },
         "7.4.5": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "677",
           "source_index": "283",
           "source_kind": "topic-index",
@@ -137455,7 +137455,7 @@
             "source_start": "554"
           },
           "1.2": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "61",
             "source_index": "23",
             "source_kind": "topic-index",
@@ -138092,7 +138092,7 @@
             "source_start": "850"
           },
           "1.41": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "861",
             "source_index": "221",
             "source_kind": "topic-index",
@@ -140484,9 +140484,9 @@
         },
         "1.2": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "61",
           "source_index": "23",
           "source_kind": "topic-index",
@@ -141394,9 +141394,9 @@
         },
         "1.41": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "861",
           "source_index": "221",
           "source_kind": "topic-index",
@@ -147963,7 +147963,7 @@
             "source_start": "365"
           },
           "4.53": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "409",
             "source_index": "136",
             "source_kind": "topic-index",
@@ -148145,7 +148145,7 @@
             "source_start": "486"
           },
           "4.77": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "502",
             "source_index": "160",
             "source_kind": "topic-index",
@@ -148250,7 +148250,7 @@
             "source_start": "192"
           },
           "4.90": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "554",
             "source_index": "173",
             "source_kind": "topic-index",
@@ -148306,7 +148306,7 @@
             "source_start": "577"
           },
           "4.98": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "589",
             "source_index": "181",
             "source_kind": "topic-index",
@@ -148390,7 +148390,7 @@
             "source_start": "831"
           },
           "A.2": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "837",
             "source_index": "226",
             "source_kind": "topic-index",
@@ -150136,9 +150136,9 @@
         },
         "4.53": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "409",
           "source_index": "136",
           "source_kind": "topic-index",
@@ -150396,9 +150396,9 @@
         },
         "4.77": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "502",
           "source_index": "160",
           "source_kind": "topic-index",
@@ -150546,9 +150546,9 @@
         },
         "4.90": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "554",
           "source_index": "173",
           "source_kind": "topic-index",
@@ -150626,9 +150626,9 @@
         },
         "4.98": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "589",
           "source_index": "181",
           "source_kind": "topic-index",
@@ -150746,9 +150746,9 @@
         },
         "A.2": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "837",
           "source_index": "226",
           "source_kind": "topic-index",
@@ -177582,7 +177582,7 @@
       }
     }
   },
-  "revision": "783edbf854a8fcb1ec763e6c2856b7dfc18617f0",
+  "revision": "4c00e9f5550acc9d0d11bbd69cf494662cae7a35",
   "schema": 2,
   "scope": "stable book topic catalog: all indexed topics plus TOC-only entries"
 }
