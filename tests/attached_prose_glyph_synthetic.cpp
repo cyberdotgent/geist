@@ -761,6 +761,28 @@ void frame_rows_around_table(bool blank_inside_frame,
 // A line of prose between the frame's rows and its table would be printed
 // by the stream on the wrong side of the rows; that shape is not proven and
 // the topic declines rather than reorder or drop anything.
+// An empty display line followed by a subject-index line and then the next
+// paragraph: ITPPIBOK 1.1 record 34 lines 17-21 (`... system testing.`,
+// empty, two `SI` lines, `    TPNS Version 3 ...`).  The
+// `SI` line displays nothing, so the empty line before it is still the
+// paragraph break hosted DT 19910628074854 serves as `<p>`; reading the
+// index term must not swallow it.
+void index_line_keeps_paragraph_break() {
+  Builder b(false);
+  b.line({w("   "), w("First paragraph.")});
+  b.blank();
+  b.line({w("SI"), w("term")});
+  b.line({w("   "), w("Second paragraph.")}, w("<BOOK>"));
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "index line between paragraphs declined: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  check(html.find(">First paragraph.</p>") != std::string::npos &&
+            html.find(">Second paragraph.</p>") != std::string::npos,
+        "index line swallowed the paragraph break before it: " + html);
+}
 void frame_rows_around_prose_decline() {
   Builder b(false);
   framed_table(b, false, true);
@@ -941,6 +963,7 @@ int main() {
   frame_rows_around_table(true);
   frame_rows_around_table(false, {0x251c});
   frame_rows_around_prose_decline();
+  index_line_keeps_paragraph_break();
   bullet();
   rejected({w("   "), w("SNA"), {1}, {0xffff}, {1}, w("ps")});
   rejected({w("   "), w("SNA"), {0x2666}, w("ps")});

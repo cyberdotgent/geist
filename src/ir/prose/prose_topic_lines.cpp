@@ -1993,7 +1993,11 @@ struct LineBuilder {
       last_visible = body_text(view);
       pending_space = view.prefix != 2;
       term_refs.emplace_back(view.record, view.token);
-      trailing_bare = 0;
+      // An index term displays nothing, so it leaves a pending paragraph
+      // break alone: ITPPIBOK 1.1 record 34 line 18 is empty, lines 19-20
+      // are `SI` entries and line 21 opens `TPNS Version 3 ...`, which
+      // hosted DT 19910628074854 serves after `<p>`.  Clearing the count
+      // here ran the two paragraphs together.
       return assign(view, ProseTokenRoleIR::index_term);
     }
     if ((is_glyph(view) || is_placeholder_run(view)) && opens_display_line(view))

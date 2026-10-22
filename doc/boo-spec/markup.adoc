@@ -2825,6 +2825,19 @@ line.  `QSYSNEWG.BOO` record 40 holds `SI display station` on one line and
 `| If your display station screen is blank, ...` on the next, and hosted
 serves exactly the second line.
 
+Because an `SI` line displays nothing, it is transparent to the paragraph
+structure around it.  An empty display line before one or more `SI` lines
+is still the paragraph break before the text that follows them.
+`ITPPIBOK.BOO` 1.1 record 34 ends a paragraph with `   system testing.`
+(line 17); line 18 is empty (length byte `00` at `0x3753F`); lines 19-20
+are `SI TPNS, host processor requirements for` and `SI host processor, TPNS
+requirements` (length bytes at `0x37540` and `0x37549`); line 21 opens
+`    TPNS Version 3 Release 2 ...` (length byte at `0x37551`).  Hosted (DT
+`19910628074854`) serves `system testing.`, `<p>`, then `TPNS Version 3`.
+Across the 33-book corpus this shape -- an empty line, `SI` lines, then
+text -- stands before 1961 paragraphs in 794 topics of 27 books, and
+hosted serves `<p>` at every one of the sampled ones.
+
 [[markup_drawn_box_regions_in_prose]]
 ==== Drawn box regions in prose
 
