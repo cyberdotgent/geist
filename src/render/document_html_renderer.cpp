@@ -673,7 +673,10 @@ void append_block(HtmlSink &sink, const BlockIR &block) {
           if (!node.label.empty()) {
             sink.markup("<p class=\"geist-note-label\">");
             append_inlines(sink, node.label);
-            sink.markup("</p>");
+            // The label is stored without the colon that closes it in the
+            // source (`Note:`); print it, as the Markdown renderer's
+            // `**Note:**` and hosted BookServer's `<B>Note:</B>` do.
+            sink.markup(":</p>");
           }
           sink.markup("<p class=\"geist-note-content\">");
           append_inlines(sink, node.content);

@@ -523,6 +523,12 @@ int main() {
            "opaque inline kind attribute not escaped");
   contains(fragment, "raw &amp; &lt;payload&gt;",
            "opaque block content not escaped");
+  // A note label is stored without the colon that ends it in the source
+  // (`Note:`); the Markdown renderer prints `**Caution:**`, and the HTML one
+  // must print the colon too, as hosted BookServer's `<B>Note:</B>` does.
+  contains(fragment,
+           "<p class=\"geist-note-label\">Caution &lt;!&gt;:</p>",
+           "the note label lost its colon");
   // The verbatim route is the one the Markdown renderer emits as literal
   // `<pre>`.  Its content is escaped here, not passed through.
   contains(fragment, "<pre class=\"geist-preformatted\">drawn &amp; &lt;row&gt;",
