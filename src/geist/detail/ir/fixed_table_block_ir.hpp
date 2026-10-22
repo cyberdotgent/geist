@@ -5,6 +5,7 @@
 
 #include "geist/detail/layout/layout_ir.hpp"
 #include "geist/detail/layout/ownership_ir.hpp"
+#include "geist/detail/layout/row_font_highlights.hpp"
 #include "geist/detail/container/provenance_ir.hpp"
 
 #include <cstddef>
@@ -99,6 +100,13 @@ struct FixedTablePreformattedLineIR {
   // preformatted line traces to the BOO bytes it was decoded from rather than
   // only to the enclosing SRTBL opcode.
   DocumentSourceSliceIR slice;
+  // The runs the `CFONT` on the markup line directly above styles in this
+  // line, as UTF-8 byte ranges of `text`, ascending and disjoint; empty when
+  // no such control stands there or its spans are not proven by the line's
+  // own cells (`display_row_font_highlights`).  ITPPIBOK 4.3.5.4 record 158
+  // line 27 `cfont 7 4 2 58 5 2 64 4 2` styles `TASK`, `START` and `DATE`
+  // on line 28, which hosted DT 19910628074854 serves in `<B>`.
+  std::vector<RowFontHighlightIR> highlights;
 };
 
 // A picture placed inside a fixed-layout region by a `cselect <c> <l>

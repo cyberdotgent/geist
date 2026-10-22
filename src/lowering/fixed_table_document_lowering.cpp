@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "geist/detail/lowering/fixed_table_document_lowering.hpp"
+#include "geist/detail/lowering/font_style_inlines.hpp"
 
 #include <algorithm>
 #include <utility>
@@ -59,6 +60,35 @@ InlineSequenceIR cell_inlines(const FixedTableCellIR &cell,
     content.push_back(std::move(text));
   }
   return content;
+}
+
+// One verbatim row with the runs its `CFONT` styles: plain text between
+// them, a code span for a monospace style and emphasis for every other, so
+// the row flattens byte for byte back to its text.  ITPPIBOK 4.3.5.4 serves
+// `| <B>TASK</B> ... |      <B>START</B> <B>DATE</B>      |`.
+InlineSequenceIR styled_row(const FixedTablePreformattedLineIR &line,
+                            const DocumentNodeOriginIR &line_origin) {
+  InlineSequenceIR row;
+  std::size_t at = 0;
+  const auto plain = [&](const std::size_t end) {
+    if (end <= at)
+      return;
+    row.push_back({TextInlineIR{line.text.substr(at, end - at)}, line_origin});
+    at = end;
+  };
+  for (const auto &run : line.highlights) {
+    plain(run.begin);
+    auto text = line.text.substr(run.begin, run.end - run.begin);
+    if (font_style_is_code(run.style))
+      row.push_back({CodeInlineIR{std::move(text)}, line_origin});
+    else
+      row.push_back({EmphasisInlineIR{std::move(text),
+                                      font_style_emphasis_kind(run.style)},
+                     line_origin});
+    at = run.end;
+  }
+  plain(line.text.size());
+  return row;
 }
 
 TableRowIR lower_row(const FixedTableRowIR &row) {
@@ -125,6 +155,13 @@ lower_fixed_table_block_to_document_ir(const FixedTableBlockIR &block) {
       PreformattedBlockIR body;
       BlockIR body_block;
       body_block.origin = origin_for("fixed table region: verbatim body");
+      // A block whose rows carry any style keeps every row as inlines (an
+      // unstyled row is one text run, an empty row none).
+      const auto styled = std::any_of(
+          block.preformatted_lines.begin() +
+              static_cast<std::ptrdiff_t>(begin),
+          block.preformatted_lines.begin() + static_cast<std::ptrdiff_t>(end),
+          [](const auto &line) { return !line.highlights.empty(); });
       for (auto index = begin; index < end; ++index) {
         const auto &line = block.preformatted_lines[index];
         body.lines.push_back(line.text);
@@ -135,6 +172,8 @@ lower_fixed_table_block_to_document_ir(const FixedTableBlockIR &block) {
           add_row(body_block.origin, row);
           add_row(line_origin, row);
         }
+        if (styled)
+          body.styled_lines.push_back(styled_row(line, line_origin));
         body.line_origins.push_back(std::move(line_origin));
       }
       body_block.node = std::move(body);

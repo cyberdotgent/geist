@@ -4,6 +4,7 @@
 #include "geist/detail/ir/trap_catalog_ir.hpp"
 
 #include "geist/detail/layout/display_lines.hpp"
+#include "geist/detail/layout/row_font_highlights.hpp"
 #include "geist/detail/core/internal.hpp"
 #include "geist/detail/ir/trap_selector_links.hpp"
 
@@ -1477,55 +1478,18 @@ region_markup_font(const DecodedLogicalRecordSource &record,
   return std::nullopt;
 }
 
-bool region_glyph(const std::uint16_t word) { return word > ' '; }
-
-// Maps one drawn region row's `CFONT` spans onto its projected text. A CFONT
-// column is an index into the row's own display cells (doc/boo-spec/
-// markup.adoc, "Spans And The Display Row"), and `offsets` holds the UTF-8
-// byte offset of every cell. A span is admitted only when the cells prove
-// it: it lies inside the row, opens and closes on drawn glyphs, and each end
-// meets a blank, the row's edge or an abutting span -- the shape that keeps
-// `cfont 3 4 2` from mapping as `| Us`. N2AH1MST record 533 line 17 is
-// ` |          ACTIVE LU'S ...` under `cfont 12 6 2 19 4 2 ...`, and hosted
-// BookServer (DT 19910329000100) serves `<B>ACTIVE</B> <B>LU'S</B>` at
-// exactly those columns; line 21 splits one word as
-// `cfont 12 6 2 18 8 V` -> `<B>[LLUN=</B><var>unitname</var>`. One
-// unproven span leaves the whole row plain: the text is right either way,
-// and a style the cells do not support would be a claim the source never
-// made.
+// Maps one drawn region row's `CFONT` spans onto its projected text
+// (`display_row_font_highlights`, the rule every verbatim region shares).
+// N2AH1MST record 533 line 17 is ` |          ACTIVE LU'S ...` under
+// `cfont 12 6 2 19 4 2 ...`, and hosted BookServer (DT 19910329000100) serves
+// `<B>ACTIVE</B> <B>LU'S</B>` at exactly those columns.
 std::vector<TrapBodyHighlightIR>
 region_row_highlights(const std::vector<DisplayLineCellIR> &cells,
                       const std::vector<std::size_t> &offsets,
                       const FontControlSpansIR &font) {
-  std::vector<FontSpanIR> spans;
-  for (const auto &span : font.spans)
-    if (span.length != 0)
-      spans.push_back(span);
-  std::sort(spans.begin(), spans.end(), [](const auto &left, const auto &right) {
-    return left.column < right.column;
-  });
   std::vector<TrapBodyHighlightIR> highlights;
-  for (std::size_t index = 0; index < spans.size(); ++index) {
-    const auto &span = spans[index];
-    const auto end = span.column + span.length;
-    if (end > cells.size() || !region_glyph(cells[span.column].word) ||
-        !region_glyph(cells[end - 1].word))
-      return {};
-    if (index != 0 && spans[index - 1].column + spans[index - 1].length >
-                          span.column)
-      return {};
-    const bool abuts_before =
-        index != 0 &&
-        spans[index - 1].column + spans[index - 1].length == span.column;
-    const bool abuts_after =
-        index + 1 < spans.size() && spans[index + 1].column == end;
-    if (span.column != 0 && region_glyph(cells[span.column - 1].word) &&
-        !abuts_before)
-      return {};
-    if (end < cells.size() && region_glyph(cells[end].word) && !abuts_after)
-      return {};
-    highlights.push_back({offsets[span.column], offsets[end], span.style});
-  }
+  for (const auto &run : display_row_font_highlights(cells, offsets, font))
+    highlights.push_back({run.begin, run.end, run.style});
   return highlights;
 }
 

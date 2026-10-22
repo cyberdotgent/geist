@@ -1341,6 +1341,24 @@ served as `<samp>//</samp> <samp>JOB</samp> ...`, and GC28-183 `2.2.3`
 `cfont 5 2 E 15 4 E` over pass:[<literal>&#160;&#160;&#160;&#160;&#160;//&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;PEND</literal>] as
 pass:[<literal>&lt;samp&gt;//&lt;/samp&gt;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&lt;samp&gt;PEND&lt;/samp&gt;</literal>].
 
+The rule holds unchanged inside a verbatim region.  A `CFONT` that stands
+alone on its display line between an `SRTBL` line and its `SRETBL` line
+displays nothing and styles the display row directly below it, with
+columns that index that row's own cells -- the drawn rules and rails
+included.  ITPPIBOK `4.3.5.4` record 158 line 27 (length byte at
+`0x3F8FE`, `cfont` at `0x3F8FF`) is `cfont 7 4 2 58 5 2 64 4 2`; line 28
+(length byte at `0x3F90B`) draws `   | | TASK ... |      START DATE      | |`
+with `TASK` at column 7 (token 200, `0x3F90F`), `START` at column 58 and
+`DATE` at column 64 (token 205, `0x3F917`).  Hosted (DT `19910628074854`)
+serves `<B>TASK</B>`, `<B>START</B>` and `<B>DATE</B>` there.  The same
+holds for the corpus at large: DREICMST `1.2.1` serves
+`<B>Program</B>`/`<B>Description</B>`/`<B>Release</B>` and
+`<samp>3.1.2</samp>`, SC26-457 `3.16` serves `cfont 17 15 P 32 15 Q 47 1
+P` over `[INHIBITSOURCE|NOINHIBITSOURCE]` as
+`<kbd>[INHIBITSOURCE|</kbd><dfn>NOINHIBITSOURCE</dfn><kbd>]</kbd>`.  A
+span whose first or last column is a blank, or that cuts a word without
+meeting an abutting span, is not proven by the row and leaves it plain.
+
 [[markup_sub_word_span_boundaries]]
 ==== Sub-word span boundaries
 

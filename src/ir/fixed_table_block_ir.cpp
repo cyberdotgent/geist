@@ -748,14 +748,21 @@ public:
     // control segment styles or spaces the lines around it and is never
     // displayed; anything else is reproduced.
     std::vector<std::pair<const PreLine *, std::string>> body;
+    // One entry per `body` line: the runs the `CFONT` on the markup line
+    // directly above it styles.
+    std::vector<std::vector<RowFontHighlightIR>> body_highlights;
     std::vector<FixedTablePictureIR> pictures;
     std::vector<FixedTableSpotAnchorIR> spot_anchors;
+    // The font control of the markup line just walked, waiting for the
+    // display line directly below it; any other line in between drops it.
+    std::optional<FontControlSpansIR> pending_font;
     for (auto index = first + 1; index < last; ++index) {
       const auto &view = lines[index];
       const auto &record = *view.record;
       const auto content_begin = view.line.prefix_token + 1;
       const auto &offsets = byte_offsets(record);
       bool control_line = false;
+      std::optional<FontControlSpansIR> line_font;
       // A control segment reaches from its opcode to the next control, so a
       // segment that started on an earlier line only styles this one; the
       // line is a control line when it opens a segment and carries none of
@@ -809,10 +816,17 @@ public:
           anchor.source = control_slice(record, segment);
           spot_anchors.push_back(std::move(anchor));
         }
+        // A `CFONT` alone on its line styles the display line directly
+        // below it, in that line's own display columns (doc/boo-spec/
+        // markup.adoc, "Spans And The Display Row").
+        if (segment.kind == BookControlKind::font)
+          line_font = decode_font_control_spans(record, segment);
         control_line = true;
       }
-      if (control_line)
+      if (control_line) {
+        pending_font = std::move(line_font);
         continue;
+      }
       // A subject-index line displays nothing; it was recorded as an index
       // entry and is not part of the reproduced region.
       const auto index_line = std::any_of(
@@ -821,8 +835,26 @@ public:
             return entry.logical_record == record.logical_record &&
                    entry.token_end == view.line.token_end;
           });
-      if (index_line)
+      if (index_line) {
+        pending_font.reset();
         continue;
+      }
+      // The spans are admitted only where the line's own cells prove them;
+      // anything else leaves the line plain (`display_row_font_highlights`).
+      auto highlights =
+          pending_font ? display_row_font_highlights(
+                             display_line_cells(record, view.line),
+                             display_line_column_offsets(record, view.line),
+                             *pending_font)
+                       : std::vector<RowFontHighlightIR>{};
+      // A style the font table does not name proves nothing either.
+      if (std::any_of(highlights.begin(), highlights.end(),
+                      [](const auto &run) {
+                        return run.style == FontStyleIR::unknown;
+                      }))
+        highlights.clear();
+      body_highlights.push_back(std::move(highlights));
+      pending_font.reset();
       body.emplace_back(&view,
                         trim_trailing_spaces(
                             display_line_text(record, view.line)));
@@ -854,6 +886,9 @@ public:
       text.replace(picture.column, end - picture.column,
                    std::string(end - picture.column, ' '));
       text = trim_trailing_spaces(std::move(text));
+      // A picture's columns become blanks, so no style claim on the line
+      // survives unproven: the line stays plain.
+      body_highlights[picture.line].clear();
     }
     // Blank lines around the region are spacing, but a line that carries a
     // picture is never dropped even when blanking emptied it.
@@ -867,11 +902,14 @@ public:
     while (!body.empty() && blank_text(body.front().second) &&
            !pictured(dropped)) {
       body.erase(body.begin());
+      body_highlights.erase(body_highlights.begin());
       ++dropped;
     }
     while (!body.empty() && blank_text(body.back().second) &&
-           !pictured(dropped + body.size() - 1))
+           !pictured(dropped + body.size() - 1)) {
       body.pop_back();
+      body_highlights.pop_back();
+    }
     for (auto &picture : pictures)
       picture.line -= dropped;
     for (auto &anchor : spot_anchors)
@@ -884,12 +922,14 @@ public:
     block.geometry = FixedTableGeometryIR::preformatted;
     block.pictures = std::move(pictures);
     block.spot_anchors = std::move(spot_anchors);
-    for (const auto &[view, text] : body) {
+    for (std::size_t index = 0; index < body.size(); ++index) {
+      const auto &[view, text] = body[index];
       FixedTablePreformattedLineIR line;
       line.logical_record = view->record->logical_record;
       line.prefix_token = view->line.prefix_token;
       line.token_end = view->line.token_end;
       line.text = text;
+      line.highlights = std::move(body_highlights[index]);
       line.rows = rows_in(block, *view);
       line.slice = display_line_slice(*view->record, line.prefix_token,
                                       line.token_end);
@@ -2600,6 +2640,17 @@ bool verify_fixed_table_blocks_ir(
     if (claimed != expected)
       return fail("fixed table does not claim every positioned cell of its "
                   "rows exactly once");
+    // A row's styled runs lie inside its text, ascending and disjoint, and
+    // each names a style.
+    for (const auto &line : block.preformatted_lines) {
+      std::size_t previous_run_end = 0;
+      for (const auto &run : line.highlights) {
+        if (run.begin < previous_run_end || run.begin >= run.end ||
+            run.end > line.text.size() || run.style == FontStyleIR::unknown)
+          return fail("fixed table row style is not a run of its text");
+        previous_run_end = run.end;
+      }
+    }
     // A recorded picture addresses a line of the region, its columns are
     // blank there (its placeholder words were replaced by the image), and no
     // two pictures overlap.

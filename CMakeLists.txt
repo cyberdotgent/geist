@@ -179,6 +179,7 @@ set(GEIST_SOURCES
   src/layout/implicit_grid.cpp
   src/layout/layout_ir.cpp
   src/layout/ownership_ir.cpp
+  src/layout/row_font_highlights.cpp
 
   # img/
   src/img/gdf.cpp
@@ -235,6 +236,7 @@ set(GEIST_SOURCES
   src/lowering/ordered_figure_document_lowering.cpp
   src/lowering/fixed_prose_document_lowering.cpp
   src/lowering/fixed_table_document_lowering.cpp
+  src/lowering/font_style_inlines.cpp
   src/lowering/generated_list_document_lowering.cpp
   src/lowering/generated_toc_index_document_lowering.cpp
   src/lowering/glossary_document_lowering.cpp

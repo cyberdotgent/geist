@@ -6,6 +6,7 @@
 #include "geist/detail/ir/figure_block_ir.hpp"
 #include "geist/detail/lowering/figure_document_lowering.hpp"
 #include "geist/detail/lowering/fixed_table_document_lowering.hpp"
+#include "geist/detail/lowering/font_style_inlines.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -32,35 +33,7 @@ DocumentNodeOriginIR origin(std::vector<DocumentSourceSliceIR> slices,
 }
 
 EmphasisKindIR emphasis_kind(FontStyleIR style) {
-  switch (style) {
-  case FontStyleIR::highlight_2:
-  case FontStyleIR::bold_phrase: return EmphasisKindIR::strong;
-  case FontStyleIR::highlight_3:
-  // HP8 is the underscored HP3.
-  case FontStyleIR::highlight_8: return EmphasisKindIR::strong_emphasis;
-  // HP7 is the underscored HP2 (hosted <B><U>); Markdown has no underscore,
-  // so the bold half survives.
-  case FontStyleIR::highlight_7: return EmphasisKindIR::strong;
-  case FontStyleIR::highlight_1:
-  // HP5 (plain underscore, hosted <U>) and HP6 (underscored HP1) have no
-  // Markdown underscore run and lower to ordinary emphasis.
-  case FontStyleIR::highlight_5:
-  case FontStyleIR::highlight_6:
-  case FontStyleIR::citation:
-  case FontStyleIR::variable:
-  case FontStyleIR::italic_phrase:
-  case FontStyleIR::example_phrase:
-  case FontStyleIR::keyword:
-  case FontStyleIR::keyword_define:
-  case FontStyleIR::highlight_9:
-  // WARNING (`W`) and WARNINGTEXT (`G`) are hosted `<em>` on all four books
-  // that carry them, so both take the default emphasis.
-  case FontStyleIR::warning:
-  case FontStyleIR::warning_text:
-  case FontStyleIR::apl_symbol:
-  case FontStyleIR::unknown: break;
-  }
-  return EmphasisKindIR::emphasis;
+  return font_style_emphasis_kind(style);
 }
 
 CrossReferenceTargetIR prose_target(
@@ -84,14 +57,7 @@ CrossReferenceTargetIR prose_target(
   return target;
 }
 
-bool code_style(FontStyleIR style) {
-  // HP9 is the underscored HP4, the monospace example phrase.
-  return style == FontStyleIR::example_phrase ||
-         style == FontStyleIR::keyword ||
-         style == FontStyleIR::keyword_define ||
-         style == FontStyleIR::highlight_9 ||
-         style == FontStyleIR::apl_symbol;
-}
+bool code_style(FontStyleIR style) { return font_style_is_code(style); }
 
 // The label of a definition entry or a note is rendered emphasised by the
 // document renderer (`- **term:** ...`).  When the source emphasises the whole
@@ -129,9 +95,14 @@ bool frame_table_rows(const ProseSpanIR& span, std::vector<BlockIR>& blocks,
     return fail(error, "framed table does not lower to one verbatim region");
   auto& table = std::get<PreformattedBlockIR>(blocks[1].node);
   if (!table.line_links.empty() || !table.line_anchors.empty() ||
-      !table.styled_lines.empty() ||
-      table.line_origins.size() != table.lines.size())
+      table.line_origins.size() != table.lines.size() ||
+      (!table.styled_lines.empty() &&
+       table.styled_lines.size() != table.lines.size()))
     return fail(error, "framed table region carries inline structure");
+  // The table's rows may carry the styles of their `CFONT` lines (ITPPIBOK
+  // 4.3.5.4: `TASK`, `START`, `DATE`); the frame's own rows carry none and
+  // join the styled region as plain text.
+  const auto styled = !table.styled_lines.empty();
   PreformattedBlockIR framed;
   const auto add = [&](const std::vector<ProseFrameRowIR>& rows) {
     for (const auto& row : rows) {
@@ -141,6 +112,12 @@ bool frame_table_rows(const ProseSpanIR& span, std::vector<BlockIR>& blocks,
                                        : "prose figure frame: drawn row");
       if (row.source.byte_begin < row.source.byte_end)
         row_origin.slices.push_back(row.source);
+      if (styled) {
+        InlineSequenceIR plain;
+        if (!row.text.empty())
+          plain.push_back({TextInlineIR{row.text}, row_origin});
+        framed.styled_lines.push_back(std::move(plain));
+      }
       framed.line_origins.push_back(std::move(row_origin));
     }
   };
@@ -151,6 +128,7 @@ bool frame_table_rows(const ProseSpanIR& span, std::vector<BlockIR>& blocks,
   for (std::size_t line = 0; line < table.lines.size(); ++line) {
     framed.lines.push_back(table.lines[line]);
     framed.line_origins.push_back(table.line_origins[line]);
+    if (styled) framed.styled_lines.push_back(table.styled_lines[line]);
   }
   add(span.frame_after);
   auto framed_origin = blocks[1].origin;

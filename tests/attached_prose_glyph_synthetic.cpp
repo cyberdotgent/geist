@@ -665,7 +665,8 @@ TokenWords repeat(TokenWords head, std::uint16_t fill, std::size_t count,
 }
 void framed_table(Builder &b, bool blank_inside_frame,
                   bool prose_inside_frame = false,
-                  TokenWords after_length = w("<BOOK>")) {
+                  TokenWords after_length = w("<BOOK>"),
+                  bool styled_row = false) {
   const auto rail = [&]() {
     b.line({w("   "), {0x2502}, w(std::string(20, ' ')), {0x2502}});
   };
@@ -682,6 +683,11 @@ void framed_table(Builder &b, bool blank_inside_frame,
   b.line({w("   "), {0x2502}, w(" "),
           repeat(repeat({0x250c}, 0x2500, 8, 0x252c), 0x2500, 7, 0x2510),
           w(" "), {0x2502}});
+  // `cfont 9 1 2 20 1 2` styles `A` (column 9 of `   |  |  A       |  B`)
+  // and `B` (column 20) of the row below in HP2, as ITPPIBOK record 158 line
+  // 27 styles `TASK`, `START` and `DATE` on line 28.
+  if (styled_row)
+    b.line({w("cfont"), w("9"), w("1"), w("2"), w("20"), w("1"), w("2")});
   b.line({w("   "), {0x2502}, w(" "), {0x2502}, w(" "), w("A"),
           w("      "), {0x2502}, w(" "), w("B"), w("     "), {0x2502},
           w(" "), {0x2502}});
@@ -802,6 +808,65 @@ void index_line_extra_blank_keeps_paragraph() {
   const auto html = render_document_html_fragment(*doc);
   check(html.find(">First row continues here.</p>") != std::string::npos,
         "paragraph split after its index line's extra blank: " + html);
+}
+// The `CFONT` line inside a verbatim table region styles the row directly
+// below it, in that row's own display columns.  Hosted ITPPIBOK 4.3.5.4 (DT
+// 19910628074854) serves `| <B>TASK</B> ... |      <B>START</B> <B>DATE</B>`
+// from record 158 lines 27-28 (`cfont 7 4 2 58 5 2 64 4 2`).  The style is
+// admitted only where the row's cells prove it: a span that does not open
+// and close on a drawn word leaves the row plain.
+void styled_table_row(bool framed, bool aligned) {
+  Builder b(false);
+  if (framed) {
+    framed_table(b, false, false, w("<BOOK>"), true);
+  } else {
+    b.line({w("   "), w("Text before.")});
+    b.blank();
+    b.line({w("SRTBLTBLUNIQ9")});
+    b.line({w("   "),
+            repeat(repeat({0x250c}, 0x2500, 8, 0x252c), 0x2500, 7, 0x2510)});
+    // `   |  A       |  B      |`: `A` is column 6 and `B` column 17.  The
+    // unproven span `cfont 5 2 2` starts on a blank.
+    if (aligned)
+      b.line({w("cfont"), w("6"), w("1"), w("2"), w("17"), w("1"), w("E")});
+    else
+      b.line({w("cfont"), w("5"), w("2"), w("2")});
+    b.line({w("   "), {0x2502}, w(" "), w("A"), w("      "), {0x2502},
+            w(" "), w("B"), w("     "), {0x2502}});
+    b.line({w("   "),
+            repeat(repeat({0x2514}, 0x2500, 8, 0x2534), 0x2500, 7, 0x2518)});
+    b.line({w("SRETBL")});
+    b.blank();
+    b.line({w("   "), w("Text after.")}, w("<BOOK>"));
+  }
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "styled table row declined: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto strong_a =
+      html.find("<strong class=\"geist-strong\">A</strong>") !=
+      std::string::npos;
+  if (framed) {
+    check(strong_a &&
+              html.find("<strong class=\"geist-strong\">B</strong>") !=
+                  std::string::npos &&
+              html.find("|____________________|") != std::string::npos,
+          "framed table row lost its CFONT styling or its frame: " + html);
+  } else if (aligned) {
+    check(strong_a && html.find("<code") != std::string::npos &&
+              html.find(">B</code>") != std::string::npos,
+          "table row lost its CFONT styling: " + html);
+  } else {
+    check(html.find("geist-strong") == std::string::npos &&
+              html.find("   |  A       |  B      |") != std::string::npos,
+          "unproven CFONT span styled a table row: " + html);
+  }
+  const auto markdown = render_document_markdown(*doc);
+  check(markdown.find("Text before") != std::string::npos &&
+            (framed || markdown.find("Text after") != std::string::npos),
+        "styled table lost the prose around it: " + markdown);
 }
 void frame_rows_around_prose_decline() {
   Builder b(false);
@@ -985,6 +1050,9 @@ int main() {
   frame_rows_around_prose_decline();
   index_line_keeps_paragraph_break();
   index_line_extra_blank_keeps_paragraph();
+  styled_table_row(false, true);
+  styled_table_row(false, false);
+  styled_table_row(true, true);
   bullet();
   rejected({w("   "), w("SNA"), {1}, {0xffff}, {1}, w("ps")});
   rejected({w("   "), w("SNA"), {0x2666}, w("ps")});
