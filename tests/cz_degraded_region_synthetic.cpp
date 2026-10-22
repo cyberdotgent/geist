@@ -840,6 +840,337 @@ void balanced_nested_verbatim_delimiters_stay_inside_the_outer_region() {
               markdown);
 }
 
+const geist::detail::ProseBlockIR *find_entry(
+    const geist::detail::ProseTopicIR &prose, const std::string &term) {
+  for (const auto &block : prose.blocks) {
+    if (block.kind != geist::detail::ProseBlockKindIR::definition_entry)
+      continue;
+    std::string text;
+    for (std::size_t item = 0; item < block.term_inline_count; ++item)
+      text += block.inlines[item].text;
+    if (contains(text, term)) return &block;
+  }
+  return nullptr;
+}
+
+std::string block_text(const geist::detail::ProseBlockIR &block) {
+  std::string text;
+  for (const auto &item : block.inlines) text += item.text;
+  return text;
+}
+
+// GA19-5486-13 3.5.1 closes its table notes with `cz FLOW DT 3 5` and a row
+// that starts at column 5: the term columns 3..4 are blank and the whole row
+// is the definition.  SC21-8295-03 2.2 does the same at `cz FLOW DT 3 13`.
+// The empty term is the DT control; the rows are its body.
+void an_empty_term_row_at_the_indent_is_the_definition_body() {
+  RecordBuilder builder;
+  metadata(builder);
+  builder.line({words("cz"), words("FLOW"), words("DL"), words("3"),
+                words("3")});
+  builder.line({words("cz"), words("FLOW"), words("DT"), words("3"),
+                words("5")});
+  builder.line({words("   "), words("1"), words("Based"), words("on"),
+                words("tests.")});
+  builder.line({words("cz"), words("FLOW"), words("DT"), words("3"),
+                words("5")});
+  builder.line({words("     "), words("General"), words("Note:"),
+                words("Capacities"), words("vary.")});
+  builder.line({words("cz"), words("OFF"), words("EDL"), words("0"),
+                words("0")});
+
+  const auto extracted = extract_record(std::move(builder), 31);
+  require(extracted.prose.has_value(),
+          "an empty DT term at the indent column was declined: " +
+              extracted.error);
+  if (!extracted.prose) return;
+  std::vector<const geist::detail::ProseBlockIR *> entries;
+  for (const auto &block : extracted.prose->blocks)
+    if (block.kind == geist::detail::ProseBlockKindIR::definition_entry)
+      entries.push_back(&block);
+  require(entries.size() == 2, "the empty term is not its own entry");
+  if (entries.size() != 2) return;
+  require(entries[0]->term_inline_count != 0 &&
+              entries[0]->body_blocks.empty(),
+          "the ordinary DT lost its term");
+  const auto &empty = *entries[1];
+  require(empty.inlines.empty() && empty.term_inline_count == 0 &&
+              empty.body_blocks.size() == 1 && empty.slices.size() == 1,
+          "the empty term does not own exactly its body paragraph");
+  if (empty.body_blocks.size() != 1) return;
+  const auto &body = extracted.prose->blocks[empty.body_blocks.front()];
+  require(body.kind == geist::detail::ProseBlockKindIR::paragraph &&
+              contains(block_text(body), "General Note: Capacities vary."),
+          "the empty term's row is not its body paragraph: " +
+              block_text(body));
+  const auto document = lower_document(extracted);
+  if (!document) return;
+  bool found = false;
+  for (const auto &candidate : document->blocks) {
+    const auto *definitions =
+        std::get_if<geist::detail::DefinitionListBlockIR>(&candidate.node);
+    if (definitions == nullptr || definitions->entries.size() != 2) continue;
+    const auto &lowered = definitions->entries[1];
+    found = lowered.empty_term && lowered.term.empty() &&
+            lowered.definition_blocks.size() == 1 &&
+            std::holds_alternative<geist::detail::ParagraphBlockIR>(
+                lowered.definition_blocks.front().node);
+  }
+  require(found, "the empty term did not lower as one two-entry list");
+  const auto markdown = geist::detail::render_document_markdown(*document);
+  require(contains(markdown, "General Note: Capacities vary.") &&
+              contains(markdown, "Based on tests."),
+          "the empty-term definition did not survive rendering: " + markdown);
+}
+
+// An empty term before a separate DD has no body of its own to prove.
+void an_empty_term_before_a_dd_still_declines() {
+  RecordBuilder builder;
+  metadata(builder);
+  builder.line({words("cz"), words("FLOW"), words("DL"), words("3"),
+                words("3")});
+  builder.line({words("cz"), words("FLOW"), words("DT"), words("3"),
+                words("5")});
+  builder.line({words("     "), words("Orphan"), words("row.")});
+  builder.line({words("cz"), words("FLOW"), words("DD"), words("5"),
+                words("5")});
+  builder.line({words("     "), words("Body.")});
+  builder.line({words("cz"), words("OFF"), words("EDL"), words("0"),
+                words("0")});
+  const auto extracted = extract_record(std::move(builder), 32);
+  require(!extracted.prose.has_value() &&
+              contains(extracted.error, "empty term before cz FLOW DD"),
+          "an empty term before DD was admitted: " + extracted.error);
+}
+
+// DFHP7A00 BACK_1.1.2.1 stores each publication group as `cz FLOW DT 3 13`
+// with only the term row (`   General`) and then opens `cz FLOW SL 13 13` at
+// the term's indent column; 2.6.1.1.2 opens `cz FLOW DL 13 13` after
+// `   Return codes`.  The list is the term's definition body.
+void a_term_only_dt_owns_the_list_opened_at_its_indent() {
+  RecordBuilder builder;
+  metadata(builder);
+  builder.line({words("cz"), words("FLOW"), words("DL"), words("3"),
+                words("3")});
+  builder.line({words("cz"), words("FLOW"), words("DT"), words("3"),
+                words("13")});
+  builder.line({words("   "), words("General")});
+  builder.line({words("cz"), words("FLOW"), words("SL"), words("13"),
+                words("13")});
+  builder.line({words("cz"), words("FLOW"), words("LI"), words("17"),
+                words("17")});
+  builder.line({words("                 "), words("Release"),
+                words("Guide")});
+  builder.line({words("cz"), words("OFF"), words("ESL"), words("10"),
+                words("10")});
+  builder.line({words("cz"), words("FLOW"), words("DT"), words("3"),
+                words("13")});
+  builder.line({words("   "), words("Return"), words("codes")});
+  builder.line({words("cz"), words("FLOW"), words("DL"), words("13"),
+                words("13")});
+  builder.line({words("cz"), words("FLOW"), words("DT"), words("13"),
+                words("25")});
+  builder.line({words("             "), words("UERCNORM"),
+                words("    "), words("Continue")});
+  builder.line({words("cz"), words("OFF"), words("EDL"), words("10"),
+                words("10")});
+  builder.line({words("cz"), words("OFF"), words("EDL"), words("0"),
+                words("0")});
+
+  const auto extracted = extract_record(std::move(builder), 33);
+  require(extracted.prose.has_value(),
+          "a term-only DT before its nested list was declined: " +
+              extracted.error);
+  if (!extracted.prose) return;
+  const auto *general = find_entry(*extracted.prose, "General");
+  const auto *codes = find_entry(*extracted.prose, "Return codes");
+  require(general != nullptr && codes != nullptr,
+          "the term-only entries were not built");
+  if (general == nullptr || codes == nullptr) return;
+  require(general->term_inline_count == general->inlines.size() &&
+              general->body_blocks.size() == 1 &&
+              extracted.prose->blocks[general->body_blocks.front()].kind ==
+                  geist::detail::ProseBlockKindIR::list_item,
+          "the SL item is not the body of its term");
+  require(codes->term_inline_count == codes->inlines.size() &&
+              codes->body_blocks.size() == 1 &&
+              extracted.prose->blocks[codes->body_blocks.front()].kind ==
+                  geist::detail::ProseBlockKindIR::definition_entry,
+          "the nested DL entry is not the body of its term");
+  const auto document = lower_document(extracted);
+  if (!document) return;
+  const auto markdown = geist::detail::render_document_markdown(*document);
+  require(contains(markdown, "Release Guide") &&
+              contains(markdown, "UERCNORM") &&
+              contains(markdown, "Return codes"),
+          "the term-owned lists did not survive rendering: " + markdown);
+}
+
+// A list that does not open at the term's indent column is not its body:
+// the term keeps waiting for one and still fails at the list closer.
+void a_list_at_another_column_leaves_the_term_without_a_body() {
+  RecordBuilder builder;
+  metadata(builder);
+  builder.line({words("cz"), words("FLOW"), words("DL"), words("3"),
+                words("3")});
+  builder.line({words("cz"), words("FLOW"), words("DT"), words("3"),
+                words("13")});
+  builder.line({words("   "), words("General")});
+  builder.line({words("cz"), words("FLOW"), words("SL"), words("3"),
+                words("3")});
+  builder.line({words("cz"), words("FLOW"), words("LI"), words("7"),
+                words("7")});
+  builder.line({words("       "), words("Release"), words("Guide")});
+  builder.line({words("cz"), words("OFF"), words("ESL"), words("0"),
+                words("0")});
+  builder.line({words("cz"), words("OFF"), words("EDL"), words("0"),
+                words("0")});
+  const auto extracted = extract_record(std::move(builder), 34);
+  require(!extracted.prose.has_value() &&
+              contains(extracted.error, "has no cz FLOW DD body"),
+          "a list at another column became a term body: " + extracted.error);
+}
+
+// SC21-8295-03 3.1.3.2 writes a DT with no display rows and then the block
+// that defines it: `cz FLOW P 13 13` at the term's indent (record 371), and
+// `cz OFF SCREEN` (record 431).  Hosted serves an empty `<dt>` and that block
+// as the `<dd>`.  A paragraph at another column is not the definition.
+void an_empty_dt_owns_the_paragraph_or_screen_that_follows() {
+  RecordBuilder builder;
+  metadata(builder);
+  builder.line({words("cz"), words("FLOW"), words("DL"), words("3"),
+                words("3")});
+  builder.line({words("cz"), words("FLOW"), words("DT"), words("3"),
+                words("13")});
+  builder.line({words("cz"), words("FLOW"), words("P"), words("13"),
+                words("13")});
+  builder.line({words("             "), words("Prompt"), words("1:"),
+                words("Word"), words("processing.")});
+  builder.line({words("cz"), words("FLOW"), words("DT"), words("3"),
+                words("13")});
+  builder.line({words("cz"), words("OFF"), words("SCREEN")});
+  builder.line({words("             "), words("|"), words("22.1"),
+                words("CNFIGSSP"), words("|")});
+  builder.line({words("cz"), words("OFF"), words("ESCREEN"), words("10"),
+                words("10")});
+  builder.line({words("cz"), words("OFF"), words("EDL"), words("0"),
+                words("0")});
+
+  const auto extracted = extract_record(std::move(builder), 36);
+  require(extracted.prose.has_value(),
+          "an empty DT before its P or SCREEN body was declined: " +
+              extracted.error);
+  if (!extracted.prose) return;
+  std::vector<const geist::detail::ProseBlockIR *> entries;
+  for (const auto &block : extracted.prose->blocks)
+    if (block.kind == geist::detail::ProseBlockKindIR::definition_entry)
+      entries.push_back(&block);
+  require(entries.size() == 2, "the empty DTs are not two entries");
+  if (entries.size() != 2) return;
+  require(entries[0]->inlines.empty() && entries[0]->body_blocks.size() == 1 &&
+              extracted.prose->blocks[entries[0]->body_blocks.front()].kind ==
+                  geist::detail::ProseBlockKindIR::paragraph &&
+              contains(block_text(extracted.prose->blocks
+                                      [entries[0]->body_blocks.front()]),
+                       "Prompt 1: Word processing."),
+          "the empty term does not own its P paragraph");
+  require(entries[1]->inlines.empty() && entries[1]->body_blocks.size() == 1 &&
+              extracted.prose->blocks[entries[1]->body_blocks.front()].kind ==
+                  geist::detail::ProseBlockKindIR::preformatted,
+          "the empty term does not own its SCREEN region");
+  const auto document = lower_document(extracted);
+  if (!document) return;
+  const auto markdown = geist::detail::render_document_markdown(*document);
+  require(contains(markdown, "Prompt 1: Word processing.") &&
+              contains(markdown, "CNFIGSSP"),
+          "the empty-term block bodies did not survive rendering: " +
+              markdown);
+
+  RecordBuilder other;
+  metadata(other);
+  other.line({words("cz"), words("FLOW"), words("DL"), words("3"),
+              words("3")});
+  other.line({words("cz"), words("FLOW"), words("DT"), words("3"),
+              words("13")});
+  other.line({words("cz"), words("FLOW"), words("P"), words("3"),
+              words("3")});
+  other.line({words("   "), words("Not"), words("a"), words("definition.")});
+  other.line({words("cz"), words("OFF"), words("EDL"), words("0"),
+              words("0")});
+  const auto declined = extract_record(std::move(other), 37);
+  require(!declined.prose.has_value() &&
+              contains(declined.error, "cz FLOW DT has no text"),
+          "a paragraph at the list margin became an empty term's body: " +
+              declined.error);
+}
+
+// DFHP7A00 2.6.1.1.2 stores `   Exit-specific parameters` at
+// `cz FLOW DT 3 13` and opens `cz FLOW DL 13 13` next.  The term ends with
+// the word that straddles column 13 (hosted SC41-485 1.2.2 serves
+// `<dt>Generic object<dd><B>name</B>` for the same shape), so `parameters`
+// begins the definition, and the list opened at the term's indent continues
+// it.  A list opened at another column is not part of the entry.
+void a_list_at_the_indent_continues_an_inline_definition() {
+  RecordBuilder builder;
+  metadata(builder);
+  builder.line({words("cz"), words("FLOW"), words("DL"), words("3"),
+                words("3")});
+  builder.line({words("cz"), words("FLOW"), words("DT"), words("3"),
+                words("13")});
+  builder.line({words("   "), words("Exit-specific"), words("parameters")});
+  builder.line({words("cz"), words("FLOW"), words("DL"), words("13"),
+                words("13")});
+  builder.line({words("cz"), words("FLOW"), words("DT"), words("13"),
+                words("25")});
+  builder.line({words("             "), words("UEPSZACT"), words("    "),
+                words("Command")});
+  builder.line({words("cz"), words("OFF"), words("EDL"), words("10"),
+                words("10")});
+  builder.line({words("cz"), words("FLOW"), words("DT"), words("3"),
+                words("13")});
+  builder.line({words("   "), words("Codes"), words("     "),
+                words("Values")});
+  builder.line({words("cz"), words("OFF"), words("EDL"), words("0"),
+                words("0")});
+  builder.line({words("cz"), words("FLOW"), words("UL"), words("3"),
+                words("3")});
+  builder.line({words("cz"), words("FLOW"), words("LI"), words("3"),
+                words("5")});
+  builder.line({words("   "), words("o"), words(" "), words("Outside")});
+  builder.line({words("cz"), words("OFF"), words("EUL"), words("0"),
+                words("0")});
+  const auto extracted = extract_record(std::move(builder), 35);
+  require(extracted.prose.has_value(),
+          "a list continuing an inline definition was declined: " +
+              extracted.error);
+  if (!extracted.prose) return;
+  const auto *exit = find_entry(*extracted.prose, "Exit-specific");
+  require(exit != nullptr, "the overflowing term was not built");
+  if (exit == nullptr) return;
+  std::string term;
+  for (std::size_t item = 0; item < exit->term_inline_count; ++item)
+    term += exit->inlines[item].text;
+  require(!contains(term, "parameters") &&
+              exit->term_inline_count < exit->inlines.size(),
+          "the word after the straddling word left the definition: " + term);
+  require(exit->body_blocks.size() == 1 &&
+              extracted.prose->blocks[exit->body_blocks.front()].kind ==
+                  geist::detail::ProseBlockKindIR::definition_entry,
+          "the list at the indent is not part of the definition");
+  const auto *codes = find_entry(*extracted.prose, "Codes");
+  require(codes != nullptr && codes->body_blocks.empty(),
+          "a DT followed by its list closer gained a body");
+  for (const auto &block : extracted.prose->blocks)
+    if (block.kind == geist::detail::ProseBlockKindIR::list_item)
+      require(block.parent_block == static_cast<std::size_t>(-1),
+              "a list after the definition list joined an entry");
+  const auto document = lower_document(extracted);
+  if (!document) return;
+  const auto markdown = geist::detail::render_document_markdown(*document);
+  require(contains(markdown, "UEPSZACT") && contains(markdown, "Outside"),
+          "the continued definition did not survive rendering: " + markdown);
+}
+
 // FLOW LP is a list-part boundary, not a list item.  DFHP7A00 2.3.4.1 uses
 // it twice inside one DL, before the `Definition:` and `Operations:` section
 // paragraphs that divide two runs of DT entries.
@@ -996,6 +1327,12 @@ int main() {
   a_list_item_continuation_keeps_recursive_source_ownership();
   an_empty_dt_before_lines_keeps_a_compound_definition();
   an_empty_dd_before_lines_keeps_a_compound_definition();
+  an_empty_term_row_at_the_indent_is_the_definition_body();
+  an_empty_term_before_a_dd_still_declines();
+  a_term_only_dt_owns_the_list_opened_at_its_indent();
+  a_list_at_another_column_leaves_the_term_without_a_body();
+  a_list_at_the_indent_continues_an_inline_definition();
+  an_empty_dt_owns_the_paragraph_or_screen_that_follows();
   balanced_nested_verbatim_delimiters_stay_inside_the_outer_region();
   a_list_part_paragraph_fails_as_mixed_list_content();
   a_closed_unmodelled_region_degrades_its_block();

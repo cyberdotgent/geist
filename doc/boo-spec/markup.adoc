@@ -3438,8 +3438,11 @@ the empty announcement therefore add no content after the menu.
 
 The `DT` row stores the term in the columns from `left` up to `indent` and the
 definition in the remainder of the same row; a word that straddles the
-`indent` column belongs to the term. `SC41-485` `1.2.2` `cz FLOW DT 7 16`
-keeps `Generic object name` whole.
+`indent` column belongs to the term, and the term ends with that word.
+`SC41-485` `1.2.2` `cz FLOW DT 7 16` stores `Generic` at column 7, `object`
+at columns 15--20 and `name` at 22; hosted BookServer (DT 19951003131222)
+serves pass:[<literal>&lt;dt&gt;&lt;br&gt; |     &lt;B&gt;Generic&lt;/B&gt; &lt;B&gt;object&lt;/B&gt;&lt;dd&gt;&lt;B&gt;name&lt;/B&gt;</literal>], so `name` opens the definition even
+though it carries the term's font.
 
 A `DT` row can instead contain only the term.  An immediately following
 `FLOW DD` supplies that entry's definition rows; its own `left` and `indent`
@@ -3454,6 +3457,81 @@ pair is `05 52 97 93 C4 C9` at BOO bytes `0x33C26`--`0x33C2C`
 (`cz FLOW DD 6 6`).  A hidden `SI access program` line follows, then the body
 row begins at `0x33C47`; adjacency is therefore defined over controls and
 native rows while allowing hidden metadata between the DD and its body.
+
+[[markup_cz_empty_terms_and_block_definitions]]
+===== Empty terms and block definitions
+
+The term columns of a `DT` entry can be empty.  Three source shapes occur,
+and hosted BookServer serves each as an empty `<dt>` followed by the
+definition.
+
+*The first row starts at or after `indent`.*  The row carries no word in
+the columns `left` up to `indent`, so the whole row, and every following row
+of the directive, is the definition.
+
+* `GA19-5486-13` `3.5.1`, logical record 76: the display line at file offset
+`0xA6288` is `05 49 83 7F B9 BD` -- length byte `05` and the five tokens
+`cz FLOW DT 3 5`.  The next line begins in record 77 at `0xA628F` with
+length byte `11`; its first token `16` at `0xA6290` is a five-space run and
+`D1 D6` at `0xA6291` is `General`, so the row `General Note: Capacities shown
+may require prerequisites.` starts at column 5, the `indent`.  Hosted
+(`GA19-548`, DT 19951012161206) serves pass:[<literal>&lt;dt&gt;    &lt;dd&gt;General Note: Capacities shown may require prerequisites.</literal>],
+after seven ordinary entries such as pass:[<literal>&lt;dt&gt;   4&lt;dd&gt;Maximum of 4 tape drives; ...</literal>].
+* `SC21-8295-03` `2.2`, logical record 72: `05 4D 9C 98 CD C2` at `0x28930`
+(`cz FLOW DT 3 13`), then length byte `0A`, the thirteen-space run `1D` and
+`B7` (`The`) at `0x28938`.  Hosted (`SC21-829`, DT 19970409135933) serves
+pass:[<literal>&lt;dl&gt;&lt;dt&gt;            &lt;dd&gt;The following display is shown describing the configuration</literal>].
+* `SC09-2417-00` `1.1.4.3`, logical record 73: `06 47 77 CF 42 A0 8E` at
+`0x3C732` (`cz FLOW DT 3 13`), `05 39 8F 8A DE 79` (`cfont 14 1 R`), then
+the next row: length byte `17`, the fourteen-space run `15` and `8A` (`1`)
+at `0x3C741`.  The callout number therefore stands at column 14, past the
+`indent` of 13, and hosted (`SC09-241`, DT 19961114175628) serves
+pass:[<literal>&lt;dt&gt;             &lt;dd&gt;&lt;B&gt;1&lt;/B&gt; An abstract base class must have ...</literal>]
+for every one of the topic's 27 callouts.
+
+An empty term of this shape followed by a `FLOW DD` is not observed; no
+interpretation is given for it.
+
+*The `DT` has no display row, and the next directive opens the definition.*
+The `DT` line is followed directly by another layout directive, which
+supplies the definition as a block:
+
+* `cz OFF LINES` -- `GA19-5486-13` `FRONT_3` (an address block).
+* `cz OFF SCREEN` -- `SC21-8295-03` `3.1.3.2`, logical record 431:
+`05 4D 9C 98 CD C2` at `0x48214` (`cz FLOW DT 3 13`) is followed at
+`0x4821A` by `03 4D A7 B2` (`cz OFF SCREEN`).  Hosted serves
+pass:[<literal>&lt;dl&gt;&lt;dt&gt;&lt;/pre&gt;&lt;pre width="80"&gt;</literal>] and the
+screen rows after a `<dd>`.
+* `cz FLOW P` whose `left` equals the term's `indent` -- the same topic,
+logical record 371: `05 4D 9C 98 CD C2` at `0x4240B` (`cz FLOW DT 3 13`),
+then `05 4D 9C A8 C2 C2` at `0x42411` (`cz FLOW P 13 13`) and the paragraph
+rows.  Hosted serves pass:[<literal>&lt;dt&gt;&lt;p&gt;            &lt;dd&gt;&lt;I&gt;Prompt&lt;/I&gt; &lt;I&gt;1:&lt;/I&gt; You can use DisplayWrite/36 ...</literal>].
+
+A `DT` with no row followed by any other directive, or by a paragraph at
+another column, has no observed meaning.
+
+*A term without definition text, followed by a list at its `indent`.*  A
+`DT` whose row holds only the term can hand its definition to the list that
+opens next, when that list's `left` operand equals the term's `indent`.
+`DFHP7A00` `BACK_1.1.2.1`, logical record 962: `05 52 97 93 C4 B5` at
+`0x75C52` (`cz FLOW DT 3 13`), `04 42 C4 CA BC` (`cfont 3 7 2`), the row
+`03 1B D8 F0` (`   General`), then `06 52 97 E3 E1 B5 B5` at `0x75C61`
+(`cz FLOW SL 13 13`) with the publication titles as its items.  Topic
+`2.6.1.1.2` stores the term `Return codes` the same way before
+`cz FLOW DL 13 13`.  The same column rule extends a definition that already
+began on the term row: topic `2.6.1.1.2`, logical record 312, stores
+`Exit-specific parameters` at `cz FLOW DT 3 13` and then
+`cz FLOW DL 13 13`; `Exit-specific` straddles column 13, so `parameters`
+opens the definition and the nested list continues it.  `DFHP7A00` is not on
+the hosted BookServer, so these three placements are read from the controls
+alone; hosted serves every block after a `<dd>` inside that definition in
+any case, because its markup never closes the `<dd>`.
+
+Unresolved: `cz FLOW LP` inside a `DL` (`DFHP7A00` `2.3.4.1`, logical record
+149: `cz FLOW DL 3 3`, `cz FLOW LP 3 3`, `cz FLOW P 3 3` with the row
+`Definition:`, four `DT` entries, then `LP`/`P` `Operations:` and two more)
+is a list part that belongs to the list but to none of its entries; it has
+no hosted reference.
 
 The H6 form has the same four operands as H2--H5.  DFHP7A00 topic `2.3.4.5.2`,
 logical record 174, stores `06 52 97 DA 34 C4 C4` at BOO bytes

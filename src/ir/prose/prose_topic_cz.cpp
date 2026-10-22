@@ -246,6 +246,13 @@ struct Frame {
   // controls can claim one definition entry without inferring their
   // relationship from displayed text.
   std::size_t pending_definition = npos;
+  // The `indent` operand of the pending term's DT: the column its
+  // definition starts at.
+  std::size_t pending_indent = 0;
+  // The latest DT whose row carried an inline definition and nothing
+  // else: its block index and its `indent` operand (npos: none).
+  std::size_t inline_entry = npos;
+  std::size_t inline_indent = npos;
   // Global block index of the term whose compound body is active. Child
   // blocks remain in the topic-wide source order and link back to this owner.
   std::size_t body_owner = npos;
@@ -370,9 +377,34 @@ struct CzBuilder {
     if (frame.pending_definition != npos)
       return fail(error, "cz FLOW DT follows a term with no cz FLOW DD body");
     frame.body_owner = npos;
+    frame.inline_entry = npos;
+    frame.inline_indent = npos;
     ++frame.items;
     const auto [begin, end] = groups.front();
     auto& row = lines[begin];
+    // An empty term: the first display row of the entry starts at or past
+    // the `indent` column, so the term columns `left`..`indent` hold no
+    // word and every row of the directive is the definition.  GA19-5486-13
+    // 3.5.1 record 76 closes its notes with `cz FLOW DT 3 5` and the row
+    // `     General Note: ...` at column 5; SC21-8295-03 2.2 record 72 has
+    // `cz FLOW DT 3 13` and `The following display is shown ...` at column
+    // 13.  The DT control is the entry's only source of its own; the rows
+    // are its body paragraphs.  An empty term before a separate DD has no
+    // such evidence and still fails.
+    if (directive.indent > directive.left &&
+        directive.indent <= row.text_begin && has_text(row)) {
+      if (separate_body)
+        return fail(error, "cz FLOW DT has an empty term before cz FLOW DD");
+      ProseBlockIR block;
+      block.kind = ProseBlockKindIR::definition_entry;
+      block.list_ordinal = frame.list_ordinal;
+      block.slices.push_back(directive.source);
+      block.origin = row.origin;
+      const auto index = topic.blocks.size();
+      append(std::move(block), begin);
+      frame.body_owner = index;
+      return paragraphs(groups, 0);
+    }
     if (separate_body) {
       if (groups.size() != 1)
         return fail(error, "cz FLOW DT before DD has multiple term groups");
@@ -387,6 +419,7 @@ struct CzBuilder {
       block.term_inline_count = block.inlines.size();
       append(std::move(block), begin);
       frame.pending_definition = index;
+      frame.pending_indent = npos;
       return true;
     }
     // The term occupies the columns from the left margin to the indent; a
@@ -434,11 +467,16 @@ struct CzBuilder {
     if (!body_has_text) {
       append(std::move(block), begin);
       frame.pending_definition = index;
+      frame.pending_indent = directive.indent;
       return true;
     }
     if (!build_block(records, parts, 1, parts.size(), block, ledger, index, error))
       return false;
     append(std::move(block), begin);
+    if (groups.size() == 1) {
+      frame.inline_entry = index;
+      frame.inline_indent = directive.indent;
+    }
     return paragraphs(groups, 1);
   }
 
@@ -1309,6 +1347,38 @@ struct CzBuilder {
         // PREFACE.2.1 record 32 opens its `DL` with `Syntax    Possible
         // Choices` the same way.  Markdown has no in-list lead-in, so the
         // rows become the paragraphs that precede the list.
+        //
+        // A term that carries no definition text of its own may hand its
+        // body directly to the list that opens next, exactly as it may hand
+        // it to a LINES region: DFHP7A00 BACK_1.1.2.1 record 962 stores
+        // `cz FLOW DT 3 13`, the row `   General`, then `cz FLOW SL 13 13`
+        // with the publication titles, and DFHP7A00 2.6.1.1.2 record 314
+        // stores `   Return codes` before `cz FLOW DL 13 13`.  The nested
+        // list opens at the term's `indent` column, which is where its
+        // definition starts; only that list is the term's body.  A list at
+        // any other column leaves the term pending, and the term still fails
+        // without a body.
+        //
+        // The same column decides for a term whose row already began its
+        // definition: a list opened directly after that DT at its `indent`
+        // continues the definition.  DFHP7A00 2.6.1.1.2 record 312 stores
+        // `   Exit-specific parameters` at `cz FLOW DT 3 13` -- the term
+        // ends with the word that straddles column 13, as hosted serves
+        // SC41-485 1.2.2 `<dt> |     <B>Generic</B> <B>object</B><dd>
+        // <B>name</B>` -- and then `cz FLOW DL 13 13`.  Only a DT whose rows
+        // form one paragraph qualifies; a DT that went on to further
+        // paragraphs has already left them outside the entry.
+        if (!stack.empty() && stack.back().tag == "dl" &&
+            stack.back().inline_entry != npos &&
+            stack.back().inline_indent == directive.left && index > 0 &&
+            build.directives[index - 1].mode == "flow" &&
+            build.directives[index - 1].tag == "dt")
+          stack.back().body_owner = stack.back().inline_entry;
+        if (!stack.empty() && stack.back().tag == "dl" &&
+            stack.back().pending_definition != npos &&
+            directive.left == stack.back().pending_indent &&
+            !empty_definition_body_before_block())
+          return false;
         if (!paragraphs(groups, 0)) return false;
         stack.push_back({tag, next_list_ordinal++, 0});
         return true;
@@ -1324,14 +1394,36 @@ struct CzBuilder {
                                " needs mixed list block content");
       }
       if (tag == "dt") {
-        if (groups.empty() && index + 1 < build.directives.size() &&
-            build.directives[index + 1].mode == "off" &&
-            build.directives[index + 1].tag == "lines") {
-          const auto first_body_line = ranges[index + 1].first;
-          if (first_body_line == npos)
-            return fail(error, "cz OFF LINES body has no display rows");
-          return empty_definition_with_block_body(directive,
-                                                  first_body_line);
+        // A DT with no display rows at all is an empty term whose body is
+        // the block the next directive opens.  Hosted BookServer serves the
+        // term empty and the block as its definition:
+        //  * `cz OFF LINES` -- GA19-5486-13 FRONT_3;
+        //  * `cz OFF SCREEN` -- SC21-8295-03 3.1.3.2 record 431 lines 32-33
+        //    (`cz FLOW DT 3 13`, `cz OFF SCREEN`), served (as `SC21-829`,
+        //    DT 19970409135933) `<dl><dt></pre><pre width="80">` .. `<dd>`
+        //    and the `22.1 CNFIGSSP` screen;
+        //  * `cz FLOW P` at the term's `indent` column -- the same topic,
+        //    record 371 lines 20-21 (`cz FLOW DT 3 13`, `cz FLOW P 13 13`),
+        //    served `<dt><p>            <dd><I>Prompt</I> <I>1:</I> You can
+        //    use DisplayWrite/36 ...`.
+        // A paragraph at any other column, or any other directive, leaves
+        // the term without text and still fails.
+        if (groups.empty() && index + 1 < build.directives.size()) {
+          const auto& next = build.directives[index + 1];
+          const auto block_body =
+              (next.mode == "off" &&
+               (next.tag == "lines" || next.tag == "screen")) ||
+              (next.mode == "flow" && next.tag == "p" &&
+               directive.indent > directive.left &&
+               next.left == directive.indent);
+          if (block_body) {
+            const auto first_body_line = ranges[index + 1].first;
+            if (first_body_line == npos)
+              return fail(error, "cz " + next.mode + " " + next.tag +
+                                     " body has no display rows");
+            return empty_definition_with_block_body(directive,
+                                                    first_body_line);
+          }
         }
         const auto separate_body =
             index + 1 < build.directives.size() &&
