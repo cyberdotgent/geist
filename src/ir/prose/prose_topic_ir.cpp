@@ -4,7 +4,6 @@
 #include "geist/detail/ir/prose/prose_topic_ir.hpp"
 
 #include "geist/detail/ir/book_topic_catalog_ir.hpp"
-#include "geist/detail/layout/implicit_grid.hpp"
 #include "geist/detail/ir/prose/prose_topic_internal.hpp"
 #include "geist/detail/ir/selector_ir.hpp"
 
@@ -71,16 +70,9 @@ std::optional<ProseTopicIR> extract_prose_topic_ir(
   if (!collect_stream(records, envelope, ledger, stream, error))
     return std::nullopt;
   // A plural CFONT header over repeated encoded row controls is a
-  // two-column form (SC31-711 1.2 `Directory` / `Type of Files`), which the
-  // legacy route draws as a table; prose must not flatten it.
-  for (const auto& item : stream.items) {
-    if (item.kind != ItemKind::font || item.spans.size() < 2) continue;
-    std::vector<ImplicitGridHeaderSpan> header;
-    for (const auto& span : item.spans)
-      header.push_back({span.column, span.length});
-    if (extract_implicit_grid(records, header))
-      return reject("body contains an implicit two-column grid");
-  }
+  // two-column form (SC31-711 1.2 `Directory` / `Type of Files`); prose must
+  // not flatten it, so the line builder keeps its rows verbatim
+  // (`implicit_grid_region`) or declines the topic.
   LineBuild lines;
   if (!build_lines(records, stream.items, ledger, lines, error))
     return std::nullopt;

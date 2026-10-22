@@ -2759,6 +2759,38 @@ These identities are layout evidence, not universal magic values. Establish
 the two-group all-HP2 header first, then lazily require repeated source-owned
 rows. Flattened ASCII cannot distinguish these grids from aligned prose.
 
+How a reader prints the grid follows from the display lines, which frame
+every row of it. In topic 1.2 (logical record 21) the header control is
+display line 16 alone: length byte `0D` at `0xB600`, then
+`cfont 3 9 2 23 4 2 28 2 2 31 5 2`. Line 17 is the header row: length byte
+`09` at `0xB60E` (the dictionary spells it as three spaces; it is a length
+and displays nothing), the three-cell origin `09`, `Directory`, a ten-cell
+run, `Type of Files`. Line 18 is empty (`00` at `0xB618`), and line 19 opens
+the first entry: length byte `1C` at `0xB619`, origin `09` at `0xB61A`,
+then `/usr/OV/bitmaps/C`, the gap to column 23, and the value. Every later
+entry repeats that shape, and a value too long for its line continues on
+the next display line, whose first token is a space run reaching the value
+column exactly (line 24, `                       AIX`). The grid runs to
+the end of the topic: no control other than `cfont`, `cselect` or `SI`
+stands among its rows.
+
+Hosted BookServer (DT `19941010174546`) serves the three topics inside its
+`<pre width="80">` with every row at its native columns: the header row
+with its spans in `<B>`, then each entry as its key at the first group's
+column and its value at the second's, a continuation line under the value,
+and `<p>` -- the empty display line -- between two entries. A key wider
+than its column pushes its value right on the same row
+(`   lnm_agent_found Initiates the discovery of a specified agent.`, topic
+1.3) and a key reaching the value column takes a row of its own
+(`   /usr/OV/registration/C` above `                       LNM for AIX
+registration files`, topic 1.2). Both readings come from the display lines,
+not from the grid geometry. So a reader prints the grid's rows as the
+native display lines, header row first, keeping the empty lines between
+entries; joining a key and its value as running text would lose which word
+is the key. The rows before the header are ordinary prose. Word for word,
+those display lines are hosted's text for all three topics (117, 87 and
+296 words).
+
 [[markup_terminal_toc_and_numeric_message_marker_slots]]
 ==== Terminal TOC and numeric-message marker slots
 

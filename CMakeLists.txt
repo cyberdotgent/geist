@@ -585,6 +585,7 @@ foreach(synthetic_test
     procedure_rows_synthetic
     fixed_display_synthetic
     implicit_grid
+    implicit_grid_prose_synthetic
     inline_picture_ir_synthetic
     generated_index_term_synthetic
     prose_index_term_line_synthetic

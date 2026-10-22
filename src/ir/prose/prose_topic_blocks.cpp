@@ -479,7 +479,8 @@ bool build_box_block(const std::vector<DecodedLogicalRecordSource>& records,
                      std::size_t end, ProseBlockIR& block, Ledger& ledger,
                      std::size_t block_index, std::string* error) {
   block.kind = ProseBlockKindIR::preformatted;
-  block.verbatim_kind = "prose-drawn-box-verbatim";
+  block.verbatim_kind = lines[begin].grid ? "prose-implicit-grid-verbatim"
+                                           : "prose-drawn-box-verbatim";
   std::vector<std::string> rows;
   std::vector<std::pair<std::size_t, std::size_t>> block_refs;
   for (auto index = begin; index < end; ++index) {

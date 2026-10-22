@@ -451,6 +451,87 @@ std::vector<BoxRegion> plan_boxes(
   return regions;
 }
 
+std::optional<BoxRegion> implicit_grid_region(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    std::size_t header_record, std::size_t header_token, std::string* error) {
+  const auto decline = [&](std::string message) -> std::optional<BoxRegion> {
+    fail(error, "implicit two-column grid: " + std::move(message));
+    return std::nullopt;
+  };
+  if (header_record >= records.size())
+    return decline("header control has no source record");
+  BoxRegion region;
+  region.grid = true;
+  bool header_seen = false;
+  bool started = false;
+  for (auto index = header_record; index < records.size(); ++index) {
+    const auto& record = records[index];
+    const auto* lines = record_display_lines(record);
+    if (lines == nullptr)
+      return decline("record " + std::to_string(record.logical_record) +
+                     " has no display-line framing");
+    for (const auto& line : *lines) {
+      if (!header_seen) {
+        if (header_token <= line.prefix_token || header_token >= line.token_end)
+          continue;
+        // The header `cfont` stands alone on its line: SC31-711 record 21
+        // line 16 is `cfont 3 9 2 23 4 2 28 2 2 31 5 2` and line 17 the
+        // header row `   Directory           Type of Files` it styles.
+        if (!control_only_line(record, line))
+          return decline("header control shares its display line");
+        header_seen = true;
+        continue;
+      }
+      Candidate candidate;
+      candidate.record = index;
+      candidate.line = line;
+      candidate.columns = display_line_columns(record, line);
+      candidate.text = display_line_text(record, line);
+      candidate.index = index_line(record, line);
+      candidate.control_only = control_only_line(record, line) || candidate.index;
+      candidate.blank = candidate.columns.empty();
+      if (!started) {
+        // The region opens on the header row itself.
+        if (candidate.control_only || candidate.blank)
+          return decline("header control is not followed by its header row");
+        started = true;
+        region.begin_record = index;
+        region.begin_token = line.prefix_token;
+      }
+      if (candidate.index) {
+        region.index_lines.push_back({candidate.record, candidate.line,
+                                      candidate.text, candidate.columns});
+      } else if (candidate.control_only) {
+        if (!hidden_drawing_line(record, candidate))
+          return decline("control line '" + candidate.text +
+                         "' inside the grid rows");
+      } else {
+        if (!display_row(record, line))
+          return decline("row '" + candidate.text +
+                         "' is not wholly display text");
+        if (std::any_of(candidate.columns.begin(), candidate.columns.end(),
+                        [](const auto word) {
+                          return word == unmapped_word ||
+                                 (word != '?' &&
+                                  figure_display_glyph(word) == "?");
+                        }))
+          return decline("row '" + candidate.text +
+                         "' holds a cell with no proven hosted glyph");
+        region.lines.push_back({candidate.record, candidate.line,
+                                candidate.text, candidate.columns});
+      }
+      region.end_record = index;
+      region.end_token = line.token_end - 1;
+    }
+  }
+  if (!started) return decline("header row not found");
+  // Empty display lines after the last entry close the topic; hosted prints
+  // nothing for them.  Their tokens stay inside the region's extent.
+  while (!region.lines.empty() && region.lines.back().columns.empty())
+    region.lines.pop_back();
+  return region;
+}
+
 std::vector<BoxLine> drawn_box_rows(
     const std::vector<DecodedLogicalRecordSource>& records) {
   std::vector<BoxLine> rows;

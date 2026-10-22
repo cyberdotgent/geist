@@ -4,6 +4,7 @@
 #include "geist/detail/ir/prose/prose_topic_internal.hpp"
 
 #include "geist/detail/layout/display_lines.hpp"
+#include "geist/detail/layout/implicit_grid.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -648,6 +649,7 @@ struct LineBuilder {
       const auto& record = records[box_line.record];
       Line row;
       row.box = true;
+      row.grid = region.grid;
       row.box_record = box_line.record;
       row.box_token_begin = box_line.line.prefix_token;
       row.box_token_end = box_line.line.token_end;
@@ -2172,6 +2174,49 @@ bool build_lines(const std::vector<DecodedLogicalRecordSource>& records,
       }
     }
     if (!owned) builder.boxes.push_back(std::move(region));
+  }
+  // An implicit CFONT grid: a plural CFONT header over repeated encoded row
+  // controls (doc/boo-spec/markup.adoc, "Implicit CFONT grids").  Reflowing
+  // its rows would run each key into its value; its rows are printed at
+  // their native columns instead, as one verbatim region from the header
+  // row to the end of the topic, which the grid owns.  A grid whose rows the
+  // region cannot prove declines the topic, as it always has.
+  for (const auto& item : items) {
+    if (item.kind != ItemKind::font || item.spans.size() < 2) continue;
+    std::vector<ImplicitGridHeaderSpan> header;
+    for (const auto& span : item.spans)
+      header.push_back({span.column, span.length});
+    if (!extract_implicit_grid(records, header)) continue;
+    std::size_t header_record = records.size();
+    for (std::size_t index = 0; index < records.size(); ++index)
+      if (records[index].logical_record == item.source.logical_record)
+        header_record = index;
+    auto region = implicit_grid_region(records, header_record,
+                                       item.source.token_begin, error);
+    if (!region) return false;
+    for (const auto& box : builder.boxes)
+      if (box.end_record > region->begin_record ||
+          (box.end_record == region->begin_record &&
+           box.end_token >= region->begin_token))
+        return fail(error,
+                    "implicit two-column grid overlaps a drawn box region");
+    for (auto record = region->begin_record; record <= region->end_record;
+         ++record) {
+      const auto begin =
+          record == region->begin_record ? region->begin_token : 0;
+      const auto end = record == region->end_record
+                           ? region->end_token
+                           : records[record].ir.tokens.size() - 1;
+      for (auto token = begin; token <= end; ++token) {
+        const auto role = ledger.at(record, token).role;
+        if (role == ProseTokenRoleIR::table ||
+            role == ProseTokenRoleIR::figure)
+          return fail(error,
+                      "implicit two-column grid overlaps a table or figure");
+      }
+    }
+    builder.boxes.push_back(std::move(*region));
+    break;
   }
   if (!builder.run()) return false;
   // A typed topic never loses drawn content.  A row drawn from box words

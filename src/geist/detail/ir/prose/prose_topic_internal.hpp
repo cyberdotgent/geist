@@ -373,6 +373,9 @@ struct Line {
   // the source display line, verbatim, and the row joins the preformatted
   // block of its region instead of reflowing.
   bool box = false;
+  // The row belongs to an implicit CFONT grid region rather than a drawn
+  // box; it is printed the same way (see `implicit_grid_region`).
+  bool grid = false;
   // A native display row whose only visible cells are U+2500. It is a
   // semantic separator, not a text row; the exact framing below supplies
   // the source provenance of the eventual thematic-break block.
@@ -441,6 +444,8 @@ struct BoxRegion {
   // True for a box whose top and bottom rules are both proven; false for an
   // open drawing.
   bool closed = false;
+  // True for the rows of an implicit CFONT grid (`implicit_grid_region`).
+  bool grid = false;
 };
 
 // Every closed box region and every open native drawing of the topic, in
@@ -450,6 +455,22 @@ struct BoxRegion {
 // parse.
 std::vector<BoxRegion> plan_boxes(
     const std::vector<DecodedLogicalRecordSource>& records);
+
+// The display rows of an implicit CFONT grid, as one verbatim region: every
+// display line from the one after the grid's header `cfont` line (the line
+// holding `header_token` of record `header_record`) to the end of the topic
+// source, which the grid owns (doc/boo-spec/markup.adoc, "Implicit CFONT
+// grids").  Hosted BookServer serves those rows inside its `<pre>` at their
+// native columns -- key at the first header group's column, value and its
+// continuation lines at the second's -- with the empty display line between
+// two entries, so the region keeps them exactly as a drawn box keeps its
+// rows.  Declines (no region, `error` set) when a record's display lines do
+// not parse, when the header control is not alone on its line, or when a
+// line of the region is a control other than `cfont`/`cselect`/`SI`, a row
+// that is not wholly display text, or a cell without a proven hosted glyph.
+std::optional<BoxRegion> implicit_grid_region(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    std::size_t header_record, std::size_t header_token, std::string* error);
 
 // Every display row drawn from box words alone, with a corner, rail or
 // junction among them (a row of nothing but `U+2500` is the reader's
