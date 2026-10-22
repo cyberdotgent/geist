@@ -2591,6 +2591,64 @@ int main() {
                 built.error);
   }
 
+  // A headline CFONT that closes its record styles the next record's first
+  // row even when that row's length byte spells `cfont`: N2AH1MST record 657
+  // line 37 is `cfont 3 7 2 11 9 2 ...` and record 658 line 0 is the length
+  // byte 37 (`25` at 0x492F1, the dictionary word `cfont`), a three-blank
+  // run and `AVM007I SUBSYSTEM ssid ...`. Hosted 11.0 serves that row as
+  // the entry headline.
+  {
+    auto first = header("Sample", "Messages");
+    append(first, entry("655", 397));
+    append(first, line({t("SRMSG", 110), t("656", 398)}));
+    append(first,
+           line({t("cfont", 111), t("3", 112), t("3", 112), t("2", 113)}));
+    std::vector<Token> second;
+    second.push_back({words("cfont"), 2});
+    second.push_back(origin());
+    second.push_back(t("656", 398));
+    append(second,
+           line({t("cfont", 111), t("3", 112), t("12", 114), t("2", 113)}));
+    append(second, line({origin(), t("Description:", 115), t("first", 117),
+                         t("field", 118)}));
+    const auto built = build({make_source(96, first), make_source(97, second)},
+                             "Sample Messages");
+    require(built.catalog.has_value(),
+            "a headline row opened by a cfont-spelled length byte declined: " +
+                built.error);
+    if (built.catalog && built.catalog->entries.size() == 2) {
+      const auto &second_entry = built.catalog->entries.back();
+      require(entry_text(second_entry) == "656 Description: first field",
+              "the record-opening headline row was misread: [" +
+                  entry_text(second_entry) + "]");
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "the record-opening headline failed verification: " + error);
+    }
+  }
+
+  // Mutation: the same record-opening row with no CFONT waiting for it is
+  // text before the entry's headline and still declines.
+  {
+    auto first = header("Sample", "Messages");
+    append(first, entry("657", 399));
+    append(first, line({t("SRMSG", 110), t("658", 400)}));
+    std::vector<Token> second;
+    second.push_back({words("cfont"), 2});
+    second.push_back(origin());
+    second.push_back(t("658", 400));
+    append(second,
+           line({t("cfont", 111), t("3", 112), t("12", 114), t("2", 113)}));
+    append(second, line({origin(), t("Description:", 115), t("first", 117),
+                         t("field", 118)}));
+    const auto built = build({make_source(98, first), make_source(99, second)},
+                             "Sample Messages");
+    require(!built.catalog.has_value(),
+            "an unstyled record-opening row was admitted as a headline");
+  }
+
   std::cout << "trap catalog IR synthetic tests passed\n";
   return 0;
 }

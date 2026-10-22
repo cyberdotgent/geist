@@ -3121,20 +3121,32 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
                           &highlight_ranges, nullptr, &*spans))
           return std::nullopt;
         // A font control whose payload is empty at the record end carries its
-        // text in the next record's leading text segment.
-        if (line.body.text.empty() && at + 1 < end &&
+        // text in the next record's leading text segment. That segment can
+        // open on the row's own length byte when the byte happens to spell
+        // a control word: N2AH1MST record 658 line 0 is the length byte 37
+        // (`25` at 0x492F1, spelling `cfont`) and then the headline
+        // `   AVM007I SUBSYSTEM ssid ...` that record 657's closing
+        // `cfont 3 7 2 11 9 2 ...` styles.
+        const auto next_record_row =
+            line.body.text.empty() && at + 1 < end &&
             segment.segment_index + 1 == ref.record->control_segments.size() &&
             ordered[at + 1].record->logical_record ==
                 ref.record->logical_record + 1 &&
-            ordered[at + 1].segment->segment_index == 0 &&
-            (ordered[at + 1].segment->kind == BookControlKind::text ||
+            ordered[at + 1].segment->segment_index == 0;
+        const auto next_record_prefixed =
+            next_record_row &&
+            segment_opcode_is_display_line_prefix(*ordered[at + 1].record,
+                                                  *ordered[at + 1].segment);
+        if (next_record_row &&
+            (next_record_prefixed ||
+             ordered[at + 1].segment->kind == BookControlKind::text ||
              ordered[at + 1].segment->kind == BookControlKind::unknown)) {
           ++at;
           // The CFONT's own columns travel with its deferred payload: the
           // control ends one record and its row opens the next.
           if (!walk_payload(*ordered[at].record, *ordered[at].segment, index,
                             line.body, entry.cells, entry_cell_positions, error,
-                            false, highlighted_columns, false,
+                            false, highlighted_columns, next_record_prefixed,
                             &highlight_ranges, nullptr, &*spans))
             return std::nullopt;
         } else if (line.body.text.empty() && at + 1 < end &&

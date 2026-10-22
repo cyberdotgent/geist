@@ -419,6 +419,17 @@ labelled line that only some entries carry (`3 5 2` `Note:` in topic `4.4`
 entry `805306372`) is entry-local.  A `CFONT` with an empty payload at a
 record end takes the next record's leading text segment as its payload (topic
 `4.4` logical records 153/154 `LNM for AIX Response:` and 154/155 `7 (fddiControlCartridgeError)`).
+The next record's first display line is that payload even when its length
+byte happens to spell a control word.  `N2AH1MST` record 657 ends with line
+37, `cfont 3 7 2 11 9 2 21 4 V ...`, directly after `SRMSG AVM007I`.  Record
+658 opens at `0x492F1` with `25`, the length (37) of line 0, whose dictionary
+word is `cfont`; then `08` (a three-cell blank run) and `AVM007I` (`B0 3E`
+at `0x492F3`).  The byte is the row's length, not a control, and hosted
+`11.0` (DT `19910329000100`) serves line 0,
+`AVM007I SUBSYSTEM ssid ASID asid IS NOW THE {ACTIVE|BACKUP} ELEMENT OF RSE`,
+as the entry's headline under that `cfont`.  A record that opens on such a
+row with no `cfont` waiting at the end of the record before it is drawn text
+ahead of the headline, and no entry is read from it.
 
 A label does not require a non-empty value.  In `N2AH1MST` topic `10.0`,
 logical record 593 segment 2 is `cfont 10 6 2` and its complete native row is
