@@ -1239,6 +1239,33 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
                 ProseTokenRoleIR::unassigned)
               continue;
             const auto view = view_token(records, record_index, token);
+            // After a picture-less frame's end marker a display line's
+            // length byte is row structure, never spacing to drop: the
+            // display-line pass reads the byte of an empty line as the
+            // paragraph break it is everywhere else in the body, and any
+            // other byte as the control slot that opens its row, whatever
+            // word the dictionary spells for it.  ITPPIBOK 4.3.5.4 record 160
+            // closes the `SRFIGSCHED` frame with `SREFIG` alone on line 6
+            // (token 40); line 7 is empty (its length byte, token 41, is
+            // `00`) and line 8 opens `Note that ...`, and the flattened
+            // splitter glues lines 7-11 to the `SREFIG` segment.  Hosted DT
+            // 19910628074854 serves the caption `Figure 2. ...`, then `<p>`,
+            // then `Note that ...`; dropping the bytes as padding ran the
+            // caption on into that paragraph.  DREICMST 2.17.1.1 record 524
+            // is the same shape after the `Figure 94.` caption (hosted DT
+            // 19911219125856 again serves `<p>`), and there the length byte
+            // of line 22, token 267, spells `U+251C`, a decoder placeholder
+            // the old padding rule swallowed.  The end marker of a
+            // table or figure span needs neither: the span itself is a hard
+            // block boundary, and its rows are the span's.
+            if (first_payload && region == nullptr &&
+                is_display_line_length_token(records[record_index], token)) {
+              Item item;
+              item.kind = ItemKind::token;
+              item.token = view;
+              build.items.push_back(std::move(item));
+              continue;
+            }
             // Spacing and the punctuation the decoder glues to the end
             // marker (`SREFIG.`, GG24-4302-00 5.1.8) precede any payload.
             if (first_payload &&

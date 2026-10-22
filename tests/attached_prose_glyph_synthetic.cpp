@@ -28,7 +28,10 @@ struct Builder {
   DecodedLogicalRecordSource record;
   std::uint16_t encoded = 0x100;
   std::uint8_t glyph_width = 1;
-  void line(std::vector<TokenWords> tokens) {
+  // `length_word` is the word the book's dictionary spells for the line's
+  // length byte; it is a length and displays nothing.
+  void line(std::vector<TokenWords> tokens,
+            TokenWords length_word = {0x25ba}) {
     std::size_t bytes = 0;
     for (const auto &words : tokens)
       bytes += words == TokenWords{0x2666}
@@ -36,7 +39,7 @@ struct Builder {
                    : (words == TokenWords{1} || words == TokenWords{2}) ? 1
                                                                          : 2;
     record.encoded_tokens.push_back({static_cast<std::uint16_t>(bytes), 1});
-    record.tokens.push_back({0x25ba});
+    record.tokens.push_back(std::move(length_word));
     for (auto &words : tokens) {
       record.encoded_tokens.push_back(
           words == TokenWords{0x2666} && glyph_width == 1
@@ -46,6 +49,12 @@ struct Builder {
                     : EncodedLogicalToken{encoded++, 2});
       record.tokens.push_back(std::move(words));
     }
+  }
+  // An empty display line spelled exactly as a book stores it: the length
+  // byte `00`, which decodes to the bare attach control.
+  void blank() {
+    record.encoded_tokens.push_back({0, 1});
+    record.tokens.push_back({1});
   }
   explicit Builder(bool cz = true) {
     line({w("sh1.1")});
@@ -655,7 +664,8 @@ TokenWords repeat(TokenWords head, std::uint16_t fill, std::size_t count,
   return head;
 }
 void framed_table(Builder &b, bool blank_inside_frame,
-                  bool prose_inside_frame = false) {
+                  bool prose_inside_frame = false,
+                  TokenWords after_length = w("<BOOK>")) {
   const auto rail = [&]() {
     b.line({w("   "), {0x2502}, w(std::string(20, ' ')), {0x2502}});
   };
@@ -687,12 +697,18 @@ void framed_table(Builder &b, bool blank_inside_frame,
   b.line({w("   "), repeat({0x2514}, 0x2500, 20, 0x2518)});
   b.line({w("   "), w("Figure 1. Caption")});
   b.line({w("SREFIG")});
-  b.line({});
-  b.line({w("   "), w("Text after.")});
+  // An empty display line as the record stores it: the length byte `00`,
+  // which a token reader spells as the bare attach control, then the next
+  // line, whose length byte the dictionary spells as some word: ITPPIBOK
+  // record 160 tokens 41 and 42 after `SREFIG` (`<BOOK>`), DREICMST record
+  // 524 tokens 266 and 267 (`U+251C`, a decoder placeholder).
+  b.blank();
+  b.line({w("   "), w("Text after.")}, std::move(after_length));
 }
-void frame_rows_around_table(bool blank_inside_frame) {
+void frame_rows_around_table(bool blank_inside_frame,
+                             TokenWords after_length = w("<BOOK>")) {
   Builder b(false);
-  framed_table(b, blank_inside_frame);
+  framed_table(b, blank_inside_frame, false, std::move(after_length));
   std::string error;
   const auto doc = lower(b, error);
   check(doc.has_value(), "framed table declined: " + error);
@@ -732,6 +748,12 @@ void frame_rows_around_table(bool blank_inside_frame) {
             caption > html.find("</pre>") && caption != std::string::npos &&
             after != std::string::npos && after > caption,
         "frame anchor, caption or following prose misplaced: " + html);
+  // The empty display line after `SREFIG` is a paragraph break, exactly as
+  // anywhere else in the body: hosted ITPPIBOK 4.3.5.4 serves `Figure 2.
+  // ...` then `<p>` then `Note that ...` (record 160 lines 5-8).
+  check(html.find(">Figure 1. Caption</p>") != std::string::npos &&
+            html.find("Caption Text after.") == std::string::npos,
+        "caption ran on into the paragraph after SREFIG: " + html);
   const auto markdown = render_document_markdown(*doc);
   check(drawn_cells(markdown) >= drawn_cells(pre),
         "framed table Markdown dropped frame rows: " + markdown);
@@ -917,6 +939,7 @@ int main() {
   anchor_above_box_is_narrow();
   frame_rows_around_table(false);
   frame_rows_around_table(true);
+  frame_rows_around_table(false, {0x251c});
   frame_rows_around_prose_decline();
   bullet();
   rejected({w("   "), w("SNA"), {1}, {0xffff}, {1}, w("ps")});

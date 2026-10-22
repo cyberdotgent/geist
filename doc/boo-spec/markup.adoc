@@ -3100,6 +3100,15 @@ counted as a row), with no `<table>`:
 * nothing is printed for `SRETBL`; the frame's rails follow, the empty
   display line as `<p>`, then the last rail and the bottom rule;
 * the caption line follows as text, then `<p>` and the next paragraph.
+  The `<p>` is record 160 line 7, an empty display line directly after
+  the `SREFIG` line: its length byte `00` stands at `0x3FB5C`, and line 8
+  (`Note that ...`) opens at `0x3FB5D`.  Although the flattened string
+  places both lines in the `SREFIG` control's extent, they are ordinary
+  body rows: the empty line is a paragraph break like any other, and line
+  8's length byte opens its row.  DREICMST `1.2.1` (`Figure 5.`, record
+  84) and `2.17.1.1` (`Figure 94.`, record 524 lines 20-22, where line
+  22's length byte spells `U+251C`) close their frames the same way, and
+  hosted (DT `19911219125856`) serves `<p>` after both captions.
 
 So the frame's rows belong with the table's rows: a reader prints the rows
 between the `SRFIG` line and the `SRTBL` line, the envelope's rows, and the
