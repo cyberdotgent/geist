@@ -254,11 +254,28 @@ enum class ProseSpanKindIR {
 // ProseTopicIR::figures; the span precedes blocks[position] (==
 // blocks.size() at the end) and, among the anchors placed at that position,
 // follows the first `anchors_before` of them in source order.
+// One display row a picture-less `SRFIG` frame draws around the table span
+// it encloses: its top rule and rails before the `SRTBL` line, its rails and
+// bottom rule after `SRETBL` (ITPPIBOK 4.3.5.4 `SRFIGSCHED` around
+// `SRTBLTBLUNIQ34`).  `text` is the row exactly as the table's own verbatim
+// rows spell theirs (trailing blanks trimmed); a blank display line between
+// two drawn rows is an empty row.  `source` covers the row's tokens, which
+// the ledger gives to the table span.
+struct ProseFrameRowIR {
+  std::string text;
+  DocumentSourceSliceIR source;
+};
+
 struct ProseSpanIR {
   ProseSpanKindIR kind = ProseSpanKindIR::table;
   std::size_t index = 0;
   std::size_t position = 0;
   std::size_t anchors_before = 0;
+  // A table span only: the rows of the frame drawn around it, before and
+  // after the table's own rows.  The lowering prints them with the table's
+  // rows as one verbatim region, which is how hosted BookServer serves it.
+  std::vector<ProseFrameRowIR> frame_before;
+  std::vector<ProseFrameRowIR> frame_after;
 };
 
 // A CSELECT inside a table span: `<column> <length> <target>` over the

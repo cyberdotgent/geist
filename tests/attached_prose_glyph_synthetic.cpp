@@ -632,6 +632,114 @@ void verbatim_anchor_keeps_rail_row() {
             pre.find("|___|") != std::string::npos,
         "verbatim region lost the rail row after its anchor: " + html);
 }
+// A picture-less `SRFIG<id>` frame drawn around a genuine table: ITPPIBOK
+// 4.3.5.4 records 158-160 (`SRFIGSCHED`, `SRTBLTBLUNIQ34`).  The frame draws
+// its own top rule and rails before the `SRTBL` line and its rails and
+// bottom rule after `SRETBL`; the table's rows carry the frame's rails beside
+// its own grid.  Hosted BookServer (DT 19910628074854) prints every one of
+// those rows in one `<pre>`, with `<a name="TBLTBLUNIQ34">` on the first row
+// after the `SRTBL` line and no `<table>`.  The frame's rows are the table
+// span's: they must be drawn around the table rows, in source order, and the
+// caption after them stays prose text after the region.
+TokenWords repeat(TokenWords head, std::uint16_t fill, std::size_t count,
+                  std::uint16_t tail) {
+  head.insert(head.end(), count, fill);
+  head.push_back(tail);
+  return head;
+}
+void framed_table(Builder &b, bool blank_inside_frame,
+                  bool prose_inside_frame = false) {
+  const auto rail = [&]() {
+    b.line({w("   "), {0x2502}, w(std::string(20, ' ')), {0x2502}});
+  };
+  b.line({});
+  b.line({w("   "), w("Text before.")});
+  b.line({});
+  b.line({w("SRFIGFR1")});
+  b.line({w("   "), repeat({0x250c}, 0x2500, 20, 0x2510)});
+  rail();
+  if (prose_inside_frame)
+    b.line({w("   "), w("Loose words.")});
+  b.line({w("SRTBLTBLUNIQ9")});
+  rail();
+  b.line({w("   "), {0x2502}, w(" "),
+          repeat(repeat({0x250c}, 0x2500, 8, 0x252c), 0x2500, 7, 0x2510),
+          w(" "), {0x2502}});
+  b.line({w("   "), {0x2502}, w(" "), {0x2502}, w(" "), w("A"),
+          w("      "), {0x2502}, w(" "), w("B"), w("     "), {0x2502},
+          w(" "), {0x2502}});
+  b.line({w("   "), {0x2502}, w(" "),
+          repeat(repeat({0x2514}, 0x2500, 8, 0x2534), 0x2500, 7, 0x2518),
+          w(" "), {0x2502}});
+  rail();
+  b.line({w("SRETBL")});
+  rail();
+  if (blank_inside_frame)
+    b.line({});
+  rail();
+  b.line({w("   "), repeat({0x2514}, 0x2500, 20, 0x2518)});
+  b.line({w("   "), w("Figure 1. Caption")});
+  b.line({w("SREFIG")});
+  b.line({});
+  b.line({w("   "), w("Text after.")});
+}
+void frame_rows_around_table(bool blank_inside_frame) {
+  Builder b(false);
+  framed_table(b, blank_inside_frame);
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "framed table declined: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto pre = pre_body(html);
+  std::vector<std::string> rows;
+  for (std::size_t at = 0; at <= pre.size();) {
+    const auto end = std::min(pre.find('\n', at), pre.size());
+    rows.push_back(pre.substr(at, end - at));
+    at = end + 1;
+  }
+  // Top rule, rail, [anchor] rail, grid top, row, grid bottom, rail, rail,
+  // (blank), rail, bottom rule.
+  const std::size_t expected = blank_inside_frame ? 11 : 10;
+  check(rows.size() == expected, "framed table does not draw the frame's " +
+                                     std::to_string(expected) +
+                                     " rows in one block: " + html);
+  if (rows.size() != expected)
+    return;
+  const auto anchor = pre.find("id=\"TBLTBLUNIQ9\"");
+  check(rows.front().find("____________________") != std::string::npos &&
+            rows.back().find("|____________________|") != std::string::npos,
+        "framed table lost the frame's top or bottom rule: " + html);
+  check(anchor != std::string::npos && anchor > pre.find(rows[1]) &&
+            anchor < pre.find(" A "),
+        "table anchor is not on the first row after SRTBL: " + html);
+  check(html.find("<table") == std::string::npos &&
+            html.find("SRTBL") == std::string::npos &&
+            html.find("SREFIG") == std::string::npos,
+        "framed table printed a control or became a table: " + html);
+  const auto figure = html.find("id=\"FIGFR1\"");
+  const auto caption = html.find("Figure 1. Caption");
+  const auto after = html.find("Text after.");
+  check(figure != std::string::npos && figure < html.find("<pre") &&
+            caption > html.find("</pre>") && caption != std::string::npos &&
+            after != std::string::npos && after > caption,
+        "frame anchor, caption or following prose misplaced: " + html);
+  const auto markdown = render_document_markdown(*doc);
+  check(drawn_cells(markdown) >= drawn_cells(pre),
+        "framed table Markdown dropped frame rows: " + markdown);
+}
+// A line of prose between the frame's rows and its table would be printed
+// by the stream on the wrong side of the rows; that shape is not proven and
+// the topic declines rather than reorder or drop anything.
+void frame_rows_around_prose_decline() {
+  Builder b(false);
+  framed_table(b, false, true);
+  std::string error;
+  const auto doc = lower(b, error);
+  check(!doc && error.find("frame rows around prose") != std::string::npos,
+        "frame rows around prose were not declined: " + error);
+}
 void bullet() {
   Builder b;
   b.line({w("cz"), w("BREAK"), w("3")});
@@ -675,6 +783,9 @@ int main() {
   unclaimed_box_rows_before_closer();
   unclaimed_box_rows_after_opener();
   verbatim_anchor_keeps_rail_row();
+  frame_rows_around_table(false);
+  frame_rows_around_table(true);
+  frame_rows_around_prose_decline();
   bullet();
   rejected({w("   "), w("SNA"), {1}, {0xffff}, {1}, w("ps")});
   rejected({w("   "), w("SNA"), {0x2666}, w("ps")});

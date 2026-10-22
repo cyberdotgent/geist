@@ -481,12 +481,190 @@ bool figure_region(const std::vector<DecodedLogicalRecordSource>& records,
   return true;
 }
 
+// The display rows a picture-less frame draws around its table.
+//
+// ITPPIBOK 4.3.5.4 records 158-160 open `SRFIGSCHED` on record 158 line 19
+// and draw the frame's top rule on line 20 and two rails on lines 21-22;
+// `SRTBLTBLUNIQ34` stands alone on line 23, and the envelope's rows (lines
+// 24 .. record 159 line 19) carry the frame's rails beside the table's own
+// `| TASK | START DATE |` grid.  After `SRETBL` (record 159 line 20) the frame
+// goes on with three rails, a blank line and its bottom rule (record 160
+// lines 0-4) before the `Figure 2.` caption and `SREFIG`.  Hosted BookServer
+// (DT 19910628074854) prints all of those rows, in source order, inside one
+// `<pre>`, with `<a name="TBLTBLUNIQ34">` on the first row after the `SRTBL`
+// line and no `<table>`.
+//
+// A frame row is a display line inside the frame that draws a box word and
+// that no table owns; every such row is the enclosed table span's to print,
+// so its tokens take the span's role.  Only the proven shape qualifies: the
+// frame encloses exactly one table, its rows stand before the table's first
+// row or after its last one, and no line of prose stands between a frame row
+// and the table (the stream would place it on the wrong side of the rows).
+// A blank display line between two drawn rows of one side is an empty row.
+// Anything else fails closed: SC24-5527-02 COMMENTS draws a closed `Note` box
+// between paragraphs of its `SRFIGFIGUNIQ548` form (record 977 line 4 ..
+// record 978 line 0), with prose between the box and the `SRTBLTBLUNIQ549`
+// table, and is no frame around that table.  A frame that draws no box word
+// -- every other frame of the corpus -- is left exactly as it was.
+bool claim_frame_rows(const std::vector<DecodedLogicalRecordSource>& records,
+                      const Claim& begin, const Claim& end,
+                      const std::string& label, Ledger& ledger,
+                      ProseTopicIR& topic, std::string* error) {
+  enum class Kind { blank, control, text, drawn, table };
+  struct Line {
+    std::size_t record = 0;
+    const DisplayLineIR* line = nullptr;
+    Kind kind = Kind::blank;
+  };
+  std::vector<Line> lines;
+  constexpr auto none = static_cast<std::size_t>(-1);
+  std::size_t span = none;
+  bool several = false;
+  for (auto record = begin.first; record <= end.first; ++record) {
+    const auto* display = record_display_lines(records[record]);
+    if (display == nullptr) continue;
+    for (const auto& line : *display) {
+      // Lines whose tokens lie inside the frame's extent.  The `SRFIG` line
+      // and the `SREFIG` line are control lines either way.
+      if (line.token_end <= line.prefix_token + 1) {
+        if ((record > begin.first || line.prefix_token > begin.second) &&
+            (record < end.first || line.prefix_token < end.second))
+          lines.push_back({record, &line, Kind::blank});
+        continue;
+      }
+      const auto first = line.prefix_token + 1;
+      const auto last = line.token_end - 1;
+      if ((record == begin.first && last < begin.second) ||
+          (record == end.first && first > end.second))
+        continue;
+      Line entry{record, &line, Kind::blank};
+      bool control = false;
+      bool drawn = false;
+      bool visible = false;
+      for (auto token = first; token <= last; ++token) {
+        const auto& disposition = ledger.at(record, token);
+        if (disposition.role == ProseTokenRoleIR::table) {
+          if (span != none && span != disposition.span) several = true;
+          if (span == none) span = disposition.span;
+          entry.kind = Kind::table;
+        }
+        const auto view = view_token(records, record, token);
+        if (disposition.role == ProseTokenRoleIR::unassigned &&
+            std::any_of(view.body.begin(), view.body.end(),
+                        [](const auto word) { return box_word(word); }))
+          drawn = true;
+        if (disposition.role == ProseTokenRoleIR::unassigned &&
+            !region_structure(view))
+          visible = true;
+      }
+      for (const auto& segment : records[record].control_segments)
+        if (segment.kind != BookControlKind::text &&
+            !segment.source_tokens.empty() &&
+            segment.source_tokens.front() >= first &&
+            segment.source_tokens.front() <= last)
+          control = true;
+      if (entry.kind != Kind::table) {
+        if (control && drawn)
+          return fail(error, label + " draws a frame row on a control line");
+        entry.kind = control  ? Kind::control
+                     : drawn  ? Kind::drawn
+                     : visible ? Kind::text
+                               : Kind::blank;
+      }
+      lines.push_back(entry);
+    }
+  }
+  const auto drawn_row = [](const Line& line) {
+    return line.kind == Kind::drawn;
+  };
+  if (std::none_of(lines.begin(), lines.end(), drawn_row)) return true;
+  if (span == none || several || span >= topic.spans.size() ||
+      topic.spans[span].kind != ProseSpanKindIR::table)
+    return fail(error, label + " draws frame rows around " +
+                           (several ? "more than one table" : "no table"));
+  auto& owner = topic.spans[span];
+  if (!owner.frame_before.empty() || !owner.frame_after.empty())
+    return fail(error, label + " draws frame rows around a framed table");
+  std::size_t first_table = lines.size();
+  std::size_t last_table = 0;
+  for (std::size_t at = 0; at < lines.size(); ++at)
+    if (lines[at].kind == Kind::table) {
+      first_table = std::min(first_table, at);
+      last_table = at;
+    }
+  for (std::size_t at = first_table; at <= last_table; ++at)
+    if (lines[at].kind == Kind::drawn)
+      return fail(error, label + " draws a frame row between table rows");
+  // One side of the table, `lines[0, to)` with the table beyond `to`: the
+  // drawn rows from the outermost one inward, with the blank lines between
+  // them.  A prose line anywhere from the outermost drawn row to the table
+  // fails, since the rows print with the table.
+  const auto side = [&](std::size_t to,
+                        std::vector<ProseFrameRowIR>& rows) -> bool {
+    std::size_t outer = to;
+    for (std::size_t at = 0; at < to; ++at)
+      if (lines[at].kind == Kind::drawn) {
+        outer = at;
+        break;
+      }
+    std::size_t inner = 0;
+    for (auto at = to; at > 0; --at)
+      if (lines[at - 1].kind == Kind::drawn) {
+        inner = at;
+        break;
+      }
+    for (auto at = outer; at < to; ++at)
+      if (lines[at].kind == Kind::text)
+        return fail(error, label + " draws frame rows around prose");
+    for (auto at = outer; at < inner; ++at) {
+      const auto& entry = lines[at];
+      if (entry.kind == Kind::control) continue;
+      const auto& source = records[entry.record];
+      ProseFrameRowIR row;
+      row.source = token_slice(source, entry.line->prefix_token + 1,
+                               std::max(entry.line->token_end,
+                                        entry.line->prefix_token + 1));
+      if (entry.kind == Kind::drawn) {
+        row.text = display_line_text(source, *entry.line);
+        while (!row.text.empty() && row.text.back() == ' ')
+          row.text.pop_back();
+        for (auto token = entry.line->prefix_token + 1;
+             token < entry.line->token_end; ++token)
+          if (ledger.at(entry.record, token).role ==
+                  ProseTokenRoleIR::unassigned &&
+              !ledger.assign(entry.record, token, ProseTokenRoleIR::table,
+                             error, span))
+            return false;
+      }
+      rows.push_back(std::move(row));
+    }
+    return true;
+  };
+  if (first_table == lines.size())
+    return fail(error, label + " draws frame rows around no table row");
+  // Before the table, the side ends at the table's first row; after it, the
+  // walk is mirrored so the outermost drawn row is the last one.
+  if (!side(first_table, owner.frame_before)) return false;
+  {
+    std::vector<Line> after(lines.begin() + last_table + 1, lines.end());
+    std::reverse(after.begin(), after.end());
+    lines = std::move(after);
+    std::vector<ProseFrameRowIR> rows;
+    if (!side(lines.size(), rows)) return false;
+    std::reverse(rows.begin(), rows.end());
+    owner.frame_after = std::move(rows);
+  }
+  return true;
+}
+
 // Admits a picture-less figure region as a frame when every visible token
-// inside it belongs to an already planned table span.  The SRFIG operands
-// become the frame anchor, everything else inside is padding.
+// inside it belongs to an already planned table span, apart from display
+// lines of prose the stream lowers and the frame's own drawn rows
+// (`claim_frame_rows`), which the enclosed table span prints.  The SRFIG
+// operands become the frame anchor, everything else inside is padding.
 bool plan_frame(const std::vector<DecodedLogicalRecordSource>& records,
                 const FigureBlockDeclineIR& decline, Ledger& ledger,
-                SpanPlan& plan, std::string* error) {
+                ProseTopicIR& topic, SpanPlan& plan, std::string* error) {
   const auto label = "figure '" + decline.anchor + "'";
   const auto begin_record = record_index_of(records, decline.begin.logical_record);
   if (!begin_record || !decline.end)
@@ -526,6 +704,10 @@ bool plan_frame(const std::vector<DecodedLogicalRecordSource>& records,
   bool table_inside = false;
   const auto first_token = begin_segment.source_tokens.front();
   const auto last_token = end_tokens.back();
+  if (!claim_frame_rows(records, {*begin_record, first_token},
+                        {*end_record, last_token}, label, ledger, topic,
+                        error))
+    return false;
   for (auto record = frame.begin_record; record <= frame.end_record; ++record) {
     const auto first = record == frame.begin_record ? first_token : std::size_t{0};
     const auto last = record == frame.end_record
@@ -810,7 +992,8 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
   for (const auto& decline : topic.figures.declined) {
     if (decline.reason != "figure region contains a table" || !decline.end)
       continue;
-    if (!plan_frame(records, decline, ledger, plan, error)) return false;
+    if (!plan_frame(records, decline, ledger, topic, plan, error))
+      return false;
   }
   return true;
 }

@@ -111,6 +111,58 @@ bool label_is_wholly_highlighted(const ProseBlockIR& block, std::size_t begin,
   return true;
 }
 
+// A table span inside a picture-less frame that draws rows of its own
+// (`ProseSpanIR::frame_before`/`frame_after`).  Hosted BookServer serves the
+// frame and the table as one `<pre>` (ITPPIBOK 4.3.5.4, DT 19910628074854):
+// the frame's top rule and rails, the table's rows with the table anchor on
+// the first of them, then the frame's rails and bottom rule.  The table must
+// therefore have lowered to its anchor and one verbatim block; the frame's
+// rows join that block around the table's rows, and the anchor moves onto the
+// table's first row.  A table that lowered to anything else (a declared
+// `:table`, a picture, a spot anchor) has no single region to join, and the
+// span declines rather than print the frame apart from it.
+bool frame_table_rows(const ProseSpanIR& span, std::vector<BlockIR>& blocks,
+                      std::string* error) {
+  if (blocks.size() != 2 ||
+      !std::holds_alternative<AnchorBlockIR>(blocks[0].node) ||
+      !std::holds_alternative<PreformattedBlockIR>(blocks[1].node))
+    return fail(error, "framed table does not lower to one verbatim region");
+  auto& table = std::get<PreformattedBlockIR>(blocks[1].node);
+  if (!table.line_links.empty() || !table.line_anchors.empty() ||
+      !table.styled_lines.empty() ||
+      table.line_origins.size() != table.lines.size())
+    return fail(error, "framed table region carries inline structure");
+  PreformattedBlockIR framed;
+  const auto add = [&](const std::vector<ProseFrameRowIR>& rows) {
+    for (const auto& row : rows) {
+      framed.lines.push_back(row.text);
+      auto row_origin = origin({}, row.text.empty()
+                                       ? "prose figure frame: blank row"
+                                       : "prose figure frame: drawn row");
+      if (row.source.byte_begin < row.source.byte_end)
+        row_origin.slices.push_back(row.source);
+      framed.line_origins.push_back(std::move(row_origin));
+    }
+  };
+  add(span.frame_before);
+  framed.line_anchors.push_back(
+      {framed.lines.size(), std::get<AnchorBlockIR>(blocks[0].node),
+       blocks[0].origin});
+  for (std::size_t line = 0; line < table.lines.size(); ++line) {
+    framed.lines.push_back(table.lines[line]);
+    framed.line_origins.push_back(table.line_origins[line]);
+  }
+  add(span.frame_after);
+  auto framed_origin = blocks[1].origin;
+  framed_origin.detail = "fixed table region in its figure frame";
+  BlockIR block;
+  block.node = std::move(framed);
+  block.origin = std::move(framed_origin);
+  blocks.clear();
+  blocks.push_back(std::move(block));
+  return true;
+}
+
 // The one selector whose payload holds every source cell of a table cell
 // line and whose column range (line-relative, origin cell == 0, like the
 // block's border and separator columns) meets the cell's column range, or
@@ -429,6 +481,9 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
           });
       if (lowered_table &&
           !link_table_cells(prose, span_index, table, blocks, &span_error))
+        return false;
+      if ((!span.frame_before.empty() || !span.frame_after.empty()) &&
+          !frame_table_rows(span, blocks, &span_error))
         return false;
       for (auto& block : blocks) destination.push_back(std::move(block));
     } else {

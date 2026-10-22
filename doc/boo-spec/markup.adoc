@@ -2937,6 +2937,67 @@ a frame.  ITPPIBOK `4.3.5.4` record 158 line 23 opens `SRTBLTBLUNIQ34`
 `| TASK | START | ...` grid, with `|_____|_____|` rules between them, and
 that grid is a table.
 
+[[markup_frame_rows_around_table]]
+==== Frame rows around a table
+
+A picture-less `SRFIG<id>` region may draw a frame of its own around the
+table it encloses.  The frame is display rows of box words outside the
+`SRTBL` envelope -- a top rule and rails above the opener, rails and a
+bottom rule below the closer -- and the envelope's own rows carry the
+frame's rails to the left and right of the table's grid.  ITPPIBOK
+`4.3.5.4` (records 158-160) draws this for `SRFIGSCHED` around
+`SRTBLTBLUNIQ34`.  Two-byte token values are big-endian; offsets are
+absolute file offsets.
+
+[cols="<10,<34,<44",options="header"]
+|===
+|Record, line |Bytes |Reading
+
+|158, 19 |`02` at `0x3F8C1`, then `E7 F8` at `0x3F8C2` |`SRFIGSCHED`, a line of its own
+|158, 20 |`0C` at `0x3F8C4`; `0A`, `D2 2F` (`U+250C`), `00`, `D2 48` (63 x `U+2500`), `00`, `D2 38` (9 x `U+2500`), `00`, `D2 2E` (`U+2510`) |the frame's top rule, columns 3-76
+|158, 21-22 |`05` at `0x3F8D1` and `0x3F8D7`; each `0A`, `91` (`U+2502`), `13`, `0F`, `91` |frame rails at columns 3 and 76, blank between
+|158, 23 |`02` at `0x3F8DD`, then `E8 EC` at `0x3F8DE` |`SRTBLTBLUNIQ34`, a line of its own
+|158, 24 .. 159, 19 |-- |the envelope: two more rails, then the grid -- its top rule opens with `U+250C` and joins at `U+252C`, its inner rules open with `U+251C` -- between the frame's rails at columns 3 and 76, then one rail
+|159, 20 |`02` at `0x3FB26`, then `E7 E0` at `0x3FB27` |`SRETBL`, a line of its own
+|160, 0-1 |`05` at `0x3FB2A` and `0x3FB30`; each `0A`, `91`, `13`, `0F`, `91` |frame rails
+|160, 2 |`00` at `0x3FB36` |an empty display line
+|160, 3 |`05` at `0x3FB37`; `0A`, `91`, `13`, `0F`, `91` |frame rail
+|160, 4 |`0C` at `0x3FB3D`; `0A`, `D2 30` (`U+2514`), `00`, `D2 48`, `00`, `D2 38`, `00`, `D2 31` (`U+2518`) |the frame's bottom rule
+|160, 5 |`0E` at `0x3FB4A` |`   Figure 2. Example Schedule for a TPNS Test`
+|160, 6 |`02` at `0x3FB59`, then `E7 DC` at `0x3FB5A` |`SREFIG`, a line of its own
+|===
+
+The length byte of each line spells a dictionary word like any other byte
+(`05` spells `U+253C`, `0C` five spaces); it is a length and displays
+nothing.
+
+Hosted BookServer (DT `19910628074854`) prints the frame and the table as
+one region of the topic's `<pre>`, 39 rows in source order (the `<p>`
+counted as a row), with no `<table>`:
+
+* `<a name="FIGSCHED">` wraps the top rule (record 158 line 20);
+* the two rails of lines 21-22 follow;
+* `<a name="TBLTBLUNIQ34">` wraps the first row after the `SRTBL` line
+  (line 24), and the envelope's rows follow verbatim, frame rails included;
+  the `cfont` line inside the envelope (line 27) prints nothing and styles
+  `TASK`, `START` and `DATE` in bold;
+* nothing is printed for `SRETBL`; the frame's rails follow, the empty
+  display line as `<p>`, then the last rail and the bottom rule;
+* the caption line follows as text, then `<p>` and the next paragraph.
+
+So the frame's rows belong with the table's rows: a reader prints the rows
+between the `SRFIG` line and the `SRTBL` line, the envelope's rows, and the
+rows between the `SRETBL` line and the caption as one verbatim region, and
+places the table anchor on the envelope's first row.  The region is
+recognised only when the frame encloses exactly one table, every frame row
+stands before the envelope's first row or after its last, and no display
+line of prose stands between a frame row and the envelope.  SC24-5527-02
+`COMMENTS` is the counterexample: its `SRFIGFIGUNIQ548` form draws a closed
+`Note` box (record 977 line 4 to record 978 line 0) between paragraphs, well
+above the `SRTBLTBLUNIQ549` address table, and that box is no frame around
+the table.  Every other picture-less frame around a table in the corpus
+draws no box word outside its envelope.
+
 [[markup_verbatim_cz_regions]]
 ==== Verbatim `CZ` regions
 

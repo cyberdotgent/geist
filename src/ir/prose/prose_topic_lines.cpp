@@ -2118,13 +2118,14 @@ bool build_lines(const std::vector<DecodedLogicalRecordSource>& records,
   //     a row-control `marker` slot.  A box-only row that no closed box or
   //     open drawing claims (its run is glued to a structural control line,
   //     so `plan_boxes` proves nothing) is spelled entirely of such runs;
-  //   * a picture-less figure frame (`plan_frame`) claims every box word
-  //     between `SRFIG` and `SREFIG` that its table does not own as
-  //     `padding`, which drops the frame's own top rule, rails and bottom
-  //     rule around the table (ITPPIBOK 4.3.5.4 record 158 line 20 opens
-  //     the `SRFIGSCHED` frame; hosted DT 19910628074854 prints all of its
-  //     rows in the topic's `<pre>`, while the typed reading kept only the
-  //     rails beside the grid).
+  //   * a picture-less figure frame (`plan_frame`) used to claim every box
+  //     word between `SRFIG` and `SREFIG` that its table does not own as
+  //     `padding`, dropping the frame's own top rule, rails and bottom rule
+  //     around the table (ITPPIBOK 4.3.5.4 record 158 line 20 opens the
+  //     `SRFIGSCHED` frame; hosted DT 19910628074854 prints all of its rows
+  //     in the topic's `<pre>`).  Those rows are now the enclosed table
+  //     span's (`claim_frame_rows`), and any other box row a frame meets is
+  //     left to this check.
   //
   // Every box word of such a row must therefore have been drawn: claimed as
   // text (a planned region, a drawn cell of a row) or by the table or figure

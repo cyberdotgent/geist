@@ -243,8 +243,11 @@ struct SpanRegion {
 // A picture-less `SRFIG<id> ... SREFIG` frame around one or more table
 // spans (SC31-711 4.0 `SRFIGTBLUNIQ6` around `SRTBLTBLUNIQ6`; hosted
 // BookServer serves `<a name="FIGTBLUNIQ6">` before the table anchor).  The
-// frame contributes only its anchor; its outline placeholders are padding
-// and every visible token inside it belongs to a table span.
+// frame contributes its anchor; display rows the frame draws itself around
+// the table (ITPPIBOK 4.3.5.4) belong to the enclosed table span
+// (`ProseSpanIR::frame_before`/`frame_after`), any other spacing inside it
+// is padding, and every other visible token belongs to a table span or to a
+// prose line the stream lowers.
 struct FrameRegion {
   std::size_t begin_record = 0;
   std::size_t begin_segment = 0;

@@ -223,6 +223,25 @@ bool verify_prose_topic_ir(
             ? span.index >= topic.tables.blocks.size()
             : span.index >= topic.figures.blocks.size())
       return fail(error, "span addresses no typed block");
+    // A frame row is drawn by its table span: a table span only, and every
+    // token of a drawn row is the span's.
+    for (const auto* rows : {&span.frame_before, &span.frame_after})
+      for (const auto& row : *rows) {
+        if (span.kind != ProseSpanKindIR::table)
+          return fail(error, "figure span carries frame rows");
+        if (row.text.empty()) continue;
+        if (row.source.token_begin >= row.source.token_end)
+          return fail(error, "frame row has no source tokens");
+        for (auto token = row.source.token_begin;
+             token < row.source.token_end; ++token) {
+          const auto found =
+              by_token.find({row.source.logical_record, token});
+          if (found == by_token.end() ||
+              found->second->role != ProseTokenRoleIR::table ||
+              found->second->span != index)
+            return fail(error, "frame row is not owned by its table span");
+        }
+      }
   }
   for (const auto& link : topic.table_links) {
     if (link.span >= topic.spans.size() ||
@@ -632,6 +651,10 @@ std::string format_prose_topic_ir(const ProseTopicIR& topic) {
         << (span.kind == ProseSpanKindIR::table ? "table" : "figure")
         << " index=" << span.index << " position=" << span.position
         << " anchors_before=" << span.anchors_before << '\n';
+    for (const auto& row : span.frame_before)
+      out << "  frame_before '" << row.text << "'\n";
+    for (const auto& row : span.frame_after)
+      out << "  frame_after '" << row.text << "'\n";
   }
   for (const auto& link : topic.table_links) {
     out << "table_link span=" << link.span << " column=" << link.column
