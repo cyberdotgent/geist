@@ -3622,6 +3622,91 @@ int main() {
     }
   }
 
+  // A continuation row drawn deeper than the catalogue's origin and label
+  // columns keeps the run its CFONT opens it with. N2AH1MST 2.0 record 151
+  // line 11 is `cfont 10 3 V 13 1 2 16 4 V` over `          prm:  text`
+  // (the second headline row of ADY001I) and line 13 `cfont 14 4 2 19 2 2
+  // ...` over `              THIS IS AN INVALID DAE VERB`; hosted
+  // (DT 19910329000100) serves `<var>prm</var><B>:</B>  <var>text</var>`
+  // and `<B>THIS</B> <B>IS</B> ...`.
+  {
+    const auto deep_catalog = [&](std::uint32_t record,
+                                  const std::vector<Token> &field_font) {
+      auto tokens = header("Sample", "Messages");
+      append(tokens, line({t("SRMSG", 110), t("728", 610)}));
+      append(tokens,
+             line({t("cfont", 111), t("3", 112), t("3", 112), t("2", 113)}));
+      append(tokens, line({origin(), t("728", 610)}));
+      append(tokens, line({t("cfont", 111), t("10", 611), t("3", 112),
+                           t("V", 602), t("13", 612), t("1", 171),
+                           t("2", 113), t("16", 613), t("4", 474),
+                           t("V", 602)}));
+      append(tokens, line({t("          ", 614), t("prm:", 615), t(" ", 20),
+                           t("text", 616)}));
+      append(tokens,
+             line({t("cfont", 111), t("3", 112), t("12", 114), t("2", 113)}));
+      append(tokens, line({origin(), t("Description:", 115), t("first", 117),
+                           t("field", 118)}));
+      append(tokens, line(field_font));
+      append(tokens, line({t("              ", 617), t("THIS", 618),
+                           t("IS", 619)}));
+      return build({make_source(record, tokens)}, "Sample Messages");
+    };
+    const auto lowered = [](const Catalog &built, std::string &html,
+                            std::string &markdown) {
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(), "deep continuation lowering declined: " +
+                                        error);
+      if (document) {
+        html = geist::detail::render_document_html_blocks(*document, {});
+        markdown = geist::detail::render_document_markdown(*document);
+      }
+    };
+    const auto built = deep_catalog(
+        138, {t("cfont", 111), t("14", 620), t("4", 474), t("2", 113),
+              t("19", 621), t("2", 622), t("2", 113)});
+    require(built.catalog.has_value(),
+            "deep continuation rows declined: " + built.error);
+    if (built.catalog) {
+      std::string html, markdown;
+      lowered(built, html, markdown);
+      require(html.find("<em class=\"geist-emphasis\">prm</em><strong "
+                        "class=\"geist-strong\">:</strong> <em "
+                        "class=\"geist-emphasis\">text</em>") !=
+                  std::string::npos,
+              "a deep headline continuation row lost its styles: " + html);
+      require(html.find("<strong class=\"geist-strong\">THIS</strong> "
+                        "<strong class=\"geist-strong\">IS</strong>") !=
+                      std::string::npos &&
+                  markdown.find("**THIS** **IS**") != std::string::npos,
+              "a deep field continuation row lost its styles: " + html);
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "deep continuation runs failed verification: " + error);
+    }
+
+    // Mutation: the field row's CFONT names a column one right of its
+    // word. The cells disprove the run, so the row stays plain text and
+    // the catalogue is still read.
+    const auto shifted = deep_catalog(
+        139, {t("cfont", 111), t("15", 623), t("4", 474), t("2", 113)});
+    require(shifted.catalog.has_value(),
+            "a deep row whose run its cells disprove declined: " +
+                shifted.error);
+    if (shifted.catalog) {
+      std::string html, markdown;
+      lowered(shifted, html, markdown);
+      require(html.find("THIS IS") != std::string::npos &&
+                  html.find(">THIS<") == std::string::npos &&
+                  html.find(">HIS") == std::string::npos,
+              "a run its row's cells disprove was styled: " + html);
+    }
+  }
+
   std::cout << "trap catalog IR synthetic tests passed\n";
   return 0;
 }

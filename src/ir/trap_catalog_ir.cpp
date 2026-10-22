@@ -3525,6 +3525,70 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
             line.spans = std::move(candidate_spans);
             line.spans_text = std::move(candidate_text);
           }
+          // A continuation row drawn deeper than both the catalogue's origin
+          // and its label column still carries the run its CFONT opens it
+          // with. N2AH1MST 2.0 record 151 line 11 is `cfont 10 3 V 13 1 2
+          // 16 4 V` over `          prm:  text`, the second row of the
+          // `ADY001I` headline, and line 13 is `cfont 14 4 2 19 2 2 ...`
+          // over `              THIS IS AN INVALID DAE VERB`; hosted
+          // (DT 19910329000100) serves `<var>prm</var><B>:</B>  <var>text
+          // </var>` and `<B>THIS</B> <B>IS</B> ...`. The run is read from the
+          // row's first drawn column and admitted only where the row's own
+          // cells spell every span; any other row stays unstyled text as
+          // before. A run ending in `:` is left alone: at a column no label
+          // has used, nothing says whether it is a label.
+          if (chain.empty() && !spans->spans.empty()) {
+            std::vector<TrapStyledSpanIR> drawn_spans;
+            std::string drawn_text;
+            auto drawn = map_leading_chain(*spans, front_column,
+                                           line.body.display_text,
+                                           drawn_spans, drawn_text);
+            const DecodedLogicalRecordSource *drawn_record = nullptr;
+            std::size_t drawn_token = 0;
+            for (auto cell = line.body.cell_begin;
+                 cell < line.body.cell_end && drawn_record == nullptr; ++cell)
+              if (entry.cells[cell].role == TrapCellRoleIR::text ||
+                  entry.cells[cell].role == TrapCellRoleIR::unrowed_text ||
+                  entry.cells[cell].role == TrapCellRoleIR::lexical_marker ||
+                  entry.cells[cell].role ==
+                      TrapCellRoleIR::punctuation_marker) {
+                drawn_record =
+                    find_record(records, entry.cells[cell].logical_record);
+                drawn_token = entry.cells[cell].token_index;
+              }
+            auto proven = !drawn.empty() && !drawn_text.empty() &&
+                          drawn_text.back() != ':' &&
+                          line.body.text.compare(0, drawn_text.size(),
+                                                 drawn_text) == 0 &&
+                          drawn_record != nullptr &&
+                          chain_matches_display_columns(
+                              *drawn_record, drawn_token, drawn_spans);
+            // Every span of the row also begins and ends on a drawn glyph
+            // that meets a blank, the row's edge or the next span, so a
+            // `cfont` that claims the revision bar (`| Us`) styles nothing.
+            if (proven) {
+              const auto *row_line =
+                  display_line_of_token(*drawn_record, drawn_token);
+              proven = row_line != nullptr &&
+                       !display_row_font_highlights(
+                            display_line_cells(*drawn_record, *row_line),
+                            display_line_column_offsets(*drawn_record,
+                                                        *row_line),
+                            *spans)
+                            .empty();
+            }
+            if (proven) {
+              const auto ranges =
+                  chain_highlight_ranges(drawn_spans, drawn_text, 0);
+              auto flow = line.body.flow;
+              proven = !ranges.empty() && add_highlights(flow, ranges);
+            }
+            if (proven) {
+              chain = std::move(drawn);
+              line.spans = std::move(drawn_spans);
+              line.spans_text = std::move(drawn_text);
+            }
+          }
         }
         // A row that opens with a revision margin maps its CFONT from the
         // first word the walk kept, which the record does not state is the

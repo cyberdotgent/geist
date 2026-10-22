@@ -531,6 +531,24 @@ the headline, not part of its bold.  The same holds in a field:
 `28.0` serves `use the <B>DELETE</B> <B>'</B><var>sys1.vvols.vxxxxxx</var><B>'</B>`
 and `the variable <var>sfierror</var> in message IEC331I`.
 
+A continuation row of the headline or of a field can stand deeper than
+both the catalogue's origin and its label column, and its `cfont` still
+styles it, starting at the row's first drawn cell.  Record 151 line 11 is
+the `cfont` at token 99 (`25` at `0x1E754`): `10` (`85`), `3` (`9A`), `V`
+(`83`), `13` (`88`), `1` (`84`), `2` (`8F`), `16` (`8B`), `4` (`A2`), `V`
+(`83`).  The row below it is a ten-cell blank run (`0D` at `0x1E75F`),
+`prm` (`DC E2` at `0x1E760`) in cells 10--12, `:` in cell 13 and `text` in
+cells 16--19.  Hosted serves `<var>prm</var><B>:</B>  <var>text</var>` as
+the second line of the `ADY001I` headline.  Line 13 (`cfont` at token 118,
+`0x1E768`) is `cfont 14 4 2 19 2 2 22 2 2 25 7 2 33 3 2 37 4 2` over
+`              THIS IS AN INVALID DAE VERB`, a row of the
+`text is one of the following:` field, served as
+`<B>THIS</B> <B>IS</B> <B>AN</B> <B>INVALID</B> <B>DAE</B> <B>VERB</B>`.
+The row's cells decide: each span names the cells of its word, begins and
+ends on a drawn glyph and meets a blank, the row's edge or the next span.
+`16.0` serves `<var>parms</var><B>.</B>` and `<B><I>libname</B></I>` on
+such rows the same way.
+
 The headline and each field are separate paragraphs.  Hosted BookServer
 serves `SC31-711` topic `4.1.1` (DT `19941010174546`) as `<B>0</B>`, `<p>`,
 `<B>Description:</B>  coldStart`, `<p>`, and so on; no character stands
