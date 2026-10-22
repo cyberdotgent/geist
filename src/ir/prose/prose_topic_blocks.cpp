@@ -474,6 +474,39 @@ bool build_box_block(const std::vector<DecodedLogicalRecordSource>& records,
   return true;
 }
 
+// True when the display line directly above `line`'s first source cell is a
+// subject-index line: its first content token is the `SI` keyword the
+// display-line pass claimed (`index_keyword`).  Such a line displays nothing.
+bool follows_index_line(const std::vector<DecodedLogicalRecordSource>& records,
+                        const Line& line, Ledger& ledger) {
+  const auto cell = std::find_if(
+      line.cells.begin(), line.cells.end(),
+      [](const Cell& candidate) { return candidate.record != npos; });
+  if (cell == line.cells.end() || cell->record >= records.size()) return false;
+  const auto* display = record_display_lines(records[cell->record]);
+  if (display == nullptr) return false;
+  const auto own = std::find_if(
+      display->begin(), display->end(), [&](const DisplayLineIR& candidate) {
+        return cell->token >= candidate.prefix_token &&
+               cell->token < candidate.token_end;
+      });
+  if (own == display->end()) return false;
+  std::size_t record = cell->record;
+  const DisplayLineIR* above = nullptr;
+  if (own != display->begin()) {
+    above = &*(own - 1);
+  } else {
+    if (record == 0) return false;
+    --record;
+    const auto* previous = record_display_lines(records[record]);
+    if (previous == nullptr || previous->empty()) return false;
+    above = &previous->back();
+  }
+  const auto first = above->prefix_token + 1;
+  if (first >= above->token_end) return false;
+  return ledger.at(record, first).role == ProseTokenRoleIR::index_keyword;
+}
+
 bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
                   const LineBuild& lines_build, Ledger& ledger,
                   ProseTopicIR& topic, std::string* error) {
@@ -547,6 +580,22 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
       continue;
     }
     auto end = index + 1;
+    // The paragraph's margin.  A paragraph whose first line stands directly
+    // below a subject-index line is sometimes set one column deeper than the
+    // lines that continue it: ITPPIBOK 4.3.5.4 record 158 line 11 is
+    // `    The final section ... to follow` (a four-cell origin, token 43)
+    // under the hidden `SI schedule, example` line, and line 12 goes on at
+    // three cells, `   during the test.`  No empty display line stands
+    // between them, and hosted DT 19910628074854 serves both rows, the
+    // extra blank included, in one paragraph.  Across the corpus the shape
+    // is always that one column (144 paragraphs in 136 topics, 4 then 3
+    // cells, every one a sentence that runs on), while a line after an `SI`
+    // line otherwise keeps its paragraph's margin (over two thousand
+    // paragraphs).  So the one-column step after an index line is the
+    // line's own extra blank, not an outdent, and the paragraph keeps the
+    // margin of the line that continues it.  Any other outdent still ends
+    // the block.
+    auto margin = first.origin;
     while (end < lines.size()) {
       const auto& next = lines[end];
       if (span_lines.count(end) != 0) break;
@@ -554,7 +603,10 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
       if (next.breaks_before != 0 || next.anchor_before || next.bullet) break;
       if (next.cells.size() <= next.text_begin) break;
       if (first.bullet && next.origin <= first.origin) break;
-      if (!first.bullet && next.origin < first.origin) break;
+      if (!first.bullet && end == index + 1 && next.origin + 1 == margin &&
+          follows_index_line(records, first, ledger))
+        margin = next.origin;
+      if (!first.bullet && next.origin < margin) break;
       if (styled_example_range_end(records, lines, end, example_limit, ledger) > end)
         break;
       ++end;
@@ -563,7 +615,7 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
     is_item.push_back(first.bullet);
     is_box.push_back(false);
     is_thematic_break.push_back(false);
-    origins.push_back(first.origin);
+    origins.push_back(margin);
     index = end;
   }
   std::size_t list_ordinal = 0;

@@ -783,6 +783,26 @@ void index_line_keeps_paragraph_break() {
             html.find(">Second paragraph.</p>") != std::string::npos,
         "index line swallowed the paragraph break before it: " + html);
 }
+// A paragraph whose first line stands directly below a subject-index line
+// and is set one column deeper than the line that continues it: ITPPIBOK
+// 4.3.5.4 record 158 lines 10-12 (`SI schedule, example`, `    The final
+// section ... to follow`, `   during the test. ...`).  No empty display line
+// stands between the two rows, and hosted DT 19910628074854 serves them in
+// one paragraph; the one-column step is not an outdent.
+void index_line_extra_blank_keeps_paragraph() {
+  Builder b(false);
+  b.line({w("SI"), w("term")});
+  b.line({w("    "), w("First row")}, w("<BOOK>"));
+  b.line({w("   "), w("continues here.")}, w("<BOOK>"));
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "index line before a paragraph declined: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  check(html.find(">First row continues here.</p>") != std::string::npos,
+        "paragraph split after its index line's extra blank: " + html);
+}
 void frame_rows_around_prose_decline() {
   Builder b(false);
   framed_table(b, false, true);
@@ -964,6 +984,7 @@ int main() {
   frame_rows_around_table(false, {0x251c});
   frame_rows_around_prose_decline();
   index_line_keeps_paragraph_break();
+  index_line_extra_blank_keeps_paragraph();
   bullet();
   rejected({w("   "), w("SNA"), {1}, {0xffff}, {1}, w("ps")});
   rejected({w("   "), w("SNA"), {0x2666}, w("ps")});

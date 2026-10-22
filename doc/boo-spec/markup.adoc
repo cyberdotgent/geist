@@ -2834,9 +2834,24 @@ are `SI TPNS, host processor requirements for` and `SI host processor, TPNS
 requirements` (length bytes at `0x37540` and `0x37549`); line 21 opens
 `    TPNS Version 3 Release 2 ...` (length byte at `0x37551`).  Hosted (DT
 `19910628074854`) serves `system testing.`, `<p>`, then `TPNS Version 3`.
-Across the 33-book corpus this shape -- an empty line, `SI` lines, then
+Across the 37 books examined this shape -- an empty line, `SI` lines, then
 text -- stands before 1961 paragraphs in 794 topics of 27 books, and
 hosted serves `<p>` at every one of the sampled ones.
+
+The first display line after an `SI` line is sometimes set one column
+deeper than the lines that continue its paragraph.  `ITPPIBOK.BOO` 4.3.5.4
+record 158 line 10 is `SI schedule, example`; line 11 opens with a
+four-cell blank run (token 43 at `0x3F84C`) before `The final section of
+the test plan indicates the schedule to follow`, and line 12 goes on with
+a three-cell run (token 57 at `0x3F85F`) before `during the test.`  No
+empty display line stands between lines 11 and 12, and hosted (DT
+`19910628074854`) prints both rows, the extra blank included, inside one
+paragraph.  Over the corpus the step is always exactly one column (four
+cells, then three) and always a sentence running on, in 144 paragraphs of
+136 topics in 9 books, while more than two thousand paragraphs that follow
+an `SI` line keep their margin on their first line.  The extra column is part of the first
+row, not an outdent of the second, so a reader keeps such rows in one
+paragraph with the margin of the rows that continue it.
 
 [[markup_drawn_box_regions_in_prose]]
 ==== Drawn box regions in prose
