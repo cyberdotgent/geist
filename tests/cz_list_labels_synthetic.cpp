@@ -254,11 +254,59 @@ void a_dash_outside_the_bullet_columns_stays_text() {
   }
 }
 
+// SC09-2417-00 2.2.4 record 210: `cz FLOW NOTEL 3 3`, then items
+// `cz FLOW LI 3 7` + `   1.  The type parameter ...`.  Hosted (`SC09-241`,
+// DT 19961114175628) serves each item as a bare `<dd>    1.  The ...` with
+// the number as text and no list element around them; SC21-8295-03 2.2,
+// 3.1.3.2 and SC09-2417-00 3.3.1.9 are served the same way.  The note
+// number is the item's text, not a list label the reader regenerates.
+void a_note_list_keeps_its_numbers_as_text() {
+  RecordBuilder builder;
+  metadata(builder);
+  directive(builder, "FLOW", "P", "3", "3");
+  builder.line({words("   "), words("Notes:")});
+  directive(builder, "FLOW", "NOTEL", "3", "3");
+  directive(builder, "FLOW", "LI", "3", "7");
+  builder.line({words("   "), words("1."), words(" "), words("The"),
+                words("type"), words("parameter.")});
+  directive(builder, "FLOW", "LI", "3", "7");
+  builder.line({words("   "), words("2."), words(" "), words("Deleted"),
+                words("records.")});
+  directive(builder, "FLOW", "UL", "7", "7");
+  directive(builder, "FLOW", "LI", "7", "11");
+  builder.line({words("       "), words("-"), words("  "), words("Skipped")});
+  directive(builder, "OFF", "EUL", "4", "4");
+  directive(builder, "OFF", "ENOTEL", "0", "0");
+
+  const auto extracted = extract_record(std::move(builder), 21);
+  require(extracted.prose.has_value(),
+          "the note list was declined: " + extracted.error);
+  if (!extracted.prose) return;
+  for (const auto *needle : {"1. The type", "2. Deleted"}) {
+    const auto *note =
+        find_block(*extracted.prose, ProseBlockKindIR::paragraph, needle);
+    require(note != nullptr, std::string("the note '") + needle +
+                                 "' is not a paragraph keeping its number");
+  }
+  for (const auto &block : extracted.prose->blocks)
+    require(!(block.kind == ProseBlockKindIR::list_item && block.ordered),
+            "a note became a numbered list item: '" + block_text(block) +
+                "'");
+  const auto document = lower_document(extracted);
+  if (!document) return;
+  const auto markdown = geist::detail::render_document_markdown(*document);
+  require(contains(markdown, "1\\. The type parameter") &&
+              contains(markdown, "2\\. Deleted records") &&
+              contains(markdown, "- Skipped"),
+          "the note numbers did not survive as text: " + markdown);
+}
+
 } // namespace
 
 int main() {
   a_dash_in_the_bullet_columns_is_the_nested_bullet();
   a_dash_outside_the_bullet_columns_stays_text();
+  a_note_list_keeps_its_numbers_as_text();
   geist_test::exit_with_failures();
   std::cout << "cz_list_labels_synthetic: ok\n";
   return 0;

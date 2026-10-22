@@ -165,7 +165,7 @@ struct ProseBlockIR {
   // form one list.
   std::size_t list_ordinal = 0;
   std::size_t origin = 0;
-  // List items of an ordered list (`CZ FLOW OL` / `NOTEL`); `ordinal` is the
+  // List items of an ordered list (`CZ FLOW OL`); `ordinal` is the
   // explicit source number text (`1.`) when the row carries one.
   bool ordered = false;
   std::string ordinal;

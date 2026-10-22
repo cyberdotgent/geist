@@ -4382,7 +4382,8 @@ the empty announcement therefore add no content after the menu.
 |Directive sequence |Hosted HTML |Evidence
 
 |`FLOW UL` … repeated `FLOW LI` … `OFF EUL` |`<ul><li>` per item |`packet` `3.2`: pass:[<literal>&lt;li&gt;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;The &lt;I&gt;port&lt;/I&gt; &lt;I&gt;name&lt;/I&gt;, a textual name ...</literal>]
-|`FLOW OL`/`FLOW NOTEL` … `FLOW LI` … |`<ol><li>`; the item's leading `1.`/`a.` is the stored ordinal label |`GX27-3999-00` `2.1`, `2.8`
+|`FLOW OL` … `FLOW LI` … |`<ol><li>`; the item's leading `1.`/`a.` is the stored ordinal label, not printed |`GX27-3999-00` `2.1`, `2.8`
+|`FLOW NOTEL` … `FLOW LI` … |one bare `<dd>` per item, its stored number printed as text; no list element |`SC09-2417-00` `2.2.4`, `SC21-8295-03` `2.2`; see "List item heads"
 |`FLOW DL` … repeated `FLOW DT` … `OFF EDL` l|<dl><dt>term<dd>definition |`SC41-485` `1.1` pass:[<literal>&lt;dt&gt;&#160;&#160;&#160;&lt;B&gt;</literal><literal>List&lt;/B&gt;</literal><literal>&lt;dd&gt;&lt;B&gt;Configuration&lt;/</literal><literal>B&gt; &lt;B&gt;Descriptions&lt;/</literal><literal>B&gt; (QDCLCFGD)</literal><literal>&#160;...</literal>], `1.2.5` pass:[<literal>&lt;dt&gt;&#160;&#160;&#160;CPF24B4 E&lt;dd&gt;Severe error ...</literal>]
 |`FLOW DL` … `FLOW DT` term … `FLOW DD` body … `OFF EDL` l|<dl><dt>term<dd>definition |`DFHP7A00` `1.2.4`, logical record 68: `cz FLOW DT 3 6`, the `Access programs:` row, `cz FLOW DD 6 6`, then `Communicate with the back-end applications`; the same pair repeats for the remaining entries
 |`FLOW NT` / `FLOW NOTE` |label run (`Note:`) then the note body |`SC09-2417-00` `4.5.2.2`
@@ -4594,6 +4595,36 @@ head (`GA19-5486-13` 122, `SC21-8295-03` 59, `SC09-2417-00` 33, `DFHP7A00`
 A `-` anywhere else in the head columns, or one glued to the word after it,
 is not a bullet: the text no longer resumes at `indent`, and the character
 is ordinary text.
+
+*`NOTEL`: the head is a note number, and it is text.*  Every `NOTEL` item
+stores its number (`1.`, `2.`, ...) in the head columns, and hosted
+BookServer prints it: each item is served as a bare `<dd>` holding the row
+exactly as stored, number included, with no `<ol>`, `<ul>` or `<dl>` around
+the items.  A `NOTEL` is therefore not a numbered list whose labels a reader
+may regenerate; it is a run of labelled note paragraphs.
+
+* `SC09-2417-00` `2.2.4`, logical record 210: `06 47 77 DA A7 A0 A0` at
+`0x476D7` (`cz FLOW NOTEL 3 3`), `05 47 77 7D A0 C3` at `0x476DE`
+(`cz FLOW LI 3 7`), `04 39 8C AB 85` (`cfont 11 4 V`), then the row: length
+byte `15`, `0A` (a three-space run), `8A` (`1`), `01` (an attached `.`),
+`08` and `83` (`The`).  Hosted (`SC09-241`, DT 19961114175628) serves
+pass:[<literal>&lt;B&gt;Notes:&lt;/B&gt;</literal>] (the row before the
+opener) and pass:[<literal>&lt;dd&gt;&#160;&#160;&#160;&#160;1.&#160;&#160;The &lt;var&gt;type&lt;/var&gt; parameter identifies a file as a memory file.</literal>]
+then pass:[<literal>&lt;dd&gt;&#160;&#160;&#160;&#160;2.&#160;&#160;If the binary stream file ...</literal>].
+* `SC09-2417-00` `3.3.1.9` serves its four notes the same way, and
+`SC21-8295-03` `2.2`, `2.4` and `2.8` (`SC21-829`, DT 19970409135933) theirs.
+* `SC21-8295-03` `3.1.3.2`, logical record 379, opens `cz FLOW NOTEL 13 13`
+inside the definition of a `DL` entry; hosted serves its four items as
+pass:[<literal>&lt;dd&gt;</literal>] rows numbered `1.` to `4.`, and the
+nested `cz FLOW UL 17 17` after items 3 and 4 as `<ul>` lists between them.
+
+By contrast an `OL` item's head is its ordinal label and is not printed:
+`SC21-8295-03` `2.4`, logical record 141, stores `cz FLOW OL 3 3`,
+`cz FLOW LI 3 7` and `   1.  Specify 1 for a 5251 Model 12 controller.`,
+and hosted serves pass:[<literal>&lt;ol type=1 start=1&gt;</literal>]
+pass:[<literal>&lt;li&gt;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;Specify 1 for a 5251 ...</literal>].
+Over the ten `CZ` books in hand 44 `NOTEL` items occur (`SC09-2417-00` 24,
+`SC21-8295-03` 13, `DFHP7A00` 7), every one with a `<number>.` head.
 
 [[markup_row_details_specific_to_the_dialect]]
 ==== Row details specific to the dialect

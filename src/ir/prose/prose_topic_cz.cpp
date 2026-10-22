@@ -378,10 +378,24 @@ struct CzBuilder {
     // example, a parameter definition) rather than becoming its sibling's
     // child.
     frame.body_owner = npos;
+    // A NOTEL item is a numbered note, and its number is text.  Hosted
+    // BookServer serves every item as a bare `<dd>` holding the row as
+    // stored, number included, with no list element around the items:
+    // SC09-2417-00 2.2.4 record 210 `cz FLOW NOTEL 3 3`, `cz FLOW LI 3 7`,
+    // `   1.  The type parameter ...` is served (`SC09-241`, DT
+    // 19961114175628) as `<dd>    1.  The <var>type</var> parameter ...`,
+    // and SC21-8295-03 2.2, 2.4, 2.8, 3.1.3.2 and C.2 (`SC21-829`, DT
+    // 19970409135933) the same way.  An OL item's head, by contrast, is a
+    // label hosted's `<ol>` replaces.  So each note is a paragraph that
+    // keeps its number, and what the source nests after it follows it.
+    if (frame.tag == "notel") {
+      ++frame.items;
+      return paragraphs(groups, 0);
+    }
     ProseBlockIR block;
     block.kind = ProseBlockKindIR::list_item;
     block.list_ordinal = frame.list_ordinal;
-    block.ordered = frame.tag == "ol" || frame.tag == "notel";
+    block.ordered = frame.tag == "ol";
     ++frame.items;
     auto& first = lines[groups.front().first];
     if (block.ordered && !take_ordinal(first, block.ordinal)) return false;
