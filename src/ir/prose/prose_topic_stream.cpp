@@ -987,6 +987,7 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
   const auto verbatim_regions = cz_verbatim_regions(records);
   const auto box_markup = box_markup_envelopes(records);
   const auto box_leaders = box_leading_anchors(records);
+  const auto box_figure_openers = box_leading_figure_openers(records);
   // Which dialect the topic is written in: a body that carries any `CZ`
   // control names every block boundary explicitly, a body that carries none
   // reconstructs its blocks from row geometry (doc/boo-spec/markup.adoc, "CZ layout
@@ -1667,6 +1668,9 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
                                segment.source_tokens.front());
         if (segment.malformed || lower_opcode.rfind("sr", 0) != 0 ||
             (reserved_structural(lower_opcode) && !in_verbatim && !in_box &&
+             !(!segment.source_tokens.empty() &&
+               box_figure_openers.count(
+                   {record_index, segment.source_tokens.front()}) != 0) &&
              !(!cz_dialect && lower_opcode.rfind("srftn", 0) == 0 &&
                lower_opcode.size() > 5) &&
              !paired_list_item(lower_opcode)))

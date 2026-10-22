@@ -1012,13 +1012,64 @@ void anchor_above_box_is_narrow() {
           "an anchor above an open drawing was read as its leader");
   }
   {
-    // A reserved envelope opener is never a bare anchor.
+    // A figure opener that does open its figure is never the box's bare
+    // anchor: here the `SREFIG` after the box closes the figure, which the
+    // figure family reads.
     Builder b(false);
     anchored_box(b, "SRFIGX1");
+    b.line({w("SREFIG")});
+    const auto record = run_on_anchor(b, "SRFIGX1");
+    check(prose_internal::box_leading_anchors({record}).size() == 1 &&
+              prose_internal::box_leading_figure_openers({record}).empty(),
+          "a terminated figure opener was read as its box's anchor");
+  }
+  {
+    Builder b(false);
+    anchored_box(b, "SRTBLX1");
+    std::string error;
+    check(!lower_record(run_on_anchor(b, "SRTBLX1"), error),
+          "a table opener above a box was read as a bare anchor");
+  }
+  {
+    Builder b(false);
+    anchored_box(b, "SRFIGX1", true);
     std::string error;
     check(!lower_record(run_on_anchor(b, "SRFIGX1"), error),
-          "a reserved envelope opener above a box was read as a bare anchor");
+          "a figure opener a blank line above a box was read as its anchor");
   }
+}
+// An `SRFIG<id>` that opens no figure -- no picture selector, and no
+// `SREFIG` anywhere after it in the topic -- alone on the line directly
+// above a closed box: SC09-138 3.1.9 record 376 line 18 `SRFIGFIGUNIQ30`
+// above the closed RENAME syntax-diagram box (lines 19-26).  Hosted
+// BookServer (DT 19910321130500) wraps the top rule in
+// `<a name="FIGFIGUNIQ30">`, prints the box verbatim and continues with the
+// prose after it.
+void unterminated_figure_opener_above_closed_box() {
+  Builder b(false);
+  anchored_box(b, "SRFIGX1");
+  std::string error;
+  const auto doc = lower_record(run_on_anchor(b, "SRFIGX1"), error);
+  check(doc.has_value(),
+        "unterminated figure opener above a closed box declined: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto pre = pre_body(html);
+  const auto anchor = html.find("id=\"FIGX1\"");
+  check(std::count(pre.begin(), pre.end(), '\n') == 3 &&
+            anchor != std::string::npos && anchor > html.find("Before.") &&
+            anchor < html.find("<pre") &&
+            pre.find("CMD") != std::string::npos &&
+            pre.find("|____________|") != std::string::npos,
+        "figure-anchored box is not drawn with its anchor on the top rule: " +
+            html);
+  check(html.find("SRFIG") == std::string::npos &&
+            html.find("After.") > html.find("</pre>"),
+        "figure-anchored box printed its control or lost its prose: " + html);
+  const auto markdown = render_document_markdown(*doc);
+  check(drawn_cells(markdown) >= drawn_cells(pre),
+        "figure-anchored box Markdown dropped drawn rows: " + markdown);
 }
 void bullet() {
   Builder b;
@@ -1065,6 +1116,7 @@ int main() {
   verbatim_anchor_keeps_rail_row();
   anchor_above_closed_box();
   anchor_above_box_is_narrow();
+  unterminated_figure_opener_above_closed_box();
   frame_rows_around_table(false);
   frame_rows_around_table(true);
   frame_rows_around_table(false, {0x251c});

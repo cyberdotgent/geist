@@ -857,6 +857,17 @@ std::set<std::pair<std::size_t, std::size_t>> box_markup_envelopes(
   return enclosed;
 }
 
+bool box_figure_opener(const std::vector<DecodedLogicalRecordSource>& records,
+                       const FigureSegmentRefIR& ref) {
+  const auto record = record_index_of(records, ref.logical_record);
+  if (!record || ref.segment_index >= records[*record].control_segments.size())
+    return false;
+  const auto& segment = records[*record].control_segments[ref.segment_index];
+  if (segment.source_tokens.empty()) return false;
+  return box_leading_figure_openers(records).count(
+             {*record, segment.source_tokens.front()}) != 0;
+}
+
 bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
                 const LayoutIR& layout, const OwnershipIR& ownership,
                 const std::set<std::string>* resource_ids, Ledger& ledger,
@@ -926,6 +937,14 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
       // sentence is an inline image, not a figure: its tokens stay in the
       // stream and the display-line pass proves the covered columns.
       if (decline.reason == figure_inline_picture_decline_reason())
+        continue;
+      // An `SRFIG<id>` that opens no figure -- no picture, no `SREFIG` --
+      // standing directly above a closed box names the box
+      // (`box_leading_figure_openers`); the stream reads it as the box's
+      // anchor.
+      if (decline.reason ==
+              "figure region has no picture selector (unterminated)" &&
+          box_figure_opener(records, decline.begin))
         continue;
       return fail(error, (decline.anchor.empty()
                               ? std::string("figure region")

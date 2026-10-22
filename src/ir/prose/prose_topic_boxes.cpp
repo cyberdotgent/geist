@@ -696,4 +696,42 @@ std::set<std::pair<std::size_t, std::size_t>> box_leading_anchors(
   return anchors;
 }
 
+// An `SRFIG<id>` alone on the line directly above a closed box, with no
+// `SREFIG` anywhere after it in the topic.  SC09-138 3.1.9 record 376 line
+// 18 is `SRFIGFIGUNIQ30` (`02` at 0x837F6, then `DD A5`), lines 19-26 the
+// closed RENAME syntax-diagram box, and no `SREFIG` follows before the topic
+// ends.  Hosted BookServer (DT 19910321130500) wraps the box's top rule in
+// `<a name="FIGFIGUNIQ30">`, prints the eight rows verbatim and continues
+// with the prose after them: the opener names the box and opens no figure.
+std::set<std::pair<std::size_t, std::size_t>> box_leading_figure_openers(
+    const std::vector<DecodedLogicalRecordSource>& records) {
+  std::set<std::pair<std::size_t, std::size_t>> openers;
+  for (const auto& [record_index, token] : box_leading_anchors(records)) {
+    const auto& record = records[record_index];
+    const auto segment_index = segment_of(record, token);
+    if (segment_index >= record.control_segments.size()) continue;
+    const auto opcode =
+        ascii_lower(record.control_segments[segment_index].opcode);
+    if (opcode.rfind("srfig", 0) != 0 || opcode.size() <= 5) continue;
+    // `SREFIG` may decode as a structural control or as the first word of
+    // a text segment, so any later spelling of it in the topic's decoded
+    // text counts as a terminator.
+    bool terminated = false;
+    for (auto scan = record_index; scan < records.size() && !terminated;
+         ++scan) {
+      const auto text =
+          ascii_lower(token_words_to_ascii(records[scan].assembled.words));
+      const auto from =
+          scan == record_index
+              ? std::min<std::size_t>(
+                    record.control_segments[segment_index].opcode_range.end,
+                    text.size())
+              : std::size_t{0};
+      terminated = text.find("srefig", from) != std::string::npos;
+    }
+    if (!terminated) openers.insert({record_index, token});
+  }
+  return openers;
+}
+
 } // namespace geist::detail::prose_internal

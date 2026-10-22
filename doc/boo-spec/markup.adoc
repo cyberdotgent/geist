@@ -3342,6 +3342,34 @@ The reading applies only to the proven shape:
 An anchor separated from the box by an empty line, or standing above an
 open drawing, is not proven to name it.
 
+The anchor can be a figure opener `SRFIG<id>` that opens no figure.
+SC09-138 `3.1.9` (logical record 376) draws the `RENAME` syntax diagram
+this way, and no `SREFIG` follows anywhere in the topic:
+
+[cols="<10,<44,<40",options="header"]
+|===
+|Line |Bytes |Reading
+
+|18 |`02` at `0x837F6`, then `DD A5` |`SRFIGFIGUNIQ30`, a line of its own
+|19 |`0A` at `0x837F9`; `11` (3 spaces), `B0 46` (`U+250C`), `00`, `0C` (63 x `U+2500`), `00`, `08` (9 x `U+2500`), `00`, `B0 44` (`U+2510`) |the box's top rule
+|20--25 |-- |rails, the diagram rows and their `cfont` lines
+|26 |`0A` at `0x83866`; `11`, `B0 4A` (`U+2514`), `00`, `0C`, `00`, `08`, `00`, `B0 50` (`U+2518`) |the bottom rule
+|===
+
+The figure has no picture selector and no end marker.  Hosted BookServer
+(DT `19910321130500`) serves `<a name="FIGFIGUNIQ30">` wrapped around the
+top rule, prints the eight box rows verbatim, and continues with the
+`where:` paragraph and the rest of the topic as ordinary text.  So such an
+opener is the box's anchor, named `FIG<id>`, in exactly the shape above,
+and it opens nothing.  The reading needs all of these:
+
+* the opener is followed by no `SREFIG` in the topic;
+* the figure has no picture selector;
+* the opener directly precedes a closed box, as for any anchor above.
+
+A figure opener whose `SREFIG` follows still opens a figure, and a table
+opener `SRTBL<id>` above a box still opens a table.
+
 [[markup_frame_rows_around_table]]
 ==== Frame rows around a table
 

@@ -493,6 +493,13 @@ std::set<std::pair<std::size_t, std::size_t>> box_enclosed_envelopes(
 std::set<std::pair<std::size_t, std::size_t>> box_leading_anchors(
     const std::vector<DecodedLogicalRecordSource>& records);
 
+// The subset of `box_leading_anchors` spelled `SRFIG<id>` that open no
+// figure: no `SREFIG` follows them in the topic.  Such an opener is the
+// box's anchor `FIG<id>` (SC09-138 3.1.9 `SRFIGFIGUNIQ30`); the figure pass
+// declines it as unterminated and the span plan leaves it to the stream.
+std::set<std::pair<std::size_t, std::size_t>> box_leading_figure_openers(
+    const std::vector<DecodedLogicalRecordSource>& records);
+
 bool build_lines(const std::vector<DecodedLogicalRecordSource>& records,
                  const std::vector<Item>& items, Ledger& ledger,
                  LineBuild& out, std::string* error);
