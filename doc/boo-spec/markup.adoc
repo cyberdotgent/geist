@@ -4382,7 +4382,7 @@ the empty announcement therefore add no content after the menu.
 |Directive sequence |Hosted HTML |Evidence
 
 |`FLOW UL` … repeated `FLOW LI` … `OFF EUL` |`<ul><li>` per item |`packet` `3.2`: pass:[<literal>&lt;li&gt;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;The &lt;I&gt;port&lt;/I&gt; &lt;I&gt;name&lt;/I&gt;, a textual name ...</literal>]
-|`FLOW OL` … `FLOW LI` … |`<ol><li>`; the item's leading `1.`/`a.` is the stored ordinal label, not printed |`GX27-3999-00` `2.1`, `2.8`
+|`FLOW OL` … `FLOW LI` … |`<ol><li>`; the item's leading `1.`/`a.` (or a lone `7)`/`h)`) is the stored ordinal label, not printed |`GX27-3999-00` `2.1`, `2.8`, `SC21-8295-03` `E.0`; see "List item heads"
 |`FLOW NOTEL` … `FLOW LI` … |one bare `<dd>` per item, its stored number printed as text; no list element |`SC09-2417-00` `2.2.4`, `SC21-8295-03` `2.2`; see "List item heads"
 |`FLOW DL` … repeated `FLOW DT` … `OFF EDL` l|<dl><dt>term<dd>definition |`SC41-485` `1.1` pass:[<literal>&lt;dt&gt;&#160;&#160;&#160;&lt;B&gt;</literal><literal>List&lt;/B&gt;</literal><literal>&lt;dd&gt;&lt;B&gt;Configuration&lt;/</literal><literal>B&gt; &lt;B&gt;Descriptions&lt;/</literal><literal>B&gt; (QDCLCFGD)</literal><literal>&#160;...</literal>], `1.2.5` pass:[<literal>&lt;dt&gt;&#160;&#160;&#160;CPF24B4 E&lt;dd&gt;Severe error ...</literal>]
 |`FLOW DL` … `FLOW DT` term … `FLOW DD` body … `OFF EDL` l|<dl><dt>term<dd>definition |`DFHP7A00` `1.2.4`, logical record 68: `cz FLOW DT 3 6`, the `Access programs:` row, `cz FLOW DD 6 6`, then `Communicate with the back-end applications`; the same pair repeats for the remaining entries
@@ -4595,6 +4595,37 @@ head (`GA19-5486-13` 122, `SC21-8295-03` 59, `SC09-2417-00` 33, `DFHP7A00`
 A `-` anywhere else in the head columns, or one glued to the word after it,
 is not a bullet: the text no longer resumes at `indent`, and the character
 is ordinary text.
+
+*`OL`: the head is the item's ordinal label.*  A head that is one word,
+`<number>.` or `<letter>.`, opening the row is the label hosted's `<ol>`
+replaces; so is `<number>)` or `<letter>)` standing alone at `left` with the
+text resuming at `indent`.  `SC21-8295-03` `E.0` nests three such lists:
+
+* logical record 840: `05 4D 9C A2 C5 C9` at `0x69E44`
+(`cz FLOW LI 16 20`), then the row: length byte `10`, `11` (one space),
+`8F` (`|`), `1D` (a thirteen-space run), `D4` (`7`), `00` (a glue byte),
+`30` (`)`), `11` and the text `Press F3 three times.` at column 20.  Hosted
+(`SC21-829`, DT 19970409135933) serves
+pass:[<literal>&lt;li&gt; &lt;br&gt; |&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;Press F3 three times.</literal>]
+inside pass:[<literal>&lt;ol type=1 start=1&gt;</literal>]: the head's columns are blank.
+* the same topic's `LI 20 24` items store `a)` to `h)`, and its 13 `LI 12 16`
+items `a.`, `b.`, ...; hosted blanks those heads the same way.  31 items with
+a `<number>)` head and 13 with a `<letter>)` head occur, all in this topic.
+
+A head of several words whose last word is such a label carries a word the
+list number cannot.  `E.0` logical record 836: `05 4D 9C A2 CD C1` at
+`0x697B4` (`cz FLOW LI 3 12`), then length byte `1B`, `11`, `8F` (`|`),
+`AF` (`Step`), `BE` (`1`), `01` (an attached `.`), `11` and `B7` (`The`)
+at column 12.  `packet` `3.6.3` logical record 142 stores `cz FLOW LI 3 10`
+and `   __ 1.  /etc/ax25/uronode.announce ...`, a checkbox the reader ticks
+(`D6 7D` at `0x4C0E6` is `__`).  Hosted prints `<ol>` and drops only the
+head's *first* word, so `Step` and `__` vanish while `1.` stays as text:
+pass:[<literal>&lt;li&gt; &lt;br&gt; |&#160;&#160;&#160;&#160;&#160;&#160;1.&#160;&#160;The new release requires 64 megabytes</literal>]
+(`E.0`, ten items `Step 1.` to `Step 10.`) and
+pass:[<literal>&lt;li&gt;&#160;&#160;&#160;&#160;&#160;&#160;&#160;1.&#160;&#160;&lt;kbd&gt;/etc/ax25/uronode.announce&lt;/kbd&gt;</literal>]
+(`packet`, DT 20260614112503, six items).  Such a head is content, not a
+label a reader may regenerate: printing it whole, without a list number of
+the reader's own, loses no word and adds no second number.
 
 *`NOTEL`: the head is a note number, and it is text.*  Every `NOTEL` item
 stores its number (`1.`, `2.`, ...) in the head columns, and hosted

@@ -361,12 +361,17 @@ std::vector<DocumentSourceSliceIR> inline_slices(const ProseBlockIR& block,
   return slices;
 }
 
+// A CZ ordinal label ends in `.` (`1.`, `a.`) or `)` (`7)`, `h)`).
+bool label_terminator(const std::string& label) {
+  return !label.empty() && (label.back() == '.' || label.back() == ')');
+}
+
 OrderedListMarkerIR item_marker(const ProseBlockIR& block) {
   const auto& label = block.ordinal;
-  if (label.size() == 2 && label.back() == '.' && label.front() >= 'a' &&
+  if (label.size() == 2 && label_terminator(label) && label.front() >= 'a' &&
       label.front() <= 'z')
     return OrderedListMarkerIR::lower_alpha;
-  if (label.size() == 2 && label.back() == '.' && label.front() >= 'A' &&
+  if (label.size() == 2 && label_terminator(label) && label.front() >= 'A' &&
       label.front() <= 'Z')
     return OrderedListMarkerIR::upper_alpha;
   return OrderedListMarkerIR::decimal;
@@ -378,7 +383,7 @@ std::optional<std::uint64_t> item_ordinal(const ProseBlockIR& block,
                                           std::uint64_t position) {
   if (!block.ordered) return std::nullopt;
   const auto& label = block.ordinal;
-  if (label.size() >= 2 && label.back() == '.' &&
+  if (label.size() >= 2 && label_terminator(label) &&
       std::all_of(label.begin(), label.end() - 1, [](unsigned char ch) {
         return std::isdigit(ch) != 0;
       })) {
@@ -387,7 +392,7 @@ std::optional<std::uint64_t> item_ordinal(const ProseBlockIR& block,
       value = value * 10 + static_cast<std::uint64_t>(*it - '0');
     if (value != 0) return value;
   }
-  if (label.size() == 2 && label.back() == '.' &&
+  if (label.size() == 2 && label_terminator(label) &&
       std::isalpha(static_cast<unsigned char>(label.front())) != 0)
     return static_cast<std::uint64_t>(
                std::tolower(static_cast<unsigned char>(label.front())) - 'a') +

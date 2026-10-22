@@ -301,12 +301,95 @@ void a_note_list_keeps_its_numbers_as_text() {
           "the note numbers did not survive as text: " + markdown);
 }
 
+// SC21-8295-03 E.0 records 836-854 nest `cz FLOW OL` lists whose heads are
+// `1)`..`9)` (`LI 16 20`), `a)`..`h)` (`LI 20 24`) and `a.` (`LI 12 16`).
+// A head of the form `<n>)`/`<letter>)` standing alone in the head columns,
+// with the text resuming at `indent`, is the item's ordinal label exactly
+// like `<n>.`: hosted (`SC21-829`, DT 19970409135933) serves
+// `<li> <br> |              Press F3 three times.` for `7)  Press F3 ...`.
+void a_parenthesis_ordinal_is_the_item_label() {
+  RecordBuilder builder;
+  metadata(builder);
+  directive(builder, "FLOW", "OL", "16", "16");
+  directive(builder, "FLOW", "LI", "16", "20");
+  builder.line({words("                "), words("6)"), words(" "),
+                words("Select"), words("option.")});
+  directive(builder, "FLOW", "LI", "16", "20");
+  builder.line({words("                "), words("7)"), words(" "),
+                words("Press"), words("F3.")});
+  directive(builder, "FLOW", "OL", "20", "20");
+  directive(builder, "FLOW", "LI", "20", "24");
+  builder.line({words("                    "), words("a)"), words(" "),
+                words("Exit"), words("tools.")});
+  directive(builder, "OFF", "EOL", "17", "17");
+  directive(builder, "OFF", "EOL", "13", "13");
+
+  const auto extracted = extract_record(std::move(builder), 21);
+  require(extracted.prose.has_value(),
+          "the parenthesis-labelled list was declined: " + extracted.error);
+  if (!extracted.prose) return;
+  for (const auto &[needle, label] :
+       std::vector<std::pair<std::string, std::string>>{
+           {"Select", "6)"}, {"Press", "7)"}, {"Exit", "a)"}}) {
+    const auto *item =
+        find_block(*extracted.prose, ProseBlockKindIR::list_item, needle);
+    require(item != nullptr && item->ordered && item->ordinal == label &&
+                block_text(*item).find(')') == std::string::npos,
+            "the head '" + label + "' is not the item's ordinal label: '" +
+                (item == nullptr ? std::string() : block_text(*item)) + "'");
+  }
+  const auto document = lower_document(extracted);
+  if (!document) return;
+  const auto markdown = geist::detail::render_document_markdown(*document);
+  require(contains(markdown, "7. Press F3") && !contains(markdown, "7\\)"),
+          "the parenthesis label was not the list number: " + markdown);
+}
+
+// SC21-8295-03 E.0 record 836: `cz FLOW OL 3 3`, `cz FLOW LI 3 12` and
+// ` | Step 1.  The new release requires ...`; packet 3.6.3 record 142:
+// `cz FLOW LI 3 10` and `   __ 1.  /etc/ax25/uronode.announce ...`.  The
+// head columns hold a word in front of the ordinal, which a list number
+// cannot carry.  The items keep their whole head as text and the list adds
+// no number of its own, so neither `1. Step 1.` nor a lost `Step` results.
+void a_head_with_a_word_before_its_ordinal_stays_text() {
+  RecordBuilder builder;
+  metadata(builder);
+  directive(builder, "FLOW", "OL", "3", "3");
+  directive(builder, "FLOW", "LI", "3", "12");
+  builder.line({words("   "), words("Step"), words("1."), words(" "),
+                words("Install"), words("it.")});
+  directive(builder, "FLOW", "LI", "3", "12");
+  builder.line({words("   "), words("Step"), words("2."), words(" "),
+                words("Start"), words("it.")});
+  directive(builder, "OFF", "EOL", "0", "0");
+
+  const auto extracted = extract_record(std::move(builder), 21);
+  require(extracted.prose.has_value(),
+          "the step list was declined: " + extracted.error);
+  if (!extracted.prose) return;
+  for (const auto *needle : {"Step 1. Install", "Step 2. Start"}) {
+    const auto *item =
+        find_block(*extracted.prose, ProseBlockKindIR::list_item, needle);
+    require(item != nullptr && !item->ordered && item->ordinal.empty(),
+            std::string("the step head of '") + needle +
+                "' did not stay the item's text");
+  }
+  const auto document = lower_document(extracted);
+  if (!document) return;
+  const auto markdown = geist::detail::render_document_markdown(*document);
+  require(contains(markdown, "- Step 1\\. Install it") &&
+              !contains(markdown, "1. Step"),
+          "the step list numbered its own step heads: " + markdown);
+}
+
 } // namespace
 
 int main() {
   a_dash_in_the_bullet_columns_is_the_nested_bullet();
   a_dash_outside_the_bullet_columns_stays_text();
   a_note_list_keeps_its_numbers_as_text();
+  a_parenthesis_ordinal_is_the_item_label();
+  a_head_with_a_word_before_its_ordinal_stays_text();
   geist_test::exit_with_failures();
   std::cout << "cz_list_labels_synthetic: ok\n";
   return 0;

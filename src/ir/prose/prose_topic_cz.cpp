@@ -316,17 +316,54 @@ struct CzBuilder {
     return true;
   }
 
-  // `1.`, `12.`, `a.`: the explicit ordinal label of an ordered-list row.
-  bool take_ordinal(Line& line, std::string& ordinal) {
+  // `12` or `a` followed by `terminator`: an ordinal label word.
+  static bool ordinal_word(const std::string& text, char terminator) {
+    if (text.size() < 2 || text.back() != terminator) return false;
+    const auto body = text.substr(0, text.size() - 1);
+    return digits(body) ||
+           (body.size() == 1 &&
+            std::isalpha(static_cast<unsigned char>(body[0])) != 0);
+  }
+
+  // The head of an ordered-list row (doc/boo-spec/markup.adoc, "List item
+  // heads").  `1.`, `12.`, `a.` opening the row is the explicit ordinal
+  // label.  Standing alone in the head columns -- at `left`, with the text
+  // resuming at `indent` -- so is `7)` or `h)`: SC21-8295-03 E.0 record 840
+  // `cz FLOW LI 16 20` + ` |              7)  Press F3 three times.`,
+  // served (`SC21-829`, DT 19970409135933) as `<li> <br> |
+  // Press F3 three times.` inside `<ol>`.
+  //
+  // A head of several words ending in such a label carries a word a list
+  // number cannot: E.0 record 836 `cz FLOW LI 3 12` + ` | Step 1.  The new
+  // release ...`, packet 3.6.3 record 142 `cz FLOW LI 3 10` + `   __ 1.
+  // /etc/ax25/uronode.announce ...`.  Hosted prints `<ol>` and drops only
+  // the first word, leaving `1.` in the text.  The item keeps its whole head
+  // as text instead and is not numbered by the list (`ordered` cleared).
+  bool take_ordinal(Line& line, const LayoutDirective& directive,
+                    ProseBlockIR& block) {
     const auto [begin, end] = first_word(line, line.text_begin);
     const auto text = cells_text(line, begin, end);
-    if (text.size() < 2 || text.back() != '.') return true;
-    const auto body = text.substr(0, text.size() - 1);
-    const auto alpha = body.size() == 1 &&
-                       std::isalpha(static_cast<unsigned char>(body[0])) != 0;
-    if (!digits(body) && !alpha) return true;
     if (end >= line.cells.size() || !line.cells[end].space) return true;
-    ordinal = text;
+    // The words of the head columns: from `left`, every word before
+    // `indent`, with the text resuming exactly at `indent`.
+    auto last = std::make_pair(begin, end);
+    auto resume = first_word(line, end).first;
+    while (resume < directive.indent && resume < line.cells.size()) {
+      last = first_word(line, resume);
+      resume = first_word(line, last.second).first;
+    }
+    const auto head = begin == directive.left &&
+                      resume == directive.indent &&
+                      resume < line.cells.size();
+    const auto alone = head && last.first == begin;
+    if (!ordinal_word(text, '.') && !(alone && ordinal_word(text, ')'))) {
+      const auto label = cells_text(line, last.first, last.second);
+      if (head && !alone &&
+          (ordinal_word(label, '.') || ordinal_word(label, ')')))
+        block.ordered = false;
+      return true;
+    }
+    block.ordinal = text;
     for (auto cell = begin; cell < end; ++cell) {
       const auto& source = line.cells[cell];
       if (source.record == npos) continue;
@@ -398,7 +435,7 @@ struct CzBuilder {
     block.ordered = frame.tag == "ol";
     ++frame.items;
     auto& first = lines[groups.front().first];
-    if (block.ordered && !take_ordinal(first, block.ordinal)) return false;
+    if (block.ordered && !take_ordinal(first, directive, block)) return false;
     if (frame.tag == "ul" && !take_bullet(first, directive)) return false;
     if (!has_text(first)) return fail(error, "cz FLOW LI has no text");
     const auto block_index = topic.blocks.size();
