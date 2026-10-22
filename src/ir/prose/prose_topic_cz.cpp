@@ -341,6 +341,31 @@ struct CzBuilder {
     return clip_spans_before(line, error);
   }
 
+  // The head of an unordered item, the columns `left` up to `indent` of its
+  // first row (doc/boo-spec/markup.adoc, "List item heads").  The first level
+  // stores its `U+2666` bullet as a row slot, already consumed by the
+  // display-row reader.  A nested level stores a plain `-`, alone at `left`,
+  // with the text resuming exactly at `indent`: SC21-8295-03 3.1.3.2 record
+  // 405 `cz FLOW LI 7 11` + `       -   Change management (DSNX)`, which
+  // hosted (`SC21-829`, DT 19970409135933) serves as `<li>            Change
+  // management (DSNX)`.  That glyph is the bullet.  Anything else in the
+  // head columns, or a `-` the text does not resume after at `indent`,
+  // stays text.
+  bool take_bullet(Line& line, const LayoutDirective& directive) {
+    if (directive.indent < directive.left + 2) return true;
+    const auto [begin, end] = first_word(line, line.text_begin);
+    if (begin != directive.left || end != begin + 1) return true;
+    const auto& glyph = line.cells[begin];
+    if (glyph.record == npos || glyph.text != "-") return true;
+    const auto text = first_word(line, end).first;
+    if (text != directive.indent || text >= line.cells.size()) return true;
+    auto& entry = ledger.at(glyph.record, glyph.token);
+    if (entry.role != ProseTokenRoleIR::text) return true;
+    entry.role = ProseTokenRoleIR::bullet;
+    line.text_begin = text;
+    return clip_spans_before(line, error);
+  }
+
   bool list_item(const LayoutDirective& directive,
                  const std::vector<std::pair<std::size_t, std::size_t>>& groups) {
     if (stack.empty() || (stack.back().tag != "ul" && stack.back().tag != "ol" &&
@@ -360,8 +385,8 @@ struct CzBuilder {
     ++frame.items;
     auto& first = lines[groups.front().first];
     if (block.ordered && !take_ordinal(first, block.ordinal)) return false;
+    if (frame.tag == "ul" && !take_bullet(first, directive)) return false;
     if (!has_text(first)) return fail(error, "cz FLOW LI has no text");
-    (void)directive;
     const auto block_index = topic.blocks.size();
     if (!emit(std::move(block), groups.front().first, groups.front().second))
       return false;

@@ -593,6 +593,7 @@ foreach(synthetic_test
     span_row_geometry_synthetic
     cz_artwork_region_synthetic
     cz_degraded_region_synthetic
+    cz_list_labels_synthetic
     font_span_trace_synthetic
     cz_unopened_region_closer_synthetic
     list_closer_anchor_synthetic

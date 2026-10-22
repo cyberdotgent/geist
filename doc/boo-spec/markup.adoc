@@ -4555,6 +4555,46 @@ logical record 174, stores `06 52 97 DA 34 C4 C4` at BOO bytes
 `cz FLOW H6 3 3`.  The identical sequence recurs at
 `0x3B5C6`--`0x3B5CD`.
 
+[[markup_cz_list_item_heads]]
+===== List item heads
+
+The first row of a `cz FLOW LI left indent` item stores the item's text from
+the `indent` column on.  The columns `left` up to `indent` hold the item's
+*head*: what the source printed in front of the text.  How a reader treats
+the head depends on the list that encloses the item.
+
+*`UL`: the head is the bullet.*  The first level stores the `U+2666` bullet
+as a one-cell row slot (see "Row details specific to the dialect").  A
+nested level stores a plain hyphen-minus in a one-byte token instead, alone
+at the item's `left` column, with the item's text resuming exactly at its
+`indent`.  Hosted BookServer prints neither: both become `<li>` with blank
+columns where the head stood.
+
+* `SC21-8295-03` `3.1.3.2`, logical record 405: `06 4D 9C EB C3 D4 D4` at
+`0x45A4E` (`cz FLOW UL 7 7`), `05 4D 9C A2 D4 C0` at `0x45A55`
+(`cz FLOW LI 7 11`), then the row: length byte `0D`, `17` (a seven-space
+run), `31` (`-`) at `0x45A5D`, `12` (a two-space run, followed by the
+assembler's one space) and `DB 80` (`Change`), so `-` stands at column 7 and
+`Change` at column 11.  Hosted (`SC21-829`, DT 19970409135933) serves
+pass:[<literal>&lt;ul&gt;</literal>] and
+pass:[<literal>&lt;li&gt;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;Change management (DSNX)</literal>]
+inside the item `Communications and systems management (C & SM)`, for each
+of its three nested items.
+* The same head is served the same way in `GA19-5486-13` `12.0`
+(`GA19-548`, DT 19951012161206: `<li>            #2110 3.8/10.6 RPR
+Processor ...`), `SC09-2417-00` `PREFACE.4.1` (`SC09-241`,
+DT 19961114175628: `<li>            <kbd>Help</kbd> <kbd>Index</kbd>, ...`)
+and `packet` `2.1.3` (DT 20260614112503: `<li>            0x01: ISO 8208
+...`).  Over the ten `CZ` books in hand, 260 `UL` item rows store this
+head (`GA19-5486-13` 122, `SC21-8295-03` 59, `SC09-2417-00` 33, `DFHP7A00`
+27, `packet` 17, `SC41-485` 2), always as `-` at `left` with the text at
+`indent`, four columns on: `LI 7 11` 221 times, `LI 11 15` 32 times, and
+`LI 14 18`, `LI 18 22`, `LI 21 25` for the rest.
+
+A `-` anywhere else in the head columns, or one glued to the word after it,
+is not a bullet: the text no longer resumes at `indent`, and the character
+is ordinary text.
+
 [[markup_row_details_specific_to_the_dialect]]
 ==== Row details specific to the dialect
 
