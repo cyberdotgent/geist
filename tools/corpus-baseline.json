@@ -101578,7 +101578,7 @@
             "source_start": "62"
           },
           "1.1.4.3": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "104",
             "source_index": "30",
             "source_kind": "topic-index",
@@ -104079,9 +104079,9 @@
         },
         "1.1.4.3": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "prose",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "104",
           "source_index": "30",
           "source_kind": "topic-index",
@@ -151286,7 +151286,7 @@
         "summary": {
           "checked": 822,
           "dropping": 0,
-          "forgiven": 41,
+          "forgiven": 42,
           "html-dropping": 0,
           "html-unaccounted": 0,
           "markdown-dropping": 0,
@@ -155286,7 +155286,7 @@
             "source_start": "1515"
           },
           "2.4.12.4": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "1523",
             "source_index": "547",
             "source_kind": "topic-index",
@@ -155321,7 +155321,7 @@
             "source_start": "1556"
           },
           "2.4.15.1": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "1570",
             "source_index": "552",
             "source_kind": "topic-index",
@@ -155377,7 +155377,7 @@
             "source_start": "1596"
           },
           "2.4.21": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "1604",
             "source_index": "559",
             "source_kind": "topic-index",
@@ -155419,7 +155419,7 @@
             "source_start": "1620"
           },
           "2.4.27": {
-            "route": "best-effort",
+            "route": "typed",
             "source_end": "1630",
             "source_index": "565",
             "source_kind": "topic-index",
@@ -162765,9 +162765,9 @@
         },
         "2.4.12.4": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "trap catalog",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "1523",
           "source_index": "547",
           "source_kind": "topic-index",
@@ -162815,9 +162815,9 @@
         },
         "2.4.15.1": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "trap catalog",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "1570",
           "source_index": "552",
           "source_kind": "topic-index",
@@ -162895,9 +162895,9 @@
         },
         "2.4.21": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "trap catalog",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "1604",
           "source_index": "559",
           "source_kind": "topic-index",
@@ -162955,9 +162955,9 @@
         },
         "2.4.27": {
           "degraded": "",
-          "family": "",
-          "route": "legacy",
-          "severity": "best-effort",
+          "family": "trap catalog",
+          "route": "typed",
+          "severity": "typed",
           "source_end": "1630",
           "source_index": "565",
           "source_kind": "topic-index",
@@ -177582,7 +177582,7 @@
       }
     }
   },
-  "revision": "4c00e9f5550acc9d0d11bbd69cf494662cae7a35",
+  "revision": "a2f4fc21862810e5703e2f4df9606efc75d86e5f",
   "schema": 2,
   "scope": "stable book topic catalog: all indexed topics plus TOC-only entries"
 }
