@@ -352,6 +352,59 @@ bool paragraph_inlines(const TrapFlowParagraphIR &paragraph,
 
 // The anchor a drawn envelope's first line carries: the opening opcode
 // without `SR` (`SRTBLT1` -> `TBLT1`, `SRFIGFIGUNIQ20` -> `FIGFIGUNIQ20`).
+// The rows a region draws, one origin per row. A row the source styles
+// also carries its runs as a styled row that flattens byte for byte back to
+// its text, so the block keeps every column and only gains the emphasis the
+// row's `CFONT` states. Each row's slices are added to `region_origin`.
+PreformattedBlockIR drawn_region(const TrapEmbeddedRegionIR &region,
+                                 const char *line_detail,
+                                 DocumentNodeOriginIR &region_origin) {
+  PreformattedBlockIR drawn;
+  drawn.lines = region.lines;
+  bool styled = false;
+  for (const auto &highlights : region.line_highlights)
+    for (const auto &highlight : highlights)
+      styled = styled || emphasis_for(highlight.style).has_value();
+  for (std::size_t line = 0; line < region.lines.size(); ++line) {
+    auto line_origin = origin(line_detail);
+    add_slice(line_origin, region.line_sources[line]);
+    line_origin = canonical(std::move(line_origin));
+    add_slice(region_origin, region.line_sources[line]);
+    if (styled) {
+      const auto &text = region.lines[line];
+      InlineSequenceIR row;
+      std::size_t at = 0;
+      const auto plain = [&](const std::size_t end) {
+        if (end <= at)
+          return;
+        if (!row.empty() &&
+            std::holds_alternative<TextInlineIR>(row.back().node))
+          std::get<TextInlineIR>(row.back().node).text +=
+              text.substr(at, end - at);
+        else
+          row.push_back({TextInlineIR{text.substr(at, end - at)}, line_origin});
+        at = end;
+      };
+      for (const auto &highlight : region.line_highlights[line]) {
+        const auto kind = emphasis_for(highlight.style);
+        if (!kind)
+          continue;
+        plain(highlight.begin);
+        row.push_back({EmphasisInlineIR{text.substr(highlight.begin,
+                                                    highlight.end -
+                                                        highlight.begin),
+                                        *kind},
+                       line_origin});
+        at = highlight.end;
+      }
+      plain(text.size());
+      drawn.styled_lines.push_back(std::move(row));
+    }
+    drawn.line_origins.push_back(std::move(line_origin));
+  }
+  return drawn;
+}
+
 std::string region_anchor_id(const TrapEmbeddedRegionIR &region) {
   return (region.start.kind == TrapEmbeddedControlKindIR::figure_start
               ? "FIG"
@@ -444,15 +497,9 @@ bool lower_flow_blocks(const std::vector<TrapFlowBlockIR> &source,
             {AnchorBlockIR{region_anchor_id(region)},
              canonical(std::move(anchor_source))});
       }
-      PreformattedBlockIR drawn;
-      drawn.lines = region.lines;
       auto region_origin = origin("trap embedded table");
-      for (std::size_t line = 0; line < region.lines.size(); ++line) {
-        auto line_origin = origin("trap embedded table line");
-        add_slice(line_origin, region.line_sources[line]);
-        drawn.line_origins.push_back(canonical(std::move(line_origin)));
-        add_slice(region_origin, region.line_sources[line]);
-      }
+      PreformattedBlockIR drawn =
+          drawn_region(region, "trap embedded table line", region_origin);
       add_slice(region_origin, region.start.source);
       add_slice(region_origin, region.end.source);
       destination.push_back(
@@ -567,15 +614,9 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
         document.blocks.push_back(
             {AnchorBlockIR{"TBL" + region.identifier}, region_anchor});
       }
-      PreformattedBlockIR drawn;
-      drawn.lines = region.lines;
       auto region_origin = origin("trap introduction table");
-      for (std::size_t line = 0; line < region.lines.size(); ++line) {
-        auto line_origin = origin("trap introduction table line");
-        add_slice(line_origin, region.line_sources[line]);
-        drawn.line_origins.push_back(canonical(std::move(line_origin)));
-        add_slice(region_origin, region.line_sources[line]);
-      }
+      PreformattedBlockIR drawn =
+          drawn_region(region, "trap introduction table line", region_origin);
       add_slice(region_origin, region.start.source);
       add_slice(region_origin, region.end.source);
       region_origin = canonical(std::move(region_origin));
@@ -738,15 +779,9 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
         document.blocks.push_back(
             {AnchorBlockIR{region_anchor_id(region)}, region_anchor});
       }
-      PreformattedBlockIR drawn;
-      drawn.lines = region.lines;
       auto region_origin = origin("trap embedded table");
-      for (std::size_t line = 0; line < region.lines.size(); ++line) {
-        auto line_origin = origin("trap embedded table line");
-        add_slice(line_origin, region.line_sources[line]);
-        drawn.line_origins.push_back(canonical(std::move(line_origin)));
-        add_slice(region_origin, region.line_sources[line]);
-      }
+      PreformattedBlockIR drawn =
+          drawn_region(region, "trap embedded table line", region_origin);
       add_slice(region_origin, region.start.source);
       add_slice(region_origin, region.end.source);
       region_origin = canonical(std::move(region_origin));

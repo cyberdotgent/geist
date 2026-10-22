@@ -147,6 +147,10 @@ struct TrapEmbeddedRegionIR {
   // provenance beside it.
   std::vector<std::string> lines;
   std::vector<DocumentSourceSliceIR> line_sources;
+  // Empty, or one entry per line: the runs the `CFONT` directly above the row styles,
+  // in byte coordinates of that line, sorted and disjoint. Empty for a row
+  // the source does not style or whose spans its cells do not prove.
+  std::vector<std::vector<TrapBodyHighlightIR>> line_highlights;
   // Fields already closed when the envelope opened, so a consumer can place
   // the region back where the entry drew it.
   std::size_t after_field = 0;

@@ -1364,7 +1364,8 @@ int main() {
                 "figure anchor is missing, duplicated, or its closer named one: " +
                     html);
         const auto field = markdown.find("first field");
-        const auto figure = markdown.find("Drawn figure");
+        const auto figure = markdown.find(
+            "<strong class=\"geist-strong\">Drawn</strong> figure");
         const auto after = markdown.find("after figure.");
         require(field != std::string::npos && figure > field && after > figure,
                 "figure envelope was not drawn in place: " + markdown);
@@ -1502,6 +1503,85 @@ int main() {
         const auto later = markdown.find("Later text.");
         require(field != std::string::npos && anchor > field && later > anchor,
                 "bare SRMSG was hoisted out of its entry: " + markdown);
+      }
+    }
+  }
+
+  // A drawn figure row keeps the style its own `CFONT` states, at the columns
+  // its display cells prove, and leaves out the revision bar in its margin.
+  // Hosted N2AH1MST 10.0 (DT 19910329000100) serves FIGFIGUNIQ20's rows as
+  // ` |          <B>ACTIVE</B> <B>LU'S</B> ...` for `cfont 12 6 2 19 4 2 ...`
+  // above record 533 line 17; the bar is the same revision mark the entry's
+  // reflowed rows drop.
+  {
+    const Token bar{TokenWords{'|'}, 252};
+    const Token rule{TokenWords{0x2502}, 253};
+    const Token blank{words(" "), 254};
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("632", 255));
+    append(tokens, line({t("SRFIGFIGUNIQ6", 256)}));
+    // ` |    Styled row`: `Styled` at column 6.
+    append(tokens,
+           line({t("cfont", 111), t("6", 258), t("6", 258), t("2", 113)}));
+    append(tokens,
+           line({blank, bar, origin(), t("Styled", 259), t("row", 211)}));
+    // The same shape one column off: `Plain` is at column 6, not 7.
+    append(tokens,
+           line({t("cfont", 111), t("7", 260), t("5", 237), t("2", 113)}));
+    append(tokens,
+           line({blank, bar, origin(), t("Plain", 261), t("row", 211)}));
+    // A box rule elsewhere in the row makes the left bar part of a drawing.
+    append(tokens, line({blank, bar, origin(), t("Boxed", 262), rule}));
+    append(tokens, line({t("SREFIG", 241)}));
+    append(tokens, line({origin(), t("after", 141), t("figure.", 242)}));
+    const auto built = build({make_source(61, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "styled figure catalogue declined: " + built.error);
+    if (built.catalog) {
+      const geist::detail::TrapEmbeddedRegionIR *drawn = nullptr;
+      for (const auto &entry : built.catalog->entries)
+        for (const auto &region : entry.embedded_regions)
+          drawn = &region;
+      require(drawn != nullptr && drawn->lines.size() == 3 &&
+                  drawn->line_highlights.size() == 3,
+              "styled figure lost its rows");
+      if (drawn != nullptr && drawn->lines.size() == 3 &&
+          drawn->line_highlights.size() == 3) {
+        require(drawn->lines[0] == "      Styled row" &&
+                    drawn->lines[1] == "      Plain row",
+                "figure revision bar was kept: '" + drawn->lines[0] + "'");
+        require(drawn->lines[2].find('|') == 1,
+                "box rule row lost its left rule: '" + drawn->lines[2] + "'");
+        require(drawn->line_highlights[0].size() == 1 &&
+                    drawn->line_highlights[0][0].begin == 6 &&
+                    drawn->line_highlights[0][0].end == 12,
+                "figure row lost its proven CFONT style");
+        require(drawn->line_highlights[1].empty(),
+                "figure row admitted a CFONT span its cells do not prove");
+        require(drawn->line_highlights[2].empty(),
+                "unstyled figure row gained a style");
+      }
+      std::string error;
+      auto changed = *built.catalog;
+      for (auto &entry : changed.entries)
+        for (auto &region : entry.embedded_regions)
+          if (!region.line_highlights.empty() &&
+              !region.line_highlights[0].empty())
+            region.line_highlights[0][0].begin -= 1;
+      require(!geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership, changed,
+                  &error),
+              "mutated figure row style was accepted");
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(), "styled figure lowering declined: " + error);
+      if (document) {
+        const auto html =
+            geist::detail::render_document_html_blocks(*document, {});
+        require(html.find(">      <strong class=\"geist-strong\">Styled"
+                          "</strong> row\n      Plain row\n") !=
+                    std::string::npos,
+                "styled figure rows did not render in place: " + html);
       }
     }
   }

@@ -1301,6 +1301,103 @@ segment_of_token(const DecodedLogicalRecordSource &record) {
   return owner;
 }
 
+// The `CFONT` a region's markup line carries: the control that owns the
+// line's first content token, when that control is a font control. The row
+// drawn directly below is the one its spans name.
+std::optional<FontControlSpansIR>
+region_markup_font(const DecodedLogicalRecordSource &record,
+                   const DisplayLineIR &line) {
+  const auto first = line.prefix_token + 1;
+  if (first >= line.token_end)
+    return std::nullopt;
+  for (const auto &segment : record.control_segments) {
+    if (std::find(segment.source_tokens.begin(), segment.source_tokens.end(),
+                  first) == segment.source_tokens.end())
+      continue;
+    if (segment.kind != BookControlKind::font)
+      return std::nullopt;
+    return decode_font_control_spans(record, segment);
+  }
+  return std::nullopt;
+}
+
+bool region_glyph(const std::uint16_t word) { return word > ' '; }
+
+// Maps one drawn region row's `CFONT` spans onto its projected text. A CFONT
+// column is an index into the row's own display cells (doc/boo-spec/
+// markup.adoc, "Spans And The Display Row"), and `offsets` holds the UTF-8
+// byte offset of every cell. A span is admitted only when the cells prove
+// it: it lies inside the row, opens and closes on drawn glyphs, and each end
+// meets a blank, the row's edge or an abutting span -- the shape that keeps
+// `cfont 3 4 2` from mapping as `| Us`. N2AH1MST record 533 line 17 is
+// ` |          ACTIVE LU'S ...` under `cfont 12 6 2 19 4 2 ...`, and hosted
+// BookServer (DT 19910329000100) serves `<B>ACTIVE</B> <B>LU'S</B>` at
+// exactly those columns; line 21 splits one word as
+// `cfont 12 6 2 18 8 V` -> `<B>[LLUN=</B><var>unitname</var>`. One
+// unproven span leaves the whole row plain: the text is right either way,
+// and a style the cells do not support would be a claim the source never
+// made.
+std::vector<TrapBodyHighlightIR>
+region_row_highlights(const std::vector<DisplayLineCellIR> &cells,
+                      const std::vector<std::size_t> &offsets,
+                      const FontControlSpansIR &font) {
+  std::vector<FontSpanIR> spans;
+  for (const auto &span : font.spans)
+    if (span.length != 0)
+      spans.push_back(span);
+  std::sort(spans.begin(), spans.end(), [](const auto &left, const auto &right) {
+    return left.column < right.column;
+  });
+  std::vector<TrapBodyHighlightIR> highlights;
+  for (std::size_t index = 0; index < spans.size(); ++index) {
+    const auto &span = spans[index];
+    const auto end = span.column + span.length;
+    if (end > cells.size() || !region_glyph(cells[span.column].word) ||
+        !region_glyph(cells[end - 1].word))
+      return {};
+    if (index != 0 && spans[index - 1].column + spans[index - 1].length >
+                          span.column)
+      return {};
+    const bool abuts_before =
+        index != 0 &&
+        spans[index - 1].column + spans[index - 1].length == span.column;
+    const bool abuts_after =
+        index + 1 < spans.size() && spans[index + 1].column == end;
+    if (span.column != 0 && region_glyph(cells[span.column - 1].word) &&
+        !abuts_before)
+      return {};
+    if (end < cells.size() && region_glyph(cells[end].word) && !abuts_after)
+      return {};
+    highlights.push_back({offsets[span.column], offsets[end], span.style});
+  }
+  return highlights;
+}
+
+// A revision bar in a drawn region row: the row opens with a one-cell blank
+// and a width-one `U+2502` or `|` at column 1, followed by a blank or the
+// row's end, with no other box-drawing cell anywhere in the row and no span
+// styling the bar. It is the reader's revision margin, the same mark the
+// prose and fixed-table rows already leave out of their text (a one-space
+// origin followed by the bar). N2AH1MST record 533 lines 17-21 and record
+// 534 lines 0-2 are ` |` + the figure row. A box drawn into the region
+// keeps its rules: packet `1.3` stores its left rule at column 3 beside a
+// matching right rule.
+bool region_revision_bar(const std::vector<DisplayLineCellIR> &cells,
+                         const std::vector<TrapBodyHighlightIR> &highlights,
+                         const std::vector<std::size_t> &offsets) {
+  if (cells.size() < 2 || cells[0].word != ' ' ||
+      (cells[1].word != 0x2502 && cells[1].word != '|') ||
+      (cells.size() > 2 && cells[2].word != ' '))
+    return false;
+  for (std::size_t column = 2; column < cells.size(); ++column)
+    if (cells[column].word >= 0x2500 && cells[column].word <= 0x257f)
+      return false;
+  for (const auto &highlight : highlights)
+    if (highlight.begin < offsets[2] && highlight.end > offsets[1])
+      return false;
+  return true;
+}
+
 // Projects the display lines an embedded `SRTBL` ... `SRETBL` envelope draws.
 //
 // The bounds are given in the records' own token coordinates: `start_token`
@@ -1321,6 +1418,9 @@ bool project_embedded_region(const std::vector<DecodedLogicalRecordSource> &reco
                              std::string *error) {
   const auto identity = region.identifier.empty() ? std::string{"SRTBL"}
                                                   : region.identifier;
+  // The font control of the markup line just walked, waiting for the drawn
+  // row directly below it. Any other line in between drops it.
+  std::optional<FontControlSpansIR> pending_font;
   for (auto logical = start_record; logical <= end_record; ++logical) {
     const auto *record = find_record(records, logical);
     if (record == nullptr)
@@ -1351,8 +1451,10 @@ bool project_embedded_region(const std::vector<DecodedLogicalRecordSource> &reco
         (in_region(token) ? inside : outside)++;
       if (inside == 0 && outside == 0)
         inside = in_region(line.prefix_token) ? 1 : 0;
-      if (inside == 0)
+      if (inside == 0) {
+        pending_font.reset();
         continue;
+      }
       if (outside != 0)
         return fail(error,
                     "trap table envelope boundary falls inside a display "
@@ -1379,9 +1481,6 @@ bool project_embedded_region(const std::vector<DecodedLogicalRecordSource> &reco
             drawn = true;
         }
       }
-      auto text = display_line_text(*record, line);
-      while (!text.empty() && text.back() == ' ')
-        text.pop_back();
       bool ledgered = false;
       for (auto token = line.prefix_token;
            token < line.token_end && token < record->ir.tokens.size();
@@ -1423,9 +1522,33 @@ bool project_embedded_region(const std::vector<DecodedLogicalRecordSource> &reco
           append_unique_cell(cells, cell_positions, cell);
         }
       }
-      if (!ledgered || (printable && !drawn))
+      if (!ledgered) {
+        pending_font.reset();
         continue;
+      }
+      if (printable && !drawn) {
+        pending_font = region_markup_font(*record, line);
+        continue;
+      }
+      const auto row_cells = display_line_cells(*record, line);
+      const auto offsets = display_line_column_offsets(*record, line);
+      auto text = display_line_text(*record, line);
+      std::vector<TrapBodyHighlightIR> highlights;
+      if (pending_font)
+        highlights = region_row_highlights(row_cells, offsets, *pending_font);
+      pending_font.reset();
+      if (region_revision_bar(row_cells, highlights, offsets)) {
+        const auto bar_bytes = offsets[2] - offsets[1];
+        text.replace(offsets[1], bar_bytes, " ");
+        for (auto &highlight : highlights) {
+          highlight.begin = highlight.begin - bar_bytes + 1;
+          highlight.end = highlight.end - bar_bytes + 1;
+        }
+      }
+      while (!text.empty() && text.back() == ' ')
+        text.pop_back();
       region.lines.push_back(std::move(text));
+      region.line_highlights.push_back(std::move(highlights));
       region.line_sources.push_back(
           token_slice(*record, owner[line.prefix_token], line.prefix_token,
                       line.token_end));
@@ -1433,10 +1556,12 @@ bool project_embedded_region(const std::vector<DecodedLogicalRecordSource> &reco
   }
   while (!region.lines.empty() && region.lines.front().empty()) {
     region.lines.erase(region.lines.begin());
+    region.line_highlights.erase(region.line_highlights.begin());
     region.line_sources.erase(region.line_sources.begin());
   }
   while (!region.lines.empty() && region.lines.back().empty()) {
     region.lines.pop_back();
+    region.line_highlights.pop_back();
     region.line_sources.pop_back();
   }
   if (region.lines.empty())
@@ -1620,6 +1745,26 @@ bool starts_with_word(const std::string &text, const std::string &prefix) {
          (text.size() == prefix.size() || text[prefix.size()] == ' ');
 }
 
+// Every styled run lies inside its own row, in order, and covers drawn text.
+bool region_highlights_fit(const TrapEmbeddedRegionIR &region) {
+  if (region.line_highlights.empty())
+    return true;
+  if (region.line_highlights.size() != region.lines.size())
+    return false;
+  for (std::size_t line = 0; line < region.lines.size(); ++line) {
+    std::size_t at = 0;
+    for (const auto &highlight : region.line_highlights[line]) {
+      if (highlight.begin < at || highlight.begin >= highlight.end ||
+          highlight.end > region.lines[line].size() ||
+          region.lines[line][highlight.begin] == ' ' ||
+          region.lines[line][highlight.end - 1] == ' ')
+        return false;
+      at = highlight.end;
+    }
+  }
+  return true;
+}
+
 bool same_region(const TrapEmbeddedRegionIR &left,
                  const TrapEmbeddedRegionIR &right) {
   return left.identifier == right.identifier &&
@@ -1630,6 +1775,7 @@ bool same_region(const TrapEmbeddedRegionIR &left,
          left.end.identifier == right.end.identifier &&
          left.end.source == right.end.source && left.lines == right.lines &&
          left.line_sources == right.line_sources &&
+         left.line_highlights == right.line_highlights &&
          left.after_field == right.after_field &&
          left.cell_begin == right.cell_begin && left.cell_end == right.cell_end;
 }
@@ -3115,12 +3261,8 @@ bool same_trap_catalog_ir(const TrapCatalogIR &left,
       return false;
   for (std::size_t index = 0; index < left.introduction_regions.size();
        ++index) {
-    const auto &a = left.introduction_regions[index];
-    const auto &b = right.introduction_regions[index];
-    if (a.identifier != b.identifier || a.lines != b.lines ||
-        a.line_sources != b.line_sources || a.after_field != b.after_field ||
-        a.cell_begin != b.cell_begin || a.cell_end != b.cell_end ||
-        !(a.start.source == b.start.source) || !(a.end.source == b.end.source))
+    if (!same_region(left.introduction_regions[index],
+                     right.introduction_regions[index]))
       return false;
   }
   for (std::size_t index = 0; index < left.introduction.size(); ++index) {
@@ -3145,16 +3287,7 @@ bool same_trap_catalog_ir(const TrapCatalogIR &left,
         a.embedded_regions.size() != b.embedded_regions.size())
       return false;
     for (std::size_t region = 0; region < a.embedded_regions.size(); ++region) {
-      const auto &left_region = a.embedded_regions[region];
-      const auto &right_region = b.embedded_regions[region];
-      if (left_region.identifier != right_region.identifier ||
-          left_region.lines != right_region.lines ||
-          left_region.line_sources != right_region.line_sources ||
-          left_region.after_field != right_region.after_field ||
-          left_region.cell_begin != right_region.cell_begin ||
-          left_region.cell_end != right_region.cell_end ||
-          !(left_region.start.source == right_region.start.source) ||
-          !(left_region.end.source == right_region.end.source))
+      if (!same_region(a.embedded_regions[region], b.embedded_regions[region]))
         return false;
     }
     for (std::size_t field = 0; field < a.fields.size(); ++field)
@@ -3221,6 +3354,9 @@ bool verify_trap_catalog_ir(
           region.lines.size() != region.line_sources.size())
         return fail(error, "trap embedded region has no drawn line: " +
                                entry.id);
+      if (!region_highlights_fit(region))
+        return fail(error, "trap embedded region styles text it does not "
+                           "draw: " + entry.id);
       if (region.after_field > entry.fields.size())
         return fail(error, "trap embedded region names a missing field: " +
                                entry.id);
@@ -3261,6 +3397,9 @@ bool verify_trap_catalog_ir(
         region.lines.size() != region.line_sources.size())
       return fail(error, "trap introduction region has no drawn line: " +
                              region.identifier);
+    if (!region_highlights_fit(region))
+      return fail(error, "trap introduction region styles text it does not "
+                         "draw: " + region.identifier);
     if (region.after_field > catalog.introduction.size())
       return fail(error, "trap introduction region names a missing paragraph: " +
                              region.identifier);

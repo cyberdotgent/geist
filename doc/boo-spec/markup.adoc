@@ -446,6 +446,28 @@ source draws them.  In `N2AH1MST` topic `10.0` (hosted DT `19910329000100`):
 |599, 14 |`02`, then `E4 7D` at `0x444AF` (value 58493) |`SREFTN` |`</h5></a>`; no anchor of its own
 |===
 
+Each `cfont` line inside the figure styles the drawn row directly below it,
+and its columns index that row's own display cells, counting the leading
+blank and the revision bar.  Record 533 line 16 is
+`cfont 12 6 2 19 4 2 25 8 2 34 4 2 40 7 2 48 4 2 54 11 2 66 4 2`, and line 17
+draws ` |          ACTIVE LU'S  OUTBOUND LU'S  PENDING LU'S  TERMINATING LU'S`
+with `ACTIVE` in cells 12--17 and `LU'S` in cells 19--22.  Hosted serves
+`<B>ACTIVE</B> <B>LU'S</B>` at those columns.  Two spans can split one word:
+line 20 is `cfont 12 6 2 18 8 V ...` over ` |          [LLUN=unitname ...`,
+served as `<B>[LLUN=</B><var>unitname</var>`.  Every span begins and ends on
+a drawn glyph and meets a blank, the row's edge or the next span.
+
+The ` |` in front of these rows is the revision bar.  It is the same mark as
+on the entry's reflowed rows: a one-cell blank, then a width-one `|` or
+`U+2502` in cell 1, then a blank.  Its placement is the evidence.
+`N2AH1MST` topic `28.0` serves
+` |          100    Point the ACB pointer ...` for the rows revised in this
+edition and `            87-98  Contact your ...` for the unrevised row
+before them, inside one drawn region.  A rule that belongs to a drawing does
+not have this shape.  `SC24-546` topic `A.0` draws its table rules at cell 3,
+and the `packet` fixture topic `1.3` draws a left rule at cell 3 with a
+matching right rule.
+
 The figure and footnote ids are the opening opcode without `SR`; the closers
 `SREFIG` and `SREFTN` are end markers and name no destination.  Two more
 footnote envelopes follow on lines 16-19 and 21-23 of record 599, served in
