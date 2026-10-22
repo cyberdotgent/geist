@@ -2105,6 +2105,16 @@ struct LineBuilder {
         // text there: packet 3.2 record 80 token 255 `#` before `name` is
         // styled by `cfont 5 1 E` and hosted prints `<samp>#</samp>`.
         (!cz_mode || is_placeholder_run(view) || view.body.front() == '|') &&
+        // The marker is a revision mark in the row's margin: the only cell in
+        // front of it is the one-cell blank the margin opens with (a change
+        // bar at column 1, GC23-046 7.2.1 record 200 ` |If you obtained`;
+        // GC28-183's `:` revision marks).  A glyph after the row's origin run
+        // stands in the row's own text columns, and hosted prints it there:
+        // N2AH1MST 1.2.4 record 148 token 306 `=      Marginal space ...`
+        // (DT 19910329000100), SC24-5520-00 1.1.30 record 272 token 29
+        // `* The last entry ...`, SC33-033 4.106 record 648 `' ' gives a
+        // complete list ...`, GC23-046 F.0 record 284 `( ) MVS/SP ...`.
+        (is_placeholder_run(view) || line().cells.size() <= 1) &&
         // A pending CFONT/CSELECT span that opens on the glyph's own display
         // column proves the glyph is styled display text, not a row marker:
         // FA1PLMM0 3.5.1 `cfont 5 2 E 8 3 E ...` over `     // JOB COPY ...`

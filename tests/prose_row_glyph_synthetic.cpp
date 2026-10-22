@@ -12,6 +12,8 @@
 //  * as a list bullet one level down, when it has a `U+2666` bullet's
 //    geometry (ACPZMST1 1.2 `       -   Resource manager` under
 //    `   °   Communications partners`, SG24-204 1.1 `       >   OS/2`);
+//  * as the first word of the row's text otherwise (N2AH1MST 1.2.4
+//    `=      Marginal space`, SC24-5520-00 1.1.30 `* The last entry`).
 //
 // Everything here is synthetic: the tests build whole topics'
 // `DecodedLogicalRecordSource` values by hand and open no book.
@@ -364,6 +366,78 @@ void a_glyph_before_a_wide_gap_is_no_bullet() {
           "a glyph before a wide gap opened a list item");
 }
 
+// -------------------------------------------------------------------------
+// Any other glyph at the row origin is the row's first display word.
+// -------------------------------------------------------------------------
+
+std::optional<ProseTopicIR> glyph_row_topic(std::vector<Token> row) {
+  RecordBuilder builder;
+  metadata(builder);
+  builder.line({spaces(7), word("Symbols"), word("follow:")});
+  builder.line({});
+  builder.line(std::move(row));
+  const auto record = builder.build(31);
+  std::string error;
+  auto prose = extract(record, error);
+  require(prose.has_value(), "the glyph-row topic was rejected: " + error);
+  return prose;
+}
+
+// N2AH1MST 1.2.4 record 148 token 306: `=` after a seven-cell origin run,
+// then a five-cell gap and `Marginal space ...`.  Hosted (DT
+// 19910329000100) prints `       =      Marginal space (track) situation`.
+void a_glyph_before_a_wide_gap_is_display_text() {
+  const auto prose = glyph_row_topic(
+      {spaces(7), glyph("="), spaces(5), word("Marginal"), word("space")});
+  if (!prose) return;
+  require(contains(body_text(*prose), "= Marginal space"),
+          "the `=` term was dropped: '" + body_text(*prose) + "'");
+}
+
+// SC24-5520-00 1.1.30 record 272 token 29: `*` directly before `The last
+// entry ...`; hosted prints `       * The last entry is indicated ...`.
+void a_glyph_before_its_text_is_display_text() {
+  const auto prose = glyph_row_topic(
+      {spaces(7), glyph("*"), word("The"), word("last"), word("entry")});
+  if (!prose) return;
+  require(contains(body_text(*prose), "* The last entry"),
+          "the leading `*` was dropped: '" + body_text(*prose) + "'");
+}
+
+// GC23-046 F.0 record 284 tokens 298-299: `(` and `)` as two one-byte
+// tokens before `MVS/SP`; hosted prints `    ( ) MVS/SP and System/370 ...`.
+void a_glyph_pair_opening_a_row_is_display_text() {
+  const auto prose = glyph_row_topic(
+      {spaces(4), glyph("("), glyph(")"), word("MVS"), word("trademark")});
+  if (!prose) return;
+  require(contains(body_text(*prose), "( ) MVS trademark"),
+          "the `( )` pair was dropped: '" + body_text(*prose) + "'");
+}
+
+// GG24-395 3.4.3 record 685: a change bar at column 1, then `-` and
+// `POSIX Support"`; hosted prints ` | - POSIX Support" in topic 3.2.1.` --
+// the bar stays in the margin and the dash is text.
+void a_glyph_behind_a_margin_bar_is_display_text() {
+  const auto prose = glyph_row_topic({spaces(1), glyph("|"), glyph("-"),
+                                      word("POSIX"), word("Support")});
+  if (!prose) return;
+  require(contains(body_text(*prose), "- POSIX Support") &&
+              !contains(body_text(*prose), "|"),
+          "the margin bar or the dash behind it was misread: '" +
+              body_text(*prose) + "'");
+}
+
+// The revision margin keeps its reading: GC23-046 7.2.1 record 200 token
+// 281 is `|` at column 1 directly before `If you obtained ...`.
+void a_margin_bar_before_its_text_stays_a_marker() {
+  const auto prose = glyph_row_topic(
+      {spaces(1), glyph("|"), word("If"), word("you"), word("obtained")});
+  if (!prose) return;
+  require(contains(body_text(*prose), "If you obtained") &&
+              !contains(body_text(*prose), "|"),
+          "the margin bar was admitted as text: '" + body_text(*prose) + "'");
+}
+
 } // namespace
 
 int main() {
@@ -373,5 +447,10 @@ int main() {
   a_dash_list_after_a_paragraph_is_a_list();
   a_change_bar_in_the_margin_is_no_bullet();
   a_glyph_before_a_wide_gap_is_no_bullet();
+  a_glyph_before_a_wide_gap_is_display_text();
+  a_glyph_before_its_text_is_display_text();
+  a_glyph_pair_opening_a_row_is_display_text();
+  a_glyph_behind_a_margin_bar_is_display_text();
+  a_margin_bar_before_its_text_stays_a_marker();
   return 0;
 }

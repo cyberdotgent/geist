@@ -1734,12 +1734,35 @@ IBMMMSTR `1.5.311` record 403 `",GOTO LAB;"` and SC09-138 `A.2.16` `(.).`
 (DTs `19910520154851`, `19930326130533`, `19910321130500` and
 `19911004151140`).
 
-A glyph that opens a row with a column after it -- a cell of space, or a
-gap run, before the row's text -- is not settled by this rule.  A decoder
-placeholder run (a box glyph or unmapped word) carries no character and
-stays a marker however it is attached, and the display line's own length
-byte is the row-control slot whatever word the dictionary spells for it and
-whatever is attached behind it.
+A free-standing glyph -- a cell of space, or a gap run, between it and the
+row's text -- is settled by its column.  A revision mark stands in the
+row's margin: the only cell in front of it is the one-cell blank the margin
+opens with, so it is at column 1 (GC23-046 `7.2.1` record 200 token 281,
+`|` directly before `If you obtained ...`; GC28-183's `:` revision marks).
+Hosted prints those marks in the margin, outside the row's text.  A glyph
+that stands after the row's origin run, at column 2 or beyond, is a cell of
+the row's text and hosted prints it there:
+
+[cols="<26,<36,<38",options="header"]
+|===
+|Book / topic / record |Stored |Hosted
+
+|N2AH1MST `1.2.4` record 148 |7-cell origin, `=` (token 306), 5-cell run, `Marginal` l|       =      Marginal space (track) situation (JSAM).
+|SC24-5520-00 `1.1.30` record 272 |7-cell origin, `*` (token 29), `The last entry` l|       * The last entry is indicated by a 1 in bit zero ...
+|SC34-425 `1.7.4.4.2` record 461 |7-cell origin, `*` (token 255), 6-cell run, `To report` l|       *       To report on build map and accounting information.
+|SC33-033 `4.106` record 648 |`'` (token 235), `'` (236), `gives a complete list` l|       ' ' gives a complete list of file names.
+|GC23-046 `F.0` record 284 |4-cell origin, `(` (token 298), `)` (299), `MVS/SP` l|    ( ) MVS/SP and System/370 are trademarks ...
+|SC26-457 `3.6.1.2` record 274 |8-cell origin, `//` (token 282), 13-cell run, `VOL=` l|        //              VOL=SER=(volser1,volser2,...),...
+|GG24-395 `3.4.3` record 685 |`\|` at column 1, then `-` (token 90), `POSIX` l| \| - POSIX Support" in topic 3.2.1.
+|===
+
+The last row shows both readings on one line: the bar is the margin mark,
+the `-` behind it is text.  With the geometry of a bullet the glyph is a
+list bullet instead (<<markup_a_second_list_level>>).  A decoder placeholder
+run (a box glyph or unmapped word) carries no character and stays a marker
+wherever it stands, and the display line's own length byte is the
+row-control slot whatever word the dictionary spells for it and whatever is
+attached behind it.
 
 [[markup_sub_word_span_boundaries]]
 ==== Sub-word span boundaries
