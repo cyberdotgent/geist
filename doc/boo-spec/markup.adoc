@@ -1259,6 +1259,7 @@ quoted in the evidence column; every rule was checked on at least two books.
 |`E` |`XMP` |`<samp>` |GC28-183 `2.2.1` `cfont 17 1 E,` -> `<samp>.</samp>`; FA1PLMM0 `3.5.1`
 |`P` |`PK` |`<kbd>` |SC26-457 `3.4.1.2`; PRG1SORT `2.1.4`
 |`Q` |`PKDEF` |`<dfn>` |PRG1SORT `2.1.4` -> `<dfn>*CURLIB</dfn>`; SC26-457 `3.4.1.2` -> `<dfn>LIST</dfn>`
+|`Z` |`PVDEF` |`<dfn>` |SC26-457 `1.3` and SC26-4905-00 `1.3` `cfont 3 7 P 11 10 Z ...` -> `<kbd>COMMAND</kbd> <dfn>parameters</dfn>` (one shared sentence, see below)
 |`R` |`RK` |`<B>` |ACPZMST1 `FRONT_1.1` `cfont 4 4 R,` -> `<B>GUPI</B>`; ACPZMST1 `6.2`
 |`V` |`PV` |`<var>` |SC26-457 `3.4.1.2`; GC23-046 `6.0`
 |`K` |`H4` |`<I>` |SC09-2417-00 `PREFACE.2.1` record 28 segment 17 `cfont 3 6 K 10 3 K ...` -> `<I>Syntax</I> <I>for</I> <I>Commands,</I> ...`; SC09-2417-00 `1.1.4.2` record 62 segment 23 -> `<I>User-Defined</I> <I>Header</I> <I>File</I>`
@@ -1278,13 +1279,20 @@ quoted in the evidence column; every rule was checked on at least two books.
 and SC26-457 `1.6.5`, SC31-711 `3.3` and GC23-046 `6.9.3` the same shape.
 Corpus-wide the two codes occur only in those four books: a `bootrace --fonts` sweep of all 7,362 topics finds 7 `W` spans and 363 `G` spans.
 
-`Z` (`PVDEF`) and `_` (`UNDERSCORE`) have exactly one witness each and no
-verified presentation.  The same sweep finds `Z` only in SC26-457 `1.3`
-(`cfont 3 7 P 11 10 Z 22 4 P 27 1 P 29 10 Z 39 1 P`, whose hosted row is
-`<kbd>COMMAND</kbd> <dfn>parameters</dfn> <kbd>....</kbd> <kbd>[</kbd> <dfn>terminator</dfn><kbd>]</kbd>`, so `PVDEF` presents there exactly as
-`PKDEF` does) and `_` only in SC24-5527-02 `COMMENTS`, a book the hosted
-catalog does not serve.  One book is not evidence that a presentation
-generalises.
+`Z` (`PVDEF`) presents exactly as `PKDEF` does.  The same sweep finds `Z`
+only in SC26-457 `1.3`, and a sample of 87 further books from the hosted
+shelf finds it in exactly one more: SC26-4905-00 `1.3`.  Both store
+`cfont 3 7 P 11 10 Z 22 4 P 27 1 P 29 10 Z 39 1 P` over
+pass:[<literal>&#160;&#160;&#160;COMMAND parameters .... [ terminator]</literal>].  Hosted
+serves both rows (DTs `19911220191142` and `19930625182638`) as
+`<kbd>COMMAND</kbd> <dfn>parameters</dfn> <kbd>....</kbd> <kbd>[</kbd> <dfn>terminator</dfn><kbd>]</kbd>`.
+The two witnesses are two books serving one shared sentence, not two
+independent uses of the code.
+
+`_` (`UNDERSCORE`) has no verified presentation.  The sweep finds it only in
+SC24-5527-02 `COMMENTS`, a book the hosted catalog does not serve.  The
+87-book sample finds it in four more books (SG24-3910-01, SC31-6009-04,
+SC31-8234-00 and GC31-8189-01), none yet compared with hosted.
 
 `HP5`..`HP9` form a family: each is the underscored form of the code five
 below it, so `5` underscores `H0` (plain), `6` `HP1`, `7` `HP2`, `8` `HP3` and
@@ -1359,6 +1367,21 @@ P` over `[INHIBITSOURCE|NOINHIBITSOURCE]` as
 span whose first or last column is a blank, or that cuts a word without
 meeting an abutting span, is not proven by the row and leaves it plain.
 
+The glyph's columns are those of the display word it begins.  A glyph glued
+to more text -- an attach prefix or attach byte in front of the next token,
+so no column separates them -- is styled display text when a span covers that
+whole word exactly.  SC24-546 record 1026 display line 10 (file offset
+`0x5F55D`) is `17 15 2E 01 7B 00 21 01 00 7C 00 2C 01 00 7D 00 2B 12 28 11 D6 68 E7 F9`:
+length byte `0x17`, a 5-cell origin run `15`, the one-byte word `'` (`2E`),
+the attach-prefixed `.` (`01`), and then `A<.B><.C>`, a 2-cell run, `->`, a
+1-cell run, `Incorrect` and `symbol`.  The preceding control is
+`cfont 5 2 E 8 9 E 20 2 2 24 9 E 34 6 E`; its first triple covers exactly
+the two-cell word `'.` at column 5, not the one-cell glyph.  Hosted SC24-546
+`B.1.3.1` (DT `19940323131240`) serves the row as
+`<samp>'.</samp> <samp>A&lt;.B&gt;&lt;.C&gt;</samp>   <B>-&gt;</B>  <samp>Incorrect</samp> <samp>symbol</samp>`.
+With no span covering the glyph or its word, the glyph keeps its row-marker
+reading.
+
 [[markup_sub_word_span_boundaries]]
 ==== Sub-word span boundaries
 
@@ -1390,6 +1413,43 @@ same amount, so each one lands inside a word and reaches over the gap to the
 next.  GG24-4302-00 `PREFACE.2` is the clearest example -- its rows are stored
 as `°` + a two-cell origin run and hosted serves pass:[<literal>&#160;&#160;&#160;°&#160;&#160;&#160;&lt;cite&gt;IMS/ESA&lt;/cite&gt; &lt;cite&gt;V5&lt;/cite&gt; &lt;cite&gt;Release&lt;/cite&gt; ...</literal>] at column 7, so a model that puts the
 text at column 2 reads `cfont 7 7 C` as `SA V5 R`.
+
+[[markup_a_selector_label_glued_to_a_word]]
+==== A selector label glued to the word in front of it
+
+There is one exception, and it is a `CSELECT` label.  The book compiler can
+write a cross-reference label with no space between it and the running text
+before it, and the dictionary then holds the glued pair as one word.  The
+selector's columns start inside that stored word, at the first cell of the
+label, and run over the blanks between the label's own words to the end of
+the label.  Hosted BookServer serves the stored text unchanged and opens the
+link mid-word:
+
+[cols="<17,<37,<46",options="header"]
+|===
+|Book / topic |Bytes and operand |Hosted
+
+|SC24-5527-02 `4.2.3` |record 399, token at `0x346D7` is `DA 4B`, the word `inTable`; `cselect 57 9 TBLXREXBL` (`4D EF 4A CE E9 7A` at `0x346BC`) |`in<a href="...#TBLXREXBL">Table 4-8</a> that was` (DT `19921218151459`)
+|SG24-204 `5.3.3` |record 233, token at `0x2D49C9` is `E0 24`, the word `inFigure`; `cselect 45 26 FIGTRASR07` |`in<a href="4.2.2.4?...#FIGTRASR07">Figure 90 in topic 4.2.2.4</a>.` (DT `19971218054640`)
+|SC21-8295-03 `3.1.3.2` |record 391, token at `0x44390` is `E3 76`, the word `manualS`; `cselect 32 41 LNK ... <SC21-7985> ...` |`manual<a href="../../DOCNUM/SC21-7985/..."><cite>S/36</cite> ... <cite>User's</cite></a>` (DT `19970409135933`)
+|===
+
+Such a label both splits a word and covers blank columns, which is also the
+signature of a displaced margin, so the label alone does not prove its row.
+The reading holds when all of these are true:
+
+* the split falls between two cells of one stored token;
+* the label ends on a word boundary or at the end of the row; and
+* another `CFONT` or `CSELECT` triple of the same row lands on whole display
+words.  In the three rows above these are `cfont 3 2 2` on the list number
+`1.`; `cfont 7 6 2 14 8 2 23 10 2` on `TCP/IP Listener Definition`; and
+`cfont 37 8 C 46 7 C ...` on `Business Graphic ...`.
+
+A displaced margin moves every triple of its row by the same amount.  A
+triple of the row that lands on whole words is therefore evidence that the
+row's columns are right.  A `CFONT` triple of this shape has not been
+observed, and neither has a label torn at both ends.  Both remain
+unverified.
 
 [[markup_the_three_column_left_margin]]
 ==== The three-column left margin
@@ -2315,21 +2375,23 @@ structure irreversibly.
 [[markup_open_questions]]
 === Open Questions
 
-* Hosted presentation of the remaining font codes. Sixteen of the 35 defined
+* Hosted presentation of the remaining font codes. Seventeen of the 35 defined
 codes now have a hosted rendering verified in "Style-Code Presentation
 Verified Against Hosted BookServer" (`1`, `2`, `3`, `5`, `7`, `9`, `C`, `E`,
-`K`, `P`, `Q`, `R`, `V`, `W`, `G`, `X`). The unverified ones split into two
+`K`, `P`, `Q`, `R`, `V`, `W`, `G`, `X`, `Z`). The unverified ones split into two
 groups with different prospects:
 ** *`B` `CAUTION`, `D` `DANGER`, `F` `CAUTIONTEXT`, `O` `DANGERTEXT`* are
 the remaining halves of the admonition family whose `W`/`G` pair is
 verified as `<em>` for both the label and the body. They are the ones most
 likely to follow the same shape, and a book on the hosted shelf that uses
 `:caution.` or `:danger.` would settle them. No corpus fixture does.
-** *`T` `TP`, `U` `MD`, `Y` `MDQUAL`, `Z` `PVDEF`,
-`_` `UNDERSCORE`* have at most one witness each in the corpus and no
-second book to generalise from. `Z` renders exactly as `Q` `PKDEF` does in
-its single witness (SC26-457 `1.3`); `_` occurs only in SC24-5527-02
-`COMMENTS`, which the hosted catalog does not serve.
+** *`T` `TP`, `U` `MD`, `Y` `MDQUAL`, `_` `UNDERSCORE`* have at most one
+witness each in the corpus and no second book to generalise from. `_`
+occurs there only in SC24-5527-02 `COMMENTS`, which the hosted catalog does
+not serve; a sample of the hosted shelf finds it in SG24-3910-01 (36
+topics), SC31-6009-04, SC31-8234-00 and GC31-8189-01, not yet compared with
+hosted. `Z` `PVDEF` is verified only on one sentence that two books share
+(SC26-457 and SC26-4905-00 `1.3`).
 ** The remaining defined codes are the heading levels `H`..`M` and the plain
 `H0`/`4`/`6`/`8` fills, which do not appear as inline spans in the corpus.
 * Full row/column grammar for every legacy cross-reference table variant beyond

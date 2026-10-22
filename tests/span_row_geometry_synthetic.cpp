@@ -845,6 +845,195 @@ void an_unstyled_row_final_comma_before_a_control_stays_padding() {
               body_text(*prose) + "'");
 }
 
+// -------------------------------------------------------------------------
+// A selector label stored glued to the word in front of it (#91).
+// -------------------------------------------------------------------------
+
+// SC24-5527-02 4.2.3 record 399 stores `inTable` as one two-byte dictionary
+// word under `cselect 57 9 TBLXREXBL`, and hosted (DT 19921218151459) serves
+// `in<a ...>Table 4-8</a>`: the label begins inside the stored word and
+// crosses the blank between its own words.  The row's `cfont 3 2 2` lands on
+// a whole word and proves the row's columns.
+//
+// Row cells: origin 0-2, `Enter` 3-7, `the` 9-11, `list` 13-16, `inTable`
+// 18-24 (`Table` at 20), `4-8` 26-28, `now` 30-32.
+enum class GluedFont { none, corroborating, torn };
+
+DecodedLogicalRecordSource glued_label_record(const std::string &select_length,
+                                              GluedFont font, bool one_token) {
+  RecordBuilder builder;
+  metadata(builder, "1.15", {"Build", "List"});
+  builder.line({words("cselect"), words("20"), words(select_length),
+                words("TBLXREXBL")});
+  if (font == GluedFont::corroborating)
+    builder.line({words("cfont"), words("3"), words("5"), words("2")});
+  else if (font == GluedFont::torn)
+    builder.line({words("cfont"), words("3"), words("5"), words("2"),
+                  words("20"), words("9"), words("1")});
+  std::vector<TokenWords> row{words("   "), words("Enter"), words("the"),
+                              words("list")};
+  if (one_token) {
+    row.push_back(words("inTable"));
+  } else {
+    row.push_back(words("in"));
+    row.push_back(glued("Table"));
+  }
+  row.push_back(words("4-8"));
+  row.push_back(words("now"));
+  builder.line(std::move(row));
+  return builder.build(45);
+}
+
+void a_selector_label_glued_to_a_word_is_a_link() {
+  const auto record = glued_label_record("9", GluedFont::corroborating, true);
+  std::string error;
+  const auto prose = extract(record, "Build List", error);
+  require(prose.has_value(),
+          "a selector label glued to the word before it was rejected: " +
+              error);
+  if (!prose) return;
+  require(verify(record, "Build List", *prose, error),
+          "the glued selector label is not conserved: " + error);
+  require(body_text(*prose).find("Enter the list inTable 4-8 now") !=
+              std::string::npos,
+          "the glued row lost its text: '" + body_text(*prose) + "'");
+  bool label = false;
+  for (const auto &block : prose->blocks)
+    for (const auto &fragment : block.inlines)
+      if (fragment.kind == geist::detail::ProseInlineKindIR::cross_reference &&
+          fragment.text == "Table 4-8")
+        label = true;
+  require(label, "the link does not carry exactly the label `Table 4-8`");
+}
+
+// Without another span of the row on whole words nothing proves the row's
+// columns, and the same span is the signature of a displaced margin.
+void a_glued_label_without_a_corroborating_span_still_fails() {
+  std::string error;
+  require(!extract(glued_label_record("9", GluedFont::none, true),
+                   "Build List", error),
+          "an uncorroborated torn selector was admitted");
+}
+
+// A label that also ends inside a word is torn at both ends.
+void a_glued_label_torn_at_both_ends_still_fails() {
+  std::string error;
+  require(!extract(glued_label_record("11", GluedFont::corroborating, true),
+                   "Build List", error),
+          "a selector torn at both ends was admitted");
+}
+
+// The rule reads the stored word: a split between two stored tokens is not
+// the glued shape and keeps its rejection.
+void a_split_between_two_tokens_still_fails() {
+  std::string error;
+  require(!extract(glued_label_record("9", GluedFont::corroborating, false),
+                   "Build List", error),
+          "a selector torn between two stored tokens was admitted");
+}
+
+// Only selectors are witnessed in this shape; a font span stays fail-closed.
+void a_torn_font_span_over_a_glued_word_still_fails() {
+  std::string error;
+  require(!extract(glued_label_record("9", GluedFont::torn, true),
+                   "Build List", error),
+          "a torn font span over a glued word was admitted");
+}
+
+// -------------------------------------------------------------------------
+// A leading glyph glued to more text, under a span of that whole word (#91).
+// -------------------------------------------------------------------------
+
+// SC24-546 B.1.3.1 record 1026 line 10 stores `'` (one byte) + attach `.`
+// + ` A<.B><.C>` under `cfont 5 2 E 8 9 E ...`; hosted (DT 19940323131240)
+// serves `<samp>'.</samp> <samp>A<.B><.C></samp>`.
+DecodedLogicalRecordSource glued_glyph_record(bool word_span) {
+  RecordBuilder builder;
+  metadata(builder, "1.16", {"DBCS", "Symbols"});
+  if (word_span)
+    builder.line({words("cfont"), words("5"), words("2"), words("E"),
+                  words("8"), words("5"), words("E")});
+  else
+    builder.line({words("cfont"), words("8"), words("5"), words("E")});
+  builder.line({words("     "), words("'"), glued("."), words("A<.B>"),
+                words("->"), words("Incorrect")});
+  const auto quote = std::find(builder.record.tokens.begin(),
+                               builder.record.tokens.end(), words("'"));
+  require(quote != builder.record.tokens.end(), "the quote token is absent");
+  if (quote != builder.record.tokens.end())
+    builder.record.encoded_tokens[static_cast<std::size_t>(
+        std::distance(builder.record.tokens.begin(), quote))]
+        .width = 1;
+  return builder.build(46);
+}
+
+std::string rows_and_body(const geist::detail::ProseTopicIR &topic) {
+  std::string rows;
+  for (const auto &block : topic.blocks)
+    for (const auto &line : block.preformatted_lines) rows += line + "\n";
+  return rows + body_text(topic);
+}
+
+void a_glyph_glued_to_text_under_its_word_span_is_display_text() {
+  const auto record = glued_glyph_record(true);
+  std::string error;
+  const auto prose = extract(record, "DBCS Symbols", error);
+  require(prose.has_value(),
+          "a leading glyph whose glued word a span covers was rejected: " +
+              error);
+  if (!prose) return;
+  require(verify(record, "DBCS Symbols", *prose, error),
+          "the styled glued glyph is not conserved: " + error);
+  require(rows_and_body(*prose).find("'. A<.B>") != std::string::npos,
+          "the glued glyph word was dropped: '" + rows_and_body(*prose) +
+              "'");
+  bool styled = false;
+  for (const auto &block : prose->blocks)
+    for (const auto &fragment : block.inlines)
+      if (fragment.style == geist::detail::FontStyleIR::example_phrase &&
+          fragment.text.find("'.") != std::string::npos)
+        styled = true;
+  require(styled, "the `cfont 5 2 E` triple did not land on `'.`");
+}
+
+// With no span on the glyph's word the glyph keeps its row-marker reading.
+void a_glued_glyph_without_its_word_span_stays_a_marker() {
+  const auto record = glued_glyph_record(false);
+  std::string error;
+  const auto prose = extract(record, "DBCS Symbols", error);
+  if (!prose) return;
+  require(rows_and_body(*prose).find("'.") == std::string::npos,
+          "an unspanned leading glyph was admitted as display text: '" +
+              rows_and_body(*prose) + "'");
+}
+
+// -------------------------------------------------------------------------
+// `Z` (PVDEF) presents as PKDEF does (#91).
+// -------------------------------------------------------------------------
+
+// SC26-457 1.3 and SC26-4905-00 1.3 store
+// `cfont 3 7 P 11 10 Z 22 4 P 27 1 P 29 10 Z 39 1 P`; hosted serves
+// `<kbd>COMMAND</kbd> <dfn>parameters</dfn> ...` in both books.
+void a_pvdef_span_is_a_defined_term() {
+  RecordBuilder builder;
+  metadata(builder, "1.17", {"Command", "Structure"});
+  builder.line({words("cfont"), words("3"), words("7"), words("P"),
+                words("11"), words("10"), words("Z")});
+  builder.line({words("   "), words("COMMAND"), words("parameters")});
+  const auto record = builder.build(47);
+  std::string error;
+  const auto prose = extract(record, "Command Structure", error);
+  require(prose.has_value(), "a PVDEF span was rejected: " + error);
+  if (!prose) return;
+  bool defined = false;
+  for (const auto &block : prose->blocks)
+    for (const auto &fragment : block.inlines)
+      if (fragment.text == "parameters" &&
+          fragment.style == geist::detail::FontStyleIR::keyword_define)
+        defined = true;
+  require(defined, "the PVDEF span did not present as PKDEF");
+}
+
 } // namespace
 
 int main() {
@@ -865,5 +1054,13 @@ int main() {
   a_two_run_gap_without_a_reaching_span_keeps_the_pair_reading();
   a_styled_row_final_comma_before_a_control_is_display_text();
   an_unstyled_row_final_comma_before_a_control_stays_padding();
+  a_selector_label_glued_to_a_word_is_a_link();
+  a_glued_label_without_a_corroborating_span_still_fails();
+  a_glued_label_torn_at_both_ends_still_fails();
+  a_split_between_two_tokens_still_fails();
+  a_torn_font_span_over_a_glued_word_still_fails();
+  a_glyph_glued_to_text_under_its_word_span_is_display_text();
+  a_glued_glyph_without_its_word_span_stays_a_marker();
+  a_pvdef_span_is_a_defined_term();
   return 0;
 }

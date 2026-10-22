@@ -40,7 +40,8 @@ FontStyleIR style_for_code(const std::string& code) {
   if (code.size() != 1) return FontStyleIR::unknown;
   switch (ascii_lower_char(code[0])) {
   case 'c': return FontStyleIR::citation;
-  case 'q': return FontStyleIR::keyword_define;
+  case 'q':
+  case 'z': return FontStyleIR::keyword_define;
   case 'x':
   case 'e':
   case '4': return FontStyleIR::example_phrase;

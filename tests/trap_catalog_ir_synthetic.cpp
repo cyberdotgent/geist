@@ -863,7 +863,8 @@ int main() {
                    "Sample Messages").catalog,
             "deferred font exceeded its target row");
     auto unknown_font = first;
-    unknown_font.back().words = words("Z");
+    // `T` (TP) has no verified presentation.
+    unknown_font.back().words = words("T");
     require(!build({make_source(40, unknown_font), make_source(41, second)},
                    "Sample Messages").catalog,
             "deferred font silently dropped an unsupported style");

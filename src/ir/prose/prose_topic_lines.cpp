@@ -305,6 +305,32 @@ struct LineBuilder {
   // change-bar row ` |     Â°   For SMP/E Reference:` as `|`, a four-cell gap
   // and the bullet, and hosted (DT 19920330095121) prints the bar in the
   // margin and the bullet in its own column.
+  // Display cells of the glued display word the token at `index` begins: its
+  // own cells plus every visible token laid out against it with no column
+  // between them (an attach prefix, a bare attach token, or a no-space-after
+  // prefix on the word before).  SC24-546 B.1.3.1 record 1026 line 10 stores
+  // `'` + attach `.` (tokens 225-226), one two-cell word `'.`.
+  std::size_t glued_word_cells(std::size_t index) const {
+    std::size_t cells = items[index].token.body.size();
+    bool space = items[index].token.prefix != 2;
+    for (auto cursor = index + 1; cursor < items.size(); ++cursor) {
+      const auto& item = items[cursor];
+      if (item.kind != ItemKind::token) break;
+      const auto& view = item.token;
+      if (is_bare(view)) {
+        if (view.prefix != 0 && view.prefix != 1) break;
+        space = false;
+        continue;
+      }
+      if (!is_visible(view) || is_space_run(view) || is_placeholder_run(view))
+        break;
+      if (space && view.prefix != 0 && view.prefix != 1) break;
+      cells += view.body.size();
+      space = view.prefix != 2;
+    }
+    return cells;
+  }
+
   bool marker_precedes_row_text(std::size_t index) const {
     if (index + 1 >= items.size() ||
         items[index + 1].kind != ItemKind::token)
@@ -2019,8 +2045,15 @@ struct LineBuilder {
         // `<samp>//</samp>        <samp>PEND</samp>`.
         // Decoder placeholder runs stay markers whatever the geometry says
         // (ACPZMST1 3.11 record 180): they carry no character.
+        // The glyph's columns are those of the display word it begins: a
+        // glyph glued to more text is styled display text when a span covers
+        // that whole word exactly.  SC24-546 B.1.3.1 record 1026 line 10 is
+        // `     '.` + ` A<.B><.C>` under `cfont 5 2 E 8 9 E ...`, and hosted
+        // (DT 19940323131240) serves `<samp>'.</samp> <samp>A<.B><.C></samp>`.
         (is_placeholder_run(view) ||
-         !pending_span_covers(line().cells.size(), view.body.size())) &&
+         (!pending_span_covers(line().cells.size(), view.body.size()) &&
+          !pending_span_covers(line().cells.size(),
+                               glued_word_cells(index)))) &&
         marker_precedes_row_text(index)) {
       // A visual row marker (`|`, box glyph) opening the row directly before
       // its text (GC23-046 record 151 `| ◆ The number of orders`, ACPZMST1

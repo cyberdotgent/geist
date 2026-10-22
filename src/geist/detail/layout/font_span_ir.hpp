@@ -57,16 +57,18 @@ struct DecodedLogicalRecordSource;
 // occur only in those four books (7 `W` spans, 363 `G` spans, measured with
 // a `bootrace --fonts` sweep of all 7,362 topics).
 //
-// `Z` (PVDEF) and `_` (UNDERSCORE) stay fail-closed for want of a second
-// witness.  The same corpus sweep finds `Z` in one topic of one book
-// (SC26-457 `1.3` `cfont 3 7 P 11 10 Z 22 4 P 27 1 P 29 10 Z 39 1 P`, whose
-// hosted row is `<kbd>COMMAND</kbd> <dfn>parameters</dfn> <kbd>....</kbd>
-// <kbd>[</kbd> <dfn>terminator</dfn><kbd>]</kbd>`, so PVDEF presents exactly
-// like PKDEF there) and `_` in one topic of one book (SC24-5527-02
-// `COMMENTS`, which the hosted catalog does not serve at all).  One book is
-// not evidence that the presentation generalises, and the corpus records
-// repeatedly that identical geometry means different things in different
-// books, so both remain unknown.
+// `Z` (PVDEF) is <dfn>, exactly like PKDEF, in the two books that use it:
+// SC26-457 (SC26-4570-01) `1.3` and SC26-4905-00 `1.3` both store
+// `cfont 3 7 P 11 10 Z 22 4 P 27 1 P 29 10 Z 39 1 P`, and hosted (DTs
+// 19911220191142 and 19930625182638) serves both rows as
+// `<kbd>COMMAND</kbd> <dfn>parameters</dfn> <kbd>....</kbd> <kbd>[</kbd>
+// <dfn>terminator</dfn><kbd>]</kbd>`.  The two books share that sentence, so
+// the evidence is one phrase served identically by two books; a sample of
+// 87 further books (all of SC26-49xx among them) holds no other `Z` span.
+// `_` (UNDERSCORE) stays fail-closed: its first witness was SC24-5527-02
+// `COMMENTS`, which the hosted catalog does not serve, and the corpus
+// records repeatedly that identical geometry means different things in
+// different books.
 //
 // A style code is one character of the book's own `CFONTDEF` table.  That
 // table is byte-identical in all 34 fixtures (swept with `bootrace --fonts`):
@@ -95,7 +97,7 @@ enum class FontStyleIR {
   citation,        // C: italic citation
   example_phrase,  // X, E, 4: monospace example text
   keyword,         // P: monospace parameter keyword (<kbd>)
-  keyword_define,  // Q: defined parameter keyword (<dfn>)
+  keyword_define,  // Q, Z: defined parameter keyword / variable (<dfn>)
   variable,        // V: italic programming variable (<var>)
   bold_phrase,     // R, H, I, J, K, M: bold keyword / inline heading
   italic_phrase,   // L: italic inline heading

@@ -137,6 +137,57 @@ bool torn_across_a_gap(const Line& line, std::size_t begin, std::size_t end) {
   return false;
 }
 
+// The visible extent of `span` on `line`: clamped to the row's cells and
+// trimmed of blank cells at both ends.  Empty when the span covers no text.
+std::pair<std::size_t, std::size_t> visible_extent(const Line& line,
+                                                   const Span& span) {
+  auto begin = span.begin;
+  auto end = std::min(span.end, line.cells.size());
+  if (begin >= end) return {0, 0};
+  while (begin < end && line.cells[begin].space) ++begin;
+  while (end > begin && line.cells[end - 1].space) --end;
+  return {begin, end};
+}
+
+// A selector whose label the record stores glued to the word in front of it.
+// The compiler wrote no space between running text and the generated label,
+// so one dictionary token spells both: SC24-5527-02 4.2.3 record 399 token
+// 294 is the two-byte word `inTable` under `cselect 57 9 TBLXREXBL`, and
+// hosted (DT 19921218151459) serves `in<a ...>Table 4-8</a>`; SG24-204 5.3.3
+// record 233 token 289 `inFigure` under `cselect 45 26 FIGTRASR07` is served
+// `in<a ...>Figure 90 in topic 4.2.2.4</a>` (DT 19971218054640); SC21-8295-03
+// 3.1.3.2 record 391 token 158 `manualS` under `cselect 32 41 LNK ...` is
+// served `manual<a ...><cite>S/36</cite> ...` (DT 19970409135933).  Such a
+// label splits its first word *and* crosses the blanks between its own words,
+// which is the signature of a displaced row margin too, so the reading needs
+// more than the span: the split falls inside one stored token, the label
+// ends on a word boundary, and another span of the same row lands on whole
+// display words, which proves the row's columns.  A displaced margin moves
+// every span of the row by the same amount and leaves none of them whole.
+bool glued_selector_label(const Line& line, const Span& self, std::size_t begin,
+                          std::size_t end) {
+  if (begin == 0 || begin <= line.text_begin || begin >= line.cells.size())
+    return false;
+  const auto& left = line.cells[begin - 1];
+  const auto& right = line.cells[begin];
+  if (left.space || right.space || left.record == npos ||
+      left.record != right.record || left.token != right.token)
+    return false;
+  if (end < line.cells.size() && !boundary_between(line, end - 1, end))
+    return false;
+  const auto whole = [&](const Span& other) {
+    if (&other == &self) return false;
+    const auto [other_begin, other_end] = visible_extent(line, other);
+    if (other_begin >= other_end) return false;
+    return (other_begin == 0 ||
+            boundary_between(line, other_begin - 1, other_begin)) &&
+           (other_end >= line.cells.size() ||
+            boundary_between(line, other_end - 1, other_end));
+  };
+  return std::any_of(line.fonts.begin(), line.fonts.end(), whole) ||
+         std::any_of(line.links.begin(), line.links.end(), whole);
+}
+
 // One selector span's destination as the block builder needs it: the typed
 // cross-reference target, plus whether the selector is a picture (the
 // covered columns are the image, not a link label).
@@ -180,7 +231,8 @@ bool resolve_spans(const Line& line, std::vector<Attr>& attrs,
     // `<TT>CLIST</TT>s`).  The inline ledger owns the byte range inside the
     // token's decoded word, so the two inlines that meet inside a word each
     // own their own half and no token is claimed twice.
-    if (torn_across_a_gap(line, begin, end))
+    if (torn_across_a_gap(line, begin, end) &&
+        !(link && glued_selector_label(line, span, begin, end)))
       return fail(error, "row columns are unproven: span [" +
                              std::to_string(span.begin) + "," +
                              std::to_string(span.end) +
