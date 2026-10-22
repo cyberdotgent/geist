@@ -641,7 +641,15 @@ More facts about the introduction:
   shows nothing for it.  It is an index term of the entry: it draws
   nothing, and the field before it does not continue into it.  The line is
   the whole control; drawn text after it on further display lines would be
-  entry text again, and no observed entry has any.
+  entry text again, and no observed entry has any.  The next line's length
+  byte is not such text, whatever its dictionary word.  `SC09-138` topic
+  `F.1` record 2061 line 17 is `SI run-time, error messages, in a systems
+  programming environment` (tokens 201--215); the next byte, `0B` at
+  `0x109283`, is line 18's length (11), and its dictionary word is a run of
+  26 `U+2500` rules.  Line 18 is the next `SI` line.  A reader that walks
+  the words rather than the display lines sees a rule drawn after the term;
+  the display lines show none, and hosted F.1 (DT `19910321130500`) draws
+  nothing between the entry's last field and the next row.
 
 [[markup_trap_introduction_lists]]
 The introduction draws native lists the same way an entry does.  A
@@ -775,6 +783,37 @@ A bare `SRMSG` inside an entry -- the opcode alone on its display line, with no
 operand and no payload -- is likewise a destination where it stands:
 `N2AH1MST` topic `2.0` serves `<a name="MSG">` at the end of its last entry,
 immediately before the footnote `FTNFTNUNIQ16` that follows it in the source.
+
+The operand of an `SRMSG` is on the `SRMSG`'s own display line.  A reader
+that walks words across line ends can take the next line's length byte for
+an operand.  `SC09-138` topic `F.1` record 2061 line 9 is the length byte
+`01` and `SRMSG` (`77` at `0x1091C9`).  The next byte, `24` at `0x1091CA`,
+is line 10's length (36), and its dictionary word is `;`.  Line 10 is a
+`cfont` line.  The `SRMSG` is bare, and hosted F.1 (DT `19910321130500`)
+serves `<a name="MSG">` there, not an entry `MSG ;`.
+
+What follows a bare `SRMSG` inside an entry differs:
+
+* A plain row continues the entry's text.  `SC24-546` topic `A.0` record 971
+  ends with line 32, a bare `SRMSG`, after the last field of `DMSREX255T`.
+  Record 972 line 0 is `   The following are the REXX error messages:`, and
+  hosted A.0 (DT `19940323131240`) serves that row inside `<a name="MSG">`,
+  before the next entry's rule.
+* A styled row can open a heading between two groups of entries.  In
+  `SC09-138` `F.1` the bare `SRMSG` above follows entry `IBM0537` and the
+  destination line `SRHDRCICSMSG` (line 5).  Line 10 is
+  `cfont 3 8 K 12 5 K 18 8 K ...` over line 11,
+  `   Run-Time Error Messages under CICS or in a Systems Programming
+  Environment`.  Nine `SI` lines follow (lines 12--20), then
+  `cfont 4 7 2 12 7 2 27 7 2 35 4 2 40 4 2` over
+  `    Message Format:        EDCKxxx text <&n> where:` (lines 21--22).  After
+  that come three indented `EDCK - indicates ...` / `xxx - error message
+  number` rows (record 2061 line 25 to record 2062 line 3).  Hosted serves the
+  heading in italics (`<I>Run-Time</I> <I>Error</I> ...`) and the format rows
+  in bold, each on its own line, inside `<a name="HDRCICSMSG">` and
+  `<a name="MSG">`.  The rows are a heading for the `EDCK` entries that
+  follow, not text of `IBM0537`.  How the format rows are laid out is not yet
+  established, so they are not read as an entry field.
 
 Consecutive selector lines inside an entry queue onto the first drawn row after
 them.  Record 563 lines 11 and 12 are `cselect 22 4 FTNFTNUNIQ22` and

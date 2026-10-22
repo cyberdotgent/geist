@@ -334,6 +334,41 @@ bool segment_is_display_line_prefix(const DecodedLogicalRecordSource &record,
                      });
 }
 
+// An `SRMSG` that fills its display line alone and whose only operand is the
+// next line's length byte names no message: the flattened splitter read the
+// byte's dictionary word as the operand. SC09-138 F.1 record 2061 line 9 is
+// the length byte `01` and `SRMSG` (`77` at 0x1091C9); the next byte, `24`
+// at 0x1091CA, is line 10's length (36), spelled `;`. Hosted F.1
+// (DT 19910321130500) serves `<a name="MSG">` there, the bare-SRMSG anchor.
+bool message_operand_is_next_line_length(
+    const DecodedLogicalRecordSource &record, const ControlSegmentIR &segment) {
+  if (segment.kind != BookControlKind::message_start ||
+      segment.source_tokens.empty() ||
+      segment.payload_range.begin != segment.payload_range.end ||
+      segment.operand_range.begin == segment.operand_range.end)
+    return false;
+  const auto *own_line =
+      display_line_of_token(record, segment.source_tokens.front());
+  if (own_line == nullptr ||
+      own_line->prefix_token + 1 != segment.source_tokens.front() ||
+      own_line->token_end != segment.source_tokens.front() + 1)
+    return false;
+  const auto words =
+      decoded_byte_range_to_word_range(record.assembled, segment.operand_range);
+  // The operand's byte range starts at the separator the assembler wrote
+  // after the opcode, so it can touch the opcode's own token; only the
+  // tokens after the opcode are the operand's words.
+  auto tokens =
+      source_tokens_intersecting_output(record.assembled, words.begin, words.end);
+  tokens.erase(std::remove_if(tokens.begin(), tokens.end(),
+                              [&](const auto token) {
+                                return token <= segment.source_tokens.front();
+                              }),
+               tokens.end());
+  return tokens.size() == 1 && tokens.front() == own_line->token_end &&
+         is_display_line_length_token(record, tokens.front());
+}
+
 // A control that draws nothing of its own: `c.sp` is a SCRIPT vertical-space
 // directive and `cselect` marks a hotspot region of the *following* display
 // line (N2AH1MST record 252 line 10 is the whole line `cselect 34 4
@@ -2385,7 +2420,8 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
   const auto is_entry_start = [](const SegmentRef &ref) {
     return ref.segment->kind == BookControlKind::message_start &&
            !first_word(range_text(*ref.record, ref.segment->operand_range))
-                .empty();
+                .empty() &&
+           !message_operand_is_next_line_length(*ref.record, *ref.segment);
   };
   std::vector<std::size_t> starts;
   for (std::size_t index = 0; index < ordered.size(); ++index)
@@ -2789,6 +2825,16 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
     // claimed a run of the ledger, so the region does not read as a gap in
     // the interrupted field's own cells.
     std::size_t resume_cell = 0;
+    // Set once a bare `SRMSG` stands inside the entry. Plain rows may follow
+    // it as entry text: SC24-546 A.0 record 972 line 0, `The following are
+    // the REXX error messages:`, which hosted A.0 (DT 19940323131240) serves
+    // inside `<a name="MSG">` after the last field of DMSREX255T. A
+    // `cfont`-styled row may not: SC09-138 F.1 record 2061 draws a
+    // `cfont 3 8 K ...` heading row and `Message Format:` rows after one,
+    // which hosted F.1 (DT 19910321130500) serves as an italic heading and
+    // bold rows, one per line, between two groups of entries. The entry
+    // body has no form for that heading, so it declines.
+    bool after_bare_anchor = false;
     std::vector<TrapParagraphBoundaryIR> pending_boundaries;
     const auto queue_boundary = [&](TrapParagraphBoundaryIR boundary) {
       if (std::none_of(pending_boundaries.begin(), pending_boundaries.end(),
@@ -2905,7 +2951,16 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
         if (si_line != nullptr &&
             si_line->prefix_token + 1 == segment.source_tokens.front() &&
             is_subject_index_display_line(*ref.record, *si_line)) {
-          if (segment.source_tokens.back() >= si_line->token_end)
+          // The segment can end on the next line's length byte, which is
+          // structure whatever its dictionary word: SC09-138 F.1 record 2061
+          // token 216 (`0B` at 0x109283, line 18's length 11) spells a
+          // U+2500 rule run, and line 18 opens the next `SI`.
+          if (std::any_of(segment.source_tokens.begin(),
+                          segment.source_tokens.end(), [&](const auto token) {
+                            return token >= si_line->token_end &&
+                                   !is_display_line_length_token(*ref.record,
+                                                                 token);
+                          }))
             return reject("trap entry subject index line carries text after "
                           "it: " +
                           entry.id);
@@ -3077,7 +3132,8 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
       if (!opcode_is_line_prefix &&
           segment.kind == BookControlKind::message_start &&
           segment.payload_range.begin == segment.payload_range.end &&
-          collapse(range_text(*ref.record, segment.operand_range)).empty()) {
+          (collapse(range_text(*ref.record, segment.operand_range)).empty() ||
+           message_operand_is_next_line_length(*ref.record, segment))) {
         // An `SRMSG` with neither operand nor payload is a bare anchor:
         // N2AH1MST record 177 line 38 is the whole one-byte line `SRMSG`,
         // and hosted 2.0 (DT 19910329000100) serves it as `<a name="MSG">`
@@ -3092,6 +3148,7 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
                           entry.id);
           current->body.flow.blocks.push_back(
               {TrapFlowAnchorIR{"MSG", segment_slice(*ref.record, segment)}});
+          after_bare_anchor = true;
         }
         continue;
       }
@@ -3224,6 +3281,10 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
             return std::nullopt;
         }
         line.body.cell_end = entry.cells.size();
+        if (after_bare_anchor && footnote_line == nullptr &&
+            !line.body.text.empty())
+          return reject("trap entry draws a styled row after a bare SRMSG: " +
+                        entry.id);
         if (!pending_boundaries.empty()) {
           auto *paragraph = first_paragraph(line.body.flow);
           if (paragraph != nullptr) {

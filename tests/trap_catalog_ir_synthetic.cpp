@@ -50,7 +50,11 @@
 //     and a selector past its row that declines;
 //   * an `SRFIG` envelope drawn in the introduction, and a stray closer;
 //   * an `SI` subject-index line inside an entry kept as a silent index
-//     term, and one whose segment runs on into drawn text, which declines.
+//     term, and one whose segment runs on into drawn text, which declines;
+//     a segment that ends on the next line's length byte is not drawn text;
+//   * an `SRMSG` whose only operand is the next line's length byte, read as
+//     a bare anchor, and a styled row after a bare `SRMSG`, which declines
+//     while a plain row stays entry text.
 //
 // What is NOT covered, stated plainly rather than implied: the compact
 // marker slot that carries a whole word. Two rules turn on it -- a slot the
@@ -2591,6 +2595,60 @@ int main() {
                 built.error);
   }
 
+  // A subject-index segment can end on the next line's length byte when
+  // that byte's dictionary word is not a blank: SC09-138 F.1 record 2061
+  // line 17 is `SI run-time, error messages, in a systems programming
+  // environment`, and token 216 (`0B` at 0x109283, line 18's length 11)
+  // spells a U+2500 rule run. The flattened splitter keeps it in the SI
+  // segment and line 18 opens the next `SI`. The byte is structure; the SI
+  // line carries nothing after it.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("692", 508));
+    append(tokens, line({t("SI", 313), t("translators,", 314),
+                         t("SAMPLE", 315)}));
+    const std::vector<Token> second = {t("SI", 313), t("CICS,", 509),
+                                       t("messages", 510)};
+    tokens.push_back({TokenWords(26, 0x2500),
+                      static_cast<std::uint16_t>(second.size())});
+    append(tokens, second);
+    append(tokens, entry("693", 511));
+    const auto built = build({make_source(116, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "a subject index segment ending on a length byte declined: " +
+                built.error);
+    if (built.catalog && built.catalog->entries.size() == 2) {
+      const auto &first = built.catalog->entries.front();
+      require(first.index_terms.size() == 2 &&
+                  first.index_terms.back().term == "CICS, messages",
+              "the subject index terms were not both kept");
+      require(entry_text(first) == "692 Description: first field",
+              "a length byte after a subject index line reached the entry: [" +
+                  entry_text(first) + "]");
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "the length-byte subject index entry failed verification: " +
+                  error);
+    }
+
+    // Mutation: drawn text after that length byte is still text the SI
+    // line has no slot for.
+    auto drawn = header("Sample", "Messages");
+    append(drawn, entry("694", 512));
+    append(drawn, line({t("SI", 313), t("translators,", 314),
+                        t("SAMPLE", 315)}));
+    const std::vector<Token> row = {origin(), t("Trailing", 318),
+                                    t("words.", 319)};
+    drawn.push_back({TokenWords(26, 0x2500),
+                     static_cast<std::uint16_t>(row.size())});
+    append(drawn, row);
+    require(!build({make_source(117, drawn)}, "Sample Messages").catalog,
+            "drawn text after a subject index line's length byte was "
+            "admitted");
+  }
+
   // A headline CFONT that closes its record styles the next record's first
   // row even when that row's length byte spells `cfont`: N2AH1MST record 657
   // line 37 is `cfont 3 7 2 11 9 2 ...` and record 658 line 0 is the length
@@ -2971,6 +3029,101 @@ int main() {
         "Sample Messages");
     require(!declined.catalog.has_value(),
             "a record-closing selector with no row to mark was admitted");
+  }
+
+  // An `SRMSG` alone on its display line names no message even when the
+  // flattened splitter hands it the next line's length byte as an operand.
+  // SC09-138 F.1 record 2061 line 9 is the length byte `01` and `SRMSG`
+  // (`77` at 0x1091C9); the next byte, `24` at 0x1091CA, is line 10's length
+  // (36), whose dictionary word is `;`. Hosted F.1 (DT 19910321130500)
+  // serves `<a name="MSG">` there, not an entry `MSG ;`.
+  {
+    // The line after the SRMSG opens a control, so the SRMSG segment ends
+    // with no payload and its operand is that line's length byte alone.
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("690", 503));
+    append(tokens, line({t("SRMSG", 110)}));
+    tokens.push_back({words(";"), 1});
+    tokens.push_back(t("SRFTNFTNUNIQ9", 513));
+    append(tokens, line({origin(), t("Later", 262), t("text.", 251)}));
+    append(tokens, line({t("SREFTN", 249)}));
+    const auto built = build({make_source(114, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "an SRMSG whose operand is the next line's length byte "
+            "declined: " +
+                built.error);
+    if (built.catalog) {
+      require(built.catalog->entries.size() == 1 &&
+                  built.catalog->entries.front().id == "690",
+              "the next line's length byte was read as a message id");
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(),
+              "length-byte SRMSG lowering declined: " + error);
+      if (document) {
+        const auto markdown =
+            geist::detail::render_document_markdown(*document);
+        const auto field = markdown.find("first field");
+        const auto anchor = markdown.find("<a id=\"MSG\"></a>");
+        const auto text = markdown.find("Later text.");
+        require(field != std::string::npos && anchor > field &&
+                    text > anchor && markdown.find(';') == std::string::npos,
+                "length-byte SRMSG was not a bare anchor in its entry: " +
+                    markdown);
+      }
+    }
+
+    // Mutation: an operand drawn on the SRMSG's own line is a message id.
+    auto named = header("Sample", "Messages");
+    append(named, entry("691", 504));
+    append(named, line({t("SRMSG", 110), t(";", 505)}));
+    append(named, line({origin(), t("Later", 262), t("text.", 251)}));
+    const auto entry_built = build({make_source(115, named)}, "Sample Messages");
+    require(!entry_built.catalog.has_value(),
+            "an SRMSG drawn with its operand was read as a bare anchor");
+  }
+
+  // A styled row after a bare `SRMSG` inside an entry is not the entry's
+  // text. SC09-138 F.1 record 2061 lines 9-25 follow entry IBM0537 with
+  // the bare `SRMSG`, a `cfont 3 8 K ...` row `Run-Time Error Messages
+  // under CICS or in a Systems Programming Environment`, nine `SI` lines and
+  // the `Message Format:` rows; hosted F.1 (DT 19910321130500) serves them
+  // as an italic heading and bold format rows, one per line, after
+  // `<a name="MSG">` -- a heading between entries. The family has no slot
+  // for it and declines rather than run it into the field before it. A
+  // plain row there stays entry text, as SC24-546 A.0's `The following are
+  // the REXX error messages:` does on main (hosted DT 19940323131240).
+  {
+    // A.0's bare `SRMSG` closes record 971 (line 32) and record 972 line 0
+    // draws the sentence.
+    auto plain = header("Sample", "Messages");
+    append(plain, entry("696", 515));
+    append(plain, line({t("SRMSG", 110)}));
+    std::vector<Token> next;
+    append(next, line({origin(), t("Later", 262), t("text.", 251)}));
+    append(next, line({}));
+    append(next, entry("697", 516));
+    const auto kept = build({make_source(119, plain), make_source(120, next)},
+                            "Sample Messages");
+    require(kept.catalog.has_value() && kept.catalog->entries.size() == 2,
+            "a plain row after a bare SRMSG declined: " + kept.error);
+
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("695", 514));
+    append(tokens, line({t("SRMSG", 110)}));
+    const std::vector<Token> font = {t("cfont", 111), t("3", 112),
+                                     t("5", 506), t("K", 507)};
+    tokens.push_back({words(";"), static_cast<std::uint16_t>(font.size())});
+    append(tokens, font);
+    append(tokens, line({origin(), t("Later", 262), t("text.", 251)}));
+    const auto built = build({make_source(118, tokens)}, "Sample Messages");
+    require(!built.catalog.has_value(),
+            "drawn rows after a bare SRMSG were run into the entry");
+    require(built.error.find("styled row after a bare SRMSG") !=
+                std::string::npos,
+            "rows after a bare SRMSG declined for the wrong reason: " +
+                built.error);
   }
 
   std::cout << "trap catalog IR synthetic tests passed\n";
