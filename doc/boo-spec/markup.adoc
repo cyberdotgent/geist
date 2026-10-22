@@ -2727,6 +2727,17 @@ of the _next_ row (`<a href="FRONT_1...">&quot;Notices&quot; in topic FRONT_1</a
 `NOTICES` (DT `19941010174546`) and GG24-4302-00 `NOTICES` (DT
 `19950308184737`) draw the same shape.
 
+A cross-book `LNK` selector line draws nothing either, although its
+`<...>` alternatives (<<markup_lnk_selector_alternatives>>) follow the
+operands on the same display line: they are the selector's destination, not
+display text.  SC24-5527-02 `1.0` (DT `19921218151459`) draws its `Note` box
+around logical record 59 display line 29, BOO bytes `0x1D360`--`0x1D36E`:
+`0D 4D C4 EE5C 9A 2D 2B 2B CFC4 2C CFB8`.  `0D` declares 13 encoded bytes;
+they decode to `cselect`, `47`, `30`, `LNK`, `<BOOK>`, `<>`, `<>`,
+`<SC24-5444>`, `<ANY>` and `<HCPA3>`.  Hosted prints the box unbroken, with no
+line for the control, and links columns 47..76 of the next row to
+`DOCNUM/SC24-5444`.
+
 Hosted keeps the `CFONT` highlighting of words inside a box (`<B>In</B>`) and
 resolves a `CSELECT` inside one into an `<a href=...>`; a preformatted
 lowering carries neither, which is the only observed difference.
@@ -2754,6 +2765,48 @@ Measured over all 856 drawn box regions the corpus emits, compared line for
 line against the hosted `<pre>` runs: shifted to column 0 not one region
 matches hosted; at their own columns 628 (73.4%) match exactly, and no region
 that already differed for another reason changed.
+
+[[markup_open_drawings_in_prose]]
+==== Open drawings in prose
+
+Not every drawing closes a box.  A panel excerpt may stop before its bottom
+rule or start below its top rule, and a field template, a scale, a syntax
+diagram's repeat arrow or a long-division bracket draws only the strokes it
+needs.  Such a drawing still has one row that no prose row has: a display line
+whose every non-blank cell is a box-drawing word (`U+2500`--`U+257F`), at
+least one of them a corner, rail or junction rather than the plain rule
+`U+2500`.  (A row of nothing but `U+2500` is the reader's horizontal rule; see
+<<logical-controls>>.)  Hosted BookServer prints such a row, and every other
+display row of the run of non-blank display lines around it, column for
+column inside its `<pre>`, with the same display glyphs as a closed region.
+The run is bounded by blank display lines; `cfont`/`cselect` lines and `SI`
+lines inside it draw nothing, exactly as inside a closed region.
+
+[cols="<34,<40,<30",options="header"]
+|===
+|File / record |Drawing |Hosted
+
+|`IEAC6MST.BOO` record 83, lines 3..7 |ISPF panel excerpt: top rule and rails, no bottom rule |topic `2.1`, DT `19920124000100`, identical
+|`OFCUSEOV.BOO` record 47 line 37 .. record 48 line 13 |lower half of a panel: rails and bottom rule, no top rule |topic `1.1`, DT `19900805103816`
+|`SC24-546.boo` record 623, lines 16..20 |field template with column numbers and a `FIELDS:` label outside the drawn cells |topic `5.3`, DT `19940323131240`, identical
+|`SC33-033.boo` record 493, lines 26..30 |scale: tick row `U+250C`/`U+252C`/`U+2510` over `U+2500`, then labels, `cfont` lines between |topic `4.77`, DT `19930422134757`
+|`SC28-1881-05.boo` record 857, lines 38..40 |a list of the characters `<`, `>` and `U+2502`, the last spelled with the box word |topic `1.41`, DT `19930326130533`, identical
+|===
+
+Byte-level, the IEAC6MST top row is logical record 83 display line 3 at BOO
+bytes `0x712E1`--`0x712EA`: `09 16 06 00 0D 00 CF43 00 05`.  `09` declares
+nine encoded bytes: `16` a 7-cell space run, `06` `U+250C`, each `00` an
+attaching spacing token, `0D` 63 copies of `U+2500`, `CF43` 19 more, and `05`
+`U+2510` -- printed as eight blanks, 82 underscores and a blank.  The SC24-546
+bottom row is record 623 display line 20 at `0x4074F`--`0x40762`:
+`13 1B 07 00 C670 00 C6B5 00 C670 00 C6B5 00 C67A 00 09`, a 12-cell origin,
+`U+2514`, `U+2500` runs separated by `U+2534` junctions, and `U+2518`.
+
+A run is no drawing when it holds any other control line (an `SRTBL`
+envelope nested inside a drawn box, SC24-5527-02 `3.14.1` record 353 line 3,
+is a different structure) or a box word whose hosted glyph is not established
+(FA1PLMM0 `C.0` record 781 line 16 underlines its column heads with
+`U+255A` runs).
 
 [[markup_verbatim_cz_regions]]
 ==== Verbatim `CZ` regions

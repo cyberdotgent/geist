@@ -252,15 +252,178 @@ void native_drawing_region() {
             markdown.find("\n\n   |") != std::string::npos,
         "native drawing UTF-8 glyph changed in Markdown: " + markdown);
 }
+// The text between two `<pre>` markers of a rendered fragment.
+std::string pre_body(const std::string &html) {
+  const auto open = html.find("<pre");
+  if (open == std::string::npos) return {};
+  const auto body = html.find('>', open);
+  const auto close = html.find("</pre>", body);
+  if (body == std::string::npos || close == std::string::npos) return {};
+  return html.substr(body + 1, close - body - 1);
+}
+// An unclosed drawing is no closed box region: it has no bottom rule.  It is
+// still an open native drawing -- a blank-delimited run of display rows, one
+// of them drawn from box words alone -- and hosted BookServer prints such a
+// run verbatim (IEAC6MST 2.1 record 83 lines 3..7, DT 19920124000100, an
+// ISPF panel excerpt drawn with a top rule and rails and no bottom rule).
+// The blank row ends the run: it must not absorb the prose after it.
 void unclosed_native_drawing() {
+  Builder b(false);
+  b.line({});
+  b.line({w("   "), {0x250c, 0x2500, 0x2500, 0x2500, 0x2510}});
+  b.line({w("   "), {2, 0x2502}, w("   "), {2, 0x2502}});
+  b.line({});
+  b.line({w("ordinary prose")});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "unclosed native drawing rejected: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto pre = pre_body(html);
+  check(pre == "    ___ \n   |   |",
+        "unclosed drawing rows were not drawn verbatim: " + html);
+  check(html.find("ordinary prose") != std::string::npos &&
+            pre.find("ordinary prose") == std::string::npos,
+        "an unclosed drawing absorbed its blank row and following prose: " +
+            html);
+}
+// The run must be the drawing's own: a structural control line inside it
+// (here the topic's own `ST` title line, with no blank row between) is
+// nothing a drawing can hold, so the box-only row keeps its fail-closed
+// reading.
+void open_drawing_with_structure_declines() {
   Builder b(false);
   b.line({w("   "), {0x250c, 0x2500, 0x2500, 0x2500, 0x2510}});
   b.line({w("   "), {2, 0x2502}, w("   "), {2, 0x2502}});
   b.line({});
   b.line({w("ordinary prose")});
   std::string error;
-  check(!lower(b, error),
-        "an unclosed drawing absorbed its blank row and following prose");
+  const auto doc = lower(b, error);
+  check(!doc && error.find("placeholder run") != std::string::npos,
+        "a drawing glued to a structural control line was admitted: " +
+            (doc ? render_document_html_fragment(*doc) : error));
+}
+// The IEAC6MST 2.1 record 83 line 3 token shape: origin run, top-left corner,
+// an attaching bare token, the rule split over two dictionary runs, and the
+// top-right corner.  Nothing on the row is an ordinary word, and it is not a
+// rule-only line either, so it is neither the `<hr>` reading nor a marker
+// slot: it is drawn, and so is every row of its run, the word-bearing
+// `MENU` row included.
+void indented_box_only_rows() {
+  Builder b(false);
+  b.line({});
+  b.line({w("You see:")});
+  b.line({});
+  b.line({w("       "), {0x250c}, {1}, {0x2500, 0x2500, 0x2500, 0x2500},
+          {1}, {0x2500, 0x2500}, {1, 0x2510}});
+  b.line({w("       "), {0x2502}, w("     "), {0x2502}});
+  b.line({w("cfont"), w("8"), w("4"), w("2")});
+  b.line({w("       "), {0x2502}, {1, 'M', 'E', 'N', 'U'}, w(" "),
+          {0x2502}});
+  b.line({w("       "), {0x2502}, w("     "), {0x2502}});
+  b.line({});
+  b.line({w("Then continue.")});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "indented box-only rows rejected: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto pre = pre_body(html);
+  check(pre == "        ______ \n"
+               "       |      |\n"
+               "       |<strong class=\"geist-strong\">MENU</strong>  |\n"
+               "       |      |",
+        "indented box-only rows were not drawn verbatim: " + html);
+  check(html.find("You see:") < html.find("<pre") &&
+            html.find("Then continue.") > html.find("</pre>"),
+        "prose around the drawing moved into it: " + html);
+  const auto markdown = render_document_markdown(*doc);
+  check(markdown.find("       |      |") != std::string::npos,
+        "indented box-only row lost in Markdown: " + markdown);
+}
+// The SC24-546 5.3 record 623 line 20 shape: a bottom rule with junctions,
+// below a row whose box words are preceded by a label.  The label row is
+// part of the drawing, so its columns survive as well.
+void indented_box_bottom_row() {
+  Builder b(false);
+  b.line({});
+  b.line({w("   "), w("FIELDS:"), {1, 0x2502}, {1, 'N', 'A', 'M', 'E'},
+          w(" "), {0x2502}});
+  b.line({w("          "), {0x2514}, {1}, {0x2500, 0x2500, 0x2500, 0x2500},
+          {1, 0x2518}});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "indented box bottom row rejected: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  check(pre_body(html) == "   FIELDS:|NAME  |\n"
+                          "          |____|",
+        "field template was not drawn verbatim: " + html);
+}
+// A row of nothing but `U+2500` stays the reader's horizontal rule, however
+// far it is indented: the open-drawing reading must not take it.
+void indented_rule_line_stays_rule() {
+  Builder b(false);
+  b.line({});
+  b.line({w("Above.")});
+  b.line({w("   "), {0x2500, 0x2500, 0x2500, 0x2500}});
+  b.line({w("Below.")});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "indented rule line rejected: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  check(html.find("<hr") != std::string::npos &&
+            html.find("____") == std::string::npos,
+        "indented rule line was drawn instead of ruled: " + html);
+}
+// A box word whose hosted glyph is unproven (`U+255A`, FA1PLMM0 C.0 record
+// 781 line 16) would print the decoder's `?` inside the drawing.
+void unproven_box_glyph_declines() {
+  Builder b(false);
+  b.line({});
+  b.line({w("   "), {0x250c, 0x2500, 0x2510}});
+  b.line({w("   "), {0x255a, 0x255a, 0x255a}});
+  b.line({});
+  b.line({w("ordinary prose")});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(!doc, "a drawing with an unproven box glyph was admitted: " +
+                  (doc ? render_document_html_fragment(*doc) : error));
+}
+// A cross-book `LNK` selector line inside a closed box draws nothing: its
+// `<...>` alternatives are the selector's destination (SC24-5527-02 1.0
+// record 59 line 29, `cselect 47 30 LNK <BOOK> <> <> <SC24-5444> <ANY>
+// <HCPA3>` inside the `Note` box, DT 19921218151459).
+void lnk_selector_inside_closed_box() {
+  Builder b(false);
+  b.line({});
+  b.line({w("   "), {0x250c, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500,
+                      0x2510}});
+  b.line({w("   "), {2, 0x2502}, w("      "), {2, 0x2502}});
+  b.line({w("cselect"), w("4"), w("5"), w("LNK"), w("<BOOK>"), w("<>"),
+          w("<>"), w("<SC24-5444>"), w("<ANY>"), w("<HCPA3>")});
+  b.line({w("   "), {2, 0x2502}, {1, 'G', 'U', 'I', 'D', 'E'}, w(" "),
+          {0x2502}});
+  b.line({w("   "), {0x2514, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500,
+                      0x2518}});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "closed box around a LNK selector rejected: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto pre = pre_body(html);
+  check(pre.find("SC24-5444") == std::string::npos &&
+            pre.find("cselect") == std::string::npos,
+        "LNK selector line was drawn inside the box: " + html);
+  check(pre.find(">GUIDE</a>") != std::string::npos &&
+            pre.find("|______|") != std::string::npos,
+        "LNK selector did not link the next box row: " + html);
 }
 void bullet() {
   Builder b;
@@ -292,6 +455,12 @@ int main() {
   leading_native_box_glyphs();
   native_drawing_region();
   unclosed_native_drawing();
+  open_drawing_with_structure_declines();
+  indented_box_only_rows();
+  indented_box_bottom_row();
+  indented_rule_line_stays_rule();
+  unproven_box_glyph_declines();
+  lnk_selector_inside_closed_box();
   bullet();
   rejected({w("   "), w("SNA"), {1}, {0xffff}, {1}, w("ps")});
   rejected({w("   "), w("SNA"), {0x2666}, w("ps")});

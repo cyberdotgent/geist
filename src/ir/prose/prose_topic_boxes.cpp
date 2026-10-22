@@ -3,9 +3,11 @@
 
 #include "geist/detail/ir/prose/prose_topic_internal.hpp"
 
+#include "geist/detail/ir/selector_link_ir.hpp"
 #include "geist/detail/layout/display_lines.hpp"
 
 #include <algorithm>
+#include <optional>
 
 // Drawn box regions embedded in ordinary prose.
 //
@@ -33,8 +35,10 @@
 //   * `cfont` control lines may stand between the rows (QSYSNEWG record 18
 //     token 171); any other interleaved line ends the candidate.
 //
-// A candidate without a matching bottom rule is not a region and the topic
-// keeps whatever disposition it had.
+// A candidate without a matching bottom rule is no closed region.  Its rows
+// may still form an open drawing (`open_drawing` below): a blank-delimited
+// run of display rows, one of which is drawn from box words alone.  Anything
+// else keeps whatever disposition the line builder gives it.
 namespace geist::detail::prose_internal {
 
 namespace {
@@ -138,6 +142,15 @@ struct Candidate {
 // the *next* row (`<a href="FRONT_1...">&quot;Notices&quot; in topic
 // FRONT_1</a>`).  SC24-5527-02 3.10.4.4 (record 2039) and SC09-2417-00
 // NOTICES draw the same shape.
+//
+// A cross-book `LNK` selector stores its destination as the `<...>`
+// alternatives that follow its operands on the same line
+// (doc/boo-spec/markup.adoc, "LNK selector alternatives"); they are the
+// control's own metadata, never display text, so they draw nothing either.
+// SC24-5527-02 1.0 record 59 draws its `Note` box around
+// `cselect 47 30 LNK <BOOK> <> <> <SC24-5444> <ANY> <HCPA3>` (line 29), and
+// hosted DT 19921218151459 prints the box unbroken with the selector's
+// label linked on the next row.
 bool control_only_line(const DecodedLogicalRecordSource& record,
                        const DisplayLineIR& line) {
   if (line.token_end <= line.prefix_token + 1) return false;
@@ -146,7 +159,11 @@ bool control_only_line(const DecodedLogicalRecordSource& record,
     if (segment_index >= record.control_segments.size()) return false;
     const auto& segment = record.control_segments[segment_index];
     const auto operands = operand_tokens(record, segment);
-    if (!std::binary_search(operands.begin(), operands.end(), token))
+    if (std::binary_search(operands.begin(), operands.end(), token)) continue;
+    const auto alternatives =
+        selector_link_alternative_tokens(record, segment, nullptr);
+    if (std::find(alternatives.begin(), alternatives.end(), token) ==
+        alternatives.end())
       return false;
   }
   return true;
@@ -170,6 +187,153 @@ bool control_only_line(const DecodedLogicalRecordSource& record,
 bool index_line(const DecodedLogicalRecordSource& record,
                 const DisplayLineIR& line) {
   return is_subject_index_display_line(record, line);
+}
+
+// A display line made only of instructions the reader draws nothing for: a
+// `cfont`/`cselect` control line or a subject-index entry.  These are the
+// lines a native example already lets stand between its rows; any other
+// control (a structural envelope marker, a layout directive, a title) is
+// structure a drawing cannot contain.
+bool hidden_drawing_line(const DecodedLogicalRecordSource& record,
+                         const Candidate& candidate) {
+  if (candidate.index) return true;
+  if (!candidate.control_only) return false;
+  for (auto token = candidate.line.prefix_token + 1;
+       token < candidate.line.token_end; ++token) {
+    const auto segment_index = segment_of(record, token);
+    if (segment_index >= record.control_segments.size()) return false;
+    const auto kind = record.control_segments[segment_index].kind;
+    if (kind != BookControlKind::font && kind != BookControlKind::select)
+      return false;
+  }
+  return true;
+}
+
+// A display line whose every token is display text: no token is the opcode,
+// an operand or the `LNK` destination of a control.
+bool display_row(const DecodedLogicalRecordSource& record,
+                 const DisplayLineIR& line) {
+  for (auto token = line.prefix_token + 1; token < line.token_end; ++token) {
+    const auto segment_index = segment_of(record, token);
+    if (segment_index >= record.control_segments.size()) continue;
+    const auto& segment = record.control_segments[segment_index];
+    if (segment.display_text || segment.kind == BookControlKind::text)
+      continue;
+    const auto operands = operand_tokens(record, segment);
+    if (std::binary_search(operands.begin(), operands.end(), token))
+      return false;
+    const auto alternatives =
+        selector_link_alternative_tokens(record, segment, nullptr);
+    if (std::find(alternatives.begin(), alternatives.end(), token) !=
+        alternatives.end())
+      return false;
+  }
+  return true;
+}
+
+constexpr std::uint16_t box_drawing_first = 0x2500;
+constexpr std::uint16_t box_drawing_last = 0x257F;
+
+// A row drawn from box-drawing words alone.  `joint` reports a corner, rail
+// or junction among them; a row of nothing but `U+2500` is the reader's
+// horizontal rule instead (prose_topic_lines.cpp, `display_rule_line`).
+bool box_only_row(const std::vector<std::uint16_t>& columns, bool& joint) {
+  joint = false;
+  bool drawn = false;
+  for (const auto word : columns) {
+    if (word == ' ') continue;
+    if (word < box_drawing_first || word > box_drawing_last) return false;
+    drawn = true;
+    joint = joint || word != box_rule;
+  }
+  return drawn;
+}
+
+// An open native drawing: a run of display rows between two blank display
+// lines that draws with box words but closes no box.  The closed region
+// above proves rails at fixed columns; this shape has none to prove, and the
+// display rows themselves are the evidence instead.  At least one row carries
+// nothing but box-drawing words, among them a corner, rail or junction: no
+// prose row is spelled that way, the row model has no reading for it (it is
+// neither a marker slot in front of a row's text nor the rule-only `<hr>`
+// line), and hosted BookServer prints the whole run column for column
+// inside its `<pre>`.  Byte-level evidence on four books:
+//
+//   * IEAC6MST 2.1 record 83 lines 3..7, an ISPF panel excerpt with a top
+//     rule and rails but no bottom rule.  Line 3 is the length byte (9), a
+//     7-cell space run, `U+250C` (byte 0x06), a bare attach token, the
+//     rule as `U+2500`x63 and `U+2500`x19 runs, and `U+2510` (DT
+//     19920124000100).
+//   * OFCUSEOV 1.1 record 47 line 37 to record 48 line 13, the lower half of
+//     a panel: rails and a bottom rule, no top rule (DT 19900805103816).
+//   * SC24-546 5.3 record 623 lines 16..20, a field template whose column
+//     numbers and `FIELDS:` label stand outside the drawn cells; line 20 is
+//     a 12-cell origin, `U+2514` and the rule with `U+2534` junctions
+//     (DT 19940323131240).
+//   * SC33-033 4.77 record 493 lines 26..30, a scale whose tick row is
+//     `U+250C`/`U+252C`/`U+2510` over `U+2500` runs, with `cfont` lines
+//     between the rows (DT 19930422134757).
+//
+// The run fails closed -- it is no region, and the line builder keeps its
+// own disposition -- when any line in it is a control other than a
+// `cfont`/`cselect`/`SI` line (an `SRTBL` envelope nested in a drawn box,
+// SC24-5527-02 3.14.1 record 353 line 3, stays declined), a rule-only row,
+// or a cell without a proven hosted glyph.
+std::optional<BoxRegion> open_drawing(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const std::vector<Candidate>& candidates, std::size_t first,
+    std::size_t last) {
+  // Leading and trailing instruction lines address rows outside the run;
+  // the line builder applies them as it does around a closed box.
+  while (first <= last &&
+         hidden_drawing_line(records[candidates[first].record],
+                             candidates[first]))
+    ++first;
+  while (first <= last &&
+         hidden_drawing_line(records[candidates[last].record],
+                             candidates[last]))
+    --last;
+  if (first > last) return std::nullopt;
+  bool drawn = false;
+  for (auto cursor = first; cursor <= last; ++cursor) {
+    const auto& candidate = candidates[cursor];
+    const auto& record = records[candidate.record];
+    if (hidden_drawing_line(record, candidate)) continue;
+    if (!display_row(record, candidate.line)) return std::nullopt;
+    // Every cell must have a known hosted spelling.  An unmapped word, or a
+    // box word whose hosted glyph is unproven (FA1PLMM0 C.0 record 781 line
+    // 16 underlines its column heads with `U+255A` runs), would print the
+    // decoder's `?` in the drawing.
+    if (std::any_of(candidate.columns.begin(), candidate.columns.end(),
+                    [](const auto word) {
+                      return word == unmapped_word ||
+                             (word != '?' && figure_display_glyph(word) == "?");
+                    }))
+      return std::nullopt;
+    bool joint = false;
+    if (box_only_row(candidate.columns, joint)) {
+      if (!joint) return std::nullopt;
+      drawn = true;
+    }
+  }
+  if (!drawn) return std::nullopt;
+  BoxRegion region;
+  for (auto cursor = first; cursor <= last; ++cursor) {
+    const auto& candidate = candidates[cursor];
+    if (candidate.index) {
+      region.index_lines.push_back({candidate.record, candidate.line,
+                                    candidate.text, candidate.columns});
+      continue;
+    }
+    if (candidate.control_only) continue;
+    region.lines.push_back(
+        {candidate.record, candidate.line, candidate.text, candidate.columns});
+  }
+  region.begin_record = candidates[first].record;
+  region.begin_token = candidates[first].line.prefix_token;
+  region.end_record = candidates[last].record;
+  region.end_token = candidates[last].line.token_end - 1;
+  return region;
 }
 
 } // namespace
@@ -197,6 +361,7 @@ std::vector<BoxRegion> plan_boxes(
     }
   }
   std::vector<BoxRegion> regions;
+  std::vector<bool> claimed(candidates.size(), false);
   for (std::size_t index = 0; index < candidates.size(); ++index) {
     if (candidates[index].kind != BoxLineKind::top) continue;
     const auto left = candidates[index].left;
@@ -235,8 +400,31 @@ std::vector<BoxRegion> plan_boxes(
     region.end_record = candidates[end].record;
     region.end_token = candidates[end].line.token_end - 1;
     regions.push_back(std::move(region));
+    std::fill(claimed.begin() + static_cast<std::ptrdiff_t>(index),
+              claimed.begin() + static_cast<std::ptrdiff_t>(end) + 1, true);
     index = end;
   }
+  // Open drawings: blank-delimited runs of display lines that no closed
+  // region claimed.
+  for (std::size_t first = 0; first < candidates.size();) {
+    if (claimed[first] || candidates[first].blank) {
+      ++first;
+      continue;
+    }
+    auto last = first;
+    while (last + 1 < candidates.size() && !claimed[last + 1] &&
+           !candidates[last + 1].blank)
+      ++last;
+    if (auto drawing = open_drawing(records, candidates, first, last))
+      regions.push_back(std::move(*drawing));
+    first = last + 1;
+  }
+  std::sort(regions.begin(), regions.end(),
+            [](const BoxRegion& a, const BoxRegion& b) {
+              return a.begin_record != b.begin_record
+                         ? a.begin_record < b.begin_record
+                         : a.begin_token < b.begin_token;
+            });
   return regions;
 }
 

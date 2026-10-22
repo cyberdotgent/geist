@@ -433,8 +433,11 @@ struct BoxRegion {
   std::size_t end_token = 0;  // last token of the bottom rule, inclusive
 };
 
-// Every closed box region of the topic, in source order.  Declines silently
-// (returns no region) when a record's display lines do not parse.
+// Every closed box region and every open native drawing of the topic, in
+// source order.  An open drawing has no rails to prove: its `begin_token` is
+// its first row's length byte and `end_token` its last row's last token.
+// Declines silently (returns no region) when a record's display lines do not
+// parse.
 std::vector<BoxRegion> plan_boxes(
     const std::vector<DecodedLogicalRecordSource>& records);
 
