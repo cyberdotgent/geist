@@ -616,6 +616,15 @@ positions are not equal.`, DT `19910329000100`), `SC24-546` `A.0` (`a period
 (.)  in a name`) and `SC34-425` `2.4.19` (`PROJECT.GROUP.TYPE.CUQUAL.)  The
 maximum length`).
 
+A glyph that ends a field's row closes a bracket the field opened, even
+where `cselect` lines split the field's rows between controls.
+`APPENDIX1.5.3` entry `FLM04030` (record 2592, lines 26--31) draws
+`by SCLM  (See Chapter 10, "Defining the Project Environment" in`,
+`topic 2.1 for information on the correct key lengths for the VSAM` and
+`data sets)` as an item of its return-code list, with `cselect 23 49
+HDRJLIB` and `cselect 9 10 HDRJLIB` between the rows.  Hosted serves
+`data sets)`.
+
 A run inside a field is checked against its own row's cells the same way.
 That holds when its `cfont` closes one record and the row opens the next.
 `APPENDIX1.5.3` record 2547 ends with line 33, `cfont 3 8 1 21 8 1`, in the

@@ -755,7 +755,8 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
                   const std::vector<std::pair<std::size_t, std::size_t>>
                       *highlight_ranges = nullptr,
                   const std::vector<QueuedSelector> *queued = nullptr,
-                  const FontControlSpansIR *row_font = nullptr) {
+                  const FontControlSpansIR *row_font = nullptr,
+                  const std::string *open_context = nullptr) {
   // A revision bar the row's own CFONT styles is a drawn cell of the row,
   // not its margin; any span reaching column 1 keeps every bar of the
   // payload in the text, where the row's column checks then decide.
@@ -1179,8 +1180,11 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
   // two or more spaces follows, is the marker slot of a display line whose
   // origin token the following control or padding swallowed, unless it
   // closes a delimiter that the preceding text of the same segment left
-  // open. Such glyphs are conserved as terminal_glyph cells.
-  std::string preceding;
+  // open. Such glyphs are conserved as terminal_glyph cells. The text the
+  // payload continues counts as preceding text: a field can open its
+  // bracket in an earlier segment (SC34-425 APPENDIX1.5.3 `(See Chapter 10,
+  // ...` before a `cselect` line, closed by `data sets)` two rows later).
+  std::string preceding = open_context != nullptr ? *open_context : "";
   std::vector<Piece> kept;
   // Display offsets of the pieces before any of them is withheld, so a CFONT
   // column can be compared against them.
@@ -3633,6 +3637,10 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
                           segment.kind == BookControlKind::select ||
                                   carried_selectors
                               ? &queued_selectors
+                              : nullptr,
+                          nullptr,
+                          current != nullptr && footnote_line == nullptr
+                              ? &current->body.text
                               : nullptr))
           return std::nullopt;
         queued_selectors.clear();

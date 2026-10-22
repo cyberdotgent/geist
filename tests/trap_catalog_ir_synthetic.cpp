@@ -63,7 +63,8 @@
 //   * a field run styling the next record's first row, checked on that
 //     row's cells;
 //   * a closing glyph drawn mid-line, kept although LayoutIR took it for
-//     a row-control slot.
+//     a row-control slot, and a segment-closing glyph that closes a
+//     bracket an earlier segment of the field opened.
 //
 // What is NOT covered, stated plainly rather than implied: the compact
 // marker slot that carries a whole word. Two rules turn on it -- a slot the
@@ -3418,6 +3419,33 @@ int main() {
       const auto text = entry_text(built.catalog->entries.front());
       require(text.find("b) which") != std::string::npos,
               "a mid-line closing glyph was dropped: [" + text + "]");
+    }
+  }
+
+  // A glyph that ends its segment closes a bracket the same field opened in
+  // an earlier segment. SC34-425 APPENDIX1.5.3 draws `by SCLM  (See Chapter
+  // 10, "Defining the Project Environment" in` / `topic 2.1 for information
+  // on the correct key lengths for the VSAM` / `data sets)`, with `cselect`
+  // lines splitting the rows into segments; hosted (DT 19921112160049)
+  // serves `data sets)`.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("724", 564));
+    append(tokens, line({origin(), t("(see", 565), t("more", 545)}));
+    append(tokens, line({t("cselect", 191), t("3", 112), t("4", 566),
+                         t("TGT", 539)}));
+    append(tokens, line({origin(), t("text", 547), {TokenWords{1}, 0},
+                         t(")", 560)}));
+    append(tokens, line({}));
+    append(tokens, entry("725", 567));
+    const auto built = build({make_source(135, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "a bracket closed across segments declined: " + built.error);
+    if (built.catalog && built.catalog->entries.size() == 2) {
+      const auto text = entry_text(built.catalog->entries.front());
+      require(text.find("text)") != std::string::npos,
+              "a bracket closed across segments lost its glyph: [" + text +
+                  "]");
     }
   }
 
