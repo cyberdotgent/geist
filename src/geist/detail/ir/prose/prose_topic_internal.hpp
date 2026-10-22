@@ -545,9 +545,15 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
 // its `e`-prefixed closer are display rows served character for character,
 // left margin included.  Shared by the line builder (which reads the region to
 // resolve display-row framing) and the CZ block builder (which lowers it).
+//
+// `ADDRESS` is the BookMaster address block.  Hosted BookServer serves it
+// exactly like `XMP` and `LINES`: GA19-5486-13 `EDITION` (`GA19-548`, DT
+// 19951012161206) and SC21-8295-03 `EDITION`/`FRONT_1` (`SC21-829`, DT
+// 19970409135933) each open `<pre width="80">` at `cz OFF ADDRESS` and print
+// the address rows in it at their stored columns.
 inline bool cz_verbatim_region_tag(const std::string& tag) {
   return tag == "xmp" || tag == "screen" || tag == "lblbox" ||
-         tag == "syntax" || tag == "lines";
+         tag == "syntax" || tag == "lines" || tag == "address";
 }
 inline bool cz_verbatim_region_closer(const std::string& tag) {
   return tag.size() > 1 && tag.front() == 'e' &&

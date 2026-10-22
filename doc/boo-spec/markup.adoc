@@ -3545,9 +3545,10 @@ prose.  Either control must have a drawn row of the envelope after it.
 [[markup_verbatim_cz_regions]]
 ==== Verbatim `CZ` regions
 
-The `CZ` dialect names three verbatim regions, each opened by `cz OFF <tag>`
-and closed by `cz OFF E<tag>`, and hosted BookServer serves all three inside
-their own `<pre>` block, character for character:
+The `CZ` dialect names these verbatim regions (`SYNTAX` and `LINES`, below,
+are two more), each opened by `cz OFF <tag>` and closed by `cz OFF E<tag>`,
+and hosted BookServer serves each inside its own `<pre>` block, character for
+character:
 
 [cols="<8,<34,<45",options="header"]
 |===
@@ -3556,7 +3557,26 @@ their own `<pre>` block, character for character:
 |`XMP` |`<pre width="80">` |packet `2.4.1`
 |`SCREEN` |`<pre width="80">` |SC09-2417-00 `3.2.3`, served as `SC09-241` DT `19961114175628` -- the `PURCHASE ORDER FORM` display, reproduced line for line including its drawn frame
 |`LBLBOX` |`<pre width="132"><!-- lblbox -->` |SC09-2417-00 `NOTICES`, same DT -- the `___ Note! ___` box, and hosted names the region in the comment
+|`ADDRESS` |`<pre width="80"><!-- * -->` |GA19-5486-13 `EDITION`, served as `GA19-548` DT `19951012161206` -- the twelve-row mailing address, reproduced line for line at column 7
 |===
+
+`ADDRESS` is the BookMaster address block, and it is a verbatim region exactly
+like `XMP` and `LINES`.  In `GA19-5486-13.boo` topic `EDITION`, logical record
+5, segment 13 is `cz OFF ADDRESS` (the tag word `ADDRESS` is the two-byte
+token at `0xA03BD`--`0xA03BE`), followed by the twelve address rows from
+`IBM United Kingdom Ltd.` to `Internet:  nigel_adams@uk.ibm.com`, and segment
+14 is `cz OFF EADDRESS 0 0` (tag word at `0xA0450`--`0xA0451`).  Hosted opens
+`<pre width="80"><!-- * -->` at the opener and prints every row in it at its
+stored column 7.  The same pair wraps both addresses of `SC21-8295-03.boo`
+`FRONT_1` and the two of its `EDITION` (served as `SC21-829`, DT
+`19970409135933`), and the address inside the first list item of `DFHP7A00`
+`BACK_4`.  `SC21-8295-03` `EDITION` also proves the closer rule: its first
+`cz OFF EADDRESS 0 0` carries `or you can fax your comments to:`, the body
+text that follows the address, at `left` 3 -- the same place `cz OFF EXMP`
+puts the text it carries.  Hosted keeps such closer text inside the open
+`<pre>` between two `<p>` breaks for `ADDRESS` and `XMP` alike (packet
+`2.4.1`, DT `20260614112503`, prints `Note that zeros are omitted` that way),
+so the two tags do not differ there either.
 
 Inside a verbatim region a box-drawing run is display content, not row
 geometry: the frame words occupy their own display columns and hosted prints
@@ -3754,6 +3774,10 @@ Complete corpus census of every `cz OFF <tag>` region name, with line counts:
 
 Nothing else occurs. `cz BREAK` accounts for 773 lines, `cz FLOW` for 5,855 and
 `cz OFF` for 2,147, a total of 8,775 `CZ` display lines.
+
+Books outside that census add one more verbatim region name,
+`ADDRESS` / `EADDRESS` (see "Verbatim `CZ` regions"): `GA19-5486-13`,
+`SC21-8295-03` and `DFHP7A00` each wrap their mailing addresses in it.
 
 [[markup_the_six_region_names_that_had_no_modelled_meaning]]
 ==== The Six Region Names That Had No Modelled Meaning

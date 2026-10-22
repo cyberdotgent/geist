@@ -1455,6 +1455,59 @@ void an_unclosed_unmodelled_region_declines_the_topic() {
               extracted.error);
 }
 
+// `cz OFF ADDRESS` .. `cz OFF EADDRESS` is a modelled verbatim region, not
+// a degraded one.  GA19-5486-13 `EDITION` (record 5 segments 13-14),
+// SC21-8295-03 `EDITION`/`FRONT_1` and DFHP7A00 `BACK_4` wrap their mailing
+// addresses in it, and hosted BookServer (`GA19-548` DT 19951012161206,
+// `SC21-829` DT 19970409135933) serves every one as `<pre width="80">`, the
+// rows character for character, exactly as it serves `XMP` and `LINES`.
+void an_address_region_is_a_typed_verbatim_block() {
+  auto extracted = extract("ADDRESS", "EADDRESS");
+  require(extracted.prose.has_value(),
+          "a closed cz OFF ADDRESS region was declined: " + extracted.error);
+  if (!extracted.prose) return;
+  std::string error;
+  require(geist::detail::verify_prose_topic_ir(
+              extracted.sources, extracted.layout, *extracted.ownership,
+              topic_title, nullptr, *extracted.prose, &error),
+          "the address topic failed the prose verifier: " + error);
+  std::size_t verbatim = 0;
+  for (const auto &block : extracted.prose->blocks) {
+    require(block.degradation_code.empty(),
+            "the address region is still degraded: " + block.degradation_code);
+    if (block.kind != geist::detail::ProseBlockKindIR::preformatted) continue;
+    ++verbatim;
+    require(block.preformatted_lines.size() == 2 &&
+                contains(block.preformatted_lines[0], "alpha beta") &&
+                contains(block.preformatted_lines[1], "gamma delta"),
+            "the address block is not the region's two display rows");
+  }
+  require(verbatim == 1, "the address region did not become one verbatim "
+                         "block");
+  const auto document = geist::detail::lower_prose_topic_to_document_ir(
+      identity(), *extracted.prose, &error);
+  require(document.has_value(), "lowering the address topic failed: " + error);
+  if (!document) return;
+  geist::detail::TypedLoweringTraceIR trace;
+  trace.family = "prose";
+  const auto diagnostic = geist::detail::classify_typed_lowering(
+      identity(), &*document, {}, trace);
+  require(diagnostic.severity == geist::RenderSeverity::typed,
+          "the address topic is not typed, it is " +
+              std::string(geist::to_string(diagnostic.severity)));
+  const auto markdown = geist::detail::render_document_markdown(*document);
+  require(contains(markdown, "After the region") &&
+              !contains(markdown, "degraded"),
+          "the address topic did not render as typed prose: " + markdown);
+}
+
+// An address region the source never closes still declines whole.
+void an_unclosed_address_region_declines_the_topic() {
+  const auto extracted = extract("ADDRESS", "EGIZMO");
+  require(!extracted.prose.has_value(),
+          "a cz OFF ADDRESS region the source never closes was admitted");
+}
+
 } // namespace
 
 int main() {
@@ -1477,6 +1530,8 @@ int main() {
   unproven_list_parts_still_decline();
   a_closed_unmodelled_region_degrades_its_block();
   an_unclosed_unmodelled_region_declines_the_topic();
+  an_address_region_is_a_typed_verbatim_block();
+  an_unclosed_address_region_declines_the_topic();
   geist_test::exit_with_failures();
   std::cout << "cz_degraded_region_synthetic: ok\n";
   return 0;
