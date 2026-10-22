@@ -696,6 +696,35 @@ int main() {
       return 1;
   }
 
+  // Two emphasis runs with nothing between them cannot both be Markdown
+  // delimiter runs: `*ft***,**` glues the closer of one to the opener of the
+  // next, and CommonMark then leaves `**,**` as literal asterisks. Such runs
+  // are written as inline HTML, which pairs unambiguously; a run with text
+  // or a space on both sides keeps its Markdown delimiters.
+  {
+    DocumentIR abutting;
+    abutting.topic.id = "ABUT";
+    InlineSequenceIR line;
+    line.push_back(in(EmphasisInlineIR{"fn", EmphasisKindIR::emphasis}));
+    line.push_back(in(TextInlineIR{" "}));
+    line.push_back(in(EmphasisInlineIR{"ft", EmphasisKindIR::emphasis}));
+    line.push_back(in(EmphasisInlineIR{",", EmphasisKindIR::strong}));
+    line.push_back(in(TextInlineIR{" tail"}));
+    abutting.blocks.push_back(block(ParagraphBlockIR{std::move(line)}));
+    DocumentRenderTraceIR abut_trace;
+    const auto output = render_document_markdown(abutting, {}, &abut_trace);
+    if (!contains(output,
+                  "*fn* <em class=\"geist-emphasis\">ft</em>"
+                  "<strong class=\"geist-strong\">,</strong> tail",
+                  "abutting emphasis runs were not written as HTML: " +
+                      output) ||
+        !require(markdown_visible_text(output, abut_trace).find("fn ft, tail") !=
+                     std::string::npos,
+                 "abutting emphasis visible text drifted: " +
+                     markdown_visible_text(output, abut_trace)))
+      return 1;
+  }
+
   std::cout << "document Markdown renderer synthetic checks passed\n";
   return 0;
 }

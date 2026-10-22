@@ -271,6 +271,26 @@ void append_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
               sink.syntax("\\", "line start escape", origin);
             sink.content(escape_markdown_text_impl(node.text), "text", origin);
           } else if constexpr (std::is_same_v<T, EmphasisInlineIR>) {
+            // Two emphasis runs with nothing between them glue one closing
+            // delimiter run to the next opening one (`*ft***,**`), which
+            // CommonMark cannot pair and leaves as literal asterisks. Such a
+            // run is written as inline HTML instead, which pairs exactly.
+            const auto emphasis_at = [&](std::size_t at) {
+              return at < inlines.size() &&
+                     std::holds_alternative<EmphasisInlineIR>(
+                         inlines[at].node);
+            };
+            // A table cell keeps its delimiters for a run holding `|`, which
+            // the HTML form would leave unescaped as a cell boundary.
+            const auto cell_pipe = context == InlineContext::table_cell &&
+                                   node.text.find('|') != std::string::npos;
+            if (!cell_pipe && (emphasis_at(index + 1) ||
+                               (index > 0 && emphasis_at(index - 1)))) {
+              sink.html(render_document_html_inlines({in}, {},
+                                                      options.resolve_cross_reference),
+                        "abutting emphasis", origin);
+              return;
+            }
             const auto delimiter = emphasis_delimiter(node.kind);
             sink.syntax(delimiter, "emphasis delimiter", origin);
             sink.content(escape_markdown_text_impl(node.text), "emphasis text",
