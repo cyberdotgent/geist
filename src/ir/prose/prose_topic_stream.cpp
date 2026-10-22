@@ -100,6 +100,25 @@ std::string body_text(const TokenView& view) {
   return text;
 }
 
+// The token's words for a decline message: printable ASCII as itself, any
+// other word as its code point.  The decoder's ASCII projection spells every
+// non-ASCII word `?`, which made a correctly decoded arrow (DREICMST 1.5.5.4
+// record 162 token 310, `U+2193`) read like an undecodable byte.
+static std::string diagnostic_text(const TokenView& view) {
+  static constexpr char hex[] = "0123456789ABCDEF";
+  std::string text;
+  for (const auto word : view.body) {
+    if (word >= 0x20 && word <= 0x7E) {
+      text += static_cast<char>(word);
+      continue;
+    }
+    text += "U+";
+    for (int shift = 12; shift >= 0; shift -= 4)
+      text += hex[(word >> shift) & 0xF];
+  }
+  return text;
+}
+
 std::string display_body_text(const TokenView& view) {
   std::string text;
   for (const auto word : view.body) text += word_text(word);
@@ -1156,8 +1175,9 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           continue;
         }
         if (!is_padding(view) && !is_separator(view))
-          return fail(error, "unclaimed visible token '" + body_text(view) +
-                                 "' in record " +
+          return fail(error, "unclaimed visible token '" +
+                                 diagnostic_text(view) + "' (token " +
+                                 std::to_string(token) + ") in record " +
                                  std::to_string(record.logical_record));
         if (!ledger.assign(record_index, token, ProseTokenRoleIR::padding,
                            error))

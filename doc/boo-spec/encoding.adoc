@@ -249,6 +249,39 @@ Two of the five bytes are what a CP437 console would draw for the character
 (`0x1b` left arrow, `0x19` down arrow); the other three are not, so the table
 is recorded as observed rather than derived.
 
+The arrow words are ordinary dictionary words, also when they are stored as
+two-byte references, and an ASCII projection that prints every non-ASCII
+word as `?` hides that. Three rows that read as a stray `?` in such a
+projection are each one decoded arrow at a drawn column:
+
+[cols="<20,<28,<30,<22",options="header"]
+|===
+|Topic |Source |Display line |Hosted (DT)
+
+|`DREICMST` `1.5.5.4` |record 162 token 310, bytes `0x1B68D`--`0x1B68F`,
+two-byte value 52020 -> `U+2193` |line 37 `      GEN     ↓`, the last row of a
+collating-order listing whose rows above draw a `U+2502` column |`0x19` at the
+end of the row (`19911219125856`)
+|`SC09-138` `B.0` |record 1894 tokens 95, 97, 99, 101, 103 and 104, from
+`0xFB401`, two-byte value 45115 -> `U+2191` |line 6, six arrows under the
+`COPT('FL(E) SEARCH(...)')` example, above the `|__1__|` bracket rows
+|`&quot;` at each column (`19910321130500`)
+|`SC28-1881-05` `1.29` |record 701 token 167, bytes `0x65A92`--`0x65A94`,
+two-byte value 51258 -> `U+2191` |line 17, column 41 of the `PRINTDS` syntax
+diagram, styled by `cfont 41 1 E` on line 16 |`<samp>&quot;</samp>`
+(`19930326130533`)
+|===
+
+None of the three is running text. Each arrow stands in a drawn row that
+hosted serves at its native columns, and in all three the flattened decoded
+string places the arrow in no control segment: it falls between the segment
+that ends with the row above and the next `cfont` line (`SC09-138` line 7,
+`SC28-1881-05` line 18), or after the record's last segment (`DREICMST`).
+Only the display lines place it. Read as a prose word, the arrow joins the
+row above it (`... ''MARK.SUPPLY.C(ORDER)'')') ↑ ↑ ↑ ↑ ↑ ↑`, or the whole
+`DREICMST` listing run together as one line), so a reader must print these
+rows as drawn rows.
+
 The token word `0x2666` is not inherently a list-item delimiter. It also occurs
 attached inside ordinary text. In `GA19-5486-13` (build `10/12/95 16:12:06`),
 topic `23.1`, logical record 988, physical offsets `0xf073f` through `0xf0741`

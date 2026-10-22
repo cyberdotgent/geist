@@ -144,6 +144,27 @@ void rejected(std::vector<TokenWords> content) {
   std::string error;
   check(!lower(b, error), "ambiguous or unmapped glyph was admitted");
 }
+// An arrow word at the end of a topic's display rows.  DREICMST 1.5.5.4
+// record 162 ends with line 37, `      GEN     ` and the two-byte
+// dictionary word `U+2193` (token 310, encoded 52020), the last row of an
+// aligned collating-order listing whose `|` column the rows above draw;
+// hosted DT 19911219125856 prints the arrow as the display-table byte 0x19
+// at the end of that `<pre>` row.  No segment of the record owns the token,
+// and admitting it as prose ran the listing together, so the topic declines
+// -- and the reason must name the decoded word, not the ASCII projection's
+// `?`, which reads like an undecodable byte.
+void unclaimed_arrow_declines_by_name() {
+  Builder b(false);
+  b.line({w("   "), w("Sorted"), w("as"), w("follows:")});
+  b.line({});
+  b.line({w("      "), w("ABCDE"), w("   "), {0x2502}});
+  b.line({w("      "), w("GEN"), w("     "), {0x2193}});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(!doc, "an unclaimed arrow row was admitted");
+  check(error.find("unclaimed visible token 'U+2193'") != std::string::npos,
+        "unclaimed arrow is not named by its code point: " + error);
+}
 void single_column_span(bool selector) {
   Builder b;
   b.line(
@@ -1048,6 +1069,7 @@ int main() {
   frame_rows_around_table(true);
   frame_rows_around_table(false, {0x251c});
   frame_rows_around_prose_decline();
+  unclaimed_arrow_declines_by_name();
   index_line_keeps_paragraph_break();
   index_line_extra_blank_keeps_paragraph();
   styled_table_row(false, true);
