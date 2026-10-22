@@ -75,7 +75,8 @@ std::string ascii_lower(std::string value) {
 bool valid_cross_reference_target(const CrossReferenceTargetIR& target) {
   const auto no_derived_fields = [&] {
     return target.document_number.empty() && target.document_level.empty() &&
-           target.heading_anchor.empty() && target.url.empty();
+           target.heading_anchor.empty() && target.spot_anchor.empty() &&
+           target.url.empty();
   };
   if (target.value.empty()) return false;
   if (target.alternatives.empty()) {
@@ -87,6 +88,7 @@ bool valid_cross_reference_target(const CrossReferenceTargetIR& target) {
       return no_derived_fields();
     case CrossReferenceTargetKindIR::book_contents:
     case CrossReferenceTargetKindIR::book_heading:
+    case CrossReferenceTargetKindIR::book_spot:
       return false;
     }
     return false;
@@ -96,6 +98,9 @@ bool valid_cross_reference_target(const CrossReferenceTargetIR& target) {
   const auto& tuple = target.alternatives;
   if (target.value != tuple[5]) return false;
   const auto kind = ascii_lower(tuple[0]);
+  if (target.kind != CrossReferenceTargetKindIR::book_spot &&
+      !target.spot_anchor.empty())
+    return false;
   switch (target.kind) {
   case CrossReferenceTargetKindIR::book_contents:
     return kind == "book" && !tuple[3].empty() &&
@@ -107,6 +112,12 @@ bool valid_cross_reference_target(const CrossReferenceTargetIR& target) {
            target.document_number == tuple[3] &&
            target.document_level == tuple[4] &&
            target.heading_anchor == tuple[1] && target.url.empty();
+  case CrossReferenceTargetKindIR::book_spot:
+    return kind == "spt" && !tuple[1].empty() && !tuple[3].empty() &&
+           target.document_number == tuple[3] &&
+           target.document_level == tuple[4] &&
+           target.heading_anchor.empty() && target.spot_anchor == tuple[1] &&
+           target.url.empty();
   case CrossReferenceTargetKindIR::external:
     return (kind == "other" || kind == "internet") && !tuple[3].empty() &&
            target.document_number.empty() && target.document_level.empty() &&
@@ -587,6 +598,7 @@ const char* cross_reference_target_kind_name(
   case CrossReferenceTargetKindIR::external: return "external";
   case CrossReferenceTargetKindIR::book_contents: return "book_contents";
   case CrossReferenceTargetKindIR::book_heading: return "book_heading";
+  case CrossReferenceTargetKindIR::book_spot: return "book_spot";
   }
   return "invalid";
 }
@@ -655,6 +667,8 @@ void format_inlines(std::ostringstream& out, const InlineSequenceIR& inlines) {
                 out << " document_level=" << quoted(claim.target.document_level);
               if (!claim.target.heading_anchor.empty())
                 out << " heading_anchor=" << quoted(claim.target.heading_anchor);
+              if (!claim.target.spot_anchor.empty())
+                out << " spot_anchor=" << quoted(claim.target.spot_anchor);
               if (!claim.target.url.empty())
                 out << " url=" << quoted(claim.target.url);
               if (claim.control_origin) {

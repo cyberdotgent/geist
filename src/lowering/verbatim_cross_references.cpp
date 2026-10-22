@@ -206,6 +206,9 @@ VerbatimCrossReferenceIR link_verbatim_cross_references(
         link.url = parsed->destination;
         break;
       case SelectorLinkKindIR::external_image:
+      // A cross-book spot link is proven in prose only; the verbatim route
+      // leaves it unlinked exactly as it did while the kind was unparsed.
+      case SelectorLinkKindIR::book_spot:
         continue;
       }
     } else {

@@ -362,7 +362,8 @@ struct Reader {
             const auto alternative_tokens =
                 selector_link_alternative_tokens(r, segment, &alternatives);
             const auto parsed = parse_selector_link(alternatives, error);
-            if (!parsed || parsed->kind == SelectorLinkKindIR::external_image)
+            if (!parsed || parsed->kind == SelectorLinkKindIR::external_image ||
+                parsed->kind == SelectorLinkKindIR::book_spot)
               return fail(error, "unsupported link inside picture text");
             link.target = parsed->alternatives[5];
             link.alternatives = parsed->alternatives;
@@ -384,6 +385,7 @@ struct Reader {
               link.url = parsed->alternatives[3];
               break;
             case SelectorLinkKindIR::external_image:
+            case SelectorLinkKindIR::book_spot:
               return fail(error, "unsupported link inside picture text");
             }
             link.source =

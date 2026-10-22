@@ -50,6 +50,8 @@ enum class HtmlLinkKind {
   book_contents,
   // A heading inside another book.
   book_heading,
+  // A spot (`SRSPT<id>`) inside another book.
+  book_spot,
   // An absolute URL named from inside a drawn row.
   external_url,
 };
@@ -77,6 +79,10 @@ struct HtmlCrossBookReference {
   std::string document_level;
   // Alternative 2: the heading anchor of a `<HDR>` reference.
   std::string heading_anchor;
+  // Alternative 2: the spot anchor of a `<SPT>` reference.  Hosted BookServer
+  // addresses it in the other book as `SPT<anchor>`, where a `<HDR>` anchor
+  // is `HDR<anchor>`.  Empty for every other kind.
+  std::string spot_anchor;
   // Alternative 6: the target identifier the selector names.
   std::string target;
   // The whole alternative list verbatim, in source order, without its angle

@@ -43,6 +43,7 @@ enum class CrossReferenceTargetKindIR {
   external,
   book_contents,
   book_heading,
+  book_spot,  // a spot (`SRSPT<id>`) inside another book
 };
 
 struct CrossReferenceTargetIR {
@@ -59,6 +60,9 @@ struct CrossReferenceTargetIR {
   std::string document_number;
   std::string document_level;
   std::string heading_anchor;
+  // Alternative 2 of a `<SPT>` reference: the spot anchor inside the other
+  // book, which hosted BookServer addresses as `SPT<anchor>`.
+  std::string spot_anchor;
   std::string url;
 };
 

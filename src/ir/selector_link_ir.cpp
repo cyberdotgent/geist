@@ -61,6 +61,13 @@ std::optional<SelectorLinkIR> parse_selector_link(
     link.destination = "DOCNUM/" + fourth + "/HDR" + anchor;
     return link;
   }
+  if (kind == "spt") {
+    if (fourth.empty() || anchor.empty())
+      return reject("LNK <SPT> selector has no document number or anchor");
+    link.kind = SelectorLinkKindIR::book_spot;
+    link.destination = "DOCNUM/" + fourth + "/SPT" + anchor;
+    return link;
+  }
   if (kind == "other" || kind == "internet" || kind == "image") {
     if (fourth.empty())
       return reject("LNK <" + link.alternatives[0] +

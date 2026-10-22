@@ -2280,6 +2280,9 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           case SelectorLinkKindIR::book_heading:
             item.target_kind = CrossReferenceTargetKindIR::book_heading;
             break;
+          case SelectorLinkKindIR::book_spot:
+            item.target_kind = CrossReferenceTargetKindIR::book_spot;
+            break;
           case SelectorLinkKindIR::external_link:
             item.target_kind = CrossReferenceTargetKindIR::external;
             break;

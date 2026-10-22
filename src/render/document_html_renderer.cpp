@@ -150,6 +150,8 @@ geist::HtmlLinkKind link_kind(CrossReferenceTargetKindIR kind) {
     return geist::HtmlLinkKind::book_contents;
   case CrossReferenceTargetKindIR::book_heading:
     return geist::HtmlLinkKind::book_heading;
+  case CrossReferenceTargetKindIR::book_spot:
+    return geist::HtmlLinkKind::book_spot;
   }
   throw std::logic_error("invalid cross-reference target kind");
 }
@@ -183,11 +185,13 @@ std::optional<HrefIR> resolve_cross_reference_href(
   }
   case CrossReferenceTargetKindIR::book_contents:
   case CrossReferenceTargetKindIR::book_heading:
+  case CrossReferenceTargetKindIR::book_spot:
     if (options.resolve_cross_book) {
       geist::HtmlCrossBookReference reference;
       reference.document_number = target.document_number;
       reference.document_level = target.document_level;
       reference.heading_anchor = target.heading_anchor;
+      reference.spot_anchor = target.spot_anchor;
       reference.target = target.value;
       reference.alternatives = target.alternatives;
       if (const auto value = options.resolve_cross_book(reference))
@@ -217,6 +221,7 @@ HrefIR cross_reference_fallback(const CrossReferenceTargetIR& target,
   }
   case CrossReferenceTargetKindIR::book_contents:
   case CrossReferenceTargetKindIR::book_heading:
+  case CrossReferenceTargetKindIR::book_spot:
     return dead_link();
   }
   throw std::logic_error("invalid cross-reference target kind");
@@ -1081,6 +1086,8 @@ const char *html_link_kind_name(HtmlLinkKind kind) noexcept {
     return "book-contents";
   case HtmlLinkKind::book_heading:
     return "book-heading";
+  case HtmlLinkKind::book_spot:
+    return "book-spot";
   case HtmlLinkKind::external_url:
     return "external-url";
   }

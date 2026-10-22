@@ -136,7 +136,8 @@ CrossReferenceDestinationIR cross_reference_destination(
   case CrossReferenceTargetKindIR::anchor:
     return {'#' + target.value, provenance};
   case CrossReferenceTargetKindIR::book_contents:
-  case CrossReferenceTargetKindIR::book_heading: return {"#", provenance};
+  case CrossReferenceTargetKindIR::book_heading:
+  case CrossReferenceTargetKindIR::book_spot: return {"#", provenance};
   }
   throw std::logic_error("invalid cross-reference target kind");
 }

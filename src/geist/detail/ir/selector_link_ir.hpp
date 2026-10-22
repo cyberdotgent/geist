@@ -34,15 +34,21 @@ struct DecodedLogicalRecordSource;
 //           hosted `<a href="http://www.ibm.com/">`
 //   <IMAGE> <INTERNET> <> </bookmgr/monetcoq.jpg> <> <MONET1> XWEBDEMO 1.4.1
 //           hosted `<img src="/bookmgr/monetcoq.jpg">`
+//   <SPT>   <XDLIPRE> <> <SC33-1165> <00> <DFHA300>  GC33-1162-02 1.6.9.1
+//           hosted `<a href="../../DOCNUM/SC33-1165/SPTXDLIPRE?ScrollTOP=
+//           SPTXDLIPRE#SPTXDLIPRE?DocnumLevel=00">` (`GC33-116`, DT
+//           19990317155853)
 //
 // So alternative 1 is the kind, alternative 2 the in-book anchor name of a
-// `<HDR>` link (the reader prefixes `HDR`), alternative 4 the document
-// number of a `<BOOK>`/`<HDR>` link or the URL of an `<OTHER>`/`<IMAGE>`
+// `<HDR>` link (the reader prefixes `HDR`) or of a `<SPT>` link (prefixed
+// `SPT`: the `SRSPT<id>` spot of the other book), alternative 4 the document
+// number of a `<BOOK>`/`<HDR>`/`<SPT>` link or the URL of an `<OTHER>`/`<IMAGE>`
 // one, and alternative 6 the target's own identifier.  Nothing else is
 // displayed: the alternatives never appear on the hosted page.
 enum class SelectorLinkKindIR {
   book_contents,  // another book's table of contents
   book_heading,   // a heading inside another book
+  book_spot,      // a spot (`SRSPT<id>`) inside another book
   external_link,  // a URL the reader opens
   external_image, // a URL the reader shows inline as an image
 };
@@ -53,7 +59,8 @@ struct SelectorLinkIR {
   // order.
   std::vector<std::string> alternatives;
   // Canonical destination: `DOCNUM/<docnum>/CCONTENTS`,
-  // `DOCNUM/<docnum>/HDR<anchor>`, or the URL itself.
+  // `DOCNUM/<docnum>/HDR<anchor>`, `DOCNUM/<docnum>/SPT<anchor>`, or the URL
+  // itself.
   std::string destination;
   // Alternative 5, the `DocnumLevel` a live BookServer appends to a
   // `DOCNUM/...` destination as a query (`?DocnumLevel=ANY`), which it uses

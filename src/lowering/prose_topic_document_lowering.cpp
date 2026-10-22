@@ -50,6 +50,10 @@ CrossReferenceTargetIR prose_target(
       target.document_number = alternatives[3];
       target.document_level = alternatives[4];
       target.heading_anchor = alternatives[1];
+    } else if (kind == CrossReferenceTargetKindIR::book_spot) {
+      target.document_number = alternatives[3];
+      target.document_level = alternatives[4];
+      target.spot_anchor = alternatives[1];
     } else if (kind == CrossReferenceTargetKindIR::external) {
       target.url = alternatives[3];
     }

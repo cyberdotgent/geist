@@ -185,10 +185,13 @@ Base class `geist-link` plus exactly one kind modifier.
 | `geist-link--in-book` | an `SR<id>` destination named from inside a drawn row |
 | `geist-link--book-contents` | another book's contents page |
 | `geist-link--book-heading` | a heading inside another book |
+| `geist-link--book-spot` | a spot (`SRSPT<id>`) inside another book |
 | `geist-link--external-url` | an absolute URL named from inside a drawn row |
 
-The first four are the typed cross-reference kinds; the last four are the
-kinds a selector inside a preformatted row can name.
+The first four are the typed cross-reference kinds; `in-book`,
+`book-contents`, `book-heading` and `external-url` are the kinds a selector
+inside a preformatted row can name. `book-spot` is named by a prose cross
+reference only.
 
 `geist-link--unresolved` is added when the renderer could not spell a
 destination at all. Its `href` is then `#`. A cross-book reference with no

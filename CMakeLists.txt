@@ -608,7 +608,8 @@ foreach(synthetic_test
     verbatim_cross_references_synthetic
     source_rows_document_ir_synthetic
     trap_catalog_ir_synthetic
-    layout_row_coverage_synthetic)
+    layout_row_coverage_synthetic
+    spot_selector_link_synthetic)
   geist_add_test(${synthetic_test})
 endforeach()
 
