@@ -1379,8 +1379,37 @@ the attach-prefixed `.` (`01`), and then `A<.B><.C>`, a 2-cell run, `->`, a
 the two-cell word `'.` at column 5, not the one-cell glyph.  Hosted SC24-546
 `B.1.3.1` (DT `19940323131240`) serves the row as
 `<samp>'.</samp> <samp>A&lt;.B&gt;&lt;.C&gt;</samp>   <B>-&gt;</B>  <samp>Incorrect</samp> <samp>symbol</samp>`.
-With no span covering the glyph or its word, the glyph keeps its row-marker
-reading.
+
+The span is evidence, not the condition.  A row marker holds a display column
+of its own, so a glyph glued to the text after it is the first cell of a
+display word whether or not any span touches it, and a reader keeps it.
+SG24-204 record 230 stores, at file offset `0x2D4482`, the display line
+`1D 12 1B 01 00 D5 A1 00 ED DB 00 D9 30 00 ED DB 00 D7 D5 00 1E 2B D9 05 5A E7 0A E3 FD`:
+length byte `0x1D` (whose dictionary spelling is `*`, and which is the
+row-control slot), a 7-cell origin run `12`, the one-byte word `(` (`1B`),
+the attach-prefixed `.` (`01`), an attach byte `00` and `.` (`D5 A1`), then
+`\`, `cicscli`, `\`, `bin`, each behind an attach byte, and `)`, `and`,
+`change`, `the`, ....  The control on the line before it is `cfont 10 12 3`,
+whose columns 10-21 are `\cicscli\bin` only when `(` stands at column 7.
+Hosted SG24-204 `5.3.3` (DT `19971218054640`) serves the row as
+pass:[<literal>&#160;&#160;&#160;&#160;&#160;&#160;&#160;(..&lt;B&gt;&lt;I&gt;\cicscli\bin&lt;/B&gt;&lt;/I&gt;)&#160;and&#160;change&#160;the&#160;required&#160;parameters.</literal>].
+`5.2.1`, `5.2.2`, `5.2.3`, `5.3.1` and `5.3.2` repeat the row.  Spans that
+split the glued word do not change it either: SC24-546 `3.23.5` record 294
+token 209 (`0x275E0`) is `>` + attach `.` + `>` under `cfont 3 2 X 5 1 X`,
+served `<tt>&gt;.</tt><tt>&gt;</tt>` (DT `19940323131240`).  And the shape
+recurs with no span at all: SH20-918 `4.6.4` record 436 token 181
+(`0x61977`, `"` + attach `.` + `TEXT`) is served `".TEXT"`, SC28-1881-05
+`1.20` record 561 `*.B`, SC09-138 `5.1.5.1` record 706 `*, you will read`,
+IBMMMSTR `1.5.311` record 403 `",GOTO LAB;"` and SC09-138 `A.2.16` `(.).`
+(DTs `19910520154851`, `19930326130533`, `19910321130500` and
+`19911004151140`).
+
+A glyph that opens a row with a column after it -- a cell of space, or a
+gap run, before the row's text -- is not settled by this rule.  A decoder
+placeholder run (a box glyph or unmapped word) carries no character and
+stays a marker however it is attached, and the display line's own length
+byte is the row-control slot whatever word the dictionary spells for it and
+whatever is attached behind it.
 
 [[markup_sub_word_span_boundaries]]
 ==== Sub-word span boundaries

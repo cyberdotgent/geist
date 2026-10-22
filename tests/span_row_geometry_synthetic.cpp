@@ -996,15 +996,98 @@ void a_glyph_glued_to_text_under_its_word_span_is_display_text() {
   require(styled, "the `cfont 5 2 E` triple did not land on `'.`");
 }
 
-// With no span on the glyph's word the glyph keeps its row-marker reading.
-void a_glued_glyph_without_its_word_span_stays_a_marker() {
+// -------------------------------------------------------------------------
+// A glyph glued to the text after it is never a row marker.
+// -------------------------------------------------------------------------
+
+// A row marker holds a display column of its own, so the span is not what
+// proves the glyph: with no span on its word the glued `'.` is still drawn
+// text, and the `cfont 8 5 E` on `A<.B>` still lands on that word.
+void a_glued_glyph_without_its_word_span_is_display_text() {
   const auto record = glued_glyph_record(false);
   std::string error;
   const auto prose = extract(record, "DBCS Symbols", error);
+  require(prose.has_value(),
+          "an unspanned glued leading glyph was rejected: " + error);
   if (!prose) return;
-  require(rows_and_body(*prose).find("'.") == std::string::npos,
-          "an unspanned leading glyph was admitted as display text: '" +
+  require(verify(record, "DBCS Symbols", *prose, error),
+          "the unspanned glued glyph is not conserved: " + error);
+  require(rows_and_body(*prose).find("'. A<.B>") != std::string::npos,
+          "an unspanned glued leading glyph was dropped: '" +
               rows_and_body(*prose) + "'");
+}
+
+// SH20-918 4.6.4 record 436 token 181 stores `"` (one byte, value 45) at
+// the row origin with `.` and `TEXT` attached behind it and no span on the
+// row; hosted (DT 19910520154851) prints `".TEXT"`.  SG24-204 5.3.3 record
+// 230 token 73 is the same shape, `(` + `.` + `.` + `\cicscli\bin`, served
+// `(..\cicscli\bin)`.  This row spells SC24-546's `<.D.A>` in that shape.
+DecodedLogicalRecordSource glued_row_glyph_record(TokenWords glyph,
+                                                  std::size_t glyph_width) {
+  RecordBuilder builder;
+  metadata(builder, "1.18", {"Mixed", "Strings"});
+  builder.line({words("     "), glyph, glued("."), glued("D"), glued("."),
+                glued("A>"), words("is"), words("valid")});
+  const auto at = std::find(builder.record.tokens.begin(),
+                            builder.record.tokens.end(), glyph);
+  require(at != builder.record.tokens.end(), "the glyph token is absent");
+  if (at != builder.record.tokens.end())
+    builder.record.encoded_tokens[static_cast<std::size_t>(
+        std::distance(builder.record.tokens.begin(), at))]
+        .width = static_cast<std::uint8_t>(glyph_width);
+  return builder.build(48);
+}
+
+void a_glued_glyph_opening_an_unstyled_row_is_display_text() {
+  const auto record = glued_row_glyph_record(words("<"), 1);
+  std::string error;
+  const auto prose = extract(record, "Mixed Strings", error);
+  require(prose.has_value(),
+          "a glued glyph opening an unstyled row was rejected: " + error);
+  if (!prose) return;
+  require(verify(record, "Mixed Strings", *prose, error),
+          "the glued row glyph is not conserved: " + error);
+  require(body_text(*prose).find("<.D.A> is valid") != std::string::npos,
+          "the glued row glyph was dropped: '" + body_text(*prose) + "'");
+}
+
+// A decoder placeholder run carries no character, so gluing changes nothing:
+// it stays the row's marker (ACPZMST1 3.11 record 180).
+void a_glued_placeholder_run_stays_a_marker() {
+  const auto record = glued_row_glyph_record(TokenWords{0x2502}, 1);
+  std::string error;
+  const auto prose = extract(record, "Mixed Strings", error);
+  require(prose.has_value(),
+          "a row opened by a glued placeholder was rejected: " + error);
+  if (!prose) return;
+  require(body_text(*prose).find(".D.A> is valid") != std::string::npos,
+          "the row after a glued placeholder lost its text: '" +
+              body_text(*prose) + "'");
+  require(body_text(*prose).find("\xe2\x94\x82") == std::string::npos &&
+              body_text(*prose).find("|.D") == std::string::npos,
+          "a glued placeholder run was admitted as text: '" +
+              body_text(*prose) + "'");
+}
+
+// The display line's own length byte is the row-control slot whatever word
+// the dictionary spells for it and whatever is attached behind it: SG24-204
+// 5.3.3 record 229 opens a row with the length byte value 27, spelled `(`,
+// and hosted prints no `(` there.
+void a_length_byte_spelled_as_a_glued_glyph_stays_the_slot() {
+  RecordBuilder builder;
+  metadata(builder, "1.19", {"Length", "Byte"});
+  builder.line({words("   "), words("TCP"), words("support")});
+  builder.line_with_prefix(words("("),
+                           {glued("IP"), words("is"), words("provided")});
+  const auto record = builder.build(49);
+  std::string error;
+  const auto prose = extract(record, "Length Byte", error);
+  require(prose.has_value(),
+          "a row opened by a length byte spelled `(` was rejected: " + error);
+  if (!prose) return;
+  require(body_text(*prose).find('(') == std::string::npos,
+          "a length byte spelled `(` was admitted as text: '" +
+              body_text(*prose) + "'");
 }
 
 // -------------------------------------------------------------------------
@@ -1060,7 +1143,10 @@ int main() {
   a_split_between_two_tokens_still_fails();
   a_torn_font_span_over_a_glued_word_still_fails();
   a_glyph_glued_to_text_under_its_word_span_is_display_text();
-  a_glued_glyph_without_its_word_span_stays_a_marker();
+  a_glued_glyph_without_its_word_span_is_display_text();
+  a_glued_glyph_opening_an_unstyled_row_is_display_text();
+  a_glued_placeholder_run_stays_a_marker();
+  a_length_byte_spelled_as_a_glued_glyph_stays_the_slot();
   a_pvdef_span_is_a_defined_term();
   return 0;
 }

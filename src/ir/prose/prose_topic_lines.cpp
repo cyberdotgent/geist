@@ -301,11 +301,6 @@ struct LineBuilder {
     return true;
   }
 
-  // The row's visual marker glyph stands directly before the row's text, or
-  // before one gap run and then the text: GC23-046 2.3.2 record 48 draws the
-  // change-bar row ` |     Â°   For SMP/E Reference:` as `|`, a four-cell gap
-  // and the bullet, and hosted (DT 19920330095121) prints the bar in the
-  // margin and the bullet in its own column.
   // Display cells of the glued display word the token at `index` begins: its
   // own cells plus every visible token laid out against it with no column
   // between them (an attach prefix, a bare attach token, or a no-space-after
@@ -332,6 +327,11 @@ struct LineBuilder {
     return cells;
   }
 
+  // The row's visual marker glyph stands directly before the row's text, or
+  // before one gap run and then the text: GC23-046 2.3.2 record 48 draws the
+  // change-bar row ` |     Â°   For SMP/E Reference:` as `|`, a four-cell gap
+  // and the bullet, and hosted (DT 19920330095121) prints the bar in the
+  // margin and the bullet in its own column.
   bool marker_precedes_row_text(std::size_t index) const {
     if (index + 1 >= items.size() ||
         items[index + 1].kind != ItemKind::token)
@@ -2047,15 +2047,21 @@ struct LineBuilder {
         // `<samp>//</samp>        <samp>PEND</samp>`.
         // Decoder placeholder runs stay markers whatever the geometry says
         // (ACPZMST1 3.11 record 180): they carry no character.
-        // The glyph's columns are those of the display word it begins: a
-        // glyph glued to more text is styled display text when a span covers
-        // that whole word exactly.  SC24-546 B.1.3.1 record 1026 line 10 is
-        // `     '.` + ` A<.B><.C>` under `cfont 5 2 E 8 9 E ...`, and hosted
-        // (DT 19940323131240) serves `<samp>'.</samp> <samp>A<.B><.C></samp>`.
+        // A row marker holds a column of its own, so a glyph glued to the
+        // text after it (an attach prefix or bare attach token, no column
+        // between them) is the first cell of a display word and never the
+        // marker, styled or not.  SG24-204 5.3.3 record 230 token 73 stores
+        // `(` + attach `.` + `.` + `\cicscli\bin` at the row origin under
+        // `cfont 10 12 3`, which lands only with `(` at column 7, and hosted
+        // (DT 19971218054640) prints `(..<B><I>\cicscli\bin</B></I>)`.
+        // SH20-918 4.6.4 `".TEXT"` (no span), SC24-546 3.23.5 `>.>` (spans
+        // splitting the word) and SC28-1881-05 1.20 `*.B` are the same
+        // shape.  SC24-546 B.1.3.1 record 1026 line 10 is `     '.` +
+        // ` A<.B><.C>` under `cfont 5 2 E 8 9 E ...`, served
+        // `<samp>'.</samp> <samp>A<.B><.C></samp>`.
         (is_placeholder_run(view) ||
-         (!pending_span_covers(line().cells.size(), view.body.size()) &&
-          !pending_span_covers(line().cells.size(),
-                               glued_word_cells(index)))) &&
+         (glued_word_cells(index) == view.body.size() &&
+          !pending_span_covers(line().cells.size(), view.body.size()))) &&
         marker_precedes_row_text(index)) {
       // A visual row marker (`|`, box glyph) opening the row directly before
       // its text (GC23-046 record 151 `| ◆ The number of orders`, ACPZMST1
