@@ -1470,8 +1470,22 @@ Hosted BookServer serves `<a name="LIStemppar">` (DT `19910927114801`),
 `<a name="LIStimzon">` (DT `19911011135123`) and `<a name="LIStres">` (DT
 `19900805103816`), each wrapping the first row of its item exactly as the
 other `LIS*` anchors of the same topics do, and no `ELIS*` anchor. The opener
-and the closer naming the same owner within the topic identify the pair; a
-lone `SRLIST<rest>` or `SRELIST<rest>` is not covered by this evidence.
+and the closer naming the same owner within the topic identify the pair.
+
+An opener can also stand alone, and is then identified by a selector of the
+same topic that targets its anchor. `SC21-8295-03` topic `E.0` stores
+`SRLISTWOB` as record 840 token 318 (bytes `0x69F5F`--`0x69F60`, a single
+two-byte dictionary word on a display line of its own) and no `SRELISTWOB`
+anywhere. Two in-book selectors target it: `cselect 69 2 LISTWOB` in record
+837 (target word at `0x699D8`) and `cselect 52 2 LISTWOB` in record 840
+(target word at `0x69E2E`), each over the `2b` of `go to Step 2b`. Hosted
+BookServer (`SC21-829`, DT `19970409135933`) serves
+`<a name="LISTWOB">` around the first row of item `b.` and both selectors as
+`href="E.0?DT=19970409135933#LISTWOB"`. Selector targets are compared without
+regard to case: the same topic opens `SRLISwq1543` and selects it as
+`LISWQ1543`, which hosted links to the `LISwq1543` anchor. A lone
+`SRLIST<rest>` that no selector of its topic targets, and a lone
+`SRELIST<rest>`, remain uncovered by this evidence.
 
 [[logical-controls_implementation_notes]]
 === Implementation Notes

@@ -1010,8 +1010,19 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
   std::set<std::string> list_owners;
   // Lower-cased owners the topic's `SRELIS<owner>` closers name.
   std::set<std::string> closed_list_owners;
+  // Lower-cased targets of the topic's in-book selectors.
+  std::set<std::string> selector_targets;
   for (const auto& source : records)
     for (const auto& segment : source.control_segments) {
+      if (segment.kind == BookControlKind::select && !segment.malformed) {
+        std::size_t column = 0;
+        std::size_t length = 0;
+        std::string target;
+        if (parse_selector_operand(
+                operand_text(source, segment.operand_range), column, length,
+                target))
+          selector_targets.insert(ascii_lower(target));
+      }
       const auto lower = ascii_lower(segment.opcode);
       if (!segment.malformed && lower.rfind("srlis", 0) == 0 &&
           lower.size() > 5)
@@ -1031,11 +1042,22 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
   // `LIStimzon` (DT 19911011135123) and `LIStres` (DT 19900805103816), each
   // wrapping the item's first row, and no `ELIS*` anchor.  Either half
   // without the other keeps the reserved reading and declines.
+  //
+  // An opener without a closer is proven the same way by an in-book selector
+  // of the topic that targets its anchor `LIST<rest>`.  SC21-8295-03 `E.0`
+  // record 840 stores a lone `SRLISTWOB`, and records 837 and 840 carry
+  // `cselect 69 2 LISTWOB` and `cselect 52 2 LISTWOB` ("go to Step 2b");
+  // hosted BookServer (`SC21-829`, DT 19970409135933) serves
+  // `<a name="LISTWOB">` around item b's first row and both selectors as
+  // `#LISTWOB`.  The comparison ignores case: the topic's other selectors
+  // spell `LISWQ1543` for the opener `SRLISwq1543`.
   const auto paired_list_item = [&](const std::string& lower) {
     if (lower.rfind("srelis", 0) == 0)
       return lower.size() > 6 && list_owners.count(lower.substr(6)) != 0;
     if (lower.rfind("srlis", 0) == 0)
-      return lower.size() > 5 && closed_list_owners.count(lower.substr(5)) != 0;
+      return lower.size() > 5 &&
+             (closed_list_owners.count(lower.substr(5)) != 0 ||
+              selector_targets.count(lower.substr(2)) != 0);
     return false;
   };
   // Set once a `cz` directive has been collected: unclaimed one-cell

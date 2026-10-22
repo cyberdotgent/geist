@@ -297,12 +297,54 @@ void an_unpaired_t_owner_declines() {
   }
 }
 
+// A lone `SRLIST<rest>` opener whose anchor an in-book selector of the same
+// topic targets is a list item too: the selector is independent proof that
+// `LIST<rest>` names a destination of this topic.  SC21-8295-03 `E.0` record
+// 840 segment 13 is `SRLISTWOB`, with no `SRELISTWOB` anywhere, and records
+// 837 and 840 carry `cselect 69 2 LISTWOB` and `cselect 52 2 LISTWOB` over
+// `2b` ("go to Step 2b").  Hosted BookServer (`SC21-829`, DT 19970409135933)
+// serves `<a name="LISTWOB">` around item b's first row and both selectors as
+// `href="E.0?...#LISTWOB"`.
+DecodedLogicalRecordSource targeted_t_owner_topic(const std::string &target) {
+  RecordBuilder builder;
+  builder.heading("E.0", "Install");
+  builder.line({words("cselect"), words("14"), words("2"), words(target)});
+  builder.line({words("   "), words("go"), words("to"), words("Step"),
+                words("2b.")});
+  builder.line({words("SRLISTWOB")});
+  builder.line({words("   "), words("b."), words("Determine"), words("the"),
+                words("space.")});
+  return builder.build(840);
+}
+
+void a_targeted_t_owner_opener_is_a_list_item() {
+  auto extracted = run(targeted_t_owner_topic("LISTWOB"), "Install");
+  require(extracted.topic.has_value(),
+          "a targeted SRLISTWOB opener was rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  require(anchors_named(*extracted.topic, "LISTWOB") == 1,
+          "the targeted SRLISTWOB opener is not an anchor");
+  const auto text = topic_text(*extracted.topic);
+  require(text.find("SRLIS") == std::string::npos &&
+              text.find("Determine") != std::string::npos,
+          "the list item text is wrong: '" + text + "'");
+}
+
+// A selector naming some other destination proves nothing about the opener.
+void an_untargeted_t_owner_opener_still_declines() {
+  auto extracted = run(targeted_t_owner_topic("LISTWOC"), "Install");
+  require(!extracted.topic.has_value(),
+          "an SRLISTWOB opener no selector targets was admitted");
+}
+
 }  // namespace
 
 int main() {
   an_owner_spelled_with_t_is_a_list_item(false);
   an_owner_spelled_with_t_is_a_list_item(true);
   an_unpaired_t_owner_declines();
+  a_targeted_t_owner_opener_is_a_list_item();
+  an_untargeted_t_owner_opener_still_declines();
   closers_emit_no_anchor(false);
   closers_emit_no_anchor(true);
   a_closer_before_its_opener_is_no_anchor();
