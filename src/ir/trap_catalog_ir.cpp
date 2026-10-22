@@ -3682,18 +3682,82 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
     if (!starts_with_word(entry.headline.body.text, entry.id))
       return reject("trap entry headline does not begin with its ID: " +
                     entry.id + " [" + entry.headline.body.text + "]");
-    if (entry.fields.empty())
-      return reject("trap entry has no labelled field: " + entry.id);
+    if (entry.fields.empty()) {
+      // Two messages can share one set of fields: the first entry is its
+      // headline alone, and the next SRMSG follows on the very next display
+      // line, drawing no rule row of its own. SC09-138 G.0 record 2071
+      // line 13 is `   EDC0762 10 A text deck marked fetchable was not
+      // specified` and line 14 `SRMSG EDC0763 40`, whose headline and
+      // `Explanation:` follow; hosted G.0 (DT 19910321130500) serves
+      // `<a name="MSG EDC0763 40">` straight after EDC0762's headline, with
+      // no `<hr>` and no `<p>`. H.0 record 2103 lines 27-28 (EDC0132,
+      // EDC0133) are the same shape. Anything else drawn in the entry, or
+      // any line between it and the next SRMSG, declines.
+      const auto *next =
+          entry_index + 1 < starts.size() ? &ordered[end] : nullptr;
+      const auto &slices = entry.headline.body.source_slices;
+      const auto *next_line =
+          next == nullptr || next->segment->source_tokens.empty()
+              ? nullptr
+              : display_line_of_token(*next->record,
+                                      next->segment->source_tokens.front());
+      // The next SRMSG's payload is the operand tail on its own line (G.0's
+      // severity, `SRMSG EDC0763 40`) and at most the next line's length
+      // byte (H.0 record 2110 token 221, `2D`, spelling `@`, after `SRMSG
+      // EDC0150`); a payload that draws on a further line is that entry's
+      // rule row.
+      const auto next_draws_no_rule = [&] {
+        const auto words = decoded_byte_range_to_word_range(
+            next->record->assembled, next->segment->payload_range);
+        const auto tokens = source_tokens_intersecting_output(
+            next->record->assembled, words.begin, words.end);
+        return std::all_of(tokens.begin(), tokens.end(), [&](const auto token) {
+          return token < next_line->token_end ||
+                 is_display_line_length_token(*next->record, token);
+        });
+      };
+      const auto shares_next_fields =
+          next != nullptr && current == &entry.headline &&
+          footnote_line == nullptr && pending_boundaries.empty() &&
+          entry.leading.body.flow.blocks.empty() &&
+          entry.embedded_regions.empty() && entry.index_terms.empty() &&
+          entry.headline.body.links.empty() &&
+          entry.headline.body.flow.blocks.size() == 1 &&
+          std::holds_alternative<TrapFlowParagraphIR>(
+              entry.headline.body.flow.blocks.front().value) &&
+          !slices.empty() && next_line != nullptr &&
+          next->record->logical_record == slices.back().logical_record &&
+          next_line->prefix_token == slices.back().token_end &&
+          next_line->prefix_token + 1 ==
+              next->segment->source_tokens.front() &&
+          next_draws_no_rule();
+      if (!shares_next_fields)
+        return reject("trap entry has no labelled field: " + entry.id);
+    }
     catalog.entries.push_back(std::move(entry));
   }
+  // A headline-only entry shares the fields of the entry after it, which
+  // must carry them.
+  for (std::size_t at = 0; at < catalog.entries.size(); ++at)
+    if (catalog.entries[at].fields.empty() &&
+        (at + 1 == catalog.entries.size() ||
+         catalog.entries[at + 1].fields.empty()))
+      return reject("trap entry has no labelled field: " +
+                    catalog.entries[at].id);
   catalog.origin_column = origin_column.value_or(0);
   // The vocabulary is the ordered label sequence every entry repeats. A
   // labelled line that some entry lacks (an entry-local `Note:`) stays a
   // highlighted continuation of the entry rather than a field.
-  for (const auto &field : catalog.entries.front().fields) {
+  // A headline-only entry carries no labels of its own; the entry whose
+  // fields it shares is held to the vocabulary instead.
+  const auto first_labelled = std::find_if(
+      catalog.entries.begin(), catalog.entries.end(),
+      [](const auto &entry) { return !entry.fields.empty(); });
+  for (const auto &field : first_labelled->fields) {
     const auto everywhere = std::all_of(
         catalog.entries.begin(), catalog.entries.end(), [&](const auto &entry) {
-          return std::any_of(entry.fields.begin(), entry.fields.end(),
+          return entry.fields.empty() ||
+                 std::any_of(entry.fields.begin(), entry.fields.end(),
                              [&](const auto &candidate) {
                                return candidate.label_text == field.label_text;
                              });
@@ -3704,6 +3768,8 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
   if (catalog.label_vocabulary.empty())
     return reject("trap catalog has no label repeated by every entry");
   for (auto &entry : catalog.entries) {
+    if (entry.fields.empty())
+      continue;
     std::vector<std::string> labels;
     for (std::size_t at = 0; at < entry.fields.size(); ++at) {
       auto &field = entry.fields[at];

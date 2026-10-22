@@ -442,7 +442,9 @@ inside the headline.  A cited title such as `26.0`'s
 `Catalog Administration:  Access Method Services Reference` (a row that
 opens on `Catalog`, all `cite`) keeps one style
 across its colon, and hosted serves it inside its paragraph.  The
-ordered label sequence repeated by every entry is the catalog vocabulary; a
+ordered label sequence repeated by every entry that carries fields is the
+catalog vocabulary (an entry that shares the next entry's fields, below,
+has none of its own); a
 labelled line that only some entries carry (`3 5 2` `Note:` in topic `4.4`
 entry `805306372`) is entry-local.  A field can restate the label of the
 field directly before it, and both are fields; the entry still carries
@@ -465,6 +467,41 @@ at `0x492F3`).  The byte is the row's length, not a control, and hosted
 as the entry's headline under that `cfont`.  A record that opens on such a
 row with no `cfont` waiting at the end of the record before it is drawn text
 ahead of the headline, and no entry is read from it.
+
+Two messages can share one set of fields.  The first entry is then its
+headline alone, and the next `SRMSG` stands on the display line directly
+after that headline, with no rule row of its own.  `SC09-138` topic `G.0`,
+record 2071:
+
+[cols="<10,<90",options="header"]
+|===
+|Line |Content
+
+|10 |`SRMSG EDC0762 10`
+|11 |the entry's rule row (`   ____...`)
+|12--13 |the headline `cfont` and `   EDC0762 10 A text deck marked fetchable was not specified`
+|14 |`SRMSG EDC0763 40`, with no rule row after it
+|15--16 |the headline `cfont` and `   EDC0763 40 Error in loading segment EDCCOMP RC=&1`
+|18--19 |`cfont 3 12 2` and `   Explanation:  An attempt to load segment EDCCOMP failed.`
+|===
+
+Hosted G.0 (DT `19910321130500`) serves `<a name="MSG EDC0762 10"><hr>`,
+EDC0762's headline, then `<a name="MSG EDC0763 40">` around EDC0763's
+headline with no `<hr>` and no `<p>` between the two, then the
+`Explanation:` field.  The field belongs to both messages.  Topic `H.0`
+record 2103 lines 24--28 are the same shape (`EDC0132`, then `SRMSG
+EDC0133` on line 28).  So is record 2110 lines 20--24 (`EDC0148`, then
+`SRMSG EDC0150`), where the second `SRMSG`'s line is followed by the length
+byte `2D` (45) of line 25, whose dictionary word is `@`.  A severity after
+the message id (`40`) is on the `SRMSG`'s own line; neither it nor a
+following length byte is a rule row.
+
+A headline-only entry is not this shape when anything else follows it.
+`H.0` record 2199 line 30 to record 2200 line 3 is entry `EDC0553`, a rule
+row and a two-row headline.  Line 4 is `c.cc 50`, and a boxed note
+(`___ TPF Messages ___`, `EDC0700 to EDC0715 are TPF messages ...`) follows
+before the next `SRMSG`.  Hosted serves the box after the headline.  Its
+relation to the entries around it is not established.
 
 A label does not require a non-empty value.  In `N2AH1MST` topic `10.0`,
 logical record 593 segment 2 is `cfont 10 6 2` and its complete native row is

@@ -56,7 +56,9 @@
 //     a bare anchor, and a styled row after a bare `SRMSG`, which declines
 //     while a plain row stays entry text;
 //   * a selector before a `cfont` line, which marks the row that `cfont`
-//     styles, and one with no such row, which declines.
+//     styles, and one with no such row, which declines;
+//   * a headline-only entry that shares the next entry's fields, and the
+//     separated, ruled and closing shapes that decline.
 //
 // What is NOT covered, stated plainly rather than implied: the compact
 // marker slot that carries a whole word. Two rules turn on it -- a slot the
@@ -3174,6 +3176,141 @@ int main() {
     append(stranded, entry("717", 542));
     require(!build({make_source(128, stranded)}, "Sample Messages").catalog,
             "a selector before a font line with no row was admitted");
+  }
+
+  // Two messages can share one set of fields. SC09-138 G.0 record 2071
+  // lines 10-13 are `SRMSG EDC0762 10`, its rule row, its headline `cfont`
+  // and `   EDC0762 10 A text deck marked fetchable was not specified`;
+  // line 14 is `SRMSG EDC0763 40` with no rule row, then EDC0763's headline
+  // and its `Explanation:` field. Hosted G.0 (DT 19910321130500) serves
+  // EDC0762's headline, then `<a name="MSG EDC0763 40">` and EDC0763's
+  // headline with no `<hr>` or `<p>` between them, then the shared field.
+  {
+    const auto headline_only = [](const std::string &id,
+                                  std::uint16_t id_word) {
+      std::vector<Token> tokens;
+      append(tokens, line({t("SRMSG", 110), t(id, id_word)}));
+      append(tokens,
+             line({t("cfont", 111), t("3", 112), t("3", 112), t("2", 113)}));
+      append(tokens, line({origin(), t(id, id_word)}));
+      return tokens;
+    };
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("698", 517));
+    append(tokens, line({}));
+    append(tokens, headline_only("699", 518));
+    append(tokens, entry("700", 519));
+    const auto built = build({make_source(121, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "a headline sharing the next entry's fields declined: " +
+                built.error);
+    if (built.catalog && built.catalog->entries.size() == 3) {
+      const auto &shared = built.catalog->entries[1];
+      require(shared.id == "699" && shared.fields.empty() &&
+                  shared.headline.body.text == "699",
+              "the sharing headline was not kept as a headline-only entry");
+      require(built.catalog->entries[2].fields.size() == 1,
+              "the next entry lost its field");
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "the shared-field catalogue failed verification: " + error);
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(),
+              "the shared-field catalogue did not lower: " + error);
+      if (document) {
+        const auto markdown =
+            geist::detail::render_document_markdown(*document);
+        const auto first = markdown.find("<a id=\"MSG 699\"></a>");
+        const auto second = markdown.find("<a id=\"MSG 700\"></a>");
+        require(first != std::string::npos && second > first &&
+                    markdown.find("**699**", first) < second,
+                "the sharing headline was not drawn before the next entry: " +
+                    markdown);
+      }
+    } else if (built.catalog) {
+      require(false, "the shared-field catalogue has the wrong entry count");
+    }
+
+    // G.0's SRMSG operands carry a severity after the id (`SRMSG EDC0763
+    // 40`); that tail is on the SRMSG's own line and draws no rule row.
+    auto severity = header("Sample", "Messages");
+    append(severity, entry("709", 529));
+    append(severity, headline_only("710", 530));
+    append(severity, line({t("SRMSG", 110), t("711", 531), t("40", 532)}));
+    append(severity,
+           line({t("cfont", 111), t("3", 112), t("3", 112), t("2", 113),
+                 t("7", 533), t("2", 113), t("2", 113)}));
+    append(severity, line({origin(), t("711", 531), t("40", 532)}));
+    append(severity,
+           line({t("cfont", 111), t("3", 112), t("12", 114), t("2", 113)}));
+    append(severity, line({origin(), t("Description:", 115), t("first", 117),
+                           t("field", 118)}));
+    const auto tailed = build({make_source(125, severity)}, "Sample Messages");
+    require(tailed.catalog.has_value() && tailed.catalog->entries.size() == 3 &&
+                tailed.catalog->entries[1].fields.empty(),
+            "a headline sharing a severity-tailed entry's fields declined: " +
+                tailed.error);
+
+    // H.0 record 2110 line 24 is `SRMSG EDC0150`, and its segment runs on
+    // to token 221, line 25's length byte (`2D`, 45), which spells `@`.
+    // That byte is structure, not a rule row.
+    auto spelled = header("Sample", "Messages");
+    append(spelled, entry("712", 534));
+    append(spelled, headline_only("713", 535));
+    append(spelled, line({t("SRMSG", 110), t("714", 536)}));
+    const std::vector<Token> font = {t("cfont", 111), t("3", 112),
+                                     t("3", 112), t("2", 113)};
+    spelled.push_back({words("@"), static_cast<std::uint16_t>(font.size())});
+    append(spelled, font);
+    append(spelled, line({origin(), t("714", 536)}));
+    append(spelled,
+           line({t("cfont", 111), t("3", 112), t("12", 114), t("2", 113)}));
+    append(spelled, line({origin(), t("Description:", 115), t("first", 117),
+                          t("field", 118)}));
+    const auto at_sign = build({make_source(126, spelled)}, "Sample Messages");
+    require(at_sign.catalog.has_value() &&
+                at_sign.catalog->entries.size() == 3 &&
+                at_sign.catalog->entries[1].fields.empty() &&
+                at_sign.catalog->entries[2].operand == "714",
+            "a headline before an SRMSG ending on a spelled length byte "
+            "declined: " +
+                at_sign.error);
+
+    // Mutation: an empty line between the headline and the next SRMSG.
+    auto spaced = header("Sample", "Messages");
+    append(spaced, entry("701", 520));
+    append(spaced, headline_only("702", 521));
+    append(spaced, line({}));
+    append(spaced, entry("703", 522));
+    require(!build({make_source(122, spaced)}, "Sample Messages").catalog,
+            "a headline-only entry separated from the next SRMSG was "
+            "admitted");
+
+    // Mutation: the next entry draws its own rule row.
+    auto ruled = header("Sample", "Messages");
+    append(ruled, entry("704", 523));
+    append(ruled, headline_only("705", 524));
+    append(ruled, line({t("SRMSG", 110), t("706", 525)}));
+    append(ruled, line({origin(), t("____", 526)}));
+    append(ruled,
+           line({t("cfont", 111), t("3", 112), t("3", 112), t("2", 113)}));
+    append(ruled, line({origin(), t("706", 525)}));
+    append(ruled,
+           line({t("cfont", 111), t("3", 112), t("12", 114), t("2", 113)}));
+    append(ruled, line({origin(), t("Description:", 115), t("first", 117),
+                        t("field", 118)}));
+    require(!build({make_source(123, ruled)}, "Sample Messages").catalog,
+            "a headline-only entry before a ruled entry was admitted");
+
+    // Mutation: a headline-only entry closes the catalogue.
+    auto last = header("Sample", "Messages");
+    append(last, entry("707", 527));
+    append(last, headline_only("708", 528));
+    require(!build({make_source(124, last)}, "Sample Messages").catalog,
+            "a headline-only last entry was admitted");
   }
 
   std::cout << "trap catalog IR synthetic tests passed\n";
