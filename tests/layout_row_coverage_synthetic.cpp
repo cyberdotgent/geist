@@ -367,6 +367,54 @@ void selected_native_row_ends_before_unselected_compact_fragments() {
       "verifier accepted an authoritative native row spanning the next line");
 }
 
+// An `SRTBL` table envelope that ends its record continues into the next
+// record's leading text segment, and the first drawn line there is a row of
+// the envelope.  SC21-8295-03 `COMMENTS` record 968 ends with
+// `SRTBLTBLUNIQ161` and its header rules; record 969 opens with the envelope's
+// only body line, `   | Overall satisfaction ... |`, then `SRETBL`.  Hosted
+// BookServer (`SC21-829`, DT 19970409135933) serves that line as the
+// `Overall satisfaction` row of the table's `<table>`.
+void a_table_envelope_crosses_the_record_boundary(bool envelope) {
+  DecodedLogicalRecordSource opening;
+  opening.logical_record = 968;
+  append(opening, 1, 1, {'<'});
+  if (envelope)
+    append(opening, 0x60, 1,
+           {'S', 'R', 'T', 'B', 'L', 'T', 'B', 'L', 'U', 'N', 'I', 'Q', '1'});
+  else
+    append(opening, 0x60, 1, {'S', 'R', 'L', 'I', 'S', 'X'});
+  refresh(opening);
+  DecodedLogicalRecordSource continuation;
+  continuation.logical_record = 969;
+  // The line's length byte spells three blanks, as record 969 token 0 does.
+  // The text segment that continues the envelope begins at its first word:
+  // the line's length byte and origin run lie before it, so the row cannot
+  // be recognised from the segment's own tokens.
+  append(continuation, 3, 1, {' ', ' ', ' '});
+  append(continuation, 0x50, 1, {' ', ' ', ' '});
+  append(continuation, 0x53, 1, {'O', 'v', 'e', 'r', 'a', 'l', 'l'});
+  append(continuation, 0x54, 1,
+         {'s', 'a', 't', 'i', 's', 'f', 'a', 'c', 't', 'i', 'o', 'n'});
+  refresh(continuation);
+  const auto layout = geist::detail::extract_layout_ir({opening, continuation});
+  std::string texts;
+  for (const auto &run : layout.runs)
+    for (const auto &row : run.rows)
+      if (row.logical_record == 969)
+        texts += "[" + row.visible_text + "]";
+  std::string error;
+  require(geist::detail::verify_layout_ir({opening, continuation}, layout,
+                                          &error),
+          "the continued envelope's layout did not verify: " + error);
+  if (envelope)
+    require(texts.find("Overall satisfaction") != std::string::npos,
+            "the continued table envelope's first line is in no row: " +
+                texts);
+  else
+    require(texts.empty(),
+            "a record after a non-envelope control gained a row: " + texts);
+}
+
 } // namespace
 
 int main() {
@@ -379,5 +427,7 @@ int main() {
   only_an_unplaced_selector_crosses_the_record_boundary(false);
   only_an_unplaced_selector_crosses_the_record_boundary(true);
   selected_native_row_ends_before_unselected_compact_fragments();
+  a_table_envelope_crosses_the_record_boundary(true);
+  a_table_envelope_crosses_the_record_boundary(false);
   return 0;
 }

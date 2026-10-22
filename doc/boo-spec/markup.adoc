@@ -3742,6 +3742,22 @@ same rail row after `SRETBL` and after `SREFIG`.  Hosted BookServer (DT
 five blank rail rows around `Required Parameter Group:` above the grid and
 four below it, and `1.3` to `1.6` of the same book draw the same shape.
 
+An envelope can cross a logical-record boundary, and its rows continue at
+the start of the next record exactly as they would have continued in the
+same one.  `SC21-8295-03.boo` topic `COMMENTS`: logical record 968 ends with
+`SRTBLTBLUNIQ161` (token 253, bytes `0x77D2D`--`0x77D2E`) followed by the
+envelope's top rule, its `1`..`5` header row and the rule under it.  Record
+969 opens with the envelope's only body line: length byte `13` at
+`0x77D8D` (its dictionary spelling is three blanks), the three-blank origin
+run at `0x77D8E`, `U+2502` at `0x77D8F`, then `Overall` and `satisfaction`;
+the rule under it follows, and `SRETBL` stands at token 45 (`0x77DC8`).
+Nothing in record 969 repeats the envelope opener: the reader must carry the
+open envelope across the boundary and read that first line as one of its
+rows.  Hosted BookServer (`SC21-829`, DT `19970409135933`) serves the
+envelope as a `<table>` whose rows are the empty header cell over `1`..`5`
+and `Overall satisfaction` with five empty cells -- the same shape it serves
+for the next envelope, `TBLUNIQ162`, which lies wholly in record 969.
+
 Corpus census of the directive pairs, recounted by display line over all 34
 fixtures. *Six* books carry any `CZ` control, not five: `SG24-204.boo` has a
 single unmatched `cz OFF LBLBOX` and no other `CZ` directive anywhere. Two rows

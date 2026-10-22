@@ -74,14 +74,27 @@ bool authoritative_native_rows(
   // A selector whose payload crosses a record boundary still addresses the
   // next record's first native display line. This is source adjacency, not
   // a generated-list/topic classification.
+  //
+  // An `SRTBL` table envelope that is the last control of its record
+  // continues the same way: the next record's leading text segment holds the
+  // envelope's next drawn line.  SC21-8295-03 `COMMENTS` record 968 ends with
+  // `SRTBLTBLUNIQ161` and its header rules, and record 969 opens with the
+  // envelope's only body line `   | Overall satisfaction ... |` (token 0 is
+  // its length byte, spelled as three blanks), then `SRETBL`.  The text
+  // segment begins at the first word, so the line's own length byte and
+  // origin run lie outside it and no compact boundary finds the row.  Hosted
+  // BookServer (`SC21-829`, DT 19970409135933) serves that line as the
+  // `Overall satisfaction` row of the table.
   const auto previous = std::find_if(
       records.begin(), records.end(), [&](const auto& candidate) {
         return candidate.logical_record + 1 == record.logical_record;
       });
-  return previous != records.end() && !previous->control_segments.empty() &&
-         previous->control_segments.back().kind == BookControlKind::select &&
-         previous->control_segments.back().payload_range.begin ==
-             previous->control_segments.back().payload_range.end;
+  if (previous == records.end() || previous->control_segments.empty())
+    return false;
+  const auto& carried = previous->control_segments.back();
+  return (carried.kind == BookControlKind::select &&
+          carried.payload_range.begin == carried.payload_range.end) ||
+         carried.kind == BookControlKind::table_start;
 }
 
 bool authoritative_native_line(
