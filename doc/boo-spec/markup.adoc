@@ -604,6 +604,14 @@ reads `| Us` for the first span, and a reader that drops the bar and then
 counts from the first word kept reads a misaligned span the same way; only
 the cells give the right run.
 
+A run inside a field is checked against its own row's cells the same way.
+That holds when its `cfont` closes one record and the row opens the next.
+`APPENDIX1.5.3` record 2547 ends with line 33, `cfont 3 8 1 21 8 1`, in the
+`Explanation:` field of entry `FLM01004`.  Record 2548 line 0 is
+`   dddddddd in group bbbbbbbb.`, and its cells 3--10 and 21--28 are the two
+variables.  Hosted serves `<I>dddddddd</I> in group <I>bbbbbbbb</I>.` there,
+inside the field's paragraph.
+
 A bullet can follow the bar with no blank token of its own, only the blank
 the reader draws after the bar.  `2.4.15.1` record 1565 line 33 is the
 blank, `|`, `U+2666`, a two-cell blank run and `Mismatched quotes ...`, with

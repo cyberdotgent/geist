@@ -59,7 +59,9 @@
 //     styles, and one with no such row, which declines;
 //   * a headline-only entry that shares the next entry's fields, and the
 //     separated, ruled and closing shapes that decline;
-//   * an introduction row whose length byte spells a control word.
+//   * an introduction row whose length byte spells a control word;
+//   * a field run styling the next record's first row, checked on that
+//     row's cells.
 //
 // What is NOT covered, stated plainly rather than implied: the compact
 // marker slot that carries a whole word. Two rules turn on it -- a slot the
@@ -3342,6 +3344,57 @@ int main() {
               "the spelled length byte reached the introduction: [" +
                   introduction + "]");
     }
+  }
+
+  // A highlighted run whose `cfont` closes its record styles the next
+  // record's first row, which LayoutIR leaves unrowed. SC34-425
+  // APPENDIX1.5.3 record 2547 line 33 is `cfont 3 8 1 21 8 1` and record
+  // 2548 line 0 is `   dddddddd in group bbbbbbbb.`; hosted
+  // (DT 19921112160049) serves `<I>dddddddd</I> in group <I>bbbbbbbb</I>.`
+  // inside the `Explanation:` field of FLM01004. The row's own cells decide
+  // the run's columns whether or not LayoutIR rowed it.
+  {
+    auto first = header("Sample", "Messages");
+    append(first, entry("719", 548));
+    append(first, line({t("cfont", 111), t("3", 112), t("5", 506),
+                        t("1", 549)}));
+    std::vector<Token> second;
+    append(second, line({origin(), t("value", 550), t("in", 551),
+                         t("group.", 552)}));
+    append(second, line({}));
+    append(second, entry("720", 553));
+    const auto built = build({make_source(130, first), make_source(131, second)},
+                             "Sample Messages");
+    require(built.catalog.has_value(),
+            "a run styling the next record's first row declined: " +
+                built.error);
+    if (built.catalog && built.catalog->entries.size() == 2) {
+      const auto &body =
+          built.catalog->entries.front().fields.front().line.body;
+      require(body.text == "Description: first field value in group." &&
+                  body.highlights.size() == 1 &&
+                  body.text.substr(body.highlights.front().begin,
+                                   body.highlights.front().end -
+                                       body.highlights.front().begin) ==
+                      "value",
+              "the run on the next record's row is not over its word: [" +
+                  body.text + "]");
+    }
+
+    // Mutation: the row draws its word one column left of the span.
+    auto shifted = header("Sample", "Messages");
+    append(shifted, entry("721", 554));
+    append(shifted, line({t("cfont", 111), t("3", 112), t("5", 506),
+                          t("1", 549)}));
+    std::vector<Token> moved;
+    append(moved, line({t("  ", 555), t("value", 550), t("in", 551),
+                        t("group.", 552)}));
+    append(moved, line({}));
+    append(moved, entry("722", 556));
+    require(!build({make_source(132, shifted), make_source(133, moved)},
+                   "Sample Messages")
+                 .catalog,
+            "a run whose columns miss its row's word was admitted");
   }
 
   std::cout << "trap catalog IR synthetic tests passed\n";

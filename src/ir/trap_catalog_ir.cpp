@@ -3500,9 +3500,14 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
             const auto *drawn = static_cast<const DecodedLogicalRecordSource *>(
                 nullptr);
             std::size_t drawn_token = 0;
+            // A row LayoutIR left unrowed (a record continuation: SC34-425
+            // APPENDIX1.5.3 record 2548 line 0, `   dddddddd in group
+            // bbbbbbbb.`, styled by record 2547's closing `cfont 3 8 1 21 8
+            // 1`) is still a drawn display line, and its cells decide.
             for (auto cell = line.body.cell_begin;
                  cell < line.body.cell_end && drawn == nullptr; ++cell)
               if (entry.cells[cell].role == TrapCellRoleIR::text ||
+                  entry.cells[cell].role == TrapCellRoleIR::unrowed_text ||
                   entry.cells[cell].role == TrapCellRoleIR::lexical_marker ||
                   entry.cells[cell].role ==
                       TrapCellRoleIR::punctuation_marker) {
