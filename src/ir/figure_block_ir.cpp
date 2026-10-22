@@ -1772,6 +1772,12 @@ std::string figure_display_glyph(std::uint16_t word) {
   // (DT 19971218054640).  Like the arrows, the word's own character is
   // emitted, one column per cell (doc/boo-spec/encoding.adoc).
   case 0x255A: return "\xE2\x95\x9A";
+  // Hosted BookServer serves this word as the display byte 0xFE (`þ`), the
+  // CP437 code of U+25A0: the input-field marker of OFCUSEOV 2.1.6 record
+  // 416 (DT 19900805103816) and the check box of the SC24-5527-02
+  // BIBLIOGRAPHY.1 rows (DT 19921218151459).  The word's own character is
+  // emitted, one column per cell (doc/boo-spec/encoding.adoc).
+  case 0x25A0: return "\xE2\x96\xA0";
   default: break;
   }
   return token_words_to_ascii({word});

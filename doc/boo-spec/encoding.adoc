@@ -224,7 +224,7 @@ decoded character/token word.
 [[encoding_hosted_display_bytes_for_the_non_ascii_graphic_words]]
 === Hosted Display Bytes For The Non-ASCII Graphic Words
 
-The hosted BookServer serves its pages as ISO-8859-1 and converts five of the
+The hosted BookServer serves its pages as ISO-8859-1 and converts seven of the
 graphic token words the CP500 dictionary table produces into single 8-bit
 display bytes. The mapping is a property of the BookServer output code page,
 not of the book: it is the same in every fixture that draws with these words.
@@ -239,6 +239,7 @@ not of the book: it is the same in every fixture that draws with these words.
 |`0x2193` |`0x15` |`U+2193` down arrow |`0x19`
 |`0x2666` |`0x04` |`U+2666` diamond bullet |`0xb0` (`°`)
 |`0x255a` |`0x33` |`U+255A` box corner |`0xc8` (`È` in ISO-8859-1)
+|`0x25a0` |`0x3a` |`U+25A0` black square |`0xfe` (`þ` in ISO-8859-1)
 |===
 
 Evidence (`ACPZMST1` `1.2.5`, DT 19920319123146): the `FIGRSCOM2` box row is
@@ -257,6 +258,18 @@ the row as pass:[<literal>&lt;samp&gt;</literal>]-wrapped runs of 11, 10 and
 horizontal rules of its `FIGSECB01` table with it, one `È` per cell.  The
 byte is `╚` in CP437 and CP850, but the row is an underline and a rule, so
 the character the word was meant to draw is not established.
+
+The `0x25a0` row has two witnesses as well, and `0xfe` is the CP437 and CP850
+code of `U+25A0`.  In `OFCUSEOV` `2.1.6` (DT 19900805103816) the word is an
+input-field marker inside a drawn screen.  Logical record 416 display line 17
+holds `:` and then the two-byte dictionary reference `D7 47` at `0x2923C`.
+Hosted serves the row as `|  Start typing your note on the next line.:` +
+`0xfe`, and the next six rail rows open with `:` + `0xfe` the same way.  In
+`SC24-5527-02` `BIBLIOGRAPHY.1` (DT 19921218151459) the word is the check
+box in front of each title: logical record 931 token 3 is `CF 62` at
+`0x5D210`.  Hosted serves five such cells; with the markup removed, the
+first row reads `| ` + `0xfe` + ` | VM/ESA: VMSES/E Introduction and
+Reference ...`.
 
 Two of the five arrow and bullet bytes are what a CP437 console would draw for the character
 (`0x1b` left arrow, `0x19` down arrow); the other three are not, so the table

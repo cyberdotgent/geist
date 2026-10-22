@@ -459,6 +459,52 @@ void u255a_run_draws_hosted_glyph() {
             pre.find('?') == std::string::npos,
         "a U+255A underline row is not drawn: " + html);
 }
+// OFCUSEOV 2.1.6 record 416 line 17 draws an input field marker inside a
+// closed screen box: `:` then the word `U+25A0` (`D7 47` at 0x2923C), in
+// `|  Start typing your note on the next line.:` + `U+25A0` + spaces + `|`.
+// Hosted BookServer (DT 19900805103816) prints the display byte 0xFE (`þ`),
+// the CP437 code of `U+25A0`; the word's own character is emitted, never the
+// decoder's `?`.
+void u25a0_draws_its_character() {
+  const auto rule = [](std::uint16_t left, std::uint16_t right) {
+    TokenWords words{left};
+    words.insert(words.end(), 12, 0x2500);
+    words.push_back(right);
+    return words;
+  };
+  Builder b(false);
+  b.line({});
+  b.line({w("   "), rule(0x250c, 0x2510)});
+  b.line({w("   "), {0x2502},
+          {' ', 'N', 'o', 't', 'e', ':', 0x25a0, ' ', ' ', ' ', ' '},
+          {0x2502}});
+  b.line({w("   "), rule(0x2514, 0x2518)});
+  b.line({});
+  b.line({w("ordinary prose")});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "a box with a U+25A0 cell declined: " + error);
+  if (doc) {
+    const auto pre = pre_body(render_document_html_fragment(*doc));
+    check(pre.find("Note:\xE2\x96\xA0") != std::string::npos &&
+              pre.find('?') == std::string::npos,
+          "a U+25A0 cell is not drawn as its character: " + pre);
+  }
+  // In an open drawing the word was an unproven glyph that declined the
+  // run; it is drawn the same way.
+  Builder open(false);
+  open.line({});
+  open.line({w("   "), {0x250c, 0x2500, 0x2510}});
+  open.line({w("   "), {0x2502, 0x25a0, 0x2502}});
+  open.line({});
+  open.line({w("ordinary prose")});
+  const auto drawing = lower(open, error);
+  check(drawing.has_value() &&
+            pre_body(render_document_html_fragment(*drawing)) ==
+                "    _ \n   |\xE2\x96\xA0|",
+        "an open drawing with a U+25A0 cell is not drawn: " +
+            (drawing ? render_document_html_fragment(*drawing) : error));
+}
 // A cross-book `LNK` selector line inside a closed box draws nothing: its
 // `<...>` alternatives are the selector's destination (SC24-5527-02 1.0
 // record 59 line 29, `cselect 47 30 LNK <BOOK> <> <> <SC24-5444> <ANY>
@@ -1382,6 +1428,7 @@ int main() {
   indented_rule_line_stays_rule();
   unproven_box_glyph_declines();
   u255a_run_draws_hosted_glyph();
+  u25a0_draws_its_character();
   lnk_selector_inside_closed_box();
   envelope_inside_closed_box();
   envelope_box_markup_is_narrow();
