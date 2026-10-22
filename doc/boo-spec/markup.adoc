@@ -3263,6 +3263,34 @@ above the `SRTBLTBLUNIQ549` address table, and that box is no frame around
 the table.  Every other picture-less frame around a table in the corpus
 draws no box word outside its envelope.
 
+The end marker of a table or figure span is followed the same way.  GG24-395
+`3.3.15` record 635 closes its `SRTBLTBLUNIQ21` span with `SRETBL` alone on
+line 28 (token 228 at `0x13FED4`); line 29 is empty (length byte `00` at
+`0x13FED6`) and line 30 opens the list
+` | °   Need to reduce the cost of managing users ...` with length byte `14` at
+`0x13FED7`, which the dictionary spells as five spaces.  Hosted DT
+`19941215160749` serves `<p>` and then all three items at the same columns.
+QSYSNEWG `A.4` record 320 has the same shape after `SREFIG` (token 73 at
+`0x868A3`): three empty lines (`00` at `0x868A4`--`0x868A6`), then line 21
+` | °   A command name consists of ...` at `0x868A7`.  Although the flattened
+string places these lines in the end marker's extent, they are ordinary body
+rows, and the first item stands at the same origin as its siblings.
+
+`A.4` also carries a second list level that hosted (DT `19910524085706`)
+prints inside its parent item: record 320 line 35 is
+`       -   Using the command prompt display`, whose length byte is token 224
+(`09` at `0x86961`), followed by the seven-cell origin (token 225) and `-`
+(token 226, the one-byte value `0x27` at `0x86963`), and line 36 repeats the
+shape for `Free format`.  The `-` is a content cell of its display line, not
+a row-control slot, even though its value lies below `0x30`: only a line's
+length byte is that slot.  The paragraphs at column 7 between the bullets
+(`Some parameters are required ...`, `Either method can be used ...`)
+continue the item above them.  QSYSNEWG `1.9` (record 37 lines 14-17,
+21-23, 36-39 and 45-47) draws the same `-` sub-items.  This nesting --
+a `-` list at column 7 under a `°` item at column 3, and continuation
+paragraphs at the item's text column -- is open: a reader that has no second
+list level cannot print these topics faithfully.
+
 [[markup_verbatim_cz_regions]]
 ==== Verbatim `CZ` regions
 
