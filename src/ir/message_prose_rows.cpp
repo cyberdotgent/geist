@@ -56,6 +56,27 @@ bool layout_glyph_marker(const MarkerSlotIR& marker) {
   return std::string("-<>/\"=()[{").find(text.front()) != std::string::npos;
 }
 
+// True when `closing` closes a `(`, `<`, `[` or `{` that `preceding` left
+// open.
+bool closes_open_delimiter(const std::string& preceding, const char closing) {
+  char opener = '\0';
+  switch (closing) {
+    case ')': opener = '('; break;
+    case '>': opener = '<'; break;
+    case ']': opener = '['; break;
+    case '}': opener = '{'; break;
+    default: return false;
+  }
+  std::size_t depth = 0;
+  for (const auto ch : preceding) {
+    if (ch == opener)
+      ++depth;
+    else if (ch == closing && depth != 0)
+      --depth;
+  }
+  return depth != 0;
+}
+
 std::size_t last_visible_token(const DecodedLogicalRecordSource& record,
                                std::size_t end) {
   auto last = end;
@@ -471,6 +492,25 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
         (native_lines == nullptr || native_lines->empty() ||
          native_prefix_tokens.count(native_lines->front().prefix_token + 1) == 0))
       return reject("deferred message prose font has no first native target row");
+    // True when the font's first span opens the row `token` draws: the span
+    // column is the row's first drawn cell, a revision bar in the row's
+    // margin not counting as one.
+    const auto font_opens_row = [&](const FontControlSpansIR& font,
+                                    const std::size_t token) {
+      if (font.spans.empty()) return false;
+      const auto* line = display_line_of_token(record, token);
+      if (line == nullptr) return false;
+      const auto cells = display_line_cells(record, *line);
+      for (std::size_t column = 0; column < cells.size(); ++column) {
+        if (cells[column].word <= ' ' ||
+            (column == 1 &&
+             cells[column].token != static_cast<std::size_t>(-1) &&
+             is_display_line_margin_revision_bar(record, cells[column].token)))
+          continue;
+        return column == font.spans.front().column;
+      }
+      return false;
+    };
     std::size_t current_segment = 0;
     bool segment_row_seen = false;
     for (auto token = span.begin; token < span.end; ++token) {
@@ -516,6 +556,27 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
       if (row_start != rows_by_start.end()) {
         const auto& ref = row_start->second;
         const auto run_id = layout.runs[ref.run_index].id;
+        // The row a CFONT deferred from the previous record styles, which
+        // the layout may keep in the run that record opened or in a
+        // continuation text run. SC34-425 2.4.15.1 record 1561 line 34 is
+        // `cfont 27 6 E 42 6 E 57 7 E` and record 1562 line 0 its row
+        // ` |                         CANCEL         GOBACK         REWRITE`.
+        const auto deferred_font_opens_row = [&] {
+          if (!open || !deferred_font || native_lines == nullptr ||
+              native_lines->empty() ||
+              display_line_of_token(record, token) != &native_lines->front())
+            return false;
+          const auto* font_record =
+              find_record(records, deferred_font->logical_record);
+          if (font_record == nullptr ||
+              deferred_font->segment_index >=
+                  font_record->control_segments.size())
+            return false;
+          const auto spans = decode_font_control_spans(
+              *font_record,
+              font_record->control_segments[deferred_font->segment_index]);
+          return spans && font_opens_row(*spans, token);
+        }();
         if (!current_run || *current_run != run_id) {
           // A new display run opens a paragraph when it is the first run or
           // a CFONT run whose first span starts the display line at the
@@ -523,7 +584,7 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
           // mid-line (`cfont 25 3 C` inside a sentence, a CFONT without
           // spans, a record-continuation text run) wraps the open paragraph.
           const auto& run = layout.runs[ref.run_index];
-          bool starts_line = !open;
+          bool starts_line = !open || deferred_font_opens_row;
           if (!starts_line && run.control_kind == BookControlKind::font) {
             const auto* row_record = find_record(records, ref.row->logical_record);
             if (row_record != nullptr &&
@@ -533,6 +594,18 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
                   row_record->control_segments[ref.row->segment_index]);
               starts_line = spans && !spans->spans.empty() &&
                             spans->spans.front().column == 3;
+              // A CFONT whose first span opens its row at an indent other
+              // than the origin starts a line of its own just the same: the
+              // span begins at the row's first drawn cell (a margin bar is
+              // not one), so it is not a run inside a wrapped sentence.
+              // SC34-425 2.4.12.4 record 1517 lines 5-16 are consecutive
+              // `cfont 7 6 2` rows (`       LANG=A         Assembler only`,
+              // `       LANG=T ...`), and 2.4.31 record 1638 lines 4-7 are the
+              // two `cfont 20 ... E` example rows `OPTIONS=(...) C` and
+              // `B(7,7),M(DELAY,TRACE,ID))`. Read into the open paragraph,
+              // the rows ran together.
+              if (!starts_line && spans)
+                starts_line = font_opens_row(*spans, token);
             }
           }
           if (starts_line) {
@@ -542,6 +615,9 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
           current_run = run_id;
         } else if (!open) {
           begin_paragraph(false);
+        } else if (deferred_font_opens_row) {
+          flush_piece(token, current_segment);
+          begin_paragraph(true);
         }
         current.source_rows.push_back({run_id, ref.row_index});
       }
@@ -578,7 +654,13 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
       // A lone delimiter attached by a spacing control as the very last
       // visible token before the catalog closes the flattened segment; it is
       // not prose (compare MessageMarkerDispositionIR::closing_delimiter_bridge).
+      // Only the catalog's own record ends the envelope that way: at the end
+      // of an earlier record the attached glyph is the sentence's own.
+      // SC34-425 2.4.27 record 1627 ends on line 26 ` |     invoked:`
+      // (`invoked`, attach `00`, `:` = `27` at `0x1673c0`) and hosted DT
+      // 19921112160049 serves `invoked:`.
       const auto closing_delimiter =
+          &record == catalog_record &&
           token > span.begin && control_only_spacing_token(record, token - 1) &&
           words.size() == 1 && words.front() < 0x80 &&
           std::isalnum(static_cast<unsigned char>(words.front())) == 0 &&
@@ -586,11 +668,34 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
       // A lone layout glyph that closes its decoded segment, or that a
       // padding run follows, is the marker slot of a display line whose
       // origin the next control swallowed (`each of /` before a CFONT).
+      //
+      // Decided framing overrules the padding evidence in two cases. A
+      // glyph followed on its own display line by more drawn cells is a
+      // cell of that line, not a slot in front of the next one: SC34-425
+      // 2.4.15.1 record 1559 line 18 is ` |   001201-` + a 34-blank run +
+      // `BADCPY1 '.'`, served as `<samp>001201-</samp>`. And a glyph that
+      // closes a delimiter its paragraph opened is the sentence's own:
+      // record 1557 line 17 ends `(treated as a comment line)`, served
+      // with its `)`, where the following "padding" is line 18's length
+      // byte.
       const auto segment_terminal_glyph = [&] {
         if (words.size() != 1 || words.front() >= 0x80 ||
             std::string("-<>/\"=()[{").find(
                 static_cast<char>(words.front())) == std::string::npos)
           return false;
+        if (record_framing_is_decided(record.ir) &&
+            !is_display_line_length_token(record, token)) {
+          if (const auto* line = display_line_of_token(record, token)) {
+            for (auto later = token + 1; later < line->token_end; ++later)
+              for (const auto word : record.tokens[later])
+                if (word > ' ' && word <= 0xff) return false;
+            if (closes_open_delimiter(
+                    current.text + " " +
+                        collapse(token_words_to_ascii(piece)),
+                    static_cast<char>(words.front())))
+              return false;
+          }
+        }
         const auto next = token + 1;
         return next >= span.end || wide_space_token(record, next) ||
                control_tokens.count(next) != 0;
@@ -622,11 +727,64 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
         }
         return true;
       };
+      // A revision bar in the margin of its display line is the reader's
+      // revision margin, not prose (doc/boo-spec/markup.adoc,
+      // `markup_trap_revision_margin`). SC34-425 2.4.21 record 1601 line 15 is
+      // ` ` (token 71), `|` (token 72) and `Purpose` under `cfont 3 7 K`, the
+      // span counting from column 0 of the margin. A span of the row's font
+      // (its own run's, or the one deferred from the previous record) that
+      // reaches column 1 styles the bar as drawn text, and so does a font
+      // that does not decode: the bar then stays and the callers' column
+      // checks decide.
+      const auto font_claims_bar = [&](const std::uint32_t logical_record,
+                                       const std::size_t segment_index) {
+        const auto* font_record = find_record(records, logical_record);
+        if (font_record == nullptr ||
+            segment_index >= font_record->control_segments.size())
+          return true;
+        const auto font = decode_font_control_spans(
+            *font_record, font_record->control_segments[segment_index]);
+        if (!font) return true;
+        return std::any_of(font->spans.begin(), font->spans.end(),
+                           [](const auto& span) {
+                             return span.length != 0 && span.column <= 1 &&
+                                    span.column + span.length > 1;
+                           });
+      };
+      const auto margin_bar = [&] {
+        if (!is_display_line_margin_revision_bar(record, token)) return false;
+        const auto* line = display_line_of_token(record, token);
+        // The deferred font of the previous record's last line styles this
+        // record's first native line (SC34-425 2.4.11.1 record 1500 line 25
+        // `cfont 3 5 2 9 5 2` over record 1501 line 0 ` | Total Lines`).
+        if (deferred_font && native_lines != nullptr &&
+            !native_lines->empty() && line != nullptr &&
+            line->prefix_token == native_lines->front().prefix_token &&
+            font_claims_bar(deferred_font->logical_record,
+                            deferred_font->segment_index))
+          return false;
+        // A font run's spans are its CFONT's, which the run's first row
+        // carries; a later row of the run may sit in the next record's
+        // continuation segment (SC34-425 2.4.27 record 1626 segment 0).
+        if (owner != row_by_token.end()) {
+          const auto& run = layout.runs[owner->second.run_index];
+          if (run.control_kind == BookControlKind::font &&
+              (run.rows.empty() ||
+               font_claims_bar(run.rows.front().logical_record,
+                               run.rows.front().segment_index)))
+            return false;
+        }
+        return true;
+      }();
       for (std::size_t word = 0; word < words.size(); ++word) {
         const auto value = words[word];
         // Spacing controls attach tokens; they never contribute a glyph or
         // a separator of their own.
         if (value < 0x20) continue;
+        if (margin_bar) {
+          piece.push_back(' ');
+          continue;
+        }
         const auto cell = cells.find({record.logical_record, token, word});
         const auto disposition = cell == cells.end()
                                      ? SourceDisposition::opaque

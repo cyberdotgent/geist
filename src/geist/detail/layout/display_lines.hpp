@@ -145,6 +145,16 @@ struct DisplayLineCellIR {
 std::vector<DisplayLineCellIR> display_line_cells(
     const DecodedLogicalRecordSource& record, const DisplayLineIR& line);
 
+// True when `token` is the revision bar in its display line's margin, decided
+// from the line's own cells: a one-word blank token at column 0, `token`
+// itself (the single word `U+2502` or `|`) at column 1, a blank cell at
+// column 2, and at least one drawn cell after it.  The bar is the reader's
+// revision margin in front of the row; the row's CFONT/CSELECT columns keep
+// counting across it.  Whether a span claims the bar as styled text is the
+// caller's question.  False for an unframed record.
+bool is_display_line_margin_revision_bar(
+    const DecodedLogicalRecordSource& record, std::size_t token);
+
 // One trace line per display line: index, the length byte's token and encoded
 // value, the line's token range, the hosted display text, and a per-column
 // class string (`.` space, `B` box drawing `U+2500`-`U+25FF`, `?` the

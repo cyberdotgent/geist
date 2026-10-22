@@ -477,6 +477,85 @@ same bullet row as an unrevised list, so `TPADD` and `TPALIAS` are list
 items.  So are the eleven rows after the three footnotes, `TPDELETE` through
 `DBMODIFY` on lines 24--34.
 
+[[markup_trap_revision_margin]]
+The same margin stands in front of an entry's headline, its field labels and
+the rows of the catalogue's introduction, and a `cfont` line's columns count
+across it.  `SC34-425` (DT `19921112160049`) revises whole translator topics
+this way.  Topic `2.4.21`, record 1602, lines 22--23:
+
+[cols="<16,<12,<14,<58",options="header"]
+|===
+|Offset |Bytes |Line, cell |Content
+
+|`0x1653F2` |`04` |22 |length byte, then `39 AA 88 93`: `cfont 8 1 2`
+|`0x1653F7` |`09` |23 |length byte of the headline row
+|`0x1653F8` |`0F` |23, cell 0 |a one-cell blank
+|`0x1653F9` |`70` |23, cell 1 |`\|`, the revision bar
+|— |— |23, cell 2 |the blank the reader draws after the bar's word
+|`0x1653FA` |`AC 56` |23, cells 3--6 |a four-cell `U+2500` rule
+|`0x1653FC` |`87` |23, cell 8 |`0`, the entry id (cell 7 is the blank after the rule)
+|`0x1653FD` |`0C` |23, cells 10-- |a 63-cell `U+2500` rule
+|===
+
+Cell 8 is the `0` the `cfont` names.  The unrevised sibling `2.4.22`,
+record 1604 line 49, draws `   ____ 0 ____...` under the same
+`cfont 8 1 2`, with its `0` in the same cell.  The three margin cells are
+there whether or not a bar is drawn, and the bar is not part of the entry.
+Hosted serves `<a name="MSG 0"> | ____ <B>0</B> ____...</a>` for the revised
+headline and ` | <B>User</B> <B>Response:</B>  None.` for record 1602 line
+29 (` | User Response:  None.` under `cfont 3 4 2 8 9 2`): the bar stays in
+the margin and the spans fall on `User` (cells 3--6) and `Response:`
+(cells 8--16).
+
+The bar is the margin only when the row's cells say so: a one-cell blank
+token in cell 0, a single-word `|` or `U+2502` token in cell 1, a blank in
+cell 2 and drawn cells after it.  A span that covers cell 1 makes the bar a
+styled cell of the row instead.  The cells, not the stored words, also decide
+what each span covers.  `APPENDIX1.5.3` record 2540 line 9 starts at
+`0x1AE77E` with `16 0F 70 84 7D`: length 22, the blank, `|`, `User`,
+`Response`.  Its `cfont 3 4 2 8 9 2 58 3 V 66 3 V` covers `User` and
+`Response:`, and hosted serves
+` | <B>User</B> <B>Response:</B>  Contact the project administrator with <var>aaa</var> ...`.
+A reader that counts span columns from the first stored word
+reads `| Us` for the first span, and a reader that drops the bar and then
+counts from the first word kept reads a misaligned span the same way; only
+the cells give the right run.
+
+A bullet can follow the bar with no blank token of its own, only the blank
+the reader draws after the bar.  `2.4.15.1` record 1565 line 33 is the
+blank, `|`, `U+2666`, a two-cell blank run and `Mismatched quotes ...`, with
+the bullet in cell 3.  Hosted serves ` | °   Mismatched quotes ...`, a list
+item like the unrevised one above it.
+
+Three more facts about the introduction come from the same topics.
+
+* A `cfont` row whose first span begins at the row's first drawn cell starts
+  a line at any indent, not only at the three-cell origin.  `2.4.12.4`
+  record 1517 lines 5--16 are six `cfont 7 6 2` rows
+  (`       LANG=A         Assembler only`, `       LANG=T ...`), and
+  `2.4.31` record 1638 lines 4--7 are the two example rows
+  `OPTIONS=(@@FLMUID/DEV(3800N8),...,CO,      C` (`cfont 20 50 E 76 1 E`)
+  and `B(7,7),M(DELAY,TRACE,ID))` (`cfont 20 25 E`).  Hosted prints each on
+  a line of its own.  A `cfont` at the end of one record styles the first
+  row of the next: `2.4.15.1` record 1561 line 34 `cfont 27 6 E 42 6 E 57
+  7 E` styles record 1562 line 0, `CANCEL`, `GOBACK`, `REWRITE`, the next
+  row of a three-column word table.
+* A one-word glyph that ends a display line is drawn text when it closes a
+  bracket its sentence opened, whatever the next line's length byte spells.
+  `2.4.15.1` record 1557 line 17 ends `line`, attach `00`, `)` (`22` at
+  `0x161934`).  The next byte, `1F` at `0x161935`, is line 18's length byte,
+  and its dictionary word is a 63-blank run.  Hosted serves
+  `(treated as a comment line)`.  A glyph followed by more drawn cells on
+  its own line is drawn text as well: record 1559 line 18 is
+  ` |   001201-` + a 34-cell blank run + `BADCPY1 '.'`, served as
+  `<samp>001201-</samp>`.  The same holds for a glyph that ends a record
+  before the catalogue's first `SRMSG`.  `2.4.27` record 1627 ends with
+  line 26, ` |     invoked:` (`invoked`, attach `00`, `:` = `27` at
+  `0x1673C0`), and hosted serves `invoked:`.
+* An `SI` subject-index line can stand inside an entry.  `2.4.11.1` record
+  1509 line 25 is `SI translators, FLMLPGEN`, after the last field of entry
+  `599`.  Hosted shows nothing for it.
+
 A list item's column is the bullet's cell on the drawn row, not the sum of
 the stored words in front of it, because the row also draws blanks that no
 token spells.  In `N2AH1MST` topic `28.0`, record 2297 line 15 is a

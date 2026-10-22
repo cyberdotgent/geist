@@ -137,6 +137,19 @@ std::optional<std::size_t> drawn_column(const DecodedLogicalRecordSource &record
   return std::nullopt;
 }
 
+// The revision margin of a trap row is read from the row's own cells
+// (`is_display_line_margin_revision_bar`). SC34-425 2.4.21 record 1602
+// line 23 is the length byte (token 124), ` ` (token 125, byte 0x0f at
+// 0x1653f8), `|` (token 126, byte 0x70 at 0x1653f9), a `U+2500` run, `0`
+// (token 128) and a second `U+2500` run, drawn ` | ____ 0 ____...` under
+// `cfont 8 1 2`: column 8 is the `0`, and the unrevised sibling 2.4.22
+// record 1604 line 49 (`   ____ 0 ____...`) draws its `0` at the same
+// column under the same CFONT.
+bool margin_revision_bar(const DecodedLogicalRecordSource &record,
+                         std::size_t token) {
+  return is_display_line_margin_revision_bar(record, token);
+}
+
 bool native_list_bullet(const DecodedLogicalRecordSource &record,
                         std::size_t token) {
   const auto spaces = [](const LogicalTokenIR &candidate) {
@@ -149,9 +162,14 @@ bool native_list_bullet(const DecodedLogicalRecordSource &record,
       record.ir.tokens[token].decoded_words != TokenWords{0x2666})
     return false;
   const auto *line = display_line_of_token(record, token);
+  // The blank in front of the bullet may be the one the assembler inserts
+  // after a margin revision bar: SC34-425 2.4.15.1 record 1565 line 33 is
+  // ` ` + `|` + `U+2666` + a two-blank run + `Mismatched quotes ...`, the
+  // bullet at column 3 (`.x.x...`).
   if (line == nullptr || token <= line->prefix_token + 1 ||
       token + 2 >= line->token_end ||
-      !spaces(record.ir.tokens[token - 1]) ||
+      (!spaces(record.ir.tokens[token - 1]) &&
+       !margin_revision_bar(record, token - 1)) ||
       record.ir.tokens[token + 1].decoded_words != TokenWords{' ', ' '})
     return false;
   // The leading run is blank, except for a revision bar in its margin: a
@@ -711,7 +729,18 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
                   bool whole_segment = false,
                   const std::vector<std::pair<std::size_t, std::size_t>>
                       *highlight_ranges = nullptr,
-                  const std::vector<QueuedSelector> *queued = nullptr) {
+                  const std::vector<QueuedSelector> *queued = nullptr,
+                  const FontControlSpansIR *row_font = nullptr) {
+  // A revision bar the row's own CFONT styles is a drawn cell of the row,
+  // not its margin; any span reaching column 1 keeps every bar of the
+  // payload in the text, where the row's column checks then decide.
+  const auto font_claims_margin =
+      row_font != nullptr &&
+      std::any_of(row_font->spans.begin(), row_font->spans.end(),
+                  [](const auto &span) {
+                    return span.length != 0 && span.column <= 1 &&
+                           span.column + span.length > 1;
+                  });
   // True when one CFONT span of the segment covers `[from, to)` whole, in the
   // payload's own display coordinates.
   const auto highlight_covers = [&](const std::size_t from,
@@ -918,6 +947,14 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
       list_markers.push_back(
           {token, *column, cells.size(), cells.size() + 1,
            token_slice(record, segment.segment_index, token, token + 1)});
+      pending_space = true;
+      if (gap.empty())
+        gap.push_back(' ');
+    } else if (word == 0 && !font_claims_margin &&
+               margin_revision_bar(record, token)) {
+      // The row's revision margin draws no text of the entry; the CFONT
+      // columns count across it (see `margin_revision_bar`).
+      cell.role = TrapCellRoleIR::layout_marker;
       pending_space = true;
       if (gap.empty())
         gap.push_back(' ');
@@ -2632,6 +2669,20 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
       const auto opcode_is_line_prefix =
           segment_opcode_is_display_line_prefix(*ref.record, segment);
       const auto lower_opcode = ascii_lower(segment.opcode);
+      // A subject-index line (`SI <term>`) is index metadata, not entry
+      // text, and the entry walk has no slot that withholds it, so it would
+      // run into the field it follows. SC34-425 2.4.11.1 record 1509 line 25
+      // is `SI translators, FLMLPGEN` after the last field of entry 599.
+      // Decline rather than print it.
+      if (!opcode_is_line_prefix && !segment.source_tokens.empty()) {
+        const auto *si_line =
+            display_line_of_token(*ref.record, segment.source_tokens.front());
+        if (si_line != nullptr &&
+            si_line->prefix_token + 1 == segment.source_tokens.front() &&
+            is_subject_index_display_line(*ref.record, *si_line))
+          return reject("trap entry carries a subject index line: " +
+                        entry.id);
+      }
       const auto structural_control =
           !opcode_is_line_prefix && !segment.source_tokens.empty() &&
           segment.kind == BookControlKind::structural && !segment.malformed;
@@ -2851,7 +2902,7 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
         if (!walk_payload(*ref.record, segment, index, line.body, entry.cells,
                           entry_cell_positions, error, false,
                           highlighted_columns, false,
-                          &highlight_ranges))
+                          &highlight_ranges, nullptr, &*spans))
           return std::nullopt;
         // A font control whose payload is empty at the record end carries its
         // text in the next record's leading text segment.
@@ -2867,8 +2918,8 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           // control ends one record and its row opens the next.
           if (!walk_payload(*ordered[at].record, *ordered[at].segment, index,
                             line.body, entry.cells, entry_cell_positions, error,
-                            false,
-                            highlighted_columns, false, &highlight_ranges))
+                            false, highlighted_columns, false,
+                            &highlight_ranges, nullptr, &*spans))
             return std::nullopt;
         } else if (line.body.text.empty() && at + 1 < end &&
                    ordered[at + 1].record == ref.record &&
@@ -2884,8 +2935,8 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           ++at;
           if (!walk_payload(*ordered[at].record, *ordered[at].segment, index,
                             line.body, entry.cells, entry_cell_positions, error,
-                            false,
-                            highlighted_columns, true, &highlight_ranges))
+                            false, highlighted_columns, true,
+                            &highlight_ranges, nullptr, &*spans))
             return std::nullopt;
         }
         line.body.cell_end = entry.cells.size();
@@ -2931,6 +2982,39 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
             chain = std::move(candidate);
             line.spans = std::move(candidate_spans);
             line.spans_text = std::move(candidate_text);
+          }
+        }
+        // A row that opens with a revision margin maps its CFONT from the
+        // first word the walk kept, which the record does not state is the
+        // span's column; the row's own cells must corroborate every span the
+        // mapping claims, for the headline and the labels as for a run.
+        // SC34-425 APPENDIX1.5.3 record 2540 line 9 (` | User Response:`
+        // under `cfont 3 4 2 8 9 2`) is the guard: columns 3 and 8 are the
+        // cells `User` and `Response:`, never `| Us`.
+        if (!chain.empty()) {
+          for (auto cell = line.body.cell_begin; cell < line.body.cell_end;
+               ++cell) {
+            const auto role = entry.cells[cell].role;
+            if (role != TrapCellRoleIR::text &&
+                role != TrapCellRoleIR::unrowed_text &&
+                role != TrapCellRoleIR::lexical_marker &&
+                role != TrapCellRoleIR::punctuation_marker)
+              continue;
+            const auto *drawn =
+                find_record(records, entry.cells[cell].logical_record);
+            const auto *row =
+                drawn == nullptr
+                    ? nullptr
+                    : display_line_of_token(*drawn,
+                                            entry.cells[cell].token_index);
+            if (row != nullptr &&
+                margin_revision_bar(*drawn, row->prefix_token + 2) &&
+                !chain_matches_display_columns(
+                    *drawn, entry.cells[cell].token_index, line.spans))
+              return reject("trap entry highlighted run does not cover the "
+                            "columns it names: " +
+                            entry.id + " [" + line.spans_text + "]");
+            break;
           }
         }
         if (!chain.empty() && !have_headline) {

@@ -1731,6 +1731,244 @@ int main() {
               "record-leading bullet failed verification: " + error);
     }
   }
+  // Revision margins (SC34-425 2.4.21, 2.4.27, APPENDIX1.5.3). A revised row
+  // opens with a one-cell blank token and a `|` token; the assembler draws
+  // a blank after the bar, so the row's first word stands at column 3, the
+  // column its CFONT names. The bar is the reader's margin, not entry text.
+  const auto margin = [] {
+    return std::vector<Token>{t(" ", 290), t("|", 291)};
+  };
+  const auto revised = [&](std::vector<Token> content) {
+    auto row = margin();
+    row.insert(row.end(), content.begin(), content.end());
+    return line(row);
+  };
+  const auto revised_entry = [&](const std::string &head_font_column) {
+    std::vector<Token> tokens;
+    append(tokens, line({t("SRMSG", 110), t("640", 292)}));
+    append(tokens, line({t("cfont", 111), t(head_font_column, 112),
+                         t("3", 112), t("2", 113)}));
+    append(tokens, revised({t("640", 292)}));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("4", 293), t("2", 113),
+                 t("8", 294), t("9", 295), t("2", 113)}));
+    append(tokens, revised({t("User", 296), t("Response:", 297),
+                            t("Contact", 298), t("support.", 299)}));
+    return tokens;
+  };
+
+  // The headline and the label behind a bar type, and the bar is in neither.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, revised_entry("3"));
+    const auto built = build({make_source(70, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "a headline behind a revision bar declined: " + built.error);
+    if (built.catalog && built.catalog->entries.size() == 1) {
+      const auto &only = built.catalog->entries.front();
+      require(only.headline.body.text == "640",
+              "the revised headline is wrong: [" + only.headline.body.text +
+                  "]");
+      require(only.fields.size() == 1 &&
+                  only.fields.front().label_text == "User Response:" &&
+                  only.fields.front().line.body.text ==
+                      "User Response: Contact support.",
+              "the revised field did not keep its label and text");
+      require(entry_text(only).find('|') == std::string::npos,
+              "the revision bar leaked into the entry: [" + entry_text(only) +
+                  "]");
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "the revised entry failed verification: " + error);
+    }
+  }
+
+  // Mutation: the same headline under a CFONT one column off. With the bar
+  // left out the projected text alone would still read `640`; the row's
+  // cells say column 4 is `40`, so the family declines.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, revised_entry("4"));
+    const auto built = build({make_source(71, tokens)}, "Sample Messages");
+    require(!built.catalog.has_value(),
+            "a revised headline under a misaligned CFONT was admitted");
+    require(built.error.find("does not cover the columns it names") !=
+                std::string::npos,
+            "the misaligned revised headline declined for the wrong "
+            "reason: " +
+                built.error);
+  }
+
+  // Mutation, the APPENDIX1.5.3 guard: a CFONT that claims the bar's own
+  // column keeps the bar in the row's text, and nothing may then map as
+  // `| Us` -- neither a label nor a run. (The span starts left of the
+  // catalogue's label column, so the row is plain body text, as any row
+  // whose CFONT the labels cannot read.)
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("641", 300));
+    append(tokens,
+           line({t("cfont", 111), t("1", 301), t("4", 293), t("2", 113),
+                 t("8", 294), t("9", 295), t("2", 113)}));
+    append(tokens, revised({t("User", 296), t("Response:", 297),
+                            t("Contact", 298), t("support.", 299)}));
+    const auto built = build({make_source(72, tokens)}, "Sample Messages");
+    if (built.catalog) {
+      for (const auto &item : built.catalog->entries)
+        for (const auto &field : item.fields) {
+          require(field.label_text.find('|') == std::string::npos &&
+                      field.line.spans_text.find('|') == std::string::npos,
+                  "a styled bar was mapped into a label: [" +
+                      field.label_text + "]");
+          for (const auto &highlight : field.line.body.highlights)
+            require(field.line.body.text.compare(highlight.begin, 1, "|") !=
+                        0,
+                    "a styled bar was mapped into a run");
+          require(field.label_text != "User Response:",
+                  "a label was read from a CFONT that names other columns");
+        }
+    }
+  }
+
+  // A native list bullet straight after the bar's blank (SC34-425 2.4.15.1
+  // record 1565 line 33) is still the list marker, at column 3.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("642", 302));
+    append(tokens, revised({{TokenWords{0x2666}, 214}, t("  ", 20),
+                            t("Bulleted", 303), t("item", 216)}));
+    const auto built = build({make_source(73, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "a revised bullet row declined: " + built.error);
+    if (built.catalog) {
+      const auto &blocks =
+          built.catalog->entries.front().fields.front().line.body.flow.blocks;
+      const geist::detail::TrapFlowListIR *list = nullptr;
+      for (const auto &block : blocks)
+        if (const auto *candidate =
+                std::get_if<geist::detail::TrapFlowListIR>(&block.value))
+          list = candidate;
+      require(list != nullptr && list->marker_column == 3 &&
+                  list->items.size() == 1,
+              "a bullet behind a revision bar was not read as a list item");
+    }
+  }
+
+  // The introduction's revised rows lose their bar too, and an indented
+  // CFONT row that opens its line is a paragraph of its own (SC34-425
+  // 2.4.12.4 `LANG=A`/`LANG=T`), not a wrap of the paragraph above it.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, revised({t("Revised", 304), t("introduction.", 305)}));
+    append(tokens, line({}));
+    append(tokens, line({t("cfont", 111), t("7", 306), t("4", 293),
+                         t("2", 113)}));
+    append(tokens, line({t("       ", 307), t("ALFA", 308), t("first", 117)}));
+    append(tokens, line({t("cfont", 111), t("7", 306), t("4", 293),
+                         t("2", 113)}));
+    append(tokens, line({t("       ", 307), t("BETA", 309), t("second", 310)}));
+    append(tokens, entry("643", 311));
+    const auto built = build({make_source(74, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "a revised introduction declined: " + built.error);
+    if (built.catalog) {
+      std::vector<std::string> paragraphs;
+      for (const auto &paragraph : built.catalog->introduction)
+        paragraphs.push_back(paragraph.text);
+      std::string joined;
+      for (const auto &paragraph : paragraphs)
+        joined += "[" + paragraph + "]";
+      require(paragraphs.size() == 3 &&
+                  paragraphs[0] == "Revised introduction." &&
+                  paragraphs[1] == "ALFA first" &&
+                  paragraphs[2] == "BETA second",
+              "the revised introduction projected " + joined);
+    }
+  }
+
+  // Introduction glyphs the decided framing proves are drawn. A `)` that
+  // closes the paragraph's own `(` at a line end stays even though the next
+  // line's length byte spells blanks (SC34-425 2.4.15.1 record 1557 line
+  // 17), and so does a `-` with more drawn cells after it on its line
+  // (record 1559 line 18, `001201-` + blanks + `BADCPY1`).
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({origin(), t("Column", 320), t("ignored", 321),
+                         t("(treated", 322), t("as", 323), t("comment", 324),
+                         {TokenWords{1}, 0}, t(")", 325)}));
+    // A length byte whose dictionary word is a blank run, as in the source.
+    const std::vector<Token> next_line{t("Next", 326), t("row.", 327)};
+    tokens.push_back({words("        "),
+                      static_cast<std::uint16_t>(next_line.size())});
+    append(tokens, next_line);
+    append(tokens, line({}));
+    append(tokens, line({t("cfont", 111), t("5", 340), t("7", 341),
+                         t("E", 342), t("47", 343), t("7", 341),
+                         t("E", 342)}));
+    append(tokens, revised({t("  ", 16), t("001201", 328), {TokenWords{1}, 0},
+                            t("-", 329), t(std::string(34, ' '), 330),
+                            t("BADCPY1", 331)}));
+    append(tokens, line({}));
+    append(tokens, entry("645", 332));
+    const auto built = build({make_source(76, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "the glyph introduction declined: " + built.error);
+    if (built.catalog) {
+      std::string introduction;
+      for (const auto &paragraph : built.catalog->introduction)
+        introduction += "[" + paragraph.text + "]";
+      require(introduction.find("comment)") != std::string::npos,
+              "a closing parenthesis the framing proves drawn was dropped: " +
+                  introduction);
+      require(introduction.find("001201-") != std::string::npos,
+              "a mid-line hyphen the framing proves drawn was dropped: " +
+                  introduction);
+    }
+  }
+
+  // An attached glyph that ends a record before the catalog's own record is
+  // the sentence's own, not the catalog boundary (SC34-425 2.4.27 record
+  // 1627 line 26 ` |     invoked:`).
+  {
+    auto first = header("Sample", "Messages");
+    append(first, line({origin(), t("Concatenated", 333), t("when", 334),
+                        t("invoked", 335), {TokenWords{1}, 0}, t(":", 336)}));
+    std::vector<Token> second;
+    append(second, line({}));
+    append(second, line({origin(), t("Example", 337), t("text.", 338)}));
+    append(second, entry("646", 339));
+    const auto built = build({make_source(77, first), make_source(78, second)},
+                             "Sample Messages");
+    require(built.catalog.has_value(),
+            "the two-record introduction declined: " + built.error);
+    if (built.catalog) {
+      std::string introduction;
+      for (const auto &paragraph : built.catalog->introduction)
+        introduction += "[" + paragraph.text + "]";
+      require(introduction.find("invoked:") != std::string::npos,
+              "a record-final colon was taken for the catalog boundary: " +
+                  introduction);
+    }
+  }
+
+  // A subject-index line inside an entry is index metadata the entry walk
+  // cannot withhold; the family declines rather than print it (SC34-425
+  // 2.4.11.1 record 1509 line 25).
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("644", 312));
+    append(tokens, line({t("SI", 313), t("translators,", 314),
+                         t("SAMPLE", 315)}));
+    const auto built = build({make_source(75, tokens)}, "Sample Messages");
+    require(!built.catalog.has_value(),
+            "an entry carrying a subject index line was admitted");
+    require(built.error.find("subject index") != std::string::npos,
+            "the subject index line declined for the wrong reason: " +
+                built.error);
+  }
+
   std::cout << "trap catalog IR synthetic tests passed\n";
   return 0;
 }

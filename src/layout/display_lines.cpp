@@ -266,6 +266,24 @@ std::vector<DisplayLineCellIR> display_line_cells(
   return cells;
 }
 
+bool is_display_line_margin_revision_bar(
+    const DecodedLogicalRecordSource& record, const std::size_t token) {
+  if (token == 0 || token >= record.ir.tokens.size() ||
+      (record.ir.tokens[token].decoded_words != TokenWords{'|'} &&
+       record.ir.tokens[token].decoded_words != TokenWords{0x2502}))
+    return false;
+  const auto* line = display_line_of_token(record, token);
+  if (line == nullptr || token != line->prefix_token + 2 ||
+      record.ir.tokens[token - 1].decoded_words != TokenWords{' '})
+    return false;
+  const auto cells = display_line_cells(record, *line);
+  if (cells.size() < 4 || cells[0].token != token - 1 ||
+      cells[1].token != token || cells[2].word != ' ')
+    return false;
+  return std::any_of(cells.begin() + 3, cells.end(),
+                     [](const auto& cell) { return cell.word > ' '; });
+}
+
 std::string format_display_line_ir(const DecodedLogicalRecordSource& record,
                                    const DisplayLineIR& line,
                                    const std::size_t index) {
