@@ -1089,6 +1089,34 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           claimed[token] = true;
           continue;
         }
+        // A `,` or `?` stored as a two-byte dictionary word and standing as
+        // the last token of its native display line, directly in front of
+        // the next control's line, is spelled like decoder punctuation but
+        // may be the row's last displayed cell.  Hosted serves it where the
+        // row's CFONT names its column: SC24-546 D.0 record 1118 line 7
+        // `              LTORG ,` under `cfont 14 5 E 20 1 E` (DT
+        // 19940323131240, `<samp>LTORG</samp> <samp>,</samp>`), IEAC6MST
+        // 4.8.2 record 355 line 3 ending `LOCATE ?` under `... 70 1 E` (DT
+        // 19920124000100), GG24-4302-00 4.3.3.2 record 355 line 0 ending
+        // `COPY1) ?` under `... 86 1 E` (DT 19950308184737).  The stream
+        // carries it as a candidate; the row model admits it only under that
+        // exact span (`styled_terminal`) and keeps it padding otherwise.
+        if (title_seen && !menu_open && !cz_seen && view.width == 2 &&
+            view.body.size() == 1 &&
+            (view.body.front() == ',' || view.body.front() == '?')) {
+          const auto* line = display_line_of_token(record, token);
+          if (line != nullptr && token != line->prefix_token &&
+              token + 1 == line->token_end) {
+            Item item;
+            item.kind = ItemKind::token;
+            item.token = view;
+            item.separator = true;
+            item.styled_terminal = true;
+            build.items.push_back(std::move(item));
+            claimed[token] = true;
+            continue;
+          }
+        }
         // A display line's length byte is the row-control slot, always and
         // only.  It is a raw byte the token reader resolves through the
         // dictionary, so it routinely spells an ordinary word -- SC26-457

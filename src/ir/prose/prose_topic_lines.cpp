@@ -892,6 +892,33 @@ struct LineBuilder {
     return false;
   }
 
+  // True when the space run `view` opens a pair of runs standing *inside*
+  // the native display line the open row is already drawing, and a span of
+  // that row addresses cells past the ones written so far.  One space-run
+  // token spells at most 63 cells, so a wider in-row gap is stored as two
+  // consecutive runs: SC33-033 A.3.2 record 872 line 18 is
+  // `     C*` + 63-cell run + 3-cell run + `*  02100000` under
+  // `cfont 5 2 E 74 1 E 77 8 E`, one 85-column display line, and hosted
+  // (DT 19930422134757) serves it as one row with `<samp>*</samp>` at
+  // column 74.  The length byte, not the pair, frames the row
+  // (doc/boo-spec/markup.adoc, "A span holds its row open"), and the span is
+  // the corroboration: without one the pair keeps its fill/origin reading.
+  bool interior_pair_of_spanned_row(const TokenView& view) {
+    if (!line_open || in_title || in_index || line_visible_cells == 0 ||
+        out.lines.empty() || !span_continues_row())
+      return false;
+    if (!inside_display_line(view.record, view.token)) return false;
+    const auto* here = display_line_of(view.record, view.token);
+    if (here == nullptr) return false;
+    const auto& cells = out.lines.back().cells;
+    for (auto cell = cells.rbegin(); cell != cells.rend(); ++cell) {
+      if (cell->record == npos) continue;
+      return cell->record == view.record &&
+             display_line_of(cell->record, cell->token) == here;
+    }
+    return false;
+  }
+
   // True when a control that is still waiting for its display text covers
   // exactly the `cells` display columns starting at `column`.  An exact
   // match is what proves a glyph is styled display text; a span that merely
@@ -1531,23 +1558,26 @@ struct LineBuilder {
     // rows apart.
     if (opens_display_line(view)) return row_control_length_byte(index);
 
+    // A row-final `,` / `?` candidate (see `styled_terminal` in the stream
+    // builder): display text exactly where a CFONT span of the open row
+    // claims its cell, padding everywhere else.
+    if (item.styled_terminal) {
+      if (line_open && line_visible_cells != 0 && !in_title && !in_index &&
+          covered_by_font_span(view))
+        return append_visible(view, ProseTokenRoleIR::text);
+      return assign(view, ProseTokenRoleIR::padding);
+    }
+
     if (is_space_run(view)) {
       const auto next = next_token(index);
-      // Measured and reverted: guarding this fill/origin pair with "a span of
-      // the open row reaches past the cells written so far"
-      // (doc/boo-spec/markup.adoc, "A span holds its row open") does hold the row
-      // open where the pair is the interior padding of one display line --
-      // SC33-033 record 872 line 18 is
-      // `     C*  ...(64 cells)...  *  02100000` under
-      // `cfont 5 2 E 74 1 E 77 8 E`, an 85-column comment-box row the model
-      // cuts after `C*`.  Exporting all 34 fixtures with and without that
-      // guard moves exactly six topics (SC33-033 `A.3.2`..`A.3.7`) and every
-      // one of them comes out *worse*: the recovered rows are all `E`-styled,
-      // so the reflow joins the whole FORTRAN listing into a single inline
-      // code span where hosted (DT 19930422134757) serves a `<pre>` of 120
-      // lines and the legacy route keeps one row per paragraph.  It is also a
-      // one-book rule.  Both reasons say leave the pair alone until the
-      // fixed-layout regions render verbatim.
+      // A pair inside the display line the open row is drawing, under a span
+      // that reaches past the cells written so far, is one wide in-row gap
+      // (`interior_pair_of_spanned_row`).  The same guard was once measured
+      // and reverted: before native styled-example rows rendered verbatim,
+      // the recovered `E`-styled rows of SC33-033 `A.3.2`..`A.3.7` reflowed
+      // into one inline code span.  They now leave the model as whole native
+      // rows and lower into the same `<pre>` hosted (DT 19930422134757)
+      // serves, row for row.
       // Inside a verbatim region a row already open was opened by its display
       // line's length byte, and the framing says the row ends where the next
       // length byte begins -- not at a pair of space runs inside the line.
@@ -1556,7 +1586,8 @@ struct LineBuilder {
       // the fill/origin pair cut in two (`   |` then `        |`).  The pair
       // still opens a row whose display line has not opened one yet, which is
       // the leading two-run margin the rule was written for.
-      if (space_at(next) && !(xmp_mode && line_open)) {
+      if (space_at(next) && !(xmp_mode && line_open) &&
+          !interior_pair_of_spanned_row(view)) {
         // Fill/origin pair: every run but the last is fill.
         auto cursor = index;
         auto last = next;

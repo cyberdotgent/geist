@@ -688,6 +688,163 @@ void an_apl_font_span_decodes_its_own_character_cells() {
           "the APL diagnostic arrow lost its native display column");
 }
 
+// -------------------------------------------------------------------------
+// A wide in-row gap stored as two space runs (issue #91).
+// -------------------------------------------------------------------------
+
+// One space-run token spells at most 63 cells, so a comment-box row whose
+// gap is wider stores it as a 63-cell run followed by a short one.  SC33-033
+// A.3.2 record 872 line 18 is `     C*` + 63 + 3 + `*  02100000` under
+// `cfont 5 2 E 74 1 E 77 8 E`: one 85-column display line, served by hosted
+// (DT 19930422134757) as one row with the `*` styled at column 74.
+std::vector<TokenWords> comment_box_row(const std::string &sequence) {
+  return {words("     "), words("C*"), words(std::string(63, ' ')),
+          words("   "), words("*"), words(" "), words(sequence)};
+}
+
+DecodedLogicalRecordSource comment_box_record(bool spanned) {
+  RecordBuilder builder;
+  metadata(builder, "1.13", {"Comment", "Box"});
+  builder.line({words("cfont"), words("5"), words("70"), words("E"),
+                words("77"), words("8"), words("E")});
+  builder.line({words("     "), words("C" + std::string(69, '*')),
+                words(" "), words("00700000")});
+  if (spanned) {
+    builder.line({words("cfont"), words("5"), words("2"), words("E"),
+                  words("74"), words("1"), words("E"), words("77"),
+                  words("8"), words("E")});
+  } else {
+    builder.line({words("cfont"), words("5"), words("2"), words("E")});
+  }
+  builder.line(comment_box_row("02100000"));
+  return builder.build(43);
+}
+
+void a_two_run_gap_inside_a_spanned_row_keeps_the_row_whole() {
+  const auto record = comment_box_record(true);
+  require(record.ir.display_lines_parse,
+          "the comment-box topic's display lines did not parse");
+  // The premise: the stored display line really is one 85-column row with
+  // the closing `*` at the span's column 74.
+  std::string native;
+  if (const auto *lines = geist::detail::record_display_lines(record))
+    for (const auto &line : *lines) {
+      const auto text = geist::detail::display_line_text(record, line);
+      if (text.find("02100000") != std::string::npos) native = text;
+    }
+  require(native.size() == 85 && native[74] == '*',
+          "the fixture's display line is not the 85-column comment-box row: '" +
+              native + "'");
+
+  std::string error;
+  const auto prose = extract(record, "Comment Box", error);
+  require(prose.has_value(),
+          "a comment-box row whose gap is stored as two runs was rejected: " +
+              error);
+  if (!prose) return;
+  require(verify(record, "Comment Box", *prose, error),
+          "the comment-box row's source claims are not conserved: " + error);
+
+  bool whole = false;
+  for (const auto &block : prose->blocks)
+    if (block.kind == geist::detail::ProseBlockKindIR::preformatted)
+      for (const auto &line : block.preformatted_lines)
+        if (line == native) whole = true;
+  require(whole, "the comment-box row was not kept as its native display "
+                 "line; the body carries '" + body_text(*prose) + "'");
+  // The closing `*` keeps its example font: either as its own styled cell
+  // or inside the styled run that carries it with the sequence number.
+  bool styled_star = false;
+  const auto tail = native.size() > 74 ? native.substr(74) : std::string();
+  for (const auto &block : prose->blocks)
+    for (const auto &fragment : block.inlines)
+      if (fragment.style == geist::detail::FontStyleIR::example_phrase &&
+          (fragment.text == "*" ||
+           (!tail.empty() && fragment.text.find(tail) != std::string::npos)))
+        styled_star = true;
+  require(styled_star,
+          "the `cfont 74 1 E` triple did not land on the closing `*`");
+}
+
+// Without a span past the cells already written, nothing corroborates that
+// the pair stands inside the row: the pair keeps its fill/origin reading and
+// the operand that does exist still lands on its own cells.
+void a_two_run_gap_without_a_reaching_span_keeps_the_pair_reading() {
+  const auto record = comment_box_record(false);
+  std::string error;
+  const auto prose = extract(record, "Comment Box", error);
+  if (!prose) return;  // declining is also acceptable; admitting a wider row
+                       // on no evidence is not.
+  for (const auto &block : prose->blocks)
+    for (const auto &line : block.preformatted_lines)
+      require(line.find("C*") == std::string::npos ||
+                  line.find("02100000") == std::string::npos,
+              "an unspanned two-run gap was held open as one row: '" + line +
+                  "'");
+}
+
+// -------------------------------------------------------------------------
+// A styled `,` / `?` that ends its row in front of the next control (#91).
+// -------------------------------------------------------------------------
+
+// SC24-546 D.0 record 1118 line 7 is `              LTORG ,` under
+// `cfont 14 5 E 20 1 E`, and the very next display line is the following
+// row's `cfont`.  The `,` is a two-byte dictionary word that no control
+// segment claims, spelled like decoder punctuation; hosted (DT
+// 19940323131240) serves `<samp>LTORG</samp> <samp>,</samp>`.
+DecodedLogicalRecordSource styled_terminal_record(bool styled) {
+  RecordBuilder builder;
+  metadata(builder, "1.14", {"Literal", "Pool"});
+  builder.line({words("cfont"), words("3"), words("5"), words("E"),
+                words("9"), words("1"), words("E")});
+  builder.line({words("   "), words("SPACE"), words("3")});
+  if (styled)
+    builder.line({words("cfont"), words("3"), words("5"), words("E"),
+                  words("9"), words("1"), words("E")});
+  else
+    builder.line({words("cfont"), words("3"), words("5"), words("E")});
+  builder.line({words("   "), words("LTORG"), words(",")});
+  // The next line's length byte is the byte the book's dictionary spells as
+  // a seven-cell space run (record 1118 token 63, value 23).
+  builder.line_with_prefix(words("       "),
+                           {words("cfont"), words("3"), words("5"),
+                            words("E")});
+  builder.line({words("   "), words("TITLE")});
+  return builder.build(44);
+}
+
+void a_styled_row_final_comma_before_a_control_is_display_text() {
+  const auto record = styled_terminal_record(true);
+  std::string error;
+  const auto prose = extract(record, "Literal Pool", error);
+  require(prose.has_value(),
+          "a row ending in a CFONT-covered `,` in front of the next control "
+          "was rejected: " + error);
+  if (!prose) return;
+  require(verify(record, "Literal Pool", *prose, error),
+          "the styled terminal `,` is not conserved: " + error);
+  std::string rows;
+  for (const auto &block : prose->blocks)
+    for (const auto &line : block.preformatted_lines) rows += line + "\n";
+  require((rows + body_text(*prose)).find("LTORG ,") != std::string::npos,
+          "the styled terminal `,` was dropped: '" + body_text(*prose) + "'");
+}
+
+// The same `,` under no span is not corroborated as a drawn cell: it stays
+// decoder padding, and the row is not widened on its account.
+void an_unstyled_row_final_comma_before_a_control_stays_padding() {
+  const auto record = styled_terminal_record(false);
+  std::string error;
+  const auto prose = extract(record, "Literal Pool", error);
+  if (!prose) return;
+  std::string rows;
+  for (const auto &block : prose->blocks)
+    for (const auto &line : block.preformatted_lines) rows += line + "\n";
+  require((rows + body_text(*prose)).find("LTORG ,") == std::string::npos,
+          "an unstyled terminal `,` was admitted as display text: '" +
+              body_text(*prose) + "'");
+}
+
 } // namespace
 
 int main() {
@@ -704,5 +861,9 @@ int main() {
   styled_terminal_punctuation_is_display_text();
   a_styled_terminal_marker_finishes_the_open_row();
   an_apl_font_span_decodes_its_own_character_cells();
+  a_two_run_gap_inside_a_spanned_row_keeps_the_row_whole();
+  a_two_run_gap_without_a_reaching_span_keeps_the_pair_reading();
+  a_styled_row_final_comma_before_a_control_is_display_text();
+  an_unstyled_row_final_comma_before_a_control_stays_padding();
   return 0;
 }

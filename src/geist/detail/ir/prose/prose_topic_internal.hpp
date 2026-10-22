@@ -126,6 +126,10 @@ struct Item {
   TokenView token;
   // An inter-segment token claimed by no control segment.
   bool separator = false;
+  // An unclaimed width-2 `,` or `?` that ends its native display line in
+  // front of the next control: display text only where a CFONT span of its
+  // own row covers its cell exactly, otherwise padding.
+  bool styled_terminal = false;
   bool title_start = false;
   // The `ST` control carried no payload token at all, so the topic's title is
   // empty and this segment end completes it.

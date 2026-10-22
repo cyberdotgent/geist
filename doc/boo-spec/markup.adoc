@@ -1467,6 +1467,47 @@ those lines is a row boundary whatever the spans say.
 |SC09-138 `8.4.2.5` l|          a = b*(x*y*z);            /* Duplicates recognized */ |the `;` had been read as a length byte
 |===
 
+[[markup_a_wide_gap_is_several_runs]]
+==== A wide in-row gap is stored as several runs
+
+The widest single space-run token observed spells 63 cells.  A row whose gap
+is wider stores it as consecutive runs, which has the shape of the
+fill/origin pair that ends one row and indents the next.  Inside a display
+line that the open row is already drawing, a span of that row that names
+columns past the cells written so far settles it: the length byte frames the
+row, the runs are one gap, and the span's columns land on the row's own
+cells.
+
+SC33-033 record 872 line 18 (file offset `0x51A54`) is
+`0A 0D 80 00 21 1F 0B 21 09 E8 EE`: length byte `0x0A` (10 bytes), a 5-cell
+origin run `0D`, `C`, the attach byte `00`, `*`, a 63-cell run `1F`, a
+3-cell run `0B`, `*`, a 1-cell run `09`, and the sequence number
+`02100000` (`E8 EE`).  Laid out with the synthetic space after each visible
+token, the closing `*` stands at column 74 and the sequence number at 77,
+exactly the columns of the preceding `cfont 5 2 E 74 1 E 77 8 E`.  Hosted
+SC33-033 `A.3.2` (DT 19930422134757) serves the line as one row,
+`<samp>C*</samp>` ... `<samp>*</samp>  <samp>02100000</samp>`.  The same
+shape recurs throughout SC33-033 `A.3.2`-`A.3.7`, `B.4.1.1` and `B.4.1.2`.
+
+[[markup_a_styled_row_final_word]]
+==== A styled `,` or `?` can end a row in front of a control
+
+A `,` or `?` spelled by a two-byte dictionary word and standing as the last
+token of its display line, directly before the display line of the next
+control, is claimed by no control segment and has the spelling of decoder
+punctuation.  It is the row's last displayed cell exactly when a `CFONT` span
+of that row covers its column; with no such span it is padding.
+
+[cols="<22,<34,<44",options="header"]
+|===
+|Book / topic |Bytes |Row and operand
+
+|SC24-546 `D.0` |record 1118 offset `0x65AB9`: `05 1D D8 64 C7 BD 17` |length 5, 14-cell run, `LTORG`, `,` (`C7 BD`); next byte `17` opens the next line.  `cfont 14 5 E 20 1 E`; hosted (DT 19940323131240) `<samp>LTORG</samp> <samp>,</samp>`
+|SC24-546 `E.1` |record 1158 line 6 |`              SPACE ,` under `cfont 14 5 E 20 1 E`; hosted the same
+|IEAC6MST `4.8.2` |record 355 line 3, `?` at `0x856BE` (`CF FF`) |`... STACK X; LOCATE ?` under `... 63 6 E 70 1 E`; hosted (DT 19920124000100) `<samp>?</samp>` at column 70
+|GG24-4302-00 `4.3.3.2` |record 355 line 0 |`... ICDSN(ICF51.DE03AR05.COPY1) ?` under `... 58 27 E 86 1 E` (stored at the end of record 354); hosted (DT 19950308184737) `<samp>?</samp>`
+|===
+
 [[markup_a_span_disproves_an_empty_row]]
 ==== A span disproves an empty row
 
@@ -2719,6 +2760,7 @@ hosted page an exact oracle for the grammar below (checked over SC31-711
 |Token shape |Meaning |Evidence
 
 |Two or more adjacent space-run tokens |Row break: every run but the last is end-of-row fill, the last is the next row's origin (indent). A one-byte word before the pair is visible text (the row's last word). |SC31-711 LR88 `is` + 18 spaces + 3 spaces + `managing`; hosted `...that it is` / `managing by`. QSYSINFO LR44 `of` + 6 + 3 spaces; the legacy route dropped these words.
+|Two or more adjacent space-run tokens inside the display line the open row is drawing, with a `CFONT`/`CSELECT` span of that row naming columns past the cells written so far |Not a row break: one wide in-row gap stored as several runs (see <<markup_a_wide_gap_is_several_runs>>). Without such a span the row-break reading above stands. |SC33-033 `A.3.2` record 872 line 18 `     C*` + 63 + 3 spaces + `*  02100000` under `cfont 5 2 E 74 1 E 77 8 E`; hosted serves one 85-column row.
 |One-byte visible token + one space run of 3 or more cells + visible token |The one-byte token is the row's marker slot (not displayed), the run is the origin. Applies to glyphs (`( ) - < > / = : "`), placeholder runs, and compact dictionary words alike. |SC31-711 LR57 `application` + 3 spaces + `__`, `a` + 3 spaces + `suggestions`; LR90 `action` + 3 spaces; hosted shows none of these words. LR57 `,` + 10 spaces + `log` renders `trapd` / `log` without the comma.
 |One-byte visible token + a 1-cell space run |Not a row break: the run is a literal inter-sentence space and the token is text. |SC31-711 LR57 `2.1.` + 1 space + `Next`; hosted pass:[<literal>topic 2.1.&#160;&#160;Next</literal>].
 |Standalone punctuation glyph + fill/origin pair |Marker slot in both shapes. Attached punctuation (`conditions:`, `useful.`, bare spacing token before it) stays text. |SC31-711 LR41 `Getting` `/` + `cfont` + 4 spaces + 3 spaces + `Started`; hosted `Getting` / `Started`. LR58 `useful.` + 13 + 10 spaces keeps the period.
