@@ -599,6 +599,23 @@ inline bool cz_artwork_region_closer(const std::string& tag) {
   return tag == "eartwork" || tag == "ehp0";
 }
 
+// `cz OFF TABDATA`: a fixed-column table of data closed, like the artwork
+// region, by the end of the highlight phrase that wraps it.  GA19-5486-13
+// `FRONT_2` (record 33 segments 11-14) opens `cz OFF TABDATA`, stores the
+// abbreviation rows `K    =  1,024 bytes` .. `dpi  =  dots per inch`, and
+// closes `cz OFF EHP1 0 0`; hosted BookServer (`GA19-548`, DT
+// 19951012161206) serves every row, blank separators included, in one
+// `<pre width="80">`.  `EHP1` occurs nowhere else in the four supplemental
+// books and `HP1` opens nothing, so the highlight end closes this region and
+// nothing else; `EHP0` remains the artwork's closer only.  `ETABDATA` is the
+// dialect's own closer spelling for the tag.
+inline bool cz_tabdata_region_tag(const std::string& tag) {
+  return tag == "tabdata";
+}
+inline bool cz_tabdata_region_closer(const std::string& tag) {
+  return tag == "etabdata" || tag == "ehp1";
+}
+
 // One `cz OFF <verbatim>` .. `cz OFF E<verbatim>` region of a topic, as a
 // closed [begin, end] range of (record index, token) positions.  Computed
 // once per topic in prose_topic_spans.cpp; the span plan uses it to leave an

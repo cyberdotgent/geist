@@ -270,11 +270,66 @@ void an_unclosed_artwork_region_fails_closed() {
               "', not for the missing closer");
 }
 
+// GA19-5486-13 `FRONT_2` (`GA19-548`, DT 19951012161206): `cz OFF TABDATA`
+// opens the abbreviation table and the compiler closes it `cz OFF EHP1 0 0`,
+// the end of the highlight phrase around it, exactly as `ARTWORK` closes on
+// `EHP0`.  Hosted serves every row in one `<pre width="80">`, blank rows
+// included, at the stored columns.
+DecodedLogicalRecordSource tabdata_topic(const std::string &closer) {
+  RecordBuilder builder;
+  builder.heading("FRONT_2", "Abbreviations");
+  builder.line({words("cz"), words("BREAK"), words("3")});
+  builder.line({words("cz"), words("OFF"), words("TABDATA")});
+  builder.line({words("   "), words("K"), words("   "), words("="),
+                words(" "), words("1,024"), words("bytes")});
+  builder.line({words("   "), words("bps"), words(" "), words("="),
+                words(" "), words("bits"), words("per"), words("second")});
+  builder.line({words("cz"), words("OFF"), words(closer), words("0"),
+                words("0")});
+  return builder.build(33);
+}
+
+void a_tabdata_region_closed_by_its_highlight_is_verbatim() {
+  for (const auto *closer : {"EHP1", "ETABDATA"}) {
+    auto extracted = run(tabdata_topic(closer), "Abbreviations", {});
+    require(extracted.topic.has_value(),
+            std::string("a TABDATA region closed by ") + closer +
+                " was rejected: " + extracted.error);
+    if (!extracted.topic) continue;
+    const auto &blocks = extracted.topic->blocks;
+    require(blocks.size() == 1 &&
+                blocks.front().kind == ProseBlockKindIR::preformatted,
+            "the TABDATA region is not one verbatim block");
+    if (blocks.size() != 1) continue;
+    const auto &rows = blocks.front().preformatted_lines;
+    require(rows.size() == 2 && rows[0].find("K") == 3 &&
+                rows[1].find("bits per second") != std::string::npos,
+            "the TABDATA rows were not kept verbatim at their columns: " +
+                [&rows] {
+                  std::string joined;
+                  for (const auto &row : rows) joined += "[" + row + "]";
+                  return joined;
+                }());
+    require(blocks.front().degradation_code.empty(),
+            "the TABDATA region was degraded");
+  }
+}
+
+// Only the highlight level the corpus proves closes the region: `EHP0` is the
+// artwork's closer, not the table's.
+void a_tabdata_region_closed_by_another_highlight_fails_closed() {
+  auto extracted = run(tabdata_topic("EHP0"), "Abbreviations", {});
+  require(!extracted.topic.has_value(),
+          "a TABDATA region closed by EHP0 was admitted");
+}
+
 } // namespace
 
 int main() {
   an_artwork_region_places_its_picture();
   an_artwork_region_draws_its_rule_and_nothing_when_empty();
   an_unclosed_artwork_region_fails_closed();
+  a_tabdata_region_closed_by_its_highlight_is_verbatim();
+  a_tabdata_region_closed_by_another_highlight_fails_closed();
   return 0;
 }

@@ -3775,9 +3775,11 @@ Complete corpus census of every `cz OFF <tag>` region name, with line counts:
 Nothing else occurs. `cz BREAK` accounts for 773 lines, `cz FLOW` for 5,855 and
 `cz OFF` for 2,147, a total of 8,775 `CZ` display lines.
 
-Books outside that census add one more verbatim region name,
+Books outside that census add two more verbatim region names:
 `ADDRESS` / `EADDRESS` (see "Verbatim `CZ` regions"): `GA19-5486-13`,
-`SC21-8295-03` and `DFHP7A00` each wrap their mailing addresses in it.
+`SC21-8295-03` and `DFHP7A00` each wrap their mailing addresses in it, and
+`GA19-5486-13` adds `TABDATA`, closed by `EHP1` (see "`cz OFF TABDATA` closing
+with `cz OFF EHP1`" below).
 
 [[markup_the_six_region_names_that_had_no_modelled_meaning]]
 ==== The Six Region Names That Had No Modelled Meaning
@@ -3841,6 +3843,24 @@ and hosted emits that text and then `</pre>` — so `EHP0` ends the `<pre>`, the
 text the control carries belongs to the closing region, and what follows is
 flowed prose again. Three of the thirteen `ARTWORK` openers close this way
 rather than with `EARTWORK`; the two forms are interchangeable in the output.
+`GA19-5486-13.boo` closes all 55 of its `ARTWORK` regions with `EHP0`.
+
+*`cz OFF TABDATA` closing with `cz OFF EHP1`* is the same shape for a
+fixed-column table of data.  `GA19-5486-13.boo` topic `FRONT_2` (`Key to
+Abbreviations`), logical record 33: segment 11 is `cz OFF TABDATA` (the tag
+word is the two-byte token at `0xA283A`--`0xA283B`), its rows run from
+pass:[<literal>&#160;&#160;&#160;K&#160;&#160;&#160;&#160;=&#160;&#160;1,024&#160;bytes</literal>] through
+pass:[<literal>&#160;&#160;&#160;dpi&#160;&#160;=&#160;&#160;dots&#160;per&#160;inch</literal>] in four groups
+separated by blank rows (segments 11-13, two `CFONT` runs marking an
+italic `M`), and segment 14 is `cz OFF EHP1 0 0` (tag word at
+`0xA298B`--`0xA298C`), the topic's last directive.  Hosted (`GA19-548`, DT
+`19951012161206`) serves every row in one `<pre width="80"><!-- * -->`, the
+blank rows as `<p>` breaks, and the `CFONT` words as `<I>M</I>`.  `EHP1`
+occurs nowhere else in `GA19-5486-13`, `SC21-8295-03`, `DFHP7A00` or
+`EZ30AD01`, and `HP1` opens nothing in them, so the highlight end closes the
+`TABDATA` region and nothing else.  The highlight level differs by region --
+`EHP0` closes `ARTWORK`, `EHP1` closes `TABDATA` -- and a reader should not
+take one for the other.
 
 *`cz FLOW MSGL <left> <indent>` / `cz OFF MSGL`* opens a message list. The
 messages themselves are `SRMSG<id>` anchors, one per message, and hosted emits

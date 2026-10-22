@@ -1450,10 +1450,12 @@ struct LineBuilder {
           // are drawn (SC41-4853-00 `COMMENTS`, DT 19951003131222, whose
           // artwork regions each hold one 74-column `U+2500` comment rule).
           if (cz_verbatim_region_tag(item.directive.tag) ||
-              cz_artwork_region_tag(item.directive.tag))
+              cz_artwork_region_tag(item.directive.tag) ||
+              cz_tabdata_region_tag(item.directive.tag))
             xmp_mode = true;
           else if (cz_verbatim_region_closer(item.directive.tag) ||
-                   cz_artwork_region_closer(item.directive.tag))
+                   cz_artwork_region_closer(item.directive.tag) ||
+                   cz_tabdata_region_closer(item.directive.tag))
             xmp_mode = false;
           else if (cz_title_page_tag(item.directive.tag))
             title_page_mode = true;

@@ -1049,12 +1049,22 @@ struct CzBuilder {
   // (DT 19951003131222) alternates regions that draw nothing at all -- hosted
   // serves an empty `<pre width="80">` for each -- with regions holding one
   // 74-column `U+2500` rule, the line a reader writes a comment on.
-  bool artwork(std::size_t& index, std::pair<std::size_t, std::size_t> range) {
+  //
+  // `cz OFF TABDATA` is lowered the same way: its closer is the highlight end
+  // `EHP1` (or `ETABDATA`), see `cz_tabdata_region_closer`.
+  bool artwork(std::size_t& index, std::pair<std::size_t, std::size_t> range,
+               const std::string& tag) {
+    const auto tabdata = cz_tabdata_region_tag(tag);
+    const auto opener = tabdata ? std::string("TABDATA")
+                                : std::string("ARTWORK");
     const auto closer_index = index + 1;
     if (closer_index >= build.directives.size() ||
         build.directives[closer_index].mode != "off" ||
-        !cz_artwork_region_closer(build.directives[closer_index].tag))
-      return fail(error, "cz OFF ARTWORK is not closed by cz OFF EARTWORK");
+        !(tabdata ? cz_tabdata_region_closer(build.directives[closer_index].tag)
+                  : cz_artwork_region_closer(
+                        build.directives[closer_index].tag)))
+      return fail(error, "cz OFF " + opener + " is not closed by cz OFF E" +
+                             opener);
     const auto closer = ranges[closer_index];
     index = closer_index;
     auto begin = range.first;
@@ -1064,7 +1074,8 @@ struct CzBuilder {
       end = closer.second;
     } else if (closer.first != npos) {
       if (closer.first != end)
-        return fail(error, "cz OFF ARTWORK region rows are not contiguous");
+        return fail(error, "cz OFF " + opener +
+                               " region rows are not contiguous");
       end = closer.second;
     }
     if (begin == npos) return true;
@@ -1290,8 +1301,9 @@ struct CzBuilder {
       if (directive.mode == "off" && cz_title_page_tag(tag))
         return title_page(index, range, name, tag);
       // The artwork region, ahead of the generic `cz OFF <tag>` fallback.
-      if (directive.mode == "off" && cz_artwork_region_tag(tag))
-        return artwork(index, range);
+      if (directive.mode == "off" &&
+          (cz_artwork_region_tag(tag) || cz_tabdata_region_tag(tag)))
+        return artwork(index, range, tag);
       if (directive.mode == "off") {
         if (tag == "fn") {
           if (!groups.empty())
