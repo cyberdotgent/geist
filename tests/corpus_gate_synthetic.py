@@ -270,6 +270,45 @@ class CorpusGateTest(unittest.TestCase):
             snapshot = json.loads(capture.read_text())
             self.assertEqual(set(snapshot["books"]), {first.name, second.name})
 
+    def test_zero_topic_book_is_measured_and_reported(self):
+        # What bootrace prints for a book it finds no topics in: the severity
+        # summary carries no fields at all.
+        coverage = COVERAGE.split("\n", 1)[0] + (
+            "\n# summary\ttyped=0\tlegacy=0\ttotal=0\n# severity\n")
+        conservation = CONSERVATION.split("\n", 1)[0] + (
+            "\n# summary\tchecked=0\tdropping=0\tunaccounted=0\tforgiven=0\t"
+            "unframed-topics=0\tmarkdown-dropping=0\tmarkdown-unaccounted=0\t"
+            "html-dropping=0\thtml-unaccounted=0\n")
+        self.assertEqual(GATE.parse_coverage(coverage), {})
+        self.assertEqual(GATE.parse_conservation(conservation)["topics"], {})
+        for text in (coverage.replace("# severity\n", ""),
+                     coverage.replace("# severity\n", "# severity\n# severity\n"),
+                     coverage.replace("# severity\n", "# severity\ttyped=1\n")):
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                GATE.parse_coverage(text)
+
+        def reports(_executable, _book, *args):
+            if args == ("--coverage",):
+                return coverage
+            if args[:1] == ("--conservation",):
+                return conservation
+            return "Timestamp: 19891031000000\nDocument number: empty\nTitle: Empty\nVersion: 1.0\n"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "empty.BOO").write_bytes(b"boo")
+            baseline = root / "baseline.json"
+            common = ["--corpus", str(root), "--jobs", "1"]
+            out = io.StringIO()
+            with patch.object(GATE, "run_tool", side_effect=reports), \
+                    contextlib.redirect_stdout(out), \
+                    contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(GATE.main(common + ["--capture", str(baseline),
+                                                    "--revision", "synthetic"]), 0)
+                self.assertIn("ZERO TOPICS empty.BOO", out.getvalue())
+                out.truncate(0)
+                self.assertEqual(GATE.main(common + ["--baseline", str(baseline)]), 0)
+                self.assertIn("ZERO TOPICS empty.BOO", out.getvalue())
+
     def test_explicit_books_reject_invalid_and_duplicate_names(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

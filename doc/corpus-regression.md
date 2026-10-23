@@ -116,6 +116,10 @@ differing entries to each `REVIEW` line, for example
 `{-'strong:K' +'em:K'}`. The fingerprint detail contains book text, so like
 the other raw reports it stays outside the repository.
 
+A book in which the decoder finds no topics at all is measured and pinned
+like any other, but an unchanged empty book proves nothing about rendering,
+so both `--capture` and a check print a `ZERO TOPICS <book>` line for it.
+
 Rendering fingerprints adds no decoder pass: the conservation run already
 renders both formats. The extra cost is the transfer and Python parsing of
 the HTML: on the 33-book, 10,378-topic corpus at `--jobs 2` a check took

@@ -44,11 +44,13 @@ def parse_coverage(output):
     summary = None
     severity = None
     for line in lines[1:]:
-        if line.startswith("# summary\t"):
+        # A book with no topics prints its summaries with no fields after
+        # the label: the severity summary then has nothing to count.
+        if line == "# summary" or line.startswith("# summary\t"):
             if summary is not None:
                 raise ValueError("duplicate coverage summary")
             summary = summary_fields(line)
-        elif line.startswith("# severity\t"):
+        elif line == "# severity" or line.startswith("# severity\t"):
             if severity is not None:
                 raise ValueError("duplicate severity summary")
             severity = summary_fields(line)
@@ -764,6 +766,12 @@ def main(argv=None):
             measured[name] = future.result()
             print("Measured " + name, file=sys.stderr, flush=True)
     details = {name: book.pop("details", None) for name, book in measured.items()}
+    # A book the decoder finds no topics in is measured like any other, but
+    # it says nothing about rendering, so say so rather than let it pass as
+    # an unchanged book.
+    for name in sorted(measured):
+        if not measured[name]["topics"]:
+            print("ZERO TOPICS " + name + ": the decoder found no topics in this book")
     snapshot = {"schema": SCHEMA, "revision": args.revision,
                 "scope": "stable book topic catalog: all indexed topics plus TOC-only entries",
                 "books": measured}
