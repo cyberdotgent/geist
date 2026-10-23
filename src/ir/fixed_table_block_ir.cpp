@@ -1736,10 +1736,17 @@ private:
     std::size_t last_glyph = npos;
     std::size_t last_dictionary = npos;
     std::size_t after_dictionary = at;
+    // The first word of the run that the record's framing proves is a
+    // display line's length byte (npos: none, or framing undecided).
+    std::size_t native_slot = npos;
     while (index < words.size()) {
       const auto &word = words[index];
       if (!word.token_start)
         return match;
+      if (native_slot == npos && word.record != nullptr &&
+          record_framing_is_decided(word.record->ir) &&
+          is_display_line_length_token(*word.record, word.token))
+        native_slot = index;
       const auto next = skip_token(words, index);
       if (word.control_only) {
         index = next;
@@ -1785,6 +1792,15 @@ private:
         match.slot_begin = last_dictionary;
         match.ambiguous = !match.bar;
       }
+    } else if (last_dictionary != npos && native_slot != npos &&
+               last_dictionary < native_slot) {
+      // The framing names the slot: it is the next line's length byte, even
+      // when that byte is spelled as blanks, and the one-byte dictionary
+      // word before it ends the current line.  GC30-3820-03 B.1 record 129
+      // line 18 ends `PS/2` with the one-byte `2` (0x3F32C); the next byte,
+      // `12` at 0x3F32D, is line 19's length, spelled as four blanks.
+      // Hosted (DT 19980528120919) prints `PS/2`.
+      match.slot_begin = native_slot;
     } else if (last_dictionary != npos) {
       match.slot_begin = last_dictionary;
       match.ambiguous = !match.bar;

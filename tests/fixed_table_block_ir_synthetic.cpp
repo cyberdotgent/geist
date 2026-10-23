@@ -57,6 +57,25 @@ struct RecordBuilder {
     }
   }
 
+  // One display line of (word, width) tokens; `\x01` is the attach token.
+  // `spelling` is the length byte's dictionary word.
+  void sized_line(std::vector<std::pair<std::string, std::uint8_t>> content,
+                  TokenWords spelling = {0x25ba}) {
+    std::uint16_t length = 0;
+    for (const auto &token : content) length += token.second;
+    record.encoded_tokens.push_back({length, 1});
+    record.tokens.push_back(std::move(spelling));
+    for (const auto &[text, width] : content) {
+      record.encoded_tokens.push_back(
+          {static_cast<std::uint16_t>(width == 1 ? 0xC0 : next_encoded++),
+           width});
+      if (text == "\x01")
+        record.tokens.push_back({1});
+      else
+        record.tokens.push_back(words(text));
+    }
+  }
+
   DecodedLogicalRecordSource finish(std::uint32_t logical_record) {
     record.logical_record = logical_record;
     record.assembled = assemble_logical_record_with_sources(record.tokens);
@@ -622,6 +641,51 @@ void test_native_row_without_layout_projection() {
           "native-only SRTBL lowering did not verify: " + error);
 }
 
+// GC30-3820-03 B.1 (DT 19980528120919), record 129: the trademark table's
+// line 18 is `   AT   Operating System/2   PS/2`.  Its last word ends with
+// the one-byte `2` (0x3F32C), glued to `/` by the attach token; the next
+// byte is line 19's length byte (`12` at 0x3F32D, spelled as four blanks)
+// and line 19's origin run follows -- the shape of a hidden marker slot, a
+// fill and an origin.  The record's framing proves the `2` is no length
+// byte, and hosted prints `PS/2`.
+void test_glued_one_byte_word_is_content() {
+  RecordBuilder builder;
+  builder.line({words("cz"), words("OFF"), words("TABLE")});
+  builder.line({words("SRTBLTBLUNIQ10")});
+  builder.sized_line({{"   ", 1}, {"AIX", 2}, {"          ", 1},
+                      {"Personal", 2}});
+  builder.sized_line({{"   ", 1}, {"AT", 2}, {"           ", 1},
+                      {"System", 2}, {"   ", 1}, {"PS", 2}, {"\x01", 1},
+                      {"/", 1}, {"\x01", 1}, {"2", 1}});
+  builder.sized_line({{"   ", 1}, {"IBM", 2}, {"          ", 1},
+                      {"OS", 2}},
+                     words("    "));
+  builder.line({words("SRETBL")});
+  std::vector<DecodedLogicalRecordSource> sources;
+  sources.push_back(builder.finish(129));
+  require(sources.front().ir.display_lines_parse,
+          "glued-word table: synthetic framing did not parse");
+  const auto layout = extract_layout_ir(sources);
+  const auto ownership = build_ownership_ir(sources, layout);
+  const LayoutRowRangeIR range{0, count_layout_rows(layout)};
+  const auto blocks =
+      extract_fixed_table_blocks_ir(sources, layout, ownership, range);
+  require(blocks.blocks.size() == 1,
+          "glued-word table did not become one block" +
+              (blocks.declined.empty()
+                   ? std::string{}
+                   : ": " + blocks.declined.front().reason));
+  if (blocks.blocks.size() != 1) return;
+  require(blocks.blocks.front().geometry == FixedTableGeometryIR::gap,
+          "glued-word table is not a gap table");
+  std::string text;
+  for (const auto &row : blocks.blocks.front().body)
+    for (const auto &cell : row.cells)
+      for (const auto &line : cell.lines) text += line.text + "|";
+  require(text.find("PS/2|") != std::string::npos,
+          "the `2` of `PS/2` was taken for a hidden marker slot: " + text);
+}
+
 } // namespace
 
 int main() {
@@ -632,6 +696,7 @@ int main() {
   test_negatives();
   test_spot_anchor_inside_preformatted_table();
   test_native_row_without_layout_projection();
+  test_glued_one_byte_word_is_content();
   geist_test::exit_with_failures();
   std::cout << "fixed table block IR checks passed\n";
   return 0;
