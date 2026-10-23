@@ -1839,7 +1839,13 @@ struct CzBuilder {
     return true;
   }
 
-  // Anchors precede the block whose first row follows them.
+  // Anchors precede the block whose first row follows them.  An anchor
+  // followed by another before any row opened precedes that same row: the
+  // `SRMSG` that closes one message of a message list and the `SRMSG <id>`
+  // that opens the next (SC26-7132-01 2.3.2 record 256 segment 24 and record
+  // 257 segment 3, with only `cz OFF EMSGL`, `cz FLOW MSGL` and `cz OFF MSGL`
+  // between them), served (DT 19980422095213) as `<a name="MSG"></a>` and
+  // then `<a name="MSG ILU901A"><hr>`.
   bool place_anchors() {
     const auto block_of = [&](std::size_t anchor) {
       for (std::size_t block = 0; block < block_first_line.size(); ++block) {
@@ -1851,7 +1857,13 @@ struct CzBuilder {
     for (std::size_t anchor = 0; anchor < build.body_anchors.size(); ++anchor) {
       auto placed = build.body_anchors[anchor];
       placed.position = topic.blocks.size();
-      const auto block = block_of(anchor);
+      auto block = block_of(anchor);
+      for (auto next = anchor;
+           block == npos && next < build.anchor_successors.size() &&
+           build.anchor_successors[next] != npos;) {
+        next = build.anchor_successors[next];
+        block = block_of(next);
+      }
       if (block != npos) placed.position = block;
       // A rule row draws a block only inside a message list; an anchor it
       // carries anywhere else has no row to precede.

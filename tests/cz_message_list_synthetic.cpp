@@ -291,6 +291,45 @@ void a_message_list_opener_without_its_off_declines() {
           "a `cz FLOW MSGL` not followed by `cz OFF MSGL` was admitted");
 }
 
+// SC26-7132-01 2.3.2 closes each message list with a bare `SRMSG` and opens
+// the next list at once (record 256 segment 24 .. record 257 segment 3).
+// Hosted (DT 19980422095213) serves `<a name="MSG"></a>` directly before
+// `<a name="MSG ILU901A"><hr>`: both anchors precede the next message's rule.
+void back_to_back_lists_keep_the_closing_anchor_in_place() {
+  RecordBuilder builder;
+  builder.heading();
+  builder.line({words("cz"), words("BREAK"), words("3")});
+  for (const auto *id : {"ILU900A", "ILU901A"}) {
+    builder.line({words("cz"), words("FLOW"), words("MSGL"), words("3"),
+                  words("3")});
+    builder.line({words("cz"), words("OFF"), words("MSGL")});
+    builder.message(id, "Code overlaid.");
+    builder.line({words("SRMSG")});
+    builder.line({words("cz"), words("OFF"), words("EMSGL"), words("0"),
+                  words("0")});
+  }
+  auto extracted = run(builder.build(256));
+  require(extracted.topic.has_value(),
+          "back-to-back message lists were rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  const auto &anchors = extracted.topic->anchors;
+  require(anchors.size() == 4, "the topic has " +
+                                   std::to_string(anchors.size()) +
+                                   " anchors, not 4");
+  if (anchors.size() != 4) return;
+  require(anchors[0].id == "MSG ILU900A" && anchors[0].position == 0,
+          "`MSG ILU900A` does not precede the first rule");
+  require(anchors[1].id == "MSG" && anchors[1].position == 4,
+          "the first list's closing `MSG` does not precede the second "
+          "message's rule; it stands at block " +
+              std::to_string(anchors[1].position));
+  require(anchors[2].id == "MSG ILU901A" && anchors[2].position == 4,
+          "`MSG ILU901A` does not precede the second rule");
+  require(anchors[3].id == "MSG" &&
+              anchors[3].position == extracted.topic->blocks.size(),
+          "the last closing `MSG` is not at the end");
+}
+
 }  // namespace
 
 int main() {
@@ -298,5 +337,6 @@ int main() {
   a_body_block_outside_a_message_list_declines();
   a_message_anchor_outside_a_message_list_declines();
   a_message_list_opener_without_its_off_declines();
+  back_to_back_lists_keep_the_closing_anchor_in_place();
   return 0;
 }

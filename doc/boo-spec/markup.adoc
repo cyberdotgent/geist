@@ -4665,7 +4665,12 @@ is not yet established.
 *Closing `SRMSG`.* A list may end with a bare `SRMSG` -- the opcode alone on
 its display line -- directly before `cz OFF EMSGL`. It is the anchor
 `MSG` and draws nothing (`GX27-3999-00` record 120 segments 1--2, served as
-`<a name="MSG"></a>` with no `<hr>`).
+`<a name="MSG"></a>` with no `<hr>`). When another list opens at once,
+`SC26-7132-01.boo` `2.3.2` record 256 segment 24 through record 257 segment 3
+(`SRMSG`, `cz OFF EMSGL 0 0`, `cz FLOW MSGL 3 3`, `cz OFF MSGL`,
+`SRMSG ILU901A`), both anchors precede the next message's rule: hosted
+(DT `19980422095213`) serves `<a name="MSG"></a>` and then
+`<a name="MSG ILU901A"><hr>`.
 
 [[markup_footnotes_in_the_flattened_dialect]]
 ==== Footnotes in the flattened dialect

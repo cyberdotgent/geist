@@ -424,6 +424,10 @@ struct LineBuild {
   std::vector<Line> lines;
   std::vector<SpanMark> span_marks;
   std::vector<ProseAnchorIR> body_anchors;
+  // Per body anchor: the later anchor that arrived before any row opened
+  // after it, so both precede the same row (npos: none).  Only the later one
+  // marks the row (`Line::anchor_index`).
+  std::vector<std::size_t> anchor_successors;
   std::vector<ProseIndexTermIR> index_terms;
   std::string title;
   // Every visible word of the `ST` control's payload, in source order,

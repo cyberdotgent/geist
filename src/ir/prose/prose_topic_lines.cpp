@@ -1527,6 +1527,10 @@ struct LineBuilder {
         anchor.id = item.anchor_id;
         anchor.source = item.source;
         out.body_anchors.push_back(std::move(anchor));
+        out.anchor_successors.resize(out.body_anchors.size(), npos);
+        if (anchor_pending && pending_anchor_index < out.body_anchors.size())
+          out.anchor_successors[pending_anchor_index] =
+              out.body_anchors.size() - 1;
         anchor_pending = true;
         pending_anchor_index = out.body_anchors.size() - 1;
         line_open = false;
