@@ -796,6 +796,8 @@ def main(argv=None):
         print("REVIEW " + message)
     for message in summaries:
         print("CHANGED TOPICS " + message)
+    # Keep whole lines when both streams share one file.
+    sys.stdout.flush()
     for message in failures:
         print("REGRESSION " + message, file=sys.stderr)
     print(f"Checked {len(measured)} identity-pinned books; {len(failures)} regressions; "
