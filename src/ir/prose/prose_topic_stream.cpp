@@ -622,10 +622,17 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
   const auto current = [&]() -> const ControlSegmentIR& {
     return records[cursor.record].control_segments[cursor.segment];
   };
-  // A segment that is nothing but display-line length bytes.
+  // A segment made of nothing but display-line length bytes is row geometry
+  // whatever the splitter classified it as: the byte can spell a metadata
+  // opcode.  EZ12GMST 1.2.134 record 939 frames its `SRLEN` and `ST` lines
+  // with the length byte 0x31, which the dictionary spells `csourcefn`, so
+  // two operand-less `csourcefn` segments stand in the envelope beside the
+  // genuine `csourcefn J1AH9INE`.
   const auto row_control_slot_segment = [&]() {
     const auto& segment = current();
-    return segment.kind == BookControlKind::text &&
+    return (segment.kind == BookControlKind::text ||
+            std::find(required.begin() + 1, required.end(), segment.kind) !=
+                required.end()) &&
            !segment.source_tokens.empty() &&
            std::all_of(segment.source_tokens.begin(),
                        segment.source_tokens.end(),
@@ -2586,7 +2593,24 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         // `<em>Warning:</em> ... <em>impaired.</em>` with neither word and
         // with the row breaks those bytes carry.  The byte re-enters the
         // token stream so the display-row pass gives it the same row-control
-        // slot it gives every other length byte.
+        // slot it gives every other length byte.  Ahead of the title the
+        // same holds for a segment that is nothing but the length byte, and
+        // the byte is the title row's geometry, as it is when the envelope
+        // consumes it: EZ12GMST 1.2.134 record 939 frames its `ST` line with
+        // 0x31, which spells `csourcefn`, and the splitter leaves that byte
+        // as an operand-less `csourcefn` segment between `SRHDRINET` and
+        // `ST`.
+        if (!title_seen && !segment.source_tokens.empty() &&
+            std::all_of(segment.source_tokens.begin(),
+                        segment.source_tokens.end(), [&](const auto token) {
+                          return is_display_line_length_token(record, token);
+                        })) {
+          for (const auto token : segment.source_tokens)
+            if (!ledger.assign(record_index, token, ProseTokenRoleIR::envelope,
+                               error))
+              return false;
+          break;
+        }
         if (title_seen && is_display_line_length_opcode(record, segment)) {
           for (const auto token : segment.source_tokens) {
             Item item;

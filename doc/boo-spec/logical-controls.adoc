@@ -1058,6 +1058,17 @@ Hosted serves that block as `<em>Warning:</em> <em>Do</em> <em>not</em> <em>modi
 envelope controls of the same topic stand in record 91 _before_ the `ST`, each
 preceded by its own boundary byte (`cbacklevel 3.2` in segment 4).
 
+The same holds inside the metadata envelope, where a length byte can spell
+one of the envelope's own opcodes. EZ12GMST `1.2.134` record 939 frames two
+49-byte lines with the length byte `31` (dictionary token 49 spells
+`csourcefn`): at `0x734F4`, `31 D8 4D ...` opens
+pass:[<literal>SRLEN inet_addr, inet_network, ...</literal>] between `csummary` and `chdlevel`, and at `0x73532`,
+`31 61 06 ...` opens pass:[<literal>ST&#160;&#160;inet_addr, inet_network, ...</literal>] after `SRHDRINET`. A
+flattened view therefore shows three `csourcefn` controls in one envelope,
+two of them without an operand; the genuine one is line 8,
+`csourcefn J1AH9INE`. A segment that is nothing but a length byte is that
+line's slot, not a repeated metadata control.
+
 SC31-711 `1.4` (record 24 segment 13) shows the second shape, where the same
 byte carries display text after it in one segment:
 pass:[<literal>cforwardlevel&#160;&#160;&#160;&#160;/usr/lpp/lnm/reports/lnmlnmemon/dir_name directory, where dir_name is the …</literal>], which hosted prints in full.

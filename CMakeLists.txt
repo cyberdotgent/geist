@@ -604,6 +604,7 @@ foreach(synthetic_test
     topic_header_envelope_rule_synthetic
     topic_title_revision_marker_synthetic
     vertical_space_line_extent_synthetic
+    envelope_length_byte_opcode_synthetic
     length_byte_control_word_synthetic
     art_description_figure_synthetic
     ordered_picture_figure_synthetic
